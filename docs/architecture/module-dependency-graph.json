@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 95,
-    "providedSymbols": 3985,
-    "requiredSymbols": 3627,
-    "edges": 675,
+    "providedSymbols": 4005,
+    "requiredSymbols": 3635,
+    "edges": 678,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -13204,6 +13204,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "commandForSelfMcp",
           "kinds": [
             "call"
@@ -13292,6 +13299,13 @@
           "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -24170,6 +24184,7 @@
         "SCHEDULER_RUNS_LIMIT_MAX",
         "SCHEDULER_TASKS_FILE",
         "SCHEDULER_TASKS_SCHEMA",
+        "SCHEDULER_TASK_ENGINEERING_BYTES",
         "SCHEDULER_TICK_MS_DEFAULT",
         "SCHEDULER_TICK_MS_MAX",
         "SCHEDULER_TICK_MS_MIN",
@@ -24177,6 +24192,7 @@
         "handleSchedulerApiRoutes",
         "schedulerAppendFire",
         "schedulerAskWaitMs",
+        "schedulerAuthenticateLoaded",
         "schedulerClockNow",
         "schedulerDayKey",
         "schedulerDir",
@@ -24187,6 +24203,7 @@
         "schedulerFireOnce",
         "schedulerFiresChain",
         "schedulerFiresPath",
+        "schedulerIsWorkDataError",
         "schedulerLoad",
         "schedulerLocaleOf",
         "schedulerMaybeCrash",
@@ -24200,19 +24217,27 @@
         "schedulerRecordMissedSkip",
         "schedulerRecover",
         "schedulerRestorePersistedState",
+        "schedulerRestoreTaskSnapshot",
         "schedulerRouteGate",
         "schedulerRunNow",
         "schedulerRuntime",
         "schedulerRuntimeSnapshot",
         "schedulerSaveTasks",
+        "schedulerStorageFailure",
+        "schedulerTaskAdmission",
         "schedulerTaskBusy",
+        "schedulerTaskEncodingPreflight",
+        "schedulerTaskPayload",
+        "schedulerTaskSnapshot",
+        "schedulerTaskStore",
         "schedulerTasksChain",
         "schedulerTasksPath",
         "schedulerTick",
         "schedulerTickMs",
         "schedulerTurnTimeoutMs",
         "startScheduler",
-        "stopScheduler"
+        "stopScheduler",
+        "withSchedulerTaskOperation"
       ],
       "requires": [
         {
@@ -24303,7 +24328,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -24330,6 +24355,13 @@
         {
           "provider": "01e-permission-modes.js",
           "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
           "kinds": [
             "read"
           ]
@@ -24779,6 +24811,34 @@
           "kinds": [
             "call"
           ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerStorageFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerTaskAdmission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerTaskEncodingPreflight",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerTaskPayload",
+          "kinds": [
+            "call"
+          ]
         }
       ]
     },
@@ -24804,6 +24864,7 @@
         "migrationChain",
         "migrationCollect",
         "migrationCollectRefs",
+        "migrationCommitLog",
         "migrationCopyOneSkill",
         "migrationCopySkills",
         "migrationCurrentRoot",
@@ -24816,10 +24877,15 @@
         "migrationGetField",
         "migrationHash",
         "migrationImportMcp",
+        "migrationLastLogTime",
         "migrationListPackages",
+        "migrationLogShape",
+        "migrationLogStore",
+        "migrationLogText",
         "migrationLogs",
         "migrationLstat",
         "migrationMcpSummary",
+        "migrationNextLogStamp",
         "migrationPackageRunning",
         "migrationPathInside",
         "migrationPidAlive",
@@ -24843,11 +24909,14 @@
         "migrationSkillTarget",
         "migrationSkillTree",
         "migrationStamp",
+        "migrationStoragePreflight",
         "migrationTomlReplace",
         "migrationTomlSections",
         "migrationTreeHash",
+        "migrationUncertainResult",
         "migrationUndo",
-        "migrationUndoSkillCopy"
+        "migrationUndoSkillCopy",
+        "writeMigrationLog"
       ],
       "requires": [
         {
@@ -25001,7 +25070,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -25037,6 +25107,13 @@
           "symbol": "readConfig",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -33760,6 +33837,7 @@
       "symbols": [
         "RUNTIME",
         "agentCliLauncherOk",
+        "atomicWriteJson",
         "commandForSelfMcp",
         "defaultConfig",
         "ensureDesktopMcpWarm",
@@ -33779,6 +33857,14 @@
         "execResultCacheEnabled",
         "execResultCacheMaxEntries",
         "observationRecallEnabled"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "12-tool-dispatch.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
       ],
       "direction": "backward"
     },
@@ -37395,6 +37481,14 @@
     },
     {
       "from": "13s-scheduler.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13s-scheduler.js",
       "to": "02-session-store.js",
       "symbols": [
         "createSession",
@@ -37560,7 +37654,11 @@
         "schedulerReadFireRows",
         "schedulerRunNow",
         "schedulerRuntime",
-        "schedulerSaveTasks"
+        "schedulerSaveTasks",
+        "schedulerStorageFailure",
+        "schedulerTaskAdmission",
+        "schedulerTaskEncodingPreflight",
+        "schedulerTaskPayload"
       ],
       "direction": "backward"
     },
@@ -37602,6 +37700,14 @@
         "kimiMcpManagedIds",
         "mutateConfig",
         "readConfig"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13u-migration-center.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
       ],
       "direction": "backward"
     },

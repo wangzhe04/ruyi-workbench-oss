@@ -959,7 +959,7 @@ async function stewardImplSkills(args, ctx, config) {
     if (!head || !head.id) return stewardFail('not_found', `thread ${stewardSanitizeText(sid)} not found`);
     if (head.cwd) cwd = String(head.cwd);
   }
-  const registry = await loadSkillRegistry(cwd, config).catch(() => []);
+  const registry = await loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
   const q = stewardSanitizeText(String((args && args.q) || '')).trim().toLowerCase();
   const rows = (Array.isArray(registry) ? registry : [])
     .filter(e => e && e.kind === 'skill')

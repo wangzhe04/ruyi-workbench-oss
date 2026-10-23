@@ -1779,7 +1779,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // P2-2: onSourceMismatch —— 某技能的注册表来源与启用时锁定的 source 不一致(换 cwd 被顶替)→ 跳过注入 + 通知一次。
   const enabledSkillEntries = await resolveEnabledSkillEntries(session, config, workingDir, caps,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[技能] 技能 ${id} 来源已变化(启用时为 ${was || '未知'},现为 ${now || '未知'}),已暂停注入,请在技能库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
-  ).catch(() => []);
+  ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
   // 116f(27 号文 §3.5/§11.3):管家会话的三处分叉 —— 工具面只给 steward pack、不采集桥接工具、
   // 不走按需装载。判定读【原始】 session.kind(sessionKind() 会把 steward 归一成 quick_ask,不能用)。
   const isStewardTurn = session.kind === 'steward';

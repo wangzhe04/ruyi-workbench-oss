@@ -26,6 +26,14 @@ mod._compile(source + '\nmodule.exports.__artifactTest = {' + names.join(',') + 
 const api = mod.exports.__artifactTest;
 const toggle = async flag => { const config = await api.readConfig(); config.workDataEncryptionV1 = flag; await api.writeConfig(config); };
 const privateError = error => String(error && error.code || '').startsWith('work_data');
+async function withBackupStamp(file, stamp, work) {
+  const [size, mtimeNs, ctimeNs, ino] = stamp.split('|').map(BigInt), stat = fs.promises.stat;
+  fs.promises.stat = async (target, options) => {
+    const current = await stat(target, options);
+    return target === file && options?.bigint ? { ...current, size, mtimeNs, ctimeNs, ino } : current;
+  };
+  try { return await work(); } finally { fs.promises.stat = stat; }
+}
 const keyFile = path.join(api.paths.data, 'work-data-key-v1.json');
 async function withMissingKey(work) {
   api.workDataKeys.clear(); fs.renameSync(keyFile, keyFile + '.missing');
@@ -231,15 +239,16 @@ test('sealed backup preflight refuses key loss before truncating even a plaintex
 
 test('retirement cannot unlink an externally replaced same-size backup or a sealed record after key loss', async () => {
   await toggle(true); const id = 'sess_backup_retire', legacy = seed(id); await api.ensureSessionV1Backup(id);
-  const file = api.sessionV1BackupPath(id), record = await api.readSessionV1BackupRecord(id), before = fs.statSync(file), beforeBig = fs.statSync(file, { bigint: true }), bytes = fs.readFileSync(file);
+  const file = api.sessionV1BackupPath(id), record = await api.readSessionV1BackupRecord(id), before = fs.statSync(file), bytes = fs.readFileSync(file);
   const changed = Buffer.from(bytes); changed[changed.length - 30] = changed[changed.length - 30] === 65 ? 66 : 65;
   fs.writeFileSync(file, changed); fs.utimesSync(file, before.atime, before.mtime);
-  // Date utimes rounds sub-millisecond precision. Present the exact saved mtimeNs so only ctime
-  // distinguishes this in-place edit; deleting ctime from the product guard makes this test fail.
+  // Isolate the cheap ctime guard deterministically. Native Windows writes may keep
+  // even ctimeNs unchanged within a clock tick; the full-stamp collision is tested below.
+  const proof = record.stamp.split('|');
   const stat = fs.promises.stat;
   fs.promises.stat = async (target, options) => {
     const current = await stat(target, options);
-    return target === file && options?.bigint ? { ...current, mtimeNs: beforeBig.mtimeNs } : current;
+    return target === file && options?.bigint ? { ...current, mtimeNs: BigInt(proof[1]), ctimeNs: BigInt(proof[2]) + 1n } : current;
   };
   try { await api.retireSessionV1Backup(id, record); assert.deepEqual(fs.readFileSync(file), changed); }
   finally { fs.promises.stat = stat; }
@@ -249,6 +258,52 @@ test('retirement cannot unlink an externally replaced same-size backup or a seal
   });
   await api.retireSessionV1Backup(id, await api.readSessionV1BackupRecord(id)); assert.equal(fs.existsSync(file), false);
   assert.equal(fs.readFileSync(api.sessionPath(id), 'utf8'), legacy.raw);
+});
+
+test('same full-stamp ciphertext changes are authenticated before retirement and never deleted', async () => {
+  await toggle(true); const id = 'sess_backup_same_stamp_bad'; seed(id); await api.ensureSessionV1Backup(id);
+  const file = api.sessionV1BackupPath(id), record = await api.readSessionV1BackupRecord(id), bytes = fs.readFileSync(file);
+  const changed = Buffer.from(bytes); changed[changed.length - 30] = changed[changed.length - 30] === 65 ? 66 : 65;
+  fs.writeFileSync(file, changed); assert.equal(fs.statSync(file).size, bytes.length);
+  await withBackupStamp(file, record.stamp, async () => {
+    await assert.rejects(() => api.retireSessionV1Backup(id, record), privateError);
+    assert.deepEqual(fs.readFileSync(file), changed); assert.equal(fs.existsSync(file + '.corrupt'), false);
+  });
+});
+
+test('same full-stamp authenticated replacement is preserved; key loss refuses and a fresh verified record can retire', async () => {
+  await toggle(true); const id = 'sess_backup_same_stamp_valid', legacy = seed(id, [{ role: 'user', content: 'ORIGINAL-A' }]);
+  await api.ensureSessionV1Backup(id);
+  const file = api.sessionV1BackupPath(id), record = await api.readSessionV1BackupRecord(id), original = fs.readFileSync(file);
+  const staged = file + '.test-replacement', text = legacy.raw.replace('ORIGINAL-A', 'ORIGINAL-B');
+  await api.sessionV1BackupStore(id, staged).write(text);
+  const replacement = fs.readFileSync(staged); assert.equal(replacement.length, original.length);
+  fs.writeFileSync(file, replacement); fs.unlinkSync(staged);
+  await withBackupStamp(file, record.stamp, async () => {
+    await api.retireSessionV1Backup(id, record);
+    assert.deepEqual(fs.readFileSync(file), replacement);
+    const current = await api.readSessionV1BackupRecord(id); assert.equal(current.text, text);
+    await withMissingKey(async () => {
+      await assert.rejects(() => api.retireSessionV1Backup(id, current), privateError);
+      assert.deepEqual(fs.readFileSync(file), replacement);
+    });
+    await api.retireSessionV1Backup(id, current); assert.equal(fs.existsSync(file), false);
+  });
+});
+
+test('a backup stamp changed during authenticated read cannot publish a retirement proof', async () => {
+  await toggle(true); const id = 'sess_backup_read_stamp_changed'; seed(id); await api.ensureSessionV1Backup(id);
+  const file = api.sessionV1BackupPath(id), bytes = fs.readFileSync(file), stat = fs.promises.stat;
+  let reads = 0;
+  fs.promises.stat = async (target, options) => {
+    const current = await stat(target, options);
+    return target === file && options?.bigint && ++reads > 1 ? { ...current, ctimeNs: current.ctimeNs + 1n } : current;
+  };
+  try {
+    const record = await api.readSessionV1BackupRecord(id);
+    assert.equal(record.unreadable, true); assert.equal(record.error.code, 'EBUSY');
+    await api.retireSessionV1Backup(id, record); assert.deepEqual(fs.readFileSync(file), bytes);
+  } finally { fs.promises.stat = stat; }
 });
 
 test('ordinary backup I/O is not absence: full v2 repair and ON migration keep all recovery authority', async () => {

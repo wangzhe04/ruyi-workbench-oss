@@ -35,7 +35,82 @@ function migrationSerial(fn) {
   return job;
 }
 function migrationDir() { return path.join(paths.data, 'migrations'); }
+function migrationLogShape(value, id) {
+  return /^[0-9TZ-]+$/.test(String(id || '')) && !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === MIGRATION_LOG_SCHEMA && value.id === id
+    && ['createdAt', 'currentRoot', 'version'].every(key => value[key] === undefined || typeof value[key] === 'string') && Array.isArray(value.files)
+    && value.files.every(file => file && typeof file === 'object' && !Array.isArray(file) && typeof file.file === 'string'
+      && ['ruyi-config', 'json', 'toml', 'skill-copy'].includes(file.kind) && Array.isArray(file.items)
+      && file.items.every(item => item && typeof item === 'object' && !Array.isArray(item)));
+}
+function migrationLogText(log, enabled) {
+  const text = JSON.stringify(log, null, 2);
+  if (enabled && (!migrationLogShape(log, log.id) || Buffer.byteLength(text, 'utf8') > 256 * 1024 * 1024)) {
+    throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', apiCode: 'work_data_store.validate', statusCode: 503 });
+  }
+  return text;
+}
+function migrationLogStore(id) {
+  if (!/^[0-9TZ-]+$/.test(String(id || ''))) throw Object.assign(new Error('work_data_store.binding'), { code: 'work_data_store.binding', apiCode: 'work_data_store.binding', statusCode: 503 });
+  return WorkDataStore.createText({
+    file: () => path.join(migrationDir(), id + '.json'), purpose: 'migration', schema: MIGRATION_LOG_SCHEMA,
+    scopeId: 'global', recordId: 'migration-log:' + id, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+    enabled: async () => (await readConfig()).workDataEncryptionV1 === true,
+    validateSealedText: text => migrationLogShape(safeJsonParse(text, null), id),
+    writeJson: atomicWriteJson,
+  });
+}
+async function writeMigrationLog(log) { await migrationLogStore(log.id).write(migrationLogText(log, (await readConfig()).workDataEncryptionV1 === true)); }
+function migrationUncertainResult(result, error) {
+  return { ...result, ok: false, error: 'result-unavailable', status: 503,
+    operationMayHaveExecuted: true, resultUnavailable: true, retry: false,
+    storageCode: /^work_data[.\w]*$/.test(String(error?.code || '')) ? error.code : 'work_data_store.storage_unavailable' };
+}
+async function migrationCommitLog(log, result) {
+  try {
+    await fsp.mkdir(migrationDir(), { recursive: true });
+    await writeMigrationLog(log);
+    return result;
+  } catch (error) {
+    // External effects already happened. Keep their receipt in the response and
+    // make retries explicit; a failed log write never re-executes the operation.
+    return migrationUncertainResult({ ...result, id: log.id }, error);
+  }
+}
+async function migrationStoragePreflight(existingFile, log) {
+  const enabled = (await readConfig()).workDataEncryptionV1 === true;
+  if (log) migrationLogText(log, enabled); // validate legacy undo receipts before touching their targets
+  if (!enabled) {
+    // A readable sealed revision must not be replaced through a new staging directory
+    // or changed externally before the ordinary store's downgrade guard can run.
+    if (existingFile) {
+      try {
+        if (await WorkDataStore.hasContainerMarker(existingFile)) throw Object.assign(new Error('work_data_store.downgrade_refused'), { code: 'work_data_store.downgrade_refused', apiCode: 'work_data_store.downgrade_refused', statusCode: 503 });
+      } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    return;
+  }
+  // No key creation. Detect unavailable work-data authority before touching an external
+  // configuration/live skill. This is not a cross-file transaction or rotation CAS.
+  const lease = await WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys());
+  await lease.release();
+}
 function migrationStamp() { return new Date().toISOString().replace(/[:.]/g, '-'); }
+let migrationLastLogTime = 0;
+async function migrationNextLogStamp() {
+  // Calls run inside migrationSerial. Avoid replacing an earlier receipt after
+  // a same-millisecond request or a restart; the data-root owner excludes peers.
+  let time = Math.max(Date.now(), migrationLastLogTime + 1);
+  for (;;) {
+    const stamp = new Date(time).toISOString().replace(/[:.]/g, '-');
+    let exists = false;
+    for (const file of [path.join(migrationDir(), stamp + '.json'), path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR, stamp)]) {
+      try { await fsp.lstat(file); exists = true; }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    if (!exists) { migrationLastLogTime = time; return stamp; }
+    time++;
+  }
+}
 function migrationHash(text) { return crypto.createHash('sha1').update(String(text), 'utf8').digest('hex').slice(0, 12); }
 function migrationCurrentRoot() { return path.resolve(externalRoot()); }
 // childKey / parentKey 都是 samePathKey 的结果:child 就是 parent,或在 parent 之下。
@@ -413,6 +488,8 @@ async function migrationScanSkills(config) {
 async function migrationCopyOneSkill(row, ts) {
   const dest = migrationSkillTarget(row.id);
   if (!dest) return { ok: false, reason: 'invalid-key' };
+  await migrationStoragePreflight(path.join(dest, SKILL_IMPORT_RECORD));
+  await readSkillImportRecord(dest); // authenticate an existing revision before stage or backup writes
   const tree = await migrationSkillTree(row._dir);
   if (tree.error) return { ok: false, reason: 'unreadable' };
   if (tree.tooLarge) return { ok: false, reason: 'too-large' };
@@ -435,7 +512,7 @@ async function migrationCopyOneSkill(row, ts) {
     if (!copyTreeHash) throw new Error('copy unreadable');
     const record = { schema: 1, source: row.source, sourcePath: row._dir, plugin: row.plugin || '', importedAt: nowIso(),
       sourceTreeHash: copyTreeHash, copyTreeHash };
-    await fsp.writeFile(path.join(stage, SKILL_IMPORT_RECORD), JSON.stringify(record, null, 2) + '\n', 'utf8');
+    await writeSkillImportRecord(stage, record, row.id);
     const existing = await migrationLstat(dest);
     if (existing) {
       if (existing.isSymbolicLink() || !existing.isDirectory()) throw new Error('target is not a directory');
@@ -450,6 +527,7 @@ async function migrationCopyOneSkill(row, ts) {
   } catch (e) {
     await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
     if (backup && !(await migrationLstat(dest))) await fsp.rename(backup, dest).catch(() => {});
+    if (String(e?.code || '').startsWith('work_data')) throw e;
     return { ok: false, reason: 'copy-failed', detail: String((e && e.message) || e).slice(0, 200) };
   }
 }
@@ -462,6 +540,7 @@ async function migrationCopySkills(body) {
     const keys = Array.isArray(b.keys) ? [...new Set(b.keys.map(k => String(k == null ? '' : k)))].slice(0, 200) : [];
     if (!keys.length) return { ok: false, error: 'keys-required', status: 400 };
     const overwrite = b.overwrite === true;
+    await migrationStoragePreflight();
     // 上一次崩在半路留下的暂存目录先清掉(它们不是技能:名字过不了 SKILL_ID_RE,注册表本来就不读)。
     try {
       for (const d of await fsp.readdir(paths.skills, { withFileTypes: true })) {
@@ -470,9 +549,10 @@ async function migrationCopySkills(body) {
     } catch { /* 还没有 skills 目录 */ }
     const config = await readConfig();
     const rows = await migrationSkillRows(config);
-    const ts = migrationStamp();
+    const ts = await migrationNextLogStamp();
     const log = { schema: MIGRATION_LOG_SCHEMA, id: ts, type: 'skill-copy', createdAt: nowIso(), currentRoot: migrationCurrentRoot(), version: VERSION, files: [] };
     const results = [];
+    let interrupted = null;
     for (const key of keys) {
       const id = key.slice(key.lastIndexOf(':') + 1);
       if (key.length > 300 || !SKILL_ID_RE.test(id)) { results.push({ key: key.slice(0, 120), outcome: 'rejected', reason: 'invalid-key' }); continue; }
@@ -483,19 +563,26 @@ async function migrationCopySkills(body) {
       if (row.status === 'conflict') { results.push({ ...base, outcome: 'rejected', reason: 'conflict', conflictWith: row.conflictWith }); continue; }
       if (row.status === 'too-large' || row.tooLarge) { results.push({ ...base, outcome: 'rejected', reason: 'too-large' }); continue; }
       if (row.status === 'copy-edited' && !overwrite) { results.push({ ...base, outcome: 'rejected', reason: 'copy-edited' }); continue; }
-      const r = await migrationCopyOneSkill(row, ts);
+      let r;
+      try { r = await migrationCopyOneSkill(row, ts); }
+      catch (error) {
+        if (!log.files.length) throw error;
+        interrupted = error;
+        break; // retain prior completed copies and never replay them internally
+      }
       if (!r.ok) { results.push({ ...base, outcome: 'rejected', reason: r.reason, detail: r.detail || '' }); continue; }
       results.push({ ...base, outcome: r.action, skippedLinks: r.skippedLinks });
       log.files.push({ file: migrationSkillTarget(row.id), kind: 'skill-copy', backup: r.backup,
         items: [{ key, id: row.id, source: row.source, plugin: row.plugin, action: r.action, copyTreeHash: r.copyTreeHash }] });
     }
     const copied = log.files.length;
+    let result = { ok: true, id: copied ? ts : null, copied, results };
+    if (interrupted) result = migrationUncertainResult(result, interrupted);
     if (copied) {
-      await fsp.mkdir(migrationDir(), { recursive: true });
-      await atomicWriteJson(path.join(migrationDir(), ts + '.json'), log);
-      logEvent({ kind: 'migration_skill_copy', id: ts, copied, rejected: results.filter(r => r.outcome === 'rejected').length });
+      result = await migrationCommitLog(log, result);
+      if (!result.resultUnavailable) logEvent({ kind: 'migration_skill_copy', id: ts, copied, rejected: results.filter(r => r.outcome === 'rejected').length });
     }
-    return { ok: true, id: copied ? ts : null, copied, results };
+    return result;
   });
 }
 
@@ -522,12 +609,19 @@ async function migrationUndoSkillCopy(f) {
 }
 
 async function migrationLogs() {
+  const enabled = (await readConfig()).workDataEncryptionV1 === true;
   let files = [];
   try { files = (await fsp.readdir(migrationDir())).filter(f => /^[0-9TZ-]+\.json$/.test(f)).sort().reverse(); } catch { return []; }
   const out = [];
   for (const f of files.slice(0, 20)) {
-    const log = safeJsonParse(await fsp.readFile(path.join(migrationDir(), f), 'utf8').catch(() => ''), null);
-    if (log && log.schema === MIGRATION_LOG_SCHEMA) out.push(log);
+    let text = '';
+    try { text = await migrationLogStore(f.slice(0, -5)).read(); }
+    catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; }
+    const log = safeJsonParse(text, null);
+    if (log && log.schema === MIGRATION_LOG_SCHEMA) {
+      if (enabled && !migrationLogShape(log, f.slice(0, -5))) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', apiCode: 'work_data_store.validate', statusCode: 503 });
+      out.push(log);
+    }
   }
   return out;
 }
@@ -674,7 +768,7 @@ function migrationTomlReplace(text, serverId, from, to) {
 
 async function migrationBackup(file, ts) {
   const backup = file + MIGRATION_BACKUP_TAG + ts;
-  await fsp.copyFile(file, backup);
+  await fsp.copyFile(file, backup, fs.constants.COPYFILE_EXCL);
   return backup;
 }
 
@@ -686,8 +780,9 @@ async function migrationRewriteRefs(ids) {
   const selected = refs.filter(r => wantIds.has(r.id) && (r.action === 'rewrite' || r.action === 'remove'));
   const stale = [...wantIds].filter(id => !refs.some(r => r.id === id));
   if (!selected.length) return { ok: false, error: 'nothing-to-apply', stale, status: 409 };
+  await migrationStoragePreflight();
   await migrationRememberPackages(selected.flatMap(item => item.packageRoots)).catch(() => 0);
-  const ts = migrationStamp();
+  const ts = await migrationNextLogStamp();
   const log = { schema: MIGRATION_LOG_SCHEMA, id: ts, createdAt: nowIso(), currentRoot: migrationCurrentRoot(), version: VERSION, files: [] };
   const byFile = new Map();
   for (const item of selected) { const k = samePathKey(item.file) + '|' + item.kind; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(item); }
@@ -753,16 +848,16 @@ async function migrationRewriteRefs(ids) {
         if (entry.items.length) await atomicWriteJson(file, text);
       }
     } catch (e) {
+      if (String(e?.code || '').startsWith('work_data')) throw e;
       failures.push({ file: tildePath(file), error: (e && e.message) || String(e) });
     }
     if (entry.items.length) { applied += entry.items.length; log.files.push(entry); }
     else if (entry.backup) await fsp.unlink(entry.backup).catch(() => {}); // 一项都没落:备份没用,不留垃圾
   }
   if (!applied) return { ok: false, error: 'nothing-applied', failures, status: 409 };
-  await fsp.mkdir(migrationDir(), { recursive: true });
-  await atomicWriteJson(path.join(migrationDir(), ts + '.json'), log);
-  logEvent({ kind: 'migration_apply', id: ts, files: log.files.length, items: applied, failures: failures.length });
-  return { ok: true, id: ts, items: applied, files: log.files.map(f => ({ file: tildePath(f.file), backup: f.backup, items: f.items.length })), failures, stale };
+  const result = await migrationCommitLog(log, { ok: true, id: ts, items: applied, files: log.files.map(f => ({ file: tildePath(f.file), backup: f.backup, items: f.items.length })), failures, stale });
+  if (!result.resultUnavailable) logEvent({ kind: 'migration_apply', id: ts, files: log.files.length, items: applied, failures: failures.length });
+  return result;
 }
 
 async function migrationApply(body) {
@@ -787,6 +882,7 @@ async function migrationApply(body) {
     if (Array.isArray(b.rewriteRefs) && b.rewriteRefs.length) {
       out.refs = await migrationRewriteRefs(b.rewriteRefs);
       if (!out.refs.ok) { out.ok = false; out.error = out.refs.error; }
+      if (out.refs.resultUnavailable) Object.assign(out, { status: out.refs.status, operationMayHaveExecuted: true, resultUnavailable: true, retry: false });
     }
     if (b.markSeen === true) {
       const c = await migrationCollect({ withSizes: false });
@@ -811,9 +907,11 @@ async function migrationUndo(body) {
     const log = wantId ? logs.find(l => l.id === wantId) : logs.find(l => !l.undoneAt);
     if (!log) return { ok: false, error: 'no-migration-to-undo', status: 404 };
     if (log.undoneAt) return { ok: false, error: 'already-undone', status: 409 };
+    await migrationStoragePreflight(path.join(migrationDir(), log.id + '.json'), log);
     let restored = 0, skipped = 0;
     const failed = [];   // 读写抛错、这一轮没能改回的文件(与「值已被用户改过、按设计留着」的 skipped 不是一回事)
     const skills = [];
+    let interrupted = null;
     for (const f of log.files || []) {
       if (f.undoneAt) continue;   // 上一轮(部分失败的撤销)已经改回的文件:重试时不再动,免得重复处理
       const mark = { restored, skipped };   // 这个文件中途抛错时把计数退回来(没落盘的不算「已还原」;重试时会重新数)
@@ -884,11 +982,15 @@ async function migrationUndo(body) {
         }
         f.undoneAt = nowIso();
       } catch (e) {
+        if (String(e?.code || '').startsWith('work_data')) {
+          if (!mark.restored && !mark.skipped) throw e;
+          interrupted = e;
+        }
         restored = mark.restored; skipped = mark.skipped;
         failed.push({ file: tildePath(f.file || ''), error: (e && e.message) || String(e) });
+        if (interrupted) break;
       }
     }
-    const logFile = path.join(migrationDir(), log.id + '.json');
     // 累计账:部分失败后重试,restored / skipped 接着前几轮算(最终写进 undoResult)。
     const prior = log.undoProgress && typeof log.undoProgress === 'object' ? log.undoProgress : {};
     const total = { restored: restored + (Number(prior.restored) || 0), skipped: skipped + (Number(prior.skipped) || 0) };
@@ -899,16 +1001,17 @@ async function migrationUndo(body) {
       // 现在:有失败就【不】置 undoneAt,已改回的文件各自带 undoneAt 落盘,这条迁移仍是「可撤销的最近一次」,
       // 处理掉原因(文件被占用/权限)后再点一次撤销,只重做没完成的文件。
       log.undoProgress = total;
-      await atomicWriteJson(logFile, log);
-      logEvent({ kind: 'migration_undo_partial', id: log.id, restored, skipped, failed: failed.length });
-      return { ok: false, error: 'undo-incomplete', status: 500, id: log.id, restored, skipped, failed, ...(skills.length ? { skills } : {}) };
+      const partial = { ok: false, error: 'undo-incomplete', status: 500, id: log.id, restored, skipped, failed, ...(skills.length ? { skills } : {}) };
+      const result = await migrationCommitLog(log, interrupted ? migrationUncertainResult(partial, interrupted) : partial);
+      if (!result.resultUnavailable) logEvent({ kind: 'migration_undo_partial', id: log.id, restored, skipped, failed: failed.length });
+      return result;
     }
     delete log.undoProgress;
     log.undoneAt = nowIso();
     log.undoResult = { restored: total.restored, skipped: total.skipped, ...(allSkills.length ? { skills: allSkills } : {}) };
-    await atomicWriteJson(logFile, log);
-    logEvent({ kind: 'migration_undo', id: log.id, restored, skipped });
-    return { ok: true, id: log.id, restored, skipped, ...(allSkills.length ? { skills: allSkills } : {}) };
+    const result = await migrationCommitLog(log, { ok: true, id: log.id, restored, skipped, ...(allSkills.length ? { skills: allSkills } : {}) });
+    if (!result.resultUnavailable) logEvent({ kind: 'migration_undo', id: log.id, restored, skipped });
+    return result;
   });
 }
 

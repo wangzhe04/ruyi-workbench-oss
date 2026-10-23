@@ -13066,6 +13066,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "commandForSelfMcp",
           "kinds": [
             "call"
@@ -13154,6 +13161,13 @@
           "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -23992,6 +24006,7 @@
         "SCHEDULER_RUNS_LIMIT_MAX",
         "SCHEDULER_TASKS_FILE",
         "SCHEDULER_TASKS_SCHEMA",
+        "SCHEDULER_TASK_ENGINEERING_BYTES",
         "SCHEDULER_TICK_MS_DEFAULT",
         "SCHEDULER_TICK_MS_MAX",
         "SCHEDULER_TICK_MS_MIN",
@@ -23999,6 +24014,7 @@
         "handleSchedulerApiRoutes",
         "schedulerAppendFire",
         "schedulerAskWaitMs",
+        "schedulerAuthenticateLoaded",
         "schedulerClockNow",
         "schedulerDayKey",
         "schedulerDir",
@@ -24009,6 +24025,7 @@
         "schedulerFireOnce",
         "schedulerFiresChain",
         "schedulerFiresPath",
+        "schedulerIsWorkDataError",
         "schedulerLoad",
         "schedulerLocaleOf",
         "schedulerMaybeCrash",
@@ -24022,19 +24039,27 @@
         "schedulerRecordMissedSkip",
         "schedulerRecover",
         "schedulerRestorePersistedState",
+        "schedulerRestoreTaskSnapshot",
         "schedulerRouteGate",
         "schedulerRunNow",
         "schedulerRuntime",
         "schedulerRuntimeSnapshot",
         "schedulerSaveTasks",
+        "schedulerStorageFailure",
+        "schedulerTaskAdmission",
         "schedulerTaskBusy",
+        "schedulerTaskEncodingPreflight",
+        "schedulerTaskPayload",
+        "schedulerTaskSnapshot",
+        "schedulerTaskStore",
         "schedulerTasksChain",
         "schedulerTasksPath",
         "schedulerTick",
         "schedulerTickMs",
         "schedulerTurnTimeoutMs",
         "startScheduler",
-        "stopScheduler"
+        "stopScheduler",
+        "withSchedulerTaskOperation"
       ],
       "requires": [
         {
@@ -24125,7 +24150,7 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -24152,6 +24177,13 @@
         {
           "provider": "01e-permission-modes.js",
           "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
           "kinds": [
             "read"
           ]
@@ -24599,6 +24631,34 @@
           "kinds": [
             "call"
           ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerStorageFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerTaskAdmission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerTaskEncodingPreflight",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerTaskPayload",
+          "kinds": [
+            "call"
+          ]
         }
       ]
     },
@@ -24622,6 +24682,7 @@
         "migrationChain",
         "migrationCollect",
         "migrationCollectRefs",
+        "migrationCommitLog",
         "migrationCopyOneSkill",
         "migrationCopySkills",
         "migrationCurrentRoot",
@@ -24634,10 +24695,15 @@
         "migrationGetField",
         "migrationHash",
         "migrationImportMcp",
+        "migrationLastLogTime",
         "migrationListPackages",
+        "migrationLogShape",
+        "migrationLogStore",
+        "migrationLogText",
         "migrationLogs",
         "migrationLstat",
         "migrationMcpSummary",
+        "migrationNextLogStamp",
         "migrationPackageRunning",
         "migrationPathInside",
         "migrationPidAlive",
@@ -24661,11 +24727,14 @@
         "migrationSkillTarget",
         "migrationSkillTree",
         "migrationStamp",
+        "migrationStoragePreflight",
         "migrationTomlReplace",
         "migrationTomlSections",
         "migrationTreeHash",
+        "migrationUncertainResult",
         "migrationUndo",
-        "migrationUndoSkillCopy"
+        "migrationUndoSkillCopy",
+        "writeMigrationLog"
       ],
       "requires": [
         {
@@ -24819,7 +24888,8 @@
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -24855,6 +24925,13 @@
           "symbol": "readConfig",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
           ]
         },
         {

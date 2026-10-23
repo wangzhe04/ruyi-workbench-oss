@@ -1,6 +1,7 @@
 'use strict';
 // Run against the actual generated runtime, with an isolated synthetic data root.
-// Real Windows DPAPI and filesystem publication/recovery. No key provider or storage-domain stubs.
+// Real Windows DPAPI and filesystem publication/recovery; no key-provider or codec stubs.
+// Only the retirement collision cases control stat metadata to reproduce same-tick file stamps.
 const path = require('node:path'), repo = process.env.RUYI_SESSION_ARTIFACT_REPO || process.cwd();
 require(path.join(repo, 'dev-harness/lib/self-isolate-home'));
 const fs = require('node:fs'), os = require('node:os'), assert = require('node:assert/strict');
@@ -10,11 +11,19 @@ const { loadServerInternals } = require(path.join(repo, 'dev-harness/lib/server-
 const t = require(path.join(repo, 'dev-harness/lib/harness')).createRunner('SESSION ARTIFACT WORK DATA');
 const names = ['createSession', 'loadSession', 'saveSession', 'listSessions', 'readConfig', 'writeConfig', 'workDataKeys', 'paths',
   'sessionIndexPath', 'readSessionIndex', 'writeSessionIndex', 'scheduleSessionIndexUpdate', 'flushSessionIndex', 'flushSessionIndexSync', 'invalidateSessionIndex',
-  'sessionV1BackupPath', 'sessionV1BackupStore', 'readSessionV1BackupRecord', 'loadSessionV1Backup', 'ensureSessionV1Backup',
+  'sessionV1BackupPath', 'sessionV1BackupStore', 'readSessionV1BackupRecord', 'retireSessionV1Backup', 'loadSessionV1Backup', 'ensureSessionV1Backup',
   'sessionPath', 'sessionBodyPaths', 'sessionWriteChains', 'withSessionIndexLock', 'pretenderIndexRuntime'];
 const runtimes = [], load = () => { const api = loadServerInternals(names); runtimes.push(api); return api; };
 const privateError = error => String(error && error.code || '').startsWith('work_data');
 const toggle = async (api, flag) => { const config = await api.readConfig(); config.workDataEncryptionV1 = flag; await api.writeConfig(config); };
+async function withBackupStamp(file, stamp, work) {
+  const [size, mtimeNs, ctimeNs, ino] = stamp.split('|').map(BigInt), stat = fs.promises.stat;
+  fs.promises.stat = async (target, options) => {
+    const current = await stat(target, options);
+    return target === file && options?.bigint ? { ...current, size, mtimeNs, ctimeNs, ino } : current;
+  };
+  try { return await work(); } finally { fs.promises.stat = stat; }
+}
 function seed(api, id, large = false) {
   const messages = large ? Array.from({ length: 64 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: '备份😀'.repeat(2500) })) : [{ role: 'user', content: 'PRIVATE-LEGACY-备份😀' }];
   const value = { id, title: 'PRIVATE-LEGACY-TITLE', cwd: root, createdAt: '2020-01-01T00:00:00Z', updatedAt: '2020-01-01T00:00:00Z', messages, providerHistory: [] };
@@ -93,6 +102,40 @@ async function settle(api) {
   assert.equal((await cold.loadSession(preflightId)).messages.length, 1); assert.equal(fs.existsSync(cold.sessionV1BackupPath(preflightId)), false);
   assert.ok((await cold.listSessions()).some(row => row.id === largeId));
   t.ok(true, 'cold crash recovery restores all messages, rejects cross-session backup and retires only after complete v2 reads');
+
+  // Only file metadata is controlled to make a real Windows same-tick collision
+  // deterministic; DPAPI, both authenticated revisions and the retirement codec are real.
+  const retireId = 'sess_backup_e2e_retire', retireSource = seed(cold, retireId);
+  await cold.ensureSessionV1Backup(retireId);
+  const retireFile = cold.sessionV1BackupPath(retireId), oldRecord = await cold.readSessionV1BackupRecord(retireId), original = fs.readFileSync(retireFile);
+  const tampered = Buffer.from(original); tampered[tampered.length - 30] = tampered[tampered.length - 30] === 65 ? 66 : 65;
+  fs.writeFileSync(retireFile, tampered); assert.equal(fs.statSync(retireFile).size, original.length);
+  await withBackupStamp(retireFile, oldRecord.stamp, async () => {
+    await assert.rejects(() => cold.retireSessionV1Backup(retireId, oldRecord), privateError);
+    assert.deepEqual(fs.readFileSync(retireFile), tampered); assert.equal(fs.existsSync(retireFile + '.corrupt'), false);
+  });
+  t.ok(true, 'real DPAPI refuses changed ciphertext even with an identical complete file stamp, retaining every byte');
+
+  fs.writeFileSync(retireFile, original);
+  const pristine = await cold.readSessionV1BackupRecord(retireId), staged = retireFile + '.test-replacement';
+  const replacementText = retireSource.raw.replace('PRIVATE-LEGACY-备份😀', 'PRIVATE-LEGACY-保存😀');
+  assert.notEqual(replacementText, retireSource.raw);
+  await cold.sessionV1BackupStore(retireId, staged).write(replacementText);
+  const replacement = fs.readFileSync(staged); assert.equal(replacement.length, original.length);
+  fs.writeFileSync(retireFile, replacement); fs.unlinkSync(staged);
+  await withBackupStamp(retireFile, pristine.stamp, async () => {
+    await cold.retireSessionV1Backup(retireId, pristine); assert.deepEqual(fs.readFileSync(retireFile), replacement);
+    const verified = await cold.readSessionV1BackupRecord(retireId); assert.equal(verified.text, replacementText);
+    await settle(cold); for (const runtime of runtimes) runtime.workDataKeys.clear();
+    fs.renameSync(keyFile, keyFile + '.missing');
+    try {
+      await assert.rejects(() => cold.retireSessionV1Backup(retireId, verified), privateError);
+      assert.deepEqual(fs.readFileSync(retireFile), replacement);
+    } finally { fs.renameSync(keyFile + '.missing', keyFile); }
+    await cold.retireSessionV1Backup(retireId, verified); assert.equal(fs.existsSync(retireFile), false);
+  });
+  assert.equal(fs.readFileSync(cold.sessionPath(retireId), 'utf8'), retireSource.raw);
+  t.ok(true, 'same-stamp valid replacement survives, missing key cannot retire it, and only its fresh verified proof permits retirement');
 })().catch(error => { t.fail(error && error.stack || String(error)); }).finally(async () => {
   for (const api of runtimes) {
     clearTimeout(api.pretenderIndexRuntime.verifyTimer); clearTimeout(api.pretenderIndexRuntime.persistTimer);

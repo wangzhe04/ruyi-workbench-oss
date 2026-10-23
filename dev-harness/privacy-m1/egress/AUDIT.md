@@ -105,3 +105,11 @@ M2/A3 产品独立验收：`node dev-harness/privacy-model-send-boundary.e2e.js`
 本次独立阅读 `public/app.js`、`public/js/session-experience.js`、`public/js/chat-static-renderer.js`、`public/js/chat-stream-runtime.js` 的变更及共同卡片工厂调用关系。产物与 journal 文件按路径合并为一行；journal 保留操作及撤销依据，artifact-only 不获得撤销权限。打开/定位仍调用既有同源 `/api/file/reveal`，撤销仍调用既有同源 `/api/checkpoints/rollback`；卡片所属 sessionId 贯穿确认后的撤销、异步完成后的状态更新及恢复删除后的文件按钮。路径、文件名与操作标签通过文本节点或 DOM 属性设置，没有新增 HTML 执行入口。静态与 live 调用均移除第二条产物 chip，不新增实际外发点或接收方授权。
 
 上述四份源码的候选数依次为 6、12、5、4；与现有手工条目逐项对照，新增、删除及局部调用指纹变化均为 0。仅手工更新这四个 `sources` 原字节指纹；`entries`、分类组及其他源码指纹保持原状。该限定范围的校验为 0 errors，不能据此宣称全局清册通过：其余既存源码 stale、未分类及变更边界仍保留，未刷新生成 JSON/Markdown。源码复现验证路径斜杠合并及跨会话异步绑定；真实 browser 回归由本批独立记录承载，不以清点器代替产品验收，也不提升原 local-only/unknown 分类。
+
+## 2026-10-23 迁移与定时任务存储的限定增量审阅
+
+本片审阅迁移六模块和调度两模块的增量。技能来源记录从迁移 stage 的直接 `writeFile` 改由 `writeSkillImportRecord` 经既有 WorkDataStore/atomic writer 写同一份本地受管记录，移除对应旧候选；`migrationBackup.copyFile` 只增加 `COPYFILE_EXCL`，仍是外部配置相邻的备份文件，保留 `file-boundary` 分类。其余候选新增、删除及局部调用指纹变化均为零；调度器未新增接收方或网络出口。
+
+仅接受此前指纹有效且本片独审过的13u/13s/13t源码，以及上述一个删除和一个备份调用指纹变更。05/09/12/13/13l在本片前已有未审指纹，继续保留，不借本片清零旧债。最终扫描280份源码/配置、688条候选，`--write --check`仍有76项历史审阅错误，退出1；本片增量已核对，但全局清册未闭合，不能当作完整安全验收。生成视图保留这些错误；实际DPAPI及回归证据见 `docs/optimization-plan/evidence/privacy-migration-scheduler-storage.json`。
+
+本片全单测追加发现旧备份退役的完整文件戳碰撞风险。02最小修复复用现有存储读取/认证与本地stat/unlink，无候选新增、删除或调用指纹变化；重建后的manifest配置候选指纹随行区间改变。02及生成manifest既有未审错误均保留，76项错误ID集合不变，不接受旧文件的全量指纹。

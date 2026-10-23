@@ -61,7 +61,10 @@
     "journal-history",
     "memory-body",
     "session-search-index",
-    "pretender-index"
+    "pretender-index",
+    "migration-log",
+    "skill-import-record",
+    "scheduler-tasks"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -406,7 +409,7 @@
         }
       ],
       "reason": "templates embed prompts and targets",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "scheduler-fires",
@@ -598,7 +601,7 @@
         }
       ],
       "reason": "applied file paths and change summaries are user data",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "migration-skill-backups",
@@ -626,7 +629,7 @@
         }
       ],
       "reason": "provenance paths and source hashes",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "credential-vault-v1",

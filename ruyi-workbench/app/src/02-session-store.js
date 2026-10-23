@@ -3971,7 +3971,12 @@ async function readSessionV1BackupRecord(id) {
   try {
     const file = sessionV1BackupPath(id), before = await fsp.stat(file, { bigint: true });
     const metadata = {}, text = await sessionV1BackupStore(id, file, metadata).read();
-    return { text, stamp: `${before.size}|${before.mtimeNs}|${before.ctimeNs}|${before.ino}`, authStamp: metadata.authStamp || '' };
+    const after = await fsp.stat(file, { bigint: true });
+    const stamp = `${after.size}|${after.mtimeNs}|${after.ctimeNs}|${after.ino}`;
+    if (`${before.size}|${before.mtimeNs}|${before.ctimeNs}|${before.ino}` !== stamp) {
+      throw Object.assign(new Error('session backup changed during read'), { code: 'EBUSY' });
+    }
+    return { text, stamp, authStamp: metadata.authStamp || '' };
   } catch (error) {
     if (sessionHeadIsWorkDataError(error)) throw error;
     return error && error.code === 'ENOENT' ? null : { unreadable: true, error };
@@ -3982,7 +3987,15 @@ async function retireSessionV1Backup(id, record) {
   try {
     if (record.authStamp && record.authStamp !== await sessionArtifactStamp()) throw Object.assign(new Error('work_data.authenticate_failed'), { code: 'work_data.authenticate_failed', statusCode: 503 });
     const file = sessionV1BackupPath(id), current = await fsp.stat(file, { bigint: true });
-    if (`${current.size}|${current.mtimeNs}|${current.ctimeNs}|${current.ino}` === record.stamp) await fsp.unlink(file);
+    if (`${current.size}|${current.mtimeNs}|${current.ctimeNs}|${current.ino}` !== record.stamp) return;
+    // Windows can retain this entire stamp across an in-place edit. It is only a
+    // cheap change guard: authenticate the current backup and compare its verified
+    // contents before retiring it. The final stat is not a cross-process CAS.
+    const verified = await readSessionV1BackupRecord(id);
+    if (!verified || verified.unreadable || verified.text !== record.text || verified.stamp !== record.stamp
+      || verified.authStamp !== (record.authStamp || '')) return;
+    const final = await fsp.stat(file, { bigint: true });
+    if (`${final.size}|${final.mtimeNs}|${final.ctimeNs}|${final.ino}` === verified.stamp) await fsp.unlink(file);
   } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; /* Successful v2 authority remains usable if retirement is temporarily locked. */ }
 }
 async function ensureSessionV1Backup(id) {

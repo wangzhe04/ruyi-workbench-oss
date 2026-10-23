@@ -12,3 +12,7 @@
 后续获准实施并完成评审后，将测试放到 `dev-harness/unit/`，才能使用其 `../lib` fixture 路径。正常 source 模式读取当前 `app/src`；TEMP 续跑可设置 `RUYI_MIGRATION_SOURCE_DIR` 指向基线核对后的候选目录。不要直接在本 docs 目录执行测试。
 
 已有一次 14/14、0 skip 的源码结果；该次早于 shared marker 最终线性 carry 小修，因此**不能声称最终组合已测试**。未创建/运行本族真实 DPAPI E2E；未 build、未迁移或发布真实数据。下一次需要精确重基后的 source 回归、独立评审及隔离 E2E。
+
+## 当前接续状态
+
+migration-log与skill-import-record已在94 §22按当前源码重基、独审并接线；migration-skill-backups仍待做。此旧patch保留历史，不能再整包应用。

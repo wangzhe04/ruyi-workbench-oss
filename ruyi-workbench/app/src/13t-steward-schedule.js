@@ -127,8 +127,12 @@ async function stewardImplScheduleCreate(args, ctx, config) {
   // ③ 静默归一要如实说:修前文本超长被截、tier / permissionMode 被丢,返回里一个字都不提,模型以为都生效了。
   const notes = schedulerNormalizationNotes(args, normalized.task);
   normalized.task.id = makeId('sch');
-  schedulerRuntime.tasks.push(normalized.task);
-  await schedulerSaveTasks();
+  await schedulerTaskAdmission(async operation => {
+    if (schedulerRuntime.tasks.length >= SCHEDULER_LIMITS.maxTasks) throw Object.assign(new Error('scheduler.capacity_exceeded'), { code: 'scheduler.capacity_exceeded', apiCode: 'scheduler.capacity_exceeded', statusCode: 409 });
+    schedulerTaskEncodingPreflight({ ...schedulerTaskPayload(), tasks: [...schedulerRuntime.tasks, normalized.task, ...schedulerRuntime.opaqueTasks] }, operation);
+    schedulerRuntime.tasks.push(normalized.task);
+    await schedulerSaveTasks(operation);
+  });
   schedulerEnsureTimer();
   schedulerEmitChanged(normalized.task.id, 'created', '');
   const row = schedulerToolRow(normalized.task);
@@ -191,31 +195,38 @@ async function schedulerToolSetEnabled(args, ctx, config, wantEnabled, toolName)
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
-  const was = task.state.enabled === true;
-  // 第二轮工具走查(F12):已经是目标状态再来一次,修前照样 revision+1、写盘、发变更事件、记决策日志(undoRef.prev 还是同一个值),
-  // 用户在行动流水里看到「管家暂停了它」两遍,界面上的修订号也白涨。幂等:原样回任务行 + unchanged:true,什么都不写。
-  // (从熔断里重开不在这条里:熔断 = state.enabled 已经是 false,继续它 was=false → 照常走下面的重开。)
-  if (was === wantEnabled) return { ok: true, task: schedulerToolRow(task), unchanged: true };
-  task.state.enabled = wantEnabled;
-  // 从熔断里被重新打开:连败计数清零(与 PATCH /api/scheduler/tasks/:id 同口径 —— 不清零的话
-  // 下一次失败会立刻再熔断,用户会以为「继续」这枚按钮没生效)。
-  if (wantEnabled && !was) task.state.consecutiveFailures = 0;
-  // 从暂停里恢复:nextFireAt 要按「此刻」重算(与 PATCH /api/scheduler/tasks/:id 同口径)。暂停期间 tick 不碰这条任务,
-  // 盘上的 nextFireAt 还停在暂停时的旧时点 —— 不重算的话恢复后第一拍会把暂停期间的时点当「错过」补跑一次,
-  // 或记一条没人错过的 skipped。算不出下一次(过期的 once)就落空串,与新建时同一个表示。
-  if (wantEnabled && !was) {
-    const resumedNext = nextFireAt(task.schedule, schedulerClockNow());
-    task.state.nextFireAt = resumedNext == null ? '' : new Date(resumedNext).toISOString();
-  }
-  task.revision = (Number(task.revision) || 0) + 1;
-  task.updatedAt = new Date(schedulerClockNow()).toISOString();
-  await schedulerSaveTasks();
+  const expectedRevision = task.revision;
+  const changed = await schedulerTaskAdmission(async operation => {
+    if (!schedulerRuntime.tasks.includes(task) || task.revision !== expectedRevision) throw schedulerStorageFailure('task_changed');
+    const was = task.state.enabled === true;
+    // 第二轮工具走查(F12):已经是目标状态再来一次,修前照样 revision+1、写盘、发变更事件、记决策日志(undoRef.prev 还是同一个值),
+    // 用户在行动流水里看到「管家暂停了它」两遍,界面上的修订号也白涨。幂等:原样回任务行 + unchanged:true,什么都不写。
+    // (从熔断里重开不在这条里:熔断 = state.enabled 已经是 false,继续它 was=false → 照常走下面的重开。)
+    if (was === wantEnabled) return { unchanged: true };
+
+    task.state.enabled = wantEnabled;
+    // 从熔断里被重新打开:连败计数清零(与 PATCH /api/scheduler/tasks/:id 同口径 —— 不清零的话
+    // 下一次失败会立刻再熔断,用户会以为「继续」这枚按钮没生效)。
+    if (wantEnabled && !was) task.state.consecutiveFailures = 0;
+    // 从暂停里恢复:nextFireAt 要按「此刻」重算(与 PATCH /api/scheduler/tasks/:id 同口径)。暂停期间 tick 不碰这条任务,
+    // 盘上的 nextFireAt 还停在暂停时的旧时点 —— 不重算的话恢复后第一拍会把暂停期间的时点当「错过」补跑一次,
+    // 或记一条没人错过的 skipped。算不出下一次(过期的 once)就落空串,与新建时同一个表示。
+    if (wantEnabled && !was) {
+      const resumedNext = nextFireAt(task.schedule, schedulerClockNow());
+      task.state.nextFireAt = resumedNext == null ? '' : new Date(resumedNext).toISOString();
+    }
+    task.revision = (Number(task.revision) || 0) + 1;
+    task.updatedAt = new Date(schedulerClockNow()).toISOString();
+    await schedulerSaveTasks(operation);
+    return { was };
+  }, 4096);
+  if (changed.unchanged) return { ok: true, task: schedulerToolRow(task), unchanged: true };
   schedulerEnsureTimer();
   schedulerEmitChanged(task.id, 'updated', '');
   stewardAppendDecision({
     tool: toolName, args: { id: task.id, enabled: wantEnabled },
     targetSessionId: '', permissionMode: '', mayAct: 'user',
-    undoRef: { kind: 'schedule', id: task.id, prev: { enabled: was } },
+    undoRef: { kind: 'schedule', id: task.id, prev: { enabled: changed.was } },
     basis: (args.basis && typeof args.basis === 'object') ? args.basis : {},
   });
   return { ok: true, task: schedulerToolRow(task) };
@@ -280,8 +291,12 @@ async function stewardImplScheduleDelete(args, ctx, config) {
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const removed = schedulerToolRow(found.task);
-  schedulerRuntime.tasks.splice(found.index, 1);
-  await schedulerSaveTasks();
+  await schedulerTaskAdmission(async operation => {
+    const liveIndex = schedulerRuntime.tasks.indexOf(found.task);
+    if (liveIndex < 0) throw schedulerStorageFailure('task_changed');
+    schedulerRuntime.tasks.splice(liveIndex, 1);
+    await schedulerSaveTasks(operation);
+  });
   schedulerEnsureTimer();
   schedulerEmitChanged(removed.id, 'deleted', '');
   stewardAppendDecision({

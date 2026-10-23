@@ -13,7 +13,7 @@ Envelope: format version 2, key id `work-data-v2.k<generation>`, derivation `HKD
 
 Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v2 manifest and chunk envelopes. See [93 section 11](../optimization-plan/93-m3-1-encrypted-storage-freeze.md#11-m3-2-大记录格式补充2026-10-23); the frozen v2 crypto envelope is unchanged.
 
-`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits`, `agent-run-snapshot`, `web-cache`, `external-bots`, `session-index`, `session-v1-backup`, `proxy-models-cache`, `journal-index`, `journal-reverts`, `journal-history`, `memory-body`, `session-search-index`, `pretender-index` (adapter exists, switch still off by default).
+`encryptionImplemented`: **false** — no user data has been migrated. `adapterWired`: `session-head`, `session-messages`, `session-provider`, `session-scratchpad`, `voice-lexicon`, `memory-usage`, `steward-cursor`, `engine-transcript-index`, `steward-memory`, `agent-instructions-import`, `memory-relations`, `memory-proposals`, `session-interventions`, `session-changes`, `mission-container`, `playbooks`, `memory-meta`, `personal-workflows`, `steward-visits`, `agent-run-snapshot`, `web-cache`, `external-bots`, `session-index`, `session-v1-backup`, `proxy-models-cache`, `journal-index`, `journal-reverts`, `journal-history`, `memory-body`, `session-search-index`, `pretender-index`, `migration-log`, `skill-import-record`, `scheduler-tasks` (adapter exists, switch still off by default).
 
 | ID | Class | Key purpose | Batch | Adapter | Minimal plaintext metadata | Reason |
 |---|---|---|---|---|---|---|
@@ -46,7 +46,7 @@ Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v
 | steward-decisions | required | `queue` | memory-queue | pending | — (nothing readable) | decisions and rationales quote the triggering content |
 | work-data-key-v1 | excluded | — | not-migrated | pending | — (nothing readable) | the key envelope itself: a DPAPI-wrapped master with no user content; every work-data record needs it unlocked first, so it cannot live inside the envelope it protects |
 | external-bots | required | `queue` | memory-queue | wired | `connectionId` (route a delivery to its connection) | labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file |
-| scheduler-tasks | required | `task` | tasks | pending | `taskId` (occurrence routing) | templates embed prompts and targets |
+| scheduler-tasks | required | `task` | tasks | wired | `taskId` (occurrence routing) | templates embed prompts and targets |
 | scheduler-fires | required | `task` | tasks | pending | `taskId` (join to the task); `occurrenceId` (idempotency key across restarts) | fire records quote the rendered prompt and result status |
 | agent-run-snapshot | required | `task` | tasks | wired | `sessionId` (attach to the session); `runId` (idempotency key) | run goals and step results are user content |
 | agent-run-events | required | `task` | tasks | pending | `sessionId` (attach to the session); `runId` (idempotency key) | event stream replays tool input/output |
@@ -58,9 +58,9 @@ Explicit opt-in large text may use workData:3 / chunks-v1 around authenticated v
 | proxy-models-cache | required | `cache` | index-cache | wired | `fetchedAt` (cache freshness only, no page text) | model list is provider metadata but can embed account-scoped ids |
 | engine-transcript-index | required | `cache` | index-cache | wired | `sessionId` (join to the session) | transcript paths and titles reveal engine sessions |
 | audit-log | required | `audit` | logs | pending | `at` (rotation and ordering); `kind` (routing/classification without decrypting) | event detail carries tool names, commands and paths |
-| migration-log | required | `migration` | logs | pending | `appliedAt` (listing order) | applied file paths and change summaries are user data |
+| migration-log | required | `migration` | logs | wired | `appliedAt` (listing order) | applied file paths and change summaries are user data |
 | migration-skill-backups | required | `backup` | backups | pending | `skillId` (restore target directory) | verbatim user skill copies |
-| skill-import-record | required | `backup` | backups | pending | `skillId` (import target) | provenance paths and source hashes |
+| skill-import-record | required | `backup` | backups | wired | `skillId` (import target) | provenance paths and source hashes |
 | credential-vault-v1 | excluded | — | not-migrated | pending | — (nothing readable) | own authenticated credential envelope (DPAPI CurrentUser master, AES-GCM records): work-data must never rewrap or duplicate it |
 | credential-import-v1 | excluded | — | not-migrated | pending | — (nothing readable) | rollback journal already sealed by the credential envelope under its own purpose |
 | privacy-mapping-v1 | excluded | — | not-migrated | pending | — (nothing readable) | privacy reference map is already sealed under the credential envelope purpose privacy-mapping and must restore with the same unlock |

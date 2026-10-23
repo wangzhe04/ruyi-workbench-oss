@@ -9,3 +9,7 @@ Implemented only in this draft: chunked task text store (purpose task), sealed s
 Next work: close every CRUD/register/reconcile mutation before side effects; preserve task object identity during live PATCH and never hold keys for a model turn. Add scheduler-fires physical-ordinal records with current reviewed lineProbe/shared protocol, authenticate before repair/append, preserve exact plaintext 8MiB-full/1MiB-tail windows and crash unknown/no-replay recovery. Background ledger is a <=100 receipt whole JSON array with many synchronous consumers across02/05/08/09/10/11/13d; root decided unified async reads + per-session receipt chain + publish-after-commit + explicitly bounded normal shutdown drain, while OFF sync writes may remain. Never replay completed commands on storage failure or bypass current keys with a warm cache, long lease, or cold DPAPI spawnSync.
 
 Read handoff.json for original TEMP file identities and unfinished work. The archived six tests validate only this partial tasks core and are not full family acceptance. Independent review and parent-controlled build/real DPAPI E2Es remain required.
+
+## 当前接续状态
+
+scheduler-tasks已在94 §22按当前所有者链重做并验收；fires和background ledger仍待做。此旧partial patch保留历史，不能替换现行13s。

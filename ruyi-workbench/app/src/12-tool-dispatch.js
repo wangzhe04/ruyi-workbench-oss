@@ -744,7 +744,7 @@ async function buildWorkbenchSelfStatus(args, ctx) {
         const cwd = (ctx && ctx.workingDir) || (ctx && ctx.session && ctx.session.cwd) || process.cwd();
         const [caps, entries, workflows] = await Promise.all([
           getCapabilities(config).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }),
-          loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; }),
+          loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('privacy.') || String(error?.code || '').startsWith('work_data')) throw error; return []; }),
           getAgentWorkflows(cwd).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }),
         ]);
         const kindCount = k => entries.filter(e => e.kind === k).length;
@@ -3082,7 +3082,7 @@ const INTEGRATION_TOOL_HANDLERS = {
       // P3-4: cwd 单一真源 —— 优先用回合传入的 workingDir(ctx.workingDir),缺省再退 session.cwd,与注入路径一致。
       const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), cfg && cfg.defaultWorkspace);
       let registry = [];
-      try { registry = await loadSkillRegistry(cwd, cfg); } catch { registry = []; }
+      try { registry = await loadSkillRegistry(cwd, cfg); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; registry = []; }
       const entry = registry.find(e => e && e.id === id && e.kind === 'skill');
       if (!entry || !entry.dir) return { ok: false, error: '技能不存在或无内容目录', id };
       // P2-2: 来源锁定 —— 启用时记录了 source,若注册表现解析出的来源不一致(换 cwd 后被项目技能顶替等)→ 明确拒绝。
@@ -3219,7 +3219,7 @@ const INTEGRATION_TOOL_HANDLERS = {
       const session = await policySessionFor(ctx);
       const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), cfg && cfg.defaultWorkspace);
       let registry = [];
-      try { registry = await loadSkillRegistry(cwd, cfg); } catch { registry = []; }
+      try { registry = await loadSkillRegistry(cwd, cfg); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; registry = []; }
       // 「已启用」与 skill_read 的白名单同口径:在 effectiveSkillSelection 里,且启用时锁定的来源与注册表现在解析出的一致。
       const picked = new Map();
       for (const raw of effectiveSkillSelection(session, cfg)) {
@@ -3724,14 +3724,41 @@ function parseSkillRequires(val) {
 // 这里只负责读:坏的、超大的、来源不认识的一律当没有(副本照常是 user 技能,只是不显示「复制自」)。
 const SKILL_IMPORT_RECORD = '.ruyi-import.json';
 const SKILL_IMPORT_SOURCES = Object.freeze(['claude-code', 'codex', 'kimi', 'claude-plugin']);
+function skillImportRecordStore(dir, finalId = path.basename(dir), enabled) {
+  if (!SKILL_ID_RE.test(String(finalId || ''))) throw Object.assign(new Error('work_data_store.binding'), { code: 'work_data_store.binding', apiCode: 'work_data_store.binding', statusCode: 503 });
+  const id = process.platform === 'win32' ? finalId.toLowerCase() : finalId;
+  return WorkDataStore.createText({
+    file: () => path.join(dir, SKILL_IMPORT_RECORD), purpose: 'backup', schema: 1,
+    scopeId: 'skills', recordId: 'skill-import:' + id, chunked: true, maxPlaintextBytes: 16 * 1024,
+    enabled: enabled === undefined ? async () => (await readConfig()).workDataEncryptionV1 === true : () => enabled,
+    validateSealedText: text => {
+      if (Buffer.byteLength(text, 'utf8') > 16 * 1024) return false;
+      const value = safeJsonParse(text, null);
+      return !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === 1 && SKILL_IMPORT_SOURCES.includes(value.source)
+        && ['plugin', 'sourcePath', 'importedAt', 'sourceTreeHash', 'copyTreeHash'].every(key => typeof value[key] === 'string');
+    },
+    writeJson: atomicWriteJson,
+  });
+}
+async function writeSkillImportRecord(dir, value, finalId) {
+  const enabled = (await readConfig()).workDataEncryptionV1 === true;
+  const text = JSON.stringify(value, null, 2) + '\n';
+  // The old read boundary is 16KiB. Do not publish a newly sealed record that its own
+  // reader must reject; OFF retains its existing uncapped writer and exact bytes.
+  if (enabled && Buffer.byteLength(text, 'utf8') > 16 * 1024) throw Object.assign(new Error('work_data_store.validate'), { code: 'work_data_store.validate', apiCode: 'work_data_store.validate', statusCode: 503 });
+  await skillImportRecordStore(dir, finalId, enabled).write(text);
+}
 async function readSkillImportRecord(dir) {
   let rec = null;
   try {
     const file = path.join(dir, SKILL_IMPORT_RECORD);
     const st = await fsp.lstat(file);
-    if (!st.isFile() || st.size > 16 * 1024) return null;
-    rec = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
-  } catch { return null; }
+    if (!st.isFile()) return null;
+    if (st.size > 16 * 1024 && !(await WorkDataStore.hasContainerMarker(file))) return null;
+    const text = await skillImportRecordStore(dir).read();
+    if (Buffer.byteLength(text, 'utf8') > 16 * 1024) return null;
+    rec = safeJsonParse(text, null);
+  } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; return null; }
   if (!rec || typeof rec !== 'object' || rec.schema !== 1 || !SKILL_IMPORT_SOURCES.includes(rec.source)) return null;
   const str = v => (typeof v === 'string' ? v : '');
   return { schema: 1, source: rec.source, plugin: str(rec.plugin).slice(0, 120), sourcePath: str(rec.sourcePath), importedAt: str(rec.importedAt),
@@ -3862,7 +3889,7 @@ async function loadSkillRegistry(cwd, config, caps) {
   for (const f of (await fsp.readdir(userCmd).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; })).filter(x => x.endsWith('.md'))) addCmd(path.basename(f, '.md'), await readIfExists(path.join(userCmd, f), 12000), 'user');
 
   // ---- Playbook: loadAllPlaybooks + evalPlaybookAvailability 映射(id 加 'pb:' 前缀防与技能/命令撞) ----
-  for (const pb of (await loadAllPlaybooks().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return []; }))) {
+  for (const pb of (await loadAllPlaybooks().catch(error => { if (String(error?.code || '').startsWith('privacy.') || String(error?.code || '').startsWith('work_data')) throw error; return []; }))) {
     const avail = evalPlaybookAvailability(pb, caps);
     out.push({
       id: 'pb:' + pb.id, name: pb.title || pb.id, description: pb.desc || '', kind: 'playbook',
@@ -3898,7 +3925,7 @@ async function resolveEnabledSkillEntries(session, config, cwd, caps, onSourceMi
   const enabled = effectiveSkillSelection(session, config);
   if (!enabled.length) return [];
   let registry = [];
-  try { registry = await loadSkillRegistry(cwd, config, caps); } catch { return []; }
+  try { registry = await loadSkillRegistry(cwd, config, caps); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; return []; }
   const byId = new Map(registry.filter(e => e.kind === 'skill').map(e => [e.id, e]));
   const out = [];
   for (const raw of enabled) {

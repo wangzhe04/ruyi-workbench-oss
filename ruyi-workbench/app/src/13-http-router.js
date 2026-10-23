@@ -111,7 +111,7 @@ async function setSessionSkillsCore(sessionId, skills) {
   if (!session) return { ok: false, error: 'session not found' };
   const config = await readConfig();
   const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
-  const registry = await loadSkillRegistry(cwd, config).catch(() => []);
+  const registry = await loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
   const byIdReg = new Map(registry.filter(e => e.kind === 'skill').map(e => [e.id, e]));
   const cleaned = [];
   const seen = new Set();
@@ -580,7 +580,7 @@ async function handleApi(req, res, pathname) {
       const resolved = normalizeCwd(cwdQ, config.defaultWorkspace);
       if (pathWithinAnyRoot(path.resolve(resolved), fileAllowedRoots(null, config))) cwd = resolved;
     }
-    const registry = await loadSkillRegistry(cwd, config).catch(() => []);
+    const registry = await loadSkillRegistry(cwd, config).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
     const skills = registry.map(e => ({
       id: e.id, name: e.name, description: e.description, detail: e.detail || '', kind: e.kind, type: e.kind,
       source: e.source, insert: e.insert, dir: e.dir, requires: e.requires,
@@ -616,7 +616,7 @@ async function handleApi(req, res, pathname) {
     if (!id || !SKILL_ID_RE.test(id)) return send(res, json({ ok: false, error: '无效的技能 id' }, 400));
     if (confirm !== id) return send(res, json({ ok: false, error: '确认不匹配:请输入该技能的 id 以确认删除' }, 400));
     const config = await readConfig();
-    const registry = await loadSkillRegistry('', config).catch(() => []);
+    const registry = await loadSkillRegistry('', config).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
     const entry = registry.find(e => e && e.id === id && e.kind === 'skill');
     if (!entry) return send(res, json({ ok: false, error: '未找到该技能: ' + id }, 404));
     if (entry.source !== 'user') return send(res, json({ ok: false, error: `仅可删除用户技能(当前来源: ${entry.source || '未知'})。内置/项目/Claude Code 技能请到对应位置管理。` }, 403));

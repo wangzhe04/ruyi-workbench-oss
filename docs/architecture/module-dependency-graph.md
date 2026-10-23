@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 95 | 3985 | 3627 | 675 | 67 | 0 | 1 |
+| 95 | 4005 | 3635 | 678 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -78,7 +78,7 @@
 | 60 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 61 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
 | 62 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
-| 63 | `12-tool-dispatch.js` | tools | 77 | 142 | 22 |
+| 63 | `12-tool-dispatch.js` | tools | 77 | 144 | 23 |
 | 64 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
 | 65 | `13-http-router.js` | transport | 70 | 280 | 36 |
 | 66 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
@@ -98,9 +98,9 @@
 | 80 | `13q-steward-runner-turn.js` | transport | 48 | 88 | 21 |
 | 81 | `13h-steward-runner.js` | transport | 7 | 50 | 13 |
 | 82 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
-| 83 | `13s-scheduler.js` | transport | 52 | 37 | 9 |
-| 84 | `13t-steward-schedule.js` | transport | 23 | 39 | 10 |
-| 85 | `13u-migration-center.js` | transport | 60 | 35 | 6 |
+| 83 | `13s-scheduler.js` | transport | 63 | 38 | 10 |
+| 84 | `13t-steward-schedule.js` | transport | 23 | 43 | 10 |
+| 85 | `13u-migration-center.js` | transport | 69 | 36 | 7 |
 | 86 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
 | 87 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
 | 88 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
@@ -404,8 +404,9 @@
 | `11b-file-text-io.js` | `00-boot.js` | backward | `cp`, `text` |
 | `11c-file-visual-io.js` | `00-boot.js` | backward | `cp`, `paths` |
 | `12-tool-dispatch.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `OVERLAY_ID`, `SKILL_ID_RE`, `TOOL_TIER_RANK`, `URL`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
-| `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `agentCliLauncherOk`, `commandForSelfMcp`, `defaultConfig`, `ensureDesktopMcpWarm`, `externalServerJs`, `normalizeConfig`, `readConfig`, `safeSessionId`, `selectedAgentCli`, `staticBase` |
+| `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `agentCliLauncherOk`, `atomicWriteJson`, `commandForSelfMcp`, `defaultConfig`, `ensureDesktopMcpWarm`, `externalServerJs`, `normalizeConfig`, `readConfig`, `safeSessionId`, `selectedAgentCli`, `staticBase` |
 | `12-tool-dispatch.js` | `01c-runtime-flags.js` | backward | `execResultCacheEnabled`, `execResultCacheMaxEntries`, `observationRecallEnabled` |
+| `12-tool-dispatch.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `12-tool-dispatch.js` | `02-session-store.js` | backward | `JOURNAL_KEEP_TURNS`, `JOURNAL_MAX_BEFORE_BYTES`, `SESSION_SCRATCHPAD_LIMITS`, `bridgedWriteRelativePathArg`, `journalDropEntries`, `journalReadIndex`, `journalRecord`, `journalRecordMany`, `journalRevertLogRead`, `journalSessionCtx`, `loadSession`, `normalizeMetaToolArgs`, `normalizeScratchpadKey`, `normalizeScratchpadText`, `normalizeTodoItems`, `readSessionScratchpad`, `scratchpadTotalChars`, `updateSessionScratchpad` |
 | `12-tool-dispatch.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf` |
 | `12-tool-dispatch.js` | `02f-turn-effect-kinds.js` | backward | `normalizeToolInvokeArgs` |
@@ -704,6 +705,7 @@
 | `13s-scheduler.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `URL`, `apiFailure`, `fs`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `safeDecodeURIComponent`, `text` |
 | `13s-scheduler.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readJsonBody`, `send` |
 | `13s-scheduler.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
+| `13s-scheduler.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13s-scheduler.js` | `02-session-store.js` | backward | `createSession`, `loadSession`, `repairMissionChangeTornTail`, `saveSession`, `updateSessionMeta` |
 | `13s-scheduler.js` | `04-permission-runtime.js` | backward | `logEvent`, `stopSession` |
 | `13s-scheduler.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `StewardHooks`, `stewardPermissionRank` |
@@ -719,9 +721,10 @@
 | `13t-steward-schedule.js` | `13j-steward-tool-base.js` | backward | `stewardAppendDecision`, `stewardFail`, `stewardRawKind`, `stewardReadSessionHead` |
 | `13t-steward-schedule.js` | `13k-steward-threads.js` | backward | `stewardCanonWorkspacePath`, `stewardDeriveThreadCwd`, `stewardUnattendedByModel`, `stewardValidateCwd` |
 | `13t-steward-schedule.js` | `13q-steward-runner-turn.js` | backward | `stewardEnsureOpenAiRoute` |
-| `13t-steward-schedule.js` | `13s-scheduler.js` | backward | `schedulerClockNow`, `schedulerEmitChanged`, `schedulerEnabled`, `schedulerEnsureTimer`, `schedulerLoad`, `schedulerReadFireRows`, `schedulerRunNow`, `schedulerRuntime`, `schedulerSaveTasks` |
+| `13t-steward-schedule.js` | `13s-scheduler.js` | backward | `schedulerClockNow`, `schedulerEmitChanged`, `schedulerEnabled`, `schedulerEnsureTimer`, `schedulerLoad`, `schedulerReadFireRows`, `schedulerRunNow`, `schedulerRuntime`, `schedulerSaveTasks`, `schedulerStorageFailure`, `schedulerTaskAdmission`, `schedulerTaskEncodingPreflight`, `schedulerTaskPayload` |
 | `13u-migration-center.js` | `00-boot.js` | backward | `MigrationHooks`, `SKILL_ID_RE`, `VERSION`, `agentCliHomes`, `crypto`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `installRegistryPath`, `nowIso`, `os`, `path`, `paths`, `readInstallRegistry`, `ruyiPackageInfo`, `safeJsonParse`, `samePathKey`, `text`, `tildePath` |
 | `13u-migration-center.js` | `01-config.js` | backward | `agentMcpImportSources`, `atomicWriteJson`, `classifyAgentMcpCandidate`, `generateMcpConfig`, `kimiMcpManagedIds`, `mutateConfig`, `readConfig` |
+| `13u-migration-center.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13u-migration-center.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
 | `13u-migration-center.js` | `04-permission-runtime.js` | backward | `_parseTomlMcpServers`, `_tomlKeyPath`, `logEvent`, `parseMcpConfigFile`, `safeUrlForDisplay` |
 | `13u-migration-center.js` | `05-claude-engine.js` | backward | `sanitizeExternalMcpServer` |

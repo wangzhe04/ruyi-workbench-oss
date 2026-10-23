@@ -511,11 +511,11 @@ async function runClaudeTurn({
         // P2-2: 传 onSourceMismatch —— 某技能的注册表来源与启用时锁定的 source 不一致(换 cwd 被顶替)→ 跳过注入并通知一次。
         const skillEntries = await resolveEnabledSkillEntries(session, config, workingDir, capsForSkills,
           (id, was, now) => { try { onEvent({ type: 'stderr', text: `[技能] 技能 ${id} 来源已变化(启用时为 ${was || '未知'},现为 ${now || '未知'}),已暂停注入,请在技能库重新启用。` }); } catch { /* 通知失败不阻断 */ } }
-        ).catch(() => []);
+        ).catch(error => { if (String(error?.code || '').startsWith('work_data')) throw error; return []; });
         const skillSec = buildSkillsPromptSection(skillEntries, 'claude', config);
         // 第35波 P2: 技能索引改走 stdin(indexSecs),不再经 cmd.exe 命令行 —— 无需 %/! 全角中和,原文注入保真。
         if (skillSec) indexSecs.push(skillSec);
-      } catch { /* 技能注入绝不可阻断回合 */ }
+      } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; /* ordinary skill injection errors remain optional */ }
     }
     // 108b 两引擎对称: Playbook 精简索引与技能索引同信道(stdin indexSecs)、同一段位置注入。与技能索引不同,
     // 它不受 session.skills 选择门控: playbook 是工作台级预置流程,始终列出可用项。空列表 -> 零注入。

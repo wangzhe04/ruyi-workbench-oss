@@ -1,0 +1,566 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "baselineCommit": "0f78d547",
+  "branch": "codex/3.1-completion-plan",
+  "applicationVersion": "3.0.1",
+  "nodeVersion": "v24.14.1",
+  "status": "accepted_adapter_slice_not_release",
+  "syntheticOnly": true,
+  "userDataChanged": false,
+  "adapterWired": 34,
+  "required": 41,
+  "remaining": [
+    "steward-inbox",
+    "steward-decisions",
+    "agent-run-events",
+    "scheduler-fires",
+    "background-job-ledger",
+    "audit-log",
+    "migration-skill-backups"
+  ],
+  "scope": [
+    "migration-log and final-id-bound skill-import-record",
+    "scheduler-tasks; existing owner chain for cold/warm reads, mutation and publication",
+    "sealed Playbook registry errors and stable API codes for new domain errors",
+    "Existing v1 backup retirement authenticates current data before deleting; full file stamp is only a cheap guard"
+  ],
+  "sourceHashes": [
+    {
+      "file": "ruyi-workbench/app/src/02-session-store.js",
+      "sha256": "89bc5f20070843eb346d7b95427db31aa85d32dbd22783da3ea0361b4e342663"
+    },
+    {
+      "file": "ruyi-workbench/app/src/05-claude-engine.js",
+      "sha256": "f10533985487d67885c3da2294f41e15392a55fa335d2bf172e35be75719208d"
+    },
+    {
+      "file": "ruyi-workbench/app/src/09-workflow.js",
+      "sha256": "c658426d8ac18d6e81a813b630d691791dc8911249073be4780e602feafe4c1c"
+    },
+    {
+      "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "ae7eb62349b95005c07c4ed338a67bba121c5ecc8cc505e72931f55e47e1dfcd"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "2bea765b05ec3280b10f8f1d6ff7026fc3fafff759c32e04afcd11044f9e94f3"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13l-steward-ops.js",
+      "sha256": "05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13s-scheduler.js",
+      "sha256": "cd87f59ce9797376f8342c353166225a573bbff6f99125255eca92c58695071f"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13t-steward-schedule.js",
+      "sha256": "be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13u-migration-center.js",
+      "sha256": "8488a7ac0ebfc7ca33ebd4f42c8034de9f740c97c9f35c47c1daba63d533902e"
+    },
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "243ee921b6b962b9f521cb7a1d59866f8c1bd411eb317b34cee8cdca860206a6"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "861abea9a9ee1a7fb1a3d42022cd5b2a70ed42455979bf5d237c74f7d9c62db7"
+    },
+    {
+      "file": "dev-harness/migration-records-work-data.e2e.js",
+      "sha256": "7b21da3233700a2d1abb25bee1810d90fdc20870def5bea155c26d3d839b4146"
+    },
+    {
+      "file": "dev-harness/scheduler-tasks-work-data.e2e.js",
+      "sha256": "d10855003329749f8e6698dffb387b1bfebf0cd67e8ed866407abea48aeb527f"
+    },
+    {
+      "file": "dev-harness/unit/migration-records-work-data.test.js",
+      "sha256": "5ac02b8bcaf7d057c0310329abdc731f9977ee0c5aae204113bf19786cc953f9"
+    },
+    {
+      "file": "dev-harness/unit/scheduler-tasks-work-data.test.js",
+      "sha256": "725222a11653b027080fd3f27392966dde700fd72ec2b2f2cab0731d5854423f"
+    },
+    {
+      "file": "dev-harness/unit/skill-registry-playbook-work-data.test.js",
+      "sha256": "5327828058bbb16d92d72cac6a52e4ea5d8c91afcd8afa4c9b2d02e30e9ba52f"
+    },
+    {
+      "file": "dev-harness/unit/session-artifacts-work-data.test.js",
+      "sha256": "7b66904f8173af5b25ed4959c332223623f9c137ecac0d34aaf7e99efb772cd9"
+    },
+    {
+      "file": "dev-harness/session-artifacts-work-data.e2e.js",
+      "sha256": "63ab9e1dfba5d3d6dea24d34bd9b9d243015ae6e76f16f36254d84098995ed14"
+    }
+  ],
+  "reviews": {
+    "migration": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\migration-review\\review-summary.json",
+      "sha256": "18bdcebcf165965fa8223a1d4c49c84c48becf22146a665bc525a1e6c86ad5fe"
+    },
+    "playbook": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\migration-review\\review-addendum-playbook.json",
+      "sha256": "b9bf41a38c89128fa1d7e23bfbcfa17fe0b5c804e79d58a3aeace7b51b90d26b"
+    },
+    "scheduler": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\scheduler-review\\review-summary.json",
+      "sha256": "4346a4ab2d01cc78025a76dbe4dc6c0cb9fae969afe70ed9426340ea45dfc260"
+    },
+    "finalApiCodeDelta": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\final-transport-review.json",
+      "sha256": "ba12dfa0a99d768d3313b9e6e995581f42e2924c743b35015cec474890427681"
+    },
+    "findings": [
+      "Legacy migration id did not bind its enumerated filename before effects; fixed with zero-modification negative case",
+      "Uncommitted scheduler GET and late cold-load publication could publish/discard tentative state; same owner chain now closes both",
+      "PATCH captured running state outside admission; registration/reconcile do not increment user revision. Merge moved inside owner; pause undo uses live committed state",
+      "Automatic registration revalidates enabled/ontime due after new async admission wait; manual/late semantics retained",
+      "New domain errors had code but no apiCode; exact apiCode added without changing 503/409 or existing missing-key 500",
+      "Full unit exposed a real inherited same-stamp backup deletion risk. Two independent native Windows probes reproduced changed bytes with identical full stat; fixed current-content reauthentication and pre/post-read proof consistency. Independent removals precisely fail2/1 original assertions."
+    ],
+    "negativeControls": "Independent source-only in-memory mutations precisely fail original disk, runtime state, undo, preturn, cold-load and automatic-admission assertions; raw report hashes link above. Earlier aa9b approval was superseded by later P2, not erased.",
+    "sessionRetirement": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\session-retirement-review.json",
+      "sha256": "e58bbfc5b87cbaf2a8377bd132476ad70038a3376115d5e6e51d89441d18a77f"
+    },
+    "documentation": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-token-memo-diagnosis-aba9d3a3a1bf4f4cb282774fcff3de92\\documentation-review.json",
+      "sha256": "bb1e7ee90d2224da450b72fac6ff503e509be6bd170aae2f664e70a9265b5a6d"
+    }
+  },
+  "validation": {
+    "syntax": {
+      "checked": 1199,
+      "fail": 0
+    },
+    "buildFresh": true,
+    "unit": {
+      "tests": 2925,
+      "pass": 2899,
+      "fail": 0,
+      "skip": 26,
+      "concurrency": 4
+    },
+    "statics": {
+      "pass": 80,
+      "fail": 1,
+      "flaky": 0,
+      "ran": 81,
+      "liveSkipped": 7
+    },
+    "generatorGraph": {
+      "modules": 95,
+      "edges": 678,
+      "stronglyConnectedComponents": 1,
+      "sccMemberCeiling": 31
+    },
+    "dpapi": [
+      {
+        "file": "scheduler-tasks-work-data.e2e.js",
+        "runs": [
+          {
+            "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\frozen-scheduler-tasks-work-data.e2e.js-run1.log",
+            "sha256": "e45c8441d8296836c139b3c92eccf9b93fe4553ba3c98d5156cbebcfd2419cf8",
+            "pass": 5,
+            "allPass": true
+          },
+          {
+            "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\frozen-scheduler-tasks-work-data.e2e.js-run2.log",
+            "sha256": "e45c8441d8296836c139b3c92eccf9b93fe4553ba3c98d5156cbebcfd2419cf8",
+            "pass": 5,
+            "allPass": true
+          }
+        ],
+        "runtimeIdentity": "Before02 retirement repair; runtime hash in first frozen failure identity. New final-runtime reruns after02 repair are recorded under retirement.finalRuntime."
+      },
+      {
+        "file": "migration-records-work-data.e2e.js",
+        "runs": [
+          {
+            "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\frozen-migration-records-work-data.e2e.js-run1.log",
+            "sha256": "42a922d28958da93a21c11c830f35c6671ba5c69feb3d3e18aeca2c187f629c2",
+            "pass": 8,
+            "allPass": true
+          },
+          {
+            "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\frozen-migration-records-work-data.e2e.js-run2.log",
+            "sha256": "42a922d28958da93a21c11c830f35c6671ba5c69feb3d3e18aeca2c187f629c2",
+            "pass": 8,
+            "allPass": true
+          }
+        ],
+        "runtimeIdentity": "Before02 retirement repair; runtime hash in first frozen failure identity. New final-runtime reruns after02 repair are recorded under retirement.finalRuntime."
+      }
+    ],
+    "legacyRelated": {
+      "cases": [
+        {
+          "file": "scheduler.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-scheduler.e2e.js.log",
+          "sha256": "c5604d418684146e5715556c5e7aeb9f4d67579000ad49e3ad12196158338840",
+          "allPass": true
+        },
+        {
+          "file": "scheduler-api.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-scheduler-api.e2e.js.log",
+          "sha256": "f57f913327517ea109cecf8c957fe5575f216779852d74e4bf968fe232199eb6",
+          "allPass": true
+        },
+        {
+          "file": "scheduler-reducer.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-scheduler-reducer.e2e.js.log",
+          "sha256": "469d104cfb9917b74134087f65c59b13b46adfa89e528d48340721af66c36476",
+          "allPass": true
+        },
+        {
+          "file": "scheduler-crash.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-scheduler-crash.e2e.js.log",
+          "sha256": "5791f194e86619ea5257fd4ee88824aefe7c953cc5821befdd094be6bece7b9e",
+          "allPass": true
+        },
+        {
+          "file": "scheduler-ready-queue.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-scheduler-ready-queue.e2e.js.log",
+          "sha256": "9c288386c12412fa5430fb4c4b7905e6e9542040bdb58e608150d4cb17521514",
+          "allPass": true
+        },
+        {
+          "file": "scheduler-steward.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-scheduler-steward.e2e.js.log",
+          "sha256": "453c070ddab6d78b97b06c599cfe6b001cb6f67c8e0bd6d7877d44c3f56b2dc9",
+          "allPass": true
+        },
+        {
+          "file": "skills-registry.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-skills-registry.e2e.js.log",
+          "sha256": "dd5047b6999fd3cad13c29d17f5edf6807c8810a76f5fa4ae6b97b7282aa072a",
+          "allPass": true
+        }
+      ],
+      "sourceIdentity": "These seven runs preceded the final apiCode-only field additions. Actual sendError tests, final DPAPI runs and full unit/static validate the final bytes; no scheduler business code changed afterwards."
+    },
+    "migrationLegacy": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\migration-legacy-e2e.log",
+      "sha256": "9443711c9faaaec604f5bc709844282959d9c13f154df7460669b30069bebb4b",
+      "allPass": true,
+      "sourceIdentity": "Initial migrated storage runtime, before adjacent Playbook/apiCode additions; final DPAPI and unit/static cover those later changes."
+    },
+    "completeDefaultE2E": {
+      "cases": 567,
+      "status": "not run"
+    },
+    "actualPackages": "not built or accepted",
+    "retirement": {
+      "native": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-retire-stamp-diagnosis-e2c5e82720604c79bc30b6b403c83892/native-stamps.json",
+          "sha256": "b9ac7c70a09bb2033999105082d38176d17fbcc6c76bd98c1d73b8c1e741f885"
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-retire-independent-1LXXQM/result.json",
+          "sha256": "d675ef2da812c0c6b05d3b96212419a8195edb788f7918b1cbae6312d403c74b"
+        }
+      ],
+      "unit": {
+        "tests": 19,
+        "pass": 19
+      },
+      "firstDpapi": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\retirement-session-artifacts-dpapi.log",
+        "sha256": "c6a0b26d9480f3f05c39faf3f407c81369810dcd3035d2ea34de30640af53689",
+        "pass": 7,
+        "allPass": true,
+        "fixtureIdentity": "f04619d4728c6984bdc2a56ceac89e631715950446c67f7d96e04fd2d6a91a98; subsequent change only clarifies metadata seam in header comment"
+      },
+      "finalRuntime": [
+        {
+          "file": "session-artifacts-work-data.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\retirement-final-session-artifacts-work-data.e2e.js.log",
+          "sha256": "c6a0b26d9480f3f05c39faf3f407c81369810dcd3035d2ea34de30640af53689",
+          "pass": 7,
+          "allPass": true
+        },
+        {
+          "file": "migration-records-work-data.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\retirement-final-migration-records-work-data.e2e.js.log",
+          "sha256": "42a922d28958da93a21c11c830f35c6671ba5c69feb3d3e18aeca2c187f629c2",
+          "pass": 8,
+          "allPass": true
+        },
+        {
+          "file": "scheduler-tasks-work-data.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\retirement-final-scheduler-tasks-work-data.e2e.js.log",
+          "sha256": "e45c8441d8296836c139b3c92eccf9b93fe4553ba3c98d5156cbebcfd2419cf8",
+          "pass": 5,
+          "allPass": true
+        },
+        {
+          "file": "session-index.e2e.js",
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\retirement-final-session-index.e2e.js.log",
+          "sha256": "a67b4fde195ac46bd8b9b5ccce4a1c0b4490349e638bb7980ad575420517008e",
+          "pass": 34,
+          "allPass": true
+        }
+      ]
+    },
+    "staticClosure": {
+      "previousStage": {
+        "pass": 80,
+        "fail": 1,
+        "flaky": 0,
+        "ran": 81,
+        "liveSkipped": 7
+      },
+      "failedCase": "eol-policy.static.e2e.js",
+      "finalTarget": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-eol-policy.log",
+        "sha256": "fd5b46b70328eb23ba7740c9b4e989ba63b0e19253c7732e7382de6bb2cf98fa",
+        "pass": 5,
+        "allPass": true
+      },
+      "closure": "80 static cases passed in the complete stage, sole failed EOL case passed targeted verification after worktree-only normalization; complete fast runner not rerun."
+    },
+    "afterTestEolNormalization": {
+      "unit": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-scheduler-eol-unit.log",
+        "sha256": "5a62d099070096a9f942fb3a13135228d94d5a8d28617e22e9ce1a8c58d0c028",
+        "tests": 24,
+        "pass": 24
+      },
+      "dpapi": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-scheduler-eol-dpapi.log",
+        "sha256": "e45c8441d8296836c139b3c92eccf9b93fe4553ba3c98d5156cbebcfd2419cf8",
+        "pass": 5,
+        "allPass": true
+      },
+      "sourceIdentity": "Product unchanged. Full2925 unit and81 static stage preceded EOL-only test normalization; two trailing blank E2E lines also removed for diff-check. Scheduler24 source tests and5 actual DPAPI groups rerun against final normalized test bytes. All1811 tracked text files pass EOL gate."
+    }
+  },
+  "firstIssues": [
+    {
+      "case": "migration DPAPI first",
+      "kind": "fixture assumption",
+      "detail": "Reader projection field order differs from legacy writer; expected record rebuilt in exact legacy writer order, strict byte assertion retained",
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\migration-dpapi-first.log",
+        "sha256": "9e6aac141091a810ce422bd9541f8ad8a087c6c0b0f1aa1279e25b292ffd89d9"
+      }
+    },
+    {
+      "case": "scheduler DPAPI first",
+      "kind": "fixture contract plus missing apiCode uncovered",
+      "detail": "New fixture incorrectly assumed key.absent has503. Actual shared sendError and WorkDataKeys preserve500; fixture now uses real sendError with exact500/code. New early errors missing apiCode were fixed in product, status unchanged.",
+      "log": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\scheduler-dpapi-first.log",
+        "sha256": "a44799d617d7db727e52c1ff8c4bbc7b00ef6c3ddf297e336e068d3f051a9a07"
+      }
+    },
+    {
+      "case": "skills-registry first",
+      "kind": "unexplained startup request timeout",
+      "detail": "First6000ms GET timed out after liveness; identical repeat and later related run pass. No product repair or assertion/timeout relaxation; original cause remains unknown.",
+      "first": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\skills-registry-e2e.log",
+        "sha256": "ce53f3a1689287e4623e662c822046745a477c99c9f415bae769196da0dd3d17"
+      },
+      "repeat": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\skills-registry-repeat.log",
+        "sha256": "11caebf09569ffa554e0b1c82dcd1547b4364b6a189b7d6209880ecacab4031c"
+      }
+    },
+    {
+      "case": "source fixtures",
+      "detail": "Preserved in independent/owner reports: missing Host/RUNTIME premise403; incomplete fsp seam; queue probes armed before blocker; repaired probe order before final proof."
+    },
+    {
+      "case": "first frozen full unit gate",
+      "kind": "inherited product data-retirement defect and timing-dependent fixture premise",
+      "tests": 2922,
+      "pass": 2895,
+      "skip": 26,
+      "fail": 1,
+      "statics": "not started",
+      "identity": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\first-frozen-failure-identity.json",
+        "sha256": "3967099e704b3a997d6022df9e53891c696034a5467cb510ce861c0aa3a35fed"
+      },
+      "logs": [
+        {
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\first-frozen-fast.log",
+          "sha256": "74ac384faeb5d9f3307b873d2328f92ccb13ef1084e8ef5ca8a1b312ce7f4bd9"
+        },
+        {
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\first-frozen-unit.log",
+          "sha256": "efbdc8f36c12e07ee34ee4d8583f15975033f2eed7120399df3d3ecdebb5f639"
+        }
+      ],
+      "detail": "Native same-size writes plus mtime restoration can preserve size|mtimeNs|ctimeNs|ino. Fix authenticates current shared-store contents before retirement, compares verified text/authStamp/stamp, rejects changed-during-read proof and retains final statguard. Old ctime test now fixes its premise; separate full-stamp tests preserve strict data assertions. This is not a cross-process CAS."
+    },
+    {
+      "case": "final frozen static stage",
+      "unit": {
+        "tests": 2925,
+        "pass": 2899,
+        "skip": 26,
+        "fail": 0
+      },
+      "statics": {
+        "pass": 80,
+        "fail": 1,
+        "flaky": 0,
+        "ran": 81
+      },
+      "failure": "eol-policy: previous regression evidence worktree had CRLF while declared LF",
+      "detail": "Normalized only CRLF to LF, JSON values unchanged and Git index already LF; no product/test assertions changed. Reverified the sole failed static after including all six new files in index inventory; did not repeat the full runner or unit suite for a worktree-only EOL repair.",
+      "repair": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\resume-evidence-eol-repair.json",
+        "sha256": "14ddf503e89e01a1d4d5837737739e82ea8e2663c44a26036cd87552eca3be75"
+      },
+      "rawFirst": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\resume-evidence-first-crlf.json",
+        "sha256": "693c350172f0e4f028db16dc0999962e8c77991e74badc79b2e72002b60afbbd"
+      },
+      "final": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-eol-policy.log",
+        "sha256": "fd5b46b70328eb23ba7740c9b4e989ba63b0e19253c7732e7382de6bb2cf98fa"
+      },
+      "newFileInventory": {
+        "first": {
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\first-new-files-eol-policy.log",
+          "sha256": "553c5ba0801d44cc6ba79f1d825240864e3a2c8521eea0ac342354639f090ebb"
+        },
+        "detail": "After adding all six new files to the index inventory, two scheduler tests had mixed EOL. Exact CRLF-to-LF conversion only; original raw files and before/after hashes retained.",
+        "repair": {
+          "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\scheduler-test-eol-repair.json",
+          "sha256": "e2f3ef2e92be5a5222dba74ce7c513b4b6c9ef41f006226be02587fa79ceb05d"
+        }
+      }
+    }
+  ],
+  "egress": {
+    "sources": 280,
+    "candidates": 688,
+    "beforeErrorCount": 76,
+    "remainingErrorCount": 76,
+    "newErrorIds": [],
+    "globalAuditPassed": false,
+    "scopedDelta": {
+      "added": [],
+      "removed": [
+        "ruyi-workbench/app/src/13u-migration-center.js#migrationCopyOneSkill#writeFile#1"
+      ],
+      "changed": [
+        "ruyi-workbench/app/src/13u-migration-center.js#migrationBackup#copyFile#1"
+      ]
+    },
+    "acceptedFreshSources": [
+      "ruyi-workbench/app/src/13u-migration-center.js",
+      "ruyi-workbench/app/src/13s-scheduler.js",
+      "ruyi-workbench/app/src/13t-steward-schedule.js"
+    ],
+    "limits": "Same76 pre-existing error IDs remain. Do not accept older stale05/09/12/13/13l or claim global audit closure.",
+    "report": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\egress-scoped-final.json",
+      "sha256": "66dadb13d17f0944f65629d6bb46d04c10394db3d9f923931c4af8f9d07be45d"
+    },
+    "retirementDelta": {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\retirement-egress-delta.json",
+      "sha256": "2018742ae0fe3c14d3a8f9543fca1c09431e7b31692972beff8e18a22e7f576b"
+    }
+  },
+  "sourceGrowth": {
+    "handMaintainedProduct": {
+      "added": 666,
+      "deleted": 365,
+      "files": [
+        "ruyi-workbench/app/src/02-session-store.js",
+        "ruyi-workbench/app/src/05-claude-engine.js",
+        "ruyi-workbench/app/src/09-workflow.js",
+        "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "ruyi-workbench/app/src/13-http-router.js",
+        "ruyi-workbench/app/src/13l-steward-ops.js",
+        "ruyi-workbench/app/src/13s-scheduler.js",
+        "ruyi-workbench/app/src/13t-steward-schedule.js",
+        "ruyi-workbench/app/src/13u-migration-center.js"
+      ],
+      "net": 301
+    },
+    "tests": {
+      "added": 1021,
+      "deleted": 0,
+      "files": [
+        "dev-harness/migration-records-work-data.e2e.js",
+        "dev-harness/scheduler-tasks-work-data.e2e.js",
+        "dev-harness/unit/migration-records-work-data.test.js",
+        "dev-harness/unit/scheduler-tasks-work-data.test.js",
+        "dev-harness/unit/skill-registry-playbook-work-data.test.js"
+      ]
+    },
+    "generated": {
+      "added": 1243,
+      "deleted": 636,
+      "files": [
+        "docs/architecture/durable-state-inventory.json",
+        "docs/architecture/durable-state-inventory.md",
+        "docs/architecture/encrypted-storage-freeze.json",
+        "docs/architecture/encrypted-storage-freeze.md",
+        "docs/architecture/module-dependency-graph.json",
+        "docs/architecture/module-dependency-graph.md",
+        "docs/architecture/privacy-egress-inventory.json",
+        "docs/architecture/privacy-egress-inventory.md",
+        "docs/architecture/route-inventory.json",
+        "docs/architecture/route-inventory.md",
+        "facts.json",
+        "ruyi-workbench/app/server.js",
+        "ruyi-workbench/app/src/manifest.json",
+        "ruyi-workbench/app/src/module-contracts.json"
+      ]
+    },
+    "note": "Generated server duplicates source and is counted separately. Net+301 hand-maintained product lines implement three domain adapters/owner ordering and a backup-retirement repair; no general deduplication or slimming claim. No new runtime module or npm dependency.",
+    "modifiedExistingTests": {
+      "added": 104,
+      "deleted": 6,
+      "files": [
+        "dev-harness/session-artifacts-work-data.e2e.js",
+        "dev-harness/unit/session-artifacts-work-data.test.js"
+      ]
+    }
+  },
+  "logs": [
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\final-generators.log",
+      "sha256": "1b83bfd59fbe39c57fd83732af3ce3f6ad0de0fb39d6c4f96107bec607f8a24c"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\frozen-syntax.log",
+      "sha256": "330dfc8cd56062aaeb77f45bddec9fa476e968535398adaed64397712a9c259e"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\frozen-fast.log",
+      "sha256": "2e3b1f50dd6da05ae6528603447469e648a4f557400d1ae9e30d498b1185b2a7"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\frozen-unit.log",
+      "sha256": "4b397860adf546e5fcfa7b715b471fdc81227c043d49b02613126445612281eb"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi31-resume-gates-20261023\\egress-final-check.log",
+      "sha256": "a91edbf5cdc779a19e86264fe621bd7499184c76a24a47d8c05598eed08cbef3"
+    }
+  ],
+  "limits": [
+    "Adapters only; no real user data migration, enable UI, recovery package or cross-file rotation transaction",
+    "Migration preflight and partial receipt are not cross-file atomicity; orphan-stage cleanup may precede later invalid-provenance scan while live/backup/external targets remain protected",
+    "Fires/background ledger and the other listed families still unsealed; seven remain",
+    "M3-3/M3-4, M4 media, M5/M6 remain; strict CLI/VM and ASR explicit deferrals unchanged",
+    "No live provider/platform sends, actual release-package acceptance, push, PR or publication",
+    "Missing-key HTTP500 is existing error contract, not newly claimed503; blocked reads/mutations retain data and fail closed",
+    "Backup reauthentication closes observed unchanged-stamp deletion, but final stat/unlink cannot provide cross-process compare-and-swap against a concurrent external writer."
+  ]
+}
