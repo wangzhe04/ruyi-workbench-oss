@@ -68,7 +68,10 @@
     "steward-inbox",
     "steward-decisions",
     "agent-run-events",
-    "scheduler-fires"
+    "scheduler-fires",
+    "background-job-ledger",
+    "audit-log",
+    "migration-skill-backups"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -485,7 +488,7 @@
         }
       ],
       "reason": "job output and exit detail",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "personal-workflows",
@@ -591,7 +594,7 @@
         }
       ],
       "reason": "event detail carries tool names, commands and paths",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "migration-log",
@@ -619,7 +622,7 @@
         }
       ],
       "reason": "verbatim user skill copies",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "skill-import-record",

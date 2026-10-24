@@ -17,9 +17,9 @@ const path = require('path');
 const fs = require('fs');
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-unit-wake-w3-'));
-process.env.RUYI_HOME = home;
-process.env.HOME = home;
-process.env.USERPROFILE = home;
+const candidateServer = process.env.RUYI_TEST_SERVER_JS;
+Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(home, 'home'), home));
+if (candidateServer) process.env.RUYI_TEST_SERVER_JS = candidateServer;
 const { loadServerInternals } = require('../lib/server-internals');
 const { startFakeProvider, textFrames } = require('../lib/fake-openai-provider');
 const I = loadServerInternals([
@@ -27,7 +27,7 @@ const I = loadServerInternals([
   'agentWakeMessage', 'agentWakeChain', 'agentWakeTimers', 'activeAgentRuns', 'runAgentWake', 'runSessionTurn',
   'stewardSourceUserTexts', 'draftPlaybookFromSession', 'draftMemoryFromSession', 'memoryProposalPrefilter', 'sessionSearchRowIsNoise',
   'stewardImplThreadRead', 'runProviderCompact', 'buildOpenAiTools', 'buildStableSystemPrompt', 'calibratedEstimate', 'estimateHistoryTokens',
-  'sessionDesktopToolsOf', 'normalizeCwd', 'scheduleAgentWakesAtBoot', 'turnSettlers', 'killAllMcpClients',
+  'sessionDesktopToolsOf', 'normalizeCwd', 'scheduleAgentWakesAtBoot', 'turnSettlers', 'killAllMcpClients', 'withBackgroundJobOperation', 'flushWorkbenchLogs',
 ], { withEval: true });
 const { EventStreamHooks } = I;
 
@@ -42,7 +42,7 @@ const writeConfig = (extra = {}, providerExtra = {}) => fs.writeFileSync(path.jo
   ...extra,
 }));
 const ledgerFile = sid => path.join(I.paths.sessions, 'background-jobs', sid + '.json');
-const writeLedger = (sid, rows) => { fs.mkdirSync(path.dirname(ledgerFile(sid)), { recursive: true }); fs.writeFileSync(ledgerFile(sid), JSON.stringify(rows)); };
+const writeLedger = (sid, rows) => I.withBackgroundJobOperation(sid, operation => operation.write(rows));
 const agentRow = (sid, runId, extra = {}) => ({ id: 'agent:' + runId, kind: 'agent', runId, shellId: runId, name: '任务 ' + runId, sessionId: sid, status: 'succeeded', exitCode: 0, output: '{}', truncated: false, completedAt: iso(Date.now()), ...extra });
 const now = () => new Date().toISOString();
 
@@ -62,6 +62,7 @@ after(async () => {
   clearWakeTimers();
   I.killAllMcpClients();   // 回合起手会探测桥接 MCP:不收掉它们的子进程,测试进程退不出去
   if (fake) await fake.close();
+  await I.flushWorkbenchLogs({ allowFailure: true });
   fs.rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
@@ -80,8 +81,8 @@ describe('P1 ledger wake mark follows who launched the run', () => {
     const session = await I.createSession({ title: 'p1', cwd: home });
     const envelope = { ok: true, status: 'succeeded', nodes: [] };
     const base = { status: 'succeeded', nodes: [], completedAt: iso(Date.now()) };
-    EventStreamHooks.notifyAgentRunEnvelope(session.id, { ...base, id: 'run_ui_p1', title: '面板跑的', background: true, launchedByModel: false }, envelope);
-    EventStreamHooks.notifyAgentRunEnvelope(session.id, { ...base, id: 'run_model_p1', title: '模型起的', background: true, launchedByModel: true }, envelope);
+    await EventStreamHooks.notifyAgentRunEnvelope(session.id, { ...base, id: 'run_ui_p1', title: '面板跑的', background: true, launchedByModel: false }, envelope);
+    await EventStreamHooks.notifyAgentRunEnvelope(session.id, { ...base, id: 'run_model_p1', title: '模型起的', background: true, launchedByModel: true }, envelope);
     clearWakeTimers();
     const rows = JSON.parse(fs.readFileSync(ledgerFile(session.id), 'utf8'));
     const ui = rows.find(r => r.runId === 'run_ui_p1');
@@ -89,7 +90,7 @@ describe('P1 ledger wake mark follows who launched the run', () => {
     assert.ok(ui && model, 'both envelopes reach the ledger (UI runs still deliver normally)');
     assert.ok(!ui.wakeParent, 'UI-launched row carries no wake mark: ' + JSON.stringify(ui));
     assert.equal(model.wakeParent, true, 'model-launched row carries the wake mark');
-    const pending = EventStreamHooks.pendingAgentWakeJobs(await I.loadSession(session.id)).map(job => job.runId);
+    const pending = (await EventStreamHooks.pendingAgentWakeJobs(await I.loadSession(session.id))).map(job => job.runId);
     assert.deepEqual(pending, ['run_model_p1']);
   });
 });
@@ -128,14 +129,14 @@ describe('C1 wake chain rollback', () => {
   }
   it('a wake that loses to a user turn does not write the old chain count back over the user\'s reset', async () => {
     const session = await I.createSession({ title: 'c1', cwd: home });
-    writeLedger(session.id, [agentRow(session.id, 'run_c1', { background: true, wakeParent: true })]);
+    await writeLedger(session.id, [agentRow(session.id, 'run_c1', { background: true, wakeParent: true })]);
     I.agentWakeChain.set(session.id, 5);
     await wakeLosingTo409(session, { userClearsChain: true });
     assert.ok(!I.agentWakeChain.get(session.id), 'the user turn reset the chain; got ' + I.agentWakeChain.get(session.id));
   });
   it('control: a 409 from a turn that did not touch the chain still gives the wake\'s own increment back', async () => {
     const session = await I.createSession({ title: 'c1b', cwd: home });
-    writeLedger(session.id, [agentRow(session.id, 'run_c1b', { background: true, wakeParent: true })]);
+    await writeLedger(session.id, [agentRow(session.id, 'run_c1b', { background: true, wakeParent: true })]);
     I.agentWakeChain.set(session.id, 2);
     await wakeLosingTo409(session, { userClearsChain: false });
     assert.equal(I.agentWakeChain.get(session.id), 2);
@@ -165,14 +166,14 @@ describe('U1 rewind / stop suppression', () => {
   it('onSessionRewound suppresses the wake until a non-wake turn starts', async () => {
     assert.equal(typeof EventStreamHooks.onSessionRewound, 'function', 'the rewind hook exists');
     const session = await I.createSession({ title: 'u1', cwd: home });
-    writeLedger(session.id, [agentRow(session.id, 'run_u1', { background: true, wakeParent: true })]);
+    await writeLedger(session.id, [agentRow(session.id, 'run_u1', { background: true, wakeParent: true })]);
     EventStreamHooks.onSessionRewound({ sessionId: session.id, discardedTurnSeqs: new Set([5]) });
     const skipped = await I.runAgentWake(session.id, 'test');
     assert.equal(skipped.skipped, 'user_stopped', JSON.stringify(skipped && { ok: skipped.ok, skipped: skipped.skipped }));
     // 用户重新说话(非唤醒回合起手)清掉表;信封仍在账本里,这一回合的迭代边界把它收走。
     await I.runSessionTurn({ sessionId: session.id, message: '我回来了', source: 'http', onEvent: () => {} });
     clearWakeTimers();
-    writeLedger(session.id, [agentRow(session.id, 'run_u1b', { background: true, wakeParent: true })]);   // 用户回合之后又落了一份新信封
+    await writeLedger(session.id, [agentRow(session.id, 'run_u1b', { background: true, wakeParent: true })]);   // 用户回合之后又落了一份新信封
     const afterUser = await I.runAgentWake(session.id, 'test');
     assert.equal(afterUser.ok, true, 'cleared by the user turn, the next envelope wakes normally: ' + JSON.stringify({ ok: afterUser.ok, skipped: afterUser.skipped }));
     if (afterUser.turn) await afterUser.turn.catch(() => {});
@@ -302,12 +303,12 @@ describe('B1 boot scan of the background-job ledger', () => {
     fs.rmSync(path.dirname(ledgerFile('x')), { recursive: true, force: true });   // 只留这一件自己造的账本
     const since = Date.now() - 6 * 3600 * 1000;
     const recent = iso(Date.now() - 60 * 1000);
-    const mk = (sid, rows, ageMs) => { writeLedger(sid, rows); if (ageMs) { const t = new Date(Date.now() - ageMs); fs.utimesSync(ledgerFile(sid), t, t); } };
+    const mk = async (sid, rows, ageMs) => { await writeLedger(sid, rows); if (ageMs) { const t = new Date(Date.now() - ageMs); fs.utimesSync(ledgerFile(sid), t, t); } };
     const row = (sid, runId, extra) => agentRow(sid, runId, { background: true, completedAt: recent, ...extra });
-    mk('sess_b1fresh00000001', [row('sess_b1fresh00000001', 'run_fresh', { wakeParent: true })], 0);
-    mk('sess_b1stale00000002', [row('sess_b1stale00000002', 'run_stale', { wakeParent: true })], 3 * 24 * 3600 * 1000);   // 文件太旧:不该被读
-    mk('sess_b1olddone0000003', [row('sess_b1olddone0000003', 'run_old', { wakeParent: true, completedAt: iso(Date.now() - 3 * 24 * 3600 * 1000) })], 0);   // 行太旧
-    mk('sess_b1uiasync0000004', [row('sess_b1uiasync0000004', 'run_ui')], 0);   // 面板起的:没有 wakeParent
+    await mk('sess_b1fresh00000001', [row('sess_b1fresh00000001', 'run_fresh', { wakeParent: true })], 0);
+    await mk('sess_b1stale00000002', [row('sess_b1stale00000002', 'run_stale', { wakeParent: true })], 3 * 24 * 3600 * 1000);   // 文件太旧:不该被读
+    await mk('sess_b1olddone0000003', [row('sess_b1olddone0000003', 'run_old', { wakeParent: true, completedAt: iso(Date.now() - 3 * 24 * 3600 * 1000) })], 0);   // 行太旧
+    await mk('sess_b1uiasync0000004', [row('sess_b1uiasync0000004', 'run_ui')], 0);   // 面板起的:没有 wakeParent
     fs.writeFileSync(ledgerFile('sess_b1corrupt000005'), '{ not json');
     const pending = EventStreamHooks.recentBackgroundAgentJobSessions(since);
     assert.equal(typeof pending.then, 'function', 'asynchronous: boot does not block on it');

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-23T16:18:00.856Z",
+  "generatedAt": "2026-10-24T02:37:11.695Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2346,6 +2346,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\audit-log-work-data.e2e.js",
         "dev-harness\\monitor-incremental.e2e.js"
       ]
     },
@@ -2460,6 +2461,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\audit-log-work-data.e2e.js",
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\ui-misc-wave1.browser.e2e.js"
       ]
@@ -2522,6 +2524,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\audit-desktop-records.e2e.js",
+        "dev-harness\\audit-log-work-data.e2e.js",
         "dev-harness\\audit.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\autonomy-grant.e2e.js",
@@ -2922,6 +2925,7 @@
       "domain": "13ab-privacy-api.js",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\audit-log-work-data.e2e.js",
         "dev-harness\\privacy-clipboard-copy.e2e.js",
         "dev-harness\\privacy-mermaid-export.e2e.js",
         "dev-harness\\privacy-text-export.e2e.js",
@@ -3758,6 +3762,7 @@
         "dev-harness\\autonomy-grant.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
         "dev-harness\\background-completion.e2e.js",
+        "dev-harness\\background-ledger-work-data.e2e.js",
         "dev-harness\\batch-output-discipline.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\bridge-cancel-timeout.e2e.js",
@@ -4055,6 +4060,7 @@
         "dev-harness\\autonomy-grant.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
         "dev-harness\\background-completion.e2e.js",
+        "dev-harness\\background-ledger-work-data.e2e.js",
         "dev-harness\\batch-output-discipline.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
         "dev-harness\\bridge-cancel-timeout.e2e.js",
@@ -4340,6 +4346,7 @@
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\autocompact.e2e.js",
         "dev-harness\\background-completion.e2e.js",
+        "dev-harness\\background-ledger-work-data.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",

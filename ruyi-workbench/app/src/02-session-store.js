@@ -2274,7 +2274,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     proposalSessionId ? fsp.unlink(path.join(paths.generated, `workbench.mcp.${proposalSessionId}.json`)).catch(() => {}) : Promise.resolve(),
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
     // hunt2 #19:后台任务账本(11 backgroundJobFile,同一 safeSessionId 闸)—— 含命令输出/代理信封,随会话一起删。
-    proposalSessionId ? fsp.unlink(path.join(paths.sessions, 'background-jobs', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
+    proposalSessionId ? (EventStreamHooks.deleteBackgroundJobs ? EventStreamHooks.deleteBackgroundJobs(proposalSessionId) : fsp.unlink(path.join(paths.sessions, 'background-jobs', proposalSessionId + '.json')).catch(() => {})) : Promise.resolve(),
   ]);
   await removeSessionToolImages(id);
   dropSessionBodyState(id);
@@ -3946,7 +3946,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
   }
   // 账本合并只往 messages 末尾追加(11 的实现:按 backgroundJobId 去重后 push),从不改已有条目 ——
   // 增量取的字节戳(sessionMessagesDelta 的 body)依赖这一点:盘上那 count 条之后的才逐条序列化。
-  if (EventStreamHooks.mergeBackgroundJobs) EventStreamHooks.mergeBackgroundJobs(session);
+  if (EventStreamHooks.mergeBackgroundJobs) await EventStreamHooks.mergeBackgroundJobs(session);
   if (lite) Object.defineProperty(session, '__providerHistoryOmitted', { value: lite.omitted, enumerable: false, configurable: true });
   return session;
 }
@@ -4086,7 +4086,7 @@ async function saveSession(session, opts) {
   // 不读 provider 正文的装载视图(SESSION_LOAD_OMIT_PROVIDER)给出的对象 providerHistory 是占位的 [] —— 落盘就是把真历史清空。
   if (sessionOmittedProviderHistory(session)) throw new Error('refusing to save a session loaded without its provider history');
   await ensureDirs();
-  if (EventStreamHooks.mergeBackgroundJobs) EventStreamHooks.mergeBackgroundJobs(session);
+  if (EventStreamHooks.mergeBackgroundJobs) await EventStreamHooks.mergeBackgroundJobs(session);
   // opts.keepUpdatedAt —— 只有装载回写(补默认字段 load_normalize / 惰性清理残留段 / 懒迁移 load_migrate /
   // v1bak 回退)传:它们不是这条会话的新活动,不许推 updatedAt。修前「打开看一眼」就把会话顶到列表最上面
   // (列表、任务行、搜索命中都按 updatedAt 排)。头上没有可用的旧值才照常取现在。真编辑一律不传,照旧推。
@@ -5431,7 +5431,7 @@ async function journalRollback(sessionId, turnSeq, entrySeq, operation = null, p
   return withJournalWriteLock(sessionId, () => withJournalArtifactOperation(scope =>
     journalRollbackContents(sessionId, turnSeq, entrySeq, scope, preparedBefore), operation));
 }
-async function journalRollbackContents(sessionId, turnSeq, entrySeq, operation, preparedBefore) {
+async function journalRollbackContents(sessionId, turnSeq, entrySeq, operation, preparedBefore, preparedGuardSession) {
   const dir = journalDir(sessionId);
   const index = await journalReadIndex(sessionId, operation);
   const tSeq = Number(turnSeq);
@@ -5450,7 +5450,10 @@ async function journalRollbackContents(sessionId, turnSeq, entrySeq, operation, 
   // 的 rootSet:'read' 注),权限档按会话当前的有效档位(宽写档下工作区外的合法条目照样能回滚)。不过闸的条目
   // 不动盘、记进 failed(原因 path-denied),其余照常回滚;它们留在索引里。序号不是整数的条目同样拒(.gz 文件名由它拼)。
   let guardSession = null, guardConfig = null;
-  try { guardSession = await loadSession(sessionId); } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; guardSession = null; }
+  // Rewind already loaded this authoritative view before taking the receipt owner.
+  // Loading it again would recursively merge the same ledger and deadlock its chain.
+  if (preparedGuardSession?.id === sessionId) guardSession = preparedGuardSession;
+  else try { guardSession = await loadSession(sessionId); } catch (error) { if (sessionHeadIsWorkDataError(error)) throw error; guardSession = null; }
   try { guardConfig = await readConfig(); } catch { guardConfig = {}; }
   const guardCtx = {
     session: guardSession, config: guardConfig,
@@ -5801,6 +5804,9 @@ async function rewindSessionArtifactContents(sessionId, targetTurnSeq, rollbackF
   // 用户看到「文件已回滚」会以为磁盘复原了,实际改动原封不动留着。这里把第二种如实说出来,
   // 让上层能在提示旁边补一句「以下回合的文件改动未被追踪,可能没有被撤销」。只加字段,不改行为。
   const filesReverted = [], filesFailed = [], turnsWithoutCheckpoint = [];
+  const removedTurns = messages.length - cutIndex;
+  const removedJobIds = messages.slice(cutIndex).map(m => m && m.backgroundJobId).filter(Boolean);
+  const rollbackDiscardedFiles = async () => {
   await journalRevertLogRead(sessionId, operation);
   await journalAssertWritable(sessionId, ['head', 'reverts'], operation);
   let preparedBefore = null;
@@ -5813,7 +5819,8 @@ async function rewindSessionArtifactContents(sessionId, targetTurnSeq, rollbackF
     const seqs = [...discarded].sort((a, b) => b - a); // newest first
     for (const s of seqs) {
       try {
-        const r = await journalRollback(sessionId, s, undefined, operation, preparedBefore); // whole-turn rollback
+        // The outer rewind already owns J before admitting the receipt owner L.
+        const r = await journalRollbackContents(sessionId, s, undefined, operation, preparedBefore, session);
         if (r && Array.isArray(r.reverted)) for (const x of r.reverted) filesReverted.push(x);
         if (r && Array.isArray(r.failed)) for (const x of r.failed) filesFailed.push(x);
         if (r && r.ok === false && r.error === 'no entries') turnsWithoutCheckpoint.push(s);
@@ -5822,10 +5829,19 @@ async function rewindSessionArtifactContents(sessionId, targetTurnSeq, rollbackF
     turnsWithoutCheckpoint.sort((a, b) => a - b);
   }
 
-  const removedTurns = messages.length - cutIndex; // message count removed (user + all following)
-  // hunt2 #12:被截掉的后台任务回执从账本里删掉,否则下面这一存的 mergeBackgroundJobs 会把它们原样追加回来。
-  const removedJobIds = messages.slice(cutIndex).map(m => m && m.backgroundJobId).filter(Boolean);
-  if (removedJobIds.length && EventStreamHooks.forgetBackgroundJobs) EventStreamHooks.forgetBackgroundJobs(sessionId, removedJobIds);
+  };
+  // Authenticate/admit the ledger before any file rollback. A failed ledger replacement
+  // leaves the persisted chat intact; never publish a successful rewind or replay file effects.
+  // Match ordinary checkpoint rollback's lock order J → ledger. Never take J while
+  // holding the ledger: its guard-session read also merges receipts.
+  await withJournalWriteLock(sessionId, async () => {
+    if (EventStreamHooks.rewindBackgroundJobs) await EventStreamHooks.rewindBackgroundJobs(sessionId, removedJobIds, rollbackDiscardedFiles);
+    else {
+      await rollbackDiscardedFiles();
+      if (removedJobIds.length && EventStreamHooks.forgetBackgroundJobs) await EventStreamHooks.forgetBackgroundJobs(sessionId, removedJobIds);
+    }
+  });
+
   session.messages = messages.slice(0, cutIndex);
   // providerHistory cleared — lazy-reseed rebuilds it on the next turn (see block comment above).
   session.providerHistory = [];

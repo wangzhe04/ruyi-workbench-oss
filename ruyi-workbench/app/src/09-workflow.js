@@ -502,12 +502,12 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       return { ok: true, poolId: item.id, status: item.status, note };
     } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
   };
-  const sendToAgentImpl = (senderId, args) => {
+  const sendToAgentImpl = async (senderId, args) => {
     try {
       if (args && args.action != null && !['send', 'status', 'list'].includes(args.action)) return { ok: false, error: 'unknown mail action' };
       if (args && (args.targetSessionId != null || (args.runId != null && args.runId !== run.id))) return { ok: false, reason: 'target_scope', error: 'child mail is limited to its own run' };
       if (args && args.action === 'list') return { ok: true, snapshot: true, runs: [agentRunRoster(run, true)], note: 'Snapshot only; queued nodes can receive queued mail. Sending rechecks eligibility; idle parent mail waits for its next model call.' };
-      if (args && args.action === 'status') return ownAgentMessageReceipt(run, senderId, args.messageId);
+      if (args && args.action === 'status') return await ownAgentMessageReceipt(run, senderId, args.messageId);
       if (runtime.closing || runtime.stopRequested || (runtime.ctrl && runtime.ctrl.signal.aborted)) return { ok: false, reason: 'run_closing', error: '工作流正在收尾,无法再发送消息' };
       if (!Array.isArray(run.messages)) run.messages = [];
       const target = String(args && (args.targetNodeKey != null ? args.targetNodeKey : args.target) || '').trim().slice(0, 64);
@@ -525,7 +525,13 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const entry = { id: makeId('msg').replace('_', '-'), sender: senderId, target, text, deliveredAt: null, dropped: false, createdAt: nowIso() };
       run.messages.push(entry);
       if (target === 'parent') {
-        const queued = EventStreamHooks.notifyAgentMessage && EventStreamHooks.notifyAgentMessage({ sessionId: run.sessionId, sourceSessionId: run.sessionId, runId, nodeId: senderId, messageId: entry.id, text });
+        let queued;
+        try { queued = EventStreamHooks.notifyAgentMessage && await EventStreamHooks.notifyAgentMessage({ sessionId: run.sessionId, sourceSessionId: run.sessionId, runId, nodeId: senderId, messageId: entry.id, text }); }
+        catch (error) {
+          entry.dropped = true; entry.dropReason = String(error?.code || 'parent_unavailable'); entry.droppedAt = nowIso();
+          try { throttledSaveRun(); } catch {}
+          throw error;
+        }
         if (!queued) { entry.dropped = true; entry.dropReason = 'parent_unavailable'; entry.droppedAt = nowIso(); }
         try { throttledSaveRun(); } catch {}
         return { ok: !!queued, messageId: entry.id, status: queued ? 'queued' : 'undeliverable', delivered: false, note: queued ? '已入队，主会话下次模型调用前投递；空闲时不会自动唤醒。' : '主会话无法接收消息。' };
@@ -1208,7 +1214,7 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal, o
     // hunt3:不存在的 runId(读不到 = null)没有什么可等 —— 修前 `row && !row.live` 把它算成「未结算」,
     // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(现在最长 5 分钟)。只有【活的】 run 才值得等。
     const settled = rows.every(row => !row || !row.live);
-    messageReady = !!(EventStreamHooks.pendingAgentMessages && EventStreamHooks.pendingAgentMessages(sessionId));
+    messageReady = !!(EventStreamHooks.pendingAgentMessages && await EventStreamHooks.pendingAgentMessages(sessionId));
     if (settled || messageReady || Date.now() >= deadline || (signal && signal.aborted)) break;
     if (typeof onWaiting === 'function') { try { onWaiting(); } catch { /* 心跳回调失败不影响等待 */ } }   // 等待中的父回合不是「空闲」:调用方借此刷新自己的看门狗时钟
     await new Promise(resolve => {
@@ -1276,7 +1282,7 @@ async function deliverAgentRunEnvelope(sessionId, run) {
   if (run && run.cancelledByRewind === true) return;
   try {
     const envelope = buildAgentRunEnvelope(run);
-    if (EventStreamHooks.notifyAgentRunEnvelope) EventStreamHooks.notifyAgentRunEnvelope(sessionId, run, envelope);
+    if (EventStreamHooks.notifyAgentRunEnvelope) await EventStreamHooks.notifyAgentRunEnvelope(sessionId, run, envelope);
   } catch (e) { logEvent({ kind: 'agent_envelope_deliver_error', sessionId, runId: run && run.id, error: String(e && e.message || e) }); }
 }
 // 旧 spawn_agent 调用 → 单节点 orchestrate 参数(dependsOn 在单节点里无意义,提示改为一次 orchestrate 的 nodes)。
@@ -1314,7 +1320,7 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   // an all-Claude-engine run resumes fine with none (see the dual-engine note on the launch handler).
   const needsProvider = (Array.isArray(run.nodes) ? run.nodes : []).some(n => (n.engine || 'openai') === 'openai');
   if (needsProvider && !provider) return { ok: false, error: '当前没有可用的 Provider，无法恢复工作流（该运行含 OpenAI 引擎节点）' };
-  const parentSession = await loadSession(sessionId).catch(() => null);
+  const parentSession = await loadSession(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; });
   if (!parentSession) return { ok: false, error: 'session not found' };
   const onEvent = () => {}; // management UI polls persisted state; no chat stream is required
   // 回「已受理」之前先等到这次运行登记进 activeAgentRuns(或者它在登记前就退出了)。修前是发起就回:runAgentWorkflow
@@ -2746,7 +2752,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to build carries the user's mid-turn instruction. Pairing-safe here: the
       // previous iteration's tool batch (if any) pushed all its role:'tool' replies before `continue`.
       await drainSteerQueue(reg, session, onEvent);
-      if (EventStreamHooks.drainBackgroundJobs) EventStreamHooks.drainBackgroundJobs(session);
+      if (EventStreamHooks.drainBackgroundJobs) await EventStreamHooks.drainBackgroundJobs(session);
       await refreshMemoryPromptScope();
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
@@ -3315,15 +3321,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 } else resultObj = { ok: true, snapshot: true, runs: [...activeAgentRuns.values()].filter(r => r.run.sessionId === session.id).map(r => agentRunRoster(r.run)) };
               } else if (args.action === 'status') {
                 if (args.targetSessionId != null) {
-                  resultObj = EventStreamHooks.agentMessageStatus ? EventStreamHooks.agentMessageStatus(session.id, args.targetSessionId, args.messageId) : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
+                  resultObj = EventStreamHooks.agentMessageStatus ? await EventStreamHooks.agentMessageStatus(session.id, args.targetSessionId, args.messageId) : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
                 } else {
                   const record = await readAgentRunRecord(session.id, args.runId);
-                  resultObj = record ? ownAgentMessageReceipt(record.run, 'parent', args.messageId) : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
+                  resultObj = record ? await ownAgentMessageReceipt(record.run, 'parent', args.messageId) : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
                 }
               } else if (args.targetSessionId != null) {
                 const targetId = safeSessionId(String(args.targetSessionId || '').trim());
                 const text = String(args.message || '').trim().slice(0, MAIL_TEXT_MAX);
-                const target = targetId ? await loadSession(targetId).catch(() => null) : null;
+                const target = targetId ? await loadSession(targetId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; }) : null;
                 const reason = (args.runId != null || args.targetNodeKey != null) ? 'mixed_targets'
                   : !targetId ? 'invalid_session_id' : !target ? 'session_not_found'
                   : target.id === session.id ? 'self_target' : target.kind === 'steward' ? 'unsupported_session'
@@ -3331,14 +3337,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 if (reason) resultObj = { ok: false, status: 'undeliverable', reason, error: reason };
                 else {
                   const messageId = makeId('msg').replace('_', '-');
-                  const queued = EventStreamHooks.notifyAgentMessage && EventStreamHooks.notifyAgentMessage({ sessionId: target.id, sourceSessionId: session.id, messageId, text });
+                  const queued = EventStreamHooks.notifyAgentMessage && await EventStreamHooks.notifyAgentMessage({ sessionId: target.id, sourceSessionId: session.id, messageId, text });
                   if (queued) crossSessionMailCount++;
                   resultObj = { ok: !!queued, messageId, status: queued ? 'queued' : 'undeliverable', ...(queued ? {} : { reason: 'queue_rejected' }), delivered: false, note: queued ? '已入队，目标下次模型调用前投递；不会自动唤醒目标或更改其任务。' : '消息未能入队。' };
                 }
               } else {
                 const runtime = activeAgentRuns.get(String(args.runId || ''));
                 resultObj = runtime && runtime.run.sessionId === session.id && typeof runtime.sendToAgent === 'function'
-                  ? runtime.sendToAgent(args)
+                  ? await runtime.sendToAgent(args)
                   : { ok: false, status: 'undeliverable', reason: 'run_unavailable', error: 'runId 不属于当前会话或运行已结束。' };
               }
             } else if (tc.name === 'wait_agents') {

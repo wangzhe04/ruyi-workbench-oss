@@ -12,10 +12,9 @@ const os = require('os');
 const path = require('path');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-tool-loading-cache-'));
-process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
-process.env.RUYI_HOME = root;
-const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
-after(() => fs.rmSync(root, { recursive: true, force: true }));
+Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), root));
+const srv = require('../lib/server-internals').loadServerInternals(['defaultConfig', 'buildOpenAiTools', 'createToolLoadingState', 'classifyToolPacks', 'flushWorkbenchLogs']);
+after(async () => { await srv.flushWorkbenchLogs({ allowFailure: true }); fs.rmSync(root, { recursive: true, force: true }); });
 
 const cfg = srv.defaultConfig();
 const offered = srv.buildOpenAiTools(cfg, null, { skillsEnabled: true });

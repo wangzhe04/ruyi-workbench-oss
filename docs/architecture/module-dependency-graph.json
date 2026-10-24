@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 96,
-    "providedSymbols": 4025,
-    "requiredSymbols": 3647,
-    "edges": 688,
+    "providedSymbols": 4073,
+    "requiredSymbols": 3662,
+    "edges": 691,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2784,6 +2784,8 @@
       "note": "pendingPermissions/plan 批准/原生权限请求",
       "provides": [
         "ACTIVE_CHILD_EVENT_TAPS",
+        "AUDIT_LOG_BATCH_BYTES",
+        "AUDIT_LOG_BATCH_ROWS",
         "BRIDGED_CATALOG_INCOMPLETE_TTL_MS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
@@ -2836,6 +2838,13 @@
         "activeChildren",
         "appendLiveTail",
         "assertSessionExecutionOwner",
+        "auditLogContext",
+        "auditLogEnabled",
+        "auditLogError",
+        "auditLogFailureOverflow",
+        "auditLogFailures",
+        "auditLogFlush",
+        "auditLogSubmitted",
         "bridgedCatalogCache",
         "bridgedCatalogInflight",
         "bridgedServerSpawnEnv",
@@ -2860,6 +2869,7 @@
         "driverAutoSessions",
         "enabledToolboxComponents",
         "extendUserQuestion",
+        "flushWorkbenchLogs",
         "formatQuestionGuidance",
         "getBridgedClient",
         "getMcpClient",
@@ -2883,7 +2893,6 @@
         "logEvent",
         "logFileIdentity",
         "logStream",
-        "logStreamDay",
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
         "mcpBridgeError",
@@ -2916,6 +2925,7 @@
         "parseClaudeTaskNotification",
         "parseKimiStreamJsonEvent",
         "parseMcpConfigFile",
+        "pendingAuditLogFailure",
         "pendingPermissions",
         "pendingPlans",
         "pendingQuestions",
@@ -2924,11 +2934,14 @@
         "promptDeadlineIsReal",
         "promptWaitMs",
         "readLogTailSnapshot",
+        "readWorkbenchLogFile",
         "reconcileMcpEntryFingerprint",
         "recordSessionExecutionOwner",
+        "recoverWorkbenchAudit",
         "redact",
         "registerSessionExecutionChild",
         "registerUserQuestion",
+        "rememberAuditLogFailure",
         "requestSessionExecutionStop",
         "requestUserQuestion",
         "resolveBridge",
@@ -2956,7 +2969,10 @@
         "toolboxComponentsDir",
         "turnOutcomePending",
         "turnSettlers",
-        "validateBrowserTargetPatch"
+        "validateBrowserTargetPatch",
+        "workbenchAuditJournal",
+        "workbenchLogStream",
+        "writeWorkbenchLogChunks"
       ],
       "requires": [
         {
@@ -3115,6 +3131,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "bridgedEnvKeyStripped",
           "kinds": [
             "call"
@@ -3129,7 +3152,21 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "configDegraded",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "configReadGeneration",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configWriteChain",
           "kinds": [
             "read"
           ]
@@ -3164,6 +3201,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "normalizeConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -3181,6 +3225,20 @@
           "symbol": "batchSafeSpawn",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01s-work-data-journals.js",
+          "symbol": "WorkDataJournals",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -6219,7 +6277,21 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "auditLogError",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "collectBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "flushWorkbenchLogs",
           "kinds": [
             "call"
           ]
@@ -6240,6 +6312,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "readWorkbenchLogFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
             "call"
@@ -6255,6 +6334,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "sanitizeServerId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "workbenchAuditJournal",
           "kinds": [
             "call"
           ]
@@ -12526,6 +12612,8 @@
         "_rgProbe",
         "_rgProbeInflight",
         "applyNonUtf8Report",
+        "backgroundJobChains",
+        "backgroundJobError",
         "backgroundJobFile",
         "backgroundJobText",
         "backgroundShellCountsBySession",
@@ -12559,6 +12647,7 @@
         "levenshtein",
         "markAgentMessageDelivered",
         "maybeGroup",
+        "mergeBackgroundJobRows",
         "normalizeGlobPatternForRoot",
         "normalizeSearchPattern",
         "patternMayMatchNonAscii",
@@ -12625,7 +12714,7 @@
         "walkEnvelopeEntries",
         "walkFiles",
         "walkTruncationHint",
-        "writeBackgroundJobRows"
+        "withBackgroundJobOperation"
       ],
       "requires": [
         {
@@ -12728,6 +12817,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -12815,6 +12911,13 @@
         {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDeleteTombstones",
           "kinds": [
             "read"
           ]
@@ -13158,6 +13261,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
           "kinds": [
             "read"
           ]
@@ -14424,6 +14534,13 @@
           "symbol": "migrateLegacyDataRoot",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -24963,11 +25080,15 @@
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
         "MIGRATION_BACKUP_TAG",
+        "MIGRATION_CAPSULE_ARCHIVE_LIMIT",
+        "MIGRATION_CAPSULE_BINARY_LIMIT",
+        "MIGRATION_CAPSULE_MARKER",
         "MIGRATION_LOG_SCHEMA",
         "MIGRATION_SIZE_BUDGET_MS",
         "MIGRATION_SIZE_FILE_CAP",
         "MIGRATION_SIZE_TTL_MS",
         "MIGRATION_SKILL_BACKUP_DIR",
+        "MIGRATION_SKILL_CAPSULE_NATIVE",
         "MIGRATION_SKILL_MAX_BYTES",
         "MIGRATION_SKILL_MAX_DEPTH",
         "MIGRATION_SKILL_MAX_FILES",
@@ -24975,6 +25096,28 @@
         "migrationAnalyzeValue",
         "migrationApply",
         "migrationBackup",
+        "migrationCapsuleArchive",
+        "migrationCapsuleAssertTree",
+        "migrationCapsuleBroker",
+        "migrationCapsuleCapture",
+        "migrationCapsuleDecode",
+        "migrationCapsuleDescriptor",
+        "migrationCapsuleFail",
+        "migrationCapsuleFingerprint",
+        "migrationCapsuleFingerprintShape",
+        "migrationCapsuleFinishPublished",
+        "migrationCapsuleIntent",
+        "migrationCapsuleIntentShape",
+        "migrationCapsulePrepare",
+        "migrationCapsulePresent",
+        "migrationCapsuleRead",
+        "migrationCapsuleRequireCarrier",
+        "migrationCapsuleRestore",
+        "migrationCapsuleRoots",
+        "migrationCapsuleSame",
+        "migrationCapsuleShape",
+        "migrationCapsuleVerifyReady",
+        "migrationCapsuleWriteIntent",
         "migrationChain",
         "migrationCollect",
         "migrationCollectRefs",
@@ -25004,6 +25147,8 @@
         "migrationPathInside",
         "migrationPidAlive",
         "migrationPromptKeys",
+        "migrationRecoverSkillBackups",
+        "migrationRecoveryNeeded",
         "migrationRecycle",
         "migrationRememberPackages",
         "migrationRewriteRefs",
@@ -25029,6 +25174,7 @@
         "migrationTreeHash",
         "migrationUncertainResult",
         "migrationUndo",
+        "migrationUndoCapsule",
         "migrationUndoSkillCopy",
         "writeMigrationLog"
       ],
@@ -25505,6 +25651,13 @@
         {
           "provider": "01-config.js",
           "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sendError",
           "kinds": [
             "call"
           ]
@@ -31326,12 +31479,16 @@
       "to": "01-config.js",
       "symbols": [
         "BROWSER_AUTOMATION_MODES",
+        "atomicWriteJson",
         "bridgedEnvKeyStripped",
+        "configDegraded",
         "configReadGeneration",
+        "configWriteChain",
         "detectDesktopMcp",
         "ensureDesktopMcpWarm",
         "generateMcpConfig",
         "mutateConfig",
+        "normalizeConfig",
         "readConfig",
         "selectedAgentCli"
       ],
@@ -31342,6 +31499,22 @@
       "to": "01d-win-cmdline.js",
       "symbols": [
         "batchSafeSpawn"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "04-permission-runtime.js",
+      "to": "01h-privacy-core.js",
+      "symbols": [
+        "PrivacyCore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "04-permission-runtime.js",
+      "to": "01s-work-data-journals.js",
+      "symbols": [
+        "WorkDataJournals"
       ],
       "direction": "backward"
     },
@@ -32141,12 +32314,16 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
+        "auditLogError",
         "collectBridgedTools",
+        "flushWorkbenchLogs",
         "logEvent",
         "mcpClients",
+        "readWorkbenchLogFile",
         "redact",
         "resolveExternalMcpServers",
-        "sanitizeServerId"
+        "sanitizeServerId",
+        "workbenchAuditJournal"
       ],
       "direction": "backward"
     },
@@ -33865,6 +34042,7 @@
         "os",
         "path",
         "paths",
+        "runKeyedChain",
         "ruyiVendorBinDir",
         "safeJsonParse",
         "samePathEntry",
@@ -33889,6 +34067,14 @@
       "to": "01p-work-data-store.js",
       "symbols": [
         "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "11-native-tools.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "sessionDeleteTombstones"
       ],
       "direction": "backward"
     },
@@ -33971,6 +34157,7 @@
       "to": "00-boot.js",
       "symbols": [
         "ASR_MAX_BODY_BYTES",
+        "MigrationHooks",
         "OVERLAY_ID",
         "SKILL_ID_RE",
         "TOOL_TIER_RANK",
@@ -34282,6 +34469,7 @@
         "EventStreamHooks",
         "ExternalBotHooks",
         "MemoryCliHooks",
+        "MigrationHooks",
         "OVERLAY_ID",
         "ProxyModelHooks",
         "SKILL_ID_RE",
@@ -34905,7 +35093,8 @@
         "mutateConfig",
         "readConfig",
         "safeSessionId",
-        "send"
+        "send",
+        "sendError"
       ],
       "direction": "backward"
     },
@@ -39218,6 +39407,7 @@
     "10-context-governance.js->09d-token-estimation.js",
     "11-native-tools.js->00-boot.js",
     "11-native-tools.js->01-config.js",
+    "11-native-tools.js->02-session-store.js",
     "11-native-tools.js->03-bridge-guard.js",
     "11-native-tools.js->04-permission-runtime.js",
     "11-native-tools.js->06-provider-engine.js",

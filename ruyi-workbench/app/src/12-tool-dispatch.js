@@ -3067,70 +3067,7 @@ const PLAYBOOK_READ_TEXT_MAX = 24000;   // normalizePlaybook 把模板钳在 200
 const PLAYBOOK_PARAM_CHARS_MAX = 4000;
 function clampCatalogToolLimit(value, def, max) { const n = Math.floor(Number(value)); return n >= 1 ? Math.min(max, n) : def; }
 const INTEGRATION_TOOL_HANDLERS = {
-  skill_read: { paths: null, guardNote: "技能目录内自守:注册表 dir 解析+path.relative 双保险防穿越(非工作区闸,设计录在案)", handler: async (args, ctx) => {
-      // v1 技能体系: 读取当前会话【已启用】技能的 SKILL.md 全文 + 目录内文件清单(深度≤2,数量≤50)。
-      // 白名单: 只认 ctx.session.skills 里的 id;dir 从统一注册表解析(与优先级/校验单一真源一致)。
-      // 路径安全: 遍历时每个文件解析后必须仍在该技能目录内(path.relative 不得以 .. 开头/绝对),防符号链接穿越。
-      const session = ctx && ctx.session;
-      const cfg = (ctx && ctx.config) || await readConfig().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
-      const enabled = effectiveSkillSelection(session, cfg);
-      const id = String(args.id || '').trim();
-      // P2-2: enabled 元素为 {id, source}(或旧裸字符串)。白名单按 id 匹配;source 非空则下方再校验注册表来源一致。
-      const enabledEntry = enabled.find(x => (typeof x === 'string' ? x : (x && x.id)) === id);
-      if (!id || !enabledEntry) return { ok: false, error: '技能未启用或不存在(只能读取当前会话已启用的技能)', id };
-      const wantSource = typeof enabledEntry === 'string' ? '' : String((enabledEntry && enabledEntry.source) || '');
-      // P3-4: cwd 单一真源 —— 优先用回合传入的 workingDir(ctx.workingDir),缺省再退 session.cwd,与注入路径一致。
-      const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), cfg && cfg.defaultWorkspace);
-      let registry = [];
-      try { registry = await loadSkillRegistry(cwd, cfg); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; registry = []; }
-      const entry = registry.find(e => e && e.id === id && e.kind === 'skill');
-      if (!entry || !entry.dir) return { ok: false, error: '技能不存在或无内容目录', id };
-      // P2-2: 来源锁定 —— 启用时记录了 source,若注册表现解析出的来源不一致(换 cwd 后被项目技能顶替等)→ 明确拒绝。
-      if (wantSource && entry.source !== wantSource) {
-        return { ok: false, id, error: `技能 ${id} 来源已变化(启用时为 ${wantSource},现为 ${entry.source || '未知'}),已暂停;请在技能库重新启用该技能。` };
-      }
-      const dir = path.resolve(entry.dir);
-      const dirReal = await realpathForContainment(dir);
-      // P3-1: 传了 file(相对路径)→ 返回该文件内容(截 20000)而非清单;复用同款目录内守卫(path.relative 不得越界)。
-      const fileArg = String(args.file || '').trim();
-      if (fileArg) {
-        const fabs = path.resolve(dir, fileArg);
-        const frel = path.relative(dir, fabs);
-        if (frel.startsWith('..') || path.isAbsolute(frel)) return { ok: false, id, file: fileArg, error: '文件路径越界(只能读取该技能目录内的文件)' };
-        const freal = await fsp.realpath(fabs).catch(() => fabs); // 解析符号链接后再判一次,防穿越
-        const frelReal = path.relative(dirReal, freal);
-        if (frelReal.startsWith('..') || path.isAbsolute(frelReal)) return { ok: false, id, file: fileArg, error: '文件路径越界(只能读取该技能目录内的文件)' };
-        let fileContent = '';
-        try { const st = await fsp.stat(freal); if (!st.isFile()) return { ok: false, id, file: fileArg, error: '不是文件' }; fileContent = String(await fsp.readFile(freal, 'utf8')); }
-        catch { return { ok: false, id, file: fileArg, error: '文件不存在或无法读取' }; }
-        const fileTruncated = fileContent.length > 20000;
-        if (fileTruncated) fileContent = fileContent.slice(0, 20000);
-        return { ok: true, id, name: entry.name, dir, file: frel.split(path.sep).join('/'), content: fileContent, truncated: fileTruncated };
-      }
-      let content = '';
-      try { content = String(await fsp.readFile(path.join(dir, 'SKILL.md'), 'utf8')); } catch { content = ''; }
-      const truncated = content.length > 20000;
-      if (truncated) content = content.slice(0, 20000);
-      const files = [];
-      const walk = async (d, depth) => {
-        if (depth > 2 || files.length >= 50) return;
-        let ents = [];
-        try { ents = await fsp.readdir(d, { withFileTypes: true }); } catch { return; }
-        for (const ent of ents) {
-          if (files.length >= 50) break;
-          const abs = path.resolve(d, ent.name);
-          const rel = path.relative(dir, abs);
-          if (rel.startsWith('..') || path.isAbsolute(rel)) continue; // 越界(符号链接等)→ 跳过
-          if (ent.isDirectory()) await walk(abs, depth + 1);
-          else if (ent.isFile()) files.push(rel.split(path.sep).join('/'));
-        }
-      };
-      try { await walk(dir, 1); } catch { /* 清单尽力而为 */ }
-      return {
-        ok: true, id, name: entry.name, dir, content, truncated, files,
-        note: '需要读取清单中的某个文件时,再次调用 skill_read 并额外传 file 参数(相对该技能目录的路径),即返回该文件内容。',
-      };
-  } },
+  skill_read: { paths: null, guardNote: "技能目录内自守:注册表 dir 解析+path.relative 双保险防穿越(非工作区闸,设计录在案)", handler: readEnabledSkill },
   // ── 61 号文 C1:playbook_list / playbook_read / skill_list(只读,provider 引擎普通会话;管家用 steward_playbooks / steward_skills)──
   // 动机:模型看得到 Playbook 精简索引,却既读不到步骤、也没有清单工具;新会话没启用任何技能时连 20 个内置技能都看不见。
   // 三件都只读如意自己的注册表 / 模板目录。返回里所有「作者写的文本」(标题、描述、模板正文)一律过 neutralizeAuthoredText
@@ -3837,7 +3774,78 @@ async function claudePluginSkillDirs() {
   }
   return out;
 }
-async function loadSkillRegistry(cwd, config, caps) {
+async function readEnabledSkill(args, ctx, migrationOwned = false) {
+  if (!migrationOwned && typeof MigrationHooks !== 'undefined' && typeof MigrationHooks.withSkillRead === 'function') {
+    return MigrationHooks.withSkillRead(() => readEnabledSkill(args, ctx, true));
+  }
+  // v1 技能体系: 读取当前会话【已启用】技能的 SKILL.md 全文 + 目录内文件清单(深度≤2,数量≤50)。
+  // 白名单: 只认 ctx.session.skills 里的 id;dir 从统一注册表解析(与优先级/校验单一真源一致)。
+  // 路径安全: 遍历时每个文件解析后必须仍在该技能目录内(path.relative 不得以 .. 开头/绝对),防符号链接穿越。
+  const session = ctx && ctx.session;
+  const cfg = (ctx && ctx.config) || await readConfig().catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
+  const enabled = effectiveSkillSelection(session, cfg);
+  const id = String(args.id || '').trim();
+  // P2-2: enabled 元素为 {id, source}(或旧裸字符串)。白名单按 id 匹配;source 非空则下方再校验注册表来源一致。
+  const enabledEntry = enabled.find(x => (typeof x === 'string' ? x : (x && x.id)) === id);
+  if (!id || !enabledEntry) return { ok: false, error: '技能未启用或不存在(只能读取当前会话已启用的技能)', id };
+  const wantSource = typeof enabledEntry === 'string' ? '' : String((enabledEntry && enabledEntry.source) || '');
+  // P3-4: cwd 单一真源 —— 优先用回合传入的 workingDir(ctx.workingDir),缺省再退 session.cwd,与注入路径一致。
+  const cwd = normalizeCwd((ctx && ctx.workingDir) || (session && session.cwd), cfg && cfg.defaultWorkspace);
+  let registry = [];
+  try { registry = await loadSkillRegistry(cwd, cfg, undefined, true); } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; registry = []; }
+  const entry = registry.find(e => e && e.id === id && e.kind === 'skill');
+  if (!entry || !entry.dir) return { ok: false, error: '技能不存在或无内容目录', id };
+  // P2-2: 来源锁定 —— 启用时记录了 source,若注册表现解析出的来源不一致(换 cwd 后被项目技能顶替等)→ 明确拒绝。
+  if (wantSource && entry.source !== wantSource) {
+    return { ok: false, id, error: `技能 ${id} 来源已变化(启用时为 ${wantSource},现为 ${entry.source || '未知'}),已暂停;请在技能库重新启用该技能。` };
+  }
+  const dir = path.resolve(entry.dir);
+  const dirReal = await realpathForContainment(dir);
+  // P3-1: 传了 file(相对路径)→ 返回该文件内容(截 20000)而非清单;复用同款目录内守卫(path.relative 不得越界)。
+  const fileArg = String(args.file || '').trim();
+  if (fileArg) {
+    const fabs = path.resolve(dir, fileArg);
+    const frel = path.relative(dir, fabs);
+    if (frel.startsWith('..') || path.isAbsolute(frel)) return { ok: false, id, file: fileArg, error: '文件路径越界(只能读取该技能目录内的文件)' };
+    const freal = await fsp.realpath(fabs).catch(() => fabs); // 解析符号链接后再判一次,防穿越
+    const frelReal = path.relative(dirReal, freal);
+    if (frelReal.startsWith('..') || path.isAbsolute(frelReal)) return { ok: false, id, file: fileArg, error: '文件路径越界(只能读取该技能目录内的文件)' };
+    let fileContent = '';
+    try { const st = await fsp.stat(freal); if (!st.isFile()) return { ok: false, id, file: fileArg, error: '不是文件' }; fileContent = String(await fsp.readFile(freal, 'utf8')); }
+    catch { return { ok: false, id, file: fileArg, error: '文件不存在或无法读取' }; }
+    const fileTruncated = fileContent.length > 20000;
+    if (fileTruncated) fileContent = fileContent.slice(0, 20000);
+    return { ok: true, id, name: entry.name, dir, file: frel.split(path.sep).join('/'), content: fileContent, truncated: fileTruncated };
+  }
+  let content = '';
+  try { content = String(await fsp.readFile(path.join(dir, 'SKILL.md'), 'utf8')); } catch { content = ''; }
+  const truncated = content.length > 20000;
+  if (truncated) content = content.slice(0, 20000);
+  const files = [];
+  const walk = async (d, depth) => {
+    if (depth > 2 || files.length >= 50) return;
+    let ents = [];
+    try { ents = await fsp.readdir(d, { withFileTypes: true }); } catch { return; }
+    for (const ent of ents) {
+      if (files.length >= 50) break;
+      const abs = path.resolve(d, ent.name);
+      const rel = path.relative(dir, abs);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) continue; // 越界(符号链接等)→ 跳过
+      if (ent.isDirectory()) await walk(abs, depth + 1);
+      else if (ent.isFile()) files.push(rel.split(path.sep).join('/'));
+    }
+  };
+  try { await walk(dir, 1); } catch { /* 清单尽力而为 */ }
+  return {
+    ok: true, id, name: entry.name, dir, content, truncated, files,
+    note: '需要读取清单中的某个文件时,再次调用 skill_read 并额外传 file 参数(相对该技能目录的路径),即返回该文件内容。',
+  };
+}
+
+async function loadSkillRegistry(cwd, config, caps, migrationOwned = false) {
+  if (!migrationOwned && typeof MigrationHooks !== 'undefined' && typeof MigrationHooks.withSkillRead === 'function') {
+    return MigrationHooks.withSkillRead(() => loadSkillRegistry(cwd, config, caps, true));
+  }
   if (caps === undefined) caps = await getCapabilities(config).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; });
   const out = [];
   const tk = path.join(externalRoot(), 'resources', 'plugins', 'ruyi-offline', 'offline-toolkit');

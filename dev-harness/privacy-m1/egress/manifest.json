@@ -680,7 +680,7 @@
     {"file":"ruyi-workbench/app/src/03a-privacy-gateway.js","fingerprint":"ec955f9f36b292a779fc5366c3cf98bea064866d758fa1f2e4034676aade84dc"},
     {"file":"ruyi-workbench/app/src/03b-privacy-local-drive.js","fingerprint":"fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4"},
     {"file":"ruyi-workbench/app/src/04-desktop-shell.js","fingerprint":"ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2"},
-    {"file":"ruyi-workbench/app/src/04-permission-runtime.js","fingerprint":"6e8078be86da95fe47cdb511d6f0c11ed5f692df1195d0cbdfdd06ab8e19a09e"},
+    {"file":"ruyi-workbench/app/src/04-permission-runtime.js","fingerprint":"8688f769713fef95ffb2eecab8822b5a406bd4d0ef38cf5ba538d357f3294f3b"},
     {"file":"ruyi-workbench/app/src/04-visual-pipeline.js","fingerprint":"e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed"},
     {"file":"ruyi-workbench/app/src/04f-toolbox-services.js","fingerprint":"532e5e41faf77183f00aef712fdd1072f5e01a9c0fc844ed043d9a74e3c40fee"},
     {"file":"ruyi-workbench/app/src/04h-provider-http.js","fingerprint":"d5df67af5f7305d331ec2dd007fcc2c009e06ac0c4e1f043039513f79f889c6a"},
@@ -717,7 +717,7 @@
     {"file":"ruyi-workbench/app/src/12-tool-dispatch.js","fingerprint":"5a0735cc85b1ef4c3daf356787ae9e7708290a569d72fe1de1615cf668086129"},
     {"file":"ruyi-workbench/app/src/13-http-router.js","fingerprint":"d4e106855e880f4474d79be10d1fb7d29c7f96f5e9ac559770348682e0ad5d86"},
     {"file":"ruyi-workbench/app/src/13aa-steward-delivery.js","fingerprint":"5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e"},
-    {"file":"ruyi-workbench/app/src/13ab-privacy-api.js","fingerprint":"a323cc7c5be04be9540772ca42f5b0521b67f7af1b786b625f8a1dcede808292"},
+    {"file":"ruyi-workbench/app/src/13ab-privacy-api.js","fingerprint":"d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4"},
     {"file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","fingerprint":"aaf5a0c8ba112c41531c3c4bb462769baedbf5b9dd7acd1beace6954810dbd04"},
     {"file":"ruyi-workbench/app/src/13b-api-domain-routes.js","fingerprint":"1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79"},
     {"file":"ruyi-workbench/app/src/13c-overlay-routes.js","fingerprint":"5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a"},
@@ -738,7 +738,7 @@
     {"file":"ruyi-workbench/app/src/13r-event-stream.js","fingerprint":"7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a"},
     {"file":"ruyi-workbench/app/src/13s-scheduler.js","fingerprint":"263f540613696c3b9ba89c75cc1e3d601354010f1176901b4b2927e6ef402836"},
     {"file":"ruyi-workbench/app/src/13t-steward-schedule.js","fingerprint":"be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21"},
-    {"file":"ruyi-workbench/app/src/13u-migration-center.js","fingerprint":"8488a7ac0ebfc7ca33ebd4f42c8034de9f740c97c9f35c47c1daba63d533902e"},
+    {"file":"ruyi-workbench/app/src/13u-migration-center.js","fingerprint":"e6f7c3a05c0c2ee47268fa9357a4b6f53c6ee7d27eb42d35b3e3d2d588bd08e3"},
     {"file":"ruyi-workbench/app/src/13v-external-channel-protocols.js","fingerprint":"4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e"},
     {"file":"ruyi-workbench/app/src/13w-external-bots.js","fingerprint":"a592caf719027e2a4164a2b92d9ff7722639c31d64c5978e885fe3047e510b7d"},
     {"file":"ruyi-workbench/app/src/13x-external-channel-delivery.js","fingerprint":"3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"},
@@ -788,7 +788,7 @@
     {"file":"ruyi-workbench/tools/fake-claude.js","fingerprint":"b2fab438144482fa2dc8906550bdd63a959680888bafb6b292a72ec0bc45a56a"},
     {"file":"ruyi-workbench/tools/gen-manifest.js","fingerprint":"0818c238928b09d4122b1e099629eb38a2f813a6bff5f55fe6de41d5b8f0143d"},
     {"file":"ruyi-workbench/tools/package-offline.ps1","fingerprint":"e6ccc7c742892dad85e5e76d55cde03d2a4fb9ca4940a2fd8d5481dcb9fdae58"},
-    {"file":"ruyi-workbench/app/src/01s-work-data-journals.js","fingerprint":"fddb5bbdaa925db981f6fcfd78a57ec61f40e0be3f89ff4ea95d03f0d20242d8"}
+    {"file":"ruyi-workbench/app/src/01s-work-data-journals.js","fingerprint":"9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f"}
   ],
   "entries": [
     {"id":"mcp/ai-computer-control/installer/build_offline_package.py#<module>#<python-transport-import>#1","fingerprint":"a6ec8538828a7a60a9ac2d0a4aa766bd61d095c8af0056027ff9ffba5e91a0c3","group":"capability"},
@@ -1113,7 +1113,6 @@
     {"id":"ruyi-workbench/app/src/04-permission-runtime.js#_rpc#write#1","fingerprint":"f0b358126098a3fc1d84d7a57f7607c678d39ec5c750be85036a3594846df0ed","group":"mcp"},
     {"id":"ruyi-workbench/app/src/04-permission-runtime.js#killChildTree#spawn#1","fingerprint":"c88401f4d5b5738c84041b90265e9e99fb0b46f40a9511730a0057a7dcc94086","group":"process"},
     {"id":"ruyi-workbench/app/src/04-permission-runtime.js#killOwnProcessTree#execFile#1","fingerprint":"149d2fbab24f4e04346b0356861d54abedf57bebede955178606732d8f7a25f2","group":"process"},
-    {"id":"ruyi-workbench/app/src/04-permission-runtime.js#logEvent#createWriteStream#1","fingerprint":"c8128b628525922922bf5babf844afecfe19e99aa3aa3470fe6b3942a7345110","group":"file-boundary"},
     {"id":"ruyi-workbench/app/src/04-permission-runtime.js#makeAttachmentRecord#writeFile#1","fingerprint":"fa748cd6449eda4f20fb29a5e44d6ef92694b21071532f8acda91893fa5aabc2","group":"file-boundary"},
     {"id":"ruyi-workbench/app/src/04-permission-runtime.js#runTurn#run#1","fingerprint":"95a5cd275b9fa1c8957c526dd199ec50ca0aa46ecb963e4903784870f39ad9d3","group":"local-callback"},
     {"id":"ruyi-workbench/app/src/04-permission-runtime.js#splitMcpArgsString#exec#1","fingerprint":"1041e288b0c3389e2e6041c7262253dca223fddeecc19f422dc6cca3e2a41376","group":"regex"},
@@ -1273,7 +1272,6 @@
     {"id":"ruyi-workbench/app/src/11-native-tools.js#sniffMetaCharset#exec#1","fingerprint":"4baa51ee310813b033747fec238b42a1b27aa6af70ff8cfcb1702672574674c3","group":"regex"},
     {"id":"ruyi-workbench/app/src/11-native-tools.js#sniffMetaCharset#exec#2","fingerprint":"4baa51ee310813b033747fec238b42a1b27aa6af70ff8cfcb1702672574674c3","group":"regex"},
     {"id":"ruyi-workbench/app/src/11-native-tools.js#webSearchViaBackend#httpRequest#1","fingerprint":"5e447e6377c126d22f3f81b66dc0df7554cfffd57b709b6e0c1e2e4c2d2ca54d","group":"web"},
-    {"id":"ruyi-workbench/app/src/11-native-tools.js#writeBackgroundJobRows#writeFileSync#1","fingerprint":"1f106f5e62d3c5fb07801379d4d933948c12dab490ccc158e7769a95e3df3199","group":"file-boundary"},
     {"id":"ruyi-workbench/app/src/11b-file-text-io.js#writeFileAtomic#writeFile#1","fingerprint":"8e06030de8d4f490084c705056a6211c0b3e16b9d2636b2cc59de34ac9245cfd","group":"file-boundary"},
     {"id":"ruyi-workbench/app/src/11b-file-text-io.js#writeFileAtomic#writeFile#2","fingerprint":"ce0c08b878c27e0f0572159619361b0ae8a483f762e28f66d188f579c6f33957","group":"file-boundary"},
     {"id":"ruyi-workbench/app/src/11c-file-visual-io.js#<module>#<transport-import>#1","fingerprint":"373c5aae7170b650b04cbfa2a0c9935f0c5fa0a1da2c480d0dca77a1fec5b0ce","group":"capability"},
@@ -1466,6 +1464,12 @@
     {"id":"ruyi-workbench/tools/Manage-Overlay.ps1#Listening#<computed-call>#1","fingerprint":"6a53605087b0f180548bb7e7940841b9be4aeb3e7fe5c07df8bd7f0d1a957ef3","group":"dynamic"},
     {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#<launcher-command>#1","fingerprint":"db5bda0c50d94c1eff85bf6c03e67086aff88cc8803307d761dcf294ef37fd3e","group":"dynamic"},
     {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#<launcher-command>#2","fingerprint":"d83a956bb783f3c9f236507af2b82b50d14c70c9718f49138f6e647e85709e72","group":"dynamic"},
-    {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#write#1","fingerprint":"fbac27df280fb8c3d6de272b6088a366ae32113ad02bb4eec673f58baf909bb4","group":"process-stdout"}
+    {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#write#1","fingerprint":"fbac27df280fb8c3d6de272b6088a366ae32113ad02bb4eec673f58baf909bb4","group":"process-stdout"},
+    {"id":"ruyi-workbench/app/src/04-permission-runtime.js#workbenchAuditJournal#exec#1","fingerprint":"71dcc60d95287b252ea1385717e3d6d8f45b3dcbcdb42f52e547c4be805468ce","group":"regex"},
+    {"id":"ruyi-workbench/app/src/04-permission-runtime.js#write#run#1","fingerprint":"306c80ed77f946d159bc6f6192bcf68fa242afc462a71234dc6a939afc3dceff","group":"local-callback"},
+    {"id":"ruyi-workbench/app/src/04-permission-runtime.js#writev#run#1","fingerprint":"d25603a5b4cd1b09633f5a22dedabc017e15fdd9cc25f3737034c0a9ea85e16f","group":"local-callback"},
+    {"id":"ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#<transport-import>#1","fingerprint":"beda6d2a4049de7c19ddf8760b4ab52a17e0cbbade019c0cd1942205172e056b","group":"capability"},
+    {"id":"ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#spawn#1","fingerprint":"82052f9af18340b655887de397d6ca5b84fbc92e00c9380b6a4965daa24b1280","group":"process"},
+    {"id":"ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#write#1","fingerprint":"70ab38f14ebe3c3769fdf552a3b84b3faf318bc4f0131060d55683f9fcab9f43","group":"process"}
   ]
 }

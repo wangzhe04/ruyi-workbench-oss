@@ -416,3 +416,20 @@ boot/new/resume及实际决策生产入口预检；archive用createBinary真实�
 inbox计数每次真实读取/认证后，按当前逻辑窗口文本摘要、droppedHead与认证身份复用纯计数；保留业务解析复用，额外分类和读取成本单列。首轮完整unit的旧结构锁及成本锁三项失败、旧排空E2的基线对照失败均保留；后者补真实fake provider前提，原时限和队列断言不变。最终门结果以本片证据为准。
 
 完整unit最终2972项中2946过、26跳过、0失败；该轮静态80/81，剩一旧结构断言经独审适配后，全部81静态另行隔离串行复验通过。第二轮两项既有测试失败原因未定，原样隔离58项全过，保留日志而不猜内存归因。语法1204项零错、构建新鲜，DPAPI及旧integrity各最终两遍通过。11手工产品源码净增640行，生成物另计。用户要求本批提交推送后今天暂停，剩3族与未完成草稿恢复见92 §12.11。
+
+
+## 24. 后台账本、审计日志与技能备份（2026-10-24）
+
+以 b9eba986 的38族为基线，本片接通最后三族，清册为 **41/41**；M3-3尚未实施，encryptionImplemented仍false。三族真实生成运行时的 Windows DPAPI 各两遍通过。统一门、每次首失败、独立复核与源文件身份以[证据](evidence/privacy-final-storage-wiring.json)为准，不推导完整3.1交付。
+
+后台账本使用共享 chunked text/task codec，绑定实际 session/record；原compact JSON、100条保留与OFF容量不变。整次read→modify→write→merge串行，提交时捕获回执，短lease不跨模型turn。所有load/save、邮件状态、CLI/provider drain、boot与wake consumer等待异步结果；无侧车的纯读不触配置恢复，任何新增写仍先采样开关/获取ON密钥。条件HTTP读取认证当前内容并纳入逻辑摘要，不以完整stat代替证明。交付文本与seen同步确定后再等待可失败的送达状态写，wait结算不会重投。完成过的shell/agent动作只报告persisted:false，不重做；未成功入队的邮件不注入或伪报queued。
+
+删除沿既有用户明确销毁全部载体的合同，墓碑先立，同owner等待后unlink，迟到merge/wake拒绝。撤回持 J→账本同一锁序，借用已载的权限会话视图，callback不递归load或重新取J；账本预检先于文件rollback，forget提交后才截会话正文。文件动作与会话仍不是跨文件原子事务，后续失败如实返回，不自动重放已完成动作。
+
+审计使用固定 audit purpose/day、原JSON+LF与原逻辑2MiB尾窗；audit/metrics全文件过滤后再limit不缩成尾窗。复用一条 Writable backlog，最多64条/1MiB活动batch，原单大OFF事件不加新拒绝帽，也不宣称队列有硬RAM上界。每次访问全文件分类/认证；合成8MiB旧行+32新事件中逐条flush读268462503字节约202.69ms，一次queued两batch读16777272字节约15.35ms；稀疏追加累计读取仍可O(n²)，不是性能门通过。prefix barrier不等待未来事件，跨日失败仅同file真实全扫成功才能恢复；64份失败metadata溢出sticky至重启，不限制新日志准入。配置只读已提交字节，复用归一化并等待现有写链稳定，前后核配置代数/vault戳/import待决状态；未知拒写，不进入恢复/迁移，避免日志反向重入配置恢复。UI不清故障门；保留期删除先预检、同scan内容证明复验，再预检当前源，OFF sealed、恢复门及torn/no-LF sealed均拒删，不冒称跨进程CAS。
+
+技能备份OFF保持整目录rename。ON只接纳认证sealed archive与逐次认证intent，marker/header只作格式前置检查，raw gzip和含嵌套marker的明文不能作为权威。原生桥保留同一NTFS对象/安全描述符、文件和目录DATA/ADS、短名、属性与四时间，不读出再重造SACL；封存后原对象不留明文流。undo沿既有整树发布/释放重锁窗口，先在空目录恢复短名，同名DOS alias在rename前设置，root私有父目录避免wrapper名字碰撞；发布后重开核ID/namespace/streams再最终恢复Basic。22秒延迟、普通/只读+ADS、空/自定短名与中断恢复均有实际原生正向，未知对象/流保留并拒绝完成。unsupported EA/hardlink/reparse/跨卷/能力在clear前拒绝，未把全拒绝当成功。不宣称Windows之外的同等原生能力、恶意同账户防护或跨进程CAS。
+
+V3即时48项通过不足以证明延迟短名忠实，V4普通/只读Win5失败保留；V5独立55项通过后追加探针发现raw carrier绕过，已撤回该接受结论并由V6密文载体双门修复。最终源与真实DPAPI证据分开记录。15手工产品模块+1507/-214净1293，其中13u净1021；生成产物另计。所有旧外发错误ID仍为原76项，新增原生child capability/spawn/stdin仅按真实进程边界登记。
+
+最终门：Node24完整unit3069项，3043通过/26跳过/零失败；1217份语法零错、构建新鲜，全部81静态隔离串行通过；三族当前生成运行时DPAPI各两遍及9份旧业务回归通过。旧HTTP冷夹具补实际boot政策初始化；一次TEMP runner误传数据别名引发的3旧件失败，纠正编排环境后原脚本全过，未改业务断言。完整默认571份离线E2E与实际包验收未运行。

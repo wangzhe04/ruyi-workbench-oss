@@ -106,24 +106,133 @@ function redact(input) {
 }
 
 // --- Structured NDJSON logging: record lengths/metadata, never raw content. ---
-let logStream = null;
-let logStreamDay = '';
-function logEvent(record) {
-  try {
-    const day = nowIso().slice(0, 10);
-    if (day !== logStreamDay && logStream) {
-      logStream.end();
-      logStream = null;
+const auditLogContext = new (require('node:async_hooks').AsyncLocalStorage)();
+const AUDIT_LOG_BATCH_ROWS = 64, AUDIT_LOG_BATCH_BYTES = 1024 * 1024;
+const auditLogFailures = new Map();
+let logStream = null, auditLogFlush = null, auditLogFailureOverflow = null, auditLogSubmitted = 0;
+function auditLogError(error) {
+  const code = String(error?.code || '').startsWith('work_data') ? error.code : 'work_data_audit.write_failed';
+  return Object.assign(new Error(code), { code, apiCode: code, statusCode: 503 });
+}
+function rememberAuditLogFailure(file, error) {
+  const failure = auditLogError(error);
+  // Diagnostics are bounded independently of the Writable's row backlog. An
+  // overflow remains fail-closed until restart; it never drops or caps writes.
+  if (auditLogFailures.has(file) || auditLogFailures.size < 64) auditLogFailures.set(file, failure);
+  else auditLogFailureOverflow = failure;
+  try { process.stderr.write(failure.code + '\n'); } catch { /* diagnostics only */ }
+}
+function pendingAuditLogFailure() { return auditLogFailureOverflow || auditLogFailures.values().next().value; }
+async function auditLogEnabled() {
+  // Logging must not enter readConfig's recovery/migration writer. Its diagnostic
+  // can run while another reader is restoring .prev, or between successive reads.
+  // Read the committed bytes only; unknown or changing policy refuses the write.
+  let writing;
+  do { writing = configWriteChain; await writing.catch(() => {}); } while (writing !== configWriteChain);
+  const generation = configReadGeneration;
+  const hooks = typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks : {};
+  const vaultStamp = () => hooks.stateStamp ? hooks.stateStamp() : Promise.resolve('');
+  const importPending = async () => {
+    try { await fsp.lstat(path.join(paths.data, 'credential-import-v1.json')); return true; }
+    catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+  };
+  const unavailable = () => { throw auditLogError({ code: 'work_data_audit.switch_unavailable' }); };
+  if (configDegraded || await importPending()) unavailable();
+  const beforeVault = await vaultStamp();
+  const raw = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length
+    || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean') unavailable();
+  // Share the existing defaults and privacy validation without hydrating secrets,
+  // applying migrations to disk, configuring policy, or repairing config/backup.
+  const config = normalizeConfig(raw).config;
+  const afterVault = await vaultStamp(), pending = await importPending();
+  if (configDegraded || config.privacyPolicyRecoveryRequiredV1 === true || pending || beforeVault !== afterVault
+    || generation !== configReadGeneration || writing !== configWriteChain) unavailable();
+  return config.workDataEncryptionV1 === true;
+}
+
+function workbenchAuditJournal(file) {
+  const match = /^workbench-(\d{4}-\d{2}-\d{2})\.ndjson$/.exec(path.basename(file));
+  if (!match || path.dirname(file) !== paths.logs) throw auditLogError({ code: 'work_data_audit.scope_invalid' });
+  return WorkDataJournals.create({ file, context: { kind: 'audit-log', sessionId: match[1] },
+    enabled: auditLogEnabled, writeJson: atomicWriteJson,
+    validateSealedLine: plain => { const row = safeJsonParse(plain, null); return !!row && typeof row === 'object' && !Array.isArray(row); } });
+}
+async function recoverWorkbenchAudit(journal) {
+  if (!journal.recoveryPending()) return;
+  // Audit has no action/seq projection to replay. Only this full domain reader may
+  // validate the retained stream and acknowledge its current authenticated proof.
+  const rebuilt = await journal.readWindow(0, 0, () => {});
+  await journal.acknowledgeRecovery(rebuilt.recoveryTicket);
+}
+async function writeWorkbenchLogChunks(entries) {
+  for (let index = 0; index < entries.length;) {
+    const entry = entries[index].chunk;
+    if (entry.barrier) { entry.finish(pendingAuditLogFailure()); index++; continue; }
+    const file = path.join(paths.logs, `workbench-${entry.day}.ndjson`), rows = [];
+    let bytes = 0;
+    while (index < entries.length && rows.length < AUDIT_LOG_BATCH_ROWS) {
+      const next = entries[index].chunk;
+      if (next.barrier || next.day !== entry.day) break;
+      const size = Buffer.byteLength(next.line, 'utf8');
+      // One existing oversized record remains legal, especially ordinary OFF.
+      if (rows.length && bytes + size > AUDIT_LOG_BATCH_BYTES) break;
+      rows.push(next.line.slice(0, -1)); bytes += size; index++;
     }
-    if (!logStream) {
-      logStreamDay = day;
-      logStream = fs.createWriteStream(path.join(paths.logs, `workbench-${day}.ndjson`), { flags: 'a' });
-      logStream.on('error', () => { logStream = null; });
+    try {
+      const journal = workbenchAuditJournal(file);
+      await recoverWorkbenchAudit(journal);
+      await journal.append(rows, () => fsp.appendFile(file, rows.join('\n') + '\n'));
+      // Success includes fresh full classification/authentication of this file.
+      auditLogFailures.delete(file);
+    } catch (error) {
+      rememberAuditLogFailure(file, error);
     }
-    logStream.write(`${JSON.stringify({ ts: nowIso(), ...record })}\n`);
-  } catch {
-    // logging must never break a turn
   }
+}
+function workbenchLogStream() {
+  if (!logStream) {
+    // Node's Writable owns the only backlog, as the old WriteStream did. Callers
+    // still ignore backpressure: this preserves OFF loss/cap semantics, not a hard
+    // RAM bound. Codec work is limited per batch; no second promise/row queue.
+    logStream = new (require('node:stream').Writable)({ objectMode: true,
+      write(chunk, encoding, callback) { auditLogContext.run(true, () => writeWorkbenchLogChunks([{ chunk }])).then(() => callback(), error => { rememberAuditLogFailure('', error); callback(); }); },
+      writev(entries, callback) { auditLogContext.run(true, () => writeWorkbenchLogChunks(entries)).then(() => callback(), error => { rememberAuditLogFailure('', error); callback(); }); }
+    });
+  }
+  return logStream;
+}
+function logEvent(record) {
+  if (auditLogContext.getStore()) return;
+  try {
+    const day = nowIso().slice(0, 10), line = `${JSON.stringify({ ts: nowIso(), ...record })}\n`;
+    auditLogSubmitted++; workbenchLogStream().write({ day, line });
+  } catch { /* logging must never break a turn */ }
+}
+async function flushWorkbenchLogs({ allowFailure = false } = {}) {
+  if (!logStream) return;
+  let pending = auditLogFlush;
+  if (!pending || pending.sequence !== auditLogSubmitted) {
+    let resolve;
+    pending = { sequence: auditLogSubmitted, promise: new Promise(done => { resolve = done; }) };
+    auditLogFlush = pending;
+    const finish = failure => { if (auditLogFlush === pending) auditLogFlush = null; resolve(failure); };
+    // Resolve at the barrier itself, even when Node passes later chunks in the
+    // same _writev invocation. Those later writes cannot delay this read forever.
+    logStream.write({ barrier: true, finish });
+  }
+  const failure = await pending.promise;
+  if (failure && !allowFailure) throw failure;
+}
+async function readWorkbenchLogFile(file, { tailBytes = Infinity, stable = false } = {}) {
+  const journal = workbenchAuditJournal(file);
+  const protect = async work => {
+    try { return await work(); }
+    catch (error) { if (String(error?.code || '').startsWith('work_data')) throw auditLogError(error); throw error; }
+  };
+  const snapshot = await protect(() => stable ? journal.readProof(tailBytes, tailBytes) : journal.readWindow(tailBytes, tailBytes));
+  if (snapshot.check) { const check = snapshot.check; snapshot.check = () => protect(check); }
+  return snapshot;
 }
 
 const LOG_TAIL_MAX_LINES = 2000;
@@ -161,6 +270,7 @@ function logFileIdentity(file) {
   } catch { return ''; }
 }
 async function readLogTailSnapshot(requested, { stable = false } = {}) {
+  await flushWorkbenchLogs();
   const wanted = Number.isSafeInteger(requested) ? Math.min(Math.max(requested, 1), LOG_TAIL_MAX_LINES) : LOG_TAIL_DEFAULT_LINES;
   const file = latestLogFile();
   if (!file) throw Object.assign(new Error('logs.none'), { code: 'logs.none' });
@@ -169,15 +279,11 @@ async function readLogTailSnapshot(requested, { stable = false } = {}) {
   const assert = () => {
     if (latestLogFile() !== file || logFileIdentity(file) !== identity) throw Object.assign(new Error('privacy.export_source_changed'), { code: 'privacy.export_source_changed' });
   };
-  let handle;
-  try {
-    const st = await fsp.stat(file), size = Math.min(st.size, LOG_TAIL_MAX_BYTES), start = Math.max(0, st.size - size);
-    const buffer = Buffer.alloc(size); handle = await fsp.open(file, 'r');
-    if (size) await handle.read(buffer, 0, size, start);
-    const { lines, more } = tailLinesFromBuffer(buffer, start > 0, wanted);
-    if (stable) assert();
-    return { file: path.basename(file), lines, count: lines.length, requested: wanted, maxLines: LOG_TAIL_MAX_LINES, more, assert };
-  } finally { if (handle) await handle.close().catch(() => {}); }
+  const snapshot = await readWorkbenchLogFile(file, { tailBytes: LOG_TAIL_MAX_BYTES, stable });
+  const { lines, more } = tailLinesFromBuffer(Buffer.from(snapshot.text, 'utf8'), snapshot.droppedHead, wanted);
+  const check = async () => { if (snapshot.check) await snapshot.check(); assert(); };
+  if (stable) assert();
+  return { file: path.basename(file), lines, count: lines.length, requested: wanted, maxLines: LOG_TAIL_MAX_LINES, more, assert, check };
 }
 
 // --- Active claude child registry keyed by session id, for stop/restart/interrupt + disconnect kill. ---

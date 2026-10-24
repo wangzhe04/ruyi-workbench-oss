@@ -352,13 +352,14 @@ function auditSummaryFor(rec) {
 //   · opts.maxFiles —— 最近一个日志文件不够 limit 条时往前再读几天(默认 1 = 旧行为;跨零点后第一条事件之前
 //     最新文件几乎是空的,管家问「刚才发生了什么」就只剩那几行)。
 async function readWorkbenchAudit(limit, opts) {
+  await flushWorkbenchLogs();
   const out = [];
   const kinds = opts && opts.kinds instanceof Set && opts.kinds.size ? opts.kinds : null;
   const excludeKinds = opts && opts.excludeKinds instanceof Set && opts.excludeKinds.size ? opts.excludeKinds : null;
   const maxFiles = Math.max(1, Math.min(7, Number(opts && opts.maxFiles) || 1));
   let files;
   try { files = await fsp.readdir(paths.logs); } catch { return out; }
-  const logs = files.filter(f => /^workbench-.*\.ndjson$/.test(f)).sort();
+  const logs = files.filter(f => /^workbench-\d{4}-\d{2}-\d{2}\.ndjson$/.test(f)).sort();
   if (!logs.length) return out;
   // Most recent file only (spec: 取最近文件, 尾部 limit 条). Read, split, tail.
   // 多文件时按【从新到旧】逐个读,凑够 limit 条为止;最终 out 仍按文件内行序(旧 → 新)排列,
@@ -366,7 +367,8 @@ async function readWorkbenchAudit(limit, opts) {
   const picked = [];
   for (let fi = logs.length - 1; fi >= 0 && fi >= logs.length - maxFiles && picked.length < limit; fi -= 1) {
     let raw;
-    try { raw = await fsp.readFile(path.join(paths.logs, logs[fi]), 'utf8'); } catch { continue; }
+    try { raw = (await readWorkbenchLogFile(path.join(paths.logs, logs[fi]))).text; }
+    catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; continue; }
     const lines = raw.split('\n').filter(l => l.trim());
     const recs = [];
     // 没有 kind 过滤时先取尾再解析(与修前同一个代价:大日志不必整份 JSON.parse)。
@@ -397,13 +399,15 @@ async function readWorkbenchAudit(limit, opts) {
 // (intervention / mission_start / mission_budget_exhausted),逐行 safeJsonParse 坏行免疫(readWorkbenchAudit
 // 同款纪律)。日切文件体积可控,无需流式;天数 clamp [1,30] 防大目录慢扫。失败回空聚合,绝不 500。
 async function buildOpsMetrics(days) {
+  await flushWorkbenchLogs();
   const nDays = Math.max(1, Math.min(30, Number(days) || 7));
   const out = { ok: true, days: nDays, interventions: { total: 0, bySource: {} }, missions: { started: 0, budgetExhausted: 0, budgetOverrunRate: 0 } };
   let files; try { files = await fsp.readdir(paths.logs); } catch { return out; }
   const cutoff = new Date(Date.now() - nDays * 86400000).toISOString().slice(0, 10);
   const logs = files.filter(f => /^workbench-\d{4}-\d{2}-\d{2}\.ndjson$/.test(f) && f.slice(10, 20) >= cutoff).sort();
   for (const f of logs) {
-    let raw; try { raw = await fsp.readFile(path.join(paths.logs, f), 'utf8'); } catch { continue; }
+    let raw; try { raw = (await readWorkbenchLogFile(path.join(paths.logs, f))).text; }
+    catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; continue; }
     for (const line of raw.split('\n')) {
       const t = line.trim(); if (!t) continue;
       const rec = safeJsonParse(t, null);
@@ -590,6 +594,7 @@ async function buildMetricsPayload(config) {
 
 // logs 保留:workbench-YYYY-MM-DD.ndjson 按文件名日期与 cutoff 字典序比较(零填充日期可序)。
 async function sweepLogsStore(policy, result) {
+  await flushWorkbenchLogs();
   const keep = policy.logsKeepDays;
   const cutoff = new Date(Date.now() - keep * 86400000).toISOString().slice(0, 10);
   let files = [];
@@ -598,8 +603,18 @@ async function sweepLogsStore(policy, result) {
     const m = /^workbench-(\d{4}-\d{2}-\d{2})\.ndjson$/.exec(f);
     if (!m || m[1] >= cutoff) continue;
     const p = path.join(paths.logs, f);
+    // Deletion is a mutation: OFF sealed data and unresolved write recovery are
+    // refused before the independent full authenticated retirement proof.
+    await workbenchAuditJournal(p).preflight();
+    // A retention decision never turns locked/tampered audit into successful GC.
+    const proof = await readWorkbenchLogFile(p, { tailBytes: 0, stable: true });
+    if (proof.sealedTail || proof.tornReserved) throw auditLogError({ code: 'work_data_journal.sealed_tail_uncommitted' });
     const st = await fsp.stat(p).catch(() => null);
-    await fsp.unlink(p).catch(() => {});
+    await proof.check();
+    // Recheck mutation admission after the read proof's awaits as well: readable
+    // sealed bytes never grant an OFF deletion, including same-stat replacement.
+    await workbenchAuditJournal(p).preflight();
+    try { await fsp.unlink(p); } catch { continue; }
     if (st) { result.freedBytes += st.size; result.actions.push({ store: 'logs', action: 'delete', detail: f, bytes: st.size }); }
   }
 }

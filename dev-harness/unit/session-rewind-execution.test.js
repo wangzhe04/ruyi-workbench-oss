@@ -31,7 +31,7 @@ function fixture(overrides = {}) {
       checkRewind: (_sid, expected) => ({ ok: true, execution: expected }),
       stop: (_sid, expected) => { calls.push(['stop', expected]); return { ok: true, stopped: false }; },
     },
-    activeChildren: new Map(), turnSettlers: new Map(),
+    activeChildren: new Map(), turnSettlers: new Map(), journalWriteChains: new Map(),
     loadSession: async () => { calls.push(['load']); return structuredClone(session); },
     saveSession: async value => { calls.push(['save', value.messages.map(m => m.content)]); },
     readConfig: async () => ({ workDataEncryptionV1: false }),
@@ -41,14 +41,15 @@ function fixture(overrides = {}) {
     journalRevertLogRead: async () => [], journalAssertWritable: async () => {},
     journalReadIndex: async () => [], journalPreflightMutation: async () => new Map(),
     logEvent: () => {}, setTimeout, clearTimeout,
-    journalRollback: async () => { calls.push(['rollback']); return { ok: true, reverted: [], failed: [] }; },
+    journalRollbackContents: async () => { calls.push(['rollback']); return { ok: true, reverted: [], failed: [] }; },
     journalRevertLogPrune: async () => {}, bumpMissionChangeSeq: async () => {},
     cancelModelRunsOfDiscardedTurns: () => {}, EventStreamHooks: {}, RUYI_EVENTS: { emit() {} },
     ...overrides,
   });
   const guarded = sliceBlock(store, '// A guarded rewind owns admission', 'async function rewindSessionContents');
   assert.ok(guarded.includes('async function rewindSession('));
-  vm.runInContext(guarded + '\n' + ['withJournalArtifactOperation', 'rewindSessionContents', 'rewindSessionArtifactContents'].map(name => functionBlock(store, name)).join('\n') + '\nthis.rewind = rewindSession;', ctx);
+  vm.runInContext(functionBlock(read('src/00-boot.js'), 'runKeyedChain') + '\n' + guarded + '\n'
+    + ['withJournalWriteLock', 'withJournalArtifactOperation', 'rewindSessionContents', 'rewindSessionArtifactContents'].map(name => functionBlock(store, name)).join('\n') + '\nthis.rewind = rewindSession;', ctx);
   return { ctx, calls, session, rewind: ctx.rewind, blocked: () => ctx.SessionExecutionHooks.admissionBlocked('s') };
 }
 
@@ -69,7 +70,7 @@ test('admission stays closed through settlement and file rollback, including con
   let enteredRollback;
   const entered = new Promise(r => { enteredRollback = r; });
   const f = fixture({ turnSettlers: new Map([['s', { promise: settled.promise }]]),
-    journalRollback: async () => { enteredRollback(); await rollback.promise; return { ok: true, reverted: [], failed: [] }; },
+    journalRollbackContents: async () => { enteredRollback(); await rollback.promise; return { ok: true, reverted: [], failed: [] }; },
   });
   const pending = f.rewind('s', 2, true, { guardExecution: true, expectedExecution: execution('A') });
   assert.equal(f.blocked(), true);

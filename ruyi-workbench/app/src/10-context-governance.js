@@ -3979,7 +3979,7 @@ async function runSessionTurn(input) {
       // 「Stop 后立刻重发」:新回合起手时(已清表)本回合还在收尾 —— 线程已经归新回合,这里再记一笔会拦住用户刚说完那句话的回合。
       if (cancelled && !superseded) { if (turnStillOwned) agentWakeSuppressed.add(session.id); }
       else if (!cancelled && !superseded && typeof EventStreamHooks.pendingAgentWakeJobs === 'function') {
-        try { if (EventStreamHooks.pendingAgentWakeJobs(session).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
+        try { if ((await EventStreamHooks.pendingAgentWakeJobs(session)).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
       }
     }
     if (outcomePatch) {
@@ -4093,10 +4093,12 @@ async function runAgentWake(sessionId, reason) {
   // 设置里关掉了(agentAutoWake:false):信封照旧等用户下一句话时随回合开头送达。
   const wakeConfig = await readConfig().catch(() => null);
   if (wakeConfig && wakeConfig.agentAutoWake === false) return { ok: false, skipped: 'disabled' };
-  const session = await loadSession(sessionId).catch(() => null);
+  const session = await loadSession(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; });
   if (!session || session.kind === 'steward') return { ok: false, skipped: 'no_session' };
+  const candidates = await EventStreamHooks.pendingAgentWakeJobs(session);
+  // Another wake may have advanced the attempt set while the ledger read awaited.
   const attempted = agentWakeAttempted.get(sessionId) || new Set();
-  const pending = EventStreamHooks.pendingAgentWakeJobs(session)
+  const pending = candidates
     .filter(job => !attempted.has(agentWakeJobKey(job)) && !agentWakeSkipsStatus(String(job.status || '')));
   if (!pending.length) return { ok: false, skipped: 'nothing_pending' };
   const chain = agentWakeChain.get(sessionId) || 0;
@@ -4104,6 +4106,7 @@ async function runAgentWake(sessionId, reason) {
   // (装载配置与会话),那一段由它的忙判定(409,见 catch)与「系统来源装载不到会话就不新建」兜住。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
   if (agentWakeSuppressed.has(sessionId)) return { ok: false, skipped: 'user_stopped' };
+  if (providerCompactInFlight.has(sessionId)) return { ok: false, skipped: 'compacting' };
   for (const job of pending) attempted.add(agentWakeJobKey(job));
   agentWakeAttempted.set(sessionId, attempted);
   agentWakeChain.set(sessionId, chain + 1);

@@ -81,7 +81,7 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
   // Metadata never retains row bytes. A finite window copies ordinary rows in
   // bounded pieces only after their offsets are known; only sealed rows need a
   // complete bounded allocation for the existing authenticated codec.
-  async function scan(file, host, owner, visit, refuseSealed = false, includeTorn = false, visitInvalidTorn = false, proof = null, sink = null) {
+  async function scan(file, host, owner, visit, refuseSealed = false, includeTorn = false, visitInvalidTorn = false, proof = null, sink = null, digestSink = false) {
     const metadata = proof || await readMetadata(file);
     if (metadata.sealed && refuseSealed) fail('downgrade_refused');
     if (!visit && !sink && !metadata.sealed && !(includeTorn && metadata.tornReserved)) return metadata;
@@ -90,7 +90,8 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
     if (metadata.stamp === 'missing') return metadata;
     const handle = await fsp.open(file, 'r'), buffer = Buffer.alloc(64 * 1024);
     let count = 0, committedBytes = 0, rowBytes = 0, authStamp = '', sealed = false, sealedTail = false, probe = WorkDataRecords.lineProbe();
-    const digest = visit ? cryptoApi.createHash('sha256') : null;
+    const digest = visit || digestSink ? cryptoApi.createHash('sha256') : null;
+    const output = part => { if (digestSink && !visit) digest.update(part); sink(part); };
     const emit = async (reserved, committed) => {
       let plain;
       if (reserved) {
@@ -115,16 +116,16 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
       }
       if (visit) { digest.update(plain, 'utf8'); if (committed) digest.update('\n'); await visit(plain, count, committed); }
       if (sink) {
-        if (reserved) sink(Buffer.from(plain, 'utf8'));
+        if (reserved) output(Buffer.from(plain, 'utf8'));
         else {
           let used = 0;
           while (used < rowBytes) {
             const part = Buffer.alloc(Math.min(64 * 1024, rowBytes - used));
             const { bytesRead } = await handle.read(part, 0, part.length, committedBytes + used);
-            if (!bytesRead) fail('source_changed'); sink(part.subarray(0, bytesRead)); used += bytesRead;
+            if (!bytesRead) fail('source_changed'); output(part.subarray(0, bytesRead)); used += bytesRead;
           }
         }
-        if (committed) sink(Buffer.from('\n'));
+        if (committed) output(Buffer.from('\n'));
       }
     };
     try {
@@ -201,10 +202,10 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
     // Each read pays one bounded metadata pass: Windows can preserve the full stat
     // tuple across an external in-place replacement. The legacy reader keeps its
     // original byte window, surrounded by real stamps; no O(tail) claim is made.
-    const readWindow = (fullBytes, tailBytes, visit, includeInvalidTorn = false, legacyRead = null, operation = null) => within(operation, async owner => {
+    const readWindow = (fullBytes, tailBytes, visit, includeInvalidTorn = false, legacyRead = null, operation = null, digestSink = false) => within(operation, async owner => {
       const target = file(), before = await fileStamp(target), cacheKey = keyFor(target);
       const proof = await readMetadata(target);
-      if (!proof.sealed && !proof.tornReserved && !visit && legacyRead) {
+      if (!proof.sealed && !proof.tornReserved && !visit && !digestSink && legacyRead) {
         const window = await legacyRead();
         if (await fileStamp(target) !== before) fail('source_changed');
         remember(cacheKey, { ...proof, stamp: before });
@@ -221,7 +222,7 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
           }
         }
       };
-      const result = await scan(target, host, owner, visit, false, true, includeInvalidTorn, proof, sink);
+      const result = await scan(target, host, owner, visit, false, true, includeInvalidTorn, proof, sink, digestSink);
       if (await fileStamp(target) !== before) fail('source_changed');
       remember(cacheKey, { ...result, stamp: before });
       const gate = recoveryGates.get(cacheKey); let recoveryTicket;
@@ -232,6 +233,20 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
       }
       return { text: visit ? '' : Buffer.concat(chunks, size).toString('utf8'), droppedHead, ...result, stamp: before, recoveryTicket };
     });
+    // Opt-in stable disclosure proof hashes exactly the logical sink bytes from
+    // this scan, including bytes discarded by a tail window. Revalidation scans
+    // current bytes and acquires a fresh short lease; stat is only a cheap guard.
+    const readProof = async (fullBytes, tailBytes) => {
+      const target = file(), result = await readWindow(fullBytes, tailBytes, null, false, null, null, true);
+      const expected = { digest: result.digest, authStamp: result.authStamp, stamp: result.stamp };
+      const check = () => withOperation(async owner => {
+        if (file() !== target || await fileStamp(target) !== expected.stamp) fail('source_changed');
+        const current = await scan(target, host, owner, null, false, true, false, null, () => {}, true);
+        if (current.digest !== expected.digest || current.authStamp !== expected.authStamp) fail('source_changed');
+        if (await fileStamp(target) !== expected.stamp) fail('source_changed');
+      });
+      return { ...result, check };
+    };
     const stage = async (target, rows, startOrdinal, credential) => {
       await fsp.mkdir(pathModule.dirname(target), { recursive: true });
       const temp = target + '.sealed-stage-' + cryptoApi.randomBytes(12).toString('hex');
@@ -344,7 +359,7 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
       if (await fileStamp(file()) !== proof.stamp) fail('source_changed');
       recoveryGates.delete(key); recoveryTickets.delete(ticket);
     });
-    return Object.freeze({ append, replace, readWindow, withOperation, preflight, checkAuthority, recoveryPending, acknowledgeRecovery, authStamp: auth, metadataProof: () => readMetadata(file()),
+    return Object.freeze({ append, replace, readWindow, readProof, withOperation, preflight, checkAuthority, recoveryPending, acknowledgeRecovery, authStamp: auth, metadataProof: () => readMetadata(file()),
       fileStamp: () => fileStamp(file()), forget: () => states.delete(keyFor(file())) });
   }
   return Object.freeze({ create, candidate, MAX_RECORD_BYTES });

@@ -90,7 +90,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
   const s02c = src('02c-turn-segments.js');
   ok(/if \(seg\.background === true && \(seg\.type === 'subagent' \|\| seg\.type === 'workflow'\)\) \{\s*if \(seg\.status === 'running' \|\| seg\.status === 'paused'\) seg\.status = 'background';\s*continue;/.test(s02c), '③ 02c finalizeAll:后台段标 background 不标 cancelled');
   const s11 = src('11-native-tools.js');
-  ok(/EventStreamHooks\.markAgentEnvelopeDelivered = \(session, runId\)/.test(s11) && /EventStreamHooks\.notifyAgentRunEnvelope = \(sessionId, run, envelope\)/.test(s11) && /EventStreamHooks\.drainAgentEnvelopesText = session =>/.test(s11), '③ 11 一次投递三件套(登记已读 / 完成入账 / Claude 侧文本 drain)');
+  ok(/EventStreamHooks\.markAgentEnvelopeDelivered = \(session, runId\)/.test(s11) && /EventStreamHooks\.notifyAgentRunEnvelope = \(sessionId, run, envelope\)/.test(s11) && /EventStreamHooks\.drainAgentEnvelopesText = (?:async )?session =>/.test(s11), '③ 11 一次投递三件套(登记已读 / 完成入账 / Claude 侧文本 drain)');
   // wave137 集成期竞态:通知先到、wait 后到 → wait 只回短回执;wait 先到 → 登记已读。两种先后顺序都恰好一次。
   ok(/EventStreamHooks\.isAgentEnvelopeDelivered = \(session, runId\)/.test(s11), '③ 11 已读查询钩子 isAgentEnvelopeDelivered');
   ok(/function settleWaitEnvelopes\(session, out\)/.test(s09) && /kind: 'agent_envelope_receipt', runId: env\.runId, status: env\.status, delivered: 'already'/.test(s09) && /resultObj = settleWaitEnvelopes\(session, await waitForAgentRunResults\(session\.id, requestedRunIds/.test(s09), '③ 09 wait_agents 经 settleWaitEnvelopes 结算:已送达 → 短回执,否则登记已读');

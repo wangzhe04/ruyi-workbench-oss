@@ -462,7 +462,7 @@ async function searchSessionsByContent(query, limit) {
 
 // GET /api/sessions/:id 条件 GET 的【盘上戳】。不装载会话就能取:头文件整份读出来哈希(头只有几 KB~几十 KB;
 // 不能只信 updatedAt/mtime —— 同一毫秒/同一个文件系统时钟刻度内两次落头会撞)+ 两个正文的 size/mtime/ino(追加改 size,
-// 慢路径整份重写是 rename 换 inode)+ 后台任务账本的 size/mtime/ino(loadSession 会把它合并进 messages)。
+// 慢路径整份重写是 rename 换 inode)+ 后台任务账本的认证内容摘要(loadSession 会把它合并进 messages)。
 // 头是提交点(saveSession 正文先落、头后落,且每次都推 updatedAt),所以「头哈希 + 正文戳」不变 = 盘上没有新提交。
 // 任何一步读不到(legacy 单文件会话没有正文文件、瞬时锁、会话不存在)一律返回 null → 调用方不发 ETag、走原来的无条件全量,
 // 与修前逐字节一致。
@@ -474,13 +474,14 @@ async function sessionEnvelopeStamp(id) {
       readSessionHeadText(id),   // M3-2c: 解密后的头文本参与信封戳
       fsp.stat(bp.messages),
       fsp.stat(bp.provider),
-      // 路径与 11-native-tools.js 的 backgroundJobFile 同一处约定(sessions/background-jobs/<id>.json)。这里不直接引用它:13d 引 11
-      // 会新增一条循环边(module-dependency-graph 的债务上限锁着);e2e session-get-etag 的 F 段写一份账本、断言标签会变,钉住这份约定不漂移。
-      fsp.stat(path.join(paths.sessions, 'background-jobs', id + '.json')).catch(() => null),
+      // Even an unchanged stat cannot authorize a cached success after key loss or a
+      // same-stat replacement. The late owner hook authenticates current ledger bytes.
+      EventStreamHooks.backgroundJobsStamp ? EventStreamHooks.backgroundJobsStamp(id)
+        : fsp.stat(path.join(paths.sessions, 'background-jobs', id + '.json')).then(st => `${st.size}:${st.mtimeMs}:${st.ino}`, () => '-'),
     ]);
     const fileStamp = st => `${st.size}:${st.mtimeMs}:${st.ino}`;
-    return crypto.createHash('sha1').update(head).digest('hex') + '|' + fileStamp(msg) + '|' + fileStamp(prov) + '|' + (jobs ? fileStamp(jobs) : '-');
-  } catch { return null; }
+    return crypto.createHash('sha1').update(head).digest('hex') + '|' + fileStamp(msg) + '|' + fileStamp(prov) + '|' + jobs;
+  } catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; return null; }
 }
 // 标签 = 盘上戳 + 装载会改变响应的全部【内存】输入:活态四件(见 sessionEnvelopeLiveParts)、会话级权限档/桌面工具覆盖表
 // (loadSession 会把它们盖到返回的会话对象上)、垂死回合收尾窗口(turnSettlers:窗口内 loadSession 不做残留 pending 叙事段的
@@ -2788,7 +2789,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     try {
       const run = await readAgentRunSnapshot(sessionId, runId);
       if (!run) throw new Error('invalid run');
-      if (EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
+      if (EventStreamHooks.projectAgentMessageReceipts) await EventStreamHooks.projectAgentMessageReceipts(run);
       return send(res, json({ ok: true, run }));
     } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
   }

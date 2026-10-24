@@ -2712,6 +2712,8 @@
       "layer": "foundation",
       "provides": [
         "ACTIVE_CHILD_EVENT_TAPS",
+        "AUDIT_LOG_BATCH_BYTES",
+        "AUDIT_LOG_BATCH_ROWS",
         "BRIDGED_CATALOG_INCOMPLETE_TTL_MS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
@@ -2764,6 +2766,13 @@
         "activeChildren",
         "appendLiveTail",
         "assertSessionExecutionOwner",
+        "auditLogContext",
+        "auditLogEnabled",
+        "auditLogError",
+        "auditLogFailureOverflow",
+        "auditLogFailures",
+        "auditLogFlush",
+        "auditLogSubmitted",
         "bridgedCatalogCache",
         "bridgedCatalogInflight",
         "bridgedServerSpawnEnv",
@@ -2788,6 +2797,7 @@
         "driverAutoSessions",
         "enabledToolboxComponents",
         "extendUserQuestion",
+        "flushWorkbenchLogs",
         "formatQuestionGuidance",
         "getBridgedClient",
         "getMcpClient",
@@ -2811,7 +2821,6 @@
         "logEvent",
         "logFileIdentity",
         "logStream",
-        "logStreamDay",
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
         "mcpBridgeError",
@@ -2844,6 +2853,7 @@
         "parseClaudeTaskNotification",
         "parseKimiStreamJsonEvent",
         "parseMcpConfigFile",
+        "pendingAuditLogFailure",
         "pendingPermissions",
         "pendingPlans",
         "pendingQuestions",
@@ -2852,11 +2862,14 @@
         "promptDeadlineIsReal",
         "promptWaitMs",
         "readLogTailSnapshot",
+        "readWorkbenchLogFile",
         "reconcileMcpEntryFingerprint",
         "recordSessionExecutionOwner",
+        "recoverWorkbenchAudit",
         "redact",
         "registerSessionExecutionChild",
         "registerUserQuestion",
+        "rememberAuditLogFailure",
         "requestSessionExecutionStop",
         "requestUserQuestion",
         "resolveBridge",
@@ -2884,7 +2897,10 @@
         "toolboxComponentsDir",
         "turnOutcomePending",
         "turnSettlers",
-        "validateBrowserTargetPatch"
+        "validateBrowserTargetPatch",
+        "workbenchAuditJournal",
+        "workbenchLogStream",
+        "writeWorkbenchLogChunks"
       ],
       "requires": [
         {
@@ -3043,6 +3059,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "bridgedEnvKeyStripped",
           "kinds": [
             "call"
@@ -3057,7 +3080,21 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "configDegraded",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "configReadGeneration",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configWriteChain",
           "kinds": [
             "read"
           ]
@@ -3092,6 +3129,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "normalizeConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -3109,6 +3153,20 @@
           "symbol": "batchSafeSpawn",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01s-work-data-journals.js",
+          "symbol": "WorkDataJournals",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -6121,7 +6179,21 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "auditLogError",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "collectBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "flushWorkbenchLogs",
           "kinds": [
             "call"
           ]
@@ -6142,6 +6214,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "readWorkbenchLogFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
             "call"
@@ -6157,6 +6236,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "sanitizeServerId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "workbenchAuditJournal",
           "kinds": [
             "call"
           ]
@@ -12394,6 +12480,8 @@
         "_rgProbe",
         "_rgProbeInflight",
         "applyNonUtf8Report",
+        "backgroundJobChains",
+        "backgroundJobError",
         "backgroundJobFile",
         "backgroundJobText",
         "backgroundShellCountsBySession",
@@ -12427,6 +12515,7 @@
         "levenshtein",
         "markAgentMessageDelivered",
         "maybeGroup",
+        "mergeBackgroundJobRows",
         "normalizeGlobPatternForRoot",
         "normalizeSearchPattern",
         "patternMayMatchNonAscii",
@@ -12493,7 +12582,7 @@
         "walkEnvelopeEntries",
         "walkFiles",
         "walkTruncationHint",
-        "writeBackgroundJobRows"
+        "withBackgroundJobOperation"
       ],
       "requires": [
         {
@@ -12596,6 +12685,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -12683,6 +12779,13 @@
         {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDeleteTombstones",
           "kinds": [
             "read"
           ]
@@ -13018,6 +13121,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
           "kinds": [
             "read"
           ]
@@ -14280,6 +14390,13 @@
           "symbol": "migrateLegacyDataRoot",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -24779,11 +24896,15 @@
       "layer": "transport",
       "provides": [
         "MIGRATION_BACKUP_TAG",
+        "MIGRATION_CAPSULE_ARCHIVE_LIMIT",
+        "MIGRATION_CAPSULE_BINARY_LIMIT",
+        "MIGRATION_CAPSULE_MARKER",
         "MIGRATION_LOG_SCHEMA",
         "MIGRATION_SIZE_BUDGET_MS",
         "MIGRATION_SIZE_FILE_CAP",
         "MIGRATION_SIZE_TTL_MS",
         "MIGRATION_SKILL_BACKUP_DIR",
+        "MIGRATION_SKILL_CAPSULE_NATIVE",
         "MIGRATION_SKILL_MAX_BYTES",
         "MIGRATION_SKILL_MAX_DEPTH",
         "MIGRATION_SKILL_MAX_FILES",
@@ -24791,6 +24912,28 @@
         "migrationAnalyzeValue",
         "migrationApply",
         "migrationBackup",
+        "migrationCapsuleArchive",
+        "migrationCapsuleAssertTree",
+        "migrationCapsuleBroker",
+        "migrationCapsuleCapture",
+        "migrationCapsuleDecode",
+        "migrationCapsuleDescriptor",
+        "migrationCapsuleFail",
+        "migrationCapsuleFingerprint",
+        "migrationCapsuleFingerprintShape",
+        "migrationCapsuleFinishPublished",
+        "migrationCapsuleIntent",
+        "migrationCapsuleIntentShape",
+        "migrationCapsulePrepare",
+        "migrationCapsulePresent",
+        "migrationCapsuleRead",
+        "migrationCapsuleRequireCarrier",
+        "migrationCapsuleRestore",
+        "migrationCapsuleRoots",
+        "migrationCapsuleSame",
+        "migrationCapsuleShape",
+        "migrationCapsuleVerifyReady",
+        "migrationCapsuleWriteIntent",
         "migrationChain",
         "migrationCollect",
         "migrationCollectRefs",
@@ -24820,6 +24963,8 @@
         "migrationPathInside",
         "migrationPidAlive",
         "migrationPromptKeys",
+        "migrationRecoverSkillBackups",
+        "migrationRecoveryNeeded",
         "migrationRecycle",
         "migrationRememberPackages",
         "migrationRewriteRefs",
@@ -24845,6 +24990,7 @@
         "migrationTreeHash",
         "migrationUncertainResult",
         "migrationUndo",
+        "migrationUndoCapsule",
         "migrationUndoSkillCopy",
         "writeMigrationLog"
       ],
@@ -25311,6 +25457,13 @@
         {
           "provider": "01-config.js",
           "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sendError",
           "kinds": [
             "call"
           ]

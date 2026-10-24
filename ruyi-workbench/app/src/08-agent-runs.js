@@ -682,7 +682,7 @@ async function markInterruptedAgentRuns() {
       // 模型以 background:true 起的 run 被重启打断、又不会自动续跑:补一份 interrupted 信封进后台任务账本 —— 修前模型对用户说过
       // 「代理在后台跑」,之后再没有任何人告诉它这些代理已经没了。信封在用户下一句话时随回合开头送达(interrupted 不唤醒,见 10)。
       if (run.background === true && !(bootConfig && bootConfig.autonomyAutoResume === true) && EventStreamHooks.notifyAgentRunEnvelope) {
-        try { EventStreamHooks.notifyAgentRunEnvelope(run.sessionId, run, buildAgentRunEnvelope(run)); } catch { /* 旁路,boot 防炸 */ }
+        try { await EventStreamHooks.notifyAgentRunEnvelope(run.sessionId, run, buildAgentRunEnvelope(run)); } catch { /* 旁路,boot 防炸 */ }
       }
   });
   // 71b: 存量对账 —— 71b 前落盘的 paused run 可能有 proposed 池提案但无 Intervention 记录(当时池未接入旁路)。
@@ -2680,8 +2680,8 @@ function agentMessageReceipt(message) {
     ...(message.deliveredAt ? { deliveredAt: message.deliveredAt } : {}),
     ...(message.dropped ? { reason: message.dropReason || 'target_unavailable', ...(message.droppedAt ? { droppedAt: message.droppedAt } : {}) } : {}) };
 }
-function ownAgentMessageReceipt(run, sender, messageId) {
-  if (EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
+async function ownAgentMessageReceipt(run, sender, messageId) {
+  if (EventStreamHooks.projectAgentMessageReceipts) await EventStreamHooks.projectAgentMessageReceipts(run);
   const message = (run.messages || []).find(m => m.id === String(messageId || '') && m.sender === sender);
   return message ? { ok: true, ...agentMessageReceipt(message) } : { ok: false, status: 'not_found', reason: 'receipt_unavailable' };
 }
@@ -2741,12 +2741,12 @@ async function readAgentRunRecord(sessionId, runId) {
   const live = activeAgentRuns.get(rid);
   if (live && live.run) {
     if (live.run.sessionId !== sessionId) return null;
-    if (EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(live.run);
+    if (EventStreamHooks.projectAgentMessageReceipts) await EventStreamHooks.projectAgentMessageReceipts(live.run);
     return { run: live.run, live: true };
   }
   try {
     const run = await readAgentRunSnapshot(sessionId, rid);
-    if (run && run.sessionId === sessionId && EventStreamHooks.projectAgentMessageReceipts) EventStreamHooks.projectAgentMessageReceipts(run);
+    if (run && run.sessionId === sessionId && EventStreamHooks.projectAgentMessageReceipts) await EventStreamHooks.projectAgentMessageReceipts(run);
     return run && run.sessionId === sessionId ? { run, live: false } : null;
   } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; }
 }

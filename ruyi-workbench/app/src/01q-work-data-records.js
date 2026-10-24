@@ -133,7 +133,7 @@ const WorkDataRecords = (() => {
   }
   // Auxiliary journals have fixed purposes independent of their payload. The
   // original four session kinds and their v2 AAD remain unchanged above.
-  const JOURNAL_KINDS = Object.freeze(['steward-inbox', 'steward-decisions', 'agent-run-events', 'scheduler-fires']);
+  const JOURNAL_KINDS = Object.freeze(['steward-inbox', 'steward-decisions', 'agent-run-events', 'scheduler-fires', 'audit-log']);
   function journalBinding(context, schema) {
     if (!context || !JOURNAL_KINDS.includes(context.kind)) fail('kind_invalid');
     const ordinal = ordinalOf(context.ordinal), kind = context.kind;
@@ -142,7 +142,7 @@ const WorkDataRecords = (() => {
       if (typeof context.runId !== 'string' || !/^[A-Za-z0-9_-]{1,96}$/.test(context.runId)) fail('run_invalid');
       recordId = kind + ':' + context.runId + ':' + ordinal;
     }
-    return { purpose: kind === 'agent-run-events' || kind === 'scheduler-fires' ? 'task' : 'queue', instanceId: context.instanceId,
+    return { purpose: kind === 'audit-log' ? 'audit' : kind === 'agent-run-events' || kind === 'scheduler-fires' ? 'task' : 'queue', instanceId: context.instanceId,
       schema, scopeId: context.sessionId, recordId, seq: ordinal };
   }
   // One physical NDJSON row, including for a chunked record. No plaintext stage.

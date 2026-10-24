@@ -613,7 +613,7 @@ async function runClaudeTurn({
   const turnMemoryEnvelope = !slashCommand && memoryTurnCheck ? memoryTurnCheck + '\n\n' + currentUserEnvelope : currentUserEnvelope;
   // 代理模式 v2:Claude/Kimi 没有 providerHistory 可在迭代边界注入 —— 后台代理的交付信封在下一回合开头拼进 prompt,
   // 同一张已读表(11 drainAgentEnvelopesText),只投递一次;斜杠命令回合不拼。
-  const agentDeliveries = (!slashCommand && EventStreamHooks.drainAgentEnvelopesText) ? EventStreamHooks.drainAgentEnvelopesText(session) : '';
+  const agentDeliveries = (!slashCommand && EventStreamHooks.drainAgentEnvelopesText) ? await EventStreamHooks.drainAgentEnvelopesText(session) : '';
   const assembledPrompt = (recoveryHistory || indexInjection || agentDeliveries || (!slashCommand && memoryTurnCheck))
     ? [recoveryHistory, indexInjection, agentDeliveries, turnMemoryEnvelope].filter(Boolean).join('\n\n')
     : basePrompt;

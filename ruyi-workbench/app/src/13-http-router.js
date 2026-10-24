@@ -1273,7 +1273,7 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const daysQ = new URL(req.url, 'http://x').searchParams.get('days');
     try { return send(res, json(await buildOpsMetrics(daysQ))); }
-    catch { return send(res, json({ ok: true, days: 7, interventions: { total: 0, bySource: {} }, missions: { started: 0, budgetExhausted: 0, budgetOverrunRate: 0 } })); }
+    catch (error) { if (String(error && error.code || '').startsWith('work_data')) return sendError(res, error); return send(res, json({ ok: true, days: 7, interventions: { total: 0, bySource: {} }, missions: { started: 0, budgetExhausted: 0, budgetOverrunRate: 0 } })); }
   }
   // v0.8-S4a: checkpoint query (read-only → same-origin gate is enough; not in needsToken).
   // EC-D Wave 65: Agent Run query, event, and control routes live in 13d-core-domain-routes.js.
@@ -1475,9 +1475,10 @@ async function handleApi(req, res, pathname) {
     const asked = Number.parseInt(q.get('lines') || '', 10);
     const wanted = Number.isFinite(asked) ? Math.min(Math.max(asked, 1), LOG_TAIL_MAX_LINES) : LOG_TAIL_DEFAULT_LINES;
     try {
-      const { assert: assertSource, ...view } = await readLogTailSnapshot(wanted);
+      const { assert: assertSource, check: checkSource, ...view } = await readLogTailSnapshot(wanted);
       return send(res, json({ ok: true, ...view }));
     } catch (e) {
+      if (String(e && e.code || '').startsWith('work_data')) return sendError(res, e);
       if (e.code !== 'logs.none') logEvent({ kind: 'logs_tail_failed', error: String(e && e.message || e) });
       return send(res, json({ ok: false, error: e.code === 'logs.none' ? 'logs.none' : 'logs.read_failed', maxLines: LOG_TAIL_MAX_LINES }));
     }
@@ -1571,6 +1572,7 @@ async function handleApi(req, res, pathname) {
     try {
       return send(res, json(await collectAudit(config, { limit, sourceFilter, typeFilter })));
     } catch (e) {
+      if (String(e && e.code || '').startsWith('work_data')) return sendError(res, e);
       return send(res, json({ ok: false, error: String(e && e.message || e) }, 500));
     }
   }
@@ -2015,6 +2017,8 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
     if (error && !error.ruyiStartErrorKind) error.ruyiStartErrorKind = 'data-dir-unwritable';
     throw error;
   }
+  // Resolve any interrupted original-object skill capsule before boot consumers or listen.
+  if (typeof MigrationHooks.recover === 'function') await MigrationHooks.recover();
   // 118c: 上一次启动失败的人话记录 -- 读出来挂进 START_NOTICE 并把文件删掉(一次性提示,不反复骚扰)。
   // 【必须在 listen 之前做】:listen 之后到 RUNTIME.port/host/token 赋值之间【不许有任何 await】。
   // 服务一旦开始监听,健康探针立刻就能通,而握手常量还没写好 -- 那段窗口里进来的请求会看到空 token,

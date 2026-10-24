@@ -110,15 +110,13 @@ function capturesContaining(dir, needle) {
     // 硬不变量:全文件 " + '.tmp'" 只允许 5 处豁免 —— ①atomicWriteJson 自身的唯一名构造;②flushSessionIndexSync
     // (exit 监听器只能同步 I/O,但 tmp 名同样唯一);③检查点回滚的二进制内容恢复(非 JSON,单写者语义);
     // ④v1.9 数据管家 sweep 的 events.ndjson.gz 归档(二进制,进程内串行 sweep 单写者,tmp+rename 原子替换);
-    // ⑤134 后台任务完成台账 background-jobs/<sessionId>.json(11-native-tools completeBackgroundJob:
-    // 只在 child close 同步事件里跑,单线程内天然逐个串行,读-改-写不会交错;若改 async atomicWriteJson
-    // 反而会让两个并发 close 的 await 穿插出丢更新。每文件固定 tmp 名 + renameSync 原子替换)。
+    // M3-2 ledger now uses an async owner chain plus shared atomicWriteJson, not a fixed tmp exemption.
     // 103c 已把 context-calibration.json 收编进 DurableJsonStore → atomicWriteJson,不再豁免固定 tmp。
     // ⑥工具集优化批 F11:11b-file-text-io 的 atomicWriteFile —— 给【用户文件】(file_write/file_edit)做同目录
     // tmp+rename,tmp 名带 pid+随机后缀(非固定名),不是工作台自有的 JSON 状态,不适用 atomicWriteJson。
-    // 任何人新增第 7 处手写 tmp 写点 → 此断言红,逼着走 atomicWriteJson 或登记专用协议。
+    // 任何人新增第 6 处手写 tmp 写点 → 此断言红,逼着走 atomicWriteJson 或登记专用协议。
     const tmpSites = (src.match(/\+ '\.tmp'/g) || []).length;
-    ok(tmpSites === 6, 'B 手写 tmp 写点=6(白名单豁免;实 ' + tmpSites + ')');
+    ok(tmpSites === 5, 'B 手写 tmp 写点=5(白名单豁免;实 ' + tmpSites + ')');
     ok(!/dest \+ '\.' \+ process\.pid \+ '\.tmp'/.test(src), 'B saveAgentRun 旧 pid-only tmp 模式已清零');
     ok(/AGENT_RUN_PERSIST_DEGRADED_AFTER = 3/.test(src) && /AGENT_RUN_PERSIST_PAUSE_AFTER = 8/.test(src), 'B 持久化退化阈值常量在(3/8)');
     // hunt2-http:digest 视图(只读标量、不外发)浅展开,完整视图照旧深拷贝。

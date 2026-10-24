@@ -263,7 +263,7 @@ const PrivacyTextExports = (() => {
     } else if (body.kind === 'log-tail-copy') {
       const snapshot = await readLogTailSnapshot(body.lines, { stable: true });
       const assertLog = snapshot.assert;
-      sourceGuards.push(assertLog); check = async () => { assertLog(); };
+      sourceGuards.push(assertLog); check = async () => { await snapshot.check(); assertLog(); };
       source = { file: snapshot.file, hash: hash(snapshot.lines), requested: snapshot.requested };
       let lines = snapshot.lines;
       if (enabled && !plaintext) {
@@ -454,6 +454,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
     else if (req.method === 'POST' && pathname === '/api/privacy/backup/import') reply(await PrivacyCore.configHooks.commit(body.ticket));
     else return false;
   } catch (error) {
+    if (String(error && error.code || '').startsWith('work_data')) { res.setHeader('cache-control', 'no-store'); sendError(res, error); return true; }
     const code = /^(?:privacy|credential_vault|credential_recovery)\.[a-z_]+$/.test(error.code || '') ? error.code : 'privacy.request_failed';
     const params = typeof error.ruleId === 'string' && /^[a-zA-Z0-9_.:-]{1,160}$/.test(error.ruleId) ? { ruleId: error.ruleId } : {};
     const response = apiFailure(code, params, code, code === 'privacy.body_limit' ? 413 : 409);

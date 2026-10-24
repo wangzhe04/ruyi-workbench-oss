@@ -1,0 +1,1271 @@
+{
+  "schema": 1,
+  "batch": "final-three-work-data-adapters",
+  "date": "2026-10-24",
+  "baseline": "b9eba986b68fbfca6e7f423ba0ca54bd8876bf5b",
+  "branch": "codex/3.1-completion-plan",
+  "status": "verified",
+  "adapters": {
+    "before": 38,
+    "after": 41,
+    "required": 41,
+    "added": [
+      "background-job-ledger",
+      "audit-log",
+      "migration-skill-backups"
+    ],
+    "defaultEnabled": false,
+    "encryptionImplemented": false,
+    "realUserMigration": false,
+    "release": false
+  },
+  "scope": [
+    "async task receipt consumers and whole RMW owner",
+    "audit fixed purpose/day journal, proof, failure/retention owners",
+    "sealed skill archive/intent plus original NTFS object recovery"
+  ],
+  "sourceIdentity": {
+    "baseline": "b9eba986",
+    "node": "v24.14.1",
+    "manual": {
+      "files": 15,
+      "added": 1507,
+      "removed": 214,
+      "net": 1293
+    },
+    "product": [
+      {
+        "file": "ruyi-workbench/app/src/01q-work-data-records.js",
+        "added": 2,
+        "removed": 2,
+        "sha256": "c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0"
+      },
+      {
+        "file": "ruyi-workbench/app/src/01s-work-data-journals.js",
+        "added": 24,
+        "removed": 9,
+        "sha256": "9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f"
+      },
+      {
+        "file": "ruyi-workbench/app/src/02-session-store.js",
+        "added": 26,
+        "removed": 10,
+        "sha256": "1708227c9417a91faa1dbc6cb5c6468e3ee4a9ea0d90328dc8de199f996f5d1f"
+      },
+      {
+        "file": "ruyi-workbench/app/src/04-permission-runtime.js",
+        "added": 130,
+        "removed": 24,
+        "sha256": "8688f769713fef95ffb2eecab8822b5a406bd4d0ef38cf5ba538d357f3294f3b"
+      },
+      {
+        "file": "ruyi-workbench/app/src/05-claude-engine.js",
+        "added": 1,
+        "removed": 1,
+        "sha256": "b550371c6fb04b25e4af64fabe4c38df6b8b0f2687e989b4d2ffeabfbb4a1ad1"
+      },
+      {
+        "file": "ruyi-workbench/app/src/06-provider-engine.js",
+        "added": 19,
+        "removed": 4,
+        "sha256": "f6fbe11c198a3d082128508f20f711a81f6cefc4c1a3175cf370903eb2fc99ce"
+      },
+      {
+        "file": "ruyi-workbench/app/src/08-agent-runs.js",
+        "added": 5,
+        "removed": 5,
+        "sha256": "02e79d7327610ace074504b215f397a404a34ffc42611588074f191547f8dae2"
+      },
+      {
+        "file": "ruyi-workbench/app/src/09-workflow.js",
+        "added": 18,
+        "removed": 12,
+        "sha256": "27427788909b452611cb283d39fc58743e70f3e82c25cec4b0bfe489ce4ce66d"
+      },
+      {
+        "file": "ruyi-workbench/app/src/10-context-governance.js",
+        "added": 6,
+        "removed": 3,
+        "sha256": "a4dd20e04488d3a4d2d3f3adb3d88aac59400196ceca551078b6f05dc492c8f9"
+      },
+      {
+        "file": "ruyi-workbench/app/src/11-native-tools.js",
+        "added": 155,
+        "removed": 58,
+        "sha256": "7515ff4718db055dea0ed7e3bf5dd25f9603ea1b3843fa430c22abd3f825a110"
+      },
+      {
+        "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "added": 73,
+        "removed": 65,
+        "sha256": "bb1c3b54c505d9d4e64f83550a6f59dec4c4bcca25089f98caf5a30e5a8bc777"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13-http-router.js",
+        "added": 6,
+        "removed": 2,
+        "sha256": "272112d19bed5b82d506249e74ca387a76dcd2c40586c105d2c90f5a5732b2f5"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13ab-privacy-api.js",
+        "added": 2,
+        "removed": 1,
+        "sha256": "d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13d-core-domain-routes.js",
+        "added": 8,
+        "removed": 7,
+        "sha256": "cfc0644740c986bd65d5a681fb058b63f5051f0387477cb3f67130eb913380d3"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13u-migration-center.js",
+        "added": 1032,
+        "removed": 11,
+        "sha256": "e6f7c3a05c0c2ee47268fa9357a4b6f53c6ee7d27eb42d35b3e3d2d588bd08e3"
+      }
+    ],
+    "generated": [
+      {
+        "file": "ruyi-workbench/app/server.js",
+        "added": 1507,
+        "removed": 214
+      },
+      {
+        "file": "ruyi-workbench/app/src/manifest.json",
+        "added": 151,
+        "removed": 151
+      },
+      {
+        "file": "ruyi-workbench/app/src/module-contracts.json",
+        "added": 156,
+        "removed": 3
+      }
+    ]
+  },
+  "verification": {
+    "node": "v24.14.1",
+    "completeUnitPending": false,
+    "staticPending": false,
+    "dpapiIntermediate": {
+      "audit": "7 groups, twice",
+      "ledger": "6 groups, twice, including actual checkpoint file rollback",
+      "skillBackup": "6 groups, twice, including 22-second alias delay",
+      "scope": "earlier candidates retained; final exact runtime results below"
+    },
+    "fullDefaultOfflineE2E": false,
+    "packagedAcceptance": false,
+    "completeUnit": {
+      "command": "node --test --test-concurrency=4 dev-harness/unit/*.test.js",
+      "tests": 3069,
+      "passed": 3043,
+      "skipped": 26,
+      "failed": 0,
+      "cancelled": 0,
+      "log": "unit-final2.log",
+      "counts": "Node-reported executions; inherited host cases can run in more than one test file; not a unique coverage claim"
+    },
+    "directed": {
+      "totalFinalExecutions": 15,
+      "newFamiliesEachTwice": true,
+      "legacyScripts": 9,
+      "passed": 15,
+      "failed": 0,
+      "finalResults": [
+        {
+          "file": "background-ledger-work-data.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 5074,
+          "log": "directed-final-03-background-ledger-work-data.e2e.js.log",
+          "sha256": "7adeb54d115de535221b0abe726b4c44f0d3310b1c2287e624ba961ce5ff9bc9"
+        },
+        {
+          "file": "background-ledger-work-data.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 5530,
+          "log": "directed-final-04-background-ledger-work-data.e2e.js.log",
+          "sha256": "7adeb54d115de535221b0abe726b4c44f0d3310b1c2287e624ba961ce5ff9bc9"
+        },
+        {
+          "file": "migration-skill-backups-work-data.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 37447,
+          "log": "directed-final-05-migration-skill-backups-work-data.e2e.js.log",
+          "sha256": "604fb84ec37c5efb1f27aed509f706b1fa8f2c2598a12efc51d849671e6ef40e"
+        },
+        {
+          "file": "migration-skill-backups-work-data.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 37611,
+          "log": "directed-final-06-migration-skill-backups-work-data.e2e.js.log",
+          "sha256": "604fb84ec37c5efb1f27aed509f706b1fa8f2c2598a12efc51d849671e6ef40e"
+        },
+        {
+          "file": "agent-final-mailbox.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 8250,
+          "log": "directed-final-07-agent-final-mailbox.e2e.js.log",
+          "sha256": "c73d04753a6ea53d405a0c472d7178aab4b36cde316e4183fe4d451d3f81edf4"
+        },
+        {
+          "file": "agent-wake.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 95856,
+          "log": "directed-final-09-agent-wake.e2e.js.log",
+          "sha256": "42b74d70b380f77fba76c0a735cc5d7ebc4db59e3702ad69fbaf2d5abd07ecb9"
+        },
+        {
+          "file": "session-get-etag.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 3677,
+          "log": "directed-final-10-session-get-etag.e2e.js.log",
+          "sha256": "1fd917698a29dc5cde5ad3d4e45a768e5c1ecc9f02027bcfd314013e33c8f306"
+        },
+        {
+          "file": "migration-center.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 5975,
+          "log": "directed-final-13-migration-center.e2e.js.log",
+          "sha256": "6b5d1ee443b33655c1dc77fa9034c25da37ac003e88f23f4ad60c13a9b90b2d2"
+        },
+        {
+          "file": "migration-records-work-data.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 4180,
+          "log": "directed-final-14-migration-records-work-data.e2e.js.log",
+          "sha256": "20a315fc71aba3c036e207237b8c48f659d08aa842e07305d74083481d1dfa90"
+        },
+        {
+          "file": "steward-inbox-integrity.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 23755,
+          "log": "directed-final-15-steward-inbox-integrity.e2e.js.log",
+          "sha256": "d60c90ba727fd80fedc4ee954ae884fc9fd4fa05bbd0cb8d525e24a99f784be2"
+        },
+        {
+          "file": "audit-log-work-data.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 5651,
+          "log": "directed-repair-01-audit-log-work-data.e2e.js.log",
+          "sha256": "ac963001ea7d197a2947f516ee62304b8f6daf235f2a73dbc04b2e1db61193ea"
+        },
+        {
+          "file": "audit-log-work-data.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 5641,
+          "log": "directed-repair-02-audit-log-work-data.e2e.js.log",
+          "sha256": "ac963001ea7d197a2947f516ee62304b8f6daf235f2a73dbc04b2e1db61193ea"
+        },
+        {
+          "file": "agent-mode-v2.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 23684,
+          "log": "directed-repair-03-agent-mode-v2.e2e.js.log",
+          "sha256": "4bd9253f0f2134c69c2f6efbb80a939251e3296baed550d25d87c88791034e94"
+        },
+        {
+          "file": "autonomy-durability.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 34206,
+          "log": "directed-repair-04-autonomy-durability.e2e.js.log",
+          "sha256": "141ecae64c2782493e5c9178b69b85081fa0508edd1dee5912ea8653d2e061da"
+        },
+        {
+          "file": "audit.e2e.js",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "durationMs": 3554,
+          "log": "directed-repair-05-audit.e2e.js.log",
+          "sha256": "9e14a8f1a51632055bdde0aa8f944cb9bbb5bf4e6ac37dea98faec882b801634"
+        }
+      ],
+      "earlierSummary": {
+        "log": "directed-final-summary.json",
+        "passed": 10,
+        "failed": 5
+      },
+      "repairSummary": {
+        "log": "directed-repair-summary.json",
+        "passed": 5,
+        "failed": 0
+      },
+      "notes": [
+        "2 audit failures were cold internal HTTP fixture lacking real serve pre-listen readConfig; explicit initialization restores first prepare without changing policy guards or200 assertion",
+        "3 legacy failures were caused by this temporary orchestration script supplying a mismatched inherited RUYI_HOME data alias; corrected runner retains complete isolated home/AppData while leaving data-root selection to each fixture",
+        "b9/current actual dataRoot/authorizeRoute comparison agrees; original 3 legacy test files and product were not changed; Node-native HTML token compatibility remains valid"
+      ]
+    },
+    "static": {
+      "command": "all existing .static.e2e.js scripts, isolated serial orchestration",
+      "count": 81,
+      "passed": 81,
+      "failed": 0,
+      "summary": "static-final-summary.json"
+    },
+    "syntax": {
+      "command": "node dev-harness/syntax-gate.js",
+      "files": 1217,
+      "failed": 0,
+      "log": "syntax-final.log"
+    },
+    "build": {
+      "fresh": true,
+      "command": "node ruyi-workbench/app/build.js --check",
+      "serverSha256": "ff9224ec8421f72496e6ae3f3cfb5e5aada5109e10d39a1977d811050da4f715"
+    },
+    "privateIntegrationEvidence": {
+      "sourceSchemaTests": "full unit gate above",
+      "auditHttp": "current generated DPAPI + actual HTTP routes",
+      "nativeSkill": "current generated DPAPI + actual native NTFS operations; source startServerInner recovery order independently tested",
+      "fullProductionServeForAllFamilies": false
+    }
+  },
+  "firstFailures": [
+    {
+      "run": "unit-first.log",
+      "tests": 3014,
+      "passed": 2966,
+      "skipped": 25,
+      "failed": 23,
+      "notes": [
+        "16 new missing-ledger configuration admission regressions fixed with pure absent-sidecar read and mandatory write admission",
+        "2 actual rewind deadlocks: confirmed owned children stopped to let the run produce its failure report; fixed reentry and J-to-ledger lock order",
+        "config B3 recovery reentry fixed in stages; a later full run exposed remaining logger readConfig side effects",
+        "one test cleanup raced async logger; fixture now awaits owned flush",
+        "L2/Q4 timing and unchanged session-artifacts RangeError not assigned an unproved root cause"
+      ]
+    },
+    {
+      "run": "unit-final1.log",
+      "tests": 3065,
+      "passed": 3031,
+      "skipped": 26,
+      "failed": 8,
+      "notes": [
+        "7 existing rewind VM cases lacked the new real lock dependency; fixture updated without changing business assertions; 21/21 isolated pass",
+        "1 empty-config recovery race requires read-only committed switch; full rerun pending"
+      ]
+    },
+    {
+      "run": "static-first-summary.json",
+      "tests": 81,
+      "passed": 80,
+      "failed": 1,
+      "notes": [
+        "facts gate had stale README inventory totals; counts synchronized, no test condition relaxed"
+      ]
+    },
+    {
+      "run": "audit-dpapi-first.log",
+      "notes": [
+        "real HTTP missing-key returned500 rather than503; controlled work_data status wrapping fixed"
+      ]
+    },
+    {
+      "notes": [
+        "V3 immediate source48 pass did not prove delayed alias fidelity; original delayed alias loss retained",
+        "V4 ordinary and readonly cases failed with Win5",
+        "V5 source55 pass insufficient: independent raw-gzip nested-marker carrier bypass discovered, acceptance withdrawn",
+        "V6 sealed archive context and fresh authenticated intent gates reject raw alternate authorities; source59 pass and original challenge/negative controls recorded separately"
+      ]
+    },
+    {
+      "run": "directed-final-summary.json",
+      "passed": 10,
+      "failed": 5,
+      "notes": [
+        "2 audit failures were cold internal HTTP fixture lacking real serve pre-listen readConfig; explicit initialization restores first prepare without changing policy guards or200 assertion",
+        "3 legacy failures were caused by this temporary orchestration script supplying a mismatched inherited RUYI_HOME data alias; corrected runner retains complete isolated home/AppData while leaving data-root selection to each fixture",
+        "b9/current actual dataRoot/authorizeRoute comparison agrees; original 3 legacy test files and product were not changed; Node-native HTML token compatibility remains valid"
+      ]
+    }
+  ],
+  "independentReview": {
+    "directory": "%LOCALAPPDATA%/Temp/ruyi-wiring-review-fbf7c446fd394905a46a632f12d5593e",
+    "scope": "incremental changed owners, not all-repository audit",
+    "permanentLockOrderTest": "dev-harness/unit/background-ledger-lock-order.test.js",
+    "sourceControls": [
+      "current-content proof and current authentication",
+      "retention tornReserved and final mutation preflight",
+      "cross-file diagnostic failure ownership",
+      "mail drain vs synchronous wait seen table",
+      "delete in-flight merge/wake",
+      "conditional cache current logical digest/key",
+      "J-to-ledger ordering and borrowed guard session",
+      "archive sealed context and fresh intent authentication"
+    ],
+    "pending": false,
+    "readonlyConfig": {
+      "sha256": "8688f769713fef95ffb2eecab8822b5a406bd4d0ef38cf5ba538d357f3294f3b",
+      "sourceTests": 19,
+      "actualNormalizerProbeCases": 7,
+      "negativeControls": 7,
+      "negativeResultSha256": "84ca42120a11753bc5c4e8efd85acd5620d501f873142dbf4f85aef82598ce27",
+      "actualNormalizerResultSha256": "f0b0508c1471988a63968cbe0619b7ef8558b1e5fb716c5372cc7a8f87385754",
+      "notes": "Readonly accessor reuses normalizer; never invokes readConfig/hydrate/recovery/config publication; guards committed bytes and current generation/chain/vault/import state"
+    },
+    "legacyBaselineProbeSha256": "211960cb7ea96cbc8f0d95e0430410db33f10934cc8ef53d2dcdb58928700f65",
+    "retainedSyntheticDirectory": {
+      "basename": "ruyi-readonly-normalizer-review-colJTk",
+      "cleanup": "Automatic approval review rejected recursive cleanup with blocked by policy; preserved in place with no retry or bypass"
+    }
+  },
+  "egress": {
+    "baselineErrors": 76,
+    "currentErrors": 76,
+    "added": [],
+    "removed": [],
+    "sources": 281,
+    "candidates": 691
+  },
+  "limits": [
+    "single Writable backlog has no hard RAM bound; no new OFF event/drop cap",
+    "fresh full-file journal classification retained, sparse append cumulative reading can be quadratic",
+    "synthetic audit cost is not a performance gate or RSS bound",
+    "whole-tree original-object recovery retains existing release/relock publication window",
+    "no cross-process CAS, malicious same-account protection or SACL reconstruction",
+    "unsupported native features refuse before clear; portable equivalence outside Windows not claimed",
+    "M3-3 migration/reverse/recovery package/enable UI and later3.1 work remain open",
+    "strict CLI/VM isolation and ASR remain deferred"
+  ],
+  "externalEvidenceRoot": "%LOCALAPPDATA%/Temp/ruyi31-ledger-audit-20261024-b9eba986",
+  "logDigests": [
+    {
+      "file": "audit-dpapi-first.log",
+      "sha256": "6576e6921d05c882b8d0d3fe2939109bee3e4ac357ff0728168056cae3595645"
+    },
+    {
+      "file": "audit-dpapi-repair1.log",
+      "sha256": "ba468769eaf71df1e1d20d074d804d963372b8d45e07f309a2307b6b3dd22010"
+    },
+    {
+      "file": "audit-final1.log",
+      "sha256": "215ba5728af94daa27d49eba22fb6d029cdd95915db20599c0af880a66b7466d"
+    },
+    {
+      "file": "audit-final2.log",
+      "sha256": "215ba5728af94daa27d49eba22fb6d029cdd95915db20599c0af880a66b7466d"
+    },
+    {
+      "file": "backup-dpapi-first.log",
+      "sha256": "a4731ddfa666791145a5bd679f29aeb131efb6c80f9a01277f6e2b6254cc32ba"
+    },
+    {
+      "file": "backup-final2.log",
+      "sha256": "a4731ddfa666791145a5bd679f29aeb131efb6c80f9a01277f6e2b6254cc32ba"
+    },
+    {
+      "file": "directed-final-01-audit-log-work-data.e2e.js.log",
+      "sha256": "a354a214340b84c6f4b7552e145d56b35107b7cabc6abcd683131390a0c641e0"
+    },
+    {
+      "file": "directed-final-02-audit-log-work-data.e2e.js.log",
+      "sha256": "a354a214340b84c6f4b7552e145d56b35107b7cabc6abcd683131390a0c641e0"
+    },
+    {
+      "file": "directed-final-03-background-ledger-work-data.e2e.js.log",
+      "sha256": "7adeb54d115de535221b0abe726b4c44f0d3310b1c2287e624ba961ce5ff9bc9"
+    },
+    {
+      "file": "directed-final-04-background-ledger-work-data.e2e.js.log",
+      "sha256": "7adeb54d115de535221b0abe726b4c44f0d3310b1c2287e624ba961ce5ff9bc9"
+    },
+    {
+      "file": "directed-final-05-migration-skill-backups-work-data.e2e.js.log",
+      "sha256": "604fb84ec37c5efb1f27aed509f706b1fa8f2c2598a12efc51d849671e6ef40e"
+    },
+    {
+      "file": "directed-final-06-migration-skill-backups-work-data.e2e.js.log",
+      "sha256": "604fb84ec37c5efb1f27aed509f706b1fa8f2c2598a12efc51d849671e6ef40e"
+    },
+    {
+      "file": "directed-final-07-agent-final-mailbox.e2e.js.log",
+      "sha256": "c73d04753a6ea53d405a0c472d7178aab4b36cde316e4183fe4d451d3f81edf4"
+    },
+    {
+      "file": "directed-final-08-agent-mode-v2.e2e.js.log",
+      "sha256": "bf65274e92a5fc908b56075c77ea3f564568f809c3a9e03d72216d7e4a084d9c"
+    },
+    {
+      "file": "directed-final-09-agent-wake.e2e.js.log",
+      "sha256": "42b74d70b380f77fba76c0a735cc5d7ebc4db59e3702ad69fbaf2d5abd07ecb9"
+    },
+    {
+      "file": "directed-final-10-session-get-etag.e2e.js.log",
+      "sha256": "1fd917698a29dc5cde5ad3d4e45a768e5c1ecc9f02027bcfd314013e33c8f306"
+    },
+    {
+      "file": "directed-final-11-autonomy-durability.e2e.js.log",
+      "sha256": "067af462b143c28b3112c88cd172a8950da5db8f354bc46068b657b91a7486f0"
+    },
+    {
+      "file": "directed-final-12-audit.e2e.js.log",
+      "sha256": "c6c0f36ee8ba1b3ec44e1df72fed3cebecfda5f0a3b3665f9752970bb69a27b6"
+    },
+    {
+      "file": "directed-final-13-migration-center.e2e.js.log",
+      "sha256": "6b5d1ee443b33655c1dc77fa9034c25da37ac003e88f23f4ad60c13a9b90b2d2"
+    },
+    {
+      "file": "directed-final-14-migration-records-work-data.e2e.js.log",
+      "sha256": "20a315fc71aba3c036e207237b8c48f659d08aa842e07305d74083481d1dfa90"
+    },
+    {
+      "file": "directed-final-15-steward-inbox-integrity.e2e.js.log",
+      "sha256": "d60c90ba727fd80fedc4ee954ae884fc9fd4fa05bbd0cb8d525e24a99f784be2"
+    },
+    {
+      "file": "directed-final-driver.log",
+      "sha256": "023a82a6b124ce5ff93b8e87b6613bb714a37ce49036f3a2a599a8050ef09be9"
+    },
+    {
+      "file": "directed-repair-01-audit-log-work-data.e2e.js.log",
+      "sha256": "ac963001ea7d197a2947f516ee62304b8f6daf235f2a73dbc04b2e1db61193ea"
+    },
+    {
+      "file": "directed-repair-02-audit-log-work-data.e2e.js.log",
+      "sha256": "ac963001ea7d197a2947f516ee62304b8f6daf235f2a73dbc04b2e1db61193ea"
+    },
+    {
+      "file": "directed-repair-03-agent-mode-v2.e2e.js.log",
+      "sha256": "4bd9253f0f2134c69c2f6efbb80a939251e3296baed550d25d87c88791034e94"
+    },
+    {
+      "file": "directed-repair-04-autonomy-durability.e2e.js.log",
+      "sha256": "141ecae64c2782493e5c9178b69b85081fa0508edd1dee5912ea8653d2e061da"
+    },
+    {
+      "file": "directed-repair-05-audit.e2e.js.log",
+      "sha256": "9e14a8f1a51632055bdde0aa8f944cb9bbb5bf4e6ac37dea98faec882b801634"
+    },
+    {
+      "file": "directed-repair-driver.log",
+      "sha256": "6e02e7c35bb52e808e1b8b70199f1e9ca2ecd6969a067b88e4b8fd9403b05a34"
+    },
+    {
+      "file": "ledger-dpapi-first.log",
+      "sha256": "0a2d93b87efb9d30311786ba2b07db95f40749c8c70f3b6db0d5c391157ea0fb"
+    },
+    {
+      "file": "ledger-final1.log",
+      "sha256": "6ee7284c27d7c88ba0c05210c177937bb6f6e1d7126511b662b5204b9761040c"
+    },
+    {
+      "file": "ledger-final2.log",
+      "sha256": "6ee7284c27d7c88ba0c05210c177937bb6f6e1d7126511b662b5204b9761040c"
+    },
+    {
+      "file": "readonly-config-repair.log",
+      "sha256": "4e43d844945bd2835427417a012172961921b19d1a5b8c31f4199aea4a339812"
+    },
+    {
+      "file": "regression-repair1.log",
+      "sha256": "6e2d735cbc5a207221689845fc2cc02b51e565f49f4e2f6cdea8fd073b8b402b"
+    },
+    {
+      "file": "rewind-fixture-repair.log",
+      "sha256": "cc71a42b9a9d5f5ae02ab02d7f8b0c7288b221428ed131f92d123dc515d13f35"
+    },
+    {
+      "file": "static-final-acc-offline-installer.static.e2e.js.log",
+      "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd"
+    },
+    {
+      "file": "static-final-action-feedback.static.e2e.js.log",
+      "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc"
+    },
+    {
+      "file": "static-final-agent-mode-v2.static.e2e.js.log",
+      "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111"
+    },
+    {
+      "file": "static-final-agent-team-budget.static.e2e.js.log",
+      "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06"
+    },
+    {
+      "file": "static-final-agent-workflows-polling-visibility.static.e2e.js.log",
+      "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370"
+    },
+    {
+      "file": "static-final-architecture-contract-snapshots.static.e2e.js.log",
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87"
+    },
+    {
+      "file": "static-final-asr-config-ui.static.e2e.js.log",
+      "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd"
+    },
+    {
+      "file": "static-final-browser-mcp.static.e2e.js.log",
+      "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7"
+    },
+    {
+      "file": "static-final-c2-evidence-spawn-budget.static.e2e.js.log",
+      "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff"
+    },
+    {
+      "file": "static-final-copy-path-guard.static.e2e.js.log",
+      "sha256": "cd8a581ee8cdef7c8643e9893fdd20e7c4096fd78f3b921cbb908c950617bc06"
+    },
+    {
+      "file": "static-final-copy-terms.static.e2e.js.log",
+      "sha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e"
+    },
+    {
+      "file": "static-final-cost-zero.static.e2e.js.log",
+      "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd"
+    },
+    {
+      "file": "static-final-css-typography-debt.static.e2e.js.log",
+      "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0"
+    },
+    {
+      "file": "static-final-desktop-dpi.static.e2e.js.log",
+      "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309"
+    },
+    {
+      "file": "static-final-desktop-shell.static.e2e.js.log",
+      "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201"
+    },
+    {
+      "file": "static-final-driver.log",
+      "sha256": "7e5888ad5207146a29341223d6a730b964f966041f19f8310181ff8d556e9339"
+    },
+    {
+      "file": "static-final-durable-state-inventory.static.e2e.js.log",
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144"
+    },
+    {
+      "file": "static-final-ec-d-closure.static.e2e.js.log",
+      "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784"
+    },
+    {
+      "file": "static-final-encrypted-storage-freeze.static.e2e.js.log",
+      "sha256": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184"
+    },
+    {
+      "file": "static-final-engine-env-brief.static.e2e.js.log",
+      "sha256": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56"
+    },
+    {
+      "file": "static-final-eol-policy.static.e2e.js.log",
+      "sha256": "507e43fab7e0307ecb0782c19784ef4f3969bfe3319952209120048441c8f8fb"
+    },
+    {
+      "file": "static-final-facts.static.e2e.js.log",
+      "sha256": "a40b88eb815c51a04037aa86aad034cf3c3fed7129e2f081f114134a682a59fe"
+    },
+    {
+      "file": "static-final-finalize-segments.static.e2e.js.log",
+      "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93"
+    },
+    {
+      "file": "static-final-fixture-home.static.e2e.js.log",
+      "sha256": "d55458f41cfe102b79683be138229399dcb1c513211a261c6effed03eeee1864"
+    },
+    {
+      "file": "static-final-frontend-domains.static.e2e.js.log",
+      "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0"
+    },
+    {
+      "file": "static-final-health-i18n.static.e2e.js.log",
+      "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2"
+    },
+    {
+      "file": "static-final-i18n-en-terms.static.e2e.js.log",
+      "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99"
+    },
+    {
+      "file": "static-final-i18n.static.e2e.js.log",
+      "sha256": "adf88ce432f5ba9432b2f307dc3a11c606790b9c03df14510871e30f00fd284f"
+    },
+    {
+      "file": "static-final-inline-script-csp-hash.static.e2e.js.log",
+      "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8"
+    },
+    {
+      "file": "static-final-kimi-plan-ui.static.e2e.js.log",
+      "sha256": "e2ed9692bf2109c6dcca712d3ea409e28390ea52ef58721b2edde84811d749f9"
+    },
+    {
+      "file": "static-final-live-full-text.static.e2e.js.log",
+      "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf"
+    },
+    {
+      "file": "static-final-manifest-ranges.static.e2e.js.log",
+      "sha256": "ac291f821d0b79f474757daa9a121a709c13c7a137ce6d71b3571cf8b07d0910"
+    },
+    {
+      "file": "static-final-mcp-ops-gui.static.e2e.js.log",
+      "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c"
+    },
+    {
+      "file": "static-final-memory-toolbox.static.e2e.js.log",
+      "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527"
+    },
+    {
+      "file": "static-final-mermaid-render.static.e2e.js.log",
+      "sha256": "ce928409fdf9fd548c16d075453c87e192e09de29f5fc9f0f398c3239b0628bd"
+    },
+    {
+      "file": "static-final-model-menu-classes.static.e2e.js.log",
+      "sha256": "6bc587ed22509a1e4f62328d8af6a6e05c45c93034121e46c415b953985ae927"
+    },
+    {
+      "file": "static-final-module-dependency-graph.static.e2e.js.log",
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a"
+    },
+    {
+      "file": "static-final-ndjson-line-feeder.static.e2e.js.log",
+      "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b"
+    },
+    {
+      "file": "static-final-net-token-replay.static.e2e.js.log",
+      "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6"
+    },
+    {
+      "file": "static-final-new-thread-engine-default.static.e2e.js.log",
+      "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d"
+    },
+    {
+      "file": "static-final-onboarding.static.e2e.js.log",
+      "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb"
+    },
+    {
+      "file": "static-final-overlay-payload-lock.static.e2e.js.log",
+      "sha256": "85afb0d0db63eb7968978193925554628ae8feb83f712b91896ca84766af06c2"
+    },
+    {
+      "file": "static-final-overlay-update-gui.static.e2e.js.log",
+      "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675"
+    },
+    {
+      "file": "static-final-process-safety.static.e2e.js.log",
+      "sha256": "6a32d80b4ec18b07cb6420b0ace801e145d5407c796d3e65722badb1620cf41d"
+    },
+    {
+      "file": "static-final-progress-events.static.e2e.js.log",
+      "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5"
+    },
+    {
+      "file": "static-final-prompt-snapshot.static.e2e.js.log",
+      "sha256": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4"
+    },
+    {
+      "file": "static-final-provider-reasoning-effort-ui.static.e2e.js.log",
+      "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb"
+    },
+    {
+      "file": "static-final-rail-pocket.static.e2e.js.log",
+      "sha256": "ad6858848846c56023ce9bf17d040234f67bcc0e4a88a740dc79155cb47eacac"
+    },
+    {
+      "file": "static-final-resume-banner-dismiss.static.e2e.js.log",
+      "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00"
+    },
+    {
+      "file": "static-final-route-inventory.static.e2e.js.log",
+      "sha256": "33d684d07a5aaf03a95b0f59f7c2487efaa78a09c177f81ad4a2c6e7463ab02d"
+    },
+    {
+      "file": "static-final-runtime-optimization.static.e2e.js.log",
+      "sha256": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e"
+    },
+    {
+      "file": "static-final-scheduler-ui.static.e2e.js.log",
+      "sha256": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b"
+    },
+    {
+      "file": "static-final-session-save-census.static.e2e.js.log",
+      "sha256": "c103dd7c5d0311191adbba41411a252f8036596fda4ecfdf39fa673f015537f4"
+    },
+    {
+      "file": "static-final-software-engineering-prompt.static.e2e.js.log",
+      "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b"
+    },
+    {
+      "file": "static-final-start-experience.static.e2e.js.log",
+      "sha256": "cfc349f5a162104d2a4ab5ec8d2d35126aa2525852f478c63015fc36c4fb27c2"
+    },
+    {
+      "file": "static-final-steward-avatar.static.e2e.js.log",
+      "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf"
+    },
+    {
+      "file": "static-final-steward-board.static.e2e.js.log",
+      "sha256": "9eb59086b3f1c78f59607a219b374fd8b07daddbe4a770d42299ca04955aa26f"
+    },
+    {
+      "file": "static-final-steward-config.static.e2e.js.log",
+      "sha256": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec"
+    },
+    {
+      "file": "static-final-steward-conversation.static.e2e.js.log",
+      "sha256": "35715a3a40d6a2c01909a5f6e68c95e3be93a97357294a756b06a1aba981c2b3"
+    },
+    {
+      "file": "static-final-steward-drawer.static.e2e.js.log",
+      "sha256": "07a68365cbfa1de6136193d8df843c56a19759f62ee8fd5899cd13b902a91f15"
+    },
+    {
+      "file": "static-final-steward-events.static.e2e.js.log",
+      "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f"
+    },
+    {
+      "file": "static-final-steward-runner.static.e2e.js.log",
+      "sha256": "b3149ec297bf9ca19b1fd129063cf42e30046cfb59cfe338eb8dd9f33e0364f4"
+    },
+    {
+      "file": "static-final-steward-settings.static.e2e.js.log",
+      "sha256": "13192fe3e9cfe5edee7ea6158fec6282d6c08f6cb98c50b780919e4220776a74"
+    },
+    {
+      "file": "static-final-steward-shell.static.e2e.js.log",
+      "sha256": "f98cfde93f798655f156d84d96f76eea3d1b11801741f871e31b2a98b498cbe1"
+    },
+    {
+      "file": "static-final-steward-tools.static.e2e.js.log",
+      "sha256": "73d19191bc4a3f871e80997b7373196b8f4ed4a4f94c26ae21db9cc3f1f50caa"
+    },
+    {
+      "file": "static-final-steward-walkthrough.static.e2e.js.log",
+      "sha256": "31f38b3f636dd5f5c9b02be596b6e554125a81c7af53c8ccf73a543046504fd2"
+    },
+    {
+      "file": "static-final-streaming-responsiveness.static.e2e.js.log",
+      "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4"
+    },
+    {
+      "file": "static-final-thinking-boundary.static.e2e.js.log",
+      "sha256": "5e36c0fa9f7f726ba5ba0312e8fa796a8d8392a8408fd5ada2339dfc6750342d"
+    },
+    {
+      "file": "static-final-thread-brief.static.e2e.js.log",
+      "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216"
+    },
+    {
+      "file": "static-final-thread-commission.static.e2e.js.log",
+      "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb"
+    },
+    {
+      "file": "static-final-tool-image-inline.static.e2e.js.log",
+      "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8"
+    },
+    {
+      "file": "static-final-tool-verb-coverage.static.e2e.js.log",
+      "sha256": "1c2fcde0f9fc43c7940891c8628af6fc98cbe9df86b283a394a0f36eecd9f80b"
+    },
+    {
+      "file": "static-final-turn-narrative.static.e2e.js.log",
+      "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570"
+    },
+    {
+      "file": "static-final-ui-bugfix.static.e2e.js.log",
+      "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f"
+    },
+    {
+      "file": "static-final-ui-v3-p1.static.e2e.js.log",
+      "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58"
+    },
+    {
+      "file": "static-final-ui-v3-p2.static.e2e.js.log",
+      "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc"
+    },
+    {
+      "file": "static-final-ui-v3-p3a.static.e2e.js.log",
+      "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9"
+    },
+    {
+      "file": "static-final-ui-v3-p3b.static.e2e.js.log",
+      "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f"
+    },
+    {
+      "file": "static-final-ui-v3-wave1.static.e2e.js.log",
+      "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3"
+    },
+    {
+      "file": "static-final-ui-v4-glass.static.e2e.js.log",
+      "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f"
+    },
+    {
+      "file": "static-final-v17-review-fixes.static.e2e.js.log",
+      "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd"
+    },
+    {
+      "file": "static-final-workflow-editor-v2.static.e2e.js.log",
+      "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f"
+    },
+    {
+      "file": "static-first-acc-offline-installer.static.e2e.js.log",
+      "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd"
+    },
+    {
+      "file": "static-first-action-feedback.static.e2e.js.log",
+      "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc"
+    },
+    {
+      "file": "static-first-agent-mode-v2.static.e2e.js.log",
+      "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111"
+    },
+    {
+      "file": "static-first-agent-team-budget.static.e2e.js.log",
+      "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06"
+    },
+    {
+      "file": "static-first-agent-workflows-polling-visibility.static.e2e.js.log",
+      "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370"
+    },
+    {
+      "file": "static-first-architecture-contract-snapshots.static.e2e.js.log",
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87"
+    },
+    {
+      "file": "static-first-asr-config-ui.static.e2e.js.log",
+      "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd"
+    },
+    {
+      "file": "static-first-browser-mcp.static.e2e.js.log",
+      "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7"
+    },
+    {
+      "file": "static-first-c2-evidence-spawn-budget.static.e2e.js.log",
+      "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff"
+    },
+    {
+      "file": "static-first-copy-path-guard.static.e2e.js.log",
+      "sha256": "cd8a581ee8cdef7c8643e9893fdd20e7c4096fd78f3b921cbb908c950617bc06"
+    },
+    {
+      "file": "static-first-copy-terms.static.e2e.js.log",
+      "sha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e"
+    },
+    {
+      "file": "static-first-cost-zero.static.e2e.js.log",
+      "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd"
+    },
+    {
+      "file": "static-first-css-typography-debt.static.e2e.js.log",
+      "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0"
+    },
+    {
+      "file": "static-first-desktop-dpi.static.e2e.js.log",
+      "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309"
+    },
+    {
+      "file": "static-first-desktop-shell.static.e2e.js.log",
+      "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201"
+    },
+    {
+      "file": "static-first-driver.log",
+      "sha256": "71129648008c29634b23c08d5fbfd82551c669517d78dd4e1bd3ba1d273e8c0b"
+    },
+    {
+      "file": "static-first-durable-state-inventory.static.e2e.js.log",
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144"
+    },
+    {
+      "file": "static-first-ec-d-closure.static.e2e.js.log",
+      "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784"
+    },
+    {
+      "file": "static-first-encrypted-storage-freeze.static.e2e.js.log",
+      "sha256": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184"
+    },
+    {
+      "file": "static-first-engine-env-brief.static.e2e.js.log",
+      "sha256": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56"
+    },
+    {
+      "file": "static-first-eol-policy.static.e2e.js.log",
+      "sha256": "507e43fab7e0307ecb0782c19784ef4f3969bfe3319952209120048441c8f8fb"
+    },
+    {
+      "file": "static-first-facts.static.e2e.js.log",
+      "sha256": "855a3582cbae3037ae64406317841fa436c3c241735682dbcd000dbabe4a76c9"
+    },
+    {
+      "file": "static-first-finalize-segments.static.e2e.js.log",
+      "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93"
+    },
+    {
+      "file": "static-first-fixture-home.static.e2e.js.log",
+      "sha256": "f8dac39034960f96c72310082c5a88f9e42b8e86b0ee9d412d27bf4346d45121"
+    },
+    {
+      "file": "static-first-frontend-domains.static.e2e.js.log",
+      "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0"
+    },
+    {
+      "file": "static-first-health-i18n.static.e2e.js.log",
+      "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2"
+    },
+    {
+      "file": "static-first-i18n-en-terms.static.e2e.js.log",
+      "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99"
+    },
+    {
+      "file": "static-first-i18n.static.e2e.js.log",
+      "sha256": "adf88ce432f5ba9432b2f307dc3a11c606790b9c03df14510871e30f00fd284f"
+    },
+    {
+      "file": "static-first-inline-script-csp-hash.static.e2e.js.log",
+      "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8"
+    },
+    {
+      "file": "static-first-kimi-plan-ui.static.e2e.js.log",
+      "sha256": "e645efa43198b260e5807f2b5973e9c84edaa7df6025bf39c3a3f6f5c2e0026e"
+    },
+    {
+      "file": "static-first-live-full-text.static.e2e.js.log",
+      "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf"
+    },
+    {
+      "file": "static-first-manifest-ranges.static.e2e.js.log",
+      "sha256": "1bf45b107b5b96eee8b74637c73786af3900cd27deee230d642b70867f23819c"
+    },
+    {
+      "file": "static-first-mcp-ops-gui.static.e2e.js.log",
+      "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c"
+    },
+    {
+      "file": "static-first-memory-toolbox.static.e2e.js.log",
+      "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527"
+    },
+    {
+      "file": "static-first-mermaid-render.static.e2e.js.log",
+      "sha256": "02b13e7823dbc8427631a9126173e7878a0efd4bf64ebd3ff7a8125db96d5dd2"
+    },
+    {
+      "file": "static-first-model-menu-classes.static.e2e.js.log",
+      "sha256": "97cb4d949ab41b24aa9a301fbe7c1850237e5d529ccda66531ac774478cc5d3b"
+    },
+    {
+      "file": "static-first-module-dependency-graph.static.e2e.js.log",
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a"
+    },
+    {
+      "file": "static-first-ndjson-line-feeder.static.e2e.js.log",
+      "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b"
+    },
+    {
+      "file": "static-first-net-token-replay.static.e2e.js.log",
+      "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6"
+    },
+    {
+      "file": "static-first-new-thread-engine-default.static.e2e.js.log",
+      "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d"
+    },
+    {
+      "file": "static-first-onboarding.static.e2e.js.log",
+      "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb"
+    },
+    {
+      "file": "static-first-overlay-payload-lock.static.e2e.js.log",
+      "sha256": "85afb0d0db63eb7968978193925554628ae8feb83f712b91896ca84766af06c2"
+    },
+    {
+      "file": "static-first-overlay-update-gui.static.e2e.js.log",
+      "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675"
+    },
+    {
+      "file": "static-first-process-safety.static.e2e.js.log",
+      "sha256": "6a32d80b4ec18b07cb6420b0ace801e145d5407c796d3e65722badb1620cf41d"
+    },
+    {
+      "file": "static-first-progress-events.static.e2e.js.log",
+      "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5"
+    },
+    {
+      "file": "static-first-prompt-snapshot.static.e2e.js.log",
+      "sha256": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4"
+    },
+    {
+      "file": "static-first-provider-reasoning-effort-ui.static.e2e.js.log",
+      "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb"
+    },
+    {
+      "file": "static-first-rail-pocket.static.e2e.js.log",
+      "sha256": "d57cd89c6536f670d9ea893031242e76f42df814f6bf9aea49832c8cbe06922e"
+    },
+    {
+      "file": "static-first-resume-banner-dismiss.static.e2e.js.log",
+      "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00"
+    },
+    {
+      "file": "static-first-route-inventory.static.e2e.js.log",
+      "sha256": "33d684d07a5aaf03a95b0f59f7c2487efaa78a09c177f81ad4a2c6e7463ab02d"
+    },
+    {
+      "file": "static-first-runtime-optimization.static.e2e.js.log",
+      "sha256": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e"
+    },
+    {
+      "file": "static-first-scheduler-ui.static.e2e.js.log",
+      "sha256": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b"
+    },
+    {
+      "file": "static-first-session-save-census.static.e2e.js.log",
+      "sha256": "c103dd7c5d0311191adbba41411a252f8036596fda4ecfdf39fa673f015537f4"
+    },
+    {
+      "file": "static-first-software-engineering-prompt.static.e2e.js.log",
+      "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b"
+    },
+    {
+      "file": "static-first-start-experience.static.e2e.js.log",
+      "sha256": "bcba7c7b48e02eb500550167ad620e06a6831846ee09ebb6302612520f6115ae"
+    },
+    {
+      "file": "static-first-steward-avatar.static.e2e.js.log",
+      "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf"
+    },
+    {
+      "file": "static-first-steward-board.static.e2e.js.log",
+      "sha256": "c564950afec27cddb5ff58e18b9ccbbe1baab593b54acf7664421386073cde43"
+    },
+    {
+      "file": "static-first-steward-config.static.e2e.js.log",
+      "sha256": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec"
+    },
+    {
+      "file": "static-first-steward-conversation.static.e2e.js.log",
+      "sha256": "75f423c8a9502327bdd348ec2b3be1901268f41e82699fc5cea6c53a28615e86"
+    },
+    {
+      "file": "static-first-steward-drawer.static.e2e.js.log",
+      "sha256": "ba7e253cb5f926eaac5227eac9801fb1b5dadad21241bd2b5575e7bf085e95b2"
+    },
+    {
+      "file": "static-first-steward-events.static.e2e.js.log",
+      "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f"
+    },
+    {
+      "file": "static-first-steward-runner.static.e2e.js.log",
+      "sha256": "b3149ec297bf9ca19b1fd129063cf42e30046cfb59cfe338eb8dd9f33e0364f4"
+    },
+    {
+      "file": "static-first-steward-settings.static.e2e.js.log",
+      "sha256": "73c5902500b3559dd2ce08728be51ed022493d6e646c98e96e8b08ba6239ba78"
+    },
+    {
+      "file": "static-first-steward-shell.static.e2e.js.log",
+      "sha256": "ca988ba818721351adcb3e57d1a524d0b8a2d5fb577a74113755ae9fb85703d4"
+    },
+    {
+      "file": "static-first-steward-tools.static.e2e.js.log",
+      "sha256": "c428dbd48053b6475e835756d3fe93488b7b0c2594006a354c53e3019b287b69"
+    },
+    {
+      "file": "static-first-steward-walkthrough.static.e2e.js.log",
+      "sha256": "e103531d7539e4f484d7c2b6c2801acfa1280004f1ac21557198358cf8b6e84c"
+    },
+    {
+      "file": "static-first-streaming-responsiveness.static.e2e.js.log",
+      "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4"
+    },
+    {
+      "file": "static-first-thinking-boundary.static.e2e.js.log",
+      "sha256": "14dceba56fe50ee9dafbc0079bbf3fa408112052b7b477cfe32ac56ca8da1deb"
+    },
+    {
+      "file": "static-first-thread-brief.static.e2e.js.log",
+      "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216"
+    },
+    {
+      "file": "static-first-thread-commission.static.e2e.js.log",
+      "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb"
+    },
+    {
+      "file": "static-first-tool-image-inline.static.e2e.js.log",
+      "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8"
+    },
+    {
+      "file": "static-first-tool-verb-coverage.static.e2e.js.log",
+      "sha256": "f9a2d2fec838238ddeb6f004b37f89a3b790f5099a2ff708dd1d7a69b4a6e3fa"
+    },
+    {
+      "file": "static-first-turn-narrative.static.e2e.js.log",
+      "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570"
+    },
+    {
+      "file": "static-first-ui-bugfix.static.e2e.js.log",
+      "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f"
+    },
+    {
+      "file": "static-first-ui-v3-p1.static.e2e.js.log",
+      "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58"
+    },
+    {
+      "file": "static-first-ui-v3-p2.static.e2e.js.log",
+      "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc"
+    },
+    {
+      "file": "static-first-ui-v3-p3a.static.e2e.js.log",
+      "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9"
+    },
+    {
+      "file": "static-first-ui-v3-p3b.static.e2e.js.log",
+      "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f"
+    },
+    {
+      "file": "static-first-ui-v3-wave1.static.e2e.js.log",
+      "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3"
+    },
+    {
+      "file": "static-first-ui-v4-glass.static.e2e.js.log",
+      "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f"
+    },
+    {
+      "file": "static-first-v17-review-fixes.static.e2e.js.log",
+      "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd"
+    },
+    {
+      "file": "static-first-workflow-editor-v2.static.e2e.js.log",
+      "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f"
+    },
+    {
+      "file": "syntax-final.log",
+      "sha256": "b02c7aae27665d2b8d0c53345606cbc74e96f7eb904dde8b9cbde30bc96f049a"
+    },
+    {
+      "file": "unit-final1.log",
+      "sha256": "b43f723fec6ca9196ff2d7cbd21d06c4c98702a8f8dfc4c45a04fcf3c90b30c6"
+    },
+    {
+      "file": "unit-final2.log",
+      "sha256": "35686a5da36bb86fc8394d8616d99ba72279faa6f769aadc961be0eb8081ecba"
+    },
+    {
+      "file": "unit-first.log",
+      "sha256": "e3197c006a96df26924800d01564118a254621c577c5d44189be508db73abc92"
+    }
+  ]
+}
