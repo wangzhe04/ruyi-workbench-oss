@@ -164,6 +164,9 @@ async function handleApi(req, res, pathname) {
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
+  if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.handle && await WorkDataSetupHooks.handle(req, res, pathname)) return;
+  if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.runHttp && !WorkDataSetupHooks.bypasses(req, pathname) && !WorkDataMaintenanceHooks.entered('http')) return WorkDataSetupHooks.runHttp(req, pathname, () => handleApi(req, res, pathname));
+
   if (pathname === '/api/mcp/internal/request' && await InternalMcpHooks.handle(req, res, pathname)) return;
   if (req.method === 'POST' && pathname === '/api/memory-cli' && typeof MemoryCliHooks.handle === 'function'
     && await MemoryCliHooks.handle(req, res, pathname)) return;

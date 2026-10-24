@@ -4,6 +4,7 @@
 import { state } from './state.js';
 import { downloadPrivacyExport } from './privacy-export.js';
 import { mountPrivacySettings, renderPrivacyIndicators as renderSavedPrivacyIndicators } from './privacy-settings.js';
+import { mountWorkDataSettings } from './work-data-settings.js';
 import { bindModelSelect, providerModels, agentModels, publishProviderModels, publishAgentModels, refreshModelSelects } from './model-catalog.js';
 import { fillProviderSelect } from './model-catalog.js';   // W6：「模型分配」每一行服务商下拉的唯一选项构建器
 
@@ -780,6 +781,7 @@ function fillWaitSelect(id, choices, current) {
 
 /* 第61波：Agent 角色设置与子代理偏好选择已拆入 ./js/agent-roles.js。 */
 function fillSettings() {
+  mountWorkDataSettings();
   mountPrivacySettings({ onSaved: () => refreshStatus() });
   renderPrivacyIndicators(() => {
     $('openSettingsBtn')?.click();

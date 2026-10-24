@@ -131,3 +131,19 @@ M2/A3 产品独立验收：`node dev-harness/privacy-model-send-boundary.e2e.js`
 测试工具 fake-claude 仅在原本受测试旗控制的环境捕获数组加入两个 execution-capability 字段，用于断言其没有进入 Claude 父环境；原有三个本地文件写与 stdout 候选指纹逐项未变。该额外测试源码指纹单独接受，不把捕获脚本当生产外发保护。
 
 真实 CLI 组合回归另外发现 .cmd 的动态提示换行截断后续参数；01d仅在原batch动态文本参数清理处折叠真实CR/LF，JSON转义与native参数保持原字节，实际Windows argv/sentinel及原source负控已独审。13af与12恢复内部CLI资源请求的原typed拒绝，在直调、嵌套proxy及已有provider ALS时均先拒绝，目录继续隐藏；新增本地helper未增加词法边界。仅接受此前有效01d及已新审13af的最终指纹，12旧stale债继续保留。289/695与76错误ID集合不变。
+
+## 2026-10-24 完整普通快照、原对象表示转换、维护排空与设置入口的限定增量审阅
+
+本批新增01aa/01ab/13ag/13ah和work-data-settings.js，按源码与调用定义复核。01aa是拥有字节缓冲的全树census/rehash，不是全部NTFS元数据备份；01ab认证已映射carrier和直接DPAPI旁车，输出普通文件恢复包并仅向全新、独占目标写入。未知control/未提交staging与原对象capsule仍事前拒绝，特殊portable adapter尚未完成。固定DPAPI助手是既有LocalSecretCrypto边界；01ab新增writeFile为FileHandle向目标路径写入，仍按file-boundary unknown登记，不能证明网络盘或可移动盘隔离。01aa的open/read等未被词法扫描器枚举；零候选不等于零文件边界。
+
+13u V3把同卷原技能备份objects移至稳定control，以受认证archive/intent和每generation binding转换plain/sealed表示，保留原对象并支持取消和真实业务undo。新增词法exec只解析carrier keyId；新增run是migrationSerial维护准入回调。既有PowerShell broker的spawn/stdio/environment/C#嵌入实现仍属process unknown/capability，分类与指纹未变；本批更新13u源指纹不会把原环境继承、外部child能力或同账户访问声称为安全隔离，也不暗示跨机保原ID或capsule portable已完成。
+
+quiesce、wake与普通HTTP guard新增run候选逐一核到WorkDataMaintenanceHooks、AsyncLocalStorage或原PrivacyGateway/文件ceiling回调。它们是本地callback候选，没有新增直接网络发送；callback内部既有provider/MCP/bot等外发仍保原分类，不因此变成受保护。runSessionTurn与consumer同名run的序号变化已逐项对照，未把旧回调误当消失。13af继续使用实际执行owner的Hooks.run，13ad新增精确owner的有限请求root；原传输、token和工具白名单未放宽。13e私有writeChain、persist/verify与13i/13s新wake路由均保排空；已有carry/adopted继续，未将新业务动作重放。
+
+13ah仅接management token下setup job/status/cancel，真实冷worker/持久receipt/上传下载需由宿主绑定。status中的download词法候选只是typeof worker.download能力布尔值，非下载动作，登记local-callback non-egress。其余新增exec全为本地RegExp；维护run是本地回调。UI的新设置调用只用net.js的same-origin api固定work-data/pick-folder路径；密码只在单次POST中发送并立即清字段，未写storage/clipboard/download。未绑定上传下载为typed unavailable，没有新远端地址或伪完成。词法扫描器未识别该imported api别名；新UI零候选不代表没有传送边界。
+
+13y仅将既有直接DPAPI owner包成固定file/root工厂供快照调用；实际child/stdio/credential字段合同不变。仅接受此前有效的13ac/13ae/13af/13s/13u/13y和五个新源，共11源指纹。01/02/06/09/10/13ad/13e/13i/13q/13w、旧UI和生成配置等历史stale源指纹均不刷新。新增40项分类、修改3项已复核callback指纹，分类组完全不改，未新增protected声明。
+
+完整扫描为294源、735候选；历史76个reviewError ID集合逐项完全相同，清册仍应退出1。该补丁是限定源分类记录，不是全局隐私认证、OS隔离或完整启用/跨机恢复完成证明。源码与既有调用边界的单独验证、V3原生首次夹具OFF ensure误用和修后实际5group等证据由本批checkpoint保留；本清册审阅自身未运行native/direct E2E或修改live。
+
+发布清单后续仅在build-overlay的静态PAYLOAD_FILES中补登记已独审work-data-settings.js。该工具此前源指纹有效，本次另接受这一行源指纹；原四个copy/child/import候选逐项原样，历史76错误ID集合仍精确相同。上述11源/43边界的有限delta未改，另加此工具源为12个接受源。read-frontend-css只是dev-harness兼容CSS载荷散列，不在生产外发扫描范围，未据此刷新任何历史债。

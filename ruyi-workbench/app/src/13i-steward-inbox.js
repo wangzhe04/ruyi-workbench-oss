@@ -645,6 +645,7 @@ function stewardClearWake() {
   stewardRuntime.wakeTimers = [];
 }
 function stewardScheduleWake() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) { WorkDataMaintenanceHooks.deferStewardWake?.(); return; }
   if (!stewardRuntime.running) return;   // 管家关着 / 停机:没人取,不补拍
   stewardClearWake();
   const generation = stewardRuntime.generation;
@@ -652,7 +653,7 @@ function stewardScheduleWake() {
     const timer = setTimeout(() => {
       stewardRuntime.wakeTimers = stewardRuntime.wakeTimers.filter(item => item !== timer);
       if (!stewardRuntime.running || stewardRuntime.generation !== generation) return;
-      void stewardRunTick();
+      void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.stewardTick ? WorkDataMaintenanceHooks.stewardTick() : stewardRunTick());
     }, delay);
     if (timer && typeof timer.unref === 'function') timer.unref();
     stewardRuntime.wakeTimers.push(timer);
@@ -1345,7 +1346,15 @@ async function stewardTickInboxWithin(operation) {
   const collectedBefore = structuredClone({ cursor: stewardRuntime.cursor, adopted: stewardRuntime.adopted,
     adoptedRecent: stewardRuntime.adoptedRecent, sourcesSeen: stewardRuntime.sourcesSeen, carry: stewardRuntime.carry });
   let collected;
-  try { collected = await stewardCollectEvents(); }
+  try {
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) {
+      const accepted = stewardRuntime.adopted; stewardRuntime.adopted = [];
+      const cursor = stewardRuntime.cursor;
+      collected = { events: accepted.map(stewardNormalizeThreadAdopted).filter(Boolean),
+        activeSessionIds: [...new Set([...Object.keys(cursor.missionChanges), ...Object.keys(cursor.sessionTurns), ...[...cursor.budgetSeen].map(key => String(key).split('\u0000')[0])])],
+        activeRunIds: Object.keys(cursor.agentRuns) };
+    } else collected = await stewardCollectEvents();
+  }
   catch (error) { Object.assign(stewardRuntime, collectedBefore); throw error; }
   const { events, activeSessionIds, activeRunIds } = collected;
   if (generation !== stewardRuntime.generation) return { written: 0, aborted: true };
@@ -1426,6 +1435,7 @@ async function stewardTickInboxWithin(operation) {
   return { rows, written: rows.length, aborted: false };
 }
 async function stewardTickOnce() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('steward-intake')) return WorkDataMaintenanceHooks.run('steward-intake', () => stewardTickOnce(...arguments));
   const result = await stewardInboxJournal().withOperation(stewardTickInboxWithin);
   const rows = result.rows || [];
   // 116f: 本轮真的写进箱子的行交给回合运行器(13h 去抖 5 秒后起一个收件箱回合)。经 06i 的延迟绑定
@@ -1438,6 +1448,7 @@ async function stewardTickOnce() {
 }
 
 async function stewardRunTick() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting() && !WorkDataMaintenanceHooks.active()) return { skipped: true };
   if (stewardRuntime.ticking) return { skipped: true }; // 串行:上一轮没跑完不叠加
   stewardRuntime.ticking = true;
   try {
@@ -1474,7 +1485,7 @@ async function startStewardInbox(config) {
   if (!stewardRuntime.running) return { ok: true, running: false, enabled: true }; // 起跑途中被 stop
   if (stewardRuntime.generation !== generation) return { ok: true, running: true, enabled: true }; // 起跑途中被 stop 又 start:后来者挂 interval
   if (stewardRuntime.timer) clearInterval(stewardRuntime.timer);   // 兜底:任何时候最多一个轮询器
-  stewardRuntime.timer = setInterval(() => { void stewardRunTick(); }, pollMs);
+  stewardRuntime.timer = setInterval(() => { void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.stewardTick ? WorkDataMaintenanceHooks.stewardTick() : stewardRunTick()); }, pollMs);
   if (stewardRuntime.timer && typeof stewardRuntime.timer.unref === 'function') stewardRuntime.timer.unref();
   if (typeof StewardHooks.recoverWatchedThreads === 'function') {
     try { await StewardHooks.recoverWatchedThreads(cfg); } catch { /* 恢复读失败不停止常规监工 */ }

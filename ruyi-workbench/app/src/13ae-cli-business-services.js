@@ -165,6 +165,7 @@ async function cliMissionService(bodyOrQ, { method = 'POST', trusted = false, ow
 }
 
 async function cliAgentLaunchService(body, { method = 'POST', trusted = false, ownerReg = null, ownerCheck = () => {}, isClosed = () => false } = {}) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent-launch')) return WorkDataMaintenanceHooks.run('agent-launch', () => cliAgentLaunchService(...arguments));
   ownerCheck();
 
     // Claude CLI's one-shot MCP child proxies the persistent DAG into the serve process. v1.4.4: the DAG

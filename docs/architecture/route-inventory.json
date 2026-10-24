@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-24T06:37:52.413Z",
+  "generatedAt": "2026-10-24T08:16:39.140Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -16,15 +16,16 @@
       "ruyi-workbench/app/src/13s-scheduler.js",
       "ruyi-workbench/app/src/13w-external-bots.js",
       "ruyi-workbench/app/src/13ab-privacy-api.js",
-      "ruyi-workbench/app/src/13ac-mcp-consumer.js"
+      "ruyi-workbench/app/src/13ac-mcp-consumer.js",
+      "ruyi-workbench/app/src/13ah-work-data-setup.js"
     ]
   },
   "summary": {
-    "routeAuthEntries": 167,
-    "decisionPoints": 181,
+    "routeAuthEntries": 171,
+    "decisionPoints": 184,
     "byKind": {
-      "exact": 158,
-      "prefix": 11,
+      "exact": 160,
+      "prefix": 12,
       "regex": 12
     },
     "authLevels": [
@@ -43,6 +44,30 @@
     "warnings": 0
   },
   "routeAuth": [
+    {
+      "m": "GET",
+      "p": "/api/work-data/status",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/work-data/jobs",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/work-data/jobs/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "POST",
+      "p": "/api/work-data/jobs/",
+      "auth": "token",
+      "prefix": true
+    },
     {
       "m": "POST",
       "p": "/api/mcp/internal/request",
@@ -1061,7 +1086,8 @@
       "auth": "internal-mcp",
       "coveredBy": [
         "dev-harness\\unit\\internal-mcp-relay.test.js",
-        "dev-harness\\unit\\memory-cli-relay.test.js"
+        "dev-harness\\unit\\memory-cli-relay.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
     {
@@ -1078,7 +1104,8 @@
       "auth": "memory-cli",
       "coveredBy": [
         "dev-harness\\memory-cli-relay.e2e.js",
-        "dev-harness\\unit\\memory-cli-relay.test.js"
+        "dev-harness\\unit\\memory-cli-relay.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
     {
@@ -1110,7 +1137,8 @@
         "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
-        "dev-harness\\unit\\surface-hardening-w2.test.js"
+        "dev-harness\\unit\\surface-hardening-w2.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
     {
@@ -1197,6 +1225,7 @@
         "dev-harness\\unit\\privacy-missing-config-vault.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\voice-learn.e2e.js",
         "dev-harness\\voice-lexicon.e2e.js",
@@ -1224,7 +1253,8 @@
         "dev-harness\\capabilities.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\provider-protocol-display.browser.e2e.js",
-        "dev-harness\\service-match.browser.e2e.js"
+        "dev-harness\\service-match.browser.e2e.js",
+        "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
     {
@@ -1355,6 +1385,8 @@
         "dev-harness\\onboarding-workspace.browser.e2e.js",
         "dev-harness\\privacy-clipboard-copy.e2e.js",
         "dev-harness\\settings-wave1.browser.e2e.js",
+        "dev-harness\\unit\\work-data-settings.test.js",
+        "dev-harness\\work-data-settings.browser.e2e.js",
         "dev-harness\\workspace-picker-popover.browser.e2e.js",
         "dev-harness\\workspace-resolve.e2e.js"
       ]
@@ -1488,6 +1520,7 @@
         "dev-harness\\unit\\context-compact-trigger.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\settings-catalog.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\voice-learn.e2e.js",
         "dev-harness\\voice-lexicon.e2e.js",
         "dev-harness\\walkthrough-round2.browser.e2e.js",
@@ -1741,6 +1774,7 @@
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\memory-cli-relay.test.js",
         "dev-harness\\unit\\memory-scope-fixes.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -1901,6 +1935,7 @@
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\memory-cli-relay.test.js",
         "dev-harness\\unit\\memory-scope-fixes.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -2048,7 +2083,8 @@
         "dev-harness\\steward-stop-receipts.browser.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\turn-stop-supersede.e2e.js",
-        "dev-harness\\unit\\foreign-turn-composer.test.js"
+        "dev-harness\\unit\\foreign-turn-composer.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
     {
@@ -2203,6 +2239,7 @@
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\unit\\thread-facts.test.js",
         "dev-harness\\unit\\thread-state-quick-kind.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -3145,6 +3182,59 @@
     },
     {
       "kind": "exact",
+      "path": "/api/work-data/status",
+      "file": "13ah-work-data-setup.js",
+      "handler": "handle",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "work-data",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\unit\\work-data-settings.test.js",
+        "dev-harness\\work-data-settings.browser.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/work-data/jobs",
+      "file": "13ah-work-data-setup.js",
+      "handler": "handle",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "work-data",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\unit\\work-data-settings.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
+        "dev-harness\\work-data-settings.browser.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/work-data/jobs/",
+      "file": "13ah-work-data-setup.js",
+      "handler": "handle",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "work-data",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\unit\\work-data-setup.test.js",
+        "dev-harness\\work-data-settings.browser.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/migration/scan",
       "file": "13b-api-domain-routes.js",
       "handler": "handleMigrationApiRoutes",
@@ -4009,6 +4099,7 @@
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\steer-attachments.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
@@ -4309,6 +4400,7 @@
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\steer-attachments.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
@@ -4513,6 +4605,7 @@
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
@@ -4582,6 +4675,7 @@
         "dev-harness\\unit\\poll-path-caches.test.js",
         "dev-harness\\unit\\thread-facts.test.js",
         "dev-harness\\unit\\thread-state-quick-kind.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4647,6 +4741,7 @@
         "dev-harness\\unit\\poll-path-caches.test.js",
         "dev-harness\\unit\\thread-facts.test.js",
         "dev-harness\\unit\\thread-state-quick-kind.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4693,6 +4788,7 @@
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-task-decisions.e2e.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4738,6 +4834,7 @@
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-task-decisions.e2e.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4783,6 +4880,7 @@
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-task-decisions.e2e.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4828,6 +4926,7 @@
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-task-decisions.e2e.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4873,6 +4972,7 @@
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-task-decisions.e2e.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -4934,6 +5034,7 @@
         "dev-harness\\steward-global-health.browser.e2e.js",
         "dev-harness\\steward-quickask-board.e2e.js",
         "dev-harness\\steward-task-decisions.e2e.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
@@ -5033,7 +5134,8 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-shell-wave1.browser.e2e.js",
-        "dev-harness\\unit\\net-errors.test.js"
+        "dev-harness\\unit\\net-errors.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
     {
@@ -5115,7 +5217,8 @@
         "dev-harness\\steward-exempt-no-swap.e2e.js",
         "dev-harness\\steward-exempt-shell-send.e2e.js",
         "dev-harness\\steward-inbox.e2e.js",
-        "dev-harness\\unit\\release-audit-w4-gates.test.js"
+        "dev-harness\\unit\\release-audit-w4-gates.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
     {
@@ -5212,6 +5315,7 @@
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\poll-path-caches.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"
@@ -5256,6 +5360,7 @@
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\wait-primitive.e2e.js"
       ]
     },
@@ -5297,6 +5402,7 @@
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\wait-primitive.e2e.js"
       ]
     },
@@ -5338,6 +5444,7 @@
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\wait-primitive.e2e.js"
       ]
     },
@@ -5379,6 +5486,7 @@
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\wait-primitive.e2e.js"
       ]
     },
@@ -5869,7 +5977,8 @@
         "dev-harness\\steward-viewing-gate.e2e.js",
         "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\thread-switch-race.browser.e2e.js",
-        "dev-harness\\unit\\http-input-hardening.test.js"
+        "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
     {

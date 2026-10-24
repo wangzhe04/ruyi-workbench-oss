@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 104 | 4093 | 3760 | 723 | 67 | 0 | 1 |
+| 108 | 4118 | 3892 | 768 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 147 | 7 | 4 |
+| 0 | `00-boot.js` | bootstrap | 150 | 7 | 4 |
 | 1 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 2 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 3 | `01c-runtime-flags.js` | foundation | 37 | 0 | 0 |
@@ -27,7 +27,7 @@
 | 9 | `01h-privacy-core.js` | foundation | 1 | 1 | 1 |
 | 10 | `01m-privacy-regex.js` | foundation | 1 | 1 | 1 |
 | 11 | `01j-local-crypto.js` | foundation | 1 | 0 | 0 |
-| 12 | `01-config.js` | foundation | 202 | 62 | 13 |
+| 12 | `01-config.js` | foundation | 202 | 64 | 13 |
 | 13 | `01k-credential-vault.js` | foundation | 1 | 8 | 4 |
 | 14 | `01l-credential-recovery.js` | foundation | 2 | 13 | 3 |
 | 15 | `01n-work-data-crypto.js` | foundation | 1 | 1 | 1 |
@@ -42,83 +42,87 @@
 | 24 | `01w-work-data-native-publish.js` | foundation | 1 | 1 | 1 |
 | 25 | `01x-work-data-migration-codecs.js` | foundation | 1 | 3 | 3 |
 | 26 | `01z-work-data-root-authority.js` | foundation | 1 | 8 | 3 |
-| 27 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
-| 28 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
-| 29 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
-| 30 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 31 | `02-session-store.js` | foundation | 388 | 81 | 21 |
-| 32 | `03-bridge-guard.js` | foundation | 122 | 30 | 7 |
-| 33 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
-| 34 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
-| 35 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
-| 36 | `04-permission-runtime.js` | foundation | 190 | 51 | 12 |
-| 37 | `04-desktop-shell.js` | foundation | 1 | 11 | 3 |
-| 38 | `04f-toolbox-services.js` | foundation | 26 | 14 | 3 |
-| 39 | `04h-provider-http.js` | foundation | 16 | 1 | 1 |
-| 40 | `04i-provider-anthropic.js` | foundation | 59 | 1 | 1 |
-| 41 | `04i-provider-wire.js` | foundation | 37 | 17 | 2 |
-| 42 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
-| 43 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
-| 44 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
-| 45 | `05-claude-engine.js` | engine | 78 | 146 | 26 |
-| 46 | `05b-kimi-bridge.js` | engine | 128 | 78 | 13 |
-| 47 | `05c-kimi-search-policy.js` | engine | 42 | 12 | 2 |
-| 48 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 49 | `06-provider-engine.js` | engine | 145 | 68 | 18 |
-| 50 | `06b-prompt-registry.js` | engine | 10 | 1 | 1 |
-| 51 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 52 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
-| 53 | `06i-steward-core.js` | engine | 167 | 1 | 1 |
-| 54 | `06d-memory-domain.js` | engine | 187 | 41 | 11 |
-| 55 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
-| 56 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
-| 57 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
-| 58 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
-| 59 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 60 | `07-autonomy.js` | orchestration | 156 | 87 | 21 |
-| 61 | `08-agent-runs.js` | orchestration | 133 | 127 | 25 |
-| 62 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
-| 63 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 64 | `09-workflow.js` | orchestration | 32 | 275 | 28 |
-| 65 | `10-context-governance.js` | orchestration | 228 | 109 | 20 |
-| 66 | `11-native-tools.js` | tools | 144 | 51 | 9 |
-| 67 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
-| 68 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
-| 69 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
-| 70 | `12-tool-dispatch.js` | tools | 78 | 146 | 23 |
-| 71 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 72 | `13-http-router.js` | transport | 70 | 255 | 33 |
-| 73 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
-| 74 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
-| 75 | `13d-core-domain-routes.js` | transport | 69 | 137 | 18 |
-| 76 | `13e-pretender-index.js` | transport | 61 | 43 | 9 |
-| 77 | `13i-steward-inbox.js` | transport | 93 | 32 | 10 |
-| 78 | `13j-steward-tool-base.js` | transport | 85 | 31 | 12 |
-| 79 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
-| 80 | `13k-steward-threads.js` | transport | 60 | 126 | 17 |
-| 81 | `13l-steward-ops.js` | transport | 54 | 126 | 21 |
-| 82 | `13g-steward.js` | transport | 20 | 76 | 12 |
-| 83 | `13m-steward-runner-base.js` | transport | 44 | 16 | 7 |
-| 84 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
-| 85 | `13o-steward-runner-prompt.js` | transport | 22 | 67 | 17 |
-| 86 | `13p-steward-runner-actions.js` | transport | 37 | 67 | 13 |
-| 87 | `13q-steward-runner-turn.js` | transport | 48 | 88 | 21 |
-| 88 | `13h-steward-runner.js` | transport | 7 | 51 | 13 |
-| 89 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
-| 90 | `13s-scheduler.js` | transport | 68 | 39 | 11 |
-| 91 | `13t-steward-schedule.js` | transport | 23 | 43 | 10 |
-| 92 | `13u-migration-center.js` | transport | 98 | 36 | 7 |
-| 93 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
-| 94 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
-| 95 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
-| 96 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
-| 97 | `13ab-privacy-api.js` | unclassified | 2 | 37 | 16 |
-| 98 | `13w-external-bots.js` | transport | 69 | 26 | 10 |
-| 99 | `13ac-mcp-consumer.js` | unclassified | 2 | 39 | 12 |
-| 100 | `13ad-memory-cli-relay.js` | unclassified | 1 | 26 | 9 |
-| 101 | `13ae-cli-business-services.js` | unclassified | 6 | 60 | 13 |
-| 102 | `13af-internal-mcp-relay.js` | unclassified | 1 | 38 | 14 |
-| 103 | `14-main.js` | entrypoint | 2 | 597 | 50 |
+| 27 | `01aa-work-data-tree.js` | unclassified | 1 | 0 | 0 |
+| 28 | `01ab-work-data-full-snapshot.js` | unclassified | 1 | 11 | 10 |
+| 29 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
+| 30 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
+| 31 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
+| 32 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
+| 33 | `02-session-store.js` | foundation | 388 | 82 | 21 |
+| 34 | `03-bridge-guard.js` | foundation | 122 | 30 | 7 |
+| 35 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
+| 36 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
+| 37 | `04-visual-pipeline.js` | foundation | 1 | 0 | 0 |
+| 38 | `04-permission-runtime.js` | foundation | 190 | 51 | 12 |
+| 39 | `04-desktop-shell.js` | foundation | 1 | 11 | 3 |
+| 40 | `04f-toolbox-services.js` | foundation | 26 | 14 | 3 |
+| 41 | `04h-provider-http.js` | foundation | 16 | 1 | 1 |
+| 42 | `04i-provider-anthropic.js` | foundation | 59 | 1 | 1 |
+| 43 | `04i-provider-wire.js` | foundation | 37 | 17 | 2 |
+| 44 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
+| 45 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
+| 46 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
+| 47 | `05-claude-engine.js` | engine | 78 | 146 | 26 |
+| 48 | `05b-kimi-bridge.js` | engine | 128 | 78 | 13 |
+| 49 | `05c-kimi-search-policy.js` | engine | 42 | 12 | 2 |
+| 50 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
+| 51 | `06-provider-engine.js` | engine | 145 | 69 | 18 |
+| 52 | `06b-prompt-registry.js` | engine | 10 | 1 | 1 |
+| 53 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
+| 54 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
+| 55 | `06i-steward-core.js` | engine | 167 | 1 | 1 |
+| 56 | `06d-memory-domain.js` | engine | 187 | 41 | 11 |
+| 57 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
+| 58 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
+| 59 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
+| 60 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
+| 61 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
+| 62 | `07-autonomy.js` | orchestration | 156 | 87 | 21 |
+| 63 | `08-agent-runs.js` | orchestration | 133 | 127 | 25 |
+| 64 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
+| 65 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
+| 66 | `09-workflow.js` | orchestration | 32 | 276 | 28 |
+| 67 | `10-context-governance.js` | orchestration | 228 | 110 | 20 |
+| 68 | `11-native-tools.js` | tools | 144 | 52 | 9 |
+| 69 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
+| 70 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
+| 71 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
+| 72 | `12-tool-dispatch.js` | tools | 78 | 146 | 23 |
+| 73 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
+| 74 | `13-http-router.js` | transport | 70 | 257 | 33 |
+| 75 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
+| 76 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
+| 77 | `13d-core-domain-routes.js` | transport | 69 | 137 | 18 |
+| 78 | `13e-pretender-index.js` | transport | 61 | 44 | 9 |
+| 79 | `13i-steward-inbox.js` | transport | 93 | 33 | 10 |
+| 80 | `13j-steward-tool-base.js` | transport | 85 | 31 | 12 |
+| 81 | `13aa-steward-delivery.js` | unclassified | 10 | 31 | 7 |
+| 82 | `13k-steward-threads.js` | transport | 60 | 126 | 17 |
+| 83 | `13l-steward-ops.js` | transport | 54 | 126 | 21 |
+| 84 | `13g-steward.js` | transport | 20 | 76 | 12 |
+| 85 | `13m-steward-runner-base.js` | transport | 44 | 16 | 7 |
+| 86 | `13n-steward-arbiter.js` | transport | 42 | 21 | 6 |
+| 87 | `13o-steward-runner-prompt.js` | transport | 22 | 67 | 17 |
+| 88 | `13p-steward-runner-actions.js` | transport | 37 | 67 | 13 |
+| 89 | `13q-steward-runner-turn.js` | transport | 48 | 89 | 21 |
+| 90 | `13h-steward-runner.js` | transport | 7 | 51 | 13 |
+| 91 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
+| 92 | `13s-scheduler.js` | transport | 68 | 40 | 11 |
+| 93 | `13t-steward-schedule.js` | transport | 23 | 43 | 10 |
+| 94 | `13u-migration-center.js` | transport | 108 | 39 | 9 |
+| 95 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
+| 96 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
+| 97 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
+| 98 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
+| 99 | `13ab-privacy-api.js` | unclassified | 2 | 37 | 16 |
+| 100 | `13w-external-bots.js` | transport | 69 | 27 | 10 |
+| 101 | `13ac-mcp-consumer.js` | unclassified | 2 | 40 | 12 |
+| 102 | `13ad-memory-cli-relay.js` | unclassified | 1 | 26 | 9 |
+| 103 | `13ae-cli-business-services.js` | unclassified | 6 | 61 | 13 |
+| 104 | `13af-internal-mcp-relay.js` | unclassified | 1 | 38 | 14 |
+| 105 | `13ag-work-data-maintenance.js` | unclassified | 4 | 79 | 25 |
+| 106 | `13ah-work-data-setup.js` | unclassified | 6 | 23 | 8 |
+| 107 | `14-main.js` | entrypoint | 2 | 597 | 50 |
 
 ## 模块边
 
@@ -128,7 +132,7 @@
 | `00-boot.js` | `02-session-store.js` | forward | `bumpMissionChangeSeq`, `overlayUnflushedSessionIndex`, `readSessionIndex` |
 | `00-boot.js` | `05-claude-engine.js` | forward | `CLAUDE_ENDPOINT_PRESETS` |
 | `00-boot.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
-| `01-config.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `DEFAULT_PORT`, `InternalMcpHooks`, `MAX_BODY_BYTES`, `RUYI_EVENTS`, `SKILL_ID_RE`, `StringDecoder`, `URL`, `VERSION`, `WorkDataRootHooks`, `agentCliHomes`, `apiFailure`, `cp`, `crypto`, `dataRoot`, `ensureDirs`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `isPkg`, `normalizePricing`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |
+| `01-config.js` | `00-boot.js` | backward | `CONFIG_SCHEMA`, `DEFAULT_PORT`, `InternalMcpHooks`, `MAX_BODY_BYTES`, `RUYI_EVENTS`, `SKILL_ID_RE`, `StringDecoder`, `URL`, `VERSION`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `agentCliHomes`, `apiFailure`, `cp`, `crypto`, `dataRoot`, `ensureDirs`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `isPkg`, `normalizePricing`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |
 | `01-config.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_SERVER_ID`, `canonicalRuyiMcpServerId`, `isRuyiMcpServerId` |
 | `01-config.js` | `01b-route-auth.js` | backward | `ROUTE_AUTH` |
 | `01-config.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn`, `isBatchLauncher` |
@@ -141,6 +145,16 @@
 | `01-config.js` | `05-claude-engine.js` | forward | `configSecretValueOrCleared`, `configUrlOrCleared`, `sanitizeExternalMcpServer`, `sanitizeProvider` |
 | `01-config.js` | `06-provider-engine.js` | forward | `normalizeStoragePolicy` |
 | `01-config.js` | `07-autonomy.js` | forward | `DESKTOP_MCP_SERVER_ID`, `TOOL_PACK_DESCRIPTIONS`, `accPolicyHiddenToolNames`, `claudePermissionMode`, `getAgentRoleLibrary`, `nativeToolTier` |
+| `01ab-work-data-full-snapshot.js` | `00-boot.js` | backward | `json`, `text` |
+| `01ab-work-data-full-snapshot.js` | `01aa-work-data-tree.js` | backward | `WorkDataTree` |
+| `01ab-work-data-full-snapshot.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
+| `01ab-work-data-full-snapshot.js` | `01k-credential-vault.js` | backward | `CredentialVault` |
+| `01ab-work-data-full-snapshot.js` | `01n-work-data-crypto.js` | backward | `WorkDataCrypto` |
+| `01ab-work-data-full-snapshot.js` | `01o-work-data-keys.js` | backward | `WorkDataKeys` |
+| `01ab-work-data-full-snapshot.js` | `01q-work-data-records.js` | backward | `WorkDataRecords` |
+| `01ab-work-data-full-snapshot.js` | `01r-work-data-chunks.js` | backward | `WorkDataChunks` |
+| `01ab-work-data-full-snapshot.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
+| `01ab-work-data-full-snapshot.js` | `01x-work-data-migration-codecs.js` | backward | `WorkDataMigrationCodecs` |
 | `01e-permission-modes.js` | `00b-ruyi-names.js` | backward | `canonicalRuyiMcpServerId` |
 | `01f-agent-cli-types.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
 | `01h-privacy-core.js` | `01i-privacy-rules.js` | backward | `PrivacyRuleCatalog` |
@@ -169,7 +183,7 @@
 | `01z-work-data-root-authority.js` | `00-boot.js` | backward | `WorkDataRootHooks`, `_workDataStableAliases`, `_workDataStableBase`, `dataRoot`, `dataRootAliases`, `paths` |
 | `01z-work-data-root-authority.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `01z-work-data-root-authority.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
-| `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `WorkDataRootHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
+| `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
 | `02-session-store.js` | `01-config.js` | backward | `DurableJsonStore`, `assertSessionIdForPath`, `atomicWriteJson`, `mutateConfig`, `noteSessionsDirOwnWrite`, `readConfig`, `readFileTail`, `safeSessionId`, `selectedAgentCli`, `sessionPath`, `sessionWriteChains` |
 | `02-session-store.js` | `01c-runtime-flags.js` | backward | `MEMORY_FIXED_SELECTION_HARD_MAX` |
 | `02-session-store.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
@@ -268,7 +282,7 @@
 | `05c-kimi-search-policy.js` | `03-bridge-guard.js` | backward | `fileAllowedRoots`, `guardFileToolPath`, `isSensitiveDataPath`, `pathWithinRoot`, `realpathForContainment` |
 | `05d-kimi-prompt-parts.js` | `00-boot.js` | backward | `fsp`, `path` |
 | `05d-kimi-prompt-parts.js` | `03-bridge-guard.js` | backward | `guardFileToolPath`, `realpathForContainment` |
-| `06-provider-engine.js` | `00-boot.js` | backward | `APP_NAME`, `DEFAULT_PORT`, `EventStreamHooks`, `OVERLAY_ID`, `RUYI_EVENTS`, `VERSION`, `WorkDataRootHooks`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `cp`, `crypto`, `dataRoot`, `externalRoot`, `fsp`, `isPkg`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
+| `06-provider-engine.js` | `00-boot.js` | backward | `APP_NAME`, `DEFAULT_PORT`, `EventStreamHooks`, `OVERLAY_ID`, `RUYI_EVENTS`, `VERSION`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `cp`, `crypto`, `dataRoot`, `externalRoot`, `fsp`, `isPkg`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `06-provider-engine.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_CLI_TOOL_PREFIX` |
 | `06-provider-engine.js` | `01-config.js` | backward | `RUNTIME`, `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `06-provider-engine.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
@@ -368,7 +382,7 @@
 | `08-agent-runs.js` | `10-context-governance.js` | forward | `boundToolResultForDisplay`, `compactionRefetchRefusal`, `compactionRefetchWarning`, `createCompactionRefetchGuard`, `encodeModelToolResult`, `estimateFactor`, `isContextOverflowError`, `maybeCompactSubHistory`, `noteWindowOvershoot`, `recordCompactUsage`, `runForcedOverflowCompaction`, `writeHistorySnapshot` |
 | `08-agent-runs.js` | `13-http-router.js` | forward | `resolveNodeModel` |
 | `08-agent-runs.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
-| `09-workflow.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `MemoryCliHooks`, `RUYI_EVENTS`, `SubAgentMemoryHooks`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `localTurnTimeParts`, `makeId`, `neutralizeFenceTag`, `nowIso`, `text` |
+| `09-workflow.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `MemoryCliHooks`, `RUYI_EVENTS`, `SubAgentMemoryHooks`, `TOOL_TIER_RANK`, `WorkDataMaintenanceHooks`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `localTurnTimeParts`, `makeId`, `neutralizeFenceTag`, `nowIso`, `text` |
 | `09-workflow.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `09-workflow.js` | `01c-runtime-flags.js` | backward | `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `sessionNotesInjectEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
 | `09-workflow.js` | `01e-permission-modes.js` | backward | `agentRoleIsUntrusted`, `clampAgentRoleToParent`, `resolvePermissionMode` |
@@ -399,7 +413,7 @@
 | `09b-replan-ledger.js` | `00-boot.js` | backward | `TOOL_TIER_RANK`, `hashArgs`, `makeId`, `nowIso` |
 | `09d-token-estimation.js` | `07-autonomy.js` | backward | `estimateToolSchemaTokens` |
 | `09d-token-estimation.js` | `10-context-governance.js` | forward | `ESTIMATION_RULES` |
-| `10-context-governance.js` | `00-boot.js` | backward | `EventStreamHooks`, `SessionExecutionHooks`, `URL`, `apiSessionIdInvalid`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
+| `10-context-governance.js` | `00-boot.js` | backward | `EventStreamHooks`, `SessionExecutionHooks`, `URL`, `WorkDataMaintenanceHooks`, `apiSessionIdInvalid`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
 | `10-context-governance.js` | `01-config.js` | backward | `DurableJsonStore`, `readConfig`, `readJsonBody`, `safeSessionId`, `send` |
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `evaporateBudgetBoundaryEnabled`, `historyReadDedupEnabled`, `observationRecallEnabled`, `reseedReattachFilesEnabled`, `reseedTailUnitsEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryPromptI18nEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
 | `10-context-governance.js` | `01e-permission-modes.js` | backward | `permissionModeFrom`, `resolvePermissionMode` |
@@ -419,7 +433,7 @@
 | `10-context-governance.js` | `07-autonomy.js` | backward | `buildOpenAiTools`, `fetchOpenAiModels`, `nativeToolTier` |
 | `10-context-governance.js` | `09-workflow.js` | backward | `runOpenAiTurn` |
 | `10-context-governance.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `EVAPORATED_PREFIX`, `countCjkCodeUnits`, `estimateContentTokens`, `estimateHistoryTokens`, `estimateTextTokens`, `fmtTokensServer`, `tokensFromTextCounts` |
-| `11-native-tools.js` | `00-boot.js` | backward | `EventStreamHooks`, `PS_UTF8_OUTPUT_PREAMBLE`, `RUYI_EVENTS`, `RUYI_PATH_BEFORE_VENDOR`, `URL`, `WorkDataRootHooks`, `cp`, `createConsoleLineDecoder`, `crypto`, `dataRoot`, `dataRootAliases`, `decodeConsoleText`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `ruyiVendorBinDir`, `safeJsonParse`, `samePathEntry`, `text`, `zlib` |
+| `11-native-tools.js` | `00-boot.js` | backward | `EventStreamHooks`, `PS_UTF8_OUTPUT_PREAMBLE`, `RUYI_EVENTS`, `RUYI_PATH_BEFORE_VENDOR`, `URL`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `cp`, `createConsoleLineDecoder`, `crypto`, `dataRoot`, `dataRootAliases`, `decodeConsoleText`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `ruyiVendorBinDir`, `safeJsonParse`, `samePathEntry`, `text`, `zlib` |
 | `11-native-tools.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId`, `sessionPath` |
 | `11-native-tools.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `11-native-tools.js` | `02-session-store.js` | backward | `sessionDeleteTombstones` |
@@ -453,7 +467,7 @@
 | `12-tool-dispatch.js` | `11b-file-text-io.js` | backward | `FileTextIo` |
 | `12-tool-dispatch.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
 | `12-tool-dispatch.js` | `11d-media-inspection.js` | backward | `MediaInspection` |
-| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `CliBusinessHooks`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `EventStreamHooks`, `ExternalBotHooks`, `InternalMcpHooks`, `MemoryCliHooks`, `MigrationHooks`, `OVERLAY_ID`, `ProxyModelHooks`, `SKILL_ID_RE`, `URL`, `VERSION`, `WorkDataRootHooks`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `decodeConsoleText`, `defaultDataRoots`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isDirectServeInvocation`, `isPkg`, `json`, `lstatOrNull`, `migrateLegacyDataRoot`, `nowIso`, `os`, `path`, `paths`, `recordInstallLaunch`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
+| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `CliBusinessHooks`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `EventStreamHooks`, `ExternalBotHooks`, `InternalMcpHooks`, `MemoryCliHooks`, `MigrationHooks`, `OVERLAY_ID`, `ProxyModelHooks`, `SKILL_ID_RE`, `URL`, `VERSION`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `decodeConsoleText`, `defaultDataRoots`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isDirectServeInvocation`, `isPkg`, `json`, `lstatOrNull`, `migrateLegacyDataRoot`, `nowIso`, `os`, `path`, `paths`, `recordInstallLaunch`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
 | `13-http-router.js` | `00b-ruyi-names.js` | backward | `LEGACY_RUYI_MCP_SERVER_IDS`, `RUYI_MCP_SERVER_ID` |
 | `13-http-router.js` | `01-config.js` | backward | `ConfigPatchHooks`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `beginBootCliPathProbes`, `contentTypeFor`, `decodeClaudeCliText`, `desktopMcpDetectionPending`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `ensureDesktopMcpWarm`, `externalServerJs`, `finishBootCliPathProbes`, `generateMcpConfig`, `hostAllowed`, `isLoopbackBindHost`, `mcpConfigFilePath`, `mutateConfig`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `requestIsLoopback`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `sweepStaleScriptFiles`, `syncAgentCliMcpManifests`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `tokenMatches`, `tokenOk`, `waitForBootCliPathProbes` |
 | `13-http-router.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `memoryRelevanceMax`, `observationRecallEnabled` |
@@ -509,7 +523,7 @@
 | `13ab-privacy-api.js` | `07-autonomy.js` | backward | `nativeToolSchema` |
 | `13ab-privacy-api.js` | `12-tool-dispatch.js` | backward | `planPrivacyToolDisclosure` |
 | `13ab-privacy-api.js` | `13j-steward-tool-base.js` | backward | `STEWARD_MEMORY_SCHEMA`, `stewardAppendDecision`, `stewardMemoryChain`, `stewardMemoryWriteEpoch`, `stewardPanelGate`, `stewardReadMemoryStore` |
-| `13ac-mcp-consumer.js` | `00-boot.js` | backward | `SessionExecutionHooks`, `VERSION`, `crypto`, `dataRoot`, `fsp`, `json`, `makeId`, `path`, `paths`, `runKeyedChain` |
+| `13ac-mcp-consumer.js` | `00-boot.js` | backward | `SessionExecutionHooks`, `VERSION`, `WorkDataMaintenanceHooks`, `crypto`, `dataRoot`, `fsp`, `json`, `makeId`, `path`, `paths`, `runKeyedChain` |
 | `13ac-mcp-consumer.js` | `01-config.js` | backward | `DurableJsonStore`, `RUNTIME`, `atomicWriteJson`, `commandForSelfMcp`, `configReadGeneration`, `readConfig`, `requestIsLoopback`, `safeSessionId`, `send`, `sessionWriteChains`, `tokenOk` |
 | `13ac-mcp-consumer.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
 | `13ac-mcp-consumer.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
@@ -530,7 +544,7 @@
 | `13ad-memory-cli-relay.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13ad-memory-cli-relay.js` | `09-workflow.js` | backward | `AGENT_RUN_TERMINAL` |
 | `13ad-memory-cli-relay.js` | `13f-native-tool-schemas.js` | backward | `MCP_TOOLS` |
-| `13ae-cli-business-services.js` | `00-boot.js` | backward | `CliBusinessHooks`, `EventStreamHooks`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `json`, `makeId`, `nowIso` |
+| `13ae-cli-business-services.js` | `00-boot.js` | backward | `CliBusinessHooks`, `EventStreamHooks`, `WorkDataMaintenanceHooks`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `json`, `makeId`, `nowIso` |
 | `13ae-cli-business-services.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_CLI_TOOL_PREFIX` |
 | `13ae-cli-business-services.js` | `01-config.js` | backward | `detectClaudePath`, `readConfig`, `safeSessionId` |
 | `13ae-cli-business-services.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES`, `resolvePermissionMode` |
@@ -557,6 +571,39 @@
 | `13af-internal-mcp-relay.js` | `10-context-governance.js` | backward | `truncateToolResult` |
 | `13af-internal-mcp-relay.js` | `13ae-cli-business-services.js` | backward | `cliAgentLaunchService`, `cliAgentResultService`, `cliMissionService`, `cliPermissionService`, `cliQuestionService`, `cliTodoService` |
 | `13af-internal-mcp-relay.js` | `13f-native-tool-schemas.js` | backward | `MCP_TOOLS` |
+| `13ag-work-data-maintenance.js` | `00-boot.js` | backward | `InternalMcpHooks`, `MemoryCliHooks`, `WorkDataMaintenanceHooks`, `fs`, `paths`, `usageLedgerChain` |
+| `13ag-work-data-maintenance.js` | `01-config.js` | backward | `configMutateChain`, `configWriteChain`, `kimiMcpSyncChains`, `sessionWriteChains` |
+| `13ag-work-data-maintenance.js` | `02-session-store.js` | backward | `flushSessionIndex`, `inflightSessionIndex`, `interventionWriteChains`, `journalRevertChains`, `journalWriteChains`, `missionChangeWriteChains`, `missionContainerChains`, `pendingSessionIndex`, `sessionIndexChain`, `sessionIndexFlushTimer`, `sessionIndexRebuildsActive`, `sessionMetaDeferChains`, `sessionMutateChains`, `sessionNotesWriteChains`, `sessionScratchpadChains` |
+| `13ag-work-data-maintenance.js` | `04-permission-runtime.js` | backward | `activeChildren`, `flushWorkbenchLogs`, `logStream`, `turnOutcomePending`, `turnSettlers` |
+| `13ag-work-data-maintenance.js` | `04f-toolbox-services.js` | backward | `toolboxReconcileChain`, `toolboxServices` |
+| `13ag-work-data-maintenance.js` | `05-claude-engine.js` | backward | `voiceLexiconChains` |
+| `13ag-work-data-maintenance.js` | `06-provider-engine.js` | backward | `engineTranscriptLedgerChain` |
+| `13ag-work-data-maintenance.js` | `06d-memory-domain.js` | backward | `agentInstructionChain`, `memoryProposalStateChains`, `memoryUsageWriteChain` |
+| `13ag-work-data-maintenance.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `agentRunWriteChains` |
+| `13ag-work-data-maintenance.js` | `08-agent-runs.js` | backward | `agentRunEventChains` |
+| `13ag-work-data-maintenance.js` | `10-context-governance.js` | backward | `agentWakeTimers`, `scheduleAgentWake` |
+| `13ag-work-data-maintenance.js` | `11-native-tools.js` | backward | `backgroundJobChains`, `shellSessions` |
+| `13ag-work-data-maintenance.js` | `12-tool-dispatch.js` | backward | `fileToolWriteChains` |
+| `13ag-work-data-maintenance.js` | `13-http-router.js` | backward | `proxyModelsCacheChains` |
+| `13ag-work-data-maintenance.js` | `13ac-mcp-consumer.js` | backward | `McpConsumers` |
+| `13ag-work-data-maintenance.js` | `13d-core-domain-routes.js` | backward | `sessionSearchRefreshChains` |
+| `13ag-work-data-maintenance.js` | `13e-pretender-index.js` | backward | `flushPretenderPersist`, `pretenderIndexRuntime`, `pretenderScheduleVerify`, `schedulePretenderPersist` |
+| `13ag-work-data-maintenance.js` | `13i-steward-inbox.js` | backward | `stewardAppendChain`, `stewardClearWake`, `stewardRunTick`, `stewardRuntime`, `stewardScheduleWake` |
+| `13ag-work-data-maintenance.js` | `13j-steward-tool-base.js` | backward | `stewardDecisionChain`, `stewardMemoryChain` |
+| `13ag-work-data-maintenance.js` | `13m-steward-runner-base.js` | backward | `stewardRunnerRuntime` |
+| `13ag-work-data-maintenance.js` | `13n-steward-arbiter.js` | backward | `stewardArbiter` |
+| `13ag-work-data-maintenance.js` | `13q-steward-runner-turn.js` | backward | `stewardArchiveChains`, `stewardScheduleInboxDrain`, `stewardUserWaiters` |
+| `13ag-work-data-maintenance.js` | `13s-scheduler.js` | backward | `schedulerEnsureTimer`, `schedulerFiresChain`, `schedulerRuntime`, `schedulerTasksChain`, `schedulerTick` |
+| `13ag-work-data-maintenance.js` | `13u-migration-center.js` | backward | `migrationChain` |
+| `13ag-work-data-maintenance.js` | `13w-external-bots.js` | backward | `externalBotActiveActors`, `externalBotChains`, `externalBotDeliveries`, `externalBotDiscoveryBusy`, `externalBotInflight`, `externalBotUnsettled`, `externalBotWakeWorker`, `externalBotWorkerAgain`, `externalBotWorkerBusy` |
+| `13ah-work-data-setup.js` | `00-boot.js` | backward | `WorkDataMaintenanceHooks`, `WorkDataMaintenanceWorkerHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `crypto`, `fsp`, `json`, `nowIso`, `path`, `paths`, `text` |
+| `13ah-work-data-setup.js` | `01-config.js` | backward | `safeSessionId`, `send` |
+| `13ah-work-data-setup.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
+| `13ah-work-data-setup.js` | `01z-work-data-root-authority.js` | backward | `WorkDataRootAuthority` |
+| `13ah-work-data-setup.js` | `04-permission-runtime.js` | backward | `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `sessionExecutionCheck`, `turnSettlers` |
+| `13ah-work-data-setup.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
+| `13ah-work-data-setup.js` | `09-workflow.js` | backward | `AGENT_RUN_TERMINAL` |
+| `13ah-work-data-setup.js` | `11-native-tools.js` | backward | `shellSessions` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRevertLogRecord`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |
@@ -589,7 +636,7 @@
 | `13d-core-domain-routes.js` | `09-workflow.js` | backward | `launchPersistedAgentRun` |
 | `13d-core-domain-routes.js` | `09b-replan-ledger.js` | backward | `applyReplanPatch` |
 | `13d-core-domain-routes.js` | `13e-pretender-index.js` | forward | `emptyMissionUsage`, `getPretenderProjectionIndex`, `overlayMissionCard`, `paginatePretenderProjection`, `pretenderEtag`, `pretenderHash`, `pretenderIndexMeta`, `pretenderIndexRuntime`, `pretenderLiveOverlayRevision`, `pretenderNotModified` |
-| `13e-pretender-index.js` | `00-boot.js` | backward | `EventStreamHooks`, `URL`, `apiFailure`, `crypto`, `forEachUsageRow`, `fs`, `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `usageLedgerChangesSince` |
+| `13e-pretender-index.js` | `00-boot.js` | backward | `EventStreamHooks`, `URL`, `WorkDataMaintenanceHooks`, `apiFailure`, `crypto`, `forEachUsageRow`, `fs`, `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `usageLedgerChangesSince` |
 | `13e-pretender-index.js` | `01-config.js` | backward | `THREAD_INDEX_RECENT_DEFAULT`, `THREAD_INDEX_RECENT_MAX`, `THREAD_INDEX_RECENT_MIN`, `atomicWriteJson`, `readConfig`, `safeSessionId`, `sessionPath`, `sessionsDirOwnWriteSeq` |
 | `13e-pretender-index.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13e-pretender-index.js` | `02-session-store.js` | backward | `compactInterventionJournal`, `interventionFilePath`, `interventionJournalWorthCompacting`, `readInterventionsWithMeta`, `readSessionHeadText`, `sessionKind`, `sessionMissionId` |
@@ -624,7 +671,7 @@
 | `13h-steward-runner.js` | `13o-steward-runner-prompt.js` | backward | `buildStewardSystemPrompt`, `stewardContextBudget`, `stewardPreroute`, `stewardVisitNotesPrompt` |
 | `13h-steward-runner.js` | `13p-steward-runner-actions.js` | backward | `stewardDayCost`, `stewardRecoveryEvents`, `stewardTurnsInWindow` |
 | `13h-steward-runner.js` | `13q-steward-runner-turn.js` | backward | `runStewardTurn`, `stewardApplyThreadTier`, `stewardOnInboxBatch`, `stewardRelayChannelFor`, `stewardRelayDeliver`, `stewardResetConversation`, `stewardRunAct`, `stewardVisit` |
-| `13i-steward-inbox.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `WorkDataRootHooks`, `crypto`, `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
+| `13i-steward-inbox.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `13i-steward-inbox.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13i-steward-inbox.js` | `01s-work-data-journals.js` | backward | `WorkDataJournals` |
@@ -727,7 +774,7 @@
 | `13p-steward-runner-actions.js` | `13l-steward-ops.js` | backward | `stewardReadRunSnapshot`, `stewardRunResumeTier` |
 | `13p-steward-runner-actions.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_CONTINUE_FRESH_MS`, `STEWARD_CONTINUE_PROMPT`, `STEWARD_INBOX_DELIVERABLE_CHARS`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_INBOX_EVENT_CHARS`, `STEWARD_INBOX_MESSAGE_CHARS`, `STEWARD_SELF_SERVE_ATTEMPT_MAX`, `STEWARD_SELF_SERVE_RETRY_WINDOW_MS`, `STEWARD_TURN_DAY_MS`, `STEWARD_TURN_WINDOW_MS`, `stewardFailureExplain`, `stewardRunnerRuntime` |
 | `13p-steward-runner-actions.js` | `13o-steward-runner-prompt.js` | backward | `stewardActConfirmLines`, `stewardActLabel`, `stewardNormalizeAct`, `stewardThreadDigestRows` |
-| `13q-steward-runner-turn.js` | `00-boot.js` | backward | `OVERLAY_ID`, `RUYI_EVENTS`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `runKeyedChain` |
+| `13q-steward-runner-turn.js` | `00-boot.js` | backward | `OVERLAY_ID`, `RUYI_EVENTS`, `WorkDataMaintenanceHooks`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `runKeyedChain` |
 | `13q-steward-runner-turn.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `13q-steward-runner-turn.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13q-steward-runner-turn.js` | `02-session-store.js` | backward | `loadSession`, `mutateSession`, `readSessionNotes`, `waitMissionTurnSettled`, `writeSessionNotes` |
@@ -754,7 +801,7 @@
 | `13r-event-stream.js` | `04-permission-runtime.js` | backward | `activeChildren`, `subscribeActiveChildEvents` |
 | `13r-event-stream.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `stewardThreadStateFromHead`, `stewardWatchedThread`, `threadOriginOf` |
 | `13r-event-stream.js` | `13d-core-domain-routes.js` | backward | `missionPendingCounts` |
-| `13s-scheduler.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `URL`, `apiFailure`, `fs`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `safeDecodeURIComponent`, `text` |
+| `13s-scheduler.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `URL`, `WorkDataMaintenanceHooks`, `apiFailure`, `fs`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `safeDecodeURIComponent`, `text` |
 | `13s-scheduler.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readJsonBody`, `send` |
 | `13s-scheduler.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
 | `13s-scheduler.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
@@ -775,15 +822,17 @@
 | `13t-steward-schedule.js` | `13k-steward-threads.js` | backward | `stewardCanonWorkspacePath`, `stewardDeriveThreadCwd`, `stewardUnattendedByModel`, `stewardValidateCwd` |
 | `13t-steward-schedule.js` | `13q-steward-runner-turn.js` | backward | `stewardEnsureOpenAiRoute` |
 | `13t-steward-schedule.js` | `13s-scheduler.js` | backward | `schedulerClockNow`, `schedulerEmitChanged`, `schedulerEnabled`, `schedulerEnsureTimer`, `schedulerLoad`, `schedulerReadFireRows`, `schedulerRunNow`, `schedulerRuntime`, `schedulerSaveTasks`, `schedulerStorageFailure`, `schedulerTaskAdmission`, `schedulerTaskEncodingPreflight`, `schedulerTaskPayload` |
-| `13u-migration-center.js` | `00-boot.js` | backward | `MigrationHooks`, `SKILL_ID_RE`, `VERSION`, `agentCliHomes`, `crypto`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `installRegistryPath`, `nowIso`, `os`, `path`, `paths`, `readInstallRegistry`, `ruyiPackageInfo`, `safeJsonParse`, `samePathKey`, `text`, `tildePath` |
+| `13u-migration-center.js` | `00-boot.js` | backward | `MigrationHooks`, `SKILL_ID_RE`, `VERSION`, `WorkDataMaintenanceHooks`, `agentCliHomes`, `crypto`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `installRegistryPath`, `nowIso`, `os`, `path`, `paths`, `readInstallRegistry`, `ruyiPackageInfo`, `safeJsonParse`, `samePathKey`, `text`, `tildePath` |
 | `13u-migration-center.js` | `01-config.js` | backward | `agentMcpImportSources`, `atomicWriteJson`, `classifyAgentMcpCandidate`, `generateMcpConfig`, `kimiMcpManagedIds`, `mutateConfig`, `readConfig` |
+| `13u-migration-center.js` | `01n-work-data-crypto.js` | backward | `WorkDataCrypto` |
 | `13u-migration-center.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
+| `13u-migration-center.js` | `01r-work-data-chunks.js` | backward | `WorkDataChunks` |
 | `13u-migration-center.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
 | `13u-migration-center.js` | `04-permission-runtime.js` | backward | `_parseTomlMcpServers`, `_tomlKeyPath`, `logEvent`, `parseMcpConfigFile`, `safeUrlForDisplay` |
 | `13u-migration-center.js` | `05-claude-engine.js` | backward | `sanitizeExternalMcpServer` |
 | `13u-migration-center.js` | `06d-memory-domain.js` | backward | `syncAgentInstructionImports` |
 | `13v-external-channel-protocols.js` | `00-boot.js` | backward | `crypto`, `json`, `text` |
-| `13w-external-bots.js` | `00-boot.js` | backward | `ExternalBotHooks`, `OVERLAY_ID`, `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `text` |
+| `13w-external-bots.js` | `00-boot.js` | backward | `ExternalBotHooks`, `OVERLAY_ID`, `URL`, `WorkDataMaintenanceHooks`, `apiFailure`, `crypto`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `text` |
 | `13w-external-bots.js` | `01-config.js` | backward | `atomicWriteJson`, `originOk`, `readConfig`, `send`, `tokenOk` |
 | `13w-external-bots.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13w-external-bots.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |

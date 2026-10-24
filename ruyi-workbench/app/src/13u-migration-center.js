@@ -29,9 +29,15 @@ const MIGRATION_SIZE_TTL_MS = 10 * 60 * 1000;
 const migrationSizeCache = new Map();        // 包根键 -> { at, bytes, files, capped }
 let migrationChain = Promise.resolve();
 let migrationRecoveryNeeded = true;
+let migrationBackupAuthority = null;
+function migrationBackupRoot() { return migrationBackupAuthority?.root || path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR); }
 
 function migrationSerial(fn) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('migration')) return WorkDataMaintenanceHooks.run('migration', () => migrationSerial(fn));
+  const admission = migrationBackupAuthority;
   const job = migrationChain.then(async () => {
+    if (admission !== migrationBackupAuthority) migrationCapsuleFail('generation_changed');
+    if (admission) await admission.assertCurrent();
     if (migrationRecoveryNeeded) {
       await migrationRecoverSkillBackups();
       migrationRecoveryNeeded = false;
@@ -41,7 +47,7 @@ function migrationSerial(fn) {
   migrationChain = job.catch(() => {});
   return job;
 }
-function migrationDir() { return path.join(paths.data, 'migrations'); }
+function migrationDir() { return path.join(migrationBackupAuthority?.activeRoot || paths.data, 'migrations'); }
 function migrationLogShape(value, id) {
   return /^[0-9TZ-]+$/.test(String(id || '')) && !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === MIGRATION_LOG_SCHEMA && value.id === id
     && ['createdAt', 'currentRoot', 'version'].every(key => value[key] === undefined || typeof value[key] === 'string') && Array.isArray(value.files)
@@ -110,7 +116,7 @@ async function migrationNextLogStamp() {
   for (;;) {
     const stamp = new Date(time).toISOString().replace(/[:.]/g, '-');
     let exists = false;
-    for (const file of [path.join(migrationDir(), stamp + '.json'), path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR, stamp)]) {
+    for (const file of [path.join(migrationDir(), stamp + '.json'), path.join(migrationBackupRoot(), stamp)]) {
       try { await fsp.lstat(file); exists = true; }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
@@ -433,7 +439,7 @@ async function migrationTreeHash(tree) {
 }
 function migrationSkillTarget(id) {
   if (!SKILL_ID_RE.test(String(id || ''))) return null;
-  const root = path.resolve(paths.skills);
+  const root = path.resolve(migrationBackupAuthority?.skillsRoot || paths.skills);
   const dest = path.resolve(root, String(id));
   return samePathKey(path.dirname(dest)) === samePathKey(root) ? dest : null;
 }
@@ -527,6 +533,7 @@ public static class RuyiSkillCapsule {
   [DllImport("ntdll.dll")] static extern int NtSetInformationFile(SafeFileHandle h, IntPtr iosb, IntPtr value, uint length, int kind);
   [DllImport("ntdll.dll")] static extern uint RtlNtStatusToDosError(int status);
   [DllImport("ntdll.dll")] static extern int NtQueryInformationFile(SafeFileHandle h,IntPtr iosb,IntPtr value,uint length,int kind);
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool MoveFileExW(string source,string target,uint flags);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool SetFileShortName(SafeFileHandle h,string name);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CheckNameLegalDOS8Dot3(string name,IntPtr oem,uint size,out bool spaces,out bool legal);
   static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 180000000, RecursionLimit = 512 };
@@ -820,7 +827,12 @@ public static class RuyiSkillCapsule {
       if (!String.Equals(ShortName(node.Handle),Str(node.Entry["shortName"]),StringComparison.OrdinalIgnoreCase)) Reject("short_name_changed");
     }
   }
-  static void VerifyRestorable() {
+  static bool IsPrefix(byte[] actual,string encoded) {
+    byte[] expected=Convert.FromBase64String(encoded);
+    try { if(actual.Length>expected.Length)return false;for(int i=0;i<actual.Length;i++)if(actual[i]!=expected[i])return false;return true; }
+    finally { Array.Clear(expected,0,expected.Length); }
+  }
+  static void VerifyRestorable(Dictionary<string,object> alternate = null) {
     List<Node> expected = Expected(); VerifyEntries(expected);
     foreach (Node node in expected) {
       Dictionary<string,object> streams = new Dictionary<string,object>();
@@ -828,11 +840,17 @@ public static class RuyiSkillCapsule {
       foreach (string name in StreamNames(node)) {
         if (!streams.ContainsKey(name)) Reject("stream_set_changed");
         SafeFileHandle handle = name == "" ? node.Handle : node.Streams[name];
-        byte[] actual = Read(handle), original = Convert.FromBase64String(Str(Dict(streams[name])["data"]));
-        // Interrupted writes can only be a prefix of the authenticated original.
-        if (actual.Length > original.Length) Reject("content_changed");
-        for (int i=0;i<actual.Length;i++) if (actual[i] != original[i]) Reject("content_changed");
-        Array.Clear(actual,0,actual.Length); Array.Clear(original,0,original.Length);
+        byte[] actual = Read(handle);
+        try {
+          bool valid=IsPrefix(actual,Str(Dict(streams[name])["data"]));
+          if(!valid && alternate!=null) foreach(object raw in (IEnumerable)alternate["entries"]) {
+            Dictionary<string,object> entry=Dict(raw);if(Str(entry["id"])!=Str(node.Entry["id"]))continue;
+            foreach(object streamRaw in (IEnumerable)entry["streams"]) { Dictionary<string,object> stream=Dict(streamRaw);
+              if(Str(stream["name"])==name && IsPrefix(actual,Str(stream["data"])))valid=true;
+            }
+          }
+          if(!valid)Reject("content_changed");
+        } finally { Array.Clear(actual,0,actual.Length); }
       }
     }
   }
@@ -918,7 +936,7 @@ public static class RuyiSkillCapsule {
     }
   }
   static void Restore(Dictionary<string,object> args) {
-    VerifyRestorable();
+    VerifyRestorable(args.ContainsKey("allowedSnapshot") ? Dict(args["allowedSnapshot"]) : null);
     List<Node> expected=Expected();
     if(Capsule==null) Capsule=Open(Str(args["container"]));
     foreach(Node node in expected) EnsureWritable(node);
@@ -937,7 +955,11 @@ public static class RuyiSkillCapsule {
           handle=CreateFile(PathOf(node.Handle)+name,0xC0010000,5,IntPtr.Zero,4,0,IntPtr.Zero);
           if(handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());node.Streams.Add(name,handle);
         }
-        Step="restore-content";Write(handle,bytes);Array.Clear(bytes,0,bytes.Length);
+        Step="restore-content";
+        // A representation conversion can shrink an existing managed stream.
+        // Clear first so a crash never leaves an unrecognizable old-data suffix.
+        if(args.ContainsKey("allowedSnapshot"))Write(handle,new byte[0]);
+        Write(handle,bytes);Array.Clear(bytes,0,bytes.Length);
       }
     }
     Step="restore-verify";Verify(false,true);VerifyNames(Str(args["target"]),false);RestoreBasic(expected);
@@ -1001,6 +1023,40 @@ public static class RuyiSkillCapsule {
     foreach (Node node in Nodes.Values) { foreach (SafeFileHandle stream in node.Streams.Values) stream.Dispose(); node.Handle.Dispose(); }
     Nodes.Clear(); Snapshot = null; OriginalRoot = null; if (Capsule != null) { Capsule.Dispose(); Capsule = null; }
   }
+  static void StoreFileSystem(SafeFileHandle handle) {
+    StringBuilder filesystem=new StringBuilder(64);uint serial,component,flags;
+    Check(GetVolumeInformationByHandleW(handle,null,0,out serial,out component,out flags,filesystem,64));
+    if(filesystem.ToString()!="NTFS") Reject("filesystem_unsupported");
+  }
+  static object StoreInfo(Dictionary<string,object> args) {
+    using(var handle=Open(Str(args["root"]))) {
+      StoreFileSystem(handle);
+      if((BasicOf(handle).Attr&16u)==0) Reject("store_not_directory");
+      if(!String.Equals(PathOf(handle),@"\\?\"+System.IO.Path.GetFullPath(Str(args["root"])),StringComparison.OrdinalIgnoreCase)) Reject("store_path_alias");
+      return new Dictionary<string,object>{{"id",Id(handle)},{"volume",VolumeOf(handle)}};
+    }
+  }
+  static void FlushStoreDirectory(string path) {
+    using(var handle=CreateFile(path,0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
+      if(handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error()); Check(FlushFileBuffers(handle));
+    }
+  }
+  static object MoveStore(Dictionary<string,object> args) {
+    string source=System.IO.Path.GetFullPath(Str(args["source"])),target=System.IO.Path.GetFullPath(Str(args["target"]));
+    string fromParent=System.IO.Path.GetDirectoryName(source),toParent=System.IO.Path.GetDirectoryName(target);
+    using(var original=Open(source)) using(var parent=Open(toParent)) {
+      StoreFileSystem(original);
+      if(Id(original)!=Str(args["id"]) || !String.Equals(PathOf(original),@"\\?\"+source,StringComparison.OrdinalIgnoreCase)) Reject("store_identity");
+      if(!String.Equals(PathOf(parent),@"\\?\"+toParent,StringComparison.OrdinalIgnoreCase)) Reject("store_path_alias");
+      if(!String.Equals(VolumeOf(original),VolumeOf(parent),StringComparison.OrdinalIgnoreCase)) Reject("cross_volume");
+      // Capability refusal precedes rename. No COPY_ALLOWED and no replacement.
+      Step="store-flush-pre";FlushStoreDirectory(fromParent);FlushStoreDirectory(toParent);
+      Step="store-move";Check(MoveFileExW(@"\\?\"+source,@"\\?\"+target,8));
+      if(Id(original)!=Str(args["id"]) || !String.Equals(PathOf(original),@"\\?\"+target,StringComparison.OrdinalIgnoreCase)) Reject("store_identity");
+      Step="store-flush-post";FlushStoreDirectory(fromParent);FlushStoreDirectory(toParent);
+      return new Dictionary<string,object>{{"id",Id(original)},{"volume",VolumeOf(original)}};
+    }
+  }
   public static void Run() {
     Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false);
     try {
@@ -1008,14 +1064,19 @@ public static class RuyiSkillCapsule {
       while ((line = Console.ReadLine()) != null) {
         try {
           Dictionary<string,object> args = Dict(Json.DeserializeObject(line)); string command = Str(args["cmd"]); object result = null;
-          if (command == "capture") result = Capture(args);
+          if (command == "store-info") result=StoreInfo(args);
+          else if (command == "store-move") result=MoveStore(args);
+          else if (command == "capture") result = Capture(args);
+          else if (command == "capture-preserved") { try { result=Capture(args); } finally { RestoreBasic(new List<Node>(Nodes.Values)); } }
           else if (command == "short-probe") ProbeShortNames(args);
           else if (command == "attach") Attach(args);
           else if (command == "seal") Seal(args);
+          else if (command == "seal-attached") { OriginalRoot=PathOf(RootNode().Handle); Seal(args); }
           else if (command == "restore") Restore(args);
           else if (command == "publish") Publish(args);
           else if (command == "finish-published") FinishPublished(args);
           else if (command == "publish-check") CheckPublication(args);
+          else if (command == "store-flush") FlushStoreDirectory(Str(args["root"]));
           else if (command == "verify") Verify(Convert.ToBoolean(args["cleared"]), true);
           else if (command == "close") { Close(); Console.WriteLine("{\"ok\":true}"); return; }
           else Reject("command_invalid");
@@ -1043,11 +1104,12 @@ function migrationCapsuleFail(reason, uncertain = false) {
     ...(uncertain ? { operationMayHaveExecuted: true, resultUnavailable: true, retry: false } : {}) });
 }
 function migrationCapsuleDescriptor(backup) {
-  const base = path.resolve(migrationDir(), MIGRATION_SKILL_BACKUP_DIR);
+  const base = path.resolve(migrationBackupRoot());
   const rel = path.relative(base, path.resolve(backup)).split(path.sep);
   if (rel.length !== 2 || !/^[0-9TZ-]+$/.test(rel[0]) || !SKILL_ID_RE.test(rel[1])) migrationCapsuleFail('binding');
   return { backup: path.join(base, ...rel), stamp: rel[0], id: rel[1],
-    scopeId: 'skill-backups:' + rel[0], recordId: 'skill-backup:' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1]) };
+    scopeId: 'skill-backups:' + rel[0], recordId: 'skill-backup:' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1]),
+    ...(migrationBackupAuthority?.variants.get(rel[0] + '/' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1])) || {}) };
 }
 function migrationCapsuleShape(snapshot) {
   if (!snapshot || snapshot.schema !== 1 || snapshot.platform !== 'ntfs-objects-v1'
@@ -1123,9 +1185,9 @@ function migrationCapsuleDecode(bytes) {
     migrationCapsuleFail('shape');
   } finally { decoded.fill(0); }
 }
-function migrationCapsuleArchive(descriptor) {
+function migrationCapsuleArchive(descriptor, keys = descriptor.archiveKeys) {
   return WorkDataStore.createBinary({ file: () => path.join(descriptor.backup, 'archive'),
-    purpose: 'backup', schema: 1, scopeId: descriptor.scopeId, recordId: descriptor.recordId + ':archive',
+    purpose: 'backup', schema: 1, scopeId: descriptor.scopeId, recordId: descriptor.recordId + ':archive', keys,
     chunked: true, maxPlaintextBytes: 192 * 1024 * 1024, maxBinaryBytes: MIGRATION_CAPSULE_BINARY_LIMIT,
     enabled: async () => true, // this format has no plaintext capsule representation
     validateLegacyBinary: (bytes, context) => {
@@ -1136,10 +1198,18 @@ function migrationCapsuleArchive(descriptor) {
     }, writeJson: atomicWriteJson });
 }
 function migrationCapsuleIntentShape(value, descriptor) {
+  const converted = value?.conversion;
+  if (converted !== undefined && (!converted || converted.schema !== 1 || !/^[a-f0-9]{48}$/.test(converted.operationId || '')
+    || !['eligible', 'edited', 'gone'].includes(converted.eligibility))) return false;
+  const missing = converted?.eligibility === 'gone' && Array.isArray(value.newTree) && value.newTree.length === 0;
+  if (value?.historyPublish !== undefined && (!descriptor.plainRoot || value.phase !== 'complete'
+    || Object.keys(value.historyPublish || {}).sort().join(',') !== 'id,name,schema' || value.historyPublish.schema !== 1
+    || !/^[a-f0-9]{48}$/.test(value.historyPublish.name || '') || !/^[a-f0-9]{24}$/.test(value.historyPublish.id || ''))) return false;
   return !!value && value.schema === 1 && value.id === descriptor.id && value.stamp === descriptor.stamp
     && /^[a-f0-9]{64}$/.test(value.revision || '') && ['preparing', 'ready', 'published', 'restoring', 'complete', 'aborted'].includes(value.phase)
-    && /^[a-f0-9]{24}$/.test(value.oldRoot || '') && migrationCapsuleFingerprintShape(value.newTree)
-    && value.newTree.find(entry => entry.rel === '').id !== value.oldRoot
+    && /^[a-f0-9]{24}$/.test(value.oldRoot || '') && (missing || migrationCapsuleFingerprintShape(value.newTree))
+    && (missing || value.newTree.find(entry => entry.rel === '').id !== value.oldRoot)
+    && (!descriptor.generationId || value.generationId === descriptor.generationId)
     && value.sourceStage === MIGRATION_SKILL_STAGE_PREFIX + descriptor.id + '-' + descriptor.stamp;
 }
 function migrationCapsuleFingerprintShape(entries) {
@@ -1169,10 +1239,10 @@ function migrationCapsuleFingerprintShape(entries) {
   return directories.has('') && entries.every(entry => !entry.rel || directories.has(entry.rel.includes('/')
     ? entry.rel.slice(0, entry.rel.lastIndexOf('/')).toLowerCase() : ''));
 }
-function migrationCapsuleIntent(descriptor) {
-  const file = () => path.join(descriptor.backup, 'intent');
+function migrationCapsuleIntent(descriptor, keys = descriptor.intentKeys) {
+  const file = () => descriptor.intentFile || path.join(descriptor.backup, 'intent');
   const store = onAuthenticated => WorkDataStore.createText({ file, purpose: 'backup', schema: 1,
-    scopeId: descriptor.scopeId, recordId: descriptor.recordId + ':intent', chunked: true, maxPlaintextBytes: 16 * 1024 * 1024,
+    scopeId: descriptor.scopeId, recordId: descriptor.intentRecordId || descriptor.recordId + ':intent', keys, chunked: true, maxPlaintextBytes: 16 * 1024 * 1024,
     enabled: async () => true,
     validateSealedText: text => {
       const valid = migrationCapsuleIntentShape(safeJsonParse(text, null), descriptor);
@@ -1205,7 +1275,7 @@ async function migrationCapsuleRequireCarrier(file, descriptor, kind) {
         || Object.keys(header).sort().join(',') !== 'format,instanceId,keyId,manifest,purpose,recordId,revision,schema,scopeId,seq,workData'
         || header.workData !== 3 || header.format !== 'chunks-v1' || header.purpose !== 'backup'
         || header.schema !== 1 || header.seq !== 1 || header.scopeId !== descriptor.scopeId
-        || header.recordId !== descriptor.recordId + ':' + kind
+        || header.recordId !== (kind === 'intent' && descriptor.intentRecordId || descriptor.recordId + ':' + kind)
         || typeof header.instanceId !== 'string' || typeof header.keyId !== 'string'
         || !/^[a-f0-9]{32}$/.test(header.revision || '') || !header.manifest || typeof header.manifest !== 'object' || Array.isArray(header.manifest)) migrationCapsuleFail('carrier');
   } finally { await handle.close(); }
@@ -1214,12 +1284,12 @@ async function migrationCapsuleWriteIntent(descriptor, intent) {
   if (!migrationCapsuleIntentShape(intent, descriptor)) migrationCapsuleFail('intent');
   // Recovery keeps this private authority sealed even if the switch changed after
   // preparing. Ordinary OFF undo is rejected separately, before touching live data.
-  const lease = await WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys());
+  const lease = await WorkDataStore.acquireSnapshot(descriptor.intentKeys || WorkDataStore.requireKeys());
   await lease.release();
   await migrationCapsuleIntent(descriptor).write(JSON.stringify(intent));
 }
 async function migrationCapsuleRead(descriptor) {
-  const archiveFile = path.join(descriptor.backup, 'archive'), intentFile = path.join(descriptor.backup, 'intent');
+  const archiveFile = path.join(descriptor.backup, 'archive'), intentFile = descriptor.intentFile || path.join(descriptor.backup, 'intent');
   // These two private records have no plaintext alternate encoding. A malformed or
   // displaced carrier cannot be reclassified as an old renamed skill directory.
   await migrationCapsuleRequireCarrier(archiveFile, descriptor, 'archive');
@@ -1232,8 +1302,37 @@ async function migrationCapsuleRead(descriptor) {
       || snapshot.entries.find(entry => entry.rel === '').id !== intent.oldRoot) migrationCapsuleFail('binding');
   return { snapshot, intent };
 }
-async function migrationCapsulePresent(backup) {
-  const descriptor = migrationCapsuleDescriptor(backup);
+const MIGRATION_BACKUP_HISTORY_MARKER = '.ruyi-backup-history-v1';
+function migrationBackupHistoryShape(value, descriptor) {
+  return value && Object.keys(value).sort().join(',') === 'historyOnly,id,phase,schema,snapshot,stamp,type'
+    && value.schema === 1 && value.type === 'terminal-skill-backup-history' && value.historyOnly === true
+    && value.id === descriptor.id && value.stamp === descriptor.stamp && ['complete', 'aborted'].includes(value.phase)
+    && migrationCapsuleShape(value.snapshot);
+}
+function migrationBackupHistoryStore(descriptor, mode, onAuthenticated) {
+  return WorkDataStore.createText({ file: () => path.join(descriptor.backup, 'history'), purpose: 'backup', schema: 1,
+    scopeId: 'skill-backup-history:' + descriptor.stamp, recordId: descriptor.recordId + ':history', keys: descriptor.archiveKeys,
+    chunked: true, maxPlaintextBytes: MIGRATION_CAPSULE_ARCHIVE_LIMIT, enabled: async () => mode === 'encrypted', writeJson: atomicWriteJson,
+    validateSealedText: text => { const valid = migrationBackupHistoryShape(safeJsonParse(text, null), descriptor); if (valid && onAuthenticated) onAuthenticated(); return valid; } });
+}
+async function migrationReadBackupHistory(backup, descriptor = migrationCapsuleDescriptor(backup)) {
+  descriptor = { ...descriptor, backup };
+  const marker = path.join(backup, MIGRATION_BACKUP_HISTORY_MARKER);
+  let present; try { present = await fsp.lstat(marker); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  if (!present) return null;
+  if (!present.isFile() || present.isSymbolicLink() || present.nlink !== 1 || present.size > 128) migrationCapsuleFail('history_marker');
+  const header = safeJsonParse(await fsp.readFile(marker, 'utf8'), null);
+  if (!header || Object.keys(header).sort().join(',') !== 'mode,schema' || header.schema !== 1 || !['plain', 'encrypted'].includes(header.mode)) migrationCapsuleFail('history_marker');
+  const file = path.join(backup, 'history'), stat = await fsp.lstat(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > MIGRATION_CAPSULE_BINARY_LIMIT * 2) migrationCapsuleFail('history_shape');
+  let authenticated = false;
+  const text = await migrationBackupHistoryStore(descriptor, header.mode, () => { authenticated = true; }).read();
+  const value = safeJsonParse(text, null);
+  if (!migrationBackupHistoryShape(value, descriptor) || authenticated !== (header.mode === 'encrypted')) migrationCapsuleFail('history_carrier');
+  return { ...value, mode: header.mode };
+}
+async function migrationCapsulePresent(backup, descriptor = migrationCapsuleDescriptor(backup)) {
+  if (await migrationReadBackupHistory(backup, descriptor)) return false;
   for (const name of [MIGRATION_CAPSULE_MARKER, 'archive', 'intent']) {
     const file = path.join(backup, name), stat = await migrationLstat(file);
     if (!stat) continue;
@@ -1329,7 +1428,7 @@ async function migrationCapsuleFinishPublished(descriptor, snapshot, dest) {
 }
 async function migrationCapsuleRoots(descriptor, intent) {
   const roots = [], objects = path.join(descriptor.backup, 'objects');
-  for (const candidate of [migrationSkillTarget(descriptor.id), path.join(descriptor.backup, 'restored', intent.oldRoot)]) {
+  for (const candidate of [descriptor.plainRoot, migrationSkillTarget(descriptor.id), path.join(descriptor.backup, 'restored', intent.oldRoot)].filter(Boolean)) {
     const stat = await migrationLstat(candidate);
     if (!stat) continue;
     // A ready copy is a different root; it must never enter the old-object scan.
@@ -1338,6 +1437,55 @@ async function migrationCapsuleRoots(descriptor, intent) {
   }
   for (const entry of await fsp.readdir(objects, { withFileTypes: true })) roots.push(path.join(objects, entry.name));
   return roots;
+}
+async function migrationCapsuleCapturePreserved(root, revision) {
+  const broker = await migrationCapsuleBroker();
+  try { const snapshot = await broker.command({ cmd: 'capture-preserved', root, revision }); if (!migrationCapsuleShape(snapshot)) migrationCapsuleFail('shape'); return snapshot; }
+  finally { await broker.close(); }
+}
+function migrationCapsuleSameMetadata(actual, expected) {
+  if (!migrationCapsuleSame(actual, migrationCapsuleFingerprint(expected))) return false;
+  const expectedById = new Map(expected.entries.map(entry => [entry.id, entry]));
+  return actual.entries.every(entry => {
+    const source = expectedById.get(entry.id);
+    return source && entry.attrs === source.attrs && entry.shortName === source.shortName && JSON.stringify(entry.times) === JSON.stringify(source.times);
+  });
+}
+async function migrationFinishPlainHistory(descriptor, snapshot, intent) {
+  if (!descriptor.plainRoot || intent.phase !== 'complete') return;
+  const target = descriptor.plainRoot, host = descriptor.historyHost;
+  if (!host || ['directory', 'info', 'move', 'flush'].some(name => typeof host[name] !== 'function')) migrationCapsuleFail('plain_history_host', true);
+  await host.directory(descriptor.backup); await host.directory(path.dirname(target));
+  const parent = path.join(descriptor.backup, 'history-stage');
+  await host.directory(parent, true); await fsp.mkdir(parent).catch(error => { if (error.code !== 'EEXIST') throw error; }); await host.directory(parent);
+  if (!intent.historyPublish) {
+    if (await migrationLstat(target)) migrationCapsuleFail('plain_history_conflict', true);
+    const name = crypto.randomBytes(24).toString('hex'), stage = path.join(parent, name);
+    await fsp.mkdir(stage); await host.directory(stage);
+    const staged = { ...descriptor, backup: stage };
+    await migrationBackupHistoryStore(staged, 'plain').write(JSON.stringify({ schema: 1, type: 'terminal-skill-backup-history', historyOnly: true,
+      id: descriptor.id, stamp: descriptor.stamp, phase: 'complete', snapshot }));
+    await atomicWriteJson(path.join(stage, MIGRATION_BACKUP_HISTORY_MARKER), { schema: 1, mode: 'plain' });
+    await host.flush([stage, parent, descriptor.backup]);
+    intent.historyPublish = { schema: 1, name, id: (await host.info(stage)).id };
+    await migrationCapsuleWriteIntent(descriptor, intent); await host.flush([descriptor.backup]);
+  }
+  const stage = path.join(parent, intent.historyPublish.name), locations = [];
+  for (const candidate of [stage, target]) {
+    let stat; try { stat = await fsp.lstat(candidate); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+    if (!stat.isDirectory() || stat.isSymbolicLink() || (await host.info(candidate)).id !== intent.historyPublish.id) migrationCapsuleFail('plain_history_conflict', true);
+    if ((await fsp.readdir(candidate)).sort().join(',') !== [MIGRATION_BACKUP_HISTORY_MARKER, 'history'].sort().join(',')) migrationCapsuleFail('plain_history_conflict', true);
+    const existing = await migrationReadBackupHistory(candidate, { ...descriptor, backup: candidate });
+    if (!existing || existing.mode !== 'plain' || existing.phase !== 'complete' || JSON.stringify(existing.snapshot) !== JSON.stringify(snapshot)) migrationCapsuleFail('plain_history_conflict', true);
+    locations.push(candidate);
+  }
+  if (locations.length !== 1) migrationCapsuleFail('plain_history_conflict', true);
+  // The old objects are now live. This newly owned directory is typed history,
+  // never a recreated set of objects claiming those historical native IDs.
+  if (locations[0] === stage) {
+    const moved = await host.move({ source: stage, target, id: intent.historyPublish.id });
+    if (!moved || moved.id !== intent.historyPublish.id) migrationCapsuleFail('plain_history_conflict', true);
+  }
 }
 async function migrationCapsuleRestore(descriptor, snapshot, intent, undo) {
   const broker = await migrationCapsuleBroker(), dest = migrationSkillTarget(descriptor.id);
@@ -1367,6 +1515,7 @@ async function migrationCapsuleRestore(descriptor, snapshot, intent, undo) {
     await migrationCapsuleAssertTree(retired, intent.newTree, intent.revision);
     await fsp.rm(retired, { recursive: true });
   }
+  await migrationFinishPlainHistory(descriptor, snapshot, intent);
 }
 async function migrationCapsulePrepare(dest, stage, backup) {
   const descriptor = migrationCapsuleDescriptor(backup), revision = crypto.randomBytes(32).toString('hex');
@@ -1418,7 +1567,7 @@ async function migrationCapsulePrepare(dest, stage, backup) {
   } finally { await broker.close(); }
 }
 async function migrationRecoverSkillBackups() {
-  const root = path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR);
+  const root = migrationBackupRoot();
   try {
     const stat = await fsp.lstat(root);
     if (!stat.isDirectory() || stat.isSymbolicLink()) migrationCapsuleFail('backup_root');
@@ -1426,32 +1575,43 @@ async function migrationRecoverSkillBackups() {
   let batches;
   try { batches = await fsp.readdir(root, { withFileTypes: true }); }
   catch (error) { if (error.code === 'ENOENT') return; throw error; }
+  const work = [];
   for (const batch of batches) {
     if (!/^[0-9TZ-]+$/.test(batch.name)) continue;
     if (!batch.isDirectory() || batch.isSymbolicLink()) migrationCapsuleFail('backup_root');
     for (const entry of await fsp.readdir(path.join(root, batch.name), { withFileTypes: true })) {
       const backup = path.join(root, batch.name, entry.name);
-      if (!entry.isDirectory() || entry.isSymbolicLink() || !await migrationCapsulePresent(backup)) continue;
+      work.push({ backup, entry });
+    }
+  }
+  for (const record of migrationBackupAuthority?.plainRecords || []) if (!work.some(item => samePathKey(item.backup) === samePathKey(record.backup)))
+    work.push({ backup: record.backup, entry: { isDirectory: () => true, isSymbolicLink: () => false } });
+  for (const { backup, entry } of work) {
       const descriptor = migrationCapsuleDescriptor(backup);
+      if (!descriptor.plainRoot && entry.isDirectory() && !entry.isSymbolicLink() && await migrationReadBackupHistory(backup)) continue; // Terminal history never replays an original-object restore.
+      if (!entry.isDirectory() || entry.isSymbolicLink() || !descriptor.plainRoot && !await migrationCapsulePresent(backup)) continue;
       // Before intent publication the live objects are untouched. Keep orphaned
       // encrypted archives for inspection; they are never interpreted as live trees.
-      if (!await migrationLstat(path.join(backup, 'intent'))) {
-        if ((await fsp.readdir(path.join(backup, 'objects'))).length) migrationCapsuleFail('intent_missing', true);
+      if (!await migrationLstat(descriptor.intentFile || path.join(descriptor.backup, 'intent'))) {
+        if ((await fsp.readdir(path.join(descriptor.backup, 'objects'))).length) migrationCapsuleFail('intent_missing', true);
         continue;
       }
       const { snapshot, intent } = await migrationCapsuleRead(descriptor);
       const dest = migrationSkillTarget(descriptor.id), stat = await migrationLstat(dest);
       const oldPublished = stat && !stat.isSymbolicLink() && (await fsp.stat(dest, { bigint: true })).ino.toString(16).padStart(16, '0') === intent.oldRoot.slice(8);
       if (['complete', 'aborted'].includes(intent.phase)) {
-        const retired = path.join(backup, 'retired');
+        const retired = path.join(descriptor.backup, 'retired');
         if (await migrationLstat(retired)) {
           await migrationCapsuleAssertTree(retired, intent.newTree, intent.revision);
           await fsp.rm(retired, { recursive: true });
         }
-        continue;
+        await migrationFinishPlainHistory(descriptor, snapshot, intent); continue;
       }
       if (intent.phase === 'published') {
-        await migrationCapsuleVerifyReady(descriptor, snapshot);
+        if (descriptor.plainRoot) {
+          const captured = await migrationCapsuleCapturePreserved(descriptor.plainRoot, intent.revision);
+          if (!migrationCapsuleSameMetadata(captured, snapshot)) migrationCapsuleFail('plain_backup_changed', true);
+        } else await migrationCapsuleVerifyReady(descriptor, snapshot);
         continue; // users may edit/remove their live skill after a committed publication
       }
       if (intent.phase === 'ready' && stat && !oldPublished) {
@@ -1465,23 +1625,24 @@ async function migrationRecoverSkillBackups() {
       if (intent.phase === 'restoring' && oldPublished) {
         await migrationCapsuleFinishPublished(descriptor, snapshot, dest);
         intent.phase = 'complete'; await migrationCapsuleWriteIntent(descriptor, intent);
-        const retired = path.join(backup, 'retired');
+        const retired = path.join(descriptor.backup, 'retired');
         if (await migrationLstat(retired)) {
           await migrationCapsuleAssertTree(retired, intent.newTree, intent.revision);
           await fsp.rm(retired, { recursive: true });
         }
-        continue;
+        await migrationFinishPlainHistory(descriptor, snapshot, intent); continue;
       }
       await migrationCapsuleRestore(descriptor, snapshot, intent, intent.phase === 'restoring');
-    }
   }
 }
 async function migrationUndoCapsule(backup, item, dest) {
-  if ((await readConfig()).workDataEncryptionV1 !== true) migrationCapsuleFail('downgrade_refused');
   const descriptor = migrationCapsuleDescriptor(backup);
+  if ((await readConfig()).workDataEncryptionV1 !== true && !descriptor.plainRoot) migrationCapsuleFail('downgrade_refused');
   if (descriptor.id !== item.id) migrationCapsuleFail('binding');
   const { snapshot, intent } = await migrationCapsuleRead(descriptor);
-  if (intent.phase === 'complete') return { id: item.id, outcome: 'restored-previous' };
+  const eligibility = migrationBackupAuthority?.eligibility.get(descriptor.stamp + '/' + (process.platform === 'win32' ? descriptor.id.toLowerCase() : descriptor.id)) || intent.conversion?.eligibility;
+  if (eligibility && ['gone', 'edited'].includes(eligibility)) return { id: item.id, outcome: 'kept', reason: eligibility };
+  if (intent.phase === 'complete') { await migrationFinishPlainHistory(descriptor, snapshot, intent); return { id: item.id, outcome: 'restored-previous' }; }
   if (!['ready', 'published'].includes(intent.phase)) migrationCapsuleFail('phase', true);
   const stat = await migrationLstat(dest);
   if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) return { id: item.id, outcome: 'kept', reason: 'gone' };
@@ -1530,7 +1691,7 @@ async function migrationCopyOneSkill(row, ts) {
     if (existing) {
       if (existing.isSymbolicLink() || !existing.isDirectory()) throw new Error('target is not a directory');
       // 旧副本整体挪进迁移目录留底(撤销时换回来),不就地覆盖。
-      const bdir = path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR, ts);
+      const bdir = path.join(migrationBackupRoot(), ts);
       await fsp.mkdir(bdir, { recursive: true });
       backup = path.join(bdir, row.id);
       if (sealBackup) {
@@ -1540,7 +1701,8 @@ async function migrationCopyOneSkill(row, ts) {
       }
     }
     if (!existing || !sealBackup) await fsp.rename(stage, dest);
-    return { ok: true, action: existing ? 'updated' : 'created', copyTreeHash, backup, skippedLinks: tree.links };
+    return { ok: true, action: existing ? 'updated' : 'created', copyTreeHash, backup,
+      ...(backup && migrationBackupAuthority ? { backupRef: migrationBackupAuthority.makeRef(ts, row.id) } : {}), skippedLinks: tree.links };
   } catch (e) {
     await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
     if (backup && !await migrationCapsulePresent(backup) && !(await migrationLstat(dest))) await fsp.rename(backup, dest).catch(() => {});
@@ -1590,7 +1752,7 @@ async function migrationCopySkills(body) {
       }
       if (!r.ok) { results.push({ ...base, outcome: 'rejected', reason: r.reason, detail: r.detail || '' }); continue; }
       results.push({ ...base, outcome: r.action, skippedLinks: r.skippedLinks });
-      log.files.push({ file: migrationSkillTarget(row.id), kind: 'skill-copy', backup: r.backup,
+      log.files.push({ file: migrationSkillTarget(row.id), kind: 'skill-copy', backup: r.backup, ...(r.backupRef ? { backupRef: r.backupRef } : {}),
         items: [{ key, id: row.id, source: row.source, plugin: row.plugin, action: r.action, copyTreeHash: r.copyTreeHash }] });
     }
     const copied = log.files.length;
@@ -1608,9 +1770,17 @@ async function migrationCopySkills(body) {
 async function migrationUndoSkillCopy(f) {
   const item = (f.items || [])[0] || {};
   const dest = migrationSkillTarget(item.id);
-  if (!dest || samePathKey(dest) !== samePathKey(String(f.file || ''))) return { id: String(item.id || ''), outcome: 'kept', reason: 'invalid-log' };
-  const backupRoot = samePathKey(path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR));
-  const backup = f.backup && migrationPathInside(samePathKey(f.backup), backupRoot) ? f.backup : '';
+  const fileKey = samePathKey(String(f.file || ''));
+  const legacyFile = migrationBackupAuthority?.legacySkillRoots.some(root => fileKey === samePathKey(path.join(root, String(item.id || ''))));
+  if (!dest || fileKey !== samePathKey(dest) && !legacyFile) return { id: String(item.id || ''), outcome: 'kept', reason: 'invalid-log' };
+  const backupRoot = samePathKey(migrationBackupRoot());
+  const requestedBackup = migrationBackupAuthority && f.backupRef ? await migrationBackupAuthority.resolveRef(f.backupRef) : migrationBackupAuthority && f.backup ? await migrationBackupAuthority.resolveLegacy(f.backup) : f.backup;
+  const backup = requestedBackup && migrationPathInside(samePathKey(requestedBackup), backupRoot) ? requestedBackup : '';
+  if (backup) {
+    const history = await migrationReadBackupHistory(backup);
+    if (history) return history.phase === 'complete' ? { id: item.id, outcome: 'restored-previous' } : { id: item.id, outcome: 'kept', reason: 'aborted' };
+  }
+  if (backup && migrationCapsuleDescriptor(backup).plainRoot) return migrationUndoCapsule(backup, item, dest);
   if (backup && await migrationCapsulePresent(backup)) return migrationUndoCapsule(backup, item, dest);
   const st = await migrationLstat(dest);
   if (!st || st.isSymbolicLink() || !st.isDirectory()) return { id: item.id, outcome: 'kept', reason: 'gone' };
@@ -2110,8 +2280,785 @@ async function migrationRecycle(body) {
   });
 }
 
+// M3-3 local backup owner. The lifecycle host holds its transition gate and drains
+// writers before calling this API. Original backup objects never enter fs.cp/codecs.
+function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys = sourceKeys, native } = {}) {
+  if (typeof base !== 'string' || !path.isAbsolute(base) || typeof readActive !== 'function') migrationCapsuleFail('owner_host');
+  // This local batch keeps one existing work-data master. Rotation/portable keys
+  // need a per-backup key-reference map and are deliberately not implied here.
+  if (targetKeys !== sourceKeys) migrationCapsuleFail('owner_key_rotation_unavailable');
+  base = path.resolve(base);
+  const control = path.join(base, '.work-data', 'skill-backups');
+  const legacyRoot = path.join(base, 'migrations', MIGRATION_SKILL_BACKUP_DIR), stableRoot = path.join(control, 'objects-v1');
+  const generationRoot = id => path.join(base, '.work-data', 'generations', id);
+  const hash = value => crypto.createHash('sha256').update(value).digest('hex');
+  const id48 = value => typeof value === 'string' && /^[a-f0-9]{48}$/.test(value);
+  const id24 = value => typeof value === 'string' && /^[a-f0-9]{24}$/.test(value);
+  const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+  const exact = (value, keys) => value && !Array.isArray(value) && typeof value === 'object' && Object.keys(value).sort().join(',') === keys.split(',').sort().join(',');
+  const eq = (a, b) => samePathKey(a) === samePathKey(b);
+  const plans = new WeakMap();
+  const platform = native || {
+    info: async root => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'store-info', root }); } finally { await broker.close(); } },
+    move: async args => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'store-move', ...args }); } finally { await broker.close(); } },
+    capture: migrationCapsuleCapture,
+  };
+  if (typeof platform.info !== 'function' || typeof platform.move !== 'function' || typeof platform.capture !== 'function') migrationCapsuleFail('owner_host');
+  async function stat(file) { try { return await fsp.lstat(file); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } }
+  async function directory(file, missing = false) {
+    const absolute = path.resolve(file), volume = path.parse(absolute).root;
+    let cursor = volume;
+    for (const part of ['', ...absolute.slice(volume.length).split(path.sep).filter(Boolean)]) {
+      if (part) cursor = path.join(cursor, part);
+      const value = await stat(cursor);
+      if (!value) { if (missing) return false; migrationCapsuleFail('owner_directory'); }
+      if (!value.isDirectory() || value.isSymbolicLink() || !eq(await fsp.realpath(cursor), cursor)) migrationCapsuleFail('owner_directory');
+    }
+    return true;
+  }
+  async function ensureControl() {
+    await directory(base); await directory(control, true);
+    await fsp.mkdir(control, { recursive: true }); await directory(control);
+  }
+  function ref(stamp, skillId, storeId) {
+    if (typeof stamp !== 'string' || !/^[0-9TZ-]+$/.test(stamp) || typeof skillId !== 'string' || !SKILL_ID_RE.test(skillId) || !id48(storeId)) migrationCapsuleFail('backup_ref');
+    const canonical = process.platform === 'win32' ? skillId.toLowerCase() : skillId;
+    return Object.freeze({ schema: 2, storeId, stamp, skillId: canonical, backupId: hash(stamp + '/' + canonical) });
+  }
+  function refValid(value) {
+    if (!exact(value, 'schema,storeId,stamp,skillId,backupId') || value.schema !== 2) return false;
+    try { const canonical = ref(value.stamp, value.skillId, value.storeId); return canonical.skillId === value.skillId && canonical.backupId === value.backupId; } catch { return false; }
+  }
+  function journalValid(value) {
+    return exact(value, 'schema,operationId,storeId,rootId,volume,sourceProof,targetId,phase') && value.schema === 1
+      && id48(value.operationId) && id48(value.storeId) && id24(value.rootId) && typeof value.volume === 'string'
+      && (value.sourceProof === null || hex(value.sourceProof)) && id48(value.targetId)
+      && ['prepared', 'moved', 'kept', 'canceled'].includes(value.phase);
+  }
+  function catalogValid(value) {
+    return exact(value, 'schema,storeId,rootId,volume') && value.schema === 1 && id48(value.storeId) && id24(value.rootId) && typeof value.volume === 'string';
+  }
+  function bindingValid(value) {
+    return (exact(value, 'schema,generationId,storeId,sourceProof,sourceRootIds,ready,entries') || exact(value, 'schema,generationId,storeId,sourceProof,sourceRootIds,mode,ready,entries'))
+      && (value.mode === undefined || ['plain', 'encrypted'].includes(value.mode)) && value.schema === 2 && id48(value.generationId)
+      && id48(value.storeId) && (value.sourceProof === null || hex(value.sourceProof)) && typeof value.ready === 'boolean'
+      && Array.isArray(value.sourceRootIds) && value.sourceRootIds.length > 0 && value.sourceRootIds.length <= 10000
+      && value.sourceRootIds.every(id => id === null || id48(id)) && new Set(value.sourceRootIds).size === value.sourceRootIds.length
+      && Array.isArray(value.entries) && value.entries.every(entry => refValid(entry.ref) && entry.ref.storeId === value.storeId
+        && (entry.kind === undefined || entry.kind === 'plain' && value.mode === 'plain' && ['published', 'complete'].includes(entry.phase)
+          || entry.kind === 'history' && entry.historyMode === (value.mode || 'encrypted') && ['complete', 'aborted'].includes(entry.phase))
+        && SKILL_ID_RE.test(entry.physicalSkillId || '') && ref(entry.ref.stamp, entry.physicalSkillId, value.storeId).skillId === entry.ref.skillId
+        && ['published', 'complete', 'aborted', 'plain'].includes(entry.phase)
+        && ['eligible', 'edited', 'gone', 'terminal', 'plain-owner-required'].includes(entry.eligibility)
+        && (entry.phase === 'plain' || entry.sourceGenerationId === null || id48(entry.sourceGenerationId))
+        && (entry.phase === 'plain' || hex(entry.archiveSha) && hex(entry.intentSha))
+        && (entry.eligibility !== 'eligible' || migrationCapsuleFingerprintShape(entry.newTree)));
+  }
+  function sealed(file, recordId, validate, keys = targetKeys) {
+    const store = authenticated => WorkDataStore.createText({ file: () => file, purpose: 'backup', schema: 1, scopeId: 'skill-backup-owner:' + hash(samePathKey(base)).slice(0, 32), recordId,
+      keys, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024, enabled: async () => true, writeJson: atomicWriteJson,
+      validateSealedText: text => { const valid = validate(safeJsonParse(text, null)); if (valid && authenticated) authenticated(); return valid; } });
+    return { write: async value => { if (!validate(value)) migrationCapsuleFail('owner_shape'); await store().write(JSON.stringify(value)); }, read: async () => {
+      if (!await stat(file)) return null;
+      let authenticated = false; const text = await store(() => { authenticated = true; }).read();
+      if (!authenticated) migrationCapsuleFail('carrier'); return JSON.parse(text);
+    } };
+  }
+  const journalStore = () => sealed(path.join(control, 'relocation-v1.sealed'), 'relocation-v1', journalValid);
+  const catalogStore = () => sealed(path.join(control, 'catalog-v1.sealed'), 'catalog-v1', catalogValid);
+  const bindingsStore = (id, keys = targetKeys) => sealed(path.join(generationRoot(id), 'migrations', 'skill-backup-bindings-v2.sealed'), 'bindings:' + id, bindingValid, keys);
+  async function active() {
+    const value = await readActive();
+    if (!value || !value.proof || (value.proof.raw !== null && typeof value.proof.raw !== 'string')
+        || value.proof.sha256 !== (value.proof.raw === null ? null : hash(value.proof.raw))
+        || value.id !== null && !id48(value.id)
+        || !eq(value.root, value.id === null ? base : generationRoot(value.id))) migrationCapsuleFail('owner_manifest');
+    return value;
+  }
+  async function current(expected) {
+    const value = await active();
+    if (!expected?.proof || typeof expected.root !== 'string' || !eq(value.root, expected.root) || value.proof.raw !== expected.proof.raw || value.proof.sha256 !== expected.proof.sha256 || value.id !== expected.id) migrationCapsuleFail('generation_changed');
+    return value;
+  }
+  function candidateValid(candidate) { return candidate && id48(candidate.id) && typeof candidate.root === 'string' && eq(candidate.root, generationRoot(candidate.id)); }
+  async function location(journal) {
+    const rows = [];
+    for (const root of [legacyRoot, stableRoot]) {
+      if (!await directory(root, true)) continue;
+      const info = await platform.info(root);
+      if (info.id !== journal.rootId || info.volume !== journal.volume) migrationCapsuleFail('store_identity', true);
+      rows.push({ root, info });
+    }
+    if (rows.length !== 1) migrationCapsuleFail('store_location', true);
+    return rows[0].root;
+  }
+  async function relocate(journal, target) {
+    const source = await location(journal);
+    if (eq(source, target)) return;
+    await directory(path.dirname(target));
+    let moved;
+    try { moved = await platform.move({ source, target, id: journal.rootId }); }
+    catch (error) { error.operationMayHaveExecuted = true; error.resultUnavailable = true; error.retry = false; throw error; }
+    if (!moved || moved.id !== journal.rootId || moved.volume !== journal.volume || !eq(await location(journal), target)) migrationCapsuleFail('store_identity', true);
+  }
+  async function prepare({ expected, candidate } = {}) {
+    expected = Object.freeze({ id: expected?.id, root: expected?.root, proof: Object.freeze({ ...expected?.proof }) });
+    candidate = Object.freeze({ id: candidate?.id, root: candidate?.root, mode: candidate?.mode });
+    await current(expected);
+    if (!candidateValid(candidate)) migrationCapsuleFail('owner_candidate');
+    await directory(candidate.root); await ensureControl();
+    const catalog = await catalogStore().read();
+    if (catalog) {
+      await directory(stableRoot); const info = await platform.info(stableRoot);
+      if (info.id !== catalog.rootId || info.volume !== catalog.volume) migrationCapsuleFail('store_identity');
+      const token = Object.freeze({ storeId: catalog.storeId, root: stableRoot, moved: false });
+      plans.set(token, { expected, candidate, catalog }); return token;
+    }
+    let journal = await journalStore().read();
+    if (journal && ['prepared', 'moved'].includes(journal.phase)) {
+      if (journal.targetId !== candidate.id || journal.sourceProof !== expected.proof.sha256) migrationCapsuleFail('owner_busy', true);
+    } else {
+      if (await stat(stableRoot)) migrationCapsuleFail('store_unowned');
+      if (!await directory(legacyRoot, true)) { await fsp.mkdir(legacyRoot, { recursive: true }); await directory(legacyRoot); }
+      const info = await platform.info(legacyRoot);
+      if (!id24(info.id) || typeof info.volume !== 'string') migrationCapsuleFail('store_identity');
+      journal = { schema: 1, operationId: crypto.randomBytes(24).toString('hex'), storeId: crypto.randomBytes(24).toString('hex'),
+        rootId: info.id, volume: info.volume, sourceProof: expected.proof.sha256, targetId: candidate.id, phase: 'prepared' };
+      await journalStore().write(journal);
+    }
+    await current(expected); await relocate(journal, stableRoot);
+    journal.phase = 'moved'; await journalStore().write(journal);
+    const token = Object.freeze({ storeId: journal.storeId, root: stableRoot, moved: true });
+    plans.set(token, { expected, candidate, journal }); return token;
+  }
+  async function recover() {
+    await recoverRepresentation();
+    await directory(control, true); const journal = await journalStore().read();
+    if (!journal || ['kept', 'canceled'].includes(journal.phase)) return journal;
+    const selected = await active(), keep = selected.id === journal.targetId;
+    if (!keep && selected.proof.sha256 !== journal.sourceProof) migrationCapsuleFail('owner_manifest', true);
+    const existingCatalog = await catalogStore().read();
+    if (existingCatalog && (!keep || existingCatalog.storeId !== journal.storeId || existingCatalog.rootId !== journal.rootId || existingCatalog.volume !== journal.volume)) migrationCapsuleFail('owner_catalog', true);
+    await relocate(journal, keep ? stableRoot : legacyRoot);
+    if (keep) await catalogStore().write({ schema: 1, storeId: journal.storeId, rootId: journal.rootId, volume: journal.volume });
+    journal.phase = keep ? 'kept' : 'canceled'; await journalStore().write(journal);
+    return Object.freeze({ phase: journal.phase, root: keep ? stableRoot : legacyRoot, storeId: journal.storeId });
+  }
+  function descriptor(root, stamp, skillId) {
+    return { backup: path.join(root, stamp, skillId), stamp, id: skillId, scopeId: 'skill-backups:' + stamp,
+      recordId: 'skill-backup:' + (process.platform === 'win32' ? skillId.toLowerCase() : skillId), archiveKeys: sourceKeys, intentKeys: sourceKeys };
+  }
+  async function fileHash(file) { const digest = crypto.createHash('sha256'); for await (const bytes of fs.createReadStream(file)) digest.update(bytes); return digest.digest('hex'); }
+  async function provenance(root, skillId, keys) {
+    return WorkDataStore.createText({ file: () => path.join(root, SKILL_IMPORT_RECORD), purpose: 'backup', schema: 1, scopeId: 'skills',
+      recordId: 'skill-import:' + (process.platform === 'win32' ? skillId.toLowerCase() : skillId), keys, chunked: true, maxPlaintextBytes: 16 * 1024,
+      enabled: async () => true, writeJson: atomicWriteJson, validateSealedText: text => Buffer.byteLength(text, 'utf8') <= 16 * 1024 }).read();
+  }
+  async function equivalent(source, target, sourcePath, targetPath, skillId) {
+    const expected = migrationCapsuleFingerprint(source), actual = migrationCapsuleFingerprint(target);
+    if (expected.length !== actual.length) migrationCapsuleFail('binding_tree');
+    let reencoded = false;
+    for (let index = 0; index < expected.length; index++) {
+      const a = expected[index], b = actual[index];
+      if (a.rel !== b.rel || a.dir !== b.dir || a.streams.length !== b.streams.length) migrationCapsuleFail('binding_tree');
+      for (let ordinal = 0; ordinal < a.streams.length; ordinal++) {
+        const left = a.streams[ordinal], right = b.streams[ordinal];
+        if (left.name !== right.name) migrationCapsuleFail('binding_tree');
+        if (left.hash === right.hash && left.size === right.size) continue;
+        if (a.rel !== SKILL_IMPORT_RECORD || left.name !== '') migrationCapsuleFail('binding_tree');
+        if (await provenance(sourcePath, skillId, sourceKeys) !== await provenance(targetPath, skillId, targetKeys)) migrationCapsuleFail('binding_provenance');
+        reencoded = true;
+      }
+    }
+    return reencoded;
+  }
+  function plainDescriptor(entry, generationId) {
+    const source = descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId);
+    return { ...source, backup: path.join(control, 'plain-v1', generationId, entry.ref.backupId), plainRoot: source.backup, generationId,
+      intentRecordId: source.recordId + ':intent:' + generationId, archiveKeys: sourceKeys, intentKeys: targetKeys,
+      historyHost: Object.freeze({ ...conversionNative, directory }) };
+  }
+  async function preparePlainBinding(owned, token, backupRef, physicalSkillId, priorBinding) {
+    requireConversionNative();
+    const entry = { ref: backupRef, physicalSkillId, kind: 'plain', phase: 'published', eligibility: 'edited', newTree: null,
+      archiveSha: '', intentSha: '', sourceGenerationId: null };
+    const source = plainDescriptor(entry, owned.candidate.id), revision = hash('plain:' + owned.candidate.id + ':' + backupRef.backupId);
+    const captured = await conversionNative.capture(source.plainRoot, revision);
+    if (!migrationCapsuleShape(captured)) migrationCapsuleFail('plain_backup_shape');
+    const currentRepresentation = await representationStore().read();
+    const row = currentRepresentation?.targetId === owned.candidate.id && currentRepresentation.entries.find(row => row.backupId === backupRef.backupId);
+    let proof;
+    if (row) {
+      const record = await representationRecordStore(currentRepresentation, row).read();
+      if (!record || record.phase !== 'forward' || !migrationCapsuleSameMetadata(captured, record.target)) migrationCapsuleFail('plain_backup_changed');
+      proof = { eligibility: record.eligibility, newTree: record.newTree };
+    } else {
+      const prior = priorBinding?.entries.find(row => row.ref.backupId === backupRef.backupId);
+      if (prior?.kind === 'plain') {
+        const previous = await migrationCapsuleRead(plainDescriptor(prior, owned.expected.id));
+        if (previous.intent.phase !== 'published' || !migrationCapsuleSameMetadata(captured, previous.snapshot)) migrationCapsuleFail('plain_backup_changed');
+        proof = { eligibility: previous.intent.conversion.eligibility, newTree: previous.intent.newTree };
+        const live = path.join(owned.expected.root, 'skills', physicalSkillId);
+        if (!await stat(live)) proof = { eligibility: 'gone', newTree: [] };
+        else if (proof.eligibility === 'eligible' && !migrationCapsuleSame(await conversionNative.capture(live, revision), proof.newTree)) proof.eligibility = 'edited';
+      } else proof = await plainReceipt(owned.expected, { stamp: backupRef.stamp, skillId: physicalSkillId }, revision);
+    }
+    entry.eligibility = proof.eligibility;
+    let targetTree = proof.newTree;
+    if (proof.eligibility === 'eligible') {
+      const live = path.join(owned.expected.root, 'skills', physicalSkillId), target = path.join(owned.candidate.root, 'skills', physicalSkillId);
+      const original = await platform.capture(live, revision), copied = await platform.capture(target, revision);
+      if (!migrationCapsuleSame(original, proof.newTree)) entry.eligibility = 'edited';
+      else { entry.reencodedProvenance = await equivalent(original, copied, live, target, physicalSkillId); entry.newTree = migrationCapsuleFingerprint(copied); targetTree = entry.newTree; }
+    }
+    const intent = { schema: 1, id: physicalSkillId, stamp: backupRef.stamp, revision, phase: 'published', oldRoot: rootId(captured), newTree: targetTree,
+      generationId: owned.candidate.id, sourceStage: MIGRATION_SKILL_STAGE_PREFIX + physicalSkillId + '-' + backupRef.stamp,
+      conversion: { schema: 1, operationId: currentRepresentation?.targetId === owned.candidate.id ? currentRepresentation.operationId : owned.candidate.id, eligibility: entry.eligibility } };
+    await directory(source.backup, true); await fsp.mkdir(source.backup, { recursive: true }); await directory(source.backup);
+    await directory(path.join(source.backup, 'objects'), true); await fsp.mkdir(path.join(source.backup, 'objects')).catch(error => { if (error.code !== 'EEXIST') throw error; }); await directory(path.join(source.backup, 'objects'));
+    if (await stat(path.join(source.backup, 'archive'))) {
+      const previous = await migrationCapsuleRead(source);
+      if (!migrationCapsuleSameMetadata(captured, previous.snapshot) || JSON.stringify(previous.intent) !== JSON.stringify(intent)) migrationCapsuleFail('binding_conflict');
+    } else {
+      const raw = Buffer.from(JSON.stringify(captured), 'utf8'); let bytes;
+      try { if (raw.length > MIGRATION_CAPSULE_ARCHIVE_LIMIT) migrationCapsuleFail('capacity'); bytes = require('node:zlib').gzipSync(raw); }
+      finally { raw.fill(0); }
+      try { await migrationCapsuleArchive(source).write(bytes); } finally { bytes.fill(0); }
+      await migrationCapsuleIntent(source).write(JSON.stringify(intent)); await migrationCapsuleRead(source);
+    }
+    entry.archiveSha = await fileHash(path.join(source.backup, 'archive')); entry.intentSha = await fileHash(path.join(source.backup, 'intent'));
+    await conversionNative.flush([source.backup, path.dirname(source.backup), path.dirname(path.dirname(source.backup)), control]);
+    return entry;
+  }
+  async function prepareBindings(token) {
+    const owned = plans.get(token); if (!owned) migrationCapsuleFail('owner_token');
+    await current(owned.expected); await directory(stableRoot);
+    const priorBinding = owned.expected.id ? await bindingsStore(owned.expected.id, sourceKeys).read() : null;
+    if (owned.expected.id && (!priorBinding || priorBinding.generationId !== owned.expected.id || priorBinding.storeId !== token.storeId)) migrationCapsuleFail('binding_missing');
+    const representation = await representationStore().read();
+    const targetMode = owned.candidate.mode || (representation?.targetId === owned.candidate.id ? representation.mode : 'encrypted');
+    const entries = []; let ready = true;
+    for (const batch of await fsp.readdir(stableRoot, { withFileTypes: true })) {
+      if (!batch.isDirectory() || batch.isSymbolicLink() || !/^[0-9TZ-]+$/.test(batch.name)) migrationCapsuleFail('store_entry');
+      for (const item of await fsp.readdir(path.join(stableRoot, batch.name), { withFileTypes: true })) {
+        if (!item.isDirectory() || item.isSymbolicLink() || !SKILL_ID_RE.test(item.name)) migrationCapsuleFail('store_entry');
+        const backupRef = ref(batch.name, item.name, token.storeId), source = descriptor(stableRoot, batch.name, item.name);
+        const history = await migrationReadBackupHistory(source.backup, source);
+        if (history) {
+          if (history.mode !== targetMode) migrationCapsuleFail('representation_mode');
+          entries.push({ ref: backupRef, physicalSkillId: item.name, kind: 'history', historyMode: history.mode, phase: history.phase, eligibility: 'terminal', newTree: null,
+            archiveSha: await fileHash(path.join(source.backup, 'history')), intentSha: await fileHash(path.join(source.backup, MIGRATION_BACKUP_HISTORY_MARKER)), sourceGenerationId: null });
+          continue;
+        }
+        if (!await migrationCapsulePresent(source.backup, source)) {
+          if (targetMode === 'plain') entries.push(await preparePlainBinding(owned, token, backupRef, item.name, priorBinding));
+          else { ready = false; entries.push({ ref: backupRef, physicalSkillId: item.name, phase: 'plain', eligibility: 'plain-owner-required' }); }
+          continue;
+        }
+        if (targetMode !== 'encrypted') migrationCapsuleFail('representation_mode');
+        const prior = priorBinding?.entries.find(entry => entry.ref.backupId === backupRef.backupId && entry.kind === undefined && entry.phase !== 'plain');
+        if (prior) Object.assign(source, { generationId: owned.expected.id, intentFile: path.join(control, 'intents', owned.expected.id, backupRef.backupId + '.sealed'), intentRecordId: source.recordId + ':intent:' + owned.expected.id });
+        const record = await migrationCapsuleRead(source), phase = record.intent.phase;
+        if (!['published', 'complete', 'aborted'].includes(phase)) migrationCapsuleFail('backup_unsettled');
+        const entry = { ref: backupRef, physicalSkillId: item.name, phase, archiveSha: await fileHash(path.join(source.backup, 'archive')),
+          intentSha: await fileHash(source.intentFile || path.join(source.backup, 'intent')), sourceGenerationId: prior ? owned.expected.id : null, eligibility: 'terminal', newTree: null };
+        if (phase === 'published') {
+          await migrationCapsuleVerifyReady(source, record.snapshot);
+          if (['edited', 'gone'].includes(record.intent.conversion?.eligibility)) entry.eligibility = record.intent.conversion.eligibility;
+          else {
+            const sourceLive = path.join(owned.expected.root, 'skills', item.name), targetLive = path.join(owned.candidate.root, 'skills', item.name);
+            if (!await stat(sourceLive)) entry.eligibility = 'gone';
+            else {
+              const original = await platform.capture(sourceLive, record.intent.revision);
+              if (!migrationCapsuleSame(original, record.intent.newTree)) entry.eligibility = 'edited';
+              else {
+                const target = await platform.capture(targetLive, record.intent.revision);
+                entry.reencodedProvenance = await equivalent(original, target, sourceLive, targetLive, item.name);
+                entry.eligibility = 'eligible'; entry.newTree = migrationCapsuleFingerprint(target);
+              }
+            }
+          }
+        }
+        const variant = { ...record.intent, generationId: owned.candidate.id, ...(entry.newTree ? { newTree: entry.newTree } : {}) };
+        const variantDescriptor = { ...source, generationId: owned.candidate.id,
+          intentFile: path.join(control, 'intents', owned.candidate.id, backupRef.backupId + '.sealed'),
+          intentRecordId: source.recordId + ':intent:' + owned.candidate.id, intentKeys: targetKeys };
+        await directory(path.dirname(variantDescriptor.intentFile), true); await fsp.mkdir(path.dirname(variantDescriptor.intentFile), { recursive: true });
+        const variantText = JSON.stringify(variant);
+        if (await stat(variantDescriptor.intentFile)) {
+          if (await migrationCapsuleIntent(variantDescriptor).read() !== variantText) migrationCapsuleFail('binding_intent');
+        } else await migrationCapsuleIntent(variantDescriptor).write(variantText);
+        const verified = safeJsonParse(await migrationCapsuleIntent(variantDescriptor).read(), null);
+        if (!migrationCapsuleIntentShape(verified, variantDescriptor)) migrationCapsuleFail('binding_intent');
+        entries.push(entry);
+      }
+    }
+    const sourceRootIds = [...new Set([...(priorBinding?.sourceRootIds || []), owned.expected.id])];
+    const binding = { schema: 2, generationId: owned.candidate.id, storeId: token.storeId, sourceProof: owned.expected.proof.sha256, sourceRootIds, mode: targetMode, ready, entries };
+    await fsp.mkdir(path.join(owned.candidate.root, 'migrations'), { recursive: true });
+    const previous = await bindingsStore(owned.candidate.id).read();
+    if (previous && JSON.stringify(previous) !== JSON.stringify(binding)) migrationCapsuleFail('binding_conflict');
+    if (!previous) await bindingsStore(owned.candidate.id).write(binding);
+    await current(owned.expected);
+    return Object.freeze({ ready, storeId: token.storeId, generationId: owned.candidate.id, entries: entries.length });
+  }
+  async function storedPhysical(backupRef, binding, selected) {
+    if (!refValid(backupRef) || backupRef.storeId !== binding.storeId) migrationCapsuleFail('backup_ref');
+    await current(selected);
+    const bound = binding.entries.find(row => row.ref.backupId === backupRef.backupId && row.ref.skillId === backupRef.skillId && row.ref.stamp === backupRef.stamp);
+    if (bound?.kind === 'plain') {
+      const source = plainDescriptor(bound, selected.id), record = await migrationCapsuleRead(source);
+      if (!['published', 'restoring', 'complete'].includes(record.intent.phase)) migrationCapsuleFail('binding_intent');
+      if (record.intent.phase === 'complete') await migrationFinishPlainHistory(source, record.snapshot, record.intent);
+      else await directory(source.plainRoot, record.intent.phase === 'restoring');
+      await current(selected); return source.plainRoot;
+    }
+    const batch = path.join(stableRoot, backupRef.stamp); await directory(batch);
+    const matches = (await fsp.readdir(batch, { withFileTypes: true })).filter(item => SKILL_ID_RE.test(item.name)
+      && ref(backupRef.stamp, item.name, backupRef.storeId).skillId === backupRef.skillId);
+    if (matches.length !== 1 || !matches[0].isDirectory() || matches[0].isSymbolicLink()) migrationCapsuleFail('backup_ref');
+    const entry = binding.entries.find(row => row.ref.backupId === backupRef.backupId && row.ref.skillId === backupRef.skillId && row.ref.stamp === backupRef.stamp);
+    const physicalSkillId = matches[0].name;
+    if (entry && entry.physicalSkillId !== physicalSkillId) migrationCapsuleFail('binding_source_changed');
+    const source = descriptor(stableRoot, backupRef.stamp, physicalSkillId);
+    await directory(source.backup);
+    const history = await migrationReadBackupHistory(source.backup, source);
+    if (history) {
+      if (entry && (entry.kind !== 'history' || entry.phase !== history.phase || entry.historyMode !== history.mode
+        || await fileHash(path.join(source.backup, 'history')) !== entry.archiveSha
+        || await fileHash(path.join(source.backup, MIGRATION_BACKUP_HISTORY_MARKER)) !== entry.intentSha)) migrationCapsuleFail('binding_source_changed');
+      await current(selected); return source.backup;
+    }
+    if (entry?.kind === 'history') migrationCapsuleFail('binding_source_changed');
+    if (!entry && binding.mode === 'plain') { await current(selected); return source.backup; } // New ordinary OFF backups retain whole-directory undo.
+    if (entry) Object.assign(source, { generationId: selected.id, intentKeys: targetKeys,
+      intentFile: path.join(control, 'intents', selected.id, backupRef.backupId + '.sealed'),
+      intentRecordId: source.recordId + ':intent:' + selected.id });
+    // Newly published backups after activation use their original authenticated
+    // intent. Enumerating the actual name preserves its exact intent ID on NTFS.
+    await migrationCapsuleRead(source); await current(selected);
+    return source.backup;
+  }
+  async function activate() {
+    await recover(); const selected = await active();
+    if (!selected.id) migrationCapsuleFail('owner_manifest');
+    const catalog = await catalogStore().read(), binding = await bindingsStore(selected.id).read();
+    if (!catalog || !binding || !binding.ready || binding.storeId !== catalog.storeId || binding.generationId !== selected.id) migrationCapsuleFail('binding_missing');
+    if (safeJsonParse(selected.proof.raw, null)?.mode !== (binding.mode || 'encrypted')) migrationCapsuleFail('representation_mode');
+    await directory(stableRoot); const info = await platform.info(stableRoot);
+    if (info.id !== catalog.rootId || info.volume !== catalog.volume) migrationCapsuleFail('store_identity');
+    const variants = new Map(), eligibility = new Map(), plainRecords = [];
+    for (const entry of binding.entries) {
+      const physical = path.join(stableRoot, entry.ref.stamp, entry.physicalSkillId);
+      if (entry.kind === 'plain') {
+        const source = plainDescriptor(entry, selected.id); await directory(source.backup);
+        if (await fileHash(path.join(source.backup, 'archive')) !== entry.archiveSha) migrationCapsuleFail('binding_source_changed');
+        const record = await migrationCapsuleRead(source);
+        if (!['published', 'restoring', 'complete'].includes(record.intent.phase) || record.intent.conversion?.eligibility !== entry.eligibility
+          || entry.newTree && JSON.stringify(record.intent.newTree) !== JSON.stringify(entry.newTree)) migrationCapsuleFail('binding_intent');
+        if (record.intent.phase === 'published') {
+          const actual = await conversionNative.capture(physical, record.intent.revision);
+          if (!migrationCapsuleSameMetadata(actual, record.snapshot)) migrationCapsuleFail('plain_backup_changed');
+        } else if (record.intent.phase === 'complete') await migrationFinishPlainHistory(source, record.snapshot, record.intent);
+        const key = entry.ref.stamp + '/' + entry.ref.skillId;
+        if (eligibility.has(key)) migrationCapsuleFail('binding_duplicate');
+        variants.set(key, source); eligibility.set(key, entry.eligibility); plainRecords.push({ stamp: entry.ref.stamp, id: entry.physicalSkillId, backup: physical }); continue;
+      }
+      await directory(physical);
+      if (entry.kind === 'history') {
+        const history = await migrationReadBackupHistory(physical, descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId));
+        if (!history || history.mode !== entry.historyMode || history.phase !== entry.phase || await fileHash(path.join(physical, 'history')) !== entry.archiveSha
+          || await fileHash(path.join(physical, MIGRATION_BACKUP_HISTORY_MARKER)) !== entry.intentSha) migrationCapsuleFail('binding_source_changed');
+        const key = entry.ref.stamp + '/' + entry.ref.skillId;
+        if (eligibility.has(key)) migrationCapsuleFail('binding_duplicate');
+        eligibility.set(key, 'terminal'); continue;
+      }
+      const sourceIntent = entry.sourceGenerationId ? path.join(control, 'intents', entry.sourceGenerationId, entry.ref.backupId + '.sealed') : path.join(physical, 'intent');
+      if (await fileHash(path.join(physical, 'archive')) !== entry.archiveSha || await fileHash(sourceIntent) !== entry.intentSha) migrationCapsuleFail('binding_source_changed');
+      const key = entry.ref.stamp + '/' + entry.ref.skillId;
+      if (eligibility.has(key)) migrationCapsuleFail('binding_duplicate');
+      const variant = { generationId: selected.id, archiveKeys: sourceKeys, intentKeys: targetKeys,
+        intentFile: path.join(control, 'intents', selected.id, entry.ref.backupId + '.sealed'),
+        intentRecordId: 'skill-backup:' + entry.ref.skillId + ':intent:' + selected.id };
+      const record = await migrationCapsuleRead({ ...descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId), ...variant });
+      const phases = entry.phase === 'published' ? ['published', 'restoring', 'complete'] : [entry.phase];
+      if (!phases.includes(record.intent.phase) || entry.newTree && JSON.stringify(record.intent.newTree) !== JSON.stringify(entry.newTree)) migrationCapsuleFail('binding_intent');
+      variants.set(key, variant);
+      eligibility.set(key, entry.eligibility);
+    }
+    const resolveLegacy = async absolute => {
+      const normalized = path.resolve(String(absolute)), candidates = [legacyRoot, stableRoot];
+      for (const root of candidates) {
+        const pieces = path.relative(root, normalized).split(path.sep);
+        if (pieces.length === 2 && /^[0-9TZ-]+$/.test(pieces[0]) && SKILL_ID_RE.test(pieces[1])) {
+          return storedPhysical(ref(pieces[0], pieces[1], catalog.storeId), binding, selected);
+        }
+      }
+      migrationCapsuleFail('backup_ref');
+    };
+    migrationBackupAuthority = Object.freeze({ root: stableRoot, activeRoot: selected.root, skillsRoot: path.join(selected.root, 'skills'),
+      legacySkillRoots: Object.freeze(binding.sourceRootIds.map(id => path.join(id === null ? base : generationRoot(id), 'skills'))), storeId: catalog.storeId, variants, eligibility, plainRecords, resolveLegacy,
+      makeRef: (stamp, skillId) => ref(stamp, skillId, catalog.storeId),
+      resolveRef: value => { if (!refValid(value) || value.storeId !== catalog.storeId) migrationCapsuleFail('backup_ref'); return storedPhysical(value, binding, selected); }, assertCurrent: () => current(selected) });
+    migrationRecoveryNeeded = true;
+    return Object.freeze({ generationId: selected.id, storeId: catalog.storeId, root: stableRoot });
+  }
+  async function resolve(backupRef) {
+    if (!refValid(backupRef)) migrationCapsuleFail('backup_ref');
+    const selected = await active(), catalog = await catalogStore().read();
+    if (!selected.id || !catalog || backupRef.storeId !== catalog.storeId) migrationCapsuleFail('backup_ref');
+    const binding = await bindingsStore(selected.id).read();
+    if (!binding?.ready || binding.storeId !== catalog.storeId || binding.generationId !== selected.id) migrationCapsuleFail('binding_missing');
+    const info = await platform.info(stableRoot);
+    if (info.id !== catalog.rootId || info.volume !== catalog.volume) migrationCapsuleFail('store_identity');
+    return storedPhysical(backupRef, binding, selected);
+  }
+  // Conversion is a separately recoverable representation transaction. The host
+  // keeps the global writer exclusion until recoverRepresentation settles it.
+  // This API neither publishes a manifest nor replays a historical skill copy.
+  const representationRoot = path.join(control, 'representations-v1');
+  const representationValid = value => exact(value, 'schema,operationId,storeId,sourceId,sourceProof,targetId,mode,phase,entries')
+    && value.schema === 1 && id48(value.operationId) && id48(value.storeId) && (value.sourceId === null || id48(value.sourceId))
+    && (value.sourceProof === null || hex(value.sourceProof)) && id48(value.targetId) && ['plain', 'encrypted'].includes(value.mode)
+    && ['prepared', 'converted', 'kept', 'canceled'].includes(value.phase) && Array.isArray(value.entries)
+    && value.entries.every(row => exact(row, 'stamp,skillId,backupId') && typeof row.stamp === 'string' && /^[0-9TZ-]+$/.test(row.stamp)
+      && typeof row.skillId === 'string' && SKILL_ID_RE.test(row.skillId) && row.backupId === hash(row.stamp + '/' + (process.platform === 'win32' ? row.skillId.toLowerCase() : row.skillId)))
+    && new Set(value.entries.map(row => row.backupId)).size === value.entries.length;
+  const representationStore = () => sealed(path.join(control, 'representation-v1.sealed'), 'representation-v1', representationValid, sourceKeys);
+  function representationPaths(journal, row) {
+    const anchor = path.join(representationRoot, journal.operationId, row.backupId);
+    return { anchor, backup: path.join(stableRoot, row.stamp, row.skillId), capsule: path.join(anchor, 'capsule'), history: path.join(anchor, 'history'), restored: path.join(anchor, 'restored') };
+  }
+  function representationRecordValid(value) {
+    if (!exact(value, 'schema,operationId,stamp,skillId,oldType,oldMode,oldPhase,eligibility,capsuleId,historyId,historyTree,revision,original,target,newTree,sourceGenerationId,archiveSha,intentSha,phase') || value.schema !== 1
+      || !id48(value.operationId) || typeof value.stamp !== 'string' || !/^[0-9TZ-]+$/.test(value.stamp)
+      || typeof value.skillId !== 'string' || !SKILL_ID_RE.test(value.skillId) || !['plain', 'capsule', 'history'].includes(value.oldType) || !['plain', 'encrypted'].includes(value.oldMode)
+      || !['published', 'complete', 'aborted'].includes(value.oldPhase) || !['eligible', 'edited', 'gone', 'terminal'].includes(value.eligibility)
+      || !id24(value.capsuleId) || !hex(value.revision) || !migrationCapsuleShape(value.original) || !migrationCapsuleShape(value.target)
+      || !(value.sourceGenerationId === null || id48(value.sourceGenerationId)) || !hex(value.archiveSha) || !hex(value.intentSha)
+      || (value.eligibility === 'terminal' ? !id24(value.historyId) || !migrationCapsuleFingerprintShape(value.historyTree) : value.historyId !== null || value.historyTree !== null)
+      || value.original.revision !== value.revision || value.target.revision !== value.revision
+      || !['prepared', 'forward', 'canceled'].includes(value.phase)
+      || (value.eligibility !== 'gone' && value.eligibility !== 'terminal' && !migrationCapsuleFingerprintShape(value.newTree))) return false;
+    const left = JSON.parse(JSON.stringify(value.original)), right = JSON.parse(JSON.stringify(value.target));
+    for (const snapshot of [left, right]) for (const entry of snapshot.entries) if (entry.rel === SKILL_IMPORT_RECORD)
+      for (const stream of entry.streams) if (stream.name === '') { delete stream.data; delete stream.hash; delete stream.size; }
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  const representationRecordStore = (journal, row) => sealed(path.join(representationPaths(journal, row).anchor, 'record-v1.sealed'),
+    'representation:' + journal.operationId + ':' + row.backupId, representationRecordValid, sourceKeys);
+  const rootId = snapshot => snapshot.entries.find(entry => entry.rel === '').id;
+  async function conversionRoots(paths, snapshot) {
+    const roots = [];
+    for (const root of [paths.backup, path.join(paths.restored, rootId(snapshot))]) {
+      const value = await stat(root);
+      if (value && value.isDirectory() && !value.isSymbolicLink()
+        && (await fsp.stat(root, { bigint: true })).ino.toString(16).padStart(16, '0') === rootId(snapshot).slice(8)) roots.push(root);
+    }
+    const objects = path.join(paths.capsule, 'objects'); await directory(objects);
+    for (const entry of await fsp.readdir(objects)) roots.push(path.join(objects, entry));
+    return roots;
+  }
+  const conversionNative = native || {
+    ...platform,
+    capture: async (root, revision) => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'capture-preserved', root, revision }); } finally { await broker.close(); } },
+    flush: async roots => { const broker = await migrationCapsuleBroker(); try { for (const root of roots) await broker.command({ cmd: 'store-flush', root }); } finally { await broker.close(); } },
+    seal: async ({ root, container, snapshot }) => { const broker = await migrationCapsuleBroker(); try {
+      await broker.command({ cmd: 'attach', roots: [root], snapshot });
+      await broker.command({ cmd: 'seal-attached', container }); await broker.command({ cmd: 'verify', cleared: true });
+    } finally { await broker.close(); } },
+    materialize: async ({ roots, snapshot, alternate, paths }) => { const broker = await migrationCapsuleBroker(); try {
+      await broker.command({ cmd: 'attach', roots, snapshot }); await broker.command({ cmd: 'publish-check', target: paths.backup });
+      await broker.command({ cmd: 'restore', target: path.join(paths.restored, rootId(snapshot)), container: path.join(paths.capsule, 'objects'), allowedSnapshot: alternate });
+      await broker.command({ cmd: 'publish', target: paths.backup, container: path.join(paths.capsule, 'objects') });
+    } finally { await broker.close(); } },
+  };
+  function requireConversionNative() {
+    if (['info', 'move', 'capture', 'flush', 'seal', 'materialize'].some(name => typeof conversionNative[name] !== 'function')) migrationCapsuleFail('representation_host');
+  }
+  async function conversionLocation(paths, record) {
+    const matches = [];
+    for (const root of [paths.backup, paths.capsule]) {
+      if (!await directory(root, true)) continue;
+      const info = await conversionNative.info(root);
+      if (info.id === record.capsuleId) matches.push(root);
+      else if (info.id !== rootId(record.original) && info.id !== record.historyId) migrationCapsuleFail('representation_identity', true);
+    }
+    if (matches.length !== 1) migrationCapsuleFail('representation_location', true);
+    return matches[0];
+  }
+  async function moveConversionCapsule(paths, record, target) {
+    const source = await conversionLocation(paths, record);
+    if (eq(source, target)) return;
+    if (await stat(target)) migrationCapsuleFail('representation_target', true);
+    const before = await conversionNative.info(source), moved = await conversionNative.move({ source, target, id: record.capsuleId });
+    if (!moved || moved.id !== record.capsuleId || moved.volume !== before.volume) migrationCapsuleFail('representation_identity', true);
+  }
+  async function verifyConversionCarrier(journal, row, record) {
+    const paths = representationPaths(journal, row), capsule = await conversionLocation(paths, record);
+    const source = descriptor(stableRoot, row.stamp, row.skillId); source.backup = capsule;
+    if (record.sourceGenerationId) Object.assign(source, { generationId: record.sourceGenerationId,
+      intentFile: path.join(control, 'intents', record.sourceGenerationId, row.backupId + '.sealed'),
+      intentRecordId: source.recordId + ':intent:' + record.sourceGenerationId });
+    if (record.oldType === 'history') {
+      const history = await migrationReadBackupHistory(capsule, source);
+      if (!history || history.mode !== record.oldMode || JSON.stringify(history.snapshot) !== JSON.stringify(record.original)
+        || await fileHash(path.join(capsule, 'history')) !== record.archiveSha
+        || await fileHash(path.join(capsule, MIGRATION_BACKUP_HISTORY_MARKER)) !== record.intentSha) migrationCapsuleFail('representation_carrier_changed', true);
+      return;
+    }
+    if (await fileHash(path.join(capsule, 'archive')) !== record.archiveSha
+      || await fileHash(source.intentFile || path.join(capsule, 'intent')) !== record.intentSha) migrationCapsuleFail('representation_carrier_changed', true);
+    const authenticated = await migrationCapsuleRead(source);
+    if (JSON.stringify(authenticated.snapshot) !== JSON.stringify(record.oldType === 'plain' ? record.target : record.original)) migrationCapsuleFail('representation_carrier_changed', true);
+  }
+  function importShape(text) {
+    const value = safeJsonParse(text, null);
+    return Buffer.byteLength(text, 'utf8') <= 16 * 1024 && value && typeof value === 'object' && !Array.isArray(value)
+      && value.schema === 1 && SKILL_IMPORT_SOURCES.includes(value.source)
+      && ['plugin', 'sourcePath', 'importedAt', 'sourceTreeHash', 'copyTreeHash'].every(name => typeof value[name] === 'string');
+  }
+  async function representationSnapshot(snapshot, mode, paths, skillId) {
+    const target = JSON.parse(JSON.stringify(snapshot)), entry = target.entries.find(entry => entry.rel === SKILL_IMPORT_RECORD);
+    if (!entry) return target;
+    if (entry.dir) migrationCapsuleFail('representation_provenance');
+    const stream = entry.streams.find(stream => stream.name === ''), raw = Buffer.from(stream.data, 'base64');
+    try {
+      const text = raw.toString('utf8'); if (!Buffer.from(text, 'utf8').equals(raw)) migrationCapsuleFail('representation_provenance');
+      const first = safeJsonParse(text.split('\n')[0], null), whole = safeJsonParse(text, null);
+      const carrier = first && typeof first === 'object' && Object.hasOwn(first, 'workData') ? first : whole;
+      const marked = carrier && typeof carrier === 'object' && Object.hasOwn(carrier, 'workData');
+      let logical = text;
+      const host = { purpose: 'backup', schema: 1, scopeId: 'skills', recordId: 'skill-import:' + (process.platform === 'win32' ? skillId.toLowerCase() : skillId),
+        keys: sourceKeys, chunked: true, maxPlaintextBytes: 16 * 1024, validateSealedText: importShape, writeJson: atomicWriteJson, enabled: async () => true };
+      if (marked) {
+        if (raw.length > WorkDataChunks.maxFileBytes(16 * 1024)) migrationCapsuleFail('representation_provenance');
+        const generation = /\.k(\d{1,2})$/.exec(String(carrier.keyId || ''));
+        if (!generation || !['2', '3'].includes(String(carrier.workData))) migrationCapsuleFail('representation_provenance');
+        const lease = await WorkDataStore.acquireSnapshot(sourceKeys);
+        try {
+          const expected = { purpose: host.purpose, instanceId: lease.instanceId, schema: host.schema, scopeId: host.scopeId,
+            recordId: host.recordId, seq: carrier.workData === 3 ? 1 : carrier.seq, generation: Number(generation[1]) };
+          if (carrier.workData === 3) {
+            if (!text.endsWith('\n')) migrationCapsuleFail('representation_provenance');
+            const lines = text.slice(0, -1).split('\n');
+            logical = await WorkDataChunks.openLines(lines, lease.key, expected, 16 * 1024);
+          } else { const { workData, ...container } = whole || {}; if (workData !== 2) migrationCapsuleFail('representation_provenance'); logical = WorkDataCrypto.open(container, lease.key, expected); }
+        } finally { await lease.release(); }
+      }
+      if (!importShape(logical)) migrationCapsuleFail('representation_provenance');
+      let data;
+      if (mode === 'encrypted') {
+        const targetFile = path.join(paths.anchor, 'import-target.sealed');
+        const store = WorkDataStore.createText({ ...host, keys: targetKeys, file: () => targetFile });
+        await store.write(logical); if (await store.read() !== logical) migrationCapsuleFail('representation_provenance');
+        data = await fsp.readFile(targetFile);
+      } else data = Buffer.from(logical, 'utf8');
+      try { stream.size = data.length; stream.hash = hash(data); stream.data = data.toString('base64'); } finally { data.fill(0); }
+      if (!migrationCapsuleShape(target)) migrationCapsuleFail('representation_capacity');
+      return target;
+    } finally { raw.fill(0); }
+  }
+  async function plainReceipt(expected, row, revision) {
+    const live = path.join(expected.root, 'skills', row.skillId);
+    if (!await stat(live)) return { eligibility: 'gone', newTree: [] };
+    const captured = await conversionNative.capture(live, revision);
+    const currentTree = migrationCapsuleFingerprint(captured);
+    let logical = null;
+    const log = WorkDataStore.createText({ file: () => path.join(expected.root, 'migrations', row.stamp + '.json'), purpose: 'migration', schema: 1,
+      scopeId: 'global', recordId: 'migration-log:' + row.stamp, keys: sourceKeys, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+      enabled: async () => true, validateSealedText: text => migrationLogShape(safeJsonParse(text, null), row.stamp), writeJson: atomicWriteJson });
+    try { logical = safeJsonParse(await log.read(), null); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    const receipt = migrationLogShape(logical, row.stamp) && logical.files.find(file => file.kind === 'skill-copy'
+      && file.items.length === 1 && file.items[0].id === row.skillId && eq(file.file, live)
+      && typeof file.backup === 'string'
+      && [path.join(legacyRoot, row.stamp, row.skillId), path.join(stableRoot, row.stamp, row.skillId)].some(root => eq(file.backup, root)));
+    const digest = crypto.createHash('sha256');
+    for (const entry of captured.entries.filter(entry => !entry.dir && entry.rel !== SKILL_IMPORT_RECORD).sort((a, b) => a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0))
+      digest.update(entry.rel + '\0' + entry.streams.find(stream => stream.name === '').hash + '\n');
+    const contentHash = digest.digest('hex');
+    // Legacy receipts did not bind object IDs/ADS. Do not bless unknown DATA
+    // streams merely because their default-stream content still matches a log.
+    const ordinaryStreams = captured.entries.every(entry => entry.streams.every(stream => stream.name === ''));
+    return { eligibility: receipt && receipt.items[0].copyTreeHash === contentHash && ordinaryStreams ? 'eligible' : 'edited', newTree: currentTree };
+  }
+  async function writeConversionCapsule(paths, row, record) {
+    const source = descriptor(paths.anchor, row.stamp, row.skillId); source.backup = paths.capsule;
+    await atomicWriteJson(path.join(paths.capsule, MIGRATION_CAPSULE_MARKER), { version: 1 });
+    await fsp.mkdir(path.join(paths.capsule, 'objects')); await directory(path.join(paths.capsule, 'objects'));
+    const raw = Buffer.from(JSON.stringify(record.target), 'utf8'); let bytes;
+    try { bytes = require('node:zlib').gzipSync(raw); } finally { raw.fill(0); }
+    try { await migrationCapsuleArchive(source).write(bytes); } finally { bytes.fill(0); }
+    const intent = { schema: 1, id: row.skillId, stamp: row.stamp, revision: record.revision, phase: 'published', oldRoot: rootId(record.target),
+      newTree: record.newTree, sourceStage: MIGRATION_SKILL_STAGE_PREFIX + row.skillId + '-' + row.stamp,
+      conversion: { schema: 1, operationId: record.operationId, eligibility: record.eligibility } };
+    await migrationCapsuleIntent(source).write(JSON.stringify(intent)); await migrationCapsuleRead(source);
+  }
+  async function prepareHistory(paths, row, record, mode) {
+    await fsp.mkdir(paths.history); await directory(paths.history);
+    const descriptor = { ...descriptorForHistory(row), backup: paths.history, archiveKeys: targetKeys };
+    const payload = { schema: 1, type: 'terminal-skill-backup-history', historyOnly: true, id: row.skillId, stamp: row.stamp, phase: record.oldPhase, snapshot: record.target };
+    await migrationBackupHistoryStore(descriptor, mode).write(JSON.stringify(payload));
+    await atomicWriteJson(path.join(paths.history, MIGRATION_BACKUP_HISTORY_MARKER), { schema: 1, mode });
+    const read = await migrationReadBackupHistory(paths.history, descriptor); if (!read || read.phase !== record.oldPhase) migrationCapsuleFail('history_carrier');
+    const captured = await conversionNative.capture(paths.history, record.revision);
+    record.historyId = rootId(captured); record.historyTree = migrationCapsuleFingerprint(captured);
+  }
+  function descriptorForHistory(row) { return descriptor(stableRoot, row.stamp, row.skillId); }
+  async function moveHistory(paths, record, target) {
+    const found = [];
+    for (const source of [paths.history, paths.backup]) if (await directory(source, true) && (await conversionNative.info(source)).id === record.historyId) found.push(source);
+    if (found.length !== 1) migrationCapsuleFail('representation_history_location', true);
+    const source = found[0], captured = await conversionNative.capture(source, record.revision);
+    if (!migrationCapsuleSame(captured, record.historyTree)) migrationCapsuleFail('representation_history_changed', true);
+    if (eq(source, target)) return;
+    if (await stat(target)) migrationCapsuleFail('representation_target', true);
+    const before = await conversionNative.info(source), result = await conversionNative.move({ source, target, id: record.historyId });
+    if (!result || result.id !== record.historyId || result.volume !== before.volume) migrationCapsuleFail('representation_identity', true);
+  }
+  async function runRepresentation(journal, row, record, forward) {
+    const paths = representationPaths(journal, row), wantCapsule = forward ? journal.mode === 'encrypted' : record.oldType === 'capsule';
+    await verifyConversionCarrier(journal, row, record);
+    if (record.eligibility === 'terminal') {
+      // These IDs now belong to live/retained objects elsewhere. Preserve only
+      // typed history and the original wrapper; never instantiate or move them.
+      if (forward) { await moveConversionCapsule(paths, record, paths.capsule); await moveHistory(paths, record, paths.backup); }
+      else { await moveHistory(paths, record, paths.history); await moveConversionCapsule(paths, record, paths.backup); }
+    } else if (wantCapsule) {
+      // First materialize the exact representation that is being sealed. This
+      // reconciles any interrupted flatten/write using only two authenticated snapshots.
+      await moveConversionCapsule(paths, record, paths.capsule);
+      const snapshot = forward ? record.original : record.target, desired = forward ? record.target : record.original;
+      await fsp.mkdir(paths.restored, { recursive: true }); await directory(paths.restored);
+      await conversionNative.materialize({ paths, snapshot, alternate: desired, roots: await conversionRoots(paths, snapshot) });
+      await conversionNative.flush([paths.anchor, paths.capsule, path.dirname(paths.backup), control]);
+      await conversionNative.seal({ root: paths.backup, container: path.join(paths.capsule, 'objects'), snapshot });
+      await moveConversionCapsule(paths, record, paths.backup);
+    } else {
+      await moveConversionCapsule(paths, record, paths.capsule);
+      const snapshot = forward ? record.target : record.original, alternate = forward ? record.original : record.target;
+      await fsp.mkdir(paths.restored, { recursive: true }); await directory(paths.restored);
+      await conversionNative.materialize({ paths, snapshot, alternate, roots: await conversionRoots(paths, snapshot) });
+    }
+    await conversionNative.flush([paths.anchor, path.dirname(paths.backup), control]);
+    record.phase = forward ? 'forward' : 'canceled'; await representationRecordStore(journal, row).write(record);
+  }
+  async function prepareRepresentation(token, { mode } = {}) {
+    requireConversionNative(); const owned = plans.get(token); if (!owned || !['plain', 'encrypted'].includes(mode)) migrationCapsuleFail('representation_host');
+    if (owned.candidate.mode !== undefined && owned.candidate.mode !== mode) migrationCapsuleFail('representation_mode');
+    await current(owned.expected); await directory(stableRoot);
+    const prior = await representationStore().read();
+    if (prior && !['kept', 'canceled'].includes(prior.phase)) migrationCapsuleFail('representation_busy', true);
+    const journal = { schema: 1, operationId: crypto.randomBytes(24).toString('hex'), storeId: token.storeId, sourceId: owned.expected.id,
+      sourceProof: owned.expected.proof.sha256, targetId: owned.candidate.id, mode, phase: 'prepared', entries: [] };
+    const records = [];
+    // Capture and persist every supported record before clearing any original DATA.
+    for (const batch of await fsp.readdir(stableRoot, { withFileTypes: true })) {
+      if (!batch.isDirectory() || batch.isSymbolicLink() || !/^[0-9TZ-]+$/.test(batch.name)) migrationCapsuleFail('store_entry');
+      for (const item of await fsp.readdir(path.join(stableRoot, batch.name), { withFileTypes: true })) {
+        if (!item.isDirectory() || item.isSymbolicLink() || !SKILL_ID_RE.test(item.name)) migrationCapsuleFail('store_entry');
+        const row = { stamp: batch.name, skillId: item.name, backupId: ref(batch.name, item.name, token.storeId).backupId }, paths = representationPaths(journal, row);
+        const source = descriptor(stableRoot, row.stamp, row.skillId), history = await migrationReadBackupHistory(source.backup, source);
+        const capsule = !history && await migrationCapsulePresent(source.backup, source), oldMode = history ? history.mode : capsule ? 'encrypted' : 'plain';
+        if (oldMode === mode) continue;
+        await directory(paths.anchor, true); await fsp.mkdir(paths.anchor, { recursive: true }); await directory(paths.anchor);
+        let original, oldPhase = 'published', eligibility, newTree, revision, sourceGenerationId = null;
+        if (history) {
+          original = history.snapshot; revision = original.revision; oldPhase = history.phase; eligibility = 'terminal'; newTree = [];
+        } else if (capsule) {
+          const sourceBinding = owned.expected.id ? await bindingsStore(owned.expected.id, sourceKeys).read() : null;
+          if (sourceBinding?.entries.some(entry => entry.ref.backupId === row.backupId)) {
+            sourceGenerationId = owned.expected.id;
+            Object.assign(source, { generationId: sourceGenerationId, intentFile: path.join(control, 'intents', sourceGenerationId, row.backupId + '.sealed'),
+              intentRecordId: source.recordId + ':intent:' + sourceGenerationId });
+          }
+          const existing = await migrationCapsuleRead(source); original = existing.snapshot; revision = original.revision;
+          oldPhase = existing.intent.phase; if (!['published', 'complete', 'aborted'].includes(oldPhase)) migrationCapsuleFail('backup_unsettled');
+          if (oldPhase !== 'published') {
+            const objects = path.join(paths.backup, 'objects'); await directory(objects);
+            if ((await fsp.readdir(objects)).length || await stat(path.join(paths.backup, 'retired'))) migrationCapsuleFail('representation_terminal_unsettled');
+            eligibility = 'terminal'; newTree = [];
+          }
+          else {
+            await migrationCapsuleVerifyReady(source, original); eligibility = existing.intent.conversion?.eligibility || 'eligible'; newTree = existing.intent.newTree;
+            const live = path.join(owned.expected.root, 'skills', row.skillId);
+            if (!await stat(live)) { eligibility = 'gone'; newTree = []; }
+            else {
+              const captured = await conversionNative.capture(live, revision);
+              if (eligibility === 'eligible' && !migrationCapsuleSame(captured, existing.intent.newTree)) eligibility = 'edited';
+              newTree = migrationCapsuleFingerprint(captured);
+            }
+          }
+        } else { revision = crypto.randomBytes(32).toString('hex'); original = await conversionNative.capture(paths.backup, revision);
+          const priorBinding = owned.expected.id ? await bindingsStore(owned.expected.id, sourceKeys).read() : null;
+          const prior = priorBinding?.entries.find(entry => entry.ref.backupId === row.backupId);
+          if (prior?.kind === 'plain') {
+            const previous = await migrationCapsuleRead(plainDescriptor(prior, owned.expected.id));
+            if (previous.intent.phase !== 'published' || !migrationCapsuleSameMetadata(original, previous.snapshot)) migrationCapsuleFail('plain_backup_changed');
+            eligibility = previous.intent.conversion.eligibility; newTree = previous.intent.newTree;
+            const live = path.join(owned.expected.root, 'skills', row.skillId);
+            if (!await stat(live)) { eligibility = 'gone'; newTree = []; }
+            else if (eligibility === 'eligible' && !migrationCapsuleSame(await conversionNative.capture(live, revision), newTree)) eligibility = 'edited';
+          } else ({ eligibility, newTree } = await plainReceipt(owned.expected, row, revision)); }
+        if (!migrationCapsuleShape(original)) migrationCapsuleFail('representation_shape');
+        const target = await representationSnapshot(original, mode, paths, row.skillId);
+        if (!capsule && !history) { await fsp.mkdir(paths.capsule); await directory(paths.capsule); }
+        const info = await conversionNative.info(capsule || history ? paths.backup : paths.capsule);
+        const record = { schema: 1, operationId: journal.operationId, stamp: row.stamp, skillId: row.skillId, oldType: history ? 'history' : capsule ? 'capsule' : 'plain', oldMode,
+          oldPhase, eligibility, capsuleId: info.id, historyId: null, historyTree: null, revision, original, target, newTree, sourceGenerationId, archiveSha: '', intentSha: '', phase: 'prepared' };
+        if (eligibility === 'terminal') await prepareHistory(paths, row, record, mode);
+        else if (!capsule) await writeConversionCapsule(paths, row, record);
+        const carrier = capsule || history ? paths.backup : paths.capsule;
+        record.archiveSha = await fileHash(path.join(carrier, history ? 'history' : 'archive'));
+        record.intentSha = await fileHash(history ? path.join(carrier, MIGRATION_BACKUP_HISTORY_MARKER) : source.intentFile || path.join(carrier, 'intent'));
+        if (!representationRecordValid(record)) migrationCapsuleFail('representation_shape');
+        await representationRecordStore(journal, row).write(record); journal.entries.push(row); records.push(record);
+      }
+    }
+    if (!journal.entries.length) return Object.freeze({ mode, entries: 0, phase: 'unchanged' });
+    await representationStore().write(journal); await current(owned.expected);
+    try {
+      const durableDirectories = [control, stableRoot, representationRoot, path.join(representationRoot, journal.operationId)];
+      for (let index = 0; index < journal.entries.length; index++) {
+        const paths = representationPaths(journal, journal.entries[index]), record = records[index];
+        durableDirectories.push(paths.anchor, path.dirname(paths.backup), record.oldType === 'plain' ? paths.capsule : paths.backup);
+        if (record.sourceGenerationId) durableDirectories.push(path.join(control, 'intents', record.sourceGenerationId));
+        if (record.eligibility === 'terminal') durableDirectories.push(paths.history);
+      }
+      await conversionNative.flush([...new Set(durableDirectories)]);
+      for (let index = 0; index < journal.entries.length; index++) await runRepresentation(journal, journal.entries[index], records[index], true);
+      journal.phase = 'converted'; await representationStore().write(journal); await current(owned.expected);
+      return Object.freeze({ operationId: journal.operationId, mode, entries: journal.entries.length, phase: journal.phase });
+    } catch (error) { throw representationUncertain(error); }
+  }
+  function representationUncertain(cause) {
+    // Native/host failures may be frozen errors, primitives or objects with
+    // throwing getters. Never trust their writable flags after DATA mutation.
+    let code = 'work_data_backup.representation_uncertain';
+    try { if (typeof cause?.code === 'string' && /^[a-zA-Z0-9_.-]{1,128}$/.test(cause.code)) code = cause.code; } catch { /* retain controlled code */ }
+    return Object.assign(new Error(code, { cause }), { code, apiCode: code, statusCode: 503,
+      operationMayHaveExecuted: true, resultUnavailable: true, retry: false });
+  }
+  async function recoverRepresentation() {
+    const journal = await representationStore().read(); if (!journal || ['kept', 'canceled'].includes(journal.phase)) return journal;
+    requireConversionNative(); const selected = await active(), keep = selected.id === journal.targetId;
+    if (!keep && (selected.id !== journal.sourceId || selected.proof.sha256 !== journal.sourceProof)) migrationCapsuleFail('generation_changed', true);
+    if (keep && safeJsonParse(selected.proof.raw, null)?.mode !== journal.mode) migrationCapsuleFail('representation_mode', true);
+    try { for (const row of journal.entries) {
+      const record = await representationRecordStore(journal, row).read();
+      if (!record || record.operationId !== journal.operationId || record.stamp !== row.stamp || record.skillId !== row.skillId) migrationCapsuleFail('representation_missing', true);
+      await runRepresentation(journal, row, record, keep);
+    }
+    journal.phase = keep ? 'kept' : 'canceled'; await representationStore().write(journal); return Object.freeze({ phase: journal.phase, mode: journal.mode, entries: journal.entries.length });
+    } catch (error) { throw representationUncertain(error); }
+  }
+
+  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, recoverRepresentation });
+}
+
 // 迟绑定挂接(见 00-boot 的 MigrationHooks 头注)。
 Object.assign(MigrationHooks, {
+  createBackupOwner: createMigrationBackupOwner,
   recover: () => migrationSerial(async () => {}),
   withSkillRead: work => migrationSerial(work),
   scan: migrationScan,

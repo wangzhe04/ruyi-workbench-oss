@@ -32,6 +32,9 @@ const SessionExecutionHooks = {};
 const ProxyModelHooks = {};
 const DeliveryHooks = {};
 const ExternalBotHooks = {};
+const WorkDataMaintenanceHooks = {};
+const WorkDataSetupHooks = {};
+const WorkDataMaintenanceWorkerHooks = {};
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // 127-114b(26 号文 §3/45 号文 §2 ②): ASR 转写入站专用上限 25 MB —— 早于上面的 128 MB 总闸判定
@@ -315,6 +318,7 @@ function runKeyedChain(chains, key, work) {
   const previous = chains.get(key) || Promise.resolve();
   const current = previous.catch(() => {}).then(work);
   chains.set(key, current);
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(current);
   current.then(() => {}, () => {}).then(() => { if (chains.get(key) === current) chains.delete(key); });
   return current;
 }
@@ -1498,6 +1502,10 @@ function canonicalRuyiMcpServerId(id) {
 
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
+  { m: 'GET', p: '/api/work-data/status', auth: 'token' },
+  { m: 'POST', p: '/api/work-data/jobs', auth: 'token' },
+  { m: 'GET', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
+  { m: 'POST', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/mcp/internal/request', auth: 'internal-mcp' },
   { m: 'POST', p: '/api/memory-cli', auth: 'memory-cli' },
   { m: 'POST', p: '/api/mcp/consumer', auth: 'mcp-consumer' },
@@ -5361,6 +5369,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
         return snapshot;
       });
       writeChain = pending;
+      if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(pending);
       return pending;
     }
 
@@ -7273,6 +7282,7 @@ async function generateMcpConfig(mode) {
 const SESSION_MCP_CONFIG_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
 let sessionMcpConfigSweepDone = false;
 async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('mcp-cleanup')) return WorkDataMaintenanceHooks.run('mcp-cleanup', () => sweepStaleSessionMcpConfigs(...arguments));
   let removed = 0;
   let names = [];
   try { names = await fsp.readdir(paths.generated); } catch { return removed; }
@@ -7294,6 +7304,7 @@ async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
 // screenshot-*.png 不在此列:聊天里的工具图片卡片经 /api/file/preview 按路径回读它们,清掉会让历史对话里的截图变成裂图。
 const SCRIPT_FILE_MAX_AGE_MS = 24 * 3600 * 1000;
 async function sweepStaleScriptFiles(nowMs = Date.now()) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('script-cleanup')) return WorkDataMaintenanceHooks.run('script-cleanup', () => sweepStaleScriptFiles(...arguments));
   const dir = path.join(paths.generated, 'scripts');
   let names = [];
   try { names = await fsp.readdir(dir); } catch { return 0; }
@@ -7412,6 +7423,7 @@ async function readBody(req) {
 }
 
 async function readJsonBody(req) {
+  if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.cachedBody) { const body = WorkDataSetupHooks.cachedBody(req); if (body) return body; }
   const raw = await readBody(req);
   if (!raw.trim()) return {};
   let value;
@@ -10982,6 +10994,381 @@ const WorkDataRootAuthority = ((fsApi, pathApi) => {
     hardlinkIdentities: active.hardlinkIdentities, hardlinkGuarded: active.hardlinkGuarded, refreshReserved: active.refreshReserved, guarded: active.guarded });
   return Object.freeze({ create, ...active });
 })(require('node:fs/promises'), require('node:path'));
+
+// Complete byte census for a quiesced, owner-held tree. No repair, filtering,
+// publication or domain-validation claims. The host owns native metadata and
+// portable conversions (notably original-object skill capsules) separately.
+const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
+  const fail = suffix => { throw Object.assign(new Error('work_data_tree.' + suffix), {
+    code: 'work_data_tree.' + suffix, apiCode: 'work_data_tree.' + suffix, statusCode: 409,
+  }); };
+  const digest = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
+  const identity = stat => String(stat.dev) + ':' + String(stat.ino);
+  const pathKey = name => process.platform === 'win32' ? name.toUpperCase() : name;
+  const validName = name => {
+    if (typeof name !== 'string' || !name || name === '.' || name === '..' || /[\x00-\x1f<>:"|?*\\/]/.test(name)
+      || /[. ]$/.test(name) || Buffer.from(name).toString('utf8') !== name
+      || /^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(name)) fail('name_invalid');
+    return name;
+  };
+  async function realDirectory(directory) {
+    const absolute = pathApi.resolve(directory), parsed = pathApi.parse(absolute); let cursor = parsed.root;
+    for (const part of ['', ...absolute.slice(parsed.root.length).split(pathApi.sep).filter(Boolean)]) {
+      if (part) cursor = pathApi.join(cursor, part);
+      const stat = await fsApi.lstat(cursor, { bigint: true });
+      if (!stat.isDirectory() || stat.isSymbolicLink()
+        || pathKey(pathApi.resolve(await fsApi.realpath(cursor))) !== pathKey(cursor)) fail('path_alias');
+    }
+  }
+  function create({ bytes = 256 * 1024 * 1024, files = 100000, directories = 100000, pathLength = 1024 } = {}) {
+    if ([bytes, files, directories, pathLength].some(value => !Number.isSafeInteger(value) || value < 1)) fail('limits_invalid');
+    const issued = new WeakMap();
+    async function census(root, retain) {
+      if (typeof root !== 'string' || !pathApi.isAbsolute(root)) fail('root_invalid');
+      root = pathApi.resolve(root); await realDirectory(root);
+      const result = { root, directories: [], files: [] }, contents = [];
+      let used = 0, succeeded = false;
+      try {
+        const visit = async relative => {
+          const directory = pathApi.join(root, relative);
+          await realDirectory(directory);
+          const before = await fsApi.lstat(directory, { bigint: true });
+          if (!relative) result.rootIdentity = identity(before);
+          const names = await fsApi.readdir(directory), folded = new Set();
+          names.sort();
+          for (const name of names) {
+            validName(name);
+            if (folded.has(name.toUpperCase())) fail('namespace_conflict'); folded.add(name.toUpperCase());
+            const entry = relative ? relative + '/' + name : name;
+            if (entry.length > pathLength) fail('path_limit');
+            const file = pathApi.join(root, entry), stat = await fsApi.lstat(file, { bigint: true });
+            if (stat.isSymbolicLink()) fail('path_alias');
+            if (stat.isDirectory()) {
+              if (result.directories.length >= directories) fail('engineering_limit');
+              result.directories.push({ path: entry, identity: identity(stat) }); await visit(entry); continue;
+            }
+            if (!stat.isFile() || stat.nlink !== 1n) fail('file_capability');
+            if (result.files.length >= files || stat.size > BigInt(bytes - used)) fail('engineering_limit');
+            const handle = await fsApi.open(file, 'r'), chunks = [], hasher = cryptoApi.createHash('sha256'), scratch = Buffer.alloc(65536);
+            let count = 0, transferred = false;
+            try {
+              const opened = await handle.stat({ bigint: true });
+              if (!opened.isFile() || opened.nlink !== 1n || identity(opened) !== identity(stat)) fail('source_changed');
+              for (;;) {
+                const read = await handle.read(scratch, 0, Math.min(scratch.length, bytes - used - count + 1), null);
+                if (!read.bytesRead) break;
+                count += read.bytesRead;
+                if (count > bytes - used) fail('engineering_limit');
+                const part = scratch.subarray(0, read.bytesRead); hasher.update(part);
+                if (retain) chunks.push(Buffer.from(part));
+              }
+              const after = await handle.stat({ bigint: true }), current = await fsApi.lstat(file, { bigint: true });
+              if (identity(after) !== identity(stat) || identity(current) !== identity(stat) || current.isSymbolicLink()
+                || after.nlink !== 1n || current.nlink !== 1n
+                || count !== Number(stat.size) || after.size !== stat.size || current.size !== stat.size
+                || after.mtimeNs !== opened.mtimeNs || after.ctimeNs !== opened.ctimeNs) fail('source_changed');
+              const row = { path: entry, identity: identity(stat), size: count, sha256: hasher.digest('hex') };
+              if (retain) { row.data = Buffer.concat(chunks, count); contents.push(row.data); }
+              result.files.push(row); used += count; transferred = true;
+            } finally {
+              scratch.fill(0); for (const chunk of chunks) chunk.fill(0);
+              try { await handle.close(); } catch (error) { if (transferred) fail('descriptor_close'); throw error; }
+            }
+          }
+          const after = await fsApi.lstat(directory, { bigint: true });
+          if (identity(before) !== identity(after) || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs
+            || after.isSymbolicLink()) fail('source_changed');
+        };
+        await visit(''); result.bytes = used; succeeded = true; return result;
+      } finally { if (!succeeded) for (const content of contents) content.fill(0); }
+    }
+    const proof = result => ({ root: result.root, rootIdentity: result.rootIdentity, directories: result.directories.map(row => ({ ...row })),
+      files: result.files.map(({ data, ...row }) => row), bytes: result.bytes });
+    async function capture(root) {
+      const captured = await census(root, true); let released = false;
+      const result = Object.freeze({ root: captured.root, bytes: captured.bytes,
+        directories: Object.freeze(captured.directories.map(row => row.path)),
+        files: Object.freeze(captured.files.map(row => Object.freeze({ path: row.path, data: row.data, sha256: row.sha256 }))),
+        release() { if (!released) { released = true; for (const row of captured.files) row.data.fill(0); } },
+      });
+      issued.set(result, { proof: proof(captured), released: () => released }); return result;
+    }
+    async function verify(captured) {
+      const owned = issued.get(captured);
+      if (!owned || owned.released()) fail('snapshot_unavailable');
+      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      const actual = await census(captured.root, false);
+      if (JSON.stringify(proof(actual)) !== JSON.stringify(owned.proof)) fail('source_changed');
+      if (owned.released()) fail('snapshot_unavailable');
+      for (const row of captured.files) if (digest(row.data) !== row.sha256) fail('snapshot_changed');
+      return Object.freeze({ bytes: actual.bytes, files: actual.files.length, directories: actual.directories.length,
+        sha256: digest(JSON.stringify(owned.proof)), domainValidation: 'host-owner-required', nativeMetadata: 'host-owner-required' });
+    }
+    return Object.freeze({ capture, verify });
+  }
+  return Object.freeze({ create });
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'));
+
+// Full base snapshot host for a fresh, exclusively owned maintenance worker.
+// No warm global paths/cache mutation; no source repair or implicit writer drain.
+// Native original-object capsules and unresolved staging require their own owner.
+const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
+  const fail = (suffix, details = {}) => { throw Object.assign(Error('work_data_full.' + suffix), {
+    code: 'work_data_full.' + suffix, apiCode: 'work_data_full.' + suffix, statusCode: 409, ...details,
+  }); };
+  const hash = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
+  const decode = bytes => { const text = bytes.toString('utf8'); if (!Buffer.from(text).equals(bytes)) fail('utf8_invalid'); return text; };
+  const json = bytes => { try { return JSON.parse(decode(bytes)); } catch { fail('source_invalid'); } };
+  const copy = value => JSON.parse(JSON.stringify(value));
+  const workMarker = /"(?:w|\\u0077)(?:o|\\u006[fF])(?:r|\\u0072)(?:k|\\u006[bB])(?:D|\\u0044)(?:a|\\u0061)(?:t|\\u0074)(?:a|\\u0061)"\s*:/;
+  const keyName = (purpose, id) => purpose + ':' + id;
+  const ownerPath = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const keyOfPath = value => process.platform === 'win32' ? p.resolve(value).toUpperCase() : p.resolve(value);
+  const PROFILE=Object.freeze({ordinaryFiles:'default-stream-bytes',directories:'names-only',nativeMetadata:'not-captured',
+    nativeStreams:'not-enumerated; no full-native-backup claim',originalObjectCapsules:'special-owner-required',
+    destinationSecurity:'fresh-target inherited defaults; no source ACL/SACL/aliases/object-ID replay'});
+  const contains = (root, value) => { const rel = p.relative(keyOfPath(root), keyOfPath(value)); return rel === '' || rel !== '..' && !rel.startsWith('..' + p.sep) && !p.isAbsolute(rel); };
+  function namespace(relative) {
+    const found = new RegExp('^\\.work-data/generations/([a-f0-9]{48})/(.+)$',process.platform==='win32'?'i':'').exec(relative);
+    return found ? { prefix: '.work-data/generations/' + found[1] + '/', logical: found[2] } : { prefix: '', logical: relative };
+  }
+  function special(relative){const raw=namespace(relative).logical,logical=process.platform==='win32'?raw.toLowerCase():raw;
+    const rootName=process.platform==='win32'?relative.toLowerCase():relative;
+    if(rootName.startsWith('.work-data/generations/')&&!/^\.work-data\/generations\/[a-f0-9]{48}(?:\/|$)/.test(rootName))return 'control-owner-required';
+    if(rootName!==logical&&(logical==='.work-data'||logical.startsWith('.work-data/')))return 'control-owner-required';
+    if(logical.startsWith('.work-data/')&&logical!=='.work-data/generations'&&!logical.startsWith('.work-data/generations/')&&logical!=='.work-data/active-v1.json')return 'control-owner-required';
+    if(/^migrations\/skill-backups(?:\/|$)|^\.work-data\/skill-backups(?:\/|$)|(?:^|\/)\.ruyi-capsule-v1$/.test(logical)
+      ||/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|(?:^|\/)\.ruyi-copy-)/.test(logical))return 'native-or-uncommitted-owner-required';
+    return '';
+  }
+  function create({ base, ownership, assertExclusive, protector, externalOwner, limits = {} } = {}) {
+    if (typeof base !== 'string' || !p.isAbsolute(base) || !ownership || !Array.isArray(ownership.roots)
+        || !ownership.roots.some(root => keyOfPath(root) === keyOfPath(base)) || typeof assertExclusive !== 'function'
+        || !protector || typeof protector.run !== 'function' || typeof protector.supported !== 'function'
+        || typeof externalOwner !== 'function') fail('host_invalid');
+    base = p.resolve(base);
+    const tree = WorkDataTree.create(limits), recovery = WorkDataRecovery.create({ limits: Object.fromEntries(Object.entries(limits).filter(([key]) => ['bytes','files','directories'].includes(key))) });
+    const admission = async () => { if (await assertExclusive(ownership) !== true) fail('ownership_required'); };
+    const disposable = []; let busy = false;
+    async function run(work) {
+      if (busy) fail('busy'); busy = true;
+      let failed=false;
+      try { await admission(); return await work(); } catch(error){failed=true;throw error;}
+      finally {let releaseFailed=false;for (const value of disposable.splice(0).reverse()) { try { await value.release?.(); value.clear?.(); } catch {releaseFailed=true;} }busy=false;if(!failed&&releaseFailed)fail('release_failed');}
+    }
+    function capturedVault(state, protectorApi, size) {
+      return CredentialVault.create({ core: PrivacyCore, protector: protectorApi, size: async () => size,
+        store: { read: async () => copy(state), write: async () => fail('source_write_forbidden'), invalidate() {} } });
+    }
+    function boundProtector(state, purpose, supplied) {
+      if (!supplied) return protector;
+      const id = keyName(purpose, state.instanceId), entry = supplied.get(id); if (!entry) fail('key_missing', { keyId: id });
+      const domain = Buffer.from((purpose === 'work-data' ? 'ruyi.work-data.v1:' : 'ruyi.credential-vault.v1:') + state.instanceId);
+      return { supported: () => true, run: async (op, bytes, entropy) => {
+        if (op !== 'unprotect' || bytes.toString('base64') !== state.protectedKey || !entropy.equals(domain)) fail('source_write_forbidden');
+        return Buffer.from(entry.master);
+      } };
+    }
+    async function analyze(files, auxiliaries, supplied) {
+      const masters = new Map(), headers = new Map(), vaults = new Map(), refs = new Map(), aux = [], domains = new Map();
+      const addMaster = (purpose, state, lease) => {
+        disposable.push(lease); const id = keyName(purpose, state.instanceId), previous = masters.get(id);
+        if (previous && !cryptoApi.timingSafeEqual(previous.master, lease.key)) fail('key_collision');
+        if (!previous) masters.set(id, { id, purpose, instanceId: state.instanceId, protectedKey: state.protectedKey, master: lease.key });
+        return id;
+      };
+      const requireKey = (id, purpose, instance) => { const name = keyName(purpose, instance), value = masters.get(name); if (!value) fail('key_missing', { file: id }); refs.get(id).add(name); return value; };
+      for (const file of files) {
+        refs.set(file.path, new Set()); const logical = ownerPath(namespace(file.path).logical);
+        if(special(file.path))fail('special_owner_required',{file:file.path,reason:special(file.path)});
+        if (/^work-data-key-v1\.json(?:$|[.-])/.test(logical)) {
+          const state = json(file.data); if (!WorkDataKeys.validate(state)) fail('key_header_invalid', { file: file.path });
+          headers.set(file.path, { purpose: 'work-data', state });
+          if (state.instanceId) {
+            const keys = WorkDataKeys.create({ protector: boundProtector(state, 'work-data', supplied), enabled: () => false,
+              store: { read: async () => copy(state), write: async () => fail('source_write_forbidden') } }); disposable.push(keys);
+            refs.get(file.path).add(addMaster('work-data', state, await keys.snapshot()));
+          }
+        } else if (/^credential-vault-v1\.json(?:$|[.-])/.test(logical)) {
+          const state = json(file.data); if (!CredentialVault.validate(state)) fail('vault_invalid', { file: file.path });
+          const vault = capturedVault(state, boundProtector(state, 'credential', supplied), file.data.length); disposable.push(vault);
+          const snapshot = await vault.snapshotForWorkDataRecovery(); headers.set(file.path, { purpose: 'credential', state });
+          vaults.set(ownerPath(file.path), { vault, state });
+          if (snapshot) refs.get(file.path).add(addMaster('credential', state, snapshot.lease));
+        }
+      }
+      if (supplied && (supplied.size !== masters.size || [...supplied.keys()].some(id => !masters.has(id)))) fail('key_closure');
+      const openedText = async (file, descriptor, data = file.data) => {
+        const text = decode(data); let first; try { first = JSON.parse(text.split('\n',1)[0]); } catch {}
+        let parsed; try { parsed = JSON.parse(text); } catch {}
+        const marker = parsed && typeof parsed === 'object' && Object.hasOwn(parsed,'workData') ? parsed : first?.workData === 3 ? first : null;
+        if (!marker) {
+          if (text.trimStart().startsWith('{') && workMarker.test(text)) fail('carrier_invalid', { file: file.path });
+          return text;
+        }
+        const key = requireKey(file.path,'work-data',marker.instanceId), match = /^work-data-v2\.k([1-9][0-9]?)$/.exec(marker.keyId || '');
+        if (!match) fail('carrier_invalid');
+        const binding = { purpose: descriptor.purpose, instanceId: key.instanceId, schema: descriptor.schema, scopeId: descriptor.scopeId,
+          recordId: descriptor.recordId, seq: marker.workData === 3 ? 1 : marker.seq, generation: Number(match[1]) };
+        if (marker.workData === 3) {
+          if (!descriptor.chunked || !text.endsWith('\n')) fail('carrier_invalid');
+          return WorkDataChunks.openLines((async function* () { for (const line of text.slice(0,-1).split('\n')) yield line; })(), key.master, binding, recovery.LIMITS.bytes);
+        }
+        if (marker.workData !== 2 || !parsed) fail('carrier_invalid');
+        const { workData, ...container } = parsed; return WorkDataCrypto.open(container, key.master, binding);
+      };
+      const recordText = async (file, descriptor, data) => {
+        const text = decode(data); if (!text) return '';
+        if (!text.endsWith('\n')) fail('special_owner_required', { file: file.path, reason: 'uncommitted-journal-tail' });
+        const result = [];
+        for (const [ordinal,line] of text.slice(0,-1).split('\n').entries()) {
+          if (!line.trim()) fail('special_owner_required', { file: file.path, reason:'blank-physical-journal-row' });
+          const probe = WorkDataRecords.lineProbe(); probe.feed(Buffer.from(line)); let plain = line;
+          if (probe.reserved()) {
+            const row = JSON.parse(line), envelope = row.w === 3 ? row.h : row.e, key = requireKey(file.path,'work-data',envelope?.instanceId);
+            const context = { instanceId:key.instanceId,sessionId:descriptor.scopeId,kind:descriptor.kind,runId:descriptor.runId,ordinal };
+            plain = descriptor.codec === 'session-records' ? WorkDataRecords.decodeLine(line,key.master,context)
+              : await WorkDataRecords.decodeRecordLine(line,key.master,context,recovery.LIMITS.bytes);
+          }
+          const value = JSON.parse(plain); if (!value || typeof value !== 'object' || Array.isArray(value)) fail('source_invalid'); result.push(plain);
+        }
+        return result.join('\n')+'\n';
+      };
+      for (const file of files) {
+        if (headers.has(file.path)) continue;
+        const { prefix, logical } = namespace(file.path);
+        if (/^external-bot-credentials\.json(?:$|[.-])/.test(ownerPath(logical))) {
+          const owner = externalOwner({ file: p.join(base,...file.path.split('/')) }); let portable;
+          if (supplied) {
+            const found = auxiliaries.filter(row=>row.type==='external-bot-credentials'&&row.sourcePath===file.path);
+            if (found.length!==1 || found[0].sourceSha256!==hash(file.data)) fail('auxiliary_missing'); portable=found[0].data;
+          } else {
+            const captured = await owner.snapshotForWorkDataRecovery(); disposable.push(captured);
+            if (!captured.present || !captured.source.data.equals(file.data)) fail('source_changed'); portable=captured.portable;
+          }
+          aux.push({type:'external-bot-credentials',schema:1,sourcePath:file.path,sourceSha256:hash(file.data),data:portable}); continue;
+        }
+        const canonical = logical.replace(/\.prevbody$|\.prev$/,''); let descriptor;
+        try { descriptor = WorkDataMigrationCodecs.describe(canonical); }
+        catch (error) { if (error.code!=='work_data_migration.path_unmapped') throw error; }
+        let text, value;
+        if (descriptor) {
+          if (descriptor.codec==='special-owner-required') fail('special_owner_required',{file:file.path});
+          if (descriptor.codec==='session-records'||descriptor.codec==='aux-records'&&!descriptor.archive) text=await recordText(file,descriptor,file.data);
+          else if (descriptor.codec==='gzip'||descriptor.archive) {
+            let compressed=file.data;
+            if (!(compressed[0]===31&&compressed[1]===139&&compressed[2]===8)) {
+              const outer=JSON.parse(await openedText(file,{...descriptor,chunked:true}));
+              if (Object.keys(outer).sort().join(',')!=='data,encoding'||outer.encoding!=='gzip-base64-v1') fail('carrier_invalid');
+              compressed=Buffer.from(outer.data,'base64'); if(compressed.toString('base64')!==outer.data)fail('carrier_invalid');
+            }
+            let inner;try{inner=zlibApi.gunzipSync(compressed,{maxOutputLength:recovery.LIMITS.bytes});text=descriptor.archive?await recordText(file,descriptor,inner):decode(inner);}
+            finally{inner?.fill(0);if(compressed!==file.data)compressed.fill(0);}
+          } else text=await openedText(file,descriptor);
+          if (descriptor.codec==='text'&&!descriptor.markdown) { value=JSON.parse(text); if(!value||typeof value!=='object'||(descriptor.shape==='array'?!Array.isArray(value):Array.isArray(value)))fail('source_invalid'); }
+        } else {
+          try { text=decode(file.data); value=JSON.parse(text.replace(/^\uFEFF/,'')); } catch { /* Opaque media and arbitrary non-JSON user content remain exact bytes. */ }
+          if(text!==undefined){const fullProbe=WorkDataRecords.lineProbe();fullProbe.feed(file.data);if(fullProbe.reserved()||text.trimStart().startsWith('{')&&workMarker.test(text))fail('special_owner_required',{file:file.path});}
+          if(text!==undefined)for(const line of text.split('\n')){
+            const probe=WorkDataRecords.lineProbe();probe.feed(Buffer.from(line));let first;try{first=JSON.parse(line);}catch{}
+            if(probe.reserved()||first&&typeof first==='object'&&Object.hasOwn(first,'workData')
+              ||line.trimStart().startsWith('{')&&workMarker.test(line))fail('special_owner_required',{file:file.path});
+          }
+          if (value && typeof value==='object' && (Object.hasOwn(value,'workData')||Object.hasOwn(value,'w')&&Object.hasOwn(value,'e')
+              || WorkDataKeys.validate(value)&&value.instanceId || CredentialVault.validate(value)&&value.instanceId)) fail('special_owner_required',{file:file.path});
+          if (/^privacy-scopes\/[a-f0-9]{64}\.json(?:\.[^/]+)?$/.test(ownerPath(logical))) {
+            value=json(file.data); const key=requireKey(file.path,'credential',value.instanceId), recordId=ownerPath(logical).slice('privacy-scopes/'.length).split('.')[0];
+            if(value.version!==1||!value.envelope)fail('privacy_mapping_invalid');
+            const state=JSON.parse(PrivacyCore.open(value.envelope,key.master,{instanceId:key.instanceId,purpose:'privacy-mapping',recordId},'master-v1'));
+            if(typeof state.scopeId!=='string'||hash(state.scopeId)!==recordId)fail('privacy_mapping_invalid');
+            const scope=PrivacyCore.createScope({scopeId:state.scopeId,detector:{detect:()=>[]},ttlMs:365*86400000});try{scope.importState(state);}finally{scope.clear();}
+          } else if (value?.version===1 && value.envelope && value.instanceId) fail('special_owner_required',{file:file.path});
+        }
+        if (value?.credentialRefsV1) {
+          const candidate = vaults.get(ownerPath(prefix+'credential-vault-v1.json')); if(!candidate)fail('credential_reference_missing',{file:file.path});
+          await candidate.vault.hydrateConfig(value); requireKey(file.path,'credential',candidate.state.instanceId);
+        }
+        domains.set(file.path,{family:descriptor?.family||'opaque-byte-file',logicalSha256: text===undefined?hash(file.data):hash(text)});
+      }
+      if (supplied && (aux.length!==auxiliaries.length || auxiliaries.some(row=>!aux.some(found=>found.sourcePath===row.sourcePath))))fail('auxiliary_closure');
+      return {masters,headers,aux,domains,files:files.map(file=>({path:file.path,data:file.data,keyRefs:[...refs.get(file.path)].sort()}))};
+    }
+    function checkAuthority(files,directories,generation){
+      for(const directory of directories)if(special(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
+      if(files.some(file=>{const name=process.platform==='win32'?file.path.toLowerCase():file.path;return name==='.work-data'||name==='.work-data/generations'||/^\.work-data\/generations\/[a-f0-9]{48}$/.test(name);})||directories.some(directory=>keyOfPath(directory)===keyOfPath('.work-data/active-v1.json')))fail('authority_mismatch');
+      const pointer=files.find(file=>keyOfPath(file.path)===keyOfPath('.work-data/active-v1.json'));
+      if(!pointer){if(generation!==0)fail('authority_mismatch');return;}
+      const value=json(pointer.data);
+      if(!value||Object.keys(value).sort().join(',')!=='activeRoot,generation,id,mode,schema'||value.schema!==1
+        ||!Number.isSafeInteger(value.generation)||value.generation<1||value.generation!==generation
+        ||!/^[a-f0-9]{48}$/.test(value.id||'')||!['plain','encrypted'].includes(value.mode)
+        ||value.activeRoot!=='generations/'+value.id||!directories.some(relative=>keyOfPath(relative)===keyOfPath('.work-data/'+value.activeRoot)))fail('authority_mismatch');
+      if(value.mode==='encrypted'&&!files.some(file=>keyOfPath(file.path)===keyOfPath('.work-data/'+value.activeRoot+'/work-data-key-v1.json')&&json(file.data).instanceId))fail('key_missing');
+    }
+    async function seal({ password, appVersion, generation, createdAt=new Date().toISOString() }={}) {
+      return run(async()=>{
+        const captured=await tree.capture(base);disposable.push(captured);
+        checkAuthority(captured.files,captured.directories,generation);
+        const analyzed=await analyze(captured.files,[],null);await admission();await tree.verify(captured);
+        const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...captured.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
+        await admission();const proof=await tree.verify(captured);
+        const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
+        const sourceFiles=[];for(const file of captured.files)sourceFiles.push(Object.freeze({...await sourceIdentity(file.path),sha256:file.sha256}));
+        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await tree.verify(captured);
+        // Source proof ends here. Caller-owned additions may be written only after this return.
+        // No glob exclusions or permission to ignore later source changes is issued.
+        return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),
+          profile:PROFILE,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
+      });
+    }
+    async function realDirectory(directory) {
+      const absolute=p.resolve(directory),parsed=p.parse(absolute);let current=parsed.root;
+      for(const part of ['',...absolute.slice(parsed.root.length).split(p.sep).filter(Boolean)]){if(part)current=p.join(current,part);const stat=await io.lstat(current);if(!stat.isDirectory()||stat.isSymbolicLink()||keyOfPath(await io.realpath(current))!==keyOfPath(current))fail('target_alias');}
+    }
+    async function restore({ serialized,password,target,targetOwnership=ownership }={}) {
+      return run(async()=>{
+        if(typeof target!=='string'||!p.isAbsolute(target)||contains(base,target)||contains(target,base))fail('target_invalid');
+        target=p.resolve(target);
+        const targetAdmission=async()=>{await admission();if(!targetOwnership||!Array.isArray(targetOwnership.roots)||!targetOwnership.roots.some(root=>keyOfPath(root)===keyOfPath(target))||await assertExclusive(targetOwnership)!==true)fail('target_ownership_required');};
+        await targetAdmission();await realDirectory(p.dirname(target));
+        const absent=async()=>{try{await io.lstat(target);}catch(error){if(error.code==='ENOENT')return;throw error;}fail('target_exists');};await absent();
+        const opened=await recovery.open(serialized,password);disposable.push(opened);const snapshot=opened.snapshot,supplied=new Map(snapshot.keys.map(key=>[key.id,key]));
+        checkAuthority(snapshot.files,snapshot.directories,snapshot.generation);
+        const analyzed=await analyze(snapshot.files,snapshot.auxiliaries,supplied);
+        for(const file of snapshot.files){const expected=analyzed.files.find(row=>row.path===file.path);if(JSON.stringify([...file.keyRefs].sort())!==JSON.stringify(expected.keyRefs))fail('key_reference_mismatch',{file:file.path});}
+        const replacements=new Map();disposable.push({release(){for(const bytes of replacements.values())bytes.fill(0);}});
+        for(const [file,header]of analyzed.headers){if(!header.state.instanceId)continue;const key=analyzed.masters.get(keyName(header.purpose,header.state.instanceId));let result;
+          if(header.purpose==='work-data'){
+            const targetKeys=WorkDataKeys.create({protector,store:{read:async()=>fail('source_write_forbidden')},enabled:()=>false});disposable.push(targetKeys);
+            result=await targetKeys.stageRecovered({instanceId:key.instanceId,key:key.master});disposable.push(result.lease);replacements.set(file,Buffer.from(JSON.stringify(result.header)));
+          }else{
+            const vault=capturedVault(header.state,protector,0);disposable.push(vault);result=await vault.stageRecoveredForWorkData({state:header.state,key:key.master});disposable.push(result.lease);replacements.set(file,Buffer.from(JSON.stringify(result.state)));
+          }
+        }
+        for(const row of analyzed.aux){const source=snapshot.files.find(file=>file.path===row.sourcePath),owner=externalOwner({file:p.join(target,...row.sourcePath.split('/'))});
+          const result=await owner.stageRecoveredForWorkData({state:json(source.data),portable:row.data});replacements.set(row.sourcePath,Buffer.from(JSON.stringify(result.state)));
+        }
+        // Every source/master/reference/auxiliary validation and native roundtrip precedes mkdir.
+        await targetAdmission();await absent();let created=false;
+        try{
+          await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);
+          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});}
+          for(const file of snapshot.files){const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
+            const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
+          }
+          const verified=await tree.capture(target);disposable.push(verified);if(verified.files.length!==snapshot.files.length||verified.directories.length!==snapshot.directories.length)fail('target_verification');
+          if(JSON.stringify([...verified.directories].sort())!==JSON.stringify([...snapshot.directories].sort()))fail('target_verification');
+          const actual=new Map(verified.files.map(file=>[file.path,file]));for(const file of snapshot.files)if(actual.get(file.path)?.sha256!==hash(replacements.get(file.path)||file.data))fail('target_verification');
+          const stagedStates=Object.freeze([...replacements].map(([relative,bytes])=>Object.freeze({path:relative,sourceSha256:hash(snapshot.files.find(file=>file.path===relative).data),stagedSha256:hash(bytes)})));
+          await targetAdmission();return Object.freeze({target,files:snapshot.files.length,directories:snapshot.directories.length,manifestSha256:opened.manifestSha256,stagedStates,profile:PROFILE,
+            mode:'restored-full-base',publication:'fresh-process-required',nativeMetadata:'new-default-files; original-object-capsules-require-special-owner'});
+        }catch(cause){fail('restore_failed',{cause,targetRetained:created});}
+      });
+    }
+    return Object.freeze({seal,restore});
+  }
+  return Object.freeze({create});
+})(require('node:fs/promises'),require('node:path'),require('node:crypto'),require('node:zlib'));
 
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
 // 第54波 EC-D: one ordered narrative ledger for both Claude CLI and OpenAI-compatible turns. The ledger is
@@ -16958,6 +17345,7 @@ async function journalTrimProtectedSnapshots(dir, bytesToFree) {
   return freed;
 }
 async function journalGlobalSweep() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('journal-retention')) return WorkDataMaintenanceHooks.run('journal-retention', () => journalGlobalSweep(...arguments));
   journalGcProbe.fullScans++;
   journalGcSinceScan = 0;
   journalSweeping++;
@@ -36501,6 +36889,7 @@ async function sweepEngineTranscriptsStore(policy, result) {
 // 统一 sweep 入口:boot 自动(全目标) + POST /api/storage/clean(可单目标)。进程内串行(并发第二
 // 次调用直接拒绝);结果留痕 STORAGE_STEWARD 并落审计账。targets=null 表示全部。
 async function storageSweep(policy, targets = null) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('storage-retention')) return WorkDataMaintenanceHooks.run('storage-retention', () => storageSweep(...arguments));
   if (STORAGE_STEWARD.sweeping) return { ok: false, error: 'sweep already running' };
   STORAGE_STEWARD.sweeping = true;
   const result = { ok: true, freedBytes: 0, actions: [] };
@@ -52247,6 +52636,7 @@ function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, fo
 }
 
 async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered, admitPoolNode, originTurnAgentCap, followup }) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent')) return WorkDataMaintenanceHooks.run('agent', () => runAgentWorkflow(...arguments));
   if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0 };
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
@@ -53511,6 +53901,7 @@ async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
   if (reg && reg.session) drop(reg.session);
 }
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent-resume')) return WorkDataMaintenanceHooks.run('agent-resume', () => launchPersistedAgentRun(...arguments));
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
   try { run = await readAgentRunSnapshot(sessionId, runId); }
@@ -59776,6 +60167,7 @@ function lastAssistantTextOf(session) {
 }
 
 async function runSessionTurn(input) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('turn')) return WorkDataMaintenanceHooks.run('turn', () => runSessionTurn(...arguments));
   // 沿用 body 这个名字:搬家前它是 HTTP 请求体,搬家后是「回合入参」,字段名与含义一一对应。保留名字
   // 让搬过来的每一行逐字节不变(agent-team-mode.e2e.js:187 的源码静态锁正锁着 `body.agentTeam` 字面量)。
   const body = input || {};
@@ -60252,10 +60644,11 @@ function agentWakeJobKey(job) { return String(job && job.id || '') + '@' + Strin
 function scheduleAgentWake(sessionId, reason) {
   const sid = safeSessionId(sessionId);
   if (!sid || sid === STEWARD_SESSION_ID) return false;
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) { WorkDataMaintenanceHooks.deferWake(sid, reason); return true; }
   if (agentWakeTimers.has(sid)) return true;
   const timer = setTimeout(() => {
     agentWakeTimers.delete(sid);
-    runAgentWake(sid, reason).catch(error => logEvent({ kind: 'agent_wake_error', sessionId: sid, error: String((error && error.message) || error).slice(0, 400) }));
+    (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.fresh ? WorkDataMaintenanceHooks.fresh('agent-wake', () => runAgentWake(sid, reason)) : runAgentWake(sid, reason)).catch(error => logEvent({ kind: 'agent_wake_error', sessionId: sid, error: String((error && error.message) || error).slice(0, 400) }));
   }, AGENT_WAKE_DEBOUNCE_MS);
   if (typeof timer.unref === 'function') timer.unref();
   agentWakeTimers.set(sid, timer);
@@ -60275,6 +60668,7 @@ function agentWakeMessage(jobs) {
   ].join('\n');
 }
 async function runAgentWake(sessionId, reason) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent-wake')) return WorkDataMaintenanceHooks.run('agent-wake', () => runAgentWake(...arguments));
   // 线程正忙:那一回合的迭代边界会收件,收尾时 runSessionTurn 的 finally 再排一次。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
   // 手动压缩算摘要期间不起回合(回合会追加历史,那份摘要落盘时被长度守卫作废);runProviderCompact 收尾时再排一次。
@@ -61239,6 +61633,7 @@ function killAllShellSessions() {
 
 // Idle reaper: every 60s, kill sessions untouched for >30min. .unref() so it never keeps the loop alive.
 const shellIdleReaper = setInterval(() => {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   const cutoff = Date.now() - SHELL_IDLE_MS;
   for (const [id, s] of shellSessions) { if (!(s.mode === 'background' && s.running) && s.lastUsedAt < cutoff) { try { shellKill({ shellId: id }); } catch { /* ignore */ } } }
 }, 60_000);
@@ -73028,6 +73423,9 @@ async function handleApi(req, res, pathname) {
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
+  if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.handle && await WorkDataSetupHooks.handle(req, res, pathname)) return;
+  if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.runHttp && !WorkDataSetupHooks.bypasses(req, pathname) && !WorkDataMaintenanceHooks.entered('http')) return WorkDataSetupHooks.runHttp(req, pathname, () => handleApi(req, res, pathname));
+
   if (pathname === '/api/mcp/internal/request' && await InternalMcpHooks.handle(req, res, pathname)) return;
   if (req.method === 'POST' && pathname === '/api/memory-cli' && typeof MemoryCliHooks.handle === 'function'
     && await MemoryCliHooks.handle(req, res, pathname)) return;
@@ -79675,6 +80073,7 @@ function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
 function writePretenderIndexFile(value) {
   const run = pretenderIndexRuntime.writeChain.then(() => writePretenderIndexFileNow(value));
   pretenderIndexRuntime.writeChain = run.catch(() => false);
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(run);
   return run;
 }
 async function writePretenderIndexFileNow(value) {
@@ -79707,10 +80106,11 @@ async function persistPretenderIndex(value) {
 // 增量刷新(脏页、目录变化、用量变化)的落盘合并成一次延迟写,不放在请求路径上。进程退出时没写的那一份丢了也无妨:
 // 索引是纯派生物,下次启动按源指纹只刷变了的那几片。
 function schedulePretenderPersist() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   if (pretenderIndexRuntime.persistTimer) return;
   pretenderIndexRuntime.persistTimer = setTimeout(() => {
     pretenderIndexRuntime.persistTimer = null;
-    void flushPretenderPersist().catch(() => {});
+    void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.fresh ? WorkDataMaintenanceHooks.fresh('projection-persist', () => flushPretenderPersist()) : flushPretenderPersist()).catch(() => {});
   }, PRETENDER_PERSIST_DEBOUNCE_MS);
   if (pretenderIndexRuntime.persistTimer.unref) pretenderIndexRuntime.persistTimer.unref();
 }
@@ -79727,6 +80127,7 @@ async function flushPretenderPersist() {
 // 后台低频全量校验:到点先在链外扫好,再走一次 getPretenderProjectionIndex 做比对。
 // 全量扫描(逐条 stat)在建索引链之外先做 —— 扫描期间来的请求不必排在它后面(审查轮);建索引时只拿结果做比对。
 async function pretenderRunVerify() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('projection-verify')) return WorkDataMaintenanceHooks.run('projection-verify', () => pretenderRunVerify(...arguments));
   pretenderIndexRuntime.lastVerifyAt = Date.now();
   if (!fs.existsSync(paths.sessions)) return null;
   const dirStamp = await pretenderSessionsDirStamp();
@@ -79735,11 +80136,12 @@ async function pretenderRunVerify() {
   return getPretenderProjectionIndexShared();   // 自己这次构建不再武装下一轮:没人读时后台校验就停下,不空转
 }
 function pretenderScheduleVerify() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   if (pretenderIndexRuntime.verifyTimer || pretenderIndexRuntime.verifyScan) return;
   const wait = Math.max(0, pretenderIndexRuntime.lastVerifyAt + PRETENDER_VERIFY_MS - Date.now());
   pretenderIndexRuntime.verifyTimer = setTimeout(() => {
     pretenderIndexRuntime.verifyTimer = null;
-    void pretenderRunVerify().catch(() => {});
+    void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.fresh ? WorkDataMaintenanceHooks.fresh('projection-verify', () => pretenderRunVerify()) : pretenderRunVerify()).catch(() => {});
   }, wait);
   if (pretenderIndexRuntime.verifyTimer.unref) pretenderIndexRuntime.verifyTimer.unref();
 }
@@ -79965,6 +80367,7 @@ async function getPretenderProjectionIndex() {
   return index;
 }
 async function getPretenderProjectionIndexShared() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('projection')) return WorkDataMaintenanceHooks.run('projection', () => getPretenderProjectionIndexShared(...arguments));
   if (pretenderIndexRuntime.building) return pretenderIndexRuntime.building;
   const current = buildOrLoadPretenderIndex();
   pretenderIndexRuntime.building = current;
@@ -79984,6 +80387,7 @@ async function getPretenderProjectionIndexShared() {
 // projection when sessions haven't materialized yet, so this function's own check is now redundant-but-
 // harmless (kept for its boot-time short-circuit, not for correctness).
 async function warmPretenderProjectionIndex() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('projection-warm')) return WorkDataMaintenanceHooks.run('projection-warm', () => warmPretenderProjectionIndex(...arguments));
   let files = [];
   try { files = await fsp.readdir(paths.sessions); } catch { return null; }
   if (!files.some(file => /^sess_[A-Za-z0-9_-]+(?:\.json|\.interventions\.ndjson)$/.test(file))) return null;
@@ -80801,6 +81205,7 @@ function stewardClearWake() {
   stewardRuntime.wakeTimers = [];
 }
 function stewardScheduleWake() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) { WorkDataMaintenanceHooks.deferStewardWake?.(); return; }
   if (!stewardRuntime.running) return;   // 管家关着 / 停机:没人取,不补拍
   stewardClearWake();
   const generation = stewardRuntime.generation;
@@ -80808,7 +81213,7 @@ function stewardScheduleWake() {
     const timer = setTimeout(() => {
       stewardRuntime.wakeTimers = stewardRuntime.wakeTimers.filter(item => item !== timer);
       if (!stewardRuntime.running || stewardRuntime.generation !== generation) return;
-      void stewardRunTick();
+      void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.stewardTick ? WorkDataMaintenanceHooks.stewardTick() : stewardRunTick());
     }, delay);
     if (timer && typeof timer.unref === 'function') timer.unref();
     stewardRuntime.wakeTimers.push(timer);
@@ -81501,7 +81906,15 @@ async function stewardTickInboxWithin(operation) {
   const collectedBefore = structuredClone({ cursor: stewardRuntime.cursor, adopted: stewardRuntime.adopted,
     adoptedRecent: stewardRuntime.adoptedRecent, sourcesSeen: stewardRuntime.sourcesSeen, carry: stewardRuntime.carry });
   let collected;
-  try { collected = await stewardCollectEvents(); }
+  try {
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) {
+      const accepted = stewardRuntime.adopted; stewardRuntime.adopted = [];
+      const cursor = stewardRuntime.cursor;
+      collected = { events: accepted.map(stewardNormalizeThreadAdopted).filter(Boolean),
+        activeSessionIds: [...new Set([...Object.keys(cursor.missionChanges), ...Object.keys(cursor.sessionTurns), ...[...cursor.budgetSeen].map(key => String(key).split('\u0000')[0])])],
+        activeRunIds: Object.keys(cursor.agentRuns) };
+    } else collected = await stewardCollectEvents();
+  }
   catch (error) { Object.assign(stewardRuntime, collectedBefore); throw error; }
   const { events, activeSessionIds, activeRunIds } = collected;
   if (generation !== stewardRuntime.generation) return { written: 0, aborted: true };
@@ -81582,6 +81995,7 @@ async function stewardTickInboxWithin(operation) {
   return { rows, written: rows.length, aborted: false };
 }
 async function stewardTickOnce() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('steward-intake')) return WorkDataMaintenanceHooks.run('steward-intake', () => stewardTickOnce(...arguments));
   const result = await stewardInboxJournal().withOperation(stewardTickInboxWithin);
   const rows = result.rows || [];
   // 116f: 本轮真的写进箱子的行交给回合运行器(13h 去抖 5 秒后起一个收件箱回合)。经 06i 的延迟绑定
@@ -81594,6 +82008,7 @@ async function stewardTickOnce() {
 }
 
 async function stewardRunTick() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting() && !WorkDataMaintenanceHooks.active()) return { skipped: true };
   if (stewardRuntime.ticking) return { skipped: true }; // 串行:上一轮没跑完不叠加
   stewardRuntime.ticking = true;
   try {
@@ -81630,7 +82045,7 @@ async function startStewardInbox(config) {
   if (!stewardRuntime.running) return { ok: true, running: false, enabled: true }; // 起跑途中被 stop
   if (stewardRuntime.generation !== generation) return { ok: true, running: true, enabled: true }; // 起跑途中被 stop 又 start:后来者挂 interval
   if (stewardRuntime.timer) clearInterval(stewardRuntime.timer);   // 兜底:任何时候最多一个轮询器
-  stewardRuntime.timer = setInterval(() => { void stewardRunTick(); }, pollMs);
+  stewardRuntime.timer = setInterval(() => { void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.stewardTick ? WorkDataMaintenanceHooks.stewardTick() : stewardRunTick()); }, pollMs);
   if (stewardRuntime.timer && typeof stewardRuntime.timer.unref === 'function') stewardRuntime.timer.unref();
   if (typeof StewardHooks.recoverWatchedThreads === 'function') {
     try { await StewardHooks.recoverWatchedThreads(cfg); } catch { /* 恢复读失败不停止常规监工 */ }
@@ -89141,6 +89556,7 @@ const stewardDecideNudged = new Set();
 // hunt2-steward ①:排队等槽位的用户回合(到达先后;只有排头能认领。见 runStewardTurn 的等待循环)。
 const stewardUserWaiters = [];
 async function runStewardTurn(input) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('steward-turn')) return WorkDataMaintenanceHooks.run('steward-turn', () => runStewardTurn(...arguments));
   const generation = stewardRunnerRuntime.conversationGeneration;
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'external' ? 'external' : opts.trigger === 'inbox' ? 'inbox' : 'user';
@@ -89692,6 +90108,8 @@ function stewardScheduleInboxDrain(retryDelayMs = 0) {
   }
   stewardRunnerRuntime.debounceMs = delay;
   const timer = setTimeout(() => {
+    if (!stewardRunnerRuntime.queue.length) { stewardRunnerRuntime.debounceTimer = null; stewardRunnerRuntime.debounceMs = -1; return; }
+    const drain = () => {
     stewardRunnerRuntime.debounceTimer = null;
     stewardRunnerRuntime.debounceMs = -1;
     if (stewardRunnerRuntime.stopped) return;
@@ -89705,6 +90123,8 @@ function stewardScheduleInboxDrain(retryDelayMs = 0) {
         stewardScheduleInboxDrain(stewardInboxRetryDelay(batch));
       },
     );
+    };
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.continueOwner) void WorkDataMaintenanceHooks.continueOwner(stewardRunnerRuntime, drain).catch(() => {}); else drain();
   }, delay);
   if (timer && typeof timer.unref === 'function') timer.unref();
   stewardRunnerRuntime.debounceTimer = timer;
@@ -91923,6 +92343,7 @@ function schedulerPermissionModeFor(schedTask, schedConfig) {
 
 // 一次触发。mode ∈ ontime|late|manual。返回本次的 outcome(e2e 与 run-now 都读它)。
 async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('scheduler-fire')) return WorkDataMaintenanceHooks.run('scheduler-fire', () => schedulerFireOnce(...arguments));
   const task = schedTask;
   const startedMs = schedulerClockNow();
   const day = schedulerDayKey(startedMs);
@@ -92263,6 +92684,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
 // 现在 for/while 循环体只管调用 schedulerDispatchFire(不 await 它),真正的登记 / 派单 / 收尾仍在
 // schedulerFireOnce 内部完成,只是不再拿一条任务的完成来做另一条任务能不能开始的闸门。
 function schedulerDispatchFire(task, mode, dueMs) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   schedulerRuntime.inFlightTaskIds.add(task.id);
   schedulerFireOnce(task, mode, dueMs)
     .catch(e => {
@@ -92285,6 +92707,7 @@ function schedulerTaskBusy(task) {
   return !!(task && (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)));
 }
 async function schedulerRunNow(task) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('scheduler-manual')) return WorkDataMaintenanceHooks.run('scheduler-manual', () => schedulerRunNow(...arguments));
   if (schedulerTaskBusy(task)) return { busy: true, outcome: '' };
   let manualDueMs = schedulerClockNow();
   while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
@@ -92296,6 +92719,7 @@ async function schedulerRunNow(task) {
 // `ticking` 只挡「同一个定时器触发两次并发 tick」的重入 —— 不再是「等全部到点任务跑完」的闸,
 // 派单全走 schedulerDispatchFire,tick 本体现在是一段纯同步的派单决策(见上)。
 async function schedulerTick() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   if (schedulerRuntime.ticking) return;
   schedulerRuntime.ticking = true;
   const generation = schedulerRuntime.generation;
@@ -92312,6 +92736,7 @@ async function schedulerTick() {
     await schedulerTaskAdmission(() => schedulerFirePreflight());
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
     while (schedulerRuntime.lateQueue.length) {
+      if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
       if (generation !== schedulerRuntime.generation) return;
       const queued = schedulerRuntime.lateQueue.shift();
       const task = schedulerRuntime.tasks.find(row => row.id === queued.taskId);
@@ -92326,6 +92751,7 @@ async function schedulerTick() {
         && task.state.nextFireAt && Date.parse(task.state.nextFireAt) <= now)
       .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
     for (const task of due) {
+      if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
       if (generation !== schedulerRuntime.generation) return;
       // 上面记 skipped 那一段有 await,期间 run-now 可能已把这条派出去了:再核一次。
       if (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
@@ -92361,7 +92787,7 @@ function schedulerEnsureTimer() {
   if (!schedulerRuntime.enabled || !schedulerRuntime.started) return;
   const wanted = schedulerRuntime.tasks.length > 0 || schedulerRuntime.lateQueue.length > 0;
   if (wanted && !schedulerRuntime.timer) {
-    schedulerRuntime.timer = setInterval(() => { void schedulerTick(); }, schedulerTickMs());
+    schedulerRuntime.timer = setInterval(() => { void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.schedulerTick ? WorkDataMaintenanceHooks.schedulerTick() : schedulerTick()); }, schedulerTickMs());
     if (schedulerRuntime.timer && typeof schedulerRuntime.timer.unref === 'function') schedulerRuntime.timer.unref();
   } else if (!wanted && schedulerRuntime.timer) {
     clearInterval(schedulerRuntime.timer);
@@ -93230,9 +93656,15 @@ const MIGRATION_SIZE_TTL_MS = 10 * 60 * 1000;
 const migrationSizeCache = new Map();        // 包根键 -> { at, bytes, files, capped }
 let migrationChain = Promise.resolve();
 let migrationRecoveryNeeded = true;
+let migrationBackupAuthority = null;
+function migrationBackupRoot() { return migrationBackupAuthority?.root || path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR); }
 
 function migrationSerial(fn) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('migration')) return WorkDataMaintenanceHooks.run('migration', () => migrationSerial(fn));
+  const admission = migrationBackupAuthority;
   const job = migrationChain.then(async () => {
+    if (admission !== migrationBackupAuthority) migrationCapsuleFail('generation_changed');
+    if (admission) await admission.assertCurrent();
     if (migrationRecoveryNeeded) {
       await migrationRecoverSkillBackups();
       migrationRecoveryNeeded = false;
@@ -93242,7 +93674,7 @@ function migrationSerial(fn) {
   migrationChain = job.catch(() => {});
   return job;
 }
-function migrationDir() { return path.join(paths.data, 'migrations'); }
+function migrationDir() { return path.join(migrationBackupAuthority?.activeRoot || paths.data, 'migrations'); }
 function migrationLogShape(value, id) {
   return /^[0-9TZ-]+$/.test(String(id || '')) && !!value && typeof value === 'object' && !Array.isArray(value) && value.schema === MIGRATION_LOG_SCHEMA && value.id === id
     && ['createdAt', 'currentRoot', 'version'].every(key => value[key] === undefined || typeof value[key] === 'string') && Array.isArray(value.files)
@@ -93311,7 +93743,7 @@ async function migrationNextLogStamp() {
   for (;;) {
     const stamp = new Date(time).toISOString().replace(/[:.]/g, '-');
     let exists = false;
-    for (const file of [path.join(migrationDir(), stamp + '.json'), path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR, stamp)]) {
+    for (const file of [path.join(migrationDir(), stamp + '.json'), path.join(migrationBackupRoot(), stamp)]) {
       try { await fsp.lstat(file); exists = true; }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
@@ -93634,7 +94066,7 @@ async function migrationTreeHash(tree) {
 }
 function migrationSkillTarget(id) {
   if (!SKILL_ID_RE.test(String(id || ''))) return null;
-  const root = path.resolve(paths.skills);
+  const root = path.resolve(migrationBackupAuthority?.skillsRoot || paths.skills);
   const dest = path.resolve(root, String(id));
   return samePathKey(path.dirname(dest)) === samePathKey(root) ? dest : null;
 }
@@ -93728,6 +94160,7 @@ public static class RuyiSkillCapsule {
   [DllImport("ntdll.dll")] static extern int NtSetInformationFile(SafeFileHandle h, IntPtr iosb, IntPtr value, uint length, int kind);
   [DllImport("ntdll.dll")] static extern uint RtlNtStatusToDosError(int status);
   [DllImport("ntdll.dll")] static extern int NtQueryInformationFile(SafeFileHandle h,IntPtr iosb,IntPtr value,uint length,int kind);
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool MoveFileExW(string source,string target,uint flags);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool SetFileShortName(SafeFileHandle h,string name);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CheckNameLegalDOS8Dot3(string name,IntPtr oem,uint size,out bool spaces,out bool legal);
   static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 180000000, RecursionLimit = 512 };
@@ -94021,7 +94454,12 @@ public static class RuyiSkillCapsule {
       if (!String.Equals(ShortName(node.Handle),Str(node.Entry["shortName"]),StringComparison.OrdinalIgnoreCase)) Reject("short_name_changed");
     }
   }
-  static void VerifyRestorable() {
+  static bool IsPrefix(byte[] actual,string encoded) {
+    byte[] expected=Convert.FromBase64String(encoded);
+    try { if(actual.Length>expected.Length)return false;for(int i=0;i<actual.Length;i++)if(actual[i]!=expected[i])return false;return true; }
+    finally { Array.Clear(expected,0,expected.Length); }
+  }
+  static void VerifyRestorable(Dictionary<string,object> alternate = null) {
     List<Node> expected = Expected(); VerifyEntries(expected);
     foreach (Node node in expected) {
       Dictionary<string,object> streams = new Dictionary<string,object>();
@@ -94029,11 +94467,17 @@ public static class RuyiSkillCapsule {
       foreach (string name in StreamNames(node)) {
         if (!streams.ContainsKey(name)) Reject("stream_set_changed");
         SafeFileHandle handle = name == "" ? node.Handle : node.Streams[name];
-        byte[] actual = Read(handle), original = Convert.FromBase64String(Str(Dict(streams[name])["data"]));
-        // Interrupted writes can only be a prefix of the authenticated original.
-        if (actual.Length > original.Length) Reject("content_changed");
-        for (int i=0;i<actual.Length;i++) if (actual[i] != original[i]) Reject("content_changed");
-        Array.Clear(actual,0,actual.Length); Array.Clear(original,0,original.Length);
+        byte[] actual = Read(handle);
+        try {
+          bool valid=IsPrefix(actual,Str(Dict(streams[name])["data"]));
+          if(!valid && alternate!=null) foreach(object raw in (IEnumerable)alternate["entries"]) {
+            Dictionary<string,object> entry=Dict(raw);if(Str(entry["id"])!=Str(node.Entry["id"]))continue;
+            foreach(object streamRaw in (IEnumerable)entry["streams"]) { Dictionary<string,object> stream=Dict(streamRaw);
+              if(Str(stream["name"])==name && IsPrefix(actual,Str(stream["data"])))valid=true;
+            }
+          }
+          if(!valid)Reject("content_changed");
+        } finally { Array.Clear(actual,0,actual.Length); }
       }
     }
   }
@@ -94119,7 +94563,7 @@ public static class RuyiSkillCapsule {
     }
   }
   static void Restore(Dictionary<string,object> args) {
-    VerifyRestorable();
+    VerifyRestorable(args.ContainsKey("allowedSnapshot") ? Dict(args["allowedSnapshot"]) : null);
     List<Node> expected=Expected();
     if(Capsule==null) Capsule=Open(Str(args["container"]));
     foreach(Node node in expected) EnsureWritable(node);
@@ -94138,7 +94582,11 @@ public static class RuyiSkillCapsule {
           handle=CreateFile(PathOf(node.Handle)+name,0xC0010000,5,IntPtr.Zero,4,0,IntPtr.Zero);
           if(handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());node.Streams.Add(name,handle);
         }
-        Step="restore-content";Write(handle,bytes);Array.Clear(bytes,0,bytes.Length);
+        Step="restore-content";
+        // A representation conversion can shrink an existing managed stream.
+        // Clear first so a crash never leaves an unrecognizable old-data suffix.
+        if(args.ContainsKey("allowedSnapshot"))Write(handle,new byte[0]);
+        Write(handle,bytes);Array.Clear(bytes,0,bytes.Length);
       }
     }
     Step="restore-verify";Verify(false,true);VerifyNames(Str(args["target"]),false);RestoreBasic(expected);
@@ -94202,6 +94650,40 @@ public static class RuyiSkillCapsule {
     foreach (Node node in Nodes.Values) { foreach (SafeFileHandle stream in node.Streams.Values) stream.Dispose(); node.Handle.Dispose(); }
     Nodes.Clear(); Snapshot = null; OriginalRoot = null; if (Capsule != null) { Capsule.Dispose(); Capsule = null; }
   }
+  static void StoreFileSystem(SafeFileHandle handle) {
+    StringBuilder filesystem=new StringBuilder(64);uint serial,component,flags;
+    Check(GetVolumeInformationByHandleW(handle,null,0,out serial,out component,out flags,filesystem,64));
+    if(filesystem.ToString()!="NTFS") Reject("filesystem_unsupported");
+  }
+  static object StoreInfo(Dictionary<string,object> args) {
+    using(var handle=Open(Str(args["root"]))) {
+      StoreFileSystem(handle);
+      if((BasicOf(handle).Attr&16u)==0) Reject("store_not_directory");
+      if(!String.Equals(PathOf(handle),@"\\?\"+System.IO.Path.GetFullPath(Str(args["root"])),StringComparison.OrdinalIgnoreCase)) Reject("store_path_alias");
+      return new Dictionary<string,object>{{"id",Id(handle)},{"volume",VolumeOf(handle)}};
+    }
+  }
+  static void FlushStoreDirectory(string path) {
+    using(var handle=CreateFile(path,0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
+      if(handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error()); Check(FlushFileBuffers(handle));
+    }
+  }
+  static object MoveStore(Dictionary<string,object> args) {
+    string source=System.IO.Path.GetFullPath(Str(args["source"])),target=System.IO.Path.GetFullPath(Str(args["target"]));
+    string fromParent=System.IO.Path.GetDirectoryName(source),toParent=System.IO.Path.GetDirectoryName(target);
+    using(var original=Open(source)) using(var parent=Open(toParent)) {
+      StoreFileSystem(original);
+      if(Id(original)!=Str(args["id"]) || !String.Equals(PathOf(original),@"\\?\"+source,StringComparison.OrdinalIgnoreCase)) Reject("store_identity");
+      if(!String.Equals(PathOf(parent),@"\\?\"+toParent,StringComparison.OrdinalIgnoreCase)) Reject("store_path_alias");
+      if(!String.Equals(VolumeOf(original),VolumeOf(parent),StringComparison.OrdinalIgnoreCase)) Reject("cross_volume");
+      // Capability refusal precedes rename. No COPY_ALLOWED and no replacement.
+      Step="store-flush-pre";FlushStoreDirectory(fromParent);FlushStoreDirectory(toParent);
+      Step="store-move";Check(MoveFileExW(@"\\?\"+source,@"\\?\"+target,8));
+      if(Id(original)!=Str(args["id"]) || !String.Equals(PathOf(original),@"\\?\"+target,StringComparison.OrdinalIgnoreCase)) Reject("store_identity");
+      Step="store-flush-post";FlushStoreDirectory(fromParent);FlushStoreDirectory(toParent);
+      return new Dictionary<string,object>{{"id",Id(original)},{"volume",VolumeOf(original)}};
+    }
+  }
   public static void Run() {
     Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false);
     try {
@@ -94209,14 +94691,19 @@ public static class RuyiSkillCapsule {
       while ((line = Console.ReadLine()) != null) {
         try {
           Dictionary<string,object> args = Dict(Json.DeserializeObject(line)); string command = Str(args["cmd"]); object result = null;
-          if (command == "capture") result = Capture(args);
+          if (command == "store-info") result=StoreInfo(args);
+          else if (command == "store-move") result=MoveStore(args);
+          else if (command == "capture") result = Capture(args);
+          else if (command == "capture-preserved") { try { result=Capture(args); } finally { RestoreBasic(new List<Node>(Nodes.Values)); } }
           else if (command == "short-probe") ProbeShortNames(args);
           else if (command == "attach") Attach(args);
           else if (command == "seal") Seal(args);
+          else if (command == "seal-attached") { OriginalRoot=PathOf(RootNode().Handle); Seal(args); }
           else if (command == "restore") Restore(args);
           else if (command == "publish") Publish(args);
           else if (command == "finish-published") FinishPublished(args);
           else if (command == "publish-check") CheckPublication(args);
+          else if (command == "store-flush") FlushStoreDirectory(Str(args["root"]));
           else if (command == "verify") Verify(Convert.ToBoolean(args["cleared"]), true);
           else if (command == "close") { Close(); Console.WriteLine("{\"ok\":true}"); return; }
           else Reject("command_invalid");
@@ -94244,11 +94731,12 @@ function migrationCapsuleFail(reason, uncertain = false) {
     ...(uncertain ? { operationMayHaveExecuted: true, resultUnavailable: true, retry: false } : {}) });
 }
 function migrationCapsuleDescriptor(backup) {
-  const base = path.resolve(migrationDir(), MIGRATION_SKILL_BACKUP_DIR);
+  const base = path.resolve(migrationBackupRoot());
   const rel = path.relative(base, path.resolve(backup)).split(path.sep);
   if (rel.length !== 2 || !/^[0-9TZ-]+$/.test(rel[0]) || !SKILL_ID_RE.test(rel[1])) migrationCapsuleFail('binding');
   return { backup: path.join(base, ...rel), stamp: rel[0], id: rel[1],
-    scopeId: 'skill-backups:' + rel[0], recordId: 'skill-backup:' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1]) };
+    scopeId: 'skill-backups:' + rel[0], recordId: 'skill-backup:' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1]),
+    ...(migrationBackupAuthority?.variants.get(rel[0] + '/' + (process.platform === 'win32' ? rel[1].toLowerCase() : rel[1])) || {}) };
 }
 function migrationCapsuleShape(snapshot) {
   if (!snapshot || snapshot.schema !== 1 || snapshot.platform !== 'ntfs-objects-v1'
@@ -94324,9 +94812,9 @@ function migrationCapsuleDecode(bytes) {
     migrationCapsuleFail('shape');
   } finally { decoded.fill(0); }
 }
-function migrationCapsuleArchive(descriptor) {
+function migrationCapsuleArchive(descriptor, keys = descriptor.archiveKeys) {
   return WorkDataStore.createBinary({ file: () => path.join(descriptor.backup, 'archive'),
-    purpose: 'backup', schema: 1, scopeId: descriptor.scopeId, recordId: descriptor.recordId + ':archive',
+    purpose: 'backup', schema: 1, scopeId: descriptor.scopeId, recordId: descriptor.recordId + ':archive', keys,
     chunked: true, maxPlaintextBytes: 192 * 1024 * 1024, maxBinaryBytes: MIGRATION_CAPSULE_BINARY_LIMIT,
     enabled: async () => true, // this format has no plaintext capsule representation
     validateLegacyBinary: (bytes, context) => {
@@ -94337,10 +94825,18 @@ function migrationCapsuleArchive(descriptor) {
     }, writeJson: atomicWriteJson });
 }
 function migrationCapsuleIntentShape(value, descriptor) {
+  const converted = value?.conversion;
+  if (converted !== undefined && (!converted || converted.schema !== 1 || !/^[a-f0-9]{48}$/.test(converted.operationId || '')
+    || !['eligible', 'edited', 'gone'].includes(converted.eligibility))) return false;
+  const missing = converted?.eligibility === 'gone' && Array.isArray(value.newTree) && value.newTree.length === 0;
+  if (value?.historyPublish !== undefined && (!descriptor.plainRoot || value.phase !== 'complete'
+    || Object.keys(value.historyPublish || {}).sort().join(',') !== 'id,name,schema' || value.historyPublish.schema !== 1
+    || !/^[a-f0-9]{48}$/.test(value.historyPublish.name || '') || !/^[a-f0-9]{24}$/.test(value.historyPublish.id || ''))) return false;
   return !!value && value.schema === 1 && value.id === descriptor.id && value.stamp === descriptor.stamp
     && /^[a-f0-9]{64}$/.test(value.revision || '') && ['preparing', 'ready', 'published', 'restoring', 'complete', 'aborted'].includes(value.phase)
-    && /^[a-f0-9]{24}$/.test(value.oldRoot || '') && migrationCapsuleFingerprintShape(value.newTree)
-    && value.newTree.find(entry => entry.rel === '').id !== value.oldRoot
+    && /^[a-f0-9]{24}$/.test(value.oldRoot || '') && (missing || migrationCapsuleFingerprintShape(value.newTree))
+    && (missing || value.newTree.find(entry => entry.rel === '').id !== value.oldRoot)
+    && (!descriptor.generationId || value.generationId === descriptor.generationId)
     && value.sourceStage === MIGRATION_SKILL_STAGE_PREFIX + descriptor.id + '-' + descriptor.stamp;
 }
 function migrationCapsuleFingerprintShape(entries) {
@@ -94370,10 +94866,10 @@ function migrationCapsuleFingerprintShape(entries) {
   return directories.has('') && entries.every(entry => !entry.rel || directories.has(entry.rel.includes('/')
     ? entry.rel.slice(0, entry.rel.lastIndexOf('/')).toLowerCase() : ''));
 }
-function migrationCapsuleIntent(descriptor) {
-  const file = () => path.join(descriptor.backup, 'intent');
+function migrationCapsuleIntent(descriptor, keys = descriptor.intentKeys) {
+  const file = () => descriptor.intentFile || path.join(descriptor.backup, 'intent');
   const store = onAuthenticated => WorkDataStore.createText({ file, purpose: 'backup', schema: 1,
-    scopeId: descriptor.scopeId, recordId: descriptor.recordId + ':intent', chunked: true, maxPlaintextBytes: 16 * 1024 * 1024,
+    scopeId: descriptor.scopeId, recordId: descriptor.intentRecordId || descriptor.recordId + ':intent', keys, chunked: true, maxPlaintextBytes: 16 * 1024 * 1024,
     enabled: async () => true,
     validateSealedText: text => {
       const valid = migrationCapsuleIntentShape(safeJsonParse(text, null), descriptor);
@@ -94406,7 +94902,7 @@ async function migrationCapsuleRequireCarrier(file, descriptor, kind) {
         || Object.keys(header).sort().join(',') !== 'format,instanceId,keyId,manifest,purpose,recordId,revision,schema,scopeId,seq,workData'
         || header.workData !== 3 || header.format !== 'chunks-v1' || header.purpose !== 'backup'
         || header.schema !== 1 || header.seq !== 1 || header.scopeId !== descriptor.scopeId
-        || header.recordId !== descriptor.recordId + ':' + kind
+        || header.recordId !== (kind === 'intent' && descriptor.intentRecordId || descriptor.recordId + ':' + kind)
         || typeof header.instanceId !== 'string' || typeof header.keyId !== 'string'
         || !/^[a-f0-9]{32}$/.test(header.revision || '') || !header.manifest || typeof header.manifest !== 'object' || Array.isArray(header.manifest)) migrationCapsuleFail('carrier');
   } finally { await handle.close(); }
@@ -94415,12 +94911,12 @@ async function migrationCapsuleWriteIntent(descriptor, intent) {
   if (!migrationCapsuleIntentShape(intent, descriptor)) migrationCapsuleFail('intent');
   // Recovery keeps this private authority sealed even if the switch changed after
   // preparing. Ordinary OFF undo is rejected separately, before touching live data.
-  const lease = await WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys());
+  const lease = await WorkDataStore.acquireSnapshot(descriptor.intentKeys || WorkDataStore.requireKeys());
   await lease.release();
   await migrationCapsuleIntent(descriptor).write(JSON.stringify(intent));
 }
 async function migrationCapsuleRead(descriptor) {
-  const archiveFile = path.join(descriptor.backup, 'archive'), intentFile = path.join(descriptor.backup, 'intent');
+  const archiveFile = path.join(descriptor.backup, 'archive'), intentFile = descriptor.intentFile || path.join(descriptor.backup, 'intent');
   // These two private records have no plaintext alternate encoding. A malformed or
   // displaced carrier cannot be reclassified as an old renamed skill directory.
   await migrationCapsuleRequireCarrier(archiveFile, descriptor, 'archive');
@@ -94433,8 +94929,37 @@ async function migrationCapsuleRead(descriptor) {
       || snapshot.entries.find(entry => entry.rel === '').id !== intent.oldRoot) migrationCapsuleFail('binding');
   return { snapshot, intent };
 }
-async function migrationCapsulePresent(backup) {
-  const descriptor = migrationCapsuleDescriptor(backup);
+const MIGRATION_BACKUP_HISTORY_MARKER = '.ruyi-backup-history-v1';
+function migrationBackupHistoryShape(value, descriptor) {
+  return value && Object.keys(value).sort().join(',') === 'historyOnly,id,phase,schema,snapshot,stamp,type'
+    && value.schema === 1 && value.type === 'terminal-skill-backup-history' && value.historyOnly === true
+    && value.id === descriptor.id && value.stamp === descriptor.stamp && ['complete', 'aborted'].includes(value.phase)
+    && migrationCapsuleShape(value.snapshot);
+}
+function migrationBackupHistoryStore(descriptor, mode, onAuthenticated) {
+  return WorkDataStore.createText({ file: () => path.join(descriptor.backup, 'history'), purpose: 'backup', schema: 1,
+    scopeId: 'skill-backup-history:' + descriptor.stamp, recordId: descriptor.recordId + ':history', keys: descriptor.archiveKeys,
+    chunked: true, maxPlaintextBytes: MIGRATION_CAPSULE_ARCHIVE_LIMIT, enabled: async () => mode === 'encrypted', writeJson: atomicWriteJson,
+    validateSealedText: text => { const valid = migrationBackupHistoryShape(safeJsonParse(text, null), descriptor); if (valid && onAuthenticated) onAuthenticated(); return valid; } });
+}
+async function migrationReadBackupHistory(backup, descriptor = migrationCapsuleDescriptor(backup)) {
+  descriptor = { ...descriptor, backup };
+  const marker = path.join(backup, MIGRATION_BACKUP_HISTORY_MARKER);
+  let present; try { present = await fsp.lstat(marker); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  if (!present) return null;
+  if (!present.isFile() || present.isSymbolicLink() || present.nlink !== 1 || present.size > 128) migrationCapsuleFail('history_marker');
+  const header = safeJsonParse(await fsp.readFile(marker, 'utf8'), null);
+  if (!header || Object.keys(header).sort().join(',') !== 'mode,schema' || header.schema !== 1 || !['plain', 'encrypted'].includes(header.mode)) migrationCapsuleFail('history_marker');
+  const file = path.join(backup, 'history'), stat = await fsp.lstat(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > MIGRATION_CAPSULE_BINARY_LIMIT * 2) migrationCapsuleFail('history_shape');
+  let authenticated = false;
+  const text = await migrationBackupHistoryStore(descriptor, header.mode, () => { authenticated = true; }).read();
+  const value = safeJsonParse(text, null);
+  if (!migrationBackupHistoryShape(value, descriptor) || authenticated !== (header.mode === 'encrypted')) migrationCapsuleFail('history_carrier');
+  return { ...value, mode: header.mode };
+}
+async function migrationCapsulePresent(backup, descriptor = migrationCapsuleDescriptor(backup)) {
+  if (await migrationReadBackupHistory(backup, descriptor)) return false;
   for (const name of [MIGRATION_CAPSULE_MARKER, 'archive', 'intent']) {
     const file = path.join(backup, name), stat = await migrationLstat(file);
     if (!stat) continue;
@@ -94530,7 +95055,7 @@ async function migrationCapsuleFinishPublished(descriptor, snapshot, dest) {
 }
 async function migrationCapsuleRoots(descriptor, intent) {
   const roots = [], objects = path.join(descriptor.backup, 'objects');
-  for (const candidate of [migrationSkillTarget(descriptor.id), path.join(descriptor.backup, 'restored', intent.oldRoot)]) {
+  for (const candidate of [descriptor.plainRoot, migrationSkillTarget(descriptor.id), path.join(descriptor.backup, 'restored', intent.oldRoot)].filter(Boolean)) {
     const stat = await migrationLstat(candidate);
     if (!stat) continue;
     // A ready copy is a different root; it must never enter the old-object scan.
@@ -94539,6 +95064,55 @@ async function migrationCapsuleRoots(descriptor, intent) {
   }
   for (const entry of await fsp.readdir(objects, { withFileTypes: true })) roots.push(path.join(objects, entry.name));
   return roots;
+}
+async function migrationCapsuleCapturePreserved(root, revision) {
+  const broker = await migrationCapsuleBroker();
+  try { const snapshot = await broker.command({ cmd: 'capture-preserved', root, revision }); if (!migrationCapsuleShape(snapshot)) migrationCapsuleFail('shape'); return snapshot; }
+  finally { await broker.close(); }
+}
+function migrationCapsuleSameMetadata(actual, expected) {
+  if (!migrationCapsuleSame(actual, migrationCapsuleFingerprint(expected))) return false;
+  const expectedById = new Map(expected.entries.map(entry => [entry.id, entry]));
+  return actual.entries.every(entry => {
+    const source = expectedById.get(entry.id);
+    return source && entry.attrs === source.attrs && entry.shortName === source.shortName && JSON.stringify(entry.times) === JSON.stringify(source.times);
+  });
+}
+async function migrationFinishPlainHistory(descriptor, snapshot, intent) {
+  if (!descriptor.plainRoot || intent.phase !== 'complete') return;
+  const target = descriptor.plainRoot, host = descriptor.historyHost;
+  if (!host || ['directory', 'info', 'move', 'flush'].some(name => typeof host[name] !== 'function')) migrationCapsuleFail('plain_history_host', true);
+  await host.directory(descriptor.backup); await host.directory(path.dirname(target));
+  const parent = path.join(descriptor.backup, 'history-stage');
+  await host.directory(parent, true); await fsp.mkdir(parent).catch(error => { if (error.code !== 'EEXIST') throw error; }); await host.directory(parent);
+  if (!intent.historyPublish) {
+    if (await migrationLstat(target)) migrationCapsuleFail('plain_history_conflict', true);
+    const name = crypto.randomBytes(24).toString('hex'), stage = path.join(parent, name);
+    await fsp.mkdir(stage); await host.directory(stage);
+    const staged = { ...descriptor, backup: stage };
+    await migrationBackupHistoryStore(staged, 'plain').write(JSON.stringify({ schema: 1, type: 'terminal-skill-backup-history', historyOnly: true,
+      id: descriptor.id, stamp: descriptor.stamp, phase: 'complete', snapshot }));
+    await atomicWriteJson(path.join(stage, MIGRATION_BACKUP_HISTORY_MARKER), { schema: 1, mode: 'plain' });
+    await host.flush([stage, parent, descriptor.backup]);
+    intent.historyPublish = { schema: 1, name, id: (await host.info(stage)).id };
+    await migrationCapsuleWriteIntent(descriptor, intent); await host.flush([descriptor.backup]);
+  }
+  const stage = path.join(parent, intent.historyPublish.name), locations = [];
+  for (const candidate of [stage, target]) {
+    let stat; try { stat = await fsp.lstat(candidate); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+    if (!stat.isDirectory() || stat.isSymbolicLink() || (await host.info(candidate)).id !== intent.historyPublish.id) migrationCapsuleFail('plain_history_conflict', true);
+    if ((await fsp.readdir(candidate)).sort().join(',') !== [MIGRATION_BACKUP_HISTORY_MARKER, 'history'].sort().join(',')) migrationCapsuleFail('plain_history_conflict', true);
+    const existing = await migrationReadBackupHistory(candidate, { ...descriptor, backup: candidate });
+    if (!existing || existing.mode !== 'plain' || existing.phase !== 'complete' || JSON.stringify(existing.snapshot) !== JSON.stringify(snapshot)) migrationCapsuleFail('plain_history_conflict', true);
+    locations.push(candidate);
+  }
+  if (locations.length !== 1) migrationCapsuleFail('plain_history_conflict', true);
+  // The old objects are now live. This newly owned directory is typed history,
+  // never a recreated set of objects claiming those historical native IDs.
+  if (locations[0] === stage) {
+    const moved = await host.move({ source: stage, target, id: intent.historyPublish.id });
+    if (!moved || moved.id !== intent.historyPublish.id) migrationCapsuleFail('plain_history_conflict', true);
+  }
 }
 async function migrationCapsuleRestore(descriptor, snapshot, intent, undo) {
   const broker = await migrationCapsuleBroker(), dest = migrationSkillTarget(descriptor.id);
@@ -94568,6 +95142,7 @@ async function migrationCapsuleRestore(descriptor, snapshot, intent, undo) {
     await migrationCapsuleAssertTree(retired, intent.newTree, intent.revision);
     await fsp.rm(retired, { recursive: true });
   }
+  await migrationFinishPlainHistory(descriptor, snapshot, intent);
 }
 async function migrationCapsulePrepare(dest, stage, backup) {
   const descriptor = migrationCapsuleDescriptor(backup), revision = crypto.randomBytes(32).toString('hex');
@@ -94619,7 +95194,7 @@ async function migrationCapsulePrepare(dest, stage, backup) {
   } finally { await broker.close(); }
 }
 async function migrationRecoverSkillBackups() {
-  const root = path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR);
+  const root = migrationBackupRoot();
   try {
     const stat = await fsp.lstat(root);
     if (!stat.isDirectory() || stat.isSymbolicLink()) migrationCapsuleFail('backup_root');
@@ -94627,32 +95202,43 @@ async function migrationRecoverSkillBackups() {
   let batches;
   try { batches = await fsp.readdir(root, { withFileTypes: true }); }
   catch (error) { if (error.code === 'ENOENT') return; throw error; }
+  const work = [];
   for (const batch of batches) {
     if (!/^[0-9TZ-]+$/.test(batch.name)) continue;
     if (!batch.isDirectory() || batch.isSymbolicLink()) migrationCapsuleFail('backup_root');
     for (const entry of await fsp.readdir(path.join(root, batch.name), { withFileTypes: true })) {
       const backup = path.join(root, batch.name, entry.name);
-      if (!entry.isDirectory() || entry.isSymbolicLink() || !await migrationCapsulePresent(backup)) continue;
+      work.push({ backup, entry });
+    }
+  }
+  for (const record of migrationBackupAuthority?.plainRecords || []) if (!work.some(item => samePathKey(item.backup) === samePathKey(record.backup)))
+    work.push({ backup: record.backup, entry: { isDirectory: () => true, isSymbolicLink: () => false } });
+  for (const { backup, entry } of work) {
       const descriptor = migrationCapsuleDescriptor(backup);
+      if (!descriptor.plainRoot && entry.isDirectory() && !entry.isSymbolicLink() && await migrationReadBackupHistory(backup)) continue; // Terminal history never replays an original-object restore.
+      if (!entry.isDirectory() || entry.isSymbolicLink() || !descriptor.plainRoot && !await migrationCapsulePresent(backup)) continue;
       // Before intent publication the live objects are untouched. Keep orphaned
       // encrypted archives for inspection; they are never interpreted as live trees.
-      if (!await migrationLstat(path.join(backup, 'intent'))) {
-        if ((await fsp.readdir(path.join(backup, 'objects'))).length) migrationCapsuleFail('intent_missing', true);
+      if (!await migrationLstat(descriptor.intentFile || path.join(descriptor.backup, 'intent'))) {
+        if ((await fsp.readdir(path.join(descriptor.backup, 'objects'))).length) migrationCapsuleFail('intent_missing', true);
         continue;
       }
       const { snapshot, intent } = await migrationCapsuleRead(descriptor);
       const dest = migrationSkillTarget(descriptor.id), stat = await migrationLstat(dest);
       const oldPublished = stat && !stat.isSymbolicLink() && (await fsp.stat(dest, { bigint: true })).ino.toString(16).padStart(16, '0') === intent.oldRoot.slice(8);
       if (['complete', 'aborted'].includes(intent.phase)) {
-        const retired = path.join(backup, 'retired');
+        const retired = path.join(descriptor.backup, 'retired');
         if (await migrationLstat(retired)) {
           await migrationCapsuleAssertTree(retired, intent.newTree, intent.revision);
           await fsp.rm(retired, { recursive: true });
         }
-        continue;
+        await migrationFinishPlainHistory(descriptor, snapshot, intent); continue;
       }
       if (intent.phase === 'published') {
-        await migrationCapsuleVerifyReady(descriptor, snapshot);
+        if (descriptor.plainRoot) {
+          const captured = await migrationCapsuleCapturePreserved(descriptor.plainRoot, intent.revision);
+          if (!migrationCapsuleSameMetadata(captured, snapshot)) migrationCapsuleFail('plain_backup_changed', true);
+        } else await migrationCapsuleVerifyReady(descriptor, snapshot);
         continue; // users may edit/remove their live skill after a committed publication
       }
       if (intent.phase === 'ready' && stat && !oldPublished) {
@@ -94666,23 +95252,24 @@ async function migrationRecoverSkillBackups() {
       if (intent.phase === 'restoring' && oldPublished) {
         await migrationCapsuleFinishPublished(descriptor, snapshot, dest);
         intent.phase = 'complete'; await migrationCapsuleWriteIntent(descriptor, intent);
-        const retired = path.join(backup, 'retired');
+        const retired = path.join(descriptor.backup, 'retired');
         if (await migrationLstat(retired)) {
           await migrationCapsuleAssertTree(retired, intent.newTree, intent.revision);
           await fsp.rm(retired, { recursive: true });
         }
-        continue;
+        await migrationFinishPlainHistory(descriptor, snapshot, intent); continue;
       }
       await migrationCapsuleRestore(descriptor, snapshot, intent, intent.phase === 'restoring');
-    }
   }
 }
 async function migrationUndoCapsule(backup, item, dest) {
-  if ((await readConfig()).workDataEncryptionV1 !== true) migrationCapsuleFail('downgrade_refused');
   const descriptor = migrationCapsuleDescriptor(backup);
+  if ((await readConfig()).workDataEncryptionV1 !== true && !descriptor.plainRoot) migrationCapsuleFail('downgrade_refused');
   if (descriptor.id !== item.id) migrationCapsuleFail('binding');
   const { snapshot, intent } = await migrationCapsuleRead(descriptor);
-  if (intent.phase === 'complete') return { id: item.id, outcome: 'restored-previous' };
+  const eligibility = migrationBackupAuthority?.eligibility.get(descriptor.stamp + '/' + (process.platform === 'win32' ? descriptor.id.toLowerCase() : descriptor.id)) || intent.conversion?.eligibility;
+  if (eligibility && ['gone', 'edited'].includes(eligibility)) return { id: item.id, outcome: 'kept', reason: eligibility };
+  if (intent.phase === 'complete') { await migrationFinishPlainHistory(descriptor, snapshot, intent); return { id: item.id, outcome: 'restored-previous' }; }
   if (!['ready', 'published'].includes(intent.phase)) migrationCapsuleFail('phase', true);
   const stat = await migrationLstat(dest);
   if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) return { id: item.id, outcome: 'kept', reason: 'gone' };
@@ -94731,7 +95318,7 @@ async function migrationCopyOneSkill(row, ts) {
     if (existing) {
       if (existing.isSymbolicLink() || !existing.isDirectory()) throw new Error('target is not a directory');
       // 旧副本整体挪进迁移目录留底(撤销时换回来),不就地覆盖。
-      const bdir = path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR, ts);
+      const bdir = path.join(migrationBackupRoot(), ts);
       await fsp.mkdir(bdir, { recursive: true });
       backup = path.join(bdir, row.id);
       if (sealBackup) {
@@ -94741,7 +95328,8 @@ async function migrationCopyOneSkill(row, ts) {
       }
     }
     if (!existing || !sealBackup) await fsp.rename(stage, dest);
-    return { ok: true, action: existing ? 'updated' : 'created', copyTreeHash, backup, skippedLinks: tree.links };
+    return { ok: true, action: existing ? 'updated' : 'created', copyTreeHash, backup,
+      ...(backup && migrationBackupAuthority ? { backupRef: migrationBackupAuthority.makeRef(ts, row.id) } : {}), skippedLinks: tree.links };
   } catch (e) {
     await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
     if (backup && !await migrationCapsulePresent(backup) && !(await migrationLstat(dest))) await fsp.rename(backup, dest).catch(() => {});
@@ -94791,7 +95379,7 @@ async function migrationCopySkills(body) {
       }
       if (!r.ok) { results.push({ ...base, outcome: 'rejected', reason: r.reason, detail: r.detail || '' }); continue; }
       results.push({ ...base, outcome: r.action, skippedLinks: r.skippedLinks });
-      log.files.push({ file: migrationSkillTarget(row.id), kind: 'skill-copy', backup: r.backup,
+      log.files.push({ file: migrationSkillTarget(row.id), kind: 'skill-copy', backup: r.backup, ...(r.backupRef ? { backupRef: r.backupRef } : {}),
         items: [{ key, id: row.id, source: row.source, plugin: row.plugin, action: r.action, copyTreeHash: r.copyTreeHash }] });
     }
     const copied = log.files.length;
@@ -94809,9 +95397,17 @@ async function migrationCopySkills(body) {
 async function migrationUndoSkillCopy(f) {
   const item = (f.items || [])[0] || {};
   const dest = migrationSkillTarget(item.id);
-  if (!dest || samePathKey(dest) !== samePathKey(String(f.file || ''))) return { id: String(item.id || ''), outcome: 'kept', reason: 'invalid-log' };
-  const backupRoot = samePathKey(path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR));
-  const backup = f.backup && migrationPathInside(samePathKey(f.backup), backupRoot) ? f.backup : '';
+  const fileKey = samePathKey(String(f.file || ''));
+  const legacyFile = migrationBackupAuthority?.legacySkillRoots.some(root => fileKey === samePathKey(path.join(root, String(item.id || ''))));
+  if (!dest || fileKey !== samePathKey(dest) && !legacyFile) return { id: String(item.id || ''), outcome: 'kept', reason: 'invalid-log' };
+  const backupRoot = samePathKey(migrationBackupRoot());
+  const requestedBackup = migrationBackupAuthority && f.backupRef ? await migrationBackupAuthority.resolveRef(f.backupRef) : migrationBackupAuthority && f.backup ? await migrationBackupAuthority.resolveLegacy(f.backup) : f.backup;
+  const backup = requestedBackup && migrationPathInside(samePathKey(requestedBackup), backupRoot) ? requestedBackup : '';
+  if (backup) {
+    const history = await migrationReadBackupHistory(backup);
+    if (history) return history.phase === 'complete' ? { id: item.id, outcome: 'restored-previous' } : { id: item.id, outcome: 'kept', reason: 'aborted' };
+  }
+  if (backup && migrationCapsuleDescriptor(backup).plainRoot) return migrationUndoCapsule(backup, item, dest);
   if (backup && await migrationCapsulePresent(backup)) return migrationUndoCapsule(backup, item, dest);
   const st = await migrationLstat(dest);
   if (!st || st.isSymbolicLink() || !st.isDirectory()) return { id: item.id, outcome: 'kept', reason: 'gone' };
@@ -95311,8 +95907,785 @@ async function migrationRecycle(body) {
   });
 }
 
+// M3-3 local backup owner. The lifecycle host holds its transition gate and drains
+// writers before calling this API. Original backup objects never enter fs.cp/codecs.
+function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys = sourceKeys, native } = {}) {
+  if (typeof base !== 'string' || !path.isAbsolute(base) || typeof readActive !== 'function') migrationCapsuleFail('owner_host');
+  // This local batch keeps one existing work-data master. Rotation/portable keys
+  // need a per-backup key-reference map and are deliberately not implied here.
+  if (targetKeys !== sourceKeys) migrationCapsuleFail('owner_key_rotation_unavailable');
+  base = path.resolve(base);
+  const control = path.join(base, '.work-data', 'skill-backups');
+  const legacyRoot = path.join(base, 'migrations', MIGRATION_SKILL_BACKUP_DIR), stableRoot = path.join(control, 'objects-v1');
+  const generationRoot = id => path.join(base, '.work-data', 'generations', id);
+  const hash = value => crypto.createHash('sha256').update(value).digest('hex');
+  const id48 = value => typeof value === 'string' && /^[a-f0-9]{48}$/.test(value);
+  const id24 = value => typeof value === 'string' && /^[a-f0-9]{24}$/.test(value);
+  const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+  const exact = (value, keys) => value && !Array.isArray(value) && typeof value === 'object' && Object.keys(value).sort().join(',') === keys.split(',').sort().join(',');
+  const eq = (a, b) => samePathKey(a) === samePathKey(b);
+  const plans = new WeakMap();
+  const platform = native || {
+    info: async root => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'store-info', root }); } finally { await broker.close(); } },
+    move: async args => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'store-move', ...args }); } finally { await broker.close(); } },
+    capture: migrationCapsuleCapture,
+  };
+  if (typeof platform.info !== 'function' || typeof platform.move !== 'function' || typeof platform.capture !== 'function') migrationCapsuleFail('owner_host');
+  async function stat(file) { try { return await fsp.lstat(file); } catch (error) { if (error.code === 'ENOENT') return null; throw error; } }
+  async function directory(file, missing = false) {
+    const absolute = path.resolve(file), volume = path.parse(absolute).root;
+    let cursor = volume;
+    for (const part of ['', ...absolute.slice(volume.length).split(path.sep).filter(Boolean)]) {
+      if (part) cursor = path.join(cursor, part);
+      const value = await stat(cursor);
+      if (!value) { if (missing) return false; migrationCapsuleFail('owner_directory'); }
+      if (!value.isDirectory() || value.isSymbolicLink() || !eq(await fsp.realpath(cursor), cursor)) migrationCapsuleFail('owner_directory');
+    }
+    return true;
+  }
+  async function ensureControl() {
+    await directory(base); await directory(control, true);
+    await fsp.mkdir(control, { recursive: true }); await directory(control);
+  }
+  function ref(stamp, skillId, storeId) {
+    if (typeof stamp !== 'string' || !/^[0-9TZ-]+$/.test(stamp) || typeof skillId !== 'string' || !SKILL_ID_RE.test(skillId) || !id48(storeId)) migrationCapsuleFail('backup_ref');
+    const canonical = process.platform === 'win32' ? skillId.toLowerCase() : skillId;
+    return Object.freeze({ schema: 2, storeId, stamp, skillId: canonical, backupId: hash(stamp + '/' + canonical) });
+  }
+  function refValid(value) {
+    if (!exact(value, 'schema,storeId,stamp,skillId,backupId') || value.schema !== 2) return false;
+    try { const canonical = ref(value.stamp, value.skillId, value.storeId); return canonical.skillId === value.skillId && canonical.backupId === value.backupId; } catch { return false; }
+  }
+  function journalValid(value) {
+    return exact(value, 'schema,operationId,storeId,rootId,volume,sourceProof,targetId,phase') && value.schema === 1
+      && id48(value.operationId) && id48(value.storeId) && id24(value.rootId) && typeof value.volume === 'string'
+      && (value.sourceProof === null || hex(value.sourceProof)) && id48(value.targetId)
+      && ['prepared', 'moved', 'kept', 'canceled'].includes(value.phase);
+  }
+  function catalogValid(value) {
+    return exact(value, 'schema,storeId,rootId,volume') && value.schema === 1 && id48(value.storeId) && id24(value.rootId) && typeof value.volume === 'string';
+  }
+  function bindingValid(value) {
+    return (exact(value, 'schema,generationId,storeId,sourceProof,sourceRootIds,ready,entries') || exact(value, 'schema,generationId,storeId,sourceProof,sourceRootIds,mode,ready,entries'))
+      && (value.mode === undefined || ['plain', 'encrypted'].includes(value.mode)) && value.schema === 2 && id48(value.generationId)
+      && id48(value.storeId) && (value.sourceProof === null || hex(value.sourceProof)) && typeof value.ready === 'boolean'
+      && Array.isArray(value.sourceRootIds) && value.sourceRootIds.length > 0 && value.sourceRootIds.length <= 10000
+      && value.sourceRootIds.every(id => id === null || id48(id)) && new Set(value.sourceRootIds).size === value.sourceRootIds.length
+      && Array.isArray(value.entries) && value.entries.every(entry => refValid(entry.ref) && entry.ref.storeId === value.storeId
+        && (entry.kind === undefined || entry.kind === 'plain' && value.mode === 'plain' && ['published', 'complete'].includes(entry.phase)
+          || entry.kind === 'history' && entry.historyMode === (value.mode || 'encrypted') && ['complete', 'aborted'].includes(entry.phase))
+        && SKILL_ID_RE.test(entry.physicalSkillId || '') && ref(entry.ref.stamp, entry.physicalSkillId, value.storeId).skillId === entry.ref.skillId
+        && ['published', 'complete', 'aborted', 'plain'].includes(entry.phase)
+        && ['eligible', 'edited', 'gone', 'terminal', 'plain-owner-required'].includes(entry.eligibility)
+        && (entry.phase === 'plain' || entry.sourceGenerationId === null || id48(entry.sourceGenerationId))
+        && (entry.phase === 'plain' || hex(entry.archiveSha) && hex(entry.intentSha))
+        && (entry.eligibility !== 'eligible' || migrationCapsuleFingerprintShape(entry.newTree)));
+  }
+  function sealed(file, recordId, validate, keys = targetKeys) {
+    const store = authenticated => WorkDataStore.createText({ file: () => file, purpose: 'backup', schema: 1, scopeId: 'skill-backup-owner:' + hash(samePathKey(base)).slice(0, 32), recordId,
+      keys, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024, enabled: async () => true, writeJson: atomicWriteJson,
+      validateSealedText: text => { const valid = validate(safeJsonParse(text, null)); if (valid && authenticated) authenticated(); return valid; } });
+    return { write: async value => { if (!validate(value)) migrationCapsuleFail('owner_shape'); await store().write(JSON.stringify(value)); }, read: async () => {
+      if (!await stat(file)) return null;
+      let authenticated = false; const text = await store(() => { authenticated = true; }).read();
+      if (!authenticated) migrationCapsuleFail('carrier'); return JSON.parse(text);
+    } };
+  }
+  const journalStore = () => sealed(path.join(control, 'relocation-v1.sealed'), 'relocation-v1', journalValid);
+  const catalogStore = () => sealed(path.join(control, 'catalog-v1.sealed'), 'catalog-v1', catalogValid);
+  const bindingsStore = (id, keys = targetKeys) => sealed(path.join(generationRoot(id), 'migrations', 'skill-backup-bindings-v2.sealed'), 'bindings:' + id, bindingValid, keys);
+  async function active() {
+    const value = await readActive();
+    if (!value || !value.proof || (value.proof.raw !== null && typeof value.proof.raw !== 'string')
+        || value.proof.sha256 !== (value.proof.raw === null ? null : hash(value.proof.raw))
+        || value.id !== null && !id48(value.id)
+        || !eq(value.root, value.id === null ? base : generationRoot(value.id))) migrationCapsuleFail('owner_manifest');
+    return value;
+  }
+  async function current(expected) {
+    const value = await active();
+    if (!expected?.proof || typeof expected.root !== 'string' || !eq(value.root, expected.root) || value.proof.raw !== expected.proof.raw || value.proof.sha256 !== expected.proof.sha256 || value.id !== expected.id) migrationCapsuleFail('generation_changed');
+    return value;
+  }
+  function candidateValid(candidate) { return candidate && id48(candidate.id) && typeof candidate.root === 'string' && eq(candidate.root, generationRoot(candidate.id)); }
+  async function location(journal) {
+    const rows = [];
+    for (const root of [legacyRoot, stableRoot]) {
+      if (!await directory(root, true)) continue;
+      const info = await platform.info(root);
+      if (info.id !== journal.rootId || info.volume !== journal.volume) migrationCapsuleFail('store_identity', true);
+      rows.push({ root, info });
+    }
+    if (rows.length !== 1) migrationCapsuleFail('store_location', true);
+    return rows[0].root;
+  }
+  async function relocate(journal, target) {
+    const source = await location(journal);
+    if (eq(source, target)) return;
+    await directory(path.dirname(target));
+    let moved;
+    try { moved = await platform.move({ source, target, id: journal.rootId }); }
+    catch (error) { error.operationMayHaveExecuted = true; error.resultUnavailable = true; error.retry = false; throw error; }
+    if (!moved || moved.id !== journal.rootId || moved.volume !== journal.volume || !eq(await location(journal), target)) migrationCapsuleFail('store_identity', true);
+  }
+  async function prepare({ expected, candidate } = {}) {
+    expected = Object.freeze({ id: expected?.id, root: expected?.root, proof: Object.freeze({ ...expected?.proof }) });
+    candidate = Object.freeze({ id: candidate?.id, root: candidate?.root, mode: candidate?.mode });
+    await current(expected);
+    if (!candidateValid(candidate)) migrationCapsuleFail('owner_candidate');
+    await directory(candidate.root); await ensureControl();
+    const catalog = await catalogStore().read();
+    if (catalog) {
+      await directory(stableRoot); const info = await platform.info(stableRoot);
+      if (info.id !== catalog.rootId || info.volume !== catalog.volume) migrationCapsuleFail('store_identity');
+      const token = Object.freeze({ storeId: catalog.storeId, root: stableRoot, moved: false });
+      plans.set(token, { expected, candidate, catalog }); return token;
+    }
+    let journal = await journalStore().read();
+    if (journal && ['prepared', 'moved'].includes(journal.phase)) {
+      if (journal.targetId !== candidate.id || journal.sourceProof !== expected.proof.sha256) migrationCapsuleFail('owner_busy', true);
+    } else {
+      if (await stat(stableRoot)) migrationCapsuleFail('store_unowned');
+      if (!await directory(legacyRoot, true)) { await fsp.mkdir(legacyRoot, { recursive: true }); await directory(legacyRoot); }
+      const info = await platform.info(legacyRoot);
+      if (!id24(info.id) || typeof info.volume !== 'string') migrationCapsuleFail('store_identity');
+      journal = { schema: 1, operationId: crypto.randomBytes(24).toString('hex'), storeId: crypto.randomBytes(24).toString('hex'),
+        rootId: info.id, volume: info.volume, sourceProof: expected.proof.sha256, targetId: candidate.id, phase: 'prepared' };
+      await journalStore().write(journal);
+    }
+    await current(expected); await relocate(journal, stableRoot);
+    journal.phase = 'moved'; await journalStore().write(journal);
+    const token = Object.freeze({ storeId: journal.storeId, root: stableRoot, moved: true });
+    plans.set(token, { expected, candidate, journal }); return token;
+  }
+  async function recover() {
+    await recoverRepresentation();
+    await directory(control, true); const journal = await journalStore().read();
+    if (!journal || ['kept', 'canceled'].includes(journal.phase)) return journal;
+    const selected = await active(), keep = selected.id === journal.targetId;
+    if (!keep && selected.proof.sha256 !== journal.sourceProof) migrationCapsuleFail('owner_manifest', true);
+    const existingCatalog = await catalogStore().read();
+    if (existingCatalog && (!keep || existingCatalog.storeId !== journal.storeId || existingCatalog.rootId !== journal.rootId || existingCatalog.volume !== journal.volume)) migrationCapsuleFail('owner_catalog', true);
+    await relocate(journal, keep ? stableRoot : legacyRoot);
+    if (keep) await catalogStore().write({ schema: 1, storeId: journal.storeId, rootId: journal.rootId, volume: journal.volume });
+    journal.phase = keep ? 'kept' : 'canceled'; await journalStore().write(journal);
+    return Object.freeze({ phase: journal.phase, root: keep ? stableRoot : legacyRoot, storeId: journal.storeId });
+  }
+  function descriptor(root, stamp, skillId) {
+    return { backup: path.join(root, stamp, skillId), stamp, id: skillId, scopeId: 'skill-backups:' + stamp,
+      recordId: 'skill-backup:' + (process.platform === 'win32' ? skillId.toLowerCase() : skillId), archiveKeys: sourceKeys, intentKeys: sourceKeys };
+  }
+  async function fileHash(file) { const digest = crypto.createHash('sha256'); for await (const bytes of fs.createReadStream(file)) digest.update(bytes); return digest.digest('hex'); }
+  async function provenance(root, skillId, keys) {
+    return WorkDataStore.createText({ file: () => path.join(root, SKILL_IMPORT_RECORD), purpose: 'backup', schema: 1, scopeId: 'skills',
+      recordId: 'skill-import:' + (process.platform === 'win32' ? skillId.toLowerCase() : skillId), keys, chunked: true, maxPlaintextBytes: 16 * 1024,
+      enabled: async () => true, writeJson: atomicWriteJson, validateSealedText: text => Buffer.byteLength(text, 'utf8') <= 16 * 1024 }).read();
+  }
+  async function equivalent(source, target, sourcePath, targetPath, skillId) {
+    const expected = migrationCapsuleFingerprint(source), actual = migrationCapsuleFingerprint(target);
+    if (expected.length !== actual.length) migrationCapsuleFail('binding_tree');
+    let reencoded = false;
+    for (let index = 0; index < expected.length; index++) {
+      const a = expected[index], b = actual[index];
+      if (a.rel !== b.rel || a.dir !== b.dir || a.streams.length !== b.streams.length) migrationCapsuleFail('binding_tree');
+      for (let ordinal = 0; ordinal < a.streams.length; ordinal++) {
+        const left = a.streams[ordinal], right = b.streams[ordinal];
+        if (left.name !== right.name) migrationCapsuleFail('binding_tree');
+        if (left.hash === right.hash && left.size === right.size) continue;
+        if (a.rel !== SKILL_IMPORT_RECORD || left.name !== '') migrationCapsuleFail('binding_tree');
+        if (await provenance(sourcePath, skillId, sourceKeys) !== await provenance(targetPath, skillId, targetKeys)) migrationCapsuleFail('binding_provenance');
+        reencoded = true;
+      }
+    }
+    return reencoded;
+  }
+  function plainDescriptor(entry, generationId) {
+    const source = descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId);
+    return { ...source, backup: path.join(control, 'plain-v1', generationId, entry.ref.backupId), plainRoot: source.backup, generationId,
+      intentRecordId: source.recordId + ':intent:' + generationId, archiveKeys: sourceKeys, intentKeys: targetKeys,
+      historyHost: Object.freeze({ ...conversionNative, directory }) };
+  }
+  async function preparePlainBinding(owned, token, backupRef, physicalSkillId, priorBinding) {
+    requireConversionNative();
+    const entry = { ref: backupRef, physicalSkillId, kind: 'plain', phase: 'published', eligibility: 'edited', newTree: null,
+      archiveSha: '', intentSha: '', sourceGenerationId: null };
+    const source = plainDescriptor(entry, owned.candidate.id), revision = hash('plain:' + owned.candidate.id + ':' + backupRef.backupId);
+    const captured = await conversionNative.capture(source.plainRoot, revision);
+    if (!migrationCapsuleShape(captured)) migrationCapsuleFail('plain_backup_shape');
+    const currentRepresentation = await representationStore().read();
+    const row = currentRepresentation?.targetId === owned.candidate.id && currentRepresentation.entries.find(row => row.backupId === backupRef.backupId);
+    let proof;
+    if (row) {
+      const record = await representationRecordStore(currentRepresentation, row).read();
+      if (!record || record.phase !== 'forward' || !migrationCapsuleSameMetadata(captured, record.target)) migrationCapsuleFail('plain_backup_changed');
+      proof = { eligibility: record.eligibility, newTree: record.newTree };
+    } else {
+      const prior = priorBinding?.entries.find(row => row.ref.backupId === backupRef.backupId);
+      if (prior?.kind === 'plain') {
+        const previous = await migrationCapsuleRead(plainDescriptor(prior, owned.expected.id));
+        if (previous.intent.phase !== 'published' || !migrationCapsuleSameMetadata(captured, previous.snapshot)) migrationCapsuleFail('plain_backup_changed');
+        proof = { eligibility: previous.intent.conversion.eligibility, newTree: previous.intent.newTree };
+        const live = path.join(owned.expected.root, 'skills', physicalSkillId);
+        if (!await stat(live)) proof = { eligibility: 'gone', newTree: [] };
+        else if (proof.eligibility === 'eligible' && !migrationCapsuleSame(await conversionNative.capture(live, revision), proof.newTree)) proof.eligibility = 'edited';
+      } else proof = await plainReceipt(owned.expected, { stamp: backupRef.stamp, skillId: physicalSkillId }, revision);
+    }
+    entry.eligibility = proof.eligibility;
+    let targetTree = proof.newTree;
+    if (proof.eligibility === 'eligible') {
+      const live = path.join(owned.expected.root, 'skills', physicalSkillId), target = path.join(owned.candidate.root, 'skills', physicalSkillId);
+      const original = await platform.capture(live, revision), copied = await platform.capture(target, revision);
+      if (!migrationCapsuleSame(original, proof.newTree)) entry.eligibility = 'edited';
+      else { entry.reencodedProvenance = await equivalent(original, copied, live, target, physicalSkillId); entry.newTree = migrationCapsuleFingerprint(copied); targetTree = entry.newTree; }
+    }
+    const intent = { schema: 1, id: physicalSkillId, stamp: backupRef.stamp, revision, phase: 'published', oldRoot: rootId(captured), newTree: targetTree,
+      generationId: owned.candidate.id, sourceStage: MIGRATION_SKILL_STAGE_PREFIX + physicalSkillId + '-' + backupRef.stamp,
+      conversion: { schema: 1, operationId: currentRepresentation?.targetId === owned.candidate.id ? currentRepresentation.operationId : owned.candidate.id, eligibility: entry.eligibility } };
+    await directory(source.backup, true); await fsp.mkdir(source.backup, { recursive: true }); await directory(source.backup);
+    await directory(path.join(source.backup, 'objects'), true); await fsp.mkdir(path.join(source.backup, 'objects')).catch(error => { if (error.code !== 'EEXIST') throw error; }); await directory(path.join(source.backup, 'objects'));
+    if (await stat(path.join(source.backup, 'archive'))) {
+      const previous = await migrationCapsuleRead(source);
+      if (!migrationCapsuleSameMetadata(captured, previous.snapshot) || JSON.stringify(previous.intent) !== JSON.stringify(intent)) migrationCapsuleFail('binding_conflict');
+    } else {
+      const raw = Buffer.from(JSON.stringify(captured), 'utf8'); let bytes;
+      try { if (raw.length > MIGRATION_CAPSULE_ARCHIVE_LIMIT) migrationCapsuleFail('capacity'); bytes = require('node:zlib').gzipSync(raw); }
+      finally { raw.fill(0); }
+      try { await migrationCapsuleArchive(source).write(bytes); } finally { bytes.fill(0); }
+      await migrationCapsuleIntent(source).write(JSON.stringify(intent)); await migrationCapsuleRead(source);
+    }
+    entry.archiveSha = await fileHash(path.join(source.backup, 'archive')); entry.intentSha = await fileHash(path.join(source.backup, 'intent'));
+    await conversionNative.flush([source.backup, path.dirname(source.backup), path.dirname(path.dirname(source.backup)), control]);
+    return entry;
+  }
+  async function prepareBindings(token) {
+    const owned = plans.get(token); if (!owned) migrationCapsuleFail('owner_token');
+    await current(owned.expected); await directory(stableRoot);
+    const priorBinding = owned.expected.id ? await bindingsStore(owned.expected.id, sourceKeys).read() : null;
+    if (owned.expected.id && (!priorBinding || priorBinding.generationId !== owned.expected.id || priorBinding.storeId !== token.storeId)) migrationCapsuleFail('binding_missing');
+    const representation = await representationStore().read();
+    const targetMode = owned.candidate.mode || (representation?.targetId === owned.candidate.id ? representation.mode : 'encrypted');
+    const entries = []; let ready = true;
+    for (const batch of await fsp.readdir(stableRoot, { withFileTypes: true })) {
+      if (!batch.isDirectory() || batch.isSymbolicLink() || !/^[0-9TZ-]+$/.test(batch.name)) migrationCapsuleFail('store_entry');
+      for (const item of await fsp.readdir(path.join(stableRoot, batch.name), { withFileTypes: true })) {
+        if (!item.isDirectory() || item.isSymbolicLink() || !SKILL_ID_RE.test(item.name)) migrationCapsuleFail('store_entry');
+        const backupRef = ref(batch.name, item.name, token.storeId), source = descriptor(stableRoot, batch.name, item.name);
+        const history = await migrationReadBackupHistory(source.backup, source);
+        if (history) {
+          if (history.mode !== targetMode) migrationCapsuleFail('representation_mode');
+          entries.push({ ref: backupRef, physicalSkillId: item.name, kind: 'history', historyMode: history.mode, phase: history.phase, eligibility: 'terminal', newTree: null,
+            archiveSha: await fileHash(path.join(source.backup, 'history')), intentSha: await fileHash(path.join(source.backup, MIGRATION_BACKUP_HISTORY_MARKER)), sourceGenerationId: null });
+          continue;
+        }
+        if (!await migrationCapsulePresent(source.backup, source)) {
+          if (targetMode === 'plain') entries.push(await preparePlainBinding(owned, token, backupRef, item.name, priorBinding));
+          else { ready = false; entries.push({ ref: backupRef, physicalSkillId: item.name, phase: 'plain', eligibility: 'plain-owner-required' }); }
+          continue;
+        }
+        if (targetMode !== 'encrypted') migrationCapsuleFail('representation_mode');
+        const prior = priorBinding?.entries.find(entry => entry.ref.backupId === backupRef.backupId && entry.kind === undefined && entry.phase !== 'plain');
+        if (prior) Object.assign(source, { generationId: owned.expected.id, intentFile: path.join(control, 'intents', owned.expected.id, backupRef.backupId + '.sealed'), intentRecordId: source.recordId + ':intent:' + owned.expected.id });
+        const record = await migrationCapsuleRead(source), phase = record.intent.phase;
+        if (!['published', 'complete', 'aborted'].includes(phase)) migrationCapsuleFail('backup_unsettled');
+        const entry = { ref: backupRef, physicalSkillId: item.name, phase, archiveSha: await fileHash(path.join(source.backup, 'archive')),
+          intentSha: await fileHash(source.intentFile || path.join(source.backup, 'intent')), sourceGenerationId: prior ? owned.expected.id : null, eligibility: 'terminal', newTree: null };
+        if (phase === 'published') {
+          await migrationCapsuleVerifyReady(source, record.snapshot);
+          if (['edited', 'gone'].includes(record.intent.conversion?.eligibility)) entry.eligibility = record.intent.conversion.eligibility;
+          else {
+            const sourceLive = path.join(owned.expected.root, 'skills', item.name), targetLive = path.join(owned.candidate.root, 'skills', item.name);
+            if (!await stat(sourceLive)) entry.eligibility = 'gone';
+            else {
+              const original = await platform.capture(sourceLive, record.intent.revision);
+              if (!migrationCapsuleSame(original, record.intent.newTree)) entry.eligibility = 'edited';
+              else {
+                const target = await platform.capture(targetLive, record.intent.revision);
+                entry.reencodedProvenance = await equivalent(original, target, sourceLive, targetLive, item.name);
+                entry.eligibility = 'eligible'; entry.newTree = migrationCapsuleFingerprint(target);
+              }
+            }
+          }
+        }
+        const variant = { ...record.intent, generationId: owned.candidate.id, ...(entry.newTree ? { newTree: entry.newTree } : {}) };
+        const variantDescriptor = { ...source, generationId: owned.candidate.id,
+          intentFile: path.join(control, 'intents', owned.candidate.id, backupRef.backupId + '.sealed'),
+          intentRecordId: source.recordId + ':intent:' + owned.candidate.id, intentKeys: targetKeys };
+        await directory(path.dirname(variantDescriptor.intentFile), true); await fsp.mkdir(path.dirname(variantDescriptor.intentFile), { recursive: true });
+        const variantText = JSON.stringify(variant);
+        if (await stat(variantDescriptor.intentFile)) {
+          if (await migrationCapsuleIntent(variantDescriptor).read() !== variantText) migrationCapsuleFail('binding_intent');
+        } else await migrationCapsuleIntent(variantDescriptor).write(variantText);
+        const verified = safeJsonParse(await migrationCapsuleIntent(variantDescriptor).read(), null);
+        if (!migrationCapsuleIntentShape(verified, variantDescriptor)) migrationCapsuleFail('binding_intent');
+        entries.push(entry);
+      }
+    }
+    const sourceRootIds = [...new Set([...(priorBinding?.sourceRootIds || []), owned.expected.id])];
+    const binding = { schema: 2, generationId: owned.candidate.id, storeId: token.storeId, sourceProof: owned.expected.proof.sha256, sourceRootIds, mode: targetMode, ready, entries };
+    await fsp.mkdir(path.join(owned.candidate.root, 'migrations'), { recursive: true });
+    const previous = await bindingsStore(owned.candidate.id).read();
+    if (previous && JSON.stringify(previous) !== JSON.stringify(binding)) migrationCapsuleFail('binding_conflict');
+    if (!previous) await bindingsStore(owned.candidate.id).write(binding);
+    await current(owned.expected);
+    return Object.freeze({ ready, storeId: token.storeId, generationId: owned.candidate.id, entries: entries.length });
+  }
+  async function storedPhysical(backupRef, binding, selected) {
+    if (!refValid(backupRef) || backupRef.storeId !== binding.storeId) migrationCapsuleFail('backup_ref');
+    await current(selected);
+    const bound = binding.entries.find(row => row.ref.backupId === backupRef.backupId && row.ref.skillId === backupRef.skillId && row.ref.stamp === backupRef.stamp);
+    if (bound?.kind === 'plain') {
+      const source = plainDescriptor(bound, selected.id), record = await migrationCapsuleRead(source);
+      if (!['published', 'restoring', 'complete'].includes(record.intent.phase)) migrationCapsuleFail('binding_intent');
+      if (record.intent.phase === 'complete') await migrationFinishPlainHistory(source, record.snapshot, record.intent);
+      else await directory(source.plainRoot, record.intent.phase === 'restoring');
+      await current(selected); return source.plainRoot;
+    }
+    const batch = path.join(stableRoot, backupRef.stamp); await directory(batch);
+    const matches = (await fsp.readdir(batch, { withFileTypes: true })).filter(item => SKILL_ID_RE.test(item.name)
+      && ref(backupRef.stamp, item.name, backupRef.storeId).skillId === backupRef.skillId);
+    if (matches.length !== 1 || !matches[0].isDirectory() || matches[0].isSymbolicLink()) migrationCapsuleFail('backup_ref');
+    const entry = binding.entries.find(row => row.ref.backupId === backupRef.backupId && row.ref.skillId === backupRef.skillId && row.ref.stamp === backupRef.stamp);
+    const physicalSkillId = matches[0].name;
+    if (entry && entry.physicalSkillId !== physicalSkillId) migrationCapsuleFail('binding_source_changed');
+    const source = descriptor(stableRoot, backupRef.stamp, physicalSkillId);
+    await directory(source.backup);
+    const history = await migrationReadBackupHistory(source.backup, source);
+    if (history) {
+      if (entry && (entry.kind !== 'history' || entry.phase !== history.phase || entry.historyMode !== history.mode
+        || await fileHash(path.join(source.backup, 'history')) !== entry.archiveSha
+        || await fileHash(path.join(source.backup, MIGRATION_BACKUP_HISTORY_MARKER)) !== entry.intentSha)) migrationCapsuleFail('binding_source_changed');
+      await current(selected); return source.backup;
+    }
+    if (entry?.kind === 'history') migrationCapsuleFail('binding_source_changed');
+    if (!entry && binding.mode === 'plain') { await current(selected); return source.backup; } // New ordinary OFF backups retain whole-directory undo.
+    if (entry) Object.assign(source, { generationId: selected.id, intentKeys: targetKeys,
+      intentFile: path.join(control, 'intents', selected.id, backupRef.backupId + '.sealed'),
+      intentRecordId: source.recordId + ':intent:' + selected.id });
+    // Newly published backups after activation use their original authenticated
+    // intent. Enumerating the actual name preserves its exact intent ID on NTFS.
+    await migrationCapsuleRead(source); await current(selected);
+    return source.backup;
+  }
+  async function activate() {
+    await recover(); const selected = await active();
+    if (!selected.id) migrationCapsuleFail('owner_manifest');
+    const catalog = await catalogStore().read(), binding = await bindingsStore(selected.id).read();
+    if (!catalog || !binding || !binding.ready || binding.storeId !== catalog.storeId || binding.generationId !== selected.id) migrationCapsuleFail('binding_missing');
+    if (safeJsonParse(selected.proof.raw, null)?.mode !== (binding.mode || 'encrypted')) migrationCapsuleFail('representation_mode');
+    await directory(stableRoot); const info = await platform.info(stableRoot);
+    if (info.id !== catalog.rootId || info.volume !== catalog.volume) migrationCapsuleFail('store_identity');
+    const variants = new Map(), eligibility = new Map(), plainRecords = [];
+    for (const entry of binding.entries) {
+      const physical = path.join(stableRoot, entry.ref.stamp, entry.physicalSkillId);
+      if (entry.kind === 'plain') {
+        const source = plainDescriptor(entry, selected.id); await directory(source.backup);
+        if (await fileHash(path.join(source.backup, 'archive')) !== entry.archiveSha) migrationCapsuleFail('binding_source_changed');
+        const record = await migrationCapsuleRead(source);
+        if (!['published', 'restoring', 'complete'].includes(record.intent.phase) || record.intent.conversion?.eligibility !== entry.eligibility
+          || entry.newTree && JSON.stringify(record.intent.newTree) !== JSON.stringify(entry.newTree)) migrationCapsuleFail('binding_intent');
+        if (record.intent.phase === 'published') {
+          const actual = await conversionNative.capture(physical, record.intent.revision);
+          if (!migrationCapsuleSameMetadata(actual, record.snapshot)) migrationCapsuleFail('plain_backup_changed');
+        } else if (record.intent.phase === 'complete') await migrationFinishPlainHistory(source, record.snapshot, record.intent);
+        const key = entry.ref.stamp + '/' + entry.ref.skillId;
+        if (eligibility.has(key)) migrationCapsuleFail('binding_duplicate');
+        variants.set(key, source); eligibility.set(key, entry.eligibility); plainRecords.push({ stamp: entry.ref.stamp, id: entry.physicalSkillId, backup: physical }); continue;
+      }
+      await directory(physical);
+      if (entry.kind === 'history') {
+        const history = await migrationReadBackupHistory(physical, descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId));
+        if (!history || history.mode !== entry.historyMode || history.phase !== entry.phase || await fileHash(path.join(physical, 'history')) !== entry.archiveSha
+          || await fileHash(path.join(physical, MIGRATION_BACKUP_HISTORY_MARKER)) !== entry.intentSha) migrationCapsuleFail('binding_source_changed');
+        const key = entry.ref.stamp + '/' + entry.ref.skillId;
+        if (eligibility.has(key)) migrationCapsuleFail('binding_duplicate');
+        eligibility.set(key, 'terminal'); continue;
+      }
+      const sourceIntent = entry.sourceGenerationId ? path.join(control, 'intents', entry.sourceGenerationId, entry.ref.backupId + '.sealed') : path.join(physical, 'intent');
+      if (await fileHash(path.join(physical, 'archive')) !== entry.archiveSha || await fileHash(sourceIntent) !== entry.intentSha) migrationCapsuleFail('binding_source_changed');
+      const key = entry.ref.stamp + '/' + entry.ref.skillId;
+      if (eligibility.has(key)) migrationCapsuleFail('binding_duplicate');
+      const variant = { generationId: selected.id, archiveKeys: sourceKeys, intentKeys: targetKeys,
+        intentFile: path.join(control, 'intents', selected.id, entry.ref.backupId + '.sealed'),
+        intentRecordId: 'skill-backup:' + entry.ref.skillId + ':intent:' + selected.id };
+      const record = await migrationCapsuleRead({ ...descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId), ...variant });
+      const phases = entry.phase === 'published' ? ['published', 'restoring', 'complete'] : [entry.phase];
+      if (!phases.includes(record.intent.phase) || entry.newTree && JSON.stringify(record.intent.newTree) !== JSON.stringify(entry.newTree)) migrationCapsuleFail('binding_intent');
+      variants.set(key, variant);
+      eligibility.set(key, entry.eligibility);
+    }
+    const resolveLegacy = async absolute => {
+      const normalized = path.resolve(String(absolute)), candidates = [legacyRoot, stableRoot];
+      for (const root of candidates) {
+        const pieces = path.relative(root, normalized).split(path.sep);
+        if (pieces.length === 2 && /^[0-9TZ-]+$/.test(pieces[0]) && SKILL_ID_RE.test(pieces[1])) {
+          return storedPhysical(ref(pieces[0], pieces[1], catalog.storeId), binding, selected);
+        }
+      }
+      migrationCapsuleFail('backup_ref');
+    };
+    migrationBackupAuthority = Object.freeze({ root: stableRoot, activeRoot: selected.root, skillsRoot: path.join(selected.root, 'skills'),
+      legacySkillRoots: Object.freeze(binding.sourceRootIds.map(id => path.join(id === null ? base : generationRoot(id), 'skills'))), storeId: catalog.storeId, variants, eligibility, plainRecords, resolveLegacy,
+      makeRef: (stamp, skillId) => ref(stamp, skillId, catalog.storeId),
+      resolveRef: value => { if (!refValid(value) || value.storeId !== catalog.storeId) migrationCapsuleFail('backup_ref'); return storedPhysical(value, binding, selected); }, assertCurrent: () => current(selected) });
+    migrationRecoveryNeeded = true;
+    return Object.freeze({ generationId: selected.id, storeId: catalog.storeId, root: stableRoot });
+  }
+  async function resolve(backupRef) {
+    if (!refValid(backupRef)) migrationCapsuleFail('backup_ref');
+    const selected = await active(), catalog = await catalogStore().read();
+    if (!selected.id || !catalog || backupRef.storeId !== catalog.storeId) migrationCapsuleFail('backup_ref');
+    const binding = await bindingsStore(selected.id).read();
+    if (!binding?.ready || binding.storeId !== catalog.storeId || binding.generationId !== selected.id) migrationCapsuleFail('binding_missing');
+    const info = await platform.info(stableRoot);
+    if (info.id !== catalog.rootId || info.volume !== catalog.volume) migrationCapsuleFail('store_identity');
+    return storedPhysical(backupRef, binding, selected);
+  }
+  // Conversion is a separately recoverable representation transaction. The host
+  // keeps the global writer exclusion until recoverRepresentation settles it.
+  // This API neither publishes a manifest nor replays a historical skill copy.
+  const representationRoot = path.join(control, 'representations-v1');
+  const representationValid = value => exact(value, 'schema,operationId,storeId,sourceId,sourceProof,targetId,mode,phase,entries')
+    && value.schema === 1 && id48(value.operationId) && id48(value.storeId) && (value.sourceId === null || id48(value.sourceId))
+    && (value.sourceProof === null || hex(value.sourceProof)) && id48(value.targetId) && ['plain', 'encrypted'].includes(value.mode)
+    && ['prepared', 'converted', 'kept', 'canceled'].includes(value.phase) && Array.isArray(value.entries)
+    && value.entries.every(row => exact(row, 'stamp,skillId,backupId') && typeof row.stamp === 'string' && /^[0-9TZ-]+$/.test(row.stamp)
+      && typeof row.skillId === 'string' && SKILL_ID_RE.test(row.skillId) && row.backupId === hash(row.stamp + '/' + (process.platform === 'win32' ? row.skillId.toLowerCase() : row.skillId)))
+    && new Set(value.entries.map(row => row.backupId)).size === value.entries.length;
+  const representationStore = () => sealed(path.join(control, 'representation-v1.sealed'), 'representation-v1', representationValid, sourceKeys);
+  function representationPaths(journal, row) {
+    const anchor = path.join(representationRoot, journal.operationId, row.backupId);
+    return { anchor, backup: path.join(stableRoot, row.stamp, row.skillId), capsule: path.join(anchor, 'capsule'), history: path.join(anchor, 'history'), restored: path.join(anchor, 'restored') };
+  }
+  function representationRecordValid(value) {
+    if (!exact(value, 'schema,operationId,stamp,skillId,oldType,oldMode,oldPhase,eligibility,capsuleId,historyId,historyTree,revision,original,target,newTree,sourceGenerationId,archiveSha,intentSha,phase') || value.schema !== 1
+      || !id48(value.operationId) || typeof value.stamp !== 'string' || !/^[0-9TZ-]+$/.test(value.stamp)
+      || typeof value.skillId !== 'string' || !SKILL_ID_RE.test(value.skillId) || !['plain', 'capsule', 'history'].includes(value.oldType) || !['plain', 'encrypted'].includes(value.oldMode)
+      || !['published', 'complete', 'aborted'].includes(value.oldPhase) || !['eligible', 'edited', 'gone', 'terminal'].includes(value.eligibility)
+      || !id24(value.capsuleId) || !hex(value.revision) || !migrationCapsuleShape(value.original) || !migrationCapsuleShape(value.target)
+      || !(value.sourceGenerationId === null || id48(value.sourceGenerationId)) || !hex(value.archiveSha) || !hex(value.intentSha)
+      || (value.eligibility === 'terminal' ? !id24(value.historyId) || !migrationCapsuleFingerprintShape(value.historyTree) : value.historyId !== null || value.historyTree !== null)
+      || value.original.revision !== value.revision || value.target.revision !== value.revision
+      || !['prepared', 'forward', 'canceled'].includes(value.phase)
+      || (value.eligibility !== 'gone' && value.eligibility !== 'terminal' && !migrationCapsuleFingerprintShape(value.newTree))) return false;
+    const left = JSON.parse(JSON.stringify(value.original)), right = JSON.parse(JSON.stringify(value.target));
+    for (const snapshot of [left, right]) for (const entry of snapshot.entries) if (entry.rel === SKILL_IMPORT_RECORD)
+      for (const stream of entry.streams) if (stream.name === '') { delete stream.data; delete stream.hash; delete stream.size; }
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  const representationRecordStore = (journal, row) => sealed(path.join(representationPaths(journal, row).anchor, 'record-v1.sealed'),
+    'representation:' + journal.operationId + ':' + row.backupId, representationRecordValid, sourceKeys);
+  const rootId = snapshot => snapshot.entries.find(entry => entry.rel === '').id;
+  async function conversionRoots(paths, snapshot) {
+    const roots = [];
+    for (const root of [paths.backup, path.join(paths.restored, rootId(snapshot))]) {
+      const value = await stat(root);
+      if (value && value.isDirectory() && !value.isSymbolicLink()
+        && (await fsp.stat(root, { bigint: true })).ino.toString(16).padStart(16, '0') === rootId(snapshot).slice(8)) roots.push(root);
+    }
+    const objects = path.join(paths.capsule, 'objects'); await directory(objects);
+    for (const entry of await fsp.readdir(objects)) roots.push(path.join(objects, entry));
+    return roots;
+  }
+  const conversionNative = native || {
+    ...platform,
+    capture: async (root, revision) => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'capture-preserved', root, revision }); } finally { await broker.close(); } },
+    flush: async roots => { const broker = await migrationCapsuleBroker(); try { for (const root of roots) await broker.command({ cmd: 'store-flush', root }); } finally { await broker.close(); } },
+    seal: async ({ root, container, snapshot }) => { const broker = await migrationCapsuleBroker(); try {
+      await broker.command({ cmd: 'attach', roots: [root], snapshot });
+      await broker.command({ cmd: 'seal-attached', container }); await broker.command({ cmd: 'verify', cleared: true });
+    } finally { await broker.close(); } },
+    materialize: async ({ roots, snapshot, alternate, paths }) => { const broker = await migrationCapsuleBroker(); try {
+      await broker.command({ cmd: 'attach', roots, snapshot }); await broker.command({ cmd: 'publish-check', target: paths.backup });
+      await broker.command({ cmd: 'restore', target: path.join(paths.restored, rootId(snapshot)), container: path.join(paths.capsule, 'objects'), allowedSnapshot: alternate });
+      await broker.command({ cmd: 'publish', target: paths.backup, container: path.join(paths.capsule, 'objects') });
+    } finally { await broker.close(); } },
+  };
+  function requireConversionNative() {
+    if (['info', 'move', 'capture', 'flush', 'seal', 'materialize'].some(name => typeof conversionNative[name] !== 'function')) migrationCapsuleFail('representation_host');
+  }
+  async function conversionLocation(paths, record) {
+    const matches = [];
+    for (const root of [paths.backup, paths.capsule]) {
+      if (!await directory(root, true)) continue;
+      const info = await conversionNative.info(root);
+      if (info.id === record.capsuleId) matches.push(root);
+      else if (info.id !== rootId(record.original) && info.id !== record.historyId) migrationCapsuleFail('representation_identity', true);
+    }
+    if (matches.length !== 1) migrationCapsuleFail('representation_location', true);
+    return matches[0];
+  }
+  async function moveConversionCapsule(paths, record, target) {
+    const source = await conversionLocation(paths, record);
+    if (eq(source, target)) return;
+    if (await stat(target)) migrationCapsuleFail('representation_target', true);
+    const before = await conversionNative.info(source), moved = await conversionNative.move({ source, target, id: record.capsuleId });
+    if (!moved || moved.id !== record.capsuleId || moved.volume !== before.volume) migrationCapsuleFail('representation_identity', true);
+  }
+  async function verifyConversionCarrier(journal, row, record) {
+    const paths = representationPaths(journal, row), capsule = await conversionLocation(paths, record);
+    const source = descriptor(stableRoot, row.stamp, row.skillId); source.backup = capsule;
+    if (record.sourceGenerationId) Object.assign(source, { generationId: record.sourceGenerationId,
+      intentFile: path.join(control, 'intents', record.sourceGenerationId, row.backupId + '.sealed'),
+      intentRecordId: source.recordId + ':intent:' + record.sourceGenerationId });
+    if (record.oldType === 'history') {
+      const history = await migrationReadBackupHistory(capsule, source);
+      if (!history || history.mode !== record.oldMode || JSON.stringify(history.snapshot) !== JSON.stringify(record.original)
+        || await fileHash(path.join(capsule, 'history')) !== record.archiveSha
+        || await fileHash(path.join(capsule, MIGRATION_BACKUP_HISTORY_MARKER)) !== record.intentSha) migrationCapsuleFail('representation_carrier_changed', true);
+      return;
+    }
+    if (await fileHash(path.join(capsule, 'archive')) !== record.archiveSha
+      || await fileHash(source.intentFile || path.join(capsule, 'intent')) !== record.intentSha) migrationCapsuleFail('representation_carrier_changed', true);
+    const authenticated = await migrationCapsuleRead(source);
+    if (JSON.stringify(authenticated.snapshot) !== JSON.stringify(record.oldType === 'plain' ? record.target : record.original)) migrationCapsuleFail('representation_carrier_changed', true);
+  }
+  function importShape(text) {
+    const value = safeJsonParse(text, null);
+    return Buffer.byteLength(text, 'utf8') <= 16 * 1024 && value && typeof value === 'object' && !Array.isArray(value)
+      && value.schema === 1 && SKILL_IMPORT_SOURCES.includes(value.source)
+      && ['plugin', 'sourcePath', 'importedAt', 'sourceTreeHash', 'copyTreeHash'].every(name => typeof value[name] === 'string');
+  }
+  async function representationSnapshot(snapshot, mode, paths, skillId) {
+    const target = JSON.parse(JSON.stringify(snapshot)), entry = target.entries.find(entry => entry.rel === SKILL_IMPORT_RECORD);
+    if (!entry) return target;
+    if (entry.dir) migrationCapsuleFail('representation_provenance');
+    const stream = entry.streams.find(stream => stream.name === ''), raw = Buffer.from(stream.data, 'base64');
+    try {
+      const text = raw.toString('utf8'); if (!Buffer.from(text, 'utf8').equals(raw)) migrationCapsuleFail('representation_provenance');
+      const first = safeJsonParse(text.split('\n')[0], null), whole = safeJsonParse(text, null);
+      const carrier = first && typeof first === 'object' && Object.hasOwn(first, 'workData') ? first : whole;
+      const marked = carrier && typeof carrier === 'object' && Object.hasOwn(carrier, 'workData');
+      let logical = text;
+      const host = { purpose: 'backup', schema: 1, scopeId: 'skills', recordId: 'skill-import:' + (process.platform === 'win32' ? skillId.toLowerCase() : skillId),
+        keys: sourceKeys, chunked: true, maxPlaintextBytes: 16 * 1024, validateSealedText: importShape, writeJson: atomicWriteJson, enabled: async () => true };
+      if (marked) {
+        if (raw.length > WorkDataChunks.maxFileBytes(16 * 1024)) migrationCapsuleFail('representation_provenance');
+        const generation = /\.k(\d{1,2})$/.exec(String(carrier.keyId || ''));
+        if (!generation || !['2', '3'].includes(String(carrier.workData))) migrationCapsuleFail('representation_provenance');
+        const lease = await WorkDataStore.acquireSnapshot(sourceKeys);
+        try {
+          const expected = { purpose: host.purpose, instanceId: lease.instanceId, schema: host.schema, scopeId: host.scopeId,
+            recordId: host.recordId, seq: carrier.workData === 3 ? 1 : carrier.seq, generation: Number(generation[1]) };
+          if (carrier.workData === 3) {
+            if (!text.endsWith('\n')) migrationCapsuleFail('representation_provenance');
+            const lines = text.slice(0, -1).split('\n');
+            logical = await WorkDataChunks.openLines(lines, lease.key, expected, 16 * 1024);
+          } else { const { workData, ...container } = whole || {}; if (workData !== 2) migrationCapsuleFail('representation_provenance'); logical = WorkDataCrypto.open(container, lease.key, expected); }
+        } finally { await lease.release(); }
+      }
+      if (!importShape(logical)) migrationCapsuleFail('representation_provenance');
+      let data;
+      if (mode === 'encrypted') {
+        const targetFile = path.join(paths.anchor, 'import-target.sealed');
+        const store = WorkDataStore.createText({ ...host, keys: targetKeys, file: () => targetFile });
+        await store.write(logical); if (await store.read() !== logical) migrationCapsuleFail('representation_provenance');
+        data = await fsp.readFile(targetFile);
+      } else data = Buffer.from(logical, 'utf8');
+      try { stream.size = data.length; stream.hash = hash(data); stream.data = data.toString('base64'); } finally { data.fill(0); }
+      if (!migrationCapsuleShape(target)) migrationCapsuleFail('representation_capacity');
+      return target;
+    } finally { raw.fill(0); }
+  }
+  async function plainReceipt(expected, row, revision) {
+    const live = path.join(expected.root, 'skills', row.skillId);
+    if (!await stat(live)) return { eligibility: 'gone', newTree: [] };
+    const captured = await conversionNative.capture(live, revision);
+    const currentTree = migrationCapsuleFingerprint(captured);
+    let logical = null;
+    const log = WorkDataStore.createText({ file: () => path.join(expected.root, 'migrations', row.stamp + '.json'), purpose: 'migration', schema: 1,
+      scopeId: 'global', recordId: 'migration-log:' + row.stamp, keys: sourceKeys, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024,
+      enabled: async () => true, validateSealedText: text => migrationLogShape(safeJsonParse(text, null), row.stamp), writeJson: atomicWriteJson });
+    try { logical = safeJsonParse(await log.read(), null); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    const receipt = migrationLogShape(logical, row.stamp) && logical.files.find(file => file.kind === 'skill-copy'
+      && file.items.length === 1 && file.items[0].id === row.skillId && eq(file.file, live)
+      && typeof file.backup === 'string'
+      && [path.join(legacyRoot, row.stamp, row.skillId), path.join(stableRoot, row.stamp, row.skillId)].some(root => eq(file.backup, root)));
+    const digest = crypto.createHash('sha256');
+    for (const entry of captured.entries.filter(entry => !entry.dir && entry.rel !== SKILL_IMPORT_RECORD).sort((a, b) => a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0))
+      digest.update(entry.rel + '\0' + entry.streams.find(stream => stream.name === '').hash + '\n');
+    const contentHash = digest.digest('hex');
+    // Legacy receipts did not bind object IDs/ADS. Do not bless unknown DATA
+    // streams merely because their default-stream content still matches a log.
+    const ordinaryStreams = captured.entries.every(entry => entry.streams.every(stream => stream.name === ''));
+    return { eligibility: receipt && receipt.items[0].copyTreeHash === contentHash && ordinaryStreams ? 'eligible' : 'edited', newTree: currentTree };
+  }
+  async function writeConversionCapsule(paths, row, record) {
+    const source = descriptor(paths.anchor, row.stamp, row.skillId); source.backup = paths.capsule;
+    await atomicWriteJson(path.join(paths.capsule, MIGRATION_CAPSULE_MARKER), { version: 1 });
+    await fsp.mkdir(path.join(paths.capsule, 'objects')); await directory(path.join(paths.capsule, 'objects'));
+    const raw = Buffer.from(JSON.stringify(record.target), 'utf8'); let bytes;
+    try { bytes = require('node:zlib').gzipSync(raw); } finally { raw.fill(0); }
+    try { await migrationCapsuleArchive(source).write(bytes); } finally { bytes.fill(0); }
+    const intent = { schema: 1, id: row.skillId, stamp: row.stamp, revision: record.revision, phase: 'published', oldRoot: rootId(record.target),
+      newTree: record.newTree, sourceStage: MIGRATION_SKILL_STAGE_PREFIX + row.skillId + '-' + row.stamp,
+      conversion: { schema: 1, operationId: record.operationId, eligibility: record.eligibility } };
+    await migrationCapsuleIntent(source).write(JSON.stringify(intent)); await migrationCapsuleRead(source);
+  }
+  async function prepareHistory(paths, row, record, mode) {
+    await fsp.mkdir(paths.history); await directory(paths.history);
+    const descriptor = { ...descriptorForHistory(row), backup: paths.history, archiveKeys: targetKeys };
+    const payload = { schema: 1, type: 'terminal-skill-backup-history', historyOnly: true, id: row.skillId, stamp: row.stamp, phase: record.oldPhase, snapshot: record.target };
+    await migrationBackupHistoryStore(descriptor, mode).write(JSON.stringify(payload));
+    await atomicWriteJson(path.join(paths.history, MIGRATION_BACKUP_HISTORY_MARKER), { schema: 1, mode });
+    const read = await migrationReadBackupHistory(paths.history, descriptor); if (!read || read.phase !== record.oldPhase) migrationCapsuleFail('history_carrier');
+    const captured = await conversionNative.capture(paths.history, record.revision);
+    record.historyId = rootId(captured); record.historyTree = migrationCapsuleFingerprint(captured);
+  }
+  function descriptorForHistory(row) { return descriptor(stableRoot, row.stamp, row.skillId); }
+  async function moveHistory(paths, record, target) {
+    const found = [];
+    for (const source of [paths.history, paths.backup]) if (await directory(source, true) && (await conversionNative.info(source)).id === record.historyId) found.push(source);
+    if (found.length !== 1) migrationCapsuleFail('representation_history_location', true);
+    const source = found[0], captured = await conversionNative.capture(source, record.revision);
+    if (!migrationCapsuleSame(captured, record.historyTree)) migrationCapsuleFail('representation_history_changed', true);
+    if (eq(source, target)) return;
+    if (await stat(target)) migrationCapsuleFail('representation_target', true);
+    const before = await conversionNative.info(source), result = await conversionNative.move({ source, target, id: record.historyId });
+    if (!result || result.id !== record.historyId || result.volume !== before.volume) migrationCapsuleFail('representation_identity', true);
+  }
+  async function runRepresentation(journal, row, record, forward) {
+    const paths = representationPaths(journal, row), wantCapsule = forward ? journal.mode === 'encrypted' : record.oldType === 'capsule';
+    await verifyConversionCarrier(journal, row, record);
+    if (record.eligibility === 'terminal') {
+      // These IDs now belong to live/retained objects elsewhere. Preserve only
+      // typed history and the original wrapper; never instantiate or move them.
+      if (forward) { await moveConversionCapsule(paths, record, paths.capsule); await moveHistory(paths, record, paths.backup); }
+      else { await moveHistory(paths, record, paths.history); await moveConversionCapsule(paths, record, paths.backup); }
+    } else if (wantCapsule) {
+      // First materialize the exact representation that is being sealed. This
+      // reconciles any interrupted flatten/write using only two authenticated snapshots.
+      await moveConversionCapsule(paths, record, paths.capsule);
+      const snapshot = forward ? record.original : record.target, desired = forward ? record.target : record.original;
+      await fsp.mkdir(paths.restored, { recursive: true }); await directory(paths.restored);
+      await conversionNative.materialize({ paths, snapshot, alternate: desired, roots: await conversionRoots(paths, snapshot) });
+      await conversionNative.flush([paths.anchor, paths.capsule, path.dirname(paths.backup), control]);
+      await conversionNative.seal({ root: paths.backup, container: path.join(paths.capsule, 'objects'), snapshot });
+      await moveConversionCapsule(paths, record, paths.backup);
+    } else {
+      await moveConversionCapsule(paths, record, paths.capsule);
+      const snapshot = forward ? record.target : record.original, alternate = forward ? record.original : record.target;
+      await fsp.mkdir(paths.restored, { recursive: true }); await directory(paths.restored);
+      await conversionNative.materialize({ paths, snapshot, alternate, roots: await conversionRoots(paths, snapshot) });
+    }
+    await conversionNative.flush([paths.anchor, path.dirname(paths.backup), control]);
+    record.phase = forward ? 'forward' : 'canceled'; await representationRecordStore(journal, row).write(record);
+  }
+  async function prepareRepresentation(token, { mode } = {}) {
+    requireConversionNative(); const owned = plans.get(token); if (!owned || !['plain', 'encrypted'].includes(mode)) migrationCapsuleFail('representation_host');
+    if (owned.candidate.mode !== undefined && owned.candidate.mode !== mode) migrationCapsuleFail('representation_mode');
+    await current(owned.expected); await directory(stableRoot);
+    const prior = await representationStore().read();
+    if (prior && !['kept', 'canceled'].includes(prior.phase)) migrationCapsuleFail('representation_busy', true);
+    const journal = { schema: 1, operationId: crypto.randomBytes(24).toString('hex'), storeId: token.storeId, sourceId: owned.expected.id,
+      sourceProof: owned.expected.proof.sha256, targetId: owned.candidate.id, mode, phase: 'prepared', entries: [] };
+    const records = [];
+    // Capture and persist every supported record before clearing any original DATA.
+    for (const batch of await fsp.readdir(stableRoot, { withFileTypes: true })) {
+      if (!batch.isDirectory() || batch.isSymbolicLink() || !/^[0-9TZ-]+$/.test(batch.name)) migrationCapsuleFail('store_entry');
+      for (const item of await fsp.readdir(path.join(stableRoot, batch.name), { withFileTypes: true })) {
+        if (!item.isDirectory() || item.isSymbolicLink() || !SKILL_ID_RE.test(item.name)) migrationCapsuleFail('store_entry');
+        const row = { stamp: batch.name, skillId: item.name, backupId: ref(batch.name, item.name, token.storeId).backupId }, paths = representationPaths(journal, row);
+        const source = descriptor(stableRoot, row.stamp, row.skillId), history = await migrationReadBackupHistory(source.backup, source);
+        const capsule = !history && await migrationCapsulePresent(source.backup, source), oldMode = history ? history.mode : capsule ? 'encrypted' : 'plain';
+        if (oldMode === mode) continue;
+        await directory(paths.anchor, true); await fsp.mkdir(paths.anchor, { recursive: true }); await directory(paths.anchor);
+        let original, oldPhase = 'published', eligibility, newTree, revision, sourceGenerationId = null;
+        if (history) {
+          original = history.snapshot; revision = original.revision; oldPhase = history.phase; eligibility = 'terminal'; newTree = [];
+        } else if (capsule) {
+          const sourceBinding = owned.expected.id ? await bindingsStore(owned.expected.id, sourceKeys).read() : null;
+          if (sourceBinding?.entries.some(entry => entry.ref.backupId === row.backupId)) {
+            sourceGenerationId = owned.expected.id;
+            Object.assign(source, { generationId: sourceGenerationId, intentFile: path.join(control, 'intents', sourceGenerationId, row.backupId + '.sealed'),
+              intentRecordId: source.recordId + ':intent:' + sourceGenerationId });
+          }
+          const existing = await migrationCapsuleRead(source); original = existing.snapshot; revision = original.revision;
+          oldPhase = existing.intent.phase; if (!['published', 'complete', 'aborted'].includes(oldPhase)) migrationCapsuleFail('backup_unsettled');
+          if (oldPhase !== 'published') {
+            const objects = path.join(paths.backup, 'objects'); await directory(objects);
+            if ((await fsp.readdir(objects)).length || await stat(path.join(paths.backup, 'retired'))) migrationCapsuleFail('representation_terminal_unsettled');
+            eligibility = 'terminal'; newTree = [];
+          }
+          else {
+            await migrationCapsuleVerifyReady(source, original); eligibility = existing.intent.conversion?.eligibility || 'eligible'; newTree = existing.intent.newTree;
+            const live = path.join(owned.expected.root, 'skills', row.skillId);
+            if (!await stat(live)) { eligibility = 'gone'; newTree = []; }
+            else {
+              const captured = await conversionNative.capture(live, revision);
+              if (eligibility === 'eligible' && !migrationCapsuleSame(captured, existing.intent.newTree)) eligibility = 'edited';
+              newTree = migrationCapsuleFingerprint(captured);
+            }
+          }
+        } else { revision = crypto.randomBytes(32).toString('hex'); original = await conversionNative.capture(paths.backup, revision);
+          const priorBinding = owned.expected.id ? await bindingsStore(owned.expected.id, sourceKeys).read() : null;
+          const prior = priorBinding?.entries.find(entry => entry.ref.backupId === row.backupId);
+          if (prior?.kind === 'plain') {
+            const previous = await migrationCapsuleRead(plainDescriptor(prior, owned.expected.id));
+            if (previous.intent.phase !== 'published' || !migrationCapsuleSameMetadata(original, previous.snapshot)) migrationCapsuleFail('plain_backup_changed');
+            eligibility = previous.intent.conversion.eligibility; newTree = previous.intent.newTree;
+            const live = path.join(owned.expected.root, 'skills', row.skillId);
+            if (!await stat(live)) { eligibility = 'gone'; newTree = []; }
+            else if (eligibility === 'eligible' && !migrationCapsuleSame(await conversionNative.capture(live, revision), newTree)) eligibility = 'edited';
+          } else ({ eligibility, newTree } = await plainReceipt(owned.expected, row, revision)); }
+        if (!migrationCapsuleShape(original)) migrationCapsuleFail('representation_shape');
+        const target = await representationSnapshot(original, mode, paths, row.skillId);
+        if (!capsule && !history) { await fsp.mkdir(paths.capsule); await directory(paths.capsule); }
+        const info = await conversionNative.info(capsule || history ? paths.backup : paths.capsule);
+        const record = { schema: 1, operationId: journal.operationId, stamp: row.stamp, skillId: row.skillId, oldType: history ? 'history' : capsule ? 'capsule' : 'plain', oldMode,
+          oldPhase, eligibility, capsuleId: info.id, historyId: null, historyTree: null, revision, original, target, newTree, sourceGenerationId, archiveSha: '', intentSha: '', phase: 'prepared' };
+        if (eligibility === 'terminal') await prepareHistory(paths, row, record, mode);
+        else if (!capsule) await writeConversionCapsule(paths, row, record);
+        const carrier = capsule || history ? paths.backup : paths.capsule;
+        record.archiveSha = await fileHash(path.join(carrier, history ? 'history' : 'archive'));
+        record.intentSha = await fileHash(history ? path.join(carrier, MIGRATION_BACKUP_HISTORY_MARKER) : source.intentFile || path.join(carrier, 'intent'));
+        if (!representationRecordValid(record)) migrationCapsuleFail('representation_shape');
+        await representationRecordStore(journal, row).write(record); journal.entries.push(row); records.push(record);
+      }
+    }
+    if (!journal.entries.length) return Object.freeze({ mode, entries: 0, phase: 'unchanged' });
+    await representationStore().write(journal); await current(owned.expected);
+    try {
+      const durableDirectories = [control, stableRoot, representationRoot, path.join(representationRoot, journal.operationId)];
+      for (let index = 0; index < journal.entries.length; index++) {
+        const paths = representationPaths(journal, journal.entries[index]), record = records[index];
+        durableDirectories.push(paths.anchor, path.dirname(paths.backup), record.oldType === 'plain' ? paths.capsule : paths.backup);
+        if (record.sourceGenerationId) durableDirectories.push(path.join(control, 'intents', record.sourceGenerationId));
+        if (record.eligibility === 'terminal') durableDirectories.push(paths.history);
+      }
+      await conversionNative.flush([...new Set(durableDirectories)]);
+      for (let index = 0; index < journal.entries.length; index++) await runRepresentation(journal, journal.entries[index], records[index], true);
+      journal.phase = 'converted'; await representationStore().write(journal); await current(owned.expected);
+      return Object.freeze({ operationId: journal.operationId, mode, entries: journal.entries.length, phase: journal.phase });
+    } catch (error) { throw representationUncertain(error); }
+  }
+  function representationUncertain(cause) {
+    // Native/host failures may be frozen errors, primitives or objects with
+    // throwing getters. Never trust their writable flags after DATA mutation.
+    let code = 'work_data_backup.representation_uncertain';
+    try { if (typeof cause?.code === 'string' && /^[a-zA-Z0-9_.-]{1,128}$/.test(cause.code)) code = cause.code; } catch { /* retain controlled code */ }
+    return Object.assign(new Error(code, { cause }), { code, apiCode: code, statusCode: 503,
+      operationMayHaveExecuted: true, resultUnavailable: true, retry: false });
+  }
+  async function recoverRepresentation() {
+    const journal = await representationStore().read(); if (!journal || ['kept', 'canceled'].includes(journal.phase)) return journal;
+    requireConversionNative(); const selected = await active(), keep = selected.id === journal.targetId;
+    if (!keep && (selected.id !== journal.sourceId || selected.proof.sha256 !== journal.sourceProof)) migrationCapsuleFail('generation_changed', true);
+    if (keep && safeJsonParse(selected.proof.raw, null)?.mode !== journal.mode) migrationCapsuleFail('representation_mode', true);
+    try { for (const row of journal.entries) {
+      const record = await representationRecordStore(journal, row).read();
+      if (!record || record.operationId !== journal.operationId || record.stamp !== row.stamp || record.skillId !== row.skillId) migrationCapsuleFail('representation_missing', true);
+      await runRepresentation(journal, row, record, keep);
+    }
+    journal.phase = keep ? 'kept' : 'canceled'; await representationStore().write(journal); return Object.freeze({ phase: journal.phase, mode: journal.mode, entries: journal.entries.length });
+    } catch (error) { throw representationUncertain(error); }
+  }
+
+  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, recoverRepresentation });
+}
+
 // 迟绑定挂接(见 00-boot 的 MigrationHooks 头注)。
 Object.assign(MigrationHooks, {
+  createBackupOwner: createMigrationBackupOwner,
   recover: () => migrationSerial(async () => {}),
   withSkillRead: work => migrationSerial(work),
   scan: migrationScan,
@@ -95689,6 +97062,16 @@ const ExternalChannelDelivery = (() => {
 // Dedicated local bot credentials, never a model tool. Windows DPAPI CurrentUser protects stored values;
 // it does not protect against another program already running as the same OS user. No npm dependency.
 const ExternalBotCredentials = (() => {
+  function create(options) {
+  if (options !== undefined && (!options || typeof options !== 'object' || Array.isArray(options)
+      || Object.keys(options).some(key => !['file', 'root'].includes(key)) || Object.keys(options).length !== 1))
+    throw Object.assign(Error('external_credentials.recovery_owner_invalid'), { code: 'external_credentials.recovery_owner_invalid' });
+  if (options !== undefined && (typeof (Object.hasOwn(options,'file') ? options.file : options.root) !== 'string'
+      || !path.isAbsolute(Object.hasOwn(options,'file') ? options.file : options.root)))
+    throw Object.assign(Error('external_credentials.recovery_owner_invalid'), { code: 'external_credentials.recovery_owner_invalid' });
+  const selected = options === undefined ? null : Object.hasOwn(options,'file') ? options.file : path.join(options.root, 'external-bot-credentials.json');
+  // An explicit factory owns one fixed source. The default keeps startup root rebinding.
+  const selectedFile = selected === null ? () => path.join(paths.data, 'external-bot-credentials.json') : () => selected;
   const SLOTS = Object.freeze({ qq: ['botSecret'], feishu: ['verificationToken', 'encryptKey', 'appSecret'] });
   const REF = Object.freeze({ botSecret: 'botSecretEnv', verificationToken: 'verificationTokenEnv', encryptKey: 'encryptKeyEnv', appSecret: 'appSecretEnv' });
   // Includes cold Windows PowerShell/.NET startup on slower machines; still bounded, with no retry.
@@ -95728,7 +97111,7 @@ const ExternalBotCredentials = (() => {
     }
     return true;
   }
-  const store = DurableJsonStore.create({ id: 'external-bot-credentials', file: () => path.join(paths.data, 'external-bot-credentials.json'), schemaVersion: 1,
+  const store = DurableJsonStore.create({ id: 'external-bot-credentials', file: selectedFile, schemaVersion: 1,
     defaultValue: () => ({ schema: 1, records: [] }), cache: false, strictRead: true, quarantine: false, validate: validState });
   async function stateRead() {
     try {
@@ -95950,6 +97333,8 @@ const ExternalBotCredentials = (() => {
     } finally { portable.fill(0); for (const bytes of plain) bytes.fill(0); }
   }
   return Object.freeze({ snapshot, inspect, read, save, remove, snapshotForWorkDataRecovery, stageRecoveredForWorkData });
+  }
+  return Object.freeze({ create, ...create() });
 })();
 
 // Owner-initiated identity probe against the fixed official Feishu host. One attempt per request, no
@@ -97001,6 +98386,8 @@ async function externalBotPrepareReply(job, controller, dispatch, assertPolicy =
   return prepared.result;
 }
 async function externalBotDrain() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('external-worker')) return WorkDataMaintenanceHooks.run('external-worker', () => externalBotDrain(...arguments));
   if (externalBotWorkerStopped) return;
   if (externalBotWorkerBusy) { externalBotWorkerAgain = true; return; }
   externalBotWorkerBusy = true;
@@ -97008,7 +98395,7 @@ async function externalBotDrain() {
     await externalBotRecover();
     do {
       externalBotWorkerAgain = false;
-      while (!externalBotWorkerStopped) {
+      while (!externalBotWorkerStopped && (typeof WorkDataMaintenanceHooks === 'undefined' || !WorkDataMaintenanceHooks.accepting || WorkDataMaintenanceHooks.accepting())) {
         const job = await externalBotNextJob(); if (!job) break; if (job.kind === 'skip') continue;
         let result, sendEntered = false;
         try {
@@ -97034,12 +98421,12 @@ async function externalBotDrain() {
         try { await externalBotFinishJob(job, result); }
         catch (error) { externalBotUnsettled.set(job.item.id, { kind: job.kind, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
       }
-    } while (externalBotWorkerAgain && !externalBotWorkerStopped);
+    } while (externalBotWorkerAgain && !externalBotWorkerStopped && (typeof WorkDataMaintenanceHooks === 'undefined' || !WorkDataMaintenanceHooks.accepting || WorkDataMaintenanceHooks.accepting()));
     externalBotWorkerError = '';
   } catch { externalBotWorkerError = 'external_channel.storage_unavailable'; }
   finally { externalBotWorkerBusy = false; }
 }
-function externalBotWakeWorker() { if (!externalBotWorkerStopped) void externalBotDrain(); }
+function externalBotWakeWorker() { if (!externalBotWorkerStopped) { if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) { externalBotWorkerAgain = true; return; } void externalBotDrain(); } }
 function externalBotValidState(state) {
   if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
     || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
@@ -97278,6 +98665,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
   try {
     const url = new URL(req.url, 'http://localhost');
     if (callbackPlatform) {
+      if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('external-intake')) return await WorkDataMaintenanceHooks.run('external-intake', () => handleExternalBotApiRoutes(req, res, pathname));
       if (req.method !== 'POST') throw externalBotError('external_channel.request_invalid', 405);
       const id = url.searchParams.get('connectionId');
       if ([...url.searchParams.keys()].length !== 1 || url.searchParams.getAll('connectionId').length !== 1 || !id || !/^[a-z][a-z0-9_-]{0,63}$/.test(id)) throw externalBotError('external_channel.connection_unavailable', 404);
@@ -97539,6 +98927,7 @@ const McpConsumers = (() => {
     }
   }
   async function checkSubscriptions(connection, row, lease) {
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
     // The existing heartbeat is the only scheduler. Idle consumers do no config
     // or resource reads; a held cycle never queues another background pass.
     if (!connection.subscriptions.size || connection.checkingSubscriptions) return;
@@ -97609,6 +98998,7 @@ const McpConsumers = (() => {
     }
     const policy = PrivacyGateway.disclosurePolicyGuard(), generation = configReadGeneration;
     const assert = () => { policy(); assertCurrent(connection, row); if (generation !== configReadGeneration) deny('configuration_changed'); };
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('consumer-rpc')) return WorkDataMaintenanceHooks.run('consumer-rpc', () => run(...arguments));
     const id = message.id, requestKey = typeof id + ':' + String(id);
     if (connection.inflight.has(requestKey) || connection.inflight.size >= limit.inflight) deny('capacity');
     const controller = new AbortController(), cancel = () => controller.abort();
@@ -97960,7 +99350,8 @@ const McpConsumers = (() => {
       request.setTimeout(3000, () => request.destroy()); request.on('error', () => reject(setupError())); request.end(bytes);
     });
   }
-  return Object.freeze({ handle, listen, relay, verifyInternal, instance });
+  function maintenanceState() { return { active: [...connections.values()].reduce((sum, row) => sum + row.inflight.size + Number(row.checkingSubscriptions), 0), pending: [...writes.values()] }; }
+  return Object.freeze({ handle, listen, relay, verifyInternal, instance, maintenanceState });
 })();
 const priorConsumerApi = PrivacyCore.configHooks.handleApiRoutes;
 PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => await McpConsumers.handle(req, res, pathname) || await priorConsumerApi(req, res, pathname);
@@ -97974,6 +99365,7 @@ const MemoryCliRelay = (() => {
   const tools = Object.freeze(['workbench_memory_list', 'workbench_memory_read']);
   const allowed = new Set(tools), bodyCap = 16384, resultCap = 2 * 1024 * 1024;
   const nodeGrants = new Set();
+  const Hooks = { run: work => work() };
   const serverId = config => RUYI_MCP_SERVER_ID + (config.includeWorkbenchMcp ? '-memory' : '');
   const readerTool = config => 'mcp__' + serverId(config) + '__workbench_memory_read';
   const fail = code => { throw Object.assign(new Error('memory_cli.' + code), { code: 'memory_cli.' + code, statusCode: 403 }); };
@@ -98091,6 +99483,7 @@ const MemoryCliRelay = (() => {
       }
       if (!grant) for (const found of nodeGrants) { if (!found.revoked && same(found.tokenHash, tokenHash)) { grant = found; reg = found.reg; break; } }
       tokenHash.fill(0); current(grant, reg);
+      const work = async () => {
       const controller = new AbortController();
       res.once('close', () => { if (!res.writableEnded) controller.abort(); }); res.once('error', () => controller.abort());
       const chunks = []; let bytes = 0;
@@ -98112,6 +99505,8 @@ const MemoryCliRelay = (() => {
       current(grant, reg); if (controller.signal.aborted) fail('unavailable');
       if (Buffer.byteLength(JSON.stringify(result), 'utf8') > resultCap) fail('result_too_large');
       send(res, json({ ok: true, result }, 200, { 'cache-control': 'no-store' })); return true;
+      };
+      return await Hooks.run(work, grant.executionOwner || grant.nodeContext?.runtime);
     } catch (error) {
       // No private exception message or partial tool result escapes a lost execution owner.
       if (res.destroyed || res.writableEnded) return true;
@@ -98178,7 +99573,7 @@ const MemoryCliRelay = (() => {
       void pump();
     });
   }
-  return Object.freeze({ create, bind, createNode, bindNode, revoke, readerTool, kimiDefinition, handle, startRelay });
+  return Object.freeze({ create, bind, createNode, bindNode, revoke, readerTool, kimiDefinition, handle, startRelay, Hooks });
 })();
 Object.assign(MemoryCliHooks, MemoryCliRelay);
 
@@ -98349,6 +99744,7 @@ async function cliMissionService(bodyOrQ, { method = 'POST', trusted = false, ow
 }
 
 async function cliAgentLaunchService(body, { method = 'POST', trusted = false, ownerReg = null, ownerCheck = () => {}, isClosed = () => false } = {}) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent-launch')) return WorkDataMaintenanceHooks.run('agent-launch', () => cliAgentLaunchService(...arguments));
   ownerCheck();
 
     // Claude CLI's one-shot MCP child proxies the persistent DAG into the serve process. v1.4.4: the DAG
@@ -98921,7 +100317,7 @@ const InternalMcpRelay = (() => {
           catch (policyError) { check(); message = policyError?.code === 'privacy.engine_not_supported' ? policyError.code : 'privacy.policy_unavailable'; }
           if (Object.hasOwn(msg, 'id')) emit({ jsonrpc: '2.0', id: msg.id, error: { code: -32000, message } });
         } finally { if (ctx) contexts.delete(ctx); }
-      });
+      }, grant.executionOwner || grant.nodeContext?.runtime);
       if (!res.destroyed) res.end();
     } catch {
       if (res.headersSent) { if (!res.destroyed) res.end(); } else unavailable();
@@ -98999,10 +100395,381 @@ const InternalMcpRelay = (() => {
     });
     process.stdin.once('end', () => { inputEnded = true; if (active === 0) closed = true; }); process.stdin.once('error', close); process.once('SIGTERM', close);
   }
-  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, resourceRefusal, business, Hooks });
+  function maintenanceState() { return { active: [...grants].reduce((sum, grant) => sum + grant.inflight, 0) }; }
+  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, resourceRefusal, business, Hooks, maintenanceState });
 })();
 
 Object.assign(InternalMcpHooks, InternalMcpRelay);
+
+// Maintenance pauses intake, never aborts a business owner. A fresh worker must
+// still observe this process exit and acquire the stable base OS owner before census.
+const WorkDataMaintenance = ((AsyncLocalStorage) => {
+  const failure = suffix => Object.assign(Error('work_data.maintenance_' + suffix), { code: 'work_data.maintenance_' + suffix, statusCode: 409 });
+  function create(host) {
+    const context = new AsyncLocalStorage(), live = new Set(), writes = new Set();
+    let phase = 'open', epoch = 0, lease = null;
+    const changed = () => { epoch++; if (phase === 'idle') phase = 'waiting'; };
+    const accepting = () => phase === 'open';
+    const active = () => { const token = context.getStore()?.token; return !!token && live.has(token); };
+    const entered = kind => active() && context.getStore().kind === kind;
+    async function run(kind, work) {
+      const inherited = context.getStore();
+      if (inherited && !active()) throw failure('stale_continuation');
+      if (phase === 'retired' || !inherited && !accepting()) throw failure('busy');
+      const token = inherited?.token || { refs: 0 }; token.refs++; live.add(token); changed();
+      try { return await context.run({ token, kind }, work); }
+      finally { if (--token.refs === 0) live.delete(token); changed(); }
+    }
+    function continueOwner(owner, work) {
+      if (phase === 'retired' || phase === 'idle' || !host.owns(owner)) return Promise.reject(failure('owner_unavailable'));
+      // Only a caller that just validated an intrinsic registered owner can enter
+      // here. No HTTP body/environment field is accepted as that capability.
+      return context.run(null, async () => {
+        const token = { refs: 1 }; live.add(token); changed();
+        try { return await context.run({ token, kind: 'receipt' }, work); }
+        finally { if (--token.refs === 0) live.delete(token); changed(); }
+      });
+    }
+    function track(pending) {
+      if (!pending || typeof pending.then !== 'function') throw TypeError('pending writer must be a promise');
+      if (writes.has(pending)) return pending;
+      writes.add(pending); changed();
+      pending.then(() => { writes.delete(pending); changed(); }, () => { writes.delete(pending); changed(); });
+      return pending;
+    }
+    function status() {
+      const observed = host.snapshot();
+      return Object.freeze({ phase, epoch, admitted: live.size, writers: writes.size, dirty: observed.dirty || 0, busy: Object.freeze({ ...observed.busy }), processExitRequired: true });
+    }
+    function begin({ signal } = {}) {
+      if (context.getStore()) throw failure('nested');
+      if (phase !== 'open' || lease) throw failure('busy');
+      if (signal?.aborted) throw failure('cancelled');
+      phase = 'waiting'; changed();
+      let paused, valid = true, draining = null;
+      const check = () => { if (signal?.aborted) throw failure('cancelled'); if (!valid || lease !== current) throw failure('lease_expired'); };
+      const wait = pending => new Promise((resolve, reject) => {
+        const abort = () => { cleanup(); reject(failure('cancelled')); };
+        const cleanup = () => signal?.removeEventListener('abort', abort);
+        signal?.addEventListener('abort', abort, { once: true });
+        if (signal?.aborted) return abort();
+        Promise.resolve(pending).then(value => { cleanup(); resolve(value); }, error => { cleanup(); reject(error); });
+      });
+      const current = Object.freeze({
+        async idle() {
+          check();
+          if (draining) return draining;
+          draining = (async () => {
+            let stable = 0, previous = null;
+            while (true) {
+              check(); await wait(host.progress?.()); check();
+              const before = host.snapshot();
+              if (live.size || Object.values(before.busy).some(value => value > 0)) {
+                stable = 0; previous = null; await wait(host.yield()); continue;
+              }
+              // A flusher can enqueue a later physical write chain. Re-read all
+              // producer counts and chain identities after every drain and yield.
+              const stamp = epoch;
+              await wait(host.flush()); check();
+              const pending = [...new Set([...host.snapshot().pending, ...writes])];
+              for (const item of pending) { await wait(item); check(); }
+              await wait(host.yield()); check();
+              const after = host.snapshot(), identities = [...new Set(after.pending)];
+              const same = previous && previous.length === identities.length && previous.every((item, index) => item === identities[index]);
+              const quiet = !live.size && !writes.size && !after.dirty && !Object.values(after.busy).some(value => value > 0) && stamp === epoch;
+              stable = quiet && same ? stable + 1 : 0; previous = identities;
+              if (stable >= 2) { phase = 'idle'; return status(); }
+            }
+          })().finally(() => { draining = null; });
+          return draining;
+        },
+        assertIdle() { check(); const observed = status(); if (phase !== 'idle' || observed.admitted || observed.writers || observed.dirty || Object.values(observed.busy).some(value => value > 0)) throw failure('not_idle'); return observed; },
+        resume() {
+          if (!valid || lease !== current || phase === 'retired') throw failure('lease_expired');
+          valid = false; lease = null; phase = 'open'; signal?.removeEventListener('abort', onAbort); changed(); host.resume(paused);
+        },
+        retire() { current.assertIdle(); valid = false; phase = 'retired'; signal?.removeEventListener('abort', onAbort); changed(); },
+      });
+      const onAbort = () => { if (valid && lease === current && phase !== 'retired') current.resume(); };
+      lease = current;
+      try { paused = host.pause(); signal?.addEventListener('abort', onAbort, { once: true }); if (signal?.aborted) onAbort(); }
+      catch (error) { valid = false; lease = null; phase = 'open'; throw error; }
+      return current;
+    }
+    const fresh = (kind, work) => context.run(null, () => run(kind, work));
+    return Object.freeze({ accepting, active, entered, run, fresh, continueOwner, track, status, begin });
+  }
+  return Object.freeze({ create });
+})(require('node:async_hooks').AsyncLocalStorage);
+
+const workDataDeferredAgentWakes = new Map();
+let workDataDeferredStewardWake = false;
+const workDataMaintenance = WorkDataMaintenance.create({
+  owns(owner) {
+    return !!owner && ([...turnSettlers.values()].includes(owner) || [...activeAgentRuns.values()].includes(owner)
+      || [...shellSessions.values()].includes(owner) && owner.running === true
+      || owner === stewardRunnerRuntime && (owner.queue.length > 0 || owner.inflight || owner.viewHeld.length > 0)
+      || owner === stewardRuntime && (owner.ticking || owner.carry.length > 0 || owner.adopted.length > 0));
+  },
+  snapshot() {
+    const scalar = [configMutateChain, configWriteChain, usageLedgerChain, engineTranscriptLedgerChain,
+      sessionIndexChain, memoryUsageWriteChain, agentInstructionChain, toolboxReconcileChain,
+      stewardDecisionChain, stewardMemoryChain, stewardAppendChain, schedulerTasksChain, schedulerFiresChain, migrationChain, pretenderIndexRuntime.writeChain];
+    const maps = [kimiMcpSyncChains, sessionWriteChains, sessionNotesWriteChains, sessionScratchpadChains,
+      interventionWriteChains, missionChangeWriteChains, sessionMetaDeferChains, sessionMutateChains,
+      journalWriteChains, journalRevertChains, missionContainerChains, voiceLexiconChains,
+      memoryProposalStateChains, agentRunWriteChains, agentRunEventChains, backgroundJobChains,
+      fileToolWriteChains, proxyModelsCacheChains, sessionSearchRefreshChains, stewardArchiveChains, externalBotChains];
+    const consumers = McpConsumers.maintenanceState();
+    return { pending: [...scalar, ...maps.flatMap(map => [...map.values()]), ...consumers.pending], dirty: pendingSessionIndex.size + Number(!!sessionIndexFlushTimer) + Number(!!pretenderIndexRuntime.persistTimer) + Number(!!pretenderIndexRuntime.value && !pretenderIndexRuntime.persisted && fs.existsSync(paths.sessions)) + (logStream?.writableLength || 0), busy: {
+      turns: turnSettlers.size + activeChildren.size + turnOutcomePending.size,
+      agentRuns: activeAgentRuns.size,
+      scheduler: Number(schedulerRuntime.ticking) + schedulerRuntime.inFlightTaskIds.size,
+      steward: Number(stewardRuntime.ticking) + Number(!!stewardRunnerRuntime.inflight) + stewardUserWaiters.length + Number(stewardArbiter.draining)
+        + stewardRuntime.carry.length + stewardRuntime.adopted.length + stewardRunnerRuntime.queue.length + stewardRunnerRuntime.viewHeld.length,
+      externalBots: externalBotInflight + Number(externalBotWorkerBusy) + Number(externalBotDiscoveryBusy)
+        + externalBotActiveActors.size + externalBotUnsettled.size + externalBotDeliveries.size,
+      consumers: consumers.active, internalMcp: InternalMcpHooks.maintenanceState().active,
+      index: inflightSessionIndex.size + sessionIndexRebuildsActive + Number(!!pretenderIndexRuntime.building) + pretenderIndexRuntime.writers,
+      shells: [...shellSessions.values()].filter(row => row.running).length,
+      services: [...toolboxServices.values()].filter(row => row.starting || row.stopping).length,
+    } };
+  },
+  pause() {
+    const saved = { schedulerTimer: !!schedulerRuntime.timer, stewardTimer: !!stewardRuntime.timer, externalWorker: externalBotWorkerBusy || externalBotWorkerAgain,
+      projectionVerify: !!pretenderIndexRuntime.verifyTimer, projectionPersist: !!pretenderIndexRuntime.persistTimer };
+    if (schedulerRuntime.timer) { clearInterval(schedulerRuntime.timer); schedulerRuntime.timer = null; }
+    if (stewardRuntime.timer) { clearInterval(stewardRuntime.timer); stewardRuntime.timer = null; }
+    if (stewardRuntime.wakeTimers.length) workDataDeferredStewardWake = true;
+    stewardClearWake();
+    for (const key of ['verifyTimer', 'persistTimer']) if (pretenderIndexRuntime[key]) { clearTimeout(pretenderIndexRuntime[key]); pretenderIndexRuntime[key] = null; }
+    for (const [sessionId, timer] of agentWakeTimers) { clearTimeout(timer); workDataDeferredAgentWakes.set(sessionId, 'maintenance_resume'); }
+    agentWakeTimers.clear();
+    return saved;
+  },
+  async progress() {
+    if (!stewardRuntime.ticking && (stewardRuntime.carry.length || stewardRuntime.adopted.length)) {
+      await workDataMaintenance.continueOwner(stewardRuntime, () => stewardRunTick());
+    }
+  },
+  async flush() {
+    if (sessionIndexFlushTimer) { clearTimeout(sessionIndexFlushTimer); sessionIndexFlushTimer = null; }
+    await flushSessionIndex(); await flushPretenderPersist(); await flushWorkbenchLogs();
+  },
+  yield: () => new Promise(resolve => setTimeout(resolve, 25)),
+  resume(saved) {
+    if (saved.schedulerTimer && schedulerRuntime.started) schedulerEnsureTimer();
+    if (saved.stewardTimer && stewardRuntime.running && !stewardRuntime.timer) {
+      stewardRuntime.timer = setInterval(() => { void WorkDataMaintenanceHooks.stewardTick(); }, stewardRuntime.pollMs); stewardRuntime.timer.unref?.();
+    }
+    if (workDataDeferredStewardWake && stewardRuntime.running) { workDataDeferredStewardWake = false; stewardScheduleWake(); }
+    if (stewardRunnerRuntime.queue.length) stewardScheduleInboxDrain();
+    if (saved.projectionVerify) pretenderScheduleVerify();
+    if (saved.projectionPersist || pretenderIndexRuntime.value && !pretenderIndexRuntime.persisted) schedulePretenderPersist();
+    for (const [sessionId, reason] of workDataDeferredAgentWakes) scheduleAgentWake(sessionId, reason);
+    workDataDeferredAgentWakes.clear();
+    if (saved.externalWorker || externalBotWorkerAgain) externalBotWakeWorker();
+  },
+});
+Object.assign(WorkDataMaintenanceHooks, workDataMaintenance);
+WorkDataMaintenanceHooks.deferStewardWake = () => { workDataDeferredStewardWake = true; };
+WorkDataMaintenanceHooks.stewardTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('steward-intake', () => stewardRunTick()) : Promise.resolve({ skipped: true });
+WorkDataMaintenanceHooks.schedulerTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('scheduler-tick', () => schedulerTick()) : Promise.resolve({ skipped: true });
+WorkDataMaintenanceHooks.deferWake = (sessionId, reason) => { workDataDeferredAgentWakes.set(sessionId, reason); };
+InternalMcpHooks.Hooks.run = (work, owner) => workDataMaintenance.continueOwner(owner, work);
+MemoryCliHooks.Hooks.run = (work, owner) => workDataMaintenance.continueOwner(owner, work);
+
+// Setup owns admission and in-memory job progress. The cold worker owns all base
+// mutation, durable results and process handoff. A warm server never flips paths.
+const WorkDataSetup = (() => {
+  const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
+  const fail = (suffix, statusCode = 409) => Object.assign(Error('work_data_setup.' + suffix), { code:'work_data_setup.' + suffix, apiCode:'work_data_setup.' + suffix, statusCode, retry:false });
+  const object = value => !!value && typeof value === 'object' && !Array.isArray(value);
+  const exact = (value, keys) => object(value) && Object.keys(value).every(key => keys.includes(key));
+  const validText = value => typeof value === 'string' && Buffer.from(value).toString('utf8') === value && !value.includes('\0');
+  function authority(value) {
+    if (!exact(value,['generation','id','mode','sha256']) || Object.keys(value).length !== 4 || !Number.isSafeInteger(value.generation) || value.generation < 0
+      || !['plain','encrypted'].includes(value.mode) || (value.generation === 0 ? value.id !== null || value.sha256 !== null : !ID.test(value.id || '') || !SHA.test(value.sha256 || ''))) throw fail('authority_invalid',400);
+    return Object.freeze({generation:value.generation,id:value.id,mode:value.mode,sha256:value.sha256});
+  }
+  const same = (a,b) => a.generation===b.generation && a.id===b.id && a.mode===b.mode && a.sha256===b.sha256;
+  async function readJson(req, max = 16384) {
+    const chunks=[];let bytes=0;
+    try {
+      for await (const value of req) { const chunk=Buffer.from(value);bytes+=chunk.length;if(bytes>max) { chunk.fill(0);throw fail('body_too_large',413); }chunks.push(chunk); }
+      const raw=Buffer.concat(chunks,bytes);try { const text=raw.toString('utf8');if(!Buffer.from(text).equals(raw))throw fail('body_invalid',400);let parsed;
+        try { parsed=text.trim()?JSON.parse(text):{}; }catch { throw fail('body_invalid',400); }if(!object(parsed))throw fail('body_invalid',400);return parsed;
+      }finally {raw.fill(0);}
+    }finally {for(const chunk of chunks)chunk.fill(0);}
+  }
+  function create(host) {
+    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false;
+    const view=job=>Object.freeze({id:job.id,operation:job.operation,state:job.state,createdAt:job.createdAt,cancellable:!job.committed&&!job.cancelRequested&&!['failed','cancelled'].includes(job.state),
+      takeover:job.committed,retry:false,error:job.error||null,operationMayHaveExecuted:job.committed});
+    const ensureExpected=async expected=>{const current=await host.inspect();if(!same(expected,authority(current.authority)))throw fail('authority_changed');return current;};
+    const code=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed';
+    const cancelled=job=>{if(job.cancelRequested)throw fail('cancelled');};
+    const awaitReady=(job,ready)=>new Promise((resolve,reject)=>{
+      const cleanup=()=>job.abort.signal.removeEventListener('abort',abort),abort=()=>{cleanup();reject(fail('cancelled'));};
+      job.abort.signal.addEventListener('abort',abort,{once:true});if(job.abort.signal.aborted)return abort();
+      ready.then(value=>{cleanup();resolve(value);},error=>{cleanup();reject(error);});
+    });
+    async function execute(job) {
+      let failed;
+      try {
+        cancelled(job);await ensureExpected(job.args.expectedAuthority);cancelled(job);
+        job.lease=host.maintenance.begin({signal:job.abort.signal});job.state='draining';await job.lease.idle();cancelled(job);
+        await ensureExpected(job.args.expectedAuthority);cancelled(job);job.state='preparing';
+        const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
+        job.handle=await worker.start({...job.args,id:job.id,password:job.secret.toString('utf8')});job.secret.fill(0);job.secret=null;
+        if(!job.handle || !job.handle.ready || typeof job.handle.ready.then!=='function' || typeof job.handle.cancel!=='function' || typeof job.handle.handoff!=='function')throw fail('worker_contract_invalid');
+        const ready=Promise.resolve(job.handle.ready);ready.catch(()=>{});cancelled(job);await awaitReady(job,ready);cancelled(job);job.state='ready';
+        // This synchronous boundary is indivisible with respect to cancel HTTP.
+        // Once commitment begins no timeout or uncertain result may reopen warm IO.
+        job.lease.assertIdle();job.committed=true;job.state='handoff';job.lease.retire();
+        await job.handle.handoff();
+        // Handoff completion is not conversion completion. Success is reported
+        // only by a successor reading the cold worker's durable receipt.
+      }catch(error){failed=error;job.error=code(error);job.state=job.committed?'uncertain':job.cancelRequested?'cancelled':'failed';}
+      finally {
+        if(job.secret){job.secret.fill(0);job.secret=null;}job.args=null;
+        if(!job.committed){
+          try{if(job.handle)await job.handle.cancel();}catch(error){job.error=code(error);job.state='failed';}
+          try{if(job.lease && !job.abort.signal.aborted)job.lease.resume();}catch{job.error='work_data_setup.resume_failed';job.state='failed';}
+          if(active===job)active=null;
+        }
+      }
+      return failed;
+    }
+    async function submit(body) {
+      if(creating||active||!host.maintenance.accepting())throw fail('busy');creating=true;
+      let secret;
+      try {
+        if(!exact(body,['operation','password','expectedAuthority','backupDirectory','targetDirectory','uploadId','confirmPlaintext']) || !['enable','disable','export','restore'].includes(body.operation))throw fail('request_invalid',400);
+        if(!validText(body.password)||body.password.length<12||Buffer.byteLength(body.password)>1024)throw fail('password_invalid',400);
+        secret=Buffer.from(body.password);body.password='';
+        const expectedAuthority=authority(body.expectedAuthority),observed=await ensureExpected(expectedAuthority);
+        if(body.operation==='enable'&&expectedAuthority.mode!=='plain'||body.operation==='disable'&&expectedAuthority.mode!=='encrypted')throw fail('mode_conflict');
+        if(body.operation==='disable'&&body.confirmPlaintext!==true)throw fail('plaintext_confirmation_required',400);
+        if(body.confirmPlaintext!==undefined&&typeof body.confirmPlaintext!=='boolean')throw fail('request_invalid',400);
+        if(!validText(body.backupDirectory)||!body.backupDirectory.length||body.backupDirectory.length>1024)throw fail('path_invalid',400);
+        if(body.operation==='restore'){
+          if(!validText(body.targetDirectory)||!body.targetDirectory.length||body.targetDirectory.length>1024||!ID.test(body.uploadId||''))throw fail('restore_input_invalid',400);
+          if(typeof host.worker().resolveUpload!=='function'||await host.worker().resolveUpload(body.uploadId)!==true)throw fail('upload_unavailable',501);
+        }else if(body.targetDirectory!==undefined||body.uploadId!==undefined)throw fail('request_invalid',400);
+        const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
+        await host.validateDirectories({base:observed.base,backupDirectory:body.backupDirectory,targetDirectory:body.targetDirectory});
+        await ensureExpected(expectedAuthority);
+        const job={id:host.id(),operation:body.operation,state:'queued',createdAt:host.now(),committed:false,cancelRequested:false,abort:new AbortController(),secret,
+          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,...(body.operation==='restore'?{targetDirectory:body.targetDirectory,uploadId:body.uploadId}:{}),confirmPlaintext:body.confirmPlaintext===true}};
+        if(!ID.test(job.id)||jobs.has(job.id))throw fail('id_invalid');secret=null;
+        while(jobs.size>=32){const oldest=[...jobs.values()].find(row=>['failed','cancelled'].includes(row.state));if(!oldest)throw fail('capacity');jobs.delete(oldest.id);}
+        jobs.set(job.id,job);active=job;host.defer(()=>{job.done=execute(job);});return view(job);
+      }finally {secret?.fill(0);creating=false;}
+    }
+    async function cancel(id) {
+      const job=jobs.get(id);if(!job)throw fail('job_not_found',404);
+      if(job.committed)throw fail('cancel_too_late');
+      if(!['cancelled','failed'].includes(job.state)){job.cancelRequested=true;job.state='cancel_requested';job.abort.abort();}
+      return view(job);
+    }
+    async function status() {
+      const observed=await host.inspect(),worker=host.worker();let lastResult=null;
+      if(typeof worker.readResult==='function'){try{lastResult=await worker.readResult();}catch{throw fail('result_unavailable',503);}}
+      return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
+        lastResult,capabilities:{worker:typeof worker.start==='function',upload:typeof worker.resolveUpload==='function',download:typeof worker.download==='function'},processRestartRequired:true};
+    }
+    async function handle(req,res,pathname) {
+      let response,statusCode=200;
+      if(req.method==='GET'&&pathname==='/api/work-data/status')response=await status();
+      else if(req.method==='POST'&&pathname==='/api/work-data/jobs'){response={ok:true,job:await submit(await readJson(req))};statusCode=202;}
+      else if((req.method==='GET'||req.method==='POST')&&pathname.startsWith('/api/work-data/jobs/')) {
+        const match=/^\/api\/work-data\/jobs\/([a-f0-9]{48})(\/cancel)?$/.exec(pathname);if(!match)throw fail('job_not_found',404);
+        if(req.method==='GET'&&!match[2]){const job=jobs.get(match[1]);if(!job)throw fail('job_not_found',404);response={ok:true,job:view(job)};}
+        else if(req.method==='POST'&&match[2]){const body=await readJson(req,256);if(Object.keys(body).length)throw fail('request_invalid',400);response={ok:true,job:await cancel(match[1])};}
+        else throw fail('method_not_allowed',405);
+      }else return false;
+      host.respond(res,response,statusCode);return true;
+    }
+    const bypasses=(req,pathname)=>pathname==='/api/mcp/internal/request'||req.method==='POST'&&pathname==='/api/memory-cli'
+      ||req.method==='GET'&&pathname==='/api/events/stream'||req.method==='POST'&&pathname==='/api/bootstrap';
+    async function runHttp(req,pathname,work) {
+      if(host.maintenance.entered('http'))return work();
+      if(bypasses(req,pathname))return work(); // own signed grants, or finite setup; never wait for stream lifetime
+      if(host.maintenance.accepting())return host.maintenance.run('http',work);
+      // Only these finite receipt routes may read a body while closed. Every
+      // other request, including GETs that can rebuild caches, refuses before IO.
+      if(req.method!=='POST'||!host.receiptPath(pathname))throw fail('busy');
+      const body=await readJson(req,65536),owner=host.receiptOwner(pathname,body);if(!owner)throw fail('receipt_owner_unavailable');
+      cachedBodies.set(req,body);
+      try{return await host.maintenance.continueOwner(owner,()=>host.maintenance.run('http',work));}
+      finally{cachedBodies.delete(req);}
+    }
+    return Object.freeze({submit,cancel,status,handle,runHttp,bypasses,cachedBody:req=>cachedBodies.get(req)});
+  }
+  return Object.freeze({create,authority,readJson});
+})();
+
+async function workDataSetupInspect() {
+  try {
+  const selected=WorkDataRootAuthority.selected();if(!WorkDataRootHooks.ready()||!selected)throw Object.assign(Error('work_data_setup.root_unavailable'),{code:'work_data_setup.root_unavailable',statusCode:503});
+  const current=await WorkDataManifest.create({base:selected.canonicalBase}).readActive();
+  if(current.proof.sha256!==selected.proof.sha256||current.generation!==selected.generation||current.id!==selected.id)throw Object.assign(Error('work_data_setup.authority_changed'),{code:'work_data_setup.authority_changed',statusCode:409});
+  // readConfig can repair/normalize/migrate and is deliberately excluded here.
+  const stat=await fsp.lstat(paths.config);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size>4*1024*1024)throw Object.assign(Error('work_data_setup.config_unavailable'),{code:'work_data_setup.config_unavailable',statusCode:503});
+  const file=await fsp.open(paths.config,'r');let raw;
+  try {const chunks=[];let bytes=0;try{while(true){const chunk=Buffer.alloc(65536),read=await file.read(chunk,0,chunk.length,null);if(!read.bytesRead){chunk.fill(0);break;}bytes+=read.bytesRead;if(bytes>4*1024*1024){chunk.fill(0);throw Error('bounded config');}chunks.push(chunk.subarray(0,read.bytesRead));}const all=Buffer.concat(chunks,bytes);try{const text=all.toString('utf8');if(!Buffer.from(text).equals(all))throw Error('utf8');raw=JSON.parse(text.replace(/^\uFEFF/,''));}finally{all.fill(0);}}finally{for(const chunk of chunks)chunk.fill(0);}}
+  catch {throw Object.assign(Error('work_data_setup.config_unavailable'),{code:'work_data_setup.config_unavailable',statusCode:503});}finally{await file.close();}
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.workDataEncryptionV1!==undefined&&typeof raw.workDataEncryptionV1!=='boolean')throw Object.assign(Error('work_data_setup.config_unavailable'),{code:'work_data_setup.config_unavailable',statusCode:503});
+  const configMirror=raw.workDataEncryptionV1===true,mode=WorkDataRootAuthority.mode(configMirror)?'encrypted':'plain';
+  if(current.generation&&current.mode!==mode)throw Object.assign(Error('work_data_setup.authority_changed'),{code:'work_data_setup.authority_changed',statusCode:409});
+  return {base:selected.canonicalBase,authority:{generation:current.generation,id:current.id,mode,sha256:current.proof.sha256},configMirror};
+  }catch(error){const code=/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.status_unavailable';throw Object.assign(Error(code),{code,apiCode:code,statusCode:Number.isInteger(error?.statusCode)?error.statusCode:503,retry:false});}
+}
+async function workDataSetupDirectories({base,backupDirectory,targetDirectory}) {
+  try {
+  const key=value=>process.platform==='win32'?path.resolve(value).toUpperCase():path.resolve(value),inside=(a,b)=>{const rel=path.relative(key(a),key(b));return rel===''||rel!=='..'&&!rel.startsWith('..'+path.sep)&&!path.isAbsolute(rel);};
+  const fail=()=>{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',statusCode:400});};
+  async function real(directory){if(!path.isAbsolute(directory))fail();const absolute=path.resolve(directory),parsed=path.parse(absolute);let cursor=parsed.root;for(const part of ['',...absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)]){if(part)cursor=path.join(cursor,part);const stat=await fsp.lstat(cursor);if(!stat.isDirectory()||stat.isSymbolicLink()||key(await fsp.realpath(cursor))!==key(cursor))fail();}}
+  await real(backupDirectory);if(inside(base,backupDirectory)||inside(backupDirectory,base))fail();
+  if(targetDirectory!==undefined){if(!path.isAbsolute(targetDirectory)||inside(base,targetDirectory)||inside(targetDirectory,base)||inside(targetDirectory,backupDirectory))fail();await real(path.dirname(targetDirectory));try{await fsp.lstat(targetDirectory);}catch(error){if(error.code==='ENOENT')return;throw error;}fail();}
+  }catch{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',apiCode:'work_data_setup.path_invalid',statusCode:400,retry:false});}
+}
+function workDataSetupReceiptPath(pathname) {
+  return ['/api/stop','/api/chat/answer','/api/question/heartbeat','/api/permission/decision','/api/plan/decision'].includes(pathname)
+    || /^\/api\/missions\/[^/]+\/interventions\/[^/]+\/decision$/.test(pathname)||/^\/api\/agent-runs\/[^/]+$/.test(pathname)
+    || /^\/api\/sessions\/[^/]+\/background\/stop$/.test(pathname);
+}
+function workDataSetupReceiptOwner(pathname,body) {
+  const proposedOwner=(live,sid,poolId)=>live&&live.run&&live.run.sessionId===sid&&!live.closing&&!live.stopRequested&&!live.ctrl?.signal?.aborted
+    && !(typeof AGENT_RUN_TERMINAL!=='undefined'&&AGENT_RUN_TERMINAL.has(live.run.status))
+    && typeof poolId==='string'&&poolId.length>0&&poolId.length<=128&&Array.isArray(live.run.taskPool)
+    && live.run.taskPool.some(item=>item&&item.id===poolId&&item.status==='proposed')?live:null;
+  if(pathname==='/api/stop'){const sid=safeSessionId(body.sessionId),checked=sid?sessionExecutionCheck(sid,body.expectedExecution):null;return checked?.ok?checked.owner:null;}
+  let entry;
+  if(pathname==='/api/chat/answer'||pathname==='/api/question/heartbeat')entry=pendingQuestions.get(String(body.questionId||body.toolUseId||''));
+  else if(pathname==='/api/permission/decision')entry=pendingPermissions.get(String(body.requestId||''));
+  else if(pathname==='/api/plan/decision')entry=pendingPlans.get(String(body.planId||''));
+  else {
+    const contract=/^\/api\/missions\/([^/]+)\/interventions\/([^/]+)\/decision$/.exec(pathname);
+    if(contract){let sid,id;try{sid=decodeURIComponent(contract[1]);id=decodeURIComponent(contract[2]);}catch{return null;}entry=pendingPermissions.get(id)||pendingQuestions.get(id)||pendingPlans.get(id);
+      if(!entry){if(!['approve','reject'].includes(body.action)||body.sessionId!==undefined&&body.sessionId!==sid)return null;const owners=[...activeAgentRuns.values()].filter(live=>proposedOwner(live,sid,id));return owners.length===1?owners[0]:null;}
+      if(entry.sessionId!==sid)return null;}
+    const run=/^\/api\/agent-runs\/([^/]+)$/.exec(pathname);
+    if(run){const live=activeAgentRuns.get(run[1]);if(['pool_approve','pool_reject'].includes(body.action))return proposedOwner(live,body.sessionId,body.poolId);return body.action==='stop'&&live?.run?.sessionId===body.sessionId?live:null;}
+    const background=/^\/api\/sessions\/([^/]+)\/background\/stop$/.exec(pathname);
+    if(background){let sid;try{sid=decodeURIComponent(background[1]);}catch{return null;}if(typeof body.id!=='string')return null;
+      if(body.id.startsWith('run:')){const live=activeAgentRuns.get(body.id.slice(4));return live?.run?.sessionId===sid?live:null;}
+      if(body.id.startsWith('shell:')){const shell=shellSessions.get(body.id.slice(6));return shell?.running&&shell.sessionId===sid?shell:null;}
+    }
+  }
+  if(!entry||body.sessionId!==undefined&&entry.sessionId!==body.sessionId)return null;
+  return turnSettlers.get(entry.sessionId)||null;
+}
+const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks,inspect:workDataSetupInspect,validateDirectories:workDataSetupDirectories,
+  worker:()=>WorkDataMaintenanceWorkerHooks,id:()=>crypto.randomBytes(24).toString('hex'),now:nowIso,defer:work=>setImmediate(work),respond:(res,body,status)=>send(res,json(body,status)),
+  receiptPath:workDataSetupReceiptPath,receiptOwner:workDataSetupReceiptOwner});
+Object.assign(WorkDataSetupHooks,workDataSetup);
 
 // These commands read config through a recovery writer, so they own the stable base as serve does.
 async function withSelectedWorkDataRoot(work) {

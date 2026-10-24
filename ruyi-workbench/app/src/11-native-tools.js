@@ -773,6 +773,7 @@ function killAllShellSessions() {
 
 // Idle reaper: every 60s, kill sessions untouched for >30min. .unref() so it never keeps the loop alive.
 const shellIdleReaper = setInterval(() => {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   const cutoff = Date.now() - SHELL_IDLE_MS;
   for (const [id, s] of shellSessions) { if (!(s.mode === 'background' && s.running) && s.lastUsedAt < cutoff) { try { shellKill({ shellId: id }); } catch { /* ignore */ } } }
 }, 60_000);

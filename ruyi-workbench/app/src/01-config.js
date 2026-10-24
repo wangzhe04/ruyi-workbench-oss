@@ -1895,6 +1895,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
         return snapshot;
       });
       writeChain = pending;
+      if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(pending);
       return pending;
     }
 
@@ -3807,6 +3808,7 @@ async function generateMcpConfig(mode) {
 const SESSION_MCP_CONFIG_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
 let sessionMcpConfigSweepDone = false;
 async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('mcp-cleanup')) return WorkDataMaintenanceHooks.run('mcp-cleanup', () => sweepStaleSessionMcpConfigs(...arguments));
   let removed = 0;
   let names = [];
   try { names = await fsp.readdir(paths.generated); } catch { return removed; }
@@ -3828,6 +3830,7 @@ async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
 // screenshot-*.png 不在此列:聊天里的工具图片卡片经 /api/file/preview 按路径回读它们,清掉会让历史对话里的截图变成裂图。
 const SCRIPT_FILE_MAX_AGE_MS = 24 * 3600 * 1000;
 async function sweepStaleScriptFiles(nowMs = Date.now()) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('script-cleanup')) return WorkDataMaintenanceHooks.run('script-cleanup', () => sweepStaleScriptFiles(...arguments));
   const dir = path.join(paths.generated, 'scripts');
   let names = [];
   try { names = await fsp.readdir(dir); } catch { return 0; }
@@ -3946,6 +3949,7 @@ async function readBody(req) {
 }
 
 async function readJsonBody(req) {
+  if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.cachedBody) { const body = WorkDataSetupHooks.cachedBody(req); if (body) return body; }
   const raw = await readBody(req);
   if (!raw.trim()) return {};
   let value;

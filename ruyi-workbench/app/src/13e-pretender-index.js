@@ -437,6 +437,7 @@ function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
 function writePretenderIndexFile(value) {
   const run = pretenderIndexRuntime.writeChain.then(() => writePretenderIndexFileNow(value));
   pretenderIndexRuntime.writeChain = run.catch(() => false);
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(run);
   return run;
 }
 async function writePretenderIndexFileNow(value) {
@@ -469,10 +470,11 @@ async function persistPretenderIndex(value) {
 // 增量刷新(脏页、目录变化、用量变化)的落盘合并成一次延迟写,不放在请求路径上。进程退出时没写的那一份丢了也无妨:
 // 索引是纯派生物,下次启动按源指纹只刷变了的那几片。
 function schedulePretenderPersist() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   if (pretenderIndexRuntime.persistTimer) return;
   pretenderIndexRuntime.persistTimer = setTimeout(() => {
     pretenderIndexRuntime.persistTimer = null;
-    void flushPretenderPersist().catch(() => {});
+    void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.fresh ? WorkDataMaintenanceHooks.fresh('projection-persist', () => flushPretenderPersist()) : flushPretenderPersist()).catch(() => {});
   }, PRETENDER_PERSIST_DEBOUNCE_MS);
   if (pretenderIndexRuntime.persistTimer.unref) pretenderIndexRuntime.persistTimer.unref();
 }
@@ -489,6 +491,7 @@ async function flushPretenderPersist() {
 // 后台低频全量校验:到点先在链外扫好,再走一次 getPretenderProjectionIndex 做比对。
 // 全量扫描(逐条 stat)在建索引链之外先做 —— 扫描期间来的请求不必排在它后面(审查轮);建索引时只拿结果做比对。
 async function pretenderRunVerify() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('projection-verify')) return WorkDataMaintenanceHooks.run('projection-verify', () => pretenderRunVerify(...arguments));
   pretenderIndexRuntime.lastVerifyAt = Date.now();
   if (!fs.existsSync(paths.sessions)) return null;
   const dirStamp = await pretenderSessionsDirStamp();
@@ -497,11 +500,12 @@ async function pretenderRunVerify() {
   return getPretenderProjectionIndexShared();   // 自己这次构建不再武装下一轮:没人读时后台校验就停下,不空转
 }
 function pretenderScheduleVerify() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   if (pretenderIndexRuntime.verifyTimer || pretenderIndexRuntime.verifyScan) return;
   const wait = Math.max(0, pretenderIndexRuntime.lastVerifyAt + PRETENDER_VERIFY_MS - Date.now());
   pretenderIndexRuntime.verifyTimer = setTimeout(() => {
     pretenderIndexRuntime.verifyTimer = null;
-    void pretenderRunVerify().catch(() => {});
+    void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.fresh ? WorkDataMaintenanceHooks.fresh('projection-verify', () => pretenderRunVerify()) : pretenderRunVerify()).catch(() => {});
   }, wait);
   if (pretenderIndexRuntime.verifyTimer.unref) pretenderIndexRuntime.verifyTimer.unref();
 }
@@ -727,6 +731,7 @@ async function getPretenderProjectionIndex() {
   return index;
 }
 async function getPretenderProjectionIndexShared() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('projection')) return WorkDataMaintenanceHooks.run('projection', () => getPretenderProjectionIndexShared(...arguments));
   if (pretenderIndexRuntime.building) return pretenderIndexRuntime.building;
   const current = buildOrLoadPretenderIndex();
   pretenderIndexRuntime.building = current;
@@ -746,6 +751,7 @@ async function getPretenderProjectionIndexShared() {
 // projection when sessions haven't materialized yet, so this function's own check is now redundant-but-
 // harmless (kept for its boot-time short-circuit, not for correctness).
 async function warmPretenderProjectionIndex() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('projection-warm')) return WorkDataMaintenanceHooks.run('projection-warm', () => warmPretenderProjectionIndex(...arguments));
   let files = [];
   try { files = await fsp.readdir(paths.sessions); } catch { return null; }
   if (!files.some(file => /^sess_[A-Za-z0-9_-]+(?:\.json|\.interventions\.ndjson)$/.test(file))) return null;

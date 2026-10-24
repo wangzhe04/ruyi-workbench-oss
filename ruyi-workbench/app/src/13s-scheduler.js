@@ -591,6 +591,7 @@ function schedulerPermissionModeFor(schedTask, schedConfig) {
 
 // 一次触发。mode ∈ ontime|late|manual。返回本次的 outcome(e2e 与 run-now 都读它)。
 async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('scheduler-fire')) return WorkDataMaintenanceHooks.run('scheduler-fire', () => schedulerFireOnce(...arguments));
   const task = schedTask;
   const startedMs = schedulerClockNow();
   const day = schedulerDayKey(startedMs);
@@ -931,6 +932,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
 // 现在 for/while 循环体只管调用 schedulerDispatchFire(不 await 它),真正的登记 / 派单 / 收尾仍在
 // schedulerFireOnce 内部完成,只是不再拿一条任务的完成来做另一条任务能不能开始的闸门。
 function schedulerDispatchFire(task, mode, dueMs) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   schedulerRuntime.inFlightTaskIds.add(task.id);
   schedulerFireOnce(task, mode, dueMs)
     .catch(e => {
@@ -953,6 +955,7 @@ function schedulerTaskBusy(task) {
   return !!(task && (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)));
 }
 async function schedulerRunNow(task) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('scheduler-manual')) return WorkDataMaintenanceHooks.run('scheduler-manual', () => schedulerRunNow(...arguments));
   if (schedulerTaskBusy(task)) return { busy: true, outcome: '' };
   let manualDueMs = schedulerClockNow();
   while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
@@ -964,6 +967,7 @@ async function schedulerRunNow(task) {
 // `ticking` 只挡「同一个定时器触发两次并发 tick」的重入 —— 不再是「等全部到点任务跑完」的闸,
 // 派单全走 schedulerDispatchFire,tick 本体现在是一段纯同步的派单决策(见上)。
 async function schedulerTick() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   if (schedulerRuntime.ticking) return;
   schedulerRuntime.ticking = true;
   const generation = schedulerRuntime.generation;
@@ -980,6 +984,7 @@ async function schedulerTick() {
     await schedulerTaskAdmission(() => schedulerFirePreflight());
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
     while (schedulerRuntime.lateQueue.length) {
+      if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
       if (generation !== schedulerRuntime.generation) return;
       const queued = schedulerRuntime.lateQueue.shift();
       const task = schedulerRuntime.tasks.find(row => row.id === queued.taskId);
@@ -994,6 +999,7 @@ async function schedulerTick() {
         && task.state.nextFireAt && Date.parse(task.state.nextFireAt) <= now)
       .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
     for (const task of due) {
+      if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
       if (generation !== schedulerRuntime.generation) return;
       // 上面记 skipped 那一段有 await,期间 run-now 可能已把这条派出去了:再核一次。
       if (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
@@ -1029,7 +1035,7 @@ function schedulerEnsureTimer() {
   if (!schedulerRuntime.enabled || !schedulerRuntime.started) return;
   const wanted = schedulerRuntime.tasks.length > 0 || schedulerRuntime.lateQueue.length > 0;
   if (wanted && !schedulerRuntime.timer) {
-    schedulerRuntime.timer = setInterval(() => { void schedulerTick(); }, schedulerTickMs());
+    schedulerRuntime.timer = setInterval(() => { void (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.schedulerTick ? WorkDataMaintenanceHooks.schedulerTick() : schedulerTick()); }, schedulerTickMs());
     if (schedulerRuntime.timer && typeof schedulerRuntime.timer.unref === 'function') schedulerRuntime.timer.unref();
   } else if (!wanted && schedulerRuntime.timer) {
     clearInterval(schedulerRuntime.timer);

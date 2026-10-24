@@ -85,7 +85,8 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // M2-6b3: reviewed 12-line compact clipboard plaintext menu CSS; no other layer changes.
 // 2026-10-23: 生成物并入本轮变更；chat-live.css 新增行内文件动作与窄屏换行，移除独立 chip 样式。
 // 自证：只读 HEAD chat-live.css 时载荷精确回到 0990a6250d726cc0df5a0ac053ccd5ffeb8077af0db8663e31117772fb2f8fa3；内存损坏后 D51/F3 必须失败，磁盘 CSS 不改坏。
-const LEGACY_STYLES_SHA256 = '78df055adf11a3766d65a18a0ed217a3f674b668d064536c6098275a21139ef3';
+// M3-3: append only scoped work-data panel settings rules; 1440/768/390 browser layout verified.
+const LEGACY_STYLES_SHA256 = '05fe987494504fcccdb60676bf0988850c5f702fea9b5861c5fad9570af970ec';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

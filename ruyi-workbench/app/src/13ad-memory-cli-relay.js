@@ -4,6 +4,7 @@ const MemoryCliRelay = (() => {
   const tools = Object.freeze(['workbench_memory_list', 'workbench_memory_read']);
   const allowed = new Set(tools), bodyCap = 16384, resultCap = 2 * 1024 * 1024;
   const nodeGrants = new Set();
+  const Hooks = { run: work => work() };
   const serverId = config => RUYI_MCP_SERVER_ID + (config.includeWorkbenchMcp ? '-memory' : '');
   const readerTool = config => 'mcp__' + serverId(config) + '__workbench_memory_read';
   const fail = code => { throw Object.assign(new Error('memory_cli.' + code), { code: 'memory_cli.' + code, statusCode: 403 }); };
@@ -121,6 +122,7 @@ const MemoryCliRelay = (() => {
       }
       if (!grant) for (const found of nodeGrants) { if (!found.revoked && same(found.tokenHash, tokenHash)) { grant = found; reg = found.reg; break; } }
       tokenHash.fill(0); current(grant, reg);
+      const work = async () => {
       const controller = new AbortController();
       res.once('close', () => { if (!res.writableEnded) controller.abort(); }); res.once('error', () => controller.abort());
       const chunks = []; let bytes = 0;
@@ -142,6 +144,8 @@ const MemoryCliRelay = (() => {
       current(grant, reg); if (controller.signal.aborted) fail('unavailable');
       if (Buffer.byteLength(JSON.stringify(result), 'utf8') > resultCap) fail('result_too_large');
       send(res, json({ ok: true, result }, 200, { 'cache-control': 'no-store' })); return true;
+      };
+      return await Hooks.run(work, grant.executionOwner || grant.nodeContext?.runtime);
     } catch (error) {
       // No private exception message or partial tool result escapes a lost execution owner.
       if (res.destroyed || res.writableEnded) return true;
@@ -208,6 +212,6 @@ const MemoryCliRelay = (() => {
       void pump();
     });
   }
-  return Object.freeze({ create, bind, createNode, bindNode, revoke, readerTool, kimiDefinition, handle, startRelay });
+  return Object.freeze({ create, bind, createNode, bindNode, revoke, readerTool, kimiDefinition, handle, startRelay, Hooks });
 })();
 Object.assign(MemoryCliHooks, MemoryCliRelay);

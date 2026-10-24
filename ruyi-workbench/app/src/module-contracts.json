@@ -48,7 +48,10 @@
         "USAGE_DICT_COLUMNS",
         "UsageRowView",
         "VERSION",
+        "WorkDataMaintenanceHooks",
+        "WorkDataMaintenanceWorkerHooks",
         "WorkDataRootHooks",
+        "WorkDataSetupHooks",
         "_consoleGbDecoder",
         "_consoleUtf8Strict",
         "_dataRootMemo",
@@ -798,7 +801,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataSetupHooks",
           "kinds": [
             "read"
           ]
@@ -1478,6 +1495,101 @@
       ]
     },
     {
+      "file": "01aa-work-data-tree.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataTree"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01ab-work-data-full-snapshot.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataFullSnapshot"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01aa-work-data-tree.js",
+          "symbol": "WorkDataTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01k-credential-vault.js",
+          "symbol": "CredentialVault",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01n-work-data-crypto.js",
+          "symbol": "WorkDataCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01q-work-data-records.js",
+          "symbol": "WorkDataRecords",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01r-work-data-chunks.js",
+          "symbol": "WorkDataChunks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01x-work-data-migration-codecs.js",
+          "symbol": "WorkDataMigrationCodecs",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02c-turn-segments.js",
       "layer": "foundation",
       "provides": [
@@ -2065,6 +2177,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -6279,6 +6398,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
@@ -9889,6 +10015,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
@@ -12046,6 +12179,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "zlib",
           "kinds": [
             "read"
@@ -13007,6 +13147,13 @@
           "symbol": "URL",
           "kinds": [
             "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
             "read"
           ]
         },
@@ -14797,7 +14944,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataSetupHooks",
           "kinds": [
             "read"
           ]
@@ -18084,6 +18245,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -18460,6 +18628,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -23119,6 +23294,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -24373,6 +24555,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -24899,6 +25088,7 @@
       "file": "13u-migration-center.js",
       "layer": "transport",
       "provides": [
+        "MIGRATION_BACKUP_HISTORY_MARKER",
         "MIGRATION_BACKUP_TAG",
         "MIGRATION_CAPSULE_ARCHIVE_LIMIT",
         "MIGRATION_CAPSULE_BINARY_LIMIT",
@@ -24913,13 +25103,19 @@
         "MIGRATION_SKILL_MAX_DEPTH",
         "MIGRATION_SKILL_MAX_FILES",
         "MIGRATION_SKILL_STAGE_PREFIX",
+        "createMigrationBackupOwner",
         "migrationAnalyzeValue",
         "migrationApply",
         "migrationBackup",
+        "migrationBackupAuthority",
+        "migrationBackupHistoryShape",
+        "migrationBackupHistoryStore",
+        "migrationBackupRoot",
         "migrationCapsuleArchive",
         "migrationCapsuleAssertTree",
         "migrationCapsuleBroker",
         "migrationCapsuleCapture",
+        "migrationCapsuleCapturePreserved",
         "migrationCapsuleDecode",
         "migrationCapsuleDescriptor",
         "migrationCapsuleFail",
@@ -24935,6 +25131,7 @@
         "migrationCapsuleRestore",
         "migrationCapsuleRoots",
         "migrationCapsuleSame",
+        "migrationCapsuleSameMetadata",
         "migrationCapsuleShape",
         "migrationCapsuleVerifyReady",
         "migrationCapsuleWriteIntent",
@@ -24949,6 +25146,7 @@
         "migrationDirSize",
         "migrationFileHash",
         "migrationFileHashCache",
+        "migrationFinishPlainHistory",
         "migrationForgetPackage",
         "migrationGetAt",
         "migrationGetField",
@@ -24967,6 +25165,7 @@
         "migrationPathInside",
         "migrationPidAlive",
         "migrationPromptKeys",
+        "migrationReadBackupHistory",
         "migrationRecoverSkillBackups",
         "migrationRecoveryNeeded",
         "migrationRecycle",
@@ -25140,6 +25339,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "agentMcpImportSources",
           "kinds": [
@@ -25190,8 +25396,22 @@
           ]
         },
         {
+          "provider": "01n-work-data-crypto.js",
+          "symbol": "WorkDataCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01r-work-data-chunks.js",
+          "symbol": "WorkDataChunks",
           "kinds": [
             "read"
           ]
@@ -25809,6 +26029,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -25975,6 +26202,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -26442,6 +26676,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -27079,6 +27320,746 @@
         {
           "provider": "13f-native-tool-schemas.js",
           "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ag-work-data-maintenance.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataMaintenance",
+        "workDataDeferredAgentWakes",
+        "workDataDeferredStewardWake",
+        "workDataMaintenance"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MemoryCliHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageLedgerChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configMutateChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configWriteChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "kimiMcpSyncChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "flushSessionIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "inflightSessionIndex",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "interventionWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRevertChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionChangeWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionContainerChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "pendingSessionIndex",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionIndexChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionIndexFlushTimer",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionIndexRebuildsActive",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMetaDeferChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMutateChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionNotesWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionScratchpadChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "flushWorkbenchLogs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logStream",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04f-toolbox-services.js",
+          "symbol": "toolboxReconcileChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04f-toolbox-services.js",
+          "symbol": "toolboxServices",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "voiceLexiconChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "engineTranscriptLedgerChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "agentInstructionChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryProposalStateChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryUsageWriteChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunEventChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "agentWakeTimers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "scheduleAgentWake",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "backgroundJobChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "shellSessions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "12-tool-dispatch.js",
+          "symbol": "fileToolWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "proxyModelsCacheChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13ac-mcp-consumer.js",
+          "symbol": "McpConsumers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "sessionSearchRefreshChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "flushPretenderPersist",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "pretenderIndexRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "pretenderScheduleVerify",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "schedulePretenderPersist",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardAppendChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardClearWake",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardRunTick",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardScheduleWake",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardDecisionChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardMemoryChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "stewardRunnerRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13n-steward-arbiter.js",
+          "symbol": "stewardArbiter",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardArchiveChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardScheduleInboxDrain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13q-steward-runner-turn.js",
+          "symbol": "stewardUserWaiters",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerEnsureTimer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerFiresChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerTasksChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerTick",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13u-migration-center.js",
+          "symbol": "migrationChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotActiveActors",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotDeliveries",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotDiscoveryBusy",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotInflight",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotUnsettled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotWakeWorker",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotWorkerAgain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotWorkerBusy",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ah-work-data-setup.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataSetup",
+        "workDataSetup",
+        "workDataSetupDirectories",
+        "workDataSetupInspect",
+        "workDataSetupReceiptOwner",
+        "workDataSetupReceiptPath"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceWorkerHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataSetupHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01v-work-data-manifest.js",
+          "symbol": "WorkDataManifest",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01z-work-data-root-authority.js",
+          "symbol": "WorkDataRootAuthority",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPlans",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingQuestions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionCheck",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "AGENT_RUN_TERMINAL",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "shellSessions",
           "kinds": [
             "read"
           ]

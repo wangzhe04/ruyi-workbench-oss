@@ -5351,6 +5351,7 @@ async function journalTrimProtectedSnapshots(dir, bytesToFree) {
   return freed;
 }
 async function journalGlobalSweep() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('journal-retention')) return WorkDataMaintenanceHooks.run('journal-retention', () => journalGlobalSweep(...arguments));
   journalGcProbe.fullScans++;
   journalGcSinceScan = 0;
   journalSweeping++;

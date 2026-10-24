@@ -486,6 +486,8 @@ async function externalBotPrepareReply(job, controller, dispatch, assertPolicy =
   return prepared.result;
 }
 async function externalBotDrain() {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('external-worker')) return WorkDataMaintenanceHooks.run('external-worker', () => externalBotDrain(...arguments));
   if (externalBotWorkerStopped) return;
   if (externalBotWorkerBusy) { externalBotWorkerAgain = true; return; }
   externalBotWorkerBusy = true;
@@ -493,7 +495,7 @@ async function externalBotDrain() {
     await externalBotRecover();
     do {
       externalBotWorkerAgain = false;
-      while (!externalBotWorkerStopped) {
+      while (!externalBotWorkerStopped && (typeof WorkDataMaintenanceHooks === 'undefined' || !WorkDataMaintenanceHooks.accepting || WorkDataMaintenanceHooks.accepting())) {
         const job = await externalBotNextJob(); if (!job) break; if (job.kind === 'skip') continue;
         let result, sendEntered = false;
         try {
@@ -519,12 +521,12 @@ async function externalBotDrain() {
         try { await externalBotFinishJob(job, result); }
         catch (error) { externalBotUnsettled.set(job.item.id, { kind: job.kind, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
       }
-    } while (externalBotWorkerAgain && !externalBotWorkerStopped);
+    } while (externalBotWorkerAgain && !externalBotWorkerStopped && (typeof WorkDataMaintenanceHooks === 'undefined' || !WorkDataMaintenanceHooks.accepting || WorkDataMaintenanceHooks.accepting()));
     externalBotWorkerError = '';
   } catch { externalBotWorkerError = 'external_channel.storage_unavailable'; }
   finally { externalBotWorkerBusy = false; }
 }
-function externalBotWakeWorker() { if (!externalBotWorkerStopped) void externalBotDrain(); }
+function externalBotWakeWorker() { if (!externalBotWorkerStopped) { if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) { externalBotWorkerAgain = true; return; } void externalBotDrain(); } }
 function externalBotValidState(state) {
   if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
     || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
@@ -763,6 +765,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
   try {
     const url = new URL(req.url, 'http://localhost');
     if (callbackPlatform) {
+      if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('external-intake')) return await WorkDataMaintenanceHooks.run('external-intake', () => handleExternalBotApiRoutes(req, res, pathname));
       if (req.method !== 'POST') throw externalBotError('external_channel.request_invalid', 405);
       const id = url.searchParams.get('connectionId');
       if ([...url.searchParams.keys()].length !== 1 || url.searchParams.getAll('connectionId').length !== 1 || !id || !/^[a-z][a-z0-9_-]{0,63}$/.test(id)) throw externalBotError('external_channel.connection_unavailable', 404);

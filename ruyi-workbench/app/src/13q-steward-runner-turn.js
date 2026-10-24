@@ -36,6 +36,7 @@ const stewardDecideNudged = new Set();
 // hunt2-steward ①:排队等槽位的用户回合(到达先后;只有排头能认领。见 runStewardTurn 的等待循环)。
 const stewardUserWaiters = [];
 async function runStewardTurn(input) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('steward-turn')) return WorkDataMaintenanceHooks.run('steward-turn', () => runStewardTurn(...arguments));
   const generation = stewardRunnerRuntime.conversationGeneration;
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'external' ? 'external' : opts.trigger === 'inbox' ? 'inbox' : 'user';
@@ -587,6 +588,8 @@ function stewardScheduleInboxDrain(retryDelayMs = 0) {
   }
   stewardRunnerRuntime.debounceMs = delay;
   const timer = setTimeout(() => {
+    if (!stewardRunnerRuntime.queue.length) { stewardRunnerRuntime.debounceTimer = null; stewardRunnerRuntime.debounceMs = -1; return; }
+    const drain = () => {
     stewardRunnerRuntime.debounceTimer = null;
     stewardRunnerRuntime.debounceMs = -1;
     if (stewardRunnerRuntime.stopped) return;
@@ -600,6 +603,8 @@ function stewardScheduleInboxDrain(retryDelayMs = 0) {
         stewardScheduleInboxDrain(stewardInboxRetryDelay(batch));
       },
     );
+    };
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.continueOwner) void WorkDataMaintenanceHooks.continueOwner(stewardRunnerRuntime, drain).catch(() => {}); else drain();
   }, delay);
   if (timer && typeof timer.unref === 'function') timer.unref();
   stewardRunnerRuntime.debounceTimer = timer;

@@ -175,6 +175,7 @@ const McpConsumers = (() => {
     }
   }
   async function checkSubscriptions(connection, row, lease) {
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
     // The existing heartbeat is the only scheduler. Idle consumers do no config
     // or resource reads; a held cycle never queues another background pass.
     if (!connection.subscriptions.size || connection.checkingSubscriptions) return;
@@ -245,6 +246,7 @@ const McpConsumers = (() => {
     }
     const policy = PrivacyGateway.disclosurePolicyGuard(), generation = configReadGeneration;
     const assert = () => { policy(); assertCurrent(connection, row); if (generation !== configReadGeneration) deny('configuration_changed'); };
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('consumer-rpc')) return WorkDataMaintenanceHooks.run('consumer-rpc', () => run(...arguments));
     const id = message.id, requestKey = typeof id + ':' + String(id);
     if (connection.inflight.has(requestKey) || connection.inflight.size >= limit.inflight) deny('capacity');
     const controller = new AbortController(), cancel = () => controller.abort();
@@ -596,7 +598,8 @@ const McpConsumers = (() => {
       request.setTimeout(3000, () => request.destroy()); request.on('error', () => reject(setupError())); request.end(bytes);
     });
   }
-  return Object.freeze({ handle, listen, relay, verifyInternal, instance });
+  function maintenanceState() { return { active: [...connections.values()].reduce((sum, row) => sum + row.inflight.size + Number(row.checkingSubscriptions), 0), pending: [...writes.values()] }; }
+  return Object.freeze({ handle, listen, relay, verifyInternal, instance, maintenanceState });
 })();
 const priorConsumerApi = PrivacyCore.configHooks.handleApiRoutes;
 PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => await McpConsumers.handle(req, res, pathname) || await priorConsumerApi(req, res, pathname);

@@ -108,3 +108,19 @@ transport 不凭同名文件推断业务 owner；普通上传文件也可叫 `ex
 生成图104模块、723边，最大 SCC 仍31，未提高上限；路由181判定点、167鉴权行。清册582 E2E / 默认575离线 / 348 unit suite。外发清册289源、695词法候选，旧76错误ID逐项不变；新增执行能力回环为 local-only，stdio/子进程继续保持原 unknown 分类。完整默认离线、实际安装包、真实跨机恢复未跑。扩大普查中23种相关E2E至少一遍通过；另有 cross-thread-history 的旧六次调用上限断言失败，使用本批基线原生成服务和同一断言精准复现。3656700cf此前已将该合同改为累计字符预算；本批保留该旧断言与原业务，不把这项已有失配称为通过，后续独立迁移验收合同。
 
 完整快照 host、维护等待/排空与新进程接管、NTFS 备份表示转换及 portable 重建、生产首次迁移/反向关闭/恢复与 UI 继续多 agent 实施。默认开关、版本和真实用户数据不变，**M3-3 仍在进行中**。
+
+## 8. 第五批：普通完整快照、维护排空、同机备份表示与设置页（2026-10-24）
+
+基线 `2a4a7189aa05474f8a6127a57bd1df62dddc1a03`。`01aa` 持有完整默认流 census、私有原对象身份/字节 proof 与可清零 Buffer；`01ab` 在 source OS owner 内收集完整 stable base，认证当前与保留 generations 的独立 master、历史凭据引用、privacy、直接 DPAPI auxiliary、非清册文件和空目录。导出前后重验 source，恢复在创建全新不相交目标前完成口令、引用、codec 与本机密钥重封验证；保留所有源字节和失败目标。BOM 历史配置最初漏引用，独立回归先红后修；逻辑 JSON 只剥初始 BOM，raw bytes 不改变。此 profile 仅普通文件默认流和目录名，未捕获普通原生元数据，且明确拒绝未闭合的技能 capsule/稳定控制 owner；不能以普通包通过宣称全部特殊对象 portable 恢复已完成。
+
+`13ag` 全局屏障现已接实际根入口、内部 MCP/业务服务、scheduler/steward/bot 生产者、私有写链、writer backlog 和有限 HTTP 根。暂停新准入后等待实际 owner 和两次稳定 drain；已有任务不 abort，精确绑定的权限/问题/计划/停止回执继续完成。独审补 pretender 私有 chain、运行中 shell/memory owner、真实 pool 待决身份。完整回归另暴露自主 timer 继承已过期 turn/HTTP ALS 而永久拒绝工作，现以 fresh 根准入启动自主唤醒，关闭期的待唤醒在恢复后重发，原监督业务断言和时间预算不变。
+
+`13u` V3 同机 plain/sealed 表示切换与撤回历史保留原 NTFS 对象；中止转换恢复原 wrapper/载荷，提交后撤回资格绑定实际原对象、当前目标与来源历史。新增实际 DPAPI 夹具 5 组检查原 IDs、DATA/ADS、短名、只读、Basic 四时间、可读 owner/group/DACL、24秒延迟与新 Node 终态历史；它使用明确的 manifest-generation receipt seam，未验证实际 manifest 首迁移、Desktop 接管或 portable 重建。旧同机 V2 原生单测/组合回归保留通过证据。
+
+`13ah` 接唯一 setup/controller，先鉴权再处理 setup，普通 GET 也进入有限维护根；签名内部通路保留各自 owner。POST 返回的排队、ready、handoff 均不是加密完成，提交后失败不重开旧 writer。设置页独立于 privacy 渲染，以完整 authority 预检，明确关闭后产生明文；密码不进入 storage，5xx/解析失败保留结果未知。DOM 14 项、实际浏览器 18 项与 1440/768/390 布局通过，无控制台错误或横向溢出。生产冷 worker 尚未接入，worker/upload/download 能力均不假启用；完整首次迁移/关闭/恢复操作流程仍未完成。
+
+最终完整 unit 3376 项执行，3350 pass/26 skip/0 fail；20种相关实际 E2E 通过；81静态最终全过，1260脚本语法零错、生成服务新鲜。初始完整unit3335项有1个监督失败；误把 `run-all --fast` 当静态入口又与另一完整unit重叠，产生同监督失败及另1个生命周期时间失败，这两轮原日志均保留，不称首轮全绿或断言其根因都是负载。监督问题按实际 ALS 根因修复，最终原完整unit与原生命周期用例均过。静态中途75/81，修正两语术语、路由合同生成物、追加 scoped CSS 的载荷hash、overlay漏发新JS；未删断言。原生夹具最初错误地在 OFF 调 ensure 已改为显式 stageNew，旧首败保留。完整身份、独审、负控、运行日志hash与未跑范围见[第五批证据](evidence/privacy-m3-3-snapshot-maintenance-ui.json)。
+
+图108模块/768边/67前向边/最大SCC31；路由184判定点/171鉴权行。清册585 E2E/默认578离线/356 unit suite。外发294源/735候选，有限重审新源码/边界与overlay新增资源登记，原76错误 ID集合精确不变；仍不是全局外发审阅通过。UI locale 保留旧格式，只追加49键及术语修正；V3 仅额外删冗余 EOF 空行并核对既有词法边界不变。入索引后 EOL 门另发现新增 V2 owner 测试仍是混合换行、helper 多一个 EOF 空行，均只规范 LF/末尾空白，相关27纯用例及原 EOL 门通过，随后已索引全部81静态重跑全过；原首败和规范化前后 SHA 均保留。
+
+继续接生产冷 worker、持久 intent/完成回执、独立新进程校验与重启、特殊 NTFS 备份 portable 重建和上传下载。下一批普通 host 的 Windows 大小写漏密/会话 intrinsic ID别名问题已有独立原始失败及修候选，仍在 TEMP，不混作本批生产实现。全量默认离线、实际包、新安装/升级/回滚、真实跨机恢复均未执行。用户已取消昨日暂停，目标持续推进；**不在此阶段标记 M3-3 或3.1完成**。

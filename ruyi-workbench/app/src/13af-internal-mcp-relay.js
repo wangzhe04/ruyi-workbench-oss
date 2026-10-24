@@ -269,7 +269,7 @@ const InternalMcpRelay = (() => {
           catch (policyError) { check(); message = policyError?.code === 'privacy.engine_not_supported' ? policyError.code : 'privacy.policy_unavailable'; }
           if (Object.hasOwn(msg, 'id')) emit({ jsonrpc: '2.0', id: msg.id, error: { code: -32000, message } });
         } finally { if (ctx) contexts.delete(ctx); }
-      });
+      }, grant.executionOwner || grant.nodeContext?.runtime);
       if (!res.destroyed) res.end();
     } catch {
       if (res.headersSent) { if (!res.destroyed) res.end(); } else unavailable();
@@ -347,7 +347,8 @@ const InternalMcpRelay = (() => {
     });
     process.stdin.once('end', () => { inputEnded = true; if (active === 0) closed = true; }); process.stdin.once('error', close); process.once('SIGTERM', close);
   }
-  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, resourceRefusal, business, Hooks });
+  function maintenanceState() { return { active: [...grants].reduce((sum, grant) => sum + grant.inflight, 0) }; }
+  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, resourceRefusal, business, Hooks, maintenanceState });
 })();
 
 Object.assign(InternalMcpHooks, InternalMcpRelay);

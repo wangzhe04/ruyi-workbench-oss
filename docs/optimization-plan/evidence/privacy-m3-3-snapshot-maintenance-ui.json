@@ -1,0 +1,914 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baseline": "2a4a7189aa05474f8a6127a57bd1df62dddc1a03",
+  "branch": "codex/3.1-completion-plan",
+  "node": "v24.14.1",
+  "status": "Batch 5 ordinary snapshot, global maintenance, same-machine V3 representation and setup UI verified; M3-3 and 3.1 continue",
+  "sourceIdentity": {
+    "README.md": "c94a2e736332b40579779b005f2abde22e9c512a32e47489a07b45e5215b2692",
+    "README_EN.md": "f0b2ecebca92d5ea9c09f2d6103857322dfedead8c963605c7c1cb0fa8db121e",
+    "dev-harness/lib/migration-backup-owner-fixture.js": "9dea9daf4714bd310cf0b1979c2490017a7a018e9c2c04f7b1a7f163e4d18281",
+    "dev-harness/lib/migration-backup-representation-fixture.js": "ce40cee43f2cf616f674040fe8650e9cb665a11c616777fe7401d5c9090fe33b",
+    "dev-harness/lib/migration-skill-backup-fixture.js": "87d6f5490c0cd8e2d6557d6a6637eb8a21ea2fca851e4e0e429ef1f4707c9137",
+    "dev-harness/lib/work-data-settings-fixture.js": "bcc8dac91cc887ce757820110afeeb655f425efb1b02c853674578baa19d5f6a",
+    "dev-harness/migration-skill-backup-representation.e2e.js": "59405775d11f5efda4724312fafdd092130fb3f2cf02882ff63997238517c1e3",
+    "dev-harness/privacy-m1/egress/AUDIT.md": "763d5da3f2162c2631221ee59546f583f9a4de3f615578c73c41836fb6940c20",
+    "dev-harness/privacy-m1/egress/manifest.json": "265b1923c6a60ad33be05c83dd30366b1400fc7e654557b3810e28f3ac9f83c7",
+    "dev-harness/process-safety.static.e2e.js": "56b3bed5cfd4aeb742fa3801c1d49452a21787dd0fa2234d8cf62306b0f7a94f",
+    "dev-harness/read-frontend-css.js": "7a798920791ac27d79cb744fb33b6a728987107014ee1a244a6afb22e4d62798",
+    "dev-harness/route-inventory.js": "c7ec67196d24238e7470bb27ccb68d1c03e3bc99f073785523cd2be258aa5e2d",
+    "dev-harness/unit/migration-backup-owner.test.js": "009603df85171e744678ec6bea366219e5b4e192fba8fa4376290f3a3e9586fb",
+    "dev-harness/unit/migration-backup-representation.test.js": "8c4db6f56f7a458b860c5327e6b9efa1d5998bb235c8979abb3aa5a0e368c777",
+    "dev-harness/unit/work-data-autonomous-wake.test.js": "9275685c26109737418aca60b7101c8b005c58c9623aadbca1dc9b84914e1080",
+    "dev-harness/unit/work-data-full-snapshot.test.js": "58dea9144ae30417a93c9bb8be831e7594a693b7da42ad20803b6146352919ab",
+    "dev-harness/unit/work-data-maintenance.test.js": "23e9069ac0a0ac841abf4c380e09de49527b3825fb25b71797be0c7b1852e106",
+    "dev-harness/unit/work-data-settings.test.js": "e0f74fc8b3672e587724aee9424577e4d618819bf803736a166c5e60be84d2e4",
+    "dev-harness/unit/work-data-setup.test.js": "3f77d9b1ec90d283efb565bb4107bc6be4ae20d8c210ef694bbb3ccd2ab0f20b",
+    "dev-harness/unit/work-data-tree.test.js": "bf85d3abfaed7f68cb9879582afa79532d0f161ca3bc7c28e6371b7e94f60d1f",
+    "dev-harness/work-data-full-snapshot.e2e.js": "a60d186bb888c26974e9d7fea46bf598b8275594daa3653f36f7938762ea8696",
+    "dev-harness/work-data-settings.browser.e2e.js": "ae1334bb83973455ec52df8997f863f8a8cf97ec48bf531c460d6a2554aa5af6",
+    "docs/architecture/architecture-contract-snapshots.json": "9000e4a74ce2a866459beca1af1f3388987d73535044895e2b9d54330785a5a3",
+    "docs/architecture/architecture-contract-snapshots.md": "c06d775570fedc107be57181d82eb481edb99fef15a4b8bbc1af3eee3c3e8626",
+    "docs/architecture/module-dependency-graph.json": "61277a90cbab76ce3fd8f4dadc6bc4ec668e7c5fec5488a0b286b7a1c5be2d1e",
+    "docs/architecture/module-dependency-graph.md": "60ba260a216d0f94f480a9a628e7bdcdd4380fb021775c54491ea9fec74e852f",
+    "docs/architecture/privacy-egress-inventory.json": "1ce34834f5de58847176459a1b8680123b8a5fa2f2775e840913c8fb6093c0db",
+    "docs/architecture/privacy-egress-inventory.md": "58f513912bb7f3ac4ff772c00be4501fb4a094b2c753523a3f899cbbe7388e3e",
+    "docs/architecture/route-inventory.json": "cd031def134e52795b33927c0a8bcf9bcd4e867b51f7e89f2fbd2c6370cb268f",
+    "docs/architecture/route-inventory.md": "72f887505193a03e280f0fe8acb832c46b75c68bbf49f903a2029ead01d7d41f",
+    "docs/i18n/locales/en-US.json": "14389e057851590718510c610baf4d11d7a31ddc8fffd6da892a90ee84d339d9",
+    "docs/i18n/locales/zh-CN.json": "ff2e1722af2610565423ea53dc0a55c7e16899fcc622d7c95c28702c358bc6a8",
+    "docs/optimization-plan/92-3.1-implementation-handoff.md": "012b36e37f4aabc5933ffb340623536384a669364e12ad0fbb96eb9730f6d954",
+    "docs/optimization-plan/96-m3-3-migration-and-recovery.md": "5438451d058fae9632dc9080ceda32f7f70bd9ffd05bed7d35501dfd077d7722",
+    "facts.json": "610f2865e9195c0d8e330395be3452974232f36d12dc48aaf311849b98d3eccf",
+    "ruyi-workbench/app/public/css/views/settings.css": "ee79c73f2ff99022b4f2400f096a1362897df3a621e0623c1c71e58dcb7784cd",
+    "ruyi-workbench/app/public/index.html": "0424c72e970dc2084ec79baeaf052dd442cee49aa8ce854869c9821284d7405a",
+    "ruyi-workbench/app/public/js/provider-settings.js": "bbd6743798614ca0295b98cb323e524f1034107e968937dc683c282ddca7e950",
+    "ruyi-workbench/app/public/js/work-data-settings.js": "6edaab1b7dbe056d18de51d583137f32791831ff81982268cb38c2c560f1ef89",
+    "ruyi-workbench/app/public/locales/en-US.json": "14389e057851590718510c610baf4d11d7a31ddc8fffd6da892a90ee84d339d9",
+    "ruyi-workbench/app/public/locales/zh-CN.json": "ff2e1722af2610565423ea53dc0a55c7e16899fcc622d7c95c28702c358bc6a8",
+    "ruyi-workbench/app/server.js": "116aeb3fc0a610a9802e79f8deff7eebcee0eec26e44cb03e4a2f9872551b68d",
+    "ruyi-workbench/app/src/00-boot.js": "1a2408a3e0b461e1685a4eec9fd13b77c309cf627d663a6f2cab6bfe6a9d8fa2",
+    "ruyi-workbench/app/src/01-config.js": "90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9",
+    "ruyi-workbench/app/src/01aa-work-data-tree.js": "05b86e37a7f9aa4f6d5ba34906287771526403ec8b8d3c3a0a98a30be8d5b269",
+    "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js": "7afd55e2ff0353b24fc298890bb496cebb95fcf81d1bb969783b245d05c25824",
+    "ruyi-workbench/app/src/01b-route-auth.js": "337bd50526a71765b0b2865e07b1fb7de7e4d278978b42771caa6797ce44b2a6",
+    "ruyi-workbench/app/src/02-session-store.js": "86e6dceceb29390f0fc5920304d392b46738ef3dc654bb6af0daaf1898c9997e",
+    "ruyi-workbench/app/src/06-provider-engine.js": "f83376aa478c63ff60f923a48e6939823b8ba517d456c81fd20b1b599c072886",
+    "ruyi-workbench/app/src/09-workflow.js": "8dcccec708a3438e9f33ea77d29a8724e19b301d5478540af522ef0879671ed5",
+    "ruyi-workbench/app/src/10-context-governance.js": "24bf80e13327fb3837000bc6addc672571d603540358926b9d6ab8bbc4d035ca",
+    "ruyi-workbench/app/src/11-native-tools.js": "5dfccf7fc8a04ea7f703455c59c637f1556fe64b8c74c7914f9dda7dbd7d82f1",
+    "ruyi-workbench/app/src/13-http-router.js": "3e9b72fa8717f69ff2683520788104d24a0eddd7795ec5ea9a77fe992191a155",
+    "ruyi-workbench/app/src/13ac-mcp-consumer.js": "6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a",
+    "ruyi-workbench/app/src/13ad-memory-cli-relay.js": "e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0",
+    "ruyi-workbench/app/src/13ae-cli-business-services.js": "5c9af43041e8f90aff6153637febf606a5bcb82e3949f2bfe96c2046c29c83ad",
+    "ruyi-workbench/app/src/13af-internal-mcp-relay.js": "b53cb8534e9908b75f81b422e8e9fb92e2aea55069608faeb71d5235c228de9c",
+    "ruyi-workbench/app/src/13ag-work-data-maintenance.js": "993333f6a7cc5637574ac3bd337d4dde4a67a304d2df65752ebfa44ccd974982",
+    "ruyi-workbench/app/src/13ah-work-data-setup.js": "4d974216e3179399c15a528d4589b6c97517be4ac5b70d34faeb5ca19118f23d",
+    "ruyi-workbench/app/src/13e-pretender-index.js": "4d5305e4e15a04a686b7ded17486a80f5aad8dfbc2df0b65732ced5322ece867",
+    "ruyi-workbench/app/src/13i-steward-inbox.js": "3cd2fdbb370fe303c5a47d7113d458433bebb178d888065cb806c450795748a6",
+    "ruyi-workbench/app/src/13q-steward-runner-turn.js": "95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3",
+    "ruyi-workbench/app/src/13s-scheduler.js": "564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b",
+    "ruyi-workbench/app/src/13u-migration-center.js": "65fb5a6c989a8018785eccc7940b481d3723f118745e3d7cca536c2e2fe1f8a8",
+    "ruyi-workbench/app/src/13w-external-bots.js": "5bf225988e7a0744c6f13c87e82defd9f93612e88c917b25ad1cb26bc308938d",
+    "ruyi-workbench/app/src/13y-external-bot-credentials.js": "5883fe8ded96a12d4b30c921e023f6866a467c67d7185b09fe699f2693f830cb",
+    "ruyi-workbench/app/src/manifest.json": "4de03580053831a196ee3f2b976a3194a6135f5aef77c1ff3fc0d626e0bcd700",
+    "ruyi-workbench/app/src/module-contracts.json": "8809f2aca6dfbcc9ac514994018d363f50d3ac47e666445dd5c7f6c1b0dc9c0d",
+    "ruyi-workbench/tools/build-overlay.js": "f9e1f9d3fd699421c592607087114158875618eea22ed881f2c82a13d71a2bd9"
+  },
+  "independent": {
+    "fullsnapshot": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-fullsnapshot-independent-review\\approval.json",
+      "sha256": "662dfaa2d5735e19d7e235b97937f564fd14558a57a61110af96bdb9bed78fe4"
+    },
+    "fullsnapshotBom": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-fullsnapshot-bom-independent\\approval.json",
+      "sha256": "4231cd7744a6f9585d319b1eaef11cdd8c1f9f85bd2212d98afd9cfb76129d25"
+    },
+    "quiesce": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-quiesce-independent-20261024\\final-review.json",
+      "sha256": "bce650ad35290a511f8c1223ff1ad35d6577ad791d3709dae68606136a58af73"
+    },
+    "v3": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-skill-v3-independent-bNFQao\\final-review.json",
+      "sha256": "4677eaf5be143c1c1ab5890f98092380c88a8ed28f1792e1b3c50570ac495e76"
+    },
+    "controller": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-setup-controller-independent-20261024\\final-review.json",
+      "sha256": "12a099b0ffe793e40023a083bfd415d9536dfdb290065503af7a60599557e4fc"
+    },
+    "wake": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch5-20261024\\wake-independent-review.json",
+      "sha256": "f83453fdd67ca2722afc070b6be3fb5170e373357b5565f30a793833f50c2ca2"
+    },
+    "ui": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch5-20261024\\ui-independent-review.json",
+      "sha256": "ef191334d30aa901794a05f34e25fb482cb9ef2dafbd39b645020e589dd04224"
+    },
+    "mergedController": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-cold-worker-protocol-independent-20261024\\final-review.json",
+      "sha256": "2afa9378df59cc8beb3c6a10429946d462321c7a765409a9f27644e2f074d2e0"
+    },
+    "egress": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-batch5-egress-independent-20261024\\REPORT.md",
+      "sha256": "b9f5c39ef59e577b2d2aebe3a0a814c257b3c827bc5c3e967eef79c301d34c6d"
+    },
+    "routes": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-batch5-egress-independent-20261024\\route-inventory-review.json",
+      "sha256": "5671de617a97409981aa63fa6335b6c0c97e3b67edbf909fe8dd4c768385ca09"
+    },
+    "checkpoint": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-batch5-checkpoint-independent-20261024\\final-review.json",
+      "sha256": "a851e4f3a35a2512e1af712aabea8581914bd4d897a8e18c80627abd5c7dfdc1"
+    }
+  },
+  "changes": [
+    "01aa complete default-stream byte census and private object-identity proof; 01ab all-base ordinary snapshots with retained independent masters, credential history/reference closure, direct-DPAPI auxiliaries, noncatalog files and empty directories; all authentication/native staging precedes target mkdir",
+    "Global admission at actual roots/writers/producers/internal MCP; pause new roots and drain exact existing owners without aborting business tasks; finite GET roots and private chains included; restore pending autonomous wakes under fresh ALS context",
+    "13u V3 same-machine plain/sealed conversion, cancellation, original-object preservation and authenticated undo/history eligibility",
+    "13ah actual setup/controller auth and authority validation; UI fixed password/unknown-result/duplicate-submit semantics, strict completion receipts; production worker/upload/download capabilities remain unavailable",
+    "Ship new UI module through overlay; preserve locale existing formatting, add 49 keys; terminology threads/线程; appended scoped CSS rules and reviewed aggregate payload hash; EOF-only 13u normalization with identical trimmed content and unchanged lexical boundaries"
+  ],
+  "tests": {
+    "fullUnit": {
+      "first": {
+        "log": "full-unit-first.log",
+        "sha256": "2a33635bd6dd157f875289cb9f41ff3c758b5d767a35ad55cb86a26f9e1f1eaa",
+        "tests": 3335,
+        "suites": 192,
+        "pass": 3308,
+        "fail": 1,
+        "skipped": 26,
+        "cancelled": 0,
+        "duration_ms": 335987.5305
+      },
+      "accidentalOverlapping": {
+        "log": "static-first.log",
+        "sha256": "314a0fc5ca2e874059b0b7e525779e67ed5c8b15493047df5b157af5b0ee5da4",
+        "tests": 3335,
+        "suites": 192,
+        "pass": 3307,
+        "fail": 2,
+        "skipped": 26,
+        "cancelled": 0,
+        "duration_ms": 187326.7245
+      },
+      "final": {
+        "log": "full-unit-final.log",
+        "sha256": "236a2c690859b48ff8a6ddd214212c3c464b7c6578fb92d1261e36b0647bf5df",
+        "tests": 3376,
+        "suites": 192,
+        "pass": 3350,
+        "fail": 0,
+        "skipped": 26,
+        "cancelled": 0,
+        "duration_ms": 342464.7814
+      }
+    },
+    "statics": [
+      {
+        "file": "static-final-summary.json",
+        "sha256": "23502f759d3dbb2dd6453e2b96d5acec2888042268bf1264a5501a1e37f170c9",
+        "total": 81,
+        "passed": 79,
+        "failed": [
+          {
+            "name": "facts.static.e2e.js",
+            "code": 1,
+            "error": null
+          },
+          {
+            "name": "process-safety.static.e2e.js",
+            "code": 1,
+            "error": null
+          }
+        ]
+      },
+      {
+        "file": "static-validation2-summary.json",
+        "sha256": "cf7fa0f39448055d82d8adb4875c3133bc09f73ca7e7e5e650317e2030684d88",
+        "total": 81,
+        "passed": 75,
+        "failed": [
+          {
+            "name": "architecture-contract-snapshots.static.e2e.js",
+            "code": 1,
+            "error": null
+          },
+          {
+            "name": "copy-terms.static.e2e.js",
+            "code": 1,
+            "error": null
+          },
+          {
+            "name": "frontend-domains.static.e2e.js",
+            "code": 1,
+            "error": null
+          },
+          {
+            "name": "i18n-en-terms.static.e2e.js",
+            "code": 1,
+            "error": null
+          },
+          {
+            "name": "live-full-text.static.e2e.js",
+            "code": 1,
+            "error": null
+          },
+          {
+            "name": "overlay-payload-lock.static.e2e.js",
+            "code": 1,
+            "error": null
+          }
+        ]
+      },
+      {
+        "file": "static-validation3-summary.json",
+        "sha256": "8eded2c16f1504037e6c71225dba1c4f3d3caba4eafffca398b73e31a7e0536a",
+        "total": 81,
+        "passed": 81,
+        "failed": []
+      },
+      {
+        "file": "static-validation4-summary.json",
+        "sha256": "8eded2c16f1504037e6c71225dba1c4f3d3caba4eafffca398b73e31a7e0536a",
+        "total": 81,
+        "passed": 81,
+        "failed": []
+      }
+    ],
+    "direct": {
+      "successful": [
+        {
+          "name": "work-data-full-snapshot",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "migration-skill-backup-representation",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-settings.browser",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "internal-mcp-cli-lifecycle",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "memory-active-scope",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-relay",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-resources",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-restart",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "privacy-managed-mcp",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "server-ownership",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-root-authority",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "config-providers-guard",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "scheduler-api",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "scheduler-steward",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "steward-runner",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "steward-continue-unfinished",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "interactive-question",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "claude-permission-bridge-mode",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "shell-mcp-guard",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "todo-loopback",
+          "code": 0,
+          "signal": null
+        }
+      ],
+      "firstAttempt": [
+        {
+          "name": "work-data-full-snapshot",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "migration-skill-backup-representation",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-settings.browser",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "internal-mcp-cli-lifecycle",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "memory-active-scope",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-relay",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-resources",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-restart",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "privacy-managed-mcp",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "server-ownership",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-root-authority",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "provider-config",
+          "code": 1,
+          "signal": null
+        }
+      ],
+      "restAttempt": [
+        {
+          "name": "config-providers-guard",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "scheduler-api",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "scheduler-steward",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "steward-runner",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "steward-continue-unfinished",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "interactive-question",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "claude-permission-bridge-mode",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "shell-mcp-guard",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "todo-loopback",
+          "code": 0,
+          "signal": null
+        }
+      ],
+      "runnerFailure": "provider-config was a nonexistent filename in the temporary runner; retained MODULE_NOT_FOUND, corrected to existing config-providers-guard and checked all remaining names before execution; no product assertion weakened"
+    },
+    "actualNative": {
+      "ordinarySnapshot": "6 groups after BOM correction, plus successful repeated exact generated runtime in direct gate",
+      "v3": "5 groups, staged candidate and promoted exact fixture both passed; actual CurrentUser DPAPI, IDs/DATA/ADS/short aliases/readonly/Basic four times/readable security and delayed/cold terminal history; manifest receipt seam explicit, no Desktop/full portable claim",
+      "oldV2": "33 native unit cases and 6 old generated-runtime groups passed earlier in this batch; tool outputs only, not invented archived logs"
+    },
+    "browser": {
+      "uiGroups": 18,
+      "widths": [
+        1440,
+        768,
+        390
+      ],
+      "consoleErrors": [],
+      "exceptions": [],
+      "evidence": "ui-visual-results.json",
+      "limits": "Actual app/controller/DOM/asset composition; explicit client fetch seam only for job mutation tests. Separate visual check uses real worker-unavailable state, no fake job."
+    },
+    "syntax": {
+      "files": 1260,
+      "failed": 0,
+      "log": "syntax-final.log"
+    },
+    "build": "fresh actual generated service and self-consistent ranges; EOF-only rebuild after full unit; affected build/range checks repeated before commit"
+  },
+  "firstFailuresAndRepairs": [
+    "Genuine stale turn/HTTP ALS polluted autonomous wakes; original supervision unit failed; explicit fresh-root timers/wakes and deferred resume repair verified without changing original business assertions/budgets",
+    "run-all --fast also runs full units; mistakenly overlapped it with another unit run, yielding original supervision failure and an additional lifecycle timing failure; both original logs retained, no unproven flaky/root-cause claim for timing failure; final serial-controlled full-unit gate passes",
+    "BOM historical config omitted credential reference; exact added real-DPAPI assertion first red, source logical parse fixed while raw bytes preserved",
+    "Native V3 fixture called ensure while OFF; explicit stageNew and actual durable store factory/isolated lazy internals fixed; original failing fixture and retained tree logged",
+    "UI 503/parser unknown-result guard independently first red; typed 4xx only can return to safe refusal state, 5xx/malformed stays unknown",
+    "Static intermediate failures retain original assertions: count facts/process owners, routes/architecture snapshots, terminology, scoped CSS aggregate payload hash and actual missing overlay JS registration; final 81/81",
+    "After staging, EOL gate first detected a newly tracked mixed-EOL V2 owner test and cached diff found a new helper EOF blank. Normalized CRLF/EOF only, reran 27 related pure cases and EOL; final staged 81 statics repeated 81/81. First staged EOL failure/normalization receipt retained; source identities refreshed to exact final worktree/index bytes."
+  ],
+  "architecture": {
+    "modules": 108,
+    "providedSymbols": 4118,
+    "requiredSymbols": 3892,
+    "edges": 768,
+    "forwardEdges": 67,
+    "duplicateProvides": 0,
+    "stronglyConnectedComponents": 1
+  },
+  "facts": {
+    "schema": 1,
+    "_comment": "门面数字单一事实源(第46波46f)。由 dev-harness/facts-generate.js 机械生成,facts.static.e2e.js 重算比对。改数字请跑生成器,不要手改本文件。每字段注明测量轴。",
+    "_axes": {
+      "nativeTools": "TOOL_HANDLERS 派发注册表键数(经 toolCall 可达全集;含按需注册件)。README「39 常驻+3 按需」是【常驻轴】旧口径,与本轴不同 —— 文档刷新时以本数为准重述。",
+      "accTools": "ACC 活注册表 list_tools 数(venv 探针;CI acc-smoke 对账)。",
+      "e2eCount": "dev-harness/*.e2e.js 总件数(含 live 跳过件)。",
+      "defaultPort": "00-boot.js DEFAULT_PORT 常量(默认监听端口;文档与实现各写各的防漂移)。",
+      "tokenBootstrap": "浏览器获取 UI token 的方式(47c S1):api-bootstrap = POST /api/bootstrap 握手,HTML 不再明文下发 token。",
+      "liveProbes": "run-all.js SKIP 集中真 live probe 件数(需真实外部依赖;每条文件名须含 live 或在白名单)。"
+    },
+    "generatedAt": "2026-10-24T08:15:59.537Z",
+    "workbenchVersion": "3.0.1",
+    "accVersion": "1.9.1",
+    "nativeTools": 121,
+    "accTools": 108,
+    "e2eCount": 585,
+    "e2eLiveSkipped": 7,
+    "unitSuites": 356,
+    "accSmokes": 25,
+    "defaultPort": 8765,
+    "tokenBootstrap": "api-bootstrap",
+    "liveProbes": 7
+  },
+  "egress": {
+    "sources": 294,
+    "candidates": 735,
+    "reviewErrors": 76,
+    "exactHistoricalErrorSetUnchanged": true,
+    "checkExit": 1,
+    "scope": "Only manually reviewed limited source/boundary changes, build-overlay registration, and EOF-only source fingerprint normalization; no classification group/protected upgrade or historical debt laundering"
+  },
+  "notRunOrNotComplete": [
+    "Entire default 578 offline E2E suite",
+    "Actual release package/new install/upgrade/rollback acceptance",
+    "Actual production enable-disable-restore through cold worker and Desktop",
+    "Special original-object portable reconstruction, including nonempty retained capsules",
+    "Ordinary native metadata is not captured: default streams/dir names only",
+    "Restored-root activation and upload/download endpoints",
+    "Actual cross-machine recovery",
+    "Known preexisting cross-thread-history old six-call quota assertion mismatch remains recorded from batch 4"
+  ],
+  "nextBatchTempOnly": "Ordinary migration host, cold worker/control/result, tiny status HTTP, native directory flush and concrete cold-operation candidates remain TEMP; independent tests/process probes there do not count as live capabilities in this checkpoint.",
+  "logs": {
+    "directory": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch5-20261024",
+    "sha256": {
+      "architecture-contract-fixed.log": "6854f05b4a23ea5c9445f617bf7bd2aaaac3a810f91eff4bdb0c976855406361",
+      "copy-terms-fixed.log": "90121052d9a3aa7d92e20894497506c0142f258e9399f7496d807434389a377c",
+      "direct-internal-mcp-cli-lifecycle.log": "551c51a6865ef11d35cf87ff6767bac82968cc2245e031325eb133e6dee5b370",
+      "direct-mcp-consumer-relay.log": "6ddb62e69959968ae0d85579f552e99bdeb136c185626a6ec9d37daa39fd1115",
+      "direct-mcp-consumer-resources.log": "90960d77ae60c5ca4e5b6e1338358945f48c18133c635e15894040daad3cf79f",
+      "direct-mcp-consumer-restart.log": "1eef1cf329eb007c97f9fe29e626515e7684a6e12d8ae747c9997086d6ae8046",
+      "direct-memory-active-scope.log": "17e8b3de82c15a80f5e952c7a2d7f718a61adf1fb33f6dd6d513989e1f3f750e",
+      "direct-migration-skill-backup-representation.log": "cfc937c228e13bb400320e72d7a7be8a455b4ca714078eefed34fdf951349140",
+      "direct-privacy-managed-mcp.log": "55bf10caf12c05adc762d7cefeebbe8356902a0496d8e9f3d8e140c7ef5b2423",
+      "direct-provider-config.log": "6b50a48139d2def72e6d74820bdd6877c6ceec066ae3dbad816ff887672914e7",
+      "direct-rest-claude-permission-bridge-mode.log": "f8e9f8148e424ff84a486a695702d660844d3cf112f237674052adaaaa66a911",
+      "direct-rest-config-providers-guard.log": "ee0e4538b4e000f5617de3d10d88a396141e71a85d055c35e7e09c1b280605e7",
+      "direct-rest-interactive-question.log": "20fc2f22c5c31bb6b3ea02ba25350f16f087c7f4785ad0a98bd4783f7f48f41a",
+      "direct-rest-scheduler-api.log": "de5998b33d4bc5262a9061e9ba7133ff537dfd52d1e937963f591e5a16f2e630",
+      "direct-rest-scheduler-steward.log": "3b61d931b5eac57e940dad02b34176c9ae995557c1c10198551fde07380d95d2",
+      "direct-rest-shell-mcp-guard.log": "0925309538b572bdd83def1b0f4b15ba5cec3c6c05aa0e3f66406d764d233967",
+      "direct-rest-steward-continue-unfinished.log": "0a4c7fb7b04f15007e20bd4324ece6189d5dc2242143804eae5a8ac8552414f5",
+      "direct-rest-steward-runner.log": "991db444c89e8f55802b801727ec4853499f3ffd0cd479a70c45d09fbd69572d",
+      "direct-rest-todo-loopback.log": "20cdfe2ee760681a40caca6a2cd9f8337c42548744c649a4b5f7c5be9e6ce404",
+      "direct-server-ownership.log": "db2bcdf170092f88a6711387d4dff0e36856dac85811548c63ad448229bbf7d4",
+      "direct-work-data-full-snapshot.log": "c8a41a9cfb7c61ce4660e55e6d6bb2bf9dc67102332fb7c4e10543a3e8c4b6e9",
+      "direct-work-data-root-authority.log": "adcd10e6c5dad5b8c6867608271863e258473f2b40f3d9cc75fce1cd90a463e6",
+      "direct-work-data-settings.browser.log": "59a8a318ade509b360118d8dee98cc414d63840756a1ac2aac77706783552917",
+      "egress-eof-final.log": "89215c91bfe566c1765bac75c9095bc0b8479d7f4c646716d7e3155a3c6ce1a5",
+      "egress-final.log": "89215c91bfe566c1765bac75c9095bc0b8479d7f4c646716d7e3155a3c6ce1a5",
+      "egress-staged-final.log": "89215c91bfe566c1765bac75c9095bc0b8479d7f4c646716d7e3155a3c6ce1a5",
+      "eof-normalization.json": "56004198a0e1a63aca09f2c1463292b4d4feb7bca968fe935fec177deec743f8",
+      "full-snapshot-bom-before-fix.log": "9e5b2989041ab26efa2fc5f383fea3b6858c4d5f32a4488bf9a9457fa8665db0",
+      "full-snapshot-bom-fixed.log": "2c7be3becb2d807660d73e8da5c1dd116ffc650f471980d16c31fdebe269621d",
+      "full-unit-final.log": "236a2c690859b48ff8a6ddd214212c3c464b7c6578fb92d1261e36b0647bf5df",
+      "full-unit-first.log": "2a33635bd6dd157f875289cb9f41ff3c758b5d767a35ad55cb86a26f9e1f1eaa",
+      "manifest-eof-final.log": "995c3a39866ee48cd2d898c6a07bb5b2a18eef45a1c3bf22d0a08ccb9cd9410b",
+      "representation-native-first.log": "72d448fa96537eba673e4c031aed798bf0cc5d69f9bd8e1ca3e9ee0404e588b3",
+      "representation-native-staged.log": "fa218842b80e00915cecd0c56e3209a0a6d4a8a2454952445b9483c595097cfe",
+      "representation-normalization-fixed.log": "b4952c794309bcbfd10548f63079d4701c22269fe785a2f295177bbddd852880",
+      "staged-eol-final.log": "2c1122653b491e3064af0487e3013604fefd26f63e04848c94a3cfa156835318",
+      "staged-eol-fixed.log": "f4eae076c3a8947004467b1a9bdf6e31a0cdc6f68b5f26c9666d3a9cbf1099f4",
+      "staged-normalization.json": "51f0a91c3150ccce989f7a2883f256e2ace10d480dd0abba65c3605e20cee1bb",
+      "static-final-acc-offline-installer.static.e2e.js.log": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "static-final-action-feedback.static.e2e.js.log": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "static-final-agent-mode-v2.static.e2e.js.log": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "static-final-agent-team-budget.static.e2e.js.log": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "static-final-agent-workflows-polling-visibility.static.e2e.js.log": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "static-final-architecture-contract-snapshots.static.e2e.js.log": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "static-final-asr-config-ui.static.e2e.js.log": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "static-final-browser-mcp.static.e2e.js.log": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "static-final-c2-evidence-spawn-budget.static.e2e.js.log": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "static-final-copy-path-guard.static.e2e.js.log": "cd8a581ee8cdef7c8643e9893fdd20e7c4096fd78f3b921cbb908c950617bc06",
+      "static-final-copy-terms.static.e2e.js.log": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "static-final-cost-zero.static.e2e.js.log": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "static-final-css-typography-debt.static.e2e.js.log": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "static-final-desktop-dpi.static.e2e.js.log": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "static-final-desktop-shell.static.e2e.js.log": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "static-final-durable-state-inventory.static.e2e.js.log": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "static-final-ec-d-closure.static.e2e.js.log": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "static-final-encrypted-storage-freeze.static.e2e.js.log": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184",
+      "static-final-engine-env-brief.static.e2e.js.log": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56",
+      "static-final-eol-policy.static.e2e.js.log": "67c9e19a6d3e5d705b9482ea89913cd4446278d4c82138aa627c800333a55e63",
+      "static-final-facts.static.e2e.js.log": "f45ef1ef743119c904161fea6ebb32cd22a32eebbcd9b4a7cdfdb80c0994841c",
+      "static-final-finalize-segments.static.e2e.js.log": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "static-final-fixture-home.static.e2e.js.log": "0b638673a3c5ef17c3813ca0c5267cc0d1a49ac5a7a7466aa43829d2fc0d401e",
+      "static-final-frontend-domains.static.e2e.js.log": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "static-final-health-i18n.static.e2e.js.log": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "static-final-i18n-en-terms.static.e2e.js.log": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "static-final-i18n.static.e2e.js.log": "adf88ce432f5ba9432b2f307dc3a11c606790b9c03df14510871e30f00fd284f",
+      "static-final-inline-script-csp-hash.static.e2e.js.log": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "static-final-kimi-plan-ui.static.e2e.js.log": "d3096d8488a6b6ceb218ae2dad6533d967d80259780c7a004184a667dbde5ab2",
+      "static-final-live-full-text.static.e2e.js.log": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "static-final-manifest-ranges.static.e2e.js.log": "c7bab5442542dd8af20a134b9e8b3e1149190e905db1719bcdba0b5cd88a8bf9",
+      "static-final-mcp-ops-gui.static.e2e.js.log": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "static-final-memory-toolbox.static.e2e.js.log": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "static-final-mermaid-render.static.e2e.js.log": "75f16b3dd8428c44c30f7f6a3771c6c81c12e49e8dbede69d0701eb4ecf47cc9",
+      "static-final-model-menu-classes.static.e2e.js.log": "f1f3cdd51a9442f45d832742b98bc55b09998a774af2730d191092ff988c350d",
+      "static-final-module-dependency-graph.static.e2e.js.log": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "static-final-ndjson-line-feeder.static.e2e.js.log": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "static-final-net-token-replay.static.e2e.js.log": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "static-final-new-thread-engine-default.static.e2e.js.log": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "static-final-onboarding.static.e2e.js.log": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "static-final-overlay-payload-lock.static.e2e.js.log": "c1dbfcb75776959092081d264404db84ced74d446be64345f93d78bc752321f4",
+      "static-final-overlay-update-gui.static.e2e.js.log": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "static-final-process-safety.static.e2e.js.log": "796e618f60921be94ce9fa04e58e770eb37c7ac199f51b4267006c5c42979de2",
+      "static-final-progress-events.static.e2e.js.log": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "static-final-prompt-snapshot.static.e2e.js.log": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "static-final-provider-reasoning-effort-ui.static.e2e.js.log": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "static-final-rail-pocket.static.e2e.js.log": "84a19345344f167110e0151762aa63a0bd9022e4c1cb04d8c44e62de751085e0",
+      "static-final-resume-banner-dismiss.static.e2e.js.log": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "static-final-route-inventory.static.e2e.js.log": "21d777ca246f67dc1183ba9761e62adca37da4aac7732043b3d625dfa0239d51",
+      "static-final-runtime-optimization.static.e2e.js.log": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "static-final-scheduler-ui.static.e2e.js.log": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b",
+      "static-final-session-save-census.static.e2e.js.log": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "static-final-software-engineering-prompt.static.e2e.js.log": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "static-final-start-experience.static.e2e.js.log": "37f179b784a7f6145061e1d79b6f9ed971742c8e91241c28997e4ff15e9d1a86",
+      "static-final-steward-avatar.static.e2e.js.log": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "static-final-steward-board.static.e2e.js.log": "6b689d54286d670ba947be48c015fbd17591030749e30bf56295f2b6857d5476",
+      "static-final-steward-config.static.e2e.js.log": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "static-final-steward-conversation.static.e2e.js.log": "805625ead09ffc0b20170a883d01117c4167fc359d6fb05099afa67d197830ba",
+      "static-final-steward-drawer.static.e2e.js.log": "b1b1f3d4fddca51294c485660cb59793b790a9cfa91244525778765869c4a84f",
+      "static-final-steward-events.static.e2e.js.log": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "static-final-steward-runner.static.e2e.js.log": "dce27606329a48d0a58223b0f40efb99287ac7e7678c10f740976bef3e77e799",
+      "static-final-steward-settings.static.e2e.js.log": "7c7daa941362af9eb2138a76d917ac4d4be21cde4cd6ad13cbd41272d3705a0c",
+      "static-final-steward-shell.static.e2e.js.log": "72616de9af7ad7de240d6ba786a4b3239671f5d80d5457e6897ba410d72ec3cf",
+      "static-final-steward-tools.static.e2e.js.log": "6eaaf96eacc5263b7c38a70fe8b5d8e5138ba965561b90f4bf7f2ca6fc2309c4",
+      "static-final-steward-walkthrough.static.e2e.js.log": "5a5e5ebf01a9590c667fd4310c20d7fbe2da8d49ab64e0c44f541efdb33bf9af",
+      "static-final-streaming-responsiveness.static.e2e.js.log": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "static-final-thinking-boundary.static.e2e.js.log": "207f60ea1d3df050a88aa93bea478657214d52c7cf86c3c9f744a05669947983",
+      "static-final-thread-brief.static.e2e.js.log": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "static-final-thread-commission.static.e2e.js.log": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "static-final-tool-image-inline.static.e2e.js.log": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "static-final-tool-verb-coverage.static.e2e.js.log": "33fbd2e48859493756ab47055351ecd1fe55616b7ef3c89bcd995938d7df3472",
+      "static-final-turn-narrative.static.e2e.js.log": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "static-final-ui-bugfix.static.e2e.js.log": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "static-final-ui-v3-p1.static.e2e.js.log": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "static-final-ui-v3-p2.static.e2e.js.log": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "static-final-ui-v3-p3a.static.e2e.js.log": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "static-final-ui-v3-p3b.static.e2e.js.log": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "static-final-ui-v3-wave1.static.e2e.js.log": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "static-final-ui-v4-glass.static.e2e.js.log": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "static-final-v17-review-fixes.static.e2e.js.log": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "static-final-workflow-editor-v2.static.e2e.js.log": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "static-first.log": "314a0fc5ca2e874059b0b7e525779e67ed5c8b15493047df5b157af5b0ee5da4",
+      "static-validation2-acc-offline-installer.static.e2e.js.log": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "static-validation2-action-feedback.static.e2e.js.log": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "static-validation2-agent-mode-v2.static.e2e.js.log": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "static-validation2-agent-team-budget.static.e2e.js.log": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "static-validation2-agent-workflows-polling-visibility.static.e2e.js.log": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "static-validation2-architecture-contract-snapshots.static.e2e.js.log": "614a6875461a7665c8dc9bdb0846ec47e0aa3fbec450eebbb24bab4482f36e75",
+      "static-validation2-asr-config-ui.static.e2e.js.log": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "static-validation2-browser-mcp.static.e2e.js.log": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "static-validation2-c2-evidence-spawn-budget.static.e2e.js.log": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "static-validation2-copy-path-guard.static.e2e.js.log": "8739ce1db9009ff308f4330353230f3d63f9757ce9637b2a0aed0f32ec514f9a",
+      "static-validation2-copy-terms.static.e2e.js.log": "8e19ae35fb03a8d853e2f806200259ff12d411b16971a574a6371890797f311b",
+      "static-validation2-cost-zero.static.e2e.js.log": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "static-validation2-css-typography-debt.static.e2e.js.log": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "static-validation2-desktop-dpi.static.e2e.js.log": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "static-validation2-desktop-shell.static.e2e.js.log": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "static-validation2-durable-state-inventory.static.e2e.js.log": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "static-validation2-ec-d-closure.static.e2e.js.log": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "static-validation2-encrypted-storage-freeze.static.e2e.js.log": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184",
+      "static-validation2-engine-env-brief.static.e2e.js.log": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56",
+      "static-validation2-eol-policy.static.e2e.js.log": "67c9e19a6d3e5d705b9482ea89913cd4446278d4c82138aa627c800333a55e63",
+      "static-validation2-facts.static.e2e.js.log": "2ebb618a207abca4f5f95d22e68c2d1b103a528bcdc68856f27c73e40c122671",
+      "static-validation2-finalize-segments.static.e2e.js.log": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "static-validation2-fixture-home.static.e2e.js.log": "75c841e9979557bbc925a964b07410ef2cf3ffc6b3b41459e6fcc5812a6cd9bf",
+      "static-validation2-frontend-domains.static.e2e.js.log": "362b7324b576389878e1be1e152675ca82c3e0b571c5079230fa31f22a3f4fe9",
+      "static-validation2-health-i18n.static.e2e.js.log": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "static-validation2-i18n-en-terms.static.e2e.js.log": "d355db91f23224af45c97345462184a7f913288f7ca88c5e11b5dcf0a51f9bd8",
+      "static-validation2-i18n.static.e2e.js.log": "9a27609675c7134b21a55d8566266d0165c08ee6b91f065ebb77efcb731f3f10",
+      "static-validation2-inline-script-csp-hash.static.e2e.js.log": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "static-validation2-kimi-plan-ui.static.e2e.js.log": "6c689b42431df2beb41992a92908b23731cc7e220d88c39fab350c60d64aaae8",
+      "static-validation2-live-full-text.static.e2e.js.log": "828be28e5a4761984e9d8307386b738e4c1c1fcc72133f50fe4e6a801e88ad99",
+      "static-validation2-manifest-ranges.static.e2e.js.log": "7db14ddbebfb7e8a21b17a7c5199f810a3c3288430dc48486cae359d6a562f13",
+      "static-validation2-mcp-ops-gui.static.e2e.js.log": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "static-validation2-memory-toolbox.static.e2e.js.log": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "static-validation2-mermaid-render.static.e2e.js.log": "7ea00003af3ffc7a24ad4628237a820f38fb0e41389a8c85aad86ff8fe744a16",
+      "static-validation2-model-menu-classes.static.e2e.js.log": "247f8d5e1d7ff0cd77823599e8c23e0caf4fad201dd7b5670066c7549eceb849",
+      "static-validation2-module-dependency-graph.static.e2e.js.log": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "static-validation2-ndjson-line-feeder.static.e2e.js.log": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "static-validation2-net-token-replay.static.e2e.js.log": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "static-validation2-new-thread-engine-default.static.e2e.js.log": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "static-validation2-onboarding.static.e2e.js.log": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "static-validation2-overlay-payload-lock.static.e2e.js.log": "6a1b4554a531c04d09b75801f7cb9b57878dc36b38974a8cf7736de2c4865698",
+      "static-validation2-overlay-update-gui.static.e2e.js.log": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "static-validation2-process-safety.static.e2e.js.log": "12c67c9a3db1b56dd184ed9f3c998fce245fc3d2e7abe910958a100032e2d044",
+      "static-validation2-progress-events.static.e2e.js.log": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "static-validation2-prompt-snapshot.static.e2e.js.log": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "static-validation2-provider-reasoning-effort-ui.static.e2e.js.log": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "static-validation2-rail-pocket.static.e2e.js.log": "cb3d4d887150e02379a2c09486df3a2eed18fc156b4205a9badd912f6ed2e7f2",
+      "static-validation2-resume-banner-dismiss.static.e2e.js.log": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "static-validation2-route-inventory.static.e2e.js.log": "f6275d792e26f03b0c8398ee0e00a99cdfeadf144606356d839b198f99dd73c3",
+      "static-validation2-runtime-optimization.static.e2e.js.log": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "static-validation2-scheduler-ui.static.e2e.js.log": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b",
+      "static-validation2-session-save-census.static.e2e.js.log": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "static-validation2-software-engineering-prompt.static.e2e.js.log": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "static-validation2-start-experience.static.e2e.js.log": "6ededaee46443c303ece2d59393fe4178213b8c402c2a7c1cd8b78899db4d2ec",
+      "static-validation2-steward-avatar.static.e2e.js.log": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "static-validation2-steward-board.static.e2e.js.log": "360ec17f2c36fa0fcf5fac70edf2b6a29e3f487365ff03da7c4240d4d05ead51",
+      "static-validation2-steward-config.static.e2e.js.log": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "static-validation2-steward-conversation.static.e2e.js.log": "6a601c220bf2bbef4632ac0b987bdb8a01546e2f7955f2405eb6d6a83090d06f",
+      "static-validation2-steward-drawer.static.e2e.js.log": "bb1c38adfd6047adfdc3922d965172c1fec138e8c94b4d59ec21839567377e19",
+      "static-validation2-steward-events.static.e2e.js.log": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "static-validation2-steward-runner.static.e2e.js.log": "dce27606329a48d0a58223b0f40efb99287ac7e7678c10f740976bef3e77e799",
+      "static-validation2-steward-settings.static.e2e.js.log": "e64dd828960e4c64fbf3ffd93b9941b0cb39faab4e97bb536b28cbc5cf07dfcd",
+      "static-validation2-steward-shell.static.e2e.js.log": "0a66faf85dcf9f1a7d5f81e3848e075d8ff9fcd0772c761b1a95155df7dd5183",
+      "static-validation2-steward-tools.static.e2e.js.log": "6eaaf96eacc5263b7c38a70fe8b5d8e5138ba965561b90f4bf7f2ca6fc2309c4",
+      "static-validation2-steward-walkthrough.static.e2e.js.log": "8f8758b46eac32916242e9c3618189ad3256bb4d1e52aa959f9b40ffe50b5d1f",
+      "static-validation2-streaming-responsiveness.static.e2e.js.log": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "static-validation2-thinking-boundary.static.e2e.js.log": "047f9ca83fd66e3f12a1b21f81ae96ba3c6bad671bb7077e2bebf33306a6e167",
+      "static-validation2-thread-brief.static.e2e.js.log": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "static-validation2-thread-commission.static.e2e.js.log": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "static-validation2-tool-image-inline.static.e2e.js.log": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "static-validation2-tool-verb-coverage.static.e2e.js.log": "e0e33f67ca06bd1fbca8fde390f38756fa7a5ef5f2488367d95e5b5094914287",
+      "static-validation2-turn-narrative.static.e2e.js.log": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "static-validation2-ui-bugfix.static.e2e.js.log": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "static-validation2-ui-v3-p1.static.e2e.js.log": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "static-validation2-ui-v3-p2.static.e2e.js.log": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "static-validation2-ui-v3-p3a.static.e2e.js.log": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "static-validation2-ui-v3-p3b.static.e2e.js.log": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "static-validation2-ui-v3-wave1.static.e2e.js.log": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "static-validation2-ui-v4-glass.static.e2e.js.log": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "static-validation2-v17-review-fixes.static.e2e.js.log": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "static-validation2-workflow-editor-v2.static.e2e.js.log": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "static-validation3-acc-offline-installer.static.e2e.js.log": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "static-validation3-action-feedback.static.e2e.js.log": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "static-validation3-agent-mode-v2.static.e2e.js.log": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "static-validation3-agent-team-budget.static.e2e.js.log": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "static-validation3-agent-workflows-polling-visibility.static.e2e.js.log": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "static-validation3-architecture-contract-snapshots.static.e2e.js.log": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "static-validation3-asr-config-ui.static.e2e.js.log": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "static-validation3-browser-mcp.static.e2e.js.log": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "static-validation3-c2-evidence-spawn-budget.static.e2e.js.log": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "static-validation3-copy-path-guard.static.e2e.js.log": "8739ce1db9009ff308f4330353230f3d63f9757ce9637b2a0aed0f32ec514f9a",
+      "static-validation3-copy-terms.static.e2e.js.log": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "static-validation3-cost-zero.static.e2e.js.log": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "static-validation3-css-typography-debt.static.e2e.js.log": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "static-validation3-desktop-dpi.static.e2e.js.log": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "static-validation3-desktop-shell.static.e2e.js.log": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "static-validation3-durable-state-inventory.static.e2e.js.log": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "static-validation3-ec-d-closure.static.e2e.js.log": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "static-validation3-encrypted-storage-freeze.static.e2e.js.log": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184",
+      "static-validation3-engine-env-brief.static.e2e.js.log": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56",
+      "static-validation3-eol-policy.static.e2e.js.log": "67c9e19a6d3e5d705b9482ea89913cd4446278d4c82138aa627c800333a55e63",
+      "static-validation3-facts.static.e2e.js.log": "2ebb618a207abca4f5f95d22e68c2d1b103a528bcdc68856f27c73e40c122671",
+      "static-validation3-finalize-segments.static.e2e.js.log": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "static-validation3-fixture-home.static.e2e.js.log": "75c841e9979557bbc925a964b07410ef2cf3ffc6b3b41459e6fcc5812a6cd9bf",
+      "static-validation3-frontend-domains.static.e2e.js.log": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "static-validation3-health-i18n.static.e2e.js.log": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "static-validation3-i18n-en-terms.static.e2e.js.log": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "static-validation3-i18n.static.e2e.js.log": "9a27609675c7134b21a55d8566266d0165c08ee6b91f065ebb77efcb731f3f10",
+      "static-validation3-inline-script-csp-hash.static.e2e.js.log": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "static-validation3-kimi-plan-ui.static.e2e.js.log": "9092c6a0d6d05995f1337c89656ccd4a2d637a6b9d06972ea275d629da5b47ff",
+      "static-validation3-live-full-text.static.e2e.js.log": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "static-validation3-manifest-ranges.static.e2e.js.log": "7db14ddbebfb7e8a21b17a7c5199f810a3c3288430dc48486cae359d6a562f13",
+      "static-validation3-mcp-ops-gui.static.e2e.js.log": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "static-validation3-memory-toolbox.static.e2e.js.log": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "static-validation3-mermaid-render.static.e2e.js.log": "060cca86f7415fe48ca11f50dce771580e1d2f21d902ed015a69f1811e23d61e",
+      "static-validation3-model-menu-classes.static.e2e.js.log": "b6157ae227e4d5cb54c3561eb19f204ae58b7659898fd0482d15888db6eea156",
+      "static-validation3-module-dependency-graph.static.e2e.js.log": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "static-validation3-ndjson-line-feeder.static.e2e.js.log": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "static-validation3-net-token-replay.static.e2e.js.log": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "static-validation3-new-thread-engine-default.static.e2e.js.log": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "static-validation3-onboarding.static.e2e.js.log": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "static-validation3-overlay-payload-lock.static.e2e.js.log": "f59f0759eeb771c390cafe1369b48b75b27e1b876b4db2d2931cc7ee7859a2eb",
+      "static-validation3-overlay-update-gui.static.e2e.js.log": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "static-validation3-process-safety.static.e2e.js.log": "12c67c9a3db1b56dd184ed9f3c998fce245fc3d2e7abe910958a100032e2d044",
+      "static-validation3-progress-events.static.e2e.js.log": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "static-validation3-prompt-snapshot.static.e2e.js.log": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "static-validation3-provider-reasoning-effort-ui.static.e2e.js.log": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "static-validation3-rail-pocket.static.e2e.js.log": "253facf0a1202e14e49dad63900ba5822ea35b7a6e04a04b2d31897201f62291",
+      "static-validation3-resume-banner-dismiss.static.e2e.js.log": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "static-validation3-route-inventory.static.e2e.js.log": "f6275d792e26f03b0c8398ee0e00a99cdfeadf144606356d839b198f99dd73c3",
+      "static-validation3-runtime-optimization.static.e2e.js.log": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "static-validation3-scheduler-ui.static.e2e.js.log": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b",
+      "static-validation3-session-save-census.static.e2e.js.log": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "static-validation3-software-engineering-prompt.static.e2e.js.log": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "static-validation3-start-experience.static.e2e.js.log": "27ef6481a5494d45137b57b531cb84072bca42c569d3af34fcb7eb8f32439b67",
+      "static-validation3-steward-avatar.static.e2e.js.log": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "static-validation3-steward-board.static.e2e.js.log": "f2b612aae7f006f4747df21d86c63c633c027267dafbe88d878d041d74f87ad4",
+      "static-validation3-steward-config.static.e2e.js.log": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "static-validation3-steward-conversation.static.e2e.js.log": "78366d4fb1fc796e02667dc7156e07e4ed91ce62daa75e338091f696a4eba93c",
+      "static-validation3-steward-drawer.static.e2e.js.log": "9b9615d79e6f77a8501800990dddbe28bb58c358722997afe97524010334bc2b",
+      "static-validation3-steward-events.static.e2e.js.log": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "static-validation3-steward-runner.static.e2e.js.log": "dce27606329a48d0a58223b0f40efb99287ac7e7678c10f740976bef3e77e799",
+      "static-validation3-steward-settings.static.e2e.js.log": "c54267b6fdc701fabba15a1bf493c60867af08919677af39eae13261cc8992af",
+      "static-validation3-steward-shell.static.e2e.js.log": "302c967002526cc0fed93b6e1e4523fa19a4fdd34c60a4c25470d3b121870f29",
+      "static-validation3-steward-tools.static.e2e.js.log": "6eaaf96eacc5263b7c38a70fe8b5d8e5138ba965561b90f4bf7f2ca6fc2309c4",
+      "static-validation3-steward-walkthrough.static.e2e.js.log": "defee2999cf06553404a34367cac06485e06ac9a00d3b8e9bcf4f1bc7c16e87a",
+      "static-validation3-streaming-responsiveness.static.e2e.js.log": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "static-validation3-thinking-boundary.static.e2e.js.log": "96ca09a6050086a05d6fabf2919f89090a8c05030d3cd169aacd9a769985a8ec",
+      "static-validation3-thread-brief.static.e2e.js.log": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "static-validation3-thread-commission.static.e2e.js.log": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "static-validation3-tool-image-inline.static.e2e.js.log": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "static-validation3-tool-verb-coverage.static.e2e.js.log": "06279aab56017641def0a884904107c016212889dc827d2682e5ce3954ff7883",
+      "static-validation3-turn-narrative.static.e2e.js.log": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "static-validation3-ui-bugfix.static.e2e.js.log": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "static-validation3-ui-v3-p1.static.e2e.js.log": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "static-validation3-ui-v3-p2.static.e2e.js.log": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "static-validation3-ui-v3-p3a.static.e2e.js.log": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "static-validation3-ui-v3-p3b.static.e2e.js.log": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "static-validation3-ui-v3-wave1.static.e2e.js.log": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "static-validation3-ui-v4-glass.static.e2e.js.log": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "static-validation3-v17-review-fixes.static.e2e.js.log": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "static-validation3-workflow-editor-v2.static.e2e.js.log": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "static-validation4-acc-offline-installer.static.e2e.js.log": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "static-validation4-action-feedback.static.e2e.js.log": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "static-validation4-agent-mode-v2.static.e2e.js.log": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "static-validation4-agent-team-budget.static.e2e.js.log": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "static-validation4-agent-workflows-polling-visibility.static.e2e.js.log": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "static-validation4-architecture-contract-snapshots.static.e2e.js.log": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "static-validation4-asr-config-ui.static.e2e.js.log": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "static-validation4-browser-mcp.static.e2e.js.log": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "static-validation4-c2-evidence-spawn-budget.static.e2e.js.log": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "static-validation4-copy-path-guard.static.e2e.js.log": "8739ce1db9009ff308f4330353230f3d63f9757ce9637b2a0aed0f32ec514f9a",
+      "static-validation4-copy-terms.static.e2e.js.log": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "static-validation4-cost-zero.static.e2e.js.log": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "static-validation4-css-typography-debt.static.e2e.js.log": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "static-validation4-desktop-dpi.static.e2e.js.log": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "static-validation4-desktop-shell.static.e2e.js.log": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "static-validation4-durable-state-inventory.static.e2e.js.log": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "static-validation4-ec-d-closure.static.e2e.js.log": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "static-validation4-encrypted-storage-freeze.static.e2e.js.log": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184",
+      "static-validation4-engine-env-brief.static.e2e.js.log": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56",
+      "static-validation4-eol-policy.static.e2e.js.log": "b25dea28389a124edc16ef44ceee2a46ff3c94051f51b36b77b98f2c27434297",
+      "static-validation4-facts.static.e2e.js.log": "2ebb618a207abca4f5f95d22e68c2d1b103a528bcdc68856f27c73e40c122671",
+      "static-validation4-finalize-segments.static.e2e.js.log": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "static-validation4-fixture-home.static.e2e.js.log": "75c841e9979557bbc925a964b07410ef2cf3ffc6b3b41459e6fcc5812a6cd9bf",
+      "static-validation4-frontend-domains.static.e2e.js.log": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "static-validation4-health-i18n.static.e2e.js.log": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "static-validation4-i18n-en-terms.static.e2e.js.log": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "static-validation4-i18n.static.e2e.js.log": "9a27609675c7134b21a55d8566266d0165c08ee6b91f065ebb77efcb731f3f10",
+      "static-validation4-inline-script-csp-hash.static.e2e.js.log": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "static-validation4-kimi-plan-ui.static.e2e.js.log": "ba63ecfdd23bd6538b6da5387847e8f6f56be39640dc8975d7731cbd8a1993ef",
+      "static-validation4-live-full-text.static.e2e.js.log": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "static-validation4-manifest-ranges.static.e2e.js.log": "9d28aadc22bf9db0f866d6c39965ea7155bb7485139bc9d369a37b5d2458b4b1",
+      "static-validation4-mcp-ops-gui.static.e2e.js.log": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "static-validation4-memory-toolbox.static.e2e.js.log": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "static-validation4-mermaid-render.static.e2e.js.log": "0292bedf47da6bac4c108906b9f7ed9b356d634056af48bedd798ccd5151dfd9",
+      "static-validation4-model-menu-classes.static.e2e.js.log": "cd264b7920629f8b6b2f4bed6e343c546801bc0b3a8389bb2659b37c4be8eff6",
+      "static-validation4-module-dependency-graph.static.e2e.js.log": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "static-validation4-ndjson-line-feeder.static.e2e.js.log": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "static-validation4-net-token-replay.static.e2e.js.log": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "static-validation4-new-thread-engine-default.static.e2e.js.log": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "static-validation4-onboarding.static.e2e.js.log": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "static-validation4-overlay-payload-lock.static.e2e.js.log": "f59f0759eeb771c390cafe1369b48b75b27e1b876b4db2d2931cc7ee7859a2eb",
+      "static-validation4-overlay-update-gui.static.e2e.js.log": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "static-validation4-process-safety.static.e2e.js.log": "12c67c9a3db1b56dd184ed9f3c998fce245fc3d2e7abe910958a100032e2d044",
+      "static-validation4-progress-events.static.e2e.js.log": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "static-validation4-prompt-snapshot.static.e2e.js.log": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "static-validation4-provider-reasoning-effort-ui.static.e2e.js.log": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "static-validation4-rail-pocket.static.e2e.js.log": "9444204623131f13e06874c8df77d779a605a6209d2cdc9c8aec75e4b29a687a",
+      "static-validation4-resume-banner-dismiss.static.e2e.js.log": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "static-validation4-route-inventory.static.e2e.js.log": "f6275d792e26f03b0c8398ee0e00a99cdfeadf144606356d839b198f99dd73c3",
+      "static-validation4-runtime-optimization.static.e2e.js.log": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "static-validation4-scheduler-ui.static.e2e.js.log": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b",
+      "static-validation4-session-save-census.static.e2e.js.log": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "static-validation4-software-engineering-prompt.static.e2e.js.log": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "static-validation4-start-experience.static.e2e.js.log": "7df8b05e79abf1e6fb31db78ce0540f5a2b89ac3cb3ba23e727ce9218b1fbfc1",
+      "static-validation4-steward-avatar.static.e2e.js.log": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "static-validation4-steward-board.static.e2e.js.log": "6ee41f06b374297ca1c40839eed846b72b2c50b8f8f06def6ec8f6fe4312167d",
+      "static-validation4-steward-config.static.e2e.js.log": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "static-validation4-steward-conversation.static.e2e.js.log": "ab19f234e996a2931b39281d7a1347f41a483f4c7ca7a69f152553a011e97d94",
+      "static-validation4-steward-drawer.static.e2e.js.log": "6861a18f6302e103fb6c6f22c520127fab7571bd37dfd84a64ada6c3511a0b20",
+      "static-validation4-steward-events.static.e2e.js.log": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "static-validation4-steward-runner.static.e2e.js.log": "dce27606329a48d0a58223b0f40efb99287ac7e7678c10f740976bef3e77e799",
+      "static-validation4-steward-settings.static.e2e.js.log": "7e6c30835bf9b4b16002a57da6e03c4e4e1a5ecccfcd0a06c671e10ffbf939fe",
+      "static-validation4-steward-shell.static.e2e.js.log": "3e052d85a6228507db88e0f9ac048f2831c3cfe59c96e446767a17284e7b68d9",
+      "static-validation4-steward-tools.static.e2e.js.log": "6eaaf96eacc5263b7c38a70fe8b5d8e5138ba965561b90f4bf7f2ca6fc2309c4",
+      "static-validation4-steward-walkthrough.static.e2e.js.log": "10c9451a28a91f34da92e33b84905239ab348cbd34c2a9648f8e16eae2978109",
+      "static-validation4-streaming-responsiveness.static.e2e.js.log": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "static-validation4-thinking-boundary.static.e2e.js.log": "11d9791a724773278f96a0922080bf9f5b7552366e39badbcc8f6ae2b17bb074",
+      "static-validation4-thread-brief.static.e2e.js.log": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "static-validation4-thread-commission.static.e2e.js.log": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "static-validation4-tool-image-inline.static.e2e.js.log": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "static-validation4-tool-verb-coverage.static.e2e.js.log": "08abde88542be97a7c1aaca38c06c0875f63e5c9f2d8cc35328c5e8e79e3f5a7",
+      "static-validation4-turn-narrative.static.e2e.js.log": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "static-validation4-ui-bugfix.static.e2e.js.log": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "static-validation4-ui-v3-p1.static.e2e.js.log": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "static-validation4-ui-v3-p2.static.e2e.js.log": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "static-validation4-ui-v3-p3a.static.e2e.js.log": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "static-validation4-ui-v3-p3b.static.e2e.js.log": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "static-validation4-ui-v3-wave1.static.e2e.js.log": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "static-validation4-ui-v4-glass.static.e2e.js.log": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "static-validation4-v17-review-fixes.static.e2e.js.log": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "static-validation4-workflow-editor-v2.static.e2e.js.log": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "supervision-generated-fixed.log": "bc9104d9d818e1d42420d8c171c1692d295855d1ffc0a7a4a603e8fb95bb714d",
+      "syntax-final.log": "6a041bdab47fa1fc66b95cbed79e79713daaa4d0cefc035e29978ec4fbc69d28",
+      "ui-browser-first.log": "0b920ece34c063ecbbe6be72342a4675e0e682dcf01f0070bfec92b8a7a090dd",
+      "ui-visual-first.log": "40abc1d1f6b1a0bac5f725353cd15fd5539073c9a63a112711b80c9c84efcbaa",
+      "ui-visual-results.json": "45a5eff349bb44f00358fa0cecf305df7d901932b75cbcaf99943f641258655b",
+      "wake-independent-fixed.log": "a748b2c3117544e678139a48b3dbc659cc391b0db7849bb10a7330ffd91d89d7",
+      "wake-independent-old-red.log": "b1ebae5d663a02fda00eec0ca402a98b2e2cbfdf868fb2ba3eb3b5d260f1c28f"
+    }
+  }
+}

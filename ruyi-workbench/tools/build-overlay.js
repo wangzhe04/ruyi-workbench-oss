@@ -66,6 +66,7 @@ const PAYLOAD_FILES = [
   'app/public/js/agent-roles.js',
   'app/public/js/skills-memory.js',
   'app/public/js/provider-settings.js',
+  'app/public/js/work-data-settings.js', // Managed-data setup, progress and completion receipts.
   'app/public/js/privacy-settings.js', // 3.1 privacy policy, rule playground and recovery UI.
   'app/public/js/disclosure-source.js', // Shared DOM source capabilities and clipboard activation reservation.
   'app/public/js/mcp-consumers.js', // Explicit owner setup for independent authenticated MCP consumers.

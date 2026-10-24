@@ -3584,6 +3584,7 @@ function lastAssistantTextOf(session) {
 }
 
 async function runSessionTurn(input) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('turn')) return WorkDataMaintenanceHooks.run('turn', () => runSessionTurn(...arguments));
   // 沿用 body 这个名字:搬家前它是 HTTP 请求体,搬家后是「回合入参」,字段名与含义一一对应。保留名字
   // 让搬过来的每一行逐字节不变(agent-team-mode.e2e.js:187 的源码静态锁正锁着 `body.agentTeam` 字面量)。
   const body = input || {};
@@ -4060,10 +4061,11 @@ function agentWakeJobKey(job) { return String(job && job.id || '') + '@' + Strin
 function scheduleAgentWake(sessionId, reason) {
   const sid = safeSessionId(sessionId);
   if (!sid || sid === STEWARD_SESSION_ID) return false;
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) { WorkDataMaintenanceHooks.deferWake(sid, reason); return true; }
   if (agentWakeTimers.has(sid)) return true;
   const timer = setTimeout(() => {
     agentWakeTimers.delete(sid);
-    runAgentWake(sid, reason).catch(error => logEvent({ kind: 'agent_wake_error', sessionId: sid, error: String((error && error.message) || error).slice(0, 400) }));
+    (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.fresh ? WorkDataMaintenanceHooks.fresh('agent-wake', () => runAgentWake(sid, reason)) : runAgentWake(sid, reason)).catch(error => logEvent({ kind: 'agent_wake_error', sessionId: sid, error: String((error && error.message) || error).slice(0, 400) }));
   }, AGENT_WAKE_DEBOUNCE_MS);
   if (typeof timer.unref === 'function') timer.unref();
   agentWakeTimers.set(sid, timer);
@@ -4083,6 +4085,7 @@ function agentWakeMessage(jobs) {
   ].join('\n');
 }
 async function runAgentWake(sessionId, reason) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent-wake')) return WorkDataMaintenanceHooks.run('agent-wake', () => runAgentWake(...arguments));
   // 线程正忙:那一回合的迭代边界会收件,收尾时 runSessionTurn 的 finally 再排一次。
   if (turnSettlers.has(sessionId) || activeChildren.has(sessionId)) return { ok: false, skipped: 'busy' };
   // 手动压缩算摘要期间不起回合(回合会追加历史,那份摘要落盘时被长度守卫作废);runProviderCompact 收尾时再排一次。

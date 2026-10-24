@@ -25,7 +25,7 @@ function createMigrationSkillBackupFixture(parent, overrides = {}) {
     return { key, instanceId: state.instance, release: async () => { state.releases++; key.fill(0); } };
   } };
   const context = {
-    require, Buffer, process, console, crypto, fs, fsp, path, paths, WorkDataStore: fx.store,
+    require, Buffer, process, console, crypto, fs, fsp, path, paths, WorkDataStore: fx.store, WorkDataCrypto: fx.crypto, WorkDataChunks: fx.chunks,
     os: { homedir: () => path.join(dir, 'home') },
     SKILL_ID_RE: /^[A-Za-z0-9_-]{1,64}$/, MigrationHooks: {}, VERSION: 'unit',
     safeJsonParse: (text, fallback) => { try { return JSON.parse(text); } catch { return fallback; } },

@@ -56,6 +56,7 @@ const ROUTER_FILES = [
   '13w-external-bots.js',
   '13ab-privacy-api.js',
   '13ac-mcp-consumer.js',
+  '13ah-work-data-setup.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 
@@ -106,6 +107,7 @@ const DOMAIN_BY_FILE = {
   '13r-event-stream.js': 'event-stream',
   '13s-scheduler.js': 'scheduler',
   '13ac-mcp-consumer.js': 'mcp-consumer',
+  '13ah-work-data-setup.js': 'work-data',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -214,7 +216,11 @@ function literalArrayPostRoutes(text) {
 }
 
 function scanRouterFile(fileName, srcDir = SRC) {
-  return scanRouterSource(fs.readFileSync(path.join(srcDir, fileName), 'utf8'), fileName);
+  const text = fs.readFileSync(path.join(srcDir, fileName), 'utf8');
+  // This factory also contains admission/receipt predicates. Only its returned
+  // handle(req,res,pathname) is a router; those predicates do not serve routes.
+  const source = fileName === '13ah-work-data-setup.js' ? functionBlock(text, 'handle') : text;
+  return scanRouterSource(source, fileName);
 }
 
 function scanRouterSource(text, fileName = 'fixture.js') {

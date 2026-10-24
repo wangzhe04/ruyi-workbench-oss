@@ -1,6 +1,16 @@
 // Dedicated local bot credentials, never a model tool. Windows DPAPI CurrentUser protects stored values;
 // it does not protect against another program already running as the same OS user. No npm dependency.
 const ExternalBotCredentials = (() => {
+  function create(options) {
+  if (options !== undefined && (!options || typeof options !== 'object' || Array.isArray(options)
+      || Object.keys(options).some(key => !['file', 'root'].includes(key)) || Object.keys(options).length !== 1))
+    throw Object.assign(Error('external_credentials.recovery_owner_invalid'), { code: 'external_credentials.recovery_owner_invalid' });
+  if (options !== undefined && (typeof (Object.hasOwn(options,'file') ? options.file : options.root) !== 'string'
+      || !path.isAbsolute(Object.hasOwn(options,'file') ? options.file : options.root)))
+    throw Object.assign(Error('external_credentials.recovery_owner_invalid'), { code: 'external_credentials.recovery_owner_invalid' });
+  const selected = options === undefined ? null : Object.hasOwn(options,'file') ? options.file : path.join(options.root, 'external-bot-credentials.json');
+  // An explicit factory owns one fixed source. The default keeps startup root rebinding.
+  const selectedFile = selected === null ? () => path.join(paths.data, 'external-bot-credentials.json') : () => selected;
   const SLOTS = Object.freeze({ qq: ['botSecret'], feishu: ['verificationToken', 'encryptKey', 'appSecret'] });
   const REF = Object.freeze({ botSecret: 'botSecretEnv', verificationToken: 'verificationTokenEnv', encryptKey: 'encryptKeyEnv', appSecret: 'appSecretEnv' });
   // Includes cold Windows PowerShell/.NET startup on slower machines; still bounded, with no retry.
@@ -40,7 +50,7 @@ const ExternalBotCredentials = (() => {
     }
     return true;
   }
-  const store = DurableJsonStore.create({ id: 'external-bot-credentials', file: () => path.join(paths.data, 'external-bot-credentials.json'), schemaVersion: 1,
+  const store = DurableJsonStore.create({ id: 'external-bot-credentials', file: selectedFile, schemaVersion: 1,
     defaultValue: () => ({ schema: 1, records: [] }), cache: false, strictRead: true, quarantine: false, validate: validState });
   async function stateRead() {
     try {
@@ -262,4 +272,6 @@ const ExternalBotCredentials = (() => {
     } finally { portable.fill(0); for (const bytes of plain) bytes.fill(0); }
   }
   return Object.freeze({ snapshot, inspect, read, save, remove, snapshotForWorkDataRecovery, stageRecoveredForWorkData });
+  }
+  return Object.freeze({ create, ...create() });
 })();

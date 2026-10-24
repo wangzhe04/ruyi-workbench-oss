@@ -816,6 +816,7 @@ async function sweepEngineTranscriptsStore(policy, result) {
 // 统一 sweep 入口:boot 自动(全目标) + POST /api/storage/clean(可单目标)。进程内串行(并发第二
 // 次调用直接拒绝);结果留痕 STORAGE_STEWARD 并落审计账。targets=null 表示全部。
 async function storageSweep(policy, targets = null) {
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('storage-retention')) return WorkDataMaintenanceHooks.run('storage-retention', () => storageSweep(...arguments));
   if (STORAGE_STEWARD.sweeping) return { ok: false, error: 'sweep already running' };
   STORAGE_STEWARD.sweeping = true;
   const result = { ok: true, freedBytes: 0, actions: [] };

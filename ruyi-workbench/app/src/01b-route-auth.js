@@ -1,5 +1,9 @@
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
+  { m: 'GET', p: '/api/work-data/status', auth: 'token' },
+  { m: 'POST', p: '/api/work-data/jobs', auth: 'token' },
+  { m: 'GET', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
+  { m: 'POST', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/mcp/internal/request', auth: 'internal-mcp' },
   { m: 'POST', p: '/api/memory-cli', auth: 'memory-cli' },
   { m: 'POST', p: '/api/mcp/consumer', auth: 'mcp-consumer' },
