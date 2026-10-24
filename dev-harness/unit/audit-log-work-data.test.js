@@ -236,3 +236,81 @@ test('read-only switch refuses generation/chain/vault changes and a credential-i
     assert.equal(f.state.acquires, 0); assert.equal(fs.existsSync(f.file()), false);
   }
 });
+
+test('audit switch waits for its mutator before write admission and until post-write publication', async t => {
+  const f = auditFixture(t); f.state.enabled = false;
+  let releaseMutator, reads = 0, flushed = false;
+  f.context.configMutateChain = new Promise(resolve => { releaseMutator = resolve; });
+  f.state.onConfig = async () => { reads++; };
+  // applyConfigPatch logs inside its mutator, before writeConfigAtomic replaces
+  // configWriteChain. The old, already-resolved write chain is not a barrier.
+  f.api.logEvent({ kind: 'config_providers_shrunk' });
+  const flushing = f.api.flushWorkbenchLogs().then(() => { flushed = true; });
+  try {
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reads, 0); assert.equal(flushed, false); assert.equal(fs.existsSync(f.file()), false);
+    f.context.configWriteChain = Promise.resolve(); f.context.configReadGeneration++;
+    // The physical write has finished; configEmitWritten still belongs to the
+    // pending mutator and must publish before the audit samples its generation.
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reads, 0); assert.equal(flushed, false);
+    f.context.configReadGeneration++; releaseMutator(); await flushing;
+    assert.equal(reads, 1);
+    const rows = (await fsp.readFile(f.file(), 'utf8')).trimEnd().split('\n').map(JSON.parse);
+    assert.deepEqual(rows.map(row => row.kind), ['config_providers_shrunk']);
+    assert.equal(f.state.diagnostics.length, 0);
+  } finally { releaseMutator(); await flushing.catch(() => {}); }
+});
+
+test('audit switch waits for a queued replacement mutator without accepting its old committed policy', async t => {
+  const f = auditFixture(t); f.state.enabled = false;
+  let releaseFirst, releaseSecond, reads = 0;
+  f.context.configMutateChain = new Promise(resolve => { releaseFirst = resolve; });
+  f.state.onConfig = async () => { reads++; };
+  f.api.logEvent({ kind: 'config_providers_cleared' }); const flushing = f.api.flushWorkbenchLogs();
+  f.context.configMutateChain = new Promise(resolve => { releaseSecond = resolve; });
+  try {
+    releaseFirst(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reads, 0); assert.equal(fs.existsSync(f.file()), false);
+    releaseSecond(); await flushing;
+    assert.equal(reads, 1); assert.equal(f.state.diagnostics.length, 0);
+  } finally { releaseFirst(); releaseSecond(); await flushing.catch(() => {}); }
+});
+
+test('one concurrent configuration revision change retries the same audit batch against current policy', async t => {
+  for (const change of ['generation', 'write', 'mutate']) {
+    const f = auditFixture(t); f.state.enabled = false; let reads = 0;
+    f.state.onConfig = async () => {
+      if (++reads !== 1) return;
+      if (change === 'generation') f.context.configReadGeneration++;
+      if (change === 'write') f.context.configWriteChain = Promise.resolve();
+      if (change === 'mutate') f.context.configMutateChain = Promise.resolve();
+      f.state.enabled = true;
+    };
+    f.api.logEvent({ kind: 'config_changed', value: 'PRIVATE RETRIED EVENT' }); await f.api.flushWorkbenchLogs();
+    assert.equal(reads, 2); assert.equal(f.state.diagnostics.length, 0);
+    assert.equal((await fsp.readFile(f.file(), 'utf8')).includes('PRIVATE RETRIED EVENT'), false);
+    const rows = await f.api.readWorkbenchAudit(10);
+    assert.equal(rows.length, 1); assert.equal(rows[0].type, 'config_changed');
+  }
+});
+
+test('audit policy retries are bounded and corrupt policy, pending import or vault changes never qualify', async t => {
+  const moving = auditFixture(t); let movingReads = 0;
+  moving.state.onConfig = async () => { movingReads++; moving.context.configReadGeneration++; };
+  moving.api.logEvent({ kind: 'unstable' });
+  await assert.rejects(moving.api.flushWorkbenchLogs(), { code: 'work_data_journal.switch_unavailable' });
+  assert.equal(movingReads, 3); assert.equal(fs.existsSync(moving.file()), false);
+  for (const fault of ['invalid', 'import', 'vault']) {
+    const f = auditFixture(t); let reads = 0;
+    if (fault === 'invalid') f.state.configRaw = '{broken';
+    if (fault === 'vault') { let stamp = 0; f.context.PrivacyCore = { configHooks: { stateStamp: async () => String(++stamp) } }; }
+    f.state.onConfig = async () => {
+      reads++; f.context.configReadGeneration++;
+      if (fault === 'import') await fsp.writeFile(require('node:path').join(f.dir, 'credential-import-v1.json'), 'pending');
+    };
+    f.api.logEvent({ kind: 'invalid_policy' });
+    await assert.rejects(f.api.flushWorkbenchLogs(), { code: 'work_data_journal.switch_unavailable' });
+    assert.equal(reads, 1); assert.equal(fs.existsSync(f.file()), false);
+  }
+});

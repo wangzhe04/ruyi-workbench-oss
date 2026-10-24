@@ -65,6 +65,18 @@ try {
   ok(process.platform !== 'win32' || !!JSON.parse(fs.readFileSync(CONFIG, 'utf8')).credentialRefsV1, '81-P1 persistence assertions use encrypted config references on Windows');
   ok(!!TOKEN, 'A0b got UI token (POST /api/config is token-level)');
 
+  // Both directions change the storage format; only the dedicated local migration flow may
+  // change the flag. Malformed explicit values must not normalize into a plaintext downgrade.
+  const beforeWorkDataPatch = fs.readFileSync(CONFIG, 'utf8');
+  for (const value of [true, false, null, 0, 'false']) {
+    const blocked = await reqJson('POST', '/api/config', { workDataEncryptionV1: value, locale: 'en-US' });
+    ok(blocked.status === 409 && blocked.json?.error?.code === 'work_data.encryption_requires_setup',
+      `A0c explicit work-data value ${JSON.stringify(value)} requires the migration flow`);
+    ok(fs.readFileSync(CONFIG, 'utf8') === beforeWorkDataPatch,
+      `A0d rejected work-data value ${JSON.stringify(value)} preserves config bytes`);
+  }
+  ok(!fs.existsSync(path.join(HOME, 'work-data-key-v1.json')), 'A0e rejected setup patches create no work-data key');
+
   // ① 部分 patch 不带 providers → 现值原样保留（合并语义）。
   let r = await reqJson('POST', '/api/config', { locale: 'en-US', stewardProviderId: 'fake-a' });
   ok(r.status === 200 && r.json && r.json.ok === true, `A1 partial patch accepted (status ${r.status})`);

@@ -34,10 +34,10 @@ async function applyConfigPatch(rawBody, options = {}) {
     throw Object.assign(new Error('Use the dedicated privacy settings endpoint.'), { code: 'privacy.dedicated_settings_required', statusCode: 409 });
   }
   // M3-2: 工作数据加密开关不走通用配置补丁 —— 它换的是磁盘存储格式与密钥生命周期，只能由本地启用流程
-  // (M3-3)打开。这里留一条明确的拒绝，M3-3 才有唯一的启用入口，持 token 的调用方也不能一键翻转。
-  if (Object.hasOwn(body, 'workDataEncryptionV1') && body.workDataEncryptionV1 === true) {
-    throw Object.assign(new Error('work-data encryption is enabled by the local setup flow, not by a config patch.'), {
-      code: 'work_data.encryption_requires_setup', statusCode: 409,
+  // (M3-3)处理。开启和关闭都须经过迁移；连同无效值一起拒绝，避免通用归一化把它降成 OFF。
+  if (Object.hasOwn(body, 'workDataEncryptionV1')) {
+    throw Object.assign(new Error('work-data encryption is changed by the local setup flow, not by a config patch.'), {
+      code: 'work_data.encryption_requires_setup', apiCode: 'work_data.encryption_requires_setup', statusCode: 409,
     });
   }
   if (Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {

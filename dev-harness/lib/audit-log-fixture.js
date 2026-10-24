@@ -37,7 +37,7 @@ function auditFixture(t) {
     return { ...journal, append: async (rows, ...args) => { state.appendBatches.push(rows.map(row => Buffer.byteLength(row))); return journal.append(rows, ...args); } };
   } };
   const context = vm.createContext({ ...shared, WorkDataJournals: journals, require, Buffer, crypto, fs, fsp: io, path, Date, Set,
-    paths: { logs, data: dir, config: configFile }, configWriteChain: Promise.resolve(), configReadGeneration: 0, configDegraded: false, process: { stderr: { write: value => state.diagnostics.push(value) } },
+    paths: { logs, data: dir, config: configFile }, configMutateChain: Promise.resolve(), configWriteChain: Promise.resolve(), configReadGeneration: 0, configDegraded: false, process: { stderr: { write: value => state.diagnostics.push(value) } },
     readConfig: async () => { throw Error('audit must not enter config recovery'); },
     normalizeConfig: raw => ({ config: { workDataEncryptionV1: false, privacyPolicyRecoveryRequiredV1: false, ...raw } }),
     nowIso: () => state.now, safeJsonParse: (raw, fallback) => { try { return JSON.parse(String(raw).replace(/^\uFEFF/, '')); } catch { return fallback; } }, redact: value => value });

@@ -8175,6 +8175,48 @@ const WorkDataKeys = ((cryptoApi) => {
       const key = Buffer.from(master); let released = false;
       return Object.freeze({ key, instanceId, release: () => { if (!released) { released = true; key.fill(0); } } });
     };
+    // Explicit setup/recovery staging. These methods never access the active store, policy or
+    // cache: the lifecycle owner publishes the returned header only inside a verified new root.
+    // An OFF active configuration is therefore preserved throughout shadow preparation.
+    async function stageRecovered(value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)
+        || Object.keys(value).sort().join(',') !== 'instanceId,key' || !id(value.instanceId)) fail('invalid');
+      if (!Buffer.isBuffer(value.key) || value.key.length !== 32) fail('key_invalid');
+      const key = Buffer.from(value.key), instanceId = value.instanceId;
+      let wrapped, roundtrip, protectInput, protectDomain, verifyDomain;
+      try {
+        if (!host.protector.supported()) fail('unsupported');
+        protectDomain = entropy(instanceId); protectInput = Buffer.from(key);
+        try { wrapped = await host.protector.run('protect', protectInput, protectDomain); }
+        catch { fail('protect_failed'); }
+        if (!Buffer.isBuffer(wrapped) || !wrapped.length || wrapped.length > MAX_BYTES) fail('protect_failed');
+        const header = { schema: SCHEMA, instanceId, protectedKey: wrapped.toString('base64') };
+        if (!validate(header)) fail('protect_failed');
+        // Use a fresh fixed-purpose entropy buffer: a malformed protector must not turn a
+        // mutated first-call argument into a different accepted wrapping domain.
+        verifyDomain = entropy(instanceId);
+        try { roundtrip = await host.protector.run('unprotect', wrapped, verifyDomain); }
+        catch { fail('roundtrip_failed'); }
+        if (!Buffer.isBuffer(roundtrip) || roundtrip.length !== 32 || !cryptoApi.timingSafeEqual(key, roundtrip)) fail('roundtrip_failed');
+        return Object.freeze({ header: Object.freeze(header), lease: leaseOf(key, instanceId) });
+      } finally {
+        key.fill(0);
+        if (protectInput) protectInput.fill(0);
+        if (Buffer.isBuffer(wrapped)) wrapped.fill(0);
+        if (Buffer.isBuffer(roundtrip)) roundtrip.fill(0);
+        if (protectDomain) protectDomain.fill(0);
+        if (verifyDomain) verifyDomain.fill(0);
+      }
+    }
+    async function stageNew() {
+      let key;
+      try {
+        if (!host.protector.supported()) fail('unsupported');
+        key = cryptoApi.randomBytes(32);
+        const instanceId = cryptoApi.randomBytes(16).toString('hex');
+        return await stageRecovered({ instanceId, key });
+      } finally { if (Buffer.isBuffer(key)) key.fill(0); }
+    }
     async function snapshot() {
       // Existing sealed records remain readable after disabling encryption. No read ever creates a key.
       if (!host.protector.supported()) fail('unsupported');
@@ -8252,7 +8294,7 @@ const WorkDataKeys = ((cryptoApi) => {
       if (!state.instanceId) fail('absent');
       return state.instanceId;
     }
-    return Object.freeze({ unlock, ensure, snapshot, status, instance, clear, validate, empty });
+    return Object.freeze({ unlock, ensure, snapshot, stageNew, stageRecovered, status, instance, clear, validate, empty });
   }
   return Object.freeze({ SCHEMA, create, validate, empty });
 })(require('node:crypto'));
@@ -9586,6 +9628,493 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
       fileStamp: () => fileStamp(file()), forget: () => states.delete(keyFor(file())) });
   }
   return Object.freeze({ create, candidate, MAX_RECORD_BYTES });
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'));
+
+// M3-3 portable FULL work-data snapshot codec. This is separate from the credential-only
+// recovery format. No filesystem access: the data-root owner must freeze writers, enumerate the
+// complete tree (including retained backups), verify actual encrypted references and restore only
+// into a fresh directory. Authentication and all manifest checks finish before any data is returned.
+// Bounded whole-package format, not a streaming implementation or a constant-memory claim.
+const WorkDataRecovery = ((cryptoApi) => {
+  const KIND = 'ruyi-work-data-recovery', VERSION = 1;
+  const DEFAULT_LIMITS = Object.freeze({ bytes: 256 * 1024 * 1024, files: 100000, directories: 100000,
+    metadata: 32 * 1024 * 1024, keys: 128, path: 1024, serialized: require('node:buffer').constants.MAX_STRING_LENGTH });
+  let deriving = 0;
+  const fail = suffix => { throw Object.assign(new Error('work_data_recovery.' + suffix),
+    { code: 'work_data_recovery.' + suffix, apiCode: 'work_data_recovery.' + suffix, statusCode: 409 }); };
+  function create(options = {}) {
+  if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => key !== 'limits')) fail('limits_invalid');
+  const overrides = options.limits === undefined ? {} : options.limits;
+  if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)
+    || Object.keys(overrides).some(key => !['bytes', 'files', 'directories', 'metadata', 'serialized'].includes(key))
+    || Object.values(overrides).some(value => !Number.isSafeInteger(value) || value < 1)) fail('limits_invalid');
+  const LIMITS = Object.freeze({ ...DEFAULT_LIMITS, ...overrides });
+  if (LIMITS.serialized > require('node:buffer').constants.MAX_STRING_LENGTH) fail('limits_invalid');
+  const object = value => !!value && typeof value === 'object' && !Array.isArray(value);
+  const shape = (value, keys) => object(value) && Object.keys(value).sort().join(',') === keys.split(',').sort().join(',');
+  const hash = value => cryptoApi.createHash('sha256').update(value).digest('hex');
+  const id = value => typeof value === 'string' && /^[a-zA-Z0-9_.:-]{1,160}$/.test(value);
+  const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+  const text = value => typeof value === 'string' && Buffer.from(value, 'utf8').toString('utf8') === value;
+  const checkPassword = password => { if (!text(password) || password.length < 12 || Buffer.byteLength(password, 'utf8') > 1024) fail('password_invalid'); };
+  function base64(value, max, exact) {
+    if (typeof value !== 'string' || value.length > Math.ceil(max / 3) * 4
+      || value.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(value)) fail('invalid');
+    const bytes = Buffer.from(value, 'base64');
+    if (bytes.length > max || (exact !== undefined && bytes.length !== exact) || bytes.toString('base64') !== value) { bytes.fill(0); fail('invalid'); }
+    return bytes;
+  }
+  function relative(value) {
+    if (!text(value) || !value.length || value.length > LIMITS.path || value.includes('\\') || /[\x00-\x1f<>:"|?*]/.test(value)) fail('path_invalid');
+    const parts = value.split('/');
+    if (parts.some(part => !part || part === '.' || part === '..' || /[. ]$/.test(part)
+      || /^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(part))) fail('path_invalid');
+    return value;
+  }
+  function namespace(directories, files) {
+    if (!Array.isArray(directories) || directories.length > LIMITS.directories || !Array.isArray(files) || files.length > LIMITS.files) fail('capacity');
+    const names = new Map();
+    for (const [kind, entries] of [['directory', directories], ['file', files]]) for (const value of entries) {
+      if (kind === 'file' && !object(value)) fail('path_invalid');
+      // Uppercase folds additional Windows aliases (e.g. dotless i) that lowercasing misses.
+      const name = relative(kind === 'file' ? value.path : value), folded = name.toUpperCase();
+      if (names.has(folded)) fail('path_conflict');
+      names.set(folded, kind);
+    }
+    for (const name of names.keys()) {
+      const pieces = name.split('/'); pieces.pop();
+      while (pieces.length) {
+        const parent = names.get(pieces.join('/'));
+        if (parent === 'file') fail('path_conflict');
+        if (parent !== 'directory') fail('directory_missing');
+        pieces.pop();
+      }
+    }
+  }
+  function keyMetadata(key) {
+    if (!shape(key, 'id,purpose,instanceId,protectedKey,masterSha256') || !id(key.id)
+      || !['work-data', 'credential'].includes(key.purpose) || typeof key.instanceId !== 'string'
+      || !/^[a-f0-9]{32}$/.test(key.instanceId) || !hex(key.masterSha256)) fail('key_invalid');
+    const wrapped = base64(key.protectedKey, 64 * 1024);
+    try { if (!wrapped.length) fail('key_invalid'); } finally { wrapped.fill(0); }
+  }
+  function manifestCheck(manifest) {
+    if (!shape(manifest, 'schema,appVersion,generation,createdAt,directories,keys,files,bytes') || manifest.schema !== VERSION
+      || !text(manifest.appVersion) || !/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(manifest.appVersion) || manifest.appVersion.length > 80
+      || !Number.isSafeInteger(manifest.generation) || manifest.generation < 0
+      || typeof manifest.createdAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(manifest.createdAt)
+      || !Number.isFinite(Date.parse(manifest.createdAt)) || new Date(manifest.createdAt).toISOString() !== manifest.createdAt
+      || !Number.isSafeInteger(manifest.bytes) || manifest.bytes < 0 || manifest.bytes > LIMITS.bytes
+      || !Array.isArray(manifest.keys) || manifest.keys.length > LIMITS.keys) fail('manifest_invalid');
+    namespace(manifest.directories, manifest.files);
+    const keyIds = new Set(), instances = new Set();
+    for (const key of manifest.keys) {
+      keyMetadata(key);
+      const instance = key.purpose + ':' + key.instanceId;
+      if (keyIds.has(key.id) || instances.has(instance)) fail('key_invalid');
+      keyIds.add(key.id); instances.add(instance);
+    }
+    let bytes = 0;
+    for (const file of manifest.files) {
+      if (!shape(file, 'path,size,sha256,keyRefs') || !Number.isSafeInteger(file.size) || file.size < 0 || !hex(file.sha256)
+        || !Array.isArray(file.keyRefs) || file.keyRefs.length > LIMITS.keys || new Set(file.keyRefs).size !== file.keyRefs.length
+        || file.keyRefs.some(ref => !keyIds.has(ref))) fail('manifest_invalid');
+      bytes += file.size; if (!Number.isSafeInteger(bytes) || bytes > LIMITS.bytes) fail('capacity');
+    }
+    if (bytes !== manifest.bytes || Buffer.byteLength(JSON.stringify(manifest), 'utf8') > LIMITS.metadata) fail('manifest_invalid');
+    return manifest;
+  }
+  async function passwordKey(password, salt) {
+    checkPassword(password);
+    // Expensive derivations have a process-wide admission bound; hostile concurrent requests do
+    // not allocate an unbounded number of 32 MiB scrypt jobs or silently change KDF parameters.
+    if (deriving >= 2) fail('busy');
+    deriving++;
+    try {
+      return await new Promise((resolve, reject) => cryptoApi.scrypt(password, salt, 32,
+        { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }, (error, key) => error ? reject(Object.assign(new Error('work_data_recovery.kdf_failed'), { code: 'work_data_recovery.kdf_failed' })) : resolve(key)));
+    } finally { deriving--; }
+  }
+  const aad = header => Buffer.from(JSON.stringify(header), 'utf8');
+  async function seal(snapshot, password) {
+    checkPassword(password);
+    if (!shape(snapshot, 'appVersion,generation,createdAt,directories,keys,files') || !Array.isArray(snapshot.keys)
+      || snapshot.keys.length > LIMITS.keys || !Array.isArray(snapshot.files) || snapshot.files.length > LIMITS.files) fail('invalid');
+    namespace(snapshot.directories, snapshot.files);
+    // Materialize an owned immutable-by-construction payload before the first await. Callers may
+    // release their snapshot leases while scrypt runs without racing the exported master bytes.
+    const keys = [], metadataKeys = [], files = [], metadataFiles = [];
+    let bytes = 0;
+    for (const key of snapshot.keys) {
+      if (!shape(key, 'id,purpose,instanceId,protectedKey,master') || !Buffer.isBuffer(key.master) || key.master.length !== 32) fail('key_invalid');
+      metadataKeys.push({ id: key.id, purpose: key.purpose, instanceId: key.instanceId, protectedKey: key.protectedKey, masterSha256: hash(key.master) });
+      keys.push({ id: key.id, master: key.master.toString('base64') });
+    }
+    for (const file of snapshot.files) {
+      if (!shape(file, 'path,data,keyRefs') || !Buffer.isBuffer(file.data)) fail('invalid');
+      bytes += file.data.length; if (bytes > LIMITS.bytes) fail('capacity');
+      metadataFiles.push({ path: file.path, size: file.data.length, sha256: hash(file.data), keyRefs: Array.isArray(file.keyRefs) ? [...file.keyRefs] : file.keyRefs });
+      files.push({ path: file.path, data: file.data.toString('base64') });
+    }
+    const manifest = manifestCheck({ schema: VERSION, appVersion: snapshot.appVersion, generation: snapshot.generation, createdAt: snapshot.createdAt,
+      directories: [...snapshot.directories], keys: metadataKeys, files: metadataFiles, bytes });
+    // JSON payload and its base64 outer transport must fit the host's explicit v1 engineering
+    // budget. This is not a business-data quota; the owner can choose a larger supported budget
+    // or a future streaming format, and the source tree remains untouched on rejection.
+    const estimatedPayload = files.reduce((sum, file) => sum + file.data.length + Buffer.byteLength(file.path) + 32, 0)
+      + Buffer.byteLength(JSON.stringify(manifest)) + Buffer.byteLength(JSON.stringify(keys)) + 256;
+    if (estimatedPayload > require('node:buffer').constants.MAX_STRING_LENGTH
+      || Math.ceil(estimatedPayload / 3) * 4 + 1024 > LIMITS.serialized) fail('capacity');
+    const plain = Buffer.from(JSON.stringify({ manifest, manifestSha256: hash(JSON.stringify(manifest)), keys, files }), 'utf8');
+    const header = { kind: KIND, version: VERSION, exportId: cryptoApi.randomBytes(16).toString('hex'),
+      kdf: { name: 'scrypt', N: 32768, r: 8, p: 1, salt: cryptoApi.randomBytes(16).toString('base64') }, cipher: 'aes-256-gcm' };
+    let derived;
+    try {
+      derived = await passwordKey(password, Buffer.from(header.kdf.salt, 'base64'));
+      const nonce = cryptoApi.randomBytes(12), cipher = cryptoApi.createCipheriv('aes-256-gcm', derived, nonce);
+      cipher.setAAD(aad(header));
+      const ciphertext = Buffer.concat([cipher.update(plain), cipher.final()]);
+      try {
+        const serialized = JSON.stringify({ ...header, nonce: nonce.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: ciphertext.toString('base64') });
+        if (Buffer.byteLength(serialized, 'utf8') > LIMITS.serialized) fail('capacity');
+        return serialized;
+      } finally { ciphertext.fill(0); }
+    } finally { plain.fill(0); if (derived) derived.fill(0); }
+  }
+  async function open(serialized, password) {
+    checkPassword(password);
+    if (typeof serialized !== 'string' || Buffer.byteLength(serialized, 'utf8') > LIMITS.serialized) fail('invalid');
+    let container;
+    try { container = JSON.parse(serialized); } catch { fail('invalid'); }
+    if (!shape(container, 'kind,version,exportId,kdf,cipher,nonce,tag,data') || container.kind !== KIND || container.version !== VERSION
+      || typeof container.exportId !== 'string' || !/^[a-f0-9]{32}$/.test(container.exportId) || container.cipher !== 'aes-256-gcm'
+      || !shape(container.kdf, 'name,N,r,p,salt') || container.kdf.name !== 'scrypt' || container.kdf.N !== 32768 || container.kdf.r !== 8 || container.kdf.p !== 1) fail('invalid');
+    const salt = base64(container.kdf.salt, 16, 16), nonce = base64(container.nonce, 12, 12), tag = base64(container.tag, 16, 16);
+    const ciphertext = base64(container.data, Math.ceil(LIMITS.bytes * 4 / 3) + LIMITS.metadata * 2);
+    const header = { kind: container.kind, version: container.version, exportId: container.exportId, kdf: container.kdf, cipher: container.cipher };
+    let derived, plain, snapshot, returned = false;
+    const owned = [];
+    try {
+      derived = await passwordKey(password, salt);
+      try {
+        const decipher = cryptoApi.createDecipheriv('aes-256-gcm', derived, nonce); decipher.setAAD(aad(header)); decipher.setAuthTag(tag);
+        // Do not expose unauthenticated update() bytes; final() must succeed before JSON parsing.
+        const partial = decipher.update(ciphertext);
+        try { plain = Buffer.concat([partial, decipher.final()]); } finally { partial.fill(0); }
+      } catch { fail('authentication'); }
+      let payload;
+      try {
+        const serializedPayload = plain.toString('utf8');
+        if (!Buffer.from(serializedPayload, 'utf8').equals(plain)) fail('invalid');
+        payload = JSON.parse(serializedPayload);
+      } catch { fail('invalid'); }
+      if (!shape(payload, 'manifest,manifestSha256,keys,files') || !hex(payload.manifestSha256)
+        || hash(JSON.stringify(payload.manifest)) !== payload.manifestSha256 || !Array.isArray(payload.keys) || !Array.isArray(payload.files)) fail('manifest_invalid');
+      const manifest = manifestCheck(payload.manifest);
+      if (payload.keys.length !== manifest.keys.length || payload.files.length !== manifest.files.length) fail('manifest_invalid');
+      const keys = [], files = [];
+      for (let i = 0; i < manifest.keys.length; i++) {
+        const row = payload.keys[i], expected = manifest.keys[i];
+        if (!shape(row, 'id,master') || row.id !== expected.id) fail('key_invalid');
+        const master = base64(row.master, 32, 32); owned.push(master);
+        if (hash(master) !== expected.masterSha256) fail('key_invalid');
+        const { masterSha256, ...metadata } = expected; keys.push({ ...metadata, master });
+      }
+      for (let i = 0; i < manifest.files.length; i++) {
+        const row = payload.files[i], expected = manifest.files[i];
+        if (!shape(row, 'path,data') || row.path !== expected.path) fail('manifest_invalid');
+        const data = base64(row.data, expected.size, expected.size); owned.push(data);
+        if (hash(data) !== expected.sha256) fail('manifest_invalid');
+        files.push({ path: expected.path, data, keyRefs: [...expected.keyRefs] });
+      }
+      snapshot = { appVersion: manifest.appVersion, generation: manifest.generation, createdAt: manifest.createdAt,
+        directories: [...manifest.directories], keys, files };
+      let released = false;
+      const release = () => { if (!released) { released = true; for (const bytes of owned) bytes.fill(0); } };
+      returned = true;
+      return Object.freeze({ snapshot, manifestSha256: payload.manifestSha256, release });
+    } finally {
+      if (!returned) for (const bytes of owned) bytes.fill(0);
+      if (derived) derived.fill(0); if (plain) plain.fill(0); ciphertext.fill(0); salt.fill(0); nonce.fill(0); tag.fill(0);
+    }
+  }
+  return Object.freeze({ KIND, VERSION, LIMITS, seal, open });
+  }
+  return Object.freeze({ KIND, VERSION, LIMITS: DEFAULT_LIMITS, create, ...create() });
+})(require('node:crypto'));
+
+// M3-3 admission primitive. Integration is deliberately explicit: an owner must enter run()
+// before starting work and assertCurrent() immediately before publishing a disk mutation.
+// No monkey-patching fs, no secret material, and no key lease spanning a model turn.
+const WorkDataTransition = ((AsyncLocalStorage) => {
+  const failure = suffix => Object.assign(new Error('work_data.transition_' + suffix), {
+    code: 'work_data.transition_' + suffix, statusCode: 409,
+  });
+  const validGeneration = value => Number.isSafeInteger(value) && value >= 0;
+  function create({ generation = 0 } = {}) {
+    if (!validGeneration(generation)) throw failure('generation');
+    const context = new AsyncLocalStorage();
+    let current = generation, phase = 'open', active = 0, pending = null;
+    // Tokens are capabilities, not caller-supplied generation numbers. Retain no completed token.
+    const live = new Set();
+    function assertCurrent() {
+      const token = context.getStore();
+      if (!token || !live.has(token) || token.generation !== current || phase === 'retired') {
+        throw failure('stale_writer');
+      }
+      return current;
+    }
+    function wake() {
+      if (pending && active === 0) pending.ready();
+    }
+    async function run(work) {
+      if (typeof work !== 'function') throw new TypeError('work must be a function');
+      const inherited = context.getStore();
+      if (inherited) {
+        // An admitted task may finish nested writes while admission is closing. A detached
+        // continuation from an already finished task cannot resurrect that old admission.
+        assertCurrent();
+        active++;
+        try { return await work(assertCurrent); }
+        finally { active--; wake(); }
+      }
+      if (phase !== 'open') throw failure(phase === 'retired' ? 'restart_required' : 'busy');
+      const token = { generation: current };
+      live.add(token); active++;
+      try { return await context.run(token, () => work(assertCurrent)); }
+      finally { live.delete(token); active--; wake(); }
+    }
+    async function exclusive(work, { signal } = {}) {
+      if (typeof work !== 'function') throw new TypeError('work must be a function');
+      // Waiting for oneself would deadlock. An expired inherited context is also not an owner.
+      if (context.getStore()) throw failure('nested_exclusive');
+      if (phase !== 'open') throw failure(phase === 'retired' ? 'restart_required' : 'busy');
+      if (signal?.aborted) throw failure('cancelled');
+      phase = 'waiting';
+      let abort, valid = true, committed = false;
+      try {
+        await new Promise((resolve, reject) => {
+          pending = { ready: resolve };
+          abort = () => reject(failure('cancelled'));
+          signal?.addEventListener('abort', abort, { once: true });
+          // Covers an AbortSignal implementation that aborts between the initial read and add.
+          if (signal?.aborted) abort();
+          else wake();
+        });
+        pending = null;
+        phase = 'exclusive';
+        const check = () => {
+          if (!valid || phase !== 'exclusive') throw failure('owner_expired');
+          if (signal?.aborted) throw failure('cancelled');
+        };
+        const owner = Object.freeze({
+          generation: current,
+          check,
+          // Cancellation ends before publish starts. Even a rejected disk write can have an
+          // ambiguous outcome (e.g. rename succeeded, directory flush failed). Only a fresh
+          // process reading the durable manifest may resolve it; never reopen the old writer.
+          async commit(next, publish) {
+            check();
+            if (!validGeneration(next) || next !== current + 1) throw failure('generation');
+            if (typeof publish !== 'function') throw new TypeError('publish must be a function');
+            committed = true; phase = 'committing';
+            try {
+              const result = await publish(); current = next; return result;
+            } finally { phase = 'retired'; }
+          },
+        });
+        return await work(owner);
+      } finally {
+        valid = false; pending = null;
+        if (abort) signal?.removeEventListener('abort', abort);
+        if (!committed) phase = 'open';
+      }
+    }
+    function status() { return Object.freeze({ generation: current, phase, active }); }
+    return Object.freeze({ run, exclusive, assertCurrent, status });
+  }
+  return Object.freeze({ create });
+})(require('node:async_hooks').AsyncLocalStorage);
+
+// M3-3 authority IO only. The host holds the single serve owner and transition gate.
+// This byte comparison is not a cross-process CAS. No file below a generation is
+// scanned, transformed, retired, or removed here; the migration host owns those steps.
+const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
+  const SCHEMA = 1, MAX_BYTES = 4096, ID = /^[a-f0-9]{48}$/;
+  const error = (suffix, cause, commitUncertain = false) => Object.assign(new Error('work_data_manifest.' + suffix), {
+    code: 'work_data_manifest.' + suffix, statusCode: 409, commitUncertain,
+    ...(cause !== undefined ? { cause } : {}),
+  });
+  const digest = raw => cryptoApi.createHash('sha256').update(raw, 'utf8').digest('hex');
+  const generationValid = value => Number.isSafeInteger(value) && value >= 1;
+  const modeValid = value => value === 'plain' || value === 'encrypted';
+  const pathKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const receipt = (raw, state, root) => Object.freeze({
+    schema: SCHEMA, id: state?.id || null, generation: state?.generation || 0,
+    mode: state?.mode || 'plain', root,
+    proof: Object.freeze({ raw, sha256: raw === null ? null : digest(raw) }),
+  });
+  function parse(raw) {
+    let value;
+    try { value = JSON.parse(raw); } catch (cause) { throw error('invalid', cause); }
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || Object.keys(value).sort().join(',') !== 'activeRoot,generation,id,mode,schema'
+      || value.schema !== SCHEMA || !generationValid(value.generation) || typeof value.id !== 'string' || !ID.test(value.id)
+      || !modeValid(value.mode) || value.activeRoot !== 'generations/' + value.id) throw error('invalid');
+    return value;
+  }
+  // Check every existing ancestor, rather than relying on the leaf realpath alone.
+  // Junctions/symlinks anywhere in the control namespace refuse authority access.
+  async function directory(target, allowMissing = false) {
+    const absolute = pathApi.resolve(target), parsed = pathApi.parse(absolute);
+    let cursor = parsed.root;
+    const parts = absolute.slice(parsed.root.length).split(pathApi.sep).filter(Boolean);
+    for (const part of ['', ...parts]) {
+      if (part) cursor = pathApi.join(cursor, part);
+      let stat;
+      try { stat = await fsApi.lstat(cursor); }
+      catch (cause) { if (allowMissing && cause.code === 'ENOENT') return false; throw error('directory_unavailable', cause); }
+      if (!stat.isDirectory() || stat.isSymbolicLink()) throw error('directory_invalid');
+      let real;
+      try { real = await fsApi.realpath(cursor); } catch (cause) { throw error('directory_unavailable', cause); }
+      if (pathKey(pathApi.resolve(real)) !== pathKey(pathApi.resolve(cursor))) throw error('directory_invalid');
+    }
+    return true;
+  }
+  async function syncDirectory(target) {
+    let handle;
+    try { handle = await fsApi.open(target, 'r'); await handle.sync(); }
+    catch (cause) { throw error('durability_unsupported', cause); }
+    finally { if (handle) await handle.close(); }
+  }
+  function create({ base, publish } = {}) {
+    if (typeof base !== 'string' || !pathApi.isAbsolute(base)) throw error('base_invalid');
+    if (publish !== undefined && typeof publish !== 'function') throw error('publisher_invalid');
+    const root = pathApi.resolve(base), control = pathApi.join(root, '.work-data');
+    const generations = pathApi.join(control, 'generations'), active = pathApi.join(control, 'active-v1.json');
+    const candidates = new WeakMap();
+    let committing = false;
+    async function readActive() {
+      await directory(root);
+      await directory(control, true);
+      let stat;
+      try { stat = await fsApi.lstat(active); }
+      catch (cause) {
+        if (cause.code === 'ENOENT') return receipt(null, null, root);
+        throw error('read_unavailable', cause);
+      }
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_BYTES) throw error('invalid');
+      let handle, bytes;
+      try {
+        handle = await fsApi.open(active, 'r');
+        // A bounded descriptor read prevents readFile from allocating after a concurrent growth.
+        const buffer = Buffer.alloc(MAX_BYTES + 1); let used = 0;
+        while (used < buffer.length) {
+          const next = await handle.read(buffer, used, buffer.length - used, null);
+          if (!next.bytesRead) break;
+          used += next.bytesRead;
+        }
+        if (used > MAX_BYTES) throw error('invalid');
+        bytes = buffer.subarray(0, used);
+      } catch (cause) {
+        if (String(cause.code || '').startsWith('work_data_manifest.')) throw cause;
+        throw error('read_unavailable', cause);
+      } finally { if (handle) await handle.close(); }
+      const raw = bytes.toString('utf8');
+      if (!Buffer.from(raw, 'utf8').equals(bytes)) throw error('invalid');
+      const state = parse(raw), target = pathApi.join(generations, state.id);
+      await directory(target);
+      return receipt(raw, state, target);
+    }
+    function expectedProof(expected) {
+      const proof = expected?.proof;
+      if (!expected || !proof) throw error('expected_invalid');
+      const raw = proof.raw, sha256 = proof.sha256;
+      if ((raw !== null && typeof raw !== 'string')
+        || sha256 !== (raw === null ? null : digest(raw))) throw error('expected_invalid');
+      const state = raw === null ? null : parse(raw);
+      if (expected.generation !== (state?.generation || 0) || expected.id !== (state?.id || null)
+        || expected.mode !== (state?.mode || 'plain')
+        || expected.root !== (state ? pathApi.join(generations, state.id) : root)) throw error('expected_invalid');
+      // Copy before the first await. Caller mutation cannot alter this admission.
+      return Object.freeze({ raw, sha256 });
+    }
+    async function checkExpected(proof) {
+      const current = await readActive();
+      if (current.proof.raw !== proof.raw || current.proof.sha256 !== proof.sha256) throw error('conflict');
+      return current;
+    }
+    async function prepare({ expected, mode } = {}) {
+      const proof = expectedProof(expected);
+      if (!modeValid(mode)) throw error('mode_invalid');
+      const previous = await checkExpected(proof);
+      if (!Number.isSafeInteger(previous.generation + 1)) throw error('generation_invalid');
+      await directory(control, true);
+      try { await fsApi.mkdir(control); } catch (cause) { if (cause.code !== 'EEXIST') throw error('prepare_failed', cause); }
+      await directory(control);
+      await directory(generations, true);
+      try { await fsApi.mkdir(generations); } catch (cause) { if (cause.code !== 'EEXIST') throw error('prepare_failed', cause); }
+      await directory(generations);
+      const id = cryptoApi.randomBytes(24).toString('hex'), target = pathApi.join(generations, id);
+      try { await fsApi.mkdir(target); } catch (cause) { throw error('prepare_failed', cause); }
+      await directory(target);
+      const candidate = Object.freeze({ schema: SCHEMA, id, generation: previous.generation + 1, mode,
+        activeRoot: 'generations/' + id, root: target });
+      candidates.set(candidate, Object.freeze({ proof, generation: candidate.generation, mode, root: target }));
+      return candidate;
+    }
+    async function commit({ expected, candidate } = {}) {
+      const proof = expectedProof(expected), owned = candidates.get(candidate);
+      if (!owned || owned.proof.raw !== proof.raw || owned.proof.sha256 !== proof.sha256
+        || candidate.generation !== owned.generation || candidate.mode !== owned.mode || candidate.root !== owned.root) throw error('candidate_invalid');
+      if (committing) throw error('busy');
+      committing = true;
+      let handle, publishing = false;
+      try {
+        const stage = pathApi.join(control, '.active-v1.stage-' + cryptoApi.randomBytes(24).toString('hex') + '.json');
+        const previous = await checkExpected(proof);
+        if (candidate.generation !== previous.generation + 1) throw error('candidate_invalid');
+        await directory(candidate.root);
+        // Node directory fsync reports EPERM on tested Windows 24.14.1. A Windows
+        // host must inject a verified native write-through publisher; no ignored fsync.
+        if (!publish) {
+          await syncDirectory(candidate.root); await syncDirectory(generations);
+          await syncDirectory(control); await syncDirectory(root);
+        }
+        const raw = JSON.stringify({ schema: SCHEMA, generation: candidate.generation, id: candidate.id,
+          mode: candidate.mode, activeRoot: candidate.activeRoot }) + '\n';
+        handle = await fsApi.open(stage, 'wx', 0o600);
+        await handle.writeFile(raw, 'utf8'); await handle.sync(); await handle.close(); handle = null;
+        await checkExpected(proof);
+        await directory(candidate.root);
+        publishing = true;
+        // The injected publisher is a trusted platform adapter. It must atomically
+        // replace on this same volume and durably publish all listed directory
+        // entries; an ordinary rename-only test stub is not that guarantee.
+        if (publish) await publish(Object.freeze({ stage, target: active, directory: control,
+          directories: Object.freeze([candidate.root, generations, control, root]) }));
+        else { await fsApi.rename(stage, active); await syncDirectory(control); }
+        const result = await readActive();
+        if (result.proof.raw !== raw) throw error('published_mismatch');
+        candidates.delete(candidate);
+        return result;
+      } catch (cause) {
+        // A platform publisher may throw a frozen Error or any JS value. Never
+        // mutate it: the wrapper owns the authoritative uncertainty indicator.
+        if (String(cause && cause.code || '').startsWith('work_data_manifest.'))
+          throw error(String(cause.code).slice('work_data_manifest.'.length), cause,
+            publishing || cause.commitUncertain === true);
+        throw error('commit_failed', cause, publishing);
+      } finally {
+        if (handle) await handle.close().catch(() => {});
+        // An uncertain candidate/stage may be the only recoverable copy. Never
+        // unlink it or restore an earlier manifest based on an exception alone.
+        committing = false;
+      }
+    }
+    return Object.freeze({ readActive, prepare, commit });
+  }
+  return Object.freeze({ create, SCHEMA });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));
 
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
@@ -20373,9 +20902,6 @@ async function auditLogEnabled() {
   // Logging must not enter readConfig's recovery/migration writer. Its diagnostic
   // can run while another reader is restoring .prev, or between successive reads.
   // Read the committed bytes only; unknown or changing policy refuses the write.
-  let writing;
-  do { writing = configWriteChain; await writing.catch(() => {}); } while (writing !== configWriteChain);
-  const generation = configReadGeneration;
   const hooks = typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks : {};
   const vaultStamp = () => hooks.stateStamp ? hooks.stateStamp() : Promise.resolve('');
   const importPending = async () => {
@@ -20383,18 +20909,33 @@ async function auditLogEnabled() {
     catch (error) { if (error.code === 'ENOENT') return false; throw error; }
   };
   const unavailable = () => { throw auditLogError({ code: 'work_data_audit.switch_unavailable' }); };
-  if (configDegraded || await importPending()) unavailable();
-  const beforeVault = await vaultStamp();
-  const raw = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length
-    || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean') unavailable();
-  // Share the existing defaults and privacy validation without hydrating secrets,
-  // applying migrations to disk, configuring policy, or repairing config/backup.
-  const config = normalizeConfig(raw).config;
-  const afterVault = await vaultStamp(), pending = await importPending();
-  if (configDegraded || config.privacyPolicyRecoveryRequiredV1 === true || pending || beforeVault !== afterVault
-    || generation !== configReadGeneration || writing !== configWriteChain) unavailable();
-  return config.workDataEncryptionV1 === true;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let mutating, writing;
+    do {
+      // A mutator can log before writeConfig creates its physical write chain.
+      // Wait through its publication as well: configEmitWritten invalidates the
+      // generation after the physical write completes. logEvent never awaits
+      // this logger, and configuration mutators must not await an audit flush.
+      mutating = configMutateChain; await mutating.catch(() => {});
+      writing = configWriteChain; await writing.catch(() => {});
+    } while (mutating !== configMutateChain || writing !== configWriteChain);
+    const generation = configReadGeneration;
+    if (configDegraded || await importPending()) unavailable();
+    const beforeVault = await vaultStamp();
+    const raw = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length
+      || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean') unavailable();
+    // Share the existing defaults and privacy validation without hydrating secrets,
+    // applying migrations to disk, configuring policy, or repairing config/backup.
+    const config = normalizeConfig(raw).config;
+    const afterVault = await vaultStamp(), pending = await importPending();
+    if (configDegraded || config.privacyPolicyRecoveryRequiredV1 === true || pending || beforeVault !== afterVault) unavailable();
+    // Only an observed configuration owner/revision change permits another read.
+    // Corrupt policy, an import journal or a changed vault never becomes OFF.
+    if (generation !== configReadGeneration || mutating !== configMutateChain || writing !== configWriteChain) continue;
+    return config.workDataEncryptionV1 === true;
+  }
+  unavailable();
 }
 
 function workbenchAuditJournal(file) {
@@ -44336,10 +44877,10 @@ async function applyConfigPatch(rawBody, options = {}) {
     throw Object.assign(new Error('Use the dedicated privacy settings endpoint.'), { code: 'privacy.dedicated_settings_required', statusCode: 409 });
   }
   // M3-2: 工作数据加密开关不走通用配置补丁 —— 它换的是磁盘存储格式与密钥生命周期，只能由本地启用流程
-  // (M3-3)打开。这里留一条明确的拒绝，M3-3 才有唯一的启用入口，持 token 的调用方也不能一键翻转。
-  if (Object.hasOwn(body, 'workDataEncryptionV1') && body.workDataEncryptionV1 === true) {
-    throw Object.assign(new Error('work-data encryption is enabled by the local setup flow, not by a config patch.'), {
-      code: 'work_data.encryption_requires_setup', statusCode: 409,
+  // (M3-3)处理。开启和关闭都须经过迁移；连同无效值一起拒绝，避免通用归一化把它降成 OFF。
+  if (Object.hasOwn(body, 'workDataEncryptionV1')) {
+    throw Object.assign(new Error('work-data encryption is changed by the local setup flow, not by a config patch.'), {
+      code: 'work_data.encryption_requires_setup', apiCode: 'work_data.encryption_requires_setup', statusCode: 409,
     });
   }
   if (Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {

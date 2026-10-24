@@ -1,0 +1,267 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baseline": "415357604f6465f43b377d1d30ff713464a8fa96",
+  "branch": "codex/3.1-completion-plan",
+  "node": "v24.14.1",
+  "status": "M3-3 foundation verified; full migration, recovery and enable UI remain active",
+  "productScope": [
+    "ruyi-workbench/app/src/01o-work-data-keys.js",
+    "ruyi-workbench/app/src/01t-work-data-recovery.js",
+    "ruyi-workbench/app/src/01u-work-data-transition.js",
+    "ruyi-workbench/app/src/01v-work-data-manifest.js",
+    "ruyi-workbench/app/src/04-permission-runtime.js",
+    "ruyi-workbench/app/src/06k-config-patch.js"
+  ],
+  "sourceIdentity": {
+    "ruyi-workbench/app/src/01o-work-data-keys.js": "f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424",
+    "ruyi-workbench/app/src/01t-work-data-recovery.js": "4734869e48bab426880caf8f06678e2f09fd671d9f23355a7b727a5fbd6c157c",
+    "ruyi-workbench/app/src/01u-work-data-transition.js": "59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7",
+    "ruyi-workbench/app/src/01v-work-data-manifest.js": "04151c93dcf24637f906dbe49720967dc079a349a867f49a1b219207eff40057",
+    "ruyi-workbench/app/src/04-permission-runtime.js": "3ebdb7f81f6a342d09d8ff9f301cc656d37881b1cdb99ac6e8ee7db0556e7e22",
+    "ruyi-workbench/app/src/06k-config-patch.js": "0be1426a9c378149e7fc421120d0db0b110583bedef100479d2fe6c32d418e34",
+    "ruyi-workbench/app/server.js": "07fd437c3c88ccb08b2faae309cb32445accabf4282dcb3c06de0803aba90062",
+    "ruyi-workbench/app/src/manifest.json": "aafe226441ee5339a32b7a146a43eaec45da1ba27d49534f8bc4acffb100ad2c",
+    "dev-harness/work-data-recovery-foundation.e2e.js": "e6a2fda66c88386ece72b76e084991fc2a526dc40fd231122f7b5a23ffff94b5"
+  },
+  "validation": {
+    "fullUnit": {
+      "reportedExecutions": 3132,
+      "pass": 3106,
+      "skip": 26,
+      "fail": 0,
+      "note": "Node-reported executions, not unique coverage; inherited host cases remain counted"
+    },
+    "directedUnit": {
+      "pass": 104,
+      "fail": 0
+    },
+    "actualGeneratedWindowsDPAPI": {
+      "foundationRuns": 2,
+      "foundationGroupsPerRun": 5,
+      "auditRuns": 2,
+      "auditGroupsPerRun": 7,
+      "scope": "same current Windows account, cold independent cache and new DPAPI wrapping; not a real cross-machine user restore"
+    },
+    "configHttpRuns": 2,
+    "syntaxFiles": 1225,
+    "syntaxFailed": 0,
+    "buildFresh": true,
+    "static": {
+      "count": 81,
+      "initialPass": 80,
+      "initialFail": 1,
+      "failedScript": "facts.static.e2e.js",
+      "failure": "README zh/en counts lagged 579 e2e / 341 unit suites",
+      "repair": "Update exact counts only; original facts assertions unchanged",
+      "repairPass": true,
+      "resolved": 81
+    },
+    "inventory": {
+      "e2e": 579,
+      "defaultOffline": 572,
+      "live": 7,
+      "unitSuites": 341,
+      "accSmokes": 25
+    },
+    "fullDefaultOfflineE2EExecuted": false,
+    "packageExecuted": false
+  },
+  "independentReviews": [
+    {
+      "scope": "transition primitive and config guards",
+      "agent": "migration_catalog",
+      "evidence": "C:/Users/87179/AppData/Local/Temp/ruyi-m3-3-catalog-USCnLZ/review-fixed-source-identity.json",
+      "findings": [
+        "cancel after durable commit could reopen old generation; replaced with irreversible commit and failure retirement"
+      ]
+    },
+    {
+      "scope": "recovery codec and key staging",
+      "agent": "migration_lifecycle",
+      "evidence": "C:/Users/87179/AppData/Local/Temp/ruyi-recovery-independent-review-20261024/report.json",
+      "limitations": [
+        "caller keyRefs omission is not discoverable by codec",
+        "record-owner reference closure remains host duty"
+      ]
+    },
+    {
+      "scope": "manifest authority IO",
+      "agent": "recovery_package",
+      "evidence": "C:/Users/87179/AppData/Local/Temp/ruyi-manifest-independent-review-e7w2KQ/final-probes.json",
+      "findings": [
+        "RNG before try/finally stuck busy",
+        "frozen foreign exception lost commitUncertain"
+      ],
+      "resolution": "both fixed with permanent regressions; 22 unit and 8 independent probes pass"
+    },
+    {
+      "scope": "audit config owner / apiCode / egress / new E2E fixture",
+      "agent": "migration_catalog",
+      "evidence": "C:/Users/87179/AppData/Local/Temp/ruyi-m3-3-catalog-USCnLZ/audit-owner-independent-probes.json",
+      "findings": [
+        "test env assignment retained RUYI_TEST_SERVER_JS"
+      ],
+      "resolution": "delete removed environment keys before assign; actual encrypted source byte assertion added"
+    }
+  ],
+  "firstFailures": [
+    {
+      "scope": "new HTTP config guard checks",
+      "result": "five code checks failed because only error.code existed; fixed apiCode",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\config-e2e-1.log"
+    },
+    {
+      "scope": "existing provider change audit",
+      "result": "B5/C4 failed with both HEAD original service+original test and current service; wait mutator publication and bounded revision resampling fixes without changing old assertions",
+      "baselineLog": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\baseline-config-e2e.log"
+    },
+    {
+      "scope": "recovery codec author unit",
+      "result": "12/13 first run: test tamper helper TypeError; helper repaired, 13/13 thereafter"
+    },
+    {
+      "scope": "independent R1/RNG/frozen error",
+      "result": "precise negative controls and first failures retained in review directories"
+    },
+    {
+      "scope": "README count static",
+      "result": "81-script initial 80 pass / 1 fail; unchanged facts assertions pass after updating documentation counts"
+    }
+  ],
+  "egress": {
+    "sourceFiles": 284,
+    "candidates": 695,
+    "reviewErrors": 76,
+    "unchangedOldErrorSet": true,
+    "reviewedSources": {
+      "ruyi-workbench/app/src/01t-work-data-recovery.js": "4734869e48bab426880caf8f06678e2f09fd671d9f23355a7b727a5fbd6c157c",
+      "ruyi-workbench/app/src/01u-work-data-transition.js": "59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7",
+      "ruyi-workbench/app/src/01v-work-data-manifest.js": "04151c93dcf24637f906dbe49720967dc079a349a867f49a1b219207eff40057",
+      "ruyi-workbench/app/src/04-permission-runtime.js": "3ebdb7f81f6a342d09d8ff9f301cc656d37881b1cdb99ac6e8ee7db0556e7e22"
+    },
+    "newBoundaries": {
+      "ruyi-workbench/app/src/01o-work-data-keys.js#stageRecovered#run#1": "process",
+      "ruyi-workbench/app/src/01o-work-data-keys.js#stageRecovered#run#2": "process",
+      "ruyi-workbench/app/src/01u-work-data-transition.js#run#run#1": "local-callback",
+      "ruyi-workbench/app/src/01v-work-data-manifest.js#commit#writeFile#1": "file-boundary"
+    }
+  },
+  "pending": [
+    "41-family actual migration catalog and strict raw conversions including retained copies",
+    "production owner admission, drains and internal MCP generation checks",
+    "Windows native manifest publisher and process-death recovery",
+    "consistent complete snapshot and real credential/privacy/external-bot reference closure",
+    "NTFS original-object capsule portable recovery",
+    "single dedicated setup/disable/cancel/recovery APIs and daily silent UI",
+    "real first migration, reverse plaintext migration, full restore, restart and conflict/error journeys"
+  ],
+  "guaranteesNotClaimed": [
+    "cross-process CAS",
+    "malicious same-account namespace isolation",
+    "whole-package constant RAM or string zeroization",
+    "physical power-loss durability",
+    "full 3.1 delivery or packaged release"
+  ],
+  "logs": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\directed-unit.log",
+      "sha256": "0d01f15fc13af44932c9b4a0b19e7457fe7334a6d1b00d97a80dcc3d86d57dd2"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\config-e2e-1.log",
+      "sha256": "55bb7d8499fcb99c2d130c384aee84c4e17e765c89b605dcb15cf2fe7397b7f3"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\baseline-config-e2e.log",
+      "sha256": "beb63d14e7da8bd3ab5169fa99e023eacb99e319e3b5ff67f49f98ac5fc2c9b1"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\second\\directed-unit.log",
+      "sha256": "af2443f3d22ca753dab479e35c55916a139dfc273a3c0ea983f1cb3d859d8f3a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\second\\config-e2e-1.log",
+      "sha256": "060ff7a616ae8b5def82972f6ab84a02cdcfae17aef0f133030d11b233796724"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\second\\config-e2e-2.log",
+      "sha256": "4ae7acb67105333d098ea8bac02cea0f4c3da071e98e988d446d88159953cdcb"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\second\\all-unit.log",
+      "sha256": "4d490a5b8d7f82bee1d4aa3675b76d8aafa1772c7f466a360bc3529017d957c5"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\native\\recovery-native-1.log",
+      "sha256": "ce254aa99acaf8a5cb0dc3b8e98ba96294d900fff80e2ff22b1668e678fcfe3c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\native\\recovery-native-2.log",
+      "sha256": "ce254aa99acaf8a5cb0dc3b8e98ba96294d900fff80e2ff22b1668e678fcfe3c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\native\\audit-native-1.log",
+      "sha256": "ac963001ea7d197a2947f516ee62304b8f6daf235f2a73dbc04b2e1db61193ea"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\native\\audit-native-2.log",
+      "sha256": "ac963001ea7d197a2947f516ee62304b8f6daf235f2a73dbc04b2e1db61193ea"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\native\\syntax-final.log",
+      "sha256": "fb9996ff5160e6b6965fa80562fc6db93b002d84def82e1cf1261dde2001b3a3"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\native\\build-final.log",
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\static-final-facts.static.e2e.js.log",
+      "sha256": "ba9dbddf64481596f732880d938722d41bd52387f213fa9dc7f28372b3331716"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch1-yOwNh2\\facts-static-repair.log",
+      "sha256": "8a9ebf2156e15075aebceee3ca345e7aea999439d39d210c0bd6f21da426031b"
+    }
+  ],
+  "manualProductDiff": {
+    "files": 6,
+    "added": 558,
+    "removed": 20,
+    "net": 538,
+    "perFile": [
+      {
+        "file": "ruyi-workbench/app/src/01o-work-data-keys.js",
+        "added": 43,
+        "removed": 1
+      },
+      {
+        "file": "ruyi-workbench/app/src/01t-work-data-recovery.js",
+        "added": 212,
+        "removed": 0
+      },
+      {
+        "file": "ruyi-workbench/app/src/01u-work-data-transition.js",
+        "added": 92,
+        "removed": 0
+      },
+      {
+        "file": "ruyi-workbench/app/src/01v-work-data-manifest.js",
+        "added": 180,
+        "removed": 0
+      },
+      {
+        "file": "ruyi-workbench/app/src/04-permission-runtime.js",
+        "added": 27,
+        "removed": 15
+      },
+      {
+        "file": "ruyi-workbench/app/src/06k-config-patch.js",
+        "added": 4,
+        "removed": 4
+      }
+    ],
+    "generatedArtifactsExcluded": true
+  }
+}

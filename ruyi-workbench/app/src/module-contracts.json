@@ -1300,6 +1300,46 @@
       ]
     },
     {
+      "file": "01t-work-data-recovery.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataRecovery"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01u-work-data-transition.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataTransition"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01v-work-data-manifest.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataManifest"
+      ],
+      "requires": []
+    },
+    {
       "file": "02c-turn-segments.js",
       "layer": "foundation",
       "provides": [
@@ -3081,6 +3121,13 @@
         {
           "provider": "01-config.js",
           "symbol": "configDegraded",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configMutateChain",
           "kinds": [
             "read"
           ]

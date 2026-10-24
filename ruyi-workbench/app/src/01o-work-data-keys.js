@@ -41,6 +41,48 @@ const WorkDataKeys = ((cryptoApi) => {
       const key = Buffer.from(master); let released = false;
       return Object.freeze({ key, instanceId, release: () => { if (!released) { released = true; key.fill(0); } } });
     };
+    // Explicit setup/recovery staging. These methods never access the active store, policy or
+    // cache: the lifecycle owner publishes the returned header only inside a verified new root.
+    // An OFF active configuration is therefore preserved throughout shadow preparation.
+    async function stageRecovered(value) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)
+        || Object.keys(value).sort().join(',') !== 'instanceId,key' || !id(value.instanceId)) fail('invalid');
+      if (!Buffer.isBuffer(value.key) || value.key.length !== 32) fail('key_invalid');
+      const key = Buffer.from(value.key), instanceId = value.instanceId;
+      let wrapped, roundtrip, protectInput, protectDomain, verifyDomain;
+      try {
+        if (!host.protector.supported()) fail('unsupported');
+        protectDomain = entropy(instanceId); protectInput = Buffer.from(key);
+        try { wrapped = await host.protector.run('protect', protectInput, protectDomain); }
+        catch { fail('protect_failed'); }
+        if (!Buffer.isBuffer(wrapped) || !wrapped.length || wrapped.length > MAX_BYTES) fail('protect_failed');
+        const header = { schema: SCHEMA, instanceId, protectedKey: wrapped.toString('base64') };
+        if (!validate(header)) fail('protect_failed');
+        // Use a fresh fixed-purpose entropy buffer: a malformed protector must not turn a
+        // mutated first-call argument into a different accepted wrapping domain.
+        verifyDomain = entropy(instanceId);
+        try { roundtrip = await host.protector.run('unprotect', wrapped, verifyDomain); }
+        catch { fail('roundtrip_failed'); }
+        if (!Buffer.isBuffer(roundtrip) || roundtrip.length !== 32 || !cryptoApi.timingSafeEqual(key, roundtrip)) fail('roundtrip_failed');
+        return Object.freeze({ header: Object.freeze(header), lease: leaseOf(key, instanceId) });
+      } finally {
+        key.fill(0);
+        if (protectInput) protectInput.fill(0);
+        if (Buffer.isBuffer(wrapped)) wrapped.fill(0);
+        if (Buffer.isBuffer(roundtrip)) roundtrip.fill(0);
+        if (protectDomain) protectDomain.fill(0);
+        if (verifyDomain) verifyDomain.fill(0);
+      }
+    }
+    async function stageNew() {
+      let key;
+      try {
+        if (!host.protector.supported()) fail('unsupported');
+        key = cryptoApi.randomBytes(32);
+        const instanceId = cryptoApi.randomBytes(16).toString('hex');
+        return await stageRecovered({ instanceId, key });
+      } finally { if (Buffer.isBuffer(key)) key.fill(0); }
+    }
     async function snapshot() {
       // Existing sealed records remain readable after disabling encryption. No read ever creates a key.
       if (!host.protector.supported()) fail('unsupported');
@@ -118,7 +160,7 @@ const WorkDataKeys = ((cryptoApi) => {
       if (!state.instanceId) fail('absent');
       return state.instanceId;
     }
-    return Object.freeze({ unlock, ensure, snapshot, status, instance, clear, validate, empty });
+    return Object.freeze({ unlock, ensure, snapshot, stageNew, stageRecovered, status, instance, clear, validate, empty });
   }
   return Object.freeze({ SCHEMA, create, validate, empty });
 })(require('node:crypto'));

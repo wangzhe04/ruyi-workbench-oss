@@ -680,7 +680,7 @@
     {"file":"ruyi-workbench/app/src/03a-privacy-gateway.js","fingerprint":"ec955f9f36b292a779fc5366c3cf98bea064866d758fa1f2e4034676aade84dc"},
     {"file":"ruyi-workbench/app/src/03b-privacy-local-drive.js","fingerprint":"fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4"},
     {"file":"ruyi-workbench/app/src/04-desktop-shell.js","fingerprint":"ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2"},
-    {"file":"ruyi-workbench/app/src/04-permission-runtime.js","fingerprint":"8688f769713fef95ffb2eecab8822b5a406bd4d0ef38cf5ba538d357f3294f3b"},
+    {"file":"ruyi-workbench/app/src/04-permission-runtime.js","fingerprint":"3ebdb7f81f6a342d09d8ff9f301cc656d37881b1cdb99ac6e8ee7db0556e7e22"},
     {"file":"ruyi-workbench/app/src/04-visual-pipeline.js","fingerprint":"e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed"},
     {"file":"ruyi-workbench/app/src/04f-toolbox-services.js","fingerprint":"532e5e41faf77183f00aef712fdd1072f5e01a9c0fc844ed043d9a74e3c40fee"},
     {"file":"ruyi-workbench/app/src/04h-provider-http.js","fingerprint":"d5df67af5f7305d331ec2dd007fcc2c009e06ac0c4e1f043039513f79f889c6a"},
@@ -788,7 +788,10 @@
     {"file":"ruyi-workbench/tools/fake-claude.js","fingerprint":"b2fab438144482fa2dc8906550bdd63a959680888bafb6b292a72ec0bc45a56a"},
     {"file":"ruyi-workbench/tools/gen-manifest.js","fingerprint":"0818c238928b09d4122b1e099629eb38a2f813a6bff5f55fe6de41d5b8f0143d"},
     {"file":"ruyi-workbench/tools/package-offline.ps1","fingerprint":"e6ccc7c742892dad85e5e76d55cde03d2a4fb9ca4940a2fd8d5481dcb9fdae58"},
-    {"file":"ruyi-workbench/app/src/01s-work-data-journals.js","fingerprint":"9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f"}
+    {"file":"ruyi-workbench/app/src/01s-work-data-journals.js","fingerprint":"9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f"},
+    {"file":"ruyi-workbench/app/src/01t-work-data-recovery.js","fingerprint":"4734869e48bab426880caf8f06678e2f09fd671d9f23355a7b727a5fbd6c157c"},
+    {"file":"ruyi-workbench/app/src/01u-work-data-transition.js","fingerprint":"59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7"},
+    {"file":"ruyi-workbench/app/src/01v-work-data-manifest.js","fingerprint":"04151c93dcf24637f906dbe49720967dc079a349a867f49a1b219207eff40057"}
   ],
   "entries": [
     {"id":"mcp/ai-computer-control/installer/build_offline_package.py#<module>#<python-transport-import>#1","fingerprint":"a6ec8538828a7a60a9ac2d0a4aa766bd61d095c8af0056027ff9ffba5e91a0c3","group":"capability"},
@@ -1470,6 +1473,10 @@
     {"id":"ruyi-workbench/app/src/04-permission-runtime.js#writev#run#1","fingerprint":"d25603a5b4cd1b09633f5a22dedabc017e15fdd9cc25f3737034c0a9ea85e16f","group":"local-callback"},
     {"id":"ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#<transport-import>#1","fingerprint":"beda6d2a4049de7c19ddf8760b4ab52a17e0cbbade019c0cd1942205172e056b","group":"capability"},
     {"id":"ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#spawn#1","fingerprint":"82052f9af18340b655887de397d6ca5b84fbc92e00c9380b6a4965daa24b1280","group":"process"},
-    {"id":"ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#write#1","fingerprint":"70ab38f14ebe3c3769fdf552a3b84b3faf318bc4f0131060d55683f9fcab9f43","group":"process"}
+    {"id":"ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#write#1","fingerprint":"70ab38f14ebe3c3769fdf552a3b84b3faf318bc4f0131060d55683f9fcab9f43","group":"process"},
+    {"id":"ruyi-workbench/app/src/01o-work-data-keys.js#stageRecovered#run#1","fingerprint":"aaf3bc82294de40eb0a8608b2b8326c475b9817d0eaf1f20460f1d29bb2f0fa1","group":"process"},
+    {"id":"ruyi-workbench/app/src/01o-work-data-keys.js#stageRecovered#run#2","fingerprint":"ed4800e90863f5c1a44b0232aba45d002688dc42c1b866b1784b0fd82172e0e7","group":"process"},
+    {"id":"ruyi-workbench/app/src/01u-work-data-transition.js#run#run#1","fingerprint":"9a743d34782a6513ab6c5c14df23baf6a578dee36255dd06dc3415bab6d070c0","group":"local-callback"},
+    {"id":"ruyi-workbench/app/src/01v-work-data-manifest.js#commit#writeFile#1","fingerprint":"7b4a05e973df714c5a47dd2c41a7b60eea4ca17ea4b7bdf461f0c40175eb8b70","group":"file-boundary"}
   ]
 }

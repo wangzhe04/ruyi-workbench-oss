@@ -127,9 +127,6 @@ async function auditLogEnabled() {
   // Logging must not enter readConfig's recovery/migration writer. Its diagnostic
   // can run while another reader is restoring .prev, or between successive reads.
   // Read the committed bytes only; unknown or changing policy refuses the write.
-  let writing;
-  do { writing = configWriteChain; await writing.catch(() => {}); } while (writing !== configWriteChain);
-  const generation = configReadGeneration;
   const hooks = typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks : {};
   const vaultStamp = () => hooks.stateStamp ? hooks.stateStamp() : Promise.resolve('');
   const importPending = async () => {
@@ -137,18 +134,33 @@ async function auditLogEnabled() {
     catch (error) { if (error.code === 'ENOENT') return false; throw error; }
   };
   const unavailable = () => { throw auditLogError({ code: 'work_data_audit.switch_unavailable' }); };
-  if (configDegraded || await importPending()) unavailable();
-  const beforeVault = await vaultStamp();
-  const raw = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length
-    || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean') unavailable();
-  // Share the existing defaults and privacy validation without hydrating secrets,
-  // applying migrations to disk, configuring policy, or repairing config/backup.
-  const config = normalizeConfig(raw).config;
-  const afterVault = await vaultStamp(), pending = await importPending();
-  if (configDegraded || config.privacyPolicyRecoveryRequiredV1 === true || pending || beforeVault !== afterVault
-    || generation !== configReadGeneration || writing !== configWriteChain) unavailable();
-  return config.workDataEncryptionV1 === true;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let mutating, writing;
+    do {
+      // A mutator can log before writeConfig creates its physical write chain.
+      // Wait through its publication as well: configEmitWritten invalidates the
+      // generation after the physical write completes. logEvent never awaits
+      // this logger, and configuration mutators must not await an audit flush.
+      mutating = configMutateChain; await mutating.catch(() => {});
+      writing = configWriteChain; await writing.catch(() => {});
+    } while (mutating !== configMutateChain || writing !== configWriteChain);
+    const generation = configReadGeneration;
+    if (configDegraded || await importPending()) unavailable();
+    const beforeVault = await vaultStamp();
+    const raw = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length
+      || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean') unavailable();
+    // Share the existing defaults and privacy validation without hydrating secrets,
+    // applying migrations to disk, configuring policy, or repairing config/backup.
+    const config = normalizeConfig(raw).config;
+    const afterVault = await vaultStamp(), pending = await importPending();
+    if (configDegraded || config.privacyPolicyRecoveryRequiredV1 === true || pending || beforeVault !== afterVault) unavailable();
+    // Only an observed configuration owner/revision change permits another read.
+    // Corrupt policy, an import journal or a changed vault never becomes OFF.
+    if (generation !== configReadGeneration || mutating !== configMutateChain || writing !== configWriteChain) continue;
+    return config.workDataEncryptionV1 === true;
+  }
+  unavailable();
 }
 
 function workbenchAuditJournal(file) {

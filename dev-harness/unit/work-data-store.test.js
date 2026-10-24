@@ -186,10 +186,28 @@ test('reads never create a key, and a fresh process re-unlocks the persisted env
 // flip it (M3-3 owns the local setup flow) and a normal patch must not create a key envelope.
 test('the generic config patch cannot flip the work-data switch', async () => {
   const patch = internals().applyConfigPatch;
-  await assert.rejects(() => patch({ workDataEncryptionV1: true }),
-    error => error.code === 'work_data.encryption_requires_setup' && error.statusCode === 409);
+  for (const value of [true, false, null, 0, 'false', undefined]) {
+    await assert.rejects(() => patch({ workDataEncryptionV1: value }),
+      error => error.code === 'work_data.encryption_requires_setup' && error.apiCode === error.code && error.statusCode === 409);
+  }
   await patch({ theme: 'dark' });
   assert.equal(fs.existsSync(path.join(HOME_DIR, 'work-data-key-v1.json')), false);
+});
+
+test('explicit work-data config values are rejected before mutation or persistence', async () => {
+  const { functionBlock } = require('../lib/source-slice');
+  const patchSource = functionBlock(read('06k-config-patch.js'), 'applyConfigPatch');
+  let mutations = 0;
+  const sandbox = { mutateConfig: () => { mutations++; throw Error('must not mutate'); } };
+  vm.createContext(sandbox);
+  const patch = vm.runInContext(patchSource + '\napplyConfigPatch', sandbox);
+  // A caller must not turn an existing encrypted installation OFF by sending false, or cause
+  // normalization of an invalid value to choose false. Reject before any config owner is entered.
+  for (const value of [true, false, null, 0, 1, 'false', {}, [], undefined]) {
+    await assert.rejects(() => patch({ workDataEncryptionV1: value, theme: 'light' }),
+      error => error.code === 'work_data.encryption_requires_setup' && error.apiCode === error.code && error.statusCode === 409);
+  }
+  assert.equal(mutations, 0);
 });
 
 // Structural lock: the product wiring must stay on the adapter (not a second hand-rolled seal path),

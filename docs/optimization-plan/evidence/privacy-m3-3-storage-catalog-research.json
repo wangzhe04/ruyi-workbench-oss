@@ -1,0 +1,498 @@
+{
+  "schema": 1,
+  "sourceHead": "415357604f6465f43b377d1d30ff713464a8fa96",
+  "readOnlyResearch": true,
+  "entries": [
+    {
+      "id": "session-head",
+      "pattern": "<data>/sessions/<id>.json",
+      "owner": "02-session-store.js",
+      "codec": "text-v2",
+      "purpose": "session",
+      "schema": 2,
+      "scopeId": "sessions",
+      "recordId": "<id>",
+      "factory": "sessionHeadStore"
+    },
+    {
+      "id": "session-messages",
+      "pattern": "<data>/sessions/<id>.messages.ndjson",
+      "owner": "02-session-store.js",
+      "codec": "session-record-v2",
+      "purpose": "session",
+      "schema": 2,
+      "scopeId": "<id>",
+      "recordId": "messages:<physicalOrdinal>",
+      "factory": "sessionBodyCodec / sessionBodyWriteText"
+    },
+    {
+      "id": "session-provider",
+      "pattern": "<data>/sessions/<id>.provider.ndjson",
+      "owner": "02-session-store.js",
+      "codec": "session-record-v2",
+      "purpose": "session",
+      "schema": 2,
+      "scopeId": "<id>",
+      "recordId": "provider:<physicalOrdinal>",
+      "factory": "sessionBodyCodec / sessionBodyWriteText"
+    },
+    {
+      "id": "session-interventions",
+      "pattern": "<data>/sessions/<id>.interventions.ndjson",
+      "owner": "02-session-store.js",
+      "codec": "session-record-v2",
+      "purpose": "session",
+      "schema": 2,
+      "scopeId": "<id>",
+      "recordId": "interventions:<physicalOrdinal>",
+      "factory": "decodeSessionJournalText"
+    },
+    {
+      "id": "session-changes",
+      "pattern": "<data>/sessions/<id>.changes.ndjson",
+      "owner": "02-session-store.js",
+      "codec": "session-record-v2",
+      "purpose": "session",
+      "schema": 2,
+      "scopeId": "<id>",
+      "recordId": "changes:<physicalOrdinal>",
+      "factory": "decodeSessionJournalText"
+    },
+    {
+      "id": "session-scratchpad",
+      "pattern": "<data>/sessions/<id>.scratchpad.json",
+      "owner": "02-session-store.js",
+      "codec": "text-v2",
+      "purpose": "session",
+      "schema": 1,
+      "scopeId": "sessions",
+      "recordId": "<id>",
+      "factory": "sessionScratchpadStore (use createText with same binding, do not sanitize)"
+    },
+    {
+      "id": "session-index",
+      "pattern": "<data>/sessions/index.json",
+      "owner": "02-session-store.js",
+      "codec": "text-chunks-v3",
+      "purpose": "session",
+      "schema": 1,
+      "scopeId": "sessions",
+      "recordId": "session-index",
+      "factory": "sessionIndexStore / sessionArtifactStore"
+    },
+    {
+      "id": "session-v1-backup",
+      "pattern": "<data>/sessions/<id>.json.v1bak",
+      "owner": "02-session-store.js",
+      "codec": "text-chunks-v3",
+      "purpose": "session",
+      "schema": 1,
+      "scopeId": "<id>",
+      "recordId": "session-v1-backup",
+      "factory": "sessionV1BackupStore"
+    },
+    {
+      "id": "journal-index",
+      "pattern": "<data>/checkpoints/<id>/index.json",
+      "owner": "02-session-store.js",
+      "codec": "text-chunks-v3",
+      "purpose": "session",
+      "schema": 1,
+      "scopeId": "<sid>",
+      "recordId": "journal-index",
+      "factory": "journalJsonStore"
+    },
+    {
+      "id": "journal-reverts",
+      "pattern": "<data>/checkpoints/<id>/reverts.json",
+      "owner": "02-session-store.js",
+      "codec": "text-chunks-v3",
+      "purpose": "session",
+      "schema": 1,
+      "scopeId": "<sid>",
+      "recordId": "journal-reverts",
+      "factory": "journalJsonStore"
+    },
+    {
+      "id": "journal-history",
+      "pattern": "<data>/checkpoints/<id>/history-*.json.gz and <turn>-<entry>.gz",
+      "owner": "10-context-governance.js",
+      "codec": "binary-gzip-v3",
+      "purpose": "session",
+      "schema": 1,
+      "scopeId": "<sid>",
+      "recordId": "<actual basename>",
+      "factory": "journalGzipStore / journalGzipIdentity"
+    },
+    {
+      "id": "mission-container",
+      "pattern": "<data>/missions/<missionId>.json",
+      "owner": "02-session-store.js",
+      "codec": "text-chunks-v3",
+      "purpose": "task",
+      "schema": 1,
+      "scopeId": "<missionId>",
+      "recordId": "mission-container",
+      "factory": "missionContainerStore"
+    },
+    {
+      "id": "pretender-index",
+      "pattern": "<data>/sessions/.pretender/projection-index.json",
+      "owner": "13e-pretender-index.js",
+      "codec": "text-chunks-v3",
+      "purpose": "search-index",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "pretender-index",
+      "factory": "pretenderIndexStore"
+    },
+    {
+      "id": "memory-body",
+      "pattern": "<data>/memory/{global,project/<key>}/<id>.md",
+      "owner": "06d-memory-domain.js",
+      "codec": "text-chunks-v3-markdown",
+      "purpose": "memory",
+      "schema": 1,
+      "scopeId": "global OR project:<16hex>",
+      "recordId": "memory:<id>",
+      "factory": "memoryBodyStore / memoryBodyScope"
+    },
+    {
+      "id": "memory-meta",
+      "pattern": "<data>/memory/project/<projectKey>/meta.json",
+      "owner": "06d-memory-domain.js",
+      "codec": "text-v2",
+      "purpose": "memory",
+      "schema": 1,
+      "scopeId": "project:<actual bucket basename>",
+      "recordId": "memory-meta",
+      "factory": "memoryProjectMetaStore"
+    },
+    {
+      "id": "memory-usage",
+      "pattern": "<data>/memory/_usage-v1.json",
+      "owner": "06d-memory-domain.js",
+      "codec": "text-v2",
+      "purpose": "memory",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "memory-usage",
+      "factory": "memoryUsageStore (createText same binding, do not sanitize)"
+    },
+    {
+      "id": "memory-relations",
+      "pattern": "<data>/memory/**/_relations.json",
+      "owner": "06d-memory-domain.js",
+      "codec": "text-v2",
+      "purpose": "memory",
+      "schema": 1,
+      "scopeId": "global OR project:<16hex>",
+      "recordId": "memory-relations",
+      "factory": "memoryRelationsStore"
+    },
+    {
+      "id": "memory-proposals",
+      "pattern": "<data>/memory/proposals/<session>.json",
+      "owner": "06d-memory-domain.js",
+      "codec": "text-v2",
+      "purpose": "memory",
+      "schema": 1,
+      "scopeId": "<sid>",
+      "recordId": "memory-proposals",
+      "factory": "memoryProposalStateStore"
+    },
+    {
+      "id": "agent-instructions-import",
+      "pattern": "<data>/memory/.agent-instructions-import-v1.json",
+      "owner": "06d-memory-domain.js",
+      "codec": "text-v2",
+      "purpose": "memory",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "agent-instructions-import",
+      "factory": "agentInstructionImportStore (createText same binding, do not sanitize)"
+    },
+    {
+      "id": "steward-memory",
+      "pattern": "<data>/steward/memory-v1.json",
+      "owner": "13j-steward-tool-base.js",
+      "codec": "text-v2",
+      "purpose": "memory",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "steward-memory",
+      "factory": "stewardMemoryStore (createText same binding, do not sanitize)"
+    },
+    {
+      "id": "steward-visits",
+      "pattern": "<data>/steward/visits/<ISO>.json",
+      "owner": "13q-steward-runner-turn.js",
+      "codec": "text-chunks-v3",
+      "purpose": "memory",
+      "schema": 1,
+      "scopeId": "steward",
+      "recordId": "visit:sha256(native basename lower-case on Windows)",
+      "factory": "stewardVisitStore"
+    },
+    {
+      "id": "voice-lexicon",
+      "pattern": "<data>/voice-lexicon.json",
+      "owner": "05-claude-engine.js",
+      "codec": "text-v2",
+      "purpose": "user-config",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "voice-lexicon",
+      "factory": "voiceLexiconStore (createText same binding, do not sanitize)"
+    },
+    {
+      "id": "steward-inbox",
+      "pattern": "<data>/steward/inbox-v1.ndjson",
+      "owner": "13i-steward-inbox.js",
+      "codec": "aux-record-v2/v3",
+      "purpose": "queue",
+      "schema": "2 small / 3 chunked",
+      "scopeId": "steward",
+      "recordId": "steward-inbox:<physicalOrdinal>",
+      "factory": "stewardInboxJournal"
+    },
+    {
+      "id": "steward-cursor",
+      "pattern": "<data>/steward/cursor-v1.json",
+      "owner": "13i-steward-inbox.js",
+      "codec": "text-v2",
+      "purpose": "queue",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "steward-cursor",
+      "factory": "stewardCursorStore / stewardCursorHost"
+    },
+    {
+      "id": "steward-decisions",
+      "pattern": "<data>/steward/decisions-v1.ndjson",
+      "owner": "13j-steward-tool-base.js",
+      "codec": "aux-record-v2/v3",
+      "purpose": "queue",
+      "schema": "2 small / 3 chunked",
+      "scopeId": "steward",
+      "recordId": "steward-decisions:<physicalOrdinal>",
+      "factory": "stewardDecisionJournal"
+    },
+    {
+      "id": "external-bots",
+      "pattern": "<data>/external-bots/state-v1.json",
+      "owner": "13w-external-bots.js",
+      "codec": "text-chunks-v3",
+      "purpose": "queue",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "external-bots:state-v1",
+      "factory": "externalBotStore textStore closure"
+    },
+    {
+      "id": "scheduler-tasks",
+      "pattern": "<data>/scheduler/tasks-v1.json",
+      "owner": "13s-scheduler.js",
+      "codec": "text-chunks-v3",
+      "purpose": "task",
+      "schema": 1,
+      "scopeId": "scheduler",
+      "recordId": "scheduler-tasks",
+      "factory": "schedulerTaskStore"
+    },
+    {
+      "id": "scheduler-fires",
+      "pattern": "<data>/scheduler/fires-v1.ndjson",
+      "owner": "13s-scheduler.js",
+      "codec": "aux-record-v2/v3",
+      "purpose": "task",
+      "schema": "2 small / 3 chunked",
+      "scopeId": "scheduler-global",
+      "recordId": "scheduler-fires:<physicalOrdinal>",
+      "factory": "schedulerFireJournal"
+    },
+    {
+      "id": "agent-run-snapshot",
+      "pattern": "<data>/agent-runs/<session>/<run>.json",
+      "owner": "07-autonomy.js",
+      "codec": "text-chunks-v3",
+      "purpose": "task",
+      "schema": 1,
+      "scopeId": "<sid>",
+      "recordId": "agent-run:<rid>",
+      "factory": "agentRunSnapshotStore"
+    },
+    {
+      "id": "agent-run-events",
+      "pattern": "<data>/agent-runs/<session>/<run>.events.ndjson",
+      "owner": "08-agent-runs.js",
+      "codec": "aux-record-v2/v3 + binary-gzip-v3 archive",
+      "purpose": "task",
+      "schema": "2 small / 3 chunked; archive 1",
+      "scopeId": "<sid>",
+      "recordId": "agent-run-events:<rid>:<physicalOrdinal>; archive agent-run-events-archive:<rid>",
+      "factory": "agentRunEventsJournal / agentRunEventsArchiveStore"
+    },
+    {
+      "id": "background-job-ledger",
+      "pattern": "<data>/sessions/background-jobs/<sessionId>.json",
+      "owner": "11-native-tools.js",
+      "codec": "text-chunks-v3",
+      "purpose": "task",
+      "schema": 1,
+      "scopeId": "<sid>",
+      "recordId": "background-job-ledger",
+      "factory": "withBackgroundJobOperation store closure"
+    },
+    {
+      "id": "personal-workflows",
+      "pattern": "<data>/agent-workflows/<id>.json",
+      "owner": "08-agent-runs.js",
+      "codec": "text-chunks-v3",
+      "purpose": "workflow",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "workflow:sha256(native basename lower-case on Windows)",
+      "factory": "personalAgentWorkflowStore"
+    },
+    {
+      "id": "playbooks",
+      "pattern": "<data>/playbooks/<id>.json",
+      "owner": "06-provider-engine.js",
+      "codec": "text-chunks-v3",
+      "purpose": "workflow",
+      "schema": 1,
+      "scopeId": "user",
+      "recordId": "playbook:sha256(actual fileName; NO lower-case normalization)",
+      "factory": "userPlaybookStore"
+    },
+    {
+      "id": "session-search-index",
+      "pattern": "<data>/sessions/_search-index-v1.json",
+      "owner": "13d-core-domain-routes.js",
+      "codec": "text-chunks-v3",
+      "purpose": "search-index",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "session-search-index",
+      "factory": "sessionSearchIndexStore"
+    },
+    {
+      "id": "web-cache",
+      "pattern": "<data>/webcache/<sha256>.json",
+      "owner": "11-native-tools.js",
+      "codec": "text-chunks-v3",
+      "purpose": "cache",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "web-cache:<basename without .json>",
+      "factory": "webCacheStore"
+    },
+    {
+      "id": "proxy-models-cache",
+      "pattern": "<data>/proxy-models-cache.json",
+      "owner": "13-http-router.js",
+      "codec": "text-chunks-v3",
+      "purpose": "cache",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "proxy-models-cache",
+      "factory": "proxyModelsCacheStore"
+    },
+    {
+      "id": "engine-transcript-index",
+      "pattern": "<data>/engine-transcripts.json",
+      "owner": "06-provider-engine.js",
+      "codec": "text-v2",
+      "purpose": "cache",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "engine-transcript-index",
+      "factory": "engineTranscriptLedgerStore (createText same binding, do not sanitize)"
+    },
+    {
+      "id": "audit-log",
+      "pattern": "<data>/logs/workbench-YYYY-MM-DD.ndjson",
+      "owner": "04-permission-runtime.js",
+      "codec": "aux-record-v2/v3",
+      "purpose": "audit",
+      "schema": "2 small / 3 chunked",
+      "scopeId": "<YYYY-MM-DD>",
+      "recordId": "audit-log:<physicalOrdinal>",
+      "factory": "workbenchAuditJournal"
+    },
+    {
+      "id": "migration-log",
+      "pattern": "<data>/migrations/<ts>.json",
+      "owner": "13u-migration-center.js",
+      "codec": "text-chunks-v3",
+      "purpose": "migration",
+      "schema": 1,
+      "scopeId": "global",
+      "recordId": "migration-log:<actual file basename without .json>",
+      "factory": "migrationLogStore"
+    },
+    {
+      "id": "migration-skill-backups",
+      "pattern": "<data>/migrations/skill-backups/<ts>/<id>/",
+      "owner": "13u-migration-center.js",
+      "codec": "NTFS-original-object-capsule",
+      "purpose": "backup",
+      "schema": 1,
+      "scopeId": "skill-backups:<stamp>",
+      "recordId": "skill-backup:<id lower-case on Windows>:archive / :intent",
+      "factory": "migrationCapsuleDescriptor / migrationCapsuleArchive / migrationCapsuleIntent"
+    },
+    {
+      "id": "skill-import-record",
+      "pattern": "<data>/skills/<id>/.ruyi-import.json",
+      "owner": "12-tool-dispatch.js",
+      "codec": "text-chunks-v3",
+      "purpose": "backup",
+      "schema": 1,
+      "scopeId": "skills",
+      "recordId": "skill-import:<id>",
+      "factory": "skillImportRecordStore"
+    }
+  ],
+  "retained": [
+    {
+      "pattern": "sessions/<sid>.messages.ndjson.prevbody; <sid>.provider.ndjson.prevbody",
+      "policy": "same session/kind/physicalOrdinal binding as original body; settle existing owner crash transaction first; never reconstruct from current head alone"
+    },
+    {
+      "pattern": "agent-runs/<sid>/<rid>.events.ndjson.gz",
+      "policy": "must decompress and authenticate/recode nested journal records on reverse migration, then recompress; whole binary envelope alone is insufficient to ensure OFF archive has no nested ciphertext"
+    },
+    {
+      "pattern": "sessions/*.corrupt*; checkpoints/<sid>/index.json.corrupt-*; memory/**/*.corrupt*; missions/*.corrupt; scheduler/tasks-v1.json.corrupt",
+      "policy": "opaque user-content evidence; preserve separately in sealed backup; cannot blindly parse/domain-normalize or delete; disclose if kept plaintext"
+    },
+    {
+      "pattern": "*.tmp; *.sealed-stage-*; *.work-data-stage-*; migration capsule .ruyi-capsule-v1 intent/archive/objects/restored",
+      "policy": "classify only through actual owning recovery protocol; never infer temp means safe to remove; authenticate and preserve uncertain state"
+    },
+    {
+      "pattern": "migrations/skill-backups/<stamp>/<id>/objects/**",
+      "policy": "same original NTFS objects needed; generic fs.cp destroys IDs/ACL/ADS/shortnames semantics. Must use native capsule lifecycle or portable export adapter explicitly."
+    },
+    {
+      "pattern": "uploads/** and user skill source bodies",
+      "policy": "not part of 41 frozen required families; full recovery inventory must cover and state media protection boundary. Do not silently omit from full package."
+    }
+  ],
+  "transforms": {
+    "wholeText": "WorkDataStore.createText with fixed catalog binding and host.file=source/shadow; source keys=old owned lease, target keys=new owned lease; enabled false/true supplied by transition, writeJson writes shadow only. Avoid create/createJson because prepare/sanitize/default/quarantine changes old payload. Hash logical UTF8 bytes before and after. Reject invalid UTF8 roundtrip rather than silently replacing bytes.",
+    "binary": "WorkDataStore.createBinary preserves complete gzip bytes (encoding gzip-base64-v1). Reuse domain validateLegacyBinary. Source and destination explicit distinct files. Nested run-event gzip requires decoding inner records to target policy, not just envelope.",
+    "sessionRecords": "WorkDataRecords.decodeLine / encodeLine for fixed original four kinds (schema2). Preserve physical ordinals INCLUDING blank lines and actual line terminators. decodeBody is all-sealed strict checker only; mixed legacy plain/cipher requires per-line classifier. Reconcile heads/prevbody through source session owner first; no uncommitted-tail promotion.",
+    "auxRecords": "WorkDataRecords.decodeRecordLine / encodeRecordFactory; WorkDataJournals.create(...).readWindow(0,0,visit) for full authenticated visitor. Journal scan emits blank/bad legacy rows unchanged and each LF consumes ordinal. Existing replace validates domain rows and stages only canonical LF rows; not byte-preserving migration for arbitrary legacy evidence. Refuse uncertain/torn/no-LF reserved input or preserve in sealed retained backup after owner reconciliation. Important: invalid legacy rows may be ignored today but cannot be sealed into live stream because validateSealedLine then makes reads fail. Refuse migration pending explicit repair, or retain exact evidence in a sealed separate artifact and compact only through existing owner with explicit proof.",
+    "capsule": "migrationCapsuleRead / migrationCapsuleVerifyReady / migrationCapsulePrepare / migrationUndoCapsule are specialized, original-object aware. Do not invoke them without complete owner plan; backup path dirname participates AAD. Cross-machine full recovery needs new portable representation or failure before target mutation."
+  },
+  "status": "read-only research; paths and bindings are not an implemented migration closure",
+  "researchCorrections": [
+    {
+      "id": "external-bots",
+      "reason": "13w owner textStore is chunked:true; old read-only research described v2 instead of current v3 writer; no migration executed"
+    }
+  ]
+}
