@@ -2322,7 +2322,7 @@ function prepareKimiAcpSpawn(command) {
 async function runKimiAcpTurnPrepared(context) {
   const {
     session, message, onEvent, config, executionOwner, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
-    additionalDirectories, memoryCliGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
+    additionalDirectories, memoryCliGrant, internalMcpGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
     currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
     resumeResetReason, promptTaskContext, agentRecoverySummary, attachments, kimiNativeSlashCommand,
   } = context;
@@ -2330,15 +2330,16 @@ async function runKimiAcpTurnPrepared(context) {
   let workspaceTurnBaseline = context.workspaceTurnBaseline;
   const env = {
     ...process.env,
-    RUYI_HOME: paths.data,
+    RUYI_HOME: dataRoot(),
     WCW_PERMISSION_TIMEOUT_MS: String(permissionWaitMs(session.id, config, session)),   // 128f-⑪:与服务端那一侧同一个数,子进程不先放弃
     WCW_SESSION_ID: session.id,
     WCW_PORT: String(RUNTIME.port),
     WCW_HOST: RUNTIME.host,
     WCW_TOKEN: RUNTIME.token,
   };
+  Object.assign(env, InternalMcpHooks.launchEnv(internalMcpGrant));
   if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
-  else for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
+  else for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete env[key];
   const spawn = prepareKimiAcpSpawn(claude);
   if (spawn.kimiAcpCompat) env.RUYI_KIMI_ACP_COMPAT = '1';
   const cwdWarn = cwdWarning(workingDir);
@@ -2539,6 +2540,8 @@ async function runKimiAcpTurnPrepared(context) {
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
     registerSessionExecutionChild(session.id, reg, executionOwner);
+    try { InternalMcpHooks.bind(internalMcpGrant, reg, executionOwner); }
+    catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
     if (memoryCliGrant) {
       try { MemoryCliHooks.bind(memoryCliGrant, reg, executionOwner); }
       catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }

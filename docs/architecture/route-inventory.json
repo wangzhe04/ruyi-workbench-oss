@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-24T02:37:11.695Z",
+  "generatedAt": "2026-10-24T06:37:52.413Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -20,10 +20,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 166,
-    "decisionPoints": 180,
+    "routeAuthEntries": 167,
+    "decisionPoints": 181,
     "byKind": {
-      "exact": 157,
+      "exact": 158,
       "prefix": 11,
       "regex": 12
     },
@@ -31,17 +31,24 @@
       "body-token",
       "external-callback",
       "host-gate",
+      "internal-mcp",
       "mcp-consumer",
       "memory-cli",
       "open",
       "token",
       "token-browser"
     ],
-    "uncoveredPoints": 5,
+    "uncoveredPoints": 4,
     "problems": 0,
     "warnings": 0
   },
   "routeAuth": [
+    {
+      "m": "POST",
+      "p": "/api/mcp/internal/request",
+      "auth": "internal-mcp",
+      "prefix": false
+    },
     {
       "m": "POST",
       "p": "/api/memory-cli",
@@ -1042,6 +1049,23 @@
   "decisionPoints": [
     {
       "kind": "exact",
+      "path": "/api/mcp/internal/request",
+      "file": "13-http-router.js",
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "internal-mcp",
+      "coveredBy": [
+        "dev-harness\\unit\\internal-mcp-relay.test.js",
+        "dev-harness\\unit\\memory-cli-relay.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/memory-cli",
       "file": "13-http-router.js",
       "handler": "handleApi",
@@ -1178,6 +1202,7 @@
         "dev-harness\\voice-lexicon.e2e.js",
         "dev-harness\\walkthrough-round2.browser.e2e.js",
         "dev-harness\\websearch.e2e.js",
+        "dev-harness\\work-data-root-authority.e2e.js",
         "dev-harness\\workbench-self-status.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js",
         "dev-harness\\workspace-resolve.e2e.js"
@@ -1679,6 +1704,7 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\memory-subagent.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\unit\\session-memory-cap.test.js",
@@ -1702,6 +1728,7 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\frontend-wave2.browser.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-cli-relay.e2e.js",
@@ -1730,6 +1757,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\memory-scope-card.browser.e2e.js",
         "dev-harness\\memory-scope.e2e.js",
         "dev-harness\\workbench-memory.e2e.js"
@@ -1860,6 +1888,7 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\frontend-wave2.browser.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-cli-relay.e2e.js",
@@ -1974,6 +2003,7 @@
         "dev-harness\\action-feedback.static.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-scope-card.browser.e2e.js",
@@ -2091,6 +2121,7 @@
         "dev-harness\\event-stream.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\internal-mcp-relay.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js"
       ]
     },
@@ -2100,8 +2131,7 @@
       "file": "13-http-router.js",
       "handler": "handleApi",
       "methods": [
-        "GET",
-        "POST"
+        "GET"
       ],
       "selfChecksToken": true,
       "methodOverride": false,
@@ -2119,6 +2149,7 @@
         "dev-harness\\event-stream-client.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
@@ -2167,6 +2198,7 @@
         "dev-harness\\thread-switch-race.browser.e2e.js",
         "dev-harness\\tool-audit-r2-meta.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\internal-mcp-relay.test.js",
         "dev-harness\\unit\\poll-path-caches.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\unit\\thread-facts.test.js",
@@ -2271,6 +2303,7 @@
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
+        "dev-harness\\unit\\internal-mcp-relay.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
@@ -2691,6 +2724,7 @@
         "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
@@ -2855,6 +2889,7 @@
         "dev-harness\\surface-hardening-w2.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\internal-mcp-relay.test.js",
         "dev-harness\\unit\\memory-cli-relay.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\workbench-self-status.e2e.js"
@@ -3807,6 +3842,7 @@
         "dev-harness\\ia.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-cas.e2e.js",
@@ -3980,6 +4016,7 @@
         "dev-harness\\wait-primitive.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\walkthrough-round2.browser.e2e.js",
+        "dev-harness\\work-data-root-authority.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
         "dev-harness\\workbench-self-status.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js",
@@ -4105,6 +4142,7 @@
         "dev-harness\\ia.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-cas.e2e.js",
@@ -4278,6 +4316,7 @@
         "dev-harness\\wait-primitive.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\walkthrough-round2.browser.e2e.js",
+        "dev-harness\\work-data-root-authority.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
         "dev-harness\\workbench-self-status.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js",
@@ -4369,6 +4408,7 @@
         "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-pool.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
@@ -4980,6 +5020,7 @@
         "dev-harness\\event-stream-replay.browser.e2e.js",
         "dev-harness\\event-stream.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-c4.e2e.js",
         "dev-harness\\interventions-changeseq.e2e.js",
@@ -5021,7 +5062,9 @@
       "methodOverride": false,
       "domain": "intervention",
       "auth": "body-token",
-      "coveredBy": []
+      "coveredBy": [
+        "dev-harness\\unit\\internal-mcp-relay.test.js"
+      ]
     },
     {
       "kind": "exact",
@@ -5036,9 +5079,8 @@
       "domain": "intervention",
       "auth": "body-token",
       "coveredBy": [
-        "dev-harness\\acc-capability-gates.e2e.js",
-        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
+        "dev-harness\\unit\\internal-mcp-relay.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js"
       ]
@@ -5061,6 +5103,7 @@
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
+        "dev-harness\\internal-mcp-cli-lifecycle.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",

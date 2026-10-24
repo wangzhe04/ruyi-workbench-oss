@@ -39,7 +39,9 @@ const CMD_TEXT_VALUE_FLAGS = new Set([
   '--allowed-tools', '--allowedTools', '--disallowed-tools', '--disallowedTools', '--tools', '--model', '--effort',
 ]);
 function neutralizeCmdMetaChars(value) {
-  return String(value).replace(/%/g, '％').replace(/!/g, '！');
+  // Literal line breaks terminate .cmd input even inside its quoted %* expansion.
+  // Dynamic model text uses spaces on this batch-only path; JSON escaped \n and native executables keep their bytes.
+  return String(value).replace(/\r\n|[\r\n]/g, ' ').replace(/%/g, '％').replace(/!/g, '！');
 }
 function neutralizeCmdTextArgs(args) {
   const out = Array.isArray(args) ? args.slice() : [];

@@ -7,7 +7,7 @@ const { createRunner } = require('./lib/harness');
 const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-openai-provider');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-managed-mcp-'));
 Object.assign(process.env, require('./lib/release-checks').releaseEnvironment(path.join(root, 'home'), path.join(root, 'data')));
-const app = require('./lib/server-internals').loadServerInternals(['PrivacyCore', 'PrivacyGateway', 'runSessionTurn', 'runSubAgentCore', 'createSession', 'readConfig', 'mutateConfig', 'ManagedMcp', 'killAllMcpClients', 'getBridgedClient', 'handleApi', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers'], { withEval: true });
+const app = require('./lib/server-internals').loadServerInternals(['PrivacyCore', 'PrivacyGateway', 'runSessionTurn', 'runSubAgentCore', 'createSession', 'readConfig', 'mutateConfig', 'ManagedMcp', 'killAllMcpClients', 'getBridgedClient', 'handleApi', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers', 'InternalMcpRelay'], { withEval: true });
 const vault = require('./lib/privacy-test-fixture').fixture().vault;
 app.PrivacyCore.configHooks.sealLocal = vault.sealLocal; app.PrivacyCore.configHooks.openLocal = vault.openLocal;
 const t = createRunner('PRIVACY MANAGED MCP');
@@ -220,7 +220,7 @@ function rpc(res, payload) { if (res.sseResponse) return res.sseResponse.write('
     t.ok(compact.groups?.integrations?.includes('mcp_resource') && searched.matches?.some(tool => tool.name === 'mcp_resource'), 'native auto discovery lists and searches the usable managed resource tool');
   }));
   // MCP8 authenticates this old global bridge through a live host-owned CLI.
-  // A real synthetic wrapper owns the actual mcp grandchild and inherits WCW_*.
+  // A real synthetic wrapper owns the actual MCP grandchild and inherits its execution capability.
   // No verification hook is replaced or disabled in this fixture.
   cliHost = http.createServer((req, res) => {
     void app.handleApi(req, res, new URL(req.url, 'http://local').pathname).catch(() => { if (!res.headersSent) res.writeHead(500); res.end('{}'); });
@@ -235,13 +235,14 @@ function rpc(res, payload) { if (res.sseResponse) return res.sseResponse.write('
     child.on('error',()=>{process.exitCode=1;});child.on('exit',code=>{process.exitCode=code||0;process.stdin.pause();});`);
   for (const loading of ['full', 'auto']) {
     const cliSession = await app.createSession({ title: 'Synthetic CLI offer owner ' + loading, cwd: root });
-    const child = cp.spawn(process.execPath, [wrapper], {
-      env: { ...process.env, WCW_TOOL_LOADING_MODE: loading, WCW_FIXTURE_SERVER_JS: path.resolve(__dirname, '../ruyi-workbench/app/server.js'), WCW_SESSION_ID: cliSession.id, WCW_HOST: '127.0.0.1', WCW_PORT: String(cliPort), WCW_TOKEN: cliToken }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
-    });
     let settle; const owner = { promise: new Promise(resolve => { settle = resolve; }), source: 'fixture-cli', driverRunId: 'managed-cli-' + loading, phase: 'starting', cancelRequested: false, cancel() { this.cancelRequested = true; } };
     app.recordSessionExecutionOwner(cliSession.id, owner);
+    const grant = app.InternalMcpRelay.create({ session: cliSession, executionOwner: owner, config: { ...(await app.readConfig()), toolLoadingMode: loading } });
+    const child = cp.spawn(process.execPath, [wrapper], {
+      env: { ...process.env, WCW_TOOL_LOADING_MODE: loading, WCW_FIXTURE_SERVER_JS: path.resolve(__dirname, '../ruyi-workbench/app/server.js'), WCW_SESSION_ID: cliSession.id, WCW_HOST: '127.0.0.1', WCW_PORT: String(cliPort), WCW_TOKEN: cliToken, ...app.InternalMcpRelay.launchEnv(grant) }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+    });
     const reg = { child, pid: child.pid, kind: 'kimi-acp', state: 'running', exited: false, session: cliSession };
-    app.registerSessionExecutionChild(cliSession.id, reg, owner);
+    app.registerSessionExecutionChild(cliSession.id, reg, owner); app.InternalMcpRelay.bind(grant, reg, owner);
     child.stdin.on('error', () => {});
     let buffer = '', seq = 0; const pending = new Map();
     child.stdout.on('data', chunk => { buffer += chunk; let at; while ((at = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, at); buffer = buffer.slice(at + 1); let message; try { message = JSON.parse(line); } catch { continue; } pending.get(message.id)?.(message); } });

@@ -90,3 +90,21 @@ transport 不凭同名文件推断业务 owner；普通上传文件也可叫 `ex
 首次失败保留：旧负控把 version 改为 2，在 v2 中已是合法值，只把该突变改成 `api.VERSION + 1`，原拒绝/KDF 零调用断言不变；晋升测试路径时遗漏第二个源读取和 `node:path` 导入，修后 52 项通过；新 native fixture 的运行时 helper 在隔离前 require 会捕获旧 override，独审要求改到隔离后 lazy require，顺序负控有效。没有改产品行为或放宽断言来迁就夹具。
 
 生产 MCP relay、启动权威与策略派生、NTFS 稳定备份 owner 正在 TEMP 实作和独审。完整迁移、恢复入口和启用 UI 继续推进，默认选择与应用版本仍未改变。
+
+## 7. 第四批：内部 MCP 单一 writer 与启动根权威（2026-10-24）
+
+基线 `d52b9e1f181fa656c4ed5675a42908d10a452e02`。默认内部 MCP 的 stdio 子进程不再恢复配置、创建数据目录或自行执行工具；它把请求转给持有工作目录所有权的 serve。每个主回合、每次子代理尝试分别签发随机执行能力，绑定实际 ChildProcess、session/execution owner 或 workflow runtime/node/attempt/controller。旧管理 token 和会话 ID 不能独自授权该入口；结束、停止及旧 owner 的迟到调用被拒绝。外部 MCP、只读记忆和独立 consumer 使用各自的配置与权限，不继承完整执行能力。
+
+`13ae` 从原 HTTP adapter 提取待办、任务、权限、提问、代理 launch/wait/result 的共享业务服务，内部转发直接调用同一服务。检查点仍归属父回合，CLI 不获得 provider 主回合草稿本权限；子代理不能控制父回合 UI。保留已有信封结算、完整记忆、图片、进度及拒绝回包。`Hooks.run` 尚未接入全宿主维护排空；该批没有完成全 writer 屏障，也没有开放启用按钮。
+
+`01z` 在稳定 base 的 OS 所有权取得后、任何恢复写入前选择活动 generation。manifest 同时决定数据根与工作数据加密模式，配置开关只是镜像：旧 false 不能让加密根写出明文，旧 true 也不能让 plain 根创建密钥。runtime/host discovery 保留在稳定 base，业务 stores 跟随活动根；doctor/install/mcp-config 同样取得 base 所有权。异常 manifest 在 ensureDirs 和启动错误写入前拒绝。无 manifest 保持原有 OFF 路径与模式，不因只读启动创建密钥或活动指针。新根与保留根的私有数据保护同时覆盖大小写路径、未知控制目录、普通文件冒充 generation 及私有对象硬链接；`refreshReserved(owner)` 只更新保留路径事实，不在暖进程重绑定模式。
+
+独审先后发现并修复停止后的 403 提示兼容、外部子进程能力继承、迟到 UI/信封回执、Windows 私有路径大小写与硬链接边界。实际 Kimi ACP 主回合再启动 Claude 子代理的组合件，进一步暴露原 `.cmd` 动态角色提示换行会截断后续 MCP 参数：仅 batch 动态文本参数折叠真实 CR/LF，原 JSON 转义、路径参数和 native launcher 字节保留。实际命令行负控以原源码复现截断，修后 sentinel 不产生、后续参数完整。内部 CLI 对受管资源的直调和嵌套 proxy 继续返回原类型化 `privacy.mcp_native_turn_required`，不会借已有 provider ALS 取得权限，目录仍隐藏该工具。
+
+新增真实生成服务的 CLI 组合件覆盖 Claude/Kimi 主回合各启动实际 exec 节点、真实 stdio MCP、父检查点、权限/提问、待办/任务/已读回执、70017 字符完整记忆与 PNG，以及回合结束后的能力失效；合计15组通过。启动根组合件7组连续两遍，覆盖真实 DPAPI/manifest 准备、加密与 plain 冷启动、坏配置恢复、重复实例、单次 CLI 及坏权威不落盘。两组只证明各自组合范围，不把合成 generation 的冷启动切换称为完整生产迁移。
+
+完整单测首轮3263项：3231通过、26跳过、6失败。旧夹具补充启动根依赖及真实执行能力，保留权限/图片/角色档位断言；旧 Kimi prompt 夹具在基线已有 await 的源码上用同步 VM 包装，独立复现后只改 async/await。静态首轮81件75过6失败，修正业务提取后的源锚、同总数 saveSession 普查、显式 steward 身份门，以及 EOL 和生成视图；最终81件全部通过。最终完整 unit3266项：3240通过、26条件跳过、零失败；1241份脚本语法零错、构建新鲜。精确源码身份、独审与首失败均见[第四批证据](evidence/privacy-m3-3-single-writer-and-root.json)。
+
+生成图104模块、723边，最大 SCC 仍31，未提高上限；路由181判定点、167鉴权行。清册582 E2E / 默认575离线 / 348 unit suite。外发清册289源、695词法候选，旧76错误ID逐项不变；新增执行能力回环为 local-only，stdio/子进程继续保持原 unknown 分类。完整默认离线、实际安装包、真实跨机恢复未跑。扩大普查中23种相关E2E至少一遍通过；另有 cross-thread-history 的旧六次调用上限断言失败，使用本批基线原生成服务和同一断言精准复现。3656700cf此前已将该合同改为累计字符预算；本批保留该旧断言与原业务，不把这项已有失配称为通过，后续独立迁移验收合同。
+
+完整快照 host、维护等待/排空与新进程接管、NTFS 备份表示转换及 portable 重建、生产首次迁移/反向关闭/恢复与 UI 继续多 agent 实施。默认开关、版本和真实用户数据不变，**M3-3 仍在进行中**。

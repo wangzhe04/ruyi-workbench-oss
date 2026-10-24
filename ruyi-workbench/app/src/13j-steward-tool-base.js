@@ -375,7 +375,7 @@ const stewardMemoryStore = WorkDataStore.createJson({
   purpose: 'memory', scopeId: 'global', recordId: 'steward-memory',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 // 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
 // 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。

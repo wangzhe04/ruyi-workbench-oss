@@ -119,3 +119,15 @@ M2/A3 产品独立验收：`node dev-harness/privacy-model-send-boundary.e2e.js`
 独立全源阅读新增01s及此前指纹有效的13ab/13g/13s：新增边界为宿主指定的内部日志/stage文件句柄、原子归档和本地准入回调，没有新socket、子进程或stdio接收方。只接受这四份源指纹；删除06中已移到共享二进制归档适配器的一个旧gzip writeFile候选，不接受06的既存stale源指纹。分类组保持原状，没有升级protected。
 
 扫描器没有枚举FileHandle.write、open、appendFile等调用；四份源的零词法候选不能当作零边界。文件系统路径由本地owner确定，不构成OS或网络盘隔离。完整扫描为281源、687候选，限定增量处理后仍有与基线完全相同的76个错误ID，生成视图明确保留，检查退出1。实际DPAPI、源码故障与回归各自证据见 `docs/optimization-plan/evidence/privacy-aux-journals-and-fires.json`；不据此声称全局清册已通过。
+
+## 2026-10-24 内部 MCP 单写入与活动根选择的限定增量审阅
+
+本批新增 01z/13ae/13af。默认 MCP stdio 进程只转发至固定 `127.0.0.1` 与专用路由，携带按实际主回合或节点尝试签发的能力；serve 在正文读取、嵌套工具调用和结果发回时校验当前执行 owner。13ae 提取原有业务服务，不经回环 HTTP 调用自己；13af 的 `Hooks.run` 是本地回调，尚未接入整机迁移排空，因此不据此宣称所有 writer 已被屏障覆盖。独立 consumer 与只读记忆连接继续使用各自认证与工具表。
+
+新增四个词法候选分别登记固定 execution-capability 回环请求、本地 callback、HTTP 模块能力及 stdio 输出。回环为 local-only；stdio 继续使用原 `workbench-mcp-output` unknown 合同，不把子进程后续外发当作受保护。移除旧 startMcp 十个输出 wrapper 调用后，对应行为在新的 serve dispatch/stdio encoder 中继续存在，并非十个完整外发面消失。01z/13ae 零词法候选也不是零文件边界；活动根与 manifest 模式权威的校验由独立测试承担。
+
+只接受此前源指纹有效的 04-permission-runtime、05c-kimi-search-policy、13ac-mcp-consumer、14-main，以及上述三个新模块；其余旧 stale 源和两个生成配置的旧 changed-boundary 债务保留。扫描为289源、695候选；76个历史错误ID集合逐项完全相同，检查仍退出1。该增量不构成全局隐私、OS 隔离、完整迁移/恢复或所有调用方行为认证；本批精确测试及初次失败记录随集成证据单独保存。
+
+测试工具 fake-claude 仅在原本受测试旗控制的环境捕获数组加入两个 execution-capability 字段，用于断言其没有进入 Claude 父环境；原有三个本地文件写与 stdout 候选指纹逐项未变。该额外测试源码指纹单独接受，不把捕获脚本当生产外发保护。
+
+真实 CLI 组合回归另外发现 .cmd 的动态提示换行截断后续参数；01d仅在原batch动态文本参数清理处折叠真实CR/LF，JSON转义与native参数保持原字节，实际Windows argv/sentinel及原source负控已独审。13af与12恢复内部CLI资源请求的原typed拒绝，在直调、嵌套proxy及已有provider ALS时均先拒绝，目录继续隐藏；新增本地helper未增加词法边界。仅接受此前有效01d及已新审13af的最终指纹，12旧stale债继续保留。289/695与76错误ID集合不变。

@@ -1,0 +1,811 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baseline": "d52b9e1f181fa656c4ed5675a42908d10a452e02",
+  "branch": "codex/3.1-completion-plan",
+  "node": "v24.14.1",
+  "status": "Internal MCP single writer and boot root authority batch verified; complete M3-3 remains active",
+  "sourceIdentity": {
+    "dev-harness/acc-capability-gates.e2e.js": "7d4a16cc6a8396af1ddb41f1fa7f0e7f3bc52674885326f5c09eefebd39fe6e3",
+    "dev-harness/agent-mode-v2.static.e2e.js": "210ea0b2d9f14cf9b0097aabb070d0ff16962e13c6b3e4ffc858a70eb1475d1d",
+    "dev-harness/claude-cli-bridged-read-guard.e2e.js": "63270da39dc54ef8502e1a18d733c53be7168de69a40e723d3dd74ae6ea2dfb1",
+    "dev-harness/claude-permission-bridge-mode.e2e.js": "c4a9d90a79538a5d985b34384b041b8ed74a0ce6d07823694728c021df2cd85c",
+    "dev-harness/internal-mcp-cli-lifecycle.e2e.js": "bb84f55c4a4e76179cab6c222e3d0a10b08c4836b1a7ae3014fd53471d1b5c2b",
+    "dev-harness/kimi-prompt-parts.e2e.js": "e52b60d191f63a33688c9aa4f989a79b18c4a6809a4e8ffb368d28f356eca73c",
+    "dev-harness/lib/internal-mcp-business-receipts.json": "37767c4c935f6741422b9858f74a5b51ca053c31b631c048aba1721999b6ab74",
+    "dev-harness/lib/internal-mcp-fixture.js": "1b1aaf5ebaa94f8eefc78ef1771c863919ea9d9b7318eea804ae7ca0c05d64fa",
+    "dev-harness/lib/internal-mcp-permission-fixture.js": "af9c75e63e916f51cf88e907c4e1c2f83a31f5a629d3905f965815a90a7f64b8",
+    "dev-harness/mcp-consumer-relay.e2e.js": "73f573fa06632b658cbada7c040737a8ef9cc01fea064b8157d91a01c4e3a281",
+    "dev-harness/memory-active-scope.e2e.js": "626e4246962daba2bac940027c521cb244cdc599f87c5dd193767e78fdc95fd5",
+    "dev-harness/privacy-channels.e2e.js": "efae19540889ebca620054265ad42fe1d4093a2fa187049323b7681be549c0d6",
+    "dev-harness/privacy-m1/egress/manifest.json": "678b4d21a7a4ad8078ebfd954e34050116897a8451586ee4cc292f9af6f09b8c",
+    "dev-harness/privacy-managed-mcp.e2e.js": "261459a174b1543cde272abdd88030e5e40a973e9a7cf7f9f8887a5431ffe238",
+    "dev-harness/session-save-census.static.e2e.js": "b97f3fb5e21333c099b186599e1158e54473c65f68c3ce63510b490fb9893cec",
+    "dev-harness/steward-tools.static.e2e.js": "955969bfe337cc708ac9efab3509213f52bc6a275f4862597de750c925a63192",
+    "dev-harness/unit/agent-cli-turn-hardening.test.js": "f3e974908e07c8d6ff6a48804fddf80037712888677f1d1f46094a99ee058c2c",
+    "dev-harness/unit/credential-recovery.test.js": "d17c725a91763abd4eb42746a8a64d9b36033526fd897ff72aa5659257f9ab4c",
+    "dev-harness/unit/internal-mcp-relay.test.js": "ef302476991003bd82dfed3478a20e1cab66d64af8910059a316198d14ba8896",
+    "dev-harness/unit/memory-cli-relay.test.js": "7dcf4926602ce6b3589c0707e15e8dcde4532753586286a163a46e68ec4561d7",
+    "dev-harness/unit/native-file-vision.test.js": "783741eecf76df181824cac22e74e7b435b53ad20e905b6f3cb45786501b6560",
+    "dev-harness/unit/project-role-clamp.test.js": "50d5a082b8561aa7390ce7fcd33f3ac84ffa72b6bdae46a2baae8e63346481bb",
+    "dev-harness/unit/security-audit-followups.test.js": "eb42ec2c000c2b54edc24573c90004de1572e2d60d1b3570738e4266d0798d14",
+    "dev-harness/unit/win-cmdline-quote.test.js": "432a097249df5293a1034b05a70c5fca6eac3717dd54e065cd31b7ddd55cccc5",
+    "dev-harness/unit/work-data-root-authority.test.js": "f38bd10ad00c562cc9e3e2e13de8b480f1052d277b293efb8ad4e6b9f7606ae1",
+    "dev-harness/work-data-root-authority.e2e.js": "99e016aeaef2f02eb8f5237491a5a051721fcf7bca5ac9069e3bb06d82b52335",
+    "docs/architecture/architecture-contract-snapshots.json": "c63c8be574ee70d1b89ed99e6f0e237712a9e6eddb8dbc9aa1a6ef166f1a9bab",
+    "docs/architecture/module-dependency-graph.json": "c0b4187e7f9c92c16f4e608f4e295914196a9add3a81979847106fc8bc8ec212",
+    "docs/architecture/privacy-egress-inventory.json": "e4d46feea64202f4a8c0263838af94a1700dc8978fdc6dcc6bfe7c700660b3c7",
+    "docs/architecture/route-inventory.json": "0abe513fb9eababdb19509ea6dd7ecb22e9396dfdfa4eb09c15076331ed242a0",
+    "facts.json": "10f882f3be5c99ef35f3f8ca8244d18ca2ba3393f607651de06be02eb208ff10",
+    "ruyi-workbench/app/server.js": "87f9f9f7fdbee05f6a5ef4bcaa5cc56e9cc3f04f365b7ecdc9f48fa0b39cfd03",
+    "ruyi-workbench/app/src/00-boot.js": "509e64b5a2d86c176c8560e16324085373735bc48b9188a7cab659d46630755d",
+    "ruyi-workbench/app/src/01-config.js": "3617831a529b5a3b476d4be02b636ed13e1e0bda5219e959c6a863026e9f90fe",
+    "ruyi-workbench/app/src/01b-route-auth.js": "2c8eff4dac1e2d8ab4650e2d226b7d5240309165a3456517f2fc294fca655341",
+    "ruyi-workbench/app/src/01d-win-cmdline.js": "9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8",
+    "ruyi-workbench/app/src/01z-work-data-root-authority.js": "1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1",
+    "ruyi-workbench/app/src/02-session-store.js": "a61992cfe00de9258c2642e76219d28d0b2cf4762d54460c64cc580c9e2bee76",
+    "ruyi-workbench/app/src/03-bridge-guard.js": "877c71e49a188afbfaab43062672b0a15d5d117a5983512e38e08e68b9df9ed6",
+    "ruyi-workbench/app/src/04-permission-runtime.js": "2d8c27dabc772bd7b3f2d757aac98208b416fbdd242a4f8ba57701437c72bc1b",
+    "ruyi-workbench/app/src/05-claude-engine.js": "d532eeeabd632d9dbff327c8b6a7e79f31c08c1a8c27e241074219091768abfc",
+    "ruyi-workbench/app/src/05b-kimi-bridge.js": "9e3d9b8bf7ba8709f1b668eeac9b2aacf655da3d33dd0b35da083fd0b2dc5967",
+    "ruyi-workbench/app/src/05c-kimi-search-policy.js": "3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760",
+    "ruyi-workbench/app/src/06-provider-engine.js": "7b8fb4823ed3bb4457f0b9f06bcebb4e0c0cefd62ad06e4a216b1c4d8f009d2a",
+    "ruyi-workbench/app/src/06d-memory-domain.js": "a86486c59703f4b6171f8c77f20f1412450c64b502f98f8bf692b6ce692ace9c",
+    "ruyi-workbench/app/src/07-autonomy.js": "d291fb36647ceacc8a61a13ef80980c42648d0996cb6f14f088723d32cb921c8",
+    "ruyi-workbench/app/src/11-native-tools.js": "94d3892de29149b1d244710d37bb4ced5ae4202906b7c01b847037aeccace721",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "52fd661514ca00fe30b84e0e41301f2de75f2074b64ac8fa4f06fab129102b20",
+    "ruyi-workbench/app/src/13-http-router.js": "88c9d05c9f131d8fb3cb4d81bea40fb20c2b1804c5ddfa49fdae019f1ee9f92d",
+    "ruyi-workbench/app/src/13ac-mcp-consumer.js": "6d820f9d3a1c15f1de8b2baaf3d15f80509c5a42b24c165052fa713673ae5efc",
+    "ruyi-workbench/app/src/13ad-memory-cli-relay.js": "36e31f4c97b16ae8820a81bf11c2e7b9620ac6787b956230ff6f95a6a8dcd3eb",
+    "ruyi-workbench/app/src/13ae-cli-business-services.js": "6321123b4cdc590223dd39480cfe16c404be4b362fdbcc7e122f20dbfaa37730",
+    "ruyi-workbench/app/src/13af-internal-mcp-relay.js": "53a0939a34ccbecba23b1901d0c5d35031d3e782dda530101c08d2d093371a76",
+    "ruyi-workbench/app/src/13d-core-domain-routes.js": "72261662a9b838e1251b16a0189a9cecc4ae6ed812aa2fd1d814bf378b390fa4",
+    "ruyi-workbench/app/src/13i-steward-inbox.js": "539246ed646f30b7a63f74286d2d5f36278c45ef528d80a269af71cce9ce58dd",
+    "ruyi-workbench/app/src/13j-steward-tool-base.js": "cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a",
+    "ruyi-workbench/app/src/14-main.js": "e42f7405bd912c4e95bdd31e559fedbf469df6ef52103a85c2c75d30bf0f6cdf",
+    "ruyi-workbench/app/src/manifest.json": "d9aca6eea044658c7671db676fc6c035d9f0cb87a764f0c0822e34f1b1807f25",
+    "ruyi-workbench/app/src/module-contracts.json": "6aa2f72816c281c64daad211f7cf709518e29bf44be38ec74b93962c1fe1fdcb",
+    "ruyi-workbench/tools/fake-claude.js": "4a275ba20ca49054fa7d68a0535e770ffb3508cb9803659fde99a2cfe7be1de8"
+  },
+  "validation": {
+    "fullUnit": {
+      "reportedExecutions": 3266,
+      "pass": 3240,
+      "skip": 26,
+      "fail": 0,
+      "start": "2026-10-24T06:24:16.446Z",
+      "end": "2026-10-24T06:29:19.741Z",
+      "node": "v24.14.1",
+      "files": 348,
+      "code": 0,
+      "signal": null,
+      "note": "Final product source. After this run one newly tracked root-authority test had five CRLF line endings normalized; its unchanged 31 tests independently passed again. Other subsequent changes only add/adapt E2E fixtures, helper, generated coverage views and documentation. Node execution count is not unique coverage."
+    },
+    "firstFullUnit": {
+      "reportedExecutions": 3263,
+      "pass": 3231,
+      "skip": 26,
+      "fail": 6,
+      "note": "Old fixtures lacked the new root dependencies or execution capabilities; repaired without loosening business/security assertions. Three new actual regression tests account for final count increase."
+    },
+    "syntax": {
+      "files": 1241,
+      "failures": 0,
+      "log": "syntax-complete.log"
+    },
+    "buildFresh": true,
+    "static": {
+      "first": {
+        "count": 81,
+        "pass": 75,
+        "fail": 6
+      },
+      "final": {
+        "count": 81,
+        "pass": 81,
+        "fail": 0
+      },
+      "followupGeneratedViews": {
+        "pass": 4,
+        "fail": 0,
+        "scope": "Route inventory, architecture contract snapshot, EOL, facts after final E2E fixture/helper coverage generation"
+      },
+      "stagedEol": {
+        "firstFailures": 1,
+        "cause": "Five CRLF endings in a newly tracked root authority unit were not included by the earlier tracked-file census.",
+        "fixedFailures": 0,
+        "trackedTextFiles": 1873,
+        "unitRerun": {
+          "pass": 31,
+          "fail": 0
+        },
+        "scope": "Only CRLF to LF normalization, product source unchanged"
+      }
+    },
+    "e2ePassedAtLeastOnce": [
+      {
+        "name": "acc-capability-gates",
+        "summary": "smoke-extra-fixed-summary.json"
+      },
+      {
+        "name": "agent-mode-v2",
+        "summary": "smoke-extra-first-summary.json"
+      },
+      {
+        "name": "agent-workflow-claude-engine",
+        "summary": "smoke-fixed-summary.json"
+      },
+      {
+        "name": "checkpoint-mcpchild",
+        "summary": "smoke-fixed-summary.json"
+      },
+      {
+        "name": "claude-cli-bridged-read-guard",
+        "summary": "smoke-extra-fixed-summary.json"
+      },
+      {
+        "name": "claude-permission-bridge-mode",
+        "summary": "smoke-final-rest-summary.json"
+      },
+      {
+        "name": "interactive-question",
+        "summary": "smoke-fixed-summary.json"
+      },
+      {
+        "name": "internal-mcp-cli-lifecycle",
+        "summary": "smoke-resource-fixed-summary.json"
+      },
+      {
+        "name": "kimi-agent-cli",
+        "summary": "smoke-fixed-summary.json"
+      },
+      {
+        "name": "kimi-prompt-parts",
+        "summary": "smoke-fixed-rest2-summary.json"
+      },
+      {
+        "name": "mcp-consumer-relay",
+        "summary": "smoke-final-rest-summary.json"
+      },
+      {
+        "name": "mcp-consumer-resources",
+        "summary": "smoke-final-rest-summary.json"
+      },
+      {
+        "name": "mcp-consumer-restart",
+        "summary": "smoke-final-rest-summary.json"
+      },
+      {
+        "name": "mcp-resource-config-mask",
+        "summary": "smoke-rest-summary.json"
+      },
+      {
+        "name": "memory-active-scope",
+        "summary": "smoke-fixed-summary.json"
+      },
+      {
+        "name": "privacy-channels",
+        "summary": "smoke-extra-fixed-summary.json"
+      },
+      {
+        "name": "privacy-managed-mcp",
+        "summary": "smoke-resource-fixed-summary.json"
+      },
+      {
+        "name": "reading-continuation",
+        "summary": "smoke-extra-first-summary.json"
+      },
+      {
+        "name": "server-ownership",
+        "summary": "smoke-resource-fixed-summary.json"
+      },
+      {
+        "name": "shell-mcp-guard",
+        "summary": "smoke-fixed-summary.json"
+      },
+      {
+        "name": "todo-loopback",
+        "summary": "smoke-fixed-summary.json"
+      },
+      {
+        "name": "work-data-recovery-foundation",
+        "summary": "smoke-resource-fixed-summary.json"
+      },
+      {
+        "name": "work-data-root-authority",
+        "summary": "smoke-resource-fixed-summary.json"
+      }
+    ],
+    "attempts": {
+      "smoke-extra-first-summary.json": [
+        {
+          "name": "acc-capability-gates",
+          "code": 1,
+          "signal": null
+        },
+        {
+          "name": "agent-mode-v2",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "claude-cli-bridged-read-guard",
+          "code": 1,
+          "signal": null
+        },
+        {
+          "name": "cross-thread-history",
+          "code": 1,
+          "signal": null
+        },
+        {
+          "name": "privacy-channels",
+          "code": 1,
+          "signal": null
+        },
+        {
+          "name": "reading-continuation",
+          "code": 0,
+          "signal": null
+        }
+      ],
+      "smoke-extra-fixed-summary.json": [
+        {
+          "name": "acc-capability-gates",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "claude-cli-bridged-read-guard",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "privacy-channels",
+          "code": 0,
+          "signal": null
+        }
+      ],
+      "smoke-final-rest-summary.json": [
+        {
+          "name": "claude-permission-bridge-mode",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-relay",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-resources",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-restart",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "privacy-managed-mcp",
+          "code": 1,
+          "signal": null
+        }
+      ],
+      "smoke-final-summary.json": [
+        {
+          "name": "internal-mcp-cli-lifecycle",
+          "code": 1,
+          "signal": null
+        }
+      ],
+      "smoke-fixed-rest-summary.json": [
+        {
+          "name": "claude-permission-bridge-mode",
+          "code": 1,
+          "signal": null
+        }
+      ],
+      "smoke-fixed-rest2-summary.json": [
+        {
+          "name": "kimi-prompt-parts",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-relay",
+          "code": 1,
+          "signal": null
+        }
+      ],
+      "smoke-fixed-summary.json": [
+        {
+          "name": "memory-active-scope",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-resource-config-mask",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "shell-mcp-guard",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "todo-loopback",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "checkpoint-mcpchild",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "interactive-question",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "agent-workflow-claude-engine",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "kimi-agent-cli",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "kimi-prompt-parts",
+          "code": 1,
+          "signal": null
+        }
+      ],
+      "smoke-resource-fixed-summary.json": [
+        {
+          "name": "privacy-managed-mcp",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "internal-mcp-cli-lifecycle",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-root-authority",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-recovery-foundation",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "server-ownership",
+          "code": 0,
+          "signal": null
+        }
+      ],
+      "smoke-rest-summary.json": [
+        {
+          "name": "mcp-resource-config-mask",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "shell-mcp-guard",
+          "code": 1,
+          "signal": null
+        }
+      ],
+      "smoke-summary.json": [
+        {
+          "name": "memory-active-scope",
+          "code": 1,
+          "signal": null
+        }
+      ]
+    },
+    "actualGeneratedJourneys": {
+      "cliLifecycle": {
+        "groups": 15,
+        "successfulRuns": 2,
+        "note": "First complete run fixed Windows batch newlines; second complete run includes final typed resource repair. Actual Claude and Kimi ACP main launches plus actual exec-node launches/configs/stdios; synthetic model behavior only."
+      },
+      "rootAuthority": {
+        "groups": 7,
+        "successfulRuns": 2,
+        "note": "Synthetic distinct generation boot routing, not production full migration."
+      },
+      "foundation": {
+        "groups": 10,
+        "successfulRuns": 1,
+        "scope": "Same-account native DPAPI/manifest/codecs only"
+      },
+      "serverOwnership": {
+        "successfulRuns": 1
+      }
+    },
+    "firstFailureRepairs": [
+      "Stopped-parent HTTP403 must retain setup_required guidance; actual fixed old memory-active-scope assertion passed.",
+      "Only test host default full versus configured auto was corrected; trusted product mode unchanged.",
+      "Kimi source policy VM was synchronous despite preexisting HEAD await; async wrapper/calls only.",
+      "Three old security/image unit fixtures and role/startup fixtures enter the real execution/root contracts.",
+      "Real CLI exec-node role text LF truncated .cmd argv before MCP config; actual original-source Q7 negative and fixed sentinel/argv checks.",
+      "Old default-MCP permission/consumer/managed/privacy fixtures now use actual execution capability and serve-owned business work.",
+      "Direct/nested internal resource calls preserve the full old typed pre-dispatch refusal even with provider ALS; no downstream invocation.",
+      "Static source anchors/save census moved to actual shared owner modules; EOL/generated route/architecture views refreshed."
+    ],
+    "knownBaselineFailures": [
+      {
+        "name": "cross-thread-history.e2e.js",
+        "assertion": "ordinary history reads keep the existing six-call turn quota",
+        "currentFailures": 1,
+        "baseline": "Exact d52 generated server and unchanged assertions through quota reproduce the same failure. Later MCP scopes were intentionally not executed by the baseline-only probe.",
+        "baselineLog": "baseline-history-quota-final.log",
+        "cause": "Commit 3656700cf intentionally removed call-count limit in favor of cumulative character budget; this old fixture still expects six calls.",
+        "handling": "Original assertion and production behavior unchanged in this batch. Separate contract migration and independent validation required; no all-related-E2E or full-offline-green claim."
+      }
+    ]
+  },
+  "independentReviews": [
+    {
+      "artifact": "ruyi-batch4-merge-independent-20261024/final-review.json",
+      "sha256": "c98070d050ada7436f5cedcd87d4da657c9e6e21f6d508f38d975d3cd697fcbb"
+    },
+    {
+      "artifact": "ruyi-batch4-merge-independent-20261024/egress-final-review.json",
+      "sha256": "73f89962a223ee54ba0021bfa980d41aee06e3f969c6131354cb0478862a6806"
+    },
+    {
+      "artifact": "ruyi-independent-root-tree-review-20261024/review.json",
+      "sha256": "3d17fc961494d96699c670a233aafcda6ba19e836015555b5f38a884fb622210"
+    },
+    {
+      "artifact": "ruyi-internal-relay-independent-AgpwAx/final-review.json",
+      "sha256": "08e5407cd616a46a4ed16f71430d27d3648ea9e8a96be790c2a193c8cc85ea5d"
+    },
+    {
+      "artifact": "ruyi-internal-relay-independent-AgpwAx/http403-followup-review.json",
+      "sha256": "2914a664faf12193c4b4196d21a0da93fdfaae4c0741501a45aa1124754f34b9"
+    },
+    {
+      "artifact": "ruyi-internal-relay-independent-AgpwAx/live-whitespace-followup.json",
+      "sha256": "0dcac60bc98237af0ff95b31971e9b290fd299f5cc4ffc4d9a58382e1cc7f171"
+    },
+    {
+      "artifact": "ruyi-internal-relay-independent-AgpwAx/root-unit-fixture-followup-review.json",
+      "sha256": "160fd3191eee9cae758460aeb9215faacfe1f358a6402bc9919664e6261ea092"
+    },
+    {
+      "artifact": "ruyi-internal-relay-independent-AgpwAx/static-anchor-followup-review.json",
+      "sha256": "faf05a2535d249c3d6f0c2553ae7beee7df4a896d54503cf804dca83ff5a1431"
+    },
+    {
+      "artifact": "ruyi-internal-relay-independent-AgpwAx/cmd-newline-followup-review.json",
+      "sha256": "9cabcedc0e597d9f3d08e8153b92949698460b545fcf92eff3e7570d8b255162"
+    },
+    {
+      "artifact": "ruyi-internal-relay-independent-AgpwAx/privacy-managed-fixture-followup-review.json",
+      "sha256": "0dddd52210702f1be56fcc4b174750c782838b255f8a9ee359b7e7efa88ce5dc"
+    },
+    {
+      "artifact": "ruyi-internal-relay-independent-AgpwAx/extra-cli-fixture-followup-review.json",
+      "sha256": "42bf966373ba90929e0c65d3eaf8a015ac2fc2cc6700e4e23bf877b2b1d935a9"
+    }
+  ],
+  "additionalNonAuthorReview": {
+    "scope": "Root reviewed the three resource-refusal candidate targets before promotion, full 33 unit results and generated original managed-MCP assertions; reviewer authored these targets. Reviewer followup reports independently approve the root-authored batch-newline, root fixtures and extra fixtures."
+  },
+  "egress": {
+    "sources": 289,
+    "candidates": 695,
+    "errors": 76,
+    "exactHistoricalErrorIdsPreserved": true,
+    "errorIdsSha256": "47fe8d1d969e062be1ba257fac57ce797dcd204b508b3f8ba44ccf78c1b0923a",
+    "note": "Incremental source fingerprints only; prior stale files and configuration boundary debts remain. stdout/capability unknown; fixed execution loopback local-only, no privacy certification."
+  },
+  "architecture": {
+    "modules": 104,
+    "edges": 723,
+    "maximumScc": 31,
+    "policyRaised": false,
+    "routeDecisionPoints": 181,
+    "routeAuthEntries": 167
+  },
+  "facts": {
+    "e2e": 582,
+    "offlineDefault": 575,
+    "liveOptIn": 7,
+    "unitSuites": 348
+  },
+  "artifacts": {
+    "root": "ruyi-m3-3-batch4-w8cr0Q",
+    "sha256": {
+      "01d-baseline.js": "ee1c5a7fe942332d8a75f5eaf6d8d589a37e935641b423c6a1be8ffa590e3456",
+      "baseline-history-quota-final.log": "5e551ceaa234ccd18284d863d292b5364bc7402dd32bd17a8cff95519c9ddc30",
+      "baseline-history-quota.cjs": "cf3877ee2046fbc5ea2151de72898ace94e72849ef46ddd4647237e5918c0e43",
+      "baseline-history-quota.log": "6a20b43b1d16ecb3dfac12b3f68160d112a883a28864561fc31081bbae1fb593",
+      "baseline.json": "01faffcd02960576c3f6b3ebd32abcea41cec3d04494abd6e79a50c9f7df6a5c",
+      "batch-newline-baseline-negative.log": "5d92bc81bbac7868e8ba392075c294c0f73369c36b05bcc3da6eccd84d18e18a",
+      "batch-newline-fixed-first.log": "809168789d76f77b23f7880c05144474d4370b58e58d6921b64ac7cb053673fa",
+      "cli-lifecycle-batch-fixed.log": "2f460855415af2652305b1ebdfb859ebbb776e4d5514a9d1e3beb98f2aa054fe",
+      "cli-lifecycle-diagnostic.log": "24fada62d9b1732e7dd920ef87dbff08e25428b1c7d8469b958e80cca89b20be",
+      "cli-lifecycle-first.log": "4fc807f1ec455b6108625697d0037138418632d971b7eb0a622922bd617c8dee",
+      "cli-lifecycle-second.log": "5c2378aa86c42cd67d3b3c23e130971fe04e55f6294cc046f8678a40533734a7",
+      "complete-evidence.cjs": "3f76dfaa196feb4d5b294e8443b46053aa0cbc9dc0537ab12c208cf543aa695e",
+      "draft-retire.cjs": "472c22260492e9dc25751c892782b67837e74c4805c16f381d94e26934b8469a",
+      "egress-delta-before.json": "252940be57bae3bda152c714c854469b94ddd41916d665d13668e85114c0aaa0",
+      "egress-final.log": "cf52ec6ee9bee5df3a0f1bdd5cd6c3ebf05e59d87715d7bedb96cd4e46e2f365",
+      "egress-generated-final.log": "cf52ec6ee9bee5df3a0f1bdd5cd6c3ebf05e59d87715d7bedb96cd4e46e2f365",
+      "egress-generated.log": "cf52ec6ee9bee5df3a0f1bdd5cd6c3ebf05e59d87715d7bedb96cd4e46e2f365",
+      "egress-manual-review.json": "04ec9f7e0d72cff9c704b78f50fe64a0c3b5c53823d185dbb550c2ac16ec420e",
+      "fix-batch-newline.cjs": "1ff48a7f3e03491150b0add74e8fd09f8071cdf3a4f3679311f2a0d011fe512a",
+      "fix-extra-fixtures.cjs": "2c92771df06eaf94e59e9426bdca62b8b8eb6dc580a62afa1e4929d9badec0bf",
+      "fix-managed-fixture.cjs": "707c89c7baf408ab064e496218f7cbbfef6bd130e6e7b1821b9dcc0fd55ddd94",
+      "fix-root-unit-fixtures.cjs": "9ec1bc8bfd458a57541fa33597b8d0e47b386ee994bbba12114e9355d077e7f8",
+      "fix-static-anchors.cjs": "864f4e246eef5ceec76fdd16632a760f95c4feb1e16425c08c7e26b9f5c04328",
+      "full-unit-final-summary.json": "6a8c91e2867baed44671b30b713803a972f2a98e54fa1682a07da33123b44eec",
+      "full-unit-final.log": "a0dae78284737cc2b240393ff0fd956535988c664be69c2fa1ff55dbf0a1ce6d",
+      "full-unit-first-summary.json": "dd1037fbdf3c5585fdd5d054fee59b01452c33a2d915b04414d1ae0200f2454f",
+      "full-unit-first.log": "e29d6d828e3db9f71bfafea988976ba7b77b629fc84883d25f1207faf2be8a77",
+      "merge-root.cjs": "d34513d0ae42c5613ef3c346c322beeac99fe6199b3d0999f22b49a1484719c8",
+      "negative-batch-newline.cjs": "2f64ef19cbe2b50d07f5510cb7a665f1a02a9a9bcc8d02f5b61b4b640715b9c2",
+      "preload-baseline-cmd.cjs": "dbdbee2e16d2e35288a1747e9e00ed4d536c42eafe77c179814554903f570721",
+      "promote-relay.cjs": "2328a558ffc5ec420307ac1ee5b897431e4809a588c1ada904d204690f54efd0",
+      "record-staged-eol.cjs": "5dc5e5a86635bad67e76930df0d217428958a2d5b3101760a7b00d3a8eb8c378",
+      "relay-resource-fixed.log": "87620ea81ed1fb09783a2b5f2e86063e8739c141576e1ab1be070319a3113a62",
+      "review-egress.cjs": "a5d49daa515e945c5dfbd1856fe7155be8ab867d6d9e4b8a53ee77f2abf523d7",
+      "root-authority-first.log": "c86f9665bb3946b697a5f786b5789e404ad72f8790d9c0782c6f400b47a0053b",
+      "root-unit-eol-followup.log": "ac860e5af765e511e94bf289b2e1f4e5d29b01f867355f07ffa5f89cf94e2c92",
+      "root-unit-fixtures-fixed-first.log": "4a7dbfc08f758962b1a9bc8357b678fe2a12b9b55967f8f552b676e906c7959c",
+      "run-smoke-extra-first.cjs": "dabfa93e4652d5ac329e7abd690dfbef745eabc47849ec541c58dc093241166e",
+      "run-smoke-extra-fixed.cjs": "95d127912d48c78273ca9f273afa04c60424526feecd776dcbd39e384f1e9376",
+      "run-smoke-final-rest.cjs": "36f6eb2a229888c4ac4f5165d9d66c0f08768217f00bf3b3e7f7f8e601ea38b4",
+      "run-smoke-final.cjs": "3b33c69e46e72b5ee0b8c824181fed39c36819953b85308e826a8cdbbd2511ff",
+      "run-smoke-fixed-rest.cjs": "05fc69c9883a334571a98360c00e8e27c1216ad9d7cc3cba0968799982c17e3f",
+      "run-smoke-fixed-rest2.cjs": "0b7ea8efcb8e2810ace5ab4a4d3fd6e13a40fbf90851db416ad44323460e274c",
+      "run-smoke-fixed.cjs": "dc5828c194379230200467e77cac27d86d8e583bafa9fb243e0206dc966dcbf9",
+      "run-smoke-resource-fixed.cjs": "0f0c51f6062bcfb4a0b872079e9a3191f8801e439ca78c79cdf2276c68f540ea",
+      "run-smoke-rest.cjs": "93c9a4381207bdcd6395ce3bf7db78c53f086e763c9fa18818fe49aec59b5e1c",
+      "run-smoke.cjs": "105dd3519f40186dc31173e2e5ab2635f6270740f093757e77f4b0b6a6e7edbc",
+      "run-static-final.cjs": "43de2a4e04312e312e8fff8b77cc52c8092bc60e0fda84ed0c6610bb9ed81213",
+      "run-static.cjs": "2f11231eff482628d3ce58e1e41b18e385361e4d678bfaa27f70601862925a6f",
+      "run-units-final.cjs": "9cf605db43549b2c9fef40adfa099d8ec2a7df1467089c8d445921bfbc31e6a4",
+      "run-units.cjs": "e6901669b896d9476abb5687646f79e9a833a221d5291958a157c4e14156f237",
+      "smoke-extra-first-acc-capability-gates.log": "c75bb40d5775d41dfae75c9aef42c37b878d17c5aaa09dcbfcfbf5b3116e040e",
+      "smoke-extra-first-agent-mode-v2.log": "9921d674be47641dcbefe6173ba750ac8c86fb6359484ad241fd8b8a0aa675a3",
+      "smoke-extra-first-claude-cli-bridged-read-guard.log": "e25e8d062386702097dacde7b5f953def1f6996a94905c85254530b1b717fd37",
+      "smoke-extra-first-cross-thread-history.log": "3a9573b2fa247027db39854387e5f5ece544c6eef999a4d77623bc63348a0192",
+      "smoke-extra-first-privacy-channels.log": "4e62816a7d61a8fa9044260e1fa2d093541caf7b2ca8876ba6794e2800fddd98",
+      "smoke-extra-first-reading-continuation.log": "ea6601ed94f8c24a7cd8d3590b48fe23f802356103793fa502cd5df0c0e8f8df",
+      "smoke-extra-first-summary.json": "4ed4a619b44a8d8893945ba5ca7a5c8e7be348495b82ae00e044b5997c80c82f",
+      "smoke-extra-fixed-acc-capability-gates.log": "26b7baf7d20ceae36160e549febbf215baab87d53c37cc28f70d8a5be249218e",
+      "smoke-extra-fixed-claude-cli-bridged-read-guard.log": "c902e9e563b05fd07b6e5518dcdc23be9db565ad3108d7166e95cdde2ef2797c",
+      "smoke-extra-fixed-privacy-channels.log": "2720ad5d0027218ed15febc7a7125088c95f6db761d6f69f23c731328e5b8050",
+      "smoke-extra-fixed-summary.json": "58c3d9e28f3dd94783fde194b57cb6a4daff0a08151e4878c15f5c4ca6e10cb8",
+      "smoke-final-internal-mcp-cli-lifecycle.log": "c76a80b6d1f42d8ae6e3d18a3ae902128afb6ab2de38b16a151a15ea3a3719e3",
+      "smoke-final-rest-claude-permission-bridge-mode.log": "8f6d7e2d303724d08396c748c8a9df815e4cc920aca7ea47ec29b078183127fa",
+      "smoke-final-rest-mcp-consumer-relay.log": "6ddb62e69959968ae0d85579f552e99bdeb136c185626a6ec9d37daa39fd1115",
+      "smoke-final-rest-mcp-consumer-resources.log": "8c6437759a32cb6ce4b5a274a8acc000158a7c1897bbe8ee3e8d6ec2da755fbc",
+      "smoke-final-rest-mcp-consumer-restart.log": "1eef1cf329eb007c97f9fe29e626515e7684a6e12d8ae747c9997086d6ae8046",
+      "smoke-final-rest-privacy-managed-mcp.log": "e0d5651976ae24b7f0d70407686f9d56e6ffef8df0b849f848b542fb38e2151e",
+      "smoke-final-rest-summary.json": "b17a3d292ffb586ae91b18729f80f9664ca9970aa3adef58341e53a32af77206",
+      "smoke-final-summary.json": "5cfd7ee51c5bd4b38353d1735995f09a6fda4d7b84334884af608c0cb4305464",
+      "smoke-fixed-agent-workflow-claude-engine.log": "3212e11b104a9db148b804f6fc399eafca68b18ce1e2e4c0d349e9ed2d57d632",
+      "smoke-fixed-checkpoint-mcpchild.log": "620426507d8307c4fedc7a59544aa33f4545445415e3a519bc1d53648c8f303d",
+      "smoke-fixed-interactive-question.log": "20fc2f22c5c31bb6b3ea02ba25350f16f087c7f4785ad0a98bd4783f7f48f41a",
+      "smoke-fixed-kimi-agent-cli.log": "d0d9e241e04e3bcfd5ab7fd01a545a8c057730d02c77867f2758f8ecbe97e942",
+      "smoke-fixed-kimi-prompt-parts.log": "806b68e02ad5d83ec896338f9566660a30c3af5d38a7caf14172beaec3792fe9",
+      "smoke-fixed-mcp-resource-config-mask.log": "a4c6d77944d22dbf2e71ee01a4b45f1e6d4a6764758e74543445bc55770b185c",
+      "smoke-fixed-memory-active-scope.log": "5d0adb693174e6c889cbe44e206ade615e6b6d9b0e1578d5b556b65a4de77fb2",
+      "smoke-fixed-rest-claude-permission-bridge-mode.log": "acdae00d2bfedf51bcfc23ecb45a38d2cb7927fcd5f1852ff81e72cbf7b5091c",
+      "smoke-fixed-rest-summary.json": "6e74bff63a021d0263f06e8c2e65c013094db9e38a36e59875eeea0c8eb5a900",
+      "smoke-fixed-rest2-kimi-prompt-parts.log": "0b2e55be42ead909908ad1ac00ec1b57207deb1f1541b1f2c2858c464f75a591",
+      "smoke-fixed-rest2-mcp-consumer-relay.log": "7e835c402d42b336a3f7f16b8960759974c87357223f81ba73056f4b5065751f",
+      "smoke-fixed-rest2-summary.json": "f322f5118ab4d64f032a9b5154b877c27fa0f143f8a5eeecb81993c297809082",
+      "smoke-fixed-shell-mcp-guard.log": "0925309538b572bdd83def1b0f4b15ba5cec3c6c05aa0e3f66406d764d233967",
+      "smoke-fixed-summary.json": "0eb3d3a5f7123d1466485b210920af72c421d55091a6ae59a8e392e7b2f0c49d",
+      "smoke-fixed-todo-loopback.log": "873eb190671605a23bf10ddeabcb7042af9ba62c65cb6ab1df17b2f79f3229cd",
+      "smoke-mcp-resource-config-mask.log": "a4c6d77944d22dbf2e71ee01a4b45f1e6d4a6764758e74543445bc55770b185c",
+      "smoke-memory-active-scope.log": "cb31defd10ab874af9d6928949ff75a8d9fc8fa4fae9c495f5d237254ea07889",
+      "smoke-resource-fixed-internal-mcp-cli-lifecycle.log": "551c51a6865ef11d35cf87ff6767bac82968cc2245e031325eb133e6dee5b370",
+      "smoke-resource-fixed-privacy-managed-mcp.log": "55bf10caf12c05adc762d7cefeebbe8356902a0496d8e9f3d8e140c7ef5b2423",
+      "smoke-resource-fixed-server-ownership.log": "db2bcdf170092f88a6711387d4dff0e36856dac85811548c63ad448229bbf7d4",
+      "smoke-resource-fixed-summary.json": "ecd26ccbd731f5e7a140a50186b27100effd0c8771dcd446d7418cadb7678ca7",
+      "smoke-resource-fixed-work-data-recovery-foundation.log": "084f6e327c95e3a6357dab3fc85d859ef1cb2e8aa70c93fbae6172767ac28237",
+      "smoke-resource-fixed-work-data-root-authority.log": "adcd10e6c5dad5b8c6867608271863e258473f2b40f3d9cc75fce1cd90a463e6",
+      "smoke-rest-summary.json": "b4bca88167e76320cf5fdb4c25a2b66b782f683717c6501107dd92772c8d6afa",
+      "smoke-shell-mcp-guard.log": "f1905f8f25972392f2669e8d9d8178bd438e228cbc843a9af9707c1bc5a251ae",
+      "smoke-summary.json": "cb271b247b75659cc26193e0a8819bf38743597640502d3114235bc68bc9eaf9",
+      "static-acc-offline-installer.static.e2e.js.log": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "static-action-feedback.static.e2e.js.log": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "static-agent-mode-v2.static.e2e.js.log": "996b1a09a7caef2fb673b1f43affffee7c90441696d13f71506aa65603c020e4",
+      "static-agent-team-budget.static.e2e.js.log": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "static-agent-workflows-polling-visibility.static.e2e.js.log": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "static-architecture-contract-snapshots.static.e2e.js.log": "614a6875461a7665c8dc9bdb0846ec47e0aa3fbec450eebbb24bab4482f36e75",
+      "static-asr-config-ui.static.e2e.js.log": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "static-browser-mcp.static.e2e.js.log": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "static-c2-evidence-spawn-budget.static.e2e.js.log": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "static-complete-architecture.log": "6854f05b4a23ea5c9445f617bf7bd2aaaac3a810f91eff4bdb0c976855406361",
+      "static-complete-eol.log": "990621957691ed20ac1d30e51caffe7604514856a7896231817fc8b530799c15",
+      "static-complete-facts.log": "3ca5dae74e5461b0d8a1981e5a277b58e790ce0a725c6622f195b7a8199ae284",
+      "static-complete-route.log": "e5ed4765e4f407dde9e7f8fdaac4604526a02f6e49fec537c0354e4ac53ddbbb",
+      "static-copy-path-guard.static.e2e.js.log": "cd8a581ee8cdef7c8643e9893fdd20e7c4096fd78f3b921cbb908c950617bc06",
+      "static-copy-terms.static.e2e.js.log": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "static-cost-zero.static.e2e.js.log": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "static-css-typography-debt.static.e2e.js.log": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "static-desktop-dpi.static.e2e.js.log": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "static-desktop-shell.static.e2e.js.log": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "static-durable-state-inventory.static.e2e.js.log": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "static-ec-d-closure.static.e2e.js.log": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "static-encrypted-storage-freeze.static.e2e.js.log": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184",
+      "static-engine-env-brief.static.e2e.js.log": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56",
+      "static-eol-policy.static.e2e.js.log": "abf6404e320ec3d80742e48f28ae40b004a39b805e6b3cf4dd4b9ced96b37027",
+      "static-facts.static.e2e.js.log": "b883be8f6eb4d12f6559522a93fb678bb14e3621e901deb2b15d0f39ccab51a2",
+      "static-final-acc-offline-installer.static.e2e.js.log": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "static-final-action-feedback.static.e2e.js.log": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "static-final-agent-mode-v2.static.e2e.js.log": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "static-final-agent-team-budget.static.e2e.js.log": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "static-final-agent-workflows-polling-visibility.static.e2e.js.log": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "static-final-architecture-contract-snapshots.static.e2e.js.log": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "static-final-asr-config-ui.static.e2e.js.log": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "static-final-browser-mcp.static.e2e.js.log": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "static-final-c2-evidence-spawn-budget.static.e2e.js.log": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "static-final-copy-path-guard.static.e2e.js.log": "cd8a581ee8cdef7c8643e9893fdd20e7c4096fd78f3b921cbb908c950617bc06",
+      "static-final-copy-terms.static.e2e.js.log": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "static-final-cost-zero.static.e2e.js.log": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "static-final-css-typography-debt.static.e2e.js.log": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "static-final-desktop-dpi.static.e2e.js.log": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "static-final-desktop-shell.static.e2e.js.log": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "static-final-durable-state-inventory.static.e2e.js.log": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "static-final-ec-d-closure.static.e2e.js.log": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "static-final-encrypted-storage-freeze.static.e2e.js.log": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184",
+      "static-final-engine-env-brief.static.e2e.js.log": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56",
+      "static-final-eol-policy.static.e2e.js.log": "17ccf90fd09c80b9d8032d7910b7ba2830d1818c9ca95be974bedd15f67cf5fb",
+      "static-final-facts.static.e2e.js.log": "b883be8f6eb4d12f6559522a93fb678bb14e3621e901deb2b15d0f39ccab51a2",
+      "static-final-finalize-segments.static.e2e.js.log": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "static-final-fixture-home.static.e2e.js.log": "db44447045f196a33270e8ca3431f9211065817d7e7a25be55cd21c9a204efac",
+      "static-final-frontend-domains.static.e2e.js.log": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "static-final-health-i18n.static.e2e.js.log": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "static-final-i18n-en-terms.static.e2e.js.log": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "static-final-i18n.static.e2e.js.log": "adf88ce432f5ba9432b2f307dc3a11c606790b9c03df14510871e30f00fd284f",
+      "static-final-inline-script-csp-hash.static.e2e.js.log": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "static-final-kimi-plan-ui.static.e2e.js.log": "c297c8f7327bb9bbf3ecb2d25f6ee40ab3204c2795d620fe52aad18bd7a03513",
+      "static-final-live-full-text.static.e2e.js.log": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "static-final-manifest-ranges.static.e2e.js.log": "914f138404342f79414659adc21ae98fd5182029f582d4aca891c4f2db7e6aff",
+      "static-final-mcp-ops-gui.static.e2e.js.log": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "static-final-memory-toolbox.static.e2e.js.log": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "static-final-mermaid-render.static.e2e.js.log": "694d5b0468345e4e3e74315e5fd42525abce07cef6065ed3e57b521f7cc08246",
+      "static-final-model-menu-classes.static.e2e.js.log": "4e2ea7157cb92b318463aabc7c8dc032fb2ad2f4d8d18e77c98e5478ad6842a6",
+      "static-final-module-dependency-graph.static.e2e.js.log": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "static-final-ndjson-line-feeder.static.e2e.js.log": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "static-final-net-token-replay.static.e2e.js.log": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "static-final-new-thread-engine-default.static.e2e.js.log": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "static-final-onboarding.static.e2e.js.log": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "static-final-overlay-payload-lock.static.e2e.js.log": "ad45d4f29f77b18fb7fc52fcebfde785c8033f422a6c5a4bfb6bd94de2b2462a",
+      "static-final-overlay-update-gui.static.e2e.js.log": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "static-final-process-safety.static.e2e.js.log": "42bd06d411cfd19a959c404273f202b43f6cee0e2cd1a812d5082301053663fe",
+      "static-final-progress-events.static.e2e.js.log": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "static-final-prompt-snapshot.static.e2e.js.log": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "static-final-provider-reasoning-effort-ui.static.e2e.js.log": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "static-final-rail-pocket.static.e2e.js.log": "d11e8ae252b22b059ae571a3f4e213e02ccce3295d895927a03e2b1fdbfad6ea",
+      "static-final-resume-banner-dismiss.static.e2e.js.log": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "static-final-route-inventory.static.e2e.js.log": "21d777ca246f67dc1183ba9761e62adca37da4aac7732043b3d625dfa0239d51",
+      "static-final-runtime-optimization.static.e2e.js.log": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "static-final-scheduler-ui.static.e2e.js.log": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b",
+      "static-final-session-save-census.static.e2e.js.log": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "static-final-software-engineering-prompt.static.e2e.js.log": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "static-final-start-experience.static.e2e.js.log": "bdd76becb37900f25d90a29eed38d2ebd97132821fc82bcda93775938a49ec43",
+      "static-final-steward-avatar.static.e2e.js.log": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "static-final-steward-board.static.e2e.js.log": "525c9c22c71209305cb617dc9909b694f589a49c08f6b0cc27dd266b3c93d96e",
+      "static-final-steward-config.static.e2e.js.log": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "static-final-steward-conversation.static.e2e.js.log": "98cf660c6db6c7b873a77adfce079ce635086db7800acf01946e420e0dbf397b",
+      "static-final-steward-drawer.static.e2e.js.log": "6884be38029cd54fb2e4bb228ead642f7695cb60db3f77a64cc8a15cfd3e6ee3",
+      "static-final-steward-events.static.e2e.js.log": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "static-final-steward-runner.static.e2e.js.log": "b3149ec297bf9ca19b1fd129063cf42e30046cfb59cfe338eb8dd9f33e0364f4",
+      "static-final-steward-settings.static.e2e.js.log": "9d42765e111934590e32ca14c92c70266da72fb98c1bb31c56eed532e760c6ff",
+      "static-final-steward-shell.static.e2e.js.log": "15401d94740b42433e5e402021acc683f5910b3d8a7a30875c6a994fc92f0d81",
+      "static-final-steward-tools.static.e2e.js.log": "6eaaf96eacc5263b7c38a70fe8b5d8e5138ba965561b90f4bf7f2ca6fc2309c4",
+      "static-final-steward-walkthrough.static.e2e.js.log": "b1c1a3bfd006cd850566d8f3f8c97e6666d9a7ad05ce354c9cacded2bfb4680c",
+      "static-final-streaming-responsiveness.static.e2e.js.log": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "static-final-summary.json": "8eded2c16f1504037e6c71225dba1c4f3d3caba4eafffca398b73e31a7e0536a",
+      "static-final-thinking-boundary.static.e2e.js.log": "e35832ad16944265e3285676ecac6128a4636dc6365c3faa7805f03ce4d18435",
+      "static-final-thread-brief.static.e2e.js.log": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "static-final-thread-commission.static.e2e.js.log": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "static-final-tool-image-inline.static.e2e.js.log": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "static-final-tool-verb-coverage.static.e2e.js.log": "45800e993e4a4858a3c8bc00a897478e469abe5e11342f1eb7ec49f6d2534989",
+      "static-final-turn-narrative.static.e2e.js.log": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "static-final-ui-bugfix.static.e2e.js.log": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "static-final-ui-v3-p1.static.e2e.js.log": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "static-final-ui-v3-p2.static.e2e.js.log": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "static-final-ui-v3-p3a.static.e2e.js.log": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "static-final-ui-v3-p3b.static.e2e.js.log": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "static-final-ui-v3-wave1.static.e2e.js.log": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "static-final-ui-v4-glass.static.e2e.js.log": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "static-final-v17-review-fixes.static.e2e.js.log": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "static-final-workflow-editor-v2.static.e2e.js.log": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "static-finalize-segments.static.e2e.js.log": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "static-first-summary.json": "40840e00aed56416496fe6476d7d7b3f70f245405eb807baa8ba3d980fe35c05",
+      "static-fixture-home.static.e2e.js.log": "db44447045f196a33270e8ca3431f9211065817d7e7a25be55cd21c9a204efac",
+      "static-frontend-domains.static.e2e.js.log": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "static-health-i18n.static.e2e.js.log": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "static-i18n-en-terms.static.e2e.js.log": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "static-i18n.static.e2e.js.log": "adf88ce432f5ba9432b2f307dc3a11c606790b9c03df14510871e30f00fd284f",
+      "static-inline-script-csp-hash.static.e2e.js.log": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "static-kimi-plan-ui.static.e2e.js.log": "c296ade8e7690e98ed55bd91311190f9b647745591420b7430d818622696cfa9",
+      "static-live-full-text.static.e2e.js.log": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "static-manifest-ranges.static.e2e.js.log": "63b39c041e1d8c7ed4d50398c14168012120825171f3e5b1f6120ba47298124a",
+      "static-mcp-ops-gui.static.e2e.js.log": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "static-memory-toolbox.static.e2e.js.log": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "static-mermaid-render.static.e2e.js.log": "62b56f721438f2fa328f496d81506016736d39645616efb47a190ce895de6bb2",
+      "static-model-menu-classes.static.e2e.js.log": "3ef99d6550e43bd4ca26929912ab26412d37c1a2e3577dcfb022bd4a39d9c449",
+      "static-module-dependency-graph.static.e2e.js.log": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "static-ndjson-line-feeder.static.e2e.js.log": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "static-net-token-replay.static.e2e.js.log": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "static-new-thread-engine-default.static.e2e.js.log": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "static-onboarding.static.e2e.js.log": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "static-overlay-payload-lock.static.e2e.js.log": "ad45d4f29f77b18fb7fc52fcebfde785c8033f422a6c5a4bfb6bd94de2b2462a",
+      "static-overlay-update-gui.static.e2e.js.log": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "static-process-safety.static.e2e.js.log": "42bd06d411cfd19a959c404273f202b43f6cee0e2cd1a812d5082301053663fe",
+      "static-progress-events.static.e2e.js.log": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "static-prompt-snapshot.static.e2e.js.log": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "static-provider-reasoning-effort-ui.static.e2e.js.log": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "static-rail-pocket.static.e2e.js.log": "9010da185a4acb161a39f11b72badba9ee39f4bf0de3437117e94834fd96bc4f",
+      "static-resume-banner-dismiss.static.e2e.js.log": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "static-route-inventory.static.e2e.js.log": "c1e68902be173ed1fe87ab8afa29553869e4d2fb4626c1641bc5ab03b0388ee1",
+      "static-runtime-optimization.static.e2e.js.log": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "static-scheduler-ui.static.e2e.js.log": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b",
+      "static-session-save-census.static.e2e.js.log": "912b2ae3891ae1b7b2ded63242f841e78c5d7aee57e228f92814afb465fd7b86",
+      "static-software-engineering-prompt.static.e2e.js.log": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "static-staged-eol-fixed.log": "0bee37bbb32a5698649ca8b1d71da805deef296bae25c0a3bc14d97a47d513b7",
+      "static-staged-eol.log": "7f08fbf035e1ed57fd93fed1b369186babcb1bc1ca0a1f9976fc56ef2ce6f6f1",
+      "static-start-experience.static.e2e.js.log": "8fdb930c67c7488f98f603688c7bc28c1d4a1ba59414c122e31277756a00d27a",
+      "static-steward-avatar.static.e2e.js.log": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "static-steward-board.static.e2e.js.log": "42cf766ef61638e1694edad6cc3981dbbd40e4034f572524e74821b155853586",
+      "static-steward-config.static.e2e.js.log": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "static-steward-conversation.static.e2e.js.log": "1368084d045039eda73aaca0be002adec25e82f6582b737cf3397bf1f76a3ffe",
+      "static-steward-drawer.static.e2e.js.log": "3b06b9141134e46ee5e937468edeee73247fa0a1d4bd4d7389fb7159d41f2d9e",
+      "static-steward-events.static.e2e.js.log": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "static-steward-runner.static.e2e.js.log": "b3149ec297bf9ca19b1fd129063cf42e30046cfb59cfe338eb8dd9f33e0364f4",
+      "static-steward-settings.static.e2e.js.log": "d29f6f9cc6a389422d982caae423afd634c01950a31c191dc5224643e9081447",
+      "static-steward-shell.static.e2e.js.log": "236c8eba20463e43e91cdbb3ce25c400eeb9651a466b1f36a6b07f5227792785",
+      "static-steward-tools.static.e2e.js.log": "843746731a803eded983497ac9b2d565a7bfe3e04a62c6d0bd32c654292ea737",
+      "static-steward-walkthrough.static.e2e.js.log": "4739e02b7c38266dda71c7b7b9b1bfb869d87e3574bd7754c1267309695559eb",
+      "static-streaming-responsiveness.static.e2e.js.log": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "static-thinking-boundary.static.e2e.js.log": "369f899bac0c06d5d70462083421c7743175870a2bbcfe8900461329999b4b14",
+      "static-thread-brief.static.e2e.js.log": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "static-thread-commission.static.e2e.js.log": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "static-tool-image-inline.static.e2e.js.log": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "static-tool-verb-coverage.static.e2e.js.log": "a3120149d7572d844ac855996656ffe6b432c14ee40dee75c9bebd79a719ef4e",
+      "static-turn-narrative.static.e2e.js.log": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "static-ui-bugfix.static.e2e.js.log": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "static-ui-v3-p1.static.e2e.js.log": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "static-ui-v3-p2.static.e2e.js.log": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "static-ui-v3-p3a.static.e2e.js.log": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "static-ui-v3-p3b.static.e2e.js.log": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "static-ui-v3-wave1.static.e2e.js.log": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "static-ui-v4-glass.static.e2e.js.log": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "static-v17-review-fixes.static.e2e.js.log": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "static-workflow-editor-v2.static.e2e.js.log": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "syntax-complete.log": "c48cc8f4e87b3d65083ae5d9f69e1ff4cfebb062de976c00d9991ab92e7c1745",
+      "syntax-final.log": "6640b638b35a3391c877e224375d1c983c810c82df043966266024a21ed416df",
+      "syntax-first.log": "4621458b70b0406b12932382a54737f9481788d59a540974420af77d3b9b21ca",
+      "write-evidence.cjs": "26bc6575b35dabf823b45cf46111bacc95557cd71c99d944c113220cbe0ddd09"
+    }
+  },
+  "limits": [
+    "Hooks.run does not yet provide integrated maintenance/global writer drain.",
+    "No full production first migration, reverse migration, complete base restore, enabled UI, true cross-machine restore or native stable capsule conversion in this batch.",
+    "Unknown and unreviewed egress debt is preserved.",
+    "Full default 575 offline E2E suite and packaged release have not been run; one preexisting quota assertion mismatch is explicitly retained.",
+    "No real user data or installed CLI/provider was used; work continues."
+  ]
+}

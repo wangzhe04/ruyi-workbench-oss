@@ -2594,6 +2594,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
   const env = effectiveAnthropicEnv(config);
   for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
+  for (const key of ['RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete env[key];
   if (fakeClaude) env.WCW_FAKE_INTERACTIVE = '1';
 
   onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: roleMcpServers, engine: 'claude' });
@@ -2618,11 +2619,25 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // One CLI spawn attempt -> collected exit/output state. Does NOT decide retry; the loop below does.
   const runOnce = async () => {
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+    let internalMcpGrant = null;
+    if (nodeFullMcpPath) {
+      const raw = JSON.parse(await fsp.readFile(nodeFullMcpPath, 'utf8'));
+      const own = raw.mcpServers?.[RUYI_MCP_SERVER_ID];
+      if (own) {
+        internalMcpGrant = InternalMcpHooks.createNode({ config, context: memoryCliContext });
+        own.env = InternalMcpHooks.launchEnv(internalMcpGrant);
+        await atomicWriteJson(nodeFullMcpPath, raw);
+      }
+    }
     const memoryGrant = config.workDataEncryptionV1 === true
       ? await MemoryCliHooks.createNode({ config, context: memoryCliContext, subagentId, baseConfigPath: nodeFullMcpPath }) : null;
     return new Promise(resolve => {
     const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     currentChild = child;
+    if (internalMcpGrant) {
+      try { InternalMcpHooks.bindNode(internalMcpGrant, child); }
+      catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
+    }
     if (memoryGrant) {
       try { MemoryCliHooks.bindNode(memoryGrant, child); }
       catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }

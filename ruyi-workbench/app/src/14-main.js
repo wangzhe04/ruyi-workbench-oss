@@ -1,3 +1,19 @@
+// These commands read config through a recovery writer, so they own the stable base as serve does.
+async function withSelectedWorkDataRoot(work) {
+  const ownership = await ServerOwnership.acquire([dataRoot()]);
+  let failed = false;
+  try { await WorkDataRootHooks.bind(ownership); return await work(); }
+  catch (error) { failed = true; throw error; }
+  finally {
+    try {
+      if (WorkDataRootHooks.ready()) {
+        await configMutateChain.catch(() => {}); await configWriteChain.catch(() => {});
+        await flushWorkbenchLogs();
+      }
+    } catch (error) { if (!failed) throw error; }
+    finally { await ownership.release(); }
+  }
+}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
@@ -10,11 +26,10 @@ async function main() {
     return served;
   }
   if (command === 'mcp') return startMcp();
-  if (command === 'install') return installIntegration();
-  if (command === 'doctor') return doctor(argv); // 118b: --human 走人话体检,默认仍只打 JSON
+  if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
+  if (command === 'doctor') return withSelectedWorkDataRoot(() => doctor(argv)); // 118b: --human 走人话体检,默认仍只打 JSON
   if (command === 'mcp-config') {
-    console.log(await generateMcpConfig());
-    return;
+    return withSelectedWorkDataRoot(async () => { console.log(await generateMcpConfig()); });
   }
   console.error(`Unknown command: ${command}`);
   process.exitCode = 1;

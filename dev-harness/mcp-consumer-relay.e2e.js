@@ -4,11 +4,12 @@
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), http = require('node:http'), cp = require('node:child_process');
 const { createRunner } = require('./lib/harness');
 const { killOwnTree } = require('./lib/kill-own-tree');
+const { spawnMcpInApp } = require('./lib/internal-mcp-fixture');
 const { fixture } = require('./lib/privacy-test-fixture');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-consumer-relay-')), data = path.join(root, 'data'), workspace = path.join(root, 'workspace');
 fs.mkdirSync(workspace, { recursive: true });
 Object.assign(process.env, require('./lib/release-checks').releaseEnvironment(path.join(root, 'home'), data));
-const app = require('./lib/server-internals').loadServerInternals(['McpConsumers', 'PrivacyCore', 'PrivacyGateway', 'handleApi', 'send', 'mutateConfig', 'readConfig', 'journalReadIndex', 'journalRollback', 'loadSession', 'saveSession', 'activeChildren', 'generateMcpConfig', 'syncMcpServersToKimiNow', 'classifyAgentMcpCandidate'], { withEval: true });
+const app = require('./lib/server-internals').loadServerInternals(['McpConsumers', 'PrivacyCore', 'PrivacyGateway', 'handleApi', 'send', 'mutateConfig', 'readConfig', 'journalReadIndex', 'journalRollback', 'loadSession', 'saveSession', 'activeChildren', 'generateMcpConfig', 'syncMcpServersToKimiNow', 'classifyAgentMcpCandidate', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'turnSettlers', 'InternalMcpRelay'], { withEval: true });
 const { vault } = fixture(); app.PrivacyCore.configHooks.sealLocal = vault.sealLocal; app.PrivacyCore.configHooks.openLocal = vault.openLocal;
 const t = createRunner('MCP CONSUMER RELAY'), { ok } = t;
 const serverFile = path.resolve(__dirname, '../ruyi-workbench/app/server.js'), children = [], adminToken = 'a'.repeat(32);
@@ -41,10 +42,11 @@ async function create(label, tools = ['file_read', 'file_list', 'file_search', '
   const entry = Object.values(issued.value.configuration.mcpServers)[0];
   return { ...issued.value, entry, token: entry.env.RUYI_MCP_CONSUMER_TOKEN };
 }
-function client(issued, extra = {}, internal = false) {
+function client(issued, extra = {}, internal = false, internalSession = null) {
   const env = { ...process.env, ...issued.entry.env, ...extra };
   if (!internal) { delete env.WCW_TOKEN; delete env.WCW_PORT; delete env.WCW_HOST; delete env.WCW_SESSION_ID; }
-  const child = cp.spawn(process.execPath, [serverFile, 'mcp', ...(internal ? [] : ['--consumer'])], { env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }); children.push(child);
+  const child = internalSession ? spawnMcpInApp(app, { session: internalSession, env })
+    : cp.spawn(process.execPath, [serverFile, 'mcp', ...(internal ? [] : ['--consumer'])], { env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }); children.push(child);
   const replies = new Map(), replyCounts = new Map(), notifications = []; let buffer = '', errors = '';
   child.stdin.on('error', () => {}); child.stderr.on('data', chunk => { errors += chunk; });
   child.stdout.on('data', chunk => { buffer += chunk; let end; while ((end = buffer.indexOf('\n')) >= 0) { const line = buffer.slice(0, end); buffer = buffer.slice(end + 1); if (!line) continue; const row = JSON.parse(line); if (row.id !== undefined) { replyCounts.set(row.id,(replyCounts.get(row.id)||0)+1); replies.set(row.id, row); } else notifications.push(row); } });
@@ -340,9 +342,12 @@ const bodyText = result => result?.result?.content?.[0]?.text || '';
   ok(Boolean((await noBridge.send('initialize')).error), 'global internal marker alone cannot authorize standalone MCP even OFF');
   const fakeBridge = client(internalEntry, { WCW_HOST:'127.0.0.1', WCW_PORT:new URL(base).port, WCW_SESSION_ID:auditId, WCW_TOKEN:'c'.repeat(32) }, true);
   ok(Boolean((await fakeBridge.send('initialize')).error), 'fake inherited environment cannot authenticate old direct tools');
-  const kimiBridge = client(internalEntry, { WCW_HOST:'127.0.0.1', WCW_PORT:new URL(base).port, WCW_SESSION_ID:auditId, WCW_TOKEN:adminToken }, true);
-  app.activeChildren.set(auditId, { kind:'kimi-acp', child:kimiBridge.child, state:'running', exited:false });
-  ok(Boolean((await kimiBridge.send('initialize')).result), 'Kimi-style inherited WCW environment plus actual registered child retains global bridge initialization');
+  const legacyBridge = client(internalEntry, { WCW_HOST:'127.0.0.1', WCW_PORT:new URL(base).port, WCW_SESSION_ID:auditId, WCW_TOKEN:adminToken }, true);
+  ok(Boolean((await legacyBridge.send('initialize')).error), 'valid legacy WCW token alone cannot authorize default MCP without an execution capability');
+  // Kimi's global MCP entry inherits a production capability from its actual
+  // registered CLI wrapper. WCW_TOKEN is no longer default MCP authority.
+  const kimiBridge = client(internalEntry, {}, true, await app.loadSession(auditId));
+  ok(Boolean((await kimiBridge.send('initialize')).result), 'Kimi-style inherited execution capability plus actual registered child retains global bridge initialization');
   app.activeChildren.delete(auditId);
   ok(Boolean((await kimiBridge.send('tools/list')).error), 'every internal RPC revalidates live host child ownership');
   const kimiDir = path.join(root, 'kimi-home'); fs.mkdirSync(kimiDir);

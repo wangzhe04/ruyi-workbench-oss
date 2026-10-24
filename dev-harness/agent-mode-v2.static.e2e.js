@@ -94,12 +94,12 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
   // wave137 集成期竞态:通知先到、wait 后到 → wait 只回短回执;wait 先到 → 登记已读。两种先后顺序都恰好一次。
   ok(/EventStreamHooks\.isAgentEnvelopeDelivered = \(session, runId\)/.test(s11), '③ 11 已读查询钩子 isAgentEnvelopeDelivered');
   ok(/function settleWaitEnvelopes\(session, out\)/.test(s09) && /kind: 'agent_envelope_receipt', runId: env\.runId, status: env\.status, delivered: 'already'/.test(s09) && /resultObj = settleWaitEnvelopes\(session, await waitForAgentRunResults\(session\.id, requestedRunIds/.test(s09), '③ 09 wait_agents 经 settleWaitEnvelopes 结算:已送达 → 短回执,否则登记已读');
-  ok(/if \(liveReg && liveReg\.session\) settleWaitEnvelopes\(liveReg\.session, out\);/.test(src('13-http-router.js')) && /settleWaitEnvelopes\(snapshot, out\);/.test(src('13-http-router.js')), '③ 13 MCP 回环 wait 同一套结算(活回合内存会话 / 无活回合读快照 + mutateSession 落已读)');
+  ok(/if \(liveReg && liveReg\.session\) settleWaitEnvelopes\(liveReg\.session, out\);/.test(src('13ae-cli-business-services.js')) && /settleWaitEnvelopes\(snapshot, out\);/.test(src('13ae-cli-business-services.js')), '③ 13 MCP 回环 wait 同一套结算(活回合内存会话 / 无活回合读快照 + mutateSession 落已读)');
   ok(!/function markDeliveredEnvelopes\(/.test(s09), '③ 09 旧的单向登记 markDeliveredEnvelopes 已被结算函数取代');
   ok(/const prefix = job\.kind === 'agent'/.test(s11) && /\[代理完成通知；以下是交付信封/.test(s11), '③ 11 drainBackgroundJobs 对代理 job 用信封口径');
   const s05 = src('05-claude-engine.js');
   ok(/EventStreamHooks\.drainAgentEnvelopesText\(session\)/.test(s05) && /\[recoveryHistory, indexInjection, agentDeliveries, turnMemoryEnvelope\]/.test(s05), '③ 05 Claude/Kimi 下一回合开头拼入未读信封(同一张已读表)');
-  const s13 = src('13-http-router.js');
+  const s13 = src('13ae-cli-business-services.js');
   ok(/const completion = run => deliverAgentRunEnvelope\(session\.id, run\);/.test(s13) && !/appendAgentWorkflowSummaryToSession\(session\.id, run, \{ title/.test(s13), '③ 13 launch 完成不再追加整份助手摘要消息(那条会被抄进模型上下文)');
 }
 

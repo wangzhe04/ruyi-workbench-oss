@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 101,
-    "providedSymbols": 4078,
-    "requiredSymbols": 3669,
-    "edges": 696,
+    "modules": 104,
+    "providedSymbols": 4093,
+    "requiredSymbols": 3760,
+    "edges": 723,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -23,6 +23,7 @@
         "BUNDLED_PYTHON_RUNTIME",
         "CLI_DIAGNOSTIC_TEXT_CAP",
         "CONFIG_SCHEMA",
+        "CliBusinessHooks",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "DeliveryHooks",
@@ -30,6 +31,7 @@
         "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
         "INSTALL_REGISTRY_SCHEMA",
+        "InternalMcpHooks",
         "LEGACY_API_ERROR_CODES",
         "LEGACY_DATA_DIR_NAME",
         "MAX_BODY_BYTES",
@@ -58,9 +60,12 @@
         "USAGE_DICT_COLUMNS",
         "UsageRowView",
         "VERSION",
+        "WorkDataRootHooks",
         "_consoleGbDecoder",
         "_consoleUtf8Strict",
         "_dataRootMemo",
+        "_workDataStableAliases",
+        "_workDataStableBase",
         "agentCliHomes",
         "apiFailure",
         "apiSessionIdInvalid",
@@ -674,6 +679,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "DEFAULT_PORT",
           "kinds": [
             "read"
@@ -710,6 +722,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
           "kinds": [
             "read"
           ]
@@ -809,6 +828,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -1449,8 +1475,75 @@
       ]
     },
     {
-      "file": "02c-turn-segments.js",
+      "file": "01z-work-data-root-authority.js",
       "order": 26,
+      "layer": "foundation",
+      "note": "M3-3: owned once-per-process active generation and manifest mode authority; reserved namespace guards through boot hooks",
+      "provides": [
+        "WorkDataRootAuthority"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "_workDataStableAliases",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "_workDataStableBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01v-work-data-manifest.js",
+          "symbol": "WorkDataManifest",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "02c-turn-segments.js",
+      "order": 27,
       "layer": "foundation",
       "note": "110-3b: 从 02-session-store.js 搬出回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)",
       "provides": [
@@ -1460,7 +1553,7 @@
     },
     {
       "file": "02d-session-overrides.js",
-      "order": 27,
+      "order": 28,
       "layer": "foundation",
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出会话级内存覆盖表(sessionEngineRouteOverrides/sessionPermissionModeOverrides/sessionDesktopToolsOverrides)及其归一、读形与应用函数;唯一出边是 01e-permission-modes(PERMISSION_MODES),不进任何环;纯搬家,零行为变更",
       "provides": [
@@ -1488,7 +1581,7 @@
     },
     {
       "file": "02e-session-engine-route.js",
-      "order": 28,
+      "order": 29,
       "layer": "foundation",
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出会话引擎路由的纯函数(normalizeSessionEngineRoute/sessionEngineRouteFromConfig/inferSessionEngineRoute/configForSessionEngineRoute;123-N2 读写 config 的三件留在 02);零出边,不进任何环;纯搬家,零行为变更",
       "provides": [
@@ -1509,7 +1602,7 @@
     },
     {
       "file": "02f-turn-effect-kinds.js",
-      "order": 29,
+      "order": 30,
       "layer": "foundation",
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出回合摘要的工具分类表(TURN_SUMMARY_FILE_TOOLS/TURN_SUMMARY_COMMAND_TOOLS/TURN_SUMMARY_KNOWN_TOOLS/ARTIFACT_OUTPUT_PATH_KEYS/ARTIFACT_BRIDGED_WRITE_*/unprefixedBridgedName/isBridgedWriteTool)与不可逆操作账分类(IRREVERSIBLE_NATIVE_KIND/IRREVERSIBLE_BRIDGED_KIND/CLAUDE_IRREVERSIBLE_KIND/IRREVERSIBLE_LEDGER_MAX/irreversibleToolKind/irreversibleDetail);零出边,不进任何环;纯搬家,零行为变更",
       "provides": [
@@ -1537,7 +1630,7 @@
     },
     {
       "file": "02-session-store.js",
-      "order": 30,
+      "order": 31,
       "layer": "foundation",
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志",
       "provides": [
@@ -2052,6 +2145,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "zlib",
           "kinds": [
             "read"
@@ -2496,7 +2596,7 @@
     },
     {
       "file": "03-bridge-guard.js",
-      "order": 31,
+      "order": 32,
       "layer": "foundation",
       "note": "桥接写族覆盖审计/工作区护栏",
       "provides": [
@@ -2709,6 +2809,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
@@ -2831,7 +2938,7 @@
     },
     {
       "file": "03a-privacy-gateway.js",
-      "order": 32,
+      "order": 33,
       "layer": "foundation",
       "note": "81-P2: scoped bidirectional privacy gateway",
       "provides": [
@@ -2856,7 +2963,7 @@
     },
     {
       "file": "03b-privacy-local-drive.js",
-      "order": 33,
+      "order": 34,
       "layer": "foundation",
       "note": "隐私本地接收方盘类型固定行查询;无引用/off不启动",
       "provides": [
@@ -2866,7 +2973,7 @@
     },
     {
       "file": "04-visual-pipeline.js",
-      "order": 34,
+      "order": 35,
       "layer": "foundation",
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）",
       "provides": [
@@ -2876,7 +2983,7 @@
     },
     {
       "file": "04-permission-runtime.js",
-      "order": 35,
+      "order": 36,
       "layer": "foundation",
       "note": "pendingPermissions/plan 批准/原生权限请求",
       "provides": [
@@ -3213,6 +3320,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "00b-ruyi-names.js",
           "symbol": "isRuyiMcpServerId",
           "kinds": [
@@ -3426,7 +3540,7 @@
     },
     {
       "file": "04-desktop-shell.js",
-      "order": 36,
+      "order": 37,
       "layer": "foundation",
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）",
       "provides": [
@@ -3517,7 +3631,7 @@
     },
     {
       "file": "04f-toolbox-services.js",
-      "order": 37,
+      "order": 38,
       "layer": "foundation",
       "note": "ruyi-toolbox 服务类组件：拉起／探活／接成能力端点／回收（登记读取与 MCP 并入住 04）",
       "provides": [
@@ -3651,7 +3765,7 @@
     },
     {
       "file": "04h-provider-http.js",
-      "order": 38,
+      "order": 39,
       "layer": "foundation",
       "note": "架构还债批 2·A:OpenAI 兼容服务商 HTTP 原语的唯一住处(端点 URL 归一化/请求头/非流式 POST/瞬时错误重试骨架;自 05/06/07/08/09/10 纯搬家,零出边故不进任何环)",
       "provides": [
@@ -3684,7 +3798,7 @@
     },
     {
       "file": "04i-provider-anthropic.js",
-      "order": 39,
+      "order": 40,
       "layer": "foundation",
       "note": "58 号方案批 2: Anthropic Messages 线协议(apiStyle:anthropic)的编解码纯函数——端点/鉴权头(x-api-key/Bearer/auto)、chat 形历史→Messages(system-reminder 折叠、tool_result 合并与排序、角色交替、图片)、自适应思考与 output_config.effort、非流式与流式解码(思考块+签名收进 providerBlocks,只回放最后一条 user 之后那段)、用量归一(input+cache_read+cache_creation)、400 兼容重打(签名失配去思考块、网关不认的参数去掉);只引用 04h,makeId/redact/配对自愈由 04i-provider-wire 的登记表胶水注入,不进任何环",
       "provides": [
@@ -3760,7 +3874,7 @@
     },
     {
       "file": "04i-provider-wire.js",
-      "order": 40,
+      "order": 41,
       "layer": "foundation",
       "note": "58 号方案批 1: 服务商线协议登记表 PROVIDER_WIRE_PROTOCOLS(chat/responses 的端点、请求头、请求体编码、推理强度、工具、流式/非流式解码、用量归一、落历史字段)与唯一的协议值归一 normalizeProviderApiStyle/providerWireProtocol;Responses 翻译(toResponsesContent/buildResponsesInputItems/toResponsesTools/responsesHistoryWithCompleteToolPairs)自 07、推理强度(PROVIDER_REASONING_EFFORTS/providerReasoningEffort/applyProviderReasoningEffort)自 05 纯搬家;只引用 04h,环内工具经 ProviderWireHooks 由 07 延迟绑定,不进任何环",
       "provides": [
@@ -3926,7 +4040,7 @@
     },
     {
       "file": "04j-hanzi-pinyin.js",
-      "order": 41,
+      "order": 42,
       "layer": "foundation",
       "note": "59 号文 §6(语音词库第二步):汉字 → 普通话读音(不带声调)的离线小表 —— Unicode Unihan(kMandarin 主读音 + kXHC1983 其余现代读音,Unicode License v3,THIRD-PARTY-NOTICES §4)经 dev-harness/hanzi-pinyin-generate.js 生成的生成物,不手改;冻结对象 HanziPinyin(readings),零出边、不进任何环",
       "provides": [
@@ -3936,7 +4050,7 @@
     },
     {
       "file": "04j-voice-lexicon.js",
-      "order": 42,
+      "order": 43,
       "layer": "foundation",
       "note": "59 号文(语音词库第一步):个人词 + 原厂常用词表的纯函数内核 —— 词条形状与清洗、设置页文本读写、按这一句挑词、给句尾改错 <glossary> / 整段识别 prompt / 实时识别热词各出一份形状;冻结对象 VoiceLexicon,零出边、不进任何环(同 11b 模具);落盘住 05、路由住 13b",
       "provides": [
@@ -3946,7 +4060,7 @@
     },
     {
       "file": "04j-voice-learn.js",
-      "order": 43,
+      "order": 44,
       "layer": "foundation",
       "note": "59 号文 §6(语音词库第二步):从用户手改里学词的纯函数内核 —— 机器写的几句在发出去的字里定位与对齐、抽改动、读音像不像(拼音/辅音骨架/字母)、人名单字改动拼窗口、打字里抽专名英文词、请改字大模型复核的提示词与回体校验、落进词库(攒次数、先验、纠、墓碑、腾位置);冻结对象 VoiceLearn,只读 04j 的 VoiceLexicon 与 HanziPinyin(二者零出边),不进任何环;路由住 13b",
       "provides": [
@@ -3971,7 +4085,7 @@
     },
     {
       "file": "05-claude-engine.js",
-      "order": 44,
+      "order": 45,
       "layer": "engine",
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线",
       "provides": [
@@ -4106,6 +4220,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "DeliveryHooks",
           "kinds": [
             "read"
@@ -4121,6 +4242,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
           "kinds": [
             "read"
           ]
@@ -4193,6 +4321,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5061,7 +5196,7 @@
     },
     {
       "file": "05b-kimi-bridge.js",
-      "order": 45,
+      "order": 46,
       "layer": "engine",
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强",
       "provides": [
@@ -5248,6 +5383,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "http",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
           "kinds": [
             "read"
           ]
@@ -5743,7 +5885,7 @@
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "order": 46,
+      "order": 47,
       "layer": "engine",
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器",
       "provides": [
@@ -5836,6 +5978,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "fileAllowedRoots",
           "kinds": [
@@ -5878,7 +6027,7 @@
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "order": 47,
+      "order": 48,
       "layer": "engine",
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级",
       "provides": [
@@ -5933,7 +6082,7 @@
     },
     {
       "file": "06-provider-engine.js",
-      "order": 48,
+      "order": 49,
       "layer": "engine",
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks",
       "provides": [
@@ -6234,6 +6383,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -6558,7 +6714,7 @@
     },
     {
       "file": "06b-prompt-registry.js",
-      "order": 49,
+      "order": 50,
       "layer": "engine",
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)",
       "provides": [
@@ -6585,7 +6741,7 @@
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "order": 50,
+      "order": 51,
       "layer": "engine",
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine",
       "provides": [
@@ -6617,7 +6773,7 @@
     },
     {
       "file": "06h-retrieval-index.js",
-      "order": 51,
+      "order": 52,
       "layer": "engine",
       "note": "113a:离线检索原语(特征哈希向量/TF-IDF/余弦/RRF),记忆召回与会话搜索共用",
       "provides": [
@@ -6641,7 +6797,7 @@
     },
     {
       "file": "06i-steward-core.js",
-      "order": 52,
+      "order": 53,
       "layer": "engine",
       "note": "第116波116a:管家(Steward)引擎侧纯函数与延迟绑定命名空间 StewardHooks(不实现,契约声明)",
       "provides": [
@@ -6825,7 +6981,7 @@
     },
     {
       "file": "06d-memory-domain.js",
-      "order": 53,
+      "order": 54,
       "layer": "engine",
       "note": "第104波：跨会话记忆、提议、关系图与检索",
       "provides": [
@@ -7152,6 +7308,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -7302,7 +7465,7 @@
     },
     {
       "file": "06e-mission-domain.js",
-      "order": 54,
+      "order": 55,
       "layer": "engine",
       "note": "第104波：Mission 提示摘要与 until-done 驱动",
       "provides": [
@@ -7413,7 +7576,7 @@
     },
     {
       "file": "06f-autonomy-grants.js",
-      "order": 55,
+      "order": 56,
       "layer": "engine",
       "note": "第104波：自治授权签发、消费、撤销与预检",
       "provides": [
@@ -7532,7 +7695,7 @@
     },
     {
       "file": "06g-resource-leases.js",
-      "order": 56,
+      "order": 57,
       "layer": "engine",
       "note": "第104波：Agent 资源归一化、冲突检测与租约",
       "provides": [
@@ -7598,7 +7761,7 @@
     },
     {
       "file": "06j-scheduler-core.js",
-      "order": 57,
+      "order": 58,
       "layer": "engine",
       "note": "第123波 M1(37 号文 §3.1;设计权威 29 号文 §3):定时任务纯函数内核 —— normalizeSchedulerTask / nextFireAt / parseCronExpr / describeSchedule / occurrenceKey / missedOccurrence(零 I/O、零全局状态、时间全由入参喂)",
       "provides": [
@@ -7651,7 +7814,7 @@
     },
     {
       "file": "06k-config-patch.js",
-      "order": 58,
+      "order": 59,
       "layer": "engine",
       "note": "架构还债批 2 B2: 从 13-http-router.js 搬出 applyConfigPatch(配置补丁落盘与副作用;纯搬家,零行为变更),经 01 的 ConfigPatchHooks 调用、零入边",
       "provides": [
@@ -7809,7 +7972,7 @@
     },
     {
       "file": "07-autonomy.js",
-      "order": 59,
+      "order": 60,
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
@@ -8029,6 +8192,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
             "call",
@@ -8089,6 +8259,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_SERVER_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -8573,7 +8750,7 @@
     },
     {
       "file": "08-agent-runs.js",
-      "order": 60,
+      "order": 61,
       "layer": "orchestration",
       "note": "run 事件日志/恢复分级/runSubAgentCore",
       "provides": [
@@ -9606,7 +9783,7 @@
     },
     {
       "file": "09b-replan-ledger.js",
-      "order": 61,
+      "order": 62,
       "layer": "orchestration",
       "note": "110-4a: 节点续点与重规划补丁账本(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -9652,7 +9829,7 @@
     },
     {
       "file": "09d-token-estimation.js",
-      "order": 62,
+      "order": 63,
       "layer": "orchestration",
       "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -9701,7 +9878,7 @@
     },
     {
       "file": "09-workflow.js",
-      "order": 63,
+      "order": 64,
       "layer": "orchestration",
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
       "provides": [
@@ -11669,7 +11846,7 @@
     },
     {
       "file": "10-context-governance.js",
-      "order": 64,
+      "order": 65,
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
@@ -12671,7 +12848,7 @@
     },
     {
       "file": "11-native-tools.js",
-      "order": 65,
+      "order": 66,
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
@@ -12979,6 +13156,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "zlib",
           "kinds": [
             "read"
@@ -13177,7 +13361,7 @@
     },
     {
       "file": "11b-file-text-io.js",
-      "order": 66,
+      "order": 67,
       "layer": "tools",
       "note": "单文件工具的文本 I/O 内核:编码嗅探/GB18030 编码、有界流式读、原子写、file_edit 未命中诊断;零出边(冻结对象 FileTextIo),不进依赖环",
       "provides": [
@@ -13202,7 +13386,7 @@
     },
     {
       "file": "11c-file-visual-io.js",
-      "order": 67,
+      "order": 68,
       "layer": "tools",
       "note": "",
       "provides": [
@@ -13227,7 +13411,7 @@
     },
     {
       "file": "11d-media-inspection.js",
-      "order": 68,
+      "order": 69,
       "layer": "tools",
       "note": "Local dependency discovery, bounded audio measurement and parse-only syntax validation; built-ins only",
       "provides": [
@@ -13237,7 +13421,7 @@
     },
     {
       "file": "12-tool-dispatch.js",
-      "order": 69,
+      "order": 70,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -13298,6 +13482,7 @@
         "invokeAdaptiveMcpTool",
         "isUtf8Encoding",
         "journalCheckpointWarn",
+        "mcpCatalogForContext",
         "naClassify",
         "naIsCjkish",
         "normalizeTextLineEndings",
@@ -13365,6 +13550,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
           "kinds": [
             "read"
           ]
@@ -14342,7 +14534,7 @@
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 70,
+      "order": 71,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -14361,7 +14553,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 71,
+      "order": 72,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -14474,6 +14666,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "CliBusinessHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "CONFIG_SCHEMA",
           "kinds": [
             "read"
@@ -14498,6 +14697,13 @@
           "symbol": "DATA_ROOT_MIGRATION",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -14593,6 +14799,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "isDirectServeInvocation",
           "kinds": [
             "call"
@@ -14615,13 +14828,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "lstatOrNull",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "makeId",
           "kinds": [
             "call"
           ]
@@ -14691,13 +14897,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "readline",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "recordInstallLaunch",
           "kinds": [
             "call"
@@ -14748,6 +14947,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -15097,13 +15303,6 @@
           ]
         },
         {
-          "provider": "01e-permission-modes.js",
-          "symbol": "resolvePermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
           "provider": "01f-agent-cli-types.js",
           "symbol": "AGENT_CLI_TYPES",
           "kinds": [
@@ -15129,27 +15328,6 @@
           "symbol": "WorkDataStore",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "applyMissionUpdate",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "bumpMissionChangeSeq",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "evaluateMissionCheck",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -15196,42 +15374,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "maybeFinalizeMission",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "MISSION_MAX_TEXT",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionControlCommand",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "mutateSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "normalizeMission",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "normalizeTodoItems",
           "kinds": [
             "call"
           ]
@@ -15246,13 +15389,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readSessionRouteHead",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "recordMissionCheckResult",
           "kinds": [
             "call"
           ]
@@ -15309,13 +15445,6 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "existsExecutable",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "existsExecutableAsync",
           "kinds": [
             "call"
           ]
@@ -15416,13 +15545,6 @@
           "symbol": "resolveWorkspace",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "03a-privacy-gateway.js",
-          "symbol": "PrivacyGateway",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -15531,13 +15653,6 @@
           ]
         },
         {
-          "provider": "04-visual-pipeline.js",
-          "symbol": "VisualPipeline",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "04h-provider-http.js",
           "symbol": "providerScrubSecrets",
           "kinds": [
@@ -15598,13 +15713,6 @@
           "symbol": "PROVIDER_PRESETS",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "resolveProvider",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -15994,13 +16102,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "activeAgentRuns",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "buildClaudeAgentDefinitions",
           "kinds": [
             "call"
@@ -16016,13 +16117,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "nativeToolAvailableInContext",
           "kinds": [
             "call"
           ]
@@ -16070,20 +16164,6 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
-          "symbol": "toolPackForName",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "agentRunResultSlice",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
           "provider": "08-agent-runs.js",
           "symbol": "agentWorkflowSaveProblem",
           "kinds": [
@@ -16093,13 +16173,6 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "autoResumeInterruptedRuns",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "buildAgentRunEnvelope",
           "kinds": [
             "call"
           ]
@@ -16134,63 +16207,7 @@
         },
         {
           "provider": "08-agent-runs.js",
-          "symbol": "resolveOrchestrateNodes",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "saveAgentRun",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
           "symbol": "saveAgentWorkflow",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "AGENT_RUN_TERMINAL",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "deliverAgentRunEnvelope",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "resolveWaitAgentsMs",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "runAgentWorkflow",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "settleWaitEnvelopes",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "waitForAgentRunResults",
           "kinds": [
             "call"
           ]
@@ -16261,13 +16278,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "streamChat",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "truncateToolResult",
           "kinds": [
             "call"
           ]
@@ -16409,7 +16419,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 72,
+      "order": 73,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -16936,7 +16946,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 73,
+      "order": 74,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -17048,7 +17058,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 74,
+      "order": 75,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -17142,6 +17152,13 @@
           "symbol": "apiSessionNotFound",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "CliBusinessHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -17254,13 +17271,6 @@
           "symbol": "URL",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00b-ruyi-names.js",
-          "symbol": "RUYI_MCP_CLI_TOOL_PREFIX",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -17545,20 +17555,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "registerIntervention",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "saveSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionBodyPaths",
           "kinds": [
             "call"
@@ -17629,13 +17625,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "settleIntervention",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "transitionInterventionState",
           "kinds": [
             "call"
@@ -17671,13 +17660,6 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "bridgedReadPathGate",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
           "kinds": [
             "call"
@@ -17707,13 +17689,6 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "driverAutoSessions",
           "kinds": [
             "read"
           ]
@@ -17762,28 +17737,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "permissionWaitMs",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "redact",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "requestUserQuestion",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
           ]
@@ -17807,20 +17761,6 @@
           "symbol": "turnSettlers",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "06f-autonomy-grants.js",
-          "symbol": "CLI_TOOL_TIER",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06f-autonomy-grants.js",
-          "symbol": "consumeGrant",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -17951,28 +17891,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "DESKTOP_MCP_SERVER_ID",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "nativeToolGate",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "nativeToolTier",
           "kinds": [
             "call"
           ]
@@ -17989,27 +17908,6 @@
           "symbol": "STEER_QUEUE_MAX",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "toolDisabledByPolicy",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "toolDisabledResult",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "toolIsRevertible",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -18198,7 +18096,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 75,
+      "order": 76,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -18570,7 +18468,7 @@
     },
     {
       "file": "13i-steward-inbox.js",
-      "order": 76,
+      "order": 77,
       "layer": "transport",
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)",
       "provides": [
@@ -18728,6 +18626,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -18891,7 +18796,7 @@
     },
     {
       "file": "13j-steward-tool-base.js",
-      "order": 77,
+      "order": 78,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)",
       "provides": [
@@ -19020,6 +18925,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -19196,7 +19108,7 @@
     },
     {
       "file": "13aa-steward-delivery.js",
-      "order": 78,
+      "order": 79,
       "layer": "unclassified",
       "note": "Bounded per-turn delivery evidence, file freshness and revision source projection via StewardHooks",
       "provides": [
@@ -19433,7 +19345,7 @@
     },
     {
       "file": "13k-steward-threads.js",
-      "order": 79,
+      "order": 80,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)",
       "provides": [
@@ -20385,7 +20297,7 @@
     },
     {
       "file": "13l-steward-ops.js",
-      "order": 80,
+      "order": 81,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
@@ -21331,7 +21243,7 @@
     },
     {
       "file": "13g-steward.js",
-      "order": 81,
+      "order": 82,
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
@@ -21900,7 +21812,7 @@
     },
     {
       "file": "13m-steward-runner-base.js",
-      "order": 82,
+      "order": 83,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
@@ -22066,7 +21978,7 @@
     },
     {
       "file": "13n-steward-arbiter.js",
-      "order": 83,
+      "order": 84,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
       "provides": [
@@ -22265,7 +22177,7 @@
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "order": 84,
+      "order": 85,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
@@ -22766,7 +22678,7 @@
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "order": 85,
+      "order": 86,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
       "provides": [
@@ -23282,7 +23194,7 @@
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "order": 86,
+      "order": 87,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
       "provides": [
@@ -23957,7 +23869,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 87,
+      "order": 88,
       "layer": "transport",
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
       "provides": [
@@ -24333,7 +24245,7 @@
     },
     {
       "file": "13r-event-stream.js",
-      "order": 88,
+      "order": 89,
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
@@ -24494,7 +24406,7 @@
     },
     {
       "file": "13s-scheduler.js",
-      "order": 89,
+      "order": 90,
       "layer": "transport",
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗",
       "provides": [
@@ -24845,7 +24757,7 @@
     },
     {
       "file": "13t-steward-schedule.js",
-      "order": 90,
+      "order": 91,
       "layer": "transport",
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环",
       "provides": [
@@ -25179,7 +25091,7 @@
     },
     {
       "file": "13u-migration-center.js",
-      "order": 91,
+      "order": 92,
       "layer": "transport",
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
@@ -25540,7 +25452,7 @@
     },
     {
       "file": "13v-external-channel-protocols.js",
-      "order": 92,
+      "order": 93,
       "layer": "transport",
       "note": "External QQ/Feishu signed protocol normalization; pure built-in crypto helpers",
       "provides": [
@@ -25572,7 +25484,7 @@
     },
     {
       "file": "13x-external-channel-delivery.js",
-      "order": 93,
+      "order": 94,
       "layer": "transport",
       "note": "Single bounded official QQ/Feishu reply delivery, explicit sent/failed/unknown outcomes",
       "provides": [
@@ -25597,7 +25509,7 @@
     },
     {
       "file": "13y-external-bot-credentials.js",
-      "order": 94,
+      "order": 95,
       "layer": "transport",
       "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS",
       "provides": [
@@ -25657,7 +25569,7 @@
     },
     {
       "file": "13z-external-bot-discovery.js",
-      "order": 95,
+      "order": 96,
       "layer": "transport",
       "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted",
       "provides": [
@@ -25667,7 +25579,7 @@
     },
     {
       "file": "13ab-privacy-api.js",
-      "order": 96,
+      "order": 97,
       "layer": "unclassified",
       "note": "81-P2: token-authenticated security settings and recovery API",
       "provides": [
@@ -25938,7 +25850,7 @@
     },
     {
       "file": "13w-external-bots.js",
-      "order": 97,
+      "order": 98,
       "layer": "transport",
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker",
       "provides": [
@@ -26199,7 +26111,7 @@
     },
     {
       "file": "13ac-mcp-consumer.js",
-      "order": 98,
+      "order": 99,
       "layer": "unclassified",
       "note": "Authenticated independent stdio consumer relay, bounded host-owned scopes and grants",
       "provides": [
@@ -26212,6 +26124,13 @@
           "symbol": "crypto",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -26478,7 +26397,7 @@
     },
     {
       "file": "13ad-memory-cli-relay.js",
-      "order": 99,
+      "order": 100,
       "layer": "unclassified",
       "note": "Per-execution read-only memory relay for native CLI consumers",
       "provides": [
@@ -26490,6 +26409,13 @@
           "symbol": "crypto",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -26663,12 +26589,726 @@
       ]
     },
     {
+      "file": "13ae-cli-business-services.js",
+      "order": 101,
+      "layer": "unclassified",
+      "note": "M3-3: CLI business services shared by HTTP and serve-owned internal MCP, late-bound through boot hooks",
+      "provides": [
+        "cliAgentLaunchService",
+        "cliAgentResultService",
+        "cliMissionService",
+        "cliPermissionService",
+        "cliQuestionService",
+        "cliTodoService"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "CliBusinessHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_CLI_TOOL_PREFIX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "detectClaudePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "applyMissionUpdate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "bumpMissionChangeSeq",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "evaluateMissionCheck",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "maybeFinalizeMission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "MISSION_MAX_TEXT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionControlCommand",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mutateSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeMission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "recordMissionCheckResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "registerIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "bridgedReadPathGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "existsExecutableAsync",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "normalizeCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "driverAutoSessions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "requestUserQuestion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "runAutomaticInterventionDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "resolveProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "CLI_TOOL_TIER",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "consumeGrant",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "DESKTOP_MCP_SERVER_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolIsRevertible",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunResultSlice",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "buildAgentRunEnvelope",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "resolveOrchestrateNodes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "saveAgentRun",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "AGENT_RUN_TERMINAL",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "deliverAgentRunEnvelope",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "resolveWaitAgentsMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "runAgentWorkflow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "settleWaitEnvelopes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "waitForAgentRunResults",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13af-internal-mcp-relay.js",
+      "order": 102,
+      "layer": "unclassified",
+      "note": "M3-3: exact execution capability relay; default stdio has no data-root writer",
+      "provides": [
+        "InternalMcpRelay"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "http",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MAX_BODY_BYTES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_SERVER_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "commandForSelfMcp",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "requestIsLoopback",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "RUNTIME",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ManagedMcp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskProviders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolAvailableInContext",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "TOOL_PACK_DESCRIPTIONS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolPackForName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "AGENT_RUN_TERMINAL",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "truncateToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliAgentLaunchService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliAgentResultService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliMissionService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliPermissionService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliQuestionService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliTodoService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "14-main.js",
-      "order": 100,
+      "order": 103,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
-        "main"
+        "main",
+        "withSelectedWorkDataRoot"
       ],
       "requires": [
         {
@@ -26711,6 +27351,13 @@
           "symbol": "createNdjsonLineFeeder",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -26784,6 +27431,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "autoImportClaudeCodeMcp",
           "kinds": [
@@ -26800,6 +27454,20 @@
         {
           "provider": "01-config.js",
           "symbol": "CONFIG_MIGRATIONS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configMutateChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configWriteChain",
           "kinds": [
             "read"
           ]
@@ -27228,6 +27896,13 @@
         {
           "provider": "01f-agent-cli-types.js",
           "symbol": "normalizeAgentCliType",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
           "kinds": [
             "read"
           ]
@@ -27832,6 +28507,13 @@
           "symbol": "configureMcpFromTool",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "flushWorkbenchLogs",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -30855,16 +31537,19 @@
       "symbols": [
         "CONFIG_SCHEMA",
         "DEFAULT_PORT",
+        "InternalMcpHooks",
         "MAX_BODY_BYTES",
         "RUYI_EVENTS",
         "SKILL_ID_RE",
         "StringDecoder",
         "URL",
         "VERSION",
+        "WorkDataRootHooks",
         "agentCliHomes",
         "apiFailure",
         "cp",
         "crypto",
+        "dataRoot",
         "ensureDirs",
         "externalRoot",
         "findRuyiPackageRootFor",
@@ -31215,6 +31900,35 @@
       "direction": "backward"
     },
     {
+      "from": "01z-work-data-root-authority.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "WorkDataRootHooks",
+        "_workDataStableAliases",
+        "_workDataStableBase",
+        "dataRoot",
+        "dataRootAliases",
+        "paths"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "01z-work-data-root-authority.js",
+      "to": "01g-server-ownership.js",
+      "symbols": [
+        "ServerOwnership"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "01z-work-data-root-authority.js",
+      "to": "01v-work-data-manifest.js",
+      "symbols": [
+        "WorkDataManifest"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "02-session-store.js",
       "to": "00-boot.js",
       "symbols": [
@@ -31223,6 +31937,7 @@
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "SessionExecutionHooks",
+        "WorkDataRootHooks",
         "crypto",
         "ensureDirs",
         "fs",
@@ -31462,6 +32177,7 @@
       "to": "00-boot.js",
       "symbols": [
         "URL",
+        "WorkDataRootHooks",
         "agentCliHomes",
         "cp",
         "crypto",
@@ -31591,6 +32307,7 @@
         "SessionExecutionHooks",
         "URL",
         "VERSION",
+        "WorkDataRootHooks",
         "cp",
         "crypto",
         "dataRoot",
@@ -31821,9 +32538,11 @@
       "symbols": [
         "DeliveryHooks",
         "EventStreamHooks",
+        "InternalMcpHooks",
         "MemoryCliHooks",
         "RUYI_EVENTS",
         "URL",
+        "WorkDataRootHooks",
         "appendUsageLedger",
         "claudeCostFields",
         "computeProviderCost",
@@ -31831,6 +32550,7 @@
         "createCappedDiagnosticText",
         "createNdjsonLineFeeder",
         "crypto",
+        "dataRoot",
         "fsp",
         "normalizePricing",
         "nowIso",
@@ -32144,6 +32864,7 @@
       "from": "05b-kimi-bridge.js",
       "to": "00-boot.js",
       "symbols": [
+        "InternalMcpHooks",
         "MAX_BODY_BYTES",
         "MemoryCliHooks",
         "RUYI_EVENTS",
@@ -32312,6 +33033,7 @@
       "from": "05c-kimi-search-policy.js",
       "to": "00-boot.js",
       "symbols": [
+        "WorkDataRootHooks",
         "appRoot",
         "dataRoot",
         "fsp",
@@ -32361,6 +33083,7 @@
         "OVERLAY_ID",
         "RUYI_EVENTS",
         "VERSION",
+        "WorkDataRootHooks",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
         "computeProviderCost",
@@ -32574,6 +33297,7 @@
       "to": "00-boot.js",
       "symbols": [
         "SKILL_ID_RE",
+        "WorkDataRootHooks",
         "agentCliHomes",
         "apiFailure",
         "appendUsageLedger",
@@ -32898,6 +33622,7 @@
       "to": "00-boot.js",
       "symbols": [
         "EventStreamHooks",
+        "InternalMcpHooks",
         "MemoryCliHooks",
         "TOOL_TIER_RANK",
         "URL",
@@ -32914,6 +33639,14 @@
         "paths",
         "safeJsonParse",
         "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "07-autonomy.js",
+      "to": "00b-ruyi-names.js",
+      "symbols": [
+        "RUYI_MCP_SERVER_ID"
       ],
       "direction": "backward"
     },
@@ -34176,6 +34909,7 @@
         "RUYI_EVENTS",
         "RUYI_PATH_BEFORE_VENDOR",
         "URL",
+        "WorkDataRootHooks",
         "cp",
         "createConsoleLineDecoder",
         "crypto",
@@ -34303,6 +35037,7 @@
       "to": "00-boot.js",
       "symbols": [
         "ASR_MAX_BODY_BYTES",
+        "InternalMcpHooks",
         "MigrationHooks",
         "OVERLAY_ID",
         "SKILL_ID_RE",
@@ -34610,10 +35345,12 @@
       "symbols": [
         "APP_NAME",
         "CONFIG_SCHEMA",
+        "CliBusinessHooks",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "EventStreamHooks",
         "ExternalBotHooks",
+        "InternalMcpHooks",
         "MemoryCliHooks",
         "MigrationHooks",
         "OVERLAY_ID",
@@ -34621,12 +35358,14 @@
         "SKILL_ID_RE",
         "URL",
         "VERSION",
+        "WorkDataRootHooks",
         "apiFailure",
         "apiSessionIdInvalid",
         "apiSessionNotFound",
         "buildUsageSummary",
         "cp",
         "crypto",
+        "dataRoot",
         "dataRootAliases",
         "decodeConsoleText",
         "defaultDataRoots",
@@ -34641,13 +35380,11 @@
         "isPkg",
         "json",
         "lstatOrNull",
-        "makeId",
         "migrateLegacyDataRoot",
         "nowIso",
         "os",
         "path",
         "paths",
-        "readline",
         "recordInstallLaunch",
         "runKeyedChain",
         "safeJsonParse",
@@ -34729,8 +35466,7 @@
         "BUILTIN_AGENT_ROLES",
         "PERMISSION_MODES",
         "annotateAgentRoleEffective",
-        "normalizeAgentRole",
-        "resolvePermissionMode"
+        "normalizeAgentRole"
       ],
       "direction": "backward"
     },
@@ -34770,24 +35506,15 @@
       "from": "13-http-router.js",
       "to": "02-session-store.js",
       "symbols": [
-        "MISSION_MAX_TEXT",
-        "applyMissionUpdate",
-        "bumpMissionChangeSeq",
-        "evaluateMissionCheck",
         "flushSessionIndexSync",
         "invalidateSessionIndex",
         "journalReadBefore",
         "journalReadIndex",
         "loadSession",
         "markInterruptedInterventions",
-        "maybeFinalizeMission",
-        "missionControlCommand",
         "mutateSession",
-        "normalizeMission",
-        "normalizeTodoItems",
         "readSessionHeadText",
         "readSessionRouteHead",
-        "recordMissionCheckResult",
         "sessionHeadIsWorkDataError",
         "workspaceBaselineIsCodePath",
         "workspaceBaselinePathKey"
@@ -34811,7 +35538,6 @@
         "buildRevealSpawn",
         "ensureDataRootReal",
         "existsExecutable",
-        "existsExecutableAsync",
         "fileAllowedRoots",
         "guardWorkspacePath",
         "isSensitiveDataPath",
@@ -34825,14 +35551,6 @@
         "remoteUncDenialResolved",
         "resolvePreferredCodeEditor",
         "resolveWorkspace"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13-http-router.js",
-      "to": "03a-privacy-gateway.js",
-      "symbols": [
-        "PrivacyGateway"
       ],
       "direction": "backward"
     },
@@ -34874,14 +35592,6 @@
     },
     {
       "from": "13-http-router.js",
-      "to": "04-visual-pipeline.js",
-      "symbols": [
-        "VisualPipeline"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13-http-router.js",
       "to": "04h-provider-http.js",
       "symbols": [
         "providerScrubSecrets"
@@ -34907,7 +35617,6 @@
         "maskProviders",
         "maskedSecretConflictMessage",
         "maskedSecretConflicts",
-        "resolveProvider",
         "sanitizeProvider",
         "unmaskProviders"
       ],
@@ -35005,18 +35714,15 @@
       "from": "13-http-router.js",
       "to": "07-autonomy.js",
       "symbols": [
-        "activeAgentRuns",
         "buildClaudeAgentDefinitions",
         "fetchOpenAiModels",
         "getAgentRoleLibrary",
-        "nativeToolAvailableInContext",
         "probeProviderCompletion",
         "projectAgentRoleFile",
         "projectCwdDirectoryFailure",
         "readClaudeProjectAgentRoles",
         "readProjectAgentRoles",
-        "saveProjectAgentRoles",
-        "toolPackForName"
+        "saveProjectAgentRoles"
       ],
       "direction": "backward"
     },
@@ -35024,30 +35730,13 @@
       "from": "13-http-router.js",
       "to": "08-agent-runs.js",
       "symbols": [
-        "agentRunResultSlice",
         "agentWorkflowSaveProblem",
         "autoResumeInterruptedRuns",
-        "buildAgentRunEnvelope",
         "deleteAgentWorkflow",
         "getAgentWorkflows",
         "markInterruptedAgentRuns",
         "normalizeAgentWorkflow",
-        "resolveOrchestrateNodes",
-        "saveAgentRun",
         "saveAgentWorkflow"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13-http-router.js",
-      "to": "09-workflow.js",
-      "symbols": [
-        "AGENT_RUN_TERMINAL",
-        "deliverAgentRunEnvelope",
-        "resolveWaitAgentsMs",
-        "runAgentWorkflow",
-        "settleWaitEnvelopes",
-        "waitForAgentRunResults"
       ],
       "direction": "backward"
     },
@@ -35064,8 +35753,7 @@
         "runAgentExternalCompact",
         "runProviderCompactTracked",
         "scheduleAgentWakesAtBoot",
-        "streamChat",
-        "truncateToolResult"
+        "streamChat"
       ],
       "direction": "backward"
     },
@@ -35373,6 +36061,7 @@
         "SessionExecutionHooks",
         "VERSION",
         "crypto",
+        "dataRoot",
         "fsp",
         "json",
         "makeId",
@@ -35495,6 +36184,7 @@
         "MemoryCliHooks",
         "VERSION",
         "crypto",
+        "dataRoot",
         "fsp",
         "http",
         "json",
@@ -35570,6 +36260,293 @@
     },
     {
       "from": "13ad-memory-cli-relay.js",
+      "to": "13f-native-tool-schemas.js",
+      "symbols": [
+        "MCP_TOOLS"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "CliBusinessHooks",
+        "EventStreamHooks",
+        "apiFailure",
+        "apiSessionIdInvalid",
+        "apiSessionNotFound",
+        "json",
+        "makeId",
+        "nowIso"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "00b-ruyi-names.js",
+      "symbols": [
+        "RUYI_MCP_CLI_TOOL_PREFIX"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "01-config.js",
+      "symbols": [
+        "detectClaudePath",
+        "readConfig",
+        "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "PERMISSION_MODES",
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "MISSION_MAX_TEXT",
+        "applyMissionUpdate",
+        "bumpMissionChangeSeq",
+        "evaluateMissionCheck",
+        "loadSession",
+        "maybeFinalizeMission",
+        "missionControlCommand",
+        "mutateSession",
+        "normalizeMission",
+        "normalizeTodoItems",
+        "recordMissionCheckResult",
+        "registerIntervention",
+        "saveSession",
+        "settleIntervention"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "sessionDesktopToolsOf"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "03-bridge-guard.js",
+      "symbols": [
+        "bridgedReadPathGate",
+        "existsExecutableAsync",
+        "normalizeCwd"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "activeChildren",
+        "driverAutoSessions",
+        "logEvent",
+        "pendingPermissions",
+        "permissionWaitMs",
+        "requestUserQuestion",
+        "runAutomaticInterventionDecision"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "05-claude-engine.js",
+      "symbols": [
+        "activeOpenAiProvider",
+        "resolveProvider"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "06f-autonomy-grants.js",
+      "symbols": [
+        "CLI_TOOL_TIER",
+        "consumeGrant"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "DESKTOP_MCP_SERVER_ID",
+        "activeAgentRuns",
+        "nativeToolGate",
+        "nativeToolTier",
+        "toolDisabledByPolicy",
+        "toolDisabledResult",
+        "toolIsRevertible"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "08-agent-runs.js",
+      "symbols": [
+        "agentRunResultSlice",
+        "buildAgentRunEnvelope",
+        "resolveOrchestrateNodes",
+        "saveAgentRun"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ae-cli-business-services.js",
+      "to": "09-workflow.js",
+      "symbols": [
+        "AGENT_RUN_TERMINAL",
+        "deliverAgentRunEnvelope",
+        "resolveWaitAgentsMs",
+        "runAgentWorkflow",
+        "settleWaitEnvelopes",
+        "waitForAgentRunResults"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "InternalMcpHooks",
+        "MAX_BODY_BYTES",
+        "VERSION",
+        "crypto",
+        "dataRoot",
+        "http",
+        "json",
+        "path",
+        "paths",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "00b-ruyi-names.js",
+      "symbols": [
+        "RUYI_MCP_SERVER_ID"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "01-config.js",
+      "symbols": [
+        "RUNTIME",
+        "commandForSelfMcp",
+        "readConfig",
+        "requestIsLoopback",
+        "safeSessionId",
+        "send"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "01c-runtime-flags.js",
+      "symbols": [
+        "observationRecallEnabled"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "ManagedMcp",
+        "activeChildren",
+        "turnSettlers"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "04-visual-pipeline.js",
+      "symbols": [
+        "VisualPipeline"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "05-claude-engine.js",
+      "symbols": [
+        "maskProviders"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "isStewardToolName"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "TOOL_PACK_DESCRIPTIONS",
+        "activeAgentRuns",
+        "nativeToolAvailableInContext",
+        "toolPackForName"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "09-workflow.js",
+      "symbols": [
+        "AGENT_RUN_TERMINAL"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "10-context-governance.js",
+      "symbols": [
+        "truncateToolResult"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
+      "to": "13ae-cli-business-services.js",
+      "symbols": [
+        "cliAgentLaunchService",
+        "cliAgentResultService",
+        "cliMissionService",
+        "cliPermissionService",
+        "cliQuestionService",
+        "cliTodoService"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13af-internal-mcp-relay.js",
       "to": "13f-native-tool-schemas.js",
       "symbols": [
         "MCP_TOOLS"
@@ -35759,6 +36736,7 @@
       "from": "13d-core-domain-routes.js",
       "to": "00-boot.js",
       "symbols": [
+        "CliBusinessHooks",
         "EventStreamHooks",
         "ProxyModelHooks",
         "RUYI_EVENTS",
@@ -35778,14 +36756,6 @@
         "runKeyedChain",
         "safeDecodeURIComponent",
         "text"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13d-core-domain-routes.js",
-      "to": "00b-ruyi-names.js",
-      "symbols": [
-        "RUYI_MCP_CLI_TOOL_PREFIX"
       ],
       "direction": "backward"
     },
@@ -35868,8 +36838,6 @@
         "readMissionSessionHead",
         "readSessionHeadResilient",
         "readSessionHeadText",
-        "registerIntervention",
-        "saveSession",
         "sessionBodyPaths",
         "sessionBriefOf",
         "sessionDisplayTitle",
@@ -35880,7 +36848,6 @@
         "sessionMissionId",
         "sessionOmittedProviderHistory",
         "sessionProviderHistoryLength",
-        "settleIntervention",
         "transitionInterventionState",
         "updateSessionMeta"
       ],
@@ -35900,7 +36867,6 @@
       "from": "13d-core-domain-routes.js",
       "to": "03-bridge-guard.js",
       "symbols": [
-        "bridgedReadPathGate",
         "normalizeCwd",
         "pathWithinRoot",
         "resolveContainmentPath"
@@ -35920,29 +36886,16 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
-        "driverAutoSessions",
         "extendUserQuestion",
         "logEvent",
         "normalizeQuestionAnswer",
         "pendingPermissions",
         "pendingPlans",
         "pendingQuestions",
-        "permissionWaitMs",
         "redact",
-        "requestUserQuestion",
-        "runAutomaticInterventionDecision",
         "sessionExecutionObservation",
         "sessionExecutionSnapshot",
         "turnSettlers"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13d-core-domain-routes.js",
-      "to": "06f-autonomy-grants.js",
-      "symbols": [
-        "CLI_TOOL_TIER",
-        "consumeGrant"
       ],
       "direction": "backward"
     },
@@ -35978,19 +36931,13 @@
       "from": "13d-core-domain-routes.js",
       "to": "07-autonomy.js",
       "symbols": [
-        "DESKTOP_MCP_SERVER_ID",
         "STEER_QUEUE_MAX",
         "activeAgentRuns",
         "agentRunFile",
         "applyAgentWorktree",
         "cleanupAgentWorktree",
         "getAgentRoleLibrary",
-        "nativeToolGate",
-        "nativeToolTier",
-        "readAgentRunSnapshot",
-        "toolDisabledByPolicy",
-        "toolDisabledResult",
-        "toolIsRevertible"
+        "readAgentRunSnapshot"
       ],
       "direction": "backward"
     },
@@ -36470,6 +37417,7 @@
       "symbols": [
         "EventStreamHooks",
         "RUYI_EVENTS",
+        "WorkDataRootHooks",
         "crypto",
         "fsp",
         "nowIso",
@@ -36569,6 +37517,7 @@
       "from": "13j-steward-tool-base.js",
       "to": "00-boot.js",
       "symbols": [
+        "WorkDataRootHooks",
         "apiFailure",
         "fsp",
         "nowIso",
@@ -38428,11 +39377,13 @@
         "CONFIG_SCHEMA",
         "EventStreamHooks",
         "RUYI_EVENTS",
+        "WorkDataRootHooks",
         "apiSessionIdInvalid",
         "apiSessionNotFound",
         "appendUsageLedger",
         "buildUsageSummary",
         "createNdjsonLineFeeder",
+        "dataRoot",
         "flushUsageLedgerSync",
         "forEachUsageRow",
         "hashArgs",
@@ -38452,6 +39403,8 @@
         "DurableJsonStore",
         "autoImportClaudeCodeMcp",
         "buildClaudeCliEnv",
+        "configMutateChain",
+        "configWriteChain",
         "decodeClaudeCliText",
         "defaultConfig",
         "desktopMcpFromInstalledRoot",
@@ -38547,6 +39500,14 @@
       "symbols": [
         "AGENT_CLI_TYPES",
         "normalizeAgentCliType"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "01g-server-ownership.js",
+      "symbols": [
+        "ServerOwnership"
       ],
       "direction": "backward"
     },
@@ -38692,6 +39653,7 @@
         "clearPendingPermissions",
         "collectBridgedTools",
         "configureMcpFromTool",
+        "flushWorkbenchLogs",
         "hasPendingPermissionForSession",
         "invalidateMcpDropInCache",
         "killAllMcpClients",
@@ -39571,7 +40533,6 @@
     "13-http-router.js->06f-autonomy-grants.js",
     "13-http-router.js->07-autonomy.js",
     "13-http-router.js->08-agent-runs.js",
-    "13-http-router.js->09-workflow.js",
     "13-http-router.js->10-context-governance.js",
     "13-http-router.js->11-native-tools.js",
     "13-http-router.js->13b-api-domain-routes.js",
@@ -39595,7 +40556,6 @@
     "13d-core-domain-routes.js->02-session-store.js",
     "13d-core-domain-routes.js->03-bridge-guard.js",
     "13d-core-domain-routes.js->04-permission-runtime.js",
-    "13d-core-domain-routes.js->06f-autonomy-grants.js",
     "13d-core-domain-routes.js->07-autonomy.js",
     "13d-core-domain-routes.js->08-agent-runs.js",
     "13d-core-domain-routes.js->09-workflow.js",

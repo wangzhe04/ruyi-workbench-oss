@@ -511,6 +511,21 @@
       "purpose": "Bounded authorized text view",
       "productionRelation": "Seven existing file tools and two fixed resources intersect the existing permission floor and immutable workspace grant. One URI template expands only to those granted fixed resources. Connection-owned subscriptions use the existing single-flight heartbeat; updates contain only a whitelisted server-fixed URI protocol routing field, with the empty body projected and final policy/grant/source/lease/entry guards. RPC and notification stdio output share one encoder. Complete resource/tool text is projected before formatting.",
       "evidence": "M2-8a and M2-8b manual source and exact candidate review; scoped receiver evidence is recorded per batch. No binary/media, arbitrary file URI or template, unrelated subscriptions, arbitrary tool, uncredentialed consumer access, OS isolation or control of the receiving application is claimed. Fixed metadata updates may repeat across a post-write invalidation; no business operation is replayed."
+    },
+    "internal-mcp-execution-loopback": {
+      "privacyStatus": "local-only",
+      "transport": "fixed execution-capability loopback HTTP",
+      "dataClasses": [
+        "MCP-request",
+        "tool-result",
+        "resource-view",
+        "progress",
+        "error"
+      ],
+      "recipient": "running local Ruyi serve process",
+      "purpose": "Dispatch default internal MCP through the single registered CLI execution owner",
+      "productionRelation": "The stdio child targets literal 127.0.0.1 and one fixed route with a fresh per-execution capability. serve checks the active main or node owner before reading its bounded body, nested tool dispatch and output. It does not give the child an independent disk owner.",
+      "evidence": "Manual source review of 13af forward/handle and inherited launch configuration. The transport does not retry and drains accepted RPCs on EOF. This does not certify downstream tools, a global migration drain, OS isolation, same-account tampering resistance or independent client networking."
     }
   },
   "sources": [
@@ -661,7 +676,7 @@
     {"file":"ruyi-workbench/app/src/01-config.js","fingerprint":"8632c9e95b92be470c06fb8da5f1b9d22c09c68d1394bb5e21b20e63b60a356b"},
     {"file":"ruyi-workbench/app/src/01b-route-auth.js","fingerprint":"e08a9e037254a7768d93b936c2870c56551d80263be016f7868374d30b5721f7"},
     {"file":"ruyi-workbench/app/src/01c-runtime-flags.js","fingerprint":"642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837"},
-    {"file":"ruyi-workbench/app/src/01d-win-cmdline.js","fingerprint":"ee1c5a7fe942332d8a75f5eaf6d8d589a37e935641b423c6a1be8ffa590e3456"},
+    {"file":"ruyi-workbench/app/src/01d-win-cmdline.js","fingerprint":"9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8"},
     {"file":"ruyi-workbench/app/src/01e-permission-modes.js","fingerprint":"05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c"},
     {"file":"ruyi-workbench/app/src/01f-agent-cli-types.js","fingerprint":"f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0"},
     {"file":"ruyi-workbench/app/src/01g-server-ownership.js","fingerprint":"431f6afed223355cf7c1109d783296c2c099f1a1aa5f5f291d1dc2403b5c6bb3"},
@@ -680,7 +695,7 @@
     {"file":"ruyi-workbench/app/src/03a-privacy-gateway.js","fingerprint":"ec955f9f36b292a779fc5366c3cf98bea064866d758fa1f2e4034676aade84dc"},
     {"file":"ruyi-workbench/app/src/03b-privacy-local-drive.js","fingerprint":"fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4"},
     {"file":"ruyi-workbench/app/src/04-desktop-shell.js","fingerprint":"ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2"},
-    {"file":"ruyi-workbench/app/src/04-permission-runtime.js","fingerprint":"3ebdb7f81f6a342d09d8ff9f301cc656d37881b1cdb99ac6e8ee7db0556e7e22"},
+    {"file":"ruyi-workbench/app/src/04-permission-runtime.js","fingerprint":"2d8c27dabc772bd7b3f2d757aac98208b416fbdd242a4f8ba57701437c72bc1b"},
     {"file":"ruyi-workbench/app/src/04-visual-pipeline.js","fingerprint":"e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed"},
     {"file":"ruyi-workbench/app/src/04f-toolbox-services.js","fingerprint":"532e5e41faf77183f00aef712fdd1072f5e01a9c0fc844ed043d9a74e3c40fee"},
     {"file":"ruyi-workbench/app/src/04h-provider-http.js","fingerprint":"d5df67af5f7305d331ec2dd007fcc2c009e06ac0c4e1f043039513f79f889c6a"},
@@ -691,7 +706,7 @@
     {"file":"ruyi-workbench/app/src/04j-voice-lexicon.js","fingerprint":"8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2"},
     {"file":"ruyi-workbench/app/src/05-claude-engine.js","fingerprint":"13221bcb5db85ef10dfda49146f417abbc87a19cad1f27ceac6971d8de5855c6"},
     {"file":"ruyi-workbench/app/src/05b-kimi-bridge.js","fingerprint":"7bbbb4b250d9f01119b93968f81390b8a9e63ceda05266335c0845f984941d03"},
-    {"file":"ruyi-workbench/app/src/05c-kimi-search-policy.js","fingerprint":"eb60a621d764822820784b39c36e182ffd8ffdf6596c25bfdd9dacfa176589ca"},
+    {"file":"ruyi-workbench/app/src/05c-kimi-search-policy.js","fingerprint":"3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760"},
     {"file":"ruyi-workbench/app/src/05d-kimi-prompt-parts.js","fingerprint":"5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369"},
     {"file":"ruyi-workbench/app/src/06-provider-engine.js","fingerprint":"e5e8b259ab462f52d0693e3bd76430bf334182eef6c11e0a2340fb27ee5a704c"},
     {"file":"ruyi-workbench/app/src/06b-prompt-registry.js","fingerprint":"b0590b29e4202fc5b9b6ddacfbd2ef5988c3c56eec1419a02c1942dd215828fb"},
@@ -718,7 +733,7 @@
     {"file":"ruyi-workbench/app/src/13-http-router.js","fingerprint":"d4e106855e880f4474d79be10d1fb7d29c7f96f5e9ac559770348682e0ad5d86"},
     {"file":"ruyi-workbench/app/src/13aa-steward-delivery.js","fingerprint":"5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e"},
     {"file":"ruyi-workbench/app/src/13ab-privacy-api.js","fingerprint":"d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4"},
-    {"file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","fingerprint":"aaf5a0c8ba112c41531c3c4bb462769baedbf5b9dd7acd1beace6954810dbd04"},
+    {"file":"ruyi-workbench/app/src/13ac-mcp-consumer.js","fingerprint":"6d820f9d3a1c15f1de8b2baaf3d15f80509c5a42b24c165052fa713673ae5efc"},
     {"file":"ruyi-workbench/app/src/13b-api-domain-routes.js","fingerprint":"1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79"},
     {"file":"ruyi-workbench/app/src/13c-overlay-routes.js","fingerprint":"5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a"},
     {"file":"ruyi-workbench/app/src/13d-core-domain-routes.js","fingerprint":"326ec92bbcf12ed9eca005b43b466001aef23287b6ff1d375071e9e206c63747"},
@@ -744,7 +759,7 @@
     {"file":"ruyi-workbench/app/src/13x-external-channel-delivery.js","fingerprint":"3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"},
     {"file":"ruyi-workbench/app/src/13y-external-bot-credentials.js","fingerprint":"88f57132d4a46ecb007523626f76230670eaa0512029e021d2d558532ae0ffad"},
     {"file":"ruyi-workbench/app/src/13z-external-bot-discovery.js","fingerprint":"6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766"},
-    {"file":"ruyi-workbench/app/src/14-main.js","fingerprint":"6fb879913d42499526702de06f95c8f5a5c591f16a2116b9c47d8f9b12b435de"},
+    {"file":"ruyi-workbench/app/src/14-main.js","fingerprint":"e42f7405bd912c4e95bdd31e559fedbf469df6ef52103a85c2c75d30bf0f6cdf"},
     {"file":"ruyi-workbench/app/src/context-governance-rules.json","fingerprint":"68b1205a18ee143aab399dcd8581e18be1d25788a7f7be2dca0de291d9ff044c"},
     {"file":"ruyi-workbench/app/src/manifest.json","fingerprint":"7f298c66b9bed246796c7f9b60ddf877ecf4cfb41e49396f69415c263ade9924"},
     {"file":"ruyi-workbench/app/src/module-contracts.json","fingerprint":"e0bf33a87c458c68e6abc3301cd1c5860ec51c5e5ba636db6e8240de6363a15c"},
@@ -785,7 +800,7 @@
     {"file":"ruyi-workbench/tools/build-overlay.js","fingerprint":"3c5ae213b573ef76328ef9ed51c777110de7025e6371450fbb1cf58a34c8ab72"},
     {"file":"ruyi-workbench/tools/dev-serve.cmd","fingerprint":"20549600999b4269f3b0b739e6a5e1a84cdd3189ddbec2dcc985a30b3fc30249"},
     {"file":"ruyi-workbench/tools/external-bot-gateway.js","fingerprint":"781eaf1f039842091143ebedfed4160c062ae99e84670ffe9d6bfc585fefee45"},
-    {"file":"ruyi-workbench/tools/fake-claude.js","fingerprint":"b2fab438144482fa2dc8906550bdd63a959680888bafb6b292a72ec0bc45a56a"},
+    {"file":"ruyi-workbench/tools/fake-claude.js","fingerprint":"4a275ba20ca49054fa7d68a0535e770ffb3508cb9803659fde99a2cfe7be1de8"},
     {"file":"ruyi-workbench/tools/gen-manifest.js","fingerprint":"0818c238928b09d4122b1e099629eb38a2f813a6bff5f55fe6de41d5b8f0143d"},
     {"file":"ruyi-workbench/tools/package-offline.ps1","fingerprint":"e6ccc7c742892dad85e5e76d55cde03d2a4fb9ca4940a2fd8d5481dcb9fdae58"},
     {"file":"ruyi-workbench/app/src/01s-work-data-journals.js","fingerprint":"9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f"},
@@ -793,7 +808,10 @@
     {"file":"ruyi-workbench/app/src/01u-work-data-transition.js","fingerprint":"59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7"},
     {"file":"ruyi-workbench/app/src/01v-work-data-manifest.js","fingerprint":"e619619ba3ad329640cb214ec8a9a688ac3fe5a6e8cb500f791f8a85698af9f2"},
     {"file":"ruyi-workbench/app/src/01w-work-data-native-publish.js","fingerprint":"4a91da13caf6dc8ed75bd87b988b22e6bd4ff002b87efe02b5456ee3c73139b3"},
-    {"file":"ruyi-workbench/app/src/01x-work-data-migration-codecs.js","fingerprint":"9298533cd778625718e64604e8ce4b0aba229da0f463e5e651c83d7c58da97dd"}
+    {"file":"ruyi-workbench/app/src/01x-work-data-migration-codecs.js","fingerprint":"9298533cd778625718e64604e8ce4b0aba229da0f463e5e651c83d7c58da97dd"},
+    {"file":"ruyi-workbench/app/src/01z-work-data-root-authority.js","fingerprint":"1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1"},
+    {"file":"ruyi-workbench/app/src/13ae-cli-business-services.js","fingerprint":"6321123b4cdc590223dd39480cfe16c404be4b362fdbcc7e122f20dbfaa37730"},
+    {"file":"ruyi-workbench/app/src/13af-internal-mcp-relay.js","fingerprint":"53a0939a34ccbecba23b1901d0c5d35031d3e782dda530101c08d2d093371a76"}
   ],
   "entries": [
     {"id":"mcp/ai-computer-control/installer/build_offline_package.py#<module>#<python-transport-import>#1","fingerprint":"a6ec8538828a7a60a9ac2d0a4aa766bd61d095c8af0056027ff9ffba5e91a0c3","group":"capability"},
@@ -1326,16 +1344,6 @@
     {"id":"ruyi-workbench/app/src/13-http-router.js#resetOrphanedMissionDrivers#exec#1","fingerprint":"a2228f7ed32008ee8b066b9c7e298a61819ae73163873d5e3ce708b8de7341a9","group":"regex"},
     {"id":"ruyi-workbench/app/src/13-http-router.js#sendMcp#write#1","fingerprint":"adfb81c470f8792da3e9dd2a648d864e943bda9ea2c389ba313ec0127070afe3","group":"workbench-mcp-output"},
     {"id":"ruyi-workbench/app/src/13-http-router.js#sendMcpNotification#write#1","fingerprint":"ce6ef8d74707735dfe78904970162dfad0350cf6a6b18b821ba30c913527f3c8","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#1","fingerprint":"c18637a3ebdad86981487a2b129867e1b35b6dd2bf03eb98f1c7933ec921ff71","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#2","fingerprint":"7f615df677f6b1cd373b64f47448a302384ed9ddb13afc128aa4940e232719ce","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#3","fingerprint":"5c4ef9e16d7fe9c6f0c4c827bf42d383268763267d07a2e1c50096d5beca425a","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#4","fingerprint":"83fb8a52732e2135d292c4f307c3792f17e7b7594ea3b155ba3b9730a62506d3","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#5","fingerprint":"ffc5b1455a356fb3e93431350d60080839db4e7a7bd02824081b34dfefb65baa","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#6","fingerprint":"ef13f67e8ea7f718dfb0727629d5d852126d38d63606620c3dfefdd297f65557","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#7","fingerprint":"9dccd4d199e5da03301c13bbd8c7b07a8fbc3605ef0a452c1816f7fc22f65136","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#8","fingerprint":"01e8287d6e13f84f75b34ec4c38aa5993d76de4bdfe4e209c3b9384315a05800","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcp#9","fingerprint":"dffbb4a3ddfa7740b8fc751526564e053216eced88e59d485c2a1637247f28bc","group":"workbench-mcp-output"},
-    {"id":"ruyi-workbench/app/src/13-http-router.js#startMcp#sendMcpNotification#1","fingerprint":"00a3e6bd19b11ff21d664cbd0c838e1fea8b2c3dc767ab5652bf9f5b19d36451","group":"workbench-mcp-output"},
     {"id":"ruyi-workbench/app/src/13-http-router.js#startServerInner#spawnDetachedChecked#1","fingerprint":"9280311cb2445a34e4cf5eac3b5c9e6da654f48d71cd37c8b6f0a8e6141382c8","group":"process"},
     {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#checkSubscriptions#run#1","fingerprint":"85e76107f054e6cf59c128f415106ae0d1fbef335c94a7558f2b702ea41217cb","group":"local-callback"},
     {"id":"ruyi-workbench/app/src/13ac-mcp-consumer.js#handle#run#1","fingerprint":"91c69d749f68f21d99de208a796e91e0510c73bf049e152e2696eb4b675029ac","group":"local-callback"},
@@ -1485,6 +1493,10 @@
     {"id":"ruyi-workbench/app/src/01k-credential-vault.js#stageRecoveredForWorkData#run#2","fingerprint":"ed4800e90863f5c1a44b0232aba45d002688dc42c1b866b1784b0fd82172e0e7","group":"process"},
     {"id":"ruyi-workbench/app/src/01w-work-data-native-publish.js#<module>#<transport-import>#1","fingerprint":"beda6d2a4049de7c19ddf8760b4ab52a17e0cbbade019c0cd1942205172e056b","group":"capability"},
     {"id":"ruyi-workbench/app/src/01w-work-data-native-publish.js#invoke#spawn#1","fingerprint":"ae933f8cb26ecd1c11f821f05a20231144996bfaef1d33035674ce54072726b7","group":"process"},
-    {"id":"ruyi-workbench/app/src/01x-work-data-migration-codecs.js#describe#exec#1","fingerprint":"8b284f5ab8646224b809d07265c5fc152634784ea90bf306750d84231071bd8e","group":"regex"}
+    {"id":"ruyi-workbench/app/src/01x-work-data-migration-codecs.js#describe#exec#1","fingerprint":"8b284f5ab8646224b809d07265c5fc152634784ea90bf306750d84231071bd8e","group":"regex"},
+    {"id":"ruyi-workbench/app/src/13af-internal-mcp-relay.js#forward#request#1","fingerprint":"c71f4a29be31062a03bfa791cdf6406fd9f1b8bb2edc6d35eaeb6e3514b06e9d","group":"internal-mcp-execution-loopback"},
+    {"id":"ruyi-workbench/app/src/13af-internal-mcp-relay.js#handle#run#1","fingerprint":"eb0f9c337f5f9c82fb4fc84307ed3fe4cdc679ee838e363920bf1389c877362b","group":"local-callback"},
+    {"id":"ruyi-workbench/app/src/13af-internal-mcp-relay.js#startRelay#<transport-import>#1","fingerprint":"957f86e0434ff92d00c5d54ec64e7bc934f21b0071d215e6f93c591c26335f1a","group":"capability"},
+    {"id":"ruyi-workbench/app/src/13af-internal-mcp-relay.js#startRelay#write#1","fingerprint":"2b489e21d482203ec85d9534c04404d03a6cf1fed4aa49dccbacd6ec3ebd0c2b","group":"workbench-mcp-output"}
   ]
 }

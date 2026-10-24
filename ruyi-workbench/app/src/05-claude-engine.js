@@ -44,7 +44,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     id: 'claude',
     interactive: config => config.engineMode === 'interactive',
     slashCommandVerbatim: false,
-    async buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath }) {
+    async buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath, internalMcpGrant }) {
       const args = ['-p', '--output-format', 'stream-json', '--verbose'];
       if (interactive) args.push('--input-format', 'stream-json');
       if (config.includePartialMessages) args.push('--include-partial-messages');
@@ -52,7 +52,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       if (config.includeWorkbenchMcp) {
         const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
         // 会话级 desktopTools 一并交过去:full 模式直挂的 ACC 按这条线程的桌面闸裁剪(01 desktopMcpPolicyEnv)。
-        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks, { desktopOverride: sessionDesktopToolsOf(session) }));
+        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks, { desktopOverride: sessionDesktopToolsOf(session), internalMcpGrant }));
         // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
         // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
         if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
@@ -379,9 +379,10 @@ async function runClaudeTurn({
   const interactive = adapter.interactive(config);
 
   // 回合主参数(输出格式/MCP/权限/模型/思考强度……)由适配器给;--agents 的推送延后到下方「预算核算与降级阶梯」。
+  const internalMcpGrant = InternalMcpHooks.create({ session, executionOwner, config, packs: classifyToolPacks(basePrompt, attachments) });
   const memoryCliGrant = config.workDataEncryptionV1 === true && (!config.includeWorkbenchMcp || adapter.memoryMcpViaLifecycle)
     ? await MemoryCliHooks.create({ session, executionOwner, config }) : null;
-  const args = await adapter.buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath: memoryCliGrant?.configPath });
+  const args = await adapter.buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath: memoryCliGrant?.configPath, internalMcpGrant });
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
@@ -631,7 +632,7 @@ async function runClaudeTurn({
     return adapter.runPreparedTurn({
       executionOwner,
       session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
-      additionalDirectories, memoryCliGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
+      additionalDirectories, memoryCliGrant, internalMcpGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
       resumeResetReason, promptTaskContext, workspaceTurnBaseline, agentRecoverySummary, kimiNativeSlashCommand,
     });
@@ -685,7 +686,8 @@ async function runClaudeTurn({
   }
 
   // 子进程环境由适配器给(Claude:effectiveAnthropicEnv 叠第三方端点/模型 + MAX_THINKING_TOKENS;Kimi:process.env)。
-  const env = adapter.buildEnv(config, { RUYI_HOME: paths.data }); // 数据根交给 CLI/MCP 子进程(3.0 起只写 RUYI_HOME)
+  const env = adapter.buildEnv(config, { RUYI_HOME: dataRoot() });
+  for (const key of ['RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete env[key]; // Claude gets the capability only in its per-execution MCP definition.
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
@@ -740,6 +742,8 @@ async function runClaudeTurn({
   installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   registerSessionExecutionChild(session.id, reg, executionOwner);
+  try { InternalMcpHooks.bind(internalMcpGrant, reg, executionOwner); }
+  catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
   if (memoryCliGrant) {
     try { MemoryCliHooks.bind(memoryCliGrant, reg, executionOwner); }
     catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
@@ -2166,7 +2170,7 @@ const voiceLexiconStore = WorkDataStore.createJson({
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   quarantine: true,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 const voiceLexiconChains = new Map();
 // 读失败分两类：明文坏文件（旧契约：当空 + 诊断）与加密记录读不出来（缺钥/认证失败/开关不可知）。

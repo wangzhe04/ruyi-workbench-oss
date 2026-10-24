@@ -237,8 +237,15 @@ async function policyDesktopOverrideFor(ctx) {
   const session = await policySessionFor(ctx);
   return session ? sessionDesktopToolsOf(session) : null;
 }
+function mcpCatalogForContext(catalog, ctx) {
+  return typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)
+    ? catalog.filter(tool => !InternalMcpHooks.resourceRefusal(ctx, tool.function?.name)) : catalog;
+}
 
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
+  if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) {
+    const refusal = InternalMcpHooks.resourceRefusal(ctx, targetName); if (refusal) return refusal;
+  }
   // 控制面工具(含内部的 permission_prompt、tool_load)不能经代理调:先于目录查找判,给明确的拒绝而不是「tool not found」。
   // 注意作用面:模型服务商回合里,代理到 list_tools / tool_search / tool_load / todo_write / mission_update / 代理工具族的调用
   // 在 09 入批处就被 unwrapProxiedControlCall 【有意】解开成直调(它们要活的回合闭包,经这里会是静默空操作),到不了这一行;
@@ -293,14 +300,16 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const relArg = bridgedWriteRelativePathArg(targetName, targetArgs || {});
   if (relArg) return { ok: false, error: `desktop/document writes require an absolute path; '${relArg}' is relative` };
   try {
-    const sid = process.env.WCW_SESSION_ID || '';
+    const sid = ctx?.sessionId || process.env.WCW_SESSION_ID || '';
     const sidSession = sid ? await loadSession(sid).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }) : null;
     const session = (ctx && ctx.session) || sidSession;
     // 审计 A②:桥接读文件过读边界(与 09/08 两个分发点同一个函数)。MCP 子进程里 ctx 为空 → 按 WCW_SESSION_ID 装会话。
     const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
     if (readRefusal) return readRefusal;
-    if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
+    if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, targetName);
+    if (session) await journalBridgedWrite(targetName, targetArgs || {}, session, config, { sessionId: sid, turnSeq: ctx?.turnSeq ?? session.turnSeq });
     if (typeof PrivacyGateway !== 'undefined') targetArgs = await PrivacyGateway.revalidateExecution(targetName, targetArgs || {}, { ...(ctx || {}), bridge });
+    if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, targetName);
     const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
     return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
@@ -586,15 +595,16 @@ const CORE_TOOL_HANDLERS = {
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 被能力总闸关掉的桥接工具不进目录
-      return listCompactTools(catalog, args);
+      return listCompactTools(mcpCatalogForContext(catalog, ctx), args);
   } },
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 同上
-      const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 3 });   // 与引擎路径同一档名字加权(修前 1 = 不加权,read file 排不出 file_read)
+      const visibleCatalog = mcpCatalogForContext(catalog, ctx);
+      const result = searchToolCatalog(visibleCatalog, args, config, { legacyNameBoost: 3 });   // 与引擎路径同一档名字加权(修前 1 = 不加权,read file 排不出 file_read)
       if (config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
         try {
-          const candidate = searchToolCatalog(catalog, args, config, { forceV1: true, legacyNameBoost: 3 });
+          const candidate = searchToolCatalog(visibleCatalog, args, config, { forceV1: true, legacyNameBoost: 3 });
           const comparison = compareToolRetrievalShadow(result, candidate);
           const sessionId = (ctx && ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || '';
           logEvent({ kind: 'tool_retrieval_shadow', engine: 'mcp', sessionId, ...comparison });
@@ -617,6 +627,7 @@ const CORE_TOOL_HANDLERS = {
       return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {}, ctx);
   } },
   permission_prompt: { paths: null, guardNote: "CLI 权限桥 loopback,不触文件路径(fail-closed)", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('permission_prompt', args, ctx);
       // Bridge: the CLI (via --permission-prompt-tool) asks us to approve a tool call. We run inside
       // the MCP child, so we call back to the web server's loopback, which prompts the UI.
       const port = process.env.WCW_PORT, host = process.env.WCW_HOST || '127.0.0.1';
@@ -639,6 +650,7 @@ const CORE_TOOL_HANDLERS = {
       }
   } },
   request_user_input: { paths: null, guardNote: "loopback 提问,不触文件路径", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('request_user_input', args, ctx);
       // Provider turns intercept this in their live closure. Claude reaches it through the per-session MCP
       // child, which loops back to the serve process so the visible chat stream owns the modal and answer.
       if (RUNTIME.isMcpChild) {
@@ -658,6 +670,7 @@ const CORE_TOOL_HANDLERS = {
       return { ok: false, error: 'request_user_input requires a live turn' };
   } },
   todo_write: { paths: null, guardNote: "任务清单经 loopback /api/todo 落会话,不触任意文件路径", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('todo_write', args, ctx);
       // v0.8-S3: FULL-REPLACE task list. Two execution contexts:
       //  - serve process (provider engine): the runOpenAiTurn tool loop special-cases todo_write BEFORE
       //    dispatching here (it holds the session + onEvent to persist session.todos and emit the `todo`
@@ -691,6 +704,7 @@ const CORE_TOOL_HANDLERS = {
       return { ok: true, count: items.length, persisted: false, note: '仅校验通过,未写入会话(当前不在对话回合内)' };
   } },
   mission_update: { paths: null, guardNote: "任务账本经 loopback /api/mission 落会话,不触任意文件路径", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('mission_update', args, ctx);
       // 第26波b: 与 todo_write 同款双路径。serve 进程(provider)由 runOpenAiTurn 特例拦截(持 session);
       // 此处是 MCP 子进程(Claude)与无回合上下文的兜底:子进程 loopback POST /api/mission(不写会话文件)。
       if (RUNTIME.isMcpChild) {
@@ -782,7 +796,7 @@ async function buildWorkbenchSelfStatus(args, ctx) {
             { modality: 'document', tools: ['file_read'], input: 'PDF/OOXML/ODF; embedded images and page windows' },
             { modality: 'audio', tools: ['audio_inspect', 'audio_transcribe'], analysis: 'local FFmpeg measurements', listening: false, transcriptionConfigured: modalities.asr },
             { modality: 'code', tools: ['code_check', 'file_edit', 'file_write'], input: 'validateSyntax:true checks candidate before writing' },
-            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!capabilityProvider && !RUNTIME.isMcpChild, engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
+            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!capabilityProvider && !RUNTIME.isMcpChild && !(typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)), engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
             { modality: 'verification', tools: ['acceptance_report', 'media_probe', 'checkpoint_list'] },
           ],
           checkpointScope: 'Native journaled file operations only. Shell/script/ffmpeg/browser/application side effects are not checkpointed; recursive operations restore file contents, not empty-directory metadata.',
@@ -2550,7 +2564,7 @@ const SHELL_TOOL_HANDLERS = {
     // session Map cannot persist across turns, so return a guiding error rather than fake a session.
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       const badCwd = await execCwdProblem(g.cwd);
       if (badCwd) return badCwd;
       const cfg = await readConfig().catch(() => ({ shellSessionMax: 3 }));
@@ -2559,19 +2573,19 @@ const SHELL_TOOL_HANDLERS = {
       return shellStart({ ...args, cwd: g.cwd }, cfg, ctx);
   } },
   shell_send: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       return shellSend(args, ctx);
   } },
   shell_poll: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       return shellPoll(args, ctx);
   } },
   shell_kill: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       return shellKill(args, ctx);
   } },
   shell_list: { paths: null, guardNote: "会话清单只读,不触文件路径", handler: async (args, ctx) => {
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       return shellList(ctx);   // 135c:只列本线程开的(见 11 shellVisibleTo)
   } },
 };
@@ -3021,7 +3035,7 @@ function agentToolLoopback(route, payload) {
 const AGENT_TOOL_HANDLERS = {
   spawn_agent: { paths: null, guardNote: "已并入 orchestrate_agents:MCP 子进程翻译成单节点回环,其余来路清晰拒绝", handler: async (args, ctx) => {
       // 旧模型仍可能凭记忆调 spawn_agent:MCP 子进程里翻译成单节点 orchestrate(附提示);直接 /api/tools 调用给清晰指引。
-      if (RUNTIME.isMcpChild) {
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) {
         const a = args && typeof args === 'object' ? args : {};
         const translated = { task: a.task, background: a.background === true };
         for (const k of ['role', 'agentKey', 'toolTier', 'maxIters', 'model', 'resources']) if (a[k] != null) translated[k] = a[k];
@@ -3032,6 +3046,7 @@ const AGENT_TOOL_HANDLERS = {
       return { ok: false, error: 'spawn_agent 已并入 orchestrate_agents;请改用 orchestrate_agents({task, role?, toolTier?, background?})(仅在 provider 对话回合或 Claude/Kimi 工作台会话中可用)', replacedBy: 'orchestrate_agents' };
   } },
   orchestrate_agents: { paths: null, guardNote: "MCP 子进程 loopback /api/agent-workflow/launch(envelope:true;background→async);无会话上下文拒绝", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('orchestrate_agents', args, ctx);
       if (RUNTIME.isMcpChild) {
         const a = args && typeof args === 'object' ? args : {};
         // v1.4.4: forward workflowId/context too — the model choosing a saved template BY REFERENCE only works if
@@ -3046,6 +3061,7 @@ const AGENT_TOOL_HANDLERS = {
       return { ok: false, error: 'orchestrate_agents 需要在 OpenAI 对话回合或 Claude CLI 工作台会话中调用' };
   } },
   wait_agents: { paths: null, guardNote: "MCP 子进程 loopback /api/agent-workflow/wait;无回合上下文拒绝(provider 回合特判在 runOpenAiTurn)", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('wait_agents', args, ctx);
       if (RUNTIME.isMcpChild) {
         const a = args && typeof args === 'object' ? args : {};
         return agentToolLoopback('/api/agent-workflow/wait', { runIds: a.runIds, timeoutMs: a.timeoutMs });
@@ -3053,6 +3069,7 @@ const AGENT_TOOL_HANDLERS = {
       return { ok: false, error: 'wait_agents 仅在 provider 对话回合或 Claude/Kimi 工作台会话中可用(收集后台代理信封)' };
   } },
   agent_result: { paths: null, guardNote: "MCP 子进程 loopback /api/agent-workflow/result;无回合上下文拒绝(provider 回合特判在 runOpenAiTurn)", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('agent_result', args, ctx);
       if (RUNTIME.isMcpChild) {
         const a = args && typeof args === 'object' ? args : {};
         return agentToolLoopback('/api/agent-workflow/result', { runId: a.runId, nodeId: a.nodeId, maxChars: a.maxChars, offset: a.offset });
@@ -3378,6 +3395,10 @@ function validateNativeToolArgs(name, args) {
 }
 
 async function toolCall(name, args = {}, ctx = null) {
+  if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) {
+    const refusal = InternalMcpHooks.resourceRefusal(ctx, name); if (refusal) return refusal;
+  }
+  if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, name);
   if (typeof PrivacyGateway !== 'undefined') {
     // MCP processes can outlive a settings change; consult persisted policy before every unscoped call.
     if (!PrivacyGateway.active() && typeof readConfig === 'function') PrivacyGateway.assertSupported((ctx && ctx.config) || await readConfig(), 'external-tool');
@@ -3422,7 +3443,10 @@ async function toolCall(name, args = {}, ctx = null) {
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
   try {
-    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, checked => entry.handler(checked, ctx));
+    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, checked => {
+      if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, name);
+      return entry.handler(checked, ctx);
+    });
     return await entry.handler(args, ctx);
   }
   catch (e) {

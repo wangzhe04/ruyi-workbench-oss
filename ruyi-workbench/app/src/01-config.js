@@ -683,6 +683,8 @@ function persistableConfig(config, base) {
     if (CONFIG_BOOKKEEPING_KEYS.includes(key)) out[key] = config[key];
     else if (explicit.has(key) || !Object.prototype.hasOwnProperty.call(base, key)) out[key] = configComparableValue(config, key);
   }
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.())
+    out.workDataEncryptionV1 = WorkDataRootHooks.mode(config.workDataEncryptionV1);
   out.configSchema = CONFIG_SCHEMA;
   out.version = VERSION;
   return out;
@@ -1061,6 +1063,10 @@ function normalizeConfig(raw, opts = {}) {
   for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
+  }
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode) {
+    const enabled = WorkDataRootHooks.mode(config.workDataEncryptionV1);
+    if (enabled !== config.workDataEncryptionV1) { config.workDataEncryptionV1 = enabled; changed = true; }
   }
   // schema<12 的三开关翻开(107-T1)与 schema<13 的 killOnDisconnect 翻关在 CONFIG_MIGRATIONS(to:12 / to:13),
   // 它们在上面这个严格布尔循环【之后】跑(脏值先压成 false 再迁),见 applyConfigMigrations 的调用点。
@@ -1912,6 +1918,11 @@ let configWriteChain = Promise.resolve();
 let configReadGeneration = 0;
 function invalidateConfigReads() { configReadGeneration++; configReadCache = null; }
 async function writeConfigAtomic(data, options = {}) {
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.()) {
+    const raw = safeJsonParse(data, null);
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw Object.assign(new Error('work_data_root.config_invalid'), { code: 'work_data_root.config_invalid' });
+    data = JSON.stringify({ ...raw, workDataEncryptionV1: WorkDataRootHooks.mode(raw.workDataEncryptionV1) }, null, 2);
+  }
   // Only read-derived migration/recovery writes may be superseded. Ordinary
   // writes retain their existing ordered persistence and never silently disappear.
   const conditionalRead = options.expectedReadGeneration !== undefined;
@@ -3697,7 +3708,7 @@ const RUNTIME = { port: DEFAULT_PORT, host: '127.0.0.1', token: '', isMcpChild: 
 //   · 工作台自己 spawn 桥接服务器(04 bridgedServerSpawnEnv:直接从继承环境里删);
 //   · 交给 agent CLI 去 spawn(下面 bridgedCliServerEnv:写进 --mcp-config / Kimi mcp.json 的条目 env 块)。
 const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
-const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']);
 function bridgedEnvKeyStripped(key) {
   const up = String(key).toUpperCase();
   if (BRIDGED_ENV_KEEP.has(up)) return false;
@@ -3709,7 +3720,7 @@ function bridgedEnvKeyStripped(key) {
 // 修前 ACC 的 get_environment_variable 一问就拿到。配置文件只能【加/盖】变量、不能删,所以把这些键在条目 env 块里
 // 盖成空串:固定一组已知凭据键,再加本进程环境里此刻存在的其它 WCW_*(被别的如意回合拉起时继承来的)。
 // 条目自己声明的 env 叠在最后,照常生效(与 04 同口径)。
-const BRIDGED_CLI_ENV_BLANK_KEYS = Object.freeze(['WCW_TOKEN', 'WCW_PORT', 'WCW_HOST', 'WCW_SESSION_ID', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+const BRIDGED_CLI_ENV_BLANK_KEYS = Object.freeze(['WCW_TOKEN', 'WCW_PORT', 'WCW_HOST', 'WCW_SESSION_ID', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']);
 function bridgedCliServerEnv(ownEnv, baseEnv = process.env) {
   const blanks = {};
   for (const k of BRIDGED_CLI_ENV_BLANK_KEYS) blanks[k] = '';
@@ -3776,7 +3787,7 @@ async function generateMcpConfig(mode) {
         args: self.args,
         env: {
           // MCP 子进程的数据根 = 父进程已解析的 dataRoot(3.0 起只写 RUYI_HOME;旧变量名 WIN_CLAUDE_WORKBENCH_HOME 只读兼容)。
-          RUYI_HOME: paths.data,
+          RUYI_HOME: dataRoot(),
           // Intent marker only, not authentication. Kimi inherits actual run
           // credentials; the host verifies the live CLI owner on every RPC.
           RUYI_MCP_INTERNAL_ONLY: '1',
@@ -3850,7 +3861,7 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks, opts) {
         command: self.command,
         args: self.args,
         env: {
-          RUYI_HOME: paths.data,
+          RUYI_HOME: dataRoot(),
           WCW_SESSION_ID: sessionId,
           WCW_PORT: String(RUNTIME.port),
           WCW_HOST: RUNTIME.host,
@@ -3861,6 +3872,10 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks, opts) {
       },
     },
   };
+  // A generated config without a live grant remains setup-only; shared API tokens grant no default RPC authority.
+  const own = mcp.mcpServers[RUYI_MCP_SERVER_ID];
+  if (opts?.internalMcpGrant) own.env = InternalMcpHooks.launchEnv(opts.internalMcpGrant);
+  else own.env = { RUYI_HOME: dataRoot(), WCW_TOKEN: '', WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', RUYI_INTERNAL_MCP_CAP: '', RUYI_INTERNAL_MCP_PORT: '' };
   // In adaptive mode external schemas stay behind the typed invoke proxies, so a simple Claude turn
   // does not ingest an entire desktop/Office catalog. Full mode retains the historical direct servers.
   if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg, { desktopOverride: opts && opts.desktopOverride });
@@ -4083,6 +4098,13 @@ function authorizeRoute(req, method, pathname) {
     }
     // Consumer transport precheck grants no management authority. The exact
     // owner authenticates the token hash before reading its bounded body.
+    if (r.auth === 'internal-mcp') {
+      return m === 'POST' && !r.prefix && pathname === '/api/mcp/internal/request' && !remote && !browser
+        && !req.headers.origin && !req.headers['sec-fetch-site'] && !req.headers['sec-fetch-mode']
+        && typeof req.headers['x-ruyi-internal-mcp-cap'] === 'string' && /^[a-f0-9]{64}$/.test(req.headers['x-ruyi-internal-mcp-cap'])
+        && (!req.headers['content-length'] || /^\d{1,9}$/.test(req.headers['content-length']) && Number(req.headers['content-length']) <= MAX_BODY_BYTES)
+        ? null : 'internal relay request not authorized';
+    }
     if (r.auth === 'memory-cli') {
       return m === 'POST' && !r.prefix && pathname === '/api/memory-cli' && !remote && !browser
         && typeof req.headers['x-ruyi-memory-cap'] === 'string'

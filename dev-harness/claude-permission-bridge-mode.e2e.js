@@ -5,8 +5,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(服务启�
 // runClaudeTurn 按解析档 default 起 CLI(带 --permission-prompt-tool),CLI 为一次 Write 来问权限桥,
 // 桥却拿全局 auto 去判 → edit 档直接 allow,用户收紧了的线程被静默放行。
 //
-// 真服务 + 一个写在临时目录里的最小假 CLI:它从 --mcp-config 里取出每会话 MCP 条目的 WCW_PORT/WCW_TOKEN/
-// WCW_SESSION_ID(真 CLI 的 MCP 子进程就是拿这几个值调桥的),以 Claude 名 `Write` 调一次 /api/permission/request,
+// 真服务 + 一个写在临时目录里的最小假 CLI:它从 --mcp-config 读取实际 MCP definition,启动真实 stdio 子进程,
+// 经 tools/call permission_prompt 以 Claude 名 `Write` 请求权限(不从 MCP 配置取管理 token 发 HTTP),
 // 把桥的答复记到文件里,再按 stream-json 收尾。
 //   (A) 全局 auto + 请求级 default:CLI 按 default 起(带权限桥);桥【不】自动放行 —— 发出 permission_request,
 //       测试以用户身份拒绝,假 CLI 收到的是 deny。
@@ -27,28 +27,53 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(HOME, { recursive: true });
 fs.mkdirSync(WORK, { recursive: true });
 fs.writeFileSync(FAKE_CLI, `'use strict';
-const fs = require('fs'), http = require('http');
+const fs = require('fs'), cp = require('child_process');
+const { killOwnTree } = require(${JSON.stringify(path.join(__dirname, 'lib/kill-own-tree.js'))});
 const argv = process.argv.slice(2);
 const at = f => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : ''; };
 const SID = 'fake-bridge-' + Math.random().toString(16).slice(2, 8);
 const emit = o => process.stdout.write(JSON.stringify(o) + '\\n');
 process.stdin.on('data', () => {}); process.stdin.on('error', () => {});
 (async () => {
-  let env = {};
-  try {
-    const mcp = JSON.parse(fs.readFileSync(at('--mcp-config'), 'utf8'));
-    for (const s of Object.values(mcp.mcpServers || {})) if (s && s.env && s.env.WCW_TOKEN) env = s.env;
-  } catch {}
+  const mcp = JSON.parse(fs.readFileSync(at('--mcp-config'), 'utf8'));
+  const definition = mcp.mcpServers && mcp.mcpServers.ruyi;
+  if (!definition || !definition.command || !Array.isArray(definition.args)) throw Error('Missing actual Ruyi MCP definition');
   emit({ type: 'system', subtype: 'init', session_id: SID, tools: [], model: 'fake-model' });
-  const body = JSON.stringify({ token: env.WCW_TOKEN, sessionId: env.WCW_SESSION_ID, toolName: 'Write', input: { file_path: ${JSON.stringify(path.join(WORK, 'x.txt'))}, content: 'x' } });
-  const reply = await new Promise(resolve => {
-    const req = http.request({ host: env.WCW_HOST || '127.0.0.1', port: Number(env.WCW_PORT), path: '/api/permission/request', method: 'POST',
-      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } }, res => {
-      let b = ''; res.on('data', c => (b += c)); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve({ raw: b }); } });
-    });
-    req.on('error', e => resolve({ error: String(e && e.message) }));
-    req.write(body); req.end();
+  const child = cp.spawn(definition.command, definition.args, { env: { ...process.env, ...definition.env },
+    ...(definition.cwd ? { cwd: definition.cwd } : {}), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const pending = new Map(); let buffer = '', nextId = 0;
+  const fail = error => { for (const entry of pending.values()) { clearTimeout(entry.timer); entry.reject(error); } pending.clear(); };
+  const closed = new Promise(resolve => child.once('close', resolve));
+  child.once('error', fail); child.once('close', () => fail(Error('MCP closed before reply'))); child.stdin.on('error', fail);
+  child.stderr.on('data', () => {});
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', chunk => {
+    buffer += chunk; let end;
+    while ((end = buffer.indexOf('\\n')) >= 0) {
+      const line = buffer.slice(0, end); buffer = buffer.slice(end + 1); if (!line.trim()) continue;
+      let value; try { value = JSON.parse(line); } catch { fail(Error('Invalid MCP JSON')); continue; }
+      const entry = pending.get(value.id); if (!entry) continue;
+      pending.delete(value.id); clearTimeout(entry.timer); entry.resolve(value);
+    }
   });
+  const rpc = (method, params) => new Promise((resolve, reject) => {
+    const id = ++nextId, timer = setTimeout(() => { pending.delete(id); reject(Error('MCP reply deadline')); }, 75000);
+    pending.set(id, { resolve, reject, timer }); child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\\n');
+  });
+  let reply;
+  try {
+    const init = await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'permission-bridge-fixture', version: '1' } });
+    if (init.error) throw Error('MCP initialize failed');
+    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\\n');
+    const result = await rpc('tools/call', { name: 'permission_prompt', arguments: { tool_name: 'Write', input: { file_path: ${JSON.stringify(path.join(WORK, 'x.txt'))}, content: 'x' } } });
+    if (result.error) throw Error('MCP permission prompt failed');
+    reply = JSON.parse(result.result.content.find(item => item.type === 'text').text);
+  } catch (error) { reply = { error: String(error && error.message) }; }
+  finally {
+    child.stdin.end(); let deadline;
+    try { await Promise.race([closed, new Promise(resolve => { deadline = setTimeout(resolve, 2000); })]); }
+    finally { clearTimeout(deadline); await killOwnTree(child); }
+  }
   fs.appendFileSync(${JSON.stringify(CAPTURE)}, JSON.stringify({ permissionMode: at('--permission-mode'), promptTool: at('--permission-prompt-tool'), reply }) + '\\n');
   emit({ type: 'assistant', session_id: SID, message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] } });
   emit({ type: 'result', subtype: 'success', is_error: false, result: 'done', session_id: SID, duration_ms: 10, num_turns: 1, usage: { input_tokens: 1, output_tokens: 1 } });

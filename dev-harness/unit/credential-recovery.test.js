@@ -183,7 +183,8 @@ test('startup diagnostic retains its schema, size limit and original error while
     let finished = 0;
     const start = vm.runInNewContext(functions + '\nstartServer', {
       PrivacyCore: { configHooks: { startupGuidance: f.CredentialRecovery.startupGuidance } },
-      paths: { data: 'synthetic-data' }, path, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ legacy: 'synthetic-old', next: 'synthetic-new' }),
+      paths: { data: 'synthetic-data' }, dataRoot: () => 'synthetic-data',
+      WorkDataRootHooks: { bind: async () => {}, ready: () => true }, path, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ legacy: 'synthetic-old', next: 'synthetic-new' }),
       lstatOrNull: () => null, isDirectServeInvocation: () => false, ServerOwnership: { acquire: async () => ({ portable: false }) },
       startServerInner: async () => { throw error; }, finishBootCliPathProbes: () => { finished++; },
       START_ERROR_KINDS: ['port-unavailable', 'data-dir-unwritable', 'startup-failed'], LAST_START_ERROR_FILE: 'last-start-error.json',

@@ -35,8 +35,8 @@ const MemoryCliRelay = (() => {
     if (!sessionId || !executionOwner || executionOwner.cancelRequested || turnSettlers.get(sessionId) !== executionOwner) fail('owner_unavailable');
     const token = crypto.randomBytes(32).toString('hex'), self = commandForSelfMcp(config.mcpCommandMode);
     const definition = { type: 'stdio', command: self.command, args: [...self.args, '--memory-read-only'], env: {
-      RUYI_HOME: paths.data, RUYI_MEMORY_SESSION: sessionId, RUYI_MEMORY_PORT: String(RUNTIME.port), RUYI_MEMORY_CAP: token,
-      WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '',
+      RUYI_HOME: dataRoot(), RUYI_MEMORY_SESSION: sessionId, RUYI_MEMORY_PORT: String(RUNTIME.port), RUYI_MEMORY_CAP: token,
+      WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '', RUYI_INTERNAL_MCP_CAP: '', RUYI_INTERNAL_MCP_PORT: '',
     } };
     const configPath = path.join(paths.generated, `workbench.mcp.${sessionId}.json`);
     await fsp.mkdir(paths.generated, { recursive: true });
@@ -63,8 +63,8 @@ const MemoryCliRelay = (() => {
     nodeCurrent(context);
     const token = crypto.randomBytes(32).toString('hex'), self = commandForSelfMcp(config.mcpCommandMode);
     const definition = { type: 'stdio', command: self.command, args: [...self.args, '--memory-read-only'], env: {
-      RUYI_HOME: paths.data, RUYI_MEMORY_PORT: String(RUNTIME.port), RUYI_MEMORY_CAP: token,
-      WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '',
+      RUYI_HOME: dataRoot(), RUYI_MEMORY_PORT: String(RUNTIME.port), RUYI_MEMORY_CAP: token,
+      WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '', RUYI_INTERNAL_MCP_CAP: '', RUYI_INTERNAL_MCP_PORT: '',
     } };
     const configPath = path.join(paths.generated, `workbench.memory-mcp.${safeSessionId(subagentId)}.json`);
     let servers = {};
@@ -154,7 +154,7 @@ const MemoryCliRelay = (() => {
   }
   async function startRelay() {
     const http = require('node:http'), token = process.env.RUYI_MEMORY_CAP, port = Number(process.env.RUYI_MEMORY_PORT);
-    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST']) delete process.env[key];
+    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete process.env[key];
     const post = body => new Promise((resolve, reject) => {
       if (!/^[a-f0-9]{64}$/.test(String(token)) || !Number.isSafeInteger(port) || port < 1 || port > 65535) { reject(Error('memory_cli.unavailable')); return; }
       const payload = Buffer.from(JSON.stringify(body));

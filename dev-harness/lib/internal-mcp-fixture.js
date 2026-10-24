@@ -40,10 +40,12 @@ function spawnAuthenticatedMcp(host, options = {}) {
 }
 function spawnMcpInApp(app, { session, env = process.env }) {
   if (!session || !app.RUNTIME?.token) throw Error('Fixture host/session required');
-  const child = cp.spawn(process.execPath, [__filename, '--cli'], { env: { ...env, WCW_HOST: '127.0.0.1', WCW_PORT: String(app.RUNTIME.port), WCW_TOKEN: app.RUNTIME.token, WCW_SESSION_ID: session.id }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   let settle; const owner = { promise: new Promise(resolve => { settle = resolve; }), source: 'fixture-cli', driverRunId: 'fixture-local-' + (++serial), phase: 'starting', cancelRequested: false, cancel() { this.cancelRequested = true; } };
+  app.recordSessionExecutionOwner(session.id, owner);
+  const grant = app.InternalMcpRelay.create({ session, executionOwner: owner, config: { mcpCommandMode: 'auto', toolLoadingMode: env.WCW_TOOL_LOADING_MODE || 'full' }, packs: String(env.WCW_TOOL_PACKS || '').split(',').filter(Boolean) });
+  const child = cp.spawn(process.execPath, [__filename, '--cli'], { env: { ...env, ...app.InternalMcpRelay.launchEnv(grant) }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const reg = { child, pid: child.pid, kind: 'kimi-acp', state: 'running', exited: false, session };
-  app.recordSessionExecutionOwner(session.id, owner); app.registerSessionExecutionChild(session.id, reg, owner);
+  app.registerSessionExecutionChild(session.id, reg, owner); app.InternalMcpRelay.bind(grant, reg, owner);
   const close = () => { if (app.activeChildren.get(session.id) === reg) app.activeChildren.delete(session.id); if (app.turnSettlers.get(session.id) === owner) app.turnSettlers.delete(session.id); settle(); };
   child.once('exit', close); child.once('error', close); return child;
 }
@@ -118,16 +120,17 @@ if (require.main === module) {
   }
 }
 async function hostMain() {
-  const app = require('./server-internals').loadServerInternals(['startServer', 'RUNTIME', 'createSession', 'loadSession', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers']);
+  const app = require('./server-internals').loadServerInternals(['startServer', 'RUNTIME', 'createSession', 'loadSession', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers', 'InternalMcpRelay', 'readConfig']);
   const bridges = new Map();
   function close(bridge) {
     const entry = bridges.get(bridge); if (!entry) return;
     bridges.delete(bridge);
     entry.closed = true;
-    if (!entry.child) return;
-    if (app.activeChildren.get(entry.session.id) === entry.reg) app.activeChildren.delete(entry.session.id);
-    if (app.turnSettlers.get(entry.session.id) === entry.owner) app.turnSettlers.delete(entry.session.id);
-    entry.settle(); void killOwnTree(entry.child);
+    if (entry.grant) app.InternalMcpRelay.revoke(entry.grant, entry.reg);
+    const sessionId = entry.session?.id;
+    if (sessionId && app.activeChildren.get(sessionId) === entry.reg) app.activeChildren.delete(sessionId);
+    if (sessionId && app.turnSettlers.get(sessionId) === entry.owner) app.turnSettlers.delete(sessionId);
+    if (entry.settle) entry.settle(); if (entry.child) void killOwnTree(entry.child);
   }
   process.once('disconnect', () => { for (const bridge of bridges.keys()) close(bridge); process.exit(0); });
   process.on('message', message => {
@@ -144,11 +147,16 @@ async function hostMain() {
       const session = requested ? await app.loadSession(requested) : await app.createSession({ title: 'Synthetic registered CLI owner' });
       if (pending.closed || bridges.get(message.bridge) !== pending) return;
       if (!session || app.activeChildren.has(session.id)) throw Error('Fixture session unavailable');
-      const child = cp.spawn(process.execPath, [__filename, '--cli'], { env: { ...process.env, ...message.env, WCW_HOST: '127.0.0.1', WCW_PORT: String(app.RUNTIME.port), WCW_TOKEN: app.RUNTIME.token, WCW_SESSION_ID: session.id }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
       let settle; const owner = { promise: new Promise(resolve => { settle = resolve; }), source: 'fixture-cli', driverRunId: 'fixture-cli-' + message.bridge, phase: 'starting', cancelRequested: false, cancel() { this.cancelRequested = true; } };
+      const config = await app.readConfig();
+      if (pending.closed || bridges.get(message.bridge) !== pending) return;
+      app.recordSessionExecutionOwner(session.id, owner);
+      Object.assign(pending, { session, owner, settle });
+      const grant = app.InternalMcpRelay.create({ session, executionOwner: owner, config: { ...config, toolLoadingMode: message.env?.WCW_TOOL_LOADING_MODE || 'full' }, packs: String(message.env?.WCW_TOOL_PACKS || '').split(',').filter(Boolean) });
+      const child = cp.spawn(process.execPath, [__filename, '--cli'], { env: { ...process.env, ...message.env, ...app.InternalMcpRelay.launchEnv(grant) }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
       const reg = { child, pid: child.pid, kind: 'kimi-acp', state: 'running', exited: false, session };
-      bridges.set(message.bridge, { child, owner, reg, session, settle });
-      app.recordSessionExecutionOwner(session.id, owner); app.registerSessionExecutionChild(session.id, reg, owner);
+      bridges.set(message.bridge, { child, owner, reg, session, settle, grant });
+      app.registerSessionExecutionChild(session.id, reg, owner); app.InternalMcpRelay.bind(grant, reg, owner);
       child.stdin.on('error', () => {});
       for (const kind of ['stdout', 'stderr']) child[kind].on('data', bytes => send(process, { kind, bridge: message.bridge, bytes: bytes.toString('base64') }));
       child.once('close', (code, signal) => { send(process, { kind: 'exit', bridge: message.bridge, code: signal ? 1 : code }); close(message.bridge); });

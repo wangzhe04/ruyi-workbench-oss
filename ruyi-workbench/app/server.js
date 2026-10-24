@@ -76,6 +76,9 @@ function lstatOrNull(p) {
 // dataRoot() / dataRootAliases() 在文件遍历的热路径上逐项被调(03 isSensitiveDataPath);每次都 lstat 两个目录在大树上是秒级开销。
 // 结果按「两个环境变量 + 家目录」记住:进程内能改变答案的只有这三样(迁移发生在启动时,迁移后清一次缓存)。
 let _dataRootMemo = null;
+// 01z fills these only for a validated active manifest. Legacy root strings remain unchanged.
+let _workDataStableBase = null, _workDataStableAliases = null;
+const WorkDataRootHooks = {};
 function dataRootMemoKey() {
   return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
 }
@@ -92,6 +95,7 @@ function resolveDataRootUncached() {
   return next;
 }
 function dataRoot() {
+  if (_workDataStableBase !== null) return _workDataStableBase;
   const key = dataRootMemoKey();
   if (_dataRootMemo && _dataRootMemo.key === key && _dataRootMemo.root) return _dataRootMemo.root;
   const root = resolveDataRootUncached();
@@ -103,6 +107,7 @@ function dataRoot() {
 // runtime.json(token)/ 会话。**与环境变量无关**:Claude / Kimi 的 MCP 子进程总带 RUYI_HOME,修前在那里一律返回空,
 // 旧路径上的联接就成了绕过口。判据是 realpath 相等(Windows 上不分大小写),数据根还不存在时不缓存、下次再算。
 function dataRootAliases() {
+  if (_workDataStableAliases !== null) return _workDataStableAliases;
   const root = dataRoot();
   if (_dataRootMemo && _dataRootMemo.root === root && Array.isArray(_dataRootMemo.aliases)) return _dataRootMemo.aliases;
   const norm = p => (process.platform === 'win32' ? String(p).toLowerCase() : String(p));
@@ -1341,6 +1346,9 @@ const SubAgentMemoryHooks = {};
 
 // Per-execution read-only CLI memory relay. Filled late, without a forward module dependency.
 const MemoryCliHooks = {};
+// Late internal MCP adapters keep capability/CLI business owners outside the runtime module cycle.
+const InternalMcpHooks = {};
+const CliBusinessHooks = {};
 
 // 其它 Agent CLI 的用户级目录。一律在【调用时】按 os.homedir() 与各家的覆盖变量解析(不缓存):测试把
 // USERPROFILE/HOME 指到临时家,这里立刻跟着走 —— 这就是「测试绝不碰真机家目录」的那一道闸。
@@ -1490,6 +1498,7 @@ function canonicalRuyiMcpServerId(id) {
 
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
+  { m: 'POST', p: '/api/mcp/internal/request', auth: 'internal-mcp' },
   { m: 'POST', p: '/api/memory-cli', auth: 'memory-cli' },
   { m: 'POST', p: '/api/mcp/consumer', auth: 'mcp-consumer' },
   { m: 'POST', p: '/api/mcp/consumers', auth: 'token' },
@@ -1972,7 +1981,9 @@ const CMD_TEXT_VALUE_FLAGS = new Set([
   '--allowed-tools', '--allowedTools', '--disallowed-tools', '--disallowedTools', '--tools', '--model', '--effort',
 ]);
 function neutralizeCmdMetaChars(value) {
-  return String(value).replace(/%/g, '％').replace(/!/g, '！');
+  // Literal line breaks terminate .cmd input even inside its quoted %* expansion.
+  // Dynamic model text uses spaces on this batch-only path; JSON escaped \n and native executables keep their bytes.
+  return String(value).replace(/\r\n|[\r\n]/g, ' ').replace(/%/g, '％').replace(/!/g, '！');
 }
 function neutralizeCmdTextArgs(args) {
   const out = Array.isArray(args) ? args.slice() : [];
@@ -4138,6 +4149,8 @@ function persistableConfig(config, base) {
     if (CONFIG_BOOKKEEPING_KEYS.includes(key)) out[key] = config[key];
     else if (explicit.has(key) || !Object.prototype.hasOwnProperty.call(base, key)) out[key] = configComparableValue(config, key);
   }
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.())
+    out.workDataEncryptionV1 = WorkDataRootHooks.mode(config.workDataEncryptionV1);
   out.configSchema = CONFIG_SCHEMA;
   out.version = VERSION;
   return out;
@@ -4516,6 +4529,10 @@ function normalizeConfig(raw, opts = {}) {
   for (const key of ['runtimeOptimizationShadowV1', 'runtimeToolRetrievalV1', 'runtimeObservationReducerV1', 'runtimeEvaporateBudgetBoundaryV1', 'runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1', 'runtimeReseedReattachFilesV1', 'runtimeObservationRecallV1', 'runtimeSessionNotesV1', 'runtimeSummaryEntityCheckV1', 'runtimeSessionNotesInjectV1', 'runtimeSessionNotesMergeV1', 'runtimeEstimateBucketsV1', 'runtimeSummarySingleShotV1', 'runtimeSummaryFactTableV1', 'runtimeSummaryRefineV1', 'runtimeBudgetGuardV1', 'runtimeToolTimeBudgetShadowV1', 'runtimeToolTimeBudgetV1', 'runtimeVolatileTailLayoutV1', 'runtimeAppendOnlyToolSchemasV1', 'runtimeExecResultCacheV1', 'runtimeFailureTelemetryV1', 'runtimeMemoryVectorRecallV1', 'sessionSearchIndexV1', 'boundedReadSchedulerV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'workDataEncryptionV1']) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
+  }
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode) {
+    const enabled = WorkDataRootHooks.mode(config.workDataEncryptionV1);
+    if (enabled !== config.workDataEncryptionV1) { config.workDataEncryptionV1 = enabled; changed = true; }
   }
   // schema<12 的三开关翻开(107-T1)与 schema<13 的 killOnDisconnect 翻关在 CONFIG_MIGRATIONS(to:12 / to:13),
   // 它们在上面这个严格布尔循环【之后】跑(脏值先压成 false 再迁),见 applyConfigMigrations 的调用点。
@@ -5367,6 +5384,11 @@ let configWriteChain = Promise.resolve();
 let configReadGeneration = 0;
 function invalidateConfigReads() { configReadGeneration++; configReadCache = null; }
 async function writeConfigAtomic(data, options = {}) {
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.()) {
+    const raw = safeJsonParse(data, null);
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw Object.assign(new Error('work_data_root.config_invalid'), { code: 'work_data_root.config_invalid' });
+    data = JSON.stringify({ ...raw, workDataEncryptionV1: WorkDataRootHooks.mode(raw.workDataEncryptionV1) }, null, 2);
+  }
   // Only read-derived migration/recovery writes may be superseded. Ordinary
   // writes retain their existing ordered persistence and never silently disappear.
   const conditionalRead = options.expectedReadGeneration !== undefined;
@@ -7152,7 +7174,7 @@ const RUNTIME = { port: DEFAULT_PORT, host: '127.0.0.1', token: '', isMcpChild: 
 //   · 工作台自己 spawn 桥接服务器(04 bridgedServerSpawnEnv:直接从继承环境里删);
 //   · 交给 agent CLI 去 spawn(下面 bridgedCliServerEnv:写进 --mcp-config / Kimi mcp.json 的条目 env 块)。
 const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
-const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']);
 function bridgedEnvKeyStripped(key) {
   const up = String(key).toUpperCase();
   if (BRIDGED_ENV_KEEP.has(up)) return false;
@@ -7164,7 +7186,7 @@ function bridgedEnvKeyStripped(key) {
 // 修前 ACC 的 get_environment_variable 一问就拿到。配置文件只能【加/盖】变量、不能删,所以把这些键在条目 env 块里
 // 盖成空串:固定一组已知凭据键,再加本进程环境里此刻存在的其它 WCW_*(被别的如意回合拉起时继承来的)。
 // 条目自己声明的 env 叠在最后,照常生效(与 04 同口径)。
-const BRIDGED_CLI_ENV_BLANK_KEYS = Object.freeze(['WCW_TOKEN', 'WCW_PORT', 'WCW_HOST', 'WCW_SESSION_ID', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+const BRIDGED_CLI_ENV_BLANK_KEYS = Object.freeze(['WCW_TOKEN', 'WCW_PORT', 'WCW_HOST', 'WCW_SESSION_ID', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']);
 function bridgedCliServerEnv(ownEnv, baseEnv = process.env) {
   const blanks = {};
   for (const k of BRIDGED_CLI_ENV_BLANK_KEYS) blanks[k] = '';
@@ -7231,7 +7253,7 @@ async function generateMcpConfig(mode) {
         args: self.args,
         env: {
           // MCP 子进程的数据根 = 父进程已解析的 dataRoot(3.0 起只写 RUYI_HOME;旧变量名 WIN_CLAUDE_WORKBENCH_HOME 只读兼容)。
-          RUYI_HOME: paths.data,
+          RUYI_HOME: dataRoot(),
           // Intent marker only, not authentication. Kimi inherits actual run
           // credentials; the host verifies the live CLI owner on every RPC.
           RUYI_MCP_INTERNAL_ONLY: '1',
@@ -7305,7 +7327,7 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks, opts) {
         command: self.command,
         args: self.args,
         env: {
-          RUYI_HOME: paths.data,
+          RUYI_HOME: dataRoot(),
           WCW_SESSION_ID: sessionId,
           WCW_PORT: String(RUNTIME.port),
           WCW_HOST: RUNTIME.host,
@@ -7316,6 +7338,10 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks, opts) {
       },
     },
   };
+  // A generated config without a live grant remains setup-only; shared API tokens grant no default RPC authority.
+  const own = mcp.mcpServers[RUYI_MCP_SERVER_ID];
+  if (opts?.internalMcpGrant) own.env = InternalMcpHooks.launchEnv(opts.internalMcpGrant);
+  else own.env = { RUYI_HOME: dataRoot(), WCW_TOKEN: '', WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', RUYI_INTERNAL_MCP_CAP: '', RUYI_INTERNAL_MCP_PORT: '' };
   // In adaptive mode external schemas stay behind the typed invoke proxies, so a simple Claude turn
   // does not ingest an entire desktop/Office catalog. Full mode retains the historical direct servers.
   if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg, { desktopOverride: opts && opts.desktopOverride });
@@ -7538,6 +7564,13 @@ function authorizeRoute(req, method, pathname) {
     }
     // Consumer transport precheck grants no management authority. The exact
     // owner authenticates the token hash before reading its bounded body.
+    if (r.auth === 'internal-mcp') {
+      return m === 'POST' && !r.prefix && pathname === '/api/mcp/internal/request' && !remote && !browser
+        && !req.headers.origin && !req.headers['sec-fetch-site'] && !req.headers['sec-fetch-mode']
+        && typeof req.headers['x-ruyi-internal-mcp-cap'] === 'string' && /^[a-f0-9]{64}$/.test(req.headers['x-ruyi-internal-mcp-cap'])
+        && (!req.headers['content-length'] || /^\d{1,9}$/.test(req.headers['content-length']) && Number(req.headers['content-length']) <= MAX_BODY_BYTES)
+        ? null : 'internal relay request not authorized';
+    }
     if (r.auth === 'memory-cli') {
       return m === 'POST' && !r.prefix && pathname === '/api/memory-cli' && !remote && !browser
         && typeof req.headers['x-ruyi-memory-cap'] === 'string'
@@ -10785,6 +10818,171 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   return Object.freeze({ create, describe, catalog });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'), require('node:zlib'), require('node:util').TextDecoder);
 
+// One root binding per process, after the stable control-base OS owner and before any store IO.
+// The active manifest selects both the data namespace and work-data mode. A config flag is a mirror.
+const WorkDataRootAuthority = ((fsApi, pathApi) => {
+  const ID = /^[a-f0-9]{48}$/;
+  const fail = suffix => { throw Object.assign(new Error('work_data_root.' + suffix), {
+    code: 'work_data_root.' + suffix, apiCode: 'work_data_root.' + suffix, statusCode: 409,
+  }); };
+  function create(host) {
+    const io = host.fs || fsApi, p = host.path || pathApi;
+    const key = value => process.platform === 'win32' ? p.resolve(value).toLowerCase() : p.resolve(value);
+    const inside = (target, root) => { const rel = p.relative(key(root), key(target)); return rel === '' || rel !== '..' && !rel.startsWith('..' + p.sep) && !p.isAbsolute(rel); };
+    const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+    let status = 'unbound', selected = null, aliases = [], reservedUnavailable = false;
+    let reserved = { hasControl: false, generations: new Map(), container: null };
+    const bases = () => [...new Set([host.base(), ...aliases, ...(selected ? [selected.canonicalBase] : [])])];
+    function mode(legacy) {
+      if (status === 'binding' || status === 'failed') fail('unavailable');
+      return selected?.present ? selected.mode === 'encrypted' : legacy === true;
+    }
+    function requireOwner(owner, canonicalBase) {
+      if (!owner || !Array.isArray(owner.roots) || !owner.roots.some(root => key(root) === key(canonicalBase))) fail('ownership_required');
+    }
+    async function reservedFacts(canonicalBase, owner) {
+      requireOwner(owner, canonicalBase);
+      const control = p.join(canonicalBase, '.work-data'), generations = new Map();
+      let stat;
+      try { stat = await io.lstat(control); }
+      catch (error) { if (error.code === 'ENOENT') return { hasControl: false, generations, container: null }; throw error; }
+      if (!stat.isDirectory() || stat.isSymbolicLink() || key(await io.realpath(control)) !== key(control)) fail('control_invalid');
+      const container = p.join(control, 'generations');
+      try { stat = await io.lstat(container); }
+      catch (error) { if (error.code === 'ENOENT') return { hasControl: true, generations, container: null }; throw error; }
+      if (!stat.isDirectory() || stat.isSymbolicLink() || key(await io.realpath(container)) !== key(container))
+        return { hasControl: true, generations, container: null }; // An unrecognized reserved entry remains wholly private.
+      for (const entry of await io.readdir(container, { withFileTypes: true })) {
+        const name = fold(entry.name);
+        if (!ID.test(name)) continue;
+        const root = p.join(container, entry.name), current = await io.lstat(root);
+        if (current.isDirectory() && !current.isSymbolicLink() && key(await io.realpath(root)) === key(root)) generations.set(name, root);
+      }
+      return { hasControl: true, generations, container };
+    }
+    // A future transition host may refresh after preparing/removing reserved paths while
+    // holding this same base owner and its global writer exclusion. This does not rebind
+    // the active namespace or mode; a fresh process is still required for that publication.
+    async function refreshReserved(owner) {
+      if (status !== 'bound') fail('unavailable');
+      requireOwner(owner, selected.canonicalBase);
+      try { reserved = await reservedFacts(selected.canonicalBase, owner); reservedUnavailable = false; }
+      catch (error) { reservedUnavailable = true; throw error; }
+    }
+    async function bind(owner) {
+      if (status !== 'unbound') fail('already_bound');
+      status = 'binding';
+      try {
+        const base = host.base(), canonicalBase = await host.canonical(base);
+        requireOwner(owner, canonicalBase);
+        let found;
+        try { found = await io.lstat(canonicalBase); }
+        catch (error) { if (error.code !== 'ENOENT') throw error; }
+        const receipt = found ? await host.manifest(canonicalBase).readActive() : { root: base, id: null, mode: 'plain', generation: 0, proof: Object.freeze({ raw: null, sha256: null }) };
+        if (receipt.proof.raw !== null) {
+          const pointer = await io.lstat(p.join(canonicalBase, '.work-data', 'active-v1.json'));
+          if (!pointer.isFile() || pointer.isSymbolicLink() || pointer.nlink !== 1) fail('manifest_alias');
+        }
+        const facts = await reservedFacts(canonicalBase, owner), present = receipt.proof.raw !== null;
+        if (present && !facts.generations.has(fold(receipt.id))) fail('generation_unrecognized');
+        const snapshot = Object.freeze({ present, base, canonicalBase, root: present ? receipt.root : host.paths.data,
+          id: receipt.id, mode: present ? receipt.mode : null, generation: receipt.generation, proof: receipt.proof });
+        aliases = [...new Set([base, canonicalBase, ...(await host.aliases())])];
+        if (present) {
+          const from = p.resolve(host.paths.data), next = {};
+          for (const [name, value] of Object.entries(host.paths)) {
+            if (typeof value !== 'string' || !inside(value, from)) fail('mixed_paths');
+            next[name] = p.join(receipt.root, p.relative(from, p.resolve(value)));
+          }
+          // All async validation completes before this indivisible namespace publication.
+          Object.assign(host.paths, next);
+        }
+        reserved = facts; selected = snapshot; status = 'bound';
+        if (present && host.pin) host.pin(base, aliases);
+        return snapshot;
+      } catch (error) { status = 'failed'; throw error; }
+    }
+    function generationRoot(target, base) {
+      const relative = p.relative(key(p.join(base, '.work-data', 'generations')), key(target));
+      const parts = relative.split(p.sep);
+      return parts.length && reserved.generations.has(parts[0]) ? p.join(base, '.work-data', 'generations', parts[0]) : null;
+    }
+    function guardRoots(target) {
+      const roots = [...bases(), ...(selected?.present ? [selected.root] : [])];
+      if (target) for (const base of [...roots]) { const root = generationRoot(target, base); if (root && inside(target, root)) roots.push(root); }
+      return [...new Set(roots)];
+    }
+    function controlSensitive(target, write = false) {
+      for (const base of bases()) {
+        const control = p.join(base, '.work-data');
+        if (!inside(target, control)) continue;
+        const rel = p.relative(key(control), key(target)), parts = rel.split(p.sep);
+        if (!rel || parts[0] === 'generations' && parts.length === 1 && reserved.container) return write;
+        if (parts[0] === 'generations' && reserved.generations.has(parts[1] || '')) {
+          if (write && (parts.length === 2 || !selected?.present || key(p.join(control, 'generations', parts[1])) !== key(selected.root))) return true;
+          return false; // Per-family guards below this generation retain normal user-content reads.
+        }
+        return true; // Manifest, stages, journals and unknown reserved control paths.
+      }
+      return false;
+    }
+    async function hardlinkIdentities() {
+      if (reservedUnavailable) fail('reserved_unavailable');
+      const ids = new Set();
+      async function scan(file) {
+        let stat;
+        try { stat = await io.lstat(file, { bigint: true }); }
+        catch (error) { if (error.code === 'ENOENT') return; throw error; }
+        if (stat.isSymbolicLink()) fail('sensitive_alias');
+        if (stat.isFile()) { if (stat.ino && stat.nlink > 1n) ids.add(String(stat.dev) + ':' + String(stat.ino)); return; }
+        if (!stat.isDirectory()) return;
+        const directory = await io.opendir(file);
+        for await (const entry of directory) await scan(p.join(file, entry.name));
+      }
+      const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward',
+        'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json',
+        'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json'];
+      const base = selected?.canonicalBase || await host.canonical(host.base());
+      for (const root of [base, ...reserved.generations.values()]) {
+        for (const name of names) await scan(p.join(root, name));
+        let entries;
+        try { entries = await io.readdir(root); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+        for (const name of entries) if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json|work-data-key-v1\.json)\./i.test(name)) await scan(p.join(root, name));
+      }
+      const control = p.join(base, '.work-data');
+      let entries;
+      try { entries = await io.readdir(control); } catch (error) { if (error.code === 'ENOENT') return ids; throw error; }
+      for (const name of entries) {
+        const file = p.join(control, name);
+        if (fold(name) !== 'generations' || !reserved.container) { await scan(file); continue; }
+        // Only verified real generation directories have ordinary readable children.
+        // Unknown entries (including a 48hex regular file) are reserved private data.
+        const containerStat = await io.lstat(file);
+        if (!containerStat.isDirectory() || containerStat.isSymbolicLink() || key(await io.realpath(file)) !== key(reserved.container)) fail('reserved_unavailable');
+        for (const entry of await io.readdir(file, { withFileTypes: true })) {
+          const root = p.join(file, entry.name), recognized = reserved.generations.get(fold(entry.name));
+          if (recognized) {
+            const stat = await io.lstat(root);
+            if (stat.isDirectory() && !stat.isSymbolicLink() && key(await io.realpath(root)) === key(recognized)) continue;
+          }
+          await scan(root);
+        }
+      }
+      return ids;
+    }
+    return Object.freeze({ bind, mode, guardRoots, controlSensitive, hardlinkIdentities, refreshReserved,
+      hasReserved: () => reserved.hasControl, hardlinkGuarded: () => reserved.hasControl || reservedUnavailable || selected?.present === true || status === 'failed',
+      selected: () => selected, ready: () => status === 'bound', guarded: () => selected?.present === true || status === 'failed' });
+  }
+  const active = create({ paths, base: dataRoot, aliases: dataRootAliases, canonical: ServerOwnership.canonicalRoot,
+    manifest: base => WorkDataManifest.create({ base }), pin: (base, aliases) => {
+      _workDataStableBase = base; _workDataStableAliases = Object.freeze(aliases.filter(alias => alias !== base));
+    } });
+  Object.assign(WorkDataRootHooks, { bind: active.bind, ready: active.ready, mode: active.mode, guardRoots: active.guardRoots, controlSensitive: active.controlSensitive,
+    hardlinkIdentities: active.hardlinkIdentities, hardlinkGuarded: active.hardlinkGuarded, refreshReserved: active.refreshReserved, guarded: active.guarded });
+  return Object.freeze({ create, ...active });
+})(require('node:fs/promises'), require('node:path'));
+
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
 // 第54波 EC-D: one ordered narrative ledger for both Claude CLI and OpenAI-compatible turns. The ledger is
 // additive: engines still persist content/thinking/toolCalls/turnSummary for old clients, while new clients
@@ -11444,7 +11642,7 @@ function sessionHeadStore(id) {
     file: () => sessionPath(id),
     purpose: 'session', schema: SESSION_HEAD_ADAPTER_SCHEMA, scopeId: 'sessions', recordId: String(id),
     keys: workDataKeys, writeJson: atomicWriteJson,
-    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
   });
 }
 const sessionHeadIsWorkDataError = error => String((error && error.code) || '').startsWith('work_data');
@@ -11466,8 +11664,9 @@ function sessionBodyCodec(p) {
 async function sessionBodyWriteText(file, lines, startOrdinal = 0) {
   if (!Array.isArray(lines) || !lines.length) return '';
   const plain = lines.join('\n') + '\n';
-  const config = await readConfig().catch(() => null);   // a config read failure means "off", not "save fails"
-  if (!config || config.workDataEncryptionV1 !== true) return plain;
+  const config = await readConfig().catch(() => null);   // Legacy keeps OFF fallback; a selected manifest still owns the mode.
+  const sealing = typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(config?.workDataEncryptionV1) : config?.workDataEncryptionV1 === true;
+  if (!sealing) return plain;
   const codec = sessionBodyCodec(file);
   if (!codec) throw Object.assign(new Error('unknown session body target'), { code: 'work_data.body_target_invalid' });
   const credential = await WorkDataStore.acquireSnapshot(workDataKeys);
@@ -11684,7 +11883,7 @@ const workDataKeys = WorkDataKeys.create({
     validate: WorkDataKeys.validate,
   }),
   protector: LocalSecretCrypto,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 WorkDataStore.Hooks.keys = workDataKeys;   // M3-2d: later families reach the key set through this hook
 function sessionScratchpadStore(id) {
@@ -11703,7 +11902,7 @@ function sessionScratchpadStore(id) {
     recordId: String(id),
     keys: workDataKeys,
     writeJson: atomicWriteJson,
-    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
     prepare,
     defaultValue: () => ({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: '', entries: [] }),
     onCorrupt(error) {
@@ -13146,12 +13345,13 @@ function overlayUnflushedSessionIndex(map) {
 function flushSessionIndexSync() {
   try {
     if (!pendingSessionIndex.size && !inflightSessionIndex.size) return;
+    if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode?.(false)) return;
     // The exit hook cannot await DPAPI or the asynchronous chunk codec. Sealed/ON caches keep their
     // last complete bytes; boot's logical invalidation rebuilds from authoritative session heads.
     // Do not emit a new plaintext index during an opt-in or unknown configuration state.
     try {
       const config = safeJsonParse(fs.readFileSync(paths.config, 'utf8'), null);
-      if (!config || typeof config !== 'object' || Array.isArray(config) || config.workDataEncryptionV1 === true) return;
+      if (!config || typeof config !== 'object' || Array.isArray(config) || (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(config.workDataEncryptionV1) : config.workDataEncryptionV1 === true)) return;
     } catch (error) { if (!error || error.code !== 'ENOENT' || fs.existsSync(paths.config + '.prev')) return; }
     let index = null;
     try { const arr = safeJsonParse(fs.readFileSync(sessionIndexPath(), 'utf8'), null); index = Array.isArray(arr) ? arr : null; } catch { index = null; }
@@ -15589,7 +15789,8 @@ async function saveSession(session, opts) {
     // falls back to the slow path, which rewrites and renumbers everything.
     let appendStampsOk = true;
     if (msgPlan && provPlan && (msgPlan.appendLines.length || provPlan.appendLines.length)) {
-      const sealing = (await readConfig().catch(() => null))?.workDataEncryptionV1 === true;
+      const observed = (await readConfig().catch(() => null))?.workDataEncryptionV1;
+      const sealing = typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(observed) : observed === true;
       if (sealing) {
         const [msgStampNow, provStampNow] = await Promise.all([sessionBodyFileStamp(bp.messages), sessionBodyFileStamp(bp.provider)]);
         appendStampsOk = (!state.msg.stamp || msgStampNow === state.msg.stamp)
@@ -18332,6 +18533,7 @@ function isSensitiveDataPath(p) {
   // 词法上判成「不在 config.json 里」、文件名正则也不中 → 敏感闸被绕过(第三波只给 autoexec 闸加了同样的剥离)。盘符段(`C:`)保留;
   // Windows 文件名除盘符外不可能有冒号,POSIX 上带冒号的怪名字只会被保守地并到前缀上,只会多拦不会漏。写在函数里(自包含,见上)。
   p = String(p).split(/([\\/])/).map(seg => (/^[a-z]:$/i.test(seg) || seg === '/' || seg === '\\') ? seg : seg.replace(/:.*$/, '').replace(/([^. ])[. ]+$/, '$1')).join('');
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.controlSensitive?.(p, false)) return true;
   const root = dataRoot();
   // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
   // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
@@ -18341,16 +18543,17 @@ function isSensitiveDataPath(p) {
   // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
   // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
-    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop'];
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
-  const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
+  const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
+    ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(p) : [])])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
   // 2026-09-06：config.json 的备份族（config.json.prev / config.json.bak-<日期> / config.json.bak-providers-<ts>）
   // 与正本一样含明文密钥；audit-w23 P1#2 探针实测 file_search 能把 .prev 里的 apiKey 搜出来。
   // 凡是直接落在 dataRoot 下、文件名以 config.json 开头的，一律视为敏感。
   try {
     const base = path.basename(p);
-    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json)(\.|$)/i.test(base)) {
+    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json|work-data-key-v1\.json)(\.|$)/i.test(base)) {
       const dir = path.resolve(path.dirname(p));
       for (const b of bases) if (dir.toLowerCase() === path.resolve(b).toLowerCase()) return true;
     }
@@ -18365,6 +18568,7 @@ function isSensitiveDataPath(p) {
 //   · stat 用 bigint:Windows 的文件索引是 64 位,Number 会丢精度,两个不同文件可能撞成同一个值。
 const SENSITIVE_HARDLINK_FILES = Object.freeze(['config.json', 'runtime.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots/state-v1.json']);
 async function sensitiveFileIdentities() {
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.hardlinkGuarded?.()) return WorkDataRootHooks.hardlinkIdentities();
   const ids = new Set();
   let root = '';
   try { root = dataRoot(); } catch { return ids; }
@@ -18387,11 +18591,11 @@ async function isSensitiveHardlinkStat(st, ids) {
     if (!st || !st.isFile() || !(st.nlink > 1n) || !st.ino) return false;
     const set = ids || await sensitiveFileIdentities();
     return set.has(String(st.dev) + ':' + String(st.ino));
-  } catch { return false; }
+  } catch { return typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.hardlinkGuarded?.() === true; }
 }
 async function isSensitiveHardlinkAlias(filePath, ids) {
   try { return await isSensitiveHardlinkStat(await fsp.stat(filePath, { bigint: true }), ids); }
-  catch { return false; }
+  catch { return typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.hardlinkGuarded?.() === true; }
 }
 // 安全审计 #1/#8(数据根里会被【自动加载 / 执行 / 信任】的状态):dataRoot 是文件工具的写根,isSensitiveDataPath
 // 只挡了「读出来会泄密」的那一批。下面这批读是无害的(或本来就要能读:检查点内容、个人工作流模板),但【写】进去
@@ -18413,7 +18617,9 @@ function isWriteProtectedDataPath(p) {
   if (isSensitiveDataPath(p)) return true;
   // 同 isSensitiveDataPath 开头那一行:剥 NTFS 流后缀与尾随点 / 空格(`mcp.d::$INDEX_ALLOCATION\x.json`、`scheduler.\tasks.json`)。
   p = String(p).split(/([\\/])/).map(seg => (/^[a-z]:$/i.test(seg) || seg === '/' || seg === '\\') ? seg : seg.replace(/:.*$/, '').replace(/([^. ])[. ]+$/, '$1')).join('');
-  const bases = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.controlSensitive?.(p, true)) return true;
+  const bases = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
+    ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(p) : [])])];
   for (const b of bases) {
     for (const n of WRITE_PROTECTED_DATA_DIRS) if (pathWithinRoot(p, path.join(b, n))) return true;
     for (const n of WRITE_PROTECTED_DATA_FILES) if (pathWithinRoot(p, path.join(b, n))) return true;
@@ -21592,7 +21798,8 @@ async function auditLogEnabled() {
     const beforeVault = await vaultStamp();
     const raw = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);
     if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length
-      || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean') unavailable();
+      || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean'
+        && !(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.())) unavailable();
     // Share the existing defaults and privacy validation without hydrating secrets,
     // applying migrations to disk, configuring policy, or repairing config/backup.
     const config = normalizeConfig(raw).config;
@@ -23431,7 +23638,7 @@ const MCP_DROPIN_CACHE_MS = 2000;
 function mcpDropInDirs() {
   return [
     { root: path.join(externalRoot(), 'mcp'), source: 'repo' },
-    { root: path.join(dataRoot(), 'mcp'), source: 'dataRoot' },
+    { root: path.join(typeof paths !== 'undefined' && paths.data ? paths.data : dataRoot(), 'mcp'), source: 'dataRoot' },
   ];
 }
 // 扫描并返回清洗后的 drop-in 条目数组 [{id,label,command,args,cwd,env,enabled,_dropInSource}]。纯读盘,不改 config。
@@ -29250,7 +29457,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     id: 'claude',
     interactive: config => config.engineMode === 'interactive',
     slashCommandVerbatim: false,
-    async buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath }) {
+    async buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath, internalMcpGrant }) {
       const args = ['-p', '--output-format', 'stream-json', '--verbose'];
       if (interactive) args.push('--input-format', 'stream-json');
       if (config.includePartialMessages) args.push('--include-partial-messages');
@@ -29258,7 +29465,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       if (config.includeWorkbenchMcp) {
         const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
         // 会话级 desktopTools 一并交过去:full 模式直挂的 ACC 按这条线程的桌面闸裁剪(01 desktopMcpPolicyEnv)。
-        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks, { desktopOverride: sessionDesktopToolsOf(session) }));
+        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks, { desktopOverride: sessionDesktopToolsOf(session), internalMcpGrant }));
         // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
         // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
         if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
@@ -29585,9 +29792,10 @@ async function runClaudeTurn({
   const interactive = adapter.interactive(config);
 
   // 回合主参数(输出格式/MCP/权限/模型/思考强度……)由适配器给;--agents 的推送延后到下方「预算核算与降级阶梯」。
+  const internalMcpGrant = InternalMcpHooks.create({ session, executionOwner, config, packs: classifyToolPacks(basePrompt, attachments) });
   const memoryCliGrant = config.workDataEncryptionV1 === true && (!config.includeWorkbenchMcp || adapter.memoryMcpViaLifecycle)
     ? await MemoryCliHooks.create({ session, executionOwner, config }) : null;
-  const args = await adapter.buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath: memoryCliGrant?.configPath });
+  const args = await adapter.buildArgs({ config, session, basePrompt, attachments, interactive, memoryReadOnlyConfigPath: memoryCliGrant?.configPath, internalMcpGrant });
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
@@ -29837,7 +30045,7 @@ async function runClaudeTurn({
     return adapter.runPreparedTurn({
       executionOwner,
       session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
-      additionalDirectories, memoryCliGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
+      additionalDirectories, memoryCliGrant, internalMcpGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
       resumeResetReason, promptTaskContext, workspaceTurnBaseline, agentRecoverySummary, kimiNativeSlashCommand,
     });
@@ -29891,7 +30099,8 @@ async function runClaudeTurn({
   }
 
   // 子进程环境由适配器给(Claude:effectiveAnthropicEnv 叠第三方端点/模型 + MAX_THINKING_TOKENS;Kimi:process.env)。
-  const env = adapter.buildEnv(config, { RUYI_HOME: paths.data }); // 数据根交给 CLI/MCP 子进程(3.0 起只写 RUYI_HOME)
+  const env = adapter.buildEnv(config, { RUYI_HOME: dataRoot() });
+  for (const key of ['RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete env[key]; // Claude gets the capability only in its per-execution MCP definition.
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
@@ -29946,6 +30155,8 @@ async function runClaudeTurn({
   installActiveChildEventFanout(reg);   // 121-K2a:上面那个引擎订阅者仍第一个收到,旁路排在它后面
   liveTailReg = reg;   // 117l D4:从此刻起,上面那个包装把尾巴攒到这份 reg 上
   registerSessionExecutionChild(session.id, reg, executionOwner);
+  try { InternalMcpHooks.bind(internalMcpGrant, reg, executionOwner); }
+  catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
   if (memoryCliGrant) {
     try { MemoryCliHooks.bind(memoryCliGrant, reg, executionOwner); }
     catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
@@ -31372,7 +31583,7 @@ const voiceLexiconStore = WorkDataStore.createJson({
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
   quarantine: true,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 const voiceLexiconChains = new Map();
 // 读失败分两类：明文坏文件（旧契约：当空 + 诊断）与加密记录读不出来（缺钥/认证失败/开关不可知）。
@@ -33973,7 +34184,7 @@ function prepareKimiAcpSpawn(command) {
 async function runKimiAcpTurnPrepared(context) {
   const {
     session, message, onEvent, config, executionOwner, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
-    additionalDirectories, memoryCliGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
+    additionalDirectories, memoryCliGrant, internalMcpGrant, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
     currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
     resumeResetReason, promptTaskContext, agentRecoverySummary, attachments, kimiNativeSlashCommand,
   } = context;
@@ -33981,15 +34192,16 @@ async function runKimiAcpTurnPrepared(context) {
   let workspaceTurnBaseline = context.workspaceTurnBaseline;
   const env = {
     ...process.env,
-    RUYI_HOME: paths.data,
+    RUYI_HOME: dataRoot(),
     WCW_PERMISSION_TIMEOUT_MS: String(permissionWaitMs(session.id, config, session)),   // 128f-⑪:与服务端那一侧同一个数,子进程不先放弃
     WCW_SESSION_ID: session.id,
     WCW_PORT: String(RUNTIME.port),
     WCW_HOST: RUNTIME.host,
     WCW_TOKEN: RUNTIME.token,
   };
+  Object.assign(env, InternalMcpHooks.launchEnv(internalMcpGrant));
   if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
-  else for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
+  else for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete env[key];
   const spawn = prepareKimiAcpSpawn(claude);
   if (spawn.kimiAcpCompat) env.RUYI_KIMI_ACP_COMPAT = '1';
   const cwdWarn = cwdWarning(workingDir);
@@ -34190,6 +34402,8 @@ async function runKimiAcpTurnPrepared(context) {
     };
     reg.onEvent = event => { reg.lastEventAt = Date.now(); onEvent(event); };
     registerSessionExecutionChild(session.id, reg, executionOwner);
+    try { InternalMcpHooks.bind(internalMcpGrant, reg, executionOwner); }
+    catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
     if (memoryCliGrant) {
       try { MemoryCliHooks.bind(memoryCliGrant, reg, executionOwner); }
       catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
@@ -34955,11 +35169,14 @@ async function kimiAcpSearchDataRootInfo() {
 
 function kimiAcpSearchIsControlPlaneRoot(candidate, dataInfo) {
   if (!dataInfo || dataInfo.unavailable) return true;
-  const roots = [dataInfo.lexical, dataInfo.canonical].filter(Boolean);
+  const roots = [dataInfo.lexical, dataInfo.canonical,
+    ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(candidate) : [])].filter(Boolean);
+  const containers = typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots
+    ? roots.map(root => path.join(root, '.work-data', 'generations')) : [];
   // A search directory that is an ancestor of dataRoot would let ripgrep traverse Ruyi's sessions/config/
   // memory/logs control plane. Safe dataRoot children such as uploads are still individually subject to the
   // normal read guard; the ancestor rule is the important fail-closed case.
-  return roots.some(root => kimiAcpSearchWithin(root, candidate));
+  return [...roots, ...containers].some(root => kimiAcpSearchWithin(root, candidate));
 }
 
 async function kimiAcpSearchCanonicalReadPath(rawPath, context, label, requireDirectory, dataInfo) {
@@ -36186,7 +36403,7 @@ const engineTranscriptLedgerStore = WorkDataStore.createJson({
   purpose: 'cache', scopeId: 'global', recordId: 'engine-transcript-index',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 async function engineTranscriptLedgerLoad() {
   if (engineTranscriptLedgerLoaded) return;
@@ -41490,7 +41707,7 @@ const memoryUsageStore = WorkDataStore.createJson({
   purpose: 'memory', scopeId: 'global', recordId: 'memory-usage',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 function memoryUsageKey(entry, cwd) {
   return entry.scope === 'global' ? 'global:' + entry.id : 'project:' + projectKeyForCwd(cwd) + ':' + entry.id;
@@ -42008,7 +42225,7 @@ const agentInstructionImportStore = WorkDataStore.createJson({
   purpose: 'memory', scopeId: 'global', recordId: 'agent-instructions-import',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 function agentInstructionMemoryId(key, n) { return 'agentmd-' + key + '-' + n; }
 function agentInstructionSourceKeyOf(id) {
@@ -48291,6 +48508,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} } : batchSafeSpawn(claude, args);
   const env = effectiveAnthropicEnv(config);
   for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
+  for (const key of ['RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete env[key];
   if (fakeClaude) env.WCW_FAKE_INTERACTIVE = '1';
 
   onEvent({ type: 'subagent', id: subagentId, state: 'start', task: String(displayTask != null ? displayTask : task || ''), toolTier: tier, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', permissionMode: roleGuard.permissionMode || 'inherit', ...(roleGuard.clamped ? { roleClamped: roleGuard.clamped } : {}), mcpServers: roleMcpServers, engine: 'claude' });
@@ -48315,11 +48533,25 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // One CLI spawn attempt -> collected exit/output state. Does NOT decide retry; the loop below does.
   const runOnce = async () => {
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+    let internalMcpGrant = null;
+    if (nodeFullMcpPath) {
+      const raw = JSON.parse(await fsp.readFile(nodeFullMcpPath, 'utf8'));
+      const own = raw.mcpServers?.[RUYI_MCP_SERVER_ID];
+      if (own) {
+        internalMcpGrant = InternalMcpHooks.createNode({ config, context: memoryCliContext });
+        own.env = InternalMcpHooks.launchEnv(internalMcpGrant);
+        await atomicWriteJson(nodeFullMcpPath, raw);
+      }
+    }
     const memoryGrant = config.workDataEncryptionV1 === true
       ? await MemoryCliHooks.createNode({ config, context: memoryCliContext, subagentId, baseConfigPath: nodeFullMcpPath }) : null;
     return new Promise(resolve => {
     const child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     currentChild = child;
+    if (internalMcpGrant) {
+      try { InternalMcpHooks.bindNode(internalMcpGrant, child); }
+      catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
+    }
     if (memoryGrant) {
       try { MemoryCliHooks.bindNode(memoryGrant, child); }
       catch (error) { try { child.stdin.end(); } catch {} killChildTree(child.pid); throw error; }
@@ -62096,16 +62328,27 @@ function sensitiveGlobsForRg(base) {
   try {
     // 安全走查 S7:名单与 03 的 isSensitiveDataPath 内的那份一致(unit/unc-and-traversal-gates.test.js 逐名比对);根要把【realpath 后的数据根】也算进来 ——
     // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
-    const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
+    const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
+      ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots() : [])])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop']) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
+        const generationRel = path.relative(base, path.join(r, '.work-data', 'generations'));
+        if (generationRel && !generationRel.startsWith('..') && !path.isAbsolute(generationRel))
+          globs.push('!/' + generationRel.split(path.sep).join('/') + '/*/' + n);
       }
       const relRoot = path.relative(base, r);
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/config.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/external-bot-credentials.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/credential-vault-v1.json*');
+      const controlRel = path.relative(base, path.join(r, '.work-data'));
+      if (controlRel && !controlRel.startsWith('..') && !path.isAbsolute(controlRel)) {
+        const prefix = '!/' + controlRel.split(path.sep).join('/');
+        globs.push(prefix + '/active-v1.json*', prefix + '/.active-v1.stage-*', prefix + '/generations/*/config.json*',
+          prefix + '/generations/*/credential-vault-v1.json*', prefix + '/generations/*/external-bot-credentials.json*',
+          prefix + '/generations/*/work-data-key-v1.json*');
+      }
     }
   } catch { /* 取不到数据根 → 只剩结果层过滤 */ }
   return globs;
@@ -67274,8 +67517,15 @@ async function policyDesktopOverrideFor(ctx) {
   const session = await policySessionFor(ctx);
   return session ? sessionDesktopToolsOf(session) : null;
 }
+function mcpCatalogForContext(catalog, ctx) {
+  return typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)
+    ? catalog.filter(tool => !InternalMcpHooks.resourceRefusal(ctx, tool.function?.name)) : catalog;
+}
 
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
+  if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) {
+    const refusal = InternalMcpHooks.resourceRefusal(ctx, targetName); if (refusal) return refusal;
+  }
   // 控制面工具(含内部的 permission_prompt、tool_load)不能经代理调:先于目录查找判,给明确的拒绝而不是「tool not found」。
   // 注意作用面:模型服务商回合里,代理到 list_tools / tool_search / tool_load / todo_write / mission_update / 代理工具族的调用
   // 在 09 入批处就被 unwrapProxiedControlCall 【有意】解开成直调(它们要活的回合闭包,经这里会是静默空操作),到不了这一行;
@@ -67330,14 +67580,16 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const relArg = bridgedWriteRelativePathArg(targetName, targetArgs || {});
   if (relArg) return { ok: false, error: `desktop/document writes require an absolute path; '${relArg}' is relative` };
   try {
-    const sid = process.env.WCW_SESSION_ID || '';
+    const sid = ctx?.sessionId || process.env.WCW_SESSION_ID || '';
     const sidSession = sid ? await loadSession(sid).catch(error => { if (String(error?.code || '').startsWith('privacy.')) throw error; return null; }) : null;
     const session = (ctx && ctx.session) || sidSession;
     // 审计 A②:桥接读文件过读边界(与 09/08 两个分发点同一个函数)。MCP 子进程里 ctx 为空 → 按 WCW_SESSION_ID 装会话。
     const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
     if (readRefusal) return readRefusal;
-    if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
+    if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, targetName);
+    if (session) await journalBridgedWrite(targetName, targetArgs || {}, session, config, { sessionId: sid, turnSeq: ctx?.turnSeq ?? session.turnSeq });
     if (typeof PrivacyGateway !== 'undefined') targetArgs = await PrivacyGateway.revalidateExecution(targetName, targetArgs || {}, { ...(ctx || {}), bridge });
+    if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, targetName);
     const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
     return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
@@ -67623,15 +67875,16 @@ const CORE_TOOL_HANDLERS = {
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 被能力总闸关掉的桥接工具不进目录
-      return listCompactTools(catalog, args);
+      return listCompactTools(mcpCatalogForContext(catalog, ctx), args);
   } },
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 同上
-      const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 3 });   // 与引擎路径同一档名字加权(修前 1 = 不加权,read file 排不出 file_read)
+      const visibleCatalog = mcpCatalogForContext(catalog, ctx);
+      const result = searchToolCatalog(visibleCatalog, args, config, { legacyNameBoost: 3 });   // 与引擎路径同一档名字加权(修前 1 = 不加权,read file 排不出 file_read)
       if (config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
         try {
-          const candidate = searchToolCatalog(catalog, args, config, { forceV1: true, legacyNameBoost: 3 });
+          const candidate = searchToolCatalog(visibleCatalog, args, config, { forceV1: true, legacyNameBoost: 3 });
           const comparison = compareToolRetrievalShadow(result, candidate);
           const sessionId = (ctx && ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || '';
           logEvent({ kind: 'tool_retrieval_shadow', engine: 'mcp', sessionId, ...comparison });
@@ -67654,6 +67907,7 @@ const CORE_TOOL_HANDLERS = {
       return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {}, ctx);
   } },
   permission_prompt: { paths: null, guardNote: "CLI 权限桥 loopback,不触文件路径(fail-closed)", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('permission_prompt', args, ctx);
       // Bridge: the CLI (via --permission-prompt-tool) asks us to approve a tool call. We run inside
       // the MCP child, so we call back to the web server's loopback, which prompts the UI.
       const port = process.env.WCW_PORT, host = process.env.WCW_HOST || '127.0.0.1';
@@ -67676,6 +67930,7 @@ const CORE_TOOL_HANDLERS = {
       }
   } },
   request_user_input: { paths: null, guardNote: "loopback 提问,不触文件路径", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('request_user_input', args, ctx);
       // Provider turns intercept this in their live closure. Claude reaches it through the per-session MCP
       // child, which loops back to the serve process so the visible chat stream owns the modal and answer.
       if (RUNTIME.isMcpChild) {
@@ -67695,6 +67950,7 @@ const CORE_TOOL_HANDLERS = {
       return { ok: false, error: 'request_user_input requires a live turn' };
   } },
   todo_write: { paths: null, guardNote: "任务清单经 loopback /api/todo 落会话,不触任意文件路径", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('todo_write', args, ctx);
       // v0.8-S3: FULL-REPLACE task list. Two execution contexts:
       //  - serve process (provider engine): the runOpenAiTurn tool loop special-cases todo_write BEFORE
       //    dispatching here (it holds the session + onEvent to persist session.todos and emit the `todo`
@@ -67728,6 +67984,7 @@ const CORE_TOOL_HANDLERS = {
       return { ok: true, count: items.length, persisted: false, note: '仅校验通过,未写入会话(当前不在对话回合内)' };
   } },
   mission_update: { paths: null, guardNote: "任务账本经 loopback /api/mission 落会话,不触任意文件路径", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('mission_update', args, ctx);
       // 第26波b: 与 todo_write 同款双路径。serve 进程(provider)由 runOpenAiTurn 特例拦截(持 session);
       // 此处是 MCP 子进程(Claude)与无回合上下文的兜底:子进程 loopback POST /api/mission(不写会话文件)。
       if (RUNTIME.isMcpChild) {
@@ -67819,7 +68076,7 @@ async function buildWorkbenchSelfStatus(args, ctx) {
             { modality: 'document', tools: ['file_read'], input: 'PDF/OOXML/ODF; embedded images and page windows' },
             { modality: 'audio', tools: ['audio_inspect', 'audio_transcribe'], analysis: 'local FFmpeg measurements', listening: false, transcriptionConfigured: modalities.asr },
             { modality: 'code', tools: ['code_check', 'file_edit', 'file_write'], input: 'validateSyntax:true checks candidate before writing' },
-            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!capabilityProvider && !RUNTIME.isMcpChild, engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
+            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!capabilityProvider && !RUNTIME.isMcpChild && !(typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)), engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
             { modality: 'verification', tools: ['acceptance_report', 'media_probe', 'checkpoint_list'] },
           ],
           checkpointScope: 'Native journaled file operations only. Shell/script/ffmpeg/browser/application side effects are not checkpointed; recursive operations restore file contents, not empty-directory metadata.',
@@ -69587,7 +69844,7 @@ const SHELL_TOOL_HANDLERS = {
     // session Map cannot persist across turns, so return a guiding error rather than fake a session.
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       const badCwd = await execCwdProblem(g.cwd);
       if (badCwd) return badCwd;
       const cfg = await readConfig().catch(() => ({ shellSessionMax: 3 }));
@@ -69596,19 +69853,19 @@ const SHELL_TOOL_HANDLERS = {
       return shellStart({ ...args, cwd: g.cwd }, cfg, ctx);
   } },
   shell_send: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       return shellSend(args, ctx);
   } },
   shell_poll: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       return shellPoll(args, ctx);
   } },
   shell_kill: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       return shellKill(args, ctx);
   } },
   shell_list: { paths: null, guardNote: "会话清单只读,不触文件路径", handler: async (args, ctx) => {
-      if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return shellMcpChildGuard();
       return shellList(ctx);   // 135c:只列本线程开的(见 11 shellVisibleTo)
   } },
 };
@@ -70058,7 +70315,7 @@ function agentToolLoopback(route, payload) {
 const AGENT_TOOL_HANDLERS = {
   spawn_agent: { paths: null, guardNote: "已并入 orchestrate_agents:MCP 子进程翻译成单节点回环,其余来路清晰拒绝", handler: async (args, ctx) => {
       // 旧模型仍可能凭记忆调 spawn_agent:MCP 子进程里翻译成单节点 orchestrate(附提示);直接 /api/tools 调用给清晰指引。
-      if (RUNTIME.isMcpChild) {
+      if (RUNTIME.isMcpChild || (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) {
         const a = args && typeof args === 'object' ? args : {};
         const translated = { task: a.task, background: a.background === true };
         for (const k of ['role', 'agentKey', 'toolTier', 'maxIters', 'model', 'resources']) if (a[k] != null) translated[k] = a[k];
@@ -70069,6 +70326,7 @@ const AGENT_TOOL_HANDLERS = {
       return { ok: false, error: 'spawn_agent 已并入 orchestrate_agents;请改用 orchestrate_agents({task, role?, toolTier?, background?})(仅在 provider 对话回合或 Claude/Kimi 工作台会话中可用)', replacedBy: 'orchestrate_agents' };
   } },
   orchestrate_agents: { paths: null, guardNote: "MCP 子进程 loopback /api/agent-workflow/launch(envelope:true;background→async);无会话上下文拒绝", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('orchestrate_agents', args, ctx);
       if (RUNTIME.isMcpChild) {
         const a = args && typeof args === 'object' ? args : {};
         // v1.4.4: forward workflowId/context too — the model choosing a saved template BY REFERENCE only works if
@@ -70083,6 +70341,7 @@ const AGENT_TOOL_HANDLERS = {
       return { ok: false, error: 'orchestrate_agents 需要在 OpenAI 对话回合或 Claude CLI 工作台会话中调用' };
   } },
   wait_agents: { paths: null, guardNote: "MCP 子进程 loopback /api/agent-workflow/wait;无回合上下文拒绝(provider 回合特判在 runOpenAiTurn)", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('wait_agents', args, ctx);
       if (RUNTIME.isMcpChild) {
         const a = args && typeof args === 'object' ? args : {};
         return agentToolLoopback('/api/agent-workflow/wait', { runIds: a.runIds, timeoutMs: a.timeoutMs });
@@ -70090,6 +70349,7 @@ const AGENT_TOOL_HANDLERS = {
       return { ok: false, error: 'wait_agents 仅在 provider 对话回合或 Claude/Kimi 工作台会话中可用(收集后台代理信封)' };
   } },
   agent_result: { paths: null, guardNote: "MCP 子进程 loopback /api/agent-workflow/result;无回合上下文拒绝(provider 回合特判在 runOpenAiTurn)", handler: async (args, ctx) => {
+      if ((typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx))) return InternalMcpHooks.business('agent_result', args, ctx);
       if (RUNTIME.isMcpChild) {
         const a = args && typeof args === 'object' ? args : {};
         return agentToolLoopback('/api/agent-workflow/result', { runId: a.runId, nodeId: a.nodeId, maxChars: a.maxChars, offset: a.offset });
@@ -70415,6 +70675,10 @@ function validateNativeToolArgs(name, args) {
 }
 
 async function toolCall(name, args = {}, ctx = null) {
+  if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) {
+    const refusal = InternalMcpHooks.resourceRefusal(ctx, name); if (refusal) return refusal;
+  }
+  if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, name);
   if (typeof PrivacyGateway !== 'undefined') {
     // MCP processes can outlive a settings change; consult persisted policy before every unscoped call.
     if (!PrivacyGateway.active() && typeof readConfig === 'function') PrivacyGateway.assertSupported((ctx && ctx.config) || await readConfig(), 'external-tool');
@@ -70459,7 +70723,10 @@ async function toolCall(name, args = {}, ctx = null) {
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
   try {
-    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, checked => entry.handler(checked, ctx));
+    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, checked => {
+      if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, name);
+      return entry.handler(checked, ctx);
+    });
     return await entry.handler(args, ctx);
   }
   catch (e) {
@@ -72743,32 +73010,7 @@ async function setSessionSkillsCore(sessionId, skills) {
 async function agentWorkflowLoopbackRoute(req, res, kind) {
   const body = await readJsonBody(req);
   if (!(tokenMatches(body.token) || tokenOk(req))) return send(res, json({ ok: false, error: 'bad token' }, 403));
-  const sessionId = safeSessionId(body.sessionId);
-  if (!sessionId) return send(res, apiSessionIdInvalid());
-  const liveReg = activeChildren.get(sessionId);
-  const markSession = async runIds => {
-    if (!EventStreamHooks.markAgentEnvelopeDelivered || !runIds.length) return;
-    if (liveReg && liveReg.session) { for (const id of runIds) EventStreamHooks.markAgentEnvelopeDelivered(liveReg.session, id); return; }
-    // 没有活回合:读-改-写走 mutateSession(撤回闸/写链纪律,见 02 头注),不直接 saveSession。
-    await mutateSession(sessionId, fresh => { for (const id of runIds) EventStreamHooks.markAgentEnvelopeDelivered(fresh, id); }, { writer: 'agent_envelope_delivered' }).catch(() => {});
-  };
-  if (kind === 'wait') {
-    const out = await waitForAgentRunResults(sessionId, body.runIds, resolveWaitAgentsMs(body.timeoutMs), null, () => { if (liveReg) liveReg.lastEventAt = Date.now(); });   // 等待窗内 Claude/Kimi 父回合的看门狗不算空闲(MCP 子进程里的 wait_agents 期间 CLI 没有任何输出)
-    // 与 provider 回合同一套结算(settleWaitEnvelopes):通知先到 → 短回执;wait 先到 → 登记已读。
-    if (liveReg && liveReg.session) settleWaitEnvelopes(liveReg.session, out);
-    else {
-      const snapshot = await loadSession(sessionId);
-      if (snapshot) {
-        settleWaitEnvelopes(snapshot, out);
-        const marked = Array.isArray(snapshot.backgroundJobSeen) ? snapshot.backgroundJobSeen : [];
-        await mutateSession(sessionId, fresh => { fresh.backgroundJobSeen = [...new Set([...(Array.isArray(fresh.backgroundJobSeen) ? fresh.backgroundJobSeen : []), ...marked])].slice(-100); }, { writer: 'agent_envelope_delivered' }).catch(() => {});
-      }
-    }
-    return send(res, json(out));
-  }
-  const out = await agentRunResultSlice({ sessionId, runId: body.runId, nodeId: body.nodeId, maxChars: body.maxChars, offset: body.offset });
-  if (out && out.ok && out.live !== true && AGENT_RUN_TERMINAL.has(String(out.runStatus))) await markSession([out.runId]);
-  return send(res, json(out));
+  return send(res, await CliBusinessHooks.agentResult(body, kind));
 }
 async function handleApi(req, res, pathname) {
   // --- auth gate ---
@@ -72786,6 +73028,7 @@ async function handleApi(req, res, pathname) {
     return send(res, apiFailure(code, {}, authErr, 403));
   }
 
+  if (pathname === '/api/mcp/internal/request' && await InternalMcpHooks.handle(req, res, pathname)) return;
   if (req.method === 'POST' && pathname === '/api/memory-cli' && typeof MemoryCliHooks.handle === 'function'
     && await MemoryCliHooks.handle(req, res, pathname)) return;
   if (typeof PrivacyCore !== 'undefined' && typeof PrivacyCore.configHooks.handleApiRoutes === 'function' && await PrivacyCore.configHooks.handleApiRoutes(req, res, pathname)) return;
@@ -73545,162 +73788,16 @@ async function handleApi(req, res, pathname) {
   // EC-D Wave 65: question, permission, and plan routes live in 13d-core-domain-routes.js.
   await handleInterventionApiRoutes(req, res, pathname); if (res.writableEnded) return;
   if (req.method === 'POST' && pathname === '/api/todo') {
-    // v0.8-S3: called by the todo_write tool running in the MCP child (Claude engine) over loopback. The
-    // child must NOT write session files itself (races the serve process's saveSession), so it delegates
-    // the persist here. Body-token authenticated (same pattern as /api/permission/request). Validates →
-    // loadSession → session.todos = items → saveSession → if a live turn owns this session, emit `todo`.
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
-    const sessionId = safeSessionId(body.sessionId); // F4
-    if (!sessionId) return send(res, apiSessionIdInvalid());
-    const items = normalizeTodoItems(body.items);
-    // 128b:mutateSession —— 撤回插在读与存之间时在新读的副本上重放,不被闸静默丢掉还回 ok。
-    let written;
-    try { written = await mutateSession(sessionId, fresh => { fresh.todos = items; }, { writer: 'todo' }); }
-    catch (error) {
-      if (error && error.code === 'session.rewound_during_write') return send(res, apiFailure(error.code, {}, error.message, 409));
-      throw error;
-    }
-    if (!written.session) return send(res, apiSessionNotFound());
-    const reg = activeChildren.get(sessionId);
-    if (reg && reg.onEvent) { try { reg.onEvent({ type: 'todo', items }); } catch { /* stream gone */ } }
-    return send(res, json({ ok: true, count: items.length }));
+    return send(res, await CliBusinessHooks.todo(body, { isClosed: () => res.writableEnded || res.destroyed }));
   }
   // ── 第26波b: 任务账本 API。GET 读(header token);POST 改(header token 或 body token —— 后者供 MCP 子进程
   //    的 mission_update 工具 loopback,同 /api/todo 纪律)。action: start(全量设)/update(合并)/stop/check(跑验收)。──
   if (pathname === '/api/mission') {
     const bodyOrQ = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://x').searchParams) : await readJsonBody(req);
-    const bodyTokenOk = tokenMatches(bodyOrQ.token);
-    if (!tokenOk(req) && !bodyTokenOk) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const sessionId = safeSessionId(bodyOrQ.sessionId);
-    if (!sessionId) return send(res, apiSessionIdInvalid());
-    let session = await loadSession(sessionId);
-    if (!session) return send(res, apiSessionNotFound());
-    if (req.method === 'GET') return send(res, json({ ok: true, mission: session.mission || null }));
-    // 128b:check／start／update 都走 mutateSession 落盘;撞上撤回回 409 稳定码,不回成功、不记变更流水。
-    const rewoundReply = error => send(res, apiFailure(error.code, {}, error.message, 409));
-    if (req.method !== 'POST') return send(res, json({ ok: false, error: 'method not allowed' }, 405));
-    const action = String(bodyOrQ.action || 'update');
-    const emitMission = () => { const reg = activeChildren.get(sessionId); if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } } };
-    if (action === 'stop') {
-      const result = await missionControlCommand(sessionId, 'stop');
-      return send(res, json(result.body, result.status));
-    }
-    if (action === 'check') {
-      // 跑全部里程碑机器验收;autoMark!==false 时把 pass 的 pending/blocked 里程碑标 done(证据落 detail)。
-      const cwd = normalizeCwd(session.cwd, (await readConfig()).defaultWorkspace);
-      const baseGen = Number(session.rewindGen) || 0;
-      const results = [];
-      for (const m of ((session.mission && session.mission.milestones) || [])) {
-        const r = await evaluateMissionCheck(m.check, cwd);
-        results.push({ id: m.id, checkType: m.check ? m.check.type : 'none', result: r });
-      }
-      const byId = new Map(results.map(item => [item.id, item.result]));
-      let resultBefore = '';
-      let written;
-      try {
-        written = await mutateSession(sessionId, async fresh => {
-          for (const m of ((fresh.mission && fresh.mission.milestones) || [])) {
-            const r = byId.get(m.id);
-            if (!r) continue;
-            recordMissionCheckResult(m, r);   // 124-P1:落章(唯一写入口在 02);done 不回退的既有语义不变
-            if (r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
-            if (!r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
-          }
-          if (fresh.mission) fresh.mission.updatedAt = nowIso();
-          resultBefore = String(fresh.mission && fresh.mission.result && fresh.mission.result.status || '');
-          await maybeFinalizeMission(fresh, 'check'); // 第72波:全 done 盖 complete 章
-        }, { writer: 'mission_check', expectGen: baseGen });
-      } catch (error) {
-        if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
-        throw error;
-      }
-      if (!written.session) return send(res, apiSessionNotFound());
-      session = written.session;
-      if (session.mission) {
-        const resultAfter = String(session.mission.result && session.mission.result.status || '');
-        const revision = await bumpMissionChangeSeq(sessionId, {
-          type: resultAfter && resultAfter !== resultBefore ? 'result' : 'progress',
-          cursor: { action: 'check' },
-          detail: { checks: results.length, passed: results.filter(item => item.result && item.result.pass).length, status: resultAfter },
-        });
-        if (revision) session.mission.changeSeq = revision;
-      }
-      emitMission();
-      return send(res, json({ ok: true, mission: session.mission || null, checks: results }));
-    }
-    // start = 全量新建(normalizeMission,prev=null);update = 按 id 增量合并(applyMissionUpdate,不抹其它里程碑)。
-    // autoMode 可作 body 兄弟字段或 mission.autoMode 传入,两条路径都尊重。
-    // 对抗轮 P1: trusted = 【header token】(UI/用户)——只有它能定义机器 check;body-token loopback(模型经 MCP 子进程)
-    // 视为不可信,不能设 check.cmd。header token 存在即 UI 直连(浏览器 CORS 拿不到该 token)。
-    const trusted = tokenOk(req);
-    let resultBefore = '';
-    let written;
-    try {
-      written = await mutateSession(sessionId, async fresh => {
-        resultBefore = String(fresh.mission && fresh.mission.result && fresh.mission.result.status || '');
-        if (action === 'start') {
-          const input = { ...(bodyOrQ.mission || bodyOrQ) };
-          if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
-          fresh.mission = normalizeMission(input, null, trusted);
-          fresh.mission.startedTurnSeq = Math.max(1, (Number(fresh.turnSeq) || 0) + 1);
-          fresh.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
-          return undefined;
-        }
-        if (!fresh.mission) return { abort: 'no_mission' };
-        fresh.mission = applyMissionUpdate(fresh.mission, bodyOrQ.patch || bodyOrQ, trusted);
-        if (bodyOrQ.autoMode != null) fresh.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : fresh.mission.autoMode;
-        await maybeFinalizeMission(fresh, 'update'); // 第72波:全 done 盖 complete 章 / 再武装清旧章
-        return undefined;
-      }, { writer: 'mission_' + (action === 'start' ? 'start' : 'update') });
-    } catch (error) {
-      if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
-      throw error;
-    }
-    if (!written.session) return send(res, apiSessionNotFound());
-    if (!written.ok && written.value === 'no_mission') return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
-    session = written.session;
-    if (action === 'start') logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
-    if (session.mission) {
-      const resultAfter = String(session.mission.result && session.mission.result.status || '');
-      const revision = await bumpMissionChangeSeq(sessionId, {
-        type: action === 'start' ? 'mission_started' : (resultAfter && resultAfter !== resultBefore ? 'result' : 'progress'),
-        cursor: { action },
-        detail: {
-          status: resultAfter,
-          autoMode: session.mission.autoMode || 'off',
-          milestonesTotal: Array.isArray(session.mission.milestones) ? session.mission.milestones.length : 0,
-          milestonesDone: Array.isArray(session.mission.milestones) ? session.mission.milestones.filter(item => item && item.status === 'done').length : 0,
-        },
-      });
-      if (revision) session.mission.changeSeq = revision;
-    }
-    emitMission();
-    // C4 (75a-3): sync the mission change to the active turn's in-memory session, so the provider round-tail
-    // saveSession (09:1924) doesn't cover back this route mutation. provider engine updates mission in-process
-    // (09:1719) and saves only at round-tail; without sync the turn's stale in-memory mission clobbers the
-    // route mutation. 'update' applies the patch (merge via applyMissionUpdate, preserving in-process
-    // mission_update changes); start/stop/check replace (full-state action). claude engine re-reads at 05:765
-    // instead (its mission_update loops back to disk), so it doesn't need this sync.
-    { const reg = activeChildren.get(sessionId); if (reg && reg.session && reg.session !== session) {
-      if (action === 'update' && reg.session.mission) {
-        reg.session.mission = applyMissionUpdate(reg.session.mission, bodyOrQ.patch || bodyOrQ, trusted);
-        if (bodyOrQ.autoMode != null) reg.session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : reg.session.mission.autoMode;
-        // 第97波对抗复审(B2):本路由已把磁盘权威侧落盘(含 maybeFinalizeMission 盖的 complete/stopped 章
-        // 与归档的 resultHistory);reg 内存侧只是 applyMissionUpdate 深拷旧值,result/resultHistory 仍是旧的。
-        // 若不同步,09/provider 回合收尾 saveSession(reg.session)会用陈旧内存覆盖磁盘,新章与归档整条丢失。
-        // 同步磁盘权威的 result 与 resultHistory(归档历史是追加语义,以磁盘为准)。
-        reg.session.mission.result = session.mission && session.mission.result || null;
-        reg.session.mission.resultHistory = Array.isArray(session.mission && session.mission.resultHistory) ? session.mission.resultHistory.slice(-10) : [];
-        if (session.mission && session.mission.result && session.mission.result.status === 'complete' && resultBefore !== 'complete') {
-          Object.defineProperty(reg.session, '__missionFinalizeHow', { value: 'update', writable: true, configurable: true, enumerable: false });
-        }
-      } else {
-        reg.session.mission = session.mission;
-        if (action === 'start') reg.session.kind = 'mission';
-      }
-    } }
-    return send(res, json({ ok: true, mission: session.mission }));
+    if (!tokenOk(req) && !tokenMatches(bodyOrQ.token)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    return send(res, await CliBusinessHooks.mission(bodyOrQ, { method: req.method, trusted: tokenOk(req) }));
   }
   // ── 第27波:自主性授权书 API。全部 header-token 白名单路由(需 needsToken 命中 + 此处再自查 tokenOk,【绝不】带
   //    body-token 兜底 —— R-P2-2 签发主权律:被注入的模型经 MCP 子进程 loopback 拿的是 body-token,永无签发/撤销能力)。──
@@ -73753,98 +73850,9 @@ async function handleApi(req, res, pathname) {
     return send(res, json({ ok: true, revoked: n, grants: listGrantsView(sessionId) }));
   }
   if (req.method === 'POST' && pathname === '/api/agent-workflow/launch') {
-    // Claude CLI's one-shot MCP child proxies the persistent DAG into the serve process. v1.4.4: the DAG
-    // is genuinely dual-engine now — each node picks 'openai' (HTTP against a configured Provider) or
-    // 'claude' (a native one-shot `claude` CLI spawn, runClaudeSubAgentOnce) via runAgentWorkflow's
-    // per-node engine resolution, so a Claude-CLI-only setup no longer needs a Provider configured at all.
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
-    const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, apiSessionIdInvalid());
-    const session = await loadSession(sessionId);
-    if (!session) return send(res, apiSessionNotFound());
-    const config = await readConfig();
-    const reg = activeChildren.get(sessionId);
-    const provider = resolveProvider(config, body.providerId)
-      || activeOpenAiProvider(config)
-      || (config.providers || []).find(p => p && p.baseUrl && (p.model || (p.models && p.models.length)));
-    // A direct UI/MCP launch has no active parent registry. In a Claude-only installation, defaulting such
-    // a launch to OpenAI manufactured an unusable route with provider=null and failed before the fake/real
-    // Claude child could start. Choose from actual availability when no live parent turn exists.
-    // 2026-10:只有活着的 Claude / provider 父回合才决定默认引擎。Kimi Code 父回合(reg.kind 'kimi-acp')修前被一律当成
-    // 'openai',没配 provider 时路由成 provider=null,节点一启动就抛 Cannot read properties of null —— 节点引擎只有
-    // openai / claude 两种,Kimi 父回合与「没有父回合」一样按实际可用的引擎挑。
-    const parentEngine = reg && reg.kind === 'claude' ? 'claude'
-      : (reg && reg.kind === 'openai' ? 'openai' : (provider ? 'openai' : 'claude'));
-    const parentModel = parentEngine === 'claude'
-      ? String(config.model || '')
-      : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');
-    const claudeCli = config.claudePath || detectClaudePath();
-    const claudeCliUsable = Boolean(process.env.WCW_FAKE_CLAUDE) || Boolean(claudeCli && await existsExecutableAsync(claudeCli)); // test seam, see runClaudeTurn; 128f-⑬ 异步
-    // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
-    // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
-    if (!provider && !claudeCliUsable) {
-      // 61-C6:说清 Claude CLI 找的是哪(修前探测对不存在的 claude.cmd 也判可用,走不到这里;现在走得到,就要说得清)。
-      const where = claudeCli ? `找过 ${claudeCli},不可用` : '没有配置 claudePath,PATH 里也找不到 claude';
-      return send(res, json({ ok: false, error: `Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI(${where})（Kimi Code 不能作为工作流节点的引擎）` }, 400));
-    }
-    // 2026-10:工作流按【这条线程】的生效权限档跑 —— 修前直接取全局 config.permissionMode,线程在自己的权限 chip 上收紧过也照
-    // 全局放。有活着的父回合就用它起回合时解析出的档(请求级 > 会话级 > 全局,05/09 登记在 reg.permissionMode),否则按
-    // 会话级 > 全局解析(与续跑、恢复分级 agentRunPermissionMode 同一个解析器)。
-    // provider 回合登记了 effectivePermissionMode()(回合中途在线程 chip 上收紧会被它看到),优先用它;其次是起回合时的快照。
-    const liveMode = reg && typeof reg.effectivePermissionMode === 'function' ? (() => { try { return reg.effectivePermissionMode(); } catch { return ''; } })() : (reg && reg.permissionMode);
-    const launchPermissionMode = PERMISSION_MODES.includes(liveMode) ? liveMode : resolvePermissionMode({ session, config });
-    // 代理模式 v2:事件只在【发起时的那个回合】仍是活回合时进它的流(回合结束后 run 继续跑,但不往关掉的 SSE
-    // 写、也不串进后来的回合);run 自己的事件日志与 GET /api/agent-runs 始终是权威实时面。
-    const onEvent = reg && reg.onEvent ? (evt => { const live = activeChildren.get(sessionId); if (live === reg && live.onEvent) live.onEvent(evt); }) : () => {};
-    const resolved = await resolveOrchestrateNodes(body, normalizeCwd(session.cwd, config.defaultWorkspace));
-    if (resolved.error) return send(res, json({ ok: false, error: resolved.error, startedCount: 0 }));
-    const wantEnvelope = body.envelope === true;
-    // v1.4.4: a persisted DAG's node-count ceiling is agentWorkflowMaxNodes, NOT subagentMaxPerTurn (that's
-    // an ad hoc, single-CHAT-TURN spawn_agent/orchestrate_agents fan-out budget — a 4-node default there
-    // used to reject any real pipeline with 5+ nodes outright here, even though resuming the same run used
-    // a hardcoded 32).
-    const contextText = String(body.context || '').trim();
-    // 代理模式 v2:完成 → 交付信封进后台任务账本(隐藏的数据面回执 + toast + 下一回合开头注入一次),不再往对话里
-    // 追加整份「Agent 工作流已结束」助手消息(那条会被 syncProviderHistoryFromDisplay 抄进模型上下文)。
-    const completion = run => deliverAgentRunEnvelope(session.id, run);
-    const background = body.async === true || body.background === true;
-    // 只有 Claude/Kimi 的 MCP 子进程回环(envelope:true)替模型发起的 background:true 才算「模型起的」:跑完才会唤醒主会话。
-    // 面板 / HTTP 的 async:true 是用户点的,信封照常进账本、随下一回合送达,但不替模型起回合。
-    const launchedByModel = body.envelope === true && body.background === true;
-    if (background) {
-      const runId = makeId('run');
-      // 与 launchPersistedAgentRun 同款:等到登记进 activeAgentRuns(或登记前就退出)再回。修前发起即回 accepted ——
-      // 校验失败(重复节点 id、缺角色、依赖坏)以 { ok:false } 返回却没人看,调用方拿到 runId 却永远等不到这次运行;
-      // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
-      let markRegistered = null;
-      const registered = new Promise(resolve => { markRegistered = resolve; });
-      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, launchedByModel, onRegistered: () => markRegistered() }).catch(async e => {
-        activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
-        const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, launchedByModel, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
-        await saveAgentRun(run).catch(() => {});
-        await completion(run).catch(() => {});
-        return { ok: false, error: run.error, reported: true };
-      });
-      const first = await Promise.race([registered.then(() => null), finished]);
-      if (first && first.ok === false && !first.reported) return send(res, json({ ok: false, error: first.error || '工作流未能启动', startedCount: 0 }));
-      return send(res, json({ ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean), note: '代理已在后台运行;完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。' }));
-    }
-    // 同步:MCP 回环(envelope:true)拿信封,并登记已读(它就是投递本身);UI/管理面(不带 envelope)照旧拿整份结果,
-    // 且当没有活回合时把信封投进账本,让模型下一回合知道这件事。
-    let completedRun = null;
-    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: async run => { completedRun = run; }, poolPolicy: body.poolPolicy, parentEngine, parentModel });
-    if (wantEnvelope) {
-      if (!completedRun) return send(res, json({ ok: false, error: (result && result.error) || '代理启动失败', runId: result && result.runId || '', startedCount: 0 }));
-      if (EventStreamHooks.markAgentEnvelopeDelivered) {
-        const liveReg = activeChildren.get(sessionId);
-        if (liveReg && liveReg.session) EventStreamHooks.markAgentEnvelopeDelivered(liveReg.session, completedRun.id);
-        else await mutateSession(sessionId, fresh => { EventStreamHooks.markAgentEnvelopeDelivered(fresh, completedRun.id); }, { writer: 'agent_envelope_delivered' }).catch(() => {}); // 读-改-写走 mutateSession
-      }
-      return send(res, json(buildAgentRunEnvelope(completedRun)));
-    }
-    if (completedRun && !activeChildren.has(session.id)) await completion(completedRun).catch(() => {});
-    return send(res, json(result));
+    return send(res, await CliBusinessHooks.agentLaunch(body, { isClosed: () => res.writableEnded || res.destroyed }));
   }
   // 代理模式 v2:MCP 子进程(Claude/Kimi)的 wait_agents / agent_result 回环(实现见 agentWorkflowLoopbackRoute)。
   if (req.method === 'POST' && pathname === '/api/agent-workflow/wait') return agentWorkflowLoopbackRoute(req, res, 'wait');
@@ -74417,7 +74425,7 @@ function portHolderTakeoverVerdict({ pid, port, runtime, health, image, commandL
 }
 async function readOwnRuntimeRecord() {
   try {
-    const rt = safeJsonParse(await fsp.readFile(path.join(paths.data, 'runtime.json'), 'utf8'), null);
+    const rt = safeJsonParse(await fsp.readFile(path.join(dataRoot(), 'runtime.json'), 'utf8'), null);
     return rt && typeof rt === 'object' && !Array.isArray(rt) ? rt : null;
   } catch { return null; /* 没有上一次的 runtime.json:没有可接管的自己人 */ }
 }
@@ -74507,7 +74515,7 @@ async function startServer(opts) {
   // Acquire before any recovery, imports, index invalidation, or startup error writes.
   // Only the real pending legacy migration also owns its destination; mkdir(next) here
   // would disable migration, so canonicalRoot resolves absent leaves via their real ancestor.
-  const roots = [paths.data];
+  const roots = [dataRoot()];
   const defaults = defaultDataRoots();
   const old = lstatOrNull(defaults.legacy);
   const migrate = isDirectServeInvocation() && !process.env.RUYI_HOME && !process.env.WIN_CLAUDE_WORKBENCH_HOME
@@ -74515,7 +74523,7 @@ async function startServer(opts) {
   if (migrate) roots.push(defaults.legacy, defaults.next);
   const ownership = await ServerOwnership.acquire(roots); // Refusal must not touch the owner's files.
   try {
-    if (isDirectServeInvocation()) {
+    if (isDirectServeInvocation() && !fs.existsSync(path.join(paths.data, '.work-data'))) {
       DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
       if (DATA_ROOT_MIGRATION.moved) {
         // All module-level DurableJsonStore files use callbacks; no store has read yet.
@@ -74525,12 +74533,14 @@ async function startServer(opts) {
         for (const key of Object.keys(paths)) paths[key] = path.join(to, path.relative(from, paths[key]));
       }
     }
+    await WorkDataRootHooks.bind(ownership);
     const result = await startServerInner(opts, bindHost);
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
     // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.
     if (ownership.portable) process.once('exit', () => { void ownership.release(); });
     return result;
   } catch (error) {
+    if (!WorkDataRootHooks.ready()) throw error; // Invalid authority must not trigger a startup error writer.
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
     const recoveryHelp = typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks.startupGuidance?.(error) : '';
     const message = String(recoveryHelp || (error && error.message) || error || '').slice(0, 800)
@@ -74732,7 +74742,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   // Port+token handshake file for the permission-bridge MCP child; also useful for tooling.
   const runtimeToken = crypto.randomBytes(16).toString('hex');
   RUNTIME.port = port; RUNTIME.host = host; RUNTIME.token = runtimeToken;
-  await atomicWriteJson(path.join(paths.data, 'runtime.json'),
+  await atomicWriteJson(path.join(dataRoot(), 'runtime.json'),
     { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() },
     { mode: 0o600 }).catch(() => {});   // 安全走查 S11:里面是接口令牌,只给属主读写(POSIX;Windows 靠用户目录 ACL)
   if (typeof PrivacyCore.configHooks.consumerListen === 'function') await PrivacyCore.configHooks.consumerListen();
@@ -75156,129 +75166,7 @@ async function startMcp() {
     return MemoryCliHooks.startRelay();
   }
   if (process.argv.includes('--consumer') || process.env.RUYI_MCP_CONSUMER_ID || process.env.RUYI_MCP_CONSUMER_TOKEN) return PrivacyCore.configHooks.startConsumerMcp();
-  await ensureDirs();
-  // v0.8-S2: mark this process as the one-shot MCP child. Shell-session tools detect this and return a
-  // guiding error instead of pretending to work — their state (the powershell child + ring buffer) lives
-  // in the serve process and cannot survive across this transient child's turns.
-  RUNTIME.isMcpChild = true;
-  const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
-  rl.on('line', line => {
-    void (async () => {
-      if (!line.trim()) return;
-      const msg = safeJsonParse(line);
-      if (!msg || !msg.method) return;
-      try {
-        await PrivacyCore.configHooks.verifyInternalMcp();
-        if (msg.method === 'initialize') {
-          return sendMcp(msg.id, {
-            protocolVersion: msg.params?.protocolVersion || '2024-11-05',
-            capabilities: { tools: {}, resources: {} },
-            serverInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 服务端标识名与 server id 一致
-          });
-        }
-        if (msg.method === 'tools/list') {
-          // 代理模式 v2:orchestrate_agents / wait_agents / agent_result 三个代理工具都可以 advertise —— 在 Claude/Kimi
-          // 会话里它们回环到 serve 进程(/api/agent-workflow/launch|wait|result),节点由配置的 provider 或 Claude CLI 跑。
-          const userInputEnabled = Boolean(process.env.WCW_SESSION_ID) && process.env.WCW_DISABLE_USER_INPUT !== '1';
-          const mode = process.env.WCW_TOOL_LOADING_MODE || 'full';
-          const routedPacks = new Set(String(process.env.WCW_TOOL_PACKS || '').split(',').filter(Boolean));
-          routedPacks.add('core');
-          const adaptiveAlways = new Set(['permission_prompt', 'list_tools', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
-          const listConfig = await readConfig();
-          PrivacyGateway.assertPolicyAvailable(listConfig);
-          if (PrivacyGateway.enabled(listConfig)) return sendMcp(msg.id, { tools: [], _meta: { privacy: 'privacy.engine_not_supported' } });
-          const recallEnabled = observationRecallEnabled(listConfig);
-          // 116c: Claude/Kimi CLI 桥的 offer 面。管家会话由注入的 WCW_SESSION_KIND 标识;缺失/非
-          // 'steward' 一律隐藏 steward_*(fail-closed —— 普通 CLI 会话永远看不到管家工具)。
-          const stewardSession = process.env.WCW_SESSION_KIND === 'steward';
-          const listed = MCP_TOOLS.filter(t => {
-            if (!nativeToolAvailableInContext(t.name)) return false;
-            if (t.name === 'request_user_input' && !userInputEnabled) return false;
-            if (t.name === 'observation_recall' && !recallEnabled) return false; // 105a: 双开关门
-            if (isStewardToolName(t.name) && !stewardSession) return false; // 116c: 管家工具族门
-            if (mode !== 'auto') return true;
-            return adaptiveAlways.has(t.name) || routedPacks.has(toolPackForName(t.name, {}));
-          });
-          return sendMcp(msg.id, { tools: listed });
-        }
-        if (msg.method === 'tools/call') {
-          const name = msg.params?.name;
-          const args = msg.params?.arguments || {};
-          const progressToken = msg.params?._meta?.progressToken;
-          const progressStartedAt = Date.now();
-          // Claude CLI may attach an MCP progress token to a long tool call. Report elapsed liveness while
-          // orchestrate_agents is waiting on the synchronous DAG result; this is in addition to the app-level
-          // workflow heartbeat and helps MCP clients distinguish "still running" from a dead server.
-          const progressTimer = (name === 'orchestrate_agents' || name === 'wait_agents') && progressToken != null ? setInterval(() => {
-            const elapsedSec = Math.max(1, Math.round((Date.now() - progressStartedAt) / 1000));
-            try { sendMcpNotification('notifications/progress', { progressToken, progress: elapsedSec, message: `Agent 工作流仍在运行 · ${elapsedSec}s` }); } catch {}
-          }, 10000) : null;
-          if (progressTimer && progressTimer.unref) progressTimer.unref();
-          try {
-            const result = await toolCall(name, args);
-            PrivacyGateway.assertSupported(await readConfig(), 'external-tool-result');
-            // S1 修复:MCP tools/call 路径(Claude 引擎)原样直出大结果会灌爆 CLI context。
-            // 经 truncateToolResult 截断(file_read 走 head/tail,其余 60KB+标记),与 OpenAI 引擎 push 路径一致。
-            const images = VisualPipeline.extractToolImages(result);
-            const modelResult = images.length ? VisualPipeline.stripToolImageFields(result, '[image attached in MCP content]') : result;
-            const serialized = JSON.stringify(modelResult, null, 2);
-            const memoryRead = name === 'workbench_memory_list' || name === 'workbench_memory_read';
-            if (memoryRead && Buffer.byteLength(serialized, 'utf8') > 2 * 1024 * 1024) throw new Error('memory_cli.result_too_large');
-            const text = memoryRead ? serialized : truncateToolResult(name, serialized);
-            return sendMcp(msg.id, {
-              content: [{ type: 'text', text }, ...images.map(uri => {
-                const split = uri.indexOf(';base64,');
-                return { type: 'image', mimeType: uri.slice(5, split), data: uri.slice(split + 8) };
-              })],
-              isError: result.ok === false,
-            });
-          } finally {
-            if (progressTimer) clearInterval(progressTimer);
-          }
-        }
-        if (msg.method === 'resources/list') {
-          const resourceConfig = await readConfig();
-          PrivacyGateway.assertPolicyAvailable(resourceConfig);
-          if (PrivacyGateway.enabled(resourceConfig)) return sendMcp(msg.id, { resources: [], _meta: { privacy: 'privacy.engine_not_supported' } });
-          return sendMcp(msg.id, {
-            resources: [
-              {
-                uri: `file://${paths.config.replace(/\\/g, '/')}`,
-                name: 'Workbench config',
-                description: 'Local workbench configuration file',
-                mimeType: 'application/json',
-              },
-            ],
-          });
-        }
-        if (msg.method === 'resources/read') {
-          const resourceConfig = await readConfig();
-          PrivacyGateway.assertSupported(resourceConfig, 'external-resource');
-          const uri = String(msg.params?.uri || '');
-          if (!uri.startsWith('file://')) throw new Error('Only file:// resources are supported');
-          const p = decodeURIComponent(uri.replace(/^file:\/\//, '')).replace(/^\/+/, '');
-          // resources/list only exposes the config file — confine reads to exactly it (no traversal,
-          // no UNC/SMB egress from an "offline" tool).
-          const resolved = path.resolve(p);
-          if (resolved.toLowerCase() !== path.resolve(paths.config).toLowerCase()) throw new Error('resource not found');
-          // 128e(48 号文 §1,实测坐实):修前这里把 config.json【原样】读出来返回 —— 明文的 provider apiKey、Claude CLI 的
-          // modelsApiKey、外部 MCP 连接器 env 里的令牌,连到工作台 MCP 的模型用读资源的工具就能拿走(GET /api/status 早在
-          // 107-S0／S0b 掩了同一批值,文件工具也把 config.json 列为敏感路径拒读 —— 这是绕过两道门的第三条路)。
-          // 现在交出去的是与 /api/status 同一份掩码视图(maskProviders,不另写一套),并且是归一化后的整份配置 ——
-          // 128a 之后盘上是稀疏文件,原样读反而给不出「当前生效的配置」。
-          const view = maskProviders(resourceConfig);
-          return sendMcp(msg.id, { contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(view, null, 2) }] });
-        }
-        if (msg.id !== undefined) return sendMcp(msg.id, {});
-      } catch (err) {
-        // A long tool may fail after protection was enabled in the serving process.
-        // Error text can contain private paths or stdout too; recheck before exposing it.
-        try { PrivacyGateway.assertSupported(await readConfig(), 'external-error'); }
-        catch (policyError) { err = new Error(policyError.code === 'privacy.engine_not_supported' ? policyError.code : 'privacy.policy_unavailable'); }
-        return sendMcp(msg.id, null, err);
-      }
-    })();
-  });
+  return InternalMcpHooks.startRelay();
 }
 
 async function installIntegration() {
@@ -79003,148 +78891,16 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     return send(res, json({ ok: true, deadlineAt: extension.deadlineAt, timeoutMs: extension.timeoutMs }));
   }
   if (req.method === 'POST' && pathname === '/api/question/request') {
-    // Called by request_user_input in the per-session Claude MCP child. Hold the tool call until the UI
-    // answers, then return a normal MCP tool result. Provider turns use the same registry in-process.
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
-    const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, apiSessionIdInvalid());
-    const reg = activeChildren.get(sessionId);
-    if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
-    const config = await readConfig();
-    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || '');
-    return send(res, json(answer && answer.ok
-      ? { ok: true, answers: answer.answers, content: answer.content }
-      : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));
+    return send(res, await CliBusinessHooks.question(body, { isClosed: () => res.writableEnded || res.destroyed }));
   }
   if (req.method === 'POST' && pathname === '/api/permission/request') {
-    // Called by the permission-bridge MCP tool (loopback). Holds until the UI decides or times out.
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
-    const config = await readConfig();
-    const sessionId = String(body.sessionId || '');
-    const reg = activeChildren.get(sessionId);
-    const requestId = makeId('perm');
-    if (!reg || !reg.onEvent) {
-      // No live UI stream to ask — fail closed.
-      return send(res, json({ behavior: 'deny', message: 'no active UI to prompt', requestId }));
-    }
-    // 审计 A② 后续(CLI 直挂面):toolLoadingMode:'full' 时桥接服务器(ACC 等)直接写进 --mcp-config,由 CLI 自己调,
-    // 不经工作台的三个分发点 —— 唯一还能插手的地方就是这里:CLI 为 mcp__<server>__<tool> 来问权限时,按与分发点
-    // 同一个 bridgedReadPathGate 判读路径,越界 / 内部数据 / 相对路径直接拒(不弹窗、不走授权书、不走 auto 短路)。
-    // 覆盖不到的:CLI 不来问的时候 —— bypass / auto 档(不带 --permission-prompt-tool)与 exec 档 DAG 节点(bypass 起)。
-    // 如意自己的 MCP 工具(mcp__ruyi__*)在它自己的 toolCall 里已有文件闸,这里不重复判。
-    {
-      const cliToolName = String(body.toolName || '');
-      if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
-        // 2026-10 能力总闸(纵深):CLI 直挂的内置桌面 MCP(mcp__ai-computer-control__<tool>)来问权限时,按与 09/08/12 同一个
-        // toolDisabledByPolicy 判,被 allowCommandTools / allowDesktopTools(+ 这条线程的 desktopTools)关掉的直接拒,不弹窗。
-        // 主防线在源头:01 把同一张表算成 ACC_HIDE_TOOLS 交给 ACC,它根本不注册这些工具;这里兜的是旧版 ACC(不认该变量)。
-        // 同样覆盖不到 CLI 不来问的档(bypass / auto、exec 档 DAG 节点)—— 那几档只靠源头裁剪。
-        const accPrefix = `mcp__${DESKTOP_MCP_SERVER_ID}__`;
-        if (cliToolName.startsWith(accPrefix)) {
-          const policyOff = toolDisabledByPolicy(cliToolName, config, sessionDesktopToolsOf(reg.session),
-            { serverId: DESKTOP_MCP_SERVER_ID, toolName: cliToolName.slice(accPrefix.length) });
-          if (policyOff) {
-            logEvent({ kind: 'permission_bridge_policy_deny', sessionId, tool: cliToolName, reason: policyOff });
-            return send(res, json({ behavior: 'deny', message: toolDisabledResult(cliToolName, policyOff).error, requestId }));
-          }
-        }
-        const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
-        const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config });
-        if (readRefusal) {
-          logEvent({ kind: 'permission_bridge_path_deny', sessionId, tool: cliToolName, code: readRefusal.code || '' });
-          return send(res, json({ behavior: 'deny', message: readRefusal.error || 'path not allowed', requestId }));
-        }
-      }
-    }
-    // v0.8-S4b: mirror the native path — carry tier + revertible so the popup renders the badge + the
-    // revertibility line for CLI-bridge permission prompts too. The CLI reports its own tool names (Edit/
-    // Write/Bash/…); toolIsRevertible only matches the workbench file_* set, so a native CLI Edit shows
-    // 「无法自动撤销」(correct: CLI-native edits don't pass through toolCall → aren't journaled).
-    // 第27波:CLI 桥授权书消耗点。命中直接 allow —— 连 permission_request 事件都不发(免弹窗静默放行)。工具名按 CLI
-    // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
-    const bridgeTier = Object.prototype.hasOwnProperty.call(CLI_TOOL_TIER, String(body.toolName || '')) ? CLI_TOOL_TIER[String(body.toolName)] : nativeToolTier(String(body.toolName || ''));   // CLI 报的是 Claude 名(Edit/Write/Bash),查 CLI 表;修前查原生表,一律落成 exec
-    // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
-    // 审计 C:按【这一回合】的实效档判,不按全局档。runClaudeTurn 登记活回合时记下了 spawn CLI 用的解析档
-    // (请求级 > 会话级 > 全局,10 runSessionTurn 解析);修前读 config.permissionMode —— 全局 auto 时,一条被
-    // 收紧到 default/plan 的线程(或交办卡/定时任务的请求级收紧)经 CLI 桥发来的 edit/exec 请求被静默放行。
-    // 登记表上没有这个值(Kimi 等其它引擎)就按会话头 + 全局解析,仍比「只看全局」更紧或相等。
-    const bridgeMode = String((reg && reg.permissionMode) || resolvePermissionMode({ session: reg && reg.session, config }) || '');
-    const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
-    // auto 档的低风险动作在原生引擎里已经不弹窗了,CLI 桥必须同口径 —— 否则同一个「全自动」在两个引擎
-    // 下行为不一致。只对 auto 档短路(其余档位一行不变:read/bypass 的既有落点仍走下面那条路)。
-    if (bridgeMode === 'auto' && bridgeGate === 'allow') {
-      return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
-    }
-    // 对抗轮 P3(天花板对称):与 native 主 gate 对齐 —— 仅当工作台自身权限模式对该档判定为 'ask' 时才允许授权书降级。
-    // 工作台若处于 plan 模式(该档判 'block'),即便 CLI 发来请求也不放行(子集律:授权书永不把 block 提升为 allow),
-    // 回落到下方正常弹窗由人定夺。default→'ask' 授权书生效;bypass→'allow' 本就免弹窗,无需授权书。
-    if (bridgeGate === 'ask') {
-      const grantHit = consumeGrant({ id: sessionId }, String(body.toolName || ''), body.input || {}, 'cli', null);
-      // 第42b波(live 冒烟擒获):CLI ≥2.1 的 zod union 要求 allow 变体【必须】带 updatedInput record,
-      // 裸 {behavior:'allow'} 会被 CLI 判 invalid_union 拒掉 → 回显原始输入。
-      if (grantHit) return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
-    }
-    reg.onEvent({ type: 'permission_request', requestId, toolName: body.toolName, input: body.input, tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
-    registerIntervention(sessionId, 'permission', requestId, {
-      toolName: String(body.toolName || ''), tier: bridgeTier, revertible: toolIsRevertible(body.toolName),
-      input: body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {},
-    });
-    // 第27f波:CLI 桥超时→存档暂停(与 provider 路径对称)。仅【opt-in + 本会话处于无人值守 driverAuto 回合】才启用;
-    // 否则维持"超时即拒杀"安全默认。两段定时:基础超时→检查点(logEvent+saveSession)+ permission_paused 事件 + 延长到 TTL;
-    // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
-    const cliPause = config.autonomyPauseOnTimeout && driverAutoSessions.has(sessionId);
-    const decision = await new Promise(resolve => {
-      // 128f-⑪:「等多久」问 04 的 permissionWaitMs(修前这一支只认 config,定时线程上的 CLI 引擎也是 120 s)。
-      const baseMs = permissionWaitMs(sessionId, config, reg && reg.session);
-      const entry = { resolve, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
-      if (cliPause) {
-        entry.timer = setTimeout(() => {
-          if (reg) reg.pausePending = true; // 第27f波:存档暂停期间豁免子进程 idle 看门狗(否则 TTL 内先杀子,窗口被截断)
-          try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
-          loadSession(sessionId).then(s => s && saveSession(s)).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
-          try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
-          entry.deadlineAt = Date.now() + Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000);   // 128f-⑪:存档暂停把窗口延长了
-          entry.timer = setTimeout(() => {
-            const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
-            runAutomaticInterventionDecision({
-              missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
-              idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
-            }, () => {
-              if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
-              pendingPermissions.delete(requestId);
-              resolve({ behavior: 'deny', message, pausedTimeout: true });
-              settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'paused ttl timeout' });
-            });
-          }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
-        }, baseMs);
-      } else {
-        entry.timer = setTimeout(() => {
-          const message = 'permission prompt timed out';
-          runAutomaticInterventionDecision({
-            missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
-            idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
-          }, () => {
-            if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
-            pendingPermissions.delete(requestId);
-            resolve({ behavior: 'deny', message });
-            settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: message });
-          });
-        }, baseMs);
-      }
-      pendingPermissions.set(requestId, entry);
-    });
-    try { reg.onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
-    if (reg) { reg.pausePending = false; reg.lastEventAt = Date.now(); } // 解除暂停豁免 + 重置看门狗时钟(暂停不算子进程空闲)
-    if (res.writableEnded || res.destroyed) return; // request already gone (e.g. child died)
-    // 第42b波(live 冒烟擒获):CLI ≥2.1 的 --permission-prompt-tool 响应是 zod union —— allow 变体必须
-    // 带 updatedInput record;UI 纯「允许」(未改输入)时 decision.updatedInput 为 undefined,JSON 序列化
-    // 掉键后被 CLI 拒(invalid_union: expected record, received undefined)→ 回合必败。回填原始输入。
-    if (decision && decision.behavior === 'allow' && (typeof decision.updatedInput !== 'object' || decision.updatedInput === null || Array.isArray(decision.updatedInput))) {
-      decision.updatedInput = body.input || {};
-    }
-    return send(res, json(decision));
+    const response = await CliBusinessHooks.permission(body, { isClosed: () => res.writableEnded || res.destroyed });
+    if (response) return send(res, response);
+    return;
   }
   if (req.method === 'POST' && pathname === '/api/permission/decision') {
     // 75b compatibility adapter. The entry lookup only recovers the mission partition; execution is core-owned.
@@ -80967,7 +80723,7 @@ const stewardCursorHost = {
   purpose: 'queue', schema: STEWARD_CURSOR_SCHEMA, scopeId: 'global', recordId: 'steward-cursor',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 };
 const stewardCursorStore = WorkDataStore.createText(stewardCursorHost);
 function stewardCursorStorage(operation) {
@@ -82339,7 +82095,7 @@ const stewardMemoryStore = WorkDataStore.createJson({
   purpose: 'memory', scopeId: 'global', recordId: 'steward-memory',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 // 116-2e 记忆面板六条路由共用的两道闸:token 级鉴权 + 管家总开关。命中返回要 send 的响应对象,
 // 放行返回 null。抽出来是为了让每条路由只多一行 —— 而不是为了少写一个前缀守卫就把闸也省了。
@@ -97665,7 +97421,7 @@ const McpConsumers = (() => {
       // Only this explicit setup response contains the reusable token. Never list,
       // recover, log or put it on argv; the receiving application's config owns it.
       return { ok: true, consumer: publicRow(row), configuration: { mcpServers: { ['ruyi-consumer_' + row.id]: { type: 'stdio', command: command.command,
-        args: [...command.args, '--consumer'], env: { RUYI_HOME: paths.data, RUYI_MCP_CONSUMER_ID: row.id, RUYI_MCP_CONSUMER_TOKEN: token } } } } };
+        args: [...command.args, '--consumer'], env: { RUYI_HOME: dataRoot(), RUYI_MCP_CONSUMER_ID: row.id, RUYI_MCP_CONSUMER_TOKEN: token } } } } };
     });
   }
   async function authenticate(req) {
@@ -98009,14 +97765,14 @@ const McpConsumers = (() => {
     } catch { if (!res.headersSent) minimal(); else res.end(); return true; }
   }
   async function listen() {
-    await atomicWriteJson(path.join(paths.data, 'mcp-host-v1.json'), { schema: 1, host: '127.0.0.1', port: RUNTIME.port, instanceId: instance }, { mode: 0o600 });
+    await atomicWriteJson(path.join(dataRoot(), 'mcp-host-v1.json'), { schema: 1, host: '127.0.0.1', port: RUNTIME.port, instanceId: instance }, { mode: 0o600 });
   }
   async function relay() {
     const relayHttp = require('node:http'), relayFs = require('node:fs'), relayPath = require('node:path');
     const token = process.env.RUYI_MCP_CONSUMER_TOKEN, consumerId = process.env.RUYI_MCP_CONSUMER_ID;
     // Blank inherited management secrets even if a caller accidentally inherited
     // them. The independent transport never reads runtime.json or falls back.
-    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST']) delete process.env[key];
+    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete process.env[key];
     let connection = null, opening = null, buffered = '', running = 0, stopped = false;
     const requests = new Set(), queue = [], activeMessages = new Map();
     const messageKey = id => typeof id + ":" + String(id);
@@ -98025,7 +97781,7 @@ const McpConsumers = (() => {
     const refusal = (id, code = 'unavailable') => output({ jsonrpc: '2.0', id: safeReplyId(id), error: { code: -32000,
       message: 'mcp_consumer.' + code + ': Start this Ruyi workbench, or create a connection in Settings > MCP. A write may already have completed: check its result; do not automatically retry. / 请先启动此如意工作台，或在设置的 MCP 页面生成连接配置。写操作可能已完成，请先核实，不要自动重试。', data: { operationMayHaveExecuted: true, resultUnavailable: true, retry: false } } });
     function discovery() {
-      const file = relayPath.join(paths.data, 'mcp-host-v1.json'), stat = relayFs.lstatSync(file);
+      const file = relayPath.join(dataRoot(), 'mcp-host-v1.json'), stat = relayFs.lstatSync(file);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4096) throw Error('unavailable');
       const value = JSON.parse(relayFs.readFileSync(file, 'utf8'));
       if (value.schema !== 1 || value.host !== '127.0.0.1' || !Number.isInteger(value.port) || value.port < 1 || value.port > 65535 || !validId(value.instanceId)) throw Error('unavailable');
@@ -98249,8 +98005,8 @@ const MemoryCliRelay = (() => {
     if (!sessionId || !executionOwner || executionOwner.cancelRequested || turnSettlers.get(sessionId) !== executionOwner) fail('owner_unavailable');
     const token = crypto.randomBytes(32).toString('hex'), self = commandForSelfMcp(config.mcpCommandMode);
     const definition = { type: 'stdio', command: self.command, args: [...self.args, '--memory-read-only'], env: {
-      RUYI_HOME: paths.data, RUYI_MEMORY_SESSION: sessionId, RUYI_MEMORY_PORT: String(RUNTIME.port), RUYI_MEMORY_CAP: token,
-      WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '',
+      RUYI_HOME: dataRoot(), RUYI_MEMORY_SESSION: sessionId, RUYI_MEMORY_PORT: String(RUNTIME.port), RUYI_MEMORY_CAP: token,
+      WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '', RUYI_INTERNAL_MCP_CAP: '', RUYI_INTERNAL_MCP_PORT: '',
     } };
     const configPath = path.join(paths.generated, `workbench.mcp.${sessionId}.json`);
     await fsp.mkdir(paths.generated, { recursive: true });
@@ -98277,8 +98033,8 @@ const MemoryCliRelay = (() => {
     nodeCurrent(context);
     const token = crypto.randomBytes(32).toString('hex'), self = commandForSelfMcp(config.mcpCommandMode);
     const definition = { type: 'stdio', command: self.command, args: [...self.args, '--memory-read-only'], env: {
-      RUYI_HOME: paths.data, RUYI_MEMORY_PORT: String(RUNTIME.port), RUYI_MEMORY_CAP: token,
-      WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '',
+      RUYI_HOME: dataRoot(), RUYI_MEMORY_PORT: String(RUNTIME.port), RUYI_MEMORY_CAP: token,
+      WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '', WCW_TOKEN: '', RUYI_INTERNAL_MCP_CAP: '', RUYI_INTERNAL_MCP_PORT: '',
     } };
     const configPath = path.join(paths.generated, `workbench.memory-mcp.${safeSessionId(subagentId)}.json`);
     let servers = {};
@@ -98368,7 +98124,7 @@ const MemoryCliRelay = (() => {
   }
   async function startRelay() {
     const http = require('node:http'), token = process.env.RUYI_MEMORY_CAP, port = Number(process.env.RUYI_MEMORY_PORT);
-    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST']) delete process.env[key];
+    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete process.env[key];
     const post = body => new Promise((resolve, reject) => {
       if (!/^[a-f0-9]{64}$/.test(String(token)) || !Number.isSafeInteger(port) || port < 1 || port > 65535) { reject(Error('memory_cli.unavailable')); return; }
       const payload = Buffer.from(JSON.stringify(body));
@@ -98426,6 +98182,844 @@ const MemoryCliRelay = (() => {
 })();
 Object.assign(MemoryCliHooks, MemoryCliRelay);
 
+// Shared CLI business services. HTTP adapters own authentication; the internal relay supplies
+// an exact registered execution owner and rechecks it before business mutations.
+async function cliTodoService(body, { method = 'POST', trusted = false, ownerReg = null, ownerCheck = () => {}, isClosed = () => false } = {}) {
+  ownerCheck();
+
+    // v0.8-S3: called by the todo_write tool running in the MCP child (Claude engine) over loopback. The
+    // child must NOT write session files itself (races the serve process's saveSession), so it delegates
+    // the persist here. Body-token authenticated (same pattern as /api/permission/request). Validates →
+    // loadSession → session.todos = items → saveSession → if a live turn owns this session, emit `todo`.
+    const sessionId = safeSessionId(body.sessionId); // F4
+    if (!sessionId) return (apiSessionIdInvalid());
+    const items = normalizeTodoItems(body.items);
+    // 128b:mutateSession —— 撤回插在读与存之间时在新读的副本上重放,不被闸静默丢掉还回 ok。
+    let written;
+    try { written = await mutateSession(sessionId, fresh => { ownerCheck(); fresh.todos = items; }, { writer: 'todo' }); }
+    catch (error) {
+      if (error && error.code === 'session.rewound_during_write') return (apiFailure(error.code, {}, error.message, 409));
+      throw error;
+    }
+    ownerCheck();
+    if (!written.session) return (apiSessionNotFound());
+    const reg = ownerReg || activeChildren.get(sessionId);
+    if (reg && reg.onEvent) { try { reg.onEvent({ type: 'todo', items }); } catch { /* stream gone */ } }
+    return (json({ ok: true, count: items.length }));
+
+}
+
+async function cliMissionService(bodyOrQ, { method = 'POST', trusted = false, ownerReg = null, ownerCheck = () => {}, isClosed = () => false } = {}) {
+  ownerCheck();
+
+    const sessionId = safeSessionId(bodyOrQ.sessionId);
+    if (!sessionId) return (apiSessionIdInvalid());
+    let session = await loadSession(sessionId); ownerCheck();
+    if (!session) return (apiSessionNotFound());
+    if (method === 'GET') return (json({ ok: true, mission: session.mission || null }));
+    // 128b:check／start／update 都走 mutateSession 落盘;撞上撤回回 409 稳定码,不回成功、不记变更流水。
+    const rewoundReply = error => (apiFailure(error.code, {}, error.message, 409));
+    if (method !== 'POST') return (json({ ok: false, error: 'method not allowed' }, 405));
+    const action = String(bodyOrQ.action || 'update');
+    const emitMission = () => { ownerCheck(); const reg = ownerReg || activeChildren.get(sessionId); if (reg && reg.onEvent) { try { reg.onEvent({ type: 'mission', mission: session.mission }); } catch { /* stream gone */ } } };
+    if (action === 'stop') {
+      const result = await missionControlCommand(sessionId, 'stop'); ownerCheck();
+      return (json(result.body, result.status));
+    }
+    if (action === 'check') {
+      // 跑全部里程碑机器验收;autoMark!==false 时把 pass 的 pending/blocked 里程碑标 done(证据落 detail)。
+      const checkConfig = await readConfig(); ownerCheck();
+      const cwd = normalizeCwd(session.cwd, checkConfig.defaultWorkspace);
+      const baseGen = Number(session.rewindGen) || 0;
+      const results = [];
+      for (const m of ((session.mission && session.mission.milestones) || [])) {
+        const r = await evaluateMissionCheck(m.check, cwd); ownerCheck();
+        results.push({ id: m.id, checkType: m.check ? m.check.type : 'none', result: r });
+      }
+      const byId = new Map(results.map(item => [item.id, item.result]));
+      let resultBefore = '';
+      let written;
+      try {
+        written = await mutateSession(sessionId, async fresh => { ownerCheck();
+          for (const m of ((fresh.mission && fresh.mission.milestones) || [])) {
+            const r = byId.get(m.id);
+            if (!r) continue;
+            recordMissionCheckResult(m, r);   // 124-P1:落章(唯一写入口在 02);done 不回退的既有语义不变
+            if (r.pass && bodyOrQ.autoMark !== false && m.status !== 'done') { m.status = 'done'; m.evidence = String(r.detail || '机器验收通过').slice(0, MISSION_MAX_TEXT); }
+            if (!r.pass && m.status === 'done') { /* 不自动回退 done → 避免抖动;仅 report */ }
+          }
+          if (fresh.mission) fresh.mission.updatedAt = nowIso();
+          resultBefore = String(fresh.mission && fresh.mission.result && fresh.mission.result.status || '');
+          await maybeFinalizeMission(fresh, 'check'); ownerCheck(); // 第72波:全 done 盖 complete 章
+        }, { writer: 'mission_check', expectGen: baseGen });
+      } catch (error) {
+        if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
+        throw error;
+      }
+      ownerCheck();
+    if (!written.session) return (apiSessionNotFound());
+      session = written.session;
+      if (session.mission) {
+        const resultAfter = String(session.mission.result && session.mission.result.status || '');
+        const revision = await bumpMissionChangeSeq(sessionId, {
+          type: resultAfter && resultAfter !== resultBefore ? 'result' : 'progress',
+          cursor: { action: 'check' },
+          detail: { checks: results.length, passed: results.filter(item => item.result && item.result.pass).length, status: resultAfter },
+        });
+        ownerCheck(); if (revision) session.mission.changeSeq = revision;
+      }
+      emitMission();
+      return (json({ ok: true, mission: session.mission || null, checks: results }));
+    }
+    // start = 全量新建(normalizeMission,prev=null);update = 按 id 增量合并(applyMissionUpdate,不抹其它里程碑)。
+    // autoMode 可作 body 兄弟字段或 mission.autoMode 传入,两条路径都尊重。
+    // 对抗轮 P1: trusted = 【header token】(UI/用户)——只有它能定义机器 check;body-token loopback(模型经 MCP 子进程)
+    // 视为不可信,不能设 check.cmd。header token 存在即 UI 直连(浏览器 CORS 拿不到该 token)。
+
+    let resultBefore = '';
+    let written;
+    try {
+      written = await mutateSession(sessionId, async fresh => { ownerCheck();
+        resultBefore = String(fresh.mission && fresh.mission.result && fresh.mission.result.status || '');
+        if (action === 'start') {
+          const input = { ...(bodyOrQ.mission || bodyOrQ) };
+          if (bodyOrQ.autoMode != null && input.autoMode == null) input.autoMode = bodyOrQ.autoMode;
+          fresh.mission = normalizeMission(input, null, trusted);
+          fresh.mission.startedTurnSeq = Math.max(1, (Number(fresh.turnSeq) || 0) + 1);
+          fresh.kind = 'mission'; // 第70波(EC-E):start 是显式任务动作 → Quick Ask 翻转 Mission(非启发式)
+          return undefined;
+        }
+        if (!fresh.mission) return { abort: 'no_mission' };
+        fresh.mission = applyMissionUpdate(fresh.mission, bodyOrQ.patch || bodyOrQ, trusted);
+        if (bodyOrQ.autoMode != null) fresh.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : fresh.mission.autoMode;
+        await maybeFinalizeMission(fresh, 'update'); ownerCheck(); // 第72波:全 done 盖 complete 章 / 再武装清旧章
+        return undefined;
+      }, { writer: 'mission_' + (action === 'start' ? 'start' : 'update') });
+    } catch (error) {
+      if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
+      throw error;
+    }
+    ownerCheck();
+    if (!written.session) return (apiSessionNotFound());
+    if (!written.ok && written.value === 'no_mission') return (json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
+    session = written.session;
+    if (action === 'start') logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
+    if (session.mission) {
+      const resultAfter = String(session.mission.result && session.mission.result.status || '');
+      const revision = await bumpMissionChangeSeq(sessionId, {
+        type: action === 'start' ? 'mission_started' : (resultAfter && resultAfter !== resultBefore ? 'result' : 'progress'),
+        cursor: { action },
+        detail: {
+          status: resultAfter,
+          autoMode: session.mission.autoMode || 'off',
+          milestonesTotal: Array.isArray(session.mission.milestones) ? session.mission.milestones.length : 0,
+          milestonesDone: Array.isArray(session.mission.milestones) ? session.mission.milestones.filter(item => item && item.status === 'done').length : 0,
+        },
+      });
+      ownerCheck(); if (revision) session.mission.changeSeq = revision;
+    }
+    emitMission();
+    // C4 (75a-3): sync the mission change to the active turn's in-memory session, so the provider round-tail
+    // saveSession (09:1924) doesn't cover back this route mutation. provider engine updates mission in-process
+    // (09:1719) and saves only at round-tail; without sync the turn's stale in-memory mission clobbers the
+    // route mutation. 'update' applies the patch (merge via applyMissionUpdate, preserving in-process
+    // mission_update changes); start/stop/check replace (full-state action). claude engine re-reads at 05:765
+    // instead (its mission_update loops back to disk), so it doesn't need this sync.
+    ownerCheck();
+    { const reg = ownerReg || activeChildren.get(sessionId); if (reg && reg.session && reg.session !== session) {
+      if (action === 'update' && reg.session.mission) {
+        reg.session.mission = applyMissionUpdate(reg.session.mission, bodyOrQ.patch || bodyOrQ, trusted);
+        if (bodyOrQ.autoMode != null) reg.session.mission.autoMode = ['off', 'until-done', 'supervised'].includes(bodyOrQ.autoMode) ? bodyOrQ.autoMode : reg.session.mission.autoMode;
+        // 第97波对抗复审(B2):本路由已把磁盘权威侧落盘(含 maybeFinalizeMission 盖的 complete/stopped 章
+        // 与归档的 resultHistory);reg 内存侧只是 applyMissionUpdate 深拷旧值,result/resultHistory 仍是旧的。
+        // 若不同步,09/provider 回合收尾 saveSession(reg.session)会用陈旧内存覆盖磁盘,新章与归档整条丢失。
+        // 同步磁盘权威的 result 与 resultHistory(归档历史是追加语义,以磁盘为准)。
+        reg.session.mission.result = session.mission && session.mission.result || null;
+        reg.session.mission.resultHistory = Array.isArray(session.mission && session.mission.resultHistory) ? session.mission.resultHistory.slice(-10) : [];
+        if (session.mission && session.mission.result && session.mission.result.status === 'complete' && resultBefore !== 'complete') {
+          Object.defineProperty(reg.session, '__missionFinalizeHow', { value: 'update', writable: true, configurable: true, enumerable: false });
+        }
+      } else {
+        reg.session.mission = session.mission;
+        if (action === 'start') reg.session.kind = 'mission';
+      }
+    } }
+    return (json({ ok: true, mission: session.mission }));
+
+}
+
+async function cliAgentLaunchService(body, { method = 'POST', trusted = false, ownerReg = null, ownerCheck = () => {}, isClosed = () => false } = {}) {
+  ownerCheck();
+
+    // Claude CLI's one-shot MCP child proxies the persistent DAG into the serve process. v1.4.4: the DAG
+    // is genuinely dual-engine now — each node picks 'openai' (HTTP against a configured Provider) or
+    // 'claude' (a native one-shot `claude` CLI spawn, runClaudeSubAgentOnce) via runAgentWorkflow's
+    // per-node engine resolution, so a Claude-CLI-only setup no longer needs a Provider configured at all.
+    const sessionId = safeSessionId(body.sessionId);
+    if (!sessionId) return (apiSessionIdInvalid());
+    const session = await loadSession(sessionId); ownerCheck();
+    if (!session) return (apiSessionNotFound());
+    const config = await readConfig(); ownerCheck();
+    const reg = ownerReg || activeChildren.get(sessionId);
+    const provider = resolveProvider(config, body.providerId)
+      || activeOpenAiProvider(config)
+      || (config.providers || []).find(p => p && p.baseUrl && (p.model || (p.models && p.models.length)));
+    // A direct UI/MCP launch has no active parent registry. In a Claude-only installation, defaulting such
+    // a launch to OpenAI manufactured an unusable route with provider=null and failed before the fake/real
+    // Claude child could start. Choose from actual availability when no live parent turn exists.
+    // 2026-10:只有活着的 Claude / provider 父回合才决定默认引擎。Kimi Code 父回合(reg.kind 'kimi-acp')修前被一律当成
+    // 'openai',没配 provider 时路由成 provider=null,节点一启动就抛 Cannot read properties of null —— 节点引擎只有
+    // openai / claude 两种,Kimi 父回合与「没有父回合」一样按实际可用的引擎挑。
+    const parentEngine = reg && reg.kind === 'claude' ? 'claude'
+      : (reg && reg.kind === 'openai' ? 'openai' : (provider ? 'openai' : 'claude'));
+    const parentModel = parentEngine === 'claude'
+      ? String(config.model || '')
+      : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');
+    const claudeCli = config.claudePath || detectClaudePath();
+    const claudeCliUsable = Boolean(process.env.WCW_FAKE_CLAUDE) || Boolean(claudeCli && await existsExecutableAsync(claudeCli)); ownerCheck(); // test seam, see runClaudeTurn; 128f-⑬ 异步
+    // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
+    // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
+    if (!provider && !claudeCliUsable) {
+      // 61-C6:说清 Claude CLI 找的是哪(修前探测对不存在的 claude.cmd 也判可用,走不到这里;现在走得到,就要说得清)。
+      const where = claudeCli ? `找过 ${claudeCli},不可用` : '没有配置 claudePath,PATH 里也找不到 claude';
+      return (json({ ok: false, error: `Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI(${where})（Kimi Code 不能作为工作流节点的引擎）` }, 400));
+    }
+    // 2026-10:工作流按【这条线程】的生效权限档跑 —— 修前直接取全局 config.permissionMode,线程在自己的权限 chip 上收紧过也照
+    // 全局放。有活着的父回合就用它起回合时解析出的档(请求级 > 会话级 > 全局,05/09 登记在 reg.permissionMode),否则按
+    // 会话级 > 全局解析(与续跑、恢复分级 agentRunPermissionMode 同一个解析器)。
+    // provider 回合登记了 effectivePermissionMode()(回合中途在线程 chip 上收紧会被它看到),优先用它;其次是起回合时的快照。
+    const liveMode = reg && typeof reg.effectivePermissionMode === 'function' ? (() => { try { return reg.effectivePermissionMode(); } catch { return ''; } })() : (reg && reg.permissionMode);
+    const launchPermissionMode = PERMISSION_MODES.includes(liveMode) ? liveMode : resolvePermissionMode({ session, config });
+    // 代理模式 v2:事件只在【发起时的那个回合】仍是活回合时进它的流(回合结束后 run 继续跑,但不往关掉的 SSE
+    // 写、也不串进后来的回合);run 自己的事件日志与 GET /api/agent-runs 始终是权威实时面。
+    const onEvent = reg && reg.onEvent ? (evt => { try { ownerCheck(); } catch { return; } const live = activeChildren.get(sessionId); if (live === reg && live.onEvent) live.onEvent(evt); }) : () => {};
+    const resolved = await resolveOrchestrateNodes(body, normalizeCwd(session.cwd, config.defaultWorkspace)); ownerCheck();
+    if (resolved.error) return (json({ ok: false, error: resolved.error, startedCount: 0 }));
+    const wantEnvelope = body.envelope === true;
+    // v1.4.4: a persisted DAG's node-count ceiling is agentWorkflowMaxNodes, NOT subagentMaxPerTurn (that's
+    // an ad hoc, single-CHAT-TURN spawn_agent/orchestrate_agents fan-out budget — a 4-node default there
+    // used to reject any real pipeline with 5+ nodes outright here, even though resuming the same run used
+    // a hardcoded 32).
+    const contextText = String(body.context || '').trim();
+    // 代理模式 v2:完成 → 交付信封进后台任务账本(隐藏的数据面回执 + toast + 下一回合开头注入一次),不再往对话里
+    // 追加整份「Agent 工作流已结束」助手消息(那条会被 syncProviderHistoryFromDisplay 抄进模型上下文)。
+    const completion = run => deliverAgentRunEnvelope(session.id, run);
+    const background = body.async === true || body.background === true;
+    // 只有 Claude/Kimi 的 MCP 子进程回环(envelope:true)替模型发起的 background:true 才算「模型起的」:跑完才会唤醒主会话。
+    // 面板 / HTTP 的 async:true 是用户点的,信封照常进账本、随下一回合送达,但不替模型起回合。
+    const launchedByModel = body.envelope === true && body.background === true;
+    if (background) {
+      const runId = makeId('run');
+      // 与 launchPersistedAgentRun 同款:等到登记进 activeAgentRuns(或登记前就退出)再回。修前发起即回 accepted ——
+      // 校验失败(重复节点 id、缺角色、依赖坏)以 { ok:false } 返回却没人看,调用方拿到 runId 却永远等不到这次运行;
+      // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
+      let markRegistered = null;
+      const registered = new Promise(resolve => { markRegistered = resolve; });
+      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, launchedByModel, onRegistered: () => markRegistered() }).catch(async e => {
+        activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
+        const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, launchedByModel, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
+        await saveAgentRun(run).catch(() => {});
+        await completion(run).catch(() => {});
+        return { ok: false, error: run.error, reported: true };
+      });
+      const first = await Promise.race([registered.then(() => null), finished]); ownerCheck();
+      if (first && first.ok === false && !first.reported) return (json({ ok: false, error: first.error || '工作流未能启动', startedCount: 0 }));
+      return (json({ ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean), note: '代理已在后台运行;完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。' }));
+    }
+    // 同步:MCP 回环(envelope:true)拿信封,并登记已读(它就是投递本身);UI/管理面(不带 envelope)照旧拿整份结果,
+    // 且当没有活回合时把信封投进账本,让模型下一回合知道这件事。
+    let completedRun = null;
+    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: async run => { completedRun = run; }, poolPolicy: body.poolPolicy, parentEngine, parentModel });
+    ownerCheck();
+    if (wantEnvelope) {
+      if (!completedRun) return (json({ ok: false, error: (result && result.error) || '代理启动失败', runId: result && result.runId || '', startedCount: 0 }));
+      if (EventStreamHooks.markAgentEnvelopeDelivered) {
+        const liveReg = ownerReg || activeChildren.get(sessionId);
+        if (liveReg && liveReg.session) EventStreamHooks.markAgentEnvelopeDelivered(liveReg.session, completedRun.id);
+        else await mutateSession(sessionId, fresh => { ownerCheck(); EventStreamHooks.markAgentEnvelopeDelivered(fresh, completedRun.id); }, { writer: 'agent_envelope_delivered' }).catch(() => {}); // 读-改-写走 mutateSession
+      }
+      return (json(buildAgentRunEnvelope(completedRun)));
+    }
+    if (completedRun && !activeChildren.has(session.id)) await completion(completedRun).catch(() => {});
+    return (json(result));
+
+}
+
+async function cliQuestionService(body, { method = 'POST', trusted = false, ownerReg = null, ownerCheck = () => {}, isClosed = () => false } = {}) {
+  ownerCheck();
+
+    // Called by request_user_input in the per-session Claude MCP child. Hold the tool call until the UI
+    // answers, then return a normal MCP tool result. Provider turns use the same registry in-process.
+    const sessionId = safeSessionId(body.sessionId);
+    if (!sessionId) return (apiSessionIdInvalid());
+    const reg = ownerReg || activeChildren.get(sessionId);
+    if (!reg || !reg.onEvent) return (apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
+    const config = await readConfig(); ownerCheck();
+    ownerCheck(); const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || ''); ownerCheck();
+    return (json(answer && answer.ok
+      ? { ok: true, answers: answer.answers, content: answer.content }
+      : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));
+
+}
+
+async function cliPermissionService(body, { method = 'POST', trusted = false, ownerReg = null, ownerCheck = () => {}, isClosed = () => false } = {}) {
+  ownerCheck();
+
+    // Called by the permission-bridge MCP tool (loopback). Holds until the UI decides or times out.
+    const config = await readConfig(); ownerCheck();
+    const sessionId = String(body.sessionId || '');
+    const reg = ownerReg || activeChildren.get(sessionId);
+    const requestId = makeId('perm');
+    if (!reg || !reg.onEvent) {
+      // No live UI stream to ask — fail closed.
+      return (json({ behavior: 'deny', message: 'no active UI to prompt', requestId }));
+    }
+    // 审计 A② 后续(CLI 直挂面):toolLoadingMode:'full' 时桥接服务器(ACC 等)直接写进 --mcp-config,由 CLI 自己调,
+    // 不经工作台的三个分发点 —— 唯一还能插手的地方就是这里:CLI 为 mcp__<server>__<tool> 来问权限时,按与分发点
+    // 同一个 bridgedReadPathGate 判读路径,越界 / 内部数据 / 相对路径直接拒(不弹窗、不走授权书、不走 auto 短路)。
+    // 覆盖不到的:CLI 不来问的时候 —— bypass / auto 档(不带 --permission-prompt-tool)与 exec 档 DAG 节点(bypass 起)。
+    // 如意自己的 MCP 工具(mcp__ruyi__*)在它自己的 toolCall 里已有文件闸,这里不重复判。
+    {
+      const cliToolName = String(body.toolName || '');
+      if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
+        // 2026-10 能力总闸(纵深):CLI 直挂的内置桌面 MCP(mcp__ai-computer-control__<tool>)来问权限时,按与 09/08/12 同一个
+        // toolDisabledByPolicy 判,被 allowCommandTools / allowDesktopTools(+ 这条线程的 desktopTools)关掉的直接拒,不弹窗。
+        // 主防线在源头:01 把同一张表算成 ACC_HIDE_TOOLS 交给 ACC,它根本不注册这些工具;这里兜的是旧版 ACC(不认该变量)。
+        // 同样覆盖不到 CLI 不来问的档(bypass / auto、exec 档 DAG 节点)—— 那几档只靠源头裁剪。
+        const accPrefix = `mcp__${DESKTOP_MCP_SERVER_ID}__`;
+        if (cliToolName.startsWith(accPrefix)) {
+          const policyOff = toolDisabledByPolicy(cliToolName, config, sessionDesktopToolsOf(reg.session),
+            { serverId: DESKTOP_MCP_SERVER_ID, toolName: cliToolName.slice(accPrefix.length) });
+          if (policyOff) {
+            logEvent({ kind: 'permission_bridge_policy_deny', sessionId, tool: cliToolName, reason: policyOff });
+            return (json({ behavior: 'deny', message: toolDisabledResult(cliToolName, policyOff).error, requestId }));
+          }
+        }
+        const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
+        const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config }); ownerCheck();
+        if (readRefusal) {
+          logEvent({ kind: 'permission_bridge_path_deny', sessionId, tool: cliToolName, code: readRefusal.code || '' });
+          return (json({ behavior: 'deny', message: readRefusal.error || 'path not allowed', requestId }));
+        }
+      }
+    }
+    // v0.8-S4b: mirror the native path — carry tier + revertible so the popup renders the badge + the
+    // revertibility line for CLI-bridge permission prompts too. The CLI reports its own tool names (Edit/
+    // Write/Bash/…); toolIsRevertible only matches the workbench file_* set, so a native CLI Edit shows
+    // 「无法自动撤销」(correct: CLI-native edits don't pass through toolCall → aren't journaled).
+    // 第27波:CLI 桥授权书消耗点。命中直接 allow —— 连 permission_request 事件都不发(免弹窗静默放行)。工具名按 CLI
+    // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
+    const bridgeTier = Object.prototype.hasOwnProperty.call(CLI_TOOL_TIER, String(body.toolName || '')) ? CLI_TOOL_TIER[String(body.toolName)] : nativeToolTier(String(body.toolName || ''));   // CLI 报的是 Claude 名(Edit/Write/Bash),查 CLI 表;修前查原生表,一律落成 exec
+    // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
+    // 审计 C:按【这一回合】的实效档判,不按全局档。runClaudeTurn 登记活回合时记下了 spawn CLI 用的解析档
+    // (请求级 > 会话级 > 全局,10 runSessionTurn 解析);修前读 config.permissionMode —— 全局 auto 时,一条被
+    // 收紧到 default/plan 的线程(或交办卡/定时任务的请求级收紧)经 CLI 桥发来的 edit/exec 请求被静默放行。
+    // 登记表上没有这个值(Kimi 等其它引擎)就按会话头 + 全局解析,仍比「只看全局」更紧或相等。
+    const bridgeMode = String((reg && reg.permissionMode) || resolvePermissionMode({ session: reg && reg.session, config }) || '');
+    const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
+    // auto 档的低风险动作在原生引擎里已经不弹窗了,CLI 桥必须同口径 —— 否则同一个「全自动」在两个引擎
+    // 下行为不一致。只对 auto 档短路(其余档位一行不变:read/bypass 的既有落点仍走下面那条路)。
+    if (bridgeMode === 'auto' && bridgeGate === 'allow') {
+      return (json({ behavior: 'allow', updatedInput: body.input || {} }));
+    }
+    // 对抗轮 P3(天花板对称):与 native 主 gate 对齐 —— 仅当工作台自身权限模式对该档判定为 'ask' 时才允许授权书降级。
+    // 工作台若处于 plan 模式(该档判 'block'),即便 CLI 发来请求也不放行(子集律:授权书永不把 block 提升为 allow),
+    // 回落到下方正常弹窗由人定夺。default→'ask' 授权书生效;bypass→'allow' 本就免弹窗,无需授权书。
+    if (bridgeGate === 'ask') {
+      const grantHit = consumeGrant({ id: sessionId }, String(body.toolName || ''), body.input || {}, 'cli', null);
+      // 第42b波(live 冒烟擒获):CLI ≥2.1 的 zod union 要求 allow 变体【必须】带 updatedInput record,
+      // 裸 {behavior:'allow'} 会被 CLI 判 invalid_union 拒掉 → 回显原始输入。
+      if (grantHit) return (json({ behavior: 'allow', updatedInput: body.input || {} }));
+    }
+    ownerCheck(); reg.onEvent({ type: 'permission_request', requestId, toolName: body.toolName, input: body.input, tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
+    registerIntervention(sessionId, 'permission', requestId, {
+      toolName: String(body.toolName || ''), tier: bridgeTier, revertible: toolIsRevertible(body.toolName),
+      input: body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {},
+    });
+    // 第27f波:CLI 桥超时→存档暂停(与 provider 路径对称)。仅【opt-in + 本会话处于无人值守 driverAuto 回合】才启用;
+    // 否则维持"超时即拒杀"安全默认。两段定时:基础超时→检查点(logEvent+saveSession)+ permission_paused 事件 + 延长到 TTL;
+    // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
+    const ownerAlive = () => { try { ownerCheck(); return true; } catch { return false; } };
+    const cliPause = config.autonomyPauseOnTimeout && driverAutoSessions.has(sessionId);
+    const decision = await new Promise(resolve => {
+      // 128f-⑪:「等多久」问 04 的 permissionWaitMs(修前这一支只认 config,定时线程上的 CLI 引擎也是 120 s)。
+      const baseMs = permissionWaitMs(sessionId, config, reg && reg.session);
+      const entry = { resolve, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
+      const clearExpiredOwner = () => {
+        if (ownerAlive()) return false;
+        // Registry cleanup belongs to the intervention command core, not to a stale CLI grant.
+        // Clear only this request: a replacement turn may already have another pending prompt.
+        const note = 'originating CLI execution ended';
+        runAutomaticInterventionDecision({
+          missionId: sessionId, interventionId: requestId, source: 'clear_permission', decidedBy: 'clear',
+          idempotencyKey: `clear:${requestId}`, payload: { action: 'deny', message: note },
+        }, () => {
+          if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+          pendingPermissions.delete(requestId);
+          resolve({ behavior: 'deny', message: note });
+          settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'clear', note });
+        });
+        return true;
+      };
+      if (cliPause) {
+        entry.timer = setTimeout(() => {
+          if (clearExpiredOwner()) return;
+          if (reg) reg.pausePending = true; // 第27f波:存档暂停期间豁免子进程 idle 看门狗(否则 TTL 内先杀子,窗口被截断)
+          try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
+          loadSession(sessionId).then(s => { ownerCheck(); return s && saveSession(s); }).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
+          try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
+          entry.deadlineAt = Date.now() + Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000);   // 128f-⑪:存档暂停把窗口延长了
+          entry.timer = setTimeout(() => {
+          if (clearExpiredOwner()) return;
+            const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
+            runAutomaticInterventionDecision({
+              missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
+              idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
+            }, () => {
+              if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+              pendingPermissions.delete(requestId);
+              resolve({ behavior: 'deny', message, pausedTimeout: true });
+              settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'paused ttl timeout' });
+            });
+          }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
+        }, baseMs);
+      } else {
+        entry.timer = setTimeout(() => {
+          if (clearExpiredOwner()) return;
+          const message = 'permission prompt timed out';
+          runAutomaticInterventionDecision({
+            missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
+            idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
+          }, () => {
+            if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
+            pendingPermissions.delete(requestId);
+            resolve({ behavior: 'deny', message });
+            settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: message });
+          });
+        }, baseMs);
+      }
+      pendingPermissions.set(requestId, entry);
+    });
+    ownerCheck();
+    try { reg.onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
+    if (reg) { reg.pausePending = false; reg.lastEventAt = Date.now(); } // 解除暂停豁免 + 重置看门狗时钟(暂停不算子进程空闲)
+    if (isClosed()) return; // request already gone (e.g. child died)
+    // 第42b波(live 冒烟擒获):CLI ≥2.1 的 --permission-prompt-tool 响应是 zod union —— allow 变体必须
+    // 带 updatedInput record;UI 纯「允许」(未改输入)时 decision.updatedInput 为 undefined,JSON 序列化
+    // 掉键后被 CLI 拒(invalid_union: expected record, received undefined)→ 回合必败。回填原始输入。
+    if (decision && decision.behavior === 'allow' && (typeof decision.updatedInput !== 'object' || decision.updatedInput === null || Array.isArray(decision.updatedInput))) {
+      decision.updatedInput = body.input || {};
+    }
+    return (json(decision));
+
+}
+
+async function cliAgentResultService(body, kind, { ownerReg = null, ownerCheck = () => {} } = {}) {
+  ownerCheck();
+
+  const sessionId = safeSessionId(body.sessionId);
+  if (!sessionId) return (apiSessionIdInvalid());
+  const liveReg = ownerReg || activeChildren.get(sessionId);
+  const markSession = async runIds => {
+    ownerCheck();
+    if (!EventStreamHooks.markAgentEnvelopeDelivered || !runIds.length) return;
+    if (liveReg && liveReg.session) { for (const id of runIds) EventStreamHooks.markAgentEnvelopeDelivered(liveReg.session, id); return; }
+    // 没有活回合:读-改-写走 mutateSession(撤回闸/写链纪律,见 02 头注),不直接 saveSession。
+    await mutateSession(sessionId, fresh => { ownerCheck(); for (const id of runIds) EventStreamHooks.markAgentEnvelopeDelivered(fresh, id); }, { writer: 'agent_envelope_delivered' }).catch(() => {});
+  };
+  if (kind === 'wait') {
+    const out = await waitForAgentRunResults(sessionId, body.runIds, resolveWaitAgentsMs(body.timeoutMs), null, () => { try { ownerCheck(); if (liveReg) liveReg.lastEventAt = Date.now(); } catch { /* expired request cannot refresh the old turn */ } });   // 等待窗内 Claude/Kimi 父回合的看门狗不算空闲(MCP 子进程里的 wait_agents 期间 CLI 没有任何输出)
+    ownerCheck();
+    // 与 provider 回合同一套结算(settleWaitEnvelopes):通知先到 → 短回执;wait 先到 → 登记已读。
+    if (liveReg && liveReg.session) settleWaitEnvelopes(liveReg.session, out);
+    else {
+      const snapshot = await loadSession(sessionId); ownerCheck();
+      if (snapshot) {
+        settleWaitEnvelopes(snapshot, out);
+        const marked = Array.isArray(snapshot.backgroundJobSeen) ? snapshot.backgroundJobSeen : [];
+        await mutateSession(sessionId, fresh => { ownerCheck(); fresh.backgroundJobSeen = [...new Set([...(Array.isArray(fresh.backgroundJobSeen) ? fresh.backgroundJobSeen : []), ...marked])].slice(-100); }, { writer: 'agent_envelope_delivered' }).catch(() => {});
+      }
+    }
+    return (json(out));
+  }
+  const out = await agentRunResultSlice({ sessionId, runId: body.runId, nodeId: body.nodeId, maxChars: body.maxChars, offset: body.offset }); ownerCheck();
+  if (out && out.ok && out.live !== true && AGENT_RUN_TERMINAL.has(String(out.runStatus))) await markSession([out.runId]);
+  return (json(out));
+
+}
+
+Object.assign(CliBusinessHooks, { todo: cliTodoService, mission: cliMissionService, agentLaunch: cliAgentLaunchService, question: cliQuestionService, permission: cliPermissionService, agentResult: cliAgentResultService });
+
+// Default internal MCP has no disk owner in its stdio process. Only a capability bound to
+// the exact registered CLI execution may dispatch its RPCs in serve. Consumer and memory
+// transports retain separate registries, credentials and tool surfaces.
+const InternalMcpRelay = (() => {
+  const route = '/api/mcp/internal/request', bodyCap = MAX_BODY_BYTES, frameCap = 64 * 1024 * 1024;
+  const grants = new Set(), contexts = new WeakMap(), issuedContexts = new WeakSet();
+  const mainOnly = new Set(['permission_prompt', 'request_user_input', 'todo_write', 'mission_update',
+    'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result']);
+  const fail = code => { throw Object.assign(Error('internal_mcp.' + code), { code: 'internal_mcp.' + code, statusCode: 403 }); };
+  const digest = value => crypto.createHash('sha256').update(value).digest();
+  const equal = (a, b) => a.length === b.length && crypto.timingSafeEqual(a, b);
+  const Hooks = { run: work => work() }; // Host may attach its integrated writer gate; no global coverage claim.
+  function nodeCurrent(context) {
+    const runtime = context?.runtime, node = context?.node;
+    if (!runtime || activeAgentRuns.get(context.runId) !== runtime || runtime.run.sessionId !== context.session?.id
+      || runtime.stopRequested || runtime.paused || runtime.ctrl?.signal?.aborted || AGENT_RUN_TERMINAL.has(runtime.run.status)
+      || !node || !runtime.run.nodes.includes(node) || node.attempts !== context.attempt || !context.ctrl || context.ctrl.signal.aborted
+      || !context.review && (runtime.nodeControls.get(node.id) !== context.ctrl || node.status !== 'running')) fail('unavailable');
+    return context.session;
+  }
+  function current(grant) {
+    const reg = grant?.reg;
+    if (!grant || grant.revoked || !grants.has(grant) || !reg?.child
+      || reg.child.exitCode !== null || reg.child.signalCode !== null) fail('unavailable');
+    if (grant.nodeContext) return nodeCurrent(grant.nodeContext);
+    if (activeChildren.get(grant.sessionId) !== reg || reg.internalMcpGrant !== grant || reg.exited || reg.state !== 'running'
+      || !['claude', 'kimi-acp'].includes(reg.kind) || reg.executionOwner !== grant.executionOwner
+      || grant.executionOwner.cancelRequested || turnSettlers.get(grant.sessionId) !== grant.executionOwner
+      || reg.session?.id !== grant.sessionId) fail('unavailable');
+    return reg.session;
+  }
+  function create({ session, executionOwner, config, packs = [], nodeContext = null }) {
+    const sessionId = safeSessionId(session?.id || '');
+    if (!sessionId || !config) fail('owner_unavailable');
+    if (nodeContext) nodeCurrent(nodeContext);
+    else if (!executionOwner || executionOwner.cancelRequested || turnSettlers.get(sessionId) !== executionOwner) fail('owner_unavailable');
+    const token = crypto.randomBytes(32).toString('hex'), command = commandForSelfMcp(config.mcpCommandMode);
+    const policy = Object.freeze({ mode: config.toolLoadingMode || 'auto', packs: Object.freeze([...new Set(packs)]),
+      userInput: !nodeContext, steward: !nodeContext && session.kind === 'steward' });
+    const env = Object.freeze({ RUYI_HOME: dataRoot(), RUYI_INTERNAL_MCP_PORT: String(RUNTIME.port), RUYI_INTERNAL_MCP_CAP: token,
+      WCW_TOKEN: '', WCW_SESSION_ID: '', WCW_PORT: '', WCW_HOST: '' });
+    return { sessionId, executionOwner, nodeContext, policy, tokenHash: digest(token), definition: Object.freeze({
+      type: 'stdio', command: command.command, args: Object.freeze([...command.args]), env }), reg: null, revoked: false, inflight: 0 };
+  }
+  function createNode({ config, context }) {
+    return create({ session: context?.session, config, nodeContext: context, packs: Object.keys(TOOL_PACK_DESCRIPTIONS) });
+  }
+  function revoke(grant, reg) {
+    if (!grant || grant.reg !== reg || grant.revoked) return;
+    grant.revoked = true; grant.tokenHash.fill(0); grants.delete(grant);
+    if (grant.detach) { grant.detach(); grant.detach = null; }
+    if (reg?.internalMcpGrant === grant) reg.internalMcpGrant = null;
+    for (const controller of grant.controllers || []) controller.abort();
+  }
+  function bind(grant, reg, executionOwner) {
+    if (!grant || grant.reg || grant.revoked || grant.nodeContext || executionOwner !== grant.executionOwner
+      || reg.executionOwner !== executionOwner || activeChildren.get(grant.sessionId) !== reg
+      || turnSettlers.get(grant.sessionId) !== executionOwner) fail('owner_unavailable');
+    grant.reg = reg; reg.internalMcpGrant = grant; grants.add(grant);
+    try { current(grant); } catch (error) { revoke(grant, reg); throw error; }
+    reg.child.once('close', () => revoke(grant, reg)); reg.child.once('error', () => revoke(grant, reg));
+  }
+  function bindNode(grant, child) {
+    if (!grant || grant.reg || grant.revoked || !grant.nodeContext) fail('owner_unavailable');
+    nodeCurrent(grant.nodeContext); const reg = { child }; grant.reg = reg; grants.add(grant);
+    try { current(grant); } catch (error) { revoke(grant, reg); throw error; }
+    child.once('close', () => revoke(grant, reg)); child.once('error', () => revoke(grant, reg));
+    const signal = grant.nodeContext.ctrl.signal, abort = () => revoke(grant, reg);
+    signal.addEventListener('abort', abort, { once: true }); grant.detach = () => signal.removeEventListener('abort', abort);
+    if (signal.aborted) revoke(grant, reg);
+  }
+  function launchEnv(grant) { if (!grant || grant.revoked) fail('owner_unavailable'); return { ...grant.definition.env }; }
+  function isContext(ctx) { return !!ctx && issuedContexts.has(ctx); }
+  function contextOwner(ctx) {
+    const state = ctx && contexts.get(ctx); if (!state) fail('unavailable');
+    if (state.signal.aborted) fail('unavailable'); current(state.grant); return state;
+  }
+  function cliToolAllowed(name, grant) {
+    return name !== 'mcp_resource' && (!grant.nodeContext || !mainOnly.has(name))
+      && (name !== 'request_user_input' || grant.policy.userInput)
+      && (!isStewardToolName(name) || grant.policy.steward);
+  }
+  function assertTool(ctx, name) {
+    const state = contextOwner(ctx);
+    if (!cliToolAllowed(name, state.grant)) fail('tool_not_allowed');
+  }
+  function resourceRefusal(ctx, name) {
+    contextOwner(ctx);
+    return name === 'mcp_resource' ? ManagedMcp.rejected({ code: 'privacy.mcp_native_turn_required' }) : null;
+  }
+  async function business(name, args, ctx) {
+    const state = contextOwner(ctx), grant = state.grant;
+    if (grant.nodeContext) return name === 'permission_prompt' ? { behavior: 'deny', message: 'permission bridge requires a main CLI turn' }
+      : { ok: false, error: 'this tool requires a main CLI workbench turn' };
+    const body = { ...args, sessionId: grant.sessionId }, options = { ownerReg: grant.reg, trusted: false,
+      ownerCheck: () => contextOwner(ctx), isClosed: () => state.signal.aborted };
+    let response;
+    if (name === 'permission_prompt') response = await cliPermissionService({ sessionId: grant.sessionId,
+      toolName: args.tool_name || args.toolName || args.name || 'unknown', input: args.input || args.tool_input || args.arguments || {} }, options);
+    else if (name === 'request_user_input') response = await cliQuestionService(body, options);
+    else if (name === 'todo_write') response = await cliTodoService(body, options);
+    else if (name === 'mission_update') response = await cliMissionService({ sessionId: grant.sessionId,
+      action: 'update', milestones: args.milestones, goal: args.goal }, options);
+    else if (name === 'wait_agents' || name === 'agent_result') response = await cliAgentResultService(body, name === 'wait_agents' ? 'wait' : 'result', options);
+    else if (name === 'orchestrate_agents') {
+      const launch = { sessionId: grant.sessionId, background: args.background === true, envelope: true };
+      for (const key of ['nodes', 'workflowId', 'context', 'providerId', 'task', 'role', 'agentKey', 'toolTier', 'maxIters', 'model', 'resources']) {
+        if (Object.hasOwn(args, key)) launch[key] = args[key];
+      }
+      response = await cliAgentLaunchService(launch, options);
+    }
+    else fail('tool_not_allowed');
+    contextOwner(ctx);
+    const result = response ? JSON.parse(response.body) : { ok: false, error: 'request unavailable' };
+    return name === 'mission_update' && result.ok ? { ok: true, mission: result.mission } : result;
+  }
+  async function dispatch(msg, grant, ctx, check, notify) {
+        if (msg.method === 'initialize') {
+          return ({
+            protocolVersion: msg.params?.protocolVersion || '2024-11-05',
+            capabilities: { tools: {}, resources: {} },
+            serverInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 服务端标识名与 server id 一致
+          });
+        }
+        if (msg.method === 'tools/list') {
+          // 代理模式 v2:orchestrate_agents / wait_agents / agent_result 三个代理工具都可以 advertise —— 在 Claude/Kimi
+          // 会话里它们回环到 serve 进程(/api/agent-workflow/launch|wait|result),节点由配置的 provider 或 Claude CLI 跑。
+          const userInputEnabled = !grant.nodeContext && grant.policy.userInput;
+          const mode = grant.policy.mode;
+          const routedPacks = new Set(grant.policy.packs);
+          routedPacks.add('core');
+          const adaptiveAlways = new Set(['permission_prompt', 'list_tools', 'tool_search', 'tool_load', 'tool_invoke_read', 'tool_invoke_edit', 'tool_invoke_exec']);
+          const listConfig = await readConfig(); check();
+          PrivacyGateway.assertPolicyAvailable(listConfig);
+          if (PrivacyGateway.enabled(listConfig)) return ({ tools: [], _meta: { privacy: 'privacy.engine_not_supported' } });
+          const recallEnabled = observationRecallEnabled(listConfig);
+          // 116c: Claude/Kimi CLI 桥的 offer 面。管家会话由注入的 WCW_SESSION_KIND 标识;缺失/非
+          // 'steward' 一律隐藏 steward_*(fail-closed —— 普通 CLI 会话永远看不到管家工具)。
+          const stewardSession = grant.policy.steward;
+          const listed = MCP_TOOLS.filter(t => {
+            if (!nativeToolAvailableInContext(t.name) || !cliToolAllowed(t.name, grant)) return false;
+            if (t.name === 'request_user_input' && !userInputEnabled) return false;
+            if (t.name === 'observation_recall' && !recallEnabled) return false; // 105a: 双开关门
+            if (isStewardToolName(t.name) && !stewardSession) return false; // 116c: 管家工具族门
+            if (mode !== 'auto') return true;
+            return adaptiveAlways.has(t.name) || routedPacks.has(toolPackForName(t.name, {}));
+          });
+          return ({ tools: listed });
+        }
+        if (msg.method === 'tools/call') {
+          const name = msg.params?.name;
+          const refusal = resourceRefusal(ctx, name);
+          if (!refusal && !cliToolAllowed(name, grant)) fail('tool_not_allowed');
+          const args = msg.params?.arguments || {};
+          const progressToken = msg.params?._meta?.progressToken;
+          const progressStartedAt = Date.now();
+          // Claude CLI may attach an MCP progress token to a long tool call. Report elapsed liveness while
+          // orchestrate_agents is waiting on the synchronous DAG result; this is in addition to the app-level
+          // workflow heartbeat and helps MCP clients distinguish "still running" from a dead server.
+          const progressTimer = (name === 'orchestrate_agents' || name === 'wait_agents') && progressToken != null ? setInterval(() => {
+            const elapsedSec = Math.max(1, Math.round((Date.now() - progressStartedAt) / 1000));
+            try { notify('notifications/progress', { progressToken, progress: elapsedSec, message: `Agent 工作流仍在运行 · ${elapsedSec}s` }); } catch {}
+          }, 10000) : null;
+          if (progressTimer && progressTimer.unref) progressTimer.unref();
+          try {
+            const result = refusal || await toolCall(name, args, ctx);
+            PrivacyGateway.assertSupported(await readConfig(), 'external-tool-result');
+            // S1 修复:MCP tools/call 路径(Claude 引擎)原样直出大结果会灌爆 CLI context。
+            // 经 truncateToolResult 截断(file_read 走 head/tail,其余 60KB+标记),与 OpenAI 引擎 push 路径一致。
+            const images = VisualPipeline.extractToolImages(result);
+            const modelResult = images.length ? VisualPipeline.stripToolImageFields(result, '[image attached in MCP content]') : result;
+            const serialized = JSON.stringify(modelResult, null, 2);
+            const memoryRead = name === 'workbench_memory_list' || name === 'workbench_memory_read';
+            if (memoryRead && Buffer.byteLength(serialized, 'utf8') > 2 * 1024 * 1024) throw new Error('memory_cli.result_too_large');
+            const text = memoryRead ? serialized : truncateToolResult(name, serialized);
+            return ({
+              content: [{ type: 'text', text }, ...images.map(uri => {
+                const split = uri.indexOf(';base64,');
+                return { type: 'image', mimeType: uri.slice(5, split), data: uri.slice(split + 8) };
+              })],
+              isError: result.ok === false,
+            });
+          } finally {
+            if (progressTimer) clearInterval(progressTimer);
+          }
+        }
+        if (msg.method === 'resources/list') {
+          const resourceConfig = await readConfig(); check();
+          PrivacyGateway.assertPolicyAvailable(resourceConfig);
+          if (PrivacyGateway.enabled(resourceConfig)) return ({ resources: [], _meta: { privacy: 'privacy.engine_not_supported' } });
+          return ({
+            resources: [
+              {
+                uri: `file://${paths.config.replace(/\\/g, '/')}`,
+                name: 'Workbench config',
+                description: 'Local workbench configuration file',
+                mimeType: 'application/json',
+              },
+            ],
+          });
+        }
+        if (msg.method === 'resources/read') {
+          const resourceConfig = await readConfig(); check();
+          PrivacyGateway.assertSupported(resourceConfig, 'external-resource');
+          const uri = String(msg.params?.uri || '');
+          if (!uri.startsWith('file://')) throw new Error('Only file:// resources are supported');
+          const p = decodeURIComponent(uri.replace(/^file:\/\//, '')).replace(/^\/+/, '');
+          // resources/list only exposes the config file — confine reads to exactly it (no traversal,
+          // no UNC/SMB egress from an "offline" tool).
+          const resolved = path.resolve(p);
+          if (resolved.toLowerCase() !== path.resolve(paths.config).toLowerCase()) throw new Error('resource not found');
+          // 128e(48 号文 §1,实测坐实):修前这里把 config.json【原样】读出来返回 —— 明文的 provider apiKey、Claude CLI 的
+          // modelsApiKey、外部 MCP 连接器 env 里的令牌,连到工作台 MCP 的模型用读资源的工具就能拿走(GET /api/status 早在
+          // 107-S0／S0b 掩了同一批值,文件工具也把 config.json 列为敏感路径拒读 —— 这是绕过两道门的第三条路)。
+          // 现在交出去的是与 /api/status 同一份掩码视图(maskProviders,不另写一套),并且是归一化后的整份配置 ——
+          // 128a 之后盘上是稀疏文件,原样读反而给不出「当前生效的配置」。
+          const view = maskProviders(resourceConfig);
+          return ({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(view, null, 2) }] });
+        }
+        if (msg.id !== undefined) return ({});
+
+  }
+  const validId = id => id === null || typeof id === 'string' && id.length <= 128 || typeof id === 'number' && Number.isFinite(id);
+  function messageOf(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || value.jsonrpc !== '2.0'
+      || typeof value.method !== 'string' || value.method.length > 128 || Object.hasOwn(value, 'id') && !validId(value.id)
+      || value.params !== undefined && (!value.params || typeof value.params !== 'object' || Array.isArray(value.params))) fail('message_invalid');
+    return value;
+  }
+  async function handle(req, res, pathname) {
+    if (pathname !== route) return false;
+    let grant, controller, authenticated = false;
+    const unavailable = () => { if (!res.destroyed && !res.writableEnded) send(res, json({ ok: false, code: 'internal_mcp.unavailable' }, 403, { 'cache-control': 'no-store' })); };
+    try {
+      const token = req.headers['x-ruyi-internal-mcp-cap'];
+      if (req.method !== 'POST' || !requestIsLoopback(req) || req.headers.origin || req.headers['sec-fetch-site'] || req.headers['sec-fetch-mode']
+        || typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)
+        || req.headers['content-length'] && (!/^\d{1,9}$/.test(req.headers['content-length']) || Number(req.headers['content-length']) > bodyCap)) fail('unavailable');
+      const hashed = digest(token);
+      try { for (const candidate of grants) if (!candidate.revoked && equal(candidate.tokenHash, hashed)) { grant = candidate; break; } }
+      finally { hashed.fill(0); }
+      current(grant);
+      if (grant.inflight >= 16) fail('busy');
+      grant.inflight++; authenticated = true;
+      controller = new AbortController(); (grant.controllers || (grant.controllers = new Set())).add(controller);
+      res.once('close', () => { if (!res.writableEnded) controller.abort(); }); res.once('error', () => controller.abort());
+      const check = () => { current(grant); if (controller.signal.aborted) fail('unavailable'); };
+      const chunks = []; let length = 0;
+      for await (const chunk of req) { check(); length += chunk.length; if (length > bodyCap) fail('body_limit'); chunks.push(chunk); }
+      check(); let msg;
+      try { msg = messageOf(JSON.parse(new TextDecoder('utf8', { fatal: true }).decode(Buffer.concat(chunks)))); } catch { fail('message_invalid'); }
+      res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
+      const emit = payload => { check(); const frame = JSON.stringify(payload); if (Buffer.byteLength(frame, 'utf8') > frameCap) fail('result_limit'); if (!res.destroyed) res.write(frame + '\n'); };
+      await Hooks.run(async () => {
+        let ctx;
+        try {
+          const config = await readConfig(); check(); PrivacyGateway.assertSupported(config, 'cli');
+          const session = current(grant);
+          ctx = { config, session, sessionId: grant.sessionId, turnSeq: session.turnSeq,
+            workingDir: grant.nodeContext?.workingDir || session.cwd, signal: controller.signal, mainTurn: false,
+            memoryLiveRead: true, memoryReadOwner: () => { try { check(); return true; } catch { return false; } } };
+          issuedContexts.add(ctx); contexts.set(ctx, { grant, signal: controller.signal });
+          const result = await dispatch(msg, grant, ctx, check, (method, params) => emit({ jsonrpc: '2.0', method, params }));
+          const after = await readConfig(); check(); PrivacyGateway.assertSupported(after, 'external-tool-result');
+          if (Object.hasOwn(msg, 'id')) emit({ jsonrpc: '2.0', id: msg.id, result: result || {} });
+        } catch (error) {
+          check(); let message = String(error?.message || error);
+          try { PrivacyGateway.assertSupported(await readConfig(), 'external-error'); check(); }
+          catch (policyError) { check(); message = policyError?.code === 'privacy.engine_not_supported' ? policyError.code : 'privacy.policy_unavailable'; }
+          if (Object.hasOwn(msg, 'id')) emit({ jsonrpc: '2.0', id: msg.id, error: { code: -32000, message } });
+        } finally { if (ctx) contexts.delete(ctx); }
+      });
+      if (!res.destroyed) res.end();
+    } catch {
+      if (res.headersSent) { if (!res.destroyed) res.end(); } else unavailable();
+    } finally {
+      if (authenticated) grant.inflight--;
+      if (controller) grant.controllers.delete(controller);
+    }
+    return true;
+  }
+  async function startRelay() {
+    const http = require('node:http'), token = process.env.RUYI_INTERNAL_MCP_CAP, port = Number(process.env.RUYI_INTERNAL_MCP_PORT);
+    for (const key of ['RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT', 'WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'RUYI_MEMORY_CAP', 'RUYI_MEMORY_PORT', 'RUYI_MEMORY_SESSION']) delete process.env[key];
+    // This branch never resolves data paths, reads configuration, or executes tools locally.
+    const output = value => process.stdout.write(JSON.stringify(value) + '\n');
+    const requests = new Set(); let closed = false, inputEnded = false, active = 0, buffer = '';
+    async function forward(msg) {
+      const hasId = Object.hasOwn(msg, 'id'); let terminal = false;
+      try {
+        if (closed) fail('unavailable');
+        if (!/^[a-f0-9]{64}$/.test(String(token)) || !Number.isSafeInteger(port) || port < 1 || port > 65535) fail('setup_required');
+        const bytes = Buffer.from(JSON.stringify(msg)); if (bytes.length > bodyCap) fail('body_limit');
+        await new Promise((resolve, reject) => {
+          let received = false, text = '', total = 0; const decoder = new TextDecoder('utf8', { fatal: true });
+          const request = http.request({ hostname: '127.0.0.1', port, path: route, method: 'POST', agent: false,
+            headers: { 'content-type': 'application/json', 'content-length': bytes.length, 'x-ruyi-internal-mcp-cap': token } }, response => {
+            if (response.statusCode === 403) {
+              // A revoked execution uses the same setup guidance as an unconfigured child.
+              // Drain the host's ordinary JSON error without interpreting it as RPC frames.
+              response.once('error', reject); response.resume();
+              reject(Object.assign(Error('internal_mcp.setup_required'), { code: 'internal_mcp.setup_required' })); return;
+            }
+            response.on('data', chunk => {
+              try {
+                total += chunk.length; if (total > frameCap * 2) fail('result_limit'); text += decoder.decode(chunk, { stream: true });
+                let end;
+                while ((end = text.indexOf('\n')) >= 0) {
+                  const line = text.slice(0, end); text = text.slice(end + 1); if (!line.trim()) continue;
+                  if (Buffer.byteLength(line, 'utf8') > frameCap || response.statusCode !== 200) fail('unavailable');
+                  const value = JSON.parse(line);
+                  if (value.jsonrpc !== '2.0' || Object.hasOwn(value, 'id') && (!hasId || value.id !== msg.id)) fail('message_invalid');
+                  if (Object.hasOwn(value, 'id')) { if (received) fail('message_invalid'); received = true; terminal = true; }
+                  output(value);
+                }
+                if (Buffer.byteLength(text, 'utf8') > frameCap) fail('result_limit');
+              } catch (error) { response.destroy(error); }
+            });
+            response.once('error', reject); response.once('end', () => {
+              try { text += decoder.decode(); if (response.statusCode !== 200 || text.trim() || hasId && !received) fail('unavailable'); resolve(); } catch (error) { reject(error); }
+            });
+          });
+          requests.add(request); request.once('close', () => requests.delete(request)); request.once('error', reject);
+          // Long workflow/question calls use business deadlines. Transport never retries on error.
+          request.setTimeout(86400000, () => request.destroy(Error('internal_mcp.unavailable'))); request.end(bytes);
+        });
+      } catch (error) {
+        const message = error?.code === 'internal_mcp.setup_required'
+          ? 'mcp_consumer.setup_required: Create an independent connection in Ruyi Settings > MCP. / 请在如意设置的 MCP 页面生成独立连接配置。'
+          : 'internal_mcp.unavailable';
+        if (hasId && !closed && !terminal) output({ jsonrpc: '2.0', id: msg.id, error: { code: -32000, message } });
+      } finally { active--; if (inputEnded && active === 0) closed = true; }
+    }
+    const close = () => { closed = true; for (const request of requests) request.destroy(); };
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', chunk => {
+      buffer += chunk; let end;
+      while ((end = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, end); buffer = buffer.slice(end + 1); if (!line.trim()) continue;
+        let msg;
+        try { if (Buffer.byteLength(line, 'utf8') > bodyCap) fail('body_limit'); msg = messageOf(JSON.parse(line)); }
+        catch { output({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'internal_mcp.message_invalid' } }); continue; }
+        if (active >= 16) { if (Object.hasOwn(msg, 'id')) output({ jsonrpc: '2.0', id: msg.id, error: { code: -32000, message: 'internal_mcp.busy' } }); continue; }
+        active++; void forward(msg);
+      }
+      if (Buffer.byteLength(buffer, 'utf8') > bodyCap) { buffer = ''; close(); process.stdin.pause(); }
+    });
+    process.stdin.once('end', () => { inputEnded = true; if (active === 0) closed = true; }); process.stdin.once('error', close); process.once('SIGTERM', close);
+  }
+  return Object.freeze({ create, createNode, bind, bindNode, revoke, launchEnv, handle, startRelay, isContext, assertTool, resourceRefusal, business, Hooks });
+})();
+
+Object.assign(InternalMcpHooks, InternalMcpRelay);
+
+// These commands read config through a recovery writer, so they own the stable base as serve does.
+async function withSelectedWorkDataRoot(work) {
+  const ownership = await ServerOwnership.acquire([dataRoot()]);
+  let failed = false;
+  try { await WorkDataRootHooks.bind(ownership); return await work(); }
+  catch (error) { failed = true; throw error; }
+  finally {
+    try {
+      if (WorkDataRootHooks.ready()) {
+        await configMutateChain.catch(() => {}); await configWriteChain.catch(() => {});
+        await flushWorkbenchLogs();
+      }
+    } catch (error) { if (!failed) throw error; }
+    finally { await ownership.release(); }
+  }
+}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
@@ -98438,11 +99032,10 @@ async function main() {
     return served;
   }
   if (command === 'mcp') return startMcp();
-  if (command === 'install') return installIntegration();
-  if (command === 'doctor') return doctor(argv); // 118b: --human 走人话体检,默认仍只打 JSON
+  if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
+  if (command === 'doctor') return withSelectedWorkDataRoot(() => doctor(argv)); // 118b: --human 走人话体检,默认仍只打 JSON
   if (command === 'mcp-config') {
-    console.log(await generateMcpConfig());
-    return;
+    return withSelectedWorkDataRoot(async () => { console.log(await generateMcpConfig()); });
   }
   console.error(`Unknown command: ${command}`);
   process.exitCode = 1;

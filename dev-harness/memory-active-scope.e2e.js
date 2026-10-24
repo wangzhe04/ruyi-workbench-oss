@@ -13,7 +13,7 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-memory-active-'));
 const home = path.join(root, 'home'), work = path.join(root, 'work'); fs.mkdirSync(home); fs.mkdirSync(work);
 process.env.RUYI_HOME = home; process.env.WIN_CLAUDE_WORKBENCH_HOME = home;
 const s = loadServerInternals(['saveMemory', 'createSession', 'saveSession', 'listWorkbenchMemories', 'readWorkbenchMemory',
-  'readMemoryItem', 'loadMemoryRegistry', 'projectKeyForCwd', 'proposeMemoryRelation', 'confirmMemoryRelation', 'deleteMemoryRelation', 'activeChildren', 'runSessionTurn', 'loadSession', 'startServer', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'turnSettlers'], { withEval: true });
+  'readMemoryItem', 'loadMemoryRegistry', 'projectKeyForCwd', 'proposeMemoryRelation', 'confirmMemoryRelation', 'deleteMemoryRelation', 'activeChildren', 'runSessionTurn', 'loadSession', 'startServer', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'turnSettlers', 'InternalMcpRelay'], { withEval: true });
 const config = { defaultWorkspace: work, permissionMode: 'bypass', includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false,
   desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [], stewardEnabledV1: false, toolLoadingMode: 'full', subagentMaxPerTurn: 0 };
 let fake, mcp;

@@ -3,7 +3,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(服务启�
 // 由 Claude CLI 自己 spawn、自己调 —— 不经工作台的三个分发点(09/08/12),修前读路径闸与环境剥离在这条路上都缺席。
 //
 // 真服务 + 临时目录里的最小假 CLI:它读 --mcp-config,把桥接条目(fake)的 env 块原样记下,再以 CLI 的工具全名
-// (mcp__fake__<tool>)经如意 MCP 条目里的 WCW_PORT/WCW_TOKEN/WCW_SESSION_ID 调三次 /api/permission/request:
+// (mcp__fake__<tool>)经如意实际 stdio MCP permission_prompt 调三次权限请求:
 //   (1) mcp__fake__read_file 读数据根里的 config.json          → 权限桥直接拒(不弹窗),理由是内部数据;
 //   (2) mcp__fake__find_template 的 template_path 是相对路径   → 直接拒(不弹窗),要求绝对路径;
 //   (3) mcp__fake__find_template 的 template_path 在工作区内    → 照常走弹窗(测试以用户身份拒绝,证明没被闸误伤)。
@@ -40,25 +40,15 @@ const at = f => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : ''; }
 const SID = 'fake-guard-' + Math.random().toString(16).slice(2, 8);
 const emit = o => process.stdout.write(JSON.stringify(o) + '\\n');
 process.stdin.on('data', () => {}); process.stdin.on('error', () => {});
-const ask = (env, toolName, input) => new Promise(resolve => {
-  const body = JSON.stringify({ token: env.WCW_TOKEN, sessionId: env.WCW_SESSION_ID, toolName, input });
-  const req = http.request({ host: env.WCW_HOST || '127.0.0.1', port: Number(env.WCW_PORT), path: '/api/permission/request', method: 'POST',
-    headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } }, res => {
-    let b = ''; res.on('data', c => (b += c)); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve({ raw: b }); } });
-  });
-  req.on('error', e => resolve({ error: String(e && e.message) }));
-  req.write(body); req.end();
-});
+const { requestPermissions } = require(${JSON.stringify(path.join(__dirname, 'lib/internal-mcp-permission-fixture.js'))});
 (async () => {
-  let env = {}, servers = {};
+  let servers = {};
   try {
     const mcp = JSON.parse(fs.readFileSync(at('--mcp-config'), 'utf8'));
     servers = mcp.mcpServers || {};
-    for (const s of Object.values(servers)) if (s && s.env && s.env.WCW_TOKEN) env = s.env;
   } catch {}
   emit({ type: 'system', subtype: 'init', session_id: SID, tools: [], model: 'fake-model' });
-  const replies = [];
-  for (const r of ${JSON.stringify(REQUESTS)}) replies.push(await ask(env, r.toolName, r.input));
+  const replies = await requestPermissions(servers.ruyi, ${JSON.stringify(REQUESTS)});
   fs.appendFileSync(${JSON.stringify(CAPTURE)}, JSON.stringify({ permissionMode: at('--permission-mode'), promptTool: at('--permission-prompt-tool'), servers, replies }) + '\\n');
   emit({ type: 'assistant', session_id: SID, message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] } });
   emit({ type: 'result', subtype: 'success', is_error: false, result: 'done', session_id: SID, duration_ms: 10, num_turns: 1, usage: { input_tokens: 1, output_tokens: 1 } });
@@ -135,7 +125,7 @@ const readReplies = () => { try { return fs.readFileSync(CAPTURE, 'utf8').split(
     ok(blanked.length === 6, `桥接条目 env 块把回环凭据与模型密钥置空(置空了 ${blanked.join(',') || '无'})`);
     ok(fenv.OWN_KEY === 'own-value', '桥接条目自己声明的 env 保留');
     const own = Object.entries(cap.servers || {}).find(([id]) => id !== 'fake');
-    ok(!!(own && own[1].env && own[1].env.WCW_TOKEN), '如意自己的 MCP 条目仍带回环令牌(权限桥靠它)');
+    ok(!!(own && /^[a-f0-9]{64}$/.test(own[1].env?.RUYI_INTERNAL_MCP_CAP) && own[1].env.WCW_TOKEN === ''), '如意自己的 MCP 条目带精确执行能力,不携管理令牌(权限桥由serve同owner处理)');
 
     // ── 读路径闸:CLI 来问权限时按 bridgedReadPathGate 判
     ok(replies[0] && replies[0].behavior === 'deny' && /内部数据/.test(String(replies[0].message || '')),

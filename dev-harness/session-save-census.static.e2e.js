@@ -7,6 +7,7 @@
 // 与下面那张表逐项相等;谁新加一处,这里当场红,红的那句话告诉他回来做这道判断题(读改写 → mutateSession)。
 // 另外逐个点名 128b 改过的那十一处,钉住「它们真的走 mutateSession」,免得普查数碰巧对上而改法被撤回。
 const fs = require('fs');
+const { functionBlock } = require('./lib/source-slice');
 const path = require('path');
 const SRC = path.join(__dirname, '..', 'ruyi-workbench', 'app', 'src');
 let fail = 0;
@@ -27,7 +28,7 @@ const CENSUS = {
   // 13-http-router.js 0:Kimi 状态那个 GET 回写用量读数(2026-10 走查 W1 #4)已改走 mutateSession + keepUpdatedAt,见下面 ② 的 kimi/status 一行。
   '13ac-mcp-consumer.js': 1, // withAuditWrite owns an admitted execution turn: keyed consumer audit admission, load/writeSeq CAS, live execution owner and turnSeq increment before conditional save; not background read-modify-write.
   '13b-api-domain-routes.js': 1, // 插话路由往活回合那份对象里追加(回合自存)
-  '13d-core-domain-routes.js': 1,// 权限暂停计时器的纯重写
+  '13ae-cli-business-services.js': 1, // 原13d权限暂停计时器的纯重写；同一owner服务提取，save总数不变
   '13k-steward-threads.js': 2,   // 建会话
   '13m-steward-runner-base.js': 2, // ensureStewardSession(建/补管家会话)
   '13s-scheduler.js': 1,         // 定时触发建会话
@@ -64,9 +65,9 @@ const routeMarker = tail => "pathname === '/" + 'api/' + tail + "'";
 const sites = [
   ['13-http-router.js setSessionSkillsCore', fnBody('13-http-router.js', 'async function setSessionSkillsCore('), false],
   ['13-http-router.js 线程记忆设置路由', routeBlock('13-http-router.js', routeMarker('session/memories'), 60), false],
-  ['13-http-router.js todo 回写路由', routeBlock('13-http-router.js', routeMarker('todo'), 25), false],
+  ['13ae-cli-business-services.js cliTodoService', functionBlock(read('13ae-cli-business-services.js'), 'cliTodoService'), false],
   ['13-http-router.js Kimi 状态读数回写路由', routeBlock('13-http-router.js', routeMarker('kimi/status'), 30), false],
-  ['13-http-router.js 任务账本路由(check／start／update)', routeBlock('13-http-router.js', routeMarker('mission'), 110), true],
+  ['13ae-cli-business-services.js cliMissionService(check／start／update)', functionBlock(read('13ae-cli-business-services.js'), 'cliMissionService'), true],
   ['10-context-governance.js runProviderCompact', fnBody('10-context-governance.js', 'async function runProviderCompact('), true],
   ['10-context-governance.js runAgentExternalCompact', fnBody('10-context-governance.js', 'async function runAgentExternalCompact('), true],
   ['05b-kimi-bridge.js runKimiCompact', fnBody('05b-kimi-bridge.js', 'async function runKimiCompact('), false],

@@ -39,7 +39,7 @@ process.env.WCW_FAKE_CLAUDE = FAKE_CLAUDE;
 const { loadServerInternals } = require('../lib/server-internals');
 const { startFakeProvider, toolCallFrames, textFrames } = require('../lib/fake-openai-provider');
 
-const BASE = ['runSubAgentCore', 'runClaudeSubAgentOnce', 'readConfig', 'activeOpenAiProvider', 'getAgentRoleLibrary', 'buildClaudeAgentDefinitions'];
+const BASE = ['runSubAgentCore', 'runClaudeSubAgentOnce', 'activeAgentRuns', 'readConfig', 'activeOpenAiProvider', 'getAgentRoleLibrary', 'buildClaudeAgentDefinitions'];
 const NEW = ['clampAgentRoleToParent', 'annotateAgentRoleEffective', 'agentRoleIsUntrusted'];
 let I;
 try { I = loadServerInternals([...BASE, ...NEW]); }
@@ -264,10 +264,15 @@ describe('[D] runClaudeSubAgentOnce(Claude 引擎):--permission-mode 按夹后�
     try {
       const config = { ...(await I.readConfig()), permissionMode: parentMode };
       const events = [];
-      await I.runClaudeSubAgentOnce({
-        config, parentSession: { id: 's_claude_clamp', cwd: ws }, task: 'say hi', displayTask: 'say hi', agentKey: 'k', dependsOn: [], toolTier,
-        maxIters: 2, onEvent: e => events.push(e), subagentId: 'csub_' + role.id, ctrl: new AbortController(), permModeOverride, roleDefinition: role, cwd: ws,
-      });
+      // The argv-only fake still enters the production node capability path for exec roles.
+      const parentSession = { id: 's_claude_clamp', cwd: ws, turnSeq: 1 }, ctrl = new AbortController();
+      const node = { id: 'clamp-node', attempts: 1, status: 'running' }, runId = 'clamp-argv-run';
+      const runtime = { run: { sessionId: parentSession.id, status: 'running', nodes: [node] }, nodeControls: new Map([[node.id, ctrl]]) };
+      I.activeAgentRuns.set(runId, runtime);
+      try { await I.runClaudeSubAgentOnce({
+        config, parentSession, memoryCliContext: { session: parentSession, workingDir: ws, runId, runtime, node, ctrl, attempt: 1 }, task: 'say hi', displayTask: 'say hi', agentKey: 'k', dependsOn: [], toolTier,
+        maxIters: 2, onEvent: e => events.push(e), subagentId: 'csub_' + role.id, ctrl, permModeOverride, roleDefinition: role, cwd: ws,
+      }); } finally { I.activeAgentRuns.delete(runId); }
       return { argv: JSON.parse(fs.readFileSync(cap, 'utf8')), start: events.find(e => e.type === 'subagent' && e.state === 'start') };
     } finally { delete process.env.WCW_FAKE_ARGV_CAPTURE; }
   }

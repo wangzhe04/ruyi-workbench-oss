@@ -149,7 +149,8 @@ async function auditLogEnabled() {
     const beforeVault = await vaultStamp();
     const raw = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null);
     if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length
-      || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean') unavailable();
+      || Object.hasOwn(raw, 'workDataEncryptionV1') && typeof raw.workDataEncryptionV1 !== 'boolean'
+        && !(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.())) unavailable();
     // Share the existing defaults and privacy validation without hydrating secrets,
     // applying migrations to disk, configuring policy, or repairing config/backup.
     const config = normalizeConfig(raw).config;
@@ -1988,7 +1989,7 @@ const MCP_DROPIN_CACHE_MS = 2000;
 function mcpDropInDirs() {
   return [
     { root: path.join(externalRoot(), 'mcp'), source: 'repo' },
-    { root: path.join(dataRoot(), 'mcp'), source: 'dataRoot' },
+    { root: path.join(typeof paths !== 'undefined' && paths.data ? paths.data : dataRoot(), 'mcp'), source: 'dataRoot' },
   ];
 }
 // 扫描并返回清洗后的 drop-in 条目数组 [{id,label,command,args,cwd,env,enabled,_dropInSource}]。纯读盘,不改 config。

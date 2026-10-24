@@ -718,7 +718,7 @@ const engineTranscriptLedgerStore = WorkDataStore.createJson({
   purpose: 'cache', scopeId: 'global', recordId: 'engine-transcript-index',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 async function engineTranscriptLedgerLoad() {
   if (engineTranscriptLedgerLoaded) return;

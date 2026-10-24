@@ -15,7 +15,7 @@ process.env.RUYI_HOME = home;
 process.env.WIN_CLAUDE_WORKBENCH_HOME = home;
 if (process.env.RUYI_NATIVE_READ_TEST_PYTHON) process.env.RUYI_BUNDLED_PYTHON = process.env.RUYI_NATIVE_READ_TEST_PYTHON;
 const app = path.resolve(__dirname, '../../ruyi-workbench/app');
-const internals = require('../lib/server-internals').loadServerInternals(['module', 'handleApi', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers']);
+const internals = require('../lib/server-internals').loadServerInternals(['module', 'handleApi', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers', 'InternalMcpRelay']);
 const srv = internals.module.exports;
 const V = srv.dispatchTestHooks.VisualPipeline;
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
@@ -174,15 +174,17 @@ test('native MCP returns real image content blocks, with base64 stripped from JS
   const owner = { promise: new Promise(resolve => { settle = resolve; }), source: 'fixture-cli', driverRunId: 'unit-native-image', phase: 'starting', cancelRequested: false, cancel() { this.cancelRequested = true; } };
   try {
     session = await srv.createSession({ title: 'Synthetic image CLI owner', cwd: ws });
+    internals.recordSessionExecutionOwner(session.id, owner);
+    const grant = internals.InternalMcpRelay.create({ session, executionOwner: owner, config });
     client = new srv.McpStdioClient({ id: 'native', command: process.execPath, args: [path.resolve(__dirname, '../lib/internal-mcp-fixture.js'), '--cli'],
-    env: { RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, WCW_HOST: '127.0.0.1', WCW_PORT: String(internals.RUNTIME.port), WCW_TOKEN: internals.RUNTIME.token, WCW_SESSION_ID: session.id }, cwd: ws });
+    env: { RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, ...internals.InternalMcpRelay.launchEnv(grant) }, cwd: ws });
     // start() synchronously spawns before its first await. Register this actual
     // wrapper in the same stack, before the host can process initialize's HTTP
     // verification. Neither the verifier nor McpStdioClient RPC path is replaced.
     const started = client.start(); child = client.child;
     assert.ok(child && child.pid);
     reg = { child, pid: child.pid, kind: 'kimi-acp', state: 'running', exited: false, session };
-    internals.recordSessionExecutionOwner(session.id, owner); internals.registerSessionExecutionChild(session.id, reg, owner);
+    internals.registerSessionExecutionChild(session.id, reg, owner); internals.InternalMcpRelay.bind(grant, reg, owner);
     await started;
     const r = await client._rpc('tools/call', { name: 'file_read', arguments: { path: path.join(ws, 'pic.png') } }, 10000);
     assert.equal(r.isError, false);

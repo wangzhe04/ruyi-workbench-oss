@@ -567,7 +567,7 @@ const stewardCursorHost = {
   purpose: 'queue', schema: STEWARD_CURSOR_SCHEMA, scopeId: 'global', recordId: 'steward-cursor',
   keys: { snapshot: () => WorkDataStore.acquireSnapshot(WorkDataStore.requireKeys()), unlock: () => WorkDataStore.requireKeys().unlock(), instance: () => WorkDataStore.requireKeys().instance() },
   writeJson: atomicWriteJson,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 };
 const stewardCursorStore = WorkDataStore.createText(stewardCursorHost);
 function stewardCursorStorage(operation) {

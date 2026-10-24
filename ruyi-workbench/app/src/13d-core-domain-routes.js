@@ -2319,148 +2319,16 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     return send(res, json({ ok: true, deadlineAt: extension.deadlineAt, timeoutMs: extension.timeoutMs }));
   }
   if (req.method === 'POST' && pathname === '/api/question/request') {
-    // Called by request_user_input in the per-session Claude MCP child. Hold the tool call until the UI
-    // answers, then return a normal MCP tool result. Provider turns use the same registry in-process.
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
-    const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, apiSessionIdInvalid());
-    const reg = activeChildren.get(sessionId);
-    if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
-    const config = await readConfig();
-    const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || '');
-    return send(res, json(answer && answer.ok
-      ? { ok: true, answers: answer.answers, content: answer.content }
-      : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));
+    return send(res, await CliBusinessHooks.question(body, { isClosed: () => res.writableEnded || res.destroyed }));
   }
   if (req.method === 'POST' && pathname === '/api/permission/request') {
-    // Called by the permission-bridge MCP tool (loopback). Holds until the UI decides or times out.
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
-    const config = await readConfig();
-    const sessionId = String(body.sessionId || '');
-    const reg = activeChildren.get(sessionId);
-    const requestId = makeId('perm');
-    if (!reg || !reg.onEvent) {
-      // No live UI stream to ask — fail closed.
-      return send(res, json({ behavior: 'deny', message: 'no active UI to prompt', requestId }));
-    }
-    // 审计 A② 后续(CLI 直挂面):toolLoadingMode:'full' 时桥接服务器(ACC 等)直接写进 --mcp-config,由 CLI 自己调,
-    // 不经工作台的三个分发点 —— 唯一还能插手的地方就是这里:CLI 为 mcp__<server>__<tool> 来问权限时,按与分发点
-    // 同一个 bridgedReadPathGate 判读路径,越界 / 内部数据 / 相对路径直接拒(不弹窗、不走授权书、不走 auto 短路)。
-    // 覆盖不到的:CLI 不来问的时候 —— bypass / auto 档(不带 --permission-prompt-tool)与 exec 档 DAG 节点(bypass 起)。
-    // 如意自己的 MCP 工具(mcp__ruyi__*)在它自己的 toolCall 里已有文件闸,这里不重复判。
-    {
-      const cliToolName = String(body.toolName || '');
-      if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
-        // 2026-10 能力总闸(纵深):CLI 直挂的内置桌面 MCP(mcp__ai-computer-control__<tool>)来问权限时,按与 09/08/12 同一个
-        // toolDisabledByPolicy 判,被 allowCommandTools / allowDesktopTools(+ 这条线程的 desktopTools)关掉的直接拒,不弹窗。
-        // 主防线在源头:01 把同一张表算成 ACC_HIDE_TOOLS 交给 ACC,它根本不注册这些工具;这里兜的是旧版 ACC(不认该变量)。
-        // 同样覆盖不到 CLI 不来问的档(bypass / auto、exec 档 DAG 节点)—— 那几档只靠源头裁剪。
-        const accPrefix = `mcp__${DESKTOP_MCP_SERVER_ID}__`;
-        if (cliToolName.startsWith(accPrefix)) {
-          const policyOff = toolDisabledByPolicy(cliToolName, config, sessionDesktopToolsOf(reg.session),
-            { serverId: DESKTOP_MCP_SERVER_ID, toolName: cliToolName.slice(accPrefix.length) });
-          if (policyOff) {
-            logEvent({ kind: 'permission_bridge_policy_deny', sessionId, tool: cliToolName, reason: policyOff });
-            return send(res, json({ behavior: 'deny', message: toolDisabledResult(cliToolName, policyOff).error, requestId }));
-          }
-        }
-        const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
-        const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config });
-        if (readRefusal) {
-          logEvent({ kind: 'permission_bridge_path_deny', sessionId, tool: cliToolName, code: readRefusal.code || '' });
-          return send(res, json({ behavior: 'deny', message: readRefusal.error || 'path not allowed', requestId }));
-        }
-      }
-    }
-    // v0.8-S4b: mirror the native path — carry tier + revertible so the popup renders the badge + the
-    // revertibility line for CLI-bridge permission prompts too. The CLI reports its own tool names (Edit/
-    // Write/Bash/…); toolIsRevertible only matches the workbench file_* set, so a native CLI Edit shows
-    // 「无法自动撤销」(correct: CLI-native edits don't pass through toolCall → aren't journaled).
-    // 第27波:CLI 桥授权书消耗点。命中直接 allow —— 连 permission_request 事件都不发(免弹窗静默放行)。工具名按 CLI
-    // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
-    const bridgeTier = Object.prototype.hasOwnProperty.call(CLI_TOOL_TIER, String(body.toolName || '')) ? CLI_TOOL_TIER[String(body.toolName)] : nativeToolTier(String(body.toolName || ''));   // CLI 报的是 Claude 名(Edit/Write/Bash),查 CLI 表;修前查原生表,一律落成 exec
-    // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
-    // 审计 C:按【这一回合】的实效档判,不按全局档。runClaudeTurn 登记活回合时记下了 spawn CLI 用的解析档
-    // (请求级 > 会话级 > 全局,10 runSessionTurn 解析);修前读 config.permissionMode —— 全局 auto 时,一条被
-    // 收紧到 default/plan 的线程(或交办卡/定时任务的请求级收紧)经 CLI 桥发来的 edit/exec 请求被静默放行。
-    // 登记表上没有这个值(Kimi 等其它引擎)就按会话头 + 全局解析,仍比「只看全局」更紧或相等。
-    const bridgeMode = String((reg && reg.permissionMode) || resolvePermissionMode({ session: reg && reg.session, config }) || '');
-    const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
-    // auto 档的低风险动作在原生引擎里已经不弹窗了,CLI 桥必须同口径 —— 否则同一个「全自动」在两个引擎
-    // 下行为不一致。只对 auto 档短路(其余档位一行不变:read/bypass 的既有落点仍走下面那条路)。
-    if (bridgeMode === 'auto' && bridgeGate === 'allow') {
-      return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
-    }
-    // 对抗轮 P3(天花板对称):与 native 主 gate 对齐 —— 仅当工作台自身权限模式对该档判定为 'ask' 时才允许授权书降级。
-    // 工作台若处于 plan 模式(该档判 'block'),即便 CLI 发来请求也不放行(子集律:授权书永不把 block 提升为 allow),
-    // 回落到下方正常弹窗由人定夺。default→'ask' 授权书生效;bypass→'allow' 本就免弹窗,无需授权书。
-    if (bridgeGate === 'ask') {
-      const grantHit = consumeGrant({ id: sessionId }, String(body.toolName || ''), body.input || {}, 'cli', null);
-      // 第42b波(live 冒烟擒获):CLI ≥2.1 的 zod union 要求 allow 变体【必须】带 updatedInput record,
-      // 裸 {behavior:'allow'} 会被 CLI 判 invalid_union 拒掉 → 回显原始输入。
-      if (grantHit) return send(res, json({ behavior: 'allow', updatedInput: body.input || {} }));
-    }
-    reg.onEvent({ type: 'permission_request', requestId, toolName: body.toolName, input: body.input, tier: bridgeTier, revertible: toolIsRevertible(body.toolName) });
-    registerIntervention(sessionId, 'permission', requestId, {
-      toolName: String(body.toolName || ''), tier: bridgeTier, revertible: toolIsRevertible(body.toolName),
-      input: body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {},
-    });
-    // 第27f波:CLI 桥超时→存档暂停(与 provider 路径对称)。仅【opt-in + 本会话处于无人值守 driverAuto 回合】才启用;
-    // 否则维持"超时即拒杀"安全默认。两段定时:基础超时→检查点(logEvent+saveSession)+ permission_paused 事件 + 延长到 TTL;
-    // TTL 内无决定则回落 deny(fail-closed)。entry.timer 重赋为 TTL 定时器,/api/permission/decision 与 clearPendingPermissions 照常清对。
-    const cliPause = config.autonomyPauseOnTimeout && driverAutoSessions.has(sessionId);
-    const decision = await new Promise(resolve => {
-      // 128f-⑪:「等多久」问 04 的 permissionWaitMs(修前这一支只认 config,定时线程上的 CLI 引擎也是 120 s)。
-      const baseMs = permissionWaitMs(sessionId, config, reg && reg.session);
-      const entry = { resolve, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
-      if (cliPause) {
-        entry.timer = setTimeout(() => {
-          if (reg) reg.pausePending = true; // 第27f波:存档暂停期间豁免子进程 idle 看门狗(否则 TTL 内先杀子,窗口被截断)
-          try { logEvent({ kind: 'permission_paused', sessionId, tool: String(body.toolName || ''), tier: bridgeTier, requestId, engine: 'claude' }); } catch { /* ignore */ }
-          loadSession(sessionId).then(s => s && saveSession(s)).catch(() => {}); // 检查点:会话已在磁盘,重写一遍固化
-          try { reg.onEvent({ type: 'permission_paused', requestId, toolName: body.toolName, tier: bridgeTier, ttlMs: config.autonomyPauseTtlMs }); } catch { /* stream gone */ }
-          entry.deadlineAt = Date.now() + Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000);   // 128f-⑪:存档暂停把窗口延长了
-          entry.timer = setTimeout(() => {
-            const message = '权限已存档暂停但在时限内无人决定,已回落拒绝';
-            runAutomaticInterventionDecision({
-              missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
-              idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
-            }, () => {
-              if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
-              pendingPermissions.delete(requestId);
-              resolve({ behavior: 'deny', message, pausedTimeout: true });
-              settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: 'paused ttl timeout' });
-            });
-          }, Math.max(60000, Number(config.autonomyPauseTtlMs) || 2700000));
-        }, baseMs);
-      } else {
-        entry.timer = setTimeout(() => {
-          const message = 'permission prompt timed out';
-          runAutomaticInterventionDecision({
-            missionId: sessionId, interventionId: requestId, source: 'timeout_permission', decidedBy: 'timeout',
-            idempotencyKey: `timeout:${requestId}`, payload: { action: 'deny', message },
-          }, () => {
-            if (pendingPermissions.get(requestId) !== entry || entry.commandApplying) return;
-            pendingPermissions.delete(requestId);
-            resolve({ behavior: 'deny', message });
-            settleIntervention(sessionId, requestId, 'denied', { decidedBy: 'timeout', note: message });
-          });
-        }, baseMs);
-      }
-      pendingPermissions.set(requestId, entry);
-    });
-    try { reg.onEvent({ type: 'permission_decision', requestId, behavior: decision && decision.behavior === 'allow' ? 'allow' : 'deny', message: decision && decision.message }); } catch { /* stream gone */ }
-    if (reg) { reg.pausePending = false; reg.lastEventAt = Date.now(); } // 解除暂停豁免 + 重置看门狗时钟(暂停不算子进程空闲)
-    if (res.writableEnded || res.destroyed) return; // request already gone (e.g. child died)
-    // 第42b波(live 冒烟擒获):CLI ≥2.1 的 --permission-prompt-tool 响应是 zod union —— allow 变体必须
-    // 带 updatedInput record;UI 纯「允许」(未改输入)时 decision.updatedInput 为 undefined,JSON 序列化
-    // 掉键后被 CLI 拒(invalid_union: expected record, received undefined)→ 回合必败。回填原始输入。
-    if (decision && decision.behavior === 'allow' && (typeof decision.updatedInput !== 'object' || decision.updatedInput === null || Array.isArray(decision.updatedInput))) {
-      decision.updatedInput = body.input || {};
-    }
-    return send(res, json(decision));
+    const response = await CliBusinessHooks.permission(body, { isClosed: () => res.writableEnded || res.destroyed });
+    if (response) return send(res, response);
+    return;
   }
   if (req.method === 'POST' && pathname === '/api/permission/decision') {
     // 75b compatibility adapter. The entry lookup only recovers the mission partition; execution is core-owned.

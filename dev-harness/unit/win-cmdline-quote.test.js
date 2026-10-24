@@ -145,3 +145,19 @@ test('[Q6] 仅 Windows:经 cmd.exe /d /s /c + .cmd 垫片,node 收到的 argv �
   assert.equal(r.status, 0, `cmd 退出码(stderr: ${r.stderr})`);
   assert.deepEqual(JSON.parse(r.stdout), args);
 });
+
+// The real CLI role brief contains literal newlines before its later --mcp-config.
+test('[Q7] actual batch dynamic text cannot terminate the command before later MCP arguments', { skip: process.platform !== 'win32' }, () => {
+  const dir = path.join(root, 'newline shim'); fs.mkdirSync(dir, { recursive: true });
+  const echo = path.join(dir, 'echo.cjs'), shim = path.join(dir, 'claude.cmd'), marker = path.join(dir, 'must-not-execute.txt');
+  fs.writeFileSync(echo, 'process.stdout.write(JSON.stringify(process.argv.slice(2)));\n');
+  fs.writeFileSync(shim, '@echo off\r\n"' + process.execPath + '" "' + echo + '" %*\r\n');
+  const json = JSON.stringify({ role: { prompt: 'retain\nJSON escaped newline' } });
+  const prompt = 'role\r\n& echo BAD > "' + marker + '"\nend\rfinal';
+  const args = ['-p', '--append-system-prompt', prompt, '--agents', json, '--mcp-config', path.join(dir, 'actual.json')];
+  const sp = batchSafeSpawn(shim, args), r = cp.spawnSync(sp.command, sp.args, { ...sp.opts, encoding: 'utf8', windowsHide: true, timeout: 5000 });
+  assert.equal(r.status, 0, r.stderr); assert.equal(fs.existsSync(marker), false, 'model text cannot create an extra batch command');
+  assert.deepEqual(JSON.parse(r.stdout), ['-p', '--append-system-prompt', prompt.replace(/\r\n|[\r\n]/g, ' '), '--agents', json, '--mcp-config', path.join(dir, 'actual.json')]);
+  assert.deepEqual(args[2], prompt, 'caller input is unchanged');
+  const direct = batchSafeSpawn(process.execPath, args); assert.deepEqual(direct.args, args, 'native launcher keeps original multiline text');
+});

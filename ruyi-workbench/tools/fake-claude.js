@@ -22,7 +22,7 @@ if (process.env.WCW_FAKE_ENV_CAPTURE) {
     // 145-W3:PATH 也记下 —— 钉「随包 vendor-bin 前置进 CLI 子进程 PATH(Bash 里裸 rg 找得到)」。
     // hunt2-engines#9:WCW_* 回环凭据也记下 —— 钉「令牌不进 CLI 进程环境(模型的 Bash 会继承),只在 --mcp-config 的 env 块里」。
     const keys = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'PATH',
-      'WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_PERMISSION_TIMEOUT_MS'];
+      'WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_PERMISSION_TIMEOUT_MS', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT'];
     const snapshot = {}; for (const k of keys) snapshot[k] = process.env[k] ?? null;
     fs.writeFileSync(process.env.WCW_FAKE_ENV_CAPTURE, JSON.stringify(snapshot, null, 2));
   } catch { /* ignore */ }

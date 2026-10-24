@@ -35,7 +35,7 @@ function sessionHeadStore(id) {
     file: () => sessionPath(id),
     purpose: 'session', schema: SESSION_HEAD_ADAPTER_SCHEMA, scopeId: 'sessions', recordId: String(id),
     keys: workDataKeys, writeJson: atomicWriteJson,
-    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
   });
 }
 const sessionHeadIsWorkDataError = error => String((error && error.code) || '').startsWith('work_data');
@@ -57,8 +57,9 @@ function sessionBodyCodec(p) {
 async function sessionBodyWriteText(file, lines, startOrdinal = 0) {
   if (!Array.isArray(lines) || !lines.length) return '';
   const plain = lines.join('\n') + '\n';
-  const config = await readConfig().catch(() => null);   // a config read failure means "off", not "save fails"
-  if (!config || config.workDataEncryptionV1 !== true) return plain;
+  const config = await readConfig().catch(() => null);   // Legacy keeps OFF fallback; a selected manifest still owns the mode.
+  const sealing = typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(config?.workDataEncryptionV1) : config?.workDataEncryptionV1 === true;
+  if (!sealing) return plain;
   const codec = sessionBodyCodec(file);
   if (!codec) throw Object.assign(new Error('unknown session body target'), { code: 'work_data.body_target_invalid' });
   const credential = await WorkDataStore.acquireSnapshot(workDataKeys);
@@ -275,7 +276,7 @@ const workDataKeys = WorkDataKeys.create({
     validate: WorkDataKeys.validate,
   }),
   protector: LocalSecretCrypto,
-  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+  enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
 });
 WorkDataStore.Hooks.keys = workDataKeys;   // M3-2d: later families reach the key set through this hook
 function sessionScratchpadStore(id) {
@@ -294,7 +295,7 @@ function sessionScratchpadStore(id) {
     recordId: String(id),
     keys: workDataKeys,
     writeJson: atomicWriteJson,
-    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => false),
+    enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
     prepare,
     defaultValue: () => ({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: '', entries: [] }),
     onCorrupt(error) {
@@ -1737,12 +1738,13 @@ function overlayUnflushedSessionIndex(map) {
 function flushSessionIndexSync() {
   try {
     if (!pendingSessionIndex.size && !inflightSessionIndex.size) return;
+    if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode?.(false)) return;
     // The exit hook cannot await DPAPI or the asynchronous chunk codec. Sealed/ON caches keep their
     // last complete bytes; boot's logical invalidation rebuilds from authoritative session heads.
     // Do not emit a new plaintext index during an opt-in or unknown configuration state.
     try {
       const config = safeJsonParse(fs.readFileSync(paths.config, 'utf8'), null);
-      if (!config || typeof config !== 'object' || Array.isArray(config) || config.workDataEncryptionV1 === true) return;
+      if (!config || typeof config !== 'object' || Array.isArray(config) || (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(config.workDataEncryptionV1) : config.workDataEncryptionV1 === true)) return;
     } catch (error) { if (!error || error.code !== 'ENOENT' || fs.existsSync(paths.config + '.prev')) return; }
     let index = null;
     try { const arr = safeJsonParse(fs.readFileSync(sessionIndexPath(), 'utf8'), null); index = Array.isArray(arr) ? arr : null; } catch { index = null; }
@@ -4180,7 +4182,8 @@ async function saveSession(session, opts) {
     // falls back to the slow path, which rewrites and renumbers everything.
     let appendStampsOk = true;
     if (msgPlan && provPlan && (msgPlan.appendLines.length || provPlan.appendLines.length)) {
-      const sealing = (await readConfig().catch(() => null))?.workDataEncryptionV1 === true;
+      const observed = (await readConfig().catch(() => null))?.workDataEncryptionV1;
+      const sealing = typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(observed) : observed === true;
       if (sealing) {
         const [msgStampNow, provStampNow] = await Promise.all([sessionBodyFileStamp(bp.messages), sessionBodyFileStamp(bp.provider)]);
         appendStampsOk = (!state.msg.stamp || msgStampNow === state.msg.stamp)

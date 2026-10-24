@@ -340,11 +340,14 @@ async function kimiAcpSearchDataRootInfo() {
 
 function kimiAcpSearchIsControlPlaneRoot(candidate, dataInfo) {
   if (!dataInfo || dataInfo.unavailable) return true;
-  const roots = [dataInfo.lexical, dataInfo.canonical].filter(Boolean);
+  const roots = [dataInfo.lexical, dataInfo.canonical,
+    ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(candidate) : [])].filter(Boolean);
+  const containers = typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots
+    ? roots.map(root => path.join(root, '.work-data', 'generations')) : [];
   // A search directory that is an ancestor of dataRoot would let ripgrep traverse Ruyi's sessions/config/
   // memory/logs control plane. Safe dataRoot children such as uploads are still individually subject to the
   // normal read guard; the ancestor rule is the important fail-closed case.
-  return roots.some(root => kimiAcpSearchWithin(root, candidate));
+  return [...roots, ...containers].some(root => kimiAcpSearchWithin(root, candidate));
 }
 
 async function kimiAcpSearchCanonicalReadPath(rawPath, context, label, requireDirectory, dataInfo) {

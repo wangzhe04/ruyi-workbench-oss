@@ -9,7 +9,7 @@ const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-op
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-privacy-channels-')), data = path.join(root, 'data'), work = path.join(root, 'work');
 fs.mkdirSync(data); fs.mkdirSync(work);
 process.env.RUYI_HOME = data; process.env.WIN_CLAUDE_WORKBENCH_HOME = data;
-const app = loadServerInternals(['readConfig', 'mutateConfig', 'McpStdioClient', 'handleApi', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers', 'audioStreamUpstream', 'handleAudioStreamOpen', 'handleAudioStreamSession', 'maybeOcrImageAttachment', 'maybeCompressImageAttachment', 'runSessionTurn', 'runStewardTurn', 'createSession', 'saveSession', 'loadSession', 'stewardImplThreadRead', 'stewardPrerouteIndexRows', 'runAgentExternalCompact', 'compactHistoryFromSession', 'AgentLoopHooks', 'PrivacyGateway', 'createKimiAcpRpc', 'writeToChild'], { withEval: true });
+const app = loadServerInternals(['readConfig', 'mutateConfig', 'McpStdioClient', 'handleApi', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers', 'InternalMcpRelay', 'audioStreamUpstream', 'handleAudioStreamOpen', 'handleAudioStreamSession', 'maybeOcrImageAttachment', 'maybeCompressImageAttachment', 'runSessionTurn', 'runStewardTurn', 'createSession', 'saveSession', 'loadSession', 'stewardImplThreadRead', 'stewardPrerouteIndexRows', 'runAgentExternalCompact', 'compactHistoryFromSession', 'AgentLoopHooks', 'PrivacyGateway', 'createKimiAcpRpc', 'writeToChild'], { withEval: true });
 const t = createRunner('PRIVACY CHANNELS');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function waitFor(check) { for (let i = 0; i < 200; i++) { if (check()) return true; await sleep(50); } return false; }
@@ -48,8 +48,9 @@ async function main() {
     mcpSession=await app.createSession({title:'Synthetic privacy CLI owner',cwd:work,engineRoute:{engine:'claude',agentCliType:'claude'}});
     const script = path.join(root, 'delayed-mcp.cjs');
     const internalsPath = path.resolve(__dirname, 'lib/server-internals.js');
-    const delayHook = `const original = toolCall; toolCall = async (name, args) => { const result = await original(name, args); if (name === 'file_read' && ${JSON.stringify([delayed, delayedError])}.includes(args.path)) { fs.writeFileSync(${JSON.stringify(started)}, 'ready'); const until = Date.now() + 12000; while (!fs.existsSync(${JSON.stringify(release)}) && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 30)); if (args.path === ${JSON.stringify(delayedError)}) throw new Error(${JSON.stringify('fixture error: ' + sentinel)}); } return result; };`;
-    fs.writeFileSync(script, `const app = require(${JSON.stringify(internalsPath)}).loadServerInternals(['startMcp'], { withEval: true }); app.__eval(${JSON.stringify(delayHook)}); app.startMcp();`);
+    const delayHook = `const original = toolCall; toolCall = async (name, args, ctx) => { const result = await original(name, args, ctx); if (name === 'file_read' && ${JSON.stringify([delayed, delayedError])}.includes(args.path)) { fs.writeFileSync(${JSON.stringify(started)}, 'ready'); const until = Date.now() + 12000; while (!fs.existsSync(${JSON.stringify(release)}) && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 30)); if (args.path === ${JSON.stringify(delayedError)}) throw new Error(${JSON.stringify('fixture error: ' + sentinel)}); } return result; };`;
+    app.__eval(delayHook); // Tool work now belongs to the serve owner; preserve the same completed-result pause there.
+    fs.writeFileSync(script, `const app = require(${JSON.stringify(internalsPath)}).loadServerInternals(['startMcp']); app.startMcp();`);
     const wrapper=path.join(root,'owned-delayed-cli.cjs');
     fs.writeFileSync(wrapper,[
       "const cp=require('node:child_process');",
@@ -58,16 +59,18 @@ async function main() {
       "process.stdout.on('error',()=>process.exit(1));process.stderr.on('error',()=>process.exit(1));child.once('error',()=>process.exit(1));",
       "child.once('close',(code,signal)=>{process.stdin.unpipe(child.stdin);process.stdin.pause();const timer=setTimeout(()=>process.exit(1),5000);process.stdout.write('',()=>process.stderr.write('',()=>{clearTimeout(timer);process.exit(signal||!Number.isInteger(code)?1:code);}));});"
     ].join('\n'));
+    mcpOwner={promise:new Promise(resolve=>{mcpSettle=resolve;}),source:'fixture-cli',driverRunId:'privacy-channel-cli',phase:'starting',cancelRequested:false,cancel(){this.cancelRequested=true;}};
+    app.recordSessionExecutionOwner(mcpSession.id,mcpOwner);
+    const grant=app.InternalMcpRelay.create({session:mcpSession,executionOwner:mcpOwner,config:await app.readConfig()});
     mcp = new app.McpStdioClient({id:'privacy-fixture',command:process.execPath,args:[wrapper],cwd:work,startupTimeoutMs:20000,
-      env:{WCW_HOST:'127.0.0.1',WCW_PORT:String(app.RUNTIME.port),WCW_TOKEN:app.RUNTIME.token,WCW_SESSION_ID:mcpSession.id}});
+      env:{WCW_HOST:'127.0.0.1',WCW_PORT:String(app.RUNTIME.port),WCW_TOKEN:app.RUNTIME.token,WCW_SESSION_ID:mcpSession.id,...app.InternalMcpRelay.launchEnv(grant)}});
     // start synchronously creates the real wrapper; register it before the host
     // can process the descendant's actual initialize verification request.
     const starting=mcp.start();starting.catch(()=>{});
     mcpClosed=false;mcp.child?.once('close',()=>{mcpClosed=true;});
     if(!mcp.child?.pid)throw Error('Actual CLI wrapper did not start');
-    mcpOwner={promise:new Promise(resolve=>{mcpSettle=resolve;}),source:'fixture-cli',driverRunId:'privacy-channel-cli',phase:'starting',cancelRequested:false,cancel(){this.cancelRequested=true;}};
     mcpReg={child:mcp.child,pid:mcp.child.pid,kind:'kimi-acp',state:'running',exited:false,session:mcpSession};
-    app.recordSessionExecutionOwner(mcpSession.id,mcpOwner);app.registerSessionExecutionChild(mcpSession.id,mcpReg,mcpOwner);
+    app.registerSessionExecutionChild(mcpSession.id,mcpReg,mcpOwner);app.InternalMcpRelay.bind(grant,mcpReg,mcpOwner);
     await starting;
     const listed = await mcp._rpc('resources/list', {}); const uri = listed.resources?.[0]?.uri;
     t.ok(!!uri, 'M1 off mode retains the ordinary registered CLI MCP config resource');

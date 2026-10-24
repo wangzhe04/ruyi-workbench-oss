@@ -17,6 +17,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { killOwnTree } = require('../lib/kill-own-tree');
+const { spawnMcpInApp } = require('../lib/internal-mcp-fixture');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-security-followup-'));
 const DATA = path.join(root, 'data');
@@ -39,7 +40,8 @@ process.env.WIN_CLAUDE_WORKBENCH_HOME = DATA;
 process.env.RUYI_HOME = DATA;
 process.env.HOME = root;
 process.env.USERPROFILE = root;
-const srv = require(SERVER_JS);
+const internals = require('../lib/server-internals').loadServerInternals(['module', 'RUNTIME', 'recordSessionExecutionOwner', 'registerSessionExecutionChild', 'activeChildren', 'turnSettlers', 'InternalMcpRelay']);
+const srv = internals.module.exports;
 
 after(() => {
   try { srv.killAllMcpClients(); } catch { /* ignore */ }
@@ -91,24 +93,35 @@ test('[R1] 模板匹配 / 文档读取族过读边界:内部数据、相对路�
 
 test('[E1] --mcp-config 里直挂的桥接服务器:env 块置空工作台凭据,条目自己的 env 照常;按 CLI 合并口径真起进程验收', async () => {
   const planted = { WCW_TOKEN: 'SECRET-TOKEN-E1', WCW_PORT: '8765', WCW_SESSION_ID: 'sess-e1', WCW_HOST: '127.0.0.1', WCW_EXTRA_INHERITED: 'x',
+    RUYI_INTERNAL_MCP_CAP: 'a'.repeat(64), RUYI_INTERNAL_MCP_PORT: '8765',
     ANTHROPIC_AUTH_TOKEN: 'sk-injected-e1', ANTHROPIC_API_KEY: 'sk-injected-e1b', WCW_DATA_DIR: path.join(root, 'acc-data') };
   const saved = {};
   for (const [k, v] of Object.entries(planted)) { saved[k] = process.env[k]; process.env[k] = v; }
-  let child = null;
+  let child = null, internalCli = null;
+  const priorRuntime = { token: internals.RUNTIME.token, port: internals.RUNTIME.port };
   try {
-    const configPath = await srv.generateSessionMcpConfig('e1sess', 'auto', []);
+    Object.assign(internals.RUNTIME, { token: 'f'.repeat(32), port: 8765 });
+    const session = await srv.createSession({ title: 'Synthetic E1 execution owner', cwd: WORK });
+    internalCli = spawnMcpInApp(internals, { session, env: process.env });
+    const reg = internals.activeChildren.get(session.id);
+    assert.equal(reg.child, internalCli, 'production capability is bound to the actual registered CLI wrapper');
+    const configPath = await srv.generateSessionMcpConfig(session.id, 'auto', [], { internalMcpGrant: reg.internalMcpGrant });
     const mcp = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     const fake = mcp.mcpServers && mcp.mcpServers.fake;
     assert.ok(fake && fake.type === 'stdio', 'full mode attaches the bridged server directly: ' + JSON.stringify(Object.keys(mcp.mcpServers || {})));
     const env = fake.env || {};
-    for (const k of ['WCW_TOKEN', 'WCW_PORT', 'WCW_SESSION_ID', 'WCW_HOST', 'WCW_EXTRA_INHERITED', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']) {
+    for (const k of ['WCW_TOKEN', 'WCW_PORT', 'WCW_SESSION_ID', 'WCW_HOST', 'WCW_EXTRA_INHERITED', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) {
       assert.equal(env[k], '', `bridged server env block must blank ${k}, got ${JSON.stringify(env[k])}`);
     }
     assert.equal(env.OWN_KEY, 'own-value', 'entry-declared env kept');
     assert.ok(!Object.prototype.hasOwnProperty.call(env, 'WCW_DATA_DIR'), 'WCW_DATA_DIR (ACC data-dir override) is not blanked');
-    // 如意自己的 MCP 条目仍拿到回环字段(权限桥靠它)。
-    const own = Object.values(mcp.mcpServers).find(s => s && s.env && Object.prototype.hasOwnProperty.call(s.env, 'WCW_SESSION_ID') && s.env.WCW_SESSION_ID === 'e1sess');
-    assert.ok(own, 'the workbench own MCP entry still carries its loopback session id');
+    // 自有 MCP 使用精确 execution capability;外部 MCP 不继承它。
+    const own = mcp.mcpServers.ruyi;
+    assert.ok(own, 'the workbench own MCP entry remains present');
+    assert.match(own.env.RUYI_INTERNAL_MCP_CAP, /^[a-f0-9]{64}$/);
+    assert.equal(own.env.RUYI_INTERNAL_MCP_CAP, internals.InternalMcpRelay.launchEnv(reg.internalMcpGrant).RUYI_INTERNAL_MCP_CAP);
+    assert.notEqual(own.env.RUYI_INTERNAL_MCP_CAP, planted.RUYI_INTERNAL_MCP_CAP, 'inherited foreign capability cannot replace the execution grant');
+    for (const key of ['WCW_TOKEN', 'WCW_PORT', 'WCW_SESSION_ID', 'WCW_HOST']) assert.equal(own.env[key], '');
 
     // CLI 起 stdio MCP 的环境 = 它自己的环境叠条目 env。用同一口径起假 MCP,看它真拿到什么。
     const keys = [...Object.keys(planted), 'OWN_KEY', 'PATH'].join(',');
@@ -121,7 +134,7 @@ test('[E1] --mcp-config 里直挂的桥接服务器:env 块置空工作台凭据
       try { row = JSON.parse(fs.readFileSync(ENV_CAPTURE, 'utf8').trim().split('\n').pop()); } catch { await new Promise(r => setTimeout(r, 40)); }
     }
     assert.ok(row && row.env, 'env capture written');
-    for (const k of ['WCW_TOKEN', 'WCW_PORT', 'WCW_SESSION_ID', 'WCW_HOST', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']) {
+    for (const k of ['WCW_TOKEN', 'WCW_PORT', 'WCW_SESSION_ID', 'WCW_HOST', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) {
       assert.ok(!row.env[k], `${k} must not reach a CLI-launched bridged server (got ${JSON.stringify(row.env[k])})`);
     }
     assert.equal(row.env.WCW_DATA_DIR, planted.WCW_DATA_DIR, 'WCW_DATA_DIR still inherited');
@@ -129,6 +142,11 @@ test('[E1] --mcp-config 里直挂的桥接服务器:env 块置空工作台凭据
     assert.ok(row.env.PATH, 'ordinary environment still inherited');
   } finally {
     if (child) { try { killOwnTree(child); } catch { /* gone */ } }
+    if (internalCli && internalCli.exitCode === null && internalCli.signalCode === null) {
+      const closed = new Promise((resolve, reject) => { const timer = setTimeout(() => reject(Error('E1 CLI close deadline')), 5000); internalCli.once('close', () => { clearTimeout(timer); resolve(); }); });
+      void killOwnTree(internalCli); await closed;
+    }
+    Object.assign(internals.RUNTIME, priorRuntime);
     for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   }
 });

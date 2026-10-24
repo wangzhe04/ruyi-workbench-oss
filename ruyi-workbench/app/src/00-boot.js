@@ -76,6 +76,9 @@ function lstatOrNull(p) {
 // dataRoot() / dataRootAliases() 在文件遍历的热路径上逐项被调(03 isSensitiveDataPath);每次都 lstat 两个目录在大树上是秒级开销。
 // 结果按「两个环境变量 + 家目录」记住:进程内能改变答案的只有这三样(迁移发生在启动时,迁移后清一次缓存)。
 let _dataRootMemo = null;
+// 01z fills these only for a validated active manifest. Legacy root strings remain unchanged.
+let _workDataStableBase = null, _workDataStableAliases = null;
+const WorkDataRootHooks = {};
 function dataRootMemoKey() {
   return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
 }
@@ -92,6 +95,7 @@ function resolveDataRootUncached() {
   return next;
 }
 function dataRoot() {
+  if (_workDataStableBase !== null) return _workDataStableBase;
   const key = dataRootMemoKey();
   if (_dataRootMemo && _dataRootMemo.key === key && _dataRootMemo.root) return _dataRootMemo.root;
   const root = resolveDataRootUncached();
@@ -103,6 +107,7 @@ function dataRoot() {
 // runtime.json(token)/ 会话。**与环境变量无关**:Claude / Kimi 的 MCP 子进程总带 RUYI_HOME,修前在那里一律返回空,
 // 旧路径上的联接就成了绕过口。判据是 realpath 相等(Windows 上不分大小写),数据根还不存在时不缓存、下次再算。
 function dataRootAliases() {
+  if (_workDataStableAliases !== null) return _workDataStableAliases;
   const root = dataRoot();
   if (_dataRootMemo && _dataRootMemo.root === root && Array.isArray(_dataRootMemo.aliases)) return _dataRootMemo.aliases;
   const norm = p => (process.platform === 'win32' ? String(p).toLowerCase() : String(p));
@@ -1341,6 +1346,9 @@ const SubAgentMemoryHooks = {};
 
 // Per-execution read-only CLI memory relay. Filled late, without a forward module dependency.
 const MemoryCliHooks = {};
+// Late internal MCP adapters keep capability/CLI business owners outside the runtime module cycle.
+const InternalMcpHooks = {};
+const CliBusinessHooks = {};
 
 // 其它 Agent CLI 的用户级目录。一律在【调用时】按 os.homedir() 与各家的覆盖变量解析(不缓存):测试把
 // USERPROFILE/HOME 指到临时家,这里立刻跟着走 —— 这就是「测试绝不碰真机家目录」的那一道闸。

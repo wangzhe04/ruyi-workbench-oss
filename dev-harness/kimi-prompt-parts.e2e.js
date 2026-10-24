@@ -231,7 +231,7 @@ const resetCounters = () => { statCalls = 0; readCalls = 0; openCalls = 0; guard
       && snippetStart >= 0 && recoveryEnd > snippetStart && promptStart >= 0 && snippetEnd > promptStart,
     '05 entry contains the slash/recovery/prompt policy block');
     const policySnippet = engine.slice(snippetStart, recoveryEnd) + engine.slice(promptStart, promptEnd);
-    const policy = vm.runInNewContext(`(function(input) {
+    const policy = vm.runInNewContext(`(async function(input) {
       const agentCliType = input.agentCliType;
       const message = input.message;
       const slashCommand = String(message || '').trim().startsWith('/');
@@ -252,12 +252,12 @@ const resetCounters = () => { statCalls = 0; readCalls = 0; openCalls = 0; guard
     });
     const runPolicy = policy;
     const slashInput = { agentCliType: 'kimi', message: '  /compact now', summary: 'summary', override: 'override', recoverySource: [], basePrompt: '  /compact now\n<attached_files>', indexInjection: '', memoryTurnCheck: 'memory' };
-    const kimiPolicy = runPolicy(slashInput);
+    const kimiPolicy = await runPolicy(slashInput);
     ok(kimiPolicy.kimiNativeSlashCommand === true && kimiPolicy.recoveryHistory === '' && kimiPolicy.historyRecoveryInjected === false, 'Kimi slash with summary keeps recovery un-injected metadata accurate');
     ok(kimiPolicy.fullPrompt === slashInput.message, 'Kimi slash prompt remains the original message text');
-    const claudePolicy = runPolicy({ ...slashInput, agentCliType: 'claude', override: null });
+    const claudePolicy = await runPolicy({ ...slashInput, agentCliType: 'claude', override: null });
     ok(claudePolicy.kimiNativeSlashCommand === false && claudePolicy.recoveryHistory.includes('summary') && claudePolicy.historyRecoveryInjected === true, 'Claude slash recovery behavior remains on its original path');
-    const regularClaudePolicy = runPolicy({ ...slashInput, agentCliType: 'claude', message: 'continue normally', summary: '', override: null });
+    const regularClaudePolicy = await runPolicy({ ...slashInput, agentCliType: 'claude', message: 'continue normally', summary: '', override: null });
     ok(regularClaudePolicy.recoveryHistory === 'claude-history', 'Claude non-slash recovery history remains available');
     // 架构还债批 3 A:ACP 接管那一支改为问 CLI 适配器(AGENT_CLI_ADAPTERS.kimi.runPreparedTurn → runKimiAcpTurnPrepared),锚跟着换。
     const acpAnchor = '  if (adapter.runPreparedTurn && !fakeClaude)';

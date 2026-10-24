@@ -11,6 +11,7 @@
         "BUNDLED_PYTHON_RUNTIME",
         "CLI_DIAGNOSTIC_TEXT_CAP",
         "CONFIG_SCHEMA",
+        "CliBusinessHooks",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "DeliveryHooks",
@@ -18,6 +19,7 @@
         "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
         "INSTALL_REGISTRY_SCHEMA",
+        "InternalMcpHooks",
         "LEGACY_API_ERROR_CODES",
         "LEGACY_DATA_DIR_NAME",
         "MAX_BODY_BYTES",
@@ -46,9 +48,12 @@
         "USAGE_DICT_COLUMNS",
         "UsageRowView",
         "VERSION",
+        "WorkDataRootHooks",
         "_consoleGbDecoder",
         "_consoleUtf8Strict",
         "_dataRootMemo",
+        "_workDataStableAliases",
+        "_workDataStableBase",
         "agentCliHomes",
         "apiFailure",
         "apiSessionIdInvalid",
@@ -638,6 +643,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "DEFAULT_PORT",
           "kinds": [
             "read"
@@ -674,6 +686,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
           "kinds": [
             "read"
           ]
@@ -773,6 +792,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -1387,6 +1413,71 @@
       ]
     },
     {
+      "file": "01z-work-data-root-authority.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataRootAuthority"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "_workDataStableAliases",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "_workDataStableBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01v-work-data-manifest.js",
+          "symbol": "WorkDataManifest",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02c-turn-segments.js",
       "layer": "foundation",
       "provides": [
@@ -1974,6 +2065,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -2635,6 +2733,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
@@ -3126,6 +3231,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -4006,6 +4118,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "DeliveryHooks",
           "kinds": [
             "read"
@@ -4021,6 +4140,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
           "kinds": [
             "read"
           ]
@@ -4093,6 +4219,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5152,6 +5285,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
             "call"
@@ -5732,6 +5872,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "fileAllowedRoots",
           "kinds": [
@@ -6126,6 +6273,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -7034,6 +7188,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -7899,6 +8060,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
             "call",
@@ -7959,6 +8127,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_SERVER_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -12837,6 +13012,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "zlib",
           "kinds": [
             "read"
@@ -13148,6 +13330,7 @@
         "invokeAdaptiveMcpTool",
         "isUtf8Encoding",
         "journalCheckpointWarn",
+        "mcpCatalogForContext",
         "naClassify",
         "naIsCjkish",
         "normalizeTextLineEndings",
@@ -13215,6 +13398,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
           "kinds": [
             "read"
           ]
@@ -14320,6 +14510,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "CliBusinessHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "CONFIG_SCHEMA",
           "kinds": [
             "read"
@@ -14344,6 +14541,13 @@
           "symbol": "DATA_ROOT_MIGRATION",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -14439,6 +14643,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "isDirectServeInvocation",
           "kinds": [
             "call"
@@ -14461,13 +14672,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "lstatOrNull",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "makeId",
           "kinds": [
             "call"
           ]
@@ -14537,13 +14741,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "readline",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "recordInstallLaunch",
           "kinds": [
             "call"
@@ -14594,6 +14791,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -14943,13 +15147,6 @@
           ]
         },
         {
-          "provider": "01e-permission-modes.js",
-          "symbol": "resolvePermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
           "provider": "01f-agent-cli-types.js",
           "symbol": "AGENT_CLI_TYPES",
           "kinds": [
@@ -14975,27 +15172,6 @@
           "symbol": "WorkDataStore",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "applyMissionUpdate",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "bumpMissionChangeSeq",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "evaluateMissionCheck",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -15042,42 +15218,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "maybeFinalizeMission",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "MISSION_MAX_TEXT",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionControlCommand",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "mutateSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "normalizeMission",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "normalizeTodoItems",
           "kinds": [
             "call"
           ]
@@ -15092,13 +15233,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readSessionRouteHead",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "recordMissionCheckResult",
           "kinds": [
             "call"
           ]
@@ -15155,13 +15289,6 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "existsExecutable",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "existsExecutableAsync",
           "kinds": [
             "call"
           ]
@@ -15262,13 +15389,6 @@
           "symbol": "resolveWorkspace",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "03a-privacy-gateway.js",
-          "symbol": "PrivacyGateway",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -15377,13 +15497,6 @@
           ]
         },
         {
-          "provider": "04-visual-pipeline.js",
-          "symbol": "VisualPipeline",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "04h-provider-http.js",
           "symbol": "providerScrubSecrets",
           "kinds": [
@@ -15444,13 +15557,6 @@
           "symbol": "PROVIDER_PRESETS",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "resolveProvider",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -15840,13 +15946,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "activeAgentRuns",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "buildClaudeAgentDefinitions",
           "kinds": [
             "call"
@@ -15862,13 +15961,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "nativeToolAvailableInContext",
           "kinds": [
             "call"
           ]
@@ -15916,20 +16008,6 @@
           ]
         },
         {
-          "provider": "07-autonomy.js",
-          "symbol": "toolPackForName",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "agentRunResultSlice",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
           "provider": "08-agent-runs.js",
           "symbol": "agentWorkflowSaveProblem",
           "kinds": [
@@ -15939,13 +16017,6 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "autoResumeInterruptedRuns",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "buildAgentRunEnvelope",
           "kinds": [
             "call"
           ]
@@ -15980,63 +16051,7 @@
         },
         {
           "provider": "08-agent-runs.js",
-          "symbol": "resolveOrchestrateNodes",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "saveAgentRun",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
           "symbol": "saveAgentWorkflow",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "AGENT_RUN_TERMINAL",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "deliverAgentRunEnvelope",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "resolveWaitAgentsMs",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "runAgentWorkflow",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "settleWaitEnvelopes",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "09-workflow.js",
-          "symbol": "waitForAgentRunResults",
           "kinds": [
             "call"
           ]
@@ -16107,13 +16122,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "streamChat",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "truncateToolResult",
           "kinds": [
             "call"
           ]
@@ -16986,6 +16994,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "CliBusinessHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "crypto",
           "kinds": [
             "read"
@@ -17094,13 +17109,6 @@
           "symbol": "URL",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "00b-ruyi-names.js",
-          "symbol": "RUYI_MCP_CLI_TOOL_PREFIX",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -17385,20 +17393,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "registerIntervention",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "saveSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionBodyPaths",
           "kinds": [
             "call"
@@ -17469,13 +17463,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "settleIntervention",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "transitionInterventionState",
           "kinds": [
             "call"
@@ -17511,13 +17498,6 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "bridgedReadPathGate",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
           "kinds": [
             "call"
@@ -17547,13 +17527,6 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "driverAutoSessions",
           "kinds": [
             "read"
           ]
@@ -17602,28 +17575,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "permissionWaitMs",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "redact",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "requestUserQuestion",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
           ]
@@ -17647,20 +17599,6 @@
           "symbol": "turnSettlers",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "06f-autonomy-grants.js",
-          "symbol": "CLI_TOOL_TIER",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06f-autonomy-grants.js",
-          "symbol": "consumeGrant",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -17791,28 +17729,7 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "DESKTOP_MCP_SERVER_ID",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "nativeToolGate",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "nativeToolTier",
           "kinds": [
             "call"
           ]
@@ -17829,27 +17746,6 @@
           "symbol": "STEER_QUEUE_MAX",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "toolDisabledByPolicy",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "toolDisabledResult",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "toolIsRevertible",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -18569,6 +18465,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -18854,6 +18757,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
           "kinds": [
             "read"
           ]
@@ -26008,6 +25918,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -26284,6 +26201,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -26453,10 +26377,720 @@
       ]
     },
     {
+      "file": "13ae-cli-business-services.js",
+      "layer": "unclassified",
+      "provides": [
+        "cliAgentLaunchService",
+        "cliAgentResultService",
+        "cliMissionService",
+        "cliPermissionService",
+        "cliQuestionService",
+        "cliTodoService"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "CliBusinessHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_CLI_TOOL_PREFIX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "detectClaudePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "applyMissionUpdate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "bumpMissionChangeSeq",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "evaluateMissionCheck",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "maybeFinalizeMission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "MISSION_MAX_TEXT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "missionControlCommand",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mutateSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeMission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "recordMissionCheckResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "registerIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "bridgedReadPathGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "existsExecutableAsync",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "normalizeCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "driverAutoSessions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "permissionWaitMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "requestUserQuestion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "runAutomaticInterventionDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "resolveProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "CLI_TOOL_TIER",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "consumeGrant",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "DESKTOP_MCP_SERVER_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolIsRevertible",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunResultSlice",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "buildAgentRunEnvelope",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "resolveOrchestrateNodes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "saveAgentRun",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "AGENT_RUN_TERMINAL",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "deliverAgentRunEnvelope",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "resolveWaitAgentsMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "runAgentWorkflow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "settleWaitEnvelopes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "waitForAgentRunResults",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13af-internal-mcp-relay.js",
+      "layer": "unclassified",
+      "provides": [
+        "InternalMcpRelay"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "http",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MAX_BODY_BYTES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_SERVER_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "commandForSelfMcp",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "requestIsLoopback",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "RUNTIME",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ManagedMcp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskProviders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolAvailableInContext",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "TOOL_PACK_DESCRIPTIONS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolPackForName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "AGENT_RUN_TERMINAL",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "truncateToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliAgentLaunchService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliAgentResultService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliMissionService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliPermissionService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliQuestionService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ae-cli-business-services.js",
+          "symbol": "cliTodoService",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "14-main.js",
       "layer": "entrypoint",
       "provides": [
-        "main"
+        "main",
+        "withSelectedWorkDataRoot"
       ],
       "requires": [
         {
@@ -26499,6 +27133,13 @@
           "symbol": "createNdjsonLineFeeder",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -26572,6 +27213,13 @@
           ]
         },
         {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "autoImportClaudeCodeMcp",
           "kinds": [
@@ -26588,6 +27236,20 @@
         {
           "provider": "01-config.js",
           "symbol": "CONFIG_MIGRATIONS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configMutateChain",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configWriteChain",
           "kinds": [
             "read"
           ]
@@ -27016,6 +27678,13 @@
         {
           "provider": "01f-agent-cli-types.js",
           "symbol": "normalizeAgentCliType",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
           "kinds": [
             "read"
           ]
@@ -27620,6 +28289,13 @@
           "symbol": "configureMcpFromTool",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "flushWorkbenchLogs",
+          "kinds": [
+            "call"
           ]
         },
         {

@@ -121,6 +121,7 @@ const src07 = read('07-autonomy.js');
 const src11 = read('11-native-tools.js');
 const src12 = read('12-tool-dispatch.js');
 const src13 = read('13-http-router.js');
+const src13af = read('13af-internal-mcp-relay.js');
 const src13f = read('13f-native-tool-schemas.js');
 const src13g = read('13g-steward.js');
 const src13h = read('13h-steward-runner.js');
@@ -307,8 +308,8 @@ ok(srv.toolPackForName('steward_decide', {}) === 'steward', "④ toolPackForName
 
 ok(/if \(isStewardToolName\(t\.name\) && !\(opts && opts\.stewardSession === true\)\) continue;/.test(src07),
   '⑤ 面 1:07 buildOpenAiTools 有 isStewardToolName 门(fail-closed 默认不 offer)');
-ok(/isStewardToolName\(t\.name\) && !stewardSession/.test(src13) && /process\.env\.WCW_SESSION_KIND === 'steward'/.test(src13),
-  '⑤ 面 2:13 MCP tools/list 桥有 isStewardToolName 门(身份来自注入的 WCW_SESSION_KIND,缺失即隐藏)');
+ok(/isStewardToolName\(t\.name\) && !stewardSession/.test(src13af) && /steward: !nodeContext && session\.kind === 'steward'/.test(src13af) && /const stewardSession = grant\.policy\.steward/.test(src13af),
+  '⑤ 面 2:13 MCP tools/list 桥有 isStewardToolName 门(身份来自已注册主回合 session.kind,节点与缺失身份均隐藏)');
 ok(/!isStewardToolName\(t\.name\) \|\| stewardSession/.test(src11),
   '⑤ 面 3:11 adaptiveCatalogForMcp 有 isStewardToolName 门');
 ok(/!isStewardToolName\(t\.name\)\)\.map\(t => \(\{ name: t\.name/.test(src13),

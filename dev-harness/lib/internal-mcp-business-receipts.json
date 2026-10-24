@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "baselineCommit": "c773068c4904ecb322a3edf112bb53a82d88a9dd",
+  "note": "Deterministic outputs captured from actual original route bodies before relay promotion; no git history or current-route baseline lookup needed.",
+  "cases": {
+    "todo": {
+      "sourceFile": "13-http-router.js",
+      "sourceSha256": "272112d19bed5b82d506249e74ca387a76dcd2c40586c105d2c90f5a5732b2f5",
+      "expected": {
+        "response": {
+          "body": "{\"ok\":true,\"count\":1}",
+          "status": 200
+        },
+        "state": {
+          "id": "sid",
+          "cwd": "C:/workspace",
+          "turnSeq": 9,
+          "mission": {
+            "goal": "old"
+          },
+          "todos": [
+            {
+              "text": "one"
+            }
+          ]
+        },
+        "events": [
+          {
+            "type": "todo",
+            "items": [
+              {
+                "text": "one"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "mission": {
+      "sourceFile": "13-http-router.js",
+      "sourceSha256": "272112d19bed5b82d506249e74ca387a76dcd2c40586c105d2c90f5a5732b2f5",
+      "expected": {
+        "response": {
+          "body": "{\"ok\":true,\"mission\":{\"goal\":\"new\",\"token\":\"ordinary\",\"sessionId\":\"sid\",\"action\":\"update\",\"changeSeq\":1}}",
+          "status": 200
+        },
+        "state": {
+          "id": "sid",
+          "cwd": "C:/workspace",
+          "turnSeq": 9,
+          "mission": {
+            "goal": "new",
+            "token": "ordinary",
+            "sessionId": "sid",
+            "action": "update",
+            "changeSeq": 1
+          }
+        },
+        "events": [
+          {
+            "type": "mission",
+            "mission": {
+              "goal": "new",
+              "token": "ordinary",
+              "sessionId": "sid",
+              "action": "update",
+              "changeSeq": 1
+            }
+          }
+        ],
+        "trusted": false
+      }
+    },
+    "question": {
+      "sourceFile": "13d-core-domain-routes.js",
+      "sourceSha256": "cfc0644740c986bd65d5a681fb058b63f5051f0387477cb3f67130eb913380d3",
+      "expected": {
+        "response": {
+          "body": "{\"ok\":true,\"answers\":{\"one\":\"two\"},\"content\":\"answer\"}",
+          "status": 200
+        },
+        "state": {
+          "id": "sid",
+          "cwd": "C:/workspace",
+          "turnSeq": 9,
+          "mission": {
+            "goal": "old"
+          }
+        },
+        "events": [
+          {
+            "type": "question"
+          }
+        ]
+      }
+    },
+    "permission": {
+      "sourceFile": "13d-core-domain-routes.js",
+      "sourceSha256": "cfc0644740c986bd65d5a681fb058b63f5051f0387477cb3f67130eb913380d3",
+      "expected": {
+        "response": {
+          "body": "{\"behavior\":\"allow\",\"updatedInput\":{\"path\":\"a\"}}",
+          "status": 200
+        },
+        "state": {
+          "id": "sid",
+          "cwd": "C:/workspace",
+          "turnSeq": 9,
+          "mission": {
+            "goal": "old"
+          }
+        },
+        "events": []
+      }
+    },
+    "launch": {
+      "sourceFile": "13-http-router.js",
+      "sourceSha256": "272112d19bed5b82d506249e74ca387a76dcd2c40586c105d2c90f5a5732b2f5",
+      "expected": {
+        "response": {
+          "body": "{\"ok\":true,\"runId\":\"run_one\"}",
+          "status": 200
+        },
+        "state": {
+          "id": "sid",
+          "cwd": "C:/workspace",
+          "turnSeq": 9,
+          "mission": {
+            "goal": "old"
+          },
+          "delivered": "run_one"
+        },
+        "events": [],
+        "workflow": {
+          "session": "sid",
+          "mode": "auto",
+          "nodes": [
+            {
+              "id": "one"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -57,7 +57,7 @@ const McpConsumers = (() => {
       // Only this explicit setup response contains the reusable token. Never list,
       // recover, log or put it on argv; the receiving application's config owns it.
       return { ok: true, consumer: publicRow(row), configuration: { mcpServers: { ['ruyi-consumer_' + row.id]: { type: 'stdio', command: command.command,
-        args: [...command.args, '--consumer'], env: { RUYI_HOME: paths.data, RUYI_MCP_CONSUMER_ID: row.id, RUYI_MCP_CONSUMER_TOKEN: token } } } } };
+        args: [...command.args, '--consumer'], env: { RUYI_HOME: dataRoot(), RUYI_MCP_CONSUMER_ID: row.id, RUYI_MCP_CONSUMER_TOKEN: token } } } } };
     });
   }
   async function authenticate(req) {
@@ -401,14 +401,14 @@ const McpConsumers = (() => {
     } catch { if (!res.headersSent) minimal(); else res.end(); return true; }
   }
   async function listen() {
-    await atomicWriteJson(path.join(paths.data, 'mcp-host-v1.json'), { schema: 1, host: '127.0.0.1', port: RUNTIME.port, instanceId: instance }, { mode: 0o600 });
+    await atomicWriteJson(path.join(dataRoot(), 'mcp-host-v1.json'), { schema: 1, host: '127.0.0.1', port: RUNTIME.port, instanceId: instance }, { mode: 0o600 });
   }
   async function relay() {
     const relayHttp = require('node:http'), relayFs = require('node:fs'), relayPath = require('node:path');
     const token = process.env.RUYI_MCP_CONSUMER_TOKEN, consumerId = process.env.RUYI_MCP_CONSUMER_ID;
     // Blank inherited management secrets even if a caller accidentally inherited
     // them. The independent transport never reads runtime.json or falls back.
-    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST']) delete process.env[key];
+    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) delete process.env[key];
     let connection = null, opening = null, buffered = '', running = 0, stopped = false;
     const requests = new Set(), queue = [], activeMessages = new Map();
     const messageKey = id => typeof id + ":" + String(id);
@@ -417,7 +417,7 @@ const McpConsumers = (() => {
     const refusal = (id, code = 'unavailable') => output({ jsonrpc: '2.0', id: safeReplyId(id), error: { code: -32000,
       message: 'mcp_consumer.' + code + ': Start this Ruyi workbench, or create a connection in Settings > MCP. A write may already have completed: check its result; do not automatically retry. / 请先启动此如意工作台，或在设置的 MCP 页面生成连接配置。写操作可能已完成，请先核实，不要自动重试。', data: { operationMayHaveExecuted: true, resultUnavailable: true, retry: false } } });
     function discovery() {
-      const file = relayPath.join(paths.data, 'mcp-host-v1.json'), stat = relayFs.lstatSync(file);
+      const file = relayPath.join(dataRoot(), 'mcp-host-v1.json'), stat = relayFs.lstatSync(file);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4096) throw Error('unavailable');
       const value = JSON.parse(relayFs.readFileSync(file, 'utf8'));
       if (value.schema !== 1 || value.host !== '127.0.0.1' || !Number.isInteger(value.port) || value.port < 1 || value.port > 65535 || !validId(value.instanceId)) throw Error('unavailable');

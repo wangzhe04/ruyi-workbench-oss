@@ -1862,16 +1862,27 @@ function sensitiveGlobsForRg(base) {
   try {
     // 安全走查 S7:名单与 03 的 isSensitiveDataPath 内的那份一致(unit/unc-and-traversal-gates.test.js 逐名比对);根要把【realpath 后的数据根】也算进来 ——
     // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
-    const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
+    const roots = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
+      ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots() : [])])];
     for (const r of roots) {
-      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop']) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs', 'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json']) {
         const rel = path.relative(base, path.join(r, n));
         if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
+        const generationRel = path.relative(base, path.join(r, '.work-data', 'generations'));
+        if (generationRel && !generationRel.startsWith('..') && !path.isAbsolute(generationRel))
+          globs.push('!/' + generationRel.split(path.sep).join('/') + '/*/' + n);
       }
       const relRoot = path.relative(base, r);
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/config.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/external-bot-credentials.json*');
       if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/credential-vault-v1.json*');
+      const controlRel = path.relative(base, path.join(r, '.work-data'));
+      if (controlRel && !controlRel.startsWith('..') && !path.isAbsolute(controlRel)) {
+        const prefix = '!/' + controlRel.split(path.sep).join('/');
+        globs.push(prefix + '/active-v1.json*', prefix + '/.active-v1.stage-*', prefix + '/generations/*/config.json*',
+          prefix + '/generations/*/credential-vault-v1.json*', prefix + '/generations/*/external-bot-credentials.json*',
+          prefix + '/generations/*/work-data-key-v1.json*');
+      }
     }
   } catch { /* 取不到数据根 → 只剩结果层过滤 */ }
   return globs;

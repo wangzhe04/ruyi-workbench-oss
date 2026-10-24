@@ -504,6 +504,7 @@ function isSensitiveDataPath(p) {
   // 词法上判成「不在 config.json 里」、文件名正则也不中 → 敏感闸被绕过(第三波只给 autoexec 闸加了同样的剥离)。盘符段(`C:`)保留;
   // Windows 文件名除盘符外不可能有冒号,POSIX 上带冒号的怪名字只会被保守地并到前缀上,只会多拦不会漏。写在函数里(自包含,见上)。
   p = String(p).split(/([\\/])/).map(seg => (/^[a-z]:$/i.test(seg) || seg === '/' || seg === '\\') ? seg : seg.replace(/:.*$/, '').replace(/([^. ])[. ]+$/, '$1')).join('');
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.controlSensitive?.(p, false)) return true;
   const root = dataRoot();
   // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
   // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
@@ -513,16 +514,17 @@ function isSensitiveDataPath(p) {
   // 【有意不进】checkpoints/:检查点的 before 快照内容本来就是模型自己改过的文件(用户让模型「看一下改之前长什么样」是合法读),
   // 且只在写侧受保护(WRITE_PROTECTED_DATA_DIRS);unit/write-guard-autoload.test.js 钉着「检查点内容仍可 file_read」。
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs',
-    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop'];
+    'steward', 'missions', 'scheduler', 'migrations', 'engine-transcripts.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots', 'desktop', 'work-data-key-v1.json'];
   // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
-  const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
+  const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
+    ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(p) : [])])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
   // 2026-09-06：config.json 的备份族（config.json.prev / config.json.bak-<日期> / config.json.bak-providers-<ts>）
   // 与正本一样含明文密钥；audit-w23 P1#2 探针实测 file_search 能把 .prev 里的 apiKey 搜出来。
   // 凡是直接落在 dataRoot 下、文件名以 config.json 开头的，一律视为敏感。
   try {
     const base = path.basename(p);
-    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json)(\.|$)/i.test(base)) {
+    if (/^(?:config\.json|credential-vault-v1\.json|credential-import-v1\.json|external-bot-credentials\.json|work-data-key-v1\.json)(\.|$)/i.test(base)) {
       const dir = path.resolve(path.dirname(p));
       for (const b of bases) if (dir.toLowerCase() === path.resolve(b).toLowerCase()) return true;
     }
@@ -537,6 +539,7 @@ function isSensitiveDataPath(p) {
 //   · stat 用 bigint:Windows 的文件索引是 64 位,Number 会丢精度,两个不同文件可能撞成同一个值。
 const SENSITIVE_HARDLINK_FILES = Object.freeze(['config.json', 'runtime.json', 'credential-vault-v1.json', 'credential-import-v1.json', 'mcp-consumers-v1.json', 'privacy-scopes', 'external-bot-credentials.json', 'external-bots/state-v1.json']);
 async function sensitiveFileIdentities() {
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.hardlinkGuarded?.()) return WorkDataRootHooks.hardlinkIdentities();
   const ids = new Set();
   let root = '';
   try { root = dataRoot(); } catch { return ids; }
@@ -559,11 +562,11 @@ async function isSensitiveHardlinkStat(st, ids) {
     if (!st || !st.isFile() || !(st.nlink > 1n) || !st.ino) return false;
     const set = ids || await sensitiveFileIdentities();
     return set.has(String(st.dev) + ':' + String(st.ino));
-  } catch { return false; }
+  } catch { return typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.hardlinkGuarded?.() === true; }
 }
 async function isSensitiveHardlinkAlias(filePath, ids) {
   try { return await isSensitiveHardlinkStat(await fsp.stat(filePath, { bigint: true }), ids); }
-  catch { return false; }
+  catch { return typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.hardlinkGuarded?.() === true; }
 }
 // 安全审计 #1/#8(数据根里会被【自动加载 / 执行 / 信任】的状态):dataRoot 是文件工具的写根,isSensitiveDataPath
 // 只挡了「读出来会泄密」的那一批。下面这批读是无害的(或本来就要能读:检查点内容、个人工作流模板),但【写】进去
@@ -585,7 +588,9 @@ function isWriteProtectedDataPath(p) {
   if (isSensitiveDataPath(p)) return true;
   // 同 isSensitiveDataPath 开头那一行:剥 NTFS 流后缀与尾随点 / 空格(`mcp.d::$INDEX_ALLOCATION\x.json`、`scheduler.\tasks.json`)。
   p = String(p).split(/([\\/])/).map(seg => (/^[a-z]:$/i.test(seg) || seg === '/' || seg === '\\') ? seg : seg.replace(/:.*$/, '').replace(/([^. ])[. ]+$/, '$1')).join('');
-  const bases = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
+  if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.controlSensitive?.(p, true)) return true;
+  const bases = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases(),
+    ...(typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guardRoots ? WorkDataRootHooks.guardRoots(p) : [])])];
   for (const b of bases) {
     for (const n of WRITE_PROTECTED_DATA_DIRS) if (pathWithinRoot(p, path.join(b, n))) return true;
     for (const n of WRITE_PROTECTED_DATA_FILES) if (pathWithinRoot(p, path.join(b, n))) return true;

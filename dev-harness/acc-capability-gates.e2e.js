@@ -304,25 +304,15 @@ const at = f => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : ''; }
 const SID = 'fake-acc-gates-' + Math.random().toString(16).slice(2, 8);
 const emit = o => process.stdout.write(JSON.stringify(o) + '\\n');
 process.stdin.on('data', () => {}); process.stdin.on('error', () => {});
-const ask = (env, toolName, input) => new Promise(resolve => {
-  const body = JSON.stringify({ token: env.WCW_TOKEN, sessionId: env.WCW_SESSION_ID, toolName, input });
-  const req = http.request({ host: env.WCW_HOST || '127.0.0.1', port: Number(env.WCW_PORT), path: '/api/permission/request', method: 'POST',
-    headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } }, res => {
-    let b = ''; res.on('data', c => (b += c)); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve({ raw: b }); } });
-  });
-  req.on('error', e => resolve({ error: String(e && e.message) }));
-  req.write(body); req.end();
-});
+const { requestPermissions } = require(${JSON.stringify(path.join(__dirname, 'lib/internal-mcp-permission-fixture.js'))});
 (async () => {
-  let env = {}, servers = {};
+  let servers = {};
   try {
     const mcp = JSON.parse(fs.readFileSync(at('--mcp-config'), 'utf8'));
     servers = mcp.mcpServers || {};
-    for (const s of Object.values(servers)) if (s && s.env && s.env.WCW_TOKEN) env = s.env;
   } catch {}
   emit({ type: 'system', subtype: 'init', session_id: SID, tools: [], model: 'fake-model' });
-  const replies = [];
-  for (const r of ${JSON.stringify(REQUESTS)}) replies.push(await ask(env, r.toolName, r.input));
+  const replies = await requestPermissions(servers.ruyi, ${JSON.stringify(REQUESTS)});
   fs.appendFileSync(${JSON.stringify(CAPTURE)}, JSON.stringify({ servers, replies }) + '\\n');
   emit({ type: 'assistant', session_id: SID, message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] } });
   emit({ type: 'result', subtype: 'success', is_error: false, result: 'done', session_id: SID, duration_ms: 10, num_turns: 1, usage: { input_tokens: 1, output_tokens: 1 } });

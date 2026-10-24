@@ -3,7 +3,7 @@
 // 回合走进程内 runSessionTurn + tools/fake-claude.js(WCW_FAKE_CLAUDE 测试缝),不起 HTTP 服务。
 //   [C1] #1 同会话并发两个回合:修前 supersede 检查与 activeChildren.set 之间隔着十来个 await,两个回合都看见「空闲」,
 //        各起一个 CLI 子进程且都跑完;修后 spawn 前再判一次,后到的顶掉先到的 —— 恰好一个跑完、一个被停。
-//   [C9] #9 WCW_TOKEN 等回环凭据不在 CLI 进程环境里(模型的 Bash 会继承),只在 --mcp-config 那个 server 的 env 块里。
+//   [C9] #9 管理凭据与内部 MCP execution capability 不在 Claude CLI 环境里(模型的 Bash 会继承),capability 只在 --mcp-config 的自有 server env 块里。
 //   [C17] #17 CLI 刷屏的 stderr 不再整段落盘:会话里那条 stderr 消息有上限、保留头部、标明省略量。
 //   [C7] #7 外部摘要模型坏了时,自动压缩失败一次后进入退避:下一回合不再重试(修前每回合都重试一次)。
 //   [D8] #8 decodeClaudeCliText 的流式用法:块边界切开的汉字不再被误判成 GB18030 乱码;真 GB18030 流照旧解对。
@@ -63,7 +63,7 @@ test('[C1] 同会话并发两个回合:只有一个 CLI 子进程跑完,另一�
   } finally { delete process.env.WCW_FAKE_SLOW_MS; }
 });
 
-test('[C9] 回环凭据只在 --mcp-config 的 env 块里,不在 CLI 进程环境里', async () => {
+test('[C9] execution capability 只在 --mcp-config 的自有 env 块里,管理凭据不进入 Claude CLI 环境', async () => {
   const envCap = path.join(root, 'env-cap.json');
   const argvCap = path.join(root, 'argv-cap.json');
   process.env.WCW_FAKE_ENV_CAPTURE = envCap;
@@ -72,15 +72,16 @@ test('[C9] 回环凭据只在 --mcp-config 的 env 块里,不在 CLI 进程环�
     const session = await srv.createSession({ title: 'env', cwd: work });
     await turn(session.id, 'hello', collect());
     const seen = JSON.parse(fs.readFileSync(envCap, 'utf8'));
-    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST']) assert.equal(seen[key], null, `${key} 不应出现在 CLI 进程环境里`);
+    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'RUYI_INTERNAL_MCP_CAP', 'RUYI_INTERNAL_MCP_PORT']) assert.equal(seen[key], null, `${key} 不应出现在 CLI 进程环境里`);
     assert.ok(Number(seen.WCW_PERMISSION_TIMEOUT_MS) > 0, '权限等待时长(非凭据,会话 MCP 配置里没有)仍给 MCP 子进程继承');
     const argv = JSON.parse(fs.readFileSync(argvCap, 'utf8'));
     const mcpPath = argv[argv.indexOf('--mcp-config') + 1];
     const mcp = JSON.parse(fs.readFileSync(mcpPath, 'utf8'));
-    const own = Object.values(mcp.mcpServers).find(server => server && server.env && server.env.WCW_SESSION_ID);
+    const own = mcp.mcpServers.ruyi;
     assert.ok(own, '会话 MCP 配置里有如意自己的 server');
-    assert.equal(own.env.WCW_SESSION_ID, session.id);
-    assert.ok('WCW_TOKEN' in own.env && 'WCW_PORT' in own.env && 'WCW_HOST' in own.env, 'MCP 子进程从配置的 env 块拿回环字段');
+    assert.match(own.env.RUYI_INTERNAL_MCP_CAP, /^[a-f0-9]{64}$/, '自有 MCP 从生产回合配置拿 execution capability');
+    assert.ok(Number(own.env.RUYI_INTERNAL_MCP_PORT) > 0, '自有 MCP 使用宿主回环端口');
+    for (const key of ['WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST']) assert.equal(own.env[key], '', '自有 MCP 不再用旧管理凭据: ' + key);
   } finally { delete process.env.WCW_FAKE_ENV_CAPTURE; delete process.env.WCW_FAKE_ARGV_CAPTURE; }
 });
 
