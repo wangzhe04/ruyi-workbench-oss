@@ -74,3 +74,19 @@ Windows Node 24.14.1 在实测目录 handle.sync() 返回 EPERM；当前 manifes
 修前完整 unit **3181 项执行，3155 通过、26 条件跳过、零失败**；定向 109 项通过；凭据 HTTP E2E 连续两遍通过；语法 1230 文件零错。81 个静态件首轮 80 过、1 个 NDJSON feeder 锁失败：新 publisher 仍逐块 `toString`。修复为在原 8 KiB 限额内保留 Buffer、close 后统一解码；原静态断言保留。修后 native 7 项 unit、生成运行时组合两遍、原失败静态件及 manifest ranges、源码/生成服务语法和构建新鲜检查通过；其余 79 静态件未改，未重跑完整 unit。全部精确身份、独审和负控见[第二批证据](evidence/privacy-m3-3-native-and-codecs.json)。新增三组 unit suite 后，清册为 579 E2E / 默认离线 572 / 344 unit suite。旧 76 项 egress 错误逐项保留，6 个新词法候选按真实 process/capability/regex 分类，不升级为受保护外发。
 
 下一批正在实施直接 DPAPI 凭据的 typed auxiliary 与内部 MCP 单一 writer 接入。完整 owner 屏障、启动根选择、完整备份/恢复、NTFS 专用迁移和启用/反向关闭 UI 仍未完成；全量默认离线 E2E 与实际包仍待最后集成验收。
+
+## 6. 第三批：直接 DPAPI 凭据 portable auxiliary（2026-10-24）
+
+基线 `0252dfeb47387bf77a294d9b908db6700bb24cdc`。`13y` 为完整工作数据恢复新增专用 snapshot/staging：在原 vault 写 owner 内逐项读取所有本地 DPAPI 行，覆盖 QQ、飞书全部槽、未被连接引用的行和删除墓碑，保留 binding、持久 revision、present。snapshot 给出原文件 descriptor 字节及完整 hash，不复用受环境变量优先级影响的公开读取/导入入口。目标 staging 在首个 native 操作前验证全部行，逐项 DPAPI protect/unprotect 比较，不读取活动目标 store、不建目标目录、不发布任何状态。
+
+`01t` 新写 v2，v1 严格 reader 保留。typed auxiliary 放在文件/master 名称空间之外，由类型/schema、实际 sourcePath/sourceSha256、独立 size/hash 与整份 manifest 绑定；aux 字节计入既有工程预算，返回的 owned Buffer 在 release/失败时清零。直接 DPAPI 账本没有第三个 master。环境变量**引用**仍在真实 `external-bots/state-v1.json`；不导出环境变量值，目标缺失引用继续明确报缺，不回落本地槽。
+
+transport 不凭同名文件推断业务 owner；普通上传文件也可叫 `external-bot-credentials.json`。是否遗漏任何独立 DPAPI 来源，必须由 host 的可信完整 census 与 mandatory conversion 清单判定；攻击者同时删去包中 aux 声明和 payload，不是 transport 能独自发现的来源事实。新接口与包格式没有替代这一生产闭合。
+
+独审复跑 52 项、真实旧 c773068c writer 的非空 v1 包互读通过，丢墓碑/跳 aux hash/跳 DPAPI roundtrip 三个负控均失败。真实生成运行时的新增 8 组 E2E 连续两遍通过，包含完整账本与真实连接 owner、错误口令/篡改不建目标、全部本机 native staging 先于目标 mkdir、新 Node 冷读取和失败释放；旧机器人凭据 E2E 及既有恢复组合也各两遍通过。仅为同账户 native 重封，不能冒充真实跨机验收。
+
+完整 unit **3201 项执行：3175 通过、26 条件跳过、零失败**；定向 52 项通过；1233 文件语法零错、构建新鲜。静态门及精确身份见[第三批证据](evidence/privacy-m3-3-portable-auxiliary.json)。清册增为 580 E2E / 默认离线 573 / 346 unit suite；egress 仍 286 sources / 701 candidates，旧 76 error IDs 逐项不变，没有新增词法边界。
+
+首次失败保留：旧负控把 version 改为 2，在 v2 中已是合法值，只把该突变改成 `api.VERSION + 1`，原拒绝/KDF 零调用断言不变；晋升测试路径时遗漏第二个源读取和 `node:path` 导入，修后 52 项通过；新 native fixture 的运行时 helper 在隔离前 require 会捕获旧 override，独审要求改到隔离后 lazy require，顺序负控有效。没有改产品行为或放宽断言来迁就夹具。
+
+生产 MCP relay、启动权威与策略派生、NTFS 稳定备份 owner 正在 TEMP 实作和独审。完整迁移、恢复入口和启用 UI 继续推进，默认选择与应用版本仍未改变。

@@ -9725,11 +9725,12 @@ const WorkDataJournals = ((fsp, pathModule, cryptoApi) => {
 // recovery format. No filesystem access: the data-root owner must freeze writers, enumerate the
 // complete tree (including retained backups), verify actual encrypted references and restore only
 // into a fresh directory. Authentication and all manifest checks finish before any data is returned.
-// Bounded whole-package format, not a streaming implementation or a constant-memory claim.
+// V2 keeps typed portable conversions outside the file/master namespaces; V1 reads retain their
+// strict legacy shapes. Bounded whole-package format, not streaming or constant-memory storage.
 const WorkDataRecovery = ((cryptoApi) => {
-  const KIND = 'ruyi-work-data-recovery', VERSION = 1;
+  const KIND = 'ruyi-work-data-recovery', VERSION = 2, LEGACY_VERSION = 1;
   const DEFAULT_LIMITS = Object.freeze({ bytes: 256 * 1024 * 1024, files: 100000, directories: 100000,
-    metadata: 32 * 1024 * 1024, keys: 128, path: 1024, serialized: require('node:buffer').constants.MAX_STRING_LENGTH });
+    metadata: 32 * 1024 * 1024, keys: 128, auxiliaries: 128, path: 1024, serialized: require('node:buffer').constants.MAX_STRING_LENGTH });
   let deriving = 0;
   const fail = suffix => { throw Object.assign(new Error('work_data_recovery.' + suffix),
     { code: 'work_data_recovery.' + suffix, apiCode: 'work_data_recovery.' + suffix, statusCode: 409 }); };
@@ -9737,7 +9738,7 @@ const WorkDataRecovery = ((cryptoApi) => {
   if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => key !== 'limits')) fail('limits_invalid');
   const overrides = options.limits === undefined ? {} : options.limits;
   if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)
-    || Object.keys(overrides).some(key => !['bytes', 'files', 'directories', 'metadata', 'serialized'].includes(key))
+    || Object.keys(overrides).some(key => !['bytes', 'files', 'directories', 'metadata', 'serialized', 'auxiliaries'].includes(key))
     || Object.values(overrides).some(value => !Number.isSafeInteger(value) || value < 1)) fail('limits_invalid');
   const LIMITS = Object.freeze({ ...DEFAULT_LIMITS, ...overrides });
   if (LIMITS.serialized > require('node:buffer').constants.MAX_STRING_LENGTH) fail('limits_invalid');
@@ -9789,8 +9790,9 @@ const WorkDataRecovery = ((cryptoApi) => {
     const wrapped = base64(key.protectedKey, 64 * 1024);
     try { if (!wrapped.length) fail('key_invalid'); } finally { wrapped.fill(0); }
   }
-  function manifestCheck(manifest) {
-    if (!shape(manifest, 'schema,appVersion,generation,createdAt,directories,keys,files,bytes') || manifest.schema !== VERSION
+  function manifestCheck(manifest, version = VERSION) {
+    const fields = 'schema,appVersion,generation,createdAt,directories,keys,files,bytes' + (version === VERSION ? ',auxiliaries' : '');
+    if (!shape(manifest, fields) || manifest.schema !== version
       || !text(manifest.appVersion) || !/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(manifest.appVersion) || manifest.appVersion.length > 80
       || !Number.isSafeInteger(manifest.generation) || manifest.generation < 0
       || typeof manifest.createdAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(manifest.createdAt)
@@ -9812,6 +9814,21 @@ const WorkDataRecovery = ((cryptoApi) => {
         || file.keyRefs.some(ref => !keyIds.has(ref))) fail('manifest_invalid');
       bytes += file.size; if (!Number.isSafeInteger(bytes) || bytes > LIMITS.bytes) fail('capacity');
     }
+    if (version === VERSION) {
+      if (!Array.isArray(manifest.auxiliaries) || manifest.auxiliaries.length > LIMITS.auxiliaries) fail('auxiliary_invalid');
+      const files = new Map(manifest.files.map(file => [file.path, file])), seen = new Set();
+      for (const row of manifest.auxiliaries) {
+        if (!shape(row, 'type,schema,sourcePath,sourceSha256,size,sha256') || row.type !== 'external-bot-credentials' || row.schema !== 1
+          || !Number.isSafeInteger(row.size) || row.size < 1 || row.size > 4 * 1024 * 1024 || !hex(row.sha256) || !hex(row.sourceSha256)) fail('auxiliary_invalid');
+        relative(row.sourcePath);
+        const file = files.get(row.sourcePath), key = row.type + ':' + row.sourcePath;
+        if (!file || file.sha256 !== row.sourceSha256 || seen.has(key)) fail('auxiliary_invalid');
+        seen.add(key); bytes += row.size;
+        if (!Number.isSafeInteger(bytes) || bytes > LIMITS.bytes) fail('capacity');
+      }
+      // Opaque file paths do not establish domain ownership. The lifecycle host's
+      // census must require every independently protected source's conversion.
+    }
     if (bytes !== manifest.bytes || Buffer.byteLength(JSON.stringify(manifest), 'utf8') > LIMITS.metadata) fail('manifest_invalid');
     return manifest;
   }
@@ -9829,12 +9846,14 @@ const WorkDataRecovery = ((cryptoApi) => {
   const aad = header => Buffer.from(JSON.stringify(header), 'utf8');
   async function seal(snapshot, password) {
     checkPassword(password);
-    if (!shape(snapshot, 'appVersion,generation,createdAt,directories,keys,files') || !Array.isArray(snapshot.keys)
+    if (!(shape(snapshot, 'appVersion,generation,createdAt,directories,keys,files') || shape(snapshot, 'appVersion,generation,createdAt,directories,keys,files,auxiliaries')) || !Array.isArray(snapshot.keys)
       || snapshot.keys.length > LIMITS.keys || !Array.isArray(snapshot.files) || snapshot.files.length > LIMITS.files) fail('invalid');
     namespace(snapshot.directories, snapshot.files);
     // Materialize an owned immutable-by-construction payload before the first await. Callers may
     // release their snapshot leases while scrypt runs without racing the exported master bytes.
-    const keys = [], metadataKeys = [], files = [], metadataFiles = [];
+    const keys = [], metadataKeys = [], files = [], metadataFiles = [], auxiliaries = [], metadataAuxiliaries = [];
+    const auxiliaryInput = Object.hasOwn(snapshot, 'auxiliaries') ? snapshot.auxiliaries : [];
+    if (!Array.isArray(auxiliaryInput) || auxiliaryInput.length > LIMITS.auxiliaries) fail('auxiliary_invalid');
     let bytes = 0;
     for (const key of snapshot.keys) {
       if (!shape(key, 'id,purpose,instanceId,protectedKey,master') || !Buffer.isBuffer(key.master) || key.master.length !== 32) fail('key_invalid');
@@ -9847,16 +9866,24 @@ const WorkDataRecovery = ((cryptoApi) => {
       metadataFiles.push({ path: file.path, size: file.data.length, sha256: hash(file.data), keyRefs: Array.isArray(file.keyRefs) ? [...file.keyRefs] : file.keyRefs });
       files.push({ path: file.path, data: file.data.toString('base64') });
     }
+    for (const row of auxiliaryInput) {
+      if (!shape(row, 'type,schema,sourcePath,sourceSha256,data') || row.type !== 'external-bot-credentials' || row.schema !== 1
+        || !Buffer.isBuffer(row.data) || row.data.length < 1 || row.data.length > 4 * 1024 * 1024) fail('auxiliary_invalid');
+      bytes += row.data.length; if (!Number.isSafeInteger(bytes) || bytes > LIMITS.bytes) fail('capacity');
+      metadataAuxiliaries.push({ type: row.type, schema: row.schema, sourcePath: row.sourcePath, sourceSha256: row.sourceSha256, size: row.data.length, sha256: hash(row.data) });
+      auxiliaries.push({ type: row.type, schema: row.schema, sourcePath: row.sourcePath, data: row.data.toString('base64') });
+    }
     const manifest = manifestCheck({ schema: VERSION, appVersion: snapshot.appVersion, generation: snapshot.generation, createdAt: snapshot.createdAt,
-      directories: [...snapshot.directories], keys: metadataKeys, files: metadataFiles, bytes });
-    // JSON payload and its base64 outer transport must fit the host's explicit v1 engineering
+      directories: [...snapshot.directories], keys: metadataKeys, files: metadataFiles, auxiliaries: metadataAuxiliaries, bytes });
+    // JSON payload and its base64 outer transport must fit the host's explicit engineering
     // budget. This is not a business-data quota; the owner can choose a larger supported budget
     // or a future streaming format, and the source tree remains untouched on rejection.
     const estimatedPayload = files.reduce((sum, file) => sum + file.data.length + Buffer.byteLength(file.path) + 32, 0)
+      + auxiliaries.reduce((sum, row) => sum + row.data.length + Buffer.byteLength(row.sourcePath) + 128, 0)
       + Buffer.byteLength(JSON.stringify(manifest)) + Buffer.byteLength(JSON.stringify(keys)) + 256;
     if (estimatedPayload > require('node:buffer').constants.MAX_STRING_LENGTH
       || Math.ceil(estimatedPayload / 3) * 4 + 1024 > LIMITS.serialized) fail('capacity');
-    const plain = Buffer.from(JSON.stringify({ manifest, manifestSha256: hash(JSON.stringify(manifest)), keys, files }), 'utf8');
+    const plain = Buffer.from(JSON.stringify({ manifest, manifestSha256: hash(JSON.stringify(manifest)), keys, files, auxiliaries }), 'utf8');
     const header = { kind: KIND, version: VERSION, exportId: cryptoApi.randomBytes(16).toString('hex'),
       kdf: { name: 'scrypt', N: 32768, r: 8, p: 1, salt: cryptoApi.randomBytes(16).toString('base64') }, cipher: 'aes-256-gcm' };
     let derived;
@@ -9877,7 +9904,7 @@ const WorkDataRecovery = ((cryptoApi) => {
     if (typeof serialized !== 'string' || Buffer.byteLength(serialized, 'utf8') > LIMITS.serialized) fail('invalid');
     let container;
     try { container = JSON.parse(serialized); } catch { fail('invalid'); }
-    if (!shape(container, 'kind,version,exportId,kdf,cipher,nonce,tag,data') || container.kind !== KIND || container.version !== VERSION
+    if (!shape(container, 'kind,version,exportId,kdf,cipher,nonce,tag,data') || container.kind !== KIND || ![LEGACY_VERSION, VERSION].includes(container.version)
       || typeof container.exportId !== 'string' || !/^[a-f0-9]{32}$/.test(container.exportId) || container.cipher !== 'aes-256-gcm'
       || !shape(container.kdf, 'name,N,r,p,salt') || container.kdf.name !== 'scrypt' || container.kdf.N !== 32768 || container.kdf.r !== 8 || container.kdf.p !== 1) fail('invalid');
     const salt = base64(container.kdf.salt, 16, 16), nonce = base64(container.nonce, 12, 12), tag = base64(container.tag, 16, 16);
@@ -9899,10 +9926,12 @@ const WorkDataRecovery = ((cryptoApi) => {
         if (!Buffer.from(serializedPayload, 'utf8').equals(plain)) fail('invalid');
         payload = JSON.parse(serializedPayload);
       } catch { fail('invalid'); }
-      if (!shape(payload, 'manifest,manifestSha256,keys,files') || !hex(payload.manifestSha256)
+      const payloadFields = 'manifest,manifestSha256,keys,files' + (container.version === VERSION ? ',auxiliaries' : '');
+      if (!shape(payload, payloadFields) || !hex(payload.manifestSha256)
         || hash(JSON.stringify(payload.manifest)) !== payload.manifestSha256 || !Array.isArray(payload.keys) || !Array.isArray(payload.files)) fail('manifest_invalid');
-      const manifest = manifestCheck(payload.manifest);
+      const manifest = manifestCheck(payload.manifest, container.version);
       if (payload.keys.length !== manifest.keys.length || payload.files.length !== manifest.files.length) fail('manifest_invalid');
+      if (container.version === VERSION && (!Array.isArray(payload.auxiliaries) || payload.auxiliaries.length !== manifest.auxiliaries.length)) fail('auxiliary_invalid');
       const keys = [], files = [];
       for (let i = 0; i < manifest.keys.length; i++) {
         const row = payload.keys[i], expected = manifest.keys[i];
@@ -9918,8 +9947,16 @@ const WorkDataRecovery = ((cryptoApi) => {
         if (hash(data) !== expected.sha256) fail('manifest_invalid');
         files.push({ path: expected.path, data, keyRefs: [...expected.keyRefs] });
       }
+      const auxiliaries = [];
+      if (container.version === VERSION) for (let i = 0; i < manifest.auxiliaries.length; i++) {
+        const expected = manifest.auxiliaries[i], row = payload.auxiliaries[i];
+        if (!shape(row, 'type,schema,sourcePath,data') || row.type !== expected.type || row.schema !== expected.schema || row.sourcePath !== expected.sourcePath) fail('auxiliary_invalid');
+        const data = base64(row.data, expected.size, expected.size); owned.push(data);
+        if (hash(data) !== expected.sha256) fail('auxiliary_invalid');
+        auxiliaries.push({ type: expected.type, schema: expected.schema, sourcePath: expected.sourcePath, sourceSha256: expected.sourceSha256, data });
+      }
       snapshot = { appVersion: manifest.appVersion, generation: manifest.generation, createdAt: manifest.createdAt,
-        directories: [...manifest.directories], keys, files };
+        directories: [...manifest.directories], keys, files, auxiliaries };
       let released = false;
       const release = () => { if (!released) { released = true; for (const bytes of owned) bytes.fill(0); } };
       returned = true;
@@ -96055,7 +96092,108 @@ const ExternalBotCredentials = (() => {
     });
   }
   async function remove(connection, options = {}) { return save(connection, { set: {}, remove: SLOTS[binding(connection).platform], expectedRevision: options.expectedRevision }); }
-  return Object.freeze({ snapshot, inspect, read, save, remove });
+  // Full work-data recovery uses local DPAPI rows directly, never selectedEnv or
+  // public credentialRevision. An env override must not hide a retained local row.
+  const recoveryExact = (value, fields) => exact(value, fields) && Object.keys(value).length === fields.length;
+  const recoveryHash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+  function recoveryState(value) {
+    if (!validState(value) || Buffer.byteLength(JSON.stringify(value)) > LIMIT.bytes) fail('recovery_invalid', 409);
+    return JSON.parse(JSON.stringify(value));
+  }
+  function recoveryDecode(bytes) {
+    try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+    catch { fail('recovery_invalid', 409); }
+  }
+  async function recoveryRaw() {
+    let handle, raw, failed = false;
+    const scratch = Buffer.alloc(LIMIT.bytes + 1);
+    try {
+      try { handle = await fsp.open(store.filePath(), 'r'); }
+      catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+      let used = 0;
+      while (used < scratch.length) {
+        const read = await handle.read(scratch, used, scratch.length - used, null);
+        if (!read.bytesRead) break; used += read.bytesRead;
+      }
+      if (used > LIMIT.bytes) fail('recovery_invalid', 409);
+      raw = Buffer.from(scratch.subarray(0, used));
+      const state = recoveryState(recoveryDecode(raw));
+      return { raw, state };
+    } catch (error) {
+      failed = true;
+      raw?.fill(0);
+      if (String(error?.code || '').startsWith('external_credentials.')) throw error;
+      fail('storage_unavailable');
+    } finally {
+      scratch.fill(0);
+      if (handle) try { await handle.close(); }
+      catch { raw?.fill(0); if (!failed) fail('storage_unavailable'); }
+    }
+  }
+  async function snapshotForWorkDataRecovery() {
+    return runKeyedChain(chains, 'vault', async () => {
+      const captured = await recoveryRaw();
+      if (!captured) return Object.freeze({ present: false, source: null, portable: null, release() {} });
+      let portable, returned = false;
+      try {
+        const records = [];
+        for (const row of captured.state.records) records.push({ binding: { ...row.binding }, revision: row.revision,
+          present: [...row.present], values: await localValues(row, row.binding) });
+        portable = Buffer.from(JSON.stringify({ schema: 1, records }), 'utf8');
+        if (portable.length > LIMIT.bytes) fail('recovery_invalid', 409);
+        let released = false;
+        const source = Object.freeze({ data: captured.raw, sha256: recoveryHash(captured.raw) });
+        returned = true;
+        return Object.freeze({ present: true, source, portable, release() {
+          if (!released) { released = true; captured.raw.fill(0); portable.fill(0); }
+        } });
+      } finally { if (!returned) { captured.raw.fill(0); portable?.fill(0); } }
+    });
+  }
+  async function stageRecoveredForWorkData(input) {
+    if (!recoveryExact(input, ['state', 'portable']) || !Buffer.isBuffer(input.portable) || input.portable.length > LIMIT.bytes) fail('recovery_invalid', 409);
+    // Capture both caller-owned inputs before any DPAPI await. Staging never
+    // writes/reads the active store and may run before the target directory exists.
+    const source = recoveryState(input.state), portable = Buffer.from(input.portable);
+    const plain = [];
+    try {
+      const payload = recoveryDecode(portable);
+      if (!recoveryExact(payload, ['schema', 'records']) || payload.schema !== 1 || !Array.isArray(payload.records)
+        || payload.records.length !== source.records.length) fail('recovery_invalid', 409);
+      // Validate every row before the first native protection operation.
+      for (let i = 0; i < source.records.length; i++) {
+        const expected = source.records[i], row = payload.records[i];
+        if (!recoveryExact(row, ['binding', 'revision', 'present', 'values']) || !sameBinding(row.binding, expected.binding)
+          || row.revision !== expected.revision || JSON.stringify(row.present) !== JSON.stringify(expected.present)
+          || !recoveryExact(row.values, expected.present) || expected.present.some(slot => !validSecret(row.values[slot]))) fail('recovery_invalid', 409);
+        const values = {};
+        for (const slot of SLOTS[expected.binding.platform]) if (expected.present.includes(slot)) values[slot] = row.values[slot];
+        plain.push(Buffer.from(JSON.stringify(values), 'utf8'));
+      }
+      const records = [];
+      for (let i = 0; i < source.records.length; i++) {
+        const row = source.records[i]; let cipher, check;
+        try {
+          let encrypted = '';
+          if (row.present.length) {
+            // Keep an independent comparison copy: a faulty protector must not
+            // mutate its own input and make a different recovered value appear valid.
+            const protectInput = Buffer.from(plain[i]);
+            try { cipher = await dpapi('protect', protectInput, row.binding); }
+            finally { protectInput.fill(0); }
+            if (!Buffer.isBuffer(cipher) || !cipher.length || cipher.length > LIMIT.cipherBytes) fail('recovery_roundtrip_failed');
+            check = await dpapi('unprotect', cipher, row.binding);
+            if (!Buffer.isBuffer(check) || check.length !== plain[i].length || !crypto.timingSafeEqual(check, plain[i])) fail('recovery_roundtrip_failed');
+            encrypted = cipher.toString('base64');
+          }
+          records.push({ binding: { ...row.binding }, revision: row.revision, present: [...row.present], cipher: encrypted });
+        } finally { if (Buffer.isBuffer(cipher)) cipher.fill(0); if (Buffer.isBuffer(check)) check.fill(0); }
+      }
+      const state = recoveryState({ schema: 1, records });
+      return Object.freeze({ state, sourceStateSha256: recoveryHash(JSON.stringify(source)), stagedStateSha256: recoveryHash(JSON.stringify(state)) });
+    } finally { portable.fill(0); for (const bytes of plain) bytes.fill(0); }
+  }
+  return Object.freeze({ snapshot, inspect, read, save, remove, snapshotForWorkDataRecovery, stageRecoveredForWorkData });
 })();
 
 // Owner-initiated identity probe against the fixed official Feishu host. One attempt per request, no

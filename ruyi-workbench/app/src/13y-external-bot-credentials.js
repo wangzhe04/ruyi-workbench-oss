@@ -160,5 +160,106 @@ const ExternalBotCredentials = (() => {
     });
   }
   async function remove(connection, options = {}) { return save(connection, { set: {}, remove: SLOTS[binding(connection).platform], expectedRevision: options.expectedRevision }); }
-  return Object.freeze({ snapshot, inspect, read, save, remove });
+  // Full work-data recovery uses local DPAPI rows directly, never selectedEnv or
+  // public credentialRevision. An env override must not hide a retained local row.
+  const recoveryExact = (value, fields) => exact(value, fields) && Object.keys(value).length === fields.length;
+  const recoveryHash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+  function recoveryState(value) {
+    if (!validState(value) || Buffer.byteLength(JSON.stringify(value)) > LIMIT.bytes) fail('recovery_invalid', 409);
+    return JSON.parse(JSON.stringify(value));
+  }
+  function recoveryDecode(bytes) {
+    try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+    catch { fail('recovery_invalid', 409); }
+  }
+  async function recoveryRaw() {
+    let handle, raw, failed = false;
+    const scratch = Buffer.alloc(LIMIT.bytes + 1);
+    try {
+      try { handle = await fsp.open(store.filePath(), 'r'); }
+      catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+      let used = 0;
+      while (used < scratch.length) {
+        const read = await handle.read(scratch, used, scratch.length - used, null);
+        if (!read.bytesRead) break; used += read.bytesRead;
+      }
+      if (used > LIMIT.bytes) fail('recovery_invalid', 409);
+      raw = Buffer.from(scratch.subarray(0, used));
+      const state = recoveryState(recoveryDecode(raw));
+      return { raw, state };
+    } catch (error) {
+      failed = true;
+      raw?.fill(0);
+      if (String(error?.code || '').startsWith('external_credentials.')) throw error;
+      fail('storage_unavailable');
+    } finally {
+      scratch.fill(0);
+      if (handle) try { await handle.close(); }
+      catch { raw?.fill(0); if (!failed) fail('storage_unavailable'); }
+    }
+  }
+  async function snapshotForWorkDataRecovery() {
+    return runKeyedChain(chains, 'vault', async () => {
+      const captured = await recoveryRaw();
+      if (!captured) return Object.freeze({ present: false, source: null, portable: null, release() {} });
+      let portable, returned = false;
+      try {
+        const records = [];
+        for (const row of captured.state.records) records.push({ binding: { ...row.binding }, revision: row.revision,
+          present: [...row.present], values: await localValues(row, row.binding) });
+        portable = Buffer.from(JSON.stringify({ schema: 1, records }), 'utf8');
+        if (portable.length > LIMIT.bytes) fail('recovery_invalid', 409);
+        let released = false;
+        const source = Object.freeze({ data: captured.raw, sha256: recoveryHash(captured.raw) });
+        returned = true;
+        return Object.freeze({ present: true, source, portable, release() {
+          if (!released) { released = true; captured.raw.fill(0); portable.fill(0); }
+        } });
+      } finally { if (!returned) { captured.raw.fill(0); portable?.fill(0); } }
+    });
+  }
+  async function stageRecoveredForWorkData(input) {
+    if (!recoveryExact(input, ['state', 'portable']) || !Buffer.isBuffer(input.portable) || input.portable.length > LIMIT.bytes) fail('recovery_invalid', 409);
+    // Capture both caller-owned inputs before any DPAPI await. Staging never
+    // writes/reads the active store and may run before the target directory exists.
+    const source = recoveryState(input.state), portable = Buffer.from(input.portable);
+    const plain = [];
+    try {
+      const payload = recoveryDecode(portable);
+      if (!recoveryExact(payload, ['schema', 'records']) || payload.schema !== 1 || !Array.isArray(payload.records)
+        || payload.records.length !== source.records.length) fail('recovery_invalid', 409);
+      // Validate every row before the first native protection operation.
+      for (let i = 0; i < source.records.length; i++) {
+        const expected = source.records[i], row = payload.records[i];
+        if (!recoveryExact(row, ['binding', 'revision', 'present', 'values']) || !sameBinding(row.binding, expected.binding)
+          || row.revision !== expected.revision || JSON.stringify(row.present) !== JSON.stringify(expected.present)
+          || !recoveryExact(row.values, expected.present) || expected.present.some(slot => !validSecret(row.values[slot]))) fail('recovery_invalid', 409);
+        const values = {};
+        for (const slot of SLOTS[expected.binding.platform]) if (expected.present.includes(slot)) values[slot] = row.values[slot];
+        plain.push(Buffer.from(JSON.stringify(values), 'utf8'));
+      }
+      const records = [];
+      for (let i = 0; i < source.records.length; i++) {
+        const row = source.records[i]; let cipher, check;
+        try {
+          let encrypted = '';
+          if (row.present.length) {
+            // Keep an independent comparison copy: a faulty protector must not
+            // mutate its own input and make a different recovered value appear valid.
+            const protectInput = Buffer.from(plain[i]);
+            try { cipher = await dpapi('protect', protectInput, row.binding); }
+            finally { protectInput.fill(0); }
+            if (!Buffer.isBuffer(cipher) || !cipher.length || cipher.length > LIMIT.cipherBytes) fail('recovery_roundtrip_failed');
+            check = await dpapi('unprotect', cipher, row.binding);
+            if (!Buffer.isBuffer(check) || check.length !== plain[i].length || !crypto.timingSafeEqual(check, plain[i])) fail('recovery_roundtrip_failed');
+            encrypted = cipher.toString('base64');
+          }
+          records.push({ binding: { ...row.binding }, revision: row.revision, present: [...row.present], cipher: encrypted });
+        } finally { if (Buffer.isBuffer(cipher)) cipher.fill(0); if (Buffer.isBuffer(check)) check.fill(0); }
+      }
+      const state = recoveryState({ schema: 1, records });
+      return Object.freeze({ state, sourceStateSha256: recoveryHash(JSON.stringify(source)), stagedStateSha256: recoveryHash(JSON.stringify(state)) });
+    } finally { portable.fill(0); for (const bytes of plain) bytes.fill(0); }
+  }
+  return Object.freeze({ snapshot, inspect, read, save, remove, snapshotForWorkDataRecovery, stageRecoveredForWorkData });
 })();

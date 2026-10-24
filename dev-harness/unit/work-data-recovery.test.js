@@ -72,7 +72,7 @@ test('credential-only package, changed format, unknown parameters and malformed 
   let derivations = 0;
   const controlled = load({ ...crypto, scrypt: (...args) => { derivations++; return crypto.scrypt(...args); } });
   const exported = await api.seal(fixture(), password);
-  for (const mutate of [row => { row.kind = 'ruyi-credential-recovery'; }, row => { row.version = 2; }, row => { row.kdf.N = 1048576; },
+  for (const mutate of [row => { row.kind = 'ruyi-credential-recovery'; }, row => { row.version = api.VERSION + 1; }, row => { row.kdf.N = 1048576; },
     row => { row.kdf.r = 0; }, row => { row.kdf.extra = 1; }, row => { row.extra = 1; }, row => { row.nonce = 'AAAA'; },
     row => { row.data += '='; }, row => { row.exportId = ['a'.repeat(32)]; }]) {
     const row = JSON.parse(exported); mutate(row); await assert.rejects(controlled.open(JSON.stringify(row), password), code('invalid'));
