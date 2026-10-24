@@ -55,3 +55,22 @@ Windows Node 24.14.1 在实测目录 handle.sync() 返回 EPERM；当前 manifes
 旧 76 项 egress 错误集合逐项不变；本片 4 个新词法候选分别登记真实 DPAPI process、ALS 本地 callback 与文件写边界，不将普通子进程/文件写升级成受保护外发。
 
 [41 族研究表](evidence/privacy-m3-3-storage-catalog-research.json) 只提供路径和 codec 线索，不是可运行迁移闭合；external-bots 的初稿格式标签已按真实 `chunked:true` owner 改正。独立模块的单测、合成故障探针及生成服务组合件，都不能替代完整首次迁移、后台等待/取消、启用 UI、反向关闭、完整恢复与真实升级旅程。**M3-3 继续进行中**；不标整体完成。
+
+## 5. 第二批：本机发布、凭据 staging 与转换桥（2026-10-24）
+
+基线 `c773068c4904ecb322a3edf112bb53a82d88a9dd`。本节更新第 3 节的 Windows publisher 状态；首批失败记录保留。`01w` 已向 manifest 注入固定 native publisher；Windows 本地 NTFS 的原生目录 `FlushFileBuffers` 实测成功，Node 目录 handle 的 EPERM 不能推断为平台不支持。
+
+| 实现 | 验证范围与限制 |
+|---|---|
+| `01w-work-data-native-publish.js` | 固定 PowerShell/C# 桥；同卷本地 NTFS、严格路径/文件身份、源文件及祖先 guards、发布前后目录 flush、`MoveFileExW(REPLACE_EXISTING | WRITE_THROUGH)` 与目标身份/hash 回读。真实发布、占用、错误与 helper 生命周期已验证；未证明物理断电或整个 shadow 正文的持久性，也不提供恶意同账户 namespace CAS。 |
+| `01v` hook 与错误传播 | publisher 在实例创建时捕获；显式注入优先。helper 仍可能运行时向 host 保留 `helperMayStillRun`，不能先释放维护所有权或恢复旧 writer。 |
+| `01k` 恢复 staging | 独立持有 DPAPI 解出的 master，认证所有不可变历史凭据记录及 fingerprint；完整解析状态序列化证明，不借用可被 cache.clear 清零的 master。目标保持 instance/记录，重新 DPAPI 包装，不发布活动配置或 vault。该证明不是 raw 文件 CAS，实际配置引用闭合仍由 host 完成。 |
+| `01x-work-data-migration-codecs.js` | 41 项描述中 40 项为 codec-only，NTFS capsule 明确专用 owner。固定真实 binding，严格文本/记录/二进制及 gzip 内层转换，校验逻辑原始字节；不 sanitize、修坏数据或覆盖目标。返回 `domainValidation: host-owner-required`。保留副本、未完成 staging、NTFS 对象和完整目录 census 继续接入。 |
+
+独审发现并修复 Windows 混合大小写技能 ID 的 recordId 绑定错误。原 25 项转换单测沿用了描述表，未发现这一点；现在独立捕获 30 个真实整文件 owner 的 binding，30/30 一致，并增加真实 owner 互读及移除修复即失败的负控。原生发布初稿的目标 guard 导致 Win32 5、timeout 早于实际退出及 kill error 被误判为未启动，均保留首次失败并修正；只有无 PID 的真正 spawn 失败才能报告明确未发布。
+
+最终生成运行时的恢复组合由 5 扩到 10 组，连续两遍通过：工作数据与凭据/privacy 两个独立 master、历史凭据、冷 cache 本机 DPAPI 重封、错误口令/损坏包保留所有源字节、实际 manifest 发布/占用重试，以及四种文件原始字节的加密与反向转换。仅测试指针发布和 codec 组合，**没有执行完整生产迁移或真实跨机恢复**。直接 DPAPI 外部机器人凭据没有第三个 master，正在单独实施 portable auxiliary。
+
+修前完整 unit **3181 项执行，3155 通过、26 条件跳过、零失败**；定向 109 项通过；凭据 HTTP E2E 连续两遍通过；语法 1230 文件零错。81 个静态件首轮 80 过、1 个 NDJSON feeder 锁失败：新 publisher 仍逐块 `toString`。修复为在原 8 KiB 限额内保留 Buffer、close 后统一解码；原静态断言保留。修后 native 7 项 unit、生成运行时组合两遍、原失败静态件及 manifest ranges、源码/生成服务语法和构建新鲜检查通过；其余 79 静态件未改，未重跑完整 unit。全部精确身份、独审和负控见[第二批证据](evidence/privacy-m3-3-native-and-codecs.json)。新增三组 unit suite 后，清册为 579 E2E / 默认离线 572 / 344 unit suite。旧 76 项 egress 错误逐项保留，6 个新词法候选按真实 process/capability/regex 分类，不升级为受保护外发。
+
+下一批正在实施直接 DPAPI 凭据的 typed auxiliary 与内部 MCP 单一 writer 接入。完整 owner 屏障、启动根选择、完整备份/恢复、NTFS 专用迁移和启用/反向关闭 UI 仍未完成；全量默认离线 E2E 与实际包仍待最后集成验收。

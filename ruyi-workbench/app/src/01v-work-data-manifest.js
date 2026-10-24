@@ -2,9 +2,11 @@
 // This byte comparison is not a cross-process CAS. No file below a generation is
 // scanned, transformed, retired, or removed here; the migration host owns those steps.
 const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
+  const Hooks = {}; // 01w supplies the Windows publisher after both independent modules load.
   const SCHEMA = 1, MAX_BYTES = 4096, ID = /^[a-f0-9]{48}$/;
   const error = (suffix, cause, commitUncertain = false) => Object.assign(new Error('work_data_manifest.' + suffix), {
     code: 'work_data_manifest.' + suffix, statusCode: 409, commitUncertain,
+    helperMayStillRun: cause?.helperMayStillRun === true,
     ...(cause !== undefined ? { cause } : {}),
   });
   const digest = raw => cryptoApi.createHash('sha256').update(raw, 'utf8').digest('hex');
@@ -49,8 +51,9 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
     catch (cause) { throw error('durability_unsupported', cause); }
     finally { if (handle) await handle.close(); }
   }
-  function create({ base, publish } = {}) {
+  function create({ base, publish: explicitPublish } = {}) {
     if (typeof base !== 'string' || !pathApi.isAbsolute(base)) throw error('base_invalid');
+    const publish = explicitPublish === undefined ? Hooks.publish : explicitPublish;
     if (publish !== undefined && typeof publish !== 'function') throw error('publisher_invalid');
     const root = pathApi.resolve(base), control = pathApi.join(root, '.work-data');
     const generations = pathApi.join(control, 'generations'), active = pathApi.join(control, 'active-v1.json');
@@ -176,5 +179,5 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
     }
     return Object.freeze({ readActive, prepare, commit });
   }
-  return Object.freeze({ create, SCHEMA });
+  return Object.freeze({ create, SCHEMA, Hooks });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

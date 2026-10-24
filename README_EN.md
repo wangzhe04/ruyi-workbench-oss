@@ -86,7 +86,7 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 |---|---|
 | **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 96 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend uses framework-free ES modules with no build step. |
 | **121 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **579 e2e cases** (572 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 341 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **579 e2e cases** (572 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 344 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 

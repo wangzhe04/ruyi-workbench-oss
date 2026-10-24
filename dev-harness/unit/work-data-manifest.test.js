@@ -281,3 +281,28 @@ test('default directory durability is real: unsupported fsync never silently swi
     assert.ok((await fs.stat(candidate.root)).isDirectory());
   }
 });
+
+test('an unconfirmed native helper remains visible on the wrapped publication failure', async () => {
+  const f = await fixture({ publish: async () => {
+    throw Object.freeze(Object.assign(Error('native close unconfirmed'), { helperMayStillRun: true }));
+  } });
+  const prepared = await f.prepare();
+  await assert.rejects(f.api.commit(prepared), error => error.code === 'work_data_manifest.commit_failed'
+    && error.commitUncertain === true && error.helperMayStillRun === true);
+  assert.equal((await f.api.readActive()).generation, 0);
+  assert.ok((await fs.stat(prepared.candidate.root)).isDirectory());
+});
+
+test('platform publisher hook is captured per authority instance and explicit publisher takes precedence', async () => {
+  const module = load(), f = await fixture(), calls = [];
+  module.Hooks.publish = async value => { calls.push('first'); await fs.rename(value.stage, value.target); };
+  const first = module.create({ base: f.base });
+  module.Hooks.publish = async () => { throw Error('must not change a captured publisher'); };
+  const expected = await first.readActive(), candidate = await first.prepare({ expected, mode: 'encrypted' });
+  await first.commit({ expected, candidate });
+  assert.deepEqual(calls, ['first']);
+  const explicit = module.create({ base: f.base, publish: async value => { calls.push('explicit'); await fs.rename(value.stage, value.target); } });
+  const next = await explicit.readActive(), plain = await explicit.prepare({ expected: next, mode: 'plain' });
+  await explicit.commit({ expected: next, candidate: plain });
+  assert.deepEqual(calls, ['first', 'explicit']);
+});

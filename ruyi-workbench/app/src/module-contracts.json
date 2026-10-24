@@ -1340,6 +1340,53 @@
       "requires": []
     },
     {
+      "file": "01w-work-data-native-publish.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataNativePublish"
+      ],
+      "requires": [
+        {
+          "provider": "01v-work-data-manifest.js",
+          "symbol": "WorkDataManifest",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01x-work-data-migration-codecs.js",
+      "layer": "foundation",
+      "provides": [
+        "WorkDataMigrationCodecs"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01q-work-data-records.js",
+          "symbol": "WorkDataRecords",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02c-turn-segments.js",
       "layer": "foundation",
       "provides": [

@@ -193,6 +193,97 @@ const CredentialVault = ((cryptoApi) => {
         return JSON.stringify({ ruyiEncryptedBackupV1: 1, name, envelope: core.seal(serialized, key, aad(state, recordId, 'config-backup'), 'master-v1') }, null, 2);
       });
     }
+    // Full work-data recovery foundations, separate from credential-only backup/import.
+    // This validates every immutable vault record, including historical records not referenced
+    // by the current configuration. Actual config pointer/owner bindings and all sealLocal /
+    // external direct-DPAPI references still require the migration host's complete inventory.
+    const recoveryLease = (masterKey, instanceId) => {
+      const key = Buffer.from(masterKey); let released = false;
+      return Object.freeze({ key, instanceId, release: () => { if (!released) { released = true; key.fill(0); } } });
+    };
+    function recoveryStateCopy(value) {
+      if (!validate(value)) fail('recovery_state_invalid');
+      let serializedState;
+      try { serializedState = JSON.stringify(value); } catch { fail('recovery_state_invalid'); }
+      if (Buffer.byteLength(serializedState, 'utf8') > MAX.bytes) fail('capacity');
+      const state = JSON.parse(serializedState);
+      if (state.instanceId) {
+        const wrapped = Buffer.from(state.protectedKey, 'base64');
+        try { if (!wrapped.length || wrapped.toString('base64') !== state.protectedKey) fail('recovery_state_invalid'); }
+        finally { wrapped.fill(0); }
+      }
+      return { state, serializedState };
+    }
+    function verifyRecoveryRecords(state, key) {
+      for (const record of state.records) {
+        if (typeof record.owner !== 'string' || typeof record.fingerprint !== 'string') fail('recovery_record_invalid');
+        let serialized;
+        try {
+          serialized = core.open(record.envelope, key, aad(state, record.id), 'master-v1');
+          if (typeof serialized !== 'string' || Buffer.byteLength(serialized, 'utf8') > MAX.value) fail('recovery_record_invalid');
+          JSON.parse(serialized);
+        } catch { fail('recovery_record_invalid'); }
+        const actual = Buffer.from(hash(key, record.owner + ':' + serialized), 'hex'), expected = Buffer.from(record.fingerprint, 'hex');
+        try { if (expected.length !== 32 || !cryptoApi.timingSafeEqual(actual, expected)) fail('recovery_record_invalid'); }
+        finally { actual.fill(0); expected.fill(0); }
+      }
+    }
+    const snapshotForWorkDataRecovery = () => serial(async () => {
+      const { state, serializedState } = recoveryStateCopy(await stateRead());
+      if (!state.instanceId) return null; // No key and no records: never initialize on a backup read.
+      if (!protector.supported()) fail('unsupported');
+      let key, wrapped, domain;
+      try {
+        wrapped = Buffer.from(state.protectedKey, 'base64'); domain = entropy(state.instanceId);
+        // Own this key directly. master(false) exposes the cache Buffer, whose clear() lifecycle
+        // must not zero a pending recovery snapshot with no records but live privacy mappings.
+        try { key = await protector.run('unprotect', wrapped, domain); } catch { fail('unlock_failed'); }
+        if (!Buffer.isBuffer(key) || key.length !== 32) fail('unlock_failed');
+        verifyRecoveryRecords(state, key);
+        const after = recoveryStateCopy(await stateRead());
+        if (after.serializedState !== serializedState) fail('recovery_changed');
+        // Parsed-state exact content proof, not original file bytes, stat proof or cross-process
+        // CAS. The host also compares actual vault-file bytes within its writer barrier.
+        return Object.freeze({ state, lease: recoveryLease(key, state.instanceId),
+          proof: Object.freeze({ serializedState, sha256: cryptoApi.createHash('sha256').update(serializedState, 'utf8').digest('hex') }) });
+      } finally {
+        if (Buffer.isBuffer(key)) key.fill(0);
+        if (wrapped) wrapped.fill(0);
+        if (domain) domain.fill(0);
+      }
+    });
+    async function stageRecoveredForWorkData(value) {
+      if (!object(value) || Object.keys(value).sort().join(',') !== 'key,state') fail('recovery_state_invalid');
+      if (!Buffer.isBuffer(value.key) || value.key.length !== 32) fail('recovery_key_invalid');
+      // Copy before the first await. Neither caller mutation/release nor active vault operations
+      // may change this target-stage authority, and this method never touches the active cache.
+      const { state } = recoveryStateCopy(value.state);
+      if (!state.instanceId) fail('recovery_state_invalid');
+      const key = Buffer.from(value.key);
+      let protectInput, wrapped, roundtrip, protectDomain, verifyDomain;
+      try {
+        verifyRecoveryRecords(state, key);
+        if (!protector.supported()) fail('unsupported');
+        protectInput = Buffer.from(key); protectDomain = entropy(state.instanceId);
+        try { wrapped = await protector.run('protect', protectInput, protectDomain); } catch { fail('unlock_failed'); }
+        if (!Buffer.isBuffer(wrapped) || !wrapped.length || wrapped.length > 65536) fail('unlock_failed');
+        const next = { ...state, protectedKey: wrapped.toString('base64') };
+        recoveryStateCopy(next);
+        verifyDomain = entropy(state.instanceId);
+        try { roundtrip = await protector.run('unprotect', wrapped, verifyDomain); } catch { fail('recovery_roundtrip_failed'); }
+        if (!Buffer.isBuffer(roundtrip) || roundtrip.length !== 32 || !cryptoApi.timingSafeEqual(key, roundtrip)) fail('recovery_roundtrip_failed');
+        verifyRecoveryRecords(next, roundtrip);
+        return Object.freeze({ state: next, lease: recoveryLease(key, state.instanceId) });
+      } finally {
+        key.fill(0);
+        if (protectInput) protectInput.fill(0);
+        if (Buffer.isBuffer(wrapped)) wrapped.fill(0);
+        if (Buffer.isBuffer(roundtrip)) roundtrip.fill(0);
+        if (protectDomain) protectDomain.fill(0);
+        if (verifyDomain) verifyDomain.fill(0);
+      }
+    }
+
     function clear() { if (keyCache) keyCache.key.fill(0); keyCache = null; }
     async function backupKey(password, salt) {
       if (typeof password !== 'string' || password.length < 12 || Buffer.byteLength(password) > 1024 || Buffer.from(password).toString('utf8') !== password) fail('backup_password');
@@ -273,7 +364,7 @@ const CredentialVault = ((cryptoApi) => {
       if (!value || value.version !== 1 || value.instanceId !== state.instanceId) fail('binding_mismatch');
       try { return core.open(value.envelope, key, aad(state, recordId, purpose), 'master-v1'); } catch { fail('decrypt_failed'); }
     });
-    return Object.freeze({ protectConfig, protectBackup, protectCorrupt, hydrateConfig, migrateBackups, exportBackup, prepareImport, stateStamp, sealLocal, openLocal, clear });
+    return Object.freeze({ protectConfig, protectBackup, protectCorrupt, hydrateConfig, migrateBackups, exportBackup, prepareImport, stateStamp, sealLocal, openLocal, snapshotForWorkDataRecovery, stageRecoveredForWorkData, clear });
   }
   return Object.freeze({ create, validate, empty, MAX });
 })(require('node:crypto'));

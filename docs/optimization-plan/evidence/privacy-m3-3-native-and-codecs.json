@@ -1,0 +1,728 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baseline": "c773068c4904ecb322a3edf112bb53a82d88a9dd",
+  "branch": "codex/3.1-completion-plan",
+  "node": "v24.14.1",
+  "status": "Second M3-3 batch verified; production migration, complete recovery and UI remain active",
+  "productScope": [
+    "ruyi-workbench/app/src/01k-credential-vault.js",
+    "ruyi-workbench/app/src/01v-work-data-manifest.js",
+    "ruyi-workbench/app/src/01w-work-data-native-publish.js",
+    "ruyi-workbench/app/src/01x-work-data-migration-codecs.js"
+  ],
+  "sourceIdentity": {
+    "ruyi-workbench/app/src/01k-credential-vault.js": "6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72",
+    "ruyi-workbench/app/src/01v-work-data-manifest.js": "e619619ba3ad329640cb214ec8a9a688ac3fe5a6e8cb500f791f8a85698af9f2",
+    "ruyi-workbench/app/src/01w-work-data-native-publish.js": "4a91da13caf6dc8ed75bd87b988b22e6bd4ff002b87efe02b5456ee3c73139b3",
+    "ruyi-workbench/app/src/01x-work-data-migration-codecs.js": "9298533cd778625718e64604e8ce4b0aba229da0f463e5e651c83d7c58da97dd",
+    "ruyi-workbench/app/server.js": "ce570511d8b6311124802c883ba88de1bb8acfb0cc84bc962c90b88bdbca59e6",
+    "ruyi-workbench/app/src/manifest.json": "a6332fdda4fe045e2fbd53c65c966075d130ef96c37d36568bb8b40ca4af3d3f",
+    "ruyi-workbench/app/src/module-contracts.json": "7cabf5b739affd879d4a624b23d21661a7afb2f7fda43abf4b253eb456b611d8",
+    "dev-harness/work-data-recovery-foundation.e2e.js": "49efd252cfcce2e82b35568d0f3d7857771b00f3dd894e9961f0b853e9fdfe51",
+    "dev-harness/unit/credential-work-data-staging.test.js": "cc18335f9cc19771ca0b233cc45d74ec2df81baacbe9bd9282b68a9510d8e27b",
+    "dev-harness/unit/work-data-manifest.test.js": "8662baa7935a59c570d58731b1da1afa5117ab7381c3479214a2c9ddaed5cf31",
+    "dev-harness/unit/work-data-native-publish.test.js": "2a5ca7e964ee407a98855e71c16563fc70a55bdb0a39522a964be0f9da0b9ee6",
+    "dev-harness/unit/work-data-migration-codecs.test.js": "ea6ac94588b844ac1ddb0303a7a1e63d6b7fd5b384d5379ca80e81230a0a66a5",
+    "dev-harness/privacy-m1/egress/manifest.json": "52d15bc87ca0b57a2f06bf26ebc51b5a71c933d4ca1c23539c7063bc5e696f19",
+    "facts.json": "a16601609542a9955b09342713aef70010380bf0ebbf54bccc89014c1814c822"
+  },
+  "validation": {
+    "fullUnit": {
+      "reportedExecutions": 3181,
+      "pass": 3155,
+      "skip": 26,
+      "fail": 0,
+      "nativePublisherSha256": "d7ffb1d91296e9c2bc88665d4df0e56d2a9c94d1a6703070d21d41e3a705690d",
+      "note": "Node reported executions, not unique coverage. Before bounded stdout repair; other product and unit identities unchanged."
+    },
+    "directedUnit": {
+      "pass": 109,
+      "fail": 0
+    },
+    "initialChecks": [
+      {
+        "name": "directed-unit",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "all-unit",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "native-foundation-1",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "native-foundation-2",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "credential-e2e-1",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "credential-e2e-2",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "syntax",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "build-check",
+        "code": 0,
+        "signal": null
+      }
+    ],
+    "actualGeneratedWindowsDPAPI": {
+      "foundationRunsBeforeRepair": 2,
+      "foundationRunsAfterRepair": 2,
+      "groupsPerRun": 10,
+      "credentialHttpRuns": 2,
+      "credentialAssertionsPerRun": 13,
+      "note": "Two independent masters: work-data and credential/privacy. Same Windows account only; no real cross-machine migration."
+    },
+    "syntax": {
+      "initialFiles": 1230,
+      "initialFailed": 0,
+      "afterRepair": [
+        "native publisher --check",
+        "generated server --check"
+      ]
+    },
+    "static": {
+      "count": 81,
+      "initialPass": 80,
+      "initialFail": 1,
+      "failedScript": "ndjson-line-feeder.static.e2e.js",
+      "failure": "A1 found chunk.toString in new native publisher",
+      "repair": "Keep bounded raw Buffer copies and decode concatenated output only after close. Original assertions unchanged.",
+      "rechecked": [
+        "ndjson-line-feeder.static.e2e.js",
+        "manifest-ranges.static.e2e.js"
+      ],
+      "remainingUnchangedPasses": 79,
+      "allResolved": 81
+    },
+    "repairChecks": [
+      {
+        "name": "repair-native-unit",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "repair-native-e2e-1",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "repair-native-e2e-2",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "repair-feeder-static",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "repair-manifest-static",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "repair-build",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "repair-syntax-native",
+        "code": 0,
+        "signal": null
+      },
+      {
+        "name": "repair-syntax-server",
+        "code": 0,
+        "signal": null
+      }
+    ],
+    "inventory": {
+      "e2e": 579,
+      "defaultOffline": 572,
+      "live": 7,
+      "unitSuites": 344,
+      "accSmokes": 25
+    },
+    "fullUnitRerunAfterRepair": false,
+    "buildFreshAfterRepair": true,
+    "fullDefaultOfflineE2EExecuted": false,
+    "packageExecuted": false
+  },
+  "independentReviews": [
+    {
+      "scope": "Credential recovery staging",
+      "author": "recovery_package",
+      "reviewer": "root",
+      "findings": [],
+      "evidence": "Root read full methods/authentication/fingerprint/ownership and promoted exact reviewed SHA; directed source14+existing13 plus generated native tests passed. Author candidate negatives each reject.",
+      "authorReport": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-credential-work-data-stage-candidate-7c5f1a/candidate-validation.json",
+        "sha256": "ab89a8766fc7b46df9b5a34614a079b3293a4b7098369ced80406cfb7a8e1ec5"
+      }
+    },
+    {
+      "scope": "Native publisher, child ownership and real NTFS protocol",
+      "author": "migration_lifecycle",
+      "reviewer": "recovery_package",
+      "report": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-manifest-independent-review-e7w2KQ/publisher-final-probes.json",
+        "sha256": "fcd1fc9b8020f32ca09312360267d3d9adbb12f87d02ea00869a70d25c454b3b"
+      },
+      "finding": "Kill error could report unspawned; now only true no-PID spawn failure is definitely unpublished. Live helper uncertainty propagates."
+    },
+    {
+      "scope": "Manifest late hook and helper uncertainty",
+      "author": "root",
+      "reviewer": "migration_lifecycle",
+      "evidence": "Reviewed capture/explicit precedence and helperMayStillRun top-level propagation; all24 manifest source unit tests pass."
+    },
+    {
+      "scope": "Migration codec actual owner bindings",
+      "author": "migration_catalog",
+      "reviewer": "recovery_package",
+      "report": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-codec-independent-review-BS8HgF/review-final.json",
+        "sha256": "fc5bdafdad69b9ed057784bdce59e958c98a6eab56ae0a45f5f2440423216d2f"
+      },
+      "finding": "Windows mixed-case skill ID mismatch fixed, all30 whole factory bindings captured,9 real-owner interop probes,26 unit pass."
+    },
+    {
+      "scope": "Final10group fixture, integration and egress",
+      "reviewer": "review_batch2",
+      "report": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-batch2-independent-review-bBUno6/review.json",
+        "sha256": "4b3511480a6d43bdcc6421245de65612ae7d0ed1603400c9cf08dceeb28b8e26"
+      },
+      "findings": []
+    },
+    {
+      "scope": "Bounded stdout Buffer repair and docs",
+      "author": "root",
+      "reviewer": "review_batch2",
+      "evidence": "Independent message review approved3line repair at native SHA4a91da13caf6dc8ed75bd87b988b22e6bd4ff002b87efe02b5456ee3c73139b3;8192byte limit preserved, one decode on close, native lifecycle unchanged."
+    }
+  ],
+  "firstFailuresAndNegativeControls": [
+    {
+      "scope": "Publisher target guard",
+      "evidence": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-manifest-publisher-draft-20261024/candidate-capability-first-failure.json",
+        "sha256": "5ec8c2433e3f1eaebd4bb485184756efdc906a445bb7c8ebd81a3191165b5b31"
+      },
+      "result": "Target metadata handle made MoveFileExW return Win32 5; source and ancestor guards retained, target probe closes before move."
+    },
+    {
+      "scope": "Publisher termination",
+      "evidence": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-manifest-publisher-draft-20261024/fault-first-failure.json",
+        "sha256": "e9c00298480d40be6843f9adf9e6ef2e318835c4309c2a0290f16b3ba178ab68"
+      },
+      "result": "Do not return while helper can own guards; wait close or report uncertain helperMayStillRun."
+    },
+    {
+      "scope": "Kill error independent first failure",
+      "evidence": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-manifest-independent-review-e7w2KQ/publisher-kill-error-first.json",
+        "sha256": "1f1a61de7435df6ca8467861e5d8fc05d070c82d7aed5e2dc7f1c420810a5a99"
+      },
+      "result": "Corrected classification, original handler mutant fails unchanged ownership contract."
+    },
+    {
+      "scope": "Skill binding",
+      "evidence": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-codec-independent-review-BS8HgF/mixedcase-skill-first-failure.json",
+        "sha256": "563307c9c06852abb4764a8c7ff3a213064ab8be652072628ead06e08d2b03f8"
+      },
+      "result": "Actual Windows owner lowercases skillID; initial table-derived25tests missed it. Fix removed negative fails binding_mismatch."
+    },
+    {
+      "scope": "Credential master",
+      "result": "Author mutants skipping historical authentication, omitting fullstate proof, returning borrowed cache master each exit1."
+    },
+    {
+      "scope": "Static feeder",
+      "evidence": {
+        "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ndjson-line-feeder.static.e2e.js.log",
+        "sha256": "7ea401e116f9bb360f91d5d6cc9a7911d7eb869a9c7fbf277363aafe5f945eef"
+      },
+      "result": "Original static assertion exposed incremental UTF8 decode; no assertion changed."
+    }
+  ],
+  "egress": {
+    "sourceFiles": 286,
+    "candidates": 701,
+    "errors": 76,
+    "exactOldErrorSetPreserved": true,
+    "oldEntriesAndGroupsUnchanged": true,
+    "newEntries": 6,
+    "classification": "3 credential native process;1 native transport capability;1 native spawn process;1 local RegExp.exec. Process/capability remain unknown.",
+    "afterRepair": "Only native source fingerprint changed for bounded stdout repair; entry identities/fingerprints unchanged."
+  },
+  "productLineChanges": {
+    "files": [
+      {
+        "file": "ruyi-workbench/app/src/01k-credential-vault.js",
+        "add": 92,
+        "delete": 1
+      },
+      {
+        "file": "ruyi-workbench/app/src/01v-work-data-manifest.js",
+        "add": 5,
+        "delete": 2
+      },
+      {
+        "file": "ruyi-workbench/app/src/01w-work-data-native-publish.js",
+        "add": 227,
+        "delete": 0
+      },
+      {
+        "file": "ruyi-workbench/app/src/01x-work-data-migration-codecs.js",
+        "add": 308,
+        "delete": 0
+      }
+    ],
+    "added": 632,
+    "deleted": 3,
+    "note": "Handwritten product JS only; excludes generated server/manifest/contracts/docs/tests."
+  },
+  "limitations": [
+    "No full production owner quiescence, default MCP single writer, startup selected-root consumer or setup/disable/restore UI yet.",
+    "40 codec-only entries and1NTFS capsule special-owner are not complete actual domain validation/census.",
+    "Credential proof authenticates every stored immutable record but does not discover all actual config references; proof hashes parsed serialization, not raw bytes/CAS.",
+    "Native local NTFS flush/write-through protocol is not fullshadow durability or a physical power-loss proof; no hostile same-account namespaceCAS.",
+    "Direct DPAPI bot credentials and NTFS portable capsules still require dedicated host integration; do not invent a third master.",
+    "Default engineering byte budgets and multiple whole Buffers/strings are not business caps or boundedRAM guarantees. Owned Buffers clear; JS strings do not.",
+    "No real user data/config/key enablement, real bot traffic, full572default E2E, realcrossmachine restore or package."
+  ],
+  "localArtifactsRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG",
+  "logs": [
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\all-unit.log",
+      "sha256": "2e2a0780d4e5d01b30b8348acc82f7e34f064a65fb79af0e0c281dceb1f9c6ab"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\build-check.log",
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\credential-e2e-1.log",
+      "sha256": "c6b420916569a74f778f9b3e4a786770bc69623f15500e4c522b55bc1829b0cd"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\credential-e2e-2.log",
+      "sha256": "c6b420916569a74f778f9b3e4a786770bc69623f15500e4c522b55bc1829b0cd"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\credential-native-first.log",
+      "sha256": "14370841a0740c49a34f67a6a330d1bc07bf43202d6d30c75f232474f985da81"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\directed-unit.log",
+      "sha256": "9670fd36594335d90a78e772df735ff1662c47db25bc4ebe07e10001be0d7a5a"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\native-foundation-1.log",
+      "sha256": "084f6e327c95e3a6357dab3fc85d859ef1cb2e8aa70c93fbae6172767ac28237"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\native-foundation-2.log",
+      "sha256": "084f6e327c95e3a6357dab3fc85d859ef1cb2e8aa70c93fbae6172767ac28237"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\native-integrated-first.log",
+      "sha256": "ab1075b6244c34d14f95ec62cf5227f7e2262adb838a035bdc6e4511193ead08"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\repair-build.log",
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\repair-feeder-static.log",
+      "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\repair-manifest-static.log",
+      "sha256": "9f455f2b80d52d966cc28909e5ac97b6e97453c696c55dc9982b8ff00827a057"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\repair-native-e2e-1.log",
+      "sha256": "084f6e327c95e3a6357dab3fc85d859ef1cb2e8aa70c93fbae6172767ac28237"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\repair-native-e2e-2.log",
+      "sha256": "084f6e327c95e3a6357dab3fc85d859ef1cb2e8aa70c93fbae6172767ac28237"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\repair-native-unit.log",
+      "sha256": "28df29a0d3ef243bc7d6a881a578ff8c58fbd4cd21e8403c4ce5eb2523e00726"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\repair-syntax-native.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\repair-syntax-server.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-acc-offline-installer.static.e2e.js.log",
+      "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-action-feedback.static.e2e.js.log",
+      "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-agent-mode-v2.static.e2e.js.log",
+      "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-agent-team-budget.static.e2e.js.log",
+      "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-agent-workflows-polling-visibility.static.e2e.js.log",
+      "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-architecture-contract-snapshots.static.e2e.js.log",
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-asr-config-ui.static.e2e.js.log",
+      "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-browser-mcp.static.e2e.js.log",
+      "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-c2-evidence-spawn-budget.static.e2e.js.log",
+      "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-copy-path-guard.static.e2e.js.log",
+      "sha256": "cd8a581ee8cdef7c8643e9893fdd20e7c4096fd78f3b921cbb908c950617bc06"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-copy-terms.static.e2e.js.log",
+      "sha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-cost-zero.static.e2e.js.log",
+      "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-css-typography-debt.static.e2e.js.log",
+      "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-desktop-dpi.static.e2e.js.log",
+      "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-desktop-shell.static.e2e.js.log",
+      "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-durable-state-inventory.static.e2e.js.log",
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ec-d-closure.static.e2e.js.log",
+      "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-encrypted-storage-freeze.static.e2e.js.log",
+      "sha256": "e09373230bff851b8ee8126dc96f53d27c37909735021451aa5e0df0937af184"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-engine-env-brief.static.e2e.js.log",
+      "sha256": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-eol-policy.static.e2e.js.log",
+      "sha256": "c168764169c41204a0183f11a2924614ec66c7e26c7e950713be1b037eb9d344"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-facts.static.e2e.js.log",
+      "sha256": "14b13bceb86afeb3174962393cc8cd90dda0349cbd7f25b33b53de80334a239c"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-finalize-segments.static.e2e.js.log",
+      "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-fixture-home.static.e2e.js.log",
+      "sha256": "4414404f03ee0e10ee10ae0b52a2914ea01ddcf7aa04710c7f6bea682bebcfb4"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-frontend-domains.static.e2e.js.log",
+      "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-health-i18n.static.e2e.js.log",
+      "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-i18n-en-terms.static.e2e.js.log",
+      "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-i18n.static.e2e.js.log",
+      "sha256": "adf88ce432f5ba9432b2f307dc3a11c606790b9c03df14510871e30f00fd284f"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-inline-script-csp-hash.static.e2e.js.log",
+      "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-kimi-plan-ui.static.e2e.js.log",
+      "sha256": "4712c2de8a6e1c1a76ac97ec2fa806a7617e73e809f3414fb99b6011a5f9b13c"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-live-full-text.static.e2e.js.log",
+      "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-manifest-ranges.static.e2e.js.log",
+      "sha256": "1cbc895b4dceafb8388423166a830f2d615c43db7ab0e85dcb93922b5b68ab54"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-mcp-ops-gui.static.e2e.js.log",
+      "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-memory-toolbox.static.e2e.js.log",
+      "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-mermaid-render.static.e2e.js.log",
+      "sha256": "665cebf1856e8b5716de450b8a4acca917994bca11f82a8c6f70bbe4a5d245fc"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-model-menu-classes.static.e2e.js.log",
+      "sha256": "905754aaf66a75c6d78e2cfe50d2c26b7b24ff4beca299e6245b1946f09e32cf"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-module-dependency-graph.static.e2e.js.log",
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ndjson-line-feeder.static.e2e.js.log",
+      "sha256": "7ea401e116f9bb360f91d5d6cc9a7911d7eb869a9c7fbf277363aafe5f945eef"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-net-token-replay.static.e2e.js.log",
+      "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-new-thread-engine-default.static.e2e.js.log",
+      "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-onboarding.static.e2e.js.log",
+      "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-overlay-payload-lock.static.e2e.js.log",
+      "sha256": "2322c8ef7b03c6e2d253f63e0c9019a871e27cfc14913ea1514ab327a6944422"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-overlay-update-gui.static.e2e.js.log",
+      "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-process-safety.static.e2e.js.log",
+      "sha256": "ee1aeec8e4807fbe161df5711cbaf031d9e3587815462df5012ed36bc0c99e31"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-progress-events.static.e2e.js.log",
+      "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-prompt-snapshot.static.e2e.js.log",
+      "sha256": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-provider-reasoning-effort-ui.static.e2e.js.log",
+      "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-rail-pocket.static.e2e.js.log",
+      "sha256": "8bc37e91cb1680607e334eb67e73d41b10668d7e6b85a0d0b9613aa7474ee9d9"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-resume-banner-dismiss.static.e2e.js.log",
+      "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-route-inventory.static.e2e.js.log",
+      "sha256": "33d684d07a5aaf03a95b0f59f7c2487efaa78a09c177f81ad4a2c6e7463ab02d"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-runtime-optimization.static.e2e.js.log",
+      "sha256": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-scheduler-ui.static.e2e.js.log",
+      "sha256": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-session-save-census.static.e2e.js.log",
+      "sha256": "c103dd7c5d0311191adbba41411a252f8036596fda4ecfdf39fa673f015537f4"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-software-engineering-prompt.static.e2e.js.log",
+      "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-start-experience.static.e2e.js.log",
+      "sha256": "5370cf4a7e941ca2d49cf7d7f34dcbbdc5af09ef5f5ff45609bfb38d2c10722a"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-avatar.static.e2e.js.log",
+      "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-board.static.e2e.js.log",
+      "sha256": "3c7b073b00d55fecd7a098f60c7a10baa0f9f48049e421c22b72c0c7413928e4"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-config.static.e2e.js.log",
+      "sha256": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-conversation.static.e2e.js.log",
+      "sha256": "f453b5367658bbeec5811a3e92f21c5ca31104de3c1b8bdf91acb109e191dfe7"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-drawer.static.e2e.js.log",
+      "sha256": "b296a958f2614e51a7888e25ab9e9bed8f7066c2c7f86e6ca12b7ac106491d3c"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-events.static.e2e.js.log",
+      "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-runner.static.e2e.js.log",
+      "sha256": "b3149ec297bf9ca19b1fd129063cf42e30046cfb59cfe338eb8dd9f33e0364f4"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-settings.static.e2e.js.log",
+      "sha256": "cd965bf251213119de2b8e073c5d43a10a1af90725c06eab4f793a9d1b15a1c2"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-shell.static.e2e.js.log",
+      "sha256": "1ef24e789a162a28d932f6dc04c5cc79d4af5a9e80ea48df1bcaa6e35cb61c33"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-tools.static.e2e.js.log",
+      "sha256": "73d19191bc4a3f871e80997b7373196b8f4ed4a4f94c26ae21db9cc3f1f50caa"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-steward-walkthrough.static.e2e.js.log",
+      "sha256": "0d8e448ee61ab7cbb269b05e91827eb837a21751671e298f039edbb52cbe320d"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-streaming-responsiveness.static.e2e.js.log",
+      "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-thinking-boundary.static.e2e.js.log",
+      "sha256": "b796565037bcf96cd2881b304bbef3f1cd0ed10e5d67b25009ffa44b38c6b7b8"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-thread-brief.static.e2e.js.log",
+      "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-thread-commission.static.e2e.js.log",
+      "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-tool-image-inline.static.e2e.js.log",
+      "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-tool-verb-coverage.static.e2e.js.log",
+      "sha256": "f01bf423ebd8f1b778ab66520f67eb0f3e3aac85a97300a4fdda9a71ba2399c3"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-turn-narrative.static.e2e.js.log",
+      "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ui-bugfix.static.e2e.js.log",
+      "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ui-v3-p1.static.e2e.js.log",
+      "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ui-v3-p2.static.e2e.js.log",
+      "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ui-v3-p3a.static.e2e.js.log",
+      "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ui-v3-p3b.static.e2e.js.log",
+      "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ui-v3-wave1.static.e2e.js.log",
+      "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-ui-v4-glass.static.e2e.js.log",
+      "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-v17-review-fixes.static.e2e.js.log",
+      "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\static-final-workflow-editor-v2.static.e2e.js.log",
+      "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch2-Sgf1jG\\syntax.log",
+      "sha256": "7d89774cd4d75810ba1460e354227a645878a879006e2c8c023d11d0efe278c3"
+    }
+  ],
+  "nativeAuthorReports": [
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-manifest-publisher-draft-20261024\\candidate-capability-report.json",
+      "sha256": "9780cf0730fda595e7306572433c4870ec15a6feb74157525561277cf2cb4095"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-manifest-publisher-draft-20261024\\candidate-fault-report.json",
+      "sha256": "6e1d5a90fd3f2978a101f324c1f12e3e91ec46804fd63ae7efc994409d013232"
+    },
+    {
+      "path": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-manifest-publisher-draft-20261024\\candidate-child-lifecycle-report.json",
+      "sha256": "11db21da150800752b9c6983222b4143bbcac0490965f5fa7fd3b95d94cad3ed"
+    }
+  ]
+}
