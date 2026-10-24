@@ -3,14 +3,14 @@
   "generatedBy": "dev-harness/encrypted-storage-freeze.js",
   "scope": "M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration",
   "encryptionImplemented": false,
-  "count": 70,
+  "count": 72,
   "classCounts": {
     "required": 41,
-    "excluded": 29
+    "excluded": 31
   },
   "batchCounts": {
     "sessions": 12,
-    "not-migrated": 29,
+    "not-migrated": 31,
     "index-cache": 5,
     "memory-queue": 13,
     "tasks": 7,
@@ -388,6 +388,24 @@
       "migrationBatch": "not-migrated",
       "plaintextMetadata": [],
       "reason": "the key envelope itself: a DPAPI-wrapped master with no user content; every work-data record needs it unlocked first, so it cannot live inside the envelope it protects",
+      "adapter": "pending"
+    },
+    {
+      "id": "work-data-maintenance-intent",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "boot control must be readable before either source or target master unlock; exact job, phase, authorities, backup path/hash and candidate locator remain plaintext, with no password, master or recovered content; this metadata is not protected by the work-data envelope",
+      "adapter": "pending"
+    },
+    {
+      "id": "work-data-maintenance-result",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "completion metadata must be readable after a failed unlock and never selects the active root; job, operation, authorities, backup path/identity/hash and separate restore target remain plaintext, with no password, master or recovered content; this metadata is not protected by the work-data envelope",
       "adapter": "pending"
     },
     {

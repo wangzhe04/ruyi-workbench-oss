@@ -49,6 +49,7 @@
         "UsageRowView",
         "VERSION",
         "WorkDataMaintenanceHooks",
+        "WorkDataMaintenanceRuntimeHooks",
         "WorkDataMaintenanceWorkerHooks",
         "WorkDataRootHooks",
         "WorkDataSetupHooks",
@@ -1390,6 +1391,13 @@
       ],
       "requires": [
         {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01v-work-data-manifest.js",
           "symbol": "WorkDataManifest",
           "kinds": [
@@ -1503,6 +1511,22 @@
       "requires": []
     },
     {
+      "file": "01ae-work-data-maintenance-result.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataMaintenanceResult"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01ab-work-data-full-snapshot.js",
       "layer": "unclassified",
       "provides": [
@@ -1569,6 +1593,57 @@
         {
           "provider": "01r-work-data-chunks.js",
           "symbol": "WorkDataChunks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01x-work-data-migration-codecs.js",
+          "symbol": "WorkDataMigrationCodecs",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01ad-work-data-migration-host.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataMigrationHost"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01aa-work-data-tree.js",
+          "symbol": "WorkDataTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
           "kinds": [
             "read"
           ]
@@ -14584,6 +14659,7 @@
         "installIntegration",
         "killPid",
         "kimiModelList",
+        "listenForWorkbenchServe",
         "listenOnNextFreePort",
         "listenOnce",
         "listenWithFallback",
@@ -14945,6 +15021,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceRuntimeHooks",
           "kinds": [
             "read"
           ]
@@ -25108,6 +25191,7 @@
         "migrationApply",
         "migrationBackup",
         "migrationBackupAuthority",
+        "migrationBackupHistoryBinding",
         "migrationBackupHistoryShape",
         "migrationBackupHistoryStore",
         "migrationBackupRoot",
@@ -25412,6 +25496,13 @@
         {
           "provider": "01r-work-data-chunks.js",
           "symbol": "WorkDataChunks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
           "kinds": [
             "read"
           ]
@@ -28067,11 +28158,273 @@
       ]
     },
     {
+      "file": "13ai-work-data-worker.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataMaintenanceWorker"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13aj-work-data-control.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataMaintenanceControl"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13al-work-data-maintenance-http.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataMaintenanceHttp"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "http",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13an-work-data-disposable-tree.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataDisposableNativeTree"
+      ],
+      "requires": []
+    },
+    {
+      "file": "13ak-work-data-cold-operations.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataColdOperations"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01aa-work-data-tree.js",
+          "symbol": "WorkDataTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ab-work-data-full-snapshot.js",
+          "symbol": "WorkDataFullSnapshot",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ae-work-data-maintenance-result.js",
+          "symbol": "WorkDataMaintenanceResult",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01v-work-data-manifest.js",
+          "symbol": "WorkDataManifest",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13aj-work-data-control.js",
+          "symbol": "WorkDataMaintenanceControl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13y-external-bot-credentials.js",
+          "symbol": "ExternalBotCredentials",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13am-work-data-maintenance-runtime.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataMaintenanceRuntime"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "http",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ae-work-data-maintenance-result.js",
+          "symbol": "WorkDataMaintenanceResult",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01v-work-data-manifest.js",
+          "symbol": "WorkDataManifest",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13ai-work-data-worker.js",
+          "symbol": "WorkDataMaintenanceWorker",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13aj-work-data-control.js",
+          "symbol": "WorkDataMaintenanceControl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13al-work-data-maintenance-http.js",
+          "symbol": "WorkDataMaintenanceHttp",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "14-main.js",
       "layer": "entrypoint",
       "provides": [
+        "holdWorkDataCliOwner",
         "main",
-        "withSelectedWorkDataRoot"
+        "startWorkbenchServe",
+        "withSelectedWorkDataRoot",
+        "workDataCliHelperHeld",
+        "workDataCliHelperHoldTimer",
+        "workDataCliHelperUnknown"
       ],
       "requires": [
         {
@@ -28153,6 +28506,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
           "kinds": [
             "read"
@@ -28189,6 +28549,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "usageLedgerCacheStats",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceRuntimeHooks",
           "kinds": [
             "read"
           ]
@@ -28673,6 +29040,13 @@
         {
           "provider": "01h-privacy-core.js",
           "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
           "kinds": [
             "read"
           ]

@@ -2,6 +2,7 @@
 const LocalSecretCrypto = (() => {
   const childProcess = require('node:child_process'), nodePath = require('node:path');   // local alias must not collide with 00-boot's path symbol (spurious graph edge)
   const LIMIT = Object.freeze({ processMs: 15000, outputBytes: 131072, cipherBytes: 65536 });
+  let helperUncertain = false;
   const exact = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every(key => keys.includes(key));
   const base64 = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max * 2 && value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value) && Buffer.from(value, 'base64').length <= max && Buffer.from(value, 'base64').toString('base64') === value;
   const DPAPI_SCRIPT = `$ErrorActionPreference='Stop'
@@ -28,17 +29,27 @@ try {
     if (!['protect', 'unprotect'].includes(op) || !Buffer.isBuffer(value) || !value.length || value.length > LIMIT.cipherBytes || !Buffer.isBuffer(entropy) || entropy.length > 4096) return Promise.reject(Object.assign(new Error('local_crypto.input_invalid'), { code: 'local_crypto.input_invalid' }));
     if (process.platform !== 'win32') return Promise.reject(Object.assign(new Error('local_crypto.unsupported'), { code: 'local_crypto.unsupported', apiCode: 'local_crypto.unsupported', statusCode: 501 }));
     return new Promise((resolve, reject) => {
-      let child, complete = false, outputSize = 0;
+      let child, complete = false, outputSize = 0, stopReason = null, settleTimer = null;
       const output = [];
-      const finish = (suffix, result) => {
+      const finish = (suffix, result, uncertain = false) => {
         if (complete) return;
-        complete = true; clearTimeout(timer);
+        complete = true; clearTimeout(timer); clearTimeout(settleTimer);
         for (const chunk of output) chunk.fill(0);
         output.length = 0;
-        if (suffix) reject(Object.assign(new Error('local_crypto.' + suffix), { code: 'local_crypto.' + suffix, apiCode: 'local_crypto.' + suffix, statusCode: 503 }));
+        if (suffix) reject(Object.assign(new Error('local_crypto.' + suffix), { code: 'local_crypto.' + suffix, apiCode: 'local_crypto.' + suffix, statusCode: 503,
+          ...(uncertain ? { helperMayStillRun: true } : {}) }));
         else resolve(result);
       };
-      const stop = suffix => { finish(suffix); if (child) { try { child.kill(); } catch { /* own PowerShell has no descendants */ } } };
+      const stop = suffix => {
+        if (complete || stopReason) return;
+        stopReason = suffix; clearTimeout(timer);
+        for (const chunk of output) chunk.fill(0); output.length = 0;
+        if (!child) { finish(suffix); return; }
+        // A successful kill request is not an observed exit. Keep the caller's
+        // exclusion until actual close, or report a permanently uncertain helper.
+        settleTimer = setTimeout(() => { helperUncertain = true; finish(suffix, null, true); }, 2000);
+        try { child.kill(); } catch { /* Wait for close or the bounded uncertainty receipt. */ }
+      };
       const timer = setTimeout(() => stop('process_timeout'), LIMIT.processMs);
       const environment = {};
       // Do not inherit RUYI_BOT_* or provider credentials into the helper environment.
@@ -50,9 +61,9 @@ try {
       try {
         child = childProcess.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(DPAPI_SCRIPT, 'utf16le').toString('base64')],
           { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], env: environment });
-        child.on('error', () => finish('process_failed'));
+        child.on('error', () => stop('process_failed'));
         child.stdout.on('data', chunk => {
-          if (complete) { chunk.fill(0); return; }
+          if (complete || stopReason) { chunk.fill(0); return; }
           outputSize += chunk.length;
           if (outputSize > LIMIT.outputBytes) { chunk.fill(0); stop('process_capacity'); return; }
           output.push(chunk);
@@ -61,6 +72,7 @@ try {
         child.stdin.on('error', () => stop('process_failed'));
         child.on('close', code => {
           if (complete) return;
+          if (stopReason) { finish(stopReason); return; }
           let response;
           const bytes = Buffer.concat(output);
           try { response = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { finish('process_failed'); return; }
@@ -73,5 +85,5 @@ try {
       } catch { stop('process_failed'); }
     });
   }
-  return Object.freeze({ run, supported: () => process.platform === 'win32' });
+  return Object.freeze({ run, supported: () => process.platform === 'win32', helperMayStillRun: () => helperUncertain });
 })();

@@ -5,7 +5,7 @@ const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:p
 const {createBackupOwnerFixture}=require('./migration-backup-owner-fixture');
 const hash=data=>crypto.createHash('sha256').update(data).digest('hex');
 const id=file=>'00000001'+fs.statSync(file,{bigint:true}).ino.toString(16).padStart(16,'0');
-function createRepresentationFixture(root){
+function createRepresentationFixture(root,overrides={}){
  const state={events:[],cut:null},metadata=new Map(),streams=new Map();
  const event=name=>{state.events.push(name);if(state.cut===name){state.cut=null;throw Object.assign(new Error('simulated '+name),{code:'simulated.'+name});}};
  const info=async root=>({id:id(root),volume:'simulated-native-volume'});
@@ -35,7 +35,7 @@ function createRepresentationFixture(root){
   event('materialize-written');assert.equal(fs.existsSync(paths.backup),false);await fsp.rename(restored,paths.backup);event('materialize-after');
  };
  const native={info,capture,move,seal,materialize,flush:async()=>event('flush')};
- const f=createBackupOwnerFixture(root,{native});let selected=f.expected;
+ const f=createBackupOwnerFixture(root,{...overrides,native});let selected=f.expected;
  Object.defineProperties(state,{enabled:{get:()=>f.state.enabled,set:value=>{f.state.enabled=value;}},acquires:{get:()=>f.state.acquires}});
  const vm=require('node:vm'),evaluate=name=>vm.runInNewContext(name,f.context);
  f.replace('migrationCapsuleCapture',capture);f.replace('migrationCapsuleCapturePreserved',capture);

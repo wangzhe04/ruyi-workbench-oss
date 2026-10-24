@@ -35,6 +35,7 @@ const ExternalBotHooks = {};
 const WorkDataMaintenanceHooks = {};
 const WorkDataSetupHooks = {};
 const WorkDataMaintenanceWorkerHooks = {};
+const WorkDataMaintenanceRuntimeHooks = {};
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // 127-114b(26 号文 §3/45 号文 §2 ②): ASR 转写入站专用上限 25 MB —— 早于上面的 128 MB 总闸判定
@@ -3398,6 +3399,7 @@ const PrivacyRegex = ((workerThreads, core) => {
 const LocalSecretCrypto = (() => {
   const childProcess = require('node:child_process'), nodePath = require('node:path');   // local alias must not collide with 00-boot's path symbol (spurious graph edge)
   const LIMIT = Object.freeze({ processMs: 15000, outputBytes: 131072, cipherBytes: 65536 });
+  let helperUncertain = false;
   const exact = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every(key => keys.includes(key));
   const base64 = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max * 2 && value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value) && Buffer.from(value, 'base64').length <= max && Buffer.from(value, 'base64').toString('base64') === value;
   const DPAPI_SCRIPT = `$ErrorActionPreference='Stop'
@@ -3424,17 +3426,27 @@ try {
     if (!['protect', 'unprotect'].includes(op) || !Buffer.isBuffer(value) || !value.length || value.length > LIMIT.cipherBytes || !Buffer.isBuffer(entropy) || entropy.length > 4096) return Promise.reject(Object.assign(new Error('local_crypto.input_invalid'), { code: 'local_crypto.input_invalid' }));
     if (process.platform !== 'win32') return Promise.reject(Object.assign(new Error('local_crypto.unsupported'), { code: 'local_crypto.unsupported', apiCode: 'local_crypto.unsupported', statusCode: 501 }));
     return new Promise((resolve, reject) => {
-      let child, complete = false, outputSize = 0;
+      let child, complete = false, outputSize = 0, stopReason = null, settleTimer = null;
       const output = [];
-      const finish = (suffix, result) => {
+      const finish = (suffix, result, uncertain = false) => {
         if (complete) return;
-        complete = true; clearTimeout(timer);
+        complete = true; clearTimeout(timer); clearTimeout(settleTimer);
         for (const chunk of output) chunk.fill(0);
         output.length = 0;
-        if (suffix) reject(Object.assign(new Error('local_crypto.' + suffix), { code: 'local_crypto.' + suffix, apiCode: 'local_crypto.' + suffix, statusCode: 503 }));
+        if (suffix) reject(Object.assign(new Error('local_crypto.' + suffix), { code: 'local_crypto.' + suffix, apiCode: 'local_crypto.' + suffix, statusCode: 503,
+          ...(uncertain ? { helperMayStillRun: true } : {}) }));
         else resolve(result);
       };
-      const stop = suffix => { finish(suffix); if (child) { try { child.kill(); } catch { /* own PowerShell has no descendants */ } } };
+      const stop = suffix => {
+        if (complete || stopReason) return;
+        stopReason = suffix; clearTimeout(timer);
+        for (const chunk of output) chunk.fill(0); output.length = 0;
+        if (!child) { finish(suffix); return; }
+        // A successful kill request is not an observed exit. Keep the caller's
+        // exclusion until actual close, or report a permanently uncertain helper.
+        settleTimer = setTimeout(() => { helperUncertain = true; finish(suffix, null, true); }, 2000);
+        try { child.kill(); } catch { /* Wait for close or the bounded uncertainty receipt. */ }
+      };
       const timer = setTimeout(() => stop('process_timeout'), LIMIT.processMs);
       const environment = {};
       // Do not inherit RUYI_BOT_* or provider credentials into the helper environment.
@@ -3446,9 +3458,9 @@ try {
       try {
         child = childProcess.spawn(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(DPAPI_SCRIPT, 'utf16le').toString('base64')],
           { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], env: environment });
-        child.on('error', () => finish('process_failed'));
+        child.on('error', () => stop('process_failed'));
         child.stdout.on('data', chunk => {
-          if (complete) { chunk.fill(0); return; }
+          if (complete || stopReason) { chunk.fill(0); return; }
           outputSize += chunk.length;
           if (outputSize > LIMIT.outputBytes) { chunk.fill(0); stop('process_capacity'); return; }
           output.push(chunk);
@@ -3457,6 +3469,7 @@ try {
         child.stdin.on('error', () => stop('process_failed'));
         child.on('close', code => {
           if (complete) return;
+          if (stopReason) { finish(stopReason); return; }
           let response;
           const bytes = Buffer.concat(output);
           try { response = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { finish('process_failed'); return; }
@@ -3469,7 +3482,7 @@ try {
       } catch { stop('process_failed'); }
     });
   }
-  return Object.freeze({ run, supported: () => process.platform === 'win32' });
+  return Object.freeze({ run, supported: () => process.platform === 'win32', helperMayStillRun: () => helperUncertain });
 })();
 
 // 浏览器目标的合法模式(normalizeConfig 清洗与 mcp_configure set-browser 的入口校验共用一份,别再各抄一个数组)。
@@ -9863,11 +9876,13 @@ const WorkDataRecovery = ((cryptoApi) => {
       if (!Array.isArray(manifest.auxiliaries) || manifest.auxiliaries.length > LIMITS.auxiliaries) fail('auxiliary_invalid');
       const files = new Map(manifest.files.map(file => [file.path, file])), seen = new Set();
       for (const row of manifest.auxiliaries) {
-        if (!shape(row, 'type,schema,sourcePath,sourceSha256,size,sha256') || row.type !== 'external-bot-credentials' || row.schema !== 1
-          || !Number.isSafeInteger(row.size) || row.size < 1 || row.size > 4 * 1024 * 1024 || !hex(row.sha256) || !hex(row.sourceSha256)) fail('auxiliary_invalid');
+        if (!shape(row, 'type,schema,sourcePath,sourceSha256,size,sha256') || !auxiliaryLimit(row.type) || row.schema !== 1
+          || !Number.isSafeInteger(row.size) || row.size < 1 || row.size > auxiliaryLimit(row.type) || !hex(row.sha256) || !hex(row.sourceSha256)) fail('auxiliary_invalid');
         relative(row.sourcePath);
         const file = files.get(row.sourcePath), key = row.type + ':' + row.sourcePath;
-        if (!file || file.sha256 !== row.sourceSha256 || seen.has(key)) fail('auxiliary_invalid');
+        if (seen.has(key)) fail('auxiliary_invalid');
+        if(row.type==='external-bot-credentials'){if(!file||file.sha256!==row.sourceSha256)fail('auxiliary_invalid');}
+        else {const source=skillBackupSource(manifest.files,manifest.directories);if(row.sourcePath!==source.sourcePath||row.sourceSha256!==source.sourceSha256)fail('auxiliary_invalid');}
         seen.add(key); bytes += row.size;
         if (!Number.isSafeInteger(bytes) || bytes > LIMITS.bytes) fail('capacity');
       }
@@ -9876,6 +9891,22 @@ const WorkDataRecovery = ((cryptoApi) => {
     }
     if (bytes !== manifest.bytes || Buffer.byteLength(JSON.stringify(manifest), 'utf8') > LIMITS.metadata) fail('manifest_invalid');
     return manifest;
+  }
+  const auxiliaryLimit = type => type === 'external-bot-credentials' ? 4 * 1024 * 1024 : type === 'skill-backup-portable' ? LIMITS.bytes : 0;
+  function skillBackupScope(relative) {
+    const name = relative.toLowerCase();
+    return /^(?:\.work-data\/generations\/[a-f0-9]{48}\/)?migrations\/skill-backups(?:\/|$)/.test(name)
+      || /^\.work-data\/skill-backups(?:\/|$)/.test(name)
+      || /^\.work-data\/generations\/[a-f0-9]{48}\/migrations\/skill-backup-bindings-v2\.sealed$/.test(name);
+  }
+  function skillBackupSource(files, directories) {
+    const compare=(a,b)=>a<b?-1:a>b?1:0;
+    const entries=files.filter(file=>skillBackupScope(file.path)).map(file=>({path:file.path,size:Buffer.isBuffer(file.data)?file.data.length:file.size,sha256:Buffer.isBuffer(file.data)?hash(file.data):file.sha256})).sort((a,b)=>compare(a.path,b.path));
+    const dirs=directories.filter(skillBackupScope).sort(compare);
+    const fold=value=>value.toLowerCase();
+    const sourcePath=dirs.find(name=>fold(name)==='.work-data/skill-backups')||dirs.find(name=>fold(name)==='migrations/skill-backups');
+    if(!sourcePath)fail('auxiliary_invalid');
+    return Object.freeze({sourcePath,sourceSha256:hash(Buffer.from(JSON.stringify({files:entries,directories:dirs}))),files:Object.freeze(entries.map(row=>Object.freeze(row))),directories:Object.freeze(dirs)});
   }
   async function passwordKey(password, salt) {
     checkPassword(password);
@@ -9912,8 +9943,8 @@ const WorkDataRecovery = ((cryptoApi) => {
       files.push({ path: file.path, data: file.data.toString('base64') });
     }
     for (const row of auxiliaryInput) {
-      if (!shape(row, 'type,schema,sourcePath,sourceSha256,data') || row.type !== 'external-bot-credentials' || row.schema !== 1
-        || !Buffer.isBuffer(row.data) || row.data.length < 1 || row.data.length > 4 * 1024 * 1024) fail('auxiliary_invalid');
+      if (!shape(row, 'type,schema,sourcePath,sourceSha256,data') || !auxiliaryLimit(row.type) || row.schema !== 1
+        || !Buffer.isBuffer(row.data) || row.data.length < 1 || row.data.length > auxiliaryLimit(row.type)) fail('auxiliary_invalid');
       bytes += row.data.length; if (!Number.isSafeInteger(bytes) || bytes > LIMITS.bytes) fail('capacity');
       metadataAuxiliaries.push({ type: row.type, schema: row.schema, sourcePath: row.sourcePath, sourceSha256: row.sourceSha256, size: row.data.length, sha256: hash(row.data) });
       auxiliaries.push({ type: row.type, schema: row.schema, sourcePath: row.sourcePath, data: row.data.toString('base64') });
@@ -10011,7 +10042,7 @@ const WorkDataRecovery = ((cryptoApi) => {
       if (derived) derived.fill(0); if (plain) plain.fill(0); ciphertext.fill(0); salt.fill(0); nonce.fill(0); tag.fill(0);
     }
   }
-  return Object.freeze({ KIND, VERSION, LIMITS, seal, open });
+  return Object.freeze({ KIND, VERSION, LIMITS, seal, open, skillBackupSource });
   }
   return Object.freeze({ KIND, VERSION, LIMITS: DEFAULT_LIMITS, create, ...create() });
 })(require('node:crypto'));
@@ -10399,6 +10430,39 @@ public static class RuyiManifestPublisher {
     if(handle.IsInvalid) { int error=Marshal.GetLastWin32Error(); handle.Dispose(); return error; }
     using(handle) { if(!FlushFileBuffers(handle)) return Marshal.GetLastWin32Error(); return 0; }
   }
+  // Separate one-shot command; the original publication input/response are unchanged.
+  static Dictionary<string,object> FlushDirectories(Dictionary<string,object> input) {
+    Shape(input,"flushDirectories");
+    object[] raw=input["flushDirectories"] as object[];
+    if(raw==null||raw.Length<1||raw.Length>256) Reject("input_invalid");
+    string[] dirs=new string[raw.Length]; var unique=new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
+    for(int i=0;i<raw.Length;i++) { dirs[i]=Full(raw[i]); if(unique.ContainsKey(dirs[i])) Reject("directory_duplicate"); unique.Add(dirs[i],true); }
+    // Establish every real ancestor and NTFS capability before the first flush.
+    foreach(string directory in dirs) Ancestors(directory);
+    var volumes=new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
+    foreach(var directory in Directories.Values) {
+      string volume=Volume(directory); if(volumes.ContainsKey(volume)) continue; volumes.Add(volume,true);
+      StringBuilder volumeName=new StringBuilder(256), fsName=new StringBuilder(64); uint serial,maxComponent,flags;
+      Check(GetVolumeInformationW(volume,volumeName,256,out serial,out maxComponent,out flags,fsName,64),"volume_unavailable");
+      if(fsName.ToString()!="NTFS") Reject("filesystem_unsupported");
+    }
+    var codes=new List<int>();
+    Attempted=true;
+    foreach(string directory in dirs) { int code=FlushDirectory(directory); if(code!=0) Reject("durability_unsupported",code); codes.Add(code); }
+    return new Dictionary<string,object> { {"ok",true},{"flushDirectories",dirs},{"directoryFlush",codes} };
+  }
+  public static void RunFlush() {
+    var flushJson=new JavaScriptSerializer { MaxJsonLength=262144, RecursionLimit=16 };
+    try {
+      StringBuilder input=new StringBuilder(); int value;
+      while((value=Console.In.Read())!=-1&&value!='\n') { if(input.Length>=65536) Reject("input_limit"); input.Append((char)value); }
+      var response=FlushDirectories(Object(flushJson.DeserializeObject(input.ToString()))); Console.Out.WriteLine(flushJson.Serialize(response));
+    } catch(Exception error) {
+      string code=error is InvalidOperationException ? error.Message : "native_failed";
+      if(!System.Text.RegularExpressions.Regex.IsMatch(code,"^[a-z_]{1,48}$")) code="native_failed";
+      Console.Out.WriteLine(flushJson.Serialize(new Dictionary<string,object> { {"ok",false},{"code",code},{"native",NativeCode},{"moved",false},{"attempted",Attempted} }));
+    } finally { for(int i=Held.Count-1;i>=0;i--) Held[i].Dispose(); }
+  }
   static Dictionary<string,object> Publish(Dictionary<string,object> input) {
     Shape(input,"stage,target,directory,directories");
     string stage=Full(input["stage"]), target=Full(input["target"]), control=Full(input["directory"]);
@@ -10516,7 +10580,76 @@ function invoke(args) {
   });
 }
 
-  return Object.freeze({ create: () => invoke });
+const FLUSH_BOOTSTRAP = BOOTSTRAP.replace('[RuyiManifestPublisher]::Run()', '[RuyiManifestPublisher]::RunFlush()');
+const flushFailure = (suffix, uncertain = false) => Object.assign(failure('flush_' + suffix, uncertain), {
+  retry:false, operationMayHaveExecuted:uncertain, resultUnavailable:uncertain,
+});
+function invokeFlush(directories) {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'win32') return reject(flushFailure('unsupported'));
+    if (!Array.isArray(directories) || directories.length < 1 || directories.length > 256) return reject(flushFailure('input_invalid'));
+    const selected = [], unique = new Set();
+    for (const directory of directories) {
+      if (typeof directory !== 'string' || directory.length < 3 || directory.length > 8192 || !/^[A-Za-z]:\\/.test(directory)
+        || /[\x00-\x1f<>"|?*\/]/.test(directory) || directory.slice(2).includes(':') || Buffer.from(directory).toString('utf8') !== directory
+        || path.win32.resolve(directory) !== directory || directory.slice(3).split('\\').some(piece => piece === '.' || piece === '..' || /[. ]$/.test(piece))
+        || directory.length > 3 && directory.endsWith('\\') || unique.has(directory.toLowerCase())) return reject(flushFailure('input_invalid'));
+      unique.add(directory.toLowerCase()); selected.push(directory);
+    }
+    const serialized = JSON.stringify({flushDirectories:selected});
+    if (Buffer.byteLength(serialized,'utf8') > 65536) return reject(flushFailure('input_limit'));
+    const executable = path.join(process.env.SystemRoot || 'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+    let child;
+    try { child = cp.spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(FLUSH_BOOTSTRAP,'utf16le').toString('base64')], {
+      env:{...process.env,RUYI_MANIFEST_PUBLISHER_SOURCE:Buffer.from(NATIVE).toString('base64')},windowsHide:true,stdio:['pipe','pipe','pipe'],
+    }); } catch { return reject(flushFailure('unavailable')); }
+    const output = [];
+    let bytes = 0, stderrBytes = 0, settled = false, spawned = false, forcedError = null, terminateTimer;
+    const finish = (error,value) => {
+      if (settled) return; settled = true; clearTimeout(timer); clearTimeout(terminateTimer);
+      for (const part of output) part.fill(0); output.length = 0;
+      error ? reject(error) : resolve(value);
+    };
+    const stop = error => {
+      if (settled || forcedError) return; forcedError = error;
+      // Same ownership rule as publication: kill failure cannot release the host gate.
+      terminateTimer = setTimeout(() => {error.helperMayStillRun = true;finish(error);},2000);
+      try {child.kill();} catch { /* Wait for close or report a possibly live helper. */ }
+    };
+    const timer = setTimeout(() => stop(flushFailure('timeout',true)),20000);
+    child.once('spawn',() => {spawned = true;});
+    child.on('error',() => {
+      if (!spawned && !child.pid && !forcedError) finish(flushFailure('unavailable'));
+      else stop(flushFailure('process',true));
+    });
+    child.stdout.on('data',chunk => {
+      if (settled || forcedError) return; bytes += chunk.length;
+      if (bytes > 262144) return stop(flushFailure('output_limit',true));
+      output.push(Buffer.from(chunk));
+    });
+    child.stderr.on('data',chunk => {if (!settled && !forcedError) {stderrBytes += chunk.length;if (stderrBytes > 8192) stop(flushFailure('output_limit',true));}});
+    child.on('close',code => {
+      if (settled) return; if (forcedError) return finish(forcedError);
+      let response, raw;
+      try {raw = Buffer.concat(output,bytes);const text = raw.toString('utf8');if (!Buffer.from(text).equals(raw)) throw Error('utf8');response = JSON.parse(text);}
+      catch {return finish(flushFailure('unverifiable',true));} finally {raw?.fill(0);}
+      if (code !== 0 || !response || typeof response.ok !== 'boolean') return finish(flushFailure('unverifiable',true));
+      if (!response.ok) {
+        if (Object.keys(response).sort().join(',') !== 'attempted,code,moved,native,ok' || response.moved !== false || typeof response.attempted !== 'boolean'
+          || !Number.isInteger(response.native) || response.native < 0 || typeof response.code !== 'string' || !/^[a-z_]{1,48}$/.test(response.code)) return finish(flushFailure('unverifiable',true));
+        const error = flushFailure(response.code,response.attempted);error.nativeCode = response.native;return finish(error);
+      }
+      if (Object.keys(response).sort().join(',') !== 'directoryFlush,flushDirectories,ok'
+        || !Array.isArray(response.flushDirectories) || response.flushDirectories.length !== selected.length || response.flushDirectories.some((directory,index) => directory !== selected[index])
+        || !Array.isArray(response.directoryFlush) || response.directoryFlush.length !== selected.length || response.directoryFlush.some(code => code !== 0)) return finish(flushFailure('unverifiable',true));
+      finish(null,Object.freeze({ok:true,flushDirectories:Object.freeze(response.flushDirectories),directoryFlush:Object.freeze(response.directoryFlush)}));
+    });
+    child.stdin.on('error',() => stop(flushFailure('pipe',true)));
+    try {child.stdin.end(serialized + '\n');} catch {stop(flushFailure('pipe',true));}
+  });
+}
+
+  return Object.freeze({ create: () => invoke, createFlush: () => invokeFlush });
 })(require('node:child_process'), require('node:path'));
 
 if (process.platform === 'win32') WorkDataManifest.Hooks.publish = WorkDataNativePublish.create();
@@ -10563,11 +10696,11 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   text('memory-usage', 'memory', /^memory\/_usage-v1\.json$/, 'global', 'memory-usage');
   text('agent-instructions-import', 'memory', /^memory\/\.agent-instructions-import-v1\.json$/, 'global', 'agent-instructions-import');
   text('memory-proposals', 'memory', new RegExp('^memory/proposals/' + shortId + '\\.json$'), m => m[1], 'memory-proposals', { sessionId: true });
-  text('memory-meta', 'memory', new RegExp('^memory/project/' + project + '/meta\\.json$'), m => 'project:' + m[1], 'memory-meta');
+  text('memory-meta', 'memory', new RegExp('^memory/project/' + project + '/meta\\.json$'), m => 'project:' + nativeIdentity(m[1]), 'memory-meta');
   text('memory-relations', 'memory', new RegExp('^memory/(global|project/' + project + ')/_relations\\.json$'),
-    m => m[1] === 'global' ? 'global' : 'project:' + m[2], 'memory-relations', { shape: 'array' });
+    m => nativeIdentity(m[1]) === 'global' ? 'global' : 'project:' + nativeIdentity(m[2]), 'memory-relations', { shape: 'array' });
   text('memory-body', 'memory', new RegExp('^memory/(global|project/' + project + ')/' + shortId + '\\.md$'),
-    m => m[1] === 'global' ? 'global' : 'project:' + m[2], m => 'memory:' + m[3], { chunked: true, markdown: true });
+    m => nativeIdentity(m[1]) === 'global' ? 'global' : 'project:' + nativeIdentity(m[2]), m => 'memory:' + m[3], { chunked: true, markdown: true });
   text('engine-transcript-index', 'cache', /^engine-transcripts\.json$/, 'global', 'engine-transcript-index');
   text('voice-lexicon', 'user-config', /^voice-lexicon\.json$/, 'global', 'voice-lexicon');
   text('steward-memory', 'memory', /^steward\/memory-v1\.json$/, 'global', 'steward-memory');
@@ -10577,7 +10710,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   text('external-bots', 'queue', /^external-bots\/state-v1\.json$/, 'global', 'external-bots:state-v1', { chunked: true });
   text('personal-workflows', 'workflow', /^agent-workflows\/([^/]+\.json)$/, 'global', m => 'workflow:' + hash(nativeIdentity(m[1])), { chunked: true });
   text('playbooks', 'workflow', /^playbooks\/([^/]+\.json)$/, 'user', m => 'playbook:' + hash(m[1]), { chunked: true });
-  text('web-cache', 'cache', /^webcache\/([a-f0-9]{64})\.json$/, 'global', m => 'web-cache:' + m[1], { chunked: true });
+  text('web-cache', 'cache', /^webcache\/([a-f0-9]{64})\.json$/, 'global', m => 'web-cache:' + nativeIdentity(m[1]), { chunked: true });
   text('proxy-models-cache', 'cache', /^proxy-models-cache\.json$/, 'global', 'proxy-models-cache', { chunked: true });
   text('migration-log', 'migration', /^migrations\/([0-9TZ-]+)\.json$/, 'global', m => 'migration-log:' + m[1], { chunked: true });
   text('skill-import-record', 'backup', new RegExp('^skills/' + shortId + '/\\.ruyi-import\\.json$'), 'skills', m => 'skill-import:' + nativeIdentity(m[1]), { chunked: true });
@@ -10603,12 +10736,12 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   }
   function describe(relative) {
     relativePath(relative);
-    if (/(?:\.prevbody|\.corrupt(?:[-.]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-)/.test(relative))
+    if (/(?:\.prevbody|\.corrupt(?:[-.]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-)/.test(nativeIdentity(relative)))
       return Object.freeze({ family: null, codec: 'special-owner-required', reason: 'retained-or-uncommitted-owner-artifact' });
     for (const entry of entries) {
-      const match = entry.pattern.exec(relative); if (!match) continue;
+      const match = new RegExp(entry.pattern.source, process.platform === 'win32' ? 'i' : '').exec(relative); if (!match) continue;
       if (entry.sessionId && !safeId(match[1])) fail('path_invalid');
-      if (relative.startsWith('agent-runs/') && !safeId(match[2])) fail('path_invalid');
+      if (nativeIdentity(relative).startsWith('agent-runs/') && !safeId(match[2])) fail('path_invalid');
       return Object.freeze({ family: entry.family, codec: entry.codec, purpose: entry.purpose,
         schema: entry.schema || (entry.codec === 'session-records' ? 2 : 1), chunked: entry.chunked === true, shape: entry.shape || 'object',
         markdown: entry.markdown === true, ...entry.bind(match), ...(entry.reason ? { reason: entry.reason } : {}) });
@@ -10616,6 +10749,15 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     fail('path_unmapped');
   }
   const nativeKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  function describeRetained(relative) {
+    relativePath(relative);
+    // Only the session owner's two physical body snapshots have this binding.
+    // Other .prev/.bak/stage names require their own owner, never caller metadata.
+    if (!new RegExp('^sessions/' + shortId + '\\.(messages|provider)\\.ndjson\\.prevbody$', process.platform === 'win32' ? 'i' : '').test(relative))
+      fail('special_owner_required', { reason: 'retained-owner-unmapped' });
+    const canonical = relative.slice(0, -'.prevbody'.length), descriptor = describe(canonical);
+    return Object.freeze({ ...descriptor, canonical, retainedSuffix: '.prevbody' });
+  }
   async function realDirectory(value) {
     const absolute = pathApi.resolve(value), parsed = pathApi.parse(absolute); let cursor = parsed.root;
     for (const part of ['', ...absolute.slice(parsed.root.length).split(pathApi.sep).filter(Boolean)]) {
@@ -10677,8 +10819,8 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         fail('special_owner_required', { reason: 'invalid-legacy-shape' });
       return bytes;
     };
-    async function transform({ relative, targetMode } = {}) {
-      const descriptor = describe(relative);
+    async function transform({ relative, targetMode } = {}, retained = false, readOnly = false) {
+      const descriptor = retained ? describeRetained(relative) : describe(relative);
       if (descriptor.codec === 'special-owner-required') fail('special_owner_required', { family: descriptor.family, reason: descriptor.reason });
       if (targetMode !== 'plain' && targetMode !== 'encrypted') fail('mode_invalid');
       const input = pathApi.join(source, ...relative.split('/')), output = pathApi.join(target, ...relative.split('/'));
@@ -10746,22 +10888,30 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         }
       };
       try {
-        await realDirectory(source); await realDirectory(target); await absent(output);
+        await realDirectory(source); if (!readOnly) { await realDirectory(target); await absent(output); }
         const original = await readPhysical(input); ownedBuffers.push(original);
         const sourcePhysicalHash = hash(original), enabled = targetMode === 'encrypted';
-        let logical, rowData, binary;
+        let logical, rowData, binary; const readMetadata = {};
         if (descriptor.codec === 'text') {
-          utf8(original); logical = validateText(descriptor, await textStore(input, 'source', false).read());
+          utf8(original); logical = validateText(descriptor, await textStore(input, 'source', false, readMetadata).read());
         } else if (descriptor.codec === 'gzip' || descriptor.archive) {
           // Valid gzip is binary, never UTF8-probed for a coincidental marker.
           if (!(original[0] === 31 && original[1] === 139 && original[2] === 8)) utf8(original);
-          binary = await binaryStore(input, 'source', false).read(); ownedBuffers.push(binary);
+          binary = await binaryStore(input, 'source', false, readMetadata).read(); ownedBuffers.push(binary);
           if (descriptor.archive) {
             const inner = zlibApi.gunzipSync(binary, { maxOutputLength: maxLogicalBytes }); ownedBuffers.push(inner);
             rowData = await records(inner, 'source'); logical = rowData.logical;
           } else logical = logicalLimit(binary);
         } else { rowData = await records(original, 'source'); logical = rowData.logical; }
         ownedBuffers.push(logical);
+        if (readOnly) {
+          if (descriptor.codec === 'text' || descriptor.codec === 'gzip' || descriptor.archive) {
+            if ((readMetadata.authenticated === true) !== enabled) fail('verification_failed');
+          }
+          if (rowData && rowData.authenticated !== (enabled ? rowData.rows.length : 0)) fail('verification_failed');
+          return Object.freeze({ family: descriptor.family, logicalHash: hash(logical), logicalBytes: logical.length,
+            physicalHash: sourcePhysicalHash, readOnly: true });
+        }
         await parents(output); await absent(output);
         stage = pathApi.join(pathApi.dirname(output), '.migration-codec-' + cryptoApi.randomBytes(24).toString('hex') + '.stage');
         const reservation = await fsApi.open(stage, 'wx', 0o600); await reservation.close();
@@ -10825,9 +10975,9 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         if (!failed && releases.some(result => result.status === 'rejected')) fail('key_release_failed', { targetRetained: published });
       }
     }
-    return Object.freeze({ describe, catalog, transform });
+    return Object.freeze({ describe, describeRetained, catalog, transform: options => transform(options), transformRetained: options => transform(options, true), verify: options => transform(options, false, true), verifyRetained: options => transform(options, true, true) });
   }
-  return Object.freeze({ create, describe, catalog });
+  return Object.freeze({ create, describe, describeRetained, catalog });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'), require('node:zlib'), require('node:util').TextDecoder);
 
 // One root binding per process, after the stable control-base OS owner and before any store IO.
@@ -11109,6 +11259,121 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
   return Object.freeze({ create });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));
 
+// A bounded completion record is metadata, never manifest authority. Snapshot
+// decoding is pure; normal readback separately verifies the actual backup and
+// current manifest. Only the cold owner with an issued durable backup can write.
+const WorkDataMaintenanceResult = ((io,p,c) => {
+  const NAME='maintenance-result-v1.json',STAGE='.maintenance-result-v1.stage-',LIMIT=16384,ID=/^[a-f0-9]{48}$/,SHA=/^[a-f0-9]{64}$/;
+  const fail=suffix=>Object.assign(Error('work_data_result.'+suffix),{code:'work_data_result.'+suffix,apiCode:'work_data_result.'+suffix,statusCode:409,retry:false});
+  const keys=value=>value&&typeof value==='object'&&!Array.isArray(value)?Object.keys(value).sort().join(','):'';
+  const fold=value=>process.platform==='win32'?value.toLowerCase():value;
+  const absolute=value=>typeof value==='string'&&value.length>0&&value.length<=4096&&!/[\0\r\n]/.test(value)
+    &&Buffer.from(value).toString('utf8')===value&&p.isAbsolute(value)&&p.resolve(value)===value;
+  const inside=(root,file)=>{const rel=p.relative(fold(root),fold(file));return rel===''||rel!=='..'&&!rel.startsWith('..'+p.sep)&&!p.isAbsolute(rel);};
+  const hash=bytes=>c.createHash('sha256').update(bytes).digest('hex');
+  const identity=stat=>({dev:String(stat.dev),ino:String(stat.ino)});
+  const sameIdentity=(a,b)=>a.dev===b.dev&&a.ino===b.ino;
+  const authority=value=>keys(value)==='generation,id,mode,sha256'&&Number.isSafeInteger(value.generation)&&value.generation>=0
+    &&['plain','encrypted'].includes(value.mode)&&(value.generation===0?value.id===null&&value.sha256===null:ID.test(value.id||'')&&SHA.test(value.sha256||''));
+  const sameAuthority=(a,b)=>a.generation===b.generation&&a.id===b.id&&a.mode===b.mode&&a.sha256===b.sha256;
+  function validate(value) {
+    try {
+      const restore=value?.operation==='restore';
+      if(keys(value)!==(restore?'authority,backup,finishedAt,id,operation,restored,schema,sourceAuthority,state':'authority,backup,finishedAt,id,operation,schema,sourceAuthority,state')
+        ||value.schema!==1||typeof value.id!=='string'||!ID.test(value.id)||!['enable','disable','export','restore'].includes(value.operation)
+        ||typeof value.finishedAt!=='string'||new Date(value.finishedAt).toISOString()!==value.finishedAt||!authority(value.sourceAuthority)||!authority(value.authority)
+        ||keys(value.backup)!=='bytes,identity,path,sha256'||!absolute(value.backup.path)||!SHA.test(value.backup.sha256||'')
+        ||!Number.isSafeInteger(value.backup.bytes)||value.backup.bytes<1||value.backup.bytes>1024*1024*1024
+        ||keys(value.backup.identity)!=='dev,ino'||!['dev','ino'].every(name=>typeof value.backup.identity[name]==='string'&&/^\d{1,40}$/.test(value.backup.identity[name]))
+        ||p.basename(value.backup.path)!=='ruyi-work-data-'+value.id+'.ruyi-backup') return false;
+      if(['enable','disable'].includes(value.operation)){
+        if(value.state!=='published'||value.authority.generation!==value.sourceAuthority.generation+1
+          ||value.authority.mode!==(value.operation==='enable'?'encrypted':'plain')||value.sourceAuthority.mode===value.authority.mode) return false;
+      } else if(value.state!=='verified'||!sameAuthority(value.sourceAuthority,value.authority)) return false;
+      if(restore&&(keys(value.restored)!=='activation,target'||value.restored.activation!=='separate-fresh-root'||!absolute(value.restored.target))) return false;
+      return true;
+    } catch {return false;}
+  }
+  const freeze=value=>{if(value&&typeof value==='object'){for(const item of Object.values(value))freeze(item);Object.freeze(value);}return value;};
+  function decode(bytes) {
+    if(!Buffer.isBuffer(bytes)||bytes.length>LIMIT)throw fail('record_invalid');
+    try {const text=bytes.toString('utf8');if(!Buffer.from(text).equals(bytes))throw fail('record_invalid');const value=JSON.parse(text);if(!validate(value))throw fail('record_invalid');return freeze(value);}
+    catch {throw fail('record_invalid');}
+  }
+  async function directory(root,missing=false) {
+    const parsed=p.parse(root);let cursor=parsed.root;
+    for(const part of ['',...root.slice(parsed.root.length).split(p.sep).filter(Boolean)]){
+      if(part)cursor=p.join(cursor,part);let stat;
+      try {stat=await io.lstat(cursor);}catch(error){if(missing&&error.code==='ENOENT')return false;throw error;}
+      if(!stat.isDirectory()||stat.isSymbolicLink()||fold(await io.realpath(cursor))!==fold(cursor))throw fail('path_alias');
+    }return true;
+  }
+  async function capture(file,maximum,retain) {
+    await directory(p.dirname(file));const before=await io.lstat(file,{bigint:true});
+    if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(maximum))throw fail('record_changed');
+    const handle=await io.open(file,'r'),digest=c.createHash('sha256'),chunks=[],scratch=Buffer.alloc(65536);let count=0;
+    try {
+      const opened=await handle.stat({bigint:true});if(!sameIdentity(identity(opened),identity(before))||!opened.isFile()||opened.nlink!==1n)throw fail('record_changed');
+      for(;;){const part=await handle.read(scratch,0,Math.min(scratch.length,maximum-count+1),null);if(!part.bytesRead)break;
+        count+=part.bytesRead;if(count>maximum)throw fail('record_changed');const bytes=scratch.subarray(0,part.bytesRead);digest.update(bytes);if(retain)chunks.push(Buffer.from(bytes));}
+      const after=await handle.stat({bigint:true}),current=await io.lstat(file,{bigint:true});
+      if(!sameIdentity(identity(after),identity(before))||!sameIdentity(identity(current),identity(before))||current.isSymbolicLink()
+        ||after.nlink!==1n||current.nlink!==1n||after.size!==before.size||current.size!==before.size||count!==Number(before.size)
+        ||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||current.mtimeNs!==after.mtimeNs||current.ctimeNs!==after.ctimeNs)throw fail('record_changed');
+      return {bytes:retain?Buffer.concat(chunks,count):null,sha256:digest.digest('hex'),size:count,identity:identity(after)};
+    }finally{scratch.fill(0);for(const chunk of chunks)chunk.fill(0);await handle.close();}
+  }
+  function create({base,ownership,assertExclusive,readAuthority,assertDurableBackup,flush}={}) {
+    if(!absolute(base)||p.parse(base).root===base||typeof assertExclusive!=='function'||typeof readAuthority!=='function')throw fail('host_invalid');
+    const root=p.join(base,'.work-data'),file=p.join(root,NAME),issued=new WeakMap();let writing=false;
+    const admission=async()=>{if(!ownership||!Array.isArray(ownership.roots)||!ownership.roots.some(value=>fold(value)===fold(base))||await assertExclusive(ownership)!==true)throw fail('ownership_required');await directory(base);};
+    const selected=async()=>{const actual=await readAuthority(),value={generation:actual?.generation,id:actual?.id,mode:actual?.mode,sha256:actual?.sha256===undefined?actual?.proof?.sha256:actual.sha256};if(!authority(value))throw fail('authority_invalid');return value;};
+    async function inspect() {await admission();if(!await directory(root,true))return {present:false};const names=await io.readdir(root);if(names.some(name=>fold(name).startsWith(STAGE)))throw fail('stage_pending');
+      if(!names.some(name=>fold(name)===NAME))return {present:false};const captured=await capture(file,LIMIT,true);return {present:true,captured,value:decode(captured.bytes)};}
+    async function backup(value) {
+      if(inside(base,value.path))throw fail('backup_invalid');const captured=await capture(value.path,value.bytes,false);
+      if(captured.size!==value.bytes||captured.sha256!==value.sha256||!sameIdentity(captured.identity,value.identity))throw fail('backup_changed');
+    }
+    const sameRecord=(a,b)=>a.sha256===b.sha256&&sameIdentity(a.identity,b.identity);
+    async function read() {
+      const found=await inspect();if(!found.present)return null;
+      if(!sameAuthority(found.value.authority,await selected()))return null;
+      await backup(found.value.backup);if(!sameAuthority(found.value.authority,await selected()))throw fail('record_changed');
+      const final=await inspect();if(!final.present||!sameRecord(found.captured,final.captured))throw fail('record_changed');
+      return freeze({...found.value,proof:{sha256:found.captured.sha256,identity:found.captured.identity}});
+    }
+    async function verify(receipt) {
+      const known=issued.get(receipt);if(!known)throw fail('receipt_invalid');const current=await inspect();
+      if(!current.present||!sameRecord(current.captured,known.proof)||!sameAuthority(known.value.authority,await selected()))throw fail('record_changed');
+      await backup(known.value.backup);if(!sameAuthority(known.value.authority,await selected()))throw fail('record_changed');
+      const final=await inspect();if(!final.present||!sameRecord(final.captured,known.proof))throw fail('record_changed');return true;
+    }
+    async function write(value) {
+      // Capture private parsed state before the first await. Callback/caller
+      // mutation cannot upgrade an export/restore into an activated result.
+      let bytes,privateValue;try{bytes=Buffer.from(JSON.stringify(value));privateValue=decode(bytes);}catch{throw fail('record_invalid');}
+      if(writing)throw fail('busy');if(typeof assertDurableBackup!=='function'||typeof flush!=='function')throw fail('writer_unavailable');writing=true;
+      try {
+        const previous=await inspect();if(!sameAuthority(privateValue.authority,await selected()))throw fail('authority_changed');
+        if(inside(base,privateValue.backup.path)||privateValue.restored&&(inside(base,privateValue.restored.target)||inside(privateValue.restored.target,base)))throw fail('backup_invalid');
+        if(await assertDurableBackup(privateValue.backup)!==true)throw fail('backup_unverified');await backup(privateValue.backup);await admission();
+        if(!await directory(root,true)){await io.mkdir(root);await directory(root);}
+        const stage=p.join(root,STAGE+c.randomBytes(24).toString('hex')+'.json'),handle=await io.open(stage,'wx',0o600);
+        try{await handle.writeFile(bytes);await handle.sync();}finally{await handle.close();}
+        await flush([root,base]);await admission();if(!sameAuthority(privateValue.authority,await selected()))throw fail('authority_changed');
+        if(previous.present){if(!sameRecord(previous.captured,await capture(file,LIMIT,true)))throw fail('record_changed');}
+        else {try{await io.lstat(file);throw fail('record_changed');}catch(error){if(error.code!=='ENOENT')throw error;}}
+        await io.rename(stage,file);await flush([root,base]);await admission();
+        const proof=await capture(file,LIMIT,true);if(proof.sha256!==hash(bytes))throw fail('record_changed');
+        const receipt=freeze({name:'.work-data/'+NAME,sha256:proof.sha256,identity:proof.identity});issued.set(receipt,{proof,value:privateValue});
+        await verify(receipt);return receipt;
+      }finally{writing=false;}
+    }
+    return Object.freeze({write,verify,read,inspect});
+  }
+  return Object.freeze({NAME,STAGE,validate,decode,create});
+})(require('node:fs/promises'),require('node:path'),require('node:crypto'));
+
 // Full base snapshot host for a fresh, exclusively owned maintenance worker.
 // No warm global paths/cache mutation; no source repair or implicit writer drain.
 // Native original-object capsules and unresolved staging require their own owner.
@@ -11141,7 +11406,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       ||/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|(?:^|\/)\.ruyi-copy-)/.test(logical))return 'native-or-uncommitted-owner-required';
     return '';
   }
-  function create({ base, ownership, assertExclusive, protector, externalOwner, limits = {} } = {}) {
+  function create({ base, ownership, assertExclusive, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, limits = {} } = {}) {
     if (typeof base !== 'string' || !p.isAbsolute(base) || !ownership || !Array.isArray(ownership.roots)
         || !ownership.roots.some(root => keyOfPath(root) === keyOfPath(base)) || typeof assertExclusive !== 'function'
         || !protector || typeof protector.run !== 'function' || typeof protector.supported !== 'function'
@@ -11169,8 +11434,10 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         return Buffer.from(entry.master);
       } };
     }
-    async function analyze(files, auxiliaries, supplied) {
-      const masters = new Map(), headers = new Map(), vaults = new Map(), refs = new Map(), aux = [], domains = new Map();
+    const lastResult = name => ownerPath(name)==='.work-data/maintenance-result-v1.json';
+    function nativeSource(files,directories){if(typeof skillBackupOwner!=='function')return null;try{return recovery.skillBackupSource(files,directories);}catch(error){if(error?.code==='work_data_recovery.auxiliary_invalid')return null;throw error;}}
+    async function analyze(files, auxiliaries, supplied, directories, native) {
+      const masters = new Map(), headers = new Map(), vaults = new Map(), refs = new Map(), aux = [], domains = new Map(), resultFiles=new Set(), nativeFiles=new Set(native?.files.map(row=>row.path)||[]);let nativePlan=null;
       const addMaster = (purpose, state, lease) => {
         disposable.push(lease); const id = keyName(purpose, state.instanceId), previous = masters.get(id);
         if (previous && !cryptoApi.timingSafeEqual(previous.master, lease.key)) fail('key_collision');
@@ -11180,7 +11447,8 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       const requireKey = (id, purpose, instance) => { const name = keyName(purpose, instance), value = masters.get(name); if (!value) fail('key_missing', { file: id }); refs.get(id).add(name); return value; };
       for (const file of files) {
         refs.set(file.path, new Set()); const logical = ownerPath(namespace(file.path).logical);
-        if(special(file.path))fail('special_owner_required',{file:file.path,reason:special(file.path)});
+        if(lastResult(file.path)){if(typeof maintenanceResultOwner?.decode!=='function')fail('control_owner_required');maintenanceResultOwner.decode(file.data);resultFiles.add(file.path);continue;}
+        if(special(file.path)){if(nativeFiles.has(file.path))continue;fail('special_owner_required',{file:file.path,reason:special(file.path)});}
         if (/^work-data-key-v1\.json(?:$|[.-])/.test(logical)) {
           const state = json(file.data); if (!WorkDataKeys.validate(state)) fail('key_header_invalid', { file: file.path });
           headers.set(file.path, { purpose: 'work-data', state });
@@ -11234,8 +11502,18 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         }
         return result.join('\n')+'\n';
       };
+      if(native){
+        const pointer=files.find(row=>ownerPath(row.path)==='.work-data/active-v1.json'),raw=pointer?decode(pointer.data):null,state=pointer?json(pointer.data):null,expected={id:state?.id||null,root:state? p.join(base,'.work-data','generations',state.id):base,generation:state?.generation||0,mode:state?.mode||'plain',proof:{raw,sha256:raw===null?null:hash(pointer.data)}};
+        const forbidden={snapshot:async()=>fail('source_write_forbidden')},owner=await skillBackupOwner({base,readActive:async()=>expected,sourceKeys:forbidden,targetKeys:forbidden});
+        if(!owner||['capturePortable','validatePortable','stagePortable','installPortable','verifyPortableInstalled'].some(name=>typeof owner[name]!=='function'))fail('special_owner_required');
+        const readCaptured=async(file,descriptor)=>{const text=await openedText(file,descriptor),physical=decode(file.data);let first,value;try{first=JSON.parse(physical.split('\n',1)[0]);}catch{}try{value=JSON.parse(physical);}catch{}return{text,authenticated:value?.workData===2||first?.workData===3};};
+        const request={files,directories,source:native,readCaptured,expected};let portable;
+        if(supplied){const found=auxiliaries.filter(row=>row.type==='skill-backup-portable');if(found.length!==1||found[0].sourcePath!==native.sourcePath||found[0].sourceSha256!==native.sourceSha256)fail('auxiliary_closure');portable=found[0];await owner.validatePortable({...request,data:portable.data});}
+        else{portable=await owner.capturePortable(request);disposable.push(portable);}
+        aux.push({type:'skill-backup-portable',schema:1,sourcePath:native.sourcePath,sourceSha256:native.sourceSha256,data:portable.data});nativePlan={owner,request,portable};
+      }
       for (const file of files) {
-        if (headers.has(file.path)) continue;
+        if (headers.has(file.path)||nativeFiles.has(file.path)||resultFiles.has(file.path)) continue;
         const { prefix, logical } = namespace(file.path);
         if (/^external-bot-credentials\.json(?:$|[.-])/.test(ownerPath(logical))) {
           const owner = externalOwner({ file: p.join(base,...file.path.split('/')) }); let portable;
@@ -11248,7 +11526,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           }
           aux.push({type:'external-bot-credentials',schema:1,sourcePath:file.path,sourceSha256:hash(file.data),data:portable}); continue;
         }
-        const canonical = logical.replace(/\.prevbody$|\.prev$/,''); let descriptor;
+        const canonical = logical.replace(new RegExp('\\.prevbody$|\\.prev$',process.platform==='win32'?'i':''),''); let descriptor;
         try { descriptor = WorkDataMigrationCodecs.describe(canonical); }
         catch (error) { if (error.code!=='work_data_migration.path_unmapped') throw error; }
         let text, value;
@@ -11265,7 +11543,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
             let inner;try{inner=zlibApi.gunzipSync(compressed,{maxOutputLength:recovery.LIMITS.bytes});text=descriptor.archive?await recordText(file,descriptor,inner):decode(inner);}
             finally{inner?.fill(0);if(compressed!==file.data)compressed.fill(0);}
           } else text=await openedText(file,descriptor);
-          if (descriptor.codec==='text'&&!descriptor.markdown) { value=JSON.parse(text); if(!value||typeof value!=='object'||(descriptor.shape==='array'?!Array.isArray(value):Array.isArray(value)))fail('source_invalid'); }
+          if (descriptor.codec==='text'&&!descriptor.markdown) { value=JSON.parse(text.replace(/^\uFEFF/,'')); if(!value||typeof value!=='object'||(descriptor.shape==='array'?!Array.isArray(value):Array.isArray(value)))fail('source_invalid'); }
         } else {
           try { text=decode(file.data); value=JSON.parse(text.replace(/^\uFEFF/,'')); } catch { /* Opaque media and arbitrary non-JSON user content remain exact bytes. */ }
           if(text!==undefined){const fullProbe=WorkDataRecords.lineProbe();fullProbe.feed(file.data);if(fullProbe.reserved()||text.trimStart().startsWith('{')&&workMarker.test(text))fail('special_owner_required',{file:file.path});}
@@ -11291,10 +11569,10 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         domains.set(file.path,{family:descriptor?.family||'opaque-byte-file',logicalSha256: text===undefined?hash(file.data):hash(text)});
       }
       if (supplied && (aux.length!==auxiliaries.length || auxiliaries.some(row=>!aux.some(found=>found.sourcePath===row.sourcePath))))fail('auxiliary_closure');
-      return {masters,headers,aux,domains,files:files.map(file=>({path:file.path,data:file.data,keyRefs:[...refs.get(file.path)].sort()}))};
+      return {masters,headers,aux,domains,nativePlan,files:files.map(file=>({path:file.path,data:file.data,keyRefs:[...refs.get(file.path)].sort()}))};
     }
-    function checkAuthority(files,directories,generation){
-      for(const directory of directories)if(special(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
+    function checkAuthority(files,directories,generation,native){
+      for(const directory of directories)if(special(directory)&&!native?.directories.includes(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
       if(files.some(file=>{const name=process.platform==='win32'?file.path.toLowerCase():file.path;return name==='.work-data'||name==='.work-data/generations'||/^\.work-data\/generations\/[a-f0-9]{48}$/.test(name);})||directories.some(directory=>keyOfPath(directory)===keyOfPath('.work-data/active-v1.json')))fail('authority_mismatch');
       const pointer=files.find(file=>keyOfPath(file.path)===keyOfPath('.work-data/active-v1.json'));
       if(!pointer){if(generation!==0)fail('authority_mismatch');return;}
@@ -11308,8 +11586,8 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     async function seal({ password, appVersion, generation, createdAt=new Date().toISOString() }={}) {
       return run(async()=>{
         const captured=await tree.capture(base);disposable.push(captured);
-        checkAuthority(captured.files,captured.directories,generation);
-        const analyzed=await analyze(captured.files,[],null);await admission();await tree.verify(captured);
+        const native=nativeSource(captured.files,captured.directories);checkAuthority(captured.files,captured.directories,generation,native);
+        const analyzed=await analyze(captured.files,[],null,captured.directories,native);await admission();await tree.verify(captured);
         const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...captured.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
         await admission();const proof=await tree.verify(captured);
         const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
@@ -11318,7 +11596,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         // Source proof ends here. Caller-owned additions may be written only after this return.
         // No glob exclusions or permission to ignore later source changes is issued.
         return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),
-          profile:PROFILE,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
+          profile:PROFILE,specialCoverage:analyzed.nativePlan?Object.freeze({type:'skill-backup-portable',sourcePath:analyzed.nativePlan.request.source.sourcePath,sourceSha256:analyzed.nativePlan.request.source.sourceSha256,originalObjects:'refused',terminalSnapshots:'source-history-only'}):null,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
       });
     }
     async function realDirectory(directory) {
@@ -11333,8 +11611,8 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         await targetAdmission();await realDirectory(p.dirname(target));
         const absent=async()=>{try{await io.lstat(target);}catch(error){if(error.code==='ENOENT')return;throw error;}fail('target_exists');};await absent();
         const opened=await recovery.open(serialized,password);disposable.push(opened);const snapshot=opened.snapshot,supplied=new Map(snapshot.keys.map(key=>[key.id,key]));
-        checkAuthority(snapshot.files,snapshot.directories,snapshot.generation);
-        const analyzed=await analyze(snapshot.files,snapshot.auxiliaries,supplied);
+        const native=nativeSource(snapshot.files,snapshot.directories);checkAuthority(snapshot.files,snapshot.directories,snapshot.generation,native);
+        const analyzed=await analyze(snapshot.files,snapshot.auxiliaries,supplied,snapshot.directories,native);
         for(const file of snapshot.files){const expected=analyzed.files.find(row=>row.path===file.path);if(JSON.stringify([...file.keyRefs].sort())!==JSON.stringify(expected.keyRefs))fail('key_reference_mismatch',{file:file.path});}
         const replacements=new Map();disposable.push({release(){for(const bytes of replacements.values())bytes.fill(0);}});
         for(const [file,header]of analyzed.headers){if(!header.state.instanceId)continue;const key=analyzed.masters.get(keyName(header.purpose,header.state.instanceId));let result;
@@ -11345,23 +11623,32 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
             const vault=capturedVault(header.state,protector,0);disposable.push(vault);result=await vault.stageRecoveredForWorkData({state:header.state,key:key.master});disposable.push(result.lease);replacements.set(file,Buffer.from(JSON.stringify(result.state)));
           }
         }
-        for(const row of analyzed.aux){const source=snapshot.files.find(file=>file.path===row.sourcePath),owner=externalOwner({file:p.join(target,...row.sourcePath.split('/'))});
+        for(const row of analyzed.aux.filter(row=>row.type==='external-bot-credentials')){const source=snapshot.files.find(file=>file.path===row.sourcePath),owner=externalOwner({file:p.join(target,...row.sourcePath.split('/'))});
           const result=await owner.stageRecoveredForWorkData({state:json(source.data),portable:row.data});replacements.set(row.sourcePath,Buffer.from(JSON.stringify(result.state)));
         }
+        let nativeStage=null;
+        const nativeProof=proof=>{if(!proof||proof.target!==target||proof.readOnly!==true||proof.originalObjects!=='refused'||proof.terminalSnapshots!=='source-history-only')fail('special_owner_proof');return proof;};
+        if(analyzed.nativePlan){const plan=analyzed.nativePlan,keysFor=async relative=>{const file=snapshot.files.find(row=>row.path===relative);if(!file)fail('key_missing');const text=decode(file.data);let marker;try{marker=JSON.parse(text.split('\n',1)[0]);}catch{}if(!marker)try{marker=JSON.parse(text);}catch{}const key=analyzed.masters.get(keyName('work-data',marker?.instanceId));if(!key)fail('key_missing');return{snapshot:async()=>{const bytes=Buffer.from(key.master);return{key:bytes,instanceId:key.instanceId,release(){bytes.fill(0);}};}};};
+          nativeStage=await plan.owner.stagePortable({...plan.request,data:plan.portable.data,target,keysFor,assertTargetExclusive:async()=>{await targetAdmission();return true;}});disposable.push(nativeStage);
+          for(const row of nativeStage.files){if(replacements.has(row.path))fail('special_owner_conflict');replacements.set(row.path,Buffer.from(row.data));}
+        }
+        const skipDirectory=name=>nativeStage?.skipDirectories.some(root=>ownerPath(name)===ownerPath(root)||ownerPath(name).startsWith(ownerPath(root)+'/'))===true;
         // Every source/master/reference/auxiliary validation and native roundtrip precedes mkdir.
         await targetAdmission();await absent();let created=false;
         try{
           await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);
-          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});}
-          for(const file of snapshot.files){const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
+          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});}
+          for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
             const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
           }
+          if(nativeStage){const stat=await io.lstat(target,{bigint:true});nativeProof(await analyzed.nativePlan.owner.installPortable(nativeStage,{targetIdentity:{dev:String(stat.dev),ino:String(stat.ino)}}));}
           const verified=await tree.capture(target);disposable.push(verified);if(verified.files.length!==snapshot.files.length||verified.directories.length!==snapshot.directories.length)fail('target_verification');
           if(JSON.stringify([...verified.directories].sort())!==JSON.stringify([...snapshot.directories].sort()))fail('target_verification');
           const actual=new Map(verified.files.map(file=>[file.path,file]));for(const file of snapshot.files)if(actual.get(file.path)?.sha256!==hash(replacements.get(file.path)||file.data))fail('target_verification');
           const stagedStates=Object.freeze([...replacements].map(([relative,bytes])=>Object.freeze({path:relative,sourceSha256:hash(snapshot.files.find(file=>file.path===relative).data),stagedSha256:hash(bytes)})));
+          if(nativeStage)nativeProof(await analyzed.nativePlan.owner.verifyPortableInstalled(nativeStage));
           await targetAdmission();return Object.freeze({target,files:snapshot.files.length,directories:snapshot.directories.length,manifestSha256:opened.manifestSha256,stagedStates,profile:PROFILE,
-            mode:'restored-full-base',publication:'fresh-process-required',nativeMetadata:'new-default-files; original-object-capsules-require-special-owner'});
+            mode:'restored-full-base',publication:'fresh-process-required',nativeMetadata:nativeStage?'new-default-files plus verified new native store identity; original-object-capsules-refused':'new-default-files; original-object-capsules-require-special-owner',specialProfile:nativeStage?.profile||null});
         }catch(cause){fail('restore_failed',{cause,targetRetained:created});}
       });
     }
@@ -11369,6 +11656,188 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
   }
   return Object.freeze({create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'),require('node:zlib'));
+
+// Fresh maintenance-worker composition. Caller owns drain, OS ownership, durable
+// full backup and maintenance intent. This module never rebinds warm globals.
+const WorkDataMigrationHost = ((io,p,c) => {
+  const fail=(suffix,details={})=>{throw Object.assign(Error('work_data_migration_host.'+suffix),{code:'work_data_migration_host.'+suffix,apiCode:'work_data_migration_host.'+suffix,statusCode:409,...details});};
+  const hash=bytes=>c.createHash('sha256').update(bytes).digest('hex');
+  const key=name=>process.platform==='win32'?name.toLowerCase():name;
+  const inside=(root,name)=>{const rel=p.relative(key(root),key(name));return rel===''||rel!=='..'&&!rel.startsWith('..'+p.sep)&&!p.isAbsolute(rel);};
+  const relative=name=>typeof name==='string'&&name&&!name.includes('\\')&&!p.isAbsolute(name)&&name.split('/').every(part=>part&&part!=='.'&&part!=='..'&&!/[<>:"|?*\x00-\x1f]/.test(part)&&!/[. ]$/.test(part));
+  const strict=bytes=>{const text=bytes.toString('utf8');if(!Buffer.from(text).equals(bytes))fail('utf8_invalid');return text;};
+  const nativeScope=name=>{const folded=key(name);return folded==='migrations/skill-backup-bindings-v2.sealed'||folded==='migrations/skill-backups'||folded.startsWith('migrations/skill-backups/')||folded==='.work-data/skill-backups'||folded.startsWith('.work-data/skill-backups/');};
+  function classify(name,legacy){
+    const folded=key(name);
+    if(nativeScope(name))return {kind:'special-backup'};
+    if(/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|\.sealed-stage$)/.test(folded))fail('special_owner_required',{file:name});
+    if(legacy&&['runtime.json','mcp-host-v1.json'].includes(folded))return {kind:'stable-owner'};
+    if(folded==='.work-data'||folded.startsWith('.work-data/')){
+      if(legacy&&(folded==='.work-data'||folded==='.work-data/generations'||folded==='.work-data/active-v1.json'||folded==='.work-data/maintenance-v1.json'||folded==='.work-data/maintenance-result-v1.json'||/^\.work-data\/generations\/[a-f0-9]{48}(?:\/|$)/.test(folded)))return {kind:'stable-owner'};
+      fail('special_owner_required',{file:name});
+    }
+    try{const descriptor=WorkDataMigrationCodecs.describe(name);if(descriptor.codec==='special-owner-required'){
+      if(key(name).endsWith('.prevbody'))return {kind:'retained',descriptor:WorkDataMigrationCodecs.describeRetained(name)};
+      fail('special_owner_required',{file:name});
+    }return {kind:'codec',descriptor};}catch(error){if(error?.code!=='work_data_migration.path_unmapped')throw error;}
+    if(key(name).endsWith('.prevbody'))fail('special_owner_required',{file:name});
+    const retained=new RegExp('^(.*\\.(?:json|md|ndjson|gz))[^/]+$',process.platform==='win32'?'i':'').exec(name);
+    if(retained){let owner;try{owner=WorkDataMigrationCodecs.describe(retained[1]);}catch(error){if(error?.code!=='work_data_migration.path_unmapped')throw error;}if(owner)fail('special_owner_required',{file:name});}
+    return {kind:folded==='config.json'?'config':'raw'};
+  }
+  // Replace only top-level flag value spans. Unrelated numeric spellings,
+  // duplicate keys, whitespace and credential references retain their raw text.
+  function configMirror(text,enabled){
+    let parsed;try{parsed=JSON.parse(text.replace(/^\uFEFF/,''));}catch{fail('config_invalid');}
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))fail('config_invalid');
+    const spans=[];let pos=0;const ws=()=>{while(/\s/.test(text[pos]||'')&&pos<text.length)pos++;};
+    const stringEnd=start=>{let cursor=start+1;for(;cursor<text.length;cursor++){if(text[cursor]==='\\'){cursor++;continue;}if(text[cursor]==='"')return cursor+1;}fail('config_invalid');};
+    ws();if(text[pos++]!=='{')fail('config_invalid');ws();
+    while(text[pos]!=='}'){
+      if(text[pos]!=='"')fail('config_invalid');const begin=pos;pos=stringEnd(pos);const name=JSON.parse(text.slice(begin,pos));ws();if(text[pos++]!==':')fail('config_invalid');ws();const valueStart=pos;let depth=0;
+      for(;pos<text.length;pos++){const ch=text[pos];if(ch==='"'){pos=stringEnd(pos)-1;continue;}if(ch==='{'||ch==='[')depth++;else if(ch==='}'||ch===']'){if(depth===0)break;depth--;}else if(ch===','&&depth===0)break;}
+      let end=pos;while(end>valueStart&&/\s/.test(text[end-1]))end--;if(name==='workDataEncryptionV1')spans.push([valueStart,end]);
+      if(text[pos]===','){pos++;ws();}else if(text[pos]!=='}')fail('config_invalid');
+    }
+    const value=enabled?'true':'false';if(spans.length){for(const[start,end]of spans.reverse())text=text.slice(0,start)+value+text.slice(end);return text;}
+    return text.slice(0,pos)+(Object.keys(parsed).length?',':'')+'"workDataEncryptionV1":'+value+text.slice(pos);
+  }
+  function create({base,ownership,assertExclusive,manifest,protector,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,assertSpecialCoverage,maintenanceResultOwner,writeJson,limits={}}={}){
+    if(typeof base!=='string'||!p.isAbsolute(base)||!ownership||!Array.isArray(ownership.roots)||!ownership.roots.some(root=>key(p.resolve(root))===key(p.resolve(base)))
+      ||[assertExclusive,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,assertSpecialCoverage,writeJson].some(fn=>typeof fn!=='function')
+      ||!manifest||['readActive','prepare','commit'].some(name=>typeof manifest[name]!=='function')||!protector)fail('host_invalid');
+    base=p.resolve(base);const tree=WorkDataTree.create(limits),issued=new WeakMap(),published=new WeakMap();let busy=false;
+    const admission=async()=>{if(await assertExclusive(ownership)!==true)fail('ownership_required');};
+    const current=async expected=>{await admission();const actual=await manifest.readActive();if(actual.proof.raw!==expected.proof.raw||actual.proof.sha256!==expected.proof.sha256)fail('manifest_changed');if(actual.id!==null&&!/^[a-f0-9]{48}$/.test(actual.id||''))fail('authority_root_invalid');const root=actual.id===null?base:p.join(base,'.work-data','generations',actual.id);if(key(p.resolve(actual.root))!==key(root))fail('authority_root_invalid');return actual;};
+    const run=async work=>{if(busy)fail('busy');busy=true;try{await admission();return await work();}finally{busy=false;}};
+    async function acceptIntent(value){const owned=value?.ownedFile;if(!owned||owned.name!=='.work-data/maintenance-v1.json'||!/^[a-f0-9]{64}$/.test(owned.sha256||'')||!owned.identity)fail('intent_receipt_invalid');
+      const file=p.join(base,...owned.name.split('/')),stat=await io.lstat(file,{bigint:true});if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n||stat.size>1048576n||String(stat.dev)!==String(owned.identity.dev)||String(stat.ino)!==String(owned.identity.ino))fail('intent_changed');
+      const handle=await io.open(file,'r'),scratch=Buffer.alloc(65536),digest=c.createHash('sha256');let bytes=0;try{const opened=await handle.stat({bigint:true});if(String(opened.dev)!==String(stat.dev)||String(opened.ino)!==String(stat.ino)||opened.nlink!==1n)fail('intent_changed');for(;;){const part=await handle.read(scratch,0,Math.min(scratch.length,1048576-bytes+1),null);if(!part.bytesRead)break;bytes+=part.bytesRead;if(bytes>1048576)fail('intent_changed');digest.update(scratch.subarray(0,part.bytesRead));}const after=await handle.stat({bigint:true});if(bytes!==Number(stat.size)||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||digest.digest('hex')!==owned.sha256)fail('intent_changed');}finally{scratch.fill(0);await handle.close();}
+      return Object.freeze({name:owned.name,sha256:owned.sha256,identity:String(stat.dev)+':'+String(stat.ino)});}
+    const receipt=expected=>Object.freeze({...expected,proof:Object.freeze({...expected.proof})});
+    async function checkSource(plan){
+      await current(plan.expected);await acceptIntent({ownedFile:{name:plan.intent.name,sha256:plan.intent.sha256,identity:{dev:plan.intent.identity.split(':')[0],ino:plan.intent.identity.split(':')[1]}}});
+      const snapshot=await tree.capture(base);try{
+        const files=new Map(plan.sourceProof.sourceFiles.map(row=>[key(row.path),row])),dirs=new Map(plan.sourceProof.sourceDirectories.map(row=>[key(row.path),row]));
+        const candidate=name=>plan.candidate&&inside(plan.candidate.root,p.join(base,...name.split('/')));
+        for(const file of snapshot.files){const prior=files.get(key(file.path));if(candidate(file.path))continue;
+          const owned=plan.specialFiles?.get(key(file.path));if(owned){const stat=await io.lstat(p.join(base,...file.path.split('/')),{bigint:true});if(owned.sha256!==file.sha256||owned.identity!==String(stat.dev)+':'+String(stat.ino))fail('special_owner_changed');continue;}
+          if(key(file.path)===key(plan.intent.name)){if(file.sha256!==plan.intent.sha256)fail('intent_changed');continue;}
+          if(!prior||prior.sha256!==file.sha256)fail('source_changed',{file:file.path});const stat=await io.lstat(p.join(base,...file.path.split('/')),{bigint:true});if(prior.identity!==String(stat.dev)+':'+String(stat.ino)||prior.mtimeNs!==String(stat.mtimeNs)||prior.ctimeNs!==String(stat.ctimeNs))fail('source_changed',{file:file.path});files.delete(key(file.path));
+        }
+        for(const row of files.values())fail('source_changed',{file:row.path});
+        for(const name of ['',...snapshot.directories]){const prior=dirs.get(key(name));if(candidate(name))continue;
+          const owned=plan.specialDirectories?.get(key(name));if(owned){const stat=await io.lstat(p.join(base,...name.split('/')),{bigint:true});if(owned.identity!==String(stat.dev)+':'+String(stat.ino))fail('special_owner_changed');continue;}
+          if(!prior){if(name==='.work-data'||name==='.work-data/generations'||plan.special&&name==='migrations')continue;fail('source_changed',{file:name});}
+          const stat=await io.lstat(p.join(base,...name.split('/')),{bigint:true});if(prior.identity!==String(stat.dev)+':'+String(stat.ino))fail('source_changed',{file:name});dirs.delete(key(name));
+        }
+        for(const row of dirs.values())fail('source_changed',{file:row.path});
+      }finally{snapshot.release();}
+    }
+    async function writeNew(file,data){const handle=await io.open(file,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}}
+    async function emptyStoreProof(plan){
+      const prefix='.work-data/skill-backups',root=p.join(base,...prefix.split('/')),snapshot=await tree.capture(root);try{
+        // The ordinary host can prove only the newly owned empty V3 store.
+        // Existing original objects and historical controls require the complete
+        // portable/closed-census owner adapter before any transition mutation.
+        if(snapshot.files.some(row=>row.path!=='relocation-v1.sealed')||snapshot.directories.some(name=>name!=='objects-v1'))fail('special_owner_change_proof_required');
+        plan.specialFiles=new Map();plan.specialDirectories=new Map();
+        for(const file of snapshot.files){const name=prefix+'/'+file.path,stat=await io.lstat(p.join(base,...name.split('/')),{bigint:true});plan.specialFiles.set(key(name),{sha256:file.sha256,identity:String(stat.dev)+':'+String(stat.ino)});}
+        for(const relative of ['',...snapshot.directories]){const name=relative?prefix+'/'+relative:prefix,stat=await io.lstat(p.join(base,...name.split('/')),{bigint:true});plan.specialDirectories.set(key(name),{identity:String(stat.dev)+':'+String(stat.ino)});}
+      }finally{snapshot.release();}
+    }
+    function targetEntry(plan,name,sha256){if(plan.targetHashes.has(key(name)))fail('target_conflict',{file:name});plan.targetHashes.set(key(name),{path:name,sha256});const pieces=name.split('/');pieces.pop();while(pieces.length){plan.targetDirectories.add(key(pieces.join('/')));pieces.pop();}}
+    async function plannedWrite(plan,name,data){if(!relative(name)||plan.targetHashes.has(key(name)))fail('target_conflict',{file:name});const file=p.join(plan.candidate.root,...name.split('/'));await io.mkdir(p.dirname(file),{recursive:true});if(key(await io.realpath(p.dirname(file)))!==key(p.dirname(file)))fail('target_alias');await writeNew(file,data);targetEntry(plan,name,hash(data));}
+    async function verifyDomain(plan,rows){
+      const canonical=new Map(),decoded=new Map();
+      const add=id=>{if(typeof id!=='string'||!/^[A-Za-z0-9_-]{1,64}$/.test(id)||canonical.has(key(id))&&canonical.get(key(id))!==id)fail('session_owner_required');canonical.set(key(id),id);};
+      const read=async row=>{if(decoded.has(row.path))return decoded.get(row.path);const d=row.descriptor,store=WorkDataStore.createText({file:()=>p.join(plan.candidate.root,...row.path.split('/')),purpose:d.purpose,schema:d.schema,scopeId:d.scopeId,recordId:d.recordId,chunked:d.chunked,maxPlaintextBytes:256*1024*1024,keys:plan.keys,enabled:()=>plan.candidate.mode==='encrypted',writeJson}),value=JSON.parse((await store.read()).replace(/^\uFEFF/,''));decoded.set(row.path,value);return value;};
+      for(const row of rows.filter(row=>row.descriptor?.family==='session-index'))for(const entry of await read(row))if(entry&&Object.hasOwn(entry,'id'))add(entry.id);
+      for(const row of rows.filter(row=>row.descriptor?.family==='session-head')){const head=await read(row),id=row.descriptor.recordId;if(head.id!==undefined&&head.id!==id)fail('session_owner_required',{file:row.path});add(id);}
+      for(const row of rows){const d=row.descriptor;if(!d)continue;const sid=['session-messages','session-provider','session-interventions','session-changes','session-v1-backup','background-job-ledger','journal-index','journal-reverts','journal-history','agent-run-events','agent-run-snapshot'].includes(d.family)?d.scopeId:d.family==='session-scratchpad'?d.recordId:null;if(sid&&canonical.has(key(sid))&&canonical.get(key(sid))!==sid)fail('session_owner_required',{file:row.path});if(d.family==='agent-run-snapshot'){const value=await read(row);if(value.id!==d.recordId.slice('agent-run:'.length)||value.sessionId!==d.scopeId)fail('run_owner_required',{file:row.path});}}
+
+      for(const row of rows.filter(row=>row.descriptor?.family==='session-head')){
+        const d=row.descriptor,headStore=WorkDataStore.createText({file:()=>p.join(plan.candidate.root,...row.path.split('/')),purpose:d.purpose,schema:d.schema,scopeId:d.scopeId,recordId:d.recordId,chunked:d.chunked,keys:plan.keys,enabled:()=>plan.candidate.mode==='encrypted',writeJson}),head=JSON.parse((await headStore.read()).replace(/^\uFEFF/,''));if(head.storageVersion!==2)continue;
+        for(const[kind,field]of[['messages','messageCount'],['provider','providerHistoryCount']]){
+          const name='sessions/'+d.recordId+'.'+kind+'.ndjson';if(!plan.targetHashes.has(key(name)))fail('session_owner_required',{file:name});
+          const bytes=await io.readFile(p.join(plan.candidate.root,...name.split('/'))),text=strict(bytes),count=text?text.slice(0,-1).split('\n').length:0;if(text&&!text.endsWith('\n'))fail('session_owner_required',{file:name});
+          if(head[field]!==undefined&&(!Number.isSafeInteger(head[field])||head[field]<0||head[field]!==count))fail('session_owner_required',{file:row.path});
+        }
+      }
+    }
+    async function prepare({expected,targetMode,backupReceipt,sourceProof}={}){
+      return run(async()=>{
+        if(!['plain','encrypted'].includes(targetMode)||!expected?.proof||!sourceProof||!Array.isArray(sourceProof.sourceFiles)||!Array.isArray(sourceProof.sourceDirectories))fail('request_invalid');
+        if(await assertDurableBackup({backupReceipt,sourceProof,expected})!==true)fail('backup_required');expected=await current(expected);
+        const plan={expected:receipt(expected),backupReceipt,sourceProof:JSON.parse(JSON.stringify({sourceFiles:sourceProof.sourceFiles,sourceDirectories:sourceProof.sourceDirectories})),intent:await acceptIntent(await assertIntent({backupReceipt,expected})),candidate:null,special:null,disposable:[],targetProof:null,targetHashes:new Map(),targetDirectories:new Set()};
+        await checkSource(plan);const source=await tree.capture(expected.root);plan.disposable.push(source);
+        try{
+          const legacy=key(p.resolve(expected.root))===key(base),rows=source.files.map(file=>({...file,...classify(file.path,legacy)}));
+          for(const name of source.directories){if(key(name)==='.work-data/maintenance-result-v1.json')fail('control_owner_required');classify(name,legacy);} // reserved paths and unresolved stages cannot hide in an empty directory.
+          for(const row of rows)if(key(row.path)==='.work-data/maintenance-result-v1.json'){if(typeof maintenanceResultOwner?.decode!=='function')fail('control_owner_required');maintenanceResultOwner.decode(row.data);}
+          const specialPaths=[...source.directories,...source.files.map(row=>row.path)].filter(nativeScope);
+          if(specialPaths.length){if(await assertSpecialCoverage({backupReceipt,sourceProof,sourcePaths:Object.freeze(specialPaths)})!==true||sourceProof.specialCoverage?.type!=='skill-backup-portable'||sourceProof.specialCoverage.originalObjects!=='refused')fail('special_backup_coverage_required');plan.existingSpecial=true;plan.specialCoverage=Object.freeze({...sourceProof.specialCoverage});}
+          plan.mutationStarted=true;plan.candidate=await manifest.prepare({expected:plan.expected,mode:targetMode});if(!/^[a-f0-9]{48}$/.test(plan.candidate.id||'')||key(plan.candidate.root)!==key(p.join(base,'.work-data','generations',plan.candidate.id))||plan.candidate.generation!==expected.generation+1||plan.candidate.mode!==targetMode)fail('candidate_invalid');await admission();plan.intent=await acceptIntent(await onCandidate({backupReceipt,expected:plan.expected,candidate:plan.candidate}));await checkSource(plan);
+          const headerRow=rows.find(row=>key(row.path)==='work-data-key-v1.json'),sourceHeader=headerRow?JSON.parse(strict(headerRow.data)):WorkDataKeys.empty();if(!WorkDataKeys.validate(sourceHeader))fail('key_header_invalid');
+          const oldKeys=WorkDataKeys.create({protector,enabled:()=>false,store:{read:async()=>sourceHeader}});plan.disposable.push(oldKeys);let targetHeader,staged;
+          if(sourceHeader.instanceId){const lease=await oldKeys.snapshot();try{staged=await oldKeys.stageRecovered({instanceId:lease.instanceId,key:lease.key});}finally{lease.release();}}
+          else{if(targetMode!=='encrypted')fail('mode_unchanged');staged=await oldKeys.stageNew();}
+          targetHeader=staged.header;plan.targetInstanceId=targetHeader.instanceId;staged.lease.release();plan.keys=WorkDataKeys.create({protector,enabled:()=>targetMode==='encrypted',store:{read:async()=>targetHeader}});plan.disposable.push(plan.keys);const sourceKeys=sourceHeader.instanceId?oldKeys:plan.keys;
+          await plannedWrite(plan,'work-data-key-v1.json',Buffer.from(JSON.stringify(targetHeader)));await admission();plan.intent=await acceptIntent(await onKeyReady({backupReceipt,expected:plan.expected,candidate:plan.candidate,headerSha256:hash(JSON.stringify(targetHeader))}));await checkSource(plan);
+          // stageRecovered above proves the unchanged work master/instance. The
+          // V3 native owner intentionally requires one identical keys object;
+          // independent old/new header factories remain confined to the codecs.
+          plan.special=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:plan.keys,targetKeys:plan.keys});if(!plan.special||['prepare','prepareRepresentation','prepareBindings','recover','recoverRepresentation','activate','verifyPublished'].some(name=>typeof plan.special[name]!=='function'))fail('special_owner_invalid');
+          if(plan.existingSpecial){
+            if(typeof plan.special.capturePortable!=='function')fail('special_owner_change_proof_required');const complete=await tree.capture(base);try{const source=WorkDataRecovery.skillBackupSource(complete.files,complete.directories);if(source.sourcePath!==plan.specialCoverage.sourcePath||source.sourceSha256!==plan.specialCoverage.sourceSha256)fail('special_owner_changed');
+              const readCaptured=async(row,d)=>{let authenticated=false;const text=await WorkDataStore.createText({...d,file:()=>p.join(base,...row.path.split('/')),keys:plan.keys,enabled:()=>false,writeJson,validateSealedText:()=>{authenticated=true;return true;}}).read();return{text,authenticated};};
+              const portable=await plan.special.capturePortable({files:complete.files,directories:complete.directories,source,readCaptured,expected:plan.expected});try{const value=JSON.parse(strict(portable.data));if(!value.records.some(row=>row.kind==='catalog')||value.records.some(row=>row.kind==='history'||row.kind==='binding'&&row.value.entries.length))fail('special_owner_change_proof_required');}finally{portable.release();}await tree.verify(complete);
+            }finally{complete.release();}
+          }
+          plan.specialToken=await plan.special.prepare({expected:plan.expected,candidate:plan.candidate});await admission();if(!plan.existingSpecial)await emptyStoreProof(plan);
+          const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson});
+          const transformed=[];for(const row of rows){if(row.kind==='stable-owner'||row.kind==='special-backup'||key(row.path)==='work-data-key-v1.json')continue;await admission();
+            if(row.kind==='codec'||row.kind==='retained'){const result=await bridge[row.kind==='retained'?'transformRetained':'transform']({relative:row.path,targetMode});targetEntry(plan,row.path,result.targetPhysicalHash);transformed.push(Object.freeze({path:row.path,...result}));continue;}
+            await plannedWrite(plan,row.path,row.kind==='config'?Buffer.from(configMirror(strict(row.data),targetMode==='encrypted')):row.data);
+          }
+          if(!rows.some(row=>row.kind==='config'))await plannedWrite(plan,'config.json',Buffer.from(configMirror('{}',targetMode==='encrypted')));
+          for(const name of source.directories){const kind=classify(name,legacy).kind;if(kind!=='stable-owner'&&kind!=='special-backup'){await io.mkdir(p.join(plan.candidate.root,...name.split('/')),{recursive:true});plan.targetDirectories.add(key(name));}}
+          await plan.special.prepareRepresentation(plan.specialToken,{mode:targetMode});await admission();const binding=await plan.special.prepareBindings(plan.specialToken);if(binding.ready!==true)fail('special_owner_required');
+          // Re-enter the same owner to authenticate its durable candidate binding,
+          // rather than treating a successful write or arbitrary current bytes as proof.
+          if((await plan.special.prepareBindings(plan.specialToken)).ready!==true)fail('special_owner_required');
+          const bindingName='migrations/skill-backup-bindings-v2.sealed',bindingBytes=await io.readFile(p.join(plan.candidate.root,...bindingName.split('/')));targetEntry(plan,bindingName,hash(bindingBytes));
+          const target=await tree.capture(plan.candidate.root);plan.disposable.push(target);plan.target=target;if(target.files.length!==plan.targetHashes.size||target.files.some(file=>plan.targetHashes.get(key(file.path))?.sha256!==file.sha256)||target.directories.length!==plan.targetDirectories.size||target.directories.some(name=>!plan.targetDirectories.has(key(name))))fail('target_verification',{expected:plan.targetHashes.size,actual:target.files.length,mismatch:target.files.filter(file=>plan.targetHashes.get(key(file.path))?.sha256!==file.sha256).map(file=>file.path)});await verifyDomain(plan,rows);plan.targetProof=await tree.verify(target);await checkSource(plan);
+          const prepared=Object.freeze({candidate:plan.candidate,sourceGeneration:expected.generation,targetMode,files:target.files.length,directories:target.directories.length,transformed:Object.freeze(transformed),sourceHashes:Object.freeze(rows.map(row=>Object.freeze({path:row.path,sha256:row.sha256}))),targetHashes:Object.freeze([...plan.targetHashes.values()].map(row=>Object.freeze({...row}))),retainedPlainDisclosure:'Old roots and durable backups are retained; enabling does not erase existing plaintext.',processExitRequired:true});issued.set(prepared,plan);return prepared;
+        }catch(cause){for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}if(!plan.mutationStarted)throw cause;let code='work_data_migration_host.prepare_failed';try{if(typeof cause?.code==='string'&&/^[a-zA-Z0-9_.-]{1,128}$/.test(cause.code))code=cause.code;}catch{}throw Object.assign(Error(code,{cause}),{code,apiCode:code,statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,candidateRetained:plan.candidate?.root||null});}
+      });
+    }
+    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await checkSource(plan);await tree.verify(plan.target);let publishing=false;try{await admission();publishing=true;plan.commitStarted=true;const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});await plan.special.recover();await plan.special.activate();
+        const specialProof=await plan.special.verifyPublished({expected:result}),specialTree=await tree.capture(p.join(base,'.work-data','skill-backups'));let specialSha;
+        try{specialSha=(await tree.verify(specialTree)).sha256;}finally{specialTree.release();}
+        published.set(prepared,Object.freeze({expected:receipt(result),targetSha:plan.targetProof.sha256,specialSha,specialProof:Object.freeze({...specialProof}),instanceId:plan.targetInstanceId,transformed:prepared.transformed}));
+        issued.delete(prepared);return Object.freeze({active:result,processExitRequired:true});}catch(cause){throw Object.assign(Error('work_data_migration_host.publish_failed',{cause}),{code:'work_data_migration_host.publish_failed',commitUncertain:true,retry:false});}finally{if(publishing)for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});}
+    async function cancel(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await current(plan.expected);try{await plan.special.recoverRepresentation();await plan.special.recover();issued.delete(prepared);return Object.freeze({canceled:true,candidateRetained:plan.candidate.root});}finally{for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});}
+    async function verifyPublished(prepared){return run(async()=>{
+      const proof=published.get(prepared);if(!proof)fail('published_token_invalid');const selected=await current(proof.expected);
+      const target=await tree.capture(selected.root);let keys,specialTree;
+      try{
+        if((await tree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');
+        const headerRow=target.files.find(row=>key(row.path)==='work-data-key-v1.json');let header;try{header=JSON.parse(strict(headerRow.data));}catch{fail('key_header_invalid');}
+        if(!WorkDataKeys.validate(header)||header.instanceId!==proof.instanceId)fail('key_header_invalid');
+        keys=WorkDataKeys.create({protector,enabled:()=>selected.mode==='encrypted',store:{read:async()=>header}});const lease=await keys.snapshot();try{if(lease.instanceId!==proof.instanceId)fail('key_header_invalid');}finally{lease.release();}
+        const bridge=WorkDataMigrationCodecs.create({sourceRoot:selected.root,targetRoot:base,sourceKeys:keys,targetKeys:keys,writeJson});
+        for(const row of proof.transformed){await admission();const result=await bridge[key(row.path).endsWith('.prevbody')?'verifyRetained':'verify']({relative:row.path,targetMode:selected.mode});if(result.logicalHash!==row.logicalHash||result.logicalBytes!==row.logicalBytes||result.physicalHash!==row.targetPhysicalHash)fail('published_logical_changed',{file:row.path});}
+        const owner=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:keys,targetKeys:keys});if(typeof owner?.verifyPublished!=='function')fail('special_owner_invalid');const actualSpecial=await owner.verifyPublished({expected:selected});
+        if(JSON.stringify(actualSpecial)!==JSON.stringify(proof.specialProof))fail('published_special_changed');specialTree=await tree.capture(p.join(base,'.work-data','skill-backups'));if((await tree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
+        await current(proof.expected);if((await tree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');if((await tree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
+        return Object.freeze({active:selected,candidateId:selected.id,generation:selected.generation,mode:selected.mode,targetSha256:proof.targetSha,specialSha256:proof.specialSha,logicalFiles:proof.transformed.length,readOnly:true,processExitRequired:true});
+      }finally{specialTree?.release();target.release();keys?.clear();}
+    });}
+    return Object.freeze({prepare,publish,cancel,verifyPublished});
+  }
+  return Object.freeze({create});
+})(require('node:fs/promises'),require('node:path'),require('node:crypto'));
 
 // 02c-turn-segments.js - 110-3b: 从 02-session-store.js 搬出的回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)。
 // 第54波 EC-D: one ordered narrative ledger for both Claude CLI and OpenAI-compatible turns. The ledger is
@@ -74906,6 +75375,12 @@ async function listenWithFallback(server, port, host, config) {
 // 118c: 启动失败必须在【应用里】看得见,而不是只打在一个用户根本没打开的终端上。
 // 这层薄包装把三类致命失败落成 <data>/last-start-error.json(人话 + 下一步),
 // 下一次成功启动由 startServerInner 读出来交给前端顶部条;console 输出与退出码一字未改。
+async function listenForWorkbenchServe(server, port, host, config, opts) {
+  const strict = typeof WorkDataMaintenanceRuntimeHooks.strictSamePort === 'function' && WorkDataMaintenanceRuntimeHooks.strictSamePort(opts) === true;
+  if (strict) { await listenOnce(server, port, host); return port; }
+  return listenWithFallback(server, port, host, config);
+}
+
 async function startServer(opts) {
   // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
   // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
@@ -74920,6 +75395,11 @@ async function startServer(opts) {
     && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
   if (migrate) roots.push(defaults.legacy, defaults.next);
   const ownership = await ServerOwnership.acquire(roots); // Refusal must not touch the owner's files.
+  // A pending-maintenance refusal must never enter the startup-error writer,
+  // including a programmatic caller whose old root hook is already bound.
+  try {
+    if (typeof WorkDataMaintenanceRuntimeHooks.inspectBoot === 'function') await WorkDataMaintenanceRuntimeHooks.inspectBoot({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership});
+  } catch (error) { await ownership.release(); throw error; }
   try {
     if (isDirectServeInvocation() && !fs.existsSync(path.join(paths.data, '.work-data'))) {
       DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
@@ -74932,7 +75412,7 @@ async function startServer(opts) {
       }
     }
     await WorkDataRootHooks.bind(ownership);
-    const result = await startServerInner(opts, bindHost);
+    const result = await startServerInner(opts, bindHost, ownership);
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
     // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.
     if (ownership.portable) process.once('exit', () => { void ownership.release(); });
@@ -75013,7 +75493,7 @@ function stopAllActiveTurnsSync(reason = 'shutdown') {
   return stopped;
 }
 
-async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
+async function startServerInner(opts, bindHost = resolveBindHost(opts), maintenanceOwnership) {
   beginBootCliPathProbes();
   try {
     await ensureDirs();
@@ -75134,7 +75614,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   });
   // 118c: 实际监听端口可能不是请求的那个(原端口被别的程序占着时自动往后找)。下面的 runtime.json、
   // 控制台 URL 与 --open 全部用【实际】端口,前端顶部条另有 START_NOTICE.portFallback 说明改用了谁。
-  const port = await listenWithFallback(server, requestedPort, host, config);
+  const port = await listenForWorkbenchServe(server, requestedPort, host, config, opts);
   finishBootCliPathProbes(); // No await before the runtime token handshake below.
   const url = `http://${host}:${port}/`;
   // Port+token handshake file for the permission-bridge MCP child; also useful for tooling.
@@ -75143,6 +75623,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   await atomicWriteJson(path.join(dataRoot(), 'runtime.json'),
     { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() },
     { mode: 0o600 }).catch(() => {});   // 安全走查 S11:里面是接口令牌,只给属主读写(POSIX;Windows 靠用户目录 ACL)
+  if (maintenanceOwnership && typeof WorkDataMaintenanceRuntimeHooks.captureServe === 'function') await WorkDataMaintenanceRuntimeHooks.captureServe({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership:maintenanceOwnership,server,listener:{host,port}});
   if (typeof PrivacyCore.configHooks.consumerListen === 'function') await PrivacyCore.configHooks.consumerListen();
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);
@@ -93660,16 +94141,24 @@ let migrationBackupAuthority = null;
 function migrationBackupRoot() { return migrationBackupAuthority?.root || path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR); }
 
 function migrationSerial(fn) {
+  const guard = () => {
+    if (migrationCapsuleBroker.helperMayStillRun === true) throw Object.assign(new Error('work_data_backup.native_helper_uncertain'), {
+      code: 'work_data_backup.native_helper_uncertain', apiCode: 'work_data_backup.native_helper_uncertain', statusCode: 503,
+      helperMayStillRun: true, operationMayHaveExecuted: true, retry: false });
+  };
+  try { guard(); } catch (error) { return Promise.reject(error); }
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('migration')) return WorkDataMaintenanceHooks.run('migration', () => migrationSerial(fn));
   const admission = migrationBackupAuthority;
   const job = migrationChain.then(async () => {
+    guard();
     if (admission !== migrationBackupAuthority) migrationCapsuleFail('generation_changed');
     if (admission) await admission.assertCurrent();
+    guard();
     if (migrationRecoveryNeeded) {
       await migrationRecoverSkillBackups();
       migrationRecoveryNeeded = false;
     }
-    return fn();
+    guard(); const value = await fn(); guard(); return value;
   });
   migrationChain = job.catch(() => {});
   return job;
@@ -94936,9 +95425,9 @@ function migrationBackupHistoryShape(value, descriptor) {
     && value.id === descriptor.id && value.stamp === descriptor.stamp && ['complete', 'aborted'].includes(value.phase)
     && migrationCapsuleShape(value.snapshot);
 }
+function migrationBackupHistoryBinding(descriptor) { return { purpose:'backup',schema:1,scopeId:'skill-backup-history:'+descriptor.stamp,recordId:descriptor.recordId+':history' }; }
 function migrationBackupHistoryStore(descriptor, mode, onAuthenticated) {
-  return WorkDataStore.createText({ file: () => path.join(descriptor.backup, 'history'), purpose: 'backup', schema: 1,
-    scopeId: 'skill-backup-history:' + descriptor.stamp, recordId: descriptor.recordId + ':history', keys: descriptor.archiveKeys,
+  return WorkDataStore.createText({ file: () => path.join(descriptor.backup, 'history'), ...migrationBackupHistoryBinding(descriptor), keys: descriptor.archiveKeys,
     chunked: true, maxPlaintextBytes: MIGRATION_CAPSULE_ARCHIVE_LIMIT, enabled: async () => mode === 'encrypted', writeJson: atomicWriteJson,
     validateSealedText: text => { const valid = migrationBackupHistoryShape(safeJsonParse(text, null), descriptor); if (valid && onAuthenticated) onAuthenticated(); return valid; } });
 }
@@ -94980,48 +95469,117 @@ async function migrationCapsulePresent(backup, descriptor = migrationCapsuleDesc
   return false;
 }
 async function migrationCapsuleBroker() {
+  const failure = (suffix, cause, uncertain = false) => {
+    const code = 'work_data_backup.' + suffix;
+    return Object.assign(new Error(code), { code, apiCode: code, statusCode: 503,
+      ...(cause ? { cause } : {}), ...(uncertain ? { helperMayStillRun: true, operationMayHaveExecuted: true, retry: false } : {}) });
+  };
+  if (migrationCapsuleBroker.helperMayStillRun === true) throw failure('native_helper_uncertain', null, true);
   if (process.platform !== 'win32') migrationCapsuleFail('platform_unsupported');
   const bootstrap = "$ErrorActionPreference='Stop'; Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:RUYI_SKILL_CAPSULE_SOURCE))); [RuyiSkillCapsule]::Run()";
-  const child = require('node:child_process').spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(bootstrap, 'utf16le').toString('base64')], {
-    env: { ...process.env, RUYI_SKILL_CAPSULE_SOURCE: Buffer.from(MIGRATION_SKILL_CAPSULE_NATIVE, 'utf8').toString('base64') },
-    windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  let child;
+  try {
+    child = require('node:child_process').spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(bootstrap, 'utf16le').toString('base64')], {
+      env: { ...process.env, RUYI_SKILL_CAPSULE_SOURCE: Buffer.from(MIGRATION_SKILL_CAPSULE_NATIVE, 'utf8').toString('base64') },
+      windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch (cause) { throw failure('native_unavailable', cause); } // no issued child
   const timers = require('node:timers');
   const decoder = new (require('node:string_decoder').StringDecoder)('utf8');
-  let pending = null, ended = false, output = [], outputBytes = 0, exitResolve;
-  const exited = new Promise(resolve => { exitResolve = resolve; });
-  const reject = reason => {
-    if (pending) { const entry = pending; pending = null; timers.clearTimeout(entry.timer); entry.reject(reason); }
-  };
-  child.stdout.on('data', chunk => {
-    const parts = decoder.write(chunk).split('\n');
-    for (let index = 0; index < parts.length; index++) {
-      output.push(parts[index]); outputBytes += Buffer.byteLength(parts[index]);
-      if (outputBytes > MIGRATION_CAPSULE_ARCHIVE_LIMIT) { reject(Object.assign(new Error('work_data_backup.native_limit'), { code: 'work_data_backup.native_limit', apiCode: 'work_data_backup.native_limit', statusCode: 503 })); child.kill(); return; }
-      if (index === parts.length - 1) break;
-      const line = output.join(''); output = []; outputBytes = 0;
-      if (!pending) continue;
+  let pending = null, closing = false, stopping = false, settled = false, spawned = false;
+  let output = [], outputBytes = 0, firstError = null, settleTimer = null, closePromise = null, resolveClosed;
+  const closed = new Promise(resolve => { resolveClosed = resolve; });
+  const finish = error => {
+    if (settled) return;
+    settled = true; timers.clearTimeout(settleTimer); output = []; outputBytes = 0;
+    if (pending) {
       const entry = pending; pending = null; timers.clearTimeout(entry.timer);
-      let response;
-      try { response = JSON.parse(line); } catch { response = null; }
-      if (response?.ok === true) entry.resolve(response.value);
-      else {
-        const suffix = /^[a-z0-9_]+$/.test(response?.code || '') ? response.code : 'native_unavailable';
-        const code = 'work_data_backup.' + suffix;
-        entry.reject(Object.assign(new Error(code), { code, apiCode: code, statusCode: 503 }));
-      }
+      entry.reject(error || failure('native_exit'));
     }
+    resolveClosed(error);
+  };
+  const kill = () => { try { child.kill(); } catch (cause) { firstError ||= failure('native_unavailable', cause); } };
+  const boundClose = () => {
+    if (settled || settleTimer !== null) return;
+    settleTimer = timers.setTimeout(() => {
+      if (settled) return;
+      migrationCapsuleBroker.helperMayStillRun = true; // permanent, even after late close
+      firstError ||= failure('native_close_timeout'); kill();
+      finish(failure('native_helper_uncertain', firstError, true));
+    }, 2000);
+  };
+  const stop = (suffix, cause) => {
+    if (settled || stopping) return;
+    stopping = true; firstError ||= failure(suffix, cause);
+    if (pending) timers.clearTimeout(pending.timer);
+    output = []; outputBytes = 0; boundClose(); kill();
+  };
+  child.on('spawn', () => { spawned = true; });
+  child.on('error', cause => {
+    // Node's spawn-failure event can prove no helper was issued. Runtime/kill
+    // errors on a PID, and ambiguous error objects, still require actual close.
+    let absent = false;
+    try { absent = !spawned && child.pid == null && typeof cause?.syscall === 'string' && cause.syscall.startsWith('spawn '); } catch { /* unknown is not absent */ }
+    if (absent) { firstError ||= failure('native_unavailable', cause); finish(firstError); }
+    else stop('native_unavailable', cause);
   });
-  child.stderr.resume(); // compiler/native diagnostics must never contain work-data payloads in app logs
-  child.on('error', () => { ended = true; reject(Object.assign(new Error('work_data_backup.native_unavailable'), { code: 'work_data_backup.native_unavailable', apiCode: 'work_data_backup.native_unavailable', statusCode: 503 })); exitResolve(); });
-  child.on('exit', () => { ended = true; reject(Object.assign(new Error('work_data_backup.native_exit'), { code: 'work_data_backup.native_exit', apiCode: 'work_data_backup.native_exit', statusCode: 503 })); exitResolve(); });
-  const command = args => new Promise((resolve, rejectCommand) => {
-    if (pending || ended) return rejectCommand(Object.assign(new Error('work_data_backup.native_exit'), { code: 'work_data_backup.native_exit', apiCode: 'work_data_backup.native_exit', statusCode: 503 }));
-    const timer = timers.setTimeout(() => { reject(Object.assign(new Error('work_data_backup.native_timeout'), { code: 'work_data_backup.native_timeout', apiCode: 'work_data_backup.native_timeout', statusCode: 503 })); child.kill(); }, 120000);
-    pending = { resolve, reject: rejectCommand, timer };
-    child.stdin.write(JSON.stringify(args) + '\n', error => { if (error) { reject(Object.assign(new Error('work_data_backup.native_pipe'), { code: 'work_data_backup.native_pipe', apiCode: 'work_data_backup.native_pipe', statusCode: 503 })); child.kill(); } });
+  child.on('exit', code => {
+    // Exit does not close inherited pipes. It can prohibit another command but
+    // cannot discharge the lease or settle pending command failures.
+    if (settled) return;
+    if (!closing || code !== 0 || pending) firstError ||= failure('native_exit');
+    closing = true; boundClose();
   });
-  return { command, close: async () => { child.stdin.end(); await exited; } };
+  child.on('close', code => {
+    if (settled) return;
+    if (code !== 0 || pending) firstError ||= failure('native_exit');
+    finish(firstError);
+  });
+  try {
+    child.stdout.on('data', chunk => {
+      if (settled || stopping) return;
+      const parts = decoder.write(chunk).split('\n');
+      for (let index = 0; index < parts.length; index++) {
+        output.push(parts[index]); outputBytes += Buffer.byteLength(parts[index]);
+        if (outputBytes > MIGRATION_CAPSULE_ARCHIVE_LIMIT) { stop('native_limit'); return; }
+        if (index === parts.length - 1) break;
+        const line = output.join(''); output = []; outputBytes = 0;
+        if (!pending) continue;
+        let response;
+        try { response = JSON.parse(line); } catch { stop('native_unavailable'); return; }
+        const entry = pending; pending = null; timers.clearTimeout(entry.timer);
+        if (response?.ok === true) entry.resolve(response.value);
+        else {
+          const suffix = /^[a-z0-9_]+$/.test(response?.code || '') ? response.code : 'native_unavailable';
+          const error = failure(suffix); firstError ||= error; entry.reject(error);
+        }
+      }
+    });
+    child.stdout.on('error', cause => stop('native_pipe', cause));
+    child.stdin.on?.('error', cause => stop('native_pipe', cause));
+    child.stderr.on?.('error', cause => stop('native_pipe', cause));
+    child.stderr.resume(); // never capture/log compiler or payload stderr
+  } catch (cause) { stop('native_pipe', cause); }
+  const command = args => new Promise((resolve, reject) => {
+    if (pending || closing || stopping || settled || migrationCapsuleBroker.helperMayStillRun === true) {
+      reject(migrationCapsuleBroker.helperMayStillRun === true ? failure('native_helper_uncertain', firstError, true) : failure('native_exit')); return;
+    }
+    const timer = timers.setTimeout(() => stop('native_timeout'), 120000);
+    pending = { resolve, reject, timer };
+    try {
+      child.stdin.write(JSON.stringify(args) + '\n', cause => { if (cause) stop('native_pipe', cause); });
+    } catch (cause) { stop('native_pipe', cause); }
+  });
+  const close = () => {
+    if (closePromise) return closePromise;
+    closePromise = closed.then(error => { if (error) throw error; });
+    if (!settled) {
+      closing = true; boundClose();
+      try { child.stdin.end(); } catch (cause) { stop('native_pipe', cause); }
+    }
+    return closePromise;
+  };
+  return Object.freeze({ command, close });
 }
 async function migrationCapsuleCapture(root, revision) {
   const broker = await migrationCapsuleBroker();
@@ -95981,8 +96539,9 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         && (entry.phase === 'plain' || hex(entry.archiveSha) && hex(entry.intentSha))
         && (entry.eligibility !== 'eligible' || migrationCapsuleFingerprintShape(entry.newTree)));
   }
-  function sealed(file, recordId, validate, keys = targetKeys) {
-    const store = authenticated => WorkDataStore.createText({ file: () => file, purpose: 'backup', schema: 1, scopeId: 'skill-backup-owner:' + hash(samePathKey(base)).slice(0, 32), recordId,
+  const ownerScope = sourceBase => 'skill-backup-owner:' + hash(samePathKey(sourceBase)).slice(0, 32);
+  function sealed(file, recordId, validate, keys = targetKeys, scopeBase = base) {
+    const store = authenticated => WorkDataStore.createText({ file: () => file, purpose: 'backup', schema: 1, scopeId: ownerScope(scopeBase), recordId,
       keys, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024, enabled: async () => true, writeJson: atomicWriteJson,
       validateSealedText: text => { const valid = validate(safeJsonParse(text, null)); if (valid && authenticated) authenticated(); return valid; } });
     return { write: async value => { if (!validate(value)) migrationCapsuleFail('owner_shape'); await store().write(JSON.stringify(value)); }, read: async () => {
@@ -96680,12 +97239,243 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     } catch (error) { throw representationUncertain(error); }
   }
 
-  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, recoverRepresentation });
+  // Read-only completion proof for the ordinary host's empty stable store.
+  // Recovery/activate may mutate journals; never invoke them from this verifier.
+  async function verifyPublished({ expected } = {}) {
+    const selected = await current(expected), catalog = await catalogStore().read(), binding = await bindingsStore(selected.id).read(), journal = await journalStore().read();
+    if (!selected.id || !catalog || !binding || !journal || !binding.ready || binding.entries.length
+      || binding.generationId !== selected.id || binding.storeId !== catalog.storeId || (binding.mode || 'encrypted') !== safeJsonParse(selected.proof.raw, null)?.mode
+      || journal.phase !== 'kept' || journal.targetId !== selected.id && !binding.sourceRootIds.includes(journal.targetId) || journal.storeId !== catalog.storeId
+      || journal.rootId !== catalog.rootId || journal.volume !== catalog.volume || journal.targetId === selected.id && binding.sourceProof !== journal.sourceProof) migrationCapsuleFail('published_empty_proof');
+    await directory(control); await directory(stableRoot); const info = await platform.info(stableRoot);
+    if (info.id !== catalog.rootId || info.volume !== catalog.volume) migrationCapsuleFail('store_identity');
+    const names = (await fsp.readdir(control)).sort();
+    if (names.join(',') !== ['catalog-v1.sealed', 'objects-v1', 'relocation-v1.sealed'].sort().join(',') || (await fsp.readdir(stableRoot)).length) migrationCapsuleFail('published_empty_proof');
+    await current(selected);
+    return Object.freeze({ generationId: selected.id, storeId: catalog.storeId, rootId: catalog.rootId, volume: catalog.volume,
+      mode: binding.mode || 'encrypted', entries: 0, readOnly: true });
+  }
+  // Portable layer 1 owns only settled controls and terminal typed history.
+  // Any live or retained original-object capsule is refused until its separate
+  // create-owned-portable native staging path is available.
+  const portableStages = new WeakMap();
+  const portableFold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const portableSort = (a,b) => a < b ? -1 : a > b ? 1 : 0;
+  const portableJSON = value => JSON.stringify(value);
+  const portableClone = value => JSON.parse(portableJSON(value));
+  function portableAuthority(files) {
+    const row = files.find(file => portableFold(file.path) === '.work-data/active-v1.json');
+    if (!row) return { id:null,generation:0,mode:'plain',raw:null,sha256:null };
+    const raw = row.data.toString('utf8');
+    if (!Buffer.from(raw).equals(row.data)) migrationCapsuleFail('portable_authority');
+    const value = safeJsonParse(raw,null);
+    if (!exact(value,'schema,id,generation,mode,activeRoot') || value.schema !== 1 || !id48(value.id)
+      || !Number.isSafeInteger(value.generation) || value.generation < 1 || !['plain','encrypted'].includes(value.mode)
+      || value.activeRoot !== 'generations/' + value.id) migrationCapsuleFail('portable_authority');
+    return {id:value.id,generation:value.generation,mode:value.mode,raw,sha256:hash(row.data)};
+  }
+  function portableInput(request) {
+    if (!request || !Array.isArray(request.files) || !Array.isArray(request.directories)
+      || !request.source || typeof request.source.sourcePath !== 'string' || !hex(request.source.sourceSha256)
+      || !Array.isArray(request.source.files) || !Array.isArray(request.source.directories)
+      || typeof request.readCaptured !== 'function') migrationCapsuleFail('portable_host');
+    const completeSource=WorkDataRecovery.skillBackupSource(request.files,request.directories);
+    if(request.source.sourcePath!==completeSource.sourcePath||request.source.sourceSha256!==completeSource.sourceSha256
+      ||portableJSON(request.source.files)!==portableJSON(completeSource.files)||portableJSON(request.source.directories)!==portableJSON(completeSource.directories))migrationCapsuleFail('portable_source');
+    const files = new Map();
+    for (const row of request.files) {
+      if (!row || typeof row.path !== 'string' || !Buffer.isBuffer(row.data) || files.has(portableFold(row.path))) migrationCapsuleFail('portable_source');
+      files.set(portableFold(row.path),row);
+    }
+    const scoped = new Map();
+    for (const row of request.source.files) {
+      const actual=files.get(portableFold(row.path));
+      if (!actual || actual.path !== row.path || actual.data.length !== row.size || hash(actual.data) !== row.sha256
+        || scoped.has(portableFold(row.path))) migrationCapsuleFail('portable_source');
+      scoped.set(portableFold(row.path),actual);
+    }
+    const dirs=new Map(request.source.directories.map(name=>[portableFold(name),name]));
+    if (dirs.size !== request.source.directories.length || request.source.directories.some(name=>!request.directories.includes(name))) migrationCapsuleFail('portable_source');
+    return {files,scoped,dirs,source:request.source,read:request.readCaptured};
+  }
+  async function collectPortable(request,sourceBase) {
+    const input=portableInput(request),remaining=new Map(input.scoped),claimedDirectories=new Set(),records=[],histories=new Map();
+    const take=name=>{const row=remaining.get(portableFold(name));if(!row)migrationCapsuleFail('portable_source');remaining.delete(portableFold(name));return row;};
+    const dir=name=>{const actual=input.dirs.get(portableFold(name));if(!actual)migrationCapsuleFail('portable_source');claimedDirectories.add(portableFold(name));return actual;};
+    const ancestors=name=>{let current=name;for(;;){if(input.dirs.has(portableFold(current)))claimedDirectories.add(portableFold(current));const at=current.lastIndexOf('/');if(at<0)break;current=current.slice(0,at);}};
+    const read=async(path,kind,recordId,validate,{scopeId=ownerScope(sourceBase),mode='encrypted'}={})=>{
+      const row=take(path),result=await input.read(row,{purpose:'backup',schema:1,scopeId,recordId,chunked:true,maxPlaintextBytes:256*1024*1024});
+      if (!result || typeof result.text !== 'string' || result.authenticated !== (mode==='encrypted')) migrationCapsuleFail('portable_carrier');
+      const value=safeJsonParse(result.text,null);if(!validate(value))migrationCapsuleFail('portable_shape');
+      const record={path:row.path,kind,recordId,scopeId,mode,value};records.push(record);ancestors(row.path.slice(0,row.path.lastIndexOf('/')));return record;
+    };
+    const authority=portableAuthority(request.files),controlPrefix='.work-data/skill-backups';
+    let catalog=null,journal=null,representation=null;
+    if(input.dirs.has(controlPrefix)){
+      dir(controlPrefix);
+      if(remaining.has(controlPrefix+'/catalog-v1.sealed'))catalog=await read(controlPrefix+'/catalog-v1.sealed','catalog','catalog-v1',catalogValid);
+      if(remaining.has(controlPrefix+'/relocation-v1.sealed'))journal=await read(controlPrefix+'/relocation-v1.sealed','relocation','relocation-v1',journalValid);
+      if(remaining.has(controlPrefix+'/representation-v1.sealed')){
+        representation=await read(controlPrefix+'/representation-v1.sealed','representation','representation-v1',representationValid);
+        if(!['kept','canceled'].includes(representation.value.phase))migrationCapsuleFail('portable_pending');
+        if(representation.value.entries.length)migrationCapsuleFail('portable_original_capsule_required');
+      }
+      if(!journal || !['kept','canceled'].includes(journal.value.phase))migrationCapsuleFail('portable_pending');
+      if(catalog){if(journal.value.phase!=='kept'||journal.value.storeId!==catalog.value.storeId||journal.value.rootId!==catalog.value.rootId||journal.value.volume!==catalog.value.volume)migrationCapsuleFail('portable_store');dir(controlPrefix+'/objects-v1');}
+      else if(journal.value.phase!=='canceled'||input.dirs.has(controlPrefix+'/objects-v1'))migrationCapsuleFail('portable_store');
+    }
+    const bindingPattern=new RegExp('^\\.work-data/generations/([a-f0-9]{48})/migrations/skill-backup-bindings-v2\\.sealed$',process.platform==='win32'?'i':'');
+    const bindings=[];
+    for(const row of [...remaining.values()]){
+      const match=bindingPattern.exec(row.path);if(!match)continue;const generationId=portableFold(match[1]);
+      const record=await read(row.path,'binding','bindings:'+generationId,bindingValid);
+      if(!catalog||record.value.generationId!==generationId||record.value.storeId!==catalog.value.storeId||!record.value.ready)migrationCapsuleFail('portable_binding');
+      if(record.value.entries.some(entry=>entry.kind!=='history'||entry.eligibility!=='terminal'))migrationCapsuleFail('portable_original_capsule_required');
+      bindings.push(record);
+    }
+    const activeBinding=bindings.find(row=>row.value.generationId===authority.id);
+    if(catalog&&(!authority.id||!activeBinding||(activeBinding.value.mode||'encrypted')!==authority.mode))migrationCapsuleFail('portable_binding');
+    const roots=[catalog?controlPrefix+'/objects-v1':null,input.dirs.has('migrations/skill-backups')?'migrations/skill-backups':null].filter(Boolean);
+    for(const root of roots){
+      dir(root);
+      const markerPattern=new RegExp('^'+root.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/([0-9TZ-]+)/([A-Za-z0-9_-]{1,64})/\\.ruyi-backup-history-v1$',process.platform==='win32'?'i':'');
+      for(const row of [...remaining.values()]){
+        const match=markerPattern.exec(row.path);if(!match)continue;const stamp=match[1],skillId=match[2],wrapper=row.path.slice(0,row.path.lastIndexOf('/'));
+        const marker=take(row.path),header=safeJsonParse(marker.data.toString('utf8'),null);
+        if(!exact(header,'schema,mode')||header.schema!==1||!['plain','encrypted'].includes(header.mode))migrationCapsuleFail('portable_history');
+        const descriptor={stamp,id:skillId,recordId:'skill-backup:'+(process.platform==='win32'?skillId.toLowerCase():skillId)};
+        const binding=migrationBackupHistoryBinding(descriptor),history=await read(wrapper+'/history','history',binding.recordId,value=>migrationBackupHistoryShape(value,descriptor),{scopeId:binding.scopeId,mode:header.mode});
+        for(const entry of history.value.snapshot.entries)if(portableFold(entry.rel)===portableFold(SKILL_IMPORT_RECORD)){
+          const stream=entry.streams.find(stream=>stream.name==='');if(!stream||entry.dir)migrationCapsuleFail('portable_history');const bytes=Buffer.from(stream.data,'base64');
+          try{const opened=await input.read({path:history.path,data:bytes},{purpose:'backup',schema:1,scopeId:'skills',recordId:'skill-import:'+portableFold(skillId),chunked:true,maxPlaintextBytes:16*1024});if(!opened||typeof opened.text!=='string'||Buffer.byteLength(opened.text,'utf8')>16*1024)migrationCapsuleFail('portable_history');}finally{bytes.fill(0);}
+        }
+        if(histories.has(stamp+'/'+portableFold(skillId)))migrationCapsuleFail('portable_binding');
+        histories.set(stamp+'/'+portableFold(skillId),{history,marker:{path:marker.path,sha256:hash(marker.data)},wrapper,stamp,skillId});
+        ancestors(wrapper);
+      }
+      // Empty stamp directories are legitimate retained names, not capabilities.
+      for(const name of input.dirs.values())if(new RegExp('^'+root.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/[0-9TZ-]+$',process.platform==='win32'?'i':'').test(name))claimedDirectories.add(portableFold(name));
+    }
+    for(const binding of bindings)for(const entry of binding.value.entries){const history=histories.get(entry.ref.stamp+'/'+entry.ref.skillId);if(!history||entry.physicalSkillId!==history.skillId||entry.phase!==history.history.value.phase||entry.historyMode!==history.history.mode||entry.archiveSha!==hash(input.files.get(portableFold(history.history.path)).data)||entry.intentSha!==history.marker.sha256)migrationCapsuleFail('portable_binding');}
+    if(remaining.size)migrationCapsuleFail([...remaining.keys()].some(name=>/(?:\/.ruyi-capsule-v1$|\/archive$|\/intent$|\/objects\/|\/plain-v1\/|\/intents\/|\/representations-v1\/)/.test(name))?'portable_original_capsule_required':'portable_unknown');
+    for(const name of input.dirs.values())if(!claimedDirectories.has(portableFold(name))){
+      // Empty fixed control ancestors preserve names without granting authority.
+      if(new RegExp('^\\.work-data/skill-backups/(?:intents|plain-v1|representations-v1)(?:/[a-f0-9]{48}){0,2}$',process.platform==='win32'?'i':'').test(name))claimedDirectories.add(portableFold(name));
+      else migrationCapsuleFail('portable_unknown');
+    }
+    records.sort((a,b)=>portableSort(a.path,b.path));
+    return {schema:1,type:'skill-backup-portable',sourceBase,source:{sourcePath:input.source.sourcePath,sourceSha256:input.source.sourceSha256},authority,records,
+      profile:{originalObjects:'refused',terminalSnapshots:'source-history-only',nativeStreams:'enumerated-default-only',destinationSecurity:'inherited; no source ACL replay'}};
+  }
+  async function capturePortable(request) {
+    if(base.length>4096)migrationCapsuleFail('portable_capacity');
+    const selected=await active(),expected=request?.expected;
+    if(!expected?.proof||selected.proof.raw!==expected.proof.raw||selected.proof.sha256!==expected.proof.sha256)migrationCapsuleFail('generation_changed');
+    const value=await collectPortable(request,base);
+    if(value.authority.raw!==selected.proof.raw||value.authority.sha256!==selected.proof.sha256)migrationCapsuleFail('portable_authority');
+    const input=portableInput(request),roots=new Set();
+    for(const name of input.dirs.values())if(['.work-data/skill-backups','migrations/skill-backups'].includes(portableFold(name)))roots.add(name);
+    for(const row of input.scoped.values())if(/\/migrations\/skill-backup-bindings-v2\.sealed$/i.test(row.path))roots.add(row.path.slice(0,row.path.lastIndexOf('/')));
+    for(const name of roots){
+      const absolute=path.join(base,...name.split('/')),snapshot=await platform.capture(absolute,hash(request.source.sourceSha256+':'+name));
+      if(!migrationCapsuleShape(snapshot)||snapshot.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      const expectedFiles=[...input.files.values()].filter(row=>portableFold(row.path).startsWith(portableFold(name)+'/'));
+      const actual=snapshot.entries.filter(entry=>!entry.dir);if(actual.length!==expectedFiles.length)migrationCapsuleFail('portable_source');
+      for(const entry of actual){const row=input.files.get(portableFold(name+'/'+entry.rel));if(!row||entry.streams.length!==1||entry.streams[0].hash!==hash(row.data)||entry.streams[0].size!==row.data.length)migrationCapsuleFail('portable_source');}
+      if(portableFold(name)==='.work-data/skill-backups'&&value.records.some(row=>row.kind==='catalog')){
+        const catalog=value.records.find(row=>row.kind==='catalog').value,info=await platform.info(stableRoot);
+        if(info.id!==catalog.rootId||info.volume!==catalog.volume)migrationCapsuleFail('store_identity');
+      }
+    }
+    await current(selected);const data=Buffer.from(portableJSON(value));let released=false;
+    return Object.freeze({type:'skill-backup-portable',schema:1,sourcePath:request.source.sourcePath,sourceSha256:request.source.sourceSha256,data,
+      profile:Object.freeze({...value.profile}),release(){if(!released){released=true;data.fill(0);}}});
+  }
+  async function validatePortable({data,...request}={}) {
+    if(!Buffer.isBuffer(data)||data.length<1||data.length>256*1024*1024)migrationCapsuleFail('portable_shape');
+    const text=data.toString('utf8');if(!Buffer.from(text).equals(data))migrationCapsuleFail('portable_shape');const value=safeJsonParse(text,null);
+    if(!exact(value,'schema,type,sourceBase,source,authority,records,profile')||value.schema!==1||value.type!=='skill-backup-portable'
+      ||typeof value.sourceBase!=='string'||value.sourceBase.length>4096||!path.isAbsolute(value.sourceBase)||path.resolve(value.sourceBase)!==value.sourceBase)migrationCapsuleFail('portable_shape');
+    const collected=await collectPortable(request,value.sourceBase);
+    if(portableJSON(collected)!==text)migrationCapsuleFail('portable_binding');
+    return portableClone(collected);
+  }
+  async function stagePortable({target,keysFor,assertTargetExclusive,data,...request}={}) {
+    if(typeof target!=='string'||!path.isAbsolute(target)||!eq(target,path.resolve(target))||typeof keysFor!=='function'||typeof assertTargetExclusive!=='function')migrationCapsuleFail('portable_host');
+    const within=(a,b)=>{const relative=path.relative(samePathKey(a),samePathKey(b));return relative===''||relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative);};
+    if(within(base,target)||within(target,base))migrationCapsuleFail('portable_target');
+    const admission=async()=>{if(await assertTargetExclusive()!==true)migrationCapsuleFail('portable_owner');};
+    await admission();const value=await validatePortable({...request,data});await directory(path.dirname(target));
+    const absent=async file=>{if(await stat(file))migrationCapsuleFail('portable_target_exists');};await absent(target);
+    const stageRoot=path.join(path.dirname(target),'.ruyi-skill-portable-'+crypto.randomBytes(24).toString('hex'));
+    let mutated=false;
+    try{
+      await admission();await fsp.mkdir(stageRoot,{mode:0o700});mutated=true;await directory(stageRoot);
+      const stageIdentity=await platform.info(stageRoot),input=portableInput(request),catalog=value.records.find(row=>row.kind==='catalog'),replacements=[];
+      const allDirs=new Set([stageRoot,path.dirname(stageRoot)]),objectsName=catalog?input.source.directories.find(name=>portableFold(name)==='.work-data/skill-backups/objects-v1'):null;
+      let objectInfo=null,objectProof=null;
+      const makeParents=async relative=>{const parent=path.dirname(path.join(stageRoot,...relative.split('/')));await fsp.mkdir(parent,{recursive:true});await directory(parent);let cursor=parent;for(;;){allDirs.add(cursor);if(eq(cursor,stageRoot))break;cursor=path.dirname(cursor);}};
+      if(catalog){
+        if(!objectsName)migrationCapsuleFail('portable_store');
+        for(const name of input.source.directories.filter(name=>portableFold(name)===portableFold(objectsName)||portableFold(name).startsWith(portableFold(objectsName)+'/')).sort((a,b)=>a.split('/').length-b.split('/').length||portableSort(a,b))){await makeParents(name+'/placeholder');await directory(path.join(stageRoot,...name.split('/')));}
+        const objectRoot=path.join(stageRoot,...objectsName.split('/'));objectInfo=await platform.info(objectRoot);
+        if(!id24(objectInfo.id)||typeof objectInfo.volume!=='string')migrationCapsuleFail('portable_store');
+        for(const row of input.scoped.values())if(portableFold(row.path).startsWith(portableFold(objectsName)+'/')){
+          await makeParents(row.path);const handle=await fsp.open(path.join(stageRoot,...row.path.split('/')),'wx',0o600);try{await handle.writeFile(row.data);await handle.sync();}finally{await handle.close();}
+        }
+        objectProof=await platform.capture(objectRoot,hash(value.source.sourceSha256+':target-store'));
+        if(!migrationCapsuleShape(objectProof)||objectProof.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      }
+      const validators={catalog:catalogValid,relocation:journalValid,representation:representationValid,binding:bindingValid};
+      for(const record of value.records){
+        if(record.kind==='history')continue;const validate=validators[record.kind];if(!validate)migrationCapsuleFail('portable_shape');
+        const staged=portableClone(record.value);
+        if(record.kind==='catalog'||record.kind==='relocation'&&staged.phase==='kept'){if(!objectInfo)migrationCapsuleFail('portable_store');staged.rootId=objectInfo.id;staged.volume=objectInfo.volume;}
+        await makeParents(record.path);const file=path.join(stageRoot,...record.path.split('/')),keys=await keysFor(record.path);
+        if(!keys||typeof keys.snapshot!=='function')migrationCapsuleFail('portable_keys');
+        await sealed(file,record.recordId,validate,keys,target).write(staged);
+        const reopened=await sealed(file,record.recordId,validate,keys,target).read();if(portableJSON(reopened)!==portableJSON(staged))migrationCapsuleFail('portable_binding');
+        const bytes=await fsp.readFile(file);replacements.push({path:record.path,data:bytes,sha256:hash(bytes)});
+      }
+      const stageProof=await platform.capture(stageRoot,hash(value.source.sourceSha256+':stage'));if(!migrationCapsuleShape(stageProof)||stageProof.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      await admission();await absent(target);await conversionNative.flush([...allDirs]);
+      const token=Object.freeze({stageRoot,stageIdentity:Object.freeze({...stageIdentity}),objectsRoot:objectsName,files:Object.freeze(replacements.map(row=>Object.freeze({...row}))),
+        skipDirectories:Object.freeze(objectsName?[objectsName]:[]),skipFiles:Object.freeze(objectsName?[...input.scoped.values()].filter(row=>portableFold(row.path).startsWith(portableFold(objectsName)+'/')).map(row=>row.path):[]),
+        profile:Object.freeze({...value.profile}),release(){for(const row of replacements)row.data.fill(0);}});
+      portableStages.set(token,{target,stageRoot,stageIdentity,stageProof,objectsName,objectInfo,objectProof,replacements,admission,installed:false,targetIdentity:null});return token;
+    }catch(cause){if(!mutated)throw cause;throw Object.assign(new Error('work_data_backup.portable_stage_failed',{cause}),{code:'work_data_backup.portable_stage_failed',apiCode:'work_data_backup.portable_stage_failed',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,stageRetained:stageRoot});}
+  }
+  async function verifyPortableInstalled(token){
+    const owned=portableStages.get(token);if(!owned?.installed)migrationCapsuleFail('portable_token');await owned.admission();
+    await directory(owned.target);const actualRoot=await fsp.lstat(owned.target,{bigint:true});
+    if(String(actualRoot.dev)!==owned.targetIdentity.dev||String(actualRoot.ino)!==owned.targetIdentity.ino)migrationCapsuleFail('portable_target_changed');
+    for(const row of owned.replacements){if(hash(row.data)!==row.sha256||await fileHash(path.join(owned.target,...row.path.split('/')))!==row.sha256)migrationCapsuleFail('portable_target_changed');}
+    for(const parent of new Set(owned.replacements.map(row=>path.dirname(path.join(owned.target,...row.path.split('/')))))){const actual=await platform.capture(parent,owned.stageProof.revision);if(!migrationCapsuleShape(actual)||actual.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');}
+    if(owned.objectsName){const root=path.join(owned.target,...owned.objectsName.split('/')),info=await platform.info(root),actual=await platform.capture(root,owned.objectProof.revision);if(info.id!==owned.objectInfo.id||info.volume!==owned.objectInfo.volume||!migrationCapsuleSame(actual,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_target_changed');}
+    await owned.admission();return Object.freeze({target:owned.target,readOnly:true,originalObjects:'refused',terminalSnapshots:'source-history-only'});
+  }
+  async function installPortable(token,{targetIdentity}={}){
+    const owned=portableStages.get(token);if(!owned||owned.installed||owned.installStarted)migrationCapsuleFail('portable_token');await owned.admission();
+    if(!targetIdentity||!['dev','ino'].every(name=>typeof targetIdentity[name]==='string'))migrationCapsuleFail('portable_target');
+    await directory(owned.target);const actual=await fsp.lstat(owned.target,{bigint:true});if(String(actual.dev)!==targetIdentity.dev||String(actual.ino)!==targetIdentity.ino)migrationCapsuleFail('portable_target_changed');
+    const stage=await platform.info(owned.stageRoot);if(stage.id!==owned.stageIdentity.id||stage.volume!==owned.stageIdentity.volume)migrationCapsuleFail('portable_stage_changed');
+    const stageCurrent=await platform.capture(owned.stageRoot,owned.stageProof.revision);if(!migrationCapsuleSame(stageCurrent,migrationCapsuleFingerprint(owned.stageProof)))migrationCapsuleFail('portable_stage_changed');
+    for(const row of owned.replacements)if(hash(row.data)!==row.sha256||await fileHash(path.join(owned.target,...row.path.split('/')))!==row.sha256)migrationCapsuleFail('portable_target_changed');
+    try{
+      owned.installStarted=true;
+      if(owned.objectsName){const source=path.join(owned.stageRoot,...owned.objectsName.split('/')),target=path.join(owned.target,...owned.objectsName.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const current=await platform.capture(source,owned.objectProof.revision);if(!migrationCapsuleSame(current,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_stage_changed');const moved=await platform.move({source,target,id:owned.objectInfo.id});if(moved.id!==owned.objectInfo.id||moved.volume!==owned.objectInfo.volume)migrationCapsuleFail('portable_store');}
+      owned.installed=true;owned.targetIdentity=Object.freeze({...targetIdentity});await conversionNative.flush([owned.target,path.join(owned.target,'.work-data'),path.join(owned.target,'.work-data','skill-backups')].filter(root=>owned.objectsName||eq(root,owned.target)));
+      return await verifyPortableInstalled(token);
+    }catch(cause){throw Object.assign(new Error('work_data_backup.portable_install_uncertain',{cause}),{code:'work_data_backup.portable_install_uncertain',apiCode:'work_data_backup.portable_install_uncertain',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,targetRetained:owned.target,stageRetained:owned.stageRoot});}
+  }
+
+  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, recoverRepresentation, verifyPublished, capturePortable, validatePortable, stagePortable, installPortable, verifyPortableInstalled });
 }
 
 // 迟绑定挂接(见 00-boot 的 MigrationHooks 头注)。
 Object.assign(MigrationHooks, {
   createBackupOwner: createMigrationBackupOwner,
+  helperMayStillRun: () => migrationCapsuleBroker.helperMayStillRun === true,
   recover: () => migrationSerial(async () => {}),
   withSkillRead: work => migrationSerial(work),
   scan: migrationScan,
@@ -100771,33 +101561,1140 @@ const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks
   receiptPath:workDataSetupReceiptPath,receiptOwner:workDataSetupReceiptOwner});
 Object.assign(WorkDataSetupHooks,workDataSetup);
 
+// Cold-process handoff. No config/store read, ownership release or warm root switch
+// occurs in the parent. The worker needs both an authenticated IPC commitment and
+// actual parent death before acquiring the base. All mutation belongs to execute().
+const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
+  const VERSION = 1, MAX_INPUT = 32 * 1024, ID = /^[a-f0-9]{48}$/;
+  const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_))/i;
+  const fail = (suffix, uncertain = false) => Object.assign(new Error('work_data_setup.' + suffix), {
+    code: 'work_data_setup.' + suffix, apiCode: 'work_data_setup.' + suffix,
+    statusCode: 409, operationMayHaveExecuted: uncertain, retry: false,
+  });
+  const keys = value => value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.keys(value).sort().join(',') : '';
+  const inside = (parent, value) => {
+    const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+    const rel = pathApi.relative(fold(parent), fold(value));
+    return rel === '' || rel !== '..' && !rel.startsWith('..' + pathApi.sep) && !pathApi.isAbsolute(rel);
+  };
+  function absolute(value) {
+    return typeof value === 'string' && value.length <= 4096 && !/[\0\r\n]/.test(value)
+      && pathApi.isAbsolute(value) && pathApi.resolve(value) === value;
+  }
+  function validate(value) {
+    if (keys(value) !== 'base,expectedAuthority,id,nonce,operation,parentPid,password,paths,schema,serve'
+      || value.schema !== VERSION || !ID.test(value.id || '') || !/^[a-f0-9]{64}$/.test(value.nonce || '')
+      || !['enable', 'disable', 'export', 'restore'].includes(value.operation)
+      || !absolute(value.base) || pathApi.parse(value.base).root === value.base
+      || !Number.isSafeInteger(value.parentPid) || value.parentPid < 1
+      || typeof value.password !== 'string' || value.password.length < 12 || value.password.length > 1024
+      || Buffer.byteLength(value.password, 'utf8') > 1024 || Buffer.from(value.password).toString('utf8') !== value.password
+      || /\0/.test(value.password)) throw fail('input_invalid');
+    if (keys(value.expectedAuthority) !== 'generation,id,mode,sha256'
+      || !Number.isSafeInteger(value.expectedAuthority.generation) || value.expectedAuthority.generation < 0
+      || !['plain', 'encrypted'].includes(value.expectedAuthority.mode)
+      || (value.expectedAuthority.generation === 0 ? value.expectedAuthority.id !== null || value.expectedAuthority.sha256 !== null
+        : !ID.test(value.expectedAuthority.id || '') || !/^[a-f0-9]{64}$/.test(value.expectedAuthority.sha256 || ''))) throw fail('authority_invalid');
+    if (keys(value.paths) !== 'backupDirectory,targetDirectory,uploadFile,uploadSha256'
+      || !absolute(value.paths.backupDirectory) || inside(value.base, value.paths.backupDirectory) || inside(value.paths.backupDirectory, value.base)
+      || !(value.paths.targetDirectory === null || absolute(value.paths.targetDirectory)
+        && !inside(value.base, value.paths.targetDirectory) && !inside(value.paths.targetDirectory, value.base))
+      || !(value.paths.uploadFile === null || absolute(value.paths.uploadFile) && !inside(value.base, value.paths.uploadFile))
+      || !(value.paths.uploadSha256 === null || /^[a-f0-9]{64}$/.test(value.paths.uploadSha256))
+      || (value.operation === 'restore') !== (value.paths.targetDirectory !== null && value.paths.uploadFile !== null)
+      || (value.operation === 'restore') !== (value.paths.uploadSha256 !== null)
+      || value.operation !== 'restore' && (value.paths.targetDirectory !== null || value.paths.uploadFile !== null)) throw fail('path_invalid');
+    if (keys(value.serve) !== 'host,port' || !['127.0.0.1', '::1', 'localhost'].includes(value.serve.host)
+      || !Number.isInteger(value.serve.port) || value.serve.port < 1 || value.serve.port > 65535) throw fail('listener_invalid');
+    return value;
+  }
+  function create(host) {
+    const pending = new Map();
+    const wait = (ms, callback) => host.setTimeout(callback, ms);
+    function environment(base) {
+      const env = {};
+      for (const [key, value] of Object.entries(host.env)) if (!SECRET_ENV.test(key)
+        && !['NODE_OPTIONS', 'NODE_PATH', 'RUYI_TEST_SERVER_JS', 'WIN_CLAUDE_WORKBENCH_HOME'].includes(key.toUpperCase())) env[key] = value;
+      env.RUYI_HOME = base;
+      return env;
+    }
+    async function start(request) {
+      if (pending.size) throw fail('busy');
+      const base = await host.base();
+      const input = validate({ schema: VERSION, id: request.id, nonce: cryptoApi.randomBytes(32).toString('hex'),
+        base, parentPid: host.pid, operation: request.operation, password: request.password,
+        expectedAuthority: { ...request.expectedAuthority },
+        paths: { backupDirectory: request.backupDirectory, targetDirectory: request.targetDirectory || null,
+          uploadFile: request.uploadFile || null, uploadSha256: request.uploadSha256 || null }, serve: { ...host.listener() } });
+      // No await after the final concurrent-start check until this exact child is registered.
+      if (pending.size) throw fail('busy');
+      const child = host.spawn(environment(base));
+      let state = 'waiting', closed = false, readyResolve, readyReject, armedResolve, armedReject;
+      const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
+      const armed = new Promise((resolve, reject) => { armedResolve = resolve; armedReject = reject; });
+      // A pre-handoff failure can reject armed before handoff() attaches a consumer.
+      void armed.catch(() => {}); void ready.catch(() => {});
+      let timer;
+      const release = () => {
+        if (timer) { host.clearTimeout(timer); timer = null; }
+        if (pending.get(input.id) === child) pending.delete(input.id);
+      };
+      const uncertain = () => state === 'committing' || state === 'armed';
+      const rejected = suffix => {
+        if (closed) return;
+        closed = true;
+        const error = fail(suffix, uncertain()); readyReject(error); armedReject(error);
+        // A commitment uncertainty never reopens parent admission. No kill/retry is
+        // attempted: the child may already be obtaining the actual base owner.
+        if (!uncertain()) release();
+      };
+      child.on('error', () => rejected('worker_launch_failed'));
+      child.on('exit', () => rejected('worker_exited'));
+      child.on('disconnect', () => { if (state !== 'armed') rejected('worker_disconnected'); });
+      child.on('message', message => {
+        if (closed || keys(message) !== 'id,kind,nonce,schema' || message.schema !== VERSION
+          || message.id !== input.id || message.nonce !== input.nonce) return;
+        if (message.kind === 'ready' && state === 'waiting') {
+          state = 'ready'; if (timer) { host.clearTimeout(timer); timer = null; } readyResolve();
+        } else if (message.kind === 'armed' && state === 'committing') {
+          state = 'armed'; if (timer) { host.clearTimeout(timer); timer = null; } armedResolve();
+        }
+      });
+      pending.set(input.id, child);
+      timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_ready_timeout'));
+      const bytes = Buffer.from(JSON.stringify(input), 'utf8');
+      input.password = null;
+      if (bytes.length > MAX_INPUT) { bytes.fill(0); rejected('input_invalid'); }
+      else {
+        child.stdin.on('error', () => rejected('worker_input_failed'));
+        child.stdin.end(bytes, () => bytes.fill(0));
+      }
+      const send = kind => new Promise((resolve, reject) => {
+        try { child.send({ schema: VERSION, kind, id: input.id, nonce: input.nonce }, error => error ? reject(error) : resolve()); }
+        catch (error) { reject(error); }
+      });
+      return Object.freeze({ ready,
+        async cancel() {
+          if (state === 'committing' || state === 'armed') throw fail('handoff_committed', true);
+          if (state === 'cancelled') return;
+          state = 'cancelled'; closed = true; readyReject(fail('cancelled')); armedReject(fail('cancelled'));
+          try { await send('cancel'); } catch { /* A dead uncommitted child cannot execute. */ }
+          // The OS is the final owner of pipe handles. A nonresponsive uncommitted
+          // worker remains incapable of execution; cleanup touches only this child.
+          await host.stopUncommitted(child); release();
+        },
+        async handoff() {
+          await ready;
+          if (closed || state !== 'ready') throw fail('handoff_invalid', uncertain());
+          state = 'committing';
+          timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_arm_timeout'));
+          try { await send('go'); await armed; }
+          catch { throw fail('handoff_uncertain', true); }
+          // exitParent is called only after the child acknowledges the irrevocable
+          // commitment. It exits the process; it must never release ownership early.
+          await host.exitParent({ id: input.id });
+        },
+      });
+    }
+    async function runCold(channel) {
+      if (!channel.parentConnected()) throw fail('ipc_required');
+      const payload = await channel.readInput(MAX_INPUT);
+      let input;
+      try {
+        if (!Buffer.isBuffer(payload) || payload.length > MAX_INPUT) throw fail('input_invalid');
+        const raw = payload.toString('utf8');
+        if (!Buffer.from(raw, 'utf8').equals(payload)) throw fail('input_invalid');
+        input = validate(JSON.parse(raw));
+      } catch { throw fail('input_invalid'); }
+      finally { if (Buffer.isBuffer(payload)) payload.fill(0); }
+      if (input.parentPid === host.pid || input.parentPid !== channel.parentPid()) throw fail('parent_invalid');
+      let committed = false, helperHold = false, ownedFailureHeld = false;
+      try {
+        const command = await channel.waitCommand({ id: input.id, nonce: input.nonce,
+          schema: VERSION, timeoutMs: host.handshakeTimeoutMs || 15_000,
+          onListening: () => channel.send({ schema: VERSION, kind: 'ready', id: input.id, nonce: input.nonce }) });
+        if (command !== 'go') return Object.freeze({ phase: 'cancelled' });
+        committed = true;
+        await channel.send({ schema: VERSION, kind: 'armed', id: input.id, nonce: input.nonce });
+        // IPC disconnect alone is insufficient: a still-live/EPERM PID prevents
+        // takeover. Parent death is necessary even if someone releases its IPC lock.
+        await host.waitParentExit(input.parentPid);
+        const base = await host.canonical(input.base);
+        if (base !== await host.canonical(await host.base())) throw fail('base_changed', true);
+        const owner = await host.acquire([base]);
+        let active = true;
+        const assertExclusive = candidate => active && candidate === owner
+          && owner.roots.some(root => root === base);
+        try {
+          const current = await host.readAuthority(base);
+          if (current.generation !== input.expectedAuthority.generation
+            || current.id !== input.expectedAuthority.id || current.mode !== input.expectedAuthority.mode
+            || current.proof.sha256 !== input.expectedAuthority.sha256) throw fail('authority_changed', true);
+          return await host.execute({ ...input, nonce: undefined, ownership: owner, assertExclusive });
+        } catch (error) {
+          // A concrete native failure can arrive before the outer host records
+          // it. Preserve that fact before considering release of the base owner.
+          try {helperHold = error?.helperMayStillRun === true;} catch {helperHold = true;}
+          if (typeof host.onOwnedFailure === 'function') {
+            ownedFailureHeld = true;input.password = null;
+            const safeInput = Object.freeze({id:input.id,operation:input.operation,parentPid:input.parentPid,
+              serve:Object.freeze({...input.serve}),expectedAuthority:Object.freeze({...input.expectedAuthority})});
+            await host.onOwnedFailure({error,ownership:owner,assertExclusive,base,input:safeInput});
+          }
+          throw error;
+        } finally {
+          // execute owns native-helper uncertainty. It must settle all helpers before
+          // returning. A helperMayStillRun result cannot release its root exclusion.
+          try {if (host.helperMayStillRun() !== false) helperHold = true;} catch {helperHold = true;}
+          if (!helperHold && !ownedFailureHeld) { active = false; await owner.release(); }
+        }
+      } catch (error) {
+        // Never mutate a foreign/frozen thrown value or infer retry from its shape.
+        throw Object.assign(fail(committed ? 'worker_failed_after_handoff' : 'worker_failed', committed), { cause: error,
+          ...(helperHold ? {helperMayStillRun:true} : {}),...(ownedFailureHeld ? {ownershipRetained:true} : {}) });
+      } finally { input.password = null; }
+    }
+    return Object.freeze({ start, runCold, environment, busy: () => pending.size !== 0 });
+  }
+  function processChannel(proc = process) {
+    return Object.freeze({
+      parentConnected: () => proc.connected === true && typeof proc.send === 'function',
+      parentPid: () => proc.ppid,
+      readInput: maximum => new Promise((resolve, reject) => {
+        const parts = []; let bytes = 0, settled = false;
+        const finish = error => {
+          if (settled) return; settled = true;
+          proc.stdin.removeListener('data', data); proc.stdin.removeListener('end', end);
+          proc.stdin.removeListener('error', bad); proc.removeListener('disconnect', disconnected);
+          const result = error ? null : Buffer.concat(parts, bytes);
+          for (const part of parts) part.fill(0);
+          if (error) reject(error); else resolve(result);
+        };
+        const data = chunk => {
+          if (!Buffer.isBuffer(chunk)) return finish(fail('input_invalid'));
+          bytes += chunk.length;
+          if (bytes > maximum) { chunk.fill(0); proc.stdin.pause(); return finish(fail('input_invalid')); }
+          parts.push(Buffer.from(chunk)); chunk.fill(0);
+        };
+        const end = () => finish();
+        const bad = () => finish(fail('input_invalid'));
+        const disconnected = () => finish(fail('parent_disconnected'));
+        proc.stdin.on('data', data); proc.stdin.once('end', end); proc.stdin.once('error', bad);
+        proc.once('disconnect', disconnected);
+        if (!proc.connected) disconnected();
+      }),
+      send: message => new Promise((resolve, reject) => {
+        if (!proc.connected) return reject(fail('parent_disconnected'));
+        try { proc.send(message, error => error ? reject(error) : resolve()); } catch (error) { reject(error); }
+      }),
+      waitCommand: ({ id, nonce, schema, timeoutMs, onListening }) => new Promise((resolve, reject) => {
+        let settled = false, timer;
+        const finish = (error, kind) => {
+          if (settled) return; settled = true; clearTimeout(timer);
+          proc.removeListener('message', message); proc.removeListener('disconnect', disconnected);
+          if (error) reject(error); else resolve(kind);
+        };
+        const message = value => {
+          if (keys(value) === 'id,kind,nonce,schema' && value.id === id && value.nonce === nonce
+            && value.schema === schema && ['go', 'cancel'].includes(value.kind)) finish(null, value.kind);
+        };
+        const disconnected = () => finish(fail('parent_disconnected'));
+        proc.on('message', message); proc.once('disconnect', disconnected);
+        timer = setTimeout(() => finish(fail('commit_timeout')), timeoutMs);
+        Promise.resolve().then(onListening).catch(error => finish(error));
+        if (!proc.connected) disconnected();
+      }),
+    });
+  }
+  async function waitForProcessExit(pid, { probe = pid => process.kill(pid, 0),
+    delay = ms => new Promise(resolve => setTimeout(resolve, ms)), timeoutMs = 120_000,
+    now = Date.now } = {}) {
+    const deadline = now() + timeoutMs;
+    for (;;) {
+      try { probe(pid); } catch (error) {
+        if (error?.code === 'ESRCH') return;
+        throw fail('parent_exit_unverified', true);
+      }
+      if (now() >= deadline) throw fail('parent_exit_timeout', true);
+      await delay(50);
+    }
+  }
+  function spawnCold(command, env) {
+    if (!command || typeof command.command !== 'string' || !Array.isArray(command.args)
+      || !command.args.every(value => typeof value === 'string')) throw fail('command_invalid');
+    // Windows libuv normally puts a non-detached child in its own kill-on-close
+    // job. That job dies with old serve, before takeover. DETACHED_PROCESS avoids
+    // that libuv job; this does NOT request CREATE_BREAKAWAY_FROM_JOB. An outer
+    // desktop job is inherited and still kills the worker when the app closes.
+    return require('node:child_process').spawn(command.command, command.args, {
+      env, detached: process.platform === 'win32', windowsHide: true,
+      stdio: ['pipe', 'ignore', 'ignore', 'ipc'],
+    });
+  }
+  return Object.freeze({ create, validate, processChannel, waitForProcessExit, spawnCold, MAX_INPUT });
+})(require('node:crypto'), require('node:path'));
+
+// The cold lifecycle's one pending intent. A private issued receipt is required
+// for every update/removal. A failed or interrupted write never authorizes the
+// next mutation; the next boot refuses before normal recovery/ensureDirs.
+const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
+  const NAME = 'maintenance-v1.json', STAGE = '.maintenance-v1.stage-', LIMIT = 32 * 1024;
+  const hash = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
+  const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const fail = (suffix, cause) => Object.assign(new Error('work_data_setup.' + suffix), {
+    code: 'work_data_setup.' + suffix, apiCode: 'work_data_setup.' + suffix, statusCode: 409,
+    retry: false, operationMayHaveExecuted: true, ...(cause !== undefined ? { cause } : {}),
+  });
+  async function directory(root, missing = false) {
+    const absolute = pathApi.resolve(root), parsed = pathApi.parse(absolute);
+    let current = parsed.root;
+    for (const part of ['', ...absolute.slice(parsed.root.length).split(pathApi.sep).filter(Boolean)]) {
+      if (part) current = pathApi.join(current, part);
+      let stat;
+      try { stat = await fsApi.lstat(current); } catch (error) { if (missing && error.code === 'ENOENT') return false; throw error; }
+      if (!stat.isDirectory() || stat.isSymbolicLink() || fold(await fsApi.realpath(current)) !== fold(current)) throw fail('control_alias');
+    }
+    return true;
+  }
+  async function read(file) {
+    const before = await fsApi.lstat(file, { bigint: true });
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size > BigInt(LIMIT)) throw fail('intent_invalid');
+    const handle = await fsApi.open(file, 'r');
+    try {
+      const bytes = Buffer.alloc(LIMIT + 1); let used = 0;
+      for (;;) {
+        const result = await handle.read(bytes, used, bytes.length - used, null); used += result.bytesRead;
+        if (used > LIMIT) throw fail('intent_invalid');
+        if (!result.bytesRead) break;
+      }
+      const after = await handle.stat({ bigint: true });
+      if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size
+        || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs) throw fail('intent_changed');
+      return { bytes: bytes.subarray(0, used), identity: { dev: String(after.dev), ino: String(after.ino) } };
+    } finally { await handle.close(); }
+  }
+  function stateValid(state) {
+    return state && typeof state === 'object' && !Array.isArray(state)
+      && Object.keys(state).sort().join(',') === 'backup,candidate,createdAt,expectedAuthority,id,operation,phase,schema'
+      && state.schema === 1 && /^[a-f0-9]{48}$/.test(state.id || '')
+      && ['enable', 'disable', 'restore'].includes(state.operation)
+      && ['prepared', 'candidate', 'key-ready', 'published', 'complete'].includes(state.phase)
+      && typeof state.createdAt === 'string' && new Date(state.createdAt).toISOString() === state.createdAt
+      && state.backup && Object.keys(state.backup).sort().join(',') === 'path,sha256'
+      && typeof state.backup.path === 'string' && pathApi.isAbsolute(state.backup.path)
+      && /^[a-f0-9]{64}$/.test(state.backup.sha256 || '')
+      && state.expectedAuthority && Object.keys(state.expectedAuthority).sort().join(',') === 'generation,id,mode,sha256'
+      && Number.isSafeInteger(state.expectedAuthority.generation) && state.expectedAuthority.generation >= 0
+      && (state.expectedAuthority.id === null || /^[a-f0-9]{48}$/.test(state.expectedAuthority.id))
+      && ['plain', 'encrypted'].includes(state.expectedAuthority.mode)
+      && (state.expectedAuthority.sha256 === null || /^[a-f0-9]{64}$/.test(state.expectedAuthority.sha256))
+      && (state.candidate === null || state.candidate && Object.keys(state.candidate).sort().join(',') === 'headerSha256,id,mode'
+        && /^[a-f0-9]{48}$/.test(state.candidate.id || '') && ['plain', 'encrypted'].includes(state.candidate.mode)
+        && (state.candidate.headerSha256 === null || /^[a-f0-9]{64}$/.test(state.candidate.headerSha256)));
+  }
+  function create({ base, ownership, assertExclusive, assertDurableBackup, flush }) {
+    if (typeof base !== 'string' || !pathApi.isAbsolute(base) || pathApi.resolve(base) !== base
+      || typeof assertExclusive !== 'function' || typeof assertDurableBackup !== 'function'
+      || typeof flush !== 'function') throw fail('control_host_invalid');
+    const root = pathApi.join(base, '.work-data'), file = pathApi.join(root, NAME), issued = new WeakMap();
+    let writing = false;
+    async function admission() {
+      if (!ownership || !Array.isArray(ownership.roots) || !ownership.roots.some(value => fold(value) === fold(base))
+        || await assertExclusive(ownership) !== true) throw fail('ownership_required');
+      await directory(base);
+    }
+    async function inspect() {
+      await admission(); if (!await directory(root, true)) return Object.freeze({ pending: false });
+      const names = await fsApi.readdir(root);
+      if (names.some(name => fold(name).startsWith(STAGE))) throw fail('intent_stage_pending');
+      if (!names.some(name => fold(name) === NAME)) return Object.freeze({ pending: false });
+      const captured = await read(file); let state;
+      try {
+        const text = captured.bytes.toString('utf8'); if (!Buffer.from(text).equals(captured.bytes)) throw fail('intent_invalid');
+        state = JSON.parse(text); if (!stateValid(state)) throw fail('intent_invalid');
+      } catch (cause) { throw fail('intent_invalid', cause); }
+      return Object.freeze({ pending: true, id: state.id, operation: state.operation, phase: state.phase,
+        backupPath: state.backup.path, sha256: hash(captured.bytes) });
+    }
+    async function verify(receipt) {
+      const known = issued.get(receipt); if (!known) throw fail('intent_receipt_invalid');
+      await admission(); await directory(root); const captured = await read(file);
+      if (hash(captured.bytes) !== known.sha256 || captured.identity.dev !== known.identity.dev
+        || captured.identity.ino !== known.identity.ino) throw fail('intent_changed');
+      return receipt;
+    }
+    async function write(state, previous = null) {
+      let serialized, selected;
+      try { serialized = JSON.stringify(state); selected = JSON.parse(serialized); if (!stateValid(selected)) throw fail('intent_invalid'); }
+      catch (cause) { throw fail('intent_invalid', cause); }
+      if (Buffer.byteLength(serialized) > LIMIT) throw fail('intent_invalid');
+      if (writing) throw fail('intent_busy'); writing = true;
+      let stage;
+      try {
+        await admission();
+        const observed = await inspect();
+        if (await assertDurableBackup(JSON.parse(serialized).backup) !== true) throw fail('backup_unverified');
+        if (previous) {
+          await verify(previous); const prior = issued.get(previous), next = JSON.parse(serialized);
+          for (const key of ['schema', 'id', 'operation', 'createdAt', 'expectedAuthority', 'backup'])
+            if (JSON.stringify(prior.state[key]) !== JSON.stringify(next[key])) throw fail('intent_binding_changed');
+          const order = ['prepared', 'candidate', 'key-ready', 'published', 'complete'];
+          const difference = order.indexOf(next.phase) - order.indexOf(prior.state.phase);
+          if (difference < 0 || difference > 1) throw fail('intent_phase_invalid');
+          if (prior.state.candidate && (!next.candidate || prior.state.candidate.id !== next.candidate.id
+            || prior.state.candidate.mode !== next.candidate.mode
+            || prior.state.candidate.headerSha256 !== null && prior.state.candidate.headerSha256 !== next.candidate.headerSha256)) throw fail('intent_binding_changed');
+        }
+        else {
+          if (selected.phase !== 'prepared' || selected.candidate !== null) throw fail('intent_phase_invalid');
+          if (observed.pending) throw fail('intent_pending');
+        }
+        if (selected.phase !== 'prepared' && selected.candidate === null
+          || ['key-ready', 'published', 'complete'].includes(selected.phase)
+            && selected.candidate?.mode === 'encrypted' && !selected.candidate.headerSha256) throw fail('intent_phase_invalid');
+        if (!await directory(root, true)) await fsApi.mkdir(root, { mode: 0o700 });
+        await directory(root);
+        stage = pathApi.join(root, STAGE + cryptoApi.randomBytes(24).toString('hex'));
+        const handle = await fsApi.open(stage, 'wx', 0o600);
+        try { await handle.writeFile(serialized, 'utf8'); await handle.sync(); } finally { await handle.close(); }
+        await flush([root, base]); await admission();
+        if (previous) await verify(previous);
+        else { try { await fsApi.lstat(file); throw fail('intent_pending'); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
+        await fsApi.rename(stage, file); stage = null;
+        await flush([root, base]);
+        const captured = await read(file);
+        if (hash(captured.bytes) !== hash(Buffer.from(serialized))) throw fail('intent_changed');
+        const receipt = Object.freeze({ name: '.work-data/' + NAME, sha256: hash(captured.bytes),
+          identity: Object.freeze(captured.identity), id: selected.id, phase: selected.phase });
+        issued.set(receipt, { ...receipt, state: JSON.parse(serialized) }); return receipt;
+      } catch (cause) {
+        // Retain a staged/selected intent on every uncertainty. Normal boot sees
+        // either name and refuses; no data mutation follows a failed write.
+        throw fail('intent_write_failed', cause);
+      } finally { writing = false; }
+    }
+    async function finish(receipt, verifyPublished) {
+      if (writing) throw fail('intent_busy'); writing = true;
+      try {
+        await inspect();
+        const current = await verify(receipt);
+        if (current.phase !== 'complete' || issued.get(receipt).state.phase !== 'complete'
+          || typeof verifyPublished !== 'function' || await verifyPublished() !== true) throw fail('completion_unverified');
+        await verify(receipt); await fsApi.unlink(file); await flush([root, base]); issued.delete(receipt);
+      } finally { writing = false; }
+    }
+    return Object.freeze({ inspect, write, verify, finish });
+  }
+  return Object.freeze({ create });
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'));
+
+// Cold worker progress transport only. Its caller proves parent death and current
+// exclusive OS ownership. It neither opens the data root nor starts maintenance.
+const WorkDataMaintenanceHttp = ((httpApi, cryptoApi) => {
+  const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
+  const fail = suffix => Object.assign(Error('work_data_setup.' + suffix), {code:'work_data_setup.' + suffix});
+  const object = value => value && typeof value === 'object' && !Array.isArray(value);
+  function authority(value) {
+    if (!object(value) || !Number.isSafeInteger(value.generation) || value.generation < 0 || !['plain','encrypted'].includes(value.mode)
+      || (value.generation === 0 ? value.id !== null || value.sha256 !== null : !ID.test(value.id || '') || !SHA.test(value.sha256 || ''))) throw fail('status_unavailable');
+    return {generation:value.generation,id:value.id,mode:value.mode,sha256:value.sha256};
+  }
+  function create(host) {
+    if (!host || typeof host.id !== 'string' || !ID.test(host.id) || !Number.isInteger(host.port) || host.port < 1 || host.port > 65535
+      || host.bindHost !== undefined && !['127.0.0.1','::1','localhost'].includes(host.bindHost)
+      || typeof host.assertColdOwner !== 'function' || typeof host.readStatus !== 'function') throw fail('http_host_invalid');
+    // Capture identity before any callback. No mutable caller field selects a route.
+    const id = host.id, port = host.port, bindHost = host.bindHost === undefined ? '127.0.0.1' : host.bindHost;
+    const assertColdOwner = host.assertColdOwner, readStatus = host.readStatus;
+    const token = cryptoApi.randomBytes(32), sockets = new Set();
+    let state = 'new', starting = null, closing = null;
+    const assertOwner = () => {if (assertColdOwner() !== true) throw fail('ownership_required');};
+    const snapshot = () => {
+      const value = readStatus();
+      if (!object(value) || !object(value.job)) throw fail('status_unavailable');
+      const source = value.job;
+      if (source.id !== id || !['enable','disable','export','restore'].includes(source.operation)
+        || !['handoff','uncertain','failed'].includes(source.state) || !Number.isSafeInteger(source.createdAt) || source.createdAt < 0
+        || source.phase !== undefined && (typeof source.phase !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(source.phase))
+        || source.error != null && (typeof source.error !== 'string' || !/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(source.error))
+        || source.backupPath != null && (typeof source.backupPath !== 'string' || !source.backupPath.length || source.backupPath.length > 4096 || /[\0\r\n]/.test(source.backupPath))) throw fail('status_unavailable');
+      const job = {id,operation:source.operation,state:source.state,createdAt:source.createdAt,cancellable:false,takeover:true,retry:false,
+        error:source.error || null,operationMayHaveExecuted:true};
+      if (source.phase !== undefined) job.phase = source.phase;
+      if (source.backupPath != null) job.backupPath = source.backupPath;
+      return {ok:true,authority:authority(value.authority),configMirror:null,maintenance:{phase:'retired',accepting:false},job,lastResult:null,
+        capabilities:{worker:false,upload:false,download:false},processRestartRequired:true};
+    };
+    function send(res, status, value) {
+      if (res.destroyed || state !== 'listening') return;
+      const body = JSON.stringify(value);
+      res.writeHead(status, {'content-type':'application/json; charset=utf-8','content-length':Buffer.byteLength(body),
+        'cache-control':'no-store','x-content-type-options':'nosniff','connection':'close'});
+      res.end(body);
+    }
+    const denied = (res,status,code) => send(res,status,{ok:false,error:{code},retry:false});
+    function request(req,res) {
+      try {
+        assertOwner();
+        const peer = String(req.socket.remoteAddress || '').toLowerCase();
+        const name = req.headers.host;
+        if (!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(peer)
+          || typeof name !== 'string' || ![`127.0.0.1:${port}`,`localhost:${port}`,`[::1]:${port}`].includes(name.toLowerCase())) return denied(res,403,'auth.host_invalid');
+        if (req.headers.origin !== undefined) {
+          let origin;
+          try {origin = new URL(req.headers.origin);} catch {return denied(res,403,'auth.origin_invalid');}
+          if (origin.protocol !== 'http:' || origin.host.toLowerCase() !== name.toLowerCase() || origin.origin !== req.headers.origin) return denied(res,403,'auth.origin_invalid');
+        }
+        if (req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site'])) return denied(res,403,'auth.origin_invalid');
+        // No route consumes a body. Reject before attaching data listeners, so an
+        // unexpected upload cannot consume memory or trigger any base operation.
+        if (req.headers['transfer-encoding'] !== undefined || req.headers['content-length'] !== undefined && req.headers['content-length'] !== '0') return denied(res,413,'work_data_setup.body_not_allowed');
+        if (req.url === '/health' && req.method === 'GET') return send(res,200,{ok:true,maintenance:true,ready:false});
+        if (req.url === '/api/bootstrap' && req.method === 'POST') return send(res,200,{ok:true,token:token.toString('hex')});
+        const candidate = req.headers['x-wcw-token'];
+        const bytes = typeof candidate === 'string' && /^[a-f0-9]{64}$/.test(candidate) ? Buffer.from(candidate,'hex') : Buffer.alloc(0);
+        if (bytes.length !== token.length || !cryptoApi.timingSafeEqual(bytes,token)) return denied(res,403,'auth.token_invalid');
+        if (req.method !== 'GET') return denied(res,409,'work_data_setup.takeover_committed');
+        if (req.url !== '/api/work-data/status' && req.url !== '/api/work-data/jobs/' + id) return denied(res,404,'work_data_setup.job_not_found');
+        const result = snapshot();assertOwner();
+        return send(res,200,req.url === '/api/work-data/status' ? result : {ok:true,job:result.job});
+      } catch {return denied(res,503,'work_data_setup.status_unavailable');}
+    }
+    const server = httpApi.createServer({maxHeaderSize:16384,requestTimeout:5000,headersTimeout:5000},request);
+    server.on('connection', socket => {sockets.add(socket);socket.once('close',()=>sockets.delete(socket));});
+    server.on('clientError', (_error,socket) => socket.destroy());
+    async function close() {
+      if (closing) return closing;
+      state = 'closed';token.fill(0);
+      closing = (async()=>{
+        if (starting) {try {await starting;} catch { /* Failed bind owns no listener. */ }}
+        for (const socket of sockets) socket.destroy();
+        if (!server.listening) return;
+        await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+      })();
+      return closing;
+    }
+    function listen() {
+      if (state !== 'new') return Promise.reject(fail('http_already_started'));
+      try {assertOwner();} catch(error) {return Promise.reject(error);}
+      state = 'starting';
+      starting = new Promise((resolve,reject)=>{
+        const failed = error => {server.removeListener('listening',ready);if(state!=='closed')state='failed';reject(error);};
+        const ready = () => {
+          server.removeListener('error',failed);
+          if (state === 'closed') return resolve();
+          try {assertOwner();state='listening';resolve();}
+          catch(error) {state='failed';server.close(()=>reject(error));}
+        };
+        server.once('error',failed);server.once('listening',ready);
+        server.listen({host:bindHost,port,exclusive:true});
+      });
+      return starting;
+    }
+    return Object.freeze({listen,close});
+  }
+  return Object.freeze({create});
+})(http,crypto);
+
+// Disposal of the newly restored rehearsal requires the real native namespace
+// census as well as WorkDataTree's private identity proof. A complete capture
+// above the existing native owner's 96 MB engineering bound refuses; no tail,
+// stream or unknown object is omitted to make cleanup proceed.
+const WorkDataDisposableNativeTree = (() => {
+  const fail = () => { throw Object.assign(new Error('work_data_setup.rehearsal_changed'), {
+    code:'work_data_setup.rehearsal_changed',apiCode:'work_data_setup.rehearsal_changed',statusCode:409,retry:false,
+  }); };
+  function create({ capturePreserved }) {
+    if (typeof capturePreserved !== 'function') fail();
+    return async function verify({target,snapshot,ownership,assertExclusive}) {
+      if (process.platform !== 'win32' || typeof target !== 'string' || !require('node:path').isAbsolute(target)
+        || snapshot?.root !== target || typeof assertExclusive !== 'function' || await assertExclusive(ownership) !== true
+        || !ownership?.roots?.some(root=>root.toLowerCase()===target.toLowerCase())) fail();
+      const native = await capturePreserved(target,require('node:crypto').randomBytes(32).toString('hex'));
+      // capturePreserved validates the entire actual snapshot shape, IDs, stream
+      // payloads/hashes and aliases before returning. This layer narrows the
+      // newly-created rehearsal namespace to exactly its restore proof.
+      const dirs = new Set(['',...snapshot.directories]),files=new Map(snapshot.files.map(row=>[row.path,row])),seen=new Set();
+      if (!native || native.entries?.length !== dirs.size+files.size) fail();
+      for (const entry of native.entries) {
+        if (!entry || typeof entry.rel !== 'string' || seen.has(entry.rel)) fail();
+        seen.add(entry.rel);
+        if (entry.dir) {
+          if (!dirs.has(entry.rel) || !Array.isArray(entry.streams) || entry.streams.length !== 0) fail();
+        } else {
+          const file=files.get(entry.rel),stream=entry.streams?.[0];
+          if (!file || !Array.isArray(entry.streams) || entry.streams.length !== 1 || stream.name !== '' || stream.size !== file.data.length || stream.hash !== file.sha256) fail();
+        }
+      }
+      if ([...dirs,...files.keys()].some(name=>!seen.has(name)) || await assertExclusive(ownership) !== true) fail();
+      return true;
+    };
+  }
+  return Object.freeze({create});
+})();
+
+// Operation body for the fresh maintenance worker. The launcher supplies actual
+// owner lifetimes; snapshot, codec and native-object work use their real owners.
+// This module never starts a normal server or changes process-global paths.
+const WorkDataColdOperations = ((io, p, cryptoApi) => {
+  const hash = bytes => cryptoApi.createHash('sha256').update(bytes).digest('hex');
+  const fold = name => process.platform === 'win32' ? name.toLowerCase() : name;
+  const fail = (suffix, details = {}) => Object.assign(new Error('work_data_setup.' + suffix), {
+    code: 'work_data_setup.' + suffix, apiCode: 'work_data_setup.' + suffix,
+    statusCode: 409, retry: false, ...details,
+  });
+  const inside = (root, target) => {
+    const rel = p.relative(fold(root), fold(target)); return rel === '' || rel !== '..' && !rel.startsWith('..' + p.sep) && !p.isAbsolute(rel);
+  };
+  async function realDirectory(directory) {
+    const absolute = p.resolve(directory), parsed = p.parse(absolute); let current = parsed.root;
+    for (const part of ['', ...absolute.slice(parsed.root.length).split(p.sep).filter(Boolean)]) {
+      if (part) current = p.join(current, part);
+      const stat = await io.lstat(current);
+      if (!stat.isDirectory() || stat.isSymbolicLink() || fold(await io.realpath(current)) !== fold(current)) throw fail('path_alias');
+    }
+  }
+  async function absent(file) {
+    try { await io.lstat(file); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+    throw fail('target_exists');
+  }
+  async function readBounded(file, maximum) {
+    await realDirectory(p.dirname(file)); const before = await io.lstat(file, { bigint: true });
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size > BigInt(maximum)) throw fail('file_invalid');
+    const handle = await io.open(file, 'r');
+    try {
+      const parts = []; let bytes = 0;
+      for (;;) {
+        const buffer = Buffer.alloc(Math.min(65536, maximum - bytes + 1)); const result = await handle.read(buffer, 0, buffer.length, null);
+        bytes += result.bytesRead; if (bytes > maximum) throw fail('file_too_large');
+        if (!result.bytesRead) break; parts.push(buffer.subarray(0, result.bytesRead));
+      }
+      const after = await handle.stat({ bigint: true }), selected = await io.lstat(file, { bigint: true });
+      if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size
+        || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs || after.nlink !== 1n
+        || !selected.isFile() || selected.isSymbolicLink() || selected.nlink !== 1n
+        || selected.dev !== after.dev || selected.ino !== after.ino || selected.size !== after.size
+        || selected.mtimeNs !== after.mtimeNs || selected.ctimeNs !== after.ctimeNs) throw fail('file_changed');
+      return { bytes: Buffer.concat(parts, bytes), identity: { dev: String(after.dev), ino: String(after.ino) } };
+    } finally { await handle.close(); }
+  }
+  // A preflight estimate, not a reservation: other applications can consume
+  // space later. Group by filesystem device, including distinct selected paths
+  // on the same volume, and use unprivileged available blocks, never bfree.
+  async function requireSpace(requests) {
+    const volumes = new Map();
+    for (const [directory,bytes] of requests) {
+      let stat,space;
+      try {
+        await realDirectory(directory);stat=await io.lstat(directory,{bigint:true});space=await io.statfs(directory,{bigint:true});
+        if(typeof bytes!=='bigint'||bytes<0n||typeof space.bsize!=='bigint'||space.bsize<=0n||typeof space.bavail!=='bigint'||space.bavail<0n)throw fail('space_unavailable');
+      } catch(cause) {throw fail('space_unavailable',{cause});}
+      const device=String(stat.dev),available=space.bsize*space.bavail,prior=volumes.get(device);
+      volumes.set(device,{required:bytes+(prior?.required||0n),available:prior&&prior.available<available?prior.available:available});
+    }
+    for(const value of volumes.values())if(value.required>value.available)throw fail('space_insufficient',{requiredBytes:String(value.required),availableBytes:String(value.available)});
+  }
+  const treeBudget = (bytes,files,directories) => 16n*1024n*1024n+2n*BigInt(bytes)+65536n*BigInt(files)+8192n*BigInt(directories+1);
+  function create(host) {
+    if (['acquire', 'flush', 'verifyFresh', 'verifyDisposableNativeTree', 'migrationFactory', 'progress', 'helperMayStillRun'].some(name => typeof host[name] !== 'function')) throw fail('operation_host_invalid');
+    async function execute(context) {
+      const base = p.resolve(context.base), id = context.id;
+      if (!/^[a-f0-9]{48}$/.test(id || '') || await context.assertExclusive(context.ownership) !== true) throw fail('ownership_required');
+      const owned = new Set(), issuedBackups = new Map(); let alive = true, mutation = false, intent = null, restoreStarted = false, resultStarted = false, helperUncertain = false;
+      const retainHelper = cause => {
+        const seen = new Set(); let current = cause;
+        try {
+          for (let depth=0;current && (typeof current==='object'||typeof current==='function');depth++) {
+            if (depth>=32 || seen.has(current)) {helperUncertain=true;break;}
+            seen.add(current);if (current.helperMayStillRun===true) {helperUncertain=true;break;}current=current.cause;
+          }
+          if (host.helperMayStillRun() !== false) helperUncertain=true;
+          if (typeof MigrationHooks !== 'undefined') { const inspect=MigrationHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect()!==false)) helperUncertain=true; }
+          if (typeof LocalSecretCrypto.helperMayStillRun === 'function' && LocalSecretCrypto.helperMayStillRun() !== false) helperUncertain=true;
+        } catch {helperUncertain=true;}
+        return helperUncertain;
+      };
+      if (retainHelper(null)) throw fail('native_helper_uncertain',{helperMayStillRun:true});
+      const assertExclusive = owner => alive && context.assertExclusive(context.ownership) === true
+        && (owner === context.ownership || owned.has(owner));
+      // Record native uncertainty before key/vault owners replace private native
+      // errors with their public typed codes. Never modify a foreign exception.
+      const protector = Object.freeze({supported:()=>LocalSecretCrypto.supported(),async run(...args){
+        try{return await LocalSecretCrypto.run(...args);}catch(cause){retainHelper(cause);throw cause;}
+      }});
+      const acquire = async root => {
+        if (inside(base, root) || inside(root, base)) throw fail('target_invalid');
+        const owner = await host.acquire([root]); owned.add(owner); return owner;
+      };
+      const release = async owner => { if (retainHelper(null)) throw fail('native_helper_uncertain',{helperMayStillRun:true}); if (!owned.has(owner)) throw fail('ownership_required'); owned.delete(owner); await owner.release(); };
+      const full = () => WorkDataFullSnapshot.create({ base, ownership: context.ownership, assertExclusive,
+        protector, externalOwner: options => ExternalBotCredentials.create(options),
+        skillBackupOwner: options => MigrationHooks.createBackupOwner(options), maintenanceResultOwner: WorkDataMaintenanceResult });
+      const authority = await WorkDataManifest.create({ base }).readActive();
+      if (authority.generation !== context.expectedAuthority.generation || authority.proof.sha256 !== context.expectedAuthority.sha256) throw fail('authority_changed');
+      let sourceMode = authority.mode;
+      if (!authority.generation) {
+        const sourceConfig = await readBounded(p.join(base, 'config.json'), 4 * 1024 * 1024);
+        const text = sourceConfig.bytes.toString('utf8');
+        if (!Buffer.from(text).equals(sourceConfig.bytes)) throw fail('config_unavailable');
+        const value = JSON.parse(text.replace(/^\uFEFF/, ''));
+        if (!value || typeof value !== 'object' || Array.isArray(value)
+          || value.workDataEncryptionV1 !== undefined && typeof value.workDataEncryptionV1 !== 'boolean') throw fail('config_unavailable');
+        sourceMode = value.workDataEncryptionV1 === true ? 'encrypted' : 'plain';
+      }
+      if (sourceMode !== context.expectedAuthority.mode || authority.id !== context.expectedAuthority.id) throw fail('authority_changed');
+      const expected = Object.freeze({ generation: authority.generation, id: authority.id, mode: sourceMode, sha256: authority.proof.sha256 });
+      const readResultAuthority = async () => {
+        const current = await WorkDataManifest.create({ base }).readActive(); let mode = current.mode;
+        if (!current.generation) {
+          const raw = await readBounded(p.join(base,'config.json'),4*1024*1024), text = raw.bytes.toString('utf8');
+          if (!Buffer.from(text).equals(raw.bytes)) throw fail('config_unavailable');
+          const value = JSON.parse(text.replace(/^\uFEFF/,''));
+          if (!value || typeof value !== 'object' || Array.isArray(value)
+            || value.workDataEncryptionV1 !== undefined && typeof value.workDataEncryptionV1 !== 'boolean') throw fail('config_unavailable');
+          mode = value.workDataEncryptionV1 === true ? 'encrypted' : 'plain';
+        }
+        return Object.freeze({generation:current.generation,id:current.id,mode,sha256:current.proof.sha256});
+      };
+      const maxPackage = WorkDataRecovery.LIMITS.serialized;
+      const verifyBackup = async value => {
+        const receipt = issuedBackups.get(value.path);
+        if (!receipt || receipt.sha256 !== value.sha256 || !assertExclusive(context.ownership)) return false;
+        if ('identity' in value && (value.bytes !== receipt.bytes || value.identity?.dev !== receipt.identity.dev || value.identity?.ino !== receipt.identity.ino)) return false;
+        const current = await readBounded(value.path, maxPackage);
+        return current.identity.dev === receipt.identity.dev && current.identity.ino === receipt.identity.ino && hash(current.bytes) === receipt.sha256;
+      };
+      const control = WorkDataMaintenanceControl.create({ base, ownership: context.ownership, assertExclusive,
+        assertDurableBackup: verifyBackup, flush: host.flush });
+      if (context.operation !== 'restore' && (await control.inspect()).pending) throw fail('intent_pending');
+      const results = WorkDataMaintenanceResult.create({base,ownership:context.ownership,assertExclusive,
+        readAuthority:readResultAuthority,assertDurableBackup:verifyBackup,flush:host.flush});
+      const persistResult = async result => {
+        resultStarted = true;
+        const receipt = issuedBackups.get(result.backup.path);
+        if (!receipt) throw fail('backup_unverified');
+        const value = {schema:1,id,operation:context.operation,state:result.state,finishedAt:new Date().toISOString(),
+          sourceAuthority:expected,authority:await readResultAuthority(),
+          backup:{path:receipt.path,sha256:receipt.sha256,bytes:receipt.bytes,identity:{...receipt.identity}},
+          ...(context.operation === 'restore' ? {restored:{target:result.restored.target,activation:result.activation}} : {})};
+        const saved = await results.write(value);
+        if (await results.verify(saved) !== true) throw fail('result_unverified');
+        return saved;
+      };
+      const completed = async result => {await persistResult(result);return Object.freeze(result);};
+      const progress = phase => host.progress(Object.freeze({ id, operation: context.operation, phase }));
+      try {
+        const backupDirectory = context.paths.backupDirectory;
+        if (!p.isAbsolute(backupDirectory) || inside(base, backupDirectory) || inside(backupDirectory, base)) throw fail('backup_directory_invalid');
+        await realDirectory(backupDirectory);
+        if (!['enable', 'disable', 'export', 'restore'].includes(context.operation)) throw fail('operation_invalid');
+        if (context.operation === 'enable' && expected.mode === 'encrypted' || context.operation === 'disable' && expected.mode === 'plain') throw fail('mode_unchanged');
+        const saveBackup = async bytes => {
+          const backupFile = p.join(backupDirectory, 'ruyi-work-data-' + id + '.ruyi-backup'); await absent(backupFile);
+          const handle = await io.open(backupFile, 'wx', 0o600);
+          try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+          await host.flush([backupDirectory]);
+          const saved = await readBounded(backupFile, maxPackage);
+          if (!saved.bytes.equals(bytes)) throw fail('backup_verification_failed');
+          const backup = Object.freeze({path:backupFile,sha256:hash(saved.bytes)});
+          issuedBackups.set(backupFile,Object.freeze({...backup,bytes:saved.bytes.length,identity:saved.identity}));
+          return backup;
+        };
+        if (context.operation === 'restore') {
+          // Password recovery is independent of the current source keys. Authenticate
+          // the entire upload before creating any backup, result or target object.
+          if (typeof context.paths.uploadSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(context.paths.uploadSha256)) throw fail('upload_unverified');
+          const uploaded = await readBounded(context.paths.uploadFile,maxPackage);
+          if (hash(uploaded.bytes) !== context.paths.uploadSha256) throw fail('upload_changed');
+          const serialized = uploaded.bytes.toString('utf8');
+          if (!Buffer.from(serialized,'utf8').equals(uploaded.bytes)) throw fail('upload_invalid');
+          const authenticated = await WorkDataRecovery.open(serialized,context.password);
+          try {
+            const target = context.paths.targetDirectory;
+            if (typeof target !== 'string' || !p.isAbsolute(target) || inside(base,target) || inside(target,base)
+              || inside(target,backupDirectory)) throw fail('target_invalid');
+            await realDirectory(p.dirname(target)); await absent(target);
+            const snapshot=authenticated.snapshot,decodedBytes=snapshot.files.reduce((sum,row)=>sum+row.data.length,0)+snapshot.auxiliaries.reduce((sum,row)=>sum+row.data.length,0);
+            await requireSpace([[backupDirectory,BigInt(uploaded.bytes.length)+1048576n],[p.dirname(target),treeBudget(decodedBytes,snapshot.files.length,snapshot.directories.length)],[base,1048576n]]);
+            const backup = await saveBackup(uploaded.bytes);
+            if (!await verifyBackup(backup)) throw fail('backup_changed');
+            const targetOwner = await acquire(target);
+            restoreStarted = true;
+            const restored = await full().restore({serialized,password:context.password,target,targetOwnership:targetOwner});
+            await release(targetOwner);
+            if (await host.verifyFresh({target,password:context.password,generation:null}) !== true) throw fail('fresh_verification_failed');
+            if (!await verifyBackup(backup)) throw fail('backup_changed');
+            return await completed({id,operation:'restore',state:'verified',backup,restored,restartRoot:base,
+              activation:'separate-fresh-root',publication:'fresh-process-required',profile:restored.profile});
+          } finally { authenticated.release(); }
+        }
+        await progress('snapshot');
+        const captured = await full().seal({ password: context.password, appVersion: VERSION, generation: expected.generation });
+        const allocation=treeBudget(captured.sourceProof.bytes,captured.files,captured.directories);
+        await requireSpace([[backupDirectory,BigInt(Buffer.byteLength(captured.serialized,'utf8'))+1048576n+allocation],[base,context.operation==='export'?1048576n:allocation+1048576n]]);
+        const backup = await saveBackup(Buffer.from(captured.serialized,'utf8'));
+        await progress('verify-backup');
+        // An authenticated package is exercised through the real restore owner,
+        // then checked by a separate cold Node process before any source intent.
+        const rehearsal = p.join(backupDirectory, '.ruyi-work-data-verify-' + id); await absent(rehearsal);
+        const rehearsalOwner = await acquire(rehearsal);
+        const rehearsed = await full().restore({ serialized: captured.serialized, password: context.password, target: rehearsal, targetOwnership: rehearsalOwner });
+        const tree = WorkDataTree.create(), cleanupProof = await tree.capture(rehearsal);
+        try {
+          const original = await WorkDataRecovery.open(captured.serialized, context.password);
+          try {
+            const expectedFiles = new Map(original.snapshot.files.map(row => [row.path, hash(row.data)]));
+            for (const row of rehearsed.stagedStates) expectedFiles.set(row.path, row.stagedSha256);
+            if (JSON.stringify([...cleanupProof.directories].sort()) !== JSON.stringify([...original.snapshot.directories].sort())
+              || cleanupProof.files.length !== expectedFiles.size || cleanupProof.files.some(row => row.sha256 !== expectedFiles.get(row.path))) throw fail('rehearsal_changed');
+          } finally { original.release(); }
+          await release(rehearsalOwner);
+          if (await host.verifyFresh({ target: rehearsal, password: context.password, generation: expected.generation }) !== true) throw fail('fresh_verification_failed');
+          const cleanupOwner = await acquire(rehearsal);
+          await tree.verify(cleanupProof);
+          if (!owned.has(cleanupOwner) || p.dirname(rehearsal) !== backupDirectory || p.basename(rehearsal) !== '.ruyi-work-data-verify-' + id
+            || inside(base, rehearsal) || inside(rehearsal, base)) throw fail('rehearsal_cleanup_invalid');
+          // Default-stream verification cannot detect a newly added ADS. The
+          // native namespace owner must prove the exact newly-created objects
+          // have no extra streams/children before this disposable tree is removed.
+          if (await host.verifyDisposableNativeTree({ target: rehearsal, snapshot: cleanupProof, ownership: cleanupOwner, assertExclusive }) !== true) throw fail('rehearsal_changed');
+          await tree.verify(cleanupProof);
+          await io.rm(rehearsal, { recursive: true, force: false }); await host.flush([backupDirectory]);
+          await release(cleanupOwner);
+        } finally { cleanupProof.release(); }
+        if (!await verifyBackup(backup)) throw fail('backup_changed');
+        if (context.operation === 'export') return await completed({ id, operation: 'export', state: 'verified', backup, restartRoot: base,
+          publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: 'source root and excluded user content are retained' });
+        const state = { schema: 1, id, operation: context.operation, phase: 'prepared', createdAt: new Date().toISOString(), expectedAuthority: expected, backup, candidate: null };
+        mutation = true; intent = await control.write(state);
+        const update = async (phase, candidate, headerSha256) => {
+          state.phase = phase;
+          state.candidate = { id: candidate.id, mode: candidate.mode, headerSha256: headerSha256 ?? state.candidate?.headerSha256 ?? null };
+          intent = await control.write(state, intent); return Object.freeze({ ownedFile: intent });
+        };
+        const migration = host.migrationFactory({ base, ownership: context.ownership, assertExclusive,
+          manifest: WorkDataManifest.create({ base }), protector,
+          assertDurableBackup: ({ backupReceipt, sourceProof }) => backupReceipt === backup && sourceProof === captured && verifyBackup(backupReceipt),
+          assertIntent: async () => { await control.verify(intent); return Object.freeze({ ownedFile: intent }); },
+          onCandidate: ({ candidate }) => update('candidate', candidate),
+          onKeyReady: ({ candidate, headerSha256 }) => update('key-ready', candidate, headerSha256),
+          assertSpecialCoverage: async ({backupReceipt,sourceProof}) => backupReceipt === backup && sourceProof === captured
+            && captured.specialCoverage?.type === 'skill-backup-portable' && captured.specialCoverage.originalObjects === 'refused' && await verifyBackup(backupReceipt),
+          maintenanceResultOwner: WorkDataMaintenanceResult,
+          specialOwnerFactory: options => MigrationHooks.createBackupOwner(options), writeJson: atomicWriteJson });
+        await progress('prepare-generation');
+        const prepared = await migration.prepare({ expected: authority, targetMode: context.operation === 'enable' ? 'encrypted' : 'plain',
+          backupReceipt: backup, sourceProof: captured });
+        await progress('publish-generation');
+        const published = await migration.publish(prepared);
+        await update('published', prepared.candidate);
+        // verifyPublished must inspect the exact selected generation using cold,
+        // independent owner factories; no global mode/cache change is accepted.
+        const verifyPublished = async () => {
+          const proof = await migration.verifyPublished(prepared), selected = await WorkDataManifest.create({ base }).readActive();
+          const sameActive = value => value && value.id === prepared.candidate.id && value.mode === prepared.candidate.mode
+            && value.root === prepared.candidate.root && value.generation === expected.generation + 1
+            && value.proof?.sha256 === selected.proof.sha256;
+          if (!proof || Object.keys(proof).sort().join(',') !== 'active,candidateId,generation,logicalFiles,mode,processExitRequired,readOnly,specialSha256,targetSha256'
+            || proof.readOnly !== true || proof.processExitRequired !== true || proof.candidateId !== prepared.candidate.id
+            || proof.generation !== expected.generation + 1 || proof.mode !== prepared.candidate.mode
+            || !/^[a-f0-9]{64}$/.test(proof.targetSha256) || !/^[a-f0-9]{64}$/.test(proof.specialSha256)
+            || proof.logicalFiles !== prepared.transformed.length || !sameActive(proof.active) || !sameActive(published.active)
+            || !sameActive(selected)) throw fail('generation_unverified');
+          return true;
+        };
+        await verifyPublished();
+        await update('complete', prepared.candidate);
+        const result = { id, operation: context.operation, state: 'published', backup, authority: published,
+          restartRoot: base, publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: prepared.retainedPlainDisclosure };
+        const resultReceipt = await persistResult(result);
+        await control.finish(intent, async()=>await verifyPublished() === true && await results.verify(resultReceipt) === true); intent = null;
+        return Object.freeze(result);
+      } catch (cause) {
+        retainHelper(cause);
+        throw fail(mutation ? 'transition_requires_recovery' : restoreStarted ? 'restore_requires_inspection' : resultStarted ? 'result_requires_recovery' : 'preparation_failed', { cause,
+          operationMayHaveExecuted: mutation || restoreStarted || resultStarted,
+          sourceIntentRetained: intent !== null,
+          resultMayHaveBeenWritten: resultStarted,
+          ...(helperUncertain ? {helperMayStillRun:true} : {}),
+          ...(restoreStarted ? {targetMayHaveBeenCreated:true,targetPath:context.paths.targetDirectory} : {}),
+          ...(issuedBackups.size === 1 ? { backupPath: issuedBackups.keys().next().value } : {}) });
+      } finally {
+        alive = false;
+        // Native flush/capsule adapters settle their actual helper before returning.
+        // A helper uncertainty is never converted into a released source lease.
+        if (!retainHelper(null)) for (const owner of [...owned]) await release(owner);
+      }
+    }
+    return Object.freeze({ execute });
+  }
+  return Object.freeze({ create });
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'));
+
+// Process composition only. Native operations/result writers have their own
+// reviewed owners. No cold command calls normal serve in its own process.
+const WorkDataMaintenanceRuntime = ((io,p,c) => {
+  const ID=/^[a-f0-9]{48}$/,NONCE=/^[a-f0-9]{64}$/;
+  const fail=suffix=>Object.assign(Error('work_data_setup.'+suffix),{code:'work_data_setup.'+suffix,statusCode:409,retry:false});
+  const keys=value=>value&&typeof value==='object'&&!Array.isArray(value)?Object.keys(value).sort().join(','):'';
+  const fold=value=>process.platform==='win32'?value.toLowerCase():value;
+  const full=actual=>({generation:actual?.generation,id:actual?.id,mode:actual?.mode,sha256:actual?.sha256===undefined?actual?.proof?.sha256:actual.sha256});
+  const authority=value=>keys(value)==='generation,id,mode,sha256'&&Number.isSafeInteger(value.generation)&&value.generation>=0&&['plain','encrypted'].includes(value.mode)
+    &&(value.generation===0?value.id===null&&value.sha256===null:ID.test(value.id||'')&&NONCE.test(value.sha256||''));
+  const same=(a,b)=>authority(a)&&authority(b)&&a.generation===b.generation&&a.id===b.id&&a.mode===b.mode&&a.sha256===b.sha256;
+  const listener=value=>keys(value)==='host,port'&&['127.0.0.1','::1','localhost'].includes(value.host)&&Number.isInteger(value.port)&&value.port>0&&value.port<=65535;
+  const safeCode=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed_after_handoff';
+  function create(host) {
+    const proc=host?.process;
+    if(!proc||!Number.isSafeInteger(proc.pid)||proc.pid<1||!host.workerApi||!host.httpApi||!host.resultApi||!host.controlApi
+      ||['create','spawnCold','processChannel','waitForProcessExit'].some(name=>typeof host.workerApi[name]!=='function')
+      ||[host.httpApi,host.resultApi,host.controlApi].some(api=>typeof api.create!=='function')
+      ||['base','canonical','acquire','readAuthority','operations','adaptersReady','stopUncommitted','exit','isRetired','helperMayStillRun','command'].some(name=>typeof host[name]!=='function')
+      ||!host.workerHooks||typeof host.workerHooks!=='object')throw fail('runtime_host_invalid');
+    let warm=null,worker=null,coldStarted=false,successorStarted=false,successorInput=null,helperUncertain=false;
+    const strictOptions=new WeakSet();
+    function latch(error) {
+      const seen=new Set();let value=error,depth=0;
+      while(value&&(typeof value==='object'||typeof value==='function')){
+        if(depth++>=12||seen.has(value)){helperUncertain=true;break;}
+        seen.add(value);try{if(value.helperMayStillRun===true)helperUncertain=true;value=value.cause;}catch{helperUncertain=true;break;}
+      }
+      return error;
+    }
+    const helpers=()=>{try{
+      if(host.helperMayStillRun()!==false)helperUncertain=true;
+      if(typeof LocalSecretCrypto!=='undefined'){const inspect=LocalSecretCrypto.helperMayStillRun;if(inspect!==undefined&&(typeof inspect!=='function'||inspect.call(LocalSecretCrypto)!==false))helperUncertain=true;}
+      if(typeof MigrationHooks!=='undefined'){const inspect=MigrationHooks.helperMayStillRun;if(inspect!==undefined&&(typeof inspect!=='function'||inspect.call(MigrationHooks)!==false))helperUncertain=true;}
+      return helperUncertain;
+    }catch{helperUncertain=true;return true;}};
+    const guardNative=async work=>{try{return await work();}catch(error){latch(error);throw error;}};
+    const ready=()=>{try{return host.adaptersReady()===true&&!helpers();}catch{return false;}};
+    const ownership=(owner,base)=>owner&&Array.isArray(owner.roots)&&owner.roots.some(root=>fold(root)===fold(base));
+    const command=mode=>{const value=host.command(mode);if(!value||typeof value.command!=='string'||!Array.isArray(value.args)||!value.args.every(arg=>typeof arg==='string'))throw fail('command_invalid');return value;};
+    const actualListener=(server,expected)=>{
+      const bound=server?.address?.();if(!listener(expected)||!server?.listening||!bound||typeof bound!=='object'||!['127.0.0.1','::1'].includes(bound.address)||bound.port!==expected.port
+        ||expected.host!=='localhost'&&expected.host!==bound.address)throw fail('listener_changed');
+      return {host:expected.host,port:bound.port};
+    };
+    async function inspectBoot({base,ownership:owner}) {
+      base=await host.canonical(base);if(!ownership(owner,base))throw fail('ownership_required');
+      let stat;try{stat=await io.lstat(base);}catch(error){if(error.code==='ENOENT'&&!successorInput)return true;throw error;}
+      if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
+      const control=p.join(base,'.work-data');
+      try {
+        const stat=await io.lstat(control);if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
+        const names=await io.readdir(control),allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+        if(names.some(name=>!allowed.has(fold(name))))throw fail('boot_control_pending');
+      }catch(error){if(error.code!=='ENOENT')throw error;}
+      const ownerCheck=async candidate=>candidate===owner&&ownership(owner,base);
+      const controls=host.controlApi.create({base,ownership:owner,assertExclusive:ownerCheck,assertDurableBackup:async()=>false,flush:async()=>{throw fail('readonly_boot');}});
+      if((await controls.inspect()).pending)throw fail('intent_pending');
+      const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});await resultReader.inspect();
+      if(successorInput){const result=await resultReader.read();if(!result||result.id!==successorInput.id||!same(result.authority,successorInput.expectedAuthority))throw fail('successor_result_changed');}
+      return true;
+    }
+    async function captureServe(context) {
+      if(coldStarted||warm)throw fail('runtime_already_bound');
+      const owner=context.ownership,server=context.server,original=context.base,expected={...context.listener};
+      const base=await host.canonical(original),capturedListener=actualListener(server,expected);
+      if(!ownership(owner,base))throw fail('ownership_required');
+      const captured={base,ownership:owner,server,listener:capturedListener};
+      const ownerCheck=async owner=>warm===captured&&owner===captured.ownership&&ownership(owner,base)&&captured.server.listening;
+      warm=captured;
+      host.workerHooks.readResult=()=>host.resultApi.create({base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)}).read();
+      return ready();
+    }
+    function activateServe() {
+      const captured=warm;if(!captured||coldStarted||worker)throw fail('runtime_not_captured');
+      const base=captured.base;actualListener(captured.server,captured.listener);
+      if(!ready())return false; // Missing native/result/successor adapters do not advertise a worker.
+      worker=host.workerApi.create({pid:proc.pid,env:proc.env,setTimeout,clearTimeout,base:async()=>base,listener:()=>actualListener(captured.server,captured.listener),
+        spawn:env=>host.workerApi.spawnCold(command('work-data-maintenance'),env),stopUncommitted:host.stopUncommitted,
+        exitParent:async()=>{if(host.isRetired()!==true||warm!==captured||!ownership(captured.ownership,base))throw fail('handoff_not_retired');actualListener(captured.server,captured.listener);if(helpers())throw Object.assign(fail('native_helper_uncertain'),{helperMayStillRun:true});await host.exit(0);},
+      });
+      host.workerHooks.start=async request=>{if(!ready()||warm!==captured)throw fail('worker_unavailable');actualListener(captured.server,captured.listener);return worker.start(request);};
+      return true;
+    }
+    async function execute(context) {
+      let current=full(await host.readAuthority(context.base));if(!same(current,context.expectedAuthority))throw fail('authority_changed');
+      const job={id:context.id,operation:context.operation,state:'handoff',createdAt:Date.now(),phase:'takeover'},base=context.base;
+      const http=host.httpApi.create({id:context.id,port:context.serve.port,bindHost:context.serve.host,
+        assertColdOwner:()=>context.assertExclusive(context.ownership)===true,readStatus:()=>({authority:current,job})});
+      const hold=async error=>{
+        latch(error);context.password=null;job.state=error?.operationMayHaveExecuted===true||helpers()?'uncertain':'failed';job.error=safeCode(error);
+        current=null;try{const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* Do not report the pre-operation authority after a failed operation. */ }
+        const seen=new Set();let value=error;for(let depth=0;depth<12&&value&&typeof value==='object'&&!seen.has(value);depth++){
+          seen.add(value);try{if(typeof value.backupPath==='string'&&value.backupPath.length<=4096&&!/[\0\r\n]/.test(value.backupPath))job.backupPath=value.backupPath;value=value.cause;}catch{break;}
+        }
+        // Returning would run 13ai's ownership finally. Keep both the actual owner
+        // and read-only listener alive until an explicit future recovery owner acts.
+        await new Promise(()=>{});
+      };
+      try {
+        await http.listen();
+        const ops=host.operations({guardNative,helperMayStillRun:helpers,progress:async update=>{
+          if(update?.id!==context.id||update.operation!==context.operation||typeof update.phase!=='string'||!/^[a-z][a-z0-9-]{0,63}$/.test(update.phase))throw fail('progress_invalid');job.phase=update.phase;
+        }});
+        if(!ops||typeof ops.execute!=='function')throw fail('operations_unavailable');
+        const result=await ops.execute(context);context.password=null;
+        if(helpers())throw Object.assign(fail('native_helper_uncertain'),{helperMayStillRun:true});
+        if(!result||result.id!==context.id||result.operation!==context.operation||!['published','verified'].includes(result.state)
+          ||fold(await host.canonical(result.restartRoot))!==fold(await host.canonical(base)))throw fail('result_invalid');
+        current=full(await host.readAuthority(base));if(!authority(current))throw fail('authority_invalid');
+        const record=await host.resultApi.create({base,ownership:context.ownership,assertExclusive:context.assertExclusive,readAuthority:()=>host.readAuthority(base)}).read();
+        if(!record||record.id!==context.id||record.operation!==context.operation||record.state!==result.state||!same(record.authority,current))throw fail('result_unverified');
+        job.phase='restart';if(result.backup?.path)job.backupPath=result.backup.path;
+        await http.close();return Object.freeze({id:context.id,operation:context.operation,base,listener:{...context.serve},expectedAuthority:current,backupPath:record.backup.path});
+      }catch(error){return hold(error);}
+    }
+    async function launchSuccessor(result) {
+      const spec=command('work-data-successor'),nonce=c.randomBytes(32).toString('hex');
+      const common=host.workerApi.create({env:proc.env});
+      const child=host.workerApi.spawnCold(spec,common.environment(result.base));
+      const input={schema:1,id:result.id,parentPid:proc.pid,nonce,base:result.base,serve:result.listener,expectedAuthority:result.expectedAuthority};
+      const readyMessage=new Promise((resolve,reject)=>{
+        const cleanup=()=>{child.removeListener('message',message);child.removeListener('error',failed);child.removeListener('exit',exited);};
+        const failed=()=>{cleanup();reject(fail('successor_launch_failed'));},exited=()=>{cleanup();reject(fail('successor_exited'));};
+        const message=value=>{if(keys(value)!=='authority,host,id,kind,nonce,pid,port,schema'||value.schema!==1||value.kind!=='serve-ready'||value.id!==input.id||value.nonce!==nonce)return;
+          if(value.pid!==child.pid||value.pid===proc.pid||value.port!==input.serve.port||value.host!==input.serve.host||!same(value.authority,input.expectedAuthority)){cleanup();reject(fail('successor_identity_invalid'));return;}
+          cleanup();resolve(value);
+        };
+        child.on('message',message);child.once('error',failed);child.once('exit',exited);child.stdin.once('error',failed);
+      });
+      const bytes=Buffer.from(JSON.stringify(input));child.stdin.end(bytes,()=>bytes.fill(0));
+      await readyMessage;return child;
+    }
+    async function holdAfterSuccessorFailure(result,error) {
+      latch(error);let owner,http;
+      try {
+        owner=await host.acquire([result.base]);
+        let current=null;try{const actual=full(await host.readAuthority(result.base));if(authority(actual))current=actual;}catch{ /* The expected authority is not a fresh observation. */ }
+        const job={id:result.id,operation:result.operation,state:'uncertain',createdAt:Date.now(),phase:'restart',error:safeCode(error),backupPath:result.backupPath};
+        http=host.httpApi.create({id:result.id,port:result.listener.port,bindHost:result.listener.host,assertColdOwner:()=>ownership(owner,result.base),readStatus:()=>({authority:current,job})});
+        await http.listen();
+      }catch{ /* Another exact owner/listener may already hold the successor. Never kill or retry it. */ }
+      await new Promise(()=>{});
+    }
+    async function onOwnedFailure({error,ownership:owner,assertExclusive,base,input}) {
+      latch(error);let current=null;
+      try {const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* No expected-authority fallback. Status remains typed unavailable. */ }
+      const job={id:input.id,operation:input.operation,state:'uncertain',createdAt:Date.now(),phase:'preflight',error:safeCode(error)};
+      const http=host.httpApi.create({id:input.id,port:input.serve.port,bindHost:input.serve.host,assertColdOwner:()=>assertExclusive(owner)===true,
+        readStatus:()=>({authority:current,job})});
+      try {await http.listen();}catch{ /* The real source owner remains held even if progress cannot bind. */ }
+      await new Promise(()=>{});
+    }
+    async function runCold(channel=host.workerApi.processChannel(proc)) {
+      if(warm||coldStarted||successorStarted||!ready())throw fail('worker_unavailable');coldStarted=true;
+      const cold=host.workerApi.create({pid:proc.pid,env:proc.env,setTimeout,clearTimeout,base:host.base,canonical:host.canonical,acquire:host.acquire,
+        waitParentExit:host.workerApi.waitForProcessExit,readAuthority:host.readAuthority,execute,onOwnedFailure,helperMayStillRun:helpers});
+      const result=await cold.runCold(channel);if(result?.phase==='cancelled')return result;
+      // 13ai has now released its exact source owner. Its finally must finish
+      // before a genuinely new normal-serve process can acquire the same base.
+      try{const child=await launchSuccessor(result);child.unref();await host.exit(0);return child;}catch(error){return holdAfterSuccessorFailure(result,error);}
+    }
+    async function runSuccessor(channel=host.workerApi.processChannel(proc)) {
+      if(warm||coldStarted||successorStarted||!channel.parentConnected()||typeof host.startFreshServe!=='function')throw fail('successor_unavailable');successorStarted=true;
+      const bytes=await channel.readInput(16384);let input;
+      try{const raw=bytes.toString('utf8');if(!Buffer.from(raw).equals(bytes))throw fail('successor_input_invalid');input=JSON.parse(raw);}catch{throw fail('successor_input_invalid');}finally{bytes.fill(0);}
+      if(keys(input)!=='base,expectedAuthority,id,nonce,parentPid,schema,serve'||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
+        ||input.parentPid!==channel.parentPid()||input.parentPid===proc.pid||typeof input.base!=='string'||!p.isAbsolute(input.base)||!listener(input.serve)||!authority(input.expectedAuthority)
+        ||fold(await host.canonical(input.base))!==fold(await host.canonical(await host.base())))throw fail('successor_input_invalid');
+      successorInput=input;
+      const options={host:input.serve.host,port:String(input.serve.port)};strictOptions.add(options);
+      await host.startFreshServe(options);
+      if(!warm||fold(warm.base)!==fold(await host.canonical(input.base)))throw fail('successor_not_captured');actualListener(warm.server,input.serve);
+      const actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))throw fail('successor_authority_changed');
+      await channel.send({schema:1,kind:'serve-ready',id:input.id,nonce:input.nonce,pid:proc.pid,port:input.serve.port,host:input.serve.host,authority:actual});
+      if(typeof proc.disconnect==='function'&&proc.connected)proc.disconnect();return warm.server;
+    }
+    return Object.freeze({captureServe,activateServe,inspectBoot,runCold,runSuccessor,strictSamePort:options=>strictOptions.has(options),guardNative,helperMayStillRun:helpers});
+  }
+  return Object.freeze({create});
+})(require('node:fs/promises'),require('node:path'),require('node:crypto'));
+
+// Only reviewed production adapters may configure the process runtime. Missing
+// adapters leave the UI capability unavailable, while readonly startup guards
+// still reject unfinished intent/result/control state before any warm binding.
+if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
+  let bound=null;
+  const unavailable=()=>{throw Object.assign(Error('work_data_setup.worker_unavailable'),{code:'work_data_setup.worker_unavailable',retry:false});};
+  Object.assign(WorkDataMaintenanceRuntimeHooks,{
+    configure:host=>{if(bound)throw Object.assign(Error('work_data_setup.runtime_already_configured'),{code:'work_data_setup.runtime_already_configured'});bound=WorkDataMaintenanceRuntime.create(host);return bound;},
+    inspectBoot:context=>{
+      if(bound)return bound.inspectBoot(context);
+      const readonly=WorkDataMaintenanceRuntime.create({process,workerHooks:{},workerApi:WorkDataMaintenanceWorker,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,controlApi:WorkDataMaintenanceControl,
+        base:async()=>context.base,canonical:ServerOwnership.canonicalRoot,acquire:ServerOwnership.acquire,readAuthority:base=>WorkDataManifest.create({base}).readActive(),
+        adaptersReady:()=>false,helperMayStillRun:()=>false,isRetired:()=>false,operations:unavailable,stopUncommitted:unavailable,exit:unavailable,command:unavailable});
+      return readonly.inspectBoot(context);
+    },
+    captureServe:context=>bound?bound.captureServe(context):false,
+    activateServe:()=>bound?bound.activateServe():false,
+    strictSamePort:options=>bound?bound.strictSamePort(options):false,
+    runCold:()=>bound?bound.runCold():unavailable(),runSuccessor:()=>bound?bound.runSuccessor():unavailable(),
+  });
+}
+
+let workDataCliHelperHeld = false;
+let workDataCliHelperHoldTimer = null;
+function workDataCliHelperUnknown() {
+  if (workDataCliHelperHeld) return true;
+  try {
+    if (typeof LocalSecretCrypto !== 'undefined') { const inspect=LocalSecretCrypto.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(LocalSecretCrypto)!==false)) workDataCliHelperHeld=true; }
+    if (typeof MigrationHooks !== 'undefined') { const inspect=MigrationHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(MigrationHooks)!==false)) workDataCliHelperHeld=true; }
+  } catch { workDataCliHelperHeld=true; }
+  return workDataCliHelperHeld;
+}
+function holdWorkDataCliOwner() {
+  process.exitCode = 1;
+  // A pending Promise is not a process lifetime. Keep the existing kernel owner
+  // and helper exclusion even if a later ownership implementation unrefs handles.
+  if (workDataCliHelperHoldTimer === null) workDataCliHelperHoldTimer = setInterval(() => {}, 60000);
+}
 // These commands read config through a recovery writer, so they own the stable base as serve does.
 async function withSelectedWorkDataRoot(work) {
   const ownership = await ServerOwnership.acquire([dataRoot()]);
-  let failed = false;
-  try { await WorkDataRootHooks.bind(ownership); return await work(); }
+  let failed = false, selected = false;
+  try {
+    if (typeof WorkDataMaintenanceRuntimeHooks.inspectBoot === 'function') await WorkDataMaintenanceRuntimeHooks.inspectBoot({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership});
+    await WorkDataRootHooks.bind(ownership); selected = true; return await work();
+  }
   catch (error) { failed = true; throw error; }
   finally {
     try {
-      if (WorkDataRootHooks.ready()) {
+      if (selected && WorkDataRootHooks.ready()) {
         await configMutateChain.catch(() => {}); await configWriteChain.catch(() => {});
         await flushWorkbenchLogs();
       }
     } catch (error) { if (!failed) throw error; }
-    finally { await ownership.release(); }
+    finally {
+      if (workDataCliHelperUnknown()) {
+        holdWorkDataCliOwner();
+        if (!failed) throw Object.assign(new Error('work_data_setup.native_helper_uncertain'), {code:'work_data_setup.native_helper_uncertain',helperMayStillRun:true,retry:false});
+      } else await ownership.release();
+    }
   }
+}
+async function startWorkbenchServe(argv) {
+  const served = await startServer(argv);
+  // 第116波116b(27号文§11.3): 服务就绪(已 listen、runtime.json 已落)之后才起管家收件箱轮询。
+  // stewardEnabledV1 !== true 时 startStewardInbox 立即返回,不建目录、不起 interval、零写入。
+  // 失败绝不阻断已经开起来的服务(管家是旁路,不是主链路)。
+  await startStewardInbox(await readConfig()).catch(() => {});
+  if (typeof WorkDataMaintenanceRuntimeHooks.activateServe === 'function') WorkDataMaintenanceRuntimeHooks.activateServe();
+  return served;
 }
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
-  if (command === 'serve') {
-    const served = await startServer(argv);
-    // 第116波116b(27号文§11.3): 服务就绪(已 listen、runtime.json 已落)之后才起管家收件箱轮询。
-    // stewardEnabledV1 !== true 时 startStewardInbox 立即返回,不建目录、不起 interval、零写入。
-    // 失败绝不阻断已经开起来的服务(管家是旁路,不是主链路)。
-    await startStewardInbox(await readConfig()).catch(() => {});
-    return served;
+  if (command === 'work-data-maintenance' || command === 'work-data-successor') {
+    if (argv._.length !== 1 || Object.keys(argv).length !== 1) throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid'});
+    const run = command === 'work-data-maintenance' ? WorkDataMaintenanceRuntimeHooks.runCold : WorkDataMaintenanceRuntimeHooks.runSuccessor;
+    if (typeof run !== 'function') throw Object.assign(Error('work_data_setup.worker_unavailable'), {code:'work_data_setup.worker_unavailable'});
+    return run();
   }
+  if (command === 'serve') return startWorkbenchServe(argv);
   if (command === 'mcp') return startMcp();
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
   if (command === 'doctor') return withSelectedWorkDataRoot(() => doctor(argv)); // 118b: --human 走人话体检,默认仍只打 JSON
@@ -100812,6 +102709,9 @@ async function main() {
 // the internals so tests can exercise McpStdioClient / detectDesktopMcp without spawning a full server.
 if (require.main === module) {
   main().catch(err => {
+    if (workDataCliHelperUnknown()) {
+      holdWorkDataCliOwner();console.error('work_data_setup.native_helper_uncertain');return;
+    }
     const recoveryHelp = PrivacyCore.configHooks.startupGuidance?.(err);
     console.error(recoveryHelp || err.stack || err.message || String(err));
     // Startup can create watchers/timers before listen() discovers a non-Ruyi port occupant. Merely setting

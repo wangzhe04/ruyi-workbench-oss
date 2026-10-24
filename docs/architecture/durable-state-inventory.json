@@ -2,14 +2,42 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 70,
+  "count": 72,
   "lifecycleCounts": {
-    "dedicated-exemption": 20,
+    "dedicated-exemption": 22,
     "external-exemption": 10,
     "regenerable-exemption": 8,
     "shared-lifecycle": 32
   },
   "entries": [
+    {
+      "id": "work-data-maintenance-intent",
+      "pattern": "<data>/.work-data/maintenance-v1.json and .maintenance-v1.stage-*",
+      "owner": "13aj-work-data-control.js",
+      "anchor": "'maintenance-v1.json'",
+      "schema": "schema 1: exact job, operation, source authority, durable backup and monotonically advanced candidate phase",
+      "writePrimitive": "private issued receipt and serialized transition; wx stage, file sync, native directory flush, rename and identity/hash readback",
+      "corruption": "unknown or interrupted stage blocks startup; no repair, quarantine or overwrite of an unexplained intent",
+      "capacity": "one pending intent; 32KiB bounded read; stages are retained on uncertainty",
+      "cache": "private process receipts authorize only exact previously issued bytes and native identity",
+      "recovery": "normal boot refuses pending state; only issued complete intent plus fresh generation/result verification may remove it; cross-process recovery adoption remains pending",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "multi-file generation/backup/native ownership protocol cannot use a single-file defaulting JSON lifecycle"
+    },
+    {
+      "id": "work-data-maintenance-result",
+      "pattern": "<data>/.work-data/maintenance-result-v1.json and .maintenance-result-v1.stage-*",
+      "owner": "01ae-work-data-maintenance-result.js",
+      "anchor": "'maintenance-result-v1.json'",
+      "schema": "schema 1: job, operation, observed source/current authorities, native backup identity/hash and optional separate-target restore metadata",
+      "writePrimitive": "exact exclusive cold owner; wx stage, file sync, native directory flush, rename and private receipt verification",
+      "corruption": "unknown stage or invalid record refuses; historical different-authority record is not current completion authority",
+      "capacity": "one latest result; 16KiB bounded read; no password or recovered content",
+      "cache": "none for reads; private issued receipts for the writing process only",
+      "recovery": "current reads separately authenticate authority and actual backup bytes/identity; snapshot decoding preserves raw historical metadata without reading its old external backup path",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "cross-file durable backup and active-generation proof require a dedicated transaction; completion metadata never selects a root"
+    },
     {
       "id": "mcp-consumers-v1",
       "pattern": "<data>/mcp-consumers-v1.json",

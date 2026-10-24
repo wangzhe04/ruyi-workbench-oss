@@ -40,11 +40,11 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   text('memory-usage', 'memory', /^memory\/_usage-v1\.json$/, 'global', 'memory-usage');
   text('agent-instructions-import', 'memory', /^memory\/\.agent-instructions-import-v1\.json$/, 'global', 'agent-instructions-import');
   text('memory-proposals', 'memory', new RegExp('^memory/proposals/' + shortId + '\\.json$'), m => m[1], 'memory-proposals', { sessionId: true });
-  text('memory-meta', 'memory', new RegExp('^memory/project/' + project + '/meta\\.json$'), m => 'project:' + m[1], 'memory-meta');
+  text('memory-meta', 'memory', new RegExp('^memory/project/' + project + '/meta\\.json$'), m => 'project:' + nativeIdentity(m[1]), 'memory-meta');
   text('memory-relations', 'memory', new RegExp('^memory/(global|project/' + project + ')/_relations\\.json$'),
-    m => m[1] === 'global' ? 'global' : 'project:' + m[2], 'memory-relations', { shape: 'array' });
+    m => nativeIdentity(m[1]) === 'global' ? 'global' : 'project:' + nativeIdentity(m[2]), 'memory-relations', { shape: 'array' });
   text('memory-body', 'memory', new RegExp('^memory/(global|project/' + project + ')/' + shortId + '\\.md$'),
-    m => m[1] === 'global' ? 'global' : 'project:' + m[2], m => 'memory:' + m[3], { chunked: true, markdown: true });
+    m => nativeIdentity(m[1]) === 'global' ? 'global' : 'project:' + nativeIdentity(m[2]), m => 'memory:' + m[3], { chunked: true, markdown: true });
   text('engine-transcript-index', 'cache', /^engine-transcripts\.json$/, 'global', 'engine-transcript-index');
   text('voice-lexicon', 'user-config', /^voice-lexicon\.json$/, 'global', 'voice-lexicon');
   text('steward-memory', 'memory', /^steward\/memory-v1\.json$/, 'global', 'steward-memory');
@@ -54,7 +54,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   text('external-bots', 'queue', /^external-bots\/state-v1\.json$/, 'global', 'external-bots:state-v1', { chunked: true });
   text('personal-workflows', 'workflow', /^agent-workflows\/([^/]+\.json)$/, 'global', m => 'workflow:' + hash(nativeIdentity(m[1])), { chunked: true });
   text('playbooks', 'workflow', /^playbooks\/([^/]+\.json)$/, 'user', m => 'playbook:' + hash(m[1]), { chunked: true });
-  text('web-cache', 'cache', /^webcache\/([a-f0-9]{64})\.json$/, 'global', m => 'web-cache:' + m[1], { chunked: true });
+  text('web-cache', 'cache', /^webcache\/([a-f0-9]{64})\.json$/, 'global', m => 'web-cache:' + nativeIdentity(m[1]), { chunked: true });
   text('proxy-models-cache', 'cache', /^proxy-models-cache\.json$/, 'global', 'proxy-models-cache', { chunked: true });
   text('migration-log', 'migration', /^migrations\/([0-9TZ-]+)\.json$/, 'global', m => 'migration-log:' + m[1], { chunked: true });
   text('skill-import-record', 'backup', new RegExp('^skills/' + shortId + '/\\.ruyi-import\\.json$'), 'skills', m => 'skill-import:' + nativeIdentity(m[1]), { chunked: true });
@@ -80,12 +80,12 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   }
   function describe(relative) {
     relativePath(relative);
-    if (/(?:\.prevbody|\.corrupt(?:[-.]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-)/.test(relative))
+    if (/(?:\.prevbody|\.corrupt(?:[-.]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-)/.test(nativeIdentity(relative)))
       return Object.freeze({ family: null, codec: 'special-owner-required', reason: 'retained-or-uncommitted-owner-artifact' });
     for (const entry of entries) {
-      const match = entry.pattern.exec(relative); if (!match) continue;
+      const match = new RegExp(entry.pattern.source, process.platform === 'win32' ? 'i' : '').exec(relative); if (!match) continue;
       if (entry.sessionId && !safeId(match[1])) fail('path_invalid');
-      if (relative.startsWith('agent-runs/') && !safeId(match[2])) fail('path_invalid');
+      if (nativeIdentity(relative).startsWith('agent-runs/') && !safeId(match[2])) fail('path_invalid');
       return Object.freeze({ family: entry.family, codec: entry.codec, purpose: entry.purpose,
         schema: entry.schema || (entry.codec === 'session-records' ? 2 : 1), chunked: entry.chunked === true, shape: entry.shape || 'object',
         markdown: entry.markdown === true, ...entry.bind(match), ...(entry.reason ? { reason: entry.reason } : {}) });
@@ -93,6 +93,15 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     fail('path_unmapped');
   }
   const nativeKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  function describeRetained(relative) {
+    relativePath(relative);
+    // Only the session owner's two physical body snapshots have this binding.
+    // Other .prev/.bak/stage names require their own owner, never caller metadata.
+    if (!new RegExp('^sessions/' + shortId + '\\.(messages|provider)\\.ndjson\\.prevbody$', process.platform === 'win32' ? 'i' : '').test(relative))
+      fail('special_owner_required', { reason: 'retained-owner-unmapped' });
+    const canonical = relative.slice(0, -'.prevbody'.length), descriptor = describe(canonical);
+    return Object.freeze({ ...descriptor, canonical, retainedSuffix: '.prevbody' });
+  }
   async function realDirectory(value) {
     const absolute = pathApi.resolve(value), parsed = pathApi.parse(absolute); let cursor = parsed.root;
     for (const part of ['', ...absolute.slice(parsed.root.length).split(pathApi.sep).filter(Boolean)]) {
@@ -154,8 +163,8 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         fail('special_owner_required', { reason: 'invalid-legacy-shape' });
       return bytes;
     };
-    async function transform({ relative, targetMode } = {}) {
-      const descriptor = describe(relative);
+    async function transform({ relative, targetMode } = {}, retained = false, readOnly = false) {
+      const descriptor = retained ? describeRetained(relative) : describe(relative);
       if (descriptor.codec === 'special-owner-required') fail('special_owner_required', { family: descriptor.family, reason: descriptor.reason });
       if (targetMode !== 'plain' && targetMode !== 'encrypted') fail('mode_invalid');
       const input = pathApi.join(source, ...relative.split('/')), output = pathApi.join(target, ...relative.split('/'));
@@ -223,22 +232,30 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         }
       };
       try {
-        await realDirectory(source); await realDirectory(target); await absent(output);
+        await realDirectory(source); if (!readOnly) { await realDirectory(target); await absent(output); }
         const original = await readPhysical(input); ownedBuffers.push(original);
         const sourcePhysicalHash = hash(original), enabled = targetMode === 'encrypted';
-        let logical, rowData, binary;
+        let logical, rowData, binary; const readMetadata = {};
         if (descriptor.codec === 'text') {
-          utf8(original); logical = validateText(descriptor, await textStore(input, 'source', false).read());
+          utf8(original); logical = validateText(descriptor, await textStore(input, 'source', false, readMetadata).read());
         } else if (descriptor.codec === 'gzip' || descriptor.archive) {
           // Valid gzip is binary, never UTF8-probed for a coincidental marker.
           if (!(original[0] === 31 && original[1] === 139 && original[2] === 8)) utf8(original);
-          binary = await binaryStore(input, 'source', false).read(); ownedBuffers.push(binary);
+          binary = await binaryStore(input, 'source', false, readMetadata).read(); ownedBuffers.push(binary);
           if (descriptor.archive) {
             const inner = zlibApi.gunzipSync(binary, { maxOutputLength: maxLogicalBytes }); ownedBuffers.push(inner);
             rowData = await records(inner, 'source'); logical = rowData.logical;
           } else logical = logicalLimit(binary);
         } else { rowData = await records(original, 'source'); logical = rowData.logical; }
         ownedBuffers.push(logical);
+        if (readOnly) {
+          if (descriptor.codec === 'text' || descriptor.codec === 'gzip' || descriptor.archive) {
+            if ((readMetadata.authenticated === true) !== enabled) fail('verification_failed');
+          }
+          if (rowData && rowData.authenticated !== (enabled ? rowData.rows.length : 0)) fail('verification_failed');
+          return Object.freeze({ family: descriptor.family, logicalHash: hash(logical), logicalBytes: logical.length,
+            physicalHash: sourcePhysicalHash, readOnly: true });
+        }
         await parents(output); await absent(output);
         stage = pathApi.join(pathApi.dirname(output), '.migration-codec-' + cryptoApi.randomBytes(24).toString('hex') + '.stage');
         const reservation = await fsApi.open(stage, 'wx', 0o600); await reservation.close();
@@ -302,7 +319,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         if (!failed && releases.some(result => result.status === 'rejected')) fail('key_release_failed', { targetRetained: published });
       }
     }
-    return Object.freeze({ describe, catalog, transform });
+    return Object.freeze({ describe, describeRetained, catalog, transform: options => transform(options), transformRetained: options => transform(options, true), verify: options => transform(options, false, true), verifyRetained: options => transform(options, true, true) });
   }
-  return Object.freeze({ create, describe, catalog });
+  return Object.freeze({ create, describe, describeRetained, catalog });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'), require('node:zlib'), require('node:util').TextDecoder);

@@ -1647,6 +1647,12 @@ async function listenWithFallback(server, port, host, config) {
 // 118c: 启动失败必须在【应用里】看得见,而不是只打在一个用户根本没打开的终端上。
 // 这层薄包装把三类致命失败落成 <data>/last-start-error.json(人话 + 下一步),
 // 下一次成功启动由 startServerInner 读出来交给前端顶部条;console 输出与退出码一字未改。
+async function listenForWorkbenchServe(server, port, host, config, opts) {
+  const strict = typeof WorkDataMaintenanceRuntimeHooks.strictSamePort === 'function' && WorkDataMaintenanceRuntimeHooks.strictSamePort(opts) === true;
+  if (strict) { await listenOnce(server, port, host); return port; }
+  return listenWithFallback(server, port, host, config);
+}
+
 async function startServer(opts) {
   // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
   // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
@@ -1661,6 +1667,11 @@ async function startServer(opts) {
     && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
   if (migrate) roots.push(defaults.legacy, defaults.next);
   const ownership = await ServerOwnership.acquire(roots); // Refusal must not touch the owner's files.
+  // A pending-maintenance refusal must never enter the startup-error writer,
+  // including a programmatic caller whose old root hook is already bound.
+  try {
+    if (typeof WorkDataMaintenanceRuntimeHooks.inspectBoot === 'function') await WorkDataMaintenanceRuntimeHooks.inspectBoot({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership});
+  } catch (error) { await ownership.release(); throw error; }
   try {
     if (isDirectServeInvocation() && !fs.existsSync(path.join(paths.data, '.work-data'))) {
       DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
@@ -1673,7 +1684,7 @@ async function startServer(opts) {
       }
     }
     await WorkDataRootHooks.bind(ownership);
-    const result = await startServerInner(opts, bindHost);
+    const result = await startServerInner(opts, bindHost, ownership);
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
     // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.
     if (ownership.portable) process.once('exit', () => { void ownership.release(); });
@@ -1754,7 +1765,7 @@ function stopAllActiveTurnsSync(reason = 'shutdown') {
   return stopped;
 }
 
-async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
+async function startServerInner(opts, bindHost = resolveBindHost(opts), maintenanceOwnership) {
   beginBootCliPathProbes();
   try {
     await ensureDirs();
@@ -1875,7 +1886,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   });
   // 118c: 实际监听端口可能不是请求的那个(原端口被别的程序占着时自动往后找)。下面的 runtime.json、
   // 控制台 URL 与 --open 全部用【实际】端口,前端顶部条另有 START_NOTICE.portFallback 说明改用了谁。
-  const port = await listenWithFallback(server, requestedPort, host, config);
+  const port = await listenForWorkbenchServe(server, requestedPort, host, config, opts);
   finishBootCliPathProbes(); // No await before the runtime token handshake below.
   const url = `http://${host}:${port}/`;
   // Port+token handshake file for the permission-bridge MCP child; also useful for tooling.
@@ -1884,6 +1895,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
   await atomicWriteJson(path.join(dataRoot(), 'runtime.json'),
     { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() },
     { mode: 0o600 }).catch(() => {});   // 安全走查 S11:里面是接口令牌,只给属主读写(POSIX;Windows 靠用户目录 ACL)
+  if (maintenanceOwnership && typeof WorkDataMaintenanceRuntimeHooks.captureServe === 'function') await WorkDataMaintenanceRuntimeHooks.captureServe({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership:maintenanceOwnership,server,listener:{host,port}});
   if (typeof PrivacyCore.configHooks.consumerListen === 'function') await PrivacyCore.configHooks.consumerListen();
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);

@@ -1,0 +1,2471 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baseline": "27b1788d99a7efaab71e47d9248dd2f5b79a6777",
+  "branch": "codex/3.1-completion-plan",
+  "node": "v24.14.1",
+  "status": "Batch 6 cold-maintenance core and ordinary portable layer; M3-3 and whole 3.1 remain active; production adapters unbound",
+  "sourceIdentity": {
+    "README.md": "3456dc3a3b3d687d78949e25247baf308f60de7894b36482f08152a46b6caf33",
+    "README_EN.md": "4ffc0c9d4cb54cc40627580c3fc9fba3fa8aebb8e51cdff726e451555ce620b4",
+    "dev-harness/durable-state-inventory.js": "3efa6061e036424935578f0125c9cff60519a917f14874ec2ed186bac58a6f4f",
+    "dev-harness/encrypted-storage-freeze.js": "9809cb6baa15f0e74c7676b464924e0e6949ceb3aa470d20428752682e087240",
+    "dev-harness/lib/migration-backup-representation-fixture.js": "c65ea6ea0d8ef14bc552075abee3438f57ece4d4bc6b62ee37e31071572564e1",
+    "dev-harness/lib/work-data-full-snapshot-fixture.js": "e7016892e86d4c49b2097afa438df90953ef2554c9b399f6c205de63eadbf7f1",
+    "dev-harness/lib/work-data-maintenance-runtime-outer-job.ps1": "512a8fc65f211d43ba996177dea1b3bb91ca0c496b28b6c585feb338452596b3",
+    "dev-harness/lib/work-data-maintenance-runtime-process-check.cjs": "26c9a95f679bd2533f006a645c712a4c76a6c29e2238fd18d567740587cb88a2",
+    "dev-harness/lib/work-data-maintenance-runtime-process-fixture.cjs": "5b2064be1efa721d67ff749a85f171be8608c76c54a84a4bbb82342534860478",
+    "dev-harness/lib/work-data-migration-host-fixture.js": "e64c980af14668bf4cea6e9416c20eda1c23f341cc1cac0e106c1278882d1c2f",
+    "dev-harness/lib/work-data-portable-fixture.js": "57f002bcb5df691a4ca25f0d1465420592305a61149cca4cf8366936e1a1a742",
+    "dev-harness/privacy-m1/egress/AUDIT.md": "ca82db722aff447bdf1ff1343411dabc431b9cb0f4d0366104925f379f27b23a",
+    "dev-harness/privacy-m1/egress/manifest.json": "3ad07166afa077461e653f59d261cdb9e9c6bed6ee66afbc9c29b8fa60f3cb0d",
+    "dev-harness/process-safety.static.e2e.js": "aa7d97b9507c781a3fae5ec9e549462e4e7bd5542ba7a290dedb06d6406d6364",
+    "dev-harness/unit/credential-recovery.test.js": "e2ab7d399a896062a115420c5e7c6f32b5cba10ab0fb261efbd77e6d649b2a3f",
+    "dev-harness/unit/local-crypto-helper-lifetime.test.js": "33432675aacf9ea1fba6ee589781cb4932fc443707596a6f723e2c8e41c544b9",
+    "dev-harness/unit/migration-capsule-helper-lifetime.test.js": "b60ea20d8652bb99003f3658a80fb0e6f60e84bb0264e2c8f59edadfe123c434",
+    "dev-harness/unit/session-artifacts-work-data.test.js": "02fd520977b3b02e3c069103cdfa01c28e77b20b2180126cf56e939f9f1280eb",
+    "dev-harness/unit/work-data-cold-migration.test.js": "0c991352e012f06e8dbf35f67dfb7a23cb9d5c13bed2eff4ac530b148e306555",
+    "dev-harness/unit/work-data-cold-operations.test.js": "03648cea99acdd5d5e8ad3f5d910681456baa84e5bb2f23ac11eb24eb4f0308a",
+    "dev-harness/unit/work-data-disposable-tree.test.js": "5d5989082de1223b2a648dfbcf3337ab9bd670cc891162e96a6b043e87520d4b",
+    "dev-harness/unit/work-data-full-snapshot.test.js": "fab1609e889a81ceb2bd4f562e092ed7dd99a969bab0dc1386e12e584a9630ad",
+    "dev-harness/unit/work-data-helper-owner-lifetime.test.js": "cd06e9027f782b9c84a0eb2adef8eac664f068e862ad8550c0e092a25d0e1d4b",
+    "dev-harness/unit/work-data-maintenance-control.test.js": "d5e5d532b21510dc43164e5fa04bb32c8ae5be5bee7d0c11a9e6facd701dd272",
+    "dev-harness/unit/work-data-maintenance-glue.test.js": "1424913af0b11201142f134dc2b9eae1c9094e6b9d9e38ab1d510cc213faba7b",
+    "dev-harness/unit/work-data-maintenance-http.test.js": "d72e41e5b5822260503a84d01ca5e62ab85fd78702090bd64c11f3c7d3ba10db",
+    "dev-harness/unit/work-data-maintenance-result.test.js": "abd30d33d72cdb36d0c632d10e2a6700e930319a9160668aa70aaa9c1ef99ecf",
+    "dev-harness/unit/work-data-maintenance-runtime.test.js": "1889986f9d33886962b4206b719ab4053a84d1858f40899cc25e5c0a493dd779",
+    "dev-harness/unit/work-data-maintenance-worker.test.js": "cd3a9f6eb5f38d499587f45ccd76747f65bf201d97e063654f73b496b8692e35",
+    "dev-harness/unit/work-data-migration-host.test.js": "aa61cea67bd1fb997bf7ff065aafc36cf5b53f50e78c36c980aaa6780c9cf7f2",
+    "dev-harness/unit/work-data-native-flush.test.js": "62eddc78669dc4d3222c6332b3c1d88153ecc25162490a17b86ff6928089ed1c",
+    "dev-harness/unit/work-data-native-publish.test.js": "fc7b7e20e9fc2bea33a6b05cab45e00651a6fae919175f7215d2d327c36cd720",
+    "dev-harness/unit/work-data-portable.test.js": "a08f81ac41746dceea6ac7e903f2c907831bd54db236a35b1dd001b92cb2a601",
+    "dev-harness/unit/work-data-retained-codecs.test.js": "028a0532ff126eb7661f953219a28b1255cd9ecda54981bbba5f0d37635abf11",
+    "dev-harness/unit/work-data-root-authority.test.js": "5e39a180c17e130a65263debbd8b07a504ddde6607a0124df33ae703933330ac",
+    "dev-harness/work-data-cold-operations.e2e.js": "a8fc71fb511c8f06b7313f568e7d5b8038e164ecc35deaaf8489ef1a64fc51cc",
+    "dev-harness/work-data-maintenance-runtime.e2e.js": "ef6344a026501f7c3663a52a6e40b513fc682b68cfb42dee8587b58177d8288b",
+    "docs/architecture/durable-state-inventory.json": "a324124179d70d134c15c1b077e2017ad9f5a44146278286e0244ceec89742bf",
+    "docs/architecture/durable-state-inventory.md": "c60a1bdb6b34fbcf772dc012b13b1873e98c81faf757459bfbba7ce704ef9f6d",
+    "docs/architecture/encrypted-storage-freeze.json": "68ecd5293d7e5139e80fcc07756024d35206109a5d27740d7ce2ee302ee77590",
+    "docs/architecture/encrypted-storage-freeze.md": "af201aacb184e6ddb2014aaf34d51b1a9a151fed23a2a6dd61952180a31fe28c",
+    "docs/architecture/module-dependency-graph.json": "7d7d41e687cf74c301e03ac72ca0ca6224a68e59ea2669cf9dda1707747152a7",
+    "docs/architecture/module-dependency-graph.md": "56d77334c4fbbebe2083d043aaee8601998234af3eeeca29ff9a7f71435fa06b",
+    "docs/architecture/privacy-egress-inventory.json": "45ebfadd52f5947127f75a77ad525d9ad41638b7fd4f476ea7fdfd324628c0dc",
+    "docs/architecture/privacy-egress-inventory.md": "8534b0ffb329da6c0559be12e92a394fdb956790935fdaa26d63b9b9c1448b83",
+    "docs/architecture/route-inventory.json": "457b1367b351f2c507f940f8c41e57aef7d24cf7e011a8b99ce3ad45b6d51f36",
+    "docs/architecture/route-inventory.md": "a5c313bd70b8c61f844d10a03396d03426d0760bd671428adf0c807c509e5a2c",
+    "docs/optimization-plan/92-3.1-implementation-handoff.md": "bde858ccd3089e4d7b794905eff0961128e6b5e9bd1d781aa4bba0bd04f5a99d",
+    "docs/optimization-plan/96-m3-3-migration-and-recovery.md": "94ac053261467f630ef8ab58f94e024391a527ac9af0a5f05b4488ffa9508b0d",
+    "facts.json": "2918aa136362e8ba9a1a3a38cb240702dfce68f3af8d2df545c2950d8b70e3e1",
+    "ruyi-workbench/app/server.js": "ea2cec88baeb8171e4a1c2633c9371d39519406b48681a5d3122ee94b0301608",
+    "ruyi-workbench/app/src/00-boot.js": "5e1bfe634f58f8c2b5eb518f38cfc4796610c993530c5a3ca0bec2da414d8627",
+    "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js": "fa7376168c90387076ea85bad2bfcf6275745a55472bbefe6981c5faff63291e",
+    "ruyi-workbench/app/src/01ad-work-data-migration-host.js": "acc4e54a6aa1edb073b3836efe9539e1084ac8c1fd39133f3b5c3667189c7c69",
+    "ruyi-workbench/app/src/01ae-work-data-maintenance-result.js": "a6cd5314eacac2a16678787d03bfd88f6f3a5c598a3528301d78059f1f77122d",
+    "ruyi-workbench/app/src/01j-local-crypto.js": "28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80",
+    "ruyi-workbench/app/src/01t-work-data-recovery.js": "d335ea0a6288370cd3fd805b812260b67b031d352240ff524b7385ad0b57e680",
+    "ruyi-workbench/app/src/01w-work-data-native-publish.js": "f25e22417be1555817a43b8a15ab6feb4b2a2742c4a27189b7fdaa94f380c05c",
+    "ruyi-workbench/app/src/01x-work-data-migration-codecs.js": "d45188843f835a9c7f88985980d2b4da17cfc9f741f3dc967fcfeeff2ed13bf0",
+    "ruyi-workbench/app/src/13-http-router.js": "e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d",
+    "ruyi-workbench/app/src/13ai-work-data-worker.js": "9410ce1cb223b28afdbd7601e57b50e8a16ff797c46f92aa779d46dc30a8871a",
+    "ruyi-workbench/app/src/13aj-work-data-control.js": "3297e3e006eb30552cab89bbbc29bf634e97a25213b483467d01c1d3da84f4a4",
+    "ruyi-workbench/app/src/13ak-work-data-cold-operations.js": "3880736e71b1733cfe6cffec29a5592e233b106a6cf5fad40b6adc1b72e3f4a4",
+    "ruyi-workbench/app/src/13al-work-data-maintenance-http.js": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9",
+    "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js": "39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff",
+    "ruyi-workbench/app/src/13an-work-data-disposable-tree.js": "82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422",
+    "ruyi-workbench/app/src/13u-migration-center.js": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0",
+    "ruyi-workbench/app/src/14-main.js": "a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4",
+    "ruyi-workbench/app/src/manifest.json": "764c51a920452da14ffa38ae818985271908a75389ad632eae50b8d045dbc2fe",
+    "ruyi-workbench/app/src/module-contracts.json": "a088ec969a6d019479e988a1dd5c270634c9fdbc228c857c70663e24a4eba0c8"
+  },
+  "growth": {
+    "docsAndGeneratedViews": {
+      "files": 14,
+      "added": 1067,
+      "deleted": 216
+    },
+    "testsFixturesAndCensus": {
+      "files": 35,
+      "added": 1724,
+      "deleted": 124
+    },
+    "otherGeneratedAndConfig": {
+      "files": 3,
+      "added": 641,
+      "deleted": 219
+    },
+    "generatedServer": {
+      "files": 1,
+      "added": 2003,
+      "deleted": 103
+    },
+    "handMaintainedProductJavaScript": {
+      "files": 17,
+      "added": 1995,
+      "deleted": 103
+    }
+  },
+  "scope": {
+    "integrated": [
+      "Ordinary complete-tree migration host with independent staged keys and strict logical bytes",
+      "Settled empty special-store portable reconstruction and source-history-only retained generations",
+      "Cold worker, private control/results, finite maintenance HTTP, process composition, disposable native target tree and native directory flush",
+      "Actual-close helper lifetime plus permanently latched uncertainty through sanitized key-owner failures"
+    ],
+    "capabilities": {
+      "worker": false,
+      "upload": false,
+      "download": false
+    },
+    "unchangedVersion": "3.0.1",
+    "userDataMigrated": false,
+    "runtimeNpmDependenciesAdded": 0
+  },
+  "verification": {
+    "fullUnit": {
+      "tests": 3590,
+      "pass": 3564,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 26,
+      "todo": 0,
+      "files": 372,
+      "concurrency": 4,
+      "exit": 0
+    },
+    "static": {
+      "total": 81,
+      "passed": 81,
+      "failed": []
+    },
+    "direct": {
+      "total": 22,
+      "passed": 22,
+      "results": [
+        {
+          "name": "work-data-maintenance-runtime",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-cold-operations",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-root-authority",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "server-ownership",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-full-snapshot",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "migration-skill-backup-representation",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "work-data-settings.browser",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "internal-mcp-cli-lifecycle",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "memory-active-scope",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-relay",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-resources",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "mcp-consumer-restart",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "privacy-managed-mcp",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "config-providers-guard",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "scheduler-api",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "scheduler-steward",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "steward-runner",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "steward-continue-unfinished",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "interactive-question",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "claude-permission-bridge-mode",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "shell-mcp-guard",
+          "code": 0,
+          "signal": null
+        },
+        {
+          "name": "todo-loopback",
+          "code": 0,
+          "signal": null
+        }
+      ]
+    },
+    "syntax": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\syntax-final.log",
+      "sha256": "1f90ba4adc81ddcade4b102c82c3cee9a1c0315d39ff46f9b882f572d3f592f8",
+      "bytes": 61
+    },
+    "buildFreshness": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\build-check-final.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    }
+  },
+  "nativeEvidence": {
+    "business": {
+      "runs": 2,
+      "groupsPerRun": 4,
+      "logs": [
+        "broker-lifecycle-followup/direct-work-data-cold-operations.log",
+        "broker-lifecycle-followup/native-operations-repeat.log"
+      ],
+      "actual": [
+        "Generated runtime",
+        "Windows DPAPI",
+        "NTFS directory flush, publication and native identities",
+        "OS owners",
+        "Complete recovery snapshot and independent new-Node cold read"
+      ],
+      "limits": [
+        "Synthetic owned roots and settled empty special store",
+        "No nonempty original-object capsule portable reconstruction",
+        "No ordinary production UI adapter, automatic target activation, cross-account or cross-machine acceptance"
+      ]
+    },
+    "runtime": {
+      "cases": 4,
+      "log": "broker-lifecycle-followup/direct-work-data-maintenance-runtime.log",
+      "actual": [
+        "Node PIDs/actual exits",
+        "Private stdin IPC",
+        "Named-pipe OS exclusion",
+        "Same-port tiny HTTP",
+        "Result readback",
+        "Successor lives after actual worker exit",
+        "Windows Job close kills successor"
+      ],
+      "simulated": [
+        "Business operations",
+        "Native flush in process fixture"
+      ],
+      "oracleRepair": "Initial Job fixture allowed 12s natural exit. Final outer-Job roles have no natural exit, wait for assignment barrier, and retain cleanup of exact owned Process objects.",
+      "negative": {
+        "change": "Only remove AssignProcessToJobObject line; retain marker and all other code",
+        "log": "broker-lifecycle-followup/outer-job-no-assignment-final.log",
+        "runnerExit": 0,
+        "expected": "Successor escaped desktop outer Job",
+        "checks": [
+          "Exact expected rejection",
+          "Both private child PIDs ESRCH after cleanup",
+          "No success receipt"
+        ],
+        "meaning": "exit0 means the negative-control runner verified expected rejection; mutated implementation did not pass"
+      },
+      "repeatLog": "broker-lifecycle-followup/runtime-acceptance-repeat.log"
+    }
+  },
+  "preservedTests": {
+    "fullSnapshot": {
+      "originalBodies": 17,
+      "sha256": "9041d4f77e726fbafffb0964ea20f04c04e97d102fd16447e377007da9eacffc"
+    },
+    "productionExports": {
+      "bytes": 926,
+      "sha256": "0099fa1678c03e487fab5da1f11973a879cde3348da67ea604b77c1a5a9821d9"
+    },
+    "newPermanentIndependentRegressions": [
+      "Deep cause helper uncertainty",
+      "Cyclic cause helper uncertainty",
+      "Function cause helper uncertainty",
+      "Actual 01o sanitization retains cold-operation target owner",
+      "Actual 01j permanent latch through actual 01o and 13ak retains target owner"
+    ],
+    "helperReview": {
+      "pureTests": 59,
+      "sourceNegatives": 3,
+      "negativeResult": "ERR_ASSERTION exit1",
+      "nativeKillTimingProven": false
+    }
+  },
+  "firstFailures": [
+    {
+      "case": "Focused integration",
+      "result": "220 total,219 pass,1 fail",
+      "cause": "Glue test depended on absent TEMP baseline",
+      "fix": "Exact HEAD braced module.exports digest and original 6 assertions; production exports unchanged"
+    },
+    {
+      "case": "Full unit first",
+      "result": "3553 total,3524 pass,26 skip,3 fail",
+      "cause": "Three old VM fixture contexts lacked new WorkDataMaintenanceRuntimeHooks namespace",
+      "fix": "Only add empty namespace fields; preserve assertions/event order; original43 and complete3553 pass, then latest3558 rerun after5 permanent additions"
+    },
+    {
+      "case": "Full unit after five permanent additions",
+      "result": "3558 total,3530 pass,26 skip,2 fail",
+      "causes": [
+        "Existing lifecycle L2 exceeded original1500ms ceiling at1515ms; isolated original3pass, actual global-load causality unproven",
+        "Large-index original RangeError allocation callsite has no stack; forced300msyield independently proves previous case leftover sess_plain timer produces501 rows instead of500"
+      ],
+      "fix": "Only drain first fixture case own pending async batch before next case; preserve all original byte/security/1500ms assertions and production sync contract. Original forced-yield diagnostic18pass/1fail with bounded difference; fixed19pass. Original isolated3+19pass. Latest full3558 uses explicit4file concurrency consistent with existing runner option; no product or CI-concurrency change",
+      "investigation": "Original isolated large case also consumed excessive memory, so root interrupted its own exec session; process death verified. Exact assertion-formatting allocation site remains inferred, not proven."
+    },
+    {
+      "case": "Static first",
+      "result": "80/81",
+      "cause": "README facts counts stale",
+      "fix": "Synchronize both languages without weakening facts gate"
+    },
+    {
+      "case": "Static later full repeat",
+      "result": "80/81",
+      "cause": "Process-safety own-child users snapshot348; new permanent runtime E2E adds one actual349th user",
+      "fix": "Only synchronize literal349 and source comment; broad-kill prohibition, creation-time checks and CDP gates unchanged"
+    },
+    {
+      "case": "Encrypted freeze later",
+      "result": "unclassified maintenance-intent/result",
+      "cause": "Durable census grew to72 before freeze classification",
+      "fix": "Explicit plaintext boot-control exceptions and regenerated72/41/31; original static assertions retained"
+    },
+    {
+      "case": "Staged EOL",
+      "result": "New outer Job PS1 LF instead of CRLF",
+      "fix": "Only normalize PS line endings; LF-normalized byte equality and repeat actual no-Assign negative on final PS source"
+    },
+    {
+      "case": "Native operations first",
+      "result": "Enable passed; export preparation failed",
+      "cause": "Missing actual special/result owner injection",
+      "fix": "Forward actual owner APIs and strict sourceProof/backup/specialCoverage checks; four groups twice green"
+    },
+    {
+      "case": "Helper uncertainty",
+      "result": "Original operation candidate rejected independently",
+      "cause": "Actual key-owner sanitization washed nested helper state; native helper settled before actual close",
+      "fix": "Catch before sanitization, read permanent native latch, actual-close/bounded-uncertain lifecycle; exact original challenge and3source negatives retained"
+    },
+    {
+      "case": "Runtime helper depth",
+      "result": "Deep/cyclic/function cause originals failed",
+      "fix": "Conservative bounded visited-set latch; original3pass and promoted permanently"
+    },
+    {
+      "case": "Job oracle",
+      "result": "Initial success evidence too weak because natural deadline",
+      "fix": "Disable natural exit for outer Job roles; actual remove-Assign rejection and normal Job-close proof"
+    },
+    {
+      "case": "Post-broker-repair real process acceptance",
+      "result": "First direct runtime failed ops-failure at job.state; other three process cases passed; remaining 21 directs not run in that first attempt",
+      "cause": "Injection marker preceded runtime hold and fresh asynchronous authority read. Actual HTTP deliberately returns typed 503 status_unavailable with no job while fresh authority is unknown.",
+      "fix": "Only checker waits within existing seven-second budget for terminal failure status, allowing precise typed503 or handoff intermediate states. Original final uncertain/error/backup/cancellable, OS exclusion, child liveness, no successor/result and cleanup assertions retained. Unexpected response/transport failures still reject; product four-source identity unchanged.",
+      "pureEvidence": "Actual 13am+13al VM with controlled authority read deterministically reproduces original TypeError then final200; not real native/process evidence."
+    }
+  ],
+  "census": {
+    "e2e": 587,
+    "defaultOffline": 580,
+    "live": 7,
+    "unitFiles": 372,
+    "modules": 116,
+    "edges": 801,
+    "forwardEdges": 67,
+    "largestScc": 31,
+    "sccCapRaised": false,
+    "routeDecisionPoints": 184,
+    "routeAuthRows": 171,
+    "durableSurfaces": 72,
+    "encryption": {
+      "required": 41,
+      "excluded": 31,
+      "maintenanceMetadata": "Plaintext boot/control job, phase, authorities, backup path/identity/hash and separate restore target; no password/master/recovered content; not protected by the work-data envelope"
+    }
+  },
+  "egress": {
+    "sourceFiles": 302,
+    "candidates": 756,
+    "acceptedSources": [
+      "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js",
+      "ruyi-workbench/app/src/01ad-work-data-migration-host.js",
+      "ruyi-workbench/app/src/01ae-work-data-maintenance-result.js",
+      "ruyi-workbench/app/src/01t-work-data-recovery.js",
+      "ruyi-workbench/app/src/01w-work-data-native-publish.js",
+      "ruyi-workbench/app/src/01x-work-data-migration-codecs.js",
+      "ruyi-workbench/app/src/13ai-work-data-worker.js",
+      "ruyi-workbench/app/src/13aj-work-data-control.js",
+      "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "ruyi-workbench/app/src/13al-work-data-maintenance-http.js",
+      "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "ruyi-workbench/app/src/13an-work-data-disposable-tree.js",
+      "ruyi-workbench/app/src/13u-migration-center.js",
+      "ruyi-workbench/app/src/14-main.js"
+    ],
+    "reviewRows": [
+      {
+        "id": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js#restore#run#1",
+        "before": {
+          "id": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js#restore#run#1",
+          "fingerprint": "112f9b7acea72a7e0e424fafd83f7e5c3206bb1a19be0e405b94ba7562b37047",
+          "group": "local-callback"
+        },
+        "after": {
+          "id": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js#restore#run#1",
+          "fingerprint": "47834e3e44b2b428d56a456fc45b575891ba87404f19117853a012a0fb504021",
+          "group": "local-callback"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js#seal#run#1",
+        "before": {
+          "id": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js#seal#run#1",
+          "fingerprint": "9a29fe56affabfcee910497f90636b2c512f8d0bd8e653e05a10f1e08db2fae2",
+          "group": "local-callback"
+        },
+        "after": {
+          "id": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js#seal#run#1",
+          "fingerprint": "beb30e352b695216df4f047c0a2fce5f6c438ebe0a0216eab2ab0500fd69da6c",
+          "group": "local-callback"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#cancel#run#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#cancel#run#1",
+          "fingerprint": "4de8dcfb1656bd37dd755c1ebcfc3780b19f3818e8824bc044bcf7aeb6b0bceb",
+          "group": "local-callback"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#classify#exec#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#classify#exec#1",
+          "fingerprint": "b4cbd40a71befa1b396db8ab3a8e46624329a3f0aaebc918559cf9e6b74d7836",
+          "group": "regex"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#prepare#<computed-call>#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#prepare#<computed-call>#1",
+          "fingerprint": "18e2dfbc5b11f4d068f76554e74743f1845c48aa253e3cf850f604a95f117d6e",
+          "group": "file-boundary"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#prepare#run#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#prepare#run#1",
+          "fingerprint": "4c0c8eb19a3c4f4624be02bdcae8b2480b7abb2a33f4bbb731723e46436a9ebe",
+          "group": "local-callback"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#publish#run#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#publish#run#1",
+          "fingerprint": "9468c112e471b8cc89cd575b419b267ff471f74c1fed4d8e9d9084be5aed7e8b",
+          "group": "local-callback"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#verifyPublished#<computed-call>#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#verifyPublished#<computed-call>#1",
+          "fingerprint": "971fe568a4c962442dc9bd296580003e93a4d9a481e8dbf8a8f21dede7dfec84",
+          "group": "file-boundary"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#verifyPublished#run#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#verifyPublished#run#1",
+          "fingerprint": "bc95f2be21d2c8e0fd6dd8e896bb582a66c567fd06ba07a73187f7c5623c37e1",
+          "group": "local-callback"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#writeNew#writeFile#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ad-work-data-migration-host.js#writeNew#writeFile#1",
+          "fingerprint": "f158aeeb0d7d62224131be726765fe8032041aa3b0b2b40036ef14ef2b4ca389",
+          "group": "file-boundary"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01ae-work-data-maintenance-result.js#write#writeFile#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01ae-work-data-maintenance-result.js#write#writeFile#1",
+          "fingerprint": "f3816491afceb87687b47bc9beda24159bb224b6e293b1549b34871ad936181d",
+          "group": "file-boundary"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/01w-work-data-native-publish.js#invokeFlush#spawn#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/01w-work-data-native-publish.js#invokeFlush#spawn#1",
+          "fingerprint": "797a12dabcbdb158c41ab90564f4c801d5115379f5e868af33c18635f454184d",
+          "group": "process"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13ai-work-data-worker.js#spawnCold#<transport-import>#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13ai-work-data-worker.js#spawnCold#<transport-import>#1",
+          "fingerprint": "beda6d2a4049de7c19ddf8760b4ab52a17e0cbbade019c0cd1942205172e056b",
+          "group": "capability"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13ai-work-data-worker.js#spawnCold#spawn#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13ai-work-data-worker.js#spawnCold#spawn#1",
+          "fingerprint": "529f22714c5ced3868cf8a68647f35be5688d7b1f918bac213c96f0eddfbc6a2",
+          "group": "process"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13ai-work-data-worker.js#start#spawn#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13ai-work-data-worker.js#start#spawn#1",
+          "fingerprint": "0b1408e103134d435f62a2506984bf3d5484346d2901d1bbedbf0a514d2e19f8",
+          "group": "process"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13aj-work-data-control.js#write#writeFile#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13aj-work-data-control.js#write#writeFile#1",
+          "fingerprint": "9f9023f4ebea9eb7fed82e7d297a92e8d33b77fe632c2e31ee70abf0d8e09a39",
+          "group": "file-boundary"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js#execute#writeFile#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js#execute#writeFile#1",
+          "fingerprint": "f3816491afceb87687b47bc9beda24159bb224b6e293b1549b34871ad936181d",
+          "group": "file-boundary"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js#run#run#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js#run#run#1",
+          "fingerprint": "2b374b1b0f5d0d512fb1ec8f71b8c52ea554409855190a04994e5f2230fcd0c9",
+          "group": "process"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13al-work-data-maintenance-http.js#create#<browser-download>#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13al-work-data-maintenance-http.js#create#<browser-download>#1",
+          "fingerprint": "0f8835bfd7626a30e478ab9bb7e4da9d848035d8fe03af3932ed20e461302e02",
+          "group": "local-callback"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13u-migration-center.js#collectPortable#exec#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13u-migration-center.js#collectPortable#exec#1",
+          "fingerprint": "77cdf9b025a26ae891b5e034b26459f69db0f8aa6484f83e08f0b78edc2bab94",
+          "group": "regex"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13u-migration-center.js#collectPortable#exec#2",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13u-migration-center.js#collectPortable#exec#2",
+          "fingerprint": "77cdf9b025a26ae891b5e034b26459f69db0f8aa6484f83e08f0b78edc2bab94",
+          "group": "regex"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/13u-migration-center.js#stagePortable#writeFile#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/13u-migration-center.js#stagePortable#writeFile#1",
+          "fingerprint": "de98625eabfc61f64c98cf013c8db3489c98a35a9bed53656044f704646009db",
+          "group": "file-boundary"
+        }
+      },
+      {
+        "id": "ruyi-workbench/app/src/14-main.js#main#run#1",
+        "before": null,
+        "after": {
+          "id": "ruyi-workbench/app/src/14-main.js#main#run#1",
+          "fingerprint": "1231ebcdad338416d8205c228a9f2b9e48874a75452f14605064fbfeb7545ba1",
+          "group": "local-callback"
+        }
+      }
+    ],
+    "previousErrors": [
+      "source-unreviewed:ruyi-workbench/app/public/index.html",
+      "source-unreviewed:ruyi-workbench/app/public/js/chat-render-primitives.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/privacy-failure.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/provider-settings.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/steward-settings.js",
+      "source-unreviewed:ruyi-workbench/app/src/00-boot.js",
+      "source-unreviewed:ruyi-workbench/app/src/01-config.js",
+      "source-unreviewed:ruyi-workbench/app/src/01b-route-auth.js",
+      "source-unreviewed:ruyi-workbench/app/src/01h-privacy-core.js",
+      "source-unreviewed:ruyi-workbench/app/src/01j-local-crypto.js",
+      "source-unreviewed:ruyi-workbench/app/src/01n-work-data-crypto.js",
+      "source-unreviewed:ruyi-workbench/app/src/01o-work-data-keys.js",
+      "source-unreviewed:ruyi-workbench/app/src/01p-work-data-store.js",
+      "source-unreviewed:ruyi-workbench/app/src/01q-work-data-records.js",
+      "source-unreviewed:ruyi-workbench/app/src/01r-work-data-chunks.js",
+      "source-unreviewed:ruyi-workbench/app/src/02-session-store.js",
+      "source-unreviewed:ruyi-workbench/app/src/03-bridge-guard.js",
+      "source-unreviewed:ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "source-unreviewed:ruyi-workbench/app/src/04h-provider-http.js",
+      "source-unreviewed:ruyi-workbench/app/src/05-claude-engine.js",
+      "source-unreviewed:ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "source-unreviewed:ruyi-workbench/app/src/06-provider-engine.js",
+      "source-unreviewed:ruyi-workbench/app/src/06b-prompt-registry.js",
+      "source-unreviewed:ruyi-workbench/app/src/06d-memory-domain.js",
+      "source-unreviewed:ruyi-workbench/app/src/06i-steward-core.js",
+      "source-unreviewed:ruyi-workbench/app/src/06k-config-patch.js",
+      "source-unreviewed:ruyi-workbench/app/src/07-autonomy.js",
+      "source-unreviewed:ruyi-workbench/app/src/08-agent-runs.js",
+      "source-unreviewed:ruyi-workbench/app/src/09-workflow.js",
+      "source-unreviewed:ruyi-workbench/app/src/10-context-governance.js",
+      "source-unreviewed:ruyi-workbench/app/src/11-native-tools.js",
+      "source-unreviewed:ruyi-workbench/app/src/12-tool-dispatch.js",
+      "source-unreviewed:ruyi-workbench/app/src/13-http-router.js",
+      "source-unreviewed:ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+      "source-unreviewed:ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "source-unreviewed:ruyi-workbench/app/src/13e-pretender-index.js",
+      "source-unreviewed:ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "source-unreviewed:ruyi-workbench/app/src/13h-steward-runner.js",
+      "source-unreviewed:ruyi-workbench/app/src/13i-steward-inbox.js",
+      "source-unreviewed:ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "source-unreviewed:ruyi-workbench/app/src/13k-steward-threads.js",
+      "source-unreviewed:ruyi-workbench/app/src/13l-steward-ops.js",
+      "source-unreviewed:ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "source-unreviewed:ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "source-unreviewed:ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "source-unreviewed:ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "source-unreviewed:ruyi-workbench/app/src/13w-external-bots.js",
+      "source-unreviewed:ruyi-workbench/app/src/context-governance-rules.json",
+      "source-unreviewed:ruyi-workbench/app/src/manifest.json",
+      "source-unreviewed:ruyi-workbench/app/src/module-contracts.json",
+      "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#ensureOnce#run#1",
+      "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#snapshot#run#1",
+      "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#<module>#exec#1",
+      "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#create#copyFile#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#ensureSessionV1Backup#copyFile#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#journalRollbackContents#writeFile#1",
+      "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#1",
+      "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#2",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#sessionArtifactStore#<computed-call>#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#validateLegacyBinary#exec#1",
+      "changed-boundary:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#1",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#2",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectedTransform#run#1",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectHostHistory#run#1",
+      "unclassified:ruyi-workbench/app/src/07-autonomy.js#agentRunSnapshotStore#<computed-call>#1",
+      "changed-boundary:ruyi-workbench/app/src/12-tool-dispatch.js#workbenchMemoryReadLoopback#httpRequest#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#<transport-import>#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#request#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#write#1",
+      "changed-boundary:ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1",
+      "changed-boundary:ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+      "changed-boundary:ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRecordManyUnlocked#writeFile#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRollback#writeFile#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#3",
+      "stale-classification:ruyi-workbench/app/src/10-context-governance.js#writeHistorySnapshot#writeFile#1"
+    ],
+    "remainingErrors": [
+      "source-unreviewed:ruyi-workbench/app/public/index.html",
+      "source-unreviewed:ruyi-workbench/app/public/js/chat-render-primitives.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/privacy-failure.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/provider-settings.js",
+      "source-unreviewed:ruyi-workbench/app/public/js/steward-settings.js",
+      "source-unreviewed:ruyi-workbench/app/src/00-boot.js",
+      "source-unreviewed:ruyi-workbench/app/src/01-config.js",
+      "source-unreviewed:ruyi-workbench/app/src/01b-route-auth.js",
+      "source-unreviewed:ruyi-workbench/app/src/01h-privacy-core.js",
+      "source-unreviewed:ruyi-workbench/app/src/01j-local-crypto.js",
+      "source-unreviewed:ruyi-workbench/app/src/01n-work-data-crypto.js",
+      "source-unreviewed:ruyi-workbench/app/src/01o-work-data-keys.js",
+      "source-unreviewed:ruyi-workbench/app/src/01p-work-data-store.js",
+      "source-unreviewed:ruyi-workbench/app/src/01q-work-data-records.js",
+      "source-unreviewed:ruyi-workbench/app/src/01r-work-data-chunks.js",
+      "source-unreviewed:ruyi-workbench/app/src/02-session-store.js",
+      "source-unreviewed:ruyi-workbench/app/src/03-bridge-guard.js",
+      "source-unreviewed:ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "source-unreviewed:ruyi-workbench/app/src/04h-provider-http.js",
+      "source-unreviewed:ruyi-workbench/app/src/05-claude-engine.js",
+      "source-unreviewed:ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "source-unreviewed:ruyi-workbench/app/src/06-provider-engine.js",
+      "source-unreviewed:ruyi-workbench/app/src/06b-prompt-registry.js",
+      "source-unreviewed:ruyi-workbench/app/src/06d-memory-domain.js",
+      "source-unreviewed:ruyi-workbench/app/src/06i-steward-core.js",
+      "source-unreviewed:ruyi-workbench/app/src/06k-config-patch.js",
+      "source-unreviewed:ruyi-workbench/app/src/07-autonomy.js",
+      "source-unreviewed:ruyi-workbench/app/src/08-agent-runs.js",
+      "source-unreviewed:ruyi-workbench/app/src/09-workflow.js",
+      "source-unreviewed:ruyi-workbench/app/src/10-context-governance.js",
+      "source-unreviewed:ruyi-workbench/app/src/11-native-tools.js",
+      "source-unreviewed:ruyi-workbench/app/src/12-tool-dispatch.js",
+      "source-unreviewed:ruyi-workbench/app/src/13-http-router.js",
+      "source-unreviewed:ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+      "source-unreviewed:ruyi-workbench/app/src/13d-core-domain-routes.js",
+      "source-unreviewed:ruyi-workbench/app/src/13e-pretender-index.js",
+      "source-unreviewed:ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "source-unreviewed:ruyi-workbench/app/src/13h-steward-runner.js",
+      "source-unreviewed:ruyi-workbench/app/src/13i-steward-inbox.js",
+      "source-unreviewed:ruyi-workbench/app/src/13j-steward-tool-base.js",
+      "source-unreviewed:ruyi-workbench/app/src/13k-steward-threads.js",
+      "source-unreviewed:ruyi-workbench/app/src/13l-steward-ops.js",
+      "source-unreviewed:ruyi-workbench/app/src/13m-steward-runner-base.js",
+      "source-unreviewed:ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+      "source-unreviewed:ruyi-workbench/app/src/13p-steward-runner-actions.js",
+      "source-unreviewed:ruyi-workbench/app/src/13q-steward-runner-turn.js",
+      "source-unreviewed:ruyi-workbench/app/src/13w-external-bots.js",
+      "source-unreviewed:ruyi-workbench/app/src/context-governance-rules.json",
+      "source-unreviewed:ruyi-workbench/app/src/manifest.json",
+      "source-unreviewed:ruyi-workbench/app/src/module-contracts.json",
+      "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#ensureOnce#run#1",
+      "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#snapshot#run#1",
+      "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#<module>#exec#1",
+      "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#create#copyFile#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#ensureSessionV1Backup#copyFile#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#journalRollbackContents#writeFile#1",
+      "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#1",
+      "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#2",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#sessionArtifactStore#<computed-call>#1",
+      "unclassified:ruyi-workbench/app/src/02-session-store.js#validateLegacyBinary#exec#1",
+      "changed-boundary:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#1",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#2",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectedTransform#run#1",
+      "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectHostHistory#run#1",
+      "unclassified:ruyi-workbench/app/src/07-autonomy.js#agentRunSnapshotStore#<computed-call>#1",
+      "changed-boundary:ruyi-workbench/app/src/12-tool-dispatch.js#workbenchMemoryReadLoopback#httpRequest#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#<transport-import>#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#request#1",
+      "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#write#1",
+      "changed-boundary:ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1",
+      "changed-boundary:ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+      "changed-boundary:ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRecordManyUnlocked#writeFile#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRollback#writeFile#1",
+      "stale-classification:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#3",
+      "stale-classification:ruyi-workbench/app/src/10-context-governance.js#writeHistorySnapshot#writeFile#1"
+    ],
+    "globalGatePassed": false,
+    "expectedCheckExit": 1,
+    "review": "Finite source/boundary delta only; historical76 error IDs unchanged",
+    "brokerLifetimeFollowup": {
+      "sourceFiles": 302,
+      "candidates": 756,
+      "sources": [
+        {
+          "file": "ruyi-workbench/app/src/13u-migration-center.js",
+          "before": "15cb871e5a9577c6138d7ed3be59d47dc25695b4196f85d6c4441071647ec9cd",
+          "after": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0"
+        },
+        {
+          "file": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+          "before": "c2987d0d184e6f350ea3de8cd481e1e8bd18e0ba74d3ccc97d0bda8b2232c90f",
+          "after": "3880736e71b1733cfe6cffec29a5592e233b106a6cf5fad40b6adc1b72e3f4a4"
+        },
+        {
+          "file": "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+          "before": "a315d86fbbf353cafc01ecfd3a6d2aee30eeb4a380c55b7cbf079be5586f3b8e",
+          "after": "39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff"
+        },
+        {
+          "file": "ruyi-workbench/app/src/14-main.js",
+          "before": "201dc9f308b67cc6c1661fd4d977695c33f9b0ef42577938170de0bc075588a8",
+          "after": "a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4"
+        }
+      ],
+      "boundary": {
+        "id": "ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#write#1",
+        "group": "process",
+        "before": "70ab38f14ebe3c3769fdf552a3b84b3faf318bc4f0131060d55683f9fcab9f43",
+        "after": "51745debb92ab7073282d469171bcc1845e1960d48a9e9481e2410ba0ef7062b",
+        "review": "Still JSON commands via stdin to the same local fixed PowerShell/C# capsule broker. Adds synchronous write-failure handling and actual-close lifetime; no new recipient or protected-send claim."
+      },
+      "beforeErrors": [
+        "source-unreviewed:ruyi-workbench/app/public/index.html",
+        "source-unreviewed:ruyi-workbench/app/public/js/chat-render-primitives.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/privacy-failure.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/provider-settings.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/steward-settings.js",
+        "source-unreviewed:ruyi-workbench/app/src/00-boot.js",
+        "source-unreviewed:ruyi-workbench/app/src/01-config.js",
+        "source-unreviewed:ruyi-workbench/app/src/01b-route-auth.js",
+        "source-unreviewed:ruyi-workbench/app/src/01h-privacy-core.js",
+        "source-unreviewed:ruyi-workbench/app/src/01j-local-crypto.js",
+        "source-unreviewed:ruyi-workbench/app/src/01n-work-data-crypto.js",
+        "source-unreviewed:ruyi-workbench/app/src/01o-work-data-keys.js",
+        "source-unreviewed:ruyi-workbench/app/src/01p-work-data-store.js",
+        "source-unreviewed:ruyi-workbench/app/src/01q-work-data-records.js",
+        "source-unreviewed:ruyi-workbench/app/src/01r-work-data-chunks.js",
+        "source-unreviewed:ruyi-workbench/app/src/02-session-store.js",
+        "source-unreviewed:ruyi-workbench/app/src/03-bridge-guard.js",
+        "source-unreviewed:ruyi-workbench/app/src/03a-privacy-gateway.js",
+        "source-unreviewed:ruyi-workbench/app/src/04h-provider-http.js",
+        "source-unreviewed:ruyi-workbench/app/src/05-claude-engine.js",
+        "source-unreviewed:ruyi-workbench/app/src/05b-kimi-bridge.js",
+        "source-unreviewed:ruyi-workbench/app/src/06-provider-engine.js",
+        "source-unreviewed:ruyi-workbench/app/src/06b-prompt-registry.js",
+        "source-unreviewed:ruyi-workbench/app/src/06d-memory-domain.js",
+        "source-unreviewed:ruyi-workbench/app/src/06i-steward-core.js",
+        "source-unreviewed:ruyi-workbench/app/src/06k-config-patch.js",
+        "source-unreviewed:ruyi-workbench/app/src/07-autonomy.js",
+        "source-unreviewed:ruyi-workbench/app/src/08-agent-runs.js",
+        "source-unreviewed:ruyi-workbench/app/src/09-workflow.js",
+        "source-unreviewed:ruyi-workbench/app/src/10-context-governance.js",
+        "source-unreviewed:ruyi-workbench/app/src/11-native-tools.js",
+        "source-unreviewed:ruyi-workbench/app/src/12-tool-dispatch.js",
+        "source-unreviewed:ruyi-workbench/app/src/13-http-router.js",
+        "source-unreviewed:ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+        "source-unreviewed:ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+        "source-unreviewed:ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+        "source-unreviewed:ruyi-workbench/app/src/13d-core-domain-routes.js",
+        "source-unreviewed:ruyi-workbench/app/src/13e-pretender-index.js",
+        "source-unreviewed:ruyi-workbench/app/src/13f-native-tool-schemas.js",
+        "source-unreviewed:ruyi-workbench/app/src/13h-steward-runner.js",
+        "source-unreviewed:ruyi-workbench/app/src/13i-steward-inbox.js",
+        "source-unreviewed:ruyi-workbench/app/src/13j-steward-tool-base.js",
+        "source-unreviewed:ruyi-workbench/app/src/13k-steward-threads.js",
+        "source-unreviewed:ruyi-workbench/app/src/13l-steward-ops.js",
+        "source-unreviewed:ruyi-workbench/app/src/13m-steward-runner-base.js",
+        "source-unreviewed:ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+        "source-unreviewed:ruyi-workbench/app/src/13p-steward-runner-actions.js",
+        "source-unreviewed:ruyi-workbench/app/src/13q-steward-runner-turn.js",
+        "source-unreviewed:ruyi-workbench/app/src/13u-migration-center.js",
+        "source-unreviewed:ruyi-workbench/app/src/13w-external-bots.js",
+        "source-unreviewed:ruyi-workbench/app/src/14-main.js",
+        "source-unreviewed:ruyi-workbench/app/src/context-governance-rules.json",
+        "source-unreviewed:ruyi-workbench/app/src/manifest.json",
+        "source-unreviewed:ruyi-workbench/app/src/module-contracts.json",
+        "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#ensureOnce#run#1",
+        "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#snapshot#run#1",
+        "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#<module>#exec#1",
+        "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#create#copyFile#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#ensureSessionV1Backup#copyFile#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#journalRollbackContents#writeFile#1",
+        "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#1",
+        "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#2",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#sessionArtifactStore#<computed-call>#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#validateLegacyBinary#exec#1",
+        "changed-boundary:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#1",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#2",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectedTransform#run#1",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectHostHistory#run#1",
+        "unclassified:ruyi-workbench/app/src/07-autonomy.js#agentRunSnapshotStore#<computed-call>#1",
+        "changed-boundary:ruyi-workbench/app/src/12-tool-dispatch.js#workbenchMemoryReadLoopback#httpRequest#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#<transport-import>#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#request#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#write#1",
+        "changed-boundary:ruyi-workbench/app/src/13u-migration-center.js#migrationCapsuleBroker#write#1",
+        "changed-boundary:ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1",
+        "changed-boundary:ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+        "changed-boundary:ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRecordManyUnlocked#writeFile#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRollback#writeFile#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#3",
+        "stale-classification:ruyi-workbench/app/src/10-context-governance.js#writeHistorySnapshot#writeFile#1"
+      ],
+      "remainingErrors": [
+        "source-unreviewed:ruyi-workbench/app/public/index.html",
+        "source-unreviewed:ruyi-workbench/app/public/js/chat-render-primitives.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/privacy-failure.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/provider-settings.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/steward-settings.js",
+        "source-unreviewed:ruyi-workbench/app/src/00-boot.js",
+        "source-unreviewed:ruyi-workbench/app/src/01-config.js",
+        "source-unreviewed:ruyi-workbench/app/src/01b-route-auth.js",
+        "source-unreviewed:ruyi-workbench/app/src/01h-privacy-core.js",
+        "source-unreviewed:ruyi-workbench/app/src/01j-local-crypto.js",
+        "source-unreviewed:ruyi-workbench/app/src/01n-work-data-crypto.js",
+        "source-unreviewed:ruyi-workbench/app/src/01o-work-data-keys.js",
+        "source-unreviewed:ruyi-workbench/app/src/01p-work-data-store.js",
+        "source-unreviewed:ruyi-workbench/app/src/01q-work-data-records.js",
+        "source-unreviewed:ruyi-workbench/app/src/01r-work-data-chunks.js",
+        "source-unreviewed:ruyi-workbench/app/src/02-session-store.js",
+        "source-unreviewed:ruyi-workbench/app/src/03-bridge-guard.js",
+        "source-unreviewed:ruyi-workbench/app/src/03a-privacy-gateway.js",
+        "source-unreviewed:ruyi-workbench/app/src/04h-provider-http.js",
+        "source-unreviewed:ruyi-workbench/app/src/05-claude-engine.js",
+        "source-unreviewed:ruyi-workbench/app/src/05b-kimi-bridge.js",
+        "source-unreviewed:ruyi-workbench/app/src/06-provider-engine.js",
+        "source-unreviewed:ruyi-workbench/app/src/06b-prompt-registry.js",
+        "source-unreviewed:ruyi-workbench/app/src/06d-memory-domain.js",
+        "source-unreviewed:ruyi-workbench/app/src/06i-steward-core.js",
+        "source-unreviewed:ruyi-workbench/app/src/06k-config-patch.js",
+        "source-unreviewed:ruyi-workbench/app/src/07-autonomy.js",
+        "source-unreviewed:ruyi-workbench/app/src/08-agent-runs.js",
+        "source-unreviewed:ruyi-workbench/app/src/09-workflow.js",
+        "source-unreviewed:ruyi-workbench/app/src/10-context-governance.js",
+        "source-unreviewed:ruyi-workbench/app/src/11-native-tools.js",
+        "source-unreviewed:ruyi-workbench/app/src/12-tool-dispatch.js",
+        "source-unreviewed:ruyi-workbench/app/src/13-http-router.js",
+        "source-unreviewed:ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+        "source-unreviewed:ruyi-workbench/app/src/13d-core-domain-routes.js",
+        "source-unreviewed:ruyi-workbench/app/src/13e-pretender-index.js",
+        "source-unreviewed:ruyi-workbench/app/src/13f-native-tool-schemas.js",
+        "source-unreviewed:ruyi-workbench/app/src/13h-steward-runner.js",
+        "source-unreviewed:ruyi-workbench/app/src/13i-steward-inbox.js",
+        "source-unreviewed:ruyi-workbench/app/src/13j-steward-tool-base.js",
+        "source-unreviewed:ruyi-workbench/app/src/13k-steward-threads.js",
+        "source-unreviewed:ruyi-workbench/app/src/13l-steward-ops.js",
+        "source-unreviewed:ruyi-workbench/app/src/13m-steward-runner-base.js",
+        "source-unreviewed:ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+        "source-unreviewed:ruyi-workbench/app/src/13p-steward-runner-actions.js",
+        "source-unreviewed:ruyi-workbench/app/src/13q-steward-runner-turn.js",
+        "source-unreviewed:ruyi-workbench/app/src/13w-external-bots.js",
+        "source-unreviewed:ruyi-workbench/app/src/context-governance-rules.json",
+        "source-unreviewed:ruyi-workbench/app/src/manifest.json",
+        "source-unreviewed:ruyi-workbench/app/src/module-contracts.json",
+        "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#ensureOnce#run#1",
+        "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#snapshot#run#1",
+        "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#<module>#exec#1",
+        "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#create#copyFile#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#ensureSessionV1Backup#copyFile#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#journalRollbackContents#writeFile#1",
+        "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#1",
+        "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#2",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#sessionArtifactStore#<computed-call>#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#validateLegacyBinary#exec#1",
+        "changed-boundary:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#1",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#2",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectedTransform#run#1",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectHostHistory#run#1",
+        "unclassified:ruyi-workbench/app/src/07-autonomy.js#agentRunSnapshotStore#<computed-call>#1",
+        "changed-boundary:ruyi-workbench/app/src/12-tool-dispatch.js#workbenchMemoryReadLoopback#httpRequest#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#<transport-import>#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#request#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#write#1",
+        "changed-boundary:ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1",
+        "changed-boundary:ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+        "changed-boundary:ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRecordManyUnlocked#writeFile#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRollback#writeFile#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#3",
+        "stale-classification:ruyi-workbench/app/src/10-context-governance.js#writeHistorySnapshot#writeFile#1"
+      ],
+      "previousErrors": [
+        "source-unreviewed:ruyi-workbench/app/public/index.html",
+        "source-unreviewed:ruyi-workbench/app/public/js/chat-render-primitives.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/privacy-failure.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/provider-settings.js",
+        "source-unreviewed:ruyi-workbench/app/public/js/steward-settings.js",
+        "source-unreviewed:ruyi-workbench/app/src/00-boot.js",
+        "source-unreviewed:ruyi-workbench/app/src/01-config.js",
+        "source-unreviewed:ruyi-workbench/app/src/01b-route-auth.js",
+        "source-unreviewed:ruyi-workbench/app/src/01h-privacy-core.js",
+        "source-unreviewed:ruyi-workbench/app/src/01j-local-crypto.js",
+        "source-unreviewed:ruyi-workbench/app/src/01n-work-data-crypto.js",
+        "source-unreviewed:ruyi-workbench/app/src/01o-work-data-keys.js",
+        "source-unreviewed:ruyi-workbench/app/src/01p-work-data-store.js",
+        "source-unreviewed:ruyi-workbench/app/src/01q-work-data-records.js",
+        "source-unreviewed:ruyi-workbench/app/src/01r-work-data-chunks.js",
+        "source-unreviewed:ruyi-workbench/app/src/02-session-store.js",
+        "source-unreviewed:ruyi-workbench/app/src/03-bridge-guard.js",
+        "source-unreviewed:ruyi-workbench/app/src/03a-privacy-gateway.js",
+        "source-unreviewed:ruyi-workbench/app/src/04h-provider-http.js",
+        "source-unreviewed:ruyi-workbench/app/src/05-claude-engine.js",
+        "source-unreviewed:ruyi-workbench/app/src/05b-kimi-bridge.js",
+        "source-unreviewed:ruyi-workbench/app/src/06-provider-engine.js",
+        "source-unreviewed:ruyi-workbench/app/src/06b-prompt-registry.js",
+        "source-unreviewed:ruyi-workbench/app/src/06d-memory-domain.js",
+        "source-unreviewed:ruyi-workbench/app/src/06i-steward-core.js",
+        "source-unreviewed:ruyi-workbench/app/src/06k-config-patch.js",
+        "source-unreviewed:ruyi-workbench/app/src/07-autonomy.js",
+        "source-unreviewed:ruyi-workbench/app/src/08-agent-runs.js",
+        "source-unreviewed:ruyi-workbench/app/src/09-workflow.js",
+        "source-unreviewed:ruyi-workbench/app/src/10-context-governance.js",
+        "source-unreviewed:ruyi-workbench/app/src/11-native-tools.js",
+        "source-unreviewed:ruyi-workbench/app/src/12-tool-dispatch.js",
+        "source-unreviewed:ruyi-workbench/app/src/13-http-router.js",
+        "source-unreviewed:ruyi-workbench/app/src/13ad-memory-cli-relay.js",
+        "source-unreviewed:ruyi-workbench/app/src/13d-core-domain-routes.js",
+        "source-unreviewed:ruyi-workbench/app/src/13e-pretender-index.js",
+        "source-unreviewed:ruyi-workbench/app/src/13f-native-tool-schemas.js",
+        "source-unreviewed:ruyi-workbench/app/src/13h-steward-runner.js",
+        "source-unreviewed:ruyi-workbench/app/src/13i-steward-inbox.js",
+        "source-unreviewed:ruyi-workbench/app/src/13j-steward-tool-base.js",
+        "source-unreviewed:ruyi-workbench/app/src/13k-steward-threads.js",
+        "source-unreviewed:ruyi-workbench/app/src/13l-steward-ops.js",
+        "source-unreviewed:ruyi-workbench/app/src/13m-steward-runner-base.js",
+        "source-unreviewed:ruyi-workbench/app/src/13o-steward-runner-prompt.js",
+        "source-unreviewed:ruyi-workbench/app/src/13p-steward-runner-actions.js",
+        "source-unreviewed:ruyi-workbench/app/src/13q-steward-runner-turn.js",
+        "source-unreviewed:ruyi-workbench/app/src/13w-external-bots.js",
+        "source-unreviewed:ruyi-workbench/app/src/context-governance-rules.json",
+        "source-unreviewed:ruyi-workbench/app/src/manifest.json",
+        "source-unreviewed:ruyi-workbench/app/src/module-contracts.json",
+        "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#ensureOnce#run#1",
+        "unclassified:ruyi-workbench/app/src/01o-work-data-keys.js#snapshot#run#1",
+        "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#<module>#exec#1",
+        "unclassified:ruyi-workbench/app/src/01p-work-data-store.js#create#copyFile#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#ensureSessionV1Backup#copyFile#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#journalRollbackContents#writeFile#1",
+        "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#1",
+        "changed-boundary:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#2",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#sessionArtifactStore#<computed-call>#1",
+        "unclassified:ruyi-workbench/app/src/02-session-store.js#validateLegacyBinary#exec#1",
+        "changed-boundary:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#1",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#prepareRequest#run#2",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectedTransform#run#1",
+        "unclassified:ruyi-workbench/app/src/03a-privacy-gateway.js#protectHostHistory#run#1",
+        "unclassified:ruyi-workbench/app/src/07-autonomy.js#agentRunSnapshotStore#<computed-call>#1",
+        "changed-boundary:ruyi-workbench/app/src/12-tool-dispatch.js#workbenchMemoryReadLoopback#httpRequest#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#<transport-import>#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#request#1",
+        "unclassified:ruyi-workbench/app/src/13ad-memory-cli-relay.js#startRelay#write#1",
+        "changed-boundary:ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1",
+        "changed-boundary:ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+        "changed-boundary:ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRecordManyUnlocked#writeFile#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#journalRollback#writeFile#1",
+        "stale-classification:ruyi-workbench/app/src/02-session-store.js#saveSession#copyFile#3",
+        "stale-classification:ruyi-workbench/app/src/10-context-governance.js#writeHistorySnapshot#writeFile#1"
+      ],
+      "globalGatePassed": false,
+      "expectedCheckExit": 1
+    }
+  },
+  "independentReviews": {
+    "portable": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-portable-layer-independent-20261024\\approval.json",
+      "sha256": "51134a1918c93bf2d338e8e1e087b8ae5a80c9749862101bbf8db47e461eeece",
+      "bytes": 5238
+    },
+    "nativeFlush": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-native-flush-draft-20261024\\root-approval.json",
+      "sha256": "d3cc5b32a053040ccbcc07e04d3c73e2f149d0618f9207190624d0a0b7e7d64d",
+      "bytes": 2282
+    },
+    "helperComposition": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-crypto-helper-independent-28eb-20261024\\final-review.json",
+      "sha256": "937b5018d909ec5be11f6c575b63f2bdee725d3caf416c3327877f26d2d2f115",
+      "bytes": 5300
+    },
+    "priorHelperRejection": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-cold-restore-independent-20261024\\rejected-review.json",
+      "sha256": "94c582a36aedd511b4c4364c5b7bd1d58b9fb76f6e10f8676d28ef479ffa2f72",
+      "bytes": 4595
+    },
+    "sessionIndexFixtureInvestigation": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-session-index-independent-20261024\\review.json",
+      "sha256": "203c28ea1e18ee9a6fb6fd1b152cde8bc3652130296a35e92997d718a6b217ab",
+      "bytes": 3118
+    },
+    "sessionIndexFixtureFix": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-session-index-independent-20261024\\fixture-fix-approval.json",
+      "sha256": "0dbabe6e6cca1479d7d4699efaceb2e1eb1b5396902aa4c7737231da94052559",
+      "bytes": 1533
+    },
+    "batchCheckpoint": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-batch6-checkpoint-independent-20261024\\final-review.json",
+      "sha256": "00f62d43d2bd6b9cf0bf747dbd60c8dbeab3daffcc68478245cd5fa5202bdb1b",
+      "bytes": 22539,
+      "scopeFollowup": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-batch6-checkpoint-independent-20261024\\scope-followup.json",
+        "sha256": "b7360bf7cf902320becdacbd80a80f901483476a9e25f99204b84e45f905ab92",
+        "bytes": 5382
+      }
+    },
+    "capsuleHelperCore": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-independent-20261024\\core-review.json",
+      "sha256": "217c326a75840270ca6d55f36cb2dcc47babffcaffb22afe32737c0f8b9e349b",
+      "bytes": 5887
+    },
+    "capsuleHelperOwners": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-independent-20261024\\owner-review.json",
+      "sha256": "e7b7d4df9aed26d8aa36b23b36f9d83e86b31dbd5b4402b038fb17e3c47a6f89",
+      "bytes": 6885
+    },
+    "brokerOriginalIndependent": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-published-originals-independent-review-20261024\\review-report.json",
+      "sha256": "2b7ee8c752860f50cc486743954b50bcd8b639f1219be678c3c04a2705e40702",
+      "bytes": 9266
+    },
+    "preRepairCheckpointBlocked": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-batch6-checkpoint-independent-20261024\\broker-lifecycle-pending.json",
+      "sha256": "419943865919dd99629776b4194ee7bd5e2350575c7762201f52cfdd126d2fd9",
+      "bytes": 1972
+    },
+    "fixtureEgressFollowup": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-independent-20261024\\fixture-egress-followup-review.json",
+      "sha256": "e829041a920324ae59a8d00143f362e632b3969a9e661bc39d3d73a5fffd3607",
+      "bytes": 4806
+    },
+    "runtimeReadiness": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-independent-20261024\\runtime-readiness-review.json",
+      "sha256": "7ea029242136ef59769f04beb09ec7d0f536fb0b239cb7610c04b13c308ef0bb",
+      "bytes": 4206
+    }
+  },
+  "candidateLineage": {
+    "base": "27b1788d99a7efaab71e47d9248dd2f5b79a6777",
+    "status": "controlled integration, not final acceptance",
+    "rows": [
+      {
+        "name": "01t-work-data-recovery.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-migration-host-draft-20261024\\portable-layer\\01t-work-data-recovery.js",
+        "before": "d9d331f122af2bac0edd811cdc8224c95bcc52cc39f0570bf4f3966f2244bdf2",
+        "candidate": "d335ea0a6288370cd3fd805b812260b67b031d352240ff524b7385ad0b57e680",
+        "live": "d335ea0a6288370cd3fd805b812260b67b031d352240ff524b7385ad0b57e680",
+        "eofOnly": false
+      },
+      {
+        "name": "13u-migration-center.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-migration-host-draft-20261024\\portable-layer\\13u-migration-center.js",
+        "before": "65fb5a6c989a8018785eccc7940b481d3723f118745e3d7cca536c2e2fe1f8a8",
+        "candidate": "389ae86c6b57def6de0d63f70f4b7dfc4eded7c6f15cc5274728d35dc37b0f60",
+        "live": "15cb871e5a9577c6138d7ed3be59d47dc25695b4196f85d6c4441071647ec9cd",
+        "eofOnly": true
+      },
+      {
+        "name": "01ab-work-data-full-snapshot.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-migration-host-draft-20261024\\portable-layer\\01ab-work-data-full-snapshot.js",
+        "before": "7afd55e2ff0353b24fc298890bb496cebb95fcf81d1bb969783b245d05c25824",
+        "candidate": "fa7376168c90387076ea85bad2bfcf6275745a55472bbefe6981c5faff63291e",
+        "live": "fa7376168c90387076ea85bad2bfcf6275745a55472bbefe6981c5faff63291e",
+        "eofOnly": false
+      },
+      {
+        "name": "01ad-work-data-migration-host.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-migration-host-draft-20261024\\portable-layer\\01ad-work-data-migration-host.js",
+        "before": null,
+        "candidate": "acc4e54a6aa1edb073b3836efe9539e1084ac8c1fd39133f3b5c3667189c7c69",
+        "live": "acc4e54a6aa1edb073b3836efe9539e1084ac8c1fd39133f3b5c3667189c7c69",
+        "eofOnly": false
+      },
+      {
+        "name": "01x-work-data-migration-codecs.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-migration-host-draft-20261024\\portable-layer\\01x-work-data-migration-codecs.js",
+        "before": "9298533cd778625718e64604e8ce4b0aba229da0f463e5e651c83d7c58da97dd",
+        "candidate": "d45188843f835a9c7f88985980d2b4da17cfc9f741f3dc967fcfeeff2ed13bf0",
+        "live": "d45188843f835a9c7f88985980d2b4da17cfc9f741f3dc967fcfeeff2ed13bf0",
+        "eofOnly": false
+      },
+      {
+        "name": "01ae-work-data-maintenance-result.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-migration-host-draft-20261024\\portable-layer\\01ae-work-data-maintenance-result.js",
+        "before": null,
+        "candidate": "a6cd5314eacac2a16678787d03bfd88f6f3a5c598a3528301d78059f1f77122d",
+        "live": "a6cd5314eacac2a16678787d03bfd88f6f3a5c598a3528301d78059f1f77122d",
+        "eofOnly": false
+      },
+      {
+        "name": "01w-work-data-native-publish.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-native-flush-draft-20261024\\overlay\\ruyi-workbench\\app\\src\\01w-work-data-native-publish.js",
+        "before": "4a91da13caf6dc8ed75bd87b988b22e6bd4ff002b87efe02b5456ee3c73139b3",
+        "candidate": "f25e22417be1555817a43b8a15ab6feb4b2a2742c4a27189b7fdaa94f380c05c",
+        "live": "f25e22417be1555817a43b8a15ab6feb4b2a2742c4a27189b7fdaa94f380c05c",
+        "eofOnly": false
+      },
+      {
+        "name": "13ai-work-data-worker.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-maintenance-runtime-draft-20261024\\13ai-work-data-worker.js",
+        "before": null,
+        "candidate": "9410ce1cb223b28afdbd7601e57b50e8a16ff797c46f92aa779d46dc30a8871a",
+        "live": "9410ce1cb223b28afdbd7601e57b50e8a16ff797c46f92aa779d46dc30a8871a",
+        "eofOnly": false
+      },
+      {
+        "name": "13aj-work-data-control.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-maintenance-runtime-draft-20261024\\13aj-work-data-control.js",
+        "before": null,
+        "candidate": "3297e3e006eb30552cab89bbbc29bf634e97a25213b483467d01c1d3da84f4a4",
+        "live": "3297e3e006eb30552cab89bbbc29bf634e97a25213b483467d01c1d3da84f4a4",
+        "eofOnly": false
+      },
+      {
+        "name": "13al-work-data-maintenance-http.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-maintenance-runtime-draft-20261024\\13al-work-data-maintenance-http.js",
+        "before": null,
+        "candidate": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9",
+        "live": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9",
+        "eofOnly": false
+      },
+      {
+        "name": "13am-work-data-maintenance-runtime.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-maintenance-runtime-draft-20261024\\helper-latch-followup\\13am-work-data-maintenance-runtime.js",
+        "before": null,
+        "candidate": "a315d86fbbf353cafc01ecfd3a6d2aee30eeb4a380c55b7cbf079be5586f3b8e",
+        "live": "a315d86fbbf353cafc01ecfd3a6d2aee30eeb4a380c55b7cbf079be5586f3b8e",
+        "eofOnly": false
+      },
+      {
+        "name": "13an-work-data-disposable-tree.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-cold-worker-draft-20261024\\13an-work-data-disposable-tree.js",
+        "before": null,
+        "candidate": "82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422",
+        "live": "82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422",
+        "eofOnly": false
+      },
+      {
+        "name": "13ak-work-data-cold-operations.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-cold-operations-restore-draft-20261024\\13ak-work-data-cold-operations.js",
+        "before": null,
+        "candidate": "03ada494f81cf3d3322df21871023878d01dd957192f05a1d08410b21110f8ba",
+        "live": "03ada494f81cf3d3322df21871023878d01dd957192f05a1d08410b21110f8ba",
+        "eofOnly": false
+      },
+      {
+        "name": "00-boot.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-maintenance-runtime-draft-20261024\\glue\\00-boot.js",
+        "before": "1a2408a3e0b461e1685a4eec9fd13b77c309cf627d663a6f2cab6bfe6a9d8fa2",
+        "candidate": "5e1bfe634f58f8c2b5eb518f38cfc4796610c993530c5a3ca0bec2da414d8627",
+        "live": "5e1bfe634f58f8c2b5eb518f38cfc4796610c993530c5a3ca0bec2da414d8627",
+        "eofOnly": false
+      },
+      {
+        "name": "13-http-router.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-maintenance-runtime-draft-20261024\\glue\\13-http-router.js",
+        "before": "3e9b72fa8717f69ff2683520788104d24a0eddd7795ec5ea9a77fe992191a155",
+        "candidate": "e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d",
+        "live": "e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d",
+        "eofOnly": false
+      },
+      {
+        "name": "14-main.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-maintenance-runtime-draft-20261024\\glue\\14-main.js",
+        "before": "e42f7405bd912c4e95bdd31e559fedbf469df6ef52103a85c2c75d30bf0f6cdf",
+        "candidate": "201dc9f308b67cc6c1661fd4d977695c33f9b0ef42577938170de0bc075588a8",
+        "live": "201dc9f308b67cc6c1661fd4d977695c33f9b0ef42577938170de0bc075588a8",
+        "eofOnly": false
+      }
+    ]
+  },
+  "notYetComplete": [
+    "Production adapter configure and real cold-role commands",
+    "Recovery kernel and cross-crash journal adoption/recovery",
+    "Pre-commit cancel automatically reclaims owned shadow",
+    "Recovery entry for lost key/config/unreadable source",
+    "Separate target activation and future launch-root selection",
+    "Upload and download",
+    "Nonempty original-object capsule portable reconstruction",
+    "Actual Desktop window, initial navigation and complete user journey",
+    "M3-4 encrypted fulltext index production paths and complete attachment coverage",
+    "M4 dependency/media production pipelines",
+    "M5 complete task delivery, pending operations, thread handoff and templates",
+    "M6 full default580 offline E2Es, real platforms, actual packages, installation/upgrade/rollback and cross-machine restore"
+  ],
+  "logs": {
+    "fixture-extraction-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\fixture-extraction-first.log",
+      "sha256": "7de24e20088a83e0665cf75f4da8e73bcb9f61bf96a40be86a77fa6ba22205f5",
+      "bytes": 2337
+    },
+    "fixture-extraction.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\fixture-extraction.json",
+      "sha256": "10b8f24ea6a386d474a2252593b5d2b53a3905bf79ece9773507d7fc11c35067",
+      "bytes": 620
+    },
+    "integrated-focused-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\integrated-focused-first.log",
+      "sha256": "abb31880e9c885dd429776b4061ce040af460de6f89bd44c000c1102dd1cd1c9",
+      "bytes": 24674
+    },
+    "integrated-glue-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\integrated-glue-fixed.log",
+      "sha256": "ea6c97c061ba3ba7f3a598db7be78ec52225d7fca4edce8aef9f251af5a4ed48",
+      "bytes": 801
+    },
+    "integrated-snapshot-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\integrated-snapshot-first.log",
+      "sha256": "9f4f9a26c5a9f3256abf0aaf7f1244363640fb2d1a24eab3f6b68b1ec44f87fb",
+      "bytes": 2336
+    },
+    "full-unit-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\full-unit-first.log",
+      "sha256": "86c7fb11eba626a6f93d88636615aab6883be18f01a9356326980b67c0dc30df",
+      "bytes": 520898
+    },
+    "startup-fixtures-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\startup-fixtures-fixed.log",
+      "sha256": "7d895534e53746129f5c72ccc1efa24abca4f1867a6069d89f681edc6eb98da7",
+      "bytes": 5100
+    },
+    "full-unit-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\full-unit-final.log",
+      "sha256": "683897b36470f3d18185ae97da477f1a40ec16dba6c20d46289535ec4734e63d",
+      "bytes": 518378
+    },
+    "full-unit-final2.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\full-unit-final2.log",
+      "sha256": "268144951bf95934c436dac043a86bb6fda701c9d04059fa88fd27bba0d9516b",
+      "bytes": 514766
+    },
+    "full-unit-final2-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\full-unit-final2-summary.json",
+      "sha256": "5079270667f05d4b8e5893290f9a6e6564d7f5c0008d7b3bf2163ccf0287bc71",
+      "bytes": 83
+    },
+    "full-unit-final3.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\full-unit-final3.log",
+      "sha256": "e0a853ce6302f7e804b3dc1868e4946afdee7bdb4319cd29d7fa13998e0e5534",
+      "bytes": 513052
+    },
+    "full-unit-final3-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\full-unit-final3-summary.json",
+      "sha256": "f567a6d9066b3e3a926c6911c9f6290253b534ac4c77f7d5800a2338d07f9960",
+      "bytes": 103
+    },
+    "isolated-agent-run-lifecycle-leaks.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\isolated-agent-run-lifecycle-leaks.log",
+      "sha256": "1372811183b4e9bb10294b404f4180e7adbc97f188ccfef2937b18b641da14f3",
+      "bytes": 362
+    },
+    "isolated-session-artifacts-work-data.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\isolated-session-artifacts-work-data.log",
+      "sha256": "4af888516fa64e2baa40af1232abdbe23440cddeaae29fc2cd8a3148c44be47e",
+      "bytes": 2302
+    },
+    "session-artifact-bounded-diagnostic.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\session-artifact-bounded-diagnostic.log",
+      "sha256": "245070d21b45321d3033d970f08ef07c2eebab44d664fd77af9d58ac962d1ce2",
+      "bytes": 23340
+    },
+    "session-artifact-forced-yield-original.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\session-artifact-forced-yield-original.log",
+      "sha256": "4d0e99f97715deb4f63a9911c63b1b4e70a00e30e0a4555cb20ddee589483089",
+      "bytes": 22980
+    },
+    "session-artifact-forced-yield-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\session-artifact-forced-yield-fixed.log",
+      "sha256": "74cf100e95cd38e846686bd044420831002e13693364f12cc6b63188c34fcbac",
+      "bytes": 23439
+    },
+    "static-first-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\static-first-summary.json",
+      "sha256": "ca9d4fc248878a247aa68576599de43f714b75cc75c1194bd2f446b02a894dd6",
+      "bytes": 7098
+    },
+    "static-final-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\static-final-summary.json",
+      "sha256": "22993584bf3940aace92e4445b520a62bec3349252a648c079dbbcf9609315aa",
+      "bytes": 7099
+    },
+    "facts-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\facts-fixed.log",
+      "sha256": "cb3068ec8643470ce4f49089808a51e9c7459dd47f8a91d05c5fb08742151082",
+      "bytes": 2365
+    },
+    "durable-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\durable-fixed.log",
+      "sha256": "71c6e00d86e9e68f73e59088790789b83dec4389ed9058cca187da84a34ae27b",
+      "bytes": 808
+    },
+    "encrypted-freeze-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\encrypted-freeze-first.log",
+      "sha256": "af4bcc1ee6a776d078ec94a31c8aa27bbc3f554d10541b13b50e012dfe28bc8d",
+      "bytes": 1002
+    },
+    "encrypted-freeze-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\encrypted-freeze-fixed.log",
+      "sha256": "1af04058ee65b12e11c56d370c6cb824a923089992b0b09131584ccf9e37910f",
+      "bytes": 1723
+    },
+    "staged-eol-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\staged-eol-first.log",
+      "sha256": "14eeaca8fa924b2d3150970b0929320eeca26281ce6886234d9228c2d21b74df",
+      "bytes": 320
+    },
+    "staged-eol-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\staged-eol-fixed.log",
+      "sha256": "30febf32912acaa36b104873c108d54c407330d60dc30cd44e63e9b168a54b7e",
+      "bytes": 263
+    },
+    "staged-eol-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\staged-eol-final.log",
+      "sha256": "e8aca2a8cbd9943068eca9d3d9ab35cd317a919799f5366e4b95fb0dbefe9efd",
+      "bytes": 263
+    },
+    "outer-job-eol-normalization.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\outer-job-eol-normalization.json",
+      "sha256": "71e02b9899cb806cf78401d893a91909f058f64badda76194e2be92acda6e0f8",
+      "bytes": 343
+    },
+    "native-operations-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\native-operations-first.log",
+      "sha256": "7a35338557b667c67b48b11f496fdfeb3a003f6a39f668941fa69cae0555b6ae",
+      "bytes": 729
+    },
+    "native-operations-second.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\native-operations-second.log",
+      "sha256": "d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af",
+      "bytes": 399
+    },
+    "runtime-acceptance-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\runtime-acceptance-first.log",
+      "sha256": "b3e0ff5c5c7b268a41fb946441256926031ab8f8caf72a0c8b404da8f8a48b4b",
+      "bytes": 1074
+    },
+    "outer-job-no-assignment.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\outer-job-no-assignment.log",
+      "sha256": "6d28622a5371047e0fd2104d22ba0fc19acf34e5149adea4e3d56a9cbdd5a4a6",
+      "bytes": 535
+    },
+    "outer-job-no-assignment-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\outer-job-no-assignment-final.log",
+      "sha256": "6911ed0a13f24dc6335b915aaf9862d2a44abee753fd3cac382335e2e6dcd0ad",
+      "bytes": 541
+    },
+    "outer-job-no-assignment-final.ps1": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\outer-job-no-assignment-final.ps1",
+      "sha256": "c6a44fe8705d12060f567a5a72fc367982543f7435a6b954a94e584a78968e50",
+      "bytes": 3946
+    },
+    "promoted-helper-regressions-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\promoted-helper-regressions-first.log",
+      "sha256": "030bf60ee87c1cd09859fd96401af7ed8b6a53941299f3d858ad0124a242a09d",
+      "bytes": 493
+    },
+    "promoted-helper-global-latch.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\promoted-helper-global-latch.log",
+      "sha256": "13ac2ab63fd6e42893ee57ee0256bb5d99302a9b9538dd5401ff003832004fea",
+      "bytes": 226
+    },
+    "egress-limited-review.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\egress-limited-review.json",
+      "sha256": "fe0b2c0b1bee76add2329d8dfd372a0c1ca800d7d4b95a45dabb1ba767aa10a9",
+      "bytes": 21519
+    },
+    "egress-limited-check.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\egress-limited-check.log",
+      "sha256": "348a1ac95c5f460f6da0a76ef4f25a24aef2393e2bd3fbee38f7aff40f246973",
+      "bytes": 6076
+    },
+    "syntax-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\syntax-final.log",
+      "sha256": "ce5ce21f5d579370deb644188e079e469c857ccc70479059f8c07c4641bdbbf3",
+      "bytes": 61
+    },
+    "build-check-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\build-check-final.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    "diff-check-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\diff-check-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "direct-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-summary.json",
+      "sha256": "9a16f038888aadc589d8a44359fea4cda271b183666e1299a8528fdafc8c99ec",
+      "bytes": 1775
+    },
+    "static-second-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\static-second-summary.json",
+      "sha256": "3009518828ec867f92c774e6ede6ee71693c116f530c7935ac839af3771c9f01",
+      "bytes": 7099
+    },
+    "process-safety-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\process-safety-first.log",
+      "sha256": "418ca83e25bc3f396eb02d17b555d8250de8372f21c1269a6a7a6fbb894a2a5f",
+      "bytes": 856
+    },
+    "process-safety-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\process-safety-fixed.log",
+      "sha256": "3e02923e8db5e7df3eec1db27f8ec7cbe96671fe41d1727b79d8a3fed471cc0e",
+      "bytes": 869
+    },
+    "diagnose-session-artifact.cjs": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\diagnose-session-artifact.cjs",
+      "sha256": "ee26757ac4c2aa57f5d55d88c92b191948dcb3746a52f6a88543451e5c8d284b",
+      "bytes": 3318
+    },
+    "direct-work-data-maintenance-runtime.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-work-data-maintenance-runtime.log",
+      "sha256": "e6d7b1986a7cb9de02ac69696f7ce6652c82f10d531e6237ad3b27a93007c7d0",
+      "bytes": 1054
+    },
+    "direct-work-data-cold-operations.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-work-data-cold-operations.log",
+      "sha256": "c4d62288dcc8fa6e669305bc939a9d819dffbe3a188fe5a0c1148ba24cc66d30",
+      "bytes": 393
+    },
+    "direct-work-data-root-authority.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-work-data-root-authority.log",
+      "sha256": "adcd10e6c5dad5b8c6867608271863e258473f2b40f3d9cc75fce1cd90a463e6",
+      "bytes": 927
+    },
+    "direct-server-ownership.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-server-ownership.log",
+      "sha256": "db2bcdf170092f88a6711387d4dff0e36856dac85811548c63ad448229bbf7d4",
+      "bytes": 1165
+    },
+    "direct-work-data-full-snapshot.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-work-data-full-snapshot.log",
+      "sha256": "c8a41a9cfb7c61ce4660e55e6d6bb2bf9dc67102332fb7c4e10543a3e8c4b6e9",
+      "bytes": 746
+    },
+    "direct-migration-skill-backup-representation.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-migration-skill-backup-representation.log",
+      "sha256": "cfc937c228e13bb400320e72d7a7be8a455b4ca714078eefed34fdf951349140",
+      "bytes": 693
+    },
+    "direct-work-data-settings.browser.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-work-data-settings.browser.log",
+      "sha256": "59a8a318ade509b360118d8dee98cc414d63840756a1ac2aac77706783552917",
+      "bytes": 874
+    },
+    "direct-internal-mcp-cli-lifecycle.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-internal-mcp-cli-lifecycle.log",
+      "sha256": "551c51a6865ef11d35cf87ff6767bac82968cc2245e031325eb133e6dee5b370",
+      "bytes": 1337
+    },
+    "direct-memory-active-scope.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-memory-active-scope.log",
+      "sha256": "68fe4bc1272edb4d1e88defe75c13e70f8113d86d5f69452c79504266be291d5",
+      "bytes": 2572
+    },
+    "direct-mcp-consumer-relay.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-mcp-consumer-relay.log",
+      "sha256": "6ddb62e69959968ae0d85579f552e99bdeb136c185626a6ec9d37daa39fd1115",
+      "bytes": 8068
+    },
+    "direct-mcp-consumer-resources.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-mcp-consumer-resources.log",
+      "sha256": "cf6784a5c2182b483e3e269d4d133c13dc4300e323b014c5242c63864b452903",
+      "bytes": 3750
+    },
+    "direct-mcp-consumer-restart.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-mcp-consumer-restart.log",
+      "sha256": "1eef1cf329eb007c97f9fe29e626515e7684a6e12d8ae747c9997086d6ae8046",
+      "bytes": 3058
+    },
+    "direct-privacy-managed-mcp.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-privacy-managed-mcp.log",
+      "sha256": "55bf10caf12c05adc762d7cefeebbe8356902a0496d8e9f3d8e140c7ef5b2423",
+      "bytes": 44714
+    },
+    "direct-config-providers-guard.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-config-providers-guard.log",
+      "sha256": "d639cff33b64088718a67ade824706602a92eb46cd20b0084f32200b67693e91",
+      "bytes": 3872
+    },
+    "direct-scheduler-api.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-scheduler-api.log",
+      "sha256": "de5998b33d4bc5262a9061e9ba7133ff537dfd52d1e937963f591e5a16f2e630",
+      "bytes": 3418
+    },
+    "direct-scheduler-steward.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-scheduler-steward.log",
+      "sha256": "f89a509906327060ba45e78c85bfe787856e618a7d34b5c1385a3cd0f9cd5c5d",
+      "bytes": 10782
+    },
+    "direct-steward-runner.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-steward-runner.log",
+      "sha256": "b488019420883ed2a8fd048ad8c71913074db2fd1367047cb4eef5bd40fe8a41",
+      "bytes": 11143
+    },
+    "direct-steward-continue-unfinished.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-steward-continue-unfinished.log",
+      "sha256": "7ce3e8a687667ac1719aec9b2480e74440c4809599d6ff2d73c663dc5dfd0dec",
+      "bytes": 3912
+    },
+    "direct-interactive-question.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-interactive-question.log",
+      "sha256": "20fc2f22c5c31bb6b3ea02ba25350f16f087c7f4785ad0a98bd4783f7f48f41a",
+      "bytes": 2089
+    },
+    "direct-claude-permission-bridge-mode.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-claude-permission-bridge-mode.log",
+      "sha256": "f859cc83b25f21b57b7a91b4a10ceb85386c6de51e02f6f5e21284fac7850692",
+      "bytes": 794
+    },
+    "direct-shell-mcp-guard.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-shell-mcp-guard.log",
+      "sha256": "0925309538b572bdd83def1b0f4b15ba5cec3c6c05aa0e3f66406d764d233967",
+      "bytes": 601
+    },
+    "direct-todo-loopback.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\direct-todo-loopback.log",
+      "sha256": "b70ebe0ea4180400551fedbb1f7fd0f7605b93a64c76860329158a1953ca252e",
+      "bytes": 461
+    },
+    "broker-lifecycle-followup/promotion.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\promotion.json",
+      "sha256": "af0a7409528c0dfe40bbd9422879c33e83b740d84426afc0e5d450ccef1f0030",
+      "bytes": 2471
+    },
+    "broker-lifecycle-followup/permanent-tests-identity.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\permanent-tests-identity.json",
+      "sha256": "7af3bec43861d1fd5135c745c926291f798906bb2d450bd943548b5fc671561f",
+      "bytes": 1353
+    },
+    "broker-lifecycle-followup/glue-owner-prelude-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\glue-owner-prelude-first.log",
+      "sha256": "93f0257a2cc0693a8969e84688dc0ba2d44521eb7b2e3d855324069fdc54b2d8",
+      "bytes": 2177
+    },
+    "broker-lifecycle-followup/glue-owner-prelude-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\glue-owner-prelude-fixed.log",
+      "sha256": "cc5254367ea07a28f26d79291dd8b197d2fa643ebf47a91b7815598ee4530748",
+      "bytes": 803
+    },
+    "broker-lifecycle-followup/root-owner-prelude-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\root-owner-prelude-fixed.log",
+      "sha256": "dcc6cc9c16d961201611a2e34b1766d3c4a8b70fffdc52da02e501cb36ed4a64",
+      "bytes": 3847
+    },
+    "broker-lifecycle-followup/integrated-focused-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\integrated-focused-first.log",
+      "sha256": "ed28ccb9aa38550b610612c4ad0e46c878c34cf49282dccfcca6d9a3d2f7fefa",
+      "bytes": 13274
+    },
+    "broker-lifecycle-followup/integrated-focused-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\integrated-focused-fixed.log",
+      "sha256": "fd70f985b0fd20d9e683c1087e7cbbe25d7dbdb44281bbc7862f4a1e0c1306aa",
+      "bytes": 12298
+    },
+    "broker-lifecycle-followup/fixture-followup-with-entry-guard.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\fixture-followup-with-entry-guard.log",
+      "sha256": "ccbc43a4af8504614b00eb084a461aa11aaa9b83efc4dbb00b2df943e4283e5e",
+      "bytes": 3627
+    },
+    "broker-lifecycle-followup/full-unit-final4.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\full-unit-final4.log",
+      "sha256": "1cc6b60409a9d96caf4aa63dfe06787ab9f973000725ad16b9a8185ca1b33294",
+      "bytes": 516259
+    },
+    "broker-lifecycle-followup/full-unit-final4-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\full-unit-final4-summary.json",
+      "sha256": "c9c88c77927edb0f7971effd4eeca4e37afd1ed1708a80c62bdb3f3d13db4969",
+      "bytes": 103
+    },
+    "broker-lifecycle-followup/direct-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-summary.json",
+      "sha256": "9a16f038888aadc589d8a44359fea4cda271b183666e1299a8528fdafc8c99ec",
+      "bytes": 1775
+    },
+    "broker-lifecycle-followup/native-operations-repeat.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\native-operations-repeat.log",
+      "sha256": "d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af",
+      "bytes": 399
+    },
+    "broker-lifecycle-followup/runtime-acceptance-repeat.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\runtime-acceptance-repeat.log",
+      "sha256": "5b6aab455423b0697a287d6e232cc37b5d7d6cb8fba679463111f9dee649983e",
+      "bytes": 1072
+    },
+    "broker-lifecycle-followup/static-final-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-summary.json",
+      "sha256": "22993584bf3940aace92e4445b520a62bec3349252a648c079dbbcf9609315aa",
+      "bytes": 7099
+    },
+    "broker-lifecycle-followup/syntax-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\syntax-final.log",
+      "sha256": "1f90ba4adc81ddcade4b102c82c3cee9a1c0315d39ff46f9b882f572d3f592f8",
+      "bytes": 61
+    },
+    "broker-lifecycle-followup/build-check-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\build-check-final.log",
+      "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+      "bytes": 70
+    },
+    "broker-lifecycle-followup/staged-eol-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\staged-eol-final.log",
+      "sha256": "7e1ef9ec02f243fc42e63a435e1821f74615566e4dd01cb31a1ac62d2f851ad8",
+      "bytes": 263
+    },
+    "broker-lifecycle-followup/diff-check-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\diff-check-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "broker-lifecycle-followup/egress-before-review.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\egress-before-review.json",
+      "sha256": "e8eb1e2cd07bb0f9cf41f19b51c5bea47d16c95a9be080c577cd41c135f769a0",
+      "bytes": 480
+    },
+    "broker-lifecycle-followup/egress-review.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\egress-review.json",
+      "sha256": "28d89d42035769e297056a805d890225531bd48525ad0273fc974e7f62d53d5c",
+      "bytes": 19879
+    },
+    "broker-lifecycle-followup/egress-limited-check.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\egress-limited-check.log",
+      "sha256": "348a1ac95c5f460f6da0a76ef4f25a24aef2393e2bd3fbee38f7aff40f246973",
+      "bytes": 6076
+    },
+    "broker-lifecycle-followup/direct-work-data-maintenance-runtime.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-work-data-maintenance-runtime.log",
+      "sha256": "e6114cd1e4fcae46f0db9abd87195ad9d38082c6d87c363061ac4fe4a81070ec",
+      "bytes": 1051
+    },
+    "broker-lifecycle-followup/direct-work-data-cold-operations.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-work-data-cold-operations.log",
+      "sha256": "c4d62288dcc8fa6e669305bc939a9d819dffbe3a188fe5a0c1148ba24cc66d30",
+      "bytes": 393
+    },
+    "broker-lifecycle-followup/direct-work-data-root-authority.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-work-data-root-authority.log",
+      "sha256": "adcd10e6c5dad5b8c6867608271863e258473f2b40f3d9cc75fce1cd90a463e6",
+      "bytes": 927
+    },
+    "broker-lifecycle-followup/direct-server-ownership.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-server-ownership.log",
+      "sha256": "db2bcdf170092f88a6711387d4dff0e36856dac85811548c63ad448229bbf7d4",
+      "bytes": 1165
+    },
+    "broker-lifecycle-followup/direct-work-data-full-snapshot.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-work-data-full-snapshot.log",
+      "sha256": "c8a41a9cfb7c61ce4660e55e6d6bb2bf9dc67102332fb7c4e10543a3e8c4b6e9",
+      "bytes": 746
+    },
+    "broker-lifecycle-followup/direct-migration-skill-backup-representation.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-migration-skill-backup-representation.log",
+      "sha256": "cfc937c228e13bb400320e72d7a7be8a455b4ca714078eefed34fdf951349140",
+      "bytes": 693
+    },
+    "broker-lifecycle-followup/direct-work-data-settings.browser.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-work-data-settings.browser.log",
+      "sha256": "59a8a318ade509b360118d8dee98cc414d63840756a1ac2aac77706783552917",
+      "bytes": 874
+    },
+    "broker-lifecycle-followup/direct-internal-mcp-cli-lifecycle.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-internal-mcp-cli-lifecycle.log",
+      "sha256": "551c51a6865ef11d35cf87ff6767bac82968cc2245e031325eb133e6dee5b370",
+      "bytes": 1337
+    },
+    "broker-lifecycle-followup/direct-memory-active-scope.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-memory-active-scope.log",
+      "sha256": "405ec29abf0f14d650de3feaced0ba504012372e64980bcd44e9e099489dc2e9",
+      "bytes": 2624
+    },
+    "broker-lifecycle-followup/direct-mcp-consumer-relay.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-mcp-consumer-relay.log",
+      "sha256": "6ddb62e69959968ae0d85579f552e99bdeb136c185626a6ec9d37daa39fd1115",
+      "bytes": 8068
+    },
+    "broker-lifecycle-followup/direct-mcp-consumer-resources.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-mcp-consumer-resources.log",
+      "sha256": "baaceb5532bb65f772fc8b5c86596cac7248a156e0a54ffa9c73aef1397fab2f",
+      "bytes": 3750
+    },
+    "broker-lifecycle-followup/direct-mcp-consumer-restart.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-mcp-consumer-restart.log",
+      "sha256": "1eef1cf329eb007c97f9fe29e626515e7684a6e12d8ae747c9997086d6ae8046",
+      "bytes": 3058
+    },
+    "broker-lifecycle-followup/direct-privacy-managed-mcp.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-privacy-managed-mcp.log",
+      "sha256": "55bf10caf12c05adc762d7cefeebbe8356902a0496d8e9f3d8e140c7ef5b2423",
+      "bytes": 44714
+    },
+    "broker-lifecycle-followup/direct-config-providers-guard.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-config-providers-guard.log",
+      "sha256": "b7b2b733b089d805524690686e03022991fadbadcb375c9f7215d4df2a77b1b0",
+      "bytes": 3872
+    },
+    "broker-lifecycle-followup/direct-scheduler-api.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-scheduler-api.log",
+      "sha256": "de5998b33d4bc5262a9061e9ba7133ff537dfd52d1e937963f591e5a16f2e630",
+      "bytes": 3418
+    },
+    "broker-lifecycle-followup/direct-scheduler-steward.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-scheduler-steward.log",
+      "sha256": "0cdc9abcc480d53925178f97792172a9506e7a3caaae95470e960a279c648e6d",
+      "bytes": 11017
+    },
+    "broker-lifecycle-followup/direct-steward-runner.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-steward-runner.log",
+      "sha256": "81a2462aaa8ea9766554c4b97586e8d4aabab9f9deaed1942511449b05c4b716",
+      "bytes": 11170
+    },
+    "broker-lifecycle-followup/direct-steward-continue-unfinished.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-steward-continue-unfinished.log",
+      "sha256": "c507ccefd48afe6c36d5d1d76e2d7f5dc01e28aa31e25d8c141198c918d41824",
+      "bytes": 3912
+    },
+    "broker-lifecycle-followup/direct-interactive-question.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-interactive-question.log",
+      "sha256": "20fc2f22c5c31bb6b3ea02ba25350f16f087c7f4785ad0a98bd4783f7f48f41a",
+      "bytes": 2089
+    },
+    "broker-lifecycle-followup/direct-claude-permission-bridge-mode.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-claude-permission-bridge-mode.log",
+      "sha256": "b1744f1efc7b17d9dee08044aa64409f64df718a1b128eed134bf715fa29cc4c",
+      "bytes": 821
+    },
+    "broker-lifecycle-followup/direct-shell-mcp-guard.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-shell-mcp-guard.log",
+      "sha256": "0925309538b572bdd83def1b0f4b15ba5cec3c6c05aa0e3f66406d764d233967",
+      "bytes": 601
+    },
+    "broker-lifecycle-followup/direct-todo-loopback.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-todo-loopback.log",
+      "sha256": "0c3456fb7934026a73e08d95e7edba14cc703dc32dad105c501961077a271097",
+      "bytes": 461
+    },
+    "broker-lifecycle-followup/static-final-acc-offline-installer.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-acc-offline-installer.static.e2e.js.log",
+      "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "bytes": 4389
+    },
+    "broker-lifecycle-followup/static-final-action-feedback.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-action-feedback.static.e2e.js.log",
+      "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "bytes": 1029
+    },
+    "broker-lifecycle-followup/static-final-agent-mode-v2.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-agent-mode-v2.static.e2e.js.log",
+      "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "bytes": 4237
+    },
+    "broker-lifecycle-followup/static-final-agent-team-budget.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-agent-team-budget.static.e2e.js.log",
+      "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "bytes": 93
+    },
+    "broker-lifecycle-followup/static-final-agent-workflows-polling-visibility.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-agent-workflows-polling-visibility.static.e2e.js.log",
+      "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "bytes": 829
+    },
+    "broker-lifecycle-followup/static-final-architecture-contract-snapshots.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-architecture-contract-snapshots.static.e2e.js.log",
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "bytes": 869
+    },
+    "broker-lifecycle-followup/static-final-asr-config-ui.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-asr-config-ui.static.e2e.js.log",
+      "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "bytes": 35
+    },
+    "broker-lifecycle-followup/static-final-browser-mcp.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-browser-mcp.static.e2e.js.log",
+      "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "bytes": 962
+    },
+    "broker-lifecycle-followup/static-final-c2-evidence-spawn-budget.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-c2-evidence-spawn-budget.static.e2e.js.log",
+      "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "bytes": 745
+    },
+    "broker-lifecycle-followup/static-final-copy-path-guard.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-copy-path-guard.static.e2e.js.log",
+      "sha256": "8739ce1db9009ff308f4330353230f3d63f9757ce9637b2a0aed0f32ec514f9a",
+      "bytes": 5477
+    },
+    "broker-lifecycle-followup/static-final-copy-terms.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-copy-terms.static.e2e.js.log",
+      "sha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "bytes": 4662
+    },
+    "broker-lifecycle-followup/static-final-cost-zero.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-cost-zero.static.e2e.js.log",
+      "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "bytes": 740
+    },
+    "broker-lifecycle-followup/static-final-css-typography-debt.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-css-typography-debt.static.e2e.js.log",
+      "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "bytes": 1326
+    },
+    "broker-lifecycle-followup/static-final-desktop-dpi.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-desktop-dpi.static.e2e.js.log",
+      "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "bytes": 33
+    },
+    "broker-lifecycle-followup/static-final-desktop-shell.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-desktop-shell.static.e2e.js.log",
+      "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "bytes": 3360
+    },
+    "broker-lifecycle-followup/static-final-durable-state-inventory.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-durable-state-inventory.static.e2e.js.log",
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "bytes": 798
+    },
+    "broker-lifecycle-followup/static-final-ec-d-closure.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ec-d-closure.static.e2e.js.log",
+      "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "bytes": 802
+    },
+    "broker-lifecycle-followup/static-final-encrypted-storage-freeze.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-encrypted-storage-freeze.static.e2e.js.log",
+      "sha256": "4aba266fa46b843be7db83507d89bba5a6ec3356ce85de56c65ade244405eea8",
+      "bytes": 1698
+    },
+    "broker-lifecycle-followup/static-final-engine-env-brief.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-engine-env-brief.static.e2e.js.log",
+      "sha256": "414681e487d8caca1a73d8727ee02655afb6ee0831ecd7ea389bb982f078ee56",
+      "bytes": 4549
+    },
+    "broker-lifecycle-followup/static-final-eol-policy.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-eol-policy.static.e2e.js.log",
+      "sha256": "e3728a01bc73b646cf60f7f64530ac6f04abcea469e284b491769e290f6699a8",
+      "bytes": 257
+    },
+    "broker-lifecycle-followup/static-final-facts.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-facts.static.e2e.js.log",
+      "sha256": "4954a5f904fa800484520657be11930725e229370b293f82b8d4f7ede01f01b2",
+      "bytes": 2333
+    },
+    "broker-lifecycle-followup/static-final-finalize-segments.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-finalize-segments.static.e2e.js.log",
+      "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "bytes": 1244
+    },
+    "broker-lifecycle-followup/static-final-fixture-home.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-fixture-home.static.e2e.js.log",
+      "sha256": "c6a711279c8b399034baee9d2541626ad60f90ae2e0e43ce1799232c35b81ada",
+      "bytes": 4555
+    },
+    "broker-lifecycle-followup/static-final-frontend-domains.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-frontend-domains.static.e2e.js.log",
+      "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "bytes": 7594
+    },
+    "broker-lifecycle-followup/static-final-health-i18n.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-health-i18n.static.e2e.js.log",
+      "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "bytes": 3392
+    },
+    "broker-lifecycle-followup/static-final-i18n-en-terms.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-i18n-en-terms.static.e2e.js.log",
+      "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "bytes": 673
+    },
+    "broker-lifecycle-followup/static-final-i18n.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-i18n.static.e2e.js.log",
+      "sha256": "9a27609675c7134b21a55d8566266d0165c08ee6b91f065ebb77efcb731f3f10",
+      "bytes": 749
+    },
+    "broker-lifecycle-followup/static-final-inline-script-csp-hash.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-inline-script-csp-hash.static.e2e.js.log",
+      "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "bytes": 863
+    },
+    "broker-lifecycle-followup/static-final-kimi-plan-ui.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-kimi-plan-ui.static.e2e.js.log",
+      "sha256": "67c7a13f91a93fbb3ef20e8a3983cf05d69a5aa3b6618ad4fca3176972a35935",
+      "bytes": 551
+    },
+    "broker-lifecycle-followup/static-final-live-full-text.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-live-full-text.static.e2e.js.log",
+      "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "bytes": 7248
+    },
+    "broker-lifecycle-followup/static-final-manifest-ranges.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-manifest-ranges.static.e2e.js.log",
+      "sha256": "db9bf4aa90c4d5f170b4da51ecc720132986c2695d217241efb2c88f7c12ab6f",
+      "bytes": 27951
+    },
+    "broker-lifecycle-followup/static-final-mcp-ops-gui.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-mcp-ops-gui.static.e2e.js.log",
+      "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "bytes": 2978
+    },
+    "broker-lifecycle-followup/static-final-memory-toolbox.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-memory-toolbox.static.e2e.js.log",
+      "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "bytes": 813
+    },
+    "broker-lifecycle-followup/static-final-mermaid-render.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-mermaid-render.static.e2e.js.log",
+      "sha256": "cd222eb27e453e73966be22186766ba160934cf69b2c777f5ddf5f83b0b2c247",
+      "bytes": 9038
+    },
+    "broker-lifecycle-followup/static-final-model-menu-classes.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-model-menu-classes.static.e2e.js.log",
+      "sha256": "2f30a911c3bd88c3538c67c572641009e5944d468eededa3234b847eab088929",
+      "bytes": 1065
+    },
+    "broker-lifecycle-followup/static-final-module-dependency-graph.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-module-dependency-graph.static.e2e.js.log",
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "bytes": 1233
+    },
+    "broker-lifecycle-followup/static-final-ndjson-line-feeder.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ndjson-line-feeder.static.e2e.js.log",
+      "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "bytes": 1836
+    },
+    "broker-lifecycle-followup/static-final-net-token-replay.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-net-token-replay.static.e2e.js.log",
+      "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "bytes": 1350
+    },
+    "broker-lifecycle-followup/static-final-new-thread-engine-default.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-new-thread-engine-default.static.e2e.js.log",
+      "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "bytes": 1545
+    },
+    "broker-lifecycle-followup/static-final-onboarding.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-onboarding.static.e2e.js.log",
+      "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "bytes": 9579
+    },
+    "broker-lifecycle-followup/static-final-overlay-payload-lock.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-overlay-payload-lock.static.e2e.js.log",
+      "sha256": "4cd2a7dac3e361bf07c0422b7c38a855eace260d62dee7f37ea69904996aad5d",
+      "bytes": 1818
+    },
+    "broker-lifecycle-followup/static-final-overlay-update-gui.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-overlay-update-gui.static.e2e.js.log",
+      "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "bytes": 1269
+    },
+    "broker-lifecycle-followup/static-final-process-safety.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-process-safety.static.e2e.js.log",
+      "sha256": "c542a08177c2827c43401644eb0620c31e42036953b9e32b54dd1001995f199c",
+      "bytes": 856
+    },
+    "broker-lifecycle-followup/static-final-progress-events.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-progress-events.static.e2e.js.log",
+      "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "bytes": 2394
+    },
+    "broker-lifecycle-followup/static-final-prompt-snapshot.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-prompt-snapshot.static.e2e.js.log",
+      "sha256": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "bytes": 8054
+    },
+    "broker-lifecycle-followup/static-final-provider-reasoning-effort-ui.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-provider-reasoning-effort-ui.static.e2e.js.log",
+      "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "bytes": 50
+    },
+    "broker-lifecycle-followup/static-final-rail-pocket.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-rail-pocket.static.e2e.js.log",
+      "sha256": "afff5ad6e13423c9148b478701ce8a75efa1e44d1a7e657865abc3199017a3a0",
+      "bytes": 2926
+    },
+    "broker-lifecycle-followup/static-final-resume-banner-dismiss.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-resume-banner-dismiss.static.e2e.js.log",
+      "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "bytes": 335
+    },
+    "broker-lifecycle-followup/static-final-route-inventory.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-route-inventory.static.e2e.js.log",
+      "sha256": "f6275d792e26f03b0c8398ee0e00a99cdfeadf144606356d839b198f99dd73c3",
+      "bytes": 1313
+    },
+    "broker-lifecycle-followup/static-final-runtime-optimization.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-runtime-optimization.static.e2e.js.log",
+      "sha256": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "bytes": 12813
+    },
+    "broker-lifecycle-followup/static-final-scheduler-ui.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-scheduler-ui.static.e2e.js.log",
+      "sha256": "cd502a55f90e539717e4d82c8283c4a9a05222939c0d0b1753e2f0b33c94256b",
+      "bytes": 3110
+    },
+    "broker-lifecycle-followup/static-final-session-save-census.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-session-save-census.static.e2e.js.log",
+      "sha256": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "bytes": 2070
+    },
+    "broker-lifecycle-followup/static-final-software-engineering-prompt.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-software-engineering-prompt.static.e2e.js.log",
+      "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "bytes": 2961
+    },
+    "broker-lifecycle-followup/static-final-start-experience.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-start-experience.static.e2e.js.log",
+      "sha256": "833263c4e2b3f0054cf44e39e14975882b332b6e416d738961beceedffb07b60",
+      "bytes": 5263
+    },
+    "broker-lifecycle-followup/static-final-steward-avatar.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-avatar.static.e2e.js.log",
+      "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "bytes": 5169
+    },
+    "broker-lifecycle-followup/static-final-steward-board.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-board.static.e2e.js.log",
+      "sha256": "8ba214533d8f78b1ecc31d47517e4c9e9c86bfa09fc65e22d25b9874b5c21b09",
+      "bytes": 22702
+    },
+    "broker-lifecycle-followup/static-final-steward-config.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-config.static.e2e.js.log",
+      "sha256": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "bytes": 6750
+    },
+    "broker-lifecycle-followup/static-final-steward-conversation.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-conversation.static.e2e.js.log",
+      "sha256": "33144a373a5ccc9fef85e07734977112871d52b0f1b3b7f62017ca6215d4162f",
+      "bytes": 31813
+    },
+    "broker-lifecycle-followup/static-final-steward-drawer.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-drawer.static.e2e.js.log",
+      "sha256": "eb69340f5a5945865586f5070d3b0eb01ab7f022c70f91da487597fc8d1b8bfb",
+      "bytes": 23264
+    },
+    "broker-lifecycle-followup/static-final-steward-events.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-events.static.e2e.js.log",
+      "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "bytes": 5780
+    },
+    "broker-lifecycle-followup/static-final-steward-runner.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-runner.static.e2e.js.log",
+      "sha256": "dce27606329a48d0a58223b0f40efb99287ac7e7678c10f740976bef3e77e799",
+      "bytes": 14598
+    },
+    "broker-lifecycle-followup/static-final-steward-settings.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-settings.static.e2e.js.log",
+      "sha256": "3cf39e3ca6456b64f2e222a4be2f0877d2a7ca251692a42fde6f028438c6d83a",
+      "bytes": 12360
+    },
+    "broker-lifecycle-followup/static-final-steward-shell.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-shell.static.e2e.js.log",
+      "sha256": "ba221a4d56648ba1d650f7ac3e15d1c75d56c313e5e23595bc1f8e91ec255273",
+      "bytes": 5431
+    },
+    "broker-lifecycle-followup/static-final-steward-tools.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-tools.static.e2e.js.log",
+      "sha256": "6eaaf96eacc5263b7c38a70fe8b5d8e5138ba965561b90f4bf7f2ca6fc2309c4",
+      "bytes": 11387
+    },
+    "broker-lifecycle-followup/static-final-steward-walkthrough.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-steward-walkthrough.static.e2e.js.log",
+      "sha256": "2e58926a0f2c671b260fe24016dbd18bc8f8070978427cb38ad7eb1d20db307a",
+      "bytes": 12690
+    },
+    "broker-lifecycle-followup/static-final-streaming-responsiveness.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-streaming-responsiveness.static.e2e.js.log",
+      "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "bytes": 1189
+    },
+    "broker-lifecycle-followup/static-final-thinking-boundary.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-thinking-boundary.static.e2e.js.log",
+      "sha256": "15aaf7ce16082393bdc6e3c799d5923469ba95ef499b93531041796f66cb824a",
+      "bytes": 557
+    },
+    "broker-lifecycle-followup/static-final-thread-brief.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-thread-brief.static.e2e.js.log",
+      "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "bytes": 3219
+    },
+    "broker-lifecycle-followup/static-final-thread-commission.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-thread-commission.static.e2e.js.log",
+      "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "bytes": 1725
+    },
+    "broker-lifecycle-followup/static-final-tool-image-inline.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-tool-image-inline.static.e2e.js.log",
+      "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "bytes": 2817
+    },
+    "broker-lifecycle-followup/static-final-tool-verb-coverage.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-tool-verb-coverage.static.e2e.js.log",
+      "sha256": "1603011b2a2b525932f7d2925e36902abc929f45ecf070c405db701ef95cce2c",
+      "bytes": 1003
+    },
+    "broker-lifecycle-followup/static-final-turn-narrative.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-turn-narrative.static.e2e.js.log",
+      "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "bytes": 2351
+    },
+    "broker-lifecycle-followup/static-final-ui-bugfix.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ui-bugfix.static.e2e.js.log",
+      "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "bytes": 1159
+    },
+    "broker-lifecycle-followup/static-final-ui-v3-p1.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ui-v3-p1.static.e2e.js.log",
+      "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "bytes": 3986
+    },
+    "broker-lifecycle-followup/static-final-ui-v3-p2.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ui-v3-p2.static.e2e.js.log",
+      "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "bytes": 4131
+    },
+    "broker-lifecycle-followup/static-final-ui-v3-p3a.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ui-v3-p3a.static.e2e.js.log",
+      "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "bytes": 4739
+    },
+    "broker-lifecycle-followup/static-final-ui-v3-p3b.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ui-v3-p3b.static.e2e.js.log",
+      "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "bytes": 4227
+    },
+    "broker-lifecycle-followup/static-final-ui-v3-wave1.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ui-v3-wave1.static.e2e.js.log",
+      "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "bytes": 3383
+    },
+    "broker-lifecycle-followup/static-final-ui-v4-glass.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-ui-v4-glass.static.e2e.js.log",
+      "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "bytes": 1284
+    },
+    "broker-lifecycle-followup/static-final-v17-review-fixes.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-v17-review-fixes.static.e2e.js.log",
+      "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "bytes": 1379
+    },
+    "broker-lifecycle-followup/static-final-workflow-editor-v2.static.e2e.js.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\static-final-workflow-editor-v2.static.e2e.js.log",
+      "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "bytes": 3537
+    },
+    "broker-lifecycle-followup/direct-runtime-first-failure.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-runtime-first-failure.log",
+      "sha256": "42aea3b8247e687f753764c4fe7ce182b86f68bed2b7478692f28c8b25d8b9d3",
+      "bytes": 1976
+    },
+    "broker-lifecycle-followup/direct-first-summary.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\direct-first-summary.json",
+      "sha256": "9bc9e35a31c9607d36b260393197b54aeb09242eabad9e429dfaa3ecea19c060",
+      "bytes": 91
+    },
+    "broker-lifecycle-followup/runtime-readiness-promotion.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\runtime-readiness-promotion.json",
+      "sha256": "5b3bb3789081e8bb16df1d00858739e93a15a2d634bb11b7c6e6e390eb9749a1",
+      "bytes": 541
+    },
+    "broker-lifecycle-followup/outer-job-no-assignment-final.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\outer-job-no-assignment-final.log",
+      "sha256": "91ed58e4de0d107da90297a2930279c734bfd031670ba3ff67de81493e7000c5",
+      "bytes": 569
+    },
+    "broker-lifecycle-followup/outer-job-no-assignment-final.ps1": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\outer-job-no-assignment-final.ps1",
+      "sha256": "c6a44fe8705d12060f567a5a72fc367982543f7435a6b954a94e584a78968e50",
+      "bytes": 3946
+    },
+    "broker-lifecycle-followup/outer-job-negative-runner.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\outer-job-negative-runner.log",
+      "sha256": "0198d2c1846f41e5aea61bf7e725e1d95fe541f1e44e8a5155d779243f72cb4a",
+      "bytes": 112
+    },
+    "ruyi-capsule-helper-lifetime-fix-20261024/identity.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\identity.json",
+      "sha256": "e4888d109e5c95482f611bf8fefa74045765399cfa2f9160bb21269f8e43a7b6",
+      "bytes": 3698
+    },
+    "ruyi-capsule-helper-lifetime-fix-20261024/core-identity.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\core-identity.json",
+      "sha256": "8c3a727cc30c4bcc489c788d3a16a2fd2feb9708c0809fe339f3a58bccdbe8a7",
+      "bytes": 784
+    },
+    "ruyi-capsule-helper-lifetime-fix-20261024/owner-identity.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\owner-identity.json",
+      "sha256": "9f4e90d38977608858e54e8f42941819deb324005d6d038dbecec71e4937d96a",
+      "bytes": 775
+    },
+    "ruyi-capsule-helper-lifetime-fix-20261024/core-original-first-red.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\core-original-first-red.log",
+      "sha256": "e5aedf7bd0299979bde8fda2f631dd7dbc4d447c42b5ecca477cba11c8d399bd",
+      "bytes": 3793
+    },
+    "ruyi-capsule-helper-lifetime-fix-20261024/core-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\core-fixed.log",
+      "sha256": "9d2226023bb5024be80f3435d52e385815e40b1367d80d2d53dcfa0ceb7c4d81",
+      "bytes": 1653
+    },
+    "ruyi-capsule-helper-lifetime-fix-20261024/owner-fixture-first.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\owner-fixture-first.log",
+      "sha256": "288259bd43fb78b559b521131fbb2c7d82b5f737d81d3b15ce97fe728946950a",
+      "bytes": 7899
+    },
+    "ruyi-capsule-helper-lifetime-fix-20261024/owner-original-first-red.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\owner-original-first-red.log",
+      "sha256": "77ed02d2198efdc3b8f6d19c91fe6cddb496a9e31ab3953a67b5ddfc81713236",
+      "bytes": 6145
+    },
+    "ruyi-capsule-helper-lifetime-fix-20261024/owner-fixed.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\owner-fixed.log",
+      "sha256": "c21fcd7ae325a3fbfe50b7c4181eec217f8a39de77ee8f5c0f802d88232ef523",
+      "bytes": 1405
+    },
+    "ruyi-capsule-helper-independent-20261024/core-review.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-independent-20261024\\core-review.json",
+      "sha256": "217c326a75840270ca6d55f36cb2dcc47babffcaffb22afe32737c0f8b9e349b",
+      "bytes": 5887
+    },
+    "ruyi-capsule-helper-independent-20261024/owner-review.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-independent-20261024\\owner-review.json",
+      "sha256": "e7b7d4df9aed26d8aa36b23b36f9d83e86b31dbd5b4402b038fb17e3c47a6f89",
+      "bytes": 6885
+    },
+    "ruyi-capsule-helper-independent-20261024/independent-old-baseline-first-red.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-independent-20261024\\independent-old-baseline-first-red.log",
+      "sha256": "caaca72513a127ce6c55aab196f67e1d78bfb48662dd62609f8748bb2d20a691",
+      "bytes": 4284
+    },
+    "ruyi-capsule-helper-independent-20261024/owner-old-baseline-first-red.log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-independent-20261024\\owner-old-baseline-first-red.log",
+      "sha256": "d2b7193010ca4ad875f5d3a1dbe80bfced5da1e1bf79eb6056e87da8af085556",
+      "bytes": 3443
+    },
+    "ruyi-published-originals-independent-review-20261024/broker-lifecycle-probe.cjs": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-published-originals-independent-review-20261024\\broker-lifecycle-probe.cjs",
+      "sha256": "3eef7edbc88af92fc75e4d2e293e31886f472cdad7e0b060b7ca698c30106261",
+      "bytes": 3958
+    },
+    "ruyi-published-originals-independent-review-20261024/broker-lifecycle-probe.json": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-published-originals-independent-review-20261024\\broker-lifecycle-probe.json",
+      "sha256": "583ded61e04162099662051e36be36e6633595dd9ba12385ff4a68dd43854d17",
+      "bytes": 2742
+    }
+  },
+  "preRepairVerification": {
+    "identity": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\pre-broker-repair-evidence.json",
+      "sha256": "360d5d5fae4773fdbbfb6a38743a654b802ad3cf1bd57f319d78fe745ce35df6",
+      "bytes": 70533
+    },
+    "scope": "Contains exact pre-broker-repair source identities and successful 3558/3532/26,22direct,81statics,1287syntax gates. These results are not borrowed for the final four-source helper repair."
+  },
+  "capsuleHelperRepair": {
+    "promotion": [
+      {
+        "target": "E:\\Claude\\worktrees\\steward-3x-implementation\\ruyi-workbench\\app\\src\\13u-migration-center.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\13u-migration-center.js",
+        "before": "15cb871e5a9577c6138d7ed3be59d47dc25695b4196f85d6c4441071647ec9cd",
+        "after": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0"
+      },
+      {
+        "target": "E:\\Claude\\worktrees\\steward-3x-implementation\\ruyi-workbench\\app\\src\\13ak-work-data-cold-operations.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\13ak-work-data-cold-operations.js",
+        "before": "c2987d0d184e6f350ea3de8cd481e1e8bd18e0ba74d3ccc97d0bda8b2232c90f",
+        "after": "3880736e71b1733cfe6cffec29a5592e233b106a6cf5fad40b6adc1b72e3f4a4"
+      },
+      {
+        "target": "E:\\Claude\\worktrees\\steward-3x-implementation\\ruyi-workbench\\app\\src\\13am-work-data-maintenance-runtime.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\13am-work-data-maintenance-runtime.js",
+        "before": "a315d86fbbf353cafc01ecfd3a6d2aee30eeb4a380c55b7cbf079be5586f3b8e",
+        "after": "39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff"
+      },
+      {
+        "target": "E:\\Claude\\worktrees\\steward-3x-implementation\\ruyi-workbench\\app\\src\\14-main.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\14-main.js",
+        "before": "201dc9f308b67cc6c1661fd4d977695c33f9b0ef42577938170de0bc075588a8",
+        "after": "a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4"
+      },
+      {
+        "target": "E:\\Claude\\worktrees\\steward-3x-implementation\\dev-harness\\unit\\migration-capsule-helper-lifetime.test.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\permanent-tests\\migration-capsule-helper-lifetime.test.js",
+        "before": null,
+        "after": "b60ea20d8652bb99003f3658a80fb0e6f60e84bb0264e2c8f59edadfe123c434"
+      },
+      {
+        "target": "E:\\Claude\\worktrees\\steward-3x-implementation\\dev-harness\\unit\\work-data-helper-owner-lifetime.test.js",
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\permanent-tests\\work-data-helper-owner-lifetime.test.js",
+        "before": null,
+        "after": "cd06e9027f782b9c84a0eb2adef8eac664f068e862ad8550c0e092a25d0e1d4b"
+      }
+    ],
+    "permanentTestPromotion": [
+      {
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\capsule-helper-lifetime.test.cjs",
+        "to": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\permanent-tests\\migration-capsule-helper-lifetime.test.js",
+        "originalSHA": "865a16dd721215270fd57ad2267e2d0e26fe02104f8cb090368a5e3c621baa20",
+        "promotedSHA": "b60ea20d8652bb99003f3658a80fb0e6f60e84bb0264e2c8f59edadfe123c434",
+        "fixtureAndTestsFromTickSHA": "8bea39d2ce3d45b3836589012ee6172064b37ee1bc375e58d13cab9b433ddfb7",
+        "changed": "Only two default product-source read paths; fixture/test body bytes preserved"
+      },
+      {
+        "from": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-capsule-helper-lifetime-fix-20261024\\helper-owner-lifetime.test.cjs",
+        "to": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-3-batch6-20261024\\broker-lifecycle-followup\\permanent-tests\\work-data-helper-owner-lifetime.test.js",
+        "originalSHA": "70f6203b0c474c58e5e9e5be900df736c518c4d8fe40ace1e42f55216147cffd",
+        "promotedSHA": "cd06e9027f782b9c84a0eb2adef8eac664f068e862ad8550c0e092a25d0e1d4b",
+        "fixtureAndTestsFromTickSHA": "a907983d35cc1760b711526e9177cea5bd6ca3e3f5ffc5d3739b8e87bc425de8",
+        "changed": "Only two default product-source read paths; fixture/test body bytes preserved"
+      }
+    ],
+    "nativeTextUnchanged": true,
+    "corePure": 16,
+    "ownerPure": 14,
+    "independentCore": 11,
+    "independentOwners": 4,
+    "additionalEarlyAdmissionCases": 2,
+    "blockedCases": [
+      "Runtime error or exit before actual close",
+      "Actual close without exit event",
+      "Uncertain native helper hidden by a sanitized cause",
+      "Explicit target/rehearsal release",
+      "Warm start and retired parent exit",
+      "Direct CLI forced or natural exit after uncertain helper"
+    ],
+    "firstFailures": [
+      "glue-owner-prelude-first.log",
+      "integrated-focused-first.log"
+    ],
+    "fixtureRepairs": "Only actual source helper prelude in old VM contexts; existing global-latch case discloses an already-latched real-01j-source simulated helper during target acquire, preserving original held-target and washed-cause assertions. New crypto/capsule entry cases prove zero added owner/backup and unchanged source.",
+    "scopeLimit": "Ref-held process and retained owners are safe failure states; a usable recovery kernel/UI remains mandatory."
+  }
+}

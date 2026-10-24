@@ -95,11 +95,13 @@ const WorkDataRecovery = ((cryptoApi) => {
       if (!Array.isArray(manifest.auxiliaries) || manifest.auxiliaries.length > LIMITS.auxiliaries) fail('auxiliary_invalid');
       const files = new Map(manifest.files.map(file => [file.path, file])), seen = new Set();
       for (const row of manifest.auxiliaries) {
-        if (!shape(row, 'type,schema,sourcePath,sourceSha256,size,sha256') || row.type !== 'external-bot-credentials' || row.schema !== 1
-          || !Number.isSafeInteger(row.size) || row.size < 1 || row.size > 4 * 1024 * 1024 || !hex(row.sha256) || !hex(row.sourceSha256)) fail('auxiliary_invalid');
+        if (!shape(row, 'type,schema,sourcePath,sourceSha256,size,sha256') || !auxiliaryLimit(row.type) || row.schema !== 1
+          || !Number.isSafeInteger(row.size) || row.size < 1 || row.size > auxiliaryLimit(row.type) || !hex(row.sha256) || !hex(row.sourceSha256)) fail('auxiliary_invalid');
         relative(row.sourcePath);
         const file = files.get(row.sourcePath), key = row.type + ':' + row.sourcePath;
-        if (!file || file.sha256 !== row.sourceSha256 || seen.has(key)) fail('auxiliary_invalid');
+        if (seen.has(key)) fail('auxiliary_invalid');
+        if(row.type==='external-bot-credentials'){if(!file||file.sha256!==row.sourceSha256)fail('auxiliary_invalid');}
+        else {const source=skillBackupSource(manifest.files,manifest.directories);if(row.sourcePath!==source.sourcePath||row.sourceSha256!==source.sourceSha256)fail('auxiliary_invalid');}
         seen.add(key); bytes += row.size;
         if (!Number.isSafeInteger(bytes) || bytes > LIMITS.bytes) fail('capacity');
       }
@@ -108,6 +110,22 @@ const WorkDataRecovery = ((cryptoApi) => {
     }
     if (bytes !== manifest.bytes || Buffer.byteLength(JSON.stringify(manifest), 'utf8') > LIMITS.metadata) fail('manifest_invalid');
     return manifest;
+  }
+  const auxiliaryLimit = type => type === 'external-bot-credentials' ? 4 * 1024 * 1024 : type === 'skill-backup-portable' ? LIMITS.bytes : 0;
+  function skillBackupScope(relative) {
+    const name = relative.toLowerCase();
+    return /^(?:\.work-data\/generations\/[a-f0-9]{48}\/)?migrations\/skill-backups(?:\/|$)/.test(name)
+      || /^\.work-data\/skill-backups(?:\/|$)/.test(name)
+      || /^\.work-data\/generations\/[a-f0-9]{48}\/migrations\/skill-backup-bindings-v2\.sealed$/.test(name);
+  }
+  function skillBackupSource(files, directories) {
+    const compare=(a,b)=>a<b?-1:a>b?1:0;
+    const entries=files.filter(file=>skillBackupScope(file.path)).map(file=>({path:file.path,size:Buffer.isBuffer(file.data)?file.data.length:file.size,sha256:Buffer.isBuffer(file.data)?hash(file.data):file.sha256})).sort((a,b)=>compare(a.path,b.path));
+    const dirs=directories.filter(skillBackupScope).sort(compare);
+    const fold=value=>value.toLowerCase();
+    const sourcePath=dirs.find(name=>fold(name)==='.work-data/skill-backups')||dirs.find(name=>fold(name)==='migrations/skill-backups');
+    if(!sourcePath)fail('auxiliary_invalid');
+    return Object.freeze({sourcePath,sourceSha256:hash(Buffer.from(JSON.stringify({files:entries,directories:dirs}))),files:Object.freeze(entries.map(row=>Object.freeze(row))),directories:Object.freeze(dirs)});
   }
   async function passwordKey(password, salt) {
     checkPassword(password);
@@ -144,8 +162,8 @@ const WorkDataRecovery = ((cryptoApi) => {
       files.push({ path: file.path, data: file.data.toString('base64') });
     }
     for (const row of auxiliaryInput) {
-      if (!shape(row, 'type,schema,sourcePath,sourceSha256,data') || row.type !== 'external-bot-credentials' || row.schema !== 1
-        || !Buffer.isBuffer(row.data) || row.data.length < 1 || row.data.length > 4 * 1024 * 1024) fail('auxiliary_invalid');
+      if (!shape(row, 'type,schema,sourcePath,sourceSha256,data') || !auxiliaryLimit(row.type) || row.schema !== 1
+        || !Buffer.isBuffer(row.data) || row.data.length < 1 || row.data.length > auxiliaryLimit(row.type)) fail('auxiliary_invalid');
       bytes += row.data.length; if (!Number.isSafeInteger(bytes) || bytes > LIMITS.bytes) fail('capacity');
       metadataAuxiliaries.push({ type: row.type, schema: row.schema, sourcePath: row.sourcePath, sourceSha256: row.sourceSha256, size: row.data.length, sha256: hash(row.data) });
       auxiliaries.push({ type: row.type, schema: row.schema, sourcePath: row.sourcePath, data: row.data.toString('base64') });
@@ -243,7 +261,7 @@ const WorkDataRecovery = ((cryptoApi) => {
       if (derived) derived.fill(0); if (plain) plain.fill(0); ciphertext.fill(0); salt.fill(0); nonce.fill(0); tag.fill(0);
     }
   }
-  return Object.freeze({ KIND, VERSION, LIMITS, seal, open });
+  return Object.freeze({ KIND, VERSION, LIMITS, seal, open, skillBackupSource });
   }
   return Object.freeze({ KIND, VERSION, LIMITS: DEFAULT_LIMITS, create, ...create() });
 })(require('node:crypto'));

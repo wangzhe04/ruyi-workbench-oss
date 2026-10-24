@@ -124,3 +124,28 @@ transport 不凭同名文件推断业务 owner；普通上传文件也可叫 `ex
 图108模块/768边/67前向边/最大SCC31；路由184判定点/171鉴权行。清册585 E2E/默认578离线/356 unit suite。外发294源/735候选，有限重审新源码/边界与overlay新增资源登记，原76错误 ID集合精确不变；仍不是全局外发审阅通过。UI locale 保留旧格式，只追加49键及术语修正；V3 仅额外删冗余 EOF 空行并核对既有词法边界不变。入索引后 EOL 门另发现新增 V2 owner 测试仍是混合换行、helper 多一个 EOF 空行，均只规范 LF/末尾空白，相关27纯用例及原 EOL 门通过，随后已索引全部81静态重跑全过；原首败和规范化前后 SHA 均保留。
 
 继续接生产冷 worker、持久 intent/完成回执、独立新进程校验与重启、特殊 NTFS 备份 portable 重建和上传下载。下一批普通 host 的 Windows 大小写漏密/会话 intrinsic ID别名问题已有独立原始失败及修候选，仍在 TEMP，不混作本批生产实现。全量默认离线、实际包、新安装/升级/回滚、真实跨机恢复均未执行。用户已取消昨日暂停，目标持续推进；**不在此阶段标记 M3-3 或3.1完成**。
+
+## 9. 第六批：冷维护组合、普通 portable 恢复与辅助进程生命周期（2026-10-24）
+
+基线27b1788d。01ad 在唯一 source owner 下创建独立密钥和完整候选，不先翻 config 开关；01ab/01t/01x/13u 接入普通 portable 表达与 settled 空特殊 store，终态历史仅为 source-history-only，不授予旧机器 native ID 撤回资格。恢复对上传原始字节/hash、严格UTF-8、口令、整包和引用闭合完成认证后才创建备份与目标，原 master 丢失也允许恢复到全新不相交根；旧根未知 intent 不被删除或修复。完整非空原对象 capsule、原始 archive/representation/private intent 和同根终态历史转换继续 typed 拒绝。当前不支持的边界必须保留源及准确提示，不能冒充已闭合。
+
+13ai/13aj/01ae/13ak/13al/13am/13an 分别提供私有进程通道、持久意图、完成回执、操作、有限维护 HTTP、进程组合及一次性原生树。意图与回执均绑定真实 authority、备份身份/hash和私有发行凭证，回执不是启动根选择权威；跨进程认领与恢复内核尚未实现。实际 statfs 的 BigInt 可用字节按 device 聚合，累计备份/目标/回执及工程余量，失败/不足拒绝写入；余量不是原子磁盘 reservation。真实 full snapshot 的特殊 owner/result owner 注入及严格 specialCoverage/backup 关联已接。
+
+辅助进程生命周期改为实际 close 后结算；kill 请求、false返回或throw均不是死亡证明。有界2秒仍未 close 时返回 helperMayStillRun 并设置永久进程 latch，迟到 close 不清除。冷操作在实际密钥 owner清洗异常前捕获 uncertainty，并读取全局 native latch，目标 owner继续持有。原深/循环/函数 cause 漏报及01o清洗原因链的问题均有原首红、原断言修后绿与独立源负控。helper独审59项由生命周期11、独立并发/迟到等7、既有凭据19、原密钥owner1、实际全局latch1、操作/迁移20构成，不包括另外三个runtime cause回归。其中两个实际owner故障回归及另外三个runtime回归已晋升永久测试，根4+1定向通过；模拟 EventEmitter/时钟不作为 Windows kill 时序实证。
+
+永久新增两个 E2E 的边界分别为：
+
+- work-data-cold-operations：使用生成运行时、真实 Windows DPAPI、NTFS directory flush/manifest发布/原生身份、OS owner和完整快照；四组实际启用、导出及新根恢复并独立 Node冷读、关闭、再导出两遍通过。只涵盖 settled 空特殊 store；没有执行生产UI完整旅程、非空capsule portable或真实跨机恢复。
+- work-data-maintenance-runtime：四情形使用真实 Node PID死亡、私有IPC、named pipe互斥、同端口 tiny HTTP和回执回读；业务操作/flush显式模拟。后继在worker真实退出后仍活跃，正常Job关闭实际回收；仅删Assign的负控真实报 Successor escaped desktop outer Job，runner exit0表示成功检出预期拒绝、确认两自有PID已死且无成功回执，不能记作被删绑定实现通过。最初12秒自然退出使oracle偏弱，最终Job场景撤销自然退出并加绑定barrier，原日志保留。
+
+修复前完整unit（4文件并发）3558执行、3532pass/26skip/0fail，22项串行E2E及81静态已过；这些只对应辅助进程broker修复前的源码身份。修复后最新完整unit（显式4文件并发）3590项执行，3564pass/26条件skip/0fail；22项串行相关E2E全部通过，语法1289文件零错、生成服务新鲜。真实Windows四组业务与四种进程/Job组合按当前源码各两遍通过，移除Assign负控仍精确拒绝且自有PID均回收。最终静态、EOL和diff逐项结果及日志身份见本批证据。最终身份、独审、source负控与原始日志hash见[第六批证据](evidence/privacy-m3-3-cold-maintenance.json)。首轮unit3553执行有3fail（旧VM fixture缺新增namespace），仅补三个context字段后原43项与完整3553均绿；新增五个永久故障测试后再验当前完整集。初始focused220项1fail来自TEMP导出基线依赖，现用HEAD精确bracedBlock摘要；原module.exports字节未变。静态首轮80/81，修双语facts计数；入索引EOL首轮新PS误为LF，只有换行转CRLF，负控再次按最终源执行；持久清册新增两面后加密分类静态另有首红，已明确登记其明文控制元数据并重建视图，原断言保留。没有删失败断言或将未执行门记绿。
+
+完整3558首次重验另有两失败：L2收尾1515ms超过原1500ms断言；大索引原RangeError无精确分配栈，隔离也出现大内存后中断自有exec。只读独审发现前一项sync出口刻意保留的pending/timer串入后一项；强制300ms让出实际得到501行（末项sess_plain）而非500，使用有界诊断避免巨量assert差异格式化，原夹具18pass/1fail，修后19pass。永久测试只在首项排空自己的异步batch，原所有字节/安全断言和生产sync语义不变，原两文件隔离3+19通过；最终完整集显式4文件并发，沿用已有runner并发选项，不改产品或CI默认，不把原RangeError分配位置和L2根因猜测写成已证实。最终81静态重验首轮80/81，process-safety的owner数量快照仍为348，新增runtime E2E实际将其增至349；只同步该数量及来源注释，原禁止广泛杀进程、创建时间判据和CDP闸断言均保留。
+
+当前587 E2E/默认580离线/372 unit suite；图116模块/801边/67前向/最大SCC31，无提高上限；路由184/171；durable与freeze均72面，其中41required/31excluded。intent/result为解锁前控制面，operation/authority/备份路径和身份hash/单独恢复目标为明文，口令/master/恢复正文不写其中；不将它们称作无路径或全加密。普通用户工作区生成文件与用户主动导出仍保持外部可读原格式，不因工作数据开关改成密文；内部托管副本及恢复备份包单独按其政策处理。外发302源/756候选，本片14份源码、21新边界及2处旧callback指纹有限重审，旧76错误ID集合完全相同，全局审阅门仍预期exit1。
+
+仍须完成生产适配器configure、恢复内核、跨崩溃认领/恢复、提交前取消自动回收owned shadow、失钥/坏配置/不可读源的恢复入口、全新目标自动激活及后续启动根选择、上传下载、非空原对象portable、Desktop真窗口和完整用户旅程。持锁或tiny只读HTTP不是恢复完成。M3-4/M4候选未计生产，M5/M6原范围保留。完整580默认离线E2E、实际包/升级/回滚、真实平台与真实跨机恢复未执行；版本3.0.1，M3-3和3.1继续实施。
+
+最终独审另发现13u旧原生broker把error/exit当成actual close，live及下一候选的真实源码VM共6个诊断结果确认该缺口；旧脚本断言BUG发生，不称其修后绿。独立修复改为actual close或明确noPID启动失败才结算，2秒未关闭永久记录uncertainty；冷操作入口和显式release读取全局latch，暖启动/最终交接前再拦截，CLI保留OS owner及ref计时器，不强退释放。16项broker和14项owner纯测试、独立11+4项与旧源合同负例通过，原C#文本和module.exports逐字不变，生产configure仍未绑定。新两永久unit只调整默认读源路径，不依赖TEMP；旧三个CLI VM只补实际helper前缀。整合首轮116有两fixture失败：缺新CLI前缀、以及全局latch已在入口可见而正确早拒为0owner；保原全部断言，仅让旧global故障fixture在target acquire时迟到披露真实01j源码的模拟永久latch，继续证明洗cause后1已持target不释放。另新增crypto/capsule入口已见unknown的两用例，证明0额外owner、0备份写、源不变。先116项全绿，后受影响两文件及新增用例再次通过；修后完整门单独记录，不借用修前绿灯。安全持锁并非完整恢复UI。
+
+辅助进程修复后真实进程首轮另有夹具就绪首红：故障注入标记先于异步权威重读完成，期间实际HTTP按合同返回503/status_unavailable且无job，旧checker直接取job.state产生TypeError。真实13am+13al源码的受控纯VM复现并经独审；仅checker在原7秒预算内等待handoff/精确typed503过渡结束，原最终uncertain/error/backup/cancellable、OS排他、进程存活、无后继/无回执和清理断言逐字保留，异常响应和transport错误仍失败，产品四源未再改动。修正后两遍实际进程组合及Job验收通过，保留原失败、纯复现和窄修复身份。

@@ -84,9 +84,9 @@
 
 | | |
 |---|---|
-| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（由 `app/src/` 的 96 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端采用原生 ES 模块，无框架、无构建。 |
+| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（由 `app/src/` 的 116 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端采用原生 ES 模块，无框架、无构建。 |
 | **121 个原生工具 · 108 个 ACC 工具** | 包含文件、终端、搜索、Git、联网、Office 交接、跨线程回读、子代理编排及管家工具；可选的桌面控制组件 ACC 再提供截图 / OCR / UIA / 键鼠 / 窗口 / 浏览器 / Office / PDF 等 108 个工具。 |
-| **8 套模板 · 10 种角色 · 585 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 585 项 e2e（默认回归 578 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 356 组 unit suite 与 25 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
+| **8 套模板 · 10 种角色 · 587 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 587 项 e2e（默认回归 580 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 372 组 unit suite 与 25 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
 
 > 原名 **Win Claude Workbench**，自 v0.8 起更名**如意 Ruyi**：项目名去掉 "Claude" 一是规避商标风险，二是旧提示词曾让 provider 模型自称「我是 Claude」。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 
@@ -534,7 +534,7 @@ Windows 10/11 是一等目标，发布包和桌面控制只支持 Windows。源�
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            后端源码：96 个有序模块（改这里，再跑 build.js）
+│   ├── app/src/            后端源码：116 个有序模块（改这里，再跑 build.js）
 │   ├── app/server.js       后端运行产物（由 app/build.js 拼接，零 npm 运行时依赖）
 │   ├── app/public/         前端：index.html + 原生 ES 模块 + 分层 CSS + 中英语言包
 │   ├── desktop/            WinForms + WebView2 桌面壳

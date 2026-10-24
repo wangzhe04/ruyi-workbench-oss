@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-24T08:16:39.140Z",
+  "generatedAt": "2026-10-24T10:00:41.800Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1138,6 +1138,7 @@
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
+        "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-setup.test.js"
       ]
     },
@@ -1225,6 +1226,7 @@
         "dev-harness\\unit\\privacy-missing-config-vault.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
+        "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\voice-learn.e2e.js",
@@ -1520,6 +1522,7 @@
         "dev-harness\\unit\\context-compact-trigger.test.js",
         "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\settings-catalog.test.js",
+        "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\voice-learn.e2e.js",
         "dev-harness\\voice-lexicon.e2e.js",
@@ -3193,6 +3196,7 @@
       "domain": "work-data",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-settings.test.js",
         "dev-harness\\work-data-settings.browser.e2e.js"
       ]
@@ -3210,6 +3214,7 @@
       "domain": "work-data",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-settings.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\work-data-settings.browser.e2e.js"
@@ -3229,6 +3234,7 @@
       "domain": "work-data",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\work-data-settings.browser.e2e.js"
       ]

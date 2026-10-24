@@ -30,7 +30,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       ||/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|(?:^|\/)\.ruyi-copy-)/.test(logical))return 'native-or-uncommitted-owner-required';
     return '';
   }
-  function create({ base, ownership, assertExclusive, protector, externalOwner, limits = {} } = {}) {
+  function create({ base, ownership, assertExclusive, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, limits = {} } = {}) {
     if (typeof base !== 'string' || !p.isAbsolute(base) || !ownership || !Array.isArray(ownership.roots)
         || !ownership.roots.some(root => keyOfPath(root) === keyOfPath(base)) || typeof assertExclusive !== 'function'
         || !protector || typeof protector.run !== 'function' || typeof protector.supported !== 'function'
@@ -58,8 +58,10 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         return Buffer.from(entry.master);
       } };
     }
-    async function analyze(files, auxiliaries, supplied) {
-      const masters = new Map(), headers = new Map(), vaults = new Map(), refs = new Map(), aux = [], domains = new Map();
+    const lastResult = name => ownerPath(name)==='.work-data/maintenance-result-v1.json';
+    function nativeSource(files,directories){if(typeof skillBackupOwner!=='function')return null;try{return recovery.skillBackupSource(files,directories);}catch(error){if(error?.code==='work_data_recovery.auxiliary_invalid')return null;throw error;}}
+    async function analyze(files, auxiliaries, supplied, directories, native) {
+      const masters = new Map(), headers = new Map(), vaults = new Map(), refs = new Map(), aux = [], domains = new Map(), resultFiles=new Set(), nativeFiles=new Set(native?.files.map(row=>row.path)||[]);let nativePlan=null;
       const addMaster = (purpose, state, lease) => {
         disposable.push(lease); const id = keyName(purpose, state.instanceId), previous = masters.get(id);
         if (previous && !cryptoApi.timingSafeEqual(previous.master, lease.key)) fail('key_collision');
@@ -69,7 +71,8 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       const requireKey = (id, purpose, instance) => { const name = keyName(purpose, instance), value = masters.get(name); if (!value) fail('key_missing', { file: id }); refs.get(id).add(name); return value; };
       for (const file of files) {
         refs.set(file.path, new Set()); const logical = ownerPath(namespace(file.path).logical);
-        if(special(file.path))fail('special_owner_required',{file:file.path,reason:special(file.path)});
+        if(lastResult(file.path)){if(typeof maintenanceResultOwner?.decode!=='function')fail('control_owner_required');maintenanceResultOwner.decode(file.data);resultFiles.add(file.path);continue;}
+        if(special(file.path)){if(nativeFiles.has(file.path))continue;fail('special_owner_required',{file:file.path,reason:special(file.path)});}
         if (/^work-data-key-v1\.json(?:$|[.-])/.test(logical)) {
           const state = json(file.data); if (!WorkDataKeys.validate(state)) fail('key_header_invalid', { file: file.path });
           headers.set(file.path, { purpose: 'work-data', state });
@@ -123,8 +126,18 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         }
         return result.join('\n')+'\n';
       };
+      if(native){
+        const pointer=files.find(row=>ownerPath(row.path)==='.work-data/active-v1.json'),raw=pointer?decode(pointer.data):null,state=pointer?json(pointer.data):null,expected={id:state?.id||null,root:state? p.join(base,'.work-data','generations',state.id):base,generation:state?.generation||0,mode:state?.mode||'plain',proof:{raw,sha256:raw===null?null:hash(pointer.data)}};
+        const forbidden={snapshot:async()=>fail('source_write_forbidden')},owner=await skillBackupOwner({base,readActive:async()=>expected,sourceKeys:forbidden,targetKeys:forbidden});
+        if(!owner||['capturePortable','validatePortable','stagePortable','installPortable','verifyPortableInstalled'].some(name=>typeof owner[name]!=='function'))fail('special_owner_required');
+        const readCaptured=async(file,descriptor)=>{const text=await openedText(file,descriptor),physical=decode(file.data);let first,value;try{first=JSON.parse(physical.split('\n',1)[0]);}catch{}try{value=JSON.parse(physical);}catch{}return{text,authenticated:value?.workData===2||first?.workData===3};};
+        const request={files,directories,source:native,readCaptured,expected};let portable;
+        if(supplied){const found=auxiliaries.filter(row=>row.type==='skill-backup-portable');if(found.length!==1||found[0].sourcePath!==native.sourcePath||found[0].sourceSha256!==native.sourceSha256)fail('auxiliary_closure');portable=found[0];await owner.validatePortable({...request,data:portable.data});}
+        else{portable=await owner.capturePortable(request);disposable.push(portable);}
+        aux.push({type:'skill-backup-portable',schema:1,sourcePath:native.sourcePath,sourceSha256:native.sourceSha256,data:portable.data});nativePlan={owner,request,portable};
+      }
       for (const file of files) {
-        if (headers.has(file.path)) continue;
+        if (headers.has(file.path)||nativeFiles.has(file.path)||resultFiles.has(file.path)) continue;
         const { prefix, logical } = namespace(file.path);
         if (/^external-bot-credentials\.json(?:$|[.-])/.test(ownerPath(logical))) {
           const owner = externalOwner({ file: p.join(base,...file.path.split('/')) }); let portable;
@@ -137,7 +150,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           }
           aux.push({type:'external-bot-credentials',schema:1,sourcePath:file.path,sourceSha256:hash(file.data),data:portable}); continue;
         }
-        const canonical = logical.replace(/\.prevbody$|\.prev$/,''); let descriptor;
+        const canonical = logical.replace(new RegExp('\\.prevbody$|\\.prev$',process.platform==='win32'?'i':''),''); let descriptor;
         try { descriptor = WorkDataMigrationCodecs.describe(canonical); }
         catch (error) { if (error.code!=='work_data_migration.path_unmapped') throw error; }
         let text, value;
@@ -154,7 +167,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
             let inner;try{inner=zlibApi.gunzipSync(compressed,{maxOutputLength:recovery.LIMITS.bytes});text=descriptor.archive?await recordText(file,descriptor,inner):decode(inner);}
             finally{inner?.fill(0);if(compressed!==file.data)compressed.fill(0);}
           } else text=await openedText(file,descriptor);
-          if (descriptor.codec==='text'&&!descriptor.markdown) { value=JSON.parse(text); if(!value||typeof value!=='object'||(descriptor.shape==='array'?!Array.isArray(value):Array.isArray(value)))fail('source_invalid'); }
+          if (descriptor.codec==='text'&&!descriptor.markdown) { value=JSON.parse(text.replace(/^\uFEFF/,'')); if(!value||typeof value!=='object'||(descriptor.shape==='array'?!Array.isArray(value):Array.isArray(value)))fail('source_invalid'); }
         } else {
           try { text=decode(file.data); value=JSON.parse(text.replace(/^\uFEFF/,'')); } catch { /* Opaque media and arbitrary non-JSON user content remain exact bytes. */ }
           if(text!==undefined){const fullProbe=WorkDataRecords.lineProbe();fullProbe.feed(file.data);if(fullProbe.reserved()||text.trimStart().startsWith('{')&&workMarker.test(text))fail('special_owner_required',{file:file.path});}
@@ -180,10 +193,10 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         domains.set(file.path,{family:descriptor?.family||'opaque-byte-file',logicalSha256: text===undefined?hash(file.data):hash(text)});
       }
       if (supplied && (aux.length!==auxiliaries.length || auxiliaries.some(row=>!aux.some(found=>found.sourcePath===row.sourcePath))))fail('auxiliary_closure');
-      return {masters,headers,aux,domains,files:files.map(file=>({path:file.path,data:file.data,keyRefs:[...refs.get(file.path)].sort()}))};
+      return {masters,headers,aux,domains,nativePlan,files:files.map(file=>({path:file.path,data:file.data,keyRefs:[...refs.get(file.path)].sort()}))};
     }
-    function checkAuthority(files,directories,generation){
-      for(const directory of directories)if(special(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
+    function checkAuthority(files,directories,generation,native){
+      for(const directory of directories)if(special(directory)&&!native?.directories.includes(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
       if(files.some(file=>{const name=process.platform==='win32'?file.path.toLowerCase():file.path;return name==='.work-data'||name==='.work-data/generations'||/^\.work-data\/generations\/[a-f0-9]{48}$/.test(name);})||directories.some(directory=>keyOfPath(directory)===keyOfPath('.work-data/active-v1.json')))fail('authority_mismatch');
       const pointer=files.find(file=>keyOfPath(file.path)===keyOfPath('.work-data/active-v1.json'));
       if(!pointer){if(generation!==0)fail('authority_mismatch');return;}
@@ -197,8 +210,8 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     async function seal({ password, appVersion, generation, createdAt=new Date().toISOString() }={}) {
       return run(async()=>{
         const captured=await tree.capture(base);disposable.push(captured);
-        checkAuthority(captured.files,captured.directories,generation);
-        const analyzed=await analyze(captured.files,[],null);await admission();await tree.verify(captured);
+        const native=nativeSource(captured.files,captured.directories);checkAuthority(captured.files,captured.directories,generation,native);
+        const analyzed=await analyze(captured.files,[],null,captured.directories,native);await admission();await tree.verify(captured);
         const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...captured.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
         await admission();const proof=await tree.verify(captured);
         const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
@@ -207,7 +220,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         // Source proof ends here. Caller-owned additions may be written only after this return.
         // No glob exclusions or permission to ignore later source changes is issued.
         return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),
-          profile:PROFILE,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
+          profile:PROFILE,specialCoverage:analyzed.nativePlan?Object.freeze({type:'skill-backup-portable',sourcePath:analyzed.nativePlan.request.source.sourcePath,sourceSha256:analyzed.nativePlan.request.source.sourceSha256,originalObjects:'refused',terminalSnapshots:'source-history-only'}):null,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
       });
     }
     async function realDirectory(directory) {
@@ -222,8 +235,8 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         await targetAdmission();await realDirectory(p.dirname(target));
         const absent=async()=>{try{await io.lstat(target);}catch(error){if(error.code==='ENOENT')return;throw error;}fail('target_exists');};await absent();
         const opened=await recovery.open(serialized,password);disposable.push(opened);const snapshot=opened.snapshot,supplied=new Map(snapshot.keys.map(key=>[key.id,key]));
-        checkAuthority(snapshot.files,snapshot.directories,snapshot.generation);
-        const analyzed=await analyze(snapshot.files,snapshot.auxiliaries,supplied);
+        const native=nativeSource(snapshot.files,snapshot.directories);checkAuthority(snapshot.files,snapshot.directories,snapshot.generation,native);
+        const analyzed=await analyze(snapshot.files,snapshot.auxiliaries,supplied,snapshot.directories,native);
         for(const file of snapshot.files){const expected=analyzed.files.find(row=>row.path===file.path);if(JSON.stringify([...file.keyRefs].sort())!==JSON.stringify(expected.keyRefs))fail('key_reference_mismatch',{file:file.path});}
         const replacements=new Map();disposable.push({release(){for(const bytes of replacements.values())bytes.fill(0);}});
         for(const [file,header]of analyzed.headers){if(!header.state.instanceId)continue;const key=analyzed.masters.get(keyName(header.purpose,header.state.instanceId));let result;
@@ -234,23 +247,32 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
             const vault=capturedVault(header.state,protector,0);disposable.push(vault);result=await vault.stageRecoveredForWorkData({state:header.state,key:key.master});disposable.push(result.lease);replacements.set(file,Buffer.from(JSON.stringify(result.state)));
           }
         }
-        for(const row of analyzed.aux){const source=snapshot.files.find(file=>file.path===row.sourcePath),owner=externalOwner({file:p.join(target,...row.sourcePath.split('/'))});
+        for(const row of analyzed.aux.filter(row=>row.type==='external-bot-credentials')){const source=snapshot.files.find(file=>file.path===row.sourcePath),owner=externalOwner({file:p.join(target,...row.sourcePath.split('/'))});
           const result=await owner.stageRecoveredForWorkData({state:json(source.data),portable:row.data});replacements.set(row.sourcePath,Buffer.from(JSON.stringify(result.state)));
         }
+        let nativeStage=null;
+        const nativeProof=proof=>{if(!proof||proof.target!==target||proof.readOnly!==true||proof.originalObjects!=='refused'||proof.terminalSnapshots!=='source-history-only')fail('special_owner_proof');return proof;};
+        if(analyzed.nativePlan){const plan=analyzed.nativePlan,keysFor=async relative=>{const file=snapshot.files.find(row=>row.path===relative);if(!file)fail('key_missing');const text=decode(file.data);let marker;try{marker=JSON.parse(text.split('\n',1)[0]);}catch{}if(!marker)try{marker=JSON.parse(text);}catch{}const key=analyzed.masters.get(keyName('work-data',marker?.instanceId));if(!key)fail('key_missing');return{snapshot:async()=>{const bytes=Buffer.from(key.master);return{key:bytes,instanceId:key.instanceId,release(){bytes.fill(0);}};}};};
+          nativeStage=await plan.owner.stagePortable({...plan.request,data:plan.portable.data,target,keysFor,assertTargetExclusive:async()=>{await targetAdmission();return true;}});disposable.push(nativeStage);
+          for(const row of nativeStage.files){if(replacements.has(row.path))fail('special_owner_conflict');replacements.set(row.path,Buffer.from(row.data));}
+        }
+        const skipDirectory=name=>nativeStage?.skipDirectories.some(root=>ownerPath(name)===ownerPath(root)||ownerPath(name).startsWith(ownerPath(root)+'/'))===true;
         // Every source/master/reference/auxiliary validation and native roundtrip precedes mkdir.
         await targetAdmission();await absent();let created=false;
         try{
           await io.mkdir(target,{mode:0o700});created=true;await realDirectory(target);
-          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});}
-          for(const file of snapshot.files){const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
+          for(const relative of [...snapshot.directories].sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b))){if(skipDirectory(relative))continue;await io.mkdir(p.join(target,...relative.split('/')),{mode:0o700});}
+          for(const file of snapshot.files){if(nativeStage?.skipFiles.includes(file.path))continue;const destination=p.join(target,...file.path.split('/')),data=replacements.get(file.path)||file.data;await realDirectory(p.dirname(destination));
             const handle=await io.open(destination,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}
           }
+          if(nativeStage){const stat=await io.lstat(target,{bigint:true});nativeProof(await analyzed.nativePlan.owner.installPortable(nativeStage,{targetIdentity:{dev:String(stat.dev),ino:String(stat.ino)}}));}
           const verified=await tree.capture(target);disposable.push(verified);if(verified.files.length!==snapshot.files.length||verified.directories.length!==snapshot.directories.length)fail('target_verification');
           if(JSON.stringify([...verified.directories].sort())!==JSON.stringify([...snapshot.directories].sort()))fail('target_verification');
           const actual=new Map(verified.files.map(file=>[file.path,file]));for(const file of snapshot.files)if(actual.get(file.path)?.sha256!==hash(replacements.get(file.path)||file.data))fail('target_verification');
           const stagedStates=Object.freeze([...replacements].map(([relative,bytes])=>Object.freeze({path:relative,sourceSha256:hash(snapshot.files.find(file=>file.path===relative).data),stagedSha256:hash(bytes)})));
+          if(nativeStage)nativeProof(await analyzed.nativePlan.owner.verifyPortableInstalled(nativeStage));
           await targetAdmission();return Object.freeze({target,files:snapshot.files.length,directories:snapshot.directories.length,manifestSha256:opened.manifestSha256,stagedStates,profile:PROFILE,
-            mode:'restored-full-base',publication:'fresh-process-required',nativeMetadata:'new-default-files; original-object-capsules-require-special-owner'});
+            mode:'restored-full-base',publication:'fresh-process-required',nativeMetadata:nativeStage?'new-default-files plus verified new native store identity; original-object-capsules-refused':'new-default-files; original-object-capsules-require-special-owner',specialProfile:nativeStage?.profile||null});
         }catch(cause){fail('restore_failed',{cause,targetRetained:created});}
       });
     }

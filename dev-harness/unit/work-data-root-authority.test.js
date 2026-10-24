@@ -3,7 +3,7 @@ const { test, after } = require('node:test'), assert = require('node:assert/stri
 const fs = require('node:fs'), fsp = require('node:fs/promises'), path = require('node:path'), os = require('node:os'), vm = require('node:vm');
 const repoSource = path.join(process.cwd(), 'ruyi-workbench/app/src');
 const draft = process.env.RUYI_ROOT_CANDIDATE_DIR || (fs.existsSync(path.join(__dirname, '01z-work-data-root-authority.js')) ? __dirname : repoSource);
-const { functionBlock, constBlock } = require(path.join(process.cwd(), 'dev-harness/lib/source-slice'));
+const { functionBlock, constBlock, sliceBlock } = require(path.join(process.cwd(), 'dev-harness/lib/source-slice'));
 function source(name) {
   let text = fs.readFileSync(fs.existsSync(path.join(draft, name)) ? path.join(draft, name) : path.join(repoSource, name), 'utf8');
   if (process.env.RUYI_ROOT_NEGATIVE === 'missing-bind' && name === '13-http-router.js') text = text.replace('    await WorkDataRootHooks.bind(ownership);', '');
@@ -197,7 +197,7 @@ test('serve selects under the existing OS owner before inner startup; an invalid
   for (const bad of [false, true]) {
     const f = await fixture(); if (bad) await fsp.writeFile(f.pointer, '{'); const events = [];
     const context = { path, fs, process, paths: f.paths, dataRoot: () => f.base, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ next: f.base, legacy: f.base }), lstatOrNull: () => null,
-      isDirectServeInvocation: () => false, ServerOwnership: { acquire: async () => { events.push('owner'); return f.owner; } }, WorkDataRootHooks: f.factory,
+      isDirectServeInvocation: () => false, ServerOwnership: { acquire: async () => { events.push('owner'); return f.owner; } }, WorkDataRootHooks: f.factory, WorkDataMaintenanceRuntimeHooks: {},
       startServerInner: async () => { assert.equal(f.factory.ready(), true); assert.equal(f.paths.data, f.factory.selected().root); events.push('inner'); return 'served'; },
       finishBootCliPathProbes: () => events.push('finish'), writeStartError: async () => events.push('error-write'), START_ERROR_KINDS: [], PrivacyCore: { configHooks: {} } };
     const start = vm.runInNewContext(functionBlock(source('13-http-router.js'), 'startServer') + '\nstartServer;', context);
@@ -210,9 +210,9 @@ test('one-shot config-reading CLI commands acquire/select first and keep ownersh
     const events = [], text = source('14-main.js');
     const context = { parseArgs: () => ({ _: [command] }), process: { argv: ['node', 'server.js', command] }, dataRoot: () => '/synthetic-base',
       ServerOwnership: { acquire: async () => { events.push('owner'); return { release: async () => events.push('release') }; } },
-      WorkDataRootHooks: { bind: async () => events.push('bind'), ready: () => true }, configMutateChain: Promise.resolve(), configWriteChain: Promise.resolve(), flushWorkbenchLogs: async () => events.push('flush'),
+      WorkDataRootHooks: { bind: async () => events.push('bind'), ready: () => true }, WorkDataMaintenanceRuntimeHooks: {}, configMutateChain: Promise.resolve(), configWriteChain: Promise.resolve(), flushWorkbenchLogs: async () => events.push('flush'),
       installIntegration: async () => events.push('install'), doctor: async () => events.push('doctor'), generateMcpConfig: async () => { events.push('mcp-config'); return ''; }, startMcp: async () => events.push('relay'), console: { log() {} } };
-    const main = vm.runInNewContext(functionBlock(text, 'withSelectedWorkDataRoot') + '\n' + functionBlock(text, 'main') + '\nmain;', context);
+    const main = vm.runInNewContext(sliceBlock(text, 'let workDataCliHelperHeld', '// These commands read config through') + '\n' + functionBlock(text, 'withSelectedWorkDataRoot') + '\n' + functionBlock(text, 'main') + '\nmain;', context);
     await main(); assert.deepEqual(events, command === 'mcp' ? ['relay'] : ['owner', 'bind', command, 'flush', 'release']);
   }
 });

@@ -57,6 +57,9 @@ test('OFF index serialization, sync exit overlays and malformed ordinary cache r
   assert.equal(fs.readFileSync(api.sessionIndexPath(), 'utf8'), JSON.stringify(rows, null, 2));
   api.scheduleSessionIndexUpdate('sess_plain', { ...rows[0], title: 'sync title' }); api.flushSessionIndexSync();
   assert.equal(JSON.parse(fs.readFileSync(api.sessionIndexPath(), 'utf8'))[0].title, 'sync title');
+  // The real exit writer intentionally leaves its async batch/timer pending. This test
+  // keeps running: drain its own batch before another case changes mode or key authority.
+  await api.flushSessionIndex();
   fs.writeFileSync(api.sessionIndexPath(), '{ordinary bad JSON'); assert.equal(await api.readSessionIndex(), null);
   fs.writeFileSync(api.sessionIndexPath(), '{"some":"ordinary object"}'); assert.equal(await api.readSessionIndex(), null);
 });

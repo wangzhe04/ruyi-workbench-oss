@@ -104,6 +104,39 @@ public static class RuyiManifestPublisher {
     if(handle.IsInvalid) { int error=Marshal.GetLastWin32Error(); handle.Dispose(); return error; }
     using(handle) { if(!FlushFileBuffers(handle)) return Marshal.GetLastWin32Error(); return 0; }
   }
+  // Separate one-shot command; the original publication input/response are unchanged.
+  static Dictionary<string,object> FlushDirectories(Dictionary<string,object> input) {
+    Shape(input,"flushDirectories");
+    object[] raw=input["flushDirectories"] as object[];
+    if(raw==null||raw.Length<1||raw.Length>256) Reject("input_invalid");
+    string[] dirs=new string[raw.Length]; var unique=new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
+    for(int i=0;i<raw.Length;i++) { dirs[i]=Full(raw[i]); if(unique.ContainsKey(dirs[i])) Reject("directory_duplicate"); unique.Add(dirs[i],true); }
+    // Establish every real ancestor and NTFS capability before the first flush.
+    foreach(string directory in dirs) Ancestors(directory);
+    var volumes=new Dictionary<string,bool>(StringComparer.OrdinalIgnoreCase);
+    foreach(var directory in Directories.Values) {
+      string volume=Volume(directory); if(volumes.ContainsKey(volume)) continue; volumes.Add(volume,true);
+      StringBuilder volumeName=new StringBuilder(256), fsName=new StringBuilder(64); uint serial,maxComponent,flags;
+      Check(GetVolumeInformationW(volume,volumeName,256,out serial,out maxComponent,out flags,fsName,64),"volume_unavailable");
+      if(fsName.ToString()!="NTFS") Reject("filesystem_unsupported");
+    }
+    var codes=new List<int>();
+    Attempted=true;
+    foreach(string directory in dirs) { int code=FlushDirectory(directory); if(code!=0) Reject("durability_unsupported",code); codes.Add(code); }
+    return new Dictionary<string,object> { {"ok",true},{"flushDirectories",dirs},{"directoryFlush",codes} };
+  }
+  public static void RunFlush() {
+    var flushJson=new JavaScriptSerializer { MaxJsonLength=262144, RecursionLimit=16 };
+    try {
+      StringBuilder input=new StringBuilder(); int value;
+      while((value=Console.In.Read())!=-1&&value!='\n') { if(input.Length>=65536) Reject("input_limit"); input.Append((char)value); }
+      var response=FlushDirectories(Object(flushJson.DeserializeObject(input.ToString()))); Console.Out.WriteLine(flushJson.Serialize(response));
+    } catch(Exception error) {
+      string code=error is InvalidOperationException ? error.Message : "native_failed";
+      if(!System.Text.RegularExpressions.Regex.IsMatch(code,"^[a-z_]{1,48}$")) code="native_failed";
+      Console.Out.WriteLine(flushJson.Serialize(new Dictionary<string,object> { {"ok",false},{"code",code},{"native",NativeCode},{"moved",false},{"attempted",Attempted} }));
+    } finally { for(int i=Held.Count-1;i>=0;i--) Held[i].Dispose(); }
+  }
   static Dictionary<string,object> Publish(Dictionary<string,object> input) {
     Shape(input,"stage,target,directory,directories");
     string stage=Full(input["stage"]), target=Full(input["target"]), control=Full(input["directory"]);
@@ -221,7 +254,76 @@ function invoke(args) {
   });
 }
 
-  return Object.freeze({ create: () => invoke });
+const FLUSH_BOOTSTRAP = BOOTSTRAP.replace('[RuyiManifestPublisher]::Run()', '[RuyiManifestPublisher]::RunFlush()');
+const flushFailure = (suffix, uncertain = false) => Object.assign(failure('flush_' + suffix, uncertain), {
+  retry:false, operationMayHaveExecuted:uncertain, resultUnavailable:uncertain,
+});
+function invokeFlush(directories) {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'win32') return reject(flushFailure('unsupported'));
+    if (!Array.isArray(directories) || directories.length < 1 || directories.length > 256) return reject(flushFailure('input_invalid'));
+    const selected = [], unique = new Set();
+    for (const directory of directories) {
+      if (typeof directory !== 'string' || directory.length < 3 || directory.length > 8192 || !/^[A-Za-z]:\\/.test(directory)
+        || /[\x00-\x1f<>"|?*\/]/.test(directory) || directory.slice(2).includes(':') || Buffer.from(directory).toString('utf8') !== directory
+        || path.win32.resolve(directory) !== directory || directory.slice(3).split('\\').some(piece => piece === '.' || piece === '..' || /[. ]$/.test(piece))
+        || directory.length > 3 && directory.endsWith('\\') || unique.has(directory.toLowerCase())) return reject(flushFailure('input_invalid'));
+      unique.add(directory.toLowerCase()); selected.push(directory);
+    }
+    const serialized = JSON.stringify({flushDirectories:selected});
+    if (Buffer.byteLength(serialized,'utf8') > 65536) return reject(flushFailure('input_limit'));
+    const executable = path.join(process.env.SystemRoot || 'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+    let child;
+    try { child = cp.spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(FLUSH_BOOTSTRAP,'utf16le').toString('base64')], {
+      env:{...process.env,RUYI_MANIFEST_PUBLISHER_SOURCE:Buffer.from(NATIVE).toString('base64')},windowsHide:true,stdio:['pipe','pipe','pipe'],
+    }); } catch { return reject(flushFailure('unavailable')); }
+    const output = [];
+    let bytes = 0, stderrBytes = 0, settled = false, spawned = false, forcedError = null, terminateTimer;
+    const finish = (error,value) => {
+      if (settled) return; settled = true; clearTimeout(timer); clearTimeout(terminateTimer);
+      for (const part of output) part.fill(0); output.length = 0;
+      error ? reject(error) : resolve(value);
+    };
+    const stop = error => {
+      if (settled || forcedError) return; forcedError = error;
+      // Same ownership rule as publication: kill failure cannot release the host gate.
+      terminateTimer = setTimeout(() => {error.helperMayStillRun = true;finish(error);},2000);
+      try {child.kill();} catch { /* Wait for close or report a possibly live helper. */ }
+    };
+    const timer = setTimeout(() => stop(flushFailure('timeout',true)),20000);
+    child.once('spawn',() => {spawned = true;});
+    child.on('error',() => {
+      if (!spawned && !child.pid && !forcedError) finish(flushFailure('unavailable'));
+      else stop(flushFailure('process',true));
+    });
+    child.stdout.on('data',chunk => {
+      if (settled || forcedError) return; bytes += chunk.length;
+      if (bytes > 262144) return stop(flushFailure('output_limit',true));
+      output.push(Buffer.from(chunk));
+    });
+    child.stderr.on('data',chunk => {if (!settled && !forcedError) {stderrBytes += chunk.length;if (stderrBytes > 8192) stop(flushFailure('output_limit',true));}});
+    child.on('close',code => {
+      if (settled) return; if (forcedError) return finish(forcedError);
+      let response, raw;
+      try {raw = Buffer.concat(output,bytes);const text = raw.toString('utf8');if (!Buffer.from(text).equals(raw)) throw Error('utf8');response = JSON.parse(text);}
+      catch {return finish(flushFailure('unverifiable',true));} finally {raw?.fill(0);}
+      if (code !== 0 || !response || typeof response.ok !== 'boolean') return finish(flushFailure('unverifiable',true));
+      if (!response.ok) {
+        if (Object.keys(response).sort().join(',') !== 'attempted,code,moved,native,ok' || response.moved !== false || typeof response.attempted !== 'boolean'
+          || !Number.isInteger(response.native) || response.native < 0 || typeof response.code !== 'string' || !/^[a-z_]{1,48}$/.test(response.code)) return finish(flushFailure('unverifiable',true));
+        const error = flushFailure(response.code,response.attempted);error.nativeCode = response.native;return finish(error);
+      }
+      if (Object.keys(response).sort().join(',') !== 'directoryFlush,flushDirectories,ok'
+        || !Array.isArray(response.flushDirectories) || response.flushDirectories.length !== selected.length || response.flushDirectories.some((directory,index) => directory !== selected[index])
+        || !Array.isArray(response.directoryFlush) || response.directoryFlush.length !== selected.length || response.directoryFlush.some(code => code !== 0)) return finish(flushFailure('unverifiable',true));
+      finish(null,Object.freeze({ok:true,flushDirectories:Object.freeze(response.flushDirectories),directoryFlush:Object.freeze(response.directoryFlush)}));
+    });
+    child.stdin.on('error',() => stop(flushFailure('pipe',true)));
+    try {child.stdin.end(serialized + '\n');} catch {stop(flushFailure('pipe',true));}
+  });
+}
+
+  return Object.freeze({ create: () => invoke, createFlush: () => invokeFlush });
 })(require('node:child_process'), require('node:path'));
 
 if (process.platform === 'win32') WorkDataManifest.Hooks.publish = WorkDataNativePublish.create();

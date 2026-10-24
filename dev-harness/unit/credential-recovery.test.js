@@ -156,7 +156,7 @@ test('an unavailable old wrapping key cannot mutate the old profile; the portabl
 });
 
 test('CLI startup prints fresh-profile recovery guidance only for a locked credential vault', async () => {
-  const f = fixture(), { bracedBlock } = require('../lib/source-slice');
+  const f = fixture(), { bracedBlock, sliceBlock } = require('../lib/source-slice');
   const mainSource = fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/src/14-main.js'), 'utf8');
   const directCli = bracedBlock(mainSource, 'if (require.main === module)'); assert.ok(directCli);
   const startupGuidance = f.CredentialRecovery.startupGuidance;
@@ -166,7 +166,7 @@ test('CLI startup prints fresh-profile recovery guidance only for a locked crede
   for (const code of ['credential_vault.backup_authentication', 'credential_vault.backup_password', 'credential_vault.unsupported', 'EACCES']) assert.equal(startupGuidance({ code }), '');
   for (const code of ['credential_vault.unlock_failed', 'credential_vault.backup_authentication', 'EACCES']) {
     const error = Object.assign(new Error('synthetic ' + code), { code }), lines = [], exits = [], entryModule = {};
-    vm.runInNewContext(directCli, { module: entryModule, require: { main: entryModule }, main: async () => { throw error; },
+    vm.runInNewContext(sliceBlock(mainSource, 'let workDataCliHelperHeld', '// These commands read config through') + '\n' + directCli, { module: entryModule, require: { main: entryModule }, main: async () => { throw error; },
       PrivacyCore: { configHooks: { startupGuidance } }, console: { error: value => lines.push(value) }, process: { exit: value => exits.push(value) } });
     await new Promise(setImmediate);
     assert.deepEqual(exits, [1]); assert.equal(lines.length, 1);
@@ -184,6 +184,7 @@ test('startup diagnostic retains its schema, size limit and original error while
     const start = vm.runInNewContext(functions + '\nstartServer', {
       PrivacyCore: { configHooks: { startupGuidance: f.CredentialRecovery.startupGuidance } },
       paths: { data: 'synthetic-data' }, dataRoot: () => 'synthetic-data',
+      WorkDataMaintenanceRuntimeHooks: {}, // This case isolates the existing post-admission startup diagnostic.
       WorkDataRootHooks: { bind: async () => {}, ready: () => true }, path, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ legacy: 'synthetic-old', next: 'synthetic-new' }),
       lstatOrNull: () => null, isDirectServeInvocation: () => false, ServerOwnership: { acquire: async () => ({ portable: false }) },
       startServerInner: async () => { throw error; }, finishBootCliPathProbes: () => { finished++; },

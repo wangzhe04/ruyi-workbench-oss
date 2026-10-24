@@ -1,30 +1,62 @@
+let workDataCliHelperHeld = false;
+let workDataCliHelperHoldTimer = null;
+function workDataCliHelperUnknown() {
+  if (workDataCliHelperHeld) return true;
+  try {
+    if (typeof LocalSecretCrypto !== 'undefined') { const inspect=LocalSecretCrypto.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(LocalSecretCrypto)!==false)) workDataCliHelperHeld=true; }
+    if (typeof MigrationHooks !== 'undefined') { const inspect=MigrationHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(MigrationHooks)!==false)) workDataCliHelperHeld=true; }
+  } catch { workDataCliHelperHeld=true; }
+  return workDataCliHelperHeld;
+}
+function holdWorkDataCliOwner() {
+  process.exitCode = 1;
+  // A pending Promise is not a process lifetime. Keep the existing kernel owner
+  // and helper exclusion even if a later ownership implementation unrefs handles.
+  if (workDataCliHelperHoldTimer === null) workDataCliHelperHoldTimer = setInterval(() => {}, 60000);
+}
 // These commands read config through a recovery writer, so they own the stable base as serve does.
 async function withSelectedWorkDataRoot(work) {
   const ownership = await ServerOwnership.acquire([dataRoot()]);
-  let failed = false;
-  try { await WorkDataRootHooks.bind(ownership); return await work(); }
+  let failed = false, selected = false;
+  try {
+    if (typeof WorkDataMaintenanceRuntimeHooks.inspectBoot === 'function') await WorkDataMaintenanceRuntimeHooks.inspectBoot({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership});
+    await WorkDataRootHooks.bind(ownership); selected = true; return await work();
+  }
   catch (error) { failed = true; throw error; }
   finally {
     try {
-      if (WorkDataRootHooks.ready()) {
+      if (selected && WorkDataRootHooks.ready()) {
         await configMutateChain.catch(() => {}); await configWriteChain.catch(() => {});
         await flushWorkbenchLogs();
       }
     } catch (error) { if (!failed) throw error; }
-    finally { await ownership.release(); }
+    finally {
+      if (workDataCliHelperUnknown()) {
+        holdWorkDataCliOwner();
+        if (!failed) throw Object.assign(new Error('work_data_setup.native_helper_uncertain'), {code:'work_data_setup.native_helper_uncertain',helperMayStillRun:true,retry:false});
+      } else await ownership.release();
+    }
   }
+}
+async function startWorkbenchServe(argv) {
+  const served = await startServer(argv);
+  // 第116波116b(27号文§11.3): 服务就绪(已 listen、runtime.json 已落)之后才起管家收件箱轮询。
+  // stewardEnabledV1 !== true 时 startStewardInbox 立即返回,不建目录、不起 interval、零写入。
+  // 失败绝不阻断已经开起来的服务(管家是旁路,不是主链路)。
+  await startStewardInbox(await readConfig()).catch(() => {});
+  if (typeof WorkDataMaintenanceRuntimeHooks.activateServe === 'function') WorkDataMaintenanceRuntimeHooks.activateServe();
+  return served;
 }
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
-  if (command === 'serve') {
-    const served = await startServer(argv);
-    // 第116波116b(27号文§11.3): 服务就绪(已 listen、runtime.json 已落)之后才起管家收件箱轮询。
-    // stewardEnabledV1 !== true 时 startStewardInbox 立即返回,不建目录、不起 interval、零写入。
-    // 失败绝不阻断已经开起来的服务(管家是旁路,不是主链路)。
-    await startStewardInbox(await readConfig()).catch(() => {});
-    return served;
+  if (command === 'work-data-maintenance' || command === 'work-data-successor') {
+    if (argv._.length !== 1 || Object.keys(argv).length !== 1) throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid'});
+    const run = command === 'work-data-maintenance' ? WorkDataMaintenanceRuntimeHooks.runCold : WorkDataMaintenanceRuntimeHooks.runSuccessor;
+    if (typeof run !== 'function') throw Object.assign(Error('work_data_setup.worker_unavailable'), {code:'work_data_setup.worker_unavailable'});
+    return run();
   }
+  if (command === 'serve') return startWorkbenchServe(argv);
   if (command === 'mcp') return startMcp();
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
   if (command === 'doctor') return withSelectedWorkDataRoot(() => doctor(argv)); // 118b: --human 走人话体检,默认仍只打 JSON
@@ -39,6 +71,9 @@ async function main() {
 // the internals so tests can exercise McpStdioClient / detectDesktopMcp without spawning a full server.
 if (require.main === module) {
   main().catch(err => {
+    if (workDataCliHelperUnknown()) {
+      holdWorkDataCliOwner();console.error('work_data_setup.native_helper_uncertain');return;
+    }
     const recoveryHelp = PrivacyCore.configHooks.startupGuidance?.(err);
     console.error(recoveryHelp || err.stack || err.message || String(err));
     // Startup can create watchers/timers before listen() discovers a non-Ruyi port occupant. Merely setting

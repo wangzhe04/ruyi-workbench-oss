@@ -32,7 +32,7 @@ function fixture(mode = 'no-close', text = source) {
     },
   };
   const api = vm.runInNewContext(text + '\nWorkDataNativePublish;', context);
-  assert.deepEqual(Object.keys(api), ['create']);
+  assert.deepEqual(Object.keys(api), ['create', 'createFlush']);
   const publish = api.create(); assert.equal(hooks.publish, publish, 'Windows registration uses the same factory publisher');
   const promise = publish(args); let settled = false;
   promise.then(() => { settled = true; }, () => { settled = true; });

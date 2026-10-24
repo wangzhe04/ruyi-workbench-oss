@@ -147,3 +147,17 @@ quiesce、wake与普通HTTP guard新增run候选逐一核到WorkDataMaintenanceH
 完整扫描为294源、735候选；历史76个reviewError ID集合逐项完全相同，清册仍应退出1。该补丁是限定源分类记录，不是全局隐私认证、OS隔离或完整启用/跨机恢复完成证明。源码与既有调用边界的单独验证、V3原生首次夹具OFF ensure误用和修后实际5group等证据由本批checkpoint保留；本清册审阅自身未运行native/direct E2E或修改live。
 
 发布清单后续仅在build-overlay的静态PAYLOAD_FILES中补登记已独审work-data-settings.js。该工具此前源指纹有效，本次另接受这一行源指纹；原四个copy/child/import候选逐项原样，历史76错误ID集合仍精确相同。上述11源/43边界的有限delta未改，另加此工具源为12个接受源。read-frontend-css只是dev-harness兼容CSS载荷散列，不在生产外发扫描范围，未据此刷新任何历史债。
+
+## 2026-10-24 冷维护、完成回执与特殊备份第一层的限定增量审阅
+
+本片逐项核对普通迁移宿主、固定完成回执、冷 worker/control/HTTP/runtime/disposable owner，以及密码恢复包的特殊备份旁车。01ad 的四个 run 是私有串行准入；两个 computed call 只在固定 transform/transformRetained、verify/verifyRetained 中选择本地文件 codec，按 file-boundary unknown 登记；classify 和 13u collectPortable 的三个 exec 均为 RegExp。01ab 的两个 run 延续原本本地准入，仅更新已复核调用指纹。01ad/01ae/13aj/13ak/13u 新 writeFile 是已选目标或独占 stage 的 FileHandle 写入，保留 file-boundary unknown；扫描器没有完整枚举 open、rename、unlink、rm、文件句柄和 C# 内嵌实现，零词法候选不能代替文件系统或原生操作审查。
+
+01w invokeFlush 新 spawn 是固定 Windows PowerShell/.NET 目录刷新助手；13ai spawnCold 是宿主给定的自身维护/后继进程，start 的同名 spawn 是宿主工厂；13ak 的 run wrapper 委托既有 LocalSecretCrypto。上述进程候选均保留 process unknown，新增 import 保留 capability unknown，没有借 stdin-only、继承 Job 或本机 DPAPI 提升为外发保护。01j 的停止流程新增真实 close 等待和永久 helper uncertainty；原 spawn/import 调用指纹未变，其历史 source-unreviewed 债仍保留。14-main 的 run 是固定两种内部角色的本地入口分派，真正进程边界仍单独登记。
+
+13al 的 download 词法候选是 `capabilities.download:false`，没有下载动作；它仅在已取得源根 OS 所有权后绑定原 loopback 地址/端口，提供只读状态，不开放普通业务、上传、导出下载或文件访问。密码包的新 typed auxiliary 绑定全量特殊路径、保留代和原始字节，已支持空 store 与终态 history 的新对象身份恢复；原生 original capsules 和未完成控制仍明确拒绝。历史完成回执的快照 decode 不访问源机器外部备份路径，也不赋予活动根权威。真实原生测试已覆盖空 store 的启用、导出、反向关闭、再次导出和独立冷 Node 验证，不能外推全部原对象 portable 或生产 Desktop/UI 接管。
+
+仅接受14份此前有效或本片新建的源码指纹，逐项新增21个分类、更新2个已存在本地回调指纹，所有分类组原样，无新增 protected 声明。00-boot、01j、13-http-router、生成 manifest/module-contracts 和其他旧 stale 源继续保留历史债。最终扫描302源、756候选，76个历史 reviewError ID 集合逐项完全相同；`--write --check` 应退出1。固定源、测试、初次原生导出接线失败和辅助进程生命周期首败分别由本批集成证据记录，不以清册代替功能、同账户隔离或全局隐私验收。
+
+### 原生broker生命周期复核（2026-10-24）
+
+独审确认并修复旧13u辅助进程生命周期后，仅再次核对13u/13ak/13am/14四源指纹；唯一词法边界变更是migrationCapsuleBroker的stdin write，仍向固定本地PowerShell/C#辅助进程发送JSON命令，分类process不变。新增同步写失败处理、actual close、有界未知状态及持锁/交接/CLI退出约束，不新增接收方或protected声明。302源/756候选与原76错误ID集合精确相同，check仍预期exit1。此前14源、21新边界及2个callback记录保留；此处额外记录1处既有stdio边界指纹复核，不全局刷新历史未审指纹。

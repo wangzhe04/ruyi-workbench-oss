@@ -33,16 +33,24 @@ let migrationBackupAuthority = null;
 function migrationBackupRoot() { return migrationBackupAuthority?.root || path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR); }
 
 function migrationSerial(fn) {
+  const guard = () => {
+    if (migrationCapsuleBroker.helperMayStillRun === true) throw Object.assign(new Error('work_data_backup.native_helper_uncertain'), {
+      code: 'work_data_backup.native_helper_uncertain', apiCode: 'work_data_backup.native_helper_uncertain', statusCode: 503,
+      helperMayStillRun: true, operationMayHaveExecuted: true, retry: false });
+  };
+  try { guard(); } catch (error) { return Promise.reject(error); }
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('migration')) return WorkDataMaintenanceHooks.run('migration', () => migrationSerial(fn));
   const admission = migrationBackupAuthority;
   const job = migrationChain.then(async () => {
+    guard();
     if (admission !== migrationBackupAuthority) migrationCapsuleFail('generation_changed');
     if (admission) await admission.assertCurrent();
+    guard();
     if (migrationRecoveryNeeded) {
       await migrationRecoverSkillBackups();
       migrationRecoveryNeeded = false;
     }
-    return fn();
+    guard(); const value = await fn(); guard(); return value;
   });
   migrationChain = job.catch(() => {});
   return job;
@@ -1309,9 +1317,9 @@ function migrationBackupHistoryShape(value, descriptor) {
     && value.id === descriptor.id && value.stamp === descriptor.stamp && ['complete', 'aborted'].includes(value.phase)
     && migrationCapsuleShape(value.snapshot);
 }
+function migrationBackupHistoryBinding(descriptor) { return { purpose:'backup',schema:1,scopeId:'skill-backup-history:'+descriptor.stamp,recordId:descriptor.recordId+':history' }; }
 function migrationBackupHistoryStore(descriptor, mode, onAuthenticated) {
-  return WorkDataStore.createText({ file: () => path.join(descriptor.backup, 'history'), purpose: 'backup', schema: 1,
-    scopeId: 'skill-backup-history:' + descriptor.stamp, recordId: descriptor.recordId + ':history', keys: descriptor.archiveKeys,
+  return WorkDataStore.createText({ file: () => path.join(descriptor.backup, 'history'), ...migrationBackupHistoryBinding(descriptor), keys: descriptor.archiveKeys,
     chunked: true, maxPlaintextBytes: MIGRATION_CAPSULE_ARCHIVE_LIMIT, enabled: async () => mode === 'encrypted', writeJson: atomicWriteJson,
     validateSealedText: text => { const valid = migrationBackupHistoryShape(safeJsonParse(text, null), descriptor); if (valid && onAuthenticated) onAuthenticated(); return valid; } });
 }
@@ -1353,48 +1361,117 @@ async function migrationCapsulePresent(backup, descriptor = migrationCapsuleDesc
   return false;
 }
 async function migrationCapsuleBroker() {
+  const failure = (suffix, cause, uncertain = false) => {
+    const code = 'work_data_backup.' + suffix;
+    return Object.assign(new Error(code), { code, apiCode: code, statusCode: 503,
+      ...(cause ? { cause } : {}), ...(uncertain ? { helperMayStillRun: true, operationMayHaveExecuted: true, retry: false } : {}) });
+  };
+  if (migrationCapsuleBroker.helperMayStillRun === true) throw failure('native_helper_uncertain', null, true);
   if (process.platform !== 'win32') migrationCapsuleFail('platform_unsupported');
   const bootstrap = "$ErrorActionPreference='Stop'; Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:RUYI_SKILL_CAPSULE_SOURCE))); [RuyiSkillCapsule]::Run()";
-  const child = require('node:child_process').spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(bootstrap, 'utf16le').toString('base64')], {
-    env: { ...process.env, RUYI_SKILL_CAPSULE_SOURCE: Buffer.from(MIGRATION_SKILL_CAPSULE_NATIVE, 'utf8').toString('base64') },
-    windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  let child;
+  try {
+    child = require('node:child_process').spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(bootstrap, 'utf16le').toString('base64')], {
+      env: { ...process.env, RUYI_SKILL_CAPSULE_SOURCE: Buffer.from(MIGRATION_SKILL_CAPSULE_NATIVE, 'utf8').toString('base64') },
+      windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch (cause) { throw failure('native_unavailable', cause); } // no issued child
   const timers = require('node:timers');
   const decoder = new (require('node:string_decoder').StringDecoder)('utf8');
-  let pending = null, ended = false, output = [], outputBytes = 0, exitResolve;
-  const exited = new Promise(resolve => { exitResolve = resolve; });
-  const reject = reason => {
-    if (pending) { const entry = pending; pending = null; timers.clearTimeout(entry.timer); entry.reject(reason); }
-  };
-  child.stdout.on('data', chunk => {
-    const parts = decoder.write(chunk).split('\n');
-    for (let index = 0; index < parts.length; index++) {
-      output.push(parts[index]); outputBytes += Buffer.byteLength(parts[index]);
-      if (outputBytes > MIGRATION_CAPSULE_ARCHIVE_LIMIT) { reject(Object.assign(new Error('work_data_backup.native_limit'), { code: 'work_data_backup.native_limit', apiCode: 'work_data_backup.native_limit', statusCode: 503 })); child.kill(); return; }
-      if (index === parts.length - 1) break;
-      const line = output.join(''); output = []; outputBytes = 0;
-      if (!pending) continue;
+  let pending = null, closing = false, stopping = false, settled = false, spawned = false;
+  let output = [], outputBytes = 0, firstError = null, settleTimer = null, closePromise = null, resolveClosed;
+  const closed = new Promise(resolve => { resolveClosed = resolve; });
+  const finish = error => {
+    if (settled) return;
+    settled = true; timers.clearTimeout(settleTimer); output = []; outputBytes = 0;
+    if (pending) {
       const entry = pending; pending = null; timers.clearTimeout(entry.timer);
-      let response;
-      try { response = JSON.parse(line); } catch { response = null; }
-      if (response?.ok === true) entry.resolve(response.value);
-      else {
-        const suffix = /^[a-z0-9_]+$/.test(response?.code || '') ? response.code : 'native_unavailable';
-        const code = 'work_data_backup.' + suffix;
-        entry.reject(Object.assign(new Error(code), { code, apiCode: code, statusCode: 503 }));
-      }
+      entry.reject(error || failure('native_exit'));
     }
+    resolveClosed(error);
+  };
+  const kill = () => { try { child.kill(); } catch (cause) { firstError ||= failure('native_unavailable', cause); } };
+  const boundClose = () => {
+    if (settled || settleTimer !== null) return;
+    settleTimer = timers.setTimeout(() => {
+      if (settled) return;
+      migrationCapsuleBroker.helperMayStillRun = true; // permanent, even after late close
+      firstError ||= failure('native_close_timeout'); kill();
+      finish(failure('native_helper_uncertain', firstError, true));
+    }, 2000);
+  };
+  const stop = (suffix, cause) => {
+    if (settled || stopping) return;
+    stopping = true; firstError ||= failure(suffix, cause);
+    if (pending) timers.clearTimeout(pending.timer);
+    output = []; outputBytes = 0; boundClose(); kill();
+  };
+  child.on('spawn', () => { spawned = true; });
+  child.on('error', cause => {
+    // Node's spawn-failure event can prove no helper was issued. Runtime/kill
+    // errors on a PID, and ambiguous error objects, still require actual close.
+    let absent = false;
+    try { absent = !spawned && child.pid == null && typeof cause?.syscall === 'string' && cause.syscall.startsWith('spawn '); } catch { /* unknown is not absent */ }
+    if (absent) { firstError ||= failure('native_unavailable', cause); finish(firstError); }
+    else stop('native_unavailable', cause);
   });
-  child.stderr.resume(); // compiler/native diagnostics must never contain work-data payloads in app logs
-  child.on('error', () => { ended = true; reject(Object.assign(new Error('work_data_backup.native_unavailable'), { code: 'work_data_backup.native_unavailable', apiCode: 'work_data_backup.native_unavailable', statusCode: 503 })); exitResolve(); });
-  child.on('exit', () => { ended = true; reject(Object.assign(new Error('work_data_backup.native_exit'), { code: 'work_data_backup.native_exit', apiCode: 'work_data_backup.native_exit', statusCode: 503 })); exitResolve(); });
-  const command = args => new Promise((resolve, rejectCommand) => {
-    if (pending || ended) return rejectCommand(Object.assign(new Error('work_data_backup.native_exit'), { code: 'work_data_backup.native_exit', apiCode: 'work_data_backup.native_exit', statusCode: 503 }));
-    const timer = timers.setTimeout(() => { reject(Object.assign(new Error('work_data_backup.native_timeout'), { code: 'work_data_backup.native_timeout', apiCode: 'work_data_backup.native_timeout', statusCode: 503 })); child.kill(); }, 120000);
-    pending = { resolve, reject: rejectCommand, timer };
-    child.stdin.write(JSON.stringify(args) + '\n', error => { if (error) { reject(Object.assign(new Error('work_data_backup.native_pipe'), { code: 'work_data_backup.native_pipe', apiCode: 'work_data_backup.native_pipe', statusCode: 503 })); child.kill(); } });
+  child.on('exit', code => {
+    // Exit does not close inherited pipes. It can prohibit another command but
+    // cannot discharge the lease or settle pending command failures.
+    if (settled) return;
+    if (!closing || code !== 0 || pending) firstError ||= failure('native_exit');
+    closing = true; boundClose();
   });
-  return { command, close: async () => { child.stdin.end(); await exited; } };
+  child.on('close', code => {
+    if (settled) return;
+    if (code !== 0 || pending) firstError ||= failure('native_exit');
+    finish(firstError);
+  });
+  try {
+    child.stdout.on('data', chunk => {
+      if (settled || stopping) return;
+      const parts = decoder.write(chunk).split('\n');
+      for (let index = 0; index < parts.length; index++) {
+        output.push(parts[index]); outputBytes += Buffer.byteLength(parts[index]);
+        if (outputBytes > MIGRATION_CAPSULE_ARCHIVE_LIMIT) { stop('native_limit'); return; }
+        if (index === parts.length - 1) break;
+        const line = output.join(''); output = []; outputBytes = 0;
+        if (!pending) continue;
+        let response;
+        try { response = JSON.parse(line); } catch { stop('native_unavailable'); return; }
+        const entry = pending; pending = null; timers.clearTimeout(entry.timer);
+        if (response?.ok === true) entry.resolve(response.value);
+        else {
+          const suffix = /^[a-z0-9_]+$/.test(response?.code || '') ? response.code : 'native_unavailable';
+          const error = failure(suffix); firstError ||= error; entry.reject(error);
+        }
+      }
+    });
+    child.stdout.on('error', cause => stop('native_pipe', cause));
+    child.stdin.on?.('error', cause => stop('native_pipe', cause));
+    child.stderr.on?.('error', cause => stop('native_pipe', cause));
+    child.stderr.resume(); // never capture/log compiler or payload stderr
+  } catch (cause) { stop('native_pipe', cause); }
+  const command = args => new Promise((resolve, reject) => {
+    if (pending || closing || stopping || settled || migrationCapsuleBroker.helperMayStillRun === true) {
+      reject(migrationCapsuleBroker.helperMayStillRun === true ? failure('native_helper_uncertain', firstError, true) : failure('native_exit')); return;
+    }
+    const timer = timers.setTimeout(() => stop('native_timeout'), 120000);
+    pending = { resolve, reject, timer };
+    try {
+      child.stdin.write(JSON.stringify(args) + '\n', cause => { if (cause) stop('native_pipe', cause); });
+    } catch (cause) { stop('native_pipe', cause); }
+  });
+  const close = () => {
+    if (closePromise) return closePromise;
+    closePromise = closed.then(error => { if (error) throw error; });
+    if (!settled) {
+      closing = true; boundClose();
+      try { child.stdin.end(); } catch (cause) { stop('native_pipe', cause); }
+    }
+    return closePromise;
+  };
+  return Object.freeze({ command, close });
 }
 async function migrationCapsuleCapture(root, revision) {
   const broker = await migrationCapsuleBroker();
@@ -2354,8 +2431,9 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         && (entry.phase === 'plain' || hex(entry.archiveSha) && hex(entry.intentSha))
         && (entry.eligibility !== 'eligible' || migrationCapsuleFingerprintShape(entry.newTree)));
   }
-  function sealed(file, recordId, validate, keys = targetKeys) {
-    const store = authenticated => WorkDataStore.createText({ file: () => file, purpose: 'backup', schema: 1, scopeId: 'skill-backup-owner:' + hash(samePathKey(base)).slice(0, 32), recordId,
+  const ownerScope = sourceBase => 'skill-backup-owner:' + hash(samePathKey(sourceBase)).slice(0, 32);
+  function sealed(file, recordId, validate, keys = targetKeys, scopeBase = base) {
+    const store = authenticated => WorkDataStore.createText({ file: () => file, purpose: 'backup', schema: 1, scopeId: ownerScope(scopeBase), recordId,
       keys, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024, enabled: async () => true, writeJson: atomicWriteJson,
       validateSealedText: text => { const valid = validate(safeJsonParse(text, null)); if (valid && authenticated) authenticated(); return valid; } });
     return { write: async value => { if (!validate(value)) migrationCapsuleFail('owner_shape'); await store().write(JSON.stringify(value)); }, read: async () => {
@@ -3053,12 +3131,243 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     } catch (error) { throw representationUncertain(error); }
   }
 
-  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, recoverRepresentation });
+  // Read-only completion proof for the ordinary host's empty stable store.
+  // Recovery/activate may mutate journals; never invoke them from this verifier.
+  async function verifyPublished({ expected } = {}) {
+    const selected = await current(expected), catalog = await catalogStore().read(), binding = await bindingsStore(selected.id).read(), journal = await journalStore().read();
+    if (!selected.id || !catalog || !binding || !journal || !binding.ready || binding.entries.length
+      || binding.generationId !== selected.id || binding.storeId !== catalog.storeId || (binding.mode || 'encrypted') !== safeJsonParse(selected.proof.raw, null)?.mode
+      || journal.phase !== 'kept' || journal.targetId !== selected.id && !binding.sourceRootIds.includes(journal.targetId) || journal.storeId !== catalog.storeId
+      || journal.rootId !== catalog.rootId || journal.volume !== catalog.volume || journal.targetId === selected.id && binding.sourceProof !== journal.sourceProof) migrationCapsuleFail('published_empty_proof');
+    await directory(control); await directory(stableRoot); const info = await platform.info(stableRoot);
+    if (info.id !== catalog.rootId || info.volume !== catalog.volume) migrationCapsuleFail('store_identity');
+    const names = (await fsp.readdir(control)).sort();
+    if (names.join(',') !== ['catalog-v1.sealed', 'objects-v1', 'relocation-v1.sealed'].sort().join(',') || (await fsp.readdir(stableRoot)).length) migrationCapsuleFail('published_empty_proof');
+    await current(selected);
+    return Object.freeze({ generationId: selected.id, storeId: catalog.storeId, rootId: catalog.rootId, volume: catalog.volume,
+      mode: binding.mode || 'encrypted', entries: 0, readOnly: true });
+  }
+  // Portable layer 1 owns only settled controls and terminal typed history.
+  // Any live or retained original-object capsule is refused until its separate
+  // create-owned-portable native staging path is available.
+  const portableStages = new WeakMap();
+  const portableFold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const portableSort = (a,b) => a < b ? -1 : a > b ? 1 : 0;
+  const portableJSON = value => JSON.stringify(value);
+  const portableClone = value => JSON.parse(portableJSON(value));
+  function portableAuthority(files) {
+    const row = files.find(file => portableFold(file.path) === '.work-data/active-v1.json');
+    if (!row) return { id:null,generation:0,mode:'plain',raw:null,sha256:null };
+    const raw = row.data.toString('utf8');
+    if (!Buffer.from(raw).equals(row.data)) migrationCapsuleFail('portable_authority');
+    const value = safeJsonParse(raw,null);
+    if (!exact(value,'schema,id,generation,mode,activeRoot') || value.schema !== 1 || !id48(value.id)
+      || !Number.isSafeInteger(value.generation) || value.generation < 1 || !['plain','encrypted'].includes(value.mode)
+      || value.activeRoot !== 'generations/' + value.id) migrationCapsuleFail('portable_authority');
+    return {id:value.id,generation:value.generation,mode:value.mode,raw,sha256:hash(row.data)};
+  }
+  function portableInput(request) {
+    if (!request || !Array.isArray(request.files) || !Array.isArray(request.directories)
+      || !request.source || typeof request.source.sourcePath !== 'string' || !hex(request.source.sourceSha256)
+      || !Array.isArray(request.source.files) || !Array.isArray(request.source.directories)
+      || typeof request.readCaptured !== 'function') migrationCapsuleFail('portable_host');
+    const completeSource=WorkDataRecovery.skillBackupSource(request.files,request.directories);
+    if(request.source.sourcePath!==completeSource.sourcePath||request.source.sourceSha256!==completeSource.sourceSha256
+      ||portableJSON(request.source.files)!==portableJSON(completeSource.files)||portableJSON(request.source.directories)!==portableJSON(completeSource.directories))migrationCapsuleFail('portable_source');
+    const files = new Map();
+    for (const row of request.files) {
+      if (!row || typeof row.path !== 'string' || !Buffer.isBuffer(row.data) || files.has(portableFold(row.path))) migrationCapsuleFail('portable_source');
+      files.set(portableFold(row.path),row);
+    }
+    const scoped = new Map();
+    for (const row of request.source.files) {
+      const actual=files.get(portableFold(row.path));
+      if (!actual || actual.path !== row.path || actual.data.length !== row.size || hash(actual.data) !== row.sha256
+        || scoped.has(portableFold(row.path))) migrationCapsuleFail('portable_source');
+      scoped.set(portableFold(row.path),actual);
+    }
+    const dirs=new Map(request.source.directories.map(name=>[portableFold(name),name]));
+    if (dirs.size !== request.source.directories.length || request.source.directories.some(name=>!request.directories.includes(name))) migrationCapsuleFail('portable_source');
+    return {files,scoped,dirs,source:request.source,read:request.readCaptured};
+  }
+  async function collectPortable(request,sourceBase) {
+    const input=portableInput(request),remaining=new Map(input.scoped),claimedDirectories=new Set(),records=[],histories=new Map();
+    const take=name=>{const row=remaining.get(portableFold(name));if(!row)migrationCapsuleFail('portable_source');remaining.delete(portableFold(name));return row;};
+    const dir=name=>{const actual=input.dirs.get(portableFold(name));if(!actual)migrationCapsuleFail('portable_source');claimedDirectories.add(portableFold(name));return actual;};
+    const ancestors=name=>{let current=name;for(;;){if(input.dirs.has(portableFold(current)))claimedDirectories.add(portableFold(current));const at=current.lastIndexOf('/');if(at<0)break;current=current.slice(0,at);}};
+    const read=async(path,kind,recordId,validate,{scopeId=ownerScope(sourceBase),mode='encrypted'}={})=>{
+      const row=take(path),result=await input.read(row,{purpose:'backup',schema:1,scopeId,recordId,chunked:true,maxPlaintextBytes:256*1024*1024});
+      if (!result || typeof result.text !== 'string' || result.authenticated !== (mode==='encrypted')) migrationCapsuleFail('portable_carrier');
+      const value=safeJsonParse(result.text,null);if(!validate(value))migrationCapsuleFail('portable_shape');
+      const record={path:row.path,kind,recordId,scopeId,mode,value};records.push(record);ancestors(row.path.slice(0,row.path.lastIndexOf('/')));return record;
+    };
+    const authority=portableAuthority(request.files),controlPrefix='.work-data/skill-backups';
+    let catalog=null,journal=null,representation=null;
+    if(input.dirs.has(controlPrefix)){
+      dir(controlPrefix);
+      if(remaining.has(controlPrefix+'/catalog-v1.sealed'))catalog=await read(controlPrefix+'/catalog-v1.sealed','catalog','catalog-v1',catalogValid);
+      if(remaining.has(controlPrefix+'/relocation-v1.sealed'))journal=await read(controlPrefix+'/relocation-v1.sealed','relocation','relocation-v1',journalValid);
+      if(remaining.has(controlPrefix+'/representation-v1.sealed')){
+        representation=await read(controlPrefix+'/representation-v1.sealed','representation','representation-v1',representationValid);
+        if(!['kept','canceled'].includes(representation.value.phase))migrationCapsuleFail('portable_pending');
+        if(representation.value.entries.length)migrationCapsuleFail('portable_original_capsule_required');
+      }
+      if(!journal || !['kept','canceled'].includes(journal.value.phase))migrationCapsuleFail('portable_pending');
+      if(catalog){if(journal.value.phase!=='kept'||journal.value.storeId!==catalog.value.storeId||journal.value.rootId!==catalog.value.rootId||journal.value.volume!==catalog.value.volume)migrationCapsuleFail('portable_store');dir(controlPrefix+'/objects-v1');}
+      else if(journal.value.phase!=='canceled'||input.dirs.has(controlPrefix+'/objects-v1'))migrationCapsuleFail('portable_store');
+    }
+    const bindingPattern=new RegExp('^\\.work-data/generations/([a-f0-9]{48})/migrations/skill-backup-bindings-v2\\.sealed$',process.platform==='win32'?'i':'');
+    const bindings=[];
+    for(const row of [...remaining.values()]){
+      const match=bindingPattern.exec(row.path);if(!match)continue;const generationId=portableFold(match[1]);
+      const record=await read(row.path,'binding','bindings:'+generationId,bindingValid);
+      if(!catalog||record.value.generationId!==generationId||record.value.storeId!==catalog.value.storeId||!record.value.ready)migrationCapsuleFail('portable_binding');
+      if(record.value.entries.some(entry=>entry.kind!=='history'||entry.eligibility!=='terminal'))migrationCapsuleFail('portable_original_capsule_required');
+      bindings.push(record);
+    }
+    const activeBinding=bindings.find(row=>row.value.generationId===authority.id);
+    if(catalog&&(!authority.id||!activeBinding||(activeBinding.value.mode||'encrypted')!==authority.mode))migrationCapsuleFail('portable_binding');
+    const roots=[catalog?controlPrefix+'/objects-v1':null,input.dirs.has('migrations/skill-backups')?'migrations/skill-backups':null].filter(Boolean);
+    for(const root of roots){
+      dir(root);
+      const markerPattern=new RegExp('^'+root.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/([0-9TZ-]+)/([A-Za-z0-9_-]{1,64})/\\.ruyi-backup-history-v1$',process.platform==='win32'?'i':'');
+      for(const row of [...remaining.values()]){
+        const match=markerPattern.exec(row.path);if(!match)continue;const stamp=match[1],skillId=match[2],wrapper=row.path.slice(0,row.path.lastIndexOf('/'));
+        const marker=take(row.path),header=safeJsonParse(marker.data.toString('utf8'),null);
+        if(!exact(header,'schema,mode')||header.schema!==1||!['plain','encrypted'].includes(header.mode))migrationCapsuleFail('portable_history');
+        const descriptor={stamp,id:skillId,recordId:'skill-backup:'+(process.platform==='win32'?skillId.toLowerCase():skillId)};
+        const binding=migrationBackupHistoryBinding(descriptor),history=await read(wrapper+'/history','history',binding.recordId,value=>migrationBackupHistoryShape(value,descriptor),{scopeId:binding.scopeId,mode:header.mode});
+        for(const entry of history.value.snapshot.entries)if(portableFold(entry.rel)===portableFold(SKILL_IMPORT_RECORD)){
+          const stream=entry.streams.find(stream=>stream.name==='');if(!stream||entry.dir)migrationCapsuleFail('portable_history');const bytes=Buffer.from(stream.data,'base64');
+          try{const opened=await input.read({path:history.path,data:bytes},{purpose:'backup',schema:1,scopeId:'skills',recordId:'skill-import:'+portableFold(skillId),chunked:true,maxPlaintextBytes:16*1024});if(!opened||typeof opened.text!=='string'||Buffer.byteLength(opened.text,'utf8')>16*1024)migrationCapsuleFail('portable_history');}finally{bytes.fill(0);}
+        }
+        if(histories.has(stamp+'/'+portableFold(skillId)))migrationCapsuleFail('portable_binding');
+        histories.set(stamp+'/'+portableFold(skillId),{history,marker:{path:marker.path,sha256:hash(marker.data)},wrapper,stamp,skillId});
+        ancestors(wrapper);
+      }
+      // Empty stamp directories are legitimate retained names, not capabilities.
+      for(const name of input.dirs.values())if(new RegExp('^'+root.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/[0-9TZ-]+$',process.platform==='win32'?'i':'').test(name))claimedDirectories.add(portableFold(name));
+    }
+    for(const binding of bindings)for(const entry of binding.value.entries){const history=histories.get(entry.ref.stamp+'/'+entry.ref.skillId);if(!history||entry.physicalSkillId!==history.skillId||entry.phase!==history.history.value.phase||entry.historyMode!==history.history.mode||entry.archiveSha!==hash(input.files.get(portableFold(history.history.path)).data)||entry.intentSha!==history.marker.sha256)migrationCapsuleFail('portable_binding');}
+    if(remaining.size)migrationCapsuleFail([...remaining.keys()].some(name=>/(?:\/.ruyi-capsule-v1$|\/archive$|\/intent$|\/objects\/|\/plain-v1\/|\/intents\/|\/representations-v1\/)/.test(name))?'portable_original_capsule_required':'portable_unknown');
+    for(const name of input.dirs.values())if(!claimedDirectories.has(portableFold(name))){
+      // Empty fixed control ancestors preserve names without granting authority.
+      if(new RegExp('^\\.work-data/skill-backups/(?:intents|plain-v1|representations-v1)(?:/[a-f0-9]{48}){0,2}$',process.platform==='win32'?'i':'').test(name))claimedDirectories.add(portableFold(name));
+      else migrationCapsuleFail('portable_unknown');
+    }
+    records.sort((a,b)=>portableSort(a.path,b.path));
+    return {schema:1,type:'skill-backup-portable',sourceBase,source:{sourcePath:input.source.sourcePath,sourceSha256:input.source.sourceSha256},authority,records,
+      profile:{originalObjects:'refused',terminalSnapshots:'source-history-only',nativeStreams:'enumerated-default-only',destinationSecurity:'inherited; no source ACL replay'}};
+  }
+  async function capturePortable(request) {
+    if(base.length>4096)migrationCapsuleFail('portable_capacity');
+    const selected=await active(),expected=request?.expected;
+    if(!expected?.proof||selected.proof.raw!==expected.proof.raw||selected.proof.sha256!==expected.proof.sha256)migrationCapsuleFail('generation_changed');
+    const value=await collectPortable(request,base);
+    if(value.authority.raw!==selected.proof.raw||value.authority.sha256!==selected.proof.sha256)migrationCapsuleFail('portable_authority');
+    const input=portableInput(request),roots=new Set();
+    for(const name of input.dirs.values())if(['.work-data/skill-backups','migrations/skill-backups'].includes(portableFold(name)))roots.add(name);
+    for(const row of input.scoped.values())if(/\/migrations\/skill-backup-bindings-v2\.sealed$/i.test(row.path))roots.add(row.path.slice(0,row.path.lastIndexOf('/')));
+    for(const name of roots){
+      const absolute=path.join(base,...name.split('/')),snapshot=await platform.capture(absolute,hash(request.source.sourceSha256+':'+name));
+      if(!migrationCapsuleShape(snapshot)||snapshot.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      const expectedFiles=[...input.files.values()].filter(row=>portableFold(row.path).startsWith(portableFold(name)+'/'));
+      const actual=snapshot.entries.filter(entry=>!entry.dir);if(actual.length!==expectedFiles.length)migrationCapsuleFail('portable_source');
+      for(const entry of actual){const row=input.files.get(portableFold(name+'/'+entry.rel));if(!row||entry.streams.length!==1||entry.streams[0].hash!==hash(row.data)||entry.streams[0].size!==row.data.length)migrationCapsuleFail('portable_source');}
+      if(portableFold(name)==='.work-data/skill-backups'&&value.records.some(row=>row.kind==='catalog')){
+        const catalog=value.records.find(row=>row.kind==='catalog').value,info=await platform.info(stableRoot);
+        if(info.id!==catalog.rootId||info.volume!==catalog.volume)migrationCapsuleFail('store_identity');
+      }
+    }
+    await current(selected);const data=Buffer.from(portableJSON(value));let released=false;
+    return Object.freeze({type:'skill-backup-portable',schema:1,sourcePath:request.source.sourcePath,sourceSha256:request.source.sourceSha256,data,
+      profile:Object.freeze({...value.profile}),release(){if(!released){released=true;data.fill(0);}}});
+  }
+  async function validatePortable({data,...request}={}) {
+    if(!Buffer.isBuffer(data)||data.length<1||data.length>256*1024*1024)migrationCapsuleFail('portable_shape');
+    const text=data.toString('utf8');if(!Buffer.from(text).equals(data))migrationCapsuleFail('portable_shape');const value=safeJsonParse(text,null);
+    if(!exact(value,'schema,type,sourceBase,source,authority,records,profile')||value.schema!==1||value.type!=='skill-backup-portable'
+      ||typeof value.sourceBase!=='string'||value.sourceBase.length>4096||!path.isAbsolute(value.sourceBase)||path.resolve(value.sourceBase)!==value.sourceBase)migrationCapsuleFail('portable_shape');
+    const collected=await collectPortable(request,value.sourceBase);
+    if(portableJSON(collected)!==text)migrationCapsuleFail('portable_binding');
+    return portableClone(collected);
+  }
+  async function stagePortable({target,keysFor,assertTargetExclusive,data,...request}={}) {
+    if(typeof target!=='string'||!path.isAbsolute(target)||!eq(target,path.resolve(target))||typeof keysFor!=='function'||typeof assertTargetExclusive!=='function')migrationCapsuleFail('portable_host');
+    const within=(a,b)=>{const relative=path.relative(samePathKey(a),samePathKey(b));return relative===''||relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative);};
+    if(within(base,target)||within(target,base))migrationCapsuleFail('portable_target');
+    const admission=async()=>{if(await assertTargetExclusive()!==true)migrationCapsuleFail('portable_owner');};
+    await admission();const value=await validatePortable({...request,data});await directory(path.dirname(target));
+    const absent=async file=>{if(await stat(file))migrationCapsuleFail('portable_target_exists');};await absent(target);
+    const stageRoot=path.join(path.dirname(target),'.ruyi-skill-portable-'+crypto.randomBytes(24).toString('hex'));
+    let mutated=false;
+    try{
+      await admission();await fsp.mkdir(stageRoot,{mode:0o700});mutated=true;await directory(stageRoot);
+      const stageIdentity=await platform.info(stageRoot),input=portableInput(request),catalog=value.records.find(row=>row.kind==='catalog'),replacements=[];
+      const allDirs=new Set([stageRoot,path.dirname(stageRoot)]),objectsName=catalog?input.source.directories.find(name=>portableFold(name)==='.work-data/skill-backups/objects-v1'):null;
+      let objectInfo=null,objectProof=null;
+      const makeParents=async relative=>{const parent=path.dirname(path.join(stageRoot,...relative.split('/')));await fsp.mkdir(parent,{recursive:true});await directory(parent);let cursor=parent;for(;;){allDirs.add(cursor);if(eq(cursor,stageRoot))break;cursor=path.dirname(cursor);}};
+      if(catalog){
+        if(!objectsName)migrationCapsuleFail('portable_store');
+        for(const name of input.source.directories.filter(name=>portableFold(name)===portableFold(objectsName)||portableFold(name).startsWith(portableFold(objectsName)+'/')).sort((a,b)=>a.split('/').length-b.split('/').length||portableSort(a,b))){await makeParents(name+'/placeholder');await directory(path.join(stageRoot,...name.split('/')));}
+        const objectRoot=path.join(stageRoot,...objectsName.split('/'));objectInfo=await platform.info(objectRoot);
+        if(!id24(objectInfo.id)||typeof objectInfo.volume!=='string')migrationCapsuleFail('portable_store');
+        for(const row of input.scoped.values())if(portableFold(row.path).startsWith(portableFold(objectsName)+'/')){
+          await makeParents(row.path);const handle=await fsp.open(path.join(stageRoot,...row.path.split('/')),'wx',0o600);try{await handle.writeFile(row.data);await handle.sync();}finally{await handle.close();}
+        }
+        objectProof=await platform.capture(objectRoot,hash(value.source.sourceSha256+':target-store'));
+        if(!migrationCapsuleShape(objectProof)||objectProof.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      }
+      const validators={catalog:catalogValid,relocation:journalValid,representation:representationValid,binding:bindingValid};
+      for(const record of value.records){
+        if(record.kind==='history')continue;const validate=validators[record.kind];if(!validate)migrationCapsuleFail('portable_shape');
+        const staged=portableClone(record.value);
+        if(record.kind==='catalog'||record.kind==='relocation'&&staged.phase==='kept'){if(!objectInfo)migrationCapsuleFail('portable_store');staged.rootId=objectInfo.id;staged.volume=objectInfo.volume;}
+        await makeParents(record.path);const file=path.join(stageRoot,...record.path.split('/')),keys=await keysFor(record.path);
+        if(!keys||typeof keys.snapshot!=='function')migrationCapsuleFail('portable_keys');
+        await sealed(file,record.recordId,validate,keys,target).write(staged);
+        const reopened=await sealed(file,record.recordId,validate,keys,target).read();if(portableJSON(reopened)!==portableJSON(staged))migrationCapsuleFail('portable_binding');
+        const bytes=await fsp.readFile(file);replacements.push({path:record.path,data:bytes,sha256:hash(bytes)});
+      }
+      const stageProof=await platform.capture(stageRoot,hash(value.source.sourceSha256+':stage'));if(!migrationCapsuleShape(stageProof)||stageProof.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      await admission();await absent(target);await conversionNative.flush([...allDirs]);
+      const token=Object.freeze({stageRoot,stageIdentity:Object.freeze({...stageIdentity}),objectsRoot:objectsName,files:Object.freeze(replacements.map(row=>Object.freeze({...row}))),
+        skipDirectories:Object.freeze(objectsName?[objectsName]:[]),skipFiles:Object.freeze(objectsName?[...input.scoped.values()].filter(row=>portableFold(row.path).startsWith(portableFold(objectsName)+'/')).map(row=>row.path):[]),
+        profile:Object.freeze({...value.profile}),release(){for(const row of replacements)row.data.fill(0);}});
+      portableStages.set(token,{target,stageRoot,stageIdentity,stageProof,objectsName,objectInfo,objectProof,replacements,admission,installed:false,targetIdentity:null});return token;
+    }catch(cause){if(!mutated)throw cause;throw Object.assign(new Error('work_data_backup.portable_stage_failed',{cause}),{code:'work_data_backup.portable_stage_failed',apiCode:'work_data_backup.portable_stage_failed',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,stageRetained:stageRoot});}
+  }
+  async function verifyPortableInstalled(token){
+    const owned=portableStages.get(token);if(!owned?.installed)migrationCapsuleFail('portable_token');await owned.admission();
+    await directory(owned.target);const actualRoot=await fsp.lstat(owned.target,{bigint:true});
+    if(String(actualRoot.dev)!==owned.targetIdentity.dev||String(actualRoot.ino)!==owned.targetIdentity.ino)migrationCapsuleFail('portable_target_changed');
+    for(const row of owned.replacements){if(hash(row.data)!==row.sha256||await fileHash(path.join(owned.target,...row.path.split('/')))!==row.sha256)migrationCapsuleFail('portable_target_changed');}
+    for(const parent of new Set(owned.replacements.map(row=>path.dirname(path.join(owned.target,...row.path.split('/')))))){const actual=await platform.capture(parent,owned.stageProof.revision);if(!migrationCapsuleShape(actual)||actual.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');}
+    if(owned.objectsName){const root=path.join(owned.target,...owned.objectsName.split('/')),info=await platform.info(root),actual=await platform.capture(root,owned.objectProof.revision);if(info.id!==owned.objectInfo.id||info.volume!==owned.objectInfo.volume||!migrationCapsuleSame(actual,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_target_changed');}
+    await owned.admission();return Object.freeze({target:owned.target,readOnly:true,originalObjects:'refused',terminalSnapshots:'source-history-only'});
+  }
+  async function installPortable(token,{targetIdentity}={}){
+    const owned=portableStages.get(token);if(!owned||owned.installed||owned.installStarted)migrationCapsuleFail('portable_token');await owned.admission();
+    if(!targetIdentity||!['dev','ino'].every(name=>typeof targetIdentity[name]==='string'))migrationCapsuleFail('portable_target');
+    await directory(owned.target);const actual=await fsp.lstat(owned.target,{bigint:true});if(String(actual.dev)!==targetIdentity.dev||String(actual.ino)!==targetIdentity.ino)migrationCapsuleFail('portable_target_changed');
+    const stage=await platform.info(owned.stageRoot);if(stage.id!==owned.stageIdentity.id||stage.volume!==owned.stageIdentity.volume)migrationCapsuleFail('portable_stage_changed');
+    const stageCurrent=await platform.capture(owned.stageRoot,owned.stageProof.revision);if(!migrationCapsuleSame(stageCurrent,migrationCapsuleFingerprint(owned.stageProof)))migrationCapsuleFail('portable_stage_changed');
+    for(const row of owned.replacements)if(hash(row.data)!==row.sha256||await fileHash(path.join(owned.target,...row.path.split('/')))!==row.sha256)migrationCapsuleFail('portable_target_changed');
+    try{
+      owned.installStarted=true;
+      if(owned.objectsName){const source=path.join(owned.stageRoot,...owned.objectsName.split('/')),target=path.join(owned.target,...owned.objectsName.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const current=await platform.capture(source,owned.objectProof.revision);if(!migrationCapsuleSame(current,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_stage_changed');const moved=await platform.move({source,target,id:owned.objectInfo.id});if(moved.id!==owned.objectInfo.id||moved.volume!==owned.objectInfo.volume)migrationCapsuleFail('portable_store');}
+      owned.installed=true;owned.targetIdentity=Object.freeze({...targetIdentity});await conversionNative.flush([owned.target,path.join(owned.target,'.work-data'),path.join(owned.target,'.work-data','skill-backups')].filter(root=>owned.objectsName||eq(root,owned.target)));
+      return await verifyPortableInstalled(token);
+    }catch(cause){throw Object.assign(new Error('work_data_backup.portable_install_uncertain',{cause}),{code:'work_data_backup.portable_install_uncertain',apiCode:'work_data_backup.portable_install_uncertain',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,targetRetained:owned.target,stageRetained:owned.stageRoot});}
+  }
+
+  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, recoverRepresentation, verifyPublished, capturePortable, validatePortable, stagePortable, installPortable, verifyPortableInstalled });
 }
 
 // 迟绑定挂接(见 00-boot 的 MigrationHooks 头注)。
 Object.assign(MigrationHooks, {
   createBackupOwner: createMigrationBackupOwner,
+  helperMayStillRun: () => migrationCapsuleBroker.helperMayStillRun === true,
   recover: () => migrationSerial(async () => {}),
   withSkillRead: work => migrationSerial(work),
   scan: migrationScan,
