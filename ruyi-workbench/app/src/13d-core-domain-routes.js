@@ -375,90 +375,8 @@ function sessionSearchHayOf(entry) {
   sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
   return hay;
 }
-function sessionSearchScope(indexEnabled = true) {
-  return { fullText: false, mode: indexEnabled ? 'bounded_index' : 'metadata_only',
-    maxCharsPerSession: SESSION_SEARCH_UNIT_CAP, userCharsPerMessage: SESSION_SEARCH_USER_CHARS,
-    assistantCharsPerMessage: SESSION_SEARCH_ASSISTANT_CHARS, headBytes: SESSION_SEARCH_HEAD_BYTES, tailBytes: SESSION_SEARCH_TAIL_BYTES,
-    note: '只搜索标题、摘要及有限正文索引,长会话可能遗漏;未命中不能证明从未做过。可换关键词或读取选定线程核对。' };
-}
-async function searchSessionsByContent(query, limit) {
-  const q = String(query || '').trim();
-  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope: sessionSearchScope(), reason: 'query_too_short' };
-  const metas = await listSessions();
-  const entries = await refreshSessionSearchIndex(metas);
-  const byId = new Map(metas.map(meta => [meta.id, meta]));
-
-  const documents = metas
-    .filter(meta => entries[meta.id])
-    .map(meta => ({ id: meta.id, text: entries[meta.id].unit }));
-  if (!documents.length) return { ok: true, query: q, results: [], indexed: 0, scope: sessionSearchScope() };
-
-  const terms = [...new Set(retrievalTerms(q).filter(term => !term.startsWith('#')))];
-  const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
-  const needed = Math.max(1, Math.ceil(terms.length / 2));
-  const scores = new Map();
-  // 性能批 C1:首次(或会话大批变化后)要给几千篇现算小写 + 折叠,先分片预热、每 100 篇让一次事件循环
-  for (let i = 0; i < documents.length; i++) {
-    sessionSearchHayOf(entries[documents[i].id]);
-    if (i % 100 === 99) await new Promise(resolve => setImmediate(resolve));
-  }
-  for (const doc of documents) {
-    const hay = sessionSearchHayOf(entries[doc.id]);
-    const meta = byId.get(doc.id) || {};
-    const brief = sessionBriefOf(meta);
-    const titleHay = [meta.title, brief && brief.title, brief && brief.gist].filter(Boolean).join(' ').toLowerCase();
-    let score = 0, matched = 0;
-    for (const term of terms) {
-      if (!hay.includes(term)) continue;
-      matched += 1;
-      const weight = Math.min(12, Math.max(2, term.length));
-      score += titleHay.includes(term) ? weight * 2 : weight;
-    }
-    const exact = phrase.length >= 2 && hay.includes(phrase);
-    if (!exact && matched < needed) continue;
-    if (exact) score += 30;
-    if (terms.length && matched === terms.length) score += 10;
-    scores.set(doc.id, score);
-  }
-  const lexical = [...scores.entries()].map(([id, score]) => ({ id, score }));
-
-  if (!sessionSearchCorpusCache) sessionSearchCorpusCache = createRetrievalCorpusCache();
-  const corpus = await sessionSearchCorpusCache.build(documents);
-  const vector = rankRetrievalCorpus(corpus, q);
-  const top = vector.length ? vector[0].score : 0;
-  const floor = lexical.length ? Math.max(0.2, top * 0.6) : Math.max(0.15, top * 0.5);
-  const extra = vector.filter(row => !scores.has(row.id) && row.score >= floor);
-
-  const updatedOf = id => String((byId.get(id) || {}).updatedAt || '');
-  lexical.sort((a, b) => b.score - a.score || updatedOf(b.id).localeCompare(updatedOf(a.id)) || String(a.id).localeCompare(String(b.id)));
-  const ranked = [
-    ...lexical.map(row => ({ id: row.id, score: row.score / 100, meta: byId.get(row.id) })),
-    ...extra.map(row => ({ id: row.id, score: row.score / 100, meta: byId.get(row.id) })),
-  ].filter(row => row.meta);
-
-  const cap = Math.min(SESSION_SEARCH_MAX_LIMIT, Math.max(1, Number(limit) || 20));
-  return {
-    ok: true,
-    query: q,
-    indexed: documents.length,
-    scope: sessionSearchScope(),
-    results: ranked.slice(0, cap).map(row => ({
-      id: row.id,
-      title: row.meta.title || '',
-      // 116-5b(§11.8.5):线程的名字与一句概括。**缺席时这两个键不出现** —— 存量会话的
-      // /api/sessions/search 载荷逐字节不变。title 仍是原话(它是权威,也是 hover 全文与回退)。
-      // 加在这里而不是让调用方自己去 /api/sessions 里 join:这条响应从此自足,
-      // 只拿到搜索结果的消费者(经典壳搜索、将来的任何面)不必再取一次会话列表。
-      ...(sessionBriefOf(row.meta) ? { briefTitle: sessionBriefOf(row.meta).title, briefGist: sessionBriefOf(row.meta).gist } : {}),
-      cwd: row.meta.cwd || '',
-      updatedAt: row.meta.updatedAt || '',
-      pinned: Boolean(row.meta.pinned),
-      messageCount: Number(row.meta.messageCount) || 0,
-      score: Number(row.score.toFixed(6)),
-      snippet: sessionSearchSnippet(entries[row.id].unit, terms),
-    })),
-  };
-}
+function sessionSearchScope(indexEnabled = true) { return SessionFullTextHooks.scope(indexEnabled); }
+async function searchSessionsByContent(query, limit) { return SessionFullTextHooks.search(query, limit); }
 
 // GET /api/sessions/:id 条件 GET 的【盘上戳】。不装载会话就能取:头文件整份读出来哈希(头只有几 KB~几十 KB;
 // 不能只信 updatedAt/mtime —— 同一毫秒/同一个文件系统时钟刻度内两次落头会撞)+ 两个正文的 size/mtime/ino(追加改 size,
@@ -610,7 +528,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, apiFailure('session_search.disabled', {}, 'session search index is disabled', 200));
     }
     const params = new URL(req.url, 'http://x').searchParams;
-    return send(res, json(await searchSessionsByContent(params.get('q') || '', params.get('limit'))));
+    return SessionFullTextHooks.withUI(req,res,params.get('project'),async()=>{const result=await searchSessionsByContent(params.get('q')||'',params.get('limit'));return SessionFullTextHooks.emitUI(result,value=>send(res,json(value)));});
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);

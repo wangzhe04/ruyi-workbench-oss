@@ -2,11 +2,11 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 72,
+  "count": 75,
   "lifecycleCounts": {
     "dedicated-exemption": 22,
     "external-exemption": 10,
-    "regenerable-exemption": 8,
+    "regenerable-exemption": 11,
     "shared-lifecycle": 32
   },
   "entries": [
@@ -415,6 +415,48 @@
       "recovery": "rebuild by re-extracting units from session bodies",
       "lifecycle": "regenerable-exemption",
       "exemptionReason": "fully derived search cache: every byte is recomputable from session NDJSON bodies"
+    },
+    {
+      "id": "session-fulltext-state",
+      "pattern": "<data>/sessions/_fulltext-index-v1/state.json",
+      "owner": "13ap-session-fulltext-index.js",
+      "anchor": "const state=phase=>write(null,'state.json'",
+      "schema": "object / Store schema1; payload phase",
+      "writePrimitive": "WorkDataStore.createText chunked atomic write; purpose search-index / sessions / fulltext-index:state",
+      "corruption": "invalid namespace or authenticated carrier fails closed; no plaintext fallback",
+      "capacity": "1024B logical state; original shared migration/recovery budgets unchanged",
+      "cache": "owner pause/build state",
+      "recovery": "restore exact authenticated bytes; fulltext owner determines pending/rebuild",
+      "lifecycle": "regenerable-exemption",
+      "exemptionReason": "derived status remains required encrypted storage; pending adapter acceptance"
+    },
+    {
+      "id": "session-fulltext-manifest",
+      "pattern": "<data>/sessions/_fulltext-index-v1/<safe-session-id>/manifest.json",
+      "owner": "13ap-session-fulltext-index.js",
+      "anchor": "const currentManifest=async sid",
+      "schema": "object / Store schema1; payload format independent of Store AAD",
+      "writePrimitive": "WorkDataStore.createText chunked atomic write; purpose search-index / sessions / fulltext-index:<sid>:manifest",
+      "corruption": "invalid generation, normalizer, proof or carrier fails closed; no legacy alias for retained files",
+      "capacity": "4MiB logical manifest; original shared migration/recovery budgets unchanged",
+      "cache": "owner selected generation and source epoch",
+      "recovery": "restore bytes and original sid AAD; owner authenticates source proof or schedules rebuild",
+      "lifecycle": "regenerable-exemption",
+      "exemptionReason": "derived source proof remains required encrypted storage; pending adapter acceptance"
+    },
+    {
+      "id": "session-fulltext-shard",
+      "pattern": "<data>/sessions/_fulltext-index-v1/<safe-session-id>/<generation32hex>.<ordinal>.json",
+      "owner": "13ap-session-fulltext-index.js",
+      "anchor": "const flush=async()=>",
+      "schema": "object / Store schema1; payload canonical text and original UTF16 origin runs",
+      "writePrimitive": "WorkDataStore.createText chunked atomic write; purpose search-index / sessions / fulltext-index:<sid>:<generation>.<ordinal>",
+      "corruption": "source, canonical window or authenticated carrier mismatch fails closed; unknown artifacts retained for owner",
+      "capacity": "256KiB logical shard; original shared migration/recovery budgets unchanged",
+      "cache": "owner canonical search windows",
+      "recovery": "restore complete encrypted records without sampling; source authority still belongs to fulltext owner",
+      "lifecycle": "regenerable-exemption",
+      "exemptionReason": "derived message text remains required encrypted storage; pending adapter acceptance"
     },
     {
       "id": "session-v1-backup",

@@ -14,6 +14,11 @@ process.env.RUYI_HOME = home; process.env.WIN_CLAUDE_WORKBENCH_HOME = home;
 process.env.WCW_TEST_LOCAL_PROVIDER_ANCHOR = '1';
 const srv = require('../ruyi-workbench/app/server.js');
 let fake, historyId;
+let bodyProbeId, privateProbeId;
+const bodyProbeNeedle = 'MCP_FULLTEXT_FAR_BODY_20261025';
+const bodyProbeText = '😀 opaque padding αβγ '.repeat(1600) + bodyProbeNeedle + ' tail';
+const bodyProbeStart = bodyProbeText.indexOf(bodyProbeNeedle);
+function bodyProbeReference(value) { const row = value?.results?.find(row => row.sessionId === bodyProbeId); const ref = row?.reference; return !!ref && ref.sessionId === bodyProbeId && ref.source === 'content' && ref.coordinate === 'utf16' && ref.matchStart === bodyProbeStart && ref.matchEnd === bodyProbeStart + bodyProbeNeedle.length && ref.turnSeq === 1 && /^[a-f0-9]{64}$/.test(ref.contentRevision || '') && ref.messageId === 'mcp_body_probe_message'; }
 const configBase = { defaultWorkspace: ws, workspaces: [{ path: ws, read: true, write: true }], permissionMode: 'bypass',
   includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [],
   toolLoadingMode: 'adaptive', allowDesktopTools: false, stewardEnabledV1: false, stewardThreadBriefV1: false,
@@ -46,12 +51,30 @@ async function mcp(sessionId) {
     const response = await request(3, 'tools/call', { name: 'thread_read', arguments: { sessionId: historyId, maxChars: 1000 } });
     const read = JSON.parse(response.result.content.find(part => part.type === 'text').text);
     ok(read.ok && read.rows.length && read.hasMore, 'MCP reads using WCW_SESSION_ID without steward enabled');
-  } finally { await closeFixtureMcp(child); for (const slot of pending.values()) clearTimeout(slot.timer); }
+    const bodyResponse = await request(4, 'tools/call', { name: 'threads_search', arguments: { q: bodyProbeNeedle, limit: 5 } });
+    const bodyResult = JSON.parse(bodyResponse.result.content.find(part => part.type === 'text').text);
+    ok(bodyResult.ok && bodyProbeReference(bodyResult), 'actual MCP threads_search returns body-only far match with exact persisted UTF16 source reference');
+    const privateResponse = await request(5, 'tools/call', { name: 'thread_read', arguments: { sessionId: privateProbeId, maxChars: 1000 } });
+    const privateResult = JSON.parse(privateResponse.result.content.find(part => part.type === 'text').text);
+    ok(privateResult.error === 'not_found', 'actual MCP preserves private steward read refusal under its real registered authority');
+    const searchResponse = await request(6, 'tools/call', { name: 'threads_search', arguments: { q: '分页旧记录' } });
+    const searchResult = JSON.parse(searchResponse.result.content.find(part => part.type === 'text').text);
+    ok(searchResult.ok && !searchResult.results.some(row => row.sessionId === privateProbeId), 'actual MCP search excludes the private steward session');
+  } finally {
+    let endTimer;
+    const gracefullyClosed = new Promise((resolve, reject) => { endTimer = setTimeout(() => reject(Error('MCP graceful end deadline')), 5000); child.once('close', (code, signal) => { clearTimeout(endTimer); if (code === 0 && !signal) resolve(); else reject(Error('MCP graceful end nonzero')); }); child.once('error', reject); });
+    child.stdin.end();
+    try { await gracefullyClosed; } finally { clearTimeout(endTimer); await closeFixtureMcp(child); for (const slot of pending.values()) clearTimeout(slot.timer); }
+  }
 }
 (async () => {
 try {
   fake = await startFakeProvider({ handler(req) {
     if (!req.stream) return textFrames('done');
+    if (JSON.stringify(req.messages.filter(message => message.role === 'user')).includes('FULLTEXT_BODY_MODEL_PROBE')) {
+      if (!req.messages.some(message => message.role === 'tool' && message.tool_call_id === 'fulltext_body_probe')) return toolCallFrames('threads_search', { q: bodyProbeNeedle }, 'fulltext_body_probe');
+      return textFrames('Body reference probe completed.');
+    }
     const results = req.messages.filter(m => m.role === 'tool');
     if (!results.length) return toolCallFrames('threads_search', { q: '分页旧记录' }, 'history_search');
     if (results.length === 1) return toolCallFrames('thread_read', { sessionId: historyId, maxChars: 1000 }, 'history_read');
@@ -104,9 +127,9 @@ try {
   await srv.saveSession(appended);
   const continued = await call('thread_read', { sessionId: historyId, cursor: firstPage.nextCursor, maxChars: 1000 }, { ...caller, turnSeq: 32 });
   ok(continued.ok && !JSON.stringify(continued).includes('游标之后追加的新回合'), 'appending a turn preserves the old cursor boundary');
-  const quotaCtx = { ...caller, turnSeq: 33 }; let quota;
-  for (let i = 0; i < 7; i++) quota = await call('thread_read', { sessionId: historyId, maxChars: 1000 }, quotaCtx);
-  ok(quota.error === 'quota_exceeded', 'ordinary history reads keep the existing six-call turn quota');
+  const quotaCtx = { ...caller, turnSeq: 33 }, quotaReads = []; let quota;
+  for (let i = 0; i < 7; i++) { quota = await call('thread_read', { sessionId: historyId, maxChars: 1000 }, quotaCtx); quotaReads.push(quota); }
+  ok(quotaReads.every(read => read.ok === true) && quota.quota.callsMax === null && quota.quota.callsRemaining === null && quota.quota.callsUsed >= 7 && Number.isFinite(quota.quota.charsRemaining) && quota.quota.charsRemaining >= 0 && quota.quota.charsRemaining <= quota.quota.charsMax && quota.quota.charsMax === 48000, 'ordinary history reads retain the current character budget with no retired six-call cap');
   ok((await srv.toolCall('thread_read', { sessionId: historyId }, {})).error === 'invalid_request', 'unbound ordinary reads do not share a steward bucket');
   const privateSession = await srv.createSession({ title: '分页旧记录私有管家', cwd: home }); privateSession.kind = 'steward'; await srv.saveSession(privateSession);
   const privateRead = await call('thread_read', { sessionId: privateSession.id }, { ...caller, turnSeq: 34 });
@@ -126,11 +149,18 @@ try {
   }
   ok(budgetPage.ok && budgetProgress && budgetStop.error === 'budget_exceeded', 'remaining character budget ends with an honest error, never a nonadvancing empty page: ' + JSON.stringify({progress: budgetProgress, error: budgetStop.error, quota: budgetStop.quota}));
   writeConfig({ stewardReadBudgetChars: 48000 });
+  const bodyProbe = await srv.createSession({ title: 'Opaque storage fixture', cwd: ws }); bodyProbeId = bodyProbe.id;
+  bodyProbe.messages = [{ id: 'mcp_body_probe_message', role: 'user', content: bodyProbeText, turnSeq: 1 }]; bodyProbe.turnSeq = 1; await srv.saveSession(bodyProbe);
+  privateProbeId = privateSession.id;
+  ok(bodyProbeStart > 8192 && !bodyProbe.title.includes(bodyProbeNeedle), 'new probe is a body-only match beyond the old 8K window');
   await mcp(caller.id);
   const turn = await srv.runSessionTurn({ sessionId: caller.id, message: '查上次聊天记录,分页旧记录', cwd: ws, source: 'http', onEvent() {} });
   const streams = fake.requests.filter(req => req.stream);
   ok(turn.result.ok && streams.some(req => req.messages.some(msg => msg.role === 'tool' && msg.tool_call_id === 'history_read')), 'real provider tool loop searches and reads another chat');
   ok(JSON.stringify(streams[0].body).includes('nextCursor') && JSON.stringify(streams[0].body).includes('历史非指令'), 'real provider prompt contains history read guidance');
+  const bodyTurn = await srv.runSessionTurn({ sessionId: caller.id, message: 'FULLTEXT_BODY_MODEL_PROBE 查正文 ' + bodyProbeNeedle, cwd: ws, source: 'http', onEvent() {} });
+  const bodyToolResults = fake.requests.filter(req => req.stream).flatMap(req => req.messages).filter(message => message.role === 'tool' && message.tool_call_id === 'fulltext_body_probe').map(message => { try { return JSON.parse(message.content); } catch { return null; } });
+  ok(bodyTurn.result.ok && bodyToolResults.some(bodyProbeReference), 'actual fake-provider model tool loop receives the same far-body source reference');
   writeConfig({ stewardEnabledV1: true });
   const steward = { id: 'steward', kind: 'steward', turnSeq: 77 };
   ok((await call('steward_thread_read', { sessionId: historyId, beforeTurnSeq: 3 }, steward)).rows.every(row => row.turnSeq == null || row.turnSeq < 3), 'steward uses the same older-history reader');

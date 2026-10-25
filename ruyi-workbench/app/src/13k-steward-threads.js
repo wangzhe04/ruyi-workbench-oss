@@ -400,27 +400,27 @@ async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
   const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
   const includeClosed = args.includeClosed === true;   // 116-2e:把已收工的速查线程也算进来
-  const scope = sessionSearchScope(sessionSearchIndexEnabled(config));
+  let scope = sessionSearchScope(sessionSearchIndexEnabled(config));
   if (!q) return { ok: true, query: '', results: [], indexed: 0, scope, reason: 'query_empty' };
   // 第二轮工具走查(F8):13f 的描述一直写「太短(少于 2 字)返回空结果并给 reason」,实现却放行了 1 个字
   // (走词法兜底,于是 q:'x' 满屏命中)。与经典壳 GET /api/sessions/search(13d)同一个下限、同一个 reason 码。
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope, reason: 'query_too_short' };
-  const metas = await listSessions().catch(() => []);
+  const metas = await SessionFullTextHooks.metadata();
   const byId = new Map(metas.map(meta => [meta.id, meta]));
   const relations = threadRelationsIndex(metas);
 
   let ranked = [];        // [{ id, score }]
   let indexed = 0;
-  let degraded = '';
+  let degraded = '';let coverage=null;const matches=new Map();
   if (sessionSearchIndexEnabled(config)) {
     // 内容索引在:直接用 113b 的核心函数(GET /api/sessions/search 背后那一个)。
-    const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10)).catch(() => null);
+    const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10));
     if (found && Array.isArray(found.results)) {
-      indexed = Number(found.indexed) || 0;
+      indexed = Number(found.indexed) || 0;coverage=found.coverage;scope=found.scope;for(const match of found.results)matches.set(match.id,match);
       ranked = found.results.map(row => ({ id: row.id, score: Number(row.score) || 0 }));
-    } else degraded = 'search_failed';
+    } else throw Object.assign(Error('session_search.result_invalid'),{code:'session_search.result_invalid'});
   } else degraded = 'index_disabled';
-  if (!ranked.length) {
+  if (!ranked.length && !sessionSearchIndexEnabled(config)) {
     // 退化词法:只看标题与摘要(不读正文),命中即按更新时间排序 —— 索引关着时仍然能找到线程。
     const needle = q.toLowerCase();
     ranked = metas
@@ -451,7 +451,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     // 116-2e(§11.1 第 2 项):已收工的速查线程默认不出现 —— 它答完那一句就没用了,留在结果里
     // 只会挤掉真正的任务线程。includeClosed:true 可以要回来(用户问「刚才那条速查说了啥」)。
     if (!includeClosed && stewardQuickClosed(head)) continue;
-    const meta = byId.get(row.id) || {};
+    const meta = byId.get(row.id) || {};const publicMeta=await SessionFullTextHooks.publicMetadata(row.id);const publicHead={...head,...publicMeta,threadBrief:publicMeta.brief||null};
     const slice = slices.get(row.id) || null;
     const card = slice ? overlayMissionCard(slice) : null;
     // 116-3 P1-5:兜底判据从「非 mission 即 quick_ask」改成「只有管家自己开的速查线程才是 quick_ask」。
@@ -468,29 +468,29 @@ async function stewardImplThreadsSearch(args, ctx, config) {
         : deriveStewardThreadState({ kind: 'mission' }));
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
     const wsName = stewardWorkspaceNameOf(meta.cwd || (head && head.cwd), config, knownForNames);
-    const recentUserRequest = stewardRecentUserRequest(head || meta);
+    const recentUserRequest = stewardRecentUserRequest(publicHead);
     results.push({
       sessionId: row.id,
       relatedThreads: threadRelatedThreads(head || meta, relations),
       missionId,
       // 116g:命中的线程属于哪个【事项】。未归类线程这里是空串(事项标题就是线程标题,不重复说)。
       missionTitle: await missionTitleOf(missionId),
-      title: stewardSanitizeText(meta.title || (head && head.title) || ''),
-      displayTitle: stewardThreadDisplayTitle(head || meta, config),
-      ...(sessionBriefOf(head) || sessionBriefOf(meta) ? { brief: sessionBriefOf(head) || sessionBriefOf(meta) } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
+      title: stewardSanitizeText(publicMeta.title || ''),
+      displayTitle: stewardThreadDisplayTitle(publicHead, config),
+      ...(publicMeta.brief ? { brief: publicMeta.brief } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
       kind: stewardDisplayKind(head),
       state: derived.state,
       stateLabel: derived.label,
       // 诚实:总览与搜索结果里的「最后一句」用会话摘要(= 助手原话经既有收尾裁剪),不做模型改写。
-      lastAssistantText: stewardClipSay(meta.summary || (head && head.summary) || ''),
+      lastAssistantText: stewardClipSay(publicMeta.summary || ''),
       ...(recentUserRequest ? { recentUserRequest } : {}),
       updatedAt: String(meta.updatedAt || (head && head.updatedAt) || ''),
-      score: Number(row.score) || 0,
+      score: Number(row.score) || 0,...(matches.get(row.id)?.reference?{reference:matches.get(row.id).reference,snippet:matches.get(row.id).snippet}:{}),
       // W7:它在哪个工作区里(已知工作区的名字;不在任何一个里给末段名)。只加字段,缺 cwd 时不出现。
       ...(wsName ? { workspace: wsName.name } : {}),
     });
   }
-  return stewardForeignProjection({ ok: true, query: q, results, indexed, scope, ...(degraded ? { degraded } : {}) });
+  return SessionFullTextHooks.finish(stewardForeignProjection({ok:true,query:q,results,indexed,scope,...(coverage?{coverage}:{}),...(degraded?{degraded}:{})}));
 }
 
 // 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。

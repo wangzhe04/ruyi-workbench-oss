@@ -307,7 +307,7 @@ function stewardToolHandler(toolName, impl) {
         }
       }
       if (STEWARD_DECISION_TOOLS.has(toolName)) await stewardPreflightDecision();
-      return await impl(clean, turnCtx, config);
+      return toolName==='steward_threads_search' ? await SessionFullTextHooks.withModel(turnCtx,toolName,null,()=>impl(clean,turnCtx,config)) : await impl(clean, turnCtx, config);
     } catch (error) {
       if (String(error && error.code || '').startsWith('work_data')) return stewardFail(error.code, error.code);
       if (error && error.code === 'external_channel.control_revoked') return stewardFail(error.code, 'external owner authorization was revoked');
@@ -450,7 +450,7 @@ async function stewardMemoryPanelExport() {
 Object.assign(StewardHooks, {
   relatedThreads: threadRelatedThreads,
   relationsIndex: threadRelationsIndex,
-  threadHistorySearch: async (args, ctx) => stewardImplThreadsSearch({ includeClosed: true, ...args }, ctx || {}, await readConfig()),
+  threadHistorySearch: async (args, ctx) => SessionFullTextHooks.withModel(ctx,'threads_search',null,async()=>stewardImplThreadsSearch({ includeClosed: true, ...args },ctx,await readConfig())),
   threadHistoryRead: async (args, ctx) => {
     const session = (ctx && ctx.session) || await loadSession(process.env.WCW_SESSION_ID || '').catch(() => null);
     if (!session) return stewardFail('invalid_request', 'thread_read requires a calling session');

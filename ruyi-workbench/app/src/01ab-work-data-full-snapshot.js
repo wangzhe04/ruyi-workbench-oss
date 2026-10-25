@@ -13,6 +13,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
   const keyName = (purpose, id) => purpose + ':' + id;
   const ownerPath = value => process.platform === 'win32' ? value.toLowerCase() : value;
   const keyOfPath = value => process.platform === 'win32' ? p.resolve(value).toUpperCase() : p.resolve(value);
+  const fulltextNamespace = value => /^sessions\/_fulltext-index-v1(?:\/|$)/.test(ownerPath(value));
   const PROFILE=Object.freeze({ordinaryFiles:'default-stream-bytes',directories:'names-only',nativeMetadata:'not-captured',
     nativeStreams:'not-enumerated; no full-native-backup claim',originalObjectCapsules:'special-owner-required',
     destinationSecurity:'fresh-target inherited defaults; no source ACL/SACL/aliases/object-ID replay'});
@@ -91,12 +92,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       }
       if (supplied && (supplied.size !== masters.size || [...supplied.keys()].some(id => !masters.has(id)))) fail('key_closure');
       const openedText = async (file, descriptor, data = file.data) => {
+        const maximum=Math.min(recovery.LIMITS.bytes,descriptor.maxPlaintextBytes||recovery.LIMITS.bytes);
+        const bounded=value=>{if(descriptor.maxPlaintextBytes&&Buffer.byteLength(value,'utf8')>maximum)fail('engineering_limit',{file:file.path});return value;};
         const text = decode(data); let first; try { first = JSON.parse(text.split('\n',1)[0]); } catch {}
         let parsed; try { parsed = JSON.parse(text); } catch {}
         const marker = parsed && typeof parsed === 'object' && Object.hasOwn(parsed,'workData') ? parsed : first?.workData === 3 ? first : null;
         if (!marker) {
           if (text.trimStart().startsWith('{') && workMarker.test(text)) fail('carrier_invalid', { file: file.path });
-          return text;
+          return bounded(text);
         }
         const key = requireKey(file.path,'work-data',marker.instanceId), match = /^work-data-v2\.k([1-9][0-9]?)$/.exec(marker.keyId || '');
         if (!match) fail('carrier_invalid');
@@ -104,10 +107,10 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           recordId: descriptor.recordId, seq: marker.workData === 3 ? 1 : marker.seq, generation: Number(match[1]) };
         if (marker.workData === 3) {
           if (!descriptor.chunked || !text.endsWith('\n')) fail('carrier_invalid');
-          return WorkDataChunks.openLines((async function* () { for (const line of text.slice(0,-1).split('\n')) yield line; })(), key.master, binding, recovery.LIMITS.bytes);
+          return WorkDataChunks.openLines((async function* () { for (const line of text.slice(0,-1).split('\n')) yield line; })(), key.master, binding, maximum);
         }
         if (marker.workData !== 2 || !parsed) fail('carrier_invalid');
-        const { workData, ...container } = parsed; return WorkDataCrypto.open(container, key.master, binding);
+        const { workData, ...container } = parsed; return bounded(WorkDataCrypto.open(container, key.master, binding));
       };
       const recordText = async (file, descriptor, data) => {
         const text = decode(data); if (!text) return '';
@@ -150,7 +153,8 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           }
           aux.push({type:'external-bot-credentials',schema:1,sourcePath:file.path,sourceSha256:hash(file.data),data:portable}); continue;
         }
-        const canonical = logical.replace(new RegExp('\\.prevbody$|\\.prev$',process.platform==='win32'?'i':''),''); let descriptor;
+        // Retained fulltext files are not aliases of committed records: its owner refuses unknown names.
+        const canonical = fulltextNamespace(logical) ? logical : logical.replace(new RegExp('\\.prevbody$|\\.prev$',process.platform==='win32'?'i':''),''); let descriptor;
         try { descriptor = WorkDataMigrationCodecs.describe(canonical); }
         catch (error) { if (error.code!=='work_data_migration.path_unmapped') throw error; }
         let text, value;
@@ -196,7 +200,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       return {masters,headers,aux,domains,nativePlan,files:files.map(file=>({path:file.path,data:file.data,keyRefs:[...refs.get(file.path)].sort()}))};
     }
     function checkAuthority(files,directories,generation,native){
-      for(const directory of directories)if(special(directory)&&!native?.directories.includes(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
+      for(const directory of directories){
+        const logical=namespace(directory).logical;
+        if(fulltextNamespace(logical)&&ownerPath(logical)!=='sessions/_fulltext-index-v1'){
+          let descriptor;try{descriptor=WorkDataMigrationCodecs.describe(logical+'/manifest.json');}catch{}
+          if(descriptor?.family!=='session-fulltext-manifest')fail('special_owner_required',{file:directory,reason:'fulltext-owned-namespace-directory'});
+        }
+        if(special(directory)&&!native?.directories.includes(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
+      }
       if(files.some(file=>{const name=process.platform==='win32'?file.path.toLowerCase():file.path;return name==='.work-data'||name==='.work-data/generations'||/^\.work-data\/generations\/[a-f0-9]{48}$/.test(name);})||directories.some(directory=>keyOfPath(directory)===keyOfPath('.work-data/active-v1.json')))fail('authority_mismatch');
       const pointer=files.find(file=>keyOfPath(file.path)===keyOfPath('.work-data/active-v1.json'));
       if(!pointer){if(generation!==0)fail('authority_mismatch');return;}

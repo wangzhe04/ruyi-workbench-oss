@@ -206,3 +206,13 @@ node dev-harness/encrypted-storage-freeze.static.e2e.js # 闭合门
 ## 11. M3-2 大记录格式补充（2026-10-23）
 
 v2 单封包及 1MiB 上限继续有效。对历史无单件上限的大对象，新增显式 opt-in 的 workData:3 / chunks-v1；它由认证清单和 512KiB UTF8 块构成，仍使用既有 v2 密码封包及冻结用途。清单包含加密的长度、计数和整文哈希，revision/序号与外部身份全部绑定；完整验证前不向域层返回部分内容。格式工程上限 256MiB，宿主必须声明上限，旧 reader 明确拒绝 v3。细节、内存实测限制与当前接线进度见94 §17；此格式扩展不代表首次迁移或恢复包已完成。
+
+## 12. M3-4 全文索引存储接线（2026-10-25，发布验收仍在继续）
+
+清册从 72 个 surface（41 required / 31 excluded）增加到 75（44 required / 31 excluded），新增 `session-fulltext-state`、`session-fulltext-manifest`、`session-fulltext-shard` 三族。三族的源码读写和共享分类已接线，均使用既有 `search-index` 用途，列入 `index-cache` 批次；可重建只描述恢复策略，不能豁免加密。完整迁移及中断恢复验收继续进行，`encryptionImplemented` 仍为 false，新族 adapter 状态仍为 pending，不能据此声明 M3-4 或 3.1 完成。
+
+实际 owned namespace 为 `sessions/_fulltext-index-v1/state.json`、`<safe sid>/manifest.json`、`<safe sid>/<32hex generation>.<ordinal>.json`。Store schema/AAD 保持 1 / `sessions` / `fulltext-index:` 加原 sid 与去掉 `.json` 的原 name；payload format3 或 normalizer 签名不改变此绑定。manifest 4MiB、shard 256KiB、state 1024B 的原逻辑容量及迁移/恢复全局预算均不扩大。
+
+迁移与 full snapshot 的共享分类必须识别三族，完整经过 ON、OFF、rekey 与口令便携恢复验证。其他文件、`.prev`、`.prevbody`、临时件及未知子目录不能按 opaque 文件或已提交记录的别名绕过 owned namespace；失败保留原物并要求 owner 处理。合法 state/manifest/shard 的 JSON 仍按原样转移，业务/source/normalizer 的有效性仍由全文 owner 判定，不能把 codec-only 变成全文索引完整性验收。
+
+本批同时接入全文 owner、UI/模型/MCP 读取边界及临时凭据释放保护。已提交消息文字不再按会话截取8K；附件只使用已持久化的文字，并明确返回未验证全文的覆盖状态。真实 native 迁移、完整媒体提取、整体性能和最终发布仍需分别验收，实施及证据入口见92 §12.19。

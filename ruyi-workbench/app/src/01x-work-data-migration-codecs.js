@@ -25,6 +25,12 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   // owner factories, never from an envelope or caller-supplied purpose/record ID.
   text('session-index', 'session', /^sessions\/index\.json$/, 'sessions', 'session-index', { chunked: true, shape: 'array' });
   text('session-search-index', 'search-index', /^sessions\/_search-index-v1\.json$/, 'global', 'session-search-index', { chunked: true });
+  // Fulltext payload format/normalizer revisions do not change the owner's Store schema/AAD.
+  text('session-fulltext-state', 'search-index', /^sessions\/_fulltext-index-v1\/state\.json$/, 'sessions', 'fulltext-index:state', { chunked: true, maxPlaintextBytes: 1024 });
+  text('session-fulltext-manifest', 'search-index', new RegExp('^sessions/_fulltext-index-v1/' + shortId + '/manifest\\.json$'),
+    'sessions', m => 'fulltext-index:' + m[1] + ':manifest', { chunked: true, sessionId: true, maxPlaintextBytes: 4 * 1024 * 1024 });
+  text('session-fulltext-shard', 'search-index', new RegExp('^sessions/_fulltext-index-v1/' + shortId + '/([a-f0-9]{32})\\.(0|[1-9][0-9]*)\\.json$'),
+    'sessions', m => 'fulltext-index:' + m[1] + ':' + nativeIdentity(m[2]) + '.' + m[3], { chunked: true, sessionId: true, maxPlaintextBytes: 256 * 1024 });
   text('pretender-index', 'search-index', /^sessions\/\.pretender\/projection-index\.json$/, 'global', 'pretender-index', { chunked: true });
   session('session-messages', 'messages', 'messages'); session('session-provider', 'provider', 'provider');
   session('session-interventions', 'interventions', 'interventions'); session('session-changes', 'changes', 'changes');
@@ -88,8 +94,10 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       if (nativeIdentity(relative).startsWith('agent-runs/') && !safeId(match[2])) fail('path_invalid');
       return Object.freeze({ family: entry.family, codec: entry.codec, purpose: entry.purpose,
         schema: entry.schema || (entry.codec === 'session-records' ? 2 : 1), chunked: entry.chunked === true, shape: entry.shape || 'object',
-        markdown: entry.markdown === true, ...entry.bind(match), ...(entry.reason ? { reason: entry.reason } : {}) });
+        markdown: entry.markdown === true, ...entry.bind(match), ...(entry.maxPlaintextBytes ? { maxPlaintextBytes: entry.maxPlaintextBytes } : {}), ...(entry.reason ? { reason: entry.reason } : {}) });
     }
+    if (/^sessions\/_fulltext-index-v1(?:\/|$)/.test(nativeIdentity(relative)))
+      return Object.freeze({ family: null, codec: 'special-owner-required', reason: 'fulltext-owned-namespace-artifact' });
     fail('path_unmapped');
   }
   const nativeKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
@@ -154,9 +162,9 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         await realDirectory(cursor);
       }
     }
-    const logicalLimit = bytes => { if (bytes.length > maxLogicalBytes) fail('engineering_limit'); return bytes; };
+    const logicalLimit = (bytes, maximum = maxLogicalBytes) => { if (bytes.length > maximum) fail('engineering_limit'); return bytes; };
     const validateText = (descriptor, value) => {
-      const bytes = logicalLimit(Buffer.from(value, 'utf8'));
+      const bytes = logicalLimit(Buffer.from(value, 'utf8'), Math.min(maxLogicalBytes, descriptor.maxPlaintextBytes || maxLogicalBytes));
       if (descriptor.markdown) return bytes;
       let data; try { data = JSON.parse(value.replace(/^\uFEFF/, '')); } catch { fail('special_owner_required', { reason: 'invalid-legacy-json' }); }
       if (!data || typeof data !== 'object' || (descriptor.shape === 'array' ? !Array.isArray(data) : Array.isArray(data)))
@@ -184,7 +192,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       } });
       const textStore = (file, which, enabled, metadata = {}) => WorkDataStore.createText({
         file: () => file, purpose: descriptor.purpose, schema: descriptor.schema, scopeId: descriptor.scopeId,
-        recordId: descriptor.recordId, chunked: descriptor.chunked, maxPlaintextBytes: maxLogicalBytes,
+        recordId: descriptor.recordId, chunked: descriptor.chunked, maxPlaintextBytes: Math.min(maxLogicalBytes, descriptor.maxPlaintextBytes || maxLogicalBytes),
         ...(descriptor.markdown ? { legacyText: 'markdown' } : {}), keys: borrowed(which), enabled: () => enabled, writeJson,
         validateSealedText: () => { metadata.authenticated = true; return true; },
       });

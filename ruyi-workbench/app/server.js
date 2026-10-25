@@ -1483,6 +1483,8 @@ async function recordInstallLaunch(launchMode) {
   } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
 }
 
+const SessionFullTextHooks = {};
+
 // 00b-ruyi-names.js - 3.0 收口:如意自有的对外标识(原 v1.0-S9 注释里「建议 v2.0 收口」的存量兼容标识)。
 // 零出边(不引用任何其他模块的顶层符号),排在 00-boot 之后;所有用到 MCP server id 的模块都只引用这里,不进依赖环。
 // 数据目录的新旧名在 00-boot(路径表 paths 在那里、加载即算)。
@@ -10681,6 +10683,12 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   // owner factories, never from an envelope or caller-supplied purpose/record ID.
   text('session-index', 'session', /^sessions\/index\.json$/, 'sessions', 'session-index', { chunked: true, shape: 'array' });
   text('session-search-index', 'search-index', /^sessions\/_search-index-v1\.json$/, 'global', 'session-search-index', { chunked: true });
+  // Fulltext payload format/normalizer revisions do not change the owner's Store schema/AAD.
+  text('session-fulltext-state', 'search-index', /^sessions\/_fulltext-index-v1\/state\.json$/, 'sessions', 'fulltext-index:state', { chunked: true, maxPlaintextBytes: 1024 });
+  text('session-fulltext-manifest', 'search-index', new RegExp('^sessions/_fulltext-index-v1/' + shortId + '/manifest\\.json$'),
+    'sessions', m => 'fulltext-index:' + m[1] + ':manifest', { chunked: true, sessionId: true, maxPlaintextBytes: 4 * 1024 * 1024 });
+  text('session-fulltext-shard', 'search-index', new RegExp('^sessions/_fulltext-index-v1/' + shortId + '/([a-f0-9]{32})\\.(0|[1-9][0-9]*)\\.json$'),
+    'sessions', m => 'fulltext-index:' + m[1] + ':' + nativeIdentity(m[2]) + '.' + m[3], { chunked: true, sessionId: true, maxPlaintextBytes: 256 * 1024 });
   text('pretender-index', 'search-index', /^sessions\/\.pretender\/projection-index\.json$/, 'global', 'pretender-index', { chunked: true });
   session('session-messages', 'messages', 'messages'); session('session-provider', 'provider', 'provider');
   session('session-interventions', 'interventions', 'interventions'); session('session-changes', 'changes', 'changes');
@@ -10744,8 +10752,10 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       if (nativeIdentity(relative).startsWith('agent-runs/') && !safeId(match[2])) fail('path_invalid');
       return Object.freeze({ family: entry.family, codec: entry.codec, purpose: entry.purpose,
         schema: entry.schema || (entry.codec === 'session-records' ? 2 : 1), chunked: entry.chunked === true, shape: entry.shape || 'object',
-        markdown: entry.markdown === true, ...entry.bind(match), ...(entry.reason ? { reason: entry.reason } : {}) });
+        markdown: entry.markdown === true, ...entry.bind(match), ...(entry.maxPlaintextBytes ? { maxPlaintextBytes: entry.maxPlaintextBytes } : {}), ...(entry.reason ? { reason: entry.reason } : {}) });
     }
+    if (/^sessions\/_fulltext-index-v1(?:\/|$)/.test(nativeIdentity(relative)))
+      return Object.freeze({ family: null, codec: 'special-owner-required', reason: 'fulltext-owned-namespace-artifact' });
     fail('path_unmapped');
   }
   const nativeKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
@@ -10810,9 +10820,9 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         await realDirectory(cursor);
       }
     }
-    const logicalLimit = bytes => { if (bytes.length > maxLogicalBytes) fail('engineering_limit'); return bytes; };
+    const logicalLimit = (bytes, maximum = maxLogicalBytes) => { if (bytes.length > maximum) fail('engineering_limit'); return bytes; };
     const validateText = (descriptor, value) => {
-      const bytes = logicalLimit(Buffer.from(value, 'utf8'));
+      const bytes = logicalLimit(Buffer.from(value, 'utf8'), Math.min(maxLogicalBytes, descriptor.maxPlaintextBytes || maxLogicalBytes));
       if (descriptor.markdown) return bytes;
       let data; try { data = JSON.parse(value.replace(/^\uFEFF/, '')); } catch { fail('special_owner_required', { reason: 'invalid-legacy-json' }); }
       if (!data || typeof data !== 'object' || (descriptor.shape === 'array' ? !Array.isArray(data) : Array.isArray(data)))
@@ -10840,7 +10850,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       } });
       const textStore = (file, which, enabled, metadata = {}) => WorkDataStore.createText({
         file: () => file, purpose: descriptor.purpose, schema: descriptor.schema, scopeId: descriptor.scopeId,
-        recordId: descriptor.recordId, chunked: descriptor.chunked, maxPlaintextBytes: maxLogicalBytes,
+        recordId: descriptor.recordId, chunked: descriptor.chunked, maxPlaintextBytes: Math.min(maxLogicalBytes, descriptor.maxPlaintextBytes || maxLogicalBytes),
         ...(descriptor.markdown ? { legacyText: 'markdown' } : {}), keys: borrowed(which), enabled: () => enabled, writeJson,
         validateSealedText: () => { metadata.authenticated = true; return true; },
       });
@@ -11389,6 +11399,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
   const keyName = (purpose, id) => purpose + ':' + id;
   const ownerPath = value => process.platform === 'win32' ? value.toLowerCase() : value;
   const keyOfPath = value => process.platform === 'win32' ? p.resolve(value).toUpperCase() : p.resolve(value);
+  const fulltextNamespace = value => /^sessions\/_fulltext-index-v1(?:\/|$)/.test(ownerPath(value));
   const PROFILE=Object.freeze({ordinaryFiles:'default-stream-bytes',directories:'names-only',nativeMetadata:'not-captured',
     nativeStreams:'not-enumerated; no full-native-backup claim',originalObjectCapsules:'special-owner-required',
     destinationSecurity:'fresh-target inherited defaults; no source ACL/SACL/aliases/object-ID replay'});
@@ -11467,12 +11478,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       }
       if (supplied && (supplied.size !== masters.size || [...supplied.keys()].some(id => !masters.has(id)))) fail('key_closure');
       const openedText = async (file, descriptor, data = file.data) => {
+        const maximum=Math.min(recovery.LIMITS.bytes,descriptor.maxPlaintextBytes||recovery.LIMITS.bytes);
+        const bounded=value=>{if(descriptor.maxPlaintextBytes&&Buffer.byteLength(value,'utf8')>maximum)fail('engineering_limit',{file:file.path});return value;};
         const text = decode(data); let first; try { first = JSON.parse(text.split('\n',1)[0]); } catch {}
         let parsed; try { parsed = JSON.parse(text); } catch {}
         const marker = parsed && typeof parsed === 'object' && Object.hasOwn(parsed,'workData') ? parsed : first?.workData === 3 ? first : null;
         if (!marker) {
           if (text.trimStart().startsWith('{') && workMarker.test(text)) fail('carrier_invalid', { file: file.path });
-          return text;
+          return bounded(text);
         }
         const key = requireKey(file.path,'work-data',marker.instanceId), match = /^work-data-v2\.k([1-9][0-9]?)$/.exec(marker.keyId || '');
         if (!match) fail('carrier_invalid');
@@ -11480,10 +11493,10 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           recordId: descriptor.recordId, seq: marker.workData === 3 ? 1 : marker.seq, generation: Number(match[1]) };
         if (marker.workData === 3) {
           if (!descriptor.chunked || !text.endsWith('\n')) fail('carrier_invalid');
-          return WorkDataChunks.openLines((async function* () { for (const line of text.slice(0,-1).split('\n')) yield line; })(), key.master, binding, recovery.LIMITS.bytes);
+          return WorkDataChunks.openLines((async function* () { for (const line of text.slice(0,-1).split('\n')) yield line; })(), key.master, binding, maximum);
         }
         if (marker.workData !== 2 || !parsed) fail('carrier_invalid');
-        const { workData, ...container } = parsed; return WorkDataCrypto.open(container, key.master, binding);
+        const { workData, ...container } = parsed; return bounded(WorkDataCrypto.open(container, key.master, binding));
       };
       const recordText = async (file, descriptor, data) => {
         const text = decode(data); if (!text) return '';
@@ -11526,7 +11539,8 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           }
           aux.push({type:'external-bot-credentials',schema:1,sourcePath:file.path,sourceSha256:hash(file.data),data:portable}); continue;
         }
-        const canonical = logical.replace(new RegExp('\\.prevbody$|\\.prev$',process.platform==='win32'?'i':''),''); let descriptor;
+        // Retained fulltext files are not aliases of committed records: its owner refuses unknown names.
+        const canonical = fulltextNamespace(logical) ? logical : logical.replace(new RegExp('\\.prevbody$|\\.prev$',process.platform==='win32'?'i':''),''); let descriptor;
         try { descriptor = WorkDataMigrationCodecs.describe(canonical); }
         catch (error) { if (error.code!=='work_data_migration.path_unmapped') throw error; }
         let text, value;
@@ -11572,7 +11586,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       return {masters,headers,aux,domains,nativePlan,files:files.map(file=>({path:file.path,data:file.data,keyRefs:[...refs.get(file.path)].sort()}))};
     }
     function checkAuthority(files,directories,generation,native){
-      for(const directory of directories)if(special(directory)&&!native?.directories.includes(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
+      for(const directory of directories){
+        const logical=namespace(directory).logical;
+        if(fulltextNamespace(logical)&&ownerPath(logical)!=='sessions/_fulltext-index-v1'){
+          let descriptor;try{descriptor=WorkDataMigrationCodecs.describe(logical+'/manifest.json');}catch{}
+          if(descriptor?.family!=='session-fulltext-manifest')fail('special_owner_required',{file:directory,reason:'fulltext-owned-namespace-directory'});
+        }
+        if(special(directory)&&!native?.directories.includes(directory))fail('special_owner_required',{file:directory,reason:special(directory)});
+      }
       if(files.some(file=>{const name=process.platform==='win32'?file.path.toLowerCase():file.path;return name==='.work-data'||name==='.work-data/generations'||/^\.work-data\/generations\/[a-f0-9]{48}$/.test(name);})||directories.some(directory=>keyOfPath(directory)===keyOfPath('.work-data/active-v1.json')))fail('authority_mismatch');
       const pointer=files.find(file=>keyOfPath(file.path)===keyOfPath('.work-data/active-v1.json'));
       if(!pointer){if(generation!==0)fail('authority_mismatch');return;}
@@ -11667,10 +11688,17 @@ const WorkDataMigrationHost = ((io,p,c) => {
   const relative=name=>typeof name==='string'&&name&&!name.includes('\\')&&!p.isAbsolute(name)&&name.split('/').every(part=>part&&part!=='.'&&part!=='..'&&!/[<>:"|?*\x00-\x1f]/.test(part)&&!/[. ]$/.test(part));
   const strict=bytes=>{const text=bytes.toString('utf8');if(!Buffer.from(text).equals(bytes))fail('utf8_invalid');return text;};
   const nativeScope=name=>{const folded=key(name);return folded==='migrations/skill-backup-bindings-v2.sealed'||folded==='migrations/skill-backups'||folded.startsWith('migrations/skill-backups/')||folded==='.work-data/skill-backups'||folded.startsWith('.work-data/skill-backups/');};
-  function classify(name,legacy){
+  function classify(name,legacy,directory=false){
     const folded=key(name);
     if(nativeScope(name))return {kind:'special-backup'};
     if(/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|\.sealed-stage$)/.test(folded))fail('special_owner_required',{file:name});
+    // The tree census supplies this flag; a file cannot borrow directory admission.
+    if(directory&&/^sessions\/_fulltext-index-v1(?:\/|$)/.test(folded)){
+      if(folded==='sessions/_fulltext-index-v1')return {kind:'fulltext-directory'};
+      let descriptor;try{descriptor=WorkDataMigrationCodecs.describe(name+'/manifest.json');}catch{}
+      if(descriptor?.family==='session-fulltext-manifest')return {kind:'fulltext-directory'};
+      fail('special_owner_required',{file:name});
+    }
     if(legacy&&['runtime.json','mcp-host-v1.json'].includes(folded))return {kind:'stable-owner'};
     if(folded==='.work-data'||folded.startsWith('.work-data/')){
       if(legacy&&(folded==='.work-data'||folded==='.work-data/generations'||folded==='.work-data/active-v1.json'||folded==='.work-data/maintenance-v1.json'||folded==='.work-data/maintenance-result-v1.json'||/^\.work-data\/generations\/[a-f0-9]{48}(?:\/|$)/.test(folded)))return {kind:'stable-owner'};
@@ -11773,7 +11801,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
         await checkSource(plan);const source=await tree.capture(expected.root);plan.disposable.push(source);
         try{
           const legacy=key(p.resolve(expected.root))===key(base),rows=source.files.map(file=>({...file,...classify(file.path,legacy)}));
-          for(const name of source.directories){if(key(name)==='.work-data/maintenance-result-v1.json')fail('control_owner_required');classify(name,legacy);} // reserved paths and unresolved stages cannot hide in an empty directory.
+          for(const name of source.directories){if(key(name)==='.work-data/maintenance-result-v1.json')fail('control_owner_required');classify(name,legacy,true);} // reserved paths and unresolved stages cannot hide in an empty directory.
           for(const row of rows)if(key(row.path)==='.work-data/maintenance-result-v1.json'){if(typeof maintenanceResultOwner?.decode!=='function')fail('control_owner_required');maintenanceResultOwner.decode(row.data);}
           const specialPaths=[...source.directories,...source.files.map(row=>row.path)].filter(nativeScope);
           if(specialPaths.length){if(await assertSpecialCoverage({backupReceipt,sourceProof,sourcePaths:Object.freeze(specialPaths)})!==true||sourceProof.specialCoverage?.type!=='skill-backup-portable'||sourceProof.specialCoverage.originalObjects!=='refused')fail('special_backup_coverage_required');plan.existingSpecial=true;plan.specialCoverage=Object.freeze({...sourceProof.specialCoverage});}
@@ -11801,7 +11829,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
             await plannedWrite(plan,row.path,row.kind==='config'?Buffer.from(configMirror(strict(row.data),targetMode==='encrypted')):row.data);
           }
           if(!rows.some(row=>row.kind==='config'))await plannedWrite(plan,'config.json',Buffer.from(configMirror('{}',targetMode==='encrypted')));
-          for(const name of source.directories){const kind=classify(name,legacy).kind;if(kind!=='stable-owner'&&kind!=='special-backup'){await io.mkdir(p.join(plan.candidate.root,...name.split('/')),{recursive:true});plan.targetDirectories.add(key(name));}}
+          for(const name of source.directories){const kind=classify(name,legacy,true).kind;if(kind!=='stable-owner'&&kind!=='special-backup'){await io.mkdir(p.join(plan.candidate.root,...name.split('/')),{recursive:true});plan.targetDirectories.add(key(name));}}
           await plan.special.prepareRepresentation(plan.specialToken,{mode:targetMode});await admission();const binding=await plan.special.prepareBindings(plan.specialToken);if(binding.ready!==true)fail('special_owner_required');
           // Re-enter the same owner to authenticate its durable candidate binding,
           // rather than treating a successful write or arbitrary current bytes as proof.
@@ -12493,17 +12521,29 @@ function sessionBodyPaths(id) {
 // WorkDataCrypto v2 容器。读侧遇到解不开的密文【抛错】—— 不能当成「会话不存在」或「空会话」,
 // 否则一次缺钥就会让整库会话静默消失;缺钥提示归 M3-3 的处理路径。
 const SESSION_HEAD_ADAPTER_SCHEMA = 2;   // 头格式版本(不是 storageVersion)
-function sessionHeadStore(id) {
+function sessionHeadStore(id, metadata = {}) {
   return WorkDataStore.createText({
     file: () => sessionPath(id),
     purpose: 'session', schema: SESSION_HEAD_ADAPTER_SCHEMA, scopeId: 'sessions', recordId: String(id),
+    validateSealedText: () => { metadata.authenticated = true; return true; },
     keys: workDataKeys, writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
   });
 }
 const sessionHeadIsWorkDataError = error => String((error && error.code) || '').startsWith('work_data');
 async function readSessionHeadText(id) { return sessionHeadStore(id).read(); }
-async function writeSessionHead(id, text) { return sessionHeadStore(id).write(text); }
+const sessionFullTextHeadWriteSeq = new Map();
+const sessionFullTextHeadWrites = new Map();
+async function writeSessionHead(id, text) {
+  sessionFullTextHeadWriteSeq.set(id,(sessionFullTextHeadWriteSeq.get(id)||0)+1);
+  sessionFullTextHeadWrites.set(id,(sessionFullTextHeadWrites.get(id)||0)+1);
+  try { return await sessionHeadStore(id).write(text); }
+  finally {
+    sessionFullTextHeadWriteSeq.set(id,(sessionFullTextHeadWriteSeq.get(id)||0)+1);
+    const remaining=sessionFullTextHeadWrites.get(id)-1;
+    if(remaining)sessionFullTextHeadWrites.set(id,remaining);else sessionFullTextHeadWrites.delete(id);
+  }
+}
 
 // ── M3-2c-2: 正文 NDJSON 的逐记录编解码 ────────────────────────────────────────────────
 // kind 与会话 id 由文件名推出（`<id>.messages.ndjson` / `<id>.provider.ndjson`），序号 = 行位置。
@@ -13959,9 +13999,9 @@ function sessionRecentUserRequest(o) {
   if (!text) return null;
   return { text, ...(Number(recent.turnSeq) > 0 ? { turnSeq: Number(recent.turnSeq) } : {}), ...(recent.at || recent.createdAt ? { at: String(recent.at || recent.createdAt) } : {}) };
 }
-function sessionMeta(o, config) {
+function sessionMeta(o, config, options = {}) {
   // Idle index entries are authoritative; pending/in-flight index batches already overlay their writes.
-  if (activeChildren.has(o.id) || turnSettlers.has(o.id) || sessionMetaDeferChains.has(o.id)) o = applySessionTitleOverride({ ...o });
+  if (!options.committedOnly && (activeChildren.has(o.id) || turnSettlers.has(o.id) || sessionMetaDeferChains.has(o.id))) o = applySessionTitleOverride({ ...o });
   const cfg = (config && typeof config === 'object') ? config : null;
   const recentUserRequest = sessionRecentUserRequest(o);
   return {
@@ -18882,6 +18922,91 @@ async function missionSplitThreads(sourceMissionId, sessionIds, title) {
   }
   logEvent({ kind: 'mission_container_split', missionId: created.mission.missionId, fromMissionId: sourceId, threads: moved.length });
   return { ok: true, missionId: created.mission.missionId, mission: await readMissionContainer(created.mission.missionId), created: true, movedSessionIds: moved };
+}
+
+// Read-only, committed display-message source for M3-4. It never calls loadSession,
+// repairs a torn tail, migrates legacy data, normalizes, quarantines or saves.
+function sessionFullTextSequence(id) {
+  return JSON.stringify([sessionDiskWriteSeqOf(id),sessionFullTextHeadWriteSeq.get(id)||0,
+    sessionDeleteTombstones.get(id)?.at||0,sessionPermissionModeOverrides.get(id)||null,sessionDesktopToolsOverrides.get(id)||null]);
+}
+function createSessionFullTextSource() {
+  const fail=suffix=>Object.assign(Error('session_fulltext_source.'+suffix),{code:'session_fulltext_source.'+suffix,apiCode:'session_fulltext_source.'+suffix,statusCode:409});
+  const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
+  const stamp=stat=>stat?[stat.dev,stat.ino,stat.size,stat.mtimeNs,stat.ctimeNs].join(':'):'missing';
+  const maximum=256*1024*1024,physicalMaximum=WorkDataChunks.maxFileBytes(maximum)+64;
+  const physical=value=>process.platform==='win32'?path.resolve(value).toLowerCase():path.resolve(value);
+  async function owned(file){
+    const root=await fsp.lstat(paths.sessions);if(!root.isDirectory()||root.isSymbolicLink()||physical(await fsp.realpath(paths.sessions))!==physical(paths.sessions))throw fail('owner_alias');
+    const stat=await fsp.lstat(file,{bigint:true});
+    if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n||physical(await fsp.realpath(file))!==physical(file))throw fail('owner_alias');
+    return stat;
+  }
+  async function select(id){
+    if(safeSessionId(id)!==id)throw fail('session_invalid');
+    if(sessionDeleteTombstones.has(id))throw fail('deleted');
+    if(sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id))throw fail('busy');const sequence=sessionFullTextSequence(id);
+    const metadata={};let raw;try{await owned(sessionPath(id));raw=await sessionHeadStore(id,metadata).read();}catch(error){if(error.code==='ENOENT')return null;throw error;}
+    if(Buffer.byteLength(raw)>maximum)throw fail('capacity');let head;try{head=JSON.parse(raw);}catch{throw fail('source_invalid');}
+    if(!head||typeof head!=='object'||Array.isArray(head)||head.id!==id)throw fail('session_owner_required');
+    const modern=head.storageVersion===SESSION_STORAGE_VERSION,count=modern?head.messageCount:head.messages?.length;
+    if(!Number.isSafeInteger(count)||count<0||!modern&&!Array.isArray(head.messages))throw fail('source_invalid');
+    let body=null;if(modern){try{body=await owned(sessionBodyPaths(id).messages);}catch(error){if(error.code!=='ENOENT'||count!==0)throw error;}}
+    if(body&&(!body.isFile()||body.size>BigInt(Number.MAX_SAFE_INTEGER)))throw fail('source_invalid');
+    if(sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
+    return {epoch:hash(raw+'\n'+stamp(body)),raw,head,count,modern,sequence,requiresEncryption:metadata.authenticated===true,bodyStamp:stamp(body)};
+  }
+  async function scan(id,visit){
+    if(typeof visit!=='function')throw fail('visitor_invalid');const selected=await select(id);if(!selected)return null;
+    const revision=crypto.createHash('sha256').update(selected.raw).update('\n');let count=0,credential=null,handle=null,requiresEncryption=selected.requiresEncryption,result,workFailed=false,workError;
+    const accept=async raw=>{
+      if(count>=selected.count)return;
+      const probe=WorkDataRecords.lineProbe();probe.feed(Buffer.from(raw));
+      if(probe.reserved()){
+        requiresEncryption=true;
+        if(!credential)credential=await WorkDataStore.acquireSnapshot(workDataKeys);
+        raw=await WorkDataRecords.decodeLine(raw,credential.key,{instanceId:credential.instanceId,sessionId:id,kind:'messages',ordinal:count});
+      }
+      if(Buffer.byteLength(raw)>maximum)throw fail('capacity');let row;try{row=JSON.parse(raw);}catch{throw fail('source_invalid');}
+      revision.update(raw).update('\n');await visit(row,count++);
+      if(selected.sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
+    };
+    try{
+      if(!selected.modern){for(const row of selected.head.messages)await accept(JSON.stringify(row));}
+      else if(selected.count){
+        handle=await fsp.open(sessionBodyPaths(id).messages,'r');if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');
+        const buffer=Buffer.alloc(64*1024);let parts=[],bytes=0,done=false;
+        while(!done){const read=await handle.read(buffer,0,buffer.length,null);if(!read.bytesRead)break;let start=0;
+          for(let n=0;n<read.bytesRead;n++)if(buffer[n]===10){parts.push(Buffer.from(buffer.subarray(start,n)));bytes+=n-start;if(bytes>physicalMaximum)throw fail('capacity');
+            const physical=Buffer.concat(parts,bytes),text=physical.toString('utf8');if(!Buffer.from(text).equals(physical))throw fail('source_invalid');
+            await accept(text);parts=[];bytes=0;start=n+1;if(count===selected.count){done=true;break;}}
+          if(!done&&start<read.bytesRead){parts.push(Buffer.from(buffer.subarray(start,read.bytesRead)));bytes+=read.bytesRead-start;if(bytes>physicalMaximum)throw fail('capacity');}
+        }
+        if(count!==selected.count)throw fail('committed_body_missing');
+        if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');
+      }
+      const after=await select(id);if(!after||after.epoch!==selected.epoch||after.sequence!==selected.sequence)throw fail('source_changed');
+      result=Object.freeze({epoch:selected.epoch,revision:revision.digest('hex'),count,requiresEncryption});
+    }catch(error){workFailed=true;workError=error;}
+    const errors=workFailed?[workError]:[];let closeFailed=false,releaseFailed=false;
+    try{if(handle)await handle.close();}catch(error){closeFailed=true;errors.push(error);}
+    try{if(credential)await credential.release();}catch(error){releaseFailed=true;errors.push(error);}
+    if(errors.length===1)throw errors[0];
+    if(errors.length){
+      const own=(error,name)=>{if(error===null||typeof error!=='object'&&typeof error!=='function')return undefined;const field=Object.getOwnPropertyDescriptor(error,name);return field&&'value'in field?field.value:undefined;};
+      const error=new AggregateError(errors,'session_fulltext_source.cleanup_failed',{cause:errors[0]});
+      error.code=own(errors[0],'code')??'session_fulltext_source.cleanup_failed';
+      for(const name of ['apiCode','statusCode']){const value=own(errors[0],name);if(value!==undefined)error[name]=value;}
+      error.workFailed=workFailed;error.closeFailed=closeFailed;error.releaseFailed=releaseFailed;error.cleanupFailed=closeFailed||releaseFailed||errors.some(value=>own(value,'cleanupFailed')===true);
+      for(const name of ['helperMayStillRun','ownershipRetained','targetRetained'])if(errors.some(value=>own(value,name)===true))error[name]=true;
+      throw error;
+    }
+    return result;
+  }
+  async function inspect(id) {const selected=await select(id);if(!selected)return null;
+    const head={...selected.head,messageCount:selected.count};delete head.messages;delete head.providerHistory;
+    return Object.freeze({head:Object.freeze(head),epoch:selected.epoch,sequence:selected.sequence,requiresEncryption:selected.requiresEncryption});}
+  return Object.freeze({epoch:async id=>(await select(id))?.epoch||null,scan,sequence:sessionFullTextSequence,inspect});
 }
 
 // ===================================================================================================
@@ -77826,90 +77951,8 @@ function sessionSearchHayOf(entry) {
   sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
   return hay;
 }
-function sessionSearchScope(indexEnabled = true) {
-  return { fullText: false, mode: indexEnabled ? 'bounded_index' : 'metadata_only',
-    maxCharsPerSession: SESSION_SEARCH_UNIT_CAP, userCharsPerMessage: SESSION_SEARCH_USER_CHARS,
-    assistantCharsPerMessage: SESSION_SEARCH_ASSISTANT_CHARS, headBytes: SESSION_SEARCH_HEAD_BYTES, tailBytes: SESSION_SEARCH_TAIL_BYTES,
-    note: '只搜索标题、摘要及有限正文索引,长会话可能遗漏;未命中不能证明从未做过。可换关键词或读取选定线程核对。' };
-}
-async function searchSessionsByContent(query, limit) {
-  const q = String(query || '').trim();
-  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope: sessionSearchScope(), reason: 'query_too_short' };
-  const metas = await listSessions();
-  const entries = await refreshSessionSearchIndex(metas);
-  const byId = new Map(metas.map(meta => [meta.id, meta]));
-
-  const documents = metas
-    .filter(meta => entries[meta.id])
-    .map(meta => ({ id: meta.id, text: entries[meta.id].unit }));
-  if (!documents.length) return { ok: true, query: q, results: [], indexed: 0, scope: sessionSearchScope() };
-
-  const terms = [...new Set(retrievalTerms(q).filter(term => !term.startsWith('#')))];
-  const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
-  const needed = Math.max(1, Math.ceil(terms.length / 2));
-  const scores = new Map();
-  // 性能批 C1:首次(或会话大批变化后)要给几千篇现算小写 + 折叠,先分片预热、每 100 篇让一次事件循环
-  for (let i = 0; i < documents.length; i++) {
-    sessionSearchHayOf(entries[documents[i].id]);
-    if (i % 100 === 99) await new Promise(resolve => setImmediate(resolve));
-  }
-  for (const doc of documents) {
-    const hay = sessionSearchHayOf(entries[doc.id]);
-    const meta = byId.get(doc.id) || {};
-    const brief = sessionBriefOf(meta);
-    const titleHay = [meta.title, brief && brief.title, brief && brief.gist].filter(Boolean).join(' ').toLowerCase();
-    let score = 0, matched = 0;
-    for (const term of terms) {
-      if (!hay.includes(term)) continue;
-      matched += 1;
-      const weight = Math.min(12, Math.max(2, term.length));
-      score += titleHay.includes(term) ? weight * 2 : weight;
-    }
-    const exact = phrase.length >= 2 && hay.includes(phrase);
-    if (!exact && matched < needed) continue;
-    if (exact) score += 30;
-    if (terms.length && matched === terms.length) score += 10;
-    scores.set(doc.id, score);
-  }
-  const lexical = [...scores.entries()].map(([id, score]) => ({ id, score }));
-
-  if (!sessionSearchCorpusCache) sessionSearchCorpusCache = createRetrievalCorpusCache();
-  const corpus = await sessionSearchCorpusCache.build(documents);
-  const vector = rankRetrievalCorpus(corpus, q);
-  const top = vector.length ? vector[0].score : 0;
-  const floor = lexical.length ? Math.max(0.2, top * 0.6) : Math.max(0.15, top * 0.5);
-  const extra = vector.filter(row => !scores.has(row.id) && row.score >= floor);
-
-  const updatedOf = id => String((byId.get(id) || {}).updatedAt || '');
-  lexical.sort((a, b) => b.score - a.score || updatedOf(b.id).localeCompare(updatedOf(a.id)) || String(a.id).localeCompare(String(b.id)));
-  const ranked = [
-    ...lexical.map(row => ({ id: row.id, score: row.score / 100, meta: byId.get(row.id) })),
-    ...extra.map(row => ({ id: row.id, score: row.score / 100, meta: byId.get(row.id) })),
-  ].filter(row => row.meta);
-
-  const cap = Math.min(SESSION_SEARCH_MAX_LIMIT, Math.max(1, Number(limit) || 20));
-  return {
-    ok: true,
-    query: q,
-    indexed: documents.length,
-    scope: sessionSearchScope(),
-    results: ranked.slice(0, cap).map(row => ({
-      id: row.id,
-      title: row.meta.title || '',
-      // 116-5b(§11.8.5):线程的名字与一句概括。**缺席时这两个键不出现** —— 存量会话的
-      // /api/sessions/search 载荷逐字节不变。title 仍是原话(它是权威,也是 hover 全文与回退)。
-      // 加在这里而不是让调用方自己去 /api/sessions 里 join:这条响应从此自足,
-      // 只拿到搜索结果的消费者(经典壳搜索、将来的任何面)不必再取一次会话列表。
-      ...(sessionBriefOf(row.meta) ? { briefTitle: sessionBriefOf(row.meta).title, briefGist: sessionBriefOf(row.meta).gist } : {}),
-      cwd: row.meta.cwd || '',
-      updatedAt: row.meta.updatedAt || '',
-      pinned: Boolean(row.meta.pinned),
-      messageCount: Number(row.meta.messageCount) || 0,
-      score: Number(row.score.toFixed(6)),
-      snippet: sessionSearchSnippet(entries[row.id].unit, terms),
-    })),
-  };
-}
+function sessionSearchScope(indexEnabled = true) { return SessionFullTextHooks.scope(indexEnabled); }
+async function searchSessionsByContent(query, limit) { return SessionFullTextHooks.search(query, limit); }
 
 // GET /api/sessions/:id 条件 GET 的【盘上戳】。不装载会话就能取:头文件整份读出来哈希(头只有几 KB~几十 KB;
 // 不能只信 updatedAt/mtime —— 同一毫秒/同一个文件系统时钟刻度内两次落头会撞)+ 两个正文的 size/mtime/ino(追加改 size,
@@ -78061,7 +78104,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, apiFailure('session_search.disabled', {}, 'session search index is disabled', 200));
     }
     const params = new URL(req.url, 'http://x').searchParams;
-    return send(res, json(await searchSessionsByContent(params.get('q') || '', params.get('limit'))));
+    return SessionFullTextHooks.withUI(req,res,params.get('project'),async()=>{const result=await searchSessionsByContent(params.get('q')||'',params.get('limit'));return SessionFullTextHooks.emitUI(result,value=>send(res,json(value)));});
   }
   if (req.method === 'POST' && pathname === '/api/sessions') {
     const body = await readJsonBody(req);
@@ -83794,27 +83837,27 @@ async function stewardImplThreadsSearch(args, ctx, config) {
   const q = String(args.q || '').trim();
   const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
   const includeClosed = args.includeClosed === true;   // 116-2e:把已收工的速查线程也算进来
-  const scope = sessionSearchScope(sessionSearchIndexEnabled(config));
+  let scope = sessionSearchScope(sessionSearchIndexEnabled(config));
   if (!q) return { ok: true, query: '', results: [], indexed: 0, scope, reason: 'query_empty' };
   // 第二轮工具走查(F8):13f 的描述一直写「太短(少于 2 字)返回空结果并给 reason」,实现却放行了 1 个字
   // (走词法兜底,于是 q:'x' 满屏命中)。与经典壳 GET /api/sessions/search(13d)同一个下限、同一个 reason 码。
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, scope, reason: 'query_too_short' };
-  const metas = await listSessions().catch(() => []);
+  const metas = await SessionFullTextHooks.metadata();
   const byId = new Map(metas.map(meta => [meta.id, meta]));
   const relations = threadRelationsIndex(metas);
 
   let ranked = [];        // [{ id, score }]
   let indexed = 0;
-  let degraded = '';
+  let degraded = '';let coverage=null;const matches=new Map();
   if (sessionSearchIndexEnabled(config)) {
     // 内容索引在:直接用 113b 的核心函数(GET /api/sessions/search 背后那一个)。
-    const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10)).catch(() => null);
+    const found = await searchSessionsByContent(q, Math.min(STEWARD_SEARCH_LIMIT_MAX, limit + 10));
     if (found && Array.isArray(found.results)) {
-      indexed = Number(found.indexed) || 0;
+      indexed = Number(found.indexed) || 0;coverage=found.coverage;scope=found.scope;for(const match of found.results)matches.set(match.id,match);
       ranked = found.results.map(row => ({ id: row.id, score: Number(row.score) || 0 }));
-    } else degraded = 'search_failed';
+    } else throw Object.assign(Error('session_search.result_invalid'),{code:'session_search.result_invalid'});
   } else degraded = 'index_disabled';
-  if (!ranked.length) {
+  if (!ranked.length && !sessionSearchIndexEnabled(config)) {
     // 退化词法:只看标题与摘要(不读正文),命中即按更新时间排序 —— 索引关着时仍然能找到线程。
     const needle = q.toLowerCase();
     ranked = metas
@@ -83845,7 +83888,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     // 116-2e(§11.1 第 2 项):已收工的速查线程默认不出现 —— 它答完那一句就没用了,留在结果里
     // 只会挤掉真正的任务线程。includeClosed:true 可以要回来(用户问「刚才那条速查说了啥」)。
     if (!includeClosed && stewardQuickClosed(head)) continue;
-    const meta = byId.get(row.id) || {};
+    const meta = byId.get(row.id) || {};const publicMeta=await SessionFullTextHooks.publicMetadata(row.id);const publicHead={...head,...publicMeta,threadBrief:publicMeta.brief||null};
     const slice = slices.get(row.id) || null;
     const card = slice ? overlayMissionCard(slice) : null;
     // 116-3 P1-5:兜底判据从「非 mission 即 quick_ask」改成「只有管家自己开的速查线程才是 quick_ask」。
@@ -83862,29 +83905,29 @@ async function stewardImplThreadsSearch(args, ctx, config) {
         : deriveStewardThreadState({ kind: 'mission' }));
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
     const wsName = stewardWorkspaceNameOf(meta.cwd || (head && head.cwd), config, knownForNames);
-    const recentUserRequest = stewardRecentUserRequest(head || meta);
+    const recentUserRequest = stewardRecentUserRequest(publicHead);
     results.push({
       sessionId: row.id,
       relatedThreads: threadRelatedThreads(head || meta, relations),
       missionId,
       // 116g:命中的线程属于哪个【事项】。未归类线程这里是空串(事项标题就是线程标题,不重复说)。
       missionTitle: await missionTitleOf(missionId),
-      title: stewardSanitizeText(meta.title || (head && head.title) || ''),
-      displayTitle: stewardThreadDisplayTitle(head || meta, config),
-      ...(sessionBriefOf(head) || sessionBriefOf(meta) ? { brief: sessionBriefOf(head) || sessionBriefOf(meta) } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
+      title: stewardSanitizeText(publicMeta.title || ''),
+      displayTitle: stewardThreadDisplayTitle(publicHead, config),
+      ...(publicMeta.brief ? { brief: publicMeta.brief } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
       kind: stewardDisplayKind(head),
       state: derived.state,
       stateLabel: derived.label,
       // 诚实:总览与搜索结果里的「最后一句」用会话摘要(= 助手原话经既有收尾裁剪),不做模型改写。
-      lastAssistantText: stewardClipSay(meta.summary || (head && head.summary) || ''),
+      lastAssistantText: stewardClipSay(publicMeta.summary || ''),
       ...(recentUserRequest ? { recentUserRequest } : {}),
       updatedAt: String(meta.updatedAt || (head && head.updatedAt) || ''),
-      score: Number(row.score) || 0,
+      score: Number(row.score) || 0,...(matches.get(row.id)?.reference?{reference:matches.get(row.id).reference,snippet:matches.get(row.id).snippet}:{}),
       // W7:它在哪个工作区里(已知工作区的名字;不在任何一个里给末段名)。只加字段,缺 cwd 时不出现。
       ...(wsName ? { workspace: wsName.name } : {}),
     });
   }
-  return stewardForeignProjection({ ok: true, query: q, results, indexed, scope, ...(degraded ? { degraded } : {}) });
+  return SessionFullTextHooks.finish(stewardForeignProjection({ok:true,query:q,results,indexed,scope,...(coverage?{coverage}:{}),...(degraded?{degraded}:{})}));
 }
 
 // 3) steward_thread_status —— 五态优先取投影 card,没有则按 mission-state.js 同一判据在服务端派生。
@@ -87160,7 +87203,7 @@ function stewardToolHandler(toolName, impl) {
         }
       }
       if (STEWARD_DECISION_TOOLS.has(toolName)) await stewardPreflightDecision();
-      return await impl(clean, turnCtx, config);
+      return toolName==='steward_threads_search' ? await SessionFullTextHooks.withModel(turnCtx,toolName,null,()=>impl(clean,turnCtx,config)) : await impl(clean, turnCtx, config);
     } catch (error) {
       if (String(error && error.code || '').startsWith('work_data')) return stewardFail(error.code, error.code);
       if (error && error.code === 'external_channel.control_revoked') return stewardFail(error.code, 'external owner authorization was revoked');
@@ -87303,7 +87346,7 @@ async function stewardMemoryPanelExport() {
 Object.assign(StewardHooks, {
   relatedThreads: threadRelatedThreads,
   relationsIndex: threadRelationsIndex,
-  threadHistorySearch: async (args, ctx) => stewardImplThreadsSearch({ includeClosed: true, ...args }, ctx || {}, await readConfig()),
+  threadHistorySearch: async (args, ctx) => SessionFullTextHooks.withModel(ctx,'threads_search',null,async()=>stewardImplThreadsSearch({ includeClosed: true, ...args },ctx,await readConfig())),
   threadHistoryRead: async (args, ctx) => {
     const session = (ctx && ctx.session) || await loadSession(process.env.WCW_SESSION_ID || '').catch(() => null);
     if (!session) return stewardFail('invalid_request', 'thread_read requires a calling session');
@@ -101311,7 +101354,8 @@ const workDataMaintenance = WorkDataMaintenance.create({
       memoryProposalStateChains, agentRunWriteChains, agentRunEventChains, backgroundJobChains,
       fileToolWriteChains, proxyModelsCacheChains, sessionSearchRefreshChains, stewardArchiveChains, externalBotChains];
     const consumers = McpConsumers.maintenanceState();
-    return { pending: [...scalar, ...maps.flatMap(map => [...map.values()]), ...consumers.pending], dirty: pendingSessionIndex.size + Number(!!sessionIndexFlushTimer) + Number(!!pretenderIndexRuntime.persistTimer) + Number(!!pretenderIndexRuntime.value && !pretenderIndexRuntime.persisted && fs.existsSync(paths.sessions)) + (logStream?.writableLength || 0), busy: {
+    const fulltext = SessionFullTextHooks.maintenanceState ? SessionFullTextHooks.maintenanceState() : { pending: [], active: 0 };
+    return { pending: [...scalar, ...maps.flatMap(map => [...map.values()]), ...consumers.pending, ...fulltext.pending], dirty: pendingSessionIndex.size + Number(!!sessionIndexFlushTimer) + Number(!!pretenderIndexRuntime.persistTimer) + Number(!!pretenderIndexRuntime.value && !pretenderIndexRuntime.persisted && fs.existsSync(paths.sessions)) + (logStream?.writableLength || 0), busy: {
       turns: turnSettlers.size + activeChildren.size + turnOutcomePending.size,
       agentRuns: activeAgentRuns.size,
       scheduler: Number(schedulerRuntime.ticking) + schedulerRuntime.inFlightTaskIds.size,
@@ -101320,13 +101364,14 @@ const workDataMaintenance = WorkDataMaintenance.create({
       externalBots: externalBotInflight + Number(externalBotWorkerBusy) + Number(externalBotDiscoveryBusy)
         + externalBotActiveActors.size + externalBotUnsettled.size + externalBotDeliveries.size,
       consumers: consumers.active, internalMcp: InternalMcpHooks.maintenanceState().active,
-      index: inflightSessionIndex.size + sessionIndexRebuildsActive + Number(!!pretenderIndexRuntime.building) + pretenderIndexRuntime.writers,
+      index: fulltext.active + inflightSessionIndex.size + sessionIndexRebuildsActive + Number(!!pretenderIndexRuntime.building) + pretenderIndexRuntime.writers,
       shells: [...shellSessions.values()].filter(row => row.running).length,
       services: [...toolboxServices.values()].filter(row => row.starting || row.stopping).length,
     } };
   },
   pause() {
     const saved = { schedulerTimer: !!schedulerRuntime.timer, stewardTimer: !!stewardRuntime.timer, externalWorker: externalBotWorkerBusy || externalBotWorkerAgain,
+      fulltext: SessionFullTextHooks.maintenancePause ? SessionFullTextHooks.maintenancePause() : null,
       projectionVerify: !!pretenderIndexRuntime.verifyTimer, projectionPersist: !!pretenderIndexRuntime.persistTimer };
     if (schedulerRuntime.timer) { clearInterval(schedulerRuntime.timer); schedulerRuntime.timer = null; }
     if (stewardRuntime.timer) { clearInterval(stewardRuntime.timer); stewardRuntime.timer = null; }
@@ -101348,6 +101393,7 @@ const workDataMaintenance = WorkDataMaintenance.create({
   },
   yield: () => new Promise(resolve => setTimeout(resolve, 25)),
   resume(saved) {
+    if (SessionFullTextHooks.maintenanceResume) SessionFullTextHooks.maintenanceResume(saved.fulltext);
     if (saved.schedulerTimer && schedulerRuntime.started) schedulerEnsureTimer();
     if (saved.stewardTimer && stewardRuntime.running && !stewardRuntime.timer) {
       stewardRuntime.timer = setInterval(() => { void WorkDataMaintenanceHooks.stewardTick(); }, stewardRuntime.pollMs); stewardRuntime.timer.unref?.();
@@ -102635,6 +102681,505 @@ if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
     runCold:()=>bound?bound.runCold():unavailable(),runSuccessor:()=>bound?bound.runSuccessor():unavailable(),
   });
 }
+
+// Complete message-source shards; source authority and disclosure remain with
+// the existing session/storage/privacy owners. No embeddings or corpus sampling.
+const SessionFullTextIndex = ((io,p,c) => {
+  const FORMAT=3,SCHEMA=1,CHARS=4096,OVERLAP=256,SHARD_BYTES=256*1024,MANIFEST_BYTES=4*1024*1024;
+  const HEX=/^[a-f0-9]{64}$/,GEN=/^[a-f0-9]{32}$/;
+  const NORMALIZER='fullfield-nfkc-upper-nfkc-space/v1;unicode='+process.versions.unicode+';icu='+process.versions.icu+';v8='+process.versions.v8;
+  const fail=suffix=>Object.assign(Error('session_fulltext.'+suffix),{code:'session_fulltext.'+suffix,apiCode:'session_fulltext.'+suffix,statusCode:409});
+  const hash=value=>c.createHash('sha256').update(value).digest('hex');
+  const digest=value=>hash(JSON.stringify(value));
+  const integer=value=>Number.isSafeInteger(value)&&value>=0;
+  const id=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(value)&&!value.startsWith('_');
+  const clone=value=>JSON.parse(JSON.stringify(value));
+  const keys=value=>value&&typeof value==='object'&&!Array.isArray(value)?Object.keys(value).sort().join(','):'';
+  // The payload format is independent from the encrypted Store schema/AAD.
+  // Array fields retain their own original UTF-16 coordinate spaces; no JSON
+  // serialization, joined preview, or fabricated message offsets become text.
+  function inspectSources(row){
+    const parts=[];let unverified=false;
+    const array=(value,field)=>{if(!Array.isArray(value)){if(value!=null)unverified=true;return;}
+      value.forEach((part,n)=>{if(typeof part==='string')parts.push({field:field+'.'+n,text:part});
+        else if(part&&typeof part==='object'&&!Array.isArray(part)&&typeof part.text==='string')parts.push({field:field+'.'+n+'.text',text:part.text});
+        else unverified=true;});};
+    if(typeof row.content==='string')parts.push({field:'content',text:row.content});else if(row.content!=null)array(row.content,'content');
+    if(row.blocks!=null)array(row.blocks,'blocks');
+    if(Array.isArray(row.segments))row.segments.forEach((segment,n)=>{if(typeof segment?.text==='string')parts.push({field:'segments.'+n+'.text',text:segment.text});});
+    if(Array.isArray(row.attachments))row.attachments.forEach((attachment,n)=>{for(const field of ['textPreview','transcript','ocrText'])if(typeof attachment?.[field]==='string')parts.push({field:'attachments.'+n+'.'+field,text:attachment[field],attachment:true});});
+    return {parts,unverified};
+  }
+  const sources=row=>inspectSources(row).parts;
+  // FORMAT3 windows are canonical units, with bounded origin runs. A single
+  // original grapheme can span many windows without ever storing its raw text
+  // as an oversized shard row or allocating one mapping slot per original unit.
+  // Compatibility decomposition can join ORIGINAL grapheme boundaries (for
+  // example Hangul compatibility jamo). Retain the final already-canonical
+  // output grapheme and normalize its boundary with the next source unit before
+  // emitting any stable prefix. Expanded units retain their entire raw origin.
+  function* canonicalGroups(text){
+    let tail=null;
+    for(const part of segmenter.segment(text)){const incoming=canonicalText(part.segment),boundary=tail?tail.text.length:0,joined=(tail?tail.text:'')+incoming;let next=null;
+      for(const unit of segmenter.segment(joined)){const from=unit.index<boundary?tail.from:part.index,to=unit.index+unit.segment.length>boundary?part.index+part.segment.length:tail.to;
+        for(const normalized of segmenter.segment(canonicalText(unit.segment))){if(next)yield next;next={text:normalized.segment,from,to,linear:normalized.segment.length===1&&to-from===1};}
+      }
+      tail=next;
+    }
+    if(tail)yield tail;
+  }
+  function* canonicalPieces(text){
+    let whitespace=null;
+    function* asciiParts(){for(let index=0;index<text.length;index+=CHARS)yield {text:text.slice(index,index+CHARS).toUpperCase(),from:index,to:Math.min(text.length,index+CHARS),linear:true};}
+    const parts=/^[\x00-\x7f]*$/.test(text)?asciiParts():canonicalGroups(text);
+    for(const part of parts){const matcher=/\s+|\S+/gu;let match;
+      while((match=matcher.exec(part.text))){const blank=/^\s/u.test(match[0]),linear=part.linear,from=linear?part.from+match.index:part.from,to=linear?from+match[0].length:part.to;
+        if(blank){if(whitespace)whitespace.to=to;else whitespace={from,to};continue;}
+        if(whitespace){yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};whitespace=null;}
+        yield {text:match[0],from,to,linear};
+      }
+    }
+    if(whitespace)yield {text:' ',from:whitespace.from,to:whitespace.to,linear:false};
+  }
+  function rangeAt(ranges,position){for(const run of ranges)if(position>=run[0]&&position<run[0]+run[1])return run.length===3?{from:run[2]+position-run[0],to:run[2]+position-run[0]+1}:{from:run[2],to:run[3]};throw fail('shard_invalid');}
+  function* slices(text){
+    let buffer='',ranges=[],absolute=0,lastYield=0;
+    const append=(value,from,to,linear)=>{const at=buffer.length,prior=ranges[ranges.length-1];buffer+=value;
+      if(prior&&prior[0]+prior[1]===at&&prior.length===(linear?3:4)&&(linear?prior[2]+prior[1]===from:prior[2]===from&&prior[3]===to))prior[1]+=value.length;
+      else ranges.push(linear?[at,value.length,from]:[at,value.length,from,to]);
+    };
+    const selected=end=>ranges.filter(run=>run[0]<end).map(run=>[run[0],Math.min(run[1],end-run[0]),...run.slice(2)]);
+    const window=end=>{const chosen=selected(end),start=rangeAt(chosen,0).from,finish=rangeAt(chosen,end-1).to;lastYield=absolute+end;return{canonicalStart:absolute,start,end:finish,text:buffer.slice(0,end),ranges:chosen};};
+    const drop=count=>{buffer=buffer.slice(count);ranges=ranges.filter(run=>run[0]+run[1]>count).map(run=>{const begin=Math.max(run[0],count),length=run[0]+run[1]-begin;return run.length===3?[begin-count,length,run[2]+begin-run[0]]:[begin-count,length,run[2],run[3]];});absolute+=count;};
+    for(const part of canonicalPieces(text)){for(let offset=0;offset<part.text.length;){const count=Math.min(CHARS+1-buffer.length,part.text.length-offset),value=part.text.slice(offset,offset+count);append(value,part.linear?part.from+offset:part.from,part.linear?part.from+offset+count:part.to,part.linear);offset+=count;
+        if(buffer.length>CHARS){let end=CHARS;if(/[\uDC00-\uDFFF]/.test(buffer[end]))end--;yield window(end);let count=end-OVERLAP;if(/[\uDC00-\uDFFF]/.test(buffer[count]))count--;drop(count);}
+      }}
+    if(buffer.length&&absolute+buffer.length>lastYield)yield window(buffer.length);
+  }
+  function rangesValid(row){let at=0,priorFrom=-1,priorTo=-1;if(!Array.isArray(row.ranges)||!row.ranges.length||row.ranges.length>CHARS)return false;
+    for(const run of row.ranges){if(!Array.isArray(run)||![3,4].includes(run.length)||run.some(value=>!integer(value))||run[0]!==at||run[1]===0)return false;const from=run[2],to=run.length===3?from+run[1]:run[3];if(!integer(to)||from<row.start||to>row.end||to<=from||from<priorFrom||to<priorTo)return false;priorFrom=from;priorTo=to;at+=run[1];}
+    return at===row.text.length&&rangeAt(row.ranges,0).from===row.start&&rangeAt(row.ranges,at-1).to===row.end;
+  }
+  const segmenter=new Intl.Segmenter('und',{granularity:'grapheme'});
+  // Default uppercase has no word-final lowercase context. Normalize after
+  // expansion as well, so composed/decomposed case-equivalent inputs agree.
+  const canonicalText=text=>text.normalize('NFKC').toUpperCase().normalize('NFKC');
+  function folded(text){
+    let value='';const from=[],to=[];
+    // ASCII has no compatibility expansion or grapheme joins except CRLF.
+    // Compute its complete canonical string once, then only map raw ranges.
+    if(/^[\x00-\x7f]*$/.test(text)){
+      value=text.toUpperCase().replace(/\s+/g,' ');from.length=value.length;to.length=value.length;
+      if(!/[\t\n\v\f\r ]/.test(text)){for(let index=0;index<text.length;index++){from[index]=index;to[index]=index+1;}return {value,from,to};}
+      let output=0,space=false;for(let index=0;index<text.length;){const start=index,code=text.charCodeAt(index),width=code===13&&text.charCodeAt(index+1)===10?2:1;index+=width;
+        const whitespace=code===32||code>=9&&code<=13;if(whitespace&&space)continue;space=whitespace;from[output]=start;to[output++]=index;
+      }
+      return {value,from,to};
+    }
+    for(const part of segmenter.segment(text))for(const letter of canonicalText(part.segment)){
+      const normalized=/\s/.test(letter)?' ':letter;if(normalized===' '&&value.endsWith(' '))continue;
+      value+=normalized;for(let n=0;n<normalized.length;n++){from.push(part.index);to.push(part.index+part.segment.length);}
+    }
+    return {value,from,to};
+  }
+  const normalize=text=>canonicalText(text).replace(/\s+/g,' ');
+  function create(host){
+    if(!host||['validSessionId','root','enabled','writeJson','catalog','epoch','scan','scope','authorize','assertAuthorized','project','assertScope','sourceSequence','noise','terms'].some(name=>typeof host[name]!=='function'))throw fail('host_invalid');
+    const sessionResults=host.resultUnit==='sessions';
+    const canonical=id;const valid=value=>canonical(value)&&host.validSessionId(value)===value;
+    // Only authenticated/readable manifest plaintext with invalid JSON can be
+    // rebuilt as a missing derived pointer. A private symbol cannot be forged
+    // by valid JSON and never softens key, schema, namespace or shard failures.
+    const malformedManifest=Symbol('malformed-derived-manifest');
+    let chain=Promise.resolve(),paused=false,building=false;
+    const run=work=>{const pending=chain.catch(()=>{}).then(work);chain=pending;return pending;};
+    const pathKey=value=>process.platform==='win32'?p.resolve(value).toLowerCase():p.resolve(value);
+    async function namespace(sid,name=null,max=null){
+      const directories=[host.root(),p.join(host.root(),'_fulltext-index-v1'),...(sid?[p.dirname(pathFor(sid,'manifest.json'))]:[])];
+      for(const directory of directories){let stat;try{stat=await io.lstat(directory);}catch(error){if(error.code==='ENOENT')return;throw error;}
+        if(!stat.isDirectory()||stat.isSymbolicLink()||pathKey(await io.realpath(directory))!==pathKey(directory))throw fail('owned_namespace_changed');
+      }
+      if(name){let stat;try{stat=await io.lstat(pathFor(sid,name));}catch(error){if(error.code==='ENOENT')return;throw error;}
+        if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1)throw fail('owned_namespace_changed');
+        if(max!==null&&(!Number.isSafeInteger(stat.size)||stat.size>max*2+65536))throw fail('capacity');
+      }
+    }
+    const pathFor=(sid,name)=>p.join(host.root(),'_fulltext-index-v1',...(sid?[sid]:[]),name);
+    const storage=(sid,name,max=SHARD_BYTES,policy=undefined)=>WorkDataStore.createText({file:()=>pathFor(sid,name),purpose:'search-index',schema:SCHEMA,scopeId:'sessions',recordId:'fulltext-index:'+(sid?sid+':':'')+name.replace(/\.json$/,''),chunked:true,maxPlaintextBytes:max,keys:host.keys,enabled:policy===undefined?host.enabled:()=>policy,writeJson:host.writeJson});
+    const read=async(sid,name,max)=>{try{await namespace(sid,name,max);const text=await storage(sid,name,max).read();if(Buffer.byteLength(text)>max)throw fail('capacity');let value;try{value=JSON.parse(text);}catch{if(sid&&name==='manifest.json')return malformedManifest;throw fail('record_invalid');}return value;}catch(error){if(error.code==='ENOENT')return null;throw error;}};
+    const write=async(sid,name,value,max,policy=undefined)=>{const text=JSON.stringify(value);if(Buffer.byteLength(text)>max)throw fail('capacity');if(policy!==undefined&&await host.enabled()!==policy)throw fail('policy_changed');await namespace(sid,name,max);await storage(sid,name,max,policy).write(text);};
+    function manifest(value,sid){
+      if(!value)return null;
+      const shape=keys(value),legacy=shape==='attachments,chunks,epoch,generation,messages,schema,sessionId,shards,sourceRevision',obsolete=shape==='attachments,chunks,epoch,format,generation,messages,schema,sessionId,shards,sourceRevision'&&[1,2].includes(value.format),current=shape==='attachments,chunks,epoch,format,generation,messages,normalizer,schema,sessionId,shards,sourceRevision'&&value.format===FORMAT&&typeof value.normalizer==='string'&&value.normalizer.length>0&&value.normalizer.length<=512;
+      if((!legacy&&!obsolete&&!current)||value.schema!==SCHEMA||value.sessionId!==sid||!HEX.test(value.epoch||'')||!HEX.test(value.sourceRevision||'')||!GEN.test(value.generation||'')
+        ||!integer(value.messages)||!integer(value.attachments)||!integer(value.chunks)||!Array.isArray(value.shards)||value.shards.length>100000
+        ||value.shards.some((row,n)=>keys(row)!=='ordinal,records,sha256'||row.ordinal!==n||!HEX.test(row.sha256||'')||!integer(row.records)||row.records===0||row.records>64))throw fail('manifest_invalid');
+      return legacy?{...value,format:1}:value;
+    }
+    const compatible=value=>value?.format===FORMAT&&value.normalizer===NORMALIZER;
+    const currentManifest=async sid=>{const value=await read(sid,'manifest.json',MANIFEST_BYTES);return value===malformedManifest?value:manifest(value,sid);};
+    const retired=async(sid,selected)=>{
+      const current=await currentManifest(sid);if(!current||!compatible(current)||current.generation!==selected.generation)return true;
+      return await host.epoch(sid)!==selected.epoch;
+    };
+    const state=phase=>write(null,'state.json',{schema:SCHEMA,phase},1024);
+    const checkPaused=()=>{if(paused)throw fail('paused');};
+    async function removeOwned(sid,names){for(const name of names){try{await io.unlink(pathFor(sid,name));}catch(error){if(error.code!=='ENOENT')throw error;}}}
+    async function ownedNames(sid){
+      if(!valid(sid))throw fail('session_invalid');await namespace(sid);const directory=p.dirname(pathFor(sid,'manifest.json'));let names;
+      try{names=await io.readdir(directory);}catch(error){if(error.code==='ENOENT')return null;throw error;}
+      if(names.length>100000||names.some(name=>name!=='manifest.json'&&!/^[a-f0-9]{32}\.(?:0|[1-9][0-9]*)\.json$/.test(name)))throw fail('owned_namespace_changed');
+      for(const name of names){const stat=await io.lstat(p.join(directory,name));if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1)throw fail('owned_namespace_changed');}
+      return names;
+    }
+    async function purge(sid){
+      const names=await ownedNames(sid);if(names===null)return;const directory=p.dirname(pathFor(sid,'manifest.json'));
+      // Retire the selected generation only after validating the entire owned
+      // namespace, before any immutable shard can disappear beneath its pointer.
+      if(names.includes('manifest.json'))await removeOwned(sid,['manifest.json']);
+      await removeOwned(sid,names.filter(name=>name!=='manifest.json'));await io.rmdir(directory);
+    }
+    async function purgeMissing(catalog){
+      let names;try{names=await io.readdir(pathFor(null,''),{withFileTypes:true});}catch(error){if(error.code==='ENOENT')return;throw error;}
+      for(const name of names){if(name.name==='state.json'&&name.isFile()&&!name.isSymbolicLink())continue;if(!name.isDirectory()||name.isSymbolicLink()||!valid(name.name))throw fail('owned_namespace_changed');if(!catalog.includes(name.name))await purge(name.name);}
+    }
+    async function build(sid){
+      checkPaused();const before=await host.epoch(sid);if(!HEX.test(before||''))return false;
+      const prior=await currentManifest(sid);if(prior?.epoch===before&&compatible(prior))return false;
+      // Validate every old owned name before building. Keep the bad pointer and
+      // all old bytes until a completely verified new generation is published.
+      const stale=prior===malformedManifest?await ownedNames(sid):null;
+      const identities=new Set();
+      const preview=await host.scan(sid,async row=>{checkPaused();if(typeof row?.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id)){if(identities.has(row.id))throw fail('message_owner_ambiguous');identities.add(row.id);}}),policy=await host.enabled();
+      if(!preview||preview.epoch!==before||!HEX.test(preview.revision||'')||typeof preview.requiresEncryption!=='boolean'||typeof policy!=='boolean')throw fail('source_invalid');
+      if(preview.requiresEncryption&&policy!==true)throw fail('source_policy_conflict');
+      if(await host.epoch(sid)!==before)throw fail('source_changed');
+      const generation=c.randomBytes(16).toString('hex'),shards=[],owned=[];let rows=[],bytes=0,messages=0,attachments=0,chunks=0,turn=0,turnBasis='legacy-inferred',committed=false;
+      const flush=async()=>{if(!rows.length)return;checkPaused();const ordinal=shards.length,name=generation+'.'+ordinal+'.json',value={schema:SCHEMA,sessionId:sid,generation,ordinal,rows},text=JSON.stringify(value);if(Buffer.byteLength(text)>SHARD_BYTES)throw fail('capacity');
+        owned.push(name);await write(sid,name,value,SHARD_BYTES,policy);shards.push({ordinal,sha256:hash(text),records:rows.length});rows=[];bytes=0;};
+      try{
+        const proof=await host.scan(sid,async(row,ordinal)=>{
+          checkPaused();if(!integer(ordinal)||!row||typeof row!=='object')throw fail('source_invalid');
+          if(row.role==='user'){turn=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?row.turnSeq:turn+1;turnBasis=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?'explicit':'legacy-inferred';}
+          const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){turn=explicit;turnBasis='explicit';}
+          messages++;attachments+=Array.isArray(row.attachments)?row.attachments.length:0;if(host.noise(row))return;
+          const intrinsic=typeof row.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id),messageId=intrinsic?row.id:'legacy-ordinal:'+ordinal,contentRevision=digest(row);let chunkOrdinal=0;
+          for(const source of sources(row)){
+            for(const chunk of slices(source.text)){
+              checkPaused();const entry={sessionId:sid,turnSeq:turn,turnSeqBasis:turnBasis,messageId,messageIdBasis:intrinsic?'intrinsic':'physical-ordinal',contentRevision,chunkOrdinal:chunkOrdinal++,messageOrdinal:ordinal,source:source.field,coordinate:'utf16',start:chunk.start,end:chunk.end,canonicalStart:chunk.canonicalStart,text:chunk.text,ranges:chunk.ranges};
+              const size=Buffer.byteLength(JSON.stringify(entry));if(bytes+size>SHARD_BYTES-4096||rows.length>=64)await flush();rows.push(entry);bytes+=size;chunks++;
+            }
+          }
+        });
+        await flush();checkPaused();if(!proof||proof.epoch!==before||!HEX.test(proof.revision||'')||proof.count!==messages||proof.revision!==preview.revision||proof.requiresEncryption!==preview.requiresEncryption||await host.epoch(sid)!==before)throw fail('source_changed');
+        const value={schema:SCHEMA,format:FORMAT,normalizer:NORMALIZER,sessionId:sid,epoch:before,sourceRevision:proof.revision,generation,messages,attachments,chunks,shards};
+        await write(sid,'manifest.json',value,MANIFEST_BYTES,policy);committed=true;
+        if(prior===malformedManifest)await removeOwned(sid,stale.filter(name=>name!=='manifest.json'));
+        else if(prior)await removeOwned(sid,prior.shards.map(row=>prior.generation+'.'+row.ordinal+'.json'));
+        return true;
+      }finally{if(!committed)await removeOwned(sid,owned);}
+    }
+    async function rawCoverage(visibility=null){
+      const catalog=await host.catalog();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
+      let complete=0,pending=0,attachmentSources=0,unverifiedMessages=0;for(const sid of catalog){if(visibility){if(await host.authorize(sid,visibility.context,visibility.access)!==true)continue;visibility.seen.add(sid);}const sequence=host.sourceSequence(sid),value=await currentManifest(sid);if(value&&compatible(value)&&value.epoch===await host.epoch(sid)){
+        // Unknown/non-text array members are still unverified. Read the actual
+        // committed stream and bind the count to this selected source revision.
+        let unsupported=0;const proof=await host.scan(sid,async row=>{if(!host.noise(row)&&inspectSources(row).unverified)unsupported++;});
+        if(!proof||proof.epoch!==value.epoch||proof.revision!==value.sourceRevision||sequence!==host.sourceSequence(sid))throw fail('source_changed');
+        complete++;attachmentSources+=value.attachments;unverifiedMessages+=unsupported;
+      }else pending++;if(visibility){if(sequence!==host.sourceSequence(sid))throw fail('source_changed');visibility.sequences.set(sid,sequence);}}
+      return {phase:paused?'paused':building?'building':'idle',sessions:visibility?visibility.seen.size:catalog.length,indexedSessions:complete,pendingSessions:pending,complete:pending===0&&attachmentSources===0&&unverifiedMessages===0,messages:{unverifiedText:unverifiedMessages},attachments:{unverifiedFullText:attachmentSources},coverageUnit:'committed-display-message-sources',fullTextSampling:false};
+    }
+    async function coverage(context){
+      const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
+      const seen=new Set(),sequences=new Map(),value=await rawCoverage({context,access,seen,sequences});
+      if(host.assertScope(context,access)!==true||[...seen].some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==sequences.get(sid)))throw fail('disclosure_changed');
+      return value;
+    }
+    const step=(limit=1,context)=>run(async()=>{
+      if(paused)return coverage(context);building=true;
+      try{await state('building');const catalog=await host.catalog();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');await purgeMissing(catalog);let built=0;for(const sid of catalog){checkPaused();if(await build(sid)&&++built>=Math.min(16,Math.max(1,limit)))break;}
+      }catch(error){if(error.code!=='session_fulltext.paused')throw error;}
+      finally{building=false;await state(paused?'paused':'idle');}
+      return coverage(context);
+    });
+    // The private production preparation path walks each catalog entry once.
+    // Public step retains its bounded <=16 contract and original coverage result.
+    const prepare=context=>run(async()=>{
+      if(paused)return coverage(context);
+      const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
+      const assertAccess=()=>{if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');};
+      const finish=async()=>{assertAccess();const value=await coverage(context);assertAccess();return value;};
+      if(paused)return finish();
+      const check=()=>{checkPaused();assertAccess();};
+      check();building=true;let failed=false,failure;
+      try{
+        await state('building');check();const catalog=await host.catalog();check();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
+        await purgeMissing(catalog);check();let visited=0;
+        for(const sid of catalog){check();await build(sid);check();if(++visited%16===0){await require('node:timers/promises').setImmediate();check();}}
+      }catch(error){if(error?.code!=='session_fulltext.paused'){failed=true;failure=error;}}
+      finally{building=false;}
+      try{await state(paused?'paused':'idle');}catch(error){
+        if(!failed)throw error;
+        const own=(value,name)=>{if(value===null||typeof value!=='object'&&typeof value!=='function')return undefined;const field=Object.getOwnPropertyDescriptor(value,name);return field&&'value'in field?field.value:undefined;};
+        const combined=new AggregateError([failure,error],'session_fulltext.prepare_cleanup_failed',{cause:failure});combined.code=own(failure,'code')??'session_fulltext.prepare_failed';combined.cleanupFailed=true;
+        for(const name of ['apiCode','statusCode']){const value=own(failure,name);if(value!==undefined)combined[name]=value;}
+        for(const name of ['helperMayStillRun','ownershipRetained','targetRetained'])if([failure,error].some(value=>own(value,name)===true))combined[name]=true;
+        throw combined;
+      }
+      if(failed)throw failure;
+      return finish();
+    });
+    async function search(query,context,limit=20){
+      if(typeof query!=='string'||query.length<2||query.length>OVERLAP)throw fail('query_invalid');
+      const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
+      const terms=[...new Set(host.terms(query).filter(term=>typeof term==='string'&&!term.startsWith('#')).map(normalize))];
+      const phrase=normalize(query);if(!phrase.length||phrase.length>OVERLAP||!phrase.trim())throw fail('query_invalid');
+      const needed=Math.max(1,Math.ceil(terms.length/2)),cap=Math.min(50,Math.max(1,Math.floor(Number(limit)||20))),candidates=[];
+      // The public consumers limit session results. A dense session gets one
+      // best citation, never all of the bounded global candidate slots.
+      const compare=(a,b)=>b.score-a.score||a.row.sessionId.localeCompare(b.row.sessionId)||a.row.messageOrdinal-b.row.messageOrdinal||a.row.chunkOrdinal-b.row.chunkOrdinal||a.start-b.start||a.row.source.localeCompare(b.row.source);
+      const catalog=await host.catalog();if(!Array.isArray(catalog)||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
+      for(const sid of catalog){
+        if(!valid(sid))throw fail('catalog_invalid');if(await host.authorize(sid,context,access)!==true)continue;
+        const value=await currentManifest(sid);if(!value||!compatible(value)||value.epoch!==await host.epoch(sid))continue;let best=null;
+        for(const ref of value.shards){
+          const shard=await read(sid,value.generation+'.'+ref.ordinal+'.json',SHARD_BYTES);if(!shard||hash(JSON.stringify(shard))!==ref.sha256||shard.schema!==SCHEMA||shard.sessionId!==sid||shard.generation!==value.generation||shard.ordinal!==ref.ordinal||!Array.isArray(shard.rows)||shard.rows.length!==ref.records){if(await retired(sid,value))break;throw fail('shard_invalid');}
+          for(const row of shard.rows){
+            if(keys(row)!=='canonicalStart,chunkOrdinal,contentRevision,coordinate,end,messageId,messageIdBasis,messageOrdinal,ranges,sessionId,source,start,text,turnSeq,turnSeqBasis'||row.coordinate!=='utf16'||!['explicit','legacy-inferred'].includes(row.turnSeqBasis)||!['intrinsic','physical-ordinal'].includes(row.messageIdBasis)||!(/^(?:content(?:\.\d+(?:\.text)?)?|blocks\.\d+(?:\.text)?|segments\.\d+\.text|attachments\.\d+\.(?:textPreview|transcript|ocrText))$/).test(row.source)||row.sessionId!==sid||!integer(row.messageOrdinal)||!integer(row.turnSeq)||typeof row.messageId!=='string'||row.messageId.length>256||!HEX.test(row.contentRevision||'')||!integer(row.chunkOrdinal)||!integer(row.start)||!integer(row.end)||typeof row.source!=='string'||typeof row.text!=='string'||row.end<=row.start||!integer(row.canonicalStart)||!row.text.length||row.text.length>CHARS||!rangesValid(row))throw fail('shard_invalid');
+            const exact=row.text.indexOf(phrase),matched=terms.filter(term=>row.text.includes(term));if(exact<0&&matched.length<needed)continue;
+            const at=exact>=0?exact:row.text.indexOf(matched[0]),width=exact>=0?phrase.length:matched[0].length;
+            const start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,at+width-1).to;if(!integer(start)||!integer(end))throw fail('shard_invalid');
+            const hit={row:Object.freeze({...row,text:undefined,ranges:undefined,canonicalStart:undefined}),canonicalStart:row.canonicalStart,windowHash:digest({text:row.text,ranges:row.ranges}),at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,score:(exact>=0?30:0)+matched.length,start,end};
+            if(sessionResults){if(!best||compare(hit,best)<0)best=hit;}
+            else{candidates.push(hit);candidates.sort((a,b)=>b.score-a.score||a.row.sessionId.localeCompare(b.row.sessionId)||a.start-b.start);if(candidates.length>cap*4)candidates.length=cap*4;}
+          }
+        }
+        if(sessionResults&&best){candidates.push(best);candidates.sort(compare);if(candidates.length>cap)candidates.length=cap;}
+      }
+      const selected=new Map();for(const hit of candidates){const key=[hit.row.sessionId,hit.row.messageId,hit.row.contentRevision,hit.row.source,hit.start,hit.end].join('\0');if(!selected.has(key))selected.set(key,hit);}
+      const results=[],sequences=new Map();
+      for(const sid of [...new Set([...selected.values()].map(hit=>hit.row.sessionId))]){
+        if(await host.authorize(sid,context,access)!==true)continue;const hits=[...selected.values()].filter(hit=>hit.row.sessionId===sid),resolved=[],retained=new Set();let retainedBytes=0;
+        let sourceTurn=0,sourceTurnBasis='legacy-inferred';
+        const proof=await host.scan(sid,async(row,ordinal)=>{
+          if(row.role==='user'){sourceTurn=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?row.turnSeq:sourceTurn+1;sourceTurnBasis=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?'explicit':'legacy-inferred';}
+          const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){sourceTurn=explicit;sourceTurnBasis='explicit';}
+          const revision=digest(row),parts=sources(row),intrinsic=typeof row.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id),messageId=intrinsic?row.id:'legacy-ordinal:'+ordinal;
+          for(const hit of hits.filter(hit=>hit.row.messageOrdinal===ordinal&&hit.row.contentRevision===revision)){
+            const source=parts.find(part=>part.field===hit.row.source);if(!source||hit.end>source.text.length)continue;
+            let proven=false,finished=false,chunkOrdinal=0;for(const part of parts){for(const window of slices(part.text)){if(part.field===source.field&&window.canonicalStart===hit.canonicalStart){proven=chunkOrdinal===hit.row.chunkOrdinal&&window.start===hit.row.start&&window.end===hit.row.end&&hit.row.messageId===messageId&&hit.row.messageIdBasis===(intrinsic?'intrinsic':'physical-ordinal')&&hit.row.turnSeq===sourceTurn&&hit.row.turnSeqBasis===sourceTurnBasis&&digest({text:window.text,ranges:window.ranges})===hit.windowHash&&rangeAt(window.ranges,hit.at).from===hit.start&&rangeAt(window.ranges,hit.at+hit.width-1).to===hit.end;finished=true;break;}chunkOrdinal++;}if(finished)break;}if(!proven)throw fail('shard_source_mismatch');
+            const owner=ordinal+'\0'+source.field;if(!retained.has(owner)){retained.add(owner);retainedBytes+=Buffer.byteLength(source.text);if(retainedBytes>256*1024*1024)throw fail('projection_capacity');}
+            const snippetStart=Math.max(0,hit.start-60),snippetEnd=Math.min(source.text.length,hit.end+120,snippetStart+600);
+            resolved.push({hit,sourceText:source.text,text:source.text.slice(snippetStart,snippetEnd),snippetEnd,snippetTruncated:snippetEnd<Math.min(source.text.length,hit.end+120)});
+          }
+        });
+        if(!proof||proof.epoch!==hits[0].epoch||proof.revision!==hits[0].sourceRevision||await host.epoch(sid)!==proof.epoch)continue;
+        const sequence=host.sourceSequence(sid);if(typeof sequence!=='string'&&!(Number.isSafeInteger(sequence)&&sequence>=0))throw fail('source_invalid');
+        for(const {hit,sourceText,text,snippetEnd,snippetTruncated}of resolved){const projected=await host.project({sourceText,text,reference:Object.freeze({...hit.row,matchStart:hit.start,matchEnd:hit.end,snippetStart:Math.max(0,hit.start-60),snippetEnd,...(snippetTruncated?{snippetTruncated:true}:{})}),start:hit.start,end:hit.end,context,access});if(keys(projected)!=='reference,snippet'||typeof projected.snippet!=='string'||Buffer.byteLength(JSON.stringify(projected))>16384)throw fail('projection_invalid');const disclosed=clone(projected);
+          if(await host.authorize(sid,context,access)!==true||await host.epoch(sid)!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
+          results.push({...disclosed,score:hit.score});sequences.set(sid,sequence);
+        }
+      }
+      const covered=new Set(),coverageSequences=new Map(),coverageState=await rawCoverage({context,access,seen:covered,sequences:coverageSequences});
+      if(host.assertScope(context,access)!==true||[...sequences].some(([sid,seq])=>host.sourceSequence(sid)!==seq||host.assertAuthorized(sid,context,access)!==true)||[...covered].some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==coverageSequences.get(sid)))throw fail('disclosure_changed');
+      return {query,results:results.sort((a,b)=>b.score-a.score).slice(0,cap),coverage:coverageState,scope:{mode:'message-shards',sampling:false,coordinate:'utf16',maxQueryChars:OVERLAP}};
+    }
+    async function restorePause(context){const saved=await read(null,'state.json',1024);if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');paused=saved?.phase==='paused';return coverage(context);}
+    return Object.freeze({step,prepare,search,coverage,restorePause,invalidate:(sid,deleted=false)=>run(async()=>{await purge(sid);}),pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused:()=>paused,busy:()=>building,pending:()=>chain});
+  }
+  return Object.freeze({SCHEMA,CHARS,OVERLAP,SHARD_BYTES,sources,create});
+})(require('node:fs/promises'),require('node:path'),require('node:crypto'));
+
+// Explicit production composition. No timer, route switch, directory creation,
+// key creation or background indexing occurs merely by loading this module.
+// A reviewed caller must supply destination-scope disclosure, including the
+// reference itself. Model and UI consumers must bind their real existing scope.
+let sessionFullTextOwner = null;
+function bindSessionFullTextIndex(disclosure,sessionResults=false) {
+  const names=['scope','authorize','assertAuthorized','project','assertScope'];
+  if(sessionFullTextOwner)throw Object.assign(Error('session_fulltext.already_bound'),{code:'session_fulltext.already_bound'});
+  if(!disclosure||Object.keys(disclosure).sort().join(',')!==names.slice().sort().join(',')||names.some(name=>typeof disclosure[name]!=='function'))
+    throw Object.assign(Error('session_fulltext.scope_binding_required'),{code:'session_fulltext.scope_binding_required'});
+  const projection=Object.fromEntries(names.map(name=>[name,disclosure[name]])),source=createSessionFullTextSource();
+  const instance=SessionFullTextIndex.create({...projection,resultUnit:sessionResults===true?'sessions':'references',root:()=>paths.sessions,keys:workDataKeys,writeJson:atomicWriteJson,
+    validSessionId:safeSessionId,noise:sessionSearchRowIsNoise,terms:retrievalTerms,
+    enabled:async()=>{const config=await readConfig();return WorkDataRootHooks.mode?WorkDataRootHooks.mode(config.workDataEncryptionV1):config.workDataEncryptionV1===true;},
+    epoch:source.epoch,scan:source.scan,sourceSequence:source.sequence,
+    catalog:async()=>{
+      let entries;try{entries=await fsp.readdir(paths.sessions,{withFileTypes:true});}catch(error){if(error.code==='ENOENT')return [];throw error;}
+      const ids=[],physical=new Set(),pattern=process.platform==='win32'?/^([A-Za-z0-9_-]{1,64})\.json$/i:/^([A-Za-z0-9_-]{1,64})\.json$/;
+      for(const entry of entries){const match=pattern.exec(entry.name);if(!match||safeSessionId(match[1])!==match[1])continue;
+        const key=process.platform==='win32'?match[1].toLowerCase():match[1];
+        if(!entry.isFile()||entry.isSymbolicLink()||physical.has(key))throw Object.assign(Error('session_fulltext.catalog_invalid'),{code:'session_fulltext.catalog_invalid'});
+        physical.add(key);ids.push(match[1]);
+      }
+      return ids.sort();
+    }});
+  const admitted=work=>WorkDataMaintenanceHooks.run('session-fulltext-index',work);
+  sessionFullTextOwner=instance;
+  return Object.freeze({search:instance.search,coverage:instance.coverage,prepare:context=>admitted(()=>instance.prepare(context)),
+    restorePause:context=>admitted(()=>instance.restorePause(context)),step:(limit,context)=>admitted(()=>instance.step(limit,context)),
+    pause:()=>admitted(()=>instance.pause()),resume:()=>admitted(()=>instance.resume()),
+    invalidate:(id,deleted)=>admitted(()=>instance.invalidate(id,deleted))});
+}
+if(typeof SessionFullTextHooks!=='undefined')Object.assign(SessionFullTextHooks,{
+  bind:bindSessionFullTextIndex,
+  bindSessions:disclosure=>bindSessionFullTextIndex(disclosure,true),
+  maintenanceState:()=>({pending:sessionFullTextOwner?[sessionFullTextOwner.pending()]:[],active:Number(!!sessionFullTextOwner?.busy())}),
+  maintenancePause:()=>{if(!sessionFullTextOwner)return null;const saved={paused:sessionFullTextOwner.isPaused()};sessionFullTextOwner.pause().catch(()=>{});return saved;},
+  maintenanceResume:saved=>{if(saved&&!saved.paused&&sessionFullTextOwner)sessionFullTextOwner.resume().catch(()=>{});},
+});
+
+// Real search destinations own admission. Neither JSON/model arguments nor an
+// index scope label can issue this private, per-call disclosure capability.
+const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
+  const fail=suffix=>Object.assign(Error('session_search.'+suffix),{code:'session_search.'+suffix,apiCode:'session_search.'+suffix,statusCode:409});
+  const hash=value=>c.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const clone=value=>structuredClone(value);
+  function create(host) {
+    const local=new AsyncLocalStorage(),issued=new WeakMap();
+    const required=['readConfig','configGeneration','uiAuthority','modelAuthority','source','catalog','metadata','projectKey','terms','redact','bindIndex'];
+    if(required.some(name=>typeof host?.[name]!=='function')||!host.privacy)throw fail('host_invalid');
+    const source=host.source(),privacy=host.privacy;
+    if(['epoch','scan','sequence','inspect'].some(name=>typeof source[name]!=='function'))throw fail('source_unavailable');
+    function current(token=local.getStore()) {const cap=issued.get(token);if(!cap||cap.closed)throw fail('scope_required');cap.assert();return cap;}
+    function projectFilter(value) {if(value===undefined||value===null||value==='')return null;if(typeof value!=='string'||!/^project:[a-f0-9]{16}$/.test(value))throw fail('project_invalid');return value;}
+    async function enter(kind,authority,filter,work) {
+      const selectedFilter=projectFilter(filter),policy=privacy.disclosurePolicyGuard(),generation=host.configGeneration(),config=await host.readConfig();policy();
+      if(host.configGeneration()!==generation)throw fail('destination_changed');const grant=await authority(config);policy();
+      if(!grant||typeof grant.assert!=='function'||typeof grant.revalidate!=='function'||typeof grant.scopeId!=='string')throw fail('destination_invalid');
+      const token=Object.freeze({}),cap={kind,config,generation,grant,filter:selectedFilter,sources:new Map(),disclosed:new Set(),disclosures:[],closed:false,emitted:false};
+      cap.access=Object.freeze({scopeId:grant.scopeId,revision:hash([c.randomBytes(24).toString('hex'),generation,cap.filter])});
+      cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation)throw fail('destination_changed');policy();grant.assert();for(const [sid,row]of cap.sources)if(source.sequence(sid)!==row.sequence)throw fail('source_changed');};
+      issued.set(token,cap);
+      const perform=()=>local.run(token,async()=>{try{cap.assert();const value=await work();if(!cap.emitted)await final(cap);return value;}finally{cap.closed=true;cap.sources.clear();cap.disclosed.clear();cap.disclosures.length=0;grant.close?.();}});
+      try{grant.assert();return await(kind==='model'?privacy.withPolicy(grant.scopeId,perform):perform());}catch(error){grant.close?.();throw error;}
+    }
+    async function authorize(sid,token,access) {
+      const cap=current(token);if(access.revision!==cap.access.revision||access.scopeId!==cap.access.scopeId)throw fail('scope_changed');
+      await cap.grant.revalidate();cap.assert();const selected=await source.inspect(sid);cap.assert();
+      if(!selected||selected.head.kind==='steward'||selected.head.rawKind==='steward')return false;
+      const metadata=host.metadata(selected.head),project=host.projectKey(metadata.cwd);
+      if(cap.filter&&project!==cap.filter)return false;
+      const prior=cap.sources.get(sid);if(prior&&(prior.epoch!==selected.epoch||prior.sequence!==selected.sequence))throw fail('source_changed');
+      cap.sources.set(sid,{...selected,metadata});return true;
+    }
+    function assertAuthorized(sid,token,access) {const cap=current(token),row=cap.sources.get(sid);return access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
+    async function final(cap) {
+      cap.assert();await cap.grant.revalidate();cap.assert();
+      for(const [sid,row]of cap.sources){if(await source.epoch(sid)!==row.epoch)throw fail('source_changed');cap.assert();}
+      cap.assert();for(const guard of cap.disclosures)guard();
+    }
+    const strings=(value,fn)=>typeof value==='string'?fn(value):Array.isArray(value)?value.map(row=>strings(row,fn)):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,row])=>[key,strings(row,fn)])):value;
+    async function localDisplay(sid,value) {
+      if(typeof value==='string')return privacy.displayText(sid,value);
+      if(Array.isArray(value)){const out=[];for(const row of value)out.push(await localDisplay(sid,row));return out;}
+      if(value&&typeof value==='object'){const out={};for(const [key,row]of Object.entries(value))out[key]=await localDisplay(sid,row);return out;}
+      return value;
+    }
+    async function disclose(cap,sid,value,purpose) {
+      cap.disclosed.add(sid);
+      const binding={recipient:cap.grant.scopeId,purpose,sourceHash:hash(value)};
+      if(cap.kind==='ui'){
+        const prepared=await privacy.prepareLocalDisclosure(sid,()=>localDisplay(sid,value));cap.assert();cap.disclosures.push(prepared.assert);
+        return prepared.value;
+      }
+      const prepared=await privacy.prepareMultiSourceDisclosure(privacy.foreignView(value),[sid,cap.grant.scopeId],binding);cap.assert();cap.disclosures.push(prepared.assert);return prepared.value;
+    }
+    async function publicMetadata(sid) {
+      const token=local.getStore(),cap=current(token);if(!await authorize(sid,token,cap.access))throw fail('source_denied');
+      const row=cap.sources.get(sid),raw=cap.kind==='ui'?row.metadata:privacy.foreignView(row.metadata);
+      // The routing identifier is never reattached after projection. A protected
+      // identifier that cannot be used by the old destination contract refuses.
+      if(raw.id!==sid)throw fail('identifier_sensitive');
+      const value=strings(await disclose(cap,sid,raw,'session-search:metadata'),host.redact);cap.assert();if(value.id!==sid)throw fail('identifier_projection');return value;
+    }
+    async function projection(input) {
+      const token=local.getStore(),cap=current(token),sid=input.reference.sessionId;
+      if(typeof input.sourceText!=='string'||!await authorize(sid,token,cap.access))throw fail('source_denied');
+      const metadata=await publicMetadata(sid),reference=clone(input.reference);delete reference.text;
+      let view;
+      const prepared=await privacy.withPolicy(sid,async()=>{
+        view=await privacy.projectSource(input.sourceText,true);
+        let snippet;
+        if(view){const sliced=privacy.sliceSource(view,reference.snippetStart,reference.snippetEnd);reference.snippetStart=sliced.start;reference.snippetEnd=sliced.end;snippet=sliced.text;}
+        else{
+          // OFF still keeps the existing unconditional credential filter. Filter
+          // the complete source first; a clipped key fragment is never scanned
+          // as if it were the full credential. Projected excerpt coordinates
+          // are explicitly distinct from the unchanged original match tuple.
+          const redacted=host.redact(input.sourceText);
+          if(redacted===input.sourceText)snippet=redacted.slice(reference.snippetStart,reference.snippetEnd);
+          else{const at=redacted.toLowerCase().indexOf(cap.query.toLowerCase());snippet=at<0?'«redacted»':redacted.slice(Math.max(0,at-60),Math.min(redacted.length,at+cap.query.length+120));delete reference.snippetStart;delete reference.snippetEnd;reference.snippetCoordinate='credential-redacted-text';}
+        }
+        const raw={reference:{...reference,session:metadata},snippet},binding={recipient:cap.grant.scopeId,purpose:'session-search:source',sourceHash:hash([reference,input.sourceText])};
+        const value=await privacy.prepareDisclosure(raw,binding);privacy.assertDisclosure(value.receipt,binding);return value.value;
+      });
+      cap.assert();const disclosed=await disclose(cap,sid,prepared,'session-search:hit');cap.assert();
+      disclosed.snippet=host.redact(disclosed.snippet);return disclosed;
+    }
+    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,project:projection,
+      assertScope:(token,access)=>{const cap=current(token);return cap.access.revision===access.revision&&cap.access.scopeId===access.scopeId;}});
+    async function metadata() {const token=local.getStore(),cap=current(token),out=[];for(const sid of await host.catalog())if(await authorize(sid,token,cap.access))out.push(clone(cap.sources.get(sid).metadata));cap.assert();return out;}
+    async function searchOnce(query,limit) {
+      const token=local.getStore(),cap=current(token),q=String(query||'').trim();cap.query=q;
+      if(q.length>256)throw fail('query_invalid');
+      if(q.length<2)return{ok:true,query:q,results:[],indexed:0,scope:scope(cap.config.sessionSearchIndexV1!==false),reason:'query_too_short'};
+      const enabled=cap.config.sessionSearchIndexV1!==false,metas=await metadata(),terms=[...new Set(host.terms(q).filter(term=>!term.startsWith('#')))];
+      let found={results:[],coverage:{phase:'disabled',sessions:metas.length,indexedSessions:0,pendingSessions:metas.length,complete:false,attachments:{unverifiedFullText:0},fullTextSampling:false}};
+      if(enabled){cap.assert();const coverage=await index.coverage(token);if(coverage.pendingSessions&&coverage.phase!=='paused'){await index.prepare(token);cap.assert();}found=await index.search(q,token,limit);}
+      const results=new Map();
+      for(const hit of found.results){const meta=hit.reference.session;if(!meta||typeof meta.id!=='string')throw fail('projection_invalid');if(!results.has(meta.id))results.set(meta.id,{...meta,...(meta.brief?{briefTitle:meta.brief.title,briefGist:meta.brief.gist}:{}),snippet:hit.snippet,reference:hit.reference,score:hit.score});}
+      const ceiling=Math.min(50,Math.max(1,Math.floor(Number(limit)||20)));
+      for(const meta of metas.slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))){if(results.size>=ceiling)break;const text=[meta.title,meta.summary,meta.brief?.title,meta.brief?.gist,meta.cwd].filter(Boolean).join('\n'),hay=text.normalize('NFKC').toLowerCase(),phrase=q.normalize('NFKC').toLowerCase();if(!hay.includes(phrase)&&terms.filter(term=>hay.includes(term)).length<Math.max(1,Math.ceil(terms.length/2)))continue;
+        if(!results.has(meta.id)){const safe=await publicMetadata(meta.id);results.set(meta.id,{...safe,...(safe.brief?{briefTitle:safe.brief.title,briefGist:safe.brief.gist}:{}),snippet:host.redact(safe.summary||safe.title||''),score:1,reference:null});}}
+      await final(cap);
+      return{ok:true,query:q,results:[...results.values()].sort((a,b)=>b.score-a.score||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
+    }
+    async function search(query,limit){const cap=current();for(let pass=0;pass<4;pass++){try{return await searchOnce(query,limit);}catch(error){if(error?.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;await final(cap);}}}
+    function scope(enabled=true) {return{fullText:false,messageText:enabled,mode:enabled?'message_shards':'metadata_only',sampling:false,coordinate:'utf16',maxQueryChars:256,
+      coverageUnit:'committed-display-message-sources',note:enabled?'搜索完整已提交消息文字；附件全文提取尚未全部验证，请以 coverage 为准。':'正文搜索已关闭，仅搜索会话元数据。'};}
+    async function finish(value) {const cap=current();for(let pass=0;pass<4;pass++){try{const prepared=await privacy.prepareMultiSourceDisclosure(privacy.foreignView(value),[...cap.disclosed,cap.grant.scopeId],{recipient:cap.grant.scopeId,purpose:'session-search:result',sourceHash:hash(value)});cap.disclosures.push(prepared.assert);await final(cap);return prepared.value;}catch(error){if(error.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;await final(cap);}}}
+    function emitUI(value,emit) {const cap=current();if(cap.kind!=='ui'||typeof emit!=='function')throw fail('destination_invalid');cap.assert();for(const guard of cap.disclosures)guard();cap.emitted=true;const result=emit(value);if(result&&typeof result.then==='function')throw fail('sink_invalid');return result;}
+    return Object.freeze({withUI:(req,res,filter,work)=>enter('ui',config=>host.uiAuthority(req,res,config),filter,work),
+      withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work),search,metadata,publicMetadata,finish,emitUI,scope});
+  }
+  return Object.freeze({create});
+})(require('node:crypto'),require('node:async_hooks').AsyncLocalStorage);
+
+// Lazy composition: module load does not bind, backfill or enable an index.
+let sessionFullTextConsumers=null;
+function getSessionFullTextConsumers() {
+  if(sessionFullTextConsumers)return sessionFullTextConsumers;
+  const deny=suffix=>{throw Object.assign(Error('session_search.'+suffix),{code:'session_search.'+suffix,apiCode:'session_search.'+suffix,statusCode:409});};
+  const modelAuthority=async(ctx,tool,config)=>{
+    if(!ctx?.session||safeSessionId(ctx.session.id)!==ctx.session.id||ctx.sessionId&&ctx.sessionId!==ctx.session.id||!['threads_search','steward_threads_search'].includes(tool))deny('model_scope_required');
+    const session=ctx.session,id=session.id,kind=session.kind,turn=ctx.turnSeq??session.turnSeq,settler=turnSettlers.get(id),actor=ctx.externalActor;
+    if(tool==='steward_threads_search'&&(kind!=='steward'||config.stewardEnabledV1!==true))deny('model_scope_required');
+    if(nativeToolTier(tool)!=='read'||nativeToolDisabledByPolicy(tool,config,sessionDesktopToolsOf(session))||nativeToolGate(resolvePermissionMode({session,config}),'read',tool,{})!=='allow')deny('tool_denied');
+    if(actor)await ExternalBotHooks.validateActor(actor);const actorSignal=actor?ExternalBotHooks.actorSignal(actor):null;
+    if(actor&&!actorSignal)deny('model_scope_required');
+    const assert=()=>{if(ctx.session!==session||session.id!==id||session.kind!==kind||(ctx.turnSeq??session.turnSeq)!==turn||ctx.signal?.aborted||turnSettlers.get(id)!==settler||actor&&(ExternalBotHooks.actorSignal(actor)!==actorSignal||actorSignal.aborted))deny('destination_changed');if(InternalMcpHooks.isContext(ctx))InternalMcpHooks.assertTool(ctx,tool);};
+    return{scopeId:id,assert,revalidate:async()=>{assert();if(actor)await ExternalBotHooks.validateActor(actor);assert();}};
+  };
+  const uiAuthority=async(req,res)=>{if(!tokenOk(req)||!originOk(req))deny('user_scope_required');const token=RUNTIME.token;let closed=false;
+    const close=()=>{if(!res.writableEnded)closed=true;},abort=()=>{closed=true;};res.on('close',close);req.on('aborted',abort);
+    const assert=()=>{if(closed||req.aborted||res.destroyed||req.socket?.destroyed||RUNTIME.token!==token||!tokenOk(req)||!originOk(req))deny('destination_changed');};
+    return{scopeId:'user-session-search',assert,revalidate:async()=>assert(),close(){res.removeListener('close',close);req.removeListener('aborted',abort);}};
+  };
+  sessionFullTextConsumers=SessionFullTextConsumers.create({readConfig,configGeneration:()=>configReadGeneration,uiAuthority,modelAuthority,
+    source:createSessionFullTextSource,metadata:head=>sessionMeta(head,null,{committedOnly:true}),projectKey:cwd=>cwd?'project:'+projectKeyForCwd(cwd):'',terms:retrievalTerms,redact,privacy:PrivacyGateway,
+    catalog:async()=>{const entries=await fsp.readdir(paths.sessions,{withFileTypes:true}),ids=[];const seen=new Set();for(const entry of entries){const match=/^([A-Za-z0-9_-]{1,64})\.json$/i.exec(entry.name);if(!match||safeSessionId(match[1])!==match[1])continue;const key=process.platform==='win32'?match[1].toLowerCase():match[1];if(!entry.isFile()||entry.isSymbolicLink()||seen.has(key))deny('catalog_invalid');seen.add(key);ids.push(match[1]);}return ids.sort();},bindIndex:disclosure=>SessionFullTextHooks.bindSessions(disclosure)});
+  return sessionFullTextConsumers;
+}
+Object.assign(SessionFullTextHooks,{
+  withUI:(req,res,filter,work)=>getSessionFullTextConsumers().withUI(req,res,filter,work),
+  withModel:(ctx,tool,filter,work)=>getSessionFullTextConsumers().withModel(ctx,tool,filter,work),
+  search:(query,limit)=>getSessionFullTextConsumers().search(query,limit),metadata:()=>getSessionFullTextConsumers().metadata(),
+  publicMetadata:id=>getSessionFullTextConsumers().publicMetadata(id),finish:value=>getSessionFullTextConsumers().finish(value),
+  emitUI:(value,emit)=>getSessionFullTextConsumers().emitUI(value,emit),scope:enabled=>getSessionFullTextConsumers().scope(enabled),
+});
 
 let workDataCliHelperHeld = false;
 let workDataCliHelperHoldTimer = null;

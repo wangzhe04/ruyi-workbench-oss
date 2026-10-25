@@ -1482,3 +1482,5 @@ async function recordInstallLaunch(launchMode) {
     return { ok: true, packageRoot: root };
   } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
 }
+
+const SessionFullTextHooks = {};

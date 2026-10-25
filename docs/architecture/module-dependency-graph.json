@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 116,
-    "providedSymbols": 4134,
-    "requiredSymbols": 3934,
-    "edges": 801,
+    "modules": 118,
+    "providedSymbols": 4145,
+    "requiredSymbols": 3973,
+    "edges": 817,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -48,6 +48,7 @@
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "SessionExecutionHooks",
+        "SessionFullTextHooks",
         "StringDecoder",
         "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
@@ -1915,6 +1916,7 @@
         "compactInterventionJournal",
         "createMissionContainer",
         "createSession",
+        "createSessionFullTextSource",
         "danglingTurnState",
         "decodeSessionJournalText",
         "deleteSession",
@@ -2129,6 +2131,9 @@
         "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
         "sessionFirstUserExcerpt",
+        "sessionFullTextHeadWriteSeq",
+        "sessionFullTextHeadWrites",
+        "sessionFullTextSequence",
         "sessionHeadIsWorkDataError",
         "sessionHeadStampOf",
         "sessionHeadStore",
@@ -2475,6 +2480,13 @@
         {
           "provider": "01q-work-data-records.js",
           "symbol": "WorkDataRecords",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01r-work-data-chunks.js",
+          "symbol": "WorkDataChunks",
           "kinds": [
             "read"
           ]
@@ -17513,6 +17525,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -18013,27 +18032,6 @@
           "symbol": "turnSettlers",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "06h-retrieval-index.js",
-          "symbol": "createRetrievalCorpusCache",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06h-retrieval-index.js",
-          "symbol": "rankRetrievalCorpus",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06h-retrieval-index.js",
-          "symbol": "retrievalTerms",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -19742,6 +19740,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -19843,13 +19848,6 @@
           "symbol": "SESSION_BRIEF_TITLE_CHARS",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "sessionBriefOf",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -21561,6 +21559,13 @@
           "symbol": "nowIso",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -27683,6 +27688,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "usageLedgerChain",
           "kinds": [
             "read"
@@ -28655,8 +28667,301 @@
       ]
     },
     {
-      "file": "14-main.js",
+      "file": "13ap-session-fulltext-index.js",
       "order": 115,
+      "layer": "unclassified",
+      "note": "M3-4 committed-message text index owner",
+      "provides": [
+        "SessionFullTextIndex",
+        "bindSessionFullTextIndex",
+        "sessionFullTextOwner"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataRootHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "createSessionFullTextSource",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "workDataKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "retrievalTerms",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "sessionSearchRowIsNoise",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13as-session-fulltext-consumers.js",
+      "order": 116,
+      "layer": "unclassified",
+      "note": "M3-4 authorized UI/model/MCP fulltext consumers",
+      "provides": [
+        "SessionFullTextConsumers",
+        "getSessionFullTextConsumers",
+        "sessionFullTextConsumers"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadGeneration",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "originOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "RUNTIME",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "createSessionFullTextSource",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "redact",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "projectKeyForCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06h-retrieval-index.js",
+          "symbol": "retrievalTerms",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "14-main.js",
+      "order": 117,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -33549,6 +33854,14 @@
     },
     {
       "from": "02-session-store.js",
+      "to": "01r-work-data-chunks.js",
+      "symbols": [
+        "WorkDataChunks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02-session-store.js",
       "to": "02d-session-overrides.js",
       "symbols": [
         "applySessionDesktopToolsOverride",
@@ -38095,6 +38408,7 @@
       "symbols": [
         "InternalMcpHooks",
         "MemoryCliHooks",
+        "SessionFullTextHooks",
         "WorkDataMaintenanceHooks",
         "fs",
         "paths",
@@ -38613,6 +38927,156 @@
       "direction": "backward"
     },
     {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "SessionFullTextHooks",
+        "WorkDataMaintenanceHooks",
+        "WorkDataRootHooks",
+        "fsp",
+        "paths",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "01-config.js",
+      "symbols": [
+        "atomicWriteJson",
+        "readConfig",
+        "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "createSessionFullTextSource",
+        "workDataKeys"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "06h-retrieval-index.js",
+      "symbols": [
+        "retrievalTerms"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "13d-core-domain-routes.js",
+      "symbols": [
+        "sessionSearchRowIsNoise"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "ExternalBotHooks",
+        "InternalMcpHooks",
+        "SessionFullTextHooks",
+        "fsp",
+        "paths",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "01-config.js",
+      "symbols": [
+        "RUNTIME",
+        "configReadGeneration",
+        "originOk",
+        "readConfig",
+        "safeSessionId",
+        "tokenOk"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "createSessionFullTextSource",
+        "sessionMeta"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "sessionDesktopToolsOf"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "redact",
+        "turnSettlers"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "06d-memory-domain.js",
+      "symbols": [
+        "projectKeyForCwd"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "06h-retrieval-index.js",
+      "symbols": [
+        "retrievalTerms"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13as-session-fulltext-consumers.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "nativeToolDisabledByPolicy",
+        "nativeToolGate",
+        "nativeToolTier"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "13b-api-domain-routes.js",
       "to": "00-boot.js",
       "symbols": [
@@ -38799,6 +39263,7 @@
         "EventStreamHooks",
         "ProxyModelHooks",
         "RUYI_EVENTS",
+        "SessionFullTextHooks",
         "URL",
         "apiFailure",
         "apiSessionIdInvalid",
@@ -38955,16 +39420,6 @@
         "sessionExecutionObservation",
         "sessionExecutionSnapshot",
         "turnSettlers"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13d-core-domain-routes.js",
-      "to": "06h-retrieval-index.js",
-      "symbols": [
-        "createRetrievalCorpusCache",
-        "rankRetrievalCorpus",
-        "retrievalTerms"
       ],
       "direction": "backward"
     },
@@ -39174,6 +39629,7 @@
       "to": "00-boot.js",
       "symbols": [
         "ExternalBotHooks",
+        "SessionFullTextHooks",
         "URL",
         "apiFailure",
         "json",
@@ -39695,6 +40151,7 @@
       "symbols": [
         "EventStreamHooks",
         "ExternalBotHooks",
+        "SessionFullTextHooks",
         "dataRoot",
         "dataRootAliases",
         "decodeTextFileBytes",
@@ -39745,7 +40202,6 @@
         "readInterventions",
         "readMissionContainer",
         "saveSession",
-        "sessionBriefOf",
         "sessionDisplayTitle",
         "sessionMeta",
         "sessionMetaIsSteward",

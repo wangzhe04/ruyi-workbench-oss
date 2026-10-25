@@ -118,7 +118,8 @@ const workDataMaintenance = WorkDataMaintenance.create({
       memoryProposalStateChains, agentRunWriteChains, agentRunEventChains, backgroundJobChains,
       fileToolWriteChains, proxyModelsCacheChains, sessionSearchRefreshChains, stewardArchiveChains, externalBotChains];
     const consumers = McpConsumers.maintenanceState();
-    return { pending: [...scalar, ...maps.flatMap(map => [...map.values()]), ...consumers.pending], dirty: pendingSessionIndex.size + Number(!!sessionIndexFlushTimer) + Number(!!pretenderIndexRuntime.persistTimer) + Number(!!pretenderIndexRuntime.value && !pretenderIndexRuntime.persisted && fs.existsSync(paths.sessions)) + (logStream?.writableLength || 0), busy: {
+    const fulltext = SessionFullTextHooks.maintenanceState ? SessionFullTextHooks.maintenanceState() : { pending: [], active: 0 };
+    return { pending: [...scalar, ...maps.flatMap(map => [...map.values()]), ...consumers.pending, ...fulltext.pending], dirty: pendingSessionIndex.size + Number(!!sessionIndexFlushTimer) + Number(!!pretenderIndexRuntime.persistTimer) + Number(!!pretenderIndexRuntime.value && !pretenderIndexRuntime.persisted && fs.existsSync(paths.sessions)) + (logStream?.writableLength || 0), busy: {
       turns: turnSettlers.size + activeChildren.size + turnOutcomePending.size,
       agentRuns: activeAgentRuns.size,
       scheduler: Number(schedulerRuntime.ticking) + schedulerRuntime.inFlightTaskIds.size,
@@ -127,13 +128,14 @@ const workDataMaintenance = WorkDataMaintenance.create({
       externalBots: externalBotInflight + Number(externalBotWorkerBusy) + Number(externalBotDiscoveryBusy)
         + externalBotActiveActors.size + externalBotUnsettled.size + externalBotDeliveries.size,
       consumers: consumers.active, internalMcp: InternalMcpHooks.maintenanceState().active,
-      index: inflightSessionIndex.size + sessionIndexRebuildsActive + Number(!!pretenderIndexRuntime.building) + pretenderIndexRuntime.writers,
+      index: fulltext.active + inflightSessionIndex.size + sessionIndexRebuildsActive + Number(!!pretenderIndexRuntime.building) + pretenderIndexRuntime.writers,
       shells: [...shellSessions.values()].filter(row => row.running).length,
       services: [...toolboxServices.values()].filter(row => row.starting || row.stopping).length,
     } };
   },
   pause() {
     const saved = { schedulerTimer: !!schedulerRuntime.timer, stewardTimer: !!stewardRuntime.timer, externalWorker: externalBotWorkerBusy || externalBotWorkerAgain,
+      fulltext: SessionFullTextHooks.maintenancePause ? SessionFullTextHooks.maintenancePause() : null,
       projectionVerify: !!pretenderIndexRuntime.verifyTimer, projectionPersist: !!pretenderIndexRuntime.persistTimer };
     if (schedulerRuntime.timer) { clearInterval(schedulerRuntime.timer); schedulerRuntime.timer = null; }
     if (stewardRuntime.timer) { clearInterval(stewardRuntime.timer); stewardRuntime.timer = null; }
@@ -155,6 +157,7 @@ const workDataMaintenance = WorkDataMaintenance.create({
   },
   yield: () => new Promise(resolve => setTimeout(resolve, 25)),
   resume(saved) {
+    if (SessionFullTextHooks.maintenanceResume) SessionFullTextHooks.maintenanceResume(saved.fulltext);
     if (saved.schedulerTimer && schedulerRuntime.started) schedulerEnsureTimer();
     if (saved.stewardTimer && stewardRuntime.running && !stewardRuntime.timer) {
       stewardRuntime.timer = setInterval(() => { void WorkDataMaintenanceHooks.stewardTick(); }, stewardRuntime.pollMs); stewardRuntime.timer.unref?.();

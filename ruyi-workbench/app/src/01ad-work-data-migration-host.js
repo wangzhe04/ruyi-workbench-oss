@@ -8,10 +8,17 @@ const WorkDataMigrationHost = ((io,p,c) => {
   const relative=name=>typeof name==='string'&&name&&!name.includes('\\')&&!p.isAbsolute(name)&&name.split('/').every(part=>part&&part!=='.'&&part!=='..'&&!/[<>:"|?*\x00-\x1f]/.test(part)&&!/[. ]$/.test(part));
   const strict=bytes=>{const text=bytes.toString('utf8');if(!Buffer.from(text).equals(bytes))fail('utf8_invalid');return text;};
   const nativeScope=name=>{const folded=key(name);return folded==='migrations/skill-backup-bindings-v2.sealed'||folded==='migrations/skill-backups'||folded.startsWith('migrations/skill-backups/')||folded==='.work-data/skill-backups'||folded.startsWith('.work-data/skill-backups/');};
-  function classify(name,legacy){
+  function classify(name,legacy,directory=false){
     const folded=key(name);
     if(nativeScope(name))return {kind:'special-backup'};
     if(/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|\.sealed-stage$)/.test(folded))fail('special_owner_required',{file:name});
+    // The tree census supplies this flag; a file cannot borrow directory admission.
+    if(directory&&/^sessions\/_fulltext-index-v1(?:\/|$)/.test(folded)){
+      if(folded==='sessions/_fulltext-index-v1')return {kind:'fulltext-directory'};
+      let descriptor;try{descriptor=WorkDataMigrationCodecs.describe(name+'/manifest.json');}catch{}
+      if(descriptor?.family==='session-fulltext-manifest')return {kind:'fulltext-directory'};
+      fail('special_owner_required',{file:name});
+    }
     if(legacy&&['runtime.json','mcp-host-v1.json'].includes(folded))return {kind:'stable-owner'};
     if(folded==='.work-data'||folded.startsWith('.work-data/')){
       if(legacy&&(folded==='.work-data'||folded==='.work-data/generations'||folded==='.work-data/active-v1.json'||folded==='.work-data/maintenance-v1.json'||folded==='.work-data/maintenance-result-v1.json'||/^\.work-data\/generations\/[a-f0-9]{48}(?:\/|$)/.test(folded)))return {kind:'stable-owner'};
@@ -114,7 +121,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
         await checkSource(plan);const source=await tree.capture(expected.root);plan.disposable.push(source);
         try{
           const legacy=key(p.resolve(expected.root))===key(base),rows=source.files.map(file=>({...file,...classify(file.path,legacy)}));
-          for(const name of source.directories){if(key(name)==='.work-data/maintenance-result-v1.json')fail('control_owner_required');classify(name,legacy);} // reserved paths and unresolved stages cannot hide in an empty directory.
+          for(const name of source.directories){if(key(name)==='.work-data/maintenance-result-v1.json')fail('control_owner_required');classify(name,legacy,true);} // reserved paths and unresolved stages cannot hide in an empty directory.
           for(const row of rows)if(key(row.path)==='.work-data/maintenance-result-v1.json'){if(typeof maintenanceResultOwner?.decode!=='function')fail('control_owner_required');maintenanceResultOwner.decode(row.data);}
           const specialPaths=[...source.directories,...source.files.map(row=>row.path)].filter(nativeScope);
           if(specialPaths.length){if(await assertSpecialCoverage({backupReceipt,sourceProof,sourcePaths:Object.freeze(specialPaths)})!==true||sourceProof.specialCoverage?.type!=='skill-backup-portable'||sourceProof.specialCoverage.originalObjects!=='refused')fail('special_backup_coverage_required');plan.existingSpecial=true;plan.specialCoverage=Object.freeze({...sourceProof.specialCoverage});}
@@ -142,7 +149,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
             await plannedWrite(plan,row.path,row.kind==='config'?Buffer.from(configMirror(strict(row.data),targetMode==='encrypted')):row.data);
           }
           if(!rows.some(row=>row.kind==='config'))await plannedWrite(plan,'config.json',Buffer.from(configMirror('{}',targetMode==='encrypted')));
-          for(const name of source.directories){const kind=classify(name,legacy).kind;if(kind!=='stable-owner'&&kind!=='special-backup'){await io.mkdir(p.join(plan.candidate.root,...name.split('/')),{recursive:true});plan.targetDirectories.add(key(name));}}
+          for(const name of source.directories){const kind=classify(name,legacy,true).kind;if(kind!=='stable-owner'&&kind!=='special-backup'){await io.mkdir(p.join(plan.candidate.root,...name.split('/')),{recursive:true});plan.targetDirectories.add(key(name));}}
           await plan.special.prepareRepresentation(plan.specialToken,{mode:targetMode});await admission();const binding=await plan.special.prepareBindings(plan.specialToken);if(binding.ready!==true)fail('special_owner_required');
           // Re-enter the same owner to authenticate its durable candidate binding,
           // rather than treating a successful write or arbitrary current bytes as proof.

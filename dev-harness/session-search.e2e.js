@@ -29,6 +29,7 @@ let failed = 0;
 const ok = (condition, label) => { if (condition) console.log('PASS ' + label); else { failed += 1; console.error('FAIL ' + label); } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function kill(child) { if (child && child.pid) { try { killOwnTree(child); } catch { /* already gone */ } } }
+function lifetime(child) { let exited = false, closed = false, finish; const done = new Promise(resolve => { finish = resolve; }); const check = () => { if (exited && closed) finish(true); }; child.once('exit', () => { exited = true; check(); }); child.once('close', () => { closed = true; check(); }); return done; }
 
 function get(port, route, headers = {}) {
   return new Promise(resolve => {
@@ -138,10 +139,12 @@ fs.writeFileSync(path.join(HOME_OFF, 'config.json'), JSON.stringify({
 
 const server = cp.spawn(process.execPath, [path.join(WB, 'app', 'server.js')],
   { env: { ...isolatedEnv(HOME), PORT: String(PORT), WCW_NO_BROWSER: '1' }, cwd: WB, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+const serverDone = lifetime(server);
 server.stdout.on('data', () => {});
 server.stderr.on('data', () => {});
 const serverOff = cp.spawn(process.execPath, [path.join(WB, 'app', 'server.js')],
   { env: { ...isolatedEnv(HOME_OFF), PORT: String(PORT_OFF), WCW_NO_BROWSER: '1' }, cwd: WB, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+const serverOffDone = lifetime(serverOff);
 serverOff.stdout.on('data', () => {});
 serverOff.stderr.on('data', () => {});
 
@@ -188,17 +191,27 @@ try {
   ok(!secretBody.includes(FAKE_KEY), 'C2 响应里不含明文密钥(摘录过 redact,与 /api/audit 同一条脱敏路径)');
 
   // ── D 索引落盘与增量 ──────────────────────────────────────────────────────────────────────
-  const indexPath = path.join(HOME, 'sessions', '_search-index-v1.json');
-  ok(fs.existsSync(indexPath), 'D1 索引文件已落盘');
-  const index1 = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-  // 工作台首次启动会自己建一条空会话，所以不能硬碰夹具数量 ——
-  // 对账口径是“与 /api/sessions 列出的会话一一对应”。
+  const indexRoot = path.join(HOME, 'sessions', '_fulltext-index-v1');
+  function readTypedIndex() {
+    const entries = {};
+    for (const sid of fs.readdirSync(indexRoot)) {
+      if (sid === 'state.json') continue;
+      const manifest = path.join(indexRoot, sid, 'manifest.json');
+      if (fs.existsSync(manifest)) entries[sid] = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+    }
+    return { state: JSON.parse(fs.readFileSync(path.join(indexRoot, 'state.json'), 'utf8')), entries };
+  }
+  ok(fs.existsSync(path.join(indexRoot, 'state.json')), 'D1 owned全文索引状态已落盘');
+  const index1 = readTypedIndex();
   const listed = (await get(PORT, '/api/sessions', auth)).json?.sessions || [];
-  ok(index1.version === 2 && Object.keys(index1.entries).length === listed.length,
-    `D2 索引版本 2 且与会话列表一一对应(索引 ${Object.keys(index1.entries || {}).length} 条 / 列表 ${listed.length} 条)`);
+  ok(index1.state.schema === 1 && Object.keys(index1.entries).length === listed.length && Object.entries(index1.entries).every(([sid, entry]) => entry.schema === 1 && entry.format === 3 && entry.sessionId === sid && /^[a-f0-9]{32}$/.test(entry.generation) && Array.isArray(entry.shards)),
+    `D2 typed manifest format3/schema1 且与会话列表一一对应(索引 ${Object.keys(index1.entries).length} 条 / 列表 ${listed.length} 条)`);
   ok(SESSIONS.every(fixture => fixture.id in index1.entries), 'D2b 夹具会话全在索引里');
-  ok(Object.values(index1.entries).every(entry => typeof entry.unit === 'string' && entry.unit.length <= 8192),
-    'D3 每条检索单元不超过 8K 字符上限');
+  ok(Object.entries(index1.entries).every(([sid, entry]) => entry.shards.every(ref => {
+    const bytes = fs.readFileSync(path.join(indexRoot, sid, entry.generation + '.' + ref.ordinal + '.json'));
+    const shard = JSON.parse(bytes.toString('utf8'));
+    return bytes.length <= 256 * 1024 && shard.schema === 1 && shard.sessionId === sid && shard.generation === entry.generation && shard.ordinal === ref.ordinal && shard.rows.length === ref.records && shard.rows.length <= 64 && shard.rows.every(row => typeof row.text === 'string' && row.text.length <= 4096 && Array.isArray(row.ranges) && row.ranges.length <= 4096);
+  })), 'D3 完整全文使用有界256KiB shards和4096 canonical units窗口,没有8K会话采样上限');
 
   // 改一条会话的正文与 updatedAt -> 只有它的 stamp 变
   const betaHead = JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', 'sess-beta.json'), 'utf8'));
@@ -209,18 +222,22 @@ try {
     JSON.stringify({ role: 'user', content: '再加一条:顺便把编码统一成 UTF-8 无 BOM', createdAt: betaHead.updatedAt, turnSeq: 2 }) + '\n');
   fs.rmSync(path.join(HOME, 'sessions', 'index.json'), { force: true }); // 强制 listSessions 重扫,读到新的 head
   await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('编码统一'), auth);
-  const index2 = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-  const changedIds = Object.keys(index2.entries).filter(id => index2.entries[id].stamp !== index1.entries[id]?.stamp);
+  const index2 = readTypedIndex();
+  const changedIds = Object.keys(index2.entries).filter(id => index2.entries[id].generation !== index1.entries[id]?.generation);
   ok(changedIds.length === 1 && changedIds[0] === 'sess-beta',
-    `D4 只有被改动的会话重建了检索单元(实得 ${JSON.stringify(changedIds)})`);
+    `D4 只有被改动会话的generation改变(实得 ${JSON.stringify(changedIds)})`);
   const afterEdit = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('无 BOM 编码统一'), auth);
   ok((afterEdit.json?.results || []).some(r => r.id === 'sess-beta'), 'D5 新追加的正文立刻可搜到');
 
-  // 索引损坏 -> 全量重建,不影响本次搜索
-  fs.writeFileSync(indexPath, '{ this is not json');
+  // 只破坏已认证读取后的派生manifest JSON,保持原源/身份/AAD合同。
+  const betaManifest = path.join(indexRoot, 'sess-beta', 'manifest.json');
+  const betaBeforeRepair = index2.entries['sess-beta'];
+  const betaSourceBeforeRepair = ['sess-beta.json', 'sess-beta.messages.ndjson'].map(name => ({ file: path.join(HOME, 'sessions', name), bytes: fs.readFileSync(path.join(HOME, 'sessions', name)) }));
+  fs.writeFileSync(betaManifest, '{ this is not json');
   const afterCorrupt = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('here-string'), auth);
-  ok((afterCorrupt.json?.results || [])[0]?.id === 'sess-beta', 'D6 索引损坏时自动重建,搜索结果不受影响');
-  ok(JSON.parse(fs.readFileSync(indexPath, 'utf8')).version === 2, 'D7 损坏的索引已被重写为合法版本');
+  ok(afterCorrupt.status === 200 && (afterCorrupt.json?.results || [])[0]?.id === 'sess-beta', 'D6 派生manifest JSON损坏时自动重建,搜索结果不受影响');
+  const repaired = readTypedIndex().entries['sess-beta'];
+  ok(repaired.schema === 1 && repaired.format === 3 && repaired.sessionId === 'sess-beta' && repaired.generation !== betaBeforeRepair.generation && betaSourceBeforeRepair.every(row => fs.readFileSync(row.file).equals(row.bytes)) && betaBeforeRepair.shards.every(ref => !fs.existsSync(path.join(indexRoot, 'sess-beta', betaBeforeRepair.generation + '.' + ref.ordinal + '.json'))), 'D7 损坏manifest已按完整原源proof发布合法新generation,源字节不变且旧shards已退役');
 
   // ── E 上限与形状 ──────────────────────────────────────────────────────────────────────────
   const limited = await get(PORT, '/api/sessions/search?limit=1&q=' + encodeURIComponent('一下'), auth);
@@ -237,7 +254,7 @@ try {
   const offError = off.json && (typeof off.json.error === 'string' ? off.json.error : off.json.error?.code);
   ok(off.json && off.json.ok === false && offError === 'session_search.disabled',
     `F1 显式关闭时端点明确回「已关闭」(实得 ${JSON.stringify(off.json)})`);
-  ok(!fs.existsSync(path.join(HOME_OFF, 'sessions', '_search-index-v1.json')),
+  ok(!fs.existsSync(path.join(HOME_OFF, 'sessions', '_search-index-v1.json')) && !fs.existsSync(path.join(HOME_OFF, 'sessions', '_fulltext-index-v1')),
     'F2 关闭时不建索引(零新增持久化面)');
   // ── G 116-5b 线程摘要:结果带名字与概括,且它们也进检索单元 ────────────────────────────
   const alphaRow = (bom.json?.results || []).find(r => r.id === 'sess-alpha') || {};
@@ -266,6 +283,8 @@ try {
 } finally {
   kill(server);
   kill(serverOff);
+  let terminalTimer; const terminal = await Promise.race([Promise.all([serverDone, serverOffDone]).then(() => true), new Promise(resolve => { terminalTimer = setTimeout(() => resolve(false), 5000); })]); clearTimeout(terminalTimer);
+  ok(terminal, 'L1 两个owned服务均实际exit+close后结束,有界5s且不将cleanup当成功');
 }
 
 console.log(`SESSION SEARCH E2E: ${failed ? 'FAIL (' + failed + ')' : 'ALL PASS'}`);

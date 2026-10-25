@@ -30,17 +30,29 @@ function sessionBodyPaths(id) {
 // WorkDataCrypto v2 容器。读侧遇到解不开的密文【抛错】—— 不能当成「会话不存在」或「空会话」,
 // 否则一次缺钥就会让整库会话静默消失;缺钥提示归 M3-3 的处理路径。
 const SESSION_HEAD_ADAPTER_SCHEMA = 2;   // 头格式版本(不是 storageVersion)
-function sessionHeadStore(id) {
+function sessionHeadStore(id, metadata = {}) {
   return WorkDataStore.createText({
     file: () => sessionPath(id),
     purpose: 'session', schema: SESSION_HEAD_ADAPTER_SCHEMA, scopeId: 'sessions', recordId: String(id),
+    validateSealedText: () => { metadata.authenticated = true; return true; },
     keys: workDataKeys, writeJson: atomicWriteJson,
     enabled: () => readConfig().then(config => config.workDataEncryptionV1 === true).catch(() => typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.mode ? WorkDataRootHooks.mode(false) : false),
   });
 }
 const sessionHeadIsWorkDataError = error => String((error && error.code) || '').startsWith('work_data');
 async function readSessionHeadText(id) { return sessionHeadStore(id).read(); }
-async function writeSessionHead(id, text) { return sessionHeadStore(id).write(text); }
+const sessionFullTextHeadWriteSeq = new Map();
+const sessionFullTextHeadWrites = new Map();
+async function writeSessionHead(id, text) {
+  sessionFullTextHeadWriteSeq.set(id,(sessionFullTextHeadWriteSeq.get(id)||0)+1);
+  sessionFullTextHeadWrites.set(id,(sessionFullTextHeadWrites.get(id)||0)+1);
+  try { return await sessionHeadStore(id).write(text); }
+  finally {
+    sessionFullTextHeadWriteSeq.set(id,(sessionFullTextHeadWriteSeq.get(id)||0)+1);
+    const remaining=sessionFullTextHeadWrites.get(id)-1;
+    if(remaining)sessionFullTextHeadWrites.set(id,remaining);else sessionFullTextHeadWrites.delete(id);
+  }
+}
 
 // ── M3-2c-2: 正文 NDJSON 的逐记录编解码 ────────────────────────────────────────────────
 // kind 与会话 id 由文件名推出（`<id>.messages.ndjson` / `<id>.provider.ndjson`），序号 = 行位置。
@@ -1496,9 +1508,9 @@ function sessionRecentUserRequest(o) {
   if (!text) return null;
   return { text, ...(Number(recent.turnSeq) > 0 ? { turnSeq: Number(recent.turnSeq) } : {}), ...(recent.at || recent.createdAt ? { at: String(recent.at || recent.createdAt) } : {}) };
 }
-function sessionMeta(o, config) {
+function sessionMeta(o, config, options = {}) {
   // Idle index entries are authoritative; pending/in-flight index batches already overlay their writes.
-  if (activeChildren.has(o.id) || turnSettlers.has(o.id) || sessionMetaDeferChains.has(o.id)) o = applySessionTitleOverride({ ...o });
+  if (!options.committedOnly && (activeChildren.has(o.id) || turnSettlers.has(o.id) || sessionMetaDeferChains.has(o.id))) o = applySessionTitleOverride({ ...o });
   const cfg = (config && typeof config === 'object') ? config : null;
   const recentUserRequest = sessionRecentUserRequest(o);
   return {
@@ -6419,4 +6431,89 @@ async function missionSplitThreads(sourceMissionId, sessionIds, title) {
   }
   logEvent({ kind: 'mission_container_split', missionId: created.mission.missionId, fromMissionId: sourceId, threads: moved.length });
   return { ok: true, missionId: created.mission.missionId, mission: await readMissionContainer(created.mission.missionId), created: true, movedSessionIds: moved };
+}
+
+// Read-only, committed display-message source for M3-4. It never calls loadSession,
+// repairs a torn tail, migrates legacy data, normalizes, quarantines or saves.
+function sessionFullTextSequence(id) {
+  return JSON.stringify([sessionDiskWriteSeqOf(id),sessionFullTextHeadWriteSeq.get(id)||0,
+    sessionDeleteTombstones.get(id)?.at||0,sessionPermissionModeOverrides.get(id)||null,sessionDesktopToolsOverrides.get(id)||null]);
+}
+function createSessionFullTextSource() {
+  const fail=suffix=>Object.assign(Error('session_fulltext_source.'+suffix),{code:'session_fulltext_source.'+suffix,apiCode:'session_fulltext_source.'+suffix,statusCode:409});
+  const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
+  const stamp=stat=>stat?[stat.dev,stat.ino,stat.size,stat.mtimeNs,stat.ctimeNs].join(':'):'missing';
+  const maximum=256*1024*1024,physicalMaximum=WorkDataChunks.maxFileBytes(maximum)+64;
+  const physical=value=>process.platform==='win32'?path.resolve(value).toLowerCase():path.resolve(value);
+  async function owned(file){
+    const root=await fsp.lstat(paths.sessions);if(!root.isDirectory()||root.isSymbolicLink()||physical(await fsp.realpath(paths.sessions))!==physical(paths.sessions))throw fail('owner_alias');
+    const stat=await fsp.lstat(file,{bigint:true});
+    if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n||physical(await fsp.realpath(file))!==physical(file))throw fail('owner_alias');
+    return stat;
+  }
+  async function select(id){
+    if(safeSessionId(id)!==id)throw fail('session_invalid');
+    if(sessionDeleteTombstones.has(id))throw fail('deleted');
+    if(sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id))throw fail('busy');const sequence=sessionFullTextSequence(id);
+    const metadata={};let raw;try{await owned(sessionPath(id));raw=await sessionHeadStore(id,metadata).read();}catch(error){if(error.code==='ENOENT')return null;throw error;}
+    if(Buffer.byteLength(raw)>maximum)throw fail('capacity');let head;try{head=JSON.parse(raw);}catch{throw fail('source_invalid');}
+    if(!head||typeof head!=='object'||Array.isArray(head)||head.id!==id)throw fail('session_owner_required');
+    const modern=head.storageVersion===SESSION_STORAGE_VERSION,count=modern?head.messageCount:head.messages?.length;
+    if(!Number.isSafeInteger(count)||count<0||!modern&&!Array.isArray(head.messages))throw fail('source_invalid');
+    let body=null;if(modern){try{body=await owned(sessionBodyPaths(id).messages);}catch(error){if(error.code!=='ENOENT'||count!==0)throw error;}}
+    if(body&&(!body.isFile()||body.size>BigInt(Number.MAX_SAFE_INTEGER)))throw fail('source_invalid');
+    if(sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
+    return {epoch:hash(raw+'\n'+stamp(body)),raw,head,count,modern,sequence,requiresEncryption:metadata.authenticated===true,bodyStamp:stamp(body)};
+  }
+  async function scan(id,visit){
+    if(typeof visit!=='function')throw fail('visitor_invalid');const selected=await select(id);if(!selected)return null;
+    const revision=crypto.createHash('sha256').update(selected.raw).update('\n');let count=0,credential=null,handle=null,requiresEncryption=selected.requiresEncryption,result,workFailed=false,workError;
+    const accept=async raw=>{
+      if(count>=selected.count)return;
+      const probe=WorkDataRecords.lineProbe();probe.feed(Buffer.from(raw));
+      if(probe.reserved()){
+        requiresEncryption=true;
+        if(!credential)credential=await WorkDataStore.acquireSnapshot(workDataKeys);
+        raw=await WorkDataRecords.decodeLine(raw,credential.key,{instanceId:credential.instanceId,sessionId:id,kind:'messages',ordinal:count});
+      }
+      if(Buffer.byteLength(raw)>maximum)throw fail('capacity');let row;try{row=JSON.parse(raw);}catch{throw fail('source_invalid');}
+      revision.update(raw).update('\n');await visit(row,count++);
+      if(selected.sequence!==sessionFullTextSequence(id)||sessionWriteChains.has(id)||sessionFullTextHeadWrites.has(id)||sessionDeleteTombstones.has(id))throw fail('source_changed');
+    };
+    try{
+      if(!selected.modern){for(const row of selected.head.messages)await accept(JSON.stringify(row));}
+      else if(selected.count){
+        handle=await fsp.open(sessionBodyPaths(id).messages,'r');if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');
+        const buffer=Buffer.alloc(64*1024);let parts=[],bytes=0,done=false;
+        while(!done){const read=await handle.read(buffer,0,buffer.length,null);if(!read.bytesRead)break;let start=0;
+          for(let n=0;n<read.bytesRead;n++)if(buffer[n]===10){parts.push(Buffer.from(buffer.subarray(start,n)));bytes+=n-start;if(bytes>physicalMaximum)throw fail('capacity');
+            const physical=Buffer.concat(parts,bytes),text=physical.toString('utf8');if(!Buffer.from(text).equals(physical))throw fail('source_invalid');
+            await accept(text);parts=[];bytes=0;start=n+1;if(count===selected.count){done=true;break;}}
+          if(!done&&start<read.bytesRead){parts.push(Buffer.from(buffer.subarray(start,read.bytesRead)));bytes+=read.bytesRead-start;if(bytes>physicalMaximum)throw fail('capacity');}
+        }
+        if(count!==selected.count)throw fail('committed_body_missing');
+        if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');
+      }
+      const after=await select(id);if(!after||after.epoch!==selected.epoch||after.sequence!==selected.sequence)throw fail('source_changed');
+      result=Object.freeze({epoch:selected.epoch,revision:revision.digest('hex'),count,requiresEncryption});
+    }catch(error){workFailed=true;workError=error;}
+    const errors=workFailed?[workError]:[];let closeFailed=false,releaseFailed=false;
+    try{if(handle)await handle.close();}catch(error){closeFailed=true;errors.push(error);}
+    try{if(credential)await credential.release();}catch(error){releaseFailed=true;errors.push(error);}
+    if(errors.length===1)throw errors[0];
+    if(errors.length){
+      const own=(error,name)=>{if(error===null||typeof error!=='object'&&typeof error!=='function')return undefined;const field=Object.getOwnPropertyDescriptor(error,name);return field&&'value'in field?field.value:undefined;};
+      const error=new AggregateError(errors,'session_fulltext_source.cleanup_failed',{cause:errors[0]});
+      error.code=own(errors[0],'code')??'session_fulltext_source.cleanup_failed';
+      for(const name of ['apiCode','statusCode']){const value=own(errors[0],name);if(value!==undefined)error[name]=value;}
+      error.workFailed=workFailed;error.closeFailed=closeFailed;error.releaseFailed=releaseFailed;error.cleanupFailed=closeFailed||releaseFailed||errors.some(value=>own(value,'cleanupFailed')===true);
+      for(const name of ['helperMayStillRun','ownershipRetained','targetRetained'])if(errors.some(value=>own(value,name)===true))error[name]=true;
+      throw error;
+    }
+    return result;
+  }
+  async function inspect(id) {const selected=await select(id);if(!selected)return null;
+    const head={...selected.head,messageCount:selected.count};delete head.messages;delete head.providerHistory;
+    return Object.freeze({head:Object.freeze(head),epoch:selected.epoch,sequence:selected.sequence,requiresEncryption:selected.requiresEncryption});}
+  return Object.freeze({epoch:async id=>(await select(id))?.epoch||null,scan,sequence:sessionFullTextSequence,inspect});
 }

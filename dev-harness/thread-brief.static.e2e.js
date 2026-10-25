@@ -23,13 +23,53 @@
 
 const fs = require('fs');
 const path = require('path');
-const { functionBlock } = require('./lib/source-slice');
+const vm = require('node:vm');
+const { functionBlock, bracedBlock, sliceBlock } = require('./lib/source-slice');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'ruyi-workbench', 'app', 'src');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
 const readSrc = name => fs.readFileSync(path.join(SRC, name), 'utf8');
 const readPub = rel => fs.readFileSync(path.join(PUBLIC, rel), 'utf8');
+
+// Search rows now receive authorized metadata; execute the actual result
+// assemblers instead of freezing the retired raw-meta implementation spelling.
+function authorizedSearchBriefContract() {
+  const consumers = readSrc('13as-session-fulltext-consumers.js');
+  const search = functionBlock(consumers, 'searchOnce'), projection = functionBlock(consumers, 'projection');
+  const metadata = functionBlock(consumers, 'publicMetadata');
+  if (!search || !projection || !metadata || !/const meta=hit\.reference\.session/.test(search)
+    || !/const safe=await publicMetadata\(meta\.id\)/.test(search)
+    || !/metadata=await publicMetadata\(sid\)/.test(projection)
+    || !/await authorize\(sid,token,cap\.access\)/.test(metadata) || !/await disclose\(/.test(metadata)) return false;
+  const marker = 'results.set(meta.id,', assemblers = []; let at = 0;
+  while ((at = search.indexOf(marker, at)) >= 0) {
+    const block = bracedBlock(search.slice(at), marker); if (!block) return false;
+    assemblers.push(block.slice(block.indexOf('{'))); at += block.length;
+  }
+  if (assemblers.length !== 2) return false;
+  for (const brief of [{ title: 'authorized generated name', gist: 'authorized gist' }, null]) {
+    const meta = { id: 'owned', title: 'original title', ...(brief ? { brief } : {}) };
+    const context = { meta, safe: meta, hit: { snippet: 'owned snippet', reference: { session: meta }, score: 5 }, host: { redact: value => value } };
+    for (const assembly of assemblers) {
+      const row = vm.runInNewContext('(' + assembly + ')', context);
+      if (row.title !== meta.title || (brief ? row.briefTitle !== brief.title || row.briefGist !== brief.gist : 'briefTitle' in row || 'briefGist' in row)) return false;
+    }
+  }
+  return true;
+}
+function authorizedStewardBriefContract() {
+  const search = functionBlock(steward, 'stewardImplThreadsSearch');
+  if (!search || !/publicMeta=await SessionFullTextHooks\.publicMetadata\(row\.id\)/.test(search)) return false;
+  const spread = sliceBlock(search, /\.\.\.\(publicMeta\.brief\s*\?/, /\),/, { inclusive: true });
+  if (!spread) return false;
+  for (const brief of [{ title: 'authorized name', gist: 'authorized gist' }, null]) {
+    const publicMeta = { title: 'original title', ...(brief ? { brief } : {}) };
+    const row = vm.runInNewContext('({' + spread + '})', { publicMeta, head: { threadBrief: { title: 'raw private', gist: 'raw private' } }, meta: { brief: { title: 'raw private', gist: 'raw private' } } });
+    if (brief ? row.brief !== brief : 'brief' in row) return false;
+  }
+  return true;
+}
 
 let failures = 0;
 function ok(condition, label) {
@@ -85,7 +125,7 @@ const runner = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-ste
 {
   ok(/displayTitle: sessionDisplayTitle\(head\),/.test(domain),
     '② 事项卡片(13d buildMissionCard)带 displayTitle —— 看板/抽屉/「现在这一件」读它');
-  ok(/briefTitle: sessionBriefOf\(row\.meta\)\.title, briefGist: sessionBriefOf\(row\.meta\)\.gist/.test(domain),
+  ok(authorizedSearchBriefContract(),
     '② 113b 会话搜索结果带 briefTitle/briefGist');
   // 【117l 重钉】旧断言把 `displayTitle: sessionDisplayTitle(session) }));` 整段(含收尾的 `}));`)
   // 钉成了字面量 —— 它实际钉住的是「这个键在信封里,而且它正好是最后一个键」。后半句不是契约:
@@ -105,7 +145,7 @@ const runner = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-ste
     '② 117l-A1-fix2:GET /api/sessions/:id 活回合分支的 resumable 带 live:true(抽屉 isLive() 靠它)');
   ok(/: detectDanglingTurn\(session\);/.test(domain),
     '② 117l-A1-fix2 companion:非活回合分支仍是 detectDanglingTurn(session) 原样,没被顺手改动');
-  ok(/\{ brief: sessionBriefOf\(head\) \|\| sessionBriefOf\(meta\) \}/.test(steward),
+  ok(authorizedStewardBriefContract(),
     '② steward_threads_search 结果带 brief');
   ok(/displayTitle: stewardThreadDisplayTitle\(head, config\),/.test(runner)
     && /let title = sessionDisplayTitle\(head\);/.test(functionBlock(steward, 'stewardThreadDisplayTitle')),

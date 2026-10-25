@@ -73,6 +73,9 @@ const families = [
   ['playbooks', REQUIRED, 'workflow', 'tasks', [['playbookId', 'playbook identity']], 'playbook bodies embed prompts and examples'],
   // Index and caches derived from sealed content.
   ['session-search-index', REQUIRED, 'search-index', 'index-cache', [['sessionId', 'group rows per session'], ['version', 'rebuild decision without decrypting every row']], 'derived text units are a plaintext side channel for sealed bodies'],
+  ['session-fulltext-state', REQUIRED, 'search-index', 'index-cache', [], 'fulltext owner lifecycle state is workbench-owned derived state; codec closure never exempts the namespace from encryption'],
+  ['session-fulltext-manifest', REQUIRED, 'search-index', 'index-cache', [], 'fulltext manifest carries source and generation proofs for sealed conversations; rebuilding it does not make plaintext disclosure acceptable'],
+  ['session-fulltext-shard', REQUIRED, 'search-index', 'index-cache', [], 'fulltext canonical text and UTF16 origin runs derive from sealed conversation bodies and must remain encrypted through migration and portable restore'],
   ['web-cache', REQUIRED, 'cache', 'index-cache', [['fetchedAt', 'cache freshness only, no page text']], 'URLs and page bodies are sensitive; only a hash key and a timestamp stay readable'],
   ['proxy-models-cache', REQUIRED, 'cache', 'index-cache', [['fetchedAt', 'cache freshness only, no page text']], 'model list is provider metadata but can embed account-scoped ids'],
   ['engine-transcript-index', REQUIRED, 'cache', 'index-cache', [['sessionId', 'join to the session']], 'transcript paths and titles reveal engine sessions'],
