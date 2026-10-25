@@ -4,6 +4,7 @@ param(
   [switch]$IncludeAcc,
   [switch]$BuildAccOffline,
   [string]$AccOfflineSource = "",
+  [string]$MediaSourcesRoot = "",
   [string]$Variant = "offline"
 )
 
@@ -15,6 +16,7 @@ param(
 #                       regenerated, so a code-only ACC fix is deployed by --ensure as well.
 #   -BuildAccOffline  : build that ACC payload now (requires internet on the packaging machine).
 #   -AccOfflineSource : existing ACC build_offline folder; defaults to mcp/ai-computer-control/build_offline.
+#   -MediaSourcesRoot : existing corresponding-source sidecar directory; defaults to media-sources beside this package.
 #   -Variant       : label for the stage dir and zip name.
 
 $ErrorActionPreference = "Stop"
@@ -304,6 +306,34 @@ Copy-Item (Join-Path $root "docs") (Join-Path $stage "docs") -Recurse
 Copy-Item (Join-Path $root "package.json") (Join-Path $stage "package.json")
 Copy-Item (Join-Path $root "README-START-HERE.txt") (Join-Path $stage "README-START-HERE.txt")
 
+# M4 inventory is a packaging prerequisite, not media processing or egress authority.
+function Assert-MediaArtifactInventory([string]$WorkbenchRoot, [string]$AccRoot, [string]$SourceRoot) {
+  $mediaNode = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $mediaNode) { throw "Node.js is required to verify the frozen media artifact inventory." }
+  $mediaTools = @{
+    "media-runtime-lock.cjs" = "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0"
+    "verify-media-artifacts.cjs" = "98104d387bf7a61ad685a4a7c4533ac5d794833cf05ff28fe14af27842be4e59"
+  }
+  foreach ($entry in $mediaTools.GetEnumerator()) {
+    $tool = Join-Path $WorkbenchRoot ("tools\" + $entry.Key)
+    if (-not (Test-Path -LiteralPath $tool -PathType Leaf) -or (Get-Sha256Hex $tool) -cne $entry.Value) {
+      throw "Media inventory verifier is absent or differs from its reviewed source: $($entry.Key)."
+    }
+  }
+  $verifier = Join-Path $WorkbenchRoot "tools\verify-media-artifacts.cjs"
+  $mediaOutput = & $mediaNode.Source $verifier $AccRoot $SourceRoot
+  if ($LASTEXITCODE -ne 0) { throw "Media dependency or corresponding-source artifact verification failed; refusing this Full payload." }
+  $inventory = ConvertFrom-Json -InputObject ([string]::Join([Environment]::NewLine, @($mediaOutput)))
+  if ($inventory.schema -ne 1 -or $inventory.verificationKind -cne "offline-artifact-inventory") { throw "Invalid media inventory receipt." }
+  foreach ($field in @("dependencyFilesVerified", "sourceArchiveVerified")) {
+    if ($inventory.$field -isnot [bool] -or $inventory.$field -ne $true) { throw "Unconfirmed media inventory receipt." }
+  }
+  foreach ($field in @("installsPerformed", "mediaProcessingEnabled", "mediaEgressEnabled")) {
+    if ($inventory.$field -isnot [bool] -or $inventory.$field -ne $false) { throw "Media inventory cannot install, process or authorize egress." }
+  }
+  Write-Host "Media dependency and source subset verified; processing and egress remain disabled."
+}
+
 $accSummary = "(no ACC)"
 if ($IncludeAcc) {
   $accSrc = Join-Path $repoRoot "mcp\ai-computer-control"
@@ -324,6 +354,8 @@ if ($IncludeAcc) {
     if ($manifestJson.wheelOnly -ne $true -or -not (Test-Path -LiteralPath (Join-Path $offlineSrc "python_embed\python.exe"))) {
       throw "ACC offline payload is invalid: it must be wheel-only and include python_embed\python.exe."
     }
+    $mediaSources = if ($MediaSourcesRoot) { (Resolve-Path -LiteralPath $MediaSourcesRoot).Path } else { Join-Path $root "media-sources" }
+    Assert-MediaArtifactInventory $root $offlineSrc $mediaSources
     Assert-FullAccOcrPayload $offlineSrc (Join-Path $offlineSrc "python_embed\python.exe")
     $accDst = Join-Path $stage "mcp\ai-computer-control"
     New-Item -ItemType Directory -Force -Path $accDst | Out-Null
@@ -344,6 +376,13 @@ if ($IncludeAcc) {
     $releaseSourcePackage = Sync-AccReleaseRuntime $accSrc $accDst $stage
     Write-AccReleaseManifest $accDst $releaseSourcePackage
     $accPython = Join-Path $accDst "python_embed\python.exe"
+    $mediaDestination = Join-Path $stage "resources\media-runtime-sources"
+    New-Item -ItemType Directory -Force -Path $mediaDestination | Out-Null
+    Copy-Item -LiteralPath (Join-Path $mediaSources "opencv-windows-ffmpeg-source-sidecar.zip") -Destination $mediaDestination -Force
+    foreach ($mediaTool in @("media-runtime-lock.cjs", "verify-media-artifacts.cjs")) {
+      Copy-Item -LiteralPath (Join-Path $root ("tools\" + $mediaTool)) -Destination (Join-Path $stage ("tools\" + $mediaTool)) -Force
+    }
+    Assert-MediaArtifactInventory $stage $accDst $mediaDestination
     Assert-FullAccOcrPayload $accDst $accPython -RequireReleaseManifest
     $oldPythonPath = $env:PYTHONPATH
     try {

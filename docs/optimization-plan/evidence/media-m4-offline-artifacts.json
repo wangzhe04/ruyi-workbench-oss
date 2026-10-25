@@ -1,0 +1,438 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "status": "本批离线依赖接线与长期测试已通过完整单测及最终82静态逐件验证；整体3.1未完成",
+  "baseCommit": "1a38449551d20af3dd44d34abbedf4c4373ff53a",
+  "workbenchVersion": "3.0.1",
+  "scope": "所选媒体离线依赖与对应源码归档的固定摘要校验及完整包接线；不授权处理或外发",
+  "runtime": {
+    "artifacts": 4987,
+    "bytes": 413946142,
+    "selectedDistributions": 21,
+    "recordRows": 4931,
+    "recordHashedRows": 3178,
+    "unhashedRecordRows": 1753,
+    "unhashedBytecode": 1732,
+    "selfRecordRows": 21,
+    "cpythonRootFiles": 35,
+    "additionalExistingWheels": 7,
+    "original82TuplesConserved": true,
+    "originalFullAlreadyHadManifestVerification": true
+  },
+  "sourceArchive": {
+    "file": "opencv-windows-ffmpeg-source-sidecar.zip",
+    "bytes": 19922194,
+    "sha256": "09b13acc951b1ca1ed5f0971a51564599daad1bf733d2bf1f02c29d5c124f0d7"
+  },
+  "verification": {
+    "immutableLocksBeforeFirstAwait": true,
+    "windowsAliasesAcrossGroupsRejected": true,
+    "runtimeGroups": 10,
+    "sourceGroups": 1,
+    "perGroupFiles": 512,
+    "perGroupBytes": 268435456,
+    "perFileBytes": 134217728,
+    "lastGroupFailureOrCancelCannotPass": true,
+    "mediaProcessingEnabled": false,
+    "mediaEgressEnabled": false
+  },
+  "products": [
+    {
+      "file": "dev-harness/lib/media-artifact-multiple-command-model.ps1",
+      "bytes": 3683,
+      "sha256": "562e27adff853f54dc836d2d09299f67f67850273001b2d0687405165ce1b67f"
+    },
+    {
+      "file": "dev-harness/lib/media-artifact-no-fallback-model.ps1",
+      "bytes": 1180,
+      "sha256": "0ce5dd9396401bd0ed769b4494f3228060b33de9be8e91e96fedf474a3159668"
+    },
+    {
+      "file": "dev-harness/lib/media-artifact-package-function-model.ps1",
+      "bytes": 6305,
+      "sha256": "125c6420ae340622b5a09ede465260bfb1e4fbbf984948608ea0adc03cbce08d"
+    },
+    {
+      "file": "dev-harness/lib/media-artifact-test-guard.js",
+      "bytes": 1909,
+      "sha256": "08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91"
+    },
+    {
+      "file": "dev-harness/media-artifact-package.static.e2e.js",
+      "bytes": 3344,
+      "sha256": "5022ae17ef6b2c0f85091844ee619a0c6cc64765f54cf21c05779921d2e5a301"
+    },
+    {
+      "file": "dev-harness/unit/media-artifact-inventory.test.js",
+      "bytes": 18842,
+      "sha256": "8d396670b08b09283afe959cef38541e06b654c24e6f7ab948a3fc7b251a8205"
+    },
+    {
+      "file": "ruyi-workbench/resources/media-runtime-dependencies.json",
+      "bytes": 3201434,
+      "sha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f"
+    },
+    {
+      "file": "ruyi-workbench/resources/media-runtime-sources.json",
+      "bytes": 443,
+      "sha256": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29"
+    },
+    {
+      "file": "ruyi-workbench/tools/media-runtime-lock.cjs",
+      "bytes": 4067,
+      "sha256": "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0"
+    },
+    {
+      "file": "ruyi-workbench/tools/package-offline.ps1",
+      "bytes": 34022,
+      "sha256": "9dea645523e7376f54cd1cfc21a3e759166bc835651a2400dad995ed70090892"
+    },
+    {
+      "file": "ruyi-workbench/tools/verify-media-artifacts.cjs",
+      "bytes": 4338,
+      "sha256": "98104d387bf7a61ad685a4a7c4533ac5d794833cf05ff28fe14af27842be4e59"
+    }
+  ],
+  "independentSourceReviews": [
+    {
+      "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-closure-root-review\\review.json",
+      "bytes": 1889,
+      "sha256": "cabc1c2a9c3c8638e7b09ed986011a30478f072ff47e5fa4f4145d6e7538cc52"
+    },
+    {
+      "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-fusion-root-review-v2\\review.json",
+      "bytes": 2897,
+      "sha256": "7470ceedffe67160151d8127c88b8d6accd0e69b7bfefeca7edce8e529a8bb03"
+    }
+  ],
+  "permanentTests": {
+    "unit": 37,
+    "static": 4,
+    "rootExecutedAll": true,
+    "privateGeneratorCase": 1,
+    "retainedAuthorNegativeControls": 8,
+    "models": "根在真实PowerShell5下显式执行当前11文件融合副本的三个命令模型，全部actual exit+close0；模型使用命令桩，不能替代真实Node/Python/打包验收。",
+    "modelReceipt": {
+      "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-closure-permanent-model-results.json",
+      "bytes": 2923,
+      "sha256": "6f41c0758370f79a5d3a4cb84cb3c53101eeb12342304176196b2c883147a923"
+    },
+    "finalPowerShellEol": "依仓库.gitattributes把三模型转为CRLF；LF归一后的源码完全一致，当前工作树三模型再次实际PowerShell5执行并各exit+close0。",
+    "finalModelReceipt": {
+      "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-final-working-model-results.json",
+      "bytes": 1250,
+      "sha256": "62a97ead474dd858c7f00bd324546d56867c0f4440a859b69cc0dc9e63286ba6"
+    },
+    "eolReceipt": {
+      "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-final-model-eol.json",
+      "bytes": 1376,
+      "sha256": "0b00aa0ca3be9008de480e670080140a88c23e810f2bfbe76a600f4e401fc992"
+    },
+    "finalJsEol": {
+      "receipt": "m4-final-js-eol.json",
+      "files": 2,
+      "bodyIdenticalAfterLfNormalization": true,
+      "scope": "只移除原guard/单测末尾残留CR，遵守JS的LF属性；归档保旧精确身份，产品工具及运行时不变。"
+    },
+    "finalLfUnit37": {
+      "tests": 37,
+      "pass": 37,
+      "fail": 0,
+      "log": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-final-lf-unit37.log",
+        "bytes": 3415,
+        "sha256": "5e1c4c30f84054da9468a5edd1de673f2ce0b211825ba76c48b581bd70e9add0"
+      },
+      "scope": "仅移末尾CR后当前guard/单测真实执行；完整3842历史结果及原断言保留。"
+    }
+  },
+  "actual": {
+    "cacheRounds": [
+      {
+        "round": 1,
+        "milliseconds": 5883.93,
+        "schema": 1,
+        "verificationKind": "offline-artifact-inventory",
+        "dependencyFilesVerified": true,
+        "pythonVersion": "3.12.10",
+        "runtimeArtifacts": 4987,
+        "verifiedRuntimeBytes": 413946142,
+        "sourceArchiveVerified": true,
+        "verifiedSourceBytes": 19922194,
+        "installsPerformed": false,
+        "mediaProcessingEnabled": false,
+        "mediaEgressEnabled": false
+      },
+      {
+        "round": 2,
+        "milliseconds": 4481.009800000001,
+        "schema": 1,
+        "verificationKind": "offline-artifact-inventory",
+        "dependencyFilesVerified": true,
+        "pythonVersion": "3.12.10",
+        "runtimeArtifacts": 4987,
+        "verifiedRuntimeBytes": 413946142,
+        "sourceArchiveVerified": true,
+        "verifiedSourceBytes": 19922194,
+        "installsPerformed": false,
+        "mediaProcessingEnabled": false,
+        "mediaEgressEnabled": false
+      }
+    ],
+    "stageRounds": [
+      {
+        "round": 1,
+        "milliseconds": 5799.569200000001,
+        "schema": 1,
+        "verificationKind": "offline-artifact-inventory",
+        "dependencyFilesVerified": true,
+        "pythonVersion": "3.12.10",
+        "runtimeArtifacts": 4987,
+        "verifiedRuntimeBytes": 413946142,
+        "sourceArchiveVerified": true,
+        "verifiedSourceBytes": 19922194,
+        "installsPerformed": false,
+        "mediaProcessingEnabled": false,
+        "mediaEgressEnabled": false
+      },
+      {
+        "round": 2,
+        "milliseconds": 4341.6836,
+        "schema": 1,
+        "verificationKind": "offline-artifact-inventory",
+        "dependencyFilesVerified": true,
+        "pythonVersion": "3.12.10",
+        "runtimeArtifacts": 4987,
+        "verifiedRuntimeBytes": 413946142,
+        "sourceArchiveVerified": true,
+        "verifiedSourceBytes": 19922194,
+        "installsPerformed": false,
+        "mediaProcessingEnabled": false,
+        "mediaEgressEnabled": false
+      }
+    ],
+    "functions": {
+      "scope": "Actual two source functions and real Node inventory processes only; not full packager, Python, installation or media",
+      "powershell": "5.1.26100.9711",
+      "node": "C:\\Program Files\\nodejs\\node.exe",
+      "packageSha256": "9dea645523e7376f54cd1cfc21a3e759166bc835651a2400dad995ed70090892",
+      "cases": [
+        {
+          "name": "source actual package function",
+          "expected": "success",
+          "observed": "success"
+        },
+        {
+          "name": "stage actual package function with Unicode and spaces",
+          "expected": "success",
+          "observed": "success"
+        },
+        {
+          "name": "missing source archive",
+          "expected": "refusal",
+          "observed": "refusal",
+          "error": "Media dependency or corresponding-source artifact verification failed; refusing this Full payload."
+        },
+        {
+          "name": "changed staged runtime artifact",
+          "expected": "refusal",
+          "observed": "refusal",
+          "error": "Media dependency or corresponding-source artifact verification failed; refusing this Full payload."
+        },
+        {
+          "name": "changed verifier rejected by actual package source",
+          "expected": "refusal",
+          "observed": "refusal",
+          "error": "Media inventory verifier is absent or differs from its reviewed source: verify-media-artifacts.cjs."
+        }
+      ],
+      "directReceiptsSeparateFromFunctionCalls": true,
+      "completePackagerExecuted": false,
+      "pythonExecuted": false,
+      "installsPerformed": false,
+      "mediaProcessingEnabled": false,
+      "mediaEgressEnabled": false
+    },
+    "sourceReceipt": {
+      "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-closure-root-review\\actual-source-results.json",
+      "bytes": 2962,
+      "sha256": "f8af4ed966a71915a05b14e231c0a03d79249210abd160218e1d2c9b5bb7d9e9"
+    },
+    "stageReceipt": {
+      "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-closure-root-review\\actual-stage-results.json",
+      "bytes": 3023,
+      "sha256": "ac503efe082af10c0127d5fe4aed6203375012b17788bb5625ca8cc40b0bd91e"
+    },
+    "functionsReceipt": {
+      "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-closure-root-review\\functions-actual-report.json",
+      "bytes": 2041,
+      "sha256": "f160e473df5fbbaae2406ce092b3eda6ff7f155c04606c2aeaff1507daccbfcd"
+    },
+    "functionsProcess": {
+      "actualExitCode": 0,
+      "toolSession": 97613,
+      "wholePackagerExecuted": false
+    }
+  },
+  "initialFailures": [
+    {
+      "scope": "原82项打包函数",
+      "reason": "PowerShell发现两套Node命令，命令Source数组拼接成非法路径",
+      "fix": "只取第一个Application，不增加失败后换环境重试",
+      "priorRecord": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-package-function-actual-v2.process.json"
+    },
+    {
+      "scope": "根验证脚本准备",
+      "reason": "把已经是绝对路径的产品file字段按相对路径切片，未进入产品函数执行",
+      "fix": "新版根准备器按固定工作台根计算相对路径；冻结产品未改",
+      "script": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\prepare-m4-closure-functions-root-v2.cjs"
+    },
+    {
+      "scope": "独审检查器",
+      "reason": "路径依赖检查误把原拒绝用例C:/codec.bin当作真实依赖",
+      "fix": "检查器移除该全正文路径正则；原拒绝用例及产品未改",
+      "script": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\review-m4-fusion-root-v2.cjs"
+    },
+    {
+      "scope": "跨机归档暂存检查",
+      "reason": "默认文本EOL规则把新ZIP误当文本扫描，原EOL门拒绝mixed",
+      "fix": "只给此已校验ZIP添加显式binary属性；归档SHA与内容未改变，原门和仓库卫生复验通过。"
+    }
+  ],
+  "unifiedRegression": {
+    "status": "完整单测通过；标准fast首轮事实计数门失败后，最终82原静态逐件串行全部通过，分别记录",
+    "first": {
+      "tests": 3842,
+      "pass": 3813,
+      "skip": 26,
+      "fail": 3,
+      "staticRan": false,
+      "process": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-live-fast.process.json",
+        "bytes": 510,
+        "sha256": "3ee61805f93fcc0de35e46cda128c2447ec50df4530cc6a7a7a46764176f60a4"
+      },
+      "unitLog": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-live-first-unit-failure.log",
+        "bytes": 544912,
+        "sha256": "e0e70996713255a57fdb9d58f7cc796c9cd6750496a44a5dcf28a28f42d4e35c"
+      },
+      "errors": [
+        "原session-artifacts malformed-index用例Array buffer allocation failed",
+        "原migration-host两用例work_data_recovery.kdf_failed"
+      ],
+      "cause": "尚未确认；失败后内存采样不能证明失败时的根因。"
+    },
+    "focused": {
+      "tests": 43,
+      "pass": 43,
+      "fail": 0,
+      "process": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-failed-units-focused.process.json",
+        "bytes": 589,
+        "sha256": "6b187905d44247308990c117c23b992c246e73d02a1e6126af341a0674962e43"
+      },
+      "scope": "仅两份原文件串行定向复验；不据此声称首轮根因已修。"
+    },
+    "second": {
+      "process": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-live-fast-second.process.json",
+        "bytes": 576,
+        "sha256": "cb22365c741cddd5330f726e9b36111e97df3b0167b647dbc1d5299e49a35bf9"
+      },
+      "outerBudgetMs": 600000,
+      "timeout": true,
+      "completedUnitSummary": false,
+      "staticRan": false,
+      "scope": "两路并发整轮仍在原walk-tools测试运行时触及外围总限，按自有进程树回收。未改原断言或单件预算，不能记通过。"
+    },
+    "relatedFinal": {
+      "unit37Rounds": 2,
+      "static4Rounds": 2,
+      "allPass": true
+    },
+    "syntax": {
+      "files": 1318,
+      "fail": 0,
+      "log": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-live-syntax.log",
+        "bytes": 61,
+        "sha256": "810c332f417260a8a7045d3755377c5ed1d0bb2c8f0cd48049e7f09e7c2d4aa5"
+      }
+    },
+    "liveBuildCheck": "真实build --check通过，后端服务产物仍为既有4521版本，本批没有后端模块改动。",
+    "third": {
+      "command": "run-all.js --fast --parallel 2",
+      "outerBudgetMs": 1200000,
+      "originalPerCaseBudgetsUnchanged": true,
+      "tests": 3842,
+      "pass": 3816,
+      "skip": 26,
+      "fail": 0,
+      "unitMilliseconds": 613856.8865,
+      "unitLog": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-live-complete-unit-passed.log",
+        "bytes": 543695,
+        "sha256": "5442cb7d6dc1f6e5c15774289f66e464494cf48db397f680fea5e3ba2d3a5bc0"
+      },
+      "standardFast": {
+        "passed": 81,
+        "total": 82,
+        "failedFile": "facts.static.e2e.js",
+        "reason": "README中英仍为587/393，实际清册588/394；按生成器修为588、默认581、394，原计数断言不改"
+      },
+      "process": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-live-fast-third.process.json",
+        "bytes": 581,
+        "sha256": "586187d7c608748d52316952d437e5c799fa95a09d93764091ac30f0f324b516"
+      }
+    },
+    "finalStatic": {
+      "files": 82,
+      "passed": 82,
+      "failed": 0,
+      "allActualExitAndClose0": true,
+      "perCaseTimeoutMs": 120000,
+      "receipt": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-static-final-results.json",
+        "bytes": 37315,
+        "sha256": "885349e4673470f533f90e57b72c5cfe0144ce2086c1a7ad351be408a6186370"
+      },
+      "scope": "82个原静态文件逐个串行、每件独立家/双AppData/TEMP。不是一次新的标准fast整轮。"
+    },
+    "finalReadmeAndMediaGate": "CRLF规范化后再次实际执行media-artifact-package.static及facts.static，两原门均通过。",
+    "finalRepositoryChecks": {
+      "receipt": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-final-v2-repo-checks.json",
+        "bytes": 652,
+        "sha256": "bd8f469a7261b0ff1149372272120063bc3509c7c9953355cf6246dec3be3c24"
+      },
+      "scope": "暂存后实际EOL政策与仓库卫生检查，均actualexit+close0；源码ZIP明确binary，不改原静态断言。"
+    }
+  },
+  "notAccepted": [
+    "整个完整包脚本与实际安装包",
+    "Python实际导入来源及处理器隔离",
+    "图片、PDF/Office和视频生产处理及真实发送",
+    "Office视觉渲染与分发字体",
+    "系统OCR语言和可选依赖分支",
+    "全部桌面控制服务或操作系统依赖闭合",
+    "来源构建证明及许可最终审核",
+    "整体3.1发布"
+  ],
+  "notes": [
+    "固定摘要与原清单来源证明不等于签名或可复现构建证明。",
+    "新清单约3.2MB，既有完整包运行时内容无需重复增加；最终包增量尚待实包测量。",
+    "用户暂缓的本地ASR和严格CLI范围不记为已实现。"
+  ],
+  "finalIndependentReview": {
+    "file": "media-m4-final-review.json",
+    "scope": "最终非作者审查会单独记录产品、换行规范化、文档与交接包的精确身份；不循环写入此证据自身摘要。"
+  },
+  "crossMachineHandoff": {
+    "document": "../97-3.1-cross-machine-handoff-20261025.md",
+    "sourceBundle": "source-handoff-20261025.zip",
+    "receipt": "source-handoff-20261025.json",
+    "notProductionPromotion": true
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "scope": "Exact existing corresponding-source archive and notices; byte identity only, no legal or media-processor approval",
+  "sourceContentLockSha256": "9129d3e4e08b5cf59311e97bf71f64ed1ba521533c35aa859362ddfca8d4db40",
+  "artifacts": [
+    {
+      "path": "opencv-windows-ffmpeg-source-sidecar.zip",
+      "bytes": 19922194,
+      "sha256": "09b13acc951b1ca1ed5f0971a51564599daad1bf733d2bf1f02c29d5c124f0d7"
+    }
+  ]
+}

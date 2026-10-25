@@ -1,0 +1,38 @@
+{
+    "schema":  1,
+    "date":  "2026-10-25",
+    "archive":  "source-handoff-20261025.zip",
+    "bytes":  17913460,
+    "sha256":  "b3d899ca9465cf7db7fce3061ee82488ac03868d766cef7e672b0da1c2248278",
+    "sourceFiles":  1675,
+    "entries":  1676,
+    "everySourceEntryVerified":  true,
+    "packages":  [
+                     "ruyi-portable-target-preserved-reads-20261025",
+                     "ruyi-portable-target-diagnostic-reporter-fix-20261025",
+                     "ruyi-target-diagnostic-independent-context-20261025",
+                     "ruyi-published-target-launcher-independent-20261025",
+                     "ruyi-target-diagnostic-actual-independent-20261025",
+                     "ruyi-ordinary-cause-frames-diagnostic-v2-20261025",
+                     "ruyi-ordinary-diagnostic-v2-independent-20261025",
+                     "ruyi-ordinary-nonempty-hash-retention-fix-20261025",
+                     "ruyi-ordinary-nonempty-native-gate-20261025",
+                     "ruyi-ordinary-nonempty-independent-context-20261025",
+                     "ruyi-m4-image-cleanup-flags-fix-20261025",
+                     "ruyi-m4-image-revoke-fix-20261025",
+                     "ruyi-m4-image-revoke-independent-context-20261025",
+                     "ruyi-m4-image-independent-capsule-20261025",
+                     "ruyi-m5-b1-reply-cancel-private-20261025",
+                     "ruyi-m3-production-gap-source-analysis-20261025",
+                     "codex-ruyi-current118-durability-union-v2-20261025",
+                     "codex-ruyi-current118-target-diagnostic-run-20261025",
+                     "codex-ruyi-published-target-diagnostic-run-20261025"
+                 ],
+    "scope":  "Exact authored source candidates and selected synthetic historical evidence only; no live promotion or portable NTFS/runtime acceptance.",
+    "notIncluded":  [
+                        "original NTFS fixture trees and metadata replay",
+                        "real user data",
+                        "third-party offline Python/media runtime cache and corresponding-source sidecar"
+                    ],
+    "productionPromotion":  false
+}

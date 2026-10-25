@@ -1,0 +1,329 @@
+{
+  "schema": 1,
+  "reviewer": "capsule_preserved_resume; nonauthor of M4 inventory batch, final docs and source-bundle assembly",
+  "recordedAt": "2026-10-25T16:03:53.303Z",
+  "decision": "approved_for_this_batch_commit_and_push",
+  "findings": [],
+  "scope": "21 exact staged source/tests/docs/handoff files in v3 plus an identical copy of this review as22nd evidence file; no archived candidate promotion, release, deployment or new actual test authority",
+  "baseCommit": "1a38449551d20af3dd44d34abbedf4c4373ff53a",
+  "snapshot": {
+    "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\m4-final-staged-review-snapshot-v3.json",
+    "sha256": "727810b0a322f332a3f7912d5fe64b5174d55428e8b397fc65d98a41dcb57841",
+    "files": 21,
+    "workingAndFilteredStageObjectsIndependentlyEqual": true,
+    "allWindowsCheckoutExact": true,
+    "unstagedChanges": false,
+    "filesPinned": [
+      {
+        "file": ".gitattributes",
+        "bytes": 902,
+        "workingSha256": "5916f8342642ccdd859bfa0074cb291c88e274d28460790a3edc3132e2e27f52",
+        "blobBytes": 902,
+        "blobSha256": "5916f8342642ccdd859bfa0074cb291c88e274d28460790a3edc3132e2e27f52",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "dev-harness/lib/media-artifact-multiple-command-model.ps1",
+        "bytes": 3683,
+        "workingSha256": "562e27adff853f54dc836d2d09299f67f67850273001b2d0687405165ce1b67f",
+        "blobBytes": 3648,
+        "blobSha256": "af514f652728d4c417b4c8f9135af72dfe09a45d36395e4c9ece40f070799a00",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "dev-harness/lib/media-artifact-no-fallback-model.ps1",
+        "bytes": 1180,
+        "workingSha256": "0ce5dd9396401bd0ed769b4494f3228060b33de9be8e91e96fedf474a3159668",
+        "blobBytes": 1167,
+        "blobSha256": "d7b039ff4745ce595731d7aec8629a600a5c31ffef409dca1dc1f5769f537c2b",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "dev-harness/lib/media-artifact-package-function-model.ps1",
+        "bytes": 6305,
+        "workingSha256": "125c6420ae340622b5a09ede465260bfb1e4fbbf984948608ea0adc03cbce08d",
+        "blobBytes": 6249,
+        "blobSha256": "cd519bb910da81ff7615ae2df6cec659eabf2e2e587d62fc6828c3d1d6ed3aae",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "dev-harness/lib/media-artifact-test-guard.js",
+        "bytes": 1909,
+        "workingSha256": "08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91",
+        "blobBytes": 1909,
+        "blobSha256": "08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "dev-harness/media-artifact-package.static.e2e.js",
+        "bytes": 3344,
+        "workingSha256": "5022ae17ef6b2c0f85091844ee619a0c6cc64765f54cf21c05779921d2e5a301",
+        "blobBytes": 3344,
+        "blobSha256": "5022ae17ef6b2c0f85091844ee619a0c6cc64765f54cf21c05779921d2e5a301",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "dev-harness/unit/media-artifact-inventory.test.js",
+        "bytes": 18842,
+        "workingSha256": "8d396670b08b09283afe959cef38541e06b654c24e6f7ab948a3fc7b251a8205",
+        "blobBytes": 18842,
+        "blobSha256": "8d396670b08b09283afe959cef38541e06b654c24e6f7ab948a3fc7b251a8205",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "ruyi-workbench/resources/media-runtime-dependencies.json",
+        "bytes": 3201434,
+        "workingSha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+        "blobBytes": 3201434,
+        "blobSha256": "4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "ruyi-workbench/resources/media-runtime-sources.json",
+        "bytes": 443,
+        "workingSha256": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29",
+        "blobBytes": 443,
+        "blobSha256": "96b07893303e89c9ba668247aa9fb95a15d879c7fd741e674dbfc8491d11fd29",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "ruyi-workbench/tools/media-runtime-lock.cjs",
+        "bytes": 4067,
+        "workingSha256": "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0",
+        "blobBytes": 4067,
+        "blobSha256": "b92703bd84f3b239e8ad6b568c080aa92a240d8e85829f354fc5eaae600c59c0",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "ruyi-workbench/tools/package-offline.ps1",
+        "bytes": 34022,
+        "workingSha256": "9dea645523e7376f54cd1cfc21a3e759166bc835651a2400dad995ed70090892",
+        "blobBytes": 33413,
+        "blobSha256": "957d2916841e8ebe1a4697f2c5fce66437b45465d72e976a63a7e28376334215",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "ruyi-workbench/tools/verify-media-artifacts.cjs",
+        "bytes": 4338,
+        "workingSha256": "98104d387bf7a61ad685a4a7c4533ac5d794833cf05ff28fe14af27842be4e59",
+        "blobBytes": 4338,
+        "blobSha256": "98104d387bf7a61ad685a4a7c4533ac5d794833cf05ff28fe14af27842be4e59",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "README.md",
+        "bytes": 64286,
+        "workingSha256": "22d3d5654cf743aec7f52cc2955606e99090e65bc404cd4237408908207a548f",
+        "blobBytes": 64286,
+        "blobSha256": "22d3d5654cf743aec7f52cc2955606e99090e65bc404cd4237408908207a548f",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "README_EN.md",
+        "bytes": 71155,
+        "workingSha256": "9e8b6ebf0edd7958810afa6aa4f1536cefd62a1dabbb569c80010f30eeeb16bc",
+        "blobBytes": 71155,
+        "blobSha256": "9e8b6ebf0edd7958810afa6aa4f1536cefd62a1dabbb569c80010f30eeeb16bc",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "facts.json",
+        "bytes": 1335,
+        "workingSha256": "7c715fa32a36c338b8e945fa183a5ea19f43bfbc1aa581784567d391aa7064bc",
+        "blobBytes": 1335,
+        "blobSha256": "7c715fa32a36c338b8e945fa183a5ea19f43bfbc1aa581784567d391aa7064bc",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "docs/optimization-plan/92-3.1-implementation-handoff.md",
+        "bytes": 122327,
+        "workingSha256": "ad22c20b7b3283769b8b3a5640e24ca0fac12c2ebcd140cc1df9016981ad05c4",
+        "blobBytes": 122327,
+        "blobSha256": "ad22c20b7b3283769b8b3a5640e24ca0fac12c2ebcd140cc1df9016981ad05c4",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "docs/optimization-plan/evidence/media-m4-offline-artifacts.json",
+        "bytes": 17463,
+        "workingSha256": "65553e01d92eab2fbff9923305889c1210d79a61a2e70c8770f6def69852ea56",
+        "blobBytes": 17463,
+        "blobSha256": "65553e01d92eab2fbff9923305889c1210d79a61a2e70c8770f6def69852ea56",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "docs/optimization-plan/README.md",
+        "bytes": 8542,
+        "workingSha256": "2aca6cbe5d45de466b6937c238ff4263f6909d9b4b1b6eec5d6b3cc2b67b5980",
+        "blobBytes": 8542,
+        "blobSha256": "2aca6cbe5d45de466b6937c238ff4263f6909d9b4b1b6eec5d6b3cc2b67b5980",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "docs/optimization-plan/97-3.1-cross-machine-handoff-20261025.md",
+        "bytes": 10211,
+        "workingSha256": "cd22200a4960d2d60e5b457aa79610f96e6e0b330f666a92d805d7c73a660d7a",
+        "blobBytes": 10211,
+        "blobSha256": "cd22200a4960d2d60e5b457aa79610f96e6e0b330f666a92d805d7c73a660d7a",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "docs/optimization-plan/evidence/source-handoff-20261025.json",
+        "bytes": 2154,
+        "workingSha256": "7b05488857bc3b585300efa58ea35a96f1aa5764b1aa9f55c07b368bb0bc1f05",
+        "blobBytes": 2154,
+        "blobSha256": "7b05488857bc3b585300efa58ea35a96f1aa5764b1aa9f55c07b368bb0bc1f05",
+        "windowsCheckoutExact": true
+      },
+      {
+        "file": "docs/optimization-plan/evidence/source-handoff-20261025.zip",
+        "bytes": 17913460,
+        "workingSha256": "b3d899ca9465cf7db7fce3061ee82488ac03868d766cef7e672b0da1c2248278",
+        "blobBytes": 17913460,
+        "blobSha256": "b3d899ca9465cf7db7fce3061ee82488ac03868d766cef7e672b0da1c2248278",
+        "windowsCheckoutExact": true
+      }
+    ]
+  },
+  "reusedReviews": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m4-final-independent-capsule-20261025\\preliminary-review.json",
+      "sha256": "e0d18aee733e712eac1f68f6f091c046cf7976668cf0edd15f0006831c81d1cc"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m4-final-independent-capsule-20261025\\eol-source-review.json",
+      "sha256": "7183576e4f64f402917cbbb332215a0421a03be99bdcf416e330067869e1958f"
+    }
+  ],
+  "sourceConservation": {
+    "originalElevenPromotionFiles": 11,
+    "rawExact": 6,
+    "eolOnlyFive": [
+      {
+        "file": "dev-harness/lib/media-artifact-multiple-command-model.ps1",
+        "beforeSha256": "af514f652728d4c417b4c8f9135af72dfe09a45d36395e4c9ece40f070799a00",
+        "afterSha256": "562e27adff853f54dc836d2d09299f67f67850273001b2d0687405165ce1b67f",
+        "normalizedBodyExact": true
+      },
+      {
+        "file": "dev-harness/lib/media-artifact-no-fallback-model.ps1",
+        "beforeSha256": "d7b039ff4745ce595731d7aec8629a600a5c31ffef409dca1dc1f5769f537c2b",
+        "afterSha256": "0ce5dd9396401bd0ed769b4494f3228060b33de9be8e91e96fedf474a3159668",
+        "normalizedBodyExact": true
+      },
+      {
+        "file": "dev-harness/lib/media-artifact-package-function-model.ps1",
+        "beforeSha256": "cd519bb910da81ff7615ae2df6cec659eabf2e2e587d62fc6828c3d1d6ed3aae",
+        "afterSha256": "125c6420ae340622b5a09ede465260bfb1e4fbbf984948608ea0adc03cbce08d",
+        "normalizedBodyExact": true
+      },
+      {
+        "file": "dev-harness/lib/media-artifact-test-guard.js",
+        "beforeSha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+        "afterSha256": "08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91",
+        "normalizedBodyExact": true
+      },
+      {
+        "file": "dev-harness/unit/media-artifact-inventory.test.js",
+        "beforeSha256": "e6d71dc5e78b51b67b597d0d12f18e569e312f902e1e0f574554380cf22efb86",
+        "afterSha256": "8d396670b08b09283afe959cef38541e06b654c24e6f7ab948a3fc7b251a8205",
+        "normalizedBodyExact": true
+      }
+    ],
+    "allElevenNormalizedBodyExact": true,
+    "guardCurrentSha256": "08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91",
+    "guardArchivedSha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+    "attributes": "single exact ZIP binary rule; other policies unchanged",
+    "businessOrAssertionChangeFromPriorApprovedBatch": false
+  },
+  "validation": {
+    "reviewerEarlierIndependentSelectedPure": {
+      "unit": 37,
+      "static": 4,
+      "allPass": true
+    },
+    "rootCompleteUnit": {
+      "tests": 3842,
+      "pass": 3816,
+      "skipped": 26,
+      "failed": 0,
+      "logSha256": "5442cb7d6dc1f6e5c15774289f66e464494cf48db397f680fea5e3ba2d3a5bc0"
+    },
+    "rootFinalStatic": {
+      "uniqueFiles": 82,
+      "allActualExitAndClose0": true,
+      "receiptSha256": "885349e4673470f533f90e57b72c5cfe0144ce2086c1a7ad351be408a6186370"
+    },
+    "rootCurrentPowerShellModels": {
+      "files": 3,
+      "actualExitAndClose0": true,
+      "commandsAreStubsNotPythonOrPackager": true,
+      "receiptSha256": "62a97ead474dd858c7f00bd324546d56867c0f4440a859b69cc0dc9e63286ba6"
+    },
+    "rootFinalRepoChecks": {
+      "files": [
+        "eol-policy.static.e2e.js",
+        "repo-hygiene.e2e.js"
+      ],
+      "allActualExitAndClose0": true,
+      "receiptSha256": "bd8f469a7261b0ff1149372272120063bc3509c7c9953355cf6246dec3be3c24"
+    },
+    "initialFailuresKept": {
+      "firstUnitFailures": 3,
+      "focusedOriginalSuites43PassedNotRootCauseDiagnosis": true,
+      "secondOuter600sTimeoutNotPass": true,
+      "thirdStandardFast81Of82FactsFailureKept": true,
+      "final82WereIndividualRunsNotClaimedNewStandardFastAllGreen": true
+    },
+    "noNewFullUnitNativeBuildOrE2ERunByFinalReviewer": true
+  },
+  "documentation": {
+    "readmeChangesOnlyActual588E2e581Default394UnitFileCounts": true,
+    "versionRemains301": true,
+    "dependencyGateDoesNotEnableProcessorsOrEgress": true,
+    "fullPackagerProcessorLegalAnd31AcceptanceRemainPending": true,
+    "index92And97LinksConsistent": true,
+    "sourceAndStageAndPSModelsAndRealFunctionsAreSeparatelyScoped": true
+  },
+  "sourceBundle": {
+    "archiveSha256": "b3d899ca9465cf7db7fce3061ee82488ac03868d766cef7e672b0da1c2248278",
+    "archiveBytes": 17913460,
+    "entries": 1676,
+    "sourceEntries": 1675,
+    "uncompressedSourceBytes": 56980368,
+    "packages": [
+      "ruyi-portable-target-preserved-reads-20261025",
+      "ruyi-portable-target-diagnostic-reporter-fix-20261025",
+      "ruyi-target-diagnostic-independent-context-20261025",
+      "ruyi-published-target-launcher-independent-20261025",
+      "ruyi-target-diagnostic-actual-independent-20261025",
+      "ruyi-ordinary-cause-frames-diagnostic-v2-20261025",
+      "ruyi-ordinary-diagnostic-v2-independent-20261025",
+      "ruyi-ordinary-nonempty-hash-retention-fix-20261025",
+      "ruyi-ordinary-nonempty-native-gate-20261025",
+      "ruyi-ordinary-nonempty-independent-context-20261025",
+      "ruyi-m4-image-cleanup-flags-fix-20261025",
+      "ruyi-m4-image-revoke-fix-20261025",
+      "ruyi-m4-image-revoke-independent-context-20261025",
+      "ruyi-m4-image-independent-capsule-20261025",
+      "ruyi-m5-b1-reply-cancel-private-20261025",
+      "ruyi-m3-production-gap-source-analysis-20261025",
+      "codex-ruyi-current118-durability-union-v2-20261025",
+      "codex-ruyi-current118-target-diagnostic-run-20261025",
+      "codex-ruyi-published-target-diagnostic-run-20261025"
+    ],
+    "allEntryCrcAndShaAndLengthVerified": true,
+    "noExtraneousEntries": true,
+    "noBinaryRuntimeUserDataFileExtensions": true,
+    "scope": "Exact authored source candidates and selected synthetic historical evidence only; no live promotion or portable NTFS/runtime acceptance.",
+    "crcOfAll1676AndManifestShaLengthOf1675IndependentlyVerified": true,
+    "manifestSourceBytes": 56980368,
+    "onlySourceAndSelectedSyntheticEvidenceByKnownPackageProvenance": true,
+    "noOriginalNtfsTreesOrThirdPartyRuntimeIncluded": true,
+    "noAutomaticBuildOrPromotion": true,
+    "archivedAbsolutePathsMustBeRetargetedAndNewIdentityReviewed": true,
+    "oldFixedMetadataBaselinesMustNotBeRewritten": true,
+    "newMachineMustGenerateFreshSyntheticFixtures": true,
+    "unreviewedM3ImageCancelCandidatesExplicitlyRemainUnapproved": true
+  },
+  "authorization": "User requested completing this batch, commit and push, and stop with cross-machine continuation material; root owns commit/push and pause. Approval is limited to these exact bytes and the copied review."
+}
