@@ -1512,6 +1512,20 @@
                 <label class="external-bots-enabled" for="cfgStewardBotEnabled"><input type="checkbox" id="cfgStewardBotEnabled" /><span data-i18n="externalBots.enableForm">启用此连接（新连接默认关闭）</span></label>
                 <div class="external-bots-actions"><button type="submit" id="cfgStewardBotSave" class="btn btn-sm btn-primary" data-i18n="externalBots.save">保存连接</button><button type="button" id="cfgStewardBotCancel" class="btn btn-sm" data-i18n="externalBots.cancel">取消</button></div>
               </form>
+              <details id="cfgStewardBotDeliverySection" class="external-bots-delivery-section">
+                <summary class="settings-subhead" data-i18n="externalBots.deliveries">投递记录</summary>
+                <p class="field-help muted" data-i18n="externalBots.archiveHint">归档只整理列表，不会停止业务或待发回复，也不释放容量。</p>
+                <p class="field-help muted" data-i18n="externalBots.archiveCompatibility">首次归档后，全部机器人记录只能用当前或更新版本打开，取消归档不会改变这一限制。</p>
+                <div class="external-bots-toolbar external-bots-delivery-filters">
+                  <label class="external-bots-field" for="cfgStewardBotDeliveryConnection"><span data-i18n="externalBots.connectionFilter">连接</span><select id="cfgStewardBotDeliveryConnection"></select></label>
+                  <label class="external-bots-field" for="cfgStewardBotDeliveryArchive"><span data-i18n="externalBots.archiveFilter">记录范围</span><select id="cfgStewardBotDeliveryArchive"><option value="active" data-i18n="externalBots.activeRecords">未归档</option><option value="archived" data-i18n="externalBots.archived">已归档</option><option value="all" data-i18n="externalBots.allRecords">全部记录</option></select></label>
+                  <button type="button" id="cfgStewardBotDeliveryRefresh" class="btn btn-sm" data-i18n="externalBots.refreshLatest">刷新最新</button>
+                </div>
+                <p id="cfgStewardBotDeliveryStatus" class="field-help muted" role="status" aria-live="polite"></p>
+                <ul id="cfgStewardBotDeliveries" class="external-bots-list" aria-busy="false"></ul>
+                <div class="external-bots-toolbar"><span id="cfgStewardBotDeliveryCount" class="muted"></span><button type="button" id="cfgStewardBotDeliveryMore" class="btn btn-sm" hidden data-i18n="externalBots.moreDeliveries">更早记录</button></div>
+                <p id="cfgStewardBotDeliveryNote" class="field-help" role="status" aria-live="polite"></p>
+              </details>
               <div class="external-bots-toolbar"><strong data-i18n="externalBots.inbox">外部收件箱</strong><select id="cfgStewardBotInboxConnection" aria-labelledby="cfgStewardBotInboxLabel"></select><span id="cfgStewardBotInboxLabel" class="sr-only" data-i18n="externalBots.allConnections">全部连接</span><button type="button" id="cfgStewardBotInboxRefresh" class="btn btn-sm" data-i18n="externalBots.refreshLatest">刷新最新</button></div>
               <p id="cfgStewardBotInboxStatus" class="muted" role="status"></p><p id="cfgStewardBotInboxWorkerStatus" class="field-help" role="status"></p>
               <ul id="cfgStewardBotInbox" class="external-bots-list"></ul>

@@ -4569,4 +4569,28 @@
   "workData.lastKnownMode": "Last confirmed data root (reconnecting)",
   "workData.cancelledHelp": "Preparation was cancelled. The original data root remains in use and existing tasks were not aborted.",
   "workData.failureHelp": "Maintenance preparation did not finish. Check the error and current data root; a failed preparation does not confirm a switch."
+
+  ,"externalBots.deliveries": "Delivery records"
+  ,"externalBots.archiveHint": "Archiving only organizes the list. Work and pending replies continue, and storage capacity stays the same."
+  ,"externalBots.archiveCompatibility": "Once you archive any record, all bot records require this or a newer Ruyi version, even if you later unarchive it."
+  ,"externalBots.connectionFilter": "Connection"
+  ,"externalBots.archiveFilter": "Records"
+  ,"externalBots.activeRecords": "Active"
+  ,"externalBots.archived": "Archived"
+  ,"externalBots.allRecords": "All records"
+  ,"externalBots.acceptedFact": "Accepted"
+  ,"externalBots.executionFact": "Execution"
+  ,"externalBots.sendingFact": "Sending"
+  ,"externalBots.accepted": "Received and saved"
+  ,"externalBots.notQueued": "No reply queued"
+  ,"externalBots.archive": "Archive"
+  ,"externalBots.unarchive": "Unarchive"
+  ,"externalBots.archiveSaved": "Archived. Work and pending replies continue."
+  ,"externalBots.unarchiveSaved": "Unarchived."
+  ,"externalBots.archiveFailed": "Archive change not confirmed. Refresh to check the current record."
+  ,"externalBots.emptyDeliveries": "No delivery records match these filters."
+  ,"externalBots.moreDeliveries": "Earlier records"
+  ,"externalBots.deliveryCount": "Showing {{shown}} of {{total}} · {{retained}}/{{capacity}} retained, including archived"
+  ,"externalBots.attempt": "Sending attempt"
+  ,"externalBots.deliveryCursorExpired": "This page position is no longer valid. Refresh the latest records."
 }

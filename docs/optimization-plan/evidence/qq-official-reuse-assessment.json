@@ -1,0 +1,391 @@
+{
+  "schema": 1,
+  "status": "read-only-reuse-assessment-no-new-QQ-transport-or-real-platform-acceptance",
+  "date": "2026-10-25",
+  "baseCommit": "c469650679fe6a42e1404b044435f3168c25ba7b",
+  "userDirection": "优先复用腾讯QQ机器人现成接入方案，避免重复建设；说明统一中文。",
+  "officialSources": [
+    {
+      "url": "https://bot.q.qq.com/wiki/",
+      "verified": "官方接入文档同时列出长连接及回调方式；长连接适合没有公网服务器的单机使用。"
+    },
+    {
+      "url": "https://github.com/tencent-connect/dsh-qqbot",
+      "verified": "已核到的组件是DeepSeek专属插件，依赖其智能体与会话体系，不能直接填作如意的通用工具服务。",
+      "observedPackageVersion": "0.5.2",
+      "observedCommit": "c8b9158b37817b0dbc1e514e62e16204ad47a6ce"
+    },
+    {
+      "url": "https://github.com/tencent-connect/qqbot-nodejs",
+      "verified": "独立协议开发包支持消息收发及两种传输方式，是可选长连接入口的复用候选。",
+      "observedSourcePackageVersion": "1.0.5",
+      "versionScope": "官方源码页面观察，不冒称包安装、最新版本保证或运行兼容性验收"
+    }
+  ],
+  "acquisitionLimit": "网页官方文档及源码核对已完成；额外只读抓取部分成功后网络fetch失败并留存，不把抓取失败解释为组件失败，也没有安装或执行第三方代码。",
+  "assessmentSource": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-qq-official-compatibility-20261025/review.json",
+    "sha256": "d10cb41b51ecd81b505b5599fd47212389fbaad86d8d619fb2a67c9ae9fc8e1a",
+    "bytes": 17473
+  },
+  "assessment": {
+    "状态": "只读源码复用评估；没有新接入实现、真实账号联调或平台消息发送",
+    "仓库": "E:\\Claude\\worktrees\\steward-3x-implementation",
+    "已观察提交": "c469650679fe6a42e1404b044435f3168c25ba7b",
+    "日期": "2026-10-25",
+    "主要结论": "优先使用已有原签名回调即可接收和回复QQ文字消息；只有缺少公网回调入口时才考虑官方SDK长连接薄桥。复用协议传输，不另建模型、会话、工作器或业务队列。",
+    "本仓直接核实": [
+      {
+        "文件": "ruyi-workbench/app/src/13v-external-channel-protocols.js",
+        "SHA256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e",
+        "字节数": 14755,
+        "核实锚点": [
+          {
+            "行号": 151,
+            "原文": "function qqPrivateKey(value) {",
+            "直接支持的结论": "QQ签名密钥构造与签名验证为本机协议代码。"
+          },
+          {
+            "行号": 157,
+            "原文": "function qqSignature(headers, raw, privateKey, nowMs, optional) {",
+            "直接支持的结论": "验证时间戳及原始消息字节的Ed25519签名。"
+          },
+          {
+            "行号": 164,
+            "原文": "function qq(connection, headers, raw, nowMs) {",
+            "直接支持的结论": "校验应用身份，处理QQ回调挑战；只支持单聊文字与群内提及文字，排除机器人自身和媒体。"
+          },
+          {
+            "行号": 200,
+            "原文": "function verifyAndNormalize(platform, connection, headers, rawBody, nowMs = Date.now()) {",
+            "直接支持的结论": "统一协议入口，限制原始消息大小。"
+          }
+        ]
+      },
+      {
+        "文件": "ruyi-workbench/app/src/13w-external-bots.js",
+        "SHA256": "1ad6064fb9e31079e2b07c85353e56a1a94c33eff5d5abbf18f9efc87938d1f0",
+        "字节数": 76554,
+        "核实锚点": [
+          {
+            "行号": 3,
+            "原文": "const EXTERNAL_BOT_LIMITS = Object.freeze({ connections: 16, retiredIds: 4096, items: 1000, textChars: 8192, textBytes: 32768, bodyBytes: 65536, stateBytes: 40 * 1024 * 1024, readTimeoutMs: 5000, inflightCallbacks: 8, callbacksPerMinute: 120 });",
+            "直接支持的结论": "现有账本1000条与40MiB上限。"
+          },
+          {
+            "行号": 130,
+            "原文": "async function externalBotSetupOperation(body) {",
+            "直接支持的结论": "本机配对、身份绑定与设置快照。"
+          },
+          {
+            "行号": 380,
+            "原文": "async function externalBotOwnerMatches(connection, item) {",
+            "直接支持的结论": "当前应用、连接、控制版本、发送人及会话白名单均需匹配。"
+          },
+          {
+            "行号": 387,
+            "原文": "async function externalBotValidateActor(actor) {",
+            "直接支持的结论": "仅私有WeakMap签发的进程内执行身份可用，重验实例及当前控制权。"
+          },
+          {
+            "行号": 430,
+            "原文": "async function externalBotRecover() {",
+            "直接支持的结论": "原运行中执行与发送中的投递重启后变成未知，不自动重演。"
+          },
+          {
+            "行号": 447,
+            "原文": "async function externalBotNextJob() {",
+            "直接支持的结论": "复用原单账本工作器领取执行或投递。"
+          },
+          {
+            "行号": 470,
+            "原文": "async function externalBotFinishJob(job, result) {",
+            "直接支持的结论": "持久化原执行结果与投递尝试；保留未知与失败事实。"
+          },
+          {
+            "行号": 495,
+            "原文": "function externalBotReplyBinding(connection, item, credentialRevision) {",
+            "直接支持的结论": "回发绑定原消息、接收方、凭据版本及完整回复来源。"
+          },
+          {
+            "行号": 502,
+            "原文": "async function externalBotPrepareReply(job, controller, dispatch, assertPolicy = PrivacyGateway.disclosurePolicyGuard()) {",
+            "直接支持的结论": "准备完整回复投影；等待后重验，在真正发送前保留同步最后核验。"
+          },
+          {
+            "行号": 604,
+            "原文": "const externalBotStore = (() => {",
+            "直接支持的结论": "唯一现有账本，原queue用途、Store模式版本1与原附加认证绑定。"
+          },
+          {
+            "行号": 743,
+            "原文": "async function externalBotAcceptCallback(platform, connectionId, headers, rawBody) {",
+            "直接支持的结论": "原始签名回调准入，逐项授权并在响应前持久化。"
+          },
+          {
+            "行号": 782,
+            "原文": "const sourceKey = JSON.stringify([connection.id, message.tenantId, message.conversationId, message.messageId]);",
+            "直接支持的结论": "按消息身份永久去重，不用事件投递号代替业务消息号。"
+          },
+          {
+            "行号": 186,
+            "原文": "async function externalBotStewardSetup(args, ctx) {",
+            "直接支持的结论": "管家设置工具不是任意入站事件或投递执行入口。"
+          }
+        ]
+      },
+      {
+        "文件": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+        "SHA256": "3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b",
+        "字节数": 10581,
+        "核实锚点": [
+          {
+            "行号": 25,
+            "原文": "function post(hostname, path, body, authorization, options) {",
+            "直接支持的结论": "固定HTTPS调用不重定向、不自动重试，发送前同步断言。"
+          },
+          {
+            "行号": 78,
+            "原文": "async function sendReply(connection, originalMessage, text, options = {}) {",
+            "直接支持的结论": "单次回复原消息；校验应用、原接收方和尝试标识。"
+          },
+          {
+            "行号": 102,
+            "原文": "const hostname = platform === 'qq' ? 'api.bot.qq.com' : 'open.feishu.cn';",
+            "直接支持的结论": "QQ认证及业务调用目的地固定。"
+          },
+          {
+            "行号": 130,
+            "原文": "platform === 'qq' ? { msg_type: 0, content: text, msg_id: messageId, msg_seq: 1 }",
+            "直接支持的结论": "现有QQ文字回复携带原消息标识；没有新建任意聊天目标。"
+          }
+        ]
+      },
+      {
+        "文件": "ruyi-workbench/tools/external-bot-gateway.js",
+        "SHA256": "781eaf1f039842091143ebedfed4160c062ae99e84670ffe9d6bfc585fefee45",
+        "字节数": 8279,
+        "核实锚点": [
+          {
+            "行号": 6,
+            "原文": "const CALLBACK = /^\\/api\\/external-bots\\/callback\\/(qq|feishu)\\?connectionId=[a-z][a-z0-9_-]{0,63}$/;",
+            "直接支持的结论": "仅精确QQ/飞书回调路径可被中继。"
+          },
+          {
+            "行号": 24,
+            "原文": "function createGateway(options = {}) {",
+            "直接支持的结论": "原始消息及签名头转到明确本机地址，不转发宿主管理令牌；不是QQ长连接实现。"
+          }
+        ]
+      },
+      {
+        "文件": "ruyi-workbench/app/src/04-permission-runtime.js",
+        "SHA256": "2d8c27dabc772bd7b3f2d757aac98208b416fbdd242a4f8ba57701437c72bc1b",
+        "字节数": 220244,
+        "核实锚点": [
+          {
+            "行号": 1089,
+            "原文": "function mcpServerRequestReply(msg) {",
+            "直接支持的结论": "对端请求不形成任意后台机器人任务。"
+          },
+          {
+            "行号": 1172,
+            "原文": "async function prepare(client, method, params, options = {}) {",
+            "直接支持的结论": "受管MCP核验当前连接、配置与调用参数，不给未知服务原值恢复能力。"
+          },
+          {
+            "行号": 1345,
+            "原文": "class McpStdioClient {",
+            "直接支持的结论": "已有标准输入输出MCP客户端。"
+          },
+          {
+            "行号": 1593,
+            "原文": "class McpHttpClient {",
+            "直接支持的结论": "已有流式HTTP及SSE客户端和认证配置。"
+          },
+          {
+            "行号": 2813,
+            "原文": "async function collectBridgedTools(config, force = false) {",
+            "直接支持的结论": "已有工具发现、分页与命名隔离；并非QQ消息事件准入。"
+          }
+        ]
+      },
+      {
+        "文件": "ruyi-workbench/app/src/06i-steward-core.js",
+        "SHA256": "1ea305251ce7892f51e421c72d9537b81b0711fc3a66e3f523580aa64f3519dd",
+        "字节数": 193154,
+        "核实锚点": [
+          {
+            "行号": 272,
+            "原文": "const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|transfer|uninstall|install|registry|system_setting|shutdown|format|mcp_configure/i;",
+            "直接支持的结论": "通用MCP发送类工具仍属于对外发送权限边界，不天然继承机器人owner授权。"
+          }
+        ]
+      },
+      {
+        "文件": "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md",
+        "SHA256": "a88fbbf33bc6f540cbf83ab670274e5d49c3a20121af385a29304e4f9e633c3e",
+        "字节数": 48335,
+        "核实锚点": [
+          {
+            "行号": 206,
+            "原文": "### 9.1 QQ/飞书",
+            "直接支持的结论": "机器人继续复用现有授权和回执，未知先核对，真实账号/平台许可另验。"
+          }
+        ]
+      },
+      {
+        "文件": "docs/optimization-plan/92-3.1-implementation-handoff.md",
+        "SHA256": "43f5bb43813ca7f3b60137a6d46d68ce5ebcea0bd21410e76b46ee36757c16c9",
+        "字节数": 114728,
+        "核实锚点": [
+          {
+            "行号": 290,
+            "原文": "### 8.1 机器人 B/C",
+            "直接支持的结论": "明确复用13v/w/x/y/z及现有工作器，真实平台不是离线夹具。"
+          }
+        ]
+      }
+    ],
+    "相关测试文件身份": [
+      {
+        "文件": "dev-harness/unit/external-channel-protocols.test.js",
+        "SHA256": "45d7a61a97694131dca9a88c97bcc9d3df58197d4f699e8858e2eb0cde00fdae",
+        "本次是否运行": false
+      },
+      {
+        "文件": "dev-harness/external-channel-delivery.e2e.js",
+        "SHA256": "6913657dad166d9a9099bdcaae51bacd7193cb957eb785f3142e9a4467053648",
+        "本次是否运行": false
+      },
+      {
+        "文件": "dev-harness/external-bots-control.e2e.js",
+        "SHA256": "8002045c841d60086e0fd0a2e8f6d939439e133f75fe30b08d112201523463dc",
+        "本次是否运行": false
+      },
+      {
+        "文件": "dev-harness/external-bots-work-data.e2e.js",
+        "SHA256": "c472ca7269e1c86e14e6cd3e425489a014228554af4bd39fd7e2564648453da5",
+        "本次是否运行": false
+      },
+      {
+        "文件": "dev-harness/external-bot-gateway.e2e.js",
+        "SHA256": "661db690ab2cefa726bfb34c4825782e43aada4090a5feaaaa1cf9d9b19e02ac",
+        "本次是否运行": false
+      }
+    ],
+    "官方依据与来源区别": {
+      "核验责任": "以下官方网页结论由根agent核验后在协作消息中转交；本评估未另行运行安装或联网协议探针，也未把根agent直接源码抓取的fetch失败当作组件失败。",
+      "资料": [
+        {
+          "官方链接": "https://github.com/tencent-connect/dsh-qqbot",
+          "核实文件": [
+            "package.json",
+            "src/index.ts"
+          ],
+          "根agent转交事实": [
+            "已观察包版本0.5.2。",
+            "依赖DeepSeek Harness的Cordis服务，入口注入agents并调用其agents/session/userapproval。",
+            "所核入口没有通用MCP服务器导出。",
+            "依赖官方qqbot-nodejs及连接器等组件，不能直接当作如意的通用MCP配置。"
+          ]
+        },
+        {
+          "官方链接": "https://github.com/tencent-connect/qqbot-nodejs",
+          "核实文件": [
+            "package.json",
+            "官方说明与源码"
+          ],
+          "根agent转交事实": [
+            "已观察包版本1.0.5，Node版本要求至少20，MIT许可。",
+            "支持长连接与回调两类接入，具有原生收发和媒体能力。",
+            "协议SDK可在外侧薄桥复用，运行依赖包含ws；无需运行另一套DeepSeek智能体。"
+          ]
+        }
+      ],
+      "尚未确认": "已核到的是DSH专属插件，尚未确认腾讯官方通用QQ MCP。特定仓库返回404不能证明通用MCP不存在。以上版本是本次观察，不是长期版本保证。"
+    },
+    "仅为设计推断而非已验能力": [
+      "官方SDK与如意现有单账本工作器间的薄桥可以是最小新增量，但目前没有该桥的生产实现或验收。",
+      "标准MCP工具即使可被现有客户端调用，也不等于已获得可信QQ来源、原接收方回发、持久去重或远程owner控制授权。",
+      "长连接消息通常没有当前HTTP回调原签名载体；SDK鉴权成功不能替代宿主对具体桥接实例和消息身份的绑定。",
+      "SDK的重连、事件恢复与异步回调是否能保住宿主持久接受前的崩溃窗口，仍须逐项源码和实际验证，不能假设。"
+    ],
+    "最小可选薄桥边界": {
+      "方案优先级": [
+        "有公网回调入口：继续现有原签名回调和可选TLS中继，不引入SDK或DSH。",
+        "没有公网入口：只评估可选独立SDK长连接进程。"
+      ],
+      "外侧职责": [
+        "固定并记录SDK版本、许可、依赖与入口身份。",
+        "只负责腾讯鉴权、长连接、心跳、重连及原事件转交；不执行模型、创建任务、改变接收方或自行重发业务回复。",
+        "不向模型、日志、普通MCP配置正文或消息事件暴露应用密钥。"
+      ],
+      "宿主职责": [
+        "保留现有账本、原消息去重、本人控制绑定、工作器、执行事实、原尝试标识与重启未知恢复。",
+        "使用宿主认证的专用桥接身份，绑定具体应用/连接、实际受管进程、宿主实例世代、当前配置及凭据版本，并有事件时序/重放保护。",
+        "桥只得到专用入站权威，不得到宿主管理令牌或独立MCP文件工具凭据的升级权限。",
+        "区分HTTP原签名验证与长连接桥接证明；禁止伪造HTTP签名、verified:true或自报owner绕过准入。",
+        "通过私有验证结果后才把消息归一并接回现有接受事务；抽取共同接受内核而不是复制一套队列/执行器。"
+      ],
+      "发送第一片": "继续使用现有固定官方回复适配器及完整回复投影，SDK仅补接收传输。SDK外发若以后确有需要，仍须单独证明同接收方、同消息、同尝试回执及未知处理，不自动替换现有出口。",
+      "兼容前置门": "若SDK在宿主提交前已不可逆确认事件，且没有可证恢复机制，则薄桥不具备现有持久接受保证；应阻止宣称等价支持，不以第二业务队列掩盖。",
+      "保持限制": [
+        "主server仍只用Node内建运行依赖；SDK可选外置，不引入其智能体循环。",
+        "仅现有受支持文字事件；媒体和主动推送不借SDK能力自动放开。",
+        "真实账号、平台权限、回复窗口和指定会话另验，不发送未获明确授权的测试消息。"
+      ]
+    },
+    "下一验收矩阵": [
+      {
+        "项目": "身份",
+        "正例": "明确本机启用的准确QQ应用、本人及会话接收一条文字。",
+        "反例": "换应用、换桥进程、伪造owner、旧实例、凭据撤销、非本人或非白名单会话均拒绝。"
+      },
+      {
+        "项目": "原签名回调守恒",
+        "正例": "旧回调原字节和验签路径继续可用。",
+        "反例": "桥不能把无原签名事件直接灌入HTTP回调，也不能扩大中继路径。"
+      },
+      {
+        "项目": "单账本与重复",
+        "正例": "相同业务消息在重连、不同事件号和重复回调下只有一次持久接受。",
+        "反例": "同消息身份改正文冲突；既有归档记录仍去重，缺钥/坏密文不接受或覆盖。"
+      },
+      {
+        "项目": "崩溃窗口",
+        "正例": "宿主接受提交后桥/宿主重启可恢复事实。",
+        "反例": "提交前断连/崩溃不可假确认；已执行/发送不明不重新跑任务或盲目发送。"
+      },
+      {
+        "项目": "权限与控制",
+        "正例": "复用原本机owner绑定与私有执行身份。",
+        "反例": "MCP工具返回的任意文本、连接成功或用户昵称不能充当控制授权。"
+      },
+      {
+        "项目": "回发策略",
+        "正例": "同一原消息和接收方，完整回复先投影，等待后重验再发送。",
+        "反例": "群其他成员、换凭据、换策略、换目标、SDK重试及晚到回执不能绕过原发送事实。"
+      },
+      {
+        "项目": "生命周期",
+        "正例": "桥单飞、清理和重连有界；真实进程退出及关闭可观察。",
+        "反例": "未知子进程、泄漏密钥、无界缓存或后台独立模型循环均不准入。"
+      },
+      {
+        "项目": "真平台门",
+        "正例": "用户指定的测试账号、QQ应用和会话完成实际收发。",
+        "反例": "离线签名夹具、通用工具发现成功或官方资料读取成功都不替代真实平台验证。"
+      }
+    ],
+    "本次变更范围": "只新建本TEMP评估文件；没有修改live或私有取消候选，没有构建、真实进程、网络协议试跑或平台发信。"
+  },
+  "scope": {
+    "liveBackendChanged": false,
+    "installed": false,
+    "realMessagesSent": false,
+    "SDKBridgeImplemented": false,
+    "standardOfficialQQMCPConfirmed": false,
+    "offlineRepositoryQQPathAlreadyExists": true
+  }
+}

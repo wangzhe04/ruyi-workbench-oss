@@ -432,3 +432,14 @@
 .external-bot-setup .external-bots-fields input { min-width: 0; width: 100%; }
 .steward-settings-receipt { min-width: 0; max-width: 100%; margin-block: 8px; overflow-wrap: anywhere; }
 .steward-settings-receipt .steward-receipt { white-space: pre-wrap; font-size: var(--fs-sm); }
+
+.external-bots-delivery-section { border-block:1px solid var(--line); padding-block:var(--sp-3); margin-block:var(--sp-3); min-width:0; }
+.external-bots-delivery-section > summary { cursor:pointer; margin:0; }
+.external-bots-delivery-filters { align-items:flex-end; margin-block:var(--sp-3); }
+.external-bots-delivery-filters > label { flex:1 1 140px; }
+.external-bots-delivery-facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-3); margin:var(--sp-3) 0; font-size:var(--fs-xs); }
+.external-bots-delivery-facts dt { margin-bottom:var(--sp-1); }
+.external-bots-delivery-facts dd { margin:0; overflow-wrap:anywhere; }
+.external-bots-delivery .external-bots-actions { margin-top:var(--sp-3); }
+.external-bots-delivery-section :is(button,select,summary):focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media(max-width:600px) { .external-bots-delivery-facts { grid-template-columns:minmax(0,1fr); gap:var(--sp-2); } .external-bots-delivery-facts > div { display:grid; grid-template-columns:5em minmax(0,1fr); gap:var(--sp-2); } }

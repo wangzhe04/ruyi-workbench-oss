@@ -79,14 +79,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 用户反馈「本轮变更」折叠续钉（前值 b98aab33…）：仅 chat-live.css 新增六条隐藏正文、收起分隔线、原生按钮/焦点和箭头样式，默认仍展开。
-// 算法自证：内存仅替换 HEAD chat-live.css 后精确回到旧锁 b98aab331819db3353d3feb1be5447a2b1f25821432199a9f25b2b34fa66ad04；其余层不变、不忽略。
-// 反向验证：内存注入错误 CSS 后 D51/F3 均失败；实际产品 CSS 未修改，记录见 checks/ux-model-turn/34-css-lock-*。
-// M2-6b3: reviewed 12-line compact clipboard plaintext menu CSS; no other layer changes.
 // 2026-10-23: 生成物并入本轮变更；chat-live.css 新增行内文件动作与窄屏换行，移除独立 chip 样式。
 // 自证：只读 HEAD chat-live.css 时载荷精确回到 0990a6250d726cc0df5a0ac053ccd5ffeb8077af0db8663e31117772fb2f8fa3；内存损坏后 D51/F3 必须失败，磁盘 CSS 不改坏。
 // M3-3: append only scoped work-data panel settings rules; 1440/768/390 browser layout verified.
-const LEGACY_STYLES_SHA256 = '05fe987494504fcccdb60676bf0988850c5f702fea9b5861c5fad9570af970ec';
+// M5-B1 投递管理续钉（前值 05fe9874…）：仅 steward-settings.css 追加十行局部样式及分隔空行，布局、窄屏事实列和键盘焦点已实测。
+// 算法自证：仅把该层内存读取替回 HEAD 后精确恢复完整旧锁 05fe987494504fcccdb60676bf0988850c5f702fea9b5861c5fad9570af970ec；其他所有层逐字保留。
+// 反向检查由原 D51/F3 对内存损坏规则执行，实际样式文件不改坏，记录见本批投递管理证据。
+const LEGACY_STYLES_SHA256 = '68f1ea1b7b4188b41332f49a23a08900a4f6e50ce6f765239692bab5f8493ee6';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

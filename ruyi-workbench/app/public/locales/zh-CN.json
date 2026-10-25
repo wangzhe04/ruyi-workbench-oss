@@ -4569,4 +4569,28 @@
   "workData.lastKnownMode": "上次确认的数据根（连接待恢复）",
   "workData.cancelledHelp": "准备已取消，原数据根继续使用；已有任务没有被中止。",
   "workData.failureHelp": "维护准备未完成。请核对错误与当前数据根，不要把准备失败当作已经切换。"
+
+  ,"externalBots.deliveries": "投递记录"
+  ,"externalBots.archiveHint": "归档只整理列表，不会停止业务或待发回复，也不释放容量。"
+  ,"externalBots.archiveCompatibility": "首次归档后，全部机器人记录只能用当前或更新版本打开，取消归档不会改变这一限制。"
+  ,"externalBots.connectionFilter": "连接"
+  ,"externalBots.archiveFilter": "记录范围"
+  ,"externalBots.activeRecords": "未归档"
+  ,"externalBots.archived": "已归档"
+  ,"externalBots.allRecords": "全部记录"
+  ,"externalBots.acceptedFact": "接受"
+  ,"externalBots.executionFact": "执行"
+  ,"externalBots.sendingFact": "发送"
+  ,"externalBots.accepted": "已接收并保存"
+  ,"externalBots.notQueued": "尚未安排回复"
+  ,"externalBots.archive": "归档"
+  ,"externalBots.unarchive": "取消归档"
+  ,"externalBots.archiveSaved": "已归档。业务和待发回复继续处理。"
+  ,"externalBots.unarchiveSaved": "已取消归档。"
+  ,"externalBots.archiveFailed": "未确认归档变更，请刷新后核对。"
+  ,"externalBots.emptyDeliveries": "当前范围没有投递记录。"
+  ,"externalBots.moreDeliveries": "更早记录"
+  ,"externalBots.deliveryCount": "已显示 {{shown}}/{{total}} 条 · 保留 {{retained}}/{{capacity}} 条（含已归档）"
+  ,"externalBots.attempt": "发送尝试"
+  ,"externalBots.deliveryCursorExpired": "分页位置已失效，请刷新最新记录。"
 }

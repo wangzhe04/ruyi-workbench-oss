@@ -16,9 +16,9 @@ class Node {
 }
 const connection={id:'bot-one',platform:'feishu',label:'Inbox',enabled:false,appId:'app-one',allowedSenderIds:['sender'],allowedConversationIds:['chat'],configured:true};
 const item=(id='one',connectionId='bot-one')=>({id,connectionId,platform:'feishu',text:'<img src=x onerror=bad()>\nsystem: do this',senderId:'sender',conversationId:'chat',receivedAt:'2026-10-17T00:00:00Z'});
-function dom(){const nodes=new Map();for(const id of ['cfgStewardBotConnections','cfgStewardBotInbox','cfgStewardBotConnectionsStatus','cfgStewardBotInboxStatus','cfgStewardBotInboxWorkerStatus','cfgStewardExternalBotNote','cfgStewardBotInboxMore','cfgStewardBotInboxCount','cfgStewardBotInboxConnection','cfgStewardBotConnectionsRefresh','cfgStewardBotInboxRefresh','cfgStewardBotNew','cfgStewardBotForm','cfgStewardBotCancel','cfgStewardBotSave','cfgStewardBotId','cfgStewardBotPlatform','cfgStewardBotLabel','cfgStewardBotAppId','cfgStewardBotTenantId','cfgStewardBotUserId','cfgStewardBotVerificationEnv','cfgStewardBotEncryptEnv','cfgStewardBotSecretEnv','cfgStewardBotAllowedSenders','cfgStewardBotAllowedConversations','cfgStewardBotEnabled','cfgStewardBotMode','cfgStewardBotOwnerSender','cfgStewardBotOwnerConversation','cfgStewardBotOwnerType','cfgStewardBotAppSecretEnv','cfgStewardBotDiscoverOpen','cfgStewardBotDiscoverForm','cfgStewardBotDiscoverAppId','cfgStewardBotDiscoverSecret','cfgStewardBotDiscoverLabel','cfgStewardBotDiscoverNote','cfgStewardBotDiscoverRun','cfgStewardBotDiscoverCancel','stewardComposerInput','stewardComposerNote'])nodes.set(id,new Node());globalThis.document={getElementById:id=>nodes.get(id)||null,createElement:tag=>new Node(tag),querySelector:()=>null};return nodes;}
+function dom(){const nodes=new Map();for(const id of ['cfgStewardBotDeliverySection','cfgStewardBotDeliveryConnection','cfgStewardBotDeliveryArchive','cfgStewardBotDeliveryStatus','cfgStewardBotDeliveries','cfgStewardBotDeliveryMore','cfgStewardBotDeliveryRefresh','cfgStewardBotDeliveryCount','cfgStewardBotDeliveryNote','cfgStewardBotConnections','cfgStewardBotInbox','cfgStewardBotConnectionsStatus','cfgStewardBotInboxStatus','cfgStewardBotInboxWorkerStatus','cfgStewardExternalBotNote','cfgStewardBotInboxMore','cfgStewardBotInboxCount','cfgStewardBotInboxConnection','cfgStewardBotConnectionsRefresh','cfgStewardBotInboxRefresh','cfgStewardBotNew','cfgStewardBotForm','cfgStewardBotCancel','cfgStewardBotSave','cfgStewardBotId','cfgStewardBotPlatform','cfgStewardBotLabel','cfgStewardBotAppId','cfgStewardBotTenantId','cfgStewardBotUserId','cfgStewardBotVerificationEnv','cfgStewardBotEncryptEnv','cfgStewardBotSecretEnv','cfgStewardBotAllowedSenders','cfgStewardBotAllowedConversations','cfgStewardBotEnabled','cfgStewardBotMode','cfgStewardBotOwnerSender','cfgStewardBotOwnerConversation','cfgStewardBotOwnerType','cfgStewardBotAppSecretEnv','cfgStewardBotDiscoverOpen','cfgStewardBotDiscoverForm','cfgStewardBotDiscoverAppId','cfgStewardBotDiscoverSecret','cfgStewardBotDiscoverLabel','cfgStewardBotDiscoverNote','cfgStewardBotDiscoverRun','cfgStewardBotDiscoverCancel','stewardComposerInput','stewardComposerNote'])nodes.set(id,new Node());globalThis.document={getElementById:id=>nodes.get(id)||null,createElement:tag=>new Node(tag),querySelector:()=>null};return nodes;}
 function action(node,name){if(node.dataset.botAction===name)return node;for(const child of node.children){const found=action(child,name);if(found)return found;}return null;}
-async function fixture(){const nodes=dom();let visible=true;const calls=[];const {createExternalBotsPanel}=await load('external-bots.js');const panel=createExternalBotsPanel({api:(route,opts)=>{const d=deferred();calls.push({route,opts,...d});return d.promise;},t:key=>key,isVisible:()=>visible});panel.bind();return{nodes,calls,panel,hide(){visible=false;panel.syncVisibility();},show(){visible=true;panel.syncVisibility();},async ready(){calls[0].resolve({ok:true,connections:[connection]});calls[1].resolve({ok:true,items:[item()],nextBefore:'one',total:51});await tick();},click(name){return action(nodes.get('cfgStewardBotConnections'),name).emit('click');}};}
+async function fixture(options={}){const nodes=dom();let visible=true;const calls=[];const {createExternalBotsPanel}=await load('external-bots.js');const panel=createExternalBotsPanel({api:(route,opts)=>{const d=deferred();calls.push({route,opts,...d});return d.promise;},t:options.t||(key=>key),isVisible:()=>visible});panel.bind();return{nodes,calls,panel,hide(){visible=false;panel.syncVisibility();},show(){visible=true;panel.syncVisibility();},async ready(){calls[0].resolve({ok:true,connections:[connection]});calls[1].resolve({ok:true,items:[item()],nextBefore:'one',total:51});await tick();},click(name){return action(nodes.get('cfgStewardBotConnections'),name).emit('click');}};}
 test('first failed read is unknown, never a successful empty inbox',async()=>{const f=await fixture();f.calls[0].reject(new Error('down'));f.calls[1].reject(new Error('down'));await tick();assert.equal(f.panel.snapshot().quality.inbox,'failed');assert.equal(f.nodes.get('cfgStewardBotInbox').children.length,0);assert.equal(f.nodes.get('cfgStewardBotInboxStatus').textContent,'externalBots.unavailable');});
 test('failed refresh preserves last successful plain text and read quality',async()=>{const f=await fixture();await f.ready();const pending=f.panel.loadInbox();f.calls.at(-1).reject(new Error('down'));await pending;assert.equal(f.panel.snapshot().items[0].id,'one');assert.equal(f.nodes.get('cfgStewardBotInboxStatus').textContent,'externalBots.stale');assert.equal(action(f.nodes.get('cfgStewardBotInbox'),'draft').tagName,'button');});
 test('latest read wins over an older response',async()=>{const f=await fixture();await f.ready();const a=f.panel.loadInbox(),ca=f.calls.at(-1);const b=f.panel.loadInbox(),cb=f.calls.at(-1);cb.resolve({ok:true,items:[item('new')],nextBefore:'',total:1});await b;ca.resolve({ok:true,items:[item('old')],nextBefore:'old',total:90});await a;assert.deepEqual(f.panel.snapshot().items.map(x=>x.id),['new']);assert.equal(f.panel.snapshot().nextBefore,'');});
@@ -42,3 +42,155 @@ test('discovery submits only the probe fields, clears the secret before the repl
 test('a failed discovery keeps the owner on the panel, drops the secret and reports the stable code',async()=>{const f=await fixture();await f.ready();f.nodes.get('cfgStewardBotDiscoverOpen').emit('click');f.nodes.get('cfgStewardBotDiscoverAppId').value='cli_discover';f.nodes.get('cfgStewardBotDiscoverSecret').value='canary-app-secret';const before=f.calls.length;const pending=f.nodes.get('cfgStewardBotDiscoverForm').emit('submit');const call=f.calls.at(-1);call.reject(Object.assign(new Error('rejected'),{code:'external_discovery.credentials_rejected'}));await pending;assert.equal(f.calls.length,before+1,'a failed discovery never opens a setup guide');assert.equal(f.nodes.get('cfgStewardBotDiscoverSecret').value,'');assert.match(f.nodes.get('cfgStewardBotDiscoverNote').textContent,/discoverFailed/);assert.equal(f.nodes.get('cfgStewardBotDiscoverNote').dataset.tone,'err');assert.equal(f.panel.snapshot().discovering,false);});
 test('identity verification is offered per Feishu connection and never writes configuration',async()=>{const f=await fixture();await f.ready();const verify=action(f.nodes.get('cfgStewardBotConnections'),'verify');assert.equal(verify.tagName,'button');const pending=verify.emit('click');const call=f.calls.at(-1);assert.equal(call.route,'/api/external-bots/discover');assert.deepEqual(JSON.parse(call.opts.body),{op:'verify',connectionId:'bot-one'});assert.ok(!call.opts.body.includes('owner'));call.resolve({ok:true,matches:{tenantId:false,botUserId:true},discovery:{tenantId:'tenant-other',botUserId:'ou_bot'}});await pending;assert.match(f.nodes.get('cfgStewardExternalBotNote').textContent,/verifyMismatch/);assert.equal(f.nodes.get('cfgStewardExternalBotNote').dataset.tone,'err');});
 test('late remote state after conversation reset cannot refresh the new conversation',async()=>{const f=shellFixture();const d=deferred();f.context.api=()=>d.promise;f.context.pollStewardState();f.state.generation++;d.resolve(f.state.response);await tick();assert.equal(f.nodes.length,0);});
+
+const deliveryItem=(id='sent',connectionId='bot-one',archivedAt='')=>({...item(id,connectionId),archivedAt,acceptance:{status:'accepted',receivedAt:item().receivedAt},execution:{status:'completed',replyText:'<svg onload=bad()>'},delivery:{status:'unknown',attemptId:'attempt_one',errorCode:'external_channel.delivery_unknown'}});
+const deliveryPage=(items=[deliveryItem()],extra={})=>({ok:true,items,total:items.length,nextCursor:'',capacity:1000,retained:items.length,full:false,...extra});
+const texts=node=>[node.textContent,...node.children.flatMap(texts)].join(' ');
+async function openDeliveries(f,body=deliveryPage()){
+ f.nodes.get('cfgStewardBotDeliverySection').open=true;f.nodes.get('cfgStewardBotDeliverySection').emit('toggle');
+ const call=f.calls.at(-1);assert.match(call.route,/\/deliveries\?limit=50&archive=active/);call.resolve(body);await tick();return call;
+}
+test('delivery section loads only when expanded and renders separate facts as escaped text with no unavailable actions',async()=>{
+ const f=await fixture();await f.ready();assert.equal(f.calls.length,2);assert.equal(f.panel.snapshot().quality.deliveries,'loading');
+ await openDeliveries(f);const host=f.nodes.get('cfgStewardBotDeliveries'),copy=texts(host);
+ assert.match(copy,/acceptedFact/);assert.match(copy,/execution.completed/);assert.match(copy,/delivery.unknown/);assert.match(copy,/<svg onload=bad\(\)>/);assert.equal(action(host,'archive').tagName,'button');
+ assert.equal(action(host,'cancel'),null);assert.equal(action(host,'retry'),null);assert.equal(host['aria-busy'],'false');
+});
+test('delivery filters bind cursor pages and discard late reads from previous filters',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f,deliveryPage([deliveryItem()],{nextCursor:'cursor_one',total:51,retained:51}));
+ const pending=f.nodes.get('cfgStewardBotDeliveryMore').emit('click'),old=f.calls.at(-1);assert.match(old.route,/cursor=cursor_one/);
+ f.nodes.get('cfgStewardBotDeliveryArchive').value='archived';f.nodes.get('cfgStewardBotDeliveryConnection').value='other';f.nodes.get('cfgStewardBotDeliveryConnection').emit('change');
+ const fresh=f.calls.at(-1);assert.match(fresh.route,/archive=archived&connectionId=other/);assert.ok(!fresh.route.includes('cursor='));
+ fresh.resolve(deliveryPage([deliveryItem('archived','other','2026-10-25T00:00:00Z')]));await tick();old.resolve(deliveryPage([deliveryItem('late')]));await pending;
+ assert.deepEqual(f.panel.snapshot().deliveries.map(row=>row.id),['archived']);assert.equal(f.panel.snapshot().deliveryCursor,'');
+});
+test('failed delivery pagination preserves rows and cursor for manual refresh without an automatic request',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f,deliveryPage([deliveryItem()],{nextCursor:'cursor_one',total:51,retained:51}));
+ const p=f.nodes.get('cfgStewardBotDeliveryMore').emit('click'),count=f.calls.length;f.calls.at(-1).reject({code:'external_channel.storage_unavailable'});await p;
+ assert.equal(f.calls.length,count);assert.equal(f.panel.snapshot().deliveries[0].id,'sent');assert.equal(f.panel.snapshot().deliveryCursor,'cursor_one');
+ assert.match(f.nodes.get('cfgStewardBotDeliveryStatus').textContent,/stale/);assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'archive').disabled,true);
+});
+test('archive persists only the chosen logical action, waits for confirmation, refreshes and restores keyboard focus',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f);const original=action(f.nodes.get('cfgStewardBotDeliveries'),'archive');
+ document.activeElement=original;document.body=new Node('body');const p=original.emit('click'),write=f.calls.at(-1);
+ assert.equal(write.route,'/api/external-bots/deliveries/archive');assert.deepEqual(JSON.parse(write.opts.body),{id:'sent',archived:true});
+ assert.equal(f.panel.snapshot().deliveries[0].archivedAt,'');assert.equal(f.panel.snapshot().writing,true);assert.equal(action(f.nodes.get('cfgStewardBotConnections'),'toggle').disabled,true);
+ const repeat=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click');assert.equal(await repeat,false);assert.equal(f.calls.at(-1),write);
+ document.activeElement=document.body;write.resolve({ok:true,item:{id:'sent',archivedAt:'2026-10-25T00:00:00Z'}});await tick();
+ assert.equal(f.calls.at(-1).opts,undefined);f.calls.at(-1).resolve(deliveryPage([],{retained:1}));await p;
+ assert.equal(f.panel.snapshot().deliveries.length,0);assert.equal(f.panel.snapshot().writing,false);assert.equal(f.nodes.get('cfgStewardBotDeliveryRefresh').focused,true);
+ assert.match(f.nodes.get('cfgStewardBotDeliveryNote').textContent,/archiveSaved/);
+});
+test('uncertain archive keeps original facts and requires fresh read before another mutation',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f);const p=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click'),count=f.calls.length;
+ f.calls.at(-1).reject(new Error('lost response'));await p;assert.equal(f.calls.length,count);assert.equal(f.panel.snapshot().deliveries[0].archivedAt,'');
+ assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'archive').disabled,true);assert.match(f.nodes.get('cfgStewardBotDeliveryNote').textContent,/archiveFailed/);
+});
+test('close and server epoch retire late delivery reads and do not replay pending archive',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f);const read=f.panel.loadDeliveries(),old=f.calls.at(-1);
+ f.nodes.get('cfgStewardBotDeliverySection').open=false;f.nodes.get('cfgStewardBotDeliverySection').emit('toggle');old.resolve(deliveryPage([deliveryItem('late')]));await read;assert.equal(f.panel.snapshot().deliveries[0].id,'sent');
+ await openDeliveries(f);const events={};f.panel.setEventStream({on:(key,fn)=>events[key]=fn});
+ const write=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click'),call=f.calls.at(-1);events['server.instance']();call.resolve({ok:true,item:{id:'sent',archivedAt:'2026-10-25T00:00:00Z'}});await write;
+ assert.equal(f.panel.snapshot().quality.deliveries,'restarting');assert.equal(f.calls.filter(call=>call.route.endsWith('/deliveries/archive')).length,1);
+});
+test('unarchive uses the same action without touching business or attempt, and invalid facts never replace good records',async()=>{
+ const f=await fixture();await f.ready();f.nodes.get('cfgStewardBotDeliverySection').open=true;f.nodes.get('cfgStewardBotDeliveryArchive').value='archived';f.nodes.get('cfgStewardBotDeliveryArchive').emit('change');
+ f.calls.at(-1).resolve(deliveryPage([deliveryItem('archived','bot-one','2026-10-25T00:00:00Z')]));await tick();
+ const p=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click');assert.deepEqual(JSON.parse(f.calls.at(-1).opts.body),{id:'archived',archived:false});f.calls.at(-1).reject(new Error('write refused'));await p;
+ const refresh=f.panel.loadDeliveries();f.calls.at(-1).resolve(deliveryPage([{...deliveryItem('bad'),acceptance:{status:'executed',receivedAt:item().receivedAt}}]));await refresh;
+ assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(f.panel.snapshot().deliveries[0].id,'archived');assert.equal(f.panel.snapshot().deliveries[0].delivery.attemptId,'attempt_one');
+});
+test('delivery empty state and explicit refresh recover a failed initial read',async()=>{
+ const f=await fixture();await f.ready();f.nodes.get('cfgStewardBotDeliverySection').open=true;f.nodes.get('cfgStewardBotDeliverySection').emit('toggle');f.calls.at(-1).reject(new Error('down'));await tick();
+ assert.equal(f.nodes.get('cfgStewardBotDeliveries').children.length,0);assert.match(f.nodes.get('cfgStewardBotDeliveryStatus').textContent,/unavailable/);
+ const p=f.nodes.get('cfgStewardBotDeliveryRefresh').emit('click');f.calls.at(-1).resolve(deliveryPage([]));await p;
+ assert.match(texts(f.nodes.get('cfgStewardBotDeliveries')),/emptyDeliveries/);assert.equal(f.nodes.get('cfgStewardBotDeliveryMore').hidden,true);
+});
+
+test('a pre-settlement delivery read cannot reconcile unknown archive but explicit later refresh can',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f);
+ const pending=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click'),write=f.calls.at(-1);
+ const section=f.nodes.get('cfgStewardBotDeliverySection');section.open=false;section.emit('toggle');section.open=true;section.emit('toggle');
+ const priorRead=f.calls.at(-1);assert.equal(priorRead.opts,undefined);assert.match(priorRead.route,/\/deliveries\?/);
+ write.reject(new Error('lost archive response'));await pending;assert.equal(f.panel.snapshot().quality.deliveries,'failed');
+ priorRead.resolve(deliveryPage());await tick();assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'archive').disabled,true);
+ const fresh=f.nodes.get('cfgStewardBotDeliveryRefresh').emit('click');f.calls.at(-1).resolve(deliveryPage());await fresh;
+ assert.equal(f.panel.snapshot().quality.deliveries,'ok');assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'archive').disabled,false);
+ assert.equal(f.calls.filter(call=>call.route.endsWith('/deliveries/archive')).length,1);
+});
+
+test('failed archive restores focus to refresh rather than a disabled retained row action',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f);
+ const source=action(f.nodes.get('cfgStewardBotDeliveries'),'archive');document.activeElement=source;document.body=new Node('body');
+ const disabled={disabled:true,focus(){throw new Error('disabled buttons cannot receive keyboard focus');}};
+ f.nodes.get('cfgStewardBotDeliveries').querySelectorAll=()=>[{dataset:{deliveryId:'sent'},querySelector:()=>disabled}];
+ const pending=source.emit('click');document.activeElement=document.body;f.calls.at(-1).reject(new Error('uncertain write'));await pending;
+ assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(f.nodes.get('cfgStewardBotDeliveryRefresh').focused,true);
+});
+
+test('physical archive settlement survives view changes, blocks reentry and leaves a new connection write owned',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f);
+ const pending=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click'),write=f.calls.at(-1);f.hide();f.show();
+ const [connections,inbox,delivery]=f.calls.slice(-3);connections.resolve({ok:true,connections:[connection]});inbox.resolve({ok:true,items:[],nextBefore:'',total:0});delivery.resolve(deliveryPage());await tick();
+ assert.equal(f.panel.snapshot().archivePending,true);assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'archive').disabled,true);
+ assert.equal(await action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click'),false);
+ const next=f.click('toggle'),newWrite=f.calls.at(-1);assert.equal(newWrite.opts.method,'POST');
+ const oldRead=f.panel.loadDeliveries(),read=f.calls.at(-1);write.reject(new Error('old view lost response'));await pending;
+ assert.equal(f.panel.snapshot().archivePending,false);assert.equal(f.panel.snapshot().writing,true);
+ read.resolve(deliveryPage());await oldRead;assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(action(f.nodes.get('cfgStewardBotConnections'),'toggle').disabled,true);
+ newWrite.reject(new Error('new connection write failed'));await next;assert.equal(f.panel.snapshot().writing,false);
+ const fresh=f.panel.loadDeliveries();f.calls.at(-1).resolve(deliveryPage());await fresh;assert.equal(f.panel.snapshot().quality.deliveries,'ok');
+ assert.equal(f.calls.filter(call=>call.route.endsWith('/deliveries/archive')).length,1);
+});
+
+test('known archive success also fences pre-settlement reads from a new view before explicit refresh',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f);
+ const pending=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click'),write=f.calls.at(-1);f.hide();f.show();
+ const [connections,inbox,delivery]=f.calls.slice(-3);connections.resolve({ok:true,connections:[connection]});inbox.resolve({ok:true,items:[],nextBefore:'',total:0});
+ write.resolve({ok:true,item:{id:'sent',archivedAt:'2026-10-25T00:00:00Z'}});assert.equal(await pending,false);
+ delivery.resolve(deliveryPage());await tick();assert.equal(f.panel.snapshot().quality.deliveries,'unread');assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'archive').disabled,true);
+ const fresh=f.panel.loadDeliveries();f.calls.at(-1).resolve(deliveryPage([],{retained:1}));await fresh;assert.equal(f.panel.snapshot().quality.deliveries,'ok');assert.equal(f.panel.snapshot().deliveries.length,0);
+ assert.equal(f.calls.filter(call=>call.route.endsWith('/deliveries/archive')).length,1);
+});
+
+test('delivery counts use the real host interpolation and a saved notice retranslates on locale change',async()=>{
+ const fs=require('node:fs'),{translate}=await load('i18n.js');
+ const catalogs=Object.fromEntries(['zh-CN','en-US'].map(locale=>[locale,JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/public/locales',locale+'.json'),'utf8'))]));
+ let locale='zh-CN';const handlers=[],originalAdd=globalThis.addEventListener;
+ globalThis.addEventListener=(name,handler)=>{if(name==='i18n:change')handlers.push(handler);};
+ try{
+  const f=await fixture({t:(key,params)=>translate(catalogs,locale,key,params)});await f.ready();await openDeliveries(f);
+  assert.equal(f.nodes.get('cfgStewardBotDeliveryCount').textContent,'已显示 1/1 条 · 保留 1/1000 条（含已归档）');
+  f.nodes.get('cfgStewardBotDeliveryArchive').value='archived';f.nodes.get('cfgStewardBotDeliveryArchive').emit('change');
+  f.calls.at(-1).resolve(deliveryPage([deliveryItem('archived','bot-one','2026-10-25T00:00:00Z')]));await tick();
+  const pending=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click');f.calls.at(-1).resolve({ok:true,item:{id:'archived',archivedAt:''}});await tick();
+  f.calls.at(-1).resolve(deliveryPage([],{retained:1}));await pending;assert.equal(f.nodes.get('cfgStewardBotDeliveryNote').textContent,'已取消归档。');
+  locale='en-US';for(const handler of handlers)handler();
+  assert.equal(f.nodes.get('cfgStewardBotDeliveryCount').textContent,'Showing 0 of 0 · 1/1000 retained, including archived');
+  assert.equal(f.nodes.get('cfgStewardBotDeliveryNote').textContent,'Unarchived.');
+  assert.doesNotMatch(f.nodes.get('cfgStewardBotDeliveryCount').textContent,/\{(?:shown|total|retained|capacity)\}/);
+ }finally{if(originalAdd===undefined)delete globalThis.addEventListener;else globalThis.addEventListener=originalAdd;}
+});
+
+test('delivery read and uncertain-write errors retranslate from safe codes with the real host catalogs',async()=>{
+ const fs=require('node:fs'),{translate}=await load('i18n.js');
+ const catalogs=Object.fromEntries(['zh-CN','en-US'].map(locale=>[locale,JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/public/locales',locale+'.json'),'utf8'))]));
+ let locale='zh-CN';const handlers=[],originalAdd=globalThis.addEventListener;
+ globalThis.addEventListener=(name,handler)=>{if(name==='i18n:change')handlers.push(handler);};
+ const repaint=next=>{locale=next;for(const handler of handlers)handler();};
+ try{
+  const f=await fixture({t:(key,params)=>translate(catalogs,locale,key,params)});await f.ready();await openDeliveries(f);
+  const pending=f.panel.loadDeliveries();f.calls.at(-1).reject({code:'external_channel.storage_unavailable'});await pending;
+  assert.equal(f.nodes.get('cfgStewardBotDeliveryStatus').title,catalogs['zh-CN']['externalBots.storageUnavailable']);
+  repaint('en-US');
+  assert.equal(f.nodes.get('cfgStewardBotDeliveryStatus').title,catalogs['en-US']['externalBots.storageUnavailable']);
+  assert.equal(f.nodes.get('cfgStewardBotDeliveryStatus').textContent,catalogs['en-US']['externalBots.stale']+' '+catalogs['en-US']['externalBots.storageUnavailable']);
+  assert.doesNotMatch(f.nodes.get('cfgStewardBotDeliveryStatus').textContent,/[\u3400-\u9fff]|external_channel/);
+  const refresh=f.panel.loadDeliveries();f.calls.at(-1).resolve(deliveryPage());await refresh;
+  const write=action(f.nodes.get('cfgStewardBotDeliveries'),'archive').emit('click');f.calls.at(-1).reject({code:'external_channel.storage_unavailable'});await write;
+  repaint('zh-CN');assert.equal(f.nodes.get('cfgStewardBotDeliveryNote').textContent,catalogs['zh-CN']['externalBots.archiveFailed']+' '+catalogs['zh-CN']['externalBots.storageUnavailable']);
+  repaint('en-US');assert.equal(f.nodes.get('cfgStewardBotDeliveryNote').textContent,catalogs['en-US']['externalBots.archiveFailed']+' '+catalogs['en-US']['externalBots.storageUnavailable']);
+  assert.doesNotMatch(f.nodes.get('cfgStewardBotDeliveryNote').textContent,/[\u3400-\u9fff]|external_channel/);
+  assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(f.calls.filter(call=>call.route.endsWith('/deliveries/archive')).length,1);
+ }finally{if(originalAdd===undefined)delete globalThis.addEventListener;else globalThis.addEventListener=originalAdd;}
+});

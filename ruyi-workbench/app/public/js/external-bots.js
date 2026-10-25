@@ -28,6 +28,13 @@ export function validExternalInboxItem(row) {
       && ['errorCode', 'replyText'].every(key => row.execution[key] === undefined || typeof row.execution[key] === 'string')))
     && (!row.delivery || ['pending', 'sending', 'sent', 'failed', 'unknown'].includes(row.delivery.status)));
 }
+export function validExternalDeliveryItem(row) {
+  return validExternalInboxItem(row) && Boolean(row.execution && row.acceptance?.status === 'accepted'
+    && row.acceptance.receivedAt === row.receivedAt && Number.isFinite(Date.parse(row.receivedAt))
+    && typeof row.archivedAt === 'string' && row.archivedAt.length <= 64 && (!row.archivedAt || Number.isFinite(Date.parse(row.archivedAt)))
+    && (!row.delivery || typeof row.delivery.attemptId === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(row.delivery.attemptId)
+      && (row.delivery.errorCode === undefined || typeof row.delivery.errorCode === 'string')));
+}
 function connectionPayload(row) {
   const value = { enabled: row.enabled === true, allowedSenderIds: [...row.allowedSenderIds], allowedConversationIds: [...row.allowedConversationIds] };
   for (const key of FIELDS) if (row[key]) value[key] = row[key];
@@ -44,18 +51,24 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
   let active = false, generation = 0, bound = false, importer = null;
   let connectionSeq = 0, inboxSeq = 0, filter = '', writeOwner = null, nextBefore = '', total = 0;
   let connections = [], items = [];
+  let deliverySeq = 0, deliveryFilter = '', archiveFilter = 'active', deliveryCursor = '', deliveryTotal = 0, retained = 0;
+  let deliveries = [];
+  let archivePending = null; // A physical write survives closing or reopening this view.
+  let deliveryNotice = { key: '', code: '', failed: false };
+  const deliveryOpen = () => byId('cfgStewardBotDeliverySection')?.open === true;
   let worker = { running: false, errorCode: '' };
   let discovering = false;
   const DISCOVER = { form: 'cfgStewardBotDiscoverForm', appId: 'cfgStewardBotDiscoverAppId', secret: 'cfgStewardBotDiscoverSecret',
     label: 'cfgStewardBotDiscoverLabel', note: 'cfgStewardBotDiscoverNote', run: 'cfgStewardBotDiscoverRun' };
-  const quality = { connections: 'unread', inbox: 'unread' };
-  const errorDetail = { connections: '', inbox: '' };
-  const current = (mine, seq, kind) => active && isVisible() && mine === generation && seq === (kind === 'connections' ? connectionSeq : inboxSeq);
+  const quality = { connections: 'unread', inbox: 'unread', deliveries: 'unread' };
+  const errorDetail = { connections: '', inbox: '', deliveries: '' };
+  const current = (mine, seq, kind) => active && isVisible() && mine === generation && seq === (kind === 'connections' ? connectionSeq : kind === 'deliveries' ? deliverySeq : inboxSeq)
+    && (kind !== 'deliveries' || deliveryOpen());
   const say = (key, tone = '') => {
     const node = byId('cfgStewardExternalBotNote');
     if (node) { node.textContent = t(key); node.dataset.tone = tone; }
   };
-  function errorText(error) {
+  function errorText(error, includeCode = true) {
     const info = apiErrorInfo(error);
     const keys = { 'external_channel.connection_incomplete': 'incomplete', 'external_channel.env_reference_invalid': 'envOnly',
       'external_channel.identity_immutable': 'identityHint', 'external_channel.connection_retired': 'retired',
@@ -63,7 +76,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       'external_channel.storage_unavailable': 'storageUnavailable', 'external_channel.inbox_full': 'capacityFull',
       'external_channel.connections_full': 'capacityFull', 'external_channel.retired_ids_full': 'capacityFull',
       'external_channel.control_revoked': 'controlRevoked', 'external_channel.owner_invalid': 'ownerRequired',
-      'external_channel.control_confirmation_required': 'controlConfirmationRequired',
+      'external_channel.control_confirmation_required': 'controlConfirmationRequired', 'external_channel.cursor_invalid': 'deliveryCursorExpired',
       'external_discovery.credentials_rejected': 'discoverRejected', 'external_discovery.unsupported_platform': 'discoverUnsupportedPlatform',
       'external_discovery.credentials_missing': 'discoverCredentialsMissing', 'external_discovery.identity_missing': 'discoverIdentityMissing',
       'external_discovery.busy': 'discoverBusy', 'external_discovery.invalid_input': 'discoverInvalid',
@@ -77,17 +90,23 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       : delivery && ['external_delivery.invalid_config', 'external_delivery.identity_mismatch'].includes(code) ? 'replyConfig'
       : delivery && code.endsWith('.rejected') ? 'replyRejected'
       : delivery ? 'delivery.unknown' : 'requestFailed');
-    return t('externalBots.' + key) + (/^external_(channel|delivery|discovery|credentials)\.[a-z_]{1,80}$/.test(code) ? ' (' + code + ')' : '');
+    return t('externalBots.' + key) + (includeCode && /^external_(channel|delivery|discovery|credentials)\.[a-z_]{1,80}$/.test(code) ? ' (' + code + ')' : '');
+  }
+  function deliveryErrorCode(error) {
+    const code = String(apiErrorInfo(error)?.code || '');
+    return /^external_(channel|delivery|discovery|credentials)\.[a-z_]{1,80}$/.test(code) ? code : '';
   }
   function readStatus(kind) {
-    const node = byId(kind === 'connections' ? 'cfgStewardBotConnectionsStatus' : 'cfgStewardBotInboxStatus');
+    const node = byId(kind === 'connections' ? 'cfgStewardBotConnectionsStatus' : kind === 'deliveries' ? 'cfgStewardBotDeliveryStatus' : 'cfgStewardBotInboxStatus');
     if (!node) return;
     const state = quality[kind];
-    const hasCache = kind === 'connections' ? connections.length > 0 : items.length > 0;
+    const hasCache = kind === 'connections' ? connections.length > 0 : kind === 'deliveries' ? deliveries.length > 0 : items.length > 0;
     node.textContent = ['failed', 'restarting'].includes(state) ? t(hasCache ? 'externalBots.stale' : 'externalBots.unavailable')
       : state === 'loading' ? t('externalBots.loading') : state === 'unread' ? t('externalBots.notLoaded') : '';
     node.dataset.state = state;
-    node.title = errorDetail[kind];
+    const detail = kind === 'deliveries' ? (state === 'failed' ? errorText({ code: errorDetail.deliveries }, false) : '') : errorDetail[kind];
+    node.title = detail;
+    if (kind === 'deliveries' && state === 'failed') node.textContent += ' ' + detail;
   }
   function control(label, action, callback) {
     const node = button('btn btn-sm', t(label), callback);
@@ -125,6 +144,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       for (const row of connections) { const option = el('option', '', row.label || row.id); option.value = row.id; select.appendChild(option); }
       select.value = filter;
     }
+    renderDeliveryFilter();
   }
   function renderInbox() {
     const host = byId('cfgStewardBotInbox');
@@ -163,6 +183,126 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       }
       details.appendChild(actions); node.appendChild(details); host.appendChild(node);
     }
+  }
+  function renderDeliveryFilter() {
+    const select = byId('cfgStewardBotDeliveryConnection');
+    if (!select) return;
+    clear(select); const all = el('option', '', t('externalBots.allConnections')); all.value = ''; select.appendChild(all);
+    const known = new Map(connections.map(row => [row.id, row.label || row.id]));
+    for (const item of deliveries) if (!known.has(item.connectionId)) known.set(item.connectionId, item.connectionLabel || item.connectionId);
+    if (deliveryFilter && !known.has(deliveryFilter)) known.set(deliveryFilter, deliveryFilter);
+    for (const [id, label] of known) { const option = el('option', '', label); option.value = id; select.appendChild(option); }
+    select.value = deliveryFilter;
+  }
+  function renderDeliveries() {
+    const host = byId('cfgStewardBotDeliveries'); if (!host) return;
+    clear(host); renderDeliveryFilter(); readStatus('deliveries');
+    host.setAttribute('aria-busy', String(quality.deliveries === 'loading'));
+    const more = byId('cfgStewardBotDeliveryMore');
+    if (more) { more.hidden = !deliveryCursor; more.disabled = quality.deliveries === 'loading' || Boolean(writeOwner); }
+    const refresh = byId('cfgStewardBotDeliveryRefresh'); if (refresh) refresh.disabled = quality.deliveries === 'loading' || Boolean(writeOwner);
+    const count = byId('cfgStewardBotDeliveryCount');
+    if (count) count.textContent = quality.deliveries === 'ok' ? t('externalBots.deliveryCount', { shown: deliveries.length, total: deliveryTotal, retained, capacity: 1000 }) : '';
+    const note = byId('cfgStewardBotDeliveryNote');
+    if (note) {
+      note.textContent = deliveryNotice.key ? t(deliveryNotice.key) + (deliveryNotice.failed ? ' ' + errorText({ code: deliveryNotice.code }, false) : '') : '';
+      note.dataset.tone = deliveryNotice.failed ? 'err' : '';
+    }
+    if (!deliveries.length && quality.deliveries === 'ok') host.appendChild(el('li', 'external-bots-empty muted', t('externalBots.emptyDeliveries')));
+    for (const item of deliveries) {
+      const node = el('li', 'external-bots-message external-bots-delivery'); node.dataset.deliveryId = item.id;
+      const heading = el('div', 'external-bots-row-title');
+      heading.append(el('strong', 'external-bots-copy', item.connectionLabel || item.connectionId), el('time', 'external-bots-state', item.receivedAt));
+      if (item.archivedAt) heading.appendChild(el('span', 'external-bots-state', t('externalBots.archived')));
+      const facts = el('dl', 'external-bots-delivery-facts');
+      for (const [label, value] of [['acceptedFact', 'externalBots.accepted'], ['executionFact', 'externalBots.execution.' + item.execution.status],
+        ['sendingFact', item.delivery ? 'externalBots.delivery.' + item.delivery.status : 'externalBots.notQueued']]) {
+        const fact = el('div', ''); fact.append(el('dt', 'muted', t('externalBots.' + label)), el('dd', '', t(value))); facts.appendChild(fact);
+      }
+      const details = el('details', ''), summary = el('summary', 'external-bots-message-summary');
+      summary.appendChild(el('span', 'external-bots-preview', item.text.replace(/\s+/g, ' ').slice(0, 120)));
+      details.append(summary, el('p', 'external-bots-source muted', [item.senderId, item.conversationId, item.messageId].filter(Boolean).join(' · ')), el('pre', 'external-bots-text', item.text));
+      if (item.execution.replyText) details.append(el('strong', '', t('externalBots.reply')), el('pre', 'external-bots-text', item.execution.replyText));
+      if (item.execution.errorCode) details.appendChild(el('p', 'muted', errorText({ code: item.execution.errorCode })));
+      if (item.delivery) {
+        details.appendChild(el('p', 'external-bots-source muted', t('externalBots.attempt') + ' · ' + item.delivery.attemptId));
+        if (item.delivery.errorCode) details.appendChild(el('p', 'muted', errorText({ code: item.delivery.errorCode })));
+      }
+      const actions = el('div', 'external-bots-actions');
+      const archive = control(item.archivedAt ? 'externalBots.unarchive' : 'externalBots.archive', 'archive', () => archiveDelivery(item, archive));
+      archive.disabled ||= quality.deliveries !== 'ok' || Boolean(archivePending); actions.appendChild(archive);
+      node.append(heading, facts, details, actions); host.appendChild(node);
+    }
+  }
+  async function loadDeliveries(older = false) {
+    if (!active || !isVisible() || !deliveryOpen()) return false;
+    older = older === true;
+    if (older && (!deliveryCursor || quality.deliveries === 'loading')) return false;
+    const cursor = older ? deliveryCursor : '', mine = generation, seq = ++deliverySeq, connectionId = deliveryFilter, archive = archiveFilter;
+    quality.deliveries = 'loading'; renderDeliveries();
+    try {
+      const body = await api('/api/external-bots/deliveries?limit=50&archive=' + archive + (connectionId ? '&connectionId=' + encodeURIComponent(connectionId) : '')
+        + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''));
+      if (!current(mine, seq, 'deliveries')) return false;
+      if (body?.ok !== true || !Array.isArray(body.items) || body.items.length > 50 || !body.items.every(validExternalDeliveryItem)
+        || typeof body.nextCursor !== 'string' || !/^[A-Za-z0-9_-]{0,2048}$/.test(body.nextCursor)
+        || !Number.isInteger(body.total) || body.total < body.items.length || body.total > 1000
+        || !Number.isInteger(body.retained) || body.retained < body.total || body.retained > 1000 || body.capacity !== 1000 || typeof body.full !== 'boolean'
+        || body.items.some(item => connectionId && item.connectionId !== connectionId || archive !== 'all' && Boolean(item.archivedAt) !== (archive === 'archived'))) throw new Error('invalid_response');
+      const merged = older ? [...new Map([...deliveries, ...body.items].map(item => [item.id, item])).values()] : body.items;
+      if (merged.length > 1000) throw new Error('invalid_response');
+      deliveries = merged; deliveryCursor = body.nextCursor; deliveryTotal = body.total; retained = body.retained;
+      quality.deliveries = 'ok'; errorDetail.deliveries = '';
+    } catch (error) {
+      if (!current(mine, seq, 'deliveries')) return false;
+      quality.deliveries = 'failed'; errorDetail.deliveries = deliveryErrorCode(error);
+    }
+    renderDeliveries(); return quality.deliveries === 'ok';
+  }
+  async function archiveDelivery(item, source) {
+    if (archivePending || writeOwner || !active || !isVisible() || !deliveryOpen() || quality.deliveries !== 'ok') return false;
+    const mine = generation, owner = {}, archived = !item.archivedAt, restoreFocus = doc()?.activeElement === source;
+    archivePending = owner; deliverySeq++;
+    const settle = (failed, error) => {
+      if (archivePending !== owner) return;
+      archivePending = null; deliverySeq++;
+      if (failed || quality.deliveries !== 'restarting') quality.deliveries = failed ? 'failed' : 'unread';
+      errorDetail.deliveries = failed ? deliveryErrorCode(error) : '';
+      if (active && isVisible()) renderDeliveries();
+    };
+    writeOwner = owner; renderConnections(); renderInbox(); renderDeliveries();
+    try {
+      const body = await api('/api/external-bots/deliveries/archive', { method: 'POST', body: JSON.stringify({ id: item.id, archived }) });
+      if (body?.ok !== true || body.item?.id !== item.id || typeof body.item?.archivedAt !== 'string' || body.item.archivedAt.length > 64
+        || Boolean(body.item.archivedAt) !== archived || body.item.archivedAt && !Number.isFinite(Date.parse(body.item.archivedAt))) throw new Error('write_unconfirmed');
+      settle(false);
+      if (mine !== generation || !active || !isVisible() || writeOwner !== owner) return false;
+      deliveryNotice = { key: archived ? 'externalBots.archiveSaved' : 'externalBots.unarchiveSaved', code: '', failed: false };
+      await loadDeliveries(); return true;
+    } catch (error) {
+      settle(true, error);
+      if (mine === generation && active && isVisible() && writeOwner === owner) {
+        deliveryNotice = { key: 'externalBots.archiveFailed', code: deliveryErrorCode(error), failed: true };
+      }
+      return false;
+    } finally {
+      if (writeOwner === owner) {
+        writeOwner = null;
+        if (active && isVisible()) {
+          renderConnections(); renderInbox(); renderDeliveries();
+          if (restoreFocus && deliveryOpen() && (!doc()?.activeElement || doc().activeElement === doc().body || doc().activeElement === source)) {
+            const row = [...(byId('cfgStewardBotDeliveries')?.querySelectorAll?.('[data-delivery-id]') || [])].find(node => node.dataset.deliveryId === item.id);
+            const action = row?.querySelector('[data-bot-action="archive"]');
+            (action && !action.disabled ? action : byId('cfgStewardBotDeliveryRefresh'))?.focus();
+          }
+        }
+      }
+    }
+  }
+  function changeDeliveryFilter() {
+    deliveryFilter = byId('cfgStewardBotDeliveryConnection')?.value || ''; archiveFilter = byId('cfgStewardBotDeliveryArchive')?.value || 'active';
+    deliverySeq++; deliveries = []; deliveryCursor = ''; deliveryTotal = 0; quality.deliveries = 'loading'; errorDetail.deliveries = '';
+    renderDeliveries(); void loadDeliveries();
   }
   function discoverNote(text, tone = '') {
     const node = byId(DISCOVER.note);
@@ -272,7 +412,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
   async function mutate(payload) {
     if (writeOwner || !active || !isVisible() || quality.connections !== 'ok') return false;
     const owner = {}; writeOwner = owner; const mine = generation;
-    renderConnections(); renderInbox();
+    renderConnections(); renderInbox(); renderDeliveries();
     try {
       if (payload.op === 'upsert' && payload.connection?.mode === 'control') {
         const row = payload.connection;
@@ -290,7 +430,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     } catch (error) {
       if (mine === generation && active && isVisible()) { say('externalBots.saveFailed', 'err'); const note = byId('cfgStewardExternalBotNote'); if (note) note.textContent += ' ' + errorText(error); }
       return false;
-    } finally { if (writeOwner === owner) { writeOwner = null; if (active && isVisible()) { renderConnections(); renderInbox(); } } }
+    } finally { if (writeOwner === owner) { writeOwner = null; if (active && isVisible()) { renderConnections(); renderInbox(); renderDeliveries(); } } }
   }
   async function removeConnection(row) {
     const mine = generation;
@@ -301,7 +441,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
   }
   async function markRead(item) {
     if (writeOwner || !active || !isVisible()) return false;
-    const mine = generation, owner = {}; writeOwner = owner; renderInbox();
+    const mine = generation, owner = {}; writeOwner = owner; renderInbox(); renderDeliveries();
     try {
       const response = await api('/api/external-bots/inbox/read', { method: 'POST', body: JSON.stringify({ id: item.id }) });
       if (mine !== generation || !active || !isVisible()) return false;
@@ -310,7 +450,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     } catch {
       if (mine === generation && active && isVisible()) say('externalBots.readFailed', 'err');
       return false;
-    } finally { if (writeOwner === owner) { writeOwner = null; if (active && isVisible()) { renderConnections(); renderInbox(); } } }
+    } finally { if (writeOwner === owner) { writeOwner = null; if (active && isVisible()) { renderConnections(); renderInbox(); renderDeliveries(); } } }
   }
   function addDraft(item) {
     if (!active || !isVisible()) return false;
@@ -359,15 +499,15 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
   }
   function invalidate(reason = 'failed') {
     setup.close(); closeDiscover();
-    generation++; connectionSeq++; inboxSeq++; writeOwner = null; nextBefore = '';
-    quality.connections = reason; quality.inbox = reason;
-    if (active && isVisible()) { renderConnections(); renderInbox(); }
+    generation++; connectionSeq++; inboxSeq++; deliverySeq++; writeOwner = null; nextBefore = ''; deliveryCursor = '';
+    quality.connections = reason; quality.inbox = reason; quality.deliveries = reason;
+    if (active && isVisible()) { renderConnections(); renderInbox(); renderDeliveries(); }
   }
   function syncVisibility() {
     const next = isVisible();
     if (next === active) return;
     active = next; invalidate(active ? 'loading' : 'unread');
-    if (active) { void loadConnections(); void loadInbox(); }
+    if (active) { void loadConnections(); void loadInbox(); if (deliveryOpen()) void loadDeliveries(); }
   }
   function bind() {
     if (bound || !doc()) return false;
@@ -375,6 +515,9 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     const on = (id, event, callback) => byId(id)?.addEventListener(event, callback);
     on('cfgStewardBotConnectionsRefresh', 'click', loadConnections); on('cfgStewardBotInboxRefresh', 'click', loadInbox);
     on('cfgStewardBotInboxMore', 'click', () => loadInbox(true));
+    on('cfgStewardBotDeliverySection', 'toggle', () => { if (deliveryOpen()) void loadDeliveries(); else { deliverySeq++; quality.deliveries = 'unread'; } });
+    on('cfgStewardBotDeliveryRefresh', 'click', loadDeliveries); on('cfgStewardBotDeliveryMore', 'click', () => loadDeliveries(true));
+    on('cfgStewardBotDeliveryConnection', 'change', changeDeliveryFilter); on('cfgStewardBotDeliveryArchive', 'change', changeDeliveryFilter);
     on('cfgStewardBotNew', 'click', () => edit()); on('cfgStewardBotForm', 'submit', save);
     on('cfgStewardBotDiscoverOpen', 'click', openDiscover); on('cfgStewardBotDiscoverForm', 'submit', runDiscover);
     on('cfgStewardBotDiscoverCancel', 'click', closeDiscover);
@@ -386,17 +529,17 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       const observer = new MutationObserver(syncVisibility);
       for (const id of ['settingsModal', 'stab-steward']) { const node = byId(id); if (node) observer.observe(node, { attributes: true, attributeFilter: ['class', 'hidden', 'data-only'] }); }
     }
-    try { globalThis.addEventListener('i18n:change', () => { if (active && isVisible()) { renderConnections(); renderInbox(); setup.repaint(); } }); } catch { /* optional host */ }
+    try { globalThis.addEventListener('i18n:change', () => { if (active && isVisible()) { renderConnections(); renderInbox(); renderDeliveries(); setup.repaint(); } }); } catch { /* optional host */ }
     syncVisibility(); return true;
   }
-  return Object.freeze({ bind, syncVisibility, loadConnections, loadInbox, openSetup: id => { syncVisibility(); return setup.open(id); },
+  return Object.freeze({ bind, syncVisibility, loadConnections, loadInbox, loadDeliveries, openSetup: id => { syncVisibility(); return setup.open(id); },
     setDraftImporter: handler => { importer = typeof handler === 'function' ? handler : null; },
     setEventStream: stream => {
       if (!stream || typeof stream.on !== 'function') return;
       let restarting = false;
       stream.on(EVENT_STREAM_INSTANCE_EVENT, () => { restarting = true; invalidate('restarting'); });
-      stream.on('presence.ack', () => { if (restarting) { restarting = false; if (active && isVisible()) { void loadConnections(); void loadInbox(); } } });
+      stream.on('presence.ack', () => { if (restarting) { restarting = false; if (active && isVisible()) { void loadConnections(); void loadInbox(); if (deliveryOpen()) void loadDeliveries(); } } });
     },
-    snapshot: () => ({ connections: connections.slice(), items: items.slice(), quality: { ...quality }, worker: { ...worker }, generation, writing: Boolean(writeOwner), discovering, nextBefore, total }),
+    snapshot: () => ({ connections: connections.slice(), items: items.slice(), quality: { ...quality }, worker: { ...worker }, generation, writing: Boolean(writeOwner), discovering, nextBefore, total, deliveries: deliveries.slice(), deliveryCursor, deliveryTotal, retained, deliveryFilter, archiveFilter, archivePending: Boolean(archivePending) }),
   });
 }
