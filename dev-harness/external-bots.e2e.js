@@ -38,7 +38,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       cwd: WB, windowsHide: true, stdio: 'ignore', env: { ...process.env, ...isolated.env, ...FAKE_BOT_ENV, RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home },
     });
     await until(async () => { try { return (await raw('GET', '/health')).status === 200; } catch { return false; } });
-    token = await until(() => { try { return JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8')).token; } catch { return false; } });
+    token = await until(async () => {
+      try {
+        const runtime = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8'));
+        if (runtime.pid !== server.pid || typeof runtime.token !== 'string' || !runtime.token) return false;
+        const probe = await raw('GET', '/api/external-bots/connections', undefined, { 'x-wcw-token': runtime.token });
+        return probe.status === 200 ? runtime.token : false;
+      } catch { return false; }
+    });
   };
   const stop = async () => { if (!server) return; const child = server; killOwnTree(child); await until(() => child.exitCode !== null || child.signalCode !== null); server = null; };
   const callback = (platform, wire, suffix = '') => raw('POST', '/api/external-bots/callback/' + platform + '?connectionId=' + platform + '_test' + suffix, wire.bytes, wire.headers);

@@ -32,7 +32,7 @@ function fixture(options = {}) {
   const envReads = []; const localCredentials = new Map(); let credentialRevision = 0, clockOffset = 0;
   class FixtureDate extends Date { static now() { return Date.now() + clockOffset; } }
   const read = () => fs.readFileSync(file, 'utf8');
-  const context = vm.createContext({ Buffer, TextDecoder, URL, AbortController, Date: FixtureDate, setTimeout, clearTimeout, crypto, path,
+  const context = vm.createContext({ Buffer, TextDecoder, URL, URLSearchParams, AbortController, Date: FixtureDate, setTimeout, clearTimeout, crypto, path,
     fs, fsp: { ...fsp, stat: async (...args) => { if (storage.readError) throw storage.readError; return fsp.stat(...args); } },
     WorkDataStore: fx.store, readConfig: async () => ({ workDataEncryptionV1: storage.enabled }),
     process: { env: new Proxy({ RUYI_BOT_QQ: 'TEST_ONLY_FAKE_KEY' }, { get(object, key) { envReads.push(key); assert.match(key, /^RUYI_BOT_/); return object[key]; } }) },
@@ -58,6 +58,7 @@ function fixture(options = {}) {
   vm.runInContext(functionBlock(src('00-boot.js'), 'runKeyedChain')
     + src('13w-external-bots.js') + `;globalThis.api={
       read:externalBotReadState,write:externalBotWriteState,publicConnection:externalBotPublicConnection,
+      page:async query=>externalBotDeliveryPage(await externalBotReadState(),new URLSearchParams(query)),archive:body=>runKeyedChain(externalBotChains,'state',()=>externalBotArchiveDelivery(body)),
       setup:externalBotStewardSetup,snapshot:async id=>externalBotSetupSnapshot((await externalBotReadState()).connections.find(c=>c.id===id)),
       setupOp:body=>runKeyedChain(externalBotChains,'state',()=>externalBotSetupOperation(body)),saveCredentials:body=>runKeyedChain(externalBotChains,'state',()=>externalBotSaveCredentials(body)),
       update:body=>runKeyedChain(externalBotChains,'state',()=>externalBotUpdateConnection(body)),
@@ -348,4 +349,112 @@ test('40 MiB means legacy plain disk bytes but authenticated compact business by
   await assert.rejects(f.api.read(), { code: 'external_channel.storage_unavailable' });
   await assert.rejects(f.api.update({ op: 'upsert', connection: f.connection }), { code: 'external_channel.storage_unavailable' });
   assert.equal(f.disk(), oversizedPlain); assert.equal(f.storage.unlocks, unlocks);
+});
+
+test('delivery pages read v1 without writes and preserve a bounded acceptance watermark under insert and status changes', async () => {
+  const f = fixture();
+  assert.equal((await f.api.page('')).items.length, 0); assert.equal(f.disk(), undefined);
+  await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true });
+  for (let n = 0; n < 5; n++) await f.api.accept(f.message({ messageId: 'page_' + n }));
+  const before = f.disk(), first = plain(await f.api.page('limit=2'));
+  assert.deepEqual(first.items.map(row => row.messageId), ['page_4', 'page_3']); assert.ok(first.nextCursor);
+  assert.equal(f.disk(), before); assert.equal(JSON.parse(before).schema, 1);
+  assert.equal(first.items[0].acceptance.status, 'accepted'); assert.equal(first.items[0].execution.status, 'queued'); assert.equal(first.items[0].delivery, null);
+  await f.api.accept(f.message({ messageId: 'page_new' }));
+  const job = await f.api.next(); await f.api.finish(job, { ok: true, say: 'same business result', turnSeq: 1 });
+  const second = plain(await f.api.page('limit=2&cursor=' + first.nextCursor));
+  assert.deepEqual(second.items.map(row => row.messageId), ['page_2', 'page_1']);
+  const third = plain(await f.api.page('limit=2&cursor=' + second.nextCursor));
+  assert.deepEqual(third.items.map(row => row.messageId), ['page_0']); assert.equal(third.items[0].execution.status, 'completed');
+  assert.equal(third.items[0].delivery.status, 'pending'); assert.equal(third.nextCursor, '');
+  assert.equal((await f.api.page('')).items[0].messageId, 'page_new');
+});
+
+test('delivery cursor binds filters and rejects duplicate/unknown/unbounded inputs', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true });
+  for (let n = 0; n < 3; n++) await f.api.accept(f.message({ messageId: 'cursor_' + n }));
+  const first = await f.api.page('limit=1&connectionId=qq_test&archive=all');
+  for (const query of ['limit=0', 'limit=101', 'limit=1e2', 'limit=01', 'limit=1&limit=2', 'unknown=1', 'archive=wrong', 'connectionId=', 'cursor=', 'cursor=abc']) {
+    if (query === 'connectionId=') continue; // An empty optional connection filter means all connections.
+    await assert.rejects(f.api.page(query), error => /^external_channel\.(request|cursor)_invalid$/.test(error.code));
+  }
+  for (const filter of ['archive=active&connectionId=qq_test', 'archive=all&connectionId=other']) {
+    await assert.rejects(f.api.page('cursor=' + first.nextCursor + '&' + filter), { code: 'external_channel.cursor_invalid' });
+  }
+  const tuple = JSON.parse(Buffer.from(first.nextCursor, 'base64url'));
+  tuple[1] = 'not_retained';
+  await assert.rejects(f.api.page('archive=all&connectionId=qq_test&cursor=' + Buffer.from(JSON.stringify(tuple)).toString('base64url')), { code: 'external_channel.cursor_invalid' });
+});
+
+test('archive upgrades one existing ledger atomically and preserves acceptance execution delivery and attempt facts', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
+  const job = await f.api.next(); await f.api.finish(job, { ok: true, say: 'completed reply', turnSeq: 3 });
+  const original = plain((await f.api.read()).items[0]), before = f.disk();
+  f.fail(true); await assert.rejects(f.api.archive({ id: original.id, archived: true }), { code: 'external_channel.storage_unavailable' });
+  assert.equal(f.disk(), before); f.fail(false);
+  const result = await f.api.archive({ id: original.id, archived: true });
+  const stored = plain(await f.api.read()); assert.equal(stored.schema, 2); assert.ok(result.item.archivedAt);
+  const { archivedAt, ...facts } = stored.items[0]; assert.deepEqual(facts, original);
+  assert.equal(result.retained, 1); assert.equal(result.capacity, 1000); assert.equal(result.full, false);
+  const written = f.disk(), writes = f.counts().writes;
+  await f.api.archive({ id: original.id, archived: true }); assert.equal(f.disk(), written); assert.equal(f.counts().writes, writes);
+  assert.equal((await f.api.page('')).items.length, 0); assert.equal((await f.api.page('archive=archived')).items[0].id, original.id);
+  await f.api.accept(f.message({ eventId: 'archived_duplicate' })); assert.equal(f.disk(), written);
+  await f.api.drain(); assert.equal(f.counts().runs, 0); assert.equal(f.counts().sends, 1);
+  const delivered = (await f.api.read()).items[0]; assert.equal(delivered.delivery.attemptId, original.delivery.attemptId); assert.equal(delivered.delivery.status, 'sent');
+  await f.api.archive({ id: original.id, archived: false }); assert.equal((await f.api.page('')).items[0].archivedAt, '');
+  assert.equal((await f.api.read()).schema, 2);
+});
+
+test('archive and acceptance share the state chain while cursor anchors survive archived records', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true });
+  for (let n = 0; n < 4; n++) await f.api.accept(f.message({ messageId: 'archive_page_' + n }));
+  const first = await f.api.page('limit=1');
+  await f.api.archive({ id: first.items[0].id, archived: true });
+  const hidden = (await f.api.read()).items[1]; await f.api.archive({ id: hidden.id, archived: true });
+  await f.api.accept(f.message({ messageId: 'post_watermark' }));
+  const rest = plain(await f.api.page('cursor=' + first.nextCursor));
+  assert.deepEqual(rest.items.map(row => row.messageId), ['archive_page_2', 'archive_page_0']);
+  const newest = (await f.api.read()).items.at(-1); assert.equal(newest.archivedAt, '');
+  const writes = f.counts().writes; await f.api.archive({ id: newest.id, archived: false }); assert.equal(f.counts().writes, writes);
+  for (const body of [{ id: newest.id }, { id: newest.id, archived: true, extra: 1 }, { id: 'absent', archived: true }]) await assert.rejects(f.api.archive(body));
+});
+
+test('archived dedupe still occupies all 1000 records and does not permit capacity reclamation', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
+  const state = plain(await f.api.read()), first = state.items[0];
+  for (let n = 1; n < 1000; n++) state.items.push({ ...first, id: 'retained_' + n, messageId: 'retained_' + n,
+    sourceKey: JSON.stringify([first.connectionId, first.tenantId, first.conversationId, 'retained_' + n]) });
+  await f.api.write(state); await f.api.archive({ id: first.id, archived: true });
+  const before = f.disk(); await assert.rejects(f.api.accept(f.message({ messageId: 'still_full' })), { code: 'external_channel.inbox_full' });
+  await f.api.accept(f.message({ eventId: 'duplicate_full_archived' })); assert.equal(f.disk(), before);
+  const page = await f.api.page(''); assert.equal(page.full, true); assert.equal(page.retained, 1000); assert.equal(page.total, 999);
+});
+
+test('encrypted archived payload reopens on the same Store AAD and preserves missing-key and no-downgrade refusal', async () => {
+  const f = fixture({ enabled: true }); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
+  const item = (await f.api.read()).items[0]; await f.api.archive({ id: item.id, archived: true });
+  const bytes = f.disk(), header = JSON.parse(bytes.split('\n')[0]);
+  assert.equal(header.purpose, 'queue'); assert.equal(header.schema, 1); assert.equal(header.scopeId, 'global'); assert.equal(header.recordId, 'external-bots:state-v1');
+  assert.ok(!bytes.includes(item.text));
+  const cold = fixture({ enabled: true, key: f.key }); cold.setDisk(bytes);
+  assert.equal((await cold.api.page('archive=archived')).items[0].id, item.id); assert.equal(cold.disk(), bytes);
+  cold.storage.missing = true;
+  await assert.rejects(cold.api.page('archive=all'), { code: 'external_channel.storage_unavailable' });
+  await assert.rejects(cold.api.archive({ id: item.id, archived: false }), { code: 'external_channel.storage_unavailable' }); assert.equal(cold.disk(), bytes);
+  cold.storage.missing = false; cold.storage.enabled = false;
+  await assert.rejects(cold.api.archive({ id: item.id, archived: false }), { code: 'external_channel.storage_unavailable' }); assert.equal(cold.disk(), bytes);
+  cold.setDisk(bytes.slice(0, -12)); const corrupt = cold.disk();
+  await assert.rejects(cold.api.page(''), { code: 'external_channel.storage_unavailable' }); assert.equal(cold.disk(), corrupt);
+});
+
+test('payload versions and archive metadata are validated whole without accepting downgraded semantics', async () => {
+  const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
+  const state = plain(await f.api.read());
+  for (const bad of [
+    { ...state, schema: 3 }, { ...state, schema: 2 },
+    { ...state, items: state.items.map(row => ({ ...row, archivedAt: '' })) },
+    { ...state, schema: 2, items: state.items.map(row => ({ ...row, archivedAt: 'invalid' })) },
+    { ...state, schema: 2, items: state.items.map(row => ({ ...row, archivedAt: 0 })) },
+  ]) { f.setDisk(JSON.stringify(bad)); const bytes = f.disk(); await assert.rejects(f.api.read(), { code: 'external_channel.storage_unavailable' }); assert.equal(f.disk(), bytes); }
 });

@@ -1,0 +1,502 @@
+{
+  "schema": 1,
+  "status": "api-first-slice-validated-not-complete-B1-or3.1",
+  "baseCommit": "f5d9ae4b446bf876680083bf35252d5525ac8518",
+  "runtime": {
+    "version": "3.0.1",
+    "sha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+    "modules": 118,
+    "edges": 817,
+    "largestScc": 31,
+    "routeDecisionPoints": 186,
+    "routeAuthEntries": 173
+  },
+  "scope": "Authenticated delivery list pagination and logical archive only. Existing state owner, worker, sender, execution and attempt facts remain authoritative.",
+  "storage": {
+    "file": "external-bots/state-v1.json",
+    "storeSchema": 1,
+    "payloadSchema": [
+      1,
+      2
+    ],
+    "purpose": "queue",
+    "scopeId": "global",
+    "recordId": "external-bots:state-v1",
+    "itemsLimit": 1000,
+    "bytesLimit": 41943040,
+    "newStorageFamilies": 0,
+    "archiveReclaimsCapacity": false,
+    "archiveCancelsOrRetries": false,
+    "oldBinaryReadsPayload2": false,
+    "rollbackCost": "First real archive writes payload2 atomically. Old binary refuses the entire ledger thereafter, including after unarchive. Read-only list/no-op does not upgrade; manual downgrade is not supported."
+  },
+  "validation": {
+    "node": "v24.14.1",
+    "fullUnit": {
+      "runner": "standard isolated run-all--fast embedded complete unit suite",
+      "tests": 3791,
+      "pass": 3765,
+      "skip": 26,
+      "fail": 0
+    },
+    "fastInitial": {
+      "pass": 80,
+      "fail": 1,
+      "flaky": 0,
+      "total": 81,
+      "actualProcess": {
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-isolated-fast-GJP1DZ",
+        "scope": "standard unmodified run-all--fast with fresh home/AppData/data/TEMP; janitor can only see this owned temporary root",
+        "pid": 3512,
+        "exited": true,
+        "exitCode": 1,
+        "exitSignal": null,
+        "closed": true,
+        "closeCode": 1,
+        "closeSignal": null,
+        "timedOut": false,
+        "helperMayStillRun": false,
+        "pass": false
+      },
+      "log": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\b1-list-fast.log",
+        "bytes": 7689,
+        "sha256": "7586a4ccf26a2cbb78a3bef5fe4f54e059b96e0f4f9e0d24162bfa325d97c944"
+      }
+    },
+    "repairedStatic": {
+      "name": "architecture-contract-snapshots.static.e2e.js",
+      "action": "Actual generator --write changes routing snapshot only (184/171 to186/173 and corresponding hashes); original static assertion rerun, no contract weakening",
+      "passLabels": 15,
+      "fail": 0,
+      "actualExitCode": 0,
+      "log": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\b1-contract-static-fixed.log",
+        "bytes": 884,
+        "sha256": "6854f05b4a23ea5c9445f617bf7bd2aaaac3a810f91eff4bdb0c976855406361"
+      }
+    },
+    "allRequiredStaticChecksSatisfied": true,
+    "syntax": {
+      "files": 1315,
+      "fail": 0,
+      "log": {
+        "file": "E:\\Claude\\handoffs\\ruyi-3.1-resume-20261025\\b1-api-syntax.log",
+        "bytes": 61,
+        "sha256": "365ee01cbaff0ecf7738586f714ea9c1f5cb055daea86ace1b804ae06064d787"
+      }
+    },
+    "direct": [
+      {
+        "file": "external-bots-control.e2e.js",
+        "label": "b1-after-route-01-external-bots-control.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-mQCpKH",
+        "pid": 23784,
+        "ms": 7921,
+        "exit": true,
+        "exitCode": 0,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 0,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": true
+      },
+      {
+        "file": "external-bots-work-data.e2e.js",
+        "label": "b1-after-route-02-external-bots-work-data.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-mrVX5X",
+        "pid": 30588,
+        "ms": 2340,
+        "exit": true,
+        "exitCode": 0,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 0,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": true
+      },
+      {
+        "file": "external-bots.e2e.js",
+        "label": "b1-after-restart-03-external-bots.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-UGBR3R",
+        "pid": 6276,
+        "ms": 9112,
+        "exit": true,
+        "exitCode": 0,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 0,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": true
+      },
+      {
+        "file": "external-channel-delivery.e2e.js",
+        "label": "b1-after-restart-04-external-channel-delivery.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-GHG76M",
+        "pid": 13832,
+        "ms": 5145,
+        "exit": true,
+        "exitCode": 0,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 0,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": true
+      },
+      {
+        "file": "external-bot-setup.e2e.js",
+        "label": "b1-after-restart-05-external-bot-setup.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-HqtRpW",
+        "pid": 68964,
+        "ms": 15686,
+        "exit": true,
+        "exitCode": 0,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 0,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": true
+      },
+      {
+        "file": "external-bot-credentials.e2e.js",
+        "label": "b1-after-restart-06-external-bot-credentials.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-BqmBwh",
+        "pid": 48320,
+        "ms": 3266,
+        "exit": true,
+        "exitCode": 0,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 0,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": true
+      },
+      {
+        "file": "external-bot-discovery.e2e.js",
+        "label": "b1-after-restart-07-external-bot-discovery.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-p2oxY9",
+        "pid": 27876,
+        "ms": 5703,
+        "exit": true,
+        "exitCode": 0,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 0,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": true
+      },
+      {
+        "file": "external-bots-control.e2e.js",
+        "label": "b1-after-restart-08-external-bots-control.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-LLJ6W4",
+        "pid": 54776,
+        "ms": 8114,
+        "exit": true,
+        "exitCode": 0,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 0,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": true
+      }
+    ],
+    "firstDirectFailure": [
+      {
+        "file": "external-bots.e2e.js",
+        "label": "b1-after-route-03-external-bots.e2e.js",
+        "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-9POryx",
+        "pid": 21488,
+        "ms": 3781,
+        "exit": true,
+        "exitCode": 1,
+        "exitSignal": null,
+        "close": true,
+        "closeCode": 1,
+        "closeSignal": null,
+        "timeout": false,
+        "overflow": false,
+        "spawnError": null,
+        "pipeError": false,
+        "cleanup": null,
+        "helperMayStillRun": false,
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "pass": false
+      }
+    ],
+    "restartDiagnostics": {
+      "noDelayBaseline": {
+        "scope": "root serial response diagnostic with unchanged original assertions; physical4521; optional compiledc33 baseline requires child main:true journal; parent actual exit+close; fresh isolated home/AppData/TEMP",
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "results": [
+          {
+            "file": "C:/Users/87179/AppData/Local/Temp/codex-ruyi-b1-restart-diagnostic-20261025/run-diagnostic.cjs",
+            "label": "b1-restart-baseline-01-run-diagnostic.cjs",
+            "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-5O1cqe",
+            "pid": 10340,
+            "ms": 9050,
+            "exit": true,
+            "exitCode": 0,
+            "exitSignal": null,
+            "close": true,
+            "closeCode": 0,
+            "closeSignal": null,
+            "timeout": false,
+            "overflow": false,
+            "spawnError": null,
+            "pipeError": false,
+            "cleanup": null,
+            "helperMayStillRun": false,
+            "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+            "pass": true
+          }
+        ]
+      },
+      "noDelayCurrent": {
+        "scope": "root serial response diagnostic with unchanged original assertions; physical4521; optional compiledc33 baseline requires child main:true journal; parent actual exit+close; fresh isolated home/AppData/TEMP",
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "results": [
+          {
+            "file": "C:/Users/87179/AppData/Local/Temp/codex-ruyi-b1-restart-diagnostic-20261025/run-diagnostic.cjs",
+            "label": "b1-restart-current-01-run-diagnostic.cjs",
+            "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-jqPiEX",
+            "pid": 2408,
+            "ms": 9277,
+            "exit": true,
+            "exitCode": 0,
+            "exitSignal": null,
+            "close": true,
+            "closeCode": 0,
+            "closeSignal": null,
+            "timeout": false,
+            "overflow": false,
+            "spawnError": null,
+            "pipeError": false,
+            "cleanup": null,
+            "helperMayStillRun": false,
+            "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+            "pass": true
+          }
+        ]
+      },
+      "controlledOldBaseline": {
+        "scope": "root serial response diagnostic with unchanged original assertions; physical4521; optional compiledc33 baseline requires child main:true journal; parent actual exit+close; fresh isolated home/AppData/TEMP",
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "results": [
+          {
+            "file": "C:/Users/87179/AppData/Local/Temp/codex-ruyi-b1-restart-delay-diagnostic-20261025/run-diagnostic.cjs",
+            "label": "b1-restart-delay-baseline-01-run-diagnostic.cjs",
+            "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-7XG9v4",
+            "pid": 44848,
+            "ms": 3763,
+            "exit": true,
+            "exitCode": 1,
+            "exitSignal": null,
+            "close": true,
+            "closeCode": 1,
+            "closeSignal": null,
+            "timeout": false,
+            "overflow": false,
+            "spawnError": null,
+            "pipeError": false,
+            "cleanup": null,
+            "helperMayStillRun": false,
+            "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+            "pass": false
+          }
+        ]
+      },
+      "controlledOldCurrent": {
+        "scope": "root serial response diagnostic with unchanged original assertions; physical4521; optional compiledc33 baseline requires child main:true journal; parent actual exit+close; fresh isolated home/AppData/TEMP",
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "results": [
+          {
+            "file": "C:/Users/87179/AppData/Local/Temp/codex-ruyi-b1-restart-delay-diagnostic-20261025/run-diagnostic.cjs",
+            "label": "b1-restart-delay-current-01-run-diagnostic.cjs",
+            "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-jjOepY",
+            "pid": 29816,
+            "ms": 3593,
+            "exit": true,
+            "exitCode": 1,
+            "exitSignal": null,
+            "close": true,
+            "closeCode": 1,
+            "closeSignal": null,
+            "timeout": false,
+            "overflow": false,
+            "spawnError": null,
+            "pipeError": false,
+            "cleanup": null,
+            "helperMayStillRun": false,
+            "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+            "pass": false
+          }
+        ]
+      },
+      "controlledFixedBaseline": {
+        "scope": "root serial response diagnostic with unchanged original assertions; physical4521; optional compiledc33 baseline requires child main:true journal; parent actual exit+close; fresh isolated home/AppData/TEMP",
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "results": [
+          {
+            "file": "C:/Users/87179/AppData/Local/Temp/codex-ruyi-b1-restart-delay-diagnostic-20261025/run-diagnostic.cjs",
+            "label": "b1-restart-delay-fixed-baseline-01-run-diagnostic.cjs",
+            "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-1lIiEJ",
+            "pid": 34828,
+            "ms": 8905,
+            "exit": true,
+            "exitCode": 0,
+            "exitSignal": null,
+            "close": true,
+            "closeCode": 0,
+            "closeSignal": null,
+            "timeout": false,
+            "overflow": false,
+            "spawnError": null,
+            "pipeError": false,
+            "cleanup": null,
+            "helperMayStillRun": false,
+            "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+            "pass": true
+          }
+        ]
+      },
+      "controlledFixedCurrent": {
+        "scope": "root serial response diagnostic with unchanged original assertions; physical4521; optional compiledc33 baseline requires child main:true journal; parent actual exit+close; fresh isolated home/AppData/TEMP",
+        "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+        "results": [
+          {
+            "file": "C:/Users/87179/AppData/Local/Temp/codex-ruyi-b1-restart-delay-diagnostic-20261025/run-diagnostic.cjs",
+            "label": "b1-restart-delay-fixed-current-01-run-diagnostic.cjs",
+            "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\codex-ruyi-fulltext-gate-5Z0LfP",
+            "pid": 53756,
+            "ms": 9294,
+            "exit": true,
+            "exitCode": 0,
+            "exitSignal": null,
+            "close": true,
+            "closeCode": 0,
+            "closeSignal": null,
+            "timeout": false,
+            "overflow": false,
+            "spawnError": null,
+            "pipeError": false,
+            "cleanup": null,
+            "helperMayStillRun": false,
+            "serverSha256": "4521f620677feb3c6d8584f3730ab3d3548ee19292bfa4901c25a46b5a96d870",
+            "pass": true
+          }
+        ]
+      },
+      "scope": "Compiled c33 baseline selector, not physical installed artifact. Child compile PID/hash and corrected moduleId/entry identify selection; old preload require.main flag was invalid metadata. One exact owned runtime.json rename is delayed150ms on restart only. Raw request/assertion logic unchanged; only fixture startup handshake hardened afterward.",
+      "causalityLimit": "Uninstrumented first failure happened at B22 before ENOSPC. Its exact historical scheduling was not observed. Controlled old/current reproductions prove the shared reachable bootstrap race, not a B1 corruption or historical-cause claim."
+    }
+  },
+  "independentReviews": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-list-independent-20261025\\review.json",
+      "bytes": 3173,
+      "sha256": "93ffd56f2d89e3e183e49b83156d7712a12496c670a24587bad88872c551fa14"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-route-integration-independent-20261025\\review.json",
+      "bytes": 2229,
+      "sha256": "30b94882f3c01291e93e66e35a8ad11f49c84d8f190537b748d29cd3e5e0552e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-handshake-fix-independent-20261025\\review.json",
+      "bytes": 1690,
+      "sha256": "ba6786e28491eb2af810872897481e75edd864e721e1f5f8e6ec03303cac6580"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-restart-diagnostic-independent-20261025\\review.json",
+      "bytes": 2124,
+      "sha256": "fe340c33d62030aa82659044f0456eb9ad3aa959812f0220ccb215ab513b35a5"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-restart-diagnostic-independent-20261025\\main-metadata-correction.json",
+      "bytes": 1940,
+      "sha256": "97cce0320064f884be4bf9f64d07b923f88639b30a4815f0be4e80208347a8c9"
+    }
+  ],
+  "firstFailures": [
+    {
+      "scope": "global authorization registration",
+      "result": "Generator refused two missing exact route admissions plus an origin-guard scan point. Added only intended GET-list/POST-archive token pairs; extracted equivalent origin boolean; unsupported GETarchive remains denied."
+    },
+    {
+      "scope": "contract snapshot",
+      "result": "First fast80/81 retained. Regenerated existing routing contract snapshots; original failed static gate then passed."
+    },
+    {
+      "scope": "bootstrap fixture",
+      "result": "Original B22 failed before disk fault. Controlled150ms rename proved stale PID/token403 on old/current. PID and real-token authentication handshake fixed only tests, preserving all business assertions/budgets. Initial ENOSPC hypothesis corrected."
+    }
+  ],
+  "remaining": {
+    "ui": "Separate source candidates only; not applied or visually validated in this API batch",
+    "cancel": false,
+    "manualRetry": false,
+    "physicalRetention": false,
+    "remotePending": false,
+    "realPlatformAccepted": false,
+    "realMessagesSent": false,
+    "packagePublished": false,
+    "whole3_1": false
+  },
+  "durableEvidence": "E:/Claude/handoffs/ruyi-3.1-resume-20261025"
+}

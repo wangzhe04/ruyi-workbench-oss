@@ -43,7 +43,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       cwd: WB, windowsHide:true, stdio:'ignore', env:{ ...process.env, ...isolated.env, ...FAKE_BOT_ENV, RUYI_BOT_TEST_F_APP:'synthetic-app-secret', RUYI_FAKE_EXTERNAL_API_PORT:String(apiPort), RUYI_HOME:home, WIN_CLAUDE_WORKBENCH_HOME:home },
     });
     await until(async()=>{try{return(await request('GET','/health',undefined,{},false)).status===200;}catch{return false;}},'server');
-    token=await until(()=>{try{return JSON.parse(fs.readFileSync(path.join(home,'runtime.json'),'utf8')).token;}catch{return false;}},'token');
+    token=await until(async()=>{
+      try {
+        const runtime=JSON.parse(fs.readFileSync(path.join(home,'runtime.json'),'utf8'));
+        if(runtime.pid!==server.pid||typeof runtime.token!=='string'||!runtime.token)return false;
+        const probe=await request('GET','/api/external-bots/connections',undefined,{'x-wcw-token':runtime.token},false);
+        return probe.status===200?runtime.token:false;
+      } catch {return false;}
+    },'token');
   };
   const stop=async()=>{if(server){const child=server;killOwnTree(child);await until(()=>child.exitCode!==null||child.signalCode!==null,'server exit');server=null;}};
   const findExecution = content => {
@@ -145,6 +152,30 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       &&Number.isFinite(Date.parse(recovered.execution.finishedAt))&&commandCalls.get('CONTROL_FINISHFAIL')===completedCalls,'C17 restart settles running-to-unknown without replaying a command after failed result persistence');
     await callback('control_create','请创建任务 CONTROL_CREATE，并告诉我真实结果。','feishu','restart_duplicate');await sleep(100);
     ok(commandCalls.get('CONTROL_CREATE')===before,'C18 actual process restart preserves source-message execution dedupe');
+    const list = await request('GET', '/api/external-bots/deliveries?limit=2&archive=all');
+    ok(list.status === 200 && list.json.items.length === 2 && list.json.nextCursor && list.json.items.every(item => item.acceptance.status === 'accepted'), 'B1a delivery page exposes separate accepted execution and delivery facts');
+    const secondPage = await request('GET', '/api/external-bots/deliveries?limit=2&archive=all&cursor=' + list.json.nextCursor);
+    ok(secondPage.status === 200 && secondPage.json.items.length === 2 && secondPage.json.items.every(item => !list.json.items.some(first => first.id === item.id)), 'B1b acceptance-order cursor has no overlap after actual delivery status changes');
+    ok((await request('GET', '/api/external-bots/deliveries', undefined, {}, false)).status === 403
+      && (await request('POST', '/api/external-bots/deliveries/archive', { id: created.id, archived: true }, { origin: 'https://foreign.invalid' })).status === 403, 'B1c local token and same-origin archive checks precede mutation');
+    ok((await request('POST', '/api/external-bots/deliveries/archive', { id: created.id, archived: true }, {}, false)).status === 403
+      && (await request('GET', '/api/external-bots/deliveries/archive')).status === 403, 'B1i authorization table admits only the two intended authenticated method/path pairs');
+    const factsBeforeArchive = JSON.parse(fs.readFileSync(stateFile, 'utf8')).items.find(item => item.id === created.id);
+    const archiveResult = await request('POST', '/api/external-bots/deliveries/archive', { id: created.id, archived: true });
+    const factsAfterArchive = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    const archivedItem = factsAfterArchive.items.find(item => item.id === created.id), { archivedAt, ...unchangedFacts } = archivedItem;
+    ok(archiveResult.status === 200 && archivedAt && factsAfterArchive.schema === 2 && JSON.stringify(unchangedFacts) === JSON.stringify(factsBeforeArchive)
+      && archiveResult.json.retained === factsAfterArchive.items.length && archiveResult.json.capacity === 1000, 'B1d logical archive atomically upgrades payload without changing dedupe execution or attempt facts or claiming free capacity');
+    const archivedPage = await request('GET', '/api/external-bots/deliveries?archive=archived');
+    ok(archivedPage.json.items.some(item => item.id === created.id) && !(await request('GET', '/api/external-bots/deliveries')).json.items.some(item => item.id === created.id), 'B1e archive changes only management list visibility');
+    const sentBeforeArchiveRetry = outbound.length;
+    await callback('control_create', '请创建任务 CONTROL_CREATE，并告诉我真实结果。', 'feishu', 'archived_duplicate'); await sleep(100);
+    ok(commandCalls.get('CONTROL_CREATE') === before && outbound.length === sentBeforeArchiveRetry, 'B1f archived platform duplicate repeats neither business nor delivery');
+    await stop(); await start();
+    ok((await request('GET', '/api/external-bots/deliveries?archive=archived')).json.items.some(item => item.id === created.id)
+      && (await readItem('control_create')).delivery.attemptId === created.delivery.attemptId, 'B1g restart retains archived identity and original sending attempt');
+    ok((await request('POST', '/api/external-bots/deliveries/archive', { id: created.id, archived: false })).status === 200
+      && (await request('GET', '/api/external-bots/deliveries')).json.items.some(item => item.id === created.id), 'B1h unarchive restores visibility without a downgrade or second queue');
     ok(fake.errors.length===0,'C19 scripted model fixture has no hidden handler failures');
   } catch(error){runner.fail(error.stack||String(error));}
   finally{if(fs.existsSync(holdFlag))fs.unlinkSync(holdFlag);if(heldTokenResponse)heldTokenResponse.destroy();await stop();if(fake)await fake.close();if(apiServer){apiServer.closeAllConnections();await new Promise(resolve=>apiServer.close(resolve));}runner.done({exit:true});}
