@@ -775,7 +775,7 @@
     {"file":"ruyi-workbench/app/src/13r-event-stream.js","fingerprint":"7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a"},
     {"file":"ruyi-workbench/app/src/13s-scheduler.js","fingerprint":"564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b"},
     {"file":"ruyi-workbench/app/src/13t-steward-schedule.js","fingerprint":"be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21"},
-    {"file":"ruyi-workbench/app/src/13u-migration-center.js","fingerprint":"7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0"},
+    {"file":"ruyi-workbench/app/src/13u-migration-center.js","fingerprint":"1bcc217cebc360990adc4dba033ec827c54fc9a79a7550882599435c3a50eccf"},
     {"file":"ruyi-workbench/app/src/13v-external-channel-protocols.js","fingerprint":"4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e"},
     {"file":"ruyi-workbench/app/src/13w-external-bots.js","fingerprint":"a592caf719027e2a4164a2b92d9ff7722639c31d64c5978e885fe3047e510b7d"},
     {"file":"ruyi-workbench/app/src/13x-external-channel-delivery.js","fingerprint":"3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"},

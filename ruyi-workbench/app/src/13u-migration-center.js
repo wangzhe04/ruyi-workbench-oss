@@ -560,10 +560,17 @@ public static class RuyiSkillCapsule {
   static string Str(object value) { return Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture); }
   static void Check(bool ok) { if (!ok) throw new Win32Exception(Marshal.GetLastWin32Error()); }
   static void Reject(string reason) { throw new InvalidOperationException(reason); }
+  // All callers supply canonical owner-bound paths (or paths from held handles).
+  // Preserve an existing namespace and qualify DOS/UNC paths before .NET or Win32 IO.
+  static string NativePath(string path) {
+    if(path.StartsWith(@"\\?\",StringComparison.Ordinal)) return path;
+    return path.StartsWith(@"\\",StringComparison.Ordinal)?@"\\?\UNC\"+path.Substring(2):@"\\?\"+path;
+  }
   static SafeFileHandle Open(string file) {
     bool ignored; return Open(file, out ignored);
   }
   static SafeFileHandle Open(string file, out bool writable, bool dataStream = false) {
+    file=NativePath(file);
     // Known DATA streams exclude existing writers. Directories/new streams require
     // explicit set verification; Windows sharing is per-stream, not per-tree.
     FileAttributes attributes = File.GetAttributes(file);
@@ -611,7 +618,7 @@ public static class RuyiSkillCapsule {
     if (spaces || !legal) Reject("unsupported_short_name");
   }
   static void ProbeShortNames(Dictionary<string,object> args) {
-    string file=System.IO.Path.Combine(Str(args["root"]),".ruyi-short-probe-"+RandomName());
+    string file=System.IO.Path.Combine(NativePath(Str(args["root"])),".ruyi-short-probe-"+RandomName());
     // The same access as original directories/readonly files. Older platforms
     // needing SeRestorePrivilege fail here, before touching any original object.
     using (SafeFileHandle handle=CreateFile(file,0x80010100u,7,IntPtr.Zero,1,0x06000000u,IntPtr.Zero)) {
@@ -690,6 +697,7 @@ public static class RuyiSkillCapsule {
   }
   static Basic BasicOf(SafeFileHandle handle) { Basic info; Check(GetFileInformationByHandleEx(handle, 0, out info, (uint)Marshal.SizeOf(typeof(Basic)))); return info; }
   static void Walk(string path, string rel, List<object> entries, bool capture) {
+    path=NativePath(path);
     if (entries.Count >= 10000 || rel.Split('/').Length > 256) Reject("archive_limit");
     Node node = new Node(); node.Handle = Open(path, out node.Writable);
     try {
@@ -936,7 +944,7 @@ public static class RuyiSkillCapsule {
     }
   }
   static void VerifyNames(string root,bool rootAlias) {
-    if(!root.StartsWith(@"\\?\")) root=@"\\?\"+System.IO.Path.GetFullPath(root);
+    root=NativePath(root);
     foreach(Node node in Expected()) {
       string rel=Str(node.Entry["rel"]),target=rel==""?root:System.IO.Path.Combine(root,rel.Replace('/','\\'));
       if(!String.Equals(PathOf(node.Handle),target,StringComparison.OrdinalIgnoreCase)) Reject("entry_set_changed");
@@ -975,7 +983,7 @@ public static class RuyiSkillCapsule {
   static void CheckPublication(Dictionary<string,object> args) {
     string alias=Str(RootNode().Entry["shortName"]);if(alias=="") return;
     string candidate=System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Str(args["target"])),alias);
-    using(SafeFileHandle handle=CreateFile(candidate,0x80u,7,IntPtr.Zero,3,0x02200000,IntPtr.Zero)) {
+    using(SafeFileHandle handle=CreateFile(NativePath(candidate),0x80u,7,IntPtr.Zero,3,0x02200000,IntPtr.Zero)) {
       if(handle.IsInvalid) { int code=Marshal.GetLastWin32Error();if(code==2 || code==3)return;throw new Win32Exception(code); }
       string id=Id(handle);
       if(id!=Str(RootNode().Entry["id"]) && (!args.ContainsKey("allowedId") || id!=Str(args["allowedId"]))) Reject("root_alias_collision");
@@ -1045,6 +1053,7 @@ public static class RuyiSkillCapsule {
     }
   }
   static void FlushStoreDirectory(string path) {
+    path=NativePath(path);
     using(var handle=CreateFile(path,0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
       if(handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error()); Check(FlushFileBuffers(handle));
     }

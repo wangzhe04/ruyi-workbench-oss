@@ -580,139 +580,139 @@
     {
       "file": "13u-migration-center.js",
       "startLine": 94155,
-      "endLine": 97533,
+      "endLine": 97542,
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环"
     },
     {
       "file": "13v-external-channel-protocols.js",
-      "startLine": 97534,
-      "endLine": 97744,
+      "startLine": 97543,
+      "endLine": 97753,
       "note": "External QQ/Feishu signed protocol normalization; pure built-in crypto helpers"
     },
     {
       "file": "13x-external-channel-delivery.js",
-      "startLine": 97745,
-      "endLine": 97897,
+      "startLine": 97754,
+      "endLine": 97906,
       "note": "Single bounded official QQ/Feishu reply delivery, explicit sent/failed/unknown outcomes"
     },
     {
       "file": "13y-external-bot-credentials.js",
-      "startLine": 97898,
-      "endLine": 98175,
+      "startLine": 97907,
+      "endLine": 98184,
       "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS"
     },
     {
       "file": "13z-external-bot-discovery.js",
-      "startLine": 98176,
-      "endLine": 98271,
+      "startLine": 98185,
+      "endLine": 98280,
       "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted"
     },
     {
       "file": "13ab-privacy-api.js",
-      "startLine": 98272,
-      "endLine": 98736,
+      "startLine": 98281,
+      "endLine": 98745,
       "note": "81-P2: token-authenticated security settings and recovery API"
     },
     {
       "file": "13w-external-bots.js",
-      "startLine": 98737,
-      "endLine": 99701,
+      "startLine": 98746,
+      "endLine": 99710,
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker"
     },
     {
       "file": "13ac-mcp-consumer.js",
-      "startLine": 99702,
-      "endLine": 100310,
+      "startLine": 99711,
+      "endLine": 100319,
       "note": "Authenticated independent stdio consumer relay, bounded host-owned scopes and grants"
     },
     {
       "file": "13ad-memory-cli-relay.js",
-      "startLine": 100311,
-      "endLine": 100528,
+      "startLine": 100320,
+      "endLine": 100537,
       "note": "Per-execution read-only memory relay for native CLI consumers"
     },
     {
       "file": "13ae-cli-business-services.js",
-      "startLine": 100529,
-      "endLine": 100997,
+      "startLine": 100538,
+      "endLine": 101006,
       "note": "M3-3: CLI business services shared by HTTP and serve-owned internal MCP, late-bound through boot hooks"
     },
     {
       "file": "13af-internal-mcp-relay.js",
-      "startLine": 100998,
-      "endLine": 101352,
+      "startLine": 101007,
+      "endLine": 101361,
       "note": "M3-3: exact execution capability relay; default stdio has no data-root writer"
     },
     {
       "file": "13ag-work-data-maintenance.js",
-      "startLine": 101353,
-      "endLine": 101533,
+      "startLine": 101362,
+      "endLine": 101542,
       "note": "M3-3: work-data-maintenance"
     },
     {
       "file": "13ah-work-data-setup.js",
-      "startLine": 101534,
-      "endLine": 101725,
+      "startLine": 101543,
+      "endLine": 101734,
       "note": "M3-3: authenticated setup jobs and complete HTTP maintenance admission"
     },
     {
       "file": "13ai-work-data-worker.js",
-      "startLine": 101726,
-      "endLine": 101999,
+      "startLine": 101735,
+      "endLine": 102008,
       "note": "TEMP reviewed candidate composition only"
     },
     {
       "file": "13aj-work-data-control.js",
-      "startLine": 102000,
-      "endLine": 102153,
+      "startLine": 102009,
+      "endLine": 102162,
       "note": "TEMP reviewed candidate composition only"
     },
     {
       "file": "13al-work-data-maintenance-http.js",
-      "startLine": 102154,
-      "endLine": 102261,
+      "startLine": 102163,
+      "endLine": 102270,
       "note": "TEMP reviewed candidate composition only"
     },
     {
       "file": "13an-work-data-disposable-tree.js",
-      "startLine": 102262,
-      "endLine": 102298,
+      "startLine": 102271,
+      "endLine": 102307,
       "note": "TEMP reviewed candidate composition only"
     },
     {
       "file": "13ak-work-data-cold-operations.js",
-      "startLine": 102299,
-      "endLine": 102596,
+      "startLine": 102308,
+      "endLine": 102605,
       "note": "TEMP reviewed candidate composition only"
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "startLine": 102597,
-      "endLine": 102800,
+      "startLine": 102606,
+      "endLine": 102809,
       "note": "TEMP reviewed candidate composition only"
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "startLine": 102801,
-      "endLine": 103149,
+      "startLine": 102810,
+      "endLine": 103158,
       "note": "M3-4 committed-message text index owner"
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "startLine": 103150,
-      "endLine": 103299,
+      "startLine": 103159,
+      "endLine": 103308,
       "note": "M3-4 authorized UI/model/MCP fulltext consumers"
     },
     {
       "file": "13ba-media-image-contract.js",
-      "startLine": 103300,
-      "endLine": 103608,
+      "startLine": 103309,
+      "endLine": 103617,
       "note": "M4 bounded in-memory image contract; production media owners unbound"
     },
     {
       "file": "14-main.js",
-      "startLine": 103609,
-      "endLine": 104406,
+      "startLine": 103618,
+      "endLine": 104415,
       "note": "main()/module.exports"
     }
   ]

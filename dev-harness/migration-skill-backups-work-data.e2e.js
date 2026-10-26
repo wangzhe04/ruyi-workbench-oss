@@ -8,12 +8,13 @@ const assert = require('node:assert/strict');
 const { releaseEnvironment } = require(path.join(repo, 'dev-harness/lib/release-checks'));
 const { loadServerInternals } = require(path.join(repo, 'dev-harness/lib/server-internals'));
 const { basicMetadata, setShortName } = require(path.join(repo, 'dev-harness/lib/skill-capsule-native-fixture'));
+const { runNativeShortProbes } = require(path.join(repo, 'dev-harness/lib/native-short-probe-fixture'));
 const t = require(path.join(repo, 'dev-harness/lib/harness')).createRunner('MIGRATION SKILL BACKUP WORK DATA');
 const base = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(base, 'ruyi-skill-backup-dpapi-'));
 const home = path.join(root, 'home'), data = path.join(root, 'data');
 Object.assign(process.env, releaseEnvironment(home, data));
 const names = ['flushWorkbenchLogs', 'readConfig', 'writeConfig', 'workDataKeys', 'migrationCopySkills', 'migrationLogs', 'migrationUndo',
-  'migrationUndoSkillCopy', 'migrationCapsuleRead', 'migrationCapsuleDescriptor', 'MigrationHooks', 'loadSkillRegistry'];
+  'migrationUndoSkillCopy', 'migrationCapsuleRead', 'migrationCapsuleDescriptor', 'MigrationHooks', 'loadSkillRegistry', 'migrationCapsuleBroker'];
 const runtimes = [];
 const load = () => { const api = loadServerInternals(names); runtimes.push(api); return api; };
 const clearKeys = () => { for (const api of runtimes) api.workDataKeys.clear(); };
@@ -64,6 +65,12 @@ async function backupOf(api, result) {
   assert.equal(fs.existsSync(path.join(data, 'work-data-key-v1.json')), false);
   t.ok(true, 'OFF keeps the original rename/undo objects and exact default/file/directory stream bytes without creating keys');
   if (process.platform !== 'win32') { console.log('SKIP real Windows NTFS/DPAPI capsule lifecycle'); return; }
+
+  const probes = await runNativeShortProbes(api, path.join(root, 'owned-long-probes'));
+  assert.equal(probes.length, 8);
+  assert.ok(probes.some(row => row.probeLength >= 1024));
+  assert.equal(fs.existsSync(path.join(data, 'work-data-key-v1.json')), false);
+  t.ok(true, 'short-name capability probes pass long owned paths through 1024 characters with actual helper exit/close and no key creation');
 
   const target = await initial(api, 'capsule-on');
   write(path.join(target, 'private-directory', 'long-empty-alias-name.txt'), 'PRIVATE EMPTY ALIAS');

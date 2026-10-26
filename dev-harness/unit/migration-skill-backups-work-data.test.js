@@ -30,6 +30,26 @@ const ids = root => {
   return entries.sort((a, b) => a[0].localeCompare(b[0]));
 };
 
+test('ON copy and undo retain original IDs and bytes below an owned path longer than MAX_PATH', { skip: !win }, async () => {
+  const f = fixture();
+  // Node's own mkdtemp has a separate Windows length limit. Keep fixture control
+  // short while exercising the actual skills/copy/undo paths beyond MAX_PATH.
+  f.paths.skills = path.join(f.dir, 'long-owner', 'P'.repeat(90), 'Q'.repeat(90), 'R'.repeat(60));
+  const dest = f.skill('long-path'), row = f.row('long-path');
+  fs.writeFileSync(path.join(dest, 'sub', 'binary.bin:long-path-stream'), Buffer.from([0, 255, 128, 13, 10]));
+  assert.ok(dest.length > 260);
+  const before = ids(dest), bytes = fs.readFileSync(path.join(dest, 'sub', 'binary.bin'));
+  const copied = await f.api.migrationCopyOneSkill(row, stamp);
+  assert.equal(copied.ok, true);
+  const undo = await f.api.migrationUndoSkillCopy({ file: dest, backup: copied.backup,
+    items: [{ id: 'long-path', copyTreeHash: copied.copyTreeHash }] });
+  assert.equal(undo.outcome, 'restored-previous');
+  assert.deepEqual(ids(dest), before);
+  assert.deepEqual(fs.readFileSync(path.join(dest, 'sub', 'binary.bin')), bytes);
+  assert.deepEqual(fs.readFileSync(path.join(dest, 'sub', 'binary.bin:long-path-stream')), Buffer.from([0, 255, 128, 13, 10]));
+  assert.equal(f.state.acquires, f.state.releases);
+});
+
 test('OFF retains original directory rename and exact arbitrary bytes/ADS with no key acquisition', { skip: !win }, async () => {
   const f = fixture({ enabled: false }), dest = f.skill('one'), row = f.row();
   fs.writeFileSync(path.join(dest, 'sub', 'binary.bin:private-stream'), Buffer.from([255, 0, 254]));

@@ -278,7 +278,7 @@
     {"file":"ruyi-workbench/app/src/13r-event-stream.js","fingerprint":"7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a"},
     {"file":"ruyi-workbench/app/src/13s-scheduler.js","fingerprint":"564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b"},
     {"file":"ruyi-workbench/app/src/13t-steward-schedule.js","fingerprint":"be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21"},
-    {"file":"ruyi-workbench/app/src/13u-migration-center.js","fingerprint":"7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0"},
+    {"file":"ruyi-workbench/app/src/13u-migration-center.js","fingerprint":"1bcc217cebc360990adc4dba033ec827c54fc9a79a7550882599435c3a50eccf"},
     {"file":"ruyi-workbench/app/src/13v-external-channel-protocols.js","fingerprint":"4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e"},
     {"file":"ruyi-workbench/app/src/13w-external-bots.js","fingerprint":"c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6"},
     {"file":"ruyi-workbench/app/src/13x-external-channel-delivery.js","fingerprint":"3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"},
@@ -286,7 +286,7 @@
     {"file":"ruyi-workbench/app/src/13z-external-bot-discovery.js","fingerprint":"6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766"},
     {"file":"ruyi-workbench/app/src/14-main.js","fingerprint":"a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4"},
     {"file":"ruyi-workbench/app/src/context-governance-rules.json","fingerprint":"28afcfd81fdc3f4581d950400754dae51bcb034ebf0f2f2bd7aa5e1f9a5e4414"},
-    {"file":"ruyi-workbench/app/src/manifest.json","fingerprint":"61d1782ef5bef44d07aa4ce4ce67311d6775f5be5b596270c4ac8af19e9051a5"},
+    {"file":"ruyi-workbench/app/src/manifest.json","fingerprint":"222d76404127e28f13e3a7d201bc318de37fa32aef0f877a47ed0dce90667218"},
     {"file":"ruyi-workbench/app/src/module-contracts.json","fingerprint":"905c99bd41d877378f1434a4a40d80c63aca55bdf154a5789155859b52c58aaa"},
     {"file":"ruyi-workbench/app/src/module-dependency-policy.json","fingerprint":"8fa55c5c1b5075d43bf469782e5eaf8ecc231210f2fe29e3f711846d7809974a"},
     {"file":"ruyi-workbench/config/example.claude-settings.json","fingerprint":"4672ba1e74f8363d054dfd39764c38875621fe4cd96759ba4b5b5f6075ed051d"},
@@ -1006,7 +1006,7 @@
     {"id":"ruyi-workbench/app/src/13z-external-bot-discovery.js#request#request#1","file":"ruyi-workbench/app/src/13z-external-bot-discovery.js","symbol":"request","callee":"request","category":"network","fingerprint":"67c09be7197c66f21dd73a7d1d91ead7db08c3de7c2ac8f6b9c5b1bd884eb526","group":"bots"},
     {"id":"ruyi-workbench/app/src/14-main.js#main#run#1","file":"ruyi-workbench/app/src/14-main.js","symbol":"main","callee":"run","category":"process","fingerprint":"1231ebcdad338416d8205c228a9f2b9e48874a75452f14605064fbfeb7545ba1","group":"local-callback"},
     {"id":"ruyi-workbench/app/src/context-governance-rules.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/context-governance-rules.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"ea359f2f3850a2be277cc025881973400f2ee05275c8cb179f309660d742c09a","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
-    {"id":"ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/manifest.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"8277703017f143685dd821438dba1a091445ee86aca0e8f708fb81e2a200d021","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
+    {"id":"ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/manifest.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"533899ef08c72b8f4c2f4da50c63907c20cae4c46c07826bb0d4908c9d311efe","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/module-contracts.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"3822de9f507aa7104c145d88fca430217cf992f0938884f01af18ebff2ca4933","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/app/src/module-dependency-policy.json#<module>#<configuration>#1","file":"ruyi-workbench/app/src/module-dependency-policy.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"e01929c094e3cbe0756f48d4b2a4f47dba0932c7b6752d5f04e38f126b2c7f8a","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
     {"id":"ruyi-workbench/config/example.claude-settings.json#<module>#<configuration>#1","file":"ruyi-workbench/config/example.claude-settings.json","symbol":"<module>","callee":"<configuration>","category":"capability","fingerprint":"eed852e519bda34fd91edc4ff8e0e7df4fced2267b828b1b9cac45d7a0a31a4b","uncertainty":"Declarative configuration can define executable, endpoint or connector capabilities","group":"capability"},
@@ -1103,7 +1103,7 @@
     {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#<launcher-command>#2","file":"ruyi-workbench/tools/package-offline.ps1","symbol":"<module>","callee":"<launcher-command>","category":"dynamic","fingerprint":"d83a956bb783f3c9f236507af2b82b50d14c70c9718f49138f6e647e85709e72","uncertainty":"Shell/desktop command can delegate network, environment, or local file disclosure","group":"dynamic"},
     {"id":"ruyi-workbench/tools/package-offline.ps1#<module>#write#1","file":"ruyi-workbench/tools/package-offline.ps1","symbol":"<module>","callee":"write","category":"stdio-output","fingerprint":"fbac27df280fb8c3d6de272b6088a366ae32113ad02bb4eec673f58baf909bb4","group":"process-stdout"}
   ],
-  "manifestFingerprint": "d56ac51f4cc66585e99330f2c31d1a9528e23918ffb4edc0cfe9bfff260adbc6",
+  "manifestFingerprint": "caa305820cb9e271faf4a4d8c0df60323401af996f02b99a0867d9ec92a8f467",
   "groups": {
     "unknown": {
       "privacyStatus": "unknown",
