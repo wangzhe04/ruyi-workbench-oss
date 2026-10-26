@@ -4600,4 +4600,12 @@
   ,"externalBots.cancelChanged": "回复发送身份已变化，请刷新核对。"
   ,"externalBots.delivery.cancelled": "回复发送已取消"
   ,"externalBots.cancelCompatibility": "取消只阻止尚未提交的回复，不停止或撤销业务。首次取消会升级全部机器人账本，旧版将拒绝读取；归档或取消归档不会降级。发送未知须先核对。"
+  ,"externalBots.retryReply": "重试原回复"
+  ,"externalBots.retryResume": "核对并继续同一次回复"
+  ,"externalBots.retryWaiting": "正在保存回复请求…"
+  ,"externalBots.retryHistory": "以前的发送尝试"
+  ,"externalBots.retrySaved": "已确认此回复请求；实际发送结果请查看投递状态。"
+  ,"externalBots.retryUnknown": "未确认该次请求结果。请刷新后核对并继续同一次请求，不会自动重试。"
+  ,"externalBots.retryCompatibility": "重试只重新发送原回复，不重跑任务。首次成功保存重试请求后，整份机器人账本升级为 payload4，须使用当前或更新版本；旧发送尝试保留。结果未知时先刷新，再用同一请求核对或继续待发回复，不强制重试未知发送或限流回复。"
+  ,"externalBots.retryRejected": "服务器拒绝了本次重试，未创建新的发送尝试。请刷新后检查当前投递情况。"
 }

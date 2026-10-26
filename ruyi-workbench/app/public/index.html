@@ -1514,6 +1514,7 @@
               </form>
               <details id="cfgStewardBotDeliverySection" class="external-bots-delivery-section">
                 <summary class="settings-subhead" data-i18n="externalBots.deliveries">投递记录</summary>
+                <p class="field-help muted" data-i18n="externalBots.retryCompatibility">重试只重新发送原回复，不重跑任务。首次成功保存重试请求后，整份机器人账本升级为 payload4，须使用当前或更新版本；旧发送尝试保留。结果未知时先刷新，再用同一请求核对或继续待发回复，不强制重试未知发送或限流回复。</p>
                 <p class="field-help muted" data-i18n="externalBots.archiveHint">归档只整理列表，不会停止业务或待发回复，也不释放容量。</p>
                 <p class="field-help muted" data-i18n="externalBots.archiveCompatibility">首次归档后，全部机器人记录只能用当前或更新版本打开，取消归档不会改变这一限制。</p>
                 <p class="field-help muted" data-i18n="externalBots.cancelCompatibility">取消只阻止尚未提交的回复，不停止或撤销业务。首次取消会升级账本，旧版将拒绝读取；发送未知须先核对。</p>

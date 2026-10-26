@@ -606,6 +606,7 @@
     {"file":"ruyi-workbench/app/public/js/confirm-panel.js","fingerprint":"1bd8d34bff1c82d2f477cbfe251ca7834818bc0892f06f41b48bc6396cdb351e"},
     {"file":"ruyi-workbench/app/public/js/disclosure-source.js","fingerprint":"e5f64620ad8b74581d808439a8ae20230f58ab7c0cfbf938179b136e24407a04"},
     {"file":"ruyi-workbench/app/public/js/event-stream.js","fingerprint":"e7635a29323c330ba355955ff4dd66970d44d01350c554bce103a48ec27863b9"},
+    {"file":"ruyi-workbench/app/public/js/external-bot-retry-state.js","fingerprint":"5d265f023ceafe4fc12e769d782cd06d255995562e32cbe685d537706ad4e56a"},
     {"file":"ruyi-workbench/app/public/js/external-bot-setup.js","fingerprint":"f9ca6da9084907ac2a29cbd1bd99d2b93562bbc2b7a13b8b1a770a5a0afea2f4"},
     {"file":"ruyi-workbench/app/public/js/external-bots.js","fingerprint":"a81a1d863e1fb70712d200783372225ee35f6559fdb7ba89845170b46cf1ace2"},
     {"file":"ruyi-workbench/app/public/js/file-browser.js","fingerprint":"846dc9a02ac698393aa515fcc91743ba792ef1a0825a2a635ccf99adbd92bb57"},

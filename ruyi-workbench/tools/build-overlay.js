@@ -146,6 +146,7 @@ const PAYLOAD_FILES = [
   'app/public/js/steward-handoff-recovery.js', // 78: tab-local unresolved handoffs survive page reloads
   'app/public/js/playbook-reuse.js', // 77: explicit recognition, editable copies and new-material checks
   'app/public/js/external-bots.js',      // external owner connection management and durable receipts
+  'app/public/js/external-bot-retry-state.js', // bounded manual reply retry request continuity
   'app/public/js/external-bot-setup.js', // local credential entry, verified pairing and explicit activation
   'app/public/js/steward-chips.js',
   // 117h/121-K5:工作台线程头与左栏(steward-shell.js 静态 import 它们)。

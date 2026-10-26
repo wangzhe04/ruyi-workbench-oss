@@ -25,7 +25,31 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   fs.writeFileSync(faults, `const fs=require('fs'),p=fs.promises,rename=p.rename;p.rename=async function(from,to){if(String(to).replaceAll('\\\\','/').endsWith('/external-bots/state-v1.json')){const data=JSON.parse(fs.readFileSync(from,'utf8'));if(fs.existsSync(${JSON.stringify(failCompletedFlag)})&&data.items.some(x=>x.messageId==='completion_failure'&&x.execution&&x.execution.status==='completed'))throw Object.assign(new Error('synthetic completion write failure'),{code:'ENOSPC'});if(fs.existsSync(${JSON.stringify(holdFlag)})){fs.writeFileSync(${JSON.stringify(heldFlag)},'held');while(fs.existsSync(${JSON.stringify(holdFlag)}))await new Promise(r=>setTimeout(r,10));}}return rename.call(this,from,to);};`);
   const cancelFaults = path.join(home, 'cancel-faults.cjs');
   fs.writeFileSync(cancelFaults, `const fs=require('node:fs'),p=fs.promises,rename=p.rename;p.rename=async function(from,to){if(String(to).replaceAll('\\\\','/').endsWith('/external-bots/state-v1.json')){const state=JSON.parse(fs.readFileSync(from,'utf8'));if(state.items.some(item=>item.messageId==='cancel_token'&&item.delivery?.status==='cancelled')&&fs.existsSync(${JSON.stringify(failCancelFlag)}))throw Object.assign(Error('synthetic cancellation write failure'),{code:'ENOSPC'});if(state.items.some(item=>item.messageId==='cancel_lost_ack'&&item.delivery?.status==='cancelled')&&fs.existsSync(${JSON.stringify(holdCancelFlag)})){fs.writeFileSync(${JSON.stringify(cancelHeldFlag)},'held');while(fs.existsSync(${JSON.stringify(holdCancelFlag)}))await new Promise(resolve=>setTimeout(resolve,10));}}return rename.call(this,from,to);};`);
-  let server, fake, apiServer, port, apiPort, token = '', targetId = '', heldTokenResponse = null, holdToken = false, deliveryMode = 'ok', holdMessage = false, heldMessageResponse = null;
+  const holdRetryFlag = path.join(home, 'hold-retry'), retryHeldFlag = path.join(home, 'retry-held');
+  const loseRetryCommitFlag = path.join(home, 'lose-retry-commit-result'), retryCommitLostFlag = path.join(home, 'retry-commit-lost');
+  const retryFaults = path.join(home, 'retry-faults.cjs');
+  const installRetryFaults = flags => {
+    const fs = require('node:fs'), io = fs.promises, rename = io.rename;
+    io.rename = async function(from, to) {
+      if (!String(to).replaceAll('\\', '/').endsWith('/external-bots/state-v1.json')) return rename.call(this, from, to);
+      const state = JSON.parse(fs.readFileSync(from, 'utf8'));
+      const owns = (messageId, retryRequestId) => state.items.some(item => item.messageId === messageId && item.delivery?.status === 'pending'
+        && item.replyHistory?.some(record => record.retryRequestId === retryRequestId && record.nextAttemptId === item.delivery.attemptId));
+      if (owns('reply_retry_lost', 'retry_http_lost_00000001') && fs.existsSync(flags.hold)) {
+        fs.writeFileSync(flags.held, 'held-before-rename');
+        while (fs.existsSync(flags.hold)) await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      const loseResult = owns('reply_retry_write', 'retry_http_write_00000001') && fs.existsSync(flags.lose);
+      const result = await rename.call(this, from, to);
+      if (loseResult) {
+        fs.unlinkSync(flags.lose); fs.writeFileSync(flags.lost, 'actual-rename-committed');
+        throw Object.assign(Error('synthetic lost retry commit result'), { code: 'EIO' });
+      }
+      return result;
+    };
+  };
+  fs.writeFileSync(retryFaults, '(' + installRetryFaults.toString() + ')(' + JSON.stringify({ hold:holdRetryFlag, held:retryHeldFlag, lose:loseRetryCommitFlag, lost:retryCommitLostFlag }) + ');');
+  let server, fake, apiServer, port, apiPort, token = '', targetId = '', heldTokenResponse = null, holdToken = false, deliveryMode = 'ok', holdMessage = false, heldMessageResponse = null, retryTokenMode = 'ok';
   const commandCalls = new Map(), toolReceipts = [], outbound = [];
   const request = async (method, route, body, headers = {}, admin = true) => {
     const response = await fetch(`http://127.0.0.1:${port}${route}`, { method, headers: { 'content-type':'application/json', ...(admin ? { 'x-wcw-token': token } : {}), ...headers },
@@ -42,7 +66,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const connection = () => ({ ...feishuConnection(), mode: 'control', ownerSenderId: 'ou_person', ownerConversationId: 'oc_room', ownerConversationType: 'group', appSecretEnv: 'RUYI_BOT_TEST_F_APP' });
   const configure = value => request('POST', '/api/external-bots/connections', { op:'upsert', connection: value, controlConfirmed: true });
   const start = async () => {
-    server = cp.spawn(process.execPath, ['--require', path.join(__dirname,'lib/external-channel-delivery-preload.js'), '--require', faults, '--require', cancelFaults, 'app/server.js', 'serve', '--port', String(port)], {
+    server = cp.spawn(process.execPath, ['--require', path.join(__dirname,'lib/external-channel-delivery-preload.js'), '--require', faults, '--require', cancelFaults, '--require', retryFaults, 'app/server.js', 'serve', '--port', String(port)], {
       cwd: WB, windowsHide:true, stdio:'ignore', env:{ ...process.env, ...isolated.env, ...FAKE_BOT_ENV, RUYI_BOT_TEST_F_APP:'synthetic-app-secret', RUYI_FAKE_EXTERNAL_API_PORT:String(apiPort), RUYI_HOME:home, WIN_CLAUDE_WORKBENCH_HOME:home },
     });
     await until(async()=>{try{return(await request('GET','/health',undefined,{},false)).status===200;}catch{return false;}},'server');
@@ -65,6 +89,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     apiServer = http.createServer(async(req,res)=>{let bytes='';for await(const chunk of req)bytes+=chunk;const body=JSON.parse(bytes||'{}');
       if(req.url.includes('token')||req.url==='/app/getAppAccessToken'){
         if(holdToken){heldTokenResponse=res;return;}
+        if(retryTokenMode==='unavailable'){res.writeHead(503,{'content-type':'application/json'});res.end('{"code":1,"msg":"synthetic token unavailable"}');return;}
         res.setHeader('content-type','application/json');res.end(JSON.stringify(req.headers.host==='api.bot.qq.com'?{access_token:'synthetic-token',expires_in:'7200'}:{code:0,tenant_access_token:'synthetic-token',expire:7200}));return;
       }
       outbound.push({host:req.headers.host,path:req.url,body});
@@ -226,7 +251,76 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     await request('POST','/api/external-bots/deliveries/archive',{id:afterRestart.id,archived:false});
     ok(JSON.parse(fs.readFileSync(stateFile,'utf8')).schema===3&&(await readItem('cancel_token')).delivery.status==='cancelled'
       &&(await request('POST',cancelRoute,{...cancelBody(afterRestart),attemptId:'different_attempt'})).status===409,'X10 archive cycles retain schema3 and a different attempt cannot reuse cancellation authority');
+    // R: retry only a real producer's known pre-message failure; no ledger seeding.
+    const retryRoute = '/api/external-bots/deliveries/retry';
+    const retryBody = (item, retryRequestId) => ({ id:item.id, expectedAttemptId:item.delivery.attemptId, retryRequestId });
+    const failedTokenReply = async (messageId, marker) => {
+      retryTokenMode = 'unavailable'; await callback(messageId, '请汇报 ' + marker);
+      return until(async () => {
+        const inbox = (await request('GET','/api/external-bots/inbox')).json;
+        const item = inbox.items.find(row=>row.messageId===messageId);
+        return item?.delivery?.status === 'failed' && inbox.worker.running === false && item;
+      }, 'known token failure and actual worker idle ' + messageId);
+    };
+    ok((await request('POST',retryRoute,retryBody(created,'retry_http_auth_00000001'),{},false)).status===403
+      &&(await request('POST',retryRoute,retryBody(created,'retry_http_auth_00000001'),{origin:'https://foreign.invalid'})).status===403
+      &&(await request('GET',retryRoute)).status===403,'R1 retry requires exact local token POST and origin authority');
+    ok((await request('POST',retryRoute+'?extra=1',retryBody(created,'retry_http_auth_00000001'))).status===400
+      &&(await request('POST',retryRoute,{...retryBody(created,'retry_http_auth_00000001'),extra:true})).status===400,'R2 retry rejects query and extra authority fields');
+    const retryFailed = await failedTokenReply('reply_retry','CONTROL_RETRY'), retryCalls = commandCalls.get('CONTROL_RETRY');
+    ok(retryFailed.execution.status==='completed'&&retryFailed.delivery.errorCode==='external_delivery.token_unavailable'
+      &&outbound.every(row=>!row.path.includes('/reply_retry/reply')),'R3 actual callback and Steward produce known token-phase failure with zero MESSAGE');
+    retryTokenMode='ok';const retryRequest=retryBody(retryFailed,'retry_http_simple_00000001'),retried=await request('POST',retryRoute,retryRequest);
+    const retrySent=await delivered('reply_retry');
+    ok(retried.status===200&&retried.json.alreadyRetried===false&&retrySent.delivery.attemptId===retried.json.receipt.attemptId
+      &&retrySent.delivery.attemptId!==retryFailed.delivery.attemptId&&retrySent.replyHistory.length===1
+      &&JSON.stringify(retrySent.replyHistory[0].attempt)===JSON.stringify(retryFailed.delivery)
+      &&JSON.stringify(retrySent.execution)===JSON.stringify(retryFailed.execution)&&commandCalls.get('CONTROL_RETRY')===retryCalls
+      &&outbound.filter(row=>row.path.includes('/reply_retry/reply')).length===1,'R4 manual retry persists prior attempt and sends original reply once without business rerun');
+    const repeatedRetry=await request('POST',retryRoute,retryRequest);
+    ok(repeatedRetry.status===200&&repeatedRetry.json.alreadyRetried===true
+      &&JSON.stringify(repeatedRetry.json.receipt)===JSON.stringify(retried.json.receipt)
+      &&outbound.filter(row=>row.path.includes('/reply_retry/reply')).length===1&&commandCalls.get('CONTROL_RETRY')===retryCalls,'R5 stable request after sent returns original durable receipt without another MESSAGE');
+    const lostRetryFailed=await failedTokenReply('reply_retry_lost','CONTROL_RETRYLOST'),lostRetryCalls=commandCalls.get('CONTROL_RETRYLOST');
+    retryTokenMode='ok';const lostRetryBody=retryBody(lostRetryFailed,'retry_http_lost_00000001'),lostRetryBytes=Buffer.from(JSON.stringify(lostRetryBody));
+    fs.writeFileSync(holdRetryFlag,'hold');
+    const lostRetry=http.request({host:'127.0.0.1',port,path:retryRoute,method:'POST',headers:{'x-wcw-token':token,'content-type':'application/json','content-length':lostRetryBytes.length}});
+    lostRetry.on('error',()=>{});lostRetry.end(lostRetryBytes);await until(()=>fs.existsSync(retryHeldFlag),'retry durable rename held');lostRetry.destroy();fs.unlinkSync(holdRetryFlag);
+    const lostRetrySent=await delivered('reply_retry_lost'),lostRetryReconciled=await request('POST',retryRoute,lostRetryBody);
+    ok(lostRetryReconciled.status===200&&lostRetryReconciled.json.alreadyRetried===true
+      &&lostRetryReconciled.json.receipt.attemptId===lostRetrySent.delivery.attemptId&&lostRetrySent.replyHistory.length===1
+      &&commandCalls.get('CONTROL_RETRYLOST')===lostRetryCalls&&outbound.filter(row=>row.path.includes('/reply_retry_lost/reply')).length===1,'R6 dropped local ACK still commits one retry and stable request reconciles one MESSAGE');
+    await stop();await start();await callback('reply_retry_lost','请汇报 CONTROL_RETRYLOST','feishu','retry_payload4_duplicate');
+    const coldRetry=await request('POST',retryRoute,lostRetryBody),coldRetryItem=await readItem('reply_retry_lost');
+    ok(coldRetry.status===200&&coldRetry.json.alreadyRetried===true
+      &&JSON.stringify(coldRetry.json.receipt)===JSON.stringify(lostRetryReconciled.json.receipt)
+      &&coldRetryItem.delivery.attemptId===lostRetrySent.delivery.attemptId&&coldRetryItem.replyHistory.length===1
+      &&commandCalls.get('CONTROL_RETRYLOST')===lostRetryCalls&&outbound.filter(row=>row.path.includes('/reply_retry_lost/reply')).length===1,'R7 restart and callback duplicate retain payload4 history and same request without business/send replay');
+    const cancelRetryFailed=await failedTokenReply('reply_retry_cancel','CONTROL_RETRYCANCEL'),cancelRetryCalls=commandCalls.get('CONTROL_RETRYCANCEL');
+    retryTokenMode='ok';holdToken=true;const cancelRetryBody=retryBody(cancelRetryFailed,'retry_http_cancel_00000001'),cancelRetry=await request('POST',retryRoute,cancelRetryBody);
+    await until(()=>heldTokenResponse,'retry token held for cancellation');const cancelRetrySending=await readItem('reply_retry_cancel');
+    const cancelRetryResult=await request('POST',cancelRoute,cancelBody(cancelRetrySending));
+    holdToken=false;heldTokenResponse.end('{"code":0,"tenant_access_token":"late-retry-cancel-token","expire":7200}');heldTokenResponse=null;
+    const cancelledRetry=await until(async()=>{const item=await readItem('reply_retry_cancel');return item?.delivery?.status==='cancelled'&&item;},'retried attempt cancelled');
+    const cancelledRetryReplay=await request('POST',retryRoute,cancelRetryBody);
+    ok(cancelRetry.status===200&&cancelRetryResult.status===200&&cancelledRetry.delivery.attemptId===cancelRetry.json.receipt.attemptId
+      &&cancelledRetryReplay.json.alreadyRetried===true&&cancelledRetryReplay.json.item.delivery.status==='cancelled'
+      &&cancelledRetry.replyHistory.length===1&&JSON.parse(fs.readFileSync(stateFile,'utf8')).schema===4
+      &&commandCalls.get('CONTROL_RETRYCANCEL')===cancelRetryCalls&&outbound.every(row=>!row.path.includes('/reply_retry_cancel/reply')),'R8 precise successor cancellation retains schema4 history; old receipt cannot resurrect it');
+    const writeRetryFailed=await failedTokenReply('reply_retry_write','CONTROL_RETRYWRITE'),writeRetryCalls=commandCalls.get('CONTROL_RETRYWRITE');
+    retryTokenMode='ok';const writeRetryBody=retryBody(writeRetryFailed,'retry_http_write_00000001');fs.writeFileSync(loseRetryCommitFlag,'lose-result');
+    const lostWriteResult=await request('POST',retryRoute,writeRetryBody),retainedRetry=await readItem('reply_retry_write');
+    ok(lostWriteResult.status===503&&fs.existsSync(retryCommitLostFlag)&&retainedRetry.delivery.status==='pending'
+      &&retainedRetry.replyHistory.length===1&&outbound.every(row=>!row.path.includes('/reply_retry_write/reply')),'R9 actual rename may commit pending retry before reported failure; no fabricated success or MESSAGE');
+    const resumedRetry=await request('POST',retryRoute,writeRetryBody),resumedSent=await delivered('reply_retry_write');
+    ok(resumedRetry.status===200&&resumedRetry.json.alreadyRetried===true&&resumedSent.delivery.attemptId===retainedRetry.delivery.attemptId
+      &&resumedSent.replyHistory.length===1&&commandCalls.get('CONTROL_RETRYWRITE')===writeRetryCalls
+      &&outbound.filter(row=>row.path.includes('/reply_retry_write/reply')).length===1,'R10 same explicit human receipt resumes only its durable pending attempt after lost write result');
+    const ledger4=JSON.parse(fs.readFileSync(stateFile,'utf8')),vm=require('node:vm'),crypto=require('node:crypto');
+    const { historicalSource }=require('./lib/external-bots-source-history');
+    const oldRejected=['v1','v2','v3'].every(version=>vm.runInNewContext(historicalSource(version)+';externalBotValidState(ledger)',{ledger:ledger4,Buffer,ExternalBotHooks:{},crypto,path})===false);
+    ok(ledger4.schema===4&&oldRejected,'R11 exact historical v1/v2/v3 validators reject entire real producer payload4 ledger');
     ok(fake.errors.length===0,'C19 scripted model fixture has no hidden handler failures');
   } catch(error){runner.fail(error.stack||String(error));}
-  finally{if(fs.existsSync(holdFlag))fs.unlinkSync(holdFlag);if(fs.existsSync(holdCancelFlag))fs.unlinkSync(holdCancelFlag);if(heldTokenResponse)heldTokenResponse.destroy();if(heldMessageResponse)heldMessageResponse.destroy();await stop();if(fake)await fake.close();if(apiServer){apiServer.closeAllConnections();await new Promise(resolve=>apiServer.close(resolve));}runner.done({exit:true});}
+  finally{if(fs.existsSync(holdRetryFlag))fs.unlinkSync(holdRetryFlag);if(fs.existsSync(holdFlag))fs.unlinkSync(holdFlag);if(fs.existsSync(holdCancelFlag))fs.unlinkSync(holdCancelFlag);if(heldTokenResponse)heldTokenResponse.destroy();if(heldMessageResponse)heldMessageResponse.destroy();await stop();if(fake)await fake.close();if(apiServer){apiServer.closeAllConnections();await new Promise(resolve=>apiServer.close(resolve));}runner.done({exit:true});}
 })();

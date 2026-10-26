@@ -4600,4 +4600,12 @@
   ,"externalBots.cancelChanged": "The reply attempt changed. Refresh to check."
   ,"externalBots.delivery.cancelled": "Reply sending cancelled"
   ,"externalBots.cancelCompatibility": "Cancellation only blocks an unsubmitted reply; it does not stop or undo business work. The first cancellation upgrades the entire bot ledger so older versions refuse to open it. Archiving or unarchiving does not downgrade it. Check unknown deliveries first."
+  ,"externalBots.retryReply": "Retry original reply"
+  ,"externalBots.retryResume": "Check and continue this reply request"
+  ,"externalBots.retryWaiting": "Saving reply request…"
+  ,"externalBots.retryHistory": "Previous sending attempts"
+  ,"externalBots.retrySaved": "This reply request is confirmed. Check delivery status for the actual sending result."
+  ,"externalBots.retryUnknown": "This request was not confirmed. Refresh, then check and continue the same request. Nothing is retried automatically."
+  ,"externalBots.retryCompatibility": "Retry sends the original reply again; it does not rerun the task. The first saved retry request upgrades the entire bot ledger to payload4 and requires this or a newer version; previous attempts are retained. If a result is uncertain, refresh and check or continue the same pending reply request. Unknown sends and rate-limited replies cannot be force-retried."
+  ,"externalBots.retryRejected": "The server rejected this retry before creating a new attempt. Refresh to inspect the current delivery."
 }

@@ -77,20 +77,7 @@ function fixture(options = {}) {
 
 // These exact historical inverse edits are test data, never a product migration.
 function historicalSource(version) {
-  const history=require('../fixtures/external-bots-cancel/history.json');
-  let value=src('13w-external-bots.js');
-  assert.equal(crypto.createHash('sha256').update(value).digest('hex'),history.v3Sha256);
-  for(const row of [...history.v2.inverseSpans].reverse()) {
-    assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);
-  }
-  assert.equal(crypto.createHash('sha256').update(value).digest('hex'),history.v2.sha256);
-  if(version==='v2')return value;
-  assert.equal(version,'v1');const lines=value.split('\n');
-  for(const row of [...history.v1.inverseHunks].reverse()) {
-    assert.equal(lines.slice(row.start,row.start+row.before.length).join('\n'),row.before.join('\n'));
-    lines.splice(row.start,row.before.length,...row.after);
-  }
-  value=lines.join('\n');assert.equal(crypto.createHash('sha256').update(value).digest('hex'),history.v1.sha256);return value;
+  return require('./external-bots-source-history').historicalSource(version);
 }
 async function pending(options={}) {
  const f=fixture(options);

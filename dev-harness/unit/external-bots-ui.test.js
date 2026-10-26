@@ -220,3 +220,58 @@ test('cancelled reply notice uses actual current locale and new compatibility wa
  try{const f=await fixture({t:(key,params)=>translate(catalogs,locale,key,params)});await f.ready();await openDeliveries(f,deliveryPage([cancellableItem()]));const write=action(f.nodes.get('cfgStewardBotDeliveries'),'cancel').emit('click');f.calls.at(-1).resolve({ok:true,item:cancelledItem()});await tick();f.calls.at(-1).resolve(deliveryPage([cancelledItem()]));await write;assert.equal(f.nodes.get('cfgStewardBotDeliveryNote').textContent,catalogs['zh-CN']['externalBots.cancelSaved']);locale='en-US';for(const fn of handlers)fn();assert.equal(f.nodes.get('cfgStewardBotDeliveryNote').textContent,catalogs['en-US']['externalBots.cancelSaved']);assert.doesNotMatch(f.nodes.get('cfgStewardBotDeliveryNote').textContent,/[\u3400-\u9fff]|external_channel/);assert.match(catalogs['zh-CN']['externalBots.cancelCompatibility'],/旧版.*拒绝/);assert.match(catalogs['en-US']['externalBots.cancelCompatibility'],/older versions refuse/);}finally{if(old===undefined)delete globalThis.addEventListener;else globalThis.addEventListener=old;}
 });
 test('unknown/submitted rows never acquire cancel buttons from malformed cancellable metadata',async()=>{const f=await fixture();await f.ready();await openDeliveries(f,deliveryPage([cancellableItem()]));const read=f.panel.loadDeliveries();f.calls.at(-1).resolve(deliveryPage([{...cancellableItem(),delivery:{status:'unknown',attemptId:'same_reply_attempt'}}]));await read;assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'cancel').disabled,true);});
+
+const retryRow=(id,patch={})=>({...deliveryItem(id),retryAvailable:true,delivery:{status:'failed',attemptId:'attempt_'+id,errorCode:'external_delivery.predispatch',messageId:'',updatedAt:'2026-10-26T00:00:00Z'},...patch});
+function retryResult(row,body,status='pending'){
+ const requestedAt='2026-10-26T01:00:00Z',next='next_'+row.id,receipt={itemId:row.id,previousAttemptId:body.expectedAttemptId,attemptId:next,retryRequestId:body.retryRequestId,requestedAt};
+ const current={...row,retryAvailable:false,delivery:{status,attemptId:next,errorCode:'',messageId:status==='sent'?'official':'',updatedAt:requestedAt},replyHistory:[{attempt:{...row.delivery},nextAttemptId:next,retryRequestId:body.retryRequestId,requestedAt}]};
+ return{ok:true,alreadyRetried:false,item:current,receipt};
+}
+async function refreshRows(f,rows){const wait=f.panel.loadDeliveries();f.calls.at(-1).resolve(deliveryPage(rows));await wait;}
+test('retry uses native button and one stable body while physical write is pending',async()=>{
+ const f=await fixture(),row=retryRow('ui_single');await f.ready();await openDeliveries(f,deliveryPage([row]));
+ const click=action(f.nodes.get('cfgStewardBotDeliveries'),'retry');assert.equal(click.tagName,'button');const work=click.emit('click'),call=f.calls.at(-1),body=JSON.parse(call.opts.body);
+ assert.equal(call.route,'/api/external-bots/deliveries/retry');assert.equal(body.expectedAttemptId,row.delivery.attemptId);assert.match(body.retryRequestId,/^retry_[a-f0-9]{32}$/);
+ assert.equal(await action(f.nodes.get('cfgStewardBotDeliveries'),'retry').emit('click'),false);assert.equal(f.calls.at(-1),call);
+ const result=retryResult(row,body);call.resolve(result);await tick();f.calls.at(-1).resolve(deliveryPage([result.item]));await work;
+ assert.equal(f.panel.snapshot().writing,false);assert.match(f.nodes.get('cfgStewardBotDeliveryNote').textContent,/retrySaved/);assert.match(texts(f.nodes.get('cfgStewardBotDeliveries')),/retryHistory/);
+});
+test('lost retry ACK disables stale mutation then refresh offers same-ID manual check, never automatic POST',async()=>{
+ const f=await fixture(),row=retryRow('ui_lost');await f.ready();await openDeliveries(f,deliveryPage([row]));const work=action(f.nodes.get('cfgStewardBotDeliveries'),'retry').emit('click'),call=f.calls.at(-1),body=JSON.parse(call.opts.body),count=f.calls.length;
+ call.reject(Error('lost ACK'));await work;assert.equal(f.calls.length,count);assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'retry').disabled,true);
+ await refreshRows(f,[row]);assert.equal(f.calls.filter(x=>x.opts?.method==='POST').length,1);const resume=action(f.nodes.get('cfgStewardBotDeliveries'),'retry');assert.match(resume.textContent,/retryResume/);
+ const resumed=resume.emit('click'),again=f.calls.at(-1);assert.deepEqual(JSON.parse(again.opts.body),body);again.reject(Error('still uncertain'));await resumed;assert.equal(f.panel.snapshot().retryRequests.find(x=>x.body.id===row.id).phase,'uncertain');
+});
+test('module request owner survives creating a fresh panel and DOM after lost ACK',async()=>{
+ const row=retryRow('ui_recreated'),one=await fixture();await one.ready();await openDeliveries(one,deliveryPage([row]));const waiting=action(one.nodes.get('cfgStewardBotDeliveries'),'retry').emit('click'),call=one.calls.at(-1),body=JSON.parse(call.opts.body);call.reject(Error('lost'));await waiting;
+ const two=await fixture();await two.ready();await openDeliveries(two,deliveryPage([row]));const control=action(two.nodes.get('cfgStewardBotDeliveries'),'retry');assert.match(control.textContent,/retryResume/);const check=control.emit('click'),again=two.calls.at(-1);assert.deepEqual(JSON.parse(again.opts.body),body);again.reject(Error('lost'));await check;
+});
+test('empty module map recovers pending durable request from latest actual history after whole-page reload',async()=>{
+ const row=retryRow('ui_reload'),body={id:row.id,expectedAttemptId:row.delivery.attemptId,retryRequestId:'existing_reload_request_0001'},pending=retryResult(row,body).item;
+ const f=await fixture();await f.ready();await openDeliveries(f,deliveryPage([pending]));assert.equal(f.calls.filter(x=>x.opts?.method==='POST').length,0);
+ const button=action(f.nodes.get('cfgStewardBotDeliveries'),'retry');assert.ok(button,'pending durable history must expose a manual resume action');assert.match(button.textContent,/retryResume/);const check=button.emit('click'),call=f.calls.at(-1);assert.deepEqual(JSON.parse(call.opts.body),body);call.reject(Error('unknown'));await check;
+});
+test('unknown and 429 rows offer no new retry and malformed history fails whole page closed',async()=>{
+ const f=await fixture();await f.ready();await openDeliveries(f,deliveryPage([deliveryItem('ui_unknown'),retryRow('ui_429',{retryAvailable:false,delivery:{status:'failed',attemptId:'rate_limited',errorCode:'external_delivery.rate_limited'}})]));
+ assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'retry'),null);
+ const malformed={...retryRow('ui_bad_history'),replyHistory:[{attempt:{},nextAttemptId:'new'}]};await refreshRows(f,[malformed]);assert.equal(f.panel.snapshot().quality.deliveries,'failed');
+});
+test('bad successful response never releases request identity or invents completion',async()=>{
+ const f=await fixture(),row=retryRow('ui_bad_ack');await f.ready();await openDeliveries(f,deliveryPage([row]));const work=action(f.nodes.get('cfgStewardBotDeliveries'),'retry').emit('click'),call=f.calls.at(-1),body=JSON.parse(call.opts.body),result=retryResult(row,body);
+ result.receipt.retryRequestId='different_request_000001';call.resolve(result);await work;assert.equal(f.panel.snapshot().quality.deliveries,'failed');assert.equal(f.panel.snapshot().retryRequests.find(x=>x.body.id===row.id).phase,'uncertain');
+});
+test('late retry settlement cannot unlock a newer connection write after panel close and reopen',async()=>{
+ const f=await fixture(),row=retryRow('ui_late');await f.ready();await openDeliveries(f,deliveryPage([row]));const first=action(f.nodes.get('cfgStewardBotDeliveries'),'retry').emit('click'),old=f.calls.at(-1);f.hide();f.show();
+ const reads=f.calls.slice(-3);reads[0].resolve({ok:true,connections:[connection]});reads[1].resolve({ok:true,items:[item()],nextBefore:'',total:1});reads[2].resolve(deliveryPage([row]));await tick();
+ assert.equal(action(f.nodes.get('cfgStewardBotDeliveries'),'retry').disabled,true);const second=f.click('toggle'),newWrite=f.calls.at(-1);old.reject(Error('late'));await first;assert.equal(f.panel.snapshot().writing,true);assert.equal(action(f.nodes.get('cfgStewardBotConnections'),'toggle').disabled,true);newWrite.reject(Error('new owner failure'));await second;
+});
+test('definitive precommit rejection permits a fresh explicit action only after new authoritative read',async()=>{
+ const f=await fixture(),row=retryRow('ui_rejected');await f.ready();await openDeliveries(f,deliveryPage([row]));const first=action(f.nodes.get('cfgStewardBotDeliveries'),'retry').emit('click'),old=f.calls.at(-1),body=JSON.parse(old.opts.body);old.reject({code:'external_channel.delivery_changed'});await first;
+ assert.equal(f.panel.snapshot().quality.deliveries,'failed');await refreshRows(f,[row]);const second=action(f.nodes.get('cfgStewardBotDeliveries'),'retry').emit('click'),next=f.calls.at(-1);assert.notEqual(JSON.parse(next.opts.body).retryRequestId,body.retryRequestId);next.reject(Error('lost'));await second;
+});
+
+test('retry settles focus only if the original keyboard owner still owns focus',async()=>{
+ for(const moveFocus of [false,true]){const f=await fixture(),row=retryRow('ui_focus_'+moveFocus);await f.ready();await openDeliveries(f,deliveryPage([row]));const button=action(f.nodes.get('cfgStewardBotDeliveries'),'retry');document.body=new Node('body');document.activeElement=button;
+ const work=button.emit('click'),call=f.calls.at(-1),body=JSON.parse(call.opts.body),other=new Node('input');document.activeElement=moveFocus?other:document.body;const result=retryResult(row,body,'sent');call.resolve(result);await tick();f.calls.at(-1).resolve(deliveryPage([result.item]));await work;
+ assert.equal(f.nodes.get('cfgStewardBotDeliveryRefresh').focused===true,!moveFocus);if(moveFocus)assert.equal(document.activeElement,other);}
+});

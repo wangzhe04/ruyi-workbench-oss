@@ -4,6 +4,7 @@ import { apiErrorInfo } from './net.js';
 import { EVENT_STREAM_INSTANCE_EVENT } from './event-stream.js';
 import { confirmDanger } from './confirm-panel.js';
 import { createExternalBotSetup } from './external-bot-setup.js';
+import { createReplyRetryState, validReplyRetryHistory } from './external-bot-retry-state.js';
 
 const ENV_NAME = /^RUYI_BOT_[A-Z0-9_]+$/;
 const FIELDS = ['id', 'platform', 'label', 'appId', 'tenantId', 'botUserId', 'verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'mode', 'ownerSenderId', 'ownerConversationId', 'ownerConversationType', 'appSecretEnv'];
@@ -30,7 +31,9 @@ export function validExternalInboxItem(row) {
       && (row.delivery.status !== 'cancelled' || typeof row.delivery.cancelledAt === 'string' && row.delivery.cancelledAt.length <= 64 && Boolean(row.delivery.cancelledAt) && Number.isFinite(Date.parse(row.delivery.cancelledAt)))));
 }
 export function validExternalDeliveryItem(row) {
-  return validExternalInboxItem(row) && (row.cancelAvailable === undefined || typeof row.cancelAvailable === 'boolean')
+  return validExternalInboxItem(row) && validReplyRetryHistory(row)
+    && (row.retryAvailable === undefined || typeof row.retryAvailable === 'boolean')
+    && (!row.retryAvailable || row.delivery?.status === 'failed') && (row.cancelAvailable === undefined || typeof row.cancelAvailable === 'boolean')
     && (!row.cancelAvailable || ['pending', 'sending'].includes(row.delivery?.status)) && Boolean(row.execution && row.acceptance?.status === 'accepted'
     && row.acceptance.receivedAt === row.receivedAt && Number.isFinite(Date.parse(row.receivedAt))
     && typeof row.archivedAt === 'string' && row.archivedAt.length <= 64 && (!row.archivedAt || Number.isFinite(Date.parse(row.archivedAt)))
@@ -49,6 +52,7 @@ function visiblePanel() {
 }
 
 export function createExternalBotsPanel({ api, t = key => key, isVisible = visiblePanel } = {}) {
+  const replyRetries = createReplyRetryState();
   const setup = createExternalBotSetup({ api, t, isVisible, onChanged: () => { void loadConnections(); } });
   let active = false, generation = 0, bound = false, importer = null;
   let connectionSeq = 0, inboxSeq = 0, filter = '', writeOwner = null, nextBefore = '', total = 0;
@@ -230,12 +234,23 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
         details.appendChild(el('p', 'external-bots-source muted', t('externalBots.attempt') + ' · ' + item.delivery.attemptId));
         if (item.delivery.errorCode) details.appendChild(el('p', 'muted', errorText({ code: item.delivery.errorCode })));
       }
+      if(item.replyHistory?.length) {
+        const history=el('details',''),title=el('summary','',t('externalBots.retryHistory'));
+        history.appendChild(title);
+        for(const record of item.replyHistory)history.appendChild(el('p','external-bots-source muted',[record.attempt.attemptId,record.attempt.status,record.attempt.errorCode,record.requestedAt,record.nextAttemptId].join(' · ')));
+        details.appendChild(history);
+      }
       const actions = el('div', 'external-bots-actions');
       const archive = control(item.archivedAt ? 'externalBots.unarchive' : 'externalBots.archive', 'archive', () => archiveDelivery(item, archive));
       archive.disabled ||= quality.deliveries !== 'ok' || Boolean(archivePending); actions.appendChild(archive);
       if (item.cancelAvailable === true) {
         const cancel = control('externalBots.cancelReply', 'cancel', () => cancelDelivery(item, cancel));
         cancel.disabled ||= quality.deliveries !== 'ok' || Boolean(archivePending); actions.appendChild(cancel);
+      }
+      const choice=replyRetries.available(item);
+      if(choice) {
+        const retry=control(choice.mode==='new'?'externalBots.retryReply':choice.mode==='waiting'?'externalBots.retryWaiting':'externalBots.retryResume','retry',()=>retryDelivery(item,retry));
+        retry.disabled ||= choice.mode==='waiting'||quality.deliveries!=='ok'||Boolean(archivePending);actions.appendChild(retry);
       }
       node.append(heading, facts, details, actions); host.appendChild(node);
     }
@@ -340,6 +355,45 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
             const row = [...(byId('cfgStewardBotDeliveries')?.querySelectorAll?.('[data-delivery-id]') || [])].find(node => node.dataset.deliveryId === item.id);
             const action = row?.querySelector('[data-bot-action="cancel"]');
             (action && !action.disabled ? action : byId('cfgStewardBotDeliveryRefresh'))?.focus();
+          }
+        }
+      }
+    }
+  }
+  async function retryDelivery(item, source) {
+    if (archivePending || writeOwner || !active || !isVisible() || !deliveryOpen() || quality.deliveries !== 'ok') return false;
+    let record;
+    try { record = replyRetries.begin(item); } catch { deliveryNotice={key:'externalBots.retryUnknown',code:'',failed:true};renderDeliveries();return false; }
+    if (!record) return false;
+    const mine=generation,owner={},restoreFocus=doc()?.activeElement===source;
+    archivePending=owner;deliverySeq++;writeOwner=owner;renderConnections();renderInbox();renderDeliveries();
+    const settle=(failed,error)=>{
+      if(archivePending!==owner)return;
+      archivePending=null;deliverySeq++;
+      if(failed||quality.deliveries!=='restarting')quality.deliveries=failed?'failed':'unread';
+      errorDetail.deliveries=failed?deliveryErrorCode(error):'';
+      if(active&&isVisible())renderDeliveries();
+    };
+    try {
+      const body=await api('/api/external-bots/deliveries/retry',{method:'POST',body:JSON.stringify(record.body)});
+      if(!validExternalInboxItem(body?.item))throw new Error('write_unconfirmed');
+      replyRetries.confirm(record,body);settle(false);
+      if(mine!==generation||!active||!isVisible()||writeOwner!==owner)return false;
+      deliveryNotice={key:'externalBots.retrySaved',code:'',failed:false};await loadDeliveries();return true;
+    } catch(error) {
+      const code=deliveryErrorCode(error),rejected=['external_channel.delivery_changed','external_channel.delivery_cannot_retry','external_channel.control_revoked','external_channel.delivery_history_full','external_channel.inbox_full'].includes(code);
+      if(rejected)replyRetries.rejected(record);else replyRetries.uncertain(record);settle(true,error);
+      if(mine===generation&&active&&isVisible()&&writeOwner===owner)deliveryNotice={key:rejected?'externalBots.retryRejected':'externalBots.retryUnknown',code,failed:true};
+      return false;
+    } finally {
+      if(writeOwner===owner) {
+        writeOwner=null;
+        if(active&&isVisible()) {
+          renderConnections();renderInbox();renderDeliveries();
+          if(restoreFocus&&deliveryOpen()&&(!doc()?.activeElement||doc().activeElement===doc().body||doc().activeElement===source)) {
+            const row=[...(byId('cfgStewardBotDeliveries')?.querySelectorAll?.('[data-delivery-id]')||[])].find(node=>node.dataset.deliveryId===item.id);
+            const action=row?.querySelector('[data-bot-action="retry"]');
+            (action&&!action.disabled?action:byId('cfgStewardBotDeliveryRefresh'))?.focus();
           }
         }
       }
@@ -586,6 +640,6 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       stream.on(EVENT_STREAM_INSTANCE_EVENT, () => { restarting = true; invalidate('restarting'); });
       stream.on('presence.ack', () => { if (restarting) { restarting = false; if (active && isVisible()) { void loadConnections(); void loadInbox(); if (deliveryOpen()) void loadDeliveries(); } } });
     },
-    snapshot: () => ({ connections: connections.slice(), items: items.slice(), quality: { ...quality }, worker: { ...worker }, generation, writing: Boolean(writeOwner), discovering, nextBefore, total, deliveries: deliveries.slice(), deliveryCursor, deliveryTotal, retained, deliveryFilter, archiveFilter, archivePending: Boolean(archivePending) }),
+    snapshot: () => ({ connections: connections.slice(), items: items.slice(), quality: { ...quality }, worker: { ...worker }, generation, writing: Boolean(writeOwner), discovering, nextBefore, total, deliveries: deliveries.slice(), deliveryCursor, deliveryTotal, retained, deliveryFilter, archiveFilter, archivePending: Boolean(archivePending), retryRequests:replyRetries.snapshot() }),
   });
 }

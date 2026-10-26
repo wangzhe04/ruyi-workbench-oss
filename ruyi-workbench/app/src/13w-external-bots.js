@@ -297,6 +297,8 @@ function externalBotPublicItem(item) {
   const out = {};
   for (const key of ['id', 'connectionId', 'platform', 'connectionLabel', 'tenantId', 'conversationId', 'senderId', 'conversationType', 'text', 'messageId', 'eventId', 'receivedAt', 'readAt', 'control', 'execution', 'delivery']) out[key] = item[key];
   if (item.archivedAt !== undefined) out.archivedAt = item.archivedAt;
+  if (item.replyHistory !== undefined) out.replyHistory = item.replyHistory;
+  if (externalBotReplyRetryWindow(item)) out.retryAvailable = true;
   if (externalBotCancellationWindow(item)) out.cancelAvailable = true;
   const unsettled = externalBotUnsettled.get(item.id);
   if (unsettled?.kind === 'run' && out.execution?.status === 'running') out.execution = { ...out.execution, status: 'unknown', errorCode: 'external_channel.execution_unknown', finishedAt: unsettled.at };
@@ -372,7 +374,7 @@ async function externalBotCancelDelivery(body) {
   if (!externalBotCancellationWindow(item)) throw externalBotError('external_channel.delivery_cannot_cancel', 409);
   const active = externalBotDeliveries.get(item.id);
   if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
-  state.schema = 3; // Old v1/v2 readers must reject the whole ledger, never ignore cancellation.
+  if (state.schema < 3) state.schema = 3; // Never downgrade a ledger containing durable retry history.
   item.delivery = { ...item.delivery, status: 'cancelled', messageId: '', errorCode: 'external_channel.delivery_cancelled',
     cancelledAt: nowIso(), updatedAt: nowIso() };
   // Refuse this mutation before ACK/abort if its legacy plaintext representation
@@ -382,6 +384,88 @@ async function externalBotCancelDelivery(body) {
   await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership.
   if (active?.attemptId === body.attemptId && active.submitted === false) active.controller.abort();
   return { ok: true, item: externalBotPublicItem(item), alreadyCancelled: false };
+}
+// Manual reply retry is deliberately narrower than generic failed delivery.
+// Only these existing adapter results prove no MESSAGE request was submitted.
+// Rate-limit/rejection timing and unknown reconciliation need separate contracts.
+const EXTERNAL_BOT_REPLY_RETRY_ERRORS = Object.freeze(['external_delivery.predispatch',
+  'external_delivery.token_aborted', 'external_delivery.token_network', 'external_delivery.token_timeout',
+  'external_delivery.token_invalid_response', 'external_delivery.token_unavailable',
+  'external_delivery.token_rejected', 'external_delivery.token_invalid']);
+const EXTERNAL_BOT_REPLY_RETRY_MAX = 128; // Refuse, never prune durable predecessor attempts.
+// The future exact local HTTP handler may pass this private object only after
+// its existing token + origin checks. Request JSON cannot mint this authority.
+const EXTERNAL_BOT_LOCAL_REPLY_RETRY = Object.freeze({});
+function externalBotValidReplyHistory(item, schema) {
+  if (schema !== 4) return item.replyHistory === undefined;
+  const rows = item.replyHistory;
+  if (!Array.isArray(rows) || rows.length > EXTERNAL_BOT_REPLY_RETRY_MAX) return false;
+  if (!rows.length) return true;
+  if (!item.control || !item.delivery) return false;
+  const attempts = new Set(), requests = new Set();
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index], attempt = row?.attempt;
+    if (!row || typeof row !== 'object' || Array.isArray(row)
+      || Object.keys(row).sort().join(',') !== 'attempt,nextAttemptId,requestedAt,retryRequestId'
+      || typeof row.retryRequestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(row.retryRequestId)
+      || typeof row.nextAttemptId !== 'string' || !/^[A-Za-z0-9_-]{1,50}$/.test(row.nextAttemptId)
+      || typeof row.requestedAt !== 'string' || !row.requestedAt || !Number.isFinite(Date.parse(row.requestedAt))
+      || !attempt || Object.keys(attempt).sort().join(',') !== 'attemptId,errorCode,messageId,status,updatedAt'
+      || !externalBotValidControlState({ ...item, delivery: attempt })
+      || attempt.status !== 'failed' || attempt.messageId || !attempt.updatedAt || !Number.isFinite(Date.parse(attempt.updatedAt))
+      || !EXTERNAL_BOT_REPLY_RETRY_ERRORS.includes(attempt.errorCode)
+      || attempts.has(attempt.attemptId) || requests.has(row.retryRequestId)
+      || row.nextAttemptId !== (rows[index + 1]?.attempt?.attemptId || item.delivery.attemptId)) return false;
+    attempts.add(attempt.attemptId); requests.add(row.retryRequestId);
+  }
+  return !attempts.has(item.delivery.attemptId);
+}
+function externalBotReplyRetryReceipt(item, row) {
+  return { itemId: item.id, previousAttemptId: row.attempt.attemptId, attemptId: row.nextAttemptId,
+    retryRequestId: row.retryRequestId, requestedAt: row.requestedAt };
+}
+function externalBotReplyRetryWindow(item) {
+  return Boolean(item.control && ['completed', 'failed', 'unknown'].includes(item.execution?.status) && item.delivery?.status === 'failed'
+    && EXTERNAL_BOT_REPLY_RETRY_ERRORS.includes(item.delivery.errorCode) && !item.delivery.messageId
+    && item.delivery.updatedAt && Number.isFinite(Date.parse(item.delivery.updatedAt))
+    && !externalBotUnsettled.has(item.id) && !externalBotDeliveries.has(item.id));
+}
+async function externalBotRetryReply(body, authority) {
+  if (authority !== EXTERNAL_BOT_LOCAL_REPLY_RETRY) throw externalBotError('auth.origin_rejected', 403);
+  if (!body || typeof body !== 'object' || Array.isArray(body)
+    || Object.keys(body).sort().join(',') !== 'expectedAttemptId,id,retryRequestId' || !externalBotString(body.id)
+    || typeof body.expectedAttemptId !== 'string' || !/^[A-Za-z0-9_-]{1,50}$/.test(body.expectedAttemptId)
+    || typeof body.retryRequestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(body.retryRequestId))
+    throw externalBotError('external_channel.request_invalid');
+  const state = await externalBotReadState(), item = state.items.find(row => row.id === body.id && row.control !== null);
+  if (!item) throw externalBotError('external_channel.item_not_found', 404);
+  const recorded = item.replyHistory?.find(row => row.retryRequestId === body.retryRequestId);
+  if (recorded) {
+    if (recorded.attempt.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);
+    return { ok: true, item: externalBotPublicItem(item), receipt: externalBotReplyRetryReceipt(item, recorded), alreadyRetried: true };
+  }
+  if (item.delivery?.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);
+  if (!externalBotReplyRetryWindow(item))
+    throw externalBotError('external_channel.delivery_cannot_retry', 409);
+  if ((item.replyHistory?.length || 0) >= EXTERNAL_BOT_REPLY_RETRY_MAX) throw externalBotError('external_channel.delivery_history_full', 409);
+  if (!await externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item))
+    throw externalBotError('external_channel.control_revoked', 403);
+  const attemptId = makeId('reply');
+  if (attemptId === item.delivery.attemptId || item.replyHistory?.some(row => row.attempt.attemptId === attemptId))
+    throw externalBotError('external_channel.delivery_changed', 409);
+  if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
+  if (state.schema < 4) for (const row of state.items) row.replyHistory = [];
+  state.schema = 4; // Every old reader must reject this entire authority/dedupe ledger.
+  const requestedAt = nowIso(), record = { attempt: { ...item.delivery }, nextAttemptId: attemptId, requestedAt, retryRequestId: body.retryRequestId };
+  item.replyHistory.push(record);
+  item.delivery = { status: 'pending', attemptId, messageId: '', errorCode: '', updatedAt: requestedAt };
+  // The legacy OFF reader caps physical pretty JSON, while the generic writer
+  // caps compact payload bytes. Preflight this new operation in both modes so
+  // history growth never ACKs a ledger that would become unreadable when OFF.
+  if (Buffer.byteLength(JSON.stringify(state, null, 2), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes)
+    throw externalBotError('external_channel.inbox_full', 503);
+  await externalBotWriteState(state); // No worker wake or successful ACK before durable history + pending.
+  return { ok: true, item: externalBotPublicItem(item), receipt: externalBotReplyRetryReceipt(item, record), alreadyRetried: false };
 }
 function externalBotValidItem(item) {
   return item && typeof item === 'object' && !Array.isArray(item) && externalBotString(item.id) && externalBotString(item.connectionId)
@@ -624,7 +708,7 @@ function externalBotWakeWorker() { if (!externalBotWorkerStopped) { if (typeof W
 function externalBotValidState(state) {
   if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
     || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
-  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts'].includes(key)) || ![1, 2, 3].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
+  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts'].includes(key)) || ![1, 2, 3, 4].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
     || !Array.isArray(state.items) || state.items.length > EXTERNAL_BOT_LIMITS.items
     || !Array.isArray(state.retiredConnectionIds) || state.retiredConnectionIds.length > EXTERNAL_BOT_LIMITS.retiredIds
     || state.retiredConnectionIds.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(id))
@@ -640,7 +724,7 @@ function externalBotValidState(state) {
     }
   } catch { return false; }
   return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(item => externalBotValidItem(item)
-      && (state.schema === 3 || item.delivery?.status !== 'cancelled')
+      && (state.schema >= 3 || item.delivery?.status !== 'cancelled') && externalBotValidReplyHistory(item, state.schema)
       && (state.schema === 1 ? item.archivedAt === undefined : typeof item.archivedAt === 'string' && (!item.archivedAt || Number.isFinite(Date.parse(item.archivedAt)))))
     && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
     && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length;
@@ -838,7 +922,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   state.items.push({ id: makeId('botmsg'), connectionId: connection.id, platform, connectionLabel: connection.label,
     tenantId: message.tenantId, conversationId: message.conversationId, senderId: message.senderId,
     conversationType: message.conversationType, text: message.text, messageId: message.messageId, eventId: message.eventId,
-    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema >= 2 ? { archivedAt: '' } : {}),
+    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema >= 2 ? { archivedAt: '' } : {}), ...(state.schema === 4 ? { replyHistory: [] } : {}),
     execution: control ? { status: 'queued', serverInstanceId: '', startedAt: '', finishedAt: '', errorCode: '', replyText: '', turnSeq: 0, actionFailures: 0, proposals: 0, contractIncomplete: false } : null, delivery: null });
   await externalBotWriteState(state);
   return ack;
@@ -852,7 +936,7 @@ async function externalBotSetupHttpOperation(req, res, operation) {
   return true;
 }
 async function handleExternalBotApiRoutes(req, res, pathname) {
-  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/discover', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read', '/api/external-bots/deliveries', '/api/external-bots/deliveries/archive', '/api/external-bots/deliveries/cancel'];
+  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/discover', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read', '/api/external-bots/deliveries', '/api/external-bots/deliveries/archive', '/api/external-bots/deliveries/cancel', '/api/external-bots/deliveries/retry'];
   let callbackPlatform = '';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/qq') callbackPlatform = 'qq';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/feishu') callbackPlatform = 'feishu';
@@ -875,7 +959,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
       if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
     }
     if (!tokenOk(req)) throw externalBotError('auth.token_invalid', 403);
-    const archiveMutation = pathname === '/api/external-bots/deliveries/archive' || pathname === '/api/external-bots/deliveries/cancel';
+    const archiveMutation = pathname === '/api/external-bots/deliveries/archive' || pathname === '/api/external-bots/deliveries/cancel' || pathname === '/api/external-bots/deliveries/retry';
     if ((EXTERNAL_BOT_SETUP_PATHS.includes(pathname) || archiveMutation) && !originOk(req)) throw externalBotError('auth.origin_rejected', 403);
     if (req.method === 'GET' && pathname === '/api/external-bots/setup') {
       if ([...url.searchParams.keys()].some(key => key !== 'connectionId') || url.searchParams.getAll('connectionId').length !== 1) throw externalBotError('external_channel.request_invalid');
@@ -914,6 +998,15 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
       const body = externalBotDecodeJson(await externalBotReadBody(req));
       const result = await runKeyedChain(externalBotChains, 'state', () => externalBotArchiveDelivery(body));
       send(res, json(result)); return true;
+    }
+    if (req.method === 'POST' && pathname === '/api/external-bots/deliveries/retry') {
+      if (url.search) throw externalBotError('external_channel.request_invalid');
+      const body = externalBotDecodeJson(await externalBotReadBody(req));
+      const result = await runKeyedChain(externalBotChains, 'state', () => externalBotRetryReply(body, EXTERNAL_BOT_LOCAL_REPLY_RETRY));
+      // A repeated explicit request may resume its own durable pending reply.
+      // Retired, submitted or later attempts never inherit an old receipt's wake.
+      if (result.item.delivery?.status === 'pending' && result.item.delivery.attemptId === result.receipt.attemptId) externalBotWakeWorker();
+      if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
     }
     if (req.method === 'POST' && pathname === '/api/external-bots/deliveries/cancel') {
       if (url.search) throw externalBotError('external_channel.request_invalid');
