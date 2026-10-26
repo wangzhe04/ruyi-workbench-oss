@@ -2,7 +2,7 @@
 
 日期：2026-10-24。基线：`415357604f6465f43b377d1d30ff713464a8fa96`。分支：`codex/3.1-completion-plan`。应用仍为 **3.0.1**。
 
-2026-10-27继续实施：正常959原七角色整轮、父死亡/cold真实恢复、normal读取组及alias6正向保持限定通过。SourceKeeper最终释放与host捕获读取竞态已修，DI消环后123模块官方构建及完整目录身份经非作者接受；尚未执行本组合真实服务，read959未合并，生产configure/kernel/claim/激活、fault6继续。M4第三轮3251文件公共资源准备在原内部时限内通过，前两轮失败现场保留；来源成员解析器首次工具自测报跨runtime INPUT_IDENTITY，未进入解析场景，未放行媒体组件。最新范围、限制和下一步见[92 §12.37](92-3.1-implementation-handoff.md)及[本批host、媒体准备与首红](evidence/m3-host-m4-stage-20261027.json)。下方历史批次保留当时结论，不将源码、构建或限定夹具通过计作完整恢复完成。
+2026-10-27继续实施：前批正常959原七角色、父死亡/cold、normal读取组及alias6正向限定结论保持。生产上传接线NEW67源码已独审，proof-copy P1修后的NEW97已完成全新源码准备、独立外采、官方build/check/inspect及123模块/128输入身份独审；完整正常serve E2E安全窄修仍在独审，尚未实际启动该组合。M4固定startup＋128×64合成图实际与技术来源清册已独审，均不授完整媒体/来源完备或生产ready。最新范围、首红及下一步见[92 §12.38](92-3.1-implementation-handoff.md)和[本批媒体、技术清册与上传构建](evidence/m4-diagnostic-census-m3-upload-20261027.json)。read959整合、故障门、完整恢复kernel/claim/激活等继续；下方历史结论不算完整迁移恢复完成。
 
 用户已授权继续多 agent 实施，按批验证、独审后 commit/push；先前“当天收工”的安排已取消。本记录追踪 M3-3，**不将基础模块通过写成迁移或启用 UI 已完成**。合同继续以 [86 §8](86-3.1-completion-and-privacy-roadmap.md)、[93 §4–5](93-m3-1-encrypted-storage-freeze.md)、[94](94-m3-2-encrypted-storage-adapter.md) 为准。
 
