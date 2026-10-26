@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "reviewer": "/root/review_cancel",
+  "stage": "source-only independent check; tests pending author freeze",
+  "baseline": {
+    "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+    "sha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea"
+  },
+  "candidate": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e\\13u-migration-center.js",
+    "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb"
+  },
+  "span": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e\\span.json",
+    "sha256": "e9eabe5eb98875eaaacb74cc6f60679df93881f1ae7accb2b1ffd13747c0954d",
+    "before": "const moved=await platform.move({source,target,id:owned.objectInfo.id});",
+    "after": "const moved=await platform.move({source,target,id:owned.objectInfo.id,preserveMetadata:true});",
+    "forwardWholeExact": true,
+    "inverseWholeExact": true,
+    "beforeOccurrences": 1,
+    "afterOccurrences": 1
+  },
+  "native": {
+    "constantBytesUnchanged": true,
+    "evaluatedSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+    "notInvoked": true,
+    "privateNotLiveF79": true
+  },
+  "unchangedFunctionBlocks": [
+    "portableVerifyInherited",
+    "portableProofExact",
+    "verifyPortableInstalled",
+    "installPortableOriginals",
+    "portableStageDurability",
+    "portableAssertDurability",
+    "portableTargetFailure"
+  ],
+  "limitations": [
+    "No actual Windows metadata or restore outcome is established by this check.",
+    "No full-source/server load, build, helper or native invocation.",
+    "Pending frozen strong-pure tests and prior-source negative controls."
+  ]
+}

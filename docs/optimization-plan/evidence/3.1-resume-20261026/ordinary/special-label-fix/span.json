@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "baseline": "C:/Users/87179/AppData/Local/Temp/ruyi-special-refusal-safe-v2-qXY4ov/ordinary-mode-gate.cjs",
+  "beforeSha256": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874",
+  "afterSha256": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89",
+  "before": "writeBackup(input,captured,'mode-'+input.ordinal,flush)",
+  "after": "writeBackup(input,captured,input.base===input.negative?'special-refusal-mode-'+input.ordinal:'mode-'+input.ordinal,flush)",
+  "wholeInverseExact": true,
+  "onlyCaseSpecificPasswordBackupLabel": true
+}

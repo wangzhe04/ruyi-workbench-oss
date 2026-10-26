@@ -26,10 +26,12 @@ export function validExternalInboxItem(row) {
     && ['connectionLabel', 'tenantId', 'conversationType', 'messageId', 'eventId', 'readAt'].every(key => row[key] === undefined || row[key] === null || typeof row[key] === 'string')
     && (!row.execution || (['queued', 'running', 'completed', 'failed', 'unknown', 'cancelled'].includes(row.execution.status)
       && ['errorCode', 'replyText'].every(key => row.execution[key] === undefined || typeof row.execution[key] === 'string')))
-    && (!row.delivery || ['pending', 'sending', 'sent', 'failed', 'unknown'].includes(row.delivery.status)));
+    && (!row.delivery || ['pending', 'sending', 'sent', 'failed', 'unknown', 'cancelled'].includes(row.delivery.status)
+      && (row.delivery.status !== 'cancelled' || typeof row.delivery.cancelledAt === 'string' && row.delivery.cancelledAt.length <= 64 && Boolean(row.delivery.cancelledAt) && Number.isFinite(Date.parse(row.delivery.cancelledAt)))));
 }
 export function validExternalDeliveryItem(row) {
-  return validExternalInboxItem(row) && Boolean(row.execution && row.acceptance?.status === 'accepted'
+  return validExternalInboxItem(row) && (row.cancelAvailable === undefined || typeof row.cancelAvailable === 'boolean')
+    && (!row.cancelAvailable || ['pending', 'sending'].includes(row.delivery?.status)) && Boolean(row.execution && row.acceptance?.status === 'accepted'
     && row.acceptance.receivedAt === row.receivedAt && Number.isFinite(Date.parse(row.receivedAt))
     && typeof row.archivedAt === 'string' && row.archivedAt.length <= 64 && (!row.archivedAt || Number.isFinite(Date.parse(row.archivedAt)))
     && (!row.delivery || typeof row.delivery.attemptId === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(row.delivery.attemptId)
@@ -76,7 +78,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       'external_channel.storage_unavailable': 'storageUnavailable', 'external_channel.inbox_full': 'capacityFull',
       'external_channel.connections_full': 'capacityFull', 'external_channel.retired_ids_full': 'capacityFull',
       'external_channel.control_revoked': 'controlRevoked', 'external_channel.owner_invalid': 'ownerRequired',
-      'external_channel.control_confirmation_required': 'controlConfirmationRequired', 'external_channel.cursor_invalid': 'deliveryCursorExpired',
+      'external_channel.control_confirmation_required': 'controlConfirmationRequired', 'external_channel.cursor_invalid': 'deliveryCursorExpired', 'external_channel.delivery_cannot_cancel': 'cancelTooLate', 'external_channel.delivery_changed': 'cancelChanged', 'external_channel.delivery_cancelled': 'delivery.cancelled',
       'external_discovery.credentials_rejected': 'discoverRejected', 'external_discovery.unsupported_platform': 'discoverUnsupportedPlatform',
       'external_discovery.credentials_missing': 'discoverCredentialsMissing', 'external_discovery.identity_missing': 'discoverIdentityMissing',
       'external_discovery.busy': 'discoverBusy', 'external_discovery.invalid_input': 'discoverInvalid',
@@ -231,6 +233,10 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       const actions = el('div', 'external-bots-actions');
       const archive = control(item.archivedAt ? 'externalBots.unarchive' : 'externalBots.archive', 'archive', () => archiveDelivery(item, archive));
       archive.disabled ||= quality.deliveries !== 'ok' || Boolean(archivePending); actions.appendChild(archive);
+      if (item.cancelAvailable === true) {
+        const cancel = control('externalBots.cancelReply', 'cancel', () => cancelDelivery(item, cancel));
+        cancel.disabled ||= quality.deliveries !== 'ok' || Boolean(archivePending); actions.appendChild(cancel);
+      }
       node.append(heading, facts, details, actions); host.appendChild(node);
     }
   }
@@ -293,6 +299,46 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
           if (restoreFocus && deliveryOpen() && (!doc()?.activeElement || doc().activeElement === doc().body || doc().activeElement === source)) {
             const row = [...(byId('cfgStewardBotDeliveries')?.querySelectorAll?.('[data-delivery-id]') || [])].find(node => node.dataset.deliveryId === item.id);
             const action = row?.querySelector('[data-bot-action="archive"]');
+            (action && !action.disabled ? action : byId('cfgStewardBotDeliveryRefresh'))?.focus();
+          }
+        }
+      }
+    }
+  }
+  async function cancelDelivery(item, source) {
+    if (item.cancelAvailable !== true || !item.delivery?.attemptId || archivePending || writeOwner || !active || !isVisible() || !deliveryOpen() || quality.deliveries !== 'ok') return false;
+    const mine = generation, owner = {}, attemptId = item.delivery.attemptId, restoreFocus = doc()?.activeElement === source;
+    archivePending = owner; deliverySeq++;
+    const settle = (failed, error) => {
+      if (archivePending !== owner) return;
+      archivePending = null; deliverySeq++;
+      if (failed || quality.deliveries !== 'restarting') quality.deliveries = failed ? 'failed' : 'unread';
+      errorDetail.deliveries = failed ? deliveryErrorCode(error) : '';
+      if (active && isVisible()) renderDeliveries();
+    };
+    writeOwner = owner; renderConnections(); renderInbox(); renderDeliveries();
+    try {
+      const body = await api('/api/external-bots/deliveries/cancel', { method: 'POST', body: JSON.stringify({ id: item.id, attemptId }) });
+      if (body?.ok !== true || !validExternalInboxItem(body.item) || body.item.id !== item.id
+        || body.item.delivery?.attemptId !== attemptId || body.item.delivery.status !== 'cancelled') throw new Error('write_unconfirmed');
+      settle(false);
+      if (mine !== generation || !active || !isVisible() || writeOwner !== owner) return false;
+      deliveryNotice = { key: 'externalBots.cancelSaved', code: '', failed: false };
+      await loadDeliveries(); return true;
+    } catch (error) {
+      settle(true, error);
+      if (mine === generation && active && isVisible() && writeOwner === owner) {
+        deliveryNotice = { key: 'externalBots.cancelFailed', code: deliveryErrorCode(error), failed: true };
+      }
+      return false;
+    } finally {
+      if (writeOwner === owner) {
+        writeOwner = null;
+        if (active && isVisible()) {
+          renderConnections(); renderInbox(); renderDeliveries();
+          if (restoreFocus && deliveryOpen() && (!doc()?.activeElement || doc().activeElement === doc().body || doc().activeElement === source)) {
+            const row = [...(byId('cfgStewardBotDeliveries')?.querySelectorAll?.('[data-delivery-id]') || [])].find(node => node.dataset.deliveryId === item.id);
+            const action = row?.querySelector('[data-bot-action="cancel"]');
             (action && !action.disabled ? action : byId('cfgStewardBotDeliveryRefresh'))?.focus();
           }
         }

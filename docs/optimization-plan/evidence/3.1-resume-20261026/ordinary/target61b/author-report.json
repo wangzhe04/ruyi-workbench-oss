@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "author": "review_restore",
+  "status": "New private target14 cleanup scope candidate, pending review_image nonauthor final review; not production or native acceptance",
+  "replacesBlocked": "a25a884293d62d962c89cb332c607b060ff199f772ba851625650a8faa287d2c remains unchanged",
+  "supportBaseline": "f9b119fa6a919f649fde97fb1985bf7796c8ddc89d0ccb0b529946c83e7af6b3 remains unchanged",
+  "sourceChange": "One unique local cleanup aggregation block only. Call reviewed migrationCapturedCleanupFailure(primary,failed,[cleanup],true); assign own code/message to preserve prior portable_target_read_cleanup_uncertain contract. No read/admission/native/checkpoint changes.",
+  "reproduction": {
+    "independentReview": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m3-final-independent-20261026-507f6ff0\\formal-review.json",
+    "sha256": "2566214399381899f1f68e396259496e6d73f0908b3c3754cf88cc52bdf67329",
+    "originalCases": 2,
+    "originalPass": 0,
+    "originalFail": 2,
+    "observed": [
+      "foreign cleanup-cause helperMayStillRun getter executed1time and primitivefalse replaced primarynull+cause",
+      "Promise-only release refusal incorrectly helperMayStillRunfalse"
+    ]
+  },
+  "tests": [
+    {
+      "scope": "original independent2 assertions unchanged plus32 authored falsy/release/unknown matrix",
+      "tests": 34,
+      "pass": 34,
+      "fail": 0,
+      "skip": 0,
+      "log": "fixed-light34.log",
+      "sha256": "8685488c009c766691c5bf005e969bf3ce1211b997d89e534581e26f3ae97eb4"
+    },
+    {
+      "scope": "original target73 assertions, reader/source path and baseline identity properly retargeted to119+f9; source-scope VM adds actual existing f9 helper",
+      "tests": 73,
+      "pass": 73,
+      "fail": 0,
+      "skip": 0,
+      "log": "target73-fixed.log",
+      "sha256": "2508d7410c0edb66283e0eebab68cdb36b0729e9f80c4fbc8a95127aaa2da810"
+    }
+  ],
+  "controls": [
+    {
+      "scope": "same independent2 with blocked a25 source",
+      "tests": 2,
+      "pass": 0,
+      "fail": 2,
+      "exit": 1,
+      "log": "inverse2-control.log",
+      "sha256": "4dc4bc818a4b36fc562d4ca312efc365dffd43745271c38f076d3cafa90139ba"
+    },
+    {
+      "scope": "remove current target physical captured hash wiring only",
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "exit": 1,
+      "log": "negative-target-hash.log",
+      "sha256": "406c5788748c43cd932adaf1ef0e1bef9c6a17c0984447b27e3e336073447d4d"
+    },
+    {
+      "scope": "remove current target captured capsule codec wiring only",
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "exit": 1,
+      "log": "negative-target-codec.log",
+      "sha256": "07ed420c100b0ca5a66df9957a292c1ccfe9934003c320702f707013d3b5b94b"
+    }
+  ],
+  "fixtureConservation": {
+    "independent2TestBodiesExact": true,
+    "targetScopeUnitInverseLexicalInjectionExact": true,
+    "old13TargetGroups": 13,
+    "updatedAfterBodies": 1,
+    "fullTargetArgumentGroup": 1,
+    "assertionsDeleted": 0,
+    "readerModules": 119,
+    "retargetedBase13u": "e8168e2cbca81ed9c3e47d316fdd3b45d9f67c5064876b4689552f4948057f08",
+    "retargetedBase01ab": "2d0ab97aad7701170fb4acc0e43fc1f00ce4396df945eadd344b0ca249650ea5"
+  },
+  "semantics": [
+    "work,falsy primary,cleanup cause order and AggregateError cause retained",
+    "opaque release executes once on each attempt; Promise-only/nonundefined still refuse and conservatively retain helper/owner uncertainty",
+    "only owned local error code/message assigned; cleanup cause helper getter is never invoked",
+    "source/target lease/read/physicalSHA/fixedmetadata predicates and final proof positions unchanged"
+  ],
+  "native": {
+    "live": "f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25",
+    "private": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+    "unchangedBoundary": "Only privateunion/f9/a25 -> this local JS fix preserves ef53; livef79 -> privateef53 substantive native increment is not discharged."
+  },
+  "notClaimed": [
+    "original ordinary inherited.snapshot metadata red fixed",
+    "new build or actual root gate approved",
+    "completeM3/support",
+    "production promotion",
+    "new user data encryption"
+  ],
+  "operations": {
+    "productFilesTouched": false,
+    "build": false,
+    "native": false,
+    "http": false,
+    "browser": false
+  },
+  "conservation": "conservation.json"
+}

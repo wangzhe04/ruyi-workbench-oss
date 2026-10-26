@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "scope": "new private gate only: actual ordinary nonempty business payload modes and password-master DPAPI rewrap; special nonempty is expected refusal",
+  "runtime": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/server.js",
+  "runtimeSha256": "52fb036631e239e203aaf6279ca629f3f64c6298904bed43219f2cfc4ff24449",
+  "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+  "roles": [
+    "seed",
+    "mode-0",
+    "mode-1",
+    "mode-2",
+    "restore",
+    "cold-restored",
+    "special-refusal"
+  ],
+  "modes": [
+    "encrypted",
+    "plain",
+    "encrypted"
+  ],
+  "budgets": {
+    "innerMs": 240000,
+    "outerMs": 250000,
+    "cleanupMs": 2000
+  },
+  "notClaimed": [
+    "nonempty special transition support",
+    "worker handoff",
+    "upload",
+    "download",
+    "whole production journey",
+    "key rotation",
+    "ordinary native metadata restore"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "scope": "Execution locations and derived inventory/driver hashes only; runtime120 byte identities and all business functions/assertions/budgets unchanged",
+  "archiveRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-resume-20261026-c4672ee3\\packages",
+  "repo": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss",
+  "runtime": "C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/runtime/app/server.js",
+  "runtimeSha256": "1d27e6fa776e6b48c92148dd215a56c250e43d49e049ee18596b2e1be97c7f66",
+  "inputsSha256": "2b0b150b7a577cb14dcaa779286b7d2c72ef43f7a2669c2040af6c6f6ddfe0a2",
+  "inputs": 120,
+  "edits": [
+    {
+      "name": "ordinary-mode-gate.cjs",
+      "beforeSha256": "e22f46896a7ddee5d117c895bf13b7abddcd2c394495a79aadb047575b725693",
+      "afterSha256": "ed5d7ea14180b1fc08f9a5290f304877039de5c5b84e98c23f7a0f5c7eab22e2",
+      "replacements": [
+        [
+          "const repo='E:/Claude/worktrees/steward-3x-implementation';",
+          "const repo='C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss';"
+        ],
+        [
+          "runtime:'C:/Users/87179/AppData/Local/Temp/codex-ruyi-current118-durability-run-20261025/runtime/app/server.js'",
+          "runtime:'C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/runtime/app/server.js'"
+        ],
+        [
+          "runtimeInputsSha256:'e99c04c12f909179d9649ddf8df6723b66861860936cb8ffb2b5f206a2a65fee'",
+          "runtimeInputsSha256:'2b0b150b7a577cb14dcaa779286b7d2c72ef43f7a2669c2040af6c6f6ddfe0a2'"
+        ]
+      ],
+      "inverseWhole": true
+    },
+    {
+      "name": "run-ordinary-mode-gate.cjs",
+      "beforeSha256": "2de9ee3e6fa0c0be89147014a53d164563bc2cfdb9f6909958b1c2c9cae9c3ed",
+      "afterSha256": "fc0be00e0d18bfa878b00d2a714d88560e4f651cf904e825f6a27c4934aee7c0",
+      "replacements": [
+        [
+          "require('E:/Claude/worktrees/steward-3x-implementation/dev-harness/lib/kill-own-tree')",
+          "require('C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss/dev-harness/lib/kill-own-tree')"
+        ],
+        [
+          "\"runtime\":\"C:/Users/87179/AppData/Local/Temp/codex-ruyi-current118-durability-run-20261025/runtime/app/server.js\"",
+          "\"runtime\":\"C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/runtime/app/server.js\""
+        ],
+        [
+          "\"driver\":\"e22f46896a7ddee5d117c895bf13b7abddcd2c394495a79aadb047575b725693\"",
+          "\"driver\":\"ed5d7ea14180b1fc08f9a5290f304877039de5c5b84e98c23f7a0f5c7eab22e2\""
+        ],
+        [
+          "cwd:'E:/Claude/worktrees/steward-3x-implementation'",
+          "cwd:'C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss'"
+        ]
+      ],
+      "inverseWhole": true
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "dev-harness/lib/release-checks.js",
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172"
+    },
+    {
+      "file": "dev-harness/lib/kill-own-tree.js",
+      "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+    },
+    {
+      "file": "dev-harness/lib/server-internals.js",
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    }
+  ]
+}

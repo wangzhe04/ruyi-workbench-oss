@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "review_restore independent nonauthor",
+  "status": "Approved026d narrow core source for subsequent root HTTP/UI integration and independent runtime gates; no actionable source blockers found",
+  "candidate": {
+    "identity": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\candidate-identity.json",
+    "identitySha256": "9b746f9f5f11d43298141708a65934c831d1f6987df14c3a6a12692c167ffb0a",
+    "membersVerified": 61,
+    "productSha256": "026d912512f8d36cd10678d801075f386d0527ac4aeea0bbac561b24eb0ff79a",
+    "baselineSha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+    "spans": 6,
+    "uniqueForwardAndWholeInverse": true,
+    "currentExternalDependenciesVerified": 7,
+    "draftCoreFilesExact": 5,
+    "liveProductModified": false
+  },
+  "findings": [],
+  "reviewedContracts": {
+    "authority": "Strict module-private object identity precedes even idempotent receipt access; plain JSON cannot mint it. No HTTP route/export/model capability currently added.",
+    "currentOwner": "Every new action checks current owner/controlRevision/allowlists/platform/tenant and freshly resolved credentials; final sender keeps original rechecks after every await and at dispatch. Receipt replay is a readonly historical lookup after private authority, deliberately before owner revalidation.",
+    "knownNotSubmitted": "Whitelist exactlypredispatch plus7token-stage failures. Actual13x token phase returns beforeMESSAGE preparation; message-stage network/timeout/invalid response remain unknown and not admitted.429, platform rejection, source_limit, cancelled/unknown/sent/nonterminal states refuse.",
+    "history": "Schema4 requires everyitem replyHistory; each prior delivery keeps exact5fields and original failure. Unique attempt/request chain reaches currentattempt, max128 refuses not prunes; current business/control/acceptance/dedupe/archival remain.",
+    "idempotence": "Sameitem/request/expected attempt returns same durable historical receipt across later retry/sent/cancelled/unknown and revoked owner; mismatchedexpected or newrequest against retired attempt conflicts. Lost postcommit ACK reconciles disk rather than making second successor.",
+    "race": "Existing state chain must wrap future route. Cancellation with predecessor ID conflicts; current successor may be cancelled beforedispatch and schema4 persists.",
+    "capacity": "Additional prettyJSON preflight occurs before durable write/wake; existing1000items/40MiBcompact and ciphertext schema1/AAD remain. Physical boundary was inspected and previously reviewed in c82; this reviewer did not rerun40MiB.",
+    "compatibility": "Old exactv1/v2/currentc82 reader reject payload4 wholeledger and cannot downgrade/replay.6spans leave originalStore, dispatch binding, final sender, recover, archive and worker functions unchanged."
+  },
+  "independentRuns": {
+    "tests": 10,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-retry-independent-20261026-56bfff65\\independent-small10.log",
+    "sha256": "d59d79461e7b320b6788cb1b22975a29767cbc3c01682bcd853442ef7a96953a",
+    "testFile": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-retry-independent-20261026-56bfff65\\independent-small.test.cjs",
+    "testSha256": "09b4a8f6cf41fd27f1aa6f5ea36efe345bf07efa7eddb88a9138fd2eb79b95fc",
+    "scope": "Small synthetic plain ledgers with actual13w/Store/Chunks JS and model platform/credential values; no provider/nativeHTTP; strongest process/network guard required",
+    "notTheAuthor45Plus1": true
+  },
+  "controls": [
+    {
+      "kind": "authority",
+      "source": "4a90fd32fffbd8945ab7276b0b0c6b47adcb67b22b475907a5400a035729e320",
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "exit": 1,
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-retry-independent-20261026-56bfff65\\negative-authority.log",
+      "sha256": "c2d021fefca1b18badee2db559c712ba908f4db23df277136834997f6c0b07c0"
+    },
+    {
+      "kind": "history",
+      "source": "c95d99b2e42af0a9e542a47cdf59c1f16fcbd03ce8bd408d350ccc69292e59bc",
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "exit": 1,
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-retry-independent-20261026-56bfff65\\negative-history.log",
+      "sha256": "b612dad077855a4ff4fda0532ec523d9e5e9960d07e300ce4b3330c47b6622c9"
+    },
+    {
+      "kind": "idempotence",
+      "source": "57341cc58a6444cc78030ed22849a9f5639e5b25f8970469c0fa26b2eb2824cd",
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "exit": 1,
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-retry-independent-20261026-56bfff65\\negative-idempotence.log",
+      "sha256": "a70d327ff6c15443c9ae9dab3e272d5218506a87ad5684072942a2aa9fea0c5c"
+    }
+  ],
+  "runtimeIntegrationConditions": [
+    "Add only an exact local POST route with existingtoken+origin checks, reject query/unknownbody fields; route authorization/inventory updated; no callback/remote/model tool may supply private retry authority.",
+    "Invoke core within original state chain; return preserved receipt and retain originalrequestID through unknown responses/UI reopen; do not create a new nonce automatically after failure.",
+    "Worker handoff only after durable receipt. Any recovery wake must resume an existing current pending attempt rather than create a successor; idempotent historical receipt cannot reset laterstatus or resend terminalattempts.",
+    "UI discloses permanentpayload4 upgrade and oldreader wholeledger rejection, priorattempt chain, exact failure reason and no businessrerun; keep existingwriteOwner/generation/physicalpending safeguards.",
+    "Run isolated actualHTTP and browser cases for token/origin/body, diskfailure/ACKloss/replay, retrycancel races, freshcredentials/privacy changes, sameattempt singleMESSAGE, oldreader rejection. Current core approval does not cover wiring.",
+    "Do not enable429/unknown reconciliation or actualQQ/Feishu sending on this approval; those require separate real evidence and authorization."
+  ],
+  "notRun": [
+    "author45suite",
+    "author40MiBcase",
+    "40MiBcapacity",
+    "build",
+    "native",
+    "actualHTTP",
+    "browser",
+    "realplatform"
+  ],
+  "frozenSourceBoundary": "This retry review does not approve f9/a25 support/native candidates; target cleanup issue found byreview_image remains separate."
+}

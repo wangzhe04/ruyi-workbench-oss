@@ -1,0 +1,7 @@
+{
+  "failure": "fs.writeFileSync UNKNOWN errno -4094 opening module-contracts.json during official generator; cause not established",
+  "file": "ruyi-workbench/app/src/module-contracts.json",
+  "bytes": 783171,
+  "sha256": "905c99bd41d877378f1434a4a40d80c63aca55bdf154a5789155859b52c58aaa",
+  "validJSON": true
+}

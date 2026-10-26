@@ -1516,6 +1516,7 @@
                 <summary class="settings-subhead" data-i18n="externalBots.deliveries">投递记录</summary>
                 <p class="field-help muted" data-i18n="externalBots.archiveHint">归档只整理列表，不会停止业务或待发回复，也不释放容量。</p>
                 <p class="field-help muted" data-i18n="externalBots.archiveCompatibility">首次归档后，全部机器人记录只能用当前或更新版本打开，取消归档不会改变这一限制。</p>
+                <p class="field-help muted" data-i18n="externalBots.cancelCompatibility">取消只阻止尚未提交的回复，不停止或撤销业务。首次取消会升级账本，旧版将拒绝读取；发送未知须先核对。</p>
                 <div class="external-bots-toolbar external-bots-delivery-filters">
                   <label class="external-bots-field" for="cfgStewardBotDeliveryConnection"><span data-i18n="externalBots.connectionFilter">连接</span><select id="cfgStewardBotDeliveryConnection"></select></label>
                   <label class="external-bots-field" for="cfgStewardBotDeliveryArchive"><span data-i18n="externalBots.archiveFilter">记录范围</span><select id="cfgStewardBotDeliveryArchive"><option value="active" data-i18n="externalBots.activeRecords">未归档</option><option value="archived" data-i18n="externalBots.archived">已归档</option><option value="all" data-i18n="externalBots.allRecords">全部记录</option></select></label>

@@ -1,0 +1,61 @@
+{
+  "rows": [
+    {
+      "file": "dev-harness/unit/external-bots-cancel-capacity.test.js",
+      "beforeSha256": "24de1887a3157b180016a8ab9694f69f39892279d0a17e2df870e67ecce29caf",
+      "afterSha256": "6f8d4d4b0392e5cd4fa146ed210d45977ffb42d67651fa210001cc0c515a0b94",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-0-external-bots-cancel-capacity.test.js.gz",
+      "scope": "CRLF following completed test statements to LF only; no literal or assertion edit"
+    },
+    {
+      "file": "dev-harness/unit/media-image-contract-cleanup.test.js",
+      "beforeSha256": "629ceff4edda968af9db848423322c3757c93f544aa9e648c61448bf7ee8b099",
+      "afterSha256": "9f29e6285c1de71ffd5cab08178a46c3029d1246cf6d61714a8d8cb061ba46b0",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-1-media-image-contract-cleanup.test.js.gz",
+      "scope": "CRLF following completed test statements to LF only; no literal or assertion edit"
+    },
+    {
+      "file": "dev-harness/unit/media-image-contract.test.js",
+      "beforeSha256": "d84716b89fa188c3baaa78f8bc0775f8be12b7416df58e213bb9263b2eb4ee85",
+      "afterSha256": "5fe60842bda81ac419525082905e19111abe38af52c533463faa2f39cdbf7fca",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-2-media-image-contract.test.js.gz",
+      "scope": "CRLF following completed test statements to LF only; no literal or assertion edit"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/restore-cleanup-next-2026-10-26/cleanup-current-repro.test.cjs",
+      "beforeSha256": "2c092496f3fd83ae2fdfe923adb701a7c9f346b4e656eb390eaeb503f607c504",
+      "afterSha256": "ea18825635b6c38ada4110e51abe14618f3cdb78ddd74a1cab2166e6725f99f5",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-3-cleanup-current-repro.test.cjs.gz",
+      "scope": "CRLF following completed test statements to LF only; no literal or assertion edit"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/restore-cleanup-next-2026-10-26/cleanup-extra.test.cjs",
+      "beforeSha256": "f6bde2801bc6e4cbe3a69377ce0c27d8b18380b1cc685c5d3e423ebf4a951b49",
+      "afterSha256": "991ad7f7ab379d35a817c0e9054bee2611661549eb10d2513f007ed942ca4076",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-4-cleanup-extra.test.cjs.gz",
+      "scope": "CRLF following completed test statements to LF only; no literal or assertion edit"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/restore-cleanup-next-2026-10-26/cleanup-fixed.test.cjs",
+      "beforeSha256": "1b2ed5489e324fdacec2df178a7d03f172789c5fbb35be7611cd0790373729df",
+      "afterSha256": "4008bc7a416e48ef57a51ae4c7e56f9d1deefd8085e1cf46f824a4a852819070",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-5-cleanup-fixed.test.cjs.gz",
+      "scope": "CRLF following completed test statements to LF only; no literal or assertion edit"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/restore-cleanup-next-2026-10-26/independent4-fixed-fixture.test.cjs",
+      "beforeSha256": "d6ac029dc2caaf62ec13e34dbf54084c6ff83f5c93de7ed17f88946a0db8826f",
+      "afterSha256": "ee116e1c2b44a28eaf651a92d56471f3534ad80b3ae8ed60cda124c734c4434e",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-6-independent4-fixed-fixture.test.cjs.gz",
+      "scope": "CRLF following completed test statements to LF only; no literal or assertion edit"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/restore-cleanup-next-2026-10-26/snapshot-disposal.test.cjs",
+      "beforeSha256": "510d65984ba5c7f3c19431bdb63976ac655a28a1dd53c0772a08282ffa315f63",
+      "afterSha256": "3997ac60cb54416515a32b608287e47fc4bf72da82cb949f95c47173587d97a7",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-7-snapshot-disposal.test.cjs.gz",
+      "scope": "CRLF following completed test statements to LF only; no literal or assertion edit"
+    }
+  ],
+  "binaryAttribute": "*.gz binary preserves compressed archival bytes; not a text exception"
+}

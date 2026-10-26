@@ -25972,6 +25972,8 @@
         "externalBotActors",
         "externalBotArchiveDelivery",
         "externalBotBoundReplyText",
+        "externalBotCancelDelivery",
+        "externalBotCancellationWindow",
         "externalBotCapturePairing",
         "externalBotChains",
         "externalBotConfigured",
@@ -28713,6 +28715,29 @@
           "symbol": "nativeToolTier",
           "kinds": [
             "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ba-media-image-contract.js",
+      "layer": "unclassified",
+      "provides": [
+        "MediaImageContract"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
           ]
         }
       ]

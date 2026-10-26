@@ -1,0 +1,5 @@
+FROZEN AUTHOR CANDIDATE / 2026-10-26
+Root requested freeze during final current-batch regression. All author pure tests had naturally completed before this freeze. No new capacity/filesystem test launched after the request.
+Payload product SHA256 026d912512f8d36cd10678d801075f386d0527ac4aeea0bbac561b24eb0ff79a
+Prerequisite reviewed current cancellation base SHA256 c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6
+Do not run old preparation/sealing scripts or promote automatically. Apply six spans only after root nonauthor review.

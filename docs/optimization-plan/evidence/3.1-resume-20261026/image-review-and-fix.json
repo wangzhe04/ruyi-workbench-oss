@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "role": "Independent reviewer of frozen7826; then author of separate narrow closure-uncertainty fix. New fix still needs a different non-author review.",
+  "frozenCandidate": {
+    "manifest": "23f7522fd5c8b83d8e79f6457f36dcebe4192ce92796b2c89a59768036039e2b",
+    "source": "7826d158254c3205825d2cdc3d9e20252001b6fc354a1cf03ffe5fc5f4178953",
+    "inventoryPresentVerified": 73,
+    "missing": [
+      {
+        "file": "pure-final40.log2",
+        "status": "missing",
+        "expected": "22995ecbbbcc40fd7f29ce7dcbae49c77cdd36c11a2511804d0c022b1edd8132"
+      }
+    ],
+    "mismatches": []
+  },
+  "finding": {
+    "priority": 1,
+    "file": "image-contract.js",
+    "line": 274,
+    "trigger": "Processor closure is unknown and independently owned buffer zeroing also throws.",
+    "before": "cleanupFailure combined the closure error without helper flag and the memory cause, returning helperMayStillRun:false despite known unknown closure.",
+    "realNoMockRepro": "32-case matrix includes real ArrayBuffer detachment plus actual captured Buffer.fill; this reproduces the same loss without replacing Buffer intrinsic.",
+    "fix": "If closure proof failed, retain helperMayStillRun=true on the combined cleanup failure. Preserve AggregateError cause/errors order, cleanupFailed and ownershipRetained. Known closed worker plus pure memory failure remains helperMayStillRun:false.",
+    "span": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-m4-independent-20261026-0e87b3a4\\fix-span.json"
+  },
+  "validation": {
+    "frozen50": {
+      "tests": 50,
+      "pass": 50,
+      "fail": 0,
+      "log": "frozen50.log"
+    },
+    "frozenControls": [
+      "negative-pixels.log",
+      "negative-tamper.log",
+      "negative-revoke.log"
+    ],
+    "firstRed": "unknown-close-plus-cleanup-first-red.log",
+    "fixed82": {
+      "tests": 82,
+      "pass": 82,
+      "fail": 0,
+      "log": "fixed82-relocatable.log",
+      "includes": "Original50 unchanged plus new32"
+    },
+    "inverseControl": {
+      "tests": 32,
+      "pass": 1,
+      "fail": 31,
+      "exit": 1,
+      "log": "closure-control32.log"
+    },
+    "preservedControls": [
+      {
+        "kind": "pixels",
+        "tests": 50,
+        "pass": 48,
+        "fail": 2,
+        "exit": 1
+      },
+      {
+        "kind": "tamper",
+        "tests": 50,
+        "pass": 49,
+        "fail": 1,
+        "exit": 1
+      },
+      {
+        "kind": "revoke",
+        "tests": 50,
+        "pass": 38,
+        "fail": 12,
+        "exit": 1
+      }
+    ],
+    "guard": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+    "fixtureCorrection": "First new matrix incorrectly asserted that a processor-owned frame rejected before delivery was zeroed by the image contract. Corrected only that ownership expectation: original error flag/cause assertions unchanged. First test and log retained."
+  },
+  "integration": {
+    "product": "image-contract-fixed.js",
+    "test": "processor-close-cleanup-matrix.test.cjs",
+    "testDefaultSource": "ruyi-workbench/app/src/13ba-media-image-contract.js (suggested filename; override MEDIA_IMAGE_SOURCE if different)",
+    "testSourceRoot": "Test infers repository root from dev-harness/unit location; RUYI_SOURCE_ROOT overrides it for TEMP runs.",
+    "smallestChange": "One unique 1-line span replaced by a 6-line block, inverse exactly restores7826.",
+    "productionPromotion": false,
+    "notes": "Current product has no MediaImageContract. Integrate as a new dormant internal module after PrivacyCore; do not attach uploads/provider/preview routes or claim media support until host owners, processor, storage and final egress are wired. Original50 fixture paths require relocation to repo-relative reads and local imports; preserve assertions."
+  },
+  "boundaries": [
+    "Pure source, in-memory process model, actual PNG/RGBA operations and real rules only.",
+    "No build, native process, HTTP, browser, real user images, decoder/OCR, network, storage or production mutation.",
+    "No send authorization; authorization:none remains.",
+    "Original archived inventory missing pure-final40.log2 is retained as a historical evidence gap; new reruns do not recreate that log."
+  ]
+}

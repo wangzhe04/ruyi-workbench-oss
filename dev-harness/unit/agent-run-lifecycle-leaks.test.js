@@ -60,6 +60,9 @@ test('[L2] 事件追加卡住 → 收尾最多等上限时长', async () => {
   };
   try {
     appendAgentRunEvent(run, { type: 'run_end', data: {} });
+    const readyDeadline = Date.now() + 5000;
+    while (!release && Date.now() < readyDeadline) await sleep(10);
+    assert.equal(typeof release, 'function', '本件挂起追加 hook 必须已进入');
     const t0 = Date.now();
     await flushAgentRunEvents(run.id, 200);
     const waited = Date.now() - t0;

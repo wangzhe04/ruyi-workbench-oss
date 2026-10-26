@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "review_restore independent nonauthor",
+  "candidate": "57bcde183a5c5b1f8d6a2cc78f26cabfb4ac4d98fc75597a431bfb3b51069b3f",
+  "archiveRowsVerified": 1675,
+  "candidateRowsVerified": 175,
+  "status": "target narrow source approved for root private composition and actual gate; not production promotion or native acceptance",
+  "findings": [],
+  "pure": {
+    "tests": 73,
+    "pass": 73,
+    "fail": 0,
+    "skip": 0,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\review-pure73.log",
+    "sha256": "189f472c0abbcf7c419dc7f39799664b141283339bf49df54be42d89eacbfad1",
+    "boundaries": "real JS Tree/Store/crypto/FullSnapshot/13u over owned ordinary fixture files; native metadata/account protector/ownership are models; all child/socket/cluster/worker construction blocked"
+  },
+  "controls": [
+    {
+      "source": "negative-target-hash.js",
+      "exit": 1,
+      "result": "original positive physical-read case fails restore_failed -> portable_target_changed; targetRetained true",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\review-negative-hash.log",
+      "sha256": "95d0bd6eb89b63a963d36d8b6a8ee79082b18be3b2c2ec769fc517ffe94d077b"
+    },
+    {
+      "source": "negative-target-codec.js",
+      "exit": 1,
+      "result": "original positive physical-read case fails restore_failed -> portable_target_changed; targetRetained true",
+      "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\review-negative-codec.log",
+      "sha256": "23e6d9ebffa64b2d47ab7702b93435df992f90d6fbcb76b3978978d53c064e06"
+    }
+  ],
+  "codeChecks": [
+    "actual targetOwnership object forwarded by FullSnapshot; source and target leases both synchronously proven",
+    "target preserved profile requires exact owner/root before staging, cannot use source/forged/revoked/relative owner",
+    "fresh WorkDataTree.createPreserved.capture(target) per installed verification; ordinary target archive/intent data reads replaced by physical captured byte leases",
+    "original move snapshots/IDs/volume and physical/memory SHA256 checks retained; source captured scope distinct",
+    "Tree native reverify and final synchronous lease proof run before release; no time rewrite/rebase/hash skip",
+    "falsy work and release errors retain distinct AggregateError causes; unknown/nonundefined release refuses; no ordinary read fallback"
+  ],
+  "supportLayer": {
+    "productionApproved": false,
+    "files": 5,
+    "reason": "live to current118 union contains larger support increment (roughly1604 additions/138 deletions); this narrow review and73 tests do not independently review or accept entire support implementation"
+  },
+  "ordinaryRetarget": {
+    "status": "approved for root-exclusive native execution",
+    "execution": "C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/ordinary",
+    "replacements": 7,
+    "reversibleExact": true,
+    "runtimeInputsVerified": 120,
+    "runtimeSha256": "1d27e6fa776e6b48c92148dd215a56c250e43d49e049ee18596b2e1be97c7f66",
+    "businessAndAssertionsUnchanged": true,
+    "budgets": {
+      "roleMs": 240000,
+      "totalMs": 250000,
+      "cleanupMs": 2000
+    },
+    "approvedTemp": "C:/Users/87179/AppData/Local/Temp",
+    "dependenciesVerified": 3,
+    "actualResult": "not run by reviewer"
+  }
+}

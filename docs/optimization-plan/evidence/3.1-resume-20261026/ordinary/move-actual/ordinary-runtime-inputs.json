@@ -1,0 +1,611 @@
+{
+  "schema": 1,
+  "runtime": "C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/runtime/app/server.js",
+  "files": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\server.js",
+      "bytes": 7865898,
+      "sha256": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\manifest.json",
+      "bytes": 30091,
+      "sha256": "12ecf7e73a61d62dd2b9fbb73e36c41021b138d14527b546efd9bf94d18bb07f"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\00-boot.js",
+      "bytes": 96529,
+      "sha256": "e7e9852510fac03ce00fb5d3ddd15fb99f5498b014654e04a7fa7b1e609f9d44"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\00b-ruyi-names.js",
+      "bytes": 1282,
+      "sha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01b-route-auth.js",
+      "bytes": 19608,
+      "sha256": "ec2c94c6717c020b06151eb0e534ff6e867068499098ce4444b1d93c699de508"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01c-runtime-flags.js",
+      "bytes": 11739,
+      "sha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01d-win-cmdline.js",
+      "bytes": 7852,
+      "sha256": "9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01e-permission-modes.js",
+      "bytes": 17867,
+      "sha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01f-agent-cli-types.js",
+      "bytes": 5030,
+      "sha256": "f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01g-server-ownership.js",
+      "bytes": 5394,
+      "sha256": "431f6afed223355cf7c1109d783296c2c099f1a1aa5f5f291d1dc2403b5c6bb3"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01i-privacy-rules.js",
+      "bytes": 26429,
+      "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01h-privacy-core.js",
+      "bytes": 48184,
+      "sha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01m-privacy-regex.js",
+      "bytes": 5889,
+      "sha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01j-local-crypto.js",
+      "bytes": 6489,
+      "sha256": "28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01-config.js",
+      "bytes": 292778,
+      "sha256": "90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01k-credential-vault.js",
+      "bytes": 26857,
+      "sha256": "6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01l-credential-recovery.js",
+      "bytes": 9234,
+      "sha256": "0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01n-work-data-crypto.js",
+      "bytes": 5751,
+      "sha256": "732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01o-work-data-keys.js",
+      "bytes": 9404,
+      "sha256": "f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01r-work-data-chunks.js",
+      "bytes": 11594,
+      "sha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01p-work-data-store.js",
+      "bytes": 39063,
+      "sha256": "9308bcd32d7b85ea939728e1b5f122aac8a15adea7a8aa9375a972eababc9a74"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01q-work-data-records.js",
+      "bytes": 12082,
+      "sha256": "c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01s-work-data-journals.js",
+      "bytes": 22365,
+      "sha256": "9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01t-work-data-recovery.js",
+      "bytes": 20453,
+      "sha256": "d335ea0a6288370cd3fd805b812260b67b031d352240ff524b7385ad0b57e680"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01u-work-data-transition.js",
+      "bytes": 4494,
+      "sha256": "59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01v-work-data-manifest.js",
+      "bytes": 10746,
+      "sha256": "e619619ba3ad329640cb214ec8a9a688ac3fe5a6e8cb500f791f8a85698af9f2"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01w-work-data-native-publish.js",
+      "bytes": 26465,
+      "sha256": "f25e22417be1555817a43b8a15ab6feb4b2a2742c4a27189b7fdaa94f380c05c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01x-work-data-migration-codecs.js",
+      "bytes": 27051,
+      "sha256": "e15a624d15906edfa800cff57d105afb579c4d3a336b0dc9339e8859ba859c01"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01z-work-data-root-authority.js",
+      "bytes": 11202,
+      "sha256": "1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01aa-work-data-tree.js",
+      "bytes": 27019,
+      "sha256": "fcfbed6b129887b2e0766b56041964da25b3858fcb62168ffbbc800e6e501c8c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01ae-work-data-maintenance-result.js",
+      "bytes": 11140,
+      "sha256": "a6cd5314eacac2a16678787d03bfd88f6f3a5c598a3528301d78059f1f77122d"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01ab-work-data-full-snapshot.js",
+      "bytes": 38418,
+      "sha256": "92b8650db59e74c7ad71297c2d11e4f1943769243a782018487a1f216ecce269"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\01ad-work-data-migration-host.js",
+      "bytes": 29873,
+      "sha256": "cba97dea06ec29e6b77550c1a3dad92d5733e9e583d9aac5935b258076ae8bd6"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\02c-turn-segments.js",
+      "bytes": 19644,
+      "sha256": "69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\02d-session-overrides.js",
+      "bytes": 5740,
+      "sha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\02e-session-engine-route.js",
+      "bytes": 3042,
+      "sha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\02f-turn-effect-kinds.js",
+      "bytes": 11897,
+      "sha256": "657f730966edee980e4284373a2c68120f05b55b4ab53821d7840094128c2a23"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\02-session-store.js",
+      "bytes": 464610,
+      "sha256": "4561f0c3fb92354d93e5db50e39998e16ff57d2ee0ccfb01e45a104484b1df12"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\03-bridge-guard.js",
+      "bytes": 125556,
+      "sha256": "877c71e49a188afbfaab43062672b0a15d5d117a5983512e38e08e68b9df9ed6"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\03a-privacy-gateway.js",
+      "bytes": 107663,
+      "sha256": "51709c7829d39cbdf21ab2222a2e1d8ce60dc51501d5550b5289ce16a263e91a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\03b-privacy-local-drive.js",
+      "bytes": 5854,
+      "sha256": "fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04-visual-pipeline.js",
+      "bytes": 14720,
+      "sha256": "e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04-permission-runtime.js",
+      "bytes": 220244,
+      "sha256": "2d8c27dabc772bd7b3f2d757aac98208b416fbdd242a4f8ba57701437c72bc1b"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04-desktop-shell.js",
+      "bytes": 37358,
+      "sha256": "ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04f-toolbox-services.js",
+      "bytes": 26057,
+      "sha256": "532e5e41faf77183f00aef712fdd1072f5e01a9c0fc844ed043d9a74e3c40fee"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04h-provider-http.js",
+      "bytes": 17050,
+      "sha256": "c81db18fc30be70ffd997ad956bef984e8b5437fe029bea61fbd02dd95553540"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04i-provider-anthropic.js",
+      "bytes": 40983,
+      "sha256": "09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04i-provider-wire.js",
+      "bytes": 51328,
+      "sha256": "cdefedf43329284f94cdd3a3a29e813c7b05d5634c966ff98d625546a27ef372"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04j-hanzi-pinyin.js",
+      "bytes": 53142,
+      "sha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04j-voice-lexicon.js",
+      "bytes": 28768,
+      "sha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\04j-voice-learn.js",
+      "bytes": 42013,
+      "sha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\05-claude-engine.js",
+      "bytes": 185177,
+      "sha256": "d532eeeabd632d9dbff327c8b6a7e79f31c08c1a8c27e241074219091768abfc"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\05b-kimi-bridge.js",
+      "bytes": 171785,
+      "sha256": "9e3d9b8bf7ba8709f1b668eeac9b2aacf655da3d33dd0b35da083fd0b2dc5967"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\05c-kimi-search-policy.js",
+      "bytes": 35743,
+      "sha256": "3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\05d-kimi-prompt-parts.js",
+      "bytes": 10916,
+      "sha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06-provider-engine.js",
+      "bytes": 166847,
+      "sha256": "f83376aa478c63ff60f923a48e6939823b8ba517d456c81fd20b1b599c072886"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06b-prompt-registry.js",
+      "bytes": 123163,
+      "sha256": "9928d5d7f101f1f82d31205841057d2f4938d57d4c1bb9042e7a96fd8ee961b5"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06c-agent-loop-hooks.js",
+      "bytes": 7061,
+      "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06h-retrieval-index.js",
+      "bytes": 14952,
+      "sha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06i-steward-core.js",
+      "bytes": 193154,
+      "sha256": "1ea305251ce7892f51e421c72d9537b81b0711fc3a66e3f523580aa64f3519dd"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06d-memory-domain.js",
+      "bytes": 196076,
+      "sha256": "a86486c59703f4b6171f8c77f20f1412450c64b502f98f8bf692b6ce692ace9c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06e-mission-domain.js",
+      "bytes": 10619,
+      "sha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06f-autonomy-grants.js",
+      "bytes": 21944,
+      "sha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06g-resource-leases.js",
+      "bytes": 18206,
+      "sha256": "4643b9af28def11f467489bbfcc3f32b15d52841ae838f1a968046d842646bc9"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06j-scheduler-core.js",
+      "bytes": 39228,
+      "sha256": "cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\06k-config-patch.js",
+      "bytes": 17075,
+      "sha256": "0be1426a9c378149e7fc421120d0db0b110583bedef100479d2fe6c32d418e34"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\07-autonomy.js",
+      "bytes": 232178,
+      "sha256": "d291fb36647ceacc8a61a13ef80980c42648d0996cb6f14f088723d32cb921c8"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\08-agent-runs.js",
+      "bytes": 255146,
+      "sha256": "02e79d7327610ace074504b215f397a404a34ffc42611588074f191547f8dae2"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\09b-replan-ledger.js",
+      "bytes": 12031,
+      "sha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\09d-token-estimation.js",
+      "bytes": 17595,
+      "sha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\09-workflow.js",
+      "bytes": 360462,
+      "sha256": "8dcccec708a3438e9f33ea77d29a8724e19b301d5478540af522ef0879671ed5"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\10-context-governance.js",
+      "bytes": 321438,
+      "sha256": "24bf80e13327fb3837000bc6addc672571d603540358926b9d6ab8bbc4d035ca"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\11-native-tools.js",
+      "bytes": 398323,
+      "sha256": "5dfccf7fc8a04ea7f703455c59c637f1556fe64b8c74c7914f9dda7dbd7d82f1"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\11b-file-text-io.js",
+      "bytes": 37345,
+      "sha256": "35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\11c-file-visual-io.js",
+      "bytes": 6926,
+      "sha256": "7d823ff58916bb0e4aac49705c317a7be3c37302777eb08749b08e00e3aac6f5"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\11d-media-inspection.js",
+      "bytes": 14652,
+      "sha256": "53df56bf8d1e2ce6d78926f2e892f79cfac1cb3a4c3e9df5e71bb5177bb3196b"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\12-tool-dispatch.js",
+      "bytes": 316686,
+      "sha256": "52fd661514ca00fe30b84e0e41301f2de75f2074b64ac8fa4f06fab129102b20"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13f-native-tool-schemas.js",
+      "bytes": 151391,
+      "sha256": "41203255d5834e261219bc0c33025c190a80a2c52d8c8a277413cc31b1adb225"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13-http-router.js",
+      "bytes": 193834,
+      "sha256": "e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13b-api-domain-routes.js",
+      "bytes": 78104,
+      "sha256": "1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13c-overlay-routes.js",
+      "bytes": 13511,
+      "sha256": "5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13d-core-domain-routes.js",
+      "bytes": 182845,
+      "sha256": "178273c33645ca8c0665f58e404d1172492df859baac1d778ca3507589d5cd44"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13e-pretender-index.js",
+      "bytes": 59126,
+      "sha256": "4d5305e4e15a04a686b7ded17486a80f5aad8dfbc2df0b65732ced5322ece867"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13i-steward-inbox.js",
+      "bytes": 106499,
+      "sha256": "3cd2fdbb370fe303c5a47d7113d458433bebb178d888065cb806c450795748a6"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13j-steward-tool-base.js",
+      "bytes": 40769,
+      "sha256": "cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13aa-steward-delivery.js",
+      "bytes": 13107,
+      "sha256": "5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13k-steward-threads.js",
+      "bytes": 138956,
+      "sha256": "0477e80e100233cd7a6a45ceb5072aac9308ea97f3db2950ed2e796fc15b050a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13l-steward-ops.js",
+      "bytes": 124837,
+      "sha256": "05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13g-steward.js",
+      "bytes": 35878,
+      "sha256": "27b9831e96fd0b30d54171297e5b6e3c2017fa045cac174718be8562f415a385"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13m-steward-runner-base.js",
+      "bytes": 26677,
+      "sha256": "37ebe304664fbb22281ff6589b27384124ec32a4d88173f3d1c649aa4e236939"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13n-steward-arbiter.js",
+      "bytes": 40223,
+      "sha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13o-steward-runner-prompt.js",
+      "bytes": 57554,
+      "sha256": "25daedce6bff8a9cdffbd128dfcbb16b347758318f29ca036ce9d67a23fa2d81"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13p-steward-runner-actions.js",
+      "bytes": 70406,
+      "sha256": "3511bf298c252cfb364295e55fabb56a313798cfdb5e7d8437861a2b0d5ef51e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13q-steward-runner-turn.js",
+      "bytes": 92757,
+      "sha256": "95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13h-steward-runner.js",
+      "bytes": 35971,
+      "sha256": "299a07bdfa21f093dc26ac2c5154909bdeb7e250e427bbd1fcafc71b9ae13593"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13r-event-stream.js",
+      "bytes": 26858,
+      "sha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13s-scheduler.js",
+      "bytes": 86791,
+      "sha256": "564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13t-steward-schedule.js",
+      "bytes": 35416,
+      "sha256": "be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13u-migration-center.js",
+      "bytes": 376978,
+      "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13v-external-channel-protocols.js",
+      "bytes": 14755,
+      "sha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13x-external-channel-delivery.js",
+      "bytes": 10581,
+      "sha256": "3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13y-external-bot-credentials.js",
+      "bytes": 20475,
+      "sha256": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13z-external-bot-discovery.js",
+      "bytes": 6315,
+      "sha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ab-privacy-api.js",
+      "bytes": 38307,
+      "sha256": "d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13w-external-bots.js",
+      "bytes": 80783,
+      "sha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ac-mcp-consumer.js",
+      "bytes": 47305,
+      "sha256": "6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ad-memory-cli-relay.js",
+      "bytes": 16689,
+      "sha256": "e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ae-cli-business-services.js",
+      "bytes": 37214,
+      "sha256": "5c9af43041e8f90aff6153637febf606a5bcb82e3949f2bfe96c2046c29c83ad"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13af-internal-mcp-relay.js",
+      "bytes": 25677,
+      "sha256": "b53cb8534e9908b75f81b422e8e9fb92e2aea55069608faeb71d5235c228de9c"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ag-work-data-maintenance.js",
+      "bytes": 12987,
+      "sha256": "af41b01208911bfd1dfbacceb637caea6c61cbae420164e3baffc9cb6e433210"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ah-work-data-setup.js",
+      "bytes": 18987,
+      "sha256": "4d974216e3179399c15a528d4589b6c97517be4ac5b70d34faeb5ca19118f23d"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ai-work-data-worker.js",
+      "bytes": 17147,
+      "sha256": "9410ce1cb223b28afdbd7601e57b50e8a16ff797c46f92aa779d46dc30a8871a"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13aj-work-data-control.js",
+      "bytes": 10452,
+      "sha256": "3297e3e006eb30552cab89bbbc29bf634e97a25213b483467d01c1d3da84f4a4"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13al-work-data-maintenance-http.js",
+      "bytes": 7779,
+      "sha256": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13an-work-data-disposable-tree.js",
+      "bytes": 2382,
+      "sha256": "82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ak-work-data-cold-operations.js",
+      "bytes": 23943,
+      "sha256": "3880736e71b1733cfe6cffec29a5592e233b106a6cf5fad40b6adc1b72e3f4a4"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13am-work-data-maintenance-runtime.js",
+      "bytes": 18758,
+      "sha256": "39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ap-session-fulltext-index.js",
+      "bytes": 37704,
+      "sha256": "2399763864034378712095c00e5cc79cbf6224f1a826065b23e9341bea2bd6c9"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13as-session-fulltext-consumers.js",
+      "bytes": 16791,
+      "sha256": "47c82feaeba1f7e20f6cbdaf5c197c0e41a91e7e166e2575d383139a5eee3f56"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13ba-media-image-contract.js",
+      "bytes": 22030,
+      "sha256": "e4f02abeca91eccb775c4ac35a152ab2916d36be02df841e58f5c37c08a9d145"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\14-main.js",
+      "bytes": 41553,
+      "sha256": "a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4"
+    }
+  ]
+}

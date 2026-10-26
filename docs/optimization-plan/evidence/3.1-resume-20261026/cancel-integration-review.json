@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "review_image (independent of cancellation product/HTTP/browser implementation)",
+  "scope": "Eight cancellation product files and final HTTP X1-X10 plus added browser cancellation block. Unit test migration and media-image implementation excluded; root reviews those separately.",
+  "verdict": "No blocking findings in reviewed bytes. Final actual execution and generated artifact gates belong to root; no release approval implied.",
+  "blockers": [],
+  "identity": {
+    "productsMatchFrozen": true,
+    "products": [
+      {
+        "file": "ruyi-workbench/app/src/13w-external-bots.js",
+        "sha256": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33",
+        "frozenSha256": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33",
+        "matchesFrozen": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/01b-route-auth.js",
+        "sha256": "ec2c94c6717c020b06151eb0e534ff6e867068499098ce4444b1d93c699de508",
+        "frozenSha256": "ec2c94c6717c020b06151eb0e534ff6e867068499098ce4444b1d93c699de508",
+        "matchesFrozen": true
+      },
+      {
+        "file": "ruyi-workbench/app/public/js/external-bots.js",
+        "sha256": "7785ad41b23a714ae13ad056a707c01284625f636c40a368825595210ec77e76",
+        "frozenSha256": "7785ad41b23a714ae13ad056a707c01284625f636c40a368825595210ec77e76",
+        "matchesFrozen": true
+      },
+      {
+        "file": "ruyi-workbench/app/public/index.html",
+        "sha256": "5ed1fa1268d660e7b45e97f7ef8feafca2b8c0980cb23c60204797c89409a111",
+        "frozenSha256": "5ed1fa1268d660e7b45e97f7ef8feafca2b8c0980cb23c60204797c89409a111",
+        "matchesFrozen": true
+      },
+      {
+        "file": "ruyi-workbench/app/public/locales/zh-CN.json",
+        "sha256": "14ceceae5f39a141d140acb8afa4dd513b109aa13b274397a8a4ec7f51b1bdd8",
+        "frozenSha256": "14ceceae5f39a141d140acb8afa4dd513b109aa13b274397a8a4ec7f51b1bdd8",
+        "matchesFrozen": true
+      },
+      {
+        "file": "docs/i18n/locales/zh-CN.json",
+        "sha256": "14ceceae5f39a141d140acb8afa4dd513b109aa13b274397a8a4ec7f51b1bdd8",
+        "frozenSha256": "14ceceae5f39a141d140acb8afa4dd513b109aa13b274397a8a4ec7f51b1bdd8",
+        "matchesFrozen": true
+      },
+      {
+        "file": "ruyi-workbench/app/public/locales/en-US.json",
+        "sha256": "30f2ebd8572334713eb661558c9ae31a2a5640b8fcbef808187bf07e5ab8a623",
+        "frozenSha256": "30f2ebd8572334713eb661558c9ae31a2a5640b8fcbef808187bf07e5ab8a623",
+        "matchesFrozen": true
+      },
+      {
+        "file": "docs/i18n/locales/en-US.json",
+        "sha256": "30f2ebd8572334713eb661558c9ae31a2a5640b8fcbef808187bf07e5ab8a623",
+        "frozenSha256": "30f2ebd8572334713eb661558c9ae31a2a5640b8fcbef808187bf07e5ab8a623",
+        "matchesFrozen": true
+      }
+    ],
+    "inputs": [
+      {
+        "file": "ruyi-workbench/app/src/13w-external-bots.js",
+        "sha256": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33"
+      },
+      {
+        "file": "ruyi-workbench/app/src/01b-route-auth.js",
+        "sha256": "ec2c94c6717c020b06151eb0e534ff6e867068499098ce4444b1d93c699de508"
+      },
+      {
+        "file": "ruyi-workbench/app/public/js/external-bots.js",
+        "sha256": "7785ad41b23a714ae13ad056a707c01284625f636c40a368825595210ec77e76"
+      },
+      {
+        "file": "ruyi-workbench/app/public/index.html",
+        "sha256": "5ed1fa1268d660e7b45e97f7ef8feafca2b8c0980cb23c60204797c89409a111"
+      },
+      {
+        "file": "ruyi-workbench/app/public/locales/zh-CN.json",
+        "sha256": "14ceceae5f39a141d140acb8afa4dd513b109aa13b274397a8a4ec7f51b1bdd8"
+      },
+      {
+        "file": "docs/i18n/locales/zh-CN.json",
+        "sha256": "14ceceae5f39a141d140acb8afa4dd513b109aa13b274397a8a4ec7f51b1bdd8"
+      },
+      {
+        "file": "ruyi-workbench/app/public/locales/en-US.json",
+        "sha256": "30f2ebd8572334713eb661558c9ae31a2a5640b8fcbef808187bf07e5ab8a623"
+      },
+      {
+        "file": "docs/i18n/locales/en-US.json",
+        "sha256": "30f2ebd8572334713eb661558c9ae31a2a5640b8fcbef808187bf07e5ab8a623"
+      },
+      {
+        "file": "dev-harness/external-bots-control.e2e.js",
+        "sha256": "707b92a9cb97d7654a574af1f1d4e4c0d28b06cdffb05fefdf4273e3afe8b14d"
+      },
+      {
+        "file": "dev-harness/external-bots.browser.e2e.js",
+        "sha256": "a63ae672b51a714a6a6e302fb6974dbab08794b63dc6d35903f60ab24dadd68a"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+        "sha256": "3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"
+      },
+      {
+        "file": "dev-harness/lib/external-channel-delivery-preload.js",
+        "sha256": "983925b6c43a47be1ac831147fa37c39746c222657a824750f925669c456b63f"
+      },
+      {
+        "file": "dev-harness/lib/browser-fixture.js",
+        "sha256": "a4e27a2b137b1873384f997e206db0a4f7069764ef2a71fae68893afa679e4a7"
+      },
+      {
+        "file": "dev-harness/lib/fixture-home.js",
+        "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+      }
+    ]
+  },
+  "checks": [
+    "Exact POST/token route authorization; handler also requires token and same-origin before cancellation decode. Query rejected, body exactly id+attemptId, mismatched attempt409.",
+    "Cancellation and final adapter dispatch use the existing state chain. Await durable write before abort/ACK; submitted latch and fixed official request have no intervening await.",
+    "Cancelled receipt is same-attempt idempotent, preserves business execution and original attempt, advances payload to3. Older payload readers reject the whole state; archive cycles do not downgrade.",
+    "Old sender finish preserves durable cancellation; next-job and restart do not resend cancelled attempts. Uncertain/submitted delivery is not advertised cancellable.",
+    "HTTP X1-X10 add auth/body/query, durable failure, token-precommit cancellation, submitted rejection, lost local ACK, restart dedupe and version/attempt boundaries. Existing C/B1 assertions unchanged.",
+    "Fault rename hooks live only in the isolated test child and only the synthetic external-bots state target. New paths are generated below fixture HOME; official HTTPS host/path allowlist redirects only to loopback. Cleanup removes hold flags and closes held responses/owned server.",
+    "Browser original159 assertions retained. New block uses real signed callbacks, actual worker/token phase and persisted cancellation in twelve locale/theme/viewport combinations, actual Enter, focus, saved palette, one POST and no message transport.",
+    "Lost browser ACK is injected only after real local server success. Failed UI explicitly disables stale cancel and restores refresh focus; manual refresh reconciles stored receipt without claiming a separate manual-refresh focus contract.",
+    "Compatibility warning presence is now described as retained in section; geometry proves visible cancel button, not that the whole warning is simultaneously in the viewport."
+  ],
+  "reviewSuggestionsResolved": [
+    {
+      "request": "Avoid immediate restart-dedupe assertion before background worker scheduling.",
+      "resolution": "HTTP X9 now retains existing100ms observation and checks zero messages for both cancelled original IDs."
+    },
+    {
+      "request": "Lost-ACK disabled mutation claim needs an actual disabled-button assertion.",
+      "resolution": "Browser failed-state predicate now checks current stale cancel.disabled and refresh focus before manual reconciliation."
+    },
+    {
+      "request": "DOM warning text does not prove viewport visibility.",
+      "resolution": "Browser label narrowed to actual evidence: button visible/focused and section retains warning."
+    },
+    {
+      "request": "Final zero-message assertion should observe last worker continuation too.",
+      "resolution": "Added100ms final observation of all twelve cancel_ui IDs without changing adapter timeout."
+    }
+  ],
+  "executionEvidenceReadOnly": {
+    "httpFirst": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-resume-20261026-c4672ee3\\cancel-http-first.log",
+      "sha256": "47a8d4b0338701b12f904dc3a3228a126533552e52daac2f51660f9c64807127",
+      "summary": "Root-run first HTTP log ends ALL PASS; X9 observation was strengthened afterwards, so this old log is not proof of final modified test bytes."
+    },
+    "browserFirst": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-resume-20261026-c4672ee3\\cancel-browser-first.log",
+      "sha256": "80018b96b01f435e0c4a86b39d4ddc074ea2a2fa15a44c0630aaeea5f491238e",
+      "summary": "Root-run first browser retained7 failures: six English warning expected-text mismatches and one expectation that manual refresh kept focus. Product files unchanged; final fixture corrections now match actual wording and focus contract."
+    },
+    "finalBrowser": "Root running second round when review frozen; this record makes no pass claim for that unfinished run."
+  },
+  "actions": "Read-only product/source/log review; wrote this report and product identity receipt only under independent TEMP. Did not build or run HTTP/browser/native/tests, and did not modify production."
+}

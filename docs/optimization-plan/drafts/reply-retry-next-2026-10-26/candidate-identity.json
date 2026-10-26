@@ -1,0 +1,424 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "author": "/root/review_cancel",
+  "status": "private_author_candidate_requires_non_author_review_then_root_integration_and_runtime_acceptance",
+  "productionModified": false,
+  "product": {
+    "file": "ruyi-workbench/app/src/13w-external-bots.js",
+    "beforeSha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+    "afterSha256": "026d912512f8d36cd10678d801075f386d0527ac4aeea0bbac561b24eb0ff79a",
+    "spans": 6,
+    "wholeInverse": true,
+    "prerequisite": "Root must independently review and accept cancel-physical-span.json before applying retry; this base includes that separately proposed current-cancellation fix."
+  },
+  "scope": "manual pre-message known-failed reply retry only; no UI/HTTP/native/build/platform; no business rerun",
+  "payloadSchema": 4,
+  "storeSchema": 1,
+  "maxHistory": 128,
+  "currentPure": [
+    {
+      "file": "retry.test.cjs",
+      "tests": 45,
+      "pass": 45,
+      "fail": 0,
+      "skip": 0,
+      "log": "pure-final45.log"
+    },
+    {
+      "file": "plain-capacity.test.cjs",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skip": 0,
+      "log": "plain-capacity-final.log"
+    }
+  ],
+  "controls": [
+    {
+      "name": "authority",
+      "file": "negative-authority.js",
+      "sha256": "4a90fd32fffbd8945ab7276b0b0c6b47adcb67b22b475907a5400a035729e320",
+      "exitCode": 1,
+      "log": "negative-authority.log"
+    },
+    {
+      "name": "history",
+      "file": "negative-history.js",
+      "sha256": "c95d99b2e42af0a9e542a47cdf59c1f16fcbd03ce8bd408d350ccc69292e59bc",
+      "exitCode": 1,
+      "log": "negative-history.log"
+    },
+    {
+      "name": "idempotence",
+      "file": "negative-idempotence.js",
+      "sha256": "57341cc58a6444cc78030ed22849a9f5639e5b25f8970469c0fa26b2eb2824cd",
+      "exitCode": 1,
+      "log": "negative-idempotence.log"
+    },
+    {
+      "name": "expected-attempt",
+      "file": "negative-expected-attempt.js",
+      "sha256": "8f2b0e12e04b3a0d774ff5d075c61075d706edf6a5a7503f45707dcb003f75aa",
+      "exitCode": 1,
+      "log": "negative-expected-attempt.log"
+    },
+    {
+      "name": "history-validation",
+      "file": "negative-history-validation.js",
+      "sha256": "42b0808d9dc47694397b12129b596294b4521e3b1403d82b801d7f0c984aa0b3",
+      "exitCode": 1,
+      "log": "negative-history-validation.log"
+    },
+    {
+      "name": "pretty-capacity",
+      "file": "negative-pretty-capacity.js",
+      "sha256": "d8dbe57bf6fc30d653d7fc1825cb2f6845c6ab63aa9ae5a3b4ae369737802476",
+      "exitCode": 1,
+      "log": "negative-pretty-capacity.log"
+    }
+  ],
+  "historicalFailures": [
+    "pure-first.log: author test variable and token-vs-message expectation errors; no product change from this correction",
+    "plain-capacity-first-red.log: actual retry operation ACKs then makes plaintext file unreadable; fixed by retry-specific projected pretty cap",
+    "cancel-capacity-before-red.log: exact current payload3 cancellation failure in pending and active sending; separate prerequisite narrow fix proposed"
+  ],
+  "guardSha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+  "external": [
+    {
+      "file": "dev-harness/lib/external-bots-inbox-fixture.js",
+      "sha256": "794b43a21715e37d678e84cc566c8ab26f62345d442bd9d680f07027aaf42ed9"
+    },
+    {
+      "file": "dev-harness/fixtures/external-bots-cancel/history.json",
+      "sha256": "ea69c040257d5b093edf75cb600c53967a759c156190a033475b56f18f015f88"
+    },
+    {
+      "file": "dev-harness/lib/work-data-chunks-fixture.js",
+      "sha256": "dfd84238a04234682fa3032bcb7c22f4e2ee0625f3325605fb467ff469540ec8"
+    },
+    {
+      "file": "dev-harness/lib/work-data-full-snapshot-fixture.js",
+      "sha256": "e7016892e86d4c49b2097afa438df90953ef2554c9b399f6c205de63eadbf7f1"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "sha256": "3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "sha256": "10cdee7ef20946a83573d7672300b45f407315027ae216b3aa9e071502926285"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01x-work-data-migration-codecs.js",
+      "sha256": "e15a624d15906edfa800cff57d105afb579c4d3a336b0dc9339e8859ba859c01"
+    }
+  ],
+  "files": [
+    {
+      "file": "13w-baseline.js",
+      "bytes": 80460,
+      "sha256": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33"
+    },
+    {
+      "file": "13w-before-physical-capacity-fix.js",
+      "bytes": 86533,
+      "sha256": "88c61e137bad4ff7ab905ad22cf4cd8ea630a5dd7ebac2b0275285627ae02b3f"
+    },
+    {
+      "file": "13w-cancel-physical-fix.js",
+      "bytes": 80783,
+      "sha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6"
+    },
+    {
+      "file": "13w-external-bots.js",
+      "bytes": 87255,
+      "sha256": "026d912512f8d36cd10678d801075f386d0527ac4aeea0bbac561b24eb0ff79a"
+    },
+    {
+      "file": "13w-original-payload3.js",
+      "bytes": 80460,
+      "sha256": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33"
+    },
+    {
+      "file": "13w-retry-baseline.js",
+      "bytes": 80783,
+      "sha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6"
+    },
+    {
+      "file": "13w-retry-before-cancel-capacity-rebase.js",
+      "bytes": 86932,
+      "sha256": "76818fcbf2a8f211a0a1bdcaa106026d88ee56d8b62eae6ac4c6e72a7c22c95d"
+    },
+    {
+      "file": "cancel-capacity-before-red.log",
+      "bytes": 25444,
+      "sha256": "1704e45ba571b3121967e60d14dda41470f2e744fd3c9d0cb6b18ff271b06d5f"
+    },
+    {
+      "file": "cancel-capacity-fixed.log",
+      "bytes": 443,
+      "sha256": "2fff65571a450948e41dfb86d9c417b851dff2bf2d08ba79b9036e37ff91e3ce"
+    },
+    {
+      "file": "cancel-capacity-review.json",
+      "bytes": 4485,
+      "sha256": "34b9ed8da714b0a36d56894bb4c2048eb073d10763516a281ad9ab9fe6822b3f"
+    },
+    {
+      "file": "cancel-physical-baseline-pending.json",
+      "bytes": 250,
+      "sha256": "50e72462a7989a4d13061648b57400026846612d2487a1625de99479e11ec547"
+    },
+    {
+      "file": "cancel-physical-baseline-sending.json",
+      "bytes": 249,
+      "sha256": "4d5b92b671bdfd6ac5d42881ffec3aafa5ad14042e09b8bd2c9648f8a034bbeb"
+    },
+    {
+      "file": "cancel-physical-capacity.test.cjs",
+      "bytes": 5684,
+      "sha256": "04321d3c5f8622b2608845b55b6532a50538ef9c123be6dfac46371da6786081"
+    },
+    {
+      "file": "cancel-physical-fixed-pending.json",
+      "bytes": 242,
+      "sha256": "06cc07c015c98b2f5459c928113d1678ee2b3cc73ef36a4ad59bf0eb2a60a766"
+    },
+    {
+      "file": "cancel-physical-fixed-sending.json",
+      "bytes": 242,
+      "sha256": "973044b358bd02965767e1473b56552bb3083d0f15f99fa63186c2803be23c46"
+    },
+    {
+      "file": "cancel-physical-span.json",
+      "bytes": 759,
+      "sha256": "3ab4e793b1d79c36caeea7aa245954e729030ff7d003430706c1f6c05fe892e6"
+    },
+    {
+      "file": "controls.json",
+      "bytes": 8735,
+      "sha256": "4ad660a9b7df27c0f36044de921f1d2f88382b7fb49b08bc9412c5d721816ebd"
+    },
+    {
+      "file": "fix-physical-capacity.cjs",
+      "bytes": 1602,
+      "sha256": "990dd34375539b855fd148ecaa107f6f35f7810af287f0bdad50852571044ac9"
+    },
+    {
+      "file": "fix-test-fixtures.cjs",
+      "bytes": 782,
+      "sha256": "a29ba2857d92654405b43da4a555d7e3fa0305b70941b0457f2db76909aec542"
+    },
+    {
+      "file": "freeze-metadata.cjs",
+      "bytes": 1131,
+      "sha256": "806bd6ce19384c93ed504cb4e3016fa44e26a7919be5261e281fe127e96599b1"
+    },
+    {
+      "file": "FROZEN.txt",
+      "bytes": 551,
+      "sha256": "c8d9146f2a0e83f66d6cce5d35ce0f5fdb4ddd2c727d951d543dcc1ed54cdf62"
+    },
+    {
+      "file": "HANDOFF.md",
+      "bytes": 5301,
+      "sha256": "80e699654560908edecaeb7cd9a66e0c0b0367567db6abbe7b752878c42b6d01"
+    },
+    {
+      "file": "negative-authority.js",
+      "bytes": 87160,
+      "sha256": "4a90fd32fffbd8945ab7276b0b0c6b47adcb67b22b475907a5400a035729e320"
+    },
+    {
+      "file": "negative-authority.log",
+      "bytes": 1004,
+      "sha256": "40371055328cf31a81a17fd6e0ebfe25253141448ce3be7e6b19927368977ff0"
+    },
+    {
+      "file": "negative-expected-attempt.js",
+      "bytes": 87140,
+      "sha256": "8f2b0e12e04b3a0d774ff5d075c61075d706edf6a5a7503f45707dcb003f75aa"
+    },
+    {
+      "file": "negative-expected-attempt.log",
+      "bytes": 1186,
+      "sha256": "7e497cc4c09b4087a3a8452a390be7d74334f8a0be022bac107e0cbe4ef36cf2"
+    },
+    {
+      "file": "negative-history-validation.js",
+      "bytes": 87211,
+      "sha256": "42b0808d9dc47694397b12129b596294b4521e3b1403d82b801d7f0c984aa0b3"
+    },
+    {
+      "file": "negative-history-validation.log",
+      "bytes": 1018,
+      "sha256": "31212e50e184ac7fefa4fbb6f153ebfe51aec7bc5dbc865385913ba6254294c7"
+    },
+    {
+      "file": "negative-history.js",
+      "bytes": 87231,
+      "sha256": "c95d99b2e42af0a9e542a47cdf59c1f16fcbd03ce8bd408d350ccc69292e59bc"
+    },
+    {
+      "file": "negative-history.log",
+      "bytes": 1075,
+      "sha256": "16870da6341ecad6d5559690397024ac31c69d3aeb1abeb1f6e30518a7855e00"
+    },
+    {
+      "file": "negative-idempotence.js",
+      "bytes": 87217,
+      "sha256": "57341cc58a6444cc78030ed22849a9f5639e5b25f8970469c0fa26b2eb2824cd"
+    },
+    {
+      "file": "negative-idempotence.log",
+      "bytes": 812,
+      "sha256": "e25abdb790ca162c4af462d8fb21a36616b3657f9d0956bdd8156a70671fdf90"
+    },
+    {
+      "file": "negative-pretty-capacity.js",
+      "bytes": 87093,
+      "sha256": "d8dbe57bf6fc30d653d7fc1825cb2f6845c6ab63aa9ae5a3b4ae369737802476"
+    },
+    {
+      "file": "negative-pretty-capacity.log",
+      "bytes": 13399,
+      "sha256": "a5a15314ea5ed82ca15e63b2d3255afa7989f0d1f9a5f150021b1beaf9c79131"
+    },
+    {
+      "file": "physical-capacity-fix-span.json",
+      "bytes": 779,
+      "sha256": "b511a4212dce9441da791e2c9c0f522f277fc3ac227bb5fd1aba35767db094d1"
+    },
+    {
+      "file": "physical-observed-override.json",
+      "bytes": 218,
+      "sha256": "e4817b680cdce91f9da3c7e9ecb87156089a09f17492e53b0e40200fa992c1ff"
+    },
+    {
+      "file": "physical-observed.json",
+      "bytes": 210,
+      "sha256": "21ba2dad97cb1419ccf4f0a92fe5c4ece239d118644acc5020ac3ef90b9e73ac"
+    },
+    {
+      "file": "plain-capacity-final.log",
+      "bytes": 249,
+      "sha256": "fea58bc83bffea014eb8f5b1b231ad3c6b30a16e0c4bea9d33f993b992d9c832"
+    },
+    {
+      "file": "plain-capacity-first-red.log",
+      "bytes": 13401,
+      "sha256": "4f2b678b5291439fb6b17de04e7fa1433ac5585d1d6cfcd03cb6ae89aa59b2a9"
+    },
+    {
+      "file": "plain-capacity-fixed.log",
+      "bytes": 249,
+      "sha256": "d7c45f7bbc410db91096b0303f742a2d43c275a82cca2880638117a91abc1522"
+    },
+    {
+      "file": "plain-capacity.test.cjs",
+      "bytes": 4756,
+      "sha256": "37cfbc10adacbf1a88970975aaa322b4dc9b56ea60e090352c2fe13c1c7f1d1d"
+    },
+    {
+      "file": "prepare-cancel-capacity.cjs",
+      "bytes": 4063,
+      "sha256": "a49a06ec816a76794615452590483c0dba4f99aa0fa0ae94e99a2bb3a5fdb736"
+    },
+    {
+      "file": "prepare-plain-capacity.cjs",
+      "bytes": 2041,
+      "sha256": "8d7274187992c7d533c81f9ffc65acca1dff02edf96e37351849acd7b3002f83"
+    },
+    {
+      "file": "prepare-retry-controls.cjs",
+      "bytes": 2419,
+      "sha256": "00296d862c65e9df7b522df158ad8898c718923aba248711c6e67a4dc52c9aba"
+    },
+    {
+      "file": "prepare.cjs",
+      "bytes": 8037,
+      "sha256": "933b70c7ae2c1d1bb824dded19272b73ef9787ff0493d3bd0882bf2f1635ad81"
+    },
+    {
+      "file": "proposed-external-bots-cancel-capacity.test.js",
+      "bytes": 2313,
+      "sha256": "83033c63c68a1089f9516fc9fd1d3c23a48a45e7b3a10e1554b3b4e477094a22"
+    },
+    {
+      "file": "pure-final42.log",
+      "bytes": 4901,
+      "sha256": "128c9bf0b99a5c80ad5ac024b160ac43ee26c4b56c2d30549a9d767e7c14603d"
+    },
+    {
+      "file": "pure-final44.log",
+      "bytes": 5160,
+      "sha256": "a4b255e53ed32ad8c33cd207e8e458976a56de6a7e8438d92049df6e09413ccb"
+    },
+    {
+      "file": "pure-final45.log",
+      "bytes": 5296,
+      "sha256": "15c067c9a58a63e00d8a6638d3860d7dd8c31b1fcda5e1d6a27d429c6c7149e1"
+    },
+    {
+      "file": "pure-first.log",
+      "bytes": 5806,
+      "sha256": "91bbcfefa75d50913ed8743f6ff4e702967ab63dd947ba598394198188b17f47"
+    },
+    {
+      "file": "pure-rebased42.log",
+      "bytes": 4898,
+      "sha256": "a0ced813c45ba1a465d89fce11a81ad98880ef7a6ee47bcdd6b773b996e87696"
+    },
+    {
+      "file": "pure-second.log",
+      "bytes": 4444,
+      "sha256": "6a3c5b0466e796da7147163c93656c795c6202e35218dcb66c305f761e16ace9"
+    },
+    {
+      "file": "pure-third-capacity-storage.log",
+      "bytes": 4913,
+      "sha256": "9e48ff9deaac0d578845c7dd4283f1bcdd5e2497ed49f5deef28b948d0163d19"
+    },
+    {
+      "file": "rebase-on-cancel-capacity.cjs",
+      "bytes": 1403,
+      "sha256": "d42536fcda70e0a74306b9229b87dcb7fb928b13afc2d58e7e1da6ebc97678c6"
+    },
+    {
+      "file": "refine-token-proof.cjs",
+      "bytes": 434,
+      "sha256": "99e92e4543704668ef1f2f5e464d0d3f552f5bcaaccc345968054d4c2e2a067b"
+    },
+    {
+      "file": "retry-first-tests.cjs",
+      "bytes": 21377,
+      "sha256": "c412eefbba705a6820dc9079a38acc9434bb6cd5cb7566fb463a7d631d535d8d"
+    },
+    {
+      "file": "retry.test.cjs",
+      "bytes": 28442,
+      "sha256": "d5c62f1102e5d82d4cdba51c88f1430e5220361963e93b50925e1cfa058efd2b"
+    },
+    {
+      "file": "separate-base-identities.cjs",
+      "bytes": 934,
+      "sha256": "d56d0b44234488e22d5a821cc7a58cac15d9ee406ee93cbb539ee1e09d1f59cd"
+    },
+    {
+      "file": "spans-before-cancel-capacity-rebase.json",
+      "bytes": 7848,
+      "sha256": "d15ca5978187fc6be084708e3e236fc3b4585597e94e8462b1984f58c3cffd20"
+    },
+    {
+      "file": "spans.json",
+      "bytes": 8073,
+      "sha256": "b85ac8b6d0e795eb7645f9132cd3d2d61b1784179cec8ccb3e9efee0de3bc458"
+    },
+    {
+      "file": "write-cancel-capacity-report.cjs",
+      "bytes": 3044,
+      "sha256": "5e57fc5154f38271b030265a87c99e5a626e432242d1688832a75732b335ae9f"
+    }
+  ]
+}

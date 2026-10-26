@@ -1,0 +1,1634 @@
+{
+  "schema": 1,
+  "scope": "Read-only attestation and reversible ordinary119 execution-input derivation; no server load/build/helper/native/test executed",
+  "runtime": "C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/runtime/app/server.js",
+  "runtimeSha256": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a",
+  "originalTemp": "C:/Users/87179/AppData/Local/Temp",
+  "approvedTempUnchanged": true,
+  "pathAdmission": {
+    "existingInputsChecked": 615,
+    "allExistingAncestorsNoSymlinkOrJunction": true,
+    "allExistingRealpathsCanonical": true,
+    "runRootIdentityRecorded": true,
+    "newOutputOnly": true,
+    "outputWritesExclusive": true,
+    "postWriteRechecks": true,
+    "concurrentReplacementCAS": false
+  },
+  "output": "C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/ordinary",
+  "freeze": {
+    "root": "C:/Users/87179/AppData/Local/Temp/ruyi-target14-cleanup-fix-20261026-1ce8249d",
+    "identitySha256": "61b2ef7d94fc53e03c0e7f2a7d2d5a5aba0dcf6b405c443ad068bc7df018ddc6",
+    "membersVerified": 448,
+    "product": "with-diagnostic",
+    "source13uSha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+    "privateNativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34"
+  },
+  "review": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-m3-final-independent-20261026-507f6ff0/final-target-private-gate-review.json",
+    "sha256": "d896d54519717e694c98aec7ecb9051e02c5642ea50cad55e71badf73f935577",
+    "scope": "APPROVED FOR PRIVATE BUILD AND ACTUAL SYNTHETIC-ROOT GATES ONLY"
+  },
+  "nextCandidate": {
+    "identityFile": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e/identity.json",
+    "identitySha256": "8bb859db98c2ad3fe6fb62f32e250adf899849cdc76387c10ed69c9e55a0312f",
+    "approvalFile": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-move-preserve-independent-20261026-b942f8dc/review-final.json",
+    "approvalSha256": "fb8ef99988f0b1fb56acb6015a5d0116c333d0deaec08d3510559765024453ab",
+    "source13uSha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb",
+    "onlyOrdinaryMovePreserveOption": true,
+    "wholeInverseTo0975": true
+  },
+  "sourceProof": {
+    "files": [
+      {
+        "file": "00-boot.js",
+        "bytes": 96529,
+        "sha256": "e7e9852510fac03ce00fb5d3ddd15fb99f5498b014654e04a7fa7b1e609f9d44",
+        "frozenSha256": "e7e9852510fac03ce00fb5d3ddd15fb99f5498b014654e04a7fa7b1e609f9d44",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "00b-ruyi-names.js",
+        "bytes": 1282,
+        "sha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7",
+        "frozenSha256": "111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01-config.js",
+        "bytes": 292778,
+        "sha256": "90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9",
+        "frozenSha256": "90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01aa-work-data-tree.js",
+        "bytes": 27019,
+        "sha256": "fcfbed6b129887b2e0766b56041964da25b3858fcb62168ffbbc800e6e501c8c",
+        "frozenSha256": "fcfbed6b129887b2e0766b56041964da25b3858fcb62168ffbbc800e6e501c8c",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01ab-work-data-full-snapshot.js",
+        "bytes": 38418,
+        "sha256": "92b8650db59e74c7ad71297c2d11e4f1943769243a782018487a1f216ecce269",
+        "frozenSha256": "92b8650db59e74c7ad71297c2d11e4f1943769243a782018487a1f216ecce269",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01ad-work-data-migration-host.js",
+        "bytes": 29873,
+        "sha256": "cba97dea06ec29e6b77550c1a3dad92d5733e9e583d9aac5935b258076ae8bd6",
+        "frozenSha256": "cba97dea06ec29e6b77550c1a3dad92d5733e9e583d9aac5935b258076ae8bd6",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01ae-work-data-maintenance-result.js",
+        "bytes": 11140,
+        "sha256": "a6cd5314eacac2a16678787d03bfd88f6f3a5c598a3528301d78059f1f77122d",
+        "frozenSha256": "a6cd5314eacac2a16678787d03bfd88f6f3a5c598a3528301d78059f1f77122d",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01b-route-auth.js",
+        "bytes": 19608,
+        "sha256": "ec2c94c6717c020b06151eb0e534ff6e867068499098ce4444b1d93c699de508",
+        "frozenSha256": "ec2c94c6717c020b06151eb0e534ff6e867068499098ce4444b1d93c699de508",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01c-runtime-flags.js",
+        "bytes": 11739,
+        "sha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837",
+        "frozenSha256": "642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01d-win-cmdline.js",
+        "bytes": 7852,
+        "sha256": "9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8",
+        "frozenSha256": "9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01e-permission-modes.js",
+        "bytes": 17867,
+        "sha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c",
+        "frozenSha256": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01f-agent-cli-types.js",
+        "bytes": 5030,
+        "sha256": "f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0",
+        "frozenSha256": "f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01g-server-ownership.js",
+        "bytes": 5394,
+        "sha256": "431f6afed223355cf7c1109d783296c2c099f1a1aa5f5f291d1dc2403b5c6bb3",
+        "frozenSha256": "431f6afed223355cf7c1109d783296c2c099f1a1aa5f5f291d1dc2403b5c6bb3",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01h-privacy-core.js",
+        "bytes": 48184,
+        "sha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783",
+        "frozenSha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01i-privacy-rules.js",
+        "bytes": 26429,
+        "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+        "frozenSha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01j-local-crypto.js",
+        "bytes": 6489,
+        "sha256": "28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80",
+        "frozenSha256": "28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01k-credential-vault.js",
+        "bytes": 26857,
+        "sha256": "6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72",
+        "frozenSha256": "6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01l-credential-recovery.js",
+        "bytes": 9234,
+        "sha256": "0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419",
+        "frozenSha256": "0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01m-privacy-regex.js",
+        "bytes": 5889,
+        "sha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71",
+        "frozenSha256": "9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01n-work-data-crypto.js",
+        "bytes": 5751,
+        "sha256": "732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d",
+        "frozenSha256": "732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01o-work-data-keys.js",
+        "bytes": 9404,
+        "sha256": "f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424",
+        "frozenSha256": "f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01p-work-data-store.js",
+        "bytes": 39063,
+        "sha256": "9308bcd32d7b85ea939728e1b5f122aac8a15adea7a8aa9375a972eababc9a74",
+        "frozenSha256": "9308bcd32d7b85ea939728e1b5f122aac8a15adea7a8aa9375a972eababc9a74",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01q-work-data-records.js",
+        "bytes": 12082,
+        "sha256": "c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0",
+        "frozenSha256": "c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01r-work-data-chunks.js",
+        "bytes": 11594,
+        "sha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e",
+        "frozenSha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01s-work-data-journals.js",
+        "bytes": 22365,
+        "sha256": "9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f",
+        "frozenSha256": "9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01t-work-data-recovery.js",
+        "bytes": 20453,
+        "sha256": "d335ea0a6288370cd3fd805b812260b67b031d352240ff524b7385ad0b57e680",
+        "frozenSha256": "d335ea0a6288370cd3fd805b812260b67b031d352240ff524b7385ad0b57e680",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01u-work-data-transition.js",
+        "bytes": 4494,
+        "sha256": "59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7",
+        "frozenSha256": "59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01v-work-data-manifest.js",
+        "bytes": 10746,
+        "sha256": "e619619ba3ad329640cb214ec8a9a688ac3fe5a6e8cb500f791f8a85698af9f2",
+        "frozenSha256": "e619619ba3ad329640cb214ec8a9a688ac3fe5a6e8cb500f791f8a85698af9f2",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01w-work-data-native-publish.js",
+        "bytes": 26465,
+        "sha256": "f25e22417be1555817a43b8a15ab6feb4b2a2742c4a27189b7fdaa94f380c05c",
+        "frozenSha256": "f25e22417be1555817a43b8a15ab6feb4b2a2742c4a27189b7fdaa94f380c05c",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01x-work-data-migration-codecs.js",
+        "bytes": 27051,
+        "sha256": "e15a624d15906edfa800cff57d105afb579c4d3a336b0dc9339e8859ba859c01",
+        "frozenSha256": "e15a624d15906edfa800cff57d105afb579c4d3a336b0dc9339e8859ba859c01",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "01z-work-data-root-authority.js",
+        "bytes": 11202,
+        "sha256": "1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1",
+        "frozenSha256": "1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "02-session-store.js",
+        "bytes": 464610,
+        "sha256": "4561f0c3fb92354d93e5db50e39998e16ff57d2ee0ccfb01e45a104484b1df12",
+        "frozenSha256": "4561f0c3fb92354d93e5db50e39998e16ff57d2ee0ccfb01e45a104484b1df12",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "02c-turn-segments.js",
+        "bytes": 19644,
+        "sha256": "69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf",
+        "frozenSha256": "69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "02d-session-overrides.js",
+        "bytes": 5740,
+        "sha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044",
+        "frozenSha256": "5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "02e-session-engine-route.js",
+        "bytes": 3042,
+        "sha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5",
+        "frozenSha256": "984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "02f-turn-effect-kinds.js",
+        "bytes": 11897,
+        "sha256": "657f730966edee980e4284373a2c68120f05b55b4ab53821d7840094128c2a23",
+        "frozenSha256": "657f730966edee980e4284373a2c68120f05b55b4ab53821d7840094128c2a23",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "03-bridge-guard.js",
+        "bytes": 125556,
+        "sha256": "877c71e49a188afbfaab43062672b0a15d5d117a5983512e38e08e68b9df9ed6",
+        "frozenSha256": "877c71e49a188afbfaab43062672b0a15d5d117a5983512e38e08e68b9df9ed6",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "03a-privacy-gateway.js",
+        "bytes": 107663,
+        "sha256": "51709c7829d39cbdf21ab2222a2e1d8ce60dc51501d5550b5289ce16a263e91a",
+        "frozenSha256": "51709c7829d39cbdf21ab2222a2e1d8ce60dc51501d5550b5289ce16a263e91a",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "03b-privacy-local-drive.js",
+        "bytes": 5854,
+        "sha256": "fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4",
+        "frozenSha256": "fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04-desktop-shell.js",
+        "bytes": 37358,
+        "sha256": "ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2",
+        "frozenSha256": "ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04-permission-runtime.js",
+        "bytes": 220244,
+        "sha256": "2d8c27dabc772bd7b3f2d757aac98208b416fbdd242a4f8ba57701437c72bc1b",
+        "frozenSha256": "2d8c27dabc772bd7b3f2d757aac98208b416fbdd242a4f8ba57701437c72bc1b",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04-visual-pipeline.js",
+        "bytes": 14720,
+        "sha256": "e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed",
+        "frozenSha256": "e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04f-toolbox-services.js",
+        "bytes": 26057,
+        "sha256": "532e5e41faf77183f00aef712fdd1072f5e01a9c0fc844ed043d9a74e3c40fee",
+        "frozenSha256": "532e5e41faf77183f00aef712fdd1072f5e01a9c0fc844ed043d9a74e3c40fee",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04h-provider-http.js",
+        "bytes": 17050,
+        "sha256": "c81db18fc30be70ffd997ad956bef984e8b5437fe029bea61fbd02dd95553540",
+        "frozenSha256": "c81db18fc30be70ffd997ad956bef984e8b5437fe029bea61fbd02dd95553540",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04i-provider-anthropic.js",
+        "bytes": 40983,
+        "sha256": "09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd",
+        "frozenSha256": "09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04i-provider-wire.js",
+        "bytes": 51328,
+        "sha256": "cdefedf43329284f94cdd3a3a29e813c7b05d5634c966ff98d625546a27ef372",
+        "frozenSha256": "cdefedf43329284f94cdd3a3a29e813c7b05d5634c966ff98d625546a27ef372",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04j-hanzi-pinyin.js",
+        "bytes": 53142,
+        "sha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e",
+        "frozenSha256": "5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04j-voice-learn.js",
+        "bytes": 42013,
+        "sha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311",
+        "frozenSha256": "bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "04j-voice-lexicon.js",
+        "bytes": 28768,
+        "sha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2",
+        "frozenSha256": "8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "05-claude-engine.js",
+        "bytes": 185177,
+        "sha256": "d532eeeabd632d9dbff327c8b6a7e79f31c08c1a8c27e241074219091768abfc",
+        "frozenSha256": "d532eeeabd632d9dbff327c8b6a7e79f31c08c1a8c27e241074219091768abfc",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "05b-kimi-bridge.js",
+        "bytes": 171785,
+        "sha256": "9e3d9b8bf7ba8709f1b668eeac9b2aacf655da3d33dd0b35da083fd0b2dc5967",
+        "frozenSha256": "9e3d9b8bf7ba8709f1b668eeac9b2aacf655da3d33dd0b35da083fd0b2dc5967",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "05c-kimi-search-policy.js",
+        "bytes": 35743,
+        "sha256": "3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760",
+        "frozenSha256": "3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "05d-kimi-prompt-parts.js",
+        "bytes": 10916,
+        "sha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369",
+        "frozenSha256": "5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06-provider-engine.js",
+        "bytes": 166847,
+        "sha256": "f83376aa478c63ff60f923a48e6939823b8ba517d456c81fd20b1b599c072886",
+        "frozenSha256": "f83376aa478c63ff60f923a48e6939823b8ba517d456c81fd20b1b599c072886",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06b-prompt-registry.js",
+        "bytes": 123163,
+        "sha256": "9928d5d7f101f1f82d31205841057d2f4938d57d4c1bb9042e7a96fd8ee961b5",
+        "frozenSha256": "9928d5d7f101f1f82d31205841057d2f4938d57d4c1bb9042e7a96fd8ee961b5",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06c-agent-loop-hooks.js",
+        "bytes": 7061,
+        "sha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4",
+        "frozenSha256": "36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06d-memory-domain.js",
+        "bytes": 196076,
+        "sha256": "a86486c59703f4b6171f8c77f20f1412450c64b502f98f8bf692b6ce692ace9c",
+        "frozenSha256": "a86486c59703f4b6171f8c77f20f1412450c64b502f98f8bf692b6ce692ace9c",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06e-mission-domain.js",
+        "bytes": 10619,
+        "sha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530",
+        "frozenSha256": "2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06f-autonomy-grants.js",
+        "bytes": 21944,
+        "sha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4",
+        "frozenSha256": "f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06g-resource-leases.js",
+        "bytes": 18206,
+        "sha256": "4643b9af28def11f467489bbfcc3f32b15d52841ae838f1a968046d842646bc9",
+        "frozenSha256": "4643b9af28def11f467489bbfcc3f32b15d52841ae838f1a968046d842646bc9",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06h-retrieval-index.js",
+        "bytes": 14952,
+        "sha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d",
+        "frozenSha256": "a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06i-steward-core.js",
+        "bytes": 193154,
+        "sha256": "1ea305251ce7892f51e421c72d9537b81b0711fc3a66e3f523580aa64f3519dd",
+        "frozenSha256": "1ea305251ce7892f51e421c72d9537b81b0711fc3a66e3f523580aa64f3519dd",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06j-scheduler-core.js",
+        "bytes": 39228,
+        "sha256": "cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b",
+        "frozenSha256": "cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "06k-config-patch.js",
+        "bytes": 17075,
+        "sha256": "0be1426a9c378149e7fc421120d0db0b110583bedef100479d2fe6c32d418e34",
+        "frozenSha256": "0be1426a9c378149e7fc421120d0db0b110583bedef100479d2fe6c32d418e34",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "07-autonomy.js",
+        "bytes": 232178,
+        "sha256": "d291fb36647ceacc8a61a13ef80980c42648d0996cb6f14f088723d32cb921c8",
+        "frozenSha256": "d291fb36647ceacc8a61a13ef80980c42648d0996cb6f14f088723d32cb921c8",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "08-agent-runs.js",
+        "bytes": 255146,
+        "sha256": "02e79d7327610ace074504b215f397a404a34ffc42611588074f191547f8dae2",
+        "frozenSha256": "02e79d7327610ace074504b215f397a404a34ffc42611588074f191547f8dae2",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "09-workflow.js",
+        "bytes": 360462,
+        "sha256": "8dcccec708a3438e9f33ea77d29a8724e19b301d5478540af522ef0879671ed5",
+        "frozenSha256": "8dcccec708a3438e9f33ea77d29a8724e19b301d5478540af522ef0879671ed5",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "09b-replan-ledger.js",
+        "bytes": 12031,
+        "sha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11",
+        "frozenSha256": "06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "09d-token-estimation.js",
+        "bytes": 17595,
+        "sha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04",
+        "frozenSha256": "cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "10-context-governance.js",
+        "bytes": 321438,
+        "sha256": "24bf80e13327fb3837000bc6addc672571d603540358926b9d6ab8bbc4d035ca",
+        "frozenSha256": "24bf80e13327fb3837000bc6addc672571d603540358926b9d6ab8bbc4d035ca",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "11-native-tools.js",
+        "bytes": 398323,
+        "sha256": "5dfccf7fc8a04ea7f703455c59c637f1556fe64b8c74c7914f9dda7dbd7d82f1",
+        "frozenSha256": "5dfccf7fc8a04ea7f703455c59c637f1556fe64b8c74c7914f9dda7dbd7d82f1",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "11b-file-text-io.js",
+        "bytes": 37345,
+        "sha256": "35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a",
+        "frozenSha256": "35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "11c-file-visual-io.js",
+        "bytes": 6926,
+        "sha256": "7d823ff58916bb0e4aac49705c317a7be3c37302777eb08749b08e00e3aac6f5",
+        "frozenSha256": "7d823ff58916bb0e4aac49705c317a7be3c37302777eb08749b08e00e3aac6f5",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "11d-media-inspection.js",
+        "bytes": 14652,
+        "sha256": "53df56bf8d1e2ce6d78926f2e892f79cfac1cb3a4c3e9df5e71bb5177bb3196b",
+        "frozenSha256": "53df56bf8d1e2ce6d78926f2e892f79cfac1cb3a4c3e9df5e71bb5177bb3196b",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "12-tool-dispatch.js",
+        "bytes": 316686,
+        "sha256": "52fd661514ca00fe30b84e0e41301f2de75f2074b64ac8fa4f06fab129102b20",
+        "frozenSha256": "52fd661514ca00fe30b84e0e41301f2de75f2074b64ac8fa4f06fab129102b20",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13-http-router.js",
+        "bytes": 193834,
+        "sha256": "e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d",
+        "frozenSha256": "e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13aa-steward-delivery.js",
+        "bytes": 13107,
+        "sha256": "5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e",
+        "frozenSha256": "5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ab-privacy-api.js",
+        "bytes": 38307,
+        "sha256": "d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4",
+        "frozenSha256": "d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ac-mcp-consumer.js",
+        "bytes": 47305,
+        "sha256": "6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a",
+        "frozenSha256": "6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ad-memory-cli-relay.js",
+        "bytes": 16689,
+        "sha256": "e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0",
+        "frozenSha256": "e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ae-cli-business-services.js",
+        "bytes": 37214,
+        "sha256": "5c9af43041e8f90aff6153637febf606a5bcb82e3949f2bfe96c2046c29c83ad",
+        "frozenSha256": "5c9af43041e8f90aff6153637febf606a5bcb82e3949f2bfe96c2046c29c83ad",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13af-internal-mcp-relay.js",
+        "bytes": 25677,
+        "sha256": "b53cb8534e9908b75f81b422e8e9fb92e2aea55069608faeb71d5235c228de9c",
+        "frozenSha256": "b53cb8534e9908b75f81b422e8e9fb92e2aea55069608faeb71d5235c228de9c",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ag-work-data-maintenance.js",
+        "bytes": 12987,
+        "sha256": "af41b01208911bfd1dfbacceb637caea6c61cbae420164e3baffc9cb6e433210",
+        "frozenSha256": "af41b01208911bfd1dfbacceb637caea6c61cbae420164e3baffc9cb6e433210",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ah-work-data-setup.js",
+        "bytes": 18987,
+        "sha256": "4d974216e3179399c15a528d4589b6c97517be4ac5b70d34faeb5ca19118f23d",
+        "frozenSha256": "4d974216e3179399c15a528d4589b6c97517be4ac5b70d34faeb5ca19118f23d",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ai-work-data-worker.js",
+        "bytes": 17147,
+        "sha256": "9410ce1cb223b28afdbd7601e57b50e8a16ff797c46f92aa779d46dc30a8871a",
+        "frozenSha256": "9410ce1cb223b28afdbd7601e57b50e8a16ff797c46f92aa779d46dc30a8871a",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13aj-work-data-control.js",
+        "bytes": 10452,
+        "sha256": "3297e3e006eb30552cab89bbbc29bf634e97a25213b483467d01c1d3da84f4a4",
+        "frozenSha256": "3297e3e006eb30552cab89bbbc29bf634e97a25213b483467d01c1d3da84f4a4",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ak-work-data-cold-operations.js",
+        "bytes": 23943,
+        "sha256": "3880736e71b1733cfe6cffec29a5592e233b106a6cf5fad40b6adc1b72e3f4a4",
+        "frozenSha256": "3880736e71b1733cfe6cffec29a5592e233b106a6cf5fad40b6adc1b72e3f4a4",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13al-work-data-maintenance-http.js",
+        "bytes": 7779,
+        "sha256": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9",
+        "frozenSha256": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13am-work-data-maintenance-runtime.js",
+        "bytes": 18758,
+        "sha256": "39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff",
+        "frozenSha256": "39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13an-work-data-disposable-tree.js",
+        "bytes": 2382,
+        "sha256": "82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422",
+        "frozenSha256": "82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ap-session-fulltext-index.js",
+        "bytes": 37704,
+        "sha256": "2399763864034378712095c00e5cc79cbf6224f1a826065b23e9341bea2bd6c9",
+        "frozenSha256": "2399763864034378712095c00e5cc79cbf6224f1a826065b23e9341bea2bd6c9",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13as-session-fulltext-consumers.js",
+        "bytes": 16791,
+        "sha256": "47c82feaeba1f7e20f6cbdaf5c197c0e41a91e7e166e2575d383139a5eee3f56",
+        "frozenSha256": "47c82feaeba1f7e20f6cbdaf5c197c0e41a91e7e166e2575d383139a5eee3f56",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13b-api-domain-routes.js",
+        "bytes": 78104,
+        "sha256": "1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79",
+        "frozenSha256": "1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13ba-media-image-contract.js",
+        "bytes": 22030,
+        "sha256": "e4f02abeca91eccb775c4ac35a152ab2916d36be02df841e58f5c37c08a9d145",
+        "frozenSha256": "e4f02abeca91eccb775c4ac35a152ab2916d36be02df841e58f5c37c08a9d145",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13c-overlay-routes.js",
+        "bytes": 13511,
+        "sha256": "5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a",
+        "frozenSha256": "5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13d-core-domain-routes.js",
+        "bytes": 182845,
+        "sha256": "178273c33645ca8c0665f58e404d1172492df859baac1d778ca3507589d5cd44",
+        "frozenSha256": "178273c33645ca8c0665f58e404d1172492df859baac1d778ca3507589d5cd44",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13e-pretender-index.js",
+        "bytes": 59126,
+        "sha256": "4d5305e4e15a04a686b7ded17486a80f5aad8dfbc2df0b65732ced5322ece867",
+        "frozenSha256": "4d5305e4e15a04a686b7ded17486a80f5aad8dfbc2df0b65732ced5322ece867",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13f-native-tool-schemas.js",
+        "bytes": 151391,
+        "sha256": "41203255d5834e261219bc0c33025c190a80a2c52d8c8a277413cc31b1adb225",
+        "frozenSha256": "41203255d5834e261219bc0c33025c190a80a2c52d8c8a277413cc31b1adb225",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13g-steward.js",
+        "bytes": 35878,
+        "sha256": "27b9831e96fd0b30d54171297e5b6e3c2017fa045cac174718be8562f415a385",
+        "frozenSha256": "27b9831e96fd0b30d54171297e5b6e3c2017fa045cac174718be8562f415a385",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13h-steward-runner.js",
+        "bytes": 35971,
+        "sha256": "299a07bdfa21f093dc26ac2c5154909bdeb7e250e427bbd1fcafc71b9ae13593",
+        "frozenSha256": "299a07bdfa21f093dc26ac2c5154909bdeb7e250e427bbd1fcafc71b9ae13593",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13i-steward-inbox.js",
+        "bytes": 106499,
+        "sha256": "3cd2fdbb370fe303c5a47d7113d458433bebb178d888065cb806c450795748a6",
+        "frozenSha256": "3cd2fdbb370fe303c5a47d7113d458433bebb178d888065cb806c450795748a6",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13j-steward-tool-base.js",
+        "bytes": 40769,
+        "sha256": "cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a",
+        "frozenSha256": "cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13k-steward-threads.js",
+        "bytes": 138956,
+        "sha256": "0477e80e100233cd7a6a45ceb5072aac9308ea97f3db2950ed2e796fc15b050a",
+        "frozenSha256": "0477e80e100233cd7a6a45ceb5072aac9308ea97f3db2950ed2e796fc15b050a",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13l-steward-ops.js",
+        "bytes": 124837,
+        "sha256": "05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e",
+        "frozenSha256": "05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13m-steward-runner-base.js",
+        "bytes": 26677,
+        "sha256": "37ebe304664fbb22281ff6589b27384124ec32a4d88173f3d1c649aa4e236939",
+        "frozenSha256": "37ebe304664fbb22281ff6589b27384124ec32a4d88173f3d1c649aa4e236939",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13n-steward-arbiter.js",
+        "bytes": 40223,
+        "sha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975",
+        "frozenSha256": "a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13o-steward-runner-prompt.js",
+        "bytes": 57554,
+        "sha256": "25daedce6bff8a9cdffbd128dfcbb16b347758318f29ca036ce9d67a23fa2d81",
+        "frozenSha256": "25daedce6bff8a9cdffbd128dfcbb16b347758318f29ca036ce9d67a23fa2d81",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13p-steward-runner-actions.js",
+        "bytes": 70406,
+        "sha256": "3511bf298c252cfb364295e55fabb56a313798cfdb5e7d8437861a2b0d5ef51e",
+        "frozenSha256": "3511bf298c252cfb364295e55fabb56a313798cfdb5e7d8437861a2b0d5ef51e",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13q-steward-runner-turn.js",
+        "bytes": 92757,
+        "sha256": "95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3",
+        "frozenSha256": "95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13r-event-stream.js",
+        "bytes": 26858,
+        "sha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a",
+        "frozenSha256": "7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13s-scheduler.js",
+        "bytes": 86791,
+        "sha256": "564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b",
+        "frozenSha256": "564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13t-steward-schedule.js",
+        "bytes": 35416,
+        "sha256": "be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21",
+        "frozenSha256": "be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13u-migration-center.js",
+        "bytes": 376978,
+        "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb",
+        "frozenSha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13v-external-channel-protocols.js",
+        "bytes": 14755,
+        "sha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e",
+        "frozenSha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13w-external-bots.js",
+        "bytes": 80783,
+        "sha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+        "frozenSha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13x-external-channel-delivery.js",
+        "bytes": 10581,
+        "sha256": "3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b",
+        "frozenSha256": "3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13y-external-bot-credentials.js",
+        "bytes": 20475,
+        "sha256": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51",
+        "frozenSha256": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "13z-external-bot-discovery.js",
+        "bytes": 6315,
+        "sha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766",
+        "frozenSha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "14-main.js",
+        "bytes": 41553,
+        "sha256": "a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4",
+        "frozenSha256": "a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "context-governance-rules.json",
+        "bytes": 16604,
+        "sha256": "28afcfd81fdc3f4581d950400754dae51bcb034ebf0f2f2bd7aa5e1f9a5e4414",
+        "frozenSha256": "28afcfd81fdc3f4581d950400754dae51bcb034ebf0f2f2bd7aa5e1f9a5e4414",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "manifest.json",
+        "bytes": 30091,
+        "sha256": "12ecf7e73a61d62dd2b9fbb73e36c41021b138d14527b546efd9bf94d18bb07f",
+        "frozenSha256": "61d1782ef5bef44d07aa4ce4ce67311d6775f5be5b596270c4ac8af19e9051a5",
+        "manifestRangeOnly": true
+      },
+      {
+        "file": "module-contracts.json",
+        "bytes": 783171,
+        "sha256": "905c99bd41d877378f1434a4a40d80c63aca55bdf154a5789155859b52c58aaa",
+        "frozenSha256": "905c99bd41d877378f1434a4a40d80c63aca55bdf154a5789155859b52c58aaa",
+        "manifestRangeOnly": false
+      },
+      {
+        "file": "module-dependency-policy.json",
+        "bytes": 27774,
+        "sha256": "8fa55c5c1b5075d43bf469782e5eaf8ecc231210f2fe29e3f711846d7809974a",
+        "frozenSha256": "8fa55c5c1b5075d43bf469782e5eaf8ecc231210f2fe29e3f711846d7809974a",
+        "manifestRangeOnly": false
+      }
+    ],
+    "manifestOnlyDerivedIntegerRanges": true,
+    "manifestSemanticsUnchanged": true,
+    "ranges": [
+      {
+        "file": "00-boot.js",
+        "startLine": 1,
+        "endLine": 1487
+      },
+      {
+        "file": "00b-ruyi-names.js",
+        "startLine": 1488,
+        "endLine": 1505
+      },
+      {
+        "file": "01b-route-auth.js",
+        "startLine": 1506,
+        "endLine": 1756
+      },
+      {
+        "file": "01c-runtime-flags.js",
+        "startLine": 1757,
+        "endLine": 1956
+      },
+      {
+        "file": "01d-win-cmdline.js",
+        "startLine": 1957,
+        "endLine": 2058
+      },
+      {
+        "file": "01e-permission-modes.js",
+        "startLine": 2059,
+        "endLine": 2202
+      },
+      {
+        "file": "01f-agent-cli-types.js",
+        "startLine": 2203,
+        "endLine": 2271
+      },
+      {
+        "file": "01g-server-ownership.js",
+        "startLine": 2272,
+        "endLine": 2372
+      },
+      {
+        "file": "01i-privacy-rules.js",
+        "startLine": 2373,
+        "endLine": 2623
+      },
+      {
+        "file": "01h-privacy-core.js",
+        "startLine": 2624,
+        "endLine": 3305
+      },
+      {
+        "file": "01m-privacy-regex.js",
+        "startLine": 3306,
+        "endLine": 3402
+      },
+      {
+        "file": "01j-local-crypto.js",
+        "startLine": 3403,
+        "endLine": 3492
+      },
+      {
+        "file": "01-config.js",
+        "startLine": 3493,
+        "endLine": 7676
+      },
+      {
+        "file": "01k-credential-vault.js",
+        "startLine": 7677,
+        "endLine": 8067
+      },
+      {
+        "file": "01l-credential-recovery.js",
+        "startLine": 8068,
+        "endLine": 8203
+      },
+      {
+        "file": "01n-work-data-crypto.js",
+        "startLine": 8204,
+        "endLine": 8288
+      },
+      {
+        "file": "01o-work-data-keys.js",
+        "startLine": 8289,
+        "endLine": 8458
+      },
+      {
+        "file": "01r-work-data-chunks.js",
+        "startLine": 8459,
+        "endLine": 8644
+      },
+      {
+        "file": "01p-work-data-store.js",
+        "startLine": 8645,
+        "endLine": 9305
+      },
+      {
+        "file": "01q-work-data-records.js",
+        "startLine": 9306,
+        "endLine": 9519
+      },
+      {
+        "file": "01s-work-data-journals.js",
+        "startLine": 9520,
+        "endLine": 9886
+      },
+      {
+        "file": "01t-work-data-recovery.js",
+        "startLine": 9887,
+        "endLine": 10154
+      },
+      {
+        "file": "01u-work-data-transition.js",
+        "startLine": 10155,
+        "endLine": 10247
+      },
+      {
+        "file": "01v-work-data-manifest.js",
+        "startLine": 10248,
+        "endLine": 10431
+      },
+      {
+        "file": "01w-work-data-native-publish.js",
+        "startLine": 10432,
+        "endLine": 10761
+      },
+      {
+        "file": "01x-work-data-migration-codecs.js",
+        "startLine": 10762,
+        "endLine": 11095
+      },
+      {
+        "file": "01z-work-data-root-authority.js",
+        "startLine": 11096,
+        "endLine": 11260
+      },
+      {
+        "file": "01aa-work-data-tree.js",
+        "startLine": 11261,
+        "endLine": 11627
+      },
+      {
+        "file": "01ae-work-data-maintenance-result.js",
+        "startLine": 11628,
+        "endLine": 11742
+      },
+      {
+        "file": "01ab-work-data-full-snapshot.js",
+        "startLine": 11743,
+        "endLine": 12106
+      },
+      {
+        "file": "01ad-work-data-migration-host.js",
+        "startLine": 12107,
+        "endLine": 12295
+      },
+      {
+        "file": "02c-turn-segments.js",
+        "startLine": 12296,
+        "endLine": 12633
+      },
+      {
+        "file": "02d-session-overrides.js",
+        "startLine": 12634,
+        "endLine": 12705
+      },
+      {
+        "file": "02e-session-engine-route.js",
+        "startLine": 12706,
+        "endLine": 12766
+      },
+      {
+        "file": "02f-turn-effect-kinds.js",
+        "startLine": 12767,
+        "endLine": 12917
+      },
+      {
+        "file": "02-session-store.js",
+        "startLine": 12918,
+        "endLine": 19437
+      },
+      {
+        "file": "03-bridge-guard.js",
+        "startLine": 19438,
+        "endLine": 21133
+      },
+      {
+        "file": "03a-privacy-gateway.js",
+        "startLine": 21134,
+        "endLine": 22748
+      },
+      {
+        "file": "03b-privacy-local-drive.js",
+        "startLine": 22749,
+        "endLine": 22858
+      },
+      {
+        "file": "04-visual-pipeline.js",
+        "startLine": 22859,
+        "endLine": 23057
+      },
+      {
+        "file": "04-permission-runtime.js",
+        "startLine": 23058,
+        "endLine": 26605
+      },
+      {
+        "file": "04-desktop-shell.js",
+        "startLine": 26606,
+        "endLine": 27153
+      },
+      {
+        "file": "04f-toolbox-services.js",
+        "startLine": 27154,
+        "endLine": 27525
+      },
+      {
+        "file": "04h-provider-http.js",
+        "startLine": 27526,
+        "endLine": 27747
+      },
+      {
+        "file": "04i-provider-anthropic.js",
+        "startLine": 27748,
+        "endLine": 28340
+      },
+      {
+        "file": "04i-provider-wire.js",
+        "startLine": 28341,
+        "endLine": 29043
+      },
+      {
+        "file": "04j-hanzi-pinyin.js",
+        "startLine": 29044,
+        "endLine": 29390
+      },
+      {
+        "file": "04j-voice-lexicon.js",
+        "startLine": 29391,
+        "endLine": 30170
+      },
+      {
+        "file": "04j-voice-learn.js",
+        "startLine": 30171,
+        "endLine": 30821
+      },
+      {
+        "file": "05-claude-engine.js",
+        "startLine": 30822,
+        "endLine": 33270
+      },
+      {
+        "file": "05b-kimi-bridge.js",
+        "startLine": 33271,
+        "endLine": 36237
+      },
+      {
+        "file": "05c-kimi-search-policy.js",
+        "startLine": 36238,
+        "endLine": 36888
+      },
+      {
+        "file": "05d-kimi-prompt-parts.js",
+        "startLine": 36889,
+        "endLine": 37093
+      },
+      {
+        "file": "06-provider-engine.js",
+        "startLine": 37094,
+        "endLine": 39460
+      },
+      {
+        "file": "06b-prompt-registry.js",
+        "startLine": 39461,
+        "endLine": 40228
+      },
+      {
+        "file": "06c-agent-loop-hooks.js",
+        "startLine": 40229,
+        "endLine": 40388
+      },
+      {
+        "file": "06h-retrieval-index.js",
+        "startLine": 40389,
+        "endLine": 40690
+      },
+      {
+        "file": "06i-steward-core.js",
+        "startLine": 40691,
+        "endLine": 43047
+      },
+      {
+        "file": "06d-memory-domain.js",
+        "startLine": 43048,
+        "endLine": 45812
+      },
+      {
+        "file": "06e-mission-domain.js",
+        "startLine": 45813,
+        "endLine": 45938
+      },
+      {
+        "file": "06f-autonomy-grants.js",
+        "startLine": 45939,
+        "endLine": 46230
+      },
+      {
+        "file": "06g-resource-leases.js",
+        "startLine": 46231,
+        "endLine": 46483
+      },
+      {
+        "file": "06j-scheduler-core.js",
+        "startLine": 46484,
+        "endLine": 47137
+      },
+      {
+        "file": "06k-config-patch.js",
+        "startLine": 47138,
+        "endLine": 47323
+      },
+      {
+        "file": "07-autonomy.js",
+        "startLine": 47324,
+        "endLine": 50161
+      },
+      {
+        "file": "08-agent-runs.js",
+        "startLine": 50162,
+        "endLine": 53175
+      },
+      {
+        "file": "09b-replan-ledger.js",
+        "startLine": 53176,
+        "endLine": 53351
+      },
+      {
+        "file": "09d-token-estimation.js",
+        "startLine": 53352,
+        "endLine": 53615
+      },
+      {
+        "file": "09-workflow.js",
+        "startLine": 53616,
+        "endLine": 57603
+      },
+      {
+        "file": "10-context-governance.js",
+        "startLine": 57604,
+        "endLine": 61880
+      },
+      {
+        "file": "11-native-tools.js",
+        "startLine": 61881,
+        "endLine": 67777
+      },
+      {
+        "file": "11b-file-text-io.js",
+        "startLine": 67778,
+        "endLine": 68372
+      },
+      {
+        "file": "11c-file-visual-io.js",
+        "startLine": 68373,
+        "endLine": 68477
+      },
+      {
+        "file": "11d-media-inspection.js",
+        "startLine": 68478,
+        "endLine": 68695
+      },
+      {
+        "file": "12-tool-dispatch.js",
+        "startLine": 68696,
+        "endLine": 72674
+      },
+      {
+        "file": "13f-native-tool-schemas.js",
+        "startLine": 72675,
+        "endLine": 74279
+      },
+      {
+        "file": "13-http-router.js",
+        "startLine": 74280,
+        "endLine": 76768
+      },
+      {
+        "file": "13b-api-domain-routes.js",
+        "startLine": 76769,
+        "endLine": 77804
+      },
+      {
+        "file": "13c-overlay-routes.js",
+        "startLine": 77805,
+        "endLine": 78002
+      },
+      {
+        "file": "13d-core-domain-routes.js",
+        "startLine": 78003,
+        "endLine": 80586
+      },
+      {
+        "file": "13e-pretender-index.js",
+        "startLine": 80587,
+        "endLine": 81510
+      },
+      {
+        "file": "13i-steward-inbox.js",
+        "startLine": 81511,
+        "endLine": 83085
+      },
+      {
+        "file": "13j-steward-tool-base.js",
+        "startLine": 83086,
+        "endLine": 83699
+      },
+      {
+        "file": "13aa-steward-delivery.js",
+        "startLine": 83700,
+        "endLine": 83863
+      },
+      {
+        "file": "13k-steward-threads.js",
+        "startLine": 83864,
+        "endLine": 85748
+      },
+      {
+        "file": "13l-steward-ops.js",
+        "startLine": 85749,
+        "endLine": 87322
+      },
+      {
+        "file": "13g-steward.js",
+        "startLine": 87323,
+        "endLine": 87836
+      },
+      {
+        "file": "13m-steward-runner-base.js",
+        "startLine": 87837,
+        "endLine": 88160
+      },
+      {
+        "file": "13n-steward-arbiter.js",
+        "startLine": 88161,
+        "endLine": 88808
+      },
+      {
+        "file": "13o-steward-runner-prompt.js",
+        "startLine": 88809,
+        "endLine": 89556
+      },
+      {
+        "file": "13p-steward-runner-actions.js",
+        "startLine": 89557,
+        "endLine": 90470
+      },
+      {
+        "file": "13q-steward-runner-turn.js",
+        "startLine": 90471,
+        "endLine": 91792
+      },
+      {
+        "file": "13h-steward-runner.js",
+        "startLine": 91793,
+        "endLine": 92291
+      },
+      {
+        "file": "13r-event-stream.js",
+        "startLine": 92292,
+        "endLine": 92702
+      },
+      {
+        "file": "13s-scheduler.js",
+        "startLine": 92703,
+        "endLine": 94041
+      },
+      {
+        "file": "13t-steward-schedule.js",
+        "startLine": 94042,
+        "endLine": 94577
+      },
+      {
+        "file": "13u-migration-center.js",
+        "startLine": 94578,
+        "endLine": 99103
+      },
+      {
+        "file": "13v-external-channel-protocols.js",
+        "startLine": 99104,
+        "endLine": 99314
+      },
+      {
+        "file": "13x-external-channel-delivery.js",
+        "startLine": 99315,
+        "endLine": 99467
+      },
+      {
+        "file": "13y-external-bot-credentials.js",
+        "startLine": 99468,
+        "endLine": 99767
+      },
+      {
+        "file": "13z-external-bot-discovery.js",
+        "startLine": 99768,
+        "endLine": 99863
+      },
+      {
+        "file": "13ab-privacy-api.js",
+        "startLine": 99864,
+        "endLine": 100328
+      },
+      {
+        "file": "13w-external-bots.js",
+        "startLine": 100329,
+        "endLine": 101293
+      },
+      {
+        "file": "13ac-mcp-consumer.js",
+        "startLine": 101294,
+        "endLine": 101902
+      },
+      {
+        "file": "13ad-memory-cli-relay.js",
+        "startLine": 101903,
+        "endLine": 102120
+      },
+      {
+        "file": "13ae-cli-business-services.js",
+        "startLine": 102121,
+        "endLine": 102589
+      },
+      {
+        "file": "13af-internal-mcp-relay.js",
+        "startLine": 102590,
+        "endLine": 102944
+      },
+      {
+        "file": "13ag-work-data-maintenance.js",
+        "startLine": 102945,
+        "endLine": 103125
+      },
+      {
+        "file": "13ah-work-data-setup.js",
+        "startLine": 103126,
+        "endLine": 103317
+      },
+      {
+        "file": "13ai-work-data-worker.js",
+        "startLine": 103318,
+        "endLine": 103591
+      },
+      {
+        "file": "13aj-work-data-control.js",
+        "startLine": 103592,
+        "endLine": 103745
+      },
+      {
+        "file": "13al-work-data-maintenance-http.js",
+        "startLine": 103746,
+        "endLine": 103853
+      },
+      {
+        "file": "13an-work-data-disposable-tree.js",
+        "startLine": 103854,
+        "endLine": 103890
+      },
+      {
+        "file": "13ak-work-data-cold-operations.js",
+        "startLine": 103891,
+        "endLine": 104188
+      },
+      {
+        "file": "13am-work-data-maintenance-runtime.js",
+        "startLine": 104189,
+        "endLine": 104392
+      },
+      {
+        "file": "13ap-session-fulltext-index.js",
+        "startLine": 104393,
+        "endLine": 104741
+      },
+      {
+        "file": "13as-session-fulltext-consumers.js",
+        "startLine": 104742,
+        "endLine": 104891
+      },
+      {
+        "file": "13ba-media-image-contract.js",
+        "startLine": 104892,
+        "endLine": 105200
+      },
+      {
+        "file": "14-main.js",
+        "startLine": 105201,
+        "endLine": 105998
+      }
+    ],
+    "serverExactConcatenation": true,
+    "modules": 119,
+    "runtimeInputs": 121,
+    "builderSha256": "37cac5c3933f2bc642966ec9d426b7517cfdc00d666d321f1e30193a97b6bc7b"
+  },
+  "predecessor": {
+    "root": "C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/ordinary-store-adapter",
+    "files": {
+      "ordinary-mode-gate.cjs": "69af800825580d51bff5b8269a30c671d40da2624112d65603aed2554eeae85f",
+      "run-ordinary-mode-gate.cjs": "677135373147bb2a819cc86118a380b2ebe144a8fd9266e78c534ff221034f5a",
+      "ordinary-gate-plan.json": "363d7ef5a1387ff0f46015b727de1dbc324d2c2e405fa2d6c46b5b8ccf1ae549",
+      "ordinary-runtime-inputs.json": "2b0b150b7a577cb14dcaa779286b7d2c72ef43f7a2669c2040af6c6f6ddfe0a2"
+    }
+  },
+  "mutationPolicy": "Only execution repo/runtime locations, derived runtime/input/driver/support digests and 118->119/120->121 counts. No native literal, business payload, refusal/hash/metadata/cause/cleanup assertion or 240/250/2s budget edits.",
+  "mutations": [
+    {
+      "file": "ordinary-mode-gate.cjs",
+      "beforeSha256": "69af800825580d51bff5b8269a30c671d40da2624112d65603aed2554eeae85f",
+      "afterSha256": "8130a6a35a4af0a32e0f859b2274c7b19c77a801cf67ffb2066149aa80f972a7",
+      "replacements": [
+        {
+          "before": "runtime:'C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/runtime/app/server.js'",
+          "after": "runtime:\"C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/runtime/app/server.js\"",
+          "occurrences": 1
+        },
+        {
+          "before": "runtimeSha256:'1d27e6fa776e6b48c92148dd215a56c250e43d49e049ee18596b2e1be97c7f66'",
+          "after": "runtimeSha256:\"e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a\"",
+          "occurrences": 1
+        },
+        {
+          "before": "runtimeInputsSha256:'2b0b150b7a577cb14dcaa779286b7d2c72ef43f7a2669c2040af6c6f6ddfe0a2'",
+          "after": "runtimeInputsSha256:\"c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217\"",
+          "occurrences": 1
+        },
+        {
+          "before": "assert.equal(pinned.files.length,120)",
+          "after": "assert.equal(pinned.files.length,121)",
+          "occurrences": 1
+        },
+        {
+          "before": "assert.equal(manifest.modules.length,118)",
+          "after": "assert.equal(manifest.modules.length,119)",
+          "occurrences": 1
+        }
+      ],
+      "wholeInverse": true
+    },
+    {
+      "file": "run-ordinary-mode-gate.cjs",
+      "beforeSha256": "677135373147bb2a819cc86118a380b2ebe144a8fd9266e78c534ff221034f5a",
+      "afterSha256": "c0e4b827c3daad1f714e28b467ec6b62de86330867f58bae05fc507f3f0ce753",
+      "replacements": [
+        {
+          "before": "\"69af800825580d51bff5b8269a30c671d40da2624112d65603aed2554eeae85f\"",
+          "after": "\"8130a6a35a4af0a32e0f859b2274c7b19c77a801cf67ffb2066149aa80f972a7\"",
+          "occurrences": 1
+        },
+        {
+          "before": "\"363d7ef5a1387ff0f46015b727de1dbc324d2c2e405fa2d6c46b5b8ccf1ae549\"",
+          "after": "\"5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec\"",
+          "occurrences": 1
+        },
+        {
+          "before": "\"C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/runtime/app/server.js\"",
+          "after": "\"C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/runtime/app/server.js\"",
+          "occurrences": 1
+        },
+        {
+          "before": "\"1d27e6fa776e6b48c92148dd215a56c250e43d49e049ee18596b2e1be97c7f66\"",
+          "after": "\"e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a\"",
+          "occurrences": 1
+        }
+      ],
+      "wholeInverse": true
+    },
+    {
+      "file": "ordinary-gate-plan.json",
+      "beforeSha256": "363d7ef5a1387ff0f46015b727de1dbc324d2c2e405fa2d6c46b5b8ccf1ae549",
+      "afterSha256": "5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec",
+      "replacements": [
+        {
+          "before": "\"C:/Users/87179/AppData/Local/Temp/codex-ruyi-current118-durability-run-20261025/runtime/app/server.js\"",
+          "after": "\"C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/runtime/app/server.js\"",
+          "occurrences": 1
+        },
+        {
+          "before": "\"1d27e6fa776e6b48c92148dd215a56c250e43d49e049ee18596b2e1be97c7f66\"",
+          "after": "\"e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a\"",
+          "occurrences": 1
+        }
+      ],
+      "wholeInverse": true
+    },
+    {
+      "file": "ordinary-runtime-inputs.json",
+      "beforeSha256": "2b0b150b7a577cb14dcaa779286b7d2c72ef43f7a2669c2040af6c6f6ddfe0a2",
+      "afterSha256": "c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217",
+      "replacements": [
+        {
+          "before": "{\n  \"schema\": 1,\n  \"runtime\": \"C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/runtime/app/server.js\",\n  \"files\": [\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\server.js\",\n      \"bytes\": 7827122,\n      \"sha256\": \"1d27e6fa776e6b48c92148dd215a56c250e43d49e049ee18596b2e1be97c7f66\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\manifest.json\",\n      \"bytes\": 29895,\n      \"sha256\": \"574534e393b264b8669a22ef834f18a324ec63c866245d07b2e78d3a5f45e821\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\00-boot.js\",\n      \"bytes\": 96529,\n      \"sha256\": \"e7e9852510fac03ce00fb5d3ddd15fb99f5498b014654e04a7fa7b1e609f9d44\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\00b-ruyi-names.js\",\n      \"bytes\": 1282,\n      \"sha256\": \"111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01b-route-auth.js\",\n      \"bytes\": 19533,\n      \"sha256\": \"fca348d0f3a5fdbadb0acc499d190c3cdb808a0f77ef194182658a4d26c93d5d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01c-runtime-flags.js\",\n      \"bytes\": 11739,\n      \"sha256\": \"642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01d-win-cmdline.js\",\n      \"bytes\": 7852,\n      \"sha256\": \"9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01e-permission-modes.js\",\n      \"bytes\": 17867,\n      \"sha256\": \"05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01f-agent-cli-types.js\",\n      \"bytes\": 5030,\n      \"sha256\": \"f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01g-server-ownership.js\",\n      \"bytes\": 5394,\n      \"sha256\": \"431f6afed223355cf7c1109d783296c2c099f1a1aa5f5f291d1dc2403b5c6bb3\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01i-privacy-rules.js\",\n      \"bytes\": 26429,\n      \"sha256\": \"c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01h-privacy-core.js\",\n      \"bytes\": 48184,\n      \"sha256\": \"4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01m-privacy-regex.js\",\n      \"bytes\": 5889,\n      \"sha256\": \"9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01j-local-crypto.js\",\n      \"bytes\": 6489,\n      \"sha256\": \"28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01-config.js\",\n      \"bytes\": 292778,\n      \"sha256\": \"90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01k-credential-vault.js\",\n      \"bytes\": 26857,\n      \"sha256\": \"6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01l-credential-recovery.js\",\n      \"bytes\": 9234,\n      \"sha256\": \"0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01n-work-data-crypto.js\",\n      \"bytes\": 5751,\n      \"sha256\": \"732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01o-work-data-keys.js\",\n      \"bytes\": 9404,\n      \"sha256\": \"f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01r-work-data-chunks.js\",\n      \"bytes\": 11594,\n      \"sha256\": \"a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01p-work-data-store.js\",\n      \"bytes\": 38771,\n      \"sha256\": \"a9531d8fc6ba6e423b1b566cbe8bd5a2150cc1930ea2ceefdd18bc98392f615c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01q-work-data-records.js\",\n      \"bytes\": 12082,\n      \"sha256\": \"c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01s-work-data-journals.js\",\n      \"bytes\": 22365,\n      \"sha256\": \"9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01t-work-data-recovery.js\",\n      \"bytes\": 20453,\n      \"sha256\": \"d335ea0a6288370cd3fd805b812260b67b031d352240ff524b7385ad0b57e680\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01u-work-data-transition.js\",\n      \"bytes\": 4494,\n      \"sha256\": \"59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01v-work-data-manifest.js\",\n      \"bytes\": 10746,\n      \"sha256\": \"e619619ba3ad329640cb214ec8a9a688ac3fe5a6e8cb500f791f8a85698af9f2\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01w-work-data-native-publish.js\",\n      \"bytes\": 26465,\n      \"sha256\": \"f25e22417be1555817a43b8a15ab6feb4b2a2742c4a27189b7fdaa94f380c05c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01x-work-data-migration-codecs.js\",\n      \"bytes\": 27051,\n      \"sha256\": \"e15a624d15906edfa800cff57d105afb579c4d3a336b0dc9339e8859ba859c01\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01z-work-data-root-authority.js\",\n      \"bytes\": 11202,\n      \"sha256\": \"1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01aa-work-data-tree.js\",\n      \"bytes\": 24683,\n      \"sha256\": \"4e6624929f1a1066a4029e839b88cd05b03d25a6e3469024599ceb587fe94cd0\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01ae-work-data-maintenance-result.js\",\n      \"bytes\": 11140,\n      \"sha256\": \"a6cd5314eacac2a16678787d03bfd88f6f3a5c598a3528301d78059f1f77122d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01ab-work-data-full-snapshot.js\",\n      \"bytes\": 36604,\n      \"sha256\": \"c4fc8866b43f25bc7e98a24177fc5803a5c207557c2187a687490259f96721f7\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\01ad-work-data-migration-host.js\",\n      \"bytes\": 29873,\n      \"sha256\": \"cba97dea06ec29e6b77550c1a3dad92d5733e9e583d9aac5935b258076ae8bd6\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\02c-turn-segments.js\",\n      \"bytes\": 19644,\n      \"sha256\": \"69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\02d-session-overrides.js\",\n      \"bytes\": 5740,\n      \"sha256\": \"5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\02e-session-engine-route.js\",\n      \"bytes\": 3042,\n      \"sha256\": \"984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\02f-turn-effect-kinds.js\",\n      \"bytes\": 11897,\n      \"sha256\": \"657f730966edee980e4284373a2c68120f05b55b4ab53821d7840094128c2a23\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\02-session-store.js\",\n      \"bytes\": 464610,\n      \"sha256\": \"4561f0c3fb92354d93e5db50e39998e16ff57d2ee0ccfb01e45a104484b1df12\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\03-bridge-guard.js\",\n      \"bytes\": 125556,\n      \"sha256\": \"877c71e49a188afbfaab43062672b0a15d5d117a5983512e38e08e68b9df9ed6\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\03a-privacy-gateway.js\",\n      \"bytes\": 107663,\n      \"sha256\": \"51709c7829d39cbdf21ab2222a2e1d8ce60dc51501d5550b5289ce16a263e91a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\03b-privacy-local-drive.js\",\n      \"bytes\": 5854,\n      \"sha256\": \"fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04-visual-pipeline.js\",\n      \"bytes\": 14720,\n      \"sha256\": \"e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04-permission-runtime.js\",\n      \"bytes\": 220244,\n      \"sha256\": \"2d8c27dabc772bd7b3f2d757aac98208b416fbdd242a4f8ba57701437c72bc1b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04-desktop-shell.js\",\n      \"bytes\": 37358,\n      \"sha256\": \"ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04f-toolbox-services.js\",\n      \"bytes\": 26057,\n      \"sha256\": \"532e5e41faf77183f00aef712fdd1072f5e01a9c0fc844ed043d9a74e3c40fee\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04h-provider-http.js\",\n      \"bytes\": 17050,\n      \"sha256\": \"c81db18fc30be70ffd997ad956bef984e8b5437fe029bea61fbd02dd95553540\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04i-provider-anthropic.js\",\n      \"bytes\": 40983,\n      \"sha256\": \"09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04i-provider-wire.js\",\n      \"bytes\": 51328,\n      \"sha256\": \"cdefedf43329284f94cdd3a3a29e813c7b05d5634c966ff98d625546a27ef372\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04j-hanzi-pinyin.js\",\n      \"bytes\": 53142,\n      \"sha256\": \"5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04j-voice-lexicon.js\",\n      \"bytes\": 28768,\n      \"sha256\": \"8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\04j-voice-learn.js\",\n      \"bytes\": 42013,\n      \"sha256\": \"bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\05-claude-engine.js\",\n      \"bytes\": 185177,\n      \"sha256\": \"d532eeeabd632d9dbff327c8b6a7e79f31c08c1a8c27e241074219091768abfc\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\05b-kimi-bridge.js\",\n      \"bytes\": 171785,\n      \"sha256\": \"9e3d9b8bf7ba8709f1b668eeac9b2aacf655da3d33dd0b35da083fd0b2dc5967\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\05c-kimi-search-policy.js\",\n      \"bytes\": 35743,\n      \"sha256\": \"3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\05d-kimi-prompt-parts.js\",\n      \"bytes\": 10916,\n      \"sha256\": \"5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06-provider-engine.js\",\n      \"bytes\": 166847,\n      \"sha256\": \"f83376aa478c63ff60f923a48e6939823b8ba517d456c81fd20b1b599c072886\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06b-prompt-registry.js\",\n      \"bytes\": 123163,\n      \"sha256\": \"9928d5d7f101f1f82d31205841057d2f4938d57d4c1bb9042e7a96fd8ee961b5\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06c-agent-loop-hooks.js\",\n      \"bytes\": 7061,\n      \"sha256\": \"36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06h-retrieval-index.js\",\n      \"bytes\": 14952,\n      \"sha256\": \"a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06i-steward-core.js\",\n      \"bytes\": 193154,\n      \"sha256\": \"1ea305251ce7892f51e421c72d9537b81b0711fc3a66e3f523580aa64f3519dd\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06d-memory-domain.js\",\n      \"bytes\": 196076,\n      \"sha256\": \"a86486c59703f4b6171f8c77f20f1412450c64b502f98f8bf692b6ce692ace9c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06e-mission-domain.js\",\n      \"bytes\": 10619,\n      \"sha256\": \"2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06f-autonomy-grants.js\",\n      \"bytes\": 21944,\n      \"sha256\": \"f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06g-resource-leases.js\",\n      \"bytes\": 18206,\n      \"sha256\": \"4643b9af28def11f467489bbfcc3f32b15d52841ae838f1a968046d842646bc9\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06j-scheduler-core.js\",\n      \"bytes\": 39228,\n      \"sha256\": \"cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\06k-config-patch.js\",\n      \"bytes\": 17075,\n      \"sha256\": \"0be1426a9c378149e7fc421120d0db0b110583bedef100479d2fe6c32d418e34\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\07-autonomy.js\",\n      \"bytes\": 232178,\n      \"sha256\": \"d291fb36647ceacc8a61a13ef80980c42648d0996cb6f14f088723d32cb921c8\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\08-agent-runs.js\",\n      \"bytes\": 255146,\n      \"sha256\": \"02e79d7327610ace074504b215f397a404a34ffc42611588074f191547f8dae2\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\09b-replan-ledger.js\",\n      \"bytes\": 12031,\n      \"sha256\": \"06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\09d-token-estimation.js\",\n      \"bytes\": 17595,\n      \"sha256\": \"cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\09-workflow.js\",\n      \"bytes\": 360462,\n      \"sha256\": \"8dcccec708a3438e9f33ea77d29a8724e19b301d5478540af522ef0879671ed5\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\10-context-governance.js\",\n      \"bytes\": 321438,\n      \"sha256\": \"24bf80e13327fb3837000bc6addc672571d603540358926b9d6ab8bbc4d035ca\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\11-native-tools.js\",\n      \"bytes\": 398323,\n      \"sha256\": \"5dfccf7fc8a04ea7f703455c59c637f1556fe64b8c74c7914f9dda7dbd7d82f1\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\11b-file-text-io.js\",\n      \"bytes\": 37345,\n      \"sha256\": \"35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\11c-file-visual-io.js\",\n      \"bytes\": 6926,\n      \"sha256\": \"7d823ff58916bb0e4aac49705c317a7be3c37302777eb08749b08e00e3aac6f5\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\11d-media-inspection.js\",\n      \"bytes\": 14652,\n      \"sha256\": \"53df56bf8d1e2ce6d78926f2e892f79cfac1cb3a4c3e9df5e71bb5177bb3196b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\12-tool-dispatch.js\",\n      \"bytes\": 316686,\n      \"sha256\": \"52fd661514ca00fe30b84e0e41301f2de75f2074b64ac8fa4f06fab129102b20\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13f-native-tool-schemas.js\",\n      \"bytes\": 151391,\n      \"sha256\": \"41203255d5834e261219bc0c33025c190a80a2c52d8c8a277413cc31b1adb225\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13-http-router.js\",\n      \"bytes\": 193834,\n      \"sha256\": \"e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13b-api-domain-routes.js\",\n      \"bytes\": 78104,\n      \"sha256\": \"1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13c-overlay-routes.js\",\n      \"bytes\": 13511,\n      \"sha256\": \"5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13d-core-domain-routes.js\",\n      \"bytes\": 182845,\n      \"sha256\": \"178273c33645ca8c0665f58e404d1172492df859baac1d778ca3507589d5cd44\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13e-pretender-index.js\",\n      \"bytes\": 59126,\n      \"sha256\": \"4d5305e4e15a04a686b7ded17486a80f5aad8dfbc2df0b65732ced5322ece867\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13i-steward-inbox.js\",\n      \"bytes\": 106499,\n      \"sha256\": \"3cd2fdbb370fe303c5a47d7113d458433bebb178d888065cb806c450795748a6\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13j-steward-tool-base.js\",\n      \"bytes\": 40769,\n      \"sha256\": \"cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13aa-steward-delivery.js\",\n      \"bytes\": 13107,\n      \"sha256\": \"5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13k-steward-threads.js\",\n      \"bytes\": 138956,\n      \"sha256\": \"0477e80e100233cd7a6a45ceb5072aac9308ea97f3db2950ed2e796fc15b050a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13l-steward-ops.js\",\n      \"bytes\": 124837,\n      \"sha256\": \"05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13g-steward.js\",\n      \"bytes\": 35878,\n      \"sha256\": \"27b9831e96fd0b30d54171297e5b6e3c2017fa045cac174718be8562f415a385\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13m-steward-runner-base.js\",\n      \"bytes\": 26677,\n      \"sha256\": \"37ebe304664fbb22281ff6589b27384124ec32a4d88173f3d1c649aa4e236939\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13n-steward-arbiter.js\",\n      \"bytes\": 40223,\n      \"sha256\": \"a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13o-steward-runner-prompt.js\",\n      \"bytes\": 57554,\n      \"sha256\": \"25daedce6bff8a9cdffbd128dfcbb16b347758318f29ca036ce9d67a23fa2d81\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13p-steward-runner-actions.js\",\n      \"bytes\": 70406,\n      \"sha256\": \"3511bf298c252cfb364295e55fabb56a313798cfdb5e7d8437861a2b0d5ef51e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13q-steward-runner-turn.js\",\n      \"bytes\": 92757,\n      \"sha256\": \"95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13h-steward-runner.js\",\n      \"bytes\": 35971,\n      \"sha256\": \"299a07bdfa21f093dc26ac2c5154909bdeb7e250e427bbd1fcafc71b9ae13593\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13r-event-stream.js\",\n      \"bytes\": 26858,\n      \"sha256\": \"7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13s-scheduler.js\",\n      \"bytes\": 86791,\n      \"sha256\": \"564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13t-steward-schedule.js\",\n      \"bytes\": 35416,\n      \"sha256\": \"be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13u-migration-center.js\",\n      \"bytes\": 368979,\n      \"sha256\": \"ee359b5d8d843c5c8c237213e7b43b9264f1c0b59adc47caad34f34e4d490c9e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13v-external-channel-protocols.js\",\n      \"bytes\": 14755,\n      \"sha256\": \"4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13x-external-channel-delivery.js\",\n      \"bytes\": 10581,\n      \"sha256\": \"3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13y-external-bot-credentials.js\",\n      \"bytes\": 20475,\n      \"sha256\": \"ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13z-external-bot-discovery.js\",\n      \"bytes\": 6315,\n      \"sha256\": \"6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ab-privacy-api.js\",\n      \"bytes\": 38307,\n      \"sha256\": \"d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13w-external-bots.js\",\n      \"bytes\": 76554,\n      \"sha256\": \"1ad6064fb9e31079e2b07c85353e56a1a94c33eff5d5abbf18f9efc87938d1f0\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ac-mcp-consumer.js\",\n      \"bytes\": 47305,\n      \"sha256\": \"6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ad-memory-cli-relay.js\",\n      \"bytes\": 16689,\n      \"sha256\": \"e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ae-cli-business-services.js\",\n      \"bytes\": 37214,\n      \"sha256\": \"5c9af43041e8f90aff6153637febf606a5bcb82e3949f2bfe96c2046c29c83ad\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13af-internal-mcp-relay.js\",\n      \"bytes\": 25677,\n      \"sha256\": \"b53cb8534e9908b75f81b422e8e9fb92e2aea55069608faeb71d5235c228de9c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ag-work-data-maintenance.js\",\n      \"bytes\": 12987,\n      \"sha256\": \"af41b01208911bfd1dfbacceb637caea6c61cbae420164e3baffc9cb6e433210\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ah-work-data-setup.js\",\n      \"bytes\": 18987,\n      \"sha256\": \"4d974216e3179399c15a528d4589b6c97517be4ac5b70d34faeb5ca19118f23d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ai-work-data-worker.js\",\n      \"bytes\": 17147,\n      \"sha256\": \"9410ce1cb223b28afdbd7601e57b50e8a16ff797c46f92aa779d46dc30a8871a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13aj-work-data-control.js\",\n      \"bytes\": 10452,\n      \"sha256\": \"3297e3e006eb30552cab89bbbc29bf634e97a25213b483467d01c1d3da84f4a4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13al-work-data-maintenance-http.js\",\n      \"bytes\": 7779,\n      \"sha256\": \"163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13an-work-data-disposable-tree.js\",\n      \"bytes\": 2382,\n      \"sha256\": \"82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ak-work-data-cold-operations.js\",\n      \"bytes\": 23943,\n      \"sha256\": \"3880736e71b1733cfe6cffec29a5592e233b106a6cf5fad40b6adc1b72e3f4a4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13am-work-data-maintenance-runtime.js\",\n      \"bytes\": 18758,\n      \"sha256\": \"39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13ap-session-fulltext-index.js\",\n      \"bytes\": 37704,\n      \"sha256\": \"2399763864034378712095c00e5cc79cbf6224f1a826065b23e9341bea2bd6c9\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\13as-session-fulltext-consumers.js\",\n      \"bytes\": 16791,\n      \"sha256\": \"47c82feaeba1f7e20f6cbdaf5c197c0e41a91e7e166e2575d383139a5eee3f56\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\ruyi-current118-resume-20261026-c4672ee3\\\\runtime\\\\app\\\\src\\\\14-main.js\",\n      \"bytes\": 41553,\n      \"sha256\": \"a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4\"\n    }\n  ]\n}\n",
+          "after": "{\n  \"schema\": 1,\n  \"runtime\": \"C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/runtime/app/server.js\",\n  \"files\": [\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\server.js\",\n      \"bytes\": 7865898,\n      \"sha256\": \"e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\manifest.json\",\n      \"bytes\": 30091,\n      \"sha256\": \"12ecf7e73a61d62dd2b9fbb73e36c41021b138d14527b546efd9bf94d18bb07f\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\00-boot.js\",\n      \"bytes\": 96529,\n      \"sha256\": \"e7e9852510fac03ce00fb5d3ddd15fb99f5498b014654e04a7fa7b1e609f9d44\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\00b-ruyi-names.js\",\n      \"bytes\": 1282,\n      \"sha256\": \"111fcdc1654087552504166fc8cfaa9781e9481af542ee397396078d787694e7\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01b-route-auth.js\",\n      \"bytes\": 19608,\n      \"sha256\": \"ec2c94c6717c020b06151eb0e534ff6e867068499098ce4444b1d93c699de508\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01c-runtime-flags.js\",\n      \"bytes\": 11739,\n      \"sha256\": \"642022898b99d84d65376445eb51646600d4994f360df7e13c8d8f3c81161837\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01d-win-cmdline.js\",\n      \"bytes\": 7852,\n      \"sha256\": \"9e3fd3b6d3ee245ae2647a562cf8eceab20315e5c11ecfa7e759ae130f6c50a8\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01e-permission-modes.js\",\n      \"bytes\": 17867,\n      \"sha256\": \"05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01f-agent-cli-types.js\",\n      \"bytes\": 5030,\n      \"sha256\": \"f1eb58cd55568ab65585731f2e2a4db39f76aefc852b0d604cafcb3e9a0d1de0\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01g-server-ownership.js\",\n      \"bytes\": 5394,\n      \"sha256\": \"431f6afed223355cf7c1109d783296c2c099f1a1aa5f5f291d1dc2403b5c6bb3\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01i-privacy-rules.js\",\n      \"bytes\": 26429,\n      \"sha256\": \"c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01h-privacy-core.js\",\n      \"bytes\": 48184,\n      \"sha256\": \"4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01m-privacy-regex.js\",\n      \"bytes\": 5889,\n      \"sha256\": \"9c5c69ee3dc3109bc06329a860c335a320ce695c2110ca225f4131d76bb92b71\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01j-local-crypto.js\",\n      \"bytes\": 6489,\n      \"sha256\": \"28eb00ec0aca0b3754af3534723ca02c2db6be827ee3da11d3e376cd1d1f0d80\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01-config.js\",\n      \"bytes\": 292778,\n      \"sha256\": \"90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01k-credential-vault.js\",\n      \"bytes\": 26857,\n      \"sha256\": \"6981407d50f06c096dcd328bc66107b635054408fb106b7c5d53b154efb94d72\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01l-credential-recovery.js\",\n      \"bytes\": 9234,\n      \"sha256\": \"0cd744007e2ca2a702a5c65f2f46155648d864aaba866c6f08f4213f61ad0419\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01n-work-data-crypto.js\",\n      \"bytes\": 5751,\n      \"sha256\": \"732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01o-work-data-keys.js\",\n      \"bytes\": 9404,\n      \"sha256\": \"f89e2801ae142988439420f5166eff7be64ee9e351ebe4f947012c104127c424\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01r-work-data-chunks.js\",\n      \"bytes\": 11594,\n      \"sha256\": \"a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01p-work-data-store.js\",\n      \"bytes\": 39063,\n      \"sha256\": \"9308bcd32d7b85ea939728e1b5f122aac8a15adea7a8aa9375a972eababc9a74\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01q-work-data-records.js\",\n      \"bytes\": 12082,\n      \"sha256\": \"c4f42fc255974ecbef33d2ffeba8e42bb164766cecedda098ebff096b5720ae0\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01s-work-data-journals.js\",\n      \"bytes\": 22365,\n      \"sha256\": \"9eb3df0972d4ca4af54b234cc5f2cb349db5de9762d649ac5bb228b9b711b95f\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01t-work-data-recovery.js\",\n      \"bytes\": 20453,\n      \"sha256\": \"d335ea0a6288370cd3fd805b812260b67b031d352240ff524b7385ad0b57e680\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01u-work-data-transition.js\",\n      \"bytes\": 4494,\n      \"sha256\": \"59f4a18702b2cd9d15f6c3479e8c7d005de60fc017194f34aeb106095ca093f7\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01v-work-data-manifest.js\",\n      \"bytes\": 10746,\n      \"sha256\": \"e619619ba3ad329640cb214ec8a9a688ac3fe5a6e8cb500f791f8a85698af9f2\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01w-work-data-native-publish.js\",\n      \"bytes\": 26465,\n      \"sha256\": \"f25e22417be1555817a43b8a15ab6feb4b2a2742c4a27189b7fdaa94f380c05c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01x-work-data-migration-codecs.js\",\n      \"bytes\": 27051,\n      \"sha256\": \"e15a624d15906edfa800cff57d105afb579c4d3a336b0dc9339e8859ba859c01\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01z-work-data-root-authority.js\",\n      \"bytes\": 11202,\n      \"sha256\": \"1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01aa-work-data-tree.js\",\n      \"bytes\": 27019,\n      \"sha256\": \"fcfbed6b129887b2e0766b56041964da25b3858fcb62168ffbbc800e6e501c8c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01ae-work-data-maintenance-result.js\",\n      \"bytes\": 11140,\n      \"sha256\": \"a6cd5314eacac2a16678787d03bfd88f6f3a5c598a3528301d78059f1f77122d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01ab-work-data-full-snapshot.js\",\n      \"bytes\": 38418,\n      \"sha256\": \"92b8650db59e74c7ad71297c2d11e4f1943769243a782018487a1f216ecce269\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\01ad-work-data-migration-host.js\",\n      \"bytes\": 29873,\n      \"sha256\": \"cba97dea06ec29e6b77550c1a3dad92d5733e9e583d9aac5935b258076ae8bd6\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\02c-turn-segments.js\",\n      \"bytes\": 19644,\n      \"sha256\": \"69864cf67afccc0fa5ea4aaaf2662eeffb337692e7268b50320fc3bf05f9dcbf\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\02d-session-overrides.js\",\n      \"bytes\": 5740,\n      \"sha256\": \"5e02f6bfbf939f0c1b0797a381929803640cf844766ff9070b37809732aef044\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\02e-session-engine-route.js\",\n      \"bytes\": 3042,\n      \"sha256\": \"984c3b4496de5cc6c73e2462b0f013be27a39de415dae3751191d8a73e38f3c5\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\02f-turn-effect-kinds.js\",\n      \"bytes\": 11897,\n      \"sha256\": \"657f730966edee980e4284373a2c68120f05b55b4ab53821d7840094128c2a23\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\02-session-store.js\",\n      \"bytes\": 464610,\n      \"sha256\": \"4561f0c3fb92354d93e5db50e39998e16ff57d2ee0ccfb01e45a104484b1df12\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\03-bridge-guard.js\",\n      \"bytes\": 125556,\n      \"sha256\": \"877c71e49a188afbfaab43062672b0a15d5d117a5983512e38e08e68b9df9ed6\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\03a-privacy-gateway.js\",\n      \"bytes\": 107663,\n      \"sha256\": \"51709c7829d39cbdf21ab2222a2e1d8ce60dc51501d5550b5289ce16a263e91a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\03b-privacy-local-drive.js\",\n      \"bytes\": 5854,\n      \"sha256\": \"fc30f21b4a363de6da70465b396f9d70a822bf06fe7887d9ea1336fd673055f4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04-visual-pipeline.js\",\n      \"bytes\": 14720,\n      \"sha256\": \"e6972ad59d4e2026a0c96fcb193485ae742f881dc797b5b410edc9c19ba995ed\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04-permission-runtime.js\",\n      \"bytes\": 220244,\n      \"sha256\": \"2d8c27dabc772bd7b3f2d757aac98208b416fbdd242a4f8ba57701437c72bc1b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04-desktop-shell.js\",\n      \"bytes\": 37358,\n      \"sha256\": \"ea47af284cee21f35f1fdd7f529ccb77f7c32b49079c1ae3675e337f0d52f7c2\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04f-toolbox-services.js\",\n      \"bytes\": 26057,\n      \"sha256\": \"532e5e41faf77183f00aef712fdd1072f5e01a9c0fc844ed043d9a74e3c40fee\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04h-provider-http.js\",\n      \"bytes\": 17050,\n      \"sha256\": \"c81db18fc30be70ffd997ad956bef984e8b5437fe029bea61fbd02dd95553540\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04i-provider-anthropic.js\",\n      \"bytes\": 40983,\n      \"sha256\": \"09b3fe8e611a23ea5f7dbd880c6dcf888a8dd968a04f5f4a7f94f4ee1bba21fd\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04i-provider-wire.js\",\n      \"bytes\": 51328,\n      \"sha256\": \"cdefedf43329284f94cdd3a3a29e813c7b05d5634c966ff98d625546a27ef372\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04j-hanzi-pinyin.js\",\n      \"bytes\": 53142,\n      \"sha256\": \"5a4f5cdc62cb81bb1bf1fbf7d1154d106444e2e884bb5240d5496591063d0e4e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04j-voice-lexicon.js\",\n      \"bytes\": 28768,\n      \"sha256\": \"8edab38196f5776a86193d7ab0068d3d35730b6dcd3c56083dbbddeb2c9993b2\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\04j-voice-learn.js\",\n      \"bytes\": 42013,\n      \"sha256\": \"bf964273557bd1a81d3eba9dbbd28916372212a88787773d5809b83806342311\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\05-claude-engine.js\",\n      \"bytes\": 185177,\n      \"sha256\": \"d532eeeabd632d9dbff327c8b6a7e79f31c08c1a8c27e241074219091768abfc\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\05b-kimi-bridge.js\",\n      \"bytes\": 171785,\n      \"sha256\": \"9e3d9b8bf7ba8709f1b668eeac9b2aacf655da3d33dd0b35da083fd0b2dc5967\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\05c-kimi-search-policy.js\",\n      \"bytes\": 35743,\n      \"sha256\": \"3ddddcb48fb9d971354cb481ebe6b42d125219d13725e7a7b90cc56c24d35760\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\05d-kimi-prompt-parts.js\",\n      \"bytes\": 10916,\n      \"sha256\": \"5b12e6a480ffe8c4aefb654e05ab59e61bc06ab0c9f843c61c3c24e5ccf5d369\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06-provider-engine.js\",\n      \"bytes\": 166847,\n      \"sha256\": \"f83376aa478c63ff60f923a48e6939823b8ba517d456c81fd20b1b599c072886\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06b-prompt-registry.js\",\n      \"bytes\": 123163,\n      \"sha256\": \"9928d5d7f101f1f82d31205841057d2f4938d57d4c1bb9042e7a96fd8ee961b5\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06c-agent-loop-hooks.js\",\n      \"bytes\": 7061,\n      \"sha256\": \"36f572cc0aa7add7c3a61c9cd4a643fde2b12cb4123ebe82dc132d17bb6099b4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06h-retrieval-index.js\",\n      \"bytes\": 14952,\n      \"sha256\": \"a1f65242189717c0863e948bab30610b22952223d72473f34dba7c605fab539d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06i-steward-core.js\",\n      \"bytes\": 193154,\n      \"sha256\": \"1ea305251ce7892f51e421c72d9537b81b0711fc3a66e3f523580aa64f3519dd\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06d-memory-domain.js\",\n      \"bytes\": 196076,\n      \"sha256\": \"a86486c59703f4b6171f8c77f20f1412450c64b502f98f8bf692b6ce692ace9c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06e-mission-domain.js\",\n      \"bytes\": 10619,\n      \"sha256\": \"2ffa88592b083d6ed7b0fb9fd7dbec7774462d18fa92511d880235726ccd2530\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06f-autonomy-grants.js\",\n      \"bytes\": 21944,\n      \"sha256\": \"f712d287c68a3ba3b4d98b5d93b1f5b5aaceb3e1f1b7db712740a300542c65d4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06g-resource-leases.js\",\n      \"bytes\": 18206,\n      \"sha256\": \"4643b9af28def11f467489bbfcc3f32b15d52841ae838f1a968046d842646bc9\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06j-scheduler-core.js\",\n      \"bytes\": 39228,\n      \"sha256\": \"cb3416aa435c1e6f3a92d47ffbedaa8ed33cbcd9f714fa052f8c2727510e4d9b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\06k-config-patch.js\",\n      \"bytes\": 17075,\n      \"sha256\": \"0be1426a9c378149e7fc421120d0db0b110583bedef100479d2fe6c32d418e34\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\07-autonomy.js\",\n      \"bytes\": 232178,\n      \"sha256\": \"d291fb36647ceacc8a61a13ef80980c42648d0996cb6f14f088723d32cb921c8\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\08-agent-runs.js\",\n      \"bytes\": 255146,\n      \"sha256\": \"02e79d7327610ace074504b215f397a404a34ffc42611588074f191547f8dae2\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\09b-replan-ledger.js\",\n      \"bytes\": 12031,\n      \"sha256\": \"06526f7e2873ae5a5cce727dbfb2d2fc263d671850231b56feb6b8658b09ec11\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\09d-token-estimation.js\",\n      \"bytes\": 17595,\n      \"sha256\": \"cb621df1e65059b907e072433b9e61f91be22bb17ac429174f3e3833fa138d04\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\09-workflow.js\",\n      \"bytes\": 360462,\n      \"sha256\": \"8dcccec708a3438e9f33ea77d29a8724e19b301d5478540af522ef0879671ed5\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\10-context-governance.js\",\n      \"bytes\": 321438,\n      \"sha256\": \"24bf80e13327fb3837000bc6addc672571d603540358926b9d6ab8bbc4d035ca\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\11-native-tools.js\",\n      \"bytes\": 398323,\n      \"sha256\": \"5dfccf7fc8a04ea7f703455c59c637f1556fe64b8c74c7914f9dda7dbd7d82f1\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\11b-file-text-io.js\",\n      \"bytes\": 37345,\n      \"sha256\": \"35456ff698231bea2ac29d730dc2e05b92d3d9f1221db947cb3fbd4561375d9a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\11c-file-visual-io.js\",\n      \"bytes\": 6926,\n      \"sha256\": \"7d823ff58916bb0e4aac49705c317a7be3c37302777eb08749b08e00e3aac6f5\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\11d-media-inspection.js\",\n      \"bytes\": 14652,\n      \"sha256\": \"53df56bf8d1e2ce6d78926f2e892f79cfac1cb3a4c3e9df5e71bb5177bb3196b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\12-tool-dispatch.js\",\n      \"bytes\": 316686,\n      \"sha256\": \"52fd661514ca00fe30b84e0e41301f2de75f2074b64ac8fa4f06fab129102b20\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13f-native-tool-schemas.js\",\n      \"bytes\": 151391,\n      \"sha256\": \"41203255d5834e261219bc0c33025c190a80a2c52d8c8a277413cc31b1adb225\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13-http-router.js\",\n      \"bytes\": 193834,\n      \"sha256\": \"e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13b-api-domain-routes.js\",\n      \"bytes\": 78104,\n      \"sha256\": \"1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13c-overlay-routes.js\",\n      \"bytes\": 13511,\n      \"sha256\": \"5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13d-core-domain-routes.js\",\n      \"bytes\": 182845,\n      \"sha256\": \"178273c33645ca8c0665f58e404d1172492df859baac1d778ca3507589d5cd44\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13e-pretender-index.js\",\n      \"bytes\": 59126,\n      \"sha256\": \"4d5305e4e15a04a686b7ded17486a80f5aad8dfbc2df0b65732ced5322ece867\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13i-steward-inbox.js\",\n      \"bytes\": 106499,\n      \"sha256\": \"3cd2fdbb370fe303c5a47d7113d458433bebb178d888065cb806c450795748a6\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13j-steward-tool-base.js\",\n      \"bytes\": 40769,\n      \"sha256\": \"cc0c82ba04b4dbd34b9a9530b3eb5a17f1cf9625923f4bdbfa7d4508354b118a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13aa-steward-delivery.js\",\n      \"bytes\": 13107,\n      \"sha256\": \"5b8ea7b1c04ab10170f149707a3c54aeff9809c50e847ffe3dacd4fd3dd0951e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13k-steward-threads.js\",\n      \"bytes\": 138956,\n      \"sha256\": \"0477e80e100233cd7a6a45ceb5072aac9308ea97f3db2950ed2e796fc15b050a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13l-steward-ops.js\",\n      \"bytes\": 124837,\n      \"sha256\": \"05055db2bef8624912514e1e972963b1890795c1a8edbbb50d25b2d717dd268e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13g-steward.js\",\n      \"bytes\": 35878,\n      \"sha256\": \"27b9831e96fd0b30d54171297e5b6e3c2017fa045cac174718be8562f415a385\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13m-steward-runner-base.js\",\n      \"bytes\": 26677,\n      \"sha256\": \"37ebe304664fbb22281ff6589b27384124ec32a4d88173f3d1c649aa4e236939\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13n-steward-arbiter.js\",\n      \"bytes\": 40223,\n      \"sha256\": \"a13a846ad77e6aa1d646ecd68cf40ce97c66d7dfb18da8dc4908545a59387975\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13o-steward-runner-prompt.js\",\n      \"bytes\": 57554,\n      \"sha256\": \"25daedce6bff8a9cdffbd128dfcbb16b347758318f29ca036ce9d67a23fa2d81\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13p-steward-runner-actions.js\",\n      \"bytes\": 70406,\n      \"sha256\": \"3511bf298c252cfb364295e55fabb56a313798cfdb5e7d8437861a2b0d5ef51e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13q-steward-runner-turn.js\",\n      \"bytes\": 92757,\n      \"sha256\": \"95da886d8732133d5008988953b21f8e704760e4072805e20589d135f987ddf3\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13h-steward-runner.js\",\n      \"bytes\": 35971,\n      \"sha256\": \"299a07bdfa21f093dc26ac2c5154909bdeb7e250e427bbd1fcafc71b9ae13593\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13r-event-stream.js\",\n      \"bytes\": 26858,\n      \"sha256\": \"7370c9509185e503beb05ddcbf8bd3d07c005fef9fa3b32b86c86d5b17a5114a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13s-scheduler.js\",\n      \"bytes\": 86791,\n      \"sha256\": \"564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13t-steward-schedule.js\",\n      \"bytes\": 35416,\n      \"sha256\": \"be5c764a2869ba8ee94f92a15960e60edddcdffbc6a1efc28cc71b00fb5f3c21\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13u-migration-center.js\",\n      \"bytes\": 376978,\n      \"sha256\": \"02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13v-external-channel-protocols.js\",\n      \"bytes\": 14755,\n      \"sha256\": \"4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13x-external-channel-delivery.js\",\n      \"bytes\": 10581,\n      \"sha256\": \"3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13y-external-bot-credentials.js\",\n      \"bytes\": 20475,\n      \"sha256\": \"ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13z-external-bot-discovery.js\",\n      \"bytes\": 6315,\n      \"sha256\": \"6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ab-privacy-api.js\",\n      \"bytes\": 38307,\n      \"sha256\": \"d514a00a573cc9671c6c57f8cc9728fd4c68cfeed9b2fd60127e68fade14eab4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13w-external-bots.js\",\n      \"bytes\": 80783,\n      \"sha256\": \"c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ac-mcp-consumer.js\",\n      \"bytes\": 47305,\n      \"sha256\": \"6c0eed788dafa1eab2da8d0465f4a9ab4d8238b90f91fc8dad0c7ccadc21859a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ad-memory-cli-relay.js\",\n      \"bytes\": 16689,\n      \"sha256\": \"e2fc0b63b775498c73a268471102a90b5b387a8a24ea182c8bca31cccf32dde0\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ae-cli-business-services.js\",\n      \"bytes\": 37214,\n      \"sha256\": \"5c9af43041e8f90aff6153637febf606a5bcb82e3949f2bfe96c2046c29c83ad\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13af-internal-mcp-relay.js\",\n      \"bytes\": 25677,\n      \"sha256\": \"b53cb8534e9908b75f81b422e8e9fb92e2aea55069608faeb71d5235c228de9c\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ag-work-data-maintenance.js\",\n      \"bytes\": 12987,\n      \"sha256\": \"af41b01208911bfd1dfbacceb637caea6c61cbae420164e3baffc9cb6e433210\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ah-work-data-setup.js\",\n      \"bytes\": 18987,\n      \"sha256\": \"4d974216e3179399c15a528d4589b6c97517be4ac5b70d34faeb5ca19118f23d\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ai-work-data-worker.js\",\n      \"bytes\": 17147,\n      \"sha256\": \"9410ce1cb223b28afdbd7601e57b50e8a16ff797c46f92aa779d46dc30a8871a\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13aj-work-data-control.js\",\n      \"bytes\": 10452,\n      \"sha256\": \"3297e3e006eb30552cab89bbbc29bf634e97a25213b483467d01c1d3da84f4a4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13al-work-data-maintenance-http.js\",\n      \"bytes\": 7779,\n      \"sha256\": \"163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13an-work-data-disposable-tree.js\",\n      \"bytes\": 2382,\n      \"sha256\": \"82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ak-work-data-cold-operations.js\",\n      \"bytes\": 23943,\n      \"sha256\": \"3880736e71b1733cfe6cffec29a5592e233b106a6cf5fad40b6adc1b72e3f4a4\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13am-work-data-maintenance-runtime.js\",\n      \"bytes\": 18758,\n      \"sha256\": \"39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ap-session-fulltext-index.js\",\n      \"bytes\": 37704,\n      \"sha256\": \"2399763864034378712095c00e5cc79cbf6224f1a826065b23e9341bea2bd6c9\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13as-session-fulltext-consumers.js\",\n      \"bytes\": 16791,\n      \"sha256\": \"47c82feaeba1f7e20f6cbdaf5c197c0e41a91e7e166e2575d383139a5eee3f56\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\13ba-media-image-contract.js\",\n      \"bytes\": 22030,\n      \"sha256\": \"e4f02abeca91eccb775c4ac35a152ab2916d36be02df841e58f5c37c08a9d145\"\n    },\n    {\n      \"file\": \"C:\\\\Users\\\\87179\\\\AppData\\\\Local\\\\Temp\\\\r31p-sgNqTk\\\\runtime\\\\app\\\\src\\\\14-main.js\",\n      \"bytes\": 41553,\n      \"sha256\": \"a2091249bf4244c3ca829c28a6147d125612da73a3f494e15268d7f4c40231c4\"\n    }\n  ]\n}\n",
+          "occurrences": 1
+        }
+      ],
+      "wholeInverse": true
+    }
+  ],
+  "executionRepoHelpers": [
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\release-checks.js",
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\server-internals.js",
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\kill-own-tree.js",
+      "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\source-slice.js",
+      "sha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4"
+    }
+  ],
+  "nativeAcceptance": false,
+  "productionPromotion": false,
+  "gateExecuted": false
+}

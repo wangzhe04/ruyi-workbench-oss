@@ -1,0 +1,1211 @@
+[
+  {
+    "name": "normalized-unit",
+    "args": [
+      "--test",
+      "--test-concurrency=2",
+      "dev-harness/unit/external-bots-cancel-capacity.test.js",
+      "dev-harness/unit/media-image-contract-cleanup.test.js",
+      "dev-harness/unit/media-image-contract.test.js",
+      "dev-harness/unit/work-data-key-owner-paths.test.js"
+    ],
+    "pid": 32172,
+    "elapsedMs": 42484,
+    "budgetMs": 240000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\normalized-unit.log"
+  },
+  {
+    "name": "acc-offline-installer.static.e2e.js",
+    "args": [
+      "dev-harness/acc-offline-installer.static.e2e.js"
+    ],
+    "pid": 39292,
+    "elapsedMs": 115,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\acc-offline-installer.static.e2e.js.log"
+  },
+  {
+    "name": "action-feedback.static.e2e.js",
+    "args": [
+      "dev-harness/action-feedback.static.e2e.js"
+    ],
+    "pid": 35036,
+    "elapsedMs": 117,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\action-feedback.static.e2e.js.log"
+  },
+  {
+    "name": "agent-mode-v2.static.e2e.js",
+    "args": [
+      "dev-harness/agent-mode-v2.static.e2e.js"
+    ],
+    "pid": 37392,
+    "elapsedMs": 284,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\agent-mode-v2.static.e2e.js.log"
+  },
+  {
+    "name": "agent-team-budget.static.e2e.js",
+    "args": [
+      "dev-harness/agent-team-budget.static.e2e.js"
+    ],
+    "pid": 17592,
+    "elapsedMs": 1563,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\agent-team-budget.static.e2e.js.log"
+  },
+  {
+    "name": "agent-workflows-polling-visibility.static.e2e.js",
+    "args": [
+      "dev-harness/agent-workflows-polling-visibility.static.e2e.js"
+    ],
+    "pid": 5200,
+    "elapsedMs": 104,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\agent-workflows-polling-visibility.static.e2e.js.log"
+  },
+  {
+    "name": "architecture-contract-snapshots.static.e2e.js",
+    "args": [
+      "dev-harness/architecture-contract-snapshots.static.e2e.js"
+    ],
+    "pid": 38344,
+    "elapsedMs": 367,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\architecture-contract-snapshots.static.e2e.js.log"
+  },
+  {
+    "name": "asr-config-ui.static.e2e.js",
+    "args": [
+      "dev-harness/asr-config-ui.static.e2e.js"
+    ],
+    "pid": 12644,
+    "elapsedMs": 142,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\asr-config-ui.static.e2e.js.log"
+  },
+  {
+    "name": "browser-mcp.static.e2e.js",
+    "args": [
+      "dev-harness/browser-mcp.static.e2e.js"
+    ],
+    "pid": 4748,
+    "elapsedMs": 1588,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\browser-mcp.static.e2e.js.log"
+  },
+  {
+    "name": "c2-evidence-spawn-budget.static.e2e.js",
+    "args": [
+      "dev-harness/c2-evidence-spawn-budget.static.e2e.js"
+    ],
+    "pid": 15844,
+    "elapsedMs": 107,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\c2-evidence-spawn-budget.static.e2e.js.log"
+  },
+  {
+    "name": "copy-path-guard.static.e2e.js",
+    "args": [
+      "dev-harness/copy-path-guard.static.e2e.js"
+    ],
+    "pid": 31512,
+    "elapsedMs": 233,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\copy-path-guard.static.e2e.js.log"
+  },
+  {
+    "name": "copy-terms.static.e2e.js",
+    "args": [
+      "dev-harness/copy-terms.static.e2e.js"
+    ],
+    "pid": 24932,
+    "elapsedMs": 174,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\copy-terms.static.e2e.js.log"
+  },
+  {
+    "name": "cost-zero.static.e2e.js",
+    "args": [
+      "dev-harness/cost-zero.static.e2e.js"
+    ],
+    "pid": 8064,
+    "elapsedMs": 108,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\cost-zero.static.e2e.js.log"
+  },
+  {
+    "name": "css-typography-debt.static.e2e.js",
+    "args": [
+      "dev-harness/css-typography-debt.static.e2e.js"
+    ],
+    "pid": 29416,
+    "elapsedMs": 113,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\css-typography-debt.static.e2e.js.log"
+  },
+  {
+    "name": "desktop-dpi.static.e2e.js",
+    "args": [
+      "dev-harness/desktop-dpi.static.e2e.js"
+    ],
+    "pid": 17700,
+    "elapsedMs": 107,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\desktop-dpi.static.e2e.js.log"
+  },
+  {
+    "name": "desktop-shell.static.e2e.js",
+    "args": [
+      "dev-harness/desktop-shell.static.e2e.js"
+    ],
+    "pid": 21496,
+    "elapsedMs": 111,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\desktop-shell.static.e2e.js.log"
+  },
+  {
+    "name": "durable-state-inventory.static.e2e.js",
+    "args": [
+      "dev-harness/durable-state-inventory.static.e2e.js"
+    ],
+    "pid": 35180,
+    "elapsedMs": 270,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\durable-state-inventory.static.e2e.js.log"
+  },
+  {
+    "name": "ec-d-closure.static.e2e.js",
+    "args": [
+      "dev-harness/ec-d-closure.static.e2e.js"
+    ],
+    "pid": 28564,
+    "elapsedMs": 136,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ec-d-closure.static.e2e.js.log"
+  },
+  {
+    "name": "encrypted-storage-freeze.static.e2e.js",
+    "args": [
+      "dev-harness/encrypted-storage-freeze.static.e2e.js"
+    ],
+    "pid": 24852,
+    "elapsedMs": 111,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\encrypted-storage-freeze.static.e2e.js.log"
+  },
+  {
+    "name": "engine-env-brief.static.e2e.js",
+    "args": [
+      "dev-harness/engine-env-brief.static.e2e.js"
+    ],
+    "pid": 25980,
+    "elapsedMs": 5640,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\engine-env-brief.static.e2e.js.log"
+  },
+  {
+    "name": "eol-policy.static.e2e.js",
+    "args": [
+      "dev-harness/eol-policy.static.e2e.js"
+    ],
+    "pid": 6964,
+    "elapsedMs": 1498,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\eol-policy.static.e2e.js.log"
+  },
+  {
+    "name": "facts.static.e2e.js",
+    "args": [
+      "dev-harness/facts.static.e2e.js"
+    ],
+    "pid": 17548,
+    "elapsedMs": 2141,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\facts.static.e2e.js.log"
+  },
+  {
+    "name": "finalize-segments.static.e2e.js",
+    "args": [
+      "dev-harness/finalize-segments.static.e2e.js"
+    ],
+    "pid": 30760,
+    "elapsedMs": 109,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\finalize-segments.static.e2e.js.log"
+  },
+  {
+    "name": "fixture-home.static.e2e.js",
+    "args": [
+      "dev-harness/fixture-home.static.e2e.js"
+    ],
+    "pid": 24704,
+    "elapsedMs": 2154,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\fixture-home.static.e2e.js.log"
+  },
+  {
+    "name": "frontend-domains.static.e2e.js",
+    "args": [
+      "dev-harness/frontend-domains.static.e2e.js"
+    ],
+    "pid": 18988,
+    "elapsedMs": 154,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\frontend-domains.static.e2e.js.log"
+  },
+  {
+    "name": "health-i18n.static.e2e.js",
+    "args": [
+      "dev-harness/health-i18n.static.e2e.js"
+    ],
+    "pid": 37396,
+    "elapsedMs": 136,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\health-i18n.static.e2e.js.log"
+  },
+  {
+    "name": "i18n-en-terms.static.e2e.js",
+    "args": [
+      "dev-harness/i18n-en-terms.static.e2e.js"
+    ],
+    "pid": 9548,
+    "elapsedMs": 118,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\i18n-en-terms.static.e2e.js.log"
+  },
+  {
+    "name": "i18n.static.e2e.js",
+    "args": [
+      "dev-harness/i18n.static.e2e.js"
+    ],
+    "pid": 39808,
+    "elapsedMs": 1624,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\i18n.static.e2e.js.log"
+  },
+  {
+    "name": "inline-script-csp-hash.static.e2e.js",
+    "args": [
+      "dev-harness/inline-script-csp-hash.static.e2e.js"
+    ],
+    "pid": 20140,
+    "elapsedMs": 139,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\inline-script-csp-hash.static.e2e.js.log"
+  },
+  {
+    "name": "kimi-plan-ui.static.e2e.js",
+    "args": [
+      "dev-harness/kimi-plan-ui.static.e2e.js"
+    ],
+    "pid": 5668,
+    "elapsedMs": 127,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\kimi-plan-ui.static.e2e.js.log"
+  },
+  {
+    "name": "live-full-text.static.e2e.js",
+    "args": [
+      "dev-harness/live-full-text.static.e2e.js"
+    ],
+    "pid": 33756,
+    "elapsedMs": 137,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\live-full-text.static.e2e.js.log"
+  },
+  {
+    "name": "manifest-ranges.static.e2e.js",
+    "args": [
+      "dev-harness/manifest-ranges.static.e2e.js"
+    ],
+    "pid": 6992,
+    "elapsedMs": 180,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\manifest-ranges.static.e2e.js.log"
+  },
+  {
+    "name": "mcp-ops-gui.static.e2e.js",
+    "args": [
+      "dev-harness/mcp-ops-gui.static.e2e.js"
+    ],
+    "pid": 39408,
+    "elapsedMs": 162,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\mcp-ops-gui.static.e2e.js.log"
+  },
+  {
+    "name": "media-artifact-package.static.e2e.js",
+    "args": [
+      "dev-harness/media-artifact-package.static.e2e.js"
+    ],
+    "pid": 22452,
+    "elapsedMs": 112,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\media-artifact-package.static.e2e.js.log"
+  },
+  {
+    "name": "memory-toolbox.static.e2e.js",
+    "args": [
+      "dev-harness/memory-toolbox.static.e2e.js"
+    ],
+    "pid": 11212,
+    "elapsedMs": 119,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\memory-toolbox.static.e2e.js.log"
+  },
+  {
+    "name": "mermaid-render.static.e2e.js",
+    "args": [
+      "dev-harness/mermaid-render.static.e2e.js"
+    ],
+    "pid": 40952,
+    "elapsedMs": 587,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\mermaid-render.static.e2e.js.log"
+  },
+  {
+    "name": "model-menu-classes.static.e2e.js",
+    "args": [
+      "dev-harness/model-menu-classes.static.e2e.js"
+    ],
+    "pid": 27724,
+    "elapsedMs": 126,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\model-menu-classes.static.e2e.js.log"
+  },
+  {
+    "name": "module-dependency-graph.static.e2e.js",
+    "args": [
+      "dev-harness/module-dependency-graph.static.e2e.js"
+    ],
+    "pid": 16120,
+    "elapsedMs": 1332,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\module-dependency-graph.static.e2e.js.log"
+  },
+  {
+    "name": "ndjson-line-feeder.static.e2e.js",
+    "args": [
+      "dev-harness/ndjson-line-feeder.static.e2e.js"
+    ],
+    "pid": 38764,
+    "elapsedMs": 189,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ndjson-line-feeder.static.e2e.js.log"
+  },
+  {
+    "name": "net-token-replay.static.e2e.js",
+    "args": [
+      "dev-harness/net-token-replay.static.e2e.js"
+    ],
+    "pid": 6904,
+    "elapsedMs": 111,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\net-token-replay.static.e2e.js.log"
+  },
+  {
+    "name": "new-thread-engine-default.static.e2e.js",
+    "args": [
+      "dev-harness/new-thread-engine-default.static.e2e.js"
+    ],
+    "pid": 12060,
+    "elapsedMs": 142,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\new-thread-engine-default.static.e2e.js.log"
+  },
+  {
+    "name": "onboarding.static.e2e.js",
+    "args": [
+      "dev-harness/onboarding.static.e2e.js"
+    ],
+    "pid": 29996,
+    "elapsedMs": 171,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\onboarding.static.e2e.js.log"
+  },
+  {
+    "name": "overlay-payload-lock.static.e2e.js",
+    "args": [
+      "dev-harness/overlay-payload-lock.static.e2e.js"
+    ],
+    "pid": 2032,
+    "elapsedMs": 291,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\overlay-payload-lock.static.e2e.js.log"
+  },
+  {
+    "name": "overlay-update-gui.static.e2e.js",
+    "args": [
+      "dev-harness/overlay-update-gui.static.e2e.js"
+    ],
+    "pid": 20164,
+    "elapsedMs": 135,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\overlay-update-gui.static.e2e.js.log"
+  },
+  {
+    "name": "process-safety.static.e2e.js",
+    "args": [
+      "dev-harness/process-safety.static.e2e.js"
+    ],
+    "pid": 16336,
+    "elapsedMs": 589,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\process-safety.static.e2e.js.log"
+  },
+  {
+    "name": "progress-events.static.e2e.js",
+    "args": [
+      "dev-harness/progress-events.static.e2e.js"
+    ],
+    "pid": 20720,
+    "elapsedMs": 350,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\progress-events.static.e2e.js.log"
+  },
+  {
+    "name": "prompt-snapshot.static.e2e.js",
+    "args": [
+      "dev-harness/prompt-snapshot.static.e2e.js"
+    ],
+    "pid": 27212,
+    "elapsedMs": 281,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\prompt-snapshot.static.e2e.js.log"
+  },
+  {
+    "name": "provider-reasoning-effort-ui.static.e2e.js",
+    "args": [
+      "dev-harness/provider-reasoning-effort-ui.static.e2e.js"
+    ],
+    "pid": 5368,
+    "elapsedMs": 105,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\provider-reasoning-effort-ui.static.e2e.js.log"
+  },
+  {
+    "name": "rail-pocket.static.e2e.js",
+    "args": [
+      "dev-harness/rail-pocket.static.e2e.js"
+    ],
+    "pid": 20440,
+    "elapsedMs": 115,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\rail-pocket.static.e2e.js.log"
+  },
+  {
+    "name": "resume-banner-dismiss.static.e2e.js",
+    "args": [
+      "dev-harness/resume-banner-dismiss.static.e2e.js"
+    ],
+    "pid": 39200,
+    "elapsedMs": 114,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\resume-banner-dismiss.static.e2e.js.log"
+  },
+  {
+    "name": "route-inventory.static.e2e.js",
+    "args": [
+      "dev-harness/route-inventory.static.e2e.js"
+    ],
+    "pid": 6184,
+    "elapsedMs": 1039,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\route-inventory.static.e2e.js.log"
+  },
+  {
+    "name": "runtime-optimization.static.e2e.js",
+    "args": [
+      "dev-harness/runtime-optimization.static.e2e.js"
+    ],
+    "pid": 23684,
+    "elapsedMs": 514,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\runtime-optimization.static.e2e.js.log"
+  },
+  {
+    "name": "scheduler-ui.static.e2e.js",
+    "args": [
+      "dev-harness/scheduler-ui.static.e2e.js"
+    ],
+    "pid": 21420,
+    "elapsedMs": 264,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\scheduler-ui.static.e2e.js.log"
+  },
+  {
+    "name": "session-save-census.static.e2e.js",
+    "args": [
+      "dev-harness/session-save-census.static.e2e.js"
+    ],
+    "pid": 27484,
+    "elapsedMs": 204,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\session-save-census.static.e2e.js.log"
+  },
+  {
+    "name": "software-engineering-prompt.static.e2e.js",
+    "args": [
+      "dev-harness/software-engineering-prompt.static.e2e.js"
+    ],
+    "pid": 1848,
+    "elapsedMs": 253,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\software-engineering-prompt.static.e2e.js.log"
+  },
+  {
+    "name": "start-experience.static.e2e.js",
+    "args": [
+      "dev-harness/start-experience.static.e2e.js"
+    ],
+    "pid": 39500,
+    "elapsedMs": 135,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\start-experience.static.e2e.js.log"
+  },
+  {
+    "name": "steward-avatar.static.e2e.js",
+    "args": [
+      "dev-harness/steward-avatar.static.e2e.js"
+    ],
+    "pid": 17088,
+    "elapsedMs": 121,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-avatar.static.e2e.js.log"
+  },
+  {
+    "name": "steward-board.static.e2e.js",
+    "args": [
+      "dev-harness/steward-board.static.e2e.js"
+    ],
+    "pid": 35024,
+    "elapsedMs": 187,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-board.static.e2e.js.log"
+  },
+  {
+    "name": "steward-config.static.e2e.js",
+    "args": [
+      "dev-harness/steward-config.static.e2e.js"
+    ],
+    "pid": 30560,
+    "elapsedMs": 1541,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-config.static.e2e.js.log"
+  },
+  {
+    "name": "steward-conversation.static.e2e.js",
+    "args": [
+      "dev-harness/steward-conversation.static.e2e.js"
+    ],
+    "pid": 28664,
+    "elapsedMs": 185,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-conversation.static.e2e.js.log"
+  },
+  {
+    "name": "steward-drawer.static.e2e.js",
+    "args": [
+      "dev-harness/steward-drawer.static.e2e.js"
+    ],
+    "pid": 14368,
+    "elapsedMs": 175,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-drawer.static.e2e.js.log"
+  },
+  {
+    "name": "steward-events.static.e2e.js",
+    "args": [
+      "dev-harness/steward-events.static.e2e.js"
+    ],
+    "pid": 11472,
+    "elapsedMs": 326,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-events.static.e2e.js.log"
+  },
+  {
+    "name": "steward-runner.static.e2e.js",
+    "args": [
+      "dev-harness/steward-runner.static.e2e.js"
+    ],
+    "pid": 33304,
+    "elapsedMs": 422,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-runner.static.e2e.js.log"
+  },
+  {
+    "name": "steward-settings.static.e2e.js",
+    "args": [
+      "dev-harness/steward-settings.static.e2e.js"
+    ],
+    "pid": 25720,
+    "elapsedMs": 211,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-settings.static.e2e.js.log"
+  },
+  {
+    "name": "steward-shell.static.e2e.js",
+    "args": [
+      "dev-harness/steward-shell.static.e2e.js"
+    ],
+    "pid": 14420,
+    "elapsedMs": 182,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-shell.static.e2e.js.log"
+  },
+  {
+    "name": "steward-tools.static.e2e.js",
+    "args": [
+      "dev-harness/steward-tools.static.e2e.js"
+    ],
+    "pid": 12392,
+    "elapsedMs": 5195,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-tools.static.e2e.js.log"
+  },
+  {
+    "name": "steward-walkthrough.static.e2e.js",
+    "args": [
+      "dev-harness/steward-walkthrough.static.e2e.js"
+    ],
+    "pid": 856,
+    "elapsedMs": 201,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\steward-walkthrough.static.e2e.js.log"
+  },
+  {
+    "name": "streaming-responsiveness.static.e2e.js",
+    "args": [
+      "dev-harness/streaming-responsiveness.static.e2e.js"
+    ],
+    "pid": 11236,
+    "elapsedMs": 126,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\streaming-responsiveness.static.e2e.js.log"
+  },
+  {
+    "name": "thinking-boundary.static.e2e.js",
+    "args": [
+      "dev-harness/thinking-boundary.static.e2e.js"
+    ],
+    "pid": 25192,
+    "elapsedMs": 109,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\thinking-boundary.static.e2e.js.log"
+  },
+  {
+    "name": "thread-brief.static.e2e.js",
+    "args": [
+      "dev-harness/thread-brief.static.e2e.js"
+    ],
+    "pid": 31300,
+    "elapsedMs": 217,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\thread-brief.static.e2e.js.log"
+  },
+  {
+    "name": "thread-commission.static.e2e.js",
+    "args": [
+      "dev-harness/thread-commission.static.e2e.js"
+    ],
+    "pid": 624,
+    "elapsedMs": 169,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\thread-commission.static.e2e.js.log"
+  },
+  {
+    "name": "tool-image-inline.static.e2e.js",
+    "args": [
+      "dev-harness/tool-image-inline.static.e2e.js"
+    ],
+    "pid": 21220,
+    "elapsedMs": 153,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\tool-image-inline.static.e2e.js.log"
+  },
+  {
+    "name": "tool-verb-coverage.static.e2e.js",
+    "args": [
+      "dev-harness/tool-verb-coverage.static.e2e.js"
+    ],
+    "pid": 28768,
+    "elapsedMs": 260,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\tool-verb-coverage.static.e2e.js.log"
+  },
+  {
+    "name": "turn-narrative.static.e2e.js",
+    "args": [
+      "dev-harness/turn-narrative.static.e2e.js"
+    ],
+    "pid": 26316,
+    "elapsedMs": 274,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\turn-narrative.static.e2e.js.log"
+  },
+  {
+    "name": "ui-bugfix.static.e2e.js",
+    "args": [
+      "dev-harness/ui-bugfix.static.e2e.js"
+    ],
+    "pid": 31520,
+    "elapsedMs": 126,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ui-bugfix.static.e2e.js.log"
+  },
+  {
+    "name": "ui-v3-p1.static.e2e.js",
+    "args": [
+      "dev-harness/ui-v3-p1.static.e2e.js"
+    ],
+    "pid": 40756,
+    "elapsedMs": 153,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ui-v3-p1.static.e2e.js.log"
+  },
+  {
+    "name": "ui-v3-p2.static.e2e.js",
+    "args": [
+      "dev-harness/ui-v3-p2.static.e2e.js"
+    ],
+    "pid": 38136,
+    "elapsedMs": 157,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ui-v3-p2.static.e2e.js.log"
+  },
+  {
+    "name": "ui-v3-p3a.static.e2e.js",
+    "args": [
+      "dev-harness/ui-v3-p3a.static.e2e.js"
+    ],
+    "pid": 38340,
+    "elapsedMs": 175,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ui-v3-p3a.static.e2e.js.log"
+  },
+  {
+    "name": "ui-v3-p3b.static.e2e.js",
+    "args": [
+      "dev-harness/ui-v3-p3b.static.e2e.js"
+    ],
+    "pid": 10456,
+    "elapsedMs": 170,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ui-v3-p3b.static.e2e.js.log"
+  },
+  {
+    "name": "ui-v3-wave1.static.e2e.js",
+    "args": [
+      "dev-harness/ui-v3-wave1.static.e2e.js"
+    ],
+    "pid": 12872,
+    "elapsedMs": 174,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ui-v3-wave1.static.e2e.js.log"
+  },
+  {
+    "name": "ui-v4-glass.static.e2e.js",
+    "args": [
+      "dev-harness/ui-v4-glass.static.e2e.js"
+    ],
+    "pid": 12564,
+    "elapsedMs": 133,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\ui-v4-glass.static.e2e.js.log"
+  },
+  {
+    "name": "v17-review-fixes.static.e2e.js",
+    "args": [
+      "dev-harness/v17-review-fixes.static.e2e.js"
+    ],
+    "pid": 21532,
+    "elapsedMs": 323,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\v17-review-fixes.static.e2e.js.log"
+  },
+  {
+    "name": "workflow-editor-v2.static.e2e.js",
+    "args": [
+      "dev-harness/workflow-editor-v2.static.e2e.js"
+    ],
+    "pid": 35956,
+    "elapsedMs": 173,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\workflow-editor-v2.static.e2e.js.log"
+  },
+  {
+    "name": "browser-final-1",
+    "args": [
+      "dev-harness/external-bots.browser.e2e.js"
+    ],
+    "pid": 20976,
+    "elapsedMs": 41268,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\browser-final-1.log"
+  },
+  {
+    "name": "browser-final-2",
+    "args": [
+      "dev-harness/external-bots.browser.e2e.js"
+    ],
+    "pid": 15884,
+    "elapsedMs": 40629,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\browser-final-2.log"
+  },
+  {
+    "name": "repo-hygiene",
+    "args": [
+      "dev-harness/repo-hygiene.e2e.js"
+    ],
+    "pid": 16340,
+    "elapsedMs": 21138,
+    "budgetMs": 120000,
+    "timedOut": false,
+    "cleanup": null,
+    "code": 0,
+    "signal": null,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31t-ASmcvR\\repo-hygiene.log"
+  }
+]

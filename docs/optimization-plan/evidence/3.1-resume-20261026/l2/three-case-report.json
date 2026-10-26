@@ -1,0 +1,147 @@
+{
+  "schema": 1,
+  "scope": "Only actual L2 body; full L1/L3 file preserved but those provider tests not run; strict native/socket guard; original 200ms and <1500ms assertion unchanged",
+  "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+  "results": [
+    {
+      "mode": "positive",
+      "dir": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-l2-readiness-diagnostic-20261026-9ab72c6a\\handshake-candidate\\case-positive-MPFjvz",
+      "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+      "candidateSha256": "0f634b535af24ed6fe50ea66c09a555204586fb2913295ef3433890f76fef767",
+      "events": [
+        {
+          "name": "case.start",
+          "date": 1792992593574,
+          "perf": 191.8926
+        },
+        {
+          "name": "append.call",
+          "date": 1792992593575,
+          "perf": 192.6007
+        },
+        {
+          "name": "scenario.assert",
+          "date": 1792992593614,
+          "perf": 232.2638,
+          "actual": "function",
+          "expected": "function"
+        },
+        {
+          "name": "flush.start",
+          "date": 1792992593614,
+          "perf": 232.345,
+          "budget": 200
+        },
+        {
+          "name": "timer200.create",
+          "date": 1792992593615,
+          "perf": 232.4442
+        },
+        {
+          "name": "timer200.fire",
+          "date": 1792992593816,
+          "perf": 433.8372
+        },
+        {
+          "name": "flush.end",
+          "date": 1792992593816,
+          "perf": 433.8961
+        },
+        {
+          "name": "original1500.assert",
+          "date": 1792992593816,
+          "perf": 433.944,
+          "passed": true,
+          "message": "收尾被卡住的事件追加拖了 202 ms"
+        },
+        {
+          "name": "case.afterDrain",
+          "date": 1792992593817,
+          "perf": 435.139
+        }
+      ],
+      "error": null,
+      "scenarioAssertionPassed": true,
+      "originalFlush200Called": true,
+      "flushWaitDate": 202,
+      "flushWaitPerf": 201.5511,
+      "expectedRejection": false
+    },
+    {
+      "mode": "early-reject",
+      "dir": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-l2-readiness-diagnostic-20261026-9ab72c6a\\handshake-candidate\\case-early-reject-AJVW7Z",
+      "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+      "candidateSha256": "0f634b535af24ed6fe50ea66c09a555204586fb2913295ef3433890f76fef767",
+      "events": [
+        {
+          "name": "case.start",
+          "date": 1792992593854,
+          "perf": 471.665
+        },
+        {
+          "name": "append.call",
+          "date": 1792992593854,
+          "perf": 472.3679
+        },
+        {
+          "name": "scenario.assert",
+          "date": 1792992598859,
+          "perf": 5476.8747,
+          "actual": "undefined",
+          "expected": "function"
+        },
+        {
+          "name": "case.afterDrain",
+          "date": 1792992598860,
+          "perf": 5477.7681
+        }
+      ],
+      "error": {
+        "code": "ERR_ASSERTION",
+        "name": "AssertionError",
+        "message": "本件挂起追加 hook 必须已进入\n+ actual - expected\n\n+ 'undefined'\n- 'function'\n"
+      },
+      "scenarioAssertionPassed": false,
+      "originalFlush200Called": false,
+      "expectedRejection": true
+    },
+    {
+      "mode": "miss-hook",
+      "dir": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-l2-readiness-diagnostic-20261026-9ab72c6a\\handshake-candidate\\case-miss-hook-Mpgx4F",
+      "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+      "candidateSha256": "0f634b535af24ed6fe50ea66c09a555204586fb2913295ef3433890f76fef767",
+      "events": [
+        {
+          "name": "case.start",
+          "date": 1792992598911,
+          "perf": 5528.6967
+        },
+        {
+          "name": "append.call",
+          "date": 1792992598911,
+          "perf": 5529.3848
+        },
+        {
+          "name": "scenario.assert",
+          "date": 1792992603921,
+          "perf": 10538.4733,
+          "actual": "undefined",
+          "expected": "function"
+        },
+        {
+          "name": "case.afterDrain",
+          "date": 1792992603921,
+          "perf": 10538.7951
+        }
+      ],
+      "error": {
+        "code": "ERR_ASSERTION",
+        "name": "AssertionError",
+        "message": "本件挂起追加 hook 必须已进入\n+ actual - expected\n\n+ 'undefined'\n- 'function'\n"
+      },
+      "scenarioAssertionPassed": false,
+      "originalFlush200Called": false,
+      "expectedRejection": true
+    }
+  ]
+}

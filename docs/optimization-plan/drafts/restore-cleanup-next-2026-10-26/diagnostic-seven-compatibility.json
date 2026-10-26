@@ -1,0 +1,9 @@
+{
+  "groups": 7,
+  "eachAppliesUniquely": true,
+  "wholeInverseExact": true,
+  "sourceSha256": "e8168e2cbca81ed9c3e47d316fdd3b45d9f67c5064876b4689552f4948057f08",
+  "runtimeBuilt": false,
+  "noComposedProductWritten": true,
+  "scope": "string-only compatibility; separate diagnostic review/runtime pin needed; not a native acceptance"
+}

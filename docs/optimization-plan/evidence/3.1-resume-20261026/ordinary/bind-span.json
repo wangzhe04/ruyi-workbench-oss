@@ -1,0 +1,8 @@
+{
+  "before": "assert.equal(selected.root,actual.root);assert.equal(api.paths.data,actual.root);",
+  "after": "assert.equal(await api.ServerOwnership.canonicalRoot(selected.root),actual.root);assert.equal(await api.ServerOwnership.canonicalRoot(api.paths.data),actual.root);",
+  "original": "C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/ordinary/ordinary-mode-gate.cjs",
+  "beforeSha256": "ed5d7ea14180b1fc08f9a5290f304877039de5c5b84e98c23f7a0f5c7eab22e2",
+  "afterSha256": "7aca67c237157e933611bc213823643472578e8cf6de87d0f84aab8309220837",
+  "wholeInverse": true
+}

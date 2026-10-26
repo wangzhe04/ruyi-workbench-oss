@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "role": "Independent review of original five-source increment; author of private cleanup fixes, which require another reviewer",
+  "status": "Original support has confirmed cleanup blockers. This frozen private fix is ready for independent review only; no production promotion or native recovery acceptance.",
+  "baseline": {
+    "head": "72af3aa2",
+    "current118SourceUnion": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-resume-20261026-c4672ee3\\packages\\codex-ruyi-current118-durability-union-v2-20261025",
+    "increment": "approximately1604 additions/138 removals across5modules; native ef53 is itself part of original increment compared with live, and unchanged by this cleanup fix",
+    "conservation": {
+      "head": "72af3aa2",
+      "archiveCurrent118Rows": 118,
+      "unchangedModules": 113,
+      "exactFiveChanges": [
+        "01p-work-data-store.js",
+        "01aa-work-data-tree.js",
+        "01ab-work-data-full-snapshot.js",
+        "13u-migration-center.js",
+        "13y-external-bot-credentials.js"
+      ],
+      "fixedSources": [
+        {
+          "file": "01aa-work-data-tree.js",
+          "before": "4e6624929f1a1066a4029e839b88cd05b03d25a6e3469024599ceb587fe94cd0",
+          "after": "fcfbed6b129887b2e0766b56041964da25b3858fcb62168ffbbc800e6e501c8c",
+          "groups": 8
+        },
+        {
+          "file": "01ab-work-data-full-snapshot.js",
+          "before": "c4fc8866b43f25bc7e98a24177fc5803a5c207557c2187a687490259f96721f7",
+          "after": "2d0ab97aad7701170fb4acc0e43fc1f00ce4396df945eadd344b0ca249650ea5",
+          "groups": 3
+        },
+        {
+          "file": "01p-work-data-store.js",
+          "before": "a9531d8fc6ba6e423b1b566cbe8bd5a2150cc1930ea2ceefdd18bc98392f615c",
+          "after": "9308bcd32d7b85ea939728e1b5f122aac8a15adea7a8aa9375a972eababc9a74",
+          "groups": 7
+        },
+        {
+          "file": "13u-migration-center.js",
+          "before": "ee359b5d8d843c5c8c237213e7b43b9264f1c0b59adc47caad34f34e4d490c9e",
+          "after": "e8168e2cbca81ed9c3e47d316fdd3b45d9f67c5064876b4689552f4948057f08",
+          "groups": 2
+        },
+        {
+          "file": "13y-external-bot-credentials.js",
+          "before": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51",
+          "after": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51",
+          "groups": 0
+        }
+      ],
+      "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+      "wholeFiveInverse": true,
+      "fulltext": "113 unrelated modules including dedicated fulltext modules matchHEAD Git blob identities; current118 proof also preserves7 specific13u fulltext spans"
+    }
+  },
+  "originalFindings": [
+    {
+      "priority": 1,
+      "file": "13u-migration-center.js",
+      "scope": "migrationWithCapturedBytes,withCapturedReads",
+      "problem": "plain finally cleanup masks falsy primary, and first byte-zero failure skips token release",
+      "reproduction": "cleanup-current-repro.log:5 observed-bug assertions pass; not repaired success"
+    },
+    {
+      "priority": 1,
+      "file": "01p-work-data-store.js",
+      "scope": "withCapturedFile,result cleanup,ownedSnapshot/withOperation cleanup",
+      "problem": "shared try skips release after fill failure; detached result can replace prior failure; unsafe error metadata getters can wash causes"
+    },
+    {
+      "priority": 1,
+      "file": "01aa-work-data-tree.js",
+      "scope": "preserved parse/census/private lease/capture release",
+      "problem": "sequential cleanup can skip second native result/remaining leases/buffers and replace primary"
+    },
+    {
+      "priority": 1,
+      "file": "01ab-work-data-full-snapshot.js",
+      "scope": "restoredFingerprint and common disposal run",
+      "problem": "fingerprint finally masks primary; common disposal can skip clear after release failure and erase cleanup when work failed"
+    }
+  ],
+  "fixScope": [
+    "No product files changed; five standalone private sources only",
+    "Four changed modules use independent cleanup attempts, preserve primitive primary and each cleanup error order; opaque sync releases returning nonundefined refuse",
+    "01p reuses work_data_store.* cleanup codes and observes primary error code as own data only",
+    "01ab common disposal still serial/reverse, now release and clear each attempted; no new public API or lifecycle",
+    "13y remains exactad2: captured source read/authentication/verify path is unchanged; static unexecuted raw.fill masking concern recorded as residual hardening scope, not demonstrated failure",
+    "Default parsing/AAD, original physicalSHA/IDs/volume/native snapshots/checkpoints, source/target key identity, and nativeef53 unchanged by cleanup spans"
+  ],
+  "semanticAudit": {
+    "keys": "Backup owner still requires targetKeys===sourceKeys; FullSnapshot preserves package masters/instances and rewraps through protector; no key rotation/new key substitution added",
+    "crypto": "01p captured paths invoke existing Crypto/Chunks and host purpose/instance/schema/scope/record/seq/generation; no plaintext fallback after capture/verification refusal",
+    "tree": "Private WeakMap capabilities bind ownership/path/current buffers, sync and async lease checks, actual native recensus and default-byte hashes; explicit bounded-native-v1 10000entries/96000000native bytes remains opt-in",
+    "durability": "New-owned-only creation/ID translations, complete receipt bindings and fixed proof checks retained. Native code and metadata behavior still require actual gates; original source/target metadata is never refreshed in this fix",
+    "fulltext": "118 input identity rows reverified againstHEAD Git blobs:113 unchanged,5 intentional changes; seven13u fulltext span conservation remains in original union proof",
+    "cleanup": "No foreign helper/code getters intentionally invoked; unknown release retains owner. Strictly conservative helperMayStillRun flags on failed releases may exceed a nested known-memory-only cause; independent reviewer to assess."
+  },
+  "tests": [
+    {
+      "scope": "13u two cleanup scopes",
+      "tests": 70,
+      "pass": 70,
+      "fail": 0,
+      "skip": 0,
+      "log": "cleanup-fixed70.log",
+      "sha256": "144cbb83469052440e1dd69baf5546d93ec5e0ed0e9b64000ff32ea1c43326b5"
+    },
+    {
+      "scope": "independent original4 counterexamples plus9 extra actual-buffer/Tree/getter cases",
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skip": 0,
+      "log": "support-final13-corrected.log",
+      "sha256": "a82d0eee38f63f6f44279a6f3e03969acdbd646ebd6f1bac7eed3ec92cf0c0c9"
+    },
+    {
+      "scope": "FullSnapshot common disposal",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skip": 0,
+      "log": "snapshot-disposal4.log",
+      "sha256": "02f1e4c32999080aaea7bb2571703cc1b9f0b45d8d9b62290b42b72df9c62e6a"
+    },
+    {
+      "scope": "original default/crypto/portable/terminal/durability suite over final five-source JS model composition",
+      "tests": 55,
+      "pass": 55,
+      "fail": 0,
+      "skip": 0,
+      "log": "five-source-final55-with-disposal.log",
+      "sha256": "bab053ac7fe5982e86f4b31bc624f28f1cda0c1f39642b8abef2e532793de39f"
+    }
+  ],
+  "controls": [
+    {
+      "scope": "same original4 assertions with original frozen sources",
+      "tests": 4,
+      "pass": 0,
+      "fail": 4,
+      "exit": 1,
+      "log": "independent4-inverse-control.log",
+      "sha256": "7e9744b22578aa5107d1d062a13673bb2c1da5e087e18e46013e284ca6a8c7c6"
+    },
+    {
+      "scope": "same selected13u positive compound cleanup assertion with original scope",
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "exit": 1,
+      "log": "13u-inverse-one-control.log",
+      "sha256": "5a65a57ca7651fae924a658910378bce847cfc6f707b9071a4464ad6fddee43b"
+    }
+  ],
+  "fixtureCorrections": [
+    {
+      "log": "support-final13.log",
+      "fact": "three Store fixtures initially used constBlock on async arrow and cut before body; only fixture extraction changed to bracedBlock; old failures retained, all assertions unchanged"
+    }
+  ],
+  "archiveReviewCoverage": [
+    {
+      "file": "ruyi-target-diagnostic-independent-context-20261025/review-70b.json",
+      "scope": "70b source1b7455 diagnostic7delta over ee359 and driver745164; current118 support is assumed baseline, not independently re-reviewed complete delta",
+      "sha256": "27737ddcec0093a5e9df271352eeef910802e71cf530652f761eae4406c7826d"
+    },
+    {
+      "file": "ruyi-ordinary-diagnostic-v2-independent-20261025/review.json",
+      "scope": "4266 ordinary diagnostic cause frames/driver/launcher and complete guard; not support implementation or actual migration success",
+      "sha256": "727ade853fa97656e600ff43adea48e10bba20d84c14e7624c6f615c29f87536"
+    },
+    {
+      "file": "ruyi-ordinary-nonempty-independent-context-20261025/review-ca0-guard-corrected.json",
+      "scope": "ca0 ordinary gate/source contracts plus corrected guard40; not five support source code acceptance",
+      "sha256": "fe37dc65399354db4ec15ac57680ca4a0174782ea27ca00f73fb2a3d5744d207"
+    },
+    {
+      "file": "ruyi-published-target-launcher-independent-20261025/review.json",
+      "scope": "3a2c launcher identity substitution to diagnostic runtimee39; not product support logic acceptance",
+      "sha256": "021b5a37e54b16e4faf929e577b5fad9440f7f139635948d573e8f20a467d213"
+    },
+    {
+      "file": "ruyi-target-diagnostic-actual-independent-20261025/review.json",
+      "scope": "readonly actual prior red evidence (6 archive/intent access-time differences); no repaired source or green restored journey",
+      "sha256": "6842157482a66db3c845f80958a4aefc4eed24d1ba6c8cf358c3afc202d73182"
+    }
+  ],
+  "nativeRed": {
+    "latest": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-modes-NLE1Mo/restore.stderr.log",
+    "stage": "ordinary installPortable -> portableVerifyInherited -> portableProofExact(actual,expected)",
+    "target73Scope": "targets installed originals later verification; does not change ordinary inherited branch",
+    "diagnostic": "Original seven diagnostic spans include inherited.identity/inherited.snapshot; string-only unique composition/inverse proof kept separately, no diagnostic runtime built",
+    "before": "No existing failing root/before read or reset; only existing stderr observed; next native role requires fresh synthetic root and original budgets"
+  },
+  "notClaimed": [
+    "full support accepted",
+    "native restore repaired",
+    "complete work-data encryption journey",
+    "worker/upload/download/activation configured",
+    "production enabled",
+    "historical missing helper terminal inventory repaired"
+  ]
+}

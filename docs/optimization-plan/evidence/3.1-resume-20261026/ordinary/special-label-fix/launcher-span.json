@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "baseline": "C:/Users/87179/AppData/Local/Temp/ruyi-special-refusal-safe-v2-qXY4ov/run-ordinary-mode-gate.cjs",
+  "beforeSha256": "ad8e229886a7d305a2d893a48f599321d153818a8c8dabc784346afe3b93afb1",
+  "afterSha256": "914ecfeb17ebeeb8c64335b85b7d0009b6f046d375a47c86cbe63676e219d890",
+  "before": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874",
+  "after": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89",
+  "wholeInverseExact": true
+}

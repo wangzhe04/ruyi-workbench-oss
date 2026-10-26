@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 118,
-    "providedSymbols": 4147,
-    "requiredSymbols": 3973,
-    "edges": 817,
+    "modules": 119,
+    "providedSymbols": 4150,
+    "requiredSymbols": 3975,
+    "edges": 819,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -26188,6 +26188,8 @@
         "externalBotActors",
         "externalBotArchiveDelivery",
         "externalBotBoundReplyText",
+        "externalBotCancelDelivery",
+        "externalBotCancellationWindow",
         "externalBotCapturePairing",
         "externalBotChains",
         "externalBotConfigured",
@@ -28962,8 +28964,33 @@
       ]
     },
     {
-      "file": "14-main.js",
+      "file": "13ba-media-image-contract.js",
       "order": 117,
+      "layer": "unclassified",
+      "note": "M4 bounded in-memory image contract; production media owners unbound",
+      "provides": [
+        "MediaImageContract"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01h-privacy-core.js",
+          "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "14-main.js",
+      "order": 118,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -39220,6 +39247,22 @@
       "symbols": [
         "STEER_QUEUE_MAX",
         "activeAgentRuns"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ba-media-image-contract.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ba-media-image-contract.js",
+      "to": "01h-privacy-core.js",
+      "symbols": [
+        "PrivacyCore"
       ],
       "direction": "backward"
     },

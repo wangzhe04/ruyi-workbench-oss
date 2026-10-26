@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "scope": "New safe diagnostic execution inputs only; old f925 blocked; runtime e1b unchanged",
+  "driver": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874",
+  "launcher": "ad8e229886a7d305a2d893a48f599321d153818a8c8dabc784346afe3b93afb1",
+  "files": [
+    {
+      "file": "author-report.json",
+      "bytes": 1278,
+      "sha256": "af4ad9f7d89da92c45a11e6a89e2b59575222b7f224ae5fc54a9fa5e14e503ba"
+    },
+    {
+      "file": "baseline\\ordinary-gate-plan.json",
+      "bytes": 922,
+      "sha256": "5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec"
+    },
+    {
+      "file": "baseline\\ordinary-mode-gate.cjs",
+      "bytes": 36265,
+      "sha256": "8130a6a35a4af0a32e0f859b2274c7b19c77a801cf67ffb2066149aa80f972a7"
+    },
+    {
+      "file": "baseline\\ordinary-runtime-inputs.json",
+      "bytes": 28043,
+      "sha256": "c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217"
+    },
+    {
+      "file": "baseline\\run-ordinary-mode-gate.cjs",
+      "bytes": 7078,
+      "sha256": "c0e4b827c3daad1f714e28b467ec6b62de86330867f58bae05fc507f3f0ce753"
+    },
+    {
+      "file": "diagnostic.test.cjs",
+      "bytes": 4156,
+      "sha256": "82b45cde1282d71fab53d94bc900a1eb4959b2dddfae989761013b649966984b"
+    },
+    {
+      "file": "launcher-span.json",
+      "bytes": 504,
+      "sha256": "171f2b10a32c13f732ed764d24d72ea1c71de818f766ecca0b5a98a103ab85c4"
+    },
+    {
+      "file": "ordinary-gate-plan.json",
+      "bytes": 922,
+      "sha256": "5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec"
+    },
+    {
+      "file": "ordinary-mode-gate.cjs",
+      "bytes": 36621,
+      "sha256": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874"
+    },
+    {
+      "file": "ordinary-runtime-inputs.json",
+      "bytes": 28043,
+      "sha256": "c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217"
+    },
+    {
+      "file": "pure.log",
+      "bytes": 566,
+      "sha256": "abe18fa99383267f0cd35484f7b6db639d930343bc49defc1917e14e26a65a68"
+    },
+    {
+      "file": "run-ordinary-mode-gate.cjs",
+      "bytes": 7078,
+      "sha256": "ad8e229886a7d305a2d893a48f599321d153818a8c8dabc784346afe3b93afb1"
+    },
+    {
+      "file": "span.json",
+      "bytes": 1719,
+      "sha256": "96852cea6715cc9017282c27bde47a922fb0807e1cb179804916892601f88b04"
+    }
+  ]
+}

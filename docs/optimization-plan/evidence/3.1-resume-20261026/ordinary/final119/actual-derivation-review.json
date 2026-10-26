@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_restore",
+  "status": "APPROVED FOR ONE SERIAL PRIVATE ACTUAL ORDINARY GATE; NOT ACTUAL-GATE PASS OR PRODUCTION ACCEPTANCE",
+  "root": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr",
+  "proof": {
+    "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/ordinary/derivation-proof.json",
+    "sha256": "ef3dac1f2c1470cdc4049434fd5567214f32e97ac16f14f845296f457fcb0847"
+  },
+  "runtime": {
+    "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/server.js",
+    "sha256": "52fb036631e239e203aaf6279ca629f3f64c6298904bed43219f2cfc4ff24449",
+    "bytes": 7865876,
+    "exactConcatenation": true
+  },
+  "frozen448Verified": true,
+  "sources123Verified": true,
+  "modules119Verified": true,
+  "manifestOnlyDerived238RangeIntegers": true,
+  "runtimeInputs121Verified": true,
+  "privateNativeConstant": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+  "nativeConstantOnlyEvaluated": true,
+  "liveF79NotSubstituted": true,
+  "physicalComponentsChecked": 620,
+  "allObservedPathsNonLinkAndCanonical": true,
+  "derivations": [
+    {
+      "file": "ordinary-gate-plan.json",
+      "sha256": "3b9faf08bd8877a403ea57a25f32844eb13836aa7eb2ab5ce5369827cc8cbca5",
+      "wholeInverseExact": true,
+      "allowedEdits": 2
+    },
+    {
+      "file": "ordinary-mode-gate.cjs",
+      "sha256": "4f6565eab1732dfe24e97b2a359aee6b836d7117c8d76f7a212051ef81c4f701",
+      "wholeInverseExact": true,
+      "allowedEdits": 5
+    },
+    {
+      "file": "run-ordinary-mode-gate.cjs",
+      "sha256": "e15a7e015f930d1a0d770bf63aa44b6b01b93f7e382d844ed94bc2cabe3ad3a1",
+      "wholeInverseExact": true,
+      "allowedEdits": 4
+    },
+    {
+      "file": "ordinary-runtime-inputs.json",
+      "sha256": "f53fcb1629d4d60424bb7dbf623bc9c26a360be1c9a34789a23529adda6461b0",
+      "wholeInverseExact": true,
+      "allowedEdits": 1
+    }
+  ],
+  "allInverseExact": true,
+  "payloads8AndRoleBodiesUnchanged": true,
+  "budgetsMilliseconds": [
+    240000,
+    250000,
+    2000
+  ],
+  "repositoryHelpers": [
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\release-checks.js",
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\server-internals.js",
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\kill-own-tree.js",
+      "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\source-slice.js",
+      "sha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4"
+    }
+  ],
+  "scope": {
+    "prepareInvoked": false,
+    "buildInvoked": false,
+    "serverLoaded": false,
+    "nativeExecuted": false,
+    "actualGateRun": false,
+    "oldFailureRootsModified": false,
+    "productionModified": false
+  },
+  "boundary": "121 inputs are rehashed at driver/role entry and successful completion; no continuous watch. Sidecars/build were checked here but are outside role121 pin. No concurrent namespace CAS claim. Actual ordinary restore and ef53 native behavior remain unaccepted until the separate gate result."
+}

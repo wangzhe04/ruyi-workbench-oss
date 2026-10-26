@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "review_image, independent nonauthor of f9/target fix and source composition",
+  "verdict": {
+    "status": "APPROVED FOR PRIVATE BUILD AND ACTUAL SYNTHETIC-ROOT GATES ONLY",
+    "blockers": [],
+    "identity": "61b2ef7d94fc53e03c0e7f2a7d2d5a5aba0dcf6b405c443ad068bc7df018ddc6",
+    "productionPromotion": false,
+    "nativeAcceptance": false,
+    "scope": "Only this new source identity clears the two target14 cleanup blockers. Olda25 remains blocked; originalf9 source review remains valid."
+  },
+  "sources": {
+    "withoutDiagnostic": "12afea65c8e2e7b3ee36e05dc338dbc354117aee5721f9ae65aa94ddbec15be8",
+    "withDiagnostic": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+    "members": 448,
+    "allMemberLengthsAndHashesVerified": true,
+    "perProductFileCount": 124,
+    "onlyChangedFile": "runtime/app/src/13u-migration-center.js",
+    "otherFilesEach": 123,
+    "onlyChange": "Unique local cleanup aggregation span; exact inverse returns the corresponding blockeda25 source.",
+    "f9Helper": "Calls existing migrationCapturedCleanupFailure(primary,failed,[cleanup],true); exact helper body matches f9e816 source. Local own code/message assignments preserve portable error contract.",
+    "otherFourSupportSourcesUnchanged": true,
+    "currentUnrelatedJS114Preserved": true,
+    "diagnostic7UniqueForwardAndInverseExact": true,
+    "privateNative": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34"
+  },
+  "verification": {
+    "independent34": {
+      "tests": 34,
+      "pass": 34,
+      "fail": 0,
+      "skip": 0,
+      "log": "final-target34-independent.log",
+      "original2AssertionsByteExact": true,
+      "scopes": "2 original independent counterexamples +25 falsy primary/cleanup pairs +5 unproved returns +1 success/exact-primary +1 getter case"
+    },
+    "oldScopeControl": {
+      "tests": 2,
+      "pass": 0,
+      "fail": 2,
+      "exit": 1,
+      "log": "final-target-oldscope2-control.log",
+      "meaning": "Same original positive requirements run on olda25 still fail ERR_ASSERTION; not an asserted-BUG green."
+    },
+    "previousIndependent87": "f9 cleanup87 strong-pure assertions passed separately; see formal-review.json/independent87.log.",
+    "authorTarget73": "73/73 log and adaptation identities in61b2 manifest verified, not rerun by reviewer. Baseline119/f9 retargeting and actual existing-helper lexical injection recorded, no old assertions deleted.",
+    "guard": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd"
+  },
+  "resolution": [
+    "Foreign cause flag getter is never invoked; original primary and cleanup objects remain in order with original cause identity.",
+    "Promise-only/nonundefined/thrown release refuses and keeps helperMayStillRun/ownershipRetained uncertainty. Successful cleanup still returns result or exact primitive primary.",
+    "Source/target leases, fresh capture, current physical byte hashes, metadata refusal, source canonical bytes and AAD contracts unchanged by this local span.",
+    "No new read/capture/native/timestamp/transport behavior, diagnostic7 remains independently reversible and bounded to existing memory."
+  ],
+  "nativeBoundary": {
+    "live": "f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25",
+    "private": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+    "reference": "formal-review.json contains complete352added/6removed live→private C# static audit and all archived review identity limits.",
+    "restriction": "Privateef53 unchanged relative to privateunion/f9/a25 only. No currentlivef79 leaf/short-path success substitutes for privateef53 operations; prior ordinary inherited.snapshot and long-path failures stay open."
+  },
+  "nextActualGateContract": [
+    "Root serializes build and actual Windows/PowerShell5/Node24 roles; pin chosen new source, resulting runtime bytes, driver and launcher.",
+    "Generate fresh owned synthetic source/stage/target directories and original first checkpoints. Use actual target lease and retain source/target snapshot identities.",
+    "Keep original role/overall budgets, refusal/hash/metadata/cause/cleanup assertions; do not refresh a failed before, skip hashing, alter timestamps in harness or rewrite metadata to obtain success.",
+    "Account for each actual native/helper process through close, retaining unknown-helper and ownership state on failed closure; cleanup only explicitly owned disposable roots after known close.",
+    "Build/gate permission does not mean tests passed, source bug repaired native behavior, production activation approved, user data encryption enabled or3.1 complete."
+  ],
+  "actions": "Reviewer wrote only ownTEMP reports/runners. No product or frozen candidate edits. No build/native/HTTP/browser/heavy filesystem or capacity tests.",
+  "evidence": [
+    {
+      "file": "target-fix-byte-validation.json",
+      "sha256": "5667efc01b54cf629eae6c5216d3ecbf7c1c9a9b921b97b937c6002880146d88"
+    },
+    {
+      "file": "final-target34-independent.log",
+      "sha256": "c59091e0756c3b7ba4d7c9d10eaae7e37ca1d04ed0b2a41652dca500f6376244"
+    },
+    {
+      "file": "final-target-oldscope2-control.log",
+      "sha256": "f034ab2ba0dcee13d03c4c0d131b2891e3d6b9ec3fcf76d0443d4b8673d240ca"
+    },
+    {
+      "file": "formal-review.json",
+      "sha256": "2566214399381899f1f68e396259496e6d73f0908b3c3754cf88cc52bdf67329"
+    },
+    {
+      "file": "final-capacity-integration-review.json",
+      "sha256": "ade049957dd6d7cb7fd40f476747f1030c9489e5fe3feefc05a187414456d1e7"
+    }
+  ]
+}

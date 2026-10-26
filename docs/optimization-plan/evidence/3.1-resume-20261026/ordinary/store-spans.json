@@ -1,0 +1,21 @@
+{
+  "original": "C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/ordinary-bind-case-fix",
+  "originalDriverSha256": "7aca67c237157e933611bc213823643472578e8cf6de87d0f84aab8309220837",
+  "driverSha256": "69af800825580d51bff5b8269a30c671d40da2624112d65603aed2554eeae85f",
+  "launcherSha256": "677135373147bb2a819cc86118a380b2ebe144a8fd9266e78c534ff221034f5a",
+  "spans": [
+    {
+      "before": "'migrationCopySkills','migrationLogs']",
+      "after": "'migrationCopySkills','migrationLogs','sessionBodyWriteText']"
+    },
+    {
+      "before": "function dataStore(api,root,row,keys,enabled){const descriptor=api.WorkDataMigrationCodecs.describe(row.relative);return api.WorkDataStore.createText({...descriptor,file:()=>p.join(root,...row.relative.split('/')),keys,enabled:()=>enabled,writeJson:api.atomicWriteJson});}",
+      "after": "function dataStore(api,root,row,keys,enabled){const descriptor=api.WorkDataMigrationCodecs.describe(row.relative);assert.equal(descriptor.codec,'text');return api.WorkDataStore.createText({...descriptor,maxPlaintextBytes:descriptor.maxPlaintextBytes||256*1024*1024,file:()=>p.join(root,...row.relative.split('/')),keys,enabled:()=>enabled,writeJson:api.atomicWriteJson});}"
+    },
+    {
+      "before": "else await dataStore(api,input.base,row,keys,false).write(row.raw);",
+      "after": "else if(api.WorkDataMigrationCodecs.describe(row.relative).codec==='session-records'){assert.ok(row.raw.endsWith('\\n'));const file=p.join(input.base,...row.relative.split('/')),encoded=await api.sessionBodyWriteText(file,row.raw.slice(0,-1).split('\\n'));assert.equal(encoded,row.raw);await write(file,encoded);}else await dataStore(api,input.base,row,keys,false).write(row.raw);"
+    }
+  ],
+  "wholeInverse": true
+}

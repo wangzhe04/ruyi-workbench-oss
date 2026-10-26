@@ -1,0 +1,10 @@
+{
+  "beforeSha256": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33",
+  "afterSha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+  "spans": [
+    {
+      "before": "  await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership.",
+      "after": "  // Refuse this mutation before ACK/abort if its legacy plaintext representation\n  // exceeds the existing physical read ceiling, even when sealing is enabled.\n  if (Buffer.byteLength(JSON.stringify(state, null, 2), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes)\n    throw externalBotError('external_channel.inbox_full', 503);\n  await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership."
+    }
+  ]
+}

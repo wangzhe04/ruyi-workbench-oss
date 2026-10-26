@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "author": "review_image",
+  "status": "Frozen single-span private candidate; nonauthor review required, no build/native/live promotion.",
+  "products": [
+    {
+      "file": "13u-migration-center.js",
+      "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb",
+      "baseline": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+      "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+      "spanFile": "span.json"
+    }
+  ],
+  "sourceChange": "Only ordinary installPortable platform.move now supplies preserveMetadata:true. Original source,target,owned.objectInfo.id, returned ID/volume refusal, stageProof, inherited/final checks and code are byte-preserved. Exact unique inverse returns0975 full source.",
+  "observedInput": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-modes-61WuRD/restore.stderr.log",
+    "bytes": 3969,
+    "sha256": "3b3312a4c4e958df488e8fc459dddc137fb36e7e06c92637eb7c0a028d0907d5",
+    "check": "inherited.snapshot",
+    "path": ".work-data/skill-backups/objects-v1",
+    "changedEntries": 1,
+    "fields": {
+      "times": {
+        "expected": [
+          "134374684970457478",
+          "134374684970457478",
+          "134374684970457478",
+          "134374684970457478"
+        ],
+        "actual": [
+          "134374684970457478",
+          "134374684970457478",
+          "134374684970457478",
+          "134374685081291902"
+        ]
+      }
+    },
+    "interpretation": "Actual source0975 ordinary path lacked the opt-in while originals path already suppliedtrue. Diagnostic records only inherited objects-v1 root Change difference (times index3). This supports the narrow hypothesis, not sole causality or proof that actual restoration is repaired."
+  },
+  "existingNativeContract": "Privateef53 MoveStore tests preserveMetadata before setting PreserveTimeHandles and opening handles; MoveStoreCore captures actual before Basic/short name and uses its existing restore/check branch only when true. This JS opt-in changes no native bytes or before snapshot. It does not patch failed target metadata or replace fixed stage proof.",
+  "tests": {
+    "strongPure26": {
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "skip": 0,
+      "log": "strong-pure-final26.log",
+      "guard": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+      "fixture": "Actual source ordinary installPortable, actual default platform.move wrapper and broker command serialization, actual capture-preserved wrapper, actual fingerprint/durability/inherited/final predicates. Native broker/OS ownership/filesystem are explicitly in-memory models.",
+      "coverage": [
+        "exact cmd/source/target/id/true forwarded once and all broker wrappers close their exact model once",
+        "returnedID/volume/null/falsy move failure remain refused",
+        "stageID/volume/Basic/proof/external volume/replacement and source-object identity fail closed before move",
+        "target collision/root identity/missing identity/owner rejection remain refused",
+        "all four inherited Basic time drifts and inheritedID/volume differences remain refused",
+        "final root/replacement mismatch after inherited check/flush remains refused",
+        "expected stageProof serialized identity never refreshed across success and failures"
+      ]
+    },
+    "oldFlagControl": {
+      "tests": 2,
+      "pass": 0,
+      "fail": 2,
+      "exit": 1,
+      "log": "old-flag-control2.log",
+      "source": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+      "meaning": "Same positive flag requirement fails old command deep equality. Same modeled move-time contract success test receives unexpected actual inherited.snapshot refusal when old command omits flag. Both are ERR_ASSERTION, not BUG-as-green."
+    },
+    "modelCausalityLimit": "The optional model deliberately changes Change when preserve flag is missing. It proves the unchanged actual inherited predicate rejects that condition, not that Windows behavior or unique causal point was established."
+  },
+  "fixtureHistory": [
+    {
+      "files": [
+        "fixture-first-constblock-invalid.test.cjs",
+        "fixture-first-constblock-invalid.log"
+      ],
+      "reason": "constBlock sliced arrow parameter comma; assembly ReferenceError, no product finding."
+    },
+    {
+      "files": [
+        "fixture-second-missing-eq.test.cjs",
+        "fixture-second-missing-eq.log"
+      ],
+      "reason": "Missing lexical eq dependency; assembly ReferenceError. Corrected using exact sliceBlock; preflight assertions strengthened to specific original error codes."
+    },
+    {
+      "files": [
+        "fixture-third-invalid-opaque.test.cjs",
+        "fixture-third-invalid-opaque.log"
+      ],
+      "reason": "Synthetic root99 opaque string had128chars; actual shape validator correctly refused. Fixture changed to SHA256 opaque64, product/real shape predicate unchanged."
+    }
+  ],
+  "conservation": {
+    "nativeLiteral": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+    "nativeUnchanged": true,
+    "originalsFunctionExact": true,
+    "inheritedFunctionExact": true,
+    "finalFunctionExact": true,
+    "platformWrapperExact": true,
+    "wholeInverseExact": true
+  },
+  "actions": {
+    "productLiveTouched": false,
+    "priorFailedTreeTouched": false,
+    "old61bOrA25IdentitiesTouched": false,
+    "build": false,
+    "native": false,
+    "http": false,
+    "browser": false
+  },
+  "next": "review_cancel independently reviews this frozen identity; review_restore may pin only this exact single13u span in a new source-only future119 preparer. Root separately reviews and serializes any build/actual fresh synthetic-root gate with original budgets. No claim of completeM3/support, repaired actual metadata or release."
+}

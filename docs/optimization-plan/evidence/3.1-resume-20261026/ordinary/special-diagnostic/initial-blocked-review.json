@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "BLOCKED only for reproduced code-object diagnostic output gap; original4pure and all source/path/inventory checks pass",
+  "identitySha256": "57d2a746f7a3e020787d71355b544a89c0575900ec0e9b61e48061646e7ab3be",
+  "identityMembersVerified": 14,
+  "sourceWholeInverseExact": true,
+  "launcherOnlyDriverShaInverseExact": true,
+  "supportInputUnchanged": true,
+  "runtimeInputFilesVerified": 121,
+  "pathsChecked": 148,
+  "allExistingAncestorsNonLinkAndCanonical": true,
+  "blockedEvidence": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-diagnostic-independent-20261026-4ecda272\\code-object-negative.json",
+    "sha256": "943dc115039228894d774f71f2558fea891b1ee0de20460d05b494b6e8f35b5e"
+  },
+  "noNativeBuildOrGate": true
+}

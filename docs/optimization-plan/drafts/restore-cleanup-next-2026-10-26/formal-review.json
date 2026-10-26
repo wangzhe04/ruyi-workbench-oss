@@ -1,0 +1,178 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "review_image, nonauthor of f9 support fixes and a25 source composition",
+  "verdict": {
+    "f9": "No blocking finding in frozen five-source cleanup increment;87 strong-pure assertions independently passed. Source/pure readiness only.",
+    "a25": "BLOCKED for next build/native gate until new target14 withPortableTargetReads cleanup repaired and new identity reviewed.",
+    "production": "Not approved for live promotion or user data.",
+    "withdrawal": "Earlier preliminary no-blocker message for private synthetic-root actual gate explicitly withdrawn as soon as target14 flaw found. Root confirmed a25 remains source-only."
+  },
+  "identity": {
+    "supportSha256": "f9b119fa6a919f649fde97fb1985bf7796c8ddc89d0ccb0b529946c83e7af6b3",
+    "supportInventoryRows": 24,
+    "supportProducts": 5,
+    "compositionSha256": "a25a884293d62d962c89cb332c607b060ff199f772ba851625650a8faa287d2c",
+    "compositionMembers": 265,
+    "allLengthsAndHashesVerified": true,
+    "layerGroups": [
+      20,
+      14,
+      7
+    ],
+    "independentForwardUniqueInverseExact": true,
+    "unrelatedCurrentLiveJSByteExact": 114
+  },
+  "blockers": [
+    {
+      "priority": 1,
+      "symbol": "withPortableTargetReads",
+      "layer": "target14",
+      "trigger": "work throws null; release throws cause with helperMayStillRun getter throwing false",
+      "observed": "Getter invoked1time; false replaces primary+cleanup instead of typed AggregateError.",
+      "test": 1
+    },
+    {
+      "priority": 1,
+      "symbol": "withPortableTargetReads",
+      "layer": "target14",
+      "trigger": "release returns Promise-only result",
+      "observed": "Unproved async cleanup refused but helperMayStillRun becomes false.",
+      "test": 2
+    }
+  ],
+  "fixContract": "Reuse existing f9 migrationCapturedCleanupFailure(primary,failed,[cleanup],true). Preserve local portable_target_read_cleanup_uncertain code/message via safe data assignment if needed. Retain ordered causes/cause and cleanup/owner/unknown flags; no getter calls, new capture, timestamp writes or native change. Author makes new frozen candidate, reviewer does not fix it.",
+  "pure": {
+    "registered": 87,
+    "pass": 87,
+    "fail": 0,
+    "log": "independent87.log",
+    "scopes": "13u70 + original independent4 + actual-tree/store/getter9 + FullSnapshot disposal4; excludes target14 scope",
+    "original4": "Only source path/helper lexical injection changed; all assertions byte-preserved.",
+    "target14": {
+      "tests": 2,
+      "pass": 0,
+      "fail": 2,
+      "exit": 1,
+      "log": "target14-cleanup-first-red.log",
+      "test": "target14-cleanup-independent.test.cjs"
+    },
+    "author55": "Frozen55 source model log verified only, not rerun;55/target73 cannot discharge these new target14 failures.",
+    "fixtureCorrection": "Own first87 preflight stopped0tests because Windows require.cache uses resolved backslashes; fixed only lookup path.resolve. Guard unchanged; invalid guard-cache-path-first-red.log retained."
+  },
+  "native": {
+    "liveLiteral": "f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25",
+    "privateLiteral": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+    "delta": {
+      "added": 352,
+      "removed": 6,
+      "diff": "native-delta.diff"
+    },
+    "read": "Complete extracted C# delta read: time-suppressed handles; relative/ID-bound and one-use captured directory flush; volume/identity/path/metadata checks; create-new owned portable objects/streams and actual readback. These are substantive behavior changes.",
+    "conservation": "ef53 unchanged only private union→f9→target14→diag7. Livef79 leaf results do not clear privateef53.",
+    "archiveCoverage": [
+      {
+        "file": "ruyi-target-diagnostic-independent-context-20261025/review-70b.json",
+        "scope": "70b source1b7455 diagnostic7delta over ee359 and driver745164; current118 support is assumed baseline, not independently re-reviewed complete delta",
+        "sha256": "27737ddcec0093a5e9df271352eeef910802e71cf530652f761eae4406c7826d"
+      },
+      {
+        "file": "ruyi-ordinary-diagnostic-v2-independent-20261025/review.json",
+        "scope": "4266 ordinary diagnostic cause frames/driver/launcher and complete guard; not support implementation or actual migration success",
+        "sha256": "727ade853fa97656e600ff43adea48e10bba20d84c14e7624c6f615c29f87536"
+      },
+      {
+        "file": "ruyi-ordinary-nonempty-independent-context-20261025/review-ca0-guard-corrected.json",
+        "scope": "ca0 ordinary gate/source contracts plus corrected guard40; not five support source code acceptance",
+        "sha256": "fe37dc65399354db4ec15ac57680ca4a0174782ea27ca00f73fb2a3d5744d207"
+      },
+      {
+        "file": "ruyi-published-target-launcher-independent-20261025/review.json",
+        "scope": "3a2c launcher identity substitution to diagnostic runtimee39; not product support logic acceptance",
+        "sha256": "021b5a37e54b16e4faf929e577b5fad9440f7f139635948d573e8f20a467d213"
+      },
+      {
+        "file": "ruyi-target-diagnostic-actual-independent-20261025/review.json",
+        "scope": "readonly actual prior red evidence (6 archive/intent access-time differences); no repaired source or green restored journey",
+        "sha256": "6842157482a66db3c845f80958a4aefc4eed24d1ba6c8cf358c3afc202d73182"
+      }
+    ],
+    "allArchiveReviewHashesReverified": true,
+    "archiveLimit": "70b/4266/ca0/3a2c and previous-red evidence audits do not cover whole livef79→privateef53 native increment.",
+    "actualGateBoundary": "Only after target14 repair/review: root-serial private build and fresh exclusively owned synthetic source/stage/target roots, fixed original before checkpoints, unchanged refusal/hash/budget contracts, exact helper close/ownership inventory. No user data/global roots, no refresh of failed before, no harness timestamp repair. This is test permission only; currenta25 blocked."
+  },
+  "sourceAudit": {
+    "aad": "ExistingCrypto/Chunks purpose/instance/schema/scope/record/seq/generation retained; no plaintext/path-open fallback on refused captured read.",
+    "lease": "WeakMap capabilities bind actual ownership/path/current bytes plus fresh native recensus. Target14 uses actual target lease, not source lease.",
+    "cleanup": "f9 independent cleanup attempts retain falsy ordering; release failure conservatively may-unknown, not proof helper is alive. Memory-only cleanup after known successful release retains false-helper test.",
+    "credential": "13y exactad2 retains final verify/assert and source-file byte equality. Existing raw.fill masking static concern unexecuted; not presented as demonstrated native failure.",
+    "diagnostics": "7 unique reversible spans retain failure predicates/error. Existing expected/actual snapshots only;8entries/4streams/string1024/JSON24576 caps; no new capture or IO; replacement SHA branch deliberately does not re-read."
+  },
+  "actions": "No production/f9/a25 mutations; no build/native/HTTP/browser/40MiB/large-FS runs. Only source/hash inspection and lightweight87+2 tests.",
+  "evidence": [
+    {
+      "file": "composition-validation.json",
+      "sha256": "b3103930654f0469351da170726482b71a922c1e5c41a5293d60743932f05663"
+    },
+    {
+      "file": "final-capacity-integration-review.json",
+      "sha256": "ade049957dd6d7cb7fd40f476747f1030c9489e5fe3feefc05a187414456d1e7"
+    },
+    {
+      "file": "guard-cache-path-first-red.log",
+      "sha256": "f0bcff0ab2234939ecf1b2d948b1922a21fa06248114e02b72c2f33003e0b74b"
+    },
+    {
+      "file": "identity-validation.json",
+      "sha256": "a4a5b4b223b75c353658236204bd559a20ce5b62fff6aa0905786f437b8e377c"
+    },
+    {
+      "file": "independent87.log",
+      "sha256": "8d900a258047d1dc99ce81b1f204599a58e6355067d94f27771d18e4a5646fa6"
+    },
+    {
+      "file": "native-delta.diff",
+      "sha256": "3de796001da617a95fc96c4679998d6cd3cb56698c1123e50ab4de4f23912526"
+    },
+    {
+      "file": "native-live-f79.cs",
+      "sha256": "f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25"
+    },
+    {
+      "file": "native-private-ef53.cs",
+      "sha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34"
+    },
+    {
+      "file": "review-final-capacity.cjs",
+      "sha256": "3ce2780cd9931ed0f9cef1d64d4d8fd8e5dbec88324bb044782c6ce653c24b59"
+    },
+    {
+      "file": "run-independent87.cjs",
+      "sha256": "1b857d55d555b978cb733d6c9eecddd3748ac577f26b1ab1d4116468a32792e1"
+    },
+    {
+      "file": "target14-cleanup-first-red.log",
+      "sha256": "d9337d763d95f3f5bb4096702a089600cef099bc92356881fbc0125d51cfbe78"
+    },
+    {
+      "file": "target14-cleanup-independent.test.cjs",
+      "sha256": "39f3861b1f2321f800dcc52dc63baff587fe2a8718bec0d4f3d458559c71f446"
+    },
+    {
+      "file": "validate-composition.cjs",
+      "sha256": "bc0f237940953222fbaa7939ceacffb001b7be689eb637d84bf3babeafa2cbac"
+    },
+    {
+      "file": "validate-identities.cjs",
+      "sha256": "1a57773b6ea5a2daa9a7304cb62484aeb4b9d8b42bee8a74215afaaab84ee5fa"
+    },
+    {
+      "file": "write-final-formal-review.cjs",
+      "sha256": "9df5559e7b0e08a7334ef0b45ea506c62f95f69d610b72e0e15106b4cd405c6c"
+    },
+    {
+      "file": "write-formal-review.cjs",
+      "sha256": "84ce0a62ec84c51d8176c47b2122f5528cd329dd8e31f14929f3decaa8853c3f"
+    }
+  ]
+}

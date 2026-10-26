@@ -1,0 +1,11 @@
+{
+  "cap": 41943040,
+  "beforeBytes": 41943039,
+  "afterBytes": 41944087,
+  "cancelAck": true,
+  "cancelError": null,
+  "afterReadError": "external_channel.storage_unavailable",
+  "controllerAborted": false,
+  "writesBefore": 5,
+  "writesAfter": 6
+}

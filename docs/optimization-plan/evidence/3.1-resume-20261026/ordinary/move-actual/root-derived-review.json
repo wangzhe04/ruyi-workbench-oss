@@ -1,0 +1,9 @@
+{
+  "proofSha256": "398d2adef6fea6a6d5c13e424972421164f59544cecfec8f9bbf2130d44cb4ea",
+  "runtimeSha256": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a",
+  "mutations": 4,
+  "allWholeInverses": true,
+  "inputs": 121,
+  "rootReview": true,
+  "gateExecuted": false
+}

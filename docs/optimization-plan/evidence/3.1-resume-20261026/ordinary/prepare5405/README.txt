@@ -1,0 +1,16 @@
+PATH-ADMISSION FIX FOR ORDINARY119 PREPARER / SOURCE ONLY / 2026-10-26
+
+Original950428fb prepare remains frozen and BLOCKED. This new identity requires review_restore/root nonauthor review before use. No prepare/build/server/native gate has been invoked in this directory.
+
+Actual proposed script: prepare-ordinary119-path-guarded.cjs
+Use the same --runtime / --freeze / --repo / optional --base / --gate-review arguments documented by the original preparer. Runtime must still be caller-owned original TEMP/<new-run>/runtime/app/server.js from approved61b2 with-diagnostic source, nativeef53. No new runtime is created or copied here.
+
+Only one contiguous original OUTPUT-PHASE span changes. single-span-inverse.json contains complete exact before/after text and whole-script inverse to original9504. All earlier448/119/121 source/runtime admission, manifest constraints, digest derivation and every gate business/budget string remain unchanged.
+
+Before the first filesystem write, the new output phase checks every existing component of originalTEMP, runRoot, runtime/app/src and all actual runtime source leaves; frozen/member paths; reviewed predecessor/repo/helper/reviewer input paths. Each existing component is lstat'ed, symlink/junction is refused, and native realpath must match normalized lexical absolute path with Windows case folding. Ancestors must be directories. The planned ordinary output must have all parents present but its own final component absent.
+
+Output and baseline mkdir remain non-recursive. Each newly created output directory is immediately checked and its dev/ino recorded. Every prepared file write uses wx, checks owned parents and unchanged physical run/output identities before writing, checks the new file and those identities after writing. The final proof uses the same guarded writer. No existing output or derived file is overwritten, and no failure cleanup/delete is added.
+
+This is admission of existing physical paths and detection of observed changes. It is not a handle-relative CAS, atomic directory reservation or protection against concurrent replacement by a same-account peer or administrator between a check and a write. A failed recheck leaves evidence in place; it does not delete or roll back through a possibly replaced path. Root must still supply its trusted new runtime root and review actual prepared output before a real gate.
+
+Light source-helper evidence only: path-helper.test.cjs extracts the three actual helper functions from the proposed script, never invokes main. Seven cases pass: normal originalTEMP ancestors; absent final output; absent intermediate parent refusal; existing output refusal; actual new NTFS runRoot/runtime/src junction refusal; and an explicitly simulated separate realpath mismatch despite non-link lstat. All junction targets are other NEW owned directories under this review folder. Markers unchanged, all trees preserved. No old failure root, production file, server load, build, PowerShell/helper, native recovery gate or full regression was touched.

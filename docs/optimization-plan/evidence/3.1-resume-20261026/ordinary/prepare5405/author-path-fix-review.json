@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "author": "/root/review_cancel",
+  "status": "narrow_path_admission_fix_requires_restore_nonauthor_review",
+  "originalBlocked": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary119-prepare-sourceonly-20261026-533fe569/prepare-ordinary119.cjs",
+    "sha256": "950428fb68ebee5a51139c0a077f2c92dd09d954800ea17b45a45ab0002771f8",
+    "unchanged": true
+  },
+  "script": {
+    "file": "prepare-ordinary119-path-guarded.cjs",
+    "sha256": "5405fe921324d76edc9861cd26bb393d613beaa674b2d5f539d3d3b96c93a80b",
+    "staticNodeCheck": true
+  },
+  "singleSpan": {
+    "file": "single-span-inverse.json",
+    "sha256": "09f73c0530c99b634737efe71f14862b7fd95d0122a42b8067ae6d8910c444f3",
+    "wholeInverseExact": true,
+    "onlyOutputPhaseChanges": true,
+    "allEarlier119RuntimeSourceAnd448FreezeChecksUnchanged": true
+  },
+  "guardPolicy": {
+    "beforeFirstWrite": "All existing ancestors lstat non-link and native realpath equals normalized path; exact expected new output absent; trusted run directory physical ID captured",
+    "duringWrites": "Non-recursive mkdir; immediate directory recheck; wx file creation; before/after output+run physical path/dev/ino rechecks; final proof guarded too",
+    "originalTempIncluded": true,
+    "runtimeAppSrcAncestorsIncluded": true,
+    "allActualSourceLeavesIncluded": true,
+    "frozenRepoBaseReviewInputPathsIncluded": true,
+    "existingOutputRefused": true,
+    "writeSites": 1,
+    "cleanupAdded": false,
+    "concurrentReplacementCAS": false
+  },
+  "verification": {
+    "scope": "Only actual helper extracted from new source; no invocation of prepare main",
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0,
+    "log": "path-helper-first.log",
+    "actualJunctionCases": [
+      "runRoot",
+      "runtime",
+      "src"
+    ],
+    "secondaryRealpathControl": "Explicit simulated native realpath mismatch on ordinary lstat",
+    "allFixturesNewOwnedTEMP": true,
+    "allTargetsPreserved": true,
+    "oldFailureRootsTouched": false,
+    "observations": {
+      "schema": 1,
+      "scope": "Only extracted actual path helper; no prepare/build/server/helper/native gate. Junctions and directories are all new owned fixtures and preserved.",
+      "scriptSha256": "5405fe921324d76edc9861cd26bb393d613beaa674b2d5f539d3d3b96c93a80b",
+      "helperSha256": "73d90485b05d02c94a8075be43fb189bd9dac1f2fa5135200e21f62ea6f63c96",
+      "observations": [
+        {
+          "label": "normal physical ancestors",
+          "passed": true,
+          "components": 12
+        },
+        {
+          "label": "absent leaf admission",
+          "passed": true
+        },
+        {
+          "label": "absent intermediate ancestor",
+          "refused": true,
+          "code": "ERR_ASSERTION",
+          "message": "every output ancestor must exist: C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-fresh-dl0B1r\\missing-parent\\ordinary\n+ actual - expected\n\n+ 'c:\\\\users\\\\87179\\\\appdata\\\\local\\\\temp\\\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\\\own-fresh-dl0b1r\\\\missing-"
+        },
+        {
+          "label": "existing output directory",
+          "refused": true,
+          "code": "ERR_ASSERTION",
+          "message": "output must not already exist: C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-exists-W3LJpz\\ordinary\n\ntrue !== false\n"
+        },
+        {
+          "label": "runRoot actual junction",
+          "refused": true,
+          "code": "ERR_ASSERTION",
+          "message": "symlink/junction forbidden: C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-runRoot-Jt5651\\alias-run\n\ntrue !== false\n"
+        },
+        {
+          "label": "runRoot actual junction",
+          "junction": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-runRoot-Jt5651\\alias-run",
+          "target": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-runRoot-Jt5651\\owned-target",
+          "allOwnedUnder": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-runRoot-Jt5651",
+          "targetMarkerUnchanged": true
+        },
+        {
+          "label": "runtime actual junction",
+          "refused": true,
+          "code": "ERR_ASSERTION",
+          "message": "symlink/junction forbidden: C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-runtime-TXlSP1\\run\\runtime\n\ntrue !== false\n"
+        },
+        {
+          "label": "runtime actual junction",
+          "junction": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-runtime-TXlSP1\\run\\runtime",
+          "target": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-runtime-TXlSP1\\owned-target",
+          "allOwnedUnder": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-runtime-TXlSP1",
+          "targetMarkerUnchanged": true
+        },
+        {
+          "label": "src actual junction",
+          "refused": true,
+          "code": "ERR_ASSERTION",
+          "message": "symlink/junction forbidden: C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-src-ngEdAD\\run\\runtime\\app\\src\n\ntrue !== false\n"
+        },
+        {
+          "label": "src actual junction",
+          "junction": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-src-ngEdAD\\run\\runtime\\app\\src",
+          "target": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-src-ngEdAD\\owned-target",
+          "allOwnedUnder": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-junction-src-ngEdAD",
+          "targetMarkerUnchanged": true
+        },
+        {
+          "label": "simulated realpath mismatch despite ordinary lstat",
+          "refused": true,
+          "code": "ERR_ASSERTION",
+          "message": "physical alias forbidden: C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\own-mismatch-5tmXw5\\runtime\\app\\src\\example.js\n+ actual - expected\n\n+ 'c:\\\\users\\\\87179\\\\appdata\\\\local\\\\temp\\\\ruyi-ordinary119-path-guard-fix-20261026-be035b34\\\\own-other-physical-3gadt3'\n-"
+        }
+      ]
+    }
+  },
+  "unchangedContracts": [
+    "61b2 freeze / d896 private-gate approval",
+    "119 exact source / manifest derived integers only / server exact concat",
+    "121 declared execution-input identities",
+    "privateef53 not livef79",
+    "69af business and fixed8 payloads / 240-250-2 second budgets",
+    "Whole-file inverse records for four output execution inputs"
+  ],
+  "prepareInvoked": false,
+  "serverLoaded": false,
+  "buildInvoked": false,
+  "helpersSpawned": false,
+  "nativeGateRun": false,
+  "fullRegressionRun": false,
+  "files": [
+    {
+      "file": "prepare-ordinary119-path-guarded.cjs",
+      "sha256": "5405fe921324d76edc9861cd26bb393d613beaa674b2d5f539d3d3b96c93a80b"
+    },
+    {
+      "file": "original-9504-blocked.cjs",
+      "sha256": "950428fb68ebee5a51139c0a077f2c92dd09d954800ea17b45a45ab0002771f8"
+    },
+    {
+      "file": "single-span-inverse.json",
+      "sha256": "09f73c0530c99b634737efe71f14862b7fd95d0122a42b8067ae6d8910c444f3"
+    },
+    {
+      "file": "path-helper.test.cjs",
+      "sha256": "88c7cfa46367c4aea2bbd63c81a17bb0ee4488bd2ece5ee53cff76fd67211da6"
+    },
+    {
+      "file": "path-helper-observations.json",
+      "sha256": "f1d9c231d607c8f5f9d0fb9436d4fad6653f46257d86bbc8a5f173c19124100f"
+    },
+    {
+      "file": "path-helper-first.log",
+      "sha256": "a67adbfa38c5906be765fc685648cd85af6eacdc3815e462868ca3e2c1cb2d8f"
+    },
+    {
+      "file": "strict-pure-preload.cjs",
+      "sha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd"
+    },
+    {
+      "file": "README.txt",
+      "sha256": "68efe873aab16f75d043dc41075fceaab6281ba53d63a63eda27fab00f497a98"
+    }
+  ]
+}

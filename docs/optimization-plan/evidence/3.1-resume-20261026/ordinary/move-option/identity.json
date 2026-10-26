@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "status": "Frozen single-span private candidate; nonauthor review required, no build/native/live promotion.",
+  "products": [
+    {
+      "file": "13u-migration-center.js",
+      "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb",
+      "baseline": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+      "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+      "spanFile": "span.json"
+    }
+  ],
+  "files": [
+    {
+      "file": "13u-migration-center.js",
+      "bytes": 376978,
+      "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb"
+    },
+    {
+      "file": "author-report.json",
+      "bytes": 5902,
+      "sha256": "d18ca5ba005eef48bc7169370f2174b4b9fecdc74fbea16d820742616ea7fb9a"
+    },
+    {
+      "file": "baseline0975.js",
+      "bytes": 376956,
+      "sha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea"
+    },
+    {
+      "file": "fixture-first-constblock-invalid.log",
+      "bytes": 25214,
+      "sha256": "25648d43c54b9e35b718f1ce22c748f02d692eef584904ef1e1ce9e2f34fdbbc"
+    },
+    {
+      "file": "fixture-first-constblock-invalid.test.cjs",
+      "bytes": 10955,
+      "sha256": "64569e82d6a4f6f623a6c2b904344bfb8ecaac70854fa92211c5eb023bf01cd9"
+    },
+    {
+      "file": "fixture-second-missing-eq.log",
+      "bytes": 23386,
+      "sha256": "8ed2c583e386c6856b0369fbd08359d1fdcd1875e577da42ecc86bf1ecc875f3"
+    },
+    {
+      "file": "fixture-second-missing-eq.test.cjs",
+      "bytes": 11025,
+      "sha256": "f640fa2b7293f2a77e9fd5cd19ea5a75815da85180adbf5383541d900a069f27"
+    },
+    {
+      "file": "fixture-third-invalid-opaque.log",
+      "bytes": 4065,
+      "sha256": "bd522e4259ff2876bc5e79d1b65e3562e2131aec7d0dd38d7883df119fcaf1a6"
+    },
+    {
+      "file": "fixture-third-invalid-opaque.test.cjs",
+      "bytes": 11284,
+      "sha256": "2125bb954156f9070e93a20d3c565bcda8f7369c9560ae9e79f80fca9c030a31"
+    },
+    {
+      "file": "old-flag-control2.log",
+      "bytes": 2418,
+      "sha256": "3e9bccc1f7d51ffbf12dfef837f24f8f026b6e30075d1dfdedca29224a89969b"
+    },
+    {
+      "file": "ordinary-move.test.cjs",
+      "bytes": 12653,
+      "sha256": "4af84da2a73dcdfc8fe626c4dbc2cd5857453167b7a28240c1e7f551ac78a68a"
+    },
+    {
+      "file": "prepare.cjs",
+      "bytes": 1290,
+      "sha256": "5aa109d025033cf04d3c2b6aa571adc58470e8273622ee21c08a899dc9b00b1e"
+    },
+    {
+      "file": "pure-after-eq.log",
+      "bytes": 4065,
+      "sha256": "bd522e4259ff2876bc5e79d1b65e3562e2131aec7d0dd38d7883df119fcaf1a6"
+    },
+    {
+      "file": "pure-after-slice.log",
+      "bytes": 23386,
+      "sha256": "8ed2c583e386c6856b0369fbd08359d1fdcd1875e577da42ecc86bf1ecc875f3"
+    },
+    {
+      "file": "pure-corrected22.log",
+      "bytes": 2216,
+      "sha256": "26dea11b8240adef1c17f221c3f97f64d1df41e1f75037dc64854d099ed1a821"
+    },
+    {
+      "file": "pure-final26.log",
+      "bytes": 2578,
+      "sha256": "7e99c1d7c1097e0dc31a4e6516f3d823bd1b81d83024725b38a633eb17073f38"
+    },
+    {
+      "file": "pure-first.log",
+      "bytes": 25214,
+      "sha256": "25648d43c54b9e35b718f1ce22c748f02d692eef584904ef1e1ce9e2f34fdbbc"
+    },
+    {
+      "file": "run-strong-pure.cjs",
+      "bytes": 710,
+      "sha256": "0fc04a486448cec0210278b63e26c9555286d20f6b2172e367413e3ebbd49bdd"
+    },
+    {
+      "file": "seal.cjs",
+      "bytes": 6640,
+      "sha256": "1b163086a482b8959a370b239e3e1fcf6fb234b7a5cc4d318b415a10789b4d25"
+    },
+    {
+      "file": "span.json",
+      "bytes": 690,
+      "sha256": "e9eabe5eb98875eaaacb74cc6f60679df93881f1ae7accb2b1ffd13747c0954d"
+    },
+    {
+      "file": "strong-pure-final26.log",
+      "bytes": 2580,
+      "sha256": "f293e035f3886c8caf7314d6198b753f4de93864779035e6e1b28511ad9163eb"
+    }
+  ]
+}

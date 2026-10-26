@@ -12,6 +12,7 @@
 *.xlsx binary
 *.docx binary
 *.pptx binary
+*.gz binary
 # The cross-machine source handoff is a binary ZIP; preserve its verified bytes.
 docs/optimization-plan/evidence/source-handoff-20261025.zip binary
 # 第43波(43e 对抗轮·高):构建期拼接要求 src/ 与产物全 LF —— autocrlf=true 的 checkout

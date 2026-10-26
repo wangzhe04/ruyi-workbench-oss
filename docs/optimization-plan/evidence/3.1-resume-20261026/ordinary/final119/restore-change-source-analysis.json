@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_restore",
+  "scope": "Read-only source analysis; no tests/build/native/main; failed root and checkpoints unchanged",
+  "evidence": {
+    "stderr": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-modes-61WuRD/restore.stderr.log",
+    "stderrSha256": "3b3312a4c4e958df488e8fc459dddc137fb36e7e06c92637eb7c0a028d0907d5",
+    "runtimeSha256": "52fb036631e239e203aaf6279ca629f3f64c6298904bed43219f2cfc4ff24449",
+    "source": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+    "sourceSha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+    "branch": "portableVerifyInherited / inherited.snapshot before portableFlushBound(targetBindings) and verifyPortableInstalled",
+    "path": ".work-data/skill-backups/objects-v1",
+    "entryRel": "",
+    "countExpectedAndActual": 1,
+    "revisionExpectedAndActual": "7f2a82f05081bd964893b74a25c92e19aac671d071ffc99b5828b6339c4e9900",
+    "onlyReportedDifference": "times[3]",
+    "expected": "134374684970457478",
+    "actual": "134374685081291902",
+    "delta100ns": "110834424",
+    "deltaSeconds": "11.0834424"
+  },
+  "fieldDefinition": {
+    "times": ["Creation","Access","Write","Change"],
+    "index3": "FILE_BASIC_INFORMATION.Change (change time), not last-write or last-access",
+    "sourceLines": [526,709,1006,1013],
+    "proof": "Native Basic declaration is Creation, Access, Write, Change; Walk serializes in that order; RestoreNodeBasic assigns times[3] to Change and verifies equality."
+  },
+  "captureTimeline": [
+    "stagePortable creates the new owned stage and empty objects-v1 tree; objectProof is first captured at line4331. This is a separate earlier proof, not the inherited expected slice.",
+    "stageProof is portableCapture(stageRoot, sourceSha+:stage) after all staged records at line4344. portableStageDurability clones that fixed proof, requires capture-owned-flush-ready and flush-captured-directories metadata-exact receipts, then preserved recaptures and exact-compares to the fixed proof (3709-3723). The token retains this fixed proof without refresh.",
+    "installPortable preserved-recaptures stageRoot and portableAssertDurability requires full exact equality against token proof before the move (4366). It also captures the source objects root for the older objectProof fingerprint check (4371).",
+    "ordinary installPortable invokes platform.move({source,target,id}) without preserveMetadata at4371. The platform forwards args unchanged to store-move (2839). Native MoveStore selects its unpreserved branch when the field is absent (1267-1271).",
+    "After the move, portableVerifyInherited derives expected from the retained full stage durability proof using portableDurabilitySlice (3726-3729); the anchored entry is remapped to rel ''. It checks target ID/volume, then preserved-captures the target root with exactly expected.revision. This is actual. Failure precedes subsequent target ancestor flush and later verifyPortableInstalled (4372-4373)."
+  ],
+  "codePathsThatCanChangeTimes": [
+    "MoveStoreCore performs store parent preflush, MoveFileExW(source,target,8), and parent postflush (1246-1250). This is the intended namespace mutation between the last exact stage check and inherited target capture. With missing preserveMetadata, before Basic/alias are collected but neither restored nor compared after rename.",
+    "With preserveMetadata true, MoveStore enables PreserveTimeHandles before opening the source; PreserveHandleTimes suppresses Access/Write/Change updates on its handles (1275-1283). MoveStoreCore then restores alias, flushes the target, restores all Basic fields from its own immediately-pre-move snapshot, and verifies every field (1251-1255). This branch already serves installPortableOriginals at4300.",
+    "portableCapture uses capture-preserved in the actual production path (3748-3750). CapturePreserved captures initial Basic, suppresses automatic handle updates and restores its captured Basic on exit (1284+); it preserves the actual state observed at that capture and does not replace it with the earlier durability checkpoint. platform.info likewise opts into preserved handles (1262-1266).",
+    "The remaining JS calls between last exact stage check and inherited compare are ownership admission, directory/stat checks, target binding info checks, replacement hash reads, and source/target preserved captures. Some can cause metadata observations/OS effects, but the current log does not independently assign exact update causality to one native syscall. No subsequent target-bound flush has occurred at the failing point."
+  ],
+  "conclusion": "The ordinary move omits an already-supported metadata preservation option while the following invariant requires metadata equality. This is a concrete source-level inconsistency and the narrow leading explanation for Change-only drift. The actual log alone does not prove the exact syscall that updated Change or prove the candidate will pass; no weakened comparison, new before, or timestamp repair is justified.",
+  "nextMinimumVerification": [
+    "Freeze a unique ordinary platform.move call-site span adding preserveMetadata:true; require all other source bytes and nativeef53 identical, with exact inverse to0975. Keep originals call and full fixed proof comparison unchanged.",
+    "Independently review the candidate and use small pure argument-forwarding/branch controls to require ordinary and originals preserveMetadata:true, refuse removal or false, and preserve ID/volume admission plus full times/attrs/shortName/stream comparisons. This is proposed work only, not executed here.",
+    "Root prepares a new owned flat runtime from the reviewed current private tree, builds separately, derives and independently reviews exact119/121 inputs with unchanged240/250/2 budgets and path guards, then runs one exclusive fresh ordinary gate. Retain the61WuRD red root and all earlier before proofs unchanged.",
+    "Success must include inherited equality with its original fixed stage proof, restore/cold-restored/special-refusal and role/driver actual terminal evidence. A failed role lacking terminal helper records cannot establish that every helper closed."
+  ],
+  "lifecycleBoundary": "stderr helperMayStillRun:false and ownershipRetained:true are reported flags. They do not replace missing terminal helper journal evidence; this analysis makes no all-helpers-closed claim.",
+  "productionPromotion": false,
+  "nativeAcceptance": false
+}

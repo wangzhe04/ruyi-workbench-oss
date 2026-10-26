@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 118 | 4147 | 3973 | 817 | 67 | 0 | 1 |
+| 119 | 4150 | 3975 | 819 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -117,7 +117,7 @@
 | 99 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
 | 100 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
 | 101 | `13ab-privacy-api.js` | unclassified | 2 | 37 | 16 |
-| 102 | `13w-external-bots.js` | transport | 71 | 27 | 10 |
+| 102 | `13w-external-bots.js` | transport | 73 | 27 | 10 |
 | 103 | `13ac-mcp-consumer.js` | unclassified | 2 | 40 | 12 |
 | 104 | `13ad-memory-cli-relay.js` | unclassified | 1 | 26 | 9 |
 | 105 | `13ae-cli-business-services.js` | unclassified | 6 | 61 | 13 |
@@ -132,7 +132,8 @@
 | 114 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 10 | 8 |
 | 115 | `13ap-session-fulltext-index.js` | unclassified | 3 | 14 | 6 |
 | 116 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 24 | 10 |
-| 117 | `14-main.js` | entrypoint | 7 | 600 | 51 |
+| 117 | `13ba-media-image-contract.js` | unclassified | 1 | 2 | 2 |
+| 118 | `14-main.js` | entrypoint | 7 | 600 | 51 |
 
 ## 模块边
 
@@ -673,6 +674,8 @@
 | `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `asrFixMessages`, `asrFixModeOf`, `asrFixSanity`, `maskExternalMcpServerForDisplay`, `providerFixCompletion`, `resolveAsrFixProvider`, `resolveAsrProvider`, `resolveAsrStreamProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider`, `voiceLexiconAsrPromptFor`, `voiceLexiconRead`, `voiceLexiconUpdate` |
 | `13b-api-domain-routes.js` | `06-provider-engine.js` | backward | `normalizeStoragePolicy`, `storageSweep` |
 | `13b-api-domain-routes.js` | `07-autonomy.js` | backward | `STEER_QUEUE_MAX`, `activeAgentRuns` |
+| `13ba-media-image-contract.js` | `00-boot.js` | backward | `text` |
+| `13ba-media-image-contract.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
 | `13c-overlay-routes.js` | `00-boot.js` | backward | `cp`, `crypto`, `dataRoot`, `decodeConsoleText`, `externalRoot`, `fs`, `fsp`, `json`, `path` |
 | `13c-overlay-routes.js` | `01-config.js` | backward | `readJsonBody`, `send`, `tokenOk` |
 | `13c-overlay-routes.js` | `04-permission-runtime.js` | backward | `logEvent` |

@@ -1,0 +1,37 @@
+'use strict';
+// ROOT SERIAL EXECUTION ONLY: unchanged current native short-probe leaf. No test assertions or product source changed.
+const fs=require('node:fs'),p=require('node:path'),os=require('node:os'),c=require('node:crypto'),cp=require('node:child_process'),a=require('node:assert/strict');
+const REPO='C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss';
+const PINS=Object.freeze({server:p.join(REPO,'ruyi-workbench/app/server.js'),serverSha256:'06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2',source:p.join(REPO,'ruyi-workbench/app/src/13u-migration-center.js'),sourceSha256:'7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0',nativeSha256:'ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34',lengths:[250,259,260,261,270]});
+const sha=bytes=>c.createHash('sha256').update(bytes).digest('hex');
+const fileHash=file=>sha(fs.readFileSync(file));
+function systemEnvironment(inherited){const allowed=new Set(['SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','OS','PROCESSOR_ARCHITECTURE','PROCESSOR_ARCHITEW6432','NUMBER_OF_PROCESSORS','PROGRAMFILES','PROGRAMFILES(X86)','PROGRAMW6432','PSMODULEPATH']);return Object.fromEntries(Object.entries(inherited).filter(([name])=>allowed.has(name.toUpperCase())));}
+function safeError(error){if(!error)return null;return{code:typeof error.code==='string'&&/^[A-Za-z0-9_.-]{1,128}$/.test(error.code)?error.code:null,helperMayStillRun:error.helperMayStillRun===true,operationMayHaveExecuted:error.operationMayHaveExecuted===true,retry:error.retry===false?false:null};}
+function observe(){const original=cp.spawn,records=[];cp.spawn=function(...args){const child=Reflect.apply(original,this,args),record={pid:child.pid??null,exe:p.win32.basename(String(args[0])),spawned:false,exited:false,closed:false,error:null};records.push(record);child.once('spawn',()=>{record.spawned=true;});child.once('error',error=>{record.error=safeError(error);});child.once('exit',(code,signal)=>{record.exited=true;record.exitCode=code;record.exitSignal=signal;});child.once('close',(code,signal)=>{record.closed=true;record.closeCode=code;record.closeSignal=signal;});return child;};return{records,restore(){cp.spawn=original;}};}
+function helperUnknown(api,records){try{return api.MigrationHooks.helperMayStillRun()!==false||api.migrationCapsuleBroker.helperMayStillRun===true||records.some(row=>!row.closed);}catch{return true;}}
+function assertPinned(){a.equal(fileHash(PINS.server),PINS.serverSha256,'runtime bytes changed');a.equal(fileHash(PINS.source),PINS.sourceSha256,'13u source bytes changed');}
+function ownedStage(root,index,probeChars){const suffix='.ruyi-short-probe-'+'a'.repeat(64),stageLeaf='.ruyi-copy-archive-2026-10-23T00-00-00-000Z',caseRoot=p.join(root,'case-'+index),tail=p.join('skills',stageLeaf),targetStageChars=probeChars-suffix.length-1,minimal=p.join(caseRoot,'P',tail),paddingChars=targetStageChars-minimal.length+1;a.ok(paddingChars>=1&&paddingChars<=200,'owned root too long for target length');const stage=p.join(caseRoot,'P'.repeat(paddingChars),tail),probe=p.join(stage,suffix);a.equal(stage.length,targetStageChars);a.equal(probe.length,probeChars);const relative=p.relative(root,stage);a.ok(relative&&!relative.startsWith('..')&&!p.isAbsolute(relative));fs.mkdirSync(stage,{recursive:true});return{stage,stageChars:stage.length,probeChars,probeModel:probe};}
+async function main(){
+ a.equal(process.platform,'win32');a.ok(process.argv.includes('--native-owned-temp'),'explicit root-owned invocation required');assertPinned();
+ const parentTEMP=process.env.TEMP,parentTMP=process.env.TMP,parentTemp=p.resolve(os.tmpdir());a.equal(typeof parentTEMP,'string');a.equal(typeof parentTMP,'string');
+ const root=fs.mkdtempSync(p.join(parentTemp,'r3leaf-')),ownerNonce=c.randomBytes(32).toString('hex'),home=p.join(root,'home'),data=p.join(root,'data');fs.mkdirSync(data);fs.writeFileSync(p.join(root,'fixture-owner-v1.json'),JSON.stringify({schema:1,ownerNonce,scope:'new synthetic native short-probe leaf only; preserve all trees',parentTEMP,parentTMP,pins:PINS},null,2)+'\n');
+ const originalEnv={...process.env},journal=observe(),rows=[];let api,unknown=false,fatal=null;
+ try{
+  const {releaseEnvironment}=require(p.join(REPO,'dev-harness/lib/release-checks')),env={...releaseEnvironment(home,data,systemEnvironment(originalEnv)),TEMP:parentTEMP,TMP:parentTMP,RUYI_TEST_SERVER_JS:PINS.server};
+  for(const key of Object.keys(process.env))delete process.env[key];Object.assign(process.env,env);a.equal(os.tmpdir(),parentTemp);a.equal(process.env.TEMP,parentTEMP);a.equal(process.env.TMP,parentTMP);
+  api=require(p.join(REPO,'dev-harness/lib/server-internals')).loadServerInternals(['migrationCapsuleBroker','MIGRATION_SKILL_CAPSULE_NATIVE','MigrationHooks']);a.equal(sha(api.MIGRATION_SKILL_CAPSULE_NATIVE),PINS.nativeSha256);a.equal(journal.records.length,0,'loading internals must not start unrelated helpers');
+  for(let index=0;index<PINS.lengths.length;index++){
+   assertPinned();a.equal(fs.readFileSync(p.join(root,'fixture-owner-v1.json'),'utf8').includes(ownerNonce),true);const target=ownedStage(root,index,PINS.lengths[index]),start=journal.records.length,row={...target,operation:'short-probe',commandOk:false,commandError:null,closeError:null,helperMayStillRun:false};let broker;
+   try{broker=await api.migrationCapsuleBroker();await broker.command({cmd:'short-probe',root:target.stage});row.commandOk=true;}catch(error){row.commandError=safeError(error);}
+   finally{if(broker)try{await broker.close();}catch(error){row.closeError=safeError(error);}}
+   row.helpers=journal.records.slice(start).map(record=>({...record}));row.helperMayStillRun=helperUnknown(api,journal.records)||row.commandError?.helperMayStillRun===true||row.closeError?.helperMayStillRun===true;rows.push(row);fs.writeFileSync(p.join(root,'leaf-'+target.probeChars+'.json'),JSON.stringify(row,null,2)+'\n');
+   if(row.helperMayStillRun){unknown=true;break;}
+   a.equal(row.helpers.length,1,'exactly one real helper for one unchanged short-probe command');for(const record of row.helpers){a.equal(record.spawned,true);a.equal(record.exited,true);a.equal(record.closed,true);a.equal(record.exitCode,0);a.equal(record.closeCode,0);a.equal(record.error,null);}
+   assertPinned();
+  }
+ }catch(error){fatal=safeError(error)||{code:null};unknown||=api?helperUnknown(api,journal.records):journal.records.some(row=>!row.closed);}
+ finally{journal.restore();for(const key of Object.keys(process.env))delete process.env[key];Object.assign(process.env,originalEnv);}
+ const receipt={schema:1,scope:'unchanged actual native short-probe leaf; different new synthetic execution path lengths; not complete unit/native recovery acceptance and not a long-path product fix',root,ownerNonce,pins:PINS,parentTEMP,parentTMP,allTreesRetained:true,originalFailureRootsUntouched:true,helperMayStillRun:unknown,fatal,rows,allHelpers:journal.records,completed:rows.length===PINS.lengths.length&&!unknown&&!fatal};fs.writeFileSync(p.join(root,'leaf-report.json'),JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
+ if(unknown){process.exitCode=1;setInterval(()=>{},60000);}else if(fatal||!receipt.completed)process.exitCode=1;
+}
+module.exports={PINS,ownedStage};if(require.main===module)main().catch(error=>{console.error(JSON.stringify({failed:true,code:safeError(error)?.code||null,helperMayStillRun:error?.helperMayStillRun===true}));process.exitCode=1;});

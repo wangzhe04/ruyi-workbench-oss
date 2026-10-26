@@ -1,0 +1,13 @@
+{
+  "file": "dev-harness/unit/agent-run-lifecycle-leaks.test.js",
+  "beforeSha256": "4d3f1f3d164a1f6af9cd60b2b9e15cffc84b699a739393fa4bfac521f1528e03",
+  "afterSha256": "0f634b535af24ed6fe50ea66c09a555204586fb2913295ef3433890f76fef767",
+  "before": "    appendAgentRunEvent(run, { type: 'run_end', data: {} });\n    const t0 = Date.now();",
+  "after": "    appendAgentRunEvent(run, { type: 'run_end', data: {} });\n    const readyDeadline = Date.now() + 5000;\n    while (!release && Date.now() < readyDeadline) await sleep(10);\n    assert.equal(typeof release, 'function', '本件挂起追加 hook 必须已进入');\n    const t0 = Date.now();",
+  "wholeInverse": true,
+  "scenarioDeadlineMs": 5000,
+  "existingSleep": true,
+  "existingFlushMs": 200,
+  "existingAssertionMs": 1500,
+  "L1L3Unchanged": true
+}

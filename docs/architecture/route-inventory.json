@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-25T11:18:51.361Z",
+  "generatedAt": "2026-10-26T04:15:33.708Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -21,10 +21,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 173,
-    "decisionPoints": 186,
+    "routeAuthEntries": 174,
+    "decisionPoints": 187,
     "byKind": {
-      "exact": 162,
+      "exact": 163,
       "prefix": 12,
       "regex": 12
     },
@@ -215,6 +215,12 @@
     {
       "m": "POST",
       "p": "/api/external-bots/deliveries/archive",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/deliveries/cancel",
       "auth": "token",
       "prefix": false
     },
@@ -5958,7 +5964,6 @@
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
-        "dev-harness\\unit\\external-bots-inbox.test.js",
         "dev-harness\\unit\\external-owner-runner.test.js",
         "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\steward-say-stream.test.js"
@@ -6359,6 +6364,24 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\unit\\external-bots-ui.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/deliveries/cancel",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\unit\\external-bots-ui.test.js"
       ]
     },

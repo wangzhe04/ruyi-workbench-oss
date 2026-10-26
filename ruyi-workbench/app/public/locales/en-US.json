@@ -4593,4 +4593,11 @@
   ,"externalBots.deliveryCount": "Showing {{shown}} of {{total}} · {{retained}}/{{capacity}} retained, including archived"
   ,"externalBots.attempt": "Sending attempt"
   ,"externalBots.deliveryCursorExpired": "This page position is no longer valid. Refresh the latest records."
+  ,"externalBots.cancelReply": "Cancel reply sending"
+  ,"externalBots.cancelSaved": "The unsubmitted reply was cancelled. Business results are unchanged."
+  ,"externalBots.cancelFailed": "Cancellation was not confirmed. Refresh to check; no automatic retry will occur."
+  ,"externalBots.cancelTooLate": "The reply is submitted, settled or unknown and cannot be cancelled. Check its delivery result first."
+  ,"externalBots.cancelChanged": "The reply attempt changed. Refresh to check."
+  ,"externalBots.delivery.cancelled": "Reply sending cancelled"
+  ,"externalBots.cancelCompatibility": "Cancellation only blocks an unsubmitted reply; it does not stop or undo business work. The first cancellation upgrades the entire bot ledger so older versions refuse to open it. Archiving or unarchiving does not downgrade it. Check unknown deliveries first."
 }

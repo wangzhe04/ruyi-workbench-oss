@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "scope": "independent diagnosis of current ordinary seed first assertion; narrow harness candidate authored after diagnosis requires root nonauthor review before actual execution",
+  "historicalFailure": {
+    "root": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-modes-pQQP8T",
+    "readOnlyLog": "seed.stderr.log",
+    "frame": "bind 79:243",
+    "assertion": "assert.equal(selected.root,actual.root)",
+    "rootBeforeUntouched": true,
+    "unknownHelpersNotRetrospectivelyProven": true
+  },
+  "finding": {
+    "classification": "harness path-string equality conflicts with intentional no-manifest legacy-root contract",
+    "evidence": [
+      "ServerOwnership.canonicalRoot returns realpath lowercased on Windows",
+      "RootAuthority.bind with absent manifest preserves host.paths.data exact legacy string",
+      "Manifest.create using canonical base returns that canonical lowercase root when pointer absent",
+      "driver loads runtime/paths before bind updates RUYI_HOME to canonical root",
+      "actual strong-pure reproduction sees first ERR_ASSERTION with same root differing in Windows case"
+    ],
+    "notProductDefect": "No product source changed; preserving legacy root strings is explicitly covered by permanent root-authority test"
+  },
+  "candidate": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\bind-case-fix\\ordinary-mode-gate.cjs",
+    "sha256": "7aca67c237157e933611bc213823643472578e8cf6de87d0f84aab8309220837",
+    "span": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\bind-case-fix\\bind-span.json",
+    "uniqueSpan": 1,
+    "fullInverseExact": true,
+    "change": "canonicalize selected.root and paths.data with actual ServerOwnership.canonicalRoot before comparing with actual Manifest root",
+    "remainingDataRootAssertionExact": true,
+    "budgetsAndAllOtherBusinessBytesUnchanged": true,
+    "needsNewDriverAndLauncherPins": true
+  },
+  "inputs": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-current118-resume-20261026-c4672ee3\\runtime\\app\\src\\01g-server-ownership.js",
+      "sha256": "431f6afed223355cf7c1109d783296c2c099f1a1aa5f5f291d1dc2403b5c6bb3"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-current118-resume-20261026-c4672ee3\\runtime\\app\\src\\01v-work-data-manifest.js",
+      "sha256": "e619619ba3ad329640cb214ec8a9a688ac3fe5a6e8cb500f791f8a85698af9f2"
+    },
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-current118-resume-20261026-c4672ee3\\runtime\\app\\src\\01z-work-data-root-authority.js",
+      "sha256": "1d9b06fc73085b7cf2b9b7cf89a9ae6e0ea1f10d9daa26c4820d2390bb7c87c1"
+    }
+  ],
+  "pure": {
+    "tests": 8,
+    "pass": 8,
+    "fail": 0,
+    "skip": 0,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\bind-case-fix\\pure-first.log",
+    "sha256": "6f8f06e6194d36bc21c965f57a2263d22213a0613e6def6bfe5706c08104c73e",
+    "test": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\bind-case-fix\\bind-case.test.cjs",
+    "testSha256": "b5b96dcf68fe846fedea7270f5bd7c9ead2e880d970fb891ee130d5c79b8f6d8",
+    "native": false,
+    "network": false,
+    "processes": false,
+    "models": [
+      "owner capability issuance",
+      "module environment"
+    ],
+    "actual": [
+      "complete01g/01v/01z sources",
+      "ordinary filesystem",
+      "manifest absent and present plain/encrypted"
+    ]
+  },
+  "negativeCases": [
+    "old unchanged harness rejects exact same canonical directory",
+    "foreign selected root rejected",
+    "foreign paths.data root rejected",
+    "foreign owner rejected"
+  ],
+  "productionPromotion": false,
+  "actualNativeGate": "not run"
+}

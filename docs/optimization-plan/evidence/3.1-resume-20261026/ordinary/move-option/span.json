@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "baselineFile": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+  "baselineSha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+  "productSha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb",
+  "before": "const moved=await platform.move({source,target,id:owned.objectInfo.id});",
+  "after": "const moved=await platform.move({source,target,id:owned.objectInfo.id,preserveMetadata:true});",
+  "forwardOccurrences": 1,
+  "inverseOccurrences": 1,
+  "wholeInverseExact": true,
+  "scope": "Ordinary installPortable move command only; originals path/native C#/proof predicates unchanged"
+}

@@ -1,0 +1,270 @@
+{
+  "schema": 1,
+  "scope": "Actual runtime L2 diagnostic, instrumented transparent readConfig wrapper and timer callbacks; native/network forbidden by preload; no L1/L3/provider calls; all synthetic roots retained",
+  "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+  "results": [
+    {
+      "mode": "original-immediate",
+      "dir": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-l2-readiness-diagnostic-20261026-9ab72c6a\\case-original-immediate-pvtfiB",
+      "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+      "events": [
+        {
+          "name": "append.call",
+          "date": 1792992377565,
+          "perf": 189.9237
+        },
+        {
+          "name": "append.return",
+          "date": 1792992377567,
+          "perf": 191.4313
+        },
+        {
+          "name": "t0",
+          "date": 1792992377567,
+          "perf": 191.435
+        },
+        {
+          "name": "timer200.create",
+          "date": 1792992377567,
+          "perf": 191.5045
+        },
+        {
+          "name": "readConfig.enter",
+          "date": 1792992377568,
+          "perf": 192.0903
+        },
+        {
+          "name": "readConfig.exit",
+          "date": 1792992377596,
+          "perf": 220.1236
+        },
+        {
+          "name": "append-hook.enter",
+          "date": 1792992377599,
+          "perf": 223.4917
+        },
+        {
+          "name": "timer200.fire",
+          "date": 1792992377773,
+          "perf": 397.5153
+        },
+        {
+          "name": "flush.end",
+          "date": 1792992377773,
+          "perf": 397.5831
+        },
+        {
+          "name": "hook.restore",
+          "date": 1792992377773,
+          "perf": 397.6859
+        },
+        {
+          "name": "append.release",
+          "date": 1792992377773,
+          "perf": 397.6903
+        },
+        {
+          "name": "chain.afterDrain",
+          "date": 1792992377774,
+          "perf": 398.8464
+        }
+      ],
+      "t0date": 1792992377567,
+      "t0perf": 191.433,
+      "flushEndDate": 1792992377773,
+      "flushEndPerf": 397.5794,
+      "waited": 206,
+      "waitedPerf": 206.14640000000003,
+      "assertionLimitMs": 1500,
+      "flushBudgetMs": 200,
+      "assertionPassed": true,
+      "error": null,
+      "appendHookReachedBeforeT0": false,
+      "appendHookReachedBeforeFlushEnd": true,
+      "timerDelayPerf": 206.01080000000002,
+      "readConfigPerf": 28.033299999999997
+    },
+    {
+      "mode": "ready",
+      "dir": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-l2-readiness-diagnostic-20261026-9ab72c6a\\case-ready-nOaX45",
+      "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+      "events": [
+        {
+          "name": "append.call",
+          "date": 1792992377809,
+          "perf": 433.6206
+        },
+        {
+          "name": "append.return",
+          "date": 1792992377809,
+          "perf": 433.6496
+        },
+        {
+          "name": "ready.wait",
+          "date": 1792992377809,
+          "perf": 433.6502
+        },
+        {
+          "name": "readConfig.enter",
+          "date": 1792992377809,
+          "perf": 433.7459
+        },
+        {
+          "name": "readConfig.exit",
+          "date": 1792992377827,
+          "perf": 451.4422
+        },
+        {
+          "name": "append-hook.enter",
+          "date": 1792992377829,
+          "perf": 453.0317
+        },
+        {
+          "name": "ready.confirmed",
+          "date": 1792992377829,
+          "perf": 453.0558
+        },
+        {
+          "name": "t0",
+          "date": 1792992377829,
+          "perf": 453.0574
+        },
+        {
+          "name": "timer200.create",
+          "date": 1792992377829,
+          "perf": 453.0644
+        },
+        {
+          "name": "timer200.fire",
+          "date": 1792992378038,
+          "perf": 662.8021
+        },
+        {
+          "name": "flush.end",
+          "date": 1792992378038,
+          "perf": 662.8412
+        },
+        {
+          "name": "hook.restore",
+          "date": 1792992378038,
+          "perf": 662.8509
+        },
+        {
+          "name": "append.release",
+          "date": 1792992378038,
+          "perf": 662.8515
+        },
+        {
+          "name": "chain.afterDrain",
+          "date": 1792992378039,
+          "perf": 663.8836
+        }
+      ],
+      "t0date": 1792992377829,
+      "t0perf": 453.057,
+      "flushEndDate": 1792992378038,
+      "flushEndPerf": 662.8404,
+      "waited": 209,
+      "waitedPerf": 209.78340000000003,
+      "assertionLimitMs": 1500,
+      "flushBudgetMs": 200,
+      "assertionPassed": true,
+      "error": null,
+      "appendHookReachedBeforeT0": true,
+      "appendHookReachedBeforeFlushEnd": true,
+      "timerDelayPerf": 209.73770000000002,
+      "readConfigPerf": 17.696300000000008
+    },
+    {
+      "mode": "prewarm-immediate",
+      "dir": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-l2-readiness-diagnostic-20261026-9ab72c6a\\case-prewarm-immediate-y93lfC",
+      "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+      "events": [
+        {
+          "name": "prewarm.start",
+          "date": 1792992378079,
+          "perf": 703.2557
+        },
+        {
+          "name": "prewarm.end",
+          "date": 1792992378095,
+          "perf": 719.8319
+        },
+        {
+          "name": "append.call",
+          "date": 1792992378095,
+          "perf": 719.8329
+        },
+        {
+          "name": "append.return",
+          "date": 1792992378095,
+          "perf": 719.8672
+        },
+        {
+          "name": "t0",
+          "date": 1792992378095,
+          "perf": 719.8699
+        },
+        {
+          "name": "timer200.create",
+          "date": 1792992378095,
+          "perf": 719.8775
+        },
+        {
+          "name": "readConfig.enter",
+          "date": 1792992378096,
+          "perf": 719.9662
+        },
+        {
+          "name": "readConfig.exit",
+          "date": 1792992378098,
+          "perf": 722.2198
+        },
+        {
+          "name": "append-hook.enter",
+          "date": 1792992378099,
+          "perf": 723.7225
+        },
+        {
+          "name": "timer200.fire",
+          "date": 1792992378301,
+          "perf": 925.7526
+        },
+        {
+          "name": "flush.end",
+          "date": 1792992378301,
+          "perf": 925.7895
+        },
+        {
+          "name": "hook.restore",
+          "date": 1792992378301,
+          "perf": 925.8036
+        },
+        {
+          "name": "append.release",
+          "date": 1792992378301,
+          "perf": 925.8048
+        },
+        {
+          "name": "chain.afterDrain",
+          "date": 1792992378303,
+          "perf": 926.9737
+        }
+      ],
+      "t0date": 1792992378095,
+      "t0perf": 719.8695,
+      "flushEndDate": 1792992378301,
+      "flushEndPerf": 925.7885,
+      "waited": 206,
+      "waitedPerf": 205.91899999999998,
+      "assertionLimitMs": 1500,
+      "flushBudgetMs": 200,
+      "assertionPassed": true,
+      "error": null,
+      "appendHookReachedBeforeT0": false,
+      "appendHookReachedBeforeFlushEnd": true,
+      "timerDelayPerf": 205.87509999999997,
+      "readConfigPerf": 2.253600000000006
+    }
+  ]
+}

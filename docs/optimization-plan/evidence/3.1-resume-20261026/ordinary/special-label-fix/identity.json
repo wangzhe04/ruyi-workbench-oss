@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "scope": "Only private fixture password backup leaf label, unchanged e1b runtime and special refusal semantics",
+  "driver": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89",
+  "launcher": "914ecfeb17ebeeb8c64335b85b7d0009b6f046d375a47c86cbe63676e219d890",
+  "files": [
+    {
+      "file": "author-report.json",
+      "bytes": 1113,
+      "sha256": "32c0d7d6880ccbdefad9b67c783108ad5a524f5e8eab921837dcecaa1fd6acc9"
+    },
+    {
+      "file": "baseline\\ordinary-gate-plan.json",
+      "bytes": 922,
+      "sha256": "5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec"
+    },
+    {
+      "file": "baseline\\ordinary-mode-gate.cjs",
+      "bytes": 36621,
+      "sha256": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874"
+    },
+    {
+      "file": "baseline\\ordinary-runtime-inputs.json",
+      "bytes": 28043,
+      "sha256": "c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217"
+    },
+    {
+      "file": "baseline\\run-ordinary-mode-gate.cjs",
+      "bytes": 7078,
+      "sha256": "ad8e229886a7d305a2d893a48f599321d153818a8c8dabc784346afe3b93afb1"
+    },
+    {
+      "file": "label.test.cjs",
+      "bytes": 2947,
+      "sha256": "44c4e7b4e7947b43172e94ed40063c64a5c8356697d363bd3408f5c546fbe8ee"
+    },
+    {
+      "file": "launcher-span.json",
+      "bytes": 491,
+      "sha256": "a82fb7aae0d18030f2161c9bd226db4582f56321137b7c7f22c892192e6b8974"
+    },
+    {
+      "file": "ordinary-gate-plan.json",
+      "bytes": 922,
+      "sha256": "5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec"
+    },
+    {
+      "file": "ordinary-mode-gate.cjs",
+      "bytes": 36687,
+      "sha256": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89"
+    },
+    {
+      "file": "ordinary-runtime-inputs.json",
+      "bytes": 28043,
+      "sha256": "c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217"
+    },
+    {
+      "file": "pure.log",
+      "bytes": 562,
+      "sha256": "541546d26ca047dac4d174722a5b0a91d57253013dfd9f4c1c487f51c766b596"
+    },
+    {
+      "file": "run-ordinary-mode-gate.cjs",
+      "bytes": 7078,
+      "sha256": "914ecfeb17ebeeb8c64335b85b7d0009b6f046d375a47c86cbe63676e219d890"
+    },
+    {
+      "file": "span.json",
+      "bytes": 582,
+      "sha256": "0293c1106a48c41032c00e2731fcd1238ce614fc1beaa6ad1f4f9ea7a4d8e26d"
+    }
+  ]
+}

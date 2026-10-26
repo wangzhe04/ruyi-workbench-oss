@@ -4593,4 +4593,11 @@
   ,"externalBots.deliveryCount": "已显示 {{shown}}/{{total}} 条 · 保留 {{retained}}/{{capacity}} 条（含已归档）"
   ,"externalBots.attempt": "发送尝试"
   ,"externalBots.deliveryCursorExpired": "分页位置已失效，请刷新最新记录。"
+  ,"externalBots.cancelReply": "取消回复发送"
+  ,"externalBots.cancelSaved": "已取消尚未提交的回复发送；业务结果保持不变。"
+  ,"externalBots.cancelFailed": "未确认取消结果，请刷新核对；不会自动重试。"
+  ,"externalBots.cancelTooLate": "当前回复已提交、已结束或结果未知，无法取消；请先核对发送结果。"
+  ,"externalBots.cancelChanged": "回复发送身份已变化，请刷新核对。"
+  ,"externalBots.delivery.cancelled": "回复发送已取消"
+  ,"externalBots.cancelCompatibility": "取消只阻止尚未提交的回复，不停止或撤销业务。首次取消会升级全部机器人账本，旧版将拒绝读取；归档或取消归档不会降级。发送未知须先核对。"
 }

@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "author": "/root/review_restore",
+  "status": "FROZEN SOURCE-ONLY PREPARER CANDIDATE; REQUIRES IMAGE NONAUTHOR REVIEW BEFORE MAIN",
+  "script": {
+    "file": "prepare-ordinary119-next.cjs",
+    "sha256": "4ee9958e013e0f3bcd80972ee83b533dc64eedda7f20e1af47e7c0fa40ce1757"
+  },
+  "candidate": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e/identity.json",
+    "sha256": "8bb859db98c2ad3fe6fb62f32e250adf899849cdc76387c10ed69c9e55a0312f",
+    "members": 21,
+    "allMembersRehashed": true,
+    "source13u": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb"
+  },
+  "independentCandidateReview": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-move-preserve-independent-20261026-b942f8dc/review-final.json",
+    "sha256": "fb8ef99988f0b1fb56acb6015a5d0116c333d0deaec08d3510559765024453ab"
+  },
+  "baseline5405": "5405fe921324d76edc9861cd26bb393d613beaa674b2d5f539d3d3b96c93a80b",
+  "spans": 10,
+  "wholeForwardAndInverseExact": true,
+  "contracts": {
+    "original61b2All448AndD896StillPinned": true,
+    "oneUniqueOrdinaryMoveOptionOnly": true,
+    "other122SourcesFrozenExceptManifestDerivedIntegers": true,
+    "nativeEf53IndependentConstantUnchanged": true,
+    "source119ExactConcatenation": true,
+    "roleInput121": true,
+    "allFour69afDerivationsUnchanged": true,
+    "budgets": [
+      240000,
+      250000,
+      2000
+    ],
+    "pathGuardAndWxWriterUnchangedExceptExtendedReadOnlyAdmissionPaths": true,
+    "original0975AndFailed52fbEvidenceUnchanged": true
+  },
+  "actions": {
+    "prepareMainInvoked": false,
+    "buildInvoked": false,
+    "serverLoaded": false,
+    "nativeInvoked": false,
+    "productTestsRunByThisAuthor": false,
+    "productionModified": false
+  },
+  "limits": [
+    "No private actual restore-pass or production promotion claim.",
+    "Root owns/isolates fresh output tree; path guard is not concurrent handle-CAS.",
+    "Each actual derived output requires separate independent review before one serialized real gate."
+  ],
+  "files": [
+    {
+      "file": "prepare-ordinary119-next.cjs",
+      "bytes": 21800,
+      "sha256": "4ee9958e013e0f3bcd80972ee83b533dc64eedda7f20e1af47e7c0fa40ce1757"
+    },
+    {
+      "file": "final-inverse-to5405.json",
+      "bytes": 7084,
+      "sha256": "481093a92bcdf6550a85c4757bf8b47ec4b5524952c5633755280847146039aa"
+    },
+    {
+      "file": "prepare-ordinary119-next.draft.cjs",
+      "bytes": 20418,
+      "sha256": "af0e8d5215dfd577b43be446d2849f4054a564a61102cfc2c1371ffd71f2bf75"
+    },
+    {
+      "file": "draft-inverse-to5405.json",
+      "bytes": 4786,
+      "sha256": "0fbcbd7ef1fa0ab8f8fcdad47fefdfe89b0077ad7e6efe46f47084e0eb31a2fe"
+    },
+    {
+      "file": "make-draft.cjs",
+      "bytes": 5754,
+      "sha256": "4cd7bedd363fa8b0566860d05f70fd94dbfce629b7eac3d7ec7ec8b2f8e79861"
+    },
+    {
+      "file": "finalize-source.cjs",
+      "bytes": 5963,
+      "sha256": "eb5119641062a310aa0c0a6d325b10556a838ee64d269f6074d14e6a56366503"
+    },
+    {
+      "file": "README.txt",
+      "bytes": 2629,
+      "sha256": "b0c9012febd0d001e05f2b0c016f44fe765c95d914962fa0c3568e03b3d99c94"
+    }
+  ]
+}

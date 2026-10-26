@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 186(精确 162 / 前缀 12 / 正则 12),ROUTE_AUTH 173 条,生成于 2026-10-25T11:18:51.361Z。
+> 判定点 187(精确 163 / 前缀 12 / 正则 12),ROUTE_AUTH 174 条,生成于 2026-10-26T04:15:33.708Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -121,7 +121,7 @@
 |---|---|---|---|---|---|
 | GET | `/api/events/stream` | exact | token-browser | 13r-event-stream.js · `handleEventStreamApiRoutes` | action-feedback.browser.e2e.js, background-completion.e2e.js, boot-failure-kind.browser.e2e.js 等 24 件 |
 
-## external-bots(12)
+## external-bots(13)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
@@ -135,6 +135,7 @@
 | POST | `/api/external-bots/connections` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-discovery.e2e.js, external-bot-gateway.e2e.js, external-bot-setup.browser.e2e.js 等 7 件 |
 | GET | `/api/external-bots/deliveries` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bots-control.e2e.js, external-bots.browser.e2e.js, external-bots-ui.test.js |
 | POST | `/api/external-bots/deliveries/archive` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bots-control.e2e.js, external-bots-ui.test.js |
+| POST | `/api/external-bots/deliveries/cancel` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bots-control.e2e.js, external-bots.browser.e2e.js, external-bots-ui.test.js |
 | GET | `/api/external-bots/inbox` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bot-setup.browser.e2e.js, external-bot-setup.e2e.js, external-bots-control.e2e.js 等 5 件 |
 | POST | `/api/external-bots/inbox/read` | exact | token | 13w-external-bots.js · `handleExternalBotApiRoutes` | external-bots.e2e.js |
 
@@ -266,7 +267,7 @@
 | POST | `/api/steward/visit` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | external-bot-setup.browser.e2e.js, steward-conversation.e2e.js, steward-conversation.static.e2e.js 等 8 件 |
 | POST | `/api/steward/act` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream-client.browser.e2e.js, event-stream-pageshow.browser.e2e.js 等 29 件 |
 | POST | `/api/steward/relay` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | foreign-turn-busy-guard.e2e.js, new-thread-engine-default.e2e.js, session-rewind-execution.e2e.js 等 13 件 |
-| POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream.e2e.js, external-bot-setup.e2e.js 等 23 件 |
+| POST | `/api/steward/message` | exact | token self | 13h-steward-runner.js · `handleStewardRunnerApiRoutes` | classic-window-live-steer.e2e.js, event-stream.e2e.js, external-bot-setup.e2e.js 等 22 件 |
 
 ## work-data(3)
 

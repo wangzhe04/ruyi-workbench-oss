@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "scope": "unchanged actual native short-probe leaf; different new synthetic execution path lengths; not complete unit/native recovery acceptance and not a long-path product fix",
+  "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU",
+  "ownerNonce": "5a9fe986b317efd3b6bb922c53eac67c20b563dfd9230202c5909fe47dd7b170",
+  "pins": {
+    "server": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\server.js",
+    "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+    "source": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\src\\13u-migration-center.js",
+    "sourceSha256": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0",
+    "nativeSha256": "f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25",
+    "lengths": [
+      250,
+      259,
+      260,
+      261,
+      270
+    ]
+  },
+  "parentTEMP": "C:\\Users\\87179\\AppData\\Local\\Temp",
+  "parentTMP": "C:\\Users\\87179\\AppData\\Local\\Temp",
+  "allTreesRetained": true,
+  "originalFailureRootsUntouched": true,
+  "helperMayStillRun": false,
+  "fatal": null,
+  "rows": [
+    {
+      "stage": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-0\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z",
+      "stageChars": 167,
+      "probeChars": 250,
+      "probeModel": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-0\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "operation": "short-probe",
+      "commandOk": true,
+      "commandError": null,
+      "closeError": null,
+      "helperMayStillRun": false,
+      "helpers": [
+        {
+          "pid": 31140,
+          "exe": "powershell.exe",
+          "spawned": true,
+          "exited": true,
+          "closed": true,
+          "error": null,
+          "exitCode": 0,
+          "exitSignal": null,
+          "closeCode": 0,
+          "closeSignal": null
+        }
+      ]
+    },
+    {
+      "stage": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-1\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z",
+      "stageChars": 176,
+      "probeChars": 259,
+      "probeModel": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-1\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "operation": "short-probe",
+      "commandOk": true,
+      "commandError": null,
+      "closeError": null,
+      "helperMayStillRun": false,
+      "helpers": [
+        {
+          "pid": 38392,
+          "exe": "powershell.exe",
+          "spawned": true,
+          "exited": true,
+          "closed": true,
+          "error": null,
+          "exitCode": 0,
+          "exitSignal": null,
+          "closeCode": 0,
+          "closeSignal": null
+        }
+      ]
+    },
+    {
+      "stage": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-2\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z",
+      "stageChars": 177,
+      "probeChars": 260,
+      "probeModel": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-2\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "operation": "short-probe",
+      "commandOk": false,
+      "commandError": {
+        "code": "work_data_backup.idle_win32_3",
+        "helperMayStillRun": false,
+        "operationMayHaveExecuted": false,
+        "retry": null
+      },
+      "closeError": {
+        "code": "work_data_backup.idle_win32_3",
+        "helperMayStillRun": false,
+        "operationMayHaveExecuted": false,
+        "retry": null
+      },
+      "helperMayStillRun": false,
+      "helpers": [
+        {
+          "pid": 2024,
+          "exe": "powershell.exe",
+          "spawned": true,
+          "exited": true,
+          "closed": true,
+          "error": null,
+          "exitCode": 0,
+          "exitSignal": null,
+          "closeCode": 0,
+          "closeSignal": null
+        }
+      ]
+    },
+    {
+      "stage": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-3\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z",
+      "stageChars": 178,
+      "probeChars": 261,
+      "probeModel": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-3\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "operation": "short-probe",
+      "commandOk": false,
+      "commandError": {
+        "code": "work_data_backup.idle_win32_3",
+        "helperMayStillRun": false,
+        "operationMayHaveExecuted": false,
+        "retry": null
+      },
+      "closeError": {
+        "code": "work_data_backup.idle_win32_3",
+        "helperMayStillRun": false,
+        "operationMayHaveExecuted": false,
+        "retry": null
+      },
+      "helperMayStillRun": false,
+      "helpers": [
+        {
+          "pid": 38572,
+          "exe": "powershell.exe",
+          "spawned": true,
+          "exited": true,
+          "closed": true,
+          "error": null,
+          "exitCode": 0,
+          "exitSignal": null,
+          "closeCode": 0,
+          "closeSignal": null
+        }
+      ]
+    },
+    {
+      "stage": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-4\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z",
+      "stageChars": 187,
+      "probeChars": 270,
+      "probeModel": "C:\\Users\\87179\\AppData\\Local\\Temp\\r3leaf-HXQHAU\\case-4\\PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "operation": "short-probe",
+      "commandOk": false,
+      "commandError": {
+        "code": "work_data_backup.idle_win32_3",
+        "helperMayStillRun": false,
+        "operationMayHaveExecuted": false,
+        "retry": null
+      },
+      "closeError": {
+        "code": "work_data_backup.idle_win32_3",
+        "helperMayStillRun": false,
+        "operationMayHaveExecuted": false,
+        "retry": null
+      },
+      "helperMayStillRun": false,
+      "helpers": [
+        {
+          "pid": 37940,
+          "exe": "powershell.exe",
+          "spawned": true,
+          "exited": true,
+          "closed": true,
+          "error": null,
+          "exitCode": 0,
+          "exitSignal": null,
+          "closeCode": 0,
+          "closeSignal": null
+        }
+      ]
+    }
+  ],
+  "allHelpers": [
+    {
+      "pid": 31140,
+      "exe": "powershell.exe",
+      "spawned": true,
+      "exited": true,
+      "closed": true,
+      "error": null,
+      "exitCode": 0,
+      "exitSignal": null,
+      "closeCode": 0,
+      "closeSignal": null
+    },
+    {
+      "pid": 38392,
+      "exe": "powershell.exe",
+      "spawned": true,
+      "exited": true,
+      "closed": true,
+      "error": null,
+      "exitCode": 0,
+      "exitSignal": null,
+      "closeCode": 0,
+      "closeSignal": null
+    },
+    {
+      "pid": 2024,
+      "exe": "powershell.exe",
+      "spawned": true,
+      "exited": true,
+      "closed": true,
+      "error": null,
+      "exitCode": 0,
+      "exitSignal": null,
+      "closeCode": 0,
+      "closeSignal": null
+    },
+    {
+      "pid": 38572,
+      "exe": "powershell.exe",
+      "spawned": true,
+      "exited": true,
+      "closed": true,
+      "error": null,
+      "exitCode": 0,
+      "exitSignal": null,
+      "closeCode": 0,
+      "closeSignal": null
+    },
+    {
+      "pid": 37940,
+      "exe": "powershell.exe",
+      "spawned": true,
+      "exited": true,
+      "closed": true,
+      "error": null,
+      "exitCode": 0,
+      "exitSignal": null,
+      "closeCode": 0,
+      "closeSignal": null
+    }
+  ],
+  "completed": true
+}

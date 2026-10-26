@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_cancel",
+  "scope": "Non-author independent frozen B1 cancel review; authorized permanent test migration only; no build/native/HTTP/browser/live platform execution",
+  "decision": "approve_source_for_root_integration_and_further_runtime_acceptance",
+  "findings": [],
+  "candidateProductsVerified": 8,
+  "candidateInventoryVerified": 62,
+  "productionCandidateIdentity": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33",
+  "guardSha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+  "checks": [
+    {
+      "name": "path-only adapted archived selected pure tests",
+      "tests": 101,
+      "pass": 101,
+      "fail": 0,
+      "log": "selected-first.log",
+      "logSha256": "c9535f6d70c04c28fc0e4ed3c1d3948ebf04fd7522a81a61a50e1d1806dedb23"
+    },
+    {
+      "name": "additional independent actual 13x + candidate 13w source VM; HTTPS explicitly synthetic",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "log": "independent-adapter-first.log",
+      "logSha256": "23789712b7b595fc119272d4925ab551e3fed0c9df8f2e3b1c0e4838c20f37cd"
+    },
+    {
+      "name": "five archived source-removal controls",
+      "controls": 5,
+      "rejected": 5,
+      "error": "ERR_ASSERTION",
+      "logs": [
+        "negative-window-current.log",
+        "negative-commit-current.log",
+        "negative-version-current.log",
+        "negative-durability-current.log",
+        "negative-ui-sequence-current.log"
+      ]
+    },
+    {
+      "name": "authorized permanent migrated tests under guard; first run",
+      "tests": 103,
+      "pass": 103,
+      "fail": 0,
+      "skip": 0,
+      "log": "permanent-first.log",
+      "logSha256": "d3494dac21fa733e452b44e881b7231de25e9f228f798d90958d3b0f391448a8"
+    }
+  ],
+  "testSemantics": [
+    "same-attempt idempotence no extra write",
+    "durable cancellation ACK and exact controller abort only after persistence",
+    "shared state-chain ordering against final synchronous message request creation",
+    "payload3 old whole-ledger readers reject real producer plain and sealed payload without overwrite/run/send",
+    "actual Store + FullSnapshot modeled protector + Codecs retain cancellation bytes and authority",
+    "UI lost ACK and late GET/write-owner protections"
+  ],
+  "preservation": {
+    "originalInboxTestBodySha256": "dcebf180885524850efdccaa8b8627a1550fb0de57f86430115abe9922c469de",
+    "originalInboxTestBodyPreserved": true,
+    "originalUITestSha256": "46980905e71d3a1d63f3c2f678bea42ea3ef69f70edfa0eca54d7ccb4b6aa4bf",
+    "originalUIIsExactPrefix": true,
+    "historyV2Sha256": "1ad6064fb9e31079e2b07c85353e56a1a94c33eff5d5abbf18f9efc87938d1f0",
+    "historyV1Sha256": "5bf225988e7a0744c6f13c87e82defd9f93612e88c917b25ad1cb26bc308938d",
+    "pureCounts": {
+      "originalInbox": 34,
+      "core": 21,
+      "adapter": 4,
+      "storage": 4,
+      "ui": 40
+    }
+  },
+  "files": [
+    {
+      "file": "dev-harness/lib/external-bots-inbox-fixture.js",
+      "sha256": "794b43a21715e37d678e84cc566c8ab26f62345d442bd9d680f07027aaf42ed9"
+    },
+    {
+      "file": "dev-harness/unit/external-bots-inbox.test.js",
+      "sha256": "4b10d645a67f8718ee1b4aab80d0c9252817ff5513b2316c019add654899c432"
+    },
+    {
+      "file": "dev-harness/unit/external-bots-ui.test.js",
+      "sha256": "8b4d639f3dd77bff34e3fbf95932735fc54e18cbe9ca35befee8969a60dd2643"
+    },
+    {
+      "file": "dev-harness/unit/external-bots-cancel.test.js",
+      "sha256": "49b8a25c1f4d775507136027cf6888f8e1fcd9315b4021367aed5277e1e505d7"
+    },
+    {
+      "file": "dev-harness/unit/external-bots-cancel-adapter.test.js",
+      "sha256": "74df9de49837a29b8dea112c933da3e0b7106dbbd0884666ec959c362bc05bc2"
+    },
+    {
+      "file": "dev-harness/unit/external-bots-cancel-storage.test.js",
+      "sha256": "36922d02afe41400cf1b120dec8f97f5ed1695f7cc1a266276b53453360b4e9f"
+    },
+    {
+      "file": "dev-harness/fixtures/external-bots-cancel/history.json",
+      "sha256": "412613d78e2185e2b7a20bdf590a009cc9ab1cdc068ea9149db01cf116d99cb3"
+    }
+  ],
+  "remaining": [
+    "Root review permanent tests and final integration diff",
+    "Root actual runtime build and auth/API/state races/isolated browser acceptance",
+    "Root relevant e2e and required syntax/generated/full regression gates",
+    "Real QQ/Feishu and publishing remain separately authorized work"
+  ]
+}

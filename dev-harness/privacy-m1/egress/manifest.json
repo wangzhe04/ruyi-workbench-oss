@@ -756,6 +756,7 @@
     {"file":"ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js","fingerprint":"39f2be15a8aeaf5407ed2478b635d278015f577599b1d49ad04d5491b0531eff"},
     {"file":"ruyi-workbench/app/src/13an-work-data-disposable-tree.js","fingerprint":"82bfeb2c74620f9eb485f24abba64407e9c53e5c3e0e64c4ad935512a7802422"},
     {"file":"ruyi-workbench/app/src/13b-api-domain-routes.js","fingerprint":"1ba9d9f5b6d34683078fd05209bf9a4c9b61281c02eca314df2132f654acfb79"},
+    {"file":"ruyi-workbench/app/src/13ba-media-image-contract.js","fingerprint":"e4f02abeca91eccb775c4ac35a152ab2916d36be02df841e58f5c37c08a9d145"},
     {"file":"ruyi-workbench/app/src/13c-overlay-routes.js","fingerprint":"5d62779ec3d368fde2bf28fef8b2005e368708540badb49bc9cd22f5299bdb4a"},
     {"file":"ruyi-workbench/app/src/13d-core-domain-routes.js","fingerprint":"326ec92bbcf12ed9eca005b43b466001aef23287b6ff1d375071e9e206c63747"},
     {"file":"ruyi-workbench/app/src/13e-pretender-index.js","fingerprint":"ed3eae97a61b788cab3d19ed4423c3d2f519ba4f685663758079ba60910b3989"},

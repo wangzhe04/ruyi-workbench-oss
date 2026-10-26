@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "review_restore nonauthor review of root assembly adaptation",
+  "status": "approved dormant shared-scope module integration; no actionable findings",
+  "checks": {
+    "source": "e4f02abe exactly equals reviewed5467 after sole trailing module.exports line removal",
+    "exports": "VM sentinel module.exports unchanged after evaluating full source; MediaImageContract.create available only by explicit shared-scope expression",
+    "fixtures": "fixture/png function bodies exact; main50 unit entire file unchanged at d847; closure32 test body from closureCases through EOF exact",
+    "vmAdaptation": "tests obtain actual shared-scope MediaImageContract via VM result expression; no exported fake or replaced implementation",
+    "manifest": "one13ba inserted immediately before14-main, afterPrivacyCore; all other module order matchesHEAD",
+    "service": "103296..103604 exact module source,104402 lines",
+    "unwired": "No symbol consumers in other production JS/frontend modules; no host, routes, preview, send or public14-main export"
+  },
+  "sources": [
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\src\\13ba-media-image-contract.js",
+      "sha256": "e4f02abeca91eccb775c4ac35a152ab2916d36be02df841e58f5c37c08a9d145"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\lib\\media-image-contract-fixture.js",
+      "sha256": "e080732754ebd0f7039074c5332ca5901ee087c4eee598f0fed513f234fae790"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\unit\\media-image-contract.test.js",
+      "sha256": "d84716b89fa188c3baaa78f8bc0775f8be12b7416df58e213bb9263b2eb4ee85"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\unit\\media-image-contract-cleanup.test.js",
+      "sha256": "629ceff4edda968af9db848423322c3757c93f544aa9e648c61448bf7ee8b099"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\src\\manifest.json",
+      "sha256": "8cd6c728f7ea615666e55ff2ff939a306ff9eebd118ff9c0710e977dc3d6bb81"
+    },
+    {
+      "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\server.js",
+      "sha256": "e4251b35dac90562c125a00d7905e818e682e6171babb159cadff04e1c0df38c"
+    }
+  ],
+  "tests": {
+    "tests": 82,
+    "pass": 82,
+    "fail": 0,
+    "skipped": 0,
+    "log": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\m4-review\\root-integration-final82.log",
+    "sha256": "2ac8f46823de226399d7102fe28f5c342d9010265c123c33d6b797654724df5b",
+    "strongGuard": "existing media-artifact-test-guard.js installed before fixtures/probes; original identity/capability refusal assertions retained"
+  },
+  "operations": "read-only source/manifest/service inspection and pure unit execution; no build, native business gate, HTTP or browser",
+  "boundaries": "Pure contract integration only; media owners, actual decoder/OCR, encrypted artifact store, preview/final send egress remain unbound"
+}

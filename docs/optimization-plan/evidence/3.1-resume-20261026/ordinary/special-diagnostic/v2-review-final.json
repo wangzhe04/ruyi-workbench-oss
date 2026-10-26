@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "reviewer": "/root/review_cancel",
+  "status": "APPROVED for one root-serialized fresh actual full gate to collect special refusal inner codes; original assertion must remain red for unexpected codes",
+  "appliesOnlyTo": {
+    "identity": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-refusal-safe-v2-qXY4ov\\identity.json",
+      "bytes": 2359,
+      "sha256": "1f3d7ff92ae2ceb1ed858fa0bfcb4039874166363600b9a5a0a188cac13be252"
+    },
+    "driver": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-refusal-safe-v2-qXY4ov\\ordinary-mode-gate.cjs",
+      "bytes": 36621,
+      "sha256": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874"
+    },
+    "launcher": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-refusal-safe-v2-qXY4ov\\run-ordinary-mode-gate.cjs",
+      "bytes": 7078,
+      "sha256": "ad8e229886a7d305a2d893a48f599321d153818a8c8dabc784346afe3b93afb1"
+    },
+    "runtime": {
+      "file": "C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/runtime/app/server.js",
+      "bytes": 7865898,
+      "sha256": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a"
+    },
+    "support": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-refusal-safe-v2-qXY4ov\\ordinary-gate-plan.json",
+      "bytes": 922,
+      "sha256": "5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec"
+    },
+    "runtimeInputs": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-refusal-safe-v2-qXY4ov\\ordinary-runtime-inputs.json",
+      "bytes": 28043,
+      "sha256": "c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217"
+    }
+  },
+  "source": {
+    "v2OnlyChangeFromBlockedV1": "New diagnostic code map requires primitive string and exact128char regex; otherwise null",
+    "driverWholeInverseTo8130": true,
+    "launcherWholeInverseToC0e4OnlyDriverSha": true,
+    "originalAssertionExact": true,
+    "allowedCodeSetUnchanged": true,
+    "allOtherDriverAndLauncherBytesUnchanged": true,
+    "sevenRolesAnd8PayloadBusinessAssertionsUnchanged": true,
+    "budgets": {
+      "innerMs": 240000,
+      "outerMs": 250000,
+      "cleanupMs": 2000
+    }
+  },
+  "outputBoundary": {
+    "maxRows": 8,
+    "maxCodeChars": 128,
+    "codeType": "primitive string or null",
+    "fields": [
+      "code",
+      "helperMayStillRun",
+      "ownershipRetained",
+      "targetRetained",
+      "retry"
+    ],
+    "remainingFieldTypes": "booleans and retry false/null already provided by unchanged actual typedCauses",
+    "noMessageBodyStackFields": true,
+    "objectCodeCounterexampleNowNullAndPayloadAbsent": true,
+    "onlyNewDiagnosticLineReviewed": true,
+    "notClaimingOldTypedCausesGeneralForeignObjectSafety": true
+  },
+  "independentPure": {
+    "guardSha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+    "tests": 5,
+    "pass": 5,
+    "fail": 0,
+    "exitCode": 0,
+    "log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-diagnostic-independent-20261026-4ecda272\\v2-pure5.log",
+      "bytes": 564,
+      "sha256": "8b58da53fa8184451ffe5b6bfcee0d0d806ea5e29a5737603c9f65a040e64ff0"
+    },
+    "unexpectedCodeOriginalAndCandidateAssertBothERR_ASSERTION": true,
+    "knownTwoCodesStillAccepted": true
+  },
+  "pathAndIdentity": {
+    "schema": 1,
+    "status": "APPROVED for one root-serialized fresh actual gate to collect special inner codes; v1 code-object disclosure gap fixed by output-only string sanitizer; original assertions remain unchanged",
+    "identitySha256": "1f3d7ff92ae2ceb1ed858fa0bfcb4039874166363600b9a5a0a188cac13be252",
+    "identityMembersVerified": 13,
+    "sourceWholeInverseExact": true,
+    "launcherOnlyDriverShaInverseExact": true,
+    "supportInputUnchanged": true,
+    "runtimeInputFilesVerified": 121,
+    "pathsChecked": 147,
+    "allExistingAncestorsNonLinkAndCanonical": true,
+    "blockedEvidence": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-diagnostic-independent-20261026-4ecda272\\code-object-negative.json",
+      "sha256": "943dc115039228894d774f71f2558fea891b1ee0de20460d05b494b6e8f35b5e"
+    },
+    "noNativeBuildOrGate": true,
+    "report": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-diagnostic-independent-20261026-4ecda272\\v2-path-and-inverse-review.json",
+      "bytes": 842,
+      "sha256": "8a6773819f67d52457dcb2b43806fc75c1d1e080bcd15a22e195d771c0ef095b"
+    },
+    "all13MemberBytesShaRecheckedAfterPure": true
+  },
+  "preservedV1BlockedEvidence": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-diagnostic-independent-20261026-4ecda272\\initial-blocked-review.json",
+    "bytes": 772,
+    "sha256": "a4abb9e1d6f8ef08a4694b46bda774bf0c88abf1835a07d4153618fcf9939f4b"
+  },
+  "preservedCounterexample": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-diagnostic-independent-20261026-4ecda272\\code-object-negative.json",
+    "bytes": 757,
+    "sha256": "943dc115039228894d774f71f2558fea891b1ee0de20460d05b494b6e8f35b5e"
+  },
+  "conditions": [
+    "Root only, one full serial gate with unchanged runtimee1b and existing budgets on a newly owned synthetic root.",
+    "Do not run/reuse blockedv1 or modify BD71Q1 failed tree, source before or allowed special code set.",
+    "Collect actual typed refusal code; retain original assertion failure if still mismatched.",
+    "Full ordinary gate, special safety and final helper closure remain unproven until actual receipts."
+  ],
+  "findings": [],
+  "actions": {
+    "productRuntimeModified": false,
+    "oldFailureTreeModified": false,
+    "candidateFrozenFilesModified": false,
+    "build": false,
+    "native": false,
+    "main": false,
+    "limitedPureOnly": true
+  }
+}

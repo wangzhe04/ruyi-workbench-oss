@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "review_image, independent non-author of cancellation physical capacity fix",
+  "verdict": "Approved for this narrow source change and listed pure/storage verification. Not actual HTTP/browser/build/full-regression or whole3.1 approval.",
+  "candidate": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\13w-cancel-physical-fix.js",
+    "sha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+    "baseline": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33",
+    "spans": 1,
+    "inverseExact": true,
+    "payload4RetryExcluded": true
+  },
+  "finding": "Previous cancellation could ACK a valid<40MiB plain ledger and write a pretty JSON payload over the physical40MiB read ceiling. Author actual pending/sending synthetic report records41943039→41944087 bytes, next read storage_unavailable. Active sender may already be aborted after that unreadable commit.",
+  "fix": "Immediately before existing durable write, reject projected UTF8 JSON.stringify(state,null,2) bytes greater than EXTERNAL_BOT_LIMITS.stateBytes with existing inbox_full503. Both modes conservatively share this plaintext-representation preflight. The40MiB budget, compact Store guard, ciphertext framing, schema/AAD, same-attempt idempotency and write→abort ordering remain unchanged.",
+  "checks": [
+    "One unique four-line insertion, exact inverse returns frozen96e9 product.",
+    "No Store base changes, candidate payload4/manual retry code or new transport.",
+    "Strict greater-than allows exactly41943040 projected bytes and refuses41943041 before any write/abort.",
+    "Already cancelled same-attempt receipt returns before budget check without reserialization write, retaining cancellation timestamp."
+  ],
+  "verification": {
+    "original21Plus4": {
+      "tests": 25,
+      "pass": 25,
+      "fail": 0,
+      "exit": 0,
+      "log": "original25-fixed.log",
+      "loadAdaptation": "Only fixture module default product source changed to candidate via exact one-span compile preload. Original test files and assertions unchanged. HistoricalSource and direct structure reads remain original96e9; narrow inverse proof independently establishes unchanged Store/AAD/adapter structures."
+    },
+    "independentExactBoundary": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "exit": 0,
+      "log": "exact8-fixed.log",
+      "matrix": "pending/sending × plain/sealed × projected exact40MiB/overflow by1byte",
+      "assertions": "Actual Store/Chunks/atomic file writes. Success keeps original business/attempt and40rows; sending aborts only afterwrite; repeated same-attempt cancellation writes0. Rejection keeps bytes hash/writecount/state/active controller unchanged and readable.",
+      "sealedMeaning": "Exact cap refers to legacy pretty plaintext representation. Actual sealed ciphertext may exceed40MiB under existing chunked format and remains governed by existing sealed readers; no new ciphertext-size claim."
+    },
+    "inverseControl": {
+      "source": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33",
+      "filter": "^plain pending overflow",
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "exit": 1,
+      "error": "ERR_ASSERTION Missing expected rejection",
+      "log": "inverse-baseline-overflow-control.log"
+    },
+    "guard": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+    "nativeNetwork": false,
+    "models": "Actual backend source/Store/crypto/chunks/atomic file persistence; adapter transport and key provider fixture only; no real platform"
+  },
+  "inputs": [
+    {
+      "file": "dev-harness/lib/external-bots-inbox-fixture.js",
+      "sha256": "794b43a21715e37d678e84cc566c8ab26f62345d442bd9d680f07027aaf42ed9"
+    },
+    {
+      "file": "dev-harness/unit/external-bots-cancel.test.js",
+      "sha256": "49b8a25c1f4d775507136027cf6888f8e1fcd9315b4021367aed5277e1e505d7"
+    },
+    {
+      "file": "dev-harness/unit/external-bots-cancel-adapter.test.js",
+      "sha256": "74df9de49837a29b8dea112c933da3e0b7106dbbd0884666ec959c362bc05bc2"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01p-work-data-store.js",
+      "sha256": "10cdee7ef20946a83573d7672300b45f407315027ae216b3aa9e071502926285"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "sha256": "3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b"
+    },
+    {
+      "file": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9"
+    }
+  ],
+  "evidence": [
+    {
+      "file": "candidate-fixture-preload.cjs",
+      "sha256": "67dbe048fa9bf5febc799ede5f85a52e35701e66ba2adcc24ce715430357e6ed"
+    },
+    {
+      "file": "exact-capacity-matrix.test.cjs",
+      "sha256": "7011359cc8a36ef349d666fb36288e979f5105c15c0abee92e39fe578ad811f9"
+    },
+    {
+      "file": "exact8-fixed.log",
+      "sha256": "9e1090386cae590144eaf1eb80162b7c14279d7c3c3ea362c011d6722ca65e0c"
+    },
+    {
+      "file": "inverse-baseline-overflow-control.log",
+      "sha256": "607c32f9eb8ded045cbf5ee34d8e5e4eab0f07eda20959d164998a7276da1f27"
+    },
+    {
+      "file": "original25-fixed.log",
+      "sha256": "4dd59e0021d5e45ef561cb147f89478c5ed21e45c2ba03ebab95506b6f014469"
+    },
+    {
+      "file": "run-original25.cjs",
+      "sha256": "e782b29e42b5a393082fe5c8a26292272e3c4f8896989b0d2eb082227ffba263"
+    },
+    {
+      "file": "write-review.cjs",
+      "sha256": "74bda72647abf21f158c0f80943972b184d36c85e11a0d9f0f34dd0a8ab7f207"
+    }
+  ],
+  "integration": "On live promotion update history fixture v3 SHA plus exact inverse of this one new span, preserving original v1/v2 hashes and old-reader rejection assertions. Rerun required product checks on new identity; earlier full-regression greens only cover96e9.",
+  "boundaries": "All reviewer artifacts in ownTEMP; no product or author artifacts mutated, no build/native/helper/HTTP/browser run. Eight capacity fixtures are synthetic isolated filesystem ledgers cleaned by existing fixture ownership hook."
+}

@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "status": "Final live capacity integration independently verified statically; no heavy test rerun",
+  "sourceSha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+  "test": {
+    "file": "dev-harness/unit/external-bots-cancel-capacity.test.js",
+    "sha256": "24de1887a3157b180016a8ab9694f69f39892279d0a17e2df870e67ecce29caf",
+    "bodyAndAssertionsExactFromIndependent8": true,
+    "changes": "Only root/source discovery changed to repository-local paths; entire fixture projection, loops and all8 assertion bodies unchanged."
+  },
+  "history": {
+    "file": "dev-harness/fixtures/external-bots-cancel/history.json",
+    "sha256": "ea69c040257d5b093edf75cb600c53967a759c156190a033475b56f18f015f88",
+    "v2": "1ad6064fb9e31079e2b07c85353e56a1a94c33eff5d5abbf18f9efc87938d1f0",
+    "v1": "5bf225988e7a0744c6f13c87e82defd9f93612e88c917b25ad1cb26bc308938d",
+    "v2AllUniqueInverse": true,
+    "v1AllExactHunks": true
+  },
+  "existingIndependentEvidence": "C:/Users/87179/AppData/Local/Temp/ruyi-cancel-capacity-independent-20261026-81739f24/review.json sha e4d874c90a8f65a7ab338a3822db42c28e74b21cad1b8a65dc088048fc6d8573; original25+new8+inverse1 remain separate from current root full gates."
+}

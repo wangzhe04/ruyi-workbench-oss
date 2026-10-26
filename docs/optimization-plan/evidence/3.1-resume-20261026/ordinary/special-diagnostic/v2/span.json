@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "baseline": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\ordinary\\ordinary-mode-gate.cjs",
+  "beforeSha256": "8130a6a35a4af0a32e0f859b2274c7b19c77a801cf67ffb2066149aa80f972a7",
+  "afterSha256": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874",
+  "before": "assert.ok(typedCauses(cause).some(row=>['work_data_migration_host.special_owner_change_proof_required','work_data_migration_host.special_backup_coverage_required'].includes(row.code)),JSON.stringify(typedCauses(cause)));",
+  "after": "console.error(JSON.stringify({diagnostic:'ordinary.special_refusal_typed_causes.v1',causes:typedCauses(cause).slice(0,8).map(row=>({code:typeof row.code==='string'&&/^[A-Za-z0-9_.-]{1,128}$/.test(row.code)?row.code:null,helperMayStillRun:row.helperMayStillRun,ownershipRetained:row.ownershipRetained,targetRetained:row.targetRetained,retry:row.retry}))}));assert.ok(typedCauses(cause).some(row=>['work_data_migration_host.special_owner_change_proof_required','work_data_migration_host.special_backup_coverage_required'].includes(row.code)),JSON.stringify(typedCauses(cause)));",
+  "diagnostic": "console.error(JSON.stringify({diagnostic:'ordinary.special_refusal_typed_causes.v1',causes:typedCauses(cause).slice(0,8).map(row=>({code:typeof row.code==='string'&&/^[A-Za-z0-9_.-]{1,128}$/.test(row.code)?row.code:null,helperMayStillRun:row.helperMayStillRun,ownershipRetained:row.ownershipRetained,targetRetained:row.targetRetained,retry:row.retry}))}));",
+  "occurrences": 1,
+  "wholeInverseExact": true,
+  "originalAssertionByteExact": true,
+  "previousDiagnosticIdentity": "57d2a746f7a3e020787d71355b544a89c0575900ec0e9b61e48061646e7ab3be",
+  "previousDiagnosticBlocked": true
+}

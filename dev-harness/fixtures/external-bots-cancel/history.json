@@ -1,0 +1,197 @@
+{
+  "schema": 1,
+  "description": "Exact inverse source edits for historical readers; tests reconstruct the full real source without copying full snapshots or requiring git at runtime.",
+  "v3Sha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+  "v2": {
+    "sourceCommit": "1a384495",
+    "sha256": "1ad6064fb9e31079e2b07c85353e56a1a94c33eff5d5abbf18f9efc87938d1f0",
+    "inverseSpans": [
+      {
+        "before": "  if (item.archivedAt !== undefined) out.archivedAt = item.archivedAt;\n  if (externalBotCancellationWindow(item)) out.cancelAvailable = true;",
+        "after": "  if (item.archivedAt !== undefined) out.archivedAt = item.archivedAt;"
+      },
+      {
+        "before": "// A queued/running business turn is not cancelled here. Only its existing reply\n// attempt may be retired, before the message request's synchronous commit boundary.\nfunction externalBotCancellationWindow(item) {\n  if (!item.control || !['completed', 'failed', 'unknown'].includes(item.execution?.status)\n    || externalBotUnsettled.has(item.id)) return false;\n  if (item.delivery?.status === 'pending') return true;\n  const owner = externalBotDeliveries.get(item.id);\n  return item.delivery?.status === 'sending' && owner?.attemptId === item.delivery.attemptId\n    && owner.submitted === false && !owner.controller.signal.aborted;\n}\nasync function externalBotCancelDelivery(body) {\n  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join(',') !== 'attemptId,id'\n    || !externalBotString(body.id) || typeof body.attemptId !== 'string' || !/^[A-Za-z0-9_-]{1,50}$/.test(body.attemptId))\n    throw externalBotError('external_channel.request_invalid');\n  const state = await externalBotReadState(), item = state.items.find(row => row.id === body.id && row.control !== null);\n  if (!item) throw externalBotError('external_channel.item_not_found', 404);\n  if (item.delivery?.attemptId !== body.attemptId) throw externalBotError('external_channel.delivery_changed', 409);\n  if (item.delivery.status === 'cancelled') return { ok: true, item: externalBotPublicItem(item), alreadyCancelled: true };\n  if (!externalBotCancellationWindow(item)) throw externalBotError('external_channel.delivery_cannot_cancel', 409);\n  const active = externalBotDeliveries.get(item.id);\n  if (state.schema === 1) for (const row of state.items) row.archivedAt = '';\n  state.schema = 3; // Old v1/v2 readers must reject the whole ledger, never ignore cancellation.\n  item.delivery = { ...item.delivery, status: 'cancelled', messageId: '', errorCode: 'external_channel.delivery_cancelled',\n    cancelledAt: nowIso(), updatedAt: nowIso() };\n  await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership.\n  if (active?.attemptId === body.attemptId && active.submitted === false) active.controller.abort();\n  return { ok: true, item: externalBotPublicItem(item), alreadyCancelled: false };\n}\nfunction externalBotValidItem(item) {",
+        "after": "function externalBotValidItem(item) {"
+      },
+      {
+        "before": "['pending', 'sending', 'sent', 'failed', 'unknown', 'cancelled'].includes(delivery.status)",
+        "after": "['pending', 'sending', 'sent', 'failed', 'unknown'].includes(delivery.status)"
+      },
+      {
+        "before": "    && (delivery.status !== 'sent' || Boolean(delivery.messageId))\n    && (delivery.status === 'cancelled'\n      ? ['completed', 'failed', 'unknown'].includes(execution.status) && date(delivery.cancelledAt) && Boolean(delivery.cancelledAt)\n        && !delivery.messageId && delivery.errorCode === 'external_channel.delivery_cancelled'\n      : delivery.cancelledAt === undefined));",
+        "after": "    && (delivery.status !== 'sent' || Boolean(delivery.messageId)));"
+      },
+      {
+        "before": "    } else {\n      // A cancelled precommit attempt has no message request to settle. Keep the\n      // durable cancellation and completed business result when its old job exits.\n      if (item.delivery?.status === 'cancelled' && item.delivery.attemptId === job.item.delivery.attemptId) return;\n      if (item.delivery?.status !== 'sending'",
+        "after": "    } else {\n      if (item.delivery?.status !== 'sending'"
+      },
+      {
+        "before": "      PrivacyGateway.assertDisclosure(receipt, { ...current.binding, value: fullText });\n      const owner = externalBotDeliveries.get(job.item.id);\n      if (!owner || owner.controller !== controller || owner.attemptId !== job.item.delivery.attemptId || owner.submitted)\n        throw externalBotError('external_channel.delivery_changed', 409);\n      // No await separates this latch and 13x's fixed official message request.\n      owner.submitted = true;",
+        "after": "      PrivacyGateway.assertDisclosure(receipt, { ...current.binding, value: fullText });"
+      },
+      {
+        "before": "externalBotDeliveries.set(job.item.id, { connectionId: job.item.connectionId, controlRevision: job.item.control.controlRevision, attemptId: job.item.delivery.attemptId, submitted: false, controller });",
+        "after": "externalBotDeliveries.set(job.item.id, { connectionId: job.item.connectionId, controlRevision: job.item.control.controlRevision, controller });"
+      },
+      {
+        "before": "![1, 2, 3].includes(state.schema)",
+        "after": "![1, 2].includes(state.schema)"
+      },
+      {
+        "before": "state.items.every(item => externalBotValidItem(item)\n      && (state.schema === 3 || item.delivery?.status !== 'cancelled')\n      &&",
+        "after": "state.items.every(item => externalBotValidItem(item)\n      &&"
+      },
+      {
+        "before": "...(state.schema >= 2 ? { archivedAt: '' } : {})",
+        "after": "...(state.schema === 2 ? { archivedAt: '' } : {})"
+      },
+      {
+        "before": "'/api/external-bots/deliveries', '/api/external-bots/deliveries/archive', '/api/external-bots/deliveries/cancel'];",
+        "after": "'/api/external-bots/deliveries', '/api/external-bots/deliveries/archive'];"
+      },
+      {
+        "before": "const archiveMutation = pathname === '/api/external-bots/deliveries/archive' || pathname === '/api/external-bots/deliveries/cancel';",
+        "after": "const archiveMutation = pathname === '/api/external-bots/deliveries/archive';"
+      },
+      {
+        "before": "    if (req.method === 'POST' && pathname === '/api/external-bots/deliveries/cancel') {\n      if (url.search) throw externalBotError('external_channel.request_invalid');\n      const body = externalBotDecodeJson(await externalBotReadBody(req));\n      const result = await runKeyedChain(externalBotChains, 'state', () => externalBotCancelDelivery(body));\n      send(res, json(result)); return true;\n    }\n    if (req.method === 'GET' && pathname === '/api/external-bots/inbox') {",
+        "after": "    if (req.method === 'GET' && pathname === '/api/external-bots/inbox') {"
+      },
+      {
+        "before": "  // Refuse this mutation before ACK/abort if its legacy plaintext representation\n  // exceeds the existing physical read ceiling, even when sealing is enabled.\n  if (Buffer.byteLength(JSON.stringify(state, null, 2), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes)\n    throw externalBotError('external_channel.inbox_full', 503);\n  await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership.",
+        "after": "  await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership."
+      }
+    ]
+  },
+  "v1": {
+    "sourceCommit": "c4696506^ (f5d9ae4b)",
+    "sha256": "5bf225988e7a0744c6f13c87e82defd9f93612e88c917b25ad1cb26bc308938d",
+    "inverseHunks": [
+      {
+        "start": 298,
+        "before": [
+          "  if (item.archivedAt !== undefined) out.archivedAt = item.archivedAt;"
+        ],
+        "after": []
+      },
+      {
+        "start": 304,
+        "before": [
+          "// Payload v2 adds only a logical list marker. All records still consume the same permanent",
+          "// dedupe/capacity ledger; archival never changes execution, sending or an attempt identity.",
+          "function externalBotDeliveryPage(state, parameters) {",
+          "  const allowed = ['limit', 'cursor', 'connectionId', 'archive'];",
+          "  if ([...parameters.keys()].some(key => !allowed.includes(key) || parameters.getAll(key).length !== 1)) throw externalBotError('external_channel.request_invalid');",
+          "  const rawLimit = parameters.get('limit'), limit = rawLimit === null ? 50 : Number(rawLimit);",
+          "  const connectionId = parameters.get('connectionId') ?? '', archive = parameters.get('archive') ?? 'active';",
+          "  if (rawLimit !== null && !/^[1-9][0-9]{0,2}$/.test(rawLimit) || !Number.isSafeInteger(limit) || limit < 1 || limit > 100",
+          "    || connectionId && !/^[a-z][a-z0-9_-]{0,63}$/.test(connectionId) || !['active', 'archived', 'all'].includes(archive)) throw externalBotError('external_channel.request_invalid');",
+          "  const accepted = state.items.filter(item => item.control !== null);",
+          "  let watermark = accepted.at(-1)?.id || '', before = '';",
+          "  const cursor = parameters.get('cursor');",
+          "  if (cursor !== null) {",
+          "    try {",
+          "      if (!/^[A-Za-z0-9_-]{1,2048}$/.test(cursor)) throw new Error('cursor');",
+          "      const tuple = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));",
+          "      if (!Array.isArray(tuple) || tuple.length !== 5 || tuple[0] !== 1 || tuple[3] !== connectionId || tuple[4] !== archive",
+          "        || !externalBotString(tuple[1]) || !externalBotString(tuple[2])",
+          "        || Buffer.from(JSON.stringify(tuple)).toString('base64url') !== cursor) throw new Error('cursor');",
+          "      [, watermark, before] = tuple;",
+          "    } catch { throw externalBotError('external_channel.cursor_invalid'); }",
+          "  }",
+          "  const end = watermark ? accepted.findIndex(item => item.id === watermark) : -1;",
+          "  const start = before ? accepted.findIndex(item => item.id === before) : end + 1;",
+          "  if (watermark && end < 0 || before && (start < 0 || start > end)) throw externalBotError('external_channel.cursor_invalid');",
+          "  const matches = item => (!connectionId || item.connectionId === connectionId)",
+          "    && (archive === 'all' || Boolean(item.archivedAt) === (archive === 'archived'));",
+          "  const all = accepted.slice(0, end + 1).filter(matches);",
+          "  const remaining = accepted.slice(0, start).reverse().filter(matches), items = remaining.slice(0, limit);",
+          "  const nextCursor = remaining.length > items.length",
+          "    ? Buffer.from(JSON.stringify([1, watermark, items.at(-1).id, connectionId, archive])).toString('base64url') : '';",
+          "  return { ok: true, items: items.map(item => ({ ...externalBotPublicItem(item), archivedAt: item.archivedAt || '',",
+          "    acceptance: { status: 'accepted', receivedAt: item.receivedAt } })), total: all.length, nextCursor,",
+          "    capacity: EXTERNAL_BOT_LIMITS.items, retained: state.items.length, full: state.items.length >= EXTERNAL_BOT_LIMITS.items };",
+          "}",
+          "async function externalBotArchiveDelivery(body) {",
+          "  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !['id', 'archived'].includes(key))",
+          "    || !externalBotString(body.id) || typeof body.archived !== 'boolean') throw externalBotError('external_channel.request_invalid');",
+          "  const state = await externalBotReadState(), item = state.items.find(row => row.id === body.id && row.control !== null);",
+          "  if (!item) throw externalBotError('external_channel.item_not_found', 404);",
+          "  if (Boolean(item.archivedAt) !== body.archived) {",
+          "    if (state.schema === 1) { state.schema = 2; for (const row of state.items) row.archivedAt = ''; }",
+          "    item.archivedAt = body.archived ? nowIso() : '';",
+          "    await externalBotWriteState(state);",
+          "  }",
+          "  return { ok: true, item: { ...externalBotPublicItem(item), archivedAt: item.archivedAt || '' }, capacity: EXTERNAL_BOT_LIMITS.items,",
+          "    retained: state.items.length, full: state.items.length >= EXTERNAL_BOT_LIMITS.items };",
+          "}"
+        ],
+        "after": []
+      },
+      {
+        "start": 581,
+        "before": [
+          "  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts'].includes(key)) || ![1, 2].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections"
+        ],
+        "after": [
+          "  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts'].includes(key)) || state.schema !== 1 || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections"
+        ]
+      },
+      {
+        "start": 596,
+        "before": [
+          "  return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(item => externalBotValidItem(item)",
+          "      && (state.schema === 1 ? item.archivedAt === undefined : typeof item.archivedAt === 'string' && (!item.archivedAt || Number.isFinite(Date.parse(item.archivedAt)))))"
+        ],
+        "after": [
+          "  return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(externalBotValidItem)"
+        ]
+      },
+      {
+        "start": 794,
+        "before": [
+          "    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema === 2 ? { archivedAt: '' } : {}),"
+        ],
+        "after": [
+          "    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control,"
+        ]
+      },
+      {
+        "start": 808,
+        "before": [
+          "  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/discover', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read', '/api/external-bots/deliveries', '/api/external-bots/deliveries/archive'];"
+        ],
+        "after": [
+          "  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/discover', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read'];"
+        ]
+      },
+      {
+        "start": 831,
+        "before": [
+          "    const archiveMutation = pathname === '/api/external-bots/deliveries/archive';",
+          "    if ((EXTERNAL_BOT_SETUP_PATHS.includes(pathname) || archiveMutation) && !originOk(req)) throw externalBotError('auth.origin_rejected', 403);"
+        ],
+        "after": [
+          "    if (EXTERNAL_BOT_SETUP_PATHS.includes(pathname) && !originOk(req)) throw externalBotError('auth.origin_rejected', 403);"
+        ]
+      },
+      {
+        "start": 861,
+        "before": [
+          "    if (req.method === 'GET' && pathname === '/api/external-bots/deliveries') {",
+          "      const result = await runKeyedChain(externalBotChains, 'state', async () => externalBotDeliveryPage(await externalBotReadState(), url.searchParams));",
+          "      send(res, json(result)); return true;",
+          "    }",
+          "    if (req.method === 'POST' && pathname === '/api/external-bots/deliveries/archive') {",
+          "      if (url.search) throw externalBotError('external_channel.request_invalid');",
+          "      const body = externalBotDecodeJson(await externalBotReadBody(req));",
+          "      const result = await runKeyedChain(externalBotChains, 'state', () => externalBotArchiveDelivery(body));",
+          "      send(res, json(result)); return true;",
+          "    }"
+        ],
+        "after": []
+      }
+    ]
+  }
+}

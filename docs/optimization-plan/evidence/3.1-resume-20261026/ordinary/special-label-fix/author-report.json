@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "author": "root",
+  "status": "SOURCE ONLY, requires nonauthor review before actual gate",
+  "driver": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89",
+  "launcher": "914ecfeb17ebeeb8c64335b85b7d0009b6f046d375a47c86cbe63676e219d890",
+  "runtime": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a",
+  "observed": "XFFwkW bounded diagnostic reported EEXIST; source has deterministic shared mode-0 package label with wx across ordinary and special roles. Original syscall path was not captured, so this is not a unique-cause claim.",
+  "change": "Only case-specific password backup label for base===negative; ordinary mode-0/1/2 unchanged; no overwrite, no deletion; old packages and failed before roots untouched.",
+  "originalRefuseSpecialExact": true,
+  "allBusinessAssertionsAnd2402502Unchanged": true,
+  "nativeAnd121InputsUnchanged": true,
+  "wholeInverses": true,
+  "pure": {
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "realWxDuplicateRed": true,
+    "oldPackageBytesUnchanged": true,
+    "newCaseAlsoExclusive": true
+  },
+  "actualGate": false
+}

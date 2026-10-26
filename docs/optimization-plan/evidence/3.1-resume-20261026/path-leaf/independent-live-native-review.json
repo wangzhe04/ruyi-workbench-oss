@@ -1,0 +1,224 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_cancel",
+  "scope": "Independent read-only receipt/pin/source closure audit; no native/build/FS tests executed",
+  "nativeIdentityCorrection": {
+    "acknowledgement": "Author initially confused private118 ef53 native with current live f79. Initial original script is preserved and correctly rejected before any spawn; correcting the expected PIN does not alter native source.",
+    "live": {
+      "sourceSha256": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0",
+      "nativeSha256": "f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25",
+      "nativeBytes": 39371,
+      "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+      "serverNativeByteIdentical": true
+    },
+    "private118": {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/runtime/app/src/13u-migration-center.js",
+      "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+      "nativeBytes": 71681,
+      "differentIdentity": true
+    }
+  },
+  "pinCorrection": {
+    "beforeSha256": "175290f402d8d07a6be51b074dad04bf06d2f738530c7f3eb55c164037ecca8c",
+    "afterSha256": "f4c72ffadfe38dfbd5d19eb7b183d3bff4845c419ac6596f3b3436f1866edb48",
+    "spans": [
+      {
+        "before": "nativeSha256:'ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34'",
+        "after": "nativeSha256:'f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25'"
+      }
+    ],
+    "wholeInverse": true,
+    "otherScriptBytesUnchanged": true
+  },
+  "firstRun": {
+    "file": "C:/Users/87179/AppData/Local/Temp/r3leaf-CG4SlL/leaf-report.json",
+    "sha256": "d01465d2238221465883c0c9615471338db251fd3aa437e6d631dfb14bea193f",
+    "rows": 0,
+    "spawnedHelpers": 0,
+    "completed": false,
+    "fatal": "ERR_ASSERTION",
+    "helperMayStillRun": false
+  },
+  "actualRun": {
+    "file": "C:/Users/87179/AppData/Local/Temp/r3leaf-HXQHAU/leaf-report.json",
+    "sha256": "a4068d85330085a2f3ca63922d41ef38b739e6def5ecdc59a78d4245aeefcd15",
+    "completed": true,
+    "helperMayStillRun": false,
+    "allHelpersActualExitCloseZero": true,
+    "rows": [
+      {
+        "probeChars": 250,
+        "stageChars": 167,
+        "commandOk": true,
+        "commandError": null,
+        "closeError": null,
+        "pid": 31140
+      },
+      {
+        "probeChars": 259,
+        "stageChars": 176,
+        "commandOk": true,
+        "commandError": null,
+        "closeError": null,
+        "pid": 38392
+      },
+      {
+        "probeChars": 260,
+        "stageChars": 177,
+        "commandOk": false,
+        "commandError": "work_data_backup.idle_win32_3",
+        "closeError": "work_data_backup.idle_win32_3",
+        "pid": 2024
+      },
+      {
+        "probeChars": 261,
+        "stageChars": 178,
+        "commandOk": false,
+        "commandError": "work_data_backup.idle_win32_3",
+        "closeError": "work_data_backup.idle_win32_3",
+        "pid": 38572
+      },
+      {
+        "probeChars": 270,
+        "stageChars": 187,
+        "commandOk": false,
+        "commandError": "work_data_backup.idle_win32_3",
+        "closeError": "work_data_backup.idle_win32_3",
+        "pid": 37940
+      }
+    ],
+    "parentTempUnchanged": true,
+    "ownerMarkerVerified": true,
+    "originalSourceAndRuntimePinned": true
+  },
+  "sourceClosure": {
+    "baselineCommit": "72af3aa2",
+    "files": [
+      {
+        "file": "dev-harness/unit/migration-skill-backups-work-data.test.js",
+        "role": "entry test; also reads 00-boot/01-config/13-http-router source slices",
+        "bytes": 42651,
+        "currentSha256": "03b12ce55cd504aaf8b576244304a484e57a7846ebe424e7e2b0b87ec384fbe5",
+        "baselineSha256": "03b12ce55cd504aaf8b576244304a484e57a7846ebe424e7e2b0b87ec384fbe5",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "dev-harness/lib/migration-skill-backup-fixture.js",
+        "role": "actual VM fixture; reads full 13u and helper slices from 12-tool-dispatch",
+        "bytes": 5864,
+        "currentSha256": "87d6f5490c0cd8e2d6557d6a6637eb8a21ea2fca851e4e0e429ef1f4707c9137",
+        "baselineSha256": "87d6f5490c0cd8e2d6557d6a6637eb8a21ea2fca851e4e0e429ef1f4707c9137",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "dev-harness/lib/work-data-chunks-fixture.js",
+        "role": "actual crypto/chunk/Store/atomic writer source loader",
+        "bytes": 1259,
+        "currentSha256": "dfd84238a04234682fa3032bcb7c22f4e2ee0625f3325605fb467ff469540ec8",
+        "baselineSha256": "dfd84238a04234682fa3032bcb7c22f4e2ee0625f3325605fb467ff469540ec8",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "dev-harness/lib/source-slice.js",
+        "role": "source slicer; no additional relative requires",
+        "bytes": 6684,
+        "currentSha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4",
+        "baselineSha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "dev-harness/lib/skill-capsule-native-fixture.js",
+        "role": "independent metadata/EA/short-name native fixture source",
+        "bytes": 6110,
+        "currentSha256": "55bd7e8cf5b033e8821f9920dcca9a8692029a0419af439a25f35e9802b1667a",
+        "baselineSha256": "55bd7e8cf5b033e8821f9920dcca9a8692029a0419af439a25f35e9802b1667a",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/00-boot.js",
+        "role": "product source read, selected helper slices or full crypto object",
+        "bytes": 96529,
+        "currentSha256": "e7e9852510fac03ce00fb5d3ddd15fb99f5498b014654e04a7fa7b1e609f9d44",
+        "baselineSha256": "e7e9852510fac03ce00fb5d3ddd15fb99f5498b014654e04a7fa7b1e609f9d44",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/01-config.js",
+        "role": "product source read, selected helper slices or full crypto object",
+        "bytes": 292778,
+        "currentSha256": "90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9",
+        "baselineSha256": "90f11e9e743d4c06e70371d29ae5efb15df0661bf1cfaef55b411a0d7fc3aaf9",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/01h-privacy-core.js",
+        "role": "product source read, selected helper slices or full crypto object",
+        "bytes": 48184,
+        "currentSha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783",
+        "baselineSha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/01n-work-data-crypto.js",
+        "role": "product source read, selected helper slices or full crypto object",
+        "bytes": 5751,
+        "currentSha256": "732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d",
+        "baselineSha256": "732166e2db43f2f04e51f9d98bd70e8c1933bf94c8d7b0e97b0fbff4ce02997d",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/01r-work-data-chunks.js",
+        "role": "product source read, selected helper slices or full crypto object",
+        "bytes": 11594,
+        "currentSha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e",
+        "baselineSha256": "a7a8fb2b5f87e63288837db908fabc592167cc7d99297a2c7780107caf85f23e",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/01p-work-data-store.js",
+        "role": "product source read, selected helper slices or full crypto object",
+        "bytes": 31949,
+        "currentSha256": "10cdee7ef20946a83573d7672300b45f407315027ae216b3aa9e071502926285",
+        "baselineSha256": "10cdee7ef20946a83573d7672300b45f407315027ae216b3aa9e071502926285",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/12-tool-dispatch.js",
+        "role": "product source read, selected helper slices or full crypto object",
+        "bytes": 316686,
+        "currentSha256": "52fd661514ca00fe30b84e0e41301f2de75f2074b64ac8fa4f06fab129102b20",
+        "baselineSha256": "52fd661514ca00fe30b84e0e41301f2de75f2074b64ac8fa4f06fab129102b20",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/13u-migration-center.js",
+        "role": "full migration/native source read and evaluated",
+        "bytes": 240956,
+        "currentSha256": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0",
+        "baselineSha256": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0",
+        "exactBytesEqual": true
+      },
+      {
+        "file": "ruyi-workbench/app/src/13-http-router.js",
+        "role": "product source read, selected helper slices or full crypto object",
+        "bytes": 193834,
+        "currentSha256": "e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d",
+        "baselineSha256": "e2c7463343b1acf56776205bf5c7011a06b9db04f5e0769354706e0bada7023d",
+        "exactBytesEqual": true
+      }
+    ],
+    "sourceReadClosureExact": true,
+    "generatedServerNotLoadedByUnitFixture": true,
+    "nonBuiltInRequiresOutsideThisList": false,
+    "note": "Closure lists repo JS sources read/loaded by this test and its fixtures. Node builtins and system PowerShell/.NET are environmental dependencies, not asserted byte-identical to Git. 13w and image code do not occur in this fixture closure."
+  },
+  "conclusion": "In the same observed live f79 leaf invocation, 250/259 succeeded and 260/261/270 returned idle_win32_3 with all five real helpers actually exiting/closing 0. This is direct same-native path-length boundary evidence, consistent with the wrapper-prefix hypothesis for the two unit failures.",
+  "limits": [
+    "Does not prove a unique cause for every historical failure; old fullunit did not preserve per-command native operation or frame provenance.",
+    "No AV/concurrency/global environment cause inferred.",
+    "No native code or long-path support fix implemented; a later short isolated TEMP full regression remains separate evidence.",
+    "Actual failed unit roots and initial wrong-PIN run remain preserved."
+  ],
+  "supersedesNativeIdentityContextOf": "source-analysis.json"
+}

@@ -1,0 +1,47 @@
+{
+  "head": "72af3aa2",
+  "archiveCurrent118Rows": 118,
+  "unchangedModules": 113,
+  "exactFiveChanges": [
+    "01p-work-data-store.js",
+    "01aa-work-data-tree.js",
+    "01ab-work-data-full-snapshot.js",
+    "13u-migration-center.js",
+    "13y-external-bot-credentials.js"
+  ],
+  "fixedSources": [
+    {
+      "file": "01aa-work-data-tree.js",
+      "before": "4e6624929f1a1066a4029e839b88cd05b03d25a6e3469024599ceb587fe94cd0",
+      "after": "fcfbed6b129887b2e0766b56041964da25b3858fcb62168ffbbc800e6e501c8c",
+      "groups": 8
+    },
+    {
+      "file": "01ab-work-data-full-snapshot.js",
+      "before": "c4fc8866b43f25bc7e98a24177fc5803a5c207557c2187a687490259f96721f7",
+      "after": "2d0ab97aad7701170fb4acc0e43fc1f00ce4396df945eadd344b0ca249650ea5",
+      "groups": 3
+    },
+    {
+      "file": "01p-work-data-store.js",
+      "before": "a9531d8fc6ba6e423b1b566cbe8bd5a2150cc1930ea2ceefdd18bc98392f615c",
+      "after": "9308bcd32d7b85ea939728e1b5f122aac8a15adea7a8aa9375a972eababc9a74",
+      "groups": 7
+    },
+    {
+      "file": "13u-migration-center.js",
+      "before": "ee359b5d8d843c5c8c237213e7b43b9264f1c0b59adc47caad34f34e4d490c9e",
+      "after": "e8168e2cbca81ed9c3e47d316fdd3b45d9f67c5064876b4689552f4948057f08",
+      "groups": 2
+    },
+    {
+      "file": "13y-external-bot-credentials.js",
+      "before": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51",
+      "after": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51",
+      "groups": 0
+    }
+  ],
+  "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+  "wholeFiveInverse": true,
+  "fulltext": "113 unrelated modules including dedicated fulltext modules matchHEAD Git blob identities; current118 proof also preserves7 specific13u fulltext spans"
+}

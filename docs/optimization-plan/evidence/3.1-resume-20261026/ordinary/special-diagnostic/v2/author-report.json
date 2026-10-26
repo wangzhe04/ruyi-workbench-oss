@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "author": "root",
+  "status": "SOURCE ONLY v2 requires nonauthor review; old f925 blocked and never executed",
+  "driver": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874",
+  "launcher": "ad8e229886a7d305a2d893a48f599321d153818a8c8dabc784346afe3b93afb1",
+  "runtime": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a",
+  "change": "Only diagnostic before unchanged original special-code assertion. At most8 records, code copied only when primitive string matching existing 1..128 ASCII typed-code regex, otherwise null; four flags are existing boolean/null values. No raw message/body/stack. Launcher changes only driver SHA; same support/input, roles/eight payloads and240000/250000/2000 budgets.",
+  "wholeInverses": true,
+  "pure": {
+    "tests": 5,
+    "pass": 5,
+    "fail": 0,
+    "originalUnexpectedAssertionStillRed": true,
+    "objectCodePayloadNotPrinted": true
+  },
+  "previousDiagnostic": {
+    "identity": "57d2a746f7a3e020787d71355b544a89c0575900ec0e9b61e48061646e7ab3be",
+    "blocked": true,
+    "neverActualExecuted": true,
+    "finding": "coercible code object could serialize arbitrary body; reviewer synthetic negative retained"
+  },
+  "actualGate": false,
+  "oldFailureRootsAndRuntimeUnchanged": true
+}

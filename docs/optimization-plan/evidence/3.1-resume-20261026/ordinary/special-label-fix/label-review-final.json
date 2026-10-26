@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "reviewer": "/root/review_cancel",
+  "status": "APPROVED for one root-serialized fresh full ordinary gate; this is only fixture leaf naming, product special rejection not yet proven",
+  "appliesOnlyTo": {
+    "identity": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-label-fix-rf4ivh\\identity.json",
+      "bytes": 2371,
+      "sha256": "b07c856c9d16a4b5077e35a29939f81291d329137e30ae70bf44ecf6124b8b97"
+    },
+    "driver": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-label-fix-rf4ivh\\ordinary-mode-gate.cjs",
+      "bytes": 36687,
+      "sha256": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89"
+    },
+    "launcher": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-label-fix-rf4ivh\\run-ordinary-mode-gate.cjs",
+      "bytes": 7078,
+      "sha256": "914ecfeb17ebeeb8c64335b85b7d0009b6f046d375a47c86cbe63676e219d890"
+    },
+    "runtime": {
+      "file": "C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/runtime/app/server.js",
+      "bytes": 7865898,
+      "sha256": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a"
+    }
+  },
+  "frozenMembersVerified": 13,
+  "inverses": [
+    {
+      "file": "ordinary-mode-gate.cjs",
+      "beforeSha256": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874",
+      "afterSha256": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89",
+      "before": "writeBackup(input,captured,'mode-'+input.ordinal,flush)",
+      "after": "writeBackup(input,captured,input.base===input.negative?'special-refusal-mode-'+input.ordinal:'mode-'+input.ordinal,flush)",
+      "wholeForwardAndInverseExact": true
+    },
+    {
+      "file": "run-ordinary-mode-gate.cjs",
+      "beforeSha256": "ad8e229886a7d305a2d893a48f599321d153818a8c8dabc784346afe3b93afb1",
+      "afterSha256": "914ecfeb17ebeeb8c64335b85b7d0009b6f046d375a47c86cbe63676e219d890",
+      "before": "07277e0369a7f92b56deca9e02ab3f783408c8dca5e470a495280cc809c2d874",
+      "after": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89",
+      "wholeForwardAndInverseExact": true
+    }
+  ],
+  "sourceConservation": {
+    "unchangedFunctionBlocks": [
+      "refuseSpecial",
+      "writeBackup",
+      "main",
+      "role",
+      "typedCauses",
+      "payloadRows"
+    ],
+    "onlyOneTransitionBackupLabelArgumentChanged": true,
+    "specialLabel": "special-refusal-mode-0",
+    "ordinaryMode012NamesUnchanged": true,
+    "wxOpenAndNoOverwriteUnchanged": true,
+    "originalBusinessAssertionsAndAllowedRefusalSetUnchanged": true,
+    "budgets": {
+      "innerMs": 240000,
+      "outerMs": 250000,
+      "cleanupMs": 2000
+    },
+    "supportAnd121InputsExact": true
+  },
+  "paths": {
+    "allExistingAncestorsNonLinkAndCanonical": true,
+    "checked": 147
+  },
+  "independentStrongPure": {
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "exitCode": 0,
+    "log": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-diagnostic-independent-20261026-4ecda272\\label-pure3.log",
+      "bytes": 560,
+      "sha256": "c5d8496bf84aec7a721214d77bbd86c20f6864e7f5fe48b549f6b978719433ee"
+    },
+    "newSyntheticRootRetained": "C:/Users/87179/AppData/Local/Temp/ruyi-special-label-pure-kH7Zz3",
+    "actualWriteBackupFunctionUsed": true,
+    "originalMode0CollisionStillEEXIST": true,
+    "oldPackageBytesUnchanged": true,
+    "newSpecialLabelWritesDistinctExactBytes": true,
+    "repeatingNewLabelStillEEXIST": true
+  },
+  "failureEvidence": {
+    "diagnostic": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-XFFwkW\\special-refusal.stderr.log",
+      "bytes": 1153,
+      "sha256": "44c015c12bcf61608ecbbf68e68043f7838d76341891b15bd9ba8e5bbef42bed"
+    },
+    "observedTypedCode": "EEXIST",
+    "existingMode0Package": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-XFFwkW\\password-backups\\mode-0.ruyi-backup.json",
+      "bytes": 7785,
+      "sha256": "0a926d441b3f872ee814328afe93466558a0d018e516d03ff08da10c85bde239"
+    },
+    "existingMatchesOriginalMode0Receipt": true,
+    "sourceOrdering": "writeBackup before maintenance control.write and migration.prepare; same input.backups and ordinal0 creates deterministic name collision once it reaches this call",
+    "limit": "Old bounded log contains code only, no syscall/path. This rules out the identified fixture blocker without claiming unique actual syscall origin or product rejection."
+  },
+  "conditions": [
+    "Root one full serial gate on a fresh owned tree, unchanged e1b runtime and240/250/2s budgets.",
+    "Preserve old failure trees and before snapshots. No special refusal code set broadening.",
+    "Only completed actual gate and helper exit+close receipts establish the result."
+  ],
+  "findings": [],
+  "actions": {
+    "runtimeModified": false,
+    "candidateModified": false,
+    "oldFailureModified": false,
+    "native": false,
+    "build": false,
+    "main": false,
+    "onlyLightPureAndRead": true
+  }
+}

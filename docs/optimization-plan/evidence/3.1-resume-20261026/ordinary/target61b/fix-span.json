@@ -1,0 +1,20 @@
+{
+  "before": "    if(cleanupFailed){const causes=failed?[primary,cleanup]:[cleanup];throw Object.assign(new AggregateError(causes,'work_data_backup.portable_target_read_cleanup_uncertain',{cause:causes[0]}),{code:'work_data_backup.portable_target_read_cleanup_uncertain',cleanupFailed:true,ownershipRetained:true,helperMayStillRun:causes.some(cause=>cause?.helperMayStillRun===true),operationMayHaveExecuted:true,resultUnavailable:true,retry:false});}",
+  "after": "    if(cleanupFailed){\n      const error=migrationCapturedCleanupFailure(primary,failed,[cleanup],true);\n      Object.assign(error,{code:'work_data_backup.portable_target_read_cleanup_uncertain',message:'work_data_backup.portable_target_read_cleanup_uncertain'});\n      throw error;\n    }",
+  "products": [
+    {
+      "label": "without-diagnostic",
+      "before": "b5de4d1f170e509bf6737d487826c1c3d367758d75219375bb6614cafb3c12a8",
+      "after": "12afea65c8e2e7b3ee36e05dc338dbc354117aee5721f9ae65aa94ddbec15be8",
+      "singleSpan": true,
+      "wholeInverseExact": true
+    },
+    {
+      "label": "with-diagnostic",
+      "before": "e492d6039c9c01d6d30b67dfdb163c035b9075d754915e5413786129b4b0c9e2",
+      "after": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+      "singleSpan": true,
+      "wholeInverseExact": true
+    }
+  ]
+}

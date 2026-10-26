@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "author": "/root/review_cancel",
+  "scope": "Independent source-only diagnostic and native leaf preparation; no native/helper/real tests executed by this agent",
+  "productionModified": false,
+  "sourceSha256": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0",
+  "facts": [
+    {
+      "source": "13u-migration-center.js:553,896-1064,1093",
+      "fact": "Step begins idle; only selected later mutation points change it; it is not reset per command. idle is neither an operation identity nor a native call identity."
+    },
+    {
+      "source": "13u-migration-center.js:1093-1095,1441-1443",
+      "fact": "Native catch serializes code only; broker creates a new JS failure with that code; native command/frame provenance is absent from current failure."
+    },
+    {
+      "source": "migration-skill-backups-work-data.test.js:509 and last-unit-run.log",
+      "fact": "First test total observed 6383.5242ms is less than its explicit post-copy 22000ms delay. Within that observed run it failed before completion of the copy preceding the delay; delayed undo not reached."
+    },
+    {
+      "source": "migration-skill-backups-work-data.test.js:532",
+      "fact": "Second test has several IDs and copy+undo within its loop. Existing failure lacks the current loop ID and command; duration alone does not locate them."
+    },
+    {
+      "source": "13u-migration-center.js:613-620",
+      "fact": "ProbeShortNames builds raw root + .ruyi-short-probe- + 64hex and uses CreateFile with original flags and no extended prefix. This is a concrete candidate boundary, not a confirmed root cause from source arithmetic alone."
+    },
+    {
+      "source": "dev-harness/lib/migration-skill-backup-fixture.js",
+      "fact": "Fixture sources include 13u/12-tool-dispatch and crypto/chunks/store; no 13w or image candidate loaded."
+    }
+  ],
+  "pathMatrix": [
+    {
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-31-validation-20261026-7G6oPe",
+      "rootChars": 68,
+      "rows": [
+        {
+          "id": "one",
+          "stageChars": 167,
+          "probeChars": 250,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-20261026-7G6oPe\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-one-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "archive",
+          "stageChars": 171,
+          "probeChars": 254,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-20261026-7G6oPe\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "intent",
+          "stageChars": 170,
+          "probeChars": 253,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-20261026-7G6oPe\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-intent-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "objects",
+          "stageChars": 171,
+          "probeChars": 254,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-20261026-7G6oPe\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-objects-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "restored",
+          "stageChars": 172,
+          "probeChars": 255,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-20261026-7G6oPe\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-restored-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "retired",
+          "stageChars": 171,
+          "probeChars": 254,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-20261026-7G6oPe\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-retired-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-31-validation-final-20261026-jMTRl8",
+      "rootChars": 74,
+      "rows": [
+        {
+          "id": "one",
+          "stageChars": 173,
+          "probeChars": 256,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-final-20261026-jMTRl8\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-one-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "archive",
+          "stageChars": 177,
+          "probeChars": 260,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-final-20261026-jMTRl8\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-archive-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "intent",
+          "stageChars": 176,
+          "probeChars": 259,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-final-20261026-jMTRl8\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-intent-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "objects",
+          "stageChars": 177,
+          "probeChars": 260,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-final-20261026-jMTRl8\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-objects-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "restored",
+          "stageChars": 178,
+          "probeChars": 261,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-final-20261026-jMTRl8\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-restored-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "id": "retired",
+          "stageChars": 177,
+          "probeChars": 260,
+          "probe": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-31-validation-final-20261026-jMTRl8\\home\\Temp\\ruyi-skill-backup-unit-XXXXXX\\case-XXXXXX\\skills\\.ruyi-copy-retired-2026-10-23T00-00-00-000Z\\.ruyi-short-probe-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    }
+  ],
+  "leaf": {
+    "script": "run-short-probe-leaf.cjs",
+    "sha256": "175290f402d8d07a6be51b074dad04bf06d2f738530c7f3eb55c164037ecca8c",
+    "staticNodeCheck": true,
+    "nativeRun": false,
+    "probeChars": [
+      250,
+      259,
+      260,
+      261,
+      270
+    ],
+    "changesToNativeSource": false,
+    "helperActualExitCloseRequired": true,
+    "homeAppdataDataIsolated": true,
+    "parentTempRetained": true,
+    "allSyntheticTreesRetained": true,
+    "originalFailureRootsUntouched": true,
+    "expectedPatternNotHardcoded": true
+  },
+  "remaining": "Root independently reviews script then executes serial actual source leaf; compare exact command/error/close facts. Preserve original unit failure and same-source controls. Short independent TEMP full regression does not demonstrate long-path support fixed."
+}

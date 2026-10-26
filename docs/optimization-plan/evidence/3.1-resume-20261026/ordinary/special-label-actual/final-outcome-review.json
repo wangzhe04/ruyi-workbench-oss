@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_cancel",
+  "status": "FINAL EVIDENCE FROZEN: ordinary core restore/cold passed three runs; full gate remains red at original special-source preservation predicate. No new candidate this round.",
+  "inputs": {
+    "driver": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-label-fix-rf4ivh\\ordinary-mode-gate.cjs",
+      "bytes": 36687,
+      "sha256": "f5504c484014e15711e3eb52f63a95ca2083274204bbc7f80ccb63700c180f89"
+    },
+    "runtime": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\server.js",
+      "bytes": 7865898,
+      "sha256": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a"
+    },
+    "source13u": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13u-migration-center.js",
+      "bytes": 376978,
+      "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb"
+    },
+    "stderr": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-FsDQPF\\special-refusal.stderr.log",
+      "bytes": 1435,
+      "sha256": "9683b01c4bccbc3d95be5a88d2da45f2c82276cec494754925ac84675110821c"
+    },
+    "process": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-FsDQPF\\special-refusal.process.json",
+      "bytes": 289,
+      "sha256": "823b268fef8e9b6faa9305fe8c35fa61972c3877be12cb70783e3a8aa5e12a95"
+    }
+  },
+  "latestCompletedRoles": [
+    {
+      "kind": "seed",
+      "pass": true,
+      "actualExitCloseZero": true,
+      "helpers": 0,
+      "helpersAllExitCloseZero": true
+    },
+    {
+      "kind": "mode-0",
+      "pass": true,
+      "actualExitCloseZero": true,
+      "helpers": 54,
+      "helpersAllExitCloseZero": true
+    },
+    {
+      "kind": "mode-1",
+      "pass": true,
+      "actualExitCloseZero": true,
+      "helpers": 59,
+      "helpersAllExitCloseZero": true
+    },
+    {
+      "kind": "mode-2",
+      "pass": true,
+      "actualExitCloseZero": true,
+      "helpers": 62,
+      "helpersAllExitCloseZero": true
+    },
+    {
+      "kind": "restore",
+      "pass": true,
+      "actualExitCloseZero": true,
+      "helpers": 58,
+      "helpersAllExitCloseZero": true
+    },
+    {
+      "kind": "cold-restored",
+      "pass": true,
+      "actualExitCloseZero": true,
+      "helpers": 2,
+      "helpersAllExitCloseZero": true
+    }
+  ],
+  "coreRestoreColdThreeRuns": [
+    {
+      "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1",
+      "roles": [
+        {
+          "kind": "restore",
+          "pass": true,
+          "actualExitCloseZero": true,
+          "helpers": 58,
+          "allHelpersExitCloseZero": true,
+          "stdout": {
+            "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\restore.stdout.log",
+            "bytes": 7101,
+            "sha256": "3993cc189fdcd5b99ed6d9574f650919d90cb6d10e29f40aff78daee5ff927f4"
+          }
+        },
+        {
+          "kind": "cold-restored",
+          "pass": true,
+          "actualExitCloseZero": true,
+          "helpers": 2,
+          "allHelpersExitCloseZero": true,
+          "stdout": {
+            "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\cold-restored.stdout.log",
+            "bytes": 607,
+            "sha256": "3ca21809610914476eb1cc506d2f2f3695339a29c11451e194430a857d1ce88b"
+          }
+        }
+      ]
+    },
+    {
+      "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-XFFwkW",
+      "roles": [
+        {
+          "kind": "restore",
+          "pass": true,
+          "actualExitCloseZero": true,
+          "helpers": 58,
+          "allHelpersExitCloseZero": true,
+          "stdout": {
+            "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-XFFwkW\\restore.stdout.log",
+            "bytes": 7100,
+            "sha256": "451d1e47b803f1147054371d005d69a9f36a1c5cb34caee06714ab0f57ddc48a"
+          }
+        },
+        {
+          "kind": "cold-restored",
+          "pass": true,
+          "actualExitCloseZero": true,
+          "helpers": 2,
+          "allHelpersExitCloseZero": true,
+          "stdout": {
+            "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-XFFwkW\\cold-restored.stdout.log",
+            "bytes": 607,
+            "sha256": "4a3fb8dfa82a8485313d37a33ed0b2a0eefa503b44fd76e82e490c02deeb5629"
+          }
+        }
+      ]
+    },
+    {
+      "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-FsDQPF",
+      "roles": [
+        {
+          "kind": "restore",
+          "pass": true,
+          "actualExitCloseZero": true,
+          "helpers": 58,
+          "allHelpersExitCloseZero": true,
+          "stdout": {
+            "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-FsDQPF\\restore.stdout.log",
+            "bytes": 7097,
+            "sha256": "e7a7c2b8d0562c8f6c5215368002528ec0e81e05cf8a9cd79ede57580eae7b7b"
+          }
+        },
+        {
+          "kind": "cold-restored",
+          "pass": true,
+          "actualExitCloseZero": true,
+          "helpers": 2,
+          "allHelpersExitCloseZero": true,
+          "stdout": {
+            "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-FsDQPF\\cold-restored.stdout.log",
+            "bytes": 607,
+            "sha256": "94f554268f360cd02006ecea95c97cef463787f5a20e0f1e4d648bde51ab6da4"
+          }
+        }
+      ]
+    }
+  ],
+  "special": {
+    "observedInnerCode": "work_data_migration_host.special_backup_coverage_required",
+    "expectedCodeAssertionPassed": true,
+    "selectedAuthorityProofEqualsPointerPassed": true,
+    "afterCaptureReturned": true,
+    "failedAssertion": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-special-label-fix-rf4ivh\\ordinary-mode-gate.cjs",
+      "line": 108,
+      "assertionStartColumn": 1885,
+      "calleeEqualColumn": 1892,
+      "text": "assert.equal(api.migrationCapsuleSameMetadata(after,before),true)"
+    },
+    "notReached": {
+      "cleanDeepEqualStartColumn": 2008,
+      "text": "assert.deepEqual(clean(after),clean(before))"
+    },
+    "actualProcess": {
+      "kind": "special-refusal",
+      "pid": 16492,
+      "exited": true,
+      "closed": true,
+      "exitCode": 1,
+      "exitSignal": null,
+      "code": 1,
+      "signal": null,
+      "timedOut": false,
+      "overflow": false,
+      "fatalReceived": true,
+      "pipeFailed": false,
+      "processFailed": false,
+      "cleanupFailed": false,
+      "helperMayStillRun": false,
+      "ownershipRetained": true
+    },
+    "terminalHelperInventoryAvailable": false,
+    "stdoutBytes": 0,
+    "helperAccountingLimit": "helperMayStillRun:false is recorded, but failure has no per-helper final inventory; no complete helper-close claim for special role."
+  },
+  "predicateScope": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\runtime\\app\\src\\13u-migration-center.js",
+    "line": 1949,
+    "meaning": "migrationCapsuleSameMetadata first checks fingerprint equality, then attrs/shortName/times by object identity. Its false result does not identify a specific field or mutation operation.",
+    "localBeforeAfterPersistedByDriver": false,
+    "localBeforeAfterIncludedInFailureOutput": false
+  },
+  "cannotConclude": [
+    "Which exact entry or metadata/content/identity field differs.",
+    "A unique mutation operation, syscall, timing cause or environmental root cause.",
+    "That clean(after)/clean(before) would pass or fail; that later assertion was not reached.",
+    "That nonempty special handling is supported, the complete ordinary gate passed, or M3 is ready for promotion."
+  ],
+  "nextBatchFirstItem": "Retain this exact special source-preservation failure and original before semantics. Next batch starts with bounded evidence to identify the predicate delta, without refreshing before, relaxing refusal codes or changing preservation assertions.",
+  "actions": {
+    "sourceModified": false,
+    "assertionsRelaxed": false,
+    "failureTreeModified": false,
+    "native": false,
+    "build": false,
+    "tests": false,
+    "newCandidate": false
+  }
+}

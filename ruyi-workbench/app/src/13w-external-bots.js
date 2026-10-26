@@ -297,6 +297,7 @@ function externalBotPublicItem(item) {
   const out = {};
   for (const key of ['id', 'connectionId', 'platform', 'connectionLabel', 'tenantId', 'conversationId', 'senderId', 'conversationType', 'text', 'messageId', 'eventId', 'receivedAt', 'readAt', 'control', 'execution', 'delivery']) out[key] = item[key];
   if (item.archivedAt !== undefined) out.archivedAt = item.archivedAt;
+  if (externalBotCancellationWindow(item)) out.cancelAvailable = true;
   const unsettled = externalBotUnsettled.get(item.id);
   if (unsettled?.kind === 'run' && out.execution?.status === 'running') out.execution = { ...out.execution, status: 'unknown', errorCode: 'external_channel.execution_unknown', finishedAt: unsettled.at };
   if (unsettled?.kind === 'send' && out.delivery?.status === 'sending') out.delivery = { ...out.delivery, status: 'unknown', errorCode: 'external_channel.delivery_unknown', updatedAt: unsettled.at };
@@ -350,6 +351,38 @@ async function externalBotArchiveDelivery(body) {
   return { ok: true, item: { ...externalBotPublicItem(item), archivedAt: item.archivedAt || '' }, capacity: EXTERNAL_BOT_LIMITS.items,
     retained: state.items.length, full: state.items.length >= EXTERNAL_BOT_LIMITS.items };
 }
+// A queued/running business turn is not cancelled here. Only its existing reply
+// attempt may be retired, before the message request's synchronous commit boundary.
+function externalBotCancellationWindow(item) {
+  if (!item.control || !['completed', 'failed', 'unknown'].includes(item.execution?.status)
+    || externalBotUnsettled.has(item.id)) return false;
+  if (item.delivery?.status === 'pending') return true;
+  const owner = externalBotDeliveries.get(item.id);
+  return item.delivery?.status === 'sending' && owner?.attemptId === item.delivery.attemptId
+    && owner.submitted === false && !owner.controller.signal.aborted;
+}
+async function externalBotCancelDelivery(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join(',') !== 'attemptId,id'
+    || !externalBotString(body.id) || typeof body.attemptId !== 'string' || !/^[A-Za-z0-9_-]{1,50}$/.test(body.attemptId))
+    throw externalBotError('external_channel.request_invalid');
+  const state = await externalBotReadState(), item = state.items.find(row => row.id === body.id && row.control !== null);
+  if (!item) throw externalBotError('external_channel.item_not_found', 404);
+  if (item.delivery?.attemptId !== body.attemptId) throw externalBotError('external_channel.delivery_changed', 409);
+  if (item.delivery.status === 'cancelled') return { ok: true, item: externalBotPublicItem(item), alreadyCancelled: true };
+  if (!externalBotCancellationWindow(item)) throw externalBotError('external_channel.delivery_cannot_cancel', 409);
+  const active = externalBotDeliveries.get(item.id);
+  if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
+  state.schema = 3; // Old v1/v2 readers must reject the whole ledger, never ignore cancellation.
+  item.delivery = { ...item.delivery, status: 'cancelled', messageId: '', errorCode: 'external_channel.delivery_cancelled',
+    cancelledAt: nowIso(), updatedAt: nowIso() };
+  // Refuse this mutation before ACK/abort if its legacy plaintext representation
+  // exceeds the existing physical read ceiling, even when sealing is enabled.
+  if (Buffer.byteLength(JSON.stringify(state, null, 2), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes)
+    throw externalBotError('external_channel.inbox_full', 503);
+  await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership.
+  if (active?.attemptId === body.attemptId && active.submitted === false) active.controller.abort();
+  return { ok: true, item: externalBotPublicItem(item), alreadyCancelled: false };
+}
 function externalBotValidItem(item) {
   return item && typeof item === 'object' && !Array.isArray(item) && externalBotString(item.id) && externalBotString(item.connectionId)
     && ['qq', 'feishu'].includes(item.platform) && externalBotString(item.connectionLabel, 120, true)
@@ -373,9 +406,13 @@ function externalBotValidControlState(item) {
     || !Number.isSafeInteger(execution.turnSeq) || execution.turnSeq < 0 || typeof execution.contractIncomplete !== 'boolean'
     || ![execution.actionFailures, execution.proposals].every(value => Number.isSafeInteger(value) && value >= 0 && value <= 100)) return false;
   return delivery === null || (delivery && typeof delivery === 'object' && !Array.isArray(delivery)
-    && ['pending', 'sending', 'sent', 'failed', 'unknown'].includes(delivery.status) && typeof delivery.attemptId === 'string' && /^[a-zA-Z0-9_-]{1,50}$/.test(delivery.attemptId)
+    && ['pending', 'sending', 'sent', 'failed', 'unknown', 'cancelled'].includes(delivery.status) && typeof delivery.attemptId === 'string' && /^[a-zA-Z0-9_-]{1,50}$/.test(delivery.attemptId)
     && externalBotString(delivery.messageId, 128, true) && externalBotString(delivery.errorCode, 128, true) && date(delivery.updatedAt)
-    && (delivery.status !== 'sent' || Boolean(delivery.messageId)));
+    && (delivery.status !== 'sent' || Boolean(delivery.messageId))
+    && (delivery.status === 'cancelled'
+      ? ['completed', 'failed', 'unknown'].includes(execution.status) && date(delivery.cancelledAt) && Boolean(delivery.cancelledAt)
+        && !delivery.messageId && delivery.errorCode === 'external_channel.delivery_cancelled'
+      : delivery.cancelledAt === undefined));
 }
 async function externalBotOwnerMatches(connection, item) {
   return Boolean(connection && connection.enabled && connection.mode === 'control' && item.control
@@ -484,6 +521,9 @@ async function externalBotFinishJob(job, result) {
         item.delivery = { ...item.delivery, status: 'failed', errorCode: 'external_delivery.source_limit' };
       }
     } else {
+      // A cancelled precommit attempt has no message request to settle. Keep the
+      // durable cancellation and completed business result when its old job exits.
+      if (item.delivery?.status === 'cancelled' && item.delivery.attemptId === job.item.delivery.attemptId) return;
       if (item.delivery?.status !== 'sending' || item.delivery.attemptId !== job.item.delivery.attemptId) throw externalBotError('external_channel.delivery_unknown', 409);
       const sent = result?.status === 'sent' && externalBotIdentity(result.messageId);
       item.delivery = { ...item.delivery, status: sent ? 'sent' : result?.status === 'failed' ? 'failed' : 'unknown',
@@ -530,6 +570,11 @@ async function externalBotPrepareReply(job, controller, dispatch, assertPolicy =
       if (controller.signal.aborted || externalBotWorkerStopped || env.some(([key, value]) => process.env[key] !== value)) throw externalBotError('external_channel.control_revoked', 403);
       assertPolicy();
       PrivacyGateway.assertDisclosure(receipt, { ...current.binding, value: fullText });
+      const owner = externalBotDeliveries.get(job.item.id);
+      if (!owner || owner.controller !== controller || owner.attemptId !== job.item.delivery.attemptId || owner.submitted)
+        throw externalBotError('external_channel.delivery_changed', 409);
+      // No await separates this latch and 13x's fixed official message request.
+      owner.submitted = true;
     } }) };
   });
   return prepared.result;
@@ -551,7 +596,7 @@ async function externalBotDrain() {
           if (job.kind === 'run') result = await runStewardTurn({ trigger: 'external', externalActor: job.actor, message: job.item.text });
           else {
             const controller = new AbortController();
-            externalBotDeliveries.set(job.item.id, { connectionId: job.item.connectionId, controlRevision: job.item.control.controlRevision, controller });
+            externalBotDeliveries.set(job.item.id, { connectionId: job.item.connectionId, controlRevision: job.item.control.controlRevision, attemptId: job.item.delivery.attemptId, submitted: false, controller });
             const allowed = await runKeyedChain(externalBotChains, 'state', async () => {
               const state = await externalBotReadState(); const item = state.items.find(row => row.id === job.item.id);
               return item && await externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item);
@@ -579,7 +624,7 @@ function externalBotWakeWorker() { if (!externalBotWorkerStopped) { if (typeof W
 function externalBotValidState(state) {
   if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
     || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
-  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts'].includes(key)) || ![1, 2].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
+  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts'].includes(key)) || ![1, 2, 3].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
     || !Array.isArray(state.items) || state.items.length > EXTERNAL_BOT_LIMITS.items
     || !Array.isArray(state.retiredConnectionIds) || state.retiredConnectionIds.length > EXTERNAL_BOT_LIMITS.retiredIds
     || state.retiredConnectionIds.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(id))
@@ -595,6 +640,7 @@ function externalBotValidState(state) {
     }
   } catch { return false; }
   return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(item => externalBotValidItem(item)
+      && (state.schema === 3 || item.delivery?.status !== 'cancelled')
       && (state.schema === 1 ? item.archivedAt === undefined : typeof item.archivedAt === 'string' && (!item.archivedAt || Number.isFinite(Date.parse(item.archivedAt)))))
     && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
     && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length;
@@ -792,7 +838,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   state.items.push({ id: makeId('botmsg'), connectionId: connection.id, platform, connectionLabel: connection.label,
     tenantId: message.tenantId, conversationId: message.conversationId, senderId: message.senderId,
     conversationType: message.conversationType, text: message.text, messageId: message.messageId, eventId: message.eventId,
-    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema === 2 ? { archivedAt: '' } : {}),
+    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema >= 2 ? { archivedAt: '' } : {}),
     execution: control ? { status: 'queued', serverInstanceId: '', startedAt: '', finishedAt: '', errorCode: '', replyText: '', turnSeq: 0, actionFailures: 0, proposals: 0, contractIncomplete: false } : null, delivery: null });
   await externalBotWriteState(state);
   return ack;
@@ -806,7 +852,7 @@ async function externalBotSetupHttpOperation(req, res, operation) {
   return true;
 }
 async function handleExternalBotApiRoutes(req, res, pathname) {
-  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/discover', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read', '/api/external-bots/deliveries', '/api/external-bots/deliveries/archive'];
+  const adminPaths = ['/api/external-bots/setup', '/api/external-bots/credentials', '/api/external-bots/discover', '/api/external-bots/connections', '/api/external-bots/inbox', '/api/external-bots/inbox/read', '/api/external-bots/deliveries', '/api/external-bots/deliveries/archive', '/api/external-bots/deliveries/cancel'];
   let callbackPlatform = '';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/qq') callbackPlatform = 'qq';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/feishu') callbackPlatform = 'feishu';
@@ -829,7 +875,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
       if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
     }
     if (!tokenOk(req)) throw externalBotError('auth.token_invalid', 403);
-    const archiveMutation = pathname === '/api/external-bots/deliveries/archive';
+    const archiveMutation = pathname === '/api/external-bots/deliveries/archive' || pathname === '/api/external-bots/deliveries/cancel';
     if ((EXTERNAL_BOT_SETUP_PATHS.includes(pathname) || archiveMutation) && !originOk(req)) throw externalBotError('auth.origin_rejected', 403);
     if (req.method === 'GET' && pathname === '/api/external-bots/setup') {
       if ([...url.searchParams.keys()].some(key => key !== 'connectionId') || url.searchParams.getAll('connectionId').length !== 1) throw externalBotError('external_channel.request_invalid');
@@ -867,6 +913,12 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
       if (url.search) throw externalBotError('external_channel.request_invalid');
       const body = externalBotDecodeJson(await externalBotReadBody(req));
       const result = await runKeyedChain(externalBotChains, 'state', () => externalBotArchiveDelivery(body));
+      send(res, json(result)); return true;
+    }
+    if (req.method === 'POST' && pathname === '/api/external-bots/deliveries/cancel') {
+      if (url.search) throw externalBotError('external_channel.request_invalid');
+      const body = externalBotDecodeJson(await externalBotReadBody(req));
+      const result = await runKeyedChain(externalBotChains, 'state', () => externalBotCancelDelivery(body));
       send(res, json(result)); return true;
     }
     if (req.method === 'GET' && pathname === '/api/external-bots/inbox') {

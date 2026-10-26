@@ -1,0 +1,13 @@
+{
+  "scope": "Correct mistaken candidate ef53 pin to actual current live f79; source and runtime pins, native code, all commands and assertions unchanged",
+  "beforeSha256": "175290f402d8d07a6be51b074dad04bf06d2f738530c7f3eb55c164037ecca8c",
+  "afterSha256": "f4c72ffadfe38dfbd5d19eb7b183d3bff4845c419ac6596f3b3436f1866edb48",
+  "replacements": [
+    {
+      "before": "nativeSha256:'ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34'",
+      "after": "nativeSha256:'f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25'"
+    }
+  ],
+  "fullInverse": true,
+  "originalFailedBeforeSpawn": true
+}

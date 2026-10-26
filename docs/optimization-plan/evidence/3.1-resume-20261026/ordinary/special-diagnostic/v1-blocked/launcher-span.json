@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "baseline": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\ordinary\\run-ordinary-mode-gate.cjs",
+  "beforeSha256": "c0e4b827c3daad1f714e28b467ec6b62de86330867f58bae05fc507f3f0ce753",
+  "afterSha256": "ac6406c9beedcf90c2d295ac0a5577f7c36827807161752623b1ba4ece47ab7a",
+  "before": "8130a6a35a4af0a32e0f859b2274c7b19c77a801cf67ffb2066149aa80f972a7",
+  "after": "f9252c8098694690f39457099cdd628d4d4cc84d3c0c40789693b2bd272b030f",
+  "occurrences": 1,
+  "wholeInverseExact": true
+}

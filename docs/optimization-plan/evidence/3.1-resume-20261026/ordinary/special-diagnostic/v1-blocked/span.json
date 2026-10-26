@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "baseline": "C:\\Users\\87179\\AppData\\Local\\Temp\\r31p-sgNqTk\\ordinary\\ordinary-mode-gate.cjs",
+  "beforeSha256": "8130a6a35a4af0a32e0f859b2274c7b19c77a801cf67ffb2066149aa80f972a7",
+  "afterSha256": "f9252c8098694690f39457099cdd628d4d4cc84d3c0c40789693b2bd272b030f",
+  "before": "assert.ok(typedCauses(cause).some(row=>['work_data_migration_host.special_owner_change_proof_required','work_data_migration_host.special_backup_coverage_required'].includes(row.code)),JSON.stringify(typedCauses(cause)));",
+  "after": "console.error(JSON.stringify({diagnostic:'ordinary.special_refusal_typed_causes.v1',causes:typedCauses(cause).slice(0,8).map(row=>({code:row.code,helperMayStillRun:row.helperMayStillRun,ownershipRetained:row.ownershipRetained,targetRetained:row.targetRetained,retry:row.retry}))}));assert.ok(typedCauses(cause).some(row=>['work_data_migration_host.special_owner_change_proof_required','work_data_migration_host.special_backup_coverage_required'].includes(row.code)),JSON.stringify(typedCauses(cause)));",
+  "diagnostic": "console.error(JSON.stringify({diagnostic:'ordinary.special_refusal_typed_causes.v1',causes:typedCauses(cause).slice(0,8).map(row=>({code:row.code,helperMayStillRun:row.helperMayStillRun,ownershipRetained:row.ownershipRetained,targetRetained:row.targetRetained,retry:row.retry}))}));",
+  "occurrences": 1,
+  "wholeInverseExact": true,
+  "originalAssertionByteExact": true
+}

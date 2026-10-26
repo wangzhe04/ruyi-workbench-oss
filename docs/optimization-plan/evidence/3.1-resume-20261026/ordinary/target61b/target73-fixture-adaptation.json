@@ -1,0 +1,13 @@
+{
+  "scopeLexicalHelperInjection": {
+    "before": "vm.runInContext(functionBlock(source,'portableTargetReadAdmission')",
+    "after": "vm.runInContext(functionBlock(source,'migrationCapturedCleanupFailure')+'\\n'+functionBlock(source,'portableTargetReadAdmission')",
+    "assertionsChanged": false
+  },
+  "targetSourceSpanAfterUpdated": 1,
+  "spansCount": 13,
+  "baseline13u": "f9e816",
+  "baseline01ab": "f9 2d0ab",
+  "fullTarget1SpanUnchanged": true,
+  "reader119CopiedExact": true
+}

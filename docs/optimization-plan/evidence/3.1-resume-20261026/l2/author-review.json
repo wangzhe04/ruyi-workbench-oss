@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "author": "/root/review_cancel",
+  "status": "test-fixture-readiness-candidate_requires_non_author_root_review",
+  "productionChanged": false,
+  "baselineAndInverse": {
+    "file": "dev-harness/unit/agent-run-lifecycle-leaks.test.js",
+    "beforeSha256": "4d3f1f3d164a1f6af9cd60b2b9e15cffc84b699a739393fa4bfac521f1528e03",
+    "afterSha256": "0f634b535af24ed6fe50ea66c09a555204586fb2913295ef3433890f76fef767",
+    "before": "    appendAgentRunEvent(run, { type: 'run_end', data: {} });\n    const t0 = Date.now();",
+    "after": "    appendAgentRunEvent(run, { type: 'run_end', data: {} });\n    const readyDeadline = Date.now() + 5000;\n    while (!release && Date.now() < readyDeadline) await sleep(10);\n    assert.equal(typeof release, 'function', '本件挂起追加 hook 必须已进入');\n    const t0 = Date.now();",
+    "wholeInverse": true,
+    "scenarioDeadlineMs": 5000,
+    "existingSleep": true,
+    "existingFlushMs": 200,
+    "existingAssertionMs": 1500,
+    "L1L3Unchanged": true
+  },
+  "scope": "Establish the intended already-blocked append scenario before starting flush timing. This is not a product performance fix or an explanation of historical L2 timeouts.",
+  "initialDiagnostic": {
+    "file": "../diagnostic-report.json",
+    "sha256": "62ebcc3dbab3d3650eaec96ac26dcb7ee8265c6c2d0e5743751c7aaccb812184",
+    "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+    "cases": [
+      {
+        "mode": "original-immediate",
+        "waited": 206,
+        "waitedPerf": 206.14640000000003,
+        "appendHookReachedBeforeT0": false,
+        "readConfigPerf": 28.033299999999997,
+        "timerDelayPerf": 206.01080000000002,
+        "assertionPassed": true
+      },
+      {
+        "mode": "ready",
+        "waited": 209,
+        "waitedPerf": 209.78340000000003,
+        "appendHookReachedBeforeT0": true,
+        "readConfigPerf": 17.696300000000008,
+        "timerDelayPerf": 209.73770000000002,
+        "assertionPassed": true
+      },
+      {
+        "mode": "prewarm-immediate",
+        "waited": 206,
+        "waitedPerf": 205.91899999999998,
+        "appendHookReachedBeforeT0": false,
+        "readConfigPerf": 2.253600000000006,
+        "timerDelayPerf": 205.87509999999997,
+        "assertionPassed": true
+      }
+    ],
+    "historical1504Or1843Reproduced": false,
+    "limitation": "Transparent readConfig/timer instrumentation and isolated contexts; no L1/L3 preceding work or full-suite load replayed."
+  },
+  "candidateValidation": {
+    "file": "three-case-report.json",
+    "sha256": "a9134bc8b89d0d74e5caec6505e656f8e47fc713fb608a6757dd82a06b5bc281",
+    "serverSha256": "06607cc3555dbaee507f968d2f18b592114dbe0ce64bb73052a68568f0aa26b2",
+    "positive": {
+      "scenarioEntered": true,
+      "flushWaitDate": 202,
+      "flushWaitPerf": 201.5511,
+      "original200And1500AssertionPassed": true
+    },
+    "negativeControls": [
+      {
+        "mode": "early-reject",
+        "error": {
+          "code": "ERR_ASSERTION",
+          "name": "AssertionError",
+          "message": "本件挂起追加 hook 必须已进入\n+ actual - expected\n\n+ 'undefined'\n- 'function'\n"
+        },
+        "scenarioEntered": false,
+        "flushCalled": false,
+        "boundedDeadlineMs": 5000
+      },
+      {
+        "mode": "miss-hook",
+        "error": {
+          "code": "ERR_ASSERTION",
+          "name": "AssertionError",
+          "message": "本件挂起追加 hook 必须已进入\n+ actual - expected\n\n+ 'undefined'\n- 'function'\n"
+        },
+        "scenarioEntered": false,
+        "flushCalled": false,
+        "boundedDeadlineMs": 5000
+      }
+    ],
+    "caseScope": "Only actual L2 callback body invoked with actual generated append/flush; original complete L1/L3 source retained unchanged but not executed here.",
+    "firstRunnerFailure": {
+      "file": "three-case-first.log",
+      "beforeAnyCase": true,
+      "reason": "bracedBlock returns start marker and body; initial runner treated the prefix as a brace. Runner only corrected to take callback brace body; candidate unchanged."
+    }
+  },
+  "noNativeOrSocketExecution": true,
+  "strictGuardSha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+  "preserved": {
+    "L1AndL3Text": true,
+    "original2300Waits": true,
+    "originalFlush200": true,
+    "originalLessThan1500Assertion": true,
+    "originalAppendHookAndFinally": true,
+    "wholeOriginalFileInverse": true
+  },
+  "files": [
+    {
+      "file": "original.test.js",
+      "sha256": "4d3f1f3d164a1f6af9cd60b2b9e15cffc84b699a739393fa4bfac521f1528e03"
+    },
+    {
+      "file": "agent-run-lifecycle-leaks.test.js",
+      "sha256": "0f634b535af24ed6fe50ea66c09a555204586fb2913295ef3433890f76fef767"
+    },
+    {
+      "file": "span.json",
+      "sha256": "33c229d70216ba06be05800568b849266eec3103562cacac3897fc43a902d82e"
+    },
+    {
+      "file": "run-three-case.cjs",
+      "sha256": "9ce4e65a19d864fbdfe173664eff23382a5b3a7a312cf1feb5193a0886c2e20b"
+    },
+    {
+      "file": "three-case-report.json",
+      "sha256": "a9134bc8b89d0d74e5caec6505e656f8e47fc713fb608a6757dd82a06b5bc281"
+    },
+    {
+      "file": "three-case-first.log",
+      "sha256": "c70587e5850f56c6a5d7615b7f7902fe10c71237993295092276707e511062e4"
+    },
+    {
+      "file": "three-case-second.log",
+      "sha256": "cce82dcbfa217a4df5ed958e11506101a308fcecb8ec94c5d75d1c2d98d78542"
+    },
+    {
+      "file": "run-three-case-first-slice.cjs",
+      "sha256": "d10fc2f89feddae202f22d8f15115b507e70310f99e99057fabf0deefc532bc5"
+    }
+  ],
+  "remaining": "Root independently review and apply the one insertion, then execute the actual full L1/L3/L2 unit. Preserve every previous 1504/1843ms failure; handshake does not prove those causes or remove the original runtime timer budget."
+}

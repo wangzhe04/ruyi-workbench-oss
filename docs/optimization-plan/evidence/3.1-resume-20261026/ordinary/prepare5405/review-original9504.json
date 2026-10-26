@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_restore",
+  "author": "/root/review_cancel",
+  "status": "BLOCKED_PENDING_PHYSICAL_PATH_ADMISSION_FIX",
+  "reviewedScript": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary119-prepare-sourceonly-20261026-533fe569/prepare-ordinary119.cjs",
+    "sha256": "950428fb68ebee5a51139c0a077f2c92dd09d954800ea17b45a45ab0002771f8"
+  },
+  "evidence": {
+    "frozenIdentity": "61b2ef7d94fc53e03c0e7f2a7d2d5a5aba0dcf6b405c443ad068bc7df018ddc6",
+    "frozenMembersIndependentlyRehashed": 448,
+    "mismatchedMembers": [],
+    "privateGateReview": "d896d54519717e694c98aec7ecb9051e02c5642ea50cad55e71badf73f935577",
+    "predecessorFilesIndependentlyRehashed": {
+      "ordinary-mode-gate.cjs": "69af800825580d51bff5b8269a30c671d40da2624112d65603aed2554eeae85f",
+      "run-ordinary-mode-gate.cjs": "677135373147bb2a819cc86118a380b2ebe144a8fd9266e78c534ff221034f5a",
+      "ordinary-gate-plan.json": "363d7ef5a1387ff0f46015b727de1dbc324d2c2e405fa2d6c46b5b8ccf1ae549",
+      "ordinary-runtime-inputs.json": "2b0b150b7a577cb14dcaa779286b7d2c72ef43f7a2669c2040af6c6f6ddfe0a2"
+    }
+  },
+  "staticFindings": [
+    "Exact pinned identity and independent review bytes precede all writes; all448 members are verified, including unique names, length and SHA256.",
+    "Actual source directory must contain exactly123 names; all119 JS and3 sidecars must equal the frozen tree. Manifest equality permits only238 derived integer range values, with all semantics and nonrange raw bytes preserved.",
+    "Every119 module is safe-named, unique, roundtrip UTF8 and LF. Manifest start/end ranges are recomputed. Already-built server.js must be exact module-order LF concatenation; builder must match frozen build.js. The preparation does not build or load server.js.",
+    "Both full13u SHA0975 and separately extracted native constant ef53 are pinned in source and concatenated runtime. Livef79 is not accepted as privateef53 and no native validation is claimed.",
+    "The only driver changes are optional execution repo path, runtime location, derived runtime/input SHA,120-to121 input count and118-to119 module count. Launcher changes are optional repo/cwd, runtime path and derived driver/plan/runtime SHA. Plan changes are runtime path/SHA. Every applied substring and inverse is unique and each whole inverse restores its pinned predecessor.",
+    "No edits reach payloadRows, seed/mode0/mode1/mode2/restore/cold-restored/special-refusal bodies, ownership/refusal/hash/metadata/cause/lifecycle assertions, or240000/250000/2000ms budgets. Fixed8 storage payloads remain literal predecessor bytes.",
+    "Future role pinning covers121 inputs only: server.js,manifest.json,119 JS modules. These are checked at driver and role entry and successful completion, not a continuous filesystem watch. The3 source sidecars and build.js are preparation-time checks only; repo helpers are recorded for subsequent root review and are not part of role121 pinning."
+  ],
+  "blockingFinding": {
+    "location": "prepare-ordinary119.cjs:7,13-14,28",
+    "issue": "Path admission is lexical; regular() only lstat-checks each file leaf. Existing runRoot/runtime/app/src ancestors may be junctions or symlinks. A TEMP alias runRoot can point to an old or outside physical tree while passing original-TEMP and basename checks; mkdir(runRoot/ordinary) then writes there.",
+    "proofBoundary": "Static path-semantics analysis only; no junction was created and no old or future runtime was modified.",
+    "requiredFix": "Before any write, validate canonical physical identity and nonlink status for the original TEMP/runRoot/runtime/app/src and existing ancestors and relevant input paths. Keep exclusive new output creation, reject observed alias changes and use exclusive file writes. Freeze a new script identity, preserving original9504.",
+    "notClaimed": "No guarantee against privileged concurrent namespace replacement without stronger OS handle-based ownership."
+  },
+  "scope": {
+    "prepareInvoked": false,
+    "futureRuntimeInspected": false,
+    "serverBuiltOrLoaded": false,
+    "testsRun": false,
+    "nativeExecuted": false,
+    "oldFailureRootsTouched": false,
+    "productionModified": false,
+    "productionPromotion": false,
+    "nativeAcceptance": false
+  },
+  "next": "Review the author newly frozen physical-path fix. Root must later inspect actual derived output and proof before a separate serial actual gate."
+}

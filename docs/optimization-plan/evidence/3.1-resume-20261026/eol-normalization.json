@@ -1,0 +1,40 @@
+{
+  "scope": "Existing five tracked-text EOL failures; preserve originals, no business/assertion edits",
+  "rows": [
+    {
+      "file": "dev-harness/unit/work-data-key-owner-paths.test.js",
+      "beforeSha256": "f828fb877358676aedaf88aca27898109e026fd57ff9d5ffee0ac6e3094f5961",
+      "afterSha256": "e50488ed876019272fdff0ab6fa89d5b34e9ccbb41f4195d6b891f961398d7cc",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\0-work-data-key-owner-paths.test.js.gz",
+      "normalization": "CRLF to LF only; all non-EOL bytes and logical lines preserved"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/migration-next-2026-10-23/baseline.json",
+      "beforeSha256": "b3bc2b650712b366f3cd787edca0e54c83e8d903fe389883f3b3a2f79a98b151",
+      "afterSha256": "8c2e1205cdd79f24063251de69c9703f3f6bc1c352e681af72bc7e7f8195b3a3",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\1-baseline.json.gz",
+      "normalization": "CRLF to LF only; all non-EOL bytes and logical lines preserved"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/migration-next-2026-10-23/handoff.md",
+      "beforeSha256": "bd03621e8da613813bf28a098e06d376c7ff7b5308bc1501ff0b9dbc178624be",
+      "afterSha256": "b0c0f18a4417d49dfa0e1e3379a8a131ff8abd11b390d2f1caeda18543a5df69",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\2-handoff.md.gz",
+      "normalization": "CRLF to LF only; all non-EOL bytes and logical lines preserved"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/ndjson-next-2026-10-23/handoff.json",
+      "beforeSha256": "c15f4666a08cb033eb3d577cbb6f61b4b6ecc4345c38b67902e5e10588aab948",
+      "afterSha256": "09d6422769205263b29dc6c46eaa5dd4329c5a651c0d169a492b20675db1ae85",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\3-handoff.json.gz",
+      "normalization": "CRLF to LF only; all non-EOL bytes and logical lines preserved"
+    },
+    {
+      "file": "docs/optimization-plan/drafts/scheduler-task-next-2026-10-23/tasks-source-first.log.txt",
+      "beforeSha256": "2971d70831df9555e6bec96442132839c579ff4af54e1a0d8d0858e5685b0ede",
+      "afterSha256": "47c96d6568969637e1fbb589917e7360265c6543454ca90d2c4151cac06e09b7",
+      "original": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\4-tasks-source-first.log.txt.gz",
+      "normalization": "CRLF to LF only; all non-EOL bytes and logical lines preserved"
+    }
+  ]
+}

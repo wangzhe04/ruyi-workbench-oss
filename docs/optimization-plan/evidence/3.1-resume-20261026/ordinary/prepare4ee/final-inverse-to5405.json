@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "baseline": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary119-path-guard-fix-20261026-be035b34/prepare-ordinary119-path-guarded.cjs",
+  "beforeSha256": "5405fe921324d76edc9861cd26bb393d613beaa674b2d5f539d3d3b96c93a80b",
+  "afterSha256": "4ee9958e013e0f3bcd80972ee83b533dc64eedda7f20e1af47e7c0fa40ce1757",
+  "spans": [
+    {
+      "label": "append fail-closed next candidate pins",
+      "before": "const ORIGINAL_TEMP=",
+      "after": "// Fixed candidate and independent approval pins must be finalized in a new reviewed identity.\nconst NEXT_PIN=Object.freeze({ready:false,identityFile:null,identitySha256:null,approvalFile:null,approvalSha256:null,sourceSha256:null});\nconst NEXT_MOVE=Object.freeze({before:'const moved=await platform.move({source,target,id:owned.objectInfo.id});',after:'const moved=await platform.move({source,target,id:owned.objectInfo.id,preserveMetadata:true});'});\nconst ORIGINAL_TEMP=",
+      "occurrences": 1
+    },
+    {
+      "label": "fail closed before preparation input access",
+      "before": "function main(){\n",
+      "after": "function main(){\n a.equal(NEXT_PIN.ready,true,'next candidate and independent approval identities are not finalized');\n for(const key of ['identitySha256','approvalSha256','sourceSha256'])a.match(NEXT_PIN[key],/^[a-f0-9]{64}$/,'fixed next pin '+key);\n for(const key of ['identityFile','approvalFile'])a.ok(typeof NEXT_PIN[key]==='string'&&p.isAbsolute(NEXT_PIN[key]),'fixed absolute next pin '+key);\n",
+      "occurrences": 1
+    },
+    {
+      "label": "admit only exact new candidate plus independent approval",
+      "before": " const frozenSrc=p.join(freeze,'with-diagnostic/runtime/app/src')",
+      "after": " const nextIdentityBytes=regular(NEXT_PIN.identityFile),nextApprovalBytes=regular(NEXT_PIN.approvalFile);a.equal(sha(nextIdentityBytes),NEXT_PIN.identitySha256);a.equal(sha(nextApprovalBytes),NEXT_PIN.approvalSha256);\n const nextIdentity=JSON.parse(nextIdentityBytes);a.ok(Array.isArray(nextIdentity.files)&&nextIdentity.files.length>0,'fixed candidate complete receipt');const nextRoot=p.dirname(NEXT_PIN.identityFile),nextSeen=new Set();for(const row of nextIdentity.files){a.ok(!nextSeen.has(row.file.toLowerCase()));nextSeen.add(row.file.toLowerCase());const bytes=regular(member(nextRoot,row.file));a.equal(bytes.length,row.bytes,row.file);a.equal(sha(bytes),row.sha256,row.file);}\n const old13uBytes=regular(p.join(freeze,'with-diagnostic/runtime/app/src/13u-migration-center.js'));a.equal(sha(old13uBytes),PIN.source13u);const old13u=old13uBytes.toString('utf8');a.equal(old13u.split(NEXT_MOVE.before).length,2,'ordinary move unique baseline span');const next13u=old13u.replace(NEXT_MOVE.before,NEXT_MOVE.after);a.equal(sha(next13u),NEXT_PIN.sourceSha256,'candidate must be exact ordinary move option only');a.equal(next13u.split(NEXT_MOVE.after).length,2,'ordinary move unique inverse');a.equal(next13u.replace(NEXT_MOVE.after,NEXT_MOVE.before),old13u,'whole product inverse');\n const frozenSrc=p.join(freeze,'with-diagnostic/runtime/app/src')",
+      "occurrences": 1
+    },
+    {
+      "label": "permit only one exact 13u source delta",
+      "before": "if(name!=='manifest.json'){a.equal(actual.length,row.bytes,name);a.equal(sha(actual),row.sha256,name);}",
+      "after": "if(name==='13u-migration-center.js'){a.equal(actual.equals(Buffer.from(next13u,'utf8')),true,name+' unique admitted ordinary move span');}else if(name!=='manifest.json'){a.equal(actual.length,row.bytes,name);a.equal(sha(actual),row.sha256,name);}",
+      "occurrences": 1
+    },
+    {
+      "label": "current 13u SHA pin only",
+      "before": "a.equal(sha(regular(p.join(actualSrc,'13u-migration-center.js'))),PIN.source13u);",
+      "after": "a.equal(sha(regular(p.join(actualSrc,'13u-migration-center.js'))),NEXT_PIN.sourceSha256);",
+      "occurrences": 1
+    },
+    {
+      "label": "physical admission for new immutable candidate/review",
+      "before": "const admissionPaths=[originalTemp,runRoot,",
+      "after": "const admissionPaths=[NEXT_PIN.identityFile,NEXT_PIN.approvalFile,nextRoot,...nextIdentity.files.map(row=>member(nextRoot,row.file)),originalTemp,runRoot,",
+      "occurrences": 1
+    },
+    {
+      "label": "extra proof without altering original freeze attestation",
+      "before": "sourceProof:{files:checkedSource,",
+      "after": "nextCandidate:{identityFile:NEXT_PIN.identityFile,identitySha256:NEXT_PIN.identitySha256,approvalFile:NEXT_PIN.approvalFile,approvalSha256:NEXT_PIN.approvalSha256,source13uSha256:NEXT_PIN.sourceSha256,onlyOrdinaryMovePreserveOption:true,wholeInverseTo0975:true},sourceProof:{files:checkedSource,",
+      "occurrences": 1
+    },
+    {
+      "label": "fixed final candidate and independent approval pins",
+      "before": "const NEXT_PIN=Object.freeze({ready:false,identityFile:null,identitySha256:null,approvalFile:null,approvalSha256:null,sourceSha256:null});",
+      "after": "const NEXT_PIN=Object.freeze({\"ready\":true,\"identityFile\":\"C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e/identity.json\",\"identitySha256\":\"8bb859db98c2ad3fe6fb62f32e250adf899849cdc76387c10ed69c9e55a0312f\",\"approvalFile\":\"C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-move-preserve-independent-20261026-b942f8dc/review-final.json\",\"approvalSha256\":\"fb8ef99988f0b1fb56acb6015a5d0116c333d0deaec08d3510559765024453ab\",\"sourceSha256\":\"02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb\"});",
+      "occurrences": 1
+    },
+    {
+      "label": "fixed member count",
+      "before": "a.ok(Array.isArray(nextIdentity.files)&&nextIdentity.files.length>0,'fixed candidate complete receipt');",
+      "after": "a.ok(Array.isArray(nextIdentity.files),'fixed candidate complete receipt');a.equal(nextIdentity.files.length,21,'complete fixed candidate receipt');",
+      "occurrences": 1
+    },
+    {
+      "label": "bind exact approval semantics and candidate product identity",
+      "before": " const old13uBytes=regular(",
+      "after": " const nextApproval=JSON.parse(nextApprovalBytes);a.equal(nextApproval.status,'APPROVED for exact private candidate next119 preparation and root-serialized fresh actual gate; no live promotion or actual restore-pass claim');a.equal(nextApproval.appliesOnlyTo.identity.sha256,NEXT_PIN.identitySha256);a.equal(nextApproval.appliesOnlyTo.product.sha256,NEXT_PIN.sourceSha256);a.equal(nextApproval.appliesOnlyTo.baselineSha256,PIN.source13u);a.equal(nextApproval.appliesOnlyTo.nativeSha256,PIN.native);a.equal(nextApproval.unresolvedProductReviewBlockers.length,0);a.equal(nextIdentity.products.length,1);a.equal(nextIdentity.products[0].file,'13u-migration-center.js');a.equal(nextIdentity.products[0].sha256,NEXT_PIN.sourceSha256);a.equal(nextIdentity.products[0].baseline,PIN.source13u);a.equal(nextIdentity.products[0].nativeSha256,PIN.native);a.equal(sha(regular(member(nextRoot,'13u-migration-center.js'))),NEXT_PIN.sourceSha256);\n const old13uBytes=regular(",
+      "occurrences": 1
+    }
+  ],
+  "wholeForwardAndInverseExact": true
+}

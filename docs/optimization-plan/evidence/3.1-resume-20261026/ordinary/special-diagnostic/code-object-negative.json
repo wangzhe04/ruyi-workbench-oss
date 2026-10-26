@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "status": "Reproduced diagnostic code type loophole; candidate blocked pending output-only sanitizer",
+  "candidateDriverSha256": "f9252c8098694690f39457099cdd628d4d4cc84d3c0c40789693b2bd272b030f",
+  "onlySyntheticInput": true,
+  "oldOriginalAssertStillRed": true,
+  "diagnosticCodeSerializedObject": true,
+  "diagnosticBodyEscapedWhitelist": true,
+  "line": "{\"diagnostic\":\"ordinary.special_refusal_typed_causes.v1\",\"causes\":[{\"code\":{\"body\":\"SYNTHETIC_DIAGNOSTIC_BODY_SHOULD_NOT_PRINT\"},\"helperMayStillRun\":false,\"ownershipRetained\":false,\"targetRetained\":false,\"retry\":null}]}",
+  "proposedScope": "Only new diagnostic code map expression; do not alter existing typedCauses or original assertion/budgets/runtime"
+}

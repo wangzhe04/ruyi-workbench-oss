@@ -20,9 +20,12 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const isolated = fixtureChildEnv({ perTest: true }); const home = isolated.home; const work = path.join(home, 'work'); fs.mkdirSync(work);
   const stateFile = path.join(home, 'external-bots', 'state-v1.json');
   const holdFlag = path.join(home, 'hold-inbox'), heldFlag = path.join(home, 'inbox-held'), failCompletedFlag = path.join(home, 'fail-completed');
+  const failCancelFlag = path.join(home, 'fail-cancel'), holdCancelFlag = path.join(home, 'hold-cancel'), cancelHeldFlag = path.join(home, 'cancel-held');
   const faults = path.join(home, 'control-faults.cjs');
   fs.writeFileSync(faults, `const fs=require('fs'),p=fs.promises,rename=p.rename;p.rename=async function(from,to){if(String(to).replaceAll('\\\\','/').endsWith('/external-bots/state-v1.json')){const data=JSON.parse(fs.readFileSync(from,'utf8'));if(fs.existsSync(${JSON.stringify(failCompletedFlag)})&&data.items.some(x=>x.messageId==='completion_failure'&&x.execution&&x.execution.status==='completed'))throw Object.assign(new Error('synthetic completion write failure'),{code:'ENOSPC'});if(fs.existsSync(${JSON.stringify(holdFlag)})){fs.writeFileSync(${JSON.stringify(heldFlag)},'held');while(fs.existsSync(${JSON.stringify(holdFlag)}))await new Promise(r=>setTimeout(r,10));}}return rename.call(this,from,to);};`);
-  let server, fake, apiServer, port, apiPort, token = '', targetId = '', heldTokenResponse = null, holdToken = false, deliveryMode = 'ok';
+  const cancelFaults = path.join(home, 'cancel-faults.cjs');
+  fs.writeFileSync(cancelFaults, `const fs=require('node:fs'),p=fs.promises,rename=p.rename;p.rename=async function(from,to){if(String(to).replaceAll('\\\\','/').endsWith('/external-bots/state-v1.json')){const state=JSON.parse(fs.readFileSync(from,'utf8'));if(state.items.some(item=>item.messageId==='cancel_token'&&item.delivery?.status==='cancelled')&&fs.existsSync(${JSON.stringify(failCancelFlag)}))throw Object.assign(Error('synthetic cancellation write failure'),{code:'ENOSPC'});if(state.items.some(item=>item.messageId==='cancel_lost_ack'&&item.delivery?.status==='cancelled')&&fs.existsSync(${JSON.stringify(holdCancelFlag)})){fs.writeFileSync(${JSON.stringify(cancelHeldFlag)},'held');while(fs.existsSync(${JSON.stringify(holdCancelFlag)}))await new Promise(resolve=>setTimeout(resolve,10));}}return rename.call(this,from,to);};`);
+  let server, fake, apiServer, port, apiPort, token = '', targetId = '', heldTokenResponse = null, holdToken = false, deliveryMode = 'ok', holdMessage = false, heldMessageResponse = null;
   const commandCalls = new Map(), toolReceipts = [], outbound = [];
   const request = async (method, route, body, headers = {}, admin = true) => {
     const response = await fetch(`http://127.0.0.1:${port}${route}`, { method, headers: { 'content-type':'application/json', ...(admin ? { 'x-wcw-token': token } : {}), ...headers },
@@ -39,7 +42,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const connection = () => ({ ...feishuConnection(), mode: 'control', ownerSenderId: 'ou_person', ownerConversationId: 'oc_room', ownerConversationType: 'group', appSecretEnv: 'RUYI_BOT_TEST_F_APP' });
   const configure = value => request('POST', '/api/external-bots/connections', { op:'upsert', connection: value, controlConfirmed: true });
   const start = async () => {
-    server = cp.spawn(process.execPath, ['--require', path.join(__dirname,'lib/external-channel-delivery-preload.js'), '--require', faults, 'app/server.js', 'serve', '--port', String(port)], {
+    server = cp.spawn(process.execPath, ['--require', path.join(__dirname,'lib/external-channel-delivery-preload.js'), '--require', faults, '--require', cancelFaults, 'app/server.js', 'serve', '--port', String(port)], {
       cwd: WB, windowsHide:true, stdio:'ignore', env:{ ...process.env, ...isolated.env, ...FAKE_BOT_ENV, RUYI_BOT_TEST_F_APP:'synthetic-app-secret', RUYI_FAKE_EXTERNAL_API_PORT:String(apiPort), RUYI_HOME:home, WIN_CLAUDE_WORKBENCH_HOME:home },
     });
     await until(async()=>{try{return(await request('GET','/health',undefined,{},false)).status===200;}catch{return false;}},'server');
@@ -65,6 +68,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
         res.setHeader('content-type','application/json');res.end(JSON.stringify(req.headers.host==='api.bot.qq.com'?{access_token:'synthetic-token',expires_in:'7200'}:{code:0,tenant_access_token:'synthetic-token',expire:7200}));return;
       }
       outbound.push({host:req.headers.host,path:req.url,body});
+      if(holdMessage){heldMessageResponse=res;return;}
       if(deliveryMode==='drop'){res.destroy();return;}
       if(deliveryMode==='reject'){res.writeHead(429,{'content-type':'application/json'});res.end('{"code":999,"msg":"synthetic rate limit"}');return;}
       res.setHeader('content-type','application/json');res.end(JSON.stringify(req.headers.host==='api.bot.qq.com'?{id:'qq_sent_'+outbound.length}:{code:0,data:{message_id:'f_sent_'+outbound.length}}));
@@ -176,7 +180,53 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       && (await readItem('control_create')).delivery.attemptId === created.delivery.attemptId, 'B1g restart retains archived identity and original sending attempt');
     ok((await request('POST', '/api/external-bots/deliveries/archive', { id: created.id, archived: false })).status === 200
       && (await request('GET', '/api/external-bots/deliveries')).json.items.some(item => item.id === created.id), 'B1h unarchive restores visibility without a downgrade or second queue');
+    const cancelRoute = '/api/external-bots/deliveries/cancel', cancelBody = item => ({ id:item.id, attemptId:item.delivery.attemptId });
+    ok((await request('POST',cancelRoute,cancelBody(created),{},false)).status===403
+      &&(await request('POST',cancelRoute,cancelBody(created),{origin:'https://foreign.invalid'})).status===403
+      &&(await request('GET',cancelRoute)).status===403,'X1 cancel requires exact authenticated POST and same-origin authority');
+    ok((await request('POST',cancelRoute+'?extra=1',cancelBody(created))).status===400
+      &&(await request('POST',cancelRoute,{...cancelBody(created),extra:true})).status===400,'X2 cancel rejects query parameters and extra body authority');
+    holdToken=true;await callback('cancel_token','请汇报 CONTROL_CANCELTOKEN');await until(()=>heldTokenResponse,'cancel token held');
+    const cancellable=await readItem('cancel_token'),cancelCalls=commandCalls.get('CONTROL_CANCELTOKEN');
+    ok(cancellable.cancelAvailable===true&&cancellable.delivery.status==='sending','X3 current unsubmitted sender advertises cancellation through real HTTP');
+    fs.writeFileSync(failCancelFlag,'fail');const beforeFailedCancel=fs.readFileSync(stateFile,'utf8');
+    const failedCancel=await request('POST',cancelRoute,cancelBody(cancellable));
+    ok(failedCancel.status===503&&fs.readFileSync(stateFile,'utf8')===beforeFailedCancel
+      &&(await readItem('cancel_token')).delivery.status==='sending','X4 failed durable cancellation gives no ACK or early abort');
+    fs.unlinkSync(failCancelFlag);
+    const cancelled=await request('POST',cancelRoute,cancelBody(cancellable));
+    holdToken=false;heldTokenResponse.end('{"code":0,"tenant_access_token":"late-cancel-token","expire":7200}');heldTokenResponse=null;
+    const cancelReceipt=cancelled.json?.item;
+    ok(cancelled.status===200&&cancelReceipt.delivery.status==='cancelled'&&cancelReceipt.delivery.attemptId===cancellable.delivery.attemptId
+      &&JSON.stringify(cancelReceipt.execution)===JSON.stringify(cancellable.execution),'X5 persisted cancellation retires only the original reply attempt and preserves business result');
+    const repeatCancel=await request('POST',cancelRoute,cancelBody(cancellable));
+    ok(repeatCancel.status===200&&repeatCancel.json.alreadyCancelled===true&&repeatCancel.json.item.delivery.cancelledAt===cancelReceipt.delivery.cancelledAt
+      &&outbound.every(row=>!row.path.includes('/cancel_token/reply')),'X6 same attempt is idempotent and aborted token never creates a message request');
+    holdMessage=true;await callback('cancel_submitted','请汇报 CONTROL_CANCELSUBMITTED');await until(()=>heldMessageResponse,'message request submitted');
+    const submitted=await readItem('cancel_submitted');
+    ok(submitted.cancelAvailable!==true&&(await request('POST',cancelRoute,cancelBody(submitted))).status===409,'X7 synchronous message submission closes cancellation before the platform response');
+    holdMessage=false;heldMessageResponse.end('{"code":0,"data":{"message_id":"submitted-before-cancel"}}');heldMessageResponse=null;await delivered('cancel_submitted');
+    holdToken=true;await callback('cancel_lost_ack','请汇报 CONTROL_CANCELLOSTACK');await until(()=>heldTokenResponse,'lost cancellation token held');
+    const lostItem=await readItem('cancel_lost_ack'),cancelBytes=Buffer.from(JSON.stringify(cancelBody(lostItem)));
+    fs.writeFileSync(holdCancelFlag,'hold');
+    const lostCancel=http.request({host:'127.0.0.1',port,path:cancelRoute,method:'POST',headers:{'x-wcw-token':token,'content-type':'application/json','content-length':cancelBytes.length}});
+    lostCancel.on('error',()=>{});lostCancel.end(cancelBytes);await until(()=>fs.existsSync(cancelHeldFlag),'cancel durable rename held');lostCancel.destroy();fs.unlinkSync(holdCancelFlag);
+    await until(async()=> (await readItem('cancel_lost_ack')).delivery.status==='cancelled','lost ACK still persists cancellation');
+    holdToken=false;heldTokenResponse.end('{"code":0,"tenant_access_token":"late-lost-ack-token","expire":7200}');heldTokenResponse=null;
+    ok((await request('POST',cancelRoute,cancelBody(lostItem))).json.alreadyCancelled===true
+      &&outbound.every(row=>!row.path.includes('/cancel_lost_ack/reply')),'X8 lost local cancellation ACK is reconciled by the same durable receipt with zero message requests');
+    await stop();await start();
+    await callback('cancel_token','请汇报 CONTROL_CANCELTOKEN','feishu','cancel_restart_duplicate');
+    await sleep(100);
+    const afterRestart=await readItem('cancel_token'),ledger3=JSON.parse(fs.readFileSync(stateFile,'utf8'));
+    ok(afterRestart.delivery.status==='cancelled'&&afterRestart.delivery.cancelledAt===cancelReceipt.delivery.cancelledAt
+      &&commandCalls.get('CONTROL_CANCELTOKEN')===cancelCalls&&ledger3.schema===3
+      &&outbound.every(row=>!row.path.includes('/cancel_token/reply')&&!row.path.includes('/cancel_lost_ack/reply')),'X9 process restart and callback redelivery retain payload3 cancellation without re-executing business');
+    await request('POST','/api/external-bots/deliveries/archive',{id:afterRestart.id,archived:true});
+    await request('POST','/api/external-bots/deliveries/archive',{id:afterRestart.id,archived:false});
+    ok(JSON.parse(fs.readFileSync(stateFile,'utf8')).schema===3&&(await readItem('cancel_token')).delivery.status==='cancelled'
+      &&(await request('POST',cancelRoute,{...cancelBody(afterRestart),attemptId:'different_attempt'})).status===409,'X10 archive cycles retain schema3 and a different attempt cannot reuse cancellation authority');
     ok(fake.errors.length===0,'C19 scripted model fixture has no hidden handler failures');
   } catch(error){runner.fail(error.stack||String(error));}
-  finally{if(fs.existsSync(holdFlag))fs.unlinkSync(holdFlag);if(heldTokenResponse)heldTokenResponse.destroy();await stop();if(fake)await fake.close();if(apiServer){apiServer.closeAllConnections();await new Promise(resolve=>apiServer.close(resolve));}runner.done({exit:true});}
+  finally{if(fs.existsSync(holdFlag))fs.unlinkSync(holdFlag);if(fs.existsSync(holdCancelFlag))fs.unlinkSync(holdCancelFlag);if(heldTokenResponse)heldTokenResponse.destroy();if(heldMessageResponse)heldMessageResponse.destroy();await stop();if(fake)await fake.close();if(apiServer){apiServer.closeAllConnections();await new Promise(resolve=>apiServer.close(resolve));}runner.done({exit:true});}
 })();

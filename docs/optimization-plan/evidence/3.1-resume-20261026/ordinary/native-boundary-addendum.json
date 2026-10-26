@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "scope": "Native identity boundary clarification; additive report, frozenf9/a25a artifacts retained unchanged",
+  "live": {
+    "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\src\\13u-migration-center.js",
+    "sourceSha256": "7ebd7f0b977b558a56dd6d633976df9466dfdee74d71d1e358be2e7654c115d0",
+    "nativeSha256": "f79a8c9d5a7785391f4742fca39eb0e7da42231168412b3f9578eaf9fd881e25"
+  },
+  "privateUnion": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-31-resume-20261026-c4672ee3/packages/codex-ruyi-current118-durability-union-v2-20261025/runtime/app/src/13u-migration-center.js",
+    "sourceSha256": "ee359b5d8d843c5c8c237213e7b43b9264f1c0b59adc47caad34f34e4d490c9e",
+    "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34"
+  },
+  "privateCleanup": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\fixed-src\\13u-migration-center.js",
+    "sourceSha256": "e8168e2cbca81ed9c3e47d316fdd3b45d9f67c5064876b4689552f4948057f08",
+    "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34"
+  },
+  "meaning": {
+    "liveToUnion": "Native C# changes from f79 to ef53 are substantive original support increment and require complete independent review/native acceptance; no whole native conservation claim applies to live7ebd -> unionee359.",
+    "unionToCleanup": "Only here does native unchanged mean ef53 byte identity;20cleanup groups and subsequent14target+7diagnostic JS layers preserve that private native literal.",
+    "sourceOnly119": "119 combinations are prepared source snapshots only; their ef53 cannot be justified by currentlivef79 leaf results.",
+    "leaf": "Root tests run against livef79 remain separate evidence and cannot discharge privateef53 native operations."
+  },
+  "references": [
+    {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\frozen-five-source-identity.json",
+      "sha256": "f9b119fa6a919f649fde97fb1985bf7796c8ddc89d0ccb0b529946c83e7af6b3"
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-private119-source-compositions-20261026-2c0ee8e8/identity.json",
+      "sha256": "a25a884293d62d962c89cb332c607b060ff199f772ba851625650a8faa287d2c"
+    }
+  ],
+  "archiveReviewBoundary": "70b/4266/ca0/3a2c reports admit diagnostics/gates/launcher identities over private nativeef53 baseline. None alone is independent review of all livef79->privateef53 native additions.",
+  "productTouched": false,
+  "buildExecuted": false,
+  "testsExecuted": false,
+  "nativeExecuted": false
+}

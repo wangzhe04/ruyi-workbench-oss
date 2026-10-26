@@ -1,0 +1,11 @@
+{
+  "cap": 41943040,
+  "beforeBytes": 41943039,
+  "afterBytes": 41943039,
+  "cancelAck": false,
+  "cancelError": "external_channel.inbox_full",
+  "afterReadError": null,
+  "controllerAborted": false,
+  "writesBefore": 5,
+  "writesAfter": 5
+}

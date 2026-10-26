@@ -1,0 +1,165 @@
+{
+  "scope": "Selected authored spans/tests/source proofs and original logs; no complete private source trees or production promotion",
+  "files": [
+    {
+      "file": "frozen-five-source-identity.json",
+      "sha256": "f9b119fa6a919f649fde97fb1985bf7796c8ddc89d0ccb0b529946c83e7af6b3",
+      "bytes": 5666,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\frozen-five-source-identity.json"
+    },
+    {
+      "file": "all-cleanup-spans.json",
+      "sha256": "e9d3f1a7b6c6ac4db8151abc4094ec58d0cc264769767f0744b4909c5bddebec",
+      "bytes": 24742,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\all-cleanup-spans.json"
+    },
+    {
+      "file": "source-conservation-final.json",
+      "sha256": "47b51b8061d3dd9c7f28c6efbd614dfbd5d7015679eb82443c6a91eebf9faa59",
+      "bytes": 1795,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\source-conservation-final.json"
+    },
+    {
+      "file": "support-review-and-fix-report.json",
+      "sha256": "1f85bc167a84b3ed5435a95dbaee8c1a5339c13d94381793fa7afc23b2a2ac57",
+      "bytes": 10758,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\support-review-and-fix-report.json"
+    },
+    {
+      "file": "diagnostic-seven-compatibility.json",
+      "sha256": "ed3282cdc237c4e4a127a19086bea4e7d736569b5eaa705b4f8130315fc65371",
+      "bytes": 337,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\diagnostic-seven-compatibility.json"
+    },
+    {
+      "file": "cleanup-current-repro.test.cjs",
+      "sha256": "ea18825635b6c38ada4110e51abe14618f3cdb78ddd74a1cab2166e6725f99f5",
+      "bytes": 2622,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\cleanup-current-repro.test.cjs",
+      "originalSha256": "2c092496f3fd83ae2fdfe923adb701a7c9f346b4e656eb390eaeb503f607c504",
+      "originalGzip": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-3-cleanup-current-repro.test.cjs.gz",
+      "normalization": "Statement-ending CRLF only; original preserved gzip"
+    },
+    {
+      "file": "cleanup-fixed.test.cjs",
+      "sha256": "4008bc7a416e48ef57a51ae4c7e56f9d1deefd8085e1cf46f824a4a852819070",
+      "bytes": 4911,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\cleanup-fixed.test.cjs",
+      "originalSha256": "1b2ed5489e324fdacec2df178a7d03f172789c5fbb35be7611cd0790373729df",
+      "originalGzip": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-5-cleanup-fixed.test.cjs.gz",
+      "normalization": "Statement-ending CRLF only; original preserved gzip"
+    },
+    {
+      "file": "cleanup-extra.test.cjs",
+      "sha256": "991ad7f7ab379d35a817c0e9054bee2611661549eb10d2513f007ed942ca4076",
+      "bytes": 5188,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\cleanup-extra.test.cjs",
+      "originalSha256": "f6bde2801bc6e4cbe3a69377ce0c27d8b18380b1cc685c5d3e423ebf4a951b49",
+      "originalGzip": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-4-cleanup-extra.test.cjs.gz",
+      "normalization": "Statement-ending CRLF only; original preserved gzip"
+    },
+    {
+      "file": "independent4-fixed-fixture.test.cjs",
+      "sha256": "ee116e1c2b44a28eaf651a92d56471f3534ad80b3ae8ed60cda124c734c4434e",
+      "bytes": 4641,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\independent4-fixed-fixture.test.cjs",
+      "originalSha256": "d6ac029dc2caaf62ec13e34dbf54084c6ff83f5c93de7ed17f88946a0db8826f",
+      "originalGzip": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-6-independent4-fixed-fixture.test.cjs.gz",
+      "normalization": "Statement-ending CRLF only; original preserved gzip"
+    },
+    {
+      "file": "snapshot-disposal.test.cjs",
+      "sha256": "3997ac60cb54416515a32b608287e47fc4bf72da82cb949f95c47173587d97a7",
+      "bytes": 1631,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\snapshot-disposal.test.cjs",
+      "originalSha256": "510d65984ba5c7f3c19431bdb63976ac655a28a1dd53c0772a08282ffa315f63",
+      "originalGzip": "docs\\optimization-plan\\evidence\\3.1-resume-20261026\\eol-originals\\new-7-snapshot-disposal.test.cjs.gz",
+      "normalization": "Statement-ending CRLF only; original preserved gzip"
+    },
+    {
+      "file": "cleanup-current-repro.log.gz",
+      "sha256": "33c18b33c87302b0025a9ce9067e8c29de38656889419bf3878e75bc04b1f178",
+      "storedSha256": "1dace983e0874fc948ca87a719e67c57ad68d961b58211ef4cb547451092255a",
+      "bytes": 601,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\cleanup-current-repro.log"
+    },
+    {
+      "file": "cleanup-fixed70.log.gz",
+      "sha256": "144cbb83469052440e1dd69baf5546d93ec5e0ed0e9b64000ff32ea1c43326b5",
+      "storedSha256": "ae5da65d161222ad8915455a4e64c199bc8c59171dcdb162e09bbe0dc679900c",
+      "bytes": 4428,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\cleanup-fixed70.log"
+    },
+    {
+      "file": "five-source-final55-with-disposal.log.gz",
+      "sha256": "bab053ac7fe5982e86f4b31bc624f28f1cda0c1f39642b8abef2e532793de39f",
+      "storedSha256": "5f2768bf7868f282d2e596f28bbbde9e9d8cb799fdb5b902d18419a4b046c718",
+      "bytes": 6715,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\five-source-final55-with-disposal.log"
+    },
+    {
+      "file": "independent4-inverse-control.log.gz",
+      "sha256": "7e9744b22578aa5107d1d062a13673bb2c1da5e087e18e46013e284ca6a8c7c6",
+      "storedSha256": "1bed508666fd07c9bec26213f9123e853d98b02afbcd933a0f7ccc0b2f56cbdb",
+      "bytes": 3890,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\independent4-inverse-control.log"
+    },
+    {
+      "file": "13u-inverse-one-control.log.gz",
+      "sha256": "5a65a57ca7651fae924a658910378bce847cfc6f707b9071a4464ad6fddee43b",
+      "storedSha256": "a9a69f3e406d2c2c8eb69a45f18bdd58565ec5b16774b9cb01d5f6e0940f528d",
+      "bytes": 966,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\13u-inverse-one-control.log"
+    },
+    {
+      "file": "support-final13.log.gz",
+      "sha256": "5086d6391a71798d578fe4b3e39a94df766919d4a9b45805c387bda6a8f9e03f",
+      "storedSha256": "c10767294fc0886be47b015b162362d0dfe64d2865535f6f4f193b354736733c",
+      "bytes": 4624,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\support-final13.log"
+    },
+    {
+      "file": "support-final13-corrected.log.gz",
+      "sha256": "a82d0eee38f63f6f44279a6f3e03969acdbd646ebd6f1bac7eed3ec92cf0c0c9",
+      "storedSha256": "dc208c422e0c49cfac2b0a33815fb41bcc2bc2c0ab39b9eab34041abd0310a1c",
+      "bytes": 1440,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\support-final13-corrected.log"
+    },
+    {
+      "file": "snapshot-disposal4.log.gz",
+      "sha256": "02f1e4c32999080aaea7bb2571703cc1b9f0b45d8d9b62290b42b72df9c62e6a",
+      "storedSha256": "20c6d14d76853242f9a5fbfe832aa9c361dfda3364ab6553b030bb563522197c",
+      "bytes": 460,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-review-target-20261026-3b768956\\support-review\\snapshot-disposal4.log"
+    },
+    {
+      "file": "private119-identity.json",
+      "sha256": "a25a884293d62d962c89cb332c607b060ff199f772ba851625650a8faa287d2c",
+      "bytes": 51433,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-private119-source-compositions-20261026-2c0ee8e8\\identity.json"
+    },
+    {
+      "file": "private119-composition-proof.json",
+      "sha256": "e5f6472c2c3c761efd4e292af67698431f5ebb79d9745ce12f63ca84a537b79d",
+      "bytes": 81510,
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-private119-source-compositions-20261026-2c0ee8e8\\composition-proof.json"
+    }
+  ],
+  "rootAdditions": [
+    {
+      "file": "native-boundary-addendum-20261026.json",
+      "bytes": 2691,
+      "sha256": "0543c8b7a04a67683d0bfe75fac4dc27b70908f911e280edba63fab9fdb50862"
+    },
+    {
+      "file": "README.md",
+      "bytes": 4815,
+      "sha256": "21d62e0ae710c39f23491707a9e4f88cdd7411c3088998e53c382eb1c891d42c"
+    },
+    {
+      "file": "reconstruct-five.cjs",
+      "bytes": 1776,
+      "sha256": "b948db8b1175cfd0ea29f8c1cc7b6b4d165637e7d4fc0890220cd50ceba7e5fc"
+    }
+  ]
+}

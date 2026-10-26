@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "review_restore independent nonauthor of c82 capacity fix and matrix",
+  "status": "Static final integration approved, no findings",
+  "source": {
+    "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\src\\13w-external-bots.js",
+    "sha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+    "matchesPreviouslyReviewedCandidate": true
+  },
+  "historicalReconstruction": {
+    "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\fixtures\\external-bots-cancel\\history.json",
+    "sha256": "ea69c040257d5b093edf75cb600c53967a759c156190a033475b56f18f015f88",
+    "v3": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+    "v2": "1ad6064fb9e31079e2b07c85353e56a1a94c33eff5d5abbf18f9efc87938d1f0",
+    "v1": "5bf225988e7a0744c6f13c87e82defd9f93612e88c917b25ad1cb26bc308938d",
+    "v2InverseGroups": 14,
+    "v1InverseHunks": 8,
+    "allAnchorsAndLineHunksExact": true,
+    "guardRemovedFirstFromAppendedInverse": true
+  },
+  "matrix": {
+    "file": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\dev-harness\\unit\\external-bots-cancel-capacity.test.js",
+    "sha256": "24de1887a3157b180016a8ab9694f69f39892279d0a17e2df870e67ecce29caf",
+    "original": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-cancel-capacity-independent-20261026-81739f24\\exact-capacity-matrix.test.cjs",
+    "originalSha256": "7011359cc8a36ef349d666fb36288e979f5105c15c0abee92e39fe578ad811f9",
+    "oneUniquePathOnlyReplacement": true,
+    "wholeInverseExact": true,
+    "cases": 8,
+    "assertionStatementsRetained": 28,
+    "coverage": "plain/sealed x pending/sending x exact cap/one byte excess; projected mutation, durability/abort order, same attempt/idempotency/business retained, zero new turns/sends",
+    "executedByReviewer": false
+  },
+  "facts": {
+    "actualUnitFiles": 400,
+    "factsUnitSuites": 400,
+    "chineseReadme": 400,
+    "englishReadme": 400,
+    "allEqual": true
+  },
+  "boundaries": [
+    "Read-only static verification only; no build/native/HTTP/browser or heavy test run",
+    "Root reported37 actual targeted cases separately; current complete regression is still running, not independently claimed passed",
+    "Source capacity acceptance does not authorize whole3.1 release or retry payload4"
+  ]
+}

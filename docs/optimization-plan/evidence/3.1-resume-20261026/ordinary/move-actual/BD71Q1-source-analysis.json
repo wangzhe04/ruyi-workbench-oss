@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "status": "Source/evidence analysis only; complete ordinary gate remains red",
+  "failureInput": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\special-refusal.stderr.log",
+    "bytes": 922,
+    "sha256": "7f428c4ff8f609854acddcd93c6d317b95e99a215fa72d920ea1a4dec4193616"
+  },
+  "processInput": {
+    "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\special-refusal.process.json",
+    "bytes": 289,
+    "sha256": "fdf752c961946dce2ed66e9ef089f29139f66a466bd4b37c2195230461a116bb"
+  },
+  "specialActualProcess": {
+    "kind": "special-refusal",
+    "pid": 31484,
+    "exited": true,
+    "closed": true,
+    "exitCode": 1,
+    "exitSignal": null,
+    "code": 1,
+    "signal": null,
+    "timedOut": false,
+    "overflow": false,
+    "fatalReceived": true,
+    "pipeFailed": false,
+    "processFailed": false,
+    "cleanupFailed": false,
+    "helperMayStillRun": false,
+    "ownershipRetained": true
+  },
+  "completedRoles": [
+    {
+      "kind": "seed",
+      "pass": true,
+      "stdout": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\seed.stdout.log",
+        "bytes": 395,
+        "sha256": "2268c9ca6b06dad119f6824691daebd4839c671588b711a310de73cb00bbeaa4"
+      },
+      "process": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\seed.process.json",
+        "bytes": 280,
+        "sha256": "4eebeaac194cb90aa45a61f8401d78e18a38e361becd45e2254ff7cf590dd2d0"
+      },
+      "helpers": 0,
+      "helpersAllActualExitCloseZero": true
+    },
+    {
+      "kind": "mode-0",
+      "pass": true,
+      "stdout": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\mode-0.stdout.log",
+        "bytes": 9559,
+        "sha256": "290f9450c461fd297f0a8d77e62dd17e8ca24965562dce0ad2ddc77c17a41b2d"
+      },
+      "process": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\mode-0.process.json",
+        "bytes": 282,
+        "sha256": "45d42e15936db9466ec19c62171b3dca3240a6bb71fc09526250fa5e107387bc"
+      },
+      "helpers": 54,
+      "helpersAllActualExitCloseZero": true
+    },
+    {
+      "kind": "mode-1",
+      "pass": true,
+      "stdout": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\mode-1.stdout.log",
+        "bytes": 10152,
+        "sha256": "3a485345730b43ef4798d2201775e2d26aba49f95ed2af344da348f17c1b0638"
+      },
+      "process": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\mode-1.process.json",
+        "bytes": 282,
+        "sha256": "cba520faf1252b46dc031e061f14df520cd292db399daa12c8bce8a836f4bf73"
+      },
+      "helpers": 59,
+      "helpersAllActualExitCloseZero": true
+    },
+    {
+      "kind": "mode-2",
+      "pass": true,
+      "stdout": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\mode-2.stdout.log",
+        "bytes": 10470,
+        "sha256": "d76ec707453da55275f6c9c1a6777695db22dcf01a87692d1f2a2236bcd2adf3"
+      },
+      "process": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\mode-2.process.json",
+        "bytes": 282,
+        "sha256": "1e7a7b41d24ad3c859cd6e179fdc94bdf731c82def08165d4ba6bbf5c57a4cf1"
+      },
+      "helpers": 62,
+      "helpersAllActualExitCloseZero": true
+    },
+    {
+      "kind": "restore",
+      "pass": true,
+      "stdout": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\restore.stdout.log",
+        "bytes": 7101,
+        "sha256": "3993cc189fdcd5b99ed6d9574f650919d90cb6d10e29f40aff78daee5ff927f4"
+      },
+      "process": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\restore.process.json",
+        "bytes": 283,
+        "sha256": "8107db5cc1239a51dfaaa16dfda76c84289d57960aed9319c489bcf59cfb7a69"
+      },
+      "helpers": 58,
+      "helpersAllActualExitCloseZero": true
+    },
+    {
+      "kind": "cold-restored",
+      "pass": true,
+      "stdout": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\cold-restored.stdout.log",
+        "bytes": 607,
+        "sha256": "3ca21809610914476eb1cc506d2f2f3695339a29c11451e194430a857d1ce88b"
+      },
+      "process": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-modes-BD71Q1\\cold-restored.process.json",
+        "bytes": 289,
+        "sha256": "aeca4a415b14f1f0ef5a3b832a068d802135575d8cba811c0511ae1f05bf1eac"
+      },
+      "helpers": 2,
+      "helpersAllActualExitCloseZero": true
+    }
+  ],
+  "assertion": {
+    "file": "C:/Users/87179/AppData/Local/Temp/r31p-sgNqTk/ordinary/ordinary-mode-gate.cjs",
+    "line": 108,
+    "column": 1107,
+    "allowedCodes": [
+      "work_data_migration_host.special_owner_change_proof_required",
+      "work_data_migration_host.special_backup_coverage_required"
+    ],
+    "actualInnerCodesKnown": false,
+    "reason": "catch stores local cause. Original assert message JSON.stringify(typedCauses(cause)) would contain the rejected actual codes, but thrown AssertionError does not attach that local cause; final typedCauses(error) records code/flags/portableDiagnostic/frames and omits AssertionError.message."
+  },
+  "limits": [
+    "No evidence here identifies actual special inner refusal codes.",
+    "Assertion set mismatch does not prove special path allowed a transition.",
+    "special process exited/closed1 with no timeout and helperMayStillRun:false; failure lacks a terminal per-helper inventory, so no complete helper accounting claim.",
+    "Restore and cold read succeeded for fixed8payload ordinary gate only; full gate did not finish."
+  ],
+  "proposedDiagnostic": "A single bounded structured stderr line using existing typedCauses(local cause) immediately before the exact existing assert; retain original assertion, post-refusal source comparisons and all budgets. Root runs a fresh tree; never reuse failed root or refresh before."
+}

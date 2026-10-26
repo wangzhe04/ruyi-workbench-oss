@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "author": "/root/review_cancel",
+  "scope": "Actual reviewed payload3 cancellation + actual Store boundary; production source read only; no native/HTTP/build; private one-span candidate",
+  "decision": "current cancellation capacity blocker, narrow fix ready for nonauthor root review",
+  "span": {
+    "beforeSha256": "96e9bb602d8a9b99ab468b2fe76bb4738a5cf6d259370531e42ce05b2ad38a33",
+    "afterSha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6",
+    "spans": [
+      {
+        "before": "  await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership.",
+        "after": "  // Refuse this mutation before ACK/abort if its legacy plaintext representation\n  // exceeds the existing physical read ceiling, even when sealing is enabled.\n  if (Buffer.byteLength(JSON.stringify(state, null, 2), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes)\n    throw externalBotError('external_channel.inbox_full', 503);\n  await externalBotWriteState(state); // No cancellation ACK or abort before durable ownership."
+      }
+    ]
+  },
+  "before": {
+    "pending": {
+      "cap": 41943040,
+      "beforeBytes": 41943039,
+      "afterBytes": 41944087,
+      "cancelAck": true,
+      "cancelError": null,
+      "afterReadError": "external_channel.storage_unavailable",
+      "controllerAborted": false,
+      "writesBefore": 5,
+      "writesAfter": 6
+    },
+    "sending": {
+      "cap": 41943040,
+      "beforeBytes": 41943039,
+      "afterBytes": 41944087,
+      "cancelAck": true,
+      "cancelError": null,
+      "afterReadError": "external_channel.storage_unavailable",
+      "controllerAborted": true,
+      "writesBefore": 6,
+      "writesAfter": 7
+    },
+    "tests": 2,
+    "pass": 0,
+    "fail": 2,
+    "log": "cancel-capacity-before-red.log"
+  },
+  "after": {
+    "pending": {
+      "cap": 41943040,
+      "beforeBytes": 41943039,
+      "afterBytes": 41943039,
+      "cancelAck": false,
+      "cancelError": "external_channel.inbox_full",
+      "afterReadError": null,
+      "controllerAborted": false,
+      "writesBefore": 5,
+      "writesAfter": 5
+    },
+    "sending": {
+      "cap": 41943040,
+      "beforeBytes": 41943039,
+      "afterBytes": 41943039,
+      "cancelAck": false,
+      "cancelError": "external_channel.inbox_full",
+      "afterReadError": null,
+      "controllerAborted": false,
+      "writesBefore": 6,
+      "writesAfter": 6
+    },
+    "tests": 2,
+    "pass": 2,
+    "fail": 0,
+    "log": "cancel-capacity-fixed.log"
+  },
+  "caveat": "New cancellation operation conservatively applies physical pretty JSON ceiling in both modes. Does not change generic Store/codec or claim unrelated ordinary writes share this new preflight.",
+  "proposedPermanentTest": "proposed-external-bots-cancel-capacity.test.js",
+  "testSemantics": "40MiB-1 valid plaintext predecessor and same-attempt active controller; refuse before ACK/write/abort, exact bytes remain readable; factory test source path should be current source",
+  "files": [
+    {
+      "file": "13w-cancel-physical-fix.js",
+      "sha256": "c82cef972e46ae42d58f74d775a6a6a09e52caeb7d3d368a71fcaa57074504c6"
+    },
+    {
+      "file": "cancel-physical-span.json",
+      "sha256": "3ab4e793b1d79c36caeea7aa245954e729030ff7d003430706c1f6c05fe892e6"
+    },
+    {
+      "file": "cancel-physical-capacity.test.cjs",
+      "sha256": "04321d3c5f8622b2608845b55b6532a50538ef9c123be6dfac46371da6786081"
+    },
+    {
+      "file": "proposed-external-bots-cancel-capacity.test.js",
+      "sha256": "83033c63c68a1089f9516fc9fd1d3c23a48a45e7b3a10e1554b3b4e477094a22"
+    },
+    {
+      "file": "cancel-capacity-before-red.log",
+      "sha256": "1704e45ba571b3121967e60d14dda41470f2e744fd3c9d0cb6b18ff271b06d5f"
+    },
+    {
+      "file": "cancel-capacity-fixed.log",
+      "sha256": "2fff65571a450948e41dfb86d9c417b851dff2bf2d08ba79b9036e37ff91e3ce"
+    },
+    {
+      "file": "cancel-physical-baseline-pending.json",
+      "sha256": "50e72462a7989a4d13061648b57400026846612d2487a1625de99479e11ec547"
+    },
+    {
+      "file": "cancel-physical-baseline-sending.json",
+      "sha256": "4d5b92b671bdfd6ac5d42881ffec3aafa5ad14042e09b8bd2c9648f8a034bbeb"
+    },
+    {
+      "file": "cancel-physical-fixed-pending.json",
+      "sha256": "06cc07c015c98b2f5459c928113d1678ee2b3cc73ef36a4ad59bf0eb2a60a766"
+    },
+    {
+      "file": "cancel-physical-fixed-sending.json",
+      "sha256": "973044b358bd02965767e1473b56552bb3083d0f15f99fa63186c2803be23c46"
+    }
+  ]
+}

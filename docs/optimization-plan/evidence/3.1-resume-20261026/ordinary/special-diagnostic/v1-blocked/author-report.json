@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "authors": [
+    "review_image: diagnostic source span and launcher hash derivation",
+    "root: four narrow pure checks and frozen receipt after agent capacity interruption"
+  ],
+  "status": "SOURCE ONLY; requires independent review before actual gate",
+  "driver": "f9252c8098694690f39457099cdd628d4d4cc84d3c0c40789693b2bd272b030f",
+  "launcher": "ac6406c9beedcf90c2d295ac0a5577f7c36827807161752623b1ba4ece47ab7a",
+  "runtime": "e1b925d187aae2d6c948676b026f74761dd3bd78d66b96814613898a9a0aa31a",
+  "change": "One bounded typedCauses JSON emission before original unmodified special refusal assertion; no arbitrary message/body/stack, unchanged seven roles/eight payloads/240000,250000,2000 budgets.",
+  "wholeInverses": true,
+  "supportAndInputUnchanged": true,
+  "pure": {
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "originalUnexpectedAssertionStillRed": true
+  },
+  "actualGate": false,
+  "oldFailureRootsUnchanged": true
+}

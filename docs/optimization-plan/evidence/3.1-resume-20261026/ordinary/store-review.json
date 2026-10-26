@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "author": "/root/review_cancel",
+  "date": "2026-10-26",
+  "decision": "candidate_ready_for_non_author_root_review_then_serial_native_run",
+  "scope": "Harness-only fix; no production codec/store changes, builds, native calls, HTTP, browser, or real gates run",
+  "diagnosis": {
+    "observedFailureRoot": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-modes-hwmMaO",
+    "observedCode": "work_data_chunk.limit_invalid",
+    "reproducedFrom": "actual private118 WorkDataMigrationCodecs.describe sessions/index.json -> original driver dataStore -> actual WorkDataStore.createText -> WorkDataChunks.limitOf(undefined)",
+    "reason": "describe returns identity/classification; chunked factories require an explicit host engineering cap even when OFF",
+    "productionEvidence": [
+      "02-session-store sessionArtifactStore: chunked maxPlaintextBytes 256 MiB",
+      "01x-work-data-migration-codecs textStore: Math.min(maxLogicalBytes, descriptor.maxPlaintextBytes || maxLogicalBytes), default maxLogicalBytes 256 MiB",
+      "02-session-store sessionBodyWriteText: per-record WorkDataRecords.encodeLine with session/kind/ordinal AAD, OFF returns original full LF terminated raw"
+    ]
+  },
+  "changes": {
+    "original": "C:/Users/87179/AppData/Local/Temp/ruyi-current118-resume-20261026-c4672ee3/ordinary-bind-case-fix",
+    "originalDriverSha256": "7aca67c237157e933611bc213823643472578e8cf6de87d0f84aab8309220837",
+    "driverSha256": "69af800825580d51bff5b8269a30c671d40da2624112d65603aed2554eeae85f",
+    "launcherSha256": "677135373147bb2a819cc86118a380b2ebe144a8fd9266e78c534ff221034f5a",
+    "spans": [
+      {
+        "before": "'migrationCopySkills','migrationLogs']",
+        "after": "'migrationCopySkills','migrationLogs','sessionBodyWriteText']"
+      },
+      {
+        "before": "function dataStore(api,root,row,keys,enabled){const descriptor=api.WorkDataMigrationCodecs.describe(row.relative);return api.WorkDataStore.createText({...descriptor,file:()=>p.join(root,...row.relative.split('/')),keys,enabled:()=>enabled,writeJson:api.atomicWriteJson});}",
+        "after": "function dataStore(api,root,row,keys,enabled){const descriptor=api.WorkDataMigrationCodecs.describe(row.relative);assert.equal(descriptor.codec,'text');return api.WorkDataStore.createText({...descriptor,maxPlaintextBytes:descriptor.maxPlaintextBytes||256*1024*1024,file:()=>p.join(root,...row.relative.split('/')),keys,enabled:()=>enabled,writeJson:api.atomicWriteJson});}"
+      },
+      {
+        "before": "else await dataStore(api,input.base,row,keys,false).write(row.raw);",
+        "after": "else if(api.WorkDataMigrationCodecs.describe(row.relative).codec==='session-records'){assert.ok(row.raw.endsWith('\\n'));const file=p.join(input.base,...row.relative.split('/')),encoded=await api.sessionBodyWriteText(file,row.raw.slice(0,-1).split('\\n'));assert.equal(encoded,row.raw);await write(file,encoded);}else await dataStore(api,input.base,row,keys,false).write(row.raw);"
+      }
+    ],
+    "wholeInverse": true
+  },
+  "conservation": {
+    "driverWholeInverse": true,
+    "spans": 3,
+    "payloadRowsExact": true,
+    "unchangedFunctions": [
+      "verifyPayload",
+      "oneTransition",
+      "restoreFresh",
+      "refuseSpecial",
+      "role",
+      "main",
+      "runRole"
+    ],
+    "runtimeInputs": 120,
+    "runtimeInputsVerifiedNow": true,
+    "runtimeSha256": "1d27e6fa776e6b48c92148dd215a56c250e43d49e049ee18596b2e1be97c7f66",
+    "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+    "innerMs": 240000,
+    "outerMs": 250000,
+    "priorFailureRootUntouched": true
+  },
+  "pure": {
+    "guardSha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd",
+    "tests": 8,
+    "pass": 8,
+    "fail": 0,
+    "logs": [
+      "pure-second.log",
+      "pure-final.log"
+    ],
+    "firstFailure": {
+      "log": "pure-first.log",
+      "tests": 8,
+      "pass": 7,
+      "fail": 1,
+      "diagnosis": "VM realm Array prototype deepStrictEqual fixture mismatch; normalized original payloadRows output into test realm only, no business bytes or candidate change"
+    },
+    "controls": [
+      {
+        "name": "missing-cap",
+        "before": "maxPlaintextBytes:descriptor.maxPlaintextBytes||256*1024*1024,",
+        "after": "",
+        "exitCode": 1,
+        "log": "negative-missing-cap.log"
+      },
+      {
+        "name": "discard-declared-cap",
+        "before": "maxPlaintextBytes:descriptor.maxPlaintextBytes||256*1024*1024,",
+        "after": "maxPlaintextBytes:256*1024*1024,",
+        "exitCode": 1,
+        "log": "negative-discard-declared-cap.log"
+      },
+      {
+        "name": "record-through-text",
+        "before": "else if(api.WorkDataMigrationCodecs.describe(row.relative).codec==='session-records'){assert.ok(row.raw.endsWith('\\n'));const file=p.join(input.base,...row.relative.split('/')),encoded=await api.sessionBodyWriteText(file,row.raw.slice(0,-1).split('\\n'));assert.equal(encoded,row.raw);await write(file,encoded);}else await dataStore(api,input.base,row,keys,false).write(row.raw);",
+        "after": "else await dataStore(api,input.base,row,keys,false).write(row.raw);",
+        "exitCode": 1,
+        "log": "negative-record-through-text.log"
+      }
+    ]
+  },
+  "files": [
+    {
+      "file": "ordinary-mode-gate.cjs",
+      "sha256": "69af800825580d51bff5b8269a30c671d40da2624112d65603aed2554eeae85f"
+    },
+    {
+      "file": "run-ordinary-mode-gate.cjs",
+      "sha256": "677135373147bb2a819cc86118a380b2ebe144a8fd9266e78c534ff221034f5a"
+    },
+    {
+      "file": "ordinary-gate-plan.json",
+      "sha256": "363d7ef5a1387ff0f46015b727de1dbc324d2c2e405fa2d6c46b5b8ccf1ae549"
+    },
+    {
+      "file": "ordinary-runtime-inputs.json",
+      "sha256": "2b0b150b7a577cb14dcaa779286b7d2c72ef43f7a2669c2040af6c6f6ddfe0a2"
+    },
+    {
+      "file": "adapter.test.cjs",
+      "sha256": "8e606811007cee27c7c5422a0ebf139df2198ac8c19b8a82296457e454199ec9"
+    },
+    {
+      "file": "spans.json",
+      "sha256": "5c05079099d08e6a0bf0fa9314fba25b87000f35cf4028bf876b82497bec7833"
+    },
+    {
+      "file": "controls.json",
+      "sha256": "78cf412a608217e850e2393d83d18022802bb641faf19a5ac5a7001c1a4573c4"
+    }
+  ],
+  "remaining": "Root must independently review all three driver spans, launcher PIN, exact unchanged assertions/budgets and rerun in a newly generated synthetic native root. No native success claimed."
+}

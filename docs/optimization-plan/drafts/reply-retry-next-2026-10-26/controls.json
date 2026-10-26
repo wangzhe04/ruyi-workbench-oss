@@ -1,0 +1,49 @@
+[
+  {
+    "name": "authority",
+    "before": "if (authority !== EXTERNAL_BOT_LOCAL_REPLY_RETRY) throw externalBotError('auth.origin_rejected', 403);",
+    "after": "void 0;",
+    "pattern": "request JSON cannot mint",
+    "file": "negative-authority.js",
+    "sha256": "4a90fd32fffbd8945ab7276b0b0c6b47adcb67b22b475907a5400a035729e320"
+  },
+  {
+    "name": "history",
+    "before": "item.replyHistory.push(record);",
+    "after": "void 0;",
+    "pattern": "manual retry commits",
+    "file": "negative-history.js",
+    "sha256": "c95d99b2e42af0a9e542a47cdf59c1f16fcbd03ce8bd408d350ccc69292e59bc"
+  },
+  {
+    "name": "idempotence",
+    "before": "item.replyHistory?.find(row => row.retryRequestId === body.retryRequestId)",
+    "after": "item.replyHistory?.find(() => false)",
+    "pattern": "same locally authorized",
+    "file": "negative-idempotence.js",
+    "sha256": "57341cc58a6444cc78030ed22849a9f5639e5b25f8970469c0fa26b2eb2824cd"
+  },
+  {
+    "name": "expected-attempt",
+    "before": "if (item.delivery?.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);",
+    "after": "void 0;",
+    "pattern": "new request against retired",
+    "file": "negative-expected-attempt.js",
+    "sha256": "8f2b0e12e04b3a0d774ff5d075c61075d706edf6a5a7503f45707dcb003f75aa"
+  },
+  {
+    "name": "history-validation",
+    "before": " && externalBotValidReplyHistory(item, state.schema)",
+    "after": " && true",
+    "pattern": "schema4 malformed history",
+    "file": "negative-history-validation.js",
+    "sha256": "42b0808d9dc47694397b12129b596294b4521e3b1403d82b801d7f0c984aa0b3"
+  },
+  {
+    "name": "pretty-capacity",
+    "file": "negative-pretty-capacity.js",
+    "before": "async function externalBotRetryReply(body, authority) {\n  if (authority !== EXTERNAL_BOT_LOCAL_REPLY_RETRY) throw externalBotError('auth.origin_rejected', 403);\n  if (!body || typeof body !== 'object' || Array.isArray(body)\n    || Object.keys(body).sort().join(',') !== 'expectedAttemptId,id,retryRequestId' || !externalBotString(body.id)\n    || typeof body.expectedAttemptId !== 'string' || !/^[A-Za-z0-9_-]{1,50}$/.test(body.expectedAttemptId)\n    || typeof body.retryRequestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(body.retryRequestId))\n    throw externalBotError('external_channel.request_invalid');\n  const state = await externalBotReadState(), item = state.items.find(row => row.id === body.id && row.control !== null);\n  if (!item) throw externalBotError('external_channel.item_not_found', 404);\n  const recorded = item.replyHistory?.find(row => row.retryRequestId === body.retryRequestId);\n  if (recorded) {\n    if (recorded.attempt.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);\n    return { ok: true, item: externalBotPublicItem(item), receipt: externalBotReplyRetryReceipt(item, recorded), alreadyRetried: true };\n  }\n  if (item.delivery?.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);\n  if (!['completed', 'failed', 'unknown'].includes(item.execution?.status) || item.delivery.status !== 'failed'\n    || !EXTERNAL_BOT_REPLY_RETRY_ERRORS.includes(item.delivery.errorCode) || item.delivery.messageId\n    || !item.delivery.updatedAt || !Number.isFinite(Date.parse(item.delivery.updatedAt))\n    || externalBotUnsettled.has(item.id) || externalBotDeliveries.has(item.id))\n    throw externalBotError('external_channel.delivery_cannot_retry', 409);\n  if ((item.replyHistory?.length || 0) >= EXTERNAL_BOT_REPLY_RETRY_MAX) throw externalBotError('external_channel.delivery_history_full', 409);\n  if (!await externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item))\n    throw externalBotError('external_channel.control_revoked', 403);\n  const attemptId = makeId('reply');\n  if (attemptId === item.delivery.attemptId || item.replyHistory?.some(row => row.attempt.attemptId === attemptId))\n    throw externalBotError('external_channel.delivery_changed', 409);\n  if (state.schema === 1) for (const row of state.items) row.archivedAt = '';\n  if (state.schema < 4) for (const row of state.items) row.replyHistory = [];\n  state.schema = 4; // Every old reader must reject this entire authority/dedupe ledger.\n  const requestedAt = nowIso(), record = { attempt: { ...item.delivery }, nextAttemptId: attemptId, requestedAt, retryRequestId: body.retryRequestId };\n  item.replyHistory.push(record);\n  item.delivery = { status: 'pending', attemptId, messageId: '', errorCode: '', updatedAt: requestedAt };\n  // The legacy OFF reader caps physical pretty JSON, while the generic writer\n  // caps compact payload bytes. Preflight this new operation in both modes so\n  // history growth never ACKs a ledger that would become unreadable when OFF.\n  if (Buffer.byteLength(JSON.stringify(state, null, 2), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes)\n    throw externalBotError('external_channel.inbox_full', 503);\n  await externalBotWriteState(state); // No worker wake or successful ACK before durable history + pending.\n  return { ok: true, item: externalBotPublicItem(item), receipt: externalBotReplyRetryReceipt(item, record), alreadyRetried: false };\n}",
+    "after": "async function externalBotRetryReply(body, authority) {\n  if (authority !== EXTERNAL_BOT_LOCAL_REPLY_RETRY) throw externalBotError('auth.origin_rejected', 403);\n  if (!body || typeof body !== 'object' || Array.isArray(body)\n    || Object.keys(body).sort().join(',') !== 'expectedAttemptId,id,retryRequestId' || !externalBotString(body.id)\n    || typeof body.expectedAttemptId !== 'string' || !/^[A-Za-z0-9_-]{1,50}$/.test(body.expectedAttemptId)\n    || typeof body.retryRequestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(body.retryRequestId))\n    throw externalBotError('external_channel.request_invalid');\n  const state = await externalBotReadState(), item = state.items.find(row => row.id === body.id && row.control !== null);\n  if (!item) throw externalBotError('external_channel.item_not_found', 404);\n  const recorded = item.replyHistory?.find(row => row.retryRequestId === body.retryRequestId);\n  if (recorded) {\n    if (recorded.attempt.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);\n    return { ok: true, item: externalBotPublicItem(item), receipt: externalBotReplyRetryReceipt(item, recorded), alreadyRetried: true };\n  }\n  if (item.delivery?.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);\n  if (!['completed', 'failed', 'unknown'].includes(item.execution?.status) || item.delivery.status !== 'failed'\n    || !EXTERNAL_BOT_REPLY_RETRY_ERRORS.includes(item.delivery.errorCode) || item.delivery.messageId\n    || !item.delivery.updatedAt || !Number.isFinite(Date.parse(item.delivery.updatedAt))\n    || externalBotUnsettled.has(item.id) || externalBotDeliveries.has(item.id))\n    throw externalBotError('external_channel.delivery_cannot_retry', 409);\n  if ((item.replyHistory?.length || 0) >= EXTERNAL_BOT_REPLY_RETRY_MAX) throw externalBotError('external_channel.delivery_history_full', 409);\n  if (!await externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item))\n    throw externalBotError('external_channel.control_revoked', 403);\n  const attemptId = makeId('reply');\n  if (attemptId === item.delivery.attemptId || item.replyHistory?.some(row => row.attempt.attemptId === attemptId))\n    throw externalBotError('external_channel.delivery_changed', 409);\n  if (state.schema === 1) for (const row of state.items) row.archivedAt = '';\n  if (state.schema < 4) for (const row of state.items) row.replyHistory = [];\n  state.schema = 4; // Every old reader must reject this entire authority/dedupe ledger.\n  const requestedAt = nowIso(), record = { attempt: { ...item.delivery }, nextAttemptId: attemptId, requestedAt, retryRequestId: body.retryRequestId };\n  item.replyHistory.push(record);\n  item.delivery = { status: 'pending', attemptId, messageId: '', errorCode: '', updatedAt: requestedAt };\n  // The legacy OFF reader caps physical pretty JSON, while the generic writer\n  // caps compact payload bytes. Preflight this new operation in both modes so\n  // history growth never ACKs a ledger that would become unreadable when OFF.\n  await externalBotWriteState(state); // No worker wake or successful ACK before durable history + pending.\n  return { ok: true, item: externalBotPublicItem(item), receipt: externalBotReplyRetryReceipt(item, record), alreadyRetried: false };\n}",
+    "sha256": "d8dbe57bf6fc30d653d7fc1825cb2f6845c6ab63aa9ae5a3b4ae369737802476"
+  }
+]

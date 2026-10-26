@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_image",
+  "preparerAuthor": "/root/review_restore",
+  "verdict": "APPROVED FOR EXACT SOURCE-ONLY PREPARATION; ROOT MUST REVIEW DERIVED OUTPUT BEFORE SERIAL PRIVATE SYNTHETIC-ROOT ACTUAL GATE",
+  "findings": [],
+  "blockers": [],
+  "appliesOnlyTo": {
+    "script": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-next-preparer-sourceonly-20261026-641ddcc4\\prepare-ordinary119-next.cjs",
+      "bytes": 21800,
+      "sha256": "4ee9958e013e0f3bcd80972ee83b533dc64eedda7f20e1af47e7c0fa40ce1757"
+    },
+    "identity": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary119-next-preparer-sourceonly-20261026-641ddcc4\\final-identity.json",
+      "bytes": 3210,
+      "sha256": "3d9dc4e0b2b576a714e7fc14414b31085bc34ed1f0053c67e6dcaeb13a030f41"
+    },
+    "baseline": {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary119-path-guard-fix-20261026-be035b34/prepare-ordinary119-path-guarded.cjs",
+      "bytes": 17772,
+      "sha256": "5405fe921324d76edc9861cd26bb393d613beaa674b2d5f539d3d3b96c93a80b"
+    },
+    "candidateIdentity": {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e/identity.json",
+      "bytes": 3821,
+      "sha256": "8bb859db98c2ad3fe6fb62f32e250adf899849cdc76387c10ed69c9e55a0312f"
+    },
+    "candidateApproval": {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-move-preserve-independent-20261026-b942f8dc/review-final.json",
+      "bytes": 8058,
+      "sha256": "fb8ef99988f0b1fb56acb6015a5d0116c333d0deaec08d3510559765024453ab"
+    },
+    "source13u": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb",
+    "privateNative": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34"
+  },
+  "evidence": {
+    "finalReceiptMembersRehashed": 7,
+    "candidateMembersRehashed": 21,
+    "spans": [
+      {
+        "index": 1,
+        "label": "append fail-closed next candidate pins",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 2,
+        "label": "fail closed before preparation input access",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 3,
+        "label": "admit only exact new candidate plus independent approval",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 4,
+        "label": "permit only one exact 13u source delta",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 5,
+        "label": "current 13u SHA pin only",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 6,
+        "label": "physical admission for new immutable candidate/review",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 7,
+        "label": "extra proof without altering original freeze attestation",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 8,
+        "label": "fixed final candidate and independent approval pins",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 9,
+        "label": "fixed member count",
+        "forwardUnique": true,
+        "inverseUnique": true
+      },
+      {
+        "index": 10,
+        "label": "bind exact approval semantics and candidate product identity",
+        "forwardUnique": true,
+        "inverseUnique": true
+      }
+    ],
+    "wholeForwardInverseExact": true,
+    "oneOrdinaryMoveOptionExact": true,
+    "old61b448AndD896PinsUnchanged": true,
+    "allOther122SourcesExactExceptManifestDerived238Integers": true,
+    "full119ConcatAndNativePinEnforced": true,
+    "approvalSemanticsAndIdentityProductBaselineNativeBound": true,
+    "unchangedByteSections": [
+      "member containment",
+      "reversible gate mutation",
+      "path ownership and wx writer"
+    ],
+    "originalBudgetsUnchanged": [
+      240000,
+      250000,
+      2000
+    ],
+    "pathAdmissionOnlyAddsNewReadonlyCandidateInputs": true,
+    "allWritesInsideFreshOwnedOutputUsingWx": true
+  },
+  "limits": [
+    "No preparer main, build, server, native, HTTP, browser or product tests invoked in this review. This is a static byte audit, not new test counts.",
+    "Root independently checks emitted source proof and exact driver/launcher/output digests before any serialized actual gate.",
+    "Use a fresh root with synthetic owned data; keep failed trees and fixed before snapshots unchanged.",
+    "Private native ef53 unchanged here relative to private0975 only; live f79->ef53 remains a distinct boundary. No live promotion or successful restore/cold-role claim.",
+    "Path checks preserve5405 behavior, including documented lack of concurrent handle-CAS."
+  ],
+  "actions": {
+    "productionModified": false,
+    "frozenInputsModified": false,
+    "preparerMain": false,
+    "build": false,
+    "native": false,
+    "tests": false
+  }
+}

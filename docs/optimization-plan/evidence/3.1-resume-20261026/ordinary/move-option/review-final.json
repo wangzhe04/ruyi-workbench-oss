@@ -1,0 +1,159 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_cancel",
+  "author": "/root/review_image",
+  "status": "APPROVED for exact private candidate next119 preparation and root-serialized fresh actual gate; no live promotion or actual restore-pass claim",
+  "appliesOnlyTo": {
+    "identity": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e\\identity.json",
+      "bytes": 3821,
+      "sha256": "8bb859db98c2ad3fe6fb62f32e250adf899849cdc76387c10ed69c9e55a0312f"
+    },
+    "product": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e\\13u-migration-center.js",
+      "bytes": 376978,
+      "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb"
+    },
+    "baselineSha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+    "span": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e\\span.json",
+      "bytes": 690,
+      "sha256": "e9eabe5eb98875eaaacb74cc6f60679df93881f1ae7accb2b1ffd13747c0954d"
+    },
+    "nativeSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34"
+  },
+  "identityMembers": {
+    "verified": 21,
+    "allBytesAndSha256Exact": true,
+    "identityUnchangedAfterTests": true
+  },
+  "sourceAnalysis": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-change-source-analysis-20261026-6b4205ec/source-analysis.json",
+    "bytes": 11719,
+    "sha256": "ada8753473ee4d3e972a1c0ac13b74dee8c1ade8034848cf39a8fde40875e92a"
+  },
+  "sourceProof": {
+    "schema": 1,
+    "reviewer": "/root/review_cancel",
+    "stage": "source-only independent check; tests pending author freeze",
+    "baseline": {
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "sha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea"
+    },
+    "candidate": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e\\13u-migration-center.js",
+      "sha256": "02d2edd58e4463723e592f1ba56a64b718c903382541b436aa14c8ddc1f827fb"
+    },
+    "span": {
+      "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-candidate-20261026-22b8e09e\\span.json",
+      "sha256": "e9eabe5eb98875eaaacb74cc6f60679df93881f1ae7accb2b1ffd13747c0954d",
+      "before": "const moved=await platform.move({source,target,id:owned.objectInfo.id});",
+      "after": "const moved=await platform.move({source,target,id:owned.objectInfo.id,preserveMetadata:true});",
+      "forwardWholeExact": true,
+      "inverseWholeExact": true,
+      "beforeOccurrences": 1,
+      "afterOccurrences": 1
+    },
+    "native": {
+      "constantBytesUnchanged": true,
+      "evaluatedSha256": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+      "notInvoked": true,
+      "privateNotLiveF79": true
+    },
+    "unchangedFunctionBlocks": [
+      "portableVerifyInherited",
+      "portableProofExact",
+      "verifyPortableInstalled",
+      "installPortableOriginals",
+      "portableStageDurability",
+      "portableAssertDurability",
+      "portableTargetFailure"
+    ],
+    "limitations": [
+      "No actual Windows metadata or restore outcome is established by this check.",
+      "No full-source/server load, build, helper or native invocation.",
+      "Pending frozen strong-pure tests and prior-source negative controls."
+    ]
+  },
+  "independentPure": {
+    "guard": {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-31-resume-20261026-c4672ee3/packages/ruyi-m4-image-cleanup-flags-fix-20261025/strict-pure-preload.cjs",
+      "bytes": 1910,
+      "sha256": "850f258c4836c9f79df0b6e38ecd5b4516d6e44c74698e47988959c9e83252cd"
+    },
+    "positive": {
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "exitCode": 0,
+      "log": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-independent-20261026-b942f8dc\\strong-pure26.log",
+        "bytes": 2582,
+        "sha256": "2f158cea240466edee79ec0b04ecfc7c4fdcb439f829df263530a0cf4721b769"
+      },
+      "command": "node --test --test-isolation=none --require <pinned strict-pure-preload.cjs> <frozen run-strong-pure.cjs>"
+    },
+    "oldSourceNegative": {
+      "tests": 2,
+      "pass": 0,
+      "fail": 2,
+      "exitCode": 1,
+      "errorType": "ERR_ASSERTION twice",
+      "log": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-independent-20261026-b942f8dc\\old-flag-control2.log",
+        "bytes": 2418,
+        "sha256": "a10500bfa34e811fc2aa9c3699c6fbef702b14aba59a12a65f26c55ce8fb0eeb"
+      },
+      "command": "ORDINARY_MOVE_SOURCE=<baseline0975.js> node --test --test-isolation=none --test-name-pattern=\"actual ordinary installPortable and actual default|modeled missing flag\" --require <pinned strict-pure-preload.cjs> <frozen run-strong-pure.cjs>"
+    },
+    "supplementalOldCause": {
+      "test": "old0975 modeled omission reaches actual inherited.snapshot refusal",
+      "pass": true,
+      "outer": "work_data_backup.portable_install_uncertain",
+      "cause": "work_data_backup.portable_target_changed",
+      "check": "inherited.snapshot",
+      "noExternalFlush": true,
+      "expectedStageUnchanged": true,
+      "limitation": "In-memory OS model, not actual Windows causality",
+      "script": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-independent-20261026-b942f8dc\\old-cause-check.cjs",
+        "bytes": 1410,
+        "sha256": "fe712dd2381478df20bfa608fd3f13e923b93bafba63576f2921d7e32b9640f0"
+      },
+      "log": {
+        "file": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-ordinary-move-preserve-independent-20261026-b942f8dc\\old-cause-check.log",
+        "bytes": 342,
+        "sha256": "ed64e762d1fb7f0641cb11f24ce926a8c015817ec2c7a345273b620407944c04"
+      }
+    }
+  },
+  "reviewedBoundaries": [
+    "Exact unique whole-file forward/inverse0975-to02d2; only boolean preserveMetadata:true supplied to ordinary move.",
+    "Native ef53 existing actual-before Basic restoration contract unchanged; String.raw constant separately evaluated in source-only VM; no native command invoked.",
+    "Fixed durability proof/expected slice never refreshed; actual inherited snapshot and final checks retain original predicates.",
+    "Actual default platform.move adapter serializes original source/target/id and booleantrue; ID and volume receipt mismatches retain uncertain refusal.",
+    "Four Basic time slots, stage metadata, source ID, inherited ID/volume, final root and replacement hash changes still refuse. Missing target identity and owner admission fail before modeled broker.",
+    "Falsy move/flush failures and null receipt do not manufacture ACK.",
+    "Author three pure-fixture assembly failures preserved; no product source changes across their fixture fixes.",
+    "In-memory model and strong guard deny helper/process/socket entry; result makes no assertion about Windows causal uniqueness."
+  ],
+  "findings": [],
+  "unresolvedProductReviewBlockers": [],
+  "executionConditions": [
+    "Use only exact02d2 candidate overlay onto approved61b2with-diagnostic119 source and preserve all other122source files, privateef53, manifest constraints and driver budgets.",
+    "Root must independently review new preparer pins/path guard then serialize build and fresh actual synthetic-root ordinary gate.",
+    "Do not modify61WuRD failed tree, replace fixed before snapshots, adjust predicates or assume successful recovery.",
+    "Record actual roles/helper exit+close and preserve uncertainty/old red; only completed real gate can establish restore/cold-role outcome."
+  ],
+  "actions": {
+    "productionFilesModified": false,
+    "frozenCandidateModified": false,
+    "oldFailedEvidenceModified": false,
+    "build": false,
+    "native": false,
+    "http": false,
+    "browser": false,
+    "limitedStrongPureOnly": true
+  }
+}

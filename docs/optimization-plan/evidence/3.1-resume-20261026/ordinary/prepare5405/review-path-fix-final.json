@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_restore",
+  "author": "/root/review_cancel",
+  "status": "APPROVED FOR SOURCE-ONLY PREPARATION OF ROOT-OWNED FRESH PRIVATE119 RUNTIME; DERIVED OUTPUT REVIEW STILL REQUIRED",
+  "script": {
+    "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary119-path-guard-fix-20261026-be035b34/prepare-ordinary119-path-guarded.cjs",
+    "sha256": "5405fe921324d76edc9861cd26bb393d613beaa674b2d5f539d3d3b96c93a80b"
+  },
+  "pinsIndependentlyVerified": {
+    "singleSpan": "09f73c0530c99b634737efe71f14862b7fd95d0122a42b8067ae6d8910c444f3",
+    "authorReview": "a69d6c4c77f50f5630cc0ad869ab0474ebd429c064c0bd31b2ec781dc9d4cb0f",
+    "originalScriptPreserved": "950428fb68ebee5a51139c0a077f2c92dd09d954800ea17b45a45ab0002771f8",
+    "priorIndependentReview": "03eb83835a59486caf08c917b5b1ecff8024922d0803c495fc8f0b7bee582484",
+    "frozen448Identity": "61b2ef7d94fc53e03c0e7f2a7d2d5a5aba0dcf6b405c443ad068bc7df018ddc6",
+    "privateGateApproval": "d896d54519717e694c98aec7ecb9051e02c5642ea50cad55e71badf73f935577"
+  },
+  "resolvedBlocker": {
+    "original9504RemainsBlocked": true,
+    "wholeForwardAndInverseIndependentlyExact": true,
+    "oneUniqueOutputPhaseSpan": true,
+    "allEarlierReadOnlyChecksUnchanged": true,
+    "inspection": [
+      "Before explicit output mkdir/write, inspectExistingPath walks every existing component from volume root through each input leaf, rejects lstat symbolic-link/junction status, requires every native realpath to equal case-normalized resolved path, and requires intermediate components to be directories.",
+      "Admission includes original TEMP, runRoot/runtime/app/src, runtime/build.js/all123 source leaves, freeze identity/all448 members, review, base/four predecessors, repo and four execution helper files. Expected output must be missing only at its final component.",
+      "Run-root device/inode is recorded. Output and baseline are created without recursive mkdir and immediately inspected and recorded. Every writer verifies run-root and all owned directories before and after its write; requires containment and a recorded direct parent; requires missing leaf; and uses wx exclusive creation. The final derivation proof also uses this writer.",
+      "No output cleanup, deletion, recursive move, or write into runtime/source/freeze/base/old failure roots is added. Explicit filesystem writeFileSync occurs only in the guarded writer."
+    ]
+  },
+  "independentLightVerification": {
+    "file": "independent-path-fix-observations.json",
+    "harness": "check-path-fix.cjs",
+    "actualSourceFunctionsExtracted": 7,
+    "tests": 13,
+    "pass": 13,
+    "fail": 0,
+    "coverage": [
+      "normal physical chain including original TEMP",
+      "only absent final output component admitted",
+      "absent intermediate ancestor refused",
+      "three preserved actual author-owned NTFS junctions independently rechecked and refused with target markers unchanged",
+      "fresh owned output and baseline exclusive writes",
+      "existing output/overwrite refused without modifying existing bytes",
+      "outside path and unowned child refused",
+      "same-path output directory inode replacement refused before write",
+      "same-path run-root inode replacement refused"
+    ],
+    "author7AreNotCountedAsIndependent13": true,
+    "fixtures": "All writes limited to new independent-owned-XASlyx below this report directory; fixtures preserved. Author junction targets accessed read-only."
+  },
+  "unchangedContracts": {
+    "all448FreezeAndD896Pins": true,
+    "actualSourceDirectoryFiles": 123,
+    "modules": 119,
+    "manifestOnly238DerivedRangeIntegers": true,
+    "serverExactFrozenModuleConcatenation": true,
+    "privateNativeLiteral": "ef53eb478fa970eb9ea6e24d5c1cab099fd55f829e43dcc49b81f8e0d78b1c34",
+    "liveF79NotAcceptedAsPrivateEf53": true,
+    "all69afBusinessRolesAnd8FixedPayloads": true,
+    "budgetsMilliseconds": [240000,250000,2000],
+    "fourDerivedInputsWholeInverse": true
+  },
+  "preciseRuntimePinBoundary": "121 files (server, manifest,119 JS) are rehashed at driver/role entry and successful completion. This is not continuous filesystem watching. Three source sidecars and build.js are checked only during preparation; repository helper digests are recorded for separate root review.",
+  "limits": [
+    "No handle-based cross-process CAS or resistance to concurrent peer/administrator namespace replacement is claimed. The checks reject existing aliases and observed directory identity changes; root must own and isolate the fresh chosen runtime/output tree.",
+    "The native String.raw constant is inspected, not compiled or executed. This review does not accept native behavior, actual restore, or production promotion.",
+    "No future runtime bytes or derivation output were available to this reviewer. Root must inspect the actual derived proof/output before the serial real gate."
+  ],
+  "scope": {
+    "prepareMainInvoked": false,
+    "buildInvoked": false,
+    "serverLoaded": false,
+    "nativeExecuted": false,
+    "HTTPOrBrowser": false,
+    "oldFailureRootsTouched": false,
+    "productionModified": false,
+    "productionPromotion": false,
+    "actualGateAccepted": false
+  },
+  "informational": "single-span-inverse.json internalWriteSiteChanges includes an illustrative adminConcurrentReplacementCAS key, whereas actual after text and script use concurrentReplacementCAS. The authoritative complete before/after span and whole-file reconstruction are exact; this stale illustrative key is not executable or used by preparation."
+}

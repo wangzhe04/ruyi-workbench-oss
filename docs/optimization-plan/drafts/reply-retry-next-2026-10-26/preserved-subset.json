@@ -1,0 +1,130 @@
+{
+  "scope": "Selected authored spans/tests/review records; not the complete original61-member capsule. Product copies reconstruct from checked-in c82 baseline; never auto-promote or run stale absolute paths.",
+  "productionPromoted": false,
+  "files": [
+    {
+      "file": "HANDOFF.md",
+      "bytes": 5301,
+      "sha256": "80e699654560908edecaeb7cd9a66e0c0b0367567db6abbe7b752878c42b6d01",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\HANDOFF.md"
+    },
+    {
+      "file": "candidate-identity.json",
+      "bytes": 14100,
+      "sha256": "9b746f9f5f11d43298141708a65934c831d1f6987df14c3a6a12692c167ffb0a",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\candidate-identity.json"
+    },
+    {
+      "file": "spans.json",
+      "bytes": 8073,
+      "sha256": "b85ac8b6d0e795eb7645f9132cd3d2d61b1784179cec8ccb3e9efee0de3bc458",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\spans.json"
+    },
+    {
+      "file": "controls.json",
+      "bytes": 8735,
+      "sha256": "4ad660a9b7df27c0f36044de921f1d2f88382b7fb49b08bc9412c5d721816ebd",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\controls.json"
+    },
+    {
+      "file": "retry.test.cjs",
+      "bytes": 28442,
+      "sha256": "d5c62f1102e5d82d4cdba51c88f1430e5220361963e93b50925e1cfa058efd2b",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\retry.test.cjs"
+    },
+    {
+      "file": "plain-capacity.test.cjs",
+      "bytes": 4756,
+      "sha256": "37cfbc10adacbf1a88970975aaa322b4dc9b56ea60e090352c2fe13c1c7f1d1d",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\plain-capacity.test.cjs"
+    },
+    {
+      "file": "FROZEN.txt",
+      "bytes": 551,
+      "sha256": "c8d9146f2a0e83f66d6cce5d35ce0f5fdb4ddd2c727d951d543dcc1ed54cdf62",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\FROZEN.txt"
+    },
+    {
+      "file": "pure-first.log.gz",
+      "bytes": 5806,
+      "sha256": "91bbcfefa75d50913ed8743f6ff4e702967ab63dd947ba598394198188b17f47",
+      "storedSha256": "d57da402c0ec672621920c9aae0e98d5bb6308582de4c447607d74b137b9a0e9",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\pure-first.log"
+    },
+    {
+      "file": "pure-final45.log.gz",
+      "bytes": 5296,
+      "sha256": "15c067c9a58a63e00d8a6638d3860d7dd8c31b1fcda5e1d6a27d429c6c7149e1",
+      "storedSha256": "fee835df1bb324c08ba364cc8c7375d3a9b4bc514e63dfe1153fd720dbe33836",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\pure-final45.log"
+    },
+    {
+      "file": "plain-capacity-first-red.log.gz",
+      "bytes": 13401,
+      "sha256": "4f2b678b5291439fb6b17de04e7fa1433ac5585d1d6cfcd03cb6ae89aa59b2a9",
+      "storedSha256": "ba0fe7633f5fccc727d9b0c01b009ea48e92ed9b6cb1cd8091bc51beec1c765b",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\plain-capacity-first-red.log"
+    },
+    {
+      "file": "plain-capacity-final.log.gz",
+      "bytes": 249,
+      "sha256": "fea58bc83bffea014eb8f5b1b231ad3c6b30a16e0c4bea9d33f993b992d9c832",
+      "storedSha256": "8e3a85d9377541cb605c2c9bdec15a1f7ff9a4ff120ecec40ff76ff65ccf733a",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\plain-capacity-final.log"
+    },
+    {
+      "file": "negative-authority.log.gz",
+      "bytes": 1004,
+      "sha256": "40371055328cf31a81a17fd6e0ebfe25253141448ce3be7e6b19927368977ff0",
+      "storedSha256": "07029da30f8eb2dc393ca58e043ecd41866d6753271033cdb7ad63767fea445a",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\negative-authority.log"
+    },
+    {
+      "file": "negative-history.log.gz",
+      "bytes": 1075,
+      "sha256": "16870da6341ecad6d5559690397024ac31c69d3aeb1abeb1f6e30518a7855e00",
+      "storedSha256": "09cd3c7971592276ad38d28812f2475808ca502c612cb11ea42bb86937d0190f",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\negative-history.log"
+    },
+    {
+      "file": "negative-idempotence.log.gz",
+      "bytes": 812,
+      "sha256": "e25abdb790ca162c4af462d8fb21a36616b3657f9d0956bdd8156a70671fdf90",
+      "storedSha256": "27e12a8942f0c2ebe1ed57e3db46e1b2a7c2d30c8e5c645f5071a1bf54ddd0b0",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\negative-idempotence.log"
+    },
+    {
+      "file": "negative-expected-attempt.log.gz",
+      "bytes": 1186,
+      "sha256": "7e497cc4c09b4087a3a8452a390be7d74334f8a0be022bac107e0cbe4ef36cf2",
+      "storedSha256": "7985c417ceab058fee55c336d48b8887288afb9daf5510faaf5c0fe66bacb9e7",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\negative-expected-attempt.log"
+    },
+    {
+      "file": "negative-history-validation.log.gz",
+      "bytes": 1018,
+      "sha256": "31212e50e184ac7fefa4fbb6f153ebfe51aec7bc5dbc865385913ba6254294c7",
+      "storedSha256": "3d8b38d1c93291a3f0bf5917a9c3eb5d72b466c0e3f1680b737fcc1ef122fc44",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\negative-history-validation.log"
+    },
+    {
+      "file": "negative-pretty-capacity.log.gz",
+      "bytes": 13399,
+      "sha256": "a5a15314ea5ed82ca15e63b2d3255afa7989f0d1f9a5f150021b1beaf9c79131",
+      "storedSha256": "09dad9f275b02c9e865c38de0e41714970902c15f6d55b8dcb880575ce9abe45",
+      "source": "C:\\Users\\87179\\AppData\\Local\\Temp\\ruyi-b1-manual-retry-private-20261026-5ea226bb\\negative-pretty-capacity.log"
+    }
+  ],
+  "rootAdditions": [
+    {
+      "file": "README.md",
+      "bytes": 1366,
+      "sha256": "ca64c94b5d769db2f450e3c34e1102d267f5d3b82d1618aff18449e77e1ac82b"
+    },
+    {
+      "file": "reconstruct.cjs",
+      "bytes": 1788,
+      "sha256": "ea4712f0ac67dd8c10f4090a374b77a77da32b7317f06163c5859e624b61fb8e"
+    }
+  ]
+}

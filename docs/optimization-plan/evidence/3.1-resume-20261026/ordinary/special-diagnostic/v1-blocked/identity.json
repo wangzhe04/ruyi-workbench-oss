@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "scope": "Private diagnostic execution inputs only; runtime unchanged; no product/native change",
+  "driver": "f9252c8098694690f39457099cdd628d4d4cc84d3c0c40789693b2bd272b030f",
+  "launcher": "ac6406c9beedcf90c2d295ac0a5577f7c36827807161752623b1ba4ece47ab7a",
+  "files": [
+    {
+      "file": "author-report.json",
+      "bytes": 954,
+      "sha256": "3b3655f1679b55ced97b663bea4405108880d7b4d005dcb651cc41bbf76ccc92"
+    },
+    {
+      "file": "baseline\\ordinary-gate-plan.json",
+      "bytes": 922,
+      "sha256": "5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec"
+    },
+    {
+      "file": "baseline\\ordinary-mode-gate.cjs",
+      "bytes": 36265,
+      "sha256": "8130a6a35a4af0a32e0f859b2274c7b19c77a801cf67ffb2066149aa80f972a7"
+    },
+    {
+      "file": "baseline\\ordinary-runtime-inputs.json",
+      "bytes": 28043,
+      "sha256": "c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217"
+    },
+    {
+      "file": "baseline\\run-ordinary-mode-gate.cjs",
+      "bytes": 7078,
+      "sha256": "c0e4b827c3daad1f714e28b467ec6b62de86330867f58bae05fc507f3f0ce753"
+    },
+    {
+      "file": "diagnostic.test.cjs",
+      "bytes": 3565,
+      "sha256": "dec81bc8684097170c70fd2cf405e0be46433b3155191fd1bc88ac31b388a857"
+    },
+    {
+      "file": "launcher-span.json",
+      "bytes": 504,
+      "sha256": "0d0e7e6cf62c40c4cb5b0bc8008d5fd191a8446e04346ffead163b6defa97258"
+    },
+    {
+      "file": "make-candidate.cjs",
+      "bytes": 2509,
+      "sha256": "6002fefe37cdf14c9c84e74b5614223caace01ad25c21e84e54b5972e6215596"
+    },
+    {
+      "file": "ordinary-gate-plan.json",
+      "bytes": 922,
+      "sha256": "5ea1e82205cc91596e2c91f02c42d73a46b0b0828b31489dbeb8ae3c2a710eec"
+    },
+    {
+      "file": "ordinary-mode-gate.cjs",
+      "bytes": 36547,
+      "sha256": "f9252c8098694690f39457099cdd628d4d4cc84d3c0c40789693b2bd272b030f"
+    },
+    {
+      "file": "ordinary-runtime-inputs.json",
+      "bytes": 28043,
+      "sha256": "c18b1c339d536719b7ec4cbb50a28755f7252ab82fe98d290d6f38612c6a2217"
+    },
+    {
+      "file": "pure.log",
+      "bytes": 475,
+      "sha256": "c09a80beba544ff68f1fb8202f1bdd35d64128299527cd437a88c3530d75436a"
+    },
+    {
+      "file": "run-ordinary-mode-gate.cjs",
+      "bytes": 7078,
+      "sha256": "ac6406c9beedcf90c2d295ac0a5577f7c36827807161752623b1ba4ece47ab7a"
+    },
+    {
+      "file": "span.json",
+      "bytes": 1434,
+      "sha256": "6e62f0d3d85bf424e2352a2fef9413dd8035c8f2a16eaa470b1b1e00dcbebcb3"
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "reviewer": "/root/review_cancel",
+  "scope": "Read-only source/evidence analysis; no product/evidence mutation, tests, build or native invocation",
+  "inputs": [
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "bytes": 376956,
+      "sha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea"
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/server.js",
+      "bytes": 7865876,
+      "sha256": "52fb036631e239e203aaf6279ca629f3f64c6298904bed43219f2cfc4ff24449"
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/ordinary/ordinary-mode-gate.cjs",
+      "bytes": 36265,
+      "sha256": "4f6565eab1732dfe24e97b2a359aee6b836d7117c8d76f7a212051ef81c4f701"
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-modes-61WuRD/restore.stderr.log",
+      "bytes": 3969,
+      "sha256": "3b3312a4c4e958df488e8fc459dddc137fb36e7e06c92637eb7c0a028d0907d5"
+    },
+    {
+      "file": "C:/Users/87179/AppData/Local/Temp/ruyi-ordinary-modes-61WuRD/restore.process.json",
+      "bytes": 281,
+      "sha256": "1986ee61f717f388cd00dded264f403bd4827e2c56128507e021aa9aa8570276"
+    }
+  ],
+  "failure": {
+    "outerCode": "fixture.ordinary_mode_requires_review",
+    "codes": [
+      "fixture.ordinary_mode_requires_review",
+      "work_data_full.restore_failed",
+      "work_data_backup.portable_install_uncertain",
+      "work_data_backup.portable_target_changed"
+    ],
+    "check": "inherited.snapshot",
+    "path": ".work-data/skill-backups/objects-v1",
+    "revision": {
+      "expected": "7f2a82f05081bd964893b74a25c92e19aac671d071ffc99b5828b6339c4e9900",
+      "actual": "7f2a82f05081bd964893b74a25c92e19aac671d071ffc99b5828b6339c4e9900"
+    },
+    "count": {
+      "expected": 1,
+      "actual": 1
+    },
+    "changedEntries": 1,
+    "shown": 1,
+    "rel": "",
+    "fields": {
+      "times": {
+        "expected": [
+          "134374684970457478",
+          "134374684970457478",
+          "134374684970457478",
+          "134374684970457478"
+        ],
+        "actual": [
+          "134374684970457478",
+          "134374684970457478",
+          "134374684970457478",
+          "134374685081291902"
+        ]
+      }
+    },
+    "sourceRootOriginalBytesRebased": false,
+    "restorePassed": false
+  },
+  "indexMeaning": {
+    "layout": [
+      "Creation",
+      "Access",
+      "Write",
+      "Change"
+    ],
+    "changedIndex": 3,
+    "changedName": "Change",
+    "expected": "134374684970457478",
+    "actual": "134374685081291902",
+    "rawIncrease": "110834424",
+    "otherThreeTimeSlotsEqual": true,
+    "note": "This is the C# FILE_BASIC_INFORMATION Change field; not the Access(index1) drift from a different historical candidate."
+  },
+  "captureProvenance": {
+    "expected": "stageProof captured from newly prepared stageRoot after records/replacements are assembled. portableStageDurability clones fixedProof, proves captured-directory durability and verifies an observed exact fixed snapshot; portableDurabilityProofs retains that fixed proof. portableDurabilitySlice extracts the objects-v1 subtree and rewrites only relative paths, preserving metadata values.",
+    "actual": "During ordinary installPortable, stageCurrent is strictly checked against stored stageDurability proof, existing objectRoot is moved from stageRoot to new target, then portableVerifyInherited calls platform.info(target objects-v1) and existing portableCapture(root, expected.revision) before refusal. Actual delta is from this capture; it cannot individually separate move, subsequent info, and capture internals.",
+    "notExpectedFrom": "The ordinary comparison is not merely against the earlier owned.objectProof fingerprint; it uses the fixed stageDurability proof slice.",
+    "sameRevisionDoesNotProveNoMutation": true
+  },
+  "sourceFinding": {
+    "ordinaryMoveFlagPresent": false,
+    "originalsMoveFlagPresent": true,
+    "defaultAdapterPassesArgsUnchanged": true,
+    "nativePreservationOnlyWhenBooleanTrue": true,
+    "consistency": "Omitted ordinary flag is consistent with a move changing only Change while ID/volume/count/revision remain stable. The flag already exists and is used by originals; this is a concrete narrow contract mismatch supporting a new private fix, not proof of a unique historical cause.",
+    "whyExistingPreserveIsNotEvidenceRebasing": "With preserveMetadata:true, existing MoveStore enables PreserveTimeHandles while opening the actual object. MoveStoreCore snapshots actual Basic/alias immediately before its own move and restores that held object snapshot under the same operation. It does not copy old expected proof times into a changed object after refusal. Any drift that predates that native before snapshot remains drift and strict inherited comparison must still refuse."
+  },
+  "suggestedSingleSpan": {
+    "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+    "beforeSha256": "0975df31ebf3bea140d42adc55a8efa18096a90f507b98f6716cd568736a65ea",
+    "before": "const moved=await platform.move({source,target,id:owned.objectInfo.id});",
+    "after": "const moved=await platform.move({source,target,id:owned.objectInfo.id,preserveMetadata:true});",
+    "uniqueOccurrences": 1,
+    "scope": "Only ordinary platform.move argument; no C# or predicate/expected proof/time fixture edits"
+  },
+  "requiredReviewAndTests": [
+    "Nonauthor whole-source inverse to0975; C# native constant byte-identicalef53; no changes to stage proof, target owner, snapshot/hash/id/volume gates, budgets or refusal predicates.",
+    "Strong-pure old omission negative must be genuinely red under the same invariant; candidate move must pass exact booleantrue while preserving source/target/id and supplied leases.",
+    "Preserve metadata-drift, wrong-volume, wrong-ID and missing/unknown target lease refusals; changing prior Basic before the move must not be washed into expected.",
+    "Root alone builds the new private source and updates derived identities after review; actual Windows gate uses a fresh owned synthetic root and first checkpoints, never61WuRD targets or refreshed before snapshots.",
+    "Retain old red and full cause chain. Only actual full ordinary/restore/cold-role outcomes and actual helper exit+close accounting may establish the next gate result."
+  ],
+  "nextDiagnosticIfStillRed": "Add only bounded existing-memory metadata provenance: the already-existing pre-move current capture root Basic/ID/volume compared with stored stage proof slice, the exact boolean preserve request and native move receipt, then the already-existing failed inherited capture delta. Do not add a new capture, restore expected timestamps, skip hashes, or replace the fixed before. This narrows a still-unexplained interval without presuming the culprit.",
+  "lifecycleLimits": {
+    "roleProcess": {
+      "kind": "restore",
+      "pid": 12420,
+      "exited": true,
+      "closed": true,
+      "exitCode": 1,
+      "exitSignal": null,
+      "code": 1,
+      "signal": null,
+      "timedOut": false,
+      "overflow": false,
+      "fatalReceived": true,
+      "pipeFailed": false,
+      "processFailed": false,
+      "cleanupFailed": false,
+      "helperMayStillRun": false,
+      "ownershipRetained": true
+    },
+    "observedHelperMayStillRun": false,
+    "ownershipRetained": true,
+    "note": "Role actual exit/close1 and no timeout are recorded. Failure payload has helperMayStillRun:false, but does not print a final per-helper inventory; this analysis does not manufacture complete helper-close proof from absence of an uncertainty flag."
+  },
+  "anchors": [
+    {
+      "name": "basic-names",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 526,
+      "needle": "struct Basic { public long Creation, Access, Write, Change;"
+    },
+    {
+      "name": "capture-times-order",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 709,
+      "needle": "\"times\", new string[] { Str(basic.Creation), Str(basic.Access), Str(basic.Write), Str(basic.Change) }"
+    },
+    {
+      "name": "native-before-snapshot",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 1246,
+      "needle": "Basic before=BasicOf(original);string beforeAlias=ShortName(original);"
+    },
+    {
+      "name": "native-conditional-restore",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 1254,
+      "needle": "FlushStoreDirectory(target);RestoreNodeBasic(owned,original);"
+    },
+    {
+      "name": "native-preserve-wrapper",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 1268,
+      "needle": "bool preserve=args.ContainsKey(\"preserveMetadata\")"
+    },
+    {
+      "name": "adapter-forwarding",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 2839,
+      "needle": "move: async args => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'store-move', ...args });"
+    },
+    {
+      "name": "fixed-stage-proof-clone",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 3711,
+      "needle": "const boundIdentity=Object.freeze({id:identity.id,volume:identity.volume}),fixed=portableClone(fixedProof)"
+    },
+    {
+      "name": "fixed-stage-postflush-check",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 3722,
+      "needle": "await portableFlushBound(externalBindings,admission);await admission();const observed=await portableCapture(root,fixed.revision);"
+    },
+    {
+      "name": "expected-slice",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 3726,
+      "needle": "function portableDurabilitySlice(proof,name)"
+    },
+    {
+      "name": "actual-inherited-capture",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 3729,
+      "needle": "const protectedRoots=[];for(const name of names){const expected=portableDurabilitySlice(proof.proof,name)"
+    },
+    {
+      "name": "ordinary-stage-proof-origin",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 4344,
+      "needle": "const stageProof=await portableCapture(stageRoot,hash(value.source.sourceSha256+':stage'))"
+    },
+    {
+      "name": "ordinary-move",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 4371,
+      "needle": "const moved=await platform.move({source,target,id:owned.objectInfo.id});"
+    },
+    {
+      "name": "originals-move",
+      "file": "C:/Users/87179/AppData/Local/Temp/r31n-cjfrUr/runtime/app/src/13u-migration-center.js",
+      "line": 4300,
+      "needle": "const result=await platform.move({source,target,id:move.info.id,preserveMetadata:true});"
+    }
+  ],
+  "conclusion": "Index3 is Change. Existing ordinary move omits the preservation option that the adjacent originals path already supplies. Enable that existing contract in a new private single-span candidate, independently review and test it, and rerun a fresh actual gate. Current restoration remains failed; unique historical causality is not asserted."
+}
