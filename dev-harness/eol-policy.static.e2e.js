@@ -37,7 +37,7 @@ function byteEolKind(buffer) {
   return 'mixed';
 }
 
-const rows = childProcess.execFileSync('git', ['ls-files', '--eol'], { cwd: ROOT, encoding: 'utf8' })
+const rows = childProcess.execFileSync('git', ['ls-files', '--eol'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
   .split(/\r?\n/).filter(Boolean).map(parseEolLine).filter(Boolean);
 const violations = [];
 let checked = 0;
