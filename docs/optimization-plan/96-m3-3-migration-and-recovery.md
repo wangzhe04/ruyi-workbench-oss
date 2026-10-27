@@ -2,7 +2,9 @@
 
 日期：2026-10-24。基线：`415357604f6465f43b377d1d30ff713464a8fa96`。分支：`codex/3.1-completion-plan`。应用仍为 **3.0.1**。
 
-**2026-10-27 本批收口（最新）：** M3-3 生产上传/native/host 接线及审查修复已过本批标准门，基线 `ee2e1190`：完整 unit 4099 项 4075 过/24 跳过/0 失败，82 静态全过；生产上传 14 断言连续两遍通过；独审 P0/P1=0。`worker`/`download`/`crashClaim`/`activation` 仍为 false，真实上传→restore 不可达，持久 claim、恢复 kernel、activation 与完整 UI 旅程仍待。见 [92 §12.40](92-3.1-implementation-handoff.md) 与[本批证据](evidence/m3-production-upload-20261027.json)；下方 §1–9 及上一条 12.39 状态均为历史，不表示完整迁移恢复完成。
+**2026-10-28 本批收口（最新）：** enable/export/disable 真实生产维护闭环及 claim/readiness/retirement/successor 合同已过本批标准门，基线 `5ad01b4d`：完整 unit 4192 项 4168 过/24 跳过/0 失败，82 静态全过；真实维护 E2E 连续两遍各 10 断言、上传 E2E 一遍 20 断言通过；独审 P0/P1=0。`worker`/`download`/`crashClaim`/`activation` 仍为 false，restore 生产准入仍 501，真实上传→restore 不可达，恢复 kernel、download、activation 与完整 UI 旅程仍待。本批范围不是完整 M3-3/3.1。见 [92 §12.41](92-3.1-implementation-handoff.md) 与[本批证据](evidence/m3-production-maintenance-20261028.json)；下方各段（含 10-27 那一条）均为历史快照，不表示完整迁移恢复完成。
+
+**2026-10-27 上一批收口：** M3-3 生产上传/native/host 接线及审查修复已过本批标准门，基线 `ee2e1190`：完整 unit 4099 项 4075 过/24 跳过/0 失败，82 静态全过；生产上传 14 断言连续两遍通过；独审 P0/P1=0。`worker`/`download`/`crashClaim`/`activation` 仍为 false，真实上传→restore 不可达，持久 claim、恢复 kernel、activation 与完整 UI 旅程仍待。见 [92 §12.40](92-3.1-implementation-handoff.md) 与[该批证据](evidence/m3-production-upload-20261027.json)；下方 §1–9 及上一条 12.39 状态均为历史，不表示完整迁移恢复完成。
 
 2026-10-27继续实施：前批正常959原七角色、父死亡/cold、normal读取组及alias6结论保持。上传123模块候选首次完整正常serve已实际启动，密封上传和八HTTP拒绝场景通过后在job夹具错误码期待处红灯；原Tool1和现场保留，经独审的固定合成进程清理单独通过，不算整门通过。job合同纠错及CIM/native各自严等候选继续，WinPS5嵌套JSON数组的实际语言探针又拦截新候选，未自动重跑。M4固定诊断/技术清册保持，codeload取件原600秒失败、partial保留，新的40项Python内存解析自测实际通过；均不授完整sourceSet或生产ready。最新证据见[92 §12.39](92-3.1-implementation-handoff.md)和[服务与源码工具检查点](evidence/m3-serve-m4-source-tools-20261027.json)。read959整合、故障矩阵、完整恢复kernel/持久claim/下载/激活等继续，下方历史状态不算完整迁移恢复完成。
 

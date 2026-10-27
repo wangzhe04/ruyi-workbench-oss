@@ -16,8 +16,24 @@ test('one actual POST clears both secrets immediately and handoff never reports 
 test('disable requires explicit plaintext confirmation and sends only the complete expected authority',async()=>{
  const a=authority('encrypted');const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:route==='/api/work-data/jobs'?{ok:true,job:job({operation:'disable'})}:status({authority:a}));await f.panel.refresh();f.change('workDataOperation','disable','change');await populate(f);assert.equal(f.find('workDataSubmit').disabled,true);f.change('workDataConfirmPlaintext',true);assert.equal(f.find('workDataSubmit').disabled,false);f.click('workDataSubmit');await f.flush();const body=f.calls.find(x=>x.route==='/api/work-data/jobs').body;assert.equal(body.confirmPlaintext,true);assert.deepEqual(body.expectedAuthority,a);assert.equal(f.find('workDataConfirmPlaintext').checked,false);f.panel.dispose();
 });
-test('unbound upload/download and worker hooks are typed unavailable and never create pretend packages or jobs',async()=>{
- const f=fixture(respond);await f.panel.refresh();await populate(f);for(const operation of ['export','restore']){f.change('workDataOperation',operation,'change');assert.equal(f.find('workDataSubmit').disabled,true);assert.match(f.find('workDataUnavailable').textContent,new RegExp(operation==='restore'?'upload_unavailable':'download_unavailable'));f.click('workDataSubmit');}assert.equal(f.find('workDataRestoreFile').disabled,true);assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,0);f.panel.dispose();const g=fixture(()=>status({capabilities:{worker:false,upload:false,download:false}}));await g.panel.refresh();assert.match(g.find('workDataUnavailable').textContent,/worker_unavailable/);g.panel.dispose();
+test('closed restore stays unavailable while export no longer depends on any download capability',async()=>{
+ const f=fixture(respond);await f.panel.refresh();await populate(f);assert.equal(f.find('workDataUnavailable').hidden,true);
+ f.change('workDataOperation','export','change');
+ f.change('workDataPassword','a long private password');f.change('workDataPasswordConfirm','a long private password');
+ assert.equal(f.find('workDataUnavailable').hidden,true,'export must not be gated by download=false');
+ assert.equal(f.find('workDataSubmit').disabled,false,'export is a backup-directory product, not a download');
+ assert.equal(f.find('workDataRestoreFile').disabled,true);
+ f.change('workDataOperation','restore','change');
+ f.change('workDataPassword','a long private password');f.change('workDataPasswordConfirm','a long private password');
+ assert.match(f.find('workDataUnavailable').textContent,/work_data_setup\.restore_unavailable/);
+ assert.equal(f.find('workDataSubmit').disabled,true,'restore stays refused even with a complete form');
+ f.click('workDataSubmit');
+ assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,0,'a closed restore must not create a job');
+ assert.equal(f.find('workDataRestoreFile').disabled,true);
+ const source=fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/public/js/work-data-settings.js'),'utf8');
+ assert.doesNotMatch(source,/capabilities\.download|work-data\/download|download\s*=/,'the UI must not add a download entry or dependency');
+ f.panel.dispose();
+ const g=fixture(()=>status({capabilities:{worker:false,upload:false,download:false}}));await g.panel.refresh();assert.match(g.find('workDataUnavailable').textContent,/worker_unavailable/);g.panel.dispose();
 });
 test('a disconnected write is never retried; read-only polling reconnects to the actual job',async()=>{
  let posted=false;const f=fixture(route=>{if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};if(route==='/api/work-data/jobs'){posted=true;throw new TypeError('Failed to fetch');}if(route.includes('/jobs/'))return{ok:true,job:job({state:'uncertain',cancellable:false,takeover:true})};return status({job:posted?job({state:'uncertain',cancellable:false,takeover:true}):null});});await f.panel.refresh();await populate(f);f.click('workDataSubmit');await f.flush();assert.match(f.find('workDataNotice').textContent,/interrupted/);assert.equal(f.find('workDataSubmit').disabled,true);assert.equal(f.find('workDataPassword').disabled,true);await f.poll();await f.poll();assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs'&&x.method==='POST').length,1);assert.equal(f.find('workDataCancel').disabled,true);assert.match(f.find('workDataProgress').textContent,/not yet confirmed/);assert.equal(f.find('workDataSummary').dataset.mode,'plain');f.panel.dispose();
@@ -47,4 +63,18 @@ test('terminal job remains readable by its tracked id after the controller clear
 });
 test('locale refresh preserves secret draft and all four flat catalogs share the added keys',async()=>{
  const f=fixture(respond);await f.panel.refresh();f.change('workDataPassword','draft only');f.language('zh-CN');assert.equal(f.find('workDataHeading').textContent,'工作数据加密与迁移');assert.equal(f.find('workDataPassword').value,'draft only');f.panel.dispose();assert.equal(f.find('workDataPassword').value,'');const root=path.resolve(__dirname,'../..'),keys=[];for(const family of ['docs/i18n/locales','ruyi-workbench/app/public/locales'])for(const locale of ['zh-CN','en-US']){const catalog=JSON.parse(fs.readFileSync(path.join(root,family,locale+'.json'),'utf8'));keys.push(Object.keys(catalog).filter(k=>k.startsWith('workData.')).sort());}for(const k of keys)assert.deepEqual(k,keys[0]);assert.ok(keys[0].length>35);
+});
+test('export submits against the chosen backup directory while download stays false',async()=>{
+ const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:route==='/api/work-data/jobs'?{ok:true,job:job({operation:'export',state:'queued'})}:status());
+ await f.panel.refresh();await populate(f);
+ f.change('workDataOperation','export','change');await populate(f);
+ assert.equal(f.find('workDataSubmit').disabled,false);
+ f.click('workDataSubmit');await f.flush();
+ const writes=f.calls.filter(x=>x.route==='/api/work-data/jobs');
+ assert.equal(writes.length,1);assert.equal(writes[0].body.operation,'export');
+ assert.deepEqual(Object.keys(writes[0].body).sort(),['backupDirectory','expectedAuthority','operation','password']);
+ assert.equal(writes[0].body.backupDirectory,'E:\\Synthetic Backup');
+ assert.match(writes[0].body.backupDirectory,/^[A-Za-z]:\\/,'the export body must carry a real absolute Windows directory, not a swallowed escape');
+ assert.equal(f.calls.filter(x=>/download/.test(x.route)).length,0);
+ f.panel.dispose();
 });

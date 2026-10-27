@@ -61,10 +61,10 @@ export function mountWorkDataSettings() {
   function report(error) { const code = errorCode(error); notice.textContent = t(code === 'net.disconnected' ? 'workData.disconnected' : 'workData.failed', { code }); notice.dataset.state = 'error'; }
   function blockedByCapability() {
     if (!current?.capabilities?.worker) return 'work_data_setup.worker_unavailable';
-    // Transfer hooks have no production upload/download endpoint yet. Preserve
-    // typed unavailability instead of inventing an upload ticket or download.
-    if (operation.value === 'restore') return 'work_data_setup.upload_unavailable';
-    if (operation.value === 'export' && !current.capabilities.download) return 'work_data_setup.download_unavailable';
+    // Export writes a backup directory; it never depended on a download endpoint.
+    // Restore admission is closed in this version, so no upload ticket or grant
+    // is invented and no download entry is added.
+    if (operation.value === 'restore') return 'work_data_setup.restore_unavailable';
     return '';
   }
   function targetDirectory() {

@@ -1,0 +1,492 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "baselineCommit": "5ad01b4d",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "status": "本批标准门通过；M3-3 与 3.1 均未完成",
+  "scope": {
+    "batch": "enable/export/disable 真实生产维护闭环及 claim/readiness/retirement/successor 合同",
+    "entryPoints": [
+      "ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+      "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "ruyi-workbench/app/src/13ai-work-data-worker.js",
+      "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "ruyi-workbench/app/src/14-main.js",
+      "ruyi-workbench/app/public/js/work-data-settings.js"
+    ],
+    "notIncluded": [
+      "完整 M3-3 迁移/恢复",
+      "restore 生产准入（当前 501）与真实上传→restore",
+      "download 与 activation/后续 boot 根选择",
+      "完整启用/关闭 UI 旅程",
+      "M4/M5/M6 原范围"
+    ]
+  },
+  "finalIdentity": {
+    "generatedServer": {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "535f3e349f16aacbf11eb8a97bc7f0758062e08997b2ce2e888a7b4556ab8c2b",
+      "bytes": 8017852
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "2b8782a0c97b0818c1cae069e9171012640f035f0325a35fee3106c90db28ef7",
+      "bytes": 34286
+    },
+    "architecture": {
+      "modules": 124,
+      "edges": 857,
+      "forwardEdges": 67,
+      "stronglyConnectedComponents": 1,
+      "routeDecisionPoints": 189,
+      "routeAuthEntries": 176,
+      "routeProblems": 0
+    },
+    "facts": {
+      "e2eCount": 591,
+      "defaultOfflineE2e": 584,
+      "unitSuites": 407,
+      "liveProbes": 7
+    },
+    "publicFrontendChanged": true,
+    "publicFrontendFiles": [
+      "ruyi-workbench/app/public/js/work-data-settings.js"
+    ],
+    "identityCaveat": "上述字节身份来自注释/manifest note 同步后的重建（log bbu84ky8）；该重建仅改注释与 note 文本，晚于最后一次完整 unit/fast 门一步，未重跑该门，故不声称门覆盖最终字节；注释后在最终字节上执行的定向检查见 postCommentValidation"
+  },
+  "validation": [
+    {
+      "id": "syntax-gate",
+      "command": "node dev-harness/syntax-gate.js",
+      "result": "1348 files checked, 0 failed (node v24.14.0)",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-t0egcz9r/output.log",
+        "bytes": 580330,
+        "sha256": "a2885fa543692d381e901813f364f7aecb6ce5a97f3fe1c67838ede64312638d",
+        "note": "同一日志第 1 行为 syntax-gate，第 2 行为 build --check"
+      }
+    },
+    {
+      "id": "build-check",
+      "command": "node ruyi-workbench/app/build.js --check",
+      "result": "产物与 src 一致(新鲜)，manifest 行区间自洽；退出码 0",
+      "note": "生成物身份见 finalIdentity；--check 不写文件"
+    },
+    {
+      "id": "unit-full-final",
+      "command": "node --test --test-concurrency=4 \"dev-harness/unit/*.test.js\"",
+      "result": {
+        "tests": 4192,
+        "pass": 4168,
+        "skipped": 24,
+        "fail": 0,
+        "durationMs": 511463.1087
+      },
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-t0egcz9r/output.log",
+        "bytes": 580330,
+        "sha256": "a2885fa543692d381e901813f364f7aecb6ce5a97f3fe1c67838ede64312638d"
+      }
+    },
+    {
+      "id": "fast-gate-final",
+      "command": "node dev-harness/run-all.js --fast --parallel 1",
+      "result": {
+        "unit": {"tests": 4192, "pass": 4168, "skipped": 24, "fail": 0},
+        "static": {"ran": 82, "pass": 82, "fail": 0, "flaky": 0},
+        "liveSkipped": 7,
+        "residualTestBrowsers": 0,
+        "node": "v24.14.0, win32"
+      },
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-bdutdlz0/output.log",
+        "bytes": 5946,
+        "sha256": "dd151463fc5bd4a670260bb61ad95e520bc5b7eada6a7cf31b1f38124ebbd913"
+      }
+    },
+    {
+      "id": "production-maintenance-e2e-run-1",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-IZgjNG",
+        "passed": 10,
+        "failed": 0,
+        "executionInputSha256": "d7fb06b591173ca240ae323a1ae171d89e39ed4f445fe962fc647a43b3aec9d0",
+        "executionInputs": 144,
+        "sourceIdentitySha256": null,
+        "sourceReviewSha256": null,
+        "worker": true,
+        "upload": true,
+        "download": false,
+        "crashClaim": false,
+        "activation": false,
+        "restorationComplete": false,
+        "whole3_1Complete": false
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-IZgjNG/evidence/result.json",
+        "bytes": 2963,
+        "sha256": "785f39eca0e96dcd0b56ad968fb6ac432d779cb37b13b53197e308f5a1834753"
+      },
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-7sscwhsc/output.log",
+        "bytes": 993,
+        "sha256": "a18f7fa877322c01c58b6f9c5f5c1591a90dde5d64ea704a293ea916f49baa9e"
+      },
+      "note": "真实 serve→claim armed/committed/owned→冷 DPAPI/NTFS→同根同端口 successor→lastResult；enable/export/disable 三轮；go 前父死、committed 活子拒绝、owned 死子仍 pending、C10/C11 保持；outer Job 仅含最后 successor、survived 空"
+    },
+    {
+      "id": "production-maintenance-e2e-run-2",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-N4cLed",
+        "passed": 10,
+        "failed": 0,
+        "executionInputSha256": "d7fb06b591173ca240ae323a1ae171d89e39ed4f445fe962fc647a43b3aec9d0",
+        "executionInputs": 144,
+        "worker": true,
+        "upload": true,
+        "download": false,
+        "crashClaim": false,
+        "activation": false,
+        "restorationComplete": false,
+        "whole3_1Complete": false
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-N4cLed/evidence/result.json",
+        "bytes": 2963,
+        "sha256": "6afcb680546edad30136b940ff10c70d6243db8641d8192036ec546004567e4a"
+      },
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-zeqzmqjy/output.log",
+        "bytes": 993,
+        "sha256": "365bf4ab5025dfa1dacbeaff434fada48bf82bd640444cffce5d1f1fab902eff"
+      },
+      "note": "与 run-1 同 executionInputSha256（144 输入），两遍各自独立根"
+    },
+    {
+      "id": "production-upload-e2e",
+      "command": "node dev-harness/work-data-production-upload.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-VqJArj",
+        "passed": 20,
+        "failed": 0,
+        "executionInputSha256": "d7fb06b591173ca240ae323a1ae171d89e39ed4f445fe962fc647a43b3aec9d0",
+        "executionInputs": 144,
+        "sourceIdentitySha256": null,
+        "sourceReviewSha256": null,
+        "worker": true,
+        "upload": true,
+        "download": false,
+        "crashClaim": false,
+        "activation": false,
+        "restorationComplete": false,
+        "whole3_1Complete": false
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-VqJArj/evidence/result.json",
+        "bytes": 5110,
+        "sha256": "640fdbeffc9f86b08e5d473f75eb0ba1825838841472ced647342be94359ea9f"
+      },
+      "note": "同身份一遍通过，不写成两遍；含 restore 501 不消耗 grant、多个 pre-worker 拒绝无 claim/backup/job 副作用"
+    },
+    {
+      "id": "settings-browser-e2e",
+      "command": "node dev-harness/work-data-settings.browser.e2e.js",
+      "result": "连续 9 次 ALL PASS（原作者连续 6 次 + readiness 注释微调后连续 3 次）；含 picker 回填、pair 使能、双击仅一次 POST、双密码清理、authority/一次性密码、handoff 语义、1440/768/390 三档宽度、无未捕获异常",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-fkcepm9f/output.log",
+        "bytes": 4460,
+        "sha256": "260de0011d20d4967bb9b422384b56369f3ed94a637e7f8f91e352595c088c52"
+      },
+      "note": "本批修复只改测试件 dev-harness/work-data-settings.browser.e2e.js（10 增/6 删）：mock 状态分支加 statusReads 计数、readiness 改为三合一（statusReads>0、workDataUnavailable.hidden===true、Refresh 与 PickBackup 均可用）、点击与判据在同一同步 evaluate；原有断言未删未放宽，面板 4 次 refresh 上限、25ms 退避与 800×40ms waitForEval 预算原样。public 只有 work-data-settings.js 改动（4/4 行），产品侧 refresh 去重与 loading 禁用未改"
+    },
+    {
+      "id": "cold-operations-e2e",
+      "command": "node dev-harness/work-data-cold-operations.e2e.js",
+      "result": "ALL PASS",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-50pe2hss/output.log",
+        "bytes": 8596,
+        "sha256": "c3f279ec27ad6bece4f72bcac74e93be66cfa15145e17d460d6d5ccb784461b6",
+        "note": "实现者日志；同批 127/127 定向集合含本 suite"
+      }
+    },
+    {
+      "id": "maintenance-runtime-e2e",
+      "command": "node dev-harness/work-data-maintenance-runtime.e2e.js",
+      "result": "四组真实进程场景（success/ops-failure/authority-read-fail/authority-conflict）+ outer Job ALL PASS；4/4",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-bp4rxhq8/output.log",
+        "bytes": 3891,
+        "sha256": "bd1d5165edf95279f04b583a2536305b3a9ae7721107e10da47de63d045d7ac6"
+      },
+      "note": "模拟夹具显式 legacyNoClaim；生产仍要求真实 hooks.claim，故不能当 13av 生产覆盖"
+    },
+    {
+      "id": "generated-artifacts",
+      "command": "node dev-harness/facts-generate.js && node dev-harness/module-dependency-graph.js --write && node dev-harness/route-inventory.js",
+      "result": {
+        "facts": {"e2eCount": 591, "defaultOfflineE2e": 584, "unitSuites": 407, "liveProbes": 7},
+        "moduleGraph": {"modules": 124, "edges": 857, "forwardEdges": 67, "stronglyConnectedComponents": 1, "duplicateProvides": 0},
+        "routeInventory": {"decisionPoints": 189, "routeAuthEntries": 176, "problems": 0, "warnings": 0},
+        "readmeBilingualSynced": true
+      }
+    },
+    {
+      "id": "independent-review-final",
+      "result": "P0=0，P1=0（复审 13aq target 折叠与模拟 fixture seam 后）",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-d7dowo6v/output.log",
+        "bytes": 8003,
+        "sha256": "e508f1430147584add7e4f485caded5964457cc8f254bf4c99f7e5a5805a39ba"
+      }
+    }
+  ],
+  "postCommentValidation": {
+    "when": "注释/manifest note 同步并重建后的最终字节上执行（即在完整 unit/fast 门之后）",
+    "note": "这些是定向检查，不构成新的完整 unit/fast 门；「完整 unit 4192/4168/24/0 与 82 static 全过」仍在注释同步之前测量，不声称覆盖最终字节。下列结果由主会话执行并报告，本证据未附其独立日志副本；EOL 与 outer-job.ps1 换行已由本证据直接核验",
+    "checks": [
+      {"id": "evidence-json-parse", "command": "python -c \"json.load(...)\"", "result": "本证据 JSON 可解析"},
+      {"id": "build-check", "command": "node ruyi-workbench/app/build.js --check", "result": "ALL PASS：产物与 src 一致（新鲜），manifest 行区间自洽"},
+      {"id": "eol", "command": "仓库 EOL/文本规范检查", "result": "ALL PASS：2144 个 tracked 文本文件符合属性；outer-job.ps1 首次为 LF 首红，仅做换行规范化到 CRLF 后通过"},
+      {"id": "facts", "command": "node dev-harness/facts-generate.js（校验侧）", "result": "ALL PASS：591 E2E / 默认 584 / 407 suite / 7 live"},
+      {"id": "architecture-snapshots", "command": "architecture contract snapshots 检查", "result": "ALL PASS"},
+      {"id": "module-graph", "command": "node dev-harness/module-dependency-graph.js", "result": "ALL PASS：124 模块 / 857 边 / 67 前向 / 1 SCC"},
+      {"id": "route-inventory", "command": "node dev-harness/route-inventory.js", "result": "ALL PASS：189 判定点 / 176 鉴权行 / 0 问题"},
+      {"id": "process-safety", "command": "node dev-harness/process-safety.static.e2e.js", "result": "ALL PASS：killOwnTree 文件数 351"},
+      {"id": "manifest-ranges", "command": "manifest 行区间校验", "result": "ALL PASS"},
+      {"id": "repo-hygiene", "command": "仓库卫生检查", "result": "ALL PASS"}
+    ],
+    "eolSpotCheck": "dev-harness/lib/work-data-production-maintenance-outer-job.ps1 现为 10235 字节、166 行全 CRLF、0 孤立 LF/CR，符合 .gitattributes 的 *.ps1 eol=crlf",
+    "explicitlyNotCovered": "注释同步后未重跑完整 unit/fast 门；真实包/跨机/跨账户、完整默认 584 E2E 仍未验"
+  },
+  "firstFailures": [
+    {
+      "id": "real-e2e-first-red-mixed-case-backup-directory",
+      "stage": "verify-backup",
+      "result": "job.state=failed，phase=verify-backup，error=work_data_setup.preparation_failed；cold worker 保持 claim=owned，base owner 仍 200 maintenance；rehearsal 目录 .ruyi-work-data-verify-<id> 留在磁盘，无 .work-data，lastResult=null，无 successor",
+      "cause": "13aq 要求 canonicalRoot(target)===target，而 13ak 把 paths.backupDirectory 逐字拼进 verify 目标；Windows 上 canonicalRoot 会小写，用户正常的混合大小写目录（如 C:\\Users\\…\\Backups）必然报 work_data_adapter.parent_or_target_invalid，退出码 1",
+      "resolution": "13aq target 判据在 win32 下折叠大小写后再比较；alias/junction/8.3 短名/尾随点/UNC 互写仍拒绝。修复后才有本批两遍 10 断言通过",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-letwbtaw/output.log",
+        "bytes": 7485,
+        "sha256": "5e22c146d2b53db8056a1e51be95f682b39798447dada4aae2236994c39e1693"
+      },
+      "kept": "原失败现场与本条记录保留，不改写成首轮即绿"
+    },
+    {
+      "id": "simulated-fixture-first-red",
+      "result": "maintenance-runtime 四场景首轮全红",
+      "causes": [
+        "claim 必需：activateServe/executeBody/runCold 都走 requireClaim，无 claim 且未声明 legacyNoClaim 时在 parent-ready 之前抛 work_data_setup.claim_unavailable（表现为 timeout parent ready）",
+        "retirement 证据换形：exitParent 要求 retiredReceipt 的 phase=retired 且计数归零，只加 legacyNoClaim 会在 handoff 处抛 handoff_not_retired，旧 PID 不退出",
+        "legacy null/undefined 差异：13am legacy 下返回 null，而 13ai 只把 undefined 当 legacy，warm start 报 claim_host_invalid"
+      ],
+      "resolution": "只在测试专用 fixture 补 legacyNoClaim/retiredReceipt/删 null 属性；生产侧仍 fail-closed，未放宽 13am/13ai 判据",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-bp4rxhq8/output.log",
+        "bytes": 3891,
+        "sha256": "bd1d5165edf95279f04b583a2536305b3a9ae7721107e10da47de63d045d7ac6"
+      }
+    },
+    {
+      "id": "settings-fixture-readiness-first-red",
+      "stage": "settings browser E2E picker/submit 阶段",
+      "result": "FAIL (5)：F0/F0b–F0e 首屏与 token 通过，actual setup status 与面板挂载通过，随后 picker receipt 回填、pair 使能一次提交、双击一次请求、双密码清理四条失败，fatal TypeError: Cannot read properties of undefined (reading 'passwordCorrect')",
+      "cause": "夹具 readiness 判据只看 workDataUnavailable.hidden，而真实 /api/work-data/status 的 capabilities.worker 在 runtime host 绑定适配器前后会翻转（采样到 1 次 false、8 次 true）；worker=true 时该条件第 0 次即成立，从未消费 mock（失败现场 statusHits=0），也没等在飞读取。此刻 mountWorkDataSettings 的 void panel.refresh() 刚把 loading 置 true，render() 令 #workDataPickBackup disabled；对 disabled 按钮 .click() 不发生点击事件（clicked:0、pickHits:0），目录字段留空→提交按钮 disabled→无 POST→posts[0] undefined",
+      "reproduction": "临时诊断（已删除）6 次里 2 次命中；失败两次点击瞬间 disabled:true、statusHits:0、pickHits:0，成功几次 disabled:false、statusHits:1–2、pickHits:1；另 8 次带真实能力采样确认新判据在 realWorker=true 档每次 statusReads=2 且 picker 正常回填",
+      "resolution": "只改测试件：mock 状态分支加 statusReads 计数，readiness 三合一（statusReads>0、workDataUnavailable.hidden===true、Refresh/PickBackup 均可用），点击与判据放同一同步 evaluate；至多 4 次 refresh、25ms 退避、800×40ms 预算与全部原断言不变。产品侧 refresh 去重与 loading 禁用是正确行为，未改",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-u2t3mmkb/output.log",
+        "bytes": 861,
+        "sha256": "adfab71098a9f5ab2e45e01b2f84d0ee8cb799f2594d376114ff4a09c01ad548"
+      },
+      "kept": "首红现场保留；修复后连续 9 次 ALL PASS，不写成一次通过"
+    },
+    {
+      "id": "fast-gate-parallel4-static",
+      "result": {"ran": 82, "pass": 80, "fail": 2, "flaky": 0},
+      "failures": [
+        "route-inventory.static: route-inventory.json/md 与源码重算不一致（2 条断言）",
+        "process-safety.static: killOwnTree 文件数钉成 350，实得 351"
+      ],
+      "resolution": "按原生成器重算 route inventory、按真实新增测试件把 350 改为 351，定向通过后才串行整轮",
+      "note": "不写成一次整轮全绿",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-b00j8e9e/output.log",
+        "bytes": 9912,
+        "sha256": "086b835f79f0f2624a97db2c74d1e51271101524e4f69cbdce4a3dfbca31ed60"
+      }
+    },
+    {
+      "id": "unit-round-parallel4",
+      "result": {"tests": 4169, "pass": 4142, "fail": 3, "skipped": 24, "durationMs": 539496.4028},
+      "failures": [
+        "ordinary root names equal to capsule wrapper files preserve their same-name DOS namespace（42619.8917ms）",
+        "large index seals losslessly and read, warm memo, invalidation and sync exit never bypass missing-key authority（[RangeError: Array buffer allocation failed]）",
+        "dev-harness/unit/steward-runner-races.test.js"
+      ],
+      "resolution": "低负载/串行完整跑中三个文件原样通过（同一断言、同一预算），未改断言、未调堆参数",
+      "unresolved": "资源并发根因保留；不把该轮写成已定位",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-f01t7878/output.log",
+        "bytes": 2456,
+        "sha256": "8fc1304e72068a60197f46a217d75ea5bf7879c102cf41318d83285c5156baa9"
+      }
+    },
+    {
+      "id": "retained-history-sites",
+      "result": "历史失败现场 FIC5Ix / zUHtOP / FjE0j6 仍保留 cold worker",
+      "cause": "它们不是当前 harness 的直接子进程，且缺原始 birthPairs",
+      "resolution": "不按 PID 强杀；其它不明进程未动",
+      "kept": "保留原现场，不把未清理写成已清理"
+    }
+  ],
+  "independentReview": {
+    "scope": ["产品行为", "claim/CAS 与 owner 生命周期", "启动门与 fail-closed 面", "测试与模拟夹具", "进程安全"],
+    "rounds": [
+      {
+        "result": "P0=0，P1=1，P2=8",
+        "finding": "P1-1 生产路径上 13am 的 claim 启动门是死代码：WorkDataMaintenanceRuntimeHooks.claim 从未被赋值；且没有任何测试把真实 13av 接到 13am 的 inspectBoot",
+        "log": {
+          "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-csam4m5b/output.log",
+          "bytes": 14415,
+          "sha256": "d5c4d3b035c55a0fc0acc99ef3bad09137039107359cb479b22cfe91ef6f81b8"
+        }
+      },
+      {
+        "result": "P0=0，P1=0；上轮 P1 与其连带 3 个 P2 已闭环；新发现均 P2/P3",
+        "findings": [
+          "P2：成功的 result 会让 /api/work-data/status 依赖备份文件仍在，用户删掉该 .ruyi-backup 后 status 恒 503 result_unavailable",
+          "P2：真实 13av boot 测试保留双契约分支（接受 handoff_pending 或 observation_invalid），当前树走严格分支",
+          "P2：stage 孤儿因 claim 门上线上线升级为启动阻断（stage_pending），只能手工清 TEMP"
+        ],
+        "log": {
+          "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-pfzvul4p/output.log",
+          "bytes": 9051,
+          "sha256": "1221bf4bb893bc88efb285a9d7379496561cee95ea078769664757c09872c253"
+        }
+      },
+      {
+        "result": "P0=0，P1=0；13aq target 折叠正确，alias 未被绕过",
+        "findings": [
+          "仅接受同一物理路径的字母大小写变体；junction/symlink/8.3 短名/尾随点/UNC 互写仍拒",
+          "真实 13aq + win32 模型 + 大小写不敏感内存 fs 回归：大小写变体被接受且保持请求原拼写；baseLink/otherLink/baseLink.toUpperCase() 三种链接名全拒且 sent.length===0",
+          "模拟 fixture 的 legacyNoClaim/retiredReceipt 只在测试件，生产 13au 从不设置 legacyNoClaim",
+          "P3：在显式启用大小写敏感 NTFS 目录上，与目标仅差大小写的 junction 会被折叠接受；不构成新信任边界"
+        ],
+        "log": {
+          "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-d7dowo6v/output.log",
+          "bytes": 8003,
+          "sha256": "e508f1430147584add7e4f485caded5964457cc8f254bf4c99f7e5a5805a39ba"
+        }
+      }
+    ],
+    "fixes": [
+      "13au 尾部安装真实 hooks.claim/readiness/retirement，claim 启动门不再是死代码",
+      "13am 的 classify 按真实 result 摘要分层，清理只用精确 receipt CAS；committed/owned 与陈旧 result 分层",
+      "13aq verifier target 在 win32 下折叠大小写比较，alias 判据不放宽，并加真实回归",
+      "模拟 fixture 只补 legacyNoClaim/retiredReceipt/删 null 属性；生产侧保持 claim_unavailable fail-closed",
+      "13ak verify-backup 目标按实际路径拼写传入，lastResult.backup.path 仍是用户请求的原拼写"
+    ]
+  },
+  "remainingLimits": [
+    "恢复 kernel 与 owned crash 恢复未实现：owned+非匹配 result 恒 pending→boot handoff_pending，只能手工清理 TEMP claim",
+    "restore 生产准入当前仍 501（work_data_setup.restore_unavailable）；真实上传→restore 不可达",
+    "download=false、crashClaim=false、activation=false；新根激活与后续 boot 根选择未验",
+    "C10/C11 的自动清理未做（只验拒绝且不重写）",
+    "非空 special 仍明确拒绝，未支持",
+    "captured-reader（preservedRead/assertExclusiveSync/captured-file）面零生产调用、零测试",
+    "stage 孤儿现在会阻止启动（stage_pending），无自动清理；result 备份被删导致 status 恒 503 result_unavailable",
+    "TEMP/PID 复用、完整默认 584 个离线 E2E、真实包/升级回退、真实跨账户/跨机均未验",
+    "未处理真实用户数据、未发送真实平台消息、未发布"
+  ],
+  "sourceChangeStats": {
+    "measuredAt": "2026-10-28",
+    "method": "git diff --numstat 5ad01b4d 与未跟踪文件 wc -l；生成 server/manifest/module-contracts/architecture/facts 与手工产品 src 分开；docs 含本证据文件自身行数",
+    "productSource": {
+      "files": 9,
+      "added": 903,
+      "deleted": 97,
+      "net": 806,
+      "excludes": [
+        "ruyi-workbench/app/server.js",
+        "ruyi-workbench/app/src/manifest.json",
+        "ruyi-workbench/app/src/module-contracts.json"
+      ],
+      "perFile": [
+        {"file": "ruyi-workbench/app/src/13ah-work-data-setup.js", "added": 15, "deleted": 9},
+        {"file": "ruyi-workbench/app/src/13ai-work-data-worker.js", "added": 143, "deleted": 10},
+        {"file": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js", "added": 74, "deleted": 25},
+        {"file": "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js", "added": 147, "deleted": 31},
+        {"file": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js", "added": 6, "deleted": 1},
+        {"file": "ruyi-workbench/app/src/13au-work-data-runtime-host.js", "added": 249, "deleted": 16},
+        {"file": "ruyi-workbench/app/src/14-main.js", "added": 10, "deleted": 1},
+        {"file": "ruyi-workbench/app/public/js/work-data-settings.js", "added": 4, "deleted": 4},
+        {"file": "ruyi-workbench/app/src/13av-work-data-handoff-claim.js", "added": 255, "deleted": 0, "new": true}
+      ]
+    },
+    "tests": {
+      "files": 19,
+      "added": 2565,
+      "deleted": 69,
+      "net": 2496,
+      "perFile": [
+        {"file": "dev-harness/lib/work-data-maintenance-runtime-process-fixture.cjs", "added": 10, "deleted": 3},
+        {"file": "dev-harness/lib/work-data-production-host-fixture.js", "added": 98, "deleted": 7},
+        {"file": "dev-harness/lib/work-data-production-upload-core.js", "added": 18, "deleted": 8},
+        {"file": "dev-harness/lib/work-data-production-upload-process.js", "added": 13, "deleted": 2},
+        {"file": "dev-harness/process-safety.static.e2e.js", "added": 1, "deleted": 1},
+        {"file": "dev-harness/run-all.js", "added": 6, "deleted": 0},
+        {"file": "dev-harness/unit/work-data-cold-operations.test.js", "added": 201, "deleted": 5},
+        {"file": "dev-harness/unit/work-data-helper-owner-lifetime.test.js", "added": 3, "deleted": 1},
+        {"file": "dev-harness/unit/work-data-maintenance-glue.test.js", "added": 16, "deleted": 0},
+        {"file": "dev-harness/unit/work-data-maintenance-runtime.test.js", "added": 215, "deleted": 3},
+        {"file": "dev-harness/unit/work-data-maintenance-worker.test.js", "added": 278, "deleted": 14},
+        {"file": "dev-harness/unit/work-data-production-host.test.js", "added": 378, "deleted": 1},
+        {"file": "dev-harness/unit/work-data-settings.test.js", "added": 32, "deleted": 2},
+        {"file": "dev-harness/unit/work-data-setup.test.js", "added": 42, "deleted": 9},
+        {"file": "dev-harness/work-data-production-upload.e2e.js", "added": 45, "deleted": 7},
+        {"file": "dev-harness/work-data-settings.browser.e2e.js", "added": 10, "deleted": 6},
+        {"file": "dev-harness/lib/work-data-production-maintenance-outer-job.ps1", "added": 166, "deleted": 0, "new": true},
+        {"file": "dev-harness/unit/work-data-handoff-claim.test.js", "added": 325, "deleted": 0, "new": true},
+        {"file": "dev-harness/work-data-production-maintenance.e2e.js", "added": 708, "deleted": 0, "new": true}
+      ]
+    },
+    "docs": {
+      "files": 6,
+      "added": 524,
+      "deleted": 12,
+      "net": 512,
+      "includes": [
+        "README.md",
+        "README_EN.md",
+        "92-3.1-implementation-handoff.md",
+        "96-m3-3-migration-and-recovery.md",
+        "97-3.1-cross-machine-handoff-20261025.md",
+        "evidence/m3-production-maintenance-20261028.json"
+      ]
+    },
+    "generated": {
+      "files": 8,
+      "added": 1111,
+      "deleted": 197,
+      "net": 914,
+      "perFile": [
+        {"file": "ruyi-workbench/app/server.js", "added": 900, "deleted": 93},
+        {"file": "ruyi-workbench/app/src/manifest.json", "added": 38, "deleted": 32},
+        {"file": "ruyi-workbench/app/src/module-contracts.json", "added": 44, "deleted": 7},
+        {"file": "docs/architecture/module-dependency-graph.json", "added": 94, "deleted": 37},
+        {"file": "docs/architecture/module-dependency-graph.md", "added": 21, "deleted": 18},
+        {"file": "docs/architecture/route-inventory.json", "added": 6, "deleted": 2},
+        {"file": "docs/architecture/route-inventory.md", "added": 5, "deleted": 5},
+        {"file": "facts.json", "added": 3, "deleted": 3}
+      ]
+    }
+  }
+}

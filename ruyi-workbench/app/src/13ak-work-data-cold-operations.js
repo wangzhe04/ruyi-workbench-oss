@@ -65,7 +65,19 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
     async function execute(context) {
       const base = p.resolve(context.base), id = context.id;
       if (!/^[a-f0-9]{48}$/.test(id || '') || await context.assertExclusive(context.ownership) !== true) throw fail('ownership_required');
-      const owned = new Set(), issuedBackups = new Map(); let alive = true, mutation = false, intent = null, restoreStarted = false, resultStarted = false, helperUncertain = false;
+      // The handoff claim is a bounded capability: finish/abandon only. This body
+      // can never read, rewrite or re-own the record it is asked to retire.
+      const claim = context.claim === undefined ? null : context.claim;
+      if (claim !== null && (!claim || typeof claim !== 'object'
+        || typeof claim.finish !== 'function' || typeof claim.abandon !== 'function')) throw fail('claim_capability_invalid');
+      const clearClaim = async () => { if (claim) try { await claim.finish(); } catch { /* retained: result without intent is classifiable */ } };
+      const abandonClaim = async () => { if (claim) try { await claim.abandon(); } catch { /* retained: classification decides */ } };
+      const owned = new Set(), issuedBackups = new Map();
+      let alive = true, mutation = false, intent = null, restoreStarted = false, resultStarted = false, helperUncertain = false;
+      let backupStarted = false, rehearsalStarted = false;
+      // The exact path this attempt may create. It is inspection evidence only: it
+      // never authorizes a recovery, a retry or a success claim.
+      let backupAttemptPath = null;
       const retainHelper = cause => {
         const seen = new Set(); let current = cause;
         try {
@@ -95,20 +107,26 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
       const full = () => WorkDataFullSnapshot.create({ base, ownership: context.ownership, assertExclusive,
         protector, externalOwner: options => ExternalBotCredentials.create(options),
         skillBackupOwner: options => MigrationHooks.createBackupOwner(options), maintenanceResultOwner: WorkDataMaintenanceResult });
-      const authority = await WorkDataManifest.create({ base }).readActive();
-      if (authority.generation !== context.expectedAuthority.generation || authority.proof.sha256 !== context.expectedAuthority.sha256) throw fail('authority_changed');
-      let sourceMode = authority.mode;
-      if (!authority.generation) {
-        const sourceConfig = await readBounded(p.join(base, 'config.json'), 4 * 1024 * 1024);
-        const text = sourceConfig.bytes.toString('utf8');
-        if (!Buffer.from(text).equals(sourceConfig.bytes)) throw fail('config_unavailable');
-        const value = JSON.parse(text.replace(/^\uFEFF/, ''));
-        if (!value || typeof value !== 'object' || Array.isArray(value)
-          || value.workDataEncryptionV1 !== undefined && typeof value.workDataEncryptionV1 !== 'boolean') throw fail('config_unavailable');
-        sourceMode = value.workDataEncryptionV1 === true ? 'encrypted' : 'plain';
-      }
-      if (sourceMode !== context.expectedAuthority.mode || authority.id !== context.expectedAuthority.id) throw fail('authority_changed');
-      const expected = Object.freeze({ generation: authority.generation, id: authority.id, mode: sourceMode, sha256: authority.proof.sha256 });
+      // Every refusal below happens before a byte is written, so the handoff record
+      // may be dropped instead of pinning the next boot to a pending `owned` claim.
+      const preflight = async work => { try { return await work(); } catch (cause) { await abandonClaim(); throw cause; } };
+      const selected = await preflight(async () => {
+        const current = await WorkDataManifest.create({ base }).readActive();
+        if (current.generation !== context.expectedAuthority.generation || current.proof.sha256 !== context.expectedAuthority.sha256) throw fail('authority_changed');
+        let mode = current.mode;
+        if (!current.generation) {
+          const sourceConfig = await readBounded(p.join(base, 'config.json'), 4 * 1024 * 1024);
+          const text = sourceConfig.bytes.toString('utf8');
+          if (!Buffer.from(text).equals(sourceConfig.bytes)) throw fail('config_unavailable');
+          const value = JSON.parse(text.replace(/^\uFEFF/, ''));
+          if (!value || typeof value !== 'object' || Array.isArray(value)
+            || value.workDataEncryptionV1 !== undefined && typeof value.workDataEncryptionV1 !== 'boolean') throw fail('config_unavailable');
+          mode = value.workDataEncryptionV1 === true ? 'encrypted' : 'plain';
+        }
+        if (mode !== context.expectedAuthority.mode || current.id !== context.expectedAuthority.id) throw fail('authority_changed');
+        return Object.freeze({ authority: current, expected: Object.freeze({ generation: current.generation, id: current.id, mode, sha256: current.proof.sha256 }) });
+      });
+      const authority = selected.authority, expected = selected.expected;
       const readResultAuthority = async () => {
         const current = await WorkDataManifest.create({ base }).readActive(); let mode = current.mode;
         if (!current.generation) {
@@ -129,11 +147,11 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         const current = await readBounded(value.path, maxPackage);
         return current.identity.dev === receipt.identity.dev && current.identity.ino === receipt.identity.ino && hash(current.bytes) === receipt.sha256;
       };
-      const control = WorkDataMaintenanceControl.create({ base, ownership: context.ownership, assertExclusive,
-        assertDurableBackup: verifyBackup, flush: host.flush });
-      if (context.operation !== 'restore' && (await control.inspect()).pending) throw fail('intent_pending');
-      const results = WorkDataMaintenanceResult.create({base,ownership:context.ownership,assertExclusive,
-        readAuthority:readResultAuthority,assertDurableBackup:verifyBackup,flush:host.flush});
+      const control = await preflight(async () => WorkDataMaintenanceControl.create({ base, ownership: context.ownership, assertExclusive,
+        assertDurableBackup: verifyBackup, flush: host.flush }));
+      if (context.operation !== 'restore') await preflight(async () => { if ((await control.inspect()).pending) throw fail('intent_pending'); });
+      const results = await preflight(async () => WorkDataMaintenanceResult.create({base,ownership:context.ownership,assertExclusive,
+        readAuthority:readResultAuthority,assertDurableBackup:verifyBackup,flush:host.flush}));
       const persistResult = async result => {
         resultStarted = true;
         const receipt = issuedBackups.get(result.backup.path);
@@ -155,8 +173,17 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         if (!['enable', 'disable', 'export', 'restore'].includes(context.operation)) throw fail('operation_invalid');
         if (context.operation === 'enable' && expected.mode === 'encrypted' || context.operation === 'disable' && expected.mode === 'plain') throw fail('mode_unchanged');
         const saveBackup = async bytes => {
-          const backupFile = p.join(backupDirectory, 'ruyi-work-data-' + id + '.ruyi-backup'); await absent(backupFile);
+          const backupFile = p.join(backupDirectory, 'ruyi-work-data-' + id + '.ruyi-backup');
+          // Bind the path before touching the disk so a later failure can name it,
+          // without that name granting any authority over the file.
+          backupAttemptPath = backupFile;
+          await absent(backupFile);
           const handle = await io.open(backupFile, 'wx', 0o600);
+          // `wx` is the first byte-level effect. Everything before it (a pre-existing
+          // path, a refused open) provably created nothing, so those refusals may
+          // still abandon the handoff record; everything after it may leave bytes a
+          // later boot must inspect, so the record is retained.
+          backupStarted = true;
           try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
           await host.flush([backupDirectory]);
           const saved = await readBounded(backupFile, maxPackage);
@@ -201,7 +228,10 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         await progress('verify-backup');
         // An authenticated package is exercised through the real restore owner,
         // then checked by a separate cold Node process before any source intent.
-        const rehearsal = p.join(backupDirectory, '.ruyi-work-data-verify-' + id); await absent(rehearsal);
+        const rehearsal = p.join(backupDirectory, '.ruyi-work-data-verify-' + id);
+        // From here a disposable tree may exist on disk: it is an effect too.
+        rehearsalStarted = true;
+        await absent(rehearsal);
         const rehearsalOwner = await acquire(rehearsal);
         const rehearsed = await full().restore({ serialized: captured.serialized, password: context.password, target: rehearsal, targetOwnership: rehearsalOwner });
         const tree = WorkDataTree.create(), cleanupProof = await tree.capture(rehearsal);
@@ -228,8 +258,14 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           await release(cleanupOwner);
         } finally { cleanupProof.release(); }
         if (!await verifyBackup(backup)) throw fail('backup_changed');
-        if (context.operation === 'export') return await completed({ id, operation: 'export', state: 'verified', backup, restartRoot: base,
-          publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: 'source root and excluded user content are retained' });
+        if (context.operation === 'export') {
+          const exported = await completed({ id, operation: 'export', state: 'verified', backup, restartRoot: base,
+            publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: 'source root and excluded user content are retained' });
+          // Only the verified result authorizes retiring the handoff record. A failed
+          // removal keeps it: result without intent is classifiable, never replayed.
+          await clearClaim();
+          return exported;
+        }
         const state = { schema: 1, id, operation: context.operation, phase: 'prepared', createdAt: new Date().toISOString(), expectedAuthority: expected, backup, candidate: null };
         mutation = true; intent = await control.write(state);
         const update = async (phase, candidate, headerSha256) => {
@@ -274,16 +310,29 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           restartRoot: base, publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: prepared.retainedPlainDisclosure };
         const resultReceipt = await persistResult(result);
         await control.finish(intent, async()=>await verifyPublished() === true && await results.verify(resultReceipt) === true); intent = null;
+        // The intent is gone and the result is verified: this is the only point at
+        // which the handoff record may be retired for a generation change.
+        await clearClaim();
         return Object.freeze(result);
       } catch (cause) {
         retainHelper(cause);
+        // A claim may be dropped only when this attempt provably wrote nothing. Any
+        // backup file created, started rehearsal, source mutation, restore/result
+        // start or unknown native helper keeps the record for a later boot.
+        if (!backupStarted && !rehearsalStarted && !mutation && !restoreStarted && !resultStarted && !helperUncertain) await abandonClaim();
+        // An issued backup is the strongest receipt. Before one exists, the exact
+        // path this attempt tried to create is still worth naming for inspection -
+        // it is not a receipt and authorizes nothing.
+        const boundBackup = backupAttemptPath !== null && p.isAbsolute(backupAttemptPath)
+          && backupAttemptPath.length <= 4096 && p.resolve(backupAttemptPath) === backupAttemptPath ? backupAttemptPath : null;
+        const backupPath = issuedBackups.size === 1 ? issuedBackups.keys().next().value : boundBackup;
         throw fail(mutation ? 'transition_requires_recovery' : restoreStarted ? 'restore_requires_inspection' : resultStarted ? 'result_requires_recovery' : 'preparation_failed', { cause,
           operationMayHaveExecuted: mutation || restoreStarted || resultStarted,
           sourceIntentRetained: intent !== null,
           resultMayHaveBeenWritten: resultStarted,
           ...(helperUncertain ? {helperMayStillRun:true} : {}),
           ...(restoreStarted ? {targetMayHaveBeenCreated:true,targetPath:context.paths.targetDirectory} : {}),
-          ...(issuedBackups.size === 1 ? { backupPath: issuedBackups.keys().next().value } : {}) });
+          ...(backupPath ? { backupPath } : {}) });
       } finally {
         alive = false;
         // Native flush/capsule adapters settle their actual helper before returning.

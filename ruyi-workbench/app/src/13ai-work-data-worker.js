@@ -1,7 +1,8 @@
 // Cold-process handoff. No config/store read, ownership release or warm root switch
 // occurs in the parent. The worker needs both an authenticated IPC commitment and
-// actual parent death before acquiring the base. All mutation belongs to execute().
-const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
+// actual parent death before acquiring the base. Every base mutation belongs to
+// execute(); the TEMP handoff claim is metadata only and widens no authority.
+const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   const VERSION = 1, MAX_INPUT = 32 * 1024, ID = /^[a-f0-9]{48}$/;
   const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_))/i;
   const fail = (suffix, uncertain = false) => Object.assign(new Error('work_data_setup.' + suffix), {
@@ -18,6 +19,32 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
   function absolute(value) {
     return typeof value === 'string' && value.length <= 4096 && !/[\0\r\n]/.test(value)
       && pathApi.isAbsolute(value) && pathApi.resolve(value) === value;
+  }
+  const keyOf = value => typeof value === 'string' ? (process.platform === 'win32' ? value.toLowerCase() : value) : '';
+  // The handoff record is owned by the claim module (13av) through the host. Its
+  // schema admits enable/disable/export only, so the legacy restore path never
+  // advertises a record this owner would refuse.
+  const CLAIMED = ['enable', 'disable', 'export'];
+  const claimRecord = (source, phase, updatedAt) => Object.freeze({
+    schema: VERSION, base: source.base,
+    baseIdentity: Object.freeze({ dev: String(source.baseIdentity.dev), ino: String(source.baseIdentity.ino) }),
+    id: source.id, nonce: source.nonce, parentPid: source.parentPid, childPid: source.childPid,
+    operation: source.operation, serve: Object.freeze({ host: source.serve.host, port: source.serve.port }),
+    phase, createdAt: source.createdAt, updatedAt,
+  });
+  function claimApi(host) {
+    const value = host.claim;
+    if (value === undefined) return null;
+    if (!value || typeof value !== 'object'
+      || ['inspect', 'write', 'remove'].some(name => typeof value[name] !== 'function')) throw fail('claim_host_invalid');
+    return value;
+  }
+  // The claim owner re-reads the base directory identity on every write; the first
+  // write is the only place this process has to observe it.
+  async function baseIdentityOf(base) {
+    const stat = await io.lstat(base, { bigint: true });
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw fail('claim_invalid');
+    return Object.freeze({ dev: String(stat.dev), ino: String(stat.ino) });
   }
   function validate(value) {
     if (keys(value) !== (value?.operation==='restore'?'base,expectedAuthority,id,nonce,operation,parentPid,password,paths,schema,serve,upload':'base,expectedAuthority,id,nonce,operation,parentPid,password,paths,schema,serve')
@@ -59,6 +86,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
     }
     async function start(request) {
       if (pending.size) throw fail('busy');
+      const claims = claimApi(host);
       const base = await host.base();
       const nonce=cryptoApi.randomBytes(32).toString('hex');let upload=null;
       if(request.operation==='restore'){if(typeof WorkDataRestoreUploads==='undefined'||WorkDataRestoreUploads.isBroker(host.uploads)!==true||WorkDataRestoreUploads.ownsGrant(request.uploadGrant,{uploadId:request.uploadId,jobId:request.id})!==true)throw fail('upload_unavailable');upload=await host.uploads.handoff(request.uploadGrant,{jobId:request.id,nonce,base});}
@@ -72,7 +100,9 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
       // No await after the final concurrent-start check until this exact child is registered.
       if(pending.size){bytes.fill(0);throw fail('busy');}
       let child;try{child=host.spawn(environment(base));}catch(error){bytes.fill(0);throw error;}
-      let state = 'waiting', closed = false, readyResolve, readyReject, armedResolve, armedReject;
+      let state = 'waiting', closed = false, registering = null, claimReceipt = null, claimedAt = null;
+      let stopRequested = false, cancelRequest = null;
+      let readyResolve, readyReject, armedResolve, armedReject;
       const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
       const armed = new Promise((resolve, reject) => { armedResolve = resolve; armedReject = reject; });
       // A pre-handoff failure can reject armed before handoff() attaches a consumer.
@@ -83,6 +113,33 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         if (pending.get(input.id) === child) pending.delete(input.id);
       };
       const uncertain = () => state === 'committing' || state === 'armed';
+      const now = () => new Date().toISOString();
+      // Only this attempt's own record is ever removed: the identity check below
+      // refuses a foreign id/nonce, and a CAS receipt refuses a later version.
+      const dropClaim = async () => {
+        if (!claims) return;
+        if (!claimReceipt) {
+          const current = await claims.inspect({ base: input.base });
+          if (!current?.present || current.value.id !== input.id || current.value.nonce !== input.nonce) return;
+          claimReceipt = current.receipt;
+        }
+        await claims.remove(claimReceipt); claimReceipt = null;
+      };
+      // An armed record carries no commitment: leaving it behind is inert and the
+      // next boot may clear it. Cleanup therefore never turns into a second failure.
+      const forgetClaim = async () => { try { await dropClaim(); } catch { /* inert armed record */ } };
+      const stopChild = () => {
+        if (typeof host.stopUncommitted !== 'function') return;
+        try { void Promise.resolve(host.stopUncommitted(child)).catch(() => {}); } catch { /* bounded stop only */ }
+      };
+      // The child never received go, so a failed registration cannot have executed.
+      const claimFailed = error => {
+        if (closed) return;
+        closed = true;
+        const failure = Object.assign(fail('claim_failed'), { cause: error });
+        readyReject(failure); armedReject(failure);
+        release(); stopChild(); void forgetClaim();
+      };
       const rejected = suffix => {
         if (closed) return;
         closed = true;
@@ -98,7 +155,33 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         if (closed || keys(message) !== 'id,kind,nonce,schema' || message.schema !== VERSION
           || message.id !== input.id || message.nonce !== input.nonce) return;
         if (message.kind === 'ready' && state === 'waiting') {
-          state = 'ready'; if (timer) { host.clearTimeout(timer); timer = null; } readyResolve();
+          if (timer) { host.clearTimeout(timer); timer = null; }
+          if (!claims || !CLAIMED.includes(input.operation)) { state = 'ready'; readyResolve(); return; }
+          // Only this exact transition may start the write, and only after it lands
+          // may ready resolve. Duplicate and out-of-order messages cannot re-enter:
+          // the state changes before the first await, and `armed` needs `committing`.
+          state = 'registering'; claimedAt = now();
+          registering = (async () => {
+            try {
+              if (!Number.isSafeInteger(child.pid) || child.pid < 1) throw fail('claim_invalid');
+              const baseIdentity = await baseIdentityOf(input.base);
+              // A first record is `armed` with one timestamp: the owner refuses a
+              // pre-advanced phase or a createdAt/updatedAt mismatch here.
+              claimReceipt = await claims.write(claimRecord({ ...input, childPid: child.pid, baseIdentity, createdAt: claimedAt }, 'armed', claimedAt), null);
+              if (!claimReceipt || typeof claimReceipt !== 'object') throw fail('claim_invalid');
+            } catch (error) {
+              // A write that refused after the child died still leaves no ownership:
+              // only this attempt's inert record is dropped, and only if one exists.
+              if (closed) await forgetClaim(); else claimFailed(error);
+              return;
+            }
+            // A child that died during registration never received go.
+            if (closed) { await forgetClaim(); return; }
+            // A cancel that arrived while the write was in flight owns the cleanup:
+            // resolving ready here would let that attempt hand off after cancel.
+            if (stopRequested) return;
+            state = 'ready'; readyResolve();
+          })();
         } else if (message.kind === 'armed' && state === 'committing') {
           state = 'armed'; if (timer) { host.clearTimeout(timer); timer = null; } armedResolve();
         }
@@ -114,16 +197,31 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         try { child.send({ schema: VERSION, kind, id: input.id, nonce: input.nonce }, error => error ? reject(error) : resolve()); }
         catch (error) { reject(error); }
       });
-      return Object.freeze({ ready,
-        async cancel() {
+      // Only the first caller drives the stop; a concurrent cancel joins it instead
+      // of sending a second cancel or stopping the same child twice.
+      async function cancel() {
+        if (cancelRequest) return cancelRequest;
+        if (state === 'committing' || state === 'armed') throw fail('handoff_committed', true);
+        if (state === 'cancelled') return;
+        cancelRequest = (async () => {
+          // A ready-registration in flight decides whether this handle owns a claim.
+          // It must not resolve ready once a cancel has been requested.
+          stopRequested = true;
+          if (registering) await registering;
           if (state === 'committing' || state === 'armed') throw fail('handoff_committed', true);
-          if (state === 'cancelled') return;
+          if (state === 'cancelled' || closed) return;
           state = 'cancelled'; closed = true; readyReject(fail('cancelled')); armedReject(fail('cancelled'));
+          // Only this attempt's own armed claim is cleared, and only before the
+          // child is stopped: a committed/owned record was refused above.
+          await forgetClaim();
           try { await send('cancel'); } catch { /* A dead uncommitted child cannot execute. */ }
           // The OS is the final owner of pipe handles. A nonresponsive uncommitted
           // worker remains incapable of execution; cleanup touches only this child.
           await host.stopUncommitted(child); release();
-        },
+        })();
+        try { return await cancelRequest; } catch (error) { cancelRequest = null; throw error; }
+      }
+      return Object.freeze({ ready, cancel,
         async handoff() {
           await ready;
           if (closed || state !== 'ready') throw fail('handoff_invalid', uncertain());
@@ -139,6 +237,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
     }
     async function runCold(channel) {
       if (!channel.parentConnected()) throw fail('ipc_required');
+      const claims = claimApi(host);
       const payload = await channel.readInput(MAX_INPUT);
       let input;
       try {
@@ -150,11 +249,41 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
       finally { if (Buffer.isBuffer(payload)) payload.fill(0); }
       if (input.parentPid === host.pid || input.parentPid !== channel.parentPid()) throw fail('parent_invalid');
       let committed = false, helperHold = false, ownedFailureHeld = false;
+      let claim = null, claimReceipt = null;
+      const claimed = claims !== null && CLAIMED.includes(input.operation);
+      const now = () => new Date().toISOString();
+      const sameClaim = record => record && typeof record === 'object'
+        && record.id === input.id && record.nonce === input.nonce && keyOf(record.base) === keyOf(input.base)
+        && record.parentPid === input.parentPid && record.childPid === host.pid
+        && record.operation === input.operation && record.serve && typeof record.serve === 'object'
+        && record.serve.host === input.serve.host && record.serve.port === input.serve.port;
+      // Each advance is a CAS on the receipt this process last held; the claim owner
+      // re-checks every immutable field, so no other attempt can be adopted here.
+      const advance = async phase => {
+        claimReceipt = await claims.write(claimRecord(claim, phase, now()), claimReceipt);
+        if (!claimReceipt || typeof claimReceipt !== 'object') throw fail('claim_invalid');
+      };
+      const removeClaim = async () => {
+        if (!claimed || !claimReceipt) return;
+        const receipt = claimReceipt;
+        await claims.remove(receipt); claimReceipt = null;
+      };
+      // Bounded: the operation body can only retire its own record, never read,
+      // write or re-own the handoff.
+      const capability = claimed ? Object.freeze({ finish: () => removeClaim(), abandon: () => removeClaim() }) : undefined;
       try {
         const command = await channel.waitCommand({ id: input.id, nonce: input.nonce,
           schema: VERSION, timeoutMs: host.handshakeTimeoutMs || 15_000,
           onListening: () => channel.send({ schema: VERSION, kind: 'ready', id: input.id, nonce: input.nonce }) });
         if (command !== 'go') return Object.freeze({ phase: 'cancelled' });
+        if (claimed) {
+          // The parent persists `armed` before it may send go, so a missing,
+          // foreign or already-advanced record refuses before anything is adopted.
+          const current = await claims.inspect({ base: input.base });
+          if (!current?.present || !sameClaim(current.value) || current.value.phase !== 'armed') throw fail('claim_invalid');
+          claim = current.value; claimReceipt = current.receipt;
+          await advance('committed');
+        }
         committed = true;
         await channel.send({ schema: VERSION, kind: 'armed', id: input.id, nonce: input.nonce });
         // IPC disconnect alone is insufficient: a still-live/EPERM PID prevents
@@ -167,12 +296,16 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         const assertExclusive = candidate => active && candidate === owner
           && owner.roots.some(root => root === base);
         try {
+          // Ownership is recorded before any authority read or operation body, so a
+          // crash here stays `owned` for classification rather than replaying.
+          if (claimed) await advance('owned');
           if(input.operation==='restore')await WorkDataRestoreUploads.verifyHandoff(input.upload,{base,jobId:input.id,nonce:input.nonce,ownership:owner,assertExclusive});
           const current = await host.readAuthority(base);
           if (current.generation !== input.expectedAuthority.generation
             || current.id !== input.expectedAuthority.id || current.mode !== input.expectedAuthority.mode
             || current.proof.sha256 !== input.expectedAuthority.sha256) throw fail('authority_changed', true);
-          return await host.execute({ ...input, nonce: undefined, ownership: owner, assertExclusive });
+          return await host.execute({ ...input, nonce: undefined, ownership: owner, assertExclusive,
+            ...(capability ? { claim: capability } : {}) });
         } catch (error) {
           // A concrete native failure can arrive before the outer host records
           // it. Preserve that fact before considering release of the base owner.
@@ -274,4 +407,4 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
     });
   }
   return Object.freeze({ create, validate, processChannel, waitForProcessExit, spawnCold, MAX_INPUT });
-})(require('node:crypto'), require('node:path'));
+})(require('node:crypto'), require('node:path'), require('node:fs/promises'));

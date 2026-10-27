@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 123,
-    "providedSymbols": 4167,
-    "requiredSymbols": 4017,
-    "edges": 855,
+    "modules": 124,
+    "providedSymbols": 4168,
+    "requiredSymbols": 4021,
+    "edges": 857,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -28276,7 +28276,7 @@
       "file": "13at-work-data-restore-uploads.js",
       "order": 108,
       "layer": "unclassified",
-      "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and a private job/nonce handoff consumed by the cold worker; HTTP upload custody and the warm runtime keeper are wired, restore activation stays with WorkDataSetup / WorkDataRuntimeHost",
+      "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and a private job/nonce handoff consumed by the cold worker; HTTP upload custody and the warm runtime keeper are wired, while production restore admission currently stays closed (501) and nothing here implies restore is open; restore activation stays with WorkDataSetup / WorkDataRuntimeHost",
       "provides": [
         "WorkDataRestoreUploads"
       ],
@@ -28298,10 +28298,28 @@
       ]
     },
     {
-      "file": "13ah-work-data-setup.js",
+      "file": "13av-work-data-handoff-claim.js",
       "order": 109,
       "layer": "unclassified",
-      "note": "M3-3: authenticated setup jobs and complete HTTP maintenance admission",
+      "note": "M3-3: durable warm/cold handoff claim with exact identity CAS and fail-closed cleanup; never a migration or ownership authority",
+      "provides": [
+        "WorkDataHandoffClaim"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ah-work-data-setup.js",
+      "order": 110,
+      "layer": "unclassified",
+      "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, status, jobs and upload; restore is refused with work_data_setup.restore_unavailable before any grant is issued",
       "provides": [
         "WorkDataSetup",
         "workDataSetup",
@@ -28370,6 +28388,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceRuntimeHooks",
           "kinds": [
             "read"
           ]
@@ -28485,19 +28510,12 @@
           "kinds": [
             "read"
           ]
-        },
-        {
-          "provider": "13at-work-data-restore-uploads.js",
-          "symbol": "WorkDataRestoreUploads",
-          "kinds": [
-            "read"
-          ]
         }
       ]
     },
     {
       "file": "13ai-work-data-worker.js",
-      "order": 110,
+      "order": 111,
       "layer": "unclassified",
       "note": "K3 cold maintenance worker: authenticated private IPC plus proof of parent death before it touches the base, restore-upload handoff validation and execute()-only mutation; the parent reads no config or store, releases no ownership and switches no warm root",
       "provides": [
@@ -28530,7 +28548,7 @@
     },
     {
       "file": "13aj-work-data-control.js",
-      "order": 111,
+      "order": 112,
       "layer": "unclassified",
       "note": "K3 durable single pending maintenance intent with its per-write receipts: a private issued receipt gates every update/removal, an interrupted write never authorizes the next mutation, and boot refuses unfinished intent/result state before normal recovery",
       "provides": [
@@ -28548,7 +28566,7 @@
     },
     {
       "file": "13al-work-data-maintenance-http.js",
-      "order": 112,
+      "order": 113,
       "layer": "unclassified",
       "note": "K3 bounded cold-worker progress HTTP: loopback-only status transport whose caller has already proved parent death and current exclusive OS ownership; it opens no data root and starts no maintenance",
       "provides": [
@@ -28587,7 +28605,7 @@
     },
     {
       "file": "13an-work-data-disposable-tree.js",
-      "order": 113,
+      "order": 114,
       "layer": "unclassified",
       "note": "K3 disposal of the owned disposable native rehearsal tree: requires the real native namespace census plus WorkDataTree's private identity proof and refuses any capture above the existing 96 MB bound instead of omitting tail, stream or unknown objects",
       "provides": [
@@ -28597,7 +28615,7 @@
     },
     {
       "file": "13ak-work-data-cold-operations.js",
-      "order": 114,
+      "order": 115,
       "layer": "unclassified",
       "note": "K3 cold operation bodies for the fresh maintenance worker: backup, restore and rehearsal run on host-supplied real owner lifetimes and the reviewed snapshot/codec/native owners; never starts a normal server or changes process-global paths",
       "provides": [
@@ -28692,9 +28710,9 @@
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "order": 115,
+      "order": 116,
       "layer": "unclassified",
-      "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and the successor runSuccessor handoff into a fresh serve that must re-prove the same listener and authority; only a reviewed production host may configure it, otherwise the capability stays unavailable",
+      "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and successor maintenance; in production the successor is WorkDataRuntimeHost startSuccessorMaintenance driving the prepare/complete two-phase handoff into a fresh serve that must re-prove the same listener and authority, while runSuccessor remains only the legacy harness path; only a reviewed production host may configure it",
       "provides": [
         "WorkDataMaintenanceRuntime"
       ],
@@ -28773,7 +28791,7 @@
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "order": 116,
+      "order": 117,
       "layer": "unclassified",
       "note": "M3-4 committed-message text index owner",
       "provides": [
@@ -28885,7 +28903,7 @@
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "order": 117,
+      "order": 118,
       "layer": "unclassified",
       "note": "M3-4 authorized UI/model/MCP fulltext consumers",
       "provides": [
@@ -29066,7 +29084,7 @@
     },
     {
       "file": "13ba-media-image-contract.js",
-      "order": 118,
+      "order": 119,
       "layer": "unclassified",
       "note": "M4 bounded in-memory image contract; production media owners unbound",
       "provides": [
@@ -29091,7 +29109,7 @@
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "order": 119,
+      "order": 120,
       "layer": "unclassified",
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false",
       "provides": [
@@ -29207,7 +29225,7 @@
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "order": 120,
+      "order": 121,
       "layer": "unclassified",
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability",
       "provides": [
@@ -29239,9 +29257,9 @@
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "order": 121,
+      "order": 122,
       "layer": "unclassified",
-      "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. Declared capabilities stay upload-only, so worker, download, crashClaim and activation remain unavailable — no automatic startup and no completed restore.",
+      "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. download, crashClaim and fresh-root activation remain unavailable, and restore is not completed in this process.",
       "provides": [
         "WorkDataRuntimeHost",
         "WorkDataServeUploadBootstrap"
@@ -29250,6 +29268,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -29330,12 +29355,19 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13av-work-data-handoff-claim.js",
+          "symbol": "WorkDataHandoffClaim",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
     {
       "file": "14-main.js",
-      "order": 122,
+      "order": 123,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -33251,6 +33283,13 @@
         {
           "provider": "13ar-work-data-verifier-entry.js",
           "symbol": "WorkDataVerifierEntry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13au-work-data-runtime-host.js",
+          "symbol": "WorkDataRuntimeHost",
           "kinds": [
             "read"
           ]
@@ -39060,6 +39099,7 @@
       "symbols": [
         "URL",
         "WorkDataMaintenanceHooks",
+        "WorkDataMaintenanceRuntimeHooks",
         "WorkDataMaintenanceWorkerHooks",
         "WorkDataRootHooks",
         "WorkDataSetupHooks",
@@ -39139,14 +39179,6 @@
       "to": "11-native-tools.js",
       "symbols": [
         "shellSessions"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13ah-work-data-setup.js",
-      "to": "13at-work-data-restore-uploads.js",
-      "symbols": [
-        "WorkDataRestoreUploads"
       ],
       "direction": "backward"
     },
@@ -39642,6 +39674,7 @@
       "to": "00-boot.js",
       "symbols": [
         "MigrationHooks",
+        "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceRuntimeHooks",
         "WorkDataMaintenanceWorkerHooks"
       ],
@@ -39716,6 +39749,22 @@
       "to": "13at-work-data-restore-uploads.js",
       "symbols": [
         "WorkDataRestoreUploads"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "13av-work-data-handoff-claim.js",
+      "symbols": [
+        "WorkDataHandoffClaim"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13av-work-data-handoff-claim.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "text"
       ],
       "direction": "backward"
     },
@@ -43447,6 +43496,14 @@
       "to": "13ar-work-data-verifier-entry.js",
       "symbols": [
         "WorkDataVerifierEntry"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13au-work-data-runtime-host.js",
+      "symbols": [
+        "WorkDataRuntimeHost"
       ],
       "direction": "backward"
     },

@@ -103507,6 +103507,262 @@ const WorkDataRestoreUploads = ((io,p,c) => {
   return Object.freeze({create,isBroker:value=>brokers.has(value),ownsGrant:(value,{uploadId,jobId})=>{const known=grants.get(value);return!!known&&known.row.id===uploadId&&known.jobId===jobId;},validateHandoff,verifyHandoff});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
 
+// Handoff claim metadata lives in TEMP, never in the base or a backup package.
+// It records which parent/child pair may be executing one maintenance job; it is
+// never authority to execute, release or call an operation complete. Every
+// update/removal is bound to the exact previous sha256 plus native dev/ino, and
+// classification only says whether the record itself may be cleaned.
+const WorkDataHandoffClaim = ((io, p, c) => {
+  const NAME = 'claim-v1.json', DIR = 'ruyi-work-data-handoff-', STAGE = '.claim-v1.stage-';
+  const LIMIT = 16 * 1024, ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/, PHASES = ['armed', 'committed', 'owned'];
+  const fail = (suffix, cause) => Object.assign(Error('work_data_claim.' + suffix), {
+    code: 'work_data_claim.' + suffix, apiCode: 'work_data_claim.' + suffix, statusCode: 409, retry: false,
+    ...(cause === undefined ? {} : { cause }),
+  });
+  const keys = value => value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).sort().join(',') : '';
+  const shape = (value, expected) => keys(value) === expected;
+  const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const hash = bytes => c.createHash('sha256').update(bytes).digest('hex');
+  const absolute = value => typeof value === 'string' && value.length > 0 && value.length <= 4096
+    && !/[\0\r\n]/.test(value) && Buffer.from(value).toString('utf8') === value
+    && p.isAbsolute(value) && p.resolve(value) === value && p.parse(value).root !== value;
+  const inside = (root, value) => {
+    const rel = p.relative(fold(root), fold(value));
+    return rel === '' || rel !== '..' && !rel.startsWith('..' + p.sep) && !p.isAbsolute(rel);
+  };
+  const alias = stat => stat.isSymbolicLink() || stat.reparsePoint === true || typeof stat.reparseTag === 'number' && stat.reparseTag !== 0;
+  const identity = stat => ({ dev: String(stat.dev), ino: String(stat.ino) });
+  const sameIdentity = (a, b) => a.dev === b.dev && a.ino === b.ino;
+  const stamp = value => typeof value === 'string' && new Date(value).toISOString() === value;
+  const listener = value => shape(value, 'host,port') && Number.isInteger(value.port) && value.port >= 1 && value.port <= 65535
+    && ['127.0.0.1', '::1', 'localhost'].includes(value.host);
+  const receiptShape = value => shape(value, 'base,dev,ino,name,sha256') && absolute(value.base) && value.name === NAME
+    && SHA.test(value.sha256 || '') && /^\d{1,40}$/.test(value.dev || '') && /^\d{1,40}$/.test(value.ino || '');
+  function validate(value) {
+    try {
+      return keys(value) === 'base,baseIdentity,childPid,createdAt,id,nonce,operation,parentPid,phase,schema,serve,updatedAt'
+        && value.schema === 1 && absolute(value.base) && ID.test(value.id || '') && SHA.test(value.nonce || '')
+        && ['enable', 'disable', 'export'].includes(value.operation) && PHASES.includes(value.phase)
+        && Number.isSafeInteger(value.parentPid) && value.parentPid >= 1 && value.parentPid <= 0xffffffff
+        && Number.isSafeInteger(value.childPid) && value.childPid >= 1 && value.childPid <= 0xffffffff
+        && value.parentPid !== value.childPid && listener(value.serve)
+        && shape(value.baseIdentity, 'dev,ino')
+        && [value.baseIdentity.dev, value.baseIdentity.ino].every(item => typeof item === 'string' && /^\d{1,40}$/.test(item))
+        && stamp(value.createdAt) && stamp(value.updatedAt) && value.updatedAt >= value.createdAt;
+    } catch { return false; }
+  }
+  const freeze = value => { if (value && typeof value === 'object') { for (const item of Object.values(value)) freeze(item); Object.freeze(value); } return value; };
+  function decode(bytes) {
+    if (!Buffer.isBuffer(bytes) || bytes.length > LIMIT) throw fail('claim_invalid');
+    try {
+      const text = bytes.toString('utf8');
+      if (!Buffer.from(text).equals(bytes)) throw fail('claim_invalid');
+      const value = JSON.parse(text);
+      if (!validate(value)) throw fail('claim_invalid');
+      return freeze(value);
+    } catch { throw fail('claim_invalid'); }
+  }
+  async function directory(root, missing = false) {
+    const parsed = p.parse(root); let cursor = parsed.root; const rows = [];
+    for (const part of ['', ...root.slice(parsed.root.length).split(p.sep).filter(Boolean)]) {
+      if (part) cursor = p.join(cursor, part);
+      let stat;
+      try { stat = await io.lstat(cursor, { bigint: true }); }
+      catch (error) { if (missing && error.code === 'ENOENT') return false; throw error; }
+      if (!stat.isDirectory() || alias(stat) || fold(await io.realpath(cursor)) !== fold(cursor)) throw fail('path_alias');
+      rows.push({ path: cursor, ...identity(stat) });
+    }
+    return rows;
+  }
+  async function capture(file, maximum) {
+    const before = await io.lstat(file, { bigint: true });
+    if (!before.isFile() || alias(before) || before.nlink !== 1n || before.size > BigInt(maximum)) throw fail('claim_invalid');
+    const handle = await io.open(file, 'r'), scratch = Buffer.alloc(65536), chunks = [];
+    try {
+      const opened = await handle.stat({ bigint: true });
+      if (!sameIdentity(identity(opened), identity(before)) || !opened.isFile() || opened.nlink !== 1n) throw fail('claim_changed');
+      let used = 0;
+      for (;;) {
+        const part = await handle.read(scratch, 0, Math.min(scratch.length, maximum + 1 - used), null);
+        if (!part.bytesRead) break;
+        used += part.bytesRead;
+        if (used > maximum) throw fail('claim_invalid');
+        chunks.push(Buffer.from(scratch.subarray(0, part.bytesRead)));
+      }
+      const after = await handle.stat({ bigint: true }), visible = await io.lstat(file, { bigint: true });
+      if (!sameIdentity(identity(after), identity(before)) || !sameIdentity(identity(visible), identity(before))
+        || alias(visible) || after.nlink !== 1n || visible.nlink !== 1n || after.size !== before.size || visible.size !== before.size
+        || used !== Number(before.size) || after.mtimeNs !== opened.mtimeNs || after.ctimeNs !== opened.ctimeNs
+        || visible.mtimeNs !== after.mtimeNs || visible.ctimeNs !== after.ctimeNs) throw fail('claim_changed');
+      const bytes = Buffer.concat(chunks, used);
+      return { bytes, sha256: hash(bytes), size: used, identity: identity(after) };
+    } finally { scratch.fill(0); for (const chunk of chunks) chunk.fill(0); await handle.close(); }
+  }
+  function create({ temp, flush, probe = pid => process.kill(pid, 0) } = {}) {
+    if (!absolute(temp) || typeof flush !== 'function' || typeof probe !== 'function') throw fail('host_invalid');
+    let mutating = false;
+    const location = base => {
+      if (!absolute(base)) throw fail('base_invalid');
+      const root = p.join(temp, DIR + hash(Buffer.from(fold(base), 'utf8')));
+      if (inside(base, root) || inside(root, base)) throw fail('base_invalid');
+      return { base, root, file: p.join(root, NAME) };
+    };
+    const tempPresent = async () => { if (!await directory(temp, true)) throw fail('temp_invalid'); };
+    const baseRow = async (base, expected) => {
+      let rows;
+      try { rows = await directory(base); }
+      catch (error) { if (error?.code === 'ENOENT') throw fail('base_changed'); throw error; }
+      const current = rows.at(-1);
+      if (expected && !sameIdentity(current, expected)) throw fail('base_changed');
+      return current;
+    };
+    async function current(loc) {
+      let before;
+      try { before = await io.lstat(loc.file, { bigint: true }); }
+      catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+      if (!before.isFile() || alias(before) || before.nlink !== 1n || before.size > BigInt(LIMIT)) throw fail('claim_invalid');
+      const captured = await capture(loc.file, LIMIT), value = decode(captured.bytes);
+      if (value.base !== loc.base) throw fail('base_changed');
+      return { value, captured };
+    }
+    const receipt = found => Object.freeze({ base: found.value.base, name: NAME, sha256: found.captured.sha256,
+      dev: found.captured.identity.dev, ino: found.captured.identity.ino });
+    async function inspect(observation = {}) {
+      try {
+        if (!shape(observation, 'base')) throw fail('observation_invalid');
+        const loc = location(observation.base);
+        await tempPresent();
+        if (!await directory(loc.root, true)) return Object.freeze({ present: false });
+        const names = await io.readdir(loc.root);
+        if (names.some(name => fold(name).startsWith(STAGE))) throw fail('stage_pending');
+        if (!names.some(name => fold(name) === NAME)) return Object.freeze({ present: false });
+        const found = await current(loc);
+        if (!found) throw fail('claim_changed');
+        await baseRow(loc.base, found.value.baseIdentity);
+        return Object.freeze({ present: true, value: found.value, receipt: receipt(found) });
+      } catch (error) {
+        if (String(error?.code || '').startsWith('work_data_claim.')) throw error;
+        throw fail('inspect_failed', error);
+      }
+    }
+    async function write(value, previous = null) {
+      let bytes, selected, expected;
+      try { bytes = Buffer.from(JSON.stringify(value)); selected = decode(bytes); expected = hash(bytes); }
+      catch (error) { if (String(error?.code || '').startsWith('work_data_claim.')) throw error; throw fail('claim_invalid', error); }
+      if (bytes.length > LIMIT) throw fail('claim_invalid');
+      if (mutating) throw fail('busy');
+      mutating = true;
+      let stage = null;
+      try {
+        const loc = location(selected.base);
+        await tempPresent();
+        const observed = await inspect({ base: selected.base });
+        if (previous === null) {
+          if (observed.present) throw fail('claim_exists');
+          if (selected.phase !== 'armed' || selected.createdAt !== selected.updatedAt) throw fail('phase_invalid');
+        } else {
+          if (!receiptShape(previous)) throw fail('receipt_invalid');
+          if (!observed.present || previous.base !== selected.base) throw fail('claim_changed');
+          if (observed.receipt.sha256 !== previous.sha256 || !sameIdentity(observed.receipt, previous)) throw fail('claim_changed');
+          const prior = observed.value;
+          if (prior.schema !== selected.schema || prior.base !== selected.base || prior.id !== selected.id
+            || prior.nonce !== selected.nonce || prior.parentPid !== selected.parentPid || prior.childPid !== selected.childPid
+            || prior.operation !== selected.operation || prior.createdAt !== selected.createdAt
+            || prior.baseIdentity.dev !== selected.baseIdentity.dev || prior.baseIdentity.ino !== selected.baseIdentity.ino
+            || prior.serve.host !== selected.serve.host || prior.serve.port !== selected.serve.port) throw fail('binding_changed');
+          if (selected.updatedAt < prior.updatedAt) throw fail('phase_invalid');
+          if (PHASES.indexOf(selected.phase) !== PHASES.indexOf(prior.phase) + 1) throw fail('phase_invalid');
+        }
+        await baseRow(loc.base, selected.baseIdentity);
+        if (!await directory(loc.root, true)) { await io.mkdir(loc.root, { mode: 0o700 }); await directory(loc.root); }
+        stage = p.join(loc.root, STAGE + c.randomBytes(24).toString('hex'));
+        const handle = await io.open(stage, 'wx', 0o600);
+        try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+        await flush([loc.root, temp]);
+        await baseRow(loc.base, selected.baseIdentity);
+        const actual = await current(loc);
+        if (previous === null) {
+          if (actual) throw fail('claim_exists');
+        } else if (!actual || actual.captured.sha256 !== previous.sha256 || !sameIdentity(actual.captured.identity, previous)) throw fail('claim_changed');
+        await io.rename(stage, loc.file); stage = null;
+        await flush([loc.root, temp]);
+        const proof = await capture(loc.file, LIMIT);
+        if (proof.sha256 !== expected) throw fail('claim_changed');
+        return Object.freeze({ base: selected.base, name: NAME, sha256: proof.sha256, dev: proof.identity.dev, ino: proof.identity.ino });
+      } catch (error) {
+        if (String(error?.code || '').startsWith('work_data_claim.')) throw error;
+        throw fail('write_failed', error);
+      } finally { mutating = false; }
+    }
+    async function remove(value) {
+      if (!receiptShape(value)) throw fail('receipt_invalid');
+      if (mutating) throw fail('busy');
+      mutating = true;
+      try {
+        const loc = location(value.base);
+        await tempPresent();
+        if (!await directory(loc.root, true)) return true;
+        const names = await io.readdir(loc.root);
+        if (names.some(name => fold(name).startsWith(STAGE))) throw fail('stage_pending');
+        if (!names.some(name => fold(name) === NAME)) return true;
+        const found = await current(loc);
+        if (!found) throw fail('claim_changed');
+        if (found.captured.sha256 !== value.sha256 || !sameIdentity(found.captured.identity, value)) throw fail('claim_changed');
+        await baseRow(loc.base, found.value.baseIdentity);
+        await io.unlink(loc.file);
+        await flush([loc.root, temp]);
+        try { await io.lstat(loc.file); }
+        catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+        throw fail('claim_changed');
+      } catch (error) {
+        if (String(error?.code || '').startsWith('work_data_claim.')) throw error;
+        throw fail('remove_failed', error);
+      } finally { mutating = false; }
+    }
+    const liveness = pid => {
+      try { return probe(pid) === false ? 'dead' : 'alive'; }
+      catch (error) { return error?.code === 'ESRCH' ? 'dead' : 'unknown'; }
+    };
+    async function classify(observation = {}) {
+      const top = shape(observation, 'base,intent,result'), runtime = shape(observation, 'base,hasIntent,hasResult');
+      if (!top && !runtime) throw fail('observation_invalid');
+      const base = observation.base;
+      const intent = top ? observation.intent : observation.hasIntent;
+      const supplied = top ? observation.result : observation.hasResult;
+      if (typeof intent !== 'boolean') throw fail('observation_invalid');
+      // A completion result is the record itself, never a boolean or a bare
+      // existence flag. Only a result bound to this exact claim can ever count.
+      let result = null;
+      if (supplied !== false && supplied !== null && supplied !== undefined) {
+        if (!supplied || typeof supplied !== 'object' || Array.isArray(supplied)) throw fail('observation_invalid');
+        let id, operation;
+        try { id = supplied.id; operation = supplied.operation; } catch { throw fail('observation_invalid'); }
+        if (typeof id !== 'string' || typeof operation !== 'string') throw fail('observation_invalid');
+        result = { id, operation };
+      }
+      const observed = await inspect({ base });
+      if (!observed.present) return 'absent';
+      // An existing intent stays with the ordinary intent_pending path; a claim
+      // never authorizes its cleanup. Only an owned claim with a matching result
+      // is complete. Committed with this job's result is an impossible ordering
+      // and stays pending; a stale/other-job result is ignored so it cannot keep
+      // a never-acquired attempt pending forever. Every owned claim without a
+      // match remains pending: backup, rehearsal or mutation may have happened.
+      if (intent) return 'pending';
+      if (observed.value.phase === 'armed') return 'inert';
+      const matches = result !== null && result.id === observed.value.id && result.operation === observed.value.operation;
+      if (observed.value.phase === 'committed') {
+        if (matches) return 'pending';
+        return liveness(observed.value.childPid) === 'dead' ? 'inert' : 'pending';
+      }
+      if (matches) return 'complete';
+      return 'pending';
+    }
+    return Object.freeze({ inspect, write, remove, classify });
+  }
+  return Object.freeze({ NAME, STAGE, LIMIT, validate, decode, create });
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'));
+
 // Setup owns admission and in-memory job progress. The cold worker owns all base
 // mutation, durable results and process handoff. A warm server never flips paths.
 const WorkDataSetup = (() => {
@@ -103581,21 +103837,19 @@ const WorkDataSetup = (() => {
         if(body.operation==='disable'&&body.confirmPlaintext!==true)throw fail('plaintext_confirmation_required',400);
         if(body.confirmPlaintext!==undefined&&typeof body.confirmPlaintext!=='boolean')throw fail('request_invalid',400);
         if(!validText(body.backupDirectory)||!body.backupDirectory.length||body.backupDirectory.length>1024)throw fail('path_invalid',400);
-        const jobId=host.id();if(!ID.test(jobId)||jobs.has(jobId))throw fail('id_invalid');let uploadGrant=null;
+        const jobId=host.id();if(!ID.test(jobId)||jobs.has(jobId))throw fail('id_invalid');
         if(body.operation==='restore'){
           if(!validText(body.targetDirectory)||!body.targetDirectory.length||body.targetDirectory.length>1024||!ID.test(body.uploadId||''))throw fail('restore_input_invalid',400);
-          const uploadWorker=host.worker();
-          // A worker that cannot start cannot consume the grant or reach the queue.
-          if(typeof uploadWorker.start!=='function')throw fail('worker_unavailable',501);
-          if(typeof uploadWorker.resolveUpload!=='function'||typeof WorkDataRestoreUploads==='undefined')throw fail('upload_unavailable',501);
-          uploadGrant=await uploadWorker.resolveUpload(body.uploadId,{jobId});
-          if(WorkDataRestoreUploads.ownsGrant(uploadGrant,{uploadId:body.uploadId,jobId})!==true)throw fail('upload_unavailable',501);
+          // Restore admission is closed in this version. The ordinary input refusals
+          // above stay first, and nothing consumes an upload grant, resolves a ticket
+          // or reaches the queue behind this typed refusal.
+          throw fail('restore_unavailable',501);
         }else if(body.targetDirectory!==undefined||body.uploadId!==undefined)throw fail('request_invalid',400);
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
         await host.validateDirectories({base:observed.base,backupDirectory:body.backupDirectory,targetDirectory:body.targetDirectory});
         await ensureExpected(expectedAuthority);
         const job={id:jobId,operation:body.operation,state:'queued',createdAt:host.now(),committed:false,cancelRequested:false,abort:new AbortController(),secret,
-          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,...(body.operation==='restore'?{targetDirectory:body.targetDirectory,uploadId:body.uploadId,uploadGrant}:{}),confirmPlaintext:body.confirmPlaintext===true}};
+          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,confirmPlaintext:body.confirmPlaintext===true}};
         if(!ID.test(job.id)||jobs.has(job.id))throw fail('id_invalid');secret=null;
         while(jobs.size>=32){const oldest=[...jobs.values()].find(row=>['failed','cancelled'].includes(row.state));if(!oldest)throw fail('capacity');jobs.delete(oldest.id);}
         jobs.set(job.id,job);active=job;host.defer(()=>{job.done=execute(job);});return view(job);
@@ -103610,8 +103864,12 @@ const WorkDataSetup = (() => {
     async function status() {
       const observed=await host.inspect(),worker=host.worker();let lastResult=null;
       if(typeof worker.readResult==='function'){try{lastResult=await worker.readResult();}catch{throw fail('result_unavailable',503);}}
+      // The worker capability is advertised only while the process runtime reports
+      // real readiness. Transfer stays upload-only: there is no download endpoint.
+      let started=typeof worker.start==='function';
+      if(started&&typeof host.workerReady==='function'){try{started=host.workerReady()===true;}catch{started=false;}}
       return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
-        lastResult,capabilities:{worker:typeof worker.start==='function',upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',download:typeof worker.download==='function'},processRestartRequired:true};
+        lastResult,capabilities:{worker:started,upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',download:false},processRestartRequired:true};
     }
     async function receiveUpload(req) {
       // The main router authenticates the header token before this handler. This
@@ -103738,14 +103996,19 @@ function workDataSetupReceiptOwner(pathname,body) {
   return turnSettlers.get(entry.sessionId)||null;
 }
 const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks,inspect:workDataSetupInspect,validateDirectories:workDataSetupDirectories,
+  workerReady:()=>{
+    const hooks=typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks;
+    return !hooks||typeof hooks.workerReady!=='function'?true:hooks.workerReady()===true;
+  },
   worker:()=>WorkDataMaintenanceWorkerHooks,id:()=>crypto.randomBytes(24).toString('hex'),now:nowIso,defer:work=>setImmediate(work),respond:(res,body,status)=>send(res,json(body,status)),
   receiptPath:workDataSetupReceiptPath,receiptOwner:workDataSetupReceiptOwner});
 Object.assign(WorkDataSetupHooks,workDataSetup);
 
 // Cold-process handoff. No config/store read, ownership release or warm root switch
 // occurs in the parent. The worker needs both an authenticated IPC commitment and
-// actual parent death before acquiring the base. All mutation belongs to execute().
-const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
+// actual parent death before acquiring the base. Every base mutation belongs to
+// execute(); the TEMP handoff claim is metadata only and widens no authority.
+const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   const VERSION = 1, MAX_INPUT = 32 * 1024, ID = /^[a-f0-9]{48}$/;
   const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_))/i;
   const fail = (suffix, uncertain = false) => Object.assign(new Error('work_data_setup.' + suffix), {
@@ -103762,6 +104025,32 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
   function absolute(value) {
     return typeof value === 'string' && value.length <= 4096 && !/[\0\r\n]/.test(value)
       && pathApi.isAbsolute(value) && pathApi.resolve(value) === value;
+  }
+  const keyOf = value => typeof value === 'string' ? (process.platform === 'win32' ? value.toLowerCase() : value) : '';
+  // The handoff record is owned by the claim module (13av) through the host. Its
+  // schema admits enable/disable/export only, so the legacy restore path never
+  // advertises a record this owner would refuse.
+  const CLAIMED = ['enable', 'disable', 'export'];
+  const claimRecord = (source, phase, updatedAt) => Object.freeze({
+    schema: VERSION, base: source.base,
+    baseIdentity: Object.freeze({ dev: String(source.baseIdentity.dev), ino: String(source.baseIdentity.ino) }),
+    id: source.id, nonce: source.nonce, parentPid: source.parentPid, childPid: source.childPid,
+    operation: source.operation, serve: Object.freeze({ host: source.serve.host, port: source.serve.port }),
+    phase, createdAt: source.createdAt, updatedAt,
+  });
+  function claimApi(host) {
+    const value = host.claim;
+    if (value === undefined) return null;
+    if (!value || typeof value !== 'object'
+      || ['inspect', 'write', 'remove'].some(name => typeof value[name] !== 'function')) throw fail('claim_host_invalid');
+    return value;
+  }
+  // The claim owner re-reads the base directory identity on every write; the first
+  // write is the only place this process has to observe it.
+  async function baseIdentityOf(base) {
+    const stat = await io.lstat(base, { bigint: true });
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw fail('claim_invalid');
+    return Object.freeze({ dev: String(stat.dev), ino: String(stat.ino) });
   }
   function validate(value) {
     if (keys(value) !== (value?.operation==='restore'?'base,expectedAuthority,id,nonce,operation,parentPid,password,paths,schema,serve,upload':'base,expectedAuthority,id,nonce,operation,parentPid,password,paths,schema,serve')
@@ -103803,6 +104092,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
     }
     async function start(request) {
       if (pending.size) throw fail('busy');
+      const claims = claimApi(host);
       const base = await host.base();
       const nonce=cryptoApi.randomBytes(32).toString('hex');let upload=null;
       if(request.operation==='restore'){if(typeof WorkDataRestoreUploads==='undefined'||WorkDataRestoreUploads.isBroker(host.uploads)!==true||WorkDataRestoreUploads.ownsGrant(request.uploadGrant,{uploadId:request.uploadId,jobId:request.id})!==true)throw fail('upload_unavailable');upload=await host.uploads.handoff(request.uploadGrant,{jobId:request.id,nonce,base});}
@@ -103816,7 +104106,9 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
       // No await after the final concurrent-start check until this exact child is registered.
       if(pending.size){bytes.fill(0);throw fail('busy');}
       let child;try{child=host.spawn(environment(base));}catch(error){bytes.fill(0);throw error;}
-      let state = 'waiting', closed = false, readyResolve, readyReject, armedResolve, armedReject;
+      let state = 'waiting', closed = false, registering = null, claimReceipt = null, claimedAt = null;
+      let stopRequested = false, cancelRequest = null;
+      let readyResolve, readyReject, armedResolve, armedReject;
       const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
       const armed = new Promise((resolve, reject) => { armedResolve = resolve; armedReject = reject; });
       // A pre-handoff failure can reject armed before handoff() attaches a consumer.
@@ -103827,6 +104119,33 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         if (pending.get(input.id) === child) pending.delete(input.id);
       };
       const uncertain = () => state === 'committing' || state === 'armed';
+      const now = () => new Date().toISOString();
+      // Only this attempt's own record is ever removed: the identity check below
+      // refuses a foreign id/nonce, and a CAS receipt refuses a later version.
+      const dropClaim = async () => {
+        if (!claims) return;
+        if (!claimReceipt) {
+          const current = await claims.inspect({ base: input.base });
+          if (!current?.present || current.value.id !== input.id || current.value.nonce !== input.nonce) return;
+          claimReceipt = current.receipt;
+        }
+        await claims.remove(claimReceipt); claimReceipt = null;
+      };
+      // An armed record carries no commitment: leaving it behind is inert and the
+      // next boot may clear it. Cleanup therefore never turns into a second failure.
+      const forgetClaim = async () => { try { await dropClaim(); } catch { /* inert armed record */ } };
+      const stopChild = () => {
+        if (typeof host.stopUncommitted !== 'function') return;
+        try { void Promise.resolve(host.stopUncommitted(child)).catch(() => {}); } catch { /* bounded stop only */ }
+      };
+      // The child never received go, so a failed registration cannot have executed.
+      const claimFailed = error => {
+        if (closed) return;
+        closed = true;
+        const failure = Object.assign(fail('claim_failed'), { cause: error });
+        readyReject(failure); armedReject(failure);
+        release(); stopChild(); void forgetClaim();
+      };
       const rejected = suffix => {
         if (closed) return;
         closed = true;
@@ -103842,7 +104161,33 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         if (closed || keys(message) !== 'id,kind,nonce,schema' || message.schema !== VERSION
           || message.id !== input.id || message.nonce !== input.nonce) return;
         if (message.kind === 'ready' && state === 'waiting') {
-          state = 'ready'; if (timer) { host.clearTimeout(timer); timer = null; } readyResolve();
+          if (timer) { host.clearTimeout(timer); timer = null; }
+          if (!claims || !CLAIMED.includes(input.operation)) { state = 'ready'; readyResolve(); return; }
+          // Only this exact transition may start the write, and only after it lands
+          // may ready resolve. Duplicate and out-of-order messages cannot re-enter:
+          // the state changes before the first await, and `armed` needs `committing`.
+          state = 'registering'; claimedAt = now();
+          registering = (async () => {
+            try {
+              if (!Number.isSafeInteger(child.pid) || child.pid < 1) throw fail('claim_invalid');
+              const baseIdentity = await baseIdentityOf(input.base);
+              // A first record is `armed` with one timestamp: the owner refuses a
+              // pre-advanced phase or a createdAt/updatedAt mismatch here.
+              claimReceipt = await claims.write(claimRecord({ ...input, childPid: child.pid, baseIdentity, createdAt: claimedAt }, 'armed', claimedAt), null);
+              if (!claimReceipt || typeof claimReceipt !== 'object') throw fail('claim_invalid');
+            } catch (error) {
+              // A write that refused after the child died still leaves no ownership:
+              // only this attempt's inert record is dropped, and only if one exists.
+              if (closed) await forgetClaim(); else claimFailed(error);
+              return;
+            }
+            // A child that died during registration never received go.
+            if (closed) { await forgetClaim(); return; }
+            // A cancel that arrived while the write was in flight owns the cleanup:
+            // resolving ready here would let that attempt hand off after cancel.
+            if (stopRequested) return;
+            state = 'ready'; readyResolve();
+          })();
         } else if (message.kind === 'armed' && state === 'committing') {
           state = 'armed'; if (timer) { host.clearTimeout(timer); timer = null; } armedResolve();
         }
@@ -103858,16 +104203,31 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         try { child.send({ schema: VERSION, kind, id: input.id, nonce: input.nonce }, error => error ? reject(error) : resolve()); }
         catch (error) { reject(error); }
       });
-      return Object.freeze({ ready,
-        async cancel() {
+      // Only the first caller drives the stop; a concurrent cancel joins it instead
+      // of sending a second cancel or stopping the same child twice.
+      async function cancel() {
+        if (cancelRequest) return cancelRequest;
+        if (state === 'committing' || state === 'armed') throw fail('handoff_committed', true);
+        if (state === 'cancelled') return;
+        cancelRequest = (async () => {
+          // A ready-registration in flight decides whether this handle owns a claim.
+          // It must not resolve ready once a cancel has been requested.
+          stopRequested = true;
+          if (registering) await registering;
           if (state === 'committing' || state === 'armed') throw fail('handoff_committed', true);
-          if (state === 'cancelled') return;
+          if (state === 'cancelled' || closed) return;
           state = 'cancelled'; closed = true; readyReject(fail('cancelled')); armedReject(fail('cancelled'));
+          // Only this attempt's own armed claim is cleared, and only before the
+          // child is stopped: a committed/owned record was refused above.
+          await forgetClaim();
           try { await send('cancel'); } catch { /* A dead uncommitted child cannot execute. */ }
           // The OS is the final owner of pipe handles. A nonresponsive uncommitted
           // worker remains incapable of execution; cleanup touches only this child.
           await host.stopUncommitted(child); release();
-        },
+        })();
+        try { return await cancelRequest; } catch (error) { cancelRequest = null; throw error; }
+      }
+      return Object.freeze({ ready, cancel,
         async handoff() {
           await ready;
           if (closed || state !== 'ready') throw fail('handoff_invalid', uncertain());
@@ -103883,6 +104243,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
     }
     async function runCold(channel) {
       if (!channel.parentConnected()) throw fail('ipc_required');
+      const claims = claimApi(host);
       const payload = await channel.readInput(MAX_INPUT);
       let input;
       try {
@@ -103894,11 +104255,41 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
       finally { if (Buffer.isBuffer(payload)) payload.fill(0); }
       if (input.parentPid === host.pid || input.parentPid !== channel.parentPid()) throw fail('parent_invalid');
       let committed = false, helperHold = false, ownedFailureHeld = false;
+      let claim = null, claimReceipt = null;
+      const claimed = claims !== null && CLAIMED.includes(input.operation);
+      const now = () => new Date().toISOString();
+      const sameClaim = record => record && typeof record === 'object'
+        && record.id === input.id && record.nonce === input.nonce && keyOf(record.base) === keyOf(input.base)
+        && record.parentPid === input.parentPid && record.childPid === host.pid
+        && record.operation === input.operation && record.serve && typeof record.serve === 'object'
+        && record.serve.host === input.serve.host && record.serve.port === input.serve.port;
+      // Each advance is a CAS on the receipt this process last held; the claim owner
+      // re-checks every immutable field, so no other attempt can be adopted here.
+      const advance = async phase => {
+        claimReceipt = await claims.write(claimRecord(claim, phase, now()), claimReceipt);
+        if (!claimReceipt || typeof claimReceipt !== 'object') throw fail('claim_invalid');
+      };
+      const removeClaim = async () => {
+        if (!claimed || !claimReceipt) return;
+        const receipt = claimReceipt;
+        await claims.remove(receipt); claimReceipt = null;
+      };
+      // Bounded: the operation body can only retire its own record, never read,
+      // write or re-own the handoff.
+      const capability = claimed ? Object.freeze({ finish: () => removeClaim(), abandon: () => removeClaim() }) : undefined;
       try {
         const command = await channel.waitCommand({ id: input.id, nonce: input.nonce,
           schema: VERSION, timeoutMs: host.handshakeTimeoutMs || 15_000,
           onListening: () => channel.send({ schema: VERSION, kind: 'ready', id: input.id, nonce: input.nonce }) });
         if (command !== 'go') return Object.freeze({ phase: 'cancelled' });
+        if (claimed) {
+          // The parent persists `armed` before it may send go, so a missing,
+          // foreign or already-advanced record refuses before anything is adopted.
+          const current = await claims.inspect({ base: input.base });
+          if (!current?.present || !sameClaim(current.value) || current.value.phase !== 'armed') throw fail('claim_invalid');
+          claim = current.value; claimReceipt = current.receipt;
+          await advance('committed');
+        }
         committed = true;
         await channel.send({ schema: VERSION, kind: 'armed', id: input.id, nonce: input.nonce });
         // IPC disconnect alone is insufficient: a still-live/EPERM PID prevents
@@ -103911,12 +104302,16 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         const assertExclusive = candidate => active && candidate === owner
           && owner.roots.some(root => root === base);
         try {
+          // Ownership is recorded before any authority read or operation body, so a
+          // crash here stays `owned` for classification rather than replaying.
+          if (claimed) await advance('owned');
           if(input.operation==='restore')await WorkDataRestoreUploads.verifyHandoff(input.upload,{base,jobId:input.id,nonce:input.nonce,ownership:owner,assertExclusive});
           const current = await host.readAuthority(base);
           if (current.generation !== input.expectedAuthority.generation
             || current.id !== input.expectedAuthority.id || current.mode !== input.expectedAuthority.mode
             || current.proof.sha256 !== input.expectedAuthority.sha256) throw fail('authority_changed', true);
-          return await host.execute({ ...input, nonce: undefined, ownership: owner, assertExclusive });
+          return await host.execute({ ...input, nonce: undefined, ownership: owner, assertExclusive,
+            ...(capability ? { claim: capability } : {}) });
         } catch (error) {
           // A concrete native failure can arrive before the outer host records
           // it. Preserve that fact before considering release of the base owner.
@@ -104018,7 +104413,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
     });
   }
   return Object.freeze({ create, validate, processChannel, waitForProcessExit, spawnCold, MAX_INPUT });
-})(require('node:crypto'), require('node:path'));
+})(require('node:crypto'), require('node:path'), require('node:fs/promises'));
 
 // The cold lifecycle's one pending intent. A private issued receipt is required
 // for every update/removal. A failed or interrupted write never authorizes the
@@ -104386,7 +104781,19 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
     async function execute(context) {
       const base = p.resolve(context.base), id = context.id;
       if (!/^[a-f0-9]{48}$/.test(id || '') || await context.assertExclusive(context.ownership) !== true) throw fail('ownership_required');
-      const owned = new Set(), issuedBackups = new Map(); let alive = true, mutation = false, intent = null, restoreStarted = false, resultStarted = false, helperUncertain = false;
+      // The handoff claim is a bounded capability: finish/abandon only. This body
+      // can never read, rewrite or re-own the record it is asked to retire.
+      const claim = context.claim === undefined ? null : context.claim;
+      if (claim !== null && (!claim || typeof claim !== 'object'
+        || typeof claim.finish !== 'function' || typeof claim.abandon !== 'function')) throw fail('claim_capability_invalid');
+      const clearClaim = async () => { if (claim) try { await claim.finish(); } catch { /* retained: result without intent is classifiable */ } };
+      const abandonClaim = async () => { if (claim) try { await claim.abandon(); } catch { /* retained: classification decides */ } };
+      const owned = new Set(), issuedBackups = new Map();
+      let alive = true, mutation = false, intent = null, restoreStarted = false, resultStarted = false, helperUncertain = false;
+      let backupStarted = false, rehearsalStarted = false;
+      // The exact path this attempt may create. It is inspection evidence only: it
+      // never authorizes a recovery, a retry or a success claim.
+      let backupAttemptPath = null;
       const retainHelper = cause => {
         const seen = new Set(); let current = cause;
         try {
@@ -104416,20 +104823,26 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
       const full = () => WorkDataFullSnapshot.create({ base, ownership: context.ownership, assertExclusive,
         protector, externalOwner: options => ExternalBotCredentials.create(options),
         skillBackupOwner: options => MigrationHooks.createBackupOwner(options), maintenanceResultOwner: WorkDataMaintenanceResult });
-      const authority = await WorkDataManifest.create({ base }).readActive();
-      if (authority.generation !== context.expectedAuthority.generation || authority.proof.sha256 !== context.expectedAuthority.sha256) throw fail('authority_changed');
-      let sourceMode = authority.mode;
-      if (!authority.generation) {
-        const sourceConfig = await readBounded(p.join(base, 'config.json'), 4 * 1024 * 1024);
-        const text = sourceConfig.bytes.toString('utf8');
-        if (!Buffer.from(text).equals(sourceConfig.bytes)) throw fail('config_unavailable');
-        const value = JSON.parse(text.replace(/^\uFEFF/, ''));
-        if (!value || typeof value !== 'object' || Array.isArray(value)
-          || value.workDataEncryptionV1 !== undefined && typeof value.workDataEncryptionV1 !== 'boolean') throw fail('config_unavailable');
-        sourceMode = value.workDataEncryptionV1 === true ? 'encrypted' : 'plain';
-      }
-      if (sourceMode !== context.expectedAuthority.mode || authority.id !== context.expectedAuthority.id) throw fail('authority_changed');
-      const expected = Object.freeze({ generation: authority.generation, id: authority.id, mode: sourceMode, sha256: authority.proof.sha256 });
+      // Every refusal below happens before a byte is written, so the handoff record
+      // may be dropped instead of pinning the next boot to a pending `owned` claim.
+      const preflight = async work => { try { return await work(); } catch (cause) { await abandonClaim(); throw cause; } };
+      const selected = await preflight(async () => {
+        const current = await WorkDataManifest.create({ base }).readActive();
+        if (current.generation !== context.expectedAuthority.generation || current.proof.sha256 !== context.expectedAuthority.sha256) throw fail('authority_changed');
+        let mode = current.mode;
+        if (!current.generation) {
+          const sourceConfig = await readBounded(p.join(base, 'config.json'), 4 * 1024 * 1024);
+          const text = sourceConfig.bytes.toString('utf8');
+          if (!Buffer.from(text).equals(sourceConfig.bytes)) throw fail('config_unavailable');
+          const value = JSON.parse(text.replace(/^\uFEFF/, ''));
+          if (!value || typeof value !== 'object' || Array.isArray(value)
+            || value.workDataEncryptionV1 !== undefined && typeof value.workDataEncryptionV1 !== 'boolean') throw fail('config_unavailable');
+          mode = value.workDataEncryptionV1 === true ? 'encrypted' : 'plain';
+        }
+        if (mode !== context.expectedAuthority.mode || current.id !== context.expectedAuthority.id) throw fail('authority_changed');
+        return Object.freeze({ authority: current, expected: Object.freeze({ generation: current.generation, id: current.id, mode, sha256: current.proof.sha256 }) });
+      });
+      const authority = selected.authority, expected = selected.expected;
       const readResultAuthority = async () => {
         const current = await WorkDataManifest.create({ base }).readActive(); let mode = current.mode;
         if (!current.generation) {
@@ -104450,11 +104863,11 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         const current = await readBounded(value.path, maxPackage);
         return current.identity.dev === receipt.identity.dev && current.identity.ino === receipt.identity.ino && hash(current.bytes) === receipt.sha256;
       };
-      const control = WorkDataMaintenanceControl.create({ base, ownership: context.ownership, assertExclusive,
-        assertDurableBackup: verifyBackup, flush: host.flush });
-      if (context.operation !== 'restore' && (await control.inspect()).pending) throw fail('intent_pending');
-      const results = WorkDataMaintenanceResult.create({base,ownership:context.ownership,assertExclusive,
-        readAuthority:readResultAuthority,assertDurableBackup:verifyBackup,flush:host.flush});
+      const control = await preflight(async () => WorkDataMaintenanceControl.create({ base, ownership: context.ownership, assertExclusive,
+        assertDurableBackup: verifyBackup, flush: host.flush }));
+      if (context.operation !== 'restore') await preflight(async () => { if ((await control.inspect()).pending) throw fail('intent_pending'); });
+      const results = await preflight(async () => WorkDataMaintenanceResult.create({base,ownership:context.ownership,assertExclusive,
+        readAuthority:readResultAuthority,assertDurableBackup:verifyBackup,flush:host.flush}));
       const persistResult = async result => {
         resultStarted = true;
         const receipt = issuedBackups.get(result.backup.path);
@@ -104476,8 +104889,17 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         if (!['enable', 'disable', 'export', 'restore'].includes(context.operation)) throw fail('operation_invalid');
         if (context.operation === 'enable' && expected.mode === 'encrypted' || context.operation === 'disable' && expected.mode === 'plain') throw fail('mode_unchanged');
         const saveBackup = async bytes => {
-          const backupFile = p.join(backupDirectory, 'ruyi-work-data-' + id + '.ruyi-backup'); await absent(backupFile);
+          const backupFile = p.join(backupDirectory, 'ruyi-work-data-' + id + '.ruyi-backup');
+          // Bind the path before touching the disk so a later failure can name it,
+          // without that name granting any authority over the file.
+          backupAttemptPath = backupFile;
+          await absent(backupFile);
           const handle = await io.open(backupFile, 'wx', 0o600);
+          // `wx` is the first byte-level effect. Everything before it (a pre-existing
+          // path, a refused open) provably created nothing, so those refusals may
+          // still abandon the handoff record; everything after it may leave bytes a
+          // later boot must inspect, so the record is retained.
+          backupStarted = true;
           try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
           await host.flush([backupDirectory]);
           const saved = await readBounded(backupFile, maxPackage);
@@ -104522,7 +104944,10 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         await progress('verify-backup');
         // An authenticated package is exercised through the real restore owner,
         // then checked by a separate cold Node process before any source intent.
-        const rehearsal = p.join(backupDirectory, '.ruyi-work-data-verify-' + id); await absent(rehearsal);
+        const rehearsal = p.join(backupDirectory, '.ruyi-work-data-verify-' + id);
+        // From here a disposable tree may exist on disk: it is an effect too.
+        rehearsalStarted = true;
+        await absent(rehearsal);
         const rehearsalOwner = await acquire(rehearsal);
         const rehearsed = await full().restore({ serialized: captured.serialized, password: context.password, target: rehearsal, targetOwnership: rehearsalOwner });
         const tree = WorkDataTree.create(), cleanupProof = await tree.capture(rehearsal);
@@ -104549,8 +104974,14 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           await release(cleanupOwner);
         } finally { cleanupProof.release(); }
         if (!await verifyBackup(backup)) throw fail('backup_changed');
-        if (context.operation === 'export') return await completed({ id, operation: 'export', state: 'verified', backup, restartRoot: base,
-          publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: 'source root and excluded user content are retained' });
+        if (context.operation === 'export') {
+          const exported = await completed({ id, operation: 'export', state: 'verified', backup, restartRoot: base,
+            publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: 'source root and excluded user content are retained' });
+          // Only the verified result authorizes retiring the handoff record. A failed
+          // removal keeps it: result without intent is classifiable, never replayed.
+          await clearClaim();
+          return exported;
+        }
         const state = { schema: 1, id, operation: context.operation, phase: 'prepared', createdAt: new Date().toISOString(), expectedAuthority: expected, backup, candidate: null };
         mutation = true; intent = await control.write(state);
         const update = async (phase, candidate, headerSha256) => {
@@ -104595,16 +105026,29 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           restartRoot: base, publication: 'fresh-process-required', profile: captured.profile, retainedPlaintext: prepared.retainedPlainDisclosure };
         const resultReceipt = await persistResult(result);
         await control.finish(intent, async()=>await verifyPublished() === true && await results.verify(resultReceipt) === true); intent = null;
+        // The intent is gone and the result is verified: this is the only point at
+        // which the handoff record may be retired for a generation change.
+        await clearClaim();
         return Object.freeze(result);
       } catch (cause) {
         retainHelper(cause);
+        // A claim may be dropped only when this attempt provably wrote nothing. Any
+        // backup file created, started rehearsal, source mutation, restore/result
+        // start or unknown native helper keeps the record for a later boot.
+        if (!backupStarted && !rehearsalStarted && !mutation && !restoreStarted && !resultStarted && !helperUncertain) await abandonClaim();
+        // An issued backup is the strongest receipt. Before one exists, the exact
+        // path this attempt tried to create is still worth naming for inspection -
+        // it is not a receipt and authorizes nothing.
+        const boundBackup = backupAttemptPath !== null && p.isAbsolute(backupAttemptPath)
+          && backupAttemptPath.length <= 4096 && p.resolve(backupAttemptPath) === backupAttemptPath ? backupAttemptPath : null;
+        const backupPath = issuedBackups.size === 1 ? issuedBackups.keys().next().value : boundBackup;
         throw fail(mutation ? 'transition_requires_recovery' : restoreStarted ? 'restore_requires_inspection' : resultStarted ? 'result_requires_recovery' : 'preparation_failed', { cause,
           operationMayHaveExecuted: mutation || restoreStarted || resultStarted,
           sourceIntentRetained: intent !== null,
           resultMayHaveBeenWritten: resultStarted,
           ...(helperUncertain ? {helperMayStillRun:true} : {}),
           ...(restoreStarted ? {targetMayHaveBeenCreated:true,targetPath:context.paths.targetDirectory} : {}),
-          ...(issuedBackups.size === 1 ? { backupPath: issuedBackups.keys().next().value } : {}) });
+          ...(backupPath ? { backupPath } : {}) });
       } finally {
         alive = false;
         // Native flush/capsule adapters settle their actual helper before returning.
@@ -104630,15 +105074,36 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
   const same=(a,b)=>authority(a)&&authority(b)&&a.generation===b.generation&&a.id===b.id&&a.mode===b.mode&&a.sha256===b.sha256;
   const listener=value=>keys(value)==='host,port'&&['127.0.0.1','::1','localhost'].includes(value.host)&&Number.isInteger(value.port)&&value.port>0&&value.port<=65535;
   const safeCode=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed_after_handoff';
-  function create(host) {
+  // 13av reports absent/inert/complete/pending. Anything else refuses the boot.
+  const verdict=value=>['absent','inert','complete','pending'].includes(value)?value:['absent','inert','complete','pending'].includes(value?.verdict)?value.verdict:null;
+  // A retirement receipt is data, never a boolean promotion: it must carry the
+  // drained/retired phase and, when counted, prove every producer is at zero.
+  const retiredReceipt=value=>{
+    if(!value||typeof value!=='object'||Array.isArray(value)||value.phase!=='retired')return false;
+    for(const name of ['admitted','writers','dirty'])if(value[name]!==undefined&&value[name]!==0)return false;
+    if(value.busy!==undefined){if(!value.busy||typeof value.busy!=='object'||Array.isArray(value.busy))return false;for(const count of Object.values(value.busy))if(count!==0)return false;}
+    return true;
+  };
+  function create(host,shared) {
     const proc=host?.process;
     if(!proc||!Number.isSafeInteger(proc.pid)||proc.pid<1||!host.workerApi||!host.httpApi||!host.resultApi||!host.controlApi
       ||['create','spawnCold','processChannel','waitForProcessExit'].some(name=>typeof host.workerApi[name]!=='function')
       ||[host.httpApi,host.resultApi,host.controlApi].some(api=>typeof api.create!=='function')
       ||['base','canonical','acquire','readAuthority','operations','adaptersReady','stopUncommitted','exit','isRetired','helperMayStillRun','command','assertOwnership','withColdSource','withWarmSource'].some(name=>typeof host[name]!=='function')
       ||!host.workerHooks||typeof host.workerHooks!=='object')throw fail('runtime_host_invalid');
-    let warm=null,worker=null,coldStarted=false,successorStarted=false,successorInput=null,helperUncertain=false;
-    const strictOptions=new WeakSet();
+    let warm=null,worker=null,coldStarted=false,successorStarted=false,helperUncertain=false;
+    // The successor slot and its strict-port ticket belong to the process, not to one
+    // runtime instance: preparation happens before configure, completion after it.
+    const slot=shared||{successor:null,strictOptions:new WeakSet()};
+    const successorInput=()=>slot.successor?slot.successor.input:null;
+    // The handoff claim is the only durable evidence that a committed job exists.
+    // Production hosts must supply it; a legacy harness must say so explicitly.
+    const claimValue=()=>{const value=host.claim;return value===undefined||value===null?null:value;};
+    const claimShape=value=>!!value&&typeof value==='object'&&['inspect','write','remove','classify'].every(name=>typeof value[name]==='function');
+    const requireClaim=()=>{const value=claimValue();
+      if(value){if(!claimShape(value))throw fail('runtime_host_invalid');return value;}
+      if(host.legacyNoClaim===true)return null;throw fail('claim_unavailable');};
+    const retired=()=>{const read=host.retiredReceipt;if(typeof read!=='function')return false;try{return retiredReceipt(read());}catch{return false;}};
     function latch(error) {
       const seen=new Set();let value=error,depth=0;
       while(value&&(typeof value==='object'||typeof value==='function')){
@@ -104664,7 +105129,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     };
     async function inspectBoot({base,ownership:owner}) {
       base=await host.canonical(base);if(!ownership(owner,base))throw fail('ownership_required');
-      let stat;try{stat=await io.lstat(base);}catch(error){if(error.code==='ENOENT'&&!successorInput)return true;throw error;}
+      let stat;try{stat=await io.lstat(base);}catch(error){if(error.code==='ENOENT'&&!successorInput())return true;throw error;}
       if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
       const control=p.join(base,'.work-data');
       try {
@@ -104674,20 +105139,44 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       }catch(error){if(error.code!=='ENOENT')throw error;}
       const ownerCheck=async candidate=>candidate===owner&&ownership(owner,base);
       const controls=host.controlApi.create({base,ownership:owner,assertExclusive:ownerCheck,assertDurableBackup:async()=>false,flush:async()=>{throw fail('readonly_boot');}});
+      // An unfinished intent always wins; C10/C11 stay intent_pending and their
+      // files are never rewritten or removed by ordinary boot.
       if((await controls.inspect()).pending)throw fail('intent_pending');
-      const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});await resultReader.inspect();
-      if(successorInput){const result=await resultReader.read();if(!result||result.id!==successorInput.id||!same(result.authority,successorInput.expectedAuthority))throw fail('successor_result_changed');}
+      const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
+      // Ordinary boot only looks at the record's presence: a stale receipt must not
+      // read a backup or fail startup. The successor additionally verifies it.
+      const observedResult=await resultReader.inspect(),expected=successorInput();
+      const result=expected?await resultReader.read():null;
+      if(expected&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
+      // No intent: only the TEMP handoff record may be classified and, when inert or
+      // complete, cleaned. Base files are never repaired here.
+      // The claim owner compares this digest with its own id/operation, so a stale
+      // result from another job can never complete a new handoff. A present record
+      // that cannot be summarized refuses the boot instead of degrading to "none".
+      const digest=observedResult?.present?{id:observedResult.value?.id,operation:observedResult.value?.operation}:null;
+      if(digest&&(typeof digest.id!=='string'||!ID.test(digest.id)||!['enable','disable','export','restore'].includes(digest.operation)))throw fail('boot_control_pending');
+      const claims=claimValue();
+      if(claims){
+        if(!claimShape(claims))throw fail('runtime_host_invalid');
+        const outcome=verdict(await claims.classify({base,hasIntent:false,hasResult:digest}));
+        if(outcome==='pending')throw fail('handoff_pending');
+        if(outcome!=='absent'&&outcome!=='inert'&&outcome!=='complete')throw fail('boot_control_pending');
+        if(outcome!=='absent'){const observed=await claims.inspect({base});if(observed?.present)await claims.remove(observed.receipt);}
+      }
       return true;
     }
+    const readWarmResult=captured=>{
+      const ownerCheck=async owner=>warm===captured&&owner===captured.ownership&&ownership(owner,captured.base)&&captured.server.listening;
+      return host.resultApi.create({base:captured.base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(captured.base)}).read();
+    };
     async function captureServe(context) {
       if(coldStarted||warm)throw fail('runtime_already_bound');
       const owner=context.ownership,server=context.server,original=context.base,expected={...context.listener};
       const base=await host.canonical(original),capturedListener=actualListener(server,expected);
       if(!ownership(owner,base))throw fail('ownership_required');
       const captured={base,ownership:owner,server,listener:capturedListener};
-      const ownerCheck=async owner=>warm===captured&&owner===captured.ownership&&ownership(owner,base)&&captured.server.listening;
       warm=captured;
-      const readResult=()=>host.resultApi.create({base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)}).read();
+      const readResult=()=>readWarmResult(captured);
       // Optional trusted host dependency; callability is interface validation,
       // not source authority. The provider must validate this exact candidate
       // host, genuine owner and base before returning its scoped callback.
@@ -104705,15 +105194,25 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const captured=warm;if(!captured||coldStarted||worker)throw fail('runtime_not_captured');
       const base=captured.base;actualListener(captured.server,captured.listener);
       if(!ready())return false; // Missing native/result/successor adapters do not advertise a worker.
+      // No warm child may commit without a durable claim writer. A legacy harness
+      // must state that absence explicitly instead of silently degrading.
+      const claims=requireClaim();
       worker=host.workerApi.create({pid:proc.pid,env:proc.env,setTimeout,clearTimeout,base:async()=>base,listener:()=>actualListener(captured.server,captured.listener),
-        spawn:env=>host.workerApi.spawnCold(command('work-data-maintenance'),env),stopUncommitted:host.stopUncommitted,uploads:host.uploads,
-        exitParent:async()=>{if(host.isRetired()!==true||warm!==captured||!ownership(captured.ownership,base))throw fail('handoff_not_retired');actualListener(captured.server,captured.listener);if(helpers())throw Object.assign(fail('native_helper_uncertain'),{helperMayStillRun:true});await host.exit(0);},
+        spawn:env=>host.workerApi.spawnCold(command('work-data-maintenance'),env),stopUncommitted:host.stopUncommitted,uploads:host.uploads,claim:claims,
+        exitParent:async()=>{if(!retired()||warm!==captured||!ownership(captured.ownership,base))throw fail('handoff_not_retired');actualListener(captured.server,captured.listener);if(helpers())throw Object.assign(fail('native_helper_uncertain'),{helperMayStillRun:true});
+          // The same real receipt must still hold at the exit boundary; a boolean
+          // promotion or a single early read is not admissible evidence.
+          if(!retired())throw fail('handoff_not_retired');await host.exit(0);},
       });
       host.workerHooks.start=async request=>host.withWarmSource(request,async()=>{if(!ready()||warm!==captured)throw fail('worker_unavailable');actualListener(captured.server,captured.listener);return worker.start(request);});
       return true;
     }
     function execute(context) { return host.withColdSource(context,()=>executeBody(context)); }
     async function executeBody(context) {
+      // No base mutation may start unless a durable claim writer exists. The bound
+      // finish/abandon capability itself is built by 13ai for this exact attempt and
+      // travels through the context into 13ak; this layer never re-derives it.
+      requireClaim();
       let current=full(await host.readAuthority(context.base));if(!same(current,context.expectedAuthority))throw fail('authority_changed');
       const job={id:context.id,operation:context.operation,state:'handoff',createdAt:Date.now(),phase:'takeover'},base=context.base;
       const http=host.httpApi.create({id:context.id,port:context.serve.port,bindHost:context.serve.host,
@@ -104783,30 +105282,70 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       await new Promise(()=>{});
     }
     async function runCold(channel=host.workerApi.processChannel(proc)) {
-      if(warm||coldStarted||successorStarted||!ready())throw fail('worker_unavailable');coldStarted=true;
+      if(warm||coldStarted||successorStarted||!ready())throw fail('worker_unavailable');
+      const claims=requireClaim();coldStarted=true;
       const cold=host.workerApi.create({pid:proc.pid,env:proc.env,setTimeout,clearTimeout,base:host.base,canonical:host.canonical,acquire:host.acquire,
-        waitParentExit:host.workerApi.waitForProcessExit,readAuthority:host.readAuthority,execute,onOwnedFailure,helperMayStillRun:helpers});
+        waitParentExit:host.workerApi.waitForProcessExit,readAuthority:host.readAuthority,execute,onOwnedFailure,helperMayStillRun:helpers,claim:claims});
       const result=await cold.runCold(channel);if(result?.phase==='cancelled')return result;
       // 13ai has now released its exact source owner. Its finally must finish
       // before a genuinely new normal-serve process can acquire the same base.
       try{const child=await launchSuccessor(result);child.unref();await host.exit(0);return child;}catch(error){return holdAfterSuccessorFailure(result,error);}
     }
-    async function runSuccessor(channel=host.workerApi.processChannel(proc)) {
-      if(warm||coldStarted||successorStarted||!channel.parentConnected()||typeof host.startFreshServe!=='function')throw fail('successor_unavailable');successorStarted=true;
+    // Successor handoff is two phases so that the normal serve composition owns
+    // acquire/inspect/bind/configure/inner/inbox/activate exactly once:
+    //   prepare  - strict IPC input and its single strict-port options object
+    //   complete - re-verify warm capture/readiness/root/port/authority/result,
+    //              then publish serve-ready and drop the parent channel
+    async function prepareSuccessor(channel=host.workerApi.processChannel(proc),{base}={}) {
+      if(warm||coldStarted||successorStarted||slot.successor)throw fail('successor_unavailable');
+      if(!channel||typeof channel.parentConnected!=='function'||typeof channel.readInput!=='function'||typeof channel.parentPid!=='function'
+        ||channel.parentConnected()!==true)throw fail('successor_unavailable');
+      if(typeof base!=='string'||!p.isAbsolute(base))throw fail('successor_input_invalid');
       const bytes=await channel.readInput(16384);let input;
       try{const raw=bytes.toString('utf8');if(!Buffer.from(raw).equals(bytes))throw fail('successor_input_invalid');input=JSON.parse(raw);}catch{throw fail('successor_input_invalid');}finally{bytes.fill(0);}
       if(keys(input)!=='base,expectedAuthority,id,nonce,parentPid,schema,serve'||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
         ||input.parentPid!==channel.parentPid()||input.parentPid===proc.pid||typeof input.base!=='string'||!p.isAbsolute(input.base)||!listener(input.serve)||!authority(input.expectedAuthority)
-        ||fold(await host.canonical(input.base))!==fold(await host.canonical(await host.base())))throw fail('successor_input_invalid');
-      successorInput=input;
-      const options={host:input.serve.host,port:String(input.serve.port)};strictOptions.add(options);
-      await host.startFreshServe(options);
-      if(!warm||fold(warm.base)!==fold(await host.canonical(input.base)))throw fail('successor_not_captured');actualListener(warm.server,input.serve);
-      const actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))throw fail('successor_authority_changed');
-      await channel.send({schema:1,kind:'serve-ready',id:input.id,nonce:input.nonce,pid:proc.pid,port:input.serve.port,host:input.serve.host,authority:actual});
-      if(typeof proc.disconnect==='function'&&proc.connected)proc.disconnect();return warm.server;
+        ||fold(await host.canonical(input.base))!==fold(await host.canonical(base)))throw fail('successor_input_invalid');
+      successorStarted=true;
+      // This exact object identity is the only strict same-port ticket; a clone or
+      // user-shaped {host,port} never reaches the listener.
+      const options={host:input.serve.host,port:String(input.serve.port)};slot.strictOptions.add(options);
+      slot.successor=Object.freeze({channel,input,options,phase:'prepared'});
+      return options;
     }
-    return Object.freeze({captureServe,activateServe,inspectBoot,runCold,runSuccessor,strictSamePort:options=>strictOptions.has(options),guardNative,helperMayStillRun:helpers});
+    async function completeSuccessor() {
+      const pending=slot.successor;if(!pending||pending.phase!=='prepared')throw fail('successor_not_prepared');
+      const input=pending.input,channel=pending.channel;
+      const stop=error=>{slot.successor=Object.freeze({...pending,phase:'failed'});throw error;};
+      let captured;
+      try {
+        if(typeof channel.send!=='function')return stop(fail('successor_unavailable'));
+        if(!warm)return stop(fail('successor_not_captured'));
+        captured=warm;
+        if(fold(captured.base)!==fold(await host.canonical(input.base)))return stop(fail('successor_not_captured'));
+        actualListener(captured.server,input.serve);
+        if(warm!==captured||!ready())return stop(fail('worker_unavailable'));
+        const read=host.workerHooks?.readResult;
+        const record=typeof read==='function'?await read():await readWarmResult(captured);
+        if(!record||record.id!==input.id)return stop(fail('successor_result_unreadable'));
+        if(!same(record.authority,input.expectedAuthority))return stop(fail('successor_result_changed'));
+        const actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+        await channel.send({schema:1,kind:'serve-ready',id:input.id,nonce:input.nonce,pid:proc.pid,port:input.serve.port,host:input.serve.host,authority:actual});
+      } catch(error) { slot.successor=Object.freeze({...pending,phase:'failed'});throw error; }
+      slot.successor=Object.freeze({...pending,phase:'complete'});
+      if(typeof proc.disconnect==='function'&&proc.connected)proc.disconnect();
+      return captured.server;
+    }
+    // Legacy composition kept for harnesses that still inject their own fresh
+    // normal-serve entry; production uses 13au's startSuccessorMaintenance.
+    async function runSuccessor(channel=host.workerApi.processChannel(proc)) {
+      if(typeof host.startFreshServe!=='function')throw fail('successor_unavailable');
+      const options=await prepareSuccessor(channel,{base:await host.base()});
+      await host.startFreshServe(options);
+      return completeSuccessor();
+    }
+    return Object.freeze({captureServe,activateServe,inspectBoot,runCold,runSuccessor,prepareSuccessor,completeSuccessor,workerReady:ready,
+      strictSamePort:options=>slot.strictOptions.has(options),guardNative,helperMayStillRun:helpers});
   }
   return Object.freeze({create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
@@ -104817,18 +105356,39 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
 if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
   let bound=null;
   const unavailable=()=>{throw Object.assign(Error('work_data_setup.worker_unavailable'),{code:'work_data_setup.worker_unavailable',retry:false});};
+  // One successor slot and one strict-port ticket registry for this process. The
+  // prepare phase runs before configure, the completion phase after it, and the
+  // listener must still see the same registered options object.
+  const slot={successor:null,strictOptions:new WeakSet()};
+  // 13au installs the production claim API on this hooks object before the first
+  // boot inspection, so the readonly pre-configure gate can classify handoffs too.
+  const claimApi=()=>{const value=WorkDataMaintenanceRuntimeHooks.claim;
+    return value&&typeof value==='object'&&['inspect','write','remove','classify'].every(name=>typeof value[name]==='function')?value:null;};
+  // Readonly process composition used before configureServe: it may canonicalize,
+  // inspect and classify, but it can never acquire, configure, mutate or exit.
+  const readonly=(base)=>{
+    const claim=claimApi();
+    return WorkDataMaintenanceRuntime.create({process,workerHooks:{},workerApi:WorkDataMaintenanceWorker,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,controlApi:WorkDataMaintenanceControl,
+      base:async()=>base,canonical:ServerOwnership.canonicalRoot,acquire:ServerOwnership.acquire,readAuthority:requested=>WorkDataManifest.create({base:requested}).readActive(),
+      assertOwnership:(owner,value)=>ServerOwnership.owns(owner,value),withColdSource:unavailable,withWarmSource:unavailable,adaptersReady:()=>false,helperMayStillRun:()=>false,
+      isRetired:()=>false,operations:unavailable,stopUncommitted:unavailable,exit:unavailable,command:unavailable,
+      ...(claim?{claim}:{legacyNoClaim:true})},slot);
+  };
   Object.assign(WorkDataMaintenanceRuntimeHooks,{
-    configure:host=>{if(bound)throw Object.assign(Error('work_data_setup.runtime_already_configured'),{code:'work_data_setup.runtime_already_configured'});bound=WorkDataMaintenanceRuntime.create(host);return bound;},
-    inspectBoot:context=>{
-      if(bound)return bound.inspectBoot(context);
-      const readonly=WorkDataMaintenanceRuntime.create({process,workerHooks:{},workerApi:WorkDataMaintenanceWorker,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,controlApi:WorkDataMaintenanceControl,
-        base:async()=>context.base,canonical:ServerOwnership.canonicalRoot,acquire:ServerOwnership.acquire,readAuthority:base=>WorkDataManifest.create({base}).readActive(),
-        assertOwnership:(owner,base)=>ServerOwnership.owns(owner,base),withColdSource:unavailable,withWarmSource:unavailable,adaptersReady:()=>false,helperMayStillRun:()=>false,isRetired:()=>false,operations:unavailable,stopUncommitted:unavailable,exit:unavailable,command:unavailable});
-      return readonly.inspectBoot(context);
-    },
+    configure:host=>{if(bound)throw Object.assign(Error('work_data_setup.runtime_already_configured'),{code:'work_data_setup.runtime_already_configured'});bound=WorkDataMaintenanceRuntime.create(host,slot);return bound;},
+    inspectBoot:context=>bound?bound.inspectBoot(context):readonly(context.base).inspectBoot(context),
     captureServe:context=>bound?bound.captureServe(context):false,
     activateServe:()=>bound?bound.activateServe():false,
-    strictSamePort:options=>bound?bound.strictSamePort(options):false,
+    workerReady:()=>bound?bound.workerReady():false,
+    // The prepared ticket lives in the shared slot, so it stays strict across the
+    // pre-configure prepare and the configured listener.
+    strictSamePort:options=>slot.strictOptions.has(options),
+    prepareSuccessor:async(channel,options)=>{
+      if(bound)return bound.prepareSuccessor(channel,options);
+      if(!options||typeof options.base!=='string')throw Object.assign(Error('work_data_setup.successor_input_invalid'),{code:'work_data_setup.successor_input_invalid',retry:false});
+      return readonly(options.base).prepareSuccessor(channel,options);
+    },
+    completeSuccessor:async()=>bound?bound.completeSuccessor():unavailable(),
     runCold:()=>bound?bound.runCold():unavailable(),runSuccessor:()=>bound?bound.runSuccessor():unavailable(),
   });
 }
@@ -105647,6 +106207,9 @@ const WorkDataNativeAdapters = ((io, p, c) => {
   const INPUT_LIMIT = 32768, VERIFY_MS = 120000, CLOSE_MS = 2000;
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
   const keys = x => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().join(',') : '';
+  // Same-path comparison follows the platform's path identity: Windows paths are
+  // case-insensitive, so a case variant of one physical path is still that path.
+  const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
   const fail = (code, uncertain = false) => Object.assign(Error('work_data_adapter.' + code), {
     code:'work_data_adapter.' + code, retry:false, ...(uncertain ? {helperMayStillRun:true} : {}),
   });
@@ -105818,8 +106381,10 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         if (!Buffer.isBuffer(bytes) || bytes.length > INPUT_LIMIT) throw fail('input_invalid');
         const raw = bytes.toString('utf8'); if (!Buffer.from(raw).equals(bytes)) throw fail('input_invalid');
         request = input(JSON.parse(raw));
+        // canonicalRoot still proves the real path and rejects aliases; the comparison
+        // only tolerates the case variant Windows gives back for one physical path.
         if (request.parentPid !== channel.parentPid() || request.parentPid === proc.pid
-          || await bindings.ownership.canonicalRoot(request.target) !== request.target) throw fail('parent_or_target_invalid');
+          || fold(await bindings.ownership.canonicalRoot(request.target)) !== fold(request.target)) throw fail('parent_or_target_invalid');
         owner = await bindings.ownership.acquire([request.target]); keeper = sourceKeeper({base:request.target,ownership:owner});
         finalKeeper = sourceKeeper({base:request.target,ownership:owner});
         const exclusive = keeper.assertExclusive;
@@ -105956,23 +106521,46 @@ const WorkDataVerifierEntry = (() => {
 // startup); startServer calls acquireServe/configureServe explicitly.
 const WorkDataRuntimeHost = ((p,util,clock) => {
   const retained=new Set(),capturedResultScopes=new WeakMap();
+  const MODES=Object.freeze(['work-data-maintenance','work-data-successor']);
+  const IMPLEMENTED=Object.freeze(['native-flush-adapter','full-snapshot-adapter','cold-verifier-protocol','genuine-source-keeper']);
+  const STOP_TIMEOUT_MS=5000;
   const fail=(name,cause)=>Object.assign(Error('work_data_host.'+name),{code:'work_data_host.'+name,retry:false,...(cause===undefined?{}:{cause})});
   const fold=value=>process.platform==='win32'?value.toLowerCase():value;
   const inside=(root,target)=>{const rel=p.relative(fold(root),fold(target));return rel===''||rel!=='..'&&!rel.startsWith('..'+p.sep)&&!p.isAbsolute(rel);};
+  const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&!util.types.isProxy(value);
+  const read=(object,name)=>{try{return object===null||typeof object!=='object'?undefined:object[name];}catch{return undefined;}};
+  const methods=(object,names)=>plain(object)&&names.every(name=>typeof read(object,name)==='function');
+  const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
   function productionBindings(proc) {
-    return {ownership:ServerOwnership,native:WorkDataVerifierEntry.createVerifier({proc}),uploads:WorkDataRestoreUploads,
+    const native=WorkDataVerifierEntry.createVerifier({proc});
+    return {ownership:ServerOwnership,native,uploads:WorkDataRestoreUploads,
       workerApi:WorkDataMaintenanceWorker,runtimeHooks:WorkDataMaintenanceRuntimeHooks,
       workerHooks:WorkDataMaintenanceWorkerHooks,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,
       controlApi:WorkDataMaintenanceControl,coldOperations:WorkDataColdOperations,
-      command(mode){if(!['work-data-maintenance','work-data-successor'].includes(mode))throw fail('command_invalid');const original=WorkDataVerifierEntry.command({proc});return Object.freeze({command:original.command,args:Object.freeze([...original.args.slice(0,-1),mode])});}};
+      // Retirement evidence is the live maintenance drain record, never configure success.
+      maintenance:typeof WorkDataMaintenanceHooks==='undefined'?null:WorkDataMaintenanceHooks,
+      // The one claim instance installed on the runtime hooks by this module's tail.
+      // Never mint a parallel owner here: an absent instance leaves the worker unready.
+      claim:typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks.claim||null,
+      command(mode){if(!MODES.includes(mode))throw fail('command_invalid');const original=WorkDataVerifierEntry.command({proc});return Object.freeze({command:original.command,args:Object.freeze([...original.args.slice(0,-1),mode])});}};
   }
   function create({proc=process,bindings=productionBindings(proc),stopUncommitted,exit}={}) {
-    if(!proc||!Number.isSafeInteger(proc.pid)||proc.pid<1||!bindings||!bindings.native
-      ||['sourceKeeper','readAuthority','coldOperationHost','helperMayStillRun','flush'].some(k=>typeof bindings.native[k]!=='function')
-      ||!bindings.ownership||['acquire','canonicalRoot','isLease','owns','isSourceKeeper','createSourceKeeper'].some(k=>typeof bindings.ownership[k]!=='function')
-      ||!bindings.uploads||['create','isBroker'].some(k=>typeof bindings.uploads[k]!=='function')
-      ||!bindings.coldOperations||typeof bindings.coldOperations.create!=='function'||typeof bindings.command!=='function')throw fail('bindings_invalid');
-    const O=bindings.ownership,N=bindings.native,contexts=new Set(),byLease=new WeakMap(),jobs=new Set();
+    if(!proc||!Number.isSafeInteger(proc.pid)||proc.pid<1||!plain(bindings)||!bindings.native
+      ||['sourceKeeper','readAuthority','coldOperationHost','helperMayStillRun','flush'].some(k=>typeof read(bindings.native,k)!=='function')
+      ||!bindings.ownership||['acquire','canonicalRoot','isLease','owns','isSourceKeeper','createSourceKeeper'].some(k=>typeof read(bindings.ownership,k)!=='function')
+      ||!bindings.uploads||['create','isBroker'].some(k=>typeof read(bindings.uploads,k)!=='function')
+      ||!bindings.coldOperations||typeof read(bindings.coldOperations,'create')!=='function'||typeof read(bindings,'command')!=='function'
+      ||stopUncommitted!==undefined&&typeof stopUncommitted!=='function'||exit!==undefined&&typeof exit!=='function')throw fail('bindings_invalid');
+    const O=bindings.ownership,N=bindings.native,contexts=new Set(),byLease=new WeakMap(),jobs=new Set(),children=new Set();
+    // Only children this factory actually spawned can be stopped. Membership is the
+    // registered object identity: a clone or Proxy of a genuine child cannot borrow it.
+    const workerApi=Object.freeze({
+      create(options){return bindings.workerApi.create(options);},
+      spawnCold(command,env){const child=bindings.workerApi.spawnCold(command,env);if(plain(child))children.add(child);return child;},
+      processChannel(target){return bindings.workerApi.processChannel(target);},
+      waitForProcessExit(pid,options){return bindings.workerApi.waitForProcessExit(pid,options);}});
+    const stopAdapter=typeof stopUncommitted==='function'?stopUncommitted:null;
+    const exitAdapter=typeof exit==='function'?exit:code=>proc.exit(code);
     let warm=null,cold=null,warmOpening=false,coldOpening=false,configuredRole=null,configuredBase=null,unknown=false,unknownCause,unknownSet=false,holdTimer=null,installed=false;
     const retain=(cause)=>{
       unknown=true;if(!unknownSet){unknownSet=true;unknownCause=cause;}retained.add(contexts);
@@ -106018,6 +106606,154 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
       finally{if(pin){if(unknown){try{pin.retainUnknown(failed?primary:undefined);}catch{}}else{try{await pin.releaseChecked(assertFinishSafe);ensure(ctx);}catch(error){throw retain(failed?new AggregateError([primary,error],'Source scope cleanup failed.',{cause:primary}):error);}}}}
     }
     function operation(ctx,work,options){let pending;pending=scoped(ctx,work,options);ctx.inflight.add(pending);pending.then(()=>ctx.inflight.delete(pending),()=>ctx.inflight.delete(pending));return pending;}
+    // Every readiness/retirement read below is synchronous live state. Nothing here
+    // performs IO, configure, migration or base/authority prefetch, and a successful
+    // configure never promotes itself into readiness.
+    function sourceHealthy(ctx){
+      try{
+        return !!ctx&&!ctx.finished&&!ctx.retained&&ctx.accepting===true
+          &&O.isSourceKeeper(ctx.keeper,ctx.ownership,ctx.base)===true
+          &&ctx.keeper.assertExclusive(ctx.ownership)===true
+          &&ctx.roots.every(root=>O.owns(ctx.ownership,root));
+      }catch{return false;}
+    }
+    function commandIdentity(){
+      const executable=typeof proc.execPath==='string'&&p.isAbsolute(proc.execPath)?fold(proc.execPath):null;
+      if(!executable)return null;
+      // The verifier entry itself is re-derived from the current executable and
+      // entry, never from a remembered configure result. A fixture without the
+      // verifier module models the already-bound command through the adapter.
+      let verifier=null;
+      if(typeof WorkDataVerifierEntry!=='undefined'){
+        try{verifier=WorkDataVerifierEntry.command({proc});}catch{return null;}
+        if(!plain(verifier)||typeof verifier.command!=='string'||fold(verifier.command)!==executable
+          ||!Array.isArray(verifier.args)||util.types.isProxy(verifier.args)||verifier.args.length<1
+          ||verifier.args.length>2||verifier.args.some(arg=>typeof arg!=='string'))return null;
+      }
+      let shared=null,sharedCommand=null;
+      for(const mode of MODES){
+        let value;try{value=bindings.command(mode);}catch{return null;}
+        if(!plain(value))return null;
+        const command=read(value,'command'),args=read(value,'args');
+        if(typeof command!=='string'||!p.isAbsolute(command)||fold(command)!==executable)return null;
+        if(!Array.isArray(args)||util.types.isProxy(args)||args.length<1||args.length>2)return null;
+        const vector=[];
+        for(const arg of args){if(typeof arg!=='string')return null;vector.push(arg);}
+        if(vector[vector.length-1]!==mode)return null;
+        if(vector.length===2&&!p.isAbsolute(vector[0]))return null;
+        if(shared===null){shared=vector;sharedCommand=command;}
+        else if(shared.length!==vector.length||fold(command)!==fold(sharedCommand)
+          ||vector.some((item,index)=>index<shared.length-1&&fold(item)!==fold(shared[index])))return null;
+      }
+      if(verifier!==null){
+        const prefix=verifier.args.slice(0,-1);
+        if(prefix.length!==shared.length-1||prefix.some((arg,index)=>fold(arg)!==fold(shared[index])))return null;
+      }
+      return Object.freeze({executable:proc.execPath,entry:shared.length===2?shared[0]:null,packaged:shared.length===1});
+    }
+    function driversReady(){
+      const native=bindings.native;
+      if(!methods(native,['sourceKeeper','readAuthority','coldOperationHost','helperMayStillRun','flush']))return false;
+      const capabilities=read(native,'capabilities');
+      if(!plain(capabilities))return false;
+      const implemented=read(capabilities,'implemented');
+      if(!Array.isArray(implemented)||util.types.isProxy(implemented)||IMPLEMENTED.some(name=>implemented.indexOf(name)<0))return false;
+      if(read(capabilities,'verifierCommandBound')!==true)return false;
+      if(!methods(bindings.resultApi,['create']))return false;
+      if(!methods(bindings.controlApi,['create']))return false;
+      if(!methods(bindings.workerApi,['create','spawnCold','processChannel','waitForProcessExit']))return false;
+      if(!methods(bindings.claim,['inspect','write','remove','classify']))return false;
+      if(!methods(bindings.uploads,['create','isBroker']))return false;
+      return commandIdentity()!==null;
+    }
+    function adaptersReadyFor(role){
+      try{
+        if(!driversReady()||helperUnknown())return false;
+        if(role==='warm')return installed===true&&sourceHealthy(warm);
+        // Cold: adapters plus, once acquired, the same live keeper. No warm source
+        // exists yet and the base is never read or canonicalized here.
+        if(warm||warmOpening||installed)return false;
+        return cold===null||sourceHealthy(cold);
+      }catch{return false;}
+    }
+    function maintenanceSnapshot(){
+      const source=bindings.maintenance;
+      if(!methods(source,['status']))return null;
+      let status;try{status=source.status();}catch{return null;}
+      if(!plain(status))return null;
+      const phase=read(status,'phase'),busy=read(status,'busy');
+      const admitted=count(read(status,'admitted')),writers=count(read(status,'writers')),dirty=count(read(status,'dirty'));
+      if(typeof phase!=='string'||!plain(busy)||admitted===null||writers===null||dirty===null)return null;
+      const copy={};
+      for(const name of Object.keys(busy)){const value=count(read(busy,name));if(value===null)return null;copy[name]=value;}
+      return Object.freeze({phase,admitted,writers,dirty,busy:Object.freeze(copy)});
+    }
+    function retiredFor(role){
+      try{
+        if(role!=='warm')return null;
+        if(installed!==true||!sourceHealthy(warm))return null;
+        if(warm.inflight.size!==0)return null;
+        // The committed handoff job is still registered in `jobs` while 13ai calls
+        // exitParent; a retired receipt therefore never consults jobs.size.
+        if(helperUnknown())return null;
+        const status=maintenanceSnapshot();
+        if(!status||status.phase!=='retired')return null;
+        if(status.admitted!==0||status.writers!==0||status.dirty!==0||Object.values(status.busy).some(value=>value!==0))return null;
+        return Object.freeze({phase:'retired',admitted:0,writers:0,dirty:0,busy:status.busy,inflight:0,installed:true,keeper:true,owner:true,helper:false});
+      }catch{return null;}
+    }
+    function actualExit(child,ms){
+      return new Promise(resolve=>{
+        let settled=false,timer=null;
+        const exited=()=>{const code=read(child,'exitCode'),signal=read(child,'signalCode');return code!==null&&code!==undefined||signal!==null&&signal!==undefined;};
+        const finish=value=>{if(settled)return;settled=true;if(timer!==null){try{clock.clearTimeout(timer);}catch{}}try{child.removeListener('exit',onExit);child.removeListener('error',onError);}catch{}resolve(value);};
+        const onExit=()=>finish('exit'),onError=()=>finish('error');
+        if(exited())return resolve('exit');
+        try{
+          timer=clock.setTimeout(()=>finish('timeout'),ms);if(timer&&typeof timer.ref==='function')timer.ref();
+          child.once('exit',onExit);child.once('error',onError);
+        }catch{return finish('error');}
+        if(exited())finish('exit');
+      });
+    }
+    async function stopDefault(child){
+      if(!children.has(child)||!plain(child))throw fail('child_unregistered');
+      const pid=read(child,'pid');
+      if(!Number.isSafeInteger(pid)||pid<1)throw fail('child_unregistered');
+      // Disconnect only. An uncommitted child never acquired execution authority, so
+      // killing or retrying it here would be a unilateral mutation; wait for its own
+      // actual exit within a bound instead.
+      try{if(read(child,'connected')===true&&typeof read(child,'disconnect')==='function')child.disconnect();}catch{ /* The exit observation below decides. */ }
+      const reason=await actualExit(child,STOP_TIMEOUT_MS);
+      if(reason!=='exit'){
+        const error=fail(reason==='timeout'?'worker_stop_timeout':'worker_stop_unverified');
+        retain(error);
+        throw Object.assign(error,{pid,ownershipRetained:true,helperMayStillRun:true});
+      }
+      children.delete(child);
+      return Object.freeze({pid,exited:true});
+    }
+    function exitReady(role,code){
+      if(!Number.isSafeInteger(code)||code!==0)throw fail('exit_code_invalid');
+      if(role==='warm'){
+        if(installed!==true||!warm||warm.finished)throw fail('exit_not_retired');
+        if(retiredFor('warm')===null)throw fail('exit_not_retired');
+        return;
+      }
+      if(!cold||!cold.finished||O.owns(cold.ownership))throw fail('exit_not_finished');
+      if(helperUnknown())throw retain(unknownCause);
+    }
+    async function exitNow(role,code){
+      exitReady(role,code);
+      if(helperUnknown())throw retain(unknownCause);
+      // The final retired/helper/cold-finished rechecks above are synchronous with the
+      // exit call: no acquire, release, configure or IO is interleaved.
+      let cause;
+      try{const pending=exitAdapter(code);if(pending&&typeof pending.then==='function')await pending;}catch(error){cause=error;}
+      const returned=fail('process_exit_returned',cause);
+      retain(returned);
+      throw Object.assign(returned,{ownershipRetained:true,helperMayStillRun:true});
+    }
     async function openWarm({base,uploadRoot,ownership}){
       if(warm||cold||installed||warmOpening||coldOpening||configuredRole==='cold')throw fail('warm_already_bound');warmOpening=true;
       try{base=fold(await canonical(base));uploadRoot=fold(await canonical(uploadRoot));
@@ -106054,15 +106790,18 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
-      const host={process:proc,workerApi:bindings.workerApi,httpApi:bindings.httpApi,resultApi:bindings.resultApi,controlApi:bindings.controlApi,workerHooks:bindings.workerHooks,
+      const host={process:proc,workerApi,httpApi:bindings.httpApi,resultApi:bindings.resultApi,controlApi:bindings.controlApi,workerHooks:bindings.workerHooks,
+        get claim(){return bindings.claim;},
         base:async()=>base,canonical:O.canonicalRoot,acquire:roots=>coldAcquire(roots,base),assertOwnership,withColdSource,withWarmSource,bindCapturedResult,
         readAuthority:requested=>{const ctx=role==='warm'?warm:cold;if(!ctx||fold(requested)!==ctx.base)throw fail('source_required');return operation(ctx,()=>N.readAuthority(ctx.base),{newAdmission:role==='warm'});},
         operations:({progress})=>{if(typeof progress!=='function')throw fail('progress_invalid');return bindings.coldOperations.create(N.coldOperationHost(progress));},
-        // Missing crash recovery, activation and final source/IO gates cannot be
-        // substituted with a caller-provided true or a successful configure.
-        adaptersReady:()=>false,isRetired:()=>false,helperMayStillRun:helperUnknown,command:bindings.command,
-        stopUncommitted:child=>{if(typeof stopUncommitted!=='function')throw fail('stop_adapter_unavailable');return stopUncommitted(child);},
-        exit:async code=>{if(helperUnknown())throw retain(unknownCause);if(role==='warm'||code!==0||!cold||!cold.finished||O.owns(cold.ownership))throw fail('exit_adapter_unavailable');if(typeof exit!=='function')throw fail('exit_adapter_unavailable');await exit(code);throw retain(fail('process_exit_returned'));},
+        // Live reads only. A successful configure, an installed broker or a caller's
+        // boolean cannot substitute for a missing adapter, an uncertain native helper
+        // or a lost keeper/owner.
+        adaptersReady:()=>adaptersReadyFor(role),retiredReceipt:()=>retiredFor(role),isRetired:()=>retiredFor(role)!==null,
+        helperMayStillRun:helperUnknown,command:bindings.command,
+        stopUncommitted:child=>stopAdapter===null?stopDefault(child):stopAdapter(child),
+        exit:code=>exitNow(role,code),
         ...(role==='warm'?{uploads:warm.broker}:{})};
       const registered=Object.freeze(host);
       // Only this exact private host identity can bind a capture reader. Neither
@@ -106091,12 +106830,60 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
     // property of an unregistered host, Proxy or existing hook is consulted.
     return bind?bind(base,ownership,read):null;
   }
-  return Object.freeze({create,bindCapturedResult});
+  function hooksOrGlobal(hooks){
+    if(hooks!==undefined&&hooks!==null)return hooks;
+    return typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks;
+  }
+  // The cold child was spawned with RUYI_HOME pointing at its base. Reading it here is
+  // a synchronous process-state read: no canonicalization, prefetch or base IO.
+  function coldBase(proc){
+    const env=plain(proc)?read(proc,'env'):null,value=plain(env)?read(env,'RUYI_HOME'):undefined;
+    if(typeof value!=='string'||!p.isAbsolute(value)||p.resolve(value)!==value||/[\0\r\n]/.test(value))throw fail('cold_base_invalid');
+    return p.resolve(value);
+  }
+  async function startColdMaintenance({proc=process,hooks,bindings}={}){
+    const runtimeHooks=hooksOrGlobal(hooks);
+    if(!methods(runtimeHooks,['configure','runCold']))throw fail('cold_hooks_invalid');
+    if(!plain(proc)||!Number.isSafeInteger(proc.pid)||proc.pid<1)throw fail('process_invalid');
+    const base=coldBase(proc);
+    const factory=create({proc,bindings:bindings===undefined?productionBindings(proc):bindings});
+    // A cold entry configures its own cold runtime host exactly once and never runs
+    // the warm acquire/install path or prefetches the base before acquire.
+    const host=factory.runtimeHost({base,role:'cold'});
+    const configured=runtimeHooks.configure(host);
+    if(configured===undefined||configured===null)throw fail('cold_configure_invalid');
+    return runtimeHooks.runCold();
+  }
+  async function startSuccessorMaintenance({proc=process,hooks,startServe,bindings,channel}={}){
+    const runtimeHooks=hooksOrGlobal(hooks);
+    if(!methods(runtimeHooks,['prepareSuccessor','completeSuccessor']))throw fail('successor_hooks_invalid');
+    if(typeof startServe!=='function')throw fail('successor_serve_invalid');
+    if(!plain(proc)||!Number.isSafeInteger(proc.pid)||proc.pid<1)throw fail('process_invalid');
+    const base=coldBase(proc);
+    let pipe=channel;
+    if(pipe===undefined||pipe===null){
+      const workerApi=bindings===undefined?(typeof WorkDataMaintenanceWorker==='undefined'?null:WorkDataMaintenanceWorker):read(bindings,'workerApi');
+      if(!methods(workerApi,['processChannel']))throw fail('successor_channel_invalid');
+      pipe=workerApi.processChannel(proc);
+    }
+    // prepare rejects invalid input/parent/nonce/base/listener before any IO or
+    // configure and registers the single strict options object used by startServe.
+    const prepared=await runtimeHooks.prepareSuccessor(pipe,{base});
+    const options=plain(prepared)&&Object.hasOwn(prepared,'options')?prepared.options:prepared;
+    if(!plain(options))throw fail('successor_options_invalid');
+    await startServe(options);
+    // Only a serve that actually started may announce serve-ready/disconnect.
+    return runtimeHooks.completeSuccessor();
+  }
+  return Object.freeze({create,bindCapturedResult,startColdMaintenance,startSuccessorMaintenance});
 })(require('node:path'),require('node:util'),require('node:timers'));
 
 // Actual normal-serve wiring. Definition/configuration alone performs no IO.
 // Only acquireServe allocates its own empty custody root and acquires the joint
-// genuine owner before broker/configuration writes. No worker capability is set.
+// genuine owner before broker/configuration writes. Installing the warm snapshot
+// descriptor does not install a worker capability: the install-time descriptor
+// still declares worker:false, and live readiness reports worker availability
+// separately.
 const WorkDataServeUploadBootstrap = ((io,p,osApi,clock) => {
   const retained=new Set(),fold=value=>process.platform==='win32'?value.toLowerCase():value;
   const fail=(name,cause)=>Object.assign(Error('work_data_bootstrap.'+name),{code:'work_data_bootstrap.'+name,retry:false,...(cause===undefined?{}:{cause})});
@@ -106210,6 +106997,17 @@ const WorkDataServeUploadBootstrap = ((io,p,osApi,clock) => {
 if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
   const serveUploads=WorkDataServeUploadBootstrap.create();
   Object.assign(WorkDataMaintenanceRuntimeHooks,{acquireServe:serveUploads.acquireServe,configureServe:serveUploads.configureServe,abortUnconfiguredServe:serveUploads.abortUnconfigured,helperMayStillRun:serveUploads.helperMayStillRun});
+  // One handoff claim instance for the whole process: the host, 13ai and 13am all
+  // read and remove the same TEMP record, and the readonly boot gate classifies it
+  // before configure. Installing it performs no IO and starts no process; an existing
+  // instance is never replaced, and an absent claim/verifier module leaves it unset
+  // (the worker then stays unready instead of inventing a parallel owner).
+  try{
+    if(!WorkDataMaintenanceRuntimeHooks.claim&&typeof WorkDataHandoffClaim!=='undefined'&&typeof WorkDataVerifierEntry!=='undefined'){
+      const native=WorkDataVerifierEntry.createVerifier({proc:process});
+      WorkDataMaintenanceRuntimeHooks.claim=WorkDataHandoffClaim.create({temp:require('node:os').tmpdir(),flush:directories=>native.flush(directories)});
+    }
+  }catch{ /* No synthetic claim: a missing adapter leaves the worker unready. */ }
 }
 
 let workDataCliHelperHeld = false;
@@ -106311,7 +107109,16 @@ async function main() {
   }
   if (command === 'work-data-maintenance' || command === 'work-data-successor') {
     if (argv._.length !== 1 || Object.keys(argv).length !== 1) throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid'});
-    const run = command === 'work-data-maintenance' ? WorkDataMaintenanceRuntimeHooks.runCold : WorkDataMaintenanceRuntimeHooks.runSuccessor;
+    const cold = command === 'work-data-maintenance';
+    // 13au owns the private-process composition. Cold re-uses the strict argv and
+    // builds the cold host itself; the successor receives the normal serve entry
+    // as an explicit dependency so acquire/inspect/bind/configure/inbox/activate
+    // stay in one reviewed startup path.
+    if (typeof WorkDataRuntimeHost !== 'undefined' && WorkDataRuntimeHost) {
+      if (cold && typeof WorkDataRuntimeHost.startColdMaintenance === 'function') return WorkDataRuntimeHost.startColdMaintenance();
+      if (!cold && typeof WorkDataRuntimeHost.startSuccessorMaintenance === 'function') return WorkDataRuntimeHost.startSuccessorMaintenance({startServe:options => startWorkbenchServe(options)});
+    }
+    const run = cold ? WorkDataMaintenanceRuntimeHooks.runCold : WorkDataMaintenanceRuntimeHooks.runSuccessor;
     if (typeof run !== 'function') throw Object.assign(Error('work_data_setup.worker_unavailable'), {code:'work_data_setup.worker_unavailable'});
     return run();
   }

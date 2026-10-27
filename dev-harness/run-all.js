@@ -236,6 +236,12 @@ const TIMEOUT_OVERRIDES = {
   // 设置页签 3 档 × 2 语言、抽屉 Tab 序、定时任务表单……)再加 M 组的真回合,单跑实测 128 s,已越过默认 120 s
   // (本机 4 路全量里撞墙 TIMEOUT,断言全 PASS)。豁免到 300 s,与同族走查件同一档。
   'frontend-wave3.browser.e2e.js': 300000,
+  // 3.1 production maintenance: three real handoffs (enable/export/disable). Each one
+  // pays a real cold worker, actual DPAPI/NTFS work, a rehearsal restore, a cold
+  // verifier child and a fresh same-port successor; five more real serves decide the
+  // boot verdicts. This is a whole-file hang guard, not a product latency claim -
+  // every product wait above keeps its own explicit deadline and is never widened.
+  'work-data-production-maintenance.e2e.js': 900000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

@@ -72,21 +72,19 @@ const WorkDataSetup = (() => {
         if(body.operation==='disable'&&body.confirmPlaintext!==true)throw fail('plaintext_confirmation_required',400);
         if(body.confirmPlaintext!==undefined&&typeof body.confirmPlaintext!=='boolean')throw fail('request_invalid',400);
         if(!validText(body.backupDirectory)||!body.backupDirectory.length||body.backupDirectory.length>1024)throw fail('path_invalid',400);
-        const jobId=host.id();if(!ID.test(jobId)||jobs.has(jobId))throw fail('id_invalid');let uploadGrant=null;
+        const jobId=host.id();if(!ID.test(jobId)||jobs.has(jobId))throw fail('id_invalid');
         if(body.operation==='restore'){
           if(!validText(body.targetDirectory)||!body.targetDirectory.length||body.targetDirectory.length>1024||!ID.test(body.uploadId||''))throw fail('restore_input_invalid',400);
-          const uploadWorker=host.worker();
-          // A worker that cannot start cannot consume the grant or reach the queue.
-          if(typeof uploadWorker.start!=='function')throw fail('worker_unavailable',501);
-          if(typeof uploadWorker.resolveUpload!=='function'||typeof WorkDataRestoreUploads==='undefined')throw fail('upload_unavailable',501);
-          uploadGrant=await uploadWorker.resolveUpload(body.uploadId,{jobId});
-          if(WorkDataRestoreUploads.ownsGrant(uploadGrant,{uploadId:body.uploadId,jobId})!==true)throw fail('upload_unavailable',501);
+          // Restore admission is closed in this version. The ordinary input refusals
+          // above stay first, and nothing consumes an upload grant, resolves a ticket
+          // or reaches the queue behind this typed refusal.
+          throw fail('restore_unavailable',501);
         }else if(body.targetDirectory!==undefined||body.uploadId!==undefined)throw fail('request_invalid',400);
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
         await host.validateDirectories({base:observed.base,backupDirectory:body.backupDirectory,targetDirectory:body.targetDirectory});
         await ensureExpected(expectedAuthority);
         const job={id:jobId,operation:body.operation,state:'queued',createdAt:host.now(),committed:false,cancelRequested:false,abort:new AbortController(),secret,
-          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,...(body.operation==='restore'?{targetDirectory:body.targetDirectory,uploadId:body.uploadId,uploadGrant}:{}),confirmPlaintext:body.confirmPlaintext===true}};
+          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,confirmPlaintext:body.confirmPlaintext===true}};
         if(!ID.test(job.id)||jobs.has(job.id))throw fail('id_invalid');secret=null;
         while(jobs.size>=32){const oldest=[...jobs.values()].find(row=>['failed','cancelled'].includes(row.state));if(!oldest)throw fail('capacity');jobs.delete(oldest.id);}
         jobs.set(job.id,job);active=job;host.defer(()=>{job.done=execute(job);});return view(job);
@@ -101,8 +99,12 @@ const WorkDataSetup = (() => {
     async function status() {
       const observed=await host.inspect(),worker=host.worker();let lastResult=null;
       if(typeof worker.readResult==='function'){try{lastResult=await worker.readResult();}catch{throw fail('result_unavailable',503);}}
+      // The worker capability is advertised only while the process runtime reports
+      // real readiness. Transfer stays upload-only: there is no download endpoint.
+      let started=typeof worker.start==='function';
+      if(started&&typeof host.workerReady==='function'){try{started=host.workerReady()===true;}catch{started=false;}}
       return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
-        lastResult,capabilities:{worker:typeof worker.start==='function',upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',download:typeof worker.download==='function'},processRestartRequired:true};
+        lastResult,capabilities:{worker:started,upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',download:false},processRestartRequired:true};
     }
     async function receiveUpload(req) {
       // The main router authenticates the header token before this handler. This
@@ -229,6 +231,10 @@ function workDataSetupReceiptOwner(pathname,body) {
   return turnSettlers.get(entry.sessionId)||null;
 }
 const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks,inspect:workDataSetupInspect,validateDirectories:workDataSetupDirectories,
+  workerReady:()=>{
+    const hooks=typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks;
+    return !hooks||typeof hooks.workerReady!=='function'?true:hooks.workerReady()===true;
+  },
   worker:()=>WorkDataMaintenanceWorkerHooks,id:()=>crypto.randomBytes(24).toString('hex'),now:nowIso,defer:work=>setImmediate(work),respond:(res,body,status)=>send(res,json(body,status)),
   receiptPath:workDataSetupReceiptPath,receiptOwner:workDataSetupReceiptOwner});
 Object.assign(WorkDataSetupHooks,workDataSetup);

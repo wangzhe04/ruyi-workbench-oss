@@ -97,7 +97,16 @@ async function main() {
   }
   if (command === 'work-data-maintenance' || command === 'work-data-successor') {
     if (argv._.length !== 1 || Object.keys(argv).length !== 1) throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid'});
-    const run = command === 'work-data-maintenance' ? WorkDataMaintenanceRuntimeHooks.runCold : WorkDataMaintenanceRuntimeHooks.runSuccessor;
+    const cold = command === 'work-data-maintenance';
+    // 13au owns the private-process composition. Cold re-uses the strict argv and
+    // builds the cold host itself; the successor receives the normal serve entry
+    // as an explicit dependency so acquire/inspect/bind/configure/inbox/activate
+    // stay in one reviewed startup path.
+    if (typeof WorkDataRuntimeHost !== 'undefined' && WorkDataRuntimeHost) {
+      if (cold && typeof WorkDataRuntimeHost.startColdMaintenance === 'function') return WorkDataRuntimeHost.startColdMaintenance();
+      if (!cold && typeof WorkDataRuntimeHost.startSuccessorMaintenance === 'function') return WorkDataRuntimeHost.startSuccessorMaintenance({startServe:options => startWorkbenchServe(options)});
+    }
+    const run = cold ? WorkDataMaintenanceRuntimeHooks.runCold : WorkDataMaintenanceRuntimeHooks.runSuccessor;
     if (typeof run !== 'function') throw Object.assign(Error('work_data_setup.worker_unavailable'), {code:'work_data_setup.worker_unavailable'});
     return run();
   }

@@ -1,7 +1,8 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createFixture, tick } = require('../lib/work-data-production-host-fixture');
+const path = require('node:path');
+const { createFixture, createClaimWiring, tick } = require('../lib/work-data-production-host-fixture');
 
 test('genuine owner and keeper brands reject roots-shaped clones and Proxy objects without getters', async () => {
   const f = createFixture(), owner = await f.lease([f.paths.base]); let gets = 0;
@@ -218,4 +219,380 @@ test('an existing worker start hook is never borrowed by installWarm or activate
   assert.equal(runtime.activateServe(), false);
   assert.equal(f.workerHooks.start, sentinel); assert.equal(starts, 0);
   await f.finishWarm(warm);
+});
+
+const foldPath = value => process.platform === 'win32' ? value.toLowerCase() : value;
+
+test('warm adaptersReady reads every live driver and health gate instead of configure success', async () => {
+  const f = createFixture(), warm = await f.warm(), installed = f.factory.installWarm();
+  // The claim adapter arrives through live wiring; configure/install alone is never enough.
+  f.bindings.claim = f.claim;
+  assert.equal(installed.host.adaptersReady(), true);
+  assert.equal(f.factory.capabilities.productionReady, false);
+  assert.equal(installed.capabilities.worker, false);
+  assert.equal(installed.capabilities.download, false);
+  assert.equal(installed.capabilities.crashClaim, false);
+  assert.equal(installed.capabilities.activation, false);
+
+  // A configured runtime host whose warm source was never installed is not ready.
+  const uninstalled = createFixture(), opened = await uninstalled.open(uninstalled.factory);
+  uninstalled.bindings.claim = uninstalled.claim;
+  assert.equal(uninstalled.factory.runtimeHost({ base: opened.session.base, role: 'warm' }).adaptersReady(), false);
+  await uninstalled.finishWarm(opened);
+
+  // A Proxy-shaped bindings object never lends adapters to a new factory.
+  assert.throws(() => f.api.host.create({ proc: f.proc, bindings: new Proxy(f.bindings, {}) }), { code: 'work_data_host.bindings_invalid' });
+
+  // Command identity is re-derived from the current verifier entry, not remembered.
+  f.context.WorkDataVerifierEntry = { command: () => ({ command: f.proc.execPath, args: ['work-data-verify'] }) };
+  assert.equal(installed.host.adaptersReady(), true);
+  f.context.WorkDataVerifierEntry = { command: () => ({ command: f.proc.execPath, args: ['other-entry.js', 'work-data-verify'] }) };
+  assert.equal(installed.host.adaptersReady(), false);
+  delete f.context.WorkDataVerifierEntry;
+  assert.equal(installed.host.adaptersReady(), true);
+
+  const cases = [
+    ['claim', f => { f.bindings.claim = null; }, true],
+    ['result adapter', f => { f.bindings.resultApi = null; }, true],
+    ['control adapter', f => { f.bindings.controlApi = null; }, true],
+    ['worker adapter', f => { f.bindings.workerApi = null; }, true],
+    ['command executable', f => { f.bindings.command = mode => ({ command: f.proc.execPath + '.other', args: [mode] }); }, true],
+    ['command entry', f => { f.bindings.command = mode => ({ command: f.proc.execPath, args: ['relative-entry.js', mode] }); }, true],
+    ['command mode', f => { f.bindings.command = mode => ({ command: f.proc.execPath, args: [mode === 'work-data-maintenance' ? 'work-data-successor' : 'work-data-maintenance'] }); }, true],
+    ['verifier entry', f => { f.bindings.native = f.native; }, true],
+    ['native helper', f => { f.state.unknown = true; }, true],
+    ['keeper and owner', f => { f.servers[0].emit('error', Error('modeled ownership loss')); }, true]
+  ];
+  for (const [name, mutate, wired] of cases) {
+    const fixture = createFixture(), warm = await fixture.warm(), installed = fixture.factory.installWarm();
+    if (wired) fixture.bindings.claim = fixture.claim;
+    mutate(fixture);
+    assert.equal(installed.host.adaptersReady(), false, name);
+  }
+});
+
+test('cold adaptersReady needs the same adapters without a warm source or a base prefetch', async () => {
+  const f = createFixture();
+  f.bindings.claim = f.claim;
+  const host = f.factory.runtimeHost({ base: f.paths.base, role: 'cold' });
+  assert.equal(host.adaptersReady(), true);
+  assert.equal(f.events.includes('flush'), false);
+
+  f.bindings.resultApi = null;
+  assert.equal(host.adaptersReady(), false);
+
+  const g = createFixture();
+  g.bindings.claim = g.claim;
+  const other = g.factory.runtimeHost({ base: g.paths.base, role: 'cold' });
+  g.state.unknown = true;
+  assert.equal(other.adaptersReady(), false);
+  assert.equal(other.helperMayStillRun(), true);
+});
+
+test('retirement requires a retired drain, zero counters, no inflight operation and a healthy source', async () => {
+  const f = createFixture(), warm = await f.warm(), host = f.factory.installWarm().host;
+  assert.equal(host.retiredReceipt(), null);
+  assert.equal(host.isRetired(), false);
+
+  f.state.maintenance.phase = 'retired';
+  assert.equal(host.isRetired(), true);
+  const receipt = host.retiredReceipt();
+  assert.deepEqual({ ...receipt, busy: { ...receipt.busy } }, { phase: 'retired', admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 },
+    inflight: 0, installed: true, keeper: true, owner: true, helper: false });
+
+  for (const [name, value, reset] of [['admitted', 1, 0], ['writers', 1, 0], ['dirty', 1, 0], ['busy', { turns: 1 }, { turns: 0 }]]) {
+    f.state.maintenance[name] = value;
+    assert.equal(host.isRetired(), false, name);
+    f.state.maintenance[name] = reset;
+  }
+  f.state.maintenance.phase = 'idle';
+  assert.equal(host.isRetired(), false);
+  f.state.maintenance.phase = 'retired';
+
+  // A pending source-scoped operation blocks retirement; jobs.size is never consulted.
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const realResult = f.bindings.resultApi;
+  f.bindings.resultApi = { create: () => ({ read: () => pending }) };
+  const inflight = warm.session.readResult();
+  await tick();
+  assert.equal(host.isRetired(), false);
+  release({});
+  await inflight;
+  f.bindings.resultApi = realResult;
+  assert.equal(host.isRetired(), true);
+
+  // Synthesized, borrowed or incomplete drain evidence never retires.
+  const retired = { phase: 'retired', admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 } };
+  f.bindings.maintenance = new Proxy({ status: () => retired }, {});
+  assert.equal(host.isRetired(), false);
+  f.bindings.maintenance = { status: () => ({ phase: 'retired', admitted: 0, writers: 0, dirty: 0 }) };
+  assert.equal(host.isRetired(), false);
+  f.bindings.maintenance = { status: () => retired };
+  assert.equal(host.isRetired(), true);
+  f.servers[0].emit('error', Error('modeled ownership loss'));
+  assert.equal(host.isRetired(), false);
+});
+
+function fakeChild(pid) {
+  const handlers = new Map();
+  return { pid, connected: true, exitCode: null, signalCode: null, disconnects: 0, kills: 0,
+    disconnect() { this.connected = false; this.disconnects++; },
+    kill() { this.kills++; },
+    once(event, fn) { if (!handlers.has(event)) handlers.set(event, []); handlers.get(event).push(fn); return this; },
+    removeListener(event, fn) { handlers.set(event, (handlers.get(event) || []).filter(row => row !== fn)); return this; },
+    emit(event, ...args) { for (const fn of [...(handlers.get(event) || [])]) fn(...args); return true; } };
+}
+
+test('stopUncommitted disconnects only its own uncommitted child and waits for the actual exit', async () => {
+  const f = createFixture(), warm = await f.warm(), host = f.factory.installWarm().host;
+  const child = fakeChild(4242);
+  f.bindings.workerApi = { ...f.bindings.workerApi, spawnCold() { return child; } };
+  assert.equal(host.workerApi.spawnCold({ command: 'node', args: [] }, {}), child);
+
+  // Another factory's host never inherits this registry entry.
+  const foreignHost = f.api.host.create({ proc: f.proc, bindings: f.bindings }).runtimeHost({ base: f.paths.base, role: 'cold' });
+  await assert.rejects(() => foreignHost.stopUncommitted(child), { code: 'work_data_host.child_unregistered' });
+  assert.equal(child.disconnects, 0); assert.equal(child.kills, 0);
+
+  const stopping = host.stopUncommitted(child);
+  assert.equal(child.disconnects, 1);
+  assert.equal(child.kills, 0, 'an uncommitted child is never killed');
+  child.exitCode = 0;
+  child.emit('exit', 0, null);
+  const receipt = await stopping;
+  assert.equal(receipt.pid, 4242); assert.equal(receipt.exited, true);
+  assert.equal(child.kills, 0);
+
+  const stranger = fakeChild(7);
+  for (const value of [stranger, new Proxy(stranger, {}), { ...stranger }]) {
+    await assert.rejects(() => host.stopUncommitted(value), { code: 'work_data_host.child_unregistered' });
+  }
+  assert.equal(stranger.disconnects, 0); assert.equal(stranger.kills, 0);
+  await f.finishWarm(warm);
+});
+
+test('stopUncommitted never kills and retains ownership when the child exit is not observed', async () => {
+  const f = createFixture(), warm = await f.warm(), host = f.factory.installWarm().host;
+  const child = fakeChild(4343);
+  f.bindings.workerApi = { ...f.bindings.workerApi, spawnCold() { return child; } };
+  host.workerApi.spawnCold({ command: 'node', args: [] }, {});
+  const before = f.timeouts.length;
+  const stopping = host.stopUncommitted(child); stopping.catch(() => {});
+  assert.equal(f.timeouts.length, before + 1);
+  await tick();
+  assert.equal(child.disconnects, 1); assert.equal(child.kills, 0);
+  f.timeouts[before].fn();
+  await assert.rejects(() => stopping, error => error.code === 'work_data_host.worker_stop_timeout'
+    && error.ownershipRetained === true && error.helperMayStillRun === true);
+  assert.equal(child.kills, 0);
+  // A retained source is never released as if the stop had succeeded.
+  await assert.rejects(() => warm.ownership.release());
+});
+
+test('exit runs only after a live retired receipt and maps a returned exit to process_exit_returned', async () => {
+  const f = createFixture(), warm = await f.warm(), host = f.factory.installWarm().host;
+  await assert.rejects(() => host.exit(0), { code: 'work_data_host.exit_not_retired' });
+  assert.deepEqual(f.state.exitCalls, []);
+  assert.equal(f.api.ownership.owns(warm.ownership, f.paths.base), true);
+
+  f.state.maintenance.phase = 'retired';
+  await assert.rejects(() => host.exit(0), error => error.code === 'work_data_host.process_exit_returned'
+    && error.ownershipRetained === true && error.cause?.code === 'MODELED_PROCESS_EXIT');
+  assert.deepEqual(f.state.exitCalls, [0]);
+  await assert.rejects(() => warm.ownership.release());
+});
+
+test('cold exit requires a finished cold source and never exits while the owner is still held', async () => {
+  const f = createFixture();
+  const host = f.factory.runtimeHost({ base: f.paths.base, role: 'cold' });
+  await assert.rejects(() => host.exit(0), { code: 'work_data_host.exit_not_finished' });
+  assert.deepEqual(f.state.exitCalls, []);
+  const ownership = await host.acquire([f.paths.base]);
+  await assert.rejects(() => host.exit(0), { code: 'work_data_host.exit_not_finished' });
+  assert.equal(await host.withColdSource({ ownership, base: f.paths.base }, async () => 42), 42);
+  await assert.rejects(() => host.exit(0), error => error.code === 'work_data_host.process_exit_returned');
+  assert.deepEqual(f.state.exitCalls, [0]);
+});
+
+test('startColdMaintenance builds and configures exactly one cold runtime host, then runs cold', async () => {
+  const f = createFixture();
+  f.bindings.claim = f.claim;
+  f.proc.env = { RUYI_HOME: f.paths.base };
+  const calls = []; let seen = null, runtime = null;
+  const hooks = {
+    configure(host) { calls.push('configure'); seen = host; runtime = f.api.runtime.create(host); return runtime; },
+    runCold() { calls.push('runCold'); assert.ok(runtime); return 'cold-finished'; }
+  };
+  assert.equal(await f.api.host.startColdMaintenance({ proc: f.proc, hooks, bindings: f.bindings }), 'cold-finished');
+  assert.deepEqual(calls, ['configure', 'runCold']);
+  assert.equal(seen.process, f.proc);
+  assert.equal(seen.adaptersReady(), true);
+  assert.equal(await seen.base(), foldPath(f.paths.base));
+  assert.equal(f.state.configured, null);
+  assert.equal(f.events.includes('flush'), false);
+
+  const missing = createFixture();
+  await assert.rejects(() => missing.api.host.startColdMaintenance({ proc: missing.proc, hooks, bindings: missing.bindings }),
+    { code: 'work_data_host.cold_base_invalid' });
+
+  const failing = createFixture();
+  failing.proc.env = { RUYI_HOME: failing.paths.base };
+  const order = [];
+  await assert.rejects(() => failing.api.host.startColdMaintenance({ proc: failing.proc, bindings: failing.bindings,
+    hooks: { configure() { order.push('configure'); throw Error('modeled configure failure'); }, runCold() { order.push('runCold'); } } }),
+  /modeled configure failure/);
+  assert.deepEqual(order, ['configure']);
+});
+
+test('13au installs one real claim on the runtime hooks and the boot gate cleans only proven records', async t => {
+  const w = await createClaimWiring();
+  t.after(() => w.dispose());
+  const hooks = w.hooks;
+  // 13am's hook block never sets a claim; 13au's module tail installs the only one.
+  assert.equal(w.installedBy13am, undefined);
+  assert.deepEqual(Object.keys(hooks.claim).sort(), ['classify', 'inspect', 'remove', 'write']);
+
+  // productionBindings reuses that exact instance instead of minting a parallel owner.
+  const factory = w.api.host.create({ proc: w.proc });
+  const coldHost = factory.runtimeHost({ base: w.canonicalBase, role: 'cold' });
+  assert.equal(coldHost.claim, hooks.claim);
+  assert.equal(coldHost.adaptersReady(), true);
+
+  const lease = await w.lease();
+  t.after(() => lease.release());
+  const boot = () => hooks.inspectBoot({ base: w.canonicalBase, ownership: lease });
+  const present = async () => (await hooks.claim.inspect({ base: w.canonicalBase })).present;
+
+  // 1. No handoff record: boot proceeds and creates nothing.
+  assert.equal(await boot(), true);
+  assert.equal(await present(), false);
+  assert.deepEqual(w.claimEntries(), []);
+
+  // 2. armed is inert and is cleaned through the exact inspected receipt.
+  await hooks.claim.write(w.claimRecord('armed'));
+  assert.equal(await present(), true);
+  assert.equal(await boot(), true);
+  assert.equal(await present(), false);
+
+  // 3. committed with a live child is pending: refuse and keep the record bytes.
+  const armedAgain = await hooks.claim.write(w.claimRecord('armed'));
+  const committed = await hooks.claim.write(w.claimRecord('committed', { updatedAt: '2026-10-27T00:00:01.000Z' }), armedAgain);
+  const pendingBytes = w.claimBytes();
+  await assert.rejects(boot, { code: 'work_data_setup.handoff_pending' });
+  assert.deepEqual(w.claimBytes(), pendingBytes);
+
+  // 4. owned plus a result for a different job is not complete: refuse, keep the record.
+  await hooks.claim.write(w.claimRecord('owned', { updatedAt: '2026-10-27T00:00:02.000Z' }), committed);
+  w.writeResult(w.resultRecord('d'.repeat(48)));
+  const ownedBytes = w.claimBytes();
+  await assert.rejects(boot, { code: 'work_data_setup.handoff_pending' });
+  assert.deepEqual(w.claimBytes(), ownedBytes);
+
+  // 5. owned plus the matching result is complete: clean exactly that record.
+  w.writeResult(w.resultRecord('a'.repeat(48)));
+  assert.equal(await boot(), true);
+  assert.equal(await present(), false);
+});
+
+test('without the claim module the hook stays unset and the host advertises no worker', async t => {
+  const w = await createClaimWiring({ claimModule: false });
+  t.after(() => w.dispose());
+  // 13au's tail refuses to synthesize a claim owner when 13av is absent.
+  assert.equal(w.hooks.claim, undefined);
+  const factory = w.api.host.create({ proc: w.proc });
+  const coldHost = factory.runtimeHost({ base: w.canonicalBase, role: 'cold' });
+  assert.equal(coldHost.claim, null);
+  assert.equal(coldHost.adaptersReady(), false, 'the missing claim keeps the worker unready');
+  const lease = await w.lease();
+  t.after(() => lease.release());
+  assert.equal(await w.hooks.inspectBoot({ base: w.canonicalBase, ownership: lease }), true);
+});
+
+test('startSuccessorMaintenance prepares, starts the serve and completes only in that order', async () => {
+  const f = createFixture();
+  f.proc.env = { RUYI_HOME: f.paths.base };
+  const order = [], channel = { kind: 'modeled-channel' }, options = { host: '127.0.0.1', port: '34567' };
+  let served = null;
+  const hooks = {
+    prepareSuccessor(pipe, { base }) { order.push('prepare'); assert.equal(pipe, channel); assert.equal(base, f.paths.base); return { options }; },
+    completeSuccessor() { order.push('complete'); return { kind: 'serve-ready' }; }
+  };
+  const startServe = async value => { order.push('serve'); served = value; return { listening: true }; };
+  assert.deepEqual(await f.api.host.startSuccessorMaintenance({ proc: f.proc, hooks, startServe, channel }), { kind: 'serve-ready' });
+  assert.deepEqual(order, ['prepare', 'serve', 'complete']);
+  assert.equal(served, options);
+
+  for (const failing of ['prepare', 'serve']) {
+    const seen = []; let completed = 0;
+    const broken = {
+      prepareSuccessor() { seen.push('prepare'); if (failing === 'prepare') throw Error('modeled prepare failure'); return options; },
+      completeSuccessor() { seen.push('complete'); completed++; return {}; }
+    };
+    const serve = async () => { seen.push('serve'); if (failing === 'serve') throw Error('modeled serve failure'); };
+    await assert.rejects(() => f.api.host.startSuccessorMaintenance({ proc: f.proc, hooks: broken, startServe: serve, channel }), /modeled .* failure/);
+    assert.equal(completed, 0);
+    assert.deepEqual(seen, failing === 'prepare' ? ['prepare'] : ['prepare', 'serve']);
+  }
+
+  const missing = createFixture(); let prepared = 0;
+  await assert.rejects(() => missing.api.host.startSuccessorMaintenance({ proc: missing.proc, channel,
+    hooks: { prepareSuccessor() { prepared++; }, completeSuccessor() {} }, startServe: async () => {} }), { code: 'work_data_host.cold_base_invalid' });
+  assert.equal(prepared, 0);
+});
+
+function verifierInput(target) {
+  return Buffer.from(JSON.stringify({ schema: 1, kind: 'verify-full', id: 'a'.repeat(48), nonce: 'c'.repeat(64),
+    parentPid: 888, target, generation: 1, password: 'synthetic verifier password' }));
+}
+
+const verifierClock = { setTimeout: () => ({ ref() {}, unref() {} }), clearTimeout() {}, setInterval: () => ({ ref() {}, unref() {} }) };
+
+function verifierChannel(bytes, sent) {
+  return { parentConnected: () => true, parentPid: () => 888, readInput: async () => bytes, send: async message => { sent.push(message); } };
+}
+
+test('the real verifier accepts a Windows case variant and keeps the requested path unchanged', async () => {
+  const f = createFixture(), target = f.paths.base.toUpperCase();
+  const seen = { acquire: [], manifest: [], snapshot: [] };
+  const ownership = { ...f.api.ownership, acquire: async roots => { seen.acquire.push([...roots]); return f.api.ownership.acquire(roots); } };
+  const manifest = { ...f.nativeBindings.manifest, create: options => { seen.manifest.push(options.base); return f.nativeBindings.manifest.create(options); } };
+  const fullSnapshot = { ...f.nativeBindings.fullSnapshot, create: options => { seen.snapshot.push(options.base); return f.nativeBindings.fullSnapshot.create(options); } };
+  const adapter = f.api.native.create({ bindings: { ...f.nativeBindings, ownership, manifest, fullSnapshot }, proc: f.proc, clock: verifierClock });
+  // The memory filesystem is case-insensitive and the fixture models win32, so this
+  // target is one physical directory whose spelling differs only by letter case.
+  assert.notEqual(target, f.paths.base);
+  assert.equal(target.toLowerCase(), f.paths.base.toLowerCase());
+
+  const sent = [], bytes = verifierInput(target);
+  const reply = await adapter.runVerifier(verifierChannel(bytes, sent));
+  assert.equal(reply.kind, 'verified-full');
+  assert.equal(reply.target, target, 'the result keeps the requested spelling');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].target, target);
+  assert.deepEqual(seen.acquire, [[target]], 'acquire receives the original request path');
+  assert.deepEqual(seen.manifest, [target, target], 'both authority reads keep the original path');
+  assert.deepEqual(seen.snapshot, [target], 'the snapshot keeps the original path');
+  assert.ok(bytes.every(value => value === 0));
+});
+
+test('the real verifier still refuses a junction alias and a different physical target', async () => {
+  const f = createFixture();
+  const other = path.join(f.root, 'other-base'); f.memory.mkdir(other);
+  const baseLink = path.join(f.root, 'base-link'), otherLink = path.join(f.root, 'other-link');
+  const links = new Map([[baseLink.toLowerCase(), f.paths.base], [otherLink.toLowerCase(), other]]);
+  const realpath = f.memory.io.realpath.bind(f.memory.io);
+  f.memory.io.realpath = async file => {
+    const resolved = path.resolve(file);
+    for (const [link, destination] of links) if (resolved.toLowerCase() === link) return destination;
+    return realpath(file);
+  };
+  const adapter = f.api.native.create({ bindings: f.nativeBindings, proc: f.proc, clock: verifierClock });
+  // Junction aliases (including a case-only spelling of a real alias) resolve to a
+  // different physical directory and must still be refused before any owner exists.
+  for (const target of [baseLink, otherLink, baseLink.toUpperCase()]) {
+    const sent = [], bytes = verifierInput(target);
+    await assert.rejects(() => adapter.runVerifier(verifierChannel(bytes, sent)), { code: 'work_data_adapter.parent_or_target_invalid' });
+    assert.equal(sent.length, 0);
+    assert.ok(bytes.every(value => value === 0));
+  }
 });

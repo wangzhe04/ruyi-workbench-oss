@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-27T07:11:53.866Z",
+  "generatedAt": "2026-10-27T17:34:09.577Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1169,7 +1169,8 @@
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\unit\\work-data-maintenance-http.test.js",
-        "dev-harness\\unit\\work-data-setup.test.js"
+        "dev-harness\\unit\\work-data-setup.test.js",
+        "dev-harness\\work-data-production-maintenance.e2e.js"
       ]
     },
     {
@@ -3228,6 +3229,7 @@
       "coveredBy": [
         "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-settings.test.js",
+        "dev-harness\\work-data-production-maintenance.e2e.js",
         "dev-harness\\work-data-production-upload.e2e.js",
         "dev-harness\\work-data-settings.browser.e2e.js"
       ]
@@ -3248,6 +3250,7 @@
         "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-settings.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
+        "dev-harness\\work-data-production-maintenance.e2e.js",
         "dev-harness\\work-data-production-upload.e2e.js",
         "dev-harness\\work-data-settings.browser.e2e.js"
       ]
@@ -3285,6 +3288,7 @@
       "coveredBy": [
         "dev-harness\\unit\\work-data-maintenance-http.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
+        "dev-harness\\work-data-production-maintenance.e2e.js",
         "dev-harness\\work-data-settings.browser.e2e.js"
       ]
     },

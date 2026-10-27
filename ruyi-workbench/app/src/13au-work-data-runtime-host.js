@@ -3,23 +3,46 @@
 // startup); startServer calls acquireServe/configureServe explicitly.
 const WorkDataRuntimeHost = ((p,util,clock) => {
   const retained=new Set(),capturedResultScopes=new WeakMap();
+  const MODES=Object.freeze(['work-data-maintenance','work-data-successor']);
+  const IMPLEMENTED=Object.freeze(['native-flush-adapter','full-snapshot-adapter','cold-verifier-protocol','genuine-source-keeper']);
+  const STOP_TIMEOUT_MS=5000;
   const fail=(name,cause)=>Object.assign(Error('work_data_host.'+name),{code:'work_data_host.'+name,retry:false,...(cause===undefined?{}:{cause})});
   const fold=value=>process.platform==='win32'?value.toLowerCase():value;
   const inside=(root,target)=>{const rel=p.relative(fold(root),fold(target));return rel===''||rel!=='..'&&!rel.startsWith('..'+p.sep)&&!p.isAbsolute(rel);};
+  const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&!util.types.isProxy(value);
+  const read=(object,name)=>{try{return object===null||typeof object!=='object'?undefined:object[name];}catch{return undefined;}};
+  const methods=(object,names)=>plain(object)&&names.every(name=>typeof read(object,name)==='function');
+  const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
   function productionBindings(proc) {
-    return {ownership:ServerOwnership,native:WorkDataVerifierEntry.createVerifier({proc}),uploads:WorkDataRestoreUploads,
+    const native=WorkDataVerifierEntry.createVerifier({proc});
+    return {ownership:ServerOwnership,native,uploads:WorkDataRestoreUploads,
       workerApi:WorkDataMaintenanceWorker,runtimeHooks:WorkDataMaintenanceRuntimeHooks,
       workerHooks:WorkDataMaintenanceWorkerHooks,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,
       controlApi:WorkDataMaintenanceControl,coldOperations:WorkDataColdOperations,
-      command(mode){if(!['work-data-maintenance','work-data-successor'].includes(mode))throw fail('command_invalid');const original=WorkDataVerifierEntry.command({proc});return Object.freeze({command:original.command,args:Object.freeze([...original.args.slice(0,-1),mode])});}};
+      // Retirement evidence is the live maintenance drain record, never configure success.
+      maintenance:typeof WorkDataMaintenanceHooks==='undefined'?null:WorkDataMaintenanceHooks,
+      // The one claim instance installed on the runtime hooks by this module's tail.
+      // Never mint a parallel owner here: an absent instance leaves the worker unready.
+      claim:typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks.claim||null,
+      command(mode){if(!MODES.includes(mode))throw fail('command_invalid');const original=WorkDataVerifierEntry.command({proc});return Object.freeze({command:original.command,args:Object.freeze([...original.args.slice(0,-1),mode])});}};
   }
   function create({proc=process,bindings=productionBindings(proc),stopUncommitted,exit}={}) {
-    if(!proc||!Number.isSafeInteger(proc.pid)||proc.pid<1||!bindings||!bindings.native
-      ||['sourceKeeper','readAuthority','coldOperationHost','helperMayStillRun','flush'].some(k=>typeof bindings.native[k]!=='function')
-      ||!bindings.ownership||['acquire','canonicalRoot','isLease','owns','isSourceKeeper','createSourceKeeper'].some(k=>typeof bindings.ownership[k]!=='function')
-      ||!bindings.uploads||['create','isBroker'].some(k=>typeof bindings.uploads[k]!=='function')
-      ||!bindings.coldOperations||typeof bindings.coldOperations.create!=='function'||typeof bindings.command!=='function')throw fail('bindings_invalid');
-    const O=bindings.ownership,N=bindings.native,contexts=new Set(),byLease=new WeakMap(),jobs=new Set();
+    if(!proc||!Number.isSafeInteger(proc.pid)||proc.pid<1||!plain(bindings)||!bindings.native
+      ||['sourceKeeper','readAuthority','coldOperationHost','helperMayStillRun','flush'].some(k=>typeof read(bindings.native,k)!=='function')
+      ||!bindings.ownership||['acquire','canonicalRoot','isLease','owns','isSourceKeeper','createSourceKeeper'].some(k=>typeof read(bindings.ownership,k)!=='function')
+      ||!bindings.uploads||['create','isBroker'].some(k=>typeof read(bindings.uploads,k)!=='function')
+      ||!bindings.coldOperations||typeof read(bindings.coldOperations,'create')!=='function'||typeof read(bindings,'command')!=='function'
+      ||stopUncommitted!==undefined&&typeof stopUncommitted!=='function'||exit!==undefined&&typeof exit!=='function')throw fail('bindings_invalid');
+    const O=bindings.ownership,N=bindings.native,contexts=new Set(),byLease=new WeakMap(),jobs=new Set(),children=new Set();
+    // Only children this factory actually spawned can be stopped. Membership is the
+    // registered object identity: a clone or Proxy of a genuine child cannot borrow it.
+    const workerApi=Object.freeze({
+      create(options){return bindings.workerApi.create(options);},
+      spawnCold(command,env){const child=bindings.workerApi.spawnCold(command,env);if(plain(child))children.add(child);return child;},
+      processChannel(target){return bindings.workerApi.processChannel(target);},
+      waitForProcessExit(pid,options){return bindings.workerApi.waitForProcessExit(pid,options);}});
+    const stopAdapter=typeof stopUncommitted==='function'?stopUncommitted:null;
+    const exitAdapter=typeof exit==='function'?exit:code=>proc.exit(code);
     let warm=null,cold=null,warmOpening=false,coldOpening=false,configuredRole=null,configuredBase=null,unknown=false,unknownCause,unknownSet=false,holdTimer=null,installed=false;
     const retain=(cause)=>{
       unknown=true;if(!unknownSet){unknownSet=true;unknownCause=cause;}retained.add(contexts);
@@ -65,6 +88,154 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
       finally{if(pin){if(unknown){try{pin.retainUnknown(failed?primary:undefined);}catch{}}else{try{await pin.releaseChecked(assertFinishSafe);ensure(ctx);}catch(error){throw retain(failed?new AggregateError([primary,error],'Source scope cleanup failed.',{cause:primary}):error);}}}}
     }
     function operation(ctx,work,options){let pending;pending=scoped(ctx,work,options);ctx.inflight.add(pending);pending.then(()=>ctx.inflight.delete(pending),()=>ctx.inflight.delete(pending));return pending;}
+    // Every readiness/retirement read below is synchronous live state. Nothing here
+    // performs IO, configure, migration or base/authority prefetch, and a successful
+    // configure never promotes itself into readiness.
+    function sourceHealthy(ctx){
+      try{
+        return !!ctx&&!ctx.finished&&!ctx.retained&&ctx.accepting===true
+          &&O.isSourceKeeper(ctx.keeper,ctx.ownership,ctx.base)===true
+          &&ctx.keeper.assertExclusive(ctx.ownership)===true
+          &&ctx.roots.every(root=>O.owns(ctx.ownership,root));
+      }catch{return false;}
+    }
+    function commandIdentity(){
+      const executable=typeof proc.execPath==='string'&&p.isAbsolute(proc.execPath)?fold(proc.execPath):null;
+      if(!executable)return null;
+      // The verifier entry itself is re-derived from the current executable and
+      // entry, never from a remembered configure result. A fixture without the
+      // verifier module models the already-bound command through the adapter.
+      let verifier=null;
+      if(typeof WorkDataVerifierEntry!=='undefined'){
+        try{verifier=WorkDataVerifierEntry.command({proc});}catch{return null;}
+        if(!plain(verifier)||typeof verifier.command!=='string'||fold(verifier.command)!==executable
+          ||!Array.isArray(verifier.args)||util.types.isProxy(verifier.args)||verifier.args.length<1
+          ||verifier.args.length>2||verifier.args.some(arg=>typeof arg!=='string'))return null;
+      }
+      let shared=null,sharedCommand=null;
+      for(const mode of MODES){
+        let value;try{value=bindings.command(mode);}catch{return null;}
+        if(!plain(value))return null;
+        const command=read(value,'command'),args=read(value,'args');
+        if(typeof command!=='string'||!p.isAbsolute(command)||fold(command)!==executable)return null;
+        if(!Array.isArray(args)||util.types.isProxy(args)||args.length<1||args.length>2)return null;
+        const vector=[];
+        for(const arg of args){if(typeof arg!=='string')return null;vector.push(arg);}
+        if(vector[vector.length-1]!==mode)return null;
+        if(vector.length===2&&!p.isAbsolute(vector[0]))return null;
+        if(shared===null){shared=vector;sharedCommand=command;}
+        else if(shared.length!==vector.length||fold(command)!==fold(sharedCommand)
+          ||vector.some((item,index)=>index<shared.length-1&&fold(item)!==fold(shared[index])))return null;
+      }
+      if(verifier!==null){
+        const prefix=verifier.args.slice(0,-1);
+        if(prefix.length!==shared.length-1||prefix.some((arg,index)=>fold(arg)!==fold(shared[index])))return null;
+      }
+      return Object.freeze({executable:proc.execPath,entry:shared.length===2?shared[0]:null,packaged:shared.length===1});
+    }
+    function driversReady(){
+      const native=bindings.native;
+      if(!methods(native,['sourceKeeper','readAuthority','coldOperationHost','helperMayStillRun','flush']))return false;
+      const capabilities=read(native,'capabilities');
+      if(!plain(capabilities))return false;
+      const implemented=read(capabilities,'implemented');
+      if(!Array.isArray(implemented)||util.types.isProxy(implemented)||IMPLEMENTED.some(name=>implemented.indexOf(name)<0))return false;
+      if(read(capabilities,'verifierCommandBound')!==true)return false;
+      if(!methods(bindings.resultApi,['create']))return false;
+      if(!methods(bindings.controlApi,['create']))return false;
+      if(!methods(bindings.workerApi,['create','spawnCold','processChannel','waitForProcessExit']))return false;
+      if(!methods(bindings.claim,['inspect','write','remove','classify']))return false;
+      if(!methods(bindings.uploads,['create','isBroker']))return false;
+      return commandIdentity()!==null;
+    }
+    function adaptersReadyFor(role){
+      try{
+        if(!driversReady()||helperUnknown())return false;
+        if(role==='warm')return installed===true&&sourceHealthy(warm);
+        // Cold: adapters plus, once acquired, the same live keeper. No warm source
+        // exists yet and the base is never read or canonicalized here.
+        if(warm||warmOpening||installed)return false;
+        return cold===null||sourceHealthy(cold);
+      }catch{return false;}
+    }
+    function maintenanceSnapshot(){
+      const source=bindings.maintenance;
+      if(!methods(source,['status']))return null;
+      let status;try{status=source.status();}catch{return null;}
+      if(!plain(status))return null;
+      const phase=read(status,'phase'),busy=read(status,'busy');
+      const admitted=count(read(status,'admitted')),writers=count(read(status,'writers')),dirty=count(read(status,'dirty'));
+      if(typeof phase!=='string'||!plain(busy)||admitted===null||writers===null||dirty===null)return null;
+      const copy={};
+      for(const name of Object.keys(busy)){const value=count(read(busy,name));if(value===null)return null;copy[name]=value;}
+      return Object.freeze({phase,admitted,writers,dirty,busy:Object.freeze(copy)});
+    }
+    function retiredFor(role){
+      try{
+        if(role!=='warm')return null;
+        if(installed!==true||!sourceHealthy(warm))return null;
+        if(warm.inflight.size!==0)return null;
+        // The committed handoff job is still registered in `jobs` while 13ai calls
+        // exitParent; a retired receipt therefore never consults jobs.size.
+        if(helperUnknown())return null;
+        const status=maintenanceSnapshot();
+        if(!status||status.phase!=='retired')return null;
+        if(status.admitted!==0||status.writers!==0||status.dirty!==0||Object.values(status.busy).some(value=>value!==0))return null;
+        return Object.freeze({phase:'retired',admitted:0,writers:0,dirty:0,busy:status.busy,inflight:0,installed:true,keeper:true,owner:true,helper:false});
+      }catch{return null;}
+    }
+    function actualExit(child,ms){
+      return new Promise(resolve=>{
+        let settled=false,timer=null;
+        const exited=()=>{const code=read(child,'exitCode'),signal=read(child,'signalCode');return code!==null&&code!==undefined||signal!==null&&signal!==undefined;};
+        const finish=value=>{if(settled)return;settled=true;if(timer!==null){try{clock.clearTimeout(timer);}catch{}}try{child.removeListener('exit',onExit);child.removeListener('error',onError);}catch{}resolve(value);};
+        const onExit=()=>finish('exit'),onError=()=>finish('error');
+        if(exited())return resolve('exit');
+        try{
+          timer=clock.setTimeout(()=>finish('timeout'),ms);if(timer&&typeof timer.ref==='function')timer.ref();
+          child.once('exit',onExit);child.once('error',onError);
+        }catch{return finish('error');}
+        if(exited())finish('exit');
+      });
+    }
+    async function stopDefault(child){
+      if(!children.has(child)||!plain(child))throw fail('child_unregistered');
+      const pid=read(child,'pid');
+      if(!Number.isSafeInteger(pid)||pid<1)throw fail('child_unregistered');
+      // Disconnect only. An uncommitted child never acquired execution authority, so
+      // killing or retrying it here would be a unilateral mutation; wait for its own
+      // actual exit within a bound instead.
+      try{if(read(child,'connected')===true&&typeof read(child,'disconnect')==='function')child.disconnect();}catch{ /* The exit observation below decides. */ }
+      const reason=await actualExit(child,STOP_TIMEOUT_MS);
+      if(reason!=='exit'){
+        const error=fail(reason==='timeout'?'worker_stop_timeout':'worker_stop_unverified');
+        retain(error);
+        throw Object.assign(error,{pid,ownershipRetained:true,helperMayStillRun:true});
+      }
+      children.delete(child);
+      return Object.freeze({pid,exited:true});
+    }
+    function exitReady(role,code){
+      if(!Number.isSafeInteger(code)||code!==0)throw fail('exit_code_invalid');
+      if(role==='warm'){
+        if(installed!==true||!warm||warm.finished)throw fail('exit_not_retired');
+        if(retiredFor('warm')===null)throw fail('exit_not_retired');
+        return;
+      }
+      if(!cold||!cold.finished||O.owns(cold.ownership))throw fail('exit_not_finished');
+      if(helperUnknown())throw retain(unknownCause);
+    }
+    async function exitNow(role,code){
+      exitReady(role,code);
+      if(helperUnknown())throw retain(unknownCause);
+      // The final retired/helper/cold-finished rechecks above are synchronous with the
+      // exit call: no acquire, release, configure or IO is interleaved.
+      let cause;
+      try{const pending=exitAdapter(code);if(pending&&typeof pending.then==='function')await pending;}catch(error){cause=error;}
+      const returned=fail('process_exit_returned',cause);
+      retain(returned);
+      throw Object.assign(returned,{ownershipRetained:true,helperMayStillRun:true});
+    }
     async function openWarm({base,uploadRoot,ownership}){
       if(warm||cold||installed||warmOpening||coldOpening||configuredRole==='cold')throw fail('warm_already_bound');warmOpening=true;
       try{base=fold(await canonical(base));uploadRoot=fold(await canonical(uploadRoot));
@@ -101,15 +272,18 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
-      const host={process:proc,workerApi:bindings.workerApi,httpApi:bindings.httpApi,resultApi:bindings.resultApi,controlApi:bindings.controlApi,workerHooks:bindings.workerHooks,
+      const host={process:proc,workerApi,httpApi:bindings.httpApi,resultApi:bindings.resultApi,controlApi:bindings.controlApi,workerHooks:bindings.workerHooks,
+        get claim(){return bindings.claim;},
         base:async()=>base,canonical:O.canonicalRoot,acquire:roots=>coldAcquire(roots,base),assertOwnership,withColdSource,withWarmSource,bindCapturedResult,
         readAuthority:requested=>{const ctx=role==='warm'?warm:cold;if(!ctx||fold(requested)!==ctx.base)throw fail('source_required');return operation(ctx,()=>N.readAuthority(ctx.base),{newAdmission:role==='warm'});},
         operations:({progress})=>{if(typeof progress!=='function')throw fail('progress_invalid');return bindings.coldOperations.create(N.coldOperationHost(progress));},
-        // Missing crash recovery, activation and final source/IO gates cannot be
-        // substituted with a caller-provided true or a successful configure.
-        adaptersReady:()=>false,isRetired:()=>false,helperMayStillRun:helperUnknown,command:bindings.command,
-        stopUncommitted:child=>{if(typeof stopUncommitted!=='function')throw fail('stop_adapter_unavailable');return stopUncommitted(child);},
-        exit:async code=>{if(helperUnknown())throw retain(unknownCause);if(role==='warm'||code!==0||!cold||!cold.finished||O.owns(cold.ownership))throw fail('exit_adapter_unavailable');if(typeof exit!=='function')throw fail('exit_adapter_unavailable');await exit(code);throw retain(fail('process_exit_returned'));},
+        // Live reads only. A successful configure, an installed broker or a caller's
+        // boolean cannot substitute for a missing adapter, an uncertain native helper
+        // or a lost keeper/owner.
+        adaptersReady:()=>adaptersReadyFor(role),retiredReceipt:()=>retiredFor(role),isRetired:()=>retiredFor(role)!==null,
+        helperMayStillRun:helperUnknown,command:bindings.command,
+        stopUncommitted:child=>stopAdapter===null?stopDefault(child):stopAdapter(child),
+        exit:code=>exitNow(role,code),
         ...(role==='warm'?{uploads:warm.broker}:{})};
       const registered=Object.freeze(host);
       // Only this exact private host identity can bind a capture reader. Neither
@@ -138,12 +312,60 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
     // property of an unregistered host, Proxy or existing hook is consulted.
     return bind?bind(base,ownership,read):null;
   }
-  return Object.freeze({create,bindCapturedResult});
+  function hooksOrGlobal(hooks){
+    if(hooks!==undefined&&hooks!==null)return hooks;
+    return typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks;
+  }
+  // The cold child was spawned with RUYI_HOME pointing at its base. Reading it here is
+  // a synchronous process-state read: no canonicalization, prefetch or base IO.
+  function coldBase(proc){
+    const env=plain(proc)?read(proc,'env'):null,value=plain(env)?read(env,'RUYI_HOME'):undefined;
+    if(typeof value!=='string'||!p.isAbsolute(value)||p.resolve(value)!==value||/[\0\r\n]/.test(value))throw fail('cold_base_invalid');
+    return p.resolve(value);
+  }
+  async function startColdMaintenance({proc=process,hooks,bindings}={}){
+    const runtimeHooks=hooksOrGlobal(hooks);
+    if(!methods(runtimeHooks,['configure','runCold']))throw fail('cold_hooks_invalid');
+    if(!plain(proc)||!Number.isSafeInteger(proc.pid)||proc.pid<1)throw fail('process_invalid');
+    const base=coldBase(proc);
+    const factory=create({proc,bindings:bindings===undefined?productionBindings(proc):bindings});
+    // A cold entry configures its own cold runtime host exactly once and never runs
+    // the warm acquire/install path or prefetches the base before acquire.
+    const host=factory.runtimeHost({base,role:'cold'});
+    const configured=runtimeHooks.configure(host);
+    if(configured===undefined||configured===null)throw fail('cold_configure_invalid');
+    return runtimeHooks.runCold();
+  }
+  async function startSuccessorMaintenance({proc=process,hooks,startServe,bindings,channel}={}){
+    const runtimeHooks=hooksOrGlobal(hooks);
+    if(!methods(runtimeHooks,['prepareSuccessor','completeSuccessor']))throw fail('successor_hooks_invalid');
+    if(typeof startServe!=='function')throw fail('successor_serve_invalid');
+    if(!plain(proc)||!Number.isSafeInteger(proc.pid)||proc.pid<1)throw fail('process_invalid');
+    const base=coldBase(proc);
+    let pipe=channel;
+    if(pipe===undefined||pipe===null){
+      const workerApi=bindings===undefined?(typeof WorkDataMaintenanceWorker==='undefined'?null:WorkDataMaintenanceWorker):read(bindings,'workerApi');
+      if(!methods(workerApi,['processChannel']))throw fail('successor_channel_invalid');
+      pipe=workerApi.processChannel(proc);
+    }
+    // prepare rejects invalid input/parent/nonce/base/listener before any IO or
+    // configure and registers the single strict options object used by startServe.
+    const prepared=await runtimeHooks.prepareSuccessor(pipe,{base});
+    const options=plain(prepared)&&Object.hasOwn(prepared,'options')?prepared.options:prepared;
+    if(!plain(options))throw fail('successor_options_invalid');
+    await startServe(options);
+    // Only a serve that actually started may announce serve-ready/disconnect.
+    return runtimeHooks.completeSuccessor();
+  }
+  return Object.freeze({create,bindCapturedResult,startColdMaintenance,startSuccessorMaintenance});
 })(require('node:path'),require('node:util'),require('node:timers'));
 
 // Actual normal-serve wiring. Definition/configuration alone performs no IO.
 // Only acquireServe allocates its own empty custody root and acquires the joint
-// genuine owner before broker/configuration writes. No worker capability is set.
+// genuine owner before broker/configuration writes. Installing the warm snapshot
+// descriptor does not install a worker capability: the install-time descriptor
+// still declares worker:false, and live readiness reports worker availability
+// separately.
 const WorkDataServeUploadBootstrap = ((io,p,osApi,clock) => {
   const retained=new Set(),fold=value=>process.platform==='win32'?value.toLowerCase():value;
   const fail=(name,cause)=>Object.assign(Error('work_data_bootstrap.'+name),{code:'work_data_bootstrap.'+name,retry:false,...(cause===undefined?{}:{cause})});
@@ -257,4 +479,15 @@ const WorkDataServeUploadBootstrap = ((io,p,osApi,clock) => {
 if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
   const serveUploads=WorkDataServeUploadBootstrap.create();
   Object.assign(WorkDataMaintenanceRuntimeHooks,{acquireServe:serveUploads.acquireServe,configureServe:serveUploads.configureServe,abortUnconfiguredServe:serveUploads.abortUnconfigured,helperMayStillRun:serveUploads.helperMayStillRun});
+  // One handoff claim instance for the whole process: the host, 13ai and 13am all
+  // read and remove the same TEMP record, and the readonly boot gate classifies it
+  // before configure. Installing it performs no IO and starts no process; an existing
+  // instance is never replaced, and an absent claim/verifier module leaves it unset
+  // (the worker then stays unready instead of inventing a parallel owner).
+  try{
+    if(!WorkDataMaintenanceRuntimeHooks.claim&&typeof WorkDataHandoffClaim!=='undefined'&&typeof WorkDataVerifierEntry!=='undefined'){
+      const native=WorkDataVerifierEntry.createVerifier({proc:process});
+      WorkDataMaintenanceRuntimeHooks.claim=WorkDataHandoffClaim.create({temp:require('node:os').tmpdir(),flush:directories=>native.flush(directories)});
+    }
+  }catch{ /* No synthetic claim: a missing adapter leaves the worker unready. */ }
 }

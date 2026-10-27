@@ -9,25 +9,60 @@ const password='synthetic operation password only',hash=bytes=>crypto.createHash
 async function setup(t,options={}){
  const f=await fixture(t);await f.write('config.json','{ "workDataEncryptionV1": false, "label":"SYNTHETIC_PRIVATE" }');
  await f.write('uploads/payload.bin',Buffer.from([0,255,99]));await fsp.mkdir(path.join(f.base,'uploads/empty'));
- if(options.statfs)f.context.require=name=>name==='node:fs/promises'?{...fsp,statfs:options.statfs}:require(name);
+ // Seam over the module's own io: only the backup package open/write is faulted,
+ // so every other read stays the real filesystem owner.
+ if(options.statfs||options.backupOpenFails||options.backupWriteFails)f.context.require=name=>{
+  if(name!=='node:fs/promises')return require(name);
+  const api=options.statfs?{...fsp,statfs:options.statfs}:{...fsp};
+  if(!options.backupOpenFails&&!options.backupWriteFails)return api;
+  return {...api,open:async(file,flags,mode)=>{
+   const target=String(file),isPackage=flags==='wx'&&target.endsWith('.ruyi-backup');
+   if(isPackage&&options.backupOpenFails)throw Object.assign(Error('simulated backup open refusal'),{code:'EACCES'});
+   const handle=await api.open(file,flags,mode);
+   if(isPackage&&options.backupWriteFails)return {writeFile:async()=>{throw Object.assign(Error('simulated backup write refusal'),{code:'EIO'});},sync:()=>handle.sync(),close:()=>handle.close()};
+   return handle;
+  }};
+ };
  f.context.VERSION='3.0.1';f.context.ExternalBotCredentials=f.api.ExternalBotCredentials;
  vm.runInContext(fs.readFileSync(path.join(draft,'13aj-work-data-control.js'),'utf8')+'\n'+fs.readFileSync(path.join(draft,'01ae-work-data-maintenance-result.js'),'utf8')+'\n'+fs.readFileSync(process.env.RUYI_COLD_OPERATIONS_SOURCE||path.join(draft,'13ak-work-data-cold-operations.js'),'utf8'),f.context);
- const api=vm.runInContext('({WorkDataColdOperations,WorkDataTree,WorkDataRecovery})',f.context);
+ const api=vm.runInContext('({WorkDataColdOperations,WorkDataTree,WorkDataRecovery,WorkDataManifest})',f.context);
  const events=[],owners=[],sourceOwner={roots:[f.base]},backupDirectory=path.join(f.root,'backups');await fsp.mkdir(backupDirectory);
+ let backupFlushes=0;
  const context={id:'a'.repeat(48),base:f.base,operation:'export',password,expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},paths:{backupDirectory,targetDirectory:null,uploadFile:null,uploadSha256:null},ownership:sourceOwner,assertExclusive:owner=>owner===sourceOwner};
+ let x;
  const host={
   async acquire(roots){const owner={roots,released:false,async release(){assert.equal(owner.released,false);owner.released=true;events.push('release:'+path.basename(roots[0]));}};owners.push(owner);events.push('acquire:'+path.basename(roots[0]));return owner;},
-  async flush(roots){events.push('flush:'+path.basename(roots[0]));if(options.failResultFlush&&path.basename(roots[0])==='.work-data'&&(await fsp.readdir(roots[0])).some(name=>name.startsWith('.maintenance-result-v1.stage-')))throw Error('simulated result flush refusal');},
+  async flush(roots){events.push('flush:'+path.basename(roots[0]));
+   if(options.failResultFlush&&path.basename(roots[0])==='.work-data'&&(await fsp.readdir(roots[0])).some(name=>name.startsWith('.maintenance-result-v1.stage-')))throw Error('simulated result flush refusal');
+   // Opt-in: refuse the first durability flush of the backup directory only, after
+   // the package bytes are already on disk.
+   if(options.failBackupFlush&&path.basename(roots[0])==='backups'&&++backupFlushes===1)throw Error('simulated backup flush refusal');},
   async verifyFresh(value){events.push('fresh');assert.ok(owners.every(owner=>owner.released));const own={roots:[value.target]};
    const full=f.api.WorkDataFullSnapshot.create({base:value.target,ownership:own,assertExclusive:owner=>owner===own,protector:f.a,externalOwner:opts=>f.api.ExternalBotCredentials.create(opts)});
    const sealed=await full.seal({password:value.password,appVersion:'3.0.1',generation:value.generation??0});assert.ok(sealed.files>=2);
    if(options.verifyFresh)await options.verifyFresh({f,context,events,value});return options.freshResult??true;},
   async verifyDisposableNativeTree(value){events.push('native-tree');assert.ok(owners.some(owner=>!owner.released&&owner===value.ownership));return options.nativeResult??true;},
-  migrationFactory(){events.push('migration');throw Error('migration must not run for these operations');},
+  migrationFactory(args){events.push('migration');if(typeof options.migration!=='function')throw Error('migration must not run for these operations');return options.migration(x,args);},
   progress(value){events.push(value.phase);},helperMayStillRun:()=>options.helperMayStillRun===true,
  };
  const operation=api.WorkDataColdOperations.create(host);
- return{f,api,host,context,operation,events,owners,backupDirectory,rehearsal:path.join(backupDirectory,'.ruyi-work-data-verify-'+context.id),backupFile:path.join(backupDirectory,'ruyi-work-data-'+context.id+'.ruyi-backup')};
+ x={f,api,host,context,operation,events,owners,backupDirectory,rehearsal:path.join(backupDirectory,'.ruyi-work-data-verify-'+context.id),backupFile:path.join(backupDirectory,'ruyi-work-data-'+context.id+'.ruyi-backup')};
+ return x;
+}
+// Bounded handoff capability as 13ai issues it. `finish` observes the real files at
+// the instant it is called, so ordering claims are evidence rather than narration.
+function withClaim(x,options={}){
+ const events=[],observed={};
+ const resultFile=path.join(x.f.base,'.work-data','maintenance-result-v1.json'),intentFile=path.join(x.f.base,'.work-data','maintenance-v1.json');
+ const api={
+  async finish(){events.push('finish');observed.finish={result:fs.existsSync(resultFile),intent:fs.existsSync(intentFile)};
+   if(options.failFinish)throw Error('synthetic claim finish refusal');},
+  async abandon(){events.push('abandon');observed.abandon={backups:(await fsp.readdir(x.backupDirectory)).length};
+   if(options.failAbandon)throw Error('synthetic claim abandon refusal');},
+ };
+ x.claim={events,observed};
+ x.context.claim=Object.freeze({finish:()=>api.finish(),abandon:()=>api.abandon()});
+ return x;
 }
 // The worker validates and pins its upload before invoking cold operations.
 // This fixture captures that already-validated DTO once from the real held file;
@@ -174,4 +209,165 @@ test('cold restore handoff keeps its original inode and rejects same-bytes file 
 test('cold restore fixture cannot refresh an already-issued upload handoff',async t=>{
  const x=await setup(t);await restoreContext(x);const issued=x.context.upload;
  await assert.rejects(()=>bindRestoreUpload(x,x.context.paths),/only be issued once/);assert.equal(x.context.upload,issued);assert.deepEqual(x.events,[]);
+});
+
+// --- Handoff claim capability: finish only after proof, abandon only without effects ---
+// This migration seam is a stub, not a migration proof: it publishes a real
+// generation through the real manifest owner so that intent/result ordering around
+// the claim is observed on actual files.
+function enableMigration(x,args,faults={}){
+ const events=[];
+ const instance=x.api.WorkDataManifest.create({base:x.f.base,publish:async({stage,target})=>{await fsp.rename(stage,target);}});
+ let expected=null;
+ return {events,
+  async prepare({expected:authority,targetMode}){events.push('prepare');expected=authority;
+   const candidate=await instance.prepare({expected:authority,mode:targetMode});
+   await args.onCandidate({candidate});
+   return {candidate,transformed:[{path:'config.json'}],retainedPlainDisclosure:'synthetic retention note'};},
+  async publish(prepared){events.push('publish');if(faults.failPublish)throw Error('synthetic publish refusal');
+   await args.onKeyReady({candidate:prepared.candidate,headerSha256:'a'.repeat(64)});
+   const active=await instance.commit({expected,candidate:prepared.candidate});
+   return {active,candidateId:prepared.candidate.id,mode:prepared.candidate.mode,generation:prepared.candidate.generation,processExitRequired:true};},
+  async verifyPublished(prepared){events.push('verifyPublished');const selected=await instance.readActive();
+   return {active:selected,candidateId:prepared.candidate.id,generation:prepared.candidate.generation,mode:prepared.candidate.mode,
+    logicalFiles:prepared.transformed.length,processExitRequired:true,readOnly:true,specialSha256:'0'.repeat(64),targetSha256:'1'.repeat(64)};}};
+}
+
+test('export retires the handoff claim only after the verified result exists',async t=>{
+ const x=withClaim(await setup(t));
+ const result=await x.operation.execute(x.context);
+ assert.equal(result.state,'verified');
+ assert.deepEqual(x.claim.events,['finish']);
+ assert.deepEqual(x.claim.observed.finish,{result:true,intent:false});
+ assert.ok(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-result-v1.json')));
+});
+
+test('a pre-backup refusal abandons the claim because this attempt wrote nothing',async t=>{
+ const x=withClaim(await setup(t,{statfs:async()=>{throw Error('simulated filesystem query refusal');}}));
+ await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.space_unavailable'&&error.operationMayHaveExecuted===false);
+ assert.deepEqual(x.claim.events,['abandon']);
+ assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);
+});
+
+test('an authority refusal abandons the claim before any package or source write',async t=>{
+ const x=withClaim(await setup(t));x.context.expectedAuthority.mode='encrypted';
+ await assert.rejects(x.operation.execute(x.context),/authority_changed/);
+ assert.deepEqual(x.claim.events,['abandon']);
+ assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);
+});
+
+test('a refused abandon keeps the claim and never replaces the original typed failure',async t=>{
+ const x=withClaim(await setup(t,{statfs:async()=>{throw Error('simulated filesystem query refusal');}}),{failAbandon:true});
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
+  &&error.cause?.code==='work_data_setup.space_unavailable'&&error.operationMayHaveExecuted===false);
+ assert.deepEqual(x.claim.events,['abandon']);
+});
+
+test('a started backup keeps the claim even though the source was never mutated',async t=>{
+ const x=withClaim(await setup(t,{verifyFresh:async()=>{throw Error('cold validation refusal');}}));
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'&&error.operationMayHaveExecuted===false);
+ assert.ok(fs.existsSync(x.backupFile),'a real backup exists, so the claim must survive');
+ assert.deepEqual(x.claim.events,[]);
+});
+
+test('a started rehearsal keeps the claim even when no source intent was written',async t=>{
+ const x=withClaim(await setup(t,{nativeResult:false}));
+ await assert.rejects(x.operation.execute(x.context),/preparation_failed/);
+ assert.ok(fs.existsSync(x.rehearsal));assert.equal(fs.existsSync(path.join(x.f.base,'.work-data','maintenance-v1.json')),false);
+ assert.deepEqual(x.claim.events,[]);
+});
+
+test('an existing rehearsal path keeps the claim once its creation is attempted',async t=>{
+ const x=withClaim(await setup(t));await fsp.mkdir(x.rehearsal);
+ await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.target_exists');
+ assert.deepEqual(x.claim.events,[]);
+});
+
+test('a written result keeps the claim because publication is already an effect',async t=>{
+ const x=withClaim(await setup(t,{failResultFlush:true}));
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.result_requires_recovery'
+  &&error.resultMayHaveBeenWritten===true);
+ assert.deepEqual(x.claim.events,[]);
+});
+
+test('a refused claim finish keeps the record but still returns the verified export',async t=>{
+ const x=withClaim(await setup(t),{failFinish:true});
+ const result=await x.operation.execute(x.context);
+ assert.equal(result.state,'verified');assert.deepEqual(x.claim.events,['finish']);
+ assert.ok(fs.existsSync(result.backup.path));
+ assert.ok(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-result-v1.json')));
+});
+
+test('enable retires the claim only after the verified intent is gone and the result is durable',async t=>{
+ const x=withClaim(await setup(t,{migration:(f,args)=>enableMigration(f,args)}));x.context.operation='enable';
+ const result=await x.operation.execute(x.context);
+ assert.equal(result.state,'published');
+ assert.deepEqual(x.claim.events,['finish']);
+ assert.deepEqual(x.claim.observed.finish,{result:true,intent:false});
+ const active=await x.api.WorkDataManifest.create({base:x.f.base}).readActive();
+ assert.equal(active.generation,1);assert.equal(active.mode,'encrypted');
+ assert.deepEqual(await fsp.readdir(x.backupDirectory),['ruyi-work-data-'+x.context.id+'.ruyi-backup']);
+});
+
+test('a mutation failure keeps the claim and reports the transition for recovery',async t=>{
+ const x=withClaim(await setup(t,{migration:(f,args)=>enableMigration(f,args,{failPublish:true})}));x.context.operation='enable';
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.transition_requires_recovery'
+  &&error.operationMayHaveExecuted===true&&error.sourceIntentRetained===true);
+ assert.deepEqual(x.claim.events,[]);
+ assert.ok(fs.existsSync(path.join(x.f.base,'.work-data','maintenance-v1.json')),'the intent stays pending');
+});
+
+test('a malformed claim capability refuses before any snapshot, backup or intent',async t=>{
+ for(const broken of [{finish(){}},{abandon(){}},{finish:'x',abandon(){}}]){
+  const x=await setup(t);x.context.claim=broken;
+  await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.claim_capability_invalid');
+  assert.deepEqual(x.events,[]);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);
+  assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);
+ }
+});
+
+test('without a claim capability the operation body keeps its exact previous path',async t=>{
+ const x=await setup(t);
+ const result=await x.operation.execute(x.context);
+ assert.equal(result.state,'verified');
+ assert.deepEqual(x.events.filter(phase=>phase==='snapshot'||phase==='verify-backup'),['snapshot','verify-backup']);
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-result-v1.json')),true);
+});
+
+// --- Zero-byte attempts may be abandoned; a created package file may not ---
+test('a pre-existing backup path abandons the claim and leaves the foreign file untouched',async t=>{
+ const x=withClaim(await setup(t));
+ await fsp.writeFile(x.backupFile,'FOREIGN BYTES');
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
+  &&error.cause?.code==='work_data_setup.target_exists'&&error.operationMayHaveExecuted===false&&error.backupPath===x.backupFile);
+ assert.deepEqual(x.claim.events,['abandon'],'this attempt wrote no byte, so the owned record must not pin the base');
+ assert.equal(await fsp.readFile(x.backupFile,'utf8'),'FOREIGN BYTES');
+ assert.deepEqual(await fsp.readdir(x.backupDirectory),['ruyi-work-data-'+x.context.id+'.ruyi-backup']);
+});
+
+test('a refused backup open abandons the claim and still names the exact attempted path',async t=>{
+ const x=withClaim(await setup(t,{backupOpenFails:true}));
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
+  &&error.cause?.code==='EACCES'&&error.operationMayHaveExecuted===false&&error.backupPath===x.backupFile);
+ assert.deepEqual(x.claim.events,['abandon']);
+ assert.deepEqual(await fsp.readdir(x.backupDirectory),[],'a refused open creates nothing');
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);
+});
+
+test('a write refusal after the backup file was created keeps the claim and names that path',async t=>{
+ const x=withClaim(await setup(t,{backupWriteFails:true}));
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
+  &&error.cause?.code==='EIO'&&error.operationMayHaveExecuted===false&&error.backupPath===x.backupFile);
+ assert.deepEqual(x.claim.events,[],'a created package file is an effect the next boot must inspect');
+ assert.equal(fs.existsSync(x.backupFile),true);
+ assert.equal((await fsp.stat(x.backupFile)).size,0);
+});
+
+test('a refused backup durability flush keeps the claim because the bytes are already on disk',async t=>{
+ const x=withClaim(await setup(t,{failBackupFlush:true}));
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
+  &&error.operationMayHaveExecuted===false&&error.backupPath===x.backupFile);
+ assert.deepEqual(x.claim.events,[]);
+ assert.ok((await fsp.stat(x.backupFile)).size>0);
 });

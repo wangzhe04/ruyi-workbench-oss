@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 123 | 4167 | 4017 | 855 | 67 | 0 | 1 |
+| 124 | 4168 | 4021 | 857 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -124,20 +124,21 @@
 | 106 | `13af-internal-mcp-relay.js` | unclassified | 1 | 38 | 14 |
 | 107 | `13ag-work-data-maintenance.js` | unclassified | 4 | 80 | 25 |
 | 108 | `13at-work-data-restore-uploads.js` | unclassified | 1 | 2 | 2 |
-| 109 | `13ah-work-data-setup.js` | unclassified | 6 | 26 | 10 |
-| 110 | `13ai-work-data-worker.js` | unclassified | 1 | 3 | 3 |
-| 111 | `13aj-work-data-control.js` | unclassified | 1 | 1 | 1 |
-| 112 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 4 | 2 |
-| 113 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
-| 114 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 12 | 10 |
-| 115 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 10 | 8 |
-| 116 | `13ap-session-fulltext-index.js` | unclassified | 3 | 14 | 6 |
-| 117 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 24 | 10 |
-| 118 | `13ba-media-image-contract.js` | unclassified | 1 | 2 | 2 |
-| 119 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 15 | 13 |
-| 120 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
-| 121 | `13au-work-data-runtime-host.js` | unclassified | 2 | 12 | 10 |
-| 122 | `14-main.js` | entrypoint | 7 | 601 | 52 |
+| 109 | `13av-work-data-handoff-claim.js` | unclassified | 1 | 1 | 1 |
+| 110 | `13ah-work-data-setup.js` | unclassified | 6 | 26 | 9 |
+| 111 | `13ai-work-data-worker.js` | unclassified | 1 | 3 | 3 |
+| 112 | `13aj-work-data-control.js` | unclassified | 1 | 1 | 1 |
+| 113 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 4 | 2 |
+| 114 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
+| 115 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 12 | 10 |
+| 116 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 10 | 8 |
+| 117 | `13ap-session-fulltext-index.js` | unclassified | 3 | 14 | 6 |
+| 118 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 24 | 10 |
+| 119 | `13ba-media-image-contract.js` | unclassified | 1 | 2 | 2 |
+| 120 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 15 | 13 |
+| 121 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
+| 122 | `13au-work-data-runtime-host.js` | unclassified | 2 | 14 | 11 |
+| 123 | `14-main.js` | entrypoint | 7 | 602 | 53 |
 
 ## 模块边
 
@@ -622,7 +623,7 @@
 | `13ag-work-data-maintenance.js` | `13s-scheduler.js` | backward | `schedulerEnsureTimer`, `schedulerFiresChain`, `schedulerRuntime`, `schedulerTasksChain`, `schedulerTick` |
 | `13ag-work-data-maintenance.js` | `13u-migration-center.js` | backward | `migrationChain` |
 | `13ag-work-data-maintenance.js` | `13w-external-bots.js` | backward | `externalBotActiveActors`, `externalBotChains`, `externalBotDeliveries`, `externalBotDiscoveryBusy`, `externalBotInflight`, `externalBotUnsettled`, `externalBotWakeWorker`, `externalBotWorkerAgain`, `externalBotWorkerBusy` |
-| `13ah-work-data-setup.js` | `00-boot.js` | backward | `URL`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceWorkerHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `crypto`, `fsp`, `json`, `nowIso`, `path`, `paths`, `text` |
+| `13ah-work-data-setup.js` | `00-boot.js` | backward | `URL`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataMaintenanceWorkerHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `crypto`, `fsp`, `json`, `nowIso`, `path`, `paths`, `text` |
 | `13ah-work-data-setup.js` | `01-config.js` | backward | `safeSessionId`, `send` |
 | `13ah-work-data-setup.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `13ah-work-data-setup.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
@@ -631,7 +632,6 @@
 | `13ah-work-data-setup.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13ah-work-data-setup.js` | `09-workflow.js` | backward | `AGENT_RUN_TERMINAL` |
 | `13ah-work-data-setup.js` | `11-native-tools.js` | backward | `shellSessions` |
-| `13ah-work-data-setup.js` | `13at-work-data-restore-uploads.js` | backward | `WorkDataRestoreUploads` |
 | `13ai-work-data-worker.js` | `00-boot.js` | backward | `VERSION` |
 | `13ai-work-data-worker.js` | `01-config.js` | backward | `send` |
 | `13ai-work-data-worker.js` | `13at-work-data-restore-uploads.js` | backward | `WorkDataRestoreUploads` |
@@ -689,7 +689,7 @@
 | `13as-session-fulltext-consumers.js` | `07-autonomy.js` | backward | `nativeToolDisabledByPolicy`, `nativeToolGate`, `nativeToolTier` |
 | `13at-work-data-restore-uploads.js` | `00-boot.js` | backward | `text` |
 | `13at-work-data-restore-uploads.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
-| `13au-work-data-runtime-host.js` | `00-boot.js` | backward | `MigrationHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataMaintenanceWorkerHooks` |
+| `13au-work-data-runtime-host.js` | `00-boot.js` | backward | `MigrationHooks`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataMaintenanceWorkerHooks` |
 | `13au-work-data-runtime-host.js` | `01ae-work-data-maintenance-result.js` | backward | `WorkDataMaintenanceResult` |
 | `13au-work-data-runtime-host.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `13au-work-data-runtime-host.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
@@ -699,6 +699,8 @@
 | `13au-work-data-runtime-host.js` | `13al-work-data-maintenance-http.js` | backward | `WorkDataMaintenanceHttp` |
 | `13au-work-data-runtime-host.js` | `13ar-work-data-verifier-entry.js` | backward | `WorkDataVerifierEntry` |
 | `13au-work-data-runtime-host.js` | `13at-work-data-restore-uploads.js` | backward | `WorkDataRestoreUploads` |
+| `13au-work-data-runtime-host.js` | `13av-work-data-handoff-claim.js` | backward | `WorkDataHandoffClaim` |
+| `13av-work-data-handoff-claim.js` | `00-boot.js` | backward | `text` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRevertLogRecord`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |
@@ -988,6 +990,7 @@
 | `14-main.js` | `12-tool-dispatch.js` | backward | `toolArgsMissingRequired`, `withToolArgsGuide` |
 | `14-main.js` | `13-http-router.js` | backward | `doctor`, `installIntegration`, `parseArgs`, `startMcp`, `startServer` |
 | `14-main.js` | `13ar-work-data-verifier-entry.js` | backward | `WorkDataVerifierEntry` |
+| `14-main.js` | `13au-work-data-runtime-host.js` | backward | `WorkDataRuntimeHost` |
 | `14-main.js` | `13d-core-domain-routes.js` | backward | `buildMissionAggregateRows`, `missionAggregateStats` |
 | `14-main.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `pretenderIndexTestHooks`, `warmPretenderProjectionIndex` |
 | `14-main.js` | `13i-steward-inbox.js` | backward | `STEWARD_SOURCE_EVENT_MAP`, `startStewardInbox`, `stewardEventDedupeKey`, `stewardInboxRowDedupeKeys`, `stewardMergeInboxEvents`, `stewardNormalizeBudgetExhausted`, `stewardNormalizeMissionChange`, `stewardNormalizePendingIntervention`, `stewardNormalizeRunEvent`, `stopStewardInbox` |

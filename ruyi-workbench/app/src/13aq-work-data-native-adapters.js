@@ -4,6 +4,9 @@ const WorkDataNativeAdapters = ((io, p, c) => {
   const INPUT_LIMIT = 32768, VERIFY_MS = 120000, CLOSE_MS = 2000;
   const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
   const keys = x => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().join(',') : '';
+  // Same-path comparison follows the platform's path identity: Windows paths are
+  // case-insensitive, so a case variant of one physical path is still that path.
+  const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
   const fail = (code, uncertain = false) => Object.assign(Error('work_data_adapter.' + code), {
     code:'work_data_adapter.' + code, retry:false, ...(uncertain ? {helperMayStillRun:true} : {}),
   });
@@ -175,8 +178,10 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         if (!Buffer.isBuffer(bytes) || bytes.length > INPUT_LIMIT) throw fail('input_invalid');
         const raw = bytes.toString('utf8'); if (!Buffer.from(raw).equals(bytes)) throw fail('input_invalid');
         request = input(JSON.parse(raw));
+        // canonicalRoot still proves the real path and rejects aliases; the comparison
+        // only tolerates the case variant Windows gives back for one physical path.
         if (request.parentPid !== channel.parentPid() || request.parentPid === proc.pid
-          || await bindings.ownership.canonicalRoot(request.target) !== request.target) throw fail('parent_or_target_invalid');
+          || fold(await bindings.ownership.canonicalRoot(request.target)) !== fold(request.target)) throw fail('parent_or_target_invalid');
         owner = await bindings.ownership.acquire([request.target]); keeper = sourceKeeper({base:request.target,ownership:owner});
         finalKeeper = sourceKeeper({base:request.target,ownership:owner});
         const exclusive = keeper.assertExclusive;

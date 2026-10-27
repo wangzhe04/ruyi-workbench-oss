@@ -45,6 +45,22 @@ test('internal strictSamePort uses actual single bind failure while user-like fl
  const strict=http.createServer();t.after(()=>strict.listening?new Promise(resolve=>strict.close(resolve)):undefined);await assert.rejects(()=>fn(strict,port,'127.0.0.1',{},internal),{code:'EADDRINUSE'});assert.equal(strict.listening,false);
  const ordinary=http.createServer();t.after(()=>ordinary.listening?new Promise(resolve=>ordinary.close(resolve)):undefined);const actual=await fn(ordinary,port,'127.0.0.1',{}, {strictSamePort:true});assert.ok(actual>port&&actual<=port+9);assert.equal(ordinary.address().port,actual);
 });
+test('private commands prefer the 13au process composition and hand the successor the normal serve entry',async()=>{
+ for(const mode of ['work-data-maintenance','work-data-successor']){
+  const calls=[],started=[],hooks={runCold:async()=>calls.push('cold-hook'),runSuccessor:async()=>calls.push('successor-hook')};
+  const runtimeHost={startColdMaintenance:async(...args)=>{calls.push(['cold',args.length]);return 'cold';},
+   startSuccessorMaintenance:async options=>{calls.push(['successor',Object.keys(options)]);await options.startServe({host:'127.0.0.1',port:'4321'});return 'successor';}};
+  const context={process:{argv:['node','server.js',mode]},Object,WorkDataVerifierEntry:VerifierEntry,WorkDataMaintenanceRuntimeHooks:hooks,WorkDataRuntimeHost:runtimeHost,
+   startWorkbenchServe:async options=>{started.push(options);return 'served';}};
+  const fn=vm.runInNewContext(parse+'\n'+functionBlock(main,'main')+'\nmain;',context);
+  assert.equal(await fn(),mode==='work-data-maintenance'?'cold':'successor');
+  if(mode==='work-data-maintenance'){assert.deepEqual(JSON.parse(JSON.stringify(calls)),[['cold',0]]);assert.equal(started.length,0);}
+  else{assert.deepEqual(JSON.parse(JSON.stringify(calls)),[['successor',['startServe']]]);assert.deepEqual(JSON.parse(JSON.stringify(started)),[{host:'127.0.0.1',port:'4321'}]);}
+  context.process.argv=['node','server.js',mode,'--port','1'];
+  await assert.rejects(()=>fn(),{code:'work_data_setup.private_command_invalid'});
+  assert.equal(calls.length,1,'a rider flag must never re-enter the private composition');
+ }
+});
 test('runtime glue does not add or modify the production module.exports surface',()=>{
  // Exact reviewed export declaration from 27b1788d; no TEMP baseline file dependency.
  const declaration=bracedBlock(main,'module.exports = {');assert.ok(declaration.length>100);assert.equal(require('node:crypto').createHash('sha256').update(declaration).digest('hex'),'0099fa1678c03e487fab5da1f11973a879cde3348da67ea604b77c1a5a9821d9');

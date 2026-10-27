@@ -5,12 +5,18 @@ const fs=require('node:fs'),io=require('node:fs/promises'),p=require('node:path'
 const dir=p.resolve(__dirname,'../../ruyi-workbench/app/src'),root=process.env.RUYI_RUNTIME_UNIT_ROOT,base=p.join(root,'base'),backups=p.join(root,'backups'),scenario=process.env.RUYI_RUNTIME_UNIT_SCENARIO;
 const load=(file,symbol,extra={})=>vm.runInNewContext(fs.readFileSync(p.join(dir,file),'utf8')+'\n'+symbol,{require,Buffer,process,http,crypto:c,setTimeout,clearTimeout,URL,...extra});
 const Worker=load('13ai-work-data-worker.js','WorkDataMaintenanceWorker'),Control=load('13aj-work-data-control.js','WorkDataMaintenanceControl'),Result=load('01ae-work-data-maintenance-result.js','WorkDataMaintenanceResult'),Http=load('13al-work-data-maintenance-http.js','WorkDataMaintenanceHttp'),Ownership=load('01g-server-ownership.js','ServerOwnership'),Manifest=load('01v-work-data-manifest.js','WorkDataManifest'),Runtime=load('13am-work-data-maintenance-runtime.js','WorkDataMaintenanceRuntime',{ServerOwnership:Ownership});
-const PASSWORD='runtime fixture password only',id='a'.repeat(48),mode=process.argv[2],hash=bytes=>c.createHash('sha256').update(bytes).digest('hex'),hooks={};let retired=false,runtime,warm=null;
+const PASSWORD='runtime fixture password only',id='a'.repeat(48),mode=process.argv[2],hash=bytes=>c.createHash('sha256').update(bytes).digest('hex'),hooks={},legacyNoClaim=true;let retired=false,runtime,warm=null;
 const trace=value=>{if(value.event==='execute')fs.writeFileSync(p.join(root,'worker-pid.txt'),String(process.pid));fs.appendFileSync(p.join(root,'trace.log'),JSON.stringify({...value,pid:process.pid})+'\n');};
 // A failed probe is never allowed to leave a server behind indefinitely. This is
 // fixture cleanup only; every hold assertion is made long before this deadline.
 if(process.env.RUYI_RUNTIME_OUTER_JOB!=='1')setTimeout(()=>process.exit(0),12000).unref();
-const actualWorker={...Worker,spawnCold:(command,env)=>{const child=Worker.spawnCold(command,env);trace({event:'child-spawn',mode:command.args.at(-1),child:child.pid});return child;}};
+// This harness is a legacy transport/state-machine simulation: it deliberately
+// has no durable handoff claim (the production claim closed loop has its own
+// real E2E). The runtime declares that absence explicitly via legacyNoClaim,
+// but forwards it as `claim:null`; 13ai's documented no-claim path is an absent
+// `claim` property. Drop only that declared null — never forge a claim writer.
+const legacyCreate=options=>{if(!legacyNoClaim||!options||options.claim!==null)return Worker.create(options);const {claim,...rest}=options;return Worker.create(rest);};
+const actualWorker={...Worker,create:legacyCreate,spawnCold:(command,env)=>{const child=Worker.spawnCold(command,env);trace({event:'child-spawn',mode:command.args.at(-1),child:child.pid});return child;}};
 // Source-scope seams. Like the production runtime host, both seams require a
 // genuine held lease for the exact base, run the work under a real source pin,
 // and never substitute success for a lost owner. The warm handoff intentionally
@@ -64,7 +70,8 @@ const host={process,workerApi:actualWorker,httpApi:Http,resultApi:Result,control
   }
   return Manifest.create({base}).readActive();
  },
- assertOwnership:(owner,requested)=>Ownership.isLease(owner)&&Ownership.owns(owner,requested),withColdSource,withWarmSource,
+ assertOwnership:(owner,requested)=>Ownership.isLease(owner)&&Ownership.owns(owner,requested),withColdSource,withWarmSource,legacyNoClaim,
+ retiredReceipt:()=>retired?Object.freeze({phase:'retired',admitted:0,writers:0,dirty:0,busy:Object.freeze({})}):null,
  adaptersReady:()=>true,helperMayStillRun:()=>false,isRetired:()=>retired,stopUncommitted:async child=>{if(child.connected)child.disconnect();await new Promise(resolve=>child.exitCode!==null?resolve():child.once('exit',resolve));},
  command:command=>({command:process.execPath,args:[__filename,command]}),exit:code=>{trace({event:'exit',code});process.exit(code);},
  operations:({guardNative,helperMayStillRun,progress})=>({execute:async ctx=>{

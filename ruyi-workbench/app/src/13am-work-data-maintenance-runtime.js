@@ -11,15 +11,36 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
   const same=(a,b)=>authority(a)&&authority(b)&&a.generation===b.generation&&a.id===b.id&&a.mode===b.mode&&a.sha256===b.sha256;
   const listener=value=>keys(value)==='host,port'&&['127.0.0.1','::1','localhost'].includes(value.host)&&Number.isInteger(value.port)&&value.port>0&&value.port<=65535;
   const safeCode=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed_after_handoff';
-  function create(host) {
+  // 13av reports absent/inert/complete/pending. Anything else refuses the boot.
+  const verdict=value=>['absent','inert','complete','pending'].includes(value)?value:['absent','inert','complete','pending'].includes(value?.verdict)?value.verdict:null;
+  // A retirement receipt is data, never a boolean promotion: it must carry the
+  // drained/retired phase and, when counted, prove every producer is at zero.
+  const retiredReceipt=value=>{
+    if(!value||typeof value!=='object'||Array.isArray(value)||value.phase!=='retired')return false;
+    for(const name of ['admitted','writers','dirty'])if(value[name]!==undefined&&value[name]!==0)return false;
+    if(value.busy!==undefined){if(!value.busy||typeof value.busy!=='object'||Array.isArray(value.busy))return false;for(const count of Object.values(value.busy))if(count!==0)return false;}
+    return true;
+  };
+  function create(host,shared) {
     const proc=host?.process;
     if(!proc||!Number.isSafeInteger(proc.pid)||proc.pid<1||!host.workerApi||!host.httpApi||!host.resultApi||!host.controlApi
       ||['create','spawnCold','processChannel','waitForProcessExit'].some(name=>typeof host.workerApi[name]!=='function')
       ||[host.httpApi,host.resultApi,host.controlApi].some(api=>typeof api.create!=='function')
       ||['base','canonical','acquire','readAuthority','operations','adaptersReady','stopUncommitted','exit','isRetired','helperMayStillRun','command','assertOwnership','withColdSource','withWarmSource'].some(name=>typeof host[name]!=='function')
       ||!host.workerHooks||typeof host.workerHooks!=='object')throw fail('runtime_host_invalid');
-    let warm=null,worker=null,coldStarted=false,successorStarted=false,successorInput=null,helperUncertain=false;
-    const strictOptions=new WeakSet();
+    let warm=null,worker=null,coldStarted=false,successorStarted=false,helperUncertain=false;
+    // The successor slot and its strict-port ticket belong to the process, not to one
+    // runtime instance: preparation happens before configure, completion after it.
+    const slot=shared||{successor:null,strictOptions:new WeakSet()};
+    const successorInput=()=>slot.successor?slot.successor.input:null;
+    // The handoff claim is the only durable evidence that a committed job exists.
+    // Production hosts must supply it; a legacy harness must say so explicitly.
+    const claimValue=()=>{const value=host.claim;return value===undefined||value===null?null:value;};
+    const claimShape=value=>!!value&&typeof value==='object'&&['inspect','write','remove','classify'].every(name=>typeof value[name]==='function');
+    const requireClaim=()=>{const value=claimValue();
+      if(value){if(!claimShape(value))throw fail('runtime_host_invalid');return value;}
+      if(host.legacyNoClaim===true)return null;throw fail('claim_unavailable');};
+    const retired=()=>{const read=host.retiredReceipt;if(typeof read!=='function')return false;try{return retiredReceipt(read());}catch{return false;}};
     function latch(error) {
       const seen=new Set();let value=error,depth=0;
       while(value&&(typeof value==='object'||typeof value==='function')){
@@ -45,7 +66,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     };
     async function inspectBoot({base,ownership:owner}) {
       base=await host.canonical(base);if(!ownership(owner,base))throw fail('ownership_required');
-      let stat;try{stat=await io.lstat(base);}catch(error){if(error.code==='ENOENT'&&!successorInput)return true;throw error;}
+      let stat;try{stat=await io.lstat(base);}catch(error){if(error.code==='ENOENT'&&!successorInput())return true;throw error;}
       if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
       const control=p.join(base,'.work-data');
       try {
@@ -55,20 +76,44 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       }catch(error){if(error.code!=='ENOENT')throw error;}
       const ownerCheck=async candidate=>candidate===owner&&ownership(owner,base);
       const controls=host.controlApi.create({base,ownership:owner,assertExclusive:ownerCheck,assertDurableBackup:async()=>false,flush:async()=>{throw fail('readonly_boot');}});
+      // An unfinished intent always wins; C10/C11 stay intent_pending and their
+      // files are never rewritten or removed by ordinary boot.
       if((await controls.inspect()).pending)throw fail('intent_pending');
-      const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});await resultReader.inspect();
-      if(successorInput){const result=await resultReader.read();if(!result||result.id!==successorInput.id||!same(result.authority,successorInput.expectedAuthority))throw fail('successor_result_changed');}
+      const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
+      // Ordinary boot only looks at the record's presence: a stale receipt must not
+      // read a backup or fail startup. The successor additionally verifies it.
+      const observedResult=await resultReader.inspect(),expected=successorInput();
+      const result=expected?await resultReader.read():null;
+      if(expected&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
+      // No intent: only the TEMP handoff record may be classified and, when inert or
+      // complete, cleaned. Base files are never repaired here.
+      // The claim owner compares this digest with its own id/operation, so a stale
+      // result from another job can never complete a new handoff. A present record
+      // that cannot be summarized refuses the boot instead of degrading to "none".
+      const digest=observedResult?.present?{id:observedResult.value?.id,operation:observedResult.value?.operation}:null;
+      if(digest&&(typeof digest.id!=='string'||!ID.test(digest.id)||!['enable','disable','export','restore'].includes(digest.operation)))throw fail('boot_control_pending');
+      const claims=claimValue();
+      if(claims){
+        if(!claimShape(claims))throw fail('runtime_host_invalid');
+        const outcome=verdict(await claims.classify({base,hasIntent:false,hasResult:digest}));
+        if(outcome==='pending')throw fail('handoff_pending');
+        if(outcome!=='absent'&&outcome!=='inert'&&outcome!=='complete')throw fail('boot_control_pending');
+        if(outcome!=='absent'){const observed=await claims.inspect({base});if(observed?.present)await claims.remove(observed.receipt);}
+      }
       return true;
     }
+    const readWarmResult=captured=>{
+      const ownerCheck=async owner=>warm===captured&&owner===captured.ownership&&ownership(owner,captured.base)&&captured.server.listening;
+      return host.resultApi.create({base:captured.base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(captured.base)}).read();
+    };
     async function captureServe(context) {
       if(coldStarted||warm)throw fail('runtime_already_bound');
       const owner=context.ownership,server=context.server,original=context.base,expected={...context.listener};
       const base=await host.canonical(original),capturedListener=actualListener(server,expected);
       if(!ownership(owner,base))throw fail('ownership_required');
       const captured={base,ownership:owner,server,listener:capturedListener};
-      const ownerCheck=async owner=>warm===captured&&owner===captured.ownership&&ownership(owner,base)&&captured.server.listening;
       warm=captured;
-      const readResult=()=>host.resultApi.create({base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)}).read();
+      const readResult=()=>readWarmResult(captured);
       // Optional trusted host dependency; callability is interface validation,
       // not source authority. The provider must validate this exact candidate
       // host, genuine owner and base before returning its scoped callback.
@@ -86,15 +131,25 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const captured=warm;if(!captured||coldStarted||worker)throw fail('runtime_not_captured');
       const base=captured.base;actualListener(captured.server,captured.listener);
       if(!ready())return false; // Missing native/result/successor adapters do not advertise a worker.
+      // No warm child may commit without a durable claim writer. A legacy harness
+      // must state that absence explicitly instead of silently degrading.
+      const claims=requireClaim();
       worker=host.workerApi.create({pid:proc.pid,env:proc.env,setTimeout,clearTimeout,base:async()=>base,listener:()=>actualListener(captured.server,captured.listener),
-        spawn:env=>host.workerApi.spawnCold(command('work-data-maintenance'),env),stopUncommitted:host.stopUncommitted,uploads:host.uploads,
-        exitParent:async()=>{if(host.isRetired()!==true||warm!==captured||!ownership(captured.ownership,base))throw fail('handoff_not_retired');actualListener(captured.server,captured.listener);if(helpers())throw Object.assign(fail('native_helper_uncertain'),{helperMayStillRun:true});await host.exit(0);},
+        spawn:env=>host.workerApi.spawnCold(command('work-data-maintenance'),env),stopUncommitted:host.stopUncommitted,uploads:host.uploads,claim:claims,
+        exitParent:async()=>{if(!retired()||warm!==captured||!ownership(captured.ownership,base))throw fail('handoff_not_retired');actualListener(captured.server,captured.listener);if(helpers())throw Object.assign(fail('native_helper_uncertain'),{helperMayStillRun:true});
+          // The same real receipt must still hold at the exit boundary; a boolean
+          // promotion or a single early read is not admissible evidence.
+          if(!retired())throw fail('handoff_not_retired');await host.exit(0);},
       });
       host.workerHooks.start=async request=>host.withWarmSource(request,async()=>{if(!ready()||warm!==captured)throw fail('worker_unavailable');actualListener(captured.server,captured.listener);return worker.start(request);});
       return true;
     }
     function execute(context) { return host.withColdSource(context,()=>executeBody(context)); }
     async function executeBody(context) {
+      // No base mutation may start unless a durable claim writer exists. The bound
+      // finish/abandon capability itself is built by 13ai for this exact attempt and
+      // travels through the context into 13ak; this layer never re-derives it.
+      requireClaim();
       let current=full(await host.readAuthority(context.base));if(!same(current,context.expectedAuthority))throw fail('authority_changed');
       const job={id:context.id,operation:context.operation,state:'handoff',createdAt:Date.now(),phase:'takeover'},base=context.base;
       const http=host.httpApi.create({id:context.id,port:context.serve.port,bindHost:context.serve.host,
@@ -164,30 +219,70 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       await new Promise(()=>{});
     }
     async function runCold(channel=host.workerApi.processChannel(proc)) {
-      if(warm||coldStarted||successorStarted||!ready())throw fail('worker_unavailable');coldStarted=true;
+      if(warm||coldStarted||successorStarted||!ready())throw fail('worker_unavailable');
+      const claims=requireClaim();coldStarted=true;
       const cold=host.workerApi.create({pid:proc.pid,env:proc.env,setTimeout,clearTimeout,base:host.base,canonical:host.canonical,acquire:host.acquire,
-        waitParentExit:host.workerApi.waitForProcessExit,readAuthority:host.readAuthority,execute,onOwnedFailure,helperMayStillRun:helpers});
+        waitParentExit:host.workerApi.waitForProcessExit,readAuthority:host.readAuthority,execute,onOwnedFailure,helperMayStillRun:helpers,claim:claims});
       const result=await cold.runCold(channel);if(result?.phase==='cancelled')return result;
       // 13ai has now released its exact source owner. Its finally must finish
       // before a genuinely new normal-serve process can acquire the same base.
       try{const child=await launchSuccessor(result);child.unref();await host.exit(0);return child;}catch(error){return holdAfterSuccessorFailure(result,error);}
     }
-    async function runSuccessor(channel=host.workerApi.processChannel(proc)) {
-      if(warm||coldStarted||successorStarted||!channel.parentConnected()||typeof host.startFreshServe!=='function')throw fail('successor_unavailable');successorStarted=true;
+    // Successor handoff is two phases so that the normal serve composition owns
+    // acquire/inspect/bind/configure/inner/inbox/activate exactly once:
+    //   prepare  - strict IPC input and its single strict-port options object
+    //   complete - re-verify warm capture/readiness/root/port/authority/result,
+    //              then publish serve-ready and drop the parent channel
+    async function prepareSuccessor(channel=host.workerApi.processChannel(proc),{base}={}) {
+      if(warm||coldStarted||successorStarted||slot.successor)throw fail('successor_unavailable');
+      if(!channel||typeof channel.parentConnected!=='function'||typeof channel.readInput!=='function'||typeof channel.parentPid!=='function'
+        ||channel.parentConnected()!==true)throw fail('successor_unavailable');
+      if(typeof base!=='string'||!p.isAbsolute(base))throw fail('successor_input_invalid');
       const bytes=await channel.readInput(16384);let input;
       try{const raw=bytes.toString('utf8');if(!Buffer.from(raw).equals(bytes))throw fail('successor_input_invalid');input=JSON.parse(raw);}catch{throw fail('successor_input_invalid');}finally{bytes.fill(0);}
       if(keys(input)!=='base,expectedAuthority,id,nonce,parentPid,schema,serve'||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
         ||input.parentPid!==channel.parentPid()||input.parentPid===proc.pid||typeof input.base!=='string'||!p.isAbsolute(input.base)||!listener(input.serve)||!authority(input.expectedAuthority)
-        ||fold(await host.canonical(input.base))!==fold(await host.canonical(await host.base())))throw fail('successor_input_invalid');
-      successorInput=input;
-      const options={host:input.serve.host,port:String(input.serve.port)};strictOptions.add(options);
-      await host.startFreshServe(options);
-      if(!warm||fold(warm.base)!==fold(await host.canonical(input.base)))throw fail('successor_not_captured');actualListener(warm.server,input.serve);
-      const actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))throw fail('successor_authority_changed');
-      await channel.send({schema:1,kind:'serve-ready',id:input.id,nonce:input.nonce,pid:proc.pid,port:input.serve.port,host:input.serve.host,authority:actual});
-      if(typeof proc.disconnect==='function'&&proc.connected)proc.disconnect();return warm.server;
+        ||fold(await host.canonical(input.base))!==fold(await host.canonical(base)))throw fail('successor_input_invalid');
+      successorStarted=true;
+      // This exact object identity is the only strict same-port ticket; a clone or
+      // user-shaped {host,port} never reaches the listener.
+      const options={host:input.serve.host,port:String(input.serve.port)};slot.strictOptions.add(options);
+      slot.successor=Object.freeze({channel,input,options,phase:'prepared'});
+      return options;
     }
-    return Object.freeze({captureServe,activateServe,inspectBoot,runCold,runSuccessor,strictSamePort:options=>strictOptions.has(options),guardNative,helperMayStillRun:helpers});
+    async function completeSuccessor() {
+      const pending=slot.successor;if(!pending||pending.phase!=='prepared')throw fail('successor_not_prepared');
+      const input=pending.input,channel=pending.channel;
+      const stop=error=>{slot.successor=Object.freeze({...pending,phase:'failed'});throw error;};
+      let captured;
+      try {
+        if(typeof channel.send!=='function')return stop(fail('successor_unavailable'));
+        if(!warm)return stop(fail('successor_not_captured'));
+        captured=warm;
+        if(fold(captured.base)!==fold(await host.canonical(input.base)))return stop(fail('successor_not_captured'));
+        actualListener(captured.server,input.serve);
+        if(warm!==captured||!ready())return stop(fail('worker_unavailable'));
+        const read=host.workerHooks?.readResult;
+        const record=typeof read==='function'?await read():await readWarmResult(captured);
+        if(!record||record.id!==input.id)return stop(fail('successor_result_unreadable'));
+        if(!same(record.authority,input.expectedAuthority))return stop(fail('successor_result_changed'));
+        const actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+        await channel.send({schema:1,kind:'serve-ready',id:input.id,nonce:input.nonce,pid:proc.pid,port:input.serve.port,host:input.serve.host,authority:actual});
+      } catch(error) { slot.successor=Object.freeze({...pending,phase:'failed'});throw error; }
+      slot.successor=Object.freeze({...pending,phase:'complete'});
+      if(typeof proc.disconnect==='function'&&proc.connected)proc.disconnect();
+      return captured.server;
+    }
+    // Legacy composition kept for harnesses that still inject their own fresh
+    // normal-serve entry; production uses 13au's startSuccessorMaintenance.
+    async function runSuccessor(channel=host.workerApi.processChannel(proc)) {
+      if(typeof host.startFreshServe!=='function')throw fail('successor_unavailable');
+      const options=await prepareSuccessor(channel,{base:await host.base()});
+      await host.startFreshServe(options);
+      return completeSuccessor();
+    }
+    return Object.freeze({captureServe,activateServe,inspectBoot,runCold,runSuccessor,prepareSuccessor,completeSuccessor,workerReady:ready,
+      strictSamePort:options=>slot.strictOptions.has(options),guardNative,helperMayStillRun:helpers});
   }
   return Object.freeze({create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
@@ -198,18 +293,39 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
 if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
   let bound=null;
   const unavailable=()=>{throw Object.assign(Error('work_data_setup.worker_unavailable'),{code:'work_data_setup.worker_unavailable',retry:false});};
+  // One successor slot and one strict-port ticket registry for this process. The
+  // prepare phase runs before configure, the completion phase after it, and the
+  // listener must still see the same registered options object.
+  const slot={successor:null,strictOptions:new WeakSet()};
+  // 13au installs the production claim API on this hooks object before the first
+  // boot inspection, so the readonly pre-configure gate can classify handoffs too.
+  const claimApi=()=>{const value=WorkDataMaintenanceRuntimeHooks.claim;
+    return value&&typeof value==='object'&&['inspect','write','remove','classify'].every(name=>typeof value[name]==='function')?value:null;};
+  // Readonly process composition used before configureServe: it may canonicalize,
+  // inspect and classify, but it can never acquire, configure, mutate or exit.
+  const readonly=(base)=>{
+    const claim=claimApi();
+    return WorkDataMaintenanceRuntime.create({process,workerHooks:{},workerApi:WorkDataMaintenanceWorker,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,controlApi:WorkDataMaintenanceControl,
+      base:async()=>base,canonical:ServerOwnership.canonicalRoot,acquire:ServerOwnership.acquire,readAuthority:requested=>WorkDataManifest.create({base:requested}).readActive(),
+      assertOwnership:(owner,value)=>ServerOwnership.owns(owner,value),withColdSource:unavailable,withWarmSource:unavailable,adaptersReady:()=>false,helperMayStillRun:()=>false,
+      isRetired:()=>false,operations:unavailable,stopUncommitted:unavailable,exit:unavailable,command:unavailable,
+      ...(claim?{claim}:{legacyNoClaim:true})},slot);
+  };
   Object.assign(WorkDataMaintenanceRuntimeHooks,{
-    configure:host=>{if(bound)throw Object.assign(Error('work_data_setup.runtime_already_configured'),{code:'work_data_setup.runtime_already_configured'});bound=WorkDataMaintenanceRuntime.create(host);return bound;},
-    inspectBoot:context=>{
-      if(bound)return bound.inspectBoot(context);
-      const readonly=WorkDataMaintenanceRuntime.create({process,workerHooks:{},workerApi:WorkDataMaintenanceWorker,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,controlApi:WorkDataMaintenanceControl,
-        base:async()=>context.base,canonical:ServerOwnership.canonicalRoot,acquire:ServerOwnership.acquire,readAuthority:base=>WorkDataManifest.create({base}).readActive(),
-        assertOwnership:(owner,base)=>ServerOwnership.owns(owner,base),withColdSource:unavailable,withWarmSource:unavailable,adaptersReady:()=>false,helperMayStillRun:()=>false,isRetired:()=>false,operations:unavailable,stopUncommitted:unavailable,exit:unavailable,command:unavailable});
-      return readonly.inspectBoot(context);
-    },
+    configure:host=>{if(bound)throw Object.assign(Error('work_data_setup.runtime_already_configured'),{code:'work_data_setup.runtime_already_configured'});bound=WorkDataMaintenanceRuntime.create(host,slot);return bound;},
+    inspectBoot:context=>bound?bound.inspectBoot(context):readonly(context.base).inspectBoot(context),
     captureServe:context=>bound?bound.captureServe(context):false,
     activateServe:()=>bound?bound.activateServe():false,
-    strictSamePort:options=>bound?bound.strictSamePort(options):false,
+    workerReady:()=>bound?bound.workerReady():false,
+    // The prepared ticket lives in the shared slot, so it stays strict across the
+    // pre-configure prepare and the configured listener.
+    strictSamePort:options=>slot.strictOptions.has(options),
+    prepareSuccessor:async(channel,options)=>{
+      if(bound)return bound.prepareSuccessor(channel,options);
+      if(!options||typeof options.base!=='string')throw Object.assign(Error('work_data_setup.successor_input_invalid'),{code:'work_data_setup.successor_input_invalid',retry:false});
+      return readonly(options.base).prepareSuccessor(channel,options);
+    },
+    completeSuccessor:async()=>bound?bound.completeSuccessor():unavailable(),
     runCold:()=>bound?bound.runCold():unavailable(),runSuccessor:()=>bound?bound.runSuccessor():unavailable(),
   });
 }

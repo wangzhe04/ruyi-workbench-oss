@@ -7,8 +7,13 @@ function read(file,pin){const chain=ancestors(file),before=fs.lstatSync(file,{bi
 function json(file,pin){return JSON.parse(read(file,pin).bytes);}
 function inventory(root,{directoryMetadata=false}={}){const files=[],directories=[];function walk(dir){const before=fs.lstatSync(dir,{bigint:true});a.ok(before.isDirectory()&&!before.isSymbolicLink());const entries=fs.readdirSync(dir).sort();directories.push({file:p.resolve(dir),dev:String(before.dev),ino:String(before.ino),...(directoryMetadata?physical(before):{}),entries});for(const n of entries){const f=p.join(dir,n),st=fs.lstatSync(f);if(st.isDirectory())walk(f);else files.push(read(f).row);}a.deepEqual(fs.readdirSync(dir).sort(),entries);const now=fs.lstatSync(dir,{bigint:true});a.equal(now.dev,before.dev);a.equal(now.ino,before.ino);}walk(root);return{files,directories};}
 function samePinned(aRow,bRow){a.equal(aRow.bytes,bRow.bytes);a.equal(aRow.sha256,bRow.sha256);for(const k of fields)if(bRow[k]!==undefined)a.equal(aRow[k],bRow[k]);}
-function assertStatus(value){a.equal(value?.ok,true);a.equal(value.lastResult,null);a.deepEqual(value.capabilities,{worker:false,upload:true,download:false});a.equal(value.authority.mode,'plain');a.equal(value.authority.generation,0);a.equal(value.authority.id,null);a.equal(value.authority.sha256,null);a.equal(value.job,null);return value.authority;}
-function assertNoKernelHooks(status){a.equal(status.capabilities.worker,false);a.equal(status.capabilities.download,false);a.equal(Object.hasOwn(status.capabilities,'crashClaim'),false);a.equal(Object.hasOwn(status.capabilities,'activation'),false);return true;}
+// The worker flag is a real readiness observation, not a constant: callers state
+// which product generation they are witnessing instead of assuming one.
+function assertStatus(value,{worker=false,lastResult=null,authority={mode:'plain',generation:0,id:null,sha256:null}}={}){
+ a.equal(value?.ok,true);a.equal(value.lastResult,lastResult);a.deepEqual(value.capabilities,{worker,upload:true,download:false});
+ a.equal(value.authority.mode,authority.mode);a.equal(value.authority.generation,authority.generation);
+ a.equal(value.authority.id,authority.id);a.equal(value.authority.sha256,authority.sha256);a.equal(value.job,null);return value.authority;}
+function assertNoKernelHooks(status,{worker=false}={}){a.equal(status.capabilities.worker,worker);a.equal(status.capabilities.download,false);a.equal(Object.hasOwn(status.capabilities,'crashClaim'),false);a.equal(Object.hasOwn(status.capabilities,'activation'),false);return true;}
 function validateExternalCapture({prebuild,external,root,contract}){a.equal(norm(p.dirname(root.file)),norm(contract.temp));a.ok(p.basename(root.file).startsWith('r31-m3-upload-before-'));a.match(p.basename(root.file).slice('r31-m3-upload-before-'.length),/^[A-Za-z0-9]{6}$/);a.equal(norm(prebuild.file),norm(p.join(root.file,'prebuild-captured.json')));a.equal(norm(external.file),norm(p.join(root.file,'source-copy-proof.json')));a.deepEqual(root.entries,['prebuild-captured.json','source-copy-proof.json']);for(const pin of [prebuild,external]){a.ok(Number.isSafeInteger(pin.bytes)&&pin.bytes>0);a.match(pin.sha256,/^[a-f0-9]{64}$/);for(const k of ['dev','ino','mtimeNs','ctimeNs'])a.match(pin[k],/^\d+$/);}for(const k of ['dev','ino'])a.match(root[k],/^\d+$/);return true;}
 function observeDifference(before,after){function diff(oldRows,newRows){const old=new Map(oldRows.map(r=>[norm(r.file),r])),now=new Map(newRows.map(r=>[norm(r.file),r]));return{removed:oldRows.filter(r=>!now.has(norm(r.file))).map(r=>r.file),added:newRows.filter(r=>!old.has(norm(r.file))).map(r=>r.file),changed:newRows.filter(r=>old.has(norm(r.file))&&JSON.stringify(r)!==JSON.stringify(old.get(norm(r.file)))).map(r=>({before:old.get(norm(r.file)),after:r}))};}return{...diff(before.files,after.files),directories:diff(before.directories,after.directories)};}
 function validateCohortTarget({run,before,after,proof,contract}){
@@ -37,7 +42,7 @@ function loadProductTarget(harness){
  a.ok(Array.isArray(manifest.modules)&&manifest.modules.length);
  const parts=manifest.modules.map(r=>read(p.join(src,r.file))),serverRead=read(server);
  const concatenate=values=>Buffer.concat(values.flatMap((b,i)=>i?[Buffer.from('\n'),b]:[b]));
- a.ok(serverRead.bytes.equals(concatenate(parts.map(part=>part.bytes))));
+ a.ok(serverRead.bytes.equals(concatenate(parts.map(part=>part.bytes))),'app/server.js is not the assembly of app/src/manifest.json: the checked-in build is stale, run the official build');
  const tree=inventory(src);
  // Link the assembly capture to the later inventory before issuing a target.
  // Neither capture may silently become a new baseline for the other.
@@ -45,12 +50,17 @@ function loadProductTarget(harness){
   const row=tree.files.find(r=>norm(r.file)===norm(captured.row.file));
   a.ok(row,'assembled input missing from source inventory');samePinned(row,captured.row);
  }
- const helperNames=['lib/self-isolate-home.js','lib/fixture-home.js','lib/fixture-home-guard.js','lib/release-checks.js','lib/kill-own-tree.js','lib/harness.js','free-port.js','lib/work-data-production-upload-core.js','lib/work-data-production-upload-process.js','work-data-production-upload.e2e.js'];
+ const helperNames=['lib/self-isolate-home.js','lib/fixture-home.js','lib/fixture-home-guard.js','lib/release-checks.js','lib/kill-own-tree.js','lib/harness.js','free-port.js','lib/work-data-production-upload-core.js','lib/work-data-production-upload-process.js','work-data-production-upload.e2e.js','work-data-production-maintenance.e2e.js','lib/work-data-production-maintenance-outer-job.ps1'];
  const files=[serverRead.row,...tree.files,read(p.join(repo,'ruyi-workbench/app/build.js')).row,read(p.join(repo,'ruyi-workbench/package.json')).row,read(process.execPath).row,...helperNames.map(n=>read(p.join(harness,n)).row)];
- // 1 server + every app/src input + build.js + package.json + node + the 10
- // harness helpers above: the files that actually execute this candidate are
- // pinned too, so no executing input can drift outside target.recheck.
- a.equal(files.length,141,'pinned execution inputs');
+ // 1 server + every app/src input + build.js + package.json + node + the harness
+ // helpers above: the files that actually execute these candidates are pinned
+ // too, so no executing input can drift outside target.recheck. The helper count
+ // stays a literal so a silent addition is caught here; the source count is
+ // derived because the product legitimately grows. Current composition:
+ // 128 app/src files + 12 harness inputs + 4 fixed (server, build.js, package.json,
+ // node) = 144 pinned execution inputs; the total is derived, never written down.
+ a.equal(helperNames.length,12,'harness execution inputs');
+ a.equal(files.length,4+tree.files.length+helperNames.length,'pinned execution inputs');
  // Execution inputs are the actual bytes read above. The digest is derived only
  // from their canonical path, size and content hash, so it cannot be fabricated
  // from a caller boolean and stays independent of the external review hashes.

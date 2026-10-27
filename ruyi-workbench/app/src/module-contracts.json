@@ -28070,6 +28070,22 @@
       ]
     },
     {
+      "file": "13av-work-data-handoff-claim.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataHandoffClaim"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "13ah-work-data-setup.js",
       "layer": "unclassified",
       "provides": [
@@ -28140,6 +28156,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceRuntimeHooks",
           "kinds": [
             "read"
           ]
@@ -28252,13 +28275,6 @@
         {
           "provider": "11-native-tools.js",
           "symbol": "shellSessions",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13at-work-data-restore-uploads.js",
-          "symbol": "WorkDataRestoreUploads",
           "kinds": [
             "read"
           ]
@@ -29002,6 +29018,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceRuntimeHooks",
           "kinds": [
             "read"
@@ -29073,6 +29096,13 @@
         {
           "provider": "13at-work-data-restore-uploads.js",
           "symbol": "WorkDataRestoreUploads",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13av-work-data-handoff-claim.js",
+          "symbol": "WorkDataHandoffClaim",
           "kinds": [
             "read"
           ]
@@ -32995,6 +33025,13 @@
         {
           "provider": "13ar-work-data-verifier-entry.js",
           "symbol": "WorkDataVerifierEntry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13au-work-data-runtime-host.js",
+          "symbol": "WorkDataRuntimeHost",
           "kinds": [
             "read"
           ]

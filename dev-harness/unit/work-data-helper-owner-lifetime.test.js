@@ -18,7 +18,9 @@ function runtime(globals={}){
  const host={process:{pid:42,env:{}},workerHooks,workerApi:{create:options=>{core=options;return{start:async()=>{state.starts++;return{};}};},spawnCold(){throw Error('no actual child');},processChannel(){},waitForProcessExit(){}},
   httpApi:{create(){}},resultApi:{create(){}},controlApi:{create(){}},base:async()=>owner.roots[0],canonical:async value=>value,acquire(){throw Error('no actual owner');},readAuthority:async()=>({}),operations(){throw Error('no operations');},
   assertOwnership:owned,withColdSource:async(request,work)=>work(),withWarmSource:async(request,work)=>work(),
-  adaptersReady:()=>true,helperMayStillRun:()=>false,isRetired:()=>state.retired,stopUncommitted:async()=>{},exit:async()=>state.exits++,command:()=>({command:'SYNTHETIC',args:[]})};
+  adaptersReady:()=>true,helperMayStillRun:()=>false,isRetired:()=>state.retired,
+  retiredReceipt:()=>state.retired===true?{phase:'retired'}:null,legacyNoClaim:true,
+  stopUncommitted:async()=>{},exit:async()=>state.exits++,command:()=>({command:'SYNTHETIC',args:[]})};
  const instance=api.create(host),capture={base:owner.roots[0],ownership:owner,server:{listening:true,address:()=>({address:'127.0.0.1',port:12345})},listener:{host:'127.0.0.1',port:12345}};
  return {context,state,workerHooks,instance,capture,get core(){return core;}};
 }
