@@ -212,6 +212,9 @@ test('one-shot config-reading CLI commands acquire/select first and keep ownersh
       ServerOwnership: { acquire: async () => { events.push('owner'); return { release: async () => events.push('release') }; } },
       WorkDataRootHooks: { bind: async () => events.push('bind'), ready: () => true }, WorkDataMaintenanceRuntimeHooks: {}, configMutateChain: Promise.resolve(), configWriteChain: Promise.resolve(), flushWorkbenchLogs: async () => events.push('flush'),
       installIntegration: async () => events.push('install'), doctor: async () => events.push('doctor'), generateMcpConfig: async () => { events.push('mcp-config'); return ''; }, startMcp: async () => events.push('relay'), console: { log() {} } };
+    // main() dispatches the private verifier command before any command branch;
+    // the production module (13ar) defines the entry used by that guard.
+    context.WorkDataVerifierEntry = vm.runInNewContext(source('13ar-work-data-verifier-entry.js') + '\nWorkDataVerifierEntry;', context);
     const main = vm.runInNewContext(sliceBlock(text, 'let workDataCliHelperHeld', '// These commands read config through') + '\n' + functionBlock(text, 'withSelectedWorkDataRoot') + '\n' + functionBlock(text, 'main') + '\nmain;', context);
     await main(); assert.deepEqual(events, command === 'mcp' ? ['relay'] : ['owner', 'bind', command, 'flush', 'release']);
   }

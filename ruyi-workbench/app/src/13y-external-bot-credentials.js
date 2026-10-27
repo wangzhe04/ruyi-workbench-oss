@@ -21,8 +21,12 @@ const ExternalBotCredentials = (() => {
   const identity = value => typeof value === 'string' && /^[\x21-\x7e]{1,128}$/.test(value);
   const exact = (value, keys) => object(value) && Object.keys(value).every(key => keys.includes(key));
   const fail = (suffix, statusCode = 503) => { throw Object.assign(new Error('external_credentials.' + suffix), { code: 'external_credentials.' + suffix, apiCode: 'external_credentials.' + suffix, statusCode }); };
-  const validSecret = value => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= LIMIT.secretBytes
-    && !/[\x00-\x1f\x7f]/.test(value) && Buffer.from(value).toString('utf8') === value;
+  function validSecret(value) {
+    if (typeof value !== 'string' || value.length === 0 || Buffer.byteLength(value) > LIMIT.secretBytes
+      || /[\x00-\x1f\x7f]/.test(value)) return false;
+    const bytes = Buffer.from(value);
+    try { return bytes.toString('utf8') === value; } finally { bytes.fill(0); }
+  }
   function binding(connection) {
     if (!object(connection) || typeof connection.id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(connection.id) || !Object.hasOwn(SLOTS, connection.platform)
       || !identity(connection.appId) || !identity(connection.tenantId) || (connection.botUserId !== undefined && typeof connection.botUserId !== 'string') || (connection.botUserId && !identity(connection.botUserId))
@@ -208,17 +212,35 @@ const ExternalBotCredentials = (() => {
       catch { raw?.fill(0); if (!failed) fail('storage_unavailable'); }
     }
   }
-  async function snapshotForWorkDataRecovery() {
+  async function recoveryCapturedRaw(token) {
+    if (typeof WorkDataTree === 'undefined' || typeof WorkDataTree.readCapturedFile !== 'function'
+        || typeof WorkDataTree.verifyCapturedFile !== 'function' || typeof WorkDataTree.assertCapturedFile !== 'function') fail('recovery_owner_invalid', 409);
+    const raw = await WorkDataTree.readCapturedFile(token, store.filePath());
+    try {
+      WorkDataTree.assertCapturedFile(token, store.filePath());
+      if (!Buffer.isBuffer(raw) || raw.length > LIMIT.bytes) fail('recovery_invalid', 409);
+      return { raw, state: recoveryState(recoveryDecode(raw)) };
+    } catch (error) { raw?.fill(0); throw error; }
+  }
+  async function snapshotForWorkDataRecovery(capturedSource) {
     return runKeyedChain(chains, 'vault', async () => {
-      const captured = await recoveryRaw();
+      const captured = capturedSource === undefined ? await recoveryRaw() : await recoveryCapturedRaw(capturedSource);
       if (!captured) return Object.freeze({ present: false, source: null, portable: null, release() {} });
       let portable, returned = false;
       try {
         const records = [];
-        for (const row of captured.state.records) records.push({ binding: { ...row.binding }, revision: row.revision,
-          present: [...row.present], values: await localValues(row, row.binding) });
+        for (const row of captured.state.records) {
+          if (capturedSource !== undefined) WorkDataTree.assertCapturedFile(capturedSource, store.filePath());
+          const values = await localValues(row, row.binding);
+          if (capturedSource !== undefined) WorkDataTree.assertCapturedFile(capturedSource, store.filePath());
+          records.push({ binding: { ...row.binding }, revision: row.revision, present: [...row.present], values });
+        }
         portable = Buffer.from(JSON.stringify({ schema: 1, records }), 'utf8');
         if (portable.length > LIMIT.bytes) fail('recovery_invalid', 409);
+        if (capturedSource !== undefined) {
+          if (await WorkDataTree.verifyCapturedFile(capturedSource, store.filePath()) !== true) fail('recovery_owner_invalid', 409);
+          WorkDataTree.assertCapturedFile(capturedSource, store.filePath());
+        }
         let released = false;
         const source = Object.freeze({ data: captured.raw, sha256: recoveryHash(captured.raw) });
         returned = true;

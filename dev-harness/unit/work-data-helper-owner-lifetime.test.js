@@ -8,10 +8,16 @@ const runtimeSource=fs.readFileSync(process.env.RUYI_CAPSULE_RUNTIME_SOURCE||pat
 const mainSource=fs.readFileSync(process.env.RUYI_CAPSULE_MAIN_SOURCE||path.join(repo,'ruyi-workbench/app/src/14-main.js'),'utf8');
 const tick=async()=>{for(let n=0;n<30;n++)await Promise.resolve();};
 function runtime(globals={}){
- const context={require,Buffer,process:{platform:'win32'},setTimeout(){throw Error('no actual timers');},clearTimeout(){},...globals};
- const api=vm.runInNewContext(constBlock(runtimeSource,'WorkDataMaintenanceRuntime')+'\nWorkDataMaintenanceRuntime;',context),state={starts:0,exits:0,retired:false},workerHooks={},owner={roots:['C:\\SYNTHETIC']};let core;
+ const context={require,Buffer,process:{platform:'win32'},setTimeout(){throw Error('no actual timers');},clearTimeout(){},...globals},state={starts:0,exits:0,retired:false},workerHooks={},owner={roots:['C:\\SYNTHETIC']};let core;
+ // Synthetic genuine-owner contract: no OS handle is created, so the same
+ // owner shape is answered by the real global and by the host's exclusive
+ // assertion. Runtime refuses capture unless both agree.
+ const owned=(candidate,base)=>!!candidate&&Array.isArray(candidate.roots)&&candidate.roots.some(root=>root===base);
+ context.ServerOwnership={owns:owned};
+ const api=vm.runInNewContext(constBlock(runtimeSource,'WorkDataMaintenanceRuntime')+'\nWorkDataMaintenanceRuntime;',context);
  const host={process:{pid:42,env:{}},workerHooks,workerApi:{create:options=>{core=options;return{start:async()=>{state.starts++;return{};}};},spawnCold(){throw Error('no actual child');},processChannel(){},waitForProcessExit(){}},
   httpApi:{create(){}},resultApi:{create(){}},controlApi:{create(){}},base:async()=>owner.roots[0],canonical:async value=>value,acquire(){throw Error('no actual owner');},readAuthority:async()=>({}),operations(){throw Error('no operations');},
+  assertOwnership:owned,withColdSource:async(request,work)=>work(),withWarmSource:async(request,work)=>work(),
   adaptersReady:()=>true,helperMayStillRun:()=>false,isRetired:()=>state.retired,stopUncommitted:async()=>{},exit:async()=>state.exits++,command:()=>({command:'SYNTHETIC',args:[]})};
  const instance=api.create(host),capture={base:owner.roots[0],ownership:owner,server:{listening:true,address:()=>({address:'127.0.0.1',port:12345})},listener:{host:'127.0.0.1',port:12345}};
  return {context,state,workerHooks,instance,capture,get core(){return core;}};
@@ -62,4 +68,64 @@ test('old CLI VM context without optional global readers keeps normal release/ex
 });
 test('CLI reader property failure permanently retains owner instead of forcing process exit',async()=>{
  const hooks=Object.defineProperty({},'helperMayStillRun',{get(){throw Error('private helper getter');}}),f=cli({MigrationHooks:hooks});await f.invoke(async()=>{throw Error('washed');});assert.equal(f.state.releases,0);assert.equal(f.state.exits.length,0);assert.equal(f.state.holds.length,1);
+});
+
+const retainedFault=(message,extra={})=>Object.assign(Error(message),{code:'fixture.'+message.replace(/\W+/g,'_'),...extra});
+
+test('a direct acquisition refusal that retained ownership holds the owner instead of exiting',async()=>{
+ const fault=retainedFault('direct acquisition refusal',{ownershipRetained:true,operationMayHaveExecuted:true,retry:false});
+ const f=cli({ServerOwnership:{acquire:async()=>{throw fault;},canonicalRoot:async value=>value}});
+ let ran=false;await f.invoke(async()=>{ran=true;});
+ assert.equal(ran,false);assert.equal(f.state.releases,0);assert.equal(f.state.exits.length,0);
+ assert.equal(f.context.process.exitCode,1);assert.equal(f.state.holds.length,1);assert.equal(f.state.unrefs,0);
+ assert.deepEqual(f.state.logs,['work_data_setup.native_helper_uncertain']);
+});
+test('ownershipRetained or helperMayStillRun through cause and AggregateError chains holds instead of exiting',async()=>{
+ const faults=[
+  retainedFault('washed ownership failure',{cause:retainedFault('inner',{ownershipRetained:true})}),
+  Object.assign(new AggregateError([Error('first'),retainedFault('second',{helperMayStillRun:true})],'synthetic cleanup failure'),{code:'fixture.synthetic_aggregate'}),
+  retainedFault('outer',{cause:retainedFault('middle',{cause:retainedFault('inner',{ownershipRetained:true})})}),
+ ];
+ for(const fault of faults){const f=cli();await f.invoke(async()=>{throw fault;});
+  assert.equal(f.state.releases,0,'a retained failure must be judged before the selected owner is released');
+  assert.equal(f.state.exits.length,0);assert.equal(f.context.process.exitCode,1);assert.equal(f.state.holds.length,1);
+  assert.deepEqual(f.state.logs,['work_data_setup.native_helper_uncertain']);}
+});
+test('a release refusal that retained ownership holds the selected owner instead of exiting',async()=>{
+ const fault=retainedFault('release refusal',{ownershipRetained:true});
+ const owner={release:async()=>{throw fault;}};
+ for(const work of [async()=>{throw Error('washed public failure');},async()=>'must not be reported as success']){
+  const f=cli({ServerOwnership:{acquire:async()=>owner,canonicalRoot:async value=>value}});
+  await f.invoke(work);
+  assert.equal(f.state.exits.length,0);assert.equal(f.context.process.exitCode,1);assert.equal(f.state.holds.length,1);
+  assert.deepEqual(f.state.logs,['work_data_setup.native_helper_uncertain']);
+ }
+});
+test('hostile flag shapes fail closed to the hold without an uncaught exception',async()=>{
+ const getter=Object.defineProperty(Error('private getter'),'ownershipRetained',{get(){throw Error('private getter');}});
+ const proxy=new Proxy({},{getOwnPropertyDescriptor(){throw Error('private trap');}});
+ for(const fault of [getter,proxy]){const f=cli();await f.invoke(async()=>{throw fault;});
+  assert.equal(f.state.exits.length,0);assert.equal(f.context.process.exitCode,1);assert.equal(f.state.holds.length,1);}
+});
+test('an ordinary cause chain without any retention flag still releases and fails fast',async()=>{
+ const f=cli();await f.invoke(async()=>{throw retainedFault('ordinary',{cause:Error('inner')});});
+ assert.equal(f.state.releases,1);assert.deepEqual(f.state.exits,[1]);assert.equal(f.state.holds.length,0);
+});
+test('a work failure that retained ownership holds before the selected-root release',async()=>{
+ const f=cli();await f.invoke(async()=>{throw retainedFault('work retention',{ownershipRetained:true});});
+ assert.equal(f.state.releases,0,'the selected owner must not be released before the in-flight failure is judged');
+ assert.equal(f.state.exits.length,0);assert.equal(f.context.process.exitCode,1);assert.equal(f.state.holds.length,1);assert.equal(f.state.unrefs,0);
+ assert.deepEqual(f.state.logs,['work_data_setup.native_helper_uncertain']);
+});
+test('a flush failure that retained ownership holds instead of releasing the selected owner',async()=>{
+ const f=cli({flushWorkbenchLogs:async()=>{throw retainedFault('flush retention',{helperMayStillRun:true});}});
+ await f.invoke(async()=>'work succeeded');
+ assert.equal(f.state.releases,0,'flush evidence must reach the same hold decision before release');
+ assert.equal(f.state.exits.length,0);assert.equal(f.context.process.exitCode,1);assert.equal(f.state.holds.length,1);
+ assert.deepEqual(f.state.logs,['work_data_setup.native_helper_uncertain']);
+});
+test('an ordinary flush failure still releases the selected owner and exits fast',async()=>{
+ const f=cli({flushWorkbenchLogs:async()=>{throw Error('ordinary flush failure');}});
+ await f.invoke(async()=>'work succeeded');
+ assert.equal(f.state.releases,1);assert.deepEqual(f.state.exits,[1]);assert.equal(f.state.holds.length,0);
 });

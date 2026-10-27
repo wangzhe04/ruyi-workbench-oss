@@ -1,11 +1,49 @@
 let workDataCliHelperHeld = false;
 let workDataCliHelperHoldTimer = null;
-function workDataCliHelperUnknown() {
+function workDataCliHelperUnknown(error) {
   if (workDataCliHelperHeld) return true;
   try {
     if (typeof LocalSecretCrypto !== 'undefined') { const inspect=LocalSecretCrypto.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(LocalSecretCrypto)!==false)) workDataCliHelperHeld=true; }
     if (typeof MigrationHooks !== 'undefined') { const inspect=MigrationHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(MigrationHooks)!==false)) workDataCliHelperHeld=true; }
+    if (typeof WorkDataMaintenanceRuntimeHooks !== 'undefined') { const inspect=WorkDataMaintenanceRuntimeHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(WorkDataMaintenanceRuntimeHooks)!==false)) workDataCliHelperHeld=true; }
   } catch { workDataCliHelperHeld=true; }
+  if (workDataCliHelperHeld) return true;
+  // A retained OS owner recorded on the failure itself is the same unknown: exiting now
+  // would abandon the exclusion the failure still relies on. Walk cause/errors only, bounded,
+  // reading flags from data descriptors so a getter, proxy trap or cycle stays unknown.
+  const active = new Set(), done = new Set();
+  let nodes = 0;
+  const retains = (value, depth) => {
+    if (value === null || typeof value !== 'object' && typeof value !== 'function') return false;
+    if (active.has(value)) return true;
+    if (done.has(value)) return false;
+    if (depth > 8 || ++nodes > 64) return true;
+    active.add(value);
+    try {
+      for (const name of ['ownershipRetained','helperMayStillRun']) {
+        const flag = Object.getOwnPropertyDescriptor(value,name);
+        if (!flag) continue;
+        if (!Object.hasOwn(flag,'value')) return true;
+        if (flag.value === true) return true;
+      }
+      for (const name of ['cause','errors']) {
+        const edge = Object.getOwnPropertyDescriptor(value,name);
+        if (!edge) continue;
+        if (!Object.hasOwn(edge,'value')) return true;
+        if (name === 'cause') { if (retains(edge.value,depth+1)) return true; continue; }
+        const errors = edge.value;
+        if (!Array.isArray(errors)) return true;
+        const length = Object.getOwnPropertyDescriptor(errors,'length');
+        if (!length || !Object.hasOwn(length,'value') || !Number.isSafeInteger(length.value) || length.value < 0 || length.value > 64) return true;
+        for (let index = 0; index < length.value; index++) {
+          const item = Object.getOwnPropertyDescriptor(errors,String(index));
+          if (!item || !Object.hasOwn(item,'value') || retains(item.value,depth+1)) return true;
+        }
+      }
+      done.add(value); return false;
+    } finally { active.delete(value); }
+  };
+  try { if (retains(error,0)) workDataCliHelperHeld=true; } catch { workDataCliHelperHeld=true; }
   return workDataCliHelperHeld;
 }
 function holdWorkDataCliOwner() {
@@ -17,21 +55,23 @@ function holdWorkDataCliOwner() {
 // These commands read config through a recovery writer, so they own the stable base as serve does.
 async function withSelectedWorkDataRoot(work) {
   const ownership = await ServerOwnership.acquire([dataRoot()]);
-  let failed = false, selected = false;
+  let failed = false, selected = false, failure, flushFailure;
   try {
     if (typeof WorkDataMaintenanceRuntimeHooks.inspectBoot === 'function') await WorkDataMaintenanceRuntimeHooks.inspectBoot({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership});
     await WorkDataRootHooks.bind(ownership); selected = true; return await work();
   }
-  catch (error) { failed = true; throw error; }
+  catch (error) { failed = true; failure = error; throw error; }
   finally {
     try {
       if (selected && WorkDataRootHooks.ready()) {
         await configMutateChain.catch(() => {}); await configWriteChain.catch(() => {});
         await flushWorkbenchLogs();
       }
-    } catch (error) { if (!failed) throw error; }
+    } catch (error) { flushFailure = error; if (!failed) throw error; }
     finally {
-      if (workDataCliHelperUnknown()) {
+      // The failure that is still in flight carries the same retention evidence as the
+      // global readers. Releasing first would drop an exclusion main() then has to hold.
+      if (workDataCliHelperUnknown(failure) || workDataCliHelperUnknown(flushFailure)) {
         holdWorkDataCliOwner();
         if (!failed) throw Object.assign(new Error('work_data_setup.native_helper_uncertain'), {code:'work_data_setup.native_helper_uncertain',helperMayStillRun:true,retry:false});
       } else await ownership.release();
@@ -50,6 +90,11 @@ async function startWorkbenchServe(argv) {
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
+  if (command === WorkDataVerifierEntry.COMMAND) {
+    const rawVerifierArgv = process.argv.slice(2);
+    if (rawVerifierArgv.length !== 1 || rawVerifierArgv[0] !== WorkDataVerifierEntry.COMMAND || argv._.length !== 1 || Object.keys(argv).length !== 1) throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid'});
+    return WorkDataVerifierEntry.create().run();
+  }
   if (command === 'work-data-maintenance' || command === 'work-data-successor') {
     if (argv._.length !== 1 || Object.keys(argv).length !== 1) throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid'});
     const run = command === 'work-data-maintenance' ? WorkDataMaintenanceRuntimeHooks.runCold : WorkDataMaintenanceRuntimeHooks.runSuccessor;
@@ -71,7 +116,7 @@ async function main() {
 // the internals so tests can exercise McpStdioClient / detectDesktopMcp without spawning a full server.
 if (require.main === module) {
   main().catch(err => {
-    if (workDataCliHelperUnknown()) {
+    if (workDataCliHelperUnknown(err)) {
       holdWorkDataCliOwner();console.error('work_data_setup.native_helper_uncertain');return;
     }
     const recoveryHelp = PrivacyCore.configHooks.startupGuidance?.(err);

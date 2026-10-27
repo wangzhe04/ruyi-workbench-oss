@@ -35,8 +35,13 @@ const WorkDataStore = ((fsp, pathModule) => {
     const owned = Buffer.from(key); let released = false;
     return Object.freeze({ key: owned, instanceId, release: async () => {
       if (released) return;
-      released = true; owned.fill(0);
-      if (releaseSource) await releaseSource();
+      released=true;const errors=[];let releaseFailed=false;
+      try{owned.fill(0);}catch(cause){errors.push(cause);}
+      try{if(releaseSource)await releaseSource();}catch(cause){releaseFailed=true;errors.push(cause);}
+      // A sole cleanup rejection keeps its original identity (including falsy values);
+      // only multiple/ambiguous failures need the aggregating uncertainty carrier.
+      if(errors.length===1)throw errors[0];
+      if(errors.length)throw capturedCleanupFailure('work_data_store.snapshot_release',undefined,false,errors,releaseFailed);
     } });
   };
   const acquireSnapshot = async (keys = requireKeys()) => {
@@ -47,7 +52,12 @@ const WorkDataStore = ((fsp, pathModule) => {
         if (!source || typeof source.release !== 'function') fail('key_snapshot', 503);
         return ownedSnapshot(source.key, source.instanceId, () => source.release());
       } catch (error) {
-        try { if (typeof source?.release === 'function') await source.release(); } catch { /* preserve acquisition failure */ }
+        let cleanupFailed = false, cleanupFailure;
+        try { if (typeof source?.release === 'function') await source.release(); }
+        catch (cause) { cleanupFailed = true; cleanupFailure = cause; }
+        if (cleanupFailed) {
+          throw capturedCleanupFailure('work_data_store.key_snapshot',error,true,[cleanupFailure],true);
+        }
         throw error;
       }
     }
@@ -58,19 +68,19 @@ const WorkDataStore = ((fsp, pathModule) => {
     try { return ownedSnapshot(copy, await keys.instance()); }
     finally { copy.fill(0); }
   };
-  const withOperation = async (host, work) => {
-    let pending = null, failed = false;
+  const withOperation = async (host, work, ownedResult = false) => {
+    let pending = null, result, failed = false, cleanupFailed = false, failure, cleanupFailure;
     const operation = { credential: () => pending || (pending = acquireSnapshot(keysFor(host))) };
-    try { return await work(operation); }
-    catch (error) { failed = true; throw error; }
-    finally {
-      let lease;
-      try { if (pending) lease = await pending; } catch { /* acquisition already failed */ }
-      if (lease) {
-        try { await lease.release(); }
-        catch { if (!failed) fail('snapshot_release', 503); }
-      }
+    try { result = await work(operation); } catch (error) { failed = true; failure = error; }
+    let lease;
+    try { if (pending) lease = await pending; } catch (error) { if (!failed) { failed = true; failure = error; } }
+    try { if (lease) await lease.release(); } catch (error) { cleanupFailed = true; cleanupFailure = error; }
+    if (failed || cleanupFailed) {
+      const resultCleanup=[];try{if(ownedResult&&Buffer.isBuffer(result))result.fill(0);}catch(cause){resultCleanup.push(cause);}
+      if(cleanupFailed||resultCleanup.length)throw capturedCleanupFailure('work_data_store.snapshot_release',failure,failed,[...(cleanupFailed?[cleanupFailure]:[]),...resultCleanup],cleanupFailed);
+      throw failure;
     }
+    return result;
   };
   // The switch itself may be unreadable; that is "unknown", never "off" — a plaintext rewrite of a
   // sealed record is the one outcome the frozen contract forbids without an explicit migration.
@@ -116,6 +126,82 @@ const WorkDataStore = ((fsp, pathModule) => {
     }
     return plainText;
   };
+  function capturedCleanupFailure(code,primary,failed,errors,releaseFailed=false) {
+    const unknown=value=>{
+      if(value===null||!['object','function'].includes(typeof value))return false;
+      const seen=new Set();try{for(let depth=0;value!==null&&depth<8;depth++){
+        if(seen.has(value))return true;seen.add(value);const flag=Object.getOwnPropertyDescriptor(value,'helperMayStillRun');
+        if(flag)return !Object.hasOwn(flag,'value')||flag.value===true;value=Object.getPrototypeOf(value);
+      }return value!==null;}catch{return true;}
+    };
+    const causes=[...(failed?[primary]:[]),...errors];
+    // Error metadata is optional data, never a reason to execute a foreign getter.
+    try{const descriptor=primary!=null?Object.getOwnPropertyDescriptor(Object(primary),'code'):null;if(descriptor&&Object.hasOwn(descriptor,'value')&&typeof descriptor.value==='string'&&/^[A-Za-z0-9_.-]{1,128}$/.test(descriptor.value))code=descriptor.value;}catch{}
+    return Object.assign(new AggregateError(causes,code,{cause:causes[0]}),{code,apiCode:code,statusCode:503,
+      cleanupFailed:true,ownershipRetained:true,helperMayStillRun:releaseFailed||causes.some(unknown)});
+  }
+  // Captured reads consume only opaque files issued by the preserved tree.
+  // The immutable late bridge validates ownership and the complete source proof;
+  // a host cannot replace those checks with a JSON flag or a byte Buffer.
+  const capturedMode = host => Object.hasOwn(host, 'capturedFile');
+  // Keep the source grant through asynchronous key cleanup as well. The
+  // ordinary operation path remains unchanged; a failed captured binary never
+  // leaves its decoded Buffer alive merely because key release failed later.
+  async function capturedOperation(host, work) { return withOperation(host, work, true); }
+  async function withCapturedFile(host, target, work) {
+    const bridge = Hooks.capturedFiles;
+    if (!bridge || !Object.isFrozen(bridge)
+      || ['read', 'verify', 'assert'].some(name => typeof bridge[name] !== 'function')) fail('captured_file_unavailable');
+    let token, bytes, result, failed = false, failure;
+    const assert = () => { if (bridge.assert(token, target) !== true) fail('captured_file_invalid'); };
+    const verify = async () => { if (await bridge.verify(token, target) !== true) fail('captured_file_invalid'); assert(); };
+    try {
+      token = await (typeof host.capturedFile === 'function' ? host.capturedFile() : host.capturedFile);
+      if (!token || typeof token !== 'object' || typeof token.release !== 'function') fail('captured_file_invalid');
+      bytes = await bridge.read(token, target);
+      if (!Buffer.isBuffer(bytes)) fail('captured_file_invalid');
+      await verify();
+      result = await work(bytes, assert);
+      await verify(); assert();
+    } catch (error) { failed = true; failure = error; }
+    const cleanupErrors=[];let releaseFailed=false;
+    try{if(Buffer.isBuffer(bytes))bytes.fill(0);}catch(cause){cleanupErrors.push(cause);}
+    try{if(token&&typeof token.release==='function'){const released=token.release();if(released!==undefined){Promise.resolve(released).catch(()=>{});throw new Error('captured_release_unproven');}}}
+    catch(cause){releaseFailed=true;cleanupErrors.push(cause);}
+    if(failed||cleanupErrors.length){
+      try{if(Buffer.isBuffer(result))result.fill(0);}catch(cause){cleanupErrors.push(cause);}
+      if(cleanupErrors.length)throw capturedCleanupFailure('work_data_store.captured_cleanup',failure,failed,cleanupErrors,releaseFailed);
+      throw failure;
+    }
+    return result;
+  }
+  function headerFromPrefix(prefix) {
+    const max = 16 * 1024, newline = prefix.indexOf('\n');
+    const first = newline < 0 ? prefix : prefix.slice(0, newline);
+    if (Buffer.byteLength(first, 'utf8') > max) {
+      if (/"workData"\s*:\s*3\b/.test(first)) fail('chunk_header_limit');
+      return null;
+    }
+    let parsed;
+    try { parsed = JSON.parse(first); } catch {
+      if (/"workData"\s*:\s*3\b/.test(first)) fail('corrupt');
+      return null;
+    }
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.workData === 3 ? parsed : null;
+  }
+  const capturedLines = async function* (bytes, maximum, assert) {
+    if (bytes.length > WorkDataChunks.maxFileBytes(maximum)) fail('chunk_file_limit');
+    let start = 0, first = true;
+    for (let end = bytes.indexOf(10, start); end >= 0; end = bytes.indexOf(10, start)) {
+      assert(); const line = bytes.subarray(start, end);
+      const max = first ? WorkDataChunks.MAX_HEADER_BYTES : WorkDataChunks.MAX_CHUNK_LINE_BYTES;
+      if (!line.length || line.length > max) fail('chunk_line_limit');
+      const capturedLineText = line.toString('utf8');
+      if (!Buffer.from(capturedLineText, 'utf8').equals(line)) fail('corrupt');
+      yield capturedLineText; assert(); first = false; start = end + 1;
+    }
+    if (first || start !== bytes.length) fail('corrupt'); assert();
+  };
   // Probe only the bounded first line. Existing pretty JSON and arbitrary legacy plaintext remain
   // on their original read path; the chunk writer always emits a compact, complete first-line header.
   const chunkHeader = async target => {
@@ -129,18 +215,7 @@ const WorkDataStore = ((fsp, pathModule) => {
         used += bytesRead;
         if (buffer.subarray(0, used).includes(10)) break;
       }
-      const prefix = buffer.subarray(0, used).toString('utf8'), newline = prefix.indexOf('\n');
-      const first = newline < 0 ? prefix : prefix.slice(0, newline);
-      if (Buffer.byteLength(first, 'utf8') > max) {
-        if (/"workData"\s*:\s*3\b/.test(first)) fail('chunk_header_limit');
-        return null;
-      }
-      let parsed;
-      try { parsed = JSON.parse(first); } catch {
-        if (/"workData"\s*:\s*3\b/.test(first)) fail('corrupt');
-        return null;
-      }
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.workData === 3 ? parsed : null;
+      return headerFromPrefix(buffer.subarray(0, used).toString('utf8'));
     } finally { await handle.close(); }
   };
   const chunkLines = async function* (target, maxPlaintextBytes) {
@@ -320,6 +395,34 @@ const WorkDataStore = ((fsp, pathModule) => {
   }
   // Whole-record TEXT variant (session head): the caller owns the serialization, so the plaintext
   // path can keep writing byte-identical JSON while the enabled path seals the same bytes.
+  async function textValue(host, rawText, operation) {
+      if (markdownPlaintext(host, rawText)) return rawText;
+      let parsed;
+      try { parsed = JSON.parse(rawText); } catch {
+        if (/"workData"\s*:\s*3\b/.test(rawText)) fail('chunked_unsupported');
+        if (containerMarker(rawText)) fail('corrupt');
+        return rawText;
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
+      // instanceId from the key set (not from the container) so the binding is a real check; seq stays
+      // the container's own value until M3-3 pins revisions with an external anchor.
+      return openTextRecord(host, parsed, operation);
+  }
+  async function readCapturedText(host, bytes, operation, assert) {
+    assert();
+    const header = host.chunked === true ? headerFromPrefix(bytes.subarray(0, 16 * 1024 + 1).toString('utf8')) : null;
+    if (header) {
+      const credential = await operation.credential(); assert();
+      const plainText = await WorkDataChunks.openLines(capturedLines(bytes, host.maxPlaintextBytes, assert), credential.key, {
+        purpose: host.purpose, instanceId: credential.instanceId, schema: Number.isFinite(host.schema) ? host.schema : 1,
+        scopeId: host.scopeId, recordId: host.recordId, seq: host.seq === undefined ? 1 : host.seq,
+        generation: generationOf(header.keyId),
+      }, host.maxPlaintextBytes);
+      assert(); return validateSealed(host, plainText);
+    }
+    const guardedOperation = { credential: async () => { const credential = await operation.credential(); assert(); return credential; } };
+    const value = await textValue(host, bytes.toString('utf8'), guardedOperation); assert(); return value;
+  }
   function createText(host) {
     const file = () => String(host.file());
     if (host.chunked === true) WorkDataChunks.limitOf(host.maxPlaintextBytes);
@@ -334,19 +437,10 @@ const WorkDataStore = ((fsp, pathModule) => {
         return readChunks(host, file(), header, operation);
       }
       const rawText = await fsp.readFile(file(), 'utf8');
-      if (markdownPlaintext(host, rawText)) return rawText;
-      let parsed;
-      try { parsed = JSON.parse(rawText); } catch {
-        if (/"workData"\s*:\s*3\b/.test(rawText)) fail('chunked_unsupported');
-        if (containerMarker(rawText)) fail('corrupt');
-        return rawText;
-      }
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.hasOwn(parsed, 'workData')) return rawText;
-      // instanceId from the key set (not from the container) so the binding is a real check; seq stays
-      // the container's own value until M3-3 pins revisions with an external anchor.
-      return openTextRecord(host, parsed, operation);
+      return textValue(host, rawText, operation);
     }
     async function writeWithin(plainText, operation) {   // not 	ext: that identifier collides with 00-boot's symbol
+      if (capturedMode(host)) fail('captured_read_only');
       if (typeof plainText !== 'string') fail('shape');
       const target = file();
       const enabled = await guardWrite(host, target, operation);
@@ -369,7 +463,9 @@ const WorkDataStore = ((fsp, pathModule) => {
       await host.writeJson(target, { workData: CONTAINER, ...container });
       return plainText;
     }
-    const read = () => withOperation(host, readWithin);
+    const read = () => capturedMode(host)
+      ? withCapturedFile(host, file(), (bytes, assert) => capturedOperation(host, operation => readCapturedText(host, bytes, operation, assert)))
+      : withOperation(host, readWithin);
     const write = plainText => withOperation(host, operation => writeWithin(plainText, operation));
     return Object.freeze({ read, write, filePath: file });
   }
@@ -444,10 +540,12 @@ function createBinary(host) {
         || value.encoding !== 'gzip-base64-v1' || typeof value.data !== 'string'
         || value.data.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value.data)) fail('binary_shape');
     const bytes = Buffer.from(value.data, 'base64');
+    try {
     if (bytes.length > host.maxBinaryBytes || bytes.toString('base64') !== value.data || !gzipMagic(bytes)) fail('binary_shape');
     try { if (host.validateLegacyBinary(bytes, { sealed: true, enabled: true }) !== true) fail('binary_shape'); }
     catch (error) { if (String(error?.code || '').startsWith('work_data')) throw error; fail('binary_shape'); }
     return bytes;
+    } catch (error) { bytes.fill(0); throw error; }
   };
   const validateSealedText = plainText => { decode(plainText); return true; };
   const borrowedKeys = operation => ({
@@ -461,30 +559,35 @@ function createBinary(host) {
     instance: async () => (await operation.credential()).instanceId,
   });
   async function read() {
-    return withOperation(host, async operation => {
-      const legacy = await readGzipLegacy(host, file());
-      if (legacy) {
-        // Complete validity is checked before classifying it as a legacy carrier.
-        // Invalid legacy gzip retains its original zlib/domain error.
-        validateBinaryLegacy(host, legacy, { sealed: false, enabled: false });
-        return legacy;
-      }
-      // A read's validation and return share one decoded Buffer; never retain it
-      // on the reusable store or across operations/scopes.
-      let validated;
-      const validateRead = plainText => { validated = { plainText, bytes: decode(plainText) }; return true; };
-      const plainText = await createText({ ...host, keys: borrowedKeys(operation), validateSealedText: validateRead }).read();
-      // createText returns unmarked legacy plaintext unchanged. Such text was
-      // never a gzip carrier, so it must not become an unauthenticated binary JSON
-      // alternate format. Only a real marked container may produce this wrapper.
-      if (!validated) {
-        host.validateLegacyBinary(Buffer.alloc(0), { sealed: false, enabled: false }); // original invalid-gzip domain error
-        throw new Error('invalid gzip');
-      }
-      return validated && validated.plainText === plainText ? validated.bytes : decode(plainText);
-    });
+    const consume = async (operation, captured, assert) => {
+        let legacy;
+        if (captured) {
+          assert();
+          if (gzipMagic(captured)) legacy = Buffer.from(captured);
+          else if (captured.length > WorkDataChunks.maxFileBytes(host.maxPlaintextBytes)) fail('binary_file_limit');
+        } else legacy = await readGzipLegacy(host, file());
+        if (legacy) {
+          try { validateBinaryLegacy(host, legacy, { sealed: false, enabled: false }); if (assert) assert(); return legacy; }
+          catch (error) { if (captured) legacy.fill(0); throw error; }
+        }
+        let validated;
+        const validateRead = plainText => { validated = { plainText, bytes: decode(plainText) }; return true; };
+        const textHost = { ...host, keys: borrowedKeys(operation), validateSealedText: validateRead };
+        try {
+          const plainText = captured ? await readCapturedText(textHost, captured, operation, assert) : await createText(textHost).read();
+          if (!validated) {
+            host.validateLegacyBinary(Buffer.alloc(0), { sealed: false, enabled: false });
+            throw new Error('invalid gzip');
+          }
+          return validated.plainText === plainText ? validated.bytes : decode(plainText);
+        } catch (error) { if (captured && validated) validated.bytes.fill(0); throw error; }
+    };
+    return capturedMode(host)
+      ? withCapturedFile(host, file(), (bytes, assert) => capturedOperation(host, operation => consume(operation, bytes, assert)))
+      : withOperation(host, operation => consume(operation, null, null), true);
   }
   async function write(bytes) {
+    if (capturedMode(host)) fail('captured_read_only');
     if (!Buffer.isBuffer(bytes) || !gzipMagic(bytes)) fail('binary_shape');
     return withOperation(host, async operation => {
       const target = file();

@@ -16,7 +16,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     if(!proc||!Number.isSafeInteger(proc.pid)||proc.pid<1||!host.workerApi||!host.httpApi||!host.resultApi||!host.controlApi
       ||['create','spawnCold','processChannel','waitForProcessExit'].some(name=>typeof host.workerApi[name]!=='function')
       ||[host.httpApi,host.resultApi,host.controlApi].some(api=>typeof api.create!=='function')
-      ||['base','canonical','acquire','readAuthority','operations','adaptersReady','stopUncommitted','exit','isRetired','helperMayStillRun','command'].some(name=>typeof host[name]!=='function')
+      ||['base','canonical','acquire','readAuthority','operations','adaptersReady','stopUncommitted','exit','isRetired','helperMayStillRun','command','assertOwnership','withColdSource','withWarmSource'].some(name=>typeof host[name]!=='function')
       ||!host.workerHooks||typeof host.workerHooks!=='object')throw fail('runtime_host_invalid');
     let warm=null,worker=null,coldStarted=false,successorStarted=false,successorInput=null,helperUncertain=false;
     const strictOptions=new WeakSet();
@@ -36,7 +36,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     }catch{helperUncertain=true;return true;}};
     const guardNative=async work=>{try{return await work();}catch(error){latch(error);throw error;}};
     const ready=()=>{try{return host.adaptersReady()===true&&!helpers();}catch{return false;}};
-    const ownership=(owner,base)=>owner&&Array.isArray(owner.roots)&&owner.roots.some(root=>fold(root)===fold(base));
+    const ownership=(owner,base)=>{try{return ServerOwnership.owns(owner,base)&&host.assertOwnership(owner,base)===true;}catch{return false;}};
     const command=mode=>{const value=host.command(mode);if(!value||typeof value.command!=='string'||!Array.isArray(value.args)||!value.args.every(arg=>typeof arg==='string'))throw fail('command_invalid');return value;};
     const actualListener=(server,expected)=>{
       const bound=server?.address?.();if(!listener(expected)||!server?.listening||!bound||typeof bound!=='object'||!['127.0.0.1','::1'].includes(bound.address)||bound.port!==expected.port
@@ -68,7 +68,18 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const captured={base,ownership:owner,server,listener:capturedListener};
       const ownerCheck=async owner=>warm===captured&&owner===captured.ownership&&ownership(owner,base)&&captured.server.listening;
       warm=captured;
-      host.workerHooks.readResult=()=>host.resultApi.create({base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)}).read();
+      const readResult=()=>host.resultApi.create({base,ownership:captured.ownership,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)}).read();
+      // Optional trusted host dependency; callability is interface validation,
+      // not source authority. The provider must validate this exact candidate
+      // host, genuine owner and base before returning its scoped callback.
+      const bindResult=host.bindCapturedResult;
+      if(bindResult===undefined)host.workerHooks.readResult=readResult;
+      else{
+        if(typeof bindResult!=='function')throw fail('runtime_host_invalid');
+        const capturedRead=bindResult(host,base,owner,readResult);
+        if(typeof capturedRead!=='function')throw fail('runtime_host_invalid');
+        host.workerHooks.readResult=capturedRead;
+      }
       return ready();
     }
     function activateServe() {
@@ -76,13 +87,14 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const base=captured.base;actualListener(captured.server,captured.listener);
       if(!ready())return false; // Missing native/result/successor adapters do not advertise a worker.
       worker=host.workerApi.create({pid:proc.pid,env:proc.env,setTimeout,clearTimeout,base:async()=>base,listener:()=>actualListener(captured.server,captured.listener),
-        spawn:env=>host.workerApi.spawnCold(command('work-data-maintenance'),env),stopUncommitted:host.stopUncommitted,
+        spawn:env=>host.workerApi.spawnCold(command('work-data-maintenance'),env),stopUncommitted:host.stopUncommitted,uploads:host.uploads,
         exitParent:async()=>{if(host.isRetired()!==true||warm!==captured||!ownership(captured.ownership,base))throw fail('handoff_not_retired');actualListener(captured.server,captured.listener);if(helpers())throw Object.assign(fail('native_helper_uncertain'),{helperMayStillRun:true});await host.exit(0);},
       });
-      host.workerHooks.start=async request=>{if(!ready()||warm!==captured)throw fail('worker_unavailable');actualListener(captured.server,captured.listener);return worker.start(request);};
+      host.workerHooks.start=async request=>host.withWarmSource(request,async()=>{if(!ready()||warm!==captured)throw fail('worker_unavailable');actualListener(captured.server,captured.listener);return worker.start(request);});
       return true;
     }
-    async function execute(context) {
+    function execute(context) { return host.withColdSource(context,()=>executeBody(context)); }
+    async function executeBody(context) {
       let current=full(await host.readAuthority(context.base));if(!same(current,context.expectedAuthority))throw fail('authority_changed');
       const job={id:context.id,operation:context.operation,state:'handoff',createdAt:Date.now(),phase:'takeover'},base=context.base;
       const http=host.httpApi.create({id:context.id,port:context.serve.port,bindHost:context.serve.host,
@@ -192,7 +204,7 @@ if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
       if(bound)return bound.inspectBoot(context);
       const readonly=WorkDataMaintenanceRuntime.create({process,workerHooks:{},workerApi:WorkDataMaintenanceWorker,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,controlApi:WorkDataMaintenanceControl,
         base:async()=>context.base,canonical:ServerOwnership.canonicalRoot,acquire:ServerOwnership.acquire,readAuthority:base=>WorkDataManifest.create({base}).readActive(),
-        adaptersReady:()=>false,helperMayStillRun:()=>false,isRetired:()=>false,operations:unavailable,stopUncommitted:unavailable,exit:unavailable,command:unavailable});
+        assertOwnership:(owner,base)=>ServerOwnership.owns(owner,base),withColdSource:unavailable,withWarmSource:unavailable,adaptersReady:()=>false,helperMayStillRun:()=>false,isRetired:()=>false,operations:unavailable,stopUncommitted:unavailable,exit:unavailable,command:unavailable});
       return readonly.inspectBoot(context);
     },
     captureServe:context=>bound?bound.captureServe(context):false,

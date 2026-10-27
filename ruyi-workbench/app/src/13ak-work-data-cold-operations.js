@@ -170,7 +170,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           // the entire upload before creating any backup, result or target object.
           if (typeof context.paths.uploadSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(context.paths.uploadSha256)) throw fail('upload_unverified');
           const uploaded = await readBounded(context.paths.uploadFile,maxPackage);
-          if (hash(uploaded.bytes) !== context.paths.uploadSha256) throw fail('upload_changed');
+          if (!context.upload||uploaded.bytes.length!==context.upload.bytes||uploaded.identity.dev!==context.upload.identity.dev||uploaded.identity.ino!==context.upload.identity.ino||hash(uploaded.bytes) !== context.paths.uploadSha256) throw fail('upload_changed');
           const serialized = uploaded.bytes.toString('utf8');
           if (!Buffer.from(serialized,'utf8').equals(uploaded.bytes)) throw fail('upload_invalid');
           const authenticated = await WorkDataRecovery.open(serialized,context.password);

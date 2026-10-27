@@ -79,3 +79,23 @@ test('native flush command shapes input and guards every ancestor/NTFS volume be
  const primitive=source.slice(source.indexOf('  static int FlushDirectory('),begin);assert.ok(primitive.includes('0xC0000000u'));assert.ok(primitive.includes('FlushFileBuffers(handle)'));assert.ok(primitive.includes('return Marshal.GetLastWin32Error()'));
  assert.ok(source.includes('var response=FlushDirectories(Object(flushJson.DeserializeObject(input.ToString())))'));assert.ok(source.includes('finally { for(int i=Held.Count-1;i>=0;i--) Held[i].Dispose(); }'));
 });
+
+const flushStdoutPipe="    child.stdout.on('error',() => stop(flushFailure('pipe',true)));\n",flushStderrPipe="    child.stderr.on('error',() => stop(flushFailure('pipe',true)));\n";
+test('stdout and stderr pipe errors before close keep flush uncertainty until close or the termination deadline',async()=>{
+ for(const stream of ['stdout','stderr']){
+  const f=fixture(),promise=f.flush(dirs);f.spawn();f.child[stream].emit('error',Error('foreign '+stream));await tick();
+  assert.equal(f.settled(),false,'a pipe fault cannot release the gate while the helper may still own directories');assert.equal(f.calls.filter(row=>row==='kill').length,1);f.fire(2000);
+  await assert.rejects(promise,error=>error.code==='work_data_manifest.flush_pipe'&&error.helperMayStillRun===true&&error.commitUncertain===true&&error.retry===false&&error.operationMayHaveExecuted===true);
+  assert.equal(f.timers.size,0);
+ }
+ const closed=fixture({mode:'kill-closes'}),pending=closed.flush(dirs);closed.spawn();closed.child.stderr.emit('error',Error('foreign stderr'));await tick();
+ await assert.rejects(pending,error=>error.code==='work_data_manifest.flush_pipe'&&error.commitUncertain===true&&error.helperMayStillRun!==true);assert.equal(closed.timers.size,0);
+});
+test('flush stream errors after settlement are absorbed and cannot retract the completed result',async()=>{
+ for(const stream of ['stdout','stderr']){const f=fixture(),promise=f.flush(dirs);f.complete(success(dirs));const result=await promise;assert.equal(result.ok,true);
+  assert.doesNotThrow(()=>f.child[stream].emit('error',Error('late '+stream)));assert.equal(f.calls.filter(row=>row==='kill').length,0,'a settled flush must not be killed by a late transport fault');assert.equal(f.timers.size,0);}
+});
+test('negative control without flush stream error listeners surfaces the pipe fault as an unhandled emitter error',()=>{
+ const broken=source.replace(flushStdoutPipe,'').replace(flushStderrPipe,'');assert.notEqual(broken,source);
+ for(const stream of ['stdout','stderr']){const f=fixture({text:broken});f.spawn();const fault=Error('foreign '+stream);assert.throws(()=>f.child[stream].emit('error',fault),error=>error===fault);assert.equal(f.settled(),false);}
+});

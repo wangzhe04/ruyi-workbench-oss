@@ -4,9 +4,14 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm'), fs=require('node:fs'),path=require('node:path');
 const {EventEmitter}=require('node:events');
 const source=fs.readFileSync(process.env.RUYI_MAINTENANCE_WORKER_SOURCE || path.join(__dirname,'../../ruyi-workbench/app/src/13ai-work-data-worker.js'),'utf8');
-const Worker=vm.runInNewContext(source+'\nWorkDataMaintenanceWorker;', {require,Buffer,process});
+const {constBlock}=require('../lib/source-slice');
+const Recovery=vm.runInNewContext(constBlock(fs.readFileSync(path.join(__dirname,'../../ruyi-workbench/app/src/01t-work-data-recovery.js'),'utf8'),'WorkDataRecovery')+'\nWorkDataRecovery',{require,Buffer,process});
+const RestoreUploads=vm.runInNewContext(constBlock(fs.readFileSync(path.join(__dirname,'../../ruyi-workbench/app/src/13at-work-data-restore-uploads.js'),'utf8'),'WorkDataRestoreUploads')+'\nWorkDataRestoreUploads',{require,Buffer,process,WorkDataRecovery:Recovery});
+const Worker=vm.runInNewContext(source+'\nWorkDataMaintenanceWorker;', {require,Buffer,process,WorkDataRestoreUploads:RestoreUploads});
 const base=path.resolve(__dirname,'source'), backup=path.resolve(__dirname,'backups');
 const id='a'.repeat(48), nonce='c'.repeat(64);
+// Parser fixture only: this structural handoff is not an issued upload grant or a verified file.
+const uploadRoot=path.resolve(__dirname,'upload-custody'),restoreUpload=Object.freeze({schema:1,base,root:uploadRoot,rootIdentity:{dev:'1',ino:'2'},rootNonce:'d'.repeat(64),uploadId:'b'.repeat(48),jobId:id,nonce,file:path.join(uploadRoot,'restore-upload-'+'b'.repeat(48)+'.sealed'),identity:{dev:'1',ino:'3'},bytes:1,sha256:'e'.repeat(64),marker:{dev:'1',ino:'4',sha256:'f'.repeat(64)}});
 const request=()=>({id,operation:'enable',password:'synthetic password only',expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backupDirectory:backup});
 const payload=()=>({schema:1,id,nonce,base,parentPid:111,operation:'enable',password:'synthetic password only',
   expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},paths:{backupDirectory:backup,targetDirectory:null,uploadFile:null,uploadSha256:null},serve:{host:'127.0.0.1',port:12345}});
@@ -109,11 +114,11 @@ test('restore must select absent disjoint root and private upload file; malforme
    p=>p.serve.host='0.0.0.0',p=>p.password='short',p=>p.extra=true]){
   const p=payload();mutate(p);assert.throws(()=>Worker.validate(p));
  }
- const p=payload();p.operation='restore';p.paths.targetDirectory=path.resolve(__dirname,'restored');p.paths.uploadFile=path.resolve(__dirname,'upload.enc');p.paths.uploadSha256='e'.repeat(64);
+ const p=payload();p.operation='restore';p.upload=restoreUpload;p.paths.targetDirectory=path.resolve(__dirname,'restored');p.paths.uploadFile=restoreUpload.file;p.paths.uploadSha256='e'.repeat(64);
  assert.equal(Worker.validate(p),p);
 });
 test('restore input binds exact encrypted upload bytes; passwords obey the same strict UTF8 byte contract as the controller',()=>{
- const p=payload();p.operation='restore';p.paths.targetDirectory=path.resolve(__dirname,'restored');p.paths.uploadFile=path.resolve(__dirname,'upload.enc');
+ const p=payload();p.operation='restore';p.upload=restoreUpload;p.paths.targetDirectory=path.resolve(__dirname,'restored');p.paths.uploadFile=restoreUpload.file;
  assert.throws(()=>Worker.validate(p));p.paths.uploadSha256='e'.repeat(64);assert.equal(Worker.validate(p),p);
  for(const password of ['中'.repeat(342),'abcdefghijkl\ud800']){const bad=payload();bad.password=password;assert.throws(()=>Worker.validate(bad));}
  const ancestor=payload();ancestor.paths.backupDirectory=path.dirname(base);assert.throws(()=>Worker.validate(ancestor));

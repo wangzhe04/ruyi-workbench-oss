@@ -20,7 +20,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
       && pathApi.isAbsolute(value) && pathApi.resolve(value) === value;
   }
   function validate(value) {
-    if (keys(value) !== 'base,expectedAuthority,id,nonce,operation,parentPid,password,paths,schema,serve'
+    if (keys(value) !== (value?.operation==='restore'?'base,expectedAuthority,id,nonce,operation,parentPid,password,paths,schema,serve,upload':'base,expectedAuthority,id,nonce,operation,parentPid,password,paths,schema,serve')
       || value.schema !== VERSION || !ID.test(value.id || '') || !/^[a-f0-9]{64}$/.test(value.nonce || '')
       || !['enable', 'disable', 'export', 'restore'].includes(value.operation)
       || !absolute(value.base) || pathApi.parse(value.base).root === value.base
@@ -44,6 +44,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
       || value.operation !== 'restore' && (value.paths.targetDirectory !== null || value.paths.uploadFile !== null)) throw fail('path_invalid');
     if (keys(value.serve) !== 'host,port' || !['127.0.0.1', '::1', 'localhost'].includes(value.serve.host)
       || !Number.isInteger(value.serve.port) || value.serve.port < 1 || value.serve.port > 65535) throw fail('listener_invalid');
+    if(value.operation==='restore'){if(typeof WorkDataRestoreUploads==='undefined')throw fail('upload_unavailable');WorkDataRestoreUploads.validateHandoff(value.upload,{base:value.base,jobId:value.id,nonce:value.nonce});if(value.paths.uploadFile!==value.upload.file||value.paths.uploadSha256!==value.upload.sha256||inside(value.upload.root,value.paths.backupDirectory)||inside(value.upload.root,value.paths.targetDirectory)||inside(value.paths.targetDirectory,value.upload.root))throw fail('path_invalid');}
     return value;
   }
   function create(host) {
@@ -59,14 +60,18 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
     async function start(request) {
       if (pending.size) throw fail('busy');
       const base = await host.base();
-      const input = validate({ schema: VERSION, id: request.id, nonce: cryptoApi.randomBytes(32).toString('hex'),
+      const nonce=cryptoApi.randomBytes(32).toString('hex');let upload=null;
+      if(request.operation==='restore'){if(typeof WorkDataRestoreUploads==='undefined'||WorkDataRestoreUploads.isBroker(host.uploads)!==true||WorkDataRestoreUploads.ownsGrant(request.uploadGrant,{uploadId:request.uploadId,jobId:request.id})!==true)throw fail('upload_unavailable');upload=await host.uploads.handoff(request.uploadGrant,{jobId:request.id,nonce,base});}
+      const input = validate({ schema: VERSION, id: request.id, nonce,
         base, parentPid: host.pid, operation: request.operation, password: request.password,
         expectedAuthority: { ...request.expectedAuthority },
         paths: { backupDirectory: request.backupDirectory, targetDirectory: request.targetDirectory || null,
-          uploadFile: request.uploadFile || null, uploadSha256: request.uploadSha256 || null }, serve: { ...host.listener() } });
+          uploadFile: upload?.file || null, uploadSha256: upload?.sha256 || null }, serve: { ...host.listener() },...(upload?{upload}:{}) });
+      const bytes=Buffer.from(JSON.stringify(input),'utf8');input.password=null;
+      if(bytes.length>MAX_INPUT){bytes.fill(0);throw fail('input_invalid');}
       // No await after the final concurrent-start check until this exact child is registered.
-      if (pending.size) throw fail('busy');
-      const child = host.spawn(environment(base));
+      if(pending.size){bytes.fill(0);throw fail('busy');}
+      let child;try{child=host.spawn(environment(base));}catch(error){bytes.fill(0);throw error;}
       let state = 'waiting', closed = false, readyResolve, readyReject, armedResolve, armedReject;
       const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
       const armed = new Promise((resolve, reject) => { armedResolve = resolve; armedReject = reject; });
@@ -100,8 +105,6 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
       });
       pending.set(input.id, child);
       timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_ready_timeout'));
-      const bytes = Buffer.from(JSON.stringify(input), 'utf8');
-      input.password = null;
       if (bytes.length > MAX_INPUT) { bytes.fill(0); rejected('input_invalid'); }
       else {
         child.stdin.on('error', () => rejected('worker_input_failed'));
@@ -159,11 +162,12 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
         await host.waitParentExit(input.parentPid);
         const base = await host.canonical(input.base);
         if (base !== await host.canonical(await host.base())) throw fail('base_changed', true);
-        const owner = await host.acquire([base]);
+        const owner = await host.acquire(input.operation==='restore'?[base,input.upload.root]:[base]);
         let active = true;
         const assertExclusive = candidate => active && candidate === owner
           && owner.roots.some(root => root === base);
         try {
+          if(input.operation==='restore')await WorkDataRestoreUploads.verifyHandoff(input.upload,{base,jobId:input.id,nonce:input.nonce,ownership:owner,assertExclusive});
           const current = await host.readAuthority(base);
           if (current.generation !== input.expectedAuthority.generation
             || current.id !== input.expectedAuthority.id || current.mode !== input.expectedAuthority.mode
@@ -192,7 +196,7 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi) => {
           ...(helperHold ? {helperMayStillRun:true} : {}),...(ownedFailureHeld ? {ownershipRetained:true} : {}) });
       } finally { input.password = null; }
     }
-    return Object.freeze({ start, runCold, environment, busy: () => pending.size !== 0 });
+    return Object.freeze({ start, runCold, environment, busy: () => pending.size !== 0,...(typeof WorkDataRestoreUploads!=='undefined'&&WorkDataRestoreUploads.isBroker(host.uploads)===true?{resolveUpload:(id,options)=>host.uploads.resolveUpload(id,options),putUpload:bytes=>host.uploads.put(bytes)}:{}) });
   }
   function processChannel(proc = process) {
     return Object.freeze({

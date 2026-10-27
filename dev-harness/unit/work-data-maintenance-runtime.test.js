@@ -1,16 +1,23 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),io=require('node:fs/promises'),p=require('node:path'),os=require('node:os'),http=require('node:http'),vm=require('node:vm');
 const runtimeSource=process.env.RUNTIME_CANDIDATE||p.join(__dirname,'../../ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js');
-const load=(file,symbol)=>vm.runInNewContext(fs.readFileSync(file==='13am-work-data-maintenance-runtime.js'?runtimeSource:p.join(__dirname,'../../ruyi-workbench/app/src',file),'utf8')+'\n'+symbol,{require,Buffer,process,http,crypto:require('node:crypto'),URL,setTimeout,clearTimeout});
+const runtimeGlobals={};
+const load=(file,symbol)=>vm.runInNewContext(fs.readFileSync(file==='13am-work-data-maintenance-runtime.js'?runtimeSource:p.join(__dirname,'../../ruyi-workbench/app/src',file),'utf8')+'\n'+symbol,{require,Buffer,process,http,crypto:require('node:crypto'),URL,setTimeout,clearTimeout,...runtimeGlobals});
+const GenuineOwnership=load('01g-server-ownership.js','ServerOwnership');runtimeGlobals.ServerOwnership=GenuineOwnership;
 const Runtime=load('13am-work-data-maintenance-runtime.js','WorkDataMaintenanceRuntime'),Result=load('01ae-work-data-maintenance-result.js','WorkDataMaintenanceResult'),Control=load('13aj-work-data-control.js','WorkDataMaintenanceControl'),Manifest=load('01v-work-data-manifest.js','WorkDataManifest');
 async function fixture(t){
  const root=await io.mkdtemp(p.join(os.tmpdir(),'ruyi-runtime-unit-')),base=p.join(root,'base');await io.mkdir(base);
- const server=http.createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- t.after(async()=>{if(server.listening)await new Promise(resolve=>server.close(resolve));assert.equal(p.dirname(root),p.resolve(os.tmpdir()));assert.ok(p.basename(root).startsWith('ruyi-runtime-unit-'));await io.rm(root,{recursive:true,force:true});});
- const ownership={roots:[base.toLowerCase()]},workerHooks={},state={ready:true,helpers:false,retired:false,creates:[],starts:[],exits:[],reads:0,fresh:0};
+ const canonicalBase=await GenuineOwnership.canonicalRoot(base),ownership=await GenuineOwnership.acquire([base]),sourceKeeper=GenuineOwnership.createSourceKeeper(ownership,canonicalBase);
+ const server=http.createServer();
+ t.after(async()=>{if(server.listening)await new Promise(resolve=>server.close(resolve));await sourceKeeper.releaseChecked(()=>GenuineOwnership.owns(ownership,canonicalBase));await ownership.release();assert.equal(p.dirname(root),p.resolve(os.tmpdir()));assert.ok(p.basename(root).startsWith('ruyi-runtime-unit-'));await io.rm(root,{recursive:true,force:true});});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ // This fixture's real keeper spans the entire test, including parked no-IO failure progress.
+ const scoped=async(owner,work)=>{if(!GenuineOwnership.owns(owner,canonicalBase)||!sourceKeeper.assertExclusive(owner))throw Object.assign(Error('fixture source owner unavailable'),{code:'work_data_setup.ownership_required'});return work();};
+ const workerHooks={},state={ready:true,helpers:false,retired:false,creates:[],starts:[],exits:[],reads:0,fresh:0};
  const host={process:{pid:12345,ppid:88,env:{}},workerHooks,workerApi:{create:args=>{state.creates.push(args);return {start:async value=>{state.starts.push(value);return {ready:Promise.resolve()};},runCold:async()=>({phase:'cancelled'})};},spawnCold:()=>{throw Error('unexpected spawn');},processChannel:()=>({parentConnected:()=>false}),waitForProcessExit:async()=>{}},
   httpApi:{create:()=>{throw Error('unexpected cold HTTP');}},resultApi:Result,controlApi:Control,
   base:async()=>base,canonical:async value=>p.resolve(value).toLowerCase(),acquire:async()=>ownership,readAuthority:async()=>{state.reads++;return Manifest.create({base}).readActive();},operations:()=>({execute:async()=>{throw Error('unexpected execute');}}),
+  assertOwnership:(owner,requested)=>sourceKeeper.assertExclusive(owner)&&GenuineOwnership.owns(owner,requested),withColdSource:(context,work)=>scoped(context.ownership,work),withWarmSource:(_request,work)=>scoped(ownership,work),
   adaptersReady:()=>state.ready,helperMayStillRun:()=>state.helpers,isRetired:()=>state.retired,stopUncommitted:async()=>{},exit:async code=>state.exits.push(code),command:mode=>({command:process.execPath,args:['fixture',mode]}),startFreshServe:async()=>{state.fresh++;}};
  const runtime=Runtime.create(host),context={base,ownership,server,listener:{host:'127.0.0.1',port:server.address().port}};return {root,base,host,runtime,context,state,workerHooks,server,ownership};
 }
@@ -56,7 +63,7 @@ test('successor requires live parent IPC and exact bounded schema before normal 
  await assert.rejects(()=>f.runtime.runSuccessor({parentConnected:()=>true,parentPid:()=>88,readInput:async()=>Buffer.from(JSON.stringify(bad))}),{code:'work_data_setup.successor_input_invalid'});assert.equal(f.state.fresh,0);
 });
 test('unconfigured production hooks retain readonly boot refusal and never manufacture worker capability',async t=>{
- const f=await fixture(t),hooks={},Worker=load('13ai-work-data-worker.js','WorkDataMaintenanceWorker'),Http=load('13al-work-data-maintenance-http.js','WorkDataMaintenanceHttp'),Ownership=load('01g-server-ownership.js','ServerOwnership');
+ const f=await fixture(t),hooks={},Worker=load('13ai-work-data-worker.js','WorkDataMaintenanceWorker'),Http=load('13al-work-data-maintenance-http.js','WorkDataMaintenanceHttp'),Ownership=GenuineOwnership;
  vm.runInNewContext(fs.readFileSync(runtimeSource,'utf8'),{require,Buffer,process,http,crypto:require('node:crypto'),URL,setTimeout,clearTimeout,
   WorkDataMaintenanceRuntimeHooks:hooks,WorkDataMaintenanceWorker:Worker,WorkDataMaintenanceHttp:Http,WorkDataMaintenanceResult:Result,WorkDataMaintenanceControl:Control,ServerOwnership:Ownership,WorkDataManifest:Manifest});
  assert.equal(hooks.captureServe(f.context),false);assert.equal(hooks.activateServe(),false);assert.throws(()=>hooks.runCold(),{code:'work_data_setup.worker_unavailable'});assert.throws(()=>hooks.runSuccessor(),{code:'work_data_setup.worker_unavailable'});

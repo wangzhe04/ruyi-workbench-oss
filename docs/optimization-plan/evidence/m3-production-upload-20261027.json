@@ -1,0 +1,387 @@
+{
+  "schema": 1,
+  "date": "2026-10-27",
+  "baselineCommit": "ee2e1190",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "status": "本批标准门全绿；M3-3 与 3.1 均未完成",
+  "scope": {
+    "batch": "M3-3 生产上传/native/host 接线及独立审查修复",
+    "entryPoints": [
+      "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "ruyi-workbench/app/src/13ar-work-data-verifier-entry.js",
+      "ruyi-workbench/app/src/13at-work-data-restore-uploads.js",
+      "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "ruyi-workbench/app/src/14-main.js",
+      "ruyi-workbench/app/src/01g-server-ownership.js",
+      "ruyi-workbench/app/src/01p-work-data-store.js"
+    ],
+    "notIncluded": [
+      "完整 M3-3 迁移/恢复",
+      "持久 claim 与恢复 kernel",
+      "download 与 activation",
+      "完整启用/关闭 UI 旅程",
+      "M4/M5/M6 原范围"
+    ]
+  },
+  "finalIdentity": {
+    "generatedServer": {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "b517df71c6434f85a653630d1b0c21c5a653989c3ab2a2e0ccb0bd9d35eb6771",
+      "bytes": 7965783
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "57101e49dcd2dedffcb1bdacca46950bcaf5a7e9681e38685d2565959c6a0bb9",
+      "bytes": 33519
+    },
+    "architecture": {
+      "modules": 123,
+      "edges": 855,
+      "forwardEdges": 67,
+      "stronglyConnectedComponents": 1,
+      "routeDecisionPoints": 189,
+      "routeAuthEntries": 176,
+      "routeProblems": 0
+    },
+    "facts": {
+      "e2eCount": 590,
+      "defaultOfflineE2e": 583,
+      "unitSuites": 406,
+      "liveProbes": 7
+    },
+    "publicFrontendChanged": false
+  },
+  "validation": [
+    {
+      "id": "syntax-gate",
+      "command": "node dev-harness/syntax-gate.js",
+      "result": "1345 files checked, 0 failed (node v24.14.0)",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/agent-11/tasks/bash-anojmx68/output.log",
+        "bytes": 636,
+        "sha256": "09fdf684be8774126c3610820346a4d74f3006dd41574e20521f95f5db3b7791"
+      }
+    },
+    {
+      "id": "build-check",
+      "command": "node ruyi-workbench/app/build.js --check",
+      "result": "产物与 src 一致(新鲜), manifest 行区间自洽",
+      "note": "生成物身份见 finalIdentity；--check 不写文件"
+    },
+    {
+      "id": "unit-full-final",
+      "command": "node --test \"dev-harness/unit/*.test.js\"",
+      "result": {
+        "tests": 4099,
+        "pass": 4075,
+        "skipped": 24,
+        "fail": 0,
+        "durationMs": 413225.3345
+      },
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-n531sjjp/output.log",
+        "bytes": 572104,
+        "sha256": "abc4b2ac427c7c4945aafd90e5b6396f8f59cae6ac3f110f2384860275861c1f"
+      }
+    },
+    {
+      "id": "fast-gate-final",
+      "command": "node dev-harness/run-all.js --fast",
+      "result": {
+        "unit": {"tests": 4099, "pass": 4075, "skipped": 24, "fail": 0},
+        "static": {"ran": 82, "pass": 82, "fail": 0, "flaky": 0},
+        "liveSkipped": 7,
+        "residualTestBrowsers": 0
+      },
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-wt2mser9/output.log",
+        "bytes": 5946,
+        "sha256": "075d967080ca5fd3df7924c1a80992973aa3f10d7846e90178e15060cd743e54"
+      }
+    },
+    {
+      "id": "production-upload-e2e-run-1",
+      "command": "node dev-harness/work-data-production-upload.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-TlJbkc",
+        "passed": 14,
+        "failed": 0,
+        "executionInputSha256": "5117ea84a5db86d7c41b3f90514a3f6a5b9555a16bb25b80d575f564c669d7aa",
+        "executionInputs": 141,
+        "sourceIdentitySha256": null,
+        "sourceReviewSha256": null,
+        "worker": false,
+        "download": false,
+        "crashClaim": false,
+        "activation": false,
+        "restorationComplete": false,
+        "whole3_1Complete": false
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-TlJbkc/evidence/result.json",
+        "bytes": 4497,
+        "sha256": "d9686ff2c5074b4b520b30d8aaf673aa9f1581932fe23c4b58596b788a7b4f1b"
+      },
+      "note": "真实完整 server/token；201/48hex/owner；明文 work_data_recovery.invalid；非法 UTF-8 work_data_upload.sealed_required；其余 HTTP 负例、缺 worker、pending intent、close/CIM 清理均通过"
+    },
+    {
+      "id": "production-upload-e2e-run-2",
+      "command": "node dev-harness/work-data-production-upload.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-Kgn48i",
+        "passed": 14,
+        "failed": 0,
+        "executionInputSha256": "5117ea84a5db86d7c41b3f90514a3f6a5b9555a16bb25b80d575f564c669d7aa",
+        "executionInputs": 141,
+        "sourceIdentitySha256": null,
+        "sourceReviewSha256": null,
+        "worker": false,
+        "download": false,
+        "crashClaim": false,
+        "activation": false,
+        "restorationComplete": false,
+        "whole3_1Complete": false
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-Kgn48i/evidence/result.json",
+        "bytes": 4497,
+        "sha256": "a2bf8c99e64a358144a64ed1561ebd58397c04e0e72a29a15964ce070d6b9624"
+      }
+    },
+    {
+      "id": "work-data-e2e-suites",
+      "command": "逐件串行 node dev-harness/<suite>.e2e.js（主会话）",
+      "result": [
+        "work-data-full-snapshot ALL PASS",
+        "work-data-recovery-foundation ALL PASS",
+        "work-data-cold-operations ALL PASS",
+        "work-data-root-authority ALL PASS",
+        "derived-index-work-data ALL PASS",
+        "migration-skill-backups-work-data ALL PASS",
+        "external-bots-work-data ALL PASS"
+      ],
+      "logs": [
+        {
+          "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-oxlootqu/output.log",
+          "bytes": 5962,
+          "sha256": "1422fc17983fee3be00a5587595ab05ede00f9738935d5754c65921b8c3b800a",
+          "note": "前三个 suite 在本日志 ALL PASS；同一日志末尾 maintenance-runtime 首红保留"
+        },
+        {
+          "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-mct15uuz/output.log",
+          "bytes": 5664,
+          "sha256": "72b992176fff4ab7752185c59fede989c3688f2f72f192b8c85726ef47fd4faf"
+        }
+      ]
+    },
+    {
+      "id": "maintenance-runtime-e2e",
+      "command": "node dev-harness/work-data-maintenance-runtime.e2e.js",
+      "result": "四组真实进程场景（success/ops-failure/authority-read-fail/authority-conflict）+ outer Job ALL PASS",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-2wf391zz/output.log",
+        "bytes": 1050,
+        "sha256": "ca6c27caab36857c9e72febbaf45dc913d366051baf306153fb20686dac2beb6"
+      },
+      "implementerLog": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-1zc9z64h/output.log",
+        "bytes": 4591,
+        "sha256": "1b51f86dcf7219d81803a4fab033472a365341b5bfed2d2b99c54649c3c0e686"
+      }
+    },
+    {
+      "id": "settings-browser-e2e",
+      "command": "node dev-harness/work-data-settings.browser.e2e.js",
+      "result": "实现者连续 3 次 + 主会话 1 次 ALL PASS；含 1440/768/390、双密码清理、双击仅一次 POST",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-portglrr/output.log",
+        "bytes": 4057,
+        "sha256": "0def02b91f5983e143016d9667da7615e4e6e2f1a8567d32dd8f7246b87d8b09"
+      }
+    },
+    {
+      "id": "generated-artifacts",
+      "command": "node dev-harness/facts-generate.js && node dev-harness/module-dependency-graph.js --write && node dev-harness/route-inventory.js",
+      "result": {
+        "facts": {"e2eCount": 590, "defaultOfflineE2e": 583, "unitSuites": 406, "liveProbes": 7},
+        "moduleGraph": {"modules": 123, "edges": 855, "forwardEdges": 67, "stronglyConnectedComponents": 1},
+        "routeInventory": {"decisionPoints": 189, "routeAuthEntries": 176, "problems": 0, "warnings": 0},
+        "readmeBilingualSynced": true
+      },
+      "note": "facts 生成曾在 Windows 报 UNKNOWN 写错误；读取确认原文件完好后由原生成器成功，不记为产品缺陷"
+    }
+  ],
+  "firstFailures": [
+    {
+      "id": "unit-full-initial",
+      "result": {"tests": 4069, "pass": 4018, "fail": 27, "skipped": 24, "durationMs": 532197.1627},
+      "causes": [
+        "运行夹具缺新增依赖",
+        "01p 单清理错误身份",
+        "共享路由历史指纹",
+        "desktop 计时"
+      ],
+      "resolution": "逐项修复后定向 180/180，再完整重跑取得最终全绿",
+      "unresolved": "desktop 计时单跑/并发复跑均未再现，根因仍未知，未提高预算",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-n29dpsti/output.log",
+        "bytes": 632029,
+        "sha256": "4014d1b43ae7723081daee4ae34d34a948e4bada8b01767c232d7b6947786914"
+      }
+    },
+    {
+      "id": "fast-gate-first-round",
+      "result": {"ran": 82, "pass": 80, "fail": 2, "flaky": 0},
+      "failures": [
+        "architecture-contract-snapshots: contract snapshot generator is current",
+        "process-safety: killOwnTree 文件数钉成 349，实得 350"
+      ],
+      "resolution": "按原生成器与真实新增夹具修正，定向通过后再完整重跑",
+      "note": "不把最终全绿改写成首轮全绿",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-79cq3r4u/output.log",
+        "bytes": 9463,
+        "sha256": "dba05dcadef818fc724c067bce407cdc0ec3ccef412ade534a928333da1ea081"
+      }
+    },
+    {
+      "id": "production-upload-first-red",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-ScpMRq",
+      "result": "stage=http-negative-plaintext, ERR_ASSERTION, lastPassed=sealed POST201",
+      "cause": "增强负例把 plaintext 期待错写为 sealed_required",
+      "resolution": "修正分层预期与前置安全 journal 后才连续两遍通过",
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-ScpMRq/evidence/failure-summary.json",
+        "bytes": 369,
+        "sha256": "f158cb3cd521df24f283b30e566c79b2596c4de15d215a0f18ee3c9033c609b8"
+      },
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-831dl47d/output.log",
+        "bytes": 134,
+        "sha256": "49dc84b3d397edec37d709bb3dc0086e2242212d2c9acec7f8ed6d5608476caa"
+      }
+    },
+    {
+      "id": "maintenance-runtime-initial",
+      "result": {"tests": 4, "pass": 0, "fail": 4},
+      "cause": "真实 fixture 缺新 host seams（真实 owner/keeper 装配）",
+      "resolution": "修复真实 owner/keeper 装配后，实现者与主会话分别复验四场景+outer Job 全过",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-oxlootqu/output.log",
+        "bytes": 5962,
+        "sha256": "1422fc17983fee3be00a5587595ab05ede00f9738935d5754c65921b8c3b800a"
+      }
+    },
+    {
+      "id": "settings-browser-initial",
+      "result": {"pass": 9, "fail": 4, "fatal": "TypeError: Cannot read properties of undefined (reading 'passwordCorrect')"},
+      "cause": "旧 in-flight status 被复用，mock worker 未生效；public 未改",
+      "resolution": "只修夹具就绪（等待在途读取并至多 4 次 refresh，仍以真实 DOM 断言）",
+      "log": {
+        "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/bash-mct15uuz/output.log",
+        "bytes": 5664,
+        "sha256": "72b992176fff4ab7752185c59fede989c3688f2f72f192b8c85726ef47fd4faf"
+      }
+    }
+  ],
+  "independentReview": {
+    "scope": ["产品行为", "测试与夹具", "所有权/生命周期", "进程安全", "可维护性"],
+    "rounds": [
+      {
+        "result": "未发现 P0；确认 2 个 P1、1 个 P2",
+        "log": {
+          "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-e0cu235i/output.log",
+          "bytes": 7400,
+          "sha256": "819baecef827cb2365724f6575707b0220678375e2c2593092d8eb613cfefadc"
+        }
+      },
+      {
+        "result": "确认既有 P1/P2 已修；另报 1 个窄路径 P1 与 5 个 P2",
+        "log": {
+          "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-1fjp6gsp/output.log",
+          "bytes": 13112,
+          "sha256": "ddc5ed25a422885f5cf72771fb2073083f06ce78c1b00a137100061c23329355"
+        }
+      },
+      {
+        "result": "P0=0，P1=0；P2 留档；要求最终字节完整 unit/fast 全绿后收口",
+        "log": {
+          "path": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-5bnuk7e3/output.log",
+          "bytes": 8978,
+          "sha256": "cb6d93ddc6b94744127b300700a1c34b4d33bd8f0826263d8c27dfa260e3c2e9"
+        }
+      }
+    ],
+    "fixes": [
+      "native pipe 迟到错误语义",
+      "CLI 保留判定两处：直接调用失败快速退出；finally 内先判定 retention 再 release",
+      "上传错误补 apiCode",
+      "restore 无 worker 时先查 start 再签发 grant，不消耗 grant/不进队列/不 drain",
+      "01p 唯一清理拒绝保留原错误身份（含 falsy），仅多重/歧义才聚合",
+      "13at/13au/13aq 旧注释与能力表修正，并新增测试钉住声明"
+    ]
+  },
+  "remainingLimits": [
+    "新 originalObjects profile 闸门（13ak/01ad 仍要求 refused）尚未接 kernel/activation；当前 fail-closed",
+    "preservedRead/assertExclusiveSync/captured-file 面零生产调用、零测试，不得称已验；接线时须提供 sync 断言",
+    "warm cancel/handoff 在 worker 接线后需按错误码分级；当前 adaptersReady=false，尚不可达",
+    "真实上传→restore 仍不可达：worker=false、download=false，submit 必 501",
+    "pkg 私有命令 argv、完整默认 583 E2E、实际包/升级/回退、真实跨账户/跨机均未验",
+    "未处理真实用户数据、未发送真实平台消息、未发布"
+  ],
+  "sourceChangeStats": {
+    "measuredAt": "2026-10-27",
+    "method": "git diff --numstat 与未跟踪文件逐行 wc -l；生成 server/manifest/module-contracts/architecture/facts 与手工产品 src 分开；docs 含本证据文件",
+    "productSource": {
+      "files": 20,
+      "added": 2766,
+      "deleted": 222,
+      "net": 2544,
+      "excludes": ["ruyi-workbench/app/server.js", "ruyi-workbench/app/src/manifest.json", "ruyi-workbench/app/src/module-contracts.json"],
+      "perFile": [
+        {"file": "ruyi-workbench/app/src/01aa-work-data-tree.js", "added": 254, "deleted": 1},
+        {"file": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js", "added": 91, "deleted": 21},
+        {"file": "ruyi-workbench/app/src/01ad-work-data-migration-host.js", "added": 101, "deleted": 13},
+        {"file": "ruyi-workbench/app/src/01b-route-auth.js", "added": 1, "deleted": 0},
+        {"file": "ruyi-workbench/app/src/01g-server-ownership.js", "added": 118, "deleted": 28},
+        {"file": "ruyi-workbench/app/src/01p-work-data-store.js", "added": 163, "deleted": 60},
+        {"file": "ruyi-workbench/app/src/01t-work-data-recovery.js", "added": 14, "deleted": 6},
+        {"file": "ruyi-workbench/app/src/01w-work-data-native-publish.js", "added": 6, "deleted": 0},
+        {"file": "ruyi-workbench/app/src/13-http-router.js", "added": 15, "deleted": 2},
+        {"file": "ruyi-workbench/app/src/13ah-work-data-setup.js", "added": 48, "deleted": 5},
+        {"file": "ruyi-workbench/app/src/13ai-work-data-worker.js", "added": 13, "deleted": 9},
+        {"file": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js", "added": 1, "deleted": 1},
+        {"file": "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js", "added": 19, "deleted": 7},
+        {"file": "ruyi-workbench/app/src/13u-migration-center.js", "added": 1253, "deleted": 57},
+        {"file": "ruyi-workbench/app/src/13y-external-bot-credentials.js", "added": 28, "deleted": 6},
+        {"file": "ruyi-workbench/app/src/14-main.js", "added": 51, "deleted": 6},
+        {"file": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js", "added": 267, "deleted": 0, "new": true},
+        {"file": "ruyi-workbench/app/src/13ar-work-data-verifier-entry.js", "added": 41, "deleted": 0, "new": true},
+        {"file": "ruyi-workbench/app/src/13at-work-data-restore-uploads.js", "added": 22, "deleted": 0, "new": true},
+        {"file": "ruyi-workbench/app/src/13au-work-data-runtime-host.js", "added": 260, "deleted": 0, "new": true}
+      ]
+    },
+    "tests": {"files": 21, "added": 1333, "deleted": 37, "net": 1296},
+    "docs": {"files": 6, "added": 414, "deleted": 7, "net": 407, "includes": ["README.md", "README_EN.md", "92-3.1-implementation-handoff.md", "96-m3-3-migration-and-recovery.md", "97-3.1-cross-machine-handoff-20261025.md", "evidence/m3-production-upload-20261027.json"]},
+    "generated": {
+      "files": 10,
+      "added": 4135,
+      "deleted": 521,
+      "net": 3614,
+      "perFile": [
+        {"file": "ruyi-workbench/app/server.js", "added": 2771, "deleted": 223},
+        {"file": "ruyi-workbench/app/src/manifest.json", "added": 265, "deleted": 241},
+        {"file": "ruyi-workbench/app/src/module-contracts.json", "added": 338, "deleted": 1},
+        {"file": "docs/architecture/module-dependency-graph.json", "added": 663, "deleted": 24},
+        {"file": "docs/architecture/module-dependency-graph.md", "added": 56, "deleted": 16},
+        {"file": "docs/architecture/route-inventory.json", "added": 29, "deleted": 4},
+        {"file": "docs/architecture/route-inventory.md", "added": 5, "deleted": 4},
+        {"file": "docs/architecture/architecture-contract-snapshots.json", "added": 4, "deleted": 4},
+        {"file": "docs/architecture/architecture-contract-snapshots.md", "added": 1, "deleted": 1},
+        {"file": "facts.json", "added": 3, "deleted": 3}
+      ]
+    }
+  }
+}

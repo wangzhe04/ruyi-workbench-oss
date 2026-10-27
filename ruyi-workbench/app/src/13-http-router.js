@@ -1666,12 +1666,18 @@ async function startServer(opts) {
   const migrate = isDirectServeInvocation() && !process.env.RUYI_HOME && !process.env.WIN_CLAUDE_WORKBENCH_HOME
     && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
   if (migrate) roots.push(defaults.legacy, defaults.next);
-  const ownership = await ServerOwnership.acquire(roots); // Refusal must not touch the owner's files.
+  const ownership = typeof WorkDataMaintenanceRuntimeHooks.acquireServe === 'function'
+    ? await WorkDataMaintenanceRuntimeHooks.acquireServe({base:dataRoot(),roots})
+    : await ServerOwnership.acquire(roots); // Refusal must not touch the owner's files.
   // A pending-maintenance refusal must never enter the startup-error writer,
   // including a programmatic caller whose old root hook is already bound.
   try {
     if (typeof WorkDataMaintenanceRuntimeHooks.inspectBoot === 'function') await WorkDataMaintenanceRuntimeHooks.inspectBoot({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership});
-  } catch (error) { await ownership.release(); throw error; }
+  } catch (error) {
+    if(typeof WorkDataMaintenanceRuntimeHooks.abortUnconfiguredServe==='function')await WorkDataMaintenanceRuntimeHooks.abortUnconfiguredServe({ownership});
+    else await ownership.release();
+    throw error;
+  }
   try {
     if (isDirectServeInvocation() && !fs.existsSync(path.join(paths.data, '.work-data'))) {
       DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
@@ -1684,12 +1690,19 @@ async function startServer(opts) {
       }
     }
     await WorkDataRootHooks.bind(ownership);
+    if (typeof WorkDataMaintenanceRuntimeHooks.configureServe === 'function') await WorkDataMaintenanceRuntimeHooks.configureServe({base:dataRoot(),ownership});
     const result = await startServerInner(opts, bindHost, ownership);
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
     // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.
     if (ownership.portable) process.once('exit', () => { void ownership.release(); });
     return result;
   } catch (error) {
+    // The joint host must keep the actual owner alive on native/source uncertainty.
+    // Do not enter an extra startup-error writer after that revocation.
+    if (typeof WorkDataMaintenanceRuntimeHooks.helperMayStillRun === 'function') {
+      let uncertain=true;try{uncertain=WorkDataMaintenanceRuntimeHooks.helperMayStillRun()!==false;}catch{}
+      if(uncertain)throw error;
+    }
     if (!WorkDataRootHooks.ready()) throw error; // Invalid authority must not trigger a startup error writer.
     const kind = error && START_ERROR_KINDS.includes(error.ruyiStartErrorKind) ? error.ruyiStartErrorKind : 'startup-failed';
     const recoveryHelp = typeof PrivacyCore !== 'undefined' ? PrivacyCore.configHooks.startupGuidance?.(error) : '';

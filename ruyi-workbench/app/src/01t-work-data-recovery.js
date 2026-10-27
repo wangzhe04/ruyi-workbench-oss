@@ -194,17 +194,25 @@ const WorkDataRecovery = ((cryptoApi) => {
       } finally { ciphertext.fill(0); }
     } finally { plain.fill(0); if (derived) derived.fill(0); }
   }
-  async function open(serialized, password) {
-    checkPassword(password);
+  function captureContainer(serialized) {
     if (typeof serialized !== 'string' || Buffer.byteLength(serialized, 'utf8') > LIMITS.serialized) fail('invalid');
     let container;
     try { container = JSON.parse(serialized); } catch { fail('invalid'); }
     if (!shape(container, 'kind,version,exportId,kdf,cipher,nonce,tag,data') || container.kind !== KIND || ![LEGACY_VERSION, VERSION].includes(container.version)
       || typeof container.exportId !== 'string' || !/^[a-f0-9]{32}$/.test(container.exportId) || container.cipher !== 'aes-256-gcm'
       || !shape(container.kdf, 'name,N,r,p,salt') || container.kdf.name !== 'scrypt' || container.kdf.N !== 32768 || container.kdf.r !== 8 || container.kdf.p !== 1) fail('invalid');
-    const salt = base64(container.kdf.salt, 16, 16), nonce = base64(container.nonce, 12, 12), tag = base64(container.tag, 16, 16);
-    const ciphertext = base64(container.data, Math.ceil(LIMITS.bytes * 4 / 3) + LIMITS.metadata * 2);
-    const header = { kind: container.kind, version: container.version, exportId: container.exportId, kdf: container.kdf, cipher: container.cipher };
+    let salt, nonce, tag, ciphertext;
+    try {
+      salt = base64(container.kdf.salt,16,16); nonce = base64(container.nonce,12,12); tag = base64(container.tag,16,16);
+      ciphertext = base64(container.data, Math.ceil(LIMITS.bytes * 4 / 3) + LIMITS.metadata * 2);
+      const header = {kind:container.kind,version:container.version,exportId:container.exportId,kdf:container.kdf,cipher:container.cipher};
+      return {container,salt,nonce,tag,ciphertext,header,release:()=>{for(const bytes of [salt,nonce,tag,ciphertext])bytes.fill(0);}};
+    } catch(error) {for(const bytes of [salt,nonce,tag,ciphertext])if(bytes)bytes.fill(0);throw error;}
+  }
+  function inspectSealed(serialized) {const value=captureContainer(serialized);try{return true;}finally{value.release();}}
+  async function open(serialized, password) {
+    checkPassword(password);
+    const {container,salt,nonce,tag,ciphertext,header} = captureContainer(serialized);
     let derived, plain, snapshot, returned = false;
     const owned = [];
     try {
@@ -261,7 +269,7 @@ const WorkDataRecovery = ((cryptoApi) => {
       if (derived) derived.fill(0); if (plain) plain.fill(0); ciphertext.fill(0); salt.fill(0); nonce.fill(0); tag.fill(0);
     }
   }
-  return Object.freeze({ KIND, VERSION, LIMITS, seal, open, skillBackupSource });
+  return Object.freeze({ KIND, VERSION, LIMITS, seal, open, inspectSealed, skillBackupSource });
   }
   return Object.freeze({ KIND, VERSION, LIMITS: DEFAULT_LIMITS, create, ...create() });
 })(require('node:crypto'));

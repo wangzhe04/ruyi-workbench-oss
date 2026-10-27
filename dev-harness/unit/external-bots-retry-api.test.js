@@ -34,7 +34,18 @@ test('exact route is token only; old auth rows and full core invert byte exactly
  const auth=fs.readFileSync(p.join(repo,'ruyi-workbench/app/src/01b-route-auth.js'),'utf8'),context=vm.createContext({});vm.runInContext(auth+';globalThis.rows=ROUTE_AUTH;',context);const rows=plain(context.rows);
  a.deepEqual(rows.filter(x=>x.p===target),[{m:'POST',p:target,auth:'token'}]);const spans={spans:replyRetryContracts.apiSpans,auth:replyRetryContracts.auth};let inverse=replyRetrySourceV2(source);
  for(const row of spans.spans.toReversed()){a.equal(inverse.split(row.after).length,2);inverse=inverse.replace(row.after,row.before);}a.equal(inverse,retryCoreSource(source));
- a.equal(c.createHash('sha256').update(auth.replace(spans.auth.after,spans.auth.before)).digest('hex'),spans.auth.base);
+ // spans.auth.base 钉的是「重试那一行落地之前」01b-route-auth.js 的整文件字节。这张表是所有特性共用的路由清单,
+ // 后来者(如 /api/work-data/uploads)往同一张表追加自己的 auth 行,整文件 hash 就会合法地变,而重试那一行的字节
+ // 一字未动。所以整文件身份改成:删掉后来追加的整条路由行(至多两条)必须精确回到 base,且被删掉的必须是完整路由行、
+ // 不碰 /api/external-bots/;重试自己那一段的插入形状与字节仍然钉死。超过这个形状就是读者真的和历史错位了。
+ const sha256=value=>c.createHash('sha256').update(value).digest('hex'),splicedAuth=auth.replace(spans.auth.after,spans.auth.before);
+ a.equal(auth.split(spans.auth.after).length,2,'重试那一行在路由表里恰出现一次');
+ a.equal(spans.auth.after.slice(spans.auth.before.length),`\n  { m: 'POST', p: '${target}', auth: 'token' },`,'重试提交只在这张表上加了这一行');
+ const driftRows=value=>{const lines=value.split('\n'),rowIdx=lines.map((line,j)=>/^  \{ m: '[A-Z]+', p: '/.test(line)?j:-1).filter(j=>j>=0),drop=idx=>sha256(lines.filter((_,j)=>!idx.includes(j)).join('\n'));
+  for(const i of rowIdx){if(drop([i])===spans.auth.base)return[lines[i]];for(const k of rowIdx)if(k>i&&drop([i,k])===spans.auth.base)return[lines[i],lines[k]];}return null;};
+ if(sha256(splicedAuth)!==spans.auth.base){const drift=driftRows(splicedAuth);
+  a.ok(drift,`整文件身份只允许被其它特性追加的整条路由行挪动(实测 ${sha256(splicedAuth)} 回不到 ${spans.auth.base})`);
+  for(const row of drift){a.match(row,/^  \{ m: '[A-Z]+', p: '\/[^']*', auth: '[a-z-]+'(, prefix: true)? \},$/,'被追加的必须是完整路由行');a.ok(!row.includes('/api/external-bots/'),'被追加的路由行不得碰外部机器人');}}
  for(const name of ['externalBotRetryReply','externalBotCancellationWindow','externalBotCancelDelivery','externalBotNextJob','externalBotFinishJob','externalBotPrepareReply','externalBotRecover','externalBotDrain','externalBotWakeWorker'])a.equal(functionBlock(replyRetrySourceV2(source),name),functionBlock(inverse,name));
  a.equal(constBlock(source,'externalBotStore'),constBlock(inverse,'externalBotStore'));
 });

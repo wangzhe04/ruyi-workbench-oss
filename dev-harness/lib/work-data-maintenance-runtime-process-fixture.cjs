@@ -4,13 +4,53 @@
 const fs=require('node:fs'),io=require('node:fs/promises'),p=require('node:path'),http=require('node:http'),c=require('node:crypto'),vm=require('node:vm'),assert=require('node:assert/strict');
 const dir=p.resolve(__dirname,'../../ruyi-workbench/app/src'),root=process.env.RUYI_RUNTIME_UNIT_ROOT,base=p.join(root,'base'),backups=p.join(root,'backups'),scenario=process.env.RUYI_RUNTIME_UNIT_SCENARIO;
 const load=(file,symbol,extra={})=>vm.runInNewContext(fs.readFileSync(p.join(dir,file),'utf8')+'\n'+symbol,{require,Buffer,process,http,crypto:c,setTimeout,clearTimeout,URL,...extra});
-const Worker=load('13ai-work-data-worker.js','WorkDataMaintenanceWorker'),Control=load('13aj-work-data-control.js','WorkDataMaintenanceControl'),Result=load('01ae-work-data-maintenance-result.js','WorkDataMaintenanceResult'),Http=load('13al-work-data-maintenance-http.js','WorkDataMaintenanceHttp'),Ownership=load('01g-server-ownership.js','ServerOwnership'),Manifest=load('01v-work-data-manifest.js','WorkDataManifest'),Runtime=load('13am-work-data-maintenance-runtime.js','WorkDataMaintenanceRuntime');
-const PASSWORD='runtime fixture password only',id='a'.repeat(48),mode=process.argv[2],hash=bytes=>c.createHash('sha256').update(bytes).digest('hex'),hooks={};let retired=false,runtime;
+const Worker=load('13ai-work-data-worker.js','WorkDataMaintenanceWorker'),Control=load('13aj-work-data-control.js','WorkDataMaintenanceControl'),Result=load('01ae-work-data-maintenance-result.js','WorkDataMaintenanceResult'),Http=load('13al-work-data-maintenance-http.js','WorkDataMaintenanceHttp'),Ownership=load('01g-server-ownership.js','ServerOwnership'),Manifest=load('01v-work-data-manifest.js','WorkDataManifest'),Runtime=load('13am-work-data-maintenance-runtime.js','WorkDataMaintenanceRuntime',{ServerOwnership:Ownership});
+const PASSWORD='runtime fixture password only',id='a'.repeat(48),mode=process.argv[2],hash=bytes=>c.createHash('sha256').update(bytes).digest('hex'),hooks={};let retired=false,runtime,warm=null;
 const trace=value=>{if(value.event==='execute')fs.writeFileSync(p.join(root,'worker-pid.txt'),String(process.pid));fs.appendFileSync(p.join(root,'trace.log'),JSON.stringify({...value,pid:process.pid})+'\n');};
 // A failed probe is never allowed to leave a server behind indefinitely. This is
 // fixture cleanup only; every hold assertion is made long before this deadline.
 if(process.env.RUYI_RUNTIME_OUTER_JOB!=='1')setTimeout(()=>process.exit(0),12000).unref();
 const actualWorker={...Worker,spawnCold:(command,env)=>{const child=Worker.spawnCold(command,env);trace({event:'child-spawn',mode:command.args.at(-1),child:child.pid});return child;}};
+// Source-scope seams. Like the production runtime host, both seams require a
+// genuine held lease for the exact base, run the work under a real source pin,
+// and never substitute success for a lost owner. The warm handoff intentionally
+// leaves its pin held: only old-process death may free the source for takeover.
+const ownershipRequired=()=>Object.assign(Error('fixture source owner unavailable'),{code:'work_data_setup.ownership_required',retry:false});
+const assertSourceLease=(owner,root)=>{if(!Ownership.isLease(owner)||!Ownership.owns(owner,root))throw ownershipRequired();return true;};
+async function withWarmSource(_request,work){
+ const captured=warm;
+ if(!captured||typeof work!=='function')throw Object.assign(Error('fixture warm source unavailable'),{code:'work_data_setup.worker_unavailable',retry:false});
+ assertSourceLease(captured.ownership,captured.base);
+ const pin=Ownership.createSourceKeeper(captured.ownership,captured.base);let handle;
+ try{
+  handle=await work();
+  if(!Ownership.isSourceKeeper(pin,captured.ownership,captured.base)||!pin.assertExclusive(captured.ownership)
+    ||!handle||!handle.ready||typeof handle.ready.then!=='function'||typeof handle.cancel!=='function'||typeof handle.handoff!=='function')throw Object.assign(Error('fixture worker contract unavailable'),{code:'work_data_setup.worker_contract_invalid',retry:false});
+ }catch(error){try{pin.retainUnknown(error);}catch{}throw error;}
+ const ready=Promise.resolve(handle.ready).then(value=>{assertSourceLease(captured.ownership,captured.base);if(!Ownership.isSourceKeeper(pin,captured.ownership,captured.base))throw ownershipRequired();return value;});
+ void ready.catch(()=>{});
+ return Object.freeze({ready,async cancel(){
+  try{await handle.cancel();assertSourceLease(captured.ownership,captured.base);await pin.releaseChecked(()=>{assertSourceLease(captured.ownership,captured.base);return true;});}
+  catch(error){try{pin.retainUnknown(error);}catch{}throw error;}
+ },async handoff(){
+  try{await handle.handoff();}catch(error){try{pin.retainUnknown(error);}catch{}throw error;}
+  // An acknowledged handoff that returned to the old process never releases
+  // its source owner or pretends the parent exited.
+  throw Object.assign(Error('fixture parent exit returned after handoff'),{code:'work_data_setup.parent_exit_returned',helperMayStillRun:true,ownershipRetained:true,retry:false});
+ }});
+}
+async function withColdSource(context,work){
+ const owner=context?.ownership,root=context?.base;
+ assertSourceLease(owner,root);if(typeof work!=='function')throw ownershipRequired();
+ const keeper=Ownership.createSourceKeeper(owner,root);let value;
+ try{
+  value=await work();
+  if(!Ownership.isSourceKeeper(keeper,owner,root)||!keeper.assertExclusive(owner))throw ownershipRequired();
+ }catch(error){try{keeper.retainUnknown(error);}catch{}throw error;}
+ // Release only the real lease, after a final helper-uncertainty admission.
+ await keeper.releaseOwner(()=>{try{return runtime.helperMayStillRun()===false;}catch{return false;}});
+ return value;
+}
 const host={process,workerApi:actualWorker,httpApi:Http,resultApi:Result,controlApi:Control,workerHooks:hooks,
  base:async()=>base,canonical:Ownership.canonicalRoot,acquire:roots=>Ownership.acquire(roots),readAuthority:async()=>{
   if(mode==='work-data-maintenance'&&['authority-read-fail','authority-conflict'].includes(scenario)){
@@ -24,6 +64,7 @@ const host={process,workerApi:actualWorker,httpApi:Http,resultApi:Result,control
   }
   return Manifest.create({base}).readActive();
  },
+ assertOwnership:(owner,requested)=>Ownership.isLease(owner)&&Ownership.owns(owner,requested),withColdSource,withWarmSource,
  adaptersReady:()=>true,helperMayStillRun:()=>false,isRetired:()=>retired,stopUncommitted:async child=>{if(child.connected)child.disconnect();await new Promise(resolve=>child.exitCode!==null?resolve():child.once('exit',resolve));},
  command:command=>({command:process.execPath,args:[__filename,command]}),exit:code=>{trace({event:'exit',code});process.exit(code);},
  operations:({guardNative,helperMayStillRun,progress})=>({execute:async ctx=>{
@@ -48,6 +89,7 @@ const host={process,workerApi:actualWorker,httpApi:Http,resultApi:Result,control
    const lastResult=await hooks.readResult();res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({pid:process.pid,lastResult}));
   });await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(Number(options.port),options.host,resolve);});
   await io.writeFile(p.join(base,'runtime.json'),JSON.stringify({pid:process.pid}));await runtime.captureServe({base,ownership:owner,server,listener:{host:options.host,port:Number(options.port)}});
+  warm={ownership:owner,base:await Ownership.canonicalRoot(base)};
   runtime.activateServe();
   fs.writeFileSync(p.join(root,'successor-pid.txt'),String(process.pid));trace({event:'successor-listen',port:server.address().port});fs.writeFileSync(p.join(root,'successor-ready.json'),JSON.stringify({pid:process.pid,port:server.address().port}));
  }
@@ -57,7 +99,7 @@ async function parent(){
 
  const owner=await Ownership.acquire([base]);await runtime.inspectBoot({base,ownership:owner});const server=http.createServer((_req,res)=>res.end('{}'));
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const port=server.address().port;await io.writeFile(p.join(base,'runtime.json'),JSON.stringify({pid:process.pid}));
- await runtime.captureServe({base,ownership:owner,server,listener:{host:'127.0.0.1',port}});assert.equal(hooks.start,undefined);runtime.activateServe();const handle=await hooks.start({id,operation:'export',password:PASSWORD,expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backupDirectory:backups});
+ await runtime.captureServe({base,ownership:owner,server,listener:{host:'127.0.0.1',port}});warm={ownership:owner,base:await Ownership.canonicalRoot(base)};assert.equal(hooks.start,undefined);runtime.activateServe();const handle=await hooks.start({id,operation:'export',password:PASSWORD,expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backupDirectory:backups});
  await handle.ready;retired=true;fs.writeFileSync(p.join(root,'parent-ready.json'),JSON.stringify({pid:process.pid,port}));await handle.handoff();
 }
 (mode==='parent'?parent():mode==='work-data-maintenance'?runtime.runCold():runtime.runSuccessor()).catch(error=>{trace({event:'failure',code:error.code});console.error(error.stack);process.exitCode=1;});

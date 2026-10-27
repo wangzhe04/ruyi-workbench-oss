@@ -1,13 +1,21 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),p=require('node:path'),vm=require('node:vm'),http=require('node:http');
-const {functionBlock,bracedBlock,sliceBlock}=require('../lib/source-slice'),router=fs.readFileSync(process.env.GLUE_ROUTER_CANDIDATE||p.join(__dirname,'../../ruyi-workbench/app/src/13-http-router.js'),'utf8'),main=fs.readFileSync(process.env.GLUE_MAIN_CANDIDATE||p.join(__dirname,'../../ruyi-workbench/app/src/14-main.js'),'utf8');
+const {constBlock,functionBlock,bracedBlock,sliceBlock}=require('../lib/source-slice'),router=fs.readFileSync(process.env.GLUE_ROUTER_CANDIDATE||p.join(__dirname,'../../ruyi-workbench/app/src/13-http-router.js'),'utf8'),main=fs.readFileSync(process.env.GLUE_MAIN_CANDIDATE||p.join(__dirname,'../../ruyi-workbench/app/src/14-main.js'),'utf8');
 const parse=functionBlock(router,'parseArgs');
+const VerifierEntry=vm.runInNewContext(constBlock(fs.readFileSync(p.join(__dirname,'../../ruyi-workbench/app/src/13ar-work-data-verifier-entry.js'),'utf8'),'WorkDataVerifierEntry')+'\nWorkDataVerifierEntry',{require,Buffer,process});
 test('private commands enter only the cold role without normal stores bootstrap or user supplied flags',async()=>{
  for(const mode of ['work-data-maintenance','work-data-successor']){
-  const calls=[],hooks={runCold:async()=>calls.push('cold'),runSuccessor:async()=>calls.push('successor')},context={process:{argv:['node','server.js',mode]},Object,WorkDataMaintenanceRuntimeHooks:hooks,startWorkbenchServe:()=>{throw Error('normal serve forbidden');}};
+  const calls=[],hooks={runCold:async()=>calls.push('cold'),runSuccessor:async()=>calls.push('successor')},context={process:{argv:['node','server.js',mode]},Object,WorkDataVerifierEntry:VerifierEntry,WorkDataMaintenanceRuntimeHooks:hooks,startWorkbenchServe:()=>{throw Error('normal serve forbidden');}};
   const fn=vm.runInNewContext(parse+'\n'+functionBlock(main,'main')+'\nmain;',context);await fn();assert.deepEqual(calls,[mode==='work-data-maintenance'?'cold':'successor']);
   context.process.argv.push('--password','SHOULD_NOT_BE_LOGGED');await assert.rejects(()=>fn(),{code:'work_data_setup.private_command_invalid'});assert.equal(calls.length,1);
  }
+ // The private verifier entry is wired: 13ar advertises the command and 14-main routes it
+ // to that entry, so the adapter's capability list must not call it unsupported.
+ const entryPath=p.join(__dirname,'synthetic-server.js');
+ assert.deepEqual(JSON.parse(JSON.stringify(VerifierEntry.command({proc:{execPath:process.execPath},packaged:false,entry:entryPath}))),{command:process.execPath,args:[entryPath,VerifierEntry.COMMAND]});
+ const routed=[],stub={COMMAND:VerifierEntry.COMMAND,create:()=>({run:async()=>{routed.push('verifier');return 'verified';}})};
+ const verifierMain=vm.runInNewContext(parse+'\n'+functionBlock(main,'main')+'\nmain;',{process:{argv:['node','server.js',VerifierEntry.COMMAND]},Object,WorkDataVerifierEntry:stub,WorkDataMaintenanceRuntimeHooks:{},startWorkbenchServe:()=>{throw Error('normal serve forbidden');}});
+ assert.equal(await verifierMain(),'verified');assert.deepEqual(routed,['verifier']);
 });
 test('ordinary serve retains bootstrap order and publishes maintenance capability only after inbox startup settles',async()=>{
  const events=[];let release,entered;const enteredPromise=new Promise(resolve=>entered=resolve),barrier=new Promise(resolve=>release=resolve);

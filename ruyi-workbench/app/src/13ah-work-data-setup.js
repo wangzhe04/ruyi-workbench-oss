@@ -22,7 +22,7 @@ const WorkDataSetup = (() => {
     }finally {for(const chunk of chunks)chunk.fill(0);}
   }
   function create(host) {
-    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false;
+    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false,receiving=false;
     const view=job=>Object.freeze({id:job.id,operation:job.operation,state:job.state,createdAt:job.createdAt,cancellable:!job.committed&&!job.cancelRequested&&!['failed','cancelled'].includes(job.state),
       takeover:job.committed,retry:false,error:job.error||null,operationMayHaveExecuted:job.committed});
     const ensureExpected=async expected=>{const current=await host.inspect();if(!same(expected,authority(current.authority)))throw fail('authority_changed');return current;};
@@ -72,15 +72,21 @@ const WorkDataSetup = (() => {
         if(body.operation==='disable'&&body.confirmPlaintext!==true)throw fail('plaintext_confirmation_required',400);
         if(body.confirmPlaintext!==undefined&&typeof body.confirmPlaintext!=='boolean')throw fail('request_invalid',400);
         if(!validText(body.backupDirectory)||!body.backupDirectory.length||body.backupDirectory.length>1024)throw fail('path_invalid',400);
+        const jobId=host.id();if(!ID.test(jobId)||jobs.has(jobId))throw fail('id_invalid');let uploadGrant=null;
         if(body.operation==='restore'){
           if(!validText(body.targetDirectory)||!body.targetDirectory.length||body.targetDirectory.length>1024||!ID.test(body.uploadId||''))throw fail('restore_input_invalid',400);
-          if(typeof host.worker().resolveUpload!=='function'||await host.worker().resolveUpload(body.uploadId)!==true)throw fail('upload_unavailable',501);
+          const uploadWorker=host.worker();
+          // A worker that cannot start cannot consume the grant or reach the queue.
+          if(typeof uploadWorker.start!=='function')throw fail('worker_unavailable',501);
+          if(typeof uploadWorker.resolveUpload!=='function'||typeof WorkDataRestoreUploads==='undefined')throw fail('upload_unavailable',501);
+          uploadGrant=await uploadWorker.resolveUpload(body.uploadId,{jobId});
+          if(WorkDataRestoreUploads.ownsGrant(uploadGrant,{uploadId:body.uploadId,jobId})!==true)throw fail('upload_unavailable',501);
         }else if(body.targetDirectory!==undefined||body.uploadId!==undefined)throw fail('request_invalid',400);
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
         await host.validateDirectories({base:observed.base,backupDirectory:body.backupDirectory,targetDirectory:body.targetDirectory});
         await ensureExpected(expectedAuthority);
-        const job={id:host.id(),operation:body.operation,state:'queued',createdAt:host.now(),committed:false,cancelRequested:false,abort:new AbortController(),secret,
-          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,...(body.operation==='restore'?{targetDirectory:body.targetDirectory,uploadId:body.uploadId}:{}),confirmPlaintext:body.confirmPlaintext===true}};
+        const job={id:jobId,operation:body.operation,state:'queued',createdAt:host.now(),committed:false,cancelRequested:false,abort:new AbortController(),secret,
+          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,...(body.operation==='restore'?{targetDirectory:body.targetDirectory,uploadId:body.uploadId,uploadGrant}:{}),confirmPlaintext:body.confirmPlaintext===true}};
         if(!ID.test(job.id)||jobs.has(job.id))throw fail('id_invalid');secret=null;
         while(jobs.size>=32){const oldest=[...jobs.values()].find(row=>['failed','cancelled'].includes(row.state));if(!oldest)throw fail('capacity');jobs.delete(oldest.id);}
         jobs.set(job.id,job);active=job;host.defer(()=>{job.done=execute(job);});return view(job);
@@ -96,12 +102,49 @@ const WorkDataSetup = (() => {
       const observed=await host.inspect(),worker=host.worker();let lastResult=null;
       if(typeof worker.readResult==='function'){try{lastResult=await worker.readResult();}catch{throw fail('result_unavailable',503);}}
       return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
-        lastResult,capabilities:{worker:typeof worker.start==='function',upload:typeof worker.resolveUpload==='function',download:typeof worker.download==='function'},processRestartRequired:true};
+        lastResult,capabilities:{worker:typeof worker.start==='function',upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',download:typeof worker.download==='function'},processRestartRequired:true};
+    }
+    async function receiveUpload(req) {
+      // The main router authenticates the header token before this handler. This
+      // route additionally binds the actual loopback socket and same-port Origin.
+      if(active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
+      const worker=host.worker();
+      if(typeof worker.putUpload!=='function'||typeof worker.resolveUpload!=='function')throw fail('upload_unavailable',501);
+      const headers=req.headers||{},port=req.socket?.localPort;
+      const peer=String(req.socket?.remoteAddress||'').toLowerCase(),name=headers.host;
+      if(!Number.isInteger(port)||port<1||port>65535||!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(peer)
+        ||typeof name!=='string'||![`127.0.0.1:${port}`,`localhost:${port}`,`[::1]:${port}`].includes(name.toLowerCase()))throw fail('upload_origin_invalid',403);
+      if(headers.origin!==undefined){let origin;try{origin=new URL(headers.origin);}catch{throw fail('upload_origin_invalid',403);}
+        if(origin.protocol!=='http:'||origin.host.toLowerCase()!==name.toLowerCase()||origin.origin!==headers.origin)throw fail('upload_origin_invalid',403);}
+      if(headers['sec-fetch-site']!==undefined&&!['same-origin','none'].includes(headers['sec-fetch-site']))throw fail('upload_origin_invalid',403);
+      if(req.url!=='/api/work-data/uploads'||headers['content-type']!=='application/octet-stream'
+        ||headers['transfer-encoding']!==undefined||headers['content-encoding']!==undefined||headers['content-disposition']!==undefined)throw fail('upload_headers_invalid',400);
+      const length=headers['content-length'];
+      if(typeof length!=='string'||!(/^[1-9][0-9]{0,9}$/).test(length))throw fail('upload_length_required',411);
+      const maximum=WorkDataRecovery.LIMITS.serialized,size=Number(length);
+      if(!Number.isSafeInteger(size)||size>maximum)throw fail('body_too_large',413);
+      // One admitted receiver per process. The maintenance drain includes both
+      // bounded ingestion and the real broker's fsync/native flush publication.
+      receiving=true;
+      try{return await host.maintenance.run('http',async()=>{
+        const bytes=Buffer.alloc(size);let used=0;
+        try{
+          for await(const chunk of req){
+            if(!Buffer.isBuffer(chunk)||chunk.length>size-used)throw fail('body_too_large',413);
+            chunk.copy(bytes,used);used+=chunk.length;
+          }
+          if(used!==size||req.aborted===true)throw fail('upload_incomplete',400);
+          const uploadId=await worker.putUpload(bytes);
+          if(!ID.test(uploadId||''))throw fail('upload_contract_invalid');
+          return {ok:true,uploadId};
+        }finally{bytes.fill(0);}
+      });}finally{receiving=false;}
     }
     async function handle(req,res,pathname) {
       let response,statusCode=200;
       if(req.method==='GET'&&pathname==='/api/work-data/status')response=await status();
       else if(req.method==='POST'&&pathname==='/api/work-data/jobs'){response={ok:true,job:await submit(await readJson(req))};statusCode=202;}
+      else if(req.method==='POST'&&pathname==='/api/work-data/uploads'){response=await receiveUpload(req);statusCode=201;}
       else if((req.method==='GET'||req.method==='POST')&&pathname.startsWith('/api/work-data/jobs/')) {
         const match=/^\/api\/work-data\/jobs\/([a-f0-9]{48})(\/cancel)?$/.exec(pathname);if(!match)throw fail('job_not_found',404);
         if(req.method==='GET'&&!match[2]){const job=jobs.get(match[1]);if(!job)throw fail('job_not_found',404);response={ok:true,job:view(job)};}

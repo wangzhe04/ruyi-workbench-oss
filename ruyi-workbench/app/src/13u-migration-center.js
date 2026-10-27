@@ -524,6 +524,12 @@ public static class RuyiSkillCapsule {
     public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
   }
   [StructLayout(LayoutKind.Sequential)] struct Basic { public long Creation, Access, Write, Change; public uint Attr; }
+  [StructLayout(LayoutKind.Explicit,Size=24)] struct FileIdDescriptor {
+    [FieldOffset(0)] public uint Size; [FieldOffset(4)] public int Type;
+    [FieldOffset(8)] public long FileId; [FieldOffset(16)] public long Reserved;
+  }
+  [StructLayout(LayoutKind.Sequential)] struct RelativeName { public ushort Length, MaximumLength; public IntPtr Buffer; }
+  [StructLayout(LayoutKind.Sequential)] struct RelativeAttributes { public uint Length; public IntPtr RootDirectory, ObjectName; public uint Attributes; public IntPtr SecurityDescriptor, SecurityQualityOfService; }
   [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern SafeFileHandle CreateFile(string p, uint access, uint share, IntPtr security, uint mode, uint flags, IntPtr template);
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetFileInformationByHandle(SafeFileHandle h, out Info value);
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetFileInformationByHandleEx(SafeFileHandle h, int kind, out Basic value, uint size);
@@ -541,6 +547,8 @@ public static class RuyiSkillCapsule {
   [DllImport("ntdll.dll")] static extern int NtSetInformationFile(SafeFileHandle h, IntPtr iosb, IntPtr value, uint length, int kind);
   [DllImport("ntdll.dll")] static extern uint RtlNtStatusToDosError(int status);
   [DllImport("ntdll.dll")] static extern int NtQueryInformationFile(SafeFileHandle h,IntPtr iosb,IntPtr value,uint length,int kind);
+  [DllImport("kernel32.dll",SetLastError=true)] static extern SafeFileHandle OpenFileById(SafeFileHandle volumeHint,ref FileIdDescriptor descriptor,uint access,uint share,IntPtr security,uint flags);
+  [DllImport("ntdll.dll")] static extern int NtCreateFile(out SafeFileHandle handle,uint access,ref RelativeAttributes attributes,IntPtr iosb,IntPtr allocation,uint fileAttrs,uint share,uint disposition,uint options,IntPtr ea,uint eaLength);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool MoveFileExW(string source,string target,uint flags);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool SetFileShortName(SafeFileHandle h,string name);
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CheckNameLegalDOS8Dot3(string name,IntPtr oem,uint size,out bool spaces,out bool legal);
@@ -551,6 +559,7 @@ public static class RuyiSkillCapsule {
   static string OriginalRoot;
   static long MaxBytes = 96000000, TotalBytes;
   static string Step = "idle";
+  static bool PreserveTimeHandles = false;
   sealed class Node {
     public SafeFileHandle Handle; public bool Writable; public Dictionary<string,object> Entry;
     public Dictionary<string,SafeFileHandle> Streams = new Dictionary<string,SafeFileHandle>();
@@ -576,8 +585,9 @@ public static class RuyiSkillCapsule {
     FileAttributes attributes = File.GetAttributes(file);
     bool directory = !dataStream && (attributes & FileAttributes.Directory) != 0, readOnly = (attributes & FileAttributes.ReadOnly) != 0;
     writable = !directory && !readOnly;
-    SafeFileHandle handle = CreateFile(file, writable ? 0xC0010000u : 0x80010100u, directory ? 7u : 5u, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
+    SafeFileHandle handle = CreateFile(file, CapturedDirectoryWrite && directory ? 0xC0010100u : writable ? 0xC0010000u : 0x80010100u, directory ? 7u : 5u, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
     if (handle.IsInvalid) { handle.Dispose(); throw new Win32Exception(Marshal.GetLastWin32Error()); }
+    if(PreserveTimeHandles) {try {PreserveHandleTimes(handle);} catch {handle.Dispose();throw;}}
     return handle;
   }
   static string Id(SafeFileHandle handle) {
@@ -1044,7 +1054,7 @@ public static class RuyiSkillCapsule {
     Check(GetVolumeInformationByHandleW(handle,null,0,out serial,out component,out flags,filesystem,64));
     if(filesystem.ToString()!="NTFS") Reject("filesystem_unsupported");
   }
-  static object StoreInfo(Dictionary<string,object> args) {
+  static object StoreInfoCore(Dictionary<string,object> args) {
     using(var handle=Open(Str(args["root"]))) {
       StoreFileSystem(handle);
       if((BasicOf(handle).Attr&16u)==0) Reject("store_not_directory");
@@ -1055,10 +1065,184 @@ public static class RuyiSkillCapsule {
   static void FlushStoreDirectory(string path) {
     path=NativePath(path);
     using(var handle=CreateFile(path,0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
-      if(handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error()); Check(FlushFileBuffers(handle));
+      if(handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error()); if(PreserveTimeHandles)PreserveHandleTimes(handle);Check(FlushFileBuffers(handle));
     }
   }
-  static object MoveStore(Dictionary<string,object> args) {
+  static bool FlushPart(string value) {
+    if(value.Length<1 || value.Length>255 || value=="." || value==".." || value.EndsWith(".") || value.EndsWith(" "))return false;
+    foreach(char ch in value)if(ch<32 || "\\/:*?\"<>|".IndexOf(ch)>=0)return false;
+    return true;
+  }
+  static void CheckFlushDirectory(SafeFileHandle handle,string expected,string volume,string expectedId=null) {
+    PreserveHandleTimes(handle);
+    Info info;Check(GetFileInformationByHandle(handle,out info));
+    if((info.Attr&16u)==0)Reject("store_not_directory");string observedId=Id(handle);if(expectedId!=null && !String.Equals(observedId,expectedId,StringComparison.Ordinal))Reject("store_id_changed");StoreFileSystem(handle);
+    if(!String.Equals(PathOf(handle),expected,StringComparison.OrdinalIgnoreCase))Reject("store_path_alias");
+    if(volume!=null && !String.Equals(VolumeOf(handle),volume,StringComparison.Ordinal))Reject("store_volume_changed");
+  }
+  static SafeFileHandle OpenFlushChild(SafeFileHandle parent,string part,string expected,string volume) {
+    IntPtr buffer=Marshal.StringToHGlobalUni(part),name=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(RelativeName))),iosb=Marshal.AllocHGlobal(IntPtr.Size*2);
+    SafeFileHandle handle=null;
+    try {
+      RelativeName unicode=new RelativeName{Length=(ushort)(part.Length*2),MaximumLength=(ushort)((part.Length+1)*2),Buffer=buffer};
+      Marshal.StructureToPtr(unicode,name,false);
+      RelativeAttributes attributes=new RelativeAttributes{Length=(uint)Marshal.SizeOf(typeof(RelativeAttributes)),RootDirectory=parent.DangerousGetHandle(),ObjectName=name,Attributes=0x40};
+      // Open exactly one component relative to the already protected directory.
+      // FILE_OPEN, DIRECTORY_FILE, SYNCHRONOUS_IO_NONALERT, OPEN_FOR_BACKUP_INTENT,
+      // OPEN_REPARSE_POINT. No absolute fallback or create disposition is allowed.
+      int status=NtCreateFile(out handle,0xC0100000u,ref attributes,iosb,IntPtr.Zero,0,3,1,0x00204021u,IntPtr.Zero,0);
+      if(status<0)throw new Win32Exception((int)RtlNtStatusToDosError(status));
+      if(status!=0 || handle==null || handle.IsInvalid)Reject("store_relative_open");
+      CheckFlushDirectory(handle,expected,volume);return handle;
+    } catch {if(handle!=null)handle.Dispose();throw;}
+    finally {GC.KeepAlive(parent);Marshal.FreeHGlobal(buffer);Marshal.FreeHGlobal(name);Marshal.FreeHGlobal(iosb);}
+  }
+  static void FlushStoreDirectoryPreserved(string path,string anchor) {
+    // Both paths are strict local DOS paths, validated lexically before any open.
+    if(path==null || anchor==null || path.Length<3 || anchor.Length<3 || path.Length>32763 || anchor.Length>32763
+      || !Char.IsLetter(path[0]) || !Char.IsLetter(anchor[0]) || path[1]!=':' || anchor[1]!=':' || path[2]!='\\' || anchor[2]!='\\')Reject("store_flush_anchor");
+    if(path.Length>3)path=path.TrimEnd('\\');if(anchor.Length>3)anchor=anchor.TrimEnd('\\');
+    string prefix=anchor.EndsWith("\\")?anchor:anchor+"\\";
+    if(!String.Equals(System.IO.Path.GetFullPath(path),path,StringComparison.OrdinalIgnoreCase)
+      ||!String.Equals(System.IO.Path.GetFullPath(anchor),anchor,StringComparison.OrdinalIgnoreCase)
+      ||!String.Equals(path,anchor,StringComparison.OrdinalIgnoreCase)&&!path.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))Reject("store_flush_anchor");
+    foreach(string part in anchor.Length==3?new string[0]:anchor.Substring(3).Split('\\'))if(!FlushPart(part))Reject("store_flush_anchor");
+    string relative=path.Length==anchor.Length?"":path.Substring(prefix.Length);
+    string[] parts=relative==""?new string[0]:relative.Split('\\');
+    if(parts.Length>512)Reject("store_flush_anchor");foreach(string part in parts)if(!FlushPart(part))Reject("store_flush_anchor");
+    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;var handles=new List<SafeFileHandle>();
+    try {
+      var root=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
+      if(root.IsInvalid){int error=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(error);}
+      handles.Add(root);string expected=@"\\?\"+anchor;CheckFlushDirectory(root,expected,null);string volume=VolumeOf(root);
+      SafeFileHandle current=root;
+      foreach(string part in parts){expected+=(expected.EndsWith("\\")?"":"\\")+part;current=OpenFlushChild(current,part,expected,volume);handles.Add(current);}
+      Check(FlushFileBuffers(current));
+    } finally {try {for(int n=handles.Count-1;n>=0;n--)handles[n].Dispose();}finally {PreserveTimeHandles=previous;}}
+  }
+  static bool CapturedDirectoryWrite = false, CapturedFlushScope = false, CapturedFlushConsumed = false;
+  static Dictionary<string,object> CapturedFlushSnapshot;
+  static string CapturedFlushToken, CapturedFlushRoot, CapturedFlushRevision, CapturedFlushVolume, CapturedFlushRole;
+  static object CaptureOwnedFlushReady(Dictionary<string,object> args) {
+    object scope=null,preserve=null,rawRoot=null,rawRevision=null;
+    if(Nodes.Count!=0 || CapturedFlushScope)Reject("already_open");
+    if(!args.TryGetValue("scope",out scope) || !(scope is string) || ((string)scope!="owned-stage" && (string)scope!="owned-target"))Reject("captured_flush_scope");
+    if(!args.TryGetValue("preserveMetadata",out preserve) || !(preserve is bool) || !(bool)preserve)Reject("captured_flush_option");
+    if(!args.TryGetValue("root",out rawRoot) || !(rawRoot is string) || !args.TryGetValue("revision",out rawRevision) || !(rawRevision is string))Reject("captured_flush_binding");
+    string root=(string)rawRoot,revision=(string)rawRevision;
+    if(root.Length<3 || root.Length>32763 || !Char.IsLetter(root[0]) || root[1]!=':' || root[2]!='\\'
+      || !String.Equals(System.IO.Path.GetFullPath(root),root,StringComparison.OrdinalIgnoreCase)
+      || !System.Text.RegularExpressions.Regex.IsMatch(revision,"^[a-f0-9]{64}$"))Reject("captured_flush_binding");
+    // This internal opt-in is for a separately admitted new owned stage/target.
+    // The scope label is not ownership authority; the caller must hold that lease.
+    CapturedFlushScope=true;bool previous=CapturedDirectoryWrite;CapturedDirectoryWrite=true;
+    try {
+      Dictionary<string,object> captured=Dict(CapturePreserved(args));
+      if(!String.Equals(OriginalRoot,@"\\?\"+root,StringComparison.OrdinalIgnoreCase))Reject("captured_flush_root_alias");
+      object requestedVolume=null;string admittedVolume=null;
+      if(args.TryGetValue("expectedVolume",out requestedVolume)) {
+        if(!(requestedVolume is string) || ((string)requestedVolume).Length<1 || ((string)requestedVolume).Length>128)Reject("captured_flush_volume");
+        admittedVolume=VolumeOf(RootNode().Handle);if(!String.Equals(admittedVolume,(string)requestedVolume,StringComparison.Ordinal))Reject("store_volume_changed");
+      }
+      CapturedFlushSnapshot=captured;CapturedFlushRoot=root;CapturedFlushRevision=revision;CapturedFlushToken=RandomName();CapturedFlushConsumed=false;CapturedFlushVolume=admittedVolume;CapturedFlushRole=(string)scope;
+      var ready=new Dictionary<string,object>{{"schema",1},{"snapshot",captured},{"token",CapturedFlushToken},{"scope",(string)scope}};if(admittedVolume!=null)ready.Add("volume",admittedVolume);return ready;
+    } finally {CapturedDirectoryWrite=previous;}
+  }
+  static void CheckCapturedDirectory(Node node,string volume) {
+    string rel=Str(node.Entry["rel"]),expected=rel==""?OriginalRoot:System.IO.Path.Combine(OriginalRoot,rel.Replace('/','\\'));
+    if(!(bool)node.Entry["dir"] || node.Writable)Reject("captured_flush_not_directory");
+    if(!String.Equals(Id(node.Handle),Str(node.Entry["id"]),StringComparison.Ordinal))Reject("identity_changed");
+    StoreFileSystem(node.Handle);
+    if(!String.Equals(PathOf(node.Handle),expected,StringComparison.OrdinalIgnoreCase))Reject("store_path_alias");
+    if(!String.Equals(VolumeOf(node.Handle),volume,StringComparison.Ordinal))Reject("store_volume_changed");
+    if(!String.Equals(ShortName(node.Handle),Str(node.Entry["shortName"]),StringComparison.Ordinal))Reject("short_name_changed");
+    Basic actual=BasicOf(node.Handle);var times=new List<string>();foreach(object time in (IEnumerable)node.Entry["times"])times.Add(Str(time));
+    if(times.Count!=4 || Str(actual.Creation)!=times[0] || Str(actual.Access)!=times[1] || Str(actual.Write)!=times[2] || Str(actual.Change)!=times[3] || actual.Attr!=Convert.ToUInt32(node.Entry["attrs"]))Reject("captured_flush_metadata_changed");
+  }
+  static object FlushCapturedDirectories(Dictionary<string,object> args) {
+    object token=null,root=null,revision=null,rawIds=null;
+    if(!CapturedFlushScope || CapturedFlushSnapshot==null || CapturedFlushConsumed || !Object.ReferenceEquals(Snapshot,CapturedFlushSnapshot))Reject("captured_flush_not_ready");
+    if(!args.TryGetValue("token",out token) || !(token is string) || (string)token!=CapturedFlushToken
+      ||!args.TryGetValue("root",out root) || !(root is string) || (string)root!=CapturedFlushRoot
+      ||!args.TryGetValue("revision",out revision) || !(revision is string) || (string)revision!=CapturedFlushRevision
+      ||!args.TryGetValue("directoryIds",out rawIds) || !(rawIds is object[]))Reject("captured_flush_binding");
+    object requestedVolume=null;if(CapturedFlushVolume!=null && (!args.TryGetValue("expectedVolume",out requestedVolume) || !(requestedVolume is string) || !String.Equals((string)requestedVolume,CapturedFlushVolume,StringComparison.Ordinal)))Reject("captured_flush_volume");
+    object[] ids=(object[])rawIds;var expected=Expected();var directories=new List<Node>();var supplied=new HashSet<string>(StringComparer.Ordinal);
+    if(expected.Count!=Nodes.Count)Reject("entry_set_changed");
+    foreach(object id in ids)if(!(id is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)id,"^[a-f0-9]{24}$") || !supplied.Add((string)id))Reject("captured_flush_binding");
+    foreach(Node node in expected)if((bool)node.Entry["dir"]){if(!supplied.Contains(Str(node.Entry["id"])))Reject("captured_flush_binding");directories.Add(node);}
+    if(directories.Count<1 || directories.Count!=ids.Length)Reject("captured_flush_binding");
+    // From this point a failure is not retryable. Every directory was opened
+    // with WRITE before the ready capture's original checkpoint, never here.
+    CapturedFlushConsumed=true;
+    directories.Sort(delegate(Node a,Node b){return Str(b.Entry["rel"]).Length.CompareTo(Str(a.Entry["rel"]).Length);});
+    Step="captured-directory-precheck";string volume=VolumeOf(RootNode().Handle);if(CapturedFlushVolume!=null && !String.Equals(volume,CapturedFlushVolume,StringComparison.Ordinal))Reject("store_volume_changed");foreach(Node node in directories)CheckCapturedDirectory(node,volume);
+    Step="captured-directory-flush";var flushed=new List<object>();foreach(Node node in directories){Check(FlushFileBuffers(node.Handle));flushed.Add(new Dictionary<string,object>{{"rel",Str(node.Entry["rel"])},{"id",Str(node.Entry["id"])}});}
+    Step="captured-directory-postcheck";foreach(Node node in directories)CheckCapturedDirectory(node,volume);
+    var receipt=new Dictionary<string,object>{{"schema",1},{"kind","captured-directory-flush-v1"},{"token",CapturedFlushToken},{"root",CapturedFlushRoot},{"revision",CapturedFlushRevision},{"directories",flushed},{"count",flushed.Count},{"allFlushed",true},{"metadataExact",true}};if(CapturedFlushVolume!=null){receipt.Add("volume",volume);receipt.Add("role",CapturedFlushRole);}return receipt;
+  }
+  static void CheckBoundFlushDirectory(SafeFileHandle handle,string root,string id,string volume) {
+    Info value;Check(GetFileInformationByHandle(handle,out value));if((value.Attr&16u)==0)Reject("store_not_directory");
+    if(!String.Equals(Id(handle),id,StringComparison.Ordinal))Reject("store_id_changed");StoreFileSystem(handle);
+    if(!String.Equals(PathOf(handle),@"\\?\"+root,StringComparison.OrdinalIgnoreCase))Reject("store_path_alias");
+    if(!String.Equals(VolumeOf(handle),volume,StringComparison.Ordinal))Reject("store_volume_changed");
+  }
+  static object FlushStoreDirectoryBound(Dictionary<string,object> args) {
+    object rawRoot=null,rawId=null,rawVolume=null,rawRole=null,rawOrdinal=null;
+    if(!args.TryGetValue("root",out rawRoot) || !(rawRoot is string) || !args.TryGetValue("id",out rawId) || !(rawId is string)
+      ||!args.TryGetValue("volume",out rawVolume) || !(rawVolume is string) || !args.TryGetValue("role",out rawRole) || !(rawRole is string)
+      ||!args.TryGetValue("ordinal",out rawOrdinal) || !(rawOrdinal is int))Reject("bound_flush_binding");
+    string root=(string)rawRoot,id=(string)rawId,volume=(string)rawVolume,role=(string)rawRole;int ordinal=(int)rawOrdinal;
+    if(root.Length<3 || root.Length>32763 || !Char.IsLetter(root[0]) || root[1]!=':' || root[2]!='\\'
+      ||!String.Equals(System.IO.Path.GetFullPath(root),root,StringComparison.OrdinalIgnoreCase)
+      ||!System.Text.RegularExpressions.Regex.IsMatch(id,"^[a-f0-9]{24}$") || volume.Length<1 || volume.Length>128
+      ||(role!="external-parent" && role!="new-target-ancestor") || ordinal<0 || ordinal>=10000)Reject("bound_flush_binding");
+    // Ordinary directory durability, independently bound to this exact parent.
+    // No metadata suppression, capture, child-name lookup or borrowed tree ID.
+    using(var handle=CreateFile(root,0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
+      if(handle.IsInvalid)throw new Win32Exception(Marshal.GetLastWin32Error());
+      CheckBoundFlushDirectory(handle,root,id,volume);Step="bound-directory-flush";Check(FlushFileBuffers(handle));CheckBoundFlushDirectory(handle,root,id,volume);
+    }
+    return new Dictionary<string,object>{{"schema",1},{"kind","bound-directory-flush-v1"},{"root",root},{"id",id},{"volume",volume},{"role",role},{"ordinal",ordinal},{"flushed",true}};
+  }
+  static void FlushStoreDirectoryById(Dictionary<string,object> args) {
+    object preserve=null,rawPath=null,rawAnchor=null,rawId=null;
+    if(!args.TryGetValue("preserveMetadata",out preserve) || !(preserve is bool) || !(bool)preserve)Reject("store_flush_option");
+    if(!args.TryGetValue("root",out rawPath) || !(rawPath is string) || !args.TryGetValue("anchor",out rawAnchor) || !(rawAnchor is string))Reject("store_flush_anchor");
+    if(!args.TryGetValue("objectId",out rawId) || !(rawId is string))Reject("store_flush_id");
+    string path=(string)rawPath,anchor=(string)rawAnchor,objectId=(string)rawId;uint serial=0;ulong index=0;
+    if(!System.Text.RegularExpressions.Regex.IsMatch(objectId,"^[a-f0-9]{24}$")
+      ||!uint.TryParse(objectId.Substring(0,8),System.Globalization.NumberStyles.HexNumber,System.Globalization.CultureInfo.InvariantCulture,out serial)
+      ||!ulong.TryParse(objectId.Substring(8),System.Globalization.NumberStyles.HexNumber,System.Globalization.CultureInfo.InvariantCulture,out index))Reject("store_flush_id");
+    // Pure lexical checks precede all opens. The target ID comes only from the
+    // caller's unchanged original checkpoint, never a new lookup by this path.
+    if(path.Length<3 || anchor.Length<3 || path.Length>32763 || anchor.Length>32763
+      ||!Char.IsLetter(path[0]) || !Char.IsLetter(anchor[0]) || path[1]!=':' || anchor[1]!=':' || path[2]!='\\' || anchor[2]!='\\')Reject("store_flush_anchor");
+    if(path.Length>3)path=path.TrimEnd('\\');if(anchor.Length>3)anchor=anchor.TrimEnd('\\');
+    string prefix=anchor.EndsWith("\\")?anchor:anchor+"\\";
+    if(!String.Equals(System.IO.Path.GetFullPath(path),path,StringComparison.OrdinalIgnoreCase)
+      ||!String.Equals(System.IO.Path.GetFullPath(anchor),anchor,StringComparison.OrdinalIgnoreCase)
+      ||!String.Equals(path,anchor,StringComparison.OrdinalIgnoreCase)&&!path.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))Reject("store_flush_anchor");
+    foreach(string part in anchor.Length==3?new string[0]:anchor.Substring(3).Split('\\'))if(!FlushPart(part))Reject("store_flush_anchor");
+    string relative=path.Length==anchor.Length?"":path.Substring(prefix.Length);string[] parts=relative==""?new string[0]:relative.Split('\\');
+    if(parts.Length>512)Reject("store_flush_anchor");foreach(string part in parts)if(!FlushPart(part))Reject("store_flush_anchor");
+    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
+    try {
+      using(var hint=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
+        if(hint.IsInvalid)throw new Win32Exception(Marshal.GetLastWin32Error());
+        CheckFlushDirectory(hint,@"\\?\"+anchor,null);
+        Info information;Check(GetFileInformationByHandle(hint,out information));if(information.Volume!=serial)Reject("store_volume_changed");
+        string volume=VolumeOf(hint);
+        FileIdDescriptor descriptor=new FileIdDescriptor{Size=(uint)Marshal.SizeOf(typeof(FileIdDescriptor)),Type=0,FileId=unchecked((long)index),Reserved=0};
+        using(var target=OpenFileById(hint,ref descriptor,0xC0100000u,3,IntPtr.Zero,0x02200000u)) {
+          if(target.IsInvalid)throw new Win32Exception(Marshal.GetLastWin32Error());
+          CheckFlushDirectory(target,@"\\?\"+path,volume,objectId);
+          Check(FlushFileBuffers(target));
+        }
+      }
+    } finally {PreserveTimeHandles=previous;}
+  }
+  static object MoveStoreCore(Dictionary<string,object> args) {
     string source=System.IO.Path.GetFullPath(Str(args["source"])),target=System.IO.Path.GetFullPath(Str(args["target"]));
     string fromParent=System.IO.Path.GetDirectoryName(source),toParent=System.IO.Path.GetDirectoryName(target);
     using(var original=Open(source)) using(var parent=Open(toParent)) {
@@ -1067,13 +1251,166 @@ public static class RuyiSkillCapsule {
       if(!String.Equals(PathOf(parent),@"\\?\"+toParent,StringComparison.OrdinalIgnoreCase)) Reject("store_path_alias");
       if(!String.Equals(VolumeOf(original),VolumeOf(parent),StringComparison.OrdinalIgnoreCase)) Reject("cross_volume");
       // Capability refusal precedes rename. No COPY_ALLOWED and no replacement.
+      bool preserveMetadata=args.ContainsKey("preserveMetadata") && args["preserveMetadata"] is bool && (bool)args["preserveMetadata"];
+      Basic before=BasicOf(original);string beforeAlias=ShortName(original);
       Step="store-flush-pre";FlushStoreDirectory(fromParent);FlushStoreDirectory(toParent);
       Step="store-move";Check(MoveFileExW(@"\\?\"+source,@"\\?\"+target,8));
       if(Id(original)!=Str(args["id"]) || !String.Equals(PathOf(original),@"\\?\"+target,StringComparison.OrdinalIgnoreCase)) Reject("store_identity");
       Step="store-flush-post";FlushStoreDirectory(fromParent);FlushStoreDirectory(toParent);
+      if(preserveMetadata) {
+        Node owned=new Node { Handle=original,Entry=new Dictionary<string,object>{{"shortName",beforeAlias},{"attrs",before.Attr},{"times",new string[]{Str(before.Creation),Str(before.Access),Str(before.Write),Str(before.Change)}}} };
+        SetAlias(owned,beforeAlias);if(!String.Equals(ShortName(original),beforeAlias,StringComparison.Ordinal))Reject("portable_short_name_unrepresentable");
+        FlushStoreDirectory(target);RestoreNodeBasic(owned,original);
+        Basic after=BasicOf(original);if(after.Creation!=before.Creation || after.Access!=before.Access || after.Write!=before.Write || after.Change!=before.Change || after.Attr!=before.Attr)Reject("metadata_changed");
+      }
       return new Dictionary<string,object>{{"id",Id(original)},{"volume",VolumeOf(original)}};
     }
   }
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateDirectoryW(string path,IntPtr security);
+  // FILE_BASIC_INFORMATION -1 suppresses automatic updates on this handle.
+  // This is scoped to owned creation/preserved capture, never general writes.
+  static object StoreInfo(Dictionary<string,object> args) {
+    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
+    try {return StoreInfoCore(args);}finally {PreserveTimeHandles=previous;}
+  }
+  static object MoveStore(Dictionary<string,object> args) {
+    bool preserve=args.ContainsKey("preserveMetadata") && args["preserveMetadata"] is bool && (bool)args["preserveMetadata"];
+    if(!preserve)return MoveStoreCore(args);
+    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
+    try {return MoveStoreCore(args);}finally {PreserveTimeHandles=previous;}
+  }
+
+  static void PreserveHandleTimes(SafeFileHandle handle) {
+    Basic keep = new Basic { Access=-1, Write=-1, Change=-1 };
+    IntPtr value=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(Basic))),iosb=Marshal.AllocHGlobal(IntPtr.Size*2);
+    string prior=Step;Step="preserve-times";
+    try {
+      Marshal.StructureToPtr(keep,value,false);
+      int status=NtSetInformationFile(handle,iosb,value,(uint)Marshal.SizeOf(typeof(Basic)),4);
+      if(status<0)throw new Win32Exception((int)RtlNtStatusToDosError(status));
+      Step=prior;
+    } finally {Marshal.FreeHGlobal(value);Marshal.FreeHGlobal(iosb);}
+  }
+  static object CapturePreserved(Dictionary<string,object> args) {
+    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
+    try {return Capture(args);}
+    finally {try {RestoreBasic(new List<Node>(Nodes.Values));} finally {PreserveTimeHandles=previous;}}
+  }
+  static object CreateOwnedPortable(Dictionary<string,object> args) {
+    bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
+    try {return CreateOwnedPortableCore(args);}
+    finally {PreserveTimeHandles=previous;}
+  }
+  static void VerifyPortableReadback(Dictionary<string,object> wanted,Dictionary<string,object> actual) {
+    Dictionary<string,Dictionary<string,object>> byPath=new Dictionary<string,Dictionary<string,object>>(StringComparer.Ordinal);
+    foreach(object raw in (IEnumerable)actual["entries"]) {Dictionary<string,object> entry=Dict(raw);byPath.Add(Str(entry["rel"]),entry);}
+    int count=0;
+    foreach(object raw in (IEnumerable)wanted["entries"]) {
+      Dictionary<string,object> expected=Dict(raw);string rel=Str(expected["rel"]);count++;
+      if(!byPath.ContainsKey(rel))Reject("portable_readback_changed");Dictionary<string,object> entry=byPath[rel];
+      if(Str(entry["id"])!=Str(expected["id"]) || (bool)entry["dir"]!=(bool)expected["dir"] || Convert.ToUInt32(entry["attrs"])!=Convert.ToUInt32(expected["attrs"]))Reject("portable_readback_changed");
+      if(!String.Equals(Str(entry["shortName"]),Str(expected["shortName"]),StringComparison.Ordinal))Reject("portable_short_name_unrepresentable");
+      List<string> expectedTimes=new List<string>(),actualTimes=new List<string>();
+      foreach(object time in (IEnumerable)expected["times"])expectedTimes.Add(Str(time));
+      foreach(object time in (IEnumerable)entry["times"])actualTimes.Add(Str(time));
+      if(expectedTimes.Count!=4 || actualTimes.Count!=4)Reject("portable_readback_changed");
+      for(int index=0;index<4;index++)if(actualTimes[index]!=expectedTimes[index])Reject("portable_metadata_changed");
+      Dictionary<string,Dictionary<string,object>> streams=new Dictionary<string,Dictionary<string,object>>(StringComparer.Ordinal);int streamCount=0;
+      foreach(object streamRaw in (IEnumerable)entry["streams"]) {Dictionary<string,object> stream=Dict(streamRaw);streams.Add(Str(stream["name"]),stream);}
+      foreach(object streamRaw in (IEnumerable)expected["streams"]) {
+        Dictionary<string,object> stream=Dict(streamRaw);string name=Str(stream["name"]);streamCount++;
+        if(!streams.ContainsKey(name))Reject("portable_readback_changed");Dictionary<string,object> read=streams[name];
+        if(Convert.ToInt64(read["size"])!=Convert.ToInt64(stream["size"]) || Str(read["hash"])!=Str(stream["hash"]) || Str(read["data"])!=Str(stream["data"]))Reject("portable_readback_changed");
+      }
+      if(streamCount!=streams.Count)Reject("portable_readback_changed");
+    }
+    if(count!=byPath.Count)Reject("portable_readback_changed");
+  }
+
+  static object CreateOwnedPortableCore(Dictionary<string,object> args) {
+    // All objects are new, created without replacement. Security is inherited
+    // from the destination; source IDs/opaque names never authorize a live object.
+    if(Nodes.Count!=0 || Capsule!=null) Reject("already_open");
+    string root=System.IO.Path.GetFullPath(Str(args["root"])),revision=Str(args["revision"]);
+    if(!System.Text.RegularExpressions.Regex.IsMatch(revision,"^[a-f0-9]{64}$")) Reject("portable_revision");
+    Dictionary<string,object> source=Dict(args["snapshot"]);
+    if(Convert.ToInt32(source["schema"])!=1 || Str(source["platform"])!="ntfs-objects-v1") Reject("portable_shape");
+    List<Dictionary<string,object>> entries=new List<Dictionary<string,object>>();
+    HashSet<string> names=new HashSet<string>(StringComparer.OrdinalIgnoreCase),dirs=new HashSet<string>(StringComparer.OrdinalIgnoreCase),sourceIds=new HashSet<string>(),aliases=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    long bytesTotal=0;
+    foreach(object raw in (IEnumerable)source["entries"]) {
+      Dictionary<string,object> entry=Dict(raw);string rel=Str(entry["rel"]);bool directory=(bool)entry["dir"];
+      if(entries.Count>=10000 || rel.Length>30000 || !names.Add(rel)) Reject("portable_shape");
+      if(!System.Text.RegularExpressions.Regex.IsMatch(Str(entry["id"]),"^[a-f0-9]{24}$") || !sourceIds.Add(Str(entry["id"]))) Reject("portable_shape");
+      if(rel!="") {
+        string[] parts=rel.Split('/');if(parts.Length>256)Reject("portable_path");
+        foreach(string part in parts) if(part.Length<1 || part.Length>255 || part=="." || part==".." || part.EndsWith(".") || part.EndsWith(" ") || part.IndexOfAny(new char[]{'\\',':','*','?','"','<','>','|'})>=0 || System.Text.RegularExpressions.Regex.IsMatch(part,"[\\x00-\\x1f]")) Reject("portable_path");
+      } else if(!directory)Reject("portable_root");
+      uint attrs=Convert.ToUInt32(entry["attrs"]);if((attrs & ~0x31b7u)!=0 || ((attrs&16u)!=0)!=directory) Reject("portable_attrs");
+      int times=0;foreach(object time in (IEnumerable)entry["times"]) {long parsed;if(!long.TryParse(Str(time),out parsed)||parsed<0)Reject("portable_times");times++;}if(times!=4)Reject("portable_times");
+      string alias=Str(entry["shortName"]);LegalShortName(alias);
+      if(rel!="" && alias!="") {int slash=rel.LastIndexOf('/');string key=(slash<0?"":rel.Substring(0,slash+1))+alias;if(!aliases.Add(key))Reject("portable_alias");}
+      HashSet<string> streams=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+      foreach(object streamRaw in (IEnumerable)entry["streams"]) {
+        Dictionary<string,object> stream=Dict(streamRaw);string name=Str(stream["name"]);
+        if(streams.Count>=1024 || !streams.Add(name) || name.Length>1024 || directory&&name=="")Reject("portable_stream");
+        if(name!="" && !System.Text.RegularExpressions.Regex.IsMatch(name,"^:[^:\\\\/*?\"<>|\\x00-\\x1f]+:\\$DATA$"))Reject("portable_stream");
+        byte[] bytes=Convert.FromBase64String(Str(stream["data"]));
+        try {bytesTotal+=bytes.Length;if(bytesTotal>MaxBytes || bytes.Length!=Convert.ToInt64(stream["size"]) || Convert.ToBase64String(bytes)!=Str(stream["data"]) || Hash(bytes)!=Str(stream["hash"]))Reject("portable_content");}
+        finally {Array.Clear(bytes,0,bytes.Length);}
+      }
+      if(!directory && !streams.Contains(""))Reject("portable_default");
+      if(directory)dirs.Add(rel);entries.Add(entry);
+    }
+    if(entries.Count<1 || !dirs.Contains(""))Reject("portable_root");
+    foreach(Dictionary<string,object> entry in entries) {
+      string rel=Str(entry["rel"]);if(rel=="")continue;int slash=rel.LastIndexOf('/');string parent=slash<0?"":rel.Substring(0,slash);
+      if(!dirs.Contains(parent))Reject("portable_parent");string alias=Str(entry["shortName"]),key=(parent==""?"":parent+"/")+alias;
+      if(alias!="" && names.Contains(key) && !String.Equals(key,rel,StringComparison.OrdinalIgnoreCase))Reject("portable_alias");
+    }
+    // Validate the real destination parent and flush capability before mutation.
+    string parentRoot=System.IO.Path.GetDirectoryName(root);using(SafeFileHandle parent=Open(parentRoot)) {
+      StoreFileSystem(parent);if(!String.Equals(PathOf(parent),@"\\?\"+parentRoot,StringComparison.OrdinalIgnoreCase))Reject("portable_parent_alias");
+      FlushStoreDirectory(parentRoot);
+    }
+    entries.Sort(delegate(Dictionary<string,object> a,Dictionary<string,object> b){return Str(a["rel"]).Length.CompareTo(Str(b["rel"]).Length);});
+    List<object> created=new List<object>();OriginalRoot=@"\\?\"+root;
+    foreach(Dictionary<string,object> entry in entries) {
+      string rel=Str(entry["rel"]),file=rel==""?OriginalRoot:System.IO.Path.Combine(OriginalRoot,rel.Replace('/','\\'));bool directory=(bool)entry["dir"];
+      Step="portable-create";Node node=new Node();
+      try {
+      if(directory){Check(CreateDirectoryW(file,IntPtr.Zero));node.Handle=Open(file,out node.Writable);}
+      else {node.Handle=CreateFile(file,0xC0010000u,5,IntPtr.Zero,1,0x00200000u,IntPtr.Zero);node.Writable=true;if(node.Handle.IsInvalid)throw new Win32Exception(Marshal.GetLastWin32Error());try {PreserveHandleTimes(node.Handle);}catch{node.Handle.Dispose();throw;}}
+      string id=Id(node.Handle);if(Nodes.ContainsKey(id)){node.Handle.Dispose();Reject("object_duplicate");}
+      if(!String.Equals(PathOf(node.Handle),file,StringComparison.OrdinalIgnoreCase)){node.Handle.Dispose();Reject("portable_path_alias");}
+      Dictionary<string,object> staged=new Dictionary<string,object>(entry);staged["id"]=id;staged["opaque"]=RandomName();node.Entry=staged;Nodes.Add(id,node);created.Add(staged);
+      } catch {
+        if(!Nodes.ContainsValue(node) && node.Handle!=null && !node.Handle.IsClosed)node.Handle.Dispose();
+        throw;
+      }
+      // Directories have no descendants open when their alias is established.
+      SetAlias(node,Str(entry["shortName"]));
+      if(!String.Equals(ShortName(node.Handle),Str(entry["shortName"]),StringComparison.Ordinal))Reject("portable_short_name_unrepresentable");
+      foreach(object streamRaw in (IEnumerable)entry["streams"]) {
+        Dictionary<string,object> stream=Dict(streamRaw);string name=Str(stream["name"]);byte[] bytes=Convert.FromBase64String(Str(stream["data"]));
+        try {
+          SafeFileHandle handle=node.Handle;
+          if(name!=""){handle=CreateFile(file+name,0xC0010000u,5,IntPtr.Zero,1,0x00200000u,IntPtr.Zero);if(handle.IsInvalid)throw new Win32Exception(Marshal.GetLastWin32Error());try{PreserveHandleTimes(handle);}catch{handle.Dispose();throw;}node.Streams.Add(name,handle);}
+          Step="portable-write";Write(handle,bytes);
+        } finally {Array.Clear(bytes,0,bytes.Length);}
+      }
+    }
+    Snapshot=new Dictionary<string,object>{{"schema",1},{"platform","ntfs-objects-v1"},{"revision",revision},{"entries",created}};
+    Step="portable-verify";Verify(false,true);VerifyOriginalLayout();
+    // Enumeration and every auxiliary flush handle finish before the final
+    // metadata application. Suppressed primary/stream handles cannot overwrite
+    // restored Basic values on close. Reopen and inspect actual objects/bytes.
+    foreach(Node node in Expected())if((bool)node.Entry["dir"])FlushStoreDirectory(PathOf(node.Handle));FlushStoreDirectory(parentRoot);
+    RestoreBasic(Expected());Dictionary<string,object> wanted=Snapshot;Close();
+    Dictionary<string,object> observed=Dict(CapturePreserved(new Dictionary<string,object>{{"root",root},{"revision",revision}}));
+    Step="portable-readback";VerifyPortableReadback(wanted,observed);return observed;
+  }
+
   public static void Run() {
     Console.InputEncoding = new UTF8Encoding(false); Console.OutputEncoding = new UTF8Encoding(false);
     try {
@@ -1081,10 +1418,14 @@ public static class RuyiSkillCapsule {
       while ((line = Console.ReadLine()) != null) {
         try {
           Dictionary<string,object> args = Dict(Json.DeserializeObject(line)); string command = Str(args["cmd"]); object result = null;
+          if(CapturedFlushScope && command!="flush-captured-directories" && command!="close")Reject("captured_flush_scope");
           if (command == "store-info") result=StoreInfo(args);
           else if (command == "store-move") result=MoveStore(args);
+          else if (command == "create-owned-portable") result=CreateOwnedPortable(args);
           else if (command == "capture") result = Capture(args);
-          else if (command == "capture-preserved") { try { result=Capture(args); } finally { RestoreBasic(new List<Node>(Nodes.Values)); } }
+          else if (command == "capture-preserved") result=CapturePreserved(args);
+          else if (command == "capture-owned-flush-ready") result=CaptureOwnedFlushReady(args);
+          else if (command == "flush-captured-directories") result=FlushCapturedDirectories(args);
           else if (command == "short-probe") ProbeShortNames(args);
           else if (command == "attach") Attach(args);
           else if (command == "seal") Seal(args);
@@ -1093,7 +1434,17 @@ public static class RuyiSkillCapsule {
           else if (command == "publish") Publish(args);
           else if (command == "finish-published") FinishPublished(args);
           else if (command == "publish-check") CheckPublication(args);
-          else if (command == "store-flush") FlushStoreDirectory(Str(args["root"]));
+          else if (command == "store-flush-bound") result=FlushStoreDirectoryBound(args);
+          else if (command == "store-flush-by-id") FlushStoreDirectoryById(args);
+          else if (command == "store-flush") {
+            object preserve;
+            if(args.TryGetValue("preserveMetadata",out preserve) && !(preserve is bool)) Reject("store_flush_option");
+            if(preserve is bool && (bool)preserve) {
+              object anchor;if(!args.TryGetValue("anchor",out anchor) || !(anchor is string))Reject("store_flush_anchor");
+              FlushStoreDirectoryPreserved(Str(args["root"]),(string)anchor);
+            }
+            else FlushStoreDirectory(Str(args["root"]));
+          }
           else if (command == "verify") Verify(Convert.ToBoolean(args["cleared"]), true);
           else if (command == "close") { Close(); Console.WriteLine("{\"ok\":true}"); return; }
           else Reject("command_invalid");
@@ -1203,7 +1554,9 @@ function migrationCapsuleDecode(bytes) {
   } finally { decoded.fill(0); }
 }
 function migrationCapsuleArchive(descriptor, keys = descriptor.archiveKeys) {
-  return WorkDataStore.createBinary({ file: () => path.join(descriptor.backup, 'archive'),
+  const file = path.join(descriptor.backup, 'archive');
+  return WorkDataStore.createBinary({ file: () => file,
+    ...(descriptor.capturedFile ? { capturedFile: descriptor.capturedFile(file, 256 * 1024 * 1024) } : {}),
     purpose: 'backup', schema: 1, scopeId: descriptor.scopeId, recordId: descriptor.recordId + ':archive', keys,
     chunked: true, maxPlaintextBytes: 192 * 1024 * 1024, maxBinaryBytes: MIGRATION_CAPSULE_BINARY_LIMIT,
     enabled: async () => true, // this format has no plaintext capsule representation
@@ -1258,7 +1611,7 @@ function migrationCapsuleFingerprintShape(entries) {
 }
 function migrationCapsuleIntent(descriptor, keys = descriptor.intentKeys) {
   const file = () => descriptor.intentFile || path.join(descriptor.backup, 'intent');
-  const store = onAuthenticated => WorkDataStore.createText({ file, purpose: 'backup', schema: 1,
+  const store = onAuthenticated => WorkDataStore.createText({ file, ...(descriptor.capturedFile ? { capturedFile: descriptor.capturedFile(file(), 256 * 1024 * 1024) } : {}), purpose: 'backup', schema: 1,
     scopeId: descriptor.scopeId, recordId: descriptor.intentRecordId || descriptor.recordId + ':intent', keys, chunked: true, maxPlaintextBytes: 16 * 1024 * 1024,
     enabled: async () => true,
     validateSealedText: text => {
@@ -1275,7 +1628,60 @@ function migrationCapsuleIntent(descriptor, keys = descriptor.intentKeys) {
     return text;
   } });
 }
+function migrationCapsuleCarrierHeaderValid(header,descriptor,kind) { return !(!header || Array.isArray(header)
+        || Object.keys(header).sort().join(',') !== 'format,instanceId,keyId,manifest,purpose,recordId,revision,schema,scopeId,seq,workData'
+        || header.workData !== 3 || header.format !== 'chunks-v1' || header.purpose !== 'backup'
+        || header.schema !== 1 || header.seq !== 1 || header.scopeId !== descriptor.scopeId
+        || header.recordId !== (kind === 'intent' && descriptor.intentRecordId || descriptor.recordId + ':' + kind)
+        || typeof header.instanceId !== 'string' || typeof header.keyId !== 'string'
+        || !/^[a-f0-9]{32}$/.test(header.revision || '') || !header.manifest || typeof header.manifest !== 'object' || Array.isArray(header.manifest)); }
+// Captured sources are opaque leases issued by the real preserved tree owner.
+// Only this callback can see the copy; an expired/changed lease never falls back
+// to opening the path. Crypto parsing remains in the existing Store owners.
+function migrationCapturedCleanupFailure(primary,failed,cleanupErrors,releaseFailed) {
+  const unknown = value => {
+    if (value === null || !['object','function'].includes(typeof value)) return false;
+    const seen=new Set();
+    try { for(let depth=0;value!==null&&depth<8;depth++) {
+      if(seen.has(value))return true;seen.add(value);
+      const flag=Object.getOwnPropertyDescriptor(value,'helperMayStillRun');
+      if(flag)return !Object.hasOwn(flag,'value')||flag.value===true;
+      value=Object.getPrototypeOf(value);
+    } return value!==null; } catch { return true; }
+  };
+  const causes=[...(failed?[primary]:[]),...cleanupErrors];
+  return Object.assign(new AggregateError(causes,'work_data_backup.captured_cleanup_uncertain',{cause:causes[0]}),{
+    code:'work_data_backup.captured_cleanup_uncertain',cleanupFailed:true,ownershipRetained:true,
+    helperMayStillRun:releaseFailed||causes.some(unknown),operationMayHaveExecuted:true,resultUnavailable:true,retry:false,
+  });
+}
+async function migrationWithCapturedBytes(descriptor, file, maximum, work) {
+  const factory = descriptor?.capturedFile;
+  if (typeof factory !== 'function') migrationCapsuleFail('captured_source');
+  const issue = factory(file, maximum);
+  if (typeof issue !== 'function') migrationCapsuleFail('captured_source');
+  const token = await issue(); let bytes,result,failed=false,primary;
+  try {
+    bytes = await WorkDataTree.readCapturedFile(token, file);
+    if (!Buffer.isBuffer(bytes) || bytes.length > maximum) migrationCapsuleFail('captured_source');
+    result = await work(bytes);
+    if (await WorkDataTree.verifyCapturedFile(token, file) !== true
+      || WorkDataTree.assertCapturedFile(token, file) !== true) migrationCapsuleFail('captured_source');
+  } catch(cause) {failed=true;primary=cause;}
+  const cleanupErrors=[];let releaseFailed=false;
+  try {if(bytes)bytes.fill(0);}catch(cause){cleanupErrors.push(cause);}
+  try {const released=token?.release();if(released!==undefined){Promise.resolve(released).catch(()=>{});throw new Error('captured_release_unproven');}}
+  catch(cause){releaseFailed=true;cleanupErrors.push(cause);}
+  if(cleanupErrors.length)throw migrationCapturedCleanupFailure(primary,failed,cleanupErrors,releaseFailed);
+  if(failed)throw primary;return result;
+}
 async function migrationCapsuleRequireCarrier(file, descriptor, kind) {
+  if (descriptor.capturedFile) return migrationWithCapturedBytes(descriptor, file, 256 * 1024 * 1024, bytes => {
+    const end = bytes.indexOf(10);
+    if (end < 0 || end > 16 * 1024) migrationCapsuleFail('carrier');
+    const header = safeJsonParse(bytes.subarray(0, end).toString('utf8'), null);
+    if (!migrationCapsuleCarrierHeaderValid(header, descriptor, kind)) migrationCapsuleFail('carrier');
+  });
   const handle = await fsp.open(file, 'r');
   try {
     const bytes = Buffer.alloc(16 * 1024 + 1); let used = 0, end = -1;
@@ -1288,13 +1694,7 @@ async function migrationCapsuleRequireCarrier(file, descriptor, kind) {
     const header = safeJsonParse(bytes.subarray(0, end).toString('utf8'), null);
     // This family has only the current chunk writer's sealed representation.
     // This bounded format/binding check is followed by the store's full crypto authentication.
-    if (!header || Array.isArray(header)
-        || Object.keys(header).sort().join(',') !== 'format,instanceId,keyId,manifest,purpose,recordId,revision,schema,scopeId,seq,workData'
-        || header.workData !== 3 || header.format !== 'chunks-v1' || header.purpose !== 'backup'
-        || header.schema !== 1 || header.seq !== 1 || header.scopeId !== descriptor.scopeId
-        || header.recordId !== (kind === 'intent' && descriptor.intentRecordId || descriptor.recordId + ':' + kind)
-        || typeof header.instanceId !== 'string' || typeof header.keyId !== 'string'
-        || !/^[a-f0-9]{32}$/.test(header.revision || '') || !header.manifest || typeof header.manifest !== 'object' || Array.isArray(header.manifest)) migrationCapsuleFail('carrier');
+    if (!migrationCapsuleCarrierHeaderValid(header,descriptor,kind)) migrationCapsuleFail('carrier');
   } finally { await handle.close(); }
 }
 async function migrationCapsuleWriteIntent(descriptor, intent) {
@@ -1328,7 +1728,8 @@ function migrationBackupHistoryShape(value, descriptor) {
 }
 function migrationBackupHistoryBinding(descriptor) { return { purpose:'backup',schema:1,scopeId:'skill-backup-history:'+descriptor.stamp,recordId:descriptor.recordId+':history' }; }
 function migrationBackupHistoryStore(descriptor, mode, onAuthenticated) {
-  return WorkDataStore.createText({ file: () => path.join(descriptor.backup, 'history'), ...migrationBackupHistoryBinding(descriptor), keys: descriptor.archiveKeys,
+  const file = path.join(descriptor.backup, 'history');
+  return WorkDataStore.createText({ file: () => file, ...(descriptor.capturedFile ? { capturedFile: descriptor.capturedFile(file, 256 * 1024 * 1024) } : {}), ...migrationBackupHistoryBinding(descriptor), keys: descriptor.archiveKeys,
     chunked: true, maxPlaintextBytes: MIGRATION_CAPSULE_ARCHIVE_LIMIT, enabled: async () => mode === 'encrypted', writeJson: atomicWriteJson,
     validateSealedText: text => { const valid = migrationBackupHistoryShape(safeJsonParse(text, null), descriptor); if (valid && onAuthenticated) onAuthenticated(); return valid; } });
 }
@@ -1338,7 +1739,9 @@ async function migrationReadBackupHistory(backup, descriptor = migrationCapsuleD
   let present; try { present = await fsp.lstat(marker); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   if (!present) return null;
   if (!present.isFile() || present.isSymbolicLink() || present.nlink !== 1 || present.size > 128) migrationCapsuleFail('history_marker');
-  const header = safeJsonParse(await fsp.readFile(marker, 'utf8'), null);
+  const header = descriptor.capturedFile
+    ? await migrationWithCapturedBytes(descriptor, marker, 128, bytes => safeJsonParse(bytes.toString('utf8'), null))
+    : safeJsonParse(await fsp.readFile(marker, 'utf8'), null);
   if (!header || Object.keys(header).sort().join(',') !== 'mode,schema' || header.schema !== 1 || !['plain', 'encrypted'].includes(header.mode)) migrationCapsuleFail('history_marker');
   const file = path.join(backup, 'history'), stat = await fsp.lstat(file);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > MIGRATION_CAPSULE_BINARY_LIMIT * 2) migrationCapsuleFail('history_shape');
@@ -1377,7 +1780,7 @@ async function migrationCapsuleBroker() {
   };
   if (migrationCapsuleBroker.helperMayStillRun === true) throw failure('native_helper_uncertain', null, true);
   if (process.platform !== 'win32') migrationCapsuleFail('platform_unsupported');
-  const bootstrap = "$ErrorActionPreference='Stop'; Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:RUYI_SKILL_CAPSULE_SOURCE))); [RuyiSkillCapsule]::Run()";
+  const bootstrap = "$ErrorActionPreference='Stop'; $ruyiSkillCapsuleSource=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:RUYI_SKILL_CAPSULE_SOURCE)); [Environment]::SetEnvironmentVariable('RUYI_SKILL_CAPSULE_SOURCE',$null,[EnvironmentVariableTarget]::Process); try { Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition $ruyiSkillCapsuleSource } finally { $ruyiSkillCapsuleSource=$null }; [RuyiSkillCapsule]::Run()";
   let child;
   try {
     child = require('node:child_process').spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(bootstrap, 'utf16le').toString('base64')], {
@@ -1481,6 +1884,76 @@ async function migrationCapsuleBroker() {
     return closePromise;
   };
   return Object.freeze({ command, close });
+}
+function migrationCapsulePortableShape(snapshot) {
+  const keys=(value,names)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===names;
+  return migrationCapsuleShape(snapshot)&&keys(snapshot,'entries,platform,revision,schema')
+    &&snapshot.entries.every(entry=>keys(entry,'attrs,dir,id,opaque,rel,shortName,streams,times')
+      &&entry.streams.every(stream=>keys(stream,'data,hash,name,size')));
+}
+async function migrationCapsuleCreateOwnedPortable(root, snapshot, revision) {
+  if(typeof root!=='string'||!path.isAbsolute(root)||root!==path.resolve(root)
+    ||!/^[a-f0-9]{64}$/.test(revision||'')||!migrationCapsulePortableShape(snapshot))migrationCapsuleFail('portable_create_shape');
+  // Capture the exact logical input before any await. The child creates new
+  // objects; source IDs and opaque paths are historical metadata only.
+  const original=JSON.parse(JSON.stringify(snapshot));
+  const logical=value=>value.entries.map(entry=>({rel:entry.rel,dir:entry.dir,attrs:entry.attrs,times:entry.times,shortName:entry.shortName,streams:entry.streams}))
+    .sort((a,b)=>a.rel<b.rel?-1:a.rel>b.rel?1:0);
+  let broker,result,failure,failed=false,started=false;
+  const hasUncertainty=root=>{
+    const active=new Set(),done=new Set();let nodes=0;
+    const walk=(value,depth)=>{
+      if(value===null||!['object','function'].includes(typeof value))return false;
+      if(require('node:util').types.isProxy(value)||depth>8||active.has(value))return true;if(done.has(value))return false;if(++nodes>64)return true;active.add(value);
+      try{
+        let proto=value;const seen=new Set();for(let level=0;proto!==null&&level<8;level++){
+          if(require('node:util').types.isProxy(proto)||seen.has(proto))return true;seen.add(proto);const flag=Object.getOwnPropertyDescriptor(proto,'helperMayStillRun');
+          if(flag&&(!Object.hasOwn(flag,'value')||flag.value!==false))return true;
+          if(proto!==value&&(Object.getOwnPropertyDescriptor(proto,'cause')||Object.getOwnPropertyDescriptor(proto,'errors')))return true;
+          proto=Object.getPrototypeOf(proto);
+        }if(proto!==null)return true;
+        if(Array.isArray(value)){
+          const length=Object.getOwnPropertyDescriptor(value,'length');if(!length||!Object.hasOwn(length,'value')||!Number.isSafeInteger(length.value)||length.value<0||length.value>16)return true;
+          for(let index=0;index<length.value;index++){const item=Object.getOwnPropertyDescriptor(value,String(index));if(!item||!Object.hasOwn(item,'value')||walk(item.value,depth+1))return true;}
+        }
+        for(const key of ['cause','errors']){const edge=Object.getOwnPropertyDescriptor(value,key);if(!edge)continue;if(!Object.hasOwn(edge,'value')||key==='errors'&&!Array.isArray(edge.value)||walk(edge.value,depth+1))return true;}
+        done.add(value);return false;
+      }catch{return true;}finally{active.delete(value);}
+    };return walk(root,0);
+  };
+  try {
+    broker=await migrationCapsuleBroker();started=true;
+    result=await broker.command({cmd:'create-owned-portable',root,snapshot:original,revision});
+    if(!migrationCapsulePortableShape(result)||result.revision!==revision||JSON.stringify(logical(result))!==JSON.stringify(logical(original)))migrationCapsuleFail('portable_create_changed');
+    result=JSON.parse(JSON.stringify(result));
+  }catch(cause){failure=cause;failed=true;}
+  const cleanupErrors=[];let cleanupUnproven=false;
+  if(broker){let closePromised=false;
+    const unproven=()=>Object.assign(new Error('work_data_backup.portable_create_close_unproven'),{code:'work_data_backup.portable_create_close_unproven',helperMayStillRun:true});
+    try{
+      if(require('node:util').types.isProxy(broker))throw unproven();
+      const close=Object.getOwnPropertyDescriptor(broker,'close');if(!close||!Object.hasOwn(close,'value')||typeof close.value!=='function')throw unproven();
+      const pending=Reflect.apply(close.value,broker,[]);
+      if(pending!==undefined){
+        if(require('node:util').types.isProxy(pending)||!require('node:util').types.isPromise(pending))throw unproven();
+        let proto=pending;const prototypes=new Set();for(let depth=0;proto!==null&&depth<8;depth++){if(require('node:util').types.isProxy(proto)||prototypes.has(proto))throw unproven();prototypes.add(proto);proto=Object.getPrototypeOf(proto);}if(proto!==null)throw unproven();
+        const data=(value,key)=>{const seen=new Set();for(let depth=0;value!==null&&depth<8;depth++){if(require('node:util').types.isProxy(value)||seen.has(value))throw unproven();seen.add(value);const descriptor=Object.getOwnPropertyDescriptor(value,key);if(descriptor){if(!Object.hasOwn(descriptor,'value'))throw unproven();return descriptor.value;}value=Object.getPrototypeOf(value);}throw unproven();};
+        const ctor=data(pending,'constructor'),then=data(pending,'then'),nativeText=value=>Function.prototype.toString.call(value);
+        if(require('node:util').types.isProxy(ctor)||require('node:util').types.isProxy(then)||typeof ctor!=='function'||typeof then!=='function'||nativeText(ctor)!=='function Promise() { [native code] }'||nativeText(then)!=='function then() { [native code] }')throw unproven();
+        const species=Object.getOwnPropertyDescriptor(ctor,Symbol.species);
+        if(!species||!(Object.hasOwn(species,'value')?[undefined,null,ctor].includes(species.value):typeof species.get==='function'&&!require('node:util').types.isProxy(species.get)&&species.set===undefined&&nativeText(species.get)==='function get [Symbol.species]() { [native code] }'))throw unproven();
+        // Subscribe with the checked intrinsic now. Await only our own void
+        // promise; do not re-read foreign constructor/then later or assimilate ACK data.
+        await new Promise((resolve,reject)=>{Reflect.apply(then,pending,[value=>{if(value===undefined)resolve();else reject(unproven());},reject]);closePromised=true;});
+      }
+    }catch(cause){cleanupErrors.push(cause);cleanupUnproven=!closePromised||cause===null||!['object','function'].includes(typeof cause);}
+  }
+  if(cleanupErrors.length){failure=migrationCapturedCleanupFailure(failure,failed,cleanupErrors,cleanupUnproven||(failed&&hasUncertainty(failure))||cleanupErrors.some(hasUncertainty));failed=true;}
+  if(failed){if(!started)throw failure;const helperMayStillRun=hasUncertainty(failure);throw Object.assign(new Error('work_data_backup.portable_create_uncertain',{cause:failure}),{
+    code:'work_data_backup.portable_create_uncertain',apiCode:'work_data_backup.portable_create_uncertain',statusCode:409,
+    operationMayHaveExecuted:true,resultUnavailable:true,retry:false,stageRetained:root,...(helperMayStillRun?{helperMayStillRun:true}:{})});}
+  const freeze=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))freeze(child);Object.freeze(value);}return value;};
+  return freeze(result);
 }
 async function migrationCapsuleCapture(root, revision) {
   const broker = await migrationCapsuleBroker();
@@ -1729,6 +2202,7 @@ async function migrationUndoCapsule(backup, item, dest) {
   const eligibility = migrationBackupAuthority?.eligibility.get(descriptor.stamp + '/' + (process.platform === 'win32' ? descriptor.id.toLowerCase() : descriptor.id)) || intent.conversion?.eligibility;
   if (eligibility && ['gone', 'edited'].includes(eligibility)) return { id: item.id, outcome: 'kept', reason: eligibility };
   if (intent.phase === 'complete') { await migrationFinishPlainHistory(descriptor, snapshot, intent); return { id: item.id, outcome: 'restored-previous' }; }
+  if (intent.phase === 'aborted') return { id: item.id, outcome: 'kept', reason: 'aborted' };
   if (!['ready', 'published'].includes(intent.phase)) migrationCapsuleFail('phase', true);
   const stat = await migrationLstat(dest);
   if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) return { id: item.id, outcome: 'kept', reason: 'gone' };
@@ -2368,12 +2842,44 @@ async function migrationRecycle(body) {
 
 // M3-3 local backup owner. The lifecycle host holds its transition gate and drains
 // writers before calling this API. Original backup objects never enter fs.cp/codecs.
-function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys = sourceKeys, native } = {}) {
+function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys = sourceKeys, native, ownership, assertExclusive, assertExclusiveSync, preservedRead } = {}) {
   if (typeof base !== 'string' || !path.isAbsolute(base) || typeof readActive !== 'function') migrationCapsuleFail('owner_host');
   // This local batch keeps one existing work-data master. Rotation/portable keys
   // need a per-backup key-reference map and are deliberately not implied here.
   if (targetKeys !== sourceKeys) migrationCapsuleFail('owner_key_rotation_unavailable');
   base = path.resolve(base);
+  if (preservedRead !== undefined && (!preservedRead || preservedRead.profile !== 'bounded-native-v1'
+    || typeof preservedRead.capturePreserved !== 'function' || typeof assertExclusive !== 'function'
+    || typeof assertExclusiveSync !== 'function' || !ownership)) migrationCapsuleFail('owner_preserved_host');
+  const preservedTree = preservedRead ? WorkDataTree.createPreserved({ capturePreserved: preservedRead.capturePreserved,
+    ownership, assertExclusive, assertExclusiveSync, limits: preservedRead.limits || {} }) : null;
+  const capturedReads = preservedTree ? new (require('node:async_hooks').AsyncLocalStorage)() : null;
+  const portableTargetReads = preservedTree ? new (require('node:async_hooks').AsyncLocalStorage)() : null;
+  function capturedFile(file, maximum = 256 * 1024 * 1024) {
+    const targetRead = portableTargetReads?.getStore(), captured = targetRead?.captured || capturedReads?.getStore();
+    if (!captured) return undefined;
+    return () => WorkDataTree.borrowCapturedFile(captured, file, targetRead ? targetRead.ownership : ownership, { maxBytes: maximum });
+  }
+  function capturedDescriptor(descriptor) {
+    return capturedReads?.getStore() || portableTargetReads?.getStore() ? { ...descriptor, capturedFile } : descriptor;
+  }
+  async function withCapturedReads(work) {
+    if (!preservedTree) return work();
+    const captured = await preservedTree.capture(base);let result,failed=false,primary;
+    try {
+      result=await capturedReads.run(captured, async () => {
+        const value = await work();
+        await preservedTree.verify(captured);
+        if (assertExclusiveSync(ownership) !== true) migrationCapsuleFail('owner_preserved_host');
+        return value;
+      });
+    } catch(cause){failed=true;primary=cause;}
+    const cleanupErrors=[];let releaseFailed=false;
+    try {const released=captured.release();if(released!==undefined){Promise.resolve(released).catch(()=>{});throw new Error('captured_release_unproven');}}
+    catch(cause){releaseFailed=true;cleanupErrors.push(cause);}
+    if(cleanupErrors.length)throw migrationCapturedCleanupFailure(primary,failed,cleanupErrors,releaseFailed);
+    if(failed)throw primary;return result;
+  }
   const control = path.join(base, '.work-data', 'skill-backups');
   const legacyRoot = path.join(base, 'migrations', MIGRATION_SKILL_BACKUP_DIR), stableRoot = path.join(control, 'objects-v1');
   const generationRoot = id => path.join(base, '.work-data', 'generations', id);
@@ -2442,7 +2948,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
   }
   const ownerScope = sourceBase => 'skill-backup-owner:' + hash(samePathKey(sourceBase)).slice(0, 32);
   function sealed(file, recordId, validate, keys = targetKeys, scopeBase = base) {
-    const store = authenticated => WorkDataStore.createText({ file: () => file, purpose: 'backup', schema: 1, scopeId: ownerScope(scopeBase), recordId,
+    const store = authenticated => WorkDataStore.createText({ file: () => file, ...(capturedReads?.getStore() ? { capturedFile: capturedFile(file) } : {}), purpose: 'backup', schema: 1, scopeId: ownerScope(scopeBase), recordId,
       keys, chunked: true, maxPlaintextBytes: 256 * 1024 * 1024, enabled: async () => true, writeJson: atomicWriteJson,
       validateSealedText: text => { const valid = validate(safeJsonParse(text, null)); if (valid && authenticated) authenticated(); return valid; } });
     return { write: async value => { if (!validate(value)) migrationCapsuleFail('owner_shape'); await store().write(JSON.stringify(value)); }, read: async () => {
@@ -2535,7 +3041,11 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     return { backup: path.join(root, stamp, skillId), stamp, id: skillId, scopeId: 'skill-backups:' + stamp,
       recordId: 'skill-backup:' + (process.platform === 'win32' ? skillId.toLowerCase() : skillId), archiveKeys: sourceKeys, intentKeys: sourceKeys };
   }
-  async function fileHash(file) { const digest = crypto.createHash('sha256'); for await (const bytes of fs.createReadStream(file)) digest.update(bytes); return digest.digest('hex'); }
+  async function fileHash(file) {
+    if (capturedReads?.getStore() || portableTargetReads?.getStore()) return migrationWithCapturedBytes({ capturedFile }, file, 256 * 1024 * 1024,
+      bytes => crypto.createHash('sha256').update(bytes).digest('hex'));
+    const digest = crypto.createHash('sha256'); for await (const bytes of fs.createReadStream(file)) digest.update(bytes); return digest.digest('hex');
+  }
   async function provenance(root, skillId, keys) {
     return WorkDataStore.createText({ file: () => path.join(root, SKILL_IMPORT_RECORD), purpose: 'backup', schema: 1, scopeId: 'skills',
       recordId: 'skill-import:' + (process.platform === 'win32' ? skillId.toLowerCase() : skillId), keys, chunked: true, maxPlaintextBytes: 16 * 1024,
@@ -2726,8 +3236,27 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     await migrationCapsuleRead(source); await current(selected);
     return source.backup;
   }
+  async function finishPlainHistoryReadOnly(source, snapshot, intent) {
+    const captured = capturedReads?.getStore();
+    if (!captured) return migrationFinishPlainHistory(source, snapshot, intent);
+    // A previously completed plain history can be authenticated without the
+    // mutating finish routine. Pending publication belongs to recovery first.
+    const target = source.plainRoot, publication = intent.historyPublish;
+    const selected = captured.directories.some(name => eq(path.join(base, ...name.split('/')), target));
+    if (!selected || !publication) migrationCapsuleFail('plain_history_pending');
+    const names = [];
+    for (const row of captured.files) { const file = path.join(base, ...row.path.split('/')); if (eq(path.dirname(file), target)) names.push(path.basename(file)); }
+    for (const name of captured.directories) { const file = path.join(base, ...name.split('/')); if (eq(path.dirname(file), target)) names.push(path.basename(file) + '/'); }
+    if (names.sort().join(',') !== [MIGRATION_BACKUP_HISTORY_MARKER, 'history'].sort().join(',')) migrationCapsuleFail('plain_history_conflict');
+    if ((await source.historyHost.info(target)).id !== publication.id) migrationCapsuleFail('plain_history_conflict');
+    const history = await migrationReadBackupHistory(target, capturedDescriptor({ ...source, backup: target }));
+    if (!history || history.mode !== 'plain' || history.phase !== 'complete'
+      || JSON.stringify(history.snapshot) !== JSON.stringify(snapshot)) migrationCapsuleFail('plain_history_conflict');
+  }
   async function activate() {
-    await recover(); const selected = await active();
+    await recover();
+    const prepared = await withCapturedReads(async () => {
+    const selected = await active();
     if (!selected.id) migrationCapsuleFail('owner_manifest');
     const catalog = await catalogStore().read(), binding = await bindingsStore(selected.id).read();
     if (!catalog || !binding || !binding.ready || binding.storeId !== catalog.storeId || binding.generationId !== selected.id) migrationCapsuleFail('binding_missing');
@@ -2740,20 +3269,20 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       if (entry.kind === 'plain') {
         const source = plainDescriptor(entry, selected.id); await directory(source.backup);
         if (await fileHash(path.join(source.backup, 'archive')) !== entry.archiveSha) migrationCapsuleFail('binding_source_changed');
-        const record = await migrationCapsuleRead(source);
+        const record = await migrationCapsuleRead(capturedDescriptor(source));
         if (!['published', 'restoring', 'complete'].includes(record.intent.phase) || record.intent.conversion?.eligibility !== entry.eligibility
           || entry.newTree && JSON.stringify(record.intent.newTree) !== JSON.stringify(entry.newTree)) migrationCapsuleFail('binding_intent');
         if (record.intent.phase === 'published') {
           const actual = await conversionNative.capture(physical, record.intent.revision);
           if (!migrationCapsuleSameMetadata(actual, record.snapshot)) migrationCapsuleFail('plain_backup_changed');
-        } else if (record.intent.phase === 'complete') await migrationFinishPlainHistory(source, record.snapshot, record.intent);
+        } else if (record.intent.phase === 'complete') await finishPlainHistoryReadOnly(source, record.snapshot, record.intent);
         const key = entry.ref.stamp + '/' + entry.ref.skillId;
         if (eligibility.has(key)) migrationCapsuleFail('binding_duplicate');
         variants.set(key, source); eligibility.set(key, entry.eligibility); plainRecords.push({ stamp: entry.ref.stamp, id: entry.physicalSkillId, backup: physical }); continue;
       }
       await directory(physical);
       if (entry.kind === 'history') {
-        const history = await migrationReadBackupHistory(physical, descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId));
+        const history = await migrationReadBackupHistory(physical, capturedDescriptor(descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId)));
         if (!history || history.mode !== entry.historyMode || history.phase !== entry.phase || await fileHash(path.join(physical, 'history')) !== entry.archiveSha
           || await fileHash(path.join(physical, MIGRATION_BACKUP_HISTORY_MARKER)) !== entry.intentSha) migrationCapsuleFail('binding_source_changed');
         const key = entry.ref.stamp + '/' + entry.ref.skillId;
@@ -2767,7 +3296,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       const variant = { generationId: selected.id, archiveKeys: sourceKeys, intentKeys: targetKeys,
         intentFile: path.join(control, 'intents', selected.id, entry.ref.backupId + '.sealed'),
         intentRecordId: 'skill-backup:' + entry.ref.skillId + ':intent:' + selected.id };
-      const record = await migrationCapsuleRead({ ...descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId), ...variant });
+      const record = await migrationCapsuleRead(capturedDescriptor({ ...descriptor(stableRoot, entry.ref.stamp, entry.physicalSkillId), ...variant }));
       const phases = entry.phase === 'published' ? ['published', 'restoring', 'complete'] : [entry.phase];
       if (!phases.includes(record.intent.phase) || entry.newTree && JSON.stringify(record.intent.newTree) !== JSON.stringify(entry.newTree)) migrationCapsuleFail('binding_intent');
       variants.set(key, variant);
@@ -2783,12 +3312,21 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       }
       migrationCapsuleFail('backup_ref');
     };
-    migrationBackupAuthority = Object.freeze({ root: stableRoot, activeRoot: selected.root, skillsRoot: path.join(selected.root, 'skills'),
+    const authority = Object.freeze({ root: stableRoot, activeRoot: selected.root, skillsRoot: path.join(selected.root, 'skills'),
       legacySkillRoots: Object.freeze(binding.sourceRootIds.map(id => path.join(id === null ? base : generationRoot(id), 'skills'))), storeId: catalog.storeId, variants, eligibility, plainRecords, resolveLegacy,
       makeRef: (stamp, skillId) => ref(stamp, skillId, catalog.storeId),
       resolveRef: value => { if (!refValid(value) || value.storeId !== catalog.storeId) migrationCapsuleFail('backup_ref'); return storedPhysical(value, binding, selected); }, assertCurrent: () => current(selected) });
+    const result = Object.freeze({ generationId: selected.id, storeId: catalog.storeId, root: stableRoot });
+    // The ordinary host keeps its previous publication point. Only the explicit
+    // captured profile defers installation until its final physical proof.
+    if (!preservedTree) { migrationBackupAuthority = authority; migrationRecoveryNeeded = true; }
+    return { authority, result };
+    });
+    if (!preservedTree) return prepared.result;
+    if (assertExclusiveSync(ownership) !== true) migrationCapsuleFail('owner_preserved_host');
+    migrationBackupAuthority = prepared.authority;
     migrationRecoveryNeeded = true;
-    return Object.freeze({ generationId: selected.id, storeId: catalog.storeId, root: stableRoot });
+    return prepared.result;
   }
   async function resolve(backupRef) {
     if (!refValid(backupRef)) migrationCapsuleFail('backup_ref');
@@ -2847,6 +3385,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     return roots;
   }
   const conversionNative = native || {
+    createOwnedPortable: async ({root,snapshot,revision}) => migrationCapsuleCreateOwnedPortable(root,snapshot,revision),
     ...platform,
     capture: async (root, revision) => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'capture-preserved', root, revision }); } finally { await broker.close(); } },
     flush: async roots => { const broker = await migrationCapsuleBroker(); try { for (const root of roots) await broker.command({ cmd: 'store-flush', root }); } finally { await broker.close(); } },
@@ -3199,13 +3738,84 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     if (dirs.size !== request.source.directories.length || request.source.directories.some(name=>!request.directories.includes(name))) migrationCapsuleFail('portable_source');
     return {files,scoped,dirs,source:request.source,read:request.readCaptured};
   }
-  async function collectPortable(request,sourceBase) {
+  const portableDurabilityProofs=new WeakMap();
+  function portableRequireDurabilityHost(){if(native&&typeof native.openPortableDurability!=='function')migrationCapsuleFail('portable_durability_required');}
+  function portableProofRows(snapshot){return snapshot.entries.map(entry=>({rel:entry.rel,id:entry.id,dir:entry.dir,attrs:entry.attrs,shortName:entry.shortName,times:entry.times,streams:entry.streams.map(stream=>({name:stream.name,size:stream.size,hash:stream.hash,data:stream.data})).sort((a,b)=>portableSort(a.name,b.name))})).sort((a,b)=>portableSort(a.rel,b.rel));}
+  function portableProofExact(actual,expected){return migrationCapsuleShape(actual)&&migrationCapsuleShape(expected)&&actual.revision===expected.revision&&migrationCapsuleSameMetadata(actual,expected)&&portableJSON(portableProofRows(actual))===portableJSON(portableProofRows(expected));}
+  function portableWithin(root,file){const relative=path.relative(samePathKey(root),samePathKey(file));return relative===''||relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative);}
+  async function portableWithDurabilityBroker(work){
+    portableRequireDurabilityHost();const broker=await(native?native.openPortableDurability():migrationCapsuleBroker());let result,failure,failed=false;
+    if(!broker||typeof broker.command!=='function'||typeof broker.close!=='function'){let closed=false;try{if(broker&&typeof broker.close==='function')closed=await broker.close()===undefined;}catch{}throw Object.assign(new Error('work_data_backup.portable_durability_host'),{code:'work_data_backup.portable_durability_host',helperMayStillRun:!closed,operationMayHaveExecuted:true,resultUnavailable:true,retry:false});}
+    try{result=await work(broker);}catch(cause){failure=cause;failed=true;}
+    try{if(await broker.close()!==undefined)throw Error('portable_close_unproven');}catch(cause){throw Object.assign(new Error('work_data_backup.portable_durability_uncertain',{cause}),{code:'work_data_backup.portable_durability_uncertain',helperMayStillRun:true,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,...(failed?{operationCause:failure}:{})});}
+    if(failed)throw failure;return result;
+  }
+  async function portableBindExternal(roots,role,admission){
+    if(!Array.isArray(roots)||!['external-parent','new-target-ancestor'].includes(role))migrationCapsuleFail('portable_durability_binding');
+    const unique=new Map();for(const root of roots){if(typeof root!=='string'||!path.isAbsolute(root)||path.resolve(root)!==root)migrationCapsuleFail('portable_durability_binding');unique.set(samePathKey(root),root);}
+    const ordered=[...unique.values()].sort((a,b)=>b.length-a.length||portableSort(a,b)),bindings=[],identities=new Set();
+    for(const root of ordered){await admission();await directory(root);const info=await platform.info(root);await admission();if(!info||!id24(info.id)||typeof info.volume!=='string'||info.volume.length<1||info.volume.length>128||identities.has(info.volume+':'+info.id))migrationCapsuleFail('portable_durability_binding');identities.add(info.volume+':'+info.id);bindings.push(Object.freeze({root,id:info.id,volume:info.volume,role,ordinal:bindings.length}));}
+    return Object.freeze(bindings);
+  }
+  async function portableFlushBound(bindings,admission){
+    if(!Array.isArray(bindings)||bindings.some((row,index)=>!row||row.ordinal!==index))migrationCapsuleFail('portable_durability_binding');
+    if(bindings.length===0)return Object.freeze([]);
+    return portableWithDurabilityBroker(async broker=>{const receipts=[];for(const binding of bindings){await admission();const reply=await broker.command({cmd:'store-flush-bound',...binding});await admission();if(!exact(reply,'flushed,id,kind,ordinal,role,root,schema,volume')||reply.schema!==1||reply.kind!=='bound-directory-flush-v1'||reply.flushed!==true||['root','id','volume','role','ordinal'].some(key=>reply[key]!==binding[key]))migrationCapsuleFail('portable_durability_receipt');receipts.push(Object.freeze({...reply}));}return Object.freeze(receipts);});
+  }
+  async function portableStageDurability(root,fixedProof,identity,requestedRoots,externalBindings,admission){
+    if(typeof root!=='string'||!migrationCapsuleShape(fixedProof)||!identity||!id24(identity.id)||typeof identity.volume!=='string'||fixedProof.entries.find(entry=>entry.rel==='')?.id!==identity.id)migrationCapsuleFail('portable_durability_binding');
+    const boundIdentity=Object.freeze({id:identity.id,volume:identity.volume}),fixed=portableClone(fixedProof),dirs=fixed.entries.filter(entry=>entry.dir),idList=Object.freeze(dirs.map(entry=>entry.id)),dirPaths=new Set(dirs.map(entry=>samePathKey(entry.rel?path.join(root,...entry.rel.split('/')):root))),external=new Map(externalBindings.map(row=>[samePathKey(row.root),row]));
+    for(const wanted of requestedRoots){if(portableWithin(root,wanted)){if(!dirPaths.has(samePathKey(wanted)))migrationCapsuleFail('portable_durability_binding');}else if(!external.has(samePathKey(wanted)))migrationCapsuleFail('portable_durability_binding');}
+    if(externalBindings.some(row=>portableWithin(root,row.root)||row.volume!==boundIdentity.volume||fixed.entries.some(entry=>entry.id===row.id)))migrationCapsuleFail('portable_durability_binding');
+    const nativeReceipt=await portableWithDurabilityBroker(async broker=>{
+      await admission();const ready=await broker.command({cmd:'capture-owned-flush-ready',root,revision:fixed.revision,scope:'owned-stage',preserveMetadata:true,expectedVolume:boundIdentity.volume});await admission();
+      if(!exact(ready,'schema,scope,snapshot,token,volume')||ready.schema!==1||ready.scope!=='owned-stage'||ready.volume!==boundIdentity.volume||!hex(ready.token)||!portableProofExact(ready.snapshot,fixed))migrationCapsuleFail('portable_stage_changed');
+      const receipt=await broker.command({cmd:'flush-captured-directories',root,revision:fixed.revision,token:ready.token,directoryIds:idList,expectedVolume:boundIdentity.volume});await admission();
+      if(!exact(receipt,'allFlushed,count,directories,kind,metadataExact,revision,role,root,schema,token,volume')||receipt.schema!==1||receipt.kind!=='captured-directory-flush-v1'||receipt.role!=='owned-stage'||receipt.root!==root||receipt.revision!==fixed.revision||receipt.token!==ready.token||receipt.volume!==boundIdentity.volume||receipt.allFlushed!==true||receipt.metadataExact!==true||receipt.count!==dirs.length||!Array.isArray(receipt.directories)||receipt.directories.length!==dirs.length)migrationCapsuleFail('portable_durability_receipt');
+      const expected=new Map(dirs.map(entry=>[entry.id,entry.rel])),seen=new Set();let lastLength=Infinity;for(const entry of receipt.directories){if(!exact(entry,'id,rel')||!expected.has(entry.id)||expected.get(entry.id)!==entry.rel||seen.has(entry.id)||entry.rel.length>lastLength)migrationCapsuleFail('portable_durability_receipt');seen.add(entry.id);lastLength=entry.rel.length;}
+      return portableClone(receipt);
+    });
+    await portableFlushBound(externalBindings,admission);await admission();const observed=await portableCapture(root,fixed.revision);await admission();if(!portableProofExact(observed,fixed))migrationCapsuleFail('portable_stage_changed');
+    const token=Object.freeze({});portableDurabilityProofs.set(token,{root,volume:boundIdentity.volume,rootId:boundIdentity.id,proof:fixed,receipt:nativeReceipt});return token;
+  }
+  function portableAssertDurability(token,root,identity,observed){const proof=portableDurabilityProofs.get(token);if(!proof||!eq(proof.root,root)||proof.rootId!==identity?.id||proof.volume!==identity?.volume||!portableProofExact(observed,proof.proof))migrationCapsuleFail('portable_stage_changed');return proof;}
+  function portableDurabilitySlice(proof,name){const anchor=proof.entries.find(entry=>entry.dir&&portableFold(entry.rel)===portableFold(name))?.rel;if(typeof anchor!=='string'||anchor==='')migrationCapsuleFail('portable_durability_binding');const prefix=anchor+'/',entries=proof.entries.filter(entry=>entry.rel===anchor||entry.rel.startsWith(prefix)).map(entry=>({...portableClone(entry),rel:entry.rel===anchor?'':entry.rel.slice(prefix.length)}));const snapshot={...portableClone(proof),entries};if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('portable_durability_binding');return snapshot;}
+  async function portableVerifyInherited(token,stageRoot,target,identity,names,admission){
+    const proof=portableDurabilityProofs.get(token);if(!proof||!eq(proof.root,stageRoot)||proof.rootId!==identity?.id||proof.volume!==identity?.volume)migrationCapsuleFail('portable_durability_binding');
+    const protectedRoots=[];for(const name of names){const expected=portableDurabilitySlice(proof.proof,name),root=path.join(target,...name.split('/'));await admission();const info=await platform.info(root);if(info.id!==expected.entries.find(entry=>entry.rel==='').id||info.volume!==proof.volume)portableTargetFailure('inherited.identity',()=>({path:name,expected:{id:expected.entries.find(entry=>entry.rel==='').id,volume:proof.volume},actual:{id:info.id,volume:info.volume}}));const actual=await portableCapture(root,expected.revision);await admission();if(!portableProofExact(actual,expected))portableTargetFailure('inherited.snapshot',()=>({path:name,delta:portableTargetSnapshotDelta(actual,expected)}));protectedRoots.push(root);}
+    return protectedRoots;
+  }
+  function portableAssertExternal(token,bindings){const proof=portableDurabilityProofs.get(token);if(!proof||bindings.some(row=>row.volume!==proof.volume||proof.proof.entries.some(entry=>entry.id===row.id)))migrationCapsuleFail('portable_durability_binding');}
+  function portableExternalOnly(roots,protectedRoots){return roots.filter(root=>!protectedRoots.some(protectedRoot=>portableWithin(protectedRoot,root)));}
+
+  // Portable source/live/stage evidence must not leave read-induced Basic time
+  // changes behind. Keep the older local migration platform unchanged.
+  // A supplied native model must explicitly implement the preserved capability.
+  // Production uses the same native command with a strict, opt-in time scope.
+  const portableFlush = async (roots,anchor) => {
+    if(native){
+      if(typeof native.flushPreservedRelative!=='function')migrationCapsuleFail('portable_preserved_flush_required');
+      return native.flushPreservedRelative(roots,anchor);
+    }
+    const broker=await migrationCapsuleBroker();
+    try{for(const root of roots)await broker.command({cmd:'store-flush',root,anchor,preserveMetadata:true});}
+    finally{await broker.close();}
+  };
+  const portableCapture = (root, revision) => native
+    ? (typeof native.capturePreserved === 'function' ? native.capturePreserved(root, revision) : native.capture(root, revision))
+    : migrationCapsuleCapturePreserved(root, revision);
+  async function collectPortable(request,sourceBase,evidence) {
     const input=portableInput(request),remaining=new Map(input.scoped),claimedDirectories=new Set(),records=[],histories=new Map();
     const take=name=>{const row=remaining.get(portableFold(name));if(!row)migrationCapsuleFail('portable_source');remaining.delete(portableFold(name));return row;};
     const dir=name=>{const actual=input.dirs.get(portableFold(name));if(!actual)migrationCapsuleFail('portable_source');claimedDirectories.add(portableFold(name));return actual;};
     const ancestors=name=>{let current=name;for(;;){if(input.dirs.has(portableFold(current)))claimedDirectories.add(portableFold(current));const at=current.lastIndexOf('/');if(at<0)break;current=current.slice(0,at);}};
     const read=async(path,kind,recordId,validate,{scopeId=ownerScope(sourceBase),mode='encrypted'}={})=>{
-      const row=take(path),result=await input.read(row,{purpose:'backup',schema:1,scopeId,recordId,chunked:true,maxPlaintextBytes:256*1024*1024});
+      const row=take(path);
+      if(kind==='capsule-archive'||kind==='capsule-intent'){
+        const end=row.data.indexOf(10),header=end>=0&&end<=16*1024?safeJsonParse(row.data.subarray(0,end).toString('utf8'),null):null,privateKind=kind==='capsule-archive'?'archive':'intent',descriptor={scopeId,recordId:privateKind==='archive'?recordId.slice(0,-8):recordId.split(':intent')[0],...(privateKind==='intent'?{intentRecordId:recordId}:{})};
+        if(!migrationCapsuleCarrierHeaderValid(header,descriptor,privateKind))migrationCapsuleFail('carrier');
+      }
+      const result=await input.read(row,{purpose:'backup',schema:1,scopeId,recordId,chunked:true,maxPlaintextBytes:256*1024*1024});
       if (!result || typeof result.text !== 'string' || result.authenticated !== (mode==='encrypted')) migrationCapsuleFail('portable_carrier');
       const value=safeJsonParse(result.text,null);if(!validate(value))migrationCapsuleFail('portable_shape');
       const record={path:row.path,kind,recordId,scopeId,mode,value};records.push(record);ancestors(row.path.slice(0,row.path.lastIndexOf('/')));return record;
@@ -3219,7 +3829,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       if(remaining.has(controlPrefix+'/representation-v1.sealed')){
         representation=await read(controlPrefix+'/representation-v1.sealed','representation','representation-v1',representationValid);
         if(!['kept','canceled'].includes(representation.value.phase))migrationCapsuleFail('portable_pending');
-        if(representation.value.entries.length)migrationCapsuleFail('portable_original_capsule_required');
+        // Nonempty settled records are authenticated below; unresolved phases still refuse.
       }
       if(!journal || !['kept','canceled'].includes(journal.value.phase))migrationCapsuleFail('portable_pending');
       if(catalog){if(journal.value.phase!=='kept'||journal.value.storeId!==catalog.value.storeId||journal.value.rootId!==catalog.value.rootId||journal.value.volume!==catalog.value.volume)migrationCapsuleFail('portable_store');dir(controlPrefix+'/objects-v1');}
@@ -3231,7 +3841,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       const match=bindingPattern.exec(row.path);if(!match)continue;const generationId=portableFold(match[1]);
       const record=await read(row.path,'binding','bindings:'+generationId,bindingValid);
       if(!catalog||record.value.generationId!==generationId||record.value.storeId!==catalog.value.storeId||!record.value.ready)migrationCapsuleFail('portable_binding');
-      if(record.value.entries.some(entry=>entry.kind!=='history'||entry.eligibility!=='terminal'))migrationCapsuleFail('portable_original_capsule_required');
+      if(record.value.entries.some(entry=>entry.kind==='history'?entry.eligibility!=='terminal':!['plain',undefined].includes(entry.kind)||!['published','complete','aborted'].includes(entry.phase)))migrationCapsuleFail('portable_original_capsule_required');
       bindings.push(record);
     }
     const activeBinding=bindings.find(row=>row.value.generationId===authority.id);
@@ -3257,7 +3867,238 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       // Empty stamp directories are legitimate retained names, not capabilities.
       for(const name of input.dirs.values())if(new RegExp('^'+root.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/[0-9TZ-]+$',process.platform==='win32'?'i':'').test(name))claimedDirectories.add(portableFold(name));
     }
-    for(const binding of bindings)for(const entry of binding.value.entries){const history=histories.get(entry.ref.stamp+'/'+entry.ref.skillId);if(!history||entry.physicalSkillId!==history.skillId||entry.phase!==history.history.value.phase||entry.historyMode!==history.history.mode||entry.archiveSha!==hash(input.files.get(portableFold(history.history.path)).data)||entry.intentSha!==history.marker.sha256)migrationCapsuleFail('portable_binding');}
+    // Fixed published capsule families. Other representation/pending forms stay
+    // explicit special-owner-required until their complete private closure exists.
+    const originalPattern=new RegExp('^(?:(?:\\.work-data/generations/[a-f0-9]{48}/)?migrations/skill-backups|\\.work-data/skill-backups/objects-v1)/([0-9TZ-]+)/([A-Za-z0-9_-]{1,64})/\\.ruyi-capsule-v1$',process.platform==='win32'?'i':'');
+    if(evidence!==undefined&&!Array.isArray(evidence))migrationCapsuleFail('portable_native_evidence');
+    const nativeEvidence=[],providedEvidence=evidence===undefined?null:new Map((Array.isArray(evidence)?evidence:[]).map(row=>[portableFold(row.path),row]));
+    if(providedEvidence&&providedEvidence.size!==evidence.length)migrationCapsuleFail('portable_source');
+    const evidenceFor=async(relative,revision)=>{
+      const snapshot=providedEvidence?providedEvidence.get(portableFold(relative))?.snapshot:await portableCapture(path.join(sourceBase,...relative.split('/')),revision);
+      if(!migrationCapsulePortableShape(snapshot)||snapshot.revision!==revision)migrationCapsuleFail('portable_native_evidence');
+      const paths=new Set(),fileRows=[...input.files.values()].filter(row=>portableFold(row.path).startsWith(portableFold(relative)+'/'));
+      for(const entry of snapshot.entries){const name=entry.rel?relative+'/'+entry.rel:relative;paths.add(portableFold(name));if(entry.dir){if(!request.directories.some(dir=>portableFold(dir)===portableFold(name)))migrationCapsuleFail('portable_source');}
+        else{const row=input.files.get(portableFold(name)),stream=entry.streams.find(stream=>stream.name==='');if(!row||!stream||stream.hash!==hash(row.data)||stream.size!==row.data.length)migrationCapsuleFail('portable_source');}}
+      if(fileRows.some(row=>!paths.has(portableFold(row.path)))||request.directories.some(dir=>portableFold(dir).startsWith(portableFold(relative)+'/')&&!paths.has(portableFold(dir))))migrationCapsuleFail('portable_source');
+      nativeEvidence.push({path:relative,snapshot});return snapshot;
+    };
+    const provenanceRefs=async(snapshot,slot,anchor)=>{
+      for(const entry of snapshot.entries)if(portableFold(entry.rel)===portableFold(SKILL_IMPORT_RECORD)){
+        const stream=entry.streams.find(row=>row.name==='');if(entry.dir||!stream)migrationCapsuleFail('portable_history');const bytes=Buffer.from(stream.data,'base64');
+        try{const opened=await input.read({path:anchor,data:bytes},{purpose:'backup',schema:1,scopeId:'skills',recordId:'skill-import:'+portableFold(slot.skillId),chunked:true,maxPlaintextBytes:16*1024});if(!opened||typeof opened.text!=='string'||!importShape(opened.text))migrationCapsuleFail('portable_provenance');}finally{bytes.fill(0);}
+      }
+    };
+    const originals=[],terminalCapsules=[],rawTrees=[],originalByRef=new Map(),liveTrees=new Map(),originalSources=new Map();
+    for(const row of [...remaining.values()]){
+      const match=originalPattern.exec(row.path);if(!match)continue;const stamp=match[1],skillId=match[2],wrapper=row.path.slice(0,row.path.lastIndexOf('/')),slot={stamp,skillId},source=descriptor(path.join(sourceBase,...wrapper.split('/').slice(0,-2)),stamp,skillId),marker=take(row.path),backupRef=ref(stamp,skillId,catalog?.value.storeId||'0'.repeat(48));
+      const archive=await read(wrapper+'/archive','capsule-archive',source.recordId+':archive',value=>value&&Object.keys(value).sort().join(',')==='data,encoding'&&value.encoding==='gzip-base64-v1'&&typeof value.data==='string',{scopeId:source.scopeId});
+      const zipped=Buffer.from(archive.value.data,'base64');let snapshot;try{if(zipped.toString('base64')!==archive.value.data)migrationCapsuleFail('portable_archive');snapshot=migrationCapsuleDecode(zipped);}finally{zipped.fill(0);}if(!migrationCapsulePortableShape(snapshot))migrationCapsuleFail('portable_snapshot_owner_required');archive.value=snapshot;
+      const intent=await read(wrapper+'/intent','capsule-intent',source.recordId+':intent',value=>migrationCapsuleIntentShape(value,source),{scopeId:source.scopeId});
+      if(!['published','complete','aborted'].includes(intent.value.phase)||intent.value.revision!==snapshot.revision||intent.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_original_capsule_required');
+      const selectedEntry=activeBinding?.value.entries.find(entry=>entry.ref.backupId===backupRef.backupId&&entry.ref.stamp===stamp&&entry.ref.skillId===portableFold(skillId));
+      let selectedIntent=intent;
+      if(selectedEntry){
+        if(selectedEntry.kind!==undefined||selectedEntry.physicalSkillId!==skillId)migrationCapsuleFail('portable_binding');
+        const relative=controlPrefix+'/intents/'+authority.id+'/'+backupRef.backupId+'.sealed',variant={...source,generationId:authority.id};
+        if(!remaining.has(portableFold(relative)))migrationCapsuleFail('portable_binding');
+        selectedIntent=await read(relative,'capsule-intent',source.recordId+':intent:'+authority.id,value=>migrationCapsuleIntentShape(value,variant),{scopeId:source.scopeId});
+        if(!['published','complete','aborted'].includes(selectedIntent.value.phase)||selectedIntent.value.revision!==snapshot.revision||selectedIntent.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_binding');
+      }
+      const terminal=['complete','aborted'].includes(selectedIntent.value.phase)?selectedIntent.value.phase:null;
+      if(!terminal&&intent.value.phase!=='published'||terminal&&intent.value.phase!=='published'&&intent.value.phase!==terminal)migrationCapsuleFail('portable_binding');
+      await provenanceRefs(snapshot,slot,archive.path);const objects=wrapper+'/objects';dir(objects);
+      const physical=await evidenceFor(objects,hash('portable-objects:'+wrapper));
+      if(physical.entries.some(entry=>entry.rel===''?entry.streams.length!==0:entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      if(terminal){if(physical.entries.length!==1||physical.entries[0].rel!==''||!physical.entries[0].dir||physical.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}
+      else if(physical.entries.length!==snapshot.entries.length+1)migrationCapsuleFail('portable_objects');
+      for(const original of terminal?[]:snapshot.entries){const opaque=objects+'/'+original.opaque,current=physical.entries.find(entry=>entry.rel===original.opaque);
+        if(!current||current.id!==original.id||current.dir!==original.dir||current.streams.some(stream=>stream.name!==''||stream.size!==0))migrationCapsuleFail('portable_objects');
+        if(original.dir)dir(opaque);else if(take(opaque).data.length)migrationCapsuleFail('portable_objects');
+      }
+      if(terminal){const restored=wrapper+'/restored';if(input.dirs.has(portableFold(restored))){dir(restored);const empty=await evidenceFor(restored,hash('portable-terminal-restored:'+wrapper));if(empty.entries.length!==1||empty.entries[0].rel!==''||!empty.entries[0].dir||empty.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}}
+      const livePrefix=authority.id?'.work-data/generations/'+authority.id+'/':'',liveName=livePrefix+'skills/'+skillId;let live=null;
+      if(request.directories.some(name=>portableFold(name)===portableFold(liveName))){const actualName=request.directories.find(name=>portableFold(name)===portableFold(liveName));if(!liveTrees.has(portableFold(actualName))){live=await evidenceFor(actualName,hash('portable-live:'+actualName));await provenanceRefs(live,slot,archive.path);liveTrees.set(portableFold(actualName),{path:actualName,snapshot:live});}else live=liveTrees.get(portableFold(actualName)).snapshot;}
+      let eligibility=terminal?'terminal':selectedIntent.value.conversion?.eligibility;if(!terminal&&!['edited','gone'].includes(eligibility))eligibility=live&&migrationCapsuleSame(live,selectedIntent.value.newTree)?'eligible':live?'edited':'gone';
+      const original={wrapper,stamp,skillId,backupId:backupRef.backupId,archive:archive.path,intent:intent.path,marker:{path:marker.path,sha256:hash(marker.data)},live:live?liveName:null,eligibility,...(terminal?{phase:terminal}:{})};
+      if(originalByRef.has(stamp+'/'+portableFold(skillId)))migrationCapsuleFail('portable_binding');originalByRef.set(stamp+'/'+portableFold(skillId),original);originalSources.set(original,{snapshot,live});(terminal?terminalCapsules:originals).push(original);ancestors(wrapper);
+    }
+    // Whole raw legacy backups are user trees, not capsule/control records.
+    // Their actual native owner snapshot authenticates the complete namespace
+    // against captured default bytes; preserved user streams stay in the aux.
+    const rawPattern=new RegExp('^((?:\\.work-data/generations/[a-f0-9]{48}/)?migrations/skill-backups|\\.work-data/skill-backups/objects-v1)/([0-9TZ-]+)/([A-Za-z0-9_-]{1,64})$',process.platform==='win32'?'i':'');
+    for(const wrapper of input.dirs.values()){
+      const match=rawPattern.exec(wrapper);if(!match||input.files.has(portableFold(wrapper+'/.ruyi-capsule-v1'))||input.files.has(portableFold(wrapper+'/'+MIGRATION_BACKUP_HISTORY_MARKER))||!input.files.has(portableFold(wrapper+'/SKILL.md')))continue;
+      const stamp=match[2],skillId=match[3],snapshot=await evidenceFor(wrapper,hash('portable-raw:'+wrapper));
+      if(!snapshot.entries.some(entry=>!entry.dir&&portableFold(entry.rel)===portableFold('SKILL.md')))migrationCapsuleFail('portable_raw_shape');
+      await provenanceRefs(snapshot,{stamp,skillId},wrapper+'/'+SKILL_IMPORT_RECORD);
+      for(const entry of snapshot.entries){const name=entry.rel?wrapper+'/'+entry.rel:wrapper;if(entry.dir)dir(name);else take(name);}
+      ancestors(wrapper);rawTrees.push({path:wrapper,wrapper,stamp,skillId,snapshot});
+      const prefix=portableFold(match[1]).startsWith('.work-data/skill-backups/')?(authority.id?'.work-data/generations/'+authority.id+'/':''):match[1].slice(0,-'migrations/skill-backups'.length),liveName=prefix+'skills/'+skillId,actualName=request.directories.find(name=>portableFold(name)===portableFold(liveName));
+      if(actualName&&!liveTrees.has(portableFold(actualName))){const live=await evidenceFor(actualName,hash('portable-live:'+actualName));await provenanceRefs(live,{stamp,skillId},actualName+'/'+SKILL_IMPORT_RECORD);liveTrees.set(portableFold(actualName),{path:actualName,snapshot:live});}
+    }
+    // Settled representation records retain their authenticated history. They
+    // do not authorize a conversion replay or instantiate historical objects.
+    const settledRepresentations=[],retainedCapsules=[],plainBackups=[];
+    const recordPattern=new RegExp('^\\.work-data/skill-backups/representations-v1/([a-f0-9]{48})/([a-f0-9]{64})/record-v1\\.sealed$',process.platform==='win32'?'i':'');
+    const retainedByPath=new Map();
+    const historicalHistory=async(wrapper,slot)=>{
+      const marker=take(wrapper+'/'+MIGRATION_BACKUP_HISTORY_MARKER),header=safeJsonParse(marker.data.toString('utf8'),null);
+      if(!exact(header,'schema,mode')||header.schema!==1||!['plain','encrypted'].includes(header.mode))migrationCapsuleFail('portable_history');
+      const d={...slot,id:slot.skillId,recordId:'skill-backup:'+portableFold(slot.skillId)},binding=migrationBackupHistoryBinding(d),history=await read(wrapper+'/history','history',binding.recordId,payload=>migrationBackupHistoryShape(payload,d),{scopeId:binding.scopeId,mode:header.mode});
+      await provenanceRefs(history.value.snapshot,slot,history.path);dir(wrapper);ancestors(wrapper);return history;
+    };
+    const emptyPortable=async name=>{
+      if(!input.dirs.has(portableFold(name)))return;
+      dir(name);ancestors(name);const proof=await evidenceFor(name,hash('portable-empty:'+name));
+      if(proof.entries.length!==1||!proof.entries[0].dir||proof.entries[0].rel!==''||proof.entries[0].streams.length)migrationCapsuleFail('portable_representation_unsettled');
+    };
+    const historicalCapsule=async(wrapper,slot,{plain=false,generationId=null}={})=>{
+      if(retainedByPath.has(portableFold(wrapper)))return retainedByPath.get(portableFold(wrapper));
+      const d=descriptor(stableRoot,slot.stamp,slot.skillId),archive=await read(wrapper+'/archive','capsule-archive',d.recordId+':archive',value=>exact(value,'encoding,data')&&value.encoding==='gzip-base64-v1'&&typeof value.data==='string',{scopeId:d.scopeId});
+      const zipped=Buffer.from(archive.value.data,'base64');let snapshot;try{if(zipped.toString('base64')!==archive.value.data)migrationCapsuleFail('portable_archive');snapshot=migrationCapsuleDecode(zipped);}finally{zipped.fill(0);}
+      if(!migrationCapsulePortableShape(snapshot))migrationCapsuleFail('portable_snapshot_owner_required');archive.value=snapshot;archive.kind=plain?'plain-archive':'representation-archive';
+      const intentId=d.recordId+':intent'+(generationId?':'+generationId:''),intent=await read(wrapper+'/intent','capsule-intent',intentId,value=>migrationCapsuleIntentShape(value,{...d,...(plain?{plainRoot:path.join(sourceBase,...(controlPrefix+'/objects-v1/'+slot.stamp+'/'+slot.skillId).split('/'))}:{}),...(generationId?{generationId}:{})}),{scopeId:d.scopeId});intent.kind=plain?'plain-intent':'representation-intent';
+      if(!['published','complete','aborted'].includes(intent.value.phase)||intent.value.revision!==snapshot.revision||intent.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_representation_unsettled');
+      if(!plain){const marker=take(wrapper+'/'+MIGRATION_CAPSULE_MARKER);if(!exact(safeJsonParse(marker.data.toString('utf8'),null),'version')||safeJsonParse(marker.data.toString('utf8'),null).version!==1)migrationCapsuleFail('portable_shape');}
+      dir(wrapper);await emptyPortable(wrapper+'/objects');await emptyPortable(wrapper+'/restored');ancestors(wrapper);await provenanceRefs(snapshot,slot,archive.path);
+      const value={wrapper,stamp:slot.stamp,skillId:slot.skillId,backupId:hash(slot.stamp+'/'+portableFold(slot.skillId)),archive:archive.path,intent:intent.path,generationId,snapshot,phase:intent.value.phase,plain};
+      retainedByPath.set(portableFold(wrapper),value);if(!plain)retainedCapsules.push(value);return value;
+    };
+    for(const file of [...remaining.values()]){
+      const match=recordPattern.exec(file.path);if(!match)continue;const operationId=portableFold(match[1]),backupId=portableFold(match[2]),anchor=file.path.slice(0,-'/record-v1.sealed'.length);
+      const record=await read(file.path,'representation-record','representation:'+operationId+':'+backupId,representationRecordValid),value=record.value;
+      if(value.operationId!==operationId||backupId!==hash(value.stamp+'/'+portableFold(value.skillId))||!['forward','canceled'].includes(value.phase))migrationCapsuleFail('portable_representation_unsettled');
+      const slot={stamp:value.stamp,skillId:value.skillId};await provenanceRefs(value.original,slot,record.path);await provenanceRefs(value.target,slot,record.path);
+      const row={path:record.path,anchor,operationId,backupId,stamp:value.stamp,skillId:value.skillId,archive:null,intent:null};
+      if(input.dirs.has(portableFold(anchor+'/capsule'))){
+        if(input.files.has(portableFold(anchor+'/capsule/'+MIGRATION_BACKUP_HISTORY_MARKER)))await historicalHistory(anchor+'/capsule',slot);
+        else{const carrier=await historicalCapsule(anchor+'/capsule',slot);row.archive=carrier.archive;row.intent=carrier.intent;}
+      }
+      if(input.dirs.has(portableFold(anchor+'/history'))){
+        await historicalHistory(anchor+'/history',slot);
+      }
+      if(remaining.has(portableFold(anchor+'/import-target.sealed'))){
+        const row=take(anchor+'/import-target.sealed'),target=value.target.entries.find(entry=>portableFold(entry.rel)===portableFold(SKILL_IMPORT_RECORD)),stream=target?.streams.find(stream=>stream.name==='');
+        if(!stream||stream.hash!==hash(row.data)||stream.size!==row.data.length)migrationCapsuleFail('portable_provenance');
+        const opened=await input.read(row,{purpose:'backup',schema:1,scopeId:'skills',recordId:'skill-import:'+portableFold(slot.skillId),chunked:true,maxPlaintextBytes:16*1024});
+        if(!opened||typeof opened.text!=='string'||!importShape(opened.text)||!opened.authenticated)migrationCapsuleFail('portable_provenance');
+        records.push({path:row.path,kind:'representation-provenance',recordId:'skill-import:'+portableFold(slot.skillId),scopeId:'skills',mode:'encrypted',value:opened.text});
+      }
+      dir(anchor);ancestors(anchor);await emptyPortable(anchor+'/restored');await evidenceFor(anchor,hash('portable-representation:'+anchor));settledRepresentations.push(row);
+    }
+    if(settledRepresentations.length&&!representation)migrationCapsuleFail('portable_representation_missing');
+    if(representation?.value.entries.length){
+      if(!catalog||representation.value.storeId!==catalog.value.storeId)migrationCapsuleFail('portable_store');
+      const current=representation.value.phase==='kept'?representation.value.targetId:representation.value.sourceId;
+      if(current!==authority.id&&!activeBinding?.value.sourceRootIds.includes(current)||representation.value.phase==='kept'&&representation.value.mode!==authority.mode
+        ||representation.value.phase==='canceled'&&representation.value.sourceId===authority.id&&representation.value.sourceProof!==authority.sha256)migrationCapsuleFail('portable_representation_authority');
+      for(const entry of representation.value.entries){const row=settledRepresentations.find(row=>row.operationId===representation.value.operationId&&row.backupId===entry.backupId&&row.stamp===entry.stamp&&row.skillId===entry.skillId);
+        if(!row)migrationCapsuleFail('portable_representation_missing');const record=records.find(record=>record.path===row.path).value;
+        if(record.phase!==(representation.value.phase==='kept'?'forward':'canceled'))migrationCapsuleFail('portable_representation_unsettled');
+      }
+    }
+    for(const binding of bindings)for(const entry of binding.value.entries.filter(entry=>entry.kind==='plain')){
+      const wrapper=controlPrefix+'/plain-v1/'+binding.value.generationId+'/'+entry.ref.backupId,slot={stamp:entry.ref.stamp,skillId:entry.physicalSkillId},carrier=await historicalCapsule(wrapper,slot,{plain:true,generationId:binding.value.generationId});
+      if(entry.ref.backupId!==carrier.backupId||entry.archiveSha!==hash(input.files.get(portableFold(carrier.archive)).data)||entry.intentSha!==hash(input.files.get(portableFold(carrier.intent)).data)&&carrier.phase!=='complete')migrationCapsuleFail('portable_binding');
+      const intent=records.find(row=>row.path===carrier.intent).value;
+      if(intent.conversion?.eligibility!==entry.eligibility||entry.newTree&&portableJSON(entry.newTree)!==portableJSON(intent.newTree))migrationCapsuleFail('portable_binding');
+      const physical=controlPrefix+'/objects-v1/'+slot.stamp+'/'+slot.skillId,liveName=(authority.id?'.work-data/generations/'+authority.id+'/':'')+'skills/'+slot.skillId,live=liveTrees.get(portableFold(liveName))||null;
+      const current=binding.value.generationId===authority.id,raw=rawTrees.find(row=>portableFold(row.path)===portableFold(physical)),history=histories.get(slot.stamp+'/'+portableFold(slot.skillId));
+      if(current&&intent.phase==='published'&&(!raw||!migrationCapsuleSameMetadata(raw.snapshot,carrier.snapshot)))migrationCapsuleFail('portable_plain_changed');
+      if(current&&intent.phase==='complete'&&(!history||history.history.value.phase!=='complete'||portableJSON(history.history.value.snapshot)!==portableJSON(carrier.snapshot)))migrationCapsuleFail('portable_plain_changed');
+      plainBackups.push({...carrier,physical,live:live?.path||null,eligibility:intent.phase!=='published'?'terminal':!current?'edited':!live?'gone':entry.eligibility==='eligible'&&migrationCapsuleSame(live.snapshot,intent.newTree)?'eligible':entry.eligibility==='gone'?'gone':'edited'});
+    }
+    for(const row of [...remaining.values()]){
+      const match=new RegExp('^\\.work-data/skill-backups/plain-v1/([a-f0-9]{48})/([a-f0-9]{64})/archive$',process.platform==='win32'?'i':'').exec(row.path);if(!match)continue;
+      const binding=bindings.find(row=>row.value.generationId===portableFold(match[1])),entry=binding?.value.entries.find(entry=>entry.ref.backupId===portableFold(match[2])&&entry.kind==='history');if(!entry)migrationCapsuleFail('portable_binding');
+      const slot={stamp:entry.ref.stamp,skillId:entry.physicalSkillId},carrier=await historicalCapsule(row.path.slice(0,-'/archive'.length),slot,{plain:true,generationId:binding.value.generationId});
+      if(carrier.phase!=='complete')migrationCapsuleFail('portable_representation_unsettled');
+      plainBackups.push({...carrier,physical:controlPrefix+'/objects-v1/'+slot.stamp+'/'+slot.skillId,live:null,eligibility:'terminal'});
+    }
+    for(const slot of plainBackups)if(slot.phase==='complete'){
+      await emptyPortable(slot.wrapper+'/history-stage');const intent=records.find(row=>row.path===slot.intent).value,publish=intent.historyPublish;if(!publish)migrationCapsuleFail('portable_plain_changed');
+      const history=records.find(row=>row.kind==='history'&&portableJSON(row.value.snapshot)===portableJSON(slot.snapshot));if(!history)migrationCapsuleFail('portable_plain_changed');
+      const relative=history.path.slice(0,history.path.lastIndexOf('/')),proof=nativeEvidence.find(row=>portableFold(row.path)===portableFold(relative))?.snapshot||await evidenceFor(relative,hash('portable-plain-history:'+relative));if(rootId(proof)!==publish.id)migrationCapsuleFail('portable_plain_changed');slot.historyPublishPath=relative;
+    }
+    // Every retained generation variant is also source provenance, including
+    // intents referenced by old representation records but no current binding.
+    for(const row of [...remaining.values()]){
+      const match=new RegExp('^\\.work-data/skill-backups/intents/([a-f0-9]{48})/([a-f0-9]{64})\\.sealed$',process.platform==='win32'?'i':'').exec(row.path);if(!match)continue;
+      const slot=settledRepresentations.find(slot=>slot.backupId===portableFold(match[2]));if(!slot)continue;const d=descriptor(stableRoot,slot.stamp,slot.skillId);
+      const intent=await read(row.path,'capsule-intent',d.recordId+':intent:'+portableFold(match[1]),value=>migrationCapsuleIntentShape(value,{...d,generationId:portableFold(match[1])}),{scopeId:d.scopeId});intent.kind='representation-variant';
+      if(!['published','complete','aborted'].includes(intent.value.phase)||!records.some(record=>['capsule-archive','representation-archive','plain-archive'].includes(record.kind)&&record.value.revision===intent.value.revision&&rootId(record.value)===intent.value.oldRoot))migrationCapsuleFail('portable_binding');
+    }
+    for(const row of settledRepresentations){
+      const record=records.find(record=>record.path===row.path).value,archiveCandidates=records.filter(item=>['capsule-archive','representation-archive','plain-archive','history'].includes(item.kind)&&hash(input.files.get(portableFold(item.path)).data)===record.archiveSha),intentCandidates=records.filter(item=>['capsule-intent','representation-intent','plain-intent','representation-variant'].includes(item.kind)&&hash(input.files.get(portableFold(item.path)).data)===record.intentSha);
+      if(record.oldType==='history'){
+        const marker=[...input.files.values()].find(file=>hash(file.data)===record.intentSha&&file.path.endsWith('/'+MIGRATION_BACKUP_HISTORY_MARKER));if(!marker||!archiveCandidates.length)migrationCapsuleFail('portable_representation_carrier');row.archive=archiveCandidates[0].path;row.intent=marker.path;
+      }else{
+        if(!archiveCandidates.length||!intentCandidates.length)migrationCapsuleFail('portable_representation_carrier');row.archive=archiveCandidates[0].path;row.intent=intentCandidates[0].path;
+        const snapshot=archiveCandidates[0].value;if(portableJSON(snapshot)!==portableJSON(record.oldType==='plain'?record.target:record.original))migrationCapsuleFail('portable_representation_carrier');
+      }
+      if(record.sourceGenerationId&&row.intent!==controlPrefix+'/intents/'+record.sourceGenerationId+'/'+row.backupId+'.sealed')migrationCapsuleFail('portable_binding');
+      for(const relative of [row.archive.slice(0,row.archive.lastIndexOf('/')),...(record.oldType==='history'?[row.intent.slice(0,row.intent.lastIndexOf('/'))]:[])])
+        if(!nativeEvidence.some(proof=>portableFold(proof.path)===portableFold(relative)))await evidenceFor(relative,hash('portable-carrier:'+relative));
+      const carrierProof=nativeEvidence.find(proof=>portableFold(proof.path)===portableFold(row.archive.slice(0,row.archive.lastIndexOf('/'))));
+      if(!carrierProof||rootId(carrierProof.snapshot)!==record.capsuleId)migrationCapsuleFail('portable_representation_identity');
+      if(record.historyId){
+        let targetProof=null;
+        for(const history of records.filter(item=>item.kind==='history'&&portableJSON(item.value.snapshot)===portableJSON(record.target))){
+          const relative=history.path.slice(0,history.path.lastIndexOf('/')),proof=nativeEvidence.find(proof=>portableFold(proof.path)===portableFold(relative))?.snapshot||await evidenceFor(relative,hash('portable-carrier:'+relative));
+          if(rootId(proof)===record.historyId)targetProof=proof;
+        }
+        if(!targetProof||!migrationCapsuleSame(targetProof,record.historyTree))migrationCapsuleFail('portable_representation_identity');
+      }
+    }
+    for(const slot of settledRepresentations){
+      const liveName=(authority.id?'.work-data/generations/'+authority.id+'/':'')+'skills/'+slot.skillId,actualName=request.directories.find(name=>portableFold(name)===portableFold(liveName));
+      if(actualName&&!liveTrees.has(portableFold(actualName))){const snapshot=await evidenceFor(actualName,hash('portable-live:'+actualName));await provenanceRefs(snapshot,slot,actualName+'/'+SKILL_IMPORT_RECORD);liveTrees.set(portableFold(actualName),{path:actualName,snapshot});}
+    }
+
+    // Each bound generation owns a mandatory authenticated intent. Physical
+    // intent bytes are archive provenance, not the selected generation's live
+    // identity authority after prepareBindings copied its replacement tree.
+    const linkedVariant=async(original,entry,generationId)=>{
+      const source=descriptor(stableRoot,original.stamp,original.skillId),relative=controlPrefix+'/intents/'+generationId+'/'+entry.ref.backupId+'.sealed',variant={...source,generationId};
+      let record=records.find(row=>portableFold(row.path)===portableFold(relative));
+      if(!record){if(!remaining.has(portableFold(relative)))migrationCapsuleFail('portable_binding');record=await read(relative,'capsule-intent',source.recordId+':intent:'+generationId,value=>migrationCapsuleIntentShape(value,variant),{scopeId:source.scopeId});}
+      const snapshot=originalSources.get(original).snapshot;
+      if(!['capsule-intent','representation-variant'].includes(record.kind)||record.recordId!==source.recordId+':intent:'+generationId||record.scopeId!==source.scopeId
+        ||!migrationCapsuleIntentShape(record.value,variant)||!(original.phase?['published',original.phase].includes(record.value.phase):record.value.phase==='published')||record.value.revision!==snapshot.revision||record.value.oldRoot!==rootId(snapshot))migrationCapsuleFail('portable_binding');
+      return record;
+    };
+    for(const binding of bindings){const seen=new Set();for(const entry of binding.value.entries){
+      if(seen.has(entry.ref.backupId))migrationCapsuleFail('portable_binding');seen.add(entry.ref.backupId);if(['history','plain'].includes(entry.kind))continue;
+      const original=[...originals,...terminalCapsules,...retainedCapsules].find(row=>row.stamp===entry.ref.stamp&&portableFold(row.skillId)===entry.ref.skillId&&hash(input.files.get(portableFold(row.archive)).data)===entry.archiveSha);if(original&&!originalSources.has(original))originalSources.set(original,{snapshot:original.snapshot,live:null});if(!original||entry.physicalSkillId!==original.skillId||entry.kind!==undefined||!(original.phase?['published',original.phase].includes(entry.phase):entry.phase==='published'))migrationCapsuleFail('portable_original_capsule_required');
+      const variant=await linkedVariant(original,entry,binding.value.generationId);
+      if(!(original.phase?['terminal','eligible','edited','gone']:['eligible','edited','gone']).includes(entry.eligibility)||entry.eligibility==='eligible'&&portableJSON(entry.newTree)!==portableJSON(variant.value.newTree)
+        ||entry.eligibility!=='eligible'&&entry.newTree!==null||['edited','gone'].includes(variant.value.conversion?.eligibility)&&entry.eligibility!==variant.value.conversion.eligibility)migrationCapsuleFail('portable_binding');
+      if(entry.sourceGenerationId){if(!binding.value.sourceRootIds.includes(entry.sourceGenerationId))migrationCapsuleFail('portable_binding');await linkedVariant(original,entry,entry.sourceGenerationId);}
+      const sourceIntent=entry.sourceGenerationId?controlPrefix+'/intents/'+entry.sourceGenerationId+'/'+entry.ref.backupId+'.sealed':original.intent;
+      if(entry.archiveSha!==hash(input.files.get(portableFold(original.archive)).data)||entry.intentSha!==hash(input.files.get(portableFold(sourceIntent))?.data||Buffer.alloc(0)))migrationCapsuleFail('portable_binding');
+      if(!original.phase&&binding.value.generationId===authority.id){const live=originalSources.get(original).live;original.eligibility=!live?'gone':entry.eligibility!=='eligible'?entry.eligibility:migrationCapsuleSame(live,variant.value.newTree)?'eligible':'edited';}
+    }}
+    const logPattern=new RegExp('^(?:\\.work-data/generations/[a-f0-9]{48}/)?migrations/[0-9TZ-]+\\.json$',process.platform==='win32'?'i':'');
+    for(const row of request.files){
+      if(!logPattern.test(row.path))continue;const logical=row.path.replace(new RegExp('^\\.work-data/generations/[a-f0-9]{48}/',process.platform==='win32'?'i':''),''),binding=WorkDataMigrationCodecs.describe(logical),opened=await input.read(row,binding);
+      if(!opened||typeof opened.text!=='string')migrationCapsuleFail('portable_log');const text=opened.text,bom=text.startsWith('\uFEFF')?'\uFEFF':'',clean=text.slice(bom.length),value=safeJsonParse(clean,null);if(!value||!Array.isArray(value.files))continue;
+      const rewrites=[];
+      for(const [index,file]of value.files.entries()){
+        if(!file||file.kind!=='skill-copy'||typeof file.backup!=='string')continue;const original=[...originals,...terminalCapsules,...rawTrees,...plainBackups.filter(row=>row.phase==='complete').map(row=>({...row,wrapper:row.physical})),...settledRepresentations.filter(row=>histories.has(row.stamp+'/'+portableFold(row.skillId))).map(row=>({...row,wrapper:histories.get(row.stamp+'/'+portableFold(row.skillId)).wrapper}))].find(original=>eq(file.backup,path.join(sourceBase,...original.wrapper.split('/')))||settledRepresentations.length&&eq(file.backup,path.join(sourceBase,'migrations','skill-backups',original.stamp,original.skillId)));if(!original)continue;
+        if(!Array.isArray(file.items)||file.items.length!==1||file.items[0]?.id!==original.skillId||typeof file.file!=='string'||!path.isAbsolute(file.file))migrationCapsuleFail('portable_log');
+        const relative=path.relative(sourceBase,file.file).split(path.sep).join('/'),allowed=['skills/'+original.skillId,...bindings.flatMap(row=>[row.value.generationId,...row.value.sourceRootIds.filter(Boolean)].map(id=>'.work-data/generations/'+id+'/skills/'+original.skillId))];
+        if(!allowed.some(name=>portableFold(name)===portableFold(relative)))migrationCapsuleFail('portable_log');rewrites.push({index,file:relative,backup:original.wrapper});
+      }
+      if(!rewrites.length)continue;let format=null;
+      for(const indent of [null,2])for(const ending of ['','\n','\r\n'])if(JSON.stringify(value,null,indent)+ending===clean)format={indent,ending,bom};
+      if(!format)migrationCapsuleFail('portable_log_owner_required');
+      records.push({path:row.path,kind:'migration-log',recordId:binding.recordId,scopeId:binding.scopeId,purpose:binding.purpose,mode:opened.authenticated?'encrypted':'plain',value,format,rewrites});
+    }
+
+    if(providedEvidence&&nativeEvidence.length!==providedEvidence.size)migrationCapsuleFail('portable_native_evidence');
+    nativeEvidence.sort((a,b)=>portableSort(a.path,b.path));originals.sort((a,b)=>portableSort(a.wrapper,b.wrapper));terminalCapsules.sort((a,b)=>portableSort(a.wrapper,b.wrapper));rawTrees.sort((a,b)=>portableSort(a.path,b.path));
+
+    for(const binding of bindings)for(const entry of binding.value.entries.filter(entry=>entry.kind==='history')){const history=histories.get(entry.ref.stamp+'/'+entry.ref.skillId);if(!history||entry.physicalSkillId!==history.skillId||entry.phase!==history.history.value.phase||entry.historyMode!==history.history.mode||entry.archiveSha!==hash(input.files.get(portableFold(history.history.path)).data)||entry.intentSha!==history.marker.sha256)migrationCapsuleFail('portable_binding');}
     if(remaining.size)migrationCapsuleFail([...remaining.keys()].some(name=>/(?:\/.ruyi-capsule-v1$|\/archive$|\/intent$|\/objects\/|\/plain-v1\/|\/intents\/|\/representations-v1\/)/.test(name))?'portable_original_capsule_required':'portable_unknown');
     for(const name of input.dirs.values())if(!claimedDirectories.has(portableFold(name))){
       // Empty fixed control ancestors preserve names without granting authority.
@@ -3265,8 +4106,8 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       else migrationCapsuleFail('portable_unknown');
     }
     records.sort((a,b)=>portableSort(a.path,b.path));
-    return {schema:1,type:'skill-backup-portable',sourceBase,source:{sourcePath:input.source.sourcePath,sourceSha256:input.source.sourceSha256},authority,records,
-      profile:{originalObjects:'refused',terminalSnapshots:'source-history-only',nativeStreams:'enumerated-default-only',destinationSecurity:'inherited; no source ACL replay'}};
+    return {schema:1,type:'skill-backup-portable',sourceBase,source:{sourcePath:input.source.sourcePath,sourceSha256:input.source.sourceSha256},authority,records,...(originals.length||terminalCapsules.length||rawTrees.length||settledRepresentations.length?{originals,...(settledRepresentations.length||retainedCapsules.length||plainBackups.length?{settledRepresentations,retainedCapsules,plainBackups}:{}),...(terminalCapsules.length?{terminalCapsules}:{}),...(rawTrees.length?{rawTrees}:{}),nativeEvidence,liveTrees:[...liveTrees.values()].sort((a,b)=>portableSort(a.path,b.path))}:{}),
+      profile:{originalObjects:originals.length||terminalCapsules.length||rawTrees.length||settledRepresentations.length?'new-owned-portable':'refused',terminalSnapshots:'source-history-only',nativeStreams:rawTrees.length?'enumerated-user-streams':'enumerated-default-only',destinationSecurity:'inherited; no source ACL replay'}};
   }
   async function capturePortable(request) {
     if(base.length>4096)migrationCapsuleFail('portable_capacity');
@@ -3275,14 +4116,26 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     const value=await collectPortable(request,base);
     if(value.authority.raw!==selected.proof.raw||value.authority.sha256!==selected.proof.sha256)migrationCapsuleFail('portable_authority');
     const input=portableInput(request),roots=new Set();
-    for(const name of input.dirs.values())if(['.work-data/skill-backups','migrations/skill-backups'].includes(portableFold(name)))roots.add(name);
+    for(const name of input.dirs.values())if(portableFold(name)==='.work-data/skill-backups'
+      ||new RegExp('^(?:\\.work-data/generations/[a-f0-9]{48}/)?migrations/skill-backups$',process.platform==='win32'?'i':'').test(name))roots.add(name);
     for(const row of input.scoped.values())if(/\/migrations\/skill-backup-bindings-v2\.sealed$/i.test(row.path))roots.add(row.path.slice(0,row.path.lastIndexOf('/')));
     for(const name of roots){
-      const absolute=path.join(base,...name.split('/')),snapshot=await platform.capture(absolute,hash(request.source.sourceSha256+':'+name));
-      if(!migrationCapsuleShape(snapshot)||snapshot.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      const absolute=path.join(base,...name.split('/')),snapshot=await portableCapture(absolute,hash(request.source.sourceSha256+':'+name));
+      const insideRaw=entry=>(value.rawTrees||[]).some(row=>portableFold(name+'/'+entry.rel)===portableFold(row.path)||portableFold(name+'/'+entry.rel).startsWith(portableFold(row.path)+'/'));
+      if(!migrationCapsuleShape(snapshot)||snapshot.entries.some(entry=>!insideRaw(entry)&&entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      if(value.settledRepresentations?.length||value.plainBackups?.length)for(const proof of value.nativeEvidence){
+        if(portableFold(proof.path)!==portableFold(name)&&!portableFold(proof.path).startsWith(portableFold(name)+'/'))continue;
+        const prefix=proof.path.slice(name.length).replace(/^\//,'');
+        for(const expected of proof.snapshot.entries){
+          const relative=prefix+(prefix&&expected.rel?'/':'')+expected.rel,actual=snapshot.entries.find(entry=>portableFold(entry.rel)===portableFold(relative));
+          if(!actual)migrationCapsuleFail('portable_source');const {rel:a,opaque:actualTransport,...actualMetadata}=actual,{rel:b,opaque:expectedTransport,...expectedMetadata}=expected;
+          if(portableJSON(actualMetadata)!==portableJSON(expectedMetadata))migrationCapsuleFail('portable_native_changed');
+        }
+      }
+
       const expectedFiles=[...input.files.values()].filter(row=>portableFold(row.path).startsWith(portableFold(name)+'/'));
       const actual=snapshot.entries.filter(entry=>!entry.dir);if(actual.length!==expectedFiles.length)migrationCapsuleFail('portable_source');
-      for(const entry of actual){const row=input.files.get(portableFold(name+'/'+entry.rel));if(!row||entry.streams.length!==1||entry.streams[0].hash!==hash(row.data)||entry.streams[0].size!==row.data.length)migrationCapsuleFail('portable_source');}
+      for(const entry of actual){const row=input.files.get(portableFold(name+'/'+entry.rel));const stream=entry.streams.find(item=>item.name==='');if(!row||!stream||!insideRaw(entry)&&entry.streams.length!==1||stream.hash!==hash(row.data)||stream.size!==row.data.length)migrationCapsuleFail('portable_source');}
       if(portableFold(name)==='.work-data/skill-backups'&&value.records.some(row=>row.kind==='catalog')){
         const catalog=value.records.find(row=>row.kind==='catalog').value,info=await platform.info(stableRoot);
         if(info.id!==catalog.rootId||info.volume!==catalog.volume)migrationCapsuleFail('store_identity');
@@ -3295,18 +4148,225 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
   async function validatePortable({data,...request}={}) {
     if(!Buffer.isBuffer(data)||data.length<1||data.length>256*1024*1024)migrationCapsuleFail('portable_shape');
     const text=data.toString('utf8');if(!Buffer.from(text).equals(data))migrationCapsuleFail('portable_shape');const value=safeJsonParse(text,null);
-    if(!exact(value,'schema,type,sourceBase,source,authority,records,profile')||value.schema!==1||value.type!=='skill-backup-portable'
+    const optional=['originals','terminalCapsules','rawTrees','nativeEvidence','liveTrees','settledRepresentations','retainedCapsules','plainBackups'],mandatory=['schema','type','sourceBase','source','authority','records','profile'];
+    if(!value||mandatory.some(name=>!Object.hasOwn(value,name))||Object.keys(value).some(name=>!mandatory.includes(name)&&!optional.includes(name))||value.schema!==1||value.type!=='skill-backup-portable'
       ||typeof value.sourceBase!=='string'||value.sourceBase.length>4096||!path.isAbsolute(value.sourceBase)||path.resolve(value.sourceBase)!==value.sourceBase)migrationCapsuleFail('portable_shape');
-    const collected=await collectPortable(request,value.sourceBase);
+    const collected=await collectPortable(request,value.sourceBase,value.nativeEvidence);
     if(portableJSON(collected)!==text)migrationCapsuleFail('portable_binding');
     return portableClone(collected);
   }
-  async function stagePortable({target,keysFor,assertTargetExclusive,data,...request}={}) {
+  async function stagePortableOriginals({target,keysFor,assertTargetExclusive,targetOwnership,assertTargetExclusiveSync,request,value}) {
+    if(typeof conversionNative.createOwnedPortable!=='function')migrationCapsuleFail('portable_native_create_required');
+    const admission=async()=>{if(await assertTargetExclusive()!==true)migrationCapsuleFail('portable_owner');};
+    await admission();await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');
+    const stageRoot=path.join(path.dirname(target),'.ruyi-skill-portable-'+crypto.randomBytes(24).toString('hex')),input=portableInput(request),replacements=[],mappings=[],moves=[];let mutated=false;
+    const originals=value.originals,terminals=value.terminalCapsules||[],rawTrees=value.rawTrees||[],physicalTrees=[...value.liveTrees,...rawTrees],archives=new Map(),liveTrees=new Map(),recordByPath=new Map(value.records.map(row=>[portableFold(row.path),row]));
+    const inside=(name,root)=>portableFold(name)===portableFold(root)||portableFold(name).startsWith(portableFold(root)+'/');
+    const oldOpaque=name=>originals.some(original=>{const snapshot=recordByPath.get(portableFold(original.archive)).value;return snapshot.entries.some(entry=>inside(name,original.wrapper+'/objects/'+entry.opaque));});
+    const catalog=value.records.find(row=>row.kind==='catalog'),roots=[catalog?input.source.directories.find(name=>portableFold(name)==='.work-data/skill-backups/objects-v1'):null,
+      ...input.source.directories.filter(name=>/^(?:\.work-data\/generations\/[a-f0-9]{48}\/)?migrations\/skill-backups$/i.test(name)),...value.liveTrees.map(row=>row.path),...(((value.settledRepresentations||[]).length||(value.plainBackups||[]).length||(value.retainedCapsules||[]).length)?['.work-data/skill-backups/representations-v1','.work-data/skill-backups/plain-v1','.work-data/skill-backups/intents'].filter(name=>input.dirs.has(portableFold(name))):[])].filter(Boolean);
+    const parents=new Set([path.dirname(stageRoot)]),stagePath=name=>path.join(stageRoot,...name.split('/'));
+    const retained=value.retainedCapsules||[],plainBackups=value.plainBackups||[],settled=value.settledRepresentations||[],newOriginals=new Map(),extraCopies=[];
+    const rememberOriginal=(before,after)=>{if(before.entries.length!==after.entries.length)migrationCapsuleFail('portable_create_changed');newOriginals.set(rootId(before),after);};
+    const translatedSnapshot=before=>{
+      const actual=newOriginals.get(rootId(before));if(!actual)return portableClone(before);
+      const result=portableClone(before);result.revision=actual.revision;
+      for(const entry of result.entries){const replacement=actual.entries.find(row=>row.rel===entry.rel);if(!replacement||replacement.dir!==entry.dir)migrationCapsuleFail('portable_create_changed');entry.id=replacement.id;entry.opaque=replacement.opaque;}
+      if(!migrationCapsulePortableShape(result))migrationCapsuleFail('portable_create_changed');return result;
+    };
+    const extraArchive=async row=>{
+      const record=recordByPath.get(portableFold(row.archive)),snapshot=translatedSnapshot(record.value),source=descriptor('',row.stamp,row.skillId),copy={...source,backup:stagePath(row.wrapper),archiveKeys:await keysFor(row.archive)};
+      await make(row.wrapper+'/objects');const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(snapshot)));try{await migrationCapsuleArchive(copy).write(bytes);}finally{bytes.fill(0);}
+      const reopened=await migrationCapsuleArchive(copy).read();try{if(portableJSON(migrationCapsuleDecode(reopened))!==portableJSON(snapshot))migrationCapsuleFail('portable_create_changed');}finally{reopened.fill(0);}
+      archives.set(portableFold(row.archive),snapshot);
+    };
+    const extraIntent=async(record,slot,snapshot,{current=false,eligibility='edited'}={})=>{
+      const liveName=(value.authority.id?'.work-data/generations/'+value.authority.id+'/':'')+'skills/'+slot.skillId,live=liveTrees.get(portableFold(liveName)),terminal=['complete','aborted'].includes(record.value.phase),staged={...portableClone(record.value),revision:snapshot.revision,oldRoot:rootId(snapshot)};
+      if(terminal&&staged.historyPublish&&slot.historyPublishPath)staged.historyPublish.id=(await platform.info(stagePath(slot.historyPublishPath))).id;
+      if(!terminal){staged.newTree=current&&live?migrationCapsuleFingerprint(live):record.value.newTree;staged.conversion={schema:1,operationId:record.value.conversion?.operationId||crypto.randomBytes(24).toString('hex'),eligibility:current?eligibility:'edited'};}
+      const copy={...descriptor('',slot.stamp,slot.skillId),backup:stagePath(slot.wrapper),...(slot.plain?{plainRoot:stagePath(slot.physical)}:{}),intentFile:stagePath(record.path),intentRecordId:record.recordId,intentKeys:await keysFor(record.path),...(record.value.generationId?{generationId:record.value.generationId}:{})};
+      await make(record.path.slice(0,record.path.lastIndexOf('/')));await migrationCapsuleIntent(copy).write(portableJSON(staged));if(portableJSON(safeJsonParse(await migrationCapsuleIntent(copy).read(),null))!==portableJSON(staged))migrationCapsuleFail('portable_binding');
+      extraCopies.push({slot,record,snapshot,staged});
+    };
+    const transformBinding=async(staged,entry)=>{
+      const current=staged.generationId===value.authority.id;
+      if(entry.kind==='plain'){
+        const slot=plainBackups.find(row=>row.generationId===staged.generationId&&row.backupId===entry.ref.backupId);if(!slot)migrationCapsuleFail('portable_binding');
+        if(current&&slot.phase==='complete'){
+          const history=value.records.find(row=>row.kind==='history'&&portableFold(row.path)===portableFold(slot.physical+'/history')),marker=slot.physical+'/'+MIGRATION_BACKUP_HISTORY_MARKER;if(!history)migrationCapsuleFail('portable_binding');
+          entry.kind='history';entry.phase='complete';entry.historyMode=history.mode;entry.eligibility='terminal';entry.newTree=null;entry.archiveSha=await fileHash(stagePath(history.path));entry.intentSha=await fileHash(stagePath(marker));entry.sourceGenerationId=null;return;
+        }
+        // A completed historical plain intent retains its original conversion proof.
+        // Keep the already validated binding paired with it; complete never replays undo.
+        const live=slot.live?liveTrees.get(portableFold(slot.live)):null;if(slot.phase!=='complete'){entry.eligibility=slot.phase!=='published'?'terminal':current?slot.eligibility:'edited';entry.newTree=entry.eligibility==='eligible'?migrationCapsuleFingerprint(live):null;}
+        entry.archiveSha=await fileHash(stagePath(slot.archive));entry.intentSha=await fileHash(stagePath(slot.intent));return;
+      }
+      const original=[...originals,...terminals,...retained].find(row=>row.stamp===entry.ref.stamp&&portableFold(row.skillId)===entry.ref.skillId&&hash(input.files.get(portableFold(row.archive)).data)===entry.archiveSha);if(!original)migrationCapsuleFail('portable_binding');
+      const live=original.live?liveTrees.get(portableFold(original.live)):null,terminal=original.phase&&original.phase!=='published';if(terminal)entry.phase=original.phase;entry.eligibility=terminal?'terminal':current?original.eligibility:'edited';entry.newTree=entry.eligibility==='eligible'?migrationCapsuleFingerprint(live):null;
+      entry.archiveSha=await fileHash(stagePath(original.archive));entry.intentSha=await fileHash(stagePath(entry.sourceGenerationId?'.work-data/skill-backups/intents/'+entry.sourceGenerationId+'/'+entry.ref.backupId+'.sealed':original.intent));
+    };
+
+    const make=async name=>{await admission();const absolute=stagePath(name);await fsp.mkdir(absolute,{recursive:true});await directory(absolute);let cursor=absolute;for(;;){parents.add(cursor);if(eq(cursor,stageRoot))break;cursor=path.dirname(cursor);}return absolute;};
+    const write=async(name,data)=>{await make(name.slice(0,name.lastIndexOf('/')));await admission();const handle=await fsp.open(stagePath(name),'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}};
+    try {
+      await admission();await fsp.mkdir(stageRoot,{mode:0o700});mutated=true;const stageIdentity=await platform.info(stageRoot);
+      for(const name of input.source.directories.filter(name=>roots.some(root=>inside(name,root))&&!physicalTrees.some(row=>inside(name,row.path))&&!oldOpaque(name)).sort((a,b)=>a.split('/').length-b.split('/').length||portableSort(a,b)))await make(name);
+      for(const row of input.scoped.values())if(roots.some(root=>inside(row.path,root))&&!originals.some(original=>inside(row.path,original.wrapper))&&!rawTrees.some(raw=>inside(row.path,raw.path))&&recordByPath.get(portableFold(row.path))?.kind!=='representation-record')await write(row.path,row.data);
+      // Relevant live trees are reconstructed first, so every newTree identity is
+      // known before target mkdir and belongs to a real staged object.
+      for(const row of physicalTrees){await make(row.path.slice(0,row.path.lastIndexOf('/')));await admission();const snapshot=await conversionNative.createOwnedPortable({root:stagePath(row.path),snapshot:row.snapshot,revision:hash('portable-new-live:'+crypto.randomBytes(32).toString('hex'))});
+        if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('portable_create_changed');liveTrees.set(portableFold(row.path),snapshot);if(rawTrees.includes(row))rememberOriginal(row.snapshot,snapshot);
+      }
+      for(const original of originals){
+        const record=recordByPath.get(portableFold(original.archive)),old=record.value,scratch='.owned-originals/'+crypto.randomBytes(24).toString('hex');await make(scratch);const root=stagePath(scratch+'/'+original.skillId);await admission();
+        const snapshot=await conversionNative.createOwnedPortable({root,snapshot:old,revision:hash('portable-new-original:'+crypto.randomBytes(32).toString('hex'))});if(!migrationCapsuleShape(snapshot)||snapshot.entries.length!==old.entries.length)migrationCapsuleFail('portable_create_changed');
+        rememberOriginal(old,snapshot);archives.set(portableFold(original.archive),snapshot);await make(original.wrapper+'/objects');await admission();await conversionNative.seal({root,container:stagePath(original.wrapper+'/objects'),snapshot});
+        // This maps only owned opaque object names; semantic skill IDs stay exact.
+        for(const entry of old.entries){const next=snapshot.entries.find(row=>row.rel===entry.rel);if(!next||next.dir!==entry.dir)migrationCapsuleFail('portable_create_changed');mappings.push({source:original.wrapper+'/objects/'+entry.opaque,target:original.wrapper+'/objects/'+next.opaque,dir:entry.dir});}
+        const marker=input.files.get(portableFold(original.marker.path));await write(marker.path,marker.data);
+        const source=descriptor('',original.stamp,original.skillId),keys=await keysFor(original.archive),targetDescriptor={...source,backup:stagePath(original.wrapper),archiveKeys:keys};
+        const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(snapshot)));try{await migrationCapsuleArchive(targetDescriptor).write(bytes);}finally{bytes.fill(0);}
+        const reopened=await migrationCapsuleArchive(targetDescriptor).read();try{if(portableJSON(migrationCapsuleDecode(reopened))!==portableJSON(snapshot))migrationCapsuleFail('portable_create_changed');}finally{reopened.fill(0);}
+      }
+      // Terminal capsules retain authenticated historical snapshots and IDs.
+      // They never enter createOwnedPortable/seal: only their real current live
+      // tree (if any) is newly owned. Every intent is terminalized below.
+      for(const terminal of terminals){
+        const record=recordByPath.get(portableFold(terminal.archive)),source=descriptor('',terminal.stamp,terminal.skillId),keys=await keysFor(terminal.archive),copy={...source,backup:stagePath(terminal.wrapper),archiveKeys:keys};
+        const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(record.value)));try{await migrationCapsuleArchive(copy).write(bytes);}finally{bytes.fill(0);}
+        const reopened=await migrationCapsuleArchive(copy).read();try{if(portableJSON(migrationCapsuleDecode(reopened))!==portableJSON(record.value))migrationCapsuleFail('portable_terminal_changed');}finally{reopened.fill(0);}
+      }
+      // Rebind every fixed intent to the staged originals. Only the selected
+      // live generation can retain eligible undo; older views become edited.
+      for(const record of value.records.filter(row=>row.kind==='capsule-intent')){
+        const original=[...originals,...terminals].find(row=>row.stamp===record.value.stamp&&row.skillId===record.value.id);if(!original)migrationCapsuleFail('portable_binding');const snapshot=original.phase?recordByPath.get(portableFold(original.archive)).value:archives.get(portableFold(original.archive)),live=original.live?liveTrees.get(portableFold(original.live)):null;
+        const isCurrent=record.value.generationId===undefined||record.value.generationId===value.authority.id,eligibility=isCurrent?original.eligibility:'edited',staged=original.phase?{...portableClone(record.value),phase:original.phase}:{...portableClone(record.value),revision:snapshot.revision,oldRoot:rootId(snapshot),newTree:live?migrationCapsuleFingerprint(live):[],conversion:{schema:1,operationId:crypto.randomBytes(24).toString('hex'),eligibility:live?eligibility:'gone'}};
+        const keys=await keysFor(record.path),descriptor={id:original.skillId,stamp:original.stamp,backup:stagePath(original.wrapper),scopeId:record.scopeId,recordId:'skill-backup:'+portableFold(original.skillId),intentFile:stagePath(record.path),intentRecordId:record.recordId,intentKeys:keys,...(record.value.generationId?{generationId:record.value.generationId}:{})};
+        await make(record.path.slice(0,record.path.lastIndexOf('/')));await admission();await migrationCapsuleIntent(descriptor).write(portableJSON(staged));const checked=safeJsonParse(await migrationCapsuleIntent(descriptor).read(),null);if(portableJSON(checked)!==portableJSON(staged))migrationCapsuleFail('portable_binding');
+      }
+      for(const row of [...retained,...plainBackups])await extraArchive(row);
+      for(const row of [...retained,...plainBackups]){
+        const record=recordByPath.get(portableFold(row.intent)),snapshot=archives.get(portableFold(row.archive));await extraIntent(record,row,snapshot,{current:row.generationId===value.authority.id,eligibility:row.eligibility});
+      }
+      for(const record of value.records.filter(row=>row.kind==='representation-variant')){
+        const generationId=record.value.generationId,backupId=hash(record.value.stamp+'/'+portableFold(record.value.id)),binding=value.records.find(row=>row.kind==='binding'&&row.value.generationId===generationId),bound=binding?.value.entries.find(entry=>entry.ref.backupId===backupId);
+        const slot=[...originals,...terminals,...retained,...plainBackups].find(row=>row.stamp===record.value.stamp&&row.skillId===record.value.id&&(!bound||hash(input.files.get(portableFold(row.archive)).data)===bound.archiveSha));if(!slot)migrationCapsuleFail('portable_binding');
+        const sourceSnapshot=recordByPath.get(portableFold(slot.archive)).value,snapshot=archives.get(portableFold(slot.archive))||translatedSnapshot(sourceSnapshot);
+        await extraIntent(record,slot,snapshot,{current:generationId===value.authority.id,eligibility:slot.eligibility});
+      }
+
+      const verifyCopies=async root=>{
+        for(const check of extraCopies){const slot=check.slot,copy={...descriptor('',slot.stamp,slot.skillId),backup:path.join(root,...slot.wrapper.split('/')),...(slot.plain?{plainRoot:path.join(root,...slot.physical.split('/'))}:{}),archiveKeys:await keysFor(slot.archive),intentKeys:await keysFor(check.record.path),intentFile:path.join(root,...check.record.path.split('/')),intentRecordId:check.record.recordId,...(check.staged.generationId?{generationId:check.staged.generationId}:{})},reopened=await migrationCapsuleRead(capturedDescriptor(copy));if(portableJSON(reopened.snapshot)!==portableJSON(check.snapshot)||portableJSON(reopened.intent)!==portableJSON(check.staged))migrationCapsuleFail('portable_binding');}
+
+        for(const record of value.records.filter(row=>row.kind==='capsule-intent')){
+          const original=[...originals,...terminals].find(row=>row.stamp===record.value.stamp&&row.skillId===record.value.id),source=descriptor('',original.stamp,original.skillId),copy={...source,backup:path.join(root,...original.wrapper.split('/')),archiveKeys:await keysFor(original.archive),intentKeys:await keysFor(record.path),intentFile:path.join(root,...record.path.split('/')),intentRecordId:record.recordId,...(record.value.generationId?{generationId:record.value.generationId}:{})};
+          const current=await migrationCapsuleRead(capturedDescriptor(copy)),expected=original.phase?recordByPath.get(portableFold(original.archive)).value:archives.get(portableFold(original.archive));if(portableJSON(current.snapshot)!==portableJSON(expected)||current.intent.oldRoot!==rootId(expected)||original.phase&&current.intent.phase!==original.phase)migrationCapsuleFail('portable_binding');
+        }
+      };await verifyCopies(stageRoot);
+      let objectsInfo=null;if(catalog)objectsInfo=await platform.info(stagePath(roots.find(root=>portableFold(root)==='.work-data/skill-backups/objects-v1')));
+      const validators={catalog:catalogValid,relocation:journalValid,representation:representationValid,'representation-record':representationRecordValid,binding:bindingValid};
+      for(const record of value.records){
+        if(record.kind==='migration-log'){
+          const staged=portableClone(record.value);for(const row of record.rewrites){staged.files[row.index].file=path.join(target,...row.file.split('/'));staged.files[row.index].backup=path.join(target,...row.backup.split('/'));}
+          const text=record.format.bom+JSON.stringify(staged,null,record.format.indent)+record.format.ending;await make(record.path.slice(0,record.path.lastIndexOf('/')));const keys=record.mode==='encrypted'?await keysFor(record.path):undefined;
+          const store=WorkDataStore.createText({file:()=>stagePath(record.path),purpose:record.purpose,schema:1,scopeId:record.scopeId,recordId:record.recordId,chunked:true,maxPlaintextBytes:256*1024*1024,keys,enabled:()=>record.mode==='encrypted',writeJson:atomicWriteJson});await admission();await store.write(text);if(await store.read()!==text)migrationCapsuleFail('portable_log');continue;
+        }
+        if(['history','capsule-archive','capsule-intent','representation-archive','representation-intent','representation-variant','plain-archive','plain-intent','representation-provenance'].includes(record.kind))continue;const validate=validators[record.kind];if(!validate)migrationCapsuleFail('portable_shape');const staged=portableClone(record.value);
+        if(record.kind==='catalog'||record.kind==='relocation'&&staged.phase==='kept'){if(!objectsInfo)migrationCapsuleFail('portable_store');staged.rootId=objectsInfo.id;staged.volume=objectsInfo.volume;}
+        if(record.kind==='binding')for(const entry of staged.entries)if(entry.kind!=='history')await transformBinding(staged,entry);
+        if(record.kind==='representation-record'){
+          const history=settled.find(row=>row.path===record.path);if(!history)migrationCapsuleFail('portable_binding');
+          staged.original=translatedSnapshot(record.value.original);staged.target=translatedSnapshot(record.value.target);staged.revision=staged.original.revision;
+          if(staged.eligibility!=='terminal'){staged.eligibility=record.value.eligibility==='gone'?'gone':'edited';}
+          staged.archiveSha=await fileHash(stagePath(history.archive));staged.intentSha=await fileHash(stagePath(history.intent));
+          // Wrapper IDs are derived from the same closed source native evidence;
+          // historical original IDs without a physical owner remain unchanged.
+          for(const field of ['capsuleId','historyId'])if(staged[field]){
+            let name=null;for(const proof of value.nativeEvidence||[])for(const entry of proof.snapshot.entries)if(entry.id===record.value[field])name=entry.rel?proof.path+'/'+entry.rel:proof.path;
+            if(name){const actual=await platform.info(stagePath(name));staged[field]=actual.id;if(field==='historyId'){const proof=await portableCapture(stagePath(name),staged.revision);staged.historyTree=migrationCapsuleFingerprint(proof);}}
+          }
+        }
+
+        await make(record.path.slice(0,record.path.lastIndexOf('/')));const keys=await keysFor(record.path);await admission();await sealed(stagePath(record.path),record.recordId,validate,keys,target).write(staged);if(portableJSON(await sealed(stagePath(record.path),record.recordId,validate,keys,target).read())!==portableJSON(staged))migrationCapsuleFail('portable_binding');
+      }
+      for(const record of value.records.filter(row=>row.kind!=='history')){const bytes=await fsp.readFile(stagePath(record.path));replacements.push({path:record.path,data:bytes,sha256:hash(bytes)});}
+      for(const name of roots){const snapshot=await portableCapture(stagePath(name),hash('portable-stage:'+name));if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('portable_stage_changed');moves.push({path:name,info:await platform.info(stagePath(name)),snapshot});}
+      const parentBindings=await portableBindExternal([...parents].filter(root=>!portableWithin(stageRoot,root)),'external-parent',admission);
+      const stageProof=await portableCapture(stageRoot,hash('portable-stage-root:'+crypto.randomBytes(32).toString('hex')));await admission();if(await stat(target))migrationCapsuleFail('portable_target_exists');const stageDurability=await portableStageDurability(stageRoot,stageProof,stageIdentity,[...parents],parentBindings,admission);
+      const skipFiles=request.files.filter(row=>roots.some(root=>inside(row.path,root))).map(row=>row.path),token=Object.freeze({stageRoot,stageIdentity:Object.freeze({...stageIdentity}),files:Object.freeze(replacements.map(row=>Object.freeze({...row}))),skipDirectories:Object.freeze(roots),skipFiles:Object.freeze(skipFiles),pathMappings:Object.freeze(mappings.map(row=>Object.freeze({...row}))),profile:Object.freeze({...value.profile}),release(){for(const row of replacements)row.data.fill(0);}});
+      portableStages.set(token,{originals:true,verifyCopies,target,targetOwnership,assertTargetExclusiveSync,stageRoot,stageIdentity,stageProof,stageDurability,moves,replacements,admission,installed:false,installStarted:false,targetIdentity:null});return token;
+    }catch(cause){if(!mutated)throw cause;throw Object.assign(new Error('work_data_backup.portable_stage_failed',{cause}),{code:'work_data_backup.portable_stage_failed',apiCode:'work_data_backup.portable_stage_failed',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,stageRetained:stageRoot,...(cause?.helperMayStillRun===true?{helperMayStillRun:true}:{})});}
+  }
+  function portableTargetReadAdmission(owned,selected){
+    const targetOwner=owned.targetOwnership;
+    if(selected!==targetOwner||!targetOwner||!Array.isArray(targetOwner.roots)||!targetOwner.roots.some(root=>typeof root==='string'&&path.isAbsolute(root)&&eq(path.resolve(root),owned.target))||typeof owned.assertTargetExclusiveSync!=='function')migrationCapsuleFail('portable_target_owner');
+    const proof=owned.assertTargetExclusiveSync(targetOwner);
+    if(proof&&typeof proof.then==='function'){Promise.resolve(proof).catch(()=>{});throw Object.assign(new Error('work_data_backup.portable_target_owner_uncertain'),{code:'work_data_backup.portable_target_owner_uncertain',helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true,resultUnavailable:true,retry:false});}
+    if(proof!==true)migrationCapsuleFail('portable_target_owner');return true;
+  }
+  async function withPortableTargetReads(owned,work){
+    if(!preservedTree)return work();
+    await owned.admission();portableTargetReadAdmission(owned,owned.targetOwnership);
+    const targetOwner=owned.targetOwnership,tree=WorkDataTree.createPreserved({capturePreserved:portableCapture,ownership:targetOwner,
+      assertExclusive:async selected=>{await owned.admission();return portableTargetReadAdmission(owned,selected);},assertExclusiveSync:selected=>portableTargetReadAdmission(owned,selected),limits:preservedRead.limits||{}});
+    let captured,result,failed=false,primary;
+    try{captured=await tree.capture(owned.target);result=await portableTargetReads.run({captured,ownership:targetOwner},work);await tree.verify(captured);portableTargetReadAdmission(owned,targetOwner);}
+    catch(cause){failed=true;primary=cause;}
+    let cleanupFailed=false,cleanup;try{if(captured){const released=captured.release();if(released!==undefined){if(released&&typeof released.then==='function')Promise.resolve(released).catch(()=>{});throw new Error('portable_target_read_release_unproven');}}}catch(cause){cleanupFailed=true;cleanup=cause;}
+    if(cleanupFailed){
+      const error=migrationCapturedCleanupFailure(primary,failed,[cleanup],true);
+      Object.assign(error,{code:'work_data_backup.portable_target_read_cleanup_uncertain',message:'work_data_backup.portable_target_read_cleanup_uncertain'});
+      throw error;
+    }
+    if(failed)throw primary;return result;
+  }
+  // Diagnostic-only: runs after an unchanged refusal predicate, using existing memory.
+  function portableTargetSnapshotDelta(actual,expected){
+    const limited=value=>typeof value==='string'&&value.length>1024?value.slice(0,1024)+'[truncated]':value;
+    const a=new Map(actual.entries.map(row=>[row.rel,row])),e=new Map(expected.entries.map(row=>[row.rel,row])),deltas=[];let changedEntries=0;
+    for(const rel of new Set([...e.keys(),...a.keys()])){const old=e.get(rel),now=a.get(rel),fields={};
+      if(!old||!now)fields.membership={expected:!!old,actual:!!now};else{
+        for(const key of ['id','dir','attrs','shortName','times'])if(JSON.stringify(old[key])!==JSON.stringify(now[key]))fields[key]={expected:old[key],actual:now[key]};
+        const oldStreams=new Map(old.streams.map(row=>[row.name,row])),newStreams=new Map(now.streams.map(row=>[row.name,row])),streams=[];let changedStreams=0;
+        for(const name of new Set([...oldStreams.keys(),...newStreams.keys()])){const before=oldStreams.get(name),after=newStreams.get(name),streamFields={};if(!before||!after)streamFields.membership={expected:!!before,actual:!!after};else{for(const key of ['size','hash'])if(before[key]!==after[key])streamFields[key]={expected:before[key],actual:after[key]};if(before.data!==after.data)streamFields.dataDifferent=true;}
+          if(Object.keys(streamFields).length){changedStreams++;if(streams.length<4)streams.push({name:limited(name),fields:streamFields});}}
+        if(changedStreams)fields.streams={changedStreams,shown:streams.length,entries:streams};
+      }
+      if(Object.keys(fields).length){changedEntries++;if(deltas.length<8)deltas.push({rel:limited(rel),fields});}
+    }
+    return{revision:{expected:expected.revision,actual:actual.revision},count:{expected:expected.entries.length,actual:actual.entries.length},changedEntries,shown:deltas.length,entries:deltas};
+  }
+  function portableTargetFailure(check,details){
+    try{migrationCapsuleFail('portable_target_changed');}catch(error){
+      try{const diagnostic={schema:1,check,...details()};const diagnosticJson=JSON.stringify(diagnostic);error.portableDiagnostic=diagnosticJson.length<=24576?JSON.parse(diagnosticJson):{schema:1,check,detailTruncated:true};}
+      catch{try{error.portableDiagnostic={schema:1,check,diagnosticUnavailable:true};}catch{}}
+      throw error;
+    }
+  }
+  async function verifyPortableOriginals(owned){
+    return withPortableTargetReads(owned,async()=>{
+    if(!owned.installed)migrationCapsuleFail('portable_token');await owned.admission();await directory(owned.target);const root=await fsp.lstat(owned.target,{bigint:true});if(String(root.dev)!==owned.targetIdentity.dev||String(root.ino)!==owned.targetIdentity.ino)portableTargetFailure('originals.verify.root-identity',()=>({expected:owned.targetIdentity,actual:{dev:String(root.dev),ino:String(root.ino)}}));
+    for(const move of owned.moves){const file=path.join(owned.target,...move.path.split('/')),info=await platform.info(file),snapshot=await portableCapture(file,move.snapshot.revision);if(info.id!==move.info.id||info.volume!==move.info.volume||!migrationCapsuleSameMetadata(snapshot,move.snapshot))portableTargetFailure('originals.verify.move',()=>({path:move.path,expected:{id:move.info.id,volume:move.info.volume},actual:{id:info.id,volume:info.volume},delta:portableTargetSnapshotDelta(snapshot,move.snapshot)}));}
+    for(const row of owned.replacements)if(await fileHash(path.join(owned.target,...row.path.split('/')))!==row.sha256||hash(row.data)!==row.sha256)portableTargetFailure('originals.verify.replacement-sha256',()=>({path:row.path,expectedSha256:row.sha256,actualHashNotRetained:true}));
+    await owned.verifyCopies(owned.target);await owned.admission();return Object.freeze({target:owned.target,readOnly:true,originalObjects:'new-owned-portable',terminalSnapshots:'source-history-only'});
+    });
+  }
+  async function installPortableOriginals(owned,{targetIdentity}={}){
+    if(owned.installed||owned.installStarted||!targetIdentity||!['dev','ino'].every(key=>typeof targetIdentity[key]==='string'))migrationCapsuleFail('portable_token');await owned.admission();await directory(owned.target);const root=await fsp.lstat(owned.target,{bigint:true});if(String(root.dev)!==targetIdentity.dev||String(root.ino)!==targetIdentity.ino)portableTargetFailure('originals.install.root-identity',()=>({expected:targetIdentity,actual:{dev:String(root.dev),ino:String(root.ino)}}));
+    const stage=await portableCapture(owned.stageRoot,owned.stageProof.revision);if(!migrationCapsuleSameMetadata(stage,owned.stageProof))migrationCapsuleFail('portable_stage_changed');portableAssertDurability(owned.stageDurability,owned.stageRoot,owned.stageIdentity,stage);
+    const moveNames=owned.moves.map(row=>row.path),protectedRoots=moveNames.map(name=>path.join(owned.target,...name.split('/'))),requiredFlushRoots=[owned.target,...new Set(owned.moves.map(row=>path.dirname(path.join(owned.target,...row.path.split('/')))))],targetBindings=await portableBindExternal(portableExternalOnly(requiredFlushRoots,protectedRoots),'new-target-ancestor',owned.admission);portableAssertExternal(owned.stageDurability,targetBindings);
+    try{owned.installStarted=true;for(const move of owned.moves){await owned.admission();const source=path.join(owned.stageRoot,...move.path.split('/')),target=path.join(owned.target,...move.path.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const result=await platform.move({source,target,id:move.info.id,preserveMetadata:true});if(!result||result.id!==move.info.id||result.volume!==move.info.volume)migrationCapsuleFail('portable_store');}
+      owned.installed=true;owned.targetIdentity=Object.freeze({...targetIdentity});await portableVerifyInherited(owned.stageDurability,owned.stageRoot,owned.target,owned.stageIdentity,moveNames,owned.admission);await portableFlushBound(targetBindings,owned.admission);return await verifyPortableOriginals(owned);
+    }catch(cause){throw Object.assign(new Error('work_data_backup.portable_install_uncertain',{cause}),{code:'work_data_backup.portable_install_uncertain',apiCode:'work_data_backup.portable_install_uncertain',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,stageRetained:owned.stageRoot,targetRetained:owned.target,...(cause?.helperMayStillRun===true?{helperMayStillRun:true}:{})});}
+  }
+
+  async function stagePortable({target,keysFor,assertTargetExclusive,targetOwnership,assertTargetExclusiveSync,data,...request}={}) {
     if(typeof target!=='string'||!path.isAbsolute(target)||!eq(target,path.resolve(target))||typeof keysFor!=='function'||typeof assertTargetExclusive!=='function')migrationCapsuleFail('portable_host');
+    if(preservedTree)portableTargetReadAdmission({target,targetOwnership,assertTargetExclusiveSync},targetOwnership);
     const within=(a,b)=>{const relative=path.relative(samePathKey(a),samePathKey(b));return relative===''||relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative);};
     if(within(base,target)||within(target,base))migrationCapsuleFail('portable_target');
     const admission=async()=>{if(await assertTargetExclusive()!==true)migrationCapsuleFail('portable_owner');};
-    await admission();const value=await validatePortable({...request,data});await directory(path.dirname(target));
+    await admission();const value=await validatePortable({...request,data});portableRequireDurabilityHost();if(value.originals?.length||value.terminalCapsules?.length||value.rawTrees?.length||value.settledRepresentations?.length)return stagePortableOriginals({target,keysFor,assertTargetExclusive,targetOwnership,assertTargetExclusiveSync,request,value});await directory(path.dirname(target));
     const absent=async file=>{if(await stat(file))migrationCapsuleFail('portable_target_exists');};await absent(target);
     const stageRoot=path.join(path.dirname(target),'.ruyi-skill-portable-'+crypto.randomBytes(24).toString('hex'));
     let mutated=false;
@@ -3324,7 +4384,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         for(const row of input.scoped.values())if(portableFold(row.path).startsWith(portableFold(objectsName)+'/')){
           await makeParents(row.path);const handle=await fsp.open(path.join(stageRoot,...row.path.split('/')),'wx',0o600);try{await handle.writeFile(row.data);await handle.sync();}finally{await handle.close();}
         }
-        objectProof=await platform.capture(objectRoot,hash(value.source.sourceSha256+':target-store'));
+        objectProof=await portableCapture(objectRoot,hash(value.source.sourceSha256+':target-store'));
         if(!migrationCapsuleShape(objectProof)||objectProof.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
       }
       const validators={catalog:catalogValid,relocation:journalValid,representation:representationValid,binding:bindingValid};
@@ -3338,39 +4398,175 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         const reopened=await sealed(file,record.recordId,validate,keys,target).read();if(portableJSON(reopened)!==portableJSON(staged))migrationCapsuleFail('portable_binding');
         const bytes=await fsp.readFile(file);replacements.push({path:record.path,data:bytes,sha256:hash(bytes)});
       }
-      const stageProof=await platform.capture(stageRoot,hash(value.source.sourceSha256+':stage'));if(!migrationCapsuleShape(stageProof)||stageProof.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
-      await admission();await absent(target);await conversionNative.flush([...allDirs]);
+      const parentBindings=await portableBindExternal([...allDirs].filter(root=>!portableWithin(stageRoot,root)),'external-parent',admission);
+      const stageProof=await portableCapture(stageRoot,hash(value.source.sourceSha256+':stage'));if(!migrationCapsuleShape(stageProof)||stageProof.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+      await admission();await absent(target);const stageDurability=await portableStageDurability(stageRoot,stageProof,stageIdentity,[...allDirs],parentBindings,admission);
       const token=Object.freeze({stageRoot,stageIdentity:Object.freeze({...stageIdentity}),objectsRoot:objectsName,files:Object.freeze(replacements.map(row=>Object.freeze({...row}))),
         skipDirectories:Object.freeze(objectsName?[objectsName]:[]),skipFiles:Object.freeze(objectsName?[...input.scoped.values()].filter(row=>portableFold(row.path).startsWith(portableFold(objectsName)+'/')).map(row=>row.path):[]),
         profile:Object.freeze({...value.profile}),release(){for(const row of replacements)row.data.fill(0);}});
-      portableStages.set(token,{target,stageRoot,stageIdentity,stageProof,objectsName,objectInfo,objectProof,replacements,admission,installed:false,targetIdentity:null});return token;
-    }catch(cause){if(!mutated)throw cause;throw Object.assign(new Error('work_data_backup.portable_stage_failed',{cause}),{code:'work_data_backup.portable_stage_failed',apiCode:'work_data_backup.portable_stage_failed',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,stageRetained:stageRoot});}
+      portableStages.set(token,{target,stageRoot,stageIdentity,stageProof,stageDurability,objectsName,objectInfo,objectProof,replacements,admission,installed:false,targetIdentity:null});return token;
+    }catch(cause){if(!mutated)throw cause;throw Object.assign(new Error('work_data_backup.portable_stage_failed',{cause}),{code:'work_data_backup.portable_stage_failed',apiCode:'work_data_backup.portable_stage_failed',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,stageRetained:stageRoot,...(cause?.helperMayStillRun===true?{helperMayStillRun:true}:{})});}
   }
   async function verifyPortableInstalled(token){
-    const owned=portableStages.get(token);if(!owned?.installed)migrationCapsuleFail('portable_token');await owned.admission();
+    const owned=portableStages.get(token);if(owned?.originals)return verifyPortableOriginals(owned);if(!owned?.installed)migrationCapsuleFail('portable_token');await owned.admission();
     await directory(owned.target);const actualRoot=await fsp.lstat(owned.target,{bigint:true});
     if(String(actualRoot.dev)!==owned.targetIdentity.dev||String(actualRoot.ino)!==owned.targetIdentity.ino)migrationCapsuleFail('portable_target_changed');
     for(const row of owned.replacements){if(hash(row.data)!==row.sha256||await fileHash(path.join(owned.target,...row.path.split('/')))!==row.sha256)migrationCapsuleFail('portable_target_changed');}
-    for(const parent of new Set(owned.replacements.map(row=>path.dirname(path.join(owned.target,...row.path.split('/')))))){const actual=await platform.capture(parent,owned.stageProof.revision);if(!migrationCapsuleShape(actual)||actual.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');}
-    if(owned.objectsName){const root=path.join(owned.target,...owned.objectsName.split('/')),info=await platform.info(root),actual=await platform.capture(root,owned.objectProof.revision);if(info.id!==owned.objectInfo.id||info.volume!==owned.objectInfo.volume||!migrationCapsuleSame(actual,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_target_changed');}
+    for(const parent of new Set(owned.replacements.map(row=>path.dirname(path.join(owned.target,...row.path.split('/')))))){const actual=await portableCapture(parent,owned.stageProof.revision);if(!migrationCapsuleShape(actual)||actual.entries.some(entry=>entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');}
+    if(owned.objectsName){const root=path.join(owned.target,...owned.objectsName.split('/')),info=await platform.info(root),actual=await portableCapture(root,owned.objectProof.revision);if(info.id!==owned.objectInfo.id||info.volume!==owned.objectInfo.volume||!migrationCapsuleSame(actual,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_target_changed');}
     await owned.admission();return Object.freeze({target:owned.target,readOnly:true,originalObjects:'refused',terminalSnapshots:'source-history-only'});
   }
   async function installPortable(token,{targetIdentity}={}){
-    const owned=portableStages.get(token);if(!owned||owned.installed||owned.installStarted)migrationCapsuleFail('portable_token');await owned.admission();
+    const owned=portableStages.get(token);if(owned?.originals)return installPortableOriginals(owned,{targetIdentity});if(!owned||owned.installed||owned.installStarted)migrationCapsuleFail('portable_token');await owned.admission();
     if(!targetIdentity||!['dev','ino'].every(name=>typeof targetIdentity[name]==='string'))migrationCapsuleFail('portable_target');
     await directory(owned.target);const actual=await fsp.lstat(owned.target,{bigint:true});if(String(actual.dev)!==targetIdentity.dev||String(actual.ino)!==targetIdentity.ino)migrationCapsuleFail('portable_target_changed');
     const stage=await platform.info(owned.stageRoot);if(stage.id!==owned.stageIdentity.id||stage.volume!==owned.stageIdentity.volume)migrationCapsuleFail('portable_stage_changed');
-    const stageCurrent=await platform.capture(owned.stageRoot,owned.stageProof.revision);if(!migrationCapsuleSame(stageCurrent,migrationCapsuleFingerprint(owned.stageProof)))migrationCapsuleFail('portable_stage_changed');
+    const stageCurrent=await portableCapture(owned.stageRoot,owned.stageProof.revision);if(!migrationCapsuleSame(stageCurrent,migrationCapsuleFingerprint(owned.stageProof)))migrationCapsuleFail('portable_stage_changed');portableAssertDurability(owned.stageDurability,owned.stageRoot,owned.stageIdentity,stageCurrent);
+    const inheritedNames=owned.objectsName?[owned.objectsName]:[],protectedRoots=inheritedNames.map(name=>path.join(owned.target,...name.split('/'))),requiredFlushRoots=[owned.target,path.join(owned.target,'.work-data'),path.join(owned.target,'.work-data','skill-backups')].filter(root=>owned.objectsName||eq(root,owned.target)),targetBindings=await portableBindExternal(portableExternalOnly(requiredFlushRoots,protectedRoots),'new-target-ancestor',owned.admission);portableAssertExternal(owned.stageDurability,targetBindings);
     for(const row of owned.replacements)if(hash(row.data)!==row.sha256||await fileHash(path.join(owned.target,...row.path.split('/')))!==row.sha256)migrationCapsuleFail('portable_target_changed');
     try{
       owned.installStarted=true;
-      if(owned.objectsName){const source=path.join(owned.stageRoot,...owned.objectsName.split('/')),target=path.join(owned.target,...owned.objectsName.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const current=await platform.capture(source,owned.objectProof.revision);if(!migrationCapsuleSame(current,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_stage_changed');const moved=await platform.move({source,target,id:owned.objectInfo.id});if(moved.id!==owned.objectInfo.id||moved.volume!==owned.objectInfo.volume)migrationCapsuleFail('portable_store');}
-      owned.installed=true;owned.targetIdentity=Object.freeze({...targetIdentity});await conversionNative.flush([owned.target,path.join(owned.target,'.work-data'),path.join(owned.target,'.work-data','skill-backups')].filter(root=>owned.objectsName||eq(root,owned.target)));
+      if(owned.objectsName){const source=path.join(owned.stageRoot,...owned.objectsName.split('/')),target=path.join(owned.target,...owned.objectsName.split('/'));await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');const current=await portableCapture(source,owned.objectProof.revision);if(!migrationCapsuleSame(current,migrationCapsuleFingerprint(owned.objectProof)))migrationCapsuleFail('portable_stage_changed');const moved=await platform.move({source,target,id:owned.objectInfo.id,preserveMetadata:true});if(moved.id!==owned.objectInfo.id||moved.volume!==owned.objectInfo.volume)migrationCapsuleFail('portable_store');}
+      owned.installed=true;owned.targetIdentity=Object.freeze({...targetIdentity});await portableVerifyInherited(owned.stageDurability,owned.stageRoot,owned.target,owned.stageIdentity,inheritedNames,owned.admission);await portableFlushBound(targetBindings,owned.admission);
       return await verifyPortableInstalled(token);
-    }catch(cause){throw Object.assign(new Error('work_data_backup.portable_install_uncertain',{cause}),{code:'work_data_backup.portable_install_uncertain',apiCode:'work_data_backup.portable_install_uncertain',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,targetRetained:owned.target,stageRetained:owned.stageRoot});}
+    }catch(cause){throw Object.assign(new Error('work_data_backup.portable_install_uncertain',{cause}),{code:'work_data_backup.portable_install_uncertain',apiCode:'work_data_backup.portable_install_uncertain',statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,targetRetained:owned.target,stageRetained:owned.stageRoot,...(cause?.helperMayStillRun===true?{helperMayStillRun:true}:{})});}
   }
 
-  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, recoverRepresentation, verifyPublished, capturePortable, validatePortable, stagePortable, installPortable, verifyPortableInstalled });
+  // Narrow first-enable retirement. The authenticated original package proves
+  // that this control namespace did not predate the pending transition. Tokens
+  // remain private to this owner; a boolean recovery result grants no deletion.
+  const emptyCancellations = new WeakMap();
+  const emptyNames = ['relocation-v1.sealed', 'representation-v1.sealed'];
+  async function emptyPhysical(file) {
+    await directory(path.dirname(file)); const before = await fsp.lstat(file, { bigint: true });
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size < 1n || before.size > 128n * 1024n) migrationCapsuleFail('empty_cancel_changed');
+    const handle = await fsp.open(file, 'r'); let bytes;
+    try {
+      const opened = await handle.stat({ bigint: true }); bytes = Buffer.alloc(Number(before.size) + 1);let count = 0;
+      while (count < bytes.length) {const read = await handle.read(bytes, count, bytes.length - count, null);if (!read.bytesRead) break;count += read.bytesRead;}
+      const after = await handle.stat({ bigint: true }), current = await fsp.lstat(file, { bigint: true });
+      for (const value of [opened, after, current]) if (!value.isFile() || value.isSymbolicLink() || value.nlink !== 1n
+        || value.dev !== before.dev || value.ino !== before.ino || value.size !== before.size || value.mtimeNs !== before.mtimeNs || value.ctimeNs !== before.ctimeNs) migrationCapsuleFail('empty_cancel_changed');
+      if (count !== Number(before.size)) migrationCapsuleFail('empty_cancel_changed');
+      return { sha256: hash(bytes.subarray(0, count)), dev: String(before.dev), ino: String(before.ino) };
+    } finally { bytes?.fill(0); await handle.close(); }
+  }
+  const sameEmptyPhysical = (a, b) => a.sha256 === b.sha256 && a.dev === b.dev && a.ino === b.ino;
+  async function emptyNative(root) {
+    const snapshot = await platform.capture(root, crypto.randomBytes(32).toString('hex'));
+    if (!migrationCapsuleShape(snapshot) || snapshot.entries.some(row => row.attrs !== (row.dir ? 16 : 32) && !(row.dir === false && row.attrs === 128)
+      || row.streams.length !== (row.dir ? 0 : 1) || row.streams.some(stream => stream.name !== ''))) migrationCapsuleFail('empty_cancel_native');
+    return snapshot;
+  }
+  async function emptyAdmission(known, assertUnchanged) {
+    if (typeof assertUnchanged !== 'function' || await assertUnchanged() !== true) migrationCapsuleFail('empty_cancel_ownership');
+    const selected = await active();
+    if (selected.id !== null || selected.proof.raw !== null || selected.proof.sha256 !== null) migrationCapsuleFail('empty_cancel_authority');
+    await directory(path.join(base, '.work-data'));
+    const names = await fsp.readdir(path.join(base, '.work-data'));
+    if (names.some(name => !['generations', 'maintenance-v1.json', 'skill-backups'].includes(name))) migrationCapsuleFail('empty_cancel_external_reference');
+    await directory(path.join(base, '.work-data', 'generations'));
+    const generations = await fsp.readdir(path.join(base, '.work-data', 'generations'));
+    if (!(generations.length === 1 && generations[0] === known.candidateId || generations.length === 0 && (known.retired || known.allowMissing)) || await stat(path.join(base, 'work-data-key-v1.json'))) migrationCapsuleFail('empty_cancel_external_reference');
+  }
+  async function emptyLayout(known, allowStable) {
+    if (!await directory(control, true)) { if (known.controlIdentity && !known.retired) migrationCapsuleFail('empty_cancel_changed'); return []; }
+    if (known.controlIdentity) {const observed = await fsp.lstat(control, { bigint: true });if (String(observed.dev) !== known.controlIdentity.dev || String(observed.ino) !== known.controlIdentity.ino) migrationCapsuleFail('empty_cancel_changed');}
+    const names = (await fsp.readdir(control)).sort();
+    if (names.some(name => !emptyNames.includes(name) && !(allowStable && name === 'objects-v1'))) migrationCapsuleFail('empty_cancel_external_reference');
+    for (const root of [legacyRoot, stableRoot]) if (await stat(root)) {
+      await directory(root);
+      if (eq(root, legacyRoot) && known.legacyIdentity) {const observed = await fsp.lstat(root, { bigint: true });if (String(observed.dev) !== known.legacyIdentity.dev || String(observed.ino) !== known.legacyIdentity.ino) migrationCapsuleFail('empty_cancel_changed');}
+      if ((await fsp.readdir(root)).length) migrationCapsuleFail('empty_cancel_nonempty');
+      const captured = await emptyNative(root); if (captured.entries.length !== 1 || !captured.entries[0].dir) migrationCapsuleFail('empty_cancel_nonempty');
+    }
+    if (!allowStable && await stat(stableRoot)) migrationCapsuleFail('empty_cancel_unsettled');
+    for (const name of names.filter(value => emptyNames.includes(value))) await emptyPhysical(path.join(control, name));
+    const snapshot = await emptyNative(control);
+    if (snapshot.entries.length !== names.length + 1) migrationCapsuleFail('empty_cancel_changed');
+    for (const row of snapshot.entries) if (row.rel && (!names.includes(row.rel) || row.dir !== (row.rel === 'objects-v1'))) migrationCapsuleFail('empty_cancel_changed');
+    return names.filter(name => emptyNames.includes(name));
+  }
+  async function prepareEmptyCancellation({ serialized, password, state, assertUnchanged } = {}) {
+    let copied; try { copied = JSON.parse(JSON.stringify(state)); } catch { migrationCapsuleFail('empty_cancel_request'); }
+    if (typeof serialized !== 'string' || !hex(copied?.backup?.sha256) || hash(serialized) !== copied.backup.sha256
+      || copied.schema !== 2 || copied.operation !== 'enable' || !['candidate', 'key-ready', 'canceling'].includes(copied.phase)
+      || copied.expectedAuthority?.generation !== 0 || copied.expectedAuthority.id !== null || copied.expectedAuthority.sha256 !== null || copied.expectedAuthority.mode !== 'plain'
+      || !id48(copied.id) || !id48(copied.candidate?.id) || copied.candidate.mode !== 'encrypted') migrationCapsuleFail('empty_cancel_request');
+    const known = { candidateId: copied.candidate.id, backupSha256: copied.backup.sha256, records: null, retired: false, allowMissing: copied.phase === 'canceling' };
+    const opened = await WorkDataRecovery.open(serialized, password);
+    try {
+      const snapshot = opened.snapshot, lower = value => process.platform === 'win32' ? value.toLowerCase() : value;
+      if (snapshot.generation !== 0 || snapshot.keys.some(row => row.purpose === 'work-data')
+        || [...snapshot.files.map(row => row.path), ...snapshot.directories].some(relative => {
+          const name = lower(relative); return name === 'migrations/skill-backups' || name === '.work-data' || name.startsWith('.work-data/') || name === 'work-data-key-v1.json'
+            || name.startsWith('migrations/skill-backups/');
+        }) || snapshot.auxiliaries.some(row => row.type === 'skill-backup-portable')) migrationCapsuleFail('empty_cancel_preexisting');
+      const config = snapshot.files.find(row => lower(row.path) === 'config.json');
+      if (!config) migrationCapsuleFail('empty_cancel_source');
+      const text = config.data.toString('utf8'); let value;
+      try { if (!Buffer.from(text).equals(config.data)) migrationCapsuleFail('empty_cancel_source'); value = JSON.parse(text.replace(/^\uFEFF/, '')); } catch { migrationCapsuleFail('empty_cancel_source'); }
+      if (!value || typeof value !== 'object' || Array.isArray(value) || value.workDataEncryptionV1 !== undefined && value.workDataEncryptionV1 !== false) migrationCapsuleFail('empty_cancel_source');
+    } finally { opened.release(); }
+    await emptyAdmission(known, assertUnchanged); await emptyLayout(known, true);
+    const before = new Map();
+    for (const name of emptyNames) if (await stat(path.join(control, name))) before.set(name, await emptyPhysical(path.join(control, name)));
+    const relocation = await journalStore().read(), representation = await representationStore().read();
+    if (relocation && (relocation.targetId !== known.candidateId || relocation.sourceProof !== null || !['prepared', 'moved', 'canceled'].includes(relocation.phase))
+      || representation && relocation && representation.storeId !== relocation.storeId
+      || representation && (representation.targetId !== known.candidateId || representation.sourceId !== null || representation.sourceProof !== null
+        || representation.mode !== 'encrypted' || representation.entries.length || !['prepared', 'converted', 'canceled'].includes(representation.phase))) migrationCapsuleFail('empty_cancel_unsettled');
+    for (const [name, proof] of before) if (!sameEmptyPhysical(proof, await emptyPhysical(path.join(control, name)))) migrationCapsuleFail('empty_cancel_changed');
+    // Only this authenticated empty transition may move its root back. Unknown
+    // operation journals, old controls, and nonempty objects never reach recover.
+    await emptyAdmission(known, assertUnchanged); await recoverRepresentation(); await recover();
+    const names = await emptyLayout(known, false), canceled = await journalStore().read(), represented = await representationStore().read();
+    if (canceled && (canceled.phase !== 'canceled' || canceled.targetId !== known.candidateId || canceled.sourceProof !== null)
+      || represented && (represented.phase !== 'canceled' || represented.entries.length || represented.targetId !== known.candidateId)) migrationCapsuleFail('empty_cancel_unsettled');
+    if (canceled) {
+      await directory(legacyRoot); const identity = await platform.info(legacyRoot);
+      if (identity.id !== canceled.rootId || identity.volume !== canceled.volume) migrationCapsuleFail('empty_cancel_changed');
+    }
+    if (canceled && represented && canceled.storeId !== represented.storeId) migrationCapsuleFail('empty_cancel_unsettled');
+    if (await stat(control)) {const observed = await fsp.lstat(control, { bigint: true });known.controlIdentity = {dev: String(observed.dev), ino: String(observed.ino)};}
+    if (await stat(legacyRoot)) {const observed = await fsp.lstat(legacyRoot, { bigint: true });known.legacyIdentity = {dev: String(observed.dev), ino: String(observed.ino)};}
+    known.records = new Map(); for (const name of names) known.records.set(name, await emptyPhysical(path.join(control, name)));
+    await emptyAdmission(known, assertUnchanged);
+    const proof = Object.freeze({ candidateId: known.candidateId, backupSha256: known.backupSha256, profile: 'first-enable-empty-canceled' });
+    emptyCancellations.set(proof, known); return proof;
+  }
+  async function retireEmptyCancellation(proof, { assertUnchanged, flush } = {}) {
+    const known = emptyCancellations.get(proof); if (!known || known.retired || typeof flush !== 'function') migrationCapsuleFail('empty_cancel_proof');
+    await emptyAdmission(known, assertUnchanged); const names = await emptyLayout(known, false);
+    if (names.length !== known.records.size || names.some(name => !known.records.has(name))) migrationCapsuleFail('empty_cancel_changed');
+    for (const [name, expected] of known.records) if (!sameEmptyPhysical(expected, await emptyPhysical(path.join(control, name)))) migrationCapsuleFail('empty_cancel_changed');
+    const remaining = new Set(names);
+    for (const [name, expected] of known.records) {
+      await emptyAdmission(known, assertUnchanged); const actualNames = await emptyLayout(known, false);
+      if (actualNames.length !== remaining.size || actualNames.some(value => !remaining.has(value)) || !sameEmptyPhysical(expected, await emptyPhysical(path.join(control, name)))) migrationCapsuleFail('empty_cancel_changed');
+      await fsp.unlink(path.join(control, name)); remaining.delete(name); await flush([control, path.dirname(control), base]);
+    }
+    if (await stat(control)) {
+      await emptyAdmission(known, assertUnchanged); if ((await emptyLayout(known, false)).length || (await fsp.readdir(control)).length) migrationCapsuleFail('empty_cancel_changed');
+      await fsp.rmdir(control); await flush([path.dirname(control), base]);
+    } else if (known.controlIdentity) migrationCapsuleFail('empty_cancel_changed');
+    known.retired = true; return await verifyEmptyCancellation(proof, { assertUnchanged });
+  }
+  async function verifyEmptyCancellation(proof, { assertUnchanged } = {}) {
+    const known = emptyCancellations.get(proof); if (!known || !known.retired) migrationCapsuleFail('empty_cancel_proof');
+    await emptyAdmission(known, assertUnchanged);
+    if (await stat(control)) migrationCapsuleFail('empty_cancel_external_reference');
+    if (await directory(legacyRoot, true)) {
+      const observed = await fsp.lstat(legacyRoot, { bigint: true });
+      if (known.legacyIdentity && (String(observed.dev) !== known.legacyIdentity.dev || String(observed.ino) !== known.legacyIdentity.ino)) migrationCapsuleFail('empty_cancel_changed');
+      if ((await fsp.readdir(legacyRoot)).length) migrationCapsuleFail('empty_cancel_nonempty');
+      const snapshot = await emptyNative(legacyRoot); if (snapshot.entries.length !== 1) migrationCapsuleFail('empty_cancel_nonempty');
+    }
+    if (known.legacyIdentity && !await stat(legacyRoot)) migrationCapsuleFail('empty_cancel_changed');
+    await emptyAdmission(known, assertUnchanged); return true;
+  }
+
+  return Object.freeze({ prepare, prepareBindings, recover, activate, resolve, ref, prepareRepresentation, recoverRepresentation, prepareEmptyCancellation, retireEmptyCancellation, verifyEmptyCancellation, verifyPublished, capturePortable, validatePortable, stagePortable, installPortable, verifyPortableInstalled });
 }
 
 // 迟绑定挂接(见 00-boot 的 MigrationHooks 头注)。

@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 119,
-    "providedSymbols": 4157,
-    "requiredSymbols": 3975,
-    "edges": 819,
+    "modules": 123,
+    "providedSymbols": 4167,
+    "requiredSymbols": 4017,
+    "edges": 855,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1575,13 +1575,28 @@
       "provides": [
         "WorkDataTree"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "01ae-work-data-maintenance-result.js",
       "order": 28,
       "layer": "unclassified",
-      "note": "TEMP reviewed candidate composition only",
+      "note": "M3-3: bounded durable maintenance-result record (maintenance-result-v1.json) with authenticated read, schema validation and verified receipt; only the cold owner holding an issued durable backup may write it, and it stays metadata rather than manifest authority — a normal readback separately proves the real backup and current manifest, so a written result is not restore-complete authority",
       "provides": [
         "WorkDataMaintenanceResult"
       ],
@@ -1688,7 +1703,7 @@
       "file": "01ad-work-data-migration-host.js",
       "order": 30,
       "layer": "unclassified",
-      "note": "TEMP reviewed candidate composition only",
+      "note": "M3-3: complete migration/restore host composition for the fresh maintenance worker — authenticated source snapshot and target preflight, then prepare/publish/cancel/verifyPublished over an issued plan with its disposable rehearsal tree and special owner, never rebinding warm globals; the caller still owns drain, OS ownership, durable full backup and intent, and this module claims nothing beyond that plus production configure/upload (kernel, crash claim and activation completeness are not asserted)",
       "provides": [
         "WorkDataMigrationHost"
       ],
@@ -25409,6 +25424,8 @@
         "migrationCapsuleBroker",
         "migrationCapsuleCapture",
         "migrationCapsuleCapturePreserved",
+        "migrationCapsuleCarrierHeaderValid",
+        "migrationCapsuleCreateOwnedPortable",
         "migrationCapsuleDecode",
         "migrationCapsuleDescriptor",
         "migrationCapsuleFail",
@@ -25417,6 +25434,7 @@
         "migrationCapsuleFinishPublished",
         "migrationCapsuleIntent",
         "migrationCapsuleIntentShape",
+        "migrationCapsulePortableShape",
         "migrationCapsulePrepare",
         "migrationCapsulePresent",
         "migrationCapsuleRead",
@@ -25428,6 +25446,7 @@
         "migrationCapsuleShape",
         "migrationCapsuleVerifyReady",
         "migrationCapsuleWriteIntent",
+        "migrationCapturedCleanupFailure",
         "migrationChain",
         "migrationCollect",
         "migrationCollectRefs",
@@ -25488,6 +25507,7 @@
         "migrationUndo",
         "migrationUndoCapsule",
         "migrationUndoSkillCopy",
+        "migrationWithCapturedBytes",
         "writeMigrationLog"
       ],
       "requires": [
@@ -25689,6 +25709,13 @@
           ]
         },
         {
+          "provider": "01aa-work-data-tree.js",
+          "symbol": "WorkDataTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01n-work-data-crypto.js",
           "symbol": "WorkDataCrypto",
           "kinds": [
@@ -25712,6 +25739,13 @@
         {
           "provider": "01t-work-data-recovery.js",
           "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01x-work-data-migration-codecs.js",
+          "symbol": "WorkDataMigrationCodecs",
           "kinds": [
             "read"
           ]
@@ -25878,6 +25912,13 @@
         {
           "provider": "01-config.js",
           "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01aa-work-data-tree.js",
+          "symbol": "WorkDataTree",
           "kinds": [
             "read"
           ]
@@ -28232,8 +28273,33 @@
       ]
     },
     {
-      "file": "13ah-work-data-setup.js",
+      "file": "13at-work-data-restore-uploads.js",
       "order": 108,
+      "layer": "unclassified",
+      "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and a private job/nonce handoff consumed by the cold worker; HTTP upload custody and the warm runtime keeper are wired, restore activation stays with WorkDataSetup / WorkDataRuntimeHost",
+      "provides": [
+        "WorkDataRestoreUploads"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ah-work-data-setup.js",
+      "order": 109,
       "layer": "unclassified",
       "note": "M3-3: authenticated setup jobs and complete HTTP maintenance admission",
       "provides": [
@@ -28296,6 +28362,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
@@ -28334,6 +28407,13 @@
           "symbol": "send",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -28405,14 +28485,21 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13at-work-data-restore-uploads.js",
+          "symbol": "WorkDataRestoreUploads",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
     {
       "file": "13ai-work-data-worker.js",
-      "order": 109,
+      "order": 110,
       "layer": "unclassified",
-      "note": "TEMP reviewed candidate composition only",
+      "note": "K3 cold maintenance worker: authenticated private IPC plus proof of parent death before it touches the base, restore-upload handoff validation and execute()-only mutation; the parent reads no config or store, releases no ownership and switches no warm root",
       "provides": [
         "WorkDataMaintenanceWorker"
       ],
@@ -28431,14 +28518,21 @@
             "call",
             "read"
           ]
+        },
+        {
+          "provider": "13at-work-data-restore-uploads.js",
+          "symbol": "WorkDataRestoreUploads",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
     {
       "file": "13aj-work-data-control.js",
-      "order": 110,
+      "order": 111,
       "layer": "unclassified",
-      "note": "TEMP reviewed candidate composition only",
+      "note": "K3 durable single pending maintenance intent with its per-write receipts: a private issued receipt gates every update/removal, an interrupted write never authorizes the next mutation, and boot refuses unfinished intent/result state before normal recovery",
       "provides": [
         "WorkDataMaintenanceControl"
       ],
@@ -28454,9 +28548,9 @@
     },
     {
       "file": "13al-work-data-maintenance-http.js",
-      "order": 111,
+      "order": 112,
       "layer": "unclassified",
-      "note": "TEMP reviewed candidate composition only",
+      "note": "K3 bounded cold-worker progress HTTP: loopback-only status transport whose caller has already proved parent death and current exclusive OS ownership; it opens no data root and starts no maintenance",
       "provides": [
         "WorkDataMaintenanceHttp"
       ],
@@ -28493,9 +28587,9 @@
     },
     {
       "file": "13an-work-data-disposable-tree.js",
-      "order": 112,
+      "order": 113,
       "layer": "unclassified",
-      "note": "TEMP reviewed candidate composition only",
+      "note": "K3 disposal of the owned disposable native rehearsal tree: requires the real native namespace census plus WorkDataTree's private identity proof and refuses any capture above the existing 96 MB bound instead of omitting tail, stream or unknown objects",
       "provides": [
         "WorkDataDisposableNativeTree"
       ],
@@ -28503,9 +28597,9 @@
     },
     {
       "file": "13ak-work-data-cold-operations.js",
-      "order": 113,
+      "order": 114,
       "layer": "unclassified",
-      "note": "TEMP reviewed candidate composition only",
+      "note": "K3 cold operation bodies for the fresh maintenance worker: backup, restore and rehearsal run on host-supplied real owner lifetimes and the reviewed snapshot/codec/native owners; never starts a normal server or changes process-global paths",
       "provides": [
         "WorkDataColdOperations"
       ],
@@ -28598,9 +28692,9 @@
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "order": 114,
+      "order": 115,
       "layer": "unclassified",
-      "note": "TEMP reviewed candidate composition only",
+      "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and the successor runSuccessor handoff into a fresh serve that must re-prove the same listener and authority; only a reviewed production host may configure it, otherwise the capability stays unavailable",
       "provides": [
         "WorkDataMaintenanceRuntime"
       ],
@@ -28679,7 +28773,7 @@
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "order": 115,
+      "order": 116,
       "layer": "unclassified",
       "note": "M3-4 committed-message text index owner",
       "provides": [
@@ -28791,7 +28885,7 @@
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "order": 116,
+      "order": 117,
       "layer": "unclassified",
       "note": "M3-4 authorized UI/model/MCP fulltext consumers",
       "provides": [
@@ -28972,7 +29066,7 @@
     },
     {
       "file": "13ba-media-image-contract.js",
-      "order": 117,
+      "order": 118,
       "layer": "unclassified",
       "note": "M4 bounded in-memory image contract; production media owners unbound",
       "provides": [
@@ -28996,8 +29090,252 @@
       ]
     },
     {
+      "file": "13aq-work-data-native-adapters.js",
+      "order": 119,
+      "layer": "unclassified",
+      "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false",
+      "provides": [
+        "WorkDataNativeAdapters"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ab-work-data-full-snapshot.js",
+          "symbol": "WorkDataFullSnapshot",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ad-work-data-migration-host.js",
+          "symbol": "WorkDataMigrationHost",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ae-work-data-maintenance-result.js",
+          "symbol": "WorkDataMaintenanceResult",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01v-work-data-manifest.js",
+          "symbol": "WorkDataManifest",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01w-work-data-native-publish.js",
+          "symbol": "WorkDataNativePublish",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13ai-work-data-worker.js",
+          "symbol": "WorkDataMaintenanceWorker",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13an-work-data-disposable-tree.js",
+          "symbol": "WorkDataDisposableNativeTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13u-migration-center.js",
+          "symbol": "migrationCapsuleCapturePreserved",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13y-external-bot-credentials.js",
+          "symbol": "ExternalBotCredentials",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ar-work-data-verifier-entry.js",
+      "order": 120,
+      "layer": "unclassified",
+      "note": "K2 private IPC verifier entry; no runtime configure or public worker capability",
+      "provides": [
+        "WorkDataVerifierEntry"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "exePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "isPkg",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13aq-work-data-native-adapters.js",
+          "symbol": "WorkDataNativeAdapters",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13au-work-data-runtime-host.js",
+      "order": 121,
+      "layer": "unclassified",
+      "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. Declared capabilities stay upload-only, so worker, download, crashClaim and activation remain unavailable — no automatic startup and no completed restore.",
+      "provides": [
+        "WorkDataRuntimeHost",
+        "WorkDataServeUploadBootstrap"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceWorkerHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ae-work-data-maintenance-result.js",
+          "symbol": "WorkDataMaintenanceResult",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13ai-work-data-worker.js",
+          "symbol": "WorkDataMaintenanceWorker",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13aj-work-data-control.js",
+          "symbol": "WorkDataMaintenanceControl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13ak-work-data-cold-operations.js",
+          "symbol": "WorkDataColdOperations",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13al-work-data-maintenance-http.js",
+          "symbol": "WorkDataMaintenanceHttp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13ar-work-data-verifier-entry.js",
+          "symbol": "WorkDataVerifierEntry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13at-work-data-restore-uploads.js",
+          "symbol": "WorkDataRestoreUploads",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "14-main.js",
-      "order": 118,
+      "order": 122,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -32911,6 +33249,13 @@
           ]
         },
         {
+          "provider": "13ar-work-data-verifier-entry.js",
+          "symbol": "WorkDataVerifierEntry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13d-core-domain-routes.js",
           "symbol": "buildMissionAggregateRows",
           "kinds": [
@@ -33405,6 +33750,22 @@
         "nativeToolTier"
       ],
       "direction": "forward"
+    },
+    {
+      "from": "01aa-work-data-tree.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "paths"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "01aa-work-data-tree.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
+      ],
+      "direction": "backward"
     },
     {
       "from": "01ab-work-data-full-snapshot.js",
@@ -38697,6 +39058,7 @@
       "from": "13ah-work-data-setup.js",
       "to": "00-boot.js",
       "symbols": [
+        "URL",
         "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceWorkerHooks",
         "WorkDataRootHooks",
@@ -38717,6 +39079,14 @@
       "symbols": [
         "safeSessionId",
         "send"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ah-work-data-setup.js",
+      "to": "01t-work-data-recovery.js",
+      "symbols": [
+        "WorkDataRecovery"
       ],
       "direction": "backward"
     },
@@ -38773,6 +39143,14 @@
       "direction": "backward"
     },
     {
+      "from": "13ah-work-data-setup.js",
+      "to": "13at-work-data-restore-uploads.js",
+      "symbols": [
+        "WorkDataRestoreUploads"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "13ai-work-data-worker.js",
       "to": "00-boot.js",
       "symbols": [
@@ -38785,6 +39163,14 @@
       "to": "01-config.js",
       "symbols": [
         "send"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ai-work-data-worker.js",
+      "to": "13at-work-data-restore-uploads.js",
+      "symbols": [
+        "WorkDataRestoreUploads"
       ],
       "direction": "backward"
     },
@@ -39019,6 +39405,129 @@
       "direction": "backward"
     },
     {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "MigrationHooks",
+        "VERSION",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01-config.js",
+      "symbols": [
+        "atomicWriteJson"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01ab-work-data-full-snapshot.js",
+      "symbols": [
+        "WorkDataFullSnapshot"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01ad-work-data-migration-host.js",
+      "symbols": [
+        "WorkDataMigrationHost"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01ae-work-data-maintenance-result.js",
+      "symbols": [
+        "WorkDataMaintenanceResult"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01g-server-ownership.js",
+      "symbols": [
+        "ServerOwnership"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01j-local-crypto.js",
+      "symbols": [
+        "LocalSecretCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01v-work-data-manifest.js",
+      "symbols": [
+        "WorkDataManifest"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01w-work-data-native-publish.js",
+      "symbols": [
+        "WorkDataNativePublish"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "13ai-work-data-worker.js",
+      "symbols": [
+        "WorkDataMaintenanceWorker"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "13an-work-data-disposable-tree.js",
+      "symbols": [
+        "WorkDataDisposableNativeTree"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "13u-migration-center.js",
+      "symbols": [
+        "migrationCapsuleCapturePreserved"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "13y-external-bot-credentials.js",
+      "symbols": [
+        "ExternalBotCredentials"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ar-work-data-verifier-entry.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "exePath",
+        "isPkg"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ar-work-data-verifier-entry.js",
+      "to": "13aq-work-data-native-adapters.js",
+      "symbols": [
+        "WorkDataNativeAdapters"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "13as-session-fulltext-consumers.js",
       "to": "00-boot.js",
       "symbols": [
@@ -39109,6 +39618,104 @@
         "nativeToolDisabledByPolicy",
         "nativeToolGate",
         "nativeToolTier"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13at-work-data-restore-uploads.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13at-work-data-restore-uploads.js",
+      "to": "01t-work-data-recovery.js",
+      "symbols": [
+        "WorkDataRecovery"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "MigrationHooks",
+        "WorkDataMaintenanceRuntimeHooks",
+        "WorkDataMaintenanceWorkerHooks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "01ae-work-data-maintenance-result.js",
+      "symbols": [
+        "WorkDataMaintenanceResult"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "01g-server-ownership.js",
+      "symbols": [
+        "ServerOwnership"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "01j-local-crypto.js",
+      "symbols": [
+        "LocalSecretCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "13ai-work-data-worker.js",
+      "symbols": [
+        "WorkDataMaintenanceWorker"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "13aj-work-data-control.js",
+      "symbols": [
+        "WorkDataMaintenanceControl"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "13ak-work-data-cold-operations.js",
+      "symbols": [
+        "WorkDataColdOperations"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "13al-work-data-maintenance-http.js",
+      "symbols": [
+        "WorkDataMaintenanceHttp"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "13ar-work-data-verifier-entry.js",
+      "symbols": [
+        "WorkDataVerifierEntry"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "13at-work-data-restore-uploads.js",
+      "symbols": [
+        "WorkDataRestoreUploads"
       ],
       "direction": "backward"
     },
@@ -41757,6 +42364,14 @@
     },
     {
       "from": "13u-migration-center.js",
+      "to": "01aa-work-data-tree.js",
+      "symbols": [
+        "WorkDataTree"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13u-migration-center.js",
       "to": "01n-work-data-crypto.js",
       "symbols": [
         "WorkDataCrypto"
@@ -41784,6 +42399,14 @@
       "to": "01t-work-data-recovery.js",
       "symbols": [
         "WorkDataRecovery"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13u-migration-center.js",
+      "to": "01x-work-data-migration-codecs.js",
+      "symbols": [
+        "WorkDataMigrationCodecs"
       ],
       "direction": "backward"
     },
@@ -41956,6 +42579,14 @@
       "to": "01-config.js",
       "symbols": [
         "DurableJsonStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13y-external-bot-credentials.js",
+      "to": "01aa-work-data-tree.js",
+      "symbols": [
+        "WorkDataTree"
       ],
       "direction": "backward"
     },
@@ -42808,6 +43439,14 @@
         "parseArgs",
         "startMcp",
         "startServer"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13ar-work-data-verifier-entry.js",
+      "symbols": [
+        "WorkDataVerifierEntry"
       ],
       "direction": "backward"
     },

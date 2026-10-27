@@ -45,6 +45,8 @@ function fixture(mode = 'no-close', text = source) {
 }
 const tick = () => Promise.resolve().then(() => Promise.resolve());
 const uncertainAlive = error => error.commitUncertain === true && error.helperMayStillRun === true;
+const success = { ok: true, moved: true, sourceFlushed: true, writeThrough: true, sameVolume: true,
+  directoryFlush: [0, 0, 0, 0], sha256: 'a'.repeat(64) };
 
 test('native publisher reports only a true spawn failure with no process identity as definitely unpublished', async () => {
   const f = fixture(); f.child.emit('error', Error('synthetic spawn failure'));
@@ -90,4 +92,53 @@ test('negative control restoring the old error handler fails the same helper-own
   const old = "    child.on('error', () => finish(failure('publisher_unavailable', false)));\n";
   const broken = source.replace(handler, old); assert.notEqual(broken, source);
   await assert.rejects(() => timeoutFailure('kill-error', broken), { code: 'ERR_ASSERTION' });
+});
+
+const publishStdoutPipe = "    child.stdout.on('error', () => stop(failure('publisher_pipe', true)));\n";
+const publishStderrPipe = "    child.stderr.on('error', () => stop(failure('publisher_pipe', true)));\n";
+
+test('a stdout or stderr pipe error before close keeps the helper uncertain until close or the termination deadline', async () => {
+  for (const stream of ['stdout', 'stderr']) {
+    const f = fixture(); f.spawn();
+    f.child[stream].emit('error', Error('synthetic ' + stream + ' pipe failure')); await tick();
+    assert.equal(f.settled(), false, 'a transport fault cannot settle while the helper may still own guards');
+    assert.equal(f.child.kills, 1);
+    f.fire(2000);
+    await assert.rejects(f.promise, error => error.code === 'work_data_manifest.publisher_pipe' && uncertainAlive(error));
+    assert.equal(f.timers.size, 0);
+  }
+});
+
+test('a pipe error followed by an actual helper close keeps the existing confirmed-close meaning', async () => {
+  for (const stream of ['stdout', 'stderr']) {
+    const f = fixture('kill-closes'); f.spawn();
+    f.child[stream].emit('error', Error('synthetic ' + stream + ' pipe failure')); await tick();
+    await assert.rejects(f.promise, error => error.code === 'work_data_manifest.publisher_pipe'
+      && error.commitUncertain === true && error.helperMayStillRun !== true);
+    assert.equal(f.child.kills, 1); assert.equal(f.timers.size, 0);
+  }
+});
+
+test('a stream error after the helper settled is absorbed and cannot retract the result or kill it late', async () => {
+  for (const stream of ['stdout', 'stderr']) {
+    const f = fixture(); f.spawn();
+    f.child.stdout.emit('data', Buffer.from(JSON.stringify(success)));
+    f.child.emit('close', 0);
+    const result = await f.promise;
+    assert.equal(result.ok, true);
+    assert.doesNotThrow(() => f.child[stream].emit('error', Error('late ' + stream + ' pipe failure')));
+    assert.equal(f.child.kills, 0, 'a settled helper must not be killed by a late transport fault');
+    assert.equal(f.timers.size, 0);
+  }
+});
+
+test('negative control without the stream error listeners turns the same pipe fault into an unhandled emitter error', () => {
+  const broken = source.replace(publishStdoutPipe, '').replace(publishStderrPipe, '');
+  assert.notEqual(broken, source);
+  for (const stream of ['stdout', 'stderr']) {
+    const f = fixture('no-close', broken); f.spawn();
+    const fault = Error('synthetic ' + stream + ' pipe failure');
+    assert.throws(() => f.child[stream].emit('error', fault), error => error === fault);
+    assert.equal(f.settled(), false);
+  }
 });

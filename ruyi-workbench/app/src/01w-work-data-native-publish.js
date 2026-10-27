@@ -233,6 +233,10 @@ function invoke(args) {
       output.push(Buffer.from(chunk));
     });
     child.stderr.on('data', chunk => { if (forcedError) return; stderrBytes += chunk.length; if (stderrBytes > 8192) stop(failure('publisher_output_limit', true)); });
+    // Pipe faults are transport failures, not proof that the native helper stopped.
+    // stop() keeps the host gate blocked until close or the termination deadline.
+    child.stdout.on('error', () => stop(failure('publisher_pipe', true)));
+    child.stderr.on('error', () => stop(failure('publisher_pipe', true)));
     child.on('close', code => {
       if (settled) return;
       if (forcedError) { finish(forcedError); return; }
@@ -302,6 +306,8 @@ function invokeFlush(directories) {
       output.push(Buffer.from(chunk));
     });
     child.stderr.on('data',chunk => {if (!settled && !forcedError) {stderrBytes += chunk.length;if (stderrBytes > 8192) stop(flushFailure('output_limit',true));}});
+    child.stdout.on('error',() => stop(flushFailure('pipe',true)));
+    child.stderr.on('error',() => stop(flushFailure('pipe',true)));
     child.on('close',code => {
       if (settled) return; if (forcedError) return finish(forcedError);
       let response, raw;

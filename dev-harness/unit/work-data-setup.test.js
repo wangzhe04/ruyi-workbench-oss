@@ -4,7 +4,11 @@ const crypto=require('node:crypto'),{EventEmitter}=require('node:events'),{Reada
 const repo=process.env.RUYI_SETUP_REPO||path.resolve(__dirname,'../..'),draft=process.env.RUYI_SETUP_DRAFT||(fs.existsSync(path.join(__dirname,'13ah-work-data-setup.js'))?__dirname:path.join(repo,'ruyi-workbench/app/src')),{constBlock,functionBlock}=require(path.join(repo,'dev-harness/lib/source-slice'));
 const sourceFile=name=>fs.existsSync(path.join(draft,'src',name))?path.join(draft,'src',name):fs.existsSync(path.join(draft,name))?path.join(draft,name):path.join(repo,'ruyi-workbench/app/src',name);
 const setupSource=fs.readFileSync(sourceFile('13ah-work-data-setup.js'),'utf8'),maintenanceSource=fs.readFileSync(sourceFile('13ag-work-data-maintenance.js'),'utf8');
-const context={require,Buffer,AbortController,Promise,Set,Map,WeakMap,Object,Error,TypeError};
+const SetupOwnership=vm.runInNewContext(constBlock(fs.readFileSync(sourceFile('01g-server-ownership.js'),'utf8'),'ServerOwnership')+'\nServerOwnership',{require,Buffer,process});
+const SetupRecovery=vm.runInNewContext(constBlock(fs.readFileSync(sourceFile('01t-work-data-recovery.js'),'utf8'),'WorkDataRecovery')+'\nWorkDataRecovery',{require,Buffer,process});
+// Stable IDs belong only to this isolated upload-broker fixture, not production crypto.
+const SetupUploads=vm.runInNewContext(constBlock(fs.readFileSync(sourceFile('13at-work-data-restore-uploads.js'),'utf8'),'WorkDataRestoreUploads')+'\nWorkDataRestoreUploads',{require:name=>name==='node:crypto'?{...crypto,randomBytes:size=>Buffer.alloc(size,0xbb)}:require(name),Buffer,process,WorkDataRecovery:SetupRecovery});
+const context={require,Buffer,AbortController,Promise,Set,Map,WeakMap,Object,Error,TypeError,WorkDataRestoreUploads:SetupUploads};
 const Setup=vm.runInNewContext(constBlock(setupSource,'WorkDataSetup')+'\nWorkDataSetup',context),Maintenance=vm.runInNewContext(constBlock(maintenanceSource,'WorkDataMaintenance')+'\nWorkDataMaintenance',context);
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{resolve,reject,promise};},tick=()=>new Promise(setImmediate),until=async predicate=>{for(let i=0;i<60;i++){if(await predicate())return;await tick();}throw Error('condition did not settle');};
 const authority={generation:0,id:null,mode:'plain',sha256:null},clone=value=>JSON.parse(JSON.stringify(value)),secret='synthetic setup password only';
@@ -17,6 +21,20 @@ function fixture(){let counter=0,response;const owners=new Set(),events=[],queue
  const api=Setup.create(host),body=(patch={})=>({operation:'enable',password:secret,expectedAuthority:clone(state.authority),backupDirectory:'C:/synthetic/backups',...patch});
  const get=async id=>{await api.handle({method:'GET'},{},'/api/work-data/jobs/'+id);return response.body.job;};
  return{api,m,host,worker,handle,state,ready,events,queue,body,owners,get,response:()=>response,start:()=>queue.shift()()};
+}
+
+
+async function bindRestoreUpload(f,t){
+ const root=await fsp.mkdtemp(path.join(os.tmpdir(),'ruyi-setup-upload-unit-')),base=path.join(root,'base'),custody=path.join(root,'custody');await fsp.mkdir(base);await fsp.mkdir(custody);
+ const ownership=await SetupOwnership.acquire([base,custody]),canonicalBase=await SetupOwnership.canonicalRoot(base),canonicalCustody=await SetupOwnership.canonicalRoot(custody),keeper=SetupOwnership.createSourceKeeper(ownership,canonicalBase);
+ t.after(async()=>{await keeper.releaseChecked(()=>SetupOwnership.owns(ownership,canonicalBase)&&SetupOwnership.owns(ownership,canonicalCustody));await ownership.release();assert.equal(path.dirname(root),path.resolve(os.tmpdir()));assert.ok(path.basename(root).startsWith('ruyi-setup-upload-unit-'));await fsp.rm(root,{recursive:true,force:true});});
+ const exclusive=candidate=>keeper.assertExclusive(candidate)&&SetupOwnership.owns(candidate,canonicalCustody);
+ const broker=await SetupUploads.create({base:canonicalBase,root:canonicalCustody,ownership,assertExclusive:exclusive,flush:async()=>{}});
+ // The controller only inspects container syntax; this synthetic cryptogram is never decrypted.
+ const bytes=Buffer.from(JSON.stringify({kind:SetupRecovery.KIND,version:SetupRecovery.VERSION,exportId:'a'.repeat(32),kdf:{name:'scrypt',N:32768,r:8,p:1,salt:Buffer.alloc(16).toString('base64')},cipher:'aes-256-gcm',nonce:Buffer.alloc(12).toString('base64'),tag:Buffer.alloc(16).toString('base64'),data:Buffer.from('SYNTHETIC CIPHERTEXT').toString('base64')}));
+ let uploadId;try{uploadId=await broker.put(bytes);}finally{bytes.fill(0);}assert.equal(uploadId,'b'.repeat(48));assert.equal(SetupUploads.isBroker(broker),true);
+ const inspect=f.host.inspect;f.host.inspect=async()=>({...await inspect(),base:canonicalBase});f.worker.resolveUpload=(id,options)=>broker.resolveUpload(id,options);
+ return {broker,canonicalBase};
 }
 
 test('202 job waits for an admitted old HTTP root, then follows ready/assertIdle/retire/handoff without claiming completion',async()=>{
@@ -72,10 +90,18 @@ test('strict operation/password/full authority/field validation refuses before s
 test('unbound worker/upload hooks report typed unavailable without accepting fake work or downloads',async()=>{
  const f=fixture();delete f.worker.start;await assert.rejects(f.api.submit(f.body()),error=>error.statusCode===501&&/worker_unavailable/.test(error.code));assert.equal(f.queue.length,0);assert.deepEqual(clone((await f.api.status()).capabilities),{worker:false,upload:false,download:false});
  const g=fixture();await assert.rejects(g.api.submit(g.body({operation:'restore',targetDirectory:'C:/target',uploadId:'a'.repeat(48)})),error=>error.statusCode===501&&/upload_unavailable/.test(error.code));assert.equal(g.queue.length,0);
+ // A worker that cannot start must refuse before the restore grant is resolved, and the
+ // existing restore input validation still runs first.
+ const h=fixture(),restoreBody=patch=>h.body({operation:'restore',targetDirectory:'C:/target',uploadId:'a'.repeat(48),...patch});let resolved=0;h.worker.resolveUpload=async()=>{resolved++;return null;};delete h.worker.start;
+ await assert.rejects(h.api.submit(restoreBody({uploadId:'bad'})),error=>error.statusCode===400&&/restore_input_invalid/.test(error.code));
+ assert.equal(resolved,0);
+ await assert.rejects(h.api.submit(restoreBody()),error=>error.statusCode===501&&/worker_unavailable/.test(error.code));
+ assert.equal(resolved,0,'a worker that cannot start must not consume the upload grant');
+ assert.equal(h.queue.length,0);assert.equal(h.m.accepting(),true);assert.equal(h.events.includes('pause'),false);
 });
 
-test('all four real job inputs retain exact authority and directory/upload bindings at the worker boundary',async()=>{
- for(const operation of ['enable','disable','export','restore']){const f=fixture();if(operation==='disable')f.state.authority.mode='encrypted';if(operation==='restore')f.worker.resolveUpload=async id=>id==='b'.repeat(48);
+test('all four real job inputs retain exact authority and directory/upload bindings at the worker boundary',async t=>{
+ for(const operation of ['enable','disable','export','restore']){const f=fixture();if(operation==='disable')f.state.authority.mode='encrypted';if(operation==='restore')await bindRestoreUpload(f,t);
   const body=f.body({operation,...(operation==='disable'?{confirmPlaintext:true}:{}),...(operation==='restore'?{targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48)}:{})}),expected=clone(body.expectedAuthority),job=await f.api.submit(body);f.start();await until(()=>f.events.includes('start'));
   assert.equal(f.state.workerInput.operation,operation);assert.deepEqual(clone(f.state.workerInput.expectedAuthority),expected);assert.equal(f.state.workerInput.backupDirectory,'C:/synthetic/backups');assert.equal(f.state.workerInput.confirmPlaintext,operation==='disable');if(operation==='restore'){assert.equal(f.state.workerInput.targetDirectory,'C:/synthetic/target');assert.equal(f.state.workerInput.uploadId,'b'.repeat(48));}
   await f.api.cancel(job.id);await until(async()=>(await f.get(job.id)).state==='cancelled');assert.equal(f.events.includes('handoff'),false);
@@ -160,4 +186,11 @@ test('an existing proposed pool approval/rejection can continue only through its
  for(const body of [{sessionId:'sess_other',action:'pool_reject',poolId:'pool_one'},{sessionId:'sess_one',action:'pool_reject',poolId:'unknown'},{sessionId:'sess_one',action:'retry_node',poolId:'pool_one'}])await assert.rejects(api.runHttp(request(body),'/api/agent-runs/run_one',()=>assert.fail()),/receipt_owner_unavailable/);
  live.closing=true;assert.equal(lookup('/api/agent-runs/run_one',{sessionId:'sess_one',action:'pool_reject',poolId:'pool_one'}),null);live.closing=false;
  item.status='rejected';assert.equal(lookup('/api/missions/sess_one/interventions/pool_one/decision',{action:'reject'}),null);item.status='proposed';runs.delete('run_one');assert.equal(lookup('/api/missions/sess_one/interventions/pool_one/decision',{action:'approve'}),null);lease.resume();
+});
+
+test('upload broker refusals keep their own code as the client-visible apiCode',async t=>{
+ const f=fixture(),{broker}=await bindRestoreUpload(f,t);
+ await assert.rejects(broker.put(Buffer.from([0xff,0xfe,0xfd])),error=>error.code==='work_data_upload.sealed_required'&&error.apiCode==='work_data_upload.sealed_required'&&error.statusCode===409&&error.retry===false);
+ await assert.rejects(broker.resolveUpload('a'.repeat(48),{jobId:'c'.repeat(48)}),error=>error.code==='work_data_upload.grant_unavailable'&&error.apiCode===error.code);
+ await assert.rejects(broker.put(Buffer.alloc(0)),error=>error.code==='work_data_upload.capacity'&&error.apiCode===error.code);
 });

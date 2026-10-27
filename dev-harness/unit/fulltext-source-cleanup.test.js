@@ -1,7 +1,8 @@
 'use strict';
 const{test}=require('node:test'),a=require('node:assert/strict'),io=require('node:fs/promises'),p=require('node:path'),{fixture}=require('../lib/work-data-session-fulltext-fixture.js');
 const absent=Symbol('no failure'),values=[()=>Object.assign(Error('work failure'),{code:'fixture.work_failed',apiCode:'fixture.work_failed',statusCode:409,helperMayStillRun:true}),()=>null,()=>undefined,()=>false,()=>0,()=>'' ];
-async function check(t,work=absent,close=absent,release=absent){
+async function check(t,...failures){
+ const work=failures.length>0?failures[0]:absent,close=failures.length>1?failures[1]:absent,release=failures.length>2?failures[2]:absent;
  const f=await fixture({enabled:true}),open=io.open;let acquired=0,released=0,active=0,bodyClose=0,bodyRelease=0,visited=0;
  try{await f.put('Cleanup',[{id:'original_cleanup_message',role:'user',turnSeq:1,content:'actual encrypted source cleanup proof'}]);
   f.keys.snapshot=async()=>{const ordinal=++acquired,key=Buffer.from(f.master);active++;return{key,instanceId:f.instanceId,release:async()=>{released++;active--;key.fill(0);if(ordinal===2){bodyRelease++;if(release!==absent)throw release;}}};};

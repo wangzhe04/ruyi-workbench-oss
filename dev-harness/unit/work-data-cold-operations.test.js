@@ -29,6 +29,17 @@ async function setup(t,options={}){
  const operation=api.WorkDataColdOperations.create(host);
  return{f,api,host,context,operation,events,owners,backupDirectory,rehearsal:path.join(backupDirectory,'.ruyi-work-data-verify-'+context.id),backupFile:path.join(backupDirectory,'ruyi-work-data-'+context.id+'.ruyi-backup')};
 }
+// The worker validates and pins its upload before invoking cold operations.
+// This fixture captures that already-validated DTO once from the real held file;
+// later substitution must not refresh it. The worker/broker boundary is tested separately.
+async function bindRestoreUpload(x,paths){
+ assert.equal(x.context.upload,undefined,'fixture handoff can only be issued once');
+ const named=await fsp.lstat(paths.uploadFile,{bigint:true}),handle=await fsp.open(paths.uploadFile,'r');
+ let first,bytes;try{first=await handle.stat({bigint:true});assert.equal(first.isFile(),true);assert.equal(named.isSymbolicLink(),false);assert.equal(first.nlink,1n);bytes=await handle.readFile();const after=await handle.stat({bigint:true}),last=await fsp.lstat(paths.uploadFile,{bigint:true});for(const key of ['dev','ino','size','nlink','mtimeNs','ctimeNs']){assert.equal(named[key],first[key]);assert.equal(after[key],first[key]);assert.equal(last[key],first[key]);}assert.equal(bytes.length,Number(first.size));assert.equal(hash(bytes),paths.uploadSha256);}finally{await handle.close();}
+ x.context.upload=Object.freeze({bytes:bytes.length,identity:Object.freeze({dev:String(first.dev),ino:String(first.ino)})});
+ return paths;
+}
+
 test('export saves authenticated actual full package, restores and verifies it before exact disposable cleanup; source bytes stay unchanged',async t=>{
  const x=await setup(t),tree=x.api.WorkDataTree.create(),before=await tree.capture(x.f.base);t.after(()=>before.release());
  const result=await x.operation.execute(x.context);assert.equal(result.state,'verified');assert.equal(result.operation,'export');assert.equal(result.backup.path,x.backupFile);
@@ -69,7 +80,7 @@ test('authority legacy mode conflict refuses before package/native verification'
 });
 test('restore wrong authenticated password refuses before backup and destination writes',async t=>{
  const x=await setup(t),otherPassword='different synthetic password only',sealed=await x.f.owner().seal({password:otherPassword,appVersion:'3.0.1',generation:0}),uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);
- x.context.operation='restore';x.context.paths={...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))};
+ x.context.operation='restore';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
  await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'&&error.cause?.code==='work_data_recovery.authentication'&&error.operationMayHaveExecuted===false&&error.targetMayHaveBeenCreated===undefined);assert.equal(fs.existsSync(x.context.paths.targetDirectory),false);assert.equal(fs.existsSync(x.backupFile),false);assert.ok(x.owners.every(owner=>owner.released));assert.equal(x.events.includes('migration'),false);
 });
 test('export result publication failure retains exact pending stage and never reports an unexecuted retry-safe operation',async t=>{
@@ -78,13 +89,13 @@ test('export result publication failure retains exact pending stage and never re
 });
 test('restore actual full package into absent disjoint root reports separate-root activation honestly',async t=>{
  const x=await setup(t),sealed=await x.f.owner().seal({password,appVersion:'3.0.1',generation:0}),uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);
- x.context.operation='restore';x.context.paths={...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))};
+ x.context.operation='restore';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
  const result=await x.operation.execute(x.context);assert.equal(result.activation,'separate-fresh-root');assert.equal(result.restartRoot,x.f.base);assert.equal(await fsp.readFile(path.join(result.restored.target,'config.json'),'utf8'),'{ "workDataEncryptionV1": false, "label":"SYNTHETIC_PRIVATE" }');assert.ok(x.owners.every(owner=>owner.released));assert.equal(x.events.includes('migration'),false);
 });
 
 test('wrong upload password performs zero backup or destination writes',async t=>{
  const x=await setup(t),sealed=await x.f.owner().seal({password:'another synthetic password only',appVersion:'3.0.1',generation:0}),uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);
- x.context.operation='restore';x.context.paths={...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))};
+ x.context.operation='restore';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
  let error;try{await x.operation.execute(x.context);}catch(e){error=e;}
  assert.deepEqual(await fsp.readdir(x.backupDirectory),[],'incorrect password must not write even a backup or rehearsal');
  assert.equal(fs.existsSync(x.context.paths.targetDirectory),false);assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);
@@ -93,7 +104,7 @@ test('wrong upload password performs zero backup or destination writes',async t=
 test('valid uploaded full package recovers after current source master is lost',async t=>{
  const x=await setup(t);await x.f.write('config.json','{"workDataEncryptionV1":true}');await fsp.mkdir(path.join(x.f.base,'sessions'));const keys=await x.f.newKeys();await x.f.store('sessions/sess_lost.json',keys).write('{"id":"sess_lost","private":"RECOVER_ME"}');
  const sealed=await x.f.owner().seal({password,appVersion:'3.0.1',generation:0}),uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);await fsp.unlink(path.join(x.f.base,'work-data-key-v1.json'));
- const original=await fsp.readFile(path.join(x.f.base,'sessions/sess_lost.json'));x.context.operation='restore';x.context.expectedAuthority.mode='encrypted';x.context.paths={...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))};
+ const original=await fsp.readFile(path.join(x.f.base,'sessions/sess_lost.json'));x.context.operation='restore';x.context.expectedAuthority.mode='encrypted';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
  let result;await assert.doesNotReject(async()=>{result=await x.operation.execute(x.context);});assert.equal(result.state,'verified');assert.equal(result.activation,'separate-fresh-root');assert.equal(fs.existsSync(path.join(x.f.base,'work-data-key-v1.json')),false);assert.deepEqual(await fsp.readFile(path.join(x.f.base,'sessions/sess_lost.json')),original);
  assert.equal(hash(await fsp.readFile(result.backup.path)),x.context.paths.uploadSha256);assert.equal(fs.existsSync(x.rehearsal),false);assert.ok(fs.existsSync(path.join(result.restored.target,'work-data-key-v1.json')));assert.equal(x.events.includes('snapshot'),false);
  const header=JSON.parse(await fsp.readFile(path.join(result.restored.target,'work-data-key-v1.json'),'utf8')),cold=x.f.api.WorkDataKeys.create({protector:x.f.a,enabled:()=>true,store:{read:async()=>header}}),descriptor=x.f.api.WorkDataMigrationCodecs.describe('sessions/sess_lost.json');
@@ -102,7 +113,7 @@ test('valid uploaded full package recovers after current source master is lost',
 
 for(const available of [0n,17n*1024n*1024n])test('restore rejects insufficient aggregate same-volume free bytes '+available,async t=>{
  const x=await setup(t,{statfs:async()=>({bsize:1n,bavail:available})}),sealed=await x.f.owner().seal({password,appVersion:'3.0.1',generation:0}),uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);
- x.context.operation='restore';x.context.paths={...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))};
+ x.context.operation='restore';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
  await assert.rejects(x.operation.execute(x.context),e=>e.cause?.code==='work_data_setup.space_insufficient'&&e.operationMayHaveExecuted===false);
  assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);assert.equal(fs.existsSync(x.context.paths.targetDirectory),false);assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);
 });
@@ -114,12 +125,12 @@ test('unavailable free-space query blocks export before backup or intent writes'
 test('restore preserves an unknown source transition stage while recovering only into a new root',async t=>{
  const x=await setup(t),sealed=await x.f.owner().seal({password,appVersion:'3.0.1',generation:0}),uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);
  const unknown='.work-data/.maintenance-v1.stage-'+ 'b'.repeat(48);await x.f.write(unknown,'PRESERVE_UNKNOWN_STAGE');
- x.context.operation='restore';x.context.paths={...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))};
+ x.context.operation='restore';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
  const result=await x.operation.execute(x.context);assert.equal(result.state,'verified');assert.equal(await fsp.readFile(path.join(x.f.base,...unknown.split('/')),'utf8'),'PRESERVE_UNKNOWN_STAGE');assert.equal(fs.existsSync(path.join(result.restored.target,...unknown.split('/'))),false);assert.equal(x.events.includes('snapshot'),false);
 });
 
 // Pure native seams: retained fake leases have no actual child or OS resources.
-async function restoreContext(x,change){const sealed=await x.f.owner().seal({password,appVersion:'3.0.1',generation:0});let bytes=Buffer.from(sealed.serialized);if(change)bytes=change(bytes);const uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,bytes);x.context.operation='restore';x.context.paths={...x.context.paths,targetDirectory:path.join(x.f.root,'restored-new'),uploadFile,uploadSha256:hash(bytes)};return bytes;}
+async function restoreContext(x,change){const sealed=await x.f.owner().seal({password,appVersion:'3.0.1',generation:0});let bytes=Buffer.from(sealed.serialized);if(change)bytes=change(bytes);const uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,bytes);x.context.operation='restore';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restored-new'),uploadFile,uploadSha256:hash(bytes)});return bytes;}
 
 test('independent actual key-owner wrapper cannot release target lease after known helper uncertainty',async t=>{const x=await setup(t);await x.f.write('config.json','{"workDataEncryptionV1":true}');const keys=await x.f.newKeys();await x.f.store('sessions/sess_hold.json',keys).write('{"id":"sess_hold","private":"HOLD"}');await restoreContext(x);x.context.expectedAuthority.mode='encrypted';const raw=Object.freeze(Object.assign(Error('native pending'),{cause:Object.freeze(Object.assign(Error('underlying'),{helperMayStillRun:true}))}));x.f.a.run=async()=>{throw raw;};let error;try{await x.operation.execute(x.context);}catch(e){error=e;}const receipt={code:error?.code,helperMayStillRun:error?.helperMayStillRun||false,operationMayHaveExecuted:error?.operationMayHaveExecuted,owners:x.owners.map(o=>({released:o.released,roots:o.roots})),causeCode:error?.cause?.code};assert.equal(receipt.code,'work_data_setup.restore_requires_inspection');assert.equal(x.owners.length,1);assert.equal(x.owners[0].released,false);assert.equal(error.helperMayStillRun,true);});
 
@@ -151,4 +162,16 @@ for(const backend of ['MigrationHooks','LocalSecretCrypto'])test(backend+' uncer
  x.f.context[backend]={...x.f.context[backend],helperMayStillRun:()=>true};
  await assert.rejects(()=>x.operation.execute(x.context),error=>error.code==='work_data_setup.native_helper_uncertain'&&error.helperMayStillRun===true);
  assert.equal(x.owners.length,0);assert.deepEqual(x.events,[]);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);await tree.verify(before);
+});
+
+test('cold restore handoff keeps its original inode and rejects same-bytes file substitution',async t=>{
+ const x=await setup(t);await restoreContext(x);const issued=x.context.upload,original=await fsp.readFile(x.context.paths.uploadFile);
+ await fsp.rename(x.context.paths.uploadFile,x.context.paths.uploadFile+'.original');await fsp.writeFile(x.context.paths.uploadFile,original);
+ assert.notEqual(String((await fsp.lstat(x.context.paths.uploadFile,{bigint:true})).ino),issued.identity.ino);
+ await assert.rejects(()=>x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.upload_changed'&&error.operationMayHaveExecuted===false);
+ assert.equal(x.context.upload,issued);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);assert.equal(fs.existsSync(x.context.paths.targetDirectory),false);
+});
+test('cold restore fixture cannot refresh an already-issued upload handoff',async t=>{
+ const x=await setup(t);await restoreContext(x);const issued=x.context.upload;
+ await assert.rejects(()=>bindRestoreUpload(x,x.context.paths),/only be issued once/);assert.equal(x.context.upload,issued);assert.deepEqual(x.events,[]);
 });
