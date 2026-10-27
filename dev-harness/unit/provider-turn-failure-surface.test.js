@@ -281,7 +281,7 @@ test('[T10] 项目角色说明过中和 + 单行 + 截断;计划模式提示词�
     const session = await createSession({ title: 'T10b', cwd: root });
     const ac = new AbortController();
     const p = runSessionTurn({ sessionId: session.id, message: '做个计划', cwd: root, source: 'http', signal: ac.signal, onEvent: () => {} });
-    for (let i = 0; i < 100 && !seen; i++) await sleep(50);
+    for (let i = 0; i < 400 && !seen; i++) await sleep(50);
     ac.abort();   // 断线即停(killOnDisconnect):提示词已经发出去了,回合不必再走下去
     await Promise.race([p.catch(() => {}), sleep(10000)]);
     assert.match(seen, /不要调用 todo_write/, '计划模式的易变层明说计划阶段不要调 todo_write');

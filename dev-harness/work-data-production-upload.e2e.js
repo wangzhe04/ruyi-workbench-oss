@@ -6,7 +6,7 @@ const core=require('./lib/work-data-production-upload-core'),{createProcesses,cr
 const PASSWORD='SYNTHETIC full serve upload only 2026',SESSION_ID='sess_upload_synthetic';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),BUDGET=Object.freeze({startup:20000,request:15000,childClose:20000});
 function safeJobResponse(response){
- const known=new Set(['api.internal_error','work_data_setup.worker_unavailable','work_data_setup.busy','auth.token_invalid','auth.origin_rejected','work_data_setup.restore_unavailable','work_data_setup.mode_conflict','work_data_setup.authority_changed','work_data_setup.password_invalid','work_data_setup.path_invalid','work_data_setup.request_invalid','work_data_setup.intent_pending','work_data_setup.handoff_pending','work_data_setup.claim_unavailable','work_data_claim.claim_invalid','work_data_claim.write_failed']);
+ const known=new Set(['api.internal_error','work_data_setup.worker_unavailable','work_data_setup.busy','auth.token_invalid','auth.origin_rejected','work_data_setup.restore_unavailable','work_data_setup.mode_conflict','work_data_setup.authority_changed','work_data_setup.password_invalid','work_data_setup.path_invalid','work_data_setup.request_invalid','work_data_setup.intent_pending','work_data_setup.handoff_pending','work_data_setup.claim_unavailable','work_data_upload.grant_unavailable','work_data_claim.claim_invalid','work_data_claim.write_failed']);
  const code=response?.value?.error?.code,message=response?.value?.error?.message;
  return {schema:1,status:Number.isInteger(response?.status)?response.status:null,responseBytes:response.raw.length,responseSha256:core.H(response.raw),code:known.has(code)?code:'UNRECOGNIZED',codeSha256:typeof code==='string'?core.H(Buffer.from(code)):null,messageBytes:typeof message==='string'?Buffer.byteLength(message):null,messageSha256:typeof message==='string'?core.H(Buffer.from(message)):null,messageMatchesWorkerUnavailable:message==='work_data_setup.worker_unavailable',rawMessagesAndBodiesOmitted:true};
 }
@@ -102,12 +102,15 @@ async function runActual(argv=process.argv.slice(2)){
   // With the production worker merged, a missing-worker 501 is no longer a fact.
   // What must still hold is that every refusal decided before worker.start leaves
   // the serve running, publishes no authority, registers no job, writes no claim,
-  // starts no maintenance intent and creates no backup. Restore stays closed and
-  // must not consume a grant.
+  // starts no maintenance intent and creates no backup. Restore is admitted now:
+  // an unknown upload id is refused by the real broker after every admission
+  // check, so it must be a typed 409 that consumes no upload grant and creates no
+  // target. Nowhere in this list may a real grant, claim or backup be consumed.
   ctx.phase='job-refusal-setup';const backupDirectory=p.join(root,'unused-backups');fs.mkdirSync(backupDirectory);
   const claimNames=()=>fs.readdirSync(normal.temp).filter(name=>name.startsWith('ruyi-work-data-handoff-'));
+  const restoreTarget=p.join(root,'restore-target');
   const jobNegatives=[
-   ['restore-closed',{operation:'restore',password:PASSWORD,expectedAuthority:initial.authority,backupDirectory,targetDirectory:p.join(root,'restore-target'),uploadId:'f'.repeat(48)},501,'work_data_setup.restore_unavailable'],
+   ['restore-unknown-upload',{operation:'restore',password:PASSWORD,expectedAuthority:initial.authority,backupDirectory,targetDirectory:restoreTarget,uploadId:'f'.repeat(48)},409,'work_data_upload.grant_unavailable'],
    ['disable-without-encryption',{operation:'disable',password:PASSWORD,expectedAuthority:initial.authority,backupDirectory,confirmPlaintext:true},409,'work_data_setup.mode_conflict'],
    ['stale-authority',{operation:'enable',password:PASSWORD,expectedAuthority:{generation:1,id:'a'.repeat(48),mode:'plain',sha256:'b'.repeat(64)},backupDirectory},409,'work_data_setup.authority_changed'],
    ['short-password',{operation:'enable',password:'short',expectedAuthority:initial.authority,backupDirectory},400,'work_data_setup.password_invalid'],
@@ -129,11 +132,13 @@ async function runActual(argv=process.argv.slice(2)){
    a.equal(fs.existsSync(p.join(normal.base,'.work-data','active-v1.json')),false,label+' never starts maintenance intent');
    a.deepEqual(fs.readdirSync(backupDirectory),[],label+' never creates a backup');
    a.deepEqual(claimNames(),[],label+' never writes a handoff claim');
+   a.equal(fs.existsSync(restoreTarget),false,label+' never creates a restore target');
+   a.deepEqual(core.inventory(box.dir),boxAfter,label+' leaves the admitted upload custody byte-identical');
    a.equal(manager.inspect(child).closeSeen,false,label+' leaves the serve running');
    checked(label+' is refused before worker.start with no durable side effect');
   }
-  ctx.phase='job-refusal-final';const finalStatus=await status(rt);a.deepEqual(finalStatus.authority,initial.authority);a.equal(finalStatus.job,null);a.equal(fs.existsSync(p.join(normal.base,'.work-data','active-v1.json')),false);a.deepEqual(fs.readdirSync(backupDirectory),[]);a.deepEqual(claimNames(),[]);
-  checked('available upload never drains the service,publishes authority,registers a job,creates a backup or writes a claim');
+  ctx.phase='job-refusal-final';const finalStatus=await status(rt);a.deepEqual(finalStatus.authority,initial.authority);a.equal(finalStatus.job,null);a.equal(fs.existsSync(p.join(normal.base,'.work-data','active-v1.json')),false);a.deepEqual(fs.readdirSync(backupDirectory),[]);a.deepEqual(claimNames(),[]);a.equal(fs.existsSync(restoreTarget),false);a.deepEqual(core.inventory(box.dir),boxAfter);
+  checked('no refusal drains the service,publishes authority,registers a job,creates a backup or target,writes a claim,or consumes the admitted upload');
   const afterHTTP=dataSnapshot(normal.base);checkpoint('normal-after-http',afterHTTP);sourceProtected(readySnapshot,afterHTTP,['config.json','sessions/'+SESSION_ID+'.json']);checkpoint('normal-observed-data-difference',core.observeDifference(readySnapshot,afterHTTP));target.recheck();
   ctx.phase='verified-normal-cleanup';await manager.cleanupKnown(child,async()=>{await status(rt);a.deepEqual(core.inventory(box.dir),boxAfter);sourceProtected(readySnapshot,dataSnapshot(normal.base),['config.json','sessions/'+SESSION_ID+'.json']);});healthy();checkpoint('normal-process-terminal',manager.inspect(child));checkpoint('normal-after-test-cleanup',dataSnapshot(normal.base));a.deepEqual(core.inventory(box.dir),boxAfter);checked('owned test cleanup request is separate from actual server close and actual sampled CIM absence');
   ctx.phase='pending-intent-refusal';const pending=fixture('pending'),backup=p.join(root,'pending-backup.ruyi-backup');fs.writeFileSync(backup,sealed,{flag:'wx'});fs.mkdirSync(p.join(pending.base,'.work-data'));fs.writeFileSync(p.join(pending.base,'.work-data','maintenance-v1.json'),JSON.stringify({schema:1,id:'e'.repeat(48),operation:'enable',phase:'prepared',createdAt:'2026-10-27T00:00:00.000Z',expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backup:{path:backup,sha256:core.H(sealed)},candidate:null}),{flag:'wx'});const pendingBefore=dataSnapshot(pending.base);checkpoint('pending-before',pendingBefore);const refused=spawnServe(pending,'pending-server',await work(()=>getFreePort('127.0.0.1')));await refused.spawned;healthy();const terminal=await manager.waitClose(refused,BUDGET.childClose);healthy();a.equal(terminal.code,1);a.equal(terminal.signal,null);

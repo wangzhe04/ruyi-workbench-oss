@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 124 | 4168 | 4021 | 857 | 67 | 0 | 1 |
+| 124 | 4168 | 4022 | 858 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -125,7 +125,7 @@
 | 107 | `13ag-work-data-maintenance.js` | unclassified | 4 | 80 | 25 |
 | 108 | `13at-work-data-restore-uploads.js` | unclassified | 1 | 2 | 2 |
 | 109 | `13av-work-data-handoff-claim.js` | unclassified | 1 | 1 | 1 |
-| 110 | `13ah-work-data-setup.js` | unclassified | 6 | 26 | 9 |
+| 110 | `13ah-work-data-setup.js` | unclassified | 6 | 27 | 10 |
 | 111 | `13ai-work-data-worker.js` | unclassified | 1 | 3 | 3 |
 | 112 | `13aj-work-data-control.js` | unclassified | 1 | 1 | 1 |
 | 113 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 4 | 2 |
@@ -632,6 +632,7 @@
 | `13ah-work-data-setup.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13ah-work-data-setup.js` | `09-workflow.js` | backward | `AGENT_RUN_TERMINAL` |
 | `13ah-work-data-setup.js` | `11-native-tools.js` | backward | `shellSessions` |
+| `13ah-work-data-setup.js` | `13at-work-data-restore-uploads.js` | backward | `WorkDataRestoreUploads` |
 | `13ai-work-data-worker.js` | `00-boot.js` | backward | `VERSION` |
 | `13ai-work-data-worker.js` | `01-config.js` | backward | `send` |
 | `13ai-work-data-worker.js` | `13at-work-data-restore-uploads.js` | backward | `WorkDataRestoreUploads` |

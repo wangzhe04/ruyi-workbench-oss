@@ -5,8 +5,8 @@
   "summary": {
     "modules": 124,
     "providedSymbols": 4168,
-    "requiredSymbols": 4021,
-    "edges": 857,
+    "requiredSymbols": 4022,
+    "edges": 858,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -28276,7 +28276,7 @@
       "file": "13at-work-data-restore-uploads.js",
       "order": 108,
       "layer": "unclassified",
-      "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and a private job/nonce handoff consumed by the cold worker; HTTP upload custody and the warm runtime keeper are wired, while production restore admission currently stays closed (501) and nothing here implies restore is open; restore activation stays with WorkDataSetup / WorkDataRuntimeHost",
+      "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and one job-bound private job/nonce handoff consumed by the cold restore worker; HTTP upload custody and the warm runtime keeper are wired, restore recovers into an independent fresh target without activation or a warm root switch, and activation stays with WorkDataSetup / WorkDataRuntimeHost",
       "provides": [
         "WorkDataRestoreUploads"
       ],
@@ -28319,7 +28319,7 @@
       "file": "13ah-work-data-setup.js",
       "order": 110,
       "layer": "unclassified",
-      "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, status, jobs and upload; restore is refused with work_data_setup.restore_unavailable before any grant is issued",
+      "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, restore, status, jobs and upload; restore admission requires the real worker and upload broker, resolves exactly one job-bound grant after directory and authority checks, and recovers into a separate fresh target without activation or a warm root switch",
       "provides": [
         "WorkDataSetup",
         "workDataSetup",
@@ -28507,6 +28507,13 @@
         {
           "provider": "11-native-tools.js",
           "symbol": "shellSessions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13at-work-data-restore-uploads.js",
+          "symbol": "WorkDataRestoreUploads",
           "kinds": [
             "read"
           ]
@@ -39179,6 +39186,14 @@
       "to": "11-native-tools.js",
       "symbols": [
         "shellSessions"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ah-work-data-setup.js",
+      "to": "13at-work-data-restore-uploads.js",
+      "symbols": [
+        "WorkDataRestoreUploads"
       ],
       "direction": "backward"
     },

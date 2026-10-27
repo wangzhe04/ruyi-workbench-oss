@@ -77,6 +77,24 @@ test('source-contained backup metadata cannot authorize a completion record',asy
  const f=await fixture(t),file=p.join(f.base,'ruyi-work-data-'+id+'.ruyi-backup');await io.copyFile(f.backup.path,file);const stat=await io.stat(file,{bigint:true}),value={...f.value,backup:{...f.backup,path:file,identity:{dev:String(stat.dev),ino:String(stat.ino)}}};
  assert.equal(api.validate(value),true);await assert.rejects(()=>f.owner.write(value),{code:'work_data_result.backup_invalid'});
 });
+test('a restore root and its backup directory may not contain each other in a completion record',async t=>{
+ const f=await fixture(t);
+ // Target inside the backup directory: the exact shape the restore admission now
+ // refuses must also be refused by the result writer.
+ const inside={...f.value,operation:'restore',restored:{target:p.join(f.outside,'restored-inside'),activation:'separate-fresh-root'}};
+ assert.equal(api.validate(inside),true);await assert.rejects(()=>f.owner.write(inside),{code:'work_data_result.backup_invalid'});assert.equal(fs.existsSync(f.file),false);
+ // Backup directory inside the target: a record cannot pin its own package below
+ // the plaintext root even though the earlier admission would refuse the target.
+ const container=p.join(f.root,'container'),nestedDir=p.join(container,'backups');await io.mkdir(nestedDir,{recursive:true});
+ const nestedPath=p.join(nestedDir,p.basename(f.backup.path));await io.copyFile(f.backup.path,nestedPath);
+ const nestedStat=await io.stat(nestedPath,{bigint:true});
+ const contains={...f.value,operation:'restore',backup:{...f.backup,path:nestedPath,identity:{dev:String(nestedStat.dev),ino:String(nestedStat.ino)}},restored:{target:container,activation:'separate-fresh-root'}};
+ assert.equal(api.validate(contains),true);await assert.rejects(()=>f.owner.write(contains),{code:'work_data_result.backup_invalid'});assert.equal(fs.existsSync(f.file),false);
+ // The normal restore shape keeps the package in its own directory with the
+ // restored root as a sibling and must stay writable.
+ const sibling={...f.value,operation:'restore',restored:{target:p.join(f.root,'target'),activation:'separate-fresh-root'}};
+ const receipt=await f.owner.write(sibling);assert.equal(await f.owner.verify(receipt),true);
+});
 
 test('unknown stage created by actual post-rename flush blocks completion receipt and remains intact',async t=>{
  const f=await fixture(t),stage=p.join(p.dirname(f.file),api.STAGE+'post-rename.json');let count=0;

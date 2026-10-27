@@ -33,7 +33,7 @@ const WorkDataHandoffClaim = ((io, p, c) => {
     try {
       return keys(value) === 'base,baseIdentity,childPid,createdAt,id,nonce,operation,parentPid,phase,schema,serve,updatedAt'
         && value.schema === 1 && absolute(value.base) && ID.test(value.id || '') && SHA.test(value.nonce || '')
-        && ['enable', 'disable', 'export'].includes(value.operation) && PHASES.includes(value.phase)
+        && ['enable', 'disable', 'export', 'restore'].includes(value.operation) && PHASES.includes(value.phase)
         && Number.isSafeInteger(value.parentPid) && value.parentPid >= 1 && value.parentPid <= 0xffffffff
         && Number.isSafeInteger(value.childPid) && value.childPid >= 1 && value.childPid <= 0xffffffff
         && value.parentPid !== value.childPid && listener(value.serve)

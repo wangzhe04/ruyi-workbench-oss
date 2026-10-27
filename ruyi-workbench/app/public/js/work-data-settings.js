@@ -1,4 +1,4 @@
-import { api, apiErrorInfo } from './net.js';
+import { api, apiErrorInfo, apiRaw } from './net.js';
 import { t } from './i18n.js';
 
 const panels = new WeakMap();
@@ -62,9 +62,10 @@ export function mountWorkDataSettings() {
   function blockedByCapability() {
     if (!current?.capabilities?.worker) return 'work_data_setup.worker_unavailable';
     // Export writes a backup directory; it never depended on a download endpoint.
-    // Restore admission is closed in this version, so no upload ticket or grant
-    // is invented and no download entry is added.
-    if (operation.value === 'restore') return 'work_data_setup.restore_unavailable';
+    // Restore needs both a live worker and the one-shot upload sink: the package
+    // itself is uploaded once before the job is created, so a missing upload
+    // capability refuses the operation instead of inventing a ticket.
+    if (operation.value === 'restore' && current?.capabilities?.upload !== true) return 'work_data_setup.restore_unavailable';
     return '';
   }
   function targetDirectory() {
@@ -73,19 +74,32 @@ export function mountWorkDataSettings() {
       || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(value)) return '';
     return parent.value.replace(/[\\/]+$/, '') + (parent.value.includes('\\') ? '\\' : '/') + value;
   }
+  // A restore is only submittable with exactly one real, non-empty file: the
+  // upload route rejects an empty or missing body before it issues a ticket.
+  function selectedFile() {
+    const files = upload.files;
+    if (!files || typeof files.length !== 'number' || files.length !== 1) return null;
+    const file = files[0];
+    if (!file || typeof file !== 'object' || typeof file.size !== 'number' || !Number.isSafeInteger(file.size) || file.size < 1) return null;
+    return file;
+  }
   function render() {
     summary.replaceChildren(node('span', stale ? 'lastKnownMode' : 'currentMode', 'work-data-eyebrow'));
     const mode = current?.authority?.mode, label = node('strong'); label.textContent = t('workData.mode.' + (mode || 'unknown')); summary.append(label);
     const saved = node('p', null, 'field-help'); saved.textContent = t('workData.' + (mode === 'encrypted' ? 'encryptedHelp' : mode === 'plain' ? 'plainHelp' : 'unknownHelp')); summary.append(saved); summary.dataset.mode = mode || 'unknown';
     const blocked = blockedByCapability(), disabled = !current || stale || loading || writing || picking || active() || unknownSubmission;
     for (const control of [operation, backup, pickBackup, parent, pickParent, name, password, confirmation, plaintext]) control.disabled = disabled;
-    upload.disabled = true; // No real resolveUpload receipt exists in this API version.
+    // Only the ordinary disabled state disables the file picker: the selected
+    // File is a user-owned draft, and capability refusals are surfaced (and
+    // enforced) on submit instead of silently throwing the choice away.
+    upload.disabled = disabled;
     restoreFields.hidden = operation.value !== 'restore'; plaintextRow.hidden = operation.value !== 'disable';
     unavailable.hidden = !blocked; unavailable.textContent = blocked ? t('workData.unavailable', { code: blocked }) : '';
     submit.textContent = t('workData.operation.' + operation.value); submit.disabled = disabled || !!blocked || !backup.value
       || password.value.length < 12 || new TextEncoder().encode(password.value).length > 1024 || password.value.includes('\0')
       || password.value !== confirmation.value || operation.value === 'disable' && !plaintext.checked
       || operation.value === 'restore' && !targetDirectory()
+      || operation.value === 'restore' && !selectedFile()
       || operation.value === 'enable' && mode === 'encrypted' || operation.value === 'disable' && mode === 'plain';
     cancel.hidden = !active(); cancel.disabled = writing || !job?.cancellable || job?.takeover === true;
     reconnect.disabled = loading || writing;
@@ -137,32 +151,53 @@ export function mountWorkDataSettings() {
     catch (error) { report(error); }
     finally { picking = false; render(); }
   }
+  // One upload, then one job. The upload goes through apiRaw so the package is
+  // sent as verbatim bytes (content-type: application/octet-stream) and, with
+  // noTokenReplay, a 403 token refresh can never silently retransmit it.
+  // A non-2xx body is the only place a typed refusal code can come from; a
+  // success without a 48-hex ticket is treated like a lost response.
+  async function uploadPackage(file) {
+    const res = await apiRaw('/api/work-data/uploads', { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file, noTokenReplay: true });
+    let value = null;
+    try { value = await res.json(); } catch { value = null; }
+    if (res.ok && value?.ok === true && /^[a-f0-9]{48}$/.test(value.uploadId || '')) return value.uploadId;
+    throw { code: value?.error?.code || 'work_data_setup.status_invalid', status: res.status };
+  }
   async function submitJob() {
     render(); if (submit.disabled || writing) return;
+    const restoring = operation.value === 'restore', file = restoring ? selectedFile() : null;
+    if (restoring && !file) return;
     writing = true; revision++; submittedAuthority = JSON.stringify(current.authority); trackedId = null;
-    const payload = { operation: operation.value, password: password.value, expectedAuthority: { ...current.authority }, backupDirectory: backup.value,
+    const secret = password.value, target = restoring ? targetDirectory() : '';
+    const payload = { operation: operation.value, expectedAuthority: { ...current.authority }, backupDirectory: backup.value,
       ...(operation.value === 'disable' ? { confirmPlaintext: true } : {}) };
-    const options = { method: 'POST', body: JSON.stringify(payload) }; payload.password = '';
+    let options = null;
     job = null;
     password.value = ''; confirmation.value = ''; plaintext.checked = false;
     notice.textContent = t('workData.submitting'); render();
     try {
+      if (restoring) { payload.targetDirectory = target; payload.uploadId = await uploadPackage(file); }
+      // Job writes are one-way receipts too: no token-refresh replay.
+      payload.password = secret;
+      options = { method: 'POST', body: JSON.stringify(payload), noTokenReplay: true }; payload.password = '';
       const result = await api('/api/work-data/jobs', options);
       if (!result?.ok || !validJob(result.job)) { unknownSubmission = true; throw { code: 'work_data_setup.status_invalid' }; }
       job = result.job; trackedId = job.id; unknownSubmission = false; notice.textContent = '';
     } catch (error) {
       // Only an explicit HTTP 4xx refusal proves that this request was rejected.
-      // A 5xx, lost response or malformed success body can follow acceptance.
+      // A 5xx, lost response or malformed success body can follow acceptance —
+      // and neither the upload nor the job is ever sent a second time here.
       if (!(Number.isInteger(error?.status) && error.status >= 400 && error.status < 500)) unknownSubmission = true;
       report(error);
     }
-    finally { options.body = ''; writing = false; render(); schedule(); }
+    finally { if (options) options.body = ''; writing = false; render(); schedule(); }
   }
   async function cancelJob() {
     if (writing || !active() || job.cancellable !== true || job.takeover === true) return;
     writing = true; revision++; job = { ...job, cancellable: false }; render();
     try {
-      const result = await api('/api/work-data/jobs/' + job.id + '/cancel', { method: 'POST', body: '{}' });
+      // Cancel is a one-way receipt as well: never replayed after a token refresh.
+      const result = await api('/api/work-data/jobs/' + job.id + '/cancel', { method: 'POST', body: '{}', noTokenReplay: true });
       if (!result?.ok || !validJob(result.job) || result.job.id !== job.id) throw { code: 'work_data_setup.status_invalid' };
       job = result.job;
     } catch (error) { report(error); }
@@ -170,6 +205,9 @@ export function mountWorkDataSettings() {
   }
   form.addEventListener('submit', event => { event.preventDefault(); void submitJob(); });
   for (const control of [operation, password, confirmation, plaintext, name]) control.addEventListener('input', () => { notice.textContent = ''; render(); });
+  // File pickers fire change, not input: without this the submit gate would keep
+  // the state it rendered before the package was chosen.
+  upload.addEventListener('change', () => { notice.textContent = ''; render(); });
   operation.addEventListener('change', () => { password.value = ''; confirmation.value = ''; plaintext.checked = false; render(); });
   const translate = () => { for (const element of host.querySelectorAll('[data-i18n]')) element.textContent = t(element.dataset.i18n); render(); };
   window.addEventListener('i18n:change', translate);

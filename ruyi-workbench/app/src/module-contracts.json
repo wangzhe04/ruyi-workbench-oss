@@ -28278,6 +28278,13 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13at-work-data-restore-uploads.js",
+          "symbol": "WorkDataRestoreUploads",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },

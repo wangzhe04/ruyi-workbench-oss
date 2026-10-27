@@ -371,3 +371,56 @@ test('a refused backup durability flush keeps the claim because the bytes are al
  assert.deepEqual(x.claim.events,[]);
  assert.ok((await fsp.stat(x.backupFile)).size>0);
 });
+
+// --- Restore claim lifecycle: verified result without source intent, target is an effect ---
+async function claimRestore(x,sealPassword=password){
+ const sealed=await x.f.owner().seal({password:sealPassword,appVersion:'3.0.1',generation:0});
+ const uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);
+ x.context.operation='restore';
+ x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
+ return x.context.paths;
+}
+test('restore retires the handoff claim only after the verified result exists and writes no source intent',async t=>{
+ const x=withClaim(await setup(t));const paths=await claimRestore(x);
+ const result=await x.operation.execute(x.context);
+ assert.equal(result.state,'verified');assert.equal(result.activation,'separate-fresh-root');assert.equal(result.restartRoot,x.f.base);
+ assert.deepEqual(x.claim.events,['finish']);
+ assert.deepEqual(x.claim.observed.finish,{result:true,intent:false});
+ assert.ok(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-result-v1.json')));
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-v1.json')),false);
+ assert.ok(fs.existsSync(paths.targetDirectory));
+});
+test('a restore failure after the target exists keeps the target and the claim',async t=>{
+ const x=withClaim(await setup(t,{verifyFresh:async()=>{throw Error('cold validation refusal');}}));const paths=await claimRestore(x);
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.restore_requires_inspection'
+  &&error.operationMayHaveExecuted===true&&error.targetMayHaveBeenCreated===true);
+ assert.ok(fs.existsSync(paths.targetDirectory),'the created target is an effect the next boot must inspect');
+ assert.ok(fs.existsSync(x.backupFile));
+ assert.deepEqual(x.claim.events,[]);
+});
+test('a restore refused by upload authentication abandons the claim before any target or backup',async t=>{
+ const x=withClaim(await setup(t));const paths=await claimRestore(x,'different synthetic password only');
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
+  &&error.cause?.code==='work_data_recovery.authentication'&&error.operationMayHaveExecuted===false);
+ assert.deepEqual(x.claim.events,['abandon']);
+ assert.equal(fs.existsSync(paths.targetDirectory),false);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);
+});
+test('a refused restore claim finish keeps the record but still returns the verified result',async t=>{
+ const x=withClaim(await setup(t),{failFinish:true});await claimRestore(x);
+ const result=await x.operation.execute(x.context);
+ assert.equal(result.state,'verified');assert.equal(result.activation,'separate-fresh-root');
+ assert.deepEqual(x.claim.events,['finish']);
+ assert.ok(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-result-v1.json')));
+});
+test('a restore target inside the backup directory is refused before any backup or target effect',async t=>{
+ const x=withClaim(await setup(t)),sealed=await x.f.owner().seal({password,appVersion:'3.0.1',generation:0}),uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);
+ const target=path.join(x.backupDirectory,'restored-inside');
+ x.context.operation='restore';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:target,uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
+  &&error.cause?.code==='work_data_setup.target_invalid'&&error.operationMayHaveExecuted===false);
+ assert.equal(fs.existsSync(target),false,'the target inside the backup is never created');
+ assert.deepEqual(await fsp.readdir(x.backupDirectory),[],'no backup or other package is written');
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false,'no result or intent is written');
+ assert.equal(x.owners.length,0,'no target owner is acquired');
+ assert.deepEqual(x.claim.events,['abandon'],'a zero-effect refusal retires the handoff record');
+});

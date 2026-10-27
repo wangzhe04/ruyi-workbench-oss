@@ -1,0 +1,268 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "baselineCommit": "f72b4039",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "status": "本批标准门通过；M3-3 与 3.1 均未完成",
+  "scope": {
+    "batch": "真实 sealed upload → 生产 restore → 独立新根 cold restore/冷复验 → source 持久 verified 结果 → successor 回旧 base",
+    "entryPoints": [
+      "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "ruyi-workbench/app/src/13ai-work-data-worker.js",
+      "ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+      "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "ruyi-workbench/app/src/01ae-work-data-maintenance-result.js",
+      "ruyi-workbench/app/public/js/net.js",
+      "ruyi-workbench/app/public/js/work-data-settings.js",
+      "dev-harness/work-data-production-restore.e2e.js"
+    ],
+    "notIncluded": [
+      "新根 activation 与后续启动根偏好",
+      "download、恢复 kernel、owned crash 自动恢复",
+      "C10/C11 自动清理与非空 special portable",
+      "完整 restore UI 旅程",
+      "M4/M5/M6、真实安装包、真实跨账户/跨机验收"
+    ],
+    "capabilities": {"worker": true, "upload": true, "download": false},
+    "activation": false,
+    "restoredActivation": "separate-fresh-root",
+    "whole3_1Complete": false
+  },
+  "finalIdentity": {
+    "generatedServer": {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "09fec99474bb0b05196f9476a25fd138b59b05b4e94be02768ded1bdc7a49e38",
+      "bytes": 8019205
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "2b42b376c67032030d20b4e166d9606c837594e0ea5a81c1e4f14409da8f8fba",
+      "bytes": 34430
+    },
+    "architecture": {
+      "modules": 124,
+      "edges": 858,
+      "forwardEdges": 67,
+      "stronglyConnectedComponents": 1,
+      "routeDecisionPoints": 189,
+      "routeAuthEntries": 176,
+      "routeProblems": 0
+    },
+    "facts": {"e2eCount": 592, "defaultOfflineE2e": 585, "unitSuites": 407, "liveProbes": 7},
+    "executionInputs": 145,
+    "executionInputSha256": "1a721d74074532c643d0ba3da42dc3817e925b1850a5c3ee3ca2c4303a1da183",
+    "executionInputComposition": "128 app/src + 13 harness + 4 fixed",
+    "publicFrontendFiles": [
+      "ruyi-workbench/app/public/js/net.js",
+      "ruyi-workbench/app/public/js/work-data-settings.js"
+    ]
+  },
+  "validation": [
+    {
+      "id": "targeted-unit-final",
+      "command": "node --test dev-harness/unit/work-data-setup.test.js dev-harness/unit/work-data-maintenance-result.test.js dev-harness/unit/work-data-cold-operations.test.js dev-harness/unit/work-data-handoff-claim.test.js dev-harness/unit/work-data-maintenance-worker.test.js dev-harness/unit/work-data-settings.test.js dev-harness/unit/net-errors.test.js",
+      "result": {"tests": 185, "pass": 185, "fail": 0},
+      "note": "主 agent 在最终产品源码上实测；含 grant 顺序、claim 生命周期、backup/target 双向嵌套拒绝、结果写入边界、一次上传及 job/cancel 禁 token 重放"
+    },
+    {
+      "id": "production-restore-e2e-run-1",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-NGiig1",
+        "passed": 22,
+        "failed": 0,
+        "executionInputSha256": "1a721d74074532c643d0ba3da42dc3817e925b1850a5c3ee3ca2c4303a1da183",
+        "executionInputs": 145
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-NGiig1/evidence/result.json",
+        "bytes": 8700,
+        "sha256": "c35d5dda042945ea145c8fe1e273c57d535e738b4ea319c4e3db0cf495da787e"
+      }
+    },
+    {
+      "id": "production-restore-e2e-run-2",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-m7mLdH",
+        "passed": 22,
+        "failed": 0,
+        "executionInputSha256": "1a721d74074532c643d0ba3da42dc3817e925b1850a5c3ee3ca2c4303a1da183",
+        "executionInputs": 145
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-m7mLdH/evidence/result.json",
+        "bytes": 8700,
+        "sha256": "3980520d464f73902b14250448e24553c81d5cd0d99a406696f8e11d3538c78c"
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-restore-e2e-final2.log",
+        "bytes": 2416,
+        "sha256": "706c57e3b1a21b11f812f9aca0cd129ce79061fe6bc981a17d242165d61d8e3c"
+      }
+    },
+    {
+      "id": "related-serial-e2e-final",
+      "commands": [
+        "node dev-harness/work-data-production-upload.e2e.js",
+        "node dev-harness/work-data-cold-operations.e2e.js",
+        "node dev-harness/work-data-maintenance-runtime.e2e.js",
+        "node dev-harness/work-data-settings.browser.e2e.js",
+        "node dev-harness/work-data-production-maintenance.e2e.js"
+      ],
+      "result": "五件串行 ALL PASS；上传 20 断言、维护 10 断言、settings 19 断言；cold-operations 四业务场景与 maintenance-runtime 四进程场景+outer Job 均通过",
+      "evidenceRoots": {
+        "upload": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-6xTa9b",
+        "maintenance": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-svWSh8"
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-restore-serial-final.log",
+        "bytes": 5348,
+        "sha256": "aaae970b676f21508b6ed640f9fba30b4ca13b7bf4a959cf6a0be4d404b5d7d5"
+      }
+    },
+    {
+      "id": "syntax-and-build-final",
+      "commands": ["node dev-harness/syntax-gate.js", "node ruyi-workbench/app/build.js --check"],
+      "result": "1349 files checked/0 failed（Node v24.14.0）；server 与 src 一致，manifest 行区间自洽",
+      "log": {
+        "path": ".ruyi-runtime/m3-restore-static-final.log",
+        "bytes": 129,
+        "sha256": "0433691490d858479282c65cfdf70f9429daa3e5c2300f4bd61839c8a48224e2"
+      }
+    },
+    {
+      "id": "unit-full-final",
+      "command": "node --test --test-concurrency=4 \"dev-harness/unit/*.test.js\"",
+      "result": {"tests": 4210, "pass": 4186, "skipped": 24, "fail": 0, "durationMs": 488965.3833},
+      "log": {
+        "path": ".ruyi-runtime/m3-restore-unit-deliverable.log",
+        "bytes": 582065,
+        "sha256": "093ddc51f413eb01e68a7d519a7cb6525a8df292916c1efd02b1572a5c7bc5f7"
+      },
+      "note": "低负载下按原 concurrency=4 完整重跑；前两轮首红分别见 firstFailures，不拼成首轮即绿"
+    },
+    {
+      "id": "fast-gate-final",
+      "command": "node dev-harness/run-all.js --fast --parallel 1",
+      "result": {
+        "unit": {"tests": 4210, "pass": 4186, "skipped": 24, "fail": 0},
+        "static": {"ran": 82, "pass": 82, "fail": 0, "flaky": 0},
+        "liveSkipped": 7,
+        "residualTestBrowsers": 0,
+        "node": "v24.14.0, win32"
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-restore-fast-deliverable.log",
+        "bytes": 6060,
+        "sha256": "b38d8bd96e97d3eeee264cd1773bde8948e8af33e88604b213f868505ddd7e99"
+      },
+      "note": "fast 首次 provider 等待首红见 firstFailures；本次为最终交付物的完整标准门"
+    }
+  ],
+  "restoreJourneyEvidence": {
+    "plain": "真实 gen0 source、sealed POST201、11 个 pre-admission 负例、restore202、armed/committed/owned、旧 serve 自然退出、cold listener 持真实 source owner、verified result、同端口 successor 回旧 source；target 与包内容一致，backup 与上传逐字节相同",
+    "encrypted": "真实 enable → export（另一密码）→ 上传 export 包 → restore；包携带独立 masters，target key header 重新 DPAPI 保护，source gen1/encrypted authority 不变",
+    "result": "operation=restore/state=verified/restored.activation=separate-fresh-root；无 source intent；claim 清理；source 除 result 与明确枚举的正常启动增量外不变；successor capabilities 三键且无 activation",
+    "coldVerifyLimit": "产品 13ak 的独立 cold verifier 必须先成功才写结果；E2E 另用真实 Recovery owner 比对 target，但 verifier 子进程 receipt 未持久化，未伪造该 receipt",
+    "unitOnlyNegativeCoverage": ["错误 restore 密码", "post-admission 上传篡改", "post-owned crash/result 分类与恢复阻断"],
+    "processSafety": "successor 由 owned outer Job 按实际 pid/creation 回收并核 CIM 缺席；未用 taskkill 清理未知进程"
+  },
+  "firstFailures": [
+    {
+      "id": "restore-target-inside-backup-accepted",
+      "result": "真实生产请求返回 202；该路径在本批打开 restore 前不可达",
+      "evidenceRoot": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-GsyIg1",
+      "cause": "13ah/13ak 只检查 inside(target,backupDirectory)，实际拒绝的是 backup 位于尚未创建的 target 内；target 位于既有 backupDirectory 内未拒绝",
+      "resolution": "13ah/13ak 双向拒绝 backup↔target；01ae 新结果写入以 dirname(backup.path) 做同构防线，历史 decode 不收紧；补 unit 与真实 E2E 负例。修复后 restore-target-inside-backup 为 400 path_invalid，grant 不消耗且无 backup/target/intent/claim 副作用",
+      "kept": "旧 TEMP 首红保留，未改写历史证据"
+    },
+    {
+      "id": "static-generated-drift",
+      "result": "独审复现 module graph 三件与 route inventory 两件漂移；新增 13ah→13at read edge 及新增测试索引未生成",
+      "resolution": "先更新 manifest note，再由原生成器重建；最终 124 modules/858 edges/1 SCC，route 189/176/0 problems，定向静态门通过"
+    },
+    {
+      "id": "write-token-replay-review-gap",
+      "result": "代码复核发现通用 apiRaw 会在 403 token 失效后重放 POST",
+      "resolution": "新增 noTokenReplay 私有选项并用于 upload、job、cancel；不下传 fetch；5xx/断连/畸形成功继续 unknownSubmission，无自动重传/重提"
+    },
+    {
+      "id": "unit-full-first-red-readiness",
+      "result": {"tests": 4210, "pass": 4185, "skipped": 24, "fail": 1, "durationMs": 502698.5872},
+      "failure": "work-data-maintenance-worker: a child death during registration never resolves ready and clears its own inert armed record；attempt:armed 尚未出现即断言 false!==true",
+      "cause": "既有测试用固定 setImmediate 次数等待真实 fs 注册；完整并发下异步 lstat/claim write 尚未到 attempt:armed。单文件原样 45/45 通过，未复现产品回归",
+      "resolution": "测试改为有界等待实际 attempt:armed，并同步强化同类 cancel-race 就绪点；原断言不变。该套件连续 5 次各 45/45 后从头重跑完整 unit/fast",
+      "log": {
+        "path": ".ruyi-runtime/m3-restore-unit-full.log",
+        "bytes": 582823,
+        "sha256": "12fbbb9968a0255231efcfc59a84002923abc2eec3f5ebd423b42419b1eebf27"
+      },
+      "kept": "首轮红与修复分别记录，不把 fast 尚未执行写成通过"
+    },
+    {
+      "id": "unit-full-second-red-resource-symptoms",
+      "result": {"tests": 4193, "pass": 4167, "skipped": 24, "fail": 2, "durationMs": 547707.1761},
+      "failures": [
+        "ordinary root names equal to capsule wrapper files preserve their same-name DOS namespace（原生夹具错误，46967ms）",
+        "large index seals losslessly…（Array buffer allocation failed，98320ms）"
+      ],
+      "resolution": "worker 就绪用例在该轮已通过；两个失败文件以原测试/原预算隔离复验合计 53/53，大索引同断言约 358ms。随后在其它测试负载结束后按原 concurrency=4 从头重跑，未降并发、未调堆参数或修改断言",
+      "unresolved": "资源竞争症状与上批记录相同，但并发根因未确诊；不把隔离通过写成整门通过",
+      "log": {
+        "path": ".ruyi-runtime/m3-restore-unit-final.log",
+        "bytes": 581964,
+        "sha256": "07d37594b6d9add714b3fe41e75e1f5b5372a53bdd9e8d153d36f30387285545"
+      }
+    },
+    {
+      "id": "fast-first-red-provider-readiness",
+      "result": {"tests": 4210, "pass": 4185, "skipped": 24, "fail": 1, "durationMs": 1482074.3932, "staticStarted": false},
+      "failure": "provider-turn-failure-surface [T10]：seen=''，未观察到计划模式提示词；fake provider 尚未收到请求即按固定 100×50ms 轮询结束中止",
+      "resolution": "只把测试等待真实请求的有界观察上限改为 400×50ms，原提示词断言、fake provider 和 abort 方式不变；该文件连续 3 次各 12/12 后重新执行 concurrency=4 全量和 fast",
+      "note": "这是测试观察时限调整，不是产品时限或业务断言放宽；前置独立 concurrency=4 全量曾为 4210/4186/24/0",
+      "log": {
+        "path": ".ruyi-runtime/m3-restore-fast-final.log",
+        "bytes": 2938,
+        "sha256": "ba2fe03afca808ced2b5e59ca88020ef98966930c1fc69abe33b26316aa005bb"
+      }
+    }
+  ],
+  "independentReview": {
+    "reviewer": "agent-32（DeepSeek Flash，未参与实现）",
+    "initial": {
+      "result": "主链路无阻断产品缺陷；发现 backup/target 嵌套合同缝隙、静态产物漂移和陈旧 note/docs",
+      "log": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-hfyuzh9v/output.log",
+      "logBytes": 15454,
+      "logSha256": "be18f4d3a21e49d4c26da76fea41d34186c45452cf5221897aa2238c5821a7f6"
+    },
+    "final": {
+      "result": "原嵌套问题、note 与静态门均关闭；未发现新的 P0/P1。要求以最终字节重跑真实 E2E 并更新 docs",
+      "log": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-nrqrj0ng/output.log",
+      "logBytes": 6132,
+      "logSha256": "347e142c28e41ce200d14bcab900b354abbacb18cf5943403a83172d85aa2f65",
+      "closure": "最终字节已连续两遍各 22 断言通过，digest 与 145 输入一致"
+    }
+  },
+  "remainingLimits": [
+    "新根只恢复并冷复验，未 activation、未启动为当前根；后续启动根偏好未实现",
+    "download=false、恢复 kernel 与 owned crash 自动恢复未实现；失败现场按合同保留",
+    "C10/C11 自动清理、非空 special portable 未实现",
+    "完整 restore UI 旅程未验；设置页只完成真实 handlers/请求与既有 browser 回归",
+    "cold verifier 子进程 receipt 未在 E2E 取证；错误密码/上传篡改/owned crash 由真实 cold-operations 单测覆盖",
+    "upload custody 跨启动累积，尚无回收策略；restore 会在备份目录保留上传包的同字节副本",
+    "上传 4xx 后需重新输入密码；UI 未展示 restored.target 完整回执",
+    "result 备份被删导致 status 503、stage 孤儿阻断启动等既有限制未扩批处理",
+    "完整默认 585 个离线 E2E、实际安装包/升级回退、真实跨账户/跨机尚未验收",
+    "未处理真实用户数据、未发送真实平台消息、未发布"
+  ],
+  "sourceChangeStats": {
+    "method": "git diff --numstat f72b4039；新 E2E 以 wc -l 计 886 行；产品源码与生成物分列",
+    "productSource": {"files": 7, "added": 86, "deleted": 26, "net": 60},
+    "tests": {"files": 13, "added": 1293, "deleted": 61, "net": 1232},
+    "generated": {"files": 8, "added": 269, "deleted": 222, "net": 47},
+    "readme": {"files": 2, "added": 2, "deleted": 2},
+    "docs": {"files": 4, "added": 288, "deleted": 6, "net": 282, "includes": ["92/96/97", "evidence/m3-production-restore-20261028.json"]}
+  }
+}

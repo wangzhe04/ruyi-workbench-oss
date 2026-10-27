@@ -94,7 +94,8 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
       if(writing)throw fail('busy');if(typeof assertDurableBackup!=='function'||typeof flush!=='function')throw fail('writer_unavailable');writing=true;
       try {
         const previous=await inspect();if(!sameAuthority(privateValue.authority,await selected()))throw fail('authority_changed');
-        if(inside(base,privateValue.backup.path)||privateValue.restored&&(inside(base,privateValue.restored.target)||inside(privateValue.restored.target,base)))throw fail('backup_invalid');
+        if(inside(base,privateValue.backup.path)||privateValue.restored&&(inside(base,privateValue.restored.target)||inside(privateValue.restored.target,base)
+          ||inside(privateValue.restored.target,p.dirname(privateValue.backup.path))||inside(p.dirname(privateValue.backup.path),privateValue.restored.target)))throw fail('backup_invalid');
         if(await assertDurableBackup(privateValue.backup)!==true)throw fail('backup_unverified');await backup(privateValue.backup);await admission();
         if(!await directory(root,true)){await io.mkdir(root);await directory(root);}
         const stage=p.join(root,STAGE+c.randomBytes(24).toString('hex')+'.json'),handle=await io.open(stage,'wx',0o600);

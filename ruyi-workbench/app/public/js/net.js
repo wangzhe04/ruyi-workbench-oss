@@ -71,18 +71,25 @@ function retryableMethod(options) {
   const method = String((options && options.method) || 'GET').toUpperCase();
   return method === 'GET' || method === 'HEAD';
 }
+// 2026-10:有些写请求的重放不安全 —— 迁移备份包上传(POST /api/work-data/uploads，body 是用户选的文件)
+// 已经消费过一次请求体，「重放一次」等于把同一份二进制再发一遍。服务端的 upload 在进程生命周期内
+// 可重新 resolve，但 grant 绑定 job 且只能 handoff 一次；调用方传 noTokenReplay: true 就跳过 403
+// 换 token 重放，403 原样返回给调用方自己判断。
+// 该选项是本模块私有的，绝不下传给 fetch(浏览器会把未知成员当 noise，但没必要送)。
+// 缺省(false)行为与既有 45+ 个调用点完全一致。
 export async function apiRaw(path, options = {}) {
-  const once = () => fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+  const { noTokenReplay = false, ...init } = options;
+  const once = () => fetch(path, { ...init, headers: { ...authHeaders(), ...(init.headers || {}) } });
   const request = async () => {
     try { return await once(); }
     catch (e) {
-      if (!isNetworkError(e) || !retryableMethod(options) || (options.signal && options.signal.aborted)) throw e;
+      if (!isNetworkError(e) || !retryableMethod(init) || (init.signal && init.signal.aborted)) throw e;
       await new Promise(resolve => setTimeout(resolve, NETWORK_RETRY_DELAY_MS));
       return once();
     }
   };
   let res = await request();
-  if (!res.ok) {
+  if (!noTokenReplay && !res.ok) {
     const body = await res.clone().text();
     if (invalidTokenResponse(res.status, body) && await initToken(true)) {
       res = await request();

@@ -89,28 +89,40 @@ test('strict operation/password/full authority/field validation refuses before s
 
 test('unbound worker/upload hooks report typed unavailable without accepting fake work or downloads',async()=>{
  const f=fixture();delete f.worker.start;await assert.rejects(f.api.submit(f.body()),error=>error.statusCode===501&&/worker_unavailable/.test(error.code));assert.equal(f.queue.length,0);assert.deepEqual(clone((await f.api.status()).capabilities),{worker:false,upload:false,download:false});
- const g=fixture();await assert.rejects(g.api.submit(g.body({operation:'restore',targetDirectory:'C:/target',uploadId:'a'.repeat(48)})),error=>error.statusCode===501&&/restore_unavailable/.test(error.code));assert.equal(g.queue.length,0);
- // Restore admission is closed: the ordinary input refusals still run first, and no
- // upload grant is resolved whether or not a worker could start.
+ // A restore also needs the broker-backed resolveUpload capability; without it the
+ // request is refused after input checks and before any directory/grant work.
+ const g=fixture();await assert.rejects(g.api.submit(g.body({operation:'restore',targetDirectory:'C:/target',uploadId:'a'.repeat(48)})),error=>error.statusCode===501&&/upload_unavailable/.test(error.code));assert.equal(g.queue.length,0);
+ // The ordinary input refusals still run first, and no upload grant is resolved
+ // whether or not a worker could start.
  const h=fixture(),restoreBody=patch=>h.body({operation:'restore',targetDirectory:'C:/target',uploadId:'a'.repeat(48),...patch});let resolved=0;h.worker.resolveUpload=async()=>{resolved++;return null;};delete h.worker.start;
  await assert.rejects(h.api.submit(restoreBody({uploadId:'bad'})),error=>error.statusCode===400&&/restore_input_invalid/.test(error.code));
  assert.equal(resolved,0);
- await assert.rejects(h.api.submit(restoreBody()),error=>error.statusCode===501&&/restore_unavailable/.test(error.code));
- assert.equal(resolved,0,'a closed restore must not consume the upload grant');
+ await assert.rejects(h.api.submit(restoreBody()),error=>error.statusCode===501&&/worker_unavailable/.test(error.code));
+ assert.equal(resolved,0,'a restore without a start capability must not consume the upload grant');
  assert.equal(h.queue.length,0);assert.equal(h.m.accepting(),true);assert.equal(h.events.includes('pause'),false);
 });
 
-test('real job inputs retain exact authority and directory bindings while restore is refused before any grant',async t=>{
+test('real job inputs retain exact authority and directory bindings, including one job-bound restore grant',async t=>{
  for(const operation of ['enable','disable','export']){const f=fixture();if(operation==='disable')f.state.authority.mode='encrypted';
   const body=f.body({operation,...(operation==='disable'?{confirmPlaintext:true}:{})}),expected=clone(body.expectedAuthority),job=await f.api.submit(body);f.start();await until(()=>f.events.includes('start'));
   assert.equal(f.state.workerInput.operation,operation);assert.deepEqual(clone(f.state.workerInput.expectedAuthority),expected);assert.equal(f.state.workerInput.backupDirectory,'C:/synthetic/backups');assert.equal(f.state.workerInput.confirmPlaintext,operation==='disable');
+  assert.equal(f.state.workerInput.targetDirectory,undefined);assert.equal(f.state.workerInput.uploadGrant,undefined);
   await f.api.cancel(job.id);await until(async()=>(await f.get(job.id)).state==='cancelled');assert.equal(f.events.includes('handoff'),false);
  }
- // Restore keeps its exact input checks but is refused before any upload grant, queue
- // entry, drain or worker start.
- const f=fixture();await bindRestoreUpload(f,t);let grants=0;const resolve=f.worker.resolveUpload;f.worker.resolveUpload=async(id,options)=>{grants++;return resolve(id,options);};
- await assert.rejects(f.api.submit(f.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48)})),error=>error.statusCode===501&&error.code==='work_data_setup.restore_unavailable'&&error.apiCode===error.code);
- assert.equal(grants,0);assert.equal(f.queue.length,0);assert.equal(f.events.includes('pause'),false);assert.equal(f.events.includes('start'),false);assert.equal(f.m.accepting(),true);
+ // Restore keeps its exact input checks and resolves the upload only after the
+ // worker capability, directory validation and final authority re-read.
+ const f=fixture();await bindRestoreUpload(f,t);
+ const inspect=f.host.inspect,order=[];let inspects=0;
+ f.host.inspect=async()=>{inspects++;order.push('inspect');return inspect();};
+ const validate=f.host.validateDirectories;f.host.validateDirectories=async value=>{order.push('validate');return validate(value);};
+ let grants=0;const resolve=f.worker.resolveUpload;f.worker.resolveUpload=async(id,options)=>{grants++;order.push('resolve');return resolve(id,options);};
+ const uploadId='b'.repeat(48),job=await f.api.submit(f.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId}));
+ assert.equal(job.state,'queued');assert.equal(grants,1);assert.equal(inspects,2);
+ assert.deepEqual(order,['inspect','validate','inspect','resolve'],'the grant is resolved only after every admission check');
+ f.start();await until(()=>f.events.includes('start'));
+ assert.equal(f.state.workerInput.operation,'restore');assert.equal(f.state.workerInput.targetDirectory,'C:/synthetic/target');assert.equal(f.state.workerInput.uploadId,uploadId);
+ assert.equal(SetupUploads.ownsGrant(f.state.workerInput.uploadGrant,{uploadId,jobId:job.id}),true);
+ f.ready.resolve();await until(()=>f.events.includes('handoff'));assert.equal(grants,1,'one admitted restore consumes exactly one grant');
 });
 
 test('bounded strict UTF8 object JSON refuses oversized/invalid input before submitting a job',async()=>{
@@ -161,11 +173,14 @@ test('actual receipt lookup binds pending/session/execution identity and grants 
  assert.equal(lookup('/api/sessions/sess_one/background/stop',{id:'shell:shell_one'}),shell);shell.running=false;assert.equal(lookup('/api/sessions/sess_one/background/stop',{id:'shell:shell_one'}),null);
 });
 
-test('real setup directory validation creates nothing and refuses base overlap, missing backup and an existing restore target',async t=>{
- const root=await fsp.mkdtemp(path.join(os.tmpdir(),'ruyi-setup-directories-')),base=path.join(root,'base'),backup=path.join(root,'backup'),target=path.join(root,'restored');t.after(async()=>{assert.equal(path.dirname(root),path.resolve(os.tmpdir()));await fsp.rm(root,{recursive:true,force:true});});await fsp.mkdir(base);await fsp.mkdir(backup);
+test('real setup directory validation creates nothing and refuses base overlap, backup-target containment and an existing restore target',async t=>{
+ const root=await fsp.mkdtemp(path.join(os.tmpdir(),'ruyi-setup-directories-')),base=path.join(root,'base'),backup=path.join(root,'backup'),target=path.join(root,'restored'),insideBackup=path.join(backup,'restored');t.after(async()=>{assert.equal(path.dirname(root),path.resolve(os.tmpdir()));await fsp.rm(root,{recursive:true,force:true});});await fsp.mkdir(base);await fsp.mkdir(backup);
  const run=vm.runInNewContext(functionBlock(setupSource,'workDataSetupDirectories')+'\nworkDataSetupDirectories',{fsp,path,process});
  await run({base,backupDirectory:backup,targetDirectory:target});assert.equal(fs.existsSync(target),false);
  for(const args of [{base,backupDirectory:base},{base,backupDirectory:path.join(root,'missing')},{base,backupDirectory:backup,targetDirectory:base}])await assert.rejects(run(args),error=>error.apiCode==='work_data_setup.path_invalid');
+ const backupBefore=fs.readdirSync(backup);
+ await assert.rejects(run({base,backupDirectory:backup,targetDirectory:insideBackup}),error=>error.apiCode==='work_data_setup.path_invalid'&&error.statusCode===400);
+ assert.equal(fs.existsSync(insideBackup),false,'a target inside the backup directory is never created');assert.deepEqual(fs.readdirSync(backup),backupBefore,'directory admission writes nothing into the backup');
  await fsp.mkdir(target);await assert.rejects(run({base,backupDirectory:backup,targetDirectory:target}),/path_invalid/);assert.equal(fs.existsSync(target),true);
 });
 
@@ -212,18 +227,60 @@ test('status keeps the three capability keys, follows real readiness and never a
  f.host.workerReady=()=>{throw Error('private readiness reader');};
  assert.equal((await f.api.status()).capabilities.worker,false,'an unreadable readiness state must fail closed');
 });
-test('closed restore refuses before any grant, drain, queue entry or worker start',async t=>{
+test('restore admission resolves a grant only after worker, directory and authority checks',async t=>{
  const f=fixture();await bindRestoreUpload(f,t);let grants=0,validated=0;
  const resolve=f.worker.resolveUpload;f.worker.resolveUpload=async(id,options)=>{grants++;return resolve(id,options);};
  const validate=f.host.validateDirectories;f.host.validateDirectories=async value=>{validated++;return validate(value);};
- await assert.rejects(()=>f.api.submit(f.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48)})),
-   error=>error.statusCode===501&&error.code==='work_data_setup.restore_unavailable'&&error.apiCode===error.code&&error.retry===false);
- assert.equal(grants,0,'no upload grant may be resolved for a closed restore');
- assert.equal(validated,0);assert.equal(f.queue.length,0);assert.equal(f.events.includes('pause'),false);assert.equal(f.events.includes('start'),false);
- assert.equal(f.m.accepting(),true);assert.equal((await f.api.status()).job,null);
- await assert.rejects(()=>f.api.submit(f.body({operation:'restore',targetDirectory:'',uploadId:'b'.repeat(48)})),
-   error=>error.statusCode===400&&error.code==='work_data_setup.restore_input_invalid');
- await assert.rejects(()=>f.api.submit(f.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'bad'})),
-   error=>error.statusCode===400&&error.code==='work_data_setup.restore_input_invalid');
- assert.equal(grants,0);
+ const body=patch=>f.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48),...patch});
+ await assert.rejects(f.api.submit(body({targetDirectory:''})),error=>error.statusCode===400&&error.code==='work_data_setup.restore_input_invalid');
+ await assert.rejects(f.api.submit(body({uploadId:'bad'})),error=>error.statusCode===400&&error.code==='work_data_setup.restore_input_invalid');
+ assert.equal(grants,0,'invalid restore input must not resolve an upload grant');
+ assert.equal(validated,0);assert.equal(f.queue.length,0);assert.equal(f.events.includes('pause'),false);
+ const job=await f.api.submit(body());assert.equal(job.state,'queued');
+ assert.equal(grants,1);assert.equal(validated,1);assert.equal(f.queue.length,1,'only the fully admitted restore reaches the queue');
+});
+
+test('a restore target inside the backup directory is refused before the grant with no target or backup effect',async t=>{
+ const f=fixture(),{canonicalBase}=await bindRestoreUpload(f,t),root=path.dirname(canonicalBase),backup=path.join(root,'backup'),target=path.join(backup,'restored');
+ await fsp.mkdir(backup);
+ const directories=vm.runInNewContext(functionBlock(setupSource,'workDataSetupDirectories')+'\nworkDataSetupDirectories',{fsp,path,process});
+ f.host.validateDirectories=directories;
+ let grants=0;const resolve=f.worker.resolveUpload;f.worker.resolveUpload=async(id,options)=>{grants++;return resolve(id,options);};
+ await assert.rejects(f.api.submit(f.body({operation:'restore',backupDirectory:backup,targetDirectory:target,uploadId:'b'.repeat(48)})),
+  error=>error.statusCode===400&&error.code==='work_data_setup.path_invalid'&&error.apiCode===error.code);
+ assert.equal(grants,0,'a target inside the backup must not consume the upload grant');
+ assert.equal(f.queue.length,0);assert.equal(f.m.accepting(),true);assert.equal(f.events.includes('pause'),false);
+ assert.equal(fs.existsSync(target),false,'the refused target is never created');
+ assert.deepEqual(await fsp.readdir(backup),[],'directory admission never writes into the backup');
+});
+
+test('restore never consumes an upload grant when the worker, target directory or authority refuses',async t=>{
+ // No start capability: the grant stays untouched and no drain begins.
+ const a=fixture();await bindRestoreUpload(a,t);let ga=0;const ra=a.worker.resolveUpload;a.worker.resolveUpload=async(id,options)=>{ga++;return ra(id,options);};delete a.worker.start;
+ await assert.rejects(a.api.submit(a.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48)})),error=>error.statusCode===501&&error.code==='work_data_setup.worker_unavailable');
+ assert.equal(ga,0);assert.equal(a.queue.length,0);assert.equal(a.events.includes('start'),false);assert.equal(a.m.accepting(),true);
+ // No broker-backed resolveUpload capability.
+ const b=fixture();
+ await assert.rejects(b.api.submit(b.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48)})),error=>error.statusCode===501&&error.code==='work_data_setup.upload_unavailable');
+ assert.equal(b.queue.length,0);assert.equal(b.events.includes('pause'),false);
+ // An invalid target directory refuses after the capability check but before the grant.
+ const c=fixture();await bindRestoreUpload(c,t);let gc=0;const rc=c.worker.resolveUpload;c.worker.resolveUpload=async(id,options)=>{gc++;return rc(id,options);};
+ c.host.validateDirectories=async()=>{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',apiCode:'work_data_setup.path_invalid',statusCode:400,retry:false});};
+ await assert.rejects(c.api.submit(c.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48)})),error=>error.code==='work_data_setup.path_invalid');
+ assert.equal(gc,0);assert.equal(c.queue.length,0);assert.equal(c.events.includes('start'),false);
+ // Authority changes between the initial check and the final re-read.
+ const d=fixture();await bindRestoreUpload(d,t);let gd=0,calls=0;const rd=d.worker.resolveUpload;d.worker.resolveUpload=async(id,options)=>{gd++;return rd(id,options);};
+ const inspect=d.host.inspect;d.host.inspect=async()=>{calls++;const value=await inspect();return calls===1?value:{...value,authority:{generation:1,id:'c'.repeat(48),mode:'encrypted',sha256:'d'.repeat(64)}};};
+ await assert.rejects(d.api.submit(d.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48)})),error=>error.code==='work_data_setup.authority_changed');
+ assert.equal(gd,0);assert.equal(d.queue.length,0);assert.equal(d.events.includes('start'),false);
+});
+
+test('a restore launch failure never retries or resolves a second grant',async t=>{
+ const f=fixture();await bindRestoreUpload(f,t);let grants=0;const resolve=f.worker.resolveUpload;
+ f.worker.resolveUpload=async(id,options)=>{grants++;return resolve(id,options);};
+ f.worker.start=async()=>{f.events.push('start');throw Error('synthetic launch refusal');};
+ const job=await f.api.submit(f.body({operation:'restore',targetDirectory:'C:/synthetic/target',uploadId:'b'.repeat(48)}));
+ f.start();await until(async()=>(await f.get(job.id)).state==='failed');
+ assert.equal(grants,1);assert.equal(f.events.filter(value=>value==='start').length,1);assert.equal(f.events.includes('handoff'),false);
+ assert.equal((await f.get(job.id)).error,'work_data_setup.worker_failed');assert.equal(f.m.accepting(),true);
 });

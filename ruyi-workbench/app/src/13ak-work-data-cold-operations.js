@@ -203,8 +203,10 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           const authenticated = await WorkDataRecovery.open(serialized,context.password);
           try {
             const target = context.paths.targetDirectory;
+            // The sealed backup directory and the plaintext restore root stay
+            // disjoint in both directions: one must not contain the other.
             if (typeof target !== 'string' || !p.isAbsolute(target) || inside(base,target) || inside(target,base)
-              || inside(target,backupDirectory)) throw fail('target_invalid');
+              || inside(target,backupDirectory) || inside(backupDirectory,target)) throw fail('target_invalid');
             await realDirectory(p.dirname(target)); await absent(target);
             const snapshot=authenticated.snapshot,decodedBytes=snapshot.files.reduce((sum,row)=>sum+row.data.length,0)+snapshot.auxiliaries.reduce((sum,row)=>sum+row.data.length,0);
             await requireSpace([[backupDirectory,BigInt(uploaded.bytes.length)+1048576n],[p.dirname(target),treeBudget(decodedBytes,snapshot.files.length,snapshot.directories.length)],[base,1048576n]]);
@@ -216,8 +218,13 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
             await release(targetOwner);
             if (await host.verifyFresh({target,password:context.password,generation:null}) !== true) throw fail('fresh_verification_failed');
             if (!await verifyBackup(backup)) throw fail('backup_changed');
-            return await completed({id,operation:'restore',state:'verified',backup,restored,restartRoot:base,
+            const verified = await completed({id,operation:'restore',state:'verified',backup,restored,restartRoot:base,
               activation:'separate-fresh-root',publication:'fresh-process-required',profile:restored.profile});
+            // Only the verified result authorizes retiring the handoff record. Restore
+            // writes no source intent, and a failed removal keeps the record for
+            // classification instead of replaying the operation.
+            await clearClaim();
+            return verified;
           } finally { authenticated.release(); }
         }
         await progress('snapshot');

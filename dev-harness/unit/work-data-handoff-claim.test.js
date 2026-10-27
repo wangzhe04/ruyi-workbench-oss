@@ -69,14 +69,14 @@ test('records are strict fixed-shape UTF-8 JSON bounded to 16KiB',async t=>{
  const wrong=[
   {...value,extra:1},omit(value,'serve'),{...value,schema:2},{...value,id:'A'.repeat(48)},
   {...value,nonce:'b'.repeat(63)},{...value,parentPid:0},{...value,parentPid:process.pid,childPid:process.pid},
-  {...value,operation:'restore'},{...value,phase:'prepared'},{...value,serve:{host:'0.0.0.0',port:32123}},
+  {...value,phase:'prepared'},{...value,serve:{host:'0.0.0.0',port:32123}},
   {...value,serve:{host:'127.0.0.1',port:0}},{...value,createdAt:'2026-10-27T00:00:00Z'},
   {...value,updatedAt:'2026-10-26T23:59:59.000Z'},{...value,base:'relative'},
   {...value,baseIdentity:{dev:'x',ino:'1'}},
  ];
  for(const bad of wrong)assert.equal(api.validate(bad),false,JSON.stringify(bad));
  await assert.rejects(f.owner.write({...value,extra:1}),errCode('work_data_claim.claim_invalid'));
- await assert.rejects(f.owner.write({...value,operation:'restore'}),errCode('work_data_claim.claim_invalid'));
+ await assert.rejects(f.owner.write({...value,phase:'owned'}),errCode('work_data_claim.phase_invalid'));
  assert.equal(fs.existsSync(f.file),false);assert.deepEqual(await io.readdir(f.temp),[]);
 });
 test('malformed oversized or secret-bearing claim bytes are refused and never repaired',async t=>{
@@ -302,6 +302,19 @@ test('classification only completes an owned claim with a matching result record
   await assert.rejects(f.owner.classify({base:f.base,intent:false,result:bad}),errCode('work_data_claim.observation_invalid'));
  await assert.rejects(f.owner.classify({base:f.base,hasIntent:false,hasResult:true}),errCode('work_data_claim.observation_invalid'));
  assert.equal((await f.owner.inspect({base:f.base})).receipt.sha256,r3.sha256);
+});
+test('restore uses the same strict schema, one-step CAS and result classification',async t=>{
+ const f=await fixture(t),armed=f.value({operation:'restore'});
+ assert.equal(api.validate(armed),true);assert.equal(api.validate({...armed,phase:'prepared'}),false);
+ const r1=await f.owner.write(armed);
+ assert.equal((await f.owner.inspect({base:f.base})).value.operation,'restore');
+ const committed=f.advance(armed,'committed'),r2=await f.owner.write(committed,r1);
+ const owned=f.advance(committed,'owned'),r3=await f.owner.write(owned,r2);
+ const current=await f.owner.inspect({base:f.base});
+ assert.equal(current.value.phase,'owned');assert.equal(current.value.operation,'restore');assert.equal(current.receipt.sha256,r3.sha256);
+ assert.equal(await f.owner.classify({base:f.base,intent:false,result:resultFor(owned)}),'complete');
+ assert.equal(await f.owner.classify({base:f.base,intent:false,result:resultFor(owned,{operation:'export'})}),'pending');
+ assert.equal(await f.owner.classify({base:f.base,intent:true,result:resultFor(owned)}),'pending','restore does not borrow an intent phase');
 });
 test('the default probe uses a real ESRCH and never treats an unknown error as death',async t=>{
  const f=await fixture(t);

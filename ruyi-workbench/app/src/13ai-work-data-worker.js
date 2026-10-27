@@ -22,9 +22,9 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   }
   const keyOf = value => typeof value === 'string' ? (process.platform === 'win32' ? value.toLowerCase() : value) : '';
   // The handoff record is owned by the claim module (13av) through the host. Its
-  // schema admits enable/disable/export only, so the legacy restore path never
-  // advertises a record this owner would refuse.
-  const CLAIMED = ['enable', 'disable', 'export'];
+  // schema admits every operation this worker executes, so each claimed operation
+  // persists the same record before go and advances it in the cold child.
+  const CLAIMED = ['enable', 'disable', 'export', 'restore'];
   const claimRecord = (source, phase, updatedAt) => Object.freeze({
     schema: VERSION, base: source.base,
     baseIdentity: Object.freeze({ dev: String(source.baseIdentity.dev), ino: String(source.baseIdentity.ino) }),

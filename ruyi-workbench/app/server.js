@@ -11830,7 +11830,8 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
       if(writing)throw fail('busy');if(typeof assertDurableBackup!=='function'||typeof flush!=='function')throw fail('writer_unavailable');writing=true;
       try {
         const previous=await inspect();if(!sameAuthority(privateValue.authority,await selected()))throw fail('authority_changed');
-        if(inside(base,privateValue.backup.path)||privateValue.restored&&(inside(base,privateValue.restored.target)||inside(privateValue.restored.target,base)))throw fail('backup_invalid');
+        if(inside(base,privateValue.backup.path)||privateValue.restored&&(inside(base,privateValue.restored.target)||inside(privateValue.restored.target,base)
+          ||inside(privateValue.restored.target,p.dirname(privateValue.backup.path))||inside(p.dirname(privateValue.backup.path),privateValue.restored.target)))throw fail('backup_invalid');
         if(await assertDurableBackup(privateValue.backup)!==true)throw fail('backup_unverified');await backup(privateValue.backup);await admission();
         if(!await directory(root,true)){await io.mkdir(root);await directory(root);}
         const stage=p.join(root,STAGE+c.randomBytes(24).toString('hex')+'.json'),handle=await io.open(stage,'wx',0o600);
@@ -103542,7 +103543,7 @@ const WorkDataHandoffClaim = ((io, p, c) => {
     try {
       return keys(value) === 'base,baseIdentity,childPid,createdAt,id,nonce,operation,parentPid,phase,schema,serve,updatedAt'
         && value.schema === 1 && absolute(value.base) && ID.test(value.id || '') && SHA.test(value.nonce || '')
-        && ['enable', 'disable', 'export'].includes(value.operation) && PHASES.includes(value.phase)
+        && ['enable', 'disable', 'export', 'restore'].includes(value.operation) && PHASES.includes(value.phase)
         && Number.isSafeInteger(value.parentPid) && value.parentPid >= 1 && value.parentPid <= 0xffffffff
         && Number.isSafeInteger(value.childPid) && value.childPid >= 1 && value.childPid <= 0xffffffff
         && value.parentPid !== value.childPid && listener(value.serve)
@@ -103840,16 +103841,23 @@ const WorkDataSetup = (() => {
         const jobId=host.id();if(!ID.test(jobId)||jobs.has(jobId))throw fail('id_invalid');
         if(body.operation==='restore'){
           if(!validText(body.targetDirectory)||!body.targetDirectory.length||body.targetDirectory.length>1024||!ID.test(body.uploadId||''))throw fail('restore_input_invalid',400);
-          // Restore admission is closed in this version. The ordinary input refusals
-          // above stay first, and nothing consumes an upload grant, resolves a ticket
-          // or reaches the queue behind this typed refusal.
-          throw fail('restore_unavailable',501);
         }else if(body.targetDirectory!==undefined||body.uploadId!==undefined)throw fail('request_invalid',400);
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
+        // A restore needs the broker-backed upload pair before any grant can exist.
+        if(body.operation==='restore'&&(typeof worker.resolveUpload!=='function'||typeof WorkDataRestoreUploads==='undefined'
+          ||typeof WorkDataRestoreUploads.ownsGrant!=='function'))throw fail('upload_unavailable',501);
         await host.validateDirectories({base:observed.base,backupDirectory:body.backupDirectory,targetDirectory:body.targetDirectory});
         await ensureExpected(expectedAuthority);
+        // The grant is job-bound and resolved only after every admission check, so a
+        // refused worker, directory or changed authority never consumes an upload.
+        let uploadGrant;
+        if(body.operation==='restore'){
+          uploadGrant=await worker.resolveUpload(body.uploadId,{jobId});
+          if(WorkDataRestoreUploads.ownsGrant(uploadGrant,{uploadId:body.uploadId,jobId})!==true)throw fail('upload_unavailable',501);
+        }
         const job={id:jobId,operation:body.operation,state:'queued',createdAt:host.now(),committed:false,cancelRequested:false,abort:new AbortController(),secret,
-          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,confirmPlaintext:body.confirmPlaintext===true}};
+          args:{operation:body.operation,expectedAuthority,backupDirectory:body.backupDirectory,confirmPlaintext:body.confirmPlaintext===true,
+            ...(body.operation==='restore'?{targetDirectory:body.targetDirectory,uploadId:body.uploadId,uploadGrant}:{})}};
         if(!ID.test(job.id)||jobs.has(job.id))throw fail('id_invalid');secret=null;
         while(jobs.size>=32){const oldest=[...jobs.values()].find(row=>['failed','cancelled'].includes(row.state));if(!oldest)throw fail('capacity');jobs.delete(oldest.id);}
         jobs.set(job.id,job);active=job;host.defer(()=>{job.done=execute(job);});return view(job);
@@ -103961,7 +103969,7 @@ async function workDataSetupDirectories({base,backupDirectory,targetDirectory}) 
   const fail=()=>{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',statusCode:400});};
   async function real(directory){if(!path.isAbsolute(directory))fail();const absolute=path.resolve(directory),parsed=path.parse(absolute);let cursor=parsed.root;for(const part of ['',...absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)]){if(part)cursor=path.join(cursor,part);const stat=await fsp.lstat(cursor);if(!stat.isDirectory()||stat.isSymbolicLink()||key(await fsp.realpath(cursor))!==key(cursor))fail();}}
   await real(backupDirectory);if(inside(base,backupDirectory)||inside(backupDirectory,base))fail();
-  if(targetDirectory!==undefined){if(!path.isAbsolute(targetDirectory)||inside(base,targetDirectory)||inside(targetDirectory,base)||inside(targetDirectory,backupDirectory))fail();await real(path.dirname(targetDirectory));try{await fsp.lstat(targetDirectory);}catch(error){if(error.code==='ENOENT')return;throw error;}fail();}
+  if(targetDirectory!==undefined){if(!path.isAbsolute(targetDirectory)||inside(base,targetDirectory)||inside(targetDirectory,base)||inside(targetDirectory,backupDirectory)||inside(backupDirectory,targetDirectory))fail();await real(path.dirname(targetDirectory));try{await fsp.lstat(targetDirectory);}catch(error){if(error.code==='ENOENT')return;throw error;}fail();}
   }catch{throw Object.assign(Error('work_data_setup.path_invalid'),{code:'work_data_setup.path_invalid',apiCode:'work_data_setup.path_invalid',statusCode:400,retry:false});}
 }
 function workDataSetupReceiptPath(pathname) {
@@ -104028,9 +104036,9 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   }
   const keyOf = value => typeof value === 'string' ? (process.platform === 'win32' ? value.toLowerCase() : value) : '';
   // The handoff record is owned by the claim module (13av) through the host. Its
-  // schema admits enable/disable/export only, so the legacy restore path never
-  // advertises a record this owner would refuse.
-  const CLAIMED = ['enable', 'disable', 'export'];
+  // schema admits every operation this worker executes, so each claimed operation
+  // persists the same record before go and advances it in the cold child.
+  const CLAIMED = ['enable', 'disable', 'export', 'restore'];
   const claimRecord = (source, phase, updatedAt) => Object.freeze({
     schema: VERSION, base: source.base,
     baseIdentity: Object.freeze({ dev: String(source.baseIdentity.dev), ino: String(source.baseIdentity.ino) }),
@@ -104919,8 +104927,10 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           const authenticated = await WorkDataRecovery.open(serialized,context.password);
           try {
             const target = context.paths.targetDirectory;
+            // The sealed backup directory and the plaintext restore root stay
+            // disjoint in both directions: one must not contain the other.
             if (typeof target !== 'string' || !p.isAbsolute(target) || inside(base,target) || inside(target,base)
-              || inside(target,backupDirectory)) throw fail('target_invalid');
+              || inside(target,backupDirectory) || inside(backupDirectory,target)) throw fail('target_invalid');
             await realDirectory(p.dirname(target)); await absent(target);
             const snapshot=authenticated.snapshot,decodedBytes=snapshot.files.reduce((sum,row)=>sum+row.data.length,0)+snapshot.auxiliaries.reduce((sum,row)=>sum+row.data.length,0);
             await requireSpace([[backupDirectory,BigInt(uploaded.bytes.length)+1048576n],[p.dirname(target),treeBudget(decodedBytes,snapshot.files.length,snapshot.directories.length)],[base,1048576n]]);
@@ -104932,8 +104942,13 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
             await release(targetOwner);
             if (await host.verifyFresh({target,password:context.password,generation:null}) !== true) throw fail('fresh_verification_failed');
             if (!await verifyBackup(backup)) throw fail('backup_changed');
-            return await completed({id,operation:'restore',state:'verified',backup,restored,restartRoot:base,
+            const verified = await completed({id,operation:'restore',state:'verified',backup,restored,restartRoot:base,
               activation:'separate-fresh-root',publication:'fresh-process-required',profile:restored.profile});
+            // Only the verified result authorizes retiring the handoff record. Restore
+            // writes no source intent, and a failed removal keeps the record for
+            // classification instead of replaying the operation.
+            await clearClaim();
+            return verified;
           } finally { authenticated.release(); }
         }
         await progress('snapshot');

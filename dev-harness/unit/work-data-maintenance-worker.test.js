@@ -22,6 +22,17 @@ const identityOf=async root=>{const stat=await fsp.lstat(root,{bigint:true});ret
 const id='a'.repeat(48), nonce='c'.repeat(64);
 // Parser fixture only: this structural handoff is not an issued upload grant or a verified file.
 const uploadRoot=path.resolve(__dirname,'upload-custody'),restoreUpload=Object.freeze({schema:1,base,root:uploadRoot,rootIdentity:{dev:'1',ino:'2'},rootNonce:'d'.repeat(64),uploadId:'b'.repeat(48),jobId:id,nonce,file:path.join(uploadRoot,'restore-upload-'+'b'.repeat(48)+'.sealed'),identity:{dev:'1',ino:'3'},bytes:1,sha256:'e'.repeat(64),marker:{dev:'1',ino:'4',sha256:'f'.repeat(64)}});
+// A real broker over a real custody directory. The synthetic sealed container is
+// only structurally valid; no restore here decrypts it.
+async function restoreBroker(jobId){
+ const custody=path.join(scratch,'custody-'+jobId.slice(0,8));await fsp.mkdir(custody);
+ const ownership={roots:[base,custody]};
+ const broker=await RestoreUploads.create({base,root:custody,ownership,assertExclusive:candidate=>candidate===ownership,flush:async()=>{}});
+ const bytes=Buffer.from(JSON.stringify({kind:Recovery.KIND,version:Recovery.VERSION,exportId:'a'.repeat(32),kdf:{name:'scrypt',N:32768,r:8,p:1,salt:Buffer.alloc(16).toString('base64')},cipher:'aes-256-gcm',nonce:Buffer.alloc(12).toString('base64'),tag:Buffer.alloc(16).toString('base64'),data:Buffer.from('SYNTHETIC CIPHERTEXT').toString('base64')}));
+ let uploadId;try{uploadId=await broker.put(bytes);}finally{bytes.fill(0);}
+ const grant=await broker.resolveUpload(uploadId,{jobId});
+ return {broker,uploadId,grant,custody};
+}
 const request=()=>({id,operation:'enable',password:'synthetic password only',expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backupDirectory:backup});
 const payload=()=>({schema:1,id,nonce,base,parentPid:111,operation:'enable',password:'synthetic password only',
   expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},paths:{backupDirectory:backup,targetDirectory:null,uploadFile:null,uploadSha256:null},serve:{host:'127.0.0.1',port:12345}});
@@ -85,6 +96,7 @@ function fixture(options={}){
   execute:async context=>{assert.equal(context.assertExclusive(context.ownership),true);assert.equal(context.assertExclusive({roots:[base]}),false);calls.push('execute');timeline.push('execute');return {phase:'done'};},
   helperMayStillRun:()=>false};
  if(claims)host.claim=claims.api;
+ if(options.uploads)host.uploads=options.uploads;
  const worker=Worker.create(host);
  const channel={parentConnected:()=>true,parentPid:()=>111,readInput:async()=>Buffer.from(JSON.stringify(payload())),
   send:async msg=>{calls.push(msg.kind);timeline.push('channel:'+msg.kind);},waitCommand:async options=>{await options.onListening();return 'go';}};
@@ -205,6 +217,7 @@ test('bound owned failure hook can wait while exact preexecute owner remains liv
 
 // --- Handoff claim lifecycle (warm armed -> cold committed -> owned -> removed) ---
 const tick=async()=>{await new Promise(r=>setImmediate(r));await new Promise(r=>setImmediate(r));};
+const until=async predicate=>{for(let i=0;i<100;i++){if(await predicate())return;await new Promise(r=>setImmediate(r));}throw Error('condition did not settle');};
 
 test('warm persists one armed claim bound to both PIDs before ready resolves and never before the child reports ready',async()=>{
  const f=fixture({claims:true});try{
@@ -224,6 +237,25 @@ test('warm persists one armed claim bound to both PIDs before ready resolves and
   f.message('armed');await handed;
   // The warm side only ever writes `armed`; advancing belongs to the cold child.
   assert.deepEqual(f.claims.writings(),['armed']);assert.equal((await f.claim()).phase,'armed');assert.equal(f.exited(),1);
+ }finally{f.cleanup();}
+});
+
+test('a restore job is claimed: the armed record names restore and cancel clears only its own record',async()=>{
+ const {broker,uploadId,grant}=await restoreBroker(id),target=path.join(scratch,'restored-target');
+ const f=fixture({claims:true,uploads:broker});try{
+  const h=await f.worker.start({id,operation:'restore',password:'synthetic password only',
+   expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backupDirectory:backup,targetDirectory:target,uploadId,uploadGrant:grant});
+  assert.equal(await f.claim(),null,'no record may exist before the child is listening');
+  f.message('ready');await h.ready;
+  const claim=JSON.parse(JSON.stringify(await f.claim()));
+  assert.equal(claim.operation,'restore');assert.equal(claim.phase,'armed');assert.equal(claim.base,base);
+  const input=f.captured();
+  assert.equal(input.operation,'restore');assert.equal(input.paths.targetDirectory,target);
+  assert.equal(input.upload.uploadId,uploadId);assert.equal(input.paths.uploadFile,input.upload.file);assert.equal(input.paths.uploadSha256,input.upload.sha256);
+  assert.deepEqual(f.calls,[],'ready alone still cannot send go or exit');
+  await h.cancel();
+  assert.equal(await f.claim(),null,'the attempt retires exactly its own restore record');
+  assert.equal(f.stopped(),1);
  }finally{f.cleanup();}
 });
 
@@ -254,7 +286,7 @@ test('duplicate and early messages cannot write the claim twice, arm early or ex
 
 test('a child death during registration never resolves ready and clears its own inert armed record',async()=>{
  const f=fixture({claims:true});try{
-  const release=f.claims.hold('armed');const h=await f.worker.start(request());f.message('ready');await tick();
+  const release=f.claims.hold('armed');const h=await f.worker.start(request());f.message('ready');await until(()=>f.claims.events.includes('attempt:armed'));
   assert.equal(f.claims.events.includes('attempt:armed'),true);
   f.child.emit('exit');release();
   await assert.rejects(h.ready,error=>error.code==='work_data_setup.worker_exited');
@@ -275,7 +307,7 @@ test('cancel clears only its own armed claim and only before the child is stoppe
 
 test('cancel racing an in-flight armed write removes that record and stops once',async()=>{
  const f=fixture({claims:true});try{
-  const release=f.claims.hold('armed');const h=await f.worker.start(request());f.message('ready');await tick();
+  const release=f.claims.hold('armed');const h=await f.worker.start(request());f.message('ready');await until(()=>f.claims.events.includes('attempt:armed'));
   const first=h.cancel(),second=h.cancel();await tick();assert.equal(f.stopped(),0);
   release();await Promise.all([first,second]);
   await tick();assert.equal(await f.claim(),null);assert.equal(f.stopped(),1);
