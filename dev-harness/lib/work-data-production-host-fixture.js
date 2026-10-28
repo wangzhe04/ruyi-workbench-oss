@@ -161,7 +161,7 @@ function createFixture({ manualClose = false } = {}) {
 // and the readonly inspectBoot path classifies/cleans the same TEMP record. Only
 // the verifier entry is doubled (13au needs its .flush seam); 13av's durability and
 // CAS have their own suite.
-async function createClaimWiring({ claimModule = true } = {}) {
+async function createClaimWiring({ claimModule = true, presetActivation = null } = {}) {
   const { constBlock } = require('./source-slice');
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-host-wiring-')));
   const base = path.join(root, 'base'), temp = path.join(root, 'temp'), backup = path.join(root, 'backup');
@@ -192,6 +192,7 @@ async function createClaimWiring({ claimModule = true } = {}) {
   load('13at-work-data-restore-uploads.js', 'WorkDataRestoreUploads');
   if (claimModule) load('13av-work-data-handoff-claim.js', 'WorkDataHandoffClaim');
   context.WorkDataMaintenanceRuntimeHooks = vm.runInContext('({})', context);
+  if (presetActivation !== null) context.WorkDataMaintenanceRuntimeHooks.activation = presetActivation;
   context.WorkDataMaintenanceWorkerHooks = vm.runInContext('({})', context);
   context.WorkDataVerifierEntry = Object.freeze({
     command: ({ proc: target }) => Object.freeze({ command: target.execPath, args: Object.freeze([target.execPath, 'work-data-verify']) }),

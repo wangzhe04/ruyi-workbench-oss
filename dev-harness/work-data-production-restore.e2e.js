@@ -2,19 +2,25 @@
 // Permanent ROOT serial acceptance for the production restore path. The complete
 // checked-in server is launched as-is (`serve`), the real worker/cold process and
 // the real same-port successor are spawned by the product, and every observation
-// is a product fact: runtime.json pid/token, the real 13av claim API in TEMP, the
-// cold listener's read-only HTTP, the durable maintenance result, CIM identities
-// and the restored target's actual bytes. No worker/owner/Setup/broker/native/CLI
-// stub is used and no test process ever poses as the restored root.
+// is a product fact: runtime.json pid/token (source and target), the real 13av
+// claim/activation API in TEMP, the cold listener's read-only HTTP, the durable
+// source result, CIM identities and the started target's actual bytes.
+//
+// The committed restore starts the SUCCESSOR ON THE TARGET ROOT: the cold writes
+// the TEMP activation receipt, spawns the successor with RUYI_HOME=target, and the
+// successor proves receipt + target authority before it serves the same port. The
+// source keeps its durable result/proof; the target may only carry package history
+// as lastResult. Data origin is proven with a package-only session served by the
+// target and absent from a separate plain serve on the source root.
 //
 // Journey A (plain generation-zero source): synthetic sealed package -> POST 201
 // -> restore 202 -> durable armed claim -> old serve natural exit (committed) ->
 // cold listener holding the real source owner (owned) -> real restore + the
-// product's own cold verifyFresh child -> same-port successor reading the
-// unchanged source. The same admitted upload is used after every pre-admission
-// refusal, which proves none of them consumed its grant. Claim phases are
-// proven by product ordering, never by polling the record mid-write: on this
-// host a read handle makes the product's atomic rename fail with EPERM.
+// product's own cold verifyFresh child -> target successor on the same port. The
+// same admitted upload is used after every pre-admission refusal, which proves
+// none of them consumed its grant. Claim phases are proven by product ordering,
+// never by polling the record mid-write: on this host a read handle makes the
+// product's atomic rename fail with EPERM.
 //
 // Journey B (real encrypted source): a real `enable` round and a real `export`
 // round run on a second synthetic source, then the exported encrypted package is
@@ -22,6 +28,8 @@
 // that enabled the source). Restore never depends on the source master keys:
 // it authenticates the package with its own password and stages the target key
 // header under fresh DPAPI protection, which is asserted on the target bytes.
+// The source session is removed through the real API after export, so the package
+// session can only be served by the started target.
 //
 // Deliberately NOT triggered here: a wrong restore password or a post-admission
 // on-disk package tamper. Those fail inside the owned cold process, and by
@@ -36,7 +44,9 @@ const PACKAGE_PASSWORD='SYNTHETIC production restore package 2026';
 const SOURCE_PASSWORD='SYNTHETIC production restore source enable 2026';
 const EXPORT_PASSWORD='SYNTHETIC production restore export only 2026';
 const SESSION_ID='sess_restore_synthetic';
-const SESSION_BYTES=JSON.stringify({id:SESSION_ID,private:'完整合成恢复源，保持原字节。',title:'Synthetic restore session',messages:[]});
+const PACKAGE_SESSION_ID='sess_restore_package_only';
+const SESSION_BYTES=JSON.stringify({id:SESSION_ID,private:'完整合成恢复源，保持原字节。',title:'Synthetic restore session',cwd:'',createdAt:'2026-10-28T00:00:00.000Z',updatedAt:'2026-10-28T00:00:00.000Z',messages:[]});
+const PACKAGE_SESSION_BYTES=JSON.stringify({id:PACKAGE_SESSION_ID,private:'仅存在于恢复包中的合成会话。',title:'Synthetic package-only session',cwd:'',createdAt:'2026-10-28T00:00:01.000Z',updatedAt:'2026-10-28T00:00:01.000Z',messages:[]});
 const AUTHORITY0=Object.freeze({generation:0,id:null,mode:'plain',sha256:null});
 const BUDGET=Object.freeze({...upload.BUDGET,handoff:60000,claim:30000,coldPort:30000,coldOperation:240000,successor:120000,keeper:90000});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -197,18 +207,29 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
  function relativeTo(base,file){return p.relative(base,file).split(p.sep).join('/');}
  // A normal serve boot rewrites its own runtime artifacts (runtime.json, the MCP
  // host/install mirrors, generated config, logs, the pretender projection index).
- // That set is explicit; it is not a blanket "ignore anything". config.json and
- // the session head are separately pinned byte-for-byte and never appear here.
+ // That set is explicit and itemized; it is not a blanket "ignore anything".
+ // Derived session indexes (sessions/index.json, _search-index-v1.json, the
+ // fulltext namespace) are deliberately NOT in it: no real run required those
+ // allowances at observation time, and a source-side index change must stay
+ // visible instead of being silently swallowed. config.json and the session head
+ // are separately pinned or byte-compared and never appear here.
+ const generationPrefix=/^\.work-data\/generations\/[a-f0-9]{48}\//i;
  function isNormalStartupArtifact(relative){
   // After enable the live root is the active generation, so a normal boot writes
   // the same artifact names inside `.work-data/generations/<id>/`. Normalize that
   // prefix before classifying; config.json itself is never in this set.
-  const stripped=relative.replace(/^\.work-data\/generations\/[a-f0-9]{48}\//i,'');
+  const stripped=relative.replace(generationPrefix,'');
   const name=stripped.toLowerCase();
   if(['runtime.json','config.json.prev','claude-settings-sync.json','install-registry.json','mcp-host-v1.json'].includes(name))return true;
   if(name==='sessions/.pretender'||name.startsWith('sessions/.pretender/'))return true;
   return /^(?:logs|generated|uploads|usage|checkpoints|agent-runs|memory)\//.test(name);
  }
+ function isStartupDirectory(relative){
+  const stripped=relative.replace(generationPrefix,'').toLowerCase();
+  if(stripped==='sessions/.pretender'||stripped.startsWith('sessions/.pretender/'))return true;
+  return /^(?:logs|generated|uploads|usage|checkpoints|agent-runs|agent-workflows|agent-worktrees|memory|playbooks|skills|webcache)(?:\/|$)/.test(stripped);
+ }
+ const sameAuthority=(left,right)=>!!left&&!!right&&left.generation===right.generation&&left.id===right.id&&left.mode===right.mode&&left.sha256===right.sha256;
 
  function assertCapabilities(value,label){
   a.deepEqual(value.capabilities,{worker:true,upload:true,download:false},label+': only the real worker and upload are advertised');
@@ -216,20 +237,20 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   a.equal(Object.hasOwn(value.capabilities,'activation'),false);
   a.equal(value.processRestartRequired,true);
  }
- function assertRestoreResult({f,status,id,targetPath,source,uploaded}){
-  const saved=status.lastResult;
-  a.ok(saved,'status must carry the durable restore result');
+ // The restore result is the SOURCE's durable record. The target's status may
+ // only carry package history and is never used as this job's activation proof.
+ function assertRestoreResult({f,id,targetPath,source,uploaded}){
+  const resultPath=p.join(f.base,'.work-data','maintenance-result-v1.json');
+  const file=core.read(resultPath),row=file.row;
+  // The real 01ae owner runs in the pinned vm context, so its objects carry the
+  // context's prototypes. Normalize to host objects before strict comparisons.
+  const saved=JSON.parse(JSON.stringify(getResultOwner().decode(file.bytes)));
   a.equal(saved.schema,1);a.equal(saved.id,id);a.equal(saved.operation,'restore');a.equal(saved.state,'verified');
   a.deepEqual(saved.sourceAuthority,source,'restore keeps the source authority it was admitted against');
-  a.deepEqual(saved.authority,status.authority);
   a.deepEqual(saved.authority,source,'a restore publishes no new source generation');
-  // The durable restore record has exactly these keys; restartRoot/publication
-  // belong to enable/export and are never invented for a restore.
-  a.equal(Object.hasOwn(saved,'restartRoot'),false,'restore result carries no restartRoot field');
-  a.equal(Object.hasOwn(saved,'publication'),false,'restore result carries no publication field');
-  a.deepEqual(Object.keys(saved.restored||{}).sort(),['activation','target']);
-  a.equal(saved.restored.activation,'separate-fresh-root');
-  a.equal(saved.restored.target,p.resolve(targetPath));
+  a.deepEqual(Object.keys(saved).sort(),['authority','backup','finishedAt','id','operation','restored','schema','sourceAuthority','state'],'the durable restore record has exactly its nine fields');
+  for(const forbidden of ['restartRoot','publication','activationTarget'])a.equal(Object.hasOwn(saved,forbidden),false,'restore result carries no '+forbidden+' field');
+  a.deepEqual(saved.restored,{activation:'separate-fresh-root',target:p.resolve(targetPath)});
   const expectedBackup=p.join(f.backups,'ruyi-work-data-'+id+'.ruyi-backup');
   a.equal(saved.backup.path,expectedBackup);
   a.equal(saved.backup.bytes,uploaded.length);
@@ -238,16 +259,33 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   a.ok(backup.bytes.equals(uploaded),'backup bytes are byte-for-byte the uploaded package');
   a.equal(backup.row.dev,saved.backup.identity.dev);a.equal(backup.row.ino,saved.backup.identity.ino);
   a.equal(getRecovery().inspectSealed(backup.bytes.toString('utf8')),true);
-  const resultPath=p.join(f.base,'.work-data','maintenance-result-v1.json');
-  const resultFile=core.read(resultPath);
-  const parsed=JSON.parse(resultFile.bytes);
-  const {proof,...body}=saved;
-  a.deepEqual(body,parsed,'durable restore record equals the served lastResult minus its proof');
-  a.equal(proof.sha256,resultFile.row.sha256);
-  a.equal(proof.identity.dev,resultFile.row.dev);
-  a.equal(proof.identity.ino,resultFile.row.ino);
-  a.equal(getResultOwner().decode(resultFile.bytes).id,id,'the real result owner decodes the durable restore record');
-  return {saved,resultPath,backupPath:expectedBackup};
+  a.match(row.sha256,/^[a-f0-9]{64}$/);
+  return {saved,row,resultPath,backupPath:expectedBackup};
+ }
+ // The target authority is verified against the real active manifest and its
+ // proof hash, not against a status field alone. Generation zero has no pointer.
+ function assertTargetAuthority({target,authority,label}){
+  const control=p.join(target,'.work-data'),active=p.join(control,'active-v1.json');
+  if(authority.generation===0){
+   a.equal(authority.id,null,label+': generation zero has no id');
+   a.equal(authority.sha256,null,label+': generation zero has no proof hash');
+   a.equal(authority.mode,'plain',label+': generation zero is plain');
+   a.equal(fs.existsSync(active),false,label+': generation zero has no active pointer');
+   a.notEqual(core.json(p.join(target,'config.json')).workDataEncryptionV1,true,label+': the target config mirror is plain');
+   return;
+  }
+  a.ok(fs.existsSync(active),label+': the target active pointer exists');
+  const raw=core.read(active).bytes,state=JSON.parse(raw);
+  a.equal(state.schema,1);a.equal(state.generation,authority.generation);a.equal(state.id,authority.id);a.equal(state.mode,authority.mode);
+  a.equal(state.activeRoot,'generations/'+state.id);
+  a.equal(core.H(raw),authority.sha256,label+': authority sha is the real active pointer proof');
+  const generation=p.join(control,'generations',state.id);
+  a.ok(fs.statSync(generation).isDirectory(),label+': the active generation directory exists');
+  if(state.mode==='encrypted'){
+   const header=p.join(generation,'work-data-key-v1.json');
+   a.ok(fs.existsSync(header),label+': the encrypted active generation has a key header');
+   a.match(core.json(header).instanceId,/^[a-f0-9]{32}$/);
+  }
  }
  function assertNoIntent(f,label){
   const control=p.join(f.base,'.work-data');
@@ -258,6 +296,220 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
    const allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
    for(const name of names)a.equal(allowed.has(name),true,label+': unexpected control entry '+name);
   }
+ }
+ function assertTargetControl(target,label){
+  const control=p.join(target,'.work-data');
+  a.equal(fs.existsSync(p.join(control,'maintenance-v1.json')),false,label+': the started target has no pending intent');
+  if(!fs.existsSync(control))return;
+  const names=fs.readdirSync(control).sort();
+  a.deepEqual(names.filter(name=>/^\.maintenance-v1\.stage-|^\.maintenance-result-v1\.stage-|^\.activation-v1\.stage-/.test(name)),[],label+': no staged control file in the target');
+  const allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+  for(const name of names)a.equal(allowed.has(name),true,label+': unexpected target control entry '+name);
+ }
+ async function sessionIds(ref){
+  const response=await request(ref,'/api/sessions');
+  a.equal(response.status,200,'GET /api/sessions succeeds');
+  a.equal(response.value?.ok,true);
+  a.ok(Array.isArray(response.value.sessions),'GET /api/sessions returns a session array');
+  return response.value.sessions.map(session=>session&&session.id).filter(id=>typeof id==='string');
+ }
+ async function deleteSourceSession(ref,id){
+  const response=await request(ref,'/api/sessions/'+encodeURIComponent(id),undefined,{method:'DELETE'});
+  a.equal(response.status,200,'DELETE /api/sessions/'+id+' succeeds');
+  a.equal(response.value?.ok,true);
+  return response.value;
+ }
+ function activationRootPath(f,canonical){
+  const digest=c.createHash('sha256').update(Buffer.from(canonical,'utf8')).digest('hex');
+  return p.join(f.temp,'ruyi-work-data-activation-'+digest);
+ }
+ async function waitActivationGone(f,target,budget=25000){
+  const canonical=await getOwnership().canonicalRoot(target),file=p.join(activationRootPath(f,canonical),'activation-v1.json');
+  const deadline=Date.now()+budget;
+  while(Date.now()<deadline){
+   // existsSync uses attributes only (no read handle), so it cannot block the
+   // successor's CAS removal of the receipt.
+   if(!fs.existsSync(file))return {canonical,file};
+   await sleep(25);
+  }
+  throw Error('activation receipt was never consumed');
+ }
+ async function assertActivationAbsent(f,target,label){
+  const canonical=await getOwnership().canonicalRoot(target),root=activationRootPath(f,canonical);
+  const found=await claimApi(f.temp).activation.inspect({base:canonical});
+  a.equal(found.present,false,label+': the TEMP activation receipt was consumed');
+  if(fs.existsSync(root))a.deepEqual(fs.readdirSync(root).filter(name=>name.startsWith('.activation-v1.stage-')),[],label+': no staged activation receipt survives');
+ }
+ function coldChildrenOf(ref){
+  const table=snapshotProcessTable();
+  if(!Array.isArray(table)){latch(Error('actual CIM snapshot unavailable'));throw Error('actual CIM snapshot unavailable');}
+  return table.filter(row=>row.ppid===ref.pid&&row.name!=='conhost.exe').map(row=>({pid:row.pid,created:String(row.created),name:row.name}));
+ }
+ async function assertOwnerFree(f,label){
+  const lease=await getOwnership().acquire([await canonicalBase(f)]);
+  a.ok(lease,label+': the source OS owner is released');
+  await lease.release();
+ }
+ async function assertOwnerHeld(target,label){
+  let held=false;
+  try{
+   const lease=await getOwnership().acquire([await getOwnership().canonicalRoot(target)]);
+   await lease.release();
+  }catch(error){
+   held=/DATA_ROOT_IN_USE/.test(String(error?.code||''))||/DATA_ROOT_IN_USE/.test(String(error?.message||''));
+   if(!held)throw error;
+  }
+  a.equal(held,true,label+': the target successor holds the real OS owner');
+ }
+ function walkTargetNames(target){
+  const files=[],directories=[];
+  (function walk(dir){
+   for(const name of fs.readdirSync(dir).sort()){
+    const file=p.join(dir,name),stat=fs.lstatSync(file);
+    if(stat.isDirectory()){a.ok(!stat.isSymbolicLink(),'target directory alias '+file);directories.push(file);walk(file);}
+    else{a.ok(stat.isFile()&&!stat.isSymbolicLink(),'target file type '+file);files.push(file);}
+   }
+  })(target);
+  return {files,directories};
+ }
+ // Session index writes are debounced. The post-export sentinel creation/deletion
+ // must be a pre-restore source action, so wait (bounded) for the index stamp to
+ // stop changing before the restore round snapshots the source.
+ async function waitSourceSessionIndexQuiet(f,generationId,budget=6000){
+  const file=p.join(f.base,'.work-data','generations',generationId,'sessions','index.json');
+  const stamp=()=>{try{const stat=fs.statSync(file,{bigint:true});return String(stat.size)+':'+String(stat.mtimeNs);}catch{return 'absent';}};
+  let last=stamp(),stableSince=Date.now();const deadline=Date.now()+budget;
+  while(Date.now()<deadline){
+   await sleep(100);
+   const now=stamp();
+   if(now!==last){last=now;stableSince=Date.now();}
+   else if(Date.now()-stableSince>=400)return {settled:true,stamp:now};
+  }
+  return {settled:false,stamp:last};
+ }
+ // The target is now the started live root: package bytes are preserved (key
+ // headers re-protected, native-owner scope re-sealed), a normal-boot allowlist
+ // covers its own runtime artifacts, and nothing else may appear.
+ async function assertStartedTarget({target,sealed,password,label,successor,encrypted}){
+  a.equal(fs.existsSync(target),true,label+': the restore target exists');
+  const stat=fs.lstatSync(target,{bigint:true});
+  a.ok(stat.isDirectory()&&!stat.isSymbolicLink());
+  const opened=await getRecovery().open(sealed.toString('utf8'),password);
+  try{
+   const snapshot=opened.snapshot;
+   if(encrypted)a.equal(snapshot.generation,successor.status.authority.generation,label+': the package generation is the target authority generation');
+   else a.equal(snapshot.generation,0,label+': the plain package is a generation-zero full base');
+   const headers=packageHeaderPaths(snapshot);
+   if(encrypted)a.ok(headers.size>=1,label+': the encrypted package has at least one key header');
+   let nativeFiles=[];
+   try{nativeFiles=getRecovery().skillBackupSource(snapshot.files,snapshot.directories).files.map(row=>row.path);}catch{/* no native scope in this package */}
+   const native=new Set(nativeFiles);
+   const pkg=new Map(snapshot.files.map(file=>[file.path,file.data]));
+   const pkgDirs=new Set(snapshot.directories);
+   const {files,directories}=walkTargetNames(target);
+   const startup=[],restaged=[],seenPackage=new Set();
+   for(const file of files){
+    const relative=relativeTo(target,file),name=relative.toLowerCase();
+    if(/(?:^|\/)(?:activation-v1\.json|\.activation-v1\.stage-|\.maintenance-v1\.stage-|\.maintenance-result-v1\.stage-)/.test(name))a.fail(label+': forbidden control/activation artifact '+relative);
+    if(relative==='runtime.json'){
+     const runtime=core.json(file);
+     a.equal(runtime.pid,successor.pid,label+': runtime.json names the current successor pid');
+     a.equal(runtime.token,successor.token,label+': runtime.json names the current successor token');
+     a.equal(runtime.port,successor.port,label+': runtime.json keeps the same port');
+     a.equal(runtime.host,'127.0.0.1');
+     if(pkg.has('runtime.json')){
+      seenPackage.add('runtime.json');
+      const historical=JSON.parse(pkg.get('runtime.json').toString('utf8'));
+      a.notEqual(runtime.token,historical.token,label+': the started runtime record replaced the package history');
+     }
+     continue;
+    }
+    if(pkg.has(relative)){
+     seenPackage.add(relative);
+     const bytes=core.read(file).bytes;
+     if(headers.has(relative)){
+      const before=JSON.parse(pkg.get(relative).toString('utf8')),after=JSON.parse(bytes.toString('utf8'));
+      a.equal(after.instanceId,before.instanceId,label+': the staged key header keeps its instance');
+      a.notEqual(after.protectedKey,before.protectedKey,label+': the target key header is re-protected under fresh DPAPI');
+      restaged.push({path:relative,packageSha256:core.H(pkg.get(relative)),targetSha256:core.H(bytes)});
+     }else if(native.has(relative)){
+      a.ok(bytes.length>0,label+': the native-owned file exists in the target');
+      restaged.push({path:relative,packageSha256:core.H(pkg.get(relative)),targetSha256:core.H(bytes)});
+     }else if(isNormalStartupArtifact(relative)){
+      // The package itself can carry an older copy of a normal-boot artifact
+      // (logs, generated MCP config, install registry, projection index); the
+      // boot replacing it is expected and recorded, never byte-compared.
+      startup.push(relative);
+     }else a.deepEqual(bytes,pkg.get(relative),label+': target bytes equal the authenticated package for '+relative);
+     continue;
+    }
+    if(isNormalStartupArtifact(relative)){startup.push(relative);continue;}
+    a.fail(label+': unknown file in the started target '+relative);
+   }
+   for(const relative of pkg.keys())a.ok(seenPackage.has(relative),label+': package file missing from the target '+relative);
+   for(const directory of directories){
+    const relative=relativeTo(target,directory);
+    if(pkgDirs.has(relative)||isStartupDirectory(relative))continue;
+    a.fail(label+': unknown directory in the started target '+relative);
+   }
+   for(const directory of snapshot.directories)a.ok(fs.lstatSync(p.join(target,...directory.split('/'))).isDirectory(),label+': package directory missing '+directory);
+   assertTargetControl(target,label);
+   if(encrypted){
+    const active=core.json(p.join(target,'.work-data','active-v1.json'));
+    a.equal(active.mode,'encrypted');
+    a.equal(core.json(p.join(target,'.work-data','generations',active.id,'config.json')).workDataEncryptionV1,true,label+': the started generation config mirror is encrypted');
+   }
+   record({kind:'started-target',label,startupFiles:startup,restaged,packageFiles:pkg.size,packageDirectories:pkgDirs.size});
+   return {startup,restaged,packagePaths:[...pkg.keys()]};
+  }finally{opened.release();}
+ }
+ function targetStableState(target,packagePaths){
+  return {runtime:core.read(p.join(target,'runtime.json')).row,
+   package:packagePaths.map(relative=>({relative,row:core.read(p.join(target,...relative.split('/'))).row}))};
+ }
+ function assertStableStateUnchanged(before,after,label){
+  a.equal(after.runtime.sha256,before.runtime.sha256,label+': target runtime bytes unchanged');
+  a.equal(after.runtime.dev,before.runtime.dev);a.equal(after.runtime.ino,before.runtime.ino);
+  a.deepEqual(after.package.map(row=>({relative:row.relative,sha256:row.row.sha256,bytes:row.row.bytes,dev:row.row.dev,ino:row.row.ino})),
+   before.package.map(row=>({relative:row.relative,sha256:row.row.sha256,bytes:row.row.bytes,dev:row.row.dev,ino:row.row.ino})),label+': target package bytes unchanged');
+ }
+ // A plain serve on the SOURCE root, on a different port, must report the source
+ // authority and must not see the package-only session. It also must not touch the
+ // started target. This is the data-origin proof, not a runtime field claim.
+ async function runSourceServeCheck({f,target,targetRef,packagePaths,expectedAuthority,jobId,expectPresent,expectAbsent,label}){
+  ctx.phase=label+'-source-serve';
+  const targetStatusBefore=await statusOf(targetRef);
+  const stableBefore=targetStableState(target,packagePaths);
+  const custodyBefore=custodyDirs(f).length;
+  const port=await getFreePort('127.0.0.1');
+  a.notEqual(port,targetRef.port,label+': the source serve uses a different port from the started target');
+  const handle=spawnServe(f,label+'-source-serve',port);
+  await handle.spawned;healthy();
+  const ref=await readyWarm(handle,f);
+  await manager.captureNativeBirths(handle);
+  const status=await waitWorkerReady(ref);
+  a.deepEqual(status.authority,expectedAuthority,label+': the plain source serve reports the source authority');
+  a.equal(status.job,null,label+': the source serve has no inherited job');
+  const ids=await sessionIds(ref);
+  for(const id of expectPresent)a.ok(ids.includes(id),label+': the source serve still lists '+id);
+  for(const id of expectAbsent)a.equal(ids.includes(id),false,label+': the package-only session is absent from the source serve ('+id+')');
+  a.equal(status.lastResult?.id,jobId,label+': the normal source serve reads this restore result');
+  a.equal(status.lastResult?.operation,'restore');
+  a.equal(status.lastResult?.state,'verified');
+  a.deepEqual(status.lastResult?.sourceAuthority,status.authority);
+  a.deepEqual(status.lastResult?.authority,status.authority);
+  a.equal(custodyDirs(f).length,custodyBefore+1,label+': the source serve allocates one custody root');
+  // The target stays the same started process and the same package bytes.
+  const targetStatusAfter=await statusOf(targetRef);
+  a.equal(targetStatusAfter.job,null);
+  a.deepEqual(targetStatusAfter.authority,targetStatusBefore.authority,label+': the target authority is unchanged by the source serve');
+  a.equal(targetStatusAfter.lastResult?.id,targetStatusBefore.lastResult?.id,label+': the target historical result is unchanged');
+  const stableAfter=targetStableState(target,packagePaths);
+  assertStableStateUnchanged(stableBefore,stableAfter,label);
+  await manager.cleanupKnown(handle,async()=>{healthy();});
+  healthy();
+  checkpoint('source-serve-'+label,{authority:status.authority,sessions:ids,lastResultId:status.lastResult?.id,lastResultOperation:status.lastResult?.operation,targetAuthority:targetStatusAfter.authority,port});
+  return {status,ids,targetStatus:targetStatusAfter};
  }
 
  // The cold listener is the only witness that execution moved into a new process:
@@ -344,21 +596,26 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   }else await gone();
   return{closedAt:Date.now()};
  }
- async function waitSuccessor(ref,f,jobId,{notPids}){
+ async function waitSuccessor(ref,f,{homeBase=f.base,jobId,expectedAuthority=null,requireResultId=null,forbidResultId=null,notPids=[]}){
   const deadline=Date.now()+BUDGET.successor;
   for(;;){
-   const rt=(()=>{try{return JSON.parse(fs.readFileSync(p.join(f.base,'runtime.json'),'utf8'));}catch{return null;}})();
+   const rt=(()=>{try{return JSON.parse(fs.readFileSync(p.join(homeBase,'runtime.json'),'utf8'));}catch{return null;}})();
    if(rt&&Number.isInteger(rt.pid)&&rt.pid!==ref.pid&&!notPids.includes(rt.pid)&&rt.port===ref.port&&rt.token!==ref.token){
     const probe=await probePort(ref.port);
     if(probe.kind==='warm'){
      let st=null;
      try{st=await upload.makeHttp({port:rt.port,token:rt.token},'/api/work-data/status',undefined,{timeout:5000});}catch(error){if(!isTransport(error))throw error;}
-     if(st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.lastResult?.id===jobId){
+     const ready=st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.job===null;
+     const matched=ready&&(requireResultId===null||st.value.lastResult?.id===requireResultId)&&(expectedAuthority===null||sameAuthority(st.value.authority,expectedAuthority));
+     if(matched){
+      if(forbidResultId&&st.value.lastResult?.id===forbidResultId)throw Error('the successor inherited this job result on the fresh root');
       const identity=await cimIdentity(rt.pid);
       a.notEqual(rt.pid,ref.pid,'successor is a new process');
       a.notEqual(rt.token,ref.token,'successor publishes a new runtime token');
+      a.equal(rt.port,ref.port,'successor keeps the old port');
       a.equal(rt.host,'127.0.0.1');
-      return{pid:rt.pid,port:rt.port,token:rt.token,handle:null,identity,status:st.value};
+      a.equal(identity.pid,rt.pid);
+      return{pid:rt.pid,port:rt.port,token:rt.token,host:rt.host,handle:null,identity,status:st.value,runtime:rt};
      }
     }
    }
@@ -373,7 +630,9 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
 
  // One real maintenance round: POST job -> durable armed claim record -> old
  // serve natural exit (committed) -> cold listener (owned, real OS owner) ->
- // same-port successor -> verified result -> claim removed.
+ // same-port successor -> verified result -> claim removed. For a restore the
+ // successor serves the committed target root on the same port; every other
+ // operation keeps serving the source root.
  async function runMaintenanceRound(f,ref,spec){
   const before=await statusOf(ref);assertCapabilities(before,'round');
   a.equal(before.job,null,'a new round starts with no inherited job');
@@ -393,17 +652,28 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   // only then does the parent exit 0. A natural 0 exit therefore proves the
   // committed record was durably written; it is not inferred from a poll.
   record({kind:'claim-committed-proof',phase:spec.phase,jobId,by:'old-serve-exit-0',closedAt:exited.closedAt});
+  const children=coldChildrenOf(ref);
+  const nodeChildren=children.filter(row=>row.name==='node.exe');
+  a.equal(nodeChildren.length,1,spec.phase+': the old serve has exactly one node child (the cold)');
+  const coldChild=nodeChildren[0];
+  record({kind:'cold-child-identity',phase:spec.phase,children,coldChild});
   ctx.phase=spec.phase+'-cold';
   const cold=await coldWindow(ref.port,{base:f.base,jobId,source,staleToken:ref.token,operation:spec.operation});
   // The cold listener exists only after `owned` was advanced and the real OS
   // source owner was acquired (13ai), so this is the owned proof.
   record({kind:'cold-status',phase:spec.phase,jobId,jobState:cold.job.state,authority:cold.authority,ownedProof:'cold-listener-with-real-source-owner'});
-  ctx.diagnostics={jobId,operation:spec.operation,claimEvidence:{armedRecord:true,committedBy:'old-serve-exit-0',ownedBy:'cold-listener'}};
+  ctx.diagnostics={jobId,operation:spec.operation,claimEvidence:{armedRecord:true,committedBy:'old-serve-exit-0',ownedBy:'cold-listener'},coldChild};
   ctx.phase=spec.phase+'-successor';
-  const next=await waitSuccessor(ref,f,jobId,{notPids:[ref.pid]});
-  record({kind:'claim-timeline',phase:spec.phase,jobId,armedAt:null,committedProofAt:exited.closedAt,ownedProofAt:Date.now(),successorAt:Date.now()});
+  const restoreTarget=spec.targetDirectory||null;
+  const next=await waitSuccessor(ref,f,{homeBase:restoreTarget||f.base,jobId,
+   expectedAuthority:restoreTarget?source:null,requireResultId:restoreTarget?null:jobId,forbidResultId:restoreTarget?jobId:null,
+   notPids:[ref.pid,coldChild.pid]});
+  a.notEqual(next.pid,coldChild.pid,'successor is not the cold process');
+  a.equal(next.identity.ppid,coldChild.pid,'the successor is spawned by the observed cold process');
+  a.equal(await absentByCim({pid:coldChild.pid,created:coldChild.created}),true,'the cold process ends after handing over');
+  record({kind:'claim-timeline',phase:spec.phase,jobId,committedProofAt:exited.closedAt,ownedProofAt:Date.now(),successorAt:Date.now()});
   ctx.phase=spec.phase+'-verify';
-  const verified=await spec.verify({next,status:next.status,jobId,source,sourceBefore,pins,custodyBefore});
+  const verified=await spec.verify({next,status:next.status,jobId,source,sourceBefore,pins,custodyBefore,coldChild});
   await assertClaimGone(f,spec.phase);
   return{next,jobId,source,verified};
  }
@@ -456,12 +726,16 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   checked('plain: the real serve advertises the worker and upload on a generation-zero source');
 
   ctx.phase='plain-package';
+  // The package is a synthetic full base. Its config is the source's normalized
+  // config (a real export captures the normalized bytes) and its session exists
+  // only in the package, so only the started target may serve it.
+  const normalizedConfig=core.read(p.join(f.base,'config.json')).bytes;
   const sealed=Buffer.from(await getRecovery().seal({appVersion:'3.0.1',generation:0,createdAt:'2026-10-28T00:00:00.000Z',directories:['sessions'],
-   keys:[],files:[{path:'config.json',data:Buffer.from(JSON.stringify(config(root))),keyRefs:[]},{path:'sessions/'+SESSION_ID+'.json',data:Buffer.from(SESSION_BYTES),keyRefs:[]}],auxiliaries:[]},PACKAGE_PASSWORD));
+   keys:[],files:[{path:'config.json',data:normalizedConfig,keyRefs:[]},{path:'sessions/'+PACKAGE_SESSION_ID+'.json',data:Buffer.from(PACKAGE_SESSION_BYTES),keyRefs:[]}],auxiliaries:[]},PACKAGE_PASSWORD));
   healthy();
   a.equal(getRecovery().inspectSealed(sealed.toString('utf8')),true);
-  checkpoint('plain-package',{bytes:sealed.length,sha256:core.H(sealed),sealed:true});
-  checked('plain: the synthetic package is sealed by the real WorkDataRecovery owner');
+  checkpoint('plain-package',{bytes:sealed.length,sha256:core.H(sealed),sealed:true,configSha256:core.H(normalizedConfig),session:PACKAGE_SESSION_ID});
+  checked('plain: the synthetic package is sealed by the real WorkDataRecovery owner with a package-only session');
 
   ctx.phase='plain-upload';
   const uploadResponse=await request(initial,'/api/work-data/uploads',sealed,{method:'POST',headers:{origin:'http://127.0.0.1:'+initial.port,'sec-fetch-site':'same-origin','content-type':'application/octet-stream'}});
@@ -541,17 +815,26 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
 
   const targetDirectory=p.join(f.targets,'restored');
   const round=await runMaintenanceRound(f,initial,{
-   phase:'plain-restore',operation:'restore',
+   phase:'plain-restore',operation:'restore',targetDirectory,
    body:({source})=>({operation:'restore',password:PACKAGE_PASSWORD,expectedAuthority:source,backupDirectory:f.backups,targetDirectory,uploadId}),
    verify:async({next,status,jobId,source,sourceBefore,pins,custodyBefore:count})=>{
     assertCapabilities(status,'plain restore successor');
     a.equal(status.job,null,'a new process never inherits the restore job');
-    a.equal(status.configMirror,false,'the plain source mirror stays plain');
-    a.deepEqual(status.authority,AUTHORITY0,'the plain source authority is unchanged by a restore');
-    const {saved,resultPath,backupPath}=assertRestoreResult({f,status,id:jobId,targetPath:targetDirectory,source,uploaded:sealed});
+    a.equal(status.configMirror,false,'the target mirror stays plain');
+    a.deepEqual(status.authority,AUTHORITY0,'a restore keeps the plain generation-zero authority');
+    assertTargetAuthority({target:targetDirectory,authority:status.authority,label:'plain target'});
+    const result=assertRestoreResult({f,id:jobId,targetPath:targetDirectory,source,uploaded:sealed});
     assertNoIntent(f,'plain restore');
-    a.deepEqual(status.lastResult.restored,{target:p.resolve(targetDirectory),activation:'separate-fresh-root'});
-    a.equal(fs.existsSync(backupPath),true);
+    const targetClaim=await claimApi(f.temp).inspect({base:await getOwnership().canonicalRoot(targetDirectory)});
+    a.equal(targetClaim.present,false,'the started target has no handoff claim of its own');
+    await waitActivationGone(f,targetDirectory);
+    await assertActivationAbsent(f,targetDirectory,'plain restore');
+    const started=await assertStartedTarget({target:targetDirectory,sealed,password:PACKAGE_PASSWORD,label:'plain restore',successor:next,encrypted:false});
+    const targetSessions=await sessionIds(next);
+    a.ok(targetSessions.includes(PACKAGE_SESSION_ID),'the package-only session is served by the started target');
+    a.equal(targetSessions.includes(SESSION_ID),false,'the target is not serving the source session set');
+    a.equal(status.lastResult,null,'the plain target carries no job result of its own');
+    a.equal(fs.existsSync(result.backupPath),true);
     a.equal(custodyDirs(f).length,count+1,'one fresh custody root per normal serve start');
     const restoredCustody=custodyDirs(f).find(name=>name!==custody.name&&fs.existsSync(p.join(f.temp,name,'restore-upload-owner.json')));
     a.ok(restoredCustody,'the successor allocates its own custody root');
@@ -571,7 +854,10 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
     a.equal(core.norm(handoff.file),core.norm(p.join(custody.dir,'restore-upload-'+uploadId+'.sealed')));
     a.equal(handoff.bytes,sealed.length);
     a.equal(handoff.sha256,core.H(sealed));
-    await assertPlainTarget({target:targetDirectory,sealed,label:'plain restore'});
+    // The served root is the committed target: the real target owner is held by
+    // the successor and the source owner is released.
+    await assertOwnerHeld(targetDirectory,'plain restore');
+    await assertOwnerFree(f,'plain restore');
     // The restored target is a separate fresh root: never the current source.
     a.notEqual(core.norm(targetDirectory),core.norm(f.base));
     a.equal(targetDirectory.toLowerCase().startsWith(f.base.toLowerCase()+p.sep),false,'target is not nested in the source');
@@ -580,7 +866,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
     checkpoint('plain-source-difference',diff);
     a.deepEqual(diff.removed,[],'restore never removes a source file');
     const bootTouchedNorm=new Set(bootTouched.map(core.norm));
-    const normal=file=>core.norm(file)===core.norm(resultPath)||bootTouchedNorm.has(core.norm(file))||isNormalStartupArtifact(relativeTo(f.base,file));
+    const normal=file=>core.norm(file)===core.norm(result.resultPath)||bootTouchedNorm.has(core.norm(file))||isNormalStartupArtifact(relativeTo(f.base,file));
     const unexpectedChanged=diff.changed.map(row=>row.after.file).filter(file=>!normal(file));
     a.deepEqual(unexpectedChanged,[],'restore changed an unexpected source file');
     const unexpectedAdded=diff.added.filter(file=>!normal(file));
@@ -594,15 +880,23 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
     const jobLookup=await upload.makeHttp({port:next.port,token:next.token},'/api/work-data/jobs/'+jobId,undefined,{timeout:BUDGET.request});
     a.equal(jobLookup.status,404,'the successor did not inherit warm job state');
     a.equal(jobLookup.value?.error?.code,'work_data_setup.job_not_found');
-    record({kind:'round-verified',phase:'plain-restore',jobId,authority:status.authority,backup:saved.backup,state:saved.state,target:targetDirectory});
-    checked('plain restore reached the same-port successor with a durable verified result, exact backup bytes and an independent fresh target');
-    return {target:targetDirectory};
+    record({kind:'round-verified',phase:'plain-restore',jobId,authority:status.authority,backup:result.saved.backup,state:result.saved.state,target:targetDirectory,targetSessions});
+    checked('plain restore served the committed target on the same port: package bytes, package-only session, consumed activation receipt and a durable source result');
+    return {target:targetDirectory,packagePaths:started.packagePaths,result,sourcePinsAfter:sourcePins(f),targetSessions};
    }
   });
-  checkpoint('plain-final-status',{authority:round.next.status.authority,lastResult:round.next.status.lastResult,capabilities:round.next.status.capabilities});
+  const verified=round.verified;
+  const sourceServe=await runSourceServeCheck({f,target:targetDirectory,targetRef:round.next,packagePaths:verified.packagePaths,
+   expectedAuthority:AUTHORITY0,jobId:round.jobId,expectPresent:[SESSION_ID],expectAbsent:[PACKAGE_SESSION_ID],label:'plain'});
+  // The normal source serve must not rewrite this restore result or the source pins.
+  core.samePinned(core.read(verified.result.resultPath).row,verified.result.row);
+  for(const pin of verified.sourcePinsAfter)core.samePinned(core.read(p.join(f.base,...pin.relative.split('/'))).row,pin.row);
+  assertNoIntent(f,'plain source serve');
+  await assertClaimGone(f,'plain source serve');
+  checkpoint('plain-final-status',{authority:round.next.status.authority,lastResult:round.next.status.lastResult,capabilities:round.next.status.capabilities,targetSessions:verified.targetSessions,sourceServe:{authority:sourceServe.status.authority,sessions:sourceServe.ids,lastResultId:sourceServe.status.lastResult?.id}});
   await reclaimSuccessor('plain',round.next);
-  checked('plain: the retained restore successor is reclaimed by the owned outer Job and its CIM identity is absent');
-  return{fixture:f,round};
+  checked('plain: the started target successor is reclaimed by the owned outer Job and its CIM identity is absent');
+  return{fixture:f,round,sourceServe};
  }
 
  function packageHeaderPaths(snapshot){
@@ -612,26 +906,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   }
   return paths;
  }
- async function assertPlainTarget({target,sealed,label}){
-  a.equal(fs.existsSync(target),true,label+': the restore target exists');
-  const stat=fs.lstatSync(target,{bigint:true});
-  a.ok(stat.isDirectory()&&!stat.isSymbolicLink());
-  const opened=await getRecovery().open(sealed.toString('utf8'),PACKAGE_PASSWORD);
-  try{
-   const snapshot=opened.snapshot;
-   a.equal(snapshot.generation,0,'the plain package is a generation-zero full base');
-   const tree=core.inventory(target);
-   const files=new Map(tree.files.map(row=>[relativeTo(target,row.file),row]));
-   const expected=new Map(snapshot.files.map(row=>[row.path,row.data]));
-   a.deepEqual([...files.keys()].sort(),[...expected.keys()].sort(),label+': target files are exactly the authenticated package files');
-   for(const [relative,row] of files){a.deepEqual(core.read(p.join(target,...relative.split('/'))).bytes,expected.get(relative),label+': target bytes equal the authenticated package for '+relative);}
-   const directories=tree.directories.map(row=>relativeTo(target,row.file)).filter(Boolean).sort();
-   a.deepEqual(directories,[...snapshot.directories].sort(),label+': target directories are exactly the package directories');
-   a.equal(fs.existsSync(p.join(target,'.work-data')),false,label+': a plain restored target carries no work-data control project');
-   a.equal(fs.existsSync(p.join(target,'runtime.json')),false,label+': a restored target is not a started root');
-  }finally{opened.release();}
- }
- // ── journey B: real encrypted source (enable -> export -> restore) ─────────
+// ── journey B: real encrypted source (enable -> export -> restore) ─────────
  async function runEncryptedJourney(){
   const f=fixture('encrypted');
   const pristine=dataSnapshot(f.base);
@@ -712,111 +987,120 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   const exportedBytes=core.read(exportBackup).bytes;
   a.ok(exportedBytes.length>1);
 
+  // Real product order: export -> create a post-export source-only sentinel
+  // session -> delete the original source session. The sentinel is not in the
+  // export package, so it can only come from the source root; it is pinned for the
+  // restore round as a pre-restore precondition, never as a restore effect.
+  ctx.phase='encrypted-source-sentinel';
+  const sentinelResponse=await request(exported.next,'/api/sessions',Buffer.from(JSON.stringify({title:'Synthetic source sentinel'})),{method:'POST',headers:{'content-type':'application/json'}});
+  a.equal(sentinelResponse.status,200,'POST /api/sessions succeeds');
+  a.equal(sentinelResponse.value?.ok,true);
+  const sentinelId=sentinelResponse.value.session?.id;
+  a.match(sentinelId,/^[A-Za-z0-9_-]{1,64}$/,'the sentinel session id is a real safe session id');
+  a.notEqual(sentinelId,SESSION_ID,'the sentinel is a distinct session');
+  const generationId=exported.next.status.authority.id;
+  const sentinelRelative='.work-data/generations/'+generationId+'/sessions/'+sentinelId+'.json';
+  const sentinelFile=p.join(f.base,...sentinelRelative.split('/'));
+  a.equal(fs.existsSync(sentinelFile),true,'the sentinel session head exists in the source generation');
+  const sentinelBefore=core.read(sentinelFile).row;
+  const sessionsWithSentinel=await sessionIds(exported.next);
+  a.ok(sessionsWithSentinel.includes(sentinelId),'the source lists the sentinel session');
+  a.ok(sessionsWithSentinel.includes(SESSION_ID),'the source still lists the original session before deletion');
+  record({kind:'source-sentinel-created-for-provenance',sentinelId,relative:sentinelRelative,sha256:sentinelBefore.sha256});
+  checkpoint('encrypted-source-sentinel',{sentinelId,relative:sentinelRelative,sha256:sentinelBefore.sha256});
+  checked('encrypted: a post-export source-only sentinel session exists through the real API before the original source session is removed');
+
+  ctx.phase='encrypted-source-session-removal';
+  const deleted=await deleteSourceSession(exported.next,SESSION_ID);
+  const sourceSessionsAfterDelete=await sessionIds(exported.next);
+  a.equal(sourceSessionsAfterDelete.includes(SESSION_ID),false,'the source no longer lists the original session after the real DELETE');
+  a.ok(sourceSessionsAfterDelete.includes(sentinelId),'the sentinel survives the original session deletion');
+  const sentinelIndex=await waitSourceSessionIndexQuiet(f,generationId);
+  a.equal(sentinelIndex.settled,true,'the source session index settles before the restore round');
+  record({kind:'source-session-removed-for-provenance',sessionId:SESSION_ID,sentinelId,deleted:typeof deleted==='object',indexStable:sentinelIndex.settled});
+  checked('encrypted: the source sentinel remains while the original source session is removed through the real API');
+
   ctx.phase='encrypted-upload';
   const uploadResponse=await request(exported.next,'/api/work-data/uploads',exportedBytes,{method:'POST',headers:{origin:'http://127.0.0.1:'+exported.next.port,'sec-fetch-site':'same-origin','content-type':'application/octet-stream'}});
   a.equal(uploadResponse.status,201);
   const uploadId=uploadResponse.value.uploadId;
   const custody=custodyWithUpload(f,uploadId);
   a.ok(core.read(p.join(custody.dir,'restore-upload-'+uploadId+'.sealed')).bytes.equals(exportedBytes));
+  const openedExport=await getRecovery().open(exportedBytes.toString('utf8'),EXPORT_PASSWORD);
+  try{
+   a.ok(openedExport.snapshot.files.some(file=>file.path==='sessions/'+SESSION_ID+'.json'),'the exported package still carries the source session');
+   a.equal(openedExport.snapshot.files.some(file=>file.path.split('/').pop()===sentinelId+'.json'),false,'the exported package predates the source sentinel');
+  }finally{openedExport.release();}
   checkpoint('encrypted-custody-after-upload',{custody:custody.name,bytes:exportedBytes.length,sha256:core.H(exportedBytes)});
   checked('encrypted: the real exported package is admitted byte-for-byte under a package-only password');
 
   const targetDirectory=p.join(f.targets,'restored');
   const round=await runMaintenanceRound(f,exported.next,{
-   phase:'encrypted-restore',operation:'restore',
-   protected:['.work-data/active-v1.json','.work-data/generations/'+exported.next.status.authority.id+'/work-data-key-v1.json'],
+   phase:'encrypted-restore',operation:'restore',targetDirectory,
+   protected:['.work-data/active-v1.json','.work-data/generations/'+exported.next.status.authority.id+'/work-data-key-v1.json',sentinelRelative],
    body:({source})=>({operation:'restore',password:EXPORT_PASSWORD,expectedAuthority:source,backupDirectory:f.backups,targetDirectory,uploadId}),
    verify:async({next,status,jobId,source,sourceBefore,pins,custodyBefore:count})=>{
     assertCapabilities(status,'encrypted restore successor');
     a.equal(status.job,null);
     a.equal(status.configMirror,true);
-    a.equal(status.authority.mode,'encrypted','the source stays encrypted across a restore');
+    a.equal(status.authority.mode,'encrypted','the target stays encrypted');
     a.deepEqual(status.authority,source);
-    const {saved,resultPath}=assertRestoreResult({f,status,id:jobId,targetPath:targetDirectory,source,uploaded:exportedBytes});
+    assertTargetAuthority({target:targetDirectory,authority:status.authority,label:'encrypted target'});
+    const result=assertRestoreResult({f,id:jobId,targetPath:targetDirectory,source,uploaded:exportedBytes});
     assertNoIntent(f,'encrypted restore');
+    const targetClaim=await claimApi(f.temp).inspect({base:await getOwnership().canonicalRoot(targetDirectory)});
+    a.equal(targetClaim.present,false,'the started target has no handoff claim of its own');
+    await waitActivationGone(f,targetDirectory);
+    await assertActivationAbsent(f,targetDirectory,'encrypted restore');
+    const started=await assertStartedTarget({target:targetDirectory,sealed:exportedBytes,password:EXPORT_PASSWORD,label:'encrypted restore',successor:next,encrypted:true});
+    const targetSessions=await sessionIds(next);
+    a.ok(targetSessions.includes(SESSION_ID),'the package session is served by the started target');
+    a.equal(targetSessions.includes(sentinelId),false,'the target does not carry the post-export source sentinel');
+    a.ok(!status.lastResult||status.lastResult.id!==jobId,'the target lastResult is not this restore job');
+    if(status.lastResult)a.notEqual(status.lastResult.operation,'restore','the target historical result is not a restore record');
+    record({kind:'target-historical-result',id:status.lastResult?.id||null,operation:status.lastResult?.operation||null,jobId});
     a.equal(custodyDirs(f).length,count+1);
     const handoffs=fs.readdirSync(custody.dir).filter(name=>/^handoff-[a-f0-9]{48}-[a-f0-9]{64}\.json$/.test(name));
     a.equal(handoffs.length,1);
     const handoff=JSON.parse(core.read(p.join(custody.dir,handoffs[0])).bytes);
     a.equal(handoff.jobId,jobId);a.equal(handoff.uploadId,uploadId);a.equal(handoff.sha256,core.H(exportedBytes));
-    await assertEncryptedTarget({target:targetDirectory,sealed:exportedBytes,source,label:'encrypted restore'});
-    // The copied runtime record is the seal-time source record, never a new boot
-    // of the restored root: it must not carry the live restore successor's token
-    // (pid reuse across the exited old serves is possible, the token is not).
-    const targetRuntime=core.json(p.join(targetDirectory,'runtime.json'));
-    const sourceRuntime=core.json(p.join(f.base,'runtime.json'));
-    a.notEqual(targetRuntime.token,next.token,'the target runtime record was not minted for the restore');
-    a.notEqual(targetRuntime.token,sourceRuntime.token,'the target runtime record is not the live source record');
-    record({kind:'restored-target-not-started',target:targetDirectory,targetRuntimePid:targetRuntime.pid,successorPid:next.pid});
+    await assertOwnerHeld(targetDirectory,'encrypted restore');
+    await assertOwnerFree(f,'encrypted restore');
     a.notEqual(core.norm(targetDirectory),core.norm(f.base));
     a.equal(targetDirectory.toLowerCase().startsWith(f.base.toLowerCase()+p.sep),false,'target is not nested in the source');
     const diff=core.observeDifference(sourceBefore,dataSnapshot(f.base));
     checkpoint('encrypted-source-difference',diff);
     a.deepEqual(diff.removed,[],'restore never removes a source file');
     const bootTouchedNorm=new Set(bootTouched.map(core.norm));
-    const normal=file=>core.norm(file)===core.norm(resultPath)||bootTouchedNorm.has(core.norm(file))||isNormalStartupArtifact(relativeTo(f.base,file));
+    const normal=file=>core.norm(file)===core.norm(result.resultPath)||bootTouchedNorm.has(core.norm(file))||isNormalStartupArtifact(relativeTo(f.base,file));
     const unexpectedChanged=diff.changed.map(row=>row.after.file).filter(file=>!normal(file));
     a.deepEqual(unexpectedChanged,[],'restore changed an unexpected source file');
     const unexpectedAdded=diff.added.filter(file=>!normal(file));
     a.deepEqual(unexpectedAdded,[],'restore added an unexpected source file');
     for(const pin of pins)core.samePinned(core.read(p.join(f.base,...pin.relative.split('/'))).row,pin.row);
-    a.deepEqual(core.read(p.join(f.base,'sessions',SESSION_ID+'.json')).bytes,Buffer.from(SESSION_BYTES),'source session bytes are unchanged');
+    a.deepEqual(core.read(p.join(f.base,'sessions',SESSION_ID+'.json')).bytes,Buffer.from(SESSION_BYTES),'the historical source session bytes are unchanged');
     const jobLookup=await upload.makeHttp({port:next.port,token:next.token},'/api/work-data/jobs/'+jobId,undefined,{timeout:BUDGET.request});
     a.equal(jobLookup.status,404);
-    record({kind:'round-verified',phase:'encrypted-restore',jobId,authority:source,backup:saved.backup,state:saved.state,target:targetDirectory});
-    checked('encrypted restore reused the export package only, kept the encrypted source authority, and produced an independent fresh encrypted root');
-    return{};
+    record({kind:'round-verified',phase:'encrypted-restore',jobId,authority:source,backup:result.saved.backup,state:result.saved.state,target:targetDirectory,targetSessions});
+    checked('encrypted restore served the committed encrypted target on the same port with the package-only session and a consumed activation receipt');
+    return {target:targetDirectory,packagePaths:started.packagePaths,result,sourcePinsAfter:sourcePins(f,['.work-data/active-v1.json','.work-data/generations/'+source.id+'/work-data-key-v1.json',sentinelRelative]),targetSessions};
    }
   });
-  checkpoint('encrypted-final-status',{authority:round.next.status.authority,lastResult:round.next.status.lastResult,capabilities:round.next.status.capabilities});
+  const verified=round.verified;
+  const sourceServe=await runSourceServeCheck({f,target:targetDirectory,targetRef:round.next,packagePaths:verified.packagePaths,
+   expectedAuthority:round.source,jobId:round.jobId,expectPresent:[sentinelId],expectAbsent:[SESSION_ID],label:'encrypted'});
+  core.samePinned(core.read(verified.result.resultPath).row,verified.result.row);
+  for(const pin of verified.sourcePinsAfter)core.samePinned(core.read(p.join(f.base,...pin.relative.split('/'))).row,pin.row);
+  // The sentinel is a pre-restore precondition: present before the round, byte-identical
+  // after the started target and the later source serve.
+  core.samePinned(core.read(sentinelFile).row,sentinelBefore);
+  record({kind:'source-sentinel-preserved',sentinelId,relative:sentinelRelative,sha256:sentinelBefore.sha256});
+  assertNoIntent(f,'encrypted source serve');
+  await assertClaimGone(f,'encrypted source serve');
+  checkpoint('encrypted-final-status',{authority:round.next.status.authority,lastResult:round.next.status.lastResult,capabilities:round.next.status.capabilities,targetSessions:verified.targetSessions,sourceServe:{authority:sourceServe.status.authority,sessions:sourceServe.ids,lastResultId:sourceServe.status.lastResult?.id}});
   await reclaimSuccessor('encrypted',round.next);
-  checked('encrypted: the retained restore successor is reclaimed by the owned outer Job and its CIM identity is absent');
-  return{fixture:f,round,enable,exported};
- }
-
- async function assertEncryptedTarget({target,sealed,source,label}){
-  a.equal(fs.existsSync(target),true,label+': the restore target exists');
-  const stat=fs.lstatSync(target,{bigint:true});
-  a.ok(stat.isDirectory()&&!stat.isSymbolicLink());
-  const opened=await getRecovery().open(sealed.toString('utf8'),EXPORT_PASSWORD);
-  try{
-   const snapshot=opened.snapshot;
-   a.equal(snapshot.generation,source.generation);
-   const headers=packageHeaderPaths(snapshot);
-   a.ok(headers.size>=1,'the encrypted package has at least one key header');
-   // The skill-backup native owner re-seals its own scoped files into the fresh
-   // target; the product's recovery owner names that exact namespace. Everything
-   // outside the key headers and that native scope must be byte-identical.
-   let nativeFiles=[];
-   try{nativeFiles=getRecovery().skillBackupSource(snapshot.files,snapshot.directories).files.map(row=>row.path);}catch{/* no native scope in this package */}
-   const special=new Set(nativeFiles);
-   const tree=core.inventory(target);
-   const files=new Map(tree.files.map(row=>[relativeTo(target,row.file),row]));
-   const expected=new Map(snapshot.files.map(row=>[row.path,row.data]));
-   a.deepEqual([...files.keys()].sort(),[...expected.keys()].sort(),label+': target files are exactly the authenticated package files');
-   const restaged=[];
-   for(const [relative,row] of files){
-    const bytes=core.read(p.join(target,...relative.split('/'))).bytes;
-    if(headers.has(relative)){
-     const before=JSON.parse(expected.get(relative).toString('utf8')),after=JSON.parse(bytes.toString('utf8'));
-     a.equal(after.instanceId,before.instanceId,label+': the staged key header keeps its instance');
-     a.notEqual(after.protectedKey,before.protectedKey,label+': the target key header is re-protected under fresh DPAPI, not copied from the source');
-    }else if(special.has(relative)){
-     a.ok(bytes.length>0,label+': the native-owned file exists in the target');
-     restaged.push({path:relative,packageSha256:core.H(expected.get(relative)),targetSha256:core.H(bytes)});
-    }else a.deepEqual(bytes,expected.get(relative),label+': target bytes equal the authenticated package for '+relative);
-   }
-   record({kind:'encrypted-native-owner-restaged',files:restaged,scope:'work-data/skill-backups and the generation skill-backup bindings from the real recovery owner'});
-   const directories=tree.directories.map(row=>relativeTo(target,row.file)).filter(Boolean).sort();
-   a.deepEqual(directories,[...snapshot.directories].sort(),label+': target directories are exactly the package directories');
-   const active=core.json(p.join(target,'.work-data','active-v1.json'));
-   a.equal(active.mode,'encrypted');a.equal(active.generation,source.generation);a.equal(active.id,source.id);
-   a.equal(core.json(p.join(target,'.work-data','generations',active.id,'config.json')).workDataEncryptionV1,true,'the restored generation config mirror is encrypted');
-   // A full-base package legitimately carries the source's historical runtime.json
-   // (the last serve record at seal time). It is byte-identical to the package -
-   // asserted in the loop above - and it is not a fresh boot of this target.
-   a.equal(fs.existsSync(p.join(target,'.work-data','maintenance-v1.json')),false,label+': the restored target has no pending intent');
-  }finally{opened.release();}
+  checked('encrypted: the started target successor is reclaimed by the owned outer Job and its CIM identity is absent');
+  return{fixture:f,round,enable,exported,sourceServe,sentinel:{id:sentinelId,relative:sentinelRelative,sha256:sentinelBefore.sha256}};
  }
 
  async function run(){
@@ -829,8 +1113,8 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
 
  return{ctx,latch,healthy,record,checkpoint,checked,openJournal,close,manager,fixture,spawnServe,readyWarm,statusOf,waitWorkerReady,submitAccepted,postJob,
   claimApi,claimFile,waitClaimRecord,assertClaimGone,custodyDirs,custodyWithUpload,dataSnapshot,sourcePins,assertNoIntent,coldWindow,waitOldServeExit,
-  waitSuccessor,runMaintenanceRound,reclaimSuccessor,assertPlainTarget,assertEncryptedTarget,assertRestoreResult,assertCapabilities,run,
-  cimIdentity,absentByCim};
+  waitSuccessor,runMaintenanceRound,reclaimSuccessor,assertStartedTarget,assertTargetAuthority,assertRestoreResult,assertCapabilities,run,
+  sessionIds,runSourceServeCheck,cimIdentity,absentByCim};
 }
 
 async function runActual(argv=process.argv.slice(2)){
@@ -848,7 +1132,7 @@ async function runActual(argv=process.argv.slice(2)){
  const world=createWorld({root,evidence,target,harness,releaseEnvironment,snapshotProcessTable,ownDescendants,getFreePort});
  world.openJournal();
  try{
-  world.record({kind:'fixture-owner',root,temp,nonce:c.randomBytes(32).toString('hex'),targetServer:target.server,executionInputSha256:target.executionInputSha256,executionInputs:target.boundFiles.length,inputFiles:target.boundFiles,scope:'Synthetic production restore E2E only;not activation,not a started restored root and not complete 3.1.'});
+  world.record({kind:'fixture-owner',root,temp,nonce:c.randomBytes(32).toString('hex'),targetServer:target.server,executionInputSha256:target.executionInputSha256,executionInputs:target.boundFiles.length,inputFiles:target.boundFiles,scope:'Synthetic production restore E2E only;real fresh-root activation,not a completed 3.1.'});
   const outcome=await world.run();
   const inputsAfter=target.recheck();
   a.equal(inputsAfter.files,target.boundFiles.length,'recheck covers every pinned execution input');
@@ -857,14 +1141,21 @@ async function runActual(argv=process.argv.slice(2)){
   a.equal(world.ctx.unknown,false);a.equal(world.manager.hasUnclosed(),false);a.equal(world.manager.hasUnverifiedSpawn(),false);
   world.checkpoint('result',{schema:1,passed:world.ctx.checks.length,checks:world.ctx.checks,root,targetServer:target.server,
    executionInputSha256:inputsAfter.executionInputSha256,executionInputs:inputsAfter.files,inputProof:inputsAfter,
-   plain:{authority:outcome.plain.round.next.status.authority,lastResult:outcome.plain.round.next.status.lastResult,target:outcome.plain.round.verified.target},
-   encrypted:{authority:outcome.encrypted.round.next.status.authority,lastResult:outcome.encrypted.round.next.status.lastResult,enableAuthority:outcome.encrypted.enable.next.status.authority,exportBackup:outcome.encrypted.exported.next.status.lastResult.backup},
-   capabilities:{worker:true,upload:true,download:false,crashClaim:false,activation:false},
-   restoredActivation:'separate-fresh-root',restartRootPublished:false,currentRootIsTarget:false,
-   coldVerifyEvidence:'13ak host.verifyFresh runs a separate cold node verifier child before the verified result exists. This file observes the cold listener holding the real OS source owner, the durable result bound to the actual backup, and compares the target bytes with the package authenticated by the real WorkDataRecovery owner. The verifier child receipt itself is not persisted by the product, so no fabricated verifier receipt is claimed.',
-   claimEvidence:'armed: durable 13av record existence (no read handle against the product rename); committed: old serve natural exit 0 only after the go/armed handshake; owned: cold listener exists only after the owned advance and real OS source owner acquisition; cleanup: post-operation 13av inspect reports absent. Mid-flight polling was removed because on this host a read handle blocks the atomic rename with EPERM (verified standalone).',
+   plain:{authority:outcome.plain.round.next.status.authority,target:outcome.plain.round.verified.target,targetSessions:outcome.plain.round.verified.targetSessions,targetLastResult:outcome.plain.round.next.status.lastResult,
+    sourceResultId:outcome.plain.round.verified.result.saved.id,sourceResultProofSha256:outcome.plain.round.verified.result.row.sha256,
+    sourceServe:{authority:outcome.plain.sourceServe.status.authority,sessions:outcome.plain.sourceServe.ids,lastResultId:outcome.plain.sourceServe.status.lastResult?.id}},
+   encrypted:{authority:outcome.encrypted.round.next.status.authority,target:outcome.encrypted.round.verified.target,targetSessions:outcome.encrypted.round.verified.targetSessions,targetLastResult:outcome.encrypted.round.next.status.lastResult,
+    enableAuthority:outcome.encrypted.enable.next.status.authority,exportBackup:outcome.encrypted.exported.next.status.lastResult.backup,
+    sourceSentinel:outcome.encrypted.sentinel,
+    sourceResultId:outcome.encrypted.round.verified.result.saved.id,sourceResultProofSha256:outcome.encrypted.round.verified.result.row.sha256,
+    sourceServe:{authority:outcome.encrypted.sourceServe.status.authority,sessions:outcome.encrypted.sourceServe.ids,lastResultId:outcome.encrypted.sourceServe.status.lastResult?.id}},
+   capabilities:{worker:true,upload:true,download:false},crashClaim:false,
+   restoredActivation:'separate-fresh-root',restartRootPublished:false,currentRootIsTarget:true,activationCompleted:true,
+   activationEvidence:'The restore successor serves the committed target root on the source port. It read the TEMP activation receipt (13am verifies base/identity/authority/id/nonce/resultSha256 before serve-ready), the receipt was removed by CAS after ready, the target authority is verified against the active manifest proof, the target owner is held by the successor while the source owner is free, and a package-only session is served by the target but absent from a separate plain serve on the source root. The target status lastResult is package history, never this job.',
+   coldVerifyEvidence:'13ak host.verifyFresh runs a separate cold node verifier child before the verified result exists. This file observes the cold listener holding the real OS source owner, the source durable result bound to the actual backup, and compares the started target bytes with the package authenticated by the real WorkDataRecovery owner. The verifier child receipt itself is not persisted by the product, so no fabricated verifier receipt is claimed.',
+   claimEvidence:'armed: durable 13av record existence (no read handle against the product rename); committed: old serve natural exit 0 only after the go/armed handshake; owned: cold listener exists only after the owned advance and real OS source owner acquisition; cleanup: post-operation 13av inspect reports absent for source and target. Mid-flight polling was removed because on this host a read handle blocks the atomic rename with EPERM (verified standalone).',
    negativeCoverage:{e2ePreAdmission:['target exists','target nested in source','target inside backup directory','target equals source','backup in source','source in backup','unknown upload id','stale authority','missing upload id','plaintext package','invalid utf-8 package'],unitOnly:['wrong restore password','post-admission on-disk package tamper','post-owned crash recovery']},
-   processEvidenceLimit:'Real serve/cold/successor lifecycle plus actual sampled CIM identity and an owned outer Job reclaiming the successor. No simulated four-process fixture is used.',
+   processEvidenceLimit:'Real serve/cold/successor lifecycle plus actual sampled CIM identity, the observed cold child that spawns the successor, and an owned outer Job reclaiming the target successor. No simulated four-process fixture is used.',
    restorationComplete:false,whole3_1Complete:false});
   for(const label of world.ctx.checks)t.ok(true,label);
   world.close();

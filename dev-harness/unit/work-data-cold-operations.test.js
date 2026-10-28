@@ -126,6 +126,17 @@ test('restore actual full package into absent disjoint root reports separate-roo
  const x=await setup(t),sealed=await x.f.owner().seal({password,appVersion:'3.0.1',generation:0}),uploadFile=path.join(x.f.root,'upload.ruyi-backup');await fsp.writeFile(uploadFile,sealed.serialized);
  x.context.operation='restore';x.context.paths=await bindRestoreUpload(x,{...x.context.paths,targetDirectory:path.join(x.f.root,'restore-target'),uploadFile,uploadSha256:hash(Buffer.from(sealed.serialized))});
  const result=await x.operation.execute(x.context);assert.equal(result.activation,'separate-fresh-root');assert.equal(result.restartRoot,x.f.base);assert.equal(await fsp.readFile(path.join(result.restored.target,'config.json'),'utf8'),'{ "workDataEncryptionV1": false, "label":"SYNTHETIC_PRIVATE" }');assert.ok(x.owners.every(owner=>owner.released));assert.equal(x.events.includes('migration'),false);
+ // The in-memory result carries the actual restored-root identity and authority;
+ // the persistent result schema is unchanged and still names only target+activation.
+ const target=result.restored.target,stat=await fsp.lstat(target,{bigint:true}),active=await x.api.WorkDataManifest.create({base:target}).readActive();
+ assert.deepEqual(Object.keys(result.activationTarget).sort(),['authority','identity','target']);
+ assert.equal(result.activationTarget.target,target);
+ assert.deepEqual(JSON.parse(JSON.stringify(result.activationTarget.identity)),{dev:String(stat.dev),ino:String(stat.ino)});
+ assert.deepEqual(JSON.parse(JSON.stringify(result.activationTarget.authority)),{generation:active.generation,id:active.id,mode:active.mode,sha256:active.proof.sha256});
+ const persisted=JSON.parse(await fsp.readFile(path.join(x.f.base,'.work-data','maintenance-result-v1.json'),'utf8'));
+ assert.equal('activationTarget' in persisted,false,'target authority stays in memory');assert.equal('restartRoot' in persisted,false);
+ assert.deepEqual(persisted.restored,{target:path.resolve(target),activation:'separate-fresh-root'});
+ assert.ok(x.events.indexOf('fresh')>x.events.indexOf('release:'+path.basename(target)),'fresh verification runs after the target owner is released');
 });
 
 test('wrong upload password performs zero backup or destination writes',async t=>{
@@ -396,7 +407,34 @@ test('a restore failure after the target exists keeps the target and the claim',
   &&error.operationMayHaveExecuted===true&&error.targetMayHaveBeenCreated===true);
  assert.ok(fs.existsSync(paths.targetDirectory),'the created target is an effect the next boot must inspect');
  assert.ok(fs.existsSync(x.backupFile));
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data','maintenance-result-v1.json')),false,'a failed fresh verification writes no result');
  assert.deepEqual(x.claim.events,[]);
+});
+test('a target replaced after fresh verification refuses the verified result and keeps target and claim',async t=>{
+ const x=withClaim(await setup(t,{verifyFresh:async({value})=>{await fsp.rename(value.target,value.target+'.original');await fsp.mkdir(value.target);}}));
+ const paths=await claimRestore(x);
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.restore_requires_inspection'
+  &&error.cause?.code==='work_data_setup.target_changed'&&error.operationMayHaveExecuted===true&&error.targetMayHaveBeenCreated===true);
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data','maintenance-result-v1.json')),false,'a changed target identity writes no result');
+ assert.ok(fs.existsSync(paths.targetDirectory));assert.ok(fs.existsSync(paths.targetDirectory+'.original'),'the restored tree is retained at its replaced path');
+ assert.ok(fs.existsSync(x.backupFile));assert.deepEqual(x.claim.events,[]);
+});
+test('a target authority re-authored after fresh verification refuses the verified result with unchanged identity',async t=>{
+ let identityBefore=null;
+ const x=withClaim(await setup(t,{verifyFresh:async({value})=>{
+  const stat=await fsp.lstat(value.target,{bigint:true});identityBefore={dev:String(stat.dev),ino:String(stat.ino)};
+  // Rewrite the restored config in place: the directory identity stays exactly the
+  // same, only the target authority (plain -> encrypted) changes.
+  await fsp.writeFile(path.join(value.target,'config.json'),'{"workDataEncryptionV1":true}');
+ }}));
+ const paths=await claimRestore(x);
+ await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.restore_requires_inspection'
+  &&error.cause?.code==='work_data_setup.target_changed'&&error.operationMayHaveExecuted===true&&error.targetMayHaveBeenCreated===true);
+ const after=await fsp.lstat(paths.targetDirectory,{bigint:true});
+ assert.equal(String(after.dev),identityBefore.dev);assert.equal(String(after.ino),identityBefore.ino,'the directory identity is intentionally unchanged');
+ assert.equal(await fsp.readFile(path.join(paths.targetDirectory,'config.json'),'utf8'),'{"workDataEncryptionV1":true}','the re-authored target is retained');
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data','maintenance-result-v1.json')),false,'a changed target authority writes no result');
+ assert.ok(fs.existsSync(x.backupFile));assert.deepEqual(x.claim.events,[]);
 });
 test('a restore refused by upload authentication abandons the claim before any target or backup',async t=>{
  const x=withClaim(await setup(t));const paths=await claimRestore(x,'different synthetic password only');

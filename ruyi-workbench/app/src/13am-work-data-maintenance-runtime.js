@@ -10,6 +10,36 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     &&(value.generation===0?value.id===null&&value.sha256===null:ID.test(value.id||'')&&NONCE.test(value.sha256||''));
   const same=(a,b)=>authority(a)&&authority(b)&&a.generation===b.generation&&a.id===b.id&&a.mode===b.mode&&a.sha256===b.sha256;
   const listener=value=>keys(value)==='host,port'&&['127.0.0.1','::1','localhost'].includes(value.host)&&Number.isInteger(value.port)&&value.port>0&&value.port<=65535;
+  // The fresh-root activation receipt is a strict eleven-key TEMP record. It binds one
+  // committed restore to the successor nonce, the cold parent, the target root identity
+  // and the source result proof. It is diagnostic evidence and CAS metadata; it never
+  // authorizes execution, a retry or a fallback to the source root.
+  const ACTIVATION='activation,authority,base,baseIdentity,createdAt,id,nonce,operation,parentPid,resultSha256,schema';
+  const ACTIVATION_INPUT='kind,resultSha256',ACTIVATION_RECEIPT='base,dev,ino,sha256';
+  const decimal=value=>typeof value==='string'&&/^\d{1,40}$/.test(value);
+  const identity=value=>keys(value)==='dev,ino'&&decimal(value.dev)&&decimal(value.ino);
+  const stamp=value=>{try{return typeof value==='string'&&new Date(value).toISOString()===value;}catch{return false;}};
+  const activationRecord=value=>{try{
+    return keys(value)===ACTIVATION&&value.schema===1&&value.activation==='separate-fresh-root'&&value.operation==='restore'
+      &&typeof value.base==='string'&&p.isAbsolute(value.base)&&p.resolve(value.base)===value.base
+      &&identity(value.baseIdentity)&&authority(value.authority)&&ID.test(value.id||'')&&NONCE.test(value.nonce||'')
+      &&Number.isSafeInteger(value.parentPid)&&value.parentPid>=1&&value.parentPid<=0xffffffff
+      &&NONCE.test(value.resultSha256||'')&&stamp(value.createdAt);
+  }catch{return false;}};
+  const activationReceipt=value=>{try{
+    return keys(value)===ACTIVATION_RECEIPT&&typeof value.base==='string'&&p.isAbsolute(value.base)&&NONCE.test(value.sha256||'')&&decimal(value.dev)&&decimal(value.ino);
+  }catch{return false;}};
+  const activationInput=value=>{try{return keys(value)===ACTIVATION_INPUT&&value.kind==='separate-fresh-root'&&NONCE.test(value.resultSha256||'');}catch{return false;}};
+  // Every binding field is compared exactly: a receipt for another job, parent, nonce,
+  // root or authority can never complete this handoff.
+  const activationBound=(value,receipt,input,canonicalBase)=>{
+    try{return activationRecord(value)&&activationReceipt(receipt)
+      &&typeof canonicalBase==='string'&&fold(value.base)===fold(canonicalBase)&&fold(receipt.base)===fold(canonicalBase)
+      &&value.id===input.id&&value.nonce===input.nonce&&value.parentPid===input.parentPid
+      &&value.resultSha256===input.activation.resultSha256&&same(value.authority,input.expectedAuthority);}
+    catch{return false;}
+  };
+  const sameReceipt=(a,b)=>activationReceipt(a)&&activationReceipt(b)&&a.sha256===b.sha256&&a.dev===b.dev&&a.ino===b.ino&&fold(a.base)===fold(b.base);
   const safeCode=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed_after_handoff';
   // 13av reports absent/inert/complete/pending. Anything else refuses the boot.
   const verdict=value=>['absent','inert','complete','pending'].includes(value)?value:['absent','inert','complete','pending'].includes(value?.verdict)?value.verdict:null;
@@ -40,6 +70,22 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     const requireClaim=()=>{const value=claimValue();
       if(value){if(!claimShape(value))throw fail('runtime_host_invalid');return value;}
       if(host.legacyNoClaim===true)return null;throw fail('claim_unavailable');};
+    // The fresh-root activation receipt is optional per role (cold writes/inspects,
+    // successor inspects/removes). A malformed owner is a missing owner: the restore
+    // handoff fails closed instead of silently restarting the source root.
+    const activationFor=names=>{const value=host.activation;
+      if(value===undefined||value===null||typeof value!=='object'||Array.isArray(value)||!names.every(name=>typeof value[name]==='function'))throw fail('activation_unavailable');
+      return value;};
+    // Re-reads the one TEMP receipt and proves every binding field still names this
+    // exact job/target. No result file on the target is required or consulted.
+    async function verifyActivation(input,canonicalBase,previous) {
+      if(!activationInput(input.activation))throw fail('successor_input_invalid');
+      if(typeof canonicalBase!=='string')throw fail('successor_input_invalid');
+      const found=await activationFor(['inspect']).inspect({base:canonicalBase});
+      if(!found||found.present!==true||!activationBound(found.value,found.receipt,input,canonicalBase)||previous!==null&&!sameReceipt(previous,found.receipt))
+        throw fail('successor_activation_changed');
+      return found.receipt;
+    }
     const retired=()=>{const read=host.retiredReceipt;if(typeof read!=='function')return false;try{return retiredReceipt(read());}catch{return false;}};
     function latch(error) {
       const seen=new Set();let value=error,depth=0;
@@ -79,19 +125,31 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       // An unfinished intent always wins; C10/C11 stay intent_pending and their
       // files are never rewritten or removed by ordinary boot.
       if((await controls.inspect()).pending)throw fail('intent_pending');
-      const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
       // Ordinary boot only looks at the record's presence: a stale receipt must not
-      // read a backup or fail startup. The successor additionally verifies it.
-      const observedResult=await resultReader.inspect(),expected=successorInput();
-      const result=expected?await resultReader.read():null;
-      if(expected&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
-      // No intent: only the TEMP handoff record may be classified and, when inert or
-      // complete, cleaned. Base files are never repaired here.
-      // The claim owner compares this digest with its own id/operation, so a stale
-      // result from another job can never complete a new handoff. A present record
-      // that cannot be summarized refuses the boot instead of degrading to "none".
-      const digest=observedResult?.present?{id:observedResult.value?.id,operation:observedResult.value?.operation}:null;
-      if(digest&&(typeof digest.id!=='string'||!ID.test(digest.id)||!['enable','disable','export','restore'].includes(digest.operation)))throw fail('boot_control_pending');
+      // read a backup or fail startup. The successor additionally verifies it - except
+      // a fresh-root successor, whose commitment is the TEMP activation receipt. That
+      // path never consults a result record on the target, so it also never hands the
+      // claim owner a digest invented from the target root.
+      const expected=successorInput();
+      const activationBoot=expected&&expected.activation?expected:null;
+      let digest=null;
+      if(activationBoot){
+        // The successor of a fresh-root restore serves the target root only; its
+        // receipt must still name this base, job, parent, nonce, authority and proof.
+        if(fold(await host.canonical(activationBoot.base))!==fold(base))throw fail('successor_input_invalid');
+        await verifyActivation(activationBoot,base,null);
+      }else{
+        const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
+        const observedResult=await resultReader.inspect(),result=expected?await resultReader.read():null;
+        if(expected&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
+        // No intent: only the TEMP handoff record may be classified and, when inert or
+        // complete, cleaned. Base files are never repaired here.
+        // The claim owner compares this digest with its own id/operation, so a stale
+        // result from another job can never complete a new handoff. A present record
+        // that cannot be summarized refuses the boot instead of degrading to "none".
+        digest=observedResult?.present?{id:observedResult.value?.id,operation:observedResult.value?.operation}:null;
+        if(digest&&(typeof digest.id!=='string'||!ID.test(digest.id)||!['enable','disable','export','restore'].includes(digest.operation)))throw fail('boot_control_pending');
+      }
       const claims=claimValue();
       if(claims){
         if(!claimShape(claims))throw fail('runtime_host_invalid');
@@ -177,15 +235,54 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         current=full(await host.readAuthority(base));if(!authority(current))throw fail('authority_invalid');
         const record=await host.resultApi.create({base,ownership:context.ownership,assertExclusive:context.assertExclusive,readAuthority:()=>host.readAuthority(base)}).read();
         if(!record||record.id!==context.id||record.operation!==context.operation||record.state!==result.state||!same(record.authority,current))throw fail('result_unverified');
+        // A restore hands the committed new root to the successor, never the source.
+        // The target is the producer's in-memory activation target, re-bound here to
+        // the verified record, the observed restart root and the source result proof.
+        let activationTarget=null;
+        if(context.operation==='restore'){
+          const claimed=result.activationTarget,restored=record.restored;
+          if(!restored||keys(restored)!=='activation,target'||restored.activation!=='separate-fresh-root'
+            ||typeof restored.target!=='string'||!p.isAbsolute(restored.target))throw fail('result_unverified');
+          if(!claimed||keys(claimed)!=='authority,identity,target'||typeof claimed.target!=='string'||!p.isAbsolute(claimed.target)
+            ||!identity(claimed.identity)||!authority(claimed.authority))throw fail('result_unverified');
+          const target=await host.canonical(claimed.target),recorded=await host.canonical(restored.target),source=await host.canonical(base);
+          if(fold(target)!==fold(recorded)||fold(target)===fold(source))throw fail('result_unverified');
+          if(!record.proof||!NONCE.test(record.proof.sha256||''))throw fail('result_unverified');
+          activationTarget=Object.freeze({target,identity:Object.freeze({dev:claimed.identity.dev,ino:claimed.identity.ino}),
+            authority:Object.freeze({generation:claimed.authority.generation,id:claimed.authority.id,mode:claimed.authority.mode,sha256:claimed.authority.sha256}),
+            resultSha256:record.proof.sha256});
+        }
         job.phase='restart';if(result.backup?.path)job.backupPath=result.backup.path;
-        await http.close();return Object.freeze({id:context.id,operation:context.operation,base,listener:{...context.serve},expectedAuthority:current,backupPath:record.backup.path});
+        await http.close();return Object.freeze({id:context.id,operation:context.operation,base,listener:{...context.serve},expectedAuthority:current,backupPath:record.backup.path,
+          ...(activationTarget?{activationTarget}:{})});
       }catch(error){return hold(error);}
     }
     async function launchSuccessor(result) {
+      // A restore successor serves the committed fresh root only. The receipt is
+      // written first and stays behind as diagnosis on every failure; there is no
+      // retry and no fallback to the source root.
+      const target=result.activationTarget||null;
+      // A restore envelope that lost its target is unrepresentable, not a source
+      // handoff: refuse it loudly instead of spawning a successor on the source base.
+      if(result.operation==='restore'&&!target)throw fail('activation_target_missing');
+      if(target&&(typeof target.target!=='string'||!p.isAbsolute(target.target)||!identity(target.identity)||!authority(target.authority)||!NONCE.test(target.resultSha256||'')))throw fail('activation_invalid');
       const spec=command('work-data-successor'),nonce=c.randomBytes(32).toString('hex');
+      const home=target?await host.canonical(target.target):result.base;
+      if(target&&fold(home)===fold(await host.canonical(result.base)))throw fail('successor_target_invalid');
+      if(target){
+        const activation=activationFor(['write','inspect']);
+        const value={schema:1,activation:'separate-fresh-root',operation:'restore',base:home,
+          baseIdentity:{dev:target.identity.dev,ino:target.identity.ino},
+          authority:{generation:target.authority.generation,id:target.authority.id,mode:target.authority.mode,sha256:target.authority.sha256},
+          id:result.id,nonce,parentPid:proc.pid,resultSha256:target.resultSha256,createdAt:new Date().toISOString()};
+        if(!activationRecord(value))throw fail('activation_invalid');
+        const receipt=await activation.write(value,null);
+        if(!activationReceipt(receipt)||fold(receipt.base)!==fold(home))throw fail('activation_failed');
+      }
       const common=host.workerApi.create({env:proc.env});
-      const child=host.workerApi.spawnCold(spec,common.environment(result.base));
-      const input={schema:1,id:result.id,parentPid:proc.pid,nonce,base:result.base,serve:result.listener,expectedAuthority:result.expectedAuthority};
+      const child=host.workerApi.spawnCold(spec,common.environment(home));
+      const input={schema:1,id:result.id,parentPid:proc.pid,nonce,base:home,serve:result.listener,
+        expectedAuthority:target?target.authority:result.expectedAuthority,...(target?{activation:{kind:'separate-fresh-root',resultSha256:target.resultSha256}}:{})};
       const readyMessage=new Promise((resolve,reject)=>{
         const cleanup=()=>{child.removeListener('message',message);child.removeListener('error',failed);child.removeListener('exit',exited);};
         const failed=()=>{cleanup();reject(fail('successor_launch_failed'));},exited=()=>{cleanup();reject(fail('successor_exited'));};
@@ -200,11 +297,15 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     }
     async function holdAfterSuccessorFailure(result,error) {
       latch(error);let owner,http;
+      // A restore failure is reported against the actual target root. When this host
+      // cannot obtain that owner the status stays typed unavailable; the source is
+      // never substituted for the committed target.
+      const base=result.activationTarget?result.activationTarget.target:result.base;
       try {
-        owner=await host.acquire([result.base]);
-        let current=null;try{const actual=full(await host.readAuthority(result.base));if(authority(actual))current=actual;}catch{ /* The expected authority is not a fresh observation. */ }
+        owner=await host.acquire([base]);
+        let current=null;try{const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* The expected authority is not a fresh observation. */ }
         const job={id:result.id,operation:result.operation,state:'uncertain',createdAt:Date.now(),phase:'restart',error:safeCode(error),backupPath:result.backupPath};
-        http=host.httpApi.create({id:result.id,port:result.listener.port,bindHost:result.listener.host,assertColdOwner:()=>ownership(owner,result.base),readStatus:()=>({authority:current,job})});
+        http=host.httpApi.create({id:result.id,port:result.listener.port,bindHost:result.listener.host,assertColdOwner:()=>ownership(owner,base),readStatus:()=>({authority:current,job})});
         await http.listen();
       }catch{ /* Another exact owner/listener may already hold the successor. Never kill or retry it. */ }
       await new Promise(()=>{});
@@ -230,9 +331,10 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
     }
     // Successor handoff is two phases so that the normal serve composition owns
     // acquire/inspect/bind/configure/inner/inbox/activate exactly once:
-    //   prepare  - strict IPC input and its single strict-port options object
-    //   complete - re-verify warm capture/readiness/root/port/authority/result,
-    //              then publish serve-ready and drop the parent channel
+    //   prepare  - strict IPC input, its single strict-port options object and, for a
+    //              fresh-root restore, the durable activation receipt it must bind
+    //   complete - re-verify warm capture/readiness/root/port/authority/result (or the
+    //              activation receipt), then publish serve-ready and drop the parent channel
     async function prepareSuccessor(channel=host.workerApi.processChannel(proc),{base}={}) {
       if(warm||coldStarted||successorStarted||slot.successor)throw fail('successor_unavailable');
       if(!channel||typeof channel.parentConnected!=='function'||typeof channel.readInput!=='function'||typeof channel.parentPid!=='function'
@@ -240,14 +342,23 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       if(typeof base!=='string'||!p.isAbsolute(base))throw fail('successor_input_invalid');
       const bytes=await channel.readInput(16384);let input;
       try{const raw=bytes.toString('utf8');if(!Buffer.from(raw).equals(bytes))throw fail('successor_input_invalid');input=JSON.parse(raw);}catch{throw fail('successor_input_invalid');}finally{bytes.fill(0);}
-      if(keys(input)!=='base,expectedAuthority,id,nonce,parentPid,schema,serve'||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
+      const shape=keys(input),activation=shape==='activation,base,expectedAuthority,id,nonce,parentPid,schema,serve';
+      if(!(shape==='base,expectedAuthority,id,nonce,parentPid,schema,serve'||activation)||input.schema!==1||!ID.test(input.id||'')||!NONCE.test(input.nonce||'')
         ||input.parentPid!==channel.parentPid()||input.parentPid===proc.pid||typeof input.base!=='string'||!p.isAbsolute(input.base)||!listener(input.serve)||!authority(input.expectedAuthority)
+        ||activation&&!activationInput(input.activation)
         ||fold(await host.canonical(input.base))!==fold(await host.canonical(base)))throw fail('successor_input_invalid');
+      let receipt=null;
+      if(activation){
+        // The receipt is durable process state, not a request: read it before any
+        // serve entry and refuse unless every field still names this exact handoff.
+        try{receipt=await verifyActivation(input,await host.canonical(input.base),null);}
+        catch(error){if(error?.code==='work_data_setup.activation_unavailable')throw error;throw fail('successor_input_invalid');}
+      }
       successorStarted=true;
       // This exact object identity is the only strict same-port ticket; a clone or
       // user-shaped {host,port} never reaches the listener.
       const options={host:input.serve.host,port:String(input.serve.port)};slot.strictOptions.add(options);
-      slot.successor=Object.freeze({channel,input,options,phase:'prepared'});
+      slot.successor=Object.freeze({channel,input,options,phase:'prepared',receipt});
       return options;
     }
     async function completeSuccessor() {
@@ -262,12 +373,23 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         if(fold(captured.base)!==fold(await host.canonical(input.base)))return stop(fail('successor_not_captured'));
         actualListener(captured.server,input.serve);
         if(warm!==captured||!ready())return stop(fail('worker_unavailable'));
-        const read=host.workerHooks?.readResult;
-        const record=typeof read==='function'?await read():await readWarmResult(captured);
-        if(!record||record.id!==input.id)return stop(fail('successor_result_unreadable'));
-        if(!same(record.authority,input.expectedAuthority))return stop(fail('successor_result_changed'));
-        const actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+        let actual;
+        if(pending.receipt){
+          // A fresh-root successor proves the committed target through the prepare
+          // receipt and the live target authority. No result file is read on target.
+          await verifyActivation(input,await host.canonical(input.base),pending.receipt);
+          actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+        }else{
+          const read=host.workerHooks?.readResult;
+          const record=typeof read==='function'?await read():await readWarmResult(captured);
+          if(!record||record.id!==input.id)return stop(fail('successor_result_unreadable'));
+          if(!same(record.authority,input.expectedAuthority))return stop(fail('successor_result_changed'));
+          actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
+        }
         await channel.send({schema:1,kind:'serve-ready',id:input.id,nonce:input.nonce,pid:proc.pid,port:input.serve.port,host:input.serve.host,authority:actual});
+        // serve-ready is already published: a failed CAS removal is retained for
+        // diagnosis and never withdraws the ready state or replays the message.
+        if(pending.receipt){try{await activationFor(['remove']).remove(pending.receipt);}catch{ /* retained */ }}
       } catch(error) { slot.successor=Object.freeze({...pending,phase:'failed'});throw error; }
       slot.successor=Object.freeze({...pending,phase:'complete'});
       if(typeof proc.disconnect==='function'&&proc.connected)proc.disconnect();
@@ -301,15 +423,19 @@ if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
   // boot inspection, so the readonly pre-configure gate can classify handoffs too.
   const claimApi=()=>{const value=WorkDataMaintenanceRuntimeHooks.claim;
     return value&&typeof value==='object'&&['inspect','write','remove','classify'].every(name=>typeof value[name]==='function')?value:null;};
+  // The pre-configure successor only reads the TEMP activation receipt; it never
+  // writes or removes one, so the readonly composition hands it an inspect-only view.
+  const activationApi=()=>{const value=WorkDataMaintenanceRuntimeHooks.activation;
+    return value&&typeof value==='object'&&typeof value.inspect==='function'?{inspect:observation=>value.inspect(observation)}:null;};
   // Readonly process composition used before configureServe: it may canonicalize,
   // inspect and classify, but it can never acquire, configure, mutate or exit.
   const readonly=(base)=>{
-    const claim=claimApi();
+    const claim=claimApi(),activation=activationApi();
     return WorkDataMaintenanceRuntime.create({process,workerHooks:{},workerApi:WorkDataMaintenanceWorker,httpApi:WorkDataMaintenanceHttp,resultApi:WorkDataMaintenanceResult,controlApi:WorkDataMaintenanceControl,
       base:async()=>base,canonical:ServerOwnership.canonicalRoot,acquire:ServerOwnership.acquire,readAuthority:requested=>WorkDataManifest.create({base:requested}).readActive(),
       assertOwnership:(owner,value)=>ServerOwnership.owns(owner,value),withColdSource:unavailable,withWarmSource:unavailable,adaptersReady:()=>false,helperMayStillRun:()=>false,
       isRetired:()=>false,operations:unavailable,stopUncommitted:unavailable,exit:unavailable,command:unavailable,
-      ...(claim?{claim}:{legacyNoClaim:true})},slot);
+      ...(claim?{claim}:{legacyNoClaim:true}),...(activation?{activation}:{})},slot);
   };
   Object.assign(WorkDataMaintenanceRuntimeHooks,{
     configure:host=>{if(bound)throw Object.assign(Error('work_data_setup.runtime_already_configured'),{code:'work_data_setup.runtime_already_configured'});bound=WorkDataMaintenanceRuntime.create(host,slot);return bound;},

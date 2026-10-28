@@ -1,0 +1,285 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "baselineCommit": "beed147c",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "status": "本批标准门通过；M3-3 与 3.1 均未完成",
+  "scope": {
+    "batch": "restore 的私有 successor 通过一次性 TEMP activation-v1 收据在独立 target 上启动并服务",
+    "entryPoints": [
+      "ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+      "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "dev-harness/work-data-production-restore.e2e.js"
+    ],
+    "notIncluded": [
+      "B3 桌面与后续启动根偏好",
+      "download、恢复 kernel、owned crash 自动恢复",
+      "C10/C11 自动清理与非空 special portable",
+      "完整 restore UI 旅程",
+      "M4/M5/M6、真实安装包、真实跨账户/跨机验收"
+    ],
+    "capabilities": {"worker": true, "upload": true, "download": false},
+    "activationCompleted": true,
+    "currentRootIsTarget": true,
+    "restartRootPublished": false,
+    "whole3_1Complete": false
+  },
+  "finalIdentity": {
+    "generatedServer": {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "6c2ed2a94bbe4899c3d94fe01f1a6fcd12007b8c43fe83a58b346cb771a31498",
+      "bytes": 8041153
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "0abc423ca5ad430a9c27b1e8aa7376897db1781ac507fa57967517d54ced5bd5",
+      "bytes": 35203
+    },
+    "architecture": {
+      "modules": 124,
+      "edges": 858,
+      "forwardEdges": 67,
+      "stronglyConnectedComponents": 1,
+      "routeDecisionPoints": 189,
+      "routeAuthEntries": 176,
+      "routeProblems": 0
+    },
+    "facts": {"e2eCount": 592, "defaultOfflineE2e": 585, "unitSuites": 407, "liveProbes": 7},
+    "executionInputs": 145,
+    "executionInputSha256": "3de548ed3ab1848d20327152eea8e96b77d257bc926889a29965057d5381298e",
+    "executionInputComposition": "128 app/src + 13 harness + 4 fixed"
+  },
+  "activationContract": {
+    "receipt": "TEMP/ruyi-work-data-activation-<sha256(fold(canonicalTarget))>/activation-v1.json",
+    "keys": ["activation", "authority", "base", "baseIdentity", "createdAt", "id", "nonce", "operation", "parentPid", "resultSha256", "schema"],
+    "binding": "本次 restore job、一次性 successor nonce、cold PID、canonical target 及 dev/ino、target authority、source result proof SHA256",
+    "write": "cold 仅 write/inspect；create-only，stage→fsync→flush→rename→flush→capture；target 身份在写前与 rename 前复核",
+    "consume": "successor 仅 inspect/remove；prepare/inspectBoot/complete 三次绑定，ready 后按 receipt sha/dev/ino CAS 删除",
+    "ordinaryBoot": "普通 serve/CLI 没有 successor input，不读取、写入或删除 TEMP activation 收据；activation 分支不创建 target resultReader",
+    "sourceResult": "持久 result 仍是固定九字段，restored 只有 target+activation；内存 restartRoot 仍为 source base，不写 restartRoot/publication/activationTarget 或根偏好",
+    "failure": "写收据/spawn/ready 失败不重试、不回落 source；restore 缺 activationTarget 显式 activation_target_missing；删除失败不撤销已发布 ready"
+  },
+  "validation": [
+    {
+      "id": "targeted-unit-final",
+      "command": "node --test dev-harness/unit/work-data-cold-operations.test.js dev-harness/unit/work-data-maintenance-runtime.test.js dev-harness/unit/work-data-handoff-claim.test.js dev-harness/unit/work-data-production-host.test.js",
+      "result": {"tests": 159, "pass": 159, "fail": 0},
+      "note": "主 agent 在复审修复后的最终源码上实测；独立 reviewer 的扩展集合 295 例亦全绿"
+    },
+    {
+      "id": "activation-e2e-run-1",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-wPNlKe",
+        "passed": 24,
+        "failed": 0,
+        "executionInputSha256": "3de548ed3ab1848d20327152eea8e96b77d257bc926889a29965057d5381298e",
+        "executionInputs": 145
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-wPNlKe/evidence/result.json",
+        "bytes": 9675,
+        "sha256": "bb742a5f2172801b673fcb5d8a4d9519162375697dcb7110730cec000d48d08a"
+      }
+    },
+    {
+      "id": "activation-e2e-run-2",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-Xus5zQ",
+        "passed": 24,
+        "failed": 0,
+        "executionInputSha256": "3de548ed3ab1848d20327152eea8e96b77d257bc926889a29965057d5381298e",
+        "executionInputs": 145
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-Xus5zQ/evidence/result.json",
+        "bytes": 9676,
+        "sha256": "45ae7406b54a94b2082e1515d518046e50aeb5a85814c7e3dfe829bd8905016d"
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-activation-e2e-final2.log",
+        "bytes": 2708,
+        "sha256": "63ed5e9fa53d6a3194ca5e7e330b846c985c8b652debcaca77e1d9ee9de95aa7"
+      }
+    },
+    {
+      "id": "related-serial-e2e-final",
+      "commands": [
+        "node dev-harness/work-data-production-upload.e2e.js",
+        "node dev-harness/work-data-cold-operations.e2e.js",
+        "node dev-harness/work-data-maintenance-runtime.e2e.js",
+        "node dev-harness/work-data-settings.browser.e2e.js",
+        "node dev-harness/work-data-production-maintenance.e2e.js"
+      ],
+      "result": "五件串行 ALL PASS；上传 20 断言、生产维护 10 断言、settings 19 断言；cold-operations 与 maintenance-runtime 的真实进程/outer Job 场景均通过",
+      "evidenceRoots": {
+        "upload": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-7eGlol",
+        "maintenance": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-QSdMRl"
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-activation-serial-final.log",
+        "bytes": 5348,
+        "sha256": "d2b80e25f2acbafdec2bf9f219bec0c460330b09fe25bcc96c6d8f20a28ca13b"
+      }
+    },
+    {
+      "id": "syntax-and-build-final",
+      "commands": ["node dev-harness/syntax-gate.js", "node ruyi-workbench/app/build.js --check"],
+      "result": "1349 files checked/0 failed（Node v24.14.0）；server 与 src 一致，manifest 行区间自洽",
+      "log": {
+        "path": ".ruyi-runtime/m3-activation-static-final.log",
+        "bytes": 129,
+        "sha256": "0433691490d858479282c65cfdf70f9429daa3e5c2300f4bd61839c8a48224e2"
+      }
+    },
+    {
+      "id": "unit-full-final",
+      "command": "node --test --test-concurrency=4 \"dev-harness/unit/*.test.js\"",
+      "result": {"tests": 4234, "pass": 4210, "skipped": 24, "fail": 0, "durationMs": 486772.7844},
+      "log": {
+        "path": ".ruyi-runtime/m3-activation-unit-final4.log",
+        "bytes": 584283,
+        "sha256": "2df21d0fd77a0f39f8d81993d6c23bb0335598fa413b0d0a6f859369acf48331"
+      },
+      "note": "独立 concurrency=4 最终完整通过；前几轮资源型失败分别留档，不拼成首轮即绿"
+    },
+    {
+      "id": "fast-gate-final",
+      "command": "node dev-harness/run-all.js --fast --parallel 1",
+      "result": {
+        "unit": {"tests": 4234, "pass": 4210, "skipped": 24, "fail": 0},
+        "static": {"ran": 82, "pass": 82, "fail": 0, "flaky": 0},
+        "liveSkipped": 7,
+        "residualTestBrowsers": 0,
+        "node": "v24.14.0, win32"
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-activation-fast-deliverable.log",
+        "bytes": 6062,
+        "sha256": "7ca6ecbd51adcfaf1d17750ee467a79b994a36c5c3490c64a4abf0fbeceae6be"
+      },
+      "note": "单并发 fast 的完整标准门；独立 concurrency=4 的多次资源型失败单独保留，不能用本结果代替该门"
+    }
+  ],
+  "journeyEvidence": {
+    "plain": "target successor 同端口新 PID/token、job=null、worker=true、authority=gen0/plain；只服务包内 sess_restore_package_only，lastResult=null；source 普通 serve 只列原 source 会话且保留本 restore result",
+    "encrypted": "真实 enable→export→restore；export 后通过真实 POST 创建 source-only sentinel，再 DELETE 原会话。target 只服务包内会话，source 普通 serve 只服务 sentinel，证明会话枚举与 target/source 对照均有正向见证",
+    "target": "target owner 实际持有、source owner 可独立获取；包内文件/目录保留，key header/native scope 重封；只允许显式正常启动增量，无 pending intent/stage/未知控制文件",
+    "sourceResult": "source 的持久 result/proof 由真实 01ae decode 验证，target 的 lastResult 只能是包内历史，不能冒充本 job 激活证明",
+    "receipt": "successor ready 后 TEMP activation-v1 由真实 13av inspect 证明 absent，无 stage 遗留；source/target handoff claim 清理",
+    "process": "successor.ppid 等于观察到的 cold PID，cold 退出后身份消失；target successor 由 owned outer Job 回收，survived=[]"
+  },
+  "reviewFindings": [
+    {
+      "id": "post-verify-target-authority",
+      "severity": "P2",
+      "finding": "初版 verifyFresh 后仅复核 target dev/ino，未复核 authority",
+      "resolution": "新增 authorityOf(target) 重读与四字段比较；原地 config 改变而目录 identity 不变时 target_changed、无 result，target/backup/claim 保留。48/48 cold tests 通过，复审关闭"
+    },
+    {
+      "id": "restore-missing-target-fallback",
+      "severity": "P3",
+      "finding": "初版 launchSuccessor 对缺失 activationTarget 有理论上的 source 回退路径",
+      "resolution": "restore 缺 target 显式 activation_target_missing；unit 证明 spawns=0、无 RUYI_HOME/activation write，复审关闭"
+    },
+    {
+      "id": "e2e-evidence-tightening",
+      "severity": "P3",
+      "finding": "派生索引 allowlist 未观测即放宽；encrypted source 空会话缺正向枚举见证；证据 capabilities 易混淆",
+      "resolution": "删除未观测索引豁免；加入真实 source-only sentinel 并纳 pins；证据改真实三键，activationCompleted/currentRootIsTarget 单列"
+    },
+    {
+      "id": "stale-manifest-notes",
+      "severity": "P3",
+      "finding": "13ah/13au note 仍写 activation unavailable",
+      "resolution": "13ah/13au/13av note 改为 TEMP 收据和私有 target successor 的真实状态，原生成器更新 graph/route 清册"
+    },
+    {
+      "id": "e2e-first-red-fixtures",
+      "severity": "test-only",
+      "finding": "01ae VM 对象原型差异、core.read 返回 {bytes,row} 误用、encrypted 包内历史启动工件分类",
+      "resolution": "JSON 归一化、正确读 file.row、启动工件分类修正；未改产品或放宽业务断言"
+    },
+    {
+      "id": "unit-full-resource-symptoms",
+      "severity": "test-environment",
+      "result": {"tests": 4230, "pass": 4203, "skipped": 24, "fail": 3, "durationMs": 540695.8327, "fastStarted": false},
+      "finding": "同名 DOS namespace、large index 与 steward-run-health 在完整并发下失败；三文件并发复验另有 native/大索引资源失败",
+      "resolution": "未改产品、断言、并发或内存参数。逐个原文件单独运行全部通过（大索引 19/19、原生迁移 34/34、steward-run-health 通过），随后在其它测试负载结束后按原 concurrency=4 从头重跑",
+      "unresolved": "资源竞争根因未确诊；不把逐个文件通过写成完整门通过",
+      "log": {
+        "path": ".ruyi-runtime/m3-activation-unit-final.log",
+        "bytes": 584201,
+        "sha256": "77c5d05ce5acf8774907d29ab64fa922a3aed0c90345baca53fdc966a605ae68"
+      },
+      "repeat": {
+        "result": {"tests": 4214, "pass": 4187, "skipped": 24, "fail": 3, "durationMs": 546858.8182, "fastStarted": false},
+        "finding": "同名 DOS namespace、session-artifacts 与 steward-queue-robustness 再次出现资源型失败；系统可用内存约 18GB，未见遗留夹具或物理内存不足",
+        "resolution": "steward-queue-robustness 单独 4/4，通过；其它原生/大索引文件此前已逐个通过。继续原配置重跑，未调堆参数",
+        "log": {
+          "path": ".ruyi-runtime/m3-activation-unit-deliverable.log",
+          "bytes": 585406,
+          "sha256": "cdd05e123496b8d03313b566e83abb8f7ddec311a9f4fb8cefd4a103c5b9b366"
+        }
+      },
+      "thirdRepeat": {
+        "result": {"tests": 4220, "pass": 4188, "skipped": 24, "fail": 8, "durationMs": 534837.6543, "fastStarted": false},
+        "finding": "原生迁移、session-artifacts、steer-attachments 及五个 steward 文件出现资源/时序失败",
+        "resolution": "steer-attachments 与五个 steward 文件原样复验全部通过；没有稳定 activation 相关回归。继续按原配置完整复验，不把分批通过冒充整门通过",
+        "log": {
+          "path": ".ruyi-runtime/m3-activation-unit-deliverable2.log",
+          "bytes": 569661,
+          "sha256": "b3da16f7b7682bc680eecaa6c53a279ec4ac142ec1e04fd44db566601e7fef1e"
+        }
+      },
+      "fourthRepeat": {
+        "result": {"tests": 4234, "pass": 4203, "skipped": 24, "fail": 7, "durationMs": 543556.0821, "fastStarted": false},
+        "finding": "原生迁移连续多个 native_exit/CLR 失败，大索引再次 Array buffer allocation failed；fast 的单并发验收另行执行，不能替代本门的通过要求",
+        "log": {
+          "path": ".ruyi-runtime/m3-activation-unit-deliverable3.log",
+          "bytes": 590695,
+          "sha256": "6cf6c0d4892b446e1ccaf0a59b4e9b4e3a0ca700124cdcb97e1b92c60c0a9154"
+        }
+      }
+    }
+  ],
+  "independentReview": {
+    "reviewer": "agent-35（DeepSeek Flash，未参与实现）",
+    "initial": {
+      "result": "无 P0/P1；发现 post-verify authority 复核缺口及五项 P3 测试/防御/note 边界",
+      "log": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-78x8s5qi/output.log",
+      "logBytes": 17594,
+      "logSha256": "5f42dcf51966753197bfc05fa3e064393fcf1b42118135d7e9b48de74a8f98ae"
+    },
+    "final": {
+      "result": "P2-1/P3-1/P3-3/P3-4/P3-5 全部关闭，未引入新 P0/P1，本批无需再修复",
+      "log": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-oaetp69v/output.log",
+      "logBytes": 5947,
+      "logSha256": "773cd4caf9c5d0fbdd4b689c6dce9d48fbb261f5727cfddf736c4d474991e902",
+      "closure": "最终字节连续两遍各 24 检查，145 输入与 digest 一致"
+    }
+  },
+  "remainingLimits": [
+    "B3 桌面与后续启动根偏好未实现；普通启动不会读取 activation 收据",
+    "download=false、恢复 kernel 与 owned crash 自动恢复未实现；失败现场按合同保留",
+    "C10/C11 自动清理、非空 special portable 未实现",
+    "完整 restore UI 旅程未验；设置页只跑既有 browser 回归",
+    "cold verifier 子进程 receipt 未持久化；错误密码/上传篡改/post-owned crash 由 cold-operations 单测覆盖",
+    "activation 写失败留下的诊断收据会按 create-only 阻断同 target 的下一次交接，需后续明确人工检查/清理策略",
+    "activationTarget.target 非绝对路径的诊断兜底仍属不可达残余；activate 的 target 没有缺 target 时的 source successor",
+    "upload custody 跨启动累积、result 备份删除导致 status 503、stage 孤儿阻断启动等既有限制未扩批处理",
+    "完整默认 585 个离线 E2E、实际安装包/升级回退、真实跨账户/跨机尚未验收",
+    "未处理真实用户数据、未发送真实平台消息、未发布"
+  ],
+  "sourceChangeStats": {
+    "method": "git diff --numstat beed147c；产品源码、测试、生成物与 docs 分列，最终提交前复核",
+    "productSource": {"files": 4, "added": 343, "deleted": 37, "net": 306},
+    "tests": {"files": 6, "added": 1065, "deleted": 158, "net": 907},
+    "generated": {"files": 5, "added": 386, "deleted": 77, "net": 309},
+    "docs": {"files": 4, "added": 305, "deleted": 6, "net": 299, "includes": ["92/96/97", "evidence/m3-activation-20261028.json"]}
+  }
+}

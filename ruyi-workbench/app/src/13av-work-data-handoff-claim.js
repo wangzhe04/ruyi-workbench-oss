@@ -5,6 +5,10 @@
 // classification only says whether the record itself may be cleaned.
 const WorkDataHandoffClaim = ((io, p, c) => {
   const NAME = 'claim-v1.json', DIR = 'ruyi-work-data-handoff-', STAGE = '.claim-v1.stage-';
+  // The activation receipt is a separate TEMP record for a restored target. It
+  // shares the claim owner's directory/capture/CAS discipline but never its name,
+  // schema, phases or receipt shape.
+  const ACTIVATION_NAME = 'activation-v1.json', ACTIVATION_DIR = 'ruyi-work-data-activation-', ACTIVATION_STAGE = '.activation-v1.stage-';
   const LIMIT = 16 * 1024, ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/, PHASES = ['armed', 'committed', 'owned'];
   const fail = (suffix, cause) => Object.assign(Error('work_data_claim.' + suffix), {
     code: 'work_data_claim.' + suffix, apiCode: 'work_data_claim.' + suffix, statusCode: 409, retry: false,
@@ -43,6 +47,21 @@ const WorkDataHandoffClaim = ((io, p, c) => {
     } catch { return false; }
   }
   const freeze = value => { if (value && typeof value === 'object') { for (const item of Object.values(value)) freeze(item); Object.freeze(value); } return value; };
+  const authority = value => shape(value, 'generation,id,mode,sha256') && Number.isSafeInteger(value.generation) && value.generation >= 0
+    && ['plain', 'encrypted'].includes(value.mode)
+    && (value.generation === 0 ? value.id === null && value.sha256 === null : ID.test(value.id || '') && SHA.test(value.sha256 || ''));
+  function validateActivation(value) {
+    try {
+      return keys(value) === 'activation,authority,base,baseIdentity,createdAt,id,nonce,operation,parentPid,resultSha256,schema'
+        && value.schema === 1 && value.activation === 'separate-fresh-root' && value.operation === 'restore'
+        && absolute(value.base) && ID.test(value.id || '') && SHA.test(value.nonce || '')
+        && Number.isSafeInteger(value.parentPid) && value.parentPid >= 1 && value.parentPid <= 0xffffffff
+        && SHA.test(value.resultSha256 || '') && authority(value.authority)
+        && shape(value.baseIdentity, 'dev,ino')
+        && [value.baseIdentity.dev, value.baseIdentity.ino].every(item => typeof item === 'string' && /^\d{1,40}$/.test(item))
+        && stamp(value.createdAt);
+    } catch { return false; }
+  }
   function decode(bytes) {
     if (!Buffer.isBuffer(bytes) || bytes.length > LIMIT) throw fail('claim_invalid');
     try {
@@ -50,6 +69,16 @@ const WorkDataHandoffClaim = ((io, p, c) => {
       if (!Buffer.from(text).equals(bytes)) throw fail('claim_invalid');
       const value = JSON.parse(text);
       if (!validate(value)) throw fail('claim_invalid');
+      return freeze(value);
+    } catch { throw fail('claim_invalid'); }
+  }
+  function decodeActivation(bytes) {
+    if (!Buffer.isBuffer(bytes) || bytes.length > LIMIT) throw fail('claim_invalid');
+    try {
+      const text = bytes.toString('utf8');
+      if (!Buffer.from(text).equals(bytes)) throw fail('claim_invalid');
+      const value = JSON.parse(text);
+      if (!validateActivation(value)) throw fail('claim_invalid');
       return freeze(value);
     } catch { throw fail('claim_invalid'); }
   }
@@ -91,7 +120,7 @@ const WorkDataHandoffClaim = ((io, p, c) => {
   }
   function create({ temp, flush, probe = pid => process.kill(pid, 0) } = {}) {
     if (!absolute(temp) || typeof flush !== 'function' || typeof probe !== 'function') throw fail('host_invalid');
-    let mutating = false;
+    let mutating = false, activationMutating = false;
     const location = base => {
       if (!absolute(base)) throw fail('base_invalid');
       const root = p.join(temp, DIR + hash(Buffer.from(fold(base), 'utf8')));
@@ -118,6 +147,102 @@ const WorkDataHandoffClaim = ((io, p, c) => {
     }
     const receipt = found => Object.freeze({ base: found.value.base, name: NAME, sha256: found.captured.sha256,
       dev: found.captured.identity.dev, ino: found.captured.identity.ino });
+    // Activation records live in their own TEMP namespace keyed by the canonical
+    // target. They are create-only metadata: the target identity, TEMP root and
+    // exact sha/dev/ino receipt bound every inspect and removal.
+    const activationLocation = base => {
+      if (!absolute(base)) throw fail('base_invalid');
+      const root = p.join(temp, ACTIVATION_DIR + hash(Buffer.from(fold(base), 'utf8')));
+      if (inside(base, root) || inside(root, base)) throw fail('base_invalid');
+      return { base, root, file: p.join(root, ACTIVATION_NAME) };
+    };
+    const activationReceiptShape = value => shape(value, 'base,dev,ino,sha256') && absolute(value.base)
+      && SHA.test(value.sha256 || '') && /^\d{1,40}$/.test(value.dev || '') && /^\d{1,40}$/.test(value.ino || '');
+    async function activationCurrent(loc) {
+      let before;
+      try { before = await io.lstat(loc.file, { bigint: true }); }
+      catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+      if (!before.isFile() || alias(before) || before.nlink !== 1n || before.size > BigInt(LIMIT)) throw fail('claim_invalid');
+      const captured = await capture(loc.file, LIMIT), value = decodeActivation(captured.bytes);
+      if (value.base !== loc.base) throw fail('base_changed');
+      return { value, captured };
+    }
+    async function activationInspect(observation = {}) {
+      try {
+        if (!shape(observation, 'base')) throw fail('observation_invalid');
+        const loc = activationLocation(observation.base);
+        await tempPresent();
+        if (!await directory(loc.root, true)) return Object.freeze({ present: false });
+        const names = await io.readdir(loc.root);
+        if (names.some(name => fold(name).startsWith(ACTIVATION_STAGE))) throw fail('stage_pending');
+        if (!names.some(name => fold(name) === ACTIVATION_NAME)) return Object.freeze({ present: false });
+        const found = await activationCurrent(loc);
+        if (!found) throw fail('claim_changed');
+        // The record only describes a still-current target directory.
+        await baseRow(loc.base, found.value.baseIdentity);
+        return Object.freeze({ present: true, value: found.value, receipt: Object.freeze({ base: found.value.base,
+          sha256: found.captured.sha256, dev: found.captured.identity.dev, ino: found.captured.identity.ino }) });
+      } catch (error) {
+        if (String(error?.code || '').startsWith('work_data_claim.')) throw error;
+        throw fail('inspect_failed', error);
+      }
+    }
+    async function activationWrite(value) {
+      let bytes, selected, expected;
+      try { bytes = Buffer.from(JSON.stringify(value)); selected = decodeActivation(bytes); expected = hash(bytes); }
+      catch (error) { if (String(error?.code || '').startsWith('work_data_claim.')) throw error; throw fail('claim_invalid', error); }
+      if (bytes.length > LIMIT) throw fail('claim_invalid');
+      if (activationMutating) throw fail('busy');
+      activationMutating = true;
+      let stage = null;
+      try {
+        const loc = activationLocation(selected.base);
+        await tempPresent();
+        if ((await activationInspect({ base: selected.base })).present) throw fail('claim_exists');
+        await baseRow(loc.base, selected.baseIdentity);
+        if (!await directory(loc.root, true)) { await io.mkdir(loc.root, { mode: 0o700 }); await directory(loc.root); }
+        stage = p.join(loc.root, ACTIVATION_STAGE + c.randomBytes(24).toString('hex'));
+        const handle = await io.open(stage, 'wx', 0o600);
+        try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+        await flush([loc.root, temp]);
+        // The target may have been replaced while this write was in flight.
+        await baseRow(loc.base, selected.baseIdentity);
+        if (await activationCurrent(loc)) throw fail('claim_exists');
+        await io.rename(stage, loc.file); stage = null;
+        await flush([loc.root, temp]);
+        const proof = await capture(loc.file, LIMIT);
+        if (proof.sha256 !== expected) throw fail('claim_changed');
+        return Object.freeze({ base: selected.base, sha256: proof.sha256, dev: proof.identity.dev, ino: proof.identity.ino });
+      } catch (error) {
+        if (String(error?.code || '').startsWith('work_data_claim.')) throw error;
+        throw fail('write_failed', error);
+      } finally { activationMutating = false; }
+    }
+    async function activationRemove(value) {
+      if (!activationReceiptShape(value)) throw fail('receipt_invalid');
+      if (activationMutating) throw fail('busy');
+      activationMutating = true;
+      try {
+        const loc = activationLocation(value.base);
+        await tempPresent();
+        if (!await directory(loc.root, true)) return true;
+        const names = await io.readdir(loc.root);
+        if (names.some(name => fold(name).startsWith(ACTIVATION_STAGE))) throw fail('stage_pending');
+        if (!names.some(name => fold(name) === ACTIVATION_NAME)) return true;
+        const found = await activationCurrent(loc);
+        if (!found) throw fail('claim_changed');
+        if (found.captured.sha256 !== value.sha256 || !sameIdentity(found.captured.identity, value)) throw fail('claim_changed');
+        await baseRow(loc.base, found.value.baseIdentity);
+        await io.unlink(loc.file);
+        await flush([loc.root, temp]);
+        try { await io.lstat(loc.file); }
+        catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+        throw fail('claim_changed');
+      } catch (error) {
+        if (String(error?.code || '').startsWith('work_data_claim.')) throw error;
+        throw fail('remove_failed', error);
+      } finally { activationMutating = false; }
+    }
     async function inspect(observation = {}) {
       try {
         if (!shape(observation, 'base')) throw fail('observation_invalid');
@@ -249,7 +374,9 @@ const WorkDataHandoffClaim = ((io, p, c) => {
       if (matches) return 'complete';
       return 'pending';
     }
-    return Object.freeze({ inspect, write, remove, classify });
+    return Object.freeze({ inspect, write, remove, classify,
+      activation: Object.freeze({ write: activationWrite, inspect: activationInspect, remove: activationRemove }) });
   }
-  return Object.freeze({ NAME, STAGE, LIMIT, validate, decode, create });
+  return Object.freeze({ NAME, STAGE, LIMIT, validate, decode, create,
+    ACTIVATION_NAME, ACTIVATION_STAGE, validateActivation, decodeActivation });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

@@ -24,6 +24,9 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
       // The one claim instance installed on the runtime hooks by this module's tail.
       // Never mint a parallel owner here: an absent instance leaves the worker unready.
       claim:typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks.claim||null,
+      // The one fresh-root activation owner installed on the runtime hooks by this
+      // module's tail. Reused as-is; an absent instance keeps the restore handoff closed.
+      activation:typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks.activation||null,
       command(mode){if(!MODES.includes(mode))throw fail('command_invalid');const original=WorkDataVerifierEntry.command({proc});return Object.freeze({command:original.command,args:Object.freeze([...original.args.slice(0,-1),mode])});}};
   }
   function create({proc=process,bindings=productionBindings(proc),stopUncommitted,exit}={}) {
@@ -269,11 +272,22 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
       const ready=Promise.resolve(handle.ready).then(value=>{ensure(ctx);return value;});void ready.catch(()=>{});
       return Object.freeze({ready,async cancel(){if(job.committed)throw fail('handoff_committed');if(job.finished)return;try{await handle.cancel();ensure(ctx);await pin.releaseChecked(assertFinishSafe);ensure(ctx);job.finished=true;jobs.delete(job);}catch(error){throw retain(error);}},async handoff(){if(job.finished||job.committed)throw fail('handoff_invalid');ensure(ctx);job.committed=true;try{await handle.handoff();}catch(error){throw retain(error);}throw retain(fail('parent_exit_returned'));}});
     }
+    // The fresh-root activation owner is installed once on the process hooks. Each
+    // role sees only the verbs it owns: cold writes and inspects the receipt, the
+    // successor/warm inspects and consumes it by CAS. Plain warm serve has no write.
+    const activationFor=role=>{
+      const owner=plain(bindings)?read(bindings,'activation'):null;
+      if(!plain(owner)||!methods(owner,['inspect','write','remove']))return null;
+      return role==='cold'
+        ? Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous)})
+        : Object.freeze({inspect:observation=>owner.inspect(observation),remove:receipt=>owner.remove(receipt)});
+    };
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
       const host={process:proc,workerApi,httpApi:bindings.httpApi,resultApi:bindings.resultApi,controlApi:bindings.controlApi,workerHooks:bindings.workerHooks,
         get claim(){return bindings.claim;},
+        activation:activationFor(role),
         base:async()=>base,canonical:O.canonicalRoot,acquire:roots=>coldAcquire(roots,base),assertOwnership,withColdSource,withWarmSource,bindCapturedResult,
         readAuthority:requested=>{const ctx=role==='warm'?warm:cold;if(!ctx||fold(requested)!==ctx.base)throw fail('source_required');return operation(ctx,()=>N.readAuthority(ctx.base),{newAdmission:role==='warm'});},
         operations:({progress})=>{if(typeof progress!=='function')throw fail('progress_invalid');return bindings.coldOperations.create(N.coldOperationHost(progress));},
@@ -490,4 +504,15 @@ if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
       WorkDataMaintenanceRuntimeHooks.claim=WorkDataHandoffClaim.create({temp:require('node:os').tmpdir(),flush:directories=>native.flush(directories)});
     }
   }catch{ /* No synthetic claim: a missing adapter leaves the worker unready. */ }
+  // One fresh-root activation owner for the whole process. It is carried by that same
+  // claim instance (13av creates it with the same TEMP root and native flush), so this
+  // tail installs that exact object instead of minting a parallel owner. An absent
+  // claim/module leaves the capability unset, and a restore handoff then fails closed
+  // instead of restarting the source root.
+  try{
+    if(!WorkDataMaintenanceRuntimeHooks.activation){
+      const claim=WorkDataMaintenanceRuntimeHooks.claim,activation=claim&&typeof claim==='object'?claim.activation:null;
+      if(activation&&typeof activation==='object')WorkDataMaintenanceRuntimeHooks.activation=activation;
+    }
+  }catch{ /* No synthetic activation: the restore handoff stays closed. */ }
 }

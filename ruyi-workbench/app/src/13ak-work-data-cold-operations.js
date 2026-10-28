@@ -127,10 +127,10 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         return Object.freeze({ authority: current, expected: Object.freeze({ generation: current.generation, id: current.id, mode, sha256: current.proof.sha256 }) });
       });
       const authority = selected.authority, expected = selected.expected;
-      const readResultAuthority = async () => {
-        const current = await WorkDataManifest.create({ base }).readActive(); let mode = current.mode;
+      const authorityOf = async root => {
+        const current = await WorkDataManifest.create({base:root}).readActive(); let mode = current.mode;
         if (!current.generation) {
-          const raw = await readBounded(p.join(base,'config.json'),4*1024*1024), text = raw.bytes.toString('utf8');
+          const raw = await readBounded(p.join(root,'config.json'),4*1024*1024), text = raw.bytes.toString('utf8');
           if (!Buffer.from(text).equals(raw.bytes)) throw fail('config_unavailable');
           const value = JSON.parse(text.replace(/^\uFEFF/,''));
           if (!value || typeof value !== 'object' || Array.isArray(value)
@@ -139,6 +139,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         }
         return Object.freeze({generation:current.generation,id:current.id,mode,sha256:current.proof.sha256});
       };
+      const readResultAuthority = () => authorityOf(base);
       const maxPackage = WorkDataRecovery.LIMITS.serialized;
       const verifyBackup = async value => {
         const receipt = issuedBackups.get(value.path);
@@ -212,14 +213,41 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
             await requireSpace([[backupDirectory,BigInt(uploaded.bytes.length)+1048576n],[p.dirname(target),treeBudget(decodedBytes,snapshot.files.length,snapshot.directories.length)],[base,1048576n]]);
             const backup = await saveBackup(uploaded.bytes);
             if (!await verifyBackup(backup)) throw fail('backup_changed');
+            const targetIdentity = async () => {
+              let stat;
+              try { stat = await io.lstat(target, { bigint: true }); }
+              catch (cause) { throw fail('target_changed', { cause }); }
+              if (!stat.isDirectory() || stat.isSymbolicLink()) throw fail('target_changed');
+              let real;
+              try { real = await io.realpath(target); }
+              catch (cause) { throw fail('target_changed', { cause }); }
+              if (fold(real) !== fold(target)) throw fail('target_changed');
+              return Object.freeze({ dev: String(stat.dev), ino: String(stat.ino) });
+            };
             const targetOwner = await acquire(target);
             restoreStarted = true;
             const restored = await full().restore({serialized,password:context.password,target,targetOwnership:targetOwner});
+            // The restored-root identity and authority are read while this process
+            // still holds the target owner. Neither is source authority, and both
+            // remain in memory until a future activation owner consumes them.
+            const activationIdentity = await targetIdentity();
+            const activationAuthority = await authorityOf(target);
             await release(targetOwner);
             if (await host.verifyFresh({target,password:context.password,generation:null}) !== true) throw fail('fresh_verification_failed');
+            // A target replaced or re-authored after fresh verification never
+            // authorizes a result: both its directory identity and all four target
+            // authority fields must still match what the owner held.
+            const currentIdentity = await targetIdentity();
+            if (currentIdentity.dev !== activationIdentity.dev || currentIdentity.ino !== activationIdentity.ino) throw fail('target_changed');
+            let currentAuthority;
+            try { currentAuthority = await authorityOf(target); }
+            catch (cause) { throw fail('target_changed', { cause }); }
+            if (currentAuthority.generation !== activationAuthority.generation || currentAuthority.id !== activationAuthority.id
+              || currentAuthority.mode !== activationAuthority.mode || currentAuthority.sha256 !== activationAuthority.sha256) throw fail('target_changed');
             if (!await verifyBackup(backup)) throw fail('backup_changed');
             const verified = await completed({id,operation:'restore',state:'verified',backup,restored,restartRoot:base,
-              activation:'separate-fresh-root',publication:'fresh-process-required',profile:restored.profile});
+              activation:'separate-fresh-root',publication:'fresh-process-required',profile:restored.profile,
+              activationTarget:Object.freeze({target,identity:activationIdentity,authority:activationAuthority})});
             // Only the verified result authorizes retiring the handoff record. Restore
             // writes no source intent, and a failed removal keeps the record for
             // classification instead of replaying the operation.

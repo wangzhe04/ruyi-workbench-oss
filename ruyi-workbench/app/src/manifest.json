@@ -658,91 +658,91 @@
     {
       "file": "13av-work-data-handoff-claim.js",
       "startLine": 103511,
-      "endLine": 103766,
-      "note": "M3-3: durable warm/cold handoff claim with exact identity CAS and fail-closed cleanup; never a migration or ownership authority"
+      "endLine": 103893,
+      "note": "M3-3: durable warm/cold handoff claim with exact identity CAS and fail-closed cleanup, plus the separate activation-v1 TEMP namespace that binds one committed restore to its canonical fresh target, target identity/authority, successor nonce, cold parent and source result proof with create-only writes and sha/dev/ino CAS removal; never a migration or ownership authority"
     },
     {
       "file": "13ah-work-data-setup.js",
-      "startLine": 103767,
-      "endLine": 104014,
-      "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, restore, status, jobs and upload; restore admission requires the real worker and upload broker, resolves exactly one job-bound grant after directory and authority checks, and recovers into a separate fresh target without activation or a warm root switch"
+      "startLine": 103894,
+      "endLine": 104141,
+      "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, restore, status, jobs and upload; restore admission requires the real worker and upload broker, resolves exactly one job-bound grant after directory and authority checks, and recovers into a separate fresh target whose private successor is then started on that target root under the TEMP activation receipt; the persistent source result still expresses no serving-root preference (restored target metadata only, no restartRoot or activation preference)"
     },
     {
       "file": "13ai-work-data-worker.js",
-      "startLine": 104015,
-      "endLine": 104425,
+      "startLine": 104142,
+      "endLine": 104552,
       "note": "K3 cold maintenance worker: authenticated private IPC plus proof of parent death before it touches the base, restore-upload handoff validation and execute()-only mutation; the parent reads no config or store, releases no ownership and switches no warm root"
     },
     {
       "file": "13aj-work-data-control.js",
-      "startLine": 104426,
-      "endLine": 104579,
+      "startLine": 104553,
+      "endLine": 104706,
       "note": "K3 durable single pending maintenance intent with its per-write receipts: a private issued receipt gates every update/removal, an interrupted write never authorizes the next mutation, and boot refuses unfinished intent/result state before normal recovery"
     },
     {
       "file": "13al-work-data-maintenance-http.js",
-      "startLine": 104580,
-      "endLine": 104687,
+      "startLine": 104707,
+      "endLine": 104814,
       "note": "K3 bounded cold-worker progress HTTP: loopback-only status transport whose caller has already proved parent death and current exclusive OS ownership; it opens no data root and starts no maintenance"
     },
     {
       "file": "13an-work-data-disposable-tree.js",
-      "startLine": 104688,
-      "endLine": 104724,
+      "startLine": 104815,
+      "endLine": 104851,
       "note": "K3 disposal of the owned disposable native rehearsal tree: requires the real native namespace census plus WorkDataTree's private identity proof and refuses any capture above the existing 96 MB bound instead of omitting tail, stream or unknown objects"
     },
     {
       "file": "13ak-work-data-cold-operations.js",
-      "startLine": 104725,
-      "endLine": 105078,
+      "startLine": 104852,
+      "endLine": 105233,
       "note": "K3 cold operation bodies for the fresh maintenance worker: backup, restore and rehearsal run on host-supplied real owner lifetimes and the reviewed snapshot/codec/native owners; never starts a normal server or changes process-global paths"
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "startLine": 105079,
-      "endLine": 105410,
+      "startLine": 105234,
+      "endLine": 105691,
       "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and successor maintenance; in production the successor is WorkDataRuntimeHost startSuccessorMaintenance driving the prepare/complete two-phase handoff into a fresh serve that must re-prove the same listener and authority, while runSuccessor remains only the legacy harness path; only a reviewed production host may configure it"
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "startLine": 105411,
-      "endLine": 105759,
+      "startLine": 105692,
+      "endLine": 106040,
       "note": "M3-4 committed-message text index owner"
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "startLine": 105760,
-      "endLine": 105909,
+      "startLine": 106041,
+      "endLine": 106190,
       "note": "M3-4 authorized UI/model/MCP fulltext consumers"
     },
     {
       "file": "13ba-media-image-contract.js",
-      "startLine": 105910,
-      "endLine": 106218,
+      "startLine": 106191,
+      "endLine": 106499,
       "note": "M4 bounded in-memory image contract; production media owners unbound"
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "startLine": 106219,
-      "endLine": 106491,
+      "startLine": 106500,
+      "endLine": 106772,
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false"
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "startLine": 106492,
-      "endLine": 106533,
+      "startLine": 106773,
+      "endLine": 106814,
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability"
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "startLine": 106534,
-      "endLine": 107027,
-      "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. download, crashClaim and fresh-root activation remain unavailable, and restore is not completed in this process."
+      "startLine": 106815,
+      "endLine": 107333,
+      "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process."
     },
     {
       "file": "14-main.js",
-      "startLine": 107028,
-      "endLine": 107879,
+      "startLine": 107334,
+      "endLine": 108185,
       "note": "main()/module.exports"
     }
   ]

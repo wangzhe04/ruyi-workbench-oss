@@ -450,7 +450,11 @@ test('13au installs one real claim on the runtime hooks and the boot gate cleans
   const hooks = w.hooks;
   // 13am's hook block never sets a claim; 13au's module tail installs the only one.
   assert.equal(w.installedBy13am, undefined);
-  assert.deepEqual(Object.keys(hooks.claim).sort(), ['classify', 'inspect', 'remove', 'write']);
+  // 13av carries the fresh-root activation API on that same owner; 13au installs
+  // that exact object instead of minting a parallel activation owner.
+  assert.deepEqual(Object.keys(hooks.claim).sort(), ['activation', 'classify', 'inspect', 'remove', 'write']);
+  assert.equal(hooks.activation, hooks.claim.activation);
+  assert.deepEqual(Object.keys(hooks.activation).sort(), ['inspect', 'remove', 'write']);
 
   // productionBindings reuses that exact instance instead of minting a parallel owner.
   const factory = w.api.host.create({ proc: w.proc });
@@ -595,4 +599,96 @@ test('the real verifier still refuses a junction alias and a different physical 
     assert.equal(sent.length, 0);
     assert.ok(bytes.every(value => value === 0));
   }
+});
+
+// ---------------------------------------------------------------------------
+// B2: fresh-root activation ownership. 13av carries the receipt API on the one
+// claim owner; 13au installs that exact object and hands each role only its verbs.
+// ---------------------------------------------------------------------------
+const nodeFs = require('node:fs');
+
+function activationRecord(w, target) {
+  const stat = nodeFs.lstatSync(target, { bigint: true });
+  return { schema: 1, activation: 'separate-fresh-root', operation: 'restore', base: target,
+    baseIdentity: { dev: String(stat.dev), ino: String(stat.ino) },
+    authority: { generation: 0, id: null, mode: 'plain', sha256: null },
+    id: 'a'.repeat(48), nonce: 'b'.repeat(64), parentPid: w.proc.pid, resultSha256: 'c'.repeat(64),
+    createdAt: '2026-10-27T00:00:00.000Z' };
+}
+
+test('13au installs the claim owner activation API and gives cold only write/inspect', async t => {
+  const w = await createClaimWiring();
+  t.after(() => w.dispose());
+  const target = path.join(w.root, 'target'); nodeFs.mkdirSync(target);
+  const canonicalTarget = await w.api.ownership.canonicalRoot(target);
+
+  // The tail installs the claim owner's own activation object, never a clone.
+  assert.equal(w.hooks.activation, w.hooks.claim.activation);
+  assert.deepEqual(Object.keys(w.hooks.activation).sort(), ['inspect', 'remove', 'write']);
+
+  const cold = w.api.host.create({ proc: w.proc }).runtimeHost({ base: w.canonicalBase, role: 'cold' });
+  assert.equal(cold.claim, w.hooks.claim);
+  assert.deepEqual(Object.keys(cold.activation).sort(), ['inspect', 'write'], 'cold writes and inspects only');
+  assert.equal(cold.activation.remove, undefined, 'a cold worker never removes a successor receipt');
+
+  const record = activationRecord(w, canonicalTarget);
+  const receipt = await cold.activation.write(record, null);
+  assert.deepEqual(Object.keys(receipt).sort(), ['base', 'dev', 'ino', 'sha256']);
+  // The raw process owner sees the record written through the role facade: same
+  // TEMP namespace, same instance, never a parallel activation owner.
+  const raw = await w.hooks.activation.inspect({ base: canonicalTarget });
+  assert.equal(raw.present, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(raw.value)), record);
+  assert.deepEqual(Object.keys(raw.receipt).sort(), ['base', 'dev', 'ino', 'sha256']);
+
+  // Consumption is a CAS on the exact sha/dev/ino receipt.
+  const again = await cold.activation.write(record, null).catch(error => { assert.equal(error.code, 'work_data_claim.claim_exists'); return null; });
+  assert.equal(again, null, 'a second create for the same target is refused');
+  await assert.rejects(() => w.hooks.activation.remove({ ...raw.receipt, sha256: 'd'.repeat(64) }), { code: 'work_data_claim.claim_changed' });
+  assert.equal((await w.hooks.activation.inspect({ base: canonicalTarget })).present, true);
+  assert.equal(await w.hooks.activation.remove(raw.receipt), true);
+  assert.equal((await cold.activation.inspect({ base: canonicalTarget })).present, false);
+});
+
+test('activation verbs are role scoped and a missing owner keeps every other adapter ready', async () => {
+  const owner = Object.freeze({ inspect: async () => ({ present: false }), write: async () => null, remove: async () => true });
+  const warmFixture = createFixture();
+  warmFixture.bindings.claim = warmFixture.claim;
+  warmFixture.bindings.activation = owner;
+  const warm = await warmFixture.warm();
+  const warmHost = warmFixture.factory.runtimeHost({ base: warm.session.base, role: 'warm' });
+  assert.deepEqual(Object.keys(warmHost.activation).sort(), ['inspect', 'remove'], 'warm/successor inspects and consumes');
+  assert.equal(warmHost.activation.write, undefined, 'a plain warm serve has no activation write');
+  const installed = warmFixture.factory.installWarm();
+  assert.deepEqual(Object.keys(installed.capabilities).sort(), ['activation', 'crashClaim', 'download', 'upload', 'worker']);
+  assert.equal(installed.capabilities.activation, false, 'install-time capability stays false');
+  assert.equal(installed.capabilities.worker, false);
+  await warmFixture.finishWarm(warm);
+
+  // No activation in bindings: the capability is absent, not synthesized, and the
+  // remaining maintenance adapters stay ready (enable/export are unaffected).
+  const coldFixture = createFixture();
+  coldFixture.bindings.claim = coldFixture.claim;
+  const missing = coldFixture.api.host.create({ proc: coldFixture.proc, bindings: coldFixture.bindings }).runtimeHost({ base: coldFixture.paths.base, role: 'cold' });
+  assert.equal(missing.activation, null);
+  assert.equal(missing.adaptersReady(), true);
+  coldFixture.bindings.activation = owner;
+  const present = coldFixture.api.host.create({ proc: coldFixture.proc, bindings: coldFixture.bindings }).runtimeHost({ base: coldFixture.paths.base, role: 'cold' });
+  assert.deepEqual(Object.keys(present.activation).sort(), ['inspect', 'write']);
+  assert.equal(present.adaptersReady(), true);
+
+  // An owner missing one verb is treated as absent instead of degrading silently.
+  coldFixture.bindings.activation = { inspect: async () => ({ present: false }), write: async () => null };
+  const partial = coldFixture.api.host.create({ proc: coldFixture.proc, bindings: coldFixture.bindings }).runtimeHost({ base: coldFixture.paths.base, role: 'cold' });
+  assert.equal(partial.activation, null);
+});
+
+test('an existing activation owner is never replaced by the module tail', async t => {
+  const sentinel = Object.freeze({ inspect: async () => { throw Object.assign(Error('sentinel activation'), { code: 'sentinel.activation' }); }, write: async () => null, remove: async () => true });
+  const w = await createClaimWiring({ presetActivation: sentinel });
+  t.after(() => w.dispose());
+  assert.equal(w.hooks.activation, sentinel);
+  const cold = w.api.host.create({ proc: w.proc }).runtimeHost({ base: w.canonicalBase, role: 'cold' });
+  assert.deepEqual(Object.keys(cold.activation).sort(), ['inspect', 'write']);
+  await assert.rejects(() => cold.activation.inspect({ base: w.canonicalBase }), { code: 'sentinel.activation' });
 });

@@ -28,6 +28,17 @@ async function fixture(t,{probe}={}){
  const dir=claimDir(temp,base);
  return {root,temp,base,baseIdentity,facts,host,owner:api.create(host),value,advance,dir,file:p.join(dir,api.NAME)};
 }
+const activationPath=(temp,target)=>p.join(temp,'ruyi-work-data-activation-'+digest(target));
+async function activationFixture(t){
+ const f=await fixture(t),target=p.join(f.root,'target');await io.mkdir(target);
+ const stat=await io.lstat(target,{bigint:true}),identity={dev:String(stat.dev),ino:String(stat.ino)};
+ const authority={generation:0,id:null,mode:'plain',sha256:null};
+ const activation=overrides=>({schema:1,activation:'separate-fresh-root',operation:'restore',base:target,
+  baseIdentity:{...identity},authority:{...authority},id:'d'.repeat(48),nonce:'e'.repeat(64),
+  parentPid:process.pid,resultSha256:'f'.repeat(64),createdAt:'2026-10-27T00:00:00.000Z',...overrides});
+ const activationDir=activationPath(f.temp,target);
+ return {...f,target,identity,authority,activation,activationDir,activationFile:p.join(activationDir,api.ACTIVATION_NAME)};
+}
 test('create requires a canonical absolute temp root and a flush seam',async t=>{
  const f=await fixture(t);
  assert.throws(()=>api.create({temp:'relative',flush:async()=>{}}),errCode('work_data_claim.host_invalid'));
@@ -315,6 +326,97 @@ test('restore uses the same strict schema, one-step CAS and result classificatio
  assert.equal(await f.owner.classify({base:f.base,intent:false,result:resultFor(owned)}),'complete');
  assert.equal(await f.owner.classify({base:f.base,intent:false,result:resultFor(owned,{operation:'export'})}),'pending');
  assert.equal(await f.owner.classify({base:f.base,intent:true,result:resultFor(owned)}),'pending','restore does not borrow an intent phase');
+});
+test('activation receipt is create-only metadata bound to the canonical target and its authority',async t=>{
+ const f=await activationFixture(t),record=f.activation();
+ assert.equal(api.ACTIVATION_NAME,'activation-v1.json');assert.equal(api.ACTIVATION_STAGE,'.activation-v1.stage-');
+ assert.equal(api.validateActivation(record),true);assert.equal(Object.isFrozen(api.decodeActivation(Buffer.from(JSON.stringify(record)))),true);
+ const receipt=await f.owner.activation.write(record);
+ assert.deepEqual(Object.keys(receipt).sort(),['base','dev','ino','sha256']);
+ assert.equal(f.activationFile,p.join(activationPath(f.temp,f.target),api.ACTIVATION_NAME));
+ assert.deepEqual(await io.readdir(f.activationDir),[api.ACTIVATION_NAME]);
+ const found=await f.owner.activation.inspect({base:f.target});
+ assert.equal(found.present,true);assert.equal(found.value.activation,'separate-fresh-root');assert.equal(found.value.operation,'restore');
+ assert.equal(found.receipt.sha256,receipt.sha256);assert.equal(found.receipt.base,f.target);
+ assert.equal(await f.owner.activation.remove(found.receipt),true);
+ assert.equal((await f.owner.activation.inspect({base:f.target})).present,false);
+ assert.equal(await f.owner.activation.remove(receipt),true,'removal is idempotent only after its own deletion');
+ // A non-zero generation authority requires an identifier and sha, and both are
+ // preserved byte-for-byte in the inspected value.
+ const genN={generation:2,id:'a'.repeat(48),mode:'encrypted',sha256:'b'.repeat(64)};
+ const second=await f.owner.activation.write(f.activation({authority:genN}));
+ assert.match(second.sha256,/^[a-f0-9]{64}$/);
+ assert.deepEqual(JSON.parse(JSON.stringify((await f.owner.activation.inspect({base:f.target})).value.authority)),genN);
+ await f.owner.activation.remove(second);
+ assert.deepEqual(await io.readdir(f.activationDir),[]);
+});
+test('activation records are strict fixed-shape and bounded to 16KiB',async t=>{
+ const f=await activationFixture(t),record=f.activation();
+ assert.throws(()=>api.decodeActivation(Buffer.alloc(api.LIMIT+1,0x20)),{code:'work_data_claim.claim_invalid'});
+ assert.throws(()=>api.decodeActivation(Buffer.from([0xff])),{code:'work_data_claim.claim_invalid'});
+ for(const bad of [
+  {...record,extra:1},omit(record,'authority'),{...record,schema:2},{...record,activation:'activated'},
+  {...record,operation:'export'},{...record,base:'relative'},{...record,id:'A'.repeat(48)},
+  {...record,nonce:'e'.repeat(63)},{...record,parentPid:0},{...record,resultSha256:'f'.repeat(63)},
+  {...record,createdAt:'2026-10-27T00:00:00Z'},{...record,baseIdentity:{dev:'x',ino:'1'}},
+  {...record,authority:{generation:0,id:'a'.repeat(48),mode:'plain',sha256:null}},
+  {...record,authority:{generation:0,id:null,mode:'plain',sha256:'b'.repeat(64)}},
+  {...record,authority:{generation:2,id:'a'.repeat(47),mode:'plain',sha256:'b'.repeat(64)}},
+  {...record,authority:{generation:2,id:'a'.repeat(48),mode:'plain',sha256:null}},
+  {...record,authority:{generation:2,id:'a'.repeat(48),mode:'plain',sha256:'b'.repeat(63)}},
+  {...record,authority:{generation:2,id:'a'.repeat(48),mode:'binary',sha256:'b'.repeat(64)}},
+ ]) await assert.rejects(f.owner.activation.write(bad),{code:'work_data_claim.claim_invalid'});
+ assert.equal(fs.existsSync(f.activationDir),false,'an invalid activation write creates no namespace');
+});
+test('a second activation write cannot replace the selected record',async t=>{
+ const f=await activationFixture(t),receipt=await f.owner.activation.write(f.activation());
+ await assert.rejects(f.owner.activation.write(f.activation()),{code:'work_data_claim.claim_exists'});
+ await assert.rejects(f.owner.activation.write(f.activation({createdAt:'2026-10-27T00:00:01.000Z'})),{code:'work_data_claim.claim_exists'});
+ const found=await f.owner.activation.inspect({base:f.target});
+ assert.equal(found.receipt.sha256,receipt.sha256);assert.deepEqual(await io.readdir(f.activationDir),[api.ACTIVATION_NAME]);
+});
+test('activation removal is exact sha/dev/ino CAS and tampering never authorizes deletion',async t=>{
+ const f=await activationFixture(t),receipt=await f.owner.activation.write(f.activation());
+ await assert.rejects(f.owner.activation.remove({...receipt,ino:String(BigInt(receipt.ino)+1n)}),{code:'work_data_claim.claim_changed'});
+ await assert.rejects(f.owner.activation.remove({...receipt,dev:String(BigInt(receipt.dev)+1n)}),{code:'work_data_claim.claim_changed'});
+ await assert.rejects(f.owner.activation.remove({...receipt,extra:1}),{code:'work_data_claim.receipt_invalid'});
+ await io.appendFile(f.activationFile,' ');
+ await assert.rejects(f.owner.activation.remove(receipt),{code:'work_data_claim.claim_changed'});
+ const drifted=await f.owner.activation.inspect({base:f.target});
+ assert.notEqual(drifted.receipt.sha256,receipt.sha256);
+ assert.equal(await f.owner.activation.remove(drifted.receipt),true,'only the exact current receipt may remove');
+ await io.writeFile(f.activationFile,Buffer.from(JSON.stringify({...f.activation(),extra:1})));
+ await assert.rejects(f.owner.activation.inspect({base:f.target}),{code:'work_data_claim.claim_invalid'});
+ await assert.rejects(f.owner.activation.remove({base:f.target,sha256:'0'.repeat(64),dev:'1',ino:'2'}),{code:'work_data_claim.claim_invalid'});
+});
+test('an activation stage blocks inspect write and remove without being repaired',async t=>{
+ const f=await activationFixture(t),record=f.activation();
+ await io.mkdir(f.activationDir);
+ const stage=p.join(f.activationDir,api.ACTIVATION_STAGE+'orphan');await io.writeFile(stage,'KEEP STAGE');
+ await assert.rejects(f.owner.activation.inspect({base:f.target}),{code:'work_data_claim.stage_pending'});
+ await assert.rejects(f.owner.activation.write(record),{code:'work_data_claim.stage_pending'});
+ await assert.rejects(f.owner.activation.remove({base:f.target,sha256:'0'.repeat(64),dev:'1',ino:'2'}),{code:'work_data_claim.stage_pending'});
+ assert.equal(await io.readFile(stage,'utf8'),'KEEP STAGE');
+ assert.equal(fs.existsSync(f.activationFile),false);
+});
+test('a replaced or aliased activation target and a replaced TEMP namespace fail closed',async t=>{
+ const f=await activationFixture(t),receipt=await f.owner.activation.write(f.activation());
+ await io.rename(f.target,f.target+'.old');await io.mkdir(f.target);
+ await assert.rejects(f.owner.activation.inspect({base:f.target}),{code:'work_data_claim.base_changed'});
+ await assert.rejects(f.owner.activation.write(f.activation()),{code:'work_data_claim.base_changed'});
+ await assert.rejects(f.owner.activation.remove(receipt),{code:'work_data_claim.base_changed'});
+ assert.ok(fs.existsSync(f.activationFile),'a replaced target never authorizes deleting the record');
+ const g=await activationFixture(t);
+ await io.rename(g.target,g.target+'.real');await io.symlink(g.target+'.real',g.target,'junction');
+ await assert.rejects(g.owner.activation.write(g.activation()),{code:'work_data_claim.path_alias'});
+ const h=await activationFixture(t);
+ await io.mkdir(h.activationDir);await io.rename(h.activationDir,h.activationDir+'.real');
+ await io.symlink(h.activationDir+'.real',h.activationDir,'junction');
+ await assert.rejects(h.owner.activation.inspect({base:h.target}),{code:'work_data_claim.path_alias'});
+ const box=p.join(h.root,'box');await io.mkdir(box);await io.mkdir(p.join(box,'nested'));
+ const aliasTemp=p.join(h.root,'temp-alias');await io.symlink(box,aliasTemp,'junction');
+ const linked=api.create({temp:aliasTemp,flush:async()=>{}});
+ await assert.rejects(linked.activation.inspect({base:h.target}),{code:'work_data_claim.path_alias'});
 });
 test('the default probe uses a real ESRCH and never treats an unknown error as death',async t=>{
  const f=await fixture(t);
