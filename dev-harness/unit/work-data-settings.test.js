@@ -74,8 +74,12 @@ test('restore stays refused without the upload capability while export never dep
  const writes=f.calls.filter(x=>x.route==='/api/work-data/jobs');
  assert.equal(writes.length,1);assert.equal(writes[0].body.operation,'export');
  assert.equal(f.calls.filter(x=>/download/.test(x.route)).length,0);
+ // The one download entry is the current result's id-scoped route; there is no
+ // directory, path or historical-package entry anywhere in the UI.
  const source=fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/public/js/work-data-settings.js'),'utf8');
- assert.doesNotMatch(source,/capabilities\.download|work-data\/download|download\s*=/,'the UI must not add a download entry or dependency');
+ assert.match(source,/\/api\/work-data\/results\/' \+ result\.id \+ '\/package/);
+ assert.equal(f.find('workDataDownload').hidden,true,'no current result means no package action is offered');
+ assert.equal(f.rawCalls.length,0);
  f.panel.dispose();
  const g=fixture(()=>status({capabilities:{worker:false,upload:true,download:false}}));await g.panel.refresh();assert.match(g.find('workDataUnavailable').textContent,/worker_unavailable/);g.panel.dispose();
 });
@@ -189,5 +193,65 @@ test('export submits against the chosen backup directory while download stays fa
  assert.equal(writes[0].body.backupDirectory,'E:\\Synthetic Backup');
  assert.match(writes[0].body.backupDirectory,/^[A-Za-z]:\\/,'the export body must carry a real absolute Windows directory, not a swallowed escape');
  assert.equal(f.calls.filter(x=>/download/.test(x.route)).length,0);
+ f.panel.dispose();
+});
+// ── B4: saving the one current recovery package ──────────────────────────────
+const packageId='d'.repeat(48),packageBytes=Buffer.from('synthetic recovery package bytes');
+const savedResult=()=>({schema:1,id:packageId,operation:'export',state:'verified',finishedAt:'2026-10-24T00:00:00.000Z',
+ sourceAuthority:authority(),authority:authority(),
+ backup:{path:'E:\\Synthetic Backup\\ruyi-work-data-'+packageId+'.ruyi-backup',bytes:packageBytes.length,sha256:'e'.repeat(64),identity:{dev:'1',ino:'2'}}});
+const packageStatus=extra=>status({lastResult:savedResult(),capabilities:{worker:true,upload:false,download:true},...extra});
+const packageResponse=()=>new Response(packageBytes,{status:200,headers:{'content-type':'application/octet-stream','content-length':String(packageBytes.length)}});
+test('the package action is offered only for the advertised transfer and saves the current result bytes',async()=>{
+ const f=fixture(()=>packageStatus(),(route)=>{assert.equal(route,'/api/work-data/results/'+packageId+'/package');return packageResponse();});
+ await f.panel.refresh();
+ const button=f.find('workDataDownload');
+ assert.equal(button.hidden,false,'a current result offers the save action');
+ assert.equal(button.disabled,false);
+ assert.equal(button.tagName,'BUTTON');assert.equal(button.type,'button');
+ button.click();button.click();await f.flush();
+ assert.equal(f.rawCalls.length,1,'one click issues one package request');
+ const call=f.rawCalls[0];
+ assert.equal(call.method,'GET');assert.equal(call.body,undefined,'a package download sends no request body');
+ assert.equal(call.noTokenReplay,false,'a read may refresh an expired token once');
+ const anchor=f.created.filter(element=>element.tagName==='A').at(-1);
+ assert.ok(anchor,'the bytes are handed to the browser through a download anchor');
+ assert.equal(anchor.download,'ruyi-work-data-'+packageId+'.ruyi-backup');
+ assert.match(String(anchor.href),/^blob:/);
+ assert.equal(anchor.parentNode,null,'the temporary anchor is removed after the click');
+ assert.match(f.find('workDataNotice').textContent,/handed to the browser/);
+ assert.equal(f.find('workDataPassword').value,'','saving a package never touches the password draft');
+ f.panel.dispose();
+ // A fresh status without the current result stops offering the action.
+ const g=fixture(()=>status({capabilities:{worker:true,upload:false,download:true}}));await g.panel.refresh();
+ assert.equal(g.find('workDataDownload').hidden,true,'no result, no package action');
+ assert.equal(g.rawCalls.length,0);g.panel.dispose();
+});
+test('a typed package refusal is shown and a stale status disables the action without a second request',async()=>{
+ const refuse=(code,statusCode)=>new Response(JSON.stringify({ok:false,error:{code}}),{status:statusCode,headers:{'content-type':'application/json'}});
+ for(const [code,statusCode] of [['work_data_setup.package_unavailable',503],['work_data_setup.package_not_found',404],['work_data_setup.busy',409]]){
+  const f=fixture(()=>packageStatus(),()=>refuse(code,statusCode));await f.panel.refresh();
+  f.find('workDataDownload').click();await f.flush();
+  assert.match(f.find('workDataNotice').textContent,new RegExp(code.replace(/\./g,'\\.')),code+' must be shown to the user');
+  assert.equal(f.created.filter(element=>element.tagName==='A').length,0,'a refusal never creates a download');
+  assert.equal(f.rawCalls.length,1,'a refused download is not retried automatically');
+  assert.equal(f.find('workDataDownload').disabled,false,'an explicit refusal leaves the action available');
+  f.panel.dispose();
+ }
+ // A status read that fails marks the receipt stale and disables the action.
+ let fail=false;const f=fixture(route=>{if(fail&&route==='/api/work-data/status')throw new TypeError('Failed to fetch');return packageStatus();});
+ await f.panel.refresh();assert.equal(f.find('workDataDownload').disabled,false);
+ fail=true;await f.panel.refresh();
+ assert.equal(f.find('workDataDownload').disabled,true,'a stale receipt cannot be saved');
+ f.find('workDataDownload').click();await f.flush();assert.equal(f.rawCalls.length,0);
+ f.panel.dispose();
+});
+test('a result whose capability is not advertised keeps the package action disabled',async()=>{
+ const f=fixture(()=>status({lastResult:savedResult(),capabilities:{worker:true,upload:false,download:false}}));
+ await f.panel.refresh();
+ assert.equal(f.find('workDataDownload').hidden,false);
+ assert.equal(f.find('workDataDownload').disabled,true,'download=false disables the save action');
+ f.find('workDataDownload').click();await f.flush();
+ assert.equal(f.rawCalls.length,0,'no request is made without the advertised transfer');
  f.panel.dispose();
 });

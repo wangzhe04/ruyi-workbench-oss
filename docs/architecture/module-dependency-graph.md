@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 125 | 4197 | 4025 | 860 | 67 | 0 | 1 |
+| 125 | 4197 | 4026 | 861 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -138,7 +138,7 @@
 | 120 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 15 | 13 |
 | 121 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 122 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
-| 123 | `13au-work-data-runtime-host.js` | unclassified | 2 | 15 | 12 |
+| 123 | `13au-work-data-runtime-host.js` | unclassified | 2 | 16 | 13 |
 | 124 | `14-main.js` | entrypoint | 8 | 602 | 53 |
 
 ## 模块边
@@ -695,6 +695,7 @@
 | `13au-work-data-runtime-host.js` | `01ae-work-data-maintenance-result.js` | backward | `WorkDataMaintenanceResult` |
 | `13au-work-data-runtime-host.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `13au-work-data-runtime-host.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
+| `13au-work-data-runtime-host.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `13au-work-data-runtime-host.js` | `13ai-work-data-worker.js` | backward | `WorkDataMaintenanceWorker` |
 | `13au-work-data-runtime-host.js` | `13aj-work-data-control.js` | backward | `WorkDataMaintenanceControl` |
 | `13au-work-data-runtime-host.js` | `13ak-work-data-cold-operations.js` | backward | `WorkDataColdOperations` |

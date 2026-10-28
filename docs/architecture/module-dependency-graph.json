@@ -5,8 +5,8 @@
   "summary": {
     "modules": 125,
     "providedSymbols": 4197,
-    "requiredSymbols": 4025,
-    "edges": 860,
+    "requiredSymbols": 4026,
+    "edges": 861,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -29374,6 +29374,13 @@
           ]
         },
         {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13ai-work-data-worker.js",
           "symbol": "WorkDataMaintenanceWorker",
           "kinds": [
@@ -39777,6 +39784,14 @@
       "to": "01j-local-crypto.js",
       "symbols": [
         "LocalSecretCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "01t-work-data-recovery.js",
+      "symbols": [
+        "WorkDataRecovery"
       ],
       "direction": "backward"
     },

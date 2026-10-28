@@ -4557,6 +4557,8 @@
   "workData.drainHelp": "维护准备期间会暂停接收新任务，已有任务可继续完成。仅在后台确认允许时可以取消准备。",
   "workData.handoffHelp": "操作已进入进程交接或结果待确认阶段，不能取消。请等待新进程的实际状态与完成回执；交接成功不等于迁移已经完成。",
   "workData.lastReceipt": "已读取后台保存的最近一次维护回执。请以上方当前数据根的实际状态为准。",
+  "workData.downloadPackage": "保存恢复包",
+  "workData.packageSaved": "恢复包已交给浏览器保存。请核对文件大小与保存位置；下载失败时不会产生半个文件。",
   "workData.job.queued": "已排队，等待准备",
   "workData.job.draining": "等待已有任务与写入结束",
   "workData.job.preparing": "正在准备维护进程",

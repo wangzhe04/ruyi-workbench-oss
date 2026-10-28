@@ -48,10 +48,11 @@ export function mountWorkDataSettings() {
   const submit = button('operation.enable', 'workDataSubmit', event => { event.preventDefault(); void submitJob(); }); submit.type = 'submit';
   const reconnect = button('refresh', 'workDataRefresh', () => void refresh());
   const cancel = button('cancel', 'workDataCancel', () => void cancelJob());
-  const actions = node('div', null, 'work-data-actions'); actions.append(submit, cancel, reconnect);
+  const download = button('downloadPackage', 'workDataDownload', () => void savePackage());
+  const actions = node('div', null, 'work-data-actions'); actions.append(submit, cancel, reconnect, download);
   form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, node('p', 'passwordHelp', 'field-help'), plaintextRow, unavailable, notice, progress, actions);
   host.append(heading, summary, scope, retained, form);
-  let current = null, job = null, lastResult = null, loading = false, writing = false, picking = false, unknownSubmission = false, stale = false, disposed = false, timer = null, reading = null, revision = 0, submittedAuthority = null, trackedId = null;
+  let current = null, job = null, lastResult = null, loading = false, writing = false, picking = false, downloading = false, unknownSubmission = false, stale = false, disposed = false, timer = null, reading = null, revision = 0, submittedAuthority = null, trackedId = null;
   const active = () => !!job && !TERMINAL.has(job.state);
   const validAuthority = value => value && Number.isSafeInteger(value.generation) && value.generation >= 0 && ['plain', 'encrypted'].includes(value.mode)
     && (value.id === null || /^[a-f0-9]{48}$/.test(value.id || '')) && (value.sha256 === null || /^[a-f0-9]{64}$/.test(value.sha256 || ''));
@@ -103,6 +104,11 @@ export function mountWorkDataSettings() {
       || operation.value === 'enable' && mode === 'encrypted' || operation.value === 'disable' && mode === 'plain';
     cancel.hidden = !active(); cancel.disabled = writing || !job?.cancellable || job?.takeover === true;
     reconnect.disabled = loading || writing;
+    // One action for the one current result. It is offered only when the service
+    // advertises the transfer and a verified result exists, and every state that
+    // makes the receipt stale disables it instead of guessing.
+    const downloadable = !downloading && !!lastResult && /^[a-f0-9]{48}$/.test(lastResult.id || '') && current?.capabilities?.download === true;
+    download.hidden = !lastResult; download.disabled = disabled || !downloadable;
     progress.replaceChildren();
     if (job) {
       const line = node('strong'); line.textContent = t('workData.job.' + job.state); progress.append(line);
@@ -162,6 +168,35 @@ export function mountWorkDataSettings() {
     try { value = await res.json(); } catch { value = null; }
     if (res.ok && value?.ok === true && /^[a-f0-9]{48}$/.test(value.uploadId || '')) return value.uploadId;
     throw { code: value?.error?.code || 'work_data_setup.status_invalid', status: res.status };
+  }
+  // The one current result, saved by the browser as its original bytes. The route
+  // is the record's own id; a non-2xx body is the only source of a typed refusal.
+  // Nothing about the package path, password or name is written to the DOM.
+  async function savePackage() {
+    const result = lastResult;
+    if (downloading || writing || loading || stale || active() || unknownSubmission) return;
+    if (!result || !/^[a-f0-9]{48}$/.test(result.id || '') || current?.capabilities?.download !== true) return;
+    downloading = true; render();
+    try {
+      const res = await apiRaw('/api/work-data/results/' + result.id + '/package', { method: 'GET' });
+      if (!res.ok) {
+        let value = null;
+        try { value = await res.json(); } catch { value = null; }
+        throw { code: value?.error?.code || 'work_data_setup.package_unavailable', status: res.status };
+      }
+      const blob = await res.blob();
+      const expected = Number.isSafeInteger(result.backup?.bytes) ? result.backup.bytes : null;
+      if (expected !== null && blob.size !== expected) throw { code: 'work_data_setup.package_unavailable' };
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = 'ruyi-work-data-' + result.id + '.ruyi-backup'; link.rel = 'noopener'; link.hidden = true;
+      if (document.body && typeof document.body.append === 'function') document.body.append(link);
+      link.click();
+      if (typeof link.remove === 'function') link.remove();
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch { /* already released */ } }, 1000);
+      notice.textContent = t('workData.packageSaved'); notice.dataset.state = 'ok';
+    } catch (error) { report(error); }
+    finally { downloading = false; render(); }
   }
   async function submitJob() {
     render(); if (submit.disabled || writing) return;

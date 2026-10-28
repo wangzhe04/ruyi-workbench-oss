@@ -9,8 +9,8 @@ function inventory(root,{directoryMetadata=false}={}){const files=[],directories
 function samePinned(aRow,bRow){a.equal(aRow.bytes,bRow.bytes);a.equal(aRow.sha256,bRow.sha256);for(const k of fields)if(bRow[k]!==undefined)a.equal(aRow[k],bRow[k]);}
 // The worker flag is a real readiness observation, not a constant: callers state
 // which product generation they are witnessing instead of assuming one.
-function assertStatus(value,{worker=false,lastResult=null,authority={mode:'plain',generation:0,id:null,sha256:null}}={}){
- a.equal(value?.ok,true);a.equal(value.lastResult,lastResult);a.deepEqual(value.capabilities,{worker,upload:true,download:false});
+function assertStatus(value,{worker=false,lastResult=null,download=false,authority={mode:'plain',generation:0,id:null,sha256:null}}={}){
+ a.equal(value?.ok,true);a.equal(value.lastResult,lastResult);a.deepEqual(value.capabilities,{worker,upload:true,download});
  a.equal(value.authority.mode,authority.mode);a.equal(value.authority.generation,authority.generation);
  a.equal(value.authority.id,authority.id);a.equal(value.authority.sha256,authority.sha256);a.equal(value.job,null);return value.authority;}
 function assertNoKernelHooks(status,{worker=false}={}){a.equal(status.capabilities.worker,worker);a.equal(status.capabilities.download,false);a.equal(Object.hasOwn(status.capabilities,'crashClaim'),false);a.equal(Object.hasOwn(status.capabilities,'activation'),false);return true;}

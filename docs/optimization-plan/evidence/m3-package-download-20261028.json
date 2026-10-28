@@ -1,0 +1,199 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "baselineCommit": "faec3fcd",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "status": "本批标准门通过；当前结果恢复包下载与设置页保存已验收；M3-3 与 3.1 均未完成",
+  "scope": {
+    "batch": "设置页保存当前已核验维护结果绑定的恢复包原字节",
+    "entryPoints": [
+      "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "ruyi-workbench/app/src/01b-route-auth.js",
+      "ruyi-workbench/app/public/js/work-data-settings.js",
+      "dev-harness/work-data-production-maintenance.e2e.js",
+      "dev-harness/work-data-production-restore.e2e.js",
+      "dev-harness/work-data-settings.browser.e2e.js"
+    ],
+    "notIncluded": [
+      "任意路径、历史包列表、Range/ETag 分段下载",
+      "恢复 kernel、owned crash 接管、C10/C11 自动清理",
+      "非空 special portable、完整 restore UI 旅程",
+      "M4/M5/M6、真实安装包、真实跨账户/跨机验收"
+    ],
+    "capabilities": "暖运行时安装且存在当前结果时 worker/upload/download=true；无结果及冷监听器 download=false",
+    "whole3_1Complete": false
+  },
+  "finalIdentity": {
+    "generatedServer": {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "ad542ae21bc8c412817384ef2c1248fabd9ec87a809ff7fb1f40c63ebdb85966",
+      "bytes": 8086913
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "7b236959635f030d0a4ee163e5129efca08a8201ae35d56cb61b1e30a5b4dff5",
+      "bytes": 36169
+    },
+    "architecture": {
+      "modules": 125,
+      "edges": 861,
+      "forwardEdges": 67,
+      "stronglyConnectedComponents": 1,
+      "routeDecisionPoints": 190,
+      "routeAuthEntries": 177,
+      "routeProblems": 0
+    },
+    "facts": {"e2eCount": 592, "defaultOfflineE2e": 585, "unitSuites": 408, "liveProbes": 7},
+    "executionInputs": 146,
+    "executionInputSha256": "c1602ee1c2f7c7e508ebda36b152397b335c289c63ccefa9845aad8ae80f30b8"
+  },
+  "downloadContract": {
+    "route": "GET /api/work-data/results/<48hex>/package",
+    "success": "200 application/octet-stream；attachment filename=ruyi-work-data-<id>.ruyi-backup；明确 content-length、no-store、nosniff、connection:close",
+    "authority": "id 必须等于 01ae 当前 authority 匹配且 proof 有效的 lastResult；客户端不能提供路径或文件名",
+    "integrity": "01ae.read 先核记录与备份；再在暖 owner/maintenance 准入内用同一 opened handle 有界读满 Buffer，核 dev/ino/nlink/size、mtimeNs/ctimeNs、末尾无多余字节和 SHA256，全部通过后才 writeHead(200)",
+    "budget": "沿用 WorkDataRecovery.LIMITS.serialized；durable result read 与发送前 handle read 刻意整包读两遍，不是流式/常量内存实现",
+    "refusals": "busy=409；Range=400；错误请求=400；跨源/非回环=403；未安装=501；非当前 id=404；无结果、旧 authority、缺失/替换/不可读及预算失败=503 package_unavailable；路由器无 token=403",
+    "buffer": "capture 后 owner 失败、maintenance 包装失败、响应同步失败均清自己持有的 Buffer；成功仅在 res.end 回调清零，不在 flush 前清零",
+    "sideEffects": "无临时文件、持久缓存、平行 receipt 或数据根写入；冷监听器 download=false"
+  },
+  "validation": [
+    {
+      "id": "targeted-unit-final",
+      "command": "node --test dev-harness/unit/work-data-production-host.test.js dev-harness/unit/work-data-setup.test.js dev-harness/unit/work-data-settings.test.js",
+      "result": {"tests": 100, "pass": 100, "fail": 0},
+      "note": "含当前/历史 id、同长替换、缺失、Range/busy/origin、重复读、post-capture keeper 失效清零、admission/response 失败后清零、缺预算不能安装 warm、UI 一键与禁用状态",
+      "log": {"path": ".ruyi-runtime/m3-download-targeted-final2.log", "bytes": 10672, "sha256": "03ece0a1cbe174afe46e99defc536c205ff94e6aab09e8b8a9d39ef14b473a85"}
+    },
+    {
+      "id": "production-maintenance-run-1",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "result": {"root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-cpcKY2", "passed": 14, "failed": 0, "executionInputSha256": "c1602ee1c2f7c7e508ebda36b152397b335c289c63ccefa9845aad8ae80f30b8", "executionInputs": 146},
+      "artifact": {"path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-cpcKY2/evidence/result.json", "bytes": 3362, "sha256": "b865b73b1a6ffd8b651fadbdfee35f9d16e966589f1b834cc03bc3dab2f48925"},
+      "log": {"path": ".ruyi-runtime/m3-download-finalA-maintenance.log", "bytes": 1389, "sha256": "f097699031701b0ee7c1ba25a1a267e41328c019a7b86100edf90b28479cc972"}
+    },
+    {
+      "id": "production-maintenance-run-2",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "result": {"root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-aEQlNr", "passed": 14, "failed": 0, "executionInputSha256": "c1602ee1c2f7c7e508ebda36b152397b335c289c63ccefa9845aad8ae80f30b8", "executionInputs": 146},
+      "artifact": {"path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-aEQlNr/evidence/result.json", "bytes": 3362, "sha256": "e0569ea66ade3334e4be6e8d9dd61dabf69b959035e84e14c9ab3c7dd1182799"},
+      "log": {"path": ".ruyi-runtime/m3-download-finalB-maintenance.log", "bytes": 1389, "sha256": "9060a679d4d438e8cbb95a5479b05dc9a431347b2f3e28c41173eda03d12017c"}
+    },
+    {
+      "id": "production-restore-run-1",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {"root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-1mOKIi", "passed": 26, "failed": 0, "executionInputSha256": "c1602ee1c2f7c7e508ebda36b152397b335c289c63ccefa9845aad8ae80f30b8", "executionInputs": 146},
+      "artifact": {"path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-1mOKIi/evidence/result.json", "bytes": 20510, "sha256": "b55f3fd2ad1e9ccd469b20b9569cd0c3c9d0e1cc678e36399ffe7e7bbb0900a5"},
+      "log": {"path": ".ruyi-runtime/m3-download-finalA-restore.log", "bytes": 2996, "sha256": "1253490bb49a37f160d4caa2dc6e7cd87b76415a78503caa8473f443d41a4273"}
+    },
+    {
+      "id": "production-restore-run-2",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {"root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-Oirnbj", "passed": 26, "failed": 0, "executionInputSha256": "c1602ee1c2f7c7e508ebda36b152397b335c289c63ccefa9845aad8ae80f30b8", "executionInputs": 146},
+      "artifact": {"path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-Oirnbj/evidence/result.json", "bytes": 20507, "sha256": "c1507fd9330ab296df57c102571e6b1a75cf52c42d4f0396940d5f07c52dfb51"},
+      "log": {"path": ".ruyi-runtime/m3-download-finalB-restore.log", "bytes": 2996, "sha256": "36ac6779055dffa31fb52392d23bd91c960e82b0ea95c6b165e47ea793334d2d"}
+    },
+    {
+      "id": "settings-browser-run-1",
+      "command": "node dev-harness/work-data-settings.browser.e2e.js",
+      "result": {"passed": 27, "failed": 0, "uncaughtBrowserErrors": 0},
+      "log": {"path": ".ruyi-runtime/m3-download-finalA-browser.log", "bytes": 1409, "sha256": "e8351dbdb3b91e44f476cda0f397dff4ee4a9fffcd894a3e5a19a16909aa1b33"}
+    },
+    {
+      "id": "settings-browser-run-2",
+      "command": "node dev-harness/work-data-settings.browser.e2e.js",
+      "result": {"passed": 27, "failed": 0, "uncaughtBrowserErrors": 0},
+      "log": {"path": ".ruyi-runtime/m3-download-finalB-browser.log", "bytes": 1409, "sha256": "e8351dbdb3b91e44f476cda0f397dff4ee4a9fffcd894a3e5a19a16909aa1b33"}
+    },
+    {
+      "id": "related-serial-final",
+      "command": "node dev-harness/work-data-production-upload.e2e.js && node dev-harness/work-data-cold-operations.e2e.js && node dev-harness/work-data-maintenance-runtime.e2e.js && node dev-harness/data-root-migration.e2e.js",
+      "result": {"failed": 0, "note": "四件真实服务/进程回归均 ALL PASS；上传20、cold4、runtime4+Job、迁移22"},
+      "log": {"path": ".ruyi-runtime/m3-download-finalA-related.log", "bytes": 5435, "sha256": "90197d8b1063a7eee8da13c98b0961b982490efc4c92e4e98033fd6252ecdd63"}
+    },
+    {
+      "id": "syntax-build-final",
+      "command": "node dev-harness/syntax-gate.js && node ruyi-workbench/app/build.js --check",
+      "result": {"files": 1351, "failed": 0, "build": "fresh"},
+      "log": {"path": ".ruyi-runtime/m3-download-final-static.log", "bytes": 129, "sha256": "4b345f72229d2da49e6c14d5239cfcd4e6b174cd4ee1d28589df9fa1ff85fa68"}
+    },
+    {
+      "id": "unit-full-final",
+      "command": "node --test --test-concurrency=4 \"dev-harness/unit/*.test.js\"",
+      "result": {"tests": 4277, "suites": 192, "pass": 4253, "skipped": 24, "fail": 0, "cancelled": 0, "durationMs": 489577.6439},
+      "log": {"path": ".ruyi-runtime/m3-download-final-unit.log", "bytes": 588586, "sha256": "ca8b92985e447fc163b2333f62b97d9a74f26d303cd91bab49c0aa121aae68cc"}
+    },
+    {
+      "id": "fast-final",
+      "command": "node dev-harness/run-all.js --fast --parallel 1",
+      "result": {"unit": {"tests": 4277, "pass": 4253, "skipped": 24, "fail": 0}, "static": {"pass": 82, "fail": 0, "flaky": 0, "ran": 82, "liveSkipped": 7}, "remainingTestBrowsers": 0},
+      "log": {"path": ".ruyi-runtime/m3-download-final-fast.log", "bytes": 6060, "sha256": "bac46ba97708a21c03daac19428e49a12089974ca6a23328d19aa27fdf7a1410"}
+    },
+    {
+      "id": "hygiene-eol-final",
+      "command": "node dev-harness/repo-hygiene.e2e.js && node dev-harness/eol-policy.static.e2e.js",
+      "result": {"repoHygiene": "ALL PASS", "trackedTextFiles": 2151, "eolFailed": 0},
+      "note": "暂存全部新文件后复跑 EOL 为 2151/2151；repo-hygiene 实际服务与配置掩码旅程通过"
+    }
+  ],
+  "journeyEvidence": {
+    "maintenance": "enable、encrypted export、disable 三种结果均各下载两次，下载字节=磁盘备份=result SHA256；控制树/备份目录/会话快照不变；历史 id、同长替换、移走备份、Range、跨源和无 token 均拒绝",
+    "cold": "既有 cold listener、armed/committed/owned 与 C10/C11 拒绝面不变；download=false，未把 crash 接管写成实现",
+    "browser": "设置页只在安装能力与当前结果同时存在时提供保存动作；一次点击只发一个 GET，Blob 字节与备份一致，浏览器不接触服务器路径或密码"
+  },
+  "reviewFindings": [
+    {
+      "id": "route-inventory-first-red",
+      "finding": "新鉴权行初次被 route-inventory 判为无 handler 命中",
+      "resolution": "13ah 增加 scanner 可识别的 startsWith 且保留 PACKAGE 严格匹配；最终 190/177/0 problems，未删除鉴权或放宽路由"
+    },
+    {
+      "id": "independent-initial",
+      "finding": "无 P0/P1；P2 为异常 Buffer 清理、预算/能力关系、双读成本注释和真机能力自指断言",
+      "resolution": "补 post-capture/admission/response 三处清零及真实负例；缺预算时 openWarm 更早失败且无能力；显式真机 true/false；记录双读与预算上限"
+    },
+    {
+      "id": "independent-final-and-e2e-red",
+      "finding": "复审发现 maintenance round1/2 被错误硬编码 download=false，keeper 负例误把1字节尾部探针当包体；真实 E2E 同步首红于 round1 入口",
+      "resolution": "before 期望改为 state.round!==0；只捕获与包等长的 Buffer 并断言长度；修后 maintenance 14/14、targeted 100/100；产品源码无需再改"
+    },
+    {
+      "id": "fixture-first-red",
+      "finding": "新增负例最初未真正移除 VM 常量预算、普通 ownership.release 被 keeper 合法延迟、预算注入未覆盖 create() 展开值",
+      "resolution": "改为加载期 LIMITS:null 故障注入与第二次 stat 后 keeper.retainUnknown；证明 openWarm 缺预算即失败、post-capture 包体确实清零，保留首红不写成首轮通过"
+    },
+    {
+      "id": "full-unit-first-red",
+      "finding": "首轮完整 unit 4277 项中5失败：路由历史反演只允许两条后续行且新路由旁注释改变整文件身份；另有 native、索引分配和 steward 子进程资源型失败",
+      "resolution": "按原合同允许三条 work-data 路由并删除01b冗余注释，route 21/21；native34、index19、steward5 在原文件隔离复验全过，未调内存或删断言；固定最终字节重跑完整门"
+    }
+  ],
+  "independentReview": {
+    "reviewer": "agent-41（DeepSeek Flash，未参与实现）",
+    "initial": {
+      "result": "无 P0/P1；提出 Buffer 清理、预算/能力、双读成本和 E2E 显式期望改进",
+      "log": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-6p6tgmmt/output.log"
+    },
+    "final": {
+      "result": "产品修复无新增 P0/P1；测试中的 maintenance 显式期望和探针断言问题已修正并由真实 E2E/定向单测复验",
+      "log": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-n8wn3m5o/output.log"
+    }
+  },
+  "remainingLimits": [
+    "只支持当前结果整包下载；不支持任意路径、历史列表、Range/ETag 或流式常量内存传输",
+    "恢复 kernel、owned crash 接管、C10/C11 自动清理、非空 special portable 与完整 restore UI 未实现",
+    "result 备份被删导致 status 503 等既有限制未扩批处理；cold verifier receipt 未持久化",
+    "完整默认 585 个离线 E2E、真实安装包/升级回退、真实跨账户/跨机尚未验收",
+    "M4/M5/M6 未由本批完成；未处理真实用户数据、未发送真实平台消息、未发布"
+  ],
+  "sourceChangeStats": {
+    "method": "git diff --numstat faec3fcd；产品源码、测试、生成物、架构/facts 与文档分列，暂存后复核",
+    "productSource": {"added": 166, "deleted": 19},
+    "productConfigAndGenerated": {"added": 389, "deleted": 262},
+    "tests": {"added": 392, "deleted": 37},
+    "architectureAndFacts": {"added": 58, "deleted": 15},
+    "documentation": {"added": 225, "deleted": 6}
+  }
+}

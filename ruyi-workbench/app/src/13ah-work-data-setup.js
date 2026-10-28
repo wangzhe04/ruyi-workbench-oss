@@ -1,7 +1,7 @@
 // Setup owns admission and in-memory job progress. The cold worker owns all base
 // mutation, durable results and process handoff. A warm server never flips paths.
 const WorkDataSetup = (() => {
-  const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/;
+  const ID = /^[a-f0-9]{48}$/, SHA = /^[a-f0-9]{64}$/, PACKAGE = /^\/api\/work-data\/results\/[a-f0-9]{48}\/package$/;
   const fail = (suffix, statusCode = 409) => Object.assign(Error('work_data_setup.' + suffix), { code:'work_data_setup.' + suffix, apiCode:'work_data_setup.' + suffix, statusCode, retry:false });
   const object = value => !!value && typeof value === 'object' && !Array.isArray(value);
   const exact = (value, keys) => object(value) && Object.keys(value).every(key => keys.includes(key));
@@ -107,11 +107,56 @@ const WorkDataSetup = (() => {
       const observed=await host.inspect(),worker=host.worker();let lastResult=null;
       if(typeof worker.readResult==='function'){try{lastResult=await worker.readResult();}catch{throw fail('result_unavailable',503);}}
       // The worker capability is advertised only while the process runtime reports
-      // real readiness. Transfer stays upload-only: there is no download endpoint.
+      // real readiness. Package transfer follows the warm install itself (the marker
+      // written together with the method) and still needs a current verified result
+      // to name; a caller-supplied method alone never advertises it.
       let started=typeof worker.start==='function';
       if(started&&typeof host.workerReady==='function'){try{started=host.workerReady()===true;}catch{started=false;}}
+      const transfer=()=>{try{return worker.packageTransfer===true&&typeof worker.downloadPackage==='function';}catch{return false;}};
       return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
-        lastResult,capabilities:{worker:started,upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',download:false},processRestartRequired:true};
+        lastResult,capabilities:{worker:started,upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',
+          download:transfer()&&lastResult!==null},processRestartRequired:true};
+    }
+    // The transfer routes additionally bind the actual loopback socket, the same-port
+    // Host and a same-origin browser Origin. The router's token gate runs first.
+    function loopbackSameOrigin(req,refusal) {
+      const headers=req.headers||{},port=req.socket?.localPort;
+      const peer=String(req.socket?.remoteAddress||'').toLowerCase(),name=headers.host;
+      if(!Number.isInteger(port)||port<1||port>65535||!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(peer)
+        ||typeof name!=='string'||![`127.0.0.1:${port}`,`localhost:${port}`,`[::1]:${port}`].includes(name.toLowerCase()))throw fail(refusal,403);
+      if(headers.origin!==undefined){let origin;try{origin=new URL(headers.origin);}catch{throw fail(refusal,403);}
+        if(origin.protocol!=='http:'||origin.host.toLowerCase()!==name.toLowerCase()||origin.origin!==headers.origin)throw fail(refusal,403);}
+      if(headers['sec-fetch-site']!==undefined&&!['same-origin','none'].includes(headers['sec-fetch-site']))throw fail(refusal,403);
+      return headers;
+    }
+    async function downloadPackage(req,res,pathname) {
+      // Same admission as every other transfer: no job may be preparing and the
+      // process must still be accepting. The path carries an id only; the runtime
+      // resolves the one current result and verifies the bytes before any header.
+      if(active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
+      const worker=host.worker();
+      if(typeof worker.downloadPackage!=='function')throw fail('download_unavailable',501);
+      const headers=loopbackSameOrigin(req,'package_origin_invalid'),id=pathname.slice('/api/work-data/results/'.length,-'/package'.length);
+      if(req.url!==pathname)throw fail('request_invalid',400);
+      // No Range/ETag semantics: a partially negotiated body would contradict the
+      // verified content-length this route promises.
+      if(headers.range!==undefined)throw fail('package_range_unsupported',400);
+      if(headers['transfer-encoding']!==undefined||headers['content-length']!==undefined&&headers['content-length']!=='0')throw fail('request_invalid',400);
+      let pkg,bytes=null;
+      try{ pkg=await host.maintenance.run('http',async()=>{const value=await worker.downloadPackage(id);if(Buffer.isBuffer(value?.bytes))bytes=value.bytes;return value;}); }
+      catch(error){
+        if(bytes)bytes.fill(0);
+        const failure=String(error?.code||'');
+        if(failure==='work_data.maintenance_busy'||failure==='work_data.maintenance_stale_continuation')throw fail('busy');
+        if(/^work_data_setup\.(?:package_not_found|package_unavailable|download_unavailable|busy)$/.test(failure))
+          throw Object.assign(Error(failure),{code:failure,apiCode:failure,statusCode:error.statusCode||503,retry:false});
+        throw fail('package_unavailable',503);
+      }
+      if(!pkg||!Buffer.isBuffer(pkg.bytes)||pkg.id!==id||typeof host.respondPackage!=='function'){
+        if(pkg&&Buffer.isBuffer(pkg.bytes))pkg.bytes.fill(0);
+        throw fail('package_unavailable',503);
+      }
+      try{host.respondPackage(res,pkg);return true;}catch(error){pkg.bytes.fill(0);throw error;}
     }
     async function receiveUpload(req) {
       // The main router authenticates the header token before this handler. This
@@ -119,13 +164,7 @@ const WorkDataSetup = (() => {
       if(active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
       const worker=host.worker();
       if(typeof worker.putUpload!=='function'||typeof worker.resolveUpload!=='function')throw fail('upload_unavailable',501);
-      const headers=req.headers||{},port=req.socket?.localPort;
-      const peer=String(req.socket?.remoteAddress||'').toLowerCase(),name=headers.host;
-      if(!Number.isInteger(port)||port<1||port>65535||!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(peer)
-        ||typeof name!=='string'||![`127.0.0.1:${port}`,`localhost:${port}`,`[::1]:${port}`].includes(name.toLowerCase()))throw fail('upload_origin_invalid',403);
-      if(headers.origin!==undefined){let origin;try{origin=new URL(headers.origin);}catch{throw fail('upload_origin_invalid',403);}
-        if(origin.protocol!=='http:'||origin.host.toLowerCase()!==name.toLowerCase()||origin.origin!==headers.origin)throw fail('upload_origin_invalid',403);}
-      if(headers['sec-fetch-site']!==undefined&&!['same-origin','none'].includes(headers['sec-fetch-site']))throw fail('upload_origin_invalid',403);
+      const headers=loopbackSameOrigin(req,'upload_origin_invalid');
       if(req.url!=='/api/work-data/uploads'||headers['content-type']!=='application/octet-stream'
         ||headers['transfer-encoding']!==undefined||headers['content-encoding']!==undefined||headers['content-disposition']!==undefined)throw fail('upload_headers_invalid',400);
       const length=headers['content-length'];
@@ -152,6 +191,7 @@ const WorkDataSetup = (() => {
     async function handle(req,res,pathname) {
       let response,statusCode=200;
       if(req.method==='GET'&&pathname==='/api/work-data/status')response=await status();
+      else if(req.method==='GET'&&pathname.startsWith('/api/work-data/results/')&&PACKAGE.test(pathname))return downloadPackage(req,res,pathname);
       else if(req.method==='POST'&&pathname==='/api/work-data/jobs'){response={ok:true,job:await submit(await readJson(req))};statusCode=202;}
       else if(req.method==='POST'&&pathname==='/api/work-data/uploads'){response=await receiveUpload(req);statusCode=201;}
       else if((req.method==='GET'||req.method==='POST')&&pathname.startsWith('/api/work-data/jobs/')) {
@@ -243,5 +283,15 @@ const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks
     return !hooks||typeof hooks.workerReady!=='function'?true:hooks.workerReady()===true;
   },
   worker:()=>WorkDataMaintenanceWorkerHooks,id:()=>crypto.randomBytes(24).toString('hex'),now:nowIso,defer:work=>setImmediate(work),respond:(res,body,status)=>send(res,json(body,status)),
+  // Verified package bytes only. The id is the record's own 48-hex id, so this
+  // header can never be derived from a client path, and the length is the byte
+  // count already hashed against the current result.
+  respondPackage:(res,pkg)=>{
+    const bytes=pkg.bytes;
+    res.writeHead(200,{'content-type':'application/octet-stream','content-length':String(bytes.length),
+      'content-disposition':'attachment; filename="ruyi-work-data-'+pkg.id+'.ruyi-backup"',
+      'cache-control':'no-store','x-content-type-options':'nosniff','connection':'close'});
+    res.end(bytes,()=>{try{bytes.fill(0);}catch{ /* the socket owns the flushed copy */ }});
+  },
   receiptPath:workDataSetupReceiptPath,receiptOwner:workDataSetupReceiptOwner});
 Object.assign(WorkDataSetupHooks,workDataSetup);

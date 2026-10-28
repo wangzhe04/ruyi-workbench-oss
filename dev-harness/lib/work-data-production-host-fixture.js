@@ -65,7 +65,7 @@ function memoryFs() {
     replaceDirectory(file) { const row = get(file); assert.equal(row.directory, true); row.ino = nextInode++; } };
 }
 
-function createFixture({ manualClose = false } = {}) {
+function createFixture({ manualClose = false, withoutRecoveryBudget = false } = {}) {
   const root = path.resolve(path.parse(process.cwd()).root, 'ruyi-production-host-model');
   const paths = Object.fromEntries(['base', 'upload', 'backup', 'temp'].map(name => [name, path.join(root, name)]));
   const memory = memoryFs(); memory.mkdir(root); Object.values(paths).forEach(memory.mkdir);
@@ -105,8 +105,9 @@ function createFixture({ manualClose = false } = {}) {
     ['13ah-work-data-setup.js', 'WorkDataSetup']
   ];
   for (const [file, symbol] of modules) {
-    const source = constBlock(fs.readFileSync(path.join(sourceRoot, file), 'utf8'), symbol);
+    let source = constBlock(fs.readFileSync(path.join(sourceRoot, file), 'utf8'), symbol);
     assert.ok(source, 'current production declaration exists: ' + symbol);
+    if (file === '01t-work-data-recovery.js' && withoutRecoveryBudget) source = source.replace('LIMITS, seal, open', 'LIMITS: null, seal, open');
     vm.runInContext(source, context, { filename: file });
   }
   const api = vm.runInContext('({ ownership:ServerOwnership,native:WorkDataNativeAdapters,uploads:WorkDataRestoreUploads,result:WorkDataMaintenanceResult,runtime:WorkDataMaintenanceRuntime,host:WorkDataRuntimeHost,bootstrap:WorkDataServeUploadBootstrap,setup:WorkDataSetup,recovery:WorkDataRecovery })', context);

@@ -1,7 +1,7 @@
 // Explicit production host assembly. Loading this module only installs the
 // maintenance-runtime hooks (no acquisition, configure, IO, ready or process
 // startup); startServer calls acquireServe/configureServe explicitly.
-const WorkDataRuntimeHost = ((p,util,clock) => {
+const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
   const retained=new Set(),capturedResultScopes=new WeakMap();
   const MODES=Object.freeze(['work-data-maintenance','work-data-successor']);
   const IMPLEMENTED=Object.freeze(['native-flush-adapter','full-snapshot-adapter','cold-verifier-protocol','genuine-source-keeper']);
@@ -279,9 +279,66 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
       const putUpload=bytes=>operation(ctx,()=>ctx.broker.put(bytes),{newAdmission:true,cleanFailure:true});
       const resolveUpload=(id,options)=>operation(ctx,()=>ctx.broker.resolveUpload(id,options),{newAdmission:true,cleanFailure:true});
       const readAuthority=()=>operation(ctx,()=>N.readAuthority(base),{newAdmission:true});
-      const readResult=()=>operation(ctx,()=>bindings.resultApi.create({base,ownership,assertExclusive:value=>assertOwnership(value,base),readAuthority:()=>N.readAuthority(base)}).read(),{newAdmission:true});
+      const resultReader=()=>bindings.resultApi.create({base,ownership,assertExclusive:value=>assertOwnership(value,base),readAuthority:()=>N.readAuthority(base)}).read();
+      const readResult=()=>operation(ctx,resultReader,{newAdmission:true});
+      // Package transfer is a read of the one durable result: the requested id must
+      // equal it, and the exact bytes about to be sent are re-verified on one opened
+      // handle (size, dev/ino, sha256, before/after stat) before any response byte
+      // exists. Untrusted data conditions never throw out of the admitted work, so a
+      // missing or replaced backup stays a typed refusal instead of a source
+      // uncertainty, and no partial response can be confused with success. The
+      // durable result read and this final handle read deliberately verify the
+      // whole package twice, bounded by WorkDataRecovery.LIMITS.serialized.
+      const packageFailure=code=>Object.assign(Error(code),{code,apiCode:code,
+        statusCode:code==='work_data_setup.package_not_found'?404:503,retry:false});
+      const packageBudget=()=>{
+        try{const limits=typeof WorkDataRecovery==='undefined'?null:WorkDataRecovery.LIMITS;
+          return plain(limits)&&Number.isSafeInteger(limits.serialized)&&limits.serialized>0?limits.serialized:null;}catch{return null;}
+      };
+      const unavailable={ok:false,code:'work_data_setup.package_unavailable'};
+      async function capturePackage(id){
+        let bytes=null,handle=null,complete=false;
+        try{
+          const record=await resultReader();
+          if(!record)return unavailable;
+          if(record.id!==id)return {ok:false,code:'work_data_setup.package_not_found'};
+          const backup=record.backup,maximum=packageBudget();
+          if(!plain(backup)||!plain(backup.identity)||typeof backup.path!=='string'||!p.isAbsolute(backup.path)||p.resolve(backup.path)!==backup.path
+            ||p.basename(backup.path)!=='ruyi-work-data-'+record.id+'.ruyi-backup'||inside(base,backup.path)
+            ||typeof backup.sha256!=='string'||!/^[a-f0-9]{64}$/.test(backup.sha256)
+            ||!Number.isSafeInteger(backup.bytes)||backup.bytes<1||maximum===null||backup.bytes>maximum
+            ||typeof backup.identity.dev!=='string'||typeof backup.identity.ino!=='string')return unavailable;
+          handle=await io.open(backup.path,'r');
+          const before=await handle.stat({bigint:true});
+          if(!before.isFile()||before.nlink!==1n||String(before.dev)!==backup.identity.dev
+            ||String(before.ino)!==backup.identity.ino||Number(before.size)!==backup.bytes)return unavailable;
+          const buffer=Buffer.alloc(backup.bytes);bytes=buffer;let used=0;
+          while(used<backup.bytes){const part=await handle.read(buffer,used,backup.bytes-used,null);if(!part.bytesRead)break;used+=part.bytesRead;}
+          if(used!==backup.bytes)return unavailable;
+          const extra=Buffer.alloc(1);
+          try{if((await handle.read(extra,0,1,null)).bytesRead!==0)return unavailable;}finally{extra.fill(0);}
+          const after=await handle.stat({bigint:true});
+          if(String(after.dev)!==backup.identity.dev||String(after.ino)!==backup.identity.ino||Number(after.size)!==backup.bytes
+            ||after.nlink!==1n||after.mtimeNs!==before.mtimeNs||after.ctimeNs!==before.ctimeNs)return unavailable;
+          const sha256=c.createHash('sha256').update(buffer).digest('hex');
+          if(sha256!==backup.sha256)return unavailable;
+          complete=true;
+          return {ok:true,id:record.id,bytes:buffer,size:used,sha256};
+        }catch{return unavailable;}
+        finally{if(!complete&&bytes)bytes.fill(0);if(handle){try{await handle.close();}catch{ /* the verified bytes are already detached */ }}}
+      }
+      const downloadPackage=async id=>{
+        if(typeof id!=='string'||!/^[a-f0-9]{48}$/.test(id))throw fail('package_id_invalid');
+        let bytes=null;
+        try{
+          const outcome=await operation(ctx,async()=>{const captured=await capturePackage(id);if(Buffer.isBuffer(captured?.bytes))bytes=captured.bytes;return captured;},{newAdmission:true});
+          if(!outcome||outcome.ok!==true||!Buffer.isBuffer(outcome.bytes))throw packageFailure(outcome?.code==='work_data_setup.package_not_found'
+            ?'work_data_setup.package_not_found':'work_data_setup.package_unavailable');
+          return Object.freeze({id:outcome.id,bytes:outcome.bytes,size:outcome.size,sha256:outcome.sha256});
+        }catch(error){if(bytes)bytes.fill(0);throw error;}
+      };
       async function close(){if(ctx.finished)return;if(unknown)throw retain(unknownCause);ctx.accepting=false;if(jobs.size)throw fail('job_active');await Promise.allSettled([...ctx.inflight]);ensure(ctx);try{await ctx.keeper.releaseChecked(assertFinishSafe);assertFinishSafe();ctx.finished=true;}catch(error){throw retain(error);}}
-      ctx.api=Object.freeze({base,uploadRoot,ownership,putUpload,resolveUpload,readAuthority,readResult,close,
+      ctx.api=Object.freeze({base,uploadRoot,ownership,putUpload,resolveUpload,readAuthority,readResult,downloadPackage,close,
         // Status is data, never a capability or substitute for a genuine keeper.
         status:()=>Object.freeze({sourceHeld:assertOwnership(ownership,base),uploadOwnerHeld:O.owns(ownership,uploadRoot),accepting:ctx.accepting&&!unknown&&!ctx.finished,workerReady:false,crashClaim:false,activation:false})});
       return ctx.api;}finally{warmOpening=false;}
@@ -355,10 +412,14 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
       if(installed||!warm||warm.finished)throw fail('runtime_already_installed');ensure(warm);const hooks=bindings.workerHooks;
       if(!hooks||util.types.isProxy(hooks)||Object.getPrototypeOf(hooks)!==Object.prototype||typeof bindings.runtimeHooks?.configure!=='function'
         ||Object.hasOwn(hooks,'start'))throw fail('worker_hooks_invalid');
-      const descriptors={putUpload:{value:warm.api.putUpload,writable:true,configurable:true,enumerable:true},resolveUpload:{value:warm.api.resolveUpload,writable:true,configurable:true,enumerable:true},readResult:{value:warm.api.readResult,writable:true,configurable:true,enumerable:true}};
+      // packageTransfer is a separate, non-writable marker: a test or a future caller
+      // that only assigns a downloadPackage function never gets the capability. The
+      // advertised transfer is exactly what this install defined.
+      const descriptors={putUpload:{value:warm.api.putUpload,writable:true,configurable:true,enumerable:true},resolveUpload:{value:warm.api.resolveUpload,writable:true,configurable:true,enumerable:true},readResult:{value:warm.api.readResult,writable:true,configurable:true,enumerable:true},
+        downloadPackage:{value:warm.api.downloadPackage,writable:true,configurable:true,enumerable:true},packageTransfer:{value:true,writable:false,configurable:true,enumerable:false}};
       for(const name of Object.keys(descriptors)){const old=Object.getOwnPropertyDescriptor(hooks,name);if(old&&!old.configurable||!old&&!Object.isExtensible(hooks))throw fail('worker_hooks_invalid');}
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);
-      return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:false,crashClaim:false,activation:false})});
+      return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:true,crashClaim:false,activation:false})});
     }
     return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,helperMayStillRun:helperUnknown,
       capabilities:Object.freeze({requiresCheckedSourceKeeper:true,sourceKeeperHost:true,uploadBrokerAssembly:true,coldOperationAssembly:true,worker:false,crashClaim:false,activation:false,productionReady:false})});
@@ -415,7 +476,7 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
     return runtimeHooks.completeSuccessor();
   }
   return Object.freeze({create,bindCapturedResult,startColdMaintenance,startSuccessorMaintenance,installRootPreference});
-})(require('node:path'),require('node:util'),require('node:timers'));
+})(require('node:path'),require('node:util'),require('node:timers'),require('node:fs/promises'),require('node:crypto'));
 
 // Actual normal-serve wiring. Definition/configuration alone performs no IO.
 // Only acquireServe allocates its own empty custody root and acquires the joint
@@ -510,7 +571,7 @@ const WorkDataServeUploadBootstrap = ((io,p,osApi,clock) => {
         if(helperMayStillRun())throw retain(row,undefined);
         if(JSON.stringify(await directory(row.uploadRoot))!==JSON.stringify(row.rootChain))throw fail('upload_root_changed');
         const installed=row.factory.installWarm();
-        if(!installed||installed.capabilities?.upload!==true||installed.capabilities.worker!==false||installed.capabilities.download!==false||installed.capabilities.crashClaim!==false||installed.capabilities.activation!==false)throw fail('installed_capabilities_invalid');
+        if(!installed||installed.capabilities?.upload!==true||installed.capabilities.worker!==false||installed.capabilities.download!==true||installed.capabilities.crashClaim!==false||installed.capabilities.activation!==false)throw fail('installed_capabilities_invalid');
         if(helperMayStillRun())throw retain(row,undefined);
         // The configured host now holds its own checked source pin. Transfer
         // lifetime coverage without any unpinned await or owner-release window.

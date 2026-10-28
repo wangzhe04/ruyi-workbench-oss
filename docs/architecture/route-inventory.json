@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-27T23:39:09.790Z",
+  "generatedAt": "2026-10-28T06:11:52.037Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -21,11 +21,11 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 176,
-    "decisionPoints": 189,
+    "routeAuthEntries": 177,
+    "decisionPoints": 190,
     "byKind": {
       "exact": 165,
-      "prefix": 12,
+      "prefix": 13,
       "regex": 12
     },
     "authLevels": [
@@ -61,6 +61,12 @@
       "p": "/api/work-data/uploads",
       "auth": "token",
       "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/work-data/results/",
+      "auth": "token",
+      "prefix": true
     },
     {
       "m": "GET",
@@ -3234,6 +3240,26 @@
         "dev-harness\\work-data-production-maintenance.e2e.js",
         "dev-harness\\work-data-production-restore.e2e.js",
         "dev-harness\\work-data-production-upload.e2e.js",
+        "dev-harness\\work-data-settings.browser.e2e.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/work-data/results/",
+      "file": "13ah-work-data-setup.js",
+      "handler": "handle",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "work-data",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\unit\\work-data-production-host.test.js",
+        "dev-harness\\unit\\work-data-settings.test.js",
+        "dev-harness\\unit\\work-data-setup.test.js",
+        "dev-harness\\work-data-production-maintenance.e2e.js",
         "dev-harness\\work-data-settings.browser.e2e.js"
       ]
     },

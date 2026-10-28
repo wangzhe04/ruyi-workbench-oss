@@ -3,6 +3,7 @@ const ROUTE_AUTH = [
   { m: 'GET', p: '/api/work-data/status', auth: 'token' },
   { m: 'POST', p: '/api/work-data/jobs', auth: 'token' },
   { m: 'POST', p: '/api/work-data/uploads', auth: 'token' },
+  { m: 'GET', p: '/api/work-data/results/', auth: 'token', prefix: true },
   { m: 'GET', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/work-data/jobs/', auth: 'token', prefix: true },
   { m: 'POST', p: '/api/mcp/internal/request', auth: 'internal-mcp' },

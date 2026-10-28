@@ -17,7 +17,9 @@ function fixture(){let counter=0,response;const owners=new Set(),events=[],queue
  const m=Maintenance.create({owns:owner=>owners.has(owner),snapshot:()=>({busy:{},pending:[],dirty:0}),pause:()=>{events.push('pause');return{};},resume:()=>{state.resume++;events.push('resume');},progress:async()=>{},flush:async()=>{state.flush++;},yield:tick});
  const handle={ready:ready.promise,cancel:async()=>{events.push('cancel-child');},handoff:async()=>{events.push('handoff');}};
  const worker={start:async input=>{state.workerInput=input;events.push('start');return handle;}};
- const host={maintenance:m,inspect:async()=>({authority:clone(state.authority),base:'C:/synthetic/base',configMirror:false}),validateDirectories:async()=>{events.push('validate-paths');},worker:()=>worker,id:()=>String(++counter).padStart(48,'a'),now:()=>'',defer:work=>queue.push(work),respond:(_res,body,status)=>{response={body,status};},receiptPath:p=>p==='/api/permission/decision',receiptOwner:(_p,body)=>body.requestId==='old'?state.owner:null};
+ const host={maintenance:m,inspect:async()=>({authority:clone(state.authority),base:'C:/synthetic/base',configMirror:false}),validateDirectories:async()=>{events.push('validate-paths');},worker:()=>worker,id:()=>String(++counter).padStart(48,'a'),now:()=>'',defer:work=>queue.push(work),respond:(_res,body,status)=>{response={body,status};},
+  respondPackage:(_res,pkg)=>{response={package:pkg};},
+  receiptPath:p=>p==='/api/permission/decision',receiptOwner:(_p,body)=>body.requestId==='old'?state.owner:null};
  const api=Setup.create(host),body=(patch={})=>({operation:'enable',password:secret,expectedAuthority:clone(state.authority),backupDirectory:'C:/synthetic/backups',...patch});
  const get=async id=>{await api.handle({method:'GET'},{},'/api/work-data/jobs/'+id);return response.body.job;};
  return{api,m,host,worker,handle,state,ready,events,queue,body,owners,get,response:()=>response,start:()=>queue.shift()()};
@@ -215,17 +217,53 @@ test('upload broker refusals keep their own code as the client-visible apiCode',
  await assert.rejects(broker.put(Buffer.alloc(0)),error=>error.code==='work_data_upload.capacity'&&error.apiCode===error.code);
 });
 
-test('status keeps the three capability keys, follows real readiness and never advertises a download',async()=>{
- const f=fixture();f.worker.download=async()=>assert.fail('no download endpoint may exist');
+test('status keeps the three capability keys, follows real readiness and never advertises download from a worker method alone',async()=>{
+ const f=fixture();f.worker.downloadPackage=async()=>assert.fail('no package is ever served from a simulated install');
  const first=await f.api.status();
  assert.deepEqual(Object.keys(first.capabilities).sort(),['download','upload','worker']);
- assert.equal(first.capabilities.download,false,'a worker download method must not become a capability');
+ assert.equal(first.capabilities.download,false,'an injected worker method is not an installed runtime');
  assert.equal(first.capabilities.worker,true);
  let ready=false;f.host.workerReady=()=>ready;
  assert.equal((await f.api.status()).capabilities.worker,false,'readiness loss must retract the worker capability');
  ready=true;assert.equal((await f.api.status()).capabilities.worker,true);
  f.host.workerReady=()=>{throw Error('private readiness reader');};
  assert.equal((await f.api.status()).capabilities.worker,false,'an unreadable readiness state must fail closed');
+ // The capability follows the transfer marker the warm install writes alongside
+ // the method, and it still needs a current verified result to name.
+ ready=true;f.host.workerReady=()=>true;const result={id:'d'.repeat(48),backup:{bytes:3,sha256:'e'.repeat(64),path:'C:/synthetic/backups/ruyi-work-data-'+'d'.repeat(48)+'.ruyi-backup',identity:{dev:'1',ino:'2'}}};
+ f.worker.readResult=async()=>result;assert.equal((await f.api.status()).capabilities.download,false,'the method and a result alone still do not advertise');
+ f.worker.packageTransfer=true;assert.equal((await f.api.status()).capabilities.download,true,'the installed transfer marker plus a current result advertise');
+ f.worker.readResult=async()=>null;assert.equal((await f.api.status()).capabilities.download,false,'no current result means no package to advertise');
+});
+test('the package route accepts only the current id and refuses range, busy and foreign transfer origins before any bytes',async()=>{
+ const f=fixture(),id='d'.repeat(48),path='/api/work-data/results/'+id+'/package',bytes=Buffer.from('synthetic package bytes');
+ const request=(patch={})=>({method:'GET',url:path,socket:{localPort:4567,remoteAddress:'127.0.0.1'},headers:{host:'127.0.0.1:4567'},...patch});
+ f.worker.downloadPackage=async requested=>{assert.equal(requested,id);assert.equal(f.m.active(),true,'the package read is admitted inside the maintenance drain');return{id,bytes:Buffer.from(bytes),size:bytes.length,sha256:'f'.repeat(64)};};
+ assert.equal(await f.api.handle(request(),{},path),true);
+ assert.deepEqual(f.response().package.bytes,bytes);assert.equal(f.response().package.id,id);
+ // The path carries an id only: any other shape is not this route at all.
+ for(const other of ['/api/work-data/results/../ruyi-work-data-'+id+'.ruyi-backup/package','/api/work-data/results/'+id+'/package/extra','/api/work-data/results/'+'a'.repeat(47)+'/package'])
+  assert.equal(await f.api.handle(request({url:other}),{},other),false);
+ await assert.rejects(f.api.handle(request({url:path+'?download=1'}),{},path),error=>error.statusCode===400&&error.code==='work_data_setup.request_invalid');
+ await assert.rejects(f.api.handle(request({headers:{host:'127.0.0.1:4567',range:'bytes=0-1'}}),{},path),error=>error.statusCode===400&&error.code==='work_data_setup.package_range_unsupported');
+ for(const patch of [{headers:{host:'evil.example:4567'}},{headers:{host:'127.0.0.1:4567',origin:'http://evil.example'}},{headers:{host:'127.0.0.1:4567','sec-fetch-site':'cross-site'}},{socket:{localPort:4567,remoteAddress:'10.0.0.9'}}])
+  await assert.rejects(f.api.handle(request(patch),{},path),error=>error.statusCode===403&&error.code==='work_data_setup.package_origin_invalid');
+ // A result that is not current is a typed 404; any other failure is the typed
+ // unavailable code and never an api.internal_error.
+ f.worker.downloadPackage=async()=>{throw Object.assign(Error('work_data_setup.package_not_found'),{code:'work_data_setup.package_not_found',apiCode:'work_data_setup.package_not_found',statusCode:404});};
+ await assert.rejects(f.api.handle(request(),{},path),error=>error.statusCode===404&&error.code==='work_data_setup.package_not_found');
+ f.worker.downloadPackage=async()=>{throw Object.assign(Error('private'),{code:'work_data_result.backup_changed'});};
+ await assert.rejects(f.api.handle(request(),{},path),error=>error.statusCode===503&&error.code==='work_data_setup.package_unavailable');
+ f.worker.downloadPackage=async()=>{throw Object.assign(Error('work_data.maintenance_busy'),{code:'work_data.maintenance_busy'});};
+ await assert.rejects(f.api.handle(request(),{},path),error=>error.statusCode===409&&error.code==='work_data_setup.busy');
+ f.worker.downloadPackage=async()=>({id:'a'.repeat(48),bytes:Buffer.from('other'),size:5});
+ await assert.rejects(f.api.handle(request(),{},path),error=>error.code==='work_data_setup.package_unavailable','a mismatched package identity is never written as a 200');
+ delete f.worker.downloadPackage;
+ await assert.rejects(f.api.handle(request(),{},path),error=>error.statusCode===501&&error.code==='work_data_setup.download_unavailable');
+ // A job in progress refuses a package read without opening anything.
+ const g=fixture();g.worker.downloadPackage=async()=>assert.fail('busy must decide before any read');
+ const job=await g.api.submit(g.body());g.start();await until(()=>g.events.includes('start'));
+ await assert.rejects(g.api.handle(request(),{},path),error=>error.statusCode===409&&error.code==='work_data_setup.busy');await g.api.cancel(job.id);
 });
 test('restore admission resolves a grant only after worker, directory and authority checks',async t=>{
  const f=fixture();await bindRestoreUpload(f,t);let grants=0,validated=0;

@@ -17,738 +17,738 @@
     {
       "file": "01b-route-auth.js",
       "startLine": 1684,
-      "endLine": 1936,
+      "endLine": 1937,
       "note": "110-2a: 从 01-config.js 搬出 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)"
     },
     {
       "file": "01c-runtime-flags.js",
-      "startLine": 1937,
-      "endLine": 2136,
+      "startLine": 1938,
+      "endLine": 2137,
       "note": "110-2b: 从 01-config.js 搬出运行时开关判定函数(纯搬家,零行为变更)"
     },
     {
       "file": "01d-win-cmdline.js",
-      "startLine": 2137,
-      "endLine": 2238,
+      "startLine": 2138,
+      "endLine": 2239,
       "note": "架构还债批 3·B: 从 01-config.js 搬出 Windows 命令行包装与整行长度预算(isBatchLauncher/quoteWinArg/batchSafeSpawn/CMD_*/cmdLineBudget*/spawnCmdLineLength;纯函数零出边,不进任何环;纯搬家,零行为变更)"
     },
     {
       "file": "01e-permission-modes.js",
-      "startLine": 2239,
-      "endLine": 2382,
+      "startLine": 2240,
+      "endLine": 2383,
       "note": "架构还债批 3·B: 从 01-config.js 搬出权限档表/三层权限解析/内置 Agent 角色与归一(PERMISSION_MODES/AGENT_ROLE_PERMISSION_MODES/CLAUDE_PERMISSION_MODE_MAP/PERMISSION_MODE_ALIASES/PERMISSION_MODES_REQUIRING_CONFIRM/permissionModeFrom/resolvePermissionMode/BUILTIN_AGENT_ROLES/normalizeAgentRole/mergeAgentRole;纯函数零出边,不进任何环;纯搬家,零行为变更)"
     },
     {
       "file": "01f-agent-cli-types.js",
-      "startLine": 2383,
-      "endLine": 2451,
+      "startLine": 2384,
+      "endLine": 2452,
       "note": "架构还债批 4: 从 01-config.js 搬出 Agent CLI 类型登记表 AGENT_CLI_TYPES(并把各 CLI 的装机候选/路径探测/起进程/MCP 清单同步收成登记项成员)与唯一的 CLI 类型归一 AGENT_CLI_DEFAULT_TYPE/isAgentCliType/normalizeAgentCliType;要用 01 实现的钩子经参数 cliHost(01 AGENT_CLI_HOST)拿,唯一出边是 01d-win-cmdline(batchSafeSpawn),不进任何环"
     },
     {
       "file": "01g-server-ownership.js",
-      "startLine": 2452,
-      "endLine": 2642,
+      "startLine": 2453,
+      "endLine": 2643,
       "note": "62: OS-held per-data-directory serve ownership; standalone built-in IPC gate"
     },
     {
       "file": "01i-privacy-rules.js",
-      "startLine": 2643,
-      "endLine": 2893,
+      "startLine": 2644,
+      "endLine": 2894,
       "note": "81-P1: versioned offline rule catalog, no dependencies"
     },
     {
       "file": "01h-privacy-core.js",
-      "startLine": 2894,
-      "endLine": 3575,
+      "startLine": 2895,
+      "endLine": 3576,
       "note": "81-P0: isolated privacy detector, scoped references and authenticated envelopes; not yet wired to product traffic"
     },
     {
       "file": "01m-privacy-regex.js",
-      "startLine": 3576,
-      "endLine": 3672,
+      "startLine": 3577,
+      "endLine": 3673,
       "note": "81-P3: disposable bounded regex worker, no application dependencies"
     },
     {
       "file": "01j-local-crypto.js",
-      "startLine": 3673,
-      "endLine": 3762,
+      "startLine": 3674,
+      "endLine": 3763,
       "note": "81-P1: bounded shared Windows DPAPI helper, no app dependencies"
     },
     {
       "file": "01-config.js",
-      "startLine": 3763,
-      "endLine": 7946,
+      "startLine": 3764,
+      "endLine": 7947,
       "note": "defaultConfig/normalizeConfig/readConfig/launcher 解析/ROUTE_AUTH"
     },
     {
       "file": "01k-credential-vault.js",
-      "startLine": 7947,
-      "endLine": 8337,
+      "startLine": 7948,
+      "endLine": 8338,
       "note": "81-P1: encrypted immutable credential records and config persistence/hydration hooks"
     },
     {
       "file": "01l-credential-recovery.js",
-      "startLine": 8338,
-      "endLine": 8473,
+      "startLine": 8339,
+      "endLine": 8474,
       "note": "81-P1: transactional recovery with encrypted rollback journal"
     },
     {
       "file": "01n-work-data-crypto.js",
-      "startLine": 8474,
-      "endLine": 8558,
+      "startLine": 8475,
+      "endLine": 8559,
       "note": "M3-1: versioned work-data envelope v2 with purpose-isolated HKDF keys and schema/scope/seq AAD binding; pure module, never creates or persists a key"
     },
     {
       "file": "01o-work-data-keys.js",
-      "startLine": 8559,
-      "endLine": 8728,
+      "startLine": 8560,
+      "endLine": 8729,
       "note": "M3-2: independent DPAPI-wrapped work-data master key; created only by an explicit enable flow, never by a read or write"
     },
     {
       "file": "01r-work-data-chunks.js",
-      "startLine": 8729,
-      "endLine": 8914,
+      "startLine": 8730,
+      "endLine": 8915,
       "note": "M3-2: opt-in authenticated manifest and bounded UTF-8 chunks for large managed text records"
     },
     {
       "file": "01p-work-data-store.js",
-      "startLine": 8915,
-      "endLine": 9578,
+      "startLine": 8916,
+      "endLine": 9579,
       "note": "M3-2: managed whole-record store (plain JSON when disabled, WorkDataCrypto v2 container when enabled); the key set and atomic writer are injected by the caller so it stays outside the dependency cycle"
     },
     {
       "file": "01q-work-data-records.js",
-      "startLine": 9579,
-      "endLine": 9792,
+      "startLine": 9580,
+      "endLine": 9793,
       "note": "M3-2: frozen v2 session records and fixed-purpose auxiliary journal rows with authenticated physical ordinals; chunked large rows reuse WorkDataChunks"
     },
     {
       "file": "01s-work-data-journals.js",
-      "startLine": 9793,
-      "endLine": 10159,
+      "startLine": 9794,
+      "endLine": 10160,
       "note": "M3-2: shared NDJSON file owner for authenticated ordinal scanning, logical windows, short operation leases and failed-append recovery; domain policy and writer chains stay with their owners"
     },
     {
       "file": "01t-work-data-recovery.js",
-      "startLine": 10160,
-      "endLine": 10435,
+      "startLine": 10161,
+      "endLine": 10436,
       "note": "M3-3: bounded portable full snapshot password codec; filesystem consistency, reference discovery and destination publication are owned by the lifecycle"
     },
     {
       "file": "01u-work-data-transition.js",
-      "startLine": 10436,
-      "endLine": 10528,
+      "startLine": 10437,
+      "endLine": 10529,
       "note": "M3-3: generation admission barrier with cancellable idle wait and irreversible commit retirement; owner wiring is explicit"
     },
     {
       "file": "01v-work-data-manifest.js",
-      "startLine": 10529,
-      "endLine": 10712,
+      "startLine": 10530,
+      "endLine": 10713,
       "note": "M3-3: exact previous-byte authority manifest and isolated shadow directory IO; platform publication and complete migration remain lifecycle responsibilities"
     },
     {
       "file": "01w-work-data-native-publish.js",
-      "startLine": 10713,
-      "endLine": 11048,
+      "startLine": 10714,
+      "endLine": 11049,
       "note": "M3-3: fixed Windows NTFS manifest publisher with native handle checks, file/directory flushes and same-volume write-through replacement; no product probe entrypoints"
     },
     {
       "file": "01x-work-data-migration-codecs.js",
-      "startLine": 11049,
-      "endLine": 11382,
+      "startLine": 11050,
+      "endLine": 11383,
       "note": "M3-3: fixed managed-family raw codec bridge with authenticated shadow verification; complete collection, retained/special artifacts and domain activation remain host responsibilities"
     },
     {
       "file": "01z-work-data-root-authority.js",
-      "startLine": 11383,
-      "endLine": 11547,
+      "startLine": 11384,
+      "endLine": 11548,
       "note": "M3-3: owned once-per-process active generation and manifest mode authority; reserved namespace guards through boot hooks"
     },
     {
       "file": "01aa-work-data-tree.js",
-      "startLine": 11548,
-      "endLine": 11914,
+      "startLine": 11549,
+      "endLine": 11915,
       "note": "M3-3: work-data-tree"
     },
     {
       "file": "01ae-work-data-maintenance-result.js",
-      "startLine": 11915,
-      "endLine": 12030,
+      "startLine": 11916,
+      "endLine": 12031,
       "note": "M3-3: bounded durable maintenance-result record (maintenance-result-v1.json) with authenticated read, schema validation and verified receipt; only the cold owner holding an issued durable backup may write it, and it stays metadata rather than manifest authority — a normal readback separately proves the real backup and current manifest, so a written result is not restore-complete authority"
     },
     {
       "file": "01ab-work-data-full-snapshot.js",
-      "startLine": 12031,
-      "endLine": 12394,
+      "startLine": 12032,
+      "endLine": 12395,
       "note": "M3-3: work-data-full-snapshot"
     },
     {
       "file": "01ad-work-data-migration-host.js",
-      "startLine": 12395,
-      "endLine": 12671,
+      "startLine": 12396,
+      "endLine": 12672,
       "note": "M3-3: complete migration/restore host composition for the fresh maintenance worker — authenticated source snapshot and target preflight, then prepare/publish/cancel/verifyPublished over an issued plan with its disposable rehearsal tree and special owner, never rebinding warm globals; the caller still owns drain, OS ownership, durable full backup and intent, and this module claims nothing beyond that plus production configure/upload (kernel, crash claim and activation completeness are not asserted)"
     },
     {
       "file": "02c-turn-segments.js",
-      "startLine": 12672,
-      "endLine": 13009,
+      "startLine": 12673,
+      "endLine": 13010,
       "note": "110-3b: 从 02-session-store.js 搬出回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)"
     },
     {
       "file": "02d-session-overrides.js",
-      "startLine": 13010,
-      "endLine": 13081,
+      "startLine": 13011,
+      "endLine": 13082,
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出会话级内存覆盖表(sessionEngineRouteOverrides/sessionPermissionModeOverrides/sessionDesktopToolsOverrides)及其归一、读形与应用函数;唯一出边是 01e-permission-modes(PERMISSION_MODES),不进任何环;纯搬家,零行为变更"
     },
     {
       "file": "02e-session-engine-route.js",
-      "startLine": 13082,
-      "endLine": 13142,
+      "startLine": 13083,
+      "endLine": 13143,
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出会话引擎路由的纯函数(normalizeSessionEngineRoute/sessionEngineRouteFromConfig/inferSessionEngineRoute/configForSessionEngineRoute;123-N2 读写 config 的三件留在 02);零出边,不进任何环;纯搬家,零行为变更"
     },
     {
       "file": "02f-turn-effect-kinds.js",
-      "startLine": 13143,
-      "endLine": 13293,
+      "startLine": 13144,
+      "endLine": 13294,
       "note": "架构还债批 3·B: 从 02-session-store.js 搬出回合摘要的工具分类表(TURN_SUMMARY_FILE_TOOLS/TURN_SUMMARY_COMMAND_TOOLS/TURN_SUMMARY_KNOWN_TOOLS/ARTIFACT_OUTPUT_PATH_KEYS/ARTIFACT_BRIDGED_WRITE_*/unprefixedBridgedName/isBridgedWriteTool)与不可逆操作账分类(IRREVERSIBLE_NATIVE_KIND/IRREVERSIBLE_BRIDGED_KIND/CLAUDE_IRREVERSIBLE_KIND/IRREVERSIBLE_LEDGER_MAX/irreversibleToolKind/irreversibleDetail);零出边,不进任何环;纯搬家,零行为变更"
     },
     {
       "file": "02-session-store.js",
-      "startLine": 13294,
-      "endLine": 19813,
+      "startLine": 13295,
+      "endLine": 19814,
       "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志"
     },
     {
       "file": "03-bridge-guard.js",
-      "startLine": 19814,
-      "endLine": 21511,
+      "startLine": 19815,
+      "endLine": 21512,
       "note": "桥接写族覆盖审计/工作区护栏"
     },
     {
       "file": "03a-privacy-gateway.js",
-      "startLine": 21512,
-      "endLine": 23126,
+      "startLine": 21513,
+      "endLine": 23127,
       "note": "81-P2: scoped bidirectional privacy gateway"
     },
     {
       "file": "03b-privacy-local-drive.js",
-      "startLine": 23127,
-      "endLine": 23236,
+      "startLine": 23128,
+      "endLine": 23237,
       "note": "隐私本地接收方盘类型固定行查询;无引用/off不启动"
     },
     {
       "file": "04-visual-pipeline.js",
-      "startLine": 23237,
-      "endLine": 23435,
+      "startLine": 23238,
+      "endLine": 23436,
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）"
     },
     {
       "file": "04-permission-runtime.js",
-      "startLine": 23436,
-      "endLine": 26983,
+      "startLine": 23437,
+      "endLine": 26984,
       "note": "pendingPermissions/plan 批准/原生权限请求"
     },
     {
       "file": "04-desktop-shell.js",
-      "startLine": 26984,
-      "endLine": 27531,
+      "startLine": 26985,
+      "endLine": 27532,
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）"
     },
     {
       "file": "04f-toolbox-services.js",
-      "startLine": 27532,
-      "endLine": 27903,
+      "startLine": 27533,
+      "endLine": 27904,
       "note": "ruyi-toolbox 服务类组件：拉起／探活／接成能力端点／回收（登记读取与 MCP 并入住 04）"
     },
     {
       "file": "04h-provider-http.js",
-      "startLine": 27904,
-      "endLine": 28125,
+      "startLine": 27905,
+      "endLine": 28126,
       "note": "架构还债批 2·A:OpenAI 兼容服务商 HTTP 原语的唯一住处(端点 URL 归一化/请求头/非流式 POST/瞬时错误重试骨架;自 05/06/07/08/09/10 纯搬家,零出边故不进任何环)"
     },
     {
       "file": "04i-provider-anthropic.js",
-      "startLine": 28126,
-      "endLine": 28718,
+      "startLine": 28127,
+      "endLine": 28719,
       "note": "58 号方案批 2: Anthropic Messages 线协议(apiStyle:anthropic)的编解码纯函数——端点/鉴权头(x-api-key/Bearer/auto)、chat 形历史→Messages(system-reminder 折叠、tool_result 合并与排序、角色交替、图片)、自适应思考与 output_config.effort、非流式与流式解码(思考块+签名收进 providerBlocks,只回放最后一条 user 之后那段)、用量归一(input+cache_read+cache_creation)、400 兼容重打(签名失配去思考块、网关不认的参数去掉);只引用 04h,makeId/redact/配对自愈由 04i-provider-wire 的登记表胶水注入,不进任何环"
     },
     {
       "file": "04i-provider-wire.js",
-      "startLine": 28719,
-      "endLine": 29421,
+      "startLine": 28720,
+      "endLine": 29422,
       "note": "58 号方案批 1: 服务商线协议登记表 PROVIDER_WIRE_PROTOCOLS(chat/responses 的端点、请求头、请求体编码、推理强度、工具、流式/非流式解码、用量归一、落历史字段)与唯一的协议值归一 normalizeProviderApiStyle/providerWireProtocol;Responses 翻译(toResponsesContent/buildResponsesInputItems/toResponsesTools/responsesHistoryWithCompleteToolPairs)自 07、推理强度(PROVIDER_REASONING_EFFORTS/providerReasoningEffort/applyProviderReasoningEffort)自 05 纯搬家;只引用 04h,环内工具经 ProviderWireHooks 由 07 延迟绑定,不进任何环"
     },
     {
       "file": "04j-hanzi-pinyin.js",
-      "startLine": 29422,
-      "endLine": 29768,
+      "startLine": 29423,
+      "endLine": 29769,
       "note": "59 号文 §6(语音词库第二步):汉字 → 普通话读音(不带声调)的离线小表 —— Unicode Unihan(kMandarin 主读音 + kXHC1983 其余现代读音,Unicode License v3,THIRD-PARTY-NOTICES §4)经 dev-harness/hanzi-pinyin-generate.js 生成的生成物,不手改;冻结对象 HanziPinyin(readings),零出边、不进任何环"
     },
     {
       "file": "04j-voice-lexicon.js",
-      "startLine": 29769,
-      "endLine": 30548,
+      "startLine": 29770,
+      "endLine": 30549,
       "note": "59 号文(语音词库第一步):个人词 + 原厂常用词表的纯函数内核 —— 词条形状与清洗、设置页文本读写、按这一句挑词、给句尾改错 <glossary> / 整段识别 prompt / 实时识别热词各出一份形状;冻结对象 VoiceLexicon,零出边、不进任何环(同 11b 模具);落盘住 05、路由住 13b"
     },
     {
       "file": "04j-voice-learn.js",
-      "startLine": 30549,
-      "endLine": 31199,
+      "startLine": 30550,
+      "endLine": 31200,
       "note": "59 号文 §6(语音词库第二步):从用户手改里学词的纯函数内核 —— 机器写的几句在发出去的字里定位与对齐、抽改动、读音像不像(拼音/辅音骨架/字母)、人名单字改动拼窗口、打字里抽专名英文词、请改字大模型复核的提示词与回体校验、落进词库(攒次数、先验、纠、墓碑、腾位置);冻结对象 VoiceLearn,只读 04j 的 VoiceLexicon 与 HanziPinyin(二者零出边),不进任何环;路由住 13b"
     },
     {
       "file": "05-claude-engine.js",
-      "startLine": 31200,
-      "endLine": 33648,
+      "startLine": 31201,
+      "endLine": 33649,
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线"
     },
     {
       "file": "05b-kimi-bridge.js",
-      "startLine": 33649,
-      "endLine": 36615,
+      "startLine": 33650,
+      "endLine": 36616,
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强"
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "startLine": 36616,
-      "endLine": 37266,
+      "startLine": 36617,
+      "endLine": 37267,
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器"
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "startLine": 37267,
-      "endLine": 37471,
+      "startLine": 37268,
+      "endLine": 37472,
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级"
     },
     {
       "file": "06-provider-engine.js",
-      "startLine": 37472,
-      "endLine": 39838,
+      "startLine": 37473,
+      "endLine": 39839,
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks"
     },
     {
       "file": "06b-prompt-registry.js",
-      "startLine": 39839,
-      "endLine": 40606,
+      "startLine": 39840,
+      "endLine": 40607,
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)"
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "startLine": 40607,
-      "endLine": 40766,
+      "startLine": 40608,
+      "endLine": 40767,
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine"
     },
     {
       "file": "06h-retrieval-index.js",
-      "startLine": 40767,
-      "endLine": 41068,
+      "startLine": 40768,
+      "endLine": 41069,
       "note": "113a:离线检索原语(特征哈希向量/TF-IDF/余弦/RRF),记忆召回与会话搜索共用"
     },
     {
       "file": "06i-steward-core.js",
-      "startLine": 41069,
-      "endLine": 43425,
+      "startLine": 41070,
+      "endLine": 43426,
       "note": "第116波116a:管家(Steward)引擎侧纯函数与延迟绑定命名空间 StewardHooks(不实现,契约声明)"
     },
     {
       "file": "06d-memory-domain.js",
-      "startLine": 43426,
-      "endLine": 46190,
+      "startLine": 43427,
+      "endLine": 46191,
       "note": "第104波：跨会话记忆、提议、关系图与检索"
     },
     {
       "file": "06e-mission-domain.js",
-      "startLine": 46191,
-      "endLine": 46316,
+      "startLine": 46192,
+      "endLine": 46317,
       "note": "第104波：Mission 提示摘要与 until-done 驱动"
     },
     {
       "file": "06f-autonomy-grants.js",
-      "startLine": 46317,
-      "endLine": 46608,
+      "startLine": 46318,
+      "endLine": 46609,
       "note": "第104波：自治授权签发、消费、撤销与预检"
     },
     {
       "file": "06g-resource-leases.js",
-      "startLine": 46609,
-      "endLine": 46861,
+      "startLine": 46610,
+      "endLine": 46862,
       "note": "第104波：Agent 资源归一化、冲突检测与租约"
     },
     {
       "file": "06j-scheduler-core.js",
-      "startLine": 46862,
-      "endLine": 47515,
+      "startLine": 46863,
+      "endLine": 47516,
       "note": "第123波 M1(37 号文 §3.1;设计权威 29 号文 §3):定时任务纯函数内核 —— normalizeSchedulerTask / nextFireAt / parseCronExpr / describeSchedule / occurrenceKey / missedOccurrence(零 I/O、零全局状态、时间全由入参喂)"
     },
     {
       "file": "06k-config-patch.js",
-      "startLine": 47516,
-      "endLine": 47701,
+      "startLine": 47517,
+      "endLine": 47702,
       "note": "架构还债批 2 B2: 从 13-http-router.js 搬出 applyConfigPatch(配置补丁落盘与副作用;纯搬家,零行为变更),经 01 的 ConfigPatchHooks 调用、零入边"
     },
     {
       "file": "07-autonomy.js",
-      "startLine": 47702,
-      "endLine": 50539,
+      "startLine": 47703,
+      "endLine": 50540,
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑"
     },
     {
       "file": "08-agent-runs.js",
-      "startLine": 50540,
-      "endLine": 53553,
+      "startLine": 50541,
+      "endLine": 53554,
       "note": "run 事件日志/恢复分级/runSubAgentCore"
     },
     {
       "file": "09b-replan-ledger.js",
-      "startLine": 53554,
-      "endLine": 53729,
+      "startLine": 53555,
+      "endLine": 53730,
       "note": "110-4a: 节点续点与重规划补丁账本(自 09-workflow.js 纯搬家)"
     },
     {
       "file": "09d-token-estimation.js",
-      "startLine": 53730,
-      "endLine": 53993,
+      "startLine": 53731,
+      "endLine": 53994,
       "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)"
     },
     {
       "file": "09-workflow.js",
-      "startLine": 53994,
-      "endLine": 57981,
+      "startLine": 53995,
+      "endLine": 57982,
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn"
     },
     {
       "file": "10-context-governance.js",
-      "startLine": 57982,
-      "endLine": 62258,
+      "startLine": 57983,
+      "endLine": 62259,
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种"
     },
     {
       "file": "11-native-tools.js",
-      "startLine": 62259,
-      "endLine": 68155,
+      "startLine": 62260,
+      "endLine": 68156,
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
       "file": "11b-file-text-io.js",
-      "startLine": 68156,
-      "endLine": 68750,
+      "startLine": 68157,
+      "endLine": 68751,
       "note": "单文件工具的文本 I/O 内核:编码嗅探/GB18030 编码、有界流式读、原子写、file_edit 未命中诊断;零出边(冻结对象 FileTextIo),不进依赖环"
     },
     {
       "file": "11c-file-visual-io.js",
-      "startLine": 68751,
-      "endLine": 68855
+      "startLine": 68752,
+      "endLine": 68856
     },
     {
       "file": "11d-media-inspection.js",
-      "startLine": 68856,
-      "endLine": 69073,
+      "startLine": 68857,
+      "endLine": 69074,
       "note": "Local dependency discovery, bounded audio measurement and parse-only syntax validation; built-ins only"
     },
     {
       "file": "12-tool-dispatch.js",
-      "startLine": 69074,
-      "endLine": 73052,
+      "startLine": 69075,
+      "endLine": 73053,
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall"
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "startLine": 73053,
-      "endLine": 74657,
+      "startLine": 73054,
+      "endLine": 74658,
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)"
     },
     {
       "file": "13-http-router.js",
-      "startLine": 74658,
-      "endLine": 77165,
+      "startLine": 74659,
+      "endLine": 77166,
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)"
     },
     {
       "file": "13b-api-domain-routes.js",
-      "startLine": 77166,
-      "endLine": 78201,
+      "startLine": 77167,
+      "endLine": 78202,
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由"
     },
     {
       "file": "13c-overlay-routes.js",
-      "startLine": 78202,
-      "endLine": 78399,
+      "startLine": 78203,
+      "endLine": 78400,
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)"
     },
     {
       "file": "13d-core-domain-routes.js",
-      "startLine": 78400,
-      "endLine": 80983,
+      "startLine": 78401,
+      "endLine": 80984,
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由"
     },
     {
       "file": "13e-pretender-index.js",
-      "startLine": 80984,
-      "endLine": 81907,
+      "startLine": 80985,
+      "endLine": 81908,
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门"
     },
     {
       "file": "13i-steward-inbox.js",
-      "startLine": 81908,
-      "endLine": 83482,
+      "startLine": 81909,
+      "endLine": 83483,
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)"
     },
     {
       "file": "13j-steward-tool-base.js",
-      "startLine": 83483,
-      "endLine": 84096,
+      "startLine": 83484,
+      "endLine": 84097,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)"
     },
     {
       "file": "13aa-steward-delivery.js",
-      "startLine": 84097,
-      "endLine": 84260,
+      "startLine": 84098,
+      "endLine": 84261,
       "note": "Bounded per-turn delivery evidence, file freshness and revision source projection via StewardHooks"
     },
     {
       "file": "13k-steward-threads.js",
-      "startLine": 84261,
-      "endLine": 86145,
+      "startLine": 84262,
+      "endLine": 86146,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)"
     },
     {
       "file": "13l-steward-ops.js",
-      "startLine": 86146,
-      "endLine": 87719,
+      "startLine": 86147,
+      "endLine": 87720,
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)"
     },
     {
       "file": "13g-steward.js",
-      "startLine": 87720,
-      "endLine": 88233,
+      "startLine": 87721,
+      "endLine": 88234,
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)"
     },
     {
       "file": "13m-steward-runner-base.js",
-      "startLine": 88234,
-      "endLine": 88557,
+      "startLine": 88235,
+      "endLine": 88558,
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)"
     },
     {
       "file": "13n-steward-arbiter.js",
-      "startLine": 88558,
-      "endLine": 89205,
+      "startLine": 88559,
+      "endLine": 89206,
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)"
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "startLine": 89206,
-      "endLine": 89953,
+      "startLine": 89207,
+      "endLine": 89954,
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)"
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "startLine": 89954,
-      "endLine": 90867,
+      "startLine": 89955,
+      "endLine": 90868,
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)"
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "startLine": 90868,
-      "endLine": 92189,
+      "startLine": 90869,
+      "endLine": 92190,
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)"
     },
     {
       "file": "13h-steward-runner.js",
-      "startLine": 92190,
-      "endLine": 92688,
+      "startLine": 92191,
+      "endLine": 92689,
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)"
     },
     {
       "file": "13r-event-stream.js",
-      "startLine": 92689,
-      "endLine": 93099,
+      "startLine": 92690,
+      "endLine": 93100,
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)"
     },
     {
       "file": "13s-scheduler.js",
-      "startLine": 93100,
-      "endLine": 94438,
+      "startLine": 93101,
+      "endLine": 94439,
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗"
     },
     {
       "file": "13t-steward-schedule.js",
-      "startLine": 94439,
-      "endLine": 94974,
+      "startLine": 94440,
+      "endLine": 94975,
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环"
     },
     {
       "file": "13u-migration-center.js",
-      "startLine": 94975,
-      "endLine": 99558,
+      "startLine": 94976,
+      "endLine": 99559,
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环"
     },
     {
       "file": "13v-external-channel-protocols.js",
-      "startLine": 99559,
-      "endLine": 99769,
+      "startLine": 99560,
+      "endLine": 99770,
       "note": "External QQ/Feishu signed protocol normalization; pure built-in crypto helpers"
     },
     {
       "file": "13x-external-channel-delivery.js",
-      "startLine": 99770,
-      "endLine": 99922,
+      "startLine": 99771,
+      "endLine": 99923,
       "note": "Single bounded official QQ/Feishu reply delivery, explicit sent/failed/unknown outcomes"
     },
     {
       "file": "13y-external-bot-credentials.js",
-      "startLine": 99923,
-      "endLine": 100222,
+      "startLine": 99924,
+      "endLine": 100223,
       "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS"
     },
     {
       "file": "13z-external-bot-discovery.js",
-      "startLine": 100223,
-      "endLine": 100318,
+      "startLine": 100224,
+      "endLine": 100319,
       "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted"
     },
     {
       "file": "13ab-privacy-api.js",
-      "startLine": 100319,
-      "endLine": 100783,
+      "startLine": 100320,
+      "endLine": 100784,
       "note": "81-P2: token-authenticated security settings and recovery API"
     },
     {
       "file": "13w-external-bots.js",
-      "startLine": 100784,
-      "endLine": 101841,
+      "startLine": 100785,
+      "endLine": 101842,
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker"
     },
     {
       "file": "13ac-mcp-consumer.js",
-      "startLine": 101842,
-      "endLine": 102450,
+      "startLine": 101843,
+      "endLine": 102451,
       "note": "Authenticated independent stdio consumer relay, bounded host-owned scopes and grants"
     },
     {
       "file": "13ad-memory-cli-relay.js",
-      "startLine": 102451,
-      "endLine": 102668,
+      "startLine": 102452,
+      "endLine": 102669,
       "note": "Per-execution read-only memory relay for native CLI consumers"
     },
     {
       "file": "13ae-cli-business-services.js",
-      "startLine": 102669,
-      "endLine": 103137,
+      "startLine": 102670,
+      "endLine": 103138,
       "note": "M3-3: CLI business services shared by HTTP and serve-owned internal MCP, late-bound through boot hooks"
     },
     {
       "file": "13af-internal-mcp-relay.js",
-      "startLine": 103138,
-      "endLine": 103492,
+      "startLine": 103139,
+      "endLine": 103493,
       "note": "M3-3: exact execution capability relay; default stdio has no data-root writer"
     },
     {
       "file": "13ag-work-data-maintenance.js",
-      "startLine": 103493,
-      "endLine": 103673,
+      "startLine": 103494,
+      "endLine": 103674,
       "note": "M3-3: work-data-maintenance"
     },
     {
       "file": "13at-work-data-restore-uploads.js",
-      "startLine": 103674,
-      "endLine": 103696,
+      "startLine": 103675,
+      "endLine": 103697,
       "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and one job-bound private job/nonce handoff consumed by the cold restore worker; HTTP upload custody and the warm runtime keeper are wired, and a restore recovers into an independent fresh target whose private successor is started on that target root under the TEMP activation receipt (B2). The receipt remains a single-handoff TEMP record — never a migration, ownership or long-lived serving-root authority; the persistent boot-root preference is a separate record (B3)."
     },
     {
       "file": "13av-work-data-handoff-claim.js",
-      "startLine": 103697,
-      "endLine": 104079,
+      "startLine": 103698,
+      "endLine": 104080,
       "note": "M3-3: durable warm/cold handoff claim with exact identity CAS and fail-closed cleanup, plus the separate activation-v1 TEMP namespace that binds one committed restore to its canonical fresh target, target identity/authority, successor nonce, cold parent and source result proof with create-only writes and sha/dev/ino CAS removal; never a migration or ownership authority"
     },
     {
       "file": "13ah-work-data-setup.js",
-      "startLine": 104080,
-      "endLine": 104327,
+      "startLine": 104081,
+      "endLine": 104378,
       "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, restore, status, jobs and upload; restore admission requires the real worker and upload broker, resolves exactly one job-bound grant after directory and authority checks, and recovers into a separate fresh target whose private successor is then started on that target root under the TEMP activation receipt; the persistent source result still expresses no serving-root preference (restored target metadata only, no restartRoot or activation preference)"
     },
     {
       "file": "13ai-work-data-worker.js",
-      "startLine": 104328,
-      "endLine": 104738,
+      "startLine": 104379,
+      "endLine": 104789,
       "note": "K3 cold maintenance worker: authenticated private IPC plus proof of parent death before it touches the base, restore-upload handoff validation and execute()-only mutation; the parent reads no config or store, releases no ownership and switches no warm root"
     },
     {
       "file": "13aj-work-data-control.js",
-      "startLine": 104739,
-      "endLine": 104892,
+      "startLine": 104790,
+      "endLine": 104943,
       "note": "K3 durable single pending maintenance intent with its per-write receipts: a private issued receipt gates every update/removal, an interrupted write never authorizes the next mutation, and boot refuses unfinished intent/result state before normal recovery"
     },
     {
       "file": "13al-work-data-maintenance-http.js",
-      "startLine": 104893,
-      "endLine": 105000,
+      "startLine": 104944,
+      "endLine": 105051,
       "note": "K3 bounded cold-worker progress HTTP: loopback-only status transport whose caller has already proved parent death and current exclusive OS ownership; it opens no data root and starts no maintenance"
     },
     {
       "file": "13an-work-data-disposable-tree.js",
-      "startLine": 105001,
-      "endLine": 105037,
+      "startLine": 105052,
+      "endLine": 105088,
       "note": "K3 disposal of the owned disposable native rehearsal tree: requires the real native namespace census plus WorkDataTree's private identity proof and refuses any capture above the existing 96 MB bound instead of omitting tail, stream or unknown objects"
     },
     {
       "file": "13ak-work-data-cold-operations.js",
-      "startLine": 105038,
-      "endLine": 105419,
+      "startLine": 105089,
+      "endLine": 105470,
       "note": "K3 cold operation bodies for the fresh maintenance worker: backup, restore and rehearsal run on host-supplied real owner lifetimes and the reviewed snapshot/codec/native owners; never starts a normal server or changes process-global paths"
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "startLine": 105420,
-      "endLine": 105919,
+      "startLine": 105471,
+      "endLine": 105970,
       "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and successor maintenance; in production the successor is WorkDataRuntimeHost startSuccessorMaintenance driving the prepare/complete two-phase handoff into a fresh serve that must re-prove the same listener and authority, while runSuccessor remains only the legacy harness path; only a reviewed production host may configure it"
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "startLine": 105920,
-      "endLine": 106268,
+      "startLine": 105971,
+      "endLine": 106319,
       "note": "M3-4 committed-message text index owner"
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "startLine": 106269,
-      "endLine": 106418,
+      "startLine": 106320,
+      "endLine": 106469,
       "note": "M3-4 authorized UI/model/MCP fulltext consumers"
     },
     {
       "file": "13ba-media-image-contract.js",
-      "startLine": 106419,
-      "endLine": 106727,
+      "startLine": 106470,
+      "endLine": 106778,
       "note": "M4 bounded in-memory image contract; production media owners unbound"
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "startLine": 106728,
-      "endLine": 107000,
+      "startLine": 106779,
+      "endLine": 107051,
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false"
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "startLine": 107001,
-      "endLine": 107042,
+      "startLine": 107052,
+      "endLine": 107093,
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability"
     },
     {
       "file": "13aw-work-data-root-preference.js",
-      "startLine": 107043,
-      "endLine": 107320,
+      "startLine": 107094,
+      "endLine": 107371,
       "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted"
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "startLine": 107321,
-      "endLine": 107890,
+      "startLine": 107372,
+      "endLine": 108002,
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis)."
     },
     {
       "file": "14-main.js",
-      "startLine": 107891,
-      "endLine": 108784,
+      "startLine": 108003,
+      "endLine": 108896,
       "note": "main()/module.exports"
     }
   ]

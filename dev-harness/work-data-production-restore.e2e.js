@@ -239,8 +239,10 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
  }
  const sameAuthority=(left,right)=>!!left&&!!right&&left.generation===right.generation&&left.id===right.id&&left.mode===right.mode&&left.sha256===right.sha256;
 
- function assertCapabilities(value,label){
-  a.deepEqual(value.capabilities,{worker:true,upload:true,download:false},label+': only the real worker and upload are advertised');
+ function assertCapabilities(value,label,download=value.lastResult!==null){
+  // Package transfer is advertised only by an installed warm runtime that has a
+  // current result; a restore target has none.
+  a.deepEqual(value.capabilities,{worker:true,upload:true,download},label+': only the real worker, upload and a current package are advertised');
   a.equal(Object.hasOwn(value.capabilities,'crashClaim'),false);
   a.equal(Object.hasOwn(value.capabilities,'activation'),false);
   a.equal(value.processRestartRequired,true);
@@ -948,7 +950,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
    phase:'plain-restore',operation:'restore',targetDirectory,
    body:({source})=>({operation:'restore',password:PACKAGE_PASSWORD,expectedAuthority:source,backupDirectory:f.backups,targetDirectory,uploadId}),
    verify:async({next,status,jobId,source,sourceBefore,pins,custodyBefore:count})=>{
-    assertCapabilities(status,'plain restore successor');
+    assertCapabilities(status,'plain restore successor',false);
     a.equal(status.job,null,'a new process never inherits the restore job');
     a.equal(status.configMirror,false,'the target mirror stays plain');
     a.deepEqual(status.authority,AUTHORITY0,'a restore keeps the plain generation-zero authority');
@@ -1074,7 +1076,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
    phase:'encrypted-enable',operation:'enable',
    body:({source})=>({operation:'enable',password:SOURCE_PASSWORD,expectedAuthority:source,backupDirectory:f.backups}),
    verify:async({next,status,jobId,source,sourceBefore,pins,custodyBefore:count})=>{
-    assertCapabilities(status,'enable successor');
+    assertCapabilities(status,'enable successor',true);
     a.equal(status.job,null);
     const saved=status.lastResult;
     a.ok(saved);a.equal(saved.id,jobId);a.equal(saved.operation,'enable');a.equal(saved.state,'published');
@@ -1107,7 +1109,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
    phase:'encrypted-export',operation:'export',
    body:({source})=>({operation:'export',password:EXPORT_PASSWORD,expectedAuthority:source,backupDirectory:f.backups}),
    verify:async({next,status,jobId,source,sourceBefore,pins,custodyBefore:count})=>{
-    assertCapabilities(status,'export successor');
+    assertCapabilities(status,'export successor',true);
     a.equal(status.job,null);
     const saved=status.lastResult;
     a.ok(saved);a.equal(saved.id,jobId);a.equal(saved.operation,'export');a.equal(saved.state,'verified');
@@ -1190,7 +1192,8 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
    protected:['.work-data/active-v1.json','.work-data/generations/'+exported.next.status.authority.id+'/work-data-key-v1.json',sentinelRelative],
    body:({source})=>({operation:'restore',password:EXPORT_PASSWORD,expectedAuthority:source,backupDirectory:f.backups,targetDirectory,uploadId}),
    verify:async({next,status,jobId,source,sourceBefore,pins,custodyBefore:count})=>{
-    assertCapabilities(status,'encrypted restore successor');
+    a.ok(status.lastResult&&status.lastResult.id!==jobId,'the encrypted target carries package history, never this restore result');
+    assertCapabilities(status,'encrypted restore successor',true);
     a.equal(status.job,null);
     a.equal(status.configMirror,true);
     a.equal(status.authority.mode,'encrypted','the target stays encrypted');
@@ -1313,7 +1316,7 @@ async function runActual(argv=process.argv.slice(2)){
     sourceResultId:outcome.encrypted.round.verified.result.saved.id,sourceResultProofSha256:outcome.encrypted.round.verified.result.row.sha256,
     sourceServe:{authority:outcome.encrypted.sourceServe.status.authority,sessions:outcome.encrypted.sourceServe.ids,lastResultId:outcome.encrypted.sourceServe.status.lastResult?.id},
     bootRootPreference:outcome.encrypted.preference.value,preferenceBoots:outcome.encrypted.preferenceBoots,preferenceAbsentAt:new Date(outcome.encrypted.round.verified.preferenceAbsentAt).toISOString()},
-   capabilities:{worker:true,upload:true,download:false},crashClaim:false,
+   capabilities:outcome.encrypted.round.next.status.capabilities,crashClaim:false,
    restoredActivation:'separate-fresh-root',restartRootPublished:false,currentRootIsTarget:true,activationCompleted:true,
    activationEvidence:'The restore successor serves the committed target root on the source port. It read the TEMP activation receipt (13am verifies base/identity/authority/id/nonce/resultSha256 before serve-ready), the receipt was removed by CAS after ready, the target authority is verified against the active manifest proof, the target owner is held by the successor while the source owner is free, and a package-only session is served by the target but absent from a separate plain serve on the source root. The target status lastResult is package history, never this job.',
    bootRootEvidence:'Before the restore was submitted, <home>/.ruyi/boot-root-v1.json was proven absent (no file, no pending stage) in both journeys, so the post-ready record cannot be a stale file from an earlier boot/enable/export. After serve-ready the successor wrote that eight-key record (canonical target outside both roots, target dev/ino, target authority, this job id, the source result proof and a createdAt not older than the absence check) and only then consumed the TEMP activation receipt. With the target successor reclaimed, two ordinary serves started with RUYI_HOME/WIN_CLAUDE_WORKBENCH_HOME removed resolved the same target through that preference (target runtime/status, target-only session set, source runtime untouched, preference bytes/dev/ino unchanged). The explicit RUYI_HOME=source serve still served the source and did not rewrite the preference: env wins.',

@@ -172,22 +172,27 @@ test('available upload cannot advertise or queue a missing worker and returns st
 
 function createSetup(f) {
   const counters = { drains: 0, queues: 0 };
-  const setup = f.api.setup.create({ worker: () => f.workerHooks, inspect: async () => ({ base: f.paths.base, authority: f.fullAuthority, configMirror: true }),
-    maintenance: { accepting: () => true, status: () => ({}), begin() { counters.drains++; throw Error('No drain'); } },
-    id: () => 'c'.repeat(48), now: () => new Date(0).toISOString(), validateDirectories: async () => {}, defer() { counters.queues++; throw Error('No job queue'); } });
-  return { setup, counters };
+  const host = { worker: () => f.workerHooks, inspect: async () => ({ base: f.paths.base, authority: f.fullAuthority, configMirror: true }),
+    maintenance: { accepting: () => true, status: () => ({}), run: async (kind, work) => { counters.drains++; return work(); }, begin() { counters.drains++; throw Error('No drain'); } },
+    id: () => 'c'.repeat(48), now: () => new Date(0).toISOString(), validateDirectories: async () => {}, defer() { counters.queues++; throw Error('No job queue'); },
+    respondPackage: (res, pkg) => { res.package = pkg; } };
+  const setup = f.api.setup.create(host);
+  return { setup, counters, host };
 }
 
-test('a completed result receipt read through workerHooks still advertises no worker and admits no job', async () => {
+test('a completed result receipt read through workerHooks advertises the installed package transfer but no worker', async () => {
   const f = createFixture(), warm = await f.warm(); f.factory.installWarm();
   const receipt = Object.freeze({ schema: 1, id: 'd'.repeat(48), operation: 'disable', state: 'published', authority: f.fullAuthority });
   f.workerHooks.readResult = async () => receipt;
   const { setup, counters } = createSetup(f);
   const status = await setup.status();
   assert.deepEqual(status.lastResult, receipt); assert.equal(status.job, null);
-  assert.equal(status.capabilities.worker, false); assert.equal(status.capabilities.upload, true); assert.equal(status.capabilities.download, false);
+  // The warm install really defined the package method and its marker, so the one
+  // current result can be saved even before a worker start hook exists.
+  assert.equal(status.capabilities.worker, false); assert.equal(status.capabilities.upload, true); assert.equal(status.capabilities.download, true);
   assert.equal(Object.keys(status.capabilities).length, 3);
   assert.equal(f.workerHooks.start, undefined);
+  assert.equal(typeof f.workerHooks.downloadPackage, 'function');
   const body = { operation: 'disable', password: 'synthetic setup password', expectedAuthority: f.fullAuthority, backupDirectory: f.paths.backup, confirmPlaintext: true };
   await assert.rejects(() => setup.submit(body), error => error.code === 'work_data_setup.worker_unavailable' && error.apiCode === error.code && error.statusCode === 501);
   assert.equal(body.password, ''); assert.equal(counters.drains, 0); assert.equal(counters.queues, 0);
@@ -202,6 +207,131 @@ test('an unreadable worker result refuses status as 503 result_unavailable inste
   await assert.rejects(() => setup.status(), error => error.code === 'work_data_setup.result_unavailable'
     && error.apiCode === 'work_data_setup.result_unavailable' && error.statusCode === 503);
   assert.equal(f.workerHooks.start, undefined); assert.equal(counters.drains, 0); assert.equal(counters.queues, 0);
+  await f.finishWarm(warm);
+});
+
+test('warm package transfer serves only the verified current bytes and refuses a same-length replacement', async () => {
+  const crypto = require('node:crypto');
+  const f = createFixture(), warm = await f.warm(), installed = f.factory.installWarm();
+  assert.equal(typeof installed.capabilities.download, 'boolean');
+  const id = 'd'.repeat(48), file = path.join(f.paths.backup, 'ruyi-work-data-' + id + '.ruyi-backup');
+  const bytes = Buffer.from('synthetic recovery package payload');
+  f.memory.put(file, bytes);
+  const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+  const record = { id, backup: { path: file, bytes: bytes.length, sha256: digest(bytes), identity: { dev: '1', ino: String(f.memory.stat(file).ino) } } };
+  let reads = 0;
+  f.bindings.resultApi = { create() { return { async read() { reads++; return record; } }; } };
+  const entriesBefore = f.memory.entries(f.paths.backup), bytesBefore = f.memory.stat(file);
+  const first = await f.workerHooks.downloadPackage(id);
+  assert.equal(first.id, id); assert.equal(first.size, bytes.length); assert.ok(first.bytes.equals(bytes), 'the served bytes are the file bytes');
+  assert.equal(first.sha256, record.backup.sha256);
+  const second = await f.workerHooks.downloadPackage(id);
+  assert.ok(second.bytes.equals(first.bytes), 'a repeated download is the same bytes');
+  assert.equal(reads, 2);
+  // Reading is idempotent: the backup directory and the file identity are unchanged.
+  assert.deepEqual(f.memory.entries(f.paths.backup), entriesBefore);
+  const after = f.memory.stat(file);
+  assert.deepEqual([after.dev, after.ino, after.size, after.mtimeNs, after.ctimeNs], [bytesBefore.dev, bytesBefore.ino, bytesBefore.size, bytesBefore.mtimeNs, bytesBefore.ctimeNs], 'a package read never rewrites the backup');
+  // The requested id must be the current result, not any historical or made-up id.
+  await assert.rejects(() => f.workerHooks.downloadPackage('e'.repeat(48)), error => error.code === 'work_data_setup.package_not_found'
+    && error.apiCode === error.code && error.statusCode === 404 && error.retry === false);
+  // Same length, different bytes: the hash decides, not the path.
+  const replaced = Buffer.from('X'.repeat(bytes.length));
+  f.memory.put(file, replaced);
+  await assert.rejects(() => f.workerHooks.downloadPackage(id), error => error.code === 'work_data_setup.package_unavailable'
+    && error.apiCode === error.code && error.statusCode === 503);
+  // Restoring the exact bytes makes the same record readable again (the inode is untouched).
+  f.memory.put(file, bytes);
+  assert.ok((await f.workerHooks.downloadPackage(id)).bytes.equals(bytes));
+  // A missing or unreadable result record and a missing backup are typed, never 500.
+  f.bindings.resultApi = { create() { return { async read() { return null; } }; } };
+  await assert.rejects(() => f.workerHooks.downloadPackage(id), error => error.code === 'work_data_setup.package_unavailable' && error.statusCode === 503);
+  f.bindings.resultApi = { create() { return { async read() { throw Object.assign(Error('record changed'), { code: 'work_data_result.record_changed' }); } }; } };
+  await assert.rejects(() => f.workerHooks.downloadPackage(id), error => error.code === 'work_data_setup.package_unavailable' && error.statusCode === 503);
+  f.bindings.resultApi = { create() { return { async read() { return record; } }; } };
+  const missing = { ...record, backup: { ...record.backup, path: path.join(f.paths.backup, 'ruyi-work-data-' + id + '.missing') } };
+  f.bindings.resultApi = { create() { return { async read() { return missing; } }; } };
+  await assert.rejects(() => f.workerHooks.downloadPackage(id), error => error.code === 'work_data_setup.package_unavailable' && error.statusCode === 503);
+  // A record naming any other file is refused even when its bytes match: only the
+  // canonical package name for this id is ever read.
+  const other = path.join(f.paths.backup, 'arbitrary.bin');
+  f.memory.put(other, bytes);
+  const foreign = { ...record, backup: { ...record.backup, path: other, identity: { dev: '1', ino: String(f.memory.stat(other).ino) } } };
+  f.bindings.resultApi = { create() { return { async read() { return foreign; } }; } };
+  await assert.rejects(() => f.workerHooks.downloadPackage(id), error => error.code === 'work_data_setup.package_unavailable' && error.statusCode === 503);
+  await f.finishWarm(warm);
+});
+
+test('the real package route serves the installed runtime bytes and advertises the transfer', async () => {
+  const crypto = require('node:crypto');
+  const f = createFixture(), warm = await f.warm(), installed = f.factory.installWarm();
+  const id = 'd'.repeat(48), file = path.join(f.paths.backup, 'ruyi-work-data-' + id + '.ruyi-backup'), bytes = Buffer.from('route-verified package bytes');
+  f.memory.put(file, bytes);
+  const record = { id, backup: { path: file, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), identity: { dev: '1', ino: String(f.memory.stat(file).ino) } } };
+  f.bindings.resultApi = { create() { return { async read() { return record; } }; } };
+  const { setup, counters } = createSetup(f);
+  const pathname = '/api/work-data/results/' + id + '/package';
+  const request = extra => ({ method: 'GET', url: pathname, socket: { localPort: 34567, remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:34567' }, ...extra });
+  const status = await setup.status();
+  assert.equal(status.capabilities.download, true, 'the installed runtime plus a current result advertises the transfer');
+  assert.deepEqual(status.lastResult, record);
+  const response = {};
+  assert.equal(await setup.handle(request(), response, pathname), true);
+  assert.equal(response.package.id, id);
+  assert.ok(response.package.bytes.equals(bytes), 'the route hands the verified runtime bytes to the response writer');
+  assert.equal(counters.drains, 1, 'the read runs inside the maintenance admission');
+  // A start hook is still absent: package transfer never needs a maintenance job.
+  assert.equal(f.workerHooks.start, undefined);
+  await assert.rejects(() => setup.handle(request({ headers: { host: '127.0.0.1:34567', range: 'bytes=0-1' } }), {}, pathname),
+    error => error.code === 'work_data_setup.package_range_unsupported' && error.statusCode === 400);
+  assert.equal(counters.drains, 1, 'a refused header never enters the maintenance admission');
+  await f.finishWarm(warm);
+});
+
+test('package bytes are zeroed when source ownership fails after the verified read', async () => {
+  const crypto = require('node:crypto'), f = createFixture(), keepers = [];
+  const createKeeper = f.nativeBindings.ownership.createSourceKeeper;
+  f.nativeBindings.ownership = { ...f.nativeBindings.ownership, createSourceKeeper(...args) { const keeper = createKeeper(...args); keepers.push(keeper); return keeper; } };
+  const warm = await f.warm(); f.factory.installWarm();
+  const id = 'd'.repeat(48), file = path.join(f.paths.backup, 'ruyi-work-data-' + id + '.ruyi-backup'), bytes = Buffer.from('post-capture ownership failure');
+  f.memory.put(file, bytes);
+  const record = { id, backup: { path: file, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), identity: { dev: '1', ino: String(f.memory.stat(file).ino) } } };
+  f.bindings.resultApi = { create() { return { async read() { return record; } }; } };
+  const open = f.memory.io.open; let captured = null, stats = 0;
+  f.memory.io.open = async (...args) => {
+    const handle = await open(...args), stat = handle.stat, read = handle.read;
+    handle.stat = async (...options) => { const value = await stat(...options); if (++stats === 2) keepers[0].retainUnknown(Error('injected keeper failure after capture')); return value; };
+    handle.read = async (buffer, ...options) => { if (buffer.length === bytes.length) captured = buffer; return read(buffer, ...options); };
+    return handle;
+  };
+  await assert.rejects(() => f.workerHooks.downloadPackage(id));
+  assert.ok(captured && captured.length === bytes.length && captured.every(value => value === 0), 'the package buffer captured before the ownership failure is zeroed');
+  assert.equal(keepers[0].assertExclusive(warm.ownership), false);
+});
+
+test('a missing recovery package budget prevents warm installation and any transfer capability', async () => {
+  const f = createFixture({ withoutRecoveryBudget: true });
+  await assert.rejects(() => f.warm(), error => error.code === 'work_data_host.source_uncertain');
+  assert.equal(f.workerHooks.downloadPackage, undefined);
+  assert.equal(f.workerHooks.packageTransfer, undefined);
+});
+
+test('package route zeroes returned bytes after admission or response failure', async () => {
+  const f = createFixture(), warm = await f.warm(); f.factory.installWarm();
+  const id = 'd'.repeat(48), pathname = '/api/work-data/results/' + id + '/package';
+  const request = { method: 'GET', url: pathname, socket: { localPort: 34567, remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:34567' } };
+  const { setup, host } = createSetup(f), run = host.maintenance.run;
+  const admitted = Buffer.from('admission returned these bytes');
+  f.workerHooks.downloadPackage = async () => ({ id, bytes: admitted, size: admitted.length, sha256: 'f'.repeat(64) });
+  host.maintenance.run = async (kind, work) => { await work(); throw Error('failure after the worker returned'); };
+  await assert.rejects(() => setup.handle(request, {}, pathname), error => error.code === 'work_data_setup.package_unavailable');
+  assert.ok(admitted.every(value => value === 0));
+  host.maintenance.run = run;
+  const response = Buffer.from('response failed after verification');
+  f.workerHooks.downloadPackage = async () => ({ id, bytes: response, size: response.length, sha256: 'f'.repeat(64) });
+  host.respondPackage = () => { throw Error('response failed'); };
+  await assert.rejects(() => setup.handle(request, {}, pathname), /response failed/);
+  assert.ok(response.every(value => value === 0));
   await f.finishWarm(warm);
 });
 
@@ -230,7 +360,9 @@ test('warm adaptersReady reads every live driver and health gate instead of conf
   assert.equal(installed.host.adaptersReady(), true);
   assert.equal(f.factory.capabilities.productionReady, false);
   assert.equal(installed.capabilities.worker, false);
-  assert.equal(installed.capabilities.download, false);
+  // The install descriptor states what this install really defined: the same
+  // package transfer that the live status then requires a current result for.
+  assert.equal(installed.capabilities.download, true);
   assert.equal(installed.capabilities.crashClaim, false);
   assert.equal(installed.capabilities.activation, false);
 

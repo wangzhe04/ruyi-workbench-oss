@@ -4557,6 +4557,8 @@
   "workData.drainHelp": "Maintenance preparation pauses new work while existing tasks finish. Preparation can be cancelled only while the service allows it.",
   "workData.handoffHelp": "The operation is handing off to another process or awaiting confirmation and cannot be cancelled. Wait for the new process state and completion receipt. A handoff alone does not mean migration is complete.",
   "workData.lastReceipt": "The latest saved maintenance receipt was read from the service. Check the current data root state above.",
+  "workData.downloadPackage": "Save recovery package",
+  "workData.packageSaved": "The recovery package was handed to the browser. Check its size and location; a failed download leaves no partial file.",
   "workData.job.queued": "Queued for preparation",
   "workData.job.draining": "Waiting for existing tasks and writes",
   "workData.job.preparing": "Preparing the maintenance process",

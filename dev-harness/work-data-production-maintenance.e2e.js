@@ -19,7 +19,7 @@
 // un-detachable on this host (measured: the cold worker dies the moment serve
 // exits), so the test never puts serve in a Job. A failure keeps the fixture, the
 // cold worker and its successor; nothing here kills a product process.
-const fs=require('node:fs'),p=require('node:path'),os=require('node:os'),vm=require('node:vm'),cp=require('node:child_process'),c=require('node:crypto'),a=require('node:assert/strict');
+const fs=require('node:fs'),p=require('node:path'),os=require('node:os'),vm=require('node:vm'),cp=require('node:child_process'),http=require('node:http'),c=require('node:crypto'),a=require('node:assert/strict');
 const core=require('./lib/work-data-production-upload-core'),{createProcesses,createStrictStop}=require('./lib/work-data-production-upload-process');
 const upload=require('./work-data-production-upload.e2e');
 const {releaseEnvironment}=require('./lib/release-checks'),{snapshotProcessTable,ownDescendants}=require('./lib/kill-own-tree'),{getFreePort}=require('./free-port');
@@ -155,6 +155,90 @@ function createWorld({root,evidence,target}){
    if(response.status!==200)throw Object.assign(Error('status unavailable'),{code:'STATUS_'+response.status});
    healthy();return response.value;
   }
+ }
+ // Raw verified package bytes. The generic JSON helper is bounded at 64 KiB and
+ // cannot read a package, so this route gets its own bounded byte reader.
+ function packageGet(ref,id,{headers={},auth=true,timeout=BUDGET.request}={}){
+  return new Promise((resolve,reject)=>{
+   let done=false,timer=null,size=0;const parts=[];
+   const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);if(error){req?.destroy?.();reject(error);}else resolve(value);};
+   const req=http.request({hostname:'127.0.0.1',port:ref.port,path:'/api/work-data/results/'+id+'/package',method:'GET',agent:false,
+    headers:{host:'127.0.0.1:'+ref.port,connection:'close',...(auth?{'x-wcw-token':ref.token}:{}),...headers}},res=>{
+    res.on('data',part=>{size+=part.length;if(size>64*1024*1024)return finish(Error('bounded package response'));parts.push(part);});
+    res.on('end',()=>finish(null,{status:res.statusCode,headers:res.headers,raw:Buffer.concat(parts,size)}));
+    res.on('error',error=>finish(error));
+   });
+   req.on('error',error=>finish(error));
+   timer=setTimeout(()=>finish(Error('package request deadline')),timeout);
+   req.end();
+  });
+ }
+ const packageCode=response=>{try{const value=JSON.parse(response.raw.toString('utf8'));return value?.error?.code||null;}catch{return null;}};
+ const assertRefusal=(response,status,code,label)=>{
+  a.equal(response.status,status,label+': status');
+  a.equal(packageCode(response),code,label+': typed code');
+  a.equal(response.headers['content-disposition'],undefined,label+': no attachment');
+  a.equal(String(response.headers['content-type']||'').startsWith('application/json'),true,label+': a refusal body is JSON');
+ };
+ // A package read is admitted only while no job prepares; that verdict is decided
+ // before any result, owner or file work.
+ async function assertBusyPackage(ref,label){
+  let response=null;
+  for(let attempt=0;attempt<6&&!response;attempt++){
+   try{response=await packageGet(ref,'f'.repeat(48),{timeout:4000});}
+   catch(error){if(!isTransport(error))throw error;await sleep(15);}
+  }
+  a.ok(response,label+': a package read during preparation must get an answer');
+  assertRefusal(response,409,'work_data_setup.busy',label);
+ }
+ async function assertPackage(f,ref,saved,label){
+  const path=p.join(f.backups,'ruyi-work-data-'+saved.id+'.ruyi-backup'),disk=core.read(path);
+  // The durable control tree, the backup directory and the session bytes are the
+  // state a package read could plausibly touch; none may change.
+  const snapshot=()=>({control:core.inventory(p.join(f.base,'.work-data')),backup:core.inventory(f.backups),
+    session:core.read(p.join(f.base,'sessions',SESSION_ID+'.json')).row});
+  const before=snapshot();
+  const first=await packageGet(ref,saved.id);
+  a.equal(first.status,200,label+': package status');
+  a.equal(first.headers['content-type'],'application/octet-stream',label+': octet-stream');
+  a.equal(first.headers['content-disposition'],'attachment; filename="ruyi-work-data-'+saved.id+'.ruyi-backup"',label+': attachment name');
+  a.equal(first.headers['cache-control'],'no-store',label+': no-store');
+  a.equal(first.headers['x-content-type-options'],'nosniff',label+': nosniff');
+  a.equal(first.headers['content-length'],String(saved.backup.bytes),label+': explicit content-length');
+  a.equal(first.raw.length,saved.backup.bytes,label+': whole body length');
+  a.equal(core.H(first.raw),saved.backup.sha256,label+': downloaded bytes hash to the record');
+  a.ok(first.raw.equals(disk.bytes),label+': downloaded bytes are the backup file bytes');
+  const second=await packageGet(ref,saved.id);
+  a.equal(second.status,200,label+': repeated package status');
+  a.ok(second.raw.equals(first.raw),label+': repeated download is byte-identical');
+  a.deepEqual(snapshot(),before,label+': a package read writes nothing into the data root');
+  return {path,disk,first};
+ }
+ async function assertPackageRefusals(f,ref,saved,label,{priorIds}){
+  assertRefusal(await packageGet(ref,'f'.repeat(48)),404,'work_data_setup.package_not_found',label+': non-current id');
+  for(const prior of priorIds)assertRefusal(await packageGet(ref,prior),404,'work_data_setup.package_not_found',label+': historical id '+prior);
+  assertRefusal(await packageGet(ref,saved.id,{headers:{range:'bytes=0-1'}}),400,'work_data_setup.package_range_unsupported',label+': Range');
+  assertRefusal(await packageGet(ref,saved.id,{auth:false}),403,'auth.token_invalid',label+': no token');
+  const cross=await packageGet(ref,saved.id,{headers:{origin:'http://evil.example'}});
+  a.equal(cross.status,403,label+': cross-origin status');
+  a.match(packageCode(cross),/^(?:auth\.origin_rejected|work_data_setup\.package_origin_invalid)$/,label+': cross-origin typed code');
+  a.equal(cross.headers['content-disposition'],undefined,label+': cross-origin attachment');
+  // Same length, different content: the hash, not the path, is authoritative.
+  const original=fs.readFileSync(saved.backup.path),replaced=Buffer.alloc(original.length,0x58);
+  a.equal(replaced.length,original.length);
+  try{
+   fs.writeFileSync(saved.backup.path,replaced);
+   assertRefusal(await packageGet(ref,saved.id),503,'work_data_setup.package_unavailable',label+': replaced bytes');
+  }finally{fs.writeFileSync(saved.backup.path,original);}
+  // A missing backup is typed unavailable, and restoring the same file restores the read.
+  const moved=saved.backup.path+'.moved';
+  try{
+   fs.renameSync(saved.backup.path,moved);
+   assertRefusal(await packageGet(ref,saved.id),503,'work_data_setup.package_unavailable',label+': missing backup');
+  }finally{fs.renameSync(moved,saved.backup.path);}
+  const restored=await packageGet(ref,saved.id);
+  a.equal(restored.status,200,label+': the restored backup is readable again');
+  a.equal(core.H(restored.raw),saved.backup.sha256,label+': restored bytes hash to the record');
  }
  async function waitWorkerReady(ref){
   const deadline=Date.now()+BUDGET.startup;
@@ -334,8 +418,11 @@ function createWorld({root,evidence,target}){
   }catch{return null;}
  }
 
- function assertCapabilities(value){
-  a.deepEqual(value.capabilities,{worker:true,upload:true,download:false},'only the real worker and upload are advertised');
+ function assertCapabilities(value,{download}={}){
+  // Package transfer follows the installed warm runtime and the one current
+  // result: a warm serve without a result must not advertise it.
+  const expected=download===undefined?value.lastResult!==null:download;
+  a.deepEqual(value.capabilities,{worker:true,upload:true,download:expected},'only the real worker, upload and the current package are advertised');
   a.equal(Object.hasOwn(value.capabilities,'crashClaim'),false);
   a.equal(Object.hasOwn(value.capabilities,'activation'),false);
   a.equal(value.processRestartRequired,true);
@@ -399,7 +486,7 @@ function createWorld({root,evidence,target}){
  }
  async function runRound(f,ref,spec,state){
   const before=await statusOf(ref);
-  assertCapabilities(before);
+  assertCapabilities(before,{download:state.round!==0});
   a.equal(before.job,null);
   const source=before.authority;
   if(state.round===0)a.deepEqual(source,AUTHORITY0,'first authority is the plain generation zero');
@@ -409,6 +496,8 @@ function createWorld({root,evidence,target}){
    ctx.phase='submit-'+spec.operation;
    const jobId=await submitJob(ref,{operation:spec.operation,password:PASSWORD,expectedAuthority:source,backupDirectory:f.backups,...(spec.operation==='disable'?{confirmPlaintext:true}:{})});
    record({kind:'round-start',round:state.round,operation:spec.operation,jobId,sourceAuthority:source});
+   ctx.phase='busy-package-'+spec.operation;
+   await assertBusyPackage(ref,'round '+state.round+' '+spec.operation);
    const armed=await waitClaim(observer,{id:jobId,phase:'armed'});
    record({kind:'claim-armed',jobId,sha256:armed.sha256,childPid:armed.childPid});
    const coldChild=watchPid(armed.childPid);
@@ -427,10 +516,21 @@ function createWorld({root,evidence,target}){
    const committed=observer.samples.find(sample=>sample.present===true&&sample.id===jobId&&sample.phase==='committed');
    record({kind:'claim-timeline',jobId,armedAt:armed.at,committedAt:committed?.at??null,ownedAt:owned.at,successorAt:Date.now()});
    ctx.phase='verify-'+spec.operation;
-   assertCapabilities(next.status);
+   assertCapabilities(next.status,{download:true});
    a.equal(next.status.job,null,'a new process never inherits the previous job');
    const saved=assertResult(f,next.status,{id:jobId,operation:spec.operation,state:spec.operation==='export'?'verified':'published',source});
    assertActive(f,next.status);
+   ctx.phase='package-'+spec.operation;
+   const pkg=await assertPackage(f,next,{id:jobId,backup:saved.backup},'round '+state.round+' '+spec.operation);
+   record({kind:'package-verified',round:state.round,operation:spec.operation,jobId,bytes:pkg.first.raw.length,sha256:core.H(pkg.first.raw),contentLength:pkg.first.headers['content-length']});
+   checked('round '+state.round+' '+spec.operation+' serves the verified package bytes twice without writing into the data root');
+   if(state.round===1){
+    ctx.phase='package-refusals-'+spec.operation;
+    await assertPackageRefusals(f,next,{id:jobId,backup:saved.backup},'round '+state.round+' '+spec.operation,{priorIds:state.priorIds});
+    record({kind:'package-refusals-verified',round:state.round,priorIds:state.priorIds});
+    checked('round '+state.round+' '+spec.operation+' refuses non-current, replaced, missing, Range, foreign-origin and tokenless package reads');
+   }
+   state.priorIds.push(jobId);
    await assertNoPendingIntent(f);
    assertCustody(f,custodyBefore+1);
    sessionIntact(f,sessionBefore);
@@ -610,6 +710,7 @@ function createWorld({root,evidence,target}){
   for(;;){const value=readJsonLoose(file);if(value)return value;if(Date.now()>=deadline)throw Error((label||'json')+' deadline');await sleep(25);}
  }
  return{ctx,latch,healthy,record,checkpoint,checked,openJournal,manager,fixture,spawnServe,readyWarm,statusOf,waitWorkerReady,submitJob,
+  packageGet,assertPackage,assertPackageRefusals,assertBusyPackage,
   claimApi,cimIdentity,absentByCim,coldWindow,waitSuccessor,runRound,bootScenario,writeClaim,intentRecord,resultRecord,waitFile,waitJson,runBootNegatives,stderrOf};
 }
 
@@ -642,7 +743,7 @@ async function runActual(argv=process.argv.slice(2)){
   // The boot verdicts are independent of any handoff and each owns a separate
   // root, so they are decided first: a blocked handoff must not hide them.
   await w.runBootNegatives();
-  let current=initial;const state={round:0};
+  let current=initial;const state={round:0,priorIds:[]};
   for(const spec of [{operation:'enable'},{operation:'export'},{operation:'disable'}]){current=await w.runRound(f,current,spec,state);state.round++;}
   // Only the last successor is handed to the owned Job. Assigning old serve
   // instead would make the product's detached cold launch un-detachable on this
@@ -679,7 +780,7 @@ async function runActual(argv=process.argv.slice(2)){
   w.checkpoint('result',{schema:1,passed:w.ctx.checks.length,checks:w.ctx.checks,root,targetServer:target.server,
    executionInputSha256:inputsAfter.executionInputSha256,executionInputs:inputsAfter.files,inputProof:inputsAfter,
    outerJob:outer,initialServer:w.manager.inspect(handle),
-   capabilities:{worker:true,upload:true,download:false,crashClaim:false,activation:false},
+   capabilities:{...current.status.capabilities},crashClaim:false,activation:false,
    processEvidenceLimit:'Real serve/cold/successor lifecycle plus actual sampled CIM identity. The simulated four-process fixture is not used as evidence here.',
    restorationComplete:false,whole3_1Complete:false});
   passed=true;

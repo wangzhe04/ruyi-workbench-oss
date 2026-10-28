@@ -29116,6 +29116,13 @@
           ]
         },
         {
+          "provider": "01t-work-data-recovery.js",
+          "symbol": "WorkDataRecovery",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13ai-work-data-worker.js",
           "symbol": "WorkDataMaintenanceWorker",
           "kinds": [
