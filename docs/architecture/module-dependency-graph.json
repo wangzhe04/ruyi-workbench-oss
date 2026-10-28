@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 124,
-    "providedSymbols": 4168,
-    "requiredSymbols": 4022,
-    "edges": 858,
+    "modules": 125,
+    "providedSymbols": 4197,
+    "requiredSymbols": 4025,
+    "edges": 860,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -20,7 +20,15 @@
       "provides": [
         "APP_NAME",
         "ASR_MAX_BODY_BYTES",
+        "BOOT_ROOT_PREFERENCE_DIR",
+        "BOOT_ROOT_PREFERENCE_ID",
+        "BOOT_ROOT_PREFERENCE_KEYS",
+        "BOOT_ROOT_PREFERENCE_KIND",
+        "BOOT_ROOT_PREFERENCE_LIMIT",
+        "BOOT_ROOT_PREFERENCE_NAME",
+        "BOOT_ROOT_PREFERENCE_SHA",
         "BUNDLED_PYTHON_RUNTIME",
+        "BootRootPreference",
         "CLI_DIAGNOSTIC_TEXT_CAP",
         "CONFIG_SCHEMA",
         "CliBusinessHooks",
@@ -66,9 +74,13 @@
         "WorkDataMaintenanceWorkerHooks",
         "WorkDataRootHooks",
         "WorkDataSetupHooks",
+        "_bootRootPreferenceRead",
+        "_bootRootPreferenceReason",
+        "_bootRootPreferenceValue",
         "_consoleGbDecoder",
         "_consoleUtf8Strict",
         "_dataRootMemo",
+        "_dataRootSource",
         "_workDataStableAliases",
         "_workDataStableBase",
         "agentCliHomes",
@@ -77,6 +89,17 @@
         "apiSessionNotFound",
         "appRoot",
         "appendUsageLedger",
+        "bootRootPreferenceAbsolute",
+        "bootRootPreferenceAlias",
+        "bootRootPreferenceAuthority",
+        "bootRootPreferenceDirectoryOk",
+        "bootRootPreferenceFile",
+        "bootRootPreferenceFold",
+        "bootRootPreferenceFreeze",
+        "bootRootPreferenceGenerationReady",
+        "bootRootPreferenceShape",
+        "bootRootPreferenceStamp",
+        "bootRootPreferenceTargetMatches",
         "buildUsageSummary",
         "cachedInputTokensFromUsage",
         "claudeCostFields",
@@ -92,6 +115,8 @@
         "dataRoot",
         "dataRootAliases",
         "dataRootMemoKey",
+        "dataRootSource",
+        "decodeBootRootPreference",
         "decodeConsoleSegment",
         "decodeConsoleText",
         "decodeTextFileBytes",
@@ -125,6 +150,7 @@
         "pathToFileURL",
         "paths",
         "pidAlive",
+        "readBootRootPreferenceOnce",
         "readInstallRegistry",
         "readUsageRows",
         "readline",
@@ -169,6 +195,7 @@
         "usageSplitComplete",
         "usageTsDateMemo",
         "usageTsIsCanonical",
+        "validateBootRootPreference",
         "zlib"
       ],
       "requires": [
@@ -14973,6 +15000,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRootSource",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "decodeConsoleText",
           "kinds": [
             "call"
@@ -28276,7 +28310,7 @@
       "file": "13at-work-data-restore-uploads.js",
       "order": 108,
       "layer": "unclassified",
-      "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and one job-bound private job/nonce handoff consumed by the cold restore worker; HTTP upload custody and the warm runtime keeper are wired, restore recovers into an independent fresh target without activation or a warm root switch, and activation stays with WorkDataSetup / WorkDataRuntimeHost",
+      "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and one job-bound private job/nonce handoff consumed by the cold restore worker; HTTP upload custody and the warm runtime keeper are wired, and a restore recovers into an independent fresh target whose private successor is started on that target root under the TEMP activation receipt (B2). The receipt remains a single-handoff TEMP record — never a migration, ownership or long-lived serving-root authority; the persistent boot-root preference is a separate record (B3).",
       "provides": [
         "WorkDataRestoreUploads"
       ],
@@ -29263,10 +29297,28 @@
       ]
     },
     {
-      "file": "13au-work-data-runtime-host.js",
+      "file": "13aw-work-data-root-preference.js",
       "order": 122,
       "layer": "unclassified",
-      "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process.",
+      "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted",
+      "provides": [
+        "WorkDataRootPreference"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "BootRootPreference",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13au-work-data-runtime-host.js",
+      "order": 123,
+      "layer": "unclassified",
+      "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis).",
       "provides": [
         "WorkDataRuntimeHost",
         "WorkDataServeUploadBootstrap"
@@ -29369,15 +29421,23 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13aw-work-data-root-preference.js",
+          "symbol": "WorkDataRootPreference",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
     {
       "file": "14-main.js",
-      "order": 123,
+      "order": 124,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
+        "clearBootRootPreference",
         "holdWorkDataCliOwner",
         "main",
         "startWorkbenchServe",
@@ -37657,6 +37717,7 @@
         "crypto",
         "dataRoot",
         "dataRootAliases",
+        "dataRootSource",
         "decodeConsoleText",
         "defaultDataRoots",
         "ensureDirs",
@@ -39776,10 +39837,26 @@
       "direction": "backward"
     },
     {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "13aw-work-data-root-preference.js",
+      "symbols": [
+        "WorkDataRootPreference"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "13av-work-data-handoff-claim.js",
       "to": "00-boot.js",
       "symbols": [
         "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aw-work-data-root-preference.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "BootRootPreference"
       ],
       "direction": "backward"
     },

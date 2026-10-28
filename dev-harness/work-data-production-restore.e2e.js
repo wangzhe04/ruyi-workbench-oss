@@ -13,6 +13,13 @@
 // as lastResult. Data origin is proven with a package-only session served by the
 // target and absent from a separate plain serve on the source root.
 //
+// B3 continues after reclamation: the successor also wrote <home>/.ruyi/
+// boot-root-v1.json (a strict eight-key preference, never an activation receipt).
+// Two ordinary serves with RUYI_HOME/WIN_CLAUDE_WORKBENCH_HOME removed must start
+// from that target through the preference, while an explicit RUYI_HOME=source
+// serve still serves the source (env wins) and no ordinary start rewrites the
+// preference.
+//
 // Journey A (plain generation-zero source): synthetic sealed package -> POST 201
 // -> restore 202 -> durable armed claim -> old serve natural exit (committed) ->
 // cold listener holding the real source owner (owned) -> real restore + the
@@ -89,12 +96,12 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
  const manager=createProcesses({record,writeOutput(label,kind,bytes){try{rawWrite(outputFD.get(label+':'+kind),bytes);}catch(error){latch(error);throw error;}},latch,isUnknown:()=>ctx.unknown,
   beforeStart:sourceGate,killOwnTree:createStrictStop({snapshotProcessTable,ownDescendants,latch,isUnknown:()=>ctx.unknown}),snapshotProcessTable,ownDescendants});
 
- function spawnServe(f,label,port){
+ function spawnServe(f,label,port,{env=f.env}={}){
   healthy();openOutput(label);
   // detached deliberately (same reason as the maintenance E2E): libuv would give
   // a non-detached child a kill-on-close Job, and the product's detached cold
   // worker would inherit it and die the moment old serve exits.
-  return manager.start(process.execPath,[target.server,'serve','--host','127.0.0.1','--port',String(port)],{cwd:p.dirname(target.server),env:f.env,windowsHide:true,detached:true,stdio:['ignore','pipe','pipe']},label);
+  return manager.start(process.execPath,[target.server,'serve','--host','127.0.0.1','--port',String(port)],{cwd:p.dirname(target.server),env,windowsHide:true,detached:true,stdio:['ignore','pipe','pipe']},label);
  }
  const config=workspace=>({configSchema:14,locale:'en-US',workDataEncryptionV1:false,permissionMode:'ask',stewardEnabledV1:false,schedulerEnabledV1:false,autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:workspace});
  function fixture(label){
@@ -129,12 +136,12 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
  }
 
  async function request(ref,path,bytes,options={}){healthy();const result=await upload.makeHttp({port:ref.port,token:ref.token},path,bytes,{...options,guard:healthy});healthy();return result;}
- async function readyWarm(handle,f){
+ async function readyAt(handle,base){
   healthy();const deadline=Date.now()+BUDGET.startup;
   while(Date.now()<deadline){
    if(ctx.unknown)throw Error('unknown during ready');
    a.equal(manager.inspect(handle).closeSeen,false,'normal serve exited before ready');
-   let rt=null;try{rt=core.json(p.join(f.base,'runtime.json'));}catch(error){if(error.code!=='ENOENT')throw error;}
+   let rt=null;try{rt=core.json(p.join(base,'runtime.json'));}catch(error){if(error.code!=='ENOENT')throw error;}
    if(rt?.pid===manager.pid(handle)){
     a.equal(rt.host,'127.0.0.1');a.ok(Number.isInteger(rt.port)&&rt.port>0&&rt.port<=65535);
     a.equal(typeof rt.token==='string'&&/^[a-f0-9]{32}$/.test(rt.token),true,'runtime token format');
@@ -145,6 +152,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   }
   throw Error('complete normal serve startup observation deadline');
  }
+ const readyWarm=(handle,f)=>readyAt(handle,f.base);
  async function statusOf(ref){healthy();const response=await request(ref,'/api/work-data/status');a.equal(response.status,200);return response.value;}
  async function waitWorkerReady(ref){
   const deadline=Date.now()+BUDGET.startup;
@@ -360,6 +368,125 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
    if(!held)throw error;
   }
   a.equal(held,true,label+': the target successor holds the real OS owner');
+ }
+ async function assertTargetOwnerFree(target,label){
+  const lease=await getOwnership().acquire([await getOwnership().canonicalRoot(target)]);
+  a.ok(lease,label+': the target OS owner is free');
+  await lease.release();
+ }
+ const bootRootPreferenceFile=f=>p.join(f.home,'.ruyi','boot-root-v1.json');
+ const bootRootPreferenceKeys='authority,base,baseIdentity,createdAt,kind,resultId,resultSha256,schema';
+ // A stale preference from an earlier run would make the post-ready read look like
+ // this activation's evidence. Prove the file is absent (and no stage is pending)
+ // immediately before the restore is submitted; the later record must also carry
+ // resultId/resultSha256 of this job and a createdAt not older than this check.
+ function assertBootRootPreferenceAbsent(f,label){
+  const file=bootRootPreferenceFile(f),directory=p.dirname(file);
+  let dirStat=null;try{dirStat=fs.lstatSync(directory,{bigint:true});}catch{}
+  if(dirStat){
+   a.ok(dirStat.isDirectory()&&!dirStat.isSymbolicLink(),label+': <home>/.ruyi is a real directory');
+   a.deepEqual(fs.readdirSync(directory).filter(name=>name==='boot-root-v1.json'||name.startsWith('.boot-root-v1.stage-')),[],label+': no stale boot preference or pending stage');
+  }
+  a.equal(fs.existsSync(file),false,label+': no boot-root preference exists before the restore submit');
+  const at=Date.now();
+  checkpoint('boot-root-preference-absent-'+label,{file,directory,dirExists:Boolean(dirStat),at:new Date(at).toISOString()});
+  record({kind:'boot-root-preference-absent',label,file,directory,dirExists:Boolean(dirStat),at:new Date(at).toISOString()});
+  return {file,at};
+ }
+ // The long-lived boot preference is product state, not an activation receipt:
+ // eight keys, canonical target outside both roots, exact target identity and
+ // authority, and the SOURCE result proof this restore committed.
+ async function readBootRootPreference({f,target,authority,resultId,resultSha256,name,notBefore=0}){
+  const file=bootRootPreferenceFile(f),deadline=Date.now()+25000;
+  while(Date.now()<deadline){
+   // existsSync holds no handle, so it cannot block the product's atomic rename.
+   if(fs.existsSync(file))break;
+   await sleep(25);
+  }
+  a.equal(fs.existsSync(file),true,name+': the boot-root preference was written');
+  const directory=p.dirname(file),dirStat=fs.lstatSync(directory,{bigint:true});
+  a.ok(dirStat.isDirectory()&&!dirStat.isSymbolicLink(),name+': .ruyi is a real directory');
+  const captured=core.read(file),value=JSON.parse(captured.bytes);
+  a.equal(Object.keys(value).sort().join(','),bootRootPreferenceKeys,name+': the preference has exactly its eight fields');
+  a.equal(value.schema,1);a.equal(value.kind,'restored-boot-root');
+  for(const forbidden of ['activation','nonce','parentPid'])a.equal(Object.hasOwn(value,forbidden),false,name+': the preference is not an activation receipt');
+  const canonicalTarget=await getOwnership().canonicalRoot(target);
+  a.equal(value.base,canonicalTarget,name+': the preference names the canonical target');
+  a.ok(p.isAbsolute(value.base)&&p.resolve(value.base)===value.base);
+  a.deepEqual(Object.keys(value.baseIdentity).sort(),['dev','ino']);
+  const targetStat=fs.lstatSync(target,{bigint:true});
+  a.equal(value.baseIdentity.dev,String(targetStat.dev),name+': preference target dev matches');
+  a.equal(value.baseIdentity.ino,String(targetStat.ino),name+': preference target ino matches');
+  a.deepEqual(value.authority,authority,name+': preference authority is the target authority');
+  a.equal(value.resultId,resultId,name+': preference resultId is this restore job');
+  a.equal(value.resultSha256,resultSha256,name+': preference resultSha256 is the source result proof');
+  a.equal(value.createdAt,new Date(value.createdAt).toISOString(),name+': preference createdAt is a strict stamp');
+  const created=Date.parse(value.createdAt);
+  a.ok(created<=Date.now()&&created>=Date.now()-30*60*1000,name+': preference createdAt is a plausible real timestamp');
+  a.ok(created>=notBefore,name+': preference createdAt is not older than the pre-restore absence check');
+  const inside=(root,filePath)=>{const rel=p.relative(core.norm(root),core.norm(filePath));return rel===''||rel!=='..'&&!rel.startsWith('..'+p.sep)&&!p.isAbsolute(rel);};
+  a.equal(inside(f.base,file),false,name+': the preference is outside the source base');
+  a.equal(inside(target,file),false,name+': the preference is outside the target base');
+  a.equal(core.norm(p.dirname(file)),core.norm(p.join(f.home,'.ruyi')),name+': the preference lives in <home>/.ruyi');
+  checkpoint('boot-root-preference-'+name,{file,sha256:captured.row.sha256,bytes:captured.row.bytes,dev:captured.row.dev,ino:captured.row.ino,
+   base:value.base,baseIdentity:value.baseIdentity,authority:value.authority,resultId:value.resultId,resultSha256:value.resultSha256,createdAt:value.createdAt});
+  record({kind:'boot-root-preference',name,file,sha256:captured.row.sha256,base:value.base,baseIdentity:value.baseIdentity,authority:value.authority,resultId:value.resultId,resultSha256:value.resultSha256,createdAt:value.createdAt});
+  return {file,row:captured.row,value};
+ }
+ function envWithoutRoot(f){
+  const env={...f.env};
+  for(const key of Object.keys(env)){const upper=key.toUpperCase();if(upper==='RUYI_HOME'||upper==='WIN_CLAUDE_WORKBENCH_HOME')delete env[key];}
+  return env;
+ }
+ // An ordinary serve with NO explicit root env must resolve the target through
+ // <home>/.ruyi/boot-root-v1.json. The proof is the target runtime/status, the
+ // target-only session set and the unchanged preference bytes - not a field claim.
+ async function runPreferenceBoot({f,label,target,expectedAuthority,jobId,expectPresent,expectAbsent,preference}){
+  ctx.phase=label;
+  const env=envWithoutRoot(f);
+  a.equal(Object.keys(env).some(key=>/^(?:RUYI_HOME|WIN_CLAUDE_WORKBENCH_HOME)$/i.test(key)),false,label+': no explicit root env');
+  a.equal(env.HOME,f.env.HOME,label+': HOME stays isolated');
+  a.equal(env.USERPROFILE,f.env.USERPROFILE,label+': USERPROFILE stays isolated');
+  a.equal(env.TEMP,f.env.TEMP,label+': TEMP stays isolated');
+  const sourceRuntimeBefore=core.read(p.join(f.base,'runtime.json')).row;
+  const preferenceBefore=core.read(preference.file).row;
+  await assertTargetOwnerFree(target,label);
+  await assertActivationAbsent(f,target,label+'-pre-start');
+  const custodyBefore=custodyDirs(f).length;
+  const port=await getFreePort('127.0.0.1');
+  const sourceRuntimePort=core.json(p.join(f.base,'runtime.json')).port;
+  const handle=spawnServe(f,label+'-serve',port,{env});
+  await handle.spawned;healthy();
+  const ref=await readyAt(handle,target);
+  await manager.captureNativeBirths(handle);
+  const status=await waitWorkerReady(ref);
+  assertCapabilities(status,label);
+  a.equal(status.job,null,label+': the preference-boot serve has no job');
+  a.deepEqual(status.authority,expectedAuthority,label+': the preference-boot serve publishes the target authority');
+  const runtime=core.json(p.join(target,'runtime.json'));
+  a.equal(runtime.pid,manager.pid(handle),label+': the target runtime names this owned serve pid');
+  a.equal(runtime.token,ref.token,label+': the target runtime names this owned serve token');
+  a.equal(runtime.port,port,label+': the target runtime keeps the new port');
+  a.equal(runtime.host,'127.0.0.1');
+  a.notEqual(runtime.port,sourceRuntimePort,label+': the target runtime is not the old source record');
+  core.samePinned(core.read(p.join(f.base,'runtime.json')).row,sourceRuntimeBefore);
+  // The child owns the target root and not the source root: a real ownership probe.
+  await assertOwnerHeld(target,label+'-target-owner');
+  await assertOwnerFree(f,label+'-source-owner');
+  const ids=await sessionIds(ref);
+  for(const id of expectPresent)a.ok(ids.includes(id),label+': the target session is served ('+id+')');
+  for(const id of expectAbsent)a.equal(ids.includes(id),false,label+': the source-only session is absent from the target boot ('+id+')');
+  core.samePinned(core.read(preference.file).row,preferenceBefore);
+  a.ok(!status.lastResult||status.lastResult.id!==jobId,label+': the target lastResult is not this restore job');
+  a.equal(custodyDirs(f).length,custodyBefore+1,label+': one fresh custody root for the ordinary serve');
+  await assertActivationAbsent(f,target,label+'-post-ready');
+  await manager.cleanupKnown(handle,async()=>{healthy();});
+  healthy();
+  core.samePinned(core.read(preference.file).row,preferenceBefore);
+  core.samePinned(core.read(p.join(f.base,'runtime.json')).row,sourceRuntimeBefore);
+  checkpoint(label+'-summary',{port,pid:runtime.pid,authority:status.authority,sessions:ids,lastResultId:status.lastResult?.id||null,preferenceSha256:preferenceBefore.sha256});
+  record({kind:'preference-boot',label,port,pid:runtime.pid,authority:status.authority,sessions:ids,lastResultId:status.lastResult?.id||null,preferenceSha256:preferenceBefore.sha256});
+  return {port,status,sessions:ids,runtime:{pid:runtime.pid,port:runtime.port},preferenceSha256:preferenceBefore.sha256};
  }
  function walkTargetNames(target){
   const files=[],directories=[];
@@ -812,6 +939,9 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   }
   a.deepEqual(core.inventory(existing),existingBefore,'a refused existing target is never modified');
   checkpoint('plain-custody-before-restore',core.inventory(custody.dir));
+  // No stale long-lived preference may exist before this restore commits: the
+  // post-ready record must be written by THIS activation, not inherited.
+  const preRestorePreference=assertBootRootPreferenceAbsent(f,'plain');
 
   const targetDirectory=p.join(f.targets,'restored');
   const round=await runMaintenanceRound(f,initial,{
@@ -827,6 +957,9 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
     assertNoIntent(f,'plain restore');
     const targetClaim=await claimApi(f.temp).inspect({base:await getOwnership().canonicalRoot(targetDirectory)});
     a.equal(targetClaim.present,false,'the started target has no handoff claim of its own');
+    // The successor writes the long-lived preference after serve-ready, before it
+    // consumes the TEMP activation receipt. Both facts are observed here.
+    const preference=await readBootRootPreference({f,target:targetDirectory,authority:status.authority,resultId:jobId,resultSha256:result.row.sha256,name:'plain',notBefore:preRestorePreference.at});
     await waitActivationGone(f,targetDirectory);
     await assertActivationAbsent(f,targetDirectory,'plain restore');
     const started=await assertStartedTarget({target:targetDirectory,sealed,password:PACKAGE_PASSWORD,label:'plain restore',successor:next,encrypted:false});
@@ -882,21 +1015,35 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
     a.equal(jobLookup.value?.error?.code,'work_data_setup.job_not_found');
     record({kind:'round-verified',phase:'plain-restore',jobId,authority:status.authority,backup:result.saved.backup,state:result.saved.state,target:targetDirectory,targetSessions});
     checked('plain restore served the committed target on the same port: package bytes, package-only session, consumed activation receipt and a durable source result');
-    return {target:targetDirectory,packagePaths:started.packagePaths,result,sourcePinsAfter:sourcePins(f),targetSessions};
+    return {target:targetDirectory,packagePaths:started.packagePaths,result,sourcePinsAfter:sourcePins(f),targetSessions,preference,preferenceAbsentAt:preRestorePreference.at};
    }
   });
   const verified=round.verified;
   const sourceServe=await runSourceServeCheck({f,target:targetDirectory,targetRef:round.next,packagePaths:verified.packagePaths,
    expectedAuthority:AUTHORITY0,jobId:round.jobId,expectPresent:[SESSION_ID],expectAbsent:[PACKAGE_SESSION_ID],label:'plain'});
-  // The normal source serve must not rewrite this restore result or the source pins.
+  // The normal source serve must not rewrite this restore result, the source pins
+  // or the long-lived boot preference (env wins; an ordinary start never writes it).
   core.samePinned(core.read(verified.result.resultPath).row,verified.result.row);
   for(const pin of verified.sourcePinsAfter)core.samePinned(core.read(p.join(f.base,...pin.relative.split('/'))).row,pin.row);
+  core.samePinned(core.read(verified.preference.file).row,verified.preference.row);
   assertNoIntent(f,'plain source serve');
   await assertClaimGone(f,'plain source serve');
-  checkpoint('plain-final-status',{authority:round.next.status.authority,lastResult:round.next.status.lastResult,capabilities:round.next.status.capabilities,targetSessions:verified.targetSessions,sourceServe:{authority:sourceServe.status.authority,sessions:sourceServe.ids,lastResultId:sourceServe.status.lastResult?.id}});
+  a.notEqual(core.norm(verified.preference.value.base),core.norm(f.base),'plain: the preference target is not the source root');
+  record({kind:'env-root-priority',label:'plain',preferenceBase:verified.preference.value.base,sourceBase:await getOwnership().canonicalRoot(f.base),preferenceAuthority:verified.preference.value.authority,sourceAuthority:sourceServe.status.authority,sourceSessions:sourceServe.ids});
+  checkpoint('plain-final-status',{authority:round.next.status.authority,lastResult:round.next.status.lastResult,capabilities:round.next.status.capabilities,targetSessions:verified.targetSessions,sourceServe:{authority:sourceServe.status.authority,sessions:sourceServe.ids,lastResultId:sourceServe.status.lastResult?.id},bootRootPreference:verified.preference.value});
   await reclaimSuccessor('plain',round.next);
   checked('plain: the started target successor is reclaimed by the owned outer Job and its CIM identity is absent');
-  return{fixture:f,round,sourceServe};
+  // With the target successor gone, an ordinary serve with no root env must resolve
+  // the target through <home>/.ruyi/boot-root-v1.json, twice, without rewriting it.
+  const preferenceBoot1=await runPreferenceBoot({f,label:'plain-preference-1',target:targetDirectory,expectedAuthority:AUTHORITY0,jobId:round.jobId,
+   expectPresent:[PACKAGE_SESSION_ID],expectAbsent:[SESSION_ID],preference:verified.preference});
+  core.samePinned(core.read(verified.preference.file).row,verified.preference.row);
+  const preferenceBoot2=await runPreferenceBoot({f,label:'plain-preference-2',target:targetDirectory,expectedAuthority:AUTHORITY0,jobId:round.jobId,
+   expectPresent:[PACKAGE_SESSION_ID],expectAbsent:[SESSION_ID],preference:verified.preference});
+  core.samePinned(core.read(verified.preference.file).row,verified.preference.row);
+  core.samePinned(core.read(verified.result.resultPath).row,verified.result.row);
+  checked('plain: two ordinary no-env serves start from the restored target through the boot preference and leave its bytes/identity unchanged');
+  return{fixture:f,round,sourceServe,preference:verified.preference,preferenceBoots:[preferenceBoot1,preferenceBoot2]};
  }
 
  function packageHeaderPaths(snapshot){
@@ -1033,6 +1180,9 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   }finally{openedExport.release();}
   checkpoint('encrypted-custody-after-upload',{custody:custody.name,bytes:exportedBytes.length,sha256:core.H(exportedBytes)});
   checked('encrypted: the real exported package is admitted byte-for-byte under a package-only password');
+  // The initial boot, enable and export must not have written any preference; this
+  // restore's activation is the first writer.
+  const preRestorePreference=assertBootRootPreferenceAbsent(f,'encrypted');
 
   const targetDirectory=p.join(f.targets,'restored');
   const round=await runMaintenanceRound(f,exported.next,{
@@ -1050,6 +1200,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
     assertNoIntent(f,'encrypted restore');
     const targetClaim=await claimApi(f.temp).inspect({base:await getOwnership().canonicalRoot(targetDirectory)});
     a.equal(targetClaim.present,false,'the started target has no handoff claim of its own');
+    const preference=await readBootRootPreference({f,target:targetDirectory,authority:status.authority,resultId:jobId,resultSha256:result.row.sha256,name:'encrypted',notBefore:preRestorePreference.at});
     await waitActivationGone(f,targetDirectory);
     await assertActivationAbsent(f,targetDirectory,'encrypted restore');
     const started=await assertStartedTarget({target:targetDirectory,sealed:exportedBytes,password:EXPORT_PASSWORD,label:'encrypted restore',successor:next,encrypted:true});
@@ -1083,7 +1234,7 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
     a.equal(jobLookup.status,404);
     record({kind:'round-verified',phase:'encrypted-restore',jobId,authority:source,backup:result.saved.backup,state:result.saved.state,target:targetDirectory,targetSessions});
     checked('encrypted restore served the committed encrypted target on the same port with the package-only session and a consumed activation receipt');
-    return {target:targetDirectory,packagePaths:started.packagePaths,result,sourcePinsAfter:sourcePins(f,['.work-data/active-v1.json','.work-data/generations/'+source.id+'/work-data-key-v1.json',sentinelRelative]),targetSessions};
+    return {target:targetDirectory,packagePaths:started.packagePaths,result,sourcePinsAfter:sourcePins(f,['.work-data/active-v1.json','.work-data/generations/'+source.id+'/work-data-key-v1.json',sentinelRelative]),targetSessions,preference,preferenceAbsentAt:preRestorePreference.at};
    }
   });
   const verified=round.verified;
@@ -1091,16 +1242,27 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
    expectedAuthority:round.source,jobId:round.jobId,expectPresent:[sentinelId],expectAbsent:[SESSION_ID],label:'encrypted'});
   core.samePinned(core.read(verified.result.resultPath).row,verified.result.row);
   for(const pin of verified.sourcePinsAfter)core.samePinned(core.read(p.join(f.base,...pin.relative.split('/'))).row,pin.row);
+  core.samePinned(core.read(verified.preference.file).row,verified.preference.row);
   // The sentinel is a pre-restore precondition: present before the round, byte-identical
   // after the started target and the later source serve.
   core.samePinned(core.read(sentinelFile).row,sentinelBefore);
   record({kind:'source-sentinel-preserved',sentinelId,relative:sentinelRelative,sha256:sentinelBefore.sha256});
   assertNoIntent(f,'encrypted source serve');
   await assertClaimGone(f,'encrypted source serve');
-  checkpoint('encrypted-final-status',{authority:round.next.status.authority,lastResult:round.next.status.lastResult,capabilities:round.next.status.capabilities,targetSessions:verified.targetSessions,sourceServe:{authority:sourceServe.status.authority,sessions:sourceServe.ids,lastResultId:sourceServe.status.lastResult?.id}});
+  a.notEqual(core.norm(verified.preference.value.base),core.norm(f.base),'encrypted: the preference target is not the source root');
+  record({kind:'env-root-priority',label:'encrypted',preferenceBase:verified.preference.value.base,sourceBase:await getOwnership().canonicalRoot(f.base),preferenceAuthority:verified.preference.value.authority,sourceAuthority:sourceServe.status.authority,sourceSessions:sourceServe.ids,sentinelId});
+  checkpoint('encrypted-final-status',{authority:round.next.status.authority,lastResult:round.next.status.lastResult,capabilities:round.next.status.capabilities,targetSessions:verified.targetSessions,sourceServe:{authority:sourceServe.status.authority,sessions:sourceServe.ids,lastResultId:sourceServe.status.lastResult?.id},bootRootPreference:verified.preference.value});
   await reclaimSuccessor('encrypted',round.next);
   checked('encrypted: the started target successor is reclaimed by the owned outer Job and its CIM identity is absent');
-  return{fixture:f,round,enable,exported,sourceServe,sentinel:{id:sentinelId,relative:sentinelRelative,sha256:sentinelBefore.sha256}};
+  const preferenceBoot1=await runPreferenceBoot({f,label:'encrypted-preference-1',target:targetDirectory,expectedAuthority:round.source,jobId:round.jobId,
+   expectPresent:[SESSION_ID],expectAbsent:[sentinelId],preference:verified.preference});
+  core.samePinned(core.read(verified.preference.file).row,verified.preference.row);
+  const preferenceBoot2=await runPreferenceBoot({f,label:'encrypted-preference-2',target:targetDirectory,expectedAuthority:round.source,jobId:round.jobId,
+   expectPresent:[SESSION_ID],expectAbsent:[sentinelId],preference:verified.preference});
+  core.samePinned(core.read(verified.preference.file).row,verified.preference.row);
+  core.samePinned(core.read(verified.result.resultPath).row,verified.result.row);
+  checked('encrypted: two ordinary no-env serves start from the restored encrypted target through the boot preference and leave its bytes/identity unchanged');
+  return{fixture:f,round,enable,exported,sourceServe,sentinel:{id:sentinelId,relative:sentinelRelative,sha256:sentinelBefore.sha256},preference:verified.preference,preferenceBoots:[preferenceBoot1,preferenceBoot2]};
  }
 
  async function run(){
@@ -1143,15 +1305,18 @@ async function runActual(argv=process.argv.slice(2)){
    executionInputSha256:inputsAfter.executionInputSha256,executionInputs:inputsAfter.files,inputProof:inputsAfter,
    plain:{authority:outcome.plain.round.next.status.authority,target:outcome.plain.round.verified.target,targetSessions:outcome.plain.round.verified.targetSessions,targetLastResult:outcome.plain.round.next.status.lastResult,
     sourceResultId:outcome.plain.round.verified.result.saved.id,sourceResultProofSha256:outcome.plain.round.verified.result.row.sha256,
-    sourceServe:{authority:outcome.plain.sourceServe.status.authority,sessions:outcome.plain.sourceServe.ids,lastResultId:outcome.plain.sourceServe.status.lastResult?.id}},
+    sourceServe:{authority:outcome.plain.sourceServe.status.authority,sessions:outcome.plain.sourceServe.ids,lastResultId:outcome.plain.sourceServe.status.lastResult?.id},
+    bootRootPreference:outcome.plain.preference.value,preferenceBoots:outcome.plain.preferenceBoots,preferenceAbsentAt:new Date(outcome.plain.round.verified.preferenceAbsentAt).toISOString()},
    encrypted:{authority:outcome.encrypted.round.next.status.authority,target:outcome.encrypted.round.verified.target,targetSessions:outcome.encrypted.round.verified.targetSessions,targetLastResult:outcome.encrypted.round.next.status.lastResult,
     enableAuthority:outcome.encrypted.enable.next.status.authority,exportBackup:outcome.encrypted.exported.next.status.lastResult.backup,
     sourceSentinel:outcome.encrypted.sentinel,
     sourceResultId:outcome.encrypted.round.verified.result.saved.id,sourceResultProofSha256:outcome.encrypted.round.verified.result.row.sha256,
-    sourceServe:{authority:outcome.encrypted.sourceServe.status.authority,sessions:outcome.encrypted.sourceServe.ids,lastResultId:outcome.encrypted.sourceServe.status.lastResult?.id}},
+    sourceServe:{authority:outcome.encrypted.sourceServe.status.authority,sessions:outcome.encrypted.sourceServe.ids,lastResultId:outcome.encrypted.sourceServe.status.lastResult?.id},
+    bootRootPreference:outcome.encrypted.preference.value,preferenceBoots:outcome.encrypted.preferenceBoots,preferenceAbsentAt:new Date(outcome.encrypted.round.verified.preferenceAbsentAt).toISOString()},
    capabilities:{worker:true,upload:true,download:false},crashClaim:false,
    restoredActivation:'separate-fresh-root',restartRootPublished:false,currentRootIsTarget:true,activationCompleted:true,
    activationEvidence:'The restore successor serves the committed target root on the source port. It read the TEMP activation receipt (13am verifies base/identity/authority/id/nonce/resultSha256 before serve-ready), the receipt was removed by CAS after ready, the target authority is verified against the active manifest proof, the target owner is held by the successor while the source owner is free, and a package-only session is served by the target but absent from a separate plain serve on the source root. The target status lastResult is package history, never this job.',
+   bootRootEvidence:'Before the restore was submitted, <home>/.ruyi/boot-root-v1.json was proven absent (no file, no pending stage) in both journeys, so the post-ready record cannot be a stale file from an earlier boot/enable/export. After serve-ready the successor wrote that eight-key record (canonical target outside both roots, target dev/ino, target authority, this job id, the source result proof and a createdAt not older than the absence check) and only then consumed the TEMP activation receipt. With the target successor reclaimed, two ordinary serves started with RUYI_HOME/WIN_CLAUDE_WORKBENCH_HOME removed resolved the same target through that preference (target runtime/status, target-only session set, source runtime untouched, preference bytes/dev/ino unchanged). The explicit RUYI_HOME=source serve still served the source and did not rewrite the preference: env wins.',
    coldVerifyEvidence:'13ak host.verifyFresh runs a separate cold node verifier child before the verified result exists. This file observes the cold listener holding the real OS source owner, the source durable result bound to the actual backup, and compares the started target bytes with the package authenticated by the real WorkDataRecovery owner. The verifier child receipt itself is not persisted by the product, so no fabricated verifier receipt is claimed.',
    claimEvidence:'armed: durable 13av record existence (no read handle against the product rename); committed: old serve natural exit 0 only after the go/armed handshake; owned: cold listener exists only after the owned advance and real OS source owner acquisition; cleanup: post-operation 13av inspect reports absent for source and target. Mid-flight polling was removed because on this host a read handle blocks the atomic rename with EPERM (verified standalone).',
    negativeCoverage:{e2ePreAdmission:['target exists','target nested in source','target inside backup directory','target equals source','backup in source','source in backup','unknown upload id','stale authority','missing upload id','plaintext package','invalid utf-8 package'],unitOnly:['wrong restore password','post-admission on-disk package tamper','post-owned crash recovery']},

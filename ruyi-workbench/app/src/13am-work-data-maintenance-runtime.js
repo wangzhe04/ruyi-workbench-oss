@@ -77,14 +77,52 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       if(value===undefined||value===null||typeof value!=='object'||Array.isArray(value)||!names.every(name=>typeof value[name]==='function'))throw fail('activation_unavailable');
       return value;};
     // Re-reads the one TEMP receipt and proves every binding field still names this
-    // exact job/target. No result file on the target is required or consulted.
+    // exact job/target. No result file on the target is required or consulted. The
+    // record travels with its CAS receipt: completion derives the boot preference
+    // from that exact value, never from the request.
     async function verifyActivation(input,canonicalBase,previous) {
       if(!activationInput(input.activation))throw fail('successor_input_invalid');
       if(typeof canonicalBase!=='string')throw fail('successor_input_invalid');
       const found=await activationFor(['inspect']).inspect({base:canonicalBase});
       if(!found||found.present!==true||!activationBound(found.value,found.receipt,input,canonicalBase)||previous!==null&&!sameReceipt(previous,found.receipt))
         throw fail('successor_activation_changed');
-      return found.receipt;
+      return Object.freeze({receipt:found.receipt,value:Object.freeze({
+        schema:found.value.schema,activation:found.value.activation,operation:found.value.operation,base:found.value.base,
+        baseIdentity:Object.freeze({dev:found.value.baseIdentity.dev,ino:found.value.baseIdentity.ino}),
+        authority:Object.freeze({generation:found.value.authority.generation,id:found.value.authority.id,mode:found.value.authority.mode,sha256:found.value.authority.sha256}),
+        id:found.value.id,nonce:found.value.nonce,parentPid:found.value.parentPid,resultSha256:found.value.resultSha256,createdAt:found.value.createdAt})});
+    }
+    // The boot preference is written once, after serve-ready, for a committed restore
+    // only. A missing owner or a failed write is diagnosis: ready, the activation CAS
+    // and the running successor are never rolled back, and no enable/export/disable or
+    // ordinary start ever writes a preference.
+    const preferenceFor=names=>{const value=host.rootPreference;
+      if(value===undefined||value===null||typeof value!=='object'||Array.isArray(value)||!names.every(name=>typeof value[name]==='function'))return null;
+      return value;};
+    // An identical preference for the same commit is never rewritten; the commit
+    // timestamp is derived from the activation record, so a retry cannot drift it.
+    const samePreference=(a,b)=>{try{
+      return !!a&&!!b&&typeof a==='object'&&typeof b==='object'
+        &&fold(a.base)===fold(b.base)&&a.baseIdentity.dev===b.baseIdentity.dev&&a.baseIdentity.ino===b.baseIdentity.ino
+        &&same(a.authority,b.authority)
+        &&a.resultId===b.resultId&&a.resultSha256===b.resultSha256;}catch{return false;}};
+    async function writeRootPreference(record) {
+      // The store's own codec is the only judge of the eight-key record: this layer
+      // builds the fields and never re-derives their shape, so a store-side schema
+      // change cannot be half-adopted here. A store without that judge is a missing
+      // capability, which stays diagnosis like any other failure.
+      const owner=preferenceFor(['inspect','write','validate']);if(!owner)return false;
+      const value={schema:1,kind:'restored-boot-root',base:record.base,
+        baseIdentity:Object.freeze({dev:record.baseIdentity.dev,ino:record.baseIdentity.ino}),
+        authority:Object.freeze({generation:record.authority.generation,id:record.authority.id,mode:record.authority.mode,sha256:record.authority.sha256}),
+        resultId:record.id,resultSha256:record.resultSha256,createdAt:record.createdAt};
+      try{
+        if(await owner.validate(value)!==true)return false;
+        const current=await owner.inspect();
+        if(current&&current.present===true&&samePreference(current.value,value))return true;
+        await owner.write(Object.freeze(value),current&&current.present===true?current.receipt:null);
+        return true;
+      }catch{return false;}
     }
     const retired=()=>{const read=host.retiredReceipt;if(typeof read!=='function')return false;try{return retiredReceipt(read());}catch{return false;}};
     function latch(error) {
@@ -351,7 +389,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       if(activation){
         // The receipt is durable process state, not a request: read it before any
         // serve entry and refuse unless every field still names this exact handoff.
-        try{receipt=await verifyActivation(input,await host.canonical(input.base),null);}
+        try{receipt=(await verifyActivation(input,await host.canonical(input.base),null)).receipt;}
         catch(error){if(error?.code==='work_data_setup.activation_unavailable')throw error;throw fail('successor_input_invalid');}
       }
       successorStarted=true;
@@ -373,11 +411,11 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         if(fold(captured.base)!==fold(await host.canonical(input.base)))return stop(fail('successor_not_captured'));
         actualListener(captured.server,input.serve);
         if(warm!==captured||!ready())return stop(fail('worker_unavailable'));
-        let actual;
+        let actual,bound=null;
         if(pending.receipt){
           // A fresh-root successor proves the committed target through the prepare
           // receipt and the live target authority. No result file is read on target.
-          await verifyActivation(input,await host.canonical(input.base),pending.receipt);
+          bound=await verifyActivation(input,await host.canonical(input.base),pending.receipt);
           actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
         }else{
           const read=host.workerHooks?.readResult;
@@ -387,9 +425,13 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
           actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
         }
         await channel.send({schema:1,kind:'serve-ready',id:input.id,nonce:input.nonce,pid:proc.pid,port:input.serve.port,host:input.serve.host,authority:actual});
-        // serve-ready is already published: a failed CAS removal is retained for
-        // diagnosis and never withdraws the ready state or replays the message.
-        if(pending.receipt){try{await activationFor(['remove']).remove(pending.receipt);}catch{ /* retained */ }}
+        // serve-ready is already published: the committed target becomes the boot
+        // preference first, then the activation receipt is consumed by CAS. Both are
+        // diagnosis-only failures that never withdraw the ready state or replay it.
+        if(pending.receipt){
+          try{await writeRootPreference(bound.value);}catch{ /* diagnosis only */ }
+          try{await activationFor(['remove']).remove(pending.receipt);}catch{ /* retained */ }
+        }
       } catch(error) { slot.successor=Object.freeze({...pending,phase:'failed'});throw error; }
       slot.successor=Object.freeze({...pending,phase:'complete'});
       if(typeof proc.disconnect==='function'&&proc.connected)proc.disconnect();

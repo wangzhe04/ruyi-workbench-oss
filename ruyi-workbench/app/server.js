@@ -77,6 +77,171 @@ function defaultDataRoots() {
 function lstatOrNull(p) {
   try { return fs.lstatSync(p); } catch { return null; }
 }
+// ── 3.0 收口(B3):base 之外的长期启动根偏好 ──────────────────────────────────────────────
+// 一次恢复成功后,后继流程把「下次正常 serve 从哪个根启动」写进 <home>/.ruyi/boot-root-v1.json
+// (13aw)。它是【偏好】而不是权威:正常 serve 在 RUYI_HOME / WIN_CLAUDE_WORKBENCH_HOME 都为空时
+// 同步读一次;记录坏了、目标目录被替换(dev/ino 不符)或只是链接,就回退缺省根,绝不改写或删除它。
+// 目标里的 active manifest、所有权和 keeper 仍由 01z/13au 的 bind 逐项复核,任何一项不成立都 fail closed。
+// TEMP 里的 activation-v1 收据只在当次交接有效,永远不是长期权威 —— 这里只认这个文件。
+// 00-boot 必须保持零前向依赖:编解码/校验放在这里,13aw 复用;13aw 反过来绝不参与启动根解析。
+const BOOT_ROOT_PREFERENCE_DIR = '.ruyi';
+const BOOT_ROOT_PREFERENCE_NAME = 'boot-root-v1.json';
+const BOOT_ROOT_PREFERENCE_LIMIT = 16 * 1024;
+const BOOT_ROOT_PREFERENCE_KIND = 'restored-boot-root';
+const BOOT_ROOT_PREFERENCE_ID = /^[a-f0-9]{48}$/;
+const BOOT_ROOT_PREFERENCE_SHA = /^[a-f0-9]{64}$/;
+const BOOT_ROOT_PREFERENCE_KEYS = 'authority,base,baseIdentity,createdAt,kind,resultId,resultSha256,schema';
+function bootRootPreferenceFold(value) { return process.platform === 'win32' ? String(value).toLowerCase() : String(value); }
+function bootRootPreferenceAbsolute(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 4096
+    && !/[\0\r\n]/.test(value) && Buffer.from(value, 'utf8').toString('utf8') === value
+    && path.isAbsolute(value) && path.resolve(value) === value && path.parse(value).root !== value;
+}
+function bootRootPreferenceShape(value, expected) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join(',') === expected;
+}
+const bootRootPreferenceStamp = value => typeof value === 'string' && new Date(value).toISOString() === value;
+function bootRootPreferenceAuthority(value) {
+  return bootRootPreferenceShape(value, 'generation,id,mode,sha256')
+    && Number.isSafeInteger(value.generation) && value.generation >= 0
+    && ['plain', 'encrypted'].includes(value.mode)
+    && (value.generation === 0
+      ? value.id === null && value.sha256 === null
+      : BOOT_ROOT_PREFERENCE_ID.test(value.id || '') && BOOT_ROOT_PREFERENCE_SHA.test(value.sha256 || ''));
+}
+// 严格八键:多一个字段、少一个字段、类型不对都算坏记录(与 13aw 的写入口同一个判据)。
+function validateBootRootPreference(value) {
+  try {
+    return bootRootPreferenceShape(value, BOOT_ROOT_PREFERENCE_KEYS)
+      && value.schema === 1 && value.kind === BOOT_ROOT_PREFERENCE_KIND
+      && bootRootPreferenceAbsolute(value.base)
+      && bootRootPreferenceShape(value.baseIdentity, 'dev,ino')
+      && [value.baseIdentity.dev, value.baseIdentity.ino].every(item => typeof item === 'string' && /^\d{1,40}$/.test(item))
+      && bootRootPreferenceAuthority(value.authority)
+      && BOOT_ROOT_PREFERENCE_ID.test(value.resultId || '')
+      && BOOT_ROOT_PREFERENCE_SHA.test(value.resultSha256 || '')
+      && bootRootPreferenceStamp(value.createdAt);
+  } catch { return false; }
+}
+function bootRootPreferenceFreeze(value) {
+  if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) bootRootPreferenceFreeze(item);
+    Object.freeze(value);
+  }
+  return value;
+}
+// 严格 UTF-8(往返相等)、有界、JSON 对象、八键校验;任何一项不成立都返回 null —— 启动根解析只把它
+// 当成「没有偏好」,不抛错、不覆盖、不删文件。
+function decodeBootRootPreference(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > BOOT_ROOT_PREFERENCE_LIMIT) return null;
+  try {
+    const text = bytes.toString('utf8');
+    if (!Buffer.from(text, 'utf8').equals(bytes)) return null;
+    const value = JSON.parse(text);
+    return validateBootRootPreference(value) ? value : null;
+  } catch { return null; }
+}
+function bootRootPreferenceFile(home = os.homedir()) {
+  return path.join(home, BOOT_ROOT_PREFERENCE_DIR, BOOT_ROOT_PREFERENCE_NAME);
+}
+function bootRootPreferenceAlias(stat) {
+  return stat.isSymbolicLink() || stat.reparsePoint === true || (typeof stat.reparseTag === 'number' && stat.reparseTag !== 0);
+}
+// 记录目录本身不许是链接/联接:否则「把 <home>/.ruyi 指到别处」就能绕过 03 对该文件的家目录持久化地板。
+// 目录不存在 = 没有偏好;目录存在但不是真实目录 = 记录无效(只回退,不动它)。
+function bootRootPreferenceDirectoryOk(dir, home) {
+  let stat;
+  try { stat = fs.lstatSync(dir); }
+  catch (error) { return Boolean(error && error.code === 'ENOENT'); }
+  if (!stat.isDirectory() || stat.isSymbolicLink() || stat.reparsePoint === true
+    || (typeof stat.reparseTag === 'number' && stat.reparseTag !== 0)) return false;
+  try {
+    // Compare against the home's real path so a legitimate aliased home still works,
+    // while a junction at <home>/.ruyi (which would dodge the 03 write floor) does not.
+    return bootRootPreferenceFold(fs.realpathSync(dir)) === bootRootPreferenceFold(path.join(fs.realpathSync(home), BOOT_ROOT_PREFERENCE_DIR));
+  } catch { return false; }
+}
+const BootRootPreference = Object.freeze({
+  DIR: BOOT_ROOT_PREFERENCE_DIR, NAME: BOOT_ROOT_PREFERENCE_NAME,
+  LIMIT: BOOT_ROOT_PREFERENCE_LIMIT, KIND: BOOT_ROOT_PREFERENCE_KIND,
+  path: bootRootPreferenceFile,
+  validate: validateBootRootPreference,
+  decode: bytes => bootRootPreferenceFreeze(decodeBootRootPreference(bytes)),
+});
+// 目标必须是一条真实目录链(逐段 non-alias + realpath 相等),最后一段的 dev/ino 与记录一致。
+// 目标被替换/搬走/改成链接时这里失败,启动根回退缺省 —— 绝不把别的目录当成恢复目标。
+function bootRootPreferenceTargetMatches(target, expected) {
+  let last = null;
+  try {
+    const parsed = path.parse(target);
+    let cursor = parsed.root;
+    for (const part of ['', ...target.slice(cursor.length).split(path.sep).filter(Boolean)]) {
+      if (part) cursor = path.join(cursor, part);
+      const stat = fs.lstatSync(cursor, { bigint: true });
+      if (!stat.isDirectory() || stat.isSymbolicLink() || stat.reparsePoint === true
+        || (typeof stat.reparseTag === 'number' && stat.reparseTag !== 0)) return false;
+      if (bootRootPreferenceFold(fs.realpathSync(cursor)) !== bootRootPreferenceFold(cursor)) return false;
+      last = stat;
+    }
+  } catch { return false; }
+  return Boolean(last) && String(last.dev) === expected.dev && String(last.ino) === expected.ino;
+}
+// 受管代(genN)还要求目标里有一个普通的单链接 active-v1.json;它不在或不是普通文件就当作偏好无效。
+// 记录里的 authority 只作诊断,不与当前 manifest 硬等值 —— 之后 enable/disable 改变 authority 不应让
+// 启动根失效;真正的 manifest/owner 校验在 bind 里 fail closed。
+function bootRootPreferenceGenerationReady(value) {
+  if (!(value.authority.generation > 0)) return true;
+  try {
+    const stat = fs.lstatSync(path.join(value.base, '.work-data', 'active-v1.json'));
+    return stat.isFile() && !stat.isSymbolicLink() && stat.nlink === 1;
+  } catch { return false; }
+}
+// 进程只读一次:即便第一次读失败也不再重读。一次性恢复若在本进程里写偏好,下一次启动才生效。
+let _bootRootPreferenceRead = false, _bootRootPreferenceValue = null, _bootRootPreferenceReason = 'unread';
+function readBootRootPreferenceOnce() {
+  if (_bootRootPreferenceRead) return _bootRootPreferenceValue;
+  _bootRootPreferenceRead = true;
+  let fd = null;
+  try {
+    const file = bootRootPreferenceFile();
+    if (!bootRootPreferenceDirectoryOk(path.dirname(file), os.homedir())) { _bootRootPreferenceReason = 'invalid'; return null; }
+    let before;
+    try { before = fs.lstatSync(file, { bigint: true }); }
+    catch (error) { _bootRootPreferenceReason = error && error.code === 'ENOENT' ? 'absent' : 'unreadable'; return null; }
+    if (!before.isFile() || bootRootPreferenceAlias(before) || before.nlink !== 1n
+      || before.size < 1n || before.size > BigInt(BOOT_ROOT_PREFERENCE_LIMIT)) { _bootRootPreferenceReason = 'invalid'; return null; }
+    const identical = (left, right) => left.dev === right.dev && left.ino === right.ino && left.size === right.size
+      && left.nlink === right.nlink && left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs;
+    // Bounded fd read with before/after identity+timestamp checks: a same-account
+    // process replacing the record between lstat/open/read cannot be accepted.
+    fd = fs.openSync(file, 'r');
+    const opened = fs.fstatSync(fd, { bigint: true });
+    if (!opened.isFile() || bootRootPreferenceAlias(opened) || opened.nlink !== 1n || !identical(opened, before)) { _bootRootPreferenceReason = 'invalid'; return null; }
+    const buffer = Buffer.alloc(Number(before.size) + 1);
+    let used = 0;
+    while (used < buffer.length) {
+      const read = fs.readSync(fd, buffer, used, buffer.length - used, null);
+      if (read <= 0) break;
+      used += read;
+    }
+    const after = fs.fstatSync(fd, { bigint: true });
+    const visible = fs.lstatSync(file, { bigint: true });
+    if (used !== Number(before.size) || !after.isFile() || bootRootPreferenceAlias(after) || after.nlink !== 1n || !identical(after, before)
+      || !visible.isFile() || bootRootPreferenceAlias(visible) || visible.nlink !== 1n || !identical(visible, before)) {
+      _bootRootPreferenceReason = 'invalid';
+      return null;
+    }
+    const value = BootRootPreference.decode(buffer.subarray(0, used));
+    if (!value) { _bootRootPreferenceReason = 'invalid'; return null; }
+    if (!bootRootPreferenceTargetMatches(value.base, value.baseIdentity)) { _bootRootPreferenceReason = 'target-changed'; return null; }
+    if (!bootRootPreferenceGenerationReady(value)) { _bootRootPreferenceReason = 'generation-unready'; return null; }
+    _bootRootPreferenceValue = value;
+    _bootRootPreferenceReason = 'active';
+    return value;
+  } catch { _bootRootPreferenceReason = 'invalid'; return null; }
+  finally { if (fd !== null) { try { fs.closeSync(fd); } catch { /* best effort */ } } }
+}
 // dataRoot() / dataRootAliases() 在文件遍历的热路径上逐项被调(03 isSensitiveDataPath);每次都 lstat 两个目录在大树上是秒级开销。
 // 结果按「两个环境变量 + 家目录」记住:进程内能改变答案的只有这三样(迁移发生在启动时,迁移后清一次缓存)。
 let _dataRootMemo = null;
@@ -86,16 +251,22 @@ const WorkDataRootHooks = {};
 function dataRootMemoKey() {
   return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
 }
+// 内部来源标记(env / preference / default / legacy):只给迁移闸与单测用,不进任何公开载荷。
+let _dataRootSource = '';
 function resolveDataRootUncached() {
-  if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
-  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
+  // 显式根环境变量永远优先;只有两个都为空时才看长期偏好。
+  if (process.env.RUYI_HOME) { _dataRootSource = 'env'; return process.env.RUYI_HOME; }
+  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) { _dataRootSource = 'env'; return process.env.WIN_CLAUDE_WORKBENCH_HOME; }
+  const preference = readBootRootPreferenceOnce();
+  if (preference) { _dataRootSource = 'preference'; return preference.base; }
   const { next, legacy } = defaultDataRoots();
-  if (lstatOrNull(next)) return next;
+  if (lstatOrNull(next)) { _dataRootSource = 'default'; return next; }
   const old = lstatOrNull(legacy);
-  if (old && old.isDirectory() && !old.isSymbolicLink()) return legacy;
+  if (old && old.isDirectory() && !old.isSymbolicLink()) { _dataRootSource = 'legacy'; return legacy; }
   // 旧位置是用户自己建的链接 / 联接(数据挪去了别的盘)、新目录还没有:照旧用它。修前这里会落到一个空的新目录,
   // 配置、会话、密钥看起来全没了。迁移不搬链接(见 migrateLegacyDataRoot)。
-  if (old && old.isSymbolicLink()) { try { if (fs.statSync(legacy).isDirectory()) return legacy; } catch { /* 断链:当它不存在 */ } }
+  if (old && old.isSymbolicLink()) { try { if (fs.statSync(legacy).isDirectory()) { _dataRootSource = 'legacy'; return legacy; } } catch { /* 断链:当它不存在 */ } }
+  _dataRootSource = 'default';
   return next;
 }
 function dataRoot() {
@@ -105,6 +276,11 @@ function dataRoot() {
   const root = resolveDataRootUncached();
   _dataRootMemo = { key, root, aliases: null };
   return root;
+}
+// 迁移闸与单测读的来源:先确保解析过(模块加载时 paths 已经解析过,这里只是兜底)。
+function dataRootSource() {
+  dataRoot();
+  return _dataRootSource;
 }
 // 数据根的别名:指向同一个目录的其它写法 —— 迁移后旧位置上留的目录联接,或者新位置是指向旧目录的链接。敏感子树判定
 // (03 isSensitiveDataPath 与文件遍历的跳过)是按词法前缀比的,只认数据根本身的话,经别名的写法就能读到 config.json /
@@ -137,6 +313,8 @@ function pidAlive(pid) {
 // (runtime.json 的 pid 还活着就不动)时做。搬不动(被占用、跨卷、权限)就原样继续用旧目录,下次启动再试。
 function migrateLegacyDataRoot() {
   if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return { moved: false, reason: 'env' };
+  // 长期偏好已经生效时,缺省根不是本次启动的地方;把旧目录搬成 ~/.ruyi-workbench 会造出一个这次没用的新根。
+  if (dataRootSource() === 'preference') return { moved: false, reason: 'boot-root-preference' };
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return { moved: false, reason: 'next-exists' };
   const old = lstatOrNull(legacy);
@@ -20366,10 +20544,12 @@ const USER_HOME_PERSISTENCE_FILES = Object.freeze([
   '.gitconfig', '.config/git/config',
   'AGENTS.md', 'CLAUDE.md',                     // 家目录根下的全局指令(Claude Code / Codex 会按祖先目录读到);项目里的同名文件不在此列
   '.claude/CLAUDE.md',
+  '.ruyi/boot-root-v1.json',                    // B3:长期启动根偏好 —— 改它等于改下一次 serve 从哪个根启动
 ]);
 const USER_HOME_PERSISTENCE_DIRS = Object.freeze([
   '.claude/agents', '.claude/commands', '.claude/skills',   // 子代理 / 斜杠命令 / 技能:启动即载入的提示词与权限声明
   '.codex', '.kimi', '.kimi-code',                           // Codex / Kimi Code 的全局配置与指令(config.toml、AGENTS.md、mcp.json …)
+  '.ruyi',                                                   // B3:启动根偏好目录(含 .boot-root-v1.stage-*),整棵目录都不许被文件工具种入
 ]);
 function userHomePersistenceTargets() {
   const homes = new Set();
@@ -76140,8 +76320,11 @@ async function startServer(opts) {
   const roots = [dataRoot()];
   const defaults = defaultDataRoots();
   const old = lstatOrNull(defaults.legacy);
+  // A live boot-root preference already names the serving root: the default pair is not
+  // this launch's source, so neither legacy nor next may join ownership and no migration runs.
+  const bootRootPreference = dataRootSource() === 'preference';
   const migrate = isDirectServeInvocation() && !process.env.RUYI_HOME && !process.env.WIN_CLAUDE_WORKBENCH_HOME
-    && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
+    && !bootRootPreference && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
   if (migrate) roots.push(defaults.legacy, defaults.next);
   const ownership = typeof WorkDataMaintenanceRuntimeHooks.acquireServe === 'function'
     ? await WorkDataMaintenanceRuntimeHooks.acquireServe({base:dataRoot(),roots})
@@ -76156,7 +76339,10 @@ async function startServer(opts) {
     throw error;
   }
   try {
-    if (isDirectServeInvocation() && !fs.existsSync(path.join(paths.data, '.work-data'))) {
+    if (isDirectServeInvocation() && bootRootPreference) {
+      // Preference is effective: the migration gate is closed and migrateLegacyDataRoot is not called.
+      DATA_ROOT_MIGRATION = { moved: false, reason: 'boot-root-preference' };
+    } else if (isDirectServeInvocation() && !fs.existsSync(path.join(paths.data, '.work-data'))) {
       DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
       if (DATA_ROOT_MIGRATION.moved) {
         // All module-level DurableJsonStore files use callbacks; no store has read yet.
@@ -76273,7 +76459,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   START_NOTICE.lastError = await consumeStartError();
   if (START_NOTICE.lastError) console.log(`[start] previous launch failed (${START_NOTICE.lastError.kind}): ${START_NOTICE.lastError.message}`);
   // 3.0 数据目录改名(00-boot migrateLegacyDataRoot):搬了、或该搬没搬成,都在启动行与日志里留一笔。
-  if (DATA_ROOT_MIGRATION && (DATA_ROOT_MIGRATION.moved || !['next-exists', 'no-legacy', 'env'].includes(DATA_ROOT_MIGRATION.reason))) {
+  if (DATA_ROOT_MIGRATION && (DATA_ROOT_MIGRATION.moved || !['next-exists', 'no-legacy', 'env', 'boot-root-preference'].includes(DATA_ROOT_MIGRATION.reason))) {
     console.log(`[start] data dir ${DATA_ROOT_MIGRATION.moved ? `migrated ${DATA_ROOT_MIGRATION.from} -> ${DATA_ROOT_MIGRATION.to}${DATA_ROOT_MIGRATION.junction ? ' (old path kept as a junction)' : ''}` : `migration skipped (${DATA_ROOT_MIGRATION.reason}); still using ${paths.data}`}`);
     try { logEvent({ kind: 'data_root_migration', ...DATA_ROOT_MIGRATION }); } catch { /* 日志绝不阻断启动 */ }
   }
@@ -105310,14 +105496,52 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       if(value===undefined||value===null||typeof value!=='object'||Array.isArray(value)||!names.every(name=>typeof value[name]==='function'))throw fail('activation_unavailable');
       return value;};
     // Re-reads the one TEMP receipt and proves every binding field still names this
-    // exact job/target. No result file on the target is required or consulted.
+    // exact job/target. No result file on the target is required or consulted. The
+    // record travels with its CAS receipt: completion derives the boot preference
+    // from that exact value, never from the request.
     async function verifyActivation(input,canonicalBase,previous) {
       if(!activationInput(input.activation))throw fail('successor_input_invalid');
       if(typeof canonicalBase!=='string')throw fail('successor_input_invalid');
       const found=await activationFor(['inspect']).inspect({base:canonicalBase});
       if(!found||found.present!==true||!activationBound(found.value,found.receipt,input,canonicalBase)||previous!==null&&!sameReceipt(previous,found.receipt))
         throw fail('successor_activation_changed');
-      return found.receipt;
+      return Object.freeze({receipt:found.receipt,value:Object.freeze({
+        schema:found.value.schema,activation:found.value.activation,operation:found.value.operation,base:found.value.base,
+        baseIdentity:Object.freeze({dev:found.value.baseIdentity.dev,ino:found.value.baseIdentity.ino}),
+        authority:Object.freeze({generation:found.value.authority.generation,id:found.value.authority.id,mode:found.value.authority.mode,sha256:found.value.authority.sha256}),
+        id:found.value.id,nonce:found.value.nonce,parentPid:found.value.parentPid,resultSha256:found.value.resultSha256,createdAt:found.value.createdAt})});
+    }
+    // The boot preference is written once, after serve-ready, for a committed restore
+    // only. A missing owner or a failed write is diagnosis: ready, the activation CAS
+    // and the running successor are never rolled back, and no enable/export/disable or
+    // ordinary start ever writes a preference.
+    const preferenceFor=names=>{const value=host.rootPreference;
+      if(value===undefined||value===null||typeof value!=='object'||Array.isArray(value)||!names.every(name=>typeof value[name]==='function'))return null;
+      return value;};
+    // An identical preference for the same commit is never rewritten; the commit
+    // timestamp is derived from the activation record, so a retry cannot drift it.
+    const samePreference=(a,b)=>{try{
+      return !!a&&!!b&&typeof a==='object'&&typeof b==='object'
+        &&fold(a.base)===fold(b.base)&&a.baseIdentity.dev===b.baseIdentity.dev&&a.baseIdentity.ino===b.baseIdentity.ino
+        &&same(a.authority,b.authority)
+        &&a.resultId===b.resultId&&a.resultSha256===b.resultSha256;}catch{return false;}};
+    async function writeRootPreference(record) {
+      // The store's own codec is the only judge of the eight-key record: this layer
+      // builds the fields and never re-derives their shape, so a store-side schema
+      // change cannot be half-adopted here. A store without that judge is a missing
+      // capability, which stays diagnosis like any other failure.
+      const owner=preferenceFor(['inspect','write','validate']);if(!owner)return false;
+      const value={schema:1,kind:'restored-boot-root',base:record.base,
+        baseIdentity:Object.freeze({dev:record.baseIdentity.dev,ino:record.baseIdentity.ino}),
+        authority:Object.freeze({generation:record.authority.generation,id:record.authority.id,mode:record.authority.mode,sha256:record.authority.sha256}),
+        resultId:record.id,resultSha256:record.resultSha256,createdAt:record.createdAt};
+      try{
+        if(await owner.validate(value)!==true)return false;
+        const current=await owner.inspect();
+        if(current&&current.present===true&&samePreference(current.value,value))return true;
+        await owner.write(Object.freeze(value),current&&current.present===true?current.receipt:null);
+        return true;
+      }catch{return false;}
     }
     const retired=()=>{const read=host.retiredReceipt;if(typeof read!=='function')return false;try{return retiredReceipt(read());}catch{return false;}};
     function latch(error) {
@@ -105584,7 +105808,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       if(activation){
         // The receipt is durable process state, not a request: read it before any
         // serve entry and refuse unless every field still names this exact handoff.
-        try{receipt=await verifyActivation(input,await host.canonical(input.base),null);}
+        try{receipt=(await verifyActivation(input,await host.canonical(input.base),null)).receipt;}
         catch(error){if(error?.code==='work_data_setup.activation_unavailable')throw error;throw fail('successor_input_invalid');}
       }
       successorStarted=true;
@@ -105606,11 +105830,11 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         if(fold(captured.base)!==fold(await host.canonical(input.base)))return stop(fail('successor_not_captured'));
         actualListener(captured.server,input.serve);
         if(warm!==captured||!ready())return stop(fail('worker_unavailable'));
-        let actual;
+        let actual,bound=null;
         if(pending.receipt){
           // A fresh-root successor proves the committed target through the prepare
           // receipt and the live target authority. No result file is read on target.
-          await verifyActivation(input,await host.canonical(input.base),pending.receipt);
+          bound=await verifyActivation(input,await host.canonical(input.base),pending.receipt);
           actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
         }else{
           const read=host.workerHooks?.readResult;
@@ -105620,9 +105844,13 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
           actual=full(await host.readAuthority(input.base));if(!same(actual,input.expectedAuthority))return stop(fail('successor_authority_changed'));
         }
         await channel.send({schema:1,kind:'serve-ready',id:input.id,nonce:input.nonce,pid:proc.pid,port:input.serve.port,host:input.serve.host,authority:actual});
-        // serve-ready is already published: a failed CAS removal is retained for
-        // diagnosis and never withdraws the ready state or replays the message.
-        if(pending.receipt){try{await activationFor(['remove']).remove(pending.receipt);}catch{ /* retained */ }}
+        // serve-ready is already published: the committed target becomes the boot
+        // preference first, then the activation receipt is consumed by CAS. Both are
+        // diagnosis-only failures that never withdraw the ready state or replay it.
+        if(pending.receipt){
+          try{await writeRootPreference(bound.value);}catch{ /* diagnosis only */ }
+          try{await activationFor(['remove']).remove(pending.receipt);}catch{ /* retained */ }
+        }
       } catch(error) { slot.successor=Object.freeze({...pending,phase:'failed'});throw error; }
       slot.successor=Object.freeze({...pending,phase:'complete'});
       if(typeof proc.disconnect==='function'&&proc.connected)proc.disconnect();
@@ -106812,6 +107040,284 @@ const WorkDataVerifierEntry = (() => {
   return Object.freeze({COMMAND,command,createVerifier,create});
 })();
 
+// Long-lived boot-root preference: <home>/.ruyi/boot-root-v1.json records which
+// root a normal serve should start from after a restore committed a fresh target.
+// It is a preference, never authority: 00-boot re-proves the target directory
+// identity and generation before using it, and every manifest/owner check still
+// happens in bind (failure there is fail closed). TEMP activation receipts stay
+// single-handoff state and are never read or promoted here.
+//
+// Writes are create-or-swap with an exact previous sha/dev/ino receipt, an
+// independent wx 0600 stage, file sync, native directory flush, rename and a
+// strict single-link readback. A bad, replaced or non-canonical record is never
+// repaired or overwritten by a read; it only falls back to the default root.
+const WorkDataRootPreference = ((io, p, c) => {
+  const DIR = '.ruyi', NAME = 'boot-root-v1.json', STAGE = '.boot-root-v1.stage-';
+  const LIMIT = 16 * 1024, SHA = /^[a-f0-9]{64}$/;
+  const fail = (suffix, cause) => Object.assign(Error('work_data_boot_root.' + suffix), {
+    code: 'work_data_boot_root.' + suffix, apiCode: 'work_data_boot_root.' + suffix, statusCode: 409, retry: false,
+    ...(cause === undefined ? {} : { cause }),
+  });
+  const shape = (value, expected) => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join(',') === expected;
+  const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const hash = bytes => c.createHash('sha256').update(bytes).digest('hex');
+  const absolute = value => typeof value === 'string' && value.length > 0 && value.length <= 4096
+    && !/[\0\r\n]/.test(value) && Buffer.from(value, 'utf8').toString('utf8') === value
+    && p.isAbsolute(value) && p.resolve(value) === value && p.parse(value).root !== value;
+  const alias = stat => stat.isSymbolicLink() || stat.reparsePoint === true || typeof stat.reparseTag === 'number' && stat.reparseTag !== 0;
+  const identity = stat => ({ dev: String(stat.dev), ino: String(stat.ino) });
+  const sameIdentity = (a, b) => a.dev === b.dev && a.ino === b.ino;
+  const receiptShape = value => shape(value, 'base,dev,ino,sha256') && absolute(value.base)
+    && SHA.test(value.sha256 || '') && /^\d{1,40}$/.test(value.dev || '') && /^\d{1,40}$/.test(value.ino || '');
+  // The codec/validator is owned by 00-boot (which must never depend on this
+  // module). Re-derive it at call time so a fixture without 00-boot fails closed
+  // instead of inventing a second record shape.
+  const codec = () => {
+    const value = typeof BootRootPreference === 'undefined' ? null : BootRootPreference;
+    if (!value || value.NAME !== NAME || value.DIR !== DIR || value.LIMIT !== LIMIT
+      || typeof value.validate !== 'function' || typeof value.decode !== 'function') throw fail('host_invalid');
+    return value;
+  };
+  // A target root is proven by every path component: real directory, no link or
+  // reparse point, realpath equal, and the final dev/ino equal to the record.
+  async function directory(root, missing = false) {
+    const parsed = p.parse(root);
+    let cursor = parsed.root;
+    const rows = [];
+    for (const part of ['', ...root.slice(cursor.length).split(p.sep).filter(Boolean)]) {
+      if (part) cursor = p.join(cursor, part);
+      let stat;
+      try { stat = await io.lstat(cursor, { bigint: true }); }
+      catch (error) { if (missing && error.code === 'ENOENT') return false; throw error; }
+      if (!stat.isDirectory() || alias(stat) || fold(await io.realpath(cursor)) !== fold(cursor)) throw fail('path_alias');
+      rows.push({ path: cursor, ...identity(stat) });
+    }
+    return rows;
+  }
+  async function homeDirectory(home) {
+    // A redirected/aliased home is allowed: the user profile itself may be a
+    // junction or symlink. recordDirectory() still proves <home>/.ruyi resolves
+    // to realpath(home)/.ruyi, so the record directory cannot be a junction.
+    let stat;
+    try { stat = await io.stat(home, { bigint: true }); }
+    catch (error) { throw fail('home_invalid', error); }
+    if (!stat.isDirectory()) throw fail('home_invalid');
+    return stat;
+  }
+  // <home>/.ruyi itself must be a real directory: realpath(dir) has to be exactly
+  // realpath(home)/.ruyi. Ancestor aliases of the home are preserved, but a junction
+  // at the record directory (which would dodge the 03 home-persistence floor) is not.
+  async function recordDirectory(loc, missing = false) {
+    let stat;
+    try { stat = await io.lstat(loc.dir, { bigint: true }); }
+    catch (error) { if (missing && error.code === 'ENOENT') return false; throw error; }
+    if (!stat.isDirectory() || alias(stat)) throw fail('path_alias');
+    const expected = p.join(await io.realpath(loc.home), DIR);
+    if (fold(await io.realpath(loc.dir)) !== fold(expected)) throw fail('path_alias');
+    return stat;
+  }
+  async function capture(file, maximum) {
+    const before = await io.lstat(file, { bigint: true });
+    if (!before.isFile() || alias(before) || before.nlink !== 1n || before.size < 1n || before.size > BigInt(maximum)) throw fail('record_invalid');
+    const handle = await io.open(file, 'r'), scratch = Buffer.alloc(65536), chunks = [];
+    try {
+      const opened = await handle.stat({ bigint: true });
+      if (!sameIdentity(identity(opened), identity(before)) || !opened.isFile() || opened.nlink !== 1n) throw fail('record_changed');
+      let used = 0;
+      for (;;) {
+        const part = await handle.read(scratch, 0, Math.min(scratch.length, maximum + 1 - used), null);
+        if (!part.bytesRead) break;
+        used += part.bytesRead;
+        if (used > maximum) throw fail('record_invalid');
+        chunks.push(Buffer.from(scratch.subarray(0, part.bytesRead)));
+      }
+      const after = await handle.stat({ bigint: true }), visible = await io.lstat(file, { bigint: true });
+      if (!sameIdentity(identity(after), identity(before)) || !sameIdentity(identity(visible), identity(before))
+        || alias(visible) || after.nlink !== 1n || visible.nlink !== 1n || after.size !== before.size || visible.size !== before.size
+        || used !== Number(before.size) || after.mtimeNs !== opened.mtimeNs || after.ctimeNs !== opened.ctimeNs
+        || visible.mtimeNs !== after.mtimeNs || visible.ctimeNs !== after.ctimeNs) throw fail('record_changed');
+      const bytes = Buffer.concat(chunks, used);
+      return { bytes, sha256: hash(bytes), size: used, identity: identity(after) };
+    } finally {
+      scratch.fill(0);
+      for (const chunk of chunks) chunk.fill(0);
+      await handle.close();
+    }
+  }
+  function create({ home, flush } = {}) {
+    if (!absolute(home) || typeof flush !== 'function') throw fail('host_invalid');
+    codec();
+    const location = () => {
+      const dir = p.join(home, DIR);
+      return { home, dir, file: p.join(dir, NAME) };
+    };
+    const receiptOf = (value, captured) => Object.freeze({
+      base: value.base, sha256: captured.sha256, dev: captured.identity.dev, ino: captured.identity.ino,
+    });
+    let mutating = false;
+    async function currentRecord(loc) {
+      let before;
+      try { before = await io.lstat(loc.file, { bigint: true }); }
+      catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+      if (!before.isFile() || alias(before) || before.nlink !== 1n || before.size < 1n || before.size > BigInt(LIMIT)) throw fail('record_invalid');
+      const captured = await capture(loc.file, LIMIT);
+      const value = codec().decode(captured.bytes);
+      if (!value) throw fail('record_invalid');
+      return { value, captured };
+    }
+    async function baseRow(base, expected) {
+      let rows;
+      try { rows = await directory(base); }
+      catch (error) { if (error && error.code === 'ENOENT') throw fail('base_changed'); throw error; }
+      const current = rows.at(-1);
+      if (expected && !sameIdentity(current, expected)) throw fail('base_changed');
+      return current;
+    }
+    async function locate() {
+      const loc = location();
+      await homeDirectory(loc.home);
+      if (!await recordDirectory(loc, true)) return null;
+      const names = await io.readdir(loc.dir);
+      if (names.some(name => fold(name).startsWith(STAGE))) throw fail('stage_pending');
+      if (!names.some(name => fold(name) === NAME)) return null;
+      const found = await currentRecord(loc);
+      if (!found) throw fail('record_changed');
+      // The record is metadata: a stale/deleted old target must stay removable and
+      // replaceable by exact CAS. Boot (not this store) decides whether a target is
+      // still usable; every write below re-proves the NEW target's alias/dev-ino.
+      return found;
+    }
+    async function ensureDir(loc) {
+      let stat;
+      try { stat = await io.lstat(loc.dir, { bigint: true }); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (!stat) {
+        try { await io.mkdir(loc.dir, { mode: 0o700 }); }
+        catch (error) { if (error.code !== 'EEXIST') throw error; }
+      }
+      await recordDirectory(loc);
+    }
+    async function inspect() {
+      try {
+        const found = await locate();
+        if (!found) return Object.freeze({ present: false });
+        return Object.freeze({ present: true, value: found.value, receipt: receiptOf(found.value, found.captured) });
+      } catch (error) {
+        if (String(error && error.code || '').startsWith('work_data_boot_root.')) throw error;
+        throw fail('inspect_failed', error);
+      }
+    }
+    async function write(value, previous = null) {
+      let bytes, selected, expected;
+      try {
+        if (!codec().validate(value)) throw fail('record_invalid');
+        bytes = Buffer.from(JSON.stringify(value));
+        if (bytes.length > LIMIT) throw fail('record_invalid');
+        selected = codec().decode(bytes);
+        if (!selected) throw fail('record_invalid');
+        expected = hash(bytes);
+      } catch (error) {
+        if (String(error && error.code || '').startsWith('work_data_boot_root.')) throw error;
+        throw fail('record_invalid', error);
+      }
+      if (mutating) throw fail('busy');
+      mutating = true;
+      let stage = null, stageIdentity = null;
+      // Only a stage this call created through wx and can still prove to be the same
+      // ordinary single-link file may be removed on failure. A collision with an
+      // unknown stage (or a replaced/hard-linked one) is left untouched.
+      const discardOwnStage = async () => {
+        if (stage === null || stageIdentity === null) return;
+        try {
+          const stat = await io.lstat(stage, { bigint: true });
+          if (stat.isFile() && !alias(stat) && stat.nlink === 1n && sameIdentity(identity(stat), stageIdentity)) await io.unlink(stage);
+        } catch { /* best effort: never mask the original failure */ }
+      };
+      try {
+        const loc = location();
+        await homeDirectory(loc.home);
+        await baseRow(selected.base, selected.baseIdentity);
+        const observed = await locate();
+        if (observed) {
+          // Byte-identical (same sha256) is already the desired durable state: never rewrite it.
+          if (observed.captured.sha256 === expected) return receiptOf(observed.value, observed.captured);
+          if (previous === null || previous === undefined) throw fail('record_exists');
+          if (!receiptShape(previous)) throw fail('receipt_invalid');
+          // The receipt binds the exact old FILE (sha/dev/ino); its base is diagnostic.
+          // A newer restore may legitimately move the preference to another target.
+          if (previous.sha256 !== observed.captured.sha256
+            || !sameIdentity(previous, observed.captured.identity)) throw fail('record_changed');
+        } else if (previous !== null && previous !== undefined) {
+          throw fail('record_changed');
+        }
+        await baseRow(selected.base, selected.baseIdentity);
+        await ensureDir(loc);
+        stage = p.join(loc.dir, STAGE + c.randomBytes(24).toString('hex'));
+        const handle = await io.open(stage, 'wx', 0o600);
+        try {
+          const opened = await handle.stat({ bigint: true });
+          if (opened.isFile()) stageIdentity = identity(opened);
+          if (!opened.isFile() || opened.nlink !== 1n) throw fail('record_invalid');
+          await handle.writeFile(bytes);
+          await handle.sync();
+        } finally { await handle.close(); }
+        await flush([loc.dir, loc.home]);
+        // The target may have been replaced while this write was in flight.
+        await baseRow(selected.base, selected.baseIdentity);
+        const actual = await currentRecord(loc);
+        if (observed) {
+          if (!actual || actual.captured.sha256 !== observed.captured.sha256
+            || !sameIdentity(actual.captured.identity, observed.captured.identity)) throw fail('record_changed');
+        } else if (actual) {
+          throw fail('record_exists');
+        }
+        await io.rename(stage, loc.file);
+        stage = null;
+        stageIdentity = null;
+        await flush([loc.dir, loc.home]);
+        const proof = await capture(loc.file, LIMIT);
+        if (proof.sha256 !== expected) throw fail('record_changed');
+        return receiptOf(selected, proof);
+      } catch (error) {
+        await discardOwnStage();
+        if (String(error && error.code || '').startsWith('work_data_boot_root.')) throw error;
+        throw fail('write_failed', error);
+      } finally { mutating = false; }
+    }
+    // Exact CAS removal exists only for test/owner maintenance. A read never
+    // deletes or rewrites the record; an unknown stage keeps the file stuck.
+    async function remove(receipt) {
+      if (!receiptShape(receipt)) throw fail('receipt_invalid');
+      if (mutating) throw fail('busy');
+      mutating = true;
+      try {
+        const loc = location();
+        await homeDirectory(loc.home);
+        if (!await recordDirectory(loc, true)) return true;
+        const names = await io.readdir(loc.dir);
+        if (names.some(name => fold(name).startsWith(STAGE))) throw fail('stage_pending');
+        if (!names.some(name => fold(name) === NAME)) return true;
+        const found = await currentRecord(loc);
+        if (!found) throw fail('record_changed');
+        if (found.value.base !== receipt.base || found.captured.sha256 !== receipt.sha256
+          || !sameIdentity(found.captured.identity, receipt)) throw fail('record_changed');
+        await io.unlink(loc.file);
+        await flush([loc.dir, loc.home]);
+        try { await io.lstat(loc.file); }
+        catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+        throw fail('record_changed');
+      } catch (error) {
+        if (String(error && error.code || '').startsWith('work_data_boot_root.')) throw error;
+        throw fail('remove_failed', error);
+      } finally { mutating = false; }
+    }
+    return Object.freeze({ inspect, write, remove, validate: value => codec().validate(value) });
+  }
+  return Object.freeze({ DIR, NAME, STAGE, LIMIT, validate: value => codec().validate(value),
+    decode: bytes => codec().decode(bytes), create });
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'));
+
 // Explicit production host assembly. Loading this module only installs the
 // maintenance-runtime hooks (no acquisition, configure, IO, ready or process
 // startup); startServer calls acquireServe/configureServe explicitly.
@@ -106827,6 +107333,35 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
   const read=(object,name)=>{try{return object===null||typeof object!=='object'?undefined:object[name];}catch{return undefined;}};
   const methods=(object,names)=>plain(object)&&names.every(name=>typeof read(object,name)==='function');
   const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
+  // One boot-preference owner for the whole process. 13aw currently precedes this
+  // module, but installation stays idempotent and is retried at the first host binding
+  // as defence against a future reordering, never depending on script order. The owner
+  // is created with the user's home directory and the same native flush as the
+  // claim/activation owners; an existing instance is never replaced and a missing
+  // module leaves the capability unset (the post-ready preference write then stays
+  // diagnosis only).
+  function installRootPreference(){
+    const hooks=typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks;
+    if(!hooks)return null;
+    if(hooks.rootPreference)return hooks.rootPreference;
+    const module=typeof WorkDataRootPreference!=='undefined'?WorkDataRootPreference:null;
+    if(!module||typeof module.create!=='function'||typeof WorkDataVerifierEntry==='undefined')return null;
+    const native=WorkDataVerifierEntry.createVerifier({proc:process}),home=require('node:os').homedir(),flush=directories=>native.flush(directories);
+    const owner=module.create({home,flush});
+    // 13aw validates its home directory and record codec at create time; an unusable
+    // owner is never installed, and no second instance is ever minted.
+    if(!owner||typeof owner!=='object'||Array.isArray(owner)||!['inspect','write','remove'].every(name=>typeof owner[name]==='function'))return null;
+    // The store keeps its eight-key codec at module level. Publish that same judge on
+    // the one installed owner so the runtime validates with the store's codec instead
+    // of copying the record shape; an owner that already carries validate keeps it.
+    const installed=typeof owner.validate==='function'?owner:typeof module.validate==='function'
+      ?Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous),
+        remove:receipt=>owner.remove(receipt),validate:value=>module.validate(value)})
+      :null;
+    if(!installed)return null;
+    hooks.rootPreference=installed;
+    return installed;
+  }
   function productionBindings(proc) {
     const native=WorkDataVerifierEntry.createVerifier({proc});
     return {ownership:ServerOwnership,native,uploads:WorkDataRestoreUploads,
@@ -106841,6 +107376,8 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
       // The one fresh-root activation owner installed on the runtime hooks by this
       // module's tail. Reused as-is; an absent instance keeps the restore handoff closed.
       activation:typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks.activation||null,
+      // The one boot-preference owner for this process, installed on first use.
+      rootPreference:installRootPreference(),
       command(mode){if(!MODES.includes(mode))throw fail('command_invalid');const original=WorkDataVerifierEntry.command({proc});return Object.freeze({command:original.command,args:Object.freeze([...original.args.slice(0,-1),mode])});}};
   }
   function create({proc=process,bindings=productionBindings(proc),stopUncommitted,exit}={}) {
@@ -107096,12 +107633,24 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
         ? Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous)})
         : Object.freeze({inspect:observation=>owner.inspect(observation),remove:receipt=>owner.remove(receipt)});
     };
+    // The boot preference owner is installed once on the process hooks. A successor
+    // reads, validates and writes the committed restored root; a cold worker may only
+    // read it, and no runtime role may remove it (retiring a preference belongs to the
+    // store owner). validate is the store's codec, never a local re-derivation.
+    const rootPreferenceFor=role=>{
+      const owner=plain(bindings)?read(bindings,'rootPreference'):null;
+      if(!plain(owner)||!methods(owner,['inspect','write','remove','validate']))return null;
+      return role==='cold'
+        ? Object.freeze({inspect:observation=>owner.inspect(observation),validate:value=>owner.validate(value)})
+        : Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous),validate:value=>owner.validate(value)});
+    };
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
       const host={process:proc,workerApi,httpApi:bindings.httpApi,resultApi:bindings.resultApi,controlApi:bindings.controlApi,workerHooks:bindings.workerHooks,
         get claim(){return bindings.claim;},
         activation:activationFor(role),
+        rootPreference:rootPreferenceFor(role),
         base:async()=>base,canonical:O.canonicalRoot,acquire:roots=>coldAcquire(roots,base),assertOwnership,withColdSource,withWarmSource,bindCapturedResult,
         readAuthority:requested=>{const ctx=role==='warm'?warm:cold;if(!ctx||fold(requested)!==ctx.base)throw fail('source_required');return operation(ctx,()=>N.readAuthority(ctx.base),{newAdmission:role==='warm'});},
         operations:({progress})=>{if(typeof progress!=='function')throw fail('progress_invalid');return bindings.coldOperations.create(N.coldOperationHost(progress));},
@@ -107185,7 +107734,7 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
     // Only a serve that actually started may announce serve-ready/disconnect.
     return runtimeHooks.completeSuccessor();
   }
-  return Object.freeze({create,bindCapturedResult,startColdMaintenance,startSuccessorMaintenance});
+  return Object.freeze({create,bindCapturedResult,startColdMaintenance,startSuccessorMaintenance,installRootPreference});
 })(require('node:path'),require('node:util'),require('node:timers'));
 
 // Actual normal-serve wiring. Definition/configuration alone performs no IO.
@@ -107329,6 +107878,14 @@ if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
       if(activation&&typeof activation==='object')WorkDataMaintenanceRuntimeHooks.activation=activation;
     }
   }catch{ /* No synthetic activation: the restore handoff stays closed. */ }
+  // One boot-preference owner for the whole process, created at this same install point
+  // with the user's home directory and the same native flush as the claim/activation
+  // owners. 13aw precedes this module today; the idempotent seam also retries at the
+  // first host binding as defence against a future reordering. An existing instance is
+  // never replaced and an absent module only turns the post-ready preference write into
+  // diagnosis.
+  try{WorkDataRuntimeHost.installRootPreference();}
+  catch{ /* Retried at the first host binding; the preference write stays diagnostic. */ }
 }
 
 let workDataCliHelperHeld = false;
@@ -107420,6 +107977,39 @@ async function startWorkbenchServe(argv) {
   if (typeof WorkDataMaintenanceRuntimeHooks.activateServe === 'function') WorkDataMaintenanceRuntimeHooks.activateServe();
   return served;
 }
+// P2-4: the explicit operational exit for the boot-root preference. It never acquires
+// the data root, starts a serve, runs a migration or the ordinary doctor: it asks the
+// single preference owner for its record and removes exactly that record through the
+// CAS receipt the owner just returned. A missing owner, an unreadable record and a
+// refused removal are typed refusals; no file is written, copied or fabricated here, and
+// an absent record is an idempotent success.
+async function clearBootRootPreference() {
+  const refusal = (suffix, cause) => Object.assign(Error('work_data_setup.' + suffix),
+    { code: 'work_data_setup.' + suffix, retry: false, ...(cause === undefined ? {} : { cause }) });
+  const hooks = typeof WorkDataMaintenanceRuntimeHooks === 'undefined' ? null : WorkDataMaintenanceRuntimeHooks;
+  // The owner is installed when 13au loads; ask its idempotent seam once more so a future
+  // reordering of 13aw cannot make this operational exit unavailable. Failure falls
+  // through to the typed refusal below instead of inventing an owner here.
+  if (hooks && typeof WorkDataRuntimeHost !== 'undefined' && WorkDataRuntimeHost
+    && typeof WorkDataRuntimeHost.installRootPreference === 'function') {
+    try { WorkDataRuntimeHost.installRootPreference(); } catch { /* typed refusal below */ }
+  }
+  const owner = hooks && typeof hooks === 'object' ? hooks.rootPreference : null;
+  if (!owner || typeof owner !== 'object' || typeof owner.inspect !== 'function' || typeof owner.remove !== 'function')
+    throw refusal('root_preference_unavailable');
+  let observed;
+  try { observed = await owner.inspect(); }
+  catch (error) { throw refusal('root_preference_unreadable', error); }
+  if (!observed || observed.present !== true) { console.log('boot-root preference: absent'); return; }
+  // The inspected receipt is the only removal authority; it is never rebuilt or forged.
+  try { await owner.remove(observed.receipt); }
+  catch (error) { throw refusal('root_preference_remove_failed', error); }
+  let after;
+  try { after = await owner.inspect(); }
+  catch (error) { throw refusal('root_preference_unreadable', error); }
+  if (after && after.present === true) throw refusal('root_preference_clear_unverified');
+  console.log('boot-root preference: cleared');
+}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
@@ -107446,7 +108036,16 @@ async function main() {
   if (command === 'serve') return startWorkbenchServe(argv);
   if (command === 'mcp') return startMcp();
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
-  if (command === 'doctor') return withSelectedWorkDataRoot(() => doctor(argv)); // 118b: --human 走人话体检,默认仍只打 JSON
+  if (command === 'doctor') {
+    // P2-4: decided before any root acquisition, boot inspection, migration or ordinary
+    // doctor work; this is the only doctor variant that never enters withSelectedWorkDataRoot.
+    if (argv['clear-boot-root'] !== undefined) {
+      if (argv['clear-boot-root'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
+        throw Object.assign(Error('work_data_setup.private_command_invalid'), { code: 'work_data_setup.private_command_invalid', retry: false });
+      return clearBootRootPreference();
+    }
+    return withSelectedWorkDataRoot(() => doctor(argv)); // 118b: --human 走人话体检,默认仍只打 JSON
+  }
   if (command === 'mcp-config') {
     return withSelectedWorkDataRoot(async () => { console.log(await generateMcpConfig()); });
   }

@@ -57,8 +57,8 @@ function loadProductTarget(harness){
  // too, so no executing input can drift outside target.recheck. The helper count
  // stays a literal so a silent addition is caught here; the source count is
  // derived because the product legitimately grows. Current composition:
- // 128 app/src files + 13 harness inputs + 4 fixed (server, build.js, package.json,
- // node) = 145 pinned execution inputs; the total is derived, never written down.
+ // 129 app/src files + 13 harness inputs + 4 fixed (server, build.js, package.json,
+ // node) = 146 pinned execution inputs; the total is derived, never written down.
  a.equal(helperNames.length,13,'harness execution inputs');
  a.equal(files.length,4+tree.files.length+helperNames.length,'pinned execution inputs');
  // Execution inputs are the actual bytes read above. The digest is derived only

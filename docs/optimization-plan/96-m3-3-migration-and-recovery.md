@@ -2,7 +2,9 @@
 
 日期：2026-10-24。基线：`415357604f6465f43b377d1d30ff713464a8fa96`。分支：`codex/3.1-completion-plan`。应用仍为 **3.0.1**。
 
-**2026-10-28 私有 activation 批（最新）：** restore 的私有 successor 已通过一次性 TEMP activation-v1 收据在独立 target 上真实启动并服务，最终字节 E2E 连续两遍各 24 断言通过。收据绑定 job/nonce/cold PID/target identity+authority/source result proof，ready 后 CAS 消费；普通启动不读不写不删。source 持久 result 仍九字段，内存 restartRoot=source，未加入 B3 根偏好。基线 `beed147c`。独立 reviewer 的 post-verify authority 与防回落等发现均已修复并复审关闭，无新增 P0/P1。`download`/`crashClaim` 仍未实现，后续根偏好、恢复 kernel 与完整 UI 旅程仍待。完整标准门与最终身份见 [92 §12.43](92-3.1-implementation-handoff.md) 和[本批证据](evidence/m3-activation-20261028.json)；下方各段均为历史快照，不表示完整 M3-3/3.1 完成。
+**2026-10-28 后续启动根偏好批（最新）：** activation successor 在 serve-ready 后写入 base 外 `<home>/.ruyi/boot-root-v1.json`，再 CAS 消费一次性 TEMP activation；后续无 `RUYI_HOME`/`WIN_CLAUDE_WORKBENCH_HOME` 的普通 serve 已从 restored target 启动，显式 env 永远优先且相同记录不重写。plain/encrypted 最终真实 E2E 连续两遍各 26 断言通过；`doctor --clear-boot-root` 提供精确 receipt CAS 清除，坏记录/alias/identity 不符回退缺省根且不自动改文件。完整 unit 4268 项中 4244 过、24 条件跳过、0 失败。download、恢复 kernel、完整 restore UI 与非空 special 仍待，M3-3/3.1 未完成。见 [92 §12.44](92-3.1-implementation-handoff.md) 与[本批证据](evidence/m3-boot-root-preference-20261028.json)；下方为历史快照。
+
+**2026-10-28 私有 activation 批：** restore 的私有 successor 已通过一次性 TEMP activation-v1 收据在独立 target 上真实启动并服务，最终字节 E2E 连续两遍各 24 断言通过。收据绑定 job/nonce/cold PID/target identity+authority/source result proof，ready 后 CAS 消费；普通启动不读不写不删。source 持久 result 仍九字段，内存 restartRoot=source，未加入 B3 根偏好。基线 `beed147c`。独立 reviewer 的 post-verify authority 与防回落等发现均已修复并复审关闭，无新增 P0/P1。`download`/`crashClaim` 仍未实现，后续根偏好、恢复 kernel 与完整 UI 旅程仍待。完整标准门与最终身份见 [92 §12.43](92-3.1-implementation-handoff.md) 和[本批证据](evidence/m3-activation-20261028.json)；下方各段均为历史快照，不表示完整 M3-3/3.1 完成。
 
 **2026-10-27 上一批收口：** M3-3 生产上传/native/host 接线及审查修复已过本批标准门，基线 `ee2e1190`：完整 unit 4099 项 4075 过/24 跳过/0 失败，82 静态全过；生产上传 14 断言连续两遍通过；独审 P0/P1=0。`worker`/`download`/`crashClaim`/`activation` 仍为 false，真实上传→restore 不可达，持久 claim、恢复 kernel、activation 与完整 UI 旅程仍待。见 [92 §12.40](92-3.1-implementation-handoff.md) 与[该批证据](evidence/m3-production-upload-20261027.json)；下方 §1–9 及上一条 12.39 状态均为历史，不表示完整迁移恢复完成。
 

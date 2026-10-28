@@ -87,6 +87,39 @@ async function startWorkbenchServe(argv) {
   if (typeof WorkDataMaintenanceRuntimeHooks.activateServe === 'function') WorkDataMaintenanceRuntimeHooks.activateServe();
   return served;
 }
+// P2-4: the explicit operational exit for the boot-root preference. It never acquires
+// the data root, starts a serve, runs a migration or the ordinary doctor: it asks the
+// single preference owner for its record and removes exactly that record through the
+// CAS receipt the owner just returned. A missing owner, an unreadable record and a
+// refused removal are typed refusals; no file is written, copied or fabricated here, and
+// an absent record is an idempotent success.
+async function clearBootRootPreference() {
+  const refusal = (suffix, cause) => Object.assign(Error('work_data_setup.' + suffix),
+    { code: 'work_data_setup.' + suffix, retry: false, ...(cause === undefined ? {} : { cause }) });
+  const hooks = typeof WorkDataMaintenanceRuntimeHooks === 'undefined' ? null : WorkDataMaintenanceRuntimeHooks;
+  // The owner is installed when 13au loads; ask its idempotent seam once more so a future
+  // reordering of 13aw cannot make this operational exit unavailable. Failure falls
+  // through to the typed refusal below instead of inventing an owner here.
+  if (hooks && typeof WorkDataRuntimeHost !== 'undefined' && WorkDataRuntimeHost
+    && typeof WorkDataRuntimeHost.installRootPreference === 'function') {
+    try { WorkDataRuntimeHost.installRootPreference(); } catch { /* typed refusal below */ }
+  }
+  const owner = hooks && typeof hooks === 'object' ? hooks.rootPreference : null;
+  if (!owner || typeof owner !== 'object' || typeof owner.inspect !== 'function' || typeof owner.remove !== 'function')
+    throw refusal('root_preference_unavailable');
+  let observed;
+  try { observed = await owner.inspect(); }
+  catch (error) { throw refusal('root_preference_unreadable', error); }
+  if (!observed || observed.present !== true) { console.log('boot-root preference: absent'); return; }
+  // The inspected receipt is the only removal authority; it is never rebuilt or forged.
+  try { await owner.remove(observed.receipt); }
+  catch (error) { throw refusal('root_preference_remove_failed', error); }
+  let after;
+  try { after = await owner.inspect(); }
+  catch (error) { throw refusal('root_preference_unreadable', error); }
+  if (after && after.present === true) throw refusal('root_preference_clear_unverified');
+  console.log('boot-root preference: cleared');
+}
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
@@ -113,7 +146,16 @@ async function main() {
   if (command === 'serve') return startWorkbenchServe(argv);
   if (command === 'mcp') return startMcp();
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
-  if (command === 'doctor') return withSelectedWorkDataRoot(() => doctor(argv)); // 118b: --human 走人话体检,默认仍只打 JSON
+  if (command === 'doctor') {
+    // P2-4: decided before any root acquisition, boot inspection, migration or ordinary
+    // doctor work; this is the only doctor variant that never enters withSelectedWorkDataRoot.
+    if (argv['clear-boot-root'] !== undefined) {
+      if (argv['clear-boot-root'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
+        throw Object.assign(Error('work_data_setup.private_command_invalid'), { code: 'work_data_setup.private_command_invalid', retry: false });
+      return clearBootRootPreference();
+    }
+    return withSelectedWorkDataRoot(() => doctor(argv)); // 118b: --human 走人话体检,默认仍只打 JSON
+  }
   if (command === 'mcp-config') {
     return withSelectedWorkDataRoot(async () => { console.log(await generateMcpConfig()); });
   }

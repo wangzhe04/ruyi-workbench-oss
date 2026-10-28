@@ -196,7 +196,7 @@ test('runtime discovery continues reading the stable base after every managed da
 test('serve selects under the existing OS owner before inner startup; an invalid manifest never reaches its error writer', async () => {
   for (const bad of [false, true]) {
     const f = await fixture(); if (bad) await fsp.writeFile(f.pointer, '{'); const events = [];
-    const context = { path, fs, process, paths: f.paths, dataRoot: () => f.base, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ next: f.base, legacy: f.base }), lstatOrNull: () => null,
+    const context = { path, fs, process, paths: f.paths, dataRoot: () => f.base, dataRootSource: () => 'default', resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ next: f.base, legacy: f.base }), lstatOrNull: () => null,
       isDirectServeInvocation: () => false, ServerOwnership: { acquire: async () => { events.push('owner'); return f.owner; } }, WorkDataRootHooks: f.factory, WorkDataMaintenanceRuntimeHooks: {},
       startServerInner: async () => { assert.equal(f.factory.ready(), true); assert.equal(f.paths.data, f.factory.selected().root); events.push('inner'); return 'served'; },
       finishBootCliPathProbes: () => events.push('finish'), writeStartError: async () => events.push('error-write'), START_ERROR_KINDS: [], PrivacyCore: { configHooks: {} } };

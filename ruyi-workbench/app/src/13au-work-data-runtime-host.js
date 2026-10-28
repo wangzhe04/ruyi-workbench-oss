@@ -13,6 +13,35 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
   const read=(object,name)=>{try{return object===null||typeof object!=='object'?undefined:object[name];}catch{return undefined;}};
   const methods=(object,names)=>plain(object)&&names.every(name=>typeof read(object,name)==='function');
   const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
+  // One boot-preference owner for the whole process. 13aw currently precedes this
+  // module, but installation stays idempotent and is retried at the first host binding
+  // as defence against a future reordering, never depending on script order. The owner
+  // is created with the user's home directory and the same native flush as the
+  // claim/activation owners; an existing instance is never replaced and a missing
+  // module leaves the capability unset (the post-ready preference write then stays
+  // diagnosis only).
+  function installRootPreference(){
+    const hooks=typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks;
+    if(!hooks)return null;
+    if(hooks.rootPreference)return hooks.rootPreference;
+    const module=typeof WorkDataRootPreference!=='undefined'?WorkDataRootPreference:null;
+    if(!module||typeof module.create!=='function'||typeof WorkDataVerifierEntry==='undefined')return null;
+    const native=WorkDataVerifierEntry.createVerifier({proc:process}),home=require('node:os').homedir(),flush=directories=>native.flush(directories);
+    const owner=module.create({home,flush});
+    // 13aw validates its home directory and record codec at create time; an unusable
+    // owner is never installed, and no second instance is ever minted.
+    if(!owner||typeof owner!=='object'||Array.isArray(owner)||!['inspect','write','remove'].every(name=>typeof owner[name]==='function'))return null;
+    // The store keeps its eight-key codec at module level. Publish that same judge on
+    // the one installed owner so the runtime validates with the store's codec instead
+    // of copying the record shape; an owner that already carries validate keeps it.
+    const installed=typeof owner.validate==='function'?owner:typeof module.validate==='function'
+      ?Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous),
+        remove:receipt=>owner.remove(receipt),validate:value=>module.validate(value)})
+      :null;
+    if(!installed)return null;
+    hooks.rootPreference=installed;
+    return installed;
+  }
   function productionBindings(proc) {
     const native=WorkDataVerifierEntry.createVerifier({proc});
     return {ownership:ServerOwnership,native,uploads:WorkDataRestoreUploads,
@@ -27,6 +56,8 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
       // The one fresh-root activation owner installed on the runtime hooks by this
       // module's tail. Reused as-is; an absent instance keeps the restore handoff closed.
       activation:typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks.activation||null,
+      // The one boot-preference owner for this process, installed on first use.
+      rootPreference:installRootPreference(),
       command(mode){if(!MODES.includes(mode))throw fail('command_invalid');const original=WorkDataVerifierEntry.command({proc});return Object.freeze({command:original.command,args:Object.freeze([...original.args.slice(0,-1),mode])});}};
   }
   function create({proc=process,bindings=productionBindings(proc),stopUncommitted,exit}={}) {
@@ -282,12 +313,24 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
         ? Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous)})
         : Object.freeze({inspect:observation=>owner.inspect(observation),remove:receipt=>owner.remove(receipt)});
     };
+    // The boot preference owner is installed once on the process hooks. A successor
+    // reads, validates and writes the committed restored root; a cold worker may only
+    // read it, and no runtime role may remove it (retiring a preference belongs to the
+    // store owner). validate is the store's codec, never a local re-derivation.
+    const rootPreferenceFor=role=>{
+      const owner=plain(bindings)?read(bindings,'rootPreference'):null;
+      if(!plain(owner)||!methods(owner,['inspect','write','remove','validate']))return null;
+      return role==='cold'
+        ? Object.freeze({inspect:observation=>owner.inspect(observation),validate:value=>owner.validate(value)})
+        : Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous),validate:value=>owner.validate(value)});
+    };
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
       const host={process:proc,workerApi,httpApi:bindings.httpApi,resultApi:bindings.resultApi,controlApi:bindings.controlApi,workerHooks:bindings.workerHooks,
         get claim(){return bindings.claim;},
         activation:activationFor(role),
+        rootPreference:rootPreferenceFor(role),
         base:async()=>base,canonical:O.canonicalRoot,acquire:roots=>coldAcquire(roots,base),assertOwnership,withColdSource,withWarmSource,bindCapturedResult,
         readAuthority:requested=>{const ctx=role==='warm'?warm:cold;if(!ctx||fold(requested)!==ctx.base)throw fail('source_required');return operation(ctx,()=>N.readAuthority(ctx.base),{newAdmission:role==='warm'});},
         operations:({progress})=>{if(typeof progress!=='function')throw fail('progress_invalid');return bindings.coldOperations.create(N.coldOperationHost(progress));},
@@ -371,7 +414,7 @@ const WorkDataRuntimeHost = ((p,util,clock) => {
     // Only a serve that actually started may announce serve-ready/disconnect.
     return runtimeHooks.completeSuccessor();
   }
-  return Object.freeze({create,bindCapturedResult,startColdMaintenance,startSuccessorMaintenance});
+  return Object.freeze({create,bindCapturedResult,startColdMaintenance,startSuccessorMaintenance,installRootPreference});
 })(require('node:path'),require('node:util'),require('node:timers'));
 
 // Actual normal-serve wiring. Definition/configuration alone performs no IO.
@@ -515,4 +558,12 @@ if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
       if(activation&&typeof activation==='object')WorkDataMaintenanceRuntimeHooks.activation=activation;
     }
   }catch{ /* No synthetic activation: the restore handoff stays closed. */ }
+  // One boot-preference owner for the whole process, created at this same install point
+  // with the user's home directory and the same native flush as the claim/activation
+  // owners. 13aw precedes this module today; the idempotent seam also retries at the
+  // first host binding as defence against a future reordering. An existing instance is
+  // never replaced and an absent module only turns the post-ready preference write into
+  // diagnosis.
+  try{WorkDataRuntimeHost.installRootPreference();}
+  catch{ /* Retried at the first host binding; the preference write stays diagnostic. */ }
 }

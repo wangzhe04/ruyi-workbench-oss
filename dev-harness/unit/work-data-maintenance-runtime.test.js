@@ -313,20 +313,44 @@ const nodeCrypto=require('node:crypto');
 // compare plain JSON copies instead of cross-realm prototypes.
 const plain=value=>JSON.parse(JSON.stringify(value));
 const SHA=bytes=>nodeCrypto.createHash('sha256').update(bytes).digest('hex');
-const activationStore=()=>{
+const activationStore=({sequence=[]}={})=>{
  const rows=new Map(),calls={write:[],inspect:[],remove:[],order:[]};
  return {rows,calls,
-  async write(value){calls.write.push(value);calls.order.push('activation-write');
+  async write(value){calls.write.push(value);calls.order.push('activation-write');sequence.push('activation-write');
    if(rows.has(value.base))throw Object.assign(Error('work_data_claim.claim_exists'),{code:'work_data_claim.claim_exists'});
    const receipt=Object.freeze({base:value.base,sha256:SHA(Buffer.from(JSON.stringify(value))),dev:'11',ino:'22'});
    rows.set(value.base,{value,receipt});return receipt;},
-  async inspect({base}={}){calls.inspect.push(base);const row=rows.get(base);
+  async inspect({base}={}){calls.inspect.push(base);sequence.push('activation-inspect');const row=rows.get(base);
    return row?{present:true,value:row.value,receipt:row.receipt}:{present:false};},
-  async remove(receipt){calls.remove.push(receipt);const row=rows.get(receipt.base);
+  async remove(receipt){calls.remove.push(receipt);sequence.push('activation-remove');const row=rows.get(receipt.base);
    if(!row||row.receipt.sha256!==receipt.sha256||row.receipt.dev!==receipt.dev||row.receipt.ino!==receipt.ino)
     throw Object.assign(Error('work_data_claim.claim_changed'),{code:'work_data_claim.claim_changed'});
    rows.delete(receipt.base);return true;}};
 };
+// The boot preference owner is a separate eight-key store; this fake enforces the same
+// create-or-CAS discipline the reviewed owner does.
+const rootPreferenceStore=({sequence=[],verdict=true}={})=>{
+ // The reviewed owner keeps one record at one home location: inspect() takes no
+ // observation, so this fake models the same single-record surface. validate is the
+ // store's own eight-key judge and the runtime must never re-derive that shape.
+ const rows=new Map(),calls={inspect:[],write:[],order:[],validate:[]};
+ const store={rows,calls,refuse:false,
+  validate(value){calls.validate.push(value);return verdict!==false&&!store.refuse;},
+  async inspect(){calls.inspect.push(null);calls.order.push('preference-inspect');sequence.push('preference-inspect');
+   const only=[...rows.values()];return only.length?{present:true,value:only[0].value,receipt:only[0].receipt}:{present:false};},
+  async write(value,previous=null){calls.write.push({value,previous});calls.order.push('preference-write');sequence.push('preference-write');
+   const row=rows.get(value.base);
+   if(previous===null){if(row)throw Object.assign(Error('work_data_root.preference_exists'),{code:'work_data_root.preference_exists'});}
+   else if(!row||!previous||row.receipt.sha256!==previous.sha256)
+    throw Object.assign(Error('work_data_root.preference_changed'),{code:'work_data_root.preference_changed'});
+   const receipt=Object.freeze({base:value.base,sha256:SHA(Buffer.from(JSON.stringify(value))),dev:'33',ino:'44'});
+   rows.set(value.base,{value,receipt});return receipt;},
+  async remove(receipt){rows.delete(receipt.base);return true;}};
+ return store;
+};
+const preferenceValue=async f=>({schema:1,kind:'restored-boot-root',base:await f.host.canonical(f.base),
+  baseIdentity:{dev:'1',ino:'2'},authority:{generation:0,id:null,mode:'plain',sha256:null},
+  resultId:'a'.repeat(48),resultSha256:'c'.repeat(64),createdAt:'2026-10-01T00:00:00.000Z'});
 const activationValue=async(f,{id='a'.repeat(48),nonce='b'.repeat(64),parentPid=88,resultSha256='c'.repeat(64),base,patch={}}={})=>({
   schema:1,activation:'separate-fresh-root',operation:'restore',base:base||await f.host.canonical(f.base),baseIdentity:{dev:'1',ino:'2'},
   authority:{generation:0,id:null,mode:'plain',sha256:null},id,nonce,parentPid,resultSha256,createdAt:'2026-10-01T00:00:00.000Z',...patch});
@@ -362,6 +386,16 @@ const successorRun=async(f,{result,activation,http,events=[]}={})=>{
 };
 const settle=async promise=>Promise.race([promise.then(value=>({value}),error=>({error})),
   new Promise(resolve=>setTimeout(()=>resolve({pending:true}),120))]);
+// The hold publishes its typed status asynchronously; wait for it instead of racing a
+// loaded test runner.
+const waitStatus=async state=>{
+ for(let count=0;count<500;count++){
+  let value=null;try{value=state.status?state.status():null;}catch{value=null;}
+  if(value&&value.job&&value.job.error)return value;
+  await new Promise(resolve=>setTimeout(resolve,2));
+ }
+ return null;
+};
 // A real result record plus a real backup: executeBody's activation binding is only
 // accepted against the record 01ae actually reads back.
 const recordHandoff=async(f,{operation='restore',target,restoredTarget,restartRoot,identity,authority}={})=>{
@@ -424,8 +458,10 @@ test('restore result refuses activation target drift instead of handing off',asy
   const f=await fixture(t),h=await make(f),{execute,state}=await coldExecute(f,{result:h.result});
   const outcome=await settle(execute(coldContext(f,h.id,'restore')));
   assert.equal(outcome.pending,true,name+' must never hand off');
-  assert.equal(state.status().job.error,'work_data_setup.'+code,name);
-  assert.equal(state.status().job.state,'failed',name);
+  const status=await waitStatus(state);
+  assert.ok(status,name+' must publish a typed hold status');
+  assert.equal(status.job.error,'work_data_setup.'+code,name);
+  assert.equal(status.job.state,'failed',name);
  }
 });
 test('restore successor writes the receipt before spawn and serves the target root',async t=>{
@@ -470,8 +506,9 @@ test('a restore envelope without an activation target refuses instead of startin
  assert.deepEqual(f.state.exits,[],'the cold parent never exits for a refused handoff');
  assert.equal(store.calls.write.length,0,'no activation receipt is written without a target');
  assert.equal(store.calls.remove.length,0);
- assert.equal(state.status().job.error,'work_data_setup.activation_target_missing');
- assert.equal(state.status().job.state,'uncertain');
+ const typed=await waitStatus(state);
+ assert.equal(typed.job.error,'work_data_setup.activation_target_missing');
+ assert.equal(typed.job.state,'uncertain');
  assert.deepEqual(plain(state.acquired[0]),[f.base],'the diagnostic hold reports the envelope base; it is not a successor root');
 });
 test('restore successor refuses target==source and a missing activation owner without falling back',async t=>{
@@ -480,7 +517,7 @@ test('restore successor refuses target==source and a missing activation owner wi
  let outcome=await settle(state.pending);
  assert.equal(outcome.pending,true);
  assert.equal(state.spawns,0);assert.deepEqual(f.state.exits,[]);
- assert.equal(state.status().job.error,'work_data_setup.successor_target_invalid');
+ assert.equal((await waitStatus(state)).job.error,'work_data_setup.successor_target_invalid');
  assert.deepEqual(plain(state.acquired[0]),[f.base],'the failure is reported against the actual base');
 
  f=await fixture(t);const target=p.join(f.root,'target');await io.mkdir(target);
@@ -488,7 +525,7 @@ test('restore successor refuses target==source and a missing activation owner wi
  outcome=await settle(state.pending);
  assert.equal(outcome.pending,true);
  assert.equal(state.spawns,0);assert.deepEqual(f.state.exits,[]);
- assert.equal(state.status().job.error,'work_data_setup.activation_unavailable','a missing owner fails closed');
+ assert.equal((await waitStatus(state)).job.error,'work_data_setup.activation_unavailable','a missing owner fails closed');
  assert.deepEqual(plain(state.acquired[0]),[target],'the failed handoff is reported against the target, not the source');
  assert.equal(Object.hasOwn(f.host,'activation'),false);
 });
@@ -500,7 +537,7 @@ test('restore successor keeps the receipt as diagnosis and never retries a faile
  let outcome=await settle(state.pending);
  assert.equal(outcome.pending,true);
  assert.equal(state.spawns,0);assert.deepEqual(f.state.exits,[]);
- assert.equal(state.status().job.error,'work_data_setup.activation_failed');
+ assert.equal((await waitStatus(state)).job.error,'work_data_setup.activation_failed');
 
  f=await fixture(t);const store=activationStore();let status=null,spawns=0;
  f.host.activation=store;f.host.acquire=async()=>f.ownership;
@@ -512,7 +549,7 @@ test('restore successor keeps the receipt as diagnosis and never retries a faile
  assert.equal(spawns,1,'a failed launch is never retried');
  assert.equal(store.calls.write.length,1,'the receipt stays behind as diagnosis');
  assert.equal(store.calls.remove.length,0,'a failed launch never removes its own receipt');
- assert.equal(status().job.state,'uncertain');
+ assert.equal((await waitStatus({status})).job.state,'uncertain');
 });
 test('successor preparation reads the receipt and binds every field before serve entry',async t=>{
  const f=await fixture(t),store=activationStore(),value=await activationValue(f);
@@ -641,16 +678,18 @@ test('ordinary boot keeps its presence-only inspection and never touches activat
  assert.equal(store.calls.remove.length,0,'ordinary serve must not remove activation');
 });
 test('successor completion proves the receipt and target authority, then consumes it by CAS',async t=>{
- const run=async(f,{send,store}={})=>{
-  const owner=store||activationStore(),sent=[],value=await activationValue(f);
+ const run=async(f,{send,store,preference,sequence=[]}={})=>{
+  const owner=store||activationStore({sequence}),sent=[],value=await activationValue(f);
   owner.rows.set(value.base,{value,receipt:sealRecord(value)});
   let reads=0;
   const initial={...owner.rows.get(value.base)},host={...f.host,activation:owner,
+    ...(preference!==undefined?{rootPreference:preference}:{}),
     resultApi:{create:options=>{const reader=Result.create(options);return{...reader,read:async()=>{reads++;return reader.read();}};}}};
   const runtime=Runtime.create(host);
-  await runtime.prepareSuccessor(successorChannel(f,activationInput(f),{send:async message=>{sent.push(message);if(send)await send(message,owner);}}),{base:f.base});
+  await runtime.prepareSuccessor(successorChannel(f,activationInput(f),
+    {send:async message=>{sent.push(message);sequence.push('serve-ready');if(send)await send(message,owner);}}),{base:f.base});
   await runtime.captureServe(f.context);
-  return {runtime,host,owner,sent,reads:()=>reads,receipt:initial.receipt};
+  return {runtime,host,owner,sent,sequence,reads:()=>reads,receipt:initial.receipt};
  };
  let f=await fixture(t),run1=await run(f);
  assert.equal(await run1.runtime.completeSuccessor(),f.server,'serve-ready then a completed handoff');
@@ -681,4 +720,152 @@ test('successor completion proves the receipt and target authority, then consume
  run4.host.readAuthority=async()=>({generation:1,id:'a'.repeat(48),mode:'encrypted',proof:{sha256:'b'.repeat(64)}});
  await assert.rejects(()=>run4.runtime.completeSuccessor(),{code:'work_data_setup.successor_authority_changed'});
  assert.equal(run4.sent.length,0);assert.equal(run4.owner.calls.remove.length,0);
+});
+// ---------------------------------------------------------------------------
+// B3: the committed restore target becomes the boot preference only after
+// serve-ready, and only for an activation handoff.
+// ---------------------------------------------------------------------------
+test('activation completion writes one exact boot preference after serve-ready, then consumes the receipt',async t=>{
+ const run=async(f,{send,store,preference,sequence=[]}={})=>{
+  const owner=store||activationStore({sequence}),sent=[],value=await activationValue(f);
+  owner.rows.set(value.base,{value,receipt:sealRecord(value)});
+  let reads=0;
+  const initial={...owner.rows.get(value.base)},host={...f.host,activation:owner,rootPreference:preference,
+    resultApi:{create:options=>{const reader=Result.create(options);return{...reader,read:async()=>{reads++;return reader.read();}};}}};
+  const runtime=Runtime.create(host);
+  await runtime.prepareSuccessor(successorChannel(f,activationInput(f),
+    {send:async message=>{sent.push(message);sequence.push('serve-ready');}}),{base:f.base});
+  await runtime.captureServe(f.context);
+  return {runtime,host,owner,sent,sequence,reads:()=>reads,receipt:initial.receipt};
+ };
+ const sequence=[],f=await fixture(t),store=activationStore({sequence}),preference=rootPreferenceStore({sequence});
+ const r=await run(f,{store,preference,sequence});
+ assert.equal(await r.runtime.completeSuccessor(),f.server);
+ assert.equal(r.sent.length,1);
+ assert.equal(preference.calls.write.length,1,'exactly one preference write');
+ const wrote=preference.calls.write[0];
+ assert.deepEqual(Object.keys(wrote.value).sort(),['authority','base','baseIdentity','createdAt','kind','resultId','resultSha256','schema']);
+ assert.deepEqual(plain(wrote.value),await preferenceValue(f));
+ assert.equal(wrote.previous,null,'a first preference is created without a CAS receipt');
+ assert.deepEqual(preference.rows.get(wrote.value.base).value,wrote.value);
+ // serve-ready, then the preference, then the activation CAS removal.
+ assert.deepEqual(sequence.slice(sequence.indexOf('serve-ready')),
+   ['serve-ready','preference-inspect','preference-write','activation-remove']);
+ assert.equal(r.owner.calls.remove.length,1);
+ assert.equal(r.owner.calls.remove[0].sha256,r.receipt.sha256,'the activation CAS still uses the prepare receipt');
+ assert.equal(r.reads(),0,'no target result is read to build the preference');
+});
+test('an identical boot preference is never rewritten and the handoff still completes',async t=>{
+ const f=await fixture(t),sequence=[],preference=rootPreferenceStore({sequence}),existing=await preferenceValue(f);
+ const seeded=Object.freeze({base:existing.base,sha256:'f'.repeat(64),dev:'33',ino:'44'});
+ preference.rows.set(existing.base,{value:existing,receipt:seeded});
+ const owner=activationStore({sequence}),sent=[],value=await activationValue(f);
+ owner.rows.set(value.base,{value,receipt:sealRecord(value)});
+ const host={...f.host,activation:owner,rootPreference:preference};
+ const runtime=Runtime.create(host);
+ await runtime.prepareSuccessor(successorChannel(f,activationInput(f),{send:async message=>sent.push(message)}),{base:f.base});
+ await runtime.captureServe(f.context);
+ assert.equal(await runtime.completeSuccessor(),f.server);
+ assert.equal(preference.calls.inspect.length,1,'the existing preference is read');
+ assert.equal(preference.calls.write.length,0,'an identical preference is never rewritten');
+ assert.equal(preference.rows.get(existing.base).receipt.sha256,seeded.sha256,'the record stays byte-identical');
+ assert.equal(sent.length,1);
+ assert.equal(owner.calls.remove.length,1,'the activation receipt is still consumed');
+});
+test('a different boot preference is replaced by CAS with the inspected receipt',async t=>{
+ const f=await fixture(t),sequence=[],preference=rootPreferenceStore({sequence}),existing=await preferenceValue(f);
+ const stale={...existing,resultId:'d'.repeat(48)},seeded=Object.freeze({base:existing.base,sha256:'e'.repeat(64),dev:'33',ino:'44'});
+ preference.rows.set(existing.base,{value:stale,receipt:seeded});
+ const owner=activationStore({sequence}),sent=[],value=await activationValue(f);
+ owner.rows.set(value.base,{value,receipt:sealRecord(value)});
+ const runtime=Runtime.create({...f.host,activation:owner,rootPreference:preference});
+ await runtime.prepareSuccessor(successorChannel(f,activationInput(f),{send:async message=>sent.push(message)}),{base:f.base});
+ await runtime.captureServe(f.context);
+ assert.equal(await runtime.completeSuccessor(),f.server);
+ assert.equal(preference.calls.write.length,1);
+ assert.deepEqual(plain(preference.calls.write[0].value),await preferenceValue(f));
+ assert.equal(preference.calls.write[0].previous,seeded,'the current receipt is the CAS precondition');
+});
+test('a failed or unreadable preference owner never withdraws ready or blocks the activation CAS',async t=>{
+ for(const failure of ['write','inspect']){
+  const f=await fixture(t),sequence=[],preference=rootPreferenceStore({sequence}),value=await activationValue(f);
+  preference[failure]=async()=>{throw Object.assign(Error('modeled preference failure'),{code:'work_data_root.write_failed'});};
+  const owner=activationStore({sequence}),sent=[];
+  owner.rows.set(value.base,{value,receipt:sealRecord(value)});
+  const runtime=Runtime.create({...f.host,activation:owner,rootPreference:preference});
+  await runtime.prepareSuccessor(successorChannel(f,activationInput(f),{send:async message=>sent.push(message)}),{base:f.base});
+  await runtime.captureServe(f.context);
+  assert.equal(await runtime.completeSuccessor(),f.server,failure+' failure still completes the handoff');
+  assert.equal(sent.length,1,failure+' failure never resends or withholds serve-ready');
+  assert.equal(owner.calls.remove.length,1,failure+' failure does not block the activation CAS');
+  assert.equal(owner.rows.size,0);
+ }
+});
+test('a missing preference owner leaves the activation handoff unchanged',async t=>{
+ const f=await fixture(t),owner=activationStore(),sent=[],value=await activationValue(f);
+ owner.rows.set(value.base,{value,receipt:sealRecord(value)});
+ const host={...f.host,activation:owner};
+ assert.equal(Object.hasOwn(host,'rootPreference'),false);
+ const runtime=Runtime.create(host);
+ await runtime.prepareSuccessor(successorChannel(f,activationInput(f),{send:async message=>sent.push(message)}),{base:f.base});
+ await runtime.captureServe(f.context);
+ assert.equal(await runtime.completeSuccessor(),f.server);
+ assert.equal(sent.length,1);
+ assert.equal(owner.calls.remove.length,1);
+});
+test('a non-activation completion never inspects or writes a boot preference',async t=>{
+ const f=await fixture(t),preference=rootPreferenceStore(),sent=[];
+ const runtime=Runtime.create({...f.host,rootPreference:preference});
+ await runtime.prepareSuccessor(successorChannel(f,successorInput(f),{send:async message=>sent.push(message)}),{base:f.base});
+ await runtime.captureServe(f.context);
+ f.workerHooks.readResult=async()=>({id:'a'.repeat(48),authority:{generation:0,id:null,mode:'plain',sha256:null}});
+ assert.equal(await runtime.completeSuccessor(),f.server);
+ assert.equal(sent.length,1);
+ assert.deepEqual(preference.calls,{inspect:[],write:[],order:[],validate:[]},'only an activation handoff may validate or write the preference');
+});
+test('a restore handoff without an activation owner never starts a source successor or writes a preference',async t=>{
+ const f=await fixture(t),target=p.join(f.root,'target');await io.mkdir(target);
+ const preference=rootPreferenceStore();f.host.rootPreference=preference;
+ const state=await successorRun(f,{result:restoreEnvelope(f,{target})});
+ const outcome=await settle(state.pending);
+ assert.equal(outcome.pending,true);
+ assert.equal(state.spawns,0,'no source successor is spawned');
+ assert.equal(state.envs.length,0,'no source RUYI_HOME is derived');
+ assert.deepEqual(f.state.exits,[]);
+ assert.deepEqual(preference.calls,{inspect:[],write:[],order:[],validate:[]},'no preference is validated or written without a committed activation');
+ assert.equal((await waitStatus(state)).job.error,'work_data_setup.activation_unavailable');
+});
+test("the store's own codec is the only preference judge",async t=>{
+ // (a) The store refuses the record: nothing is inspected or written, and the
+ // handoff still completes with the activation receipt consumed.
+ const f=await fixture(t),sequence=[],preference=rootPreferenceStore({sequence,verdict:false}),value=await activationValue(f);
+ const owner=activationStore({sequence}),sent=[];
+ owner.rows.set(value.base,{value,receipt:sealRecord(value)});
+ const runtime=Runtime.create({...f.host,activation:owner,rootPreference:preference});
+ await runtime.prepareSuccessor(successorChannel(f,activationInput(f),{send:async message=>sent.push(message)}),{base:f.base});
+ await runtime.captureServe(f.context);
+ assert.equal(await runtime.completeSuccessor(),f.server);
+ assert.equal(preference.calls.validate.length,1,'the eight-key record is handed to the store judge');
+ assert.deepEqual(Object.keys(preference.calls.validate[0]).sort(),
+   ['authority','base','baseIdentity','createdAt','kind','resultId','resultSha256','schema']);
+ assert.equal(preference.calls.inspect.length,0,'a record the store rejects is never inspected');
+ assert.equal(preference.calls.write.length,0,'a record the store rejects is never written');
+ assert.equal(sent.length,1,'serve-ready is still published once');
+ assert.equal(owner.calls.remove.length,1,'the activation CAS still runs');
+
+ // (b) An owner without the store judge is a missing capability, not a licence to
+ // guess the shape locally: still best effort, still no write.
+ const g=await fixture(t),bare={calls:{inspect:0,write:0},
+   inspect:async()=>{bare.calls.inspect++;return{present:false};},
+   write:async()=>{bare.calls.write++;},
+   remove:async()=>true};
+ const second=activationStore(),secondSent=[],secondValue=await activationValue(g);
+ second.rows.set(secondValue.base,{value:secondValue,receipt:sealRecord(secondValue)});
+ const instance=Runtime.create({...g.host,activation:second,rootPreference:bare});
+ await instance.prepareSuccessor(successorChannel(g,activationInput(g),{send:async message=>secondSent.push(message)}),{base:g.base});
+ await instance.captureServe(g.context);
+ assert.equal(await instance.completeSuccessor(),g.server);
+ assert.deepEqual(bare.calls,{inspect:0,write:0},'an owner without validate is never touched');
+ assert.equal(secondSent.length,1);
+ assert.equal(second.calls.remove.length,1);
 });

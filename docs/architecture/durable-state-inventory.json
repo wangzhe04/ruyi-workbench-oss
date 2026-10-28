@@ -2,9 +2,9 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 75,
+  "count": 76,
   "lifecycleCounts": {
-    "dedicated-exemption": 22,
+    "dedicated-exemption": 23,
     "external-exemption": 10,
     "regenerable-exemption": 11,
     "shared-lifecycle": 32
@@ -37,6 +37,20 @@
       "recovery": "current reads separately authenticate authority and actual backup bytes/identity; snapshot decoding preserves raw historical metadata without reading its old external backup path",
       "lifecycle": "dedicated-exemption",
       "exemptionReason": "cross-file durable backup and active-generation proof require a dedicated transaction; completion metadata never selects a root"
+    },
+    {
+      "id": "boot-root-preference",
+      "pattern": "<home>/.ruyi/boot-root-v1.json and .boot-root-v1.stage-*",
+      "owner": "13aw-work-data-root-preference.js",
+      "anchor": "'boot-root-v1.json'",
+      "schema": "schema 1: exact eight keys (kind restored-boot-root, canonical target, target dev/ino, target authority summary, source result id/sha256, createdAt); no password, master key, activation receipt or user content",
+      "writePrimitive": "independent wx 0600 stage file, file sync, native directory flush, rename and strict single-link sha256/dev/ino readback; the record codec is owned by 00-boot; CAS by the exact previous receipt; byte-identical content is never rewritten",
+      "corruption": "a read never repairs, rewrites or deletes a bad or stage-pending record: normal boot falls back to the default root; a target alias, dev/ino mismatch or missing genN pointer is ignored",
+      "capacity": "one record; 16KiB bounded read; no user content",
+      "cache": "none: 00-boot reads it once per process before the first data-root resolution",
+      "recovery": "doctor --clear-boot-root removes only the exact inspected sha/dev/ino receipt through the maintenance/test path; the next boot then uses the default root; a hard crash stage (.boot-root-v1.stage-*) requires owner-verified manual cleanup",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "long-lived serving-root preference, never authority: manifest and ownership bind still fail closed, and TEMP activation is never promoted"
     },
     {
       "id": "mcp-consumers-v1",

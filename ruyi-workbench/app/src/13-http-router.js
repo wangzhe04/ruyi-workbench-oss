@@ -1663,8 +1663,11 @@ async function startServer(opts) {
   const roots = [dataRoot()];
   const defaults = defaultDataRoots();
   const old = lstatOrNull(defaults.legacy);
+  // A live boot-root preference already names the serving root: the default pair is not
+  // this launch's source, so neither legacy nor next may join ownership and no migration runs.
+  const bootRootPreference = dataRootSource() === 'preference';
   const migrate = isDirectServeInvocation() && !process.env.RUYI_HOME && !process.env.WIN_CLAUDE_WORKBENCH_HOME
-    && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
+    && !bootRootPreference && !lstatOrNull(defaults.next) && old && old.isDirectory() && !old.isSymbolicLink();
   if (migrate) roots.push(defaults.legacy, defaults.next);
   const ownership = typeof WorkDataMaintenanceRuntimeHooks.acquireServe === 'function'
     ? await WorkDataMaintenanceRuntimeHooks.acquireServe({base:dataRoot(),roots})
@@ -1679,7 +1682,10 @@ async function startServer(opts) {
     throw error;
   }
   try {
-    if (isDirectServeInvocation() && !fs.existsSync(path.join(paths.data, '.work-data'))) {
+    if (isDirectServeInvocation() && bootRootPreference) {
+      // Preference is effective: the migration gate is closed and migrateLegacyDataRoot is not called.
+      DATA_ROOT_MIGRATION = { moved: false, reason: 'boot-root-preference' };
+    } else if (isDirectServeInvocation() && !fs.existsSync(path.join(paths.data, '.work-data'))) {
       DATA_ROOT_MIGRATION = migrateLegacyDataRoot();
       if (DATA_ROOT_MIGRATION.moved) {
         // All module-level DurableJsonStore files use callbacks; no store has read yet.
@@ -1796,7 +1802,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   START_NOTICE.lastError = await consumeStartError();
   if (START_NOTICE.lastError) console.log(`[start] previous launch failed (${START_NOTICE.lastError.kind}): ${START_NOTICE.lastError.message}`);
   // 3.0 数据目录改名(00-boot migrateLegacyDataRoot):搬了、或该搬没搬成,都在启动行与日志里留一笔。
-  if (DATA_ROOT_MIGRATION && (DATA_ROOT_MIGRATION.moved || !['next-exists', 'no-legacy', 'env'].includes(DATA_ROOT_MIGRATION.reason))) {
+  if (DATA_ROOT_MIGRATION && (DATA_ROOT_MIGRATION.moved || !['next-exists', 'no-legacy', 'env', 'boot-root-preference'].includes(DATA_ROOT_MIGRATION.reason))) {
     console.log(`[start] data dir ${DATA_ROOT_MIGRATION.moved ? `migrated ${DATA_ROOT_MIGRATION.from} -> ${DATA_ROOT_MIGRATION.to}${DATA_ROOT_MIGRATION.junction ? ' (old path kept as a junction)' : ''}` : `migration skipped (${DATA_ROOT_MIGRATION.reason}); still using ${paths.data}`}`);
     try { logEvent({ kind: 'data_root_migration', ...DATA_ROOT_MIGRATION }); } catch { /* 日志绝不阻断启动 */ }
   }

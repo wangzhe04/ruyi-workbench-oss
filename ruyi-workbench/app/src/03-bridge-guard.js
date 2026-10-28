@@ -731,10 +731,12 @@ const USER_HOME_PERSISTENCE_FILES = Object.freeze([
   '.gitconfig', '.config/git/config',
   'AGENTS.md', 'CLAUDE.md',                     // 家目录根下的全局指令(Claude Code / Codex 会按祖先目录读到);项目里的同名文件不在此列
   '.claude/CLAUDE.md',
+  '.ruyi/boot-root-v1.json',                    // B3:长期启动根偏好 —— 改它等于改下一次 serve 从哪个根启动
 ]);
 const USER_HOME_PERSISTENCE_DIRS = Object.freeze([
   '.claude/agents', '.claude/commands', '.claude/skills',   // 子代理 / 斜杠命令 / 技能:启动即载入的提示词与权限声明
   '.codex', '.kimi', '.kimi-code',                           // Codex / Kimi Code 的全局配置与指令(config.toml、AGENTS.md、mcp.json …)
+  '.ruyi',                                                   // B3:启动根偏好目录(含 .boot-root-v1.stage-*),整棵目录都不许被文件工具种入
 ]);
 function userHomePersistenceTargets() {
   const homes = new Set();

@@ -78,17 +78,21 @@ describe('#1 · NTFS 备用数据流后缀(::$DATA)不能绕过持久化地板',
     assert.ok(denied('C:\\Users\\u\\Documents\\PowerShell\\profile.ps1::$DATA'));
   });
   it('家目录持久化落点(整串相等)同样认 ::$DATA;项目里的同名文件仍放行', () => {
-    for (const rel of ['.bashrc', '.gitconfig', 'AGENTS.md', 'CLAUDE.md', '.claude/CLAUDE.md']) {
+    for (const rel of ['.bashrc', '.gitconfig', 'AGENTS.md', 'CLAUDE.md', '.claude/CLAUDE.md', '.ruyi/boot-root-v1.json']) {
       assert.equal(I.userHomePersistenceHit(path.join(home, ...rel.split('/'))), true, rel);
       assert.equal(I.userHomePersistenceHit(path.join(home, ...rel.split('/')) + '::$DATA'), true, rel + '::$DATA');
     }
     assert.equal(I.userHomePersistenceHit(path.join(home, '.codex', 'config.toml') + '::$DATA'), true);
-    for (const p of [path.join(ws, '.bashrc'), path.join(ws, 'AGENTS.md'), path.join(home, 'proj', '.gitconfig'), path.join(home, 'notes.md') + '::$DATA']) {
+    // The whole <home>/.ruyi directory is a persistence floor, including stage files.
+    assert.equal(I.userHomePersistenceHit(path.join(home, '.ruyi', '.boot-root-v1.stage-deadbeef')), true);
+    assert.equal(I.userHomePersistenceHit(path.join(home, '.ruyi', 'anything.json')), true);
+    const outsideWs = path.join(root, 'outside-ws');
+    for (const p of [path.join(ws, '.bashrc'), path.join(ws, '.ruyi', 'boot-root-v1.json'), path.join(outsideWs, '.ruyi', 'boot-root-v1.json'), path.join(ws, 'AGENTS.md'), path.join(home, 'proj', '.gitconfig'), path.join(home, 'notes.md') + '::$DATA']) {
       assert.equal(I.userHomePersistenceHit(p), false, p);
     }
   });
   it('端到端:guardFileToolPath 写 <home>/.bashrc::$DATA、<home>/.ssh/authorized_keys::$DATA 在宽写档也 autoexec-denied', async () => {
-    for (const rel of ['.bashrc::$DATA', '.ssh/authorized_keys::$DATA', 'AGENTS.md::$DATA']) {
+    for (const rel of ['.bashrc::$DATA', '.ssh/authorized_keys::$DATA', 'AGENTS.md::$DATA', '.ruyi/boot-root-v1.json', '.ruyi/boot-root-v1.json::$DATA', '.ruyi/.boot-root-v1.stage-deadbeef']) {
       const g = await I.guardFileToolPath(path.join(home, ...rel.split('/')), ctxFor(ws, 'bypass'), { tool: 'file_write', write: true });
       assert.equal(g.ok, false, rel + ' ' + dump(g));
       assert.equal(g.code, 'autoexec-denied', rel + ' ' + dump(g));

@@ -8,7 +8,15 @@
       "provides": [
         "APP_NAME",
         "ASR_MAX_BODY_BYTES",
+        "BOOT_ROOT_PREFERENCE_DIR",
+        "BOOT_ROOT_PREFERENCE_ID",
+        "BOOT_ROOT_PREFERENCE_KEYS",
+        "BOOT_ROOT_PREFERENCE_KIND",
+        "BOOT_ROOT_PREFERENCE_LIMIT",
+        "BOOT_ROOT_PREFERENCE_NAME",
+        "BOOT_ROOT_PREFERENCE_SHA",
         "BUNDLED_PYTHON_RUNTIME",
+        "BootRootPreference",
         "CLI_DIAGNOSTIC_TEXT_CAP",
         "CONFIG_SCHEMA",
         "CliBusinessHooks",
@@ -54,9 +62,13 @@
         "WorkDataMaintenanceWorkerHooks",
         "WorkDataRootHooks",
         "WorkDataSetupHooks",
+        "_bootRootPreferenceRead",
+        "_bootRootPreferenceReason",
+        "_bootRootPreferenceValue",
         "_consoleGbDecoder",
         "_consoleUtf8Strict",
         "_dataRootMemo",
+        "_dataRootSource",
         "_workDataStableAliases",
         "_workDataStableBase",
         "agentCliHomes",
@@ -65,6 +77,17 @@
         "apiSessionNotFound",
         "appRoot",
         "appendUsageLedger",
+        "bootRootPreferenceAbsolute",
+        "bootRootPreferenceAlias",
+        "bootRootPreferenceAuthority",
+        "bootRootPreferenceDirectoryOk",
+        "bootRootPreferenceFile",
+        "bootRootPreferenceFold",
+        "bootRootPreferenceFreeze",
+        "bootRootPreferenceGenerationReady",
+        "bootRootPreferenceShape",
+        "bootRootPreferenceStamp",
+        "bootRootPreferenceTargetMatches",
         "buildUsageSummary",
         "cachedInputTokensFromUsage",
         "claudeCostFields",
@@ -80,6 +103,8 @@
         "dataRoot",
         "dataRootAliases",
         "dataRootMemoKey",
+        "dataRootSource",
+        "decodeBootRootPreference",
         "decodeConsoleSegment",
         "decodeConsoleText",
         "decodeTextFileBytes",
@@ -113,6 +138,7 @@
         "pathToFileURL",
         "paths",
         "pidAlive",
+        "readBootRootPreferenceOnce",
         "readInstallRegistry",
         "readUsageRows",
         "readline",
@@ -157,6 +183,7 @@
         "usageSplitComplete",
         "usageTsDateMemo",
         "usageTsIsCanonical",
+        "validateBootRootPreference",
         "zlib"
       ],
       "requires": [
@@ -14809,6 +14836,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRootSource",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "decodeConsoleText",
           "kinds": [
             "call"
@@ -29009,6 +29043,22 @@
       ]
     },
     {
+      "file": "13aw-work-data-root-preference.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataRootPreference"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "BootRootPreference",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "13au-work-data-runtime-host.js",
       "layer": "unclassified",
       "provides": [
@@ -29113,6 +29163,13 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13aw-work-data-root-preference.js",
+          "symbol": "WorkDataRootPreference",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -29120,6 +29177,7 @@
       "file": "14-main.js",
       "layer": "entrypoint",
       "provides": [
+        "clearBootRootPreference",
         "holdWorkDataCliOwner",
         "main",
         "startWorkbenchServe",

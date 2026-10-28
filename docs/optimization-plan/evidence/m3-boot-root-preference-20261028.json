@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "baselineCommit": "3815bd18",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "status": "本批标准门通过；后续无 env 启动已使用 restored target；M3-3 与 3.1 均未完成",
+  "scope": {
+    "batch": "activation 后以 base 外 boot-root-v1 偏好支持后续无环境变量的普通 serve 使用 target",
+    "entryPoints": [
+      "ruyi-workbench/app/src/13aw-work-data-root-preference.js",
+      "ruyi-workbench/app/src/00-boot.js",
+      "ruyi-workbench/app/src/13-http-router.js",
+      "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "ruyi-workbench/app/src/03-bridge-guard.js",
+      "ruyi-workbench/app/src/14-main.js",
+      "dev-harness/work-data-production-restore.e2e.js"
+    ],
+    "notIncluded": [
+      "通用切根 UI、download、恢复 kernel、owned crash 自动恢复",
+      "C10/C11 自动清理与非空 special portable",
+      "M4/M5/M6、真实安装包、真实跨账户/跨机验收",
+      "TEMP activation 作为长期启动权威"
+    ],
+    "capabilities": {"worker": true, "upload": true, "download": false},
+    "activationCompleted": true,
+    "bootRootPreference": "restored-boot-root",
+    "whole3_1Complete": false
+  },
+  "finalIdentity": {
+    "generatedServer": {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "0727605b187284783939861093edd3e2327dfa9a337cc0de728feadc15237110",
+      "bytes": 8078437
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "8a364cff10503d56e0bc06145116afe3639d79aad13f50625cb36396b9153954",
+      "bytes": 36169
+    },
+    "architecture": {
+      "modules": 125,
+      "edges": 860,
+      "forwardEdges": 67,
+      "stronglyConnectedComponents": 1,
+      "routeDecisionPoints": 189,
+      "routeAuthEntries": 176,
+      "routeProblems": 0
+    },
+    "facts": {"e2eCount": 592, "defaultOfflineE2e": 585, "unitSuites": 408, "liveProbes": 7},
+    "executionInputs": 146,
+    "executionInputSha256": "f192ee36c4fc5a9361e665be5eb751bfa963d900927fc04fce98c25bb96246df",
+    "executionInputComposition": "129 app/src + 13 harness + 4 fixed"
+  },
+  "preferenceContract": {
+    "file": "<home>/.ruyi/boot-root-v1.json",
+    "keys": ["authority", "base", "baseIdentity", "createdAt", "kind", "resultId", "resultSha256", "schema"],
+    "kind": "restored-boot-root",
+    "binding": "canonical target 及 dev/ino、target authority（仅诊断）、restore job id、source result proof SHA256",
+    "write": "仅 activation successor 在 serve-ready 后写，再 CAS 消费 TEMP activation；相同记录不重写；不同 target 可按旧偏好文件 receipt CAS 替换",
+    "read": "仅 RUYI_HOME/WIN_CLAUDE_WORKBENCH_HOME 均空时同步读取一次；显式 env 永远优先；普通启动不写偏好，TEMP activation 不参与",
+    "fallback": "坏记录/alias/target identity 不符回退 defaultDataRoots 且不删不改；genN 还需普通单链接 active-v1；authority 不硬等值以允许后续 enable/disable",
+    "migration": "偏好生效时 acquireServe 仅 base，migrateLegacyDataRoot 不调用，旧目录不搬",
+    "clear": "doctor --clear-boot-root 在 withSelectedWorkDataRoot/serve 前执行 install→inspect→精确 CAS remove→inspect absent，幂等且 typed failure",
+    "stage": "写失败只清自己创建且身份匹配的 stage；未知 stage 仍阻断；硬崩溃 stage 由所有者人工清理"
+  },
+  "validation": [
+    {
+      "id": "targeted-unit-final",
+      "command": "node --test dev-harness/unit/work-data-root-preference.test.js dev-harness/unit/work-data-maintenance-runtime.test.js dev-harness/unit/work-data-production-host.test.js dev-harness/unit/work-data-maintenance-glue.test.js dev-harness/unit/security-gates-w3.test.js dev-harness/unit/fulltext-storage-contract.test.js",
+      "result": {"tests": 184, "pass": 184, "fail": 0},
+      "note": "最终源码实测；含 store CAS、失败 stage、home alias、有界读取、迁移 spy、clear 入口和 guard"
+    },
+    {
+      "id": "boot-root-e2e-run-1",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-7DimWj",
+        "passed": 26,
+        "failed": 0,
+        "executionInputSha256": "f192ee36c4fc5a9361e665be5eb751bfa963d900927fc04fce98c25bb96246df",
+        "executionInputs": 146
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-7DimWj/evidence/result.json",
+        "bytes": 20514,
+        "sha256": "673b75a59591fa056b075291a623d412d10014eb1c32ee5f9663916e1f7dfe70"
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-boot-root-e2e-final2.log",
+        "bytes": 2996,
+        "sha256": "1ba23fc3bc94cb3b9334b322dfac083946d3052b03320bf69ed3d4d242034d11"
+      }
+    },
+    {
+      "id": "boot-root-e2e-run-2",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {
+        "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-YTcBOk",
+        "passed": 26,
+        "failed": 0,
+        "executionInputSha256": "f192ee36c4fc5a9361e665be5eb751bfa963d900927fc04fce98c25bb96246df",
+        "executionInputs": 146
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-YTcBOk/evidence/result.json",
+        "bytes": 20516,
+        "sha256": "71c72bdc8906f3a59b5dfbd98f61dff6dae6e6b3e91746c77fe20a1e549c4d5e"
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-boot-root-e2e-final3.log",
+        "bytes": 2996,
+        "sha256": "aec8006de781f2d0cea8559f32f070818b3124a89a23ef65c6bfda37a1889b3e"
+      }
+    },
+    {
+      "id": "related-serial-final",
+      "command": "node dev-harness/work-data-production-upload.e2e.js && node dev-harness/work-data-cold-operations.e2e.js && node dev-harness/work-data-maintenance-runtime.e2e.js && node dev-harness/work-data-settings.browser.e2e.js && node dev-harness/work-data-production-maintenance.e2e.js && node dev-harness/data-root-migration.e2e.js",
+      "result": {"failed": 0, "note": "六件真实服务/浏览器回归均 ALL PASS；上传20、cold4、进程4+Job、设置19、维护10、迁移22"},
+      "log": {
+        "path": ".ruyi-runtime/m3-boot-root-serial-final.log",
+        "bytes": 7340,
+        "sha256": "a8c855ca53e801b69419b9f625c16106537f104891250bd36dc6abf7998a6dff"
+      }
+    },
+    {
+      "id": "syntax-build-final",
+      "command": "node dev-harness/syntax-gate.js && node ruyi-workbench/app/build.js --check",
+      "result": {"files": 1351, "failed": 0, "build": "fresh"},
+      "log": {
+        "path": ".ruyi-runtime/m3-boot-root-static-final.log",
+        "bytes": 129,
+        "sha256": "4b345f72229d2da49e6c14d5239cfcd4e6b174cd4ee1d28589df9fa1ff85fa68"
+      }
+    },
+    {
+      "id": "unit-full-final",
+      "command": "node --test --test-concurrency=4 \"dev-harness/unit/*.test.js\"",
+      "result": {"tests": 4268, "suites": 192, "pass": 4244, "skipped": 24, "fail": 0, "cancelled": 0, "durationMs": 569819.1385},
+      "log": {
+        "path": ".ruyi-runtime/m3-boot-root-unit-final.log",
+        "bytes": 587815,
+        "sha256": "ce6b708edf68f6c8716fb775b99e5b887334f00ee7045c56a220d7cd2b321a9a"
+      }
+    },
+    {
+      "id": "fast-final",
+      "command": "node dev-harness/run-all.js --fast --parallel 1",
+      "result": {"unit": {"tests": 4268, "pass": 4244, "skipped": 24, "fail": 0}, "static": {"pass": 82, "fail": 0, "flaky": 0, "ran": 82, "liveSkipped": 7}, "remainingTestBrowsers": 0},
+      "log": {
+        "path": ".ruyi-runtime/m3-boot-root-fast-final.log",
+        "bytes": 6060,
+        "sha256": "a236da16b2762314873f353e26b64c8e5efbe7903a3555058963928ad1cdc257"
+      }
+    },
+    {
+      "id": "hygiene-eol-final",
+      "command": "node dev-harness/repo-hygiene.e2e.js && node dev-harness/eol-policy.static.e2e.js",
+      "result": {"repoHygiene": "ALL PASS", "trackedTextFiles": 2150, "eolFailed": 0},
+      "note": "暂存全部新文件后复跑 EOL 为 2150/2150；repo-hygiene 实际服务与配置掩码旅程通过"
+    }
+  ],
+  "journeyEvidence": {
+    "preference": "restore 前先证无文件/无 stage；ready 后出现严格八键记录，createdAt≥notBefore，resultId/resultSha 与 source result proof 一致，base 在两个数据根之外",
+    "plain": "两次无 env 普通 serve 都使用 target runtime/status 与 sess_restore_package_only，source runtime 不变，偏好 bytes/dev/ino/mtime 不变；显式 RUYI_HOME=source 仍回 source",
+    "encrypted": "两次无 env 启动均使用 encrypted target 与包内会话；source 普通 serve 只保留哨兵，env 优先；历史 lastResult 不冒充本 job",
+    "receipt": "先写偏好后 CAS 消费 TEMP activation，activation.inspect absent；source 持久 result/proof 不变，target/source handoff claim 清理",
+    "process": "activation successor 由 outer Job 回收；后续每个普通 serve 都经真实 native birth 与 owned cleanup，未留自有进程"
+  },
+  "reviewFindings": [
+    {
+      "id": "facts-and-policy",
+      "finding": "unitSuites 未更新；policy note 错写 13aw 在 13au 之后/新增前向边",
+      "resolution": "facts=408、README 双语/模块数 125 同步；note 改为 13aw 在 13au 前、普通后向边，无新增 forward edge；125/860/67/1"
+    },
+    {
+      "id": "stage-and-home-boundaries",
+      "finding": "写失败会留下 stage 永久阻断；home alias 被误拒；00-boot 无界读且无读后复核",
+      "resolution": "仅清自己创建的匹配 stage，未知 stage 仍阻断；允许 home alias 但记录目录 junction 仍拒；fd 有界读+前后 identity/timestamps/nlink 校验"
+    },
+    {
+      "id": "clear-operation",
+      "finding": "偏好 target 的内容在 bind 失败时无产品内清除入口",
+      "resolution": "新增 doctor --clear-boot-root，不经 withSelectedWorkDataRoot/serve/普通 file_write；inspect 的 receipt 原样 CAS 删除并复核 absent"
+    },
+    {
+      "id": "evidence-and-guard",
+      "finding": "迁移只有静态断言、恢复前无缺席证据、stage 可由 agent 种入、13am 重复形状",
+      "resolution": "真实 startServer spy 证明 roots/migration 行为；restore 前 absent+createdAt≥notBefore；<home>/.ruyi 整目录写保护；13am 改用 owner.validate 唯一 codec"
+    },
+    {
+      "id": "first-integration-red",
+      "finding": "生成前 fulltext 计数与写保护断言失败；一次 Windows UNKNOWN 写 module-contracts",
+      "resolution": "统一 build/durable/graph 后相关测试全绿；文件可读后按原生成器重试成功，未改测试或保护判据"
+    }
+  ],
+  "independentReview": {
+    "reviewer": "agent-38（DeepSeek Flash，未参与实现）",
+    "initial": {
+      "result": "无 P0/P1；发现 facts/policy、stage、清除入口、home alias/有界读、guard 和测试证据缺口",
+      "log": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-tuba8yp8/output.log"
+    },
+    "final": {
+      "result": "P2-1/2/3/4 与 P3-1~7 全部关闭，未引入新 P0/P1；仅剩文档/固有边界",
+      "log": "C:/Users/87179/.kimi-code/sessions/wd_ruyi-workbench-oss_817fb471adf5/session_ebd8fd1c-1b84-468f-9603-6b6a914e4f4d/agents/main/tasks/agent-elc32i2a/output.log",
+      "closure": "clear 精确 CAS、stage 只清自己、不同 target 可换根均获确认"
+    }
+  },
+  "remainingLimits": [
+    "通用切根 UI、download、恢复 kernel 与 owned crash 自动恢复未实现",
+    "C10/C11 自动清理、非空 special portable 未实现",
+    "硬崩溃 stage 与损坏/多链接记录仍需所有者人工检查清理；clear 不强行删除未知对象",
+    "偏好只在进程启动时读一次，本进程写入要到下一次启动生效；WebView profile 不随偏好隔离",
+    "完整 restore UI 旅程未验；设置页只跑既有 browser 回归",
+    "cold verifier 子进程 receipt 未持久化；错误密码/上传篡改/post-owned crash 由 cold-operations 单测覆盖",
+    "upload custody 跨启动累积、result 备份删除导致 status 503、activation 诊断收据人工清理等既有限制未扩批处理",
+    "完整默认 585 个离线 E2E、实际安装包/升级回退、真实跨账户/跨机尚未验收",
+    "未处理真实用户数据、未发送真实平台消息、未发布"
+  ],
+  "sourceChangeStats": {
+    "method": "git diff --numstat 3815bd18；app/src 下手写 JS、配置/生成物、测试、架构/facts、文档分别求和；暂存后复核",
+    "productSource": {"added": 616, "deleted": 18},
+    "productConfigAndGenerated": {"added": 931, "deleted": 268},
+    "tests": {"added": 1095, "deleted": 40},
+    "architectureAndFacts": {"added": 129, "deleted": 24},
+    "documentation": {"added": 258, "deleted": 11}
+  }
+}

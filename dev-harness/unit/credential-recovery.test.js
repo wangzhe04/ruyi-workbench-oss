@@ -183,7 +183,7 @@ test('startup diagnostic retains its schema, size limit and original error while
     let finished = 0;
     const start = vm.runInNewContext(functions + '\nstartServer', {
       PrivacyCore: { configHooks: { startupGuidance: f.CredentialRecovery.startupGuidance } },
-      paths: { data: 'synthetic-data' }, dataRoot: () => 'synthetic-data',
+      paths: { data: 'synthetic-data' }, dataRoot: () => 'synthetic-data', dataRootSource: () => 'default',
       WorkDataMaintenanceRuntimeHooks: {}, // This case isolates the existing post-admission startup diagnostic.
       WorkDataRootHooks: { bind: async () => {}, ready: () => true }, path, resolveBindHost: () => '127.0.0.1', defaultDataRoots: () => ({ legacy: 'synthetic-old', next: 'synthetic-new' }),
       lstatOrNull: () => null, isDirectServeInvocation: () => false, ServerOwnership: { acquire: async () => ({ portable: false }) },

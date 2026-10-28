@@ -77,6 +77,171 @@ function defaultDataRoots() {
 function lstatOrNull(p) {
   try { return fs.lstatSync(p); } catch { return null; }
 }
+// ── 3.0 收口(B3):base 之外的长期启动根偏好 ──────────────────────────────────────────────
+// 一次恢复成功后,后继流程把「下次正常 serve 从哪个根启动」写进 <home>/.ruyi/boot-root-v1.json
+// (13aw)。它是【偏好】而不是权威:正常 serve 在 RUYI_HOME / WIN_CLAUDE_WORKBENCH_HOME 都为空时
+// 同步读一次;记录坏了、目标目录被替换(dev/ino 不符)或只是链接,就回退缺省根,绝不改写或删除它。
+// 目标里的 active manifest、所有权和 keeper 仍由 01z/13au 的 bind 逐项复核,任何一项不成立都 fail closed。
+// TEMP 里的 activation-v1 收据只在当次交接有效,永远不是长期权威 —— 这里只认这个文件。
+// 00-boot 必须保持零前向依赖:编解码/校验放在这里,13aw 复用;13aw 反过来绝不参与启动根解析。
+const BOOT_ROOT_PREFERENCE_DIR = '.ruyi';
+const BOOT_ROOT_PREFERENCE_NAME = 'boot-root-v1.json';
+const BOOT_ROOT_PREFERENCE_LIMIT = 16 * 1024;
+const BOOT_ROOT_PREFERENCE_KIND = 'restored-boot-root';
+const BOOT_ROOT_PREFERENCE_ID = /^[a-f0-9]{48}$/;
+const BOOT_ROOT_PREFERENCE_SHA = /^[a-f0-9]{64}$/;
+const BOOT_ROOT_PREFERENCE_KEYS = 'authority,base,baseIdentity,createdAt,kind,resultId,resultSha256,schema';
+function bootRootPreferenceFold(value) { return process.platform === 'win32' ? String(value).toLowerCase() : String(value); }
+function bootRootPreferenceAbsolute(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 4096
+    && !/[\0\r\n]/.test(value) && Buffer.from(value, 'utf8').toString('utf8') === value
+    && path.isAbsolute(value) && path.resolve(value) === value && path.parse(value).root !== value;
+}
+function bootRootPreferenceShape(value, expected) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join(',') === expected;
+}
+const bootRootPreferenceStamp = value => typeof value === 'string' && new Date(value).toISOString() === value;
+function bootRootPreferenceAuthority(value) {
+  return bootRootPreferenceShape(value, 'generation,id,mode,sha256')
+    && Number.isSafeInteger(value.generation) && value.generation >= 0
+    && ['plain', 'encrypted'].includes(value.mode)
+    && (value.generation === 0
+      ? value.id === null && value.sha256 === null
+      : BOOT_ROOT_PREFERENCE_ID.test(value.id || '') && BOOT_ROOT_PREFERENCE_SHA.test(value.sha256 || ''));
+}
+// 严格八键:多一个字段、少一个字段、类型不对都算坏记录(与 13aw 的写入口同一个判据)。
+function validateBootRootPreference(value) {
+  try {
+    return bootRootPreferenceShape(value, BOOT_ROOT_PREFERENCE_KEYS)
+      && value.schema === 1 && value.kind === BOOT_ROOT_PREFERENCE_KIND
+      && bootRootPreferenceAbsolute(value.base)
+      && bootRootPreferenceShape(value.baseIdentity, 'dev,ino')
+      && [value.baseIdentity.dev, value.baseIdentity.ino].every(item => typeof item === 'string' && /^\d{1,40}$/.test(item))
+      && bootRootPreferenceAuthority(value.authority)
+      && BOOT_ROOT_PREFERENCE_ID.test(value.resultId || '')
+      && BOOT_ROOT_PREFERENCE_SHA.test(value.resultSha256 || '')
+      && bootRootPreferenceStamp(value.createdAt);
+  } catch { return false; }
+}
+function bootRootPreferenceFreeze(value) {
+  if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) bootRootPreferenceFreeze(item);
+    Object.freeze(value);
+  }
+  return value;
+}
+// 严格 UTF-8(往返相等)、有界、JSON 对象、八键校验;任何一项不成立都返回 null —— 启动根解析只把它
+// 当成「没有偏好」,不抛错、不覆盖、不删文件。
+function decodeBootRootPreference(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > BOOT_ROOT_PREFERENCE_LIMIT) return null;
+  try {
+    const text = bytes.toString('utf8');
+    if (!Buffer.from(text, 'utf8').equals(bytes)) return null;
+    const value = JSON.parse(text);
+    return validateBootRootPreference(value) ? value : null;
+  } catch { return null; }
+}
+function bootRootPreferenceFile(home = os.homedir()) {
+  return path.join(home, BOOT_ROOT_PREFERENCE_DIR, BOOT_ROOT_PREFERENCE_NAME);
+}
+function bootRootPreferenceAlias(stat) {
+  return stat.isSymbolicLink() || stat.reparsePoint === true || (typeof stat.reparseTag === 'number' && stat.reparseTag !== 0);
+}
+// 记录目录本身不许是链接/联接:否则「把 <home>/.ruyi 指到别处」就能绕过 03 对该文件的家目录持久化地板。
+// 目录不存在 = 没有偏好;目录存在但不是真实目录 = 记录无效(只回退,不动它)。
+function bootRootPreferenceDirectoryOk(dir, home) {
+  let stat;
+  try { stat = fs.lstatSync(dir); }
+  catch (error) { return Boolean(error && error.code === 'ENOENT'); }
+  if (!stat.isDirectory() || stat.isSymbolicLink() || stat.reparsePoint === true
+    || (typeof stat.reparseTag === 'number' && stat.reparseTag !== 0)) return false;
+  try {
+    // Compare against the home's real path so a legitimate aliased home still works,
+    // while a junction at <home>/.ruyi (which would dodge the 03 write floor) does not.
+    return bootRootPreferenceFold(fs.realpathSync(dir)) === bootRootPreferenceFold(path.join(fs.realpathSync(home), BOOT_ROOT_PREFERENCE_DIR));
+  } catch { return false; }
+}
+const BootRootPreference = Object.freeze({
+  DIR: BOOT_ROOT_PREFERENCE_DIR, NAME: BOOT_ROOT_PREFERENCE_NAME,
+  LIMIT: BOOT_ROOT_PREFERENCE_LIMIT, KIND: BOOT_ROOT_PREFERENCE_KIND,
+  path: bootRootPreferenceFile,
+  validate: validateBootRootPreference,
+  decode: bytes => bootRootPreferenceFreeze(decodeBootRootPreference(bytes)),
+});
+// 目标必须是一条真实目录链(逐段 non-alias + realpath 相等),最后一段的 dev/ino 与记录一致。
+// 目标被替换/搬走/改成链接时这里失败,启动根回退缺省 —— 绝不把别的目录当成恢复目标。
+function bootRootPreferenceTargetMatches(target, expected) {
+  let last = null;
+  try {
+    const parsed = path.parse(target);
+    let cursor = parsed.root;
+    for (const part of ['', ...target.slice(cursor.length).split(path.sep).filter(Boolean)]) {
+      if (part) cursor = path.join(cursor, part);
+      const stat = fs.lstatSync(cursor, { bigint: true });
+      if (!stat.isDirectory() || stat.isSymbolicLink() || stat.reparsePoint === true
+        || (typeof stat.reparseTag === 'number' && stat.reparseTag !== 0)) return false;
+      if (bootRootPreferenceFold(fs.realpathSync(cursor)) !== bootRootPreferenceFold(cursor)) return false;
+      last = stat;
+    }
+  } catch { return false; }
+  return Boolean(last) && String(last.dev) === expected.dev && String(last.ino) === expected.ino;
+}
+// 受管代(genN)还要求目标里有一个普通的单链接 active-v1.json;它不在或不是普通文件就当作偏好无效。
+// 记录里的 authority 只作诊断,不与当前 manifest 硬等值 —— 之后 enable/disable 改变 authority 不应让
+// 启动根失效;真正的 manifest/owner 校验在 bind 里 fail closed。
+function bootRootPreferenceGenerationReady(value) {
+  if (!(value.authority.generation > 0)) return true;
+  try {
+    const stat = fs.lstatSync(path.join(value.base, '.work-data', 'active-v1.json'));
+    return stat.isFile() && !stat.isSymbolicLink() && stat.nlink === 1;
+  } catch { return false; }
+}
+// 进程只读一次:即便第一次读失败也不再重读。一次性恢复若在本进程里写偏好,下一次启动才生效。
+let _bootRootPreferenceRead = false, _bootRootPreferenceValue = null, _bootRootPreferenceReason = 'unread';
+function readBootRootPreferenceOnce() {
+  if (_bootRootPreferenceRead) return _bootRootPreferenceValue;
+  _bootRootPreferenceRead = true;
+  let fd = null;
+  try {
+    const file = bootRootPreferenceFile();
+    if (!bootRootPreferenceDirectoryOk(path.dirname(file), os.homedir())) { _bootRootPreferenceReason = 'invalid'; return null; }
+    let before;
+    try { before = fs.lstatSync(file, { bigint: true }); }
+    catch (error) { _bootRootPreferenceReason = error && error.code === 'ENOENT' ? 'absent' : 'unreadable'; return null; }
+    if (!before.isFile() || bootRootPreferenceAlias(before) || before.nlink !== 1n
+      || before.size < 1n || before.size > BigInt(BOOT_ROOT_PREFERENCE_LIMIT)) { _bootRootPreferenceReason = 'invalid'; return null; }
+    const identical = (left, right) => left.dev === right.dev && left.ino === right.ino && left.size === right.size
+      && left.nlink === right.nlink && left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs;
+    // Bounded fd read with before/after identity+timestamp checks: a same-account
+    // process replacing the record between lstat/open/read cannot be accepted.
+    fd = fs.openSync(file, 'r');
+    const opened = fs.fstatSync(fd, { bigint: true });
+    if (!opened.isFile() || bootRootPreferenceAlias(opened) || opened.nlink !== 1n || !identical(opened, before)) { _bootRootPreferenceReason = 'invalid'; return null; }
+    const buffer = Buffer.alloc(Number(before.size) + 1);
+    let used = 0;
+    while (used < buffer.length) {
+      const read = fs.readSync(fd, buffer, used, buffer.length - used, null);
+      if (read <= 0) break;
+      used += read;
+    }
+    const after = fs.fstatSync(fd, { bigint: true });
+    const visible = fs.lstatSync(file, { bigint: true });
+    if (used !== Number(before.size) || !after.isFile() || bootRootPreferenceAlias(after) || after.nlink !== 1n || !identical(after, before)
+      || !visible.isFile() || bootRootPreferenceAlias(visible) || visible.nlink !== 1n || !identical(visible, before)) {
+      _bootRootPreferenceReason = 'invalid';
+      return null;
+    }
+    const value = BootRootPreference.decode(buffer.subarray(0, used));
+    if (!value) { _bootRootPreferenceReason = 'invalid'; return null; }
+    if (!bootRootPreferenceTargetMatches(value.base, value.baseIdentity)) { _bootRootPreferenceReason = 'target-changed'; return null; }
+    if (!bootRootPreferenceGenerationReady(value)) { _bootRootPreferenceReason = 'generation-unready'; return null; }
+    _bootRootPreferenceValue = value;
+    _bootRootPreferenceReason = 'active';
+    return value;
+  } catch { _bootRootPreferenceReason = 'invalid'; return null; }
+  finally { if (fd !== null) { try { fs.closeSync(fd); } catch { /* best effort */ } } }
+}
 // dataRoot() / dataRootAliases() 在文件遍历的热路径上逐项被调(03 isSensitiveDataPath);每次都 lstat 两个目录在大树上是秒级开销。
 // 结果按「两个环境变量 + 家目录」记住:进程内能改变答案的只有这三样(迁移发生在启动时,迁移后清一次缓存)。
 let _dataRootMemo = null;
@@ -86,16 +251,22 @@ const WorkDataRootHooks = {};
 function dataRootMemoKey() {
   return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
 }
+// 内部来源标记(env / preference / default / legacy):只给迁移闸与单测用,不进任何公开载荷。
+let _dataRootSource = '';
 function resolveDataRootUncached() {
-  if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
-  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
+  // 显式根环境变量永远优先;只有两个都为空时才看长期偏好。
+  if (process.env.RUYI_HOME) { _dataRootSource = 'env'; return process.env.RUYI_HOME; }
+  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) { _dataRootSource = 'env'; return process.env.WIN_CLAUDE_WORKBENCH_HOME; }
+  const preference = readBootRootPreferenceOnce();
+  if (preference) { _dataRootSource = 'preference'; return preference.base; }
   const { next, legacy } = defaultDataRoots();
-  if (lstatOrNull(next)) return next;
+  if (lstatOrNull(next)) { _dataRootSource = 'default'; return next; }
   const old = lstatOrNull(legacy);
-  if (old && old.isDirectory() && !old.isSymbolicLink()) return legacy;
+  if (old && old.isDirectory() && !old.isSymbolicLink()) { _dataRootSource = 'legacy'; return legacy; }
   // 旧位置是用户自己建的链接 / 联接(数据挪去了别的盘)、新目录还没有:照旧用它。修前这里会落到一个空的新目录,
   // 配置、会话、密钥看起来全没了。迁移不搬链接(见 migrateLegacyDataRoot)。
-  if (old && old.isSymbolicLink()) { try { if (fs.statSync(legacy).isDirectory()) return legacy; } catch { /* 断链:当它不存在 */ } }
+  if (old && old.isSymbolicLink()) { try { if (fs.statSync(legacy).isDirectory()) { _dataRootSource = 'legacy'; return legacy; } } catch { /* 断链:当它不存在 */ } }
+  _dataRootSource = 'default';
   return next;
 }
 function dataRoot() {
@@ -105,6 +276,11 @@ function dataRoot() {
   const root = resolveDataRootUncached();
   _dataRootMemo = { key, root, aliases: null };
   return root;
+}
+// 迁移闸与单测读的来源:先确保解析过(模块加载时 paths 已经解析过,这里只是兜底)。
+function dataRootSource() {
+  dataRoot();
+  return _dataRootSource;
 }
 // 数据根的别名:指向同一个目录的其它写法 —— 迁移后旧位置上留的目录联接,或者新位置是指向旧目录的链接。敏感子树判定
 // (03 isSensitiveDataPath 与文件遍历的跳过)是按词法前缀比的,只认数据根本身的话,经别名的写法就能读到 config.json /
@@ -137,6 +313,8 @@ function pidAlive(pid) {
 // (runtime.json 的 pid 还活着就不动)时做。搬不动(被占用、跨卷、权限)就原样继续用旧目录,下次启动再试。
 function migrateLegacyDataRoot() {
   if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return { moved: false, reason: 'env' };
+  // 长期偏好已经生效时,缺省根不是本次启动的地方;把旧目录搬成 ~/.ruyi-workbench 会造出一个这次没用的新根。
+  if (dataRootSource() === 'preference') return { moved: false, reason: 'boot-root-preference' };
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return { moved: false, reason: 'next-exists' };
   const old = lstatOrNull(legacy);

@@ -692,3 +692,71 @@ test('an existing activation owner is never replaced by the module tail', async 
   assert.deepEqual(Object.keys(cold.activation).sort(), ['inspect', 'write']);
   await assert.rejects(() => cold.activation.inspect({ base: w.canonicalBase }), { code: 'sentinel.activation' });
 });
+// ---------------------------------------------------------------------------
+// B3: boot preference. 13au installs the single 13aw owner on the hooks and gives
+// each role only the verbs it owns; the preference is never a serving capability.
+// ---------------------------------------------------------------------------
+test('13au installs one boot-preference owner from the 13aw factory and scopes it by role', async t => {
+  const w = await createClaimWiring();
+  t.after(() => w.dispose());
+  assert.equal(w.rootPreferenceCalls.length, 1, 'exactly one preference owner is created');
+  const options = w.rootPreferenceCalls[0];
+  assert.deepEqual(options.keys, ['flush', 'home']);
+  assert.equal(options.home, w.root, 'the boot directory is the resolved user home');
+  assert.equal(typeof options.flush, 'function', 'the owner shares the native flush');
+  // The store's eight-key codec lives at module level; the tail publishes it as
+  // owner.validate so the runtime has one store judge and no local shape copy.
+  assert.deepEqual(Object.keys(w.hooks.rootPreference).sort(), ['inspect', 'remove', 'validate', 'write']);
+  assert.equal(typeof w.hooks.rootPreference.validate, 'function');
+
+  const cold = w.api.host.create({ proc: w.proc }).runtimeHost({ base: w.canonicalBase, role: 'cold' });
+  assert.deepEqual(Object.keys(cold.rootPreference).sort(), ['inspect', 'validate'], 'cold may read and validate, never write');
+  assert.equal(cold.rootPreference.write, undefined);
+  assert.equal(cold.rootPreference.remove, undefined);
+
+  // The successor is the warm role: it reads and writes, but never removes.
+  const f = createFixture();
+  const owner = Object.freeze({ inspect: async () => ({ present: false }), write: async () => null, remove: async () => true, validate: () => true });
+  f.bindings.rootPreference = owner;
+  const warm = await f.warm();
+  const warmHost = f.factory.runtimeHost({ base: warm.session.base, role: 'warm' });
+  assert.deepEqual(Object.keys(warmHost.rootPreference).sort(), ['inspect', 'validate', 'write']);
+  assert.equal(warmHost.rootPreference.remove, undefined, 'no runtime role may remove a preference');
+  await f.finishWarm(warm);
+});
+
+test('the boot-preference owner is unset without 13aw and never replaced when present', async t => {
+  const missing = await createClaimWiring({ rootPreferenceModule: false });
+  t.after(() => missing.dispose());
+  assert.equal(missing.hooks.rootPreference, undefined);
+  const factory = missing.api.host.create({ proc: missing.proc });
+  const cold = factory.runtimeHost({ base: missing.canonicalBase, role: 'cold' });
+  assert.equal(cold.rootPreference, null, 'no preference owner is synthesized');
+  assert.equal(cold.adaptersReady(), true, 'the missing owner does not disable the other adapters');
+
+  const sentinel = Object.freeze({ inspect: async () => ({ present: false }), write: async () => null, remove: async () => true });
+  const preset = await createClaimWiring({ presetRootPreference: sentinel });
+  t.after(() => preset.dispose());
+  assert.equal(preset.hooks.rootPreference, sentinel);
+  assert.equal(preset.rootPreferenceCalls.length, 0, 'an existing owner is never replaced');
+});
+test('a future reordering that concatenates 13aw after 13au still installs once, at the first binding', async t => {
+  // 13aw precedes 13au today; this models a future reordering, not the current order.
+  const w = await createClaimWiring({ rootPreferenceDeferred: true });
+  t.after(() => w.dispose());
+  assert.equal(w.rootPreferenceCalls.length, 0, 'nothing is installed at module load');
+  assert.equal(w.hooks.rootPreference, undefined);
+
+  const factory = w.api.host.create({ proc: w.proc });
+  assert.equal(w.rootPreferenceCalls.length, 1, 'the first binding installs the owner');
+  const installed = w.hooks.rootPreference;
+  assert.deepEqual(Object.keys(installed).sort(), ['inspect', 'remove', 'validate', 'write']);
+  assert.equal(w.rootPreferenceCalls[0].home, w.root);
+
+  const other = w.api.host.create({ proc: w.proc });
+  assert.equal(w.rootPreferenceCalls.length, 1, 'a later binding reuses the same owner');
+  assert.equal(w.hooks.rootPreference, installed);
+
+  assert.deepEqual(Object.keys(factory.runtimeHost({ base: w.canonicalBase, role: 'cold' }).rootPreference).sort(), ['inspect', 'validate']);
+  assert.deepEqual(Object.keys(other.runtimeHost({ base: w.canonicalBase, role: 'cold' }).rootPreference).sort(), ['inspect', 'validate']);
+});

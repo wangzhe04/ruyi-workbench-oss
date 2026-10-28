@@ -70,6 +70,9 @@ function createFixture({ manualClose = false } = {}) {
   const paths = Object.fromEntries(['base', 'upload', 'backup', 'temp'].map(name => [name, path.join(root, name)]));
   const memory = memoryFs(); memory.mkdir(root); Object.values(paths).forEach(memory.mkdir);
   const events = [], servers = [], holds = [], timeouts = [], state = { unknown: false, resultReads: 0, configured: null, bootOwner: null,
+    // 00-boot reports where the serving root came from ('default' or 'preference');
+    // startServer only consults it to close the migration gate.
+    dataRootSource: 'default',
     exitCalls: [], maintenance: { phase: 'open', epoch: 1, admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 }, processExitRequired: true } };
   const timers = { setInterval(fn, ms) { const row = { fn, ms, refs: 0, ref() { this.refs++; }, unref() {} }; holds.push(row); return row; },
     setTimeout(fn, ms) { const row = { fn, ms, fired: false, cleared: false, ref() {}, unref() {} }; timeouts.push(row); return row; },
@@ -144,6 +147,7 @@ function createFixture({ manualClose = false } = {}) {
         configureServe: options => bootstrap.configureServe(options), abortUnconfiguredServe: options => bootstrap.abortUnconfigured(options), helperMayStillRun: bootstrap.helperMayStillRun,
         inspectBoot: async () => { events.push('inspect'); await inspect(); if (pending) throw Object.assign(Error('modeled pending intent'), { code: 'work_data_setup.intent_pending' }); } };
       Object.assign(context, { WorkDataMaintenanceRuntimeHooks: hooks, resolveBindHost: () => '127.0.0.1', dataRoot: () => paths.base,
+        dataRootSource: () => state.dataRootSource,
         defaultDataRoots: () => ({ legacy: path.join(root, 'legacy'), next: paths.base }), lstatOrNull: () => null, isDirectServeInvocation: () => false,
         WorkDataRootHooks: { bind: async () => events.push('root-bind'), ready: () => true }, START_ERROR_KINDS: [],
         writeStartError: async () => events.push('error-writer'), finishBootCliPathProbes: () => events.push('finish-probes'),
@@ -161,7 +165,8 @@ function createFixture({ manualClose = false } = {}) {
 // and the readonly inspectBoot path classifies/cleans the same TEMP record. Only
 // the verifier entry is doubled (13au needs its .flush seam); 13av's durability and
 // CAS have their own suite.
-async function createClaimWiring({ claimModule = true, presetActivation = null } = {}) {
+async function createClaimWiring({ claimModule = true, presetActivation = null, rootPreferenceModule = true,
+  presetRootPreference = null, rootPreferenceDeferred = false } = {}) {
   const { constBlock } = require('./source-slice');
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-host-wiring-')));
   const base = path.join(root, 'base'), temp = path.join(root, 'temp'), backup = path.join(root, 'backup');
@@ -193,6 +198,21 @@ async function createClaimWiring({ claimModule = true, presetActivation = null }
   if (claimModule) load('13av-work-data-handoff-claim.js', 'WorkDataHandoffClaim');
   context.WorkDataMaintenanceRuntimeHooks = vm.runInContext('({})', context);
   if (presetActivation !== null) context.WorkDataMaintenanceRuntimeHooks.activation = presetActivation;
+  if (presetRootPreference !== null) context.WorkDataMaintenanceRuntimeHooks.rootPreference = presetRootPreference;
+  // The wiring doubles 13aw's current shape exactly: the owner carries inspect/write/
+  // remove while the eight-key codec stays at module level, so the tail's bridge (which
+  // publishes that codec as owner.validate) is exercised by every wiring test.
+  const rootPreferenceCalls = [];
+  const rootPreferenceValidated = [];
+  const rootPreferenceFactory = Object.freeze({
+    validate(value) { rootPreferenceValidated.push(value); return !!value && typeof value === 'object' && !Array.isArray(value); },
+    create(options) {
+      rootPreferenceCalls.push({ keys: Object.keys(options).sort(), ...options });
+      return Object.freeze({ inspect: async () => ({ present: false }), write: async () => null, remove: async () => true });
+    } });
+  // `rootPreferenceDeferred` models a future bundle reordering that concatenates 13aw
+  // after 13au; today 13aw precedes it, so the tail installs at module load.
+  if (rootPreferenceModule && !rootPreferenceDeferred) context.WorkDataRootPreference = rootPreferenceFactory;
   context.WorkDataMaintenanceWorkerHooks = vm.runInContext('({})', context);
   context.WorkDataVerifierEntry = Object.freeze({
     command: ({ proc: target }) => Object.freeze({ command: target.execPath, args: Object.freeze([target.execPath, 'work-data-verify']) }),
@@ -201,6 +221,7 @@ async function createClaimWiring({ claimModule = true, presetActivation = null }
   vm.runInContext(fs.readFileSync(path.join(sourceRoot, '13am-work-data-maintenance-runtime.js'), 'utf8'), context, { filename: '13am-work-data-maintenance-runtime.js' });
   const installedBy13am = context.WorkDataMaintenanceRuntimeHooks.claim;
   vm.runInContext(fs.readFileSync(path.join(sourceRoot, '13au-work-data-runtime-host.js'), 'utf8'), context, { filename: '13au-work-data-runtime-host.js' });
+  if (rootPreferenceModule && rootPreferenceDeferred) context.WorkDataRootPreference = rootPreferenceFactory;
   const api = vm.runInContext('({host:WorkDataRuntimeHost,ownership:ServerOwnership,hooks:WorkDataMaintenanceRuntimeHooks})', context);
   const hooks = api.hooks;
   const canonicalBase = await api.ownership.canonicalRoot(base);
@@ -229,6 +250,8 @@ async function createClaimWiring({ claimModule = true, presetActivation = null }
       fs.mkdirSync(control, { recursive: true });
       fs.writeFileSync(path.join(control, 'maintenance-result-v1.json'), JSON.stringify(record));
     },
+    rootPreferenceCalls,
+    rootPreferenceValidated,
     claimBytes() { return fs.readFileSync(fixture.claimFile); },
     claimEntries() { try { return fs.readdirSync(claimDir); } catch { return []; } },
     dispose() { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* already removed */ } }
