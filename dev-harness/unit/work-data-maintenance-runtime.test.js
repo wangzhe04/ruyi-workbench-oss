@@ -208,7 +208,7 @@ test('exitParent needs a real retired receipt and never a boolean promotion',asy
  }
 });
 test('ordinary boot classifies the handoff claim only after the intent gate and cleans just inert or complete records',async t=>{
- for(const [outcome,code] of [['absent',null],['inert',null],['complete',null],['pending','work_data_setup.handoff_pending'],['armed','work_data_setup.boot_control_pending']]){
+ for(const [outcome,code] of [['absent',null],['inert',null],['complete','work_data_setup.handoff_completion_unverified'],['pending','work_data_setup.handoff_pending'],['armed','work_data_setup.boot_control_pending']]){
   const f=await fixture(t),removed=[],seen=[],receipt={base:f.base,name:'claim-v1.json',sha256:'a'.repeat(64),dev:'1',ino:'2'};
   f.host.claim={classify:async args=>{seen.push(args);return outcome;},inspect:async()=>({present:true,receipt}),
     write:async()=>receipt,remove:async value=>{removed.push(value);return true;}};
@@ -236,9 +236,9 @@ test('ordinary boot classifies the handoff claim only after the intent gate and 
 // hand the owner a digest, so a stale result can never finish a new handoff.
 const claimHelpers=()=>{
  const HandoffClaim=load('13av-work-data-handoff-claim.js','WorkDataHandoffClaim'),createdAt='2026-10-01T00:00:00.000Z';
- const setup=async t=>{
+ const setup=async(t,{probe=()=>{throw Object.assign(Error('modeled exited process'),{code:'ESRCH'});}}={})=>{
   const f=await fixture(t),temp=p.join(f.root,'temp');await io.mkdir(temp);
-  const claim=HandoffClaim.create({temp,flush:async()=>{} });f.host.claim=claim;
+  const claim=HandoffClaim.create({temp,flush:async()=>{},probe});f.host.claim=claim;
   const stat=await io.lstat(f.base,{bigint:true}),base=await f.host.canonical(f.base);
   return {f,claim,temp,base,baseIdentity:{dev:String(stat.dev),ino:String(stat.ino)}};
  };
@@ -252,8 +252,10 @@ const claimHelpers=()=>{
  const writeResult=async(ctx,{id='a'.repeat(48),operation='export'}={})=>{
   const control=p.join(ctx.f.base,'.work-data');await io.mkdir(control,{recursive:true});
   const authority={generation:0,id:null,mode:'plain',sha256:null};
-  const value={schema:1,id,operation,state:'verified',finishedAt:createdAt,sourceAuthority:authority,authority,
-   backup:{path:p.join(ctx.f.root,'ruyi-work-data-'+id+'.ruyi-backup'),sha256:'c'.repeat(64),bytes:1024,identity:{dev:'1',ino:'2'}}};
+  const backupPath=p.join(ctx.f.root,'ruyi-work-data-'+id+'.ruyi-backup'),backupBytes=Buffer.from('synthetic recovery package');
+  await io.writeFile(backupPath,backupBytes);const stat=await io.lstat(backupPath,{bigint:true});
+  const value={schema:1,id,operation,state:'verified',finishedAt:'2026-10-01T00:00:03.000Z',sourceAuthority:authority,authority,
+   backup:{path:backupPath,sha256:require('node:crypto').createHash('sha256').update(backupBytes).digest('hex'),bytes:backupBytes.length,identity:{dev:String(stat.dev),ino:String(stat.ino)}}};
   const bytes=Buffer.from(JSON.stringify(value));await io.writeFile(p.join(control,'maintenance-result-v1.json'),bytes);
   return bytes;};
  return {setup,record,own,writeResult};
@@ -285,6 +287,79 @@ test('real 13av cleans the claim for the one matching owned result',async t=>{
  const runtime=Runtime.create(ctx.f.host);
  assert.equal(await runtime.inspectBoot({base:ctx.f.base,ownership:ctx.f.ownership}),true);
  assert.equal((await ctx.claim.inspect({base:ctx.base})).present,false,'a matching owned result is the only completion proof');
+});
+
+test('a private normal successor retires a strictly verified completed claim while its cold parent is alive',async t=>{
+ const ctx=await claimSetup(t,{probe:()=>true});
+ await ownClaim(ctx,'a'.repeat(48));await writeClaimResult(ctx);
+ let reads=0;
+ ctx.f.host.resultApi={create:options=>{const reader=Result.create(options);return {...reader,read:async()=>{reads++;return reader.read();}};}};
+ ctx.f.host.claim={...ctx.claim,recoverCompleted:async()=>assert.fail('normal IPC successor must not claim a parent crash')};
+ const runtime=Runtime.create(ctx.f.host),input={...successorInput(ctx.f),id:'a'.repeat(48),parentPid:77777};
+ await runtime.prepareSuccessor(successorChannel(ctx.f,input,{parentPid:77777}),{base:ctx.f.base});
+ assert.equal(await runtime.inspectBoot({base:ctx.f.base,ownership:ctx.f.ownership}),true);
+ assert.equal(reads,2,'the private successor verifies its expected result and rechecks it before retirement');
+ assert.equal((await ctx.claim.inspect({base:ctx.base})).present,false);
+});
+test('ordinary boot never treats the same live cold process as an owned crash',async t=>{
+ const ctx=await claimSetup(t,{probe:()=>true});await ownClaim(ctx,'a'.repeat(48));await writeClaimResult(ctx);
+ const before=await ctx.claim.inspect({base:ctx.base}),result=await io.readFile(p.join(ctx.base,'.work-data',Result.NAME));
+ const runtime=Runtime.create(ctx.f.host);
+ await assert.rejects(runtime.inspectBoot({base:ctx.f.base,ownership:ctx.f.ownership}),{code:'work_data_claim.recovery_process_pending'});
+ const after=await ctx.claim.inspect({base:ctx.base});assert.equal(after.receipt.sha256,before.receipt.sha256);
+ assert.deepEqual(await io.readFile(p.join(ctx.base,'.work-data',Result.NAME)),result);
+});
+test('ordinary owned recovery rejects missing replaced tampered stale or predating result evidence',async t=>{
+ for(const mode of ['missing-backup','replaced-backup','tampered-backup','stale-authority','predating-result']){
+  const ctx=await claimSetup(t);await ownClaim(ctx,'a'.repeat(48));const raw=await writeClaimResult(ctx),value=JSON.parse(raw);
+  const resultFile=p.join(ctx.base,'.work-data',Result.NAME),backupBytes=await io.readFile(value.backup.path);
+  if(mode==='missing-backup')await io.rename(value.backup.path,value.backup.path+'.retained');
+  if(mode==='replaced-backup'){await io.rename(value.backup.path,value.backup.path+'.retained');await io.writeFile(value.backup.path,backupBytes);}
+  if(mode==='tampered-backup')await io.writeFile(value.backup.path,Buffer.alloc(backupBytes.length,0x20));
+  if(mode==='stale-authority')ctx.f.host.readAuthority=async()=>({generation:0,id:null,mode:'encrypted',proof:{sha256:null}});
+  if(mode==='predating-result'){value.finishedAt='2026-10-01T00:00:01.000Z';await io.writeFile(resultFile,JSON.stringify(value));}
+  const before=await ctx.claim.inspect({base:ctx.base}),resultBytes=await io.readFile(resultFile),runtime=Runtime.create(ctx.f.host);
+  await assert.rejects(runtime.inspectBoot({base:ctx.f.base,ownership:ctx.f.ownership}),{code:'work_data_claim.recovery_unverified'},mode);
+  const after=await ctx.claim.inspect({base:ctx.base});
+  assert.equal(after.receipt.sha256,before.receipt.sha256,mode);assert.equal(after.receipt.ino,before.receipt.ino,mode);
+  assert.deepEqual(await io.readFile(resultFile),resultBytes,mode+' preserves the stored result');
+  if(mode.endsWith('backup')&&mode!=='tampered-backup')assert.deepEqual(await io.readFile(value.backup.path+'.retained'),backupBytes);
+ }
+});
+test('owned recovery rechecks result proof intent control names ownership and native uncertainty during verification',async t=>{
+ for(const mode of ['result-replacement','intent','control-stage','ownership','helper']){
+  const ctx=await claimSetup(t);await ownClaim(ctx,'a'.repeat(48));const raw=await writeClaimResult(ctx),value=JSON.parse(raw);
+  const before=await ctx.claim.inspect({base:ctx.base});let reads=0;
+  ctx.f.host.resultApi={create:options=>{const reader=Result.create(options);return {...reader,read:async()=>{
+   const result=await reader.read();if(++reads===1){
+    if(mode==='result-replacement')await io.writeFile(p.join(ctx.base,'.work-data',Result.NAME),JSON.stringify({...value,finishedAt:'2026-10-01T00:00:04.000Z'}));
+    if(mode==='intent')await io.writeFile(p.join(ctx.base,'.work-data','maintenance-v1.json'),JSON.stringify({schema:1,id:value.id,operation:'enable',phase:'prepared',createdAt:value.finishedAt,expectedAuthority:value.authority,backup:{path:value.backup.path,sha256:value.backup.sha256},candidate:null}));
+    if(mode==='control-stage')await io.writeFile(p.join(ctx.base,'.work-data','.active-v1.stage-preserve'),'PRESERVE');
+    if(mode==='ownership')ctx.f.host.assertOwnership=()=>false;
+    if(mode==='helper')ctx.f.state.helpers=true;
+   }return result;
+  }};}};
+  const runtime=Runtime.create(ctx.f.host);
+  await assert.rejects(runtime.inspectBoot({base:ctx.f.base,ownership:ctx.f.ownership}),{code:'work_data_claim.recovery_unverified'},mode);
+  const after=await ctx.claim.inspect({base:ctx.base});assert.equal(after.receipt.sha256,before.receipt.sha256,mode);assert.equal(after.receipt.ino,before.receipt.ino,mode);
+  assert.equal(reads,mode==='result-replacement'?2:1,mode+' refuses as soon as the new uncertainty is observed');
+  if(mode==='control-stage')assert.equal(await io.readFile(p.join(ctx.base,'.work-data','.active-v1.stage-preserve'),'utf8'),'PRESERVE');
+ }
+});
+test('a completed owned claim without a recovery owner has no generic removal fallback',async t=>{
+ const ctx=await claimSetup(t);await ownClaim(ctx,'a'.repeat(48));await writeClaimResult(ctx);
+ ctx.f.host.claim={...ctx.claim,recoverCompleted:undefined,remove:async()=>assert.fail('unverified generic removal is forbidden')};
+ const before=await ctx.claim.inspect({base:ctx.base}),runtime=Runtime.create(ctx.f.host);
+ await assert.rejects(runtime.inspectBoot({base:ctx.f.base,ownership:ctx.f.ownership}),{code:'work_data_setup.handoff_completion_unverified'});
+ assert.equal((await ctx.claim.inspect({base:ctx.base})).receipt.sha256,before.receipt.sha256);
+});
+test('boot never replaces the first claim receipt with a later phase observed during classification',async t=>{
+ const ctx=await claimSetup(t),value={schema:1,base:ctx.base,baseIdentity:ctx.baseIdentity,id:'a'.repeat(48),nonce:'b'.repeat(64),parentPid:88,childPid:77777,operation:'export',serve:{host:'127.0.0.1',port:ctx.f.context.listener.port},phase:'armed',createdAt:'2026-10-01T00:00:00.000Z',updatedAt:'2026-10-01T00:00:00.000Z'};
+ const first=await ctx.claim.write(value);let second;
+ ctx.f.host.claim={...ctx.claim,classify:async observation=>{const outcome=await ctx.claim.classify(observation);second=await ctx.claim.write({...value,phase:'committed',updatedAt:'2026-10-01T00:00:01.000Z'},first);return outcome;}};
+ const runtime=Runtime.create(ctx.f.host);
+ await assert.rejects(runtime.inspectBoot({base:ctx.f.base,ownership:ctx.f.ownership}),{code:'work_data_claim.claim_changed'});
+ const after=await ctx.claim.inspect({base:ctx.base});assert.equal(after.value.phase,'committed');assert.equal(after.receipt.sha256,second.sha256);
 });
 test('real 13av claim survives an unfinished intent and is never classified',async t=>{
  const ctx=await claimSetup(t),control=p.join(ctx.f.base,'.work-data');await io.mkdir(control,{recursive:true});

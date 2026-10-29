@@ -10,7 +10,9 @@ async function bodyBytes(body){if(body==null)return null;if(typeof body==='strin
 function fixture(respond,rawRespond){
  const calls=[],rawCalls=[],timers=new Map(),listeners=new Map(),created=[];let serial=0,order=0,locale='en-US';
  class Element{
-  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.dataset={};this.attributes={};this.events=new Map();this.value='';this.disabled=false;this.hidden=false;this.checked=false;this.files=null;this._text='';this.parentNode=null;this.className='';this.classList={add:(...names)=>{this.className=[...new Set([...this.className.split(' ').filter(Boolean),...names])].join(' ');}};}
+  constructor(tag){this.tagName=tag.toUpperCase();this.children=[];this.dataset={};this.attributes={};this.events=new Map();this._value='';this.disabled=false;this.hidden=false;this.checked=false;this.files=null;this._text='';this.parentNode=null;this.className='';this.classList={add:(...names)=>{this.className=[...new Set([...this.className.split(' ').filter(Boolean),...names])].join(' ');}};}
+  set value(value){this._value=value;if(this.type==='file'&&value==='')this.files=null;}
+  get value(){return this._value;}
   append(...items){for(const item of items){this.children.push(item);item.parentNode=this;if(this.tagName==='SELECT'&&!this.value&&item.tagName==='OPTION')this.value=item.value;}}
   replaceChildren(...items){this.children=[];this._text='';this.append(...items);}
   set textContent(value){this._text=String(value);this.children=[];}

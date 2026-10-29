@@ -153,32 +153,37 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       let stat;try{stat=await io.lstat(base);}catch(error){if(error.code==='ENOENT'&&!successorInput())return true;throw error;}
       if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
       const control=p.join(base,'.work-data');
-      try {
-        const stat=await io.lstat(control);if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
-        const names=await io.readdir(control),allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
-        if(names.some(name=>!allowed.has(fold(name))))throw fail('boot_control_pending');
-      }catch(error){if(error.code!=='ENOENT')throw error;}
+      const inspectControlDirectory=async()=>{
+        try {
+          const stat=await io.lstat(control);if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
+          const names=await io.readdir(control),allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+          if(names.some(name=>!allowed.has(fold(name))))throw fail('boot_control_pending');
+        }catch(error){if(error.code!=='ENOENT')throw error;}
+      };
+      await inspectControlDirectory();
       const ownerCheck=async candidate=>candidate===owner&&ownership(owner,base);
       const controls=host.controlApi.create({base,ownership:owner,assertExclusive:ownerCheck,assertDurableBackup:async()=>false,flush:async()=>{throw fail('readonly_boot');}});
       // An unfinished intent always wins; C10/C11 stay intent_pending and their
       // files are never rewritten or removed by ordinary boot.
       if((await controls.inspect()).pending)throw fail('intent_pending');
-      // Ordinary boot only looks at the record's presence: a stale receipt must not
-      // read a backup or fail startup. The successor additionally verifies it - except
+      // Ordinary boot initially inspects only the record: without a matching owned
+      // claim, a stale result must not read a backup or fail startup. A completed owned
+      // crash additionally verifies the actual result before claim retirement. The
+      // successor also verifies its expected result - except
       // a fresh-root successor, whose commitment is the TEMP activation receipt. That
       // path never consults a result record on the target, so it also never hands the
       // claim owner a digest invented from the target root.
       const expected=successorInput();
       const activationBoot=expected&&expected.activation?expected:null;
-      let digest=null;
+      let digest=null,resultReader=null,observedResult=null;
       if(activationBoot){
         // The successor of a fresh-root restore serves the target root only; its
         // receipt must still name this base, job, parent, nonce, authority and proof.
         if(fold(await host.canonical(activationBoot.base))!==fold(base))throw fail('successor_input_invalid');
         await verifyActivation(activationBoot,base,null);
       }else{
-        const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
-        const observedResult=await resultReader.inspect(),result=expected?await resultReader.read():null;
+        resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
+        observedResult=await resultReader.inspect();const result=expected?await resultReader.read():null;
         if(expected&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
         // No intent: only the TEMP handoff record may be classified and, when inert or
         // complete, cleaned. Base files are never repaired here.
@@ -191,10 +196,55 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const claims=claimValue();
       if(claims){
         if(!claimShape(claims))throw fail('runtime_host_invalid');
+        // Keep the first exact receipt. Classification may observe a later phase;
+        // boot must never replace its receipt with that newly inspected version.
+        const selectedClaim=await claims.inspect({base});
         const outcome=verdict(await claims.classify({base,hasIntent:false,hasResult:digest}));
         if(outcome==='pending')throw fail('handoff_pending');
         if(outcome!=='absent'&&outcome!=='inert'&&outcome!=='complete')throw fail('boot_control_pending');
-        if(outcome!=='absent'){const observed=await claims.inspect({base});if(observed?.present)await claims.remove(observed.receipt);}
+        if(outcome!=='absent'){
+          if(!selectedClaim?.present)throw fail('boot_control_pending');
+          if(outcome==='complete'){
+            if(!resultReader||!observedResult?.present)throw fail('handoff_completion_unverified');
+            const proof=observedResult.captured;
+            if(!proof||!NONCE.test(proof.sha256||'')||!identity(proof.identity))throw fail('handoff_completion_unverified');
+            // Owned-crash recovery retires only metadata for an already completed
+            // operation. read() proves the current authority and actual backup on
+            // every call; no result is synthesized, no operation is replayed, and
+            // no intent/candidate/target is repaired or removed here.
+            const verifyCompleted=async claim=>{
+              if(!claim||claim.phase!=='owned')throw fail('handoff_completion_unverified');
+              if(!ownership(owner,base))throw fail('ownership_required');
+              if(helpers())throw fail('native_helper_uncertain');
+              await inspectControlDirectory();
+              if((await controls.inspect()).pending)throw fail('intent_pending');
+              const current=await resultReader.read();
+              if(!current||current.id!==claim.id||current.operation!==claim.operation
+                ||!stamp(current.finishedAt)||current.finishedAt<claim.updatedAt
+                ||!current.proof||current.proof.sha256!==proof.sha256||!identity(current.proof.identity)
+                ||current.proof.identity.dev!==proof.identity.dev||current.proof.identity.ino!==proof.identity.ino)
+                throw fail('handoff_completion_unverified');
+              await inspectControlDirectory();
+              if((await controls.inspect()).pending)throw fail('intent_pending');
+              if(!ownership(owner,base))throw fail('ownership_required');
+              if(helpers())throw fail('native_helper_uncertain');
+              return true;
+            };
+            if(expected){
+              // A prepared private successor already proved its live cold parent
+              // through IPC and its exact expected result above. That normal handoff
+              // may finish while the parent is alive; it is not crash recovery.
+              const claim=selectedClaim.value;
+              if(!claim||expected.parentPid!==claim.childPid||expected.id!==claim.id
+                ||expected.serve.host!==claim.serve.host||expected.serve.port!==claim.serve.port)throw fail('handoff_completion_unverified');
+              await verifyCompleted(selectedClaim.value);
+              await claims.remove(selectedClaim.receipt);
+            }else{
+              if(typeof claims.recoverCompleted!=='function')throw fail('handoff_completion_unverified');
+              await claims.recoverCompleted(selectedClaim.receipt,verifyCompleted);
+            }
+          }else await claims.remove(selectedClaim.receipt);
+        }
       }
       return true;
     }

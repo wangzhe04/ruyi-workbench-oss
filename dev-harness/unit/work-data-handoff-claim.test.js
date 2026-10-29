@@ -314,6 +314,70 @@ test('classification only completes an owned claim with a matching result record
  await assert.rejects(f.owner.classify({base:f.base,hasIntent:false,hasResult:true}),errCode('work_data_claim.observation_invalid'));
  assert.equal((await f.owner.inspect({base:f.base})).receipt.sha256,r3.sha256);
 });
+
+async function completedClaim(t, options = {}) {
+ const f=await fixture(t,{probe:dead,...options}),armed=f.value();
+ const committed=f.advance(armed,'committed'),owned=f.advance(committed,'owned');
+ let receipt=await f.owner.write(armed);receipt=await f.owner.write(committed,receipt);receipt=await f.owner.write(owned,receipt);
+ return {...f,owned,receipt};
+}
+test('completed recovery proves both original processes dead, verifies twice and retires only its exact receipt',async t=>{
+ const f=await completedClaim(t),seen=[];const flushes=f.facts.calls;
+ assert.equal(await f.owner.recoverCompleted(f.receipt,async value=>{seen.push(value);assert.equal(value.id,f.owned.id);assert.equal(Object.isFrozen(value),true);return true;}),true);
+ assert.equal(seen.length,2);assert.equal(seen[0],seen[1]);assert.equal(f.facts.calls,flushes+1);
+ assert.equal((await f.owner.inspect({base:f.base})).present,false);
+ await assert.rejects(f.owner.recoverCompleted(f.receipt,async()=>true),errCode('work_data_claim.claim_changed'));
+ assert.deepEqual(await io.readdir(f.base),[],'recovery retires only TEMP metadata');
+});
+test('matching classification never lets a live unknown or false-returning process probe authorize recovery',async t=>{
+ for(const state of ['parent-alive','child-alive','parent-unknown','child-unknown','false']){
+  const f=await completedClaim(t),before=await io.readFile(f.file);let calls=0;
+  const probe=pid=>{if(state==='false')return false;const role=pid===f.owned.parentPid?'parent':'child';if(state===role+'-alive')return true;if(state===role+'-unknown')return unknown();return dead();};
+  const recovery=api.create({...f.host,probe});
+  assert.equal(await recovery.classify({base:f.base,intent:false,result:resultFor(f.owned)}),'complete');
+  await assert.rejects(recovery.recoverCompleted(f.receipt,async()=>{calls++;return true;}),errCode('work_data_claim.recovery_process_pending'));
+  assert.equal(calls,0);assert.deepEqual(await io.readFile(f.file),before);
+ }
+});
+test('recovery refuses unowned phases and absent invalid callbacks without deleting metadata',async t=>{
+ const f=await fixture(t,{probe:dead}),armed=f.value(),r1=await f.owner.write(armed);let calls=0;
+ const verify=async()=>{calls++;return true;};
+ await assert.rejects(f.owner.recoverCompleted(r1,verify),errCode('work_data_claim.recovery_phase_invalid'));
+ const r2=await f.owner.write(f.advance(armed,'committed'),r1);
+ await assert.rejects(f.owner.recoverCompleted(r2,verify),errCode('work_data_claim.recovery_phase_invalid'));
+ for(const value of [undefined,null,true,{}])await assert.rejects(f.owner.recoverCompleted(r2,value),errCode('work_data_claim.recovery_unverified'));
+ assert.equal(calls,0);assert.equal((await f.owner.inspect({base:f.base})).value.phase,'committed');
+});
+test('recovery verification must return exact true twice and preserves the original thrown evidence',async t=>{
+ for(const mode of ['false','truthy','second-false','throw']){
+  const f=await completedClaim(t),before=await io.readFile(f.file),cause=Object.freeze(Error('synthetic verification failure'));let calls=0;
+  await assert.rejects(f.owner.recoverCompleted(f.receipt,async()=>{calls++;if(mode==='throw')throw cause;if(mode==='truthy')return {};return mode==='second-false'?calls===1:false;}),error=>error.code==='work_data_claim.recovery_unverified'&&(mode!=='throw'||error.cause===cause));
+  assert.equal(calls,mode==='second-false'?2:1);assert.deepEqual(await io.readFile(f.file),before);
+ }
+});
+test('recovery rechecks process liveness after verification and never promotes a PID reused during IO',async t=>{
+ const f=await completedClaim(t);let reused=false,calls=0;
+ const owner=api.create({...f.host,probe:pid=>{if(reused&&pid===f.owned.childPid)return true;return dead();}}),before=await io.readFile(f.file);
+ await assert.rejects(owner.recoverCompleted(f.receipt,async()=>{calls++;reused=true;return true;}),errCode('work_data_claim.recovery_process_pending'));
+ assert.equal(calls,1);assert.deepEqual(await io.readFile(f.file),before);
+});
+test('recovery detects claim replacement during either verification callback',async t=>{
+ for(const at of [1,2]){
+  const f=await completedClaim(t);let calls=0;const foreign=Buffer.from(JSON.stringify({...f.owned,nonce:'e'.repeat(64)}));
+  await assert.rejects(f.owner.recoverCompleted(f.receipt,async()=>{if(++calls===at){await io.rename(f.file,f.file+'.retained');await io.writeFile(f.file,foreign);}return true;}),errCode('work_data_claim.claim_changed'));
+  assert.equal(calls,at);assert.deepEqual(await io.readFile(f.file),foreign);assert.equal(fs.existsSync(f.file+'.retained'),true);
+ }
+});
+test('recovery holds the claim mutation gate across awaited verification and refuses a new stage',async t=>{
+ const f=await completedClaim(t),before=await io.readFile(f.file);let calls=0;
+ await assert.rejects(f.owner.recoverCompleted(f.receipt,async()=>{
+  calls++;await assert.rejects(f.owner.remove(f.receipt),errCode('work_data_claim.busy'));
+  await assert.rejects(f.owner.recoverCompleted(f.receipt,async()=>true),errCode('work_data_claim.busy'));
+  await io.writeFile(p.join(f.dir,api.STAGE+'foreign'),'PRESERVE');return true;
+ }),errCode('work_data_claim.stage_pending'));
+ assert.equal(calls,1);assert.deepEqual(await io.readFile(f.file),before);
+ assert.equal(await io.readFile(p.join(f.dir,api.STAGE+'foreign'),'utf8'),'PRESERVE');
+});
 test('restore uses the same strict schema, one-step CAS and result classification',async t=>{
  const f=await fixture(t),armed=f.value({operation:'restore'});
  assert.equal(api.validate(armed),true);assert.equal(api.validate({...armed,phase:'prepared'}),false);

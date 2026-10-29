@@ -584,7 +584,7 @@ test('13au installs one real claim on the runtime hooks and the boot gate cleans
   assert.equal(w.installedBy13am, undefined);
   // 13av carries the fresh-root activation API on that same owner; 13au installs
   // that exact object instead of minting a parallel activation owner.
-  assert.deepEqual(Object.keys(hooks.claim).sort(), ['activation', 'classify', 'inspect', 'remove', 'write']);
+  assert.deepEqual(Object.keys(hooks.claim).sort(), ['activation', 'classify', 'inspect', 'recoverCompleted', 'remove', 'write']);
   assert.equal(hooks.activation, hooks.claim.activation);
   assert.deepEqual(Object.keys(hooks.activation).sort(), ['inspect', 'remove', 'write']);
 
@@ -625,7 +625,19 @@ test('13au installs one real claim on the runtime hooks and the boot gate cleans
   assert.deepEqual(w.claimBytes(), ownedBytes);
 
   // 5. owned plus the matching result is complete: clean exactly that record.
-  w.writeResult(w.resultRecord('a'.repeat(48)));
+  // Recovery now proves both processes are dead and checks the actual backup;
+  // the earlier live-child pending assertion above still uses the original probe.
+  const completed = w.resultRecord('a'.repeat(48)), bytes = Buffer.from('synthetic completed backup');
+  const fs = require('node:fs');
+  fs.writeFileSync(completed.backup.path, bytes);
+  const stat = fs.lstatSync(completed.backup.path, { bigint: true });
+  completed.backup = { path: completed.backup.path, bytes: bytes.length,
+    sha256: require('node:crypto').createHash('sha256').update(bytes).digest('hex'), identity: { dev: String(stat.dev), ino: String(stat.ino) } };
+  completed.finishedAt = '2026-10-27T00:00:03.000Z';
+  w.writeResult(completed);
+  await assert.rejects(boot, { code: 'work_data_claim.recovery_process_pending' });
+  assert.deepEqual(w.claimBytes(), ownedBytes);
+  w.proc.kill = () => { throw Object.assign(Error('modeled exited process'), { code: 'ESRCH' }); };
   assert.equal(await boot(), true);
   assert.equal(await present(), false);
 });

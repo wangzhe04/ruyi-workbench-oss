@@ -2,7 +2,8 @@
 // It records which parent/child pair may be executing one maintenance job; it is
 // never authority to execute, release or call an operation complete. Every
 // update/removal is bound to the exact previous sha256 plus native dev/ino, and
-// classification only says whether the record itself may be cleaned.
+// classification only identifies cleanup candidates. An ordinary boot must use
+// recoverCompleted to verify a completed owned crash before retiring its record.
 const WorkDataHandoffClaim = ((io, p, c) => {
   const NAME = 'claim-v1.json', DIR = 'ruyi-work-data-handoff-', STAGE = '.claim-v1.stage-';
   // The activation receipt is a separate TEMP record for a restored target. It
@@ -310,21 +311,49 @@ const WorkDataHandoffClaim = ((io, p, c) => {
         throw fail('write_failed', error);
       } finally { mutating = false; }
     }
-    async function remove(value) {
+    async function removeRecord(value, verifyCompleted = null) {
       if (!receiptShape(value)) throw fail('receipt_invalid');
       if (mutating) throw fail('busy');
       mutating = true;
       try {
         const loc = location(value.base);
         await tempPresent();
-        if (!await directory(loc.root, true)) return true;
+        if (!await directory(loc.root, true)) { if (verifyCompleted) throw fail('claim_changed'); return true; }
         const names = await io.readdir(loc.root);
         if (names.some(name => fold(name).startsWith(STAGE))) throw fail('stage_pending');
-        if (!names.some(name => fold(name) === NAME)) return true;
+        if (!names.some(name => fold(name) === NAME)) { if (verifyCompleted) throw fail('claim_changed'); return true; }
         const found = await current(loc);
         if (!found) throw fail('claim_changed');
         if (found.captured.sha256 !== value.sha256 || !sameIdentity(found.captured.identity, value)) throw fail('claim_changed');
         await baseRow(loc.base, found.value.baseIdentity);
+        if (verifyCompleted) {
+          // A matching result digest is only a candidate. Recovery may retire an
+          // owned record only after its two original processes are proven dead and
+          // the boot owner has verified the actual result, authority and backup.
+          // The callbacks run under this owner's mutation gate; neither may write,
+          // remove, or replace this record while the verification is in flight.
+          const stopped = () => {
+            if (found.value.phase !== 'owned') throw fail('recovery_phase_invalid');
+            const dead = pid => { try { probe(pid); return false; } catch (error) { return error?.code === 'ESRCH'; } };
+            if (!dead(found.value.parentPid) || !dead(found.value.childPid)) throw fail('recovery_process_pending');
+          };
+          const verified = async () => {
+            try { if (await verifyCompleted(found.value) === true) return; }
+            catch (cause) { throw fail('recovery_unverified', cause); }
+            throw fail('recovery_unverified');
+          };
+          stopped();
+          await verified();
+          const selected = await inspect({ base: loc.base });
+          if (!selected.present || selected.receipt.sha256 !== value.sha256 || !sameIdentity(selected.receipt, value)) throw fail('claim_changed');
+          stopped();
+          await verified();
+          // The second verification can itself perform IO. Bind its result to the
+          // same selected record once more immediately before the only deletion.
+          const final = await inspect({ base: loc.base });
+          if (!final.present || final.receipt.sha256 !== value.sha256 || !sameIdentity(final.receipt, value)) throw fail('claim_changed');
+          stopped();
+        }
         await io.unlink(loc.file);
         await flush([loc.root, temp]);
         try { await io.lstat(loc.file); }
@@ -335,6 +364,11 @@ const WorkDataHandoffClaim = ((io, p, c) => {
         throw fail('remove_failed', error);
       } finally { mutating = false; }
     }
+    const remove = value => removeRecord(value);
+    const recoverCompleted = (value, verifyCompleted) => {
+      if (typeof verifyCompleted !== 'function') return Promise.reject(fail('recovery_unverified'));
+      return removeRecord(value, verifyCompleted);
+    };
     const liveness = pid => {
       try { return probe(pid) === false ? 'dead' : 'alive'; }
       catch (error) { return error?.code === 'ESRCH' ? 'dead' : 'unknown'; }
@@ -374,7 +408,7 @@ const WorkDataHandoffClaim = ((io, p, c) => {
       if (matches) return 'complete';
       return 'pending';
     }
-    return Object.freeze({ inspect, write, remove, classify,
+    return Object.freeze({ inspect, write, remove, classify, recoverCompleted,
       activation: Object.freeze({ write: activationWrite, inspect: activationInspect, remove: activationRemove }) });
   }
   return Object.freeze({ NAME, STAGE, LIMIT, validate, decode, create,

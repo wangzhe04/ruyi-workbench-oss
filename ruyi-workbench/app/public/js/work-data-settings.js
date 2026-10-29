@@ -36,11 +36,17 @@ export function mountWorkDataSettings() {
   const name = input('workDataRestoreName'); name.maxLength = 128;
   const restoreName = field('restoreName', name); restoreName.append(node('p', 'restoreNameHelp', 'field-help'));
   const upload = input('workDataRestoreFile', 'file'); upload.disabled = true; upload.accept = '.ruyi,.ruyi-backup,application/octet-stream';
-  const uploadRow = field('restoreFile', upload);
-  const restoreFields = node('div', null, 'work-data-restore'); restoreFields.append(parentRow, restoreName, uploadRow); restoreFields.hidden = true;
+  const uploadHelp = node('p', null, 'field-help'); uploadHelp.id = 'workDataRestoreFileHelp';
+  upload.setAttribute('aria-describedby', uploadHelp.id);
+  const uploadRow = field('restoreFile', upload); uploadRow.append(uploadHelp);
+  const targetPreview = node('p', null, 'field-help work-data-notice'); targetPreview.id = 'workDataRestoreTarget';
+  const confirmRestore = input('workDataConfirmRestore', 'checkbox'), restoreConfirmation = node('label', null, 'check');
+  restoreConfirmation.append(confirmRestore, node('span', 'confirmRestore'));
+  const restoreFields = node('div', null, 'work-data-restore'); restoreFields.append(uploadRow, parentRow, restoreName, targetPreview, restoreConfirmation); restoreFields.hidden = true;
   const password = input('workDataPassword', 'password'), confirmation = input('workDataPasswordConfirm', 'password');
   for (const control of [password, confirmation]) { control.autocomplete = 'new-password'; control.maxLength = 1024; }
   const secretFields = node('div', null, 'field-row work-data-passwords'); secretFields.append(field('password', password), field('passwordConfirm', confirmation));
+  const passwordHelp = node('p', 'passwordHelp', 'field-help');
   const plaintext = input('workDataConfirmPlaintext', 'checkbox'), plaintextRow = node('label', null, 'check'); plaintextRow.append(plaintext, node('span', 'confirmPlaintext')); plaintextRow.hidden = true;
   const unavailable = node('p', null, 'field-help work-data-unavailable'); unavailable.id = 'workDataUnavailable'; unavailable.setAttribute('role', 'status');
   const notice = node('p', null, 'work-data-notice'); notice.id = 'workDataNotice'; notice.setAttribute('role', 'status'); notice.setAttribute('aria-live', 'polite');
@@ -49,15 +55,20 @@ export function mountWorkDataSettings() {
   const reconnect = button('refresh', 'workDataRefresh', () => void refresh());
   const cancel = button('cancel', 'workDataCancel', () => void cancelJob());
   const download = button('downloadPackage', 'workDataDownload', () => void savePackage());
-  const actions = node('div', null, 'work-data-actions'); actions.append(submit, cancel, reconnect, download);
-  form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, node('p', 'passwordHelp', 'field-help'), plaintextRow, unavailable, notice, progress, actions);
+  const clear = button('clearDraft', 'workDataClearDraft', () => { if (clear.disabled) return; clearSecrets(); upload.value = ''; confirmRestore.checked = false; notice.textContent = ''; render(); });
+  const actions = node('div', null, 'work-data-actions'); actions.append(submit, cancel, reconnect, download, clear);
+  form.append(field('operationLabel', operation), backupRow, restoreFields, secretFields, passwordHelp, plaintextRow, unavailable, notice, progress, actions);
   host.append(heading, summary, scope, retained, form);
   let current = null, job = null, lastResult = null, loading = false, writing = false, picking = false, downloading = false, unknownSubmission = false, stale = false, disposed = false, timer = null, reading = null, revision = 0, submittedAuthority = null, trackedId = null;
+  let pendingRestore = null, restoreServing = null;
   const active = () => !!job && !TERMINAL.has(job.state);
   const validAuthority = value => value && Number.isSafeInteger(value.generation) && value.generation >= 0 && ['plain', 'encrypted'].includes(value.mode)
     && (value.id === null || /^[a-f0-9]{48}$/.test(value.id || '')) && (value.sha256 === null || /^[a-f0-9]{64}$/.test(value.sha256 || ''));
   const validJob = value => value && /^[a-f0-9]{48}$/.test(value.id || '') && OPERATIONS.includes(value.operation) && STATES.includes(value.state)
     && typeof value.cancellable === 'boolean' && typeof value.takeover === 'boolean' && value.retry === false;
+  const retireRestore = candidate => {
+    if (pendingRestore && candidate && (candidate.id !== pendingRestore.id || candidate.operation !== 'restore' || TERMINAL.has(candidate.state))) pendingRestore = null;
+  };
   const errorCode = error => { const code = apiErrorInfo(error).code; return /^[a-zA-Z0-9_.-]{1,128}$/.test(code || '') ? code : 'net.disconnected'; };
   function report(error) { const code = errorCode(error); notice.textContent = t(code === 'net.disconnected' ? 'workData.disconnected' : 'workData.failed', { code }); notice.dataset.state = 'error'; }
   function blockedByCapability() {
@@ -66,7 +77,7 @@ export function mountWorkDataSettings() {
     // Restore needs both a live worker and the one-shot upload sink: the package
     // itself is uploaded once before the job is created, so a missing upload
     // capability refuses the operation instead of inventing a ticket.
-    if (operation.value === 'restore' && current?.capabilities?.upload !== true) return 'work_data_setup.restore_unavailable';
+    if (operation.value === 'restore' && (current?.capabilities?.upload !== true || !uploadMaximum())) return 'work_data_setup.restore_unavailable';
     return '';
   }
   function targetDirectory() {
@@ -82,28 +93,49 @@ export function mountWorkDataSettings() {
     if (!files || typeof files.length !== 'number' || files.length !== 1) return null;
     const file = files[0];
     if (!file || typeof file !== 'object' || typeof file.size !== 'number' || !Number.isSafeInteger(file.size) || file.size < 1) return null;
-    return file;
+    return file.size <= uploadMaximum() ? file : null;
   }
+  function uploadMaximum() { return Number.isSafeInteger(current?.uploadMaxBytes) && current.uploadMaxBytes > 0 ? current.uploadMaxBytes : 0; }
+  // Target names come from an absolute directory-picker receipt plus one leaf.
+  // Compare only exact roots; a child generation or a shared prefix is no proof.
+  function rootKey(value) {
+    if (typeof value !== 'string' || !value || /[\x00-\x1f]/.test(value) || /^[\\/]{2}/.test(value)) return '';
+    const windows = /^[a-z]:[\\/]/i.test(value);
+    if (!windows && !value.startsWith('/')) return '';
+    const normalized = value.replace(/\\/g, '/').replace(/\/+$/, '');
+    const parts = normalized.slice(windows ? 3 : 1).split('/');
+    if (parts.some(part => !part || part === '.' || part === '..' || windows && /[ .]$/.test(part))) return '';
+    return windows ? normalized.toLowerCase() : normalized;
+  }
+  function clearSecrets() { password.value = ''; confirmation.value = ''; plaintext.checked = false; }
   function render() {
     summary.replaceChildren(node('span', stale ? 'lastKnownMode' : 'currentMode', 'work-data-eyebrow'));
     const mode = current?.authority?.mode, label = node('strong'); label.textContent = t('workData.mode.' + (mode || 'unknown')); summary.append(label);
     const saved = node('p', null, 'field-help'); saved.textContent = t('workData.' + (mode === 'encrypted' ? 'encryptedHelp' : mode === 'plain' ? 'plainHelp' : 'unknownHelp')); summary.append(saved); summary.dataset.mode = mode || 'unknown';
     const blocked = blockedByCapability(), disabled = !current || stale || loading || writing || picking || active() || unknownSubmission;
-    for (const control of [operation, backup, pickBackup, parent, pickParent, name, password, confirmation, plaintext]) control.disabled = disabled;
+    for (const control of [operation, backup, pickBackup, parent, pickParent, name, password, confirmation, plaintext, confirmRestore]) control.disabled = disabled;
     // Only the ordinary disabled state disables the file picker: the selected
     // File is a user-owned draft, and capability refusals are surfaced (and
     // enforced) on submit instead of silently throwing the choice away.
     upload.disabled = disabled;
     restoreFields.hidden = operation.value !== 'restore'; plaintextRow.hidden = operation.value !== 'disable';
+    passwordHelp.dataset.i18n = operation.value === 'restore' ? 'workData.restorePasswordHelp' : 'workData.passwordHelp';
+    passwordHelp.textContent = t(passwordHelp.dataset.i18n);
+    const maximum = uploadMaximum();
+    uploadHelp.textContent = t('workData.restoreFileHelp', { bytes: maximum });
+    if (upload.files?.length && !selectedFile()) uploadHelp.textContent = t('workData.restoreFileInvalid', { bytes: maximum });
+    targetPreview.textContent = t('workData.restoreTarget', { target: targetDirectory() || t('workData.restoreTargetMissing') });
     unavailable.hidden = !blocked; unavailable.textContent = blocked ? t('workData.unavailable', { code: blocked }) : '';
     submit.textContent = t('workData.operation.' + operation.value); submit.disabled = disabled || !!blocked || !backup.value
       || password.value.length < 12 || new TextEncoder().encode(password.value).length > 1024 || password.value.includes('\0')
       || password.value !== confirmation.value || operation.value === 'disable' && !plaintext.checked
       || operation.value === 'restore' && !targetDirectory()
       || operation.value === 'restore' && !selectedFile()
+      || operation.value === 'restore' && !confirmRestore.checked
       || operation.value === 'enable' && mode === 'encrypted' || operation.value === 'disable' && mode === 'plain';
     cancel.hidden = !active(); cancel.disabled = writing || !job?.cancellable || job?.takeover === true;
     reconnect.disabled = loading || writing;
+    clear.disabled = disabled;
     // One action for the one current result. It is offered only when the service
     // advertises the transfer and a verified result exists, and every state that
     // makes the receipt stale disables it instead of guessing.
@@ -115,8 +147,16 @@ export function mountWorkDataSettings() {
       const help = node('p', null, 'field-help'); help.textContent = t(job.takeover || ['handoff', 'uncertain'].includes(job.state) ? 'workData.handoffHelp'
         : job.state === 'cancelled' ? 'workData.cancelledHelp' : job.state === 'failed' ? 'workData.failureHelp' : 'workData.drainHelp'); progress.append(help);
       if (job.error) { const code = node('code'); code.textContent = typeof job.error === 'string' && /^[\w.-]{1,128}$/.test(job.error) ? job.error : 'work_data_setup.job_failed'; progress.append(code); }
-    } else if (lastResult) progress.append(node('p', 'lastReceipt', 'field-help'));
-    progress.hidden = !job && !lastResult;
+    } else if (restoreServing && !stale && rootKey(current?.selectedBase) === rootKey(restoreServing.target)) {
+      const line = node('strong'); line.textContent = t('workData.restoreServing'); progress.append(line);
+      const help = node('p', null, 'field-help'); help.textContent = t('workData.restoreServingHelp', { target: restoreServing.target }); progress.append(help);
+    } else if (lastResult) {
+      progress.append(node('p', 'lastReceipt', 'field-help'));
+      if (lastResult.operation === 'restore' && lastResult.state === 'verified' && typeof lastResult.restored?.target === 'string') {
+        const result = node('p', null, 'field-help'); result.textContent = t('workData.restoreVerified', { target: lastResult.restored.target }); progress.append(result);
+      }
+    }
+    progress.hidden = progress.children.length === 0;
   }
   function schedule() {
     if (timer) clearTimeout(timer); timer = null;
@@ -133,6 +173,14 @@ export function mountWorkDataSettings() {
         if (version !== revision || disposed) return;
         if (!result?.ok || !validAuthority(result.authority) || result.job !== null && !validJob(result.job)) throw { code: 'work_data_setup.status_invalid' };
         current = result; lastResult = result.lastResult;
+        retireRestore(result.job);
+        // The successor's selected base proves that this submitted target is
+        // serving. Its lastResult can be absent or package history: neither is
+        // the source's durable receipt for this restore.
+        if (pendingRestore && rootKey(result.selectedBase) && rootKey(result.selectedBase) === rootKey(pendingRestore.target)) {
+          restoreServing = { target: pendingRestore.target }; pendingRestore = null;
+          job = null; trackedId = null; unknownSubmission = false;
+        }
         if (result.job) { job = result.job; trackedId = job.id; }
         else if (!trackedId || lastResult?.id === trackedId) job = null;
         if (result.job || unknownSubmission && (submittedAuthority !== JSON.stringify(result.authority)
@@ -141,6 +189,7 @@ export function mountWorkDataSettings() {
           const status = await api('/api/work-data/jobs/' + job.id);
           if (version !== revision || disposed) return;
           if (!status?.ok || !validJob(status.job) || status.job.id !== job.id) throw { code: 'work_data_setup.status_invalid' };
+          retireRestore(status.job);
           job = status.job;
         }
         stale = false;
@@ -153,7 +202,7 @@ export function mountWorkDataSettings() {
   async function pickDirectory(control) {
     if (picking || writing || active() || unknownSubmission) return;
     picking = true; render();
-    try { const result = await api('/api/pick-folder', { method: 'POST', body: '{}' }); if (result?.ok && typeof result.path === 'string') control.value = result.path; }
+    try { const result = await api('/api/pick-folder', { method: 'POST', body: '{}' }); if (result?.ok && typeof result.path === 'string') { control.value = result.path; if (control === parent || control === backup) confirmRestore.checked = false; } }
     catch (error) { report(error); }
     finally { picking = false; render(); }
   }
@@ -203,21 +252,23 @@ export function mountWorkDataSettings() {
     const restoring = operation.value === 'restore', file = restoring ? selectedFile() : null;
     if (restoring && !file) return;
     writing = true; revision++; submittedAuthority = JSON.stringify(current.authority); trackedId = null;
-    const secret = password.value, target = restoring ? targetDirectory() : '';
+    pendingRestore = null; restoreServing = null;
+    let secret = password.value; const target = restoring ? targetDirectory() : '';
     const payload = { operation: operation.value, expectedAuthority: { ...current.authority }, backupDirectory: backup.value,
       ...(operation.value === 'disable' ? { confirmPlaintext: true } : {}) };
     let options = null;
     job = null;
-    password.value = ''; confirmation.value = ''; plaintext.checked = false;
-    notice.textContent = t('workData.submitting'); render();
+    clearSecrets(); confirmRestore.checked = false;
+    notice.textContent = t(restoring ? 'workData.uploading' : 'workData.submitting'); render();
     try {
-      if (restoring) { payload.targetDirectory = target; payload.uploadId = await uploadPackage(file); }
+      if (restoring) { payload.targetDirectory = target; payload.uploadId = await uploadPackage(file); notice.textContent = t('workData.submitting'); }
       // Job writes are one-way receipts too: no token-refresh replay.
       payload.password = secret;
-      options = { method: 'POST', body: JSON.stringify(payload), noTokenReplay: true }; payload.password = '';
+      options = { method: 'POST', body: JSON.stringify(payload), noTokenReplay: true }; payload.password = ''; secret = '';
       const result = await api('/api/work-data/jobs', options);
-      if (!result?.ok || !validJob(result.job)) { unknownSubmission = true; throw { code: 'work_data_setup.status_invalid' }; }
+      if (!result?.ok || !validJob(result.job) || result.job.operation !== payload.operation) { unknownSubmission = true; throw { code: 'work_data_setup.status_invalid' }; }
       job = result.job; trackedId = job.id; unknownSubmission = false; notice.textContent = '';
+      if (restoring && job.operation === 'restore') pendingRestore = { id: job.id, target };
     } catch (error) {
       // Only an explicit HTTP 4xx refusal proves that this request was rejected.
       // A 5xx, lost response or malformed success body can follow acceptance —
@@ -225,27 +276,28 @@ export function mountWorkDataSettings() {
       if (!(Number.isInteger(error?.status) && error.status >= 400 && error.status < 500)) unknownSubmission = true;
       report(error);
     }
-    finally { if (options) options.body = ''; writing = false; render(); schedule(); }
+    finally { secret = ''; payload.password = ''; if (options) options.body = ''; clearSecrets(); writing = false; render(); schedule(); }
   }
   async function cancelJob() {
     if (writing || !active() || job.cancellable !== true || job.takeover === true) return;
-    writing = true; revision++; job = { ...job, cancellable: false }; render();
+    clearSecrets(); writing = true; revision++; job = { ...job, cancellable: false }; render();
     try {
       // Cancel is a one-way receipt as well: never replayed after a token refresh.
       const result = await api('/api/work-data/jobs/' + job.id + '/cancel', { method: 'POST', body: '{}', noTokenReplay: true });
       if (!result?.ok || !validJob(result.job) || result.job.id !== job.id) throw { code: 'work_data_setup.status_invalid' };
+      retireRestore(result.job);
       job = result.job;
     } catch (error) { report(error); }
     finally { writing = false; render(); schedule(); }
   }
   form.addEventListener('submit', event => { event.preventDefault(); void submitJob(); });
-  for (const control of [operation, password, confirmation, plaintext, name]) control.addEventListener('input', () => { notice.textContent = ''; render(); });
+  for (const control of [operation, password, confirmation, plaintext, name, confirmRestore]) control.addEventListener('input', () => { if (control === name) confirmRestore.checked = false; notice.textContent = ''; render(); });
   // File pickers fire change, not input: without this the submit gate would keep
   // the state it rendered before the package was chosen.
-  upload.addEventListener('change', () => { notice.textContent = ''; render(); });
-  operation.addEventListener('change', () => { password.value = ''; confirmation.value = ''; plaintext.checked = false; render(); });
+  upload.addEventListener('change', () => { confirmRestore.checked = false; notice.textContent = ''; render(); });
+  operation.addEventListener('change', () => { clearSecrets(); confirmRestore.checked = false; render(); });
   const translate = () => { for (const element of host.querySelectorAll('[data-i18n]')) element.textContent = t(element.dataset.i18n); render(); };
   window.addEventListener('i18n:change', translate);
-  const controller = Object.freeze({ refresh, dispose() { disposed = true; if (timer) clearTimeout(timer); password.value = ''; confirmation.value = ''; window.removeEventListener('i18n:change', translate); } });
+  const controller = Object.freeze({ refresh, dispose() { disposed = true; if (timer) clearTimeout(timer); clearSecrets(); upload.value = ''; confirmRestore.checked = false; window.removeEventListener('i18n:change', translate); } });
   panels.set(host, controller); void refresh(); return controller;
 }

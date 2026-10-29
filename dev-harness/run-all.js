@@ -249,6 +249,11 @@ const TIMEOUT_OVERRIDES = {
   // (all assertions passing); 900 s is the same whole-file guard as production
   // maintenance, and every product wait inside keeps its own explicit deadline.
   'work-data-production-restore.e2e.js': 900000,
+  // New completed-claim acceptance: one real enable handoff, a Job-owned native
+  // claim producer, two strict refusal boots and the final normal recovery boot.
+  // Freeze its first overall budget explicitly; existing phase deadlines and
+  // the older maintenance/restore gates remain unchanged.
+  'work-data-completed-claim-recovery.e2e.js': 900000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

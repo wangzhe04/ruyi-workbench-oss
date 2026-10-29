@@ -2,6 +2,8 @@
 
 日期：2026-10-24。基线：`415357604f6465f43b377d1d30ff713464a8fa96`。分支：`codex/3.1-completion-plan`。应用仍为 **3.0.1**。
 
+**2026-10-28 最新进展导航：** 本批已接 completed-owned 完成结果的严格退休，以及恢复设置页的服务端文件预算、目标确认和所选新根正在服务的状态，见 [92 §12.46](92-3.1-implementation-handoff.md) 与[本批证据](evidence/m3-completed-claim-ui-20261028.json)。新实际故障夹具和设置浏览器各两遍通过，维护/restore/upload/cold/runtime 五件相关回归通过，语法 1352 文件零失败；build --check 新鲜，2026-10-29 完整 unit 为 4297 项（4271 过/26 条件跳过/0 失败），82 静态全过。无完成结果 owned 的恢复、真实浏览器驱动生产 restore 全旅程、自动回收、非空 special 及完整 M3-3/3.1 继续。下方下载与更早批次全部保留原历史身份和当时结论，不能据此宣称完整恢复 kernel 已完成。
+
 **2026-10-28 当前结果恢复包下载批（最新）：** 已接 `GET /api/work-data/results/<48hex>/package` 与设置页一键保存，只读当前 authority/proof 有效的结果绑定备份；发送前在同一 opened handle 上核完整 Buffer 的 dev/ino/size/hash，异常路径清零，成功后才写 200。暖运行时且有当前结果才广告 download，冷监听器 false；encrypted target 的包内历史结果不等于本次 restore result。定向 100 项单测通过；最终同一执行输入摘要 `c1602ee1…` 下，维护 14 项、restore 26 项均连续两遍通过，设置浏览器 27 项两遍通过；完整 unit 4277 项中 4253 过、24 条件跳过、0 失败，fast 的 82 静态全过、0 flaky。完整证据见[本批证据](evidence/m3-package-download-20261028.json)。恢复 kernel、owned crash 接管、完整 restore UI 与非空 special 未完成，M3-3/3.1 未完成。见 [92 §12.45](92-3.1-implementation-handoff.md)；下方为历史快照。
 
 **2026-10-28 后续启动根偏好批：** activation successor 在 serve-ready 后写入 base 外 `<home>/.ruyi/boot-root-v1.json`，再 CAS 消费一次性 TEMP activation；后续无 `RUYI_HOME`/`WIN_CLAUDE_WORKBENCH_HOME` 的普通 serve 已从 restored target 启动，显式 env 永远优先且相同记录不重写。plain/encrypted 最终真实 E2E 连续两遍各 26 断言通过；`doctor --clear-boot-root` 提供精确 receipt CAS 清除，坏记录/alias/identity 不符回退缺省根且不自动改文件。完整 unit 4268 项中 4244 过、24 条件跳过、0 失败。download、恢复 kernel、完整 restore UI 与非空 special 仍待，M3-3/3.1 未完成。见 [92 §12.44](92-3.1-implementation-handoff.md) 与[本批证据](evidence/m3-boot-root-preference-20261028.json)；下方为历史快照。

@@ -4571,6 +4571,17 @@
   "workData.lastKnownMode": "Last confirmed data root (reconnecting)",
   "workData.cancelledHelp": "Preparation was cancelled. The original data root remains in use and existing tasks were not aborted.",
   "workData.failureHelp": "Maintenance preparation did not finish. Check the error and current data root; a failed preparation does not confirm a switch."
+  ,"workData.restorePasswordHelp": "Enter the password used to export this recovery package, which may differ from the current data root password. Use at least 12 characters and at most 1024 UTF-8 bytes. Both fields are cleared on submission or when the draft is discarded."
+  ,"workData.restoreFileHelp": "Choose one non-empty full recovery package, no larger than {{bytes}} bytes. It is uploaded once when you submit."
+  ,"workData.restoreFileInvalid": "Choose exactly one non-empty recovery package of at most {{bytes}} bytes. No upload has started."
+  ,"workData.restoreTarget": "Restore target: {{target}}"
+  ,"workData.restoreTargetMissing": "choose a parent folder and a new directory name"
+  ,"workData.confirmRestore": "I confirm this new target. After restoration and verification, the service will switch to it and remember it for future starts. Existing directories will not be overwritten."
+  ,"workData.clearDraft": "Discard password and file draft"
+  ,"workData.uploading": "Uploading the selected recovery package once… Wait for the receipt; do not submit again."
+  ,"workData.restoreVerified": "The saved restore receipt verifies the restored directory: {{target}}. This receipt alone does not prove which root is currently serving."
+  ,"workData.restoreServing": "The restored target is now serving"
+  ,"workData.restoreServingHelp": "The service reports this operation’s new target as its selected data root: {{target}}. The original root retains the restore completion receipt."
 
   ,"externalBots.deliveries": "Delivery records"
   ,"externalBots.archiveHint": "Archiving only organizes the list. Work and pending replies continue, and storage capacity stays the same."

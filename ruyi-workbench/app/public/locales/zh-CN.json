@@ -4571,6 +4571,17 @@
   "workData.lastKnownMode": "上次确认的数据根（连接待恢复）",
   "workData.cancelledHelp": "准备已取消，原数据根继续使用；已有任务没有被中止。",
   "workData.failureHelp": "维护准备未完成。请核对错误与当前数据根，不要把准备失败当作已经切换。"
+  ,"workData.restorePasswordHelp": "请输入导出这份恢复包时使用的密码，它可能与当前数据根密码不同。至少12个字符、最多1024个UTF-8字节。提交或丢弃草稿时，两处密码均会清空。"
+  ,"workData.restoreFileHelp": "请选择一个非空的完整恢复包，大小不得超过{{bytes}}字节。点击恢复后仅上传一次。"
+  ,"workData.restoreFileInvalid": "请选择且仅选择一个非空恢复包，大小不得超过{{bytes}}字节。尚未开始上传。"
+  ,"workData.restoreTarget": "恢复目标：{{target}}"
+  ,"workData.restoreTargetMissing": "请选择父文件夹并填写新目录名"
+  ,"workData.confirmRestore": "我确认这个新目标。恢复并核验后，服务将切换到该目标，并记住后续启动位置。不会覆盖已有目录。"
+  ,"workData.clearDraft": "丢弃密码与文件草稿"
+  ,"workData.uploading": "正在上传所选恢复包，仅上传一次…请等待回执，不要再次提交。"
+  ,"workData.restoreVerified": "已保存的恢复回执确认恢复目录：{{target}}。仅凭这份回执不能证明当前服务使用哪个根。"
+  ,"workData.restoreServing": "恢复后的目标已开始服务"
+  ,"workData.restoreServingHelp": "服务报告本次操作的新目标已选为当前数据根：{{target}}。原数据根保留恢复完成回执。"
 
   ,"externalBots.deliveries": "投递记录"
   ,"externalBots.archiveHint": "归档只整理列表，不会停止业务或待发回复，也不释放容量。"

@@ -103699,7 +103699,8 @@ const WorkDataRestoreUploads = ((io,p,c) => {
 // It records which parent/child pair may be executing one maintenance job; it is
 // never authority to execute, release or call an operation complete. Every
 // update/removal is bound to the exact previous sha256 plus native dev/ino, and
-// classification only says whether the record itself may be cleaned.
+// classification only identifies cleanup candidates. An ordinary boot must use
+// recoverCompleted to verify a completed owned crash before retiring its record.
 const WorkDataHandoffClaim = ((io, p, c) => {
   const NAME = 'claim-v1.json', DIR = 'ruyi-work-data-handoff-', STAGE = '.claim-v1.stage-';
   // The activation receipt is a separate TEMP record for a restored target. It
@@ -104007,21 +104008,49 @@ const WorkDataHandoffClaim = ((io, p, c) => {
         throw fail('write_failed', error);
       } finally { mutating = false; }
     }
-    async function remove(value) {
+    async function removeRecord(value, verifyCompleted = null) {
       if (!receiptShape(value)) throw fail('receipt_invalid');
       if (mutating) throw fail('busy');
       mutating = true;
       try {
         const loc = location(value.base);
         await tempPresent();
-        if (!await directory(loc.root, true)) return true;
+        if (!await directory(loc.root, true)) { if (verifyCompleted) throw fail('claim_changed'); return true; }
         const names = await io.readdir(loc.root);
         if (names.some(name => fold(name).startsWith(STAGE))) throw fail('stage_pending');
-        if (!names.some(name => fold(name) === NAME)) return true;
+        if (!names.some(name => fold(name) === NAME)) { if (verifyCompleted) throw fail('claim_changed'); return true; }
         const found = await current(loc);
         if (!found) throw fail('claim_changed');
         if (found.captured.sha256 !== value.sha256 || !sameIdentity(found.captured.identity, value)) throw fail('claim_changed');
         await baseRow(loc.base, found.value.baseIdentity);
+        if (verifyCompleted) {
+          // A matching result digest is only a candidate. Recovery may retire an
+          // owned record only after its two original processes are proven dead and
+          // the boot owner has verified the actual result, authority and backup.
+          // The callbacks run under this owner's mutation gate; neither may write,
+          // remove, or replace this record while the verification is in flight.
+          const stopped = () => {
+            if (found.value.phase !== 'owned') throw fail('recovery_phase_invalid');
+            const dead = pid => { try { probe(pid); return false; } catch (error) { return error?.code === 'ESRCH'; } };
+            if (!dead(found.value.parentPid) || !dead(found.value.childPid)) throw fail('recovery_process_pending');
+          };
+          const verified = async () => {
+            try { if (await verifyCompleted(found.value) === true) return; }
+            catch (cause) { throw fail('recovery_unverified', cause); }
+            throw fail('recovery_unverified');
+          };
+          stopped();
+          await verified();
+          const selected = await inspect({ base: loc.base });
+          if (!selected.present || selected.receipt.sha256 !== value.sha256 || !sameIdentity(selected.receipt, value)) throw fail('claim_changed');
+          stopped();
+          await verified();
+          // The second verification can itself perform IO. Bind its result to the
+          // same selected record once more immediately before the only deletion.
+          const final = await inspect({ base: loc.base });
+          if (!final.present || final.receipt.sha256 !== value.sha256 || !sameIdentity(final.receipt, value)) throw fail('claim_changed');
+          stopped();
+        }
         await io.unlink(loc.file);
         await flush([loc.root, temp]);
         try { await io.lstat(loc.file); }
@@ -104032,6 +104061,11 @@ const WorkDataHandoffClaim = ((io, p, c) => {
         throw fail('remove_failed', error);
       } finally { mutating = false; }
     }
+    const remove = value => removeRecord(value);
+    const recoverCompleted = (value, verifyCompleted) => {
+      if (typeof verifyCompleted !== 'function') return Promise.reject(fail('recovery_unverified'));
+      return removeRecord(value, verifyCompleted);
+    };
     const liveness = pid => {
       try { return probe(pid) === false ? 'dead' : 'alive'; }
       catch (error) { return error?.code === 'ESRCH' ? 'dead' : 'unknown'; }
@@ -104071,7 +104105,7 @@ const WorkDataHandoffClaim = ((io, p, c) => {
       if (matches) return 'complete';
       return 'pending';
     }
-    return Object.freeze({ inspect, write, remove, classify,
+    return Object.freeze({ inspect, write, remove, classify, recoverCompleted,
       activation: Object.freeze({ write: activationWrite, inspect: activationInspect, remove: activationRemove }) });
   }
   return Object.freeze({ NAME, STAGE, LIMIT, validate, decode, create,
@@ -104193,8 +104227,14 @@ const WorkDataSetup = (() => {
       let started=typeof worker.start==='function';
       if(started&&typeof host.workerReady==='function'){try{started=host.workerReady()===true;}catch{started=false;}}
       const transfer=()=>{try{return worker.packageTransfer===true&&typeof worker.downloadPackage==='function';}catch{return false;}};
+      const canUpload=typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function';
+      // These are observations of the selected root and the receiver's actual
+      // budget. A restored plain root may have the same generation-zero authority
+      // as its source, so authority alone cannot tell the browser which base serves.
+      const maximum=canUpload&&typeof WorkDataRecovery!=='undefined'?WorkDataRecovery.LIMITS.serialized:null;
       return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
-        lastResult,capabilities:{worker:started,upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',
+        selectedBase:observed.base,uploadMaxBytes:Number.isSafeInteger(maximum)&&maximum>0?maximum:null,
+        lastResult,capabilities:{worker:started,upload:canUpload,
           download:transfer()&&lastResult!==null},processRestartRequired:true};
     }
     // The transfer routes additionally bind the actual loopback socket, the same-port
@@ -105623,32 +105663,37 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       let stat;try{stat=await io.lstat(base);}catch(error){if(error.code==='ENOENT'&&!successorInput())return true;throw error;}
       if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
       const control=p.join(base,'.work-data');
-      try {
-        const stat=await io.lstat(control);if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
-        const names=await io.readdir(control),allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
-        if(names.some(name=>!allowed.has(fold(name))))throw fail('boot_control_pending');
-      }catch(error){if(error.code!=='ENOENT')throw error;}
+      const inspectControlDirectory=async()=>{
+        try {
+          const stat=await io.lstat(control);if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('boot_control_unavailable');
+          const names=await io.readdir(control),allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+          if(names.some(name=>!allowed.has(fold(name))))throw fail('boot_control_pending');
+        }catch(error){if(error.code!=='ENOENT')throw error;}
+      };
+      await inspectControlDirectory();
       const ownerCheck=async candidate=>candidate===owner&&ownership(owner,base);
       const controls=host.controlApi.create({base,ownership:owner,assertExclusive:ownerCheck,assertDurableBackup:async()=>false,flush:async()=>{throw fail('readonly_boot');}});
       // An unfinished intent always wins; C10/C11 stay intent_pending and their
       // files are never rewritten or removed by ordinary boot.
       if((await controls.inspect()).pending)throw fail('intent_pending');
-      // Ordinary boot only looks at the record's presence: a stale receipt must not
-      // read a backup or fail startup. The successor additionally verifies it - except
+      // Ordinary boot initially inspects only the record: without a matching owned
+      // claim, a stale result must not read a backup or fail startup. A completed owned
+      // crash additionally verifies the actual result before claim retirement. The
+      // successor also verifies its expected result - except
       // a fresh-root successor, whose commitment is the TEMP activation receipt. That
       // path never consults a result record on the target, so it also never hands the
       // claim owner a digest invented from the target root.
       const expected=successorInput();
       const activationBoot=expected&&expected.activation?expected:null;
-      let digest=null;
+      let digest=null,resultReader=null,observedResult=null;
       if(activationBoot){
         // The successor of a fresh-root restore serves the target root only; its
         // receipt must still name this base, job, parent, nonce, authority and proof.
         if(fold(await host.canonical(activationBoot.base))!==fold(base))throw fail('successor_input_invalid');
         await verifyActivation(activationBoot,base,null);
       }else{
-        const resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
-        const observedResult=await resultReader.inspect(),result=expected?await resultReader.read():null;
+        resultReader=host.resultApi.create({base,ownership:owner,assertExclusive:ownerCheck,readAuthority:()=>host.readAuthority(base)});
+        observedResult=await resultReader.inspect();const result=expected?await resultReader.read():null;
         if(expected&&(!result||result.id!==expected.id||!same(result.authority,expected.expectedAuthority)))throw fail('successor_result_changed');
         // No intent: only the TEMP handoff record may be classified and, when inert or
         // complete, cleaned. Base files are never repaired here.
@@ -105661,10 +105706,55 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       const claims=claimValue();
       if(claims){
         if(!claimShape(claims))throw fail('runtime_host_invalid');
+        // Keep the first exact receipt. Classification may observe a later phase;
+        // boot must never replace its receipt with that newly inspected version.
+        const selectedClaim=await claims.inspect({base});
         const outcome=verdict(await claims.classify({base,hasIntent:false,hasResult:digest}));
         if(outcome==='pending')throw fail('handoff_pending');
         if(outcome!=='absent'&&outcome!=='inert'&&outcome!=='complete')throw fail('boot_control_pending');
-        if(outcome!=='absent'){const observed=await claims.inspect({base});if(observed?.present)await claims.remove(observed.receipt);}
+        if(outcome!=='absent'){
+          if(!selectedClaim?.present)throw fail('boot_control_pending');
+          if(outcome==='complete'){
+            if(!resultReader||!observedResult?.present)throw fail('handoff_completion_unverified');
+            const proof=observedResult.captured;
+            if(!proof||!NONCE.test(proof.sha256||'')||!identity(proof.identity))throw fail('handoff_completion_unverified');
+            // Owned-crash recovery retires only metadata for an already completed
+            // operation. read() proves the current authority and actual backup on
+            // every call; no result is synthesized, no operation is replayed, and
+            // no intent/candidate/target is repaired or removed here.
+            const verifyCompleted=async claim=>{
+              if(!claim||claim.phase!=='owned')throw fail('handoff_completion_unverified');
+              if(!ownership(owner,base))throw fail('ownership_required');
+              if(helpers())throw fail('native_helper_uncertain');
+              await inspectControlDirectory();
+              if((await controls.inspect()).pending)throw fail('intent_pending');
+              const current=await resultReader.read();
+              if(!current||current.id!==claim.id||current.operation!==claim.operation
+                ||!stamp(current.finishedAt)||current.finishedAt<claim.updatedAt
+                ||!current.proof||current.proof.sha256!==proof.sha256||!identity(current.proof.identity)
+                ||current.proof.identity.dev!==proof.identity.dev||current.proof.identity.ino!==proof.identity.ino)
+                throw fail('handoff_completion_unverified');
+              await inspectControlDirectory();
+              if((await controls.inspect()).pending)throw fail('intent_pending');
+              if(!ownership(owner,base))throw fail('ownership_required');
+              if(helpers())throw fail('native_helper_uncertain');
+              return true;
+            };
+            if(expected){
+              // A prepared private successor already proved its live cold parent
+              // through IPC and its exact expected result above. That normal handoff
+              // may finish while the parent is alive; it is not crash recovery.
+              const claim=selectedClaim.value;
+              if(!claim||expected.parentPid!==claim.childPid||expected.id!==claim.id
+                ||expected.serve.host!==claim.serve.host||expected.serve.port!==claim.serve.port)throw fail('handoff_completion_unverified');
+              await verifyCompleted(selectedClaim.value);
+              await claims.remove(selectedClaim.receipt);
+            }else{
+              if(typeof claims.recoverCompleted!=='function')throw fail('handoff_completion_unverified');
+              await claims.recoverCompleted(selectedClaim.receipt,verifyCompleted);
+            }
+          }else await claims.remove(selectedClaim.receipt);
+        }
       }
       return true;
     }

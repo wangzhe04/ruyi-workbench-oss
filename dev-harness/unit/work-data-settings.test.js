@@ -17,7 +17,7 @@ test('disable requires explicit plaintext confirmation and sends only the comple
  const a=authority('encrypted');const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:route==='/api/work-data/jobs'?{ok:true,job:job({operation:'disable'})}:status({authority:a}));await f.panel.refresh();f.change('workDataOperation','disable','change');await populate(f);assert.equal(f.find('workDataSubmit').disabled,true);f.change('workDataConfirmPlaintext',true);assert.equal(f.find('workDataSubmit').disabled,false);f.click('workDataSubmit');await f.flush();const body=f.calls.find(x=>x.route==='/api/work-data/jobs').body;assert.equal(body.confirmPlaintext,true);assert.deepEqual(body.expectedAuthority,a);assert.equal(f.find('workDataConfirmPlaintext').checked,false);f.panel.dispose();
 });
 // ── restore: one real upload, then one job ───────────────────────────────────
-const uploadReady=()=>({capabilities:{worker:true,upload:true,download:false}});
+const uploadReady=()=>({uploadMaxBytes:536870888,selectedBase:'E:\\Synthetic Source',capabilities:{worker:true,upload:true,download:false}});
 const ticket='e'.repeat(48);
 const backupFile=(text='sealed restore package')=>new File([Buffer.from(text)],'restore.ruyi',{type:'application/octet-stream'});
 const restoreStatus=extra=>status({...uploadReady(),...extra});
@@ -31,7 +31,7 @@ test('restore uploads exactly one real package then submits one complete job wit
  await f.panel.refresh();await restoreForm(f);
  assert.equal(f.find('workDataUnavailable').hidden,true,'worker+upload are both advertised');
  assert.equal(f.find('workDataSubmit').disabled,true,'a restore without a chosen package cannot be submitted');
- f.selectFile('workDataRestoreFile',file);
+ f.selectFile('workDataRestoreFile',file);f.change('workDataConfirmRestore',true);
  assert.equal(f.find('workDataSubmit').disabled,false);
  f.click('workDataSubmit');f.click('workDataSubmit');
  assert.equal(f.find('workDataPassword').value,'','the password is cleared as soon as submission starts');
@@ -60,7 +60,7 @@ test('restore uploads exactly one real package then submits one complete job wit
 test('restore stays refused without the upload capability while export never depends on download',async()=>{
  const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}
   :route==='/api/work-data/jobs'?{ok:true,job:job({operation:'export',state:'queued'})}:status(),()=>json({ok:true,uploadId:ticket},201));
- await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());
+ await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);
  assert.match(f.find('workDataUnavailable').textContent,/work_data_setup\.restore_unavailable/);
  assert.equal(f.find('workDataSubmit').disabled,true,'restore is refused when upload=false even with a complete form');
  assert.equal(f.find('workDataRestoreFile').disabled,false,'the file picker is disabled only by the ordinary disabled state');
@@ -96,7 +96,7 @@ test('restore requires exactly one non-empty file before any upload happens',asy
  assert.equal(submitDisabled(),true,'exactly one package, never a second file');
  f.selectFile('workDataRestoreFile',{name:'forged.ruyi'});
  assert.equal(submitDisabled(),true,'an object without a real byte size is not a File');
- f.selectFile('workDataRestoreFile',backupFile());
+ f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);
  assert.equal(submitDisabled(),false);
  f.click('workDataSubmit');await f.flush();
  assert.equal(f.rawCalls.length,1,'only the real File reached the upload route');
@@ -104,7 +104,7 @@ test('restore requires exactly one non-empty file before any upload happens',asy
 });
 test('an upload 4xx refusal re-enables the form, creates no job and is never retried',async()=>{
  const f=fixture(restoreAccept,()=>json({ok:false,error:{code:'work_data_setup.body_too_large'}},413));
- await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());
+ await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);
  f.click('workDataSubmit');await f.flush();
  assert.match(f.find('workDataNotice').textContent,/work_data_setup\.body_too_large/);
  assert.equal(f.find('workDataPassword').disabled,false,'an explicit 4xx refusal allows correction');
@@ -124,7 +124,7 @@ test('upload 5xx, a lost response and a malformed success stay uncertain without
  ];
  for(const [index,failure] of failures.entries()){
   const f=fixture(restoreAccept,failure);
-  await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());
+  await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);
   f.click('workDataSubmit');await f.flush();
   assert.equal(f.find('workDataPassword').disabled,true,`case ${index}: an unconfirmed upload locks the form`);
   assert.equal(f.rawCalls.length,1,`case ${index}: one upload attempt`);
@@ -141,7 +141,7 @@ test('a failed restore job never uploads the package a second time',async()=>{
   const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}
    :route==='/api/work-data/jobs'?(()=>{throw Object.assign(Error('job refused'),{status:statusCode,code:'work_data_setup.authority_changed'});})():restoreStatus(),
    ()=>{raw+=1;return json({ok:true,uploadId:ticket},201);});
-  await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());
+  await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);
   f.click('workDataSubmit');await f.flush();
   assert.equal(f.rawCalls.length,1,`${statusCode}: the package is uploaded once`);
   assert.equal(f.calls.filter(x=>x.route==='/api/work-data/jobs').length,1,`${statusCode}: the job is submitted once`);
@@ -254,4 +254,103 @@ test('a result whose capability is not advertised keeps the package action disab
  f.find('workDataDownload').click();await f.flush();
  assert.equal(f.rawCalls.length,0,'no request is made without the advertised transfer');
  f.panel.dispose();
+});
+
+test('restore file bounds come from the server and target changes require a fresh explicit confirmation',async()=>{
+ const f=fixture(route=>route==='/api/pick-folder'?{ok:true,path:'E:\\Synthetic Backup'}:restoreStatus({uploadMaxBytes:10}));
+ await f.panel.refresh();await restoreForm(f);
+ f.selectFile('workDataRestoreFile',backupFile('12345678901'));f.change('workDataConfirmRestore',true);
+ assert.equal(f.find('workDataSubmit').disabled,true);assert.match(f.find('workDataRestoreFileHelp').textContent,/10 bytes/);
+ f.selectFile('workDataRestoreFile',backupFile('1234567890'));
+ assert.equal(f.find('workDataSubmit').disabled,true,'a changed package requires confirmation again');
+ f.change('workDataConfirmRestore',true);assert.equal(f.find('workDataSubmit').disabled,false,'the exact advertised limit is admitted');
+ f.change('workDataRestoreName','SecondTarget');assert.equal(f.find('workDataConfirmRestore').checked,false);
+ assert.match(f.find('workDataRestoreTarget').textContent,/SecondTarget/);assert.equal(f.find('workDataSubmit').disabled,true);
+ f.change('workDataConfirmRestore',true);f.click('workDataPickParent');await f.flush();assert.equal(f.find('workDataConfirmRestore').checked,false);
+ assert.equal(f.rawCalls.length,0);assert.equal(f.calls.filter(row=>row.route==='/api/work-data/jobs').length,0);
+ f.panel.dispose();
+ for(const maximum of [undefined,null,0,-1,1.5,Number.MAX_SAFE_INTEGER+1]){
+  const g=fixture(()=>restoreStatus({uploadMaxBytes:maximum}));await g.panel.refresh();g.change('workDataOperation','restore','change');
+  assert.match(g.find('workDataUnavailable').textContent,/restore_unavailable/);g.panel.dispose();
+ }
+});
+
+test('discard, operation change, cancellation and disposal clear both password fields',async()=>{
+ const f=fixture(respond);await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());
+ f.change('workDataConfirmRestore',true);f.click('workDataClearDraft');
+ assert.equal(f.find('workDataPassword').value,'');assert.equal(f.find('workDataPasswordConfirm').value,'');
+ assert.equal(f.find('workDataRestoreFile').files,null);assert.equal(f.find('workDataConfirmRestore').checked,false);
+ f.change('workDataPassword','draft secret');f.change('workDataPasswordConfirm','draft secret');f.change('workDataOperation','export','change');
+ assert.equal(f.find('workDataPassword').value,'');assert.equal(f.find('workDataPasswordConfirm').value,'');f.panel.dispose();
+ const g=fixture(route=>route.endsWith('/cancel')?{ok:true,job:job({state:'cancelled',cancellable:false})}:status({job:job()}));
+ await g.panel.refresh();g.find('workDataPassword').value='held stale draft';g.find('workDataPasswordConfirm').value='held stale draft';g.click('workDataCancel');await g.flush();
+ assert.equal(g.find('workDataPassword').value,'');assert.equal(g.find('workDataPasswordConfirm').value,'');g.panel.dispose();
+});
+
+test('upload progress clears secrets before bytes leave and the accepted queued restore can resolve directly to its exact target',async()=>{
+ const held=deferred();let accepted=false,jobReads=0;
+ const target='E:\\Synthetic Backup\\Restored';
+ const f=fixture(route=>{
+  if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};
+  if(route==='/api/work-data/jobs'){accepted=true;return{ok:true,job:job({operation:'restore',state:'queued'})};}
+  if(route.includes('/jobs/')){jobReads++;throw Object.assign(Error('old job absent on target'),{status:404});}
+  return restoreStatus(accepted?{selectedBase:target.toLowerCase().replaceAll('\\','/'),lastResult:savedResult()}:{});
+ },()=>held.promise);
+ await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);
+ f.click('workDataSubmit');await f.flush();assert.match(f.find('workDataNotice').textContent,/Uploading/);
+ assert.equal(f.find('workDataPassword').value,'');assert.equal(f.find('workDataPasswordConfirm').value,'');
+ held.resolve(json({ok:true,uploadId:ticket},201));await f.flush();await f.poll();
+ assert.match(f.find('workDataProgress').textContent,/restored target is now serving/i);
+ assert.equal(jobReads,0,'the target is not asked to replay the source job history');
+ assert.equal(f.find('workDataCancel').hidden,true);assert.equal(f.calls.filter(row=>row.route==='/api/work-data/jobs').length,1);
+ assert.equal(f.find('workDataSummary').dataset.mode,'plain','generation-zero targets resolve by the selected root, not an authority change');
+ f.panel.dispose();
+});
+
+test('historical results, ambiguous paths and descendants never resolve a pending restore',async()=>{
+ const target='E:\\Synthetic Backup\\Restored';
+ for(const base of ['E:\\Synthetic Source',target+'\\child',target+'Else',target+'\\..\\Restored',target+'.',target+' ',String.raw`\\server\share\Restored`,undefined]){
+  let accepted=false;const f=fixture(route=>{
+   if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};
+   if(route==='/api/work-data/jobs'){accepted=true;return{ok:true,job:job({operation:'restore',state:'queued'})};}
+   if(route.includes('/jobs/'))return{ok:true,job:job({operation:'restore',state:'handoff',takeover:true,cancellable:false})};
+   return restoreStatus(accepted?{selectedBase:base,lastResult:savedResult()}:{});
+  },()=>json({ok:true,uploadId:ticket},201));
+  await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);f.click('workDataSubmit');await f.flush();await f.poll();
+  assert.doesNotMatch(f.find('workDataProgress').textContent,/restored target is now serving/i,String(base));
+  assert.equal(f.find('workDataPassword').disabled,true,'pending restore stays locked');f.panel.dispose();
+ }
+});
+
+test('a lost job receipt cannot claim a target just because its selected root matches',async()=>{
+ let posted=false;const f=fixture(route=>{
+  if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};
+  if(route==='/api/work-data/jobs'){posted=true;throw new TypeError('lost receipt');}
+  return restoreStatus(posted?{selectedBase:'E:\\Synthetic Backup\\Restored',lastResult:savedResult()}:{});
+ },()=>json({ok:true,uploadId:ticket},201));
+ await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);f.click('workDataSubmit');await f.flush();await f.poll();
+ assert.doesNotMatch(f.find('workDataProgress').textContent,/restored target is now serving/i);assert.equal(f.find('workDataPassword').disabled,true);
+ f.panel.dispose();
+});
+
+test('cancelled, failed and superseded restore receipts cannot claim a later activation of the same target',async()=>{
+ for(const scenario of ['cancel','status-failed','polled-failed','superseded']){
+  const target='E:\\Synthetic Backup\\Restored';let accepted=false,targetServing=false,statusJob=null,polledJob=job({operation:'restore',state:'queued'});
+  const f=fixture(route=>{
+   if(route==='/api/pick-folder')return{ok:true,path:'E:\\Synthetic Backup'};
+   if(route==='/api/work-data/jobs'){accepted=true;return{ok:true,job:job({operation:'restore',state:'queued'})};}
+   if(route.endsWith('/cancel'))return{ok:true,job:job({operation:'restore',state:'cancelled',cancellable:false})};
+   if(route.includes('/jobs/'))return{ok:true,job:polledJob};
+   return restoreStatus({selectedBase:targetServing?target:'E:\\Synthetic Source',job:statusJob});
+  },()=>json({ok:true,uploadId:ticket},201));
+  await f.panel.refresh();await restoreForm(f);f.selectFile('workDataRestoreFile',backupFile());f.change('workDataConfirmRestore',true);
+  f.click('workDataSubmit');await f.flush();assert.equal(accepted,true);
+  if(scenario==='cancel'){f.click('workDataCancel');await f.flush();}
+  else if(scenario==='polled-failed'){polledJob=job({operation:'restore',state:'failed',cancellable:false});await f.panel.refresh();}
+  else if(scenario==='status-failed')statusJob=job({operation:'restore',state:'failed',cancellable:false});
+  else statusJob=polledJob=job({id:'d'.repeat(48),operation:'restore',state:'queued'});
+  targetServing=true;await f.panel.refresh();
+  assert.doesNotMatch(f.find('workDataProgress').textContent,/restored target is now serving/i,scenario);
+  assert.equal(f.calls.filter(row=>row.route==='/api/work-data/jobs').length,1,'no restore is replayed');f.panel.dispose();
+ }
 });

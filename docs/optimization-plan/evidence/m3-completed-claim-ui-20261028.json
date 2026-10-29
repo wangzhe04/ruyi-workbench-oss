@@ -1,0 +1,383 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "baselineCommit": "94e5b9315b48f4ae5c1772ae93ea740de8c1e0d2",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "status": "本批实现、独立审查、相关E2E及最终标准门全部通过，可提交；M3-3与3.1整体未完成",
+  "scope": {
+    "batch": "已完成 owned 崩溃残留的严格退休，以及恢复设置界面的文件预算、目标确认和新根服务状态",
+    "whole3_1Complete": false,
+    "notIncluded": [
+      "owned 无完成结果的继续执行或显式 source 恢复",
+      "C10/C11、孤儿 stage 和 custody 的自动回收",
+      "非空 special portable、真实浏览器驱动的完整生产 restore 旅程",
+      "M4/M5/M6、实际安装包和真实跨账户/跨机器验收"
+    ]
+  },
+  "finalIdentity": {
+    "generatedServer": {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 8092978,
+      "sha256": "b4f4e69857c3a69acfe6a2fa529d30ccafeea095285e33616b1c315e296b6585"
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 36169,
+      "sha256": "d6c85f31512d587d2367b03feff76946729697d05b106dc6f66542ccc21ce163"
+    },
+    "architecture": {
+      "modules": 125,
+      "edges": 861,
+      "stronglyConnectedComponents": 1,
+      "routeDecisionPoints": 190,
+      "routeAuthEntries": 177,
+      "routeProblems": 0
+    },
+    "facts": {
+      "e2eCount": 593,
+      "defaultOfflineE2e": 586,
+      "unitSuites": 408,
+      "liveProbes": 7
+    },
+    "crashExecutionInputs": 148,
+    "crashExecutionInputSha256": "b44ca5d11173a0fa79e7a420b0f14f29e86831672637fc03c0d66fbd16998299"
+  },
+  "contract": {
+    "completedClaim": "普通 boot 仅将同 id/operation 的 owned/result 摘要视为候选；双 PID 每次只接受 ESRCH，原 receipt/hash/dev/ino 保持，核两遍当前 authority、完整备份字节及 result proof，无 intent/stage 且 owner/helper 状态有效，才 CAS 退休 claim。无结果、活进程或未知状态仍拒绝。",
+    "normalSuccessor": "私有 IPC 已验证的正常 successor 单独绑定原 cold parent、job、listener 和 expected authority/result，允许仍活的 cold 父进程；不误用崩溃双死亡条件。",
+    "status": "selectedBase 来自当次 host.inspect().base；uploadMaxBytes 只在两项真实上传方法均存在时返回 receiver 使用的 WorkDataRecovery.LIMITS.serialized，capabilities 保留原三键。",
+    "restoreUi": "一次上传后一次 job POST，两者均 noTokenReplay；恢复文件遵守服务端预算，目标确认在变更文件/目录时失效；合法 ACK 与精确 selectedBase 证明所选新根正在服务，不把 target 的历史 lastResult 当本次 source result。取消、失败或替代 job 退休旧目标关联。",
+    "secrets": "提交前清两密码框，提交/失败/取消准备/切换操作/丢弃草稿/dispose 清理密码；不写 localStorage/sessionStorage。",
+    "crashEvidenceLimit": "真实 enable 先产生加密 authority、完整备份和 result。独立 Node 在真实 OS owner、native flush 及外层 Job 内重构 completed-but-owned 窗口，再故障 exit 73；不是声称捕获了生产 cold 的自然崩溃窗口。"
+  },
+  "validation": [
+    {
+      "id": "settings-browser-1",
+      "command": "node dev-harness/work-data-settings.browser.e2e.js",
+      "result": {
+        "pass": 40,
+        "fail": 0,
+        "exitCode": 0
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/browser-1.log",
+        "sha256": "6455523b2404eb78063b6a5b49d350f35f15a11959237b7b4d0673f0567fabdf"
+      },
+      "limit": "实际 DOM、文件字节、客户端 transport fixture；不是生产 worker/DPAPI/activation 验收"
+    },
+    {
+      "id": "settings-browser-2",
+      "command": "node dev-harness/work-data-settings.browser.e2e.js",
+      "result": {
+        "pass": 40,
+        "fail": 0,
+        "exitCode": 0
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/browser-2.log",
+        "sha256": "6455523b2404eb78063b6a5b49d350f35f15a11959237b7b4d0673f0567fabdf"
+      }
+    },
+    {
+      "id": "completed-crash-1",
+      "command": "node dev-harness/work-data-completed-claim-recovery.e2e.js",
+      "result": {
+        "pass": 5,
+        "fail": 0,
+        "exitCode": 0
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-lLcQeq",
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/crash-1.log",
+        "sha256": "2864af436d4eb3126f212767b86aa1c5f5c99ec9d0f57d84bbffd21acb00e32e"
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-lLcQeq/evidence/result.json",
+        "sha256": "0c43a520623e70e3f6cf0585ca9fe2d1eef4619f22a454817b9a73fc1fc6c20b"
+      }
+    },
+    {
+      "id": "completed-crash-2",
+      "command": "node dev-harness/work-data-completed-claim-recovery.e2e.js",
+      "result": {
+        "pass": 5,
+        "fail": 0,
+        "exitCode": 0
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-ACyQUz",
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/crash-2.log",
+        "sha256": "095fb67815f036b2605c8086a6c6cbbb0d56afe445c97fac52ce1041f05dcd1a"
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-ACyQUz/evidence/result.json",
+        "sha256": "0c43a520623e70e3f6cf0585ca9fe2d1eef4619f22a454817b9a73fc1fc6c20b"
+      }
+    },
+    {
+      "id": "maintenance",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "result": {
+        "exitCode": 0,
+        "pass": 14
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/maintenance.log",
+        "sha256": "0c22bc6efe0a72d0a63711619df32b6e0a5142282a36c82f5dcbc7f0e630d0ac"
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-MxkX1Q",
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-MxkX1Q/evidence/result.json",
+        "sha256": "9cd37d21ab3dbd416bca5c869c77709fa54b44a7244e39a7fe261a99796c1657"
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "65afee61b755d85fdae035f6b4b952e988a203c2f6faa04894b6dd7fcc238451"
+      }
+    },
+    {
+      "id": "restore",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "result": {
+        "exitCode": 0,
+        "pass": 26
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/restore.log",
+        "sha256": "e887ee941c83d7ae566844eecdfc8724cfb4f197137682f2b1907d6fe544990f"
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-Y1MQk9",
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-Y1MQk9/evidence/result.json",
+        "sha256": "a7948fb09e64bc9248ac5d05c5ca9bd086fad0b9a8e84310debae92e1b79d7cb"
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "65afee61b755d85fdae035f6b4b952e988a203c2f6faa04894b6dd7fcc238451"
+      }
+    },
+    {
+      "id": "upload",
+      "command": "node dev-harness/work-data-production-upload.e2e.js",
+      "result": {
+        "exitCode": 0,
+        "pass": 20
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/upload.log",
+        "sha256": "627c90cfeaf16622af2f30e3ba9e4b10b1f2e0b670bed020021d386c67aab055"
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-dEqyDP",
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-dEqyDP/evidence/result.json",
+        "sha256": "4ea097c04338e861111a6ff182b932658da9c41175a04eb786cc7ae3f928616e"
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "65afee61b755d85fdae035f6b4b952e988a203c2f6faa04894b6dd7fcc238451"
+      }
+    },
+    {
+      "id": "cold",
+      "command": "node dev-harness/work-data-cold-operations.e2e.js",
+      "result": {
+        "exitCode": 0,
+        "pass": 4
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/cold.log",
+        "sha256": "d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af"
+      }
+    },
+    {
+      "id": "runtime",
+      "command": "node dev-harness/work-data-maintenance-runtime.e2e.js",
+      "result": {
+        "exitCode": 0,
+        "pass": 2,
+        "processCases": 4
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/runtime.log",
+        "sha256": "c810b47285be23118adc697d9677eb4e17875e79ff6f4278a1a780504e221ff5"
+      }
+    },
+    {
+      "id": "syntax",
+      "command": "node dev-harness/syntax-gate.js",
+      "result": {
+        "exitCode": 0,
+        "filesChecked": 1352
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/syntax.log",
+        "sha256": "ff2440ed9b2d69bdf55ef7d620a35638de1fe49a92925f892a291fdfdf3e6620"
+      }
+    },
+    {
+      "id": "build-check",
+      "command": "node ruyi-workbench/app/build.js --check",
+      "result": {
+        "exitCode": 0
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-20261028/build-check.log",
+        "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9"
+      }
+    },
+    {
+      "id": "full-unit-and-fast-final",
+      "date": "2026-10-29",
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "result": {
+        "exitCode": 0,
+        "unit": {
+          "tests": 4297,
+          "suites": 192,
+          "pass": 4271,
+          "fail": 0,
+          "skipped": 26,
+          "cancelled": 0,
+          "durationMs": 553578.9854
+        },
+        "static": {
+          "pass": 82,
+          "fail": 0,
+          "knownFail": 0,
+          "unexpectedPass": 0,
+          "flaky": 0,
+          "liveSkipped": 7,
+          "leftoverTestBrowsers": 0
+        }
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-final-20261029/fast.log",
+        "sha256": "78e15358e04fbb0daf6715b19e78abd5b3de90303c3fe005faaafcba491d3992"
+      },
+      "unitLog": {
+        "path": ".ruyi-runtime/m3-completed-claim-final-20261029/last-unit-run.log",
+        "sha256": "168a4ffbf23e41eb90a9ecd4f05470c0b97315a1542ac6eed58ddc57d70c510c"
+      },
+      "exitFile": {
+        "path": ".ruyi-runtime/m3-completed-claim-final-20261029/fast.exit",
+        "value": "0"
+      },
+      "limits": "Windows平台/权限和可选依赖条件跳过；TLS两个openssl条件分支此次跳过。未将skip记为实测覆盖，未执行默认586完整离线E2E。"
+    },
+    {
+      "id": "eol",
+      "command": "node dev-harness/eol-policy.static.e2e.js",
+      "result": {
+        "exitCode": 0,
+        "allPass": true,
+        "trackedTextFiles": 2154
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-final-20261029/eol.log",
+        "sha256": "be55fc631b3b243fe035928fd0781a2a48e06ce84a778b951de59e8a9e65674c"
+      }
+    },
+    {
+      "id": "repo-hygiene",
+      "command": "node dev-harness/repo-hygiene.e2e.js",
+      "result": {
+        "exitCode": 0,
+        "allPass": true
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-completed-claim-final-20261029/repo-hygiene.log",
+        "sha256": "bc0c105fecacba35a138531d57e4a491b79b92114d1789ba62437c89a91dc260"
+      }
+    }
+  ],
+  "review": [
+    {
+      "reviewer": "root, independent of kernel and crash-fixture authors",
+      "finding": "新崩溃条件会误用于正常 successor，cold 父仍活时不可要求双死亡",
+      "resolution": "分开私有 successor 与普通 boot 路径，补活父正常交接正例和普通 boot 活父拒绝；新真实 enable/crash 两遍已通过，完整原有生产回归另记"
+    },
+    {
+      "reviewer": "delivery_plan, independent of UI and status authors",
+      "finding": "取消/失败后的 pendingRestore 可将后来同目标的另一次恢复误认成本次成功",
+      "resolution": "独立实际 fixture 复现后，在 status 根匹配前、有效 poll/cancel 回执处退休终态或被替代的关联；新增 cancel/status-failed/polled-failed/superseded 四场景，独审复验 UI 29 项通过"
+    },
+    {
+      "reviewer": "delivery_plan",
+      "finding": "治理计数增量",
+      "resolution": "按原谓词重算 593 E2E、408 unit 文件、352 kill owners；去掉新 crash 件精确回到旧 351；原安全断言不变，中英 README 与 facts 一致"
+    }
+  ],
+  "firstFailures": [
+    {
+      "kind": "new unit fixture",
+      "detail": "正常 successor 新正例的 channel.parentPid 默认 88 与输入 77777 不一致；显式绑定相同父 PID 后相关 140 项通过，未更改产品判据"
+    }
+  ],
+  "agents": {
+    "implementationAndReview": "6.1 Sol, high/xhigh",
+    "endToEndValidation": "6.1 Terra, medium",
+    "maximumConcurrentAgentsIncludingRoot": 4
+  },
+  "remaining": "owned/no-result 显式恢复和真实浏览器生产 restore 已在独立草稿准备；其它 M3、M4、M5、M6 范围保持原路线。没有处理真实用户数据、发送平台消息或发布。",
+  "egressDelta": {
+    "baselineCommit": "94e5b9315b48f4ae5c1772ae93ea740de8c1e0d2",
+    "reviewedFiles": [
+      "ruyi-workbench/app/public/js/work-data-settings.js",
+      "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+      "ruyi-workbench/app/src/manifest.json"
+    ],
+    "before": {
+      "sources": 316,
+      "candidates": 792,
+      "errorCount": 154
+    },
+    "after": {
+      "sources": 316,
+      "candidates": 792,
+      "errorCount": 154
+    },
+    "addedErrorIds": [],
+    "removedErrorIds": [],
+    "changedCandidates": [
+      {
+        "id": "ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+        "file": "ruyi-workbench/app/src/manifest.json",
+        "symbol": "<module>",
+        "callee": "<configuration>",
+        "category": "capability",
+        "fingerprint": "595f888d6f084a49c83471b6df4872bd68971d1a8b70307a50a1d2143292c3b9",
+        "uncertainty": "Declarative configuration can define executable, endpoint or connector capabilities"
+      }
+    ],
+    "deletedCandidates": [],
+    "globalGatePassed": false,
+    "limit": "只审本批生产差异与基线错误ID集合，不将全局154个历史审阅错误记为通过。"
+  },
+  "sourceGrowth": {
+    "handwrittenBackendNetLines": 90,
+    "frontendJavascriptNetLines": 52,
+    "runtimeLocaleNetLines": 22,
+    "generatedArtifactsSeparate": true,
+    "newModules": 0,
+    "newDependencies": 0
+  },
+  "interruptedGate": {
+    "command": "node dev-harness/run-all.js --fast --parallel 4",
+    "log": {
+      "path": ".ruyi-runtime/m3-completed-claim-20261028/fast.log",
+      "sha256": "dee8a843a3fdcb194324c3c3101bb0924451a0ab9007c76d104cbba2ffdccc23"
+    },
+    "observed": "只有runner开头，无unit或静态最终记录；2026-10-29重新核验时已无该runner/unit进程，不能记成功，也未将旧last-unit-run.log借作本批结果。",
+    "outcome": "incomplete-no-result",
+    "replacementRun": ".ruyi-runtime/m3-completed-claim-final-20261029/"
+  }
+}

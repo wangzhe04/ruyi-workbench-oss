@@ -8,7 +8,7 @@ const SetupOwnership=vm.runInNewContext(constBlock(fs.readFileSync(sourceFile('0
 const SetupRecovery=vm.runInNewContext(constBlock(fs.readFileSync(sourceFile('01t-work-data-recovery.js'),'utf8'),'WorkDataRecovery')+'\nWorkDataRecovery',{require,Buffer,process});
 // Stable IDs belong only to this isolated upload-broker fixture, not production crypto.
 const SetupUploads=vm.runInNewContext(constBlock(fs.readFileSync(sourceFile('13at-work-data-restore-uploads.js'),'utf8'),'WorkDataRestoreUploads')+'\nWorkDataRestoreUploads',{require:name=>name==='node:crypto'?{...crypto,randomBytes:size=>Buffer.alloc(size,0xbb)}:require(name),Buffer,process,WorkDataRecovery:SetupRecovery});
-const context={require,Buffer,AbortController,Promise,Set,Map,WeakMap,Object,Error,TypeError,WorkDataRestoreUploads:SetupUploads};
+const context={require,Buffer,AbortController,Promise,Set,Map,WeakMap,Object,Error,TypeError,WorkDataRestoreUploads:SetupUploads,WorkDataRecovery:SetupRecovery};
 const Setup=vm.runInNewContext(constBlock(setupSource,'WorkDataSetup')+'\nWorkDataSetup',context),Maintenance=vm.runInNewContext(constBlock(maintenanceSource,'WorkDataMaintenance')+'\nWorkDataMaintenance',context);
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{resolve,reject,promise};},tick=()=>new Promise(setImmediate),until=async predicate=>{for(let i=0;i<60;i++){if(await predicate())return;await tick();}throw Error('condition did not settle');};
 const authority={generation:0,id:null,mode:'plain',sha256:null},clone=value=>JSON.parse(JSON.stringify(value)),secret='synthetic setup password only';
@@ -234,6 +234,22 @@ test('status keeps the three capability keys, follows real readiness and never a
  f.worker.readResult=async()=>result;assert.equal((await f.api.status()).capabilities.download,false,'the method and a result alone still do not advertise');
  f.worker.packageTransfer=true;assert.equal((await f.api.status()).capabilities.download,true,'the installed transfer marker plus a current result advertise');
  f.worker.readResult=async()=>null;assert.equal((await f.api.status()).capabilities.download,false,'no current result means no package to advertise');
+});
+
+test('restore status reports the selected stable base and the actual upload bound without equating generation-zero roots',async()=>{
+ const f=fixture(),first=await f.api.status();
+ assert.equal(first.selectedBase,'C:/synthetic/base');assert.equal(first.uploadMaxBytes,null);
+ f.worker.putUpload=async()=>assert.fail('status must not upload');
+ assert.equal((await f.api.status()).uploadMaxBytes,null,'both broker methods are required');
+ f.worker.resolveUpload=async()=>assert.fail('status must not consume a grant');
+ const available=await f.api.status();
+ assert.equal(available.uploadMaxBytes,SetupRecovery.LIMITS.serialized);
+ assert.equal(available.capabilities.upload,true);
+ const inspect=f.host.inspect;f.host.inspect=async()=>({...await inspect(),base:'C:/synthetic/restored'});
+ const restored=await f.api.status();
+ assert.deepEqual(clone(restored.authority),clone(first.authority),'plain roots can share authority zero');
+ assert.equal(restored.selectedBase,'C:/synthetic/restored','the selected base still distinguishes the activated target');
+ assert.equal(JSON.stringify(restored).includes(secret),false);
 });
 test('the package route accepts only the current id and refuses range, busy and foreign transfer origins before any bytes',async()=>{
  const f=fixture(),id='d'.repeat(48),path='/api/work-data/results/'+id+'/package',bytes=Buffer.from('synthetic package bytes');

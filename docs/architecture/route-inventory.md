@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 190(精确 165 / 前缀 13 / 正则 12),ROUTE_AUTH 177 条,生成于 2026-10-28T06:11:52.037Z。
+> 判定点 190(精确 165 / 前缀 13 / 正则 12),ROUTE_AUTH 177 条,生成于 2026-10-28T12:53:56.633Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -277,7 +277,7 @@
 | GET | `/api/work-data/status` | exact | token | 13ah-work-data-setup.js · `handle` | work-data-maintenance-http.test.js, work-data-settings.test.js, work-data-production-maintenance.e2e.js 等 6 件 |
 | GET | `/api/work-data/results/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-production-host.test.js, work-data-settings.test.js, work-data-setup.test.js 等 5 件 |
 | POST | `/api/work-data/jobs` | exact | token | 13ah-work-data-setup.js · `handle` | net-errors.test.js, work-data-maintenance-http.test.js, work-data-settings.test.js 等 8 件 |
-| POST | `/api/work-data/uploads` | exact | token | 13ah-work-data-setup.js · `handle` | external-bots-retry-api.test.js, net-errors.test.js, work-data-settings.test.js 等 5 件 |
+| POST | `/api/work-data/uploads` | exact | token | 13ah-work-data-setup.js · `handle` | external-bots-retry-api.test.js, net-errors.test.js, work-data-settings.test.js 等 6 件 |
 | GET/POST | `/api/work-data/jobs/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-maintenance-http.test.js, work-data-setup.test.js, work-data-production-maintenance.e2e.js 等 5 件 |
 
 ## 域路由委派(handleApi → 域 handler)

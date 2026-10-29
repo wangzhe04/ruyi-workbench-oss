@@ -113,8 +113,14 @@ const WorkDataSetup = (() => {
       let started=typeof worker.start==='function';
       if(started&&typeof host.workerReady==='function'){try{started=host.workerReady()===true;}catch{started=false;}}
       const transfer=()=>{try{return worker.packageTransfer===true&&typeof worker.downloadPackage==='function';}catch{return false;}};
+      const canUpload=typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function';
+      // These are observations of the selected root and the receiver's actual
+      // budget. A restored plain root may have the same generation-zero authority
+      // as its source, so authority alone cannot tell the browser which base serves.
+      const maximum=canUpload&&typeof WorkDataRecovery!=='undefined'?WorkDataRecovery.LIMITS.serialized:null;
       return {ok:true,authority:authority(observed.authority),configMirror:observed.configMirror,maintenance:host.maintenance.status(),job:active?view(active):null,
-        lastResult,capabilities:{worker:started,upload:typeof worker.putUpload==='function'&&typeof worker.resolveUpload==='function',
+        selectedBase:observed.base,uploadMaxBytes:Number.isSafeInteger(maximum)&&maximum>0?maximum:null,
+        lastResult,capabilities:{worker:started,upload:canUpload,
           download:transfer()&&lastResult!==null},processRestartRequired:true};
     }
     // The transfer routes additionally bind the actual loopback socket, the same-port
