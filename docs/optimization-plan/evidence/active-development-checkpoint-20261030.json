@@ -1,0 +1,461 @@
+{
+  "schema": 1,
+  "createdAt": "2026-10-29T16:09:49.797Z",
+  "status": "DEVELOPMENT_CHECKPOINT_NOT_3_1_DELIVERY",
+  "main": {
+    "branch": "codex/3.1-completion-plan",
+    "headBeforeCheckpoint": "b909ea8801fdabf4ac2cb0a2449ec768bf60b8a0",
+    "productBaseline": "f72f38c1933015eb4d58e0be81aeec5467beba0d",
+    "version": "3.0.1"
+  },
+  "m4": {
+    "branch": "codex/m4-image-regions",
+    "committedSource": "c5ebb3f55daa958293ad987a289415b5797c6244",
+    "sourceStatus": "INDEPENDENTLY_REVIEWED_ISOLATED_SOURCE_BATCH",
+    "integrationStatus": "FULL_UNIT_STATIC_AND_REAL_MEDIA_GATES_PENDING",
+    "currentResourceProfileWork": "UNCOMMITTED_NOT_INCLUDED",
+    "archiveLocation": "docs/optimization-plan/evidence/m4-image-source-batch-20261029.json",
+    "archiveScope": "Existing 336 gzip source-batch blobs remain in commit c5; this checkpoint copies only their index and review, not their blob bodies.",
+    "resourceGap": {
+      "legacy": 4987,
+      "matched": 3239,
+      "drift": 1748,
+      "explicitCandidate": 3251,
+      "bytes": 396911379,
+      "status": "DATA_MAPPING_ONLY_NOT_NATIVE_OR_SOURCE_QUALIFICATION"
+    }
+  },
+  "m5": {
+    "status": "FROZEN_CANDIDATE_UNCOMMITTED_NOT_FULLY_QUALIFIED",
+    "baseCommit": "f72f38c1933015eb4d58e0be81aeec5467beba0d",
+    "sourceFiles": 37,
+    "restore": "Use m5-frozen-change-map and m5-frozen-source roles to restore candidate files over exact baseCommit. The complete candidate.patch is also preserved. Do not apply to another product baseline without integration review.",
+    "passedScopes": [
+      "HTTP twice",
+      "browser twice",
+      "separate natural-ready journey once",
+      "encrypted revision2 E1 through E8"
+    ],
+    "incomplete": [
+      "encrypted revision2 E9 failed: four denied default startup network probes",
+      "revision3 startup observer independently rejected: genuine externalBotDrain omitted",
+      "revision4 repair under development, not included",
+      "full related regression and full fast gates",
+      "natural journey permanent CI coverage",
+      "remaining M5 B2/C/workflow handoff/scheduled templates/real platform"
+    ]
+  },
+  "m3": {
+    "status": "EXPORT_FAILURE_UNRESOLVED",
+    "actual": "Enable passed, export failed; typed Win32Exception.NativeErrorCode=3 at idle/store-flush-bound. Exact failing path/API and cause remain unproven.",
+    "observationComplete": false,
+    "authority": false,
+    "probe": "First standalone causal probe rejected for P1 admission continuation and P2 noncanonical received path. Repaired v2 under development, not included or actually run.",
+    "oldActors": "Unknown or retained; no cleanup or closure inference."
+  },
+  "scope": "Archived selected frozen source, saved reports and safe diagnostic snapshot only; report references to external logs/roots are historical references, not archived bodies or independently replayed evidence. No keys, live roots, binaries or resource trees copied. No runtime suite, native probe, network, platform send, publication or user-data migration performed by this collector.",
+  "files": [
+    {
+      "role": "m5-frozen-change-map",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/changed-pins.json",
+      "bytes": 11797,
+      "sha256": "f9f87445c64106c672a30585bfd01e5edbbd896e2cb4332461245fdc307d540f",
+      "blob": "active-development-checkpoint-20261030/blobs/f9f87445c64106c672a30585bfd01e5edbbd896e2cb4332461245fdc307d540f.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/README.md",
+      "bytes": 65304,
+      "sha256": "a3173ade7ad55c0b2744ccf3bb912f1b19662ab9f992c59bfe740fd54c08e5e7",
+      "blob": "active-development-checkpoint-20261030/blobs/a3173ade7ad55c0b2744ccf3bb912f1b19662ab9f992c59bfe740fd54c08e5e7.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/README_EN.md",
+      "bytes": 72352,
+      "sha256": "eb865c96793d28033b15ac2a51dfaa331679f85670b2dcd9f5db145716881822",
+      "blob": "active-development-checkpoint-20261030/blobs/eb865c96793d28033b15ac2a51dfaa331679f85670b2dcd9f5db145716881822.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/durable-state-inventory.js",
+      "bytes": 64162,
+      "sha256": "1f75d02f4bb776d38188ade324a1e9ef7bf7fd08f0f52a8bc792349f3af73e4a",
+      "blob": "active-development-checkpoint-20261030/blobs/1f75d02f4bb776d38188ade324a1e9ef7bf7fd08f0f52a8bc792349f3af73e4a.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/encrypted-storage-freeze.js",
+      "bytes": 24854,
+      "sha256": "60c4e1292f5190df549eaa361072e175a70dd5bdba3e4a1b9e2eb344e2aee9d4",
+      "blob": "active-development-checkpoint-20261030/blobs/60c4e1292f5190df549eaa361072e175a70dd5bdba3e4a1b9e2eb344e2aee9d4.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/external-bots-retention.browser.e2e.js",
+      "bytes": 7986,
+      "sha256": "40b248852fac6a3b414a365d802bdfe792ac13ac975c95d9279bafae168529cf",
+      "blob": "active-development-checkpoint-20261030/blobs/40b248852fac6a3b414a365d802bdfe792ac13ac975c95d9279bafae168529cf.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/external-bots-retention.e2e.js",
+      "bytes": 9153,
+      "sha256": "485d699643aeca80588fc433042b20e890da69ad3649bfc9782e6f785cad4b48",
+      "blob": "active-development-checkpoint-20261030/blobs/485d699643aeca80588fc433042b20e890da69ad3649bfc9782e6f785cad4b48.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/external-bots-retry.browser.e2e.js",
+      "bytes": 29326,
+      "sha256": "6ceed6253c6d69ae0eb084cc392c740a803a22cbbd71182e6f43b228d86b20eb",
+      "blob": "active-development-checkpoint-20261030/blobs/6ceed6253c6d69ae0eb084cc392c740a803a22cbbd71182e6f43b228d86b20eb.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/fixtures/external-bots-retention/history.json",
+      "bytes": 37334,
+      "sha256": "897bf38ceeb4bc9a592a64fe367ed36adb8090e977c2a4b2b4704e5de7e45eec",
+      "blob": "active-development-checkpoint-20261030/blobs/897bf38ceeb4bc9a592a64fe367ed36adb8090e977c2a4b2b4704e5de7e45eec.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/lib/browser-fixture.js",
+      "bytes": 21080,
+      "sha256": "7b74bc900ccf127ce37f48342efb6903453e174a33f9421fc36bbfa6ae46afbf",
+      "blob": "active-development-checkpoint-20261030/blobs/7b74bc900ccf127ce37f48342efb6903453e174a33f9421fc36bbfa6ae46afbf.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/lib/external-bots-retention-evidence.js",
+      "bytes": 6567,
+      "sha256": "504e2abef6865cd30e7af116c9dd4fa9cc9f351b7095024ae276393f2917b86f",
+      "blob": "active-development-checkpoint-20261030/blobs/504e2abef6865cd30e7af116c9dd4fa9cc9f351b7095024ae276393f2917b86f.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/lib/external-bots-retention-seed.js",
+      "bytes": 2717,
+      "sha256": "5ad193e762451a2e933a2c2a512943bff77d379eba815388de8db6b5d1cefae8",
+      "blob": "active-development-checkpoint-20261030/blobs/5ad193e762451a2e933a2c2a512943bff77d379eba815388de8db6b5d1cefae8.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/lib/external-bots-source-history.js",
+      "bytes": 3330,
+      "sha256": "fc9e3d62addcf0fbea49534f0c841a76e5c8bf5e0ee0068aad67356fb0581b54",
+      "blob": "active-development-checkpoint-20261030/blobs/fc9e3d62addcf0fbea49534f0c841a76e5c8bf5e0ee0068aad67356fb0581b54.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/unit/external-bots-retention-api.test.js",
+      "bytes": 12615,
+      "sha256": "94202b9ee7d4914545f14affbc1d80d9c96d2c3fe343ffcd870cf1c6640a2a0e",
+      "blob": "active-development-checkpoint-20261030/blobs/94202b9ee7d4914545f14affbc1d80d9c96d2c3fe343ffcd870cf1c6640a2a0e.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/unit/external-bots-retention.test.js",
+      "bytes": 23809,
+      "sha256": "ae33dbd8a0262e23dc867bfc246f493e85ff4c8a51999f59fe15e2c63d045685",
+      "blob": "active-development-checkpoint-20261030/blobs/ae33dbd8a0262e23dc867bfc246f493e85ff4c8a51999f59fe15e2c63d045685.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/unit/external-bots-retry-api.test.js",
+      "bytes": 22875,
+      "sha256": "a1f3985e4901ed1932d42b9527325e78374c0a6a777ce06db2cc6fae82fee238",
+      "blob": "active-development-checkpoint-20261030/blobs/a1f3985e4901ed1932d42b9527325e78374c0a6a777ce06db2cc6fae82fee238.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/dev-harness/unit/external-bots-ui.test.js",
+      "bytes": 59736,
+      "sha256": "c77b12aa1b481e2fb606e90054ae292ff51454ad04d0b8c72f51d479048fed1d",
+      "blob": "active-development-checkpoint-20261030/blobs/c77b12aa1b481e2fb606e90054ae292ff51454ad04d0b8c72f51d479048fed1d.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/durable-state-inventory.json",
+      "bytes": 74039,
+      "sha256": "77c43550a88ee1dddefe9ee172543b1d300630fa54150e9dfb15c4baf13f5ebe",
+      "blob": "active-development-checkpoint-20261030/blobs/77c43550a88ee1dddefe9ee172543b1d300630fa54150e9dfb15c4baf13f5ebe.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/durable-state-inventory.md",
+      "bytes": 55744,
+      "sha256": "30dd0da9944dd81c58a130267d0af9ec381e9eda05f386bf34cddaa8f5475620",
+      "blob": "active-development-checkpoint-20261030/blobs/30dd0da9944dd81c58a130267d0af9ec381e9eda05f386bf34cddaa8f5475620.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/encrypted-storage-freeze.json",
+      "bytes": 28644,
+      "sha256": "78348d56b1717a77bb3a7c376ab9831e4af2e09f4c291c4efb0bea2e960ed211",
+      "blob": "active-development-checkpoint-20261030/blobs/78348d56b1717a77bb3a7c376ab9831e4af2e09f4c291c4efb0bea2e960ed211.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/encrypted-storage-freeze.md",
+      "bytes": 17624,
+      "sha256": "277c79750a8826897fe05f791f757184454a5f463748c1f948ef9d01600e7298",
+      "blob": "active-development-checkpoint-20261030/blobs/277c79750a8826897fe05f791f757184454a5f463748c1f948ef9d01600e7298.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/external-bots-retention.md",
+      "bytes": 4724,
+      "sha256": "195f48dd3e035f5a2176e23451a4415efac513a54ace198160a95a07b064bdd2",
+      "blob": "active-development-checkpoint-20261030/blobs/195f48dd3e035f5a2176e23451a4415efac513a54ace198160a95a07b064bdd2.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/module-dependency-graph.json",
+      "bytes": 1078736,
+      "sha256": "f3e1bc19e376e1841a46c14a826c582bde6afaaca4da0fe886c764a692db40a8",
+      "blob": "active-development-checkpoint-20261030/blobs/f3e1bc19e376e1841a46c14a826c582bde6afaaca4da0fe886c764a692db40a8.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/module-dependency-graph.md",
+      "bytes": 151741,
+      "sha256": "efe9c7778431cf2139fe70416632cd345ab723a49b1e30225efdd7521ccdb8de",
+      "blob": "active-development-checkpoint-20261030/blobs/efe9c7778431cf2139fe70416632cd345ab723a49b1e30225efdd7521ccdb8de.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/route-inventory.json",
+      "bytes": 224196,
+      "sha256": "34f1bb846f55b8fd52be0add67172136bd0c49c7504abec320a8f80474f26f38",
+      "blob": "active-development-checkpoint-20261030/blobs/34f1bb846f55b8fd52be0add67172136bd0c49c7504abec320a8f80474f26f38.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/docs/architecture/route-inventory.md",
+      "bytes": 37700,
+      "sha256": "409ebebb379ca2ed491ab6fe6c5251c167cbae4e20126473ed6a16f3a0cae98f",
+      "blob": "active-development-checkpoint-20261030/blobs/409ebebb379ca2ed491ab6fe6c5251c167cbae4e20126473ed6a16f3a0cae98f.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/facts.json",
+      "bytes": 1335,
+      "sha256": "de51b7193378d30098421d44a0cc0e976030011cbd2066aea3c33a978236fe8b",
+      "blob": "active-development-checkpoint-20261030/blobs/de51b7193378d30098421d44a0cc0e976030011cbd2066aea3c33a978236fe8b.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/public/css/views/steward-settings.css",
+      "bytes": 22563,
+      "sha256": "207c3c15f63c40ec69b0b8ef2f148240a91141a6e38eb2446b5e909b6646324d",
+      "blob": "active-development-checkpoint-20261030/blobs/207c3c15f63c40ec69b0b8ef2f148240a91141a6e38eb2446b5e909b6646324d.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/public/index.html",
+      "bytes": 205700,
+      "sha256": "4fc401bc628bebe6b779fb5d9fe31aa4612d4398e40b107b28fada5a23b3906b",
+      "blob": "active-development-checkpoint-20261030/blobs/4fc401bc628bebe6b779fb5d9fe31aa4612d4398e40b107b28fada5a23b3906b.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/public/js/external-bots.js",
+      "bytes": 57254,
+      "sha256": "aa7ce51e790e4715d68736fe98a9dc2e912e5cb1a565130426429a9120705f62",
+      "blob": "active-development-checkpoint-20261030/blobs/aa7ce51e790e4715d68736fe98a9dc2e912e5cb1a565130426429a9120705f62.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/public/locales/en-US.json",
+      "bytes": 356455,
+      "sha256": "8eeb31bc40868572cab5a8fa3720fdcd263a62493cab8b4209f4f0baf1e16f25",
+      "blob": "active-development-checkpoint-20261030/blobs/8eeb31bc40868572cab5a8fa3720fdcd263a62493cab8b4209f4f0baf1e16f25.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/public/locales/zh-CN.json",
+      "bytes": 340699,
+      "sha256": "08b4b2f69dd7bdf00267d0f9b2cf8fab21583c5b017485eefa0b618f0469fa56",
+      "blob": "active-development-checkpoint-20261030/blobs/08b4b2f69dd7bdf00267d0f9b2cf8fab21583c5b017485eefa0b618f0469fa56.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/server.js",
+      "bytes": 8141205,
+      "sha256": "feabec8bc95275d638aafc1b826fa599c88d16a54b154d39fb5e34984eb4532d",
+      "blob": "active-development-checkpoint-20261030/blobs/feabec8bc95275d638aafc1b826fa599c88d16a54b154d39fb5e34984eb4532d.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/src/01b-route-auth.js",
+      "bytes": 19967,
+      "sha256": "aa5db773c2fab67147e76ecdc2703732ded09a0c49a849976059a13d973b8cf2",
+      "blob": "active-development-checkpoint-20261030/blobs/aa5db773c2fab67147e76ecdc2703732ded09a0c49a849976059a13d973b8cf2.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "bytes": 151594,
+      "sha256": "9a97f30380a7afae51f3e220abad02efae4ddf969c511839b3be15342e681abd",
+      "blob": "active-development-checkpoint-20261030/blobs/9a97f30380a7afae51f3e220abad02efae4ddf969c511839b3be15342e681abd.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/src/13w-external-bots.js",
+      "bytes": 104633,
+      "sha256": "b2f8ace6d451c10d4d7248d08979dfd65256be4ab0b67331ded41916a1378e97",
+      "blob": "active-development-checkpoint-20261030/blobs/b2f8ace6d451c10d4d7248d08979dfd65256be4ab0b67331ded41916a1378e97.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/src/manifest.json",
+      "bytes": 36169,
+      "sha256": "63178bf2d4970c6b23521c5cde870ab474242c950194cfea3138a9f29a4f3a8d",
+      "blob": "active-development-checkpoint-20261030/blobs/63178bf2d4970c6b23521c5cde870ab474242c950194cfea3138a9f29a4f3a8d.gz"
+    },
+    {
+      "role": "m5-frozen-source",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/tree/ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 795410,
+      "sha256": "ba313e341283041771cc32431ed91ecc830c0f08077866bfb606d07df4e338f0",
+      "blob": "active-development-checkpoint-20261030/blobs/ba313e341283041771cc32431ed91ecc830c0f08077866bfb606d07df4e338f0.gz"
+    },
+    {
+      "role": "m5-complete-candidate-patch",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/candidate.patch",
+      "bytes": 314507,
+      "sha256": "86d08d9204ffcc32799fc5f6eb16b27328e92d7d41b9f07133afdf69b6942f2e",
+      "blob": "active-development-checkpoint-20261030/blobs/86d08d9204ffcc32799fc5f6eb16b27328e92d7d41b9f07133afdf69b6942f2e.gz"
+    },
+    {
+      "role": "m5-frozen-identity",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/freeze-identity.json",
+      "bytes": 10857,
+      "sha256": "6d2f584b3f09ce5d714805df497e89663ea25e19e2f3da4f0328d5f011d4e7ae",
+      "blob": "active-development-checkpoint-20261030/blobs/6d2f584b3f09ce5d714805df497e89663ea25e19e2f3da4f0328d5f011d4e7ae.gz"
+    },
+    {
+      "role": "m5-static-input-records",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/dependency-inputs.json",
+      "bytes": 48652,
+      "sha256": "c581d8fd18444233306745f3aff7c0b6c909655f4034082c37fca6a6c787c8d3",
+      "blob": "active-development-checkpoint-20261030/blobs/c581d8fd18444233306745f3aff7c0b6c909655f4034082c37fca6a6c787c8d3.gz"
+    },
+    {
+      "role": "m5-freeze-report",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-freeze-revision2-20261029/REPORT.md",
+      "bytes": 9165,
+      "sha256": "b3b8ab5bf9ea5d0e3b3ebe995390ca14c10a42f5d55c72502f02ea38543393b6",
+      "blob": "active-development-checkpoint-20261030/blobs/b3b8ab5bf9ea5d0e3b3ebe995390ca14c10a42f5d55c72502f02ea38543393b6.gz"
+    },
+    {
+      "role": "m5-http-browser-two-runs-and-first-natural-red",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-terra-actual-20261029/REPORT.md",
+      "bytes": 3331,
+      "sha256": "b6a247cafd08a669577ccf837da5b3adc57500989b37f3227ab09fc5010e838f",
+      "blob": "active-development-checkpoint-20261030/blobs/b6a247cafd08a669577ccf837da5b3adc57500989b37f3227ab09fc5010e838f.gz"
+    },
+    {
+      "role": "m5-natural-diagnostic-red",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-natural-diagnostic-terra-actual-20261029/REPORT.md",
+      "bytes": 2184,
+      "sha256": "8782b83ff834e9c9267c79cd81d1c5e5a8f14b40b8cf8e8570a8f369ad4594b3",
+      "blob": "active-development-checkpoint-20261030/blobs/8782b83ff834e9c9267c79cd81d1c5e5a8f14b40b8cf8e8570a8f369ad4594b3.gz"
+    },
+    {
+      "role": "m5-natural-ready-pass-and-first-encrypted-red",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-ready-encrypted-terra-actual-20261029/REPORT.md",
+      "bytes": 3184,
+      "sha256": "3afad6cfad1326d6c9c13f110c3217bd1f733504c450410a5b699dddd3935a82",
+      "blob": "active-development-checkpoint-20261030/blobs/3afad6cfad1326d6c9c13f110c3217bd1f733504c450410a5b699dddd3935a82.gz"
+    },
+    {
+      "role": "m5-encrypted-error-envelope-red",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-encrypted-revision1-terra-actual-20261029/REPORT.md",
+      "bytes": 2701,
+      "sha256": "1110ba9feb857768b54b2327b47c0f9ecc8872d0478922ce36c68a2ed7c774d9",
+      "blob": "active-development-checkpoint-20261030/blobs/1110ba9feb857768b54b2327b47c0f9ecc8872d0478922ce36c68a2ed7c774d9.gz"
+    },
+    {
+      "role": "m5-encrypted-e1-e8-pass-e9-red",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-encrypted-revision2-terra-actual-20261029/REPORT.md",
+      "bytes": 2692,
+      "sha256": "9d7be59f75e52c27ec86b93eb543213196a7641941cf2f4505493b6b618a12e2",
+      "blob": "active-development-checkpoint-20261030/blobs/9d7be59f75e52c27ec86b93eb543213196a7641941cf2f4505493b6b618a12e2.gz"
+    },
+    {
+      "role": "m5-startup-observation-proposal",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-encrypted-http-prepared-revision3-20261029/REPORT.md",
+      "bytes": 5716,
+      "sha256": "8f6866b2b4a291f8128aa6b347ec42519f50caab55a9edfd82e4f7c202fdb56d",
+      "blob": "active-development-checkpoint-20261030/blobs/8f6866b2b4a291f8128aa6b347ec42519f50caab55a9edfd82e4f7c202fdb56d.gz"
+    },
+    {
+      "role": "m5-startup-observation-request-changes",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-encrypted-revision3-review-sol-20261029/REPORT.md",
+      "bytes": 7722,
+      "sha256": "45cf0fe10a2d92e02cf6540f8ab74eceb207f0e1dee23fe8399c31d058f01b35",
+      "blob": "active-development-checkpoint-20261030/blobs/45cf0fe10a2d92e02cf6540f8ab74eceb207f0e1dee23fe8399c31d058f01b35.gz"
+    },
+    {
+      "role": "m5-startup-review-pins",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m5-delivery-retention/ruyi-workbench-oss/.ruyi-runtime/m5-retention-encrypted-revision3-review-sol-20261029/PINS.json",
+      "bytes": 41642,
+      "sha256": "8de4972ad5e56b810994693939048070468a4da05a1109381bbf18d86ffb3e5b",
+      "blob": "active-development-checkpoint-20261030/blobs/8de4972ad5e56b810994693939048070468a4da05a1109381bbf18d86ffb3e5b.gz"
+    },
+    {
+      "role": "m3-typed-native-error-actual",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m3-desktop-integration/ruyi-workbench-oss/.ruyi-runtime/m3-native-observation-v2-terra-actual-20261029/ACTUAL-REPORT.md",
+      "bytes": 2544,
+      "sha256": "2539d4437eb7c7fcd358fad4f0de4d1fb8e57c9764b1afb99ff184946911d4de",
+      "blob": "active-development-checkpoint-20261030/blobs/2539d4437eb7c7fcd358fad4f0de4d1fb8e57c9764b1afb99ff184946911d4de.gz"
+    },
+    {
+      "role": "m3-typed-native-error-full-parse",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m3-desktop-integration/ruyi-workbench-oss/.ruyi-runtime/m3-native-observation-v2-terra-actual-20261029/FULL-PARSE.json",
+      "bytes": 478751,
+      "sha256": "5928f84a5786a1dc7dcbd7a25ba7fe125be3922900848d68c8c807b02b2a465d",
+      "blob": "active-development-checkpoint-20261030/blobs/5928f84a5786a1dc7dcbd7a25ba7fe125be3922900848d68c8c807b02b2a465d.gz"
+    },
+    {
+      "role": "m3-typed-native-error-journal",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m3-desktop-integration/ruyi-workbench-oss/.ruyi-runtime/m3-native-observation-v2-terra-actual-20261029/journal-snapshot.frames",
+      "bytes": 401297,
+      "sha256": "f0f252ff4e4239263c6b03141c2dac591023efe572050bc36c52ab49a10ad76d",
+      "blob": "active-development-checkpoint-20261030/blobs/f0f252ff4e4239263c6b03141c2dac591023efe572050bc36c52ab49a10ad76d.gz"
+    },
+    {
+      "role": "m3-causal-probe-request-changes",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m3-desktop-integration/ruyi-workbench-oss/.ruyi-runtime/m3-native-path-causal-probe-independent-sol-review-20261029/INDEPENDENT-REVIEW.md",
+      "bytes": 6997,
+      "sha256": "a1ad16d31be22542a69bdcee2a11bc50c4fe63bebf7602482d03a9c285703bdc",
+      "blob": "active-development-checkpoint-20261030/blobs/a1ad16d31be22542a69bdcee2a11bc50c4fe63bebf7602482d03a9c285703bdc.gz"
+    },
+    {
+      "role": "m4-committed-source-batch-index",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m4-image-production/ruyi-workbench-oss/docs/optimization-plan/evidence/m4-image-source-batch-20261029.json",
+      "bytes": 197703,
+      "sha256": "aab056435a95d8ec59a73b55aeb708f8063b7433bebfcc3cc1d34f7424b5d43f",
+      "blob": "active-development-checkpoint-20261030/blobs/aab056435a95d8ec59a73b55aeb708f8063b7433bebfcc3cc1d34f7424b5d43f.gz"
+    },
+    {
+      "role": "m4-committed-source-batch-review",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m4-image-production/ruyi-workbench-oss/docs/optimization-plan/evidence/m4-image-source-batch-20261029-review.json",
+      "bytes": 12572,
+      "sha256": "b3b3569db72ffae8edf10aeb3f2e5d508e6ec8b602f7a81a86fae4bb52fb0182",
+      "blob": "active-development-checkpoint-20261030/blobs/b3b3569db72ffae8edf10aeb3f2e5d508e6ec8b602f7a81a86fae4bb52fb0182.gz"
+    },
+    {
+      "role": "m4-runtime-resource-gap-report",
+      "sourcePath": "C:/Users/87179/.codex/worktrees/m4-image-production/ruyi-workbench-oss/.ruyi-runtime/m4-resource-gap-audit-20261029/REPORT.md",
+      "bytes": 3483,
+      "sha256": "8b358e35b975a1082dc7a180ef15989674662bc12e830765688d8edee2943016",
+      "blob": "active-development-checkpoint-20261030/blobs/8b358e35b975a1082dc7a180ef15989674662bc12e830765688d8edee2943016.gz"
+    }
+  ],
+  "uniqueBlobs": 57,
+  "packedBytes": 3763548,
+  "decodedBytes": 13936829
+}

@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "representation": {
+    "originalReportBytes": 1786,
+    "originalReportSHA256": "1a32daa2f6998552183f27336f172218e5eb44f438df1b0586d35e2d73ccba4b",
+    "originalReportGzip": "active-development-checkpoint-20261030-review-original.json.gz",
+    "reason": "Original independently generated report uses CRLF. Preserve its exact bytes in gzip; this JSON wrapper uses repository LF. First EOL gate rejected the original raw CRLF sidecar; no audit verdict or raw report was rewritten."
+  },
+  "review": {
+    "verdict": "ACCEPT",
+    "scope": "Read-only archival/document review; saved reports are historical evidence, external paths are not re-executed or fully archived. No runtime, native, network or process inspection.",
+    "indexSha256": "c655e2254ea7f96c354f08325d842b4f517385058551e899e04468f9a5db9e6e",
+    "stagedFiles": 61,
+    "stagedScope": "docs only",
+    "references": 57,
+    "uniqueGzip": 57,
+    "packedBytes": 3763548,
+    "decodedBytes": 13936829,
+    "checks": [
+      "All 57 gzip decoded size and SHA256 verified; blob paths match digest and inventory has no orphan; staged gzip bytes match working copies",
+      "37 mapped source paths match archived bytes, frozen tree and corresponding current worktree bytes",
+      "Archived complete patch passes git apply --check against MAIN",
+      "MAIN HEAD b909ea8801fdabf4ac2cb0a2449ec768bf60b8a0; product baseline f72f38c1933015eb4d58e0be81aeec5467beba0d",
+      "M4 branch points to c5ebb3f55daa958293ad987a289415b5797c6244, commit changes 393 files",
+      "Staged handoff 92 section 12.50 and navigation 96/97 preserve limited evidence scope"
+    ],
+    "evidenceLimits": [
+      "M5 HTTP and browser twice, separate natural ready once; two older natural attempts remain red; encrypted revision2 E1-E8 pass and E9 fails; revision3 drain review requests changes",
+      "M3 typed Win32 error 3 at idle/store-flush-bound, exact cause and path unproven; observationComplete false; first causal probe rejected P1/P2",
+      "M4 source review reports batch coverage, final UI 9; full unit/static and real media qualification pending; 336 gzip bodies retained in separate c5 commit",
+      "Report references to external files are not all preserved here; no independent replay or native execution in this review"
+    ],
+    "findings": []
+  }
+}
