@@ -1199,7 +1199,7 @@ public static class RuyiSkillCapsule {
       ||(role!="external-parent" && role!="new-target-ancestor") || ordinal<0 || ordinal>=10000)Reject("bound_flush_binding");
     // Ordinary directory durability, independently bound to this exact parent.
     // No metadata suppression, capture, child-name lookup or borrowed tree ID.
-    using(var handle=CreateFile(root,0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
+    using(var handle=CreateFile(NativePath(root),0xC0000000u,7,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
       if(handle.IsInvalid)throw new Win32Exception(Marshal.GetLastWin32Error());
       CheckBoundFlushDirectory(handle,root,id,volume);Step="bound-directory-flush";Check(FlushFileBuffers(handle));CheckBoundFlushDirectory(handle,root,id,volume);
     }

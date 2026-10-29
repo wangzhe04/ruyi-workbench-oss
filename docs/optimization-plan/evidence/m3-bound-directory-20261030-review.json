@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "verdict": "ACCEPT",
+  "reviewer": "Terra independent metadata/representation review; actual runs were performed by this reviewer, product review by independent Sol",
+  "manifestSha256": "bd8a9e62969de33078fb261d4e3a74f777a65e84d9c555cd189087fa170052f6",
+  "archive": {
+    "refs": 99,
+    "packedBytes": 361678,
+    "decodedBytes": 1201301,
+    "checks": "every packed and decoded length/hash and bytes compared to original; unique safe names; no orphan"
+  },
+  "source": {
+    "files": 9,
+    "liveEqualsIndex": true,
+    "actualTree": "be3e32bdaf96d6db7c37ba2e7b4cb265297b9b1c",
+    "directInputs": 147,
+    "physicalIdentityVerified": true,
+    "digest": "700acc36f5358373f54ac9b486b3a2f3699d5d1f41426bb2be241e9c36d64908"
+  },
+  "productReviewSha256": "afe3800a156d6c714798aab354bb71ca795274b417eae0cfffb8bcbd9f8d903f",
+  "actual": {
+    "runs": 2,
+    "checksEach": 14,
+    "exitEach": 0,
+    "ownedJobClosedAndNoSurvivors": true,
+    "internalInputs": 146,
+    "deepTempUtf16": 153,
+    "elapsedMs": [
+      230225,
+      228962
+    ],
+    "wholeFileBound": "900000 ms assessed after terminal; no separate realtime watchdog"
+  },
+  "gates": {
+    "syntax": "1370 files, 0 failed",
+    "build": "exit 0",
+    "fast": "4416 unit, 4390 pass, 0 fail, 26 skipped; 82 static pass, 7 live skipped",
+    "eol": "final EOL output in ignored review packet",
+    "hygiene": "exit 0, ALL PASS; actual HTTP/MCP"
+  },
+  "limitations": [
+    "Synthetic owned-job scope, no historic cause determination or complete M3/3.1 claim.",
+    "Prior failures and skipped cases remain preserved."
+  ],
+  "reviewPreparation": "Initial read-only check chunk 8e7295 failed from reviewer module resolution; script retained and corrected; check 50fc60 passed.",
+  "finalEol": {
+    "command": "node dev-harness/eol-policy.static.e2e.js",
+    "output": "PASS all text defaults to LF\nPASS *.cmd remains an explicit CRLF exception\nPASS *.bat remains an explicit CRLF exception\nPASS *.ps1 remains an explicit CRLF exception\nPASS all 2185 tracked text files match their declared EOL\nEOL POLICY STATIC E2E: ALL PASS\n",
+    "exitCode": 0,
+    "toolChunk": "ea97b2",
+    "stderrBytes": 0
+  }
+}

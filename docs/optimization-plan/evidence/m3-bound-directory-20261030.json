@@ -1,0 +1,1426 @@
+{
+  "schema": 1,
+  "date": "2026-10-30",
+  "status": "NATIVE_DEEP_PATH_BATCH_VALIDATED_PENDING_METADATA_REVIEW_AND_COMMIT",
+  "baseCommit": "1615ec59fb249251112bd37e1f7a4b38c42a87b3",
+  "applicationVersion": "3.0.1",
+  "source": {
+    "frozenActualTree": "be3e32bdaf96d6db7c37ba2e7b4cb265297b9b1c",
+    "sourcePinsSha256": "5e4ad1cfcd039c75ead8cdaf54dedfdf89bbcd7ea1bef41bef905fa01b21fa32",
+    "finalFiles": [
+      {
+        "file": "README.md",
+        "bytes": 65304,
+        "sha256": "2a7a45e72a41781af27da087222cc1908227b65837c3e1fa7860eb4443c7d0e1"
+      },
+      {
+        "file": "README_EN.md",
+        "bytes": 72352,
+        "sha256": "925a1d032e1d3f2b96793381f38e03c7f8e52ee961240410f545c6bfb4ce6080"
+      },
+      {
+        "file": "dev-harness/fixtures/work-data-bound-directory-native-before.json",
+        "bytes": 2433,
+        "sha256": "43b7ff11ff54db155dd2f7fbdb35cbe596d4b935e5d8328037cdee51731bbb05"
+      },
+      {
+        "file": "dev-harness/run-all.js",
+        "bytes": 50922,
+        "sha256": "fa6df8e1dcc3faeb219be68a4bd5ca21cc8a05fa629a68d27a62944b2b45817c"
+      },
+      {
+        "file": "dev-harness/unit/work-data-bound-directory-native-path.test.js",
+        "bytes": 4964,
+        "sha256": "a25d363ab521099f6dfc011e5104cc2fe7279770a729d8ea23903c7efdc85226"
+      },
+      {
+        "file": "dev-harness/work-data-bound-directory-deep-path.e2e.js",
+        "bytes": 2499,
+        "sha256": "81d7e089b6bc49688faaa968064e3e37d186c1c77d4a25d69747dadfa26edc0a"
+      },
+      {
+        "file": "facts.json",
+        "bytes": 1335,
+        "sha256": "a7e509d09e9bd82c87851b8ab21caa750e3b929a9923d77d056c585687f32751"
+      },
+      {
+        "file": "ruyi-workbench/app/server.js",
+        "bytes": 8141217,
+        "sha256": "29220d3ea7219fff7184eba902102e39cfead1f55fcc4d1619418ae87125e0c8"
+      },
+      {
+        "file": "ruyi-workbench/app/src/13u-migration-center.js",
+        "bytes": 382418,
+        "sha256": "b5ec8cf6c5dacfbe06a4f526298c0ff65e38b4ad364e8480c08a069e29b5aefb"
+      }
+    ],
+    "postActualRuntimeChanges": []
+  },
+  "behavior": {
+    "description": "The existing validated bound-directory native open applies the original NativePath helper before CreateFile. All original shape, canonicalization, physical identity, volume, ordinal, flush and disposal checks remain.",
+    "permanentRegression": "A padded Windows TEMP runs the original complete synthetic production-maintenance journey; no assertions or original phase budgets are removed.",
+    "wholeFileBudgetMs": 900000
+  },
+  "reviews": {
+    "product": {
+      "reviewer": "Independent Sol non-author review of the MAIN transfer and exact inverse, wrapper, five controls, inventories and full embedded C# compile-only",
+      "reportSha256": "afe3800a156d6c714798aab354bb71ca795274b417eae0cfffb8bcbd9f8d903f",
+      "pinsSha256": "e28fd259a2fe7384def2e6015a98aff6e3cbb3575d9cca650b65f1c3939e3e23"
+    },
+    "metadata": "PENDING"
+  },
+  "validation": {
+    "actual": {
+      "verdict": "PASS",
+      "scope": "Two fresh MAIN direct deep-path synthetic complete maintenance journeys and standard gates; no claim of overall M3/3.1 completion or historic cause.",
+      "head": "1615ec59fb249251112bd37e1f7a4b38c42a87b3",
+      "stagedTree": "be3e32bdaf96d6db7c37ba2e7b4cb265297b9b1c",
+      "sourcePinsSha256": "5e4ad1cfcd039c75ead8cdaf54dedfdf89bbcd7ea1bef41bef905fa01b21fa32",
+      "directInputs": 147,
+      "directInputDigest": "700acc36f5358373f54ac9b486b3a2f3699d5d1f41426bb2be241e9c36d64908",
+      "preflightChunks": [
+        "b9698e",
+        "1aee81",
+        "46f998",
+        "e762df"
+      ],
+      "nodeSha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088",
+      "runs": [
+        {
+          "run": 1,
+          "session": 64948,
+          "initialChunk": "cef765",
+          "terminalChunk": "1be4e9",
+          "invocation": {
+            "start": "2026-10-29T19:46:48.0822089Z",
+            "node": "C:/Program Files/nodejs/node.exe",
+            "cwd": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss",
+            "temp": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp",
+            "argv": [
+              "dev-harness/work-data-bound-directory-deep-path.e2e.js"
+            ],
+            "budgetMs": 900000,
+            "localappdata": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\local",
+            "appdata": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\roam",
+            "isolatedRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c",
+            "ruyiHome": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\ruyi",
+            "home": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\home"
+          },
+          "terminal": {
+            "end": "2026-10-29T19:50:38.3074096Z",
+            "exitCode": 0
+          },
+          "elapsedMs": 230225,
+          "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-TYMbH6",
+          "resultPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-TYMbH6\\evidence\\result.json",
+          "resultSha256": "0d6edef90f9f7d26c10a2095547b160d6c511e898f1e9e740c4e970d5a7f3f8e",
+          "eventsPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-TYMbH6\\evidence\\events.jsonl",
+          "eventsSha256": "e9c88c8cff54fa3129716361802142d9d673d7db6ed50f6648acbec55e484975",
+          "jobPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-TYMbH6\\outer-job-result.json",
+          "jobSha256": "2b4fb664ebd46193d9a441ebebd71e4e30f43b53be420c2cb01d1527789f1e60",
+          "result": {
+            "schema": 1,
+            "passed": 14,
+            "checks": [
+              "real serve advertises the worker only after the runtime reports readiness",
+              "go-before-parent-death: armed claim is inert, cleared, and no unrelated child is killed",
+              "committed claim with a live cold child refuses a new serve and is never rewritten",
+              "owned claim with a dead child stays pending for a recovery owner",
+              "C10: a complete intent without a result still refuses boot and is never rewritten",
+              "C11: result plus complete intent still refuses boot and leaves both files untouched",
+              "round 0 enable serves the verified package bytes twice without writing into the data root",
+              "round 0 enable reached the same-root same-port successor with durable lastResult",
+              "round 1 export serves the verified package bytes twice without writing into the data root",
+              "round 1 export refuses non-current, replaced, missing, Range, foreign-origin and tokenless package reads",
+              "round 1 export reached the same-root same-port successor with durable lastResult",
+              "round 2 disable serves the verified package bytes twice without writing into the data root",
+              "round 2 disable reached the same-root same-port successor with durable lastResult",
+              "successor identity is absent after the owned Job closes"
+            ],
+            "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-TYMbH6",
+            "targetServer": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\server.js",
+            "executionInputSha256": "15b927da12b46dfafe5cd7ef3e93c6be407a57fa1e033a71ad4879985e6b647a",
+            "executionInputs": 146,
+            "inputProof": {
+              "sameInputs": true,
+              "files": 146,
+              "productSource": true,
+              "executionInputSha256": "15b927da12b46dfafe5cd7ef3e93c6be407a57fa1e033a71ad4879985e6b647a"
+            },
+            "outerJob": {
+              "schema": 1,
+              "ok": true,
+              "closed": true,
+              "assigned": true,
+              "target": {
+                "pid": 36056,
+                "cimCreated": "134377770321390060"
+              },
+              "members": [
+                {
+                  "pid": 36056,
+                  "cimCreated": "134377770321390060"
+                }
+              ],
+              "survived": []
+            },
+            "initialServer": {
+              "label": "main-server",
+              "pid": 10328,
+              "spawnSeen": true,
+              "exitSeen": true,
+              "closeSeen": true,
+              "exitCode": 0,
+              "exitSignal": null,
+              "closeCode": 0,
+              "closeSignal": null,
+              "events": [
+                {
+                  "event": "spawn",
+                  "pid": 10328,
+                  "at": 1793303212844
+                },
+                {
+                  "event": "exit",
+                  "code": 0,
+                  "signal": null,
+                  "at": 1793303266344
+                },
+                {
+                  "event": "close",
+                  "code": 0,
+                  "signal": null,
+                  "at": 1793303266346
+                }
+              ],
+              "cleanupRequested": false,
+              "cleanupResult": null,
+              "cleanupVerified": false,
+              "metadataProbeVerified": false,
+              "naturalTerminalVerified": true,
+              "nativeBirthPairCount": 1,
+              "creation": {
+                "pid": 10328,
+                "ppid": 37588,
+                "created": "134377768128366370",
+                "name": "node.exe"
+              }
+            },
+            "capabilities": {
+              "worker": true,
+              "upload": true,
+              "download": true
+            },
+            "crashClaim": false,
+            "activation": false,
+            "processEvidenceLimit": "Real serve/cold/successor lifecycle plus actual sampled CIM identity. The simulated four-process fixture is not used as evidence here.",
+            "restorationComplete": false,
+            "whole3_1Complete": false
+          },
+          "stdoutSha256": "49f0f46272ecec0d0e14c427bc9c902d20f4543c4b5ca0f711200758ec47ce2a",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "fixture": {
+            "nonce": "ad8d329358a251f2d5a267acc7378439b54f52bfaff6765a0beac1c135f785d0",
+            "temp": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+            "tempUtf16Length": 153,
+            "port": 57566
+          }
+        },
+        {
+          "run": 2,
+          "session": 70286,
+          "initialChunk": "be0850",
+          "terminalChunk": "2c60f7",
+          "invocation": {
+            "start": "2026-10-29T19:51:06.8849486Z",
+            "home": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\home",
+            "budgetMs": 900000,
+            "node": "C:/Program Files/nodejs/node.exe",
+            "localappdata": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\local",
+            "isolatedRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131",
+            "argv": [
+              "dev-harness/work-data-bound-directory-deep-path.e2e.js"
+            ],
+            "ruyiHome": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\ruyi",
+            "appdata": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\roam",
+            "temp": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp",
+            "cwd": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss"
+          },
+          "terminal": {
+            "end": "2026-10-29T19:54:55.8466880Z",
+            "exitCode": 0
+          },
+          "elapsedMs": 228962,
+          "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-mo9vpF",
+          "resultPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-mo9vpF\\evidence\\result.json",
+          "resultSha256": "246e7541655727f71cfd2f44e87fefe609091a0f5068a1ae8911ec3ebaff5eb4",
+          "eventsPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-mo9vpF\\evidence\\events.jsonl",
+          "eventsSha256": "8822420726e86ccf3cdb8f12361833d5b2ccc20a40dfa374e4e26c6192d429d5",
+          "jobPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-mo9vpF\\outer-job-result.json",
+          "jobSha256": "d51b1bdd9c5be3ce9e35d0fac022132f8a855b94ac4d9893aa2ac978077b4067",
+          "result": {
+            "schema": 1,
+            "passed": 14,
+            "checks": [
+              "real serve advertises the worker only after the runtime reports readiness",
+              "go-before-parent-death: armed claim is inert, cleared, and no unrelated child is killed",
+              "committed claim with a live cold child refuses a new serve and is never rewritten",
+              "owned claim with a dead child stays pending for a recovery owner",
+              "C10: a complete intent without a result still refuses boot and is never rewritten",
+              "C11: result plus complete intent still refuses boot and leaves both files untouched",
+              "round 0 enable serves the verified package bytes twice without writing into the data root",
+              "round 0 enable reached the same-root same-port successor with durable lastResult",
+              "round 1 export serves the verified package bytes twice without writing into the data root",
+              "round 1 export refuses non-current, replaced, missing, Range, foreign-origin and tokenless package reads",
+              "round 1 export reached the same-root same-port successor with durable lastResult",
+              "round 2 disable serves the verified package bytes twice without writing into the data root",
+              "round 2 disable reached the same-root same-port successor with durable lastResult",
+              "successor identity is absent after the owned Job closes"
+            ],
+            "root": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-mo9vpF",
+            "targetServer": "C:\\Users\\87179\\Documents\\Claude Code\\ruyi-workbench-oss\\ruyi-workbench\\app\\server.js",
+            "executionInputSha256": "15b927da12b46dfafe5cd7ef3e93c6be407a57fa1e033a71ad4879985e6b647a",
+            "executionInputs": 146,
+            "inputProof": {
+              "sameInputs": true,
+              "files": 146,
+              "productSource": true,
+              "executionInputSha256": "15b927da12b46dfafe5cd7ef3e93c6be407a57fa1e033a71ad4879985e6b647a"
+            },
+            "outerJob": {
+              "schema": 1,
+              "ok": true,
+              "closed": true,
+              "assigned": true,
+              "target": {
+                "pid": 13120,
+                "cimCreated": "134377772895719650"
+              },
+              "members": [
+                {
+                  "pid": 13120,
+                  "cimCreated": "134377772895719650"
+                }
+              ],
+              "survived": []
+            },
+            "initialServer": {
+              "label": "main-server",
+              "pid": 9360,
+              "spawnSeen": true,
+              "exitSeen": true,
+              "closeSeen": true,
+              "exitCode": 0,
+              "exitSignal": null,
+              "closeCode": 0,
+              "closeSignal": null,
+              "events": [
+                {
+                  "event": "spawn",
+                  "pid": 9360,
+                  "at": 1793303471793
+                },
+                {
+                  "event": "exit",
+                  "code": 0,
+                  "signal": null,
+                  "at": 1793303525493
+                },
+                {
+                  "event": "close",
+                  "code": 0,
+                  "signal": null,
+                  "at": 1793303525495
+                }
+              ],
+              "cleanupRequested": false,
+              "cleanupResult": null,
+              "cleanupVerified": false,
+              "metadataProbeVerified": false,
+              "naturalTerminalVerified": true,
+              "nativeBirthPairCount": 1,
+              "creation": {
+                "pid": 9360,
+                "ppid": 18616,
+                "created": "134377770717855360",
+                "name": "node.exe"
+              }
+            },
+            "capabilities": {
+              "worker": true,
+              "upload": true,
+              "download": true
+            },
+            "crashClaim": false,
+            "activation": false,
+            "processEvidenceLimit": "Real serve/cold/successor lifecycle plus actual sampled CIM identity. The simulated four-process fixture is not used as evidence here.",
+            "restorationComplete": false,
+            "whole3_1Complete": false
+          },
+          "stdoutSha256": "a2e2f3b0c63aa4e16b6175228853e2f4f934c4122ea81fd80854d9b763f1876c",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "fixture": {
+            "nonce": "c2a162c8189378d79562203714c882dec1abb207d61125c145a68b41f0fdcffa",
+            "temp": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+            "tempUtf16Length": 153,
+            "port": 59543
+          }
+        }
+      ],
+      "gates": [
+        {
+          "name": "syntax",
+          "session": 1235,
+          "initial": "c2548b",
+          "terminal": {
+            "end": "2026-10-29T19:58:25.2287290Z",
+            "exitCode": 0
+          },
+          "invocation": {
+            "argv": [
+              "C:/Program Files/nodejs/node.exe",
+              "dev-harness/syntax-gate.js"
+            ],
+            "start": "2026-10-29T19:55:14.7999710Z",
+            "isolatedRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3g1-5bf76924",
+            "cwd": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss"
+          },
+          "stdoutSha256": "602b9c555a91930743c13ab5f1f13b9ef75a7b8d14b6e2567111da595177f3ab",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "build",
+          "terminal": {
+            "exitCode": 0,
+            "end": "2026-10-29T19:58:35.9550162Z"
+          },
+          "invocation": {
+            "isolatedRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3g2-a87ad165",
+            "argv": [
+              "C:/Program Files/nodejs/node.exe",
+              "ruyi-workbench/app/build.js",
+              "--check"
+            ],
+            "cwd": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss",
+            "start": "2026-10-29T19:58:35.4230937Z"
+          },
+          "stdoutSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "fast",
+          "session": 8237,
+          "initial": "4ac663",
+          "terminal": {
+            "end": "2026-10-29T20:28:17.2104637Z",
+            "exitCode": 0
+          },
+          "invocation": {
+            "argv": [
+              "C:/Program Files/nodejs/node.exe",
+              "dev-harness/run-all.js",
+              "--fast",
+              "--parallel",
+              "1"
+            ],
+            "cwd": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss",
+            "temp": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3g3-5173ead7\\tmp",
+            "start": "2026-10-29T19:58:44.8155762Z",
+            "isolatedRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3g3-5173ead7"
+          },
+          "stdoutSha256": "84a31de23e715ab213dd7a70304bbbb1a443b64e6f8d34f4f3a187bf46d517cf",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "eol",
+          "terminal": {
+            "exitCode": 0,
+            "end": "2026-10-29T20:28:36.2669017Z"
+          },
+          "invocation": {
+            "start": "2026-10-29T20:28:32.8117471Z",
+            "isolatedRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3g4-19aee92a",
+            "cwd": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss",
+            "argv": [
+              "C:/Program Files/nodejs/node.exe",
+              "dev-harness/eol-policy.static.e2e.js"
+            ]
+          },
+          "stdoutSha256": "275b5549abbe14566651b654deb11bbd6ce26b73b698b5a4830ac69d6403c000",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "hygiene",
+          "session": 78201,
+          "initial": "7accf3",
+          "terminal": {
+            "exitCode": 0,
+            "end": "2026-10-29T20:29:12.3195286Z"
+          },
+          "invocation": {
+            "argv": [
+              "C:/Program Files/nodejs/node.exe",
+              "dev-harness/repo-hygiene.e2e.js"
+            ],
+            "cwd": "C:/Users/87179/Documents/Claude Code/ruyi-workbench-oss",
+            "start": "2026-10-29T20:28:44.3564509Z",
+            "isolatedRoot": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3g5-11c87fc4"
+          },
+          "stdoutSha256": "dcbb3391ca54591105a5d664eb71ff5487247c6fca2027c51affa886447cf3d3",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "fast": {
+        "unitTests": 4416,
+        "pass": 4390,
+        "fail": 0,
+        "skip": 26,
+        "staticPass": 82,
+        "staticFail": 0,
+        "liveSkipped": 7
+      },
+      "syntax": {
+        "files": 1370,
+        "failed": 0
+      },
+      "eol": {
+        "files": 2183
+      },
+      "firstRed": null,
+      "limitations": [
+        "Two MAIN runs are synthetic owned-job scope; private prior runs are historical, not counted.",
+        "26 unit and 7 live skipped, no generic desktop broker or old production cause established.",
+        "Whole-file 900000 ms was assessed from recorded start/end after natural termination; no separate realtime timer was installed.",
+        "Full M3/3.1 and remaining scenarios are not claimed complete."
+      ],
+      "metadataPreparationNote": "A read-only inline metadata extraction failed with SyntaxError due to shell regex escaping; it did not alter this report or rerun tests; corrected by this separate reader."
+    },
+    "fullUnitLog": {
+      "originalPath": "dev-harness/last-unit-run.log",
+      "bytes": 605457,
+      "sha256": "d53eba376acdd1b5cf0347be3a8c72c20e243104a9036769dbce79cfe4d1df83",
+      "tests": 4416,
+      "pass": 4390,
+      "fail": 0,
+      "skip": 26
+    },
+    "nativeSourceControls": 5,
+    "syntax": {
+      "files": 1370,
+      "fail": 0
+    },
+    "buildCheckExit": 0,
+    "originalFastExit": 0,
+    "static": {
+      "pass": 82,
+      "fail": 0
+    },
+    "repoHygieneExit": 0,
+    "originalEol": {
+      "files": 2183,
+      "exit": 0
+    }
+  },
+  "artifacts": [
+    {
+      "file": "001-CHECKS.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/CHECKS.json",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/CHECKS.json",
+      "bytes": 2173,
+      "sha256": "2021c31ffaa3c41bc7ed687569a3567932d3a8afb467bee9ee4f62a2bdcdfc02",
+      "packedBytes": 440,
+      "packedSha256": "60228be142889c7eb4256c3c9ba3213fc20981aa5e819fe287d6e6be5740180b"
+    },
+    {
+      "file": "002-EXECUTION-INPUTS.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/EXECUTION-INPUTS.json",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/EXECUTION-INPUTS.json",
+      "bytes": 63474,
+      "sha256": "49e30018b6a34a7038c980ee904b80b57d38332353c6afd1749b643afe81ef19",
+      "packedBytes": 11537,
+      "packedSha256": "8176d4021b78f6ab6c69d4b2d1e65821ff0a9b3caec855e3528191d4245683aa"
+    },
+    {
+      "file": "003-INVENTORY-CHECKS.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/INVENTORY-CHECKS.json",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/INVENTORY-CHECKS.json",
+      "bytes": 572,
+      "sha256": "8a752a61e2546a6f52c815867a0321aa6e882265d24f0c67724548a62adf1b7e",
+      "packedBytes": 186,
+      "packedSha256": "d05831e373d3aba20ebc7b468acd421752310c0643568f9db88cefd7665c599c"
+    },
+    {
+      "file": "004-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/REPORT.json",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/REPORT.json",
+      "bytes": 3404,
+      "sha256": "61f35b02ec47c03b06c6b518bf7ef028c7789dff61b5e1448ff6716bb8caccf1",
+      "packedBytes": 1060,
+      "packedSha256": "8ee85fac687bd058eee58470335f50232ac0879e1f54f5071720e5a006f3c04b"
+    },
+    {
+      "file": "005-SOURCE-PINS.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/SOURCE-PINS.json",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/SOURCE-PINS.json",
+      "bytes": 1680,
+      "sha256": "5e4ad1cfcd039c75ead8cdaf54dedfdf89bbcd7ea1bef41bef905fa01b21fa32",
+      "packedBytes": 730,
+      "packedSha256": "ac69b88f58a627936fe434f9f6aff9f8546307ad049be88f9fb2034f98ab948b"
+    },
+    {
+      "file": "006-architecture-contract-snapshots.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/architecture-contract-snapshots.static.e2e.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/architecture-contract-snapshots.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "007-architecture-contract-snapshots.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/architecture-contract-snapshots.static.e2e.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/architecture-contract-snapshots.static.e2e.js.stdout.log",
+      "bytes": 869,
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "packedBytes": 347,
+      "packedSha256": "33b55c1cfe45c4dba28ca47108b9d89f2af32ab822913ca9fa191fd0b321ae9b"
+    },
+    {
+      "file": "008-build-check.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/build-check.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/build-check.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "009-build-check.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/build-check.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/build-check.stdout.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "packedBytes": 92,
+      "packedSha256": "8859b808a256c4bf9524f423d705aa2cfaac432419ced6a0337e04eedd29f20b"
+    },
+    {
+      "file": "010-build.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/build.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/build.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "011-build.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/build.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/build.stdout.log",
+      "bytes": 51,
+      "sha256": "80e14923f8241abe61d53b4e8459cceb181708c84223ab9ab89e52cb7df0521f",
+      "packedBytes": 71,
+      "packedSha256": "8852b8e0b9fc5302381058012dc5812c2b26ae22e862e139308b3cdf90405b77"
+    },
+    {
+      "file": "012-candidate.patch.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/candidate.patch",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/candidate.patch",
+      "bytes": 17899,
+      "sha256": "d9d228974972a16f162bc256ca2aa50485f0cb6b799699fda69e0c4b9f0d825b",
+      "packedBytes": 6819,
+      "packedSha256": "2b4af91653dac898aab6e5b009f43398f57f849e6a4c0adfe55c132cad0c3723"
+    },
+    {
+      "file": "013-durable-state-inventory.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/durable-state-inventory.static.e2e.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/durable-state-inventory.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "014-durable-state-inventory.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/durable-state-inventory.static.e2e.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/durable-state-inventory.static.e2e.js.stdout.log",
+      "bytes": 798,
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "packedBytes": 371,
+      "packedSha256": "b85d922c1aad1e9b6bf916fb22f646c39f3f77e6c74c4126b600b065e7db67bb"
+    },
+    {
+      "file": "015-encrypted-storage-freeze.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/encrypted-storage-freeze.static.e2e.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/encrypted-storage-freeze.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "016-encrypted-storage-freeze.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/encrypted-storage-freeze.static.e2e.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/encrypted-storage-freeze.static.e2e.js.stdout.log",
+      "bytes": 1698,
+      "sha256": "edbd960e6ed04ad2207df3b717cdb58cddae7cda21b54448835b640ac1e9f3d8",
+      "packedBytes": 766,
+      "packedSha256": "0e64922ae3e43143bf53aa867fb4d2fcef07b75f265a4da350339e6f380273e2"
+    },
+    {
+      "file": "017-facts-generate.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/facts-generate.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/facts-generate.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "018-facts-generate.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/facts-generate.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/facts-generate.stdout.log",
+      "bytes": 321,
+      "sha256": "7f611c6af4006f777ba5974b257a4cd327e2373edd232ecdb53addafbe2a17fb",
+      "packedBytes": 242,
+      "packedSha256": "67d8db0e8af934ff2e3558f65f1ec4f2128ff63a2c69b8510d1b8da8eb979206"
+    },
+    {
+      "file": "019-facts-static.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/facts-static.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/facts-static.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "020-facts-static.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/facts-static.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/facts-static.stdout.log",
+      "bytes": 2335,
+      "sha256": "fb1a3e317b074457d36fbaf062e685dcd88b1fd543ff6fce340fc7bb93172c71",
+      "packedBytes": 895,
+      "packedSha256": "9b44d711beca29a4847a807de0f190749a084b291c13880e5a778538f5f41ac2"
+    },
+    {
+      "file": "021-manifest-ranges.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/manifest-ranges.static.e2e.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/manifest-ranges.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "022-manifest-ranges.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/manifest-ranges.static.e2e.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/manifest-ranges.static.e2e.js.stdout.log",
+      "bytes": 30472,
+      "sha256": "abc0fbbfe67a9052c763c16800c63cd91bce62d911518c35f58af3c3a7706535",
+      "packedBytes": 4965,
+      "packedSha256": "9ea0427ddb0ed239a03fe97ec731dc1dc81e18b980245c035845d976bdc82ce1"
+    },
+    {
+      "file": "023-module-dependency-graph.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/module-dependency-graph.static.e2e.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/module-dependency-graph.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "024-module-dependency-graph.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/module-dependency-graph.static.e2e.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/module-dependency-graph.static.e2e.js.stdout.log",
+      "bytes": 1233,
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "packedBytes": 650,
+      "packedSha256": "95fe6ad3aad76b5830cad821008842c9c525c8cb4bbbf1a455667d4bdf584464"
+    },
+    {
+      "file": "025-route-inventory.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/route-inventory.static.e2e.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/route-inventory.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "026-route-inventory.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/route-inventory.static.e2e.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/route-inventory.static.e2e.js.stdout.log",
+      "bytes": 1313,
+      "sha256": "9cbe6bc4199239ea56dfac66bc3024ca3ba8bd413d52d4355c820e9c630edde4",
+      "packedBytes": 760,
+      "packedSha256": "91ef7e1612c8a3dd15b576cec9930694cb7e362ded621fb6e533e046d950b578"
+    },
+    {
+      "file": "027-source-pure.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/source-pure.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/source-pure.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "028-source-pure.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/source-pure.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/source-pure.stdout.log",
+      "bytes": 691,
+      "sha256": "f9b1c232c1417fbc48d9db434d2a143c9c89d0cc6a681cd8e1d0a442383300b6",
+      "packedBytes": 423,
+      "packedSha256": "0a523bcdab124b9eb4fe25762d92dd0ff6e713ed6b6d73e0022b8bcbab487b5d"
+    },
+    {
+      "file": "029-syntax-13u-migration-center.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-13u-migration-center.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-13u-migration-center.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "030-syntax-13u-migration-center.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-13u-migration-center.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-13u-migration-center.js.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "031-syntax-run-all.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-run-all.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-run-all.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "032-syntax-run-all.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-run-all.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-run-all.js.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "033-syntax-work-data-bound-directory-deep-path.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-work-data-bound-directory-deep-path.e2e.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-work-data-bound-directory-deep-path.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "034-syntax-work-data-bound-directory-deep-path.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-work-data-bound-directory-deep-path.e2e.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-work-data-bound-directory-deep-path.e2e.js.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "035-syntax-work-data-bound-directory-native-path.test.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-work-data-bound-directory-native-path.test.js.stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-work-data-bound-directory-native-path.test.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "036-syntax-work-data-bound-directory-native-path.test.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-work-data-bound-directory-native-path.test.js.stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-integration-20261030/syntax-work-data-bound-directory-native-path.test.js.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "037-PINS.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/PINS.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/PINS.json",
+      "bytes": 93363,
+      "sha256": "e28fd259a2fe7384def2e6015a98aff6e3cbb3575d9cca650b65f1c3939e3e23",
+      "packedBytes": 16295,
+      "packedSha256": "22040f164de9fc75ad29e4881ddc7df2b919fee88c34d55c9b0afde13f68f1bb"
+    },
+    {
+      "file": "038-PROTECTED-INPUTS.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/PROTECTED-INPUTS.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/PROTECTED-INPUTS.json",
+      "bytes": 85550,
+      "sha256": "5aedc681b5ddd1a420ae4d60555522ed4dfbeb2e50960df17d56042d3679523e",
+      "packedBytes": 13945,
+      "packedSha256": "ce73575a261d5bb710e3ed37c17149278d8aa0366e2891c172db412d53d9681b"
+    },
+    {
+      "file": "039-REPORT.md.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/REPORT.md",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/REPORT.md",
+      "bytes": 8931,
+      "sha256": "afe3800a156d6c714798aab354bb71ca795274b417eae0cfffb8bcbd9f8d903f",
+      "packedBytes": 4467,
+      "packedSha256": "02760c11448998972dacbe6075408a6622d12d0d41648c5b02ad12ee80ea92a6"
+    },
+    {
+      "file": "040-build-check.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/build-check.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/build-check.json",
+      "bytes": 462,
+      "sha256": "bce7aaa1dcddd6a1577d01b4ee6c50d90dea67fc08d9b6a019874d5956bf2d3e",
+      "packedBytes": 352,
+      "packedSha256": "1ea4b4af743220eb650b1f20f135ee2184ef8159753e7ee319ff817089e7add5"
+    },
+    {
+      "file": "041-checks-result.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/checks-result.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/checks-result.json",
+      "bytes": 876,
+      "sha256": "4a788ef3c847c5235949713d7bdda1fc93cb94baf2699725b5da42aef220107f",
+      "packedBytes": 506,
+      "packedSha256": "206ceba36ac39c1fdca9b04cae794fa72c71410fd40b52379385aa84c6aa8b66"
+    },
+    {
+      "file": "042-checks-summary-initial-failure.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/checks-summary-initial-failure.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/checks-summary-initial-failure.json",
+      "bytes": 573,
+      "sha256": "3aea0e8fbd7bd44b4f33b9aee01eca44e4805cf770e034f54fe3d805918bbdb3",
+      "packedBytes": 371,
+      "packedSha256": "a06fd653a4ffd10925eaa0cf6a32d89edc72c49def6e2711fb35348133db6e29"
+    },
+    {
+      "file": "043-checks-summary.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/checks-summary.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/checks-summary.cjs",
+      "bytes": 1739,
+      "sha256": "2337cbe2ae2b9d95459bec0c7d7bc1f558c62832b1439efe5d89cd1cb4baf827",
+      "packedBytes": 932,
+      "packedSha256": "3d48d788d6719f80f99838d18e088510190b9fc7c63cb694e23fcf78d21ffbb1"
+    },
+    {
+      "file": "044-checks.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/checks.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/checks.cjs",
+      "bytes": 2612,
+      "sha256": "0be5118dead8825ed9d551fce085f6665b40667f14d9b90a2f9257f2d33eb0b8",
+      "packedBytes": 1210,
+      "packedSha256": "5cf95f9d75830c32d60a87ee939be9c1cf5d9528aba4452ba1e045d50ed67ab1"
+    },
+    {
+      "file": "045-embedded-full-csharp-library-compile-only.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/embedded-full-csharp-library-compile-only.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/embedded-full-csharp-library-compile-only.json",
+      "bytes": 836,
+      "sha256": "3226363d951ee42a635a81873513a6a38cef69087f92a2e82c4bd7e8434ecef6",
+      "packedBytes": 412,
+      "packedSha256": "05c507ffbae85f29aae4c856de428132ecbaab599bc0011c636842e88efe42f8"
+    },
+    {
+      "file": "046-final-proof-result.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/final-proof-result.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/final-proof-result.json",
+      "bytes": 409,
+      "sha256": "43e2fa03798be0b870041b8ab42f15a47fc76c523363f2b471b6a216b80c6eeb",
+      "packedBytes": 275,
+      "packedSha256": "3f6d0d66cebe0b9c41f790522a448f576827ffecfa7220ce1ce510371377c259"
+    },
+    {
+      "file": "047-final-proof.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/final-proof.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/final-proof.cjs",
+      "bytes": 1636,
+      "sha256": "fb0ec187d9992664f02e7126719252e7ee7eb62af9eccbd905cd2f7bf08d9423",
+      "packedBytes": 815,
+      "packedSha256": "1579fb5ea18c608a41ace9e2a2a9db5c09fb53780d680bc63d475fbe2573a7c8"
+    },
+    {
+      "file": "048-preflight.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/preflight.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/preflight.cjs",
+      "bytes": 2620,
+      "sha256": "a1e106fe2719d64303f63126a2018172baac0637827037d48ad73c5477e603d4",
+      "packedBytes": 1189,
+      "packedSha256": "81c16b54336c24553cc64f1a0e80a7bf84a6dbb7349ba33d69b420ebb6ba5d89"
+    },
+    {
+      "file": "049-reference-pins.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/reference-pins.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/reference-pins.json",
+      "bytes": 1965,
+      "sha256": "ce25b18e27cda0a4f2015cf69c5209840459480596b31a6ca11c85145a24bce5",
+      "packedBytes": 627,
+      "packedSha256": "c71fa834b159fe4e892083da4de70d769b631b3a4ebe554b7129c7533767bc59"
+    },
+    {
+      "file": "050-review-initial-failure.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/review-initial-failure.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/review-initial-failure.json",
+      "bytes": 422,
+      "sha256": "02d6320ccafaa07a2026236c021f56b7d6330990ced6eb7b3101e37ddae8ce34",
+      "packedBytes": 283,
+      "packedSha256": "ff1d513ce9945600144c47720aa8109ad0edaf52e55c7ccb0d7ab7e5a254d98f"
+    },
+    {
+      "file": "051-review.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/review.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/review.cjs",
+      "bytes": 8780,
+      "sha256": "81044e9239ee9f60d12f18c591f8508a9a0d6847b68471314dacdaee5793756a",
+      "packedBytes": 3468,
+      "packedSha256": "aef1f0416f86e608182d5dc6a400ab7caa6be696be42ffa99a9d479678d4df3c"
+    },
+    {
+      "file": "052-review.initial.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/review.initial.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/review.initial.cjs",
+      "bytes": 8757,
+      "sha256": "e4f8bc82470c48d9db11524045da977ba7623aab7c1ad0b5ce2539e8c257b752",
+      "packedBytes": 3455,
+      "packedSha256": "af4299cab3e9232c552add96661ed40b08cf87f31c5f553b84beb39717ba6c84"
+    },
+    {
+      "file": "053-seal-initial-failure.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/seal-initial-failure.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/seal-initial-failure.json",
+      "bytes": 536,
+      "sha256": "3bcbb30fd5ae18ae84e77ddb854a43612ca31e5db10041c661d642f0be579a0f",
+      "packedBytes": 349,
+      "packedSha256": "011c99fa2b87c9772d88af013536bebc5faf48e41f56d8a348938d62a85522d4"
+    },
+    {
+      "file": "054-seal.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/seal.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/seal.cjs",
+      "bytes": 2644,
+      "sha256": "fbd2f6f87dc421daf543df5dccea87285680c377bb1fbb41507917268f85403d",
+      "packedBytes": 1351,
+      "packedSha256": "114bb8c7ccc6a75d75360436c61169588065829b33d8c065512759407a077480"
+    },
+    {
+      "file": "055-seal.initial.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/seal.initial.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/seal.initial.cjs",
+      "bytes": 2176,
+      "sha256": "776a4055810e9632b959c19f0ea108e862c217963a826dc866cfb40ee14d6305",
+      "packedBytes": 1101,
+      "packedSha256": "048f25b2e13b9d0def9f661c97aed955c7a0440e5c55cb5d08b1a9c3549b102e"
+    },
+    {
+      "file": "056-source-pure-five.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/source-pure-five.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/source-pure-five.json",
+      "bytes": 1134,
+      "sha256": "02445f90c169a8d9c0e10a59c2e834c6294d69b80e0b46872037449c40ba28cf",
+      "packedBytes": 679,
+      "packedSha256": "9f4354e13a3f5ecded9312688fba0841a06ae29d69cc42ecd68ece9af9556f03"
+    },
+    {
+      "file": "057-source-review-result.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/source-review-result.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/source-review-result.json",
+      "bytes": 1564,
+      "sha256": "e56f58740fd28c83b2d9f00eecf4a751c45d495662b68901f7107cfe1983f90d",
+      "packedBytes": 869,
+      "packedSha256": "89dd03261c21a3fde9a0fc5d008ee6f915d0d0a6027cb9ab3a07de2df74fbfcd"
+    },
+    {
+      "file": "058-syntax-1.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/syntax-1.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/syntax-1.json",
+      "bytes": 418,
+      "sha256": "7d321221a7457e7c5888660989b0d10660155f3c16cef1d0dfaa35f844f9f9c6",
+      "packedBytes": 290,
+      "packedSha256": "e52eb9ee21d269111ec8b6c4cee08fc7973325782fd2feeb5ae2cdf8b756ce8e"
+    },
+    {
+      "file": "059-syntax-2.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/syntax-2.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/syntax-2.json",
+      "bytes": 424,
+      "sha256": "b9dbfeb7eea9ed3a6ac73895f3b8cef38d73543f9f8569218099f2dbfc36b029",
+      "packedBytes": 302,
+      "packedSha256": "b037a9e49a2856d0bcb989e81961dcfee9793a10331ecffc10056fff138db288"
+    },
+    {
+      "file": "060-syntax-3.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/syntax-3.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/syntax-3.json",
+      "bytes": 426,
+      "sha256": "b9af63d40f5102698eba0b2f3d3102ecbf50d1c08f9d5c31b090024f5337523f",
+      "packedBytes": 300,
+      "packedSha256": "31b4a6b5e3a30fe021a7f27811f8dd0c1863fbfb71d154cc542e0711a62ba09a"
+    },
+    {
+      "file": "061-syntax-4.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/syntax-4.json",
+      "label": ".ruyi-runtime/m3-bound-main-root-integration-review-sol-20261030/syntax-4.json",
+      "bytes": 394,
+      "sha256": "38ee63d3bbf8c2cd68a2131aebea3ff7657bbeb8bd5a96fb144d3508d3e2a8d3",
+      "packedBytes": 279,
+      "packedSha256": "b4cfb4565478094a4b1fc20993902a6619b99f2ca10677bd9e5f0188e620623c"
+    },
+    {
+      "file": "062-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/REPORT.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/REPORT.json",
+      "bytes": 19049,
+      "sha256": "8afaac30a7b14b9d5339f454bd8e57dcbcafc1da55269f25d15d35dbaac56772",
+      "packedBytes": 3946,
+      "packedSha256": "7bd26aae0dff53abf1c7ad7571170758aa5968284b718eb6c2ef48afb0611807"
+    },
+    {
+      "file": "063-fixture-metadata.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/fixture-metadata.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/fixture-metadata.cjs",
+      "bytes": 875,
+      "sha256": "29cce80bed4145342b2d4450f0cad67ddee7c457ed1b043445dce9aeccf9d390",
+      "packedBytes": 556,
+      "packedSha256": "2de2b8be7829572445bbc2f8f9b0e7191b43d41327678dceebca1622a97260ac"
+    },
+    {
+      "file": "064-seal.cjs.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/seal.cjs",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/seal.cjs",
+      "bytes": 3278,
+      "sha256": "e0b4ed223c40588bc36c86c077d6556e976b46ea919f5c81c80b554250569194",
+      "packedBytes": 1631,
+      "packedSha256": "2d1225f94eaf82cc3ffb8e73cc67c95ca403397f1e9bf7379d010d315f4ae263"
+    },
+    {
+      "file": "065-invocation.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-build/invocation.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-build/invocation.json",
+      "bytes": 305,
+      "sha256": "467a4ba12d26a20156c54156c5e93febb4b9c328f64880d6051077adf45e3a2d",
+      "packedBytes": 246,
+      "packedSha256": "22fadc86a81b3e018220fa3e3dea1eb6bfd6ffc01bed968c16bf76d8506d419c"
+    },
+    {
+      "file": "066-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-build/stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-build/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "067-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-build/stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-build/stdout.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "packedBytes": 92,
+      "packedSha256": "8859b808a256c4bf9524f423d705aa2cfaac432419ced6a0337e04eedd29f20b"
+    },
+    {
+      "file": "068-terminal.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-build/terminal.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-build/terminal.json",
+      "bytes": 65,
+      "sha256": "9411062e49bba2d44247e391e47f67b937040bc0d920fbe621698d056478a3d9",
+      "packedBytes": 81,
+      "packedSha256": "33821b756d59410f2cf595f8c492629d332048fc07ec3127469d35959cc079ca"
+    },
+    {
+      "file": "069-invocation.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-eol/invocation.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-eol/invocation.json",
+      "bytes": 298,
+      "sha256": "13480dd52e10f080fb36888197af41256fce7fcfc8bfc5aabef51efa7cfb22b6",
+      "packedBytes": 245,
+      "packedSha256": "cff6eedf53ff3a39630acbd7964f705eba93db6a67a05ba9c034863cac630eb4"
+    },
+    {
+      "file": "070-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-eol/stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-eol/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "071-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-eol/stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-eol/stdout.log",
+      "bytes": 257,
+      "sha256": "275b5549abbe14566651b654deb11bbd6ce26b73b698b5a4830ac69d6403c000",
+      "packedBytes": 166,
+      "packedSha256": "6fb5be5b97f2ac13e6f565076efc712d3d2f62c6f28cdbf8368023df1e5386d8"
+    },
+    {
+      "file": "072-terminal.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-eol/terminal.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-eol/terminal.json",
+      "bytes": 65,
+      "sha256": "96b7420c902824ec927cf9cf68e54b0784d365a2e08063c63c3e8fb73d9a385c",
+      "packedBytes": 81,
+      "packedSha256": "d9cba24eb020d627b12bd5a54c6d41c24f3ca2062ba04e2df71e65e8f3640a8b"
+    },
+    {
+      "file": "073-invocation.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-fast/invocation.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-fast/invocation.json",
+      "bytes": 401,
+      "sha256": "4500a5ac6f8d913c19f5fdc39e798037422ba721d436eed475520dac55a99e36",
+      "packedBytes": 265,
+      "packedSha256": "2a55acaeb152ecbb9483036859a366d0aa16242bbb1d3dc0268759801620caa6"
+    },
+    {
+      "file": "074-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-fast/stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-fast/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "075-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-fast/stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-fast/stdout.log",
+      "bytes": 5986,
+      "sha256": "84a31de23e715ab213dd7a70304bbbb1a443b64e6f8d34f4f3a187bf46d517cf",
+      "packedBytes": 1990,
+      "packedSha256": "77bec775bb6e19f03a3abde2776959d362d89bd10bb0faebe40ac0ab8e815936"
+    },
+    {
+      "file": "076-terminal.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-fast/terminal.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-fast/terminal.json",
+      "bytes": 65,
+      "sha256": "4e84dca65fbf0a95ed3883cfdf330b5f94cd2508cc2d98a5653499d20d4888d3",
+      "packedBytes": 81,
+      "packedSha256": "6e13b82e2c6e779469c8124f10132d70f2854fafa6babc3f34789e38a3809d8e"
+    },
+    {
+      "file": "077-invocation.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-hygiene/invocation.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-hygiene/invocation.json",
+      "bytes": 293,
+      "sha256": "51ef494e5ee0b03ef9993aeb476d7e1121799c982581ef18c17d3a4b365692bc",
+      "packedBytes": 244,
+      "packedSha256": "84e09abd1e987ed166ec59ff252df235f7c139e8dc0858c73ddc76581bd617c1"
+    },
+    {
+      "file": "078-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-hygiene/stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-hygiene/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "079-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-hygiene/stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-hygiene/stdout.log",
+      "bytes": 5060,
+      "sha256": "dcbb3391ca54591105a5d664eb71ff5487247c6fca2027c51affa886447cf3d3",
+      "packedBytes": 1856,
+      "packedSha256": "c4138058f475a91b8497afa64c51a4c71e4d7e0f38e85e703cef52ecc2237976"
+    },
+    {
+      "file": "080-terminal.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-hygiene/terminal.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-hygiene/terminal.json",
+      "bytes": 65,
+      "sha256": "597da2b73067061b049136f4a3dfcbee2d60df506ec1256912f08e12755986fe",
+      "packedBytes": 81,
+      "packedSha256": "702d820e57a14407ecab49396e40bc4a99364106ef575a16f7865f54d058be3d"
+    },
+    {
+      "file": "081-invocation.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-syntax/invocation.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-syntax/invocation.json",
+      "bytes": 288,
+      "sha256": "49c86e4708aad8edbdf9095ebe3bf46d38b1a1e79097222fdee8c819287b5fca",
+      "packedBytes": 242,
+      "packedSha256": "b759368385d269421c4ac9876226f2cb8b6899bd5fe9b1d251cdb503523dd9b5"
+    },
+    {
+      "file": "082-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-syntax/stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-syntax/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "083-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-syntax/stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-syntax/stdout.log",
+      "bytes": 60,
+      "sha256": "602b9c555a91930743c13ab5f1f13b9ef75a7b8d14b6e2567111da595177f3ab",
+      "packedBytes": 80,
+      "packedSha256": "7671312176f3e92d2db8389eb29ca70f565b999f2a9559627e45774a607f5754"
+    },
+    {
+      "file": "084-terminal.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-syntax/terminal.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/gate-syntax/terminal.json",
+      "bytes": 65,
+      "sha256": "20ef7a189d8fd5560739bdff008213e7eb7b45dd154e809723ab622988522d1b",
+      "packedBytes": 81,
+      "packedSha256": "7e8939c06ded5e36f9f12c0cbfc7595511b86a3e3416d935683b35b6f650688d"
+    },
+    {
+      "file": "085-invocation.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run1/invocation.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run1/invocation.json",
+      "bytes": 748,
+      "sha256": "088c08354f5fc4e79f57e94344b079d0b8d3d21399fd266790db766597c08d37",
+      "packedBytes": 323,
+      "packedSha256": "2713b2782501345cf6b5022c953145d45aeee407eb8df31c9b42b78f2dc8932a"
+    },
+    {
+      "file": "086-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run1/stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run1/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "087-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run1/stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run1/stdout.log",
+      "bytes": 1509,
+      "sha256": "49f0f46272ecec0d0e14c427bc9c902d20f4543c4b5ca0f711200758ec47ce2a",
+      "packedBytes": 618,
+      "packedSha256": "5ab40d6345ba685b496faa45afb775cca4d627248bd909ba95ab64e125cd5248"
+    },
+    {
+      "file": "088-terminal.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run1/terminal.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run1/terminal.json",
+      "bytes": 65,
+      "sha256": "4bd592d7e36314c88c9d3e5a2d52bd7a58e1144bec9bf39da305e34fd865aa38",
+      "packedBytes": 81,
+      "packedSha256": "4e802a78e99c722be30c5f70445eae89e214619d3cb6873c6ce9db4de42bdc91"
+    },
+    {
+      "file": "089-invocation.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run2/invocation.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run2/invocation.json",
+      "bytes": 748,
+      "sha256": "a865e6f0b0b3164ba9ad7ab917e4f8e40bd5338123d3da59684fcb22d14a1614",
+      "packedBytes": 325,
+      "packedSha256": "ded489ec7ad3df467f90d6e44b03d80db1e78ee78d4dbd76901a77e99afe68e2"
+    },
+    {
+      "file": "090-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run2/stderr.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run2/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "091-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run2/stdout.log",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run2/stdout.log",
+      "bytes": 1509,
+      "sha256": "a2e2f3b0c63aa4e16b6175228853e2f4f934c4122ea81fd80854d9b763f1876c",
+      "packedBytes": 618,
+      "packedSha256": "2c2fcbb9e5714ab98a3309c5d62438268293c25752b01286c776c36e52a5549d"
+    },
+    {
+      "file": "092-terminal.json.gz",
+      "originalPath": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run2/terminal.json",
+      "label": ".ruyi-runtime/m3-bound-main-terra-actual-20261030/run2/terminal.json",
+      "bytes": 65,
+      "sha256": "99b719a3f8717f94738f99f6eaa94885239a95faedc11ae72c506617b6da9593",
+      "packedBytes": 81,
+      "packedSha256": "782ffdc5e18e863c11abdf01aae638daa62a393beb57f7b81d5a09275dc86f38"
+    },
+    {
+      "file": "093-result.json.gz",
+      "originalPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-TYMbH6\\evidence\\result.json",
+      "label": "actual/run1/result.json",
+      "bytes": 3486,
+      "sha256": "0d6edef90f9f7d26c10a2095547b160d6c511e898f1e9e740c4e970d5a7f3f8e",
+      "packedBytes": 1284,
+      "packedSha256": "7aeca0470355ce396c37a910d91c36e54024c158aae0221f08a25e3d56906242"
+    },
+    {
+      "file": "094-events.jsonl.gz",
+      "originalPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-TYMbH6\\evidence\\events.jsonl",
+      "label": "actual/run1/events.jsonl",
+      "bytes": 94519,
+      "sha256": "e9c88c8cff54fa3129716361802142d9d673d7db6ed50f6648acbec55e484975",
+      "packedBytes": 18126,
+      "packedSha256": "2db3a424f2217b9923a5468fec0ff59866fce354299617dde404bd6535b2ef22"
+    },
+    {
+      "file": "095-outer-job-result.json.gz",
+      "originalPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main1-23fad11c\\tmp\\ruyi-bound-deep-dDkFKm\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-TYMbH6\\outer-job-result.json",
+      "label": "actual/run1/job.json",
+      "bytes": 183,
+      "sha256": "2b4fb664ebd46193d9a441ebebd71e4e30f43b53be420c2cb01d1527789f1e60",
+      "packedBytes": 133,
+      "packedSha256": "c9f6db88cb98ae13146dd5cb38975f622c245856753001fe61adfa6333e5a1a2"
+    },
+    {
+      "file": "096-result.json.gz",
+      "originalPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-mo9vpF\\evidence\\result.json",
+      "label": "actual/run2/result.json",
+      "bytes": 3483,
+      "sha256": "246e7541655727f71cfd2f44e87fefe609091a0f5068a1ae8911ec3ebaff5eb4",
+      "packedBytes": 1281,
+      "packedSha256": "8b58e900aba5d6ecb1259623685ab75da9738c09974ed5bd23c055999e1d1b0c"
+    },
+    {
+      "file": "097-events.jsonl.gz",
+      "originalPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-mo9vpF\\evidence\\events.jsonl",
+      "label": "actual/run2/events.jsonl",
+      "bytes": 94503,
+      "sha256": "8822420726e86ccf3cdb8f12361833d5b2ccc20a40dfa374e4e26c6192d429d5",
+      "packedBytes": 18219,
+      "packedSha256": "59db92161dc4b8a9980efcf27d975d644482c79bc71ac5ae8b2adcaee6761428"
+    },
+    {
+      "file": "098-outer-job-result.json.gz",
+      "originalPath": "C:\\Users\\87179\\AppData\\Local\\Temp\\m3main2-7a1c4131\\tmp\\ruyi-bound-deep-yzi5Cg\\ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\\ruyi-production-maintenance-mo9vpF\\outer-job-result.json",
+      "label": "actual/run2/job.json",
+      "bytes": 183,
+      "sha256": "d51b1bdd9c5be3ce9e35d0fac022132f8a855b94ac4d9893aa2ac978077b4067",
+      "packedBytes": 133,
+      "packedSha256": "be12a0368a4c75d907155caf3d72d833590e3b53838c1f90c6c8835919cb452a"
+    },
+    {
+      "file": "099-last-unit-run.log.gz",
+      "originalPath": "dev-harness/last-unit-run.log",
+      "label": "dev-harness/last-unit-run.log",
+      "bytes": 605457,
+      "sha256": "d53eba376acdd1b5cf0347be3a8c72c20e243104a9036769dbce79cfe4d1df83",
+      "packedBytes": 223496,
+      "packedSha256": "5e1935ab453eaa3b37577c55b1eb30d168571a03900f5545195a4f8590df399e"
+    }
+  ],
+  "scopeLimits": [
+    "Only this MAIN native bound-directory fix and its permanent deep-path regression are qualified; Desktop/WorkDataObservation overlays are excluded.",
+    "Two fresh owned-Job synthetic complete journeys passed 14 checks each; they do not establish normal-user Desktop shutdown or the cause of historical unknown actors.",
+    "The original full fast process passed unit and all 82 static checks in one invocation. Its 26 conditional unit skips and seven live skips remain skips.",
+    "The original phase budgets are unchanged. The 900000 ms whole-file bound was checked using start/end after natural termination; no separate realtime watchdog was installed.",
+    "M3 and overall 3.1 are incomplete, including pending Desktop/encrypted/recovery matrices, M4/M5/M6, final packaging/upgrade/rollback and cross-machine/platform delivery.",
+    "Selected reports, scripts and synthetic result/event/Job metadata are retained. This archive does not recreate runtime keys, payload binaries, entire NTFS scenes or every transitive historical reference.",
+    "No real user migration, real platform sends, push or publication occurred."
+  ]
+}

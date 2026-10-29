@@ -248,6 +248,7 @@ const TIMEOUT_OVERRIDES = {
   // boot verdicts. This is a whole-file hang guard, not a product latency claim -
   // every product wait above keeps its own explicit deadline and is never widened.
   'work-data-production-maintenance.e2e.js': 900000,
+  'work-data-bound-directory-deep-path.e2e.js': 900000,
   // 3.1 production restore: four real handoffs in two journeys (plain restore, then
   // enable/export/restore on an encrypted source), each with a real cold worker,
   // actual DPAPI/NTFS/package work, the product's own cold verifier child, a
