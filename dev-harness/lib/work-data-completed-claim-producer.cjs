@@ -1,8 +1,9 @@
 'use strict';
-// Synthetic crash-window producer only. The completed result comes from a real
-// maintenance round; this process reconstructs the remaining owned claim with
-// the actual claim/native/OS-owner modules and dies without releasing its lease.
-// It does not stand in for a production cold worker or perform maintenance.
+// Generic synthetic owned-claim crash-window producer. A completed-case caller
+// binds id/operation/ownedAt to a real maintenance result; an unknown-case caller
+// supplies a new random id and current time. Actual claim/native/OS-owner modules
+// write the claim, then this process dies without releasing its lease. This is a
+// constructed window, not an observed production cold crash or maintenance run.
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const assert = require('node:assert/strict'), crypto = require('node:crypto');
 const core = require('./work-data-production-upload-core');
@@ -37,16 +38,16 @@ async function main() {
   const flush = publisher.createFlush();
   const api = claims.create({ temp: request.temp, flush });
   assert.equal((await api.inspect({ base })).present, false);
-  const stat = fs.lstatSync(base, { bigint: true }), finished = Date.parse(request.finishedAt);
-  assert.equal(Number.isFinite(finished), true);
-  const createdAt = new Date(finished - 2000).toISOString();
+  const stat = fs.lstatSync(base, { bigint: true }), ownedTime = Date.parse(request.ownedAt);
+  assert.equal(Number.isFinite(ownedTime), true);
+  const createdAt = new Date(ownedTime - 2000).toISOString();
   const value = { schema: 1, base, baseIdentity: { dev: String(stat.dev), ino: String(stat.ino) },
     id: request.id, nonce: crypto.randomBytes(32).toString('hex'), operation: request.operation,
     parentPid: request.parentPid, childPid: process.pid, phase: 'armed',
     serve: { host: '127.0.0.1', port: request.port }, createdAt, updatedAt: createdAt };
   let receipt = null;
   for (const [index, phase] of ['armed', 'committed', 'owned'].entries()) {
-    receipt = await api.write({ ...value, phase, updatedAt: new Date(finished - 2000 + index * 1000).toISOString() }, receipt);
+    receipt = await api.write({ ...value, phase, updatedAt: new Date(ownedTime - 2000 + index * 1000).toISOString() }, receipt);
   }
   const found = await api.inspect({ base });
   assert.equal(found.present, true); assert.equal(found.value.phase, 'owned');

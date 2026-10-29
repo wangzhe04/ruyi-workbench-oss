@@ -1,0 +1,1392 @@
+{
+  "schema": 1,
+  "date": "2026-10-29",
+  "baselineCommit": "7bec048c327864800bff4f887ee35e1649663493",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "status": "本批实现/独审/最终相关E2E、完整unit与当前全部静态、EOL及仓库卫生检查均通过；整体3.1继续",
+  "whole3_1Complete": false,
+  "scope": {
+    "sourceRecovery": "显式冷doctor在同一OS source owner下两次完整现有profile验证；双原PID ESRCH、原claim/authority稳定、无intent/stage且无同job result，先耐久保存原claim字节诊断，再精确退休pending名。维护结局unknown，不重放、不激活未知target。",
+    "browser": "第一片plain包，从真实gear/menu/settings/security与File输入经实际upload/job/cold native restore/activation/targetDOM，再两次普通启动根偏好；仅两个native目录选择替身。",
+    "notIncluded": [
+      "C10/C11 automatic or explicit result-backed recovery",
+      "nonempty special portable",
+      "encrypted actual browser matrix and packaged WebView/native folder dialog",
+      "cold verifier receipt",
+      "complete 588 default offline E2E suite",
+      "M4/M5/M6, actual packages/upgrades/rollback and real cross-account/cross-machine delivery"
+    ]
+  },
+  "identity": {
+    "server": {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 8104035,
+      "sha256": "5e3fc7c4d731be6a660bccbecbdddbc2c0b2f3c3e249aa3b20fe9278605096d2"
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 36169,
+      "sha256": "02377fd550faf412f0d55c03193aabc58f29b5300ba65e0ba28a0dafda98e59c"
+    },
+    "architecture": {
+      "modules": 125,
+      "edges": 861,
+      "stronglyConnectedComponents": 1,
+      "routeDecisions": 190,
+      "routeAuthEntries": 177,
+      "routeWarnings": 0
+    },
+    "facts": {
+      "e2eCount": 595,
+      "defaultOffline": 588,
+      "unitSuites": 409,
+      "liveSkipped": 7
+    },
+    "durableSurfaces": {
+      "total": 77,
+      "encryptionRequired": 44,
+      "excluded": 33
+    },
+    "processSafety": {
+      "originalPredicateUnchanged": true,
+      "previousKillOwners": 352,
+      "currentKillOwners": 356,
+      "added": [
+        "lib/work-data-owned-claim-fixture.js",
+        "lib/work-data-production-browser-attach.js",
+        "work-data-owned-source-recovery.e2e.js",
+        "work-data-production-restore.browser.e2e.js"
+      ],
+      "removed": []
+    }
+  },
+  "review": [
+    {
+      "scope": "4 product sources + 3 permanent unit files + existing branded owner fixture",
+      "reviewer": "recovery_next_review, independent of kernel author",
+      "report": {
+        "path": ".ruyi-runtime/m3-next-source-recovery-20261028/REVIEW-PROMOTED-KERNEL-20261029.md",
+        "bytes": 8084,
+        "sha256": "4d08852d58e3608d38dca3cb37348b74e5d0fe833ee1b33540996ccecfd23ada",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/4d08852d58e3608d38dca3cb37348b74e5d0fe833ee1b33540996ccecfd23ada.gz",
+          "bytes": 4973,
+          "sha256": "1c48342749109a41cf84bcfb80eb38b1ffe88e11accda5d478999b8c4b68ce24"
+        }
+      },
+      "blockingFindings": 0
+    },
+    {
+      "scope": "real browser, process cleanup, network byte evidence, shared restore fixture and source crash helper/E2E",
+      "reviewer": "root, independent of harness authors",
+      "resolution": "保留原HTTP/shared Job/CIM/death/backup/authority断言；新增实际File SHA、完整Network正文和custody字节一致，复用原严格pref验证。"
+    },
+    {
+      "scope": "root pre-submit browser warm cleanup",
+      "reviewer": "browser_next_review",
+      "resolution": "仅submissionStarted=false且world未unknown，仍经原manager与held ChildProcess/actual close/CIM门；postsubmit及nativeunknown不绕过。"
+    },
+    {
+      "scope": "receiver byte evidence contract",
+      "reviewer": "source_kernel_implement, independent of browser author",
+      "report": {
+        "path": ".ruyi-runtime/m3-next-browser-20261028/UPLOAD-RECEIVER-EVIDENCE-REVIEW-20261029.md",
+        "bytes": 11853,
+        "sha256": "60c44ba45d5cd687cc7aff2986450c0bc8213f12ada06b16a8ebc3d8e763d135",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/60c44ba45d5cd687cc7aff2986450c0bc8213f12ada06b16a8ebc3d8e763d135.gz",
+          "bytes": 4925,
+          "sha256": "421798884c118ad229a0e808b9d290faa90737181058ab266fae1b5fc7668d7f"
+        }
+      },
+      "resolution": "实际File全SHA、唯一POST201/真实uploadId、独立实际receiver custody全Buffer/hash/devino与native恢复绑定，证明完整HTTP entity-body传输。CDP raw File若不可得另记availability，不以expected/长度或201冒充字节；不改产品File/Blob、不加服务端hook、不mockworkData。修后实际旅程仍待重验。"
+    },
+    {
+      "scope": "browser final fixture and failure handback",
+      "reviewer": "root, independent of browser author",
+      "resolution": "真实sessionMeta生成认证包内index；先等待真实GET/api/sessions完整rows匹配，再保留原目录/文件全bytes检查。原shared allowlist未变。失败summary wx/fsync后guardedclose并同步exit1交还unknown现场。永久纯test保留首次timer guard与VM缺__dirname失败事实，修后6/6；没有将纯VM认作实际native。",
+      "entry": {
+        "path": "dev-harness/work-data-production-restore.browser.e2e.js",
+        "bytes": 20379,
+        "sha256": "e311b1434b9016dd7aa235bad03d21bd2136eb5a0c3a03db28ce9aca9173a48d"
+      },
+      "helper": {
+        "path": "dev-harness/lib/work-data-production-browser-attach.js",
+        "bytes": 41682,
+        "sha256": "78a0d2ae578341adc89ad57325f5efec66968904fe0bd012e5db49e34c919151"
+      },
+      "unit": {
+        "path": "dev-harness/unit/work-data-production-browser.test.js",
+        "bytes": 19227,
+        "sha256": "2af61b941d0063ff253eccfa00d58bc69d0abc17d670be95cc141aa84de9321c"
+      }
+    },
+    {
+      "scope": "independent final browser review",
+      "reviewer": "recovery_next_review, independent of browser author",
+      "blockingFindings": 0,
+      "report": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/INDEPENDENT-FINAL-BROWSER-REVIEW.md",
+        "bytes": 5435,
+        "sha256": "9b2463f6310e7c3fc599996ccb556efd2585748d31ff1bbd4149c881cb63f9b7",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/9b2463f6310e7c3fc599996ccb556efd2585748d31ff1bbd4149c881cb63f9b7.gz",
+          "bytes": 2585,
+          "sha256": "9fde573f9846174415795a833e74638d1054a1dda7233096c88096dc4ce35bd5"
+        }
+      },
+      "limit": "Read-only source review of final narrow changes; actual E2E results remain separately bound."
+    },
+    {
+      "scope": "independent inventory expectation fix",
+      "reviewer": "recovery_next_review, independent of root one-line fix",
+      "blockingFindings": 0,
+      "report": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/INDEPENDENT-INVENTORY-TEST-REVIEW.md",
+        "bytes": 2464,
+        "sha256": "373ba1e0dd2a5a8bb520bf8569ff2e1938736bdad48f0b7455d380653b1f6bca",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/373ba1e0dd2a5a8bb520bf8569ff2e1938736bdad48f0b7455d380653b1f6bca.gz",
+          "bytes": 1203,
+          "sha256": "a022141801f57053aa35aec17e360fb1d0916ea3e0e02fab7c2804beb829c2a6"
+        }
+      },
+      "unit": {
+        "path": "dev-harness/unit/fulltext-storage-contract.test.js",
+        "bytes": 16639,
+        "sha256": "4a7d2fd4850e82f47737fc7b61dbe54fe85cd093ae188708ecf69de2265d2f24"
+      },
+      "resolution": "Only77 total/33 excluded expectations plus explicit new diagnostic exclusion; required44 and all three fulltext required/search-index/pending/owner/not-completed assertions preserved. Independently ran the exact inventory case1/1; no product/E2E bound input changed."
+    }
+  ],
+  "unitValidation": [
+    {
+      "command": "node --test dev-harness/unit/work-data-handoff-claim.test.js dev-harness/unit/work-data-production-host.test.js dev-harness/unit/work-data-maintenance-glue.test.js",
+      "tests": 113,
+      "pass": 113,
+      "fail": 0,
+      "skipped": 0,
+      "log": {
+        "path": ".ruyi-runtime/m3-next-source-recovery-20261028/promotion-final-unit.log",
+        "bytes": 11681,
+        "sha256": "52a2f148c08024bdfaba61e9b7929521bcf49d29367a8e1b29c29706fea7a6e6"
+      }
+    },
+    {
+      "command": "node --test dev-harness/unit/work-data-production-browser.test.js",
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "limit": "纯证据/秘密诊断、真实产品sessionMeta导出初始化模型及actual runActual三VM失败路径；无browser/native/service。永久import guard只模型化现有空表unref reaper，其他进程/net/nativeaddon/计时器启动仍fail-closed。"
+    }
+  ],
+  "firstFailures": [
+    {
+      "kind": "new CLI dispatch controls",
+      "detail": "raw flag放在command前及=value拼写可误入默认serve/普通doctor；将strict raw gate移到全部dispatch之前，新增真实parseArgs/main矩阵验证。",
+      "log": {
+        "path": ".ruyi-runtime/m3-next-source-recovery-20261028/host-glue-promotion-first-run.log",
+        "bytes": 16942,
+        "sha256": "559a5dd66cb3578fff8092b2594a29f7601b89ed32c25ac0cdeae59cfff2614d",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/559a5dd66cb3578fff8092b2594a29f7601b89ed32c25ac0cdeae59cfff2614d.gz",
+          "bytes": 3978,
+          "sha256": "1061e63f894d10a1b99705bc969b8edddbc7c8f1a81b0778adaa82f3093ce8dd"
+        }
+      }
+    },
+    {
+      "kind": "fixture controls",
+      "detail": "既有fixture canonical盘符拼写和host API固定集合因新增方法而首红；修fixture绑定与新增方法集合，未放宽产品判据。",
+      "logs": [
+        {
+          "path": ".ruyi-runtime/m3-next-source-recovery-20261028/host-glue-promotion-second-run.log",
+          "bytes": 9705,
+          "sha256": "fed86edb2565306796863338099eeed23d293e57553118a96b405bbe7431653b",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/fed86edb2565306796863338099eeed23d293e57553118a96b405bbe7431653b.gz",
+            "bytes": 3484,
+            "sha256": "7fb0a2f16c2e00d95a5b279f8001e6f917b62f78e8122980c5993b5c680c84aa"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-next-source-recovery-20261028/host-glue-promotion-third-run.log",
+          "bytes": 7434,
+          "sha256": "413bff26791620eead79857161b5539f4f7aed39366f0e7e1250dec32cd25926",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/413bff26791620eead79857161b5539f4f7aed39366f0e7e1250dec32cd25926.gz",
+            "bytes": 2983,
+            "sha256": "94574fa8cd4d1867f80ecacde847feda074c2dcaf866a231af7cc475e2bb46d3"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "first actual browser run",
+      "exitCode": 1,
+      "pass": 0,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-iDWvYL",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/browser-1.log",
+        "bytes": 3215,
+        "sha256": "a389a73b35be3ed776d11328ef5ed820ba4563385028c841c85985b891304815",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/a389a73b35be3ed776d11328ef5ed820ba4563385028c841c85985b891304815.gz",
+          "bytes": 769,
+          "sha256": "fdc668880a49c329ccde0011d01b4fb3c3690adff078257636b6c5910bc60755"
+        }
+      },
+      "diagnostic": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-iDWvYL/evidence/failure-summary.json",
+        "bytes": 5454,
+        "sha256": "9a4721d7652920d9a803801bd5c0a7a26536c2760f445cc027869f941e538e0d"
+      },
+      "detail": "settings prepare的click evaluate失败，旧诊断缺selector/reason；未提交upload/job，browser actual exit+close及sampled identity absent、原manager warm cleanup均verified。静态发现settings按钮在hidden gear菜单内；补真实gear→settings路径、可见/无遮挡/rect稳定DOM就绪等待及固定action诊断，保留全部实际传输/native断言。",
+      "limit": "旧日志不能证明遗漏gear是唯一根因；修后实际重验另记。"
+    },
+    {
+      "kind": "second actual browser run",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/browser-fixed-1.log",
+        "bytes": 3359,
+        "sha256": "e8866a82a61356b85b7f1065686600af5757e5a0b3dc3164d7b31a55504a9306",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/e8866a82a61356b85b7f1065686600af5757e5a0b3dc3164d7b31a55504a9306.gz",
+          "bytes": 823,
+          "sha256": "9c82b15c1d657d7402e25a0150610b2ea062221a16d20edee7633c11cb7f140e"
+        }
+      },
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-xDwYjK",
+      "detail": "真实gear/setting/File摘要与2次目录选择通过，上传事件1/job事件0；异步观察错误旧诊断未保CDP方法/具体原因，不能凭此锁定唯一根因。browser actual close/sample identity absent已核，test/source保留。",
+      "cleanup": {
+        "readOnlyAuthority": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-fixed-1-postfailure-status.json",
+          "bytes": 967,
+          "sha256": "0e9c2056863227ba8aea7e0ef33f424b14da1b1993625399e9f5171f84e843b0"
+        },
+        "originalPairStop": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-fixed-1-owned-stop-result.json",
+          "bytes": 376,
+          "sha256": "d28916fdcf0504fce9aeb0383691431748f1c8c5e70b2fd59887fe6c319f3123"
+        },
+        "explanation": "仅在job=null/open/所有业务owner计数0、source control空且无descendants后，复用makeDualBirthStopScript按原独立native/CIM/cmd/exe指纹+heldhandle停止自己的source21324；随后source21324/test10012原PID均缺席。历史未知进程未处理。"
+      }
+    },
+    {
+      "kind": "source first seed boundary",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/source-1.log",
+        "bytes": 128,
+        "sha256": "979e6f7ab9b8ee80ffb200458119e789fbb7cfef8a8b6fa1cbeb5182ec890872",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/979e6f7ab9b8ee80ffb200458119e789fbb7cfef8a8b6fa1cbeb5182ec890872.gz",
+          "bytes": 132,
+          "sha256": "1f4434f07c602ae993c98655d7a692781b2cda8c5473f89adf387c658b602897"
+        }
+      },
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-TFilUC",
+      "detail": "doctor前首次GET触发现有legacy session load_migrate；223B legacy正规化为489B header+两空NDJSON，前置固定bytes假设首红。只为两个明确seed验证正规化后建立baseline，所有afterdoctor原pins及doctor全目录不变断言保持。",
+      "review": {
+        "path": ".ruyi-runtime/m3-next-source-recovery-20261028/SOURCE-1-SEED-BOUNDARY-20261029.md",
+        "bytes": 3762,
+        "sha256": "8e3681b565570bb5067432742855d752afd86af6840f0b05215ee531b557560d"
+      },
+      "cleanup": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/source-1-owned-stop-result.json",
+        "bytes": 766,
+        "sha256": "48f072c7f979cb506bd77b608bfe552d802153184d7fc4d6bd94894b321047de"
+      },
+      "cleanupLimit": "初次按命令行root过滤没匹配不构成absence；root按journal原native/CIM证据发现warm24308仍在，核权威idle后用原双birth handle算法只停止本进程并核CIM缺席。"
+    },
+    {
+      "kind": "source refused boot TEMP boundary",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/source-fixed-1.log",
+        "bytes": 137,
+        "sha256": "930b399713747eb601e0107faf90c03da2f2ad25939e31d63883072815dcc1b1",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/930b399713747eb601e0107faf90c03da2f2ad25939e31d63883072815dcc1b1.gz",
+          "bytes": 138,
+          "sha256": "25536ed0a0df81949a77aab4327e9d636bf60d1977fbdfc4d119640bea57f2bf"
+        }
+      },
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-07fMm7",
+      "detail": "普通拒绝serve前既有acquireServe先分配一个空joint upload TEMP目录；原新夹具把所有TEMP零变化误用到该startup路径。源码明确不修复/重用该分配，后续只允许并记录一处严格新空目录，原source/backup/target/claim/result及所有旧TEMP继续全等；显式doctor仍要求全部TEMP零额外变化。",
+      "processLimit": "Terra逐journal source/producer/probe/refusedboot原PID核CIM缺席；无整个树连续追踪声明。"
+    },
+    {
+      "kind": "source JSON/VM receipt boundary",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/source-custody-fixed-1.log",
+        "sha256": "d9f5b818bcd24ad46986e9ee8abcb427dd82ab3a8c0845c31a685476d43813a8",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/d9f5b818bcd24ad46986e9ee8abcb427dd82ab3a8c0845c31a685476d43813a8.gz",
+          "bytes": 134,
+          "sha256": "4dee9960eea8db33a1bf539df8d04b1d94c92f0d331806efcfa246adde29c654"
+        }
+      },
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-qW97k0",
+      "detail": "plain doctor实际exit/close0，JSON authority和独立source census proof匹配；随后durable JSON claimReceipt与harness VM receipt做deepStrictEqual时prototype不同而首红。仅将expected receipt跨JSON数据边界normalize，原5个键/值、raw claim、所有其他inventory约束不变；独立review确认。此失败不记完整功能通过。",
+      "processLimit": "journal原source/producer/probe/refusedboot/doctor PIDs均当前缺席；不声称全树持续追踪。"
+    },
+    {
+      "kind": "existing maintenance package-read snapshot",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/maintenance.log",
+        "sha256": "e454a820d8536c6012927324e9f596f1b354b23007f851a5a966b2a5ad53622e",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/e454a820d8536c6012927324e9f596f1b354b23007f851a5a966b2a5ad53622e.gz",
+          "bytes": 158,
+          "sha256": "001a7622e79d65f9d1c1789ff61c75125a397164f6c47a90fcb3060960bd5262"
+        }
+      },
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-R7dHtN",
+      "detail": "round1 export的两次package GET status/全部bytes/hash均通过，随后whole control-tree/backup/session snapshot全等旧断言失败；旧diagnostic未保存before/after，未定位具体差异。现场存在successor ready之后约60ms的既有startup projection/generated配置写入候选，不能据此断言唯一根因。只加安全metadata difference日志、原assert/deadline/baseline完全不变，之后诊断两轮均通过；没有把诊断改动或重跑绿称为产品根因已修。",
+      "cleanupIdentity": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/maintenance-failed-successor-identity.json",
+        "sha256": "3e2d8e285e49672714bab3e20ac4c59d10ab9bc6a5c8dc85a04b47f7487c082e"
+      },
+      "cleanupStop": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/maintenance-failed-successor-stop-result.json",
+        "sha256": "dec6b3bc3081ecf74552ca5923dcef1894ead685b11ce44f08239e172a65681e"
+      }
+    },
+    {
+      "id": "browser-receiver-1",
+      "kind": "real browser acceptance",
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-MDHaZo",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/browser-receiver-1.log",
+        "bytes": 5262,
+        "sha256": "34c18604ecf1e31d585319ba2043221df78924cdf6630d8e6339d492b28bd421",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/34c18604ecf1e31d585319ba2043221df78924cdf6630d8e6339d492b28bd421.gz",
+          "bytes": 1213,
+          "sha256": "47c01b6a2686c805c07683b4387862333f9baaf2cb4f8368727c8fdfa0c889bc"
+        }
+      },
+      "detail": "Actual File-body getter limitation is separately recorded; upload201/loadingFinished observed but complete response receipt was unavailable. Actual restore later completed; no full E2E pass claimed. Added durable CDP response storage and separated early actual job202 tracking from mandatory final receipt/receiver proof. Response getter failure cause remains unproven."
+    },
+    {
+      "id": "browser-durable-1",
+      "kind": "real browser acceptance",
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-ccXKtp",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/browser-durable-1.log",
+        "bytes": 430,
+        "sha256": "dddd27ba9ecc84e3c1d9c3bc6d7f1e234c79f2c963e9e1828c511f12827ca8a0",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/dddd27ba9ecc84e3c1d9c3bc6d7f1e234c79f2c963e9e1828c511f12827ca8a0.gz",
+          "bytes": 290,
+          "sha256": "6fbe3ee765903d21e234b79ab08a48311665694a4eb4374d3866279d44c27cd7"
+        }
+      },
+      "detail": "Actual File/receiver/job/native target/DOM checks passed, then the source serve check failed. Static review found that initial serve and later source verification both opened browser-source-serve output with wx, a deterministic EEXIST collision. The old safe diagnostic discarded EEXIST and e2e filename frames, so this original raw error was not directly retained. Fixed only the initial unique output label and safe diagnostic whitelist; no business assertion was relaxed.",
+      "lateAudit": {
+        "identity": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-durable-1-target-identity.json",
+          "bytes": 1218,
+          "sha256": "6eecf3dfe46188b1725ff6ca390aedc5e95a8fea0bd62a6d1e5788fd23f6e024"
+        },
+        "stop": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-durable-1-target-stop-result.json",
+          "bytes": 179,
+          "sha256": "92246c255aebedcc4623eaa793c38a29082c548a7e2c66b64ec3e9443422215d"
+        },
+        "absence": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-durable-1-target-cim-absence.json",
+          "bytes": 100,
+          "sha256": "18431103d3971894a5c45e5b75a732fca15bc2ec164beb7a9d29915fc5e373b8"
+        },
+        "limit": "Late, exact idle synthetic successor identity audit; not original pre-handoff tracing or whole-tree certification."
+      }
+    },
+    {
+      "id": "browser-label-fixed-1",
+      "kind": "real browser acceptance",
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-PO6ik5",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/browser-label-fixed-1.log",
+        "bytes": 4625,
+        "sha256": "d9f6937db743c01e05c7e528467e30aaadc618a2fe44f02543678d54f7556429",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/d9f6937db743c01e05c7e528467e30aaadc618a2fe44f02543678d54f7556429.gz",
+          "bytes": 1480,
+          "sha256": "9190f87147e37e8aa22ec3f03375e44ebb12ecadc765c0c7626ea2a81609b750"
+        }
+      },
+      "detail": "Actual File, independent receiver, upload201 and job202 evidence were complete. Original started-target assertion failed at work-data-production-restore.e2e.js:583 for an unclassified file. Exact artifact and producer are under review; this is not a pass, and later tests/gates were not started.",
+      "artifact": {
+        "relativePath": "sessions/index.json",
+        "bytes": 410,
+        "sha256": "65f66fc33f1b7754cd7ba8658f254bf64c5b47a7a0254d9437c3b2a3bab3f87a",
+        "owner": "02-session-store.js listSessions/sessionMeta/writeSessionIndex",
+        "limit": "The live browser can issue GET /api/sessions, but ordinary GET events were not journalled in this run; the precise initiating request was not directly captured. Package fixture lacked an authenticated index; a narrow seed correction is under review. The shared started-target allowlist is unchanged."
+      },
+      "lateAudit": {
+        "identity": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-label-fixed-1-target-identity.json",
+          "bytes": 1217,
+          "sha256": "0e2f2819896279e8a59bc415e58a5e5d0a040d494e7d70e8f5ffa0bf1bd346cc"
+        },
+        "stop": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-label-fixed-1-target-stop-result.json",
+          "bytes": 177,
+          "sha256": "fee12d9c9058cb1882e75827df901cc3ff47ff01df173d43a12d79e2277ccaf9"
+        },
+        "absence": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-label-fixed-1-target-cim-absence.json",
+          "bytes": 99,
+          "sha256": "0685f6da51d4d7781d09011c8b6600cca00b51d108e8e9b446ed9ddf15426e98"
+        },
+        "limit": "Exact late-audited idle synthetic successor only; not original pre-handoff tracing or whole-tree certification."
+      }
+    },
+    {
+      "id": "browser-index-fixed-1",
+      "kind": "real browser acceptance",
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-CLMoDe",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/browser-index-fixed-1.log",
+        "bytes": 4597,
+        "sha256": "e252070e33f65559fd77c185b4d45ba46a9763421810cba9b3bb7eaff81224ff",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/e252070e33f65559fd77c185b4d45ba46a9763421810cba9b3bb7eaff81224ff.gz",
+          "bytes": 1468,
+          "sha256": "58107ecd9cbe5ea76bd673ccfbc03a3230e90ac4839f71eb977180ffc432036c"
+        }
+      },
+      "detail": "Authenticated package had config, session head and complete410B sessions/index.json. The target config/head matched, while index was ENOENT. Product boot invalidates ordinary plaintext indexes, and the entry originally checked files before its own session-list read. No exact unlink/request event is claimed from the old journal. Only the new browser entry now awaits a genuine complete GET /api/sessions with all rows equal to authenticated rows before original target-file/full-byte checks. HTTP200 is not treated as durable-index or overall-startup proof; original assertions and shared allowlist are unchanged.",
+      "lateAudit": {
+        "identity": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-index-fixed-1-target-identity.json",
+          "bytes": 1218,
+          "sha256": "51bcae84fa2b9655bf34dd97d1bde7ed838c51c3242efab82752727cc41fa941"
+        },
+        "stop": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-index-fixed-1-target-stop-result.json",
+          "bytes": 179,
+          "sha256": "2ff693614f2d2c4922961bc9d838b06d623c40c0ee5cfe3f615a7c14f58d9481"
+        },
+        "absence": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/browser-index-fixed-1-target-cim-absence.json",
+          "bytes": 100,
+          "sha256": "0d3987122f2191beff2c299b35e1294a8ae5282c98c43b29f79e253a6d9cf675"
+        },
+        "limit": "Late, exact idle synthetic successor identity audit; not original pre-handoff tracing or whole-tree certification."
+      }
+    }
+  ],
+  "validation": [
+    {
+      "id": "source-dto-fixed-1",
+      "command": "node dev-harness/work-data-owned-source-recovery.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 14,
+        "fail": 0,
+        "allPass": true
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-9SZFRt",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/source-dto-fixed-1.log",
+        "sha256": "602dab7334fd2d2f56e9bbd10330a5cfef9d497152dde9fac90f02a77671ee0e",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/602dab7334fd2d2f56e9bbd10330a5cfef9d497152dde9fac90f02a77671ee0e.gz",
+          "bytes": 570,
+          "sha256": "3d5136513a0cdb25b3fce808bde578caa06837686953549321344f56b9d345d0"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-9SZFRt/evidence/result.json",
+        "sha256": "901d790708fe021a8d49ae34f21f69c035d485fef220013c4c2105818846cc5a",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/901d790708fe021a8d49ae34f21f69c035d485fef220013c4c2105818846cc5a.gz",
+          "bytes": 720,
+          "sha256": "24c8fbefe4e654ec533a596efa917b0fbf8c0e63fe6fd4cb3d5aa7faf85a1e72"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 149,
+        "productSource": true,
+        "executionInputSha256": "e909d5f9c48bdc2741187d6f2ea31080dba7a968a60a540903192e26e44b7b8e"
+      },
+      "cohortLimit": "Successful earlier execution inputs predate the shared maintenance diagnostic-only change; final current-input reruns remain required."
+    },
+    {
+      "id": "source-dto-fixed-2",
+      "command": "node dev-harness/work-data-owned-source-recovery.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 14,
+        "fail": 0,
+        "allPass": true
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-wDxPel",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/source-dto-fixed-2.log",
+        "sha256": "64fd54633fa05a035a3aa508142a8c76625e10a817bdbf0cc877b3260e7c9bed",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/64fd54633fa05a035a3aa508142a8c76625e10a817bdbf0cc877b3260e7c9bed.gz",
+          "bytes": 569,
+          "sha256": "02258fdf25d2d5e7fd5e32785201bcabe494b6fd22d810d7516ce009d902e5a0"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-wDxPel/evidence/result.json",
+        "sha256": "901d790708fe021a8d49ae34f21f69c035d485fef220013c4c2105818846cc5a",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/901d790708fe021a8d49ae34f21f69c035d485fef220013c4c2105818846cc5a.gz",
+          "bytes": 720,
+          "sha256": "24c8fbefe4e654ec533a596efa917b0fbf8c0e63fe6fd4cb3d5aa7faf85a1e72"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 149,
+        "productSource": true,
+        "executionInputSha256": "e909d5f9c48bdc2741187d6f2ea31080dba7a968a60a540903192e26e44b7b8e"
+      },
+      "cohortLimit": "Successful earlier execution inputs predate the shared maintenance diagnostic-only change; final current-input reruns remain required."
+    },
+    {
+      "id": "completed",
+      "command": "node dev-harness/work-data-completed-claim-recovery.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 5,
+        "fail": 0
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-alDRDA",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/completed.log",
+        "sha256": "316f10c9a1849ccad9cbc816f32c6d833b2651976c630cdb6a10d905a8e38bbb",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/316f10c9a1849ccad9cbc816f32c6d833b2651976c630cdb6a10d905a8e38bbb.gz",
+          "bytes": 385,
+          "sha256": "3f40bf84f0a3130b324b00011df43f2f75b91debe08bfb0b8f0b8d9d199c575f"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-alDRDA/evidence/result.json",
+        "sha256": "ce324a1534a857a310a87309868efab94100788ba37730385326d49a3ac05b00",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/ce324a1534a857a310a87309868efab94100788ba37730385326d49a3ac05b00.gz",
+          "bytes": 532,
+          "sha256": "44c77c4db57578c337e9a9954660b58ac807a82428d348c8ab1bb57b744f0bf6"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 149,
+        "productSource": true,
+        "executionInputSha256": "f3471cfcd6fdfbc553e7a74eadb4d04d92dd2a3a6669f83984b3faa6d3c6dfc9"
+      },
+      "cohortLimit": "Successful earlier execution inputs predate the shared maintenance diagnostic-only change; final current-input reruns remain required."
+    },
+    {
+      "id": "maintenance-diagnostic-1",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 14,
+        "fail": 0
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-g40abJ",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/maintenance-diagnostic-1.log",
+        "sha256": "c79c2275cb08cb92243f5b1e0b2c45485e36f9be959ca92c6a4eedc337076de9",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/c79c2275cb08cb92243f5b1e0b2c45485e36f9be959ca92c6a4eedc337076de9.gz",
+          "bytes": 590,
+          "sha256": "b348e2e6d4eafea2efaca14ec8b1026568eafb904d1a111df321186ce1d766e0"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-g40abJ/evidence/result.json",
+        "sha256": "38e73d2034509361b0ee86a8efcec9f54eb8e2b31bba3bd7356cd95d0817cd56",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/38e73d2034509361b0ee86a8efcec9f54eb8e2b31bba3bd7356cd95d0817cd56.gz",
+          "bytes": 1249,
+          "sha256": "d34489bc5fb16838689a5900f12bd9c1c3eebfb91f775a244735c32698abf84f"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "96ae8cbb82e07ea371a4153dab45f7cc07fd24356352116f442032addb437ecc"
+      }
+    },
+    {
+      "id": "maintenance-diagnostic-2",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 14,
+        "fail": 0
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-9bd7Rc",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/maintenance-diagnostic-2.log",
+        "sha256": "1d3271d2fb8c9b82bc7715587918e261f951d3c66552d2c60f457f719aa30c05",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/1d3271d2fb8c9b82bc7715587918e261f951d3c66552d2c60f457f719aa30c05.gz",
+          "bytes": 589,
+          "sha256": "4771d60524cd7cd4e532c0a7ba71b8cc074bc7409a8d7365662de4768e28776f"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-9bd7Rc/evidence/result.json",
+        "sha256": "ee0183eabf7e7a70809eb3cf7d13bbb19cccdd92d21d9c82b8664ff63c078c56",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/ee0183eabf7e7a70809eb3cf7d13bbb19cccdd92d21d9c82b8664ff63c078c56.gz",
+          "bytes": 1247,
+          "sha256": "5d2b107ce44634dbdbd08e04dcea0ba6fab6bb4ff5678d542202068e89563370"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "96ae8cbb82e07ea371a4153dab45f7cc07fd24356352116f442032addb437ecc"
+      }
+    },
+    {
+      "id": "restore",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 26,
+        "fail": 0
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-CBr4te",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/restore.log",
+        "sha256": "2266f2449b5b2dc57fe24a8f00d3b3a9dc9c3af3e4065d2ae7f24ac69ab64710",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/2266f2449b5b2dc57fe24a8f00d3b3a9dc9c3af3e4065d2ae7f24ac69ab64710.gz",
+          "bytes": 867,
+          "sha256": "e7b065bb62ebcfaf89bb93ecb92d0d1baa349c3a29adaab03814000a78f4b299"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-CBr4te/evidence/result.json",
+        "sha256": "c3e276311c32cf85abc0ba94d2f86ac567dbc25004a1c2f1b578330c04b16ac8",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/c3e276311c32cf85abc0ba94d2f86ac567dbc25004a1c2f1b578330c04b16ac8.gz",
+          "bytes": 4283,
+          "sha256": "14a271ed574f15003a035cb5adbb642e6c3f67b134fc7d5655831d62a48ae6d9"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "96ae8cbb82e07ea371a4153dab45f7cc07fd24356352116f442032addb437ecc"
+      }
+    },
+    {
+      "id": "upload",
+      "command": "node dev-harness/work-data-production-upload.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 20,
+        "fail": 0,
+        "allPass": true
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/upload.log",
+        "bytes": 1998,
+        "sha256": "6d2ff719f421fa414fdaa495ddaeedc43d5bb4b04a4124b98b1d8dfee980f86c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/6d2ff719f421fa414fdaa495ddaeedc43d5bb4b04a4124b98b1d8dfee980f86c.gz",
+          "bytes": 721,
+          "sha256": "b3ff8a5508f689666aba86f5e2196ce00e381df11931d7d77c2f669d5eb64677"
+        }
+      },
+      "limit": "Existing real full-serve upload and refusal assertions; the original fixture boundaries remain unchanged."
+    },
+    {
+      "id": "cold",
+      "command": "node dev-harness/work-data-cold-operations.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 4,
+        "fail": 0,
+        "allPass": true
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/cold.log",
+        "bytes": 399,
+        "sha256": "d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af.gz",
+          "bytes": 258,
+          "sha256": "2c4d354eaadd7d33ba5405f0d9cce00b8000caa87f38a5d92d94454fec4f259c"
+        }
+      },
+      "limit": "Actual native operations and original independent cold verification, as defined by the existing harness."
+    },
+    {
+      "id": "runtime",
+      "command": "node dev-harness/work-data-maintenance-runtime.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 2,
+        "fail": 0,
+        "allPass": true
+      },
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/runtime.log",
+        "bytes": 1071,
+        "sha256": "1e9c172948d37f6c71462b69e0c1d23e4f890edc5e3d43ea3cc8f5d723a15d6d",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/1e9c172948d37f6c71462b69e0c1d23e4f890edc5e3d43ea3cc8f5d723a15d6d.gz",
+          "bytes": 494,
+          "sha256": "5c0bbd1f5301fc33b3dd8d4d9497b8d4b04d0fd1a2ffea2729ade20edbb52382"
+        }
+      },
+      "limit": "Two top-level PASS labels, including the original four real process cases; do not count them as six independent labels."
+    },
+    {
+      "id": "browser-session-read-1",
+      "command": "node dev-harness/work-data-production-restore.browser.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 3,
+        "fail": 0,
+        "allPass": true
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-LgVJ37",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/browser-session-read-1.log",
+        "bytes": 583,
+        "sha256": "2b58810beed4bb5dba2f412e6c96ccec2f425901168783daf4020a78c55656a7",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/2b58810beed4bb5dba2f412e6c96ccec2f425901168783daf4020a78c55656a7.gz",
+          "bytes": 385,
+          "sha256": "37023e1962db5a47e02131f3890b9a59c980deff47efb9e724923ad822cc057a"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-LgVJ37/evidence/result.json",
+        "bytes": 7630,
+        "sha256": "f556e42ef6227661b9a7ca609b2e94772fd67390d65f9e86d22d97f15b79ebcc",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/f556e42ef6227661b9a7ca609b2e94772fd67390d65f9e86d22d97f15b79ebcc.gz",
+          "bytes": 1601,
+          "sha256": "eb874a323a605f84932d4794bca29d37c950f7fee792d5819ad157d6ebefd50b"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 272,
+        "executionInputSha256": "1f88df2755f049fb334dfcfb9da3e661313e735ea1ce3e014d4aaf42fb4a433a",
+        "browserAssetsPinned": true
+      }
+    },
+    {
+      "id": "browser-session-read-2",
+      "command": "node dev-harness/work-data-production-restore.browser.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 3,
+        "fail": 0,
+        "allPass": true
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-J0xsPL",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/browser-session-read-2.log",
+        "bytes": 583,
+        "sha256": "741199b5dda8053a6038a8ed28f80fa2e17d4188b8532938d6c9a7b9f1f33cc6",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/741199b5dda8053a6038a8ed28f80fa2e17d4188b8532938d6c9a7b9f1f33cc6.gz",
+          "bytes": 384,
+          "sha256": "42e8dec9368f78644c3249304e0a06e12f71aa4edb394cfca3c854382401eb47"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-browser-restore-J0xsPL/evidence/result.json",
+        "bytes": 7626,
+        "sha256": "20f26ee1febd10b77380b666a8c7e68d2121ab617161430a1d787dc7711bc103",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/20f26ee1febd10b77380b666a8c7e68d2121ab617161430a1d787dc7711bc103.gz",
+          "bytes": 1600,
+          "sha256": "1b0b867ca5e68d180eaae3b5ebc263f02425806cff28cbe2b6ccd3a600742fe5"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 272,
+        "executionInputSha256": "1f88df2755f049fb334dfcfb9da3e661313e735ea1ce3e014d4aaf42fb4a433a",
+        "browserAssetsPinned": true
+      }
+    },
+    {
+      "id": "source-final-1",
+      "command": "node dev-harness/work-data-owned-source-recovery.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 14,
+        "fail": 0,
+        "allPass": true
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-EkAdiW",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/source-final-1.log",
+        "bytes": 1809,
+        "sha256": "013263e30accc2233cea1957a2315d26a899182ce5655c096f86ae822010a706",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/013263e30accc2233cea1957a2315d26a899182ce5655c096f86ae822010a706.gz",
+          "bytes": 568,
+          "sha256": "b768055ba7adf95f1e14c2a3e515e7ece4337990f776810cb6e819b305e19bc6"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-EkAdiW/evidence/result.json",
+        "bytes": 2121,
+        "sha256": "ffbf6b10cade3a37af98ff33ce569daff6c6a3da313b3faea90f1caf8f8d3bc3",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/ffbf6b10cade3a37af98ff33ce569daff6c6a3da313b3faea90f1caf8f8d3bc3.gz",
+          "bytes": 721,
+          "sha256": "1c91a679bb84482939737a005828fbae5eba95251627784897af8c1805479435"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 149,
+        "productSource": true,
+        "executionInputSha256": "7d6e438626d2a7cce3d9605b628fb1493ff80e3120803e016327b504dbe521ce"
+      }
+    },
+    {
+      "id": "source-final-2",
+      "command": "node dev-harness/work-data-owned-source-recovery.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 14,
+        "fail": 0,
+        "allPass": true
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-psXllJ",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/source-final-2.log",
+        "bytes": 1809,
+        "sha256": "d1d4a333d3af240168fdcdf2b6af734b8bbb842e467dccb87039e6be2cf1a289",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/d1d4a333d3af240168fdcdf2b6af734b8bbb842e467dccb87039e6be2cf1a289.gz",
+          "bytes": 569,
+          "sha256": "34923919a2b9b1987b395ab2cabe76921bd72390968a801fa7b35d915ea21753"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-psXllJ/evidence/result.json",
+        "bytes": 2121,
+        "sha256": "ffbf6b10cade3a37af98ff33ce569daff6c6a3da313b3faea90f1caf8f8d3bc3",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/ffbf6b10cade3a37af98ff33ce569daff6c6a3da313b3faea90f1caf8f8d3bc3.gz",
+          "bytes": 721,
+          "sha256": "1c91a679bb84482939737a005828fbae5eba95251627784897af8c1805479435"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 149,
+        "productSource": true,
+        "executionInputSha256": "7d6e438626d2a7cce3d9605b628fb1493ff80e3120803e016327b504dbe521ce"
+      }
+    },
+    {
+      "id": "completed-final",
+      "command": "node dev-harness/work-data-completed-claim-recovery.e2e.js",
+      "exitCode": 0,
+      "result": {
+        "pass": 5,
+        "fail": 0,
+        "allPass": true
+      },
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-rJCxVZ",
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/completed-final.log",
+        "bytes": 707,
+        "sha256": "2a9a1e64706b403b696fcbae04afd73aec91fa1ec9775af8d1166ea18d652fad",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/2a9a1e64706b403b696fcbae04afd73aec91fa1ec9775af8d1166ea18d652fad.gz",
+          "bytes": 386,
+          "sha256": "8188a1bf35a421609251b2c0b47ac795b476ff547e28c51bb62050aa361ba221"
+        }
+      },
+      "artifact": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-rJCxVZ/evidence/result.json",
+        "bytes": 1017,
+        "sha256": "ac49d46005d95ab14e3d884daa00ef128f1a7da0aee9002b534a04f7052fbe2e",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/ac49d46005d95ab14e3d884daa00ef128f1a7da0aee9002b534a04f7052fbe2e.gz",
+          "bytes": 534,
+          "sha256": "fb679f698ef4db3291818aca8ecaced08d7e3e3ee53d9a99d545ff82b6951df4"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 149,
+        "productSource": true,
+        "executionInputSha256": "45cd172b2f41d99701f395e60ad8ffad861774b0279a084b2463deb39ce07d15"
+      }
+    }
+  ],
+  "egressDelta": {
+    "baselineCommit": "7bec048c327864800bff4f887ee35e1649663493",
+    "reviewedFiles": [
+      "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+      "ruyi-workbench/app/src/14-main.js",
+      "ruyi-workbench/app/src/manifest.json",
+      "ruyi-workbench/app/src/module-contracts.json"
+    ],
+    "before": {
+      "sources": 316,
+      "candidates": 792,
+      "errorCount": 154
+    },
+    "after": {
+      "sources": 316,
+      "candidates": 793,
+      "errorCount": 154
+    },
+    "addedErrorIds": [],
+    "removedErrorIds": [],
+    "changedCandidates": [
+      {
+        "id": "ruyi-workbench/app/src/13av-work-data-handoff-claim.js#recoverSource#writeFile#1",
+        "file": "ruyi-workbench/app/src/13av-work-data-handoff-claim.js",
+        "symbol": "recoverSource",
+        "callee": "writeFile",
+        "category": "file",
+        "fingerprint": "f3816491afceb87687b47bc9beda24159bb224b6e293b1549b34871ad936181d",
+        "classification": "file-boundary"
+      },
+      {
+        "id": "ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+        "file": "ruyi-workbench/app/src/manifest.json",
+        "symbol": "<module>",
+        "callee": "<configuration>",
+        "category": "capability",
+        "fingerprint": "a369e13dbaa4b409c02d7e195fffea7b90b8c45d9a1beae5c89e4555475f0c8f",
+        "uncertainty": "Declarative configuration can define executable, endpoint or connector capabilities",
+        "classification": "capability"
+      },
+      {
+        "id": "ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+        "file": "ruyi-workbench/app/src/module-contracts.json",
+        "symbol": "<module>",
+        "callee": "<configuration>",
+        "category": "capability",
+        "fingerprint": "aa79596e62461de35f60f5b63361b16c64ff76ae5de966c5aab5f6c3b19fc23d",
+        "uncertainty": "Declarative configuration can define executable, endpoint or connector capabilities",
+        "classification": "capability"
+      }
+    ],
+    "deletedCandidates": [],
+    "globalGatePassed": false
+  },
+  "agents": {
+    "complexImplementationAndReview": "6.1 Sol, high/xhigh",
+    "realEndToEndAndDocumentUpdate": "6.1 Terra, medium",
+    "maximumConcurrentIncludingRoot": 4
+  },
+  "remaining": "browser当前最终输入需两遍完整通过，source最终输入两遍与completed当前输入回归后再完整syntax/build/fast标准门。早期source/complete成功不冒充当前执行输入。旧maintenance初次snapshot差异仍未精确定位。M3其它剩余与M4/M5/M6、真包和跨账户跨机范围保持；无真实用户数据、平台消息或发布。",
+  "standardGates": {
+    "syntax": {
+      "command": "node dev-harness/syntax-gate.js",
+      "exitCode": 0,
+      "filesChecked": 1357,
+      "failed": 0,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/syntax-final.log",
+        "bytes": 61,
+        "sha256": "e3a3ecdc608440d104c8c4efeb8faf96e55eb52b8132846a2e24cf6733456aaa",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/e3a3ecdc608440d104c8c4efeb8faf96e55eb52b8132846a2e24cf6733456aaa.gz",
+          "bytes": 81,
+          "sha256": "ca2cda2a89977bd45f292dd15a9b59dfc9b9a73ebff80b2e98ddd2080cd7c745"
+        }
+      }
+    },
+    "build": {
+      "command": "node ruyi-workbench/app/build.js --check",
+      "exitCode": 0,
+      "fresh": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/build-final.log",
+        "bytes": 70,
+        "sha256": "2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/2b54d266d01dd4fa0c70c7114d171fde9d928fc015963c3f7313d1a446cc5df9.gz",
+          "bytes": 93,
+          "sha256": "1917454ddeca802e0156c56c9bce35ac273bb86683042ce4aac1b714d93e0b2e"
+        }
+      }
+    },
+    "fast": {
+      "status": "completed-with-static-metadata-failures",
+      "originalProcessPassed": false
+    },
+    "fastFirstFailure": {
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "exitCode": 2,
+      "tests": 4319,
+      "pass": 4292,
+      "fail": 1,
+      "skipped": 26,
+      "cancelled": 0,
+      "durationMs": 485965,
+      "staticsStarted": false,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/fast-final.log",
+        "bytes": 2356,
+        "sha256": "08f5a0ea63e06edc919447f6fbb3f7f3be1f190a6ad63e00f6c1bd63ba5520e2",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/08f5a0ea63e06edc919447f6fbb3f7f3be1f190a6ad63e00f6c1bd63ba5520e2.gz",
+          "bytes": 1411,
+          "sha256": "62c0f8838ae2711d12e43dd739db4efa318effe9992d6daac0056e38d7d79af3"
+        }
+      },
+      "unitLog": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/last-unit-final.log",
+        "bytes": 595687,
+        "sha256": "ae654325b486cb2afb63ac825e80ffae022b73c235cbd399052a4933d6a8816e",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/ae654325b486cb2afb63ac825e80ffae022b73c235cbd399052a4933d6a8816e.gz",
+          "bytes": 220868,
+          "sha256": "07688a054843613628e3c79903ed577055358be92d06fa28326b089c26773002"
+        }
+      },
+      "reason": "fulltext-storage-contract.test.js inventory draft retained old global76/excluded32 expectation after one new TEMP diagnostic surface; generated inventory is77/required44/excluded33. Fixed only those two expected counts and explicitly asserted the new observation exclusion; all fulltext required/search-index/pending/not-completed assertions remain. Permanent product/E2E execution inputs did not change."
+    },
+    "fastSecondFailure": {
+      "command": "node dev-harness/run-all.js --fast --parallel 4",
+      "exitCode": 2,
+      "tests": 4319,
+      "pass": 4288,
+      "fail": 5,
+      "skipped": 26,
+      "cancelled": 0,
+      "durationMs": 528414.055,
+      "staticsStarted": false,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/fast-inventory-fixed.log",
+        "bytes": 2884,
+        "sha256": "fc24c9c5ba0bc81fc068a77d933f6bfa440f4086cd8b44d4f693f86e124f7bff",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/fc24c9c5ba0bc81fc068a77d933f6bfa440f4086cd8b44d4f693f86e124f7bff.gz",
+          "bytes": 1305,
+          "sha256": "0ac36f469a3abac8e6a1ae56d7d8bc362de55404328a1a446f9151967d6128b6"
+        }
+      },
+      "unitLog": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/unit-inventory-fixed.log",
+        "bytes": 599798,
+        "sha256": "53b3c6e0c8ada2f3fa307f0d126ff39443a95c3472016d0c769e2d969c8030be",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/53b3c6e0c8ada2f3fa307f0d126ff39443a95c3472016d0c769e2d969c8030be.gz",
+          "bytes": 221912,
+          "sha256": "49100e690542908246c99bd5e42a06feed150a72a239241bff5cbc33f4c0768a"
+        }
+      },
+      "failures": [
+        {
+          "file": "dev-harness/unit/migration-skill-backups-work-data.test.js",
+          "lines": [
+            552,
+            561,
+            575,
+            588
+          ],
+          "observed": "native_exit; actual native fixture StackOverflowException/OutOfMemoryException; expected short-name probe refusal instead received native_exit"
+        },
+        {
+          "file": "dev-harness/unit/session-artifacts-work-data.test.js",
+          "line": 67,
+          "observed": "Array buffer allocation failed"
+        }
+      ],
+      "causeProven": false,
+      "action": "Stop first failure; serial original-case isolation and actual memory observation before selecting a full-gate resource budget; no deadline/assertion/native-source relaxation."
+    },
+    "isolatedFailureCases": {
+      "native": {
+        "command": "node --test --test-concurrency=1 --test-name-pattern 'ordinary root names|unrelated root alias|crash after full root publication|short-name capability refusal' dev-harness/unit/migration-skill-backups-work-data.test.js",
+        "tests": 4,
+        "pass": 4,
+        "fail": 0,
+        "exitCode": 0,
+        "durationMs": 67235.85,
+        "log": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/native-five-isolated.log",
+          "bytes": 603,
+          "sha256": "068187cb8a83698fc212b2d93f4ff5f730920db69e18cd15567c283a1026e7e6",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/068187cb8a83698fc212b2d93f4ff5f730920db69e18cd15567c283a1026e7e6.gz",
+            "bytes": 375,
+            "sha256": "1455e4c2616073bca26239bfa037069ee5b52f690a1533b7cd5156e77292935f"
+          }
+        }
+      },
+      "largeIndex": {
+        "command": "node --test --test-concurrency=1 --test-name-pattern '^large index seals losslessly' dev-harness/unit/session-artifacts-work-data.test.js",
+        "tests": 1,
+        "pass": 1,
+        "fail": 0,
+        "exitCode": 0,
+        "durationMs": 1892.99,
+        "log": {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/index-isolated.log",
+          "bytes": 275,
+          "sha256": "a24dd47b0d32409d92275913f8a9a9a4499f42bd30bd8c6f3ddf95cf61646869",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/a24dd47b0d32409d92275913f8a9a9a4499f42bd30bd8c6f3ddf95cf61646869.gz",
+            "bytes": 213,
+            "sha256": "73a81fd984834a2a1c2d5419e4889a5bb1f7d54f4387eca0cca169bb489b67ec"
+          }
+        }
+      },
+      "memorySnapshots": [
+        {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/isolated-memory-before.json",
+          "bytes": 152,
+          "sha256": "248921b65b9f8878131eb49d223df238772eaec5b3b62f556d1394b2a8c8fd6c",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/248921b65b9f8878131eb49d223df238772eaec5b3b62f556d1394b2a8c8fd6c.gz",
+            "bytes": 123,
+            "sha256": "7af4ef123dbb690cbd81a110f197764e1f78d2950da46463ba2e27a3f828dab7"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/isolated-memory-after.json",
+          "bytes": 152,
+          "sha256": "25730ea541a96b6b977e87fafd5b38f5a64e29ce2d182d20b0d92272d83afbbb",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/25730ea541a96b6b977e87fafd5b38f5a64e29ce2d182d20b0d92272d83afbbb.gz",
+            "bytes": 123,
+            "sha256": "4b43cd646147b5c23b6143aa77ed60ebcce4fcac22de83cefb261ff48438aa12"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/isolated-commit-before.json",
+          "bytes": 104,
+          "sha256": "e25d6c30be24ee64d742de648883fce224110ca5c45f07d7c6d23e15e9938bdd",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/e25d6c30be24ee64d742de648883fce224110ca5c45f07d7c6d23e15e9938bdd.gz",
+            "bytes": 105,
+            "sha256": "899e001c58f756345d92b8fea42c705d2b67a1bbac8a27a1775719e3cfc241dd"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-source-browser-20261029/isolated-commit-after.json",
+          "bytes": 104,
+          "sha256": "80c835db6d395acace4cdf3ee0eea57b888bd699802a29a66238aef30943d647",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/80c835db6d395acace4cdf3ee0eea57b888bd699802a29a66238aef30943d647.gz",
+            "bytes": 105,
+            "sha256": "028d22e9ac7a7bd21bd3337142d4b68be38f72e6f0d367d3bd3d6849c8f236c3"
+          }
+        }
+      ],
+      "limit": "Before/after observations, not running peaks. Isolation success does not prove the cause of the earlier failures. Original assertions/deadlines/native source unchanged; no user processes stopped or heap/paging settings changed."
+    },
+    "unit": {
+      "command": "node --test --test-concurrency=1 dev-harness/unit/*.test.js (invoked by original run-all --fast --parallel 1)",
+      "tests": 4319,
+      "suites": 192,
+      "pass": 4293,
+      "fail": 0,
+      "skipped": 26,
+      "cancelled": 0,
+      "durationMs": 1564510.0851,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/unit-serial-final.log",
+        "bytes": 594666,
+        "sha256": "3c894a6c7828db7e826c847993f5e3f95b28733778bee0f8ba0559cd9d92a42c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/3c894a6c7828db7e826c847993f5e3f95b28733778bee0f8ba0559cd9d92a42c.gz",
+          "bytes": 219991,
+          "sha256": "eee53f6e3ee702bd4d065ecc3881fc1f9cd76a8e2e2b79cc216579957d9afabc"
+        }
+      },
+      "limit": "Complete actual unit result; subsequent corrections only update README counts and generated route coverage metadata, with no product, E2E/helper or unit input changes."
+    },
+    "fastSerialObservation": {
+      "command": "node dev-harness/run-all.js --fast --parallel 1",
+      "exitCode": 1,
+      "unitPassed": true,
+      "staticPass": 80,
+      "staticFail": 2,
+      "staticRan": 82,
+      "liveSkipped": 7,
+      "flaky": 0,
+      "leftoverTestBrowsers": 0,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/fast-serial-final.log",
+        "bytes": 10694,
+        "sha256": "7304e2201e7667d0f64860e6f6c74ccd3d2fa55d10d94007456555503da4c3fb",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/7304e2201e7667d0f64860e6f6c74ccd3d2fa55d10d94007456555503da4c3fb.gz",
+          "bytes": 3507,
+          "sha256": "8f09b5f18409f26780a17ce7b117ba330e5a93e6f924331692a01e38720c7d04"
+        }
+      },
+      "reason": "facts README unit suite408 versus409; generated route coverage missing final browser references. Runner automatic internal retries did not pass them; original first outcomes retained."
+    },
+    "staticFollowUp": {
+      "status": "passed",
+      "scope": "all82 current static cases through unchanged original runOne, separately from the completed unit gate",
+      "observer": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/static-current-inputs.cjs",
+        "bytes": 2810,
+        "sha256": "a0d86292ecc0e8eabbc3aeb4d121cc42dce939e65c294fe0b7b9dfb0a6ea2b82",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/a0d86292ecc0e8eabbc3aeb4d121cc42dce939e65c294fe0b7b9dfb0a6ea2b82.gz",
+          "bytes": 1277,
+          "sha256": "0b6a6415bb38da2595a0223d63e8dde43e0b8b0e466efa963f5a3cdc63f80e9b"
+        }
+      },
+      "report": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/INDEPENDENT-METADATA-STATIC-REVIEW.md",
+        "bytes": 5056,
+        "sha256": "a33afc6c81be5787f85713caf5afe15f5a3c19c24c148491c3ceccde71002726",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/a33afc6c81be5787f85713caf5afe15f5a3c19c24c148491c3ceccde71002726.gz",
+          "bytes": 2475,
+          "sha256": "4abc2d710e0d528dc7f9453253601b7d113e5ebfacfa9f181aace85a77ad0f60"
+        }
+      },
+      "unitRerun": false,
+      "automaticRetry": false,
+      "pass": 82,
+      "fail": 0,
+      "leftoverTestBrowsers": 0,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/static-final.log",
+        "bytes": 3562,
+        "sha256": "8bb85f9a883090b61aaab2c526fe4ee217558bc2e209e943b7b962bded1d6607",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/8bb85f9a883090b61aaab2c526fe4ee217558bc2e209e943b7b962bded1d6607.gz",
+          "bytes": 1132,
+          "sha256": "6eb8bafc19695b85bbe3ef55cd1a0c1284cf7eea9355eca1008a7b15738959fd"
+        }
+      },
+      "summary": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/static-final-summary.json",
+        "bytes": 3351,
+        "sha256": "874066252511fd13201e3d818ef8590e4620715b567cdd13dba8e822d1da2edc",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/874066252511fd13201e3d818ef8590e4620715b567cdd13dba8e822d1da2edc.gz",
+          "bytes": 996,
+          "sha256": "2c3994f293d24ed87f1302bc31e69caf512e556aa9ee84bdc4186ac9fc571263"
+        }
+      },
+      "results": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/static-final-results.json",
+        "bytes": 382766,
+        "sha256": "2f9e97348ad669b45fb794059ddd93d0f48eba93cb5459ec005fbc1222ac90c2",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/2f9e97348ad669b45fb794059ddd93d0f48eba93cb5459ec005fbc1222ac90c2.gz",
+          "bytes": 142136,
+          "sha256": "3e6b10d4f2e65c18b7c48707d48d1aa5944e753fe4fea5855dffee801113c12f"
+        }
+      }
+    },
+    "eol": {
+      "command": "node dev-harness/eol-policy.static.e2e.js",
+      "exitCode": 0,
+      "pass": 5,
+      "trackedTextFiles": 2160,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/eol-final.log",
+        "bytes": 263,
+        "sha256": "50c53f55511676f53c1db10d11642ce4a8440da1d91d66dc2a4ee6f1d8f573b8",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/50c53f55511676f53c1db10d11642ce4a8440da1d91d66dc2a4ee6f1d8f573b8.gz",
+          "bytes": 169,
+          "sha256": "be6af2a2d7ab2fd31de6a4241a4bbe622a77ec474919890183e404365c031677"
+        }
+      }
+    },
+    "hygiene": {
+      "command": "node dev-harness/repo-hygiene.e2e.js",
+      "exitCode": 0,
+      "pass": 70,
+      "log": {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/hygiene-final.log",
+        "bytes": 5078,
+        "sha256": "196d54ad64536e0ef36a92bf412e74edaa68ef68c87c2ed77a401b12b154adcb",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/196d54ad64536e0ef36a92bf412e74edaa68ef68c87c2ed77a401b12b154adcb.gz",
+          "bytes": 1844,
+          "sha256": "b3b4625b262e041bfe9ac470f2d09b331ab59caf0bece547b3a5d14f8d795497"
+        }
+      }
+    }
+  },
+  "precommitExecutionInputs": {
+    "browser": {
+      "sameInputs": true,
+      "files": 272,
+      "executionInputSha256": "1f88df2755f049fb334dfcfb9da3e661313e735ea1ce3e014d4aaf42fb4a433a",
+      "browserAssetsPinned": true
+    },
+    "owned": [
+      {
+        "file": "work-data-owned-source-recovery.e2e.js",
+        "sameInputs": true,
+        "files": 149,
+        "productSource": true,
+        "executionInputSha256": "7d6e438626d2a7cce3d9605b628fb1493ff80e3120803e016327b504dbe521ce"
+      },
+      {
+        "file": "work-data-completed-claim-recovery.e2e.js",
+        "sameInputs": true,
+        "files": 149,
+        "productSource": true,
+        "executionInputSha256": "45cd172b2f41d99701f395e60ad8ffad861774b0279a084b2463deb39ce07d15"
+      }
+    ],
+    "records": [
+      {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/precommit-browser-input-recheck.json",
+        "bytes": 166,
+        "sha256": "0a40fa6f422af775faeba85cfbe2436067813217457179bb35615a8d155b60a9",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/0a40fa6f422af775faeba85cfbe2436067813217457179bb35615a8d155b60a9.gz",
+          "bytes": 155,
+          "sha256": "1216a691f4a71fc6d3e53740670e2e93908331b27e384a94552c7bb17a811a96"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-source-browser-20261029/precommit-owned-input-recheck.json",
+        "bytes": 460,
+        "sha256": "756fac81363494099b0131bfc658b5a2da9dcd7726e48731f2db23a560a6f1a0",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-source-browser-20261029/blobs/756fac81363494099b0131bfc658b5a2da9dcd7726e48731f2db23a560a6f1a0.gz",
+          "bytes": 251,
+          "sha256": "b1d06cecbe8d720113181abe4d407db3e2513b5ac455a94b0f8cb45314950090"
+        }
+      }
+    ],
+    "limit": "Actual existing bindTarget/recheck reads; exact successful E2E input digests remain unchanged after metadata corrections. No new native/browser journey performed by this check."
+  }
+}

@@ -43,6 +43,8 @@ function memoryFs() {
     async readdir(file) { return entries(file); },
     async readFile(file, encoding) { const bytes = Buffer.from(get(file).bytes); return encoding ? bytes.toString(encoding) : bytes; },
     async mkdir(file) { mkdir(file); },
+    async rename(from, to) { const row = get(from); if (!nodes.has(key(path.dirname(to)))) throw fail('ENOENT'); nodes.delete(key(from)); row.file = path.resolve(to); nodes.set(key(to), row); },
+    async unlink(file) { get(file); nodes.delete(key(file)); },
     async mkdtemp(prefix) { const file = prefix + String(++nextTemp).padStart(6, '0'); mkdir(file); return file; },
     async open(file, flags) {
       if (flags.includes('x')) { if (nodes.has(key(file))) throw fail('EEXIST'); put(file, Buffer.alloc(0)); }
@@ -94,11 +96,12 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
     ['os', { tmpdir: () => paths.temp }], ['node:os', { tmpdir: () => paths.temp }],
     ['node:timers', timers], ['node:util', require('node:util')], ['node:buffer', require('node:buffer')]
   ]);
-  const context = vm.createContext({ Buffer, process: proc, URL, AbortController, queueMicrotask,
+  const context = vm.createContext({ Buffer, process: proc, URL, AbortController, queueMicrotask, VERSION: '3.0.1',
     setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
     require(name) { if (!imports.has(name)) throw Error('Unexpected production-pure fixture import: ' + name); return imports.get(name); } });
   const modules = [
     ['01g-server-ownership.js', 'ServerOwnership'], ['13aq-work-data-native-adapters.js', 'WorkDataNativeAdapters'],
+    ['13av-work-data-handoff-claim.js', 'WorkDataHandoffClaim'], ['13aj-work-data-control.js', 'WorkDataMaintenanceControl'],
     ['01t-work-data-recovery.js', 'WorkDataRecovery'], ['13at-work-data-restore-uploads.js', 'WorkDataRestoreUploads'],
     ['01ae-work-data-maintenance-result.js', 'WorkDataMaintenanceResult'], ['13am-work-data-maintenance-runtime.js', 'WorkDataMaintenanceRuntime'],
     ['13au-work-data-runtime-host.js', 'WorkDataRuntimeHost'], ['13au-work-data-runtime-host.js', 'WorkDataServeUploadBootstrap'],
@@ -110,11 +113,11 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
     if (file === '01t-work-data-recovery.js' && withoutRecoveryBudget) source = source.replace('LIMITS, seal, open', 'LIMITS: null, seal, open');
     vm.runInContext(source, context, { filename: file });
   }
-  const api = vm.runInContext('({ ownership:ServerOwnership,native:WorkDataNativeAdapters,uploads:WorkDataRestoreUploads,result:WorkDataMaintenanceResult,runtime:WorkDataMaintenanceRuntime,host:WorkDataRuntimeHost,bootstrap:WorkDataServeUploadBootstrap,setup:WorkDataSetup,recovery:WorkDataRecovery })', context);
+  const api = vm.runInContext('({ ownership:ServerOwnership,native:WorkDataNativeAdapters,claim:WorkDataHandoffClaim,control:WorkDataMaintenanceControl,uploads:WorkDataRestoreUploads,result:WorkDataMaintenanceResult,runtime:WorkDataMaintenanceRuntime,host:WorkDataRuntimeHost,bootstrap:WorkDataServeUploadBootstrap,setup:WorkDataSetup,recovery:WorkDataRecovery })', context);
   const authority = { generation: 1, id: 'a'.repeat(48), mode: 'encrypted', proof: { sha256: 'b'.repeat(64) } };
   const fullAuthority = { generation: authority.generation, id: authority.id, mode: authority.mode, sha256: authority.proof.sha256 };
   const nativeBindings = { ownership: api.ownership, manifest: { create: () => ({ readActive: async () => authority }) },
-    fullSnapshot: { create: () => ({ seal: async () => ({ sourceProof: { sha256: 'd'.repeat(64) }, files: 1, directories: 1 }), restore: async () => ({ ok: true }) }) },
+    fullSnapshot: { create: () => ({ seal: async () => ({ sourceProof: { sha256: 'd'.repeat(64), bytes: 17, files: 1, directories: 1 }, files: 1, directories: 1 }), restore: async () => ({ ok: true }) }) },
     nativePublish: { createFlush: () => async directories => { events.push('flush'); return { ok: true, flushDirectories: directories, directoryFlush: directories.map(() => 0) }; } },
     disposableTree: { create: () => async () => true }, migrationHost: { create: () => ({}) },
     worker: { create: () => ({}), spawnCold() { throw Error('No real child in pure fixture'); }, processChannel() { throw Error('No real IPC in pure fixture'); } },
@@ -138,6 +141,37 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
   const factory = api.host.create({ proc, bindings });
   const bootstrap = api.bootstrap.create({ ownership: api.ownership, hostApi: { create: () => factory }, proc, temp: paths.temp, inspectNative: () => state.unknown });
   const fixture = { root, paths, memory, events, servers, holds, timeouts, state, context, api, native, hostNative, nativeBindings, bindings, claim, maintenance, factory, bootstrap, workerHooks, runtimeHooks, fullAuthority, proc,
+    async sourceClaim({ operation = 'export' } = {}) {
+      // The production tail uses a separate verifier/native adapter for TEMP claim
+      // flushes. Preserve that separation, plus real claim bytes/CAS and owner brands.
+      const claimBindings = { ...nativeBindings, nativePublish: { createFlush: () => async directories => {
+        events.push('claim-flush');
+        if (state.claimFlush) return state.claimFlush(directories);
+        return nativeBindings.nativePublish.createFlush()(directories);
+      } } };
+      const claimNative = api.native.create({ bindings: claimBindings, proc, clock: timers });
+      const owner = api.claim.create({ temp: paths.temp, flush: directories => claimNative.flush(directories), probe: pid => proc.kill(pid, 0) });
+      bindings.claim = owner; bindings.controlApi = api.control;
+      const base = await api.ownership.canonicalRoot(paths.base), stat = memory.stat(base);
+      const record = { schema: 1, base, baseIdentity: { dev: String(stat.dev), ino: String(stat.ino) }, id: 'c'.repeat(48), nonce: 'e'.repeat(64),
+        parentPid: 888, childPid: 999, operation, serve: { host: '127.0.0.1', port: 32123 }, phase: 'armed',
+        createdAt: '2026-10-29T00:00:00.000Z', updatedAt: '2026-10-29T00:00:00.000Z' };
+      let receipt = await owner.write(record);
+      for (const phase of ['committed', 'owned']) { record.phase = phase; receipt = await owner.write(record, receipt); }
+      const dir = path.join(paths.temp, 'ruyi-work-data-handoff-' + crypto.createHash('sha256').update(base.toLowerCase()).digest('hex'));
+      return { owner, claimNative, receipt, record, dir, file: path.join(dir, api.claim.NAME) };
+    },
+    unclosedNativeFlush() {
+      // Execute 01w's actual failure/2-second non-close path. Only its subprocess
+      // and clock are modeled; no PowerShell or native helper runs in this unit.
+      const child = new EventEmitter(); child.pid = 1234; child.stdin = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
+      child.stdin.end = () => {}; child.kill = () => false;
+      imports.set('node:child_process', { spawn: () => { queueMicrotask(() => child.emit('spawn')); return child; } });
+      vm.runInContext(constBlock(fs.readFileSync(path.join(sourceRoot, '01w-work-data-native-publish.js'), 'utf8'), 'WorkDataNativePublish'), context);
+      const flush = vm.runInContext('WorkDataNativePublish.createFlush()', context);
+      return { child, flush, fail() { child.stdout.emit('error', Error('modeled pipe failure')); },
+        expire() { const timer = timeouts.findLast(row => row.ms === 2000 && !row.cleared); assert.ok(timer); timer.fired = true; timer.fn(); } };
+    },
     lease: (roots = [paths.base, paths.upload]) => api.ownership.acquire(roots),
     async warm() { const ownership = await fixture.lease(), session = await factory.openWarm({ base: paths.base, uploadRoot: paths.upload, ownership }); return { ownership, session }; },
     async open(factory) { const ownership = await fixture.lease(); return { ownership, session: await factory.openWarm({ base: paths.base, uploadRoot: paths.upload, ownership }) }; },

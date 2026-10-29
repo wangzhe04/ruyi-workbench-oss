@@ -103,6 +103,13 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   // worker would inherit it and die the moment old serve exits.
   return manager.start(process.execPath,[target.server,'serve','--host','127.0.0.1','--port',String(port)],{cwd:p.dirname(target.server),env,windowsHide:true,detached:true,stdio:['ignore','pipe','pipe']},label);
  }
+ // Explicit operational CLI only: the same source gate, output custody and
+ // exact ChildProcess observer as serve. Callers certify the actual terminal;
+ // an observation deadline never kills or counts as a successful release.
+ function spawnCli(f,label,args,{env=f.env}={}){
+  healthy();openOutput(label);
+  return manager.start(process.execPath,[target.server,...args],{cwd:p.dirname(target.server),env,windowsHide:true,stdio:['ignore','pipe','pipe']},label);
+ }
  const config=workspace=>({configSchema:14,locale:'en-US',workDataEncryptionV1:false,permissionMode:'ask',stewardEnabledV1:false,schedulerEnabledV1:false,autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:workspace});
  function fixture(label){
   healthy();const base=p.join(root,label+'-data'),home=p.join(root,label+'-home'),backups=p.join(root,label+'-backups'),targets=p.join(root,label+'-targets'),env=releaseEnvironment(home,base);
@@ -770,7 +777,12 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   const pins=sourcePins(f,spec.protected||[]);
   a.equal(fs.existsSync(claimFile(f)),false,'a new round starts with no durable handoff claim');
   ctx.phase=spec.phase+'-submit';
-  const jobId=await submitAccepted(ref,spec.body({source}));
+  // An independent browser acceptance can supply its real UI submission. The
+  // original plain/encrypted HTTP journeys keep the exact existing default.
+  const submit=spec.submit===undefined?submitAccepted:spec.submit;
+  a.equal(typeof submit,'function','maintenance submission adapter must be a function');
+  const jobId=await submit(ref,spec.body({source}));
+  a.match(jobId,/^[a-f0-9]{48}$/,'the real submission must return its accepted job id');
   record({kind:'round-start',phase:spec.phase,operation:spec.operation,jobId,sourceAuthority:source});
   const recordFile=await waitClaimRecord(f);
   record({kind:'claim-armed-record',phase:spec.phase,jobId,file:recordFile,proof:'existence-only;no-read-handle-against-the-product-rename'});
@@ -1276,9 +1288,10 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
   return{plain,encrypted};
  }
 
- return{ctx,latch,healthy,record,checkpoint,checked,openJournal,close,manager,fixture,spawnServe,readyWarm,statusOf,waitWorkerReady,submitAccepted,postJob,
+ return{ctx,latch,healthy,record,checkpoint,checked,openJournal,close,manager,fixture,spawnServe,spawnCli,readyWarm,statusOf,waitWorkerReady,submitAccepted,postJob,
   claimApi,claimFile,waitClaimRecord,assertClaimGone,custodyDirs,custodyWithUpload,dataSnapshot,sourcePins,assertNoIntent,coldWindow,waitOldServeExit,
   waitSuccessor,runMaintenanceRound,reclaimSuccessor,assertStartedTarget,assertTargetAuthority,assertRestoreResult,assertCapabilities,run,
+  assertBootRootPreferenceAbsent,readBootRootPreference,runPreferenceBoot,
   sessionIds,runSourceServeCheck,cimIdentity,absentByCim};
 }
 

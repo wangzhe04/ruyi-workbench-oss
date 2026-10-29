@@ -28,6 +28,7 @@ const ADAPTER_WIRED = Object.freeze(['session-head', 'session-messages', 'sessio
 // plaintextFields: [[field, why], ...] — the smallest readable metadata the family needs while its
 // content stays sealed. Titles, gists, paths, URLs, prompts and message text are never listed.
 const families = [
+  ['work-data-source-recovery-observation', EXCLUDED, null, 'not-migrated', [], 'TEMP control observation retained after explicit source recovery: original claim bytes, canonical source path and identities, authority/source proof and counts are plaintext; no password, master key or recovered content; never completion, execution, activation or boot authority'],
   // Sessions first: one whole family end to end before the others (sessions -> memory/queue -> tasks
   // -> index/cache -> logs -> backups).
   ['session-head', REQUIRED, 'session', 'sessions',

@@ -104066,6 +104066,79 @@ const WorkDataHandoffClaim = ((io, p, c) => {
       if (typeof verifyCompleted !== 'function') return Promise.reject(fail('recovery_unverified'));
       return removeRecord(value, verifyCompleted);
     };
+    // Explicit doctor action only. A readable source says nothing about whether
+    // the interrupted maintenance operation completed. Preserve its exact claim
+    // bytes in a create-only diagnostic before retiring the pending TEMP name.
+    async function recoverSource(value, verifySource) {
+      if (!receiptShape(value)) throw fail('receipt_invalid');
+      if (typeof verifySource !== 'function') throw fail('source_recovery_unverified');
+      if (mutating) throw fail('busy');
+      mutating = true;
+      try {
+        const loc = location(value.base);
+        await tempPresent();
+        const same = found => found?.present && found.receipt.sha256 === value.sha256 && sameIdentity(found.receipt, value);
+        const selected = await inspect({ base: loc.base });
+        if (!same(selected)) throw fail('claim_changed');
+        const original = await current(loc);
+        if (!original || original.captured.sha256 !== value.sha256 || !sameIdentity(original.captured.identity, value)) throw fail('claim_changed');
+        const stopped = () => {
+          if (original.value.phase !== 'owned') throw fail('recovery_phase_invalid');
+          const dead = pid => { try { probe(pid); return false; } catch (error) { return error?.code === 'ESRCH'; } };
+          if (!dead(original.value.parentPid) || !dead(original.value.childPid)) throw fail('recovery_process_pending');
+        };
+        const verify = async () => {
+          let found;
+          try { found = await verifySource(original.value); }
+          catch (cause) { throw fail('source_recovery_unverified', cause); }
+          if (!shape(found, 'authority,sourceProof') || !authority(found.authority)
+            || !shape(found.sourceProof, 'bytes,directories,files,sha256') || !SHA.test(found.sourceProof.sha256 || '')
+            || !['bytes', 'files', 'directories'].every(key => Number.isSafeInteger(found.sourceProof[key]) && found.sourceProof[key] >= 0))
+            throw fail('source_recovery_unverified');
+          return freeze({ authority: { generation: found.authority.generation, id: found.authority.id, mode: found.authority.mode, sha256: found.authority.sha256 },
+            sourceProof: { sha256: found.sourceProof.sha256, bytes: found.sourceProof.bytes, files: found.sourceProof.files, directories: found.sourceProof.directories } });
+        };
+        stopped();
+        const first = await verify();
+        if (!same(await inspect({ base: loc.base }))) throw fail('claim_changed');
+        stopped();
+        const diagnostic = freeze({ schema: 1, kind: 'owned-source-recovery-observation', maintenanceOutcome: 'unknown', sourceReadable: true,
+          claimBytes: original.captured.bytes.toString('base64'), claimReceipt: { ...value }, authority: first.authority,
+          sourceProof: first.sourceProof, createdAt: new Date().toISOString() });
+        const bytes = Buffer.from(JSON.stringify(diagnostic)), maximum = 64 * 1024;
+        if (bytes.length > maximum) throw fail('source_recovery_unverified');
+        // No rename can replace an old diagnostic. A partial diagnostic is inert;
+        // failures keep the original claim, and retries use a different wx name.
+        const diagnosticPath = p.join(loc.root, 'unknown-source-v1-' + c.randomBytes(24).toString('hex') + '.json');
+        const handle = await io.open(diagnosticPath, 'wx', 0o600);
+        try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+        await flush([loc.root, temp]);
+        const proof = await capture(diagnosticPath, maximum);
+        if (proof.sha256 !== hash(bytes)) throw fail('source_diagnostic_changed');
+        // The durable observation is not retirement authority. Re-verify source,
+        // claim identity and both PID deaths after writing it, before unlink.
+        if (JSON.stringify(await verify()) !== JSON.stringify(first)) throw fail('source_changed');
+        if (!same(await inspect({ base: loc.base }))) throw fail('claim_changed');
+        stopped();
+        const finalDiagnostic = await capture(diagnosticPath, maximum);
+        if (finalDiagnostic.sha256 !== proof.sha256 || finalDiagnostic.size !== proof.size
+          || !sameIdentity(finalDiagnostic.identity, proof.identity)) throw fail('source_diagnostic_changed');
+        // The diagnostic capture awaited IO. Check the selected pending name again;
+        // its earlier receipt never authorizes unlinking a later version.
+        if (!same(await inspect({ base: loc.base }))) throw fail('claim_changed');
+        stopped();
+        await io.unlink(loc.file);
+        await flush([loc.root, temp]);
+        try { await io.lstat(loc.file); } catch (error) {
+          if (error.code === 'ENOENT') return freeze({ diagnostic: { path: diagnosticPath, sha256: proof.sha256, identity: proof.identity }, ...first });
+          throw error;
+        }
+        throw fail('claim_changed');
+      } catch (error) {
+        if (String(error?.code || '').startsWith('work_data_claim.')) throw error;
+        throw fail('source_recovery_failed', error);
+      } finally { mutating = false; }
+    }
     const liveness = pid => {
       try { return probe(pid) === false ? 'dead' : 'alive'; }
       catch (error) { return error?.code === 'ESRCH' ? 'dead' : 'unknown'; }
@@ -104105,7 +104178,7 @@ const WorkDataHandoffClaim = ((io, p, c) => {
       if (matches) return 'complete';
       return 'pending';
     }
-    return Object.freeze({ inspect, write, remove, classify, recoverCompleted,
+    return Object.freeze({ inspect, write, remove, classify, recoverCompleted, recoverSource,
       activation: Object.freeze({ write: activationWrite, inspect: activationInspect, remove: activationRemove }) });
   }
   return Object.freeze({ NAME, STAGE, LIMIT, validate, decode, create,
@@ -106943,11 +107016,11 @@ const WorkDataNativeAdapters = ((io, p, c) => {
           let prototype = value;
           for (let level = 0; prototype !== null; level++) {
             if (level >= 16 || isProxy(prototype)) return true;
-            for (const name of ['helperMayStillRun','cause','errors']) {
+            for (const name of ['helperMayStillRun','ownershipRetained','cause','errors']) {
               const descriptor = Object.getOwnPropertyDescriptor(prototype,name);
               if (!descriptor) continue;
               if (!Object.hasOwn(descriptor,'value')) return true;
-              if (name === 'helperMayStillRun') {
+              if (name === 'helperMayStillRun' || name === 'ownershipRetained') {
                 if (descriptor.value !== undefined && descriptor.value !== false) return true;
               } else if (name === 'cause') {
                 if (observe(descriptor.value,depth+1)) return true;
@@ -107134,7 +107207,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       operations:Object.freeze({enable:false,disable:false,export:false,restore:false}),
       unsupported:Object.freeze(['runtime-configure','crash-claim','upload','download','fresh-root-activation'])});
     return Object.freeze({capabilities,sourceKeeper,flush,verifyDisposableNativeTree:disposable,fullSnapshot,readAuthority,runVerifier,verifyFresh,verifyFreshReceipt,
-      coldOperationHost,helperMayStillRun:() => latch(null),ownsVerifierReceipt:value => receipts.has(value)});
+      coldOperationHost,helperMayStillRun:cause => latch(cause),ownsVerifierReceipt:value => receipts.has(value)});
   }
   return Object.freeze({create,input,result,INPUT_LIMIT,VERIFY_MS,CLOSE_MS});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
@@ -107842,6 +107915,74 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         ? Object.freeze({inspect:observation=>owner.inspect(observation),validate:value=>owner.validate(value)})
         : Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous),validate:value=>owner.validate(value)});
     };
+    // A fresh, explicitly invoked doctor process owns this whole operation. Never
+    // release the source to a second verifier process and reacquire it afterward.
+    async function recoverSource({base}={}) {
+      if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw fail('source_recovery_requires_cold_process');
+      if(!methods(bindings.claim,['inspect','recoverSource'])||typeof N.fullSnapshot!=='function')throw fail('source_recovery_unavailable');
+      base=fold(await canonical(base));
+      const owner=await coldAcquire([base],base),ctx=cold;
+      const close=async()=>{ensure(ctx);ctx.accepting=false;await ctx.keeper.releaseOwner(assertFinishSafe);assertFinishSafe();ctx.finished=true;};
+      let result,id,failed=false,primary;
+      try{
+        const first=await bindings.claim.inspect({base});
+        if(!first?.present||first.value.phase!=='owned')throw fail('source_recovery_claim_required');
+        id=first.value.id;
+        const controls=bindings.controlApi.create({base,ownership:owner,assertExclusive:candidate=>candidate===owner&&assertOwnership(owner,base),assertDurableBackup:async()=>false,flush:async()=>{throw fail('source_recovery_readonly');}});
+        const results=bindings.resultApi.create({base,ownership:owner,assertExclusive:candidate=>candidate===owner&&assertOwnership(owner,base),readAuthority:()=>N.readAuthority(base)});
+        const authorityOf=actual=>{
+          const value={generation:actual?.generation,id:actual?.id,mode:actual?.mode,sha256:actual?.proof?.sha256};
+          if(!Number.isSafeInteger(value.generation)||value.generation<0||!['plain','encrypted'].includes(value.mode)
+            ||(value.generation===0?value.id!==null||value.sha256!==null:!/^([a-f0-9]{48})$/.test(value.id||'')||!/^([a-f0-9]{64})$/.test(value.sha256||'')))throw fail('source_recovery_authority_invalid');
+          return Object.freeze(value);
+        };
+        const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+        let authority=null;
+        const inspect=async claim=>{
+          ensure(ctx);
+          const control=p.join(base,'.work-data');
+          try{
+            const stat=await io.lstat(control);if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('source_recovery_control_invalid');
+            const allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+            if((await io.readdir(control)).some(name=>!allowed.has(fold(name))))throw fail('source_recovery_stage_pending');
+          }catch(error){if(error.code!=='ENOENT')throw error;}
+          if((await controls.inspect()).pending)throw fail('source_recovery_intent_pending');
+          const found=await results.inspect();
+          // An existing record for this job belongs to completed recovery. Never
+          // use source readability to bypass its backup/authority verification.
+          if(found?.present&&found.value?.id===claim.id)throw fail('source_recovery_completed_result_present');
+          const current=authorityOf(await N.readAuthority(base));
+          if(authority&&!same(authority,current))throw fail('source_recovery_authority_changed');
+          authority=current;
+          ensure(ctx);return current;
+        };
+        result=await bindings.claim.recoverSource(first.receipt,async claim=>{
+          const before=await inspect(claim);
+          let password=c.randomBytes(32).toString('base64'),sealed;
+          try{sealed=await N.fullSnapshot(base,owner,candidate=>candidate===owner&&assertOwnership(owner,base)).seal({password,appVersion:VERSION,generation:before.generation});}
+          finally{password=null;}
+          const after=await inspect(claim);
+          if(!same(before,after))throw fail('source_recovery_authority_changed');
+          ensure(ctx);
+          const proof=sealed?.sourceProof;
+          return {authority:after,sourceProof:{sha256:proof?.sha256,bytes:proof?.bytes,files:proof?.files,directories:proof?.directories}};
+        });
+        ensure(ctx);
+      }catch(error){failed=true;primary=error;}
+      if(failed){
+        // 13aq observes both helperMayStillRun and ownershipRetained throughout
+        // the same bounded cause/errors graph, including opaque getters/Proxies.
+        // A clear-only cleanup failure may retain its owner without a live helper;
+        // neither fact may be forgotten before this owner decides whether to close.
+        try{if(N.helperMayStillRun(primary)!==false)throw primary;}catch(error){throw retain(error);}
+        if(helperUnknown())throw retain(primary);
+        try{await close();}catch(error){throw retain(new AggregateError([primary,error],'work_data_host.source_recovery_cleanup_failed',{cause:primary}));}
+        throw primary;
+      }
+      try{await close();}catch(error){throw retain(error);}
+      return Object.freeze({schema:1,kind:'owned-source-recovery',id,sourceReadable:true,maintenanceOutcome:'unknown',
+        authority:result.authority,sourceProof:result.sourceProof,diagnostic:result.diagnostic});
+    }
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
@@ -107882,7 +108023,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);
       return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:true,crashClaim:false,activation:false})});
     }
-    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,helperMayStillRun:helperUnknown,
+    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,helperMayStillRun:helperUnknown,
       capabilities:Object.freeze({requiresCheckedSourceKeeper:true,sourceKeeperHost:true,uploadBrokerAssembly:true,coldOperationAssembly:true,worker:false,crashClaim:false,activation:false,productionReady:false})});
   }
   function bindCapturedResult(host,base,ownership,read){
@@ -108215,6 +108356,18 @@ async function clearBootRootPreference() {
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
+  // Detect the raw option before parseArgs can consume a following "doctor" as
+  // its value or hide an =value spelling among ordinary doctor options.
+  const raw = process.argv.slice(2);
+  if (raw.some(value => value === '--recover-work-data-source' || value.startsWith('--recover-work-data-source='))) {
+    if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--recover-work-data-source'
+      || argv['recover-work-data-source'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
+      throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
+    const factory = WorkDataRuntimeHost.create();
+    const result = await factory.recoverSource({base:dataRoot()});
+    console.log(JSON.stringify(result));
+    return result;
+  }
   if (command === WorkDataVerifierEntry.COMMAND) {
     const rawVerifierArgv = process.argv.slice(2);
     if (rawVerifierArgv.length !== 1 || rawVerifierArgv[0] !== WorkDataVerifierEntry.COMMAND || argv._.length !== 1 || Object.keys(argv).length !== 1) throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid'});
@@ -108240,7 +108393,7 @@ async function main() {
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
   if (command === 'doctor') {
     // P2-4: decided before any root acquisition, boot inspection, migration or ordinary
-    // doctor work; this is the only doctor variant that never enters withSelectedWorkDataRoot.
+    // doctor work; this variant also bypasses withSelectedWorkDataRoot.
     if (argv['clear-boot-root'] !== undefined) {
       if (argv['clear-boot-root'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
         throw Object.assign(Error('work_data_setup.private_command_invalid'), { code: 'work_data_setup.private_command_invalid', retry: false });

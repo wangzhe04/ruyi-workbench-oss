@@ -1432,6 +1432,7 @@
     {"id":"ruyi-workbench/app/src/13ak-work-data-cold-operations.js#execute#writeFile#1","fingerprint":"f3816491afceb87687b47bc9beda24159bb224b6e293b1549b34871ad936181d","group":"file-boundary"},
     {"id":"ruyi-workbench/app/src/13ak-work-data-cold-operations.js#run#run#1","fingerprint":"2b374b1b0f5d0d512fb1ec8f71b8c52ea554409855190a04994e5f2230fcd0c9","group":"process"},
     {"id":"ruyi-workbench/app/src/13al-work-data-maintenance-http.js#create#<browser-download>#1","fingerprint":"0f8835bfd7626a30e478ab9bb7e4da9d848035d8fe03af3932ed20e461302e02","group":"local-callback"},
+    {"id":"ruyi-workbench/app/src/13av-work-data-handoff-claim.js#recoverSource#writeFile#1","fingerprint":"f3816491afceb87687b47bc9beda24159bb224b6e293b1549b34871ad936181d","group":"file-boundary"},
     {"id":"ruyi-workbench/app/src/13b-api-domain-routes.js#audioStreamUpstream#fetch#1","fingerprint":"a54ce75401161dac5a95aca96d7ca0210985162113680229ee59698f52a2b730","group":"media"},
     {"id":"ruyi-workbench/app/src/13b-api-domain-routes.js#steerSessionCore#exec#1","fingerprint":"d769f1f0a60d32f580d289dd38467da16239d69593a7cb55b47d49e0fa151903","group":"regex"},
     {"id":"ruyi-workbench/app/src/13c-overlay-routes.js#cacheOverlayPs1#copyFile#1","fingerprint":"609a19187d38075b7d056d2e6e813039fe08bb84912f90851727c6970e135050","group":"file-boundary"},

@@ -123,6 +123,18 @@ async function clearBootRootPreference() {
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
+  // Detect the raw option before parseArgs can consume a following "doctor" as
+  // its value or hide an =value spelling among ordinary doctor options.
+  const raw = process.argv.slice(2);
+  if (raw.some(value => value === '--recover-work-data-source' || value.startsWith('--recover-work-data-source='))) {
+    if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--recover-work-data-source'
+      || argv['recover-work-data-source'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
+      throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
+    const factory = WorkDataRuntimeHost.create();
+    const result = await factory.recoverSource({base:dataRoot()});
+    console.log(JSON.stringify(result));
+    return result;
+  }
   if (command === WorkDataVerifierEntry.COMMAND) {
     const rawVerifierArgv = process.argv.slice(2);
     if (rawVerifierArgv.length !== 1 || rawVerifierArgv[0] !== WorkDataVerifierEntry.COMMAND || argv._.length !== 1 || Object.keys(argv).length !== 1) throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid'});
@@ -148,7 +160,7 @@ async function main() {
   if (command === 'install') return withSelectedWorkDataRoot(() => installIntegration());
   if (command === 'doctor') {
     // P2-4: decided before any root acquisition, boot inspection, migration or ordinary
-    // doctor work; this is the only doctor variant that never enters withSelectedWorkDataRoot.
+    // doctor work; this variant also bypasses withSelectedWorkDataRoot.
     if (argv['clear-boot-root'] !== undefined) {
       if (argv['clear-boot-root'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
         throw Object.assign(Error('work_data_setup.private_command_invalid'), { code: 'work_data_setup.private_command_invalid', retry: false });

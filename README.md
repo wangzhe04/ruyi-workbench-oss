@@ -86,7 +86,7 @@
 |---|---|
 | **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（由 `app/src/` 的 125 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端采用原生 ES 模块，无框架、无构建。 |
 | **121 个原生工具 · 108 个 ACC 工具** | 包含文件、终端、搜索、Git、联网、Office 交接、跨线程回读、子代理编排及管家工具；可选的桌面控制组件 ACC 再提供截图 / OCR / UIA / 键鼠 / 窗口 / 浏览器 / Office / PDF 等 108 个工具。 |
-| **8 套模板 · 10 种角色 · 593 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 593 项 e2e（默认回归 586 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 408 组 unit suite 与 25 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
+| **8 套模板 · 10 种角色 · 595 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 595 项 e2e（默认回归 588 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 409 组 unit suite 与 25 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
 
 > 原名 **Win Claude Workbench**，自 v0.8 起更名**如意 Ruyi**：项目名去掉 "Claude" 一是规避商标风险，二是旧提示词曾让 provider 模型自称「我是 Claude」。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 
@@ -463,9 +463,12 @@ node .\app\server.js serve --open        # 只监听 127.0.0.1（`--host` 绑非
 | 命令 | 作用 |
 |---|---|
 | `node .\app\server.js doctor` | 体检：引擎、依赖、端口、数据目录（界面里「设置 · 系统 · 体检」是同一份） |
+| `node .\app\server.js doctor --recover-work-data-source` | 崩溃后的显式源数据检查：完整验证源可读后退休无完成结果的 owned 标记，保留原始诊断；维护结局仍为 unknown，不重跑操作 |
 | `node .\app\server.js mcp-config` | 输出可粘进 `.mcp.json` 的工作台 MCP 配置 |
 | `node .\app\server.js install` | 把工作台 MCP 注册进本机 Claude Code |
 | `node .\app\server.js mcp` | 以 stdio MCP server 方式运行 |
+
+运行源数据恢复检查前，用 `RUYI_HOME` 明确指定原数据根并关闭该根的旧实例。命令要求原父/子进程均已退出、没有待处理 intent/stage，并在同一独占所有者下两次验证完整快照。缺钥、坏数据或无法确认的状态会保留标记；该入口不修复未知恢复目标，也不把 interrupted 操作标成成功。成功输出 `sourceReadable: true` 与 `maintenanceOutcome: "unknown"`，随后可从该源根正常启动。诊断含路径和控制身份，保留在本机 TEMP 中。
 
 ### 升级
 

@@ -211,7 +211,30 @@ function createWorld({root,evidence,target}){
   const second=await packageGet(ref,saved.id);
   a.equal(second.status,200,label+': repeated package status');
   a.ok(second.raw.equals(first.raw),label+': repeated download is byte-identical');
-  a.deepEqual(snapshot(),before,label+': a package read writes nothing into the data root');
+  const after=snapshot();
+  try{a.deepEqual(after,before,label+': a package read writes nothing into the data root');}
+  catch(error){
+   // Preserve the original assertion and the one captured after-state. Only
+   // inventory rows are recorded: paths, identity, byte counts, hashes, times and
+   // directory entries; never file bodies, runtime tokens or request passwords.
+   const rows=value=>[
+    ...['control','backup'].flatMap(scope=>['files','directories'].flatMap(kind=>value[scope][kind].map(row=>({scope,kind,row})))),
+    {scope:'session',kind:'files',row:value.session}
+   ];
+   const keyed=value=>new Map(rows(value).map(value=>[value.scope+':'+value.kind+':'+core.norm(value.row.file),value]));
+   const prior=keyed(before),current=keyed(after),changes=[];
+   for(const key of [...new Set([...prior.keys(),...current.keys()])].sort()){
+    const left=prior.get(key),right=current.get(key),oldRow=left?.row,newRow=right?.row;
+    const changedKeys=[...new Set([...Object.keys(oldRow||{}),...Object.keys(newRow||{})])].sort()
+     .filter(field=>JSON.stringify(oldRow?.[field])!==JSON.stringify(newRow?.[field]));
+    if(!left||!right||changedKeys.length)changes.push({scope:(left||right).scope,kind:(left||right).kind,
+     file:(left||right).row.file,change:!left?'added':!right?'removed':'changed',changedKeys,before:oldRow||null,after:newRow||null});
+   }
+   const diagnostic={label,before,after,changes,rawBodiesOmitted:true};
+   ctx.diagnostics={...(ctx.diagnostics||{}),packageReadSnapshot:diagnostic};
+   try{record({kind:'package-read-snapshot-difference',...diagnostic});}catch{/* The original assertion remains the failure; its metadata is also retained in ctx. */}
+   throw error;
+  }
   return {path,disk,first};
  }
  async function assertPackageRefusals(f,ref,saved,label,{priorIds}){

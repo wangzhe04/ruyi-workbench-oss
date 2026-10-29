@@ -5,7 +5,7 @@
   "summary": {
     "modules": 125,
     "providedSymbols": 4197,
-    "requiredSymbols": 4026,
+    "requiredSymbols": 4027,
     "edges": 861,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -29333,6 +29333,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
@@ -39757,6 +39764,7 @@
       "to": "00-boot.js",
       "symbols": [
         "MigrationHooks",
+        "VERSION",
         "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceRuntimeHooks",
         "WorkDataMaintenanceWorkerHooks"

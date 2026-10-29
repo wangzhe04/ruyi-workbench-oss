@@ -75,11 +75,11 @@ const WorkDataNativeAdapters = ((io, p, c) => {
           let prototype = value;
           for (let level = 0; prototype !== null; level++) {
             if (level >= 16 || isProxy(prototype)) return true;
-            for (const name of ['helperMayStillRun','cause','errors']) {
+            for (const name of ['helperMayStillRun','ownershipRetained','cause','errors']) {
               const descriptor = Object.getOwnPropertyDescriptor(prototype,name);
               if (!descriptor) continue;
               if (!Object.hasOwn(descriptor,'value')) return true;
-              if (name === 'helperMayStillRun') {
+              if (name === 'helperMayStillRun' || name === 'ownershipRetained') {
                 if (descriptor.value !== undefined && descriptor.value !== false) return true;
               } else if (name === 'cause') {
                 if (observe(descriptor.value,depth+1)) return true;
@@ -266,7 +266,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       operations:Object.freeze({enable:false,disable:false,export:false,restore:false}),
       unsupported:Object.freeze(['runtime-configure','crash-claim','upload','download','fresh-root-activation'])});
     return Object.freeze({capabilities,sourceKeeper,flush,verifyDisposableNativeTree:disposable,fullSnapshot,readAuthority,runVerifier,verifyFresh,verifyFreshReceipt,
-      coldOperationHost,helperMayStillRun:() => latch(null),ownsVerifierReceipt:value => receipts.has(value)});
+      coldOperationHost,helperMayStillRun:cause => latch(cause),ownsVerifierReceipt:value => receipts.has(value)});
   }
   return Object.freeze({create,input,result,INPUT_LIMIT,VERIFY_MS,CLOSE_MS});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));

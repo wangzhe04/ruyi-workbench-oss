@@ -7,39 +7,16 @@
 // Two normal boots refuse tampered/missing backups without changing the claim;
 // restoring the actual backup allows a normal serve to verify and retire it.
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
-const cp = require('node:child_process'), crypto = require('node:crypto'), assert = require('node:assert/strict');
+const crypto = require('node:crypto'), assert = require('node:assert/strict');
 const core = require('./lib/work-data-production-upload-core');
 const restore = require('./work-data-production-restore.e2e');
-const upload = require('./work-data-production-upload.e2e');
-const { createProcesses, createStrictStop } = require('./lib/work-data-production-upload-process');
+const { bindTarget: bindOwnedTarget, createProducer } = require('./lib/work-data-owned-claim-fixture.js');
 const { releaseEnvironment } = require('./lib/release-checks');
 const { snapshotProcessTable, ownDescendants } = require('./lib/kill-own-tree');
 const { getFreePort } = require('./free-port');
-const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const PASSWORD = 'SYNTHETIC completed-claim recovery only 2026';
-const PRODUCER = path.join(__dirname, 'lib/work-data-completed-claim-producer.cjs');
-const SOURCES = ['01g-server-ownership.js', '01v-work-data-manifest.js', '01w-work-data-native-publish.js', '13av-work-data-handoff-claim.js'];
-
-function bindTarget() {
-  const original = core.loadProductTarget(__dirname), additions = [__filename, PRODUCER].map(file => core.read(file).row);
-  const boundFiles = [...original.boundFiles, ...additions];
-  const digest = core.H(Buffer.from(JSON.stringify(boundFiles.map(row => ({ file: core.norm(row.file), bytes: row.bytes, sha256: row.sha256 }))
-    .sort((a, b) => a.file < b.file ? -1 : a.file > b.file ? 1 : 0))));
-  return { ...original, boundFiles, executionInputSha256: digest, recheck() {
-    original.recheck(); for (const row of additions) core.read(row.file, row);
-    return { sameInputs: true, files: boundFiles.length, productSource: true, executionInputSha256: digest };
-  } };
-}
+function bindTarget() { return bindOwnedTarget(__dirname, __filename); }
 function write(file, value) { const fd = fs.openSync(file, 'wx', 0o600); try { fs.writeFileSync(fd, JSON.stringify(value)); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
-async function waitJson(file, milliseconds) {
-  const deadline = Date.now() + milliseconds;
-  for (;;) {
-    try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; }
-    if (Date.now() >= deadline) throw Error('synthetic evidence deadline: ' + path.basename(file));
-    await pause(25);
-  }
-}
 function sameBytesAndIdentity(file, row) {
   const actual = core.read(file).row;
   for (const key of ['bytes', 'sha256', 'dev', 'ino']) assert.equal(actual[key], row[key], file + ': ' + key);
@@ -56,7 +33,7 @@ async function runActual(argv = process.argv.slice(2)) {
   fs.mkdirSync(evidence);
   const world = restore.createWorld({ root, evidence, target, harness, releaseEnvironment, snapshotProcessTable, ownDescendants, getFreePort });
   world.openJournal();
-  let keeper = null, keeperDirectory = null;
+  const producerFixture = createProducer({ world, target, harness, root, evidence });
   try {
     world.record({ kind: 'fixture-owner', root, nonce: crypto.randomBytes(32).toString('hex'), executionInputSha256: target.executionInputSha256,
       executionInputs: target.boundFiles.length, inputFiles: target.boundFiles, constructedCrashWindow: true });
@@ -90,57 +67,8 @@ async function runActual(argv = process.argv.slice(2)) {
     // The successor has already been reclaimed: read the fixed source session
     // directly, and prove it is served again only after successful recovery.
     const sessionFile = path.join(f.base, 'sessions', 'sess_restore_synthetic.json'), sessionBefore = core.read(sessionFile).row;
-    const canonical = await upload.loadPure(core.read(path.join(target.src, SOURCES[0])).bytes.toString('utf8'), 'ServerOwnership').canonicalRoot(f.base);
-
-    keeperDirectory = path.join(root, 'producer-keeper'); fs.mkdirSync(keeperDirectory);
-    keeper = cp.spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(harness, 'lib/work-data-production-maintenance-outer-job.ps1')],
-      { cwd: harness, env: { ...process.env, RUYI_PM_ROOT: keeperDirectory }, stdio: 'ignore', windowsHide: true });
-    keeper.unref(); await waitJson(path.join(keeperDirectory, 'job-ready.json'), 30000);
-    const commands = path.join(root, 'producer-commands'); fs.mkdirSync(commands);
-    const request = path.join(commands, 'request.json');
-    write(request, { base: f.base, temp: f.temp, id: saved.id, operation: saved.operation, finishedAt: saved.finishedAt, port: initial.port,
-      parentPid: initial.pid, commands, sources: SOURCES.map(name => core.read(path.join(target.src, name)).row) });
-    // The restore world keeps its output handles private. A separate observer
-    // owns this added child and pins its actual source before any spawn.
-    const producerOutput = Object.fromEntries(['stdout', 'stderr'].map(kind => [kind, fs.openSync(path.join(evidence, 'claim-producer-' + kind + '.log'), 'wx', 0o600)]));
-    const producerManager = createProcesses({ record: world.record,
-      writeOutput: (_label, kind, bytes) => { fs.writeFileSync(producerOutput[kind], bytes); },
-      latch: world.latch, isUnknown: () => world.ctx.unknown,
-      beforeStart: () => { world.healthy(); target.recheck(); world.healthy(); },
-      snapshotProcessTable, ownDescendants,
-      killOwnTree: createStrictStop({ snapshotProcessTable, ownDescendants, latch: world.latch, isUnknown: () => world.ctx.unknown }) });
-    const producer = producerManager.start(process.execPath, [PRODUCER, request], { cwd: root, env: f.env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }, 'claim-producer');
-    await producer.spawned;
-    const producerReady = await waitJson(path.join(commands, 'producer-ready.json'), 30000);
-    assert.equal(producerReady.pid, producerManager.pid(producer));
-    const identity = await world.cimIdentity(producerReady.pid);
-    write(path.join(keeperDirectory, 'job-target.json'), { schema: 1, pid: identity.pid, cimCreated: identity.created });
-    const assigned = await waitJson(path.join(keeperDirectory, 'job-assigned.json'), 30000);
-    assert.equal(assigned.pid, identity.pid); assert.equal(assigned.cimCreated, identity.created);
-    write(path.join(commands, 'producer-go.json'), { schema: 1, go: true });
-    const owned = await waitJson(path.join(commands, 'producer-owned.json'), 180000);
-    assert.equal(owned.pid, identity.pid); assert.equal(owned.sourceOwnerHeld, true); assert.equal(owned.realNativeFlush, true);
-    const ownerApi = upload.loadPure(core.read(path.join(target.src, SOURCES[0])).bytes.toString('utf8'), 'ServerOwnership');
-    let contender = null;
-    try { contender = await ownerApi.acquire([canonical]); }
-    catch (error) { assert.equal(error.code, 'DATA_ROOT_IN_USE'); }
-    if (contender) { await contender.release(); assert.fail('producer must hold the actual OS source owner'); }
-    const claimBefore = await world.claimApi(f.temp).inspect({ base: canonical });
-    assert.equal(claimBefore.present, true); assert.equal(claimBefore.value.phase, 'owned');
-    assert.equal(claimBefore.value.id, saved.id); assert.equal(claimBefore.value.parentPid, initial.pid); assert.equal(claimBefore.value.childPid, identity.pid);
-    world.checkpoint('constructed-owned', { owned, claim: claimBefore, identity, oldServeIdentity: initial.identity, constructedCrashWindow: true });
-    write(path.join(commands, 'producer-crash.json'), { schema: 1, crash: true });
-    const ended = await producerManager.waitClose(producer, 30000);
-    assert.deepEqual(ended, { code: 73, signal: null });
-    await producerManager.certifyNaturalExit(producer, { code: 73, signal: null, verify: async () => assert.equal(await world.absentByCim(identity), true) });
-    for (const fd of Object.values(producerOutput)) { fs.fsyncSync(fd); fs.closeSync(fd); }
-    write(path.join(keeperDirectory, 'job-release.json'), { schema: 1, released: true });
-    const outer = await waitJson(path.join(keeperDirectory, 'outer-job-result.json'), 60000);
-    assert.equal(outer.ok, true); assert.equal(outer.closed, true); assert.deepEqual(outer.survived, []); assert.deepEqual(outer.members, []);
-    const keeperDeadline = Date.now() + 20000;
-    while (keeper.exitCode === null && Date.now() < keeperDeadline) await pause(25);
-    assert.equal(keeper.exitCode, 0);
-    world.checkpoint('producer-death', { process: producerManager.inspect(producer), outer, keeperCode: keeper.exitCode });
+    const { canonical, claimBefore } = await producerFixture.run({ f, id: saved.id, operation: saved.operation,
+      ownedAt: saved.finishedAt, parent: initial });
     world.checked('the Job-owned producer dies with a persistent owned claim and the OS releases its real source owner');
 
     async function refusedBoot(label) {
@@ -185,7 +113,7 @@ async function runActual(argv = process.argv.slice(2)) {
     world.checked('ordinary serve strictly verifies the completed result and backup, retires only the owned claim and serves the original session');
     await world.manager.cleanupKnown(recoveredHandle, async () => world.healthy());
     const inputsAfter = target.recheck(); assert.equal(world.manager.hasUnclosed(), false); assert.equal(world.manager.hasUnverifiedSpawn(), false);
-    assert.equal(producerManager.hasUnclosed(), false); assert.equal(producerManager.hasUnverifiedSpawn(), false);
+    producerFixture.assertClosed();
     world.checkpoint('result', { schema: 1, checks: world.ctx.checks, inputProof: inputsAfter,
       constructedCrashWindow: true, originalProductionMaintenance: true, operationReplayed: false,
       scope: 'Completed owned-claim retirement only; no interrupted-operation resume, C10/C11 cleanup, special portable or whole 3.1 acceptance.' });
@@ -195,7 +123,7 @@ async function runActual(argv = process.argv.slice(2)) {
   } catch (error) {
     world.latch(error);
     try { write(path.join(evidence, 'failure-summary.json'), { schema: 1, phase: world.ctx.phase, code: error?.code || 'E2E_FAILURE', stack: String(error?.stack || '') }); } catch {}
-    if (keeperDirectory) try { write(path.join(keeperDirectory, 'job-hold.json'), { schema: 1, held: true, reason: 'test-failure' }); } catch {}
+    try { producerFixture.holdFailure(); } catch {}
     console.error('Retained synthetic completed-claim recovery evidence ' + root + '; phase=' + world.ctx.phase);
     process.exitCode = 1;
     // Match the existing production fixtures: unknown ownership is retained;

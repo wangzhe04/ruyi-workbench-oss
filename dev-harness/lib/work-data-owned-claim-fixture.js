@@ -1,0 +1,93 @@
+'use strict';
+// Shared constructed crash window. The producer runs actual claim/native/owner
+// modules and exits 73 with an owned claim. It never runs maintenance, and this
+// helper never calls that constructed window a production cold-worker crash.
+const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process'), assert = require('node:assert/strict');
+const core = require('./work-data-production-upload-core'), upload = require('../work-data-production-upload.e2e');
+const { createProcesses, createStrictStop } = require('./work-data-production-upload-process');
+const { snapshotProcessTable, ownDescendants } = require('./kill-own-tree');
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+const SOURCES = ['01g-server-ownership.js', '01v-work-data-manifest.js', '01w-work-data-native-publish.js', '13av-work-data-handoff-claim.js'];
+const PRODUCER = path.join(__dirname, 'work-data-completed-claim-producer.cjs');
+function write(file, value) { const fd = fs.openSync(file, 'wx', 0o600); try { fs.writeFileSync(fd, JSON.stringify(value)); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
+async function waitJson(file, milliseconds) {
+  const deadline = Date.now() + milliseconds;
+  for (;;) {
+    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (Date.now() >= deadline) throw Error('synthetic evidence deadline: ' + path.basename(file));
+    await pause(25);
+  }
+}
+function bindTarget(harness, entry) {
+  const original = core.loadProductTarget(harness), additions = [entry, __filename, PRODUCER].map(file => core.read(file).row);
+  const boundFiles = [...original.boundFiles, ...additions];
+  const digest = core.H(Buffer.from(JSON.stringify(boundFiles.map(row => ({ file: core.norm(row.file), bytes: row.bytes, sha256: row.sha256 }))
+    .sort((a, b) => a.file < b.file ? -1 : a.file > b.file ? 1 : 0))));
+  return { ...original, boundFiles, executionInputSha256: digest, recheck() {
+    original.recheck(); for (const row of additions) core.read(row.file, row);
+    return { sameInputs: true, files: boundFiles.length, productSource: true, executionInputSha256: digest };
+  } };
+}
+function createProducer({ world, target, harness, root, evidence, label = 'producer' }) {
+  assert.match(label, /^[a-z0-9-]+$/);
+  let started = false, keeper = null, keeperDirectory = null, producerManager = null;
+  async function run({ f, id, operation, ownedAt, parent }) {
+    assert.equal(started, false); started = true; world.healthy(); target.recheck();
+    assert.equal(await world.absentByCim(parent.identity), true, 'the original serve parent is already dead');
+    const ownerApi = upload.loadPure(core.read(path.join(target.src, SOURCES[0])).bytes.toString('utf8'), 'ServerOwnership');
+    const canonical = await ownerApi.canonicalRoot(f.base);
+    keeperDirectory = path.join(root, label + '-keeper'); fs.mkdirSync(keeperDirectory);
+    keeper = cp.spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(harness, 'lib/work-data-production-maintenance-outer-job.ps1')],
+      { cwd: harness, env: { ...process.env, RUYI_PM_ROOT: keeperDirectory }, stdio: 'ignore', windowsHide: true });
+    keeper.unref(); await waitJson(path.join(keeperDirectory, 'job-ready.json'), 30000);
+    const commands = path.join(root, label + '-commands'); fs.mkdirSync(commands);
+    const request = path.join(commands, 'request.json');
+    write(request, { base: f.base, temp: f.temp, id, operation, ownedAt, port: parent.port,
+      parentPid: parent.pid, commands, sources: SOURCES.map(name => core.read(path.join(target.src, name)).row) });
+    const processLabel = label === 'producer' ? 'claim-producer' : label;
+    const producerOutput = Object.fromEntries(['stdout', 'stderr'].map(kind => [kind, fs.openSync(path.join(evidence, processLabel + '-' + kind + '.log'), 'wx', 0o600)]));
+    producerManager = createProcesses({ record: world.record,
+      writeOutput: (_label, kind, bytes) => { fs.writeFileSync(producerOutput[kind], bytes); },
+      latch: world.latch, isUnknown: () => world.ctx.unknown,
+      beforeStart: () => { world.healthy(); target.recheck(); world.healthy(); }, snapshotProcessTable, ownDescendants,
+      killOwnTree: createStrictStop({ snapshotProcessTable, ownDescendants, latch: world.latch, isUnknown: () => world.ctx.unknown }) });
+    const producer = producerManager.start(process.execPath, [PRODUCER, request], { cwd: root, env: f.env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }, processLabel);
+    await producer.spawned;
+    const producerReady = await waitJson(path.join(commands, 'producer-ready.json'), 30000);
+    assert.equal(producerReady.pid, producerManager.pid(producer));
+    const identity = await world.cimIdentity(producerReady.pid);
+    write(path.join(keeperDirectory, 'job-target.json'), { schema: 1, pid: identity.pid, cimCreated: identity.created });
+    const assigned = await waitJson(path.join(keeperDirectory, 'job-assigned.json'), 30000);
+    assert.equal(assigned.pid, identity.pid); assert.equal(assigned.cimCreated, identity.created);
+    write(path.join(commands, 'producer-go.json'), { schema: 1, go: true });
+    const owned = await waitJson(path.join(commands, 'producer-owned.json'), 180000);
+    assert.equal(owned.pid, identity.pid); assert.equal(owned.sourceOwnerHeld, true); assert.equal(owned.realNativeFlush, true);
+    let contender = null;
+    try { contender = await ownerApi.acquire([canonical]); } catch (error) { assert.equal(error.code, 'DATA_ROOT_IN_USE'); }
+    if (contender) { await contender.release(); assert.fail('producer must hold the actual OS source owner'); }
+    const claimBefore = await world.claimApi(f.temp).inspect({ base: canonical });
+    assert.equal(claimBefore.present, true); assert.equal(claimBefore.value.phase, 'owned');
+    assert.equal(claimBefore.value.id, id); assert.equal(claimBefore.value.parentPid, parent.pid); assert.equal(claimBefore.value.childPid, identity.pid);
+    const claimRaw = core.read(world.claimFile(f));
+    assert.equal(claimRaw.row.sha256, claimBefore.receipt.sha256); assert.equal(claimRaw.row.dev, claimBefore.receipt.dev); assert.equal(claimRaw.row.ino, claimBefore.receipt.ino);
+    world.checkpoint(label === 'producer' ? 'constructed-owned' : label + '-constructed-owned', { owned, claim: claimBefore, identity, oldServeIdentity: parent.identity, constructedCrashWindow: true });
+    write(path.join(commands, 'producer-crash.json'), { schema: 1, crash: true });
+    const ended = await producerManager.waitClose(producer, 30000);
+    assert.deepEqual(ended, { code: 73, signal: null });
+    await producerManager.certifyNaturalExit(producer, { code: 73, signal: null, verify: async () => assert.equal(await world.absentByCim(identity), true) });
+    for (const fd of Object.values(producerOutput)) { fs.fsyncSync(fd); fs.closeSync(fd); }
+    write(path.join(keeperDirectory, 'job-release.json'), { schema: 1, released: true });
+    const outer = await waitJson(path.join(keeperDirectory, 'outer-job-result.json'), 60000);
+    assert.equal(outer.ok, true); assert.equal(outer.closed, true); assert.deepEqual(outer.survived, []); assert.deepEqual(outer.members, []);
+    const keeperDeadline = Date.now() + 20000;
+    while (keeper.exitCode === null && Date.now() < keeperDeadline) await pause(25);
+    assert.equal(keeper.exitCode, 0);
+    world.checkpoint(label + '-death', { process: producerManager.inspect(producer), outer, keeperCode: keeper.exitCode });
+    return { canonical, claimBefore, claimRaw, identity };
+  }
+  return { run,
+    assertClosed() { assert.ok(producerManager); assert.equal(producerManager.hasUnclosed(), false); assert.equal(producerManager.hasUnverifiedSpawn(), false); },
+    holdFailure() { if (keeperDirectory) write(path.join(keeperDirectory, 'job-hold.json'), { schema: 1, held: true, reason: 'test-failure' }); }
+  };
+}
+module.exports = { bindTarget, createProducer };

@@ -4,6 +4,135 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createFixture, createClaimWiring, tick } = require('../lib/work-data-production-host-fixture');
 
+const readableProof = () => ({ sourceProof: { sha256: 'd'.repeat(64), bytes: 17, files: 1, directories: 1 } });
+const sourceObservation = async (f, claim) => ({ bytes: await f.memory.io.readFile(claim.file), receipt: (await claim.owner.inspect({ base: claim.record.base })).receipt });
+const waitForModel = async predicate => { for (let index = 0; index < 200 && !predicate(); index++) await tick(); assert.ok(predicate(), 'modeled operation reached its expected IO boundary'); };
+
+test('source doctor composes real owner, native keeper and claim, seals twice and closes once after retirement', async () => {
+  const f = createFixture(), claim = await f.sourceClaim(), original = await sourceObservation(f, claim); let seals = 0;
+  f.memory.put(path.join(f.paths.base, 'source-sentinel'), 'UNCHANGED');
+  f.nativeBindings.fullSnapshot.create = options => ({ seal: async () => {
+    seals++; assert.equal(f.api.ownership.isLease(options.ownership), true);
+    assert.equal(await options.assertExclusive(options.ownership), true);
+    assert.equal(f.servers[0].closeCalls, 0); assert.equal(f.servers[0].listening, true);
+    assert.deepEqual(await f.memory.io.readFile(claim.file), original.bytes);
+    return readableProof();
+  } });
+  const dto = await f.factory.recoverSource({ base: f.paths.base });
+  assert.equal(seals, 2); assert.equal(dto.schema, 1); assert.equal(dto.kind, 'owned-source-recovery');
+  assert.equal(dto.id, claim.record.id); assert.equal(dto.sourceReadable, true); assert.equal(dto.maintenanceOutcome, 'unknown');
+  assert.equal(f.servers.length, 1); assert.equal(f.servers[0].closeCalls, 1); assert.equal(f.servers[0].listening, false);
+  assert.equal(f.events.at(-1), 'close'); assert.equal(f.memory.exists(claim.file), false);
+  assert.equal(f.state.configured, null); assert.equal(f.state.resultReads, 0);
+  assert.equal(await f.memory.io.readFile(path.join(f.paths.base, 'source-sentinel'), 'utf8'), 'UNCHANGED');
+  const diagnostic = JSON.parse(await f.memory.io.readFile(dto.diagnostic.path, 'utf8'));
+  assert.deepEqual(Buffer.from(diagnostic.claimBytes, 'base64'), original.bytes);
+  assert.deepEqual(diagnostic.claimReceipt, { ...original.receipt });
+});
+
+test('source doctor refuses any same-job result before opening an unavailable backup', async () => {
+  for (const claimOperation of ['export', 'restore']) {
+    const f = createFixture(), claim = await f.sourceClaim({ operation: claimOperation }), original = await sourceObservation(f, claim);
+    const control = path.join(f.paths.base, '.work-data'), backup = path.join(f.paths.backup, 'ruyi-work-data-' + claim.record.id + '.ruyi-backup');
+    f.memory.mkdir(control);
+    const result = { schema: 1, id: claim.record.id, operation: 'export', state: 'verified',
+      sourceAuthority: { ...f.fullAuthority }, authority: { ...f.fullAuthority }, finishedAt: '2026-10-29T00:00:00.000Z',
+      backup: { path: backup, sha256: 'f'.repeat(64), bytes: 10, identity: { dev: '1', ino: '9999' } } };
+    assert.equal(f.api.result.validate(result), true);
+    f.memory.put(path.join(control, f.api.result.NAME), JSON.stringify(result)); const from = f.memory.calls.length;
+    await assert.rejects(f.factory.recoverSource({ base: f.paths.base }), error => error.code === 'work_data_claim.source_recovery_unverified'
+      && error.cause?.code === 'work_data_host.source_recovery_completed_result_present');
+    assert.equal(f.memory.calls.slice(from).some(row => row[1] === backup.toLowerCase()), false, 'backup absence cannot downgrade this job to unknown');
+    assert.deepEqual(await sourceObservation(f, claim), original); assert.equal(f.memory.entries(claim.dir).length, 1);
+    assert.equal(f.servers[0].closeCalls, 1); assert.equal(f.servers[0].listening, false);
+  }
+});
+
+test('source doctor refuses intent, unknown stages and authority changes while preserving the real claim', async () => {
+  for (const condition of ['intent', 'stage', 'authority']) {
+    const f = createFixture(), claim = await f.sourceClaim(), original = await sourceObservation(f, claim);
+    const control = path.join(f.paths.base, '.work-data'); f.memory.mkdir(control);
+    if (condition === 'stage') f.memory.put(path.join(control, '.unrecognized-stage'), 'KEEP');
+    if (condition === 'intent') f.memory.put(path.join(control, 'maintenance-v1.json'), JSON.stringify({ schema: 1, id: 'f'.repeat(48), operation: 'enable', phase: 'prepared',
+      expectedAuthority: { ...f.fullAuthority }, backup: { path: path.join(f.paths.backup, 'prior.ruyi-backup'), sha256: 'a'.repeat(64) }, candidate: null, createdAt: '2026-10-29T00:00:00.000Z' }));
+    if (condition === 'authority') f.nativeBindings.fullSnapshot.create = () => ({ seal: async () => {
+      f.nativeBindings.manifest.create = () => ({ readActive: async () => ({ generation: 2, id: 'f'.repeat(48), mode: 'plain', proof: { sha256: 'e'.repeat(64) } }) }); return readableProof();
+    } });
+    const suffix = { intent: 'intent_pending', stage: 'stage_pending', authority: 'authority_changed' }[condition];
+    await assert.rejects(f.factory.recoverSource({ base: f.paths.base }), error => error.code === 'work_data_claim.source_recovery_unverified'
+      && error.cause?.code === 'work_data_host.source_recovery_' + suffix);
+    assert.deepEqual(await sourceObservation(f, claim), original); assert.equal(f.memory.entries(claim.dir).length, 1);
+    assert.equal(f.servers[0].closeCalls, 1);
+  }
+});
+
+test('known settled source-data errors cross the real claim wrapper and release the unchanged owner once', async () => {
+  const f = createFixture(), claim = await f.sourceClaim(), original = await sourceObservation(f, claim);
+  const cause = Object.assign(Error('known invalid work-data key'), { code: 'work_data_key.invalid' });
+  f.nativeBindings.fullSnapshot.create = () => ({ seal: async () => { throw cause; } });
+  await assert.rejects(f.factory.recoverSource({ base: f.paths.base }), error => error.code === 'work_data_claim.source_recovery_unverified' && error.cause === cause);
+  assert.deepEqual(await sourceObservation(f, claim), original); assert.equal(f.servers[0].closeCalls, 1); assert.equal(f.servers[0].listening, false);
+  assert.equal(f.factory.helperMayStillRun(), false); assert.equal(f.holds.length, 0);
+});
+
+test('clear-only snapshot retention, nested and opaque evidence retain genuine source ownership permanently', async () => {
+  for (const kind of ['direct', 'cause', 'errors', 'getter', 'proxy', 'cycle']) {
+    const f = createFixture(), claim = await f.sourceClaim(), original = await sourceObservation(f, claim), keepers = []; let traps = 0, lease;
+    f.nativeBindings.ownership = { ...f.api.ownership, createSourceKeeper(owner, base) {
+      const keeper = f.api.ownership.createSourceKeeper(owner, base);
+      assert.equal(f.api.ownership.isSourceKeeper(keeper, owner, base), true); keepers.push(keeper); return keeper;
+    } };
+    const clear = Object.assign(Error('snapshot clear failed'), { helperMayStillRun: false, ownershipRetained: true });
+    let cause = clear;
+    if (kind === 'cause') cause = Error('outer', { cause: clear });
+    if (kind === 'errors') cause = new AggregateError([clear], 'outer');
+    if (kind === 'getter') cause = Object.defineProperty(Error('opaque'), 'ownershipRetained', { get() { traps++; throw Error('must not read'); } });
+    if (kind === 'proxy') cause = Error('outer', { cause: new Proxy({}, { get() { traps++; throw Error('must not read'); }, getOwnPropertyDescriptor() { traps++; throw Error('must not inspect'); } }) });
+    if (kind === 'cycle') { cause = Error('cyclic'); cause.cause = cause; }
+    f.nativeBindings.fullSnapshot.create = options => ({ seal: async () => {
+      lease = options.ownership; assert.equal(keepers.length, 2, 'the host and snapshot each hold their real keeper'); throw cause;
+    } });
+    await assert.rejects(f.factory.recoverSource({ base: f.paths.base }), error => error.ownershipRetained === true && error.helperMayStillRun === true
+      && error.cause?.code === 'work_data_claim.source_recovery_unverified' && error.cause.cause === cause);
+    assert.equal(keepers.length, 2);
+    for (const keeper of keepers) {
+      assert.equal(f.api.ownership.isSourceKeeper(keeper, lease, f.paths.base), false, 'retention revokes new use of the branded keeper');
+      assert.equal(keeper.assertExclusive(lease), false);
+    }
+    assert.equal(traps, 0);
+    assert.equal(f.hostNative.helperMayStillRun(), true); assert.equal(f.factory.helperMayStillRun(), true);
+    assert.equal(f.servers[0].closeCalls, 0); assert.equal(f.servers[0].listening, true);
+    assert.ok(f.holds.some(row => row.refs > 0)); assert.deepEqual(await sourceObservation(f, claim), original);
+    await assert.rejects(lease.release()); assert.equal(f.servers[0].closeCalls, 0);
+  }
+});
+
+test('independent claim adapter carries the actual 01w unclosed-helper Error through 13av to host retention', async () => {
+  const f = createFixture(), claim = await f.sourceClaim(), original = await sourceObservation(f, claim), native = f.unclosedNativeFlush();
+  let failure, hostWasClear;
+  f.state.claimFlush = async () => { try { return await native.flush(['C:\\ruyi-native-flush-model']); }
+    catch (error) { failure = error; hostWasClear = f.hostNative.helperMayStillRun() === false; throw error; } };
+  const pending = f.factory.recoverSource({ base: f.paths.base }); pending.catch(() => {});
+  await waitForModel(() => f.timeouts.some(row => row.ms === 20000)); native.fail(); native.expire();
+  await assert.rejects(pending, error => error.ownershipRetained === true && error.helperMayStillRun === true
+    && error.cause?.code === 'work_data_claim.source_recovery_failed' && error.cause.cause === failure);
+  assert.equal(failure.code, 'work_data_manifest.flush_pipe'); assert.equal(failure.helperMayStillRun, true);
+  assert.equal(failure.commitUncertain, true); assert.equal(hostWasClear, true, 'the claim and host native adapters have separate latches');
+  assert.equal(claim.claimNative.helperMayStillRun(), true); assert.equal(f.hostNative.helperMayStillRun(), true);
+  assert.equal(f.servers[0].closeCalls, 0); assert.equal(f.servers[0].listening, true); assert.ok(f.holds.some(row => row.refs > 0));
+  assert.deepEqual(await sourceObservation(f, claim), original); assert.equal(f.memory.entries(claim.dir).length, 2);
+});
+
+test('source doctor owner-close failure retains its final diagnostic and never retries the close', async () => {
+  const f = createFixture({ manualClose: true }), claim = await f.sourceClaim();
+  const pending = f.factory.recoverSource({ base: f.paths.base }); pending.catch(() => {});
+  await waitForModel(() => f.servers[0]?.closeCalls === 1);
+  f.servers[0].finishClose(Error('modeled actual owner close failure'));
+  await assert.rejects(pending, error => error.ownershipRetained === true && error.helperMayStillRun === true);
+  assert.equal(f.memory.exists(claim.file), false); assert.equal(f.memory.entries(claim.dir).length, 1);
+  assert.equal(f.servers[0].closeCalls, 1); assert.ok(f.holds.some(row => row.refs > 0));
+});
+
 test('genuine owner and keeper brands reject roots-shaped clones and Proxy objects without getters', async () => {
   const f = createFixture(), owner = await f.lease([f.paths.base]); let gets = 0;
   const foreign = { get roots() { gets++; return [f.paths.base]; } };
@@ -584,7 +713,7 @@ test('13au installs one real claim on the runtime hooks and the boot gate cleans
   assert.equal(w.installedBy13am, undefined);
   // 13av carries the fresh-root activation API on that same owner; 13au installs
   // that exact object instead of minting a parallel activation owner.
-  assert.deepEqual(Object.keys(hooks.claim).sort(), ['activation', 'classify', 'inspect', 'recoverCompleted', 'remove', 'write']);
+  assert.deepEqual(Object.keys(hooks.claim).sort(), ['activation', 'classify', 'inspect', 'recoverCompleted', 'recoverSource', 'remove', 'write']);
   assert.equal(hooks.activation, hooks.claim.activation);
   assert.deepEqual(Object.keys(hooks.activation).sort(), ['inspect', 'remove', 'write']);
 

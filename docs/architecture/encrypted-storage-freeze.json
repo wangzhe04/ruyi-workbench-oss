@@ -3,14 +3,14 @@
   "generatedBy": "dev-harness/encrypted-storage-freeze.js",
   "scope": "M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration",
   "encryptionImplemented": false,
-  "count": 76,
+  "count": 77,
   "classCounts": {
     "required": 44,
-    "excluded": 32
+    "excluded": 33
   },
   "batchCounts": {
+    "not-migrated": 33,
     "sessions": 12,
-    "not-migrated": 32,
     "index-cache": 8,
     "memory-queue": 13,
     "tasks": 7,
@@ -84,6 +84,15 @@
     "derivation": "HKDF-SHA256(master, salt=ruyi.work-data.v1, info=purpose:<purpose>:k<generation>)"
   },
   "entries": [
+    {
+      "id": "work-data-source-recovery-observation",
+      "encryption": "excluded",
+      "keyPurpose": null,
+      "migrationBatch": "not-migrated",
+      "plaintextMetadata": [],
+      "reason": "TEMP control observation retained after explicit source recovery: original claim bytes, canonical source path and identities, authority/source proof and counts are plaintext; no password, master key or recovered content; never completion, execution, activation or boot authority",
+      "adapter": "pending"
+    },
     {
       "id": "session-head",
       "encryption": "required",

@@ -321,6 +321,113 @@ async function completedClaim(t, options = {}) {
  let receipt=await f.owner.write(armed);receipt=await f.owner.write(committed,receipt);receipt=await f.owner.write(owned,receipt);
  return {...f,owned,receipt};
 }
+const sourceProof=()=>({authority:{generation:0,id:null,mode:'plain',sha256:null},sourceProof:{sha256:'d'.repeat(64),bytes:17,files:1,directories:1}});
+const sourceDiagnostics=async f=>(await io.readdir(f.dir)).filter(name=>name.startsWith('unknown-source-v1-'));
+// Retain the production capture/inspect implementation. These wrappers interrupt
+// real filesystem IO, including the final awaited diagnostic capture.
+function claimWithIo(f,overrides){
+ const wrapped={...io,...overrides};
+ const selected=vm.runInNewContext(fs.readFileSync(SOURCE,'utf8')+'\nWorkDataHandoffClaim;',{
+  require:name=>name==='node:fs/promises'?wrapped:require(name),Buffer,process});
+ return selected.create(f.host);
+}
+test('source recovery preserves the exact claim observation before retiring only the pending name',async t=>{
+ const f=await completedClaim(t),before=await io.readFile(f.file),seen=[],flushes=f.facts.calls;
+ await io.writeFile(p.join(f.base,'source-sentinel'),'UNCHANGED');
+ const result=await f.owner.recoverSource(f.receipt,async value=>{
+  seen.push(value);assert.equal(Object.isFrozen(value),true);
+  await assert.rejects(f.owner.remove(f.receipt),errCode('work_data_claim.busy'));
+  await assert.rejects(f.owner.recoverSource(f.receipt,sourceProof),errCode('work_data_claim.busy'));
+  return sourceProof();
+ });
+ assert.equal(seen.length,2);assert.equal(seen[0],seen[1]);assert.equal(f.facts.calls,flushes+2);
+ assert.deepEqual(f.facts.flushes.slice(flushes),[[f.dir,f.temp],[f.dir,f.temp]]);
+ assert.equal((await f.owner.inspect({base:f.base})).present,false);
+ assert.equal(await io.readFile(p.join(f.base,'source-sentinel'),'utf8'),'UNCHANGED');
+ const bytes=await io.readFile(result.diagnostic.path),observation=JSON.parse(bytes);
+ assert.deepEqual(Object.keys(observation).sort(),['authority','claimBytes','claimReceipt','createdAt','kind','maintenanceOutcome','schema','sourceProof','sourceReadable']);
+ assert.equal(observation.kind,'owned-source-recovery-observation');assert.equal(observation.maintenanceOutcome,'unknown');assert.equal(observation.sourceReadable,true);
+ assert.deepEqual(Buffer.from(observation.claimBytes,'base64'),before);assert.deepEqual(observation.claimReceipt,{...f.receipt});
+ assert.deepEqual(observation.authority,sourceProof().authority);assert.deepEqual(observation.sourceProof,sourceProof().sourceProof);
+ assert.equal(c.createHash('sha256').update(bytes).digest('hex'),result.diagnostic.sha256);
+ const stat=await io.lstat(result.diagnostic.path,{bigint:true});
+ assert.deepEqual({...result.diagnostic.identity},{dev:String(stat.dev),ino:String(stat.ino)});
+ assert.equal((await sourceDiagnostics(f)).length,1);assert.ok(bytes.length<=65536);
+});
+test('source recovery requires owned phase, exact proof shape and two ESRCH observations',async t=>{
+ for(const state of ['parent-alive','child-alive','parent-unknown','child-unknown','false']){
+  const f=await completedClaim(t),before=await io.readFile(f.file);let calls=0;
+  const probe=pid=>{if(state==='false')return false;const role=pid===f.owned.parentPid?'parent':'child';if(state===role+'-alive')return alive();if(state===role+'-unknown')return unknown();return dead();};
+  await assert.rejects(api.create({...f.host,probe}).recoverSource(f.receipt,async()=>{calls++;return sourceProof();}),errCode('work_data_claim.recovery_process_pending'));
+  assert.equal(calls,0);assert.deepEqual(await io.readFile(f.file),before);assert.deepEqual(await sourceDiagnostics(f),[]);
+ }
+ for(const phase of ['armed','committed']){
+  const f=await fixture(t,{probe:dead}),armed=f.value();let receipt=await f.owner.write(armed);
+  if(phase==='committed')receipt=await f.owner.write(f.advance(armed,phase),receipt);
+  await assert.rejects(f.owner.recoverSource(receipt,sourceProof),errCode('work_data_claim.recovery_phase_invalid'));
+ }
+ for(const value of [undefined,null,true,{}, {...sourceProof(),extra:true}, {...sourceProof(),sourceProof:{...sourceProof().sourceProof,bytes:-1}}]){
+  const f=await completedClaim(t),before=await io.readFile(f.file);
+  await assert.rejects(f.owner.recoverSource(f.receipt,async()=>value),errCode('work_data_claim.source_recovery_unverified'));
+  assert.deepEqual(await io.readFile(f.file),before);assert.deepEqual(await sourceDiagnostics(f),[]);
+ }
+});
+test('source recovery wraps original proof failures and preserves earlier diagnostics on retry',async t=>{
+ const f=await completedClaim(t),before=await io.readFile(f.file),cause=Object.assign(Error('known source refusal'),{code:'work_data_key.invalid'});let calls=0;
+ await assert.rejects(f.owner.recoverSource(f.receipt,async()=>{if(++calls===2)throw cause;return sourceProof();}),error=>error.code==='work_data_claim.source_recovery_unverified'&&error.cause===cause);
+ assert.deepEqual(await io.readFile(f.file),before);const names=await sourceDiagnostics(f);assert.equal(names.length,1);
+ const retained=await io.readFile(p.join(f.dir,names[0]));
+ await f.owner.recoverSource(f.receipt,sourceProof);
+ assert.equal((await sourceDiagnostics(f)).length,2);assert.deepEqual(await io.readFile(p.join(f.dir,names[0])),retained);
+});
+test('source recovery faults before unlink preserve the original receipt and never report success',async t=>{
+ for(const fault of ['create','write','sync','close','first-flush','first-read','second-proof','final-read','final-claim','unlink']){
+  const f=await completedClaim(t),before=await io.readFile(f.file),injected=Object.assign(Error('injected '+fault),{code:'EIO'});
+  let reads=0,finalRead=false,proofs=0;
+  if(fault==='first-flush')f.facts.failAt=f.facts.calls;
+  const owner=claimWithIo(f,{
+   async open(file,flags,...rest){
+    const diagnostic=p.basename(file).startsWith('unknown-source-v1-');
+    if(diagnostic&&flags==='wx'&&fault==='create')throw injected;
+    const handle=await io.open(file,flags,...rest);if(!diagnostic)return handle;
+    const readNumber=flags==='r'?++reads:0;
+    return {stat:(...args)=>handle.stat(...args),
+     writeFile:async(...args)=>{if(fault==='write')throw injected;return handle.writeFile(...args);},
+     sync:async()=>{if(fault==='sync')throw injected;return handle.sync();},
+     read:async(...args)=>{if(fault==='first-read'&&readNumber===1||fault==='final-read'&&readNumber===2)throw injected;return handle.read(...args);},
+     close:async()=>{await handle.close();if(readNumber===2)finalRead=true;if(fault==='close'&&flags==='wx')throw injected;}};
+   },
+   async lstat(file,...args){if(fault==='final-claim'&&finalRead&&file===f.file)throw injected;return io.lstat(file,...args);},
+   async unlink(file){if(file===f.file&&fault==='unlink')throw injected;return io.unlink(file);}
+  });
+  await assert.rejects(owner.recoverSource(f.receipt,async()=>{if(++proofs===2&&fault==='second-proof')throw injected;return sourceProof();}));
+  assert.deepEqual(await io.readFile(f.file),before,fault);assert.equal((await f.owner.inspect({base:f.base})).receipt.sha256,f.receipt.sha256,fault);
+  assert.equal((await sourceDiagnostics(f)).length,fault==='create'?0:1,fault);
+ }
+});
+test('post-unlink flush failure retains the durable diagnostic without claiming the pending name survives',async t=>{
+ const f=await completedClaim(t),before=await io.readFile(f.file);f.facts.failAt=f.facts.calls+1;
+ await assert.rejects(f.owner.recoverSource(f.receipt,sourceProof),errCode('work_data_claim.source_recovery_failed'));
+ assert.equal(fs.existsSync(f.file),false);const names=await sourceDiagnostics(f);assert.equal(names.length,1);
+ const observation=JSON.parse(await io.readFile(p.join(f.dir,names[0]),'utf8'));
+ assert.deepEqual(Buffer.from(observation.claimBytes,'base64'),before);assert.equal(observation.maintenanceOutcome,'unknown');
+});
+test('the final diagnostic read cannot authorize unlinking replacement claim bytes or identity',async t=>{
+ for(const kind of ['bytes','identity']){
+  const f=await completedClaim(t),original=await io.readFile(f.file);let reads=0;
+  const foreign=kind==='bytes'?Buffer.from(JSON.stringify({...f.owned,nonce:'f'.repeat(64)})):original;
+  const owner=claimWithIo(f,{async open(file,flags,...rest){
+   const handle=await io.open(file,flags,...rest);
+   if(flags!=='r'||!p.basename(file).startsWith('unknown-source-v1-')||++reads!==2)return handle;
+   return {stat:(...args)=>handle.stat(...args),read:(...args)=>handle.read(...args),close:async()=>{
+    await handle.close();if(kind==='identity')await io.rename(f.file,f.file+'.retained');await io.writeFile(f.file,foreign);
+   }};
+  }});
+  await assert.rejects(owner.recoverSource(f.receipt,sourceProof),errCode('work_data_claim.claim_changed'));
+  assert.deepEqual(await io.readFile(f.file),foreign);assert.equal((await sourceDiagnostics(f)).length,1);
+  if(kind==='identity')assert.deepEqual(await io.readFile(f.file+'.retained'),original);
+ }
+});
 test('completed recovery proves both original processes dead, verifies twice and retires only its exact receipt',async t=>{
  const f=await completedClaim(t),seen=[];const flushes=f.facts.calls;
  assert.equal(await f.owner.recoverCompleted(f.receipt,async value=>{seen.push(value);assert.equal(value.id,f.owned.id);assert.equal(Object.isFrozen(value),true);return true;}),true);

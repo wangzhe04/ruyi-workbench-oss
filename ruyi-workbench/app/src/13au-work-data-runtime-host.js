@@ -381,6 +381,74 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         ? Object.freeze({inspect:observation=>owner.inspect(observation),validate:value=>owner.validate(value)})
         : Object.freeze({inspect:observation=>owner.inspect(observation),write:(value,previous)=>owner.write(value,previous),validate:value=>owner.validate(value)});
     };
+    // A fresh, explicitly invoked doctor process owns this whole operation. Never
+    // release the source to a second verifier process and reacquire it afterward.
+    async function recoverSource({base}={}) {
+      if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw fail('source_recovery_requires_cold_process');
+      if(!methods(bindings.claim,['inspect','recoverSource'])||typeof N.fullSnapshot!=='function')throw fail('source_recovery_unavailable');
+      base=fold(await canonical(base));
+      const owner=await coldAcquire([base],base),ctx=cold;
+      const close=async()=>{ensure(ctx);ctx.accepting=false;await ctx.keeper.releaseOwner(assertFinishSafe);assertFinishSafe();ctx.finished=true;};
+      let result,id,failed=false,primary;
+      try{
+        const first=await bindings.claim.inspect({base});
+        if(!first?.present||first.value.phase!=='owned')throw fail('source_recovery_claim_required');
+        id=first.value.id;
+        const controls=bindings.controlApi.create({base,ownership:owner,assertExclusive:candidate=>candidate===owner&&assertOwnership(owner,base),assertDurableBackup:async()=>false,flush:async()=>{throw fail('source_recovery_readonly');}});
+        const results=bindings.resultApi.create({base,ownership:owner,assertExclusive:candidate=>candidate===owner&&assertOwnership(owner,base),readAuthority:()=>N.readAuthority(base)});
+        const authorityOf=actual=>{
+          const value={generation:actual?.generation,id:actual?.id,mode:actual?.mode,sha256:actual?.proof?.sha256};
+          if(!Number.isSafeInteger(value.generation)||value.generation<0||!['plain','encrypted'].includes(value.mode)
+            ||(value.generation===0?value.id!==null||value.sha256!==null:!/^([a-f0-9]{48})$/.test(value.id||'')||!/^([a-f0-9]{64})$/.test(value.sha256||'')))throw fail('source_recovery_authority_invalid');
+          return Object.freeze(value);
+        };
+        const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+        let authority=null;
+        const inspect=async claim=>{
+          ensure(ctx);
+          const control=p.join(base,'.work-data');
+          try{
+            const stat=await io.lstat(control);if(!stat.isDirectory()||stat.isSymbolicLink())throw fail('source_recovery_control_invalid');
+            const allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+            if((await io.readdir(control)).some(name=>!allowed.has(fold(name))))throw fail('source_recovery_stage_pending');
+          }catch(error){if(error.code!=='ENOENT')throw error;}
+          if((await controls.inspect()).pending)throw fail('source_recovery_intent_pending');
+          const found=await results.inspect();
+          // An existing record for this job belongs to completed recovery. Never
+          // use source readability to bypass its backup/authority verification.
+          if(found?.present&&found.value?.id===claim.id)throw fail('source_recovery_completed_result_present');
+          const current=authorityOf(await N.readAuthority(base));
+          if(authority&&!same(authority,current))throw fail('source_recovery_authority_changed');
+          authority=current;
+          ensure(ctx);return current;
+        };
+        result=await bindings.claim.recoverSource(first.receipt,async claim=>{
+          const before=await inspect(claim);
+          let password=c.randomBytes(32).toString('base64'),sealed;
+          try{sealed=await N.fullSnapshot(base,owner,candidate=>candidate===owner&&assertOwnership(owner,base)).seal({password,appVersion:VERSION,generation:before.generation});}
+          finally{password=null;}
+          const after=await inspect(claim);
+          if(!same(before,after))throw fail('source_recovery_authority_changed');
+          ensure(ctx);
+          const proof=sealed?.sourceProof;
+          return {authority:after,sourceProof:{sha256:proof?.sha256,bytes:proof?.bytes,files:proof?.files,directories:proof?.directories}};
+        });
+        ensure(ctx);
+      }catch(error){failed=true;primary=error;}
+      if(failed){
+        // 13aq observes both helperMayStillRun and ownershipRetained throughout
+        // the same bounded cause/errors graph, including opaque getters/Proxies.
+        // A clear-only cleanup failure may retain its owner without a live helper;
+        // neither fact may be forgotten before this owner decides whether to close.
+        try{if(N.helperMayStillRun(primary)!==false)throw primary;}catch(error){throw retain(error);}
+        if(helperUnknown())throw retain(primary);
+        try{await close();}catch(error){throw retain(new AggregateError([primary,error],'work_data_host.source_recovery_cleanup_failed',{cause:primary}));}
+        throw primary;
+      }
+      try{await close();}catch(error){throw retain(error);}
+      return Object.freeze({schema:1,kind:'owned-source-recovery',id,sourceReadable:true,maintenanceOutcome:'unknown',
+        authority:result.authority,sourceProof:result.sourceProof,diagnostic:result.diagnostic});
+    }
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
@@ -421,7 +489,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);
       return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:true,crashClaim:false,activation:false})});
     }
-    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,helperMayStillRun:helperUnknown,
+    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,helperMayStillRun:helperUnknown,
       capabilities:Object.freeze({requiresCheckedSourceKeeper:true,sourceKeeperHost:true,uploadBrokerAssembly:true,coldOperationAssembly:true,worker:false,crashClaim:false,activation:false,productionReady:false})});
   }
   function bindCapturedResult(host,base,ownership,read){

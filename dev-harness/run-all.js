@@ -60,6 +60,11 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // 实测撞 120s 硬超时(单跑无争用 ~39s),这些墙钟窗口本身就是在测「收件箱 tick 到达」这件事,
 // 挤在一起量不准,排到并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
+  // Production recovery acceptance owns a real browser/native lifecycle and
+  // records bounded process transitions. Keep its first execution budgets free
+  // from competing functional buckets; phase deadlines remain unchanged.
+  'work-data-production-restore.browser.e2e.js',
+  'work-data-owned-source-recovery.e2e.js',
   // The hand-off undo button has a real 10-second expiry. CDP inspection and the
   // subsequent click share that window; competing browser fixtures can exhaust it.
   // Keep all existing rewind/identity/grouping assertions, run this clock-bound UI alone.
@@ -254,6 +259,10 @@ const TIMEOUT_OVERRIDES = {
   // Freeze its first overall budget explicitly; existing phase deadlines and
   // the older maintenance/restore gates remain unchanged.
   'work-data-completed-claim-recovery.e2e.js': 900000,
+  // Initial whole-file budgets for the real settings restore and explicit
+  // source recovery matrix. No existing inner wait or older gate is widened.
+  'work-data-production-restore.browser.e2e.js': 900000,
+  'work-data-owned-source-recovery.e2e.js': 900000,
 };
 function timeoutFor(file) { return TIMEOUT_OVERRIDES[file] || TIMEOUT_MS; }
 

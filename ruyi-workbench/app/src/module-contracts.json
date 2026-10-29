@@ -29075,6 +29075,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"

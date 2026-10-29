@@ -86,7 +86,7 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 |---|---|
 | **One file, zero dependencies** | The backend runtime is a single `app/server.js` (concatenated from 125 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend uses framework-free ES modules with no build step. |
 | **121 native tools · 108 ACC tools** | Files, terminal, search, Git, web, Office hand-off, cross-thread history, sub-agent orchestration and steward tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **593 e2e cases** (586 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 408 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **595 e2e cases** (588 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 409 unit suites and 25 ACC smoke groups. Windows CI runs the offline regression, unit tests and the ACC subset that does not require a real desktop. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -461,9 +461,12 @@ node .\app\server.js serve --open        # binds 127.0.0.1 (`--host` with a non-
 | Command | Purpose |
 |---|---|
 | `node .\app\server.js doctor` | Health check: engines, dependencies, ports, data directory (the same report as Settings · System · Health) |
+| `node .\app\server.js doctor --recover-work-data-source` | Explicit source check after a crash: verify the complete source is readable, retire its owned claim without a completion result, and retain the original diagnostic; the maintenance outcome remains unknown and no operation is replayed |
 | `node .\app\server.js mcp-config` | Print a workbench MCP configuration ready for `.mcp.json` |
 | `node .\app\server.js install` | Register the workbench MCP with the local Claude Code |
 | `node .\app\server.js mcp` | Run as a stdio MCP server |
+
+Set `RUYI_HOME` to the original data root and close its old instance before running the source recovery check. Both recorded processes must have exited, no pending intent/stage may exist, and two complete snapshots must verify under one exclusive owner. Missing keys, invalid data or uncertainty preserve the claim. This command does not repair an unknown restore target or declare the interrupted operation successful. Success reports `sourceReadable: true` and `maintenanceOutcome: "unknown"`; normal startup can then use that source. The local TEMP diagnostic contains paths and control identities.
 
 ### Upgrading
 

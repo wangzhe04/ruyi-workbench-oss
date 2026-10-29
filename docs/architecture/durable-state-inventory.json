@@ -2,14 +2,28 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 76,
+  "count": 77,
   "lifecycleCounts": {
-    "dedicated-exemption": 23,
+    "dedicated-exemption": 24,
     "external-exemption": 10,
     "regenerable-exemption": 11,
     "shared-lifecycle": 32
   },
   "entries": [
+    {
+      "id": "work-data-source-recovery-observation",
+      "pattern": "<TEMP>/ruyi-work-data-handoff-<base-sha256>/unknown-source-v1-<random>.json",
+      "owner": "13av-work-data-handoff-claim.js",
+      "anchor": "'unknown-source-v1-'",
+      "schema": "schema 1: unknown maintenance outcome, original claim bytes and exact receipt, observed authority/source hash and counts, timestamp; no password, master key or recovered content",
+      "writePrimitive": "explicit cold source owner; create-only wx 0600 file, sync and native directory flush, strict readback before exact claim retirement",
+      "corruption": "partial or changed observations are retained as inert evidence; never consulted as execution, completion, activation or boot authority",
+      "capacity": "64KiB per observation; manual retention, no automatic deletion or bounded aggregate count",
+      "cache": "none",
+      "recovery": "doctor --recover-work-data-source verifies the source twice without replay; errors before unlink preserve the pending claim, errors after unlink retain its durable original bytes in the observation",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "source-external diagnostic of an unknown operation requires cross-file claim/owner proof; not a defaulting JSON business store"
+    },
     {
       "id": "work-data-maintenance-intent",
       "pattern": "<data>/.work-data/maintenance-v1.json and .maintenance-v1.stage-*",

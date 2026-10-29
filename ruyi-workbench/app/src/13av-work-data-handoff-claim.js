@@ -369,6 +369,79 @@ const WorkDataHandoffClaim = ((io, p, c) => {
       if (typeof verifyCompleted !== 'function') return Promise.reject(fail('recovery_unverified'));
       return removeRecord(value, verifyCompleted);
     };
+    // Explicit doctor action only. A readable source says nothing about whether
+    // the interrupted maintenance operation completed. Preserve its exact claim
+    // bytes in a create-only diagnostic before retiring the pending TEMP name.
+    async function recoverSource(value, verifySource) {
+      if (!receiptShape(value)) throw fail('receipt_invalid');
+      if (typeof verifySource !== 'function') throw fail('source_recovery_unverified');
+      if (mutating) throw fail('busy');
+      mutating = true;
+      try {
+        const loc = location(value.base);
+        await tempPresent();
+        const same = found => found?.present && found.receipt.sha256 === value.sha256 && sameIdentity(found.receipt, value);
+        const selected = await inspect({ base: loc.base });
+        if (!same(selected)) throw fail('claim_changed');
+        const original = await current(loc);
+        if (!original || original.captured.sha256 !== value.sha256 || !sameIdentity(original.captured.identity, value)) throw fail('claim_changed');
+        const stopped = () => {
+          if (original.value.phase !== 'owned') throw fail('recovery_phase_invalid');
+          const dead = pid => { try { probe(pid); return false; } catch (error) { return error?.code === 'ESRCH'; } };
+          if (!dead(original.value.parentPid) || !dead(original.value.childPid)) throw fail('recovery_process_pending');
+        };
+        const verify = async () => {
+          let found;
+          try { found = await verifySource(original.value); }
+          catch (cause) { throw fail('source_recovery_unverified', cause); }
+          if (!shape(found, 'authority,sourceProof') || !authority(found.authority)
+            || !shape(found.sourceProof, 'bytes,directories,files,sha256') || !SHA.test(found.sourceProof.sha256 || '')
+            || !['bytes', 'files', 'directories'].every(key => Number.isSafeInteger(found.sourceProof[key]) && found.sourceProof[key] >= 0))
+            throw fail('source_recovery_unverified');
+          return freeze({ authority: { generation: found.authority.generation, id: found.authority.id, mode: found.authority.mode, sha256: found.authority.sha256 },
+            sourceProof: { sha256: found.sourceProof.sha256, bytes: found.sourceProof.bytes, files: found.sourceProof.files, directories: found.sourceProof.directories } });
+        };
+        stopped();
+        const first = await verify();
+        if (!same(await inspect({ base: loc.base }))) throw fail('claim_changed');
+        stopped();
+        const diagnostic = freeze({ schema: 1, kind: 'owned-source-recovery-observation', maintenanceOutcome: 'unknown', sourceReadable: true,
+          claimBytes: original.captured.bytes.toString('base64'), claimReceipt: { ...value }, authority: first.authority,
+          sourceProof: first.sourceProof, createdAt: new Date().toISOString() });
+        const bytes = Buffer.from(JSON.stringify(diagnostic)), maximum = 64 * 1024;
+        if (bytes.length > maximum) throw fail('source_recovery_unverified');
+        // No rename can replace an old diagnostic. A partial diagnostic is inert;
+        // failures keep the original claim, and retries use a different wx name.
+        const diagnosticPath = p.join(loc.root, 'unknown-source-v1-' + c.randomBytes(24).toString('hex') + '.json');
+        const handle = await io.open(diagnosticPath, 'wx', 0o600);
+        try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+        await flush([loc.root, temp]);
+        const proof = await capture(diagnosticPath, maximum);
+        if (proof.sha256 !== hash(bytes)) throw fail('source_diagnostic_changed');
+        // The durable observation is not retirement authority. Re-verify source,
+        // claim identity and both PID deaths after writing it, before unlink.
+        if (JSON.stringify(await verify()) !== JSON.stringify(first)) throw fail('source_changed');
+        if (!same(await inspect({ base: loc.base }))) throw fail('claim_changed');
+        stopped();
+        const finalDiagnostic = await capture(diagnosticPath, maximum);
+        if (finalDiagnostic.sha256 !== proof.sha256 || finalDiagnostic.size !== proof.size
+          || !sameIdentity(finalDiagnostic.identity, proof.identity)) throw fail('source_diagnostic_changed');
+        // The diagnostic capture awaited IO. Check the selected pending name again;
+        // its earlier receipt never authorizes unlinking a later version.
+        if (!same(await inspect({ base: loc.base }))) throw fail('claim_changed');
+        stopped();
+        await io.unlink(loc.file);
+        await flush([loc.root, temp]);
+        try { await io.lstat(loc.file); } catch (error) {
+          if (error.code === 'ENOENT') return freeze({ diagnostic: { path: diagnosticPath, sha256: proof.sha256, identity: proof.identity }, ...first });
+          throw error;
+        }
+        throw fail('claim_changed');
+      } catch (error) {
+        if (String(error?.code || '').startsWith('work_data_claim.')) throw error;
+        throw fail('source_recovery_failed', error);
+      } finally { mutating = false; }
+    }
     const liveness = pid => {
       try { return probe(pid) === false ? 'dead' : 'alive'; }
       catch (error) { return error?.code === 'ESRCH' ? 'dead' : 'unknown'; }
@@ -408,7 +481,7 @@ const WorkDataHandoffClaim = ((io, p, c) => {
       if (matches) return 'complete';
       return 'pending';
     }
-    return Object.freeze({ inspect, write, remove, classify, recoverCompleted,
+    return Object.freeze({ inspect, write, remove, classify, recoverCompleted, recoverSource,
       activation: Object.freeze({ write: activationWrite, inspect: activationInspect, remove: activationRemove }) });
   }
   return Object.freeze({ NAME, STAGE, LIMIT, validate, decode, create,

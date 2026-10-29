@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-28T12:53:56.633Z",
+  "generatedAt": "2026-10-29T05:34:57.335Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -3278,6 +3278,7 @@
       "coveredBy": [
         "dev-harness\\unit\\net-errors.test.js",
         "dev-harness\\unit\\work-data-maintenance-http.test.js",
+        "dev-harness\\unit\\work-data-production-browser.test.js",
         "dev-harness\\unit\\work-data-settings.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\work-data-production-maintenance.e2e.js",
@@ -3301,6 +3302,7 @@
       "coveredBy": [
         "dev-harness\\unit\\external-bots-retry-api.test.js",
         "dev-harness\\unit\\net-errors.test.js",
+        "dev-harness\\unit\\work-data-production-browser.test.js",
         "dev-harness\\unit\\work-data-settings.test.js",
         "dev-harness\\work-data-production-restore.e2e.js",
         "dev-harness\\work-data-production-upload.e2e.js",
@@ -4203,6 +4205,8 @@
         "dev-harness\\wait-primitive.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\walkthrough-round2.browser.e2e.js",
+        "dev-harness\\work-data-owned-source-recovery.e2e.js",
+        "dev-harness\\work-data-production-restore.browser.e2e.js",
         "dev-harness\\work-data-production-restore.e2e.js",
         "dev-harness\\work-data-root-authority.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
@@ -4507,6 +4511,8 @@
         "dev-harness\\wait-primitive.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
         "dev-harness\\walkthrough-round2.browser.e2e.js",
+        "dev-harness\\work-data-owned-source-recovery.e2e.js",
+        "dev-harness\\work-data-production-restore.browser.e2e.js",
         "dev-harness\\work-data-production-restore.e2e.js",
         "dev-harness\\work-data-root-authority.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
@@ -4710,6 +4716,7 @@
         "dev-harness\\usage-ledger.e2e.js",
         "dev-harness\\vision-loop.e2e.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
+        "dev-harness\\work-data-owned-source-recovery.e2e.js",
         "dev-harness\\work-data-production-restore.e2e.js",
         "dev-harness\\workbench-memory.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js",

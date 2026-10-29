@@ -66,6 +66,48 @@ test('runtime glue does not add or modify the production module.exports surface'
  const declaration=bracedBlock(main,'module.exports = {');assert.ok(declaration.length>100);assert.equal(require('node:crypto').createHash('sha256').update(declaration).digest('hex'),'0099fa1678c03e487fab5da1f11973a879cde3348da67ea604b77c1a5a9821d9');
 });
 
+const sourceDoctorContext=(args=['doctor','--recover-work-data-source'],recover=async()=>({schema:1,kind:'owned-source-recovery',sourceReadable:true,maintenanceOutcome:'unknown'}))=>{
+ const calls=[],lines=[],processStub={argv:['node','server.js',...args],exit:()=>{throw Error('unexpected process exit');}};
+ const context={process:processStub,Object,console:{log:line=>lines.push(line)},
+  WorkDataVerifierEntry:{COMMAND:'work-data-verify'},WorkDataMaintenanceRuntimeHooks:{},
+  WorkDataRuntimeHost:{create:()=>{calls.push('create');return{recoverSource:async value=>{calls.push(['recover',value]);return recover();}};}},
+  dataRoot:()=>{calls.push('selected-root');return 'C:\\selected-source';},
+  withSelectedWorkDataRoot:()=>{throw Error('ordinary CLI boot forbidden');},
+  doctor:()=>{throw Error('ordinary doctor forbidden');},ensureDirs:()=>{throw Error('directory creation forbidden');},
+  WorkDataRootHooks:{bind:()=>{throw Error('root binding forbidden');}},
+  startWorkbenchServe:()=>{throw Error('serve forbidden');},clearBootRootPreference:()=>{throw Error('preference change forbidden');}};
+ const fn=vm.runInNewContext(parse+'\n'+functionBlock(main,'main')+'\nmain;',context);
+ return {calls,lines,context,fn};
+};
+test('exact source doctor argv calls only the cold recovery seam and outputs one bounded DTO',async()=>{
+ const f=sourceDoctorContext(),dto=await f.fn();
+ assert.deepEqual(JSON.parse(JSON.stringify(f.calls)),['create','selected-root',['recover',{base:'C:\\selected-source'}]]);
+ assert.equal(f.lines.length,1);assert.deepEqual(JSON.parse(f.lines[0]),JSON.parse(JSON.stringify(dto)));
+ assert.equal(dto.sourceReadable,true);assert.equal(dto.maintenanceOutcome,'unknown');
+});
+test('source doctor refuses extra raw flags, positional arguments, aliases and flag values before creating a host',async()=>{
+ for(const args of [
+  ['doctor','--recover-work-data-source','extra'],['doctor','extra','--recover-work-data-source'],
+  ['doctor','--recover-work-data-source','--human'],['doctor','--recover-work-data-source','--clear-boot-root'],
+  ['doctor','--recover-work-data-source','--recover-work-data-source'],['--recover-work-data-source','doctor'],
+  ['doctor','--recover-work-data-source','true'],['doctor','--recover-work-data-source=false'],
+  ['doctor','--recover-work-data-source=true']
+ ]){
+  const f=sourceDoctorContext(args);await assert.rejects(f.fn(),{code:'work_data_setup.private_command_invalid'});
+  assert.deepEqual(f.calls,[],JSON.stringify(args));assert.deepEqual(f.lines,[]);
+ }
+});
+test('source doctor retained failures enter the actual main catch and keep a referenced CLI lifetime',async()=>{
+ const error=Object.assign(Error('work_data_host.source_uncertain'),{code:'work_data_host.source_uncertain',helperMayStillRun:true,ownershipRetained:true});
+ const f=sourceDoctorContext(undefined,async()=>{throw error;}),holds=[],errors=[],module={};
+ f.context.module=module;f.context.require={main:module};f.context.console.error=line=>errors.push(line);
+ f.context.setInterval=(fn,ms)=>{const row={fn,ms};holds.push(row);return row;};
+ const code=parse+'\n'+sliceBlock(main,'let workDataCliHelperHeld','// These commands read config through')+'\n'+functionBlock(main,'main')+'\n'+sliceBlock(main,'if (require.main === module) {','module.exports = {');
+ await vm.runInNewContext(code,f.context);
+ assert.equal(f.context.process.exitCode,1);assert.equal(holds.length,1);assert.equal(holds[0].ms,60000);
+ assert.deepEqual(errors,['work_data_setup.native_helper_uncertain']);assert.deepEqual(f.lines,[]);
+});
+
 // P2-4: `doctor --clear-boot-root` is the only operational exit for the boot-root
 // preference. It must never acquire the data root, start a serve, run a migration or
 // fall through to the ordinary doctor, and it may only use the inspected receipt.
