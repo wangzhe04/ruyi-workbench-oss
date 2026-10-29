@@ -1,0 +1,1942 @@
+{
+  "schema": 1,
+  "date": "2026-10-30",
+  "status": "RETENTION_CORE_VALIDATED_IMPLEMENTATION_BATCH",
+  "baseCommit": "f72f38c1933015eb4d58e0be81aeec5467beba0d",
+  "applicationVersion": "3.0.1",
+  "source": {
+    "frozenActualTree": "7ae473a7a6738c99cfb639799f1ba6e0157a0979",
+    "frozenActualPinsSha256": "80e5d527fac07386c87f781d3b026dc8f115542c169c8544d69f8e0ad54e5fc2",
+    "finalFiles": [
+      {
+        "path": "README.md",
+        "bytes": 65304,
+        "sha256": "a3173ade7ad55c0b2744ccf3bb912f1b19662ab9f992c59bfe740fd54c08e5e7"
+      },
+      {
+        "path": "README_EN.md",
+        "bytes": 72352,
+        "sha256": "eb865c96793d28033b15ac2a51dfaa331679f85670b2dcd9f5db145716881822"
+      },
+      {
+        "path": "dev-harness/durable-state-inventory.js",
+        "bytes": 64162,
+        "sha256": "1f75d02f4bb776d38188ade324a1e9ef7bf7fd08f0f52a8bc792349f3af73e4a"
+      },
+      {
+        "path": "dev-harness/encrypted-storage-freeze.js",
+        "bytes": 24854,
+        "sha256": "60c4e1292f5190df549eaa361072e175a70dd5bdba3e4a1b9e2eb344e2aee9d4"
+      },
+      {
+        "path": "dev-harness/external-bots-retention.browser.e2e.js",
+        "bytes": 12751,
+        "sha256": "c90e879349e3372166e2d1b35d76abe72f93028bd6b8d8d6ba56c978a1e98bbf"
+      },
+      {
+        "path": "dev-harness/external-bots-retention.e2e.js",
+        "bytes": 9153,
+        "sha256": "485d699643aeca80588fc433042b20e890da69ad3649bfc9782e6f785cad4b48"
+      },
+      {
+        "path": "dev-harness/external-bots-retry.browser.e2e.js",
+        "bytes": 29326,
+        "sha256": "fa92d2b351ed7b6f77855edba6d6931c09c7879da11b4fe7504fd5396245fd79"
+      },
+      {
+        "path": "dev-harness/fixture-home.static.e2e.js",
+        "bytes": 44605,
+        "sha256": "cbd6455b1f35faf4342ac3637cae2b6ce91f989924bf46fb0940e6ee9be9156a"
+      },
+      {
+        "path": "dev-harness/fixtures/external-bots-retention/history.json",
+        "bytes": 37334,
+        "sha256": "897bf38ceeb4bc9a592a64fe367ed36adb8090e977c2a4b2b4704e5de7e45eec"
+      },
+      {
+        "path": "dev-harness/lib/browser-fixture.js",
+        "bytes": 21080,
+        "sha256": "7b74bc900ccf127ce37f48342efb6903453e174a33f9421fc36bbfa6ae46afbf"
+      },
+      {
+        "path": "dev-harness/lib/external-bots-retention-evidence.js",
+        "bytes": 6567,
+        "sha256": "504e2abef6865cd30e7af116c9dd4fa9cc9f351b7095024ae276393f2917b86f"
+      },
+      {
+        "path": "dev-harness/lib/external-bots-retention-seed.js",
+        "bytes": 2717,
+        "sha256": "5ad193e762451a2e933a2c2a512943bff77d379eba815388de8db6b5d1cefae8"
+      },
+      {
+        "path": "dev-harness/lib/external-bots-source-history.js",
+        "bytes": 3330,
+        "sha256": "fc9e3d62addcf0fbea49534f0c841a76e5c8bf5e0ee0068aad67356fb0581b54"
+      },
+      {
+        "path": "dev-harness/process-safety.static.e2e.js",
+        "bytes": 14607,
+        "sha256": "08dce0d6823c2c639060273ead25bd86b289a6d7dba574f9f8dc80bfb946af82"
+      },
+      {
+        "path": "dev-harness/read-frontend-css.PIN-HISTORY.md",
+        "bytes": 103195,
+        "sha256": "84163f36b012390190df741e9e96ff6864b4a410261cee868b33b1edb4792134"
+      },
+      {
+        "path": "dev-harness/read-frontend-css.js",
+        "bytes": 7248,
+        "sha256": "ce9160813de618292dc84c0ced680b207d7ef0090749810300b167720451d9cc"
+      },
+      {
+        "path": "dev-harness/unit/external-bots-retention-api.test.js",
+        "bytes": 12615,
+        "sha256": "94202b9ee7d4914545f14affbc1d80d9c96d2c3fe343ffcd870cf1c6640a2a0e"
+      },
+      {
+        "path": "dev-harness/unit/external-bots-retention.test.js",
+        "bytes": 23809,
+        "sha256": "ae33dbd8a0262e23dc867bfc246f493e85ff4c8a51999f59fe15e2c63d045685"
+      },
+      {
+        "path": "dev-harness/unit/external-bots-retry-api.test.js",
+        "bytes": 22875,
+        "sha256": "a1f3985e4901ed1932d42b9527325e78374c0a6a777ce06db2cc6fae82fee238"
+      },
+      {
+        "path": "dev-harness/unit/external-bots-ui.test.js",
+        "bytes": 59904,
+        "sha256": "b0daf3dc634f7fe2ba3309f14cb5edde6dee42ce98d767781700571bdc0652b5"
+      },
+      {
+        "path": "docs/architecture/architecture-contract-snapshots.json",
+        "bytes": 8985,
+        "sha256": "0ef36f64edd61e147956e3919db734525e10f772f1722f21f32549e654abf10c"
+      },
+      {
+        "path": "docs/architecture/architecture-contract-snapshots.md",
+        "bytes": 492,
+        "sha256": "49a9ac0b623fa6f5a613e88e1afddf535aaa6bb8e26ecf6d915b34a7769e8eef"
+      },
+      {
+        "path": "docs/architecture/durable-state-inventory.json",
+        "bytes": 74039,
+        "sha256": "77c43550a88ee1dddefe9ee172543b1d300630fa54150e9dfb15c4baf13f5ebe"
+      },
+      {
+        "path": "docs/architecture/durable-state-inventory.md",
+        "bytes": 55744,
+        "sha256": "30dd0da9944dd81c58a130267d0af9ec381e9eda05f386bf34cddaa8f5475620"
+      },
+      {
+        "path": "docs/architecture/encrypted-storage-freeze.json",
+        "bytes": 28644,
+        "sha256": "78348d56b1717a77bb3a7c376ab9831e4af2e09f4c291c4efb0bea2e960ed211"
+      },
+      {
+        "path": "docs/architecture/encrypted-storage-freeze.md",
+        "bytes": 17624,
+        "sha256": "277c79750a8826897fe05f791f757184454a5f463748c1f948ef9d01600e7298"
+      },
+      {
+        "path": "docs/architecture/external-bots-retention.md",
+        "bytes": 5521,
+        "sha256": "ced869ee7fd7067af35c3a2f96679d31fdbb888f1e7d8f377026bc9015601ba7"
+      },
+      {
+        "path": "docs/architecture/module-dependency-graph.json",
+        "bytes": 1078736,
+        "sha256": "f3e1bc19e376e1841a46c14a826c582bde6afaaca4da0fe886c764a692db40a8"
+      },
+      {
+        "path": "docs/architecture/module-dependency-graph.md",
+        "bytes": 151741,
+        "sha256": "efe9c7778431cf2139fe70416632cd345ab723a49b1e30225efdd7521ccdb8de"
+      },
+      {
+        "path": "docs/architecture/route-inventory.json",
+        "bytes": 224196,
+        "sha256": "34f1bb846f55b8fd52be0add67172136bd0c49c7504abec320a8f80474f26f38"
+      },
+      {
+        "path": "docs/architecture/route-inventory.md",
+        "bytes": 37700,
+        "sha256": "409ebebb379ca2ed491ab6fe6c5251c167cbae4e20126473ed6a16f3a0cae98f"
+      },
+      {
+        "path": "docs/i18n/locales/en-US.json",
+        "bytes": 356463,
+        "sha256": "2963eddf70fd51b484e698e4fdac53908a6f1b0e3e273ad7d9ae807603ff91ab"
+      },
+      {
+        "path": "docs/i18n/locales/zh-CN.json",
+        "bytes": 340717,
+        "sha256": "f7333e1cd4ac632740203bdffdb8569162bf8b35ad9cd8c0dcd906d5859378fa"
+      },
+      {
+        "path": "facts.json",
+        "bytes": 1335,
+        "sha256": "de51b7193378d30098421d44a0cc0e976030011cbd2066aea3c33a978236fe8b"
+      },
+      {
+        "path": "ruyi-workbench/app/public/css/views/steward-settings.css",
+        "bytes": 22563,
+        "sha256": "207c3c15f63c40ec69b0b8ef2f148240a91141a6e38eb2446b5e909b6646324d"
+      },
+      {
+        "path": "ruyi-workbench/app/public/index.html",
+        "bytes": 205718,
+        "sha256": "36db89aab9f38ad4efd247a360cd9545921dc5ed5a6facaacffe61d763df3a3b"
+      },
+      {
+        "path": "ruyi-workbench/app/public/js/external-bots.js",
+        "bytes": 57254,
+        "sha256": "aa7ce51e790e4715d68736fe98a9dc2e912e5cb1a565130426429a9120705f62"
+      },
+      {
+        "path": "ruyi-workbench/app/public/locales/en-US.json",
+        "bytes": 356463,
+        "sha256": "2963eddf70fd51b484e698e4fdac53908a6f1b0e3e273ad7d9ae807603ff91ab"
+      },
+      {
+        "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+        "bytes": 340717,
+        "sha256": "f7333e1cd4ac632740203bdffdb8569162bf8b35ad9cd8c0dcd906d5859378fa"
+      },
+      {
+        "path": "ruyi-workbench/app/server.js",
+        "bytes": 8141205,
+        "sha256": "feabec8bc95275d638aafc1b826fa599c88d16a54b154d39fb5e34984eb4532d"
+      },
+      {
+        "path": "ruyi-workbench/app/src/01b-route-auth.js",
+        "bytes": 19967,
+        "sha256": "aa5db773c2fab67147e76ecdc2703732ded09a0c49a849976059a13d973b8cf2"
+      },
+      {
+        "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+        "bytes": 151594,
+        "sha256": "9a97f30380a7afae51f3e220abad02efae4ddf969c511839b3be15342e681abd"
+      },
+      {
+        "path": "ruyi-workbench/app/src/13w-external-bots.js",
+        "bytes": 104633,
+        "sha256": "b2f8ace6d451c10d4d7248d08979dfd65256be4ab0b67331ded41916a1378e97"
+      },
+      {
+        "path": "ruyi-workbench/app/src/manifest.json",
+        "bytes": 36169,
+        "sha256": "63178bf2d4970c6b23521c5cde870ab474242c950194cfea3138a9f29a4f3a8d"
+      },
+      {
+        "path": "ruyi-workbench/app/src/module-contracts.json",
+        "bytes": 795410,
+        "sha256": "ba313e341283041771cc32431ed91ecc830c0f08077866bfb606d07df4e338f0"
+      }
+    ],
+    "postActualChanges": [
+      {
+        "path": "docs/architecture/external-bots-retention.md",
+        "kind": "append-only validation documentation",
+        "beforeSha256": "195f48dd3e035f5a2176e23451a4415efac513a54ace198160a95a07b064bdd2",
+        "afterSha256": "ced869ee7fd7067af35c3a2f96679d31fdbb888f1e7d8f377026bc9015601ba7",
+        "runtimeChanged": false
+      }
+    ]
+  },
+  "behavior": {
+    "manualOnly": true,
+    "retainDays": [
+      7,
+      30,
+      90,
+      365
+    ],
+    "defaultDays": 30,
+    "batchMaximum": 100,
+    "activeBodiesMaximum": 1000,
+    "reclaimedReceiptsMaximum": 4096,
+    "requestReceiptsMaximum": 4096,
+    "businessPayload": 5,
+    "storeSchema": 1,
+    "aadSchema": 1,
+    "description": "Explicit preview and commit remove eligible message/reply bodies, retain terminal/attempt/idempotency facts, refuse active/unknown results and keep stable same-request reconciliation. No automatic expiration."
+  },
+  "reviews": {
+    "product": "Independent revision1 review plus revision3 browser source review; R4 prerequisite-only delta Root review; R6 Root non-author review and original CSS negative controls",
+    "metadata": {
+      "record": "m5-retention-20261030-review.json",
+      "requirement": "Independent non-author acceptance must exist before commit"
+    }
+  },
+  "validation": {
+    "node": "24.14.0",
+    "syntax": {
+      "files": 1368,
+      "failures": 0,
+      "scope": "Earlier complete unchanged JS census plus four changed R6 JS syntax checks"
+    },
+    "originalFast": {
+      "first": {
+        "unit": {
+          "tests": 4411,
+          "pass": 4373,
+          "fail": 12,
+          "skip": 26
+        },
+        "exit": 2
+      },
+      "second": {
+        "unit": {
+          "tests": 4411,
+          "pass": 4385,
+          "fail": 0,
+          "skip": 26
+        },
+        "static": {
+          "pass": 76,
+          "fail": 6
+        },
+        "exit": 1
+      },
+      "firstFailuresRetained": true,
+      "relabeledAsGreen": false
+    },
+    "finalStatic": {
+      "scripts": 82,
+      "pass": 82,
+      "fail": 0,
+      "method": "Each original static entry separately, serially, fresh isolated home and both AppData; full unit not repeated for wording/lock fixes",
+      "includesEol": true
+    },
+    "finalActual": {
+      "retentionBrowser": 2,
+      "retryBrowser": 2,
+      "repoHygiene": 1,
+      "allOriginalToolsExit": 0,
+      "reportSha256": "73ad072ccecb4115ce9cb7249a11361af12b53d20ade408f3b102249fd30cc70"
+    },
+    "carriedForward": {
+      "httpAndRelated": "R4 eight scoped HTTP/browser/channel runs plus preceding related bot/control/work-data runs on unchanged backend bytes",
+      "encrypted": "Two fresh DPAPI/WorkData3 sealed-payload4→5 E1–E9 HTTP runs; independent outer120s latch absent, explicitly retained timing limitation"
+    },
+    "environment": "First long repository TEMP failures and six matched baseline/candidate location/length matrix retained; ordinary outside-Git short TEMP passes do not qualify arbitrary production deep paths"
+  },
+  "artifacts": [
+    {
+      "file": "001-REPORT.md.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-revision1-review-sol-20261029/REPORT.md",
+      "bytes": 6201,
+      "sha256": "6a8185c59f4a90b0a3e0105375839893d5c6d8b44e08baea87d60decc101833c",
+      "packedBytes": 4086,
+      "packedSha256": "c2c71506120c78c389605121d307b990b1e40b536cb18b97bf1ddfd0be18846b"
+    },
+    {
+      "file": "002-REPORT.md.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-permanent-browser-revision3-review-sol-20261030/REPORT.md",
+      "bytes": 7573,
+      "sha256": "3699d483965a377c596e0e212c20a0dc82a1eeae316ea2ae1f5aeea9201deb61",
+      "packedBytes": 4945,
+      "packedSha256": "fd301f07c2c8e0d90394d5dce98b34fe0e705f25b7fd76a68448fce38ebd2ee6"
+    },
+    {
+      "file": "003-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-source-revision4-root-review-20261030/REPORT.json",
+      "bytes": 2315,
+      "sha256": "ec80bec66f81b5e70abb2620cc9db9e118230114d7a6d2f39cb53790271254fa",
+      "packedBytes": 1095,
+      "packedSha256": "37fa9608da34c03f8573f495f9ff5128bc4c3e22f8e94703800066aaa96cfc1a"
+    },
+    {
+      "file": "004-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-standard-gates-20261030/REPORT.json",
+      "bytes": 1270,
+      "sha256": "f75402369babd8fb07eca3f89556ca6f6f6004d2a7d26793c91c64c0eecbc9df",
+      "packedBytes": 694,
+      "packedSha256": "a20912c6928fd3d92e0535e5ce343b5190207a40a04490422293e55de04e795a"
+    },
+    {
+      "file": "005-FAILURE-INDEX.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-standard-gates-20261030/FAILURE-INDEX.json",
+      "bytes": 11788,
+      "sha256": "489afdfb480727da7b608221ce0e77fd7284b8391e64482f536075187cf64435",
+      "packedBytes": 2902,
+      "packedSha256": "2cd42eb267d0f27a056900897f18d10f6da81b8a9d332e1cb3e087bb9109dc22"
+    },
+    {
+      "file": "006-unit-original.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-standard-gates-20261030/03-fast/unit-original.log",
+      "bytes": 654501,
+      "sha256": "0c6db686a611ff14d18149b82a5268693f2ca4aaa5ded411aa761d6c57b3504e",
+      "packedBytes": 231853,
+      "packedSha256": "8b4a1cc8b71a1c3034125f005db5ed356d9f05866e57acdee95ff76e9b2fe31c"
+    },
+    {
+      "file": "007-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-standard-gates-r5-20261030/REPORT.json",
+      "bytes": 1509,
+      "sha256": "97578e183b36ede4abc32378e4b323e85d2a5b2d68c48aa7bb006eb0a800f2b0",
+      "packedBytes": 789,
+      "packedSha256": "7e035549ca80a190499c2ebd42b87498324c9c85914ca531f0b6b5e1cd47d1b9"
+    },
+    {
+      "file": "008-unit-original.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-standard-gates-r5-20261030/02-fast/unit-original.log",
+      "bytes": 606690,
+      "sha256": "743a9603f4129e2e26a8e9c84dad59c9ad527e063229fd1d2fe9d0bb112fef56",
+      "packedBytes": 223307,
+      "packedSha256": "65e85a95d14c4c2072b3b542bc51579f66068c81216ed16925f6fd7182768a49"
+    },
+    {
+      "file": "009-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-standard-gates-r5-20261030/02-fast/stdout.log",
+      "bytes": 19849,
+      "sha256": "6cafafa1bf54d1e5f581a6ab2588b9d5f27074555ef68468a5180cad8b798e97",
+      "packedBytes": 7043,
+      "packedSha256": "21343488de05ae4ffde5bb2ba40e3a9c2fbe1b83f96b9a7e3bdec63ac1856fd4"
+    },
+    {
+      "file": "010-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-unit-environment-matrix-terra-actual-20261030/REPORT.json",
+      "bytes": 16891,
+      "sha256": "fca995df59c51179cf5635431c80dfe2fecd019f9c4d5ac98ed031ff8957368d",
+      "packedBytes": 2666,
+      "packedSha256": "9385a2b6299fd1eb188f5360dccf9c75f377baf9fecb71ed13bab432fe80c8ef"
+    },
+    {
+      "file": "011-TOOL-RECORDS.json.gz",
+      "originalPath": ".ruyi-runtime/m5-unit-environment-matrix-terra-actual-20261030/TOOL-RECORDS.json",
+      "bytes": 1674,
+      "sha256": "94f84cd2c28a3af98043c9e743d0e433ece05476f502986e55d71bd588204627",
+      "packedBytes": 507,
+      "packedSha256": "40d98e2af8566046c15b252761c63b71e165dd59a367dbe14227cf86728c0032"
+    },
+    {
+      "file": "012-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-final-actual-20261030/REPORT.json",
+      "bytes": 5159,
+      "sha256": "d468fbf3dd62a37fa9af4a38b4721047c58694e126dc67daf11c9faf85dfd07a",
+      "packedBytes": 1491,
+      "packedSha256": "ad62c09afca05cbb2ddae575ca939f8a740bc522fe86b909f8697b7bd0726abd"
+    },
+    {
+      "file": "013-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-final-r4-actual-20261030/REPORT.json",
+      "bytes": 3916,
+      "sha256": "2638bb4718747a2ae564db2a0bc7c8d185212e92c76bba7953af0b3e9155a2f1",
+      "packedBytes": 1073,
+      "packedSha256": "ea009aeb94b202c9cefac6c4ecdc4ed07a6270b5230e5b74a52145b6266b985f"
+    },
+    {
+      "file": "014-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-encrypted-actual-revision4-20261030/REPORT.json",
+      "bytes": 2701,
+      "sha256": "20ef2f73bcf55ea30d567f4c81bdd9c559bcf2b41de486624b23b047fef2f0ee",
+      "packedBytes": 1465,
+      "packedSha256": "109c46293ea4ffa896cdabe5fc0293d3f468e881f1774e3eba87d43fd480f6fd"
+    },
+    {
+      "file": "015-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-executor-r1-independent-sol-review-20261030/REPORT.json",
+      "bytes": 2902,
+      "sha256": "c3d59482077afd6e2f5365a5b32dba49c5074f8346c129ba807d58c4098c1c7a",
+      "packedBytes": 1389,
+      "packedSha256": "9bccf901e828149f7973d92f81085e2273e2fc2b86f81f6c41d4149bdd7eaec9"
+    },
+    {
+      "file": "016-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-20261030/REPORT.json",
+      "bytes": 6527,
+      "sha256": "c78264d3d6fec5511e9e3e77914bba36006fa7e05da5a2c84c38d6235563e460",
+      "packedBytes": 2480,
+      "packedSha256": "fdc2f09c72a47baba7910934c8d973ebb062c1b73f724860ec194c4713ea2301"
+    },
+    {
+      "file": "017-PINS.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-20261030/PINS.json",
+      "bytes": 2042,
+      "sha256": "0a447e9e8d5bb59e76165ccc851519104b2c542c11ed60ca05aca920a7bb03dc",
+      "packedBytes": 808,
+      "packedSha256": "1673a569352a2df3a45ac571d704e723f4272a3fc3c9dff665d65a8382e36dff"
+    },
+    {
+      "file": "018-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-root-review-20261030/REPORT.json",
+      "bytes": 9479,
+      "sha256": "c84ecfe448713a3454211254bad1545a8057f33d134618a0412f0b1575d7bde3",
+      "packedBytes": 3405,
+      "packedSha256": "646e2a799542de174e0b3fafa9c03edd467a98375d1046f404b2eba370fd2d6a"
+    },
+    {
+      "file": "019-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-final-r6-source-20261030/REPORT.json",
+      "bytes": 1347,
+      "sha256": "f42865adedd670aec42b33f284d0d15fda4255adc230d956616f9ec85af20837",
+      "packedBytes": 789,
+      "packedSha256": "0f981b7dbaddfe52231df12ed50ffbce947b68cc1aab5cb9f78bee82983dff49"
+    },
+    {
+      "file": "020-source-pins.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-final-r6-source-20261030/source-pins.json",
+      "bytes": 8136,
+      "sha256": "80e5d527fac07386c87f781d3b026dc8f115542c169c8544d69f8e0ad54e5fc2",
+      "packedBytes": 2539,
+      "packedSha256": "ea61283545efa559bf00067ab5f55a85ec4493390f4bbc8d1f7d3dc88115c3ea"
+    },
+    {
+      "file": "021-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/REPORT.json",
+      "bytes": 117473,
+      "sha256": "458d812ad74ead8655543e39d92a81a067839dab40e99e1fdce316305e7e717a",
+      "packedBytes": 8768,
+      "packedSha256": "d5fa2617dc544333702d8f3b0263722bc2a37efa0caf8a916f8ecfdb889a0c7b"
+    },
+    {
+      "file": "022-REPORT.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/REPORT.json",
+      "bytes": 5293,
+      "sha256": "73ad072ccecb4115ce9cb7249a11361af12b53d20ade408f3b102249fd30cc70",
+      "packedBytes": 1852,
+      "packedSha256": "31fb2f9d9e16290675c8740abd341ee97e08cb3aecfdbdcc21a31bf85f3a32b4"
+    },
+    {
+      "file": "023-TOOL-RECORDS.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/TOOL-RECORDS.json",
+      "bytes": 2629,
+      "sha256": "f799b3bfdb6e160e4969c0a7d15768c7adf109020ab2b3607af20aba3e48335e",
+      "packedBytes": 867,
+      "packedSha256": "93425bd4a3034e01ded3fa2c677c0b8e19bfdcd6e7590fb4abd5cbe86e19911e"
+    },
+    {
+      "file": "024-ENV.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/ENV.json",
+      "bytes": 1339,
+      "sha256": "e091515af5ddf39dd3b824658b42ac562abaeddeec430466ddb3e1345f1e86e4",
+      "packedBytes": 229,
+      "packedSha256": "39c58478e01642119e77b384073b5cd6e347a27c418a4c21e5e218b8d9b988e5"
+    },
+    {
+      "file": "025-RETRY-EVIDENCE-PINS.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/RETRY-EVIDENCE-PINS.json",
+      "bytes": 16839,
+      "sha256": "5be53acea99e66745c7ac22017d687e575c99eab0fe707bf6f3cb4af81f2efc3",
+      "packedBytes": 4302,
+      "packedSha256": "bd25cda8adacc2bd584282861b94bb2f5dbf462144f0d29b954375ee11de3c96"
+    },
+    {
+      "file": "026-executor-result.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/01-retention-browser/executor-result.json",
+      "bytes": 2146,
+      "sha256": "83647d3d7a248912c6c168177d4f1f38eccd8e36ecc1061862bb9c9d840c5d04",
+      "packedBytes": 521,
+      "packedSha256": "acf3ade6977d8e959da8c09423059b78489a28fb05a392c6f5a6d9fd6d949643"
+    },
+    {
+      "file": "027-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/01-retention-browser/stdout.log",
+      "bytes": 1751,
+      "sha256": "f37343f882d33864903efa6d0b0dc44d70f11135ace25af6e089a73eb619d1be",
+      "packedBytes": 823,
+      "packedSha256": "f802504111f99b9a99bf2ab4e0cea5f83455de7d93a3d5e011f37a15e92404a0"
+    },
+    {
+      "file": "028-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/01-retention-browser/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "029-executor-result.json.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/02-retention-browser/executor-result.json",
+      "bytes": 2154,
+      "sha256": "a09678a6b7fafb1920d0c251306095d28479fd3153e73b5c4c6f425e68f8bbf2",
+      "packedBytes": 526,
+      "packedSha256": "86d4d2898cf88c74a450e7f5b6ca5b897579611ffc147c4bfbb76415ebb57c2d"
+    },
+    {
+      "file": "030-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/02-retention-browser/stdout.log",
+      "bytes": 1751,
+      "sha256": "f37343f882d33864903efa6d0b0dc44d70f11135ace25af6e089a73eb619d1be",
+      "packedBytes": 823,
+      "packedSha256": "f802504111f99b9a99bf2ab4e0cea5f83455de7d93a3d5e011f37a15e92404a0"
+    },
+    {
+      "file": "031-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/02-retention-browser/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "032-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/03-retry-browser/stdout.log",
+      "bytes": 24391,
+      "sha256": "dacafe16d59b023b7813df16f8f518ff667260995674c8b73a759f69da9e489a",
+      "packedBytes": 2557,
+      "packedSha256": "7f3f12855457d87e13e0cf37357a97d189965621e7094444e3ecc8e6c4e5a463"
+    },
+    {
+      "file": "033-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/03-retry-browser/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "034-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/04-retry-browser/stdout.log",
+      "bytes": 24391,
+      "sha256": "dc214856f193a5cc87e09c5a1309992b30d3d58c904e3436907c779c73210ca7",
+      "packedBytes": 2557,
+      "packedSha256": "1b90ae7123987c49f4ae6469b895e9fc807205257f5bdf95e5878c153ffdb558"
+    },
+    {
+      "file": "035-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/04-retry-browser/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "036-stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/05-repo-hygiene/stdout.log",
+      "bytes": 5069,
+      "sha256": "4612e958e0f62f04baccfabafebea14d232285c087b473f517d7d23bd02aa4d6",
+      "packedBytes": 1856,
+      "packedSha256": "1fa2ecc73b1cd425035342ec86d668555dd45756874dbe6a35702ffafff47aaa"
+    },
+    {
+      "file": "037-stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-final-terra-actual-20261030/05-repo-hygiene/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "038-acc-offline-installer.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/acc-offline-installer.static.e2e.js.stdout.log",
+      "bytes": 4389,
+      "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "packedBytes": 1906,
+      "packedSha256": "4d76d495e9f82561d44dd462707b2e4c016f0512a68d5208f19d62c7da912982"
+    },
+    {
+      "file": "039-acc-offline-installer.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/acc-offline-installer.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "040-action-feedback.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/action-feedback.static.e2e.js.stdout.log",
+      "bytes": 1029,
+      "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "packedBytes": 702,
+      "packedSha256": "d35c90dbf9516887c0e4695f47883213cc4bd33158b8e61f8cebf628c9fb43ef"
+    },
+    {
+      "file": "041-action-feedback.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/action-feedback.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "042-agent-mode-v2.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/agent-mode-v2.static.e2e.js.stdout.log",
+      "bytes": 4237,
+      "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "packedBytes": 2255,
+      "packedSha256": "52b81ec9c9751c281a52562f02b11ec185f77a2f30ef2b51beda12f1e31f85ab"
+    },
+    {
+      "file": "043-agent-mode-v2.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/agent-mode-v2.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "044-agent-team-budget.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/agent-team-budget.static.e2e.js.stdout.log",
+      "bytes": 93,
+      "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "packedBytes": 106,
+      "packedSha256": "c3a307653594076bf5276ddba5c3a85e6161b625b1b3cab3d2515f4d2927fa58"
+    },
+    {
+      "file": "045-agent-team-budget.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/agent-team-budget.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "046-agent-workflows-polling-visibility.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/agent-workflows-polling-visibility.static.e2e.js.stdout.log",
+      "bytes": 829,
+      "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "packedBytes": 619,
+      "packedSha256": "75e4fccae6bf531601933894f010ed211fcd9030620824509e890575019266c2"
+    },
+    {
+      "file": "047-agent-workflows-polling-visibility.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/agent-workflows-polling-visibility.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "048-architecture-contract-snapshots.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/architecture-contract-snapshots.static.e2e.js.stdout.log",
+      "bytes": 869,
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "packedBytes": 347,
+      "packedSha256": "33b55c1cfe45c4dba28ca47108b9d89f2af32ab822913ca9fa191fd0b321ae9b"
+    },
+    {
+      "file": "049-architecture-contract-snapshots.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/architecture-contract-snapshots.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "050-asr-config-ui.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/asr-config-ui.static.e2e.js.stdout.log",
+      "bytes": 35,
+      "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "packedBytes": 55,
+      "packedSha256": "0b8e3d461b3c99aecef100c17b5b1a2dcbd13fc708091983a8b5b72046bd0959"
+    },
+    {
+      "file": "051-asr-config-ui.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/asr-config-ui.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "052-browser-mcp.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/browser-mcp.static.e2e.js.stdout.log",
+      "bytes": 962,
+      "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "packedBytes": 521,
+      "packedSha256": "0286670bcb8057a040da3dd15d5b969c17b68a1ee13c079a1249e8dd3bc9f84a"
+    },
+    {
+      "file": "053-browser-mcp.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/browser-mcp.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "054-c2-evidence-spawn-budget.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/c2-evidence-spawn-budget.static.e2e.js.stdout.log",
+      "bytes": 745,
+      "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "packedBytes": 400,
+      "packedSha256": "965f7c43340c6bddb8470273971284ef2087381570c69811114b67f2a332057b"
+    },
+    {
+      "file": "055-c2-evidence-spawn-budget.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/c2-evidence-spawn-budget.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "056-copy-path-guard.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/copy-path-guard.static.e2e.js.stdout.log",
+      "bytes": 5477,
+      "sha256": "9d0e77bfc7235692335529b41803a1159b04a1e2e945b1a04d8bd81dfb8da7f5",
+      "packedBytes": 2757,
+      "packedSha256": "e928d184a210b48cca40f2d97b47a4355c6420447be9ac19e96b3d8b4c4831f5"
+    },
+    {
+      "file": "057-copy-path-guard.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/copy-path-guard.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "058-copy-terms.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/copy-terms.static.e2e.js.stdout.log",
+      "bytes": 4662,
+      "sha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "packedBytes": 772,
+      "packedSha256": "d6070fca74c839135f3102e04019cc6b95397277362a3faed4465cbe9bb76555"
+    },
+    {
+      "file": "059-copy-terms.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/copy-terms.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "060-cost-zero.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/cost-zero.static.e2e.js.stdout.log",
+      "bytes": 740,
+      "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "packedBytes": 463,
+      "packedSha256": "92d1508fa93157dedfd7d5ec3ced59adb2a3c07cb6850deba7d6ddcaa335ff60"
+    },
+    {
+      "file": "061-cost-zero.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/cost-zero.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "062-css-typography-debt.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/css-typography-debt.static.e2e.js.stdout.log",
+      "bytes": 1326,
+      "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "packedBytes": 429,
+      "packedSha256": "dcd73c05e2617c6bbd9aa1e942319ee233858453a4854d766e4214441404cad5"
+    },
+    {
+      "file": "063-css-typography-debt.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/css-typography-debt.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "064-desktop-dpi.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/desktop-dpi.static.e2e.js.stdout.log",
+      "bytes": 33,
+      "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "packedBytes": 53,
+      "packedSha256": "8c2584c292155f2c176c7723cf6c350ab772b87ff4d9fce9b8c2b339a7c6343f"
+    },
+    {
+      "file": "065-desktop-dpi.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/desktop-dpi.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "066-desktop-shell.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/desktop-shell.static.e2e.js.stdout.log",
+      "bytes": 3360,
+      "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "packedBytes": 1978,
+      "packedSha256": "f65c78e4c1901b0dbac618707453a7948329b3d873d254303eddae573428981b"
+    },
+    {
+      "file": "067-desktop-shell.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/desktop-shell.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "068-durable-state-inventory.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/durable-state-inventory.static.e2e.js.stdout.log",
+      "bytes": 798,
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "packedBytes": 371,
+      "packedSha256": "b85d922c1aad1e9b6bf916fb22f646c39f3f77e6c74c4126b600b065e7db67bb"
+    },
+    {
+      "file": "069-durable-state-inventory.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/durable-state-inventory.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "070-ec-d-closure.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ec-d-closure.static.e2e.js.stdout.log",
+      "bytes": 802,
+      "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "packedBytes": 664,
+      "packedSha256": "b1d50ab4143de74da498c0691b03c3e5db6b66609c3d8f125d99f4bbd1771249"
+    },
+    {
+      "file": "071-ec-d-closure.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ec-d-closure.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "072-encrypted-storage-freeze.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/encrypted-storage-freeze.static.e2e.js.stdout.log",
+      "bytes": 1698,
+      "sha256": "edbd960e6ed04ad2207df3b717cdb58cddae7cda21b54448835b640ac1e9f3d8",
+      "packedBytes": 766,
+      "packedSha256": "0e64922ae3e43143bf53aa867fb4d2fcef07b75f265a4da350339e6f380273e2"
+    },
+    {
+      "file": "073-encrypted-storage-freeze.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/encrypted-storage-freeze.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "074-engine-env-brief.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/engine-env-brief.static.e2e.js.stdout.log",
+      "bytes": 4488,
+      "sha256": "4210fd86d6dd1a991a2012ea1ff58b0a7a2cf76c0b809f113286e016974f4bbf",
+      "packedBytes": 2637,
+      "packedSha256": "267e2983517b8e7d79aca9b57b95970c5c04f48b0617c842d038f31e3ab055be"
+    },
+    {
+      "file": "075-engine-env-brief.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/engine-env-brief.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "076-eol-policy.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/eol-policy.static.e2e.js.stdout.log",
+      "bytes": 257,
+      "sha256": "c5718deb5f6191969957d9ad92e38c3da56569eea774b8fb50e82e45d0c377a0",
+      "packedBytes": 166,
+      "packedSha256": "b6e679b0c932d75afff786ec6176ae0c50d2d28f0776906906ea6c6fde5b1bbd"
+    },
+    {
+      "file": "077-eol-policy.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/eol-policy.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "078-facts.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/facts.static.e2e.js.stdout.log",
+      "bytes": 2333,
+      "sha256": "bf0499ed3ad35af7149270296231cb02b4e0e3f064d09ea3b3bc653d3293477e",
+      "packedBytes": 910,
+      "packedSha256": "c4829445725af1190fb68439502082b192af78dc9e6996e8f87fa3a551b64468"
+    },
+    {
+      "file": "079-facts.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/facts.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "080-finalize-segments.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/finalize-segments.static.e2e.js.stdout.log",
+      "bytes": 1244,
+      "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "packedBytes": 696,
+      "packedSha256": "1d9c18bbdbed779c401fcd8aa077f717e1bd79eca478421c8415091f0a5b8869"
+    },
+    {
+      "file": "081-finalize-segments.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/finalize-segments.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "082-fixture-home.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/fixture-home.static.e2e.js.stdout.log",
+      "bytes": 4377,
+      "sha256": "f86a1bb72a2d2a3960af622cc1223ca8d1fbdca4926564c30bc4c0ff116ff1e6",
+      "packedBytes": 2134,
+      "packedSha256": "5bf8f6dd369b9cd7c6294c76e70ff2eb3475b5b823db54cd99d2211ce2309b62"
+    },
+    {
+      "file": "083-fixture-home.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/fixture-home.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "084-frontend-domains.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/frontend-domains.static.e2e.js.stdout.log",
+      "bytes": 7594,
+      "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "packedBytes": 2485,
+      "packedSha256": "cad74c10e028a4a3a2c67d37978df348ecb03e1f8e8f4b22ec7efa039f6e25f8"
+    },
+    {
+      "file": "085-frontend-domains.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/frontend-domains.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "086-health-i18n.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/health-i18n.static.e2e.js.stdout.log",
+      "bytes": 3392,
+      "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "packedBytes": 2140,
+      "packedSha256": "8377dc0c918cc2941267c8c76d12c10758b53f6d6295b481c3aa7f49d4662da8"
+    },
+    {
+      "file": "087-health-i18n.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/health-i18n.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "088-i18n-en-terms.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/i18n-en-terms.static.e2e.js.stdout.log",
+      "bytes": 673,
+      "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "packedBytes": 397,
+      "packedSha256": "36577c2d473c33d6386e72093fbaabbd44e44bb2488cf4de881a50b213ec816a"
+    },
+    {
+      "file": "089-i18n-en-terms.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/i18n-en-terms.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "090-i18n.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/i18n.static.e2e.js.stdout.log",
+      "bytes": 749,
+      "sha256": "fc6f55f678c80ef2113fc35fb010eec83a3a70239d3087d7847566b0e671dfe1",
+      "packedBytes": 442,
+      "packedSha256": "1a0f47ad299ff0e427569342aab76e89cd3fac1ad00f1413d7b97d7f74902343"
+    },
+    {
+      "file": "091-i18n.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/i18n.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "092-inline-script-csp-hash.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/inline-script-csp-hash.static.e2e.js.stdout.log",
+      "bytes": 863,
+      "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "packedBytes": 613,
+      "packedSha256": "38fee65b7337ad85f1022a548eb8f7d843067c85fcf5aaaf14acbd3cd4b89715"
+    },
+    {
+      "file": "093-inline-script-csp-hash.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/inline-script-csp-hash.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "094-kimi-plan-ui.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/kimi-plan-ui.static.e2e.js.stdout.log",
+      "bytes": 34,
+      "sha256": "aeaebe98637158db1ecda7cf250e35171a5b54ec348723e4fac2505908743510",
+      "packedBytes": 54,
+      "packedSha256": "e836851f8e8056f0734c4e6054c7bac52162549348b38e58d4d0590d5d515c4e"
+    },
+    {
+      "file": "095-kimi-plan-ui.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/kimi-plan-ui.static.e2e.js.stderr.log",
+      "bytes": 571,
+      "sha256": "a4c29aed7d914ec53c6a7ceb879a240d7d99f30c61969f0e575e1e30485dd2a5",
+      "packedBytes": 387,
+      "packedSha256": "6a9128b09033bdb11ad02c2e94b3c9267d68a81f380037bde99a4dc3769cc115"
+    },
+    {
+      "file": "096-live-full-text.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/live-full-text.static.e2e.js.stdout.log",
+      "bytes": 7248,
+      "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "packedBytes": 3995,
+      "packedSha256": "c694271bcae43c2c69a19822f567d4a98b84d535eeb1d297de55cb9698eaa695"
+    },
+    {
+      "file": "097-live-full-text.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/live-full-text.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "098-manifest-ranges.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/manifest-ranges.static.e2e.js.stdout.log",
+      "bytes": 30472,
+      "sha256": "abc0fbbfe67a9052c763c16800c63cd91bce62d911518c35f58af3c3a7706535",
+      "packedBytes": 4965,
+      "packedSha256": "9ea0427ddb0ed239a03fe97ec731dc1dc81e18b980245c035845d976bdc82ce1"
+    },
+    {
+      "file": "099-manifest-ranges.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/manifest-ranges.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "100-mcp-ops-gui.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/mcp-ops-gui.static.e2e.js.stdout.log",
+      "bytes": 2978,
+      "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "packedBytes": 1184,
+      "packedSha256": "1f91440315c1288735be07fa95b72c3ae1cfe4e09bb88a7e9dcb9c2024a5cba1"
+    },
+    {
+      "file": "101-mcp-ops-gui.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/mcp-ops-gui.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "102-media-artifact-package.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/media-artifact-package.static.e2e.js.stdout.log",
+      "bytes": 441,
+      "sha256": "3d9460ec1f9f6bc018d6f25200762abf3a54710499956a7f57451f33d04a1386",
+      "packedBytes": 293,
+      "packedSha256": "9144b32b0109271c4020eebd8a8f6cc15760aaac19e58f957d430bf738ee1eb2"
+    },
+    {
+      "file": "103-media-artifact-package.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/media-artifact-package.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "104-memory-toolbox.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/memory-toolbox.static.e2e.js.stdout.log",
+      "bytes": 813,
+      "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "packedBytes": 475,
+      "packedSha256": "5514d07e6a6cc07e491360e607ae847345ac77b09422848157cd2dfc26b63624"
+    },
+    {
+      "file": "105-memory-toolbox.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/memory-toolbox.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "106-mermaid-render.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/mermaid-render.static.e2e.js.stdout.log",
+      "bytes": 8524,
+      "sha256": "6f1c4bd5443398ff71865dab6e750771b49938ba1711b076c1d103dd5889b68c",
+      "packedBytes": 3895,
+      "packedSha256": "fd7bbb205a7d113b3c677a7e5f264f2ef50ef7b96917d36d990d60f6170da4c8"
+    },
+    {
+      "file": "107-mermaid-render.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/mermaid-render.static.e2e.js.stderr.log",
+      "bytes": 568,
+      "sha256": "3139c2a8f0218bcce0a6a3c7cdf0dfe7d87d4ae7823e93e1e05824b47da68129",
+      "packedBytes": 384,
+      "packedSha256": "f1a152dba783925bb1aee2d610d8ac713b926105768a75fe102da4b6da27f9ca"
+    },
+    {
+      "file": "108-model-menu-classes.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/model-menu-classes.static.e2e.js.stdout.log",
+      "bytes": 556,
+      "sha256": "2ca5aa73ff8c198729d979e7e65f642a42146c9fa3895749793332aa6ace4492",
+      "packedBytes": 411,
+      "packedSha256": "49d3cd7b75a60f154b47f61f80fb6d616c653e55c35cbb09829f4ae8564b351c"
+    },
+    {
+      "file": "109-model-menu-classes.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/model-menu-classes.static.e2e.js.stderr.log",
+      "bytes": 563,
+      "sha256": "806831f6fcd1d45bb443befb74e1680b45a0dcb580715c218ab9346d3cc04d4d",
+      "packedBytes": 382,
+      "packedSha256": "7176b05f30b98f7494306914ab4f0079265cce2db6af6b60df78b480e5002bbe"
+    },
+    {
+      "file": "110-module-dependency-graph.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/module-dependency-graph.static.e2e.js.stdout.log",
+      "bytes": 1233,
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "packedBytes": 650,
+      "packedSha256": "95fe6ad3aad76b5830cad821008842c9c525c8cb4bbbf1a455667d4bdf584464"
+    },
+    {
+      "file": "111-module-dependency-graph.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/module-dependency-graph.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "112-ndjson-line-feeder.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ndjson-line-feeder.static.e2e.js.stdout.log",
+      "bytes": 1836,
+      "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "packedBytes": 819,
+      "packedSha256": "7f0972b69d98bef3dd0c3bb64aeece92a274eb248dbdf2557995e96b04f8ca81"
+    },
+    {
+      "file": "113-ndjson-line-feeder.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ndjson-line-feeder.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "114-net-token-replay.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/net-token-replay.static.e2e.js.stdout.log",
+      "bytes": 1350,
+      "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "packedBytes": 900,
+      "packedSha256": "dde144264943ce036ea1d6d648dc0becd04701a7aa6f78179975ccaee4ac8d82"
+    },
+    {
+      "file": "115-net-token-replay.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/net-token-replay.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "116-new-thread-engine-default.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/new-thread-engine-default.static.e2e.js.stdout.log",
+      "bytes": 1545,
+      "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "packedBytes": 781,
+      "packedSha256": "a0503f029b8a0de7ecc5309701939a1c85f2cd5495727b263fd6ae0e73c199a1"
+    },
+    {
+      "file": "117-new-thread-engine-default.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/new-thread-engine-default.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "118-onboarding.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/onboarding.static.e2e.js.stdout.log",
+      "bytes": 9579,
+      "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "packedBytes": 5092,
+      "packedSha256": "91028485f57a431d1645ca6dda909e7c4573ff08df4730e40eeb891fe0e0f577"
+    },
+    {
+      "file": "119-onboarding.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/onboarding.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "120-overlay-payload-lock.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/overlay-payload-lock.static.e2e.js.stdout.log",
+      "bytes": 1818,
+      "sha256": "eec9b2ddf316d4ce8a088b20a2e3ccfc584eaa73abe3da4eed5806675cccf088",
+      "packedBytes": 1076,
+      "packedSha256": "df2fd7f566e63eb036f1f2c3d0edb6a72485e040850447647ce5dbe4b0b9c91b"
+    },
+    {
+      "file": "121-overlay-payload-lock.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/overlay-payload-lock.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "122-overlay-update-gui.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/overlay-update-gui.static.e2e.js.stdout.log",
+      "bytes": 1269,
+      "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "packedBytes": 628,
+      "packedSha256": "f3bb48a2a8ccff4e7c866b7118762f4c295714f77e584b38149ca38750c0ce40"
+    },
+    {
+      "file": "123-overlay-update-gui.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/overlay-update-gui.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "124-process-safety.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/process-safety.static.e2e.js.stdout.log",
+      "bytes": 856,
+      "sha256": "92f936cb40f908c736692421af11a8ba7540e8098bd63e7abaea10d9326846ee",
+      "packedBytes": 598,
+      "packedSha256": "fc56097685fc6c8947589fa434dcb4f84be3d66a1209e473a50fe71d2144c26a"
+    },
+    {
+      "file": "125-process-safety.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/process-safety.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "126-progress-events.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/progress-events.static.e2e.js.stdout.log",
+      "bytes": 2394,
+      "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "packedBytes": 1460,
+      "packedSha256": "a1f2afd3d638cdcfe2e11e15b4772587d2c77bb75326e3e666964d3172aaa5c5"
+    },
+    {
+      "file": "127-progress-events.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/progress-events.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "128-prompt-snapshot.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/prompt-snapshot.static.e2e.js.stdout.log",
+      "bytes": 8054,
+      "sha256": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "packedBytes": 4288,
+      "packedSha256": "4dddb637d2a7840b40e0bec91b5086176b0b1ea798b468f238478daab031f514"
+    },
+    {
+      "file": "129-prompt-snapshot.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/prompt-snapshot.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "130-provider-reasoning-effort-ui.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/provider-reasoning-effort-ui.static.e2e.js.stdout.log",
+      "bytes": 50,
+      "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "packedBytes": 70,
+      "packedSha256": "56c179ab5aa0a7e173079d22f2c08a52e48cbfd0d9bcc3d46e6ac16ffedbebf4"
+    },
+    {
+      "file": "131-provider-reasoning-effort-ui.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/provider-reasoning-effort-ui.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "132-rail-pocket.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/rail-pocket.static.e2e.js.stdout.log",
+      "bytes": 2416,
+      "sha256": "2e973a3d334de7021ab454b4a9892227ec33ba3f22828da2de7bb3369d06c93a",
+      "packedBytes": 1567,
+      "packedSha256": "a929884e4084782fca28befa64a311996a7d5033fbb25c18d3ae7b2893e5beff"
+    },
+    {
+      "file": "133-rail-pocket.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/rail-pocket.static.e2e.js.stderr.log",
+      "bytes": 564,
+      "sha256": "d27e0e1bda9aa269477543c258d97b8dd7a8f37e1488a21e726d531509f75326",
+      "packedBytes": 383,
+      "packedSha256": "f048ecab23fcece9d5dc09ed715950e4f497fd14a84878ff29d5c25defab2e0c"
+    },
+    {
+      "file": "134-resume-banner-dismiss.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/resume-banner-dismiss.static.e2e.js.stdout.log",
+      "bytes": 335,
+      "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "packedBytes": 227,
+      "packedSha256": "4f53636499ce63c2d4c1b157219946f86323cbfc4efaaa3197071fca2fbcaba6"
+    },
+    {
+      "file": "135-resume-banner-dismiss.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/resume-banner-dismiss.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "136-route-inventory.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/route-inventory.static.e2e.js.stdout.log",
+      "bytes": 1313,
+      "sha256": "9cbe6bc4199239ea56dfac66bc3024ca3ba8bd413d52d4355c820e9c630edde4",
+      "packedBytes": 760,
+      "packedSha256": "91ef7e1612c8a3dd15b576cec9930694cb7e362ded621fb6e533e046d950b578"
+    },
+    {
+      "file": "137-route-inventory.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/route-inventory.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "138-runtime-optimization.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/runtime-optimization.static.e2e.js.stdout.log",
+      "bytes": 12813,
+      "sha256": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "packedBytes": 5561,
+      "packedSha256": "d303615ba8c87d4605850f9570ec185b61388353121c43458404bdee38b775d0"
+    },
+    {
+      "file": "139-runtime-optimization.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/runtime-optimization.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "140-scheduler-ui.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/scheduler-ui.static.e2e.js.stdout.log",
+      "bytes": 3111,
+      "sha256": "2bc98501bd77d418085db490e7c6333b1d469d1bf679c6531d2aa505d199e479",
+      "packedBytes": 1343,
+      "packedSha256": "22d7f5bcc65933138c9d791dd62b6dcad21b062ced47f2176913e749beb89955"
+    },
+    {
+      "file": "141-scheduler-ui.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/scheduler-ui.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "142-session-save-census.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/session-save-census.static.e2e.js.stdout.log",
+      "bytes": 2070,
+      "sha256": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "packedBytes": 867,
+      "packedSha256": "aee9f1e3e61ece0027165d477f6da9d6cc072de13b9b6945d16615624bf558ee"
+    },
+    {
+      "file": "143-session-save-census.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/session-save-census.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "144-software-engineering-prompt.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/software-engineering-prompt.static.e2e.js.stdout.log",
+      "bytes": 2961,
+      "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "packedBytes": 1131,
+      "packedSha256": "2ab9615f420327e65c9e44f2c795b6e1117284f792fb49d568cef1dd53c2bf4a"
+    },
+    {
+      "file": "145-software-engineering-prompt.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/software-engineering-prompt.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "146-start-experience.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/start-experience.static.e2e.js.stdout.log",
+      "bytes": 4747,
+      "sha256": "529cc71380cab8f9f56d0f02c25a37d2852d4a3576fba764f5db2228daab1af3",
+      "packedBytes": 2517,
+      "packedSha256": "ae6b869e90c334286bd601c060a39a9db67f742baa05ca13422df6e0e9396309"
+    },
+    {
+      "file": "147-start-experience.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/start-experience.static.e2e.js.stderr.log",
+      "bytes": 570,
+      "sha256": "034d0786c84811dabe647819550db0a49f8dc7feb65808a999436ef47054d640",
+      "packedBytes": 388,
+      "packedSha256": "86c8f098ec99204d88a29cafd967b386477983e704ac62c6e08834e3f855e878"
+    },
+    {
+      "file": "148-steward-avatar.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-avatar.static.e2e.js.stdout.log",
+      "bytes": 5169,
+      "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "packedBytes": 2766,
+      "packedSha256": "29f61c792cd52d685b5b8facc6c8278f3dc80f03831bd5e155d41a6d2955e5d3"
+    },
+    {
+      "file": "149-steward-avatar.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-avatar.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "150-steward-board.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-board.static.e2e.js.stdout.log",
+      "bytes": 22190,
+      "sha256": "78db5e1c599698650ca37bd38237b93c6f4ec8e1e3a1c3c678056debe5468064",
+      "packedBytes": 10026,
+      "packedSha256": "7b19497253135373148bc645fe5e72b966ac51b3b4bb4e6f707f69bcd3ccd3f0"
+    },
+    {
+      "file": "151-steward-board.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-board.static.e2e.js.stderr.log",
+      "bytes": 565,
+      "sha256": "1a94fd7e2dbc752b376a3cfb9685164e31ce053deb213fe5721d3fdf422e5c20",
+      "packedBytes": 383,
+      "packedSha256": "e2059fe248562f7d53dc1e152be4c878820efeb33ce592de38551f2bcfb94018"
+    },
+    {
+      "file": "152-steward-config.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-config.static.e2e.js.stdout.log",
+      "bytes": 6750,
+      "sha256": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "packedBytes": 2503,
+      "packedSha256": "7842f578b0e4435b111c8fea2b1fc01df99f4e6171db25e6d7676d4f4751f36d"
+    },
+    {
+      "file": "153-steward-config.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-config.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "154-steward-conversation.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-conversation.static.e2e.js.stdout.log",
+      "bytes": 31294,
+      "sha256": "19888abd9a4fd203a3b32f17bfe10d5a079372e708e0ad8c3a46a68695f05abe",
+      "packedBytes": 14414,
+      "packedSha256": "b6e9d9f97e6cf046e004261318b885e73585b6b0e1e68e7a0e12507d45327a6a"
+    },
+    {
+      "file": "155-steward-conversation.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-conversation.static.e2e.js.stderr.log",
+      "bytes": 573,
+      "sha256": "46c1a9f7ca332f6c9c198bc23aa97a7bdaf6cedcafeaee97ef06797b0dce4cb7",
+      "packedBytes": 388,
+      "packedSha256": "15bb79ddddce913bb8156c90c54084065f8653e30564ae51dc26aeb26020c654"
+    },
+    {
+      "file": "156-steward-drawer.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-drawer.static.e2e.js.stdout.log",
+      "bytes": 22752,
+      "sha256": "edf34a847e502460bffbe94385d10515bba7d77fa245ba23c4fbc3e7721f900c",
+      "packedBytes": 10391,
+      "packedSha256": "b13eadfc9a8c751577fca4d636072a7f7cb801260ae888eba32887c83bba3d87"
+    },
+    {
+      "file": "157-steward-drawer.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-drawer.static.e2e.js.stderr.log",
+      "bytes": 567,
+      "sha256": "5479e3f53dfa4da7926a2f1d3bfcfa57fa01c3e377654318f5503cb798d1c1a0",
+      "packedBytes": 384,
+      "packedSha256": "2902d48a0dc40bde1a7ad2a89755c71d6b08b91550fa0c4ed032e70002c3eb93"
+    },
+    {
+      "file": "158-steward-events.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-events.static.e2e.js.stdout.log",
+      "bytes": 5780,
+      "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "packedBytes": 2957,
+      "packedSha256": "34d4bdf98724c05e55a8084e7e72f4d1a3ce029c507c2f52a49d24144c336349"
+    },
+    {
+      "file": "159-steward-events.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-events.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "160-steward-runner.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-runner.static.e2e.js.stdout.log",
+      "bytes": 14598,
+      "sha256": "dce27606329a48d0a58223b0f40efb99287ac7e7678c10f740976bef3e77e799",
+      "packedBytes": 5981,
+      "packedSha256": "0e8fce342ac0210ed6773c0ae4fcce5b1fc9a2e250cfe1bb19803dcdb9b94fc8"
+    },
+    {
+      "file": "161-steward-runner.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-runner.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "162-steward-settings.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-settings.static.e2e.js.stdout.log",
+      "bytes": 11845,
+      "sha256": "6f19551cf0fcce19f154b071b1248e5857cf99c99684926fbbb9e334696ed12e",
+      "packedBytes": 6082,
+      "packedSha256": "8b443e53ace91c35b501bc7228335e1c934969da7122e2c79d387d96de8defed"
+    },
+    {
+      "file": "163-steward-settings.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-settings.static.e2e.js.stderr.log",
+      "bytes": 569,
+      "sha256": "ba762555805c18ef443353961530137a0d381b4c721bd750569c84a5ee8dec99",
+      "packedBytes": 385,
+      "packedSha256": "418bd5d3ef6f3c8774174e8c5a28c725938602af1383df27e584c9081f9a708c"
+    },
+    {
+      "file": "164-steward-shell.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-shell.static.e2e.js.stdout.log",
+      "bytes": 4923,
+      "sha256": "3f7246dfe5ea6528b9846b6e923a04f9dc659772b158213c6dbc67a5149b0e91",
+      "packedBytes": 2743,
+      "packedSha256": "6a3f6cd822a551c98c515c5d8a2786b94514d5eeaa30488853adcc3623661174"
+    },
+    {
+      "file": "165-steward-shell.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-shell.static.e2e.js.stderr.log",
+      "bytes": 563,
+      "sha256": "d5f09b5af32a004b2a85a8ab6a13262d42a0e0b19ee2e1c972eb25a35ff463de",
+      "packedBytes": 381,
+      "packedSha256": "579a0aadb846942187ef208537bb00ff9f23c4bdff388ad31c807c0cb9fde8aa"
+    },
+    {
+      "file": "166-steward-tools.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-tools.static.e2e.js.stdout.log",
+      "bytes": 11313,
+      "sha256": "7db93797192b84be01c742370da2284e78267e2484b6c03fbb3c26d023658eb8",
+      "packedBytes": 5375,
+      "packedSha256": "89691b474a523dac09086e8b8c8f369e39ecaea32c8709e35608b4c4147e4ee5"
+    },
+    {
+      "file": "167-steward-tools.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-tools.static.e2e.js.stderr.log",
+      "bytes": 74,
+      "sha256": "dbab45c44310300785104dda9c30561a2cd0998dd04257c7d2fad7a475ab0903",
+      "packedBytes": 60,
+      "packedSha256": "711e9d86bb8c8a4d3cc0ea623c21a36bc5c90c8ef5389e792576f82b6ea62250"
+    },
+    {
+      "file": "168-steward-walkthrough.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-walkthrough.static.e2e.js.stdout.log",
+      "bytes": 12171,
+      "sha256": "bb622838724714ac0fba38880c2487981e73c1359b6621cd29d0a9645bc71f9c",
+      "packedBytes": 6605,
+      "packedSha256": "863a3a0d48100239fd3852697e4f3f30669c9d6f96cfe228941652d3e8cfca01"
+    },
+    {
+      "file": "169-steward-walkthrough.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/steward-walkthrough.static.e2e.js.stderr.log",
+      "bytes": 573,
+      "sha256": "e76735ac9b84dd2f46ec8b132fb77e34bdae1667cde274a059f1bc78b3cbcd20",
+      "packedBytes": 388,
+      "packedSha256": "74c7bb51f748c3553d2e1952d1b6450120c89eb65376321c6565b5e75d3a1c35"
+    },
+    {
+      "file": "170-streaming-responsiveness.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/streaming-responsiveness.static.e2e.js.stdout.log",
+      "bytes": 1189,
+      "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "packedBytes": 642,
+      "packedSha256": "2b84cc392b56245794278347225816cef7e7ce7243c2dfd1f4a001ca5276d9f7"
+    },
+    {
+      "file": "171-streaming-responsiveness.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/streaming-responsiveness.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "172-thinking-boundary.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/thinking-boundary.static.e2e.js.stdout.log",
+      "bytes": 39,
+      "sha256": "55078535f0f35bb39b27cc6427e8c166d89c88bf851e45d9498958684149035c",
+      "packedBytes": 59,
+      "packedSha256": "fa5b93b86cb63daf3c74d599924800a8b972a6162604d3e973f358da351ac188"
+    },
+    {
+      "file": "173-thinking-boundary.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/thinking-boundary.static.e2e.js.stderr.log",
+      "bytes": 572,
+      "sha256": "8323a33ea035ab63897d17201940f58a4925445945d331f05517b98be9bcbdb7",
+      "packedBytes": 387,
+      "packedSha256": "7fbbfbc199625e993e1fff61b693ba8fa775d74107e0543a96a2878c27aee686"
+    },
+    {
+      "file": "174-thread-brief.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/thread-brief.static.e2e.js.stdout.log",
+      "bytes": 3219,
+      "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "packedBytes": 1674,
+      "packedSha256": "47ad76531c648497ed97fc49e9a0e423b7c60fca464bbdfe3a7d31b4ca873d11"
+    },
+    {
+      "file": "175-thread-brief.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/thread-brief.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "176-thread-commission.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/thread-commission.static.e2e.js.stdout.log",
+      "bytes": 1725,
+      "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "packedBytes": 1073,
+      "packedSha256": "05cdb33fd48bb440d703a4d7201d99e4e016f137851f742bafaa8587523aaeb7"
+    },
+    {
+      "file": "177-thread-commission.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/thread-commission.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "178-tool-image-inline.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/tool-image-inline.static.e2e.js.stdout.log",
+      "bytes": 2817,
+      "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "packedBytes": 1302,
+      "packedSha256": "49891062087797c2537944b37c3806e5efd767b0b04a4ca2125cf3fa95fc32e3"
+    },
+    {
+      "file": "179-tool-image-inline.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/tool-image-inline.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "180-tool-verb-coverage.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/tool-verb-coverage.static.e2e.js.stdout.log",
+      "bytes": 486,
+      "sha256": "55a67a9e9194ba13d2da68ccd7776f1e7bdbe6583070d7a30219166d25b05b60",
+      "packedBytes": 347,
+      "packedSha256": "2e639e7fd7f3c747ededa0a2b7865c78718f839a2ee1075aba8289996745666d"
+    },
+    {
+      "file": "181-tool-verb-coverage.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/tool-verb-coverage.static.e2e.js.stderr.log",
+      "bytes": 572,
+      "sha256": "368b0092befb9e447e2537fae17e5e936663be186b0e0b7623b17f9b7c73f1f8",
+      "packedBytes": 387,
+      "packedSha256": "68697313516a8b3e1a1f8ea120e27f329a3ab18e441eed75ddb186f19f7a2bc8"
+    },
+    {
+      "file": "182-turn-narrative.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/turn-narrative.static.e2e.js.stdout.log",
+      "bytes": 2351,
+      "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "packedBytes": 1368,
+      "packedSha256": "da5d94d3aaf4f796ddded8be5745a1f2f8ab4221c440c58f09b97e8755b5e8ba"
+    },
+    {
+      "file": "183-turn-narrative.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/turn-narrative.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "184-ui-bugfix.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-bugfix.static.e2e.js.stdout.log",
+      "bytes": 1159,
+      "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "packedBytes": 698,
+      "packedSha256": "cc70fcca0d3b635b64a92259bd9e2daa8e0953975a71e951b49acfa5d96b3e9c"
+    },
+    {
+      "file": "185-ui-bugfix.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-bugfix.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "186-ui-v3-p1.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-p1.static.e2e.js.stdout.log",
+      "bytes": 3986,
+      "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "packedBytes": 1788,
+      "packedSha256": "4424b5d09ea523752aadc07f80489e06e9fed3a387a602f3fcdf8a75562b0810"
+    },
+    {
+      "file": "187-ui-v3-p1.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-p1.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "188-ui-v3-p2.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-p2.static.e2e.js.stdout.log",
+      "bytes": 4131,
+      "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "packedBytes": 2142,
+      "packedSha256": "9853adcb9c019c8ecb60299fa0c189469a408ccb1a9a29457947959b11b06c0f"
+    },
+    {
+      "file": "189-ui-v3-p2.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-p2.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "190-ui-v3-p3a.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-p3a.static.e2e.js.stdout.log",
+      "bytes": 4739,
+      "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "packedBytes": 2690,
+      "packedSha256": "396d8ba548471e53f9ca50c3092f8a3d2b105024c241f123535ae95bb23eac2f"
+    },
+    {
+      "file": "191-ui-v3-p3a.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-p3a.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "192-ui-v3-p3b.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-p3b.static.e2e.js.stdout.log",
+      "bytes": 4227,
+      "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "packedBytes": 2356,
+      "packedSha256": "e59bcb654c653819cf31d03fe90fd28f1b96bfd243217c47192a771d67a49930"
+    },
+    {
+      "file": "193-ui-v3-p3b.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-p3b.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "194-ui-v3-wave1.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-wave1.static.e2e.js.stdout.log",
+      "bytes": 3383,
+      "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "packedBytes": 1988,
+      "packedSha256": "efb54e6d971558267c767caa4f2b1758bac5d36c0d5353492b01fd986b9f96da"
+    },
+    {
+      "file": "195-ui-v3-wave1.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v3-wave1.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "196-ui-v4-glass.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v4-glass.static.e2e.js.stdout.log",
+      "bytes": 1284,
+      "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "packedBytes": 873,
+      "packedSha256": "77e8f2a6480f5f2428e9bb71106e410d5317fead55acdbbba35d2d5cb6eb459b"
+    },
+    {
+      "file": "197-ui-v4-glass.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/ui-v4-glass.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "198-v17-review-fixes.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/v17-review-fixes.static.e2e.js.stdout.log",
+      "bytes": 1379,
+      "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "packedBytes": 946,
+      "packedSha256": "07c2f3cd4c6a1b8bff34c1a4daa30a6fb572dd06133505efdf9a69d601ff04e4"
+    },
+    {
+      "file": "199-v17-review-fixes.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/v17-review-fixes.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "file": "200-workflow-editor-v2.static.e2e.js.stdout.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/workflow-editor-v2.static.e2e.js.stdout.log",
+      "bytes": 3537,
+      "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "packedBytes": 2120,
+      "packedSha256": "20364c9319bfa38bc8a543ef0f03a7b6a75d746dfa4e8503f7603b3ea9306916"
+    },
+    {
+      "file": "201-workflow-editor-v2.static.e2e.js.stderr.log.gz",
+      "originalPath": ".ruyi-runtime/m5-retention-r6-static-20261030/workflow-editor-v2.static.e2e.js.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    }
+  ],
+  "scopeLimits": [
+    "This source batch makes manual retention available; it does not complete whole M5 or 3.1",
+    "Encrypted pre-publication/post-rename crash, bad-cipher and active eligibility combinations still need supplementary qualification; plaintext fault tests and two encrypted happy/cold-retry/key-loss runs are not relabeled that whole matrix",
+    "M5 B2/C, scheduled templates, existing-thread relay, actual QQ/Feishu accounts, complete M3/M4/M6, final version/package/upgrade/rollback/cross-machine delivery remain pending",
+    "No real user data migration, real platform sends, push or publication",
+    "Only selected reports/logs are retained here. Runtime roots, screenshots, all binary bodies/keys/NTFS scenes and all transitive evidence are not reconstructed by these gzip records"
+  ]
+}

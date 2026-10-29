@@ -1716,6 +1716,8 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/external-bots/deliveries/archive', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/deliveries/cancel', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/deliveries/retry', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/retention/preview', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/retention/commit', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/callback/qq', auth: 'external-callback' },
   { m: 'POST', p: '/api/external-bots/callback/feishu', auth: 'external-callback' },
   // open: 低敏读(host 门已过,无 token 需求)
@@ -74380,7 +74382,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_bot_setup',
-    description: '检查或准备 QQ/飞书机器人接入。inspect 只读：分别报告本机配置、凭据是否存在和真实收发证据，不代表已联通。prepare 仅可信本机用户回合可调用：根据完整应用身份创建或复用 disabled inbox 连接，不启用、不改 owner、不自动发送。QQ 需要 appId；飞书需要 appId、tenantId、机器人 botUserId(open_id)，缺少就先向用户索取获取这些非秘密标识，绝不猜测。任何 secret/token/key 或 enabled/owner/确认字段都不能传入；密钥仅在本机专用安全输入框填，随后本机配对并确认启用。不要让用户把密钥发进聊天，不要读取环境变量或凭据文件。真实 prepare 成功会由服务端给出配置导航按钮，不要自己编造完成或联通状态。',
+    description: '检查或准备 QQ/飞书机器人接入。inspect 只读：分别报告本机配置、凭据是否存在和真实收发证据，不代表已联通。evidence.scope=retained_bodies：收件/平台确认数只含当前保留正文，不是历史总数；回收后的0不表示从未受理或撤销已确认的平台回复，不能凭此重跑或重发。prepare 仅可信本机用户回合可调用：根据完整应用身份创建或复用 disabled inbox 连接，不启用、不改 owner、不自动发送。QQ 需要 appId；飞书需要 appId、tenantId、机器人 botUserId(open_id)，缺少就先向用户索取获取这些非秘密标识，绝不猜测。任何 secret/token/key 或 enabled/owner/确认字段都不能传入；密钥仅在本机专用安全输入框填，随后本机配对并确认启用。不要让用户把密钥发进聊天，不要读取环境变量或凭据文件。真实 prepare 成功会由服务端给出配置导航按钮，不要自己编造完成或联通状态。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['op'],
       properties: {
@@ -100998,11 +101000,12 @@ async function externalBotStewardSetup(args, ctx) {
         const snapshot = await externalBotSetupSnapshot(connection);
         connections.push({ connection: snapshot.connection, readiness: snapshot.readiness,
           localConfiguration: connection.enabled ? 'enabled' : 'disabled', pairingCandidate: snapshot.pairing?.state === 'candidate', controlBound: connection.enabled && connection.mode === 'control' && Boolean(connection.ownerSenderId && connection.ownerConversationId),
-          evidence: { receivedMessages: state.items.filter(item => item.connectionId === connection.id).length,
+          evidence: { scope: 'retained_bodies', receivedMessages: state.items.filter(item => item.connectionId === connection.id).length,
             confirmedReplies: state.items.filter(item => item.connectionId === connection.id && item.delivery?.status === 'sent').length } });
       }
       return { ok: true, connections, requiredIdentity: { qq: ['appId'], feishu: ['appId', 'tenantId', 'botUserId'] },
         guidance: { appId: '应用管理后台的应用 ID', tenantId: '飞书应用所属租户 tenant_key', botUserId: '飞书机器人 open_id，不能用 user_id 或 union_id',
+          evidence: 'receivedMessages/confirmedReplies 仅统计此连接当前保留的正文记录，不是累计历史；回收后计数减少或归零，不表示从未受理或撤销已确认的平台回复。受理、执行和发送事实仍分开；回收后的最小回执保留既有事实，不能按连接反推出完整历史总数',
           discovery: '飞书缺 tenant key 或机器人 open_id 时，请用户在本机「外部机器人」面板用「用应用信息自动发现」：填入应用 ID 与应用密钥，由本机固定官方接口探测。不要向用户索要密钥，也不要推测这两个标识',
           secrets: '密钥仅在本机机器人配置面板填写，不要发进聊天；已保存不代表公网回调或平台回复已经验证' } };
     }
@@ -101170,7 +101173,13 @@ async function externalBotCancelDelivery(body) {
     || !externalBotString(body.id) || typeof body.attemptId !== 'string' || !/^[A-Za-z0-9_-]{1,50}$/.test(body.attemptId))
     throw externalBotError('external_channel.request_invalid');
   const state = await externalBotReadState(), item = state.items.find(row => row.id === body.id && row.control !== null);
-  if (!item) throw externalBotError('external_channel.item_not_found', 404);
+  if (!item) {
+    const receipt = state.retentionReceipts?.find(row => row.id === body.id && row.kind === 'control');
+    if (!receipt) throw externalBotError('external_channel.item_not_found', 404);
+    if (receipt.delivery.attemptId !== body.attemptId) throw externalBotError('external_channel.delivery_changed', 409);
+    if (receipt.delivery.status !== 'cancelled') throw externalBotError('external_channel.delivery_cannot_cancel', 409);
+    return { ok: true, item: externalBotPublicRetentionReceipt(receipt), alreadyCancelled: true };
+  }
   if (item.delivery?.attemptId !== body.attemptId) throw externalBotError('external_channel.delivery_changed', 409);
   if (item.delivery.status === 'cancelled') return { ok: true, item: externalBotPublicItem(item), alreadyCancelled: true };
   if (!externalBotCancellationWindow(item)) throw externalBotError('external_channel.delivery_cannot_cancel', 409);
@@ -101199,11 +101208,11 @@ const EXTERNAL_BOT_REPLY_RETRY_MAX = 128; // Refuse, never prune durable predece
 // its existing token + origin checks. Request JSON cannot mint this authority.
 const EXTERNAL_BOT_LOCAL_REPLY_RETRY = Object.freeze({});
 function externalBotValidReplyHistory(item, schema) {
-  if (schema !== 4) return item.replyHistory === undefined;
+  if (schema < 4) return item.replyHistory === undefined;
   const rows = item.replyHistory;
   if (!Array.isArray(rows) || rows.length > EXTERNAL_BOT_REPLY_RETRY_MAX) return false;
   if (!rows.length) return true;
-  if (!item.control || !item.delivery) return false;
+  if ((!item.control && item.kind !== 'control') || !item.delivery) return false;
   const attempts = new Set(), requests = new Set();
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index], attempt = row?.attempt;
@@ -101213,7 +101222,7 @@ function externalBotValidReplyHistory(item, schema) {
       || typeof row.nextAttemptId !== 'string' || !/^[A-Za-z0-9_-]{1,50}$/.test(row.nextAttemptId)
       || typeof row.requestedAt !== 'string' || !row.requestedAt || !Number.isFinite(Date.parse(row.requestedAt))
       || !attempt || Object.keys(attempt).sort().join(',') !== 'attemptId,errorCode,messageId,status,updatedAt'
-      || !externalBotValidControlState({ ...item, delivery: attempt })
+      || !(item.reclaimedAt ? externalBotValidReceiptDelivery(attempt, item.execution) : externalBotValidControlState({ ...item, delivery: attempt }))
       || attempt.status !== 'failed' || attempt.messageId || !attempt.updatedAt || !Number.isFinite(Date.parse(attempt.updatedAt))
       || !EXTERNAL_BOT_REPLY_RETRY_ERRORS.includes(attempt.errorCode)
       || attempts.has(attempt.attemptId) || requests.has(row.retryRequestId)
@@ -101240,7 +101249,14 @@ async function externalBotRetryReply(body, authority) {
     || typeof body.retryRequestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(body.retryRequestId))
     throw externalBotError('external_channel.request_invalid');
   const state = await externalBotReadState(), item = state.items.find(row => row.id === body.id && row.control !== null);
-  if (!item) throw externalBotError('external_channel.item_not_found', 404);
+  if (!item) {
+    const receipt = state.retentionReceipts?.find(row => row.id === body.id && row.kind === 'control');
+    if (!receipt) throw externalBotError('external_channel.item_not_found', 404);
+    const recorded = receipt.replyHistory.find(row => row.retryRequestId === body.retryRequestId);
+    if (!recorded) throw externalBotError('external_channel.delivery_cannot_retry', 409);
+    if (recorded.attempt.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);
+    return { ok: true, item: externalBotPublicRetentionReceipt(receipt), receipt: externalBotReplyRetryReceipt(receipt, recorded), alreadyRetried: true };
+  }
   const recorded = item.replyHistory?.find(row => row.retryRequestId === body.retryRequestId);
   if (recorded) {
     if (recorded.attempt.attemptId !== body.expectedAttemptId) throw externalBotError('external_channel.delivery_changed', 409);
@@ -101257,7 +101273,7 @@ async function externalBotRetryReply(body, authority) {
     throw externalBotError('external_channel.delivery_changed', 409);
   if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
   if (state.schema < 4) for (const row of state.items) row.replyHistory = [];
-  state.schema = 4; // Every old reader must reject this entire authority/dedupe ledger.
+  if (state.schema < 4) state.schema = 4; // Never downgrade a receipt-bearing ledger.
   const requestedAt = nowIso(), record = { attempt: { ...item.delivery }, nextAttemptId: attemptId, requestedAt, retryRequestId: body.retryRequestId };
   item.replyHistory.push(record);
   item.delivery = { status: 'pending', attemptId, messageId: '', errorCode: '', updatedAt: requestedAt };
@@ -101269,6 +101285,142 @@ async function externalBotRetryReply(body, authority) {
   await externalBotWriteState(state); // No worker wake or successful ACK before durable history + pending.
   return { ok: true, item: externalBotPublicItem(item), receipt: externalBotReplyRetryReceipt(item, record), alreadyRetried: false };
 }
+// Payload5 separates reclaimable bodies from bounded, permanent idempotency receipts.
+// Retention is an explicit minimum age for this manual operation, never an automatic expiry.
+const EXTERNAL_BOT_RETENTION = Object.freeze({ days: Object.freeze([7, 30, 90, 365]), batch: 100, receipts: 4096, requests: 4096, previewMs: 10 * 60 * 1000 });
+// Only outcomes emitted as definite failure by the current 13x adapter/caller.
+// A future or corrupted "failed" label alone is insufficient evidence to reclaim.
+const EXTERNAL_BOT_RETENTION_FAILURES = Object.freeze([...EXTERNAL_BOT_REPLY_RETRY_ERRORS,
+  'external_delivery.invalid_input', 'external_delivery.invalid_config', 'external_delivery.invalid_message',
+  'external_delivery.identity_mismatch', 'external_delivery.text_invalid', 'external_delivery.aborted',
+  'external_delivery.rate_limited', 'external_delivery.rejected', 'external_delivery.source_limit', 'external_channel.control_revoked']);
+const externalBotRetentionKey = crypto.randomBytes(32); // Preview authority expires on restart.
+function externalBotRetentionHash(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
+function externalBotRetentionEligible(item, cutoff) {
+  if (externalBotActiveActors.has(item.id) || externalBotUnsettled.has(item.id) || externalBotDeliveries.has(item.id)) return false;
+  const dates = [item.receivedAt];
+  if (item.control === null) {
+    if (!item.readAt || item.execution !== null || item.delivery !== null) return false;
+  } else {
+    if (!item.archivedAt || !['completed', 'failed'].includes(item.execution?.status)
+      || item.execution.contractIncomplete || item.execution.proposals || item.execution.actionFailures
+      || !['sent', 'failed', 'cancelled'].includes(item.delivery?.status)
+      || item.delivery.status === 'failed' && (item.delivery.messageId || !EXTERNAL_BOT_RETENTION_FAILURES.includes(item.delivery.errorCode))) return false;
+    dates.push(item.execution.finishedAt, item.delivery.updatedAt);
+    for (const row of item.replyHistory || []) dates.push(row.requestedAt, row.attempt.updatedAt);
+  }
+  return dates.every(value => typeof value === 'string' && value && Number.isFinite(Date.parse(value)) && Date.parse(value) <= cutoff);
+}
+function externalBotRetentionFingerprint(item) { return externalBotRetentionHash(JSON.stringify(item)); }
+function externalBotValidReceiptDelivery(delivery, execution) {
+  const date = value => typeof value === 'string' && value && Number.isFinite(Date.parse(value));
+  return delivery && typeof delivery === 'object' && !Array.isArray(delivery)
+    && Object.keys(delivery).sort().join(',') === (delivery.status === 'cancelled' ? 'attemptId,cancelledAt,errorCode,messageId,status,updatedAt' : 'attemptId,errorCode,messageId,status,updatedAt')
+    && ['sent', 'failed', 'cancelled'].includes(delivery.status)
+    && typeof delivery.attemptId === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(delivery.attemptId)
+    && externalBotString(delivery.messageId, 128, true) && externalBotString(delivery.errorCode, 128, true) && date(delivery.updatedAt)
+    && (delivery.status !== 'sent' || Boolean(delivery.messageId))
+    && (delivery.status !== 'failed' || !delivery.messageId && EXTERNAL_BOT_RETENTION_FAILURES.includes(delivery.errorCode))
+    && (delivery.status !== 'cancelled' || ['completed', 'failed'].includes(execution?.status) && date(delivery.cancelledAt)
+      && !delivery.messageId && delivery.errorCode === 'external_channel.delivery_cancelled');
+}
+function externalBotValidRetentionReceipt(row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)
+    || Object.keys(row).sort().join(',') !== 'contentHash,delivery,execution,id,kind,receivedAt,reclaimedAt,replyHistory,sourceHash'
+    || !externalBotString(row.id) || !['inbox', 'control'].includes(row.kind)
+    || !['sourceHash', 'contentHash'].every(key => typeof row[key] === 'string' && /^[a-f0-9]{64}$/.test(row[key]))
+    || !['receivedAt', 'reclaimedAt'].every(key => typeof row[key] === 'string' && row[key] && Number.isFinite(Date.parse(row[key])))) return false;
+  if (row.kind === 'inbox') return row.execution === null && row.delivery === null && Array.isArray(row.replyHistory) && row.replyHistory.length === 0;
+  const execution = row.execution;
+  return execution && Object.keys(execution).sort().join(',') === 'actionFailures,contractIncomplete,errorCode,finishedAt,proposals,status,turnSeq'
+    && ['completed', 'failed'].includes(execution.status) && externalBotString(execution.errorCode, 128, true)
+    && typeof execution.finishedAt === 'string' && execution.finishedAt && Number.isFinite(Date.parse(execution.finishedAt))
+    && Number.isSafeInteger(execution.turnSeq) && execution.turnSeq >= 0 && execution.actionFailures === 0 && execution.proposals === 0 && execution.contractIncomplete === false
+    && externalBotValidReceiptDelivery(row.delivery, execution) && externalBotValidReplyHistory(row, 5);
+}
+function externalBotPublicRetentionReceipt(row) {
+  return { id: row.id, reclaimed: true, receivedAt: row.receivedAt, reclaimedAt: row.reclaimedAt,
+    acceptance: { status: 'accepted', receivedAt: row.receivedAt }, execution: row.execution, delivery: row.delivery, replyHistory: row.replyHistory };
+}
+function externalBotRetentionReceipt(item, reclaimedAt) {
+  const execution = item.execution && Object.fromEntries(['status', 'finishedAt', 'errorCode', 'turnSeq', 'actionFailures', 'proposals', 'contractIncomplete'].map(key => [key, item.execution[key]]));
+  const delivery = item.delivery && Object.fromEntries(['status', 'attemptId', 'messageId', 'errorCode', 'updatedAt', ...(item.delivery.status === 'cancelled' ? ['cancelledAt'] : [])].map(key => [key, item.delivery[key]]));
+  return { id: item.id, kind: item.control === null ? 'inbox' : 'control', sourceHash: externalBotRetentionHash(item.sourceKey), contentHash: item.contentHash,
+    receivedAt: item.receivedAt, reclaimedAt, execution, delivery, replyHistory: item.replyHistory || [] };
+}
+function externalBotValidRetentionState(state) {
+  if (state.schema < 5) return state.retentionReceipts === undefined && state.retentionRequests === undefined;
+  if (!Array.isArray(state.retentionReceipts) || state.retentionReceipts.length > EXTERNAL_BOT_RETENTION.receipts
+    || !state.retentionReceipts.every(externalBotValidRetentionReceipt)
+    || !Array.isArray(state.retentionRequests) || state.retentionRequests.length > EXTERNAL_BOT_RETENTION.requests
+    || !state.retentionRequests.every(row => row && Object.keys(row).sort().join(',') === 'count,reclaimedAt,requestHash,requestId'
+      && typeof row.requestId === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(row.requestId)
+      && typeof row.requestHash === 'string' && /^[a-f0-9]{64}$/.test(row.requestHash)
+      && Number.isSafeInteger(row.count) && row.count >= 1 && row.count <= EXTERNAL_BOT_RETENTION.batch
+      && typeof row.reclaimedAt === 'string' && row.reclaimedAt && Number.isFinite(Date.parse(row.reclaimedAt)))) return false;
+  const ids = [...state.items, ...state.retentionReceipts].map(row => row.id);
+  const sources = [...state.items.map(row => externalBotRetentionHash(row.sourceKey)), ...state.retentionReceipts.map(row => row.sourceHash)];
+  return new Set(ids).size === ids.length && new Set(sources).size === sources.length
+    && new Set(state.retentionRequests.map(row => row.requestId)).size === state.retentionRequests.length;
+}
+async function externalBotRetentionPreview(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join(',') !== 'requestId,retainDays'
+    || typeof body.requestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(body.requestId) || !EXTERNAL_BOT_RETENTION.days.includes(body.retainDays)) throw externalBotError('external_channel.request_invalid');
+  const state = await externalBotReadState(), now = Date.now(), cutoff = now - body.retainDays * 86400000;
+  const eligible = state.items.filter(item => externalBotRetentionEligible(item, cutoff));
+  const remaining = EXTERNAL_BOT_RETENTION.receipts - (state.retentionReceipts?.length || 0);
+  if (eligible.length && (!remaining || (state.retentionRequests?.length || 0) >= EXTERNAL_BOT_RETENTION.requests)) throw externalBotError('external_channel.retention_receipts_full', 409);
+  const items = eligible.slice(0, Math.min(EXTERNAL_BOT_RETENTION.batch, remaining));
+  const selection = items.map(item => [item.id, externalBotRetentionFingerprint(item)]);
+  const payload = { requestId: body.requestId, retainDays: body.retainDays, cutoff, expiresAt: now + EXTERNAL_BOT_RETENTION.previewMs, selection };
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', externalBotRetentionKey).update(encoded).digest('hex');
+  return { ok: true, requestId: body.requestId, retainDays: body.retainDays, cutoff: new Date(cutoff).toISOString(), expiresAt: new Date(payload.expiresAt).toISOString(),
+    previewToken: items.length ? encoded + '.' + signature : '', count: items.length, eligible: eligible.length, retained: state.items.length,
+    receipts: state.retentionReceipts?.length || 0, receiptCapacity: EXTERNAL_BOT_RETENTION.receipts,
+    items: items.map(item => ({ id: item.id, kind: item.control === null ? 'inbox' : 'control', receivedAt: item.receivedAt })) };
+}
+async function externalBotRetentionCommit(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join(',') !== 'previewToken,requestId'
+    || typeof body.requestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(body.requestId)
+    || typeof body.previewToken !== 'string' || body.previewToken.length > 24000 || !/^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/.test(body.previewToken)) throw externalBotError('external_channel.request_invalid');
+  const state = await externalBotReadState(), requestHash = externalBotRetentionHash(body.previewToken);
+  const recorded = state.retentionRequests?.find(row => row.requestId === body.requestId);
+  if (recorded) {
+    if (recorded.requestHash !== requestHash) throw externalBotError('external_channel.retention_changed', 409);
+    return { ok: true, receipt: recorded, alreadyReclaimed: true, retained: state.items.length };
+  }
+  const [encoded, supplied] = body.previewToken.split('.'), expected = crypto.createHmac('sha256', externalBotRetentionKey).update(encoded).digest('hex');
+  if (!crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) throw externalBotError('external_channel.retention_preview_expired', 409);
+  let payload;
+  try { payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')); } catch { throw externalBotError('external_channel.request_invalid'); }
+  const now = Date.now();
+  if (payload.requestId !== body.requestId || !EXTERNAL_BOT_RETENTION.days.includes(payload.retainDays)
+    || !Number.isSafeInteger(payload.cutoff) || !Number.isSafeInteger(payload.expiresAt) || payload.expiresAt <= now
+    || payload.expiresAt > now + EXTERNAL_BOT_RETENTION.previewMs || payload.cutoff > now - payload.retainDays * 86400000)
+    throw externalBotError('external_channel.retention_preview_expired', 409);
+  if (!Array.isArray(payload.selection) || !payload.selection.length || payload.selection.length > EXTERNAL_BOT_RETENTION.batch
+    || new Set(payload.selection.map(row => row[0])).size !== payload.selection.length) throw externalBotError('external_channel.request_invalid');
+  const items = payload.selection.map(([id, fingerprint]) => {
+    const item = state.items.find(row => row.id === id);
+    if (!item || externalBotRetentionFingerprint(item) !== fingerprint || !externalBotRetentionEligible(item, payload.cutoff)) throw externalBotError('external_channel.retention_changed', 409);
+    return item;
+  });
+  if ((state.retentionReceipts?.length || 0) + items.length > EXTERNAL_BOT_RETENTION.receipts
+    || (state.retentionRequests?.length || 0) >= EXTERNAL_BOT_RETENTION.requests) throw externalBotError('external_channel.retention_receipts_full', 409);
+  const reclaimedAt = nowIso(), receipt = { requestId: body.requestId, requestHash, count: items.length, reclaimedAt };
+  if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
+  if (state.schema < 4) for (const row of state.items) row.replyHistory = [];
+  state.schema = 5;
+  state.retentionReceipts = [...(state.retentionReceipts || []), ...items.map(item => externalBotRetentionReceipt(item, reclaimedAt))];
+  state.retentionRequests = [...(state.retentionRequests || []), receipt];
+  const selected = new Set(items.map(item => item.id));
+  state.items = state.items.filter(item => !selected.has(item.id));
+  if (Buffer.byteLength(JSON.stringify(state, null, 2), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes) throw externalBotError('external_channel.inbox_full', 503);
+  await externalBotWriteState(state); // Bodies and receipts share exactly one durable commit before ACK.
+  return { ok: true, receipt, alreadyReclaimed: false, retained: state.items.length };
+}
+
 function externalBotValidItem(item) {
   return item && typeof item === 'object' && !Array.isArray(item) && externalBotString(item.id) && externalBotString(item.connectionId)
     && ['qq', 'feishu'].includes(item.platform) && externalBotString(item.connectionLabel, 120, true)
@@ -101510,7 +101662,7 @@ function externalBotWakeWorker() { if (!externalBotWorkerStopped) { if (typeof W
 function externalBotValidState(state) {
   if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
     || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
-  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts'].includes(key)) || ![1, 2, 3, 4].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
+  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts', 'retentionReceipts', 'retentionRequests'].includes(key)) || ![1, 2, 3, 4, 5].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
     || !Array.isArray(state.items) || state.items.length > EXTERNAL_BOT_LIMITS.items
     || !Array.isArray(state.retiredConnectionIds) || state.retiredConnectionIds.length > EXTERNAL_BOT_LIMITS.retiredIds
     || state.retiredConnectionIds.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(id))
@@ -101529,7 +101681,8 @@ function externalBotValidState(state) {
       && (state.schema >= 3 || item.delivery?.status !== 'cancelled') && externalBotValidReplyHistory(item, state.schema)
       && (state.schema === 1 ? item.archivedAt === undefined : typeof item.archivedAt === 'string' && (!item.archivedAt || Number.isFinite(Date.parse(item.archivedAt)))))
     && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
-    && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length;
+    && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length
+    && externalBotValidRetentionState(state);
 }
 // This authority/dedupe ledger never caches or quarantines. Only a missing file is an initial state.
 // The 40 MiB business cap measures compact JSON; the old plaintext read cap still measures disk bytes.
@@ -101700,6 +101853,13 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
     if (pairing) return externalBotCapturePairing(connection, pairing, message, ack);
     return ack;
   }
+  const reclaimed = state.retentionReceipts?.find(row => row.sourceHash === externalBotRetentionHash(setupReceipt.sourceKey));
+  if (reclaimed) {
+    // Re-pairing must not repurpose an already accepted message identity or bypass its conflict check.
+    const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, message.text])).digest('hex');
+    if (reclaimed.contentHash !== contentHash) throw externalBotError('external_channel.message_conflict', 409);
+    return ack;
+  }
   if (pairing) {
     if ((state.setupReceipts || []).length >= 4096) throw externalBotError('external_channel.setup_receipts_full', 409);
     if (message.tenantId !== connection.tenantId) throw externalBotError('external_channel.source_forbidden', 403);
@@ -101724,7 +101884,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   state.items.push({ id: makeId('botmsg'), connectionId: connection.id, platform, connectionLabel: connection.label,
     tenantId: message.tenantId, conversationId: message.conversationId, senderId: message.senderId,
     conversationType: message.conversationType, text: message.text, messageId: message.messageId, eventId: message.eventId,
-    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema >= 2 ? { archivedAt: '' } : {}), ...(state.schema === 4 ? { replyHistory: [] } : {}),
+    receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema >= 2 ? { archivedAt: '' } : {}), ...(state.schema >= 4 ? { replyHistory: [] } : {}),
     execution: control ? { status: 'queued', serverInstanceId: '', startedAt: '', finishedAt: '', errorCode: '', replyText: '', turnSeq: 0, actionFailures: 0, proposals: 0, contractIncomplete: false } : null, delivery: null });
   await externalBotWriteState(state);
   return ack;
@@ -101742,7 +101902,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
   let callbackPlatform = '';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/qq') callbackPlatform = 'qq';
   if (req.method === 'POST' && pathname === '/api/external-bots/callback/feishu') callbackPlatform = 'feishu';
-  if (!adminPaths.includes(pathname) && !callbackPlatform) return false;
+  if (!adminPaths.includes(pathname) && !['/api/external-bots/retention/preview', '/api/external-bots/retention/commit'].includes(pathname) && !callbackPlatform) return false;
   let admitted = false;
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -101762,7 +101922,8 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
     }
     if (!tokenOk(req)) throw externalBotError('auth.token_invalid', 403);
     const archiveMutation = pathname === '/api/external-bots/deliveries/archive' || pathname === '/api/external-bots/deliveries/cancel' || pathname === '/api/external-bots/deliveries/retry';
-    if ((EXTERNAL_BOT_SETUP_PATHS.includes(pathname) || archiveMutation) && !originOk(req)) throw externalBotError('auth.origin_rejected', 403);
+    const retentionMutation = ['/api/external-bots/retention/preview', '/api/external-bots/retention/commit'].includes(pathname);
+    if ((EXTERNAL_BOT_SETUP_PATHS.includes(pathname) || archiveMutation || retentionMutation) && !originOk(req)) throw externalBotError('auth.origin_rejected', 403);
     if (req.method === 'GET' && pathname === '/api/external-bots/setup') {
       if ([...url.searchParams.keys()].some(key => key !== 'connectionId') || url.searchParams.getAll('connectionId').length !== 1) throw externalBotError('external_channel.request_invalid');
       const result = await runKeyedChain(externalBotChains, 'state', async () => {
@@ -101815,6 +101976,18 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
       const body = externalBotDecodeJson(await externalBotReadBody(req));
       const result = await runKeyedChain(externalBotChains, 'state', () => externalBotCancelDelivery(body));
       send(res, json(result)); return true;
+    }
+    if (req.method === 'POST' && pathname === '/api/external-bots/retention/preview') {
+      if (url.search) throw externalBotError('external_channel.request_invalid');
+      const body = externalBotDecodeJson(await externalBotReadBody(req));
+      const result = await runKeyedChain(externalBotChains, 'state', () => externalBotRetentionPreview(body));
+      if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
+    }
+    if (req.method === 'POST' && pathname === '/api/external-bots/retention/commit') {
+      if (url.search) throw externalBotError('external_channel.request_invalid');
+      const body = externalBotDecodeJson(await externalBotReadBody(req));
+      const result = await runKeyedChain(externalBotChains, 'state', () => externalBotRetentionCommit(body));
+      if (!res.destroyed && !res.writableEnded) send(res, json(result)); return true;
     }
     if (req.method === 'GET' && pathname === '/api/external-bots/inbox') {
       const state = await runKeyedChain(externalBotChains, 'state', externalBotReadState);

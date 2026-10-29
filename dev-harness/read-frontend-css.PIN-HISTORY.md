@@ -906,3 +906,5 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 // 算法自证：内存仅替换 HEAD chat-live.css 后精确回到旧锁 b98aab331819db3353d3feb1be5447a2b1f25821432199a9f25b2b34fa66ad04；其余层不变、不忽略。
 // 反向验证：内存注入错误 CSS 后 D51/F3 均失败；实际产品 CSS 未修改，记录见 checks/ux-model-turn/34-css-lock-*。
 // M2-6b3: reviewed 12-line compact clipboard plaintext menu CSS; no other layer changes.
+// 2026-10-23: 生成物并入本轮变更；chat-live.css 新增行内文件动作与窄屏换行，移除独立 chip 样式。
+// 自证：只读 HEAD chat-live.css 时载荷精确回到 0990a6250d726cc0df5a0ac053ccd5ffeb8077af0db8663e31117772fb2f8fa3；内存损坏后 D51/F3 必须失败，磁盘 CSS 不改坏。

@@ -31,7 +31,10 @@ function channel(f){
  vm.runInContext(fs.readFileSync(p.join(repo,'ruyi-workbench/app/src/13x-external-channel-delivery.js'),'utf8'),f.context);return{messages,requests};
 }
 test('exact route is token only; old auth rows and full core invert byte exactly',()=>{
- const auth=fs.readFileSync(p.join(repo,'ruyi-workbench/app/src/01b-route-auth.js'),'utf8'),context=vm.createContext({});vm.runInContext(auth+';globalThis.rows=ROUTE_AUTH;',context);const rows=plain(context.rows);
+ // Reconstruct the exact pre-retention registry before applying this historical retry insertion lock.
+ // The retention fixture hashes both complete registries and removes only its two exact POST rows;
+ // current retention auth/origin behavior is independently asserted in external-bots-retention-api.
+ const auth=require('../lib/external-bots-source-history').beforeRetentionAuth(fs.readFileSync(p.join(repo,'ruyi-workbench/app/src/01b-route-auth.js'),'utf8')),context=vm.createContext({});vm.runInContext(auth+';globalThis.rows=ROUTE_AUTH;',context);const rows=plain(context.rows);
  a.deepEqual(rows.filter(x=>x.p===target),[{m:'POST',p:target,auth:'token'}]);const spans={spans:replyRetryContracts.apiSpans,auth:replyRetryContracts.auth};let inverse=replyRetrySourceV2(source);
  for(const row of spans.spans.toReversed()){a.equal(inverse.split(row.after).length,2);inverse=inverse.replace(row.after,row.before);}a.equal(inverse,retryCoreSource(source));
  // spans.auth.base 钉的是「重试那一行落地之前」01b-route-auth.js 的整文件字节。这张表是所有特性共用的路由清单,

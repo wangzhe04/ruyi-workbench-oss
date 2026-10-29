@@ -7,6 +7,7 @@ import { createExternalBotSetup } from './external-bot-setup.js';
 import { createReplyRetryState, validReplyRetryHistory } from './external-bot-retry-state.js';
 
 const ENV_NAME = /^RUYI_BOT_[A-Z0-9_]+$/;
+let retentionRequest = null; // One bounded mutation owner survives panel/DOM recreation; never auto-POST.
 const FIELDS = ['id', 'platform', 'label', 'appId', 'tenantId', 'botUserId', 'verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'mode', 'ownerSenderId', 'ownerConversationId', 'ownerConversationType', 'appSecretEnv'];
 const ENV_FIELDS = ['verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'appSecretEnv'];
 const IDS = { id: 'cfgStewardBotId', platform: 'cfgStewardBotPlatform', label: 'cfgStewardBotLabel', appId: 'cfgStewardBotAppId', tenantId: 'cfgStewardBotTenantId',
@@ -40,6 +41,15 @@ export function validExternalDeliveryItem(row) {
     && (!row.delivery || typeof row.delivery.attemptId === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(row.delivery.attemptId)
       && (row.delivery.errorCode === undefined || typeof row.delivery.errorCode === 'string')));
 }
+function validReclaimedExternalItem(row) {
+  return Boolean(row?.reclaimed === true && typeof row.id === 'string' && row.id
+    && Number.isFinite(Date.parse(row.receivedAt)) && Number.isFinite(Date.parse(row.reclaimedAt))
+    && row.acceptance?.status === 'accepted' && row.acceptance.receivedAt === row.receivedAt
+    && ['completed', 'failed'].includes(row.execution?.status) && row.execution.replyText === undefined
+    && ['sent', 'failed', 'cancelled'].includes(row.delivery?.status)
+    && typeof row.delivery.attemptId === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(row.delivery.attemptId)
+    && row.text === undefined && Array.isArray(row.replyHistory) && validReplyRetryHistory(row));
+}
 function connectionPayload(row) {
   const value = { enabled: row.enabled === true, allowedSenderIds: [...row.allowedSenderIds], allowedConversationIds: [...row.allowedConversationIds] };
   for (const key of FIELDS) if (row[key]) value[key] = row[key];
@@ -61,6 +71,8 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
   let deliveries = [];
   let archivePending = null; // A physical write survives closing or reopening this view.
   let deliveryNotice = { key: '', code: '', failed: false };
+  let retentionPreview = null, retentionSeq = 0;
+  let retentionNotice = { key: '', params: {}, code: '', failed: false };
   const deliveryOpen = () => byId('cfgStewardBotDeliverySection')?.open === true;
   let worker = { running: false, errorCode: '' };
   let discovering = false;
@@ -83,6 +95,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       'external_channel.connections_full': 'capacityFull', 'external_channel.retired_ids_full': 'capacityFull',
       'external_channel.control_revoked': 'controlRevoked', 'external_channel.owner_invalid': 'ownerRequired',
       'external_channel.control_confirmation_required': 'controlConfirmationRequired', 'external_channel.cursor_invalid': 'deliveryCursorExpired', 'external_channel.delivery_cannot_cancel': 'cancelTooLate', 'external_channel.delivery_changed': 'cancelChanged', 'external_channel.delivery_cancelled': 'delivery.cancelled',
+      'external_channel.retention_changed': 'retentionChanged', 'external_channel.retention_preview_expired': 'retentionExpired', 'external_channel.retention_receipts_full': 'retentionFull',
       'external_discovery.credentials_rejected': 'discoverRejected', 'external_discovery.unsupported_platform': 'discoverUnsupportedPlatform',
       'external_discovery.credentials_missing': 'discoverCredentialsMissing', 'external_discovery.identity_missing': 'discoverIdentityMissing',
       'external_discovery.busy': 'discoverBusy', 'external_discovery.invalid_input': 'discoverInvalid',
@@ -201,6 +214,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     select.value = deliveryFilter;
   }
   function renderDeliveries() {
+    renderRetention();
     const host = byId('cfgStewardBotDeliveries'); if (!host) return;
     clear(host); renderDeliveryFilter(); readStatus('deliveries');
     host.setAttribute('aria-busy', String(quality.deliveries === 'loading'));
@@ -277,8 +291,92 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     } catch (error) {
       if (!current(mine, seq, 'deliveries')) return false;
       quality.deliveries = 'failed'; errorDetail.deliveries = deliveryErrorCode(error);
+      if (older && errorDetail.deliveries === 'external_channel.cursor_invalid') { deliveryCursor = ''; void loadDeliveries(); return false; }
     }
     renderDeliveries(); return quality.deliveries === 'ok';
+  }
+  function renderRetention() {
+    const preview = byId('cfgStewardBotRetentionPreview'), commit = byId('cfgStewardBotRetentionCommit'), days = byId('cfgStewardBotRetentionDays');
+    const busy = Boolean(writeOwner || archivePending || retentionRequest?.phase === 'inflight');
+    if (preview) preview.disabled = busy || Boolean(retentionRequest) || quality.deliveries !== 'ok';
+    if (days) days.disabled = busy || Boolean(retentionRequest);
+    if (commit) {
+      commit.hidden = !retentionRequest && !retentionPreview?.count;
+      commit.disabled = busy || !retentionRequest && (!retentionPreview?.count || Date.parse(retentionPreview.expiresAt) <= Date.now());
+      commit.textContent = t(retentionRequest ? 'externalBots.retentionCheck' : 'externalBots.retentionCommit', { count: retentionRequest?.count || retentionPreview?.count || 0 });
+    }
+    const note = byId('cfgStewardBotRetentionNote');
+    if (note) {
+      note.textContent = retentionNotice.key ? t(retentionNotice.key, retentionNotice.params) + (retentionNotice.failed && retentionNotice.code ? ' ' + errorText({ code: retentionNotice.code }, false) : '') : retentionRequest ? t('externalBots.retentionUnknown') : '';
+      note.dataset.tone = retentionNotice.failed ? 'err' : '';
+    }
+  }
+  async function previewRetention() {
+    if (retentionRequest || archivePending || writeOwner || !active || !isVisible() || !deliveryOpen() || quality.deliveries !== 'ok') return false;
+    const mine = generation, seq = ++retentionSeq, owner = {}, retainDays = Number(byId('cfgStewardBotRetentionDays')?.value || 30);
+    retentionPreview = null; writeOwner = owner; renderConnections(); renderInbox(); renderDeliveries();
+    try {
+      const bytes = new Uint8Array(16); globalThis.crypto.getRandomValues(bytes);
+      const requestId = 'reclaim_' + Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+      const body = await api('/api/external-bots/retention/preview', { method: 'POST', body: JSON.stringify({ requestId, retainDays }) });
+      if (mine !== generation || seq !== retentionSeq || !active || !isVisible() || !deliveryOpen() || writeOwner !== owner) return false;
+      if (body?.ok !== true || body.requestId !== requestId || body.retainDays !== retainDays
+        || typeof body.previewToken !== 'string' || body.previewToken.length > 24000
+        || !Number.isInteger(body.count) || body.count < 0 || body.count > 100 || !Number.isInteger(body.eligible) || body.eligible < body.count || body.eligible > 1000
+        || !Number.isInteger(body.retained) || body.retained < body.eligible || body.retained > 1000
+        || !Number.isInteger(body.receipts) || body.receipts < 0 || body.receipts > 4096 || body.receiptCapacity !== 4096
+        || !Array.isArray(body.items) || body.items.length !== body.count || body.items.some(row => typeof row.id !== 'string' || !['control', 'inbox'].includes(row.kind) || !Number.isFinite(Date.parse(row.receivedAt)))
+        || !Number.isFinite(Date.parse(body.cutoff)) || !Number.isFinite(Date.parse(body.expiresAt))
+        || body.count > 0 && !/^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/.test(body.previewToken)) throw new Error('invalid_response');
+      retentionPreview = body;
+      retentionNotice = { key: body.count ? 'externalBots.retentionSelected' : 'externalBots.retentionEmpty', params: { count: body.count, eligible: body.eligible, cutoff: body.cutoff, receipts: body.receipts }, code: '', failed: false };
+      return true;
+    } catch (error) {
+      if (mine === generation && seq === retentionSeq && active && isVisible() && writeOwner === owner) retentionNotice = { key: 'externalBots.retentionFailed', params: {}, code: deliveryErrorCode(error), failed: true };
+      return false;
+    } finally {
+      if (writeOwner === owner) { writeOwner = null; if (active && isVisible()) { renderConnections(); renderInbox(); renderDeliveries(); } }
+    }
+  }
+  async function commitRetention() {
+    if (archivePending || writeOwner || retentionRequest?.phase === 'inflight' || !active || !isVisible() || !deliveryOpen()) return false;
+    if (!retentionRequest) {
+      if (!retentionPreview?.count) return false;
+      if (Date.parse(retentionPreview.expiresAt) <= Date.now()) { retentionPreview = null; retentionNotice = { key: 'externalBots.retentionExpired', params: {}, code: '', failed: true }; renderRetention(); return false; }
+      retentionRequest = { body: Object.freeze({ requestId: retentionPreview.requestId, previewToken: retentionPreview.previewToken }), count: retentionPreview.count, phase: 'ready' };
+    }
+    const record = retentionRequest, mine = generation, owner = {}, source = byId('cfgStewardBotRetentionCommit'), restoreFocus = doc()?.activeElement === source;
+    record.phase = 'inflight'; archivePending = owner; writeOwner = owner; deliverySeq++; inboxSeq++; retentionSeq++;
+    renderConnections(); renderInbox(); renderDeliveries();
+    try {
+      const body = await api('/api/external-bots/retention/commit', { method: 'POST', body: JSON.stringify(record.body) });
+      if (body?.ok !== true || typeof body.alreadyReclaimed !== 'boolean' || body.receipt?.requestId !== record.body.requestId
+        || body.receipt.count !== record.count || typeof body.receipt.requestHash !== 'string' || !/^[a-f0-9]{64}$/.test(body.receipt.requestHash)
+        || !Number.isFinite(Date.parse(body.receipt.reclaimedAt)) || !Number.isInteger(body.retained) || body.retained < 0 || body.retained > 1000) throw new Error('write_unconfirmed');
+      if (retentionRequest === record) retentionRequest = null;
+      retentionPreview = null;
+      if (mine !== generation || !active || !isVisible() || writeOwner !== owner) return false;
+      items = []; deliveries = []; nextBefore = ''; deliveryCursor = ''; retained = body.retained;
+      retentionNotice = { key: 'externalBots.retentionSaved', params: { count: body.receipt.count }, code: '', failed: false };
+      await Promise.all([loadInbox(), loadDeliveries()]); return true;
+    } catch (error) {
+      const code = deliveryErrorCode(error), rejected = ['external_channel.retention_changed', 'external_channel.retention_preview_expired', 'external_channel.retention_receipts_full', 'external_channel.request_invalid', 'external_channel.inbox_full'].includes(code);
+      if (retentionRequest === record) { if (rejected) { retentionRequest = null; retentionPreview = null; } else record.phase = 'uncertain'; }
+      if (mine === generation && active && isVisible() && writeOwner === owner) {
+        retentionNotice = { key: rejected ? 'externalBots.retentionFailed' : 'externalBots.retentionUnknown', params: {}, code, failed: true };
+        quality.deliveries = 'failed'; errorDetail.deliveries = code; quality.inbox = 'failed'; errorDetail.inbox = errorText(error);
+      }
+      return false;
+    } finally {
+      deliverySeq++; inboxSeq++; // Retire pre-settlement reads, including a reopened view's prefetched bodies.
+      if (mine !== generation) { quality.deliveries = 'unread'; quality.inbox = 'unread'; }
+      if (archivePending === owner) archivePending = null;
+      if (writeOwner === owner) writeOwner = null;
+      if (active && isVisible()) {
+        renderConnections(); renderInbox(); renderDeliveries();
+        if (restoreFocus && mine === generation && deliveryOpen() && (!doc()?.activeElement || doc().activeElement === doc().body || doc().activeElement === source)) (retentionRequest ? byId('cfgStewardBotRetentionCommit') : byId('cfgStewardBotRetentionPreview'))?.focus();
+      }
+    }
   }
   async function archiveDelivery(item, source) {
     if (archivePending || writeOwner || !active || !isVisible() || !deliveryOpen() || quality.deliveries !== 'ok') return false;
@@ -334,7 +432,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     writeOwner = owner; renderConnections(); renderInbox(); renderDeliveries();
     try {
       const body = await api('/api/external-bots/deliveries/cancel', { method: 'POST', body: JSON.stringify({ id: item.id, attemptId }) });
-      if (body?.ok !== true || !validExternalInboxItem(body.item) || body.item.id !== item.id
+      if (body?.ok !== true || !(validExternalInboxItem(body.item) || validReclaimedExternalItem(body.item)) || body.item.id !== item.id
         || body.item.delivery?.attemptId !== attemptId || body.item.delivery.status !== 'cancelled') throw new Error('write_unconfirmed');
       settle(false);
       if (mine !== generation || !active || !isVisible() || writeOwner !== owner) return false;
@@ -376,7 +474,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     };
     try {
       const body=await api('/api/external-bots/deliveries/retry',{method:'POST',body:JSON.stringify(record.body)});
-      if(!validExternalInboxItem(body?.item))throw new Error('write_unconfirmed');
+      if(!validExternalInboxItem(body?.item)&&!validReclaimedExternalItem(body?.item))throw new Error('write_unconfirmed');
       replyRetries.confirm(record,body);settle(false);
       if(mine!==generation||!active||!isVisible()||writeOwner!==owner)return false;
       deliveryNotice={key:'externalBots.retrySaved',code:'',failed:false};await loadDeliveries();return true;
@@ -506,6 +604,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     } catch (error) {
       if (!current(mine, seq, 'inbox')) return false;
       quality.inbox = 'failed'; errorDetail.inbox = errorText(error);
+      if (older && deliveryErrorCode(error) === 'external_channel.cursor_invalid') { nextBefore = ''; void loadInbox(); return false; }
     }
     renderInbox(); return quality.inbox === 'ok';
   }
@@ -599,7 +698,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
   }
   function invalidate(reason = 'failed') {
     setup.close(); closeDiscover();
-    generation++; connectionSeq++; inboxSeq++; deliverySeq++; writeOwner = null; nextBefore = ''; deliveryCursor = '';
+    generation++; connectionSeq++; inboxSeq++; deliverySeq++; retentionSeq++; retentionPreview = null; retentionNotice = { key: '', params: {}, code: '', failed: false }; writeOwner = null; nextBefore = ''; deliveryCursor = '';
     quality.connections = reason; quality.inbox = reason; quality.deliveries = reason;
     if (active && isVisible()) { renderConnections(); renderInbox(); renderDeliveries(); }
   }
@@ -615,8 +714,10 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     const on = (id, event, callback) => byId(id)?.addEventListener(event, callback);
     on('cfgStewardBotConnectionsRefresh', 'click', loadConnections); on('cfgStewardBotInboxRefresh', 'click', loadInbox);
     on('cfgStewardBotInboxMore', 'click', () => loadInbox(true));
-    on('cfgStewardBotDeliverySection', 'toggle', () => { if (deliveryOpen()) void loadDeliveries(); else { deliverySeq++; quality.deliveries = 'unread'; } });
+    on('cfgStewardBotDeliverySection', 'toggle', () => { if (deliveryOpen()) void loadDeliveries(); else { deliverySeq++; retentionSeq++; retentionPreview = null; quality.deliveries = 'unread'; } });
     on('cfgStewardBotDeliveryRefresh', 'click', loadDeliveries); on('cfgStewardBotDeliveryMore', 'click', () => loadDeliveries(true));
+    on('cfgStewardBotRetentionPreview', 'click', previewRetention); on('cfgStewardBotRetentionCommit', 'click', commitRetention);
+    on('cfgStewardBotRetentionDays', 'change', () => { if (!retentionRequest) { retentionSeq++; retentionPreview = null; retentionNotice = { key: '', params: {}, code: '', failed: false }; renderRetention(); } });
     on('cfgStewardBotDeliveryConnection', 'change', changeDeliveryFilter); on('cfgStewardBotDeliveryArchive', 'change', changeDeliveryFilter);
     on('cfgStewardBotNew', 'click', () => edit()); on('cfgStewardBotForm', 'submit', save);
     on('cfgStewardBotDiscoverOpen', 'click', openDiscover); on('cfgStewardBotDiscoverForm', 'submit', runDiscover);
@@ -640,6 +741,6 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       stream.on(EVENT_STREAM_INSTANCE_EVENT, () => { restarting = true; invalidate('restarting'); });
       stream.on('presence.ack', () => { if (restarting) { restarting = false; if (active && isVisible()) { void loadConnections(); void loadInbox(); if (deliveryOpen()) void loadDeliveries(); } } });
     },
-    snapshot: () => ({ connections: connections.slice(), items: items.slice(), quality: { ...quality }, worker: { ...worker }, generation, writing: Boolean(writeOwner), discovering, nextBefore, total, deliveries: deliveries.slice(), deliveryCursor, deliveryTotal, retained, deliveryFilter, archiveFilter, archivePending: Boolean(archivePending), retryRequests:replyRetries.snapshot() }),
+    snapshot: () => ({ connections: connections.slice(), items: items.slice(), quality: { ...quality }, worker: { ...worker }, generation, writing: Boolean(writeOwner), discovering, nextBefore, total, deliveries: deliveries.slice(), deliveryCursor, deliveryTotal, retained, deliveryFilter, archiveFilter, archivePending: Boolean(archivePending), retryRequests:replyRetries.snapshot(), retentionPreview, retentionPending: retentionRequest ? { body: { ...retentionRequest.body }, phase: retentionRequest.phase } : null }),
   });
 }

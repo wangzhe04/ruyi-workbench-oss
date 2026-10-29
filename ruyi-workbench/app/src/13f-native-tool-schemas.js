@@ -1309,7 +1309,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_bot_setup',
-    description: '检查或准备 QQ/飞书机器人接入。inspect 只读：分别报告本机配置、凭据是否存在和真实收发证据，不代表已联通。prepare 仅可信本机用户回合可调用：根据完整应用身份创建或复用 disabled inbox 连接，不启用、不改 owner、不自动发送。QQ 需要 appId；飞书需要 appId、tenantId、机器人 botUserId(open_id)，缺少就先向用户索取获取这些非秘密标识，绝不猜测。任何 secret/token/key 或 enabled/owner/确认字段都不能传入；密钥仅在本机专用安全输入框填，随后本机配对并确认启用。不要让用户把密钥发进聊天，不要读取环境变量或凭据文件。真实 prepare 成功会由服务端给出配置导航按钮，不要自己编造完成或联通状态。',
+    description: '检查或准备 QQ/飞书机器人接入。inspect 只读：分别报告本机配置、凭据是否存在和真实收发证据，不代表已联通。evidence.scope=retained_bodies：收件/平台确认数只含当前保留正文，不是历史总数；回收后的0不表示从未受理或撤销已确认的平台回复，不能凭此重跑或重发。prepare 仅可信本机用户回合可调用：根据完整应用身份创建或复用 disabled inbox 连接，不启用、不改 owner、不自动发送。QQ 需要 appId；飞书需要 appId、tenantId、机器人 botUserId(open_id)，缺少就先向用户索取获取这些非秘密标识，绝不猜测。任何 secret/token/key 或 enabled/owner/确认字段都不能传入；密钥仅在本机专用安全输入框填，随后本机配对并确认启用。不要让用户把密钥发进聊天，不要读取环境变量或凭据文件。真实 prepare 成功会由服务端给出配置导航按钮，不要自己编造完成或联通状态。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['op'],
       properties: {

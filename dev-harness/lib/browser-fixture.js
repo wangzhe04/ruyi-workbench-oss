@@ -221,6 +221,7 @@ function killTree(child) {
 //   opts.prepare    浏览器起来之前调一次:async ({ request, token, work, home, appPort }) => {}(建线程、跑回合)
 //   opts.ok         断言函数(夹具自己的前置步骤也记成 PASS/FAIL 行)
 //   opts.serverEnv  叠在工作台子进程环境上的键(128f-③:测试口 WCW_TEST_* 与 TMP 之类;家目录那几个键不许覆盖)
+//   opts.evidenceObserver optional test-only observations; post-ownership callbacks must not throw.
 async function startBrowserFixture(opts = {}) {
   const ok = typeof opts.ok === 'function' ? opts.ok : () => {};
   const prefix = String(opts.prefix || 'ruyi-bfx-');
@@ -267,20 +268,26 @@ async function startBrowserFixture(opts = {}) {
   };
   fx.close = async ({ keepRoot = false } = {}) => {
     if (fx.cdp) fx.cdp.close();
+    opts.evidenceObserver?.cleanup(fx, 'browser');
     killTree(fx.browser);
     try { stopRuyiTestBrowsers(profile); } catch { /* best effort */ }
+    opts.evidenceObserver?.cleanup(fx, 'server');
     killTree(fx.server);
+    opts.evidenceObserver?.cleanup(fx, 'provider');
     if (fx.provider) await new Promise(resolve => fx.provider.close(resolve));
     await sleep(300);
     if (!keepRoot) { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* windows 句柄 */ } }
   };
 
+  opts.evidenceObserver?.beforeStart(fx);
   fx.provider = await startProvider(providerPort, opts.provider);
+  opts.evidenceObserver?.provider(fx);
   fx.server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {
     cwd: WB,
     env: { ...process.env, ...(opts.serverEnv || {}), RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home, HOME: home, USERPROFILE: home },
     windowsHide: true, stdio: 'ignore',
   });
+  opts.evidenceObserver?.child('server', fx.server, { stdio: 'ignore' });
   const up = await waitForHttp(appPort, 'GET', '/health', result => result.status === 200);
   ok(Boolean(up), 'F0 工作台起来了');
   if (!up) throw new Error('workbench did not start');
@@ -304,6 +311,7 @@ async function startBrowserFixture(opts = {}) {
     ...(Array.isArray(opts.browserArgs) ? opts.browserArgs.map(String) : []),
     '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,
   ], { windowsHide: true, stdio: 'ignore' });
+  opts.evidenceObserver?.child('browser', fx.browser, { stdio: 'ignore' });
   // 129j:失败时把 why 打出来再抛 —— 「CDP target unavailable」这七个字什么都没说,
   // 而这一类红在并行全量里反复出现(129b/129i 各一次,签名一字不差)。
   const found = await waitForTarget(debugPort, appUrl, fx.browser);

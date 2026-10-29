@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "verdict": "ACCEPT",
+  "scope": "Independent metadata and representation review of staged source and selected archived evidence; no runtime suite, HTTP, browser or full unit rerun. Historical reports are not independently replayed.",
+  "reviewedManifest": {
+    "path": "docs/optimization-plan/evidence/m5-retention-20261030.json",
+    "sha256": "552b30fe910eb2cdb9a1ec6740793b6c56143ce6248ba84f68d45d047472dabb"
+  },
+  "archive": {
+    "references": 201,
+    "uniqueFiles": 201,
+    "packedBytes": 692834,
+    "decodedBytes": 1942466,
+    "checks": "All gzip decompression, raw and packed byte lengths and SHA256 match; safe filenames, no duplicates, missing or orphan files; staged paths match working bytes."
+  },
+  "source": {
+    "finalFiles": 45,
+    "liveAndStagedMatch": true,
+    "frozenActualTree": "7ae473a7a6738c99cfb639799f1ba6e0157a0979",
+    "frozenActualPinsSha256": "80e5d527fac07386c87f781d3b026dc8f115542c169c8544d69f8e0ad54e5fc2",
+    "unchangedSinceActual": 44,
+    "postActualDoc": "docs/architecture/external-bots-retention.md",
+    "beforeSha256": "195f48dd3e035f5a2176e23451a4415efac513a54ace198160a95a07b064bdd2",
+    "afterSha256": "ced869ee7fd7067af35c3a2f96679d31fdbb888f1e7d8f377026bc9015601ba7",
+    "appendedBytes": 797,
+    "appendedSha256": "ee2d50c87b81ed6c60f741bd3346cb6c3a5ce525d9876f80ea7f2220b0a305ce",
+    "appendOnly": true
+  },
+  "eol": {
+    "argv": [
+      "C:/Program Files/nodejs/node.exe",
+      "dev-harness/eol-policy.static.e2e.js"
+    ],
+    "toolChunk": "cfcad3",
+    "terminal": true,
+    "exit": 0,
+    "elapsedMs": 3547,
+    "trackedTextFiles": 2175,
+    "assertions": 5,
+    "stdoutSha256": "77f509f8af7d5ee1024f9e2a1950b7b50fb5918274c08a22729be4c3a7643437",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdoutPath": ".ruyi-runtime/m5-retention-final-metadata-terra-20261030/stdout.log",
+    "stderrPath": ".ruyi-runtime/m5-retention-final-metadata-terra-20261030/stderr.log"
+  },
+  "evidenceBoundaries": [
+    "Original complete syntax 1368 files and four changed R6 JS checks are separate, not a rerun of full syntax at R6.",
+    "Original first fast exit2 and 12 failures, second fast exit1 with unit 4385 pass/0 fail/26 skip and six static failures are retained; later 82 original static scripts passed separately, not as a relabeled green fast invocation.",
+    "Five final browser/retry/hygiene actual runs and earlier HTTP/encrypted E1-E9 reports support their limited scopes. Two encrypted runs lacked an independent outer 120s latch; capture intervals are not full case times.",
+    "Encrypted crash, bad ciphertext and active-eligibility combinations remain pending; no whole encrypted matrix, whole M5, 3.1 or delivery qualification is claimed.",
+    "Selected reports and logs are archived; external roots, keys, screenshots, binary bodies and transitive evidence are not all reconstructed. Prior unknown actor closure is not inferred."
+  ],
+  "findings": []
+}

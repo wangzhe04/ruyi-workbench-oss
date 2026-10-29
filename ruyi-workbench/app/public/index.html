@@ -1518,6 +1518,18 @@
                 <p class="field-help muted" data-i18n="externalBots.archiveHint">归档只整理列表，不会停止业务或待发回复，也不释放容量。</p>
                 <p class="field-help muted" data-i18n="externalBots.archiveCompatibility">首次归档后，全部机器人记录只能用当前或更新版本打开，取消归档不会改变这一限制。</p>
                 <p class="field-help muted" data-i18n="externalBots.cancelCompatibility">取消只阻止尚未提交的回复，不停止或撤销业务。首次取消会升级账本，旧版将拒绝读取；发送未知须先核对。</p>
+                <fieldset class="external-bots-retention">
+                  <legend data-i18n="externalBots.retentionTitle">正文保留与回收</legend>
+                  <p class="field-help muted" data-i18n="externalBots.retentionHint">仅手动回收：接收、业务完成和最后发送尝试均早于所选天数。已读的普通收件，或已归档且业务和发送均已确定结束的投递可选；运行中、未知、待决或动作失败的记录保留。</p>
+                  <p class="field-help muted" data-i18n="externalBots.retentionBoundary">每批最多 100 条，实际移除本账本中的原文与回复并释放 1000 条正文容量；永久保留最多 4096 条去重和终态回执、4096 条回收请求回执，满后拒绝回收且不淘汰旧回执。不会自动删除；保留龄不从已读或归档时起算。</p>
+                  <p class="field-help muted" data-i18n="externalBots.retentionPrivacy">回收后无法在此查看原文或重新发送回复；旧发送和人工请求回执仍有效。普通删除不等于 SSD 安全擦除，不删除线程、草稿、外部平台副本、导出或历史备份。首次回收会升级机器人记录格式，旧版无法打开整份记录。</p>
+                  <div class="external-bots-toolbar">
+                    <label for="cfgStewardBotRetentionDays"><span data-i18n="externalBots.retentionDays">至少保留天数</span><select id="cfgStewardBotRetentionDays"><option value="7">7</option><option value="30" selected>30</option><option value="90">90</option><option value="365">365</option></select></label>
+                    <button type="button" id="cfgStewardBotRetentionPreview" class="btn btn-sm" data-i18n="externalBots.retentionPreview">预览可回收正文</button>
+                    <button type="button" id="cfgStewardBotRetentionCommit" class="btn btn-sm" hidden data-i18n="externalBots.retentionCommit">确认回收这批正文</button>
+                  </div>
+                  <p id="cfgStewardBotRetentionNote" class="field-help" role="status" aria-live="polite"></p>
+                </fieldset>
                 <div class="external-bots-toolbar external-bots-delivery-filters">
                   <label class="external-bots-field" for="cfgStewardBotDeliveryConnection"><span data-i18n="externalBots.connectionFilter">连接</span><select id="cfgStewardBotDeliveryConnection"></select></label>
                   <label class="external-bots-field" for="cfgStewardBotDeliveryArchive"><span data-i18n="externalBots.archiveFilter">记录范围</span><select id="cfgStewardBotDeliveryArchive"><option value="active" data-i18n="externalBots.activeRecords">未归档</option><option value="archived" data-i18n="externalBots.archived">已归档</option><option value="all" data-i18n="externalBots.allRecords">全部记录</option></select></label>

@@ -33,6 +33,8 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/external-bots/deliveries/archive', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/deliveries/cancel', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/deliveries/retry', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/retention/preview', auth: 'token' },
+  { m: 'POST', p: '/api/external-bots/retention/commit', auth: 'token' },
   { m: 'POST', p: '/api/external-bots/callback/qq', auth: 'external-callback' },
   { m: 'POST', p: '/api/external-bots/callback/feishu', auth: 'external-callback' },
   // open: 低敏读(host 门已过,无 token 需求)

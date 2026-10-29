@@ -5,15 +5,15 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const PINS=Object.freeze({
  'dev-harness/external-bots.browser.e2e.js':'705afbde85d9ef1db75bb50de7ed1d5d58c1a8d1ffa8e26fe76cbc572dda1e14',
- 'ruyi-workbench/app/src/13w-external-bots.js':'0f20414a8cf9af554b5bab9ba9c54f9b5e2dc4c3445f4e874fd97bfce77d1b09',
- 'ruyi-workbench/app/src/01b-route-auth.js':'5a1f833241c348dc738aeaa7382f0d4496f33beb2083e0e9c28724d73d50356a',
+ 'ruyi-workbench/app/src/13w-external-bots.js':'b2f8ace6d451c10d4d7248d08979dfd65256be4ab0b67331ded41916a1378e97',
+ 'ruyi-workbench/app/src/01b-route-auth.js':'aa5db773c2fab67147e76ecdc2703732ded09a0c49a849976059a13d973b8cf2',
  'ruyi-workbench/app/src/13x-external-channel-delivery.js':'3c610aa5ecdb90e6d4d85d91364a06137e24498a957c2a1aa6db9755978c484b',
- 'ruyi-workbench/app/public/js/external-bots.js':'0b9c20ab32cd1a797efac188b6421e5d38c454103b7f9edec2c9528292108359',
+ 'ruyi-workbench/app/public/js/external-bots.js':'aa7ce51e790e4715d68736fe98a9dc2e912e5cb1a565130426429a9120705f62',
  'ruyi-workbench/app/public/js/external-bot-retry-state.js':'5d265f023ceafe4fc12e769d782cd06d255995562e32cbe685d537706ad4e56a',
- 'ruyi-workbench/app/public/index.html':'f0686225017a137630df8c3d757c57f2f94de18c87db72b3c8e2718b7516e8cd',
- 'ruyi-workbench/app/public/locales/en-US.json':'6b5bec9843c16c30a88f701d90e62f8adaa51c3a115a342d71f380f3a1b08f8e',
- 'ruyi-workbench/app/public/locales/zh-CN.json':'6ca1f3f199991bacd0f38b6615bffa6be01a6b5260c8b12884cdeed3c775e23a',
- "dev-harness/lib/browser-fixture.js":"a4e27a2b137b1873384f997e206db0a4f7069764ef2a71fae68893afa679e4a7",
+ 'ruyi-workbench/app/public/index.html':'36db89aab9f38ad4efd247a360cd9545921dc5ed5a6facaacffe61d763df3a3b',
+ 'ruyi-workbench/app/public/locales/en-US.json':'2963eddf70fd51b484e698e4fdac53908a6f1b0e3e273ad7d9ae807603ff91ab',
+ 'ruyi-workbench/app/public/locales/zh-CN.json':'f7333e1cd4ac632740203bdffdb8569162bf8b35ad9cd8c0dcd906d5859378fa',
+ "dev-harness/lib/browser-fixture.js":"7b74bc900ccf127ce37f48342efb6903453e174a33f9421fc36bbfa6ae46afbf",
  "dev-harness/lib/external-channel-delivery-preload.js":"983925b6c43a47be1ac831147fa37c39746c222657a824750f925669c456b63f",
  "dev-harness/lib/external-bot-fixtures.js":"52df68555db7f9c89dcf3140e9a0b8856995ed62a6418928e71befecdcf07e02"
 });

@@ -435,6 +435,9 @@
 
 .external-bots-delivery-section { border-block:1px solid var(--line); padding-block:var(--sp-3); margin-block:var(--sp-3); min-width:0; }
 .external-bots-delivery-section > summary { cursor:pointer; margin:0; }
+.external-bots-retention { min-width:0; margin-block:var(--sp-3); padding:var(--sp-3); border:1px solid var(--line); border-radius:var(--radius-sm); }
+.external-bots-retention :is(legend,label,button) { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+.external-bots-retention label { display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-2); }
 .external-bots-delivery-filters { align-items:flex-end; margin-block:var(--sp-3); }
 .external-bots-delivery-filters > label { flex:1 1 140px; }
 .external-bots-delivery-facts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-3); margin:var(--sp-3) 0; font-size:var(--fs-xs); }

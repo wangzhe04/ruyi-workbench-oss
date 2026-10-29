@@ -437,7 +437,7 @@
           "why": "route a delivery to its connection"
         }
       ],
-      "reason": "labels, pairing receipts, inbox items and delivery receipts stay sealed; token hashes never leave the file",
+      "reason": "labels, pairing receipts, inbox bodies, delivery history and payload5 body-free dedup/terminal/reclamation receipts stay sealed under unchanged Store/AAD1; token hashes never leave the file",
       "adapter": "wired"
     },
     {

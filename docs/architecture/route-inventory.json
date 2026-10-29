@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-29T06:10:26.248Z",
+  "generatedAt": "2026-10-29T13:08:14.909Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -21,10 +21,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 177,
-    "decisionPoints": 190,
+    "routeAuthEntries": 179,
+    "decisionPoints": 192,
     "byKind": {
-      "exact": 165,
+      "exact": 167,
       "prefix": 13,
       "regex": 12
     },
@@ -239,6 +239,18 @@
     {
       "m": "POST",
       "p": "/api/external-bots/deliveries/retry",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/retention/preview",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/external-bots/retention/commit",
       "auth": "token",
       "prefix": false
     },
@@ -6277,6 +6289,7 @@
       "coveredBy": [
         "dev-harness\\external-bot-gateway.e2e.js",
         "dev-harness\\external-bot-setup.e2e.js",
+        "dev-harness\\external-bots-retention.e2e.js",
         "dev-harness\\external-bots.e2e.js"
       ]
     },
@@ -6433,6 +6446,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots-retention.e2e.js",
         "dev-harness\\external-bots-retry.browser.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\unit\\external-bots-retry-api.test.js",
@@ -6470,6 +6484,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots-retention.e2e.js",
         "dev-harness\\external-bots-retry.browser.e2e.js",
         "dev-harness\\unit\\external-bots-retry-api.test.js",
         "dev-harness\\unit\\external-bots-ui.test.js"
@@ -6489,8 +6504,46 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\external-bots-control.e2e.js",
+        "dev-harness\\external-bots-retention.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\unit\\external-bots-retry-api.test.js",
+        "dev-harness\\unit\\external-bots-ui.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/retention/preview",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bots-retention.e2e.js",
+        "dev-harness\\unit\\external-bots-retention-api.test.js",
+        "dev-harness\\unit\\external-bots-ui.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/external-bots/retention/commit",
+      "file": "13w-external-bots.js",
+      "handler": "handleExternalBotApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "external-bots",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\external-bots-retention.browser.e2e.js",
+        "dev-harness\\external-bots-retention.e2e.js",
+        "dev-harness\\unit\\external-bots-retention-api.test.js",
         "dev-harness\\unit\\external-bots-ui.test.js"
       ]
     },
@@ -6512,7 +6565,8 @@
         "dev-harness\\external-bots-control.e2e.js",
         "dev-harness\\external-bots-retry.browser.e2e.js",
         "dev-harness\\external-bots.browser.e2e.js",
-        "dev-harness\\external-bots.e2e.js"
+        "dev-harness\\external-bots.e2e.js",
+        "dev-harness\\unit\\external-bots-ui.test.js"
       ]
     },
     {

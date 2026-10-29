@@ -155,14 +155,14 @@
       "pattern": "<data>/external-bots/state-v1.json",
       "owner": "13w-external-bots.js",
       "anchor": "externalBotStore",
-      "schema": "object / schema 1 (connections, retiredConnectionIds, items with control/execution/delivery receipts; optional bounded setupReceipts semantic hashes, no pairing plaintext)",
-      "writePrimitive": "strict cacheless WorkDataStore.createText + atomicWriteJson; runKeyedChain shared by configuration, pairing-only receipts, activation, admission and worker transitions",
+      "schema": "object / Store schema and AAD 1; business payload 1–5 (connections, retiredConnectionIds, body items with control/execution/delivery and replyHistory; payload5 bounded body-free retentionReceipts and retentionRequests; optional bounded setupReceipts hashes)",
+      "writePrimitive": "strict cacheless WorkDataStore.createText + atomicWriteJson; one runKeyedChain shared by configuration, pairing, admission, worker transitions and explicit retention preview/commit",
       "corruption": "missing file is an unwritten initial state; malformed, schema-less, unknown, oversized or integrity-invalid ledgers reject the entire read and all writes; no fallback permissions or dedupe",
-      "capacity": "16 connections, 4096 permanent retired ids, 4096 permanent setup-only dedupe receipts, 1000 permanent inbox/dedupe receipts; legacy disk and sealed compact business JSON capped at 40MiB; no eviction",
+      "capacity": "16 connections; 4096 permanent retired ids; 4096 setup-only receipts; 1000 active body rows; payload5 up to 4096 permanent dedup/terminal receipts and 4096 request receipts; manual batches <=100; legacy disk and sealed compact business JSON capped at 40MiB; never evict receipts",
       "cache": "none: every transaction reads authoritative disk",
-      "recovery": "queued work rechecks current authority; old running/sending or uncommitted completion projects unknown without replay; pairing windows expire in memory, setup-only dedupe survives restart",
+      "recovery": "queued work rechecks authority; old running/sending or uncommitted completion projects unknown without replay; explicit retention preserves source/content hashes, terminal facts and stable retry/cancel receipts across restart, with no body or automatic expiry",
       "lifecycle": "shared-lifecycle",
-      "exemptionReason": "atomic owner authorization and setup-only evidence share the existing strict durable lifecycle"
+      "exemptionReason": "owner authorization, setup-only evidence and physical body removal/receipts share the existing strict durable lifecycle"
     },
     {
       "id": "external-bot-credentials",

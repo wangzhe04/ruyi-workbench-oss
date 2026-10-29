@@ -3,9 +3,20 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const repo=path.resolve(__dirname,'../..'),src=()=>fs.readFileSync(path.join(repo,'ruyi-workbench/app/src/13w-external-bots.js'),'utf8'),hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const replyRetryContracts=require('../fixtures/external-bots-retry/contracts.json');
+function beforeRetention(value) {
+  const history=require('../fixtures/external-bots-retention/history.json');
+  if(hash(value)!==history.sha256)return value;
+  for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
+  assert.equal(hash(value),history.baseSha256);return value;
+}
+function beforeRetentionAuth(value) {
+  const {auth}=require('../fixtures/external-bots-retention/history.json');
+  assert.equal(hash(value),auth.sha256);assert.equal(value.split(auth.rows).length,2);value=value.replace(auth.rows,'');
+  assert.equal(hash(value),auth.baseSha256);return value;
+}
 function historicalSource(version) {
   const history=require('../fixtures/external-bots-cancel/history.json');
-  let value=src();
+  let value=beforeRetention(src());
   if (hash(value) === history.v5?.sha256) {
     for (const row of [...history.v5.inverseSpans].reverse()) {
       assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);
@@ -31,6 +42,7 @@ function historicalSource(version) {
   value=lines.join('\n');assert.equal(crypto.createHash('sha256').update(value).digest('hex'),history.v1.sha256);return value;
 }
 function replyRetrySourceV2(value) {
+  value=beforeRetention(value);
   if(hash(value)===replyRetryContracts.hint.sha256)for(const row of [...replyRetryContracts.hint.spans].reverse()){assert.equal(value.split(row.after).length,2);value=value.replace(row.after,row.before);}
   assert.equal(hash(value),replyRetryContracts.product.sha256);return value;
 }
@@ -39,4 +51,4 @@ function retryCoreSource(value=src()) {
   for(const row of [...replyRetryContracts.apiSpans].reverse()) {assert.equal(value.split(row.after).length,2);value=value.replace(row.after,row.before);}
   assert.equal(hash(value),replyRetryContracts.product.coreSha256);return value;
 }
-module.exports={historicalSource,retryCoreSource,replyRetryContracts,replyRetrySourceV2};
+module.exports={historicalSource,retryCoreSource,replyRetryContracts,replyRetrySourceV2,beforeRetention,beforeRetentionAuth};
