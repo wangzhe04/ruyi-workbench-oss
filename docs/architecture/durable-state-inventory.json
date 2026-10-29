@@ -33,8 +33,8 @@
       "writePrimitive": "private issued receipt and serialized transition; wx stage, file sync, native directory flush, rename and identity/hash readback",
       "corruption": "unknown or interrupted stage blocks startup; no repair, quarantine or overwrite of an unexplained intent",
       "capacity": "one pending intent; 32KiB bounded read; stages are retained on uncertainty",
-      "cache": "private process receipts authorize only exact previously issued bytes and native identity",
-      "recovery": "normal boot refuses pending state; only issued complete intent plus fresh generation/result verification may remove it; cross-process recovery adoption remains pending",
+      "cache": "normal writers retain private issued receipts; explicit read-selected proof binds exact original bytes/hash/size/dev/ino and source owner without becoming an issued write receipt",
+      "recovery": "normal boot refuses pending state; doctor --recover-work-data-intent may retire an exact complete enable/disable intent only after a trusted cold host revalidates its existing published result/backup and two complete source profiles inside the matching owned claim mutation gate; absent-result C10 remains unknown",
       "lifecycle": "dedicated-exemption",
       "exemptionReason": "multi-file generation/backup/native ownership protocol cannot use a single-file defaulting JSON lifecycle"
     },

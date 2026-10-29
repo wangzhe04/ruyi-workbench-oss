@@ -12,6 +12,45 @@ async function fixture(t){
   assertDurableBackup:async()=>facts.backup,flush:async paths=>{facts.flushes.push([...paths]);if(facts.failFlush)throw Object.freeze(new Error('simulated flush refusal'));}};
  return{root,base,host,facts,owner,control:Control.create(host),s:state(path.join(root,'backup.pkg')),file:path.join(base,'.work-data','maintenance-v1.json')};
 }
+async function completeRecovery(t){
+ const f=await fixture(t);let receipt=await f.control.write(f.s);
+ const candidate={id:'c'.repeat(48),mode:'encrypted',headerSha256:'d'.repeat(64)};
+ for(const phase of ['candidate','key-ready','published','complete'])receipt=await f.control.write({...f.s,phase,candidate},receipt);
+ const recovery=Control.create(f.host),selected=await recovery.selectCompleteRecovery();return{...f,recovery,selected,issued:receipt};
+}
+test('C11 read selection is strict full-state/identity proof and never becomes an old issued receipt',async t=>{
+ const f=await completeRecovery(t),bytes=await fsp.readFile(f.file),stat=await fsp.lstat(f.file,{bigint:true});
+ assert.equal(f.selected.state.phase,'complete');assert.equal(Object.isFrozen(f.selected.state.candidate),true);assert.equal(f.selected.receipt.sha256,crypto.createHash('sha256').update(bytes).digest('hex'));
+ assert.equal(f.selected.receipt.bytes,bytes.length);assert.deepEqual({...f.selected.receipt.identity},{dev:String(stat.dev),ino:String(stat.ino)});
+ await assert.rejects(f.recovery.finish(f.selected,async()=>true),{code:'work_data_setup.intent_receipt_invalid'});
+ for(const token of [{...f.selected},new Proxy(f.selected,{})]){
+  assert.equal(Control.acceptsRecoveryProfile(token,f.base,f.owner),false);
+  await assert.rejects(f.recovery.recoverComplete(token,async()=>true,()=>true),{code:'work_data_setup.complete_recovery_receipt_invalid'});
+ }
+ assert.equal(Control.acceptsRecoveryProfile(f.selected,f.base,{...f.owner}),false);
+ assert.equal(Control.acceptsRecoveryProfile(f.selected,path.join(f.base,'other'),f.owner),false);
+ await assert.rejects(Control.create(f.host).recoverComplete(f.selected,async()=>true,()=>true),{code:'work_data_setup.complete_recovery_receipt_invalid'});
+ await Control.verifyRecoveryProfile(f.selected,{base:f.base,ownership:f.owner,path:'.work-data/maintenance-v1.json',bytes});
+ await assert.rejects(Control.verifyRecoveryProfile(f.selected,{base:f.base,ownership:f.owner,path:'.work-data/other.json',bytes}));
+});
+test('C11 read selection rejects all unqualified phases and exact identity replacement',async t=>{
+ for(const phase of ['prepared','candidate','key-ready','published']){
+  const f=await completeRecovery(t),state=JSON.parse(await fsp.readFile(f.file,'utf8'));state.phase=phase;await fsp.writeFile(f.file,JSON.stringify(state));
+  await assert.rejects(f.recovery.selectCompleteRecovery(),{code:'work_data_setup.complete_recovery_ineligible'});
+ }
+ const f=await completeRecovery(t),bytes=await fsp.readFile(f.file);await fsp.rename(f.file,f.file+'.old');await fsp.writeFile(f.file,bytes);
+ await assert.rejects(Control.verifyRecoveryProfile(f.selected,{base:f.base,ownership:f.owner,path:'.work-data/maintenance-v1.json',bytes}),{code:'work_data_setup.intent_changed'});
+ await assert.rejects(f.recovery.recoverComplete(f.selected,async()=>true,()=>true),{code:'work_data_setup.intent_changed'});assert.deepEqual(await fsp.readFile(f.file),bytes);
+});
+test('C11 trusted callbacks are required twice, final guard is synchronous and retired proof loses read authority',async t=>{
+ const f=await completeRecovery(t),bytes=await fsp.readFile(f.file);let callbacks=0;
+ await assert.rejects(f.recovery.recoverComplete(f.selected,async()=>false,()=>true),{code:'work_data_setup.completion_unverified'});
+ await assert.rejects(f.recovery.recoverComplete(f.selected,async()=>true,async()=>true),{code:'work_data_setup.completion_unverified'});
+ assert.deepEqual(await fsp.readFile(f.file),bytes);
+ await f.recovery.recoverComplete(f.selected,async()=>{callbacks++;assert.deepEqual(await fsp.readFile(f.file),bytes);await assert.rejects(f.recovery.write(f.s),{code:'work_data_setup.intent_busy'});return true;},()=>true);
+ assert.equal(callbacks,2);assert.equal(fs.existsSync(f.file),false);assert.equal(Control.acceptsRecoveryProfile(f.selected,f.base,f.owner),false);
+ await assert.rejects(f.recovery.recoverComplete(f.selected,async()=>true,()=>true),{code:'work_data_setup.complete_recovery_receipt_invalid'});
+});
 test('inspection is read only and absent intent never creates a control namespace',async t=>{
  const f=await fixture(t);assert.equal((await f.control.inspect()).pending,false);assert.deepEqual(await fsp.readdir(f.base),[]);
 });

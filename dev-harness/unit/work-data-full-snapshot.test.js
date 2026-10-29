@@ -2,6 +2,43 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),vm=require('node:vm');
 const {fixture,password,hash,read}=require('../lib/work-data-full-snapshot-fixture');
 const {functionBlock}=require('../lib/source-slice');
+test('C11 control profile hook defaults closed and installs only the immutable real validator',async t=>{
+ const f=await fixture(t),ownership={roots:[f.base]},owner=proof=>f.api.WorkDataFullSnapshot.create({base:f.base,ownership,assertExclusive:async value=>value===ownership,protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,controlRecoveryProof:proof});
+ assert.equal(f.api.WorkDataFullSnapshot.Hooks?.controlRecoveryProfile,undefined);
+ assert.throws(()=>owner({schema:1}),{code:'work_data_full.control_owner_required'});
+ vm.runInContext(read('13aj-work-data-control.js'),f.context,{filename:'13aj-work-data-control.js'});
+ const control=vm.runInContext('WorkDataMaintenanceControl',f.context),hooks=f.api.WorkDataFullSnapshot.Hooks,descriptor=Object.getOwnPropertyDescriptor(hooks,'controlRecoveryProfile');
+ assert.equal(descriptor.writable,false);assert.equal(descriptor.configurable,false);assert.equal(Object.isFrozen(descriptor.value),true);
+ assert.equal(descriptor.value.accepts,control.acceptsRecoveryProfile);assert.equal(descriptor.value.verify,control.verifyRecoveryProfile);
+ assert.equal(Reflect.set(hooks,'controlRecoveryProfile',{accepts:()=>true,verify:async()=>true}),false);
+ assert.throws(()=>Object.defineProperty(hooks,'controlRecoveryProfile',{value:{accepts:()=>true}}),TypeError);
+ for(const proof of [{schema:1},JSON.parse('{"receipt":{"phase":"complete"}}'),new Proxy({},{})])assert.throws(()=>owner(proof),{code:'work_data_full.control_owner_required'});
+});
+test('C11 exact control proof is seal-only, includes original intent and does not relax any stage',async t=>{
+ const f=await fixture(t,{modules:[read('13aj-work-data-control.js')],apiNames:['WorkDataMaintenanceControl']}),id='c'.repeat(48),prefix='.work-data/generations/'+id+'/';
+ await f.newKeys(prefix);await f.write(prefix+'config.json','{"workDataEncryptionV1":true}');
+ await f.write('.work-data/active-v1.json',JSON.stringify({schema:1,id,generation:1,mode:'encrypted',activeRoot:'generations/'+id}));
+ const ownership={roots:[f.base]},control=f.api.WorkDataMaintenanceControl.create({base:f.base,ownership,assertExclusive:async owner=>owner===ownership,assertDurableBackup:async()=>true,flush:async()=>{}});
+ const state={schema:1,id:'a'.repeat(48),operation:'enable',phase:'prepared',createdAt:'2026-10-29T00:00:00.000Z',expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backup:{path:path.join(f.root,'backup.pkg'),sha256:'b'.repeat(64)},candidate:null};
+ let receipt=await control.write(state);const candidate={id,mode:'encrypted',headerSha256:hash(await fsp.readFile(path.join(f.base,...(prefix+'work-data-key-v1.json').split('/'))))};
+ for(const phase of ['candidate','key-ready','published','complete'])receipt=await control.write({...state,phase,candidate},receipt);
+ const selected=await control.selectCompleteRecovery(),intentFile=path.join(f.base,'.work-data','maintenance-v1.json'),intent=await fsp.readFile(intentFile);
+ const owner=proof=>f.api.WorkDataFullSnapshot.create({base:f.base,ownership,assertExclusive:async value=>value===ownership,protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,controlRecoveryProof:proof});
+ await assert.rejects(f.owner().seal({password,appVersion:'3.0.1',generation:1}),{code:'work_data_full.special_owner_required'});
+ assert.throws(()=>owner({...selected}),{code:'work_data_full.control_owner_required'});
+ assert.throws(()=>owner(new Proxy(selected,{})),{code:'work_data_full.control_owner_required'});
+ const sealed=await owner(selected).seal({password,appVersion:'3.0.1',generation:1}),opened=await f.api.WorkDataRecovery.open(sealed.serialized,password);
+ try{assert.deepEqual(opened.snapshot.files.find(file=>file.path==='.work-data/maintenance-v1.json').data,intent);}finally{opened.release();}
+ assert.ok(sealed.sourceFiles.some(row=>row.path==='.work-data/maintenance-v1.json'&&row.sha256===hash(intent)));
+ const target=path.join(f.root,'forbidden-target');
+ await assert.rejects(owner(selected).restore({serialized:sealed.serialized,password,target}),{code:'work_data_full.restore_control_proof_forbidden'});assert.equal(fs.existsSync(target),false);
+ await assert.rejects(f.owner().restore({serialized:sealed.serialized,password,target}),{code:'work_data_full.special_owner_required'});assert.equal(fs.existsSync(target),false);
+ for(const relative of ['.work-data/.maintenance-v1.stage-unknown','.work-data/unowned-v1.json',prefix+'.work-data/maintenance-v1.json']){
+  const file=await f.write(relative,'KEEP');await assert.rejects(owner(selected).seal({password,appVersion:'3.0.1',generation:1}));assert.equal(await fsp.readFile(file,'utf8'),'KEEP');await fsp.unlink(file);
+  if(relative.startsWith(prefix))await fsp.rmdir(path.dirname(file));
+ }
+ assert.deepEqual(await fsp.readFile(intentFile),intent);
+});
 test('real ordinary fullbase codecs include retained masters, credential history/refs, journal bytes, empty dirs and non41 media; independent account restore stages before mkdir',async t=>{
  const f=await fixture(t),keys=await f.newKeys();await fsp.mkdir(path.join(f.base,'sessions'));await f.store('sessions/sess_one.json',keys).write('{"id":"sess_one","private":"BODY_PRIVATE"}');
  const lease=await keys.snapshot();await f.write('sessions/sess_one.messages.ndjson',f.api.WorkDataRecords.encodeLine('{"role":"user","text":"MESSAGE_PRIVATE"}',lease.key,{instanceId:lease.instanceId,sessionId:'sess_one',kind:'messages',ordinal:0})+'\n');lease.release();

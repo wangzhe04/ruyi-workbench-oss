@@ -9,23 +9,13 @@
 // and settled empty special stores only; no whole M3-3/3.1 acceptance claim.
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), crypto = require('node:crypto'), assert = require('node:assert/strict');
 const core = require('./lib/work-data-production-upload-core'), restore = require('./work-data-production-restore.e2e'), upload = require('./work-data-production-upload.e2e');
-const { bindTarget, createProducer } = require('./lib/work-data-owned-claim-fixture.js');
+const { bindTarget, createProducer, sourceProof } = require('./lib/work-data-owned-claim-fixture.js');
 const { releaseEnvironment } = require('./lib/release-checks'), { snapshotProcessTable, ownDescendants } = require('./lib/kill-own-tree');
 const { getFreePort } = require('./free-port');
 const PASSWORD = 'SYNTHETIC owned-source seed only 2026', SESSION = 'sess_restore_synthetic';
 const AUTHORITY0 = { generation: 0, id: null, mode: 'plain', sha256: null };
-const relative = (root, file) => path.relative(root, file).split(path.sep).join('/');
 const keys = value => Object.keys(value).sort().join(',');
 function sameBytesAndIdentity(file, row) { const got = core.read(file).row; for (const key of ['bytes', 'sha256', 'dev', 'ino']) assert.equal(got[key], row[key], file + ': ' + key); }
-// Independent default-stream census digest, matching the published proof shape;
-// this does not replace the product's owner-held domain/decryption verification.
-function sourceProof(canonical, inventory) {
-  const root = inventory.directories[0], bytes = inventory.files.reduce((sum, row) => sum + row.bytes, 0);
-  const value = { root: canonical, rootIdentity: root.dev + ':' + root.ino,
-    directories: inventory.directories.slice(1).map(row => ({ path: relative(root.file, row.file), identity: row.dev + ':' + row.ino })),
-    files: inventory.files.map(row => ({ path: relative(root.file, row.file), identity: row.dev + ':' + row.ino, size: row.bytes, sha256: row.sha256 })), bytes };
-  return { sha256: core.H(Buffer.from(JSON.stringify(value))), bytes, files: value.files.length, directories: value.directories.length };
-}
 async function runActual(argv = process.argv.slice(2)) {
   assert.equal(argv.length, 0, 'permanent E2E uses the current complete product build');
   const runner = require('./lib/harness').createRunner('WORK DATA OWNED SOURCE RECOVERY');

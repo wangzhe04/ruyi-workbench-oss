@@ -28362,7 +28362,21 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ab-work-data-full-snapshot.js",
+          "symbol": "WorkDataFullSnapshot",
           "kinds": [
             "read"
           ]
@@ -29075,6 +29089,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "VERSION",
           "kinds": [
             "read"
@@ -29118,6 +29139,13 @@
         {
           "provider": "01j-local-crypto.js",
           "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeys",
           "kinds": [
             "read"
           ]

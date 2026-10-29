@@ -78,6 +78,9 @@ test('large index seals losslessly and read, warm memo, invalidation and sync ex
     await assert.rejects(api.readSessionIndex, privateError);
     await assert.rejects(api.listSessions, privateError);
     api.scheduleSessionIndexUpdate(rows[0].id, { ...rows[0], title: 'MUST NOT SYNC' }); api.flushSessionIndexSync();
+    // The real exit flush keeps its async batch pending. Drain this synthetic update
+    // while the key is still absent so it cannot run after this authority probe.
+    await api.flushSessionIndex();
     await api.invalidateSessionIndex(); assert.deepEqual(fs.readFileSync(api.sessionIndexPath()), original);
     await assert.rejects(api.readSessionIndex, privateError);
   });

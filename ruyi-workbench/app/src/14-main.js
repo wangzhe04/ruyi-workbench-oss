@@ -126,6 +126,13 @@ async function main() {
   // Detect the raw option before parseArgs can consume a following "doctor" as
   // its value or hide an =value spelling among ordinary doctor options.
   const raw = process.argv.slice(2);
+  if (raw.some(value => value === '--recover-work-data-intent' || value.startsWith('--recover-work-data-intent='))) {
+    if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--recover-work-data-intent'
+      || argv['recover-work-data-intent'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
+      throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
+    const result = await WorkDataRuntimeHost.create().recoverCompletedIntent({base:dataRoot()});
+    console.log(JSON.stringify(result));return result;
+  }
   if (raw.some(value => value === '--recover-work-data-source' || value.startsWith('--recover-work-data-source='))) {
     if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--recover-work-data-source'
       || argv['recover-work-data-source'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)

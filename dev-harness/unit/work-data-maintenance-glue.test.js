@@ -85,6 +85,14 @@ test('exact source doctor argv calls only the cold recovery seam and outputs one
  assert.equal(f.lines.length,1);assert.deepEqual(JSON.parse(f.lines[0]),JSON.parse(JSON.stringify(dto)));
  assert.equal(dto.sourceReadable,true);assert.equal(dto.maintenanceOutcome,'unknown');
 });
+test('C11 doctor intent recovery is exact raw argv and never enters ordinary boot or source recovery',async()=>{
+ for(const args of [['doctor','--recover-work-data-intent'],['--recover-work-data-intent','doctor'],['doctor','--recover-work-data-intent=true'],['doctor','--recover-work-data-intent','true'],['doctor','--recover-work-data-intent','--recover-work-data-source'],['doctor','--recover-work-data-intent','extra']]){
+  const f=sourceDoctorContext(args);f.context.WorkDataRuntimeHost.create=()=>({recoverCompletedIntent:async value=>{f.calls.push(JSON.parse(JSON.stringify(value)));return{schema:1,kind:'completed-intent-recovery',completionEvidence:'existing-durable-result'};}});
+  if(args.length===2&&args[0]==='doctor'&&args[1]==='--recover-work-data-intent'){
+   const result=await f.fn();assert.equal(result.completionEvidence,'existing-durable-result');assert.deepEqual(f.calls,['selected-root',{base:'C:\\selected-source'}]);assert.equal(f.lines.length,1);
+  }else{await assert.rejects(f.fn(),{code:'work_data_setup.private_command_invalid'});assert.deepEqual(f.calls,[]);assert.deepEqual(f.lines,[]);}
+ }
+});
 test('source doctor refuses extra raw flags, positional arguments, aliases and flag values before creating a host',async()=>{
  for(const args of [
   ['doctor','--recover-work-data-source','extra'],['doctor','extra','--recover-work-data-source'],

@@ -12033,6 +12033,7 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
 // No warm global paths/cache mutation; no source repair or implicit writer drain.
 // Native original-object capsules and unresolved staging require their own owner.
 const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
+  const Hooks = {}; // The later control owner installs its immutable private-proof validator.
   const fail = (suffix, details = {}) => { throw Object.assign(Error('work_data_full.' + suffix), {
     code: 'work_data_full.' + suffix, apiCode: 'work_data_full.' + suffix, statusCode: 409, ...details,
   }); };
@@ -12074,13 +12075,22 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     return Object.assign(new AggregateError(causes,code,{cause:causes[0]}),{code,apiCode:code,statusCode:503,
       cleanupFailed:true,ownershipRetained:true,helperMayStillRun:releaseFailed||causes.some(unknown)});
   }
-  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, restoredTreeFor, preservedRead, limits = {} } = {}) {
+  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, controlRecoveryProof, restoredTreeFor, preservedRead, limits = {} } = {}) {
     if (typeof base !== 'string' || !p.isAbsolute(base) || !ownership || !Array.isArray(ownership.roots)
         || !ownership.roots.some(root => keyOfPath(root) === keyOfPath(base)) || typeof assertExclusive !== 'function'
         || assertExclusiveSync !== undefined && typeof assertExclusiveSync !== 'function'
         || !protector || typeof protector.run !== 'function' || typeof protector.supported !== 'function'
         || typeof externalOwner !== 'function') fail('host_invalid');
     base = p.resolve(base);
+    const controlProfile=Hooks.controlRecoveryProfile;
+    if(controlRecoveryProof!==undefined&&(!controlProfile||typeof controlProfile.accepts!=='function'||typeof controlProfile.verify!=='function'
+      ||controlProfile.accepts(controlRecoveryProof,base,ownership)!==true))fail('control_owner_required');
+    const verifyRecoveryControl=async files=>{
+      if(controlRecoveryProof===undefined)return;
+      const selected=files.filter(file=>ownerPath(file.path)==='.work-data/maintenance-v1.json');
+      if(selected.length!==1)fail('control_owner_required');
+      if(await controlProfile.verify(controlRecoveryProof,{base,ownership,path:selected[0].path,bytes:selected[0].data})!==true)fail('control_owner_required');
+    };
     if(restoredTreeFor!==undefined&&typeof restoredTreeFor!=='function')fail('host_invalid');
     if(preservedRead!==undefined&&(preservedRead?.profile!=='bounded-native-v1'||typeof preservedRead.capturePreserved!=='function'||typeof WorkDataTree.createPreserved!=='function'))fail('preserved_reader_invalid');
     const tree = WorkDataTree.create(limits), recovery = WorkDataRecovery.create({ limits: Object.fromEntries(Object.entries(limits).filter(([key]) => ['bytes','files','directories'].includes(key))) });
@@ -12147,7 +12157,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     }
     const lastResult = name => ownerPath(name)==='.work-data/maintenance-result-v1.json';
     function nativeSource(files,directories){if(typeof skillBackupOwner!=='function')return null;try{return recovery.skillBackupSource(files,directories);}catch(error){if(error?.code==='work_data_recovery.auxiliary_invalid')return null;throw error;}}
-    async function analyze(files, auxiliaries, supplied, directories, native, capturedSource) {
+    async function analyze(files, auxiliaries, supplied, directories, native, capturedSource, recoveryControl) {
       const masters = new Map(), headers = new Map(), vaults = new Map(), refs = new Map(), aux = [], domains = new Map(), resultFiles=new Set(), nativeFiles=new Set(native?.files.map(row=>row.path)||[]);let nativePlan=null;
       const addMaster = (purpose, state, lease) => {
         disposable.push(lease); const id = keyName(purpose, state.instanceId), previous = masters.get(id);
@@ -12158,6 +12168,12 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       const requireKey = (id, purpose, instance) => { const name = keyName(purpose, instance), value = masters.get(name); if (!value) fail('key_missing', { file: id }); refs.get(id).add(name); return value; };
       for (const file of files) {
         refs.set(file.path, new Set()); const logical = ownerPath(namespace(file.path).logical);
+        // The exception is root-only, seal-only and byte/identity bound by the
+        // real control owner's opaque token. All other control paths still enter
+        // the original special-owner refusal below.
+        if(recoveryControl!==undefined&&ownerPath(file.path)==='.work-data/maintenance-v1.json'){
+          if(await controlProfile.verify(recoveryControl,{base,ownership,path:file.path,bytes:file.data})!==true)fail('control_owner_required');resultFiles.add(file.path);continue;
+        }
         if(lastResult(file.path)){if(typeof maintenanceResultOwner?.decode!=='function')fail('control_owner_required');maintenanceResultOwner.decode(file.data);resultFiles.add(file.path);continue;}
         if(special(file.path)){if(nativeFiles.has(file.path))continue;fail('special_owner_required',{file:file.path,reason:special(file.path)});}
         if (/^work-data-key-v1\.json(?:$|[.-])/.test(logical)) {
@@ -12309,13 +12325,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     async function seal({ password, appVersion, generation, createdAt=new Date().toISOString() }={}) {
       return run(async()=>{
         const tree=readTree(ownership),captured=await tree.capture(base);disposable.push(captured);
+        await verifyRecoveryControl(captured.files);
         const native=nativeSource(captured.files,captured.directories);checkAuthority(captured.files,captured.directories,generation,native);
-        const analyzed=await analyze(captured.files,[],null,captured.directories,native,preservedRead === undefined ? undefined : captured);await admission();await tree.verify(captured);
+        const analyzed=await analyze(captured.files,[],null,captured.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();await tree.verify(captured);
         const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...captured.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
         await admission();const proof=await tree.verify(captured);
         const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
         const sourceFiles=[];for(const file of captured.files)sourceFiles.push(Object.freeze({...await sourceIdentity(file.path),sha256:file.sha256}));
-        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await tree.verify(captured);
+        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await verifyRecoveryControl(captured.files);await tree.verify(captured);
         // Source proof ends here. Caller-owned additions may be written only after this return.
         // No glob exclusions or permission to ignore later source changes is issued.
         return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),
@@ -12327,6 +12344,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       for(const part of ['',...absolute.slice(parsed.root.length).split(p.sep).filter(Boolean)]){if(part)current=p.join(current,part);const stat=await io.lstat(current);if(!stat.isDirectory()||stat.isSymbolicLink()||keyOfPath(await io.realpath(current))!==keyOfPath(current))fail('target_alias');}
     }
     async function restore({ serialized,password,target,targetOwnership=ownership }={}) {
+      if(controlRecoveryProof!==undefined)fail('restore_control_proof_forbidden');
       return run(async()=>{
         if(typeof target!=='string'||!p.isAbsolute(target)||contains(base,target)||contains(target,base))fail('target_invalid');
         target=p.resolve(target);
@@ -12390,7 +12408,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     }
     return Object.freeze({seal,restore,describeRestored,verifyRestored});
   }
-  return Object.freeze({create});
+  return Object.freeze({create,Hooks});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'),require('node:zlib'));
 
 // Fresh maintenance-worker composition. Caller owns drain, OS ownership, durable
@@ -104958,11 +104976,27 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
         && /^[a-f0-9]{48}$/.test(state.candidate.id || '') && ['plain', 'encrypted'].includes(state.candidate.mode)
         && (state.candidate.headerSha256 === null || /^[a-f0-9]{64}$/.test(state.candidate.headerSha256)));
   }
+  // One exact root control file, selected by this module under the same source
+  // lease. A serializable receipt, clone, Proxy, or arbitrary callback cannot
+  // grant the FullSnapshot control-file exception.
+  const recoveryProofs=new WeakMap();
+  function acceptsRecoveryProfile(proof,base,ownership) {
+    const known=recoveryProofs.get(proof);
+    return !!known&&!known.retired&&known.ownership===ownership&&typeof base==='string'&&fold(known.base)===fold(base);
+  }
+  async function verifyRecoveryProfile(proof,{base,ownership,path,bytes}={}) {
+    const known=recoveryProofs.get(proof);
+    if(!acceptsRecoveryProfile(proof,base,ownership)||fold(path||'')!=='.work-data/'+NAME
+      ||!Buffer.isBuffer(bytes)||!bytes.equals(known.bytes))throw fail('complete_recovery_receipt_invalid');
+    await known.check();return true;
+  }
+
   function create({ base, ownership, assertExclusive, assertDurableBackup, flush }) {
     if (typeof base !== 'string' || !pathApi.isAbsolute(base) || pathApi.resolve(base) !== base
       || typeof assertExclusive !== 'function' || typeof assertDurableBackup !== 'function'
       || typeof flush !== 'function') throw fail('control_host_invalid');
     const root = pathApi.join(base, '.work-data'), file = pathApi.join(root, NAME), issued = new WeakMap();
+    const controlIdentity={};
     let writing = false;
     async function admission() {
       if (!ownership || !Array.isArray(ownership.roots) || !ownership.roots.some(value => fold(value) === fold(base))
@@ -105039,6 +105073,73 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
         throw fail('intent_write_failed', cause);
       } finally { writing = false; }
     }
+    // A separate cross-process reader/retirement authority. Nothing below adds
+    // parsed state to issued, and finish still requires its own write receipt.
+    async function captureRecovery() {
+      await admission();await directory(root);
+      if((await fsApi.readdir(root)).some(name=>fold(name).startsWith(STAGE)))throw fail('intent_stage_pending');
+      const before=await fsApi.lstat(file,{bigint:true});
+      if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(LIMIT))throw fail('intent_invalid');
+      const handle=await fsApi.open(file,'r'),bytes=Buffer.alloc(LIMIT+1);let used=0;
+      try {
+        const opened=await handle.stat({bigint:true});
+        if(!opened.isFile()||opened.nlink!==1n||opened.dev!==before.dev||opened.ino!==before.ino||opened.size!==before.size)throw fail('intent_changed');
+        for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>LIMIT)throw fail('intent_invalid');if(!part.bytesRead)break;}
+        const after=await handle.stat({bigint:true}),current=await fsApi.lstat(file,{bigint:true});
+        if(!current.isFile()||current.isSymbolicLink()||after.nlink!==1n||current.nlink!==1n
+          ||after.dev!==before.dev||after.ino!==before.ino||current.dev!==before.dev||current.ino!==before.ino
+          ||after.size!==before.size||current.size!==before.size||used!==Number(before.size)
+          ||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||current.mtimeNs!==after.mtimeNs||current.ctimeNs!==after.ctimeNs)throw fail('intent_changed');
+        return {bytes:Buffer.from(bytes.subarray(0,used)),receipt:Object.freeze({name:'.work-data/'+NAME,sha256:hash(bytes.subarray(0,used)),bytes:used,
+          identity:Object.freeze({dev:String(current.dev),ino:String(current.ino)})})};
+      }finally{bytes.fill(0);await handle.close();}
+    }
+    async function selectCompleteRecovery() {
+      if(writing)throw fail('intent_busy');
+      const original=await captureRecovery();let state;
+      try {
+        const text=original.bytes.toString('utf8');if(!Buffer.from(text).equals(original.bytes))throw fail('intent_invalid');
+        state=JSON.parse(text);
+        const a=state.expectedAuthority;
+        if(!stateValid(state)||state.phase!=='complete'||!['enable','disable'].includes(state.operation)
+          ||(a.generation===0?a.id!==null||a.sha256!==null:!/^[a-f0-9]{48}$/.test(a.id||'')||!/^[a-f0-9]{64}$/.test(a.sha256||''))
+          ||a.mode!==(state.operation==='enable'?'plain':'encrypted')||!state.candidate
+          ||state.candidate.mode!==(state.operation==='enable'?'encrypted':'plain')||!/^[a-f0-9]{64}$/.test(state.candidate.headerSha256||''))throw fail('complete_recovery_ineligible');
+      }catch(cause){original.bytes.fill(0);throw fail('complete_recovery_ineligible',cause);}
+      const freeze=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))freeze(child);Object.freeze(value);}return value;};
+      const selected=freeze({state,receipt:original.receipt});
+      const check=async()=>{
+        const current=await captureRecovery();
+        try{if(current.receipt.sha256!==original.receipt.sha256||current.receipt.bytes!==original.receipt.bytes
+          ||current.receipt.identity.dev!==original.receipt.identity.dev||current.receipt.identity.ino!==original.receipt.identity.ino
+          ||!current.bytes.equals(original.bytes))throw fail('intent_changed');return true;}
+        finally{current.bytes.fill(0);}
+      };
+      recoveryProofs.set(selected,{base,ownership,owner:controlIdentity,bytes:original.bytes,check,retired:false});
+      return selected;
+    }
+    async function recoverComplete(selected,verifyCompleted,assertFinal) {
+      const known=recoveryProofs.get(selected);
+      if(!known||known.owner!==controlIdentity||known.retired)throw fail('complete_recovery_receipt_invalid');
+      if(typeof verifyCompleted!=='function'||typeof assertFinal!=='function')throw fail('completion_unverified');
+      if(writing)throw fail('intent_busy');writing=true;
+      try {
+        // This primitive delegates C11 business qualification to the trusted
+        // host. The read token proves only this exact complete intent, and the
+        // callbacks must prove the existing durable result and its bound backup.
+        // It is never an independent result validator or a C10 success receipt.
+        const verify=async()=>{try{if(await verifyCompleted(selected.state)===true)return;}catch(cause){throw fail('completion_unverified',cause);}throw fail('completion_unverified');};
+        await known.check();await verify();await known.check();await verify();await known.check();
+        // Synchronous source/helper and original PID safety checks follow the last
+        // awaited intent capture, immediately before the only intent deletion.
+        if(assertFinal()!==true)throw fail('completion_unverified');
+        await fsApi.unlink(file);known.retired=true;
+        await flush([root,base]);
+        try{await fsApi.lstat(file);}catch(cause){if(cause.code==='ENOENT')return true;throw cause;}
+        throw fail('intent_changed');
+      }finally{writing=false;}
+    }
+
     async function finish(receipt, verifyPublished) {
       if (writing) throw fail('intent_busy'); writing = true;
       try {
@@ -105049,10 +105150,17 @@ const WorkDataMaintenanceControl = ((fsApi, pathApi, cryptoApi) => {
         await verify(receipt); await fsApi.unlink(file); await flush([root, base]); issued.delete(receipt);
       } finally { writing = false; }
     }
-    return Object.freeze({ inspect, write, verify, finish });
+    return Object.freeze({ inspect, write, verify, finish, selectCompleteRecovery, recoverComplete });
   }
-  return Object.freeze({ create });
+  return Object.freeze({ create, acceptsRecoveryProfile, verifyRecoveryProfile });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));
+// Late immutable binding, matching the captured-file adapter pattern in 01aa.
+// Only this owner can validate its module-private WeakMap recovery proofs.
+if(typeof WorkDataFullSnapshot!=='undefined'&&WorkDataFullSnapshot.Hooks)Object.defineProperty(WorkDataFullSnapshot.Hooks,'controlRecoveryProfile',{
+  enumerable:true,configurable:false,writable:false,value:Object.freeze({
+    accepts:WorkDataMaintenanceControl.acceptsRecoveryProfile,verify:WorkDataMaintenanceControl.verifyRecoveryProfile,
+  }),
+});
 
 // Cold worker progress transport only. Its caller proves parent death and current
 // exclusive OS ownership. It neither opens the data root nor starts maintenance.
@@ -107069,11 +107177,11 @@ const WorkDataNativeAdapters = ((io, p, c) => {
           code:'work_data_adapter.source_keeper_cleanup',helperMayStillRun:true,ownershipRetained:true,retry:false});
       }
     }
-    function fullSnapshot(base, ownership, assertExclusive) {
+    function fullSnapshot(base, ownership, assertExclusive, {controlRecoveryProof} = {}) {
       check(); if (typeof assertExclusive !== 'function' || !bindings.ownership.owns(ownership,base)) throw fail('ownership_required');
       const exclusive = async candidate => bindings.ownership.owns(candidate) && await assertExclusive(candidate) === true && bindings.ownership.owns(candidate);
       const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusive,protector,
-        externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner});
+        externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner,controlRecoveryProof});
       return Object.freeze({seal:value => withSource(ownership,base,() => owner.seal(value)),
         restore:value => withSource(ownership,base,() => withSource(value?.targetOwnership === undefined ? ownership : value.targetOwnership,value?.target,() => owner.restore(value)))});
     }
@@ -107983,6 +108091,141 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       return Object.freeze({schema:1,kind:'owned-source-recovery',id,sourceReadable:true,maintenanceOutcome:'unknown',
         authority:result.authority,sourceProof:result.sourceProof,diagnostic:result.diagnostic});
     }
+    // Explicit C11 only: revalidate an existing durable published result and
+    // readable current source. This does not reconstruct 01ad's lost comparison
+    // maps, replay maintenance, or supply the missing success evidence of C10.
+    async function recoverCompletedIntent({base}={}) {
+      if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw fail('complete_recovery_requires_cold_process');
+      if(!methods(bindings.claim,['inspect','recoverCompleted'])||typeof N.fullSnapshot!=='function')throw fail('complete_recovery_unavailable');
+      base=fold(await canonical(base));
+      const owner=await coldAcquire([base],base),ctx=cold;
+      const close=async()=>{ensure(ctx);ctx.accepting=false;await ctx.keeper.releaseOwner(assertFinishSafe);assertFinishSafe();ctx.finished=true;};
+      const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),identity=stat=>({dev:String(stat.dev),ino:String(stat.ino)});
+      const sameAuthority=(a,b)=>['generation','id','mode','sha256'].every(key=>a?.[key]===b?.[key]);
+      let failed=false,primary,selected,claim,pinned,profile;
+      try {
+        const exclusive=candidate=>candidate===owner&&assertOwnership(owner,base);
+        const control=bindings.controlApi.create({base,ownership:owner,assertExclusive:exclusive,assertDurableBackup:async()=>false,flush:directories=>N.flush(directories)});
+        if(!methods(control,['selectCompleteRecovery','recoverComplete','inspect']))throw fail('complete_recovery_unavailable');
+        const results=bindings.resultApi.create({base,ownership:owner,assertExclusive:exclusive,readAuthority:()=>N.readAuthority(base)});
+        selected=await control.selectCompleteRecovery();
+        claim=await bindings.claim.inspect({base});
+        const state=selected.state,expected=state.expectedAuthority,candidate=state.candidate;
+        if(!claim?.present||claim.value.phase!=='owned'||claim.value.id!==state.id||claim.value.operation!==state.operation)throw fail('complete_recovery_claim_required');
+        const stopped=()=>{
+          const dead=pid=>{try{proc.kill(pid,0);return false;}catch(cause){return cause?.code==='ESRCH';}};
+          if(!dead(claim.value.parentPid)||!dead(claim.value.childPid))throw fail('complete_recovery_process_pending');
+          ensure(ctx);return true;
+        };
+        const currentClaim=async()=>{
+          const found=await bindings.claim.inspect({base});
+          if(!found?.present||!same(found.receipt,claim.receipt)||!same(found.value,claim.value))throw fail('complete_recovery_claim_changed');
+          stopped();return true;
+        };
+        const directory=async target=>{
+          const parsed=p.parse(target);let cursor=parsed.root,last;
+          for(const part of ['',...target.slice(parsed.root.length).split(p.sep).filter(Boolean)]){
+            if(part)cursor=p.join(cursor,part);const stat=await io.lstat(cursor,{bigint:true});
+            if(!stat.isDirectory()||stat.isSymbolicLink()||fold(await io.realpath(cursor))!==fold(cursor))throw fail('complete_recovery_alias');last=identity(stat);
+          }return last;
+        };
+        const capture=async(file,limit)=>{
+          try {
+          await directory(p.dirname(file));const before=await io.lstat(file,{bigint:true});
+          if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(limit))throw fail('complete_recovery_file_invalid');
+          const handle=await io.open(file,'r'),bytes=Buffer.alloc(limit+1);let used=0;
+          try {
+            const opened=await handle.stat({bigint:true});
+            if(!opened.isFile()||opened.nlink!==1n||!same(identity(opened),identity(before))||opened.size!==before.size)throw fail('complete_recovery_file_changed');
+            for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>limit)throw fail('complete_recovery_file_changed');if(!part.bytesRead)break;}
+            const after=await handle.stat({bigint:true}),current=await io.lstat(file,{bigint:true});
+            if(!current.isFile()||current.isSymbolicLink()||after.nlink!==1n||current.nlink!==1n
+              ||!same(identity(after),identity(before))||!same(identity(current),identity(before))||after.size!==before.size||current.size!==before.size||used!==Number(before.size)
+              ||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||current.mtimeNs!==after.mtimeNs||current.ctimeNs!==after.ctimeNs)throw fail('complete_recovery_file_changed');
+            const data=Buffer.from(bytes.subarray(0,used));return{data,proof:{sha256:c.createHash('sha256').update(data).digest('hex'),bytes:used,identity:identity(current)}};
+          }finally{bytes.fill(0);await handle.close();}
+          }catch(cause){throw fail('complete_recovery_file_invalid',cause);}
+        };
+        const authorityOf=actual=>({generation:actual.generation,id:actual.id,mode:actual.mode,sha256:actual.proof?.sha256});
+        const candidateRoot=p.join(base,'.work-data','generations',candidate.id),manifestFile=p.join(base,'.work-data','active-v1.json'),headerFile=p.join(candidateRoot,'work-data-key-v1.json');
+        const evidence=async intentPresent=>{
+          ensure(ctx);stopped();
+          const controlRoot=p.join(base,'.work-data'),allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+          await directory(controlRoot);
+          if((await io.readdir(controlRoot)).some(name=>!allowed.has(fold(name))))throw fail('complete_recovery_stage_pending');
+          if(!intentPresent&&(await control.inspect()).pending)throw fail('complete_recovery_intent_returned');
+          const actual=await N.readAuthority(base),authority=authorityOf(actual);
+          if(authority.generation!==expected.generation+1||authority.id!==candidate.id||authority.mode!==candidate.mode||fold(actual.root)!==fold(candidateRoot))throw fail('complete_recovery_authority_mismatch');
+          const record=await results.read();
+          if(!record||record.id!==state.id||record.operation!==state.operation||record.state!=='published'
+            ||!sameAuthority(record.sourceAuthority,expected)||!sameAuthority(record.authority,authority)
+            ||record.backup.path!==state.backup.path||record.backup.sha256!==state.backup.sha256
+            ||Date.parse(record.finishedAt)<Date.parse(state.createdAt)||Date.parse(record.finishedAt)<Date.parse(claim.value.updatedAt)
+            ||inside(base,record.backup.path)||inside(p.dirname(record.backup.path),base)
+            ||fold(await O.canonicalRoot(record.backup.path))!==fold(record.backup.path))throw fail('complete_recovery_result_mismatch');
+          const manifest=await capture(manifestFile,4096);let header,parsed;
+          try {
+            header=await capture(headerFile,65536);
+            const text=header.data.toString('utf8');if(!Buffer.from(text).equals(header.data))throw fail('complete_recovery_header_invalid');
+            try{parsed=JSON.parse(text);}catch(cause){throw fail('complete_recovery_header_invalid',cause);}
+            if(!WorkDataKeys.validate(parsed)||!parsed.instanceId||header.proof.sha256!==candidate.headerSha256||manifest.proof.sha256!==authority.sha256)throw fail('complete_recovery_header_invalid');
+          }finally{header?.data.fill(0);manifest.data.fill(0);}
+          const directories=[];
+          for(const relative of ['', '.work-data','.work-data/generations','.work-data/generations/'+candidate.id])directories.push({path:relative,identity:await directory(p.join(base,...relative.split('/')))});
+          const value={authority,resultProof:record.proof,manifest:manifest.proof,header:header.proof,directories};
+          if(pinned&&!same(pinned,value))throw fail('complete_recovery_evidence_changed');pinned=value;
+          await currentClaim();ensure(ctx);return value;
+        };
+        // C10, mismatched historical results and missing/bad backups stop here,
+        // before any profile exemption or metadata retirement is attempted.
+        await evidence(true);
+        // The existing claim mutation gate spans both full profiles and intent
+        // retirement. A final intent capture cannot race a managed claim write,
+        // remove or recovery. Keep the original claim's own last CAS/PID/unlink.
+        let profiles=0;
+        await bindings.claim.recoverCompleted(claim.receipt,async original=>{
+          if(!same(original,claim.value)||profiles>=2)throw fail('complete_recovery_claim_changed');
+          const before=await evidence(true);let password=c.randomBytes(32).toString('base64'),sealed;
+          try{sealed=await N.fullSnapshot(base,owner,exclusive,{controlRecoveryProof:selected}).seal({password,appVersion:VERSION,generation:before.authority.generation});}
+          finally{password=null;}
+          const after=await evidence(true);if(!same(before,after))throw fail('complete_recovery_evidence_changed');
+          const proof=sealed?.sourceProof;
+          if(!proof||!/^[a-f0-9]{64}$/.test(proof.sha256||'')||!['bytes','files','directories'].every(key=>Number.isSafeInteger(proof[key])&&proof[key]>=0))throw fail('complete_recovery_profile_invalid');
+          for(const [relative,wanted]of [['.work-data/active-v1.json',after.manifest],['.work-data/generations/'+candidate.id+'/work-data-key-v1.json',after.header]]){
+            const row=sealed.sourceFiles?.find(row=>fold(row.path)===fold(relative));
+            if(!row||row.sha256!==wanted.sha256||row.identity!==wanted.identity.dev+':'+wanted.identity.ino)throw fail('complete_recovery_profile_invalid');
+          }
+          for(const wanted of after.directories){const row=sealed.sourceDirectories?.find(row=>fold(row.path)===fold(wanted.path));
+            if(!row||row.identity!==wanted.identity.dev+':'+wanted.identity.ino)throw fail('complete_recovery_profile_invalid');}
+          const current={sha256:proof.sha256,bytes:proof.bytes,files:proof.files,directories:proof.directories};
+          if(profile&&!same(profile,current))throw fail('complete_recovery_source_changed');profile=current;
+          profiles++;
+          if(profiles===2){
+            // Both complete source profiles were captured with the original
+            // intent present. The control gate now rechecks the already-bound
+            // result/backup/authority and exact intent, without a third seal.
+            await control.recoverComplete(selected,async recovered=>{
+              if(recovered!==selected.state)throw fail('complete_recovery_intent_changed');
+              await evidence(true);return true;
+            },stopped);
+            await evidence(false);
+          }
+          return true;
+        });
+        if(profiles!==2)throw fail('complete_recovery_profile_invalid');
+        ensure(ctx);
+      }catch(cause){failed=true;primary=cause;}
+      if(failed){
+        try{if(N.helperMayStillRun(primary)!==false)throw primary;}catch(cause){throw retain(cause);}
+        if(helperUnknown())throw retain(primary);
+        try{await close();}catch(cause){throw retain(new AggregateError([primary,cause],'work_data_host.complete_recovery_cleanup_failed',{cause:primary}));}
+        throw primary;
+      }
+      try{await close();}catch(cause){throw retain(cause);}
+      return Object.freeze({schema:1,kind:'completed-intent-recovery',id:selected.state.id,completionEvidence:'existing-durable-result',
+        intentRetired:true,claimRetired:true,currentSourceReadable:true,authority:pinned.authority,sourceProof:profile,sourceProofPhase:'before-intent-retirement'});
+    }
+
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
@@ -108023,7 +108266,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);
       return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:true,crashClaim:false,activation:false})});
     }
-    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,helperMayStillRun:helperUnknown,
+    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,recoverCompletedIntent,helperMayStillRun:helperUnknown,
       capabilities:Object.freeze({requiresCheckedSourceKeeper:true,sourceKeeperHost:true,uploadBrokerAssembly:true,coldOperationAssembly:true,worker:false,crashClaim:false,activation:false,productionReady:false})});
   }
   function bindCapturedResult(host,base,ownership,read){
@@ -108359,6 +108602,13 @@ async function main() {
   // Detect the raw option before parseArgs can consume a following "doctor" as
   // its value or hide an =value spelling among ordinary doctor options.
   const raw = process.argv.slice(2);
+  if (raw.some(value => value === '--recover-work-data-intent' || value.startsWith('--recover-work-data-intent='))) {
+    if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--recover-work-data-intent'
+      || argv['recover-work-data-intent'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)
+      throw Object.assign(Error('work_data_setup.private_command_invalid'), {code:'work_data_setup.private_command_invalid',retry:false});
+    const result = await WorkDataRuntimeHost.create().recoverCompletedIntent({base:dataRoot()});
+    console.log(JSON.stringify(result));return result;
+  }
   if (raw.some(value => value === '--recover-work-data-source' || value.startsWith('--recover-work-data-source='))) {
     if (raw.length !== 2 || raw[0] !== 'doctor' || raw[1] !== '--recover-work-data-source'
       || argv['recover-work-data-source'] !== true || argv._.length !== 1 || Object.keys(argv).length !== 2)

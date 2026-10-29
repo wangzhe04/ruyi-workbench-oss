@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 125 | 4197 | 4027 | 861 | 67 | 0 | 1 |
+| 125 | 4197 | 4031 | 863 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -127,7 +127,7 @@
 | 109 | `13av-work-data-handoff-claim.js` | unclassified | 1 | 1 | 1 |
 | 110 | `13ah-work-data-setup.js` | unclassified | 6 | 27 | 10 |
 | 111 | `13ai-work-data-worker.js` | unclassified | 1 | 3 | 3 |
-| 112 | `13aj-work-data-control.js` | unclassified | 1 | 1 | 1 |
+| 112 | `13aj-work-data-control.js` | unclassified | 1 | 3 | 2 |
 | 113 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 4 | 2 |
 | 114 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
 | 115 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 12 | 10 |
@@ -138,7 +138,7 @@
 | 120 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 15 | 13 |
 | 121 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 122 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
-| 123 | `13au-work-data-runtime-host.js` | unclassified | 2 | 17 | 13 |
+| 123 | `13au-work-data-runtime-host.js` | unclassified | 2 | 19 | 14 |
 | 124 | `14-main.js` | entrypoint | 8 | 602 | 53 |
 
 ## 模块边
@@ -637,7 +637,8 @@
 | `13ai-work-data-worker.js` | `00-boot.js` | backward | `VERSION` |
 | `13ai-work-data-worker.js` | `01-config.js` | backward | `send` |
 | `13ai-work-data-worker.js` | `13at-work-data-restore-uploads.js` | backward | `WorkDataRestoreUploads` |
-| `13aj-work-data-control.js` | `00-boot.js` | backward | `text` |
+| `13aj-work-data-control.js` | `00-boot.js` | backward | `path`, `text` |
+| `13aj-work-data-control.js` | `01ab-work-data-full-snapshot.js` | backward | `WorkDataFullSnapshot` |
 | `13ak-work-data-cold-operations.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `text` |
 | `13ak-work-data-cold-operations.js` | `01-config.js` | backward | `atomicWriteJson` |
 | `13ak-work-data-cold-operations.js` | `01aa-work-data-tree.js` | backward | `WorkDataTree` |
@@ -691,10 +692,11 @@
 | `13as-session-fulltext-consumers.js` | `07-autonomy.js` | backward | `nativeToolDisabledByPolicy`, `nativeToolGate`, `nativeToolTier` |
 | `13at-work-data-restore-uploads.js` | `00-boot.js` | backward | `text` |
 | `13at-work-data-restore-uploads.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
-| `13au-work-data-runtime-host.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataMaintenanceWorkerHooks` |
+| `13au-work-data-runtime-host.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataMaintenanceWorkerHooks`, `text` |
 | `13au-work-data-runtime-host.js` | `01ae-work-data-maintenance-result.js` | backward | `WorkDataMaintenanceResult` |
 | `13au-work-data-runtime-host.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `13au-work-data-runtime-host.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
+| `13au-work-data-runtime-host.js` | `01o-work-data-keys.js` | backward | `WorkDataKeys` |
 | `13au-work-data-runtime-host.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `13au-work-data-runtime-host.js` | `13ai-work-data-worker.js` | backward | `WorkDataMaintenanceWorker` |
 | `13au-work-data-runtime-host.js` | `13aj-work-data-control.js` | backward | `WorkDataMaintenanceControl` |

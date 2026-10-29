@@ -102,6 +102,7 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
   const modules = [
     ['01g-server-ownership.js', 'ServerOwnership'], ['13aq-work-data-native-adapters.js', 'WorkDataNativeAdapters'],
     ['13av-work-data-handoff-claim.js', 'WorkDataHandoffClaim'], ['13aj-work-data-control.js', 'WorkDataMaintenanceControl'],
+    ['01o-work-data-keys.js', 'WorkDataKeys'],
     ['01t-work-data-recovery.js', 'WorkDataRecovery'], ['13at-work-data-restore-uploads.js', 'WorkDataRestoreUploads'],
     ['01ae-work-data-maintenance-result.js', 'WorkDataMaintenanceResult'], ['13am-work-data-maintenance-runtime.js', 'WorkDataMaintenanceRuntime'],
     ['13au-work-data-runtime-host.js', 'WorkDataRuntimeHost'], ['13au-work-data-runtime-host.js', 'WorkDataServeUploadBootstrap'],
@@ -113,12 +114,12 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
     if (file === '01t-work-data-recovery.js' && withoutRecoveryBudget) source = source.replace('LIMITS, seal, open', 'LIMITS: null, seal, open');
     vm.runInContext(source, context, { filename: file });
   }
-  const api = vm.runInContext('({ ownership:ServerOwnership,native:WorkDataNativeAdapters,claim:WorkDataHandoffClaim,control:WorkDataMaintenanceControl,uploads:WorkDataRestoreUploads,result:WorkDataMaintenanceResult,runtime:WorkDataMaintenanceRuntime,host:WorkDataRuntimeHost,bootstrap:WorkDataServeUploadBootstrap,setup:WorkDataSetup,recovery:WorkDataRecovery })', context);
+  const api = vm.runInContext('({ ownership:ServerOwnership,native:WorkDataNativeAdapters,claim:WorkDataHandoffClaim,control:WorkDataMaintenanceControl,keys:WorkDataKeys,uploads:WorkDataRestoreUploads,result:WorkDataMaintenanceResult,runtime:WorkDataMaintenanceRuntime,host:WorkDataRuntimeHost,bootstrap:WorkDataServeUploadBootstrap,setup:WorkDataSetup,recovery:WorkDataRecovery })', context);
   const authority = { generation: 1, id: 'a'.repeat(48), mode: 'encrypted', proof: { sha256: 'b'.repeat(64) } };
   const fullAuthority = { generation: authority.generation, id: authority.id, mode: authority.mode, sha256: authority.proof.sha256 };
   const nativeBindings = { ownership: api.ownership, manifest: { create: () => ({ readActive: async () => authority }) },
     fullSnapshot: { create: () => ({ seal: async () => ({ sourceProof: { sha256: 'd'.repeat(64), bytes: 17, files: 1, directories: 1 }, files: 1, directories: 1 }), restore: async () => ({ ok: true }) }) },
-    nativePublish: { createFlush: () => async directories => { events.push('flush'); return { ok: true, flushDirectories: directories, directoryFlush: directories.map(() => 0) }; } },
+    nativePublish: { createFlush: () => async directories => { events.push('flush'); if(state.flushFailure)throw state.flushFailure; return { ok: true, flushDirectories: directories, directoryFlush: directories.map(() => 0) }; } },
     disposableTree: { create: () => async () => true }, migrationHost: { create: () => ({}) },
     worker: { create: () => ({}), spawnCold() { throw Error('No real child in pure fixture'); }, processChannel() { throw Error('No real IPC in pure fixture'); } },
     protector: { supported: () => true, run: async () => ({}) }, capturePreserved: async () => ({}), externalOwner: () => ({}), skillOwner: () => ({}),

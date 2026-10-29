@@ -2,6 +2,7 @@
 // No warm global paths/cache mutation; no source repair or implicit writer drain.
 // Native original-object capsules and unresolved staging require their own owner.
 const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
+  const Hooks = {}; // The later control owner installs its immutable private-proof validator.
   const fail = (suffix, details = {}) => { throw Object.assign(Error('work_data_full.' + suffix), {
     code: 'work_data_full.' + suffix, apiCode: 'work_data_full.' + suffix, statusCode: 409, ...details,
   }); };
@@ -43,13 +44,22 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     return Object.assign(new AggregateError(causes,code,{cause:causes[0]}),{code,apiCode:code,statusCode:503,
       cleanupFailed:true,ownershipRetained:true,helperMayStillRun:releaseFailed||causes.some(unknown)});
   }
-  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, restoredTreeFor, preservedRead, limits = {} } = {}) {
+  function create({ base, ownership, assertExclusive, assertExclusiveSync, protector, externalOwner, skillBackupOwner, maintenanceResultOwner, controlRecoveryProof, restoredTreeFor, preservedRead, limits = {} } = {}) {
     if (typeof base !== 'string' || !p.isAbsolute(base) || !ownership || !Array.isArray(ownership.roots)
         || !ownership.roots.some(root => keyOfPath(root) === keyOfPath(base)) || typeof assertExclusive !== 'function'
         || assertExclusiveSync !== undefined && typeof assertExclusiveSync !== 'function'
         || !protector || typeof protector.run !== 'function' || typeof protector.supported !== 'function'
         || typeof externalOwner !== 'function') fail('host_invalid');
     base = p.resolve(base);
+    const controlProfile=Hooks.controlRecoveryProfile;
+    if(controlRecoveryProof!==undefined&&(!controlProfile||typeof controlProfile.accepts!=='function'||typeof controlProfile.verify!=='function'
+      ||controlProfile.accepts(controlRecoveryProof,base,ownership)!==true))fail('control_owner_required');
+    const verifyRecoveryControl=async files=>{
+      if(controlRecoveryProof===undefined)return;
+      const selected=files.filter(file=>ownerPath(file.path)==='.work-data/maintenance-v1.json');
+      if(selected.length!==1)fail('control_owner_required');
+      if(await controlProfile.verify(controlRecoveryProof,{base,ownership,path:selected[0].path,bytes:selected[0].data})!==true)fail('control_owner_required');
+    };
     if(restoredTreeFor!==undefined&&typeof restoredTreeFor!=='function')fail('host_invalid');
     if(preservedRead!==undefined&&(preservedRead?.profile!=='bounded-native-v1'||typeof preservedRead.capturePreserved!=='function'||typeof WorkDataTree.createPreserved!=='function'))fail('preserved_reader_invalid');
     const tree = WorkDataTree.create(limits), recovery = WorkDataRecovery.create({ limits: Object.fromEntries(Object.entries(limits).filter(([key]) => ['bytes','files','directories'].includes(key))) });
@@ -116,7 +126,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     }
     const lastResult = name => ownerPath(name)==='.work-data/maintenance-result-v1.json';
     function nativeSource(files,directories){if(typeof skillBackupOwner!=='function')return null;try{return recovery.skillBackupSource(files,directories);}catch(error){if(error?.code==='work_data_recovery.auxiliary_invalid')return null;throw error;}}
-    async function analyze(files, auxiliaries, supplied, directories, native, capturedSource) {
+    async function analyze(files, auxiliaries, supplied, directories, native, capturedSource, recoveryControl) {
       const masters = new Map(), headers = new Map(), vaults = new Map(), refs = new Map(), aux = [], domains = new Map(), resultFiles=new Set(), nativeFiles=new Set(native?.files.map(row=>row.path)||[]);let nativePlan=null;
       const addMaster = (purpose, state, lease) => {
         disposable.push(lease); const id = keyName(purpose, state.instanceId), previous = masters.get(id);
@@ -127,6 +137,12 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       const requireKey = (id, purpose, instance) => { const name = keyName(purpose, instance), value = masters.get(name); if (!value) fail('key_missing', { file: id }); refs.get(id).add(name); return value; };
       for (const file of files) {
         refs.set(file.path, new Set()); const logical = ownerPath(namespace(file.path).logical);
+        // The exception is root-only, seal-only and byte/identity bound by the
+        // real control owner's opaque token. All other control paths still enter
+        // the original special-owner refusal below.
+        if(recoveryControl!==undefined&&ownerPath(file.path)==='.work-data/maintenance-v1.json'){
+          if(await controlProfile.verify(recoveryControl,{base,ownership,path:file.path,bytes:file.data})!==true)fail('control_owner_required');resultFiles.add(file.path);continue;
+        }
         if(lastResult(file.path)){if(typeof maintenanceResultOwner?.decode!=='function')fail('control_owner_required');maintenanceResultOwner.decode(file.data);resultFiles.add(file.path);continue;}
         if(special(file.path)){if(nativeFiles.has(file.path))continue;fail('special_owner_required',{file:file.path,reason:special(file.path)});}
         if (/^work-data-key-v1\.json(?:$|[.-])/.test(logical)) {
@@ -278,13 +294,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     async function seal({ password, appVersion, generation, createdAt=new Date().toISOString() }={}) {
       return run(async()=>{
         const tree=readTree(ownership),captured=await tree.capture(base);disposable.push(captured);
+        await verifyRecoveryControl(captured.files);
         const native=nativeSource(captured.files,captured.directories);checkAuthority(captured.files,captured.directories,generation,native);
-        const analyzed=await analyze(captured.files,[],null,captured.directories,native,preservedRead === undefined ? undefined : captured);await admission();await tree.verify(captured);
+        const analyzed=await analyze(captured.files,[],null,captured.directories,native,preservedRead === undefined ? undefined : captured,controlRecoveryProof);await admission();await tree.verify(captured);
         const serialized=await recovery.seal({appVersion,generation,createdAt,directories:[...captured.directories],keys:[...analyzed.masters.values()],files:analyzed.files,auxiliaries:analyzed.aux},password);
         await admission();const proof=await tree.verify(captured);
         const sourceIdentity=async relative=>{const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});return Object.freeze({path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)});};
         const sourceFiles=[];for(const file of captured.files)sourceFiles.push(Object.freeze({...await sourceIdentity(file.path),sha256:file.sha256}));
-        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await tree.verify(captured);
+        const sourceDirectories=[];for(const relative of ['',...captured.directories])sourceDirectories.push(await sourceIdentity(relative));await verifyRecoveryControl(captured.files);await tree.verify(captured);
         // Source proof ends here. Caller-owned additions may be written only after this return.
         // No glob exclusions or permission to ignore later source changes is issued.
         return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),
@@ -296,6 +313,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       for(const part of ['',...absolute.slice(parsed.root.length).split(p.sep).filter(Boolean)]){if(part)current=p.join(current,part);const stat=await io.lstat(current);if(!stat.isDirectory()||stat.isSymbolicLink()||keyOfPath(await io.realpath(current))!==keyOfPath(current))fail('target_alias');}
     }
     async function restore({ serialized,password,target,targetOwnership=ownership }={}) {
+      if(controlRecoveryProof!==undefined)fail('restore_control_proof_forbidden');
       return run(async()=>{
         if(typeof target!=='string'||!p.isAbsolute(target)||contains(base,target)||contains(target,base))fail('target_invalid');
         target=p.resolve(target);
@@ -359,5 +377,5 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     }
     return Object.freeze({seal,restore,describeRestored,verifyRestored});
   }
-  return Object.freeze({create});
+  return Object.freeze({create,Hooks});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'),require('node:zlib'));

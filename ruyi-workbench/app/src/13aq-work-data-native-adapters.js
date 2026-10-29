@@ -128,11 +128,11 @@ const WorkDataNativeAdapters = ((io, p, c) => {
           code:'work_data_adapter.source_keeper_cleanup',helperMayStillRun:true,ownershipRetained:true,retry:false});
       }
     }
-    function fullSnapshot(base, ownership, assertExclusive) {
+    function fullSnapshot(base, ownership, assertExclusive, {controlRecoveryProof} = {}) {
       check(); if (typeof assertExclusive !== 'function' || !bindings.ownership.owns(ownership,base)) throw fail('ownership_required');
       const exclusive = async candidate => bindings.ownership.owns(candidate) && await assertExclusive(candidate) === true && bindings.ownership.owns(candidate);
       const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusive,protector,
-        externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner});
+        externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner,controlRecoveryProof});
       return Object.freeze({seal:value => withSource(ownership,base,() => owner.seal(value)),
         restore:value => withSource(ownership,base,() => withSource(value?.targetOwnership === undefined ? ownership : value.targetOwnership,value?.target,() => owner.restore(value)))});
     }

@@ -36,6 +36,59 @@ function safeFailureLocation(error){
  const frame=stack.split(/\r?\n/).filter(line=>/^\s*at /.test(line)).map(line=>/work-data-production-maintenance\.e2e\.js:(\d+):(\d+)\)?$/.exec(line)).find(Boolean);
  return {errorName:name,failureLocation:frame?{file:'work-data-production-maintenance.e2e.js',line:Number(frame[1]),column:Number(frame[2])}:null};
 }
+// Inventory can itself fail while a concurrent writer renames a listed entry.
+// Keep that original first error: neither diagnostic IO nor a new capture may
+// replace it. Only fixture-relative paths and bounded filesystem metadata leave
+// this boundary; error messages, assertion values and file bodies never do.
+function capturePackageSnapshot(f,when,onFailure,source=core){
+ const captured={};
+ const scopes=[['control',p.join(f.base,'.work-data')],['backup',f.backups],['session',p.join(f.base,'sessions',SESSION_ID+'.json')]];
+ for(const [component,root] of scopes){
+  try{captured[component]=component==='session'?source.read(root).row:source.inventory(root);}
+  catch(error){
+   try{
+    const own=name=>{try{const d=Object.getOwnPropertyDescriptor(error,name);return d&&Object.hasOwn(d,'value')?d.value:undefined;}catch{return undefined;}};
+    const code=own('code'),syscall=own('syscall'),file=own('path');
+    let path=null,pathSha256=null;
+    if(typeof file==='string'){
+     pathSha256=core.H(Buffer.from(file));
+     if(p.isAbsolute(file)){
+      const relative=p.relative(core.norm(root),core.norm(file));
+      if(relative===''||relative!=='..'&&!relative.startsWith('..'+p.sep)&&!p.isAbsolute(relative))path=relative||'.';
+     }
+    }
+    const diagnostic={when,component,completedComponents:Object.keys(captured),
+     code:typeof code==='string'&&/^[A-Z0-9_]{1,80}$/.test(code)?code:null,
+     syscall:['lstat','stat','scandir','open','read','readlink','realpath','fstat','close'].includes(syscall)?syscall:null,
+     path,pathSha256,...safeFailureLocation(error),rawMessagesAndBodiesOmitted:true};
+    onFailure(diagnostic);
+   }catch{/* Recording failure must never replace the original inventory error. */}
+   throw error;
+  }
+ }
+ return captured;
+}
+// Worker readiness certifies the installed runtime, while startup projection
+// work is already admitted independently. Observe that real admission finishing
+// before capturing a strict filesystem snapshot; this is no filesystem retry.
+function maintenanceIsQuiet(value){
+ const m=value?.maintenance,busy=m?.busy;
+ const known=['turns','agentRuns','scheduler','steward','externalBots','consumers','internalMcp','index','shells','services'];
+ return !!m&&m.phase==='open'&&m.processExitRequired===true
+  &&['admitted','writers','dirty'].every(key=>m[key]===0)
+  &&!!busy&&typeof busy==='object'&&!Array.isArray(busy)&&known.every(key=>busy[key]===0)
+  &&Object.values(busy).every(count=>count===0);
+}
+async function waitMaintenanceQuiet(readStatus,{deadline,now=Date.now,yieldControl=remaining=>sleep(Math.min(50,remaining))}={}){
+ if(!Number.isFinite(deadline))throw Error('maintenance readiness deadline unavailable');
+ for(;;){
+  const remaining=deadline-now();if(remaining<=0)throw Error('maintenance readiness deadline');
+  const value=await readStatus(remaining);
+  if(now()>=deadline)throw Error('maintenance readiness deadline');
+  if(maintenanceIsQuiet(value))return value;
+  await yieldControl(deadline-now());
+ }
+}
 const targetFromArgs=argv=>{a.equal(argv.length,0,'permanent E2E uses the current complete product build');return core.loadProductTarget(__dirname);};
 function run(command,args,options){return new Promise((resolve,reject)=>{let child;try{child=cp.spawn(command,args,options);}catch(error){reject(error);return;}child.once('error',reject);child.once('close',code=>resolve({code,child}));});}
 
@@ -139,19 +192,22 @@ function createWorld({root,evidence,target}){
     a.equal(typeof rt.token==='string'&&/^[a-f0-9]{32}$/.test(rt.token),true,'runtime token format');
     const health=await upload.makeHttp({port:rt.port,token:rt.token},'/health',undefined,{auth:false,timeout:Math.max(1,Math.min(BUDGET.request,deadline-Date.now()))});
     if(health.status===200&&health.value?.ok===true){
-     const identity=await cimIdentity(rt.pid);
-     a.equal(identity.created.length>0,true);
-     return{pid:rt.pid,port:rt.port,token:rt.token,handle,identity};
+     const observed=await statusOf(rt,{timeout:Math.max(1,Math.min(BUDGET.request,deadline-Date.now()))});
+     if(maintenanceIsQuiet(observed)){
+      const identity=await cimIdentity(rt.pid);
+      a.equal(identity.created.length>0,true);
+      return{pid:rt.pid,port:rt.port,token:rt.token,handle,identity};
+     }
     }
    }
    await sleep(50);
   }
   throw Error('complete normal serve startup observation deadline');
  }
- async function statusOf(ref){
+ async function statusOf(ref,{timeout=BUDGET.request}={}){
   healthy();
   for(;;){
-   const response=await upload.makeHttp({port:ref.port,token:ref.token},'/api/work-data/status',undefined,{guard:healthy,timeout:BUDGET.request});
+   const response=await upload.makeHttp({port:ref.port,token:ref.token},'/api/work-data/status',undefined,{guard:healthy,timeout});
    if(response.status!==200)throw Object.assign(Error('status unavailable'),{code:'STATUS_'+response.status});
    healthy();return response.value;
   }
@@ -192,12 +248,20 @@ function createWorld({root,evidence,target}){
   assertRefusal(response,409,'work_data_setup.busy',label);
  }
  async function assertPackage(f,ref,saved,label){
+  const quiet=await waitMaintenanceQuiet(remaining=>statusOf(ref,{timeout:Math.min(BUDGET.request,remaining)}),{deadline:ref.readinessDeadline});
+  record({kind:'package-read-maintenance-quiet',label,maintenance:quiet.maintenance});
   const path=p.join(f.backups,'ruyi-work-data-'+saved.id+'.ruyi-backup'),disk=core.read(path);
   // The durable control tree, the backup directory and the session bytes are the
   // state a package read could plausibly touch; none may change.
-  const snapshot=()=>({control:core.inventory(p.join(f.base,'.work-data')),backup:core.inventory(f.backups),
-    session:core.read(p.join(f.base,'sessions',SESSION_ID+'.json')).row});
-  const before=snapshot();
+  const snapshot=when=>capturePackageSnapshot(f,when,diagnostic=>{
+   const value={label,...diagnostic};
+   ctx.diagnostics={...(ctx.diagnostics||{}),packageReadSnapshotCapture:value};
+   // This best-effort diagnostic must not latch a journal error ahead of the
+   // original capture error, which the caller will latch and report unchanged.
+   rawWrite(journalFD,Buffer.from(JSON.stringify({kind:'package-read-snapshot-capture-failure',...value,at:new Date().toISOString()})+'\n'));
+   fs.fsyncSync(journalFD);
+  });
+  const before=snapshot('before');
   const first=await packageGet(ref,saved.id);
   a.equal(first.status,200,label+': package status');
   a.equal(first.headers['content-type'],'application/octet-stream',label+': octet-stream');
@@ -211,7 +275,7 @@ function createWorld({root,evidence,target}){
   const second=await packageGet(ref,saved.id);
   a.equal(second.status,200,label+': repeated package status');
   a.ok(second.raw.equals(first.raw),label+': repeated download is byte-identical');
-  const after=snapshot();
+  const after=snapshot('after');
   try{a.deepEqual(after,before,label+': a package read writes nothing into the data root');}
   catch(error){
    // Preserve the original assertion and the one captured after-state. Only
@@ -266,9 +330,9 @@ function createWorld({root,evidence,target}){
  async function waitWorkerReady(ref){
   const deadline=Date.now()+BUDGET.startup;
   for(;;){
-   const value=await statusOf(ref);
-   if(value.capabilities?.worker===true)return value;
-   if(Date.now()>=deadline)throw Error('worker capability never became ready');
+   const value=await statusOf(ref,{timeout:Math.max(1,Math.min(BUDGET.request,deadline-Date.now()))});
+   if(value.capabilities?.worker===true&&maintenanceIsQuiet(value))return value;
+   if(Date.now()>=deadline)throw Error('worker or maintenance readiness deadline');
    await sleep(50);
   }
  }
@@ -406,12 +470,12 @@ function createWorld({root,evidence,target}){
     if(probe.kind==='warm'){
      let st=null;
      try{st=await upload.makeHttp({port:rt.port,token:rt.token},'/api/work-data/status',undefined,{timeout:5000});}catch(error){if(!isTransport(error))throw error;}
-     if(st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.lastResult?.id===jobId){
+     if(st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.lastResult?.id===jobId&&maintenanceIsQuiet(st.value)){
       const identity=await cimIdentity(rt.pid);
       a.notEqual(rt.pid,ref.pid,'successor is a new process');
       a.notEqual(rt.token,ref.token,'successor publishes a new runtime token');
       a.equal(rt.host,'127.0.0.1');
-      return{pid:rt.pid,port:rt.port,token:rt.token,handle:null,identity,status:st.value};
+      return{pid:rt.pid,port:rt.port,token:rt.token,handle:null,identity,status:st.value,readinessDeadline:deadline};
      }
     }
    }
@@ -828,5 +892,5 @@ async function runActual(argv=process.argv.slice(2)){
  }
 }
 
-module.exports={targetFromArgs,createWorld,probePort,BUDGET,runActual,safeFailureLocation};
+module.exports={targetFromArgs,createWorld,probePort,BUDGET,runActual,safeFailureLocation,capturePackageSnapshot,maintenanceIsQuiet,waitMaintenanceQuiet};
 if(require.main===module)runActual().catch(error=>{try{process.stderr.write(((error&&error.message||String(error)))+String.fromCharCode(10));}catch{}process.exitCode=1;});

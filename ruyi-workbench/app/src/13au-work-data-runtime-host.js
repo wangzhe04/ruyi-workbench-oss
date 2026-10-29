@@ -449,6 +449,141 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       return Object.freeze({schema:1,kind:'owned-source-recovery',id,sourceReadable:true,maintenanceOutcome:'unknown',
         authority:result.authority,sourceProof:result.sourceProof,diagnostic:result.diagnostic});
     }
+    // Explicit C11 only: revalidate an existing durable published result and
+    // readable current source. This does not reconstruct 01ad's lost comparison
+    // maps, replay maintenance, or supply the missing success evidence of C10.
+    async function recoverCompletedIntent({base}={}) {
+      if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw fail('complete_recovery_requires_cold_process');
+      if(!methods(bindings.claim,['inspect','recoverCompleted'])||typeof N.fullSnapshot!=='function')throw fail('complete_recovery_unavailable');
+      base=fold(await canonical(base));
+      const owner=await coldAcquire([base],base),ctx=cold;
+      const close=async()=>{ensure(ctx);ctx.accepting=false;await ctx.keeper.releaseOwner(assertFinishSafe);assertFinishSafe();ctx.finished=true;};
+      const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),identity=stat=>({dev:String(stat.dev),ino:String(stat.ino)});
+      const sameAuthority=(a,b)=>['generation','id','mode','sha256'].every(key=>a?.[key]===b?.[key]);
+      let failed=false,primary,selected,claim,pinned,profile;
+      try {
+        const exclusive=candidate=>candidate===owner&&assertOwnership(owner,base);
+        const control=bindings.controlApi.create({base,ownership:owner,assertExclusive:exclusive,assertDurableBackup:async()=>false,flush:directories=>N.flush(directories)});
+        if(!methods(control,['selectCompleteRecovery','recoverComplete','inspect']))throw fail('complete_recovery_unavailable');
+        const results=bindings.resultApi.create({base,ownership:owner,assertExclusive:exclusive,readAuthority:()=>N.readAuthority(base)});
+        selected=await control.selectCompleteRecovery();
+        claim=await bindings.claim.inspect({base});
+        const state=selected.state,expected=state.expectedAuthority,candidate=state.candidate;
+        if(!claim?.present||claim.value.phase!=='owned'||claim.value.id!==state.id||claim.value.operation!==state.operation)throw fail('complete_recovery_claim_required');
+        const stopped=()=>{
+          const dead=pid=>{try{proc.kill(pid,0);return false;}catch(cause){return cause?.code==='ESRCH';}};
+          if(!dead(claim.value.parentPid)||!dead(claim.value.childPid))throw fail('complete_recovery_process_pending');
+          ensure(ctx);return true;
+        };
+        const currentClaim=async()=>{
+          const found=await bindings.claim.inspect({base});
+          if(!found?.present||!same(found.receipt,claim.receipt)||!same(found.value,claim.value))throw fail('complete_recovery_claim_changed');
+          stopped();return true;
+        };
+        const directory=async target=>{
+          const parsed=p.parse(target);let cursor=parsed.root,last;
+          for(const part of ['',...target.slice(parsed.root.length).split(p.sep).filter(Boolean)]){
+            if(part)cursor=p.join(cursor,part);const stat=await io.lstat(cursor,{bigint:true});
+            if(!stat.isDirectory()||stat.isSymbolicLink()||fold(await io.realpath(cursor))!==fold(cursor))throw fail('complete_recovery_alias');last=identity(stat);
+          }return last;
+        };
+        const capture=async(file,limit)=>{
+          try {
+          await directory(p.dirname(file));const before=await io.lstat(file,{bigint:true});
+          if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(limit))throw fail('complete_recovery_file_invalid');
+          const handle=await io.open(file,'r'),bytes=Buffer.alloc(limit+1);let used=0;
+          try {
+            const opened=await handle.stat({bigint:true});
+            if(!opened.isFile()||opened.nlink!==1n||!same(identity(opened),identity(before))||opened.size!==before.size)throw fail('complete_recovery_file_changed');
+            for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>limit)throw fail('complete_recovery_file_changed');if(!part.bytesRead)break;}
+            const after=await handle.stat({bigint:true}),current=await io.lstat(file,{bigint:true});
+            if(!current.isFile()||current.isSymbolicLink()||after.nlink!==1n||current.nlink!==1n
+              ||!same(identity(after),identity(before))||!same(identity(current),identity(before))||after.size!==before.size||current.size!==before.size||used!==Number(before.size)
+              ||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||current.mtimeNs!==after.mtimeNs||current.ctimeNs!==after.ctimeNs)throw fail('complete_recovery_file_changed');
+            const data=Buffer.from(bytes.subarray(0,used));return{data,proof:{sha256:c.createHash('sha256').update(data).digest('hex'),bytes:used,identity:identity(current)}};
+          }finally{bytes.fill(0);await handle.close();}
+          }catch(cause){throw fail('complete_recovery_file_invalid',cause);}
+        };
+        const authorityOf=actual=>({generation:actual.generation,id:actual.id,mode:actual.mode,sha256:actual.proof?.sha256});
+        const candidateRoot=p.join(base,'.work-data','generations',candidate.id),manifestFile=p.join(base,'.work-data','active-v1.json'),headerFile=p.join(candidateRoot,'work-data-key-v1.json');
+        const evidence=async intentPresent=>{
+          ensure(ctx);stopped();
+          const controlRoot=p.join(base,'.work-data'),allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+          await directory(controlRoot);
+          if((await io.readdir(controlRoot)).some(name=>!allowed.has(fold(name))))throw fail('complete_recovery_stage_pending');
+          if(!intentPresent&&(await control.inspect()).pending)throw fail('complete_recovery_intent_returned');
+          const actual=await N.readAuthority(base),authority=authorityOf(actual);
+          if(authority.generation!==expected.generation+1||authority.id!==candidate.id||authority.mode!==candidate.mode||fold(actual.root)!==fold(candidateRoot))throw fail('complete_recovery_authority_mismatch');
+          const record=await results.read();
+          if(!record||record.id!==state.id||record.operation!==state.operation||record.state!=='published'
+            ||!sameAuthority(record.sourceAuthority,expected)||!sameAuthority(record.authority,authority)
+            ||record.backup.path!==state.backup.path||record.backup.sha256!==state.backup.sha256
+            ||Date.parse(record.finishedAt)<Date.parse(state.createdAt)||Date.parse(record.finishedAt)<Date.parse(claim.value.updatedAt)
+            ||inside(base,record.backup.path)||inside(p.dirname(record.backup.path),base)
+            ||fold(await O.canonicalRoot(record.backup.path))!==fold(record.backup.path))throw fail('complete_recovery_result_mismatch');
+          const manifest=await capture(manifestFile,4096);let header,parsed;
+          try {
+            header=await capture(headerFile,65536);
+            const text=header.data.toString('utf8');if(!Buffer.from(text).equals(header.data))throw fail('complete_recovery_header_invalid');
+            try{parsed=JSON.parse(text);}catch(cause){throw fail('complete_recovery_header_invalid',cause);}
+            if(!WorkDataKeys.validate(parsed)||!parsed.instanceId||header.proof.sha256!==candidate.headerSha256||manifest.proof.sha256!==authority.sha256)throw fail('complete_recovery_header_invalid');
+          }finally{header?.data.fill(0);manifest.data.fill(0);}
+          const directories=[];
+          for(const relative of ['', '.work-data','.work-data/generations','.work-data/generations/'+candidate.id])directories.push({path:relative,identity:await directory(p.join(base,...relative.split('/')))});
+          const value={authority,resultProof:record.proof,manifest:manifest.proof,header:header.proof,directories};
+          if(pinned&&!same(pinned,value))throw fail('complete_recovery_evidence_changed');pinned=value;
+          await currentClaim();ensure(ctx);return value;
+        };
+        // C10, mismatched historical results and missing/bad backups stop here,
+        // before any profile exemption or metadata retirement is attempted.
+        await evidence(true);
+        // The existing claim mutation gate spans both full profiles and intent
+        // retirement. A final intent capture cannot race a managed claim write,
+        // remove or recovery. Keep the original claim's own last CAS/PID/unlink.
+        let profiles=0;
+        await bindings.claim.recoverCompleted(claim.receipt,async original=>{
+          if(!same(original,claim.value)||profiles>=2)throw fail('complete_recovery_claim_changed');
+          const before=await evidence(true);let password=c.randomBytes(32).toString('base64'),sealed;
+          try{sealed=await N.fullSnapshot(base,owner,exclusive,{controlRecoveryProof:selected}).seal({password,appVersion:VERSION,generation:before.authority.generation});}
+          finally{password=null;}
+          const after=await evidence(true);if(!same(before,after))throw fail('complete_recovery_evidence_changed');
+          const proof=sealed?.sourceProof;
+          if(!proof||!/^[a-f0-9]{64}$/.test(proof.sha256||'')||!['bytes','files','directories'].every(key=>Number.isSafeInteger(proof[key])&&proof[key]>=0))throw fail('complete_recovery_profile_invalid');
+          for(const [relative,wanted]of [['.work-data/active-v1.json',after.manifest],['.work-data/generations/'+candidate.id+'/work-data-key-v1.json',after.header]]){
+            const row=sealed.sourceFiles?.find(row=>fold(row.path)===fold(relative));
+            if(!row||row.sha256!==wanted.sha256||row.identity!==wanted.identity.dev+':'+wanted.identity.ino)throw fail('complete_recovery_profile_invalid');
+          }
+          for(const wanted of after.directories){const row=sealed.sourceDirectories?.find(row=>fold(row.path)===fold(wanted.path));
+            if(!row||row.identity!==wanted.identity.dev+':'+wanted.identity.ino)throw fail('complete_recovery_profile_invalid');}
+          const current={sha256:proof.sha256,bytes:proof.bytes,files:proof.files,directories:proof.directories};
+          if(profile&&!same(profile,current))throw fail('complete_recovery_source_changed');profile=current;
+          profiles++;
+          if(profiles===2){
+            // Both complete source profiles were captured with the original
+            // intent present. The control gate now rechecks the already-bound
+            // result/backup/authority and exact intent, without a third seal.
+            await control.recoverComplete(selected,async recovered=>{
+              if(recovered!==selected.state)throw fail('complete_recovery_intent_changed');
+              await evidence(true);return true;
+            },stopped);
+            await evidence(false);
+          }
+          return true;
+        });
+        if(profiles!==2)throw fail('complete_recovery_profile_invalid');
+        ensure(ctx);
+      }catch(cause){failed=true;primary=cause;}
+      if(failed){
+        try{if(N.helperMayStillRun(primary)!==false)throw primary;}catch(cause){throw retain(cause);}
+        if(helperUnknown())throw retain(primary);
+        try{await close();}catch(cause){throw retain(new AggregateError([primary,cause],'work_data_host.complete_recovery_cleanup_failed',{cause:primary}));}
+        throw primary;
+      }
+      try{await close();}catch(cause){throw retain(cause);}
+      return Object.freeze({schema:1,kind:'completed-intent-recovery',id:selected.state.id,completionEvidence:'existing-durable-result',
+        intentRetired:true,claimRetired:true,currentSourceReadable:true,authority:pinned.authority,sourceProof:profile,sourceProofPhase:'before-intent-retirement'});
+    }
+
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
@@ -489,7 +624,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);
       return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:true,crashClaim:false,activation:false})});
     }
-    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,helperMayStillRun:helperUnknown,
+    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,recoverCompletedIntent,helperMayStillRun:helperUnknown,
       capabilities:Object.freeze({requiresCheckedSourceKeeper:true,sourceKeeperHost:true,uploadBrokerAssembly:true,coldOperationAssembly:true,worker:false,crashClaim:false,activation:false,productionReady:false})});
   }
   function bindCapturedResult(host,base,ownership,read){

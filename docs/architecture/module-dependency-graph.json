@@ -5,8 +5,8 @@
   "summary": {
     "modules": 125,
     "providedSymbols": 4197,
-    "requiredSymbols": 4027,
-    "edges": 861,
+    "requiredSymbols": 4031,
+    "edges": 863,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -28598,7 +28598,21 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ab-work-data-full-snapshot.js",
+          "symbol": "WorkDataFullSnapshot",
           "kinds": [
             "read"
           ]
@@ -29333,6 +29347,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "VERSION",
           "kinds": [
             "read"
@@ -29376,6 +29397,13 @@
         {
           "provider": "01j-local-crypto.js",
           "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeys",
           "kinds": [
             "read"
           ]
@@ -39300,7 +39328,16 @@
       "from": "13aj-work-data-control.js",
       "to": "00-boot.js",
       "symbols": [
+        "path",
         "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aj-work-data-control.js",
+      "to": "01ab-work-data-full-snapshot.js",
+      "symbols": [
+        "WorkDataFullSnapshot"
       ],
       "direction": "backward"
     },
@@ -39767,7 +39804,8 @@
         "VERSION",
         "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceRuntimeHooks",
-        "WorkDataMaintenanceWorkerHooks"
+        "WorkDataMaintenanceWorkerHooks",
+        "text"
       ],
       "direction": "backward"
     },
@@ -39792,6 +39830,14 @@
       "to": "01j-local-crypto.js",
       "symbols": [
         "LocalSecretCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13au-work-data-runtime-host.js",
+      "to": "01o-work-data-keys.js",
+      "symbols": [
+        "WorkDataKeys"
       ],
       "direction": "backward"
     },

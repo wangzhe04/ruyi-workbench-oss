@@ -1,0 +1,3482 @@
+{
+  "schema": 1,
+  "date": "2026-10-29",
+  "baselineCommit": "68648a94be4782a093c85c708f295ae1075e8ea3",
+  "branch": "codex/3.1-completion-plan",
+  "version": "3.0.1",
+  "whole3_1Complete": false,
+  "status": "本批实现/独审/最终C11两遍与全部相关实际回归通过；修后完整fast原Node exit0，unit4371/4345过/26条件跳过/0失败及82静态全过，syntax1362/0、EOL2166/5项、hygiene70项通过。首红及诊断保留；整体M3/3.1继续。",
+  "scope": {
+    "entry": "doctor --recover-work-data-intent",
+    "operations": [
+      "enable",
+      "disable"
+    ],
+    "completionEvidence": "existing-durable-result",
+    "contract": "严格raw argv；原owned claim与完整intent绑定，已有published result/原backup/当前authority/key/source全部验证；在原intent仍存在时两次完整source seal，以精确durable unlink退休intent，再CAS退休原claim。维护不重放，不伪造原迁移equivalence或receipt。",
+    "notIncluded": [
+      "C10 missing-result recovery",
+      "automatic custody/stage recovery",
+      "nonempty special portable",
+      "encrypted actual browser matrix and packaged WebView",
+      "cold verifier receipt",
+      "complete default589 offline E2E suite",
+      "M4/M5/M6, real packages/upgrades/rollback/cross-account/cross-machine delivery"
+    ]
+  },
+  "identity": {
+    "server": {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 8124529,
+      "sha256": "fd78b57cff70525cdbcfd88840d8da874cd6697f6aba4867eea2891ce3e45f63"
+    },
+    "manifest": {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 36169,
+      "sha256": "4fc597f5186e17d2a958cd30c6a763076e44103a656d7ebd44f8f752819e8e61"
+    },
+    "facts": {
+      "schema": 1,
+      "_comment": "门面数字单一事实源(第46波46f)。由 dev-harness/facts-generate.js 机械生成,facts.static.e2e.js 重算比对。改数字请跑生成器,不要手改本文件。每字段注明测量轴。",
+      "_axes": {
+        "nativeTools": "TOOL_HANDLERS 派发注册表键数(经 toolCall 可达全集;含按需注册件)。README「39 常驻+3 按需」是【常驻轴】旧口径,与本轴不同 —— 文档刷新时以本数为准重述。",
+        "accTools": "ACC 活注册表 list_tools 数(venv 探针;CI acc-smoke 对账)。",
+        "e2eCount": "dev-harness/*.e2e.js 总件数(含 live 跳过件)。",
+        "defaultPort": "00-boot.js DEFAULT_PORT 常量(默认监听端口;文档与实现各写各的防漂移)。",
+        "tokenBootstrap": "浏览器获取 UI token 的方式(47c S1):api-bootstrap = POST /api/bootstrap 握手,HTML 不再明文下发 token。",
+        "liveProbes": "run-all.js SKIP 集中真 live probe 件数(需真实外部依赖;每条文件名须含 live 或在白名单)。"
+      },
+      "generatedAt": "2026-10-29T08:24:54.703Z",
+      "workbenchVersion": "3.0.1",
+      "accVersion": "1.9.1",
+      "nativeTools": 121,
+      "accTools": 108,
+      "e2eCount": 596,
+      "e2eLiveSkipped": 7,
+      "unitSuites": 412,
+      "accSmokes": 25,
+      "defaultPort": 8765,
+      "tokenBootstrap": "api-bootstrap",
+      "liveProbes": 7
+    },
+    "architecture": {
+      "modules": 125,
+      "edges": 863,
+      "forwardEdges": 67,
+      "stronglyConnectedComponents": 1,
+      "routeDecisions": 190,
+      "routeAuthEntries": 177,
+      "routeWarnings": 0
+    },
+    "durableSurfaces": {
+      "total": 77,
+      "encryptionRequired": 44,
+      "excluded": 33
+    }
+  },
+  "review": [
+    {
+      "scope": "original C11 independent review and final failure handback",
+      "records": [
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-implementation-20261029/INDEPENDENT-REVIEW-20261029.md",
+          "bytes": 13563,
+          "sha256": "94f5c153c48e20a140d0d7cad2fc2b2dc9369de813f85c08f7beb5d1f0d3c9f6",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/94f5c153c48e20a140d0d7cad2fc2b2dc9369de813f85c08f7beb5d1f0d3c9f6.gz",
+            "bytes": 7754,
+            "sha256": "c07a9e4e9b598950601fd6a165af814a4e74d1977e132b8aab5717ae34e14658"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-implementation-20261029/FAILURE-EXIT-FIX-20261029.md",
+          "bytes": 3241,
+          "sha256": "dcd4bfb365ba193a65d197983235c348c2c912398bd406ab2bb0b90f966b327a",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/dcd4bfb365ba193a65d197983235c348c2c912398bd406ab2bb0b90f966b327a.gz",
+            "bytes": 1774,
+            "sha256": "6436b00f6866744d23a11a08dadf8143287557468d7ec283fa6aa551fc921e86"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-implementation-20261029/delivery-pins.json",
+          "bytes": 5851,
+          "sha256": "a6234b0cca7e94aa1793e4cfb3b376f3cd31bd98b18e75c3df328ec1d979cf63",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/a6234b0cca7e94aa1793e4cfb3b376f3cd31bd98b18e75c3df328ec1d979cf63.gz",
+            "bytes": 1993,
+            "sha256": "74cc0c93dca303752ffde83cf58e0f8d52a6525d0157a8a71cf71475eff57a73"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-implementation-20261029/c11-only.patch",
+          "bytes": 203999,
+          "sha256": "45e53abd24016bbd74d61964718fd0b8a0d2ca79d619e4f93408f310b4bdb585",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/45e53abd24016bbd74d61964718fd0b8a0d2ca79d619e4f93408f310b4bdb585.gz",
+            "bytes": 55593,
+            "sha256": "bafa932868cd1d9390bb8cb846c8c32b48dd1523e25faa812d1cee345cabe63b"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-implementation-20261029/independent-c11-pure.log",
+          "bytes": 1485,
+          "sha256": "d50358b76c189243596655d710415b8e783164e3df91ddbcf88420af893d82c2",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d50358b76c189243596655d710415b8e783164e3df91ddbcf88420af893d82c2.gz",
+            "bytes": 765,
+            "sha256": "6e37c707a69a1df062accf16ccaae7dfbee6bf3cafc6e6b60fb93e88568a23ff"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-implementation-20261029/independent-control-pure.log",
+          "bytes": 1795,
+          "sha256": "4da5a7c99e2d53ff18b464acd5dae52b7ac8fad1fa17041e148f4df743aaeed8",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4da5a7c99e2d53ff18b464acd5dae52b7ac8fad1fa17041e148f4df743aaeed8.gz",
+            "bytes": 896,
+            "sha256": "b1fc319b2a54666808b515bd3a351b6ef862d735acc57f9260705b440fec9898"
+          }
+        }
+      ]
+    },
+    {
+      "scope": "typed key errors and immutable late Hooks; root independent review",
+      "records": [
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-key-error-20261029/ROOT-INDEPENDENT-REVIEW.md",
+          "bytes": 3234,
+          "sha256": "b03ec537fc7f6d5b110f930cfcd892d500d59715896b4f15de8af4e106cd190e",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/b03ec537fc7f6d5b110f930cfcd892d500d59715896b4f15de8af4e106cd190e.gz",
+            "bytes": 1733,
+            "sha256": "f3c0b39a7f4ffae1b297e575a853c8e00f0ef93ac17628276f96f797f3fd7ee2"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-key-error-20261029/PINS.json",
+          "bytes": 5555,
+          "sha256": "9b99fa0fd4512bb59828351088bc705c4739350663d91dd19da9b934f3c71772",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/9b99fa0fd4512bb59828351088bc705c4739350663d91dd19da9b934f3c71772.gz",
+            "bytes": 2151,
+            "sha256": "db04f2f391f594e1ff929d75b4b617af580fd130858b2626eee6e435409d9f37"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-key-error-20261029/c11-red-fixes.patch",
+          "bytes": 63167,
+          "sha256": "a380cc78988996ebd57fa5db2b6d1b57d70e48887d83f1d83b4dc3768dce6065",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/a380cc78988996ebd57fa5db2b6d1b57d70e48887d83f1d83b4dc3768dce6065.gz",
+            "bytes": 18468,
+            "sha256": "5e00180b82c6b95fc6085f419854bbd43b2b5b96c0c6bcc19242a50a3fa01239"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-key-error-20261029/ROOT-C11-RED-FIXES-unit.log",
+          "bytes": 1826,
+          "sha256": "6f0eb6ac039b9518fb02994f5b5d1b59f34950544cd43222b46bde53f712a87c",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/6f0eb6ac039b9518fb02994f5b5d1b59f34950544cd43222b46bde53f712a87c.gz",
+            "bytes": 902,
+            "sha256": "3739e4c3b3690dca36083d1eccc8407870bff6a08fca043724310cf85e594380"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/m3-c11-key-error-20261029/final-graph-check.log",
+          "bytes": 64,
+          "sha256": "9a7627d568ec5694d4e0bd8ba90a679b7aad3bd89344a1f66b59dec097688c3d",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/9a7627d568ec5694d4e0bd8ba90a679b7aad3bd89344a1f66b59dec097688c3d.gz",
+            "bytes": 81,
+            "sha256": "9bab3c5781c9f2d838befb8be29736a293354176451550da8f8a70d85be27064"
+          }
+        }
+      ]
+    },
+    {
+      "scope": "strict original maintenance quiet precondition; root independent review",
+      "records": [
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/maintenance-quiet-candidate-20261029/ROOT-REVIEW.md",
+          "bytes": 2683,
+          "sha256": "1b00363d1fc129a5eaa9ab4f07c33159c927441b9c93c5feaaade21ead0b2fda",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/1b00363d1fc129a5eaa9ab4f07c33159c927441b9c93c5feaaade21ead0b2fda.gz",
+            "bytes": 1423,
+            "sha256": "5a3336808d41e26e68e287c1c51e44e50636cf678b827e26b0dfb39c5a7ffcea"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/maintenance-quiet-candidate-20261029/pins.json",
+          "bytes": 2984,
+          "sha256": "ac9a7fae7768abaf0db309ab360aa9e4734296d7ff746ccf13c8c498b4a468e9",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ac9a7fae7768abaf0db309ab360aa9e4734296d7ff746ccf13c8c498b4a468e9.gz",
+            "bytes": 1380,
+            "sha256": "14746c9ade440ade51e24d2c04dde59b6f278d28a380e556e809702498409252"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/maintenance-quiet-candidate-20261029/diagnostic-and-quiet.patch",
+          "bytes": 23936,
+          "sha256": "4add50fcade4531f27c730a1d594e4a65006abc947a9416de64c7891f66fbae2",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4add50fcade4531f27c730a1d594e4a65006abc947a9416de64c7891f66fbae2.gz",
+            "bytes": 7642,
+            "sha256": "ae201898787c6ebaee84f6b91a1dba19b37e3fca4a56b9e3493a9621bedded6e"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/maintenance-quiet-candidate-20261029/ROOT-pure.log",
+          "bytes": 3747,
+          "sha256": "ee61bc29f30e2ba853c68de4554582ade2a9dac9aa49d5ed65901ba4546f60f5",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ee61bc29f30e2ba853c68de4554582ade2a9dac9aa49d5ed65901ba4546f60f5.gz",
+            "bytes": 1491,
+            "sha256": "5a6b91c8f031f1110eb730a2654fcbaad0cd949022012c2898da478f2ff1226f"
+          }
+        }
+      ]
+    },
+    {
+      "scope": "atomic no-clobber fixture marker; independent Sol review",
+      "records": [
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/c11-producer-diagnostics-20261029/INDEPENDENT-REVIEW.md",
+          "bytes": 7506,
+          "sha256": "d2fa3500e1496ba7e86f0863bd12e4b815084835395d676b13bc216b5c5bb05b",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d2fa3500e1496ba7e86f0863bd12e4b815084835395d676b13bc216b5c5bb05b.gz",
+            "bytes": 4544,
+            "sha256": "5c53601dc73358a9f2a0bd34fc96d0465de62dc20513a000f95ec752ea6bb8c6"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/c11-producer-diagnostics-20261029/pins.json",
+          "bytes": 5168,
+          "sha256": "97c7047f8c5f5673681db7c0ffc71cfe188b6828b9e4730ca85bbddbb475b21c",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/97c7047f8c5f5673681db7c0ffc71cfe188b6828b9e4730ca85bbddbb475b21c.gz",
+            "bytes": 2097,
+            "sha256": "0c1ba13120512a417a75e127f4546d70f567df4428fe08120e4167974c970267"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/c11-producer-diagnostics-20261029/marker-race-and-diagnostics.patch",
+          "bytes": 33714,
+          "sha256": "f184d9464a4af636db92f98692f46cdd6061e81213e874a92bb43a00ed3887d8",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f184d9464a4af636db92f98692f46cdd6061e81213e874a92bb43a00ed3887d8.gz",
+            "bytes": 10160,
+            "sha256": "87e0fa75a171a973f43f5a58b724f45c9996ca84ecd5026c587e959e4c033ab2"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/c11-producer-diagnostics-20261029/pure-unit.log",
+          "bytes": 2139,
+          "sha256": "ad592a1a36dfe1b7a970048773086b8ee7365ec806fd7f457748c375b754d188",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ad592a1a36dfe1b7a970048773086b8ee7365ec806fd7f457748c375b754d188.gz",
+            "bytes": 861,
+            "sha256": "cbed205f2e2d9da86610e5aabf2d223c12182a11cf8f15ebc0565dfd0c429afb"
+          }
+        },
+        {
+          "path": "C:/Users/87179/.codex/worktrees/m3-c11-completion/ruyi-workbench-oss/.ruyi-runtime/c11-producer-diagnostics-20261029/publication-negative-control.cjs",
+          "bytes": 1471,
+          "sha256": "7debcf735dd1fc62570f3852078ef813e44bb78f95d5cb861faca962f38debc7",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/7debcf735dd1fc62570f3852078ef813e44bb78f95d5cb861faca962f38debc7.gz",
+            "bytes": 741,
+            "sha256": "b80716bb1ffc926f9312493c697e31c3b44c84832d8f77246128d4aefc9d0b3c"
+          }
+        }
+      ]
+    },
+    {
+      "scope": "independent final MAIN integration and archived evidence review; final standard gates pending at review time",
+      "records": [
+        {
+          "path": ".ruyi-runtime/m3-c11-final-review-20261029/REVIEW.md",
+          "bytes": 6739,
+          "sha256": "0a98ba3fd1cfb5778f1b57829c7b0ac3ee16e278d4ff361142c3c4c418c45339",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/0a98ba3fd1cfb5778f1b57829c7b0ac3ee16e278d4ff361142c3c4c418c45339.gz",
+            "bytes": 3371,
+            "sha256": "7ab33a01fc2949383c2b19ff2287d0c28349bf71ffd736ad5418278690a56805"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-final-review-20261029/audit-summary.json",
+          "bytes": 7654,
+          "sha256": "2c34933bcda7814f09cc489aaec1722e1f0290a6f8207970be59f9732e730e0f",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2c34933bcda7814f09cc489aaec1722e1f0290a6f8207970be59f9732e730e0f.gz",
+            "bytes": 1102,
+            "sha256": "7ff49ddf324a018b8eb73afa17e7b64a50dfb4566572d42f4e28ea90bc3f34d7"
+          }
+        }
+      ]
+    },
+    {
+      "scope": "independent one-await original index test lifecycle repair, bounded real race and native diff witness; not a product capacity/assertion change",
+      "records": [
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/report.json",
+          "bytes": 22556,
+          "sha256": "52411068ee957914f42e202df19bb1befee4cae3892132e59edc686a2f4659ae",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/52411068ee957914f42e202df19bb1befee4cae3892132e59edc686a2f4659ae.gz",
+            "bytes": 6261,
+            "sha256": "5cf3d28962bf937f0d650abb9a97683101947c68da3095ea90280825de858fd4"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/report.md",
+          "bytes": 1032,
+          "sha256": "d07cf6e9fd97268da189411f1af368cadcd2c772daf6a80c0ab32d2e2ae241db",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d07cf6e9fd97268da189411f1af368cadcd2c772daf6a80c0ab32d2e2ae241db.gz",
+            "bytes": 843,
+            "sha256": "7b609a61c11d6b1f9841034cb25f39ba5e2a67d23555f13622edbc400e1123b3"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/pins-before.json",
+          "bytes": 2481,
+          "sha256": "2ddf123dba8b24795aa98e36edb1f85c30dd771c66aab4da50a153ed79bd2aa6",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2ddf123dba8b24795aa98e36edb1f85c30dd771c66aab4da50a153ed79bd2aa6.gz",
+            "bytes": 838,
+            "sha256": "3ea6ccd92f56daeadf4c6a681e76b8d6a9cf0006972846de29b32e75ca7cfdb7"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/pins-after.json",
+          "bytes": 2481,
+          "sha256": "22837305b7daeb3fe991d975dc2299ba83d0e98bd27cece76bab71681515b6a0",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/22837305b7daeb3fe991d975dc2299ba83d0e98bd27cece76bab71681515b6a0.gz",
+            "bytes": 838,
+            "sha256": "605da915c477f3b7f9f21a10140002ed37cf542a5b10be907125f3b2aef34cb6"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/validation.json",
+          "bytes": 2078,
+          "sha256": "dd1f347b39c456fd286d3eb426acd52fe3fc98709ac488f62c5751d4c16b93b7",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/dd1f347b39c456fd286d3eb426acd52fe3fc98709ac488f62c5751d4c16b93b7.gz",
+            "bytes": 607,
+            "sha256": "6c8d5a4f9906f9c7db5b65e8883b047b85088cdaab253090460e325bb8730c30"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/candidate-ordinary.log",
+          "bytes": 2322,
+          "sha256": "dc18a7c18b0eeae0f97ad77d378ace8c2bbf009d4bb73b1a18e8999954f5640e",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/dc18a7c18b0eeae0f97ad77d378ace8c2bbf009d4bb73b1a18e8999954f5640e.gz",
+            "bytes": 1090,
+            "sha256": "11af260713a9c9d2309de2156698911cabac20f6b32c0c56e89eacc9fc313409"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/candidate-ordinary.result.json",
+          "bytes": 419,
+          "sha256": "e1eea250a1027a1235fdc5693b8899d3d05a08671c63e493852353c261c2f4bf",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e1eea250a1027a1235fdc5693b8899d3d05a08671c63e493852353c261c2f4bf.gz",
+            "bytes": 289,
+            "sha256": "cef11a20ee0624e3e203db241e3ada57afe33710e4c7e1f9af1a7420cae3825c"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/old-bounded-gated.log",
+          "bytes": 1355,
+          "sha256": "7cadb3336801bbb0304f146413a117d445aeb17d3d5de7f26cd90e40604dacf9",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/7cadb3336801bbb0304f146413a117d445aeb17d3d5de7f26cd90e40604dacf9.gz",
+            "bytes": 670,
+            "sha256": "08cb7bcbcced917d1e6456a15e5e875a59c282146de2b4e35d0d469914276379"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/candidate-bounded-gated.log",
+          "bytes": 2325,
+          "sha256": "8627a1383744bcfa6f78ff8db0699bea83cdcf78c4b55cfb8fbe85a8baea5233",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/8627a1383744bcfa6f78ff8db0699bea83cdcf78c4b55cfb8fbe85a8baea5233.gz",
+            "bytes": 1092,
+            "sha256": "350ed4917e63be0aa9b42cba3552a278c15c9e4b10140ae250478eaa601d9717"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/native-diff-independent.json",
+          "bytes": 2076,
+          "sha256": "d470a72229521a6448e367baa4ca7b2fe2cd4c349732677d47f75574715d10c5",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d470a72229521a6448e367baa4ca7b2fe2cd4c349732677d47f75574715d10c5.gz",
+            "bytes": 944,
+            "sha256": "49f7d6fef84d4df141d9aeb54b0a817fa2bc0bea024213cf4a7b87a4a1fa5ef0"
+          }
+        }
+      ]
+    },
+    {
+      "scope": "independent final commit metadata audit:624 evidence checks and19 document checks PASS; final report archival only follows this audit",
+      "records": [
+        {
+          "path": ".ruyi-runtime/m3-c11-commit-review-20261029/REPORT.json",
+          "bytes": 308061,
+          "sha256": "1be0856cb00c52fc5b10d447a867e1c371ea4384bf8afa99696de92d8f5412bf",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/1be0856cb00c52fc5b10d447a867e1c371ea4384bf8afa99696de92d8f5412bf.gz",
+            "bytes": 37108,
+            "sha256": "2396d440ef27e3f5ba4c64fb4f1910223bad2249fb8d99e0e30579a934a4656f"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-commit-review-20261029/REPORT.md",
+          "bytes": 1320,
+          "sha256": "e2bdf4baf726343251aec5b04918624270759852265bef7d3ceadcb444f6cea5",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e2bdf4baf726343251aec5b04918624270759852265bef7d3ceadcb444f6cea5.gz",
+            "bytes": 798,
+            "sha256": "3b962e34db760b057ef18ae31b8d185aa50ba5a58ec318adaac7008e02f6a55a"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-commit-review-20261029/PINS-final.json",
+          "bytes": 1318,
+          "sha256": "650405dea489723907b990d5d2d3964ee5a13417c402e1bec6b1ddad22c6fb1d",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/650405dea489723907b990d5d2d3964ee5a13417c402e1bec6b1ddad22c6fb1d.gz",
+            "bytes": 473,
+            "sha256": "ddca066fdd3704d401d6e04c2b4fdaa214cf520ed672cf12daf7343d03687683"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-commit-review-20261029/READONLY-BINDINGS.json",
+          "bytes": 269919,
+          "sha256": "95332d696b426edf1c46d1cf33fbee951b900e700303b9e3baafb9deee41a0cd",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/95332d696b426edf1c46d1cf33fbee951b900e700303b9e3baafb9deee41a0cd.gz",
+            "bytes": 45319,
+            "sha256": "a72cdc8e73faa71b11c80908dbd297783e9bf5abc8221c422dbd8985504b3778"
+          }
+        },
+        {
+          "path": ".ruyi-runtime/m3-c11-commit-review-20261029/DOCUMENT-VALIDATION-RECHECK.json",
+          "bytes": 8145,
+          "sha256": "1b1de40684e70d3d360b3342834fd51b7724b9ff48780ac2318ae2bd5aefe79c",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/1b1de40684e70d3d360b3342834fd51b7724b9ff48780ac2318ae2bd5aefe79c.gz",
+            "bytes": 2424,
+            "sha256": "f2515b9c7084d709b97fac22be7d13cc16c799c18c818ecdbda013ba288e59c4"
+          }
+        }
+      ]
+    }
+  ],
+  "validation": [
+    {
+      "id": "c11-marker-final-1",
+      "command": "node dev-harness/work-data-completed-intent-recovery.e2e.js",
+      "exitCode": 0,
+      "pass": 9,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-1.log",
+        "bytes": 1146,
+        "sha256": "c9d7b39588c3047d1c7e1a1879edee3c5ef2cd977dd8ab5426ef3c4244d45e50",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c9d7b39588c3047d1c7e1a1879edee3c5ef2cd977dd8ab5426ef3c4244d45e50.gz",
+          "bytes": 396,
+          "sha256": "8af150084ea53e8320f47e0edfd73240103d02bfd95d9a008c51982a9c5a8465"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-1.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Final150 bound execution inputs; enable/disable plus5 refusals.",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8",
+      "result": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8/evidence/result.json",
+        "bytes": 1396,
+        "sha256": "2730801f41db361e18c17e470e8472c7ab3264d63a8f049c8cb3547b7e7a51f4",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2730801f41db361e18c17e470e8472c7ab3264d63a8f049c8cb3547b7e7a51f4.gz",
+          "bytes": 505,
+          "sha256": "8d495334387791d6149929e87ff76c8197627f0990c7897f9b9d93cddfb48a41"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 150,
+        "productSource": true,
+        "executionInputSha256": "02b58018cd69d439fa5c6bc95ac47fa80d9946e3c4d3d3a1ee7a7dd5746908af"
+      },
+      "evidenceRecords": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8/evidence/events.jsonl",
+          "bytes": 105380,
+          "sha256": "332ea78db08cefe75752baddb8e89bd8ab98f07493958960b93db4e3647d1417",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/332ea78db08cefe75752baddb8e89bd8ab98f07493958960b93db4e3647d1417.gz",
+            "bytes": 18792,
+            "sha256": "0db748a65f52dcda86de2e8a9b42408d93e5b942a7e7e0d19be3c0e6a34cd6ab"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8/evidence/enable-doctor-proof.json",
+          "bytes": 77506,
+          "sha256": "9d02162260676f1f3cb48149485eddccc854093c10f609484fc70914dc44fd71",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/9d02162260676f1f3cb48149485eddccc854093c10f609484fc70914dc44fd71.gz",
+            "bytes": 7911,
+            "sha256": "5111c94f571825b242ad2ea755b72881c05b4520799fa33afda94739af84c9a8"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8/evidence/disable-doctor-proof.json",
+          "bytes": 123356,
+          "sha256": "628f52f1114e23a058d0ed2a2fe2da986be2535ad834e373b1fc23aee93db5c6",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/628f52f1114e23a058d0ed2a2fe2da986be2535ad834e373b1fc23aee93db5c6.gz",
+            "bytes": 11381,
+            "sha256": "71bad60e4fe9ab1aedf22d3b79fa7166453c070914a218224fc6a2d629c6c125"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8/evidence/enable-producer-constructed-owned.json",
+          "bytes": 2233,
+          "sha256": "0836f3f1a32d68422ac73fd8ba8a0cca0b1f8a9a7f9d48053ee234039aa5e85d",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/0836f3f1a32d68422ac73fd8ba8a0cca0b1f8a9a7f9d48053ee234039aa5e85d.gz",
+            "bytes": 751,
+            "sha256": "ca9d094da5b043958d3f87c9a1e92052c2ef1aec1eb00d61e203826691a663f6"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8/evidence/disable-producer-constructed-owned.json",
+          "bytes": 2242,
+          "sha256": "51c5080e06bbf05282a61b4927ce1942b4c5aa4609c1085b797de8703c3913e3",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/51c5080e06bbf05282a61b4927ce1942b4c5aa4609c1085b797de8703c3913e3.gz",
+            "bytes": 749,
+            "sha256": "fbbfcac4a82575fd5f29648ff9858a7e1db5ca1c46266b4a4b760e5ef3c8ab5c"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8/evidence/enable-producer-death.json",
+          "bytes": 1022,
+          "sha256": "2a7d78c86f5864f4b65d39369a49913caab17be3367b9d02df7f5d102cb0d9e2",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2a7d78c86f5864f4b65d39369a49913caab17be3367b9d02df7f5d102cb0d9e2.gz",
+            "bytes": 388,
+            "sha256": "1e7d5151e9461ab38b591a579557c31c6e5bc253cb16732fa87eb0e348564553"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hl3Yx8/evidence/disable-producer-death.json",
+          "bytes": 1023,
+          "sha256": "5617f0f448ff08831fe241403fe75f8b4a0a28b6327252bc30fbca183973fd1f",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/5617f0f448ff08831fe241403fe75f8b4a0a28b6327252bc30fbca183973fd1f.gz",
+            "bytes": 391,
+            "sha256": "3246ddcf7972eaa64cac88f86f820930a5311e990d8841b8dbfaca859e34ed9d"
+          }
+        }
+      ]
+    },
+    {
+      "id": "c11-marker-final-2",
+      "command": "node dev-harness/work-data-completed-intent-recovery.e2e.js",
+      "exitCode": 0,
+      "pass": 9,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-2.log",
+        "bytes": 1146,
+        "sha256": "13f058e79c5f3eed503ed655477696fcb571182de722b9c7e3042f93b97d2dc5",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13f058e79c5f3eed503ed655477696fcb571182de722b9c7e3042f93b97d2dc5.gz",
+          "bytes": 395,
+          "sha256": "b029f86dca09eb6f6487d3c79bddd9b4628119a0f64f4de3985660e7be19434f"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-2.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Same final150 inputs, second complete execution.",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh",
+      "result": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh/evidence/result.json",
+        "bytes": 1396,
+        "sha256": "2730801f41db361e18c17e470e8472c7ab3264d63a8f049c8cb3547b7e7a51f4",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2730801f41db361e18c17e470e8472c7ab3264d63a8f049c8cb3547b7e7a51f4.gz",
+          "bytes": 505,
+          "sha256": "8d495334387791d6149929e87ff76c8197627f0990c7897f9b9d93cddfb48a41"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 150,
+        "productSource": true,
+        "executionInputSha256": "02b58018cd69d439fa5c6bc95ac47fa80d9946e3c4d3d3a1ee7a7dd5746908af"
+      },
+      "evidenceRecords": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh/evidence/events.jsonl",
+          "bytes": 105386,
+          "sha256": "67f00a8e7fcc8456e56ad4009e8f9f5c0a95dc952e5e2b495f1b2cb26f1b4b00",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/67f00a8e7fcc8456e56ad4009e8f9f5c0a95dc952e5e2b495f1b2cb26f1b4b00.gz",
+            "bytes": 18777,
+            "sha256": "0c4394562ce1f00a8b83c3a2801bf91d1e53eb16a5600d2f9063d728929ccb0f"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh/evidence/enable-doctor-proof.json",
+          "bytes": 77502,
+          "sha256": "2325ccd1cf17f3c8b9555e839fac2042b32fbdc51af9a100ee31f11641526bb2",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2325ccd1cf17f3c8b9555e839fac2042b32fbdc51af9a100ee31f11641526bb2.gz",
+            "bytes": 7981,
+            "sha256": "af5d90cff0580cc6f2f2c7f447f708ac86a5f0b0efa7d25e228056937a079431"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh/evidence/disable-doctor-proof.json",
+          "bytes": 123361,
+          "sha256": "d077d9c3c7e69c1bd168b0ca55bb6d587cb3c38ae2feff95f8a790c71ab69a2d",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d077d9c3c7e69c1bd168b0ca55bb6d587cb3c38ae2feff95f8a790c71ab69a2d.gz",
+            "bytes": 11498,
+            "sha256": "0eea4824ad2687bda9cfebc21511e1dda86af66e1b52589d3dc23daef91fc6e9"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh/evidence/enable-producer-constructed-owned.json",
+          "bytes": 2233,
+          "sha256": "6daebdd4ee1db6d4f8ba36fbe749a7061e77dd657323c733081297e29da6f992",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/6daebdd4ee1db6d4f8ba36fbe749a7061e77dd657323c733081297e29da6f992.gz",
+            "bytes": 749,
+            "sha256": "229a79f54cddbde2b86357c7a998a95daaeaf06d541269fa0f0f3f545df18d0b"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh/evidence/disable-producer-constructed-owned.json",
+          "bytes": 2239,
+          "sha256": "79a3e78d5e3aff0fe8356d891dae19c23ed66a8df7592b4661db1cf63b12db46",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/79a3e78d5e3aff0fe8356d891dae19c23ed66a8df7592b4661db1cf63b12db46.gz",
+            "bytes": 750,
+            "sha256": "bf61571a838b4ff9c88efc4ce963ab42aeb0a51f90c7dc863047b9781844ca31"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh/evidence/enable-producer-death.json",
+          "bytes": 1022,
+          "sha256": "3b2de3903d876867b50a71e4e12266e12d8fc9a42a6dfe84053260191dc95798",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/3b2de3903d876867b50a71e4e12266e12d8fc9a42a6dfe84053260191dc95798.gz",
+            "bytes": 391,
+            "sha256": "703692a0c5aadc0e966b1c45d29d682ccd251358c4c7c1e6eabf43bb9424b4c8"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-6pakRh/evidence/disable-producer-death.json",
+          "bytes": 1023,
+          "sha256": "4c9519946465b9a9aba86426b9672397619030fa26293ba3d323554716d4ef94",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4c9519946465b9a9aba86426b9672397619030fa26293ba3d323554716d4ef94.gz",
+            "bytes": 392,
+            "sha256": "445ff0d13893f189dc351e65abc9ce7be26a543b910a3cf4b7c4c6fcf2a994f3"
+          }
+        }
+      ]
+    },
+    {
+      "id": "completed-marker-final",
+      "command": "node dev-harness/work-data-completed-claim-recovery.e2e.js",
+      "exitCode": 0,
+      "pass": 5,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/completed-marker-final.log",
+        "bytes": 707,
+        "sha256": "d67599817c9fe2a63cfaf0c325dd8626e3237b64a870985a9f11da0dd3e8ec9c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d67599817c9fe2a63cfaf0c325dd8626e3237b64a870985a9f11da0dd3e8ec9c.gz",
+          "bytes": 386,
+          "sha256": "4b3ba60b49c062ae280db66d24d44a34c50628652bc190d5a20601594caa6db6"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/completed-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Existing completed-owned recovery regression at current150 inputs.",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-WsLXBj",
+      "result": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-WsLXBj/evidence/result.json",
+        "bytes": 1017,
+        "sha256": "04d71b315e9040a2898b825881a3bb415571e7a1d66f9edcfd3c3192ceb1283d",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/04d71b315e9040a2898b825881a3bb415571e7a1d66f9edcfd3c3192ceb1283d.gz",
+          "bytes": 532,
+          "sha256": "7ac1ec0f222a3e25606f641c03383ff31a787ad9e727b0669ee70c0b999ff498"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 150,
+        "productSource": true,
+        "executionInputSha256": "0d0a1869881aa0752995e9a26efda966a85d31d9e145152c17c0043d0e3cc65d"
+      },
+      "evidenceRecords": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-completed-claim-WsLXBj/evidence/events.jsonl",
+          "bytes": 76571,
+          "sha256": "633e740996040b884a0c3eda4c397dceb0293114070cac322eb9a48f40e0f0b6",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/633e740996040b884a0c3eda4c397dceb0293114070cac322eb9a48f40e0f0b6.gz",
+            "bytes": 16445,
+            "sha256": "495b5cf97914bf7ac34667389a89f521d300bcec6827820ceeaec790658a2b56"
+          }
+        }
+      ]
+    },
+    {
+      "id": "source-marker-final",
+      "command": "node dev-harness/work-data-owned-source-recovery.e2e.js",
+      "exitCode": 0,
+      "pass": 14,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/source-marker-final.log",
+        "bytes": 1809,
+        "sha256": "94977cc482755a17a4c31f57d0494db59fd9dc4d429382b0b99a0a2d3b0cefb1",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/94977cc482755a17a4c31f57d0494db59fd9dc4d429382b0b99a0a2d3b0cefb1.gz",
+          "bytes": 570,
+          "sha256": "78f9632ddd447a180d2909e30121758fb5cc07f86915243358b6c509dfbb108a"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/source-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Existing conservative source recovery regression at current150 inputs.",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-0EWbQ2",
+      "result": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-0EWbQ2/evidence/result.json",
+        "bytes": 2121,
+        "sha256": "8bddd662672334f055b68e5f97b6fe1f448744014bfe4e7c2a49eda3a5140cdf",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/8bddd662672334f055b68e5f97b6fe1f448744014bfe4e7c2a49eda3a5140cdf.gz",
+          "bytes": 719,
+          "sha256": "4e9eeb731b72a8d9d18b57d400eb26fef12b87ac5458618ba0aaad94436375cc"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 150,
+        "productSource": true,
+        "executionInputSha256": "b221cf98903b031a4a4d973de1017ddc10b678563307b308a55e77fd7870ead6"
+      },
+      "evidenceRecords": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-owned-source-0EWbQ2/evidence/events.jsonl",
+          "bytes": 117252,
+          "sha256": "0fdf91d5bd7013a5626ce8a56d736fe8fda25b44fafa55156e53bbcff1e33ddf",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/0fdf91d5bd7013a5626ce8a56d736fe8fda25b44fafa55156e53bbcff1e33ddf.gz",
+            "bytes": 19726,
+            "sha256": "46baf87a3712126bce4e4e8f19ce756b04f73d03b92288b6853f8f453e69eaea"
+          }
+        }
+      ]
+    },
+    {
+      "id": "maintenance-final-quiet-1",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "exitCode": 0,
+      "pass": 14,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-1.log",
+        "bytes": 1406,
+        "sha256": "7a413543e587b8595b90064157c6ce7a5fecfc3ee1de22e493e55408b88650a4",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/7a413543e587b8595b90064157c6ce7a5fecfc3ee1de22e493e55408b88650a4.gz",
+          "bytes": 592,
+          "sha256": "8a57e2877d3825a2b44a816790a38a0df140f40e19ff99f1c5ffff52151705bd"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-1.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Maintenance146 inputs differ from C11 inputs; shared marker publisher is outside this binding.",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-6RY19m",
+      "result": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-6RY19m/evidence/result.json",
+        "bytes": 3362,
+        "sha256": "d7ea138dca2a78487b694b6028377e2de2296a083ac8d8ea5471c5dfbd79ac10",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d7ea138dca2a78487b694b6028377e2de2296a083ac8d8ea5471c5dfbd79ac10.gz",
+          "bytes": 1250,
+          "sha256": "bc416f0ca7f3e64bfe8aac39249de4bf666982caa866036a0799b744d71c649f"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "17edfb894984055088c2b48d8b2e526b545f8d3e50808d3dbdeb6a1e331fec9e"
+      },
+      "evidenceRecords": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-6RY19m/evidence/events.jsonl",
+          "bytes": 93269,
+          "sha256": "381a0e5f4c1f51ec13216f7741d3aad9f4505df930ea7d0d38f3ae98532e2950",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/381a0e5f4c1f51ec13216f7741d3aad9f4505df930ea7d0d38f3ae98532e2950.gz",
+            "bytes": 18009,
+            "sha256": "1b17ccab0360c0c4eb970b8204484a9fd17b4a6af8bed873636e98a15227b3de"
+          }
+        }
+      ]
+    },
+    {
+      "id": "maintenance-final-quiet-2",
+      "command": "node dev-harness/work-data-production-maintenance.e2e.js",
+      "exitCode": 0,
+      "pass": 14,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-2.log",
+        "bytes": 1406,
+        "sha256": "300a190528058d6e8f9a7806ae97a8a7f85ef7ff2607f2a118b78823b33dae41",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/300a190528058d6e8f9a7806ae97a8a7f85ef7ff2607f2a118b78823b33dae41.gz",
+          "bytes": 591,
+          "sha256": "ef076f311cc6c105a09df2b06cda05e8791079bfa8a4441cde847938a5671a6b"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-2.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Same maintenance146 inputs, second complete execution; later marker-maintenance-recheck preserves this binding.",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-cY0ZO2",
+      "result": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-cY0ZO2/evidence/result.json",
+        "bytes": 3362,
+        "sha256": "c967a8b1c68c46b26ce27ff0d154086d3fd077c30b9d4ff8da95da5f668961ba",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c967a8b1c68c46b26ce27ff0d154086d3fd077c30b9d4ff8da95da5f668961ba.gz",
+          "bytes": 1250,
+          "sha256": "96b631a0902d57e4a1398023c2a6c89713b53a0cfc1996246cb640109b01d901"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "17edfb894984055088c2b48d8b2e526b545f8d3e50808d3dbdeb6a1e331fec9e"
+      },
+      "evidenceRecords": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-cY0ZO2/evidence/events.jsonl",
+          "bytes": 93273,
+          "sha256": "48a98a1e219b90f911f457a39e01531ffc71f1ed364a912381d04f12eff95ec4",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/48a98a1e219b90f911f457a39e01531ffc71f1ed364a912381d04f12eff95ec4.gz",
+            "bytes": 18023,
+            "sha256": "b62cb15d7f3deb2ecbea2e31ba77e7a61ffec4e25b7c06e04e675dc211898b49"
+          }
+        }
+      ]
+    },
+    {
+      "id": "restore-marker-final",
+      "command": "node dev-harness/work-data-production-restore.e2e.js",
+      "exitCode": 0,
+      "pass": 26,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/restore-marker-final.log",
+        "bytes": 3025,
+        "sha256": "60729c6ea53697cfe1cc7810f62cb27c2bc3dd4b063cd3414a324d51686b119e",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/60729c6ea53697cfe1cc7810f62cb27c2bc3dd4b063cd3414a324d51686b119e.gz",
+          "bytes": 868,
+          "sha256": "f3c5b2b5bb9f002dc708f0db9c58a3b765363f12b537c038e5511beaf9dd2671"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/restore-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Original real native restore/activation/normal boot assertions and existing harness boundaries.",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-l8d7YT",
+      "result": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-l8d7YT/evidence/result.json",
+        "bytes": 21173,
+        "sha256": "e284d72dd2b9cc558e83953587b4458dcd0e1cd732106672d3550592aa85045c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e284d72dd2b9cc558e83953587b4458dcd0e1cd732106672d3550592aa85045c.gz",
+          "bytes": 4283,
+          "sha256": "c0b01b8f7cfcb8126bd3d96f3d4a7f6e2a3d171136489d2a4e8a3ba19e05edb4"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "17edfb894984055088c2b48d8b2e526b545f8d3e50808d3dbdeb6a1e331fec9e"
+      },
+      "evidenceRecords": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-restore-l8d7YT/evidence/events.jsonl",
+          "bytes": 147678,
+          "sha256": "bb66a4d0221636ae797d055c5b897bf1793a259502b870a51390bd78ac707b71",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/bb66a4d0221636ae797d055c5b897bf1793a259502b870a51390bd78ac707b71.gz",
+            "bytes": 24877,
+            "sha256": "0c5f6bd1a6a32e2cd14d2740ba4cbaf2c6a796349d77b66f5844c50e26dbff59"
+          }
+        }
+      ]
+    },
+    {
+      "id": "upload-marker-final",
+      "command": "node dev-harness/work-data-production-upload.e2e.js",
+      "exitCode": 0,
+      "pass": 20,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/upload-marker-final.log",
+        "bytes": 1998,
+        "sha256": "233668bd781352c516eb4d0ed27e518a804d011e298431569551c56c165e793a",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/233668bd781352c516eb4d0ed27e518a804d011e298431569551c56c165e793a.gz",
+          "bytes": 722,
+          "sha256": "eb36771e741f6b767e9c7c7cc036e86f7e42ebb27bcf81954ea6b3a0a7cdca4b"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/upload-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Original real serve/upload and refusal assertions.",
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-spFPZC",
+      "result": {
+        "path": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-spFPZC/evidence/result.json",
+        "bytes": 5153,
+        "sha256": "b6d5b5022b01a09c85e0236d58c19ad2fb214c24d3cda68379c50df2b0c5792c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/b6d5b5022b01a09c85e0236d58c19ad2fb214c24d3cda68379c50df2b0c5792c.gz",
+          "bytes": 1602,
+          "sha256": "be8ecee402fa2cad85afc54196f146c66bfe3469dbdd7aafd676699887c5aaeb"
+        }
+      },
+      "inputProof": {
+        "sameInputs": true,
+        "files": 146,
+        "productSource": true,
+        "executionInputSha256": "17edfb894984055088c2b48d8b2e526b545f8d3e50808d3dbdeb6a1e331fec9e"
+      },
+      "evidenceRecords": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-full-serve-upload-spFPZC/evidence/events.jsonl",
+          "bytes": 74137,
+          "sha256": "ea805f7e9b34835ce5adac2d6946cc1374ac0c32cda09bca29dcf18917801ad2",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ea805f7e9b34835ce5adac2d6946cc1374ac0c32cda09bca29dcf18917801ad2.gz",
+            "bytes": 17183,
+            "sha256": "543777f7169c8e825cae0d48c92a92a8abfe91414f83008a87d89026886fc0b6"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cold-marker-final",
+      "command": "node dev-harness/work-data-cold-operations.e2e.js",
+      "exitCode": 0,
+      "pass": 4,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/cold-marker-final.log",
+        "bytes": 399,
+        "sha256": "d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af.gz",
+          "bytes": 258,
+          "sha256": "2c4d354eaadd7d33ba5405f0d9cce00b8000caa87f38a5d92d94454fec4f259c"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/cold-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Original cold/native verification boundaries."
+    },
+    {
+      "id": "runtime-marker-final",
+      "command": "node dev-harness/work-data-maintenance-runtime.e2e.js",
+      "exitCode": 0,
+      "pass": 2,
+      "allPass": true,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/runtime-marker-final.log",
+        "bytes": 1073,
+        "sha256": "42aaaa02d92be5bc65c511450f75f358cc94ce0fe82a0abb5e5d7d2fda48084c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/42aaaa02d92be5bc65c511450f75f358cc94ce0fe82a0abb5e5d7d2fda48084c.gz",
+          "bytes": 495,
+          "sha256": "36c7889b05707add20d9fd428f7bc65a32045a7a3bcc623de4732299f87563bb"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/runtime-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "limit": "Top-level PASS count is not a separate count of every subcase."
+    }
+  ],
+  "firstFailures": [
+    {
+      "id": "c11-1",
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-xzcZ0X",
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-1.log",
+        "bytes": 203,
+        "sha256": "a793e6a430adb1be2136e35efa78cdeb588a904499c4a2ed229e045d36e513a6",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/a793e6a430adb1be2136e35efa78cdeb588a904499c4a2ed229e045d36e513a6.gz",
+          "bytes": 197,
+          "sha256": "6e0464b3d77b5c7164725c3180c023081efdba91c9a71f141a9cd7dcf94435ac"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-1.exit",
+        "bytes": 3,
+        "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04.gz",
+          "bytes": 23,
+          "sha256": "baf0683e1103b94b68d94e8a12d7e144b4e0571e9948de7fb0d85103b045460e"
+        }
+      },
+      "detail": "Missing-key case returned raw ENOENT instead of typed work_data error; actual first3 refusals passed before failure. Fixed typed error wrapping with original cause and immutable late Hooks (also removed newly discovered forward graph debt).",
+      "artifacts": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-xzcZ0X/evidence/failure-summary.json",
+          "bytes": 141,
+          "sha256": "85d2b40c4bdfff181dc4ef21b2555546b201197d89e8787d53693a6ac051c5a5",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/85d2b40c4bdfff181dc4ef21b2555546b201197d89e8787d53693a6ac051c5a5.gz",
+            "bytes": 138,
+            "sha256": "875715e0c3927df8f5ae7624b1675baadc2a9db80d1bdbae40da1f66f7c3d886"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-xzcZ0X/evidence/events.jsonl",
+          "bytes": 66093,
+          "sha256": "2e3e5ad4504170e925b6c6d47f663a31379bb5fe55f7970fc20c476c5306d0f0",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2e3e5ad4504170e925b6c6d47f663a31379bb5fe55f7970fc20c476c5306d0f0.gz",
+            "bytes": 15351,
+            "sha256": "49c1fa5ef0a24febf0074697a95c2334b00de88bfe1439cb3dd85c240b68477d"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-xzcZ0X/evidence/c11-missing-key-stderr.log",
+          "bytes": 768,
+          "sha256": "0907162df1f1fbb8855049d59a43a9ab911e392a53071df2423a676008c0c5c0",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/0907162df1f1fbb8855049d59a43a9ab911e392a53071df2423a676008c0c5c0.gz",
+            "bytes": 346,
+            "sha256": "5b90b71730e9295d6a56699ecefd2dc8e4baf18cec650a5075f9352219427461"
+          }
+        }
+      ]
+    },
+    {
+      "id": "maintenance-regression",
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-mP5oMQ",
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-regression.log",
+        "bytes": 174,
+        "sha256": "f803e21991721f7f8d61363852d37968ab3b425ffa038c293895a6a00df1e60f",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f803e21991721f7f8d61363852d37968ab3b425ffa038c293895a6a00df1e60f.gz",
+          "bytes": 157,
+          "sha256": "df2af47bb9beb9d59ebe2479ef097e4a8a895ef6615244d51a5f13347f04415d"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-regression.exit",
+        "bytes": 3,
+        "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04.gz",
+          "bytes": 23,
+          "sha256": "baf0683e1103b94b68d94e8a12d7e144b4e0571e9948de7fb0d85103b045460e"
+        }
+      },
+      "detail": "Strict package snapshot encountered ENOENT; exact path/producer not captured. Original startup promise was already tracked; harness now requires genuine maintenance quiet in remaining original deadline and records first error only. Exact old cause unproven.",
+      "artifacts": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-mP5oMQ/evidence/failure-summary.json",
+          "bytes": 2777,
+          "sha256": "8ea3a3398afe435367858566a9770d24126bb09e9bdefe904ad254a2a1d087bc",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/8ea3a3398afe435367858566a9770d24126bb09e9bdefe904ad254a2a1d087bc.gz",
+            "bytes": 762,
+            "sha256": "28b31f26b5af79f311a69a162a20e90914c4f70f374857addc1cc712472c421d"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-production-maintenance-mP5oMQ/evidence/events.jsonl",
+          "bytes": 86136,
+          "sha256": "b997634bed033a23b09faad13eec66752cb9fc5c8d7475c1f68de9585231b753",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/b997634bed033a23b09faad13eec66752cb9fc5c8d7475c1f68de9585231b753.gz",
+            "bytes": 16823,
+            "sha256": "adcaad2643e1f2c14b18f561d4ad7b7862ce20cd6a1a9ea37b6a242830cd4a36"
+          }
+        }
+      ]
+    },
+    {
+      "id": "c11-final-quiet-2",
+      "exitCode": 1,
+      "root": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hYbI3F",
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-2.log",
+        "bytes": 224,
+        "sha256": "6c83e3dd0bd5e826693dd1fa2f60bfdd682dc9a5c1688a2af343a743314d5594",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/6c83e3dd0bd5e826693dd1fa2f60bfdd682dc9a5c1688a2af343a743314d5594.gz",
+          "bytes": 210,
+          "sha256": "5eff3f75158f6d91d2f63fd1d7ff37b8c17f5293f65961e1d2b0f6f89b878142"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-2.exit",
+        "bytes": 3,
+        "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04.gz",
+          "bytes": 23,
+          "sha256": "baf0683e1103b94b68d94e8a12d7e144b4e0571e9948de7fb0d85103b045460e"
+        }
+      },
+      "detail": "Actual producer run failed about127ms after spawn; not the30s timeout. Ready marker later existed, original failed read bytes unavailable. Actual old publisher/waitJson VM interleaving reproduced partial JSON. Fixture-only stage/fsync/close/atomic no-clobber hardlink publisher fixes that proved race without retrying parse or altering assertions. Exact old cause unproven.",
+      "artifacts": [
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hYbI3F/evidence/failure-summary.json",
+          "bytes": 162,
+          "sha256": "4c2ee11b7a6b038c5403ecf6f2ea8c047cf536c2954887899e78d23a91c98f79",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4c2ee11b7a6b038c5403ecf6f2ea8c047cf536c2954887899e78d23a91c98f79.gz",
+            "bytes": 151,
+            "sha256": "ab96968a509a9a85c1c10670353bdbda581a08b9325ed768d42c4c6fe0f13ff9"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hYbI3F/evidence/events.jsonl",
+          "bytes": 86957,
+          "sha256": "4726e08e4bf76499bc1539a248c8b2eea377abd0b5fce3e53b58199bf986ff3a",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4726e08e4bf76499bc1539a248c8b2eea377abd0b5fce3e53b58199bf986ff3a.gz",
+            "bytes": 17508,
+            "sha256": "900007f84881ff1c18932f12111a4f463c26b0563bf7406122a29412b0cbaa1a"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hYbI3F/evidence/c11-missing-key-stderr.log",
+          "bytes": 647,
+          "sha256": "1a786261dcbb41bac9b62669b392f79d2a57c2513e4e1df5af789c16c23a7de4",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/1a786261dcbb41bac9b62669b392f79d2a57c2513e4e1df5af789c16c23a7de4.gz",
+            "bytes": 224,
+            "sha256": "d28e21da6aabb0a105b4baf737516aadff794657b6325b79ddace778d8694bb9"
+          }
+        },
+        {
+          "path": "C:/Users/87179/AppData/Local/Temp/ruyi-c11-recovery-hYbI3F/evidence/disable-producer-stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "archive": {
+            "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+            "bytes": 20,
+            "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+          }
+        }
+      ]
+    }
+  ],
+  "cohortRecords": [
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/PLAN.txt",
+      "bytes": 1170,
+      "sha256": "cc1ed6f93c56911c61d9f80b84872297c1ec4836c339f6321e2d797ab05508c4",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/cc1ed6f93c56911c61d9f80b84872297c1ec4836c339f6321e2d797ab05508c4.gz",
+        "bytes": 655,
+        "sha256": "c043788162d5d57b38ee34dcce88da938512d65ef3ff7a099642b438cdd11c55"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/ROOT-PREFLIGHT-OBSERVATIONS.json",
+      "bytes": 1700,
+      "sha256": "ac8a1e2480698b95d03173195e214b5d23418bc63fd9073c92ade8ca78b63222",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ac8a1e2480698b95d03173195e214b5d23418bc63fd9073c92ade8ca78b63222.gz",
+        "bytes": 923,
+        "sha256": "0e47a6844b2147691006190d6ba90589360eb4e83b51d2f560979e55f0ff5d3c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/audit-maintenance-residual-first-red.cjs",
+      "bytes": 3842,
+      "sha256": "9cf41bea915301fa5b02e29af035f06610c578e3174fb9e045319ef512751a7f",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/9cf41bea915301fa5b02e29af035f06610c578e3174fb9e045319ef512751a7f.gz",
+        "bytes": 1728,
+        "sha256": "77e9170dba92eb940e9a8a61269949394302821a0de08de01e8627063551f5fb"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/audit-maintenance-residual.cjs",
+      "bytes": 3841,
+      "sha256": "a69def3d8a248bcb9be688aab6fbb2f998317f3de688e111be70cc791143d6f4",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/a69def3d8a248bcb9be688aab6fbb2f998317f3de688e111be70cc791143d6f4.gz",
+        "bytes": 1727,
+        "sha256": "320848084dd91cdb511d2b883324230f8dbd79e69200ecd6012dbf7b11960e3e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/bind-after-1.json",
+      "bytes": 36848,
+      "sha256": "d0dc2ae529dd028bdab46205868b1fac01ebf93c9944b42ad617d1f7c77071a9",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d0dc2ae529dd028bdab46205868b1fac01ebf93c9944b42ad617d1f7c77071a9.gz",
+        "bytes": 8360,
+        "sha256": "c5289aa8e68376428dd4e363cb0895a9e69caf8de3fc68fac466b07fb55b45dc"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/bind-after-fixed-1.json",
+      "bytes": 36848,
+      "sha256": "95e3493187e2b595bcf7a01d5b980eb839d297ad35534c21ef3ff9e0ddeef37d",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/95e3493187e2b595bcf7a01d5b980eb839d297ad35534c21ef3ff9e0ddeef37d.gz",
+        "bytes": 8356,
+        "sha256": "f1886fef1fea0f5a7283ca80e958e2695fc17f828c45e7855863485ff3ccabe4"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/bind-after-fixed-2.json",
+      "bytes": 36848,
+      "sha256": "95e3493187e2b595bcf7a01d5b980eb839d297ad35534c21ef3ff9e0ddeef37d",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/95e3493187e2b595bcf7a01d5b980eb839d297ad35534c21ef3ff9e0ddeef37d.gz",
+        "bytes": 8356,
+        "sha256": "f1886fef1fea0f5a7283ca80e958e2695fc17f828c45e7855863485ff3ccabe4"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/bind-before-1.json",
+      "bytes": 36848,
+      "sha256": "d0dc2ae529dd028bdab46205868b1fac01ebf93c9944b42ad617d1f7c77071a9",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d0dc2ae529dd028bdab46205868b1fac01ebf93c9944b42ad617d1f7c77071a9.gz",
+        "bytes": 8360,
+        "sha256": "c5289aa8e68376428dd4e363cb0895a9e69caf8de3fc68fac466b07fb55b45dc"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/bind-before-fixed-1.json",
+      "bytes": 36848,
+      "sha256": "95e3493187e2b595bcf7a01d5b980eb839d297ad35534c21ef3ff9e0ddeef37d",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/95e3493187e2b595bcf7a01d5b980eb839d297ad35534c21ef3ff9e0ddeef37d.gz",
+        "bytes": 8356,
+        "sha256": "f1886fef1fea0f5a7283ca80e958e2695fc17f828c45e7855863485ff3ccabe4"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/bind-before-fixed-2.json",
+      "bytes": 36848,
+      "sha256": "95e3493187e2b595bcf7a01d5b980eb839d297ad35534c21ef3ff9e0ddeef37d",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/95e3493187e2b595bcf7a01d5b980eb839d297ad35534c21ef3ff9e0ddeef37d.gz",
+        "bytes": 8356,
+        "sha256": "f1886fef1fea0f5a7283ca80e958e2695fc17f828c45e7855863485ff3ccabe4"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-1.exit",
+      "bytes": 3,
+      "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04.gz",
+        "bytes": 23,
+        "sha256": "baf0683e1103b94b68d94e8a12d7e144b4e0571e9948de7fb0d85103b045460e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-1.log",
+      "bytes": 203,
+      "sha256": "a793e6a430adb1be2136e35efa78cdeb588a904499c4a2ed229e045d36e513a6",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/a793e6a430adb1be2136e35efa78cdeb588a904499c4a2ed229e045d36e513a6.gz",
+        "bytes": 197,
+        "sha256": "6e0464b3d77b5c7164725c3180c023081efdba91c9a71f141a9cd7dcf94435ac"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-1-after.json",
+      "bytes": 36848,
+      "sha256": "c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830.gz",
+        "bytes": 8354,
+        "sha256": "067c2d923ce602e75b088b9ed1bde21da3f4a5e82d53682e1fd18770c680cb1c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-1-before.json",
+      "bytes": 36848,
+      "sha256": "c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830.gz",
+        "bytes": 8354,
+        "sha256": "067c2d923ce602e75b088b9ed1bde21da3f4a5e82d53682e1fd18770c680cb1c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-1.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-1.log",
+      "bytes": 1146,
+      "sha256": "740128b08095bfd35e9f64a3a3fc096d147c966b054271734689157c00e47c33",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/740128b08095bfd35e9f64a3a3fc096d147c966b054271734689157c00e47c33.gz",
+        "bytes": 397,
+        "sha256": "50e78ec5cb5244c43d32529bcad79adada756896a628017fd09a7eab25ad9a9c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-2-after-failure.json",
+      "bytes": 36848,
+      "sha256": "c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830.gz",
+        "bytes": 8354,
+        "sha256": "067c2d923ce602e75b088b9ed1bde21da3f4a5e82d53682e1fd18770c680cb1c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-2-before.json",
+      "bytes": 36848,
+      "sha256": "c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830.gz",
+        "bytes": 8354,
+        "sha256": "067c2d923ce602e75b088b9ed1bde21da3f4a5e82d53682e1fd18770c680cb1c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-2.exit",
+      "bytes": 3,
+      "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04.gz",
+        "bytes": 23,
+        "sha256": "baf0683e1103b94b68d94e8a12d7e144b4e0571e9948de7fb0d85103b045460e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-final-quiet-2.log",
+      "bytes": 224,
+      "sha256": "6c83e3dd0bd5e826693dd1fa2f60bfdd682dc9a5c1688a2af343a743314d5594",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/6c83e3dd0bd5e826693dd1fa2f60bfdd682dc9a5c1688a2af343a743314d5594.gz",
+        "bytes": 210,
+        "sha256": "5eff3f75158f6d91d2f63fd1d7ff37b8c17f5293f65961e1d2b0f6f89b878142"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-fixed-1.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-fixed-1.log",
+      "bytes": 1146,
+      "sha256": "bdfe11f164c934c441b76508531daa308724e46df90cc612ea02a42105832353",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/bdfe11f164c934c441b76508531daa308724e46df90cc612ea02a42105832353.gz",
+        "bytes": 396,
+        "sha256": "5ebe4c4f5af0a2c1750e3da8d2e5e02005d893fd81945ea25eee0f3ac2277f97"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-fixed-2.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-fixed-2.log",
+      "bytes": 1146,
+      "sha256": "511391424d4706689cb299d7ef1405e452bfffce13c446534ca9445e7e0ab689",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/511391424d4706689cb299d7ef1405e452bfffce13c446534ca9445e7e0ab689.gz",
+        "bytes": 395,
+        "sha256": "0f2dfc6248a603cad9cfb4e1cc42453241705c4540a6fe11eabbcaff138e4103"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-1-after.json",
+      "bytes": 37091,
+      "sha256": "57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20.gz",
+        "bytes": 8400,
+        "sha256": "d1e01d55c3e1341366c07be6265e68c3baeb94d87864ad971af9981d1fc52b10"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-1-before.json",
+      "bytes": 37091,
+      "sha256": "57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20.gz",
+        "bytes": 8400,
+        "sha256": "d1e01d55c3e1341366c07be6265e68c3baeb94d87864ad971af9981d1fc52b10"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-1.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-1.log",
+      "bytes": 1146,
+      "sha256": "c9d7b39588c3047d1c7e1a1879edee3c5ef2cd977dd8ab5426ef3c4244d45e50",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c9d7b39588c3047d1c7e1a1879edee3c5ef2cd977dd8ab5426ef3c4244d45e50.gz",
+        "bytes": 396,
+        "sha256": "8af150084ea53e8320f47e0edfd73240103d02bfd95d9a008c51982a9c5a8465"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-2-after.json",
+      "bytes": 37091,
+      "sha256": "57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20.gz",
+        "bytes": 8400,
+        "sha256": "d1e01d55c3e1341366c07be6265e68c3baeb94d87864ad971af9981d1fc52b10"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-2-before.json",
+      "bytes": 37091,
+      "sha256": "57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20.gz",
+        "bytes": 8400,
+        "sha256": "d1e01d55c3e1341366c07be6265e68c3baeb94d87864ad971af9981d1fc52b10"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-2.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/c11-marker-final-2.log",
+      "bytes": 1146,
+      "sha256": "13f058e79c5f3eed503ed655477696fcb571182de722b9c7e3042f93b97d2dc5",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13f058e79c5f3eed503ed655477696fcb571182de722b9c7e3042f93b97d2dc5.gz",
+        "bytes": 395,
+        "sha256": "b029f86dca09eb6f6487d3c79bddd9b4628119a0f64f4de3985660e7be19434f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/cold-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/cold-marker-final.log",
+      "bytes": 399,
+      "sha256": "d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d0daa8076336fbfe43ac788745ac623896940ce1a4f2c0d07cbb718317af34af.gz",
+        "bytes": 258,
+        "sha256": "2c4d354eaadd7d33ba5405f0d9cce00b8000caa87f38a5d92d94454fec4f259c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/collector-all-gates-green.log",
+      "bytes": 12103,
+      "sha256": "4dd621a426adc82a44118a370dd7079c076aebd5a18dd837d9cee665323df365",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4dd621a426adc82a44118a370dd7079c076aebd5a18dd837d9cee665323df365.gz",
+        "bytes": 3139,
+        "sha256": "705d2bc821e1e78b9e95d4ff025d5a8bcdde05b0d436191591ae8413d11cf3eb"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/collector-fast3-green.log",
+      "bytes": 9574,
+      "sha256": "480cba0faa8bc813d6358f0a463d2fe2f8bc435200cb8a7fef8b81464371007a",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/480cba0faa8bc813d6358f0a463d2fe2f8bc435200cb8a7fef8b81464371007a.gz",
+        "bytes": 2726,
+        "sha256": "8b5838721f85a90d09de1337e1dd94b84de269463c1e66a7df88652a715cd40c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/collector-final-review.log",
+      "bytes": 1918,
+      "sha256": "ae76a96867bf906cfba629c567d8be12969fbf0a3256bfea38d866bf66b80bfe",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ae76a96867bf906cfba629c567d8be12969fbf0a3256bfea38d866bf66b80bfe.gz",
+        "bytes": 535,
+        "sha256": "0b0297d78592c471413786ff2c1ad76125724b02549ba580eeb723407fc40e24"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/collector-first-fast-red.log",
+      "bytes": 3525,
+      "sha256": "eb034b90efe5c85c4397b8b484235ba4d8aeefe99317f19ab984b86df0830bc8",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/eb034b90efe5c85c4397b8b484235ba4d8aeefe99317f19ab984b86df0830bc8.gz",
+        "bytes": 1131,
+        "sha256": "bc394f72c57436a248fa79f2dbfcfe3ff0551933fe7f184e21d04b6f0de9b7a7"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/collector-index-fixed.log",
+      "bytes": 6639,
+      "sha256": "96c71a48e08d6b88953136c26a0eba359a893752b57e2e2da3c835a7232fb3b2",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/96c71a48e08d6b88953136c26a0eba359a893752b57e2e2da3c835a7232fb3b2.gz",
+        "bytes": 1969,
+        "sha256": "ee72b1660f145557b09a2e36bf45577e77ac2195858587b4bfa2804dd48aeeb3"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/collector-metadata-doc-group-fixed.log",
+      "bytes": 12143,
+      "sha256": "d246e9d88f06da137e4fd10aece5e7cf35a5516503dc8541d5da252476c1707e",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d246e9d88f06da137e4fd10aece5e7cf35a5516503dc8541d5da252476c1707e.gz",
+        "bytes": 3160,
+        "sha256": "b50f32d6b9882b1828a9b4ade856a4dca1dd8f04a41c0c724c9f295effcd0592"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/collector-precommit-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+        "bytes": 20,
+        "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/completed-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/completed-marker-final.log",
+      "bytes": 707,
+      "sha256": "d67599817c9fe2a63cfaf0c325dd8626e3237b64a870985a9f11da0dd3e8ec9c",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d67599817c9fe2a63cfaf0c325dd8626e3237b64a870985a9f11da0dd3e8ec9c.gz",
+        "bytes": 386,
+        "sha256": "4b3ba60b49c062ae280db66d24d44a34c50628652bc190d5a20601594caa6db6"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/completed-regression.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/completed-regression.log",
+      "bytes": 707,
+      "sha256": "7a09ad71e5fcc58842465a0c962332de968d2a1ae760f4ee22465ee0413dc3d0",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/7a09ad71e5fcc58842465a0c962332de968d2a1ae760f4ee22465ee0413dc3d0.gz",
+        "bytes": 386,
+        "sha256": "9e20c3758b7de874ea6f531e1e5debaed13c7935e417806691c509ef21667134"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/control16.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/control16.log",
+      "bytes": 1826,
+      "sha256": "3d24ab44a27af2e283fdc0fee3c7d2c9c59d84550a31aee397bb6fbb1fb4304b",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/3d24ab44a27af2e283fdc0fee3c7d2c9c59d84550a31aee397bb6fbb1fb4304b.gz",
+        "bytes": 903,
+        "sha256": "9ea0f75e4aa362649177fabaecfb8155be5a0cce41207f359545c8025a65fe0d"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/current-inputs.json",
+      "bytes": 3317,
+      "sha256": "4de0d81d013425212f18957700b83908d09ba46c9a0fa1f592acc058c1a363b6",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4de0d81d013425212f18957700b83908d09ba46c9a0fa1f592acc058c1a363b6.gz",
+        "bytes": 834,
+        "sha256": "e0b40938488bbd3bb53771ea8ef73f51a0334622e2f2bf519eafe5397ce5ede4"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/egress-before-classification.json",
+      "bytes": 27902,
+      "sha256": "74ba37a8c7faf63f0ec04d081b0d1f79b2d8d351c203f00bc56666f90c5b799e",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/74ba37a8c7faf63f0ec04d081b0d1f79b2d8d351c203f00bc56666f90c5b799e.gz",
+        "bytes": 2350,
+        "sha256": "7fdc957bee8f566a053b4377b08cacbacf2635003b35f638a79c4ee0fffc3729"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/egress-delta.json",
+      "bytes": 2133,
+      "sha256": "d6a146920955798226549b4a1cc5b03e27f4b0f10f6a6b210acee951215d8ee1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d6a146920955798226549b4a1cc5b03e27f4b0f10f6a6b210acee951215d8ee1.gz",
+        "bytes": 744,
+        "sha256": "c97dab515ca7f41f869172c3d07251d54bf41604f14894f507eca61ad9412a6c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/eol-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/eol-marker-final.log",
+      "bytes": 263,
+      "sha256": "afd6a48a43db893b3fbcaa1750a3acbcf5db1fb396304a4dbac68229ed45bd6c",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/afd6a48a43db893b3fbcaa1750a3acbcf5db1fb396304a4dbac68229ed45bd6c.gz",
+        "bytes": 169,
+        "sha256": "3946b16cd085ebc8cab88fe6dc866b1d574e81af889745d88069c70565ac24b3"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/fixed-10pins.json",
+      "bytes": 1916,
+      "sha256": "5aa962dbfbf16f23c38bfceb2b518f294b5986433faeabf84c59d3be02f4d58a",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/5aa962dbfbf16f23c38bfceb2b518f294b5986433faeabf84c59d3be02f4d58a.gz",
+        "bytes": 716,
+        "sha256": "f66362bc318248b83c1b248b05358b4e2ae8da96fc88e501db3e17aff3355aab"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-events.json",
+      "bytes": 482,
+      "sha256": "3b7280f38a930af70cbe78b61222449979b036cac5131a538c5419f5afaeae65",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/3b7280f38a930af70cbe78b61222449979b036cac5131a538c5419f5afaeae65.gz",
+        "bytes": 190,
+        "sha256": "9f44c2ecc5e6b8d0cda3bcd47483982b2b73be76e4091457734f6c3346399201"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-inputs-after.json",
+      "bytes": 2424244,
+      "sha256": "5901179c32da2d51229a3ac3cb3e5a962514daf626562b3b2c81967ee6c2f482",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/5901179c32da2d51229a3ac3cb3e5a962514daf626562b3b2c81967ee6c2f482.gz",
+        "bytes": 567141,
+        "sha256": "93f6865edce3d90b5f4d47e3e8487e8ed85d1633c6d8f6d697b6f028e94dfa1c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-inputs-before.json",
+      "bytes": 2424353,
+      "sha256": "5b6fc683496d5d949ffdaf05dd1851987df5362034bd42f3f2bd6135a20c7b44",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/5b6fc683496d5d949ffdaf05dd1851987df5362034bd42f3f2bd6135a20c7b44.gz",
+        "bytes": 567230,
+        "sha256": "40cac21dd1613fe16b789c6a37f7f5951597a042e6efa2bb334a119820d8fc86"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-memory-before.json",
+      "bytes": 104,
+      "sha256": "02ae183192b205263540672cba513d38fe1faa97d17617835fa0798e5f6b0412",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/02ae183192b205263540672cba513d38fe1faa97d17617835fa0798e5f6b0412.gz",
+        "bytes": 105,
+        "sha256": "430ec1306ca65c9d44b857533cd1fd8087098b49f187d98aa284384a71cce50c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-monitor-exit.json",
+      "bytes": 36,
+      "sha256": "42eeff8fd6f8ac72fb1b96e12674e8d56848bf9d8620abe47cb03fef992c6a83",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/42eeff8fd6f8ac72fb1b96e12674e8d56848bf9d8620abe47cb03fef992c6a83.gz",
+        "bytes": 56,
+        "sha256": "ca58520743f9964ef272ca783fa783b23b9794a77eb9b54cf78e5978e96be99e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-runner.cjs",
+      "bytes": 2508,
+      "sha256": "f88cae261ce71fed7e55425be321d25c04f0d5952a8332639988cd7aaec13b77",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f88cae261ce71fed7e55425be321d25c04f0d5952a8332639988cd7aaec13b77.gz",
+        "bytes": 1059,
+        "sha256": "4c2ab70528c0609a88a722f8f5b0f6aeffb94698e0aec92d7bc7c8b4d53e2ea6"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-sampler.ps1",
+      "bytes": 1375,
+      "sha256": "11dd6eb4704c3bac1af70ed42914e4a267024a677b042aea63206d53c37de89f",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/11dd6eb4704c3bac1af70ed42914e4a267024a677b042aea63206d53c37de89f.gz",
+        "bytes": 651,
+        "sha256": "146035fc7df07731c356cc445ed365b8665a1f0d914ee68a4fb70fc1ec2a9bd3"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-events.json",
+      "bytes": 478,
+      "sha256": "20d6072bf82ca7ea0685758dbc121f37584218f9286a1d76f5ead973f57255bc",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/20d6072bf82ca7ea0685758dbc121f37584218f9286a1d76f5ead973f57255bc.gz",
+        "bytes": 192,
+        "sha256": "dbd8e3080858870da87abfca953bf9c7740027d88a3adee080c1f6c064073966"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-inputs-after.json",
+      "bytes": 56349,
+      "sha256": "13db171d10235b09066f7c6de87a6a0b5b2d656d6c04407160bf0d32bae83349",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13db171d10235b09066f7c6de87a6a0b5b2d656d6c04407160bf0d32bae83349.gz",
+        "bytes": 17032,
+        "sha256": "de95aa38d3bd08cda38c30a94363091cd85e9fe7d854ae6d010f8d8c475830f6"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-inputs-before.json",
+      "bytes": 56349,
+      "sha256": "72700eb39234a0086796c1055755624529d6a4ee0773db0cd66edd71abbd1a59",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/72700eb39234a0086796c1055755624529d6a4ee0773db0cd66edd71abbd1a59.gz",
+        "bytes": 17032,
+        "sha256": "c3b04313f740ffa738e955a523969371c104f82e50239afdbc442f5cb60f25ed"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-memory-after.json",
+      "bytes": 104,
+      "sha256": "39f6f79c1ef875fb7a704e5ccfb2c697eb227f224df299c6873183ef7542a3a6",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/39f6f79c1ef875fb7a704e5ccfb2c697eb227f224df299c6873183ef7542a3a6.gz",
+        "bytes": 105,
+        "sha256": "8a16e8d5260cfdcd56064a3f9ef0cae8df5c21b9407d60bc9da12c5b2d48fced"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-memory-before.json",
+      "bytes": 104,
+      "sha256": "4c240f247866113e35d69fc09c590bd3a0310a5425ab58090fc747ebd9d219f1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4c240f247866113e35d69fc09c590bd3a0310a5425ab58090fc747ebd9d219f1.gz",
+        "bytes": 105,
+        "sha256": "8ab86e1aa50276bd55fbb5b947c56704ad8d65c48e86a56ec5b516ea42d98e0a"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-monitor-exit.json",
+      "bytes": 36,
+      "sha256": "42eeff8fd6f8ac72fb1b96e12674e8d56848bf9d8620abe47cb03fef992c6a83",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/42eeff8fd6f8ac72fb1b96e12674e8d56848bf9d8620abe47cb03fef992c6a83.gz",
+        "bytes": 56,
+        "sha256": "ca58520743f9964ef272ca783fa783b23b9794a77eb9b54cf78e5978e96be99e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-runner.cjs",
+      "bytes": 2459,
+      "sha256": "fdd0cb0e080e186947230f2c12814991b1f0dc2196f16f2ca23b696613ab279a",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/fdd0cb0e080e186947230f2c12814991b1f0dc2196f16f2ca23b696613ab279a.gz",
+        "bytes": 1043,
+        "sha256": "1154bf3fdbf95eb3dded73b9cf3d039dce257ebe182ca224d4ff1b592aa26c26"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-sampler.ps1",
+      "bytes": 1375,
+      "sha256": "11dd6eb4704c3bac1af70ed42914e4a267024a677b042aea63206d53c37de89f",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/11dd6eb4704c3bac1af70ed42914e4a267024a677b042aea63206d53c37de89f.gz",
+        "bytes": 651,
+        "sha256": "146035fc7df07731c356cc445ed365b8665a1f0d914ee68a4fb70fc1ec2a9bd3"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/hygiene-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/hygiene-marker-final.log",
+      "bytes": 5078,
+      "sha256": "034f62fc5aa8762180ef227c9439b66ff167b3ea24adbeba1dacab3bda9fe050",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/034f62fc5aa8762180ef227c9439b66ff167b3ea24adbeba1dacab3bda9fe050.gz",
+        "bytes": 1844,
+        "sha256": "0f8fb7f130e51cb4465d8f562de3677fc4067c67522a26fcdc26be179ae9040e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-1.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa.gz",
+        "bytes": 22,
+        "sha256": "8afc61325213625995e1de8b0d2df70f01b1d5304993484a41cc9df249f00fad"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-1.log",
+      "bytes": 2303,
+      "sha256": "f69812720e36b48eebd73c2816cdbeb975cfcafdb61e1b1cbf066952d20ce452",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f69812720e36b48eebd73c2816cdbeb975cfcafdb61e1b1cbf066952d20ce452.gz",
+        "bytes": 1091,
+        "sha256": "6b4c2a3a4e58c04879bbcf55af0c0203a11dbdc6e84c174a591050428bc4f152"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-1.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+        "bytes": 20,
+        "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-after-inputs.json",
+      "bytes": 30372,
+      "sha256": "dbfa2efdb69579219a8ccdfd8b3250a897ef3b2bb3f1474d0a441ad4472c932a",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/dbfa2efdb69579219a8ccdfd8b3250a897ef3b2bb3f1474d0a441ad4472c932a.gz",
+        "bytes": 7092,
+        "sha256": "54594f438a6eada0845721cf486108b4d589a9da2483a306ca0d1314315ef01e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-after-memory.json",
+      "bytes": 104,
+      "sha256": "3b8856b58ec874972cb316f38a71847e2a33685bc02815541169e9b5129c4fa0",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/3b8856b58ec874972cb316f38a71847e2a33685bc02815541169e9b5129c4fa0.gz",
+        "bytes": 104,
+        "sha256": "1653686e8d375e2d4bb57f236ab7654c027301a52367036f2f389f99457cc622"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-before-inputs.json",
+      "bytes": 30372,
+      "sha256": "dbfa2efdb69579219a8ccdfd8b3250a897ef3b2bb3f1474d0a441ad4472c932a",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/dbfa2efdb69579219a8ccdfd8b3250a897ef3b2bb3f1474d0a441ad4472c932a.gz",
+        "bytes": 7092,
+        "sha256": "54594f438a6eada0845721cf486108b4d589a9da2483a306ca0d1314315ef01e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-before-memory.json",
+      "bytes": 104,
+      "sha256": "cd3b20216d9a406f6f1ff638f2258d451012a194dfcb80e3ddd3ec0f26e3dd9e",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/cd3b20216d9a406f6f1ff638f2258d451012a194dfcb80e3ddd3ec0f26e3dd9e.gz",
+        "bytes": 105,
+        "sha256": "882b8c134d48bfbe03a63b930599c7bc5a9bbb17b11ec5a294493cdf763d9652"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-events.json",
+      "bytes": 482,
+      "sha256": "0d4d02ef1a8f8569e6f0480adbd1e5097484d3809e47c856008c2da491774978",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/0d4d02ef1a8f8569e6f0480adbd1e5097484d3809e47c856008c2da491774978.gz",
+        "bytes": 188,
+        "sha256": "a7afd05eac9eba58ba4659ad476e1f0922d7d2bd990b9bc1b64b04e1fe8f885e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-monitor-exit.json",
+      "bytes": 36,
+      "sha256": "42eeff8fd6f8ac72fb1b96e12674e8d56848bf9d8620abe47cb03fef992c6a83",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/42eeff8fd6f8ac72fb1b96e12674e8d56848bf9d8620abe47cb03fef992c6a83.gz",
+        "bytes": 56,
+        "sha256": "ca58520743f9964ef272ca783fa783b23b9794a77eb9b54cf78e5978e96be99e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-runner.cjs",
+      "bytes": 2480,
+      "sha256": "498b006be3e024f1166a9fd3483ad35842a651306a4660fda1fe7de5bf59ac04",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/498b006be3e024f1166a9fd3483ad35842a651306a4660fda1fe7de5bf59ac04.gz",
+        "bytes": 1001,
+        "sha256": "b1a115c4e59a27731e2c3a371247ecddcbdf15cdb6e232f6fc51604f6c29bebb"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-sampler.ps1",
+      "bytes": 1305,
+      "sha256": "e5aaa458cd322de81f377fa6e298fb5e08bb88621a3f525c35ea94c51b1e026f",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e5aaa458cd322de81f377fa6e298fb5e08bb88621a3f525c35ea94c51b1e026f.gz",
+        "bytes": 627,
+        "sha256": "a1953b5dc4fc946fb48609afb4254b053bec1822f58e327ff92d8c566332e162"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-1-after.json",
+      "bytes": 36095,
+      "sha256": "716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1.gz",
+        "bytes": 8179,
+        "sha256": "2f7042ae68015c14ac12dc955e576b5b1507de4c031d025181499e0f3469a6e1"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-1-before.json",
+      "bytes": 36095,
+      "sha256": "716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1.gz",
+        "bytes": 8179,
+        "sha256": "2f7042ae68015c14ac12dc955e576b5b1507de4c031d025181499e0f3469a6e1"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-1.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-1.log",
+      "bytes": 1406,
+      "sha256": "7a413543e587b8595b90064157c6ce7a5fecfc3ee1de22e493e55408b88650a4",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/7a413543e587b8595b90064157c6ce7a5fecfc3ee1de22e493e55408b88650a4.gz",
+        "bytes": 592,
+        "sha256": "8a57e2877d3825a2b44a816790a38a0df140f40e19ff99f1c5ffff52151705bd"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-2-after.json",
+      "bytes": 36095,
+      "sha256": "716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1.gz",
+        "bytes": 8179,
+        "sha256": "2f7042ae68015c14ac12dc955e576b5b1507de4c031d025181499e0f3469a6e1"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-2-before.json",
+      "bytes": 36095,
+      "sha256": "716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1.gz",
+        "bytes": 8179,
+        "sha256": "2f7042ae68015c14ac12dc955e576b5b1507de4c031d025181499e0f3469a6e1"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-2.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-final-quiet-2.log",
+      "bytes": 1406,
+      "sha256": "300a190528058d6e8f9a7806ae97a8a7f85ef7ff2607f2a118b78823b33dae41",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/300a190528058d6e8f9a7806ae97a8a7f85ef7ff2607f2a118b78823b33dae41.gz",
+        "bytes": 591,
+        "sha256": "ef076f311cc6c105a09df2b06cda05e8791079bfa8a4441cde847938a5671a6b"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-regression.exit",
+      "bytes": 3,
+      "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04.gz",
+        "bytes": 23,
+        "sha256": "baf0683e1103b94b68d94e8a12d7e144b4e0571e9948de7fb0d85103b045460e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-regression.log",
+      "bytes": 174,
+      "sha256": "f803e21991721f7f8d61363852d37968ab3b425ffa038c293895a6a00df1e60f",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f803e21991721f7f8d61363852d37968ab3b425ffa038c293895a6a00df1e60f.gz",
+        "bytes": 157,
+        "sha256": "df2af47bb9beb9d59ebe2479ef097e4a8a895ef6615244d51a5f13347f04415d"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-residual-cim-absence.json",
+      "bytes": 219,
+      "sha256": "ace254517619f419186281544778bfa69c136d906e76e4a9cb4d52d4875798c4",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ace254517619f419186281544778bfa69c136d906e76e4a9cb4d52d4875798c4.gz",
+        "bytes": 196,
+        "sha256": "b6dbb0dc6a0469a33e7bef2f8f25d253350c2dcc8897afa287ae266a48f448d2"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-residual-late-identity.json",
+      "bytes": 1422,
+      "sha256": "82171471b26327800ffa801ac3a1d402cdc9b291b2d880cb7782f53692ec0fe4",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/82171471b26327800ffa801ac3a1d402cdc9b291b2d880cb7782f53692ec0fe4.gz",
+        "bytes": 756,
+        "sha256": "917eb8652ee8ebc4a410d14cf77bd317373df1eef89d7686546af17904d033a6"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-residual-reviewed-stop.ps1",
+      "bytes": 2411,
+      "sha256": "c26e4fcc30e872c8ec6a7320fb99a6076d79346c0837dac61c4cb745bd1b31b5",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c26e4fcc30e872c8ec6a7320fb99a6076d79346c0837dac61c4cb745bd1b31b5.gz",
+        "bytes": 1251,
+        "sha256": "9c38194b4d0de3e870c57a7673355463b7949ccbe2ddb302655bcc530c3eb06e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/maintenance-residual-stop-result.json",
+      "bytes": 251,
+      "sha256": "a197992596e91b0c9bfcf2b24e0bad4283244fe078ff1d722e1fc0b82879c0f5",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/a197992596e91b0c9bfcf2b24e0bad4283244fe078ff1d722e1fc0b82879c0f5.gz",
+        "bytes": 213,
+        "sha256": "786b4e756165adf4c5ac3acd0d2d950034f73648391960b051aacb957d728a1f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/marker-c11-before.json",
+      "bytes": 37091,
+      "sha256": "57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/57353e9b28721fc7342e828e04d214d27fbbc50330def027c5fe3f6f8a574a20.gz",
+        "bytes": 8400,
+        "sha256": "d1e01d55c3e1341366c07be6265e68c3baeb94d87864ad971af9981d1fc52b10"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/marker-fast-commit-before.json",
+      "bytes": 103,
+      "sha256": "4a64f1c512777b49a4bf923b043ee1cfd57298e9f6f1b25f3f94f880dd85f350",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4a64f1c512777b49a4bf923b043ee1cfd57298e9f6f1b25f3f94f880dd85f350.gz",
+        "bytes": 104,
+        "sha256": "9fe30c703e0911eafc1dad686e2d5b678a6fe19ac9856f76a0d750cf1d76bd5a"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/marker-fast-memory-before.json",
+      "bytes": 151,
+      "sha256": "6781911cecd3f8f43474e126c53ef914cce8baac828a5a1ea1786c03648e3769",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/6781911cecd3f8f43474e126c53ef914cce8baac828a5a1ea1786c03648e3769.gz",
+        "bytes": 124,
+        "sha256": "6594ec03ad5a64ed9cd025899c18b74785b24aa3e4cf30b1acc9a706e1f6f63c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/marker-main-pins.json",
+      "bytes": 1733,
+      "sha256": "7315889fd40a4d4fecbc04d24fd659b2bab0293a736a4b547db75e96485df34e",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/7315889fd40a4d4fecbc04d24fd659b2bab0293a736a4b547db75e96485df34e.gz",
+        "bytes": 661,
+        "sha256": "cf3e94f75bbf3e8db39a97ad91eadb55838db7d0cd1eeffdbe0dfaf2004f9b0e"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/marker-maintenance-recheck.json",
+      "bytes": 36095,
+      "sha256": "716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1.gz",
+        "bytes": 8179,
+        "sha256": "2f7042ae68015c14ac12dc955e576b5b1507de4c031d025181499e0f3469a6e1"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/pure13.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/pure13.log",
+      "bytes": 1513,
+      "sha256": "30b02633fa7005ea2bd0aa25d68c5cf0596d690c658e5f87016773fc3ec00d20",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/30b02633fa7005ea2bd0aa25d68c5cf0596d690c658e5f87016773fc3ec00d20.gz",
+        "bytes": 776,
+        "sha256": "6f5a6b609229cefeb8a22093563e26e4d7cfff15f8ff139657194a70ca023dba"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/quiet-bind.cjs",
+      "bytes": 464,
+      "sha256": "6292d117186e309e5f6a6cfcedd36764835737c7ae4ee6a22743f1218e2ad613",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/6292d117186e309e5f6a6cfcedd36764835737c7ae4ee6a22743f1218e2ad613.gz",
+        "bytes": 300,
+        "sha256": "0409e88ed06ee503493db6a184b682bc66beabef99c688e1da5cc29f5aa92c33"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/quiet-c11-before.json",
+      "bytes": 36848,
+      "sha256": "c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c661d8f9b2dbf81bcb901f494211ede3f2aff39a854f5c408741704f07d8c830.gz",
+        "bytes": 8354,
+        "sha256": "067c2d923ce602e75b088b9ed1bde21da3f4a5e82d53682e1fd18770c680cb1c"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/quiet-maintenance-before.json",
+      "bytes": 36095,
+      "sha256": "716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/716228fb039f1819de501f28e6d7b468d75736f48dd9684182472b754c6899f1.gz",
+        "bytes": 8179,
+        "sha256": "2f7042ae68015c14ac12dc955e576b5b1507de4c031d025181499e0f3469a6e1"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/restore-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/restore-marker-final.log",
+      "bytes": 3025,
+      "sha256": "60729c6ea53697cfe1cc7810f62cb27c2bc3dd4b063cd3414a324d51686b119e",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/60729c6ea53697cfe1cc7810f62cb27c2bc3dd4b063cd3414a324d51686b119e.gz",
+        "bytes": 868,
+        "sha256": "f3c5b2b5bb9f002dc708f0db9c58a3b765363f12b537c038e5511beaf9dd2671"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/runtime-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/runtime-marker-final.log",
+      "bytes": 1073,
+      "sha256": "42aaaa02d92be5bc65c511450f75f358cc94ce0fe82a0abb5e5d7d2fda48084c",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/42aaaa02d92be5bc65c511450f75f358cc94ce0fe82a0abb5e5d7d2fda48084c.gz",
+        "bytes": 495,
+        "sha256": "36c7889b05707add20d9fd428f7bc65a32045a7a3bcc623de4732299f87563bb"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/source-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/source-marker-final.log",
+      "bytes": 1809,
+      "sha256": "94977cc482755a17a4c31f57d0494db59fd9dc4d429382b0b99a0a2d3b0cefb1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/94977cc482755a17a4c31f57d0494db59fd9dc4d429382b0b99a0a2d3b0cefb1.gz",
+        "bytes": 570,
+        "sha256": "78f9632ddd447a180d2909e30121758fb5cc07f86915243358b6c509dfbb108a"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/source-regression.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/source-regression.log",
+      "bytes": 1809,
+      "sha256": "7952c8c7e98d754cac1e748bb3c2b1d44376e5887ee8cebefa6ef7c645f815b2",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/7952c8c7e98d754cac1e748bb3c2b1d44376e5887ee8cebefa6ef7c645f815b2.gz",
+        "bytes": 572,
+        "sha256": "ce419721edb825c7af128cd9d6ae89da0cbb703bd393e15b9f4259f67f8f895a"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/syntax-final.log",
+      "bytes": 61,
+      "sha256": "ddebc3526a0cd90288d312c6dfc469bfff4a4a53769a880a058e0c557673805d",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ddebc3526a0cd90288d312c6dfc469bfff4a4a53769a880a058e0c557673805d.gz",
+        "bytes": 81,
+        "sha256": "e6562062b3048862e359e8817b3e6609d4aae53a41a95f95fad1b4b91b9091f6"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/syntax-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/syntax-marker-final.log",
+      "bytes": 61,
+      "sha256": "884ed19c6a2647728e81c8a77a94dd985c724cfc0690f486dd4f47b1895e6d9b",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/884ed19c6a2647728e81c8a77a94dd985c724cfc0690f486dd4f47b1895e6d9b.gz",
+        "bytes": 81,
+        "sha256": "3d3b32bd8c3e58ea8c55763249e21ceca07183b6d123ca6ad776581e4eb56819"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/unit-index-fixed-3.log",
+      "bytes": 600397,
+      "sha256": "f0dad456693a1f3253bea5a411823fbcda9bcef3b3bf332ebc97d3b1d3482237",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f0dad456693a1f3253bea5a411823fbcda9bcef3b3bf332ebc97d3b1d3482237.gz",
+        "bytes": 221941,
+        "sha256": "87317311717ed38c1053d11d73804b53ead9b2591853a5237cc2e2456d0f074d"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/unit-marker-final.log",
+      "bytes": 600473,
+      "sha256": "8404834c9306853de39765f6163670ebc26b80adee20b757ba129b1ed4c8d54f",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/8404834c9306853de39765f6163670ebc26b80adee20b757ba129b1ed4c8d54f.gz",
+        "bytes": 221931,
+        "sha256": "a85cd0855a59975ca329c444b86e0917221cc218a63d0d3cbb5b5ea6a109b244"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/unit-observed-2.log",
+      "bytes": 599329,
+      "sha256": "67030ad95f7932200f56a75cf29c2daff2f017debdecb75dfb54e828efc06cd9",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/67030ad95f7932200f56a75cf29c2daff2f017debdecb75dfb54e828efc06cd9.gz",
+        "bytes": 221487,
+        "sha256": "59b2adfc559549f0229179cee74ac2e369b702163bc558b9579e79a18669288f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/upload-marker-final.exit",
+      "bytes": 3,
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+        "bytes": 23,
+        "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+      }
+    },
+    {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/upload-marker-final.log",
+      "bytes": 1998,
+      "sha256": "233668bd781352c516eb4d0ed27e518a804d011e298431569551c56c165e793a",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/233668bd781352c516eb4d0ed27e518a804d011e298431569551c56c165e793a.gz",
+        "bytes": 722,
+        "sha256": "eb36771e741f6b767e9c7c7cc036e86f7e42ebb27bcf81954ea6b3a0a7cdca4b"
+      }
+    }
+  ],
+  "standardGates": {
+    "fast": {
+      "exitCode": 2,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-fast-marker-final.log",
+        "bytes": 3254,
+        "sha256": "e066b6be20b32154ed70201d2f166eca1a60899c16576c1005e8472d540da2a4",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e066b6be20b32154ed70201d2f166eca1a60899c16576c1005e8472d540da2a4.gz",
+          "bytes": 1911,
+          "sha256": "5c907bf25f6f32acc0e66a6040cc1b3be073cee8c54c7b00022fe11a54fde718"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-fast-marker-final.exit",
+        "bytes": 3,
+        "sha256": "df4e26a04a444901b95afef44e4a96cfae34690fff2ad2c66389c70079cdff2b",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/df4e26a04a444901b95afef44e4a96cfae34690fff2ad2c66389c70079cdff2b.gz",
+          "bytes": 23,
+          "sha256": "94b339f72995860a1bc91c5bf93a9b9396a66337a7773344df9b53500714a907"
+        }
+      },
+      "actualNodeExit": 2,
+      "outerPowershellExit": 0,
+      "tests": 4371,
+      "pass": 4344,
+      "fail": 1,
+      "skipped": 26,
+      "cancelled": 0,
+      "durationMs": 1764795.9426,
+      "staticExecuted": 0,
+      "staticRequired": 82,
+      "failedCase": "session-artifacts-work-data.test.js:67 large index",
+      "failure": "RangeError: Array buffer allocation failed",
+      "causeConfirmed": false,
+      "unitLog": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/unit-marker-final.log",
+        "bytes": 600473,
+        "sha256": "8404834c9306853de39765f6163670ebc26b80adee20b757ba129b1ed4c8d54f",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/8404834c9306853de39765f6163670ebc26b80adee20b757ba129b1ed4c8d54f.gz",
+          "bytes": 221931,
+          "sha256": "a85cd0855a59975ca329c444b86e0917221cc218a63d0d3cbb5b5ea6a109b244"
+        }
+      }
+    },
+    "fastObserved2": {
+      "exitCode": 2,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-fast-observed-2.log",
+        "bytes": 562,
+        "sha256": "2ef7baad42c4bebbc68ce8a64636c8ba29d77678561a7920d5ad4512d62d2987",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2ef7baad42c4bebbc68ce8a64636c8ba29d77678561a7920d5ad4512d62d2987.gz",
+          "bytes": 498,
+          "sha256": "67f9f82d3fedb09581c3957b74bcbd4bad30b3fd54dbf73f0ca7e1e84f4a1c0e"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-fast-observed-2.exit",
+        "bytes": 2,
+        "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3.gz",
+          "bytes": 22,
+          "sha256": "74df5495009f54e7e3817c813c44887d5300010d57ff5cff9359a3e112a55f01"
+        }
+      },
+      "actualNodeExit": 2,
+      "tests": 4354,
+      "pass": 4327,
+      "fail": 1,
+      "skipped": 26,
+      "cancelled": 0,
+      "durationMs": 1691325.0685,
+      "staticExecuted": 0,
+      "staticRequired": 82,
+      "failedCase": "session-artifacts-work-data.test.js:67 large index",
+      "failure": "RangeError: Array buffer allocation failed",
+      "stderr": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-fast-observed-2.stderr.log",
+        "bytes": 2642,
+        "sha256": "2d03667e2cf5dc0cc03623899aa9f6ceb319050ee9932cd5138e257905a3d422",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2d03667e2cf5dc0cc03623899aa9f6ceb319050ee9932cd5138e257905a3d422.gz",
+          "bytes": 1515,
+          "sha256": "f2116d55875d75bd62eddd889daea259c6f37a7c8f0c1fcfc92b545924534b1e"
+        }
+      },
+      "unitLog": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/unit-observed-2.log",
+        "bytes": 599329,
+        "sha256": "67030ad95f7932200f56a75cf29c2daff2f017debdecb75dfb54e828efc06cd9",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/67030ad95f7932200f56a75cf29c2daff2f017debdecb75dfb54e828efc06cd9.gz",
+          "bytes": 221487,
+          "sha256": "59b2adfc559549f0229179cee74ac2e369b702163bc558b9579e79a18669288f"
+        }
+      },
+      "samples": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-samples.jsonl",
+        "bytes": 2965584,
+        "sha256": "68fe15e5a0faeecb85c936323091931bac135d263d918b1f9450cab96f01ed75",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/68fe15e5a0faeecb85c936323091931bac135d263d918b1f9450cab96f01ed75.gz",
+          "bytes": 112804,
+          "sha256": "1eb3432560b36391e0fc974973a50ebb5e519c97e667a8bb6768504cbd6c3c5b"
+        }
+      },
+      "events": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-observed-2-events.json",
+        "bytes": 478,
+        "sha256": "20d6072bf82ca7ea0685758dbc121f37584218f9286a1d76f5ead973f57255bc",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/20d6072bf82ca7ea0685758dbc121f37584218f9286a1d76f5ead973f57255bc.gz",
+          "bytes": 192,
+          "sha256": "dbd8e3080858870da87abfca953bf9c7740027d88a3adee080c1f6c064073966"
+        }
+      },
+      "inputDifferenceLimit": "Only92/96/97/evidence JSON among261 captured rows changed as disclosed; captured rows do not claim all test dependencies.",
+      "sampledTargetPrivateBytes": 84978696192,
+      "sampledSystemCommitHeadroomMinBytes": 7073792,
+      "continuousPeakOrUniqueCauseProved": false
+    },
+    "fastIndexFixed3": {
+      "exitCode": 0,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-fast-index-fixed-3.log",
+        "bytes": 6060,
+        "sha256": "1074f4c97a42ec8e76660a80e7f3c3a0cd86b3740750c5af553ed6adfb9f3e19",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/1074f4c97a42ec8e76660a80e7f3c3a0cd86b3740750c5af553ed6adfb9f3e19.gz",
+          "bytes": 2033,
+          "sha256": "09cc25d40f36df2c969ffcbe1976fdaebf305f86eee65f18ff181758c194f621"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-fast-index-fixed-3.exit",
+        "bytes": 2,
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa.gz",
+          "bytes": 22,
+          "sha256": "8afc61325213625995e1de8b0d2df70f01b1d5304993484a41cc9df249f00fad"
+        }
+      },
+      "actualNodeExit": 0,
+      "tests": 4371,
+      "pass": 4345,
+      "fail": 0,
+      "skipped": 26,
+      "cancelled": 0,
+      "durationMs": 1736925.8193,
+      "staticPass": 82,
+      "staticFail": 0,
+      "staticFlaky": 0,
+      "liveSkipped": 7,
+      "residualTestBrowsers": 0,
+      "unitLog": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/unit-index-fixed-3.log",
+        "bytes": 600397,
+        "sha256": "f0dad456693a1f3253bea5a411823fbcda9bcef3b3bf332ebc97d3b1d3482237",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f0dad456693a1f3253bea5a411823fbcda9bcef3b3bf332ebc97d3b1d3482237.gz",
+          "bytes": 221941,
+          "sha256": "87317311717ed38c1053d11d73804b53ead9b2591853a5237cc2e2456d0f074d"
+        }
+      },
+      "stderr": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-fast-index-fixed-3.stderr.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+          "bytes": 20,
+          "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+        }
+      },
+      "events": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-events.json",
+        "bytes": 482,
+        "sha256": "3b7280f38a930af70cbe78b61222449979b036cac5131a538c5419f5afaeae65",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/3b7280f38a930af70cbe78b61222449979b036cac5131a538c5419f5afaeae65.gz",
+          "bytes": 190,
+          "sha256": "9f44c2ecc5e6b8d0cda3bcd47483982b2b73be76e4091457734f6c3346399201"
+        }
+      },
+      "samples": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/full-index-fixed-3-samples.jsonl",
+        "bytes": 2988222,
+        "sha256": "1cd74b4dd8363a873526463ad831ba8e1eb1f71fb898b3b79c83f2b0835d4761",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/1cd74b4dd8363a873526463ad831ba8e1eb1f71fb898b3b79c83f2b0835d4761.gz",
+          "bytes": 113142,
+          "sha256": "6897fd3f90fc9e0adc3fd85648d551760f19e7844cb975e3204f5d84d09819b7"
+        }
+      },
+      "capturedInputs": {
+        "files": 8858,
+        "sameRows": true,
+        "execution": 1534,
+        "metadata": 3,
+        "docs": 7321,
+        "documentationGroup": "documentation",
+        "scope": "Captured tracked/untracked app/dev-harness/metadata/docs, not exhaustive runtime dependencies."
+      }
+    },
+    "syntax": {
+      "exitCode": 0,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/syntax-marker-final.log",
+        "bytes": 61,
+        "sha256": "884ed19c6a2647728e81c8a77a94dd985c724cfc0690f486dd4f47b1895e6d9b",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/884ed19c6a2647728e81c8a77a94dd985c724cfc0690f486dd4f47b1895e6d9b.gz",
+          "bytes": 81,
+          "sha256": "3d3b32bd8c3e58ea8c55763249e21ceca07183b6d123ca6ad776581e4eb56819"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/syntax-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "files": 1362,
+      "fail": 0
+    },
+    "eol": {
+      "exitCode": 0,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/eol-marker-final.log",
+        "bytes": 263,
+        "sha256": "afd6a48a43db893b3fbcaa1750a3acbcf5db1fb396304a4dbac68229ed45bd6c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/afd6a48a43db893b3fbcaa1750a3acbcf5db1fb396304a4dbac68229ed45bd6c.gz",
+          "bytes": 169,
+          "sha256": "3946b16cd085ebc8cab88fe6dc866b1d574e81af889745d88069c70565ac24b3"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/eol-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "textFiles": 2166,
+      "pass": 5
+    },
+    "hygiene": {
+      "exitCode": 0,
+      "log": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/hygiene-marker-final.log",
+        "bytes": 5078,
+        "sha256": "034f62fc5aa8762180ef227c9439b66ff167b3ea24adbeba1dacab3bda9fe050",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/034f62fc5aa8762180ef227c9439b66ff167b3ea24adbeba1dacab3bda9fe050.gz",
+          "bytes": 1844,
+          "sha256": "0f8fb7f130e51cb4465d8f562de3677fc4067c67522a26fcdc26be179ae9040e"
+        }
+      },
+      "exit": {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/hygiene-marker-final.exit",
+        "bytes": 3,
+        "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354.gz",
+          "bytes": 23,
+          "sha256": "7f636460b48b02e48ffda30b26e6cf24cebee6b983bfd77e79a2f7205a71497f"
+        }
+      },
+      "pass": 70
+    }
+  },
+  "limits": [
+    "Constructed actual-module/native/IPC failure windows; not captured natural production crashes.",
+    "CIM absence is not original ChildProcess exit/close proof.",
+    "Maintenance readiness correction and marker negative control do not prove the exact earlier red cause.",
+    "Global egress remains154 historical errors, not a passing global gate.",
+    "Desktop and M4 candidates are separate unfinished work, not part of this batch completion."
+  ],
+  "indexTestRepair": {
+    "originalSha256": "02fd520977b3b02e3c069103cdfa01c28e77b20b2180126cf56e939f9f1280eb",
+    "current": {
+      "path": "dev-harness/unit/session-artifacts-work-data.test.js",
+      "bytes": 27741,
+      "sha256": "cde0b0008c385591f220ca5c5333e1aef614dd4744135db3fd9b6da698f4ac86"
+    },
+    "change": "Only two comments and await api.flushSessionIndex() while the key remains absent; all original assertions,500rows/fixture and original time limits preserved.",
+    "reproducedMechanism": "Original sync exit probe leaves its synthetic pending update. Restored key plus a slow next configuration write lets its200ms debounce replace rebuilt ciphertext before original final Buffer equality. The real native strict assert inspector/Myers diff expands1.71MB buffers into >1.7m lines each, with27,442,020 bytes per trace. Bounded native witness stops before giant allocations. This proves a reachable original failure and amplification mechanism, not a unique historical cause.",
+    "countDifference": "All17 remaining test names are PASS in first full run and absent after second worker fatal; no test definition was removed.",
+    "records": [
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/candidate-gated-all.jsonl",
+        "bytes": 127767,
+        "sha256": "36b9408865d393ae9fe25a0f6c4ecc43e52524189020c99b739de4d94585933e",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/36b9408865d393ae9fe25a0f6c4ecc43e52524189020c99b739de4d94585933e.gz",
+          "bytes": 6610,
+          "sha256": "1a64a9c59863fba68f5fbd864891adecb4c706c83d3f49c7b33d252070e0c8ff"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/candidate-gated-all.log",
+        "bytes": 2323,
+        "sha256": "f4f386178007a3cb7b23d9606f3175e8c7d042b1a47f23b3fb54bc2216544f10",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f4f386178007a3cb7b23d9606f3175e8c7d042b1a47f23b3fb54bc2216544f10.gz",
+          "bytes": 1093,
+          "sha256": "55af47a6a23af5854ac85e192f6912d6dc7b672d88321e35dea29330c3a3cce7"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/candidate-gated-all.result.json",
+        "bytes": 552,
+        "sha256": "c219c39018b2f1a0b0df23d7adf28a756d57b2586cc8d179196b9c7df4835116",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/c219c39018b2f1a0b0df23d7adf28a756d57b2586cc8d179196b9c7df4835116.gz",
+          "bytes": 293,
+          "sha256": "94db9ab6cec7e9aee549299b7249ba09fe488cf8fe77bd46fe0df87cdaa0857c"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/candidate-metadata.json",
+        "bytes": 639,
+        "sha256": "290dd081075b77c429dc454d50a2323b2fba6e18a295d5bda2e77488b1bd9e04",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/290dd081075b77c429dc454d50a2323b2fba6e18a295d5bda2e77488b1bd9e04.gz",
+          "bytes": 380,
+          "sha256": "cc55a69aefc2d26ab21e252ee70010cc4fd63f2aaea4089db6aa09d15868ba00"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/candidate-observe-all.jsonl",
+        "bytes": 127477,
+        "sha256": "380e0d6f37e9ec3232d2dd15864dd76b4db6b180234d826e850f47a9d972f26c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/380e0d6f37e9ec3232d2dd15864dd76b4db6b180234d826e850f47a9d972f26c.gz",
+          "bytes": 6558,
+          "sha256": "030a16fb13ff55e1b9a11b1f8a78d479fafd5e8da17d1f77180e9cf33ce1c447"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/candidate-observe-all.log",
+        "bytes": 2321,
+        "sha256": "5df41393db2b18f83444319a802b62c4e0a9d9ce970c4449ac999c80efa86170",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/5df41393db2b18f83444319a802b62c4e0a9d9ce970c4449ac999c80efa86170.gz",
+          "bytes": 1094,
+          "sha256": "9bf9566d78e96525f1f56c6cd658af4ed8e36cabc48411c265b24d9ec39c1fcb"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/candidate-observe-all.result.json",
+        "bytes": 531,
+        "sha256": "46ca9bea95b1db6dddeefac80a98eee696d26a9d5b6af8d10811993394eb23f1",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/46ca9bea95b1db6dddeefac80a98eee696d26a9d5b6af8d10811993394eb23f1.gz",
+          "bytes": 277,
+          "sha256": "f78cdf0500e95a7b378c215ba566e9de5689b20a64506e76eac9ab349674ee7d"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/delay-config-off-with-bytes.jsonl",
+        "bytes": 28448,
+        "sha256": "fc669122d54effc73eaa4e20c3418ba44eb227ed6e502c681dfc475f34d96db1",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/fc669122d54effc73eaa4e20c3418ba44eb227ed6e502c681dfc475f34d96db1.gz",
+          "bytes": 2335,
+          "sha256": "d52234239b9797b8790e7b7f3c6d87637866f05bbba7a82c72097bf2a6b3fad4"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/delay-config-off.jsonl",
+        "bytes": 29957,
+        "sha256": "1f33ffcb22cfc0617df1365409acf2475cd6742ce8654d2a1f41c28ebe97e4b8",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/1f33ffcb22cfc0617df1365409acf2475cd6742ce8654d2a1f41c28ebe97e4b8.gz",
+          "bytes": 2494,
+          "sha256": "5e61ca1766a3fc35776d04d60106d8b89246c3d127958db2c9643376ca33eff0"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/diff-call-chain.cjs",
+        "bytes": 2711,
+        "sha256": "87f0384638a3d68082276fa66bff3a21aed62459cf87ff4be1d20b6f2ad4088e",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/87f0384638a3d68082276fa66bff3a21aed62459cf87ff4be1d20b6f2ad4088e.gz",
+          "bytes": 1090,
+          "sha256": "a6a8b0787680bb30f057cd0a3d3b994b5fe2a7798262cdf9a74347fb5bf88636"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/diff-call-chain.json",
+        "bytes": 25100,
+        "sha256": "a5e32073ad75805e158841c3e18eaec8b41aa14cd6f18b7a73e2afaed6eb1065",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/a5e32073ad75805e158841c3e18eaec8b41aa14cd6f18b7a73e2afaed6eb1065.gz",
+          "bytes": 6219,
+          "sha256": "948cb2e9aace75f7acb59c3be77866eaeb76c372c8b1e04d888a172b611caf43"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/held-debounce-original.jsonl",
+        "bytes": 30773,
+        "sha256": "8110fce624edf9a2569f727506a24c02db55cc9e197e2cf664ce147fedd54a07",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/8110fce624edf9a2569f727506a24c02db55cc9e197e2cf664ce147fedd54a07.gz",
+          "bytes": 2586,
+          "sha256": "36d0bfc118372f7c74ea8322b8297ee75bb216f54c18d7f266d8750c9bd2886f"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/observe.jsonl",
+        "bytes": 28049,
+        "sha256": "0ed928386acf2f4e668e26ad7739435ab10dcc92f209f6f2c40e0618e9c791db",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/0ed928386acf2f4e668e26ad7739435ab10dcc92f209f6f2c40e0618e9c791db.gz",
+          "bytes": 2287,
+          "sha256": "ab19584b7160226109c862e3fa9a31a68efbadd6408c605bb34951019e2b3037"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/original-gated-control.jsonl",
+        "bytes": 30773,
+        "sha256": "a30ba02dc9653f96fdf887e8ec3e8c2312c789cb0848ca4adf959bf2703bdd10",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/a30ba02dc9653f96fdf887e8ec3e8c2312c789cb0848ca4adf959bf2703bdd10.gz",
+          "bytes": 2594,
+          "sha256": "886cb7ec8244fc3ae2f12cc560fa366f47615fd462e5902a7f4fa652339044c8"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/original-gated-control.log",
+        "bytes": 1346,
+        "sha256": "d0cb52181e87c7de15e5645f05c05b0447c2afddd9c37e9e65452f109fa2e246",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d0cb52181e87c7de15e5645f05c05b0447c2afddd9c37e9e65452f109fa2e246.gz",
+          "bytes": 660,
+          "sha256": "318fb0110b80172b308dbf3eecff0623618278693addb14b28b1e8f63af09c42"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/original-gated-control.result.json",
+        "bytes": 527,
+        "sha256": "66676b125ed44da244a39656e0901dd7d42100a1301ab04cc14ae2ce19cf27a8",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/66676b125ed44da244a39656e0901dd7d42100a1301ab04cc14ae2ce19cf27a8.gz",
+          "bytes": 328,
+          "sha256": "d3d7939b443a2ad7a8e8b04bd71d5ec584ad48d5dabce49bf0f1289705ed6481"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/preload.cjs",
+        "bytes": 7607,
+        "sha256": "bf9c11216e6bc02fadeef214c597b4a4ea76132bdc6db59ea249667d0e4609ff",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/bf9c11216e6bc02fadeef214c597b4a4ea76132bdc6db59ea249667d0e4609ff.gz",
+          "bytes": 2671,
+          "sha256": "4f9c46a39cf60cbcd9ed4764e729c9a97ddd329f0c0a02c27b493f2304bd8822"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/prepare-candidate.cjs",
+        "bytes": 1525,
+        "sha256": "3f794087964591d60f8dceb27364206713894d50865cb13763aae370f0411148",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/3f794087964591d60f8dceb27364206713894d50865cb13763aae370f0411148.gz",
+          "bytes": 741,
+          "sha256": "4b3e191da6b1db520d793c0854db0206278a7831ec9643959ece1b7cd263a65c"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/report.json",
+        "bytes": 11317,
+        "sha256": "5eb656472c920f509660627e3ef42b2abb0bc7b1dbf3b28b4510bf61dc5d61da",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/5eb656472c920f509660627e3ef42b2abb0bc7b1dbf3b28b4510bf61dc5d61da.gz",
+          "bytes": 3366,
+          "sha256": "7879352a48b0cdb4294e843725c61104cc4a535438e669fea42bd7e9cb9cb70f"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/run-target.cjs",
+        "bytes": 1294,
+        "sha256": "ec425f457847a7e0a863635364b3abeb0f3b16c55bb3447b84b4bc6bcc034c0c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/ec425f457847a7e0a863635364b3abeb0f3b16c55bb3447b84b4bc6bcc034c0c.gz",
+          "bytes": 650,
+          "sha256": "0761a6632414151e9baf393b9d388ef20f857156edbb1f948abe6541128a3b8b"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-diag/summarize.cjs",
+        "bytes": 4697,
+        "sha256": "adda41954a7afcca82739eabc91252ef09fe7fb4a89573152384e4345e552c96",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/adda41954a7afcca82739eabc91252ef09fe7fb4a89573152384e4345e552c96.gz",
+          "bytes": 2064,
+          "sha256": "b3e2109c8a9aa7b67abecc190e560af9928142dbffa9f1c21c4601d3164ba677"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/candidate-bounded-gated.jsonl",
+        "bytes": 126944,
+        "sha256": "df21aafaffb4bbc325ea1a42be1b4637351185a479e5c456d98fc4b3e1cdff61",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/df21aafaffb4bbc325ea1a42be1b4637351185a479e5c456d98fc4b3e1cdff61.gz",
+          "bytes": 6581,
+          "sha256": "6a177d724a11854911b27dbea0641f3d0ab45547b095a154c30f6114beb3ecdc"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/candidate-bounded-gated.log",
+        "bytes": 2325,
+        "sha256": "8627a1383744bcfa6f78ff8db0699bea83cdcf78c4b55cfb8fbe85a8baea5233",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/8627a1383744bcfa6f78ff8db0699bea83cdcf78c4b55cfb8fbe85a8baea5233.gz",
+          "bytes": 1092,
+          "sha256": "350ed4917e63be0aa9b42cba3552a278c15c9e4b10140ae250478eaa601d9717"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/candidate-bounded-gated.result.json",
+        "bytes": 583,
+        "sha256": "9e5b469bdbfda89d4c9e55e9395d734ade326a50a0503c0ec1ea0c5a706104ed",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/9e5b469bdbfda89d4c9e55e9395d734ade326a50a0503c0ec1ea0c5a706104ed.gz",
+          "bytes": 313,
+          "sha256": "fd0324e6f9ed95d94603744f695bc561bce8697a77af32b2c3097ca1250579d5"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/candidate-ordinary.log",
+        "bytes": 2322,
+        "sha256": "dc18a7c18b0eeae0f97ad77d378ace8c2bbf009d4bb73b1a18e8999954f5640e",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/dc18a7c18b0eeae0f97ad77d378ace8c2bbf009d4bb73b1a18e8999954f5640e.gz",
+          "bytes": 1090,
+          "sha256": "11af260713a9c9d2309de2156698911cabac20f6b32c0c56e89eacc9fc313409"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/candidate-ordinary.result.json",
+        "bytes": 419,
+        "sha256": "e1eea250a1027a1235fdc5693b8899d3d05a08671c63e493852353c261c2f4bf",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/e1eea250a1027a1235fdc5693b8899d3d05a08671c63e493852353c261c2f4bf.gz",
+          "bytes": 289,
+          "sha256": "cef11a20ee0624e3e203db241e3ada57afe33710e4c7e1f9af1a7420cae3825c"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/collect-review.cjs",
+        "bytes": 9399,
+        "sha256": "4d5bbd2798fb932970ab4252b34f1ec3f1dd57c007d00840c7ce3c3e41aba1d1",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/4d5bbd2798fb932970ab4252b34f1ec3f1dd57c007d00840c7ce3c3e41aba1d1.gz",
+          "bytes": 4496,
+          "sha256": "74b1c8a7366f936ef76c654de449350079b8a26a122e31e7d4a48e80f8f41fa3"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/native-diff-independent.cjs",
+        "bytes": 1593,
+        "sha256": "50ea9fdceb19bc88a5c6ec394b392360e0db99ab5a8406e1bbe97612831bb90c",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/50ea9fdceb19bc88a5c6ec394b392360e0db99ab5a8406e1bbe97612831bb90c.gz",
+          "bytes": 732,
+          "sha256": "2b1ae327b748cfb8830c58e92db8280c7739a1a39a4cd9dfe5def6f1af5d1020"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/native-diff-independent.json",
+        "bytes": 2076,
+        "sha256": "d470a72229521a6448e367baa4ca7b2fe2cd4c349732677d47f75574715d10c5",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d470a72229521a6448e367baa4ca7b2fe2cd4c349732677d47f75574715d10c5.gz",
+          "bytes": 944,
+          "sha256": "49f7d6fef84d4df141d9aeb54b0a817fa2bc0bea024213cf4a7b87a4a1fa5ef0"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/old-bounded-gated.jsonl",
+        "bytes": 30792,
+        "sha256": "32f0e7142f55c007351a30933724f1260307bb48d384ca76bb6694b46e156fb6",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/32f0e7142f55c007351a30933724f1260307bb48d384ca76bb6694b46e156fb6.gz",
+          "bytes": 2597,
+          "sha256": "34770c49e3f5ef1345258e2a1b5518bb61d92df1d62aec6fe1072fe88e5b235c"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/old-bounded-gated.log",
+        "bytes": 1355,
+        "sha256": "7cadb3336801bbb0304f146413a117d445aeb17d3d5de7f26cd90e40604dacf9",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/7cadb3336801bbb0304f146413a117d445aeb17d3d5de7f26cd90e40604dacf9.gz",
+          "bytes": 670,
+          "sha256": "08cb7bcbcced917d1e6456a15e5e875a59c282146de2b4e35d0d469914276379"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/old-bounded-gated.result.json",
+        "bytes": 527,
+        "sha256": "40a5c78aec1693da7fb8688bca49b952cd2c10889783fd2d339aa5c403fc8f35",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/40a5c78aec1693da7fb8688bca49b952cd2c10889783fd2d339aa5c403fc8f35.gz",
+          "bytes": 350,
+          "sha256": "9cca245c618ec00d235851bea207eb14545dc22cbedb6639b330fd5f7ff7a536"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/pins-after.json",
+        "bytes": 2481,
+        "sha256": "22837305b7daeb3fe991d975dc2299ba83d0e98bd27cece76bab71681515b6a0",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/22837305b7daeb3fe991d975dc2299ba83d0e98bd27cece76bab71681515b6a0.gz",
+          "bytes": 838,
+          "sha256": "605da915c477f3b7f9f21a10140002ed37cf542a5b10be907125f3b2aef34cb6"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/pins-before.json",
+        "bytes": 2481,
+        "sha256": "2ddf123dba8b24795aa98e36edb1f85c30dd771c66aab4da50a153ed79bd2aa6",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/2ddf123dba8b24795aa98e36edb1f85c30dd771c66aab4da50a153ed79bd2aa6.gz",
+          "bytes": 838,
+          "sha256": "3ea6ccd92f56daeadf4c6a681e76b8d6a9cf0006972846de29b32e75ca7cfdb7"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/report.json",
+        "bytes": 22556,
+        "sha256": "52411068ee957914f42e202df19bb1befee4cae3892132e59edc686a2f4659ae",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/52411068ee957914f42e202df19bb1befee4cae3892132e59edc686a2f4659ae.gz",
+          "bytes": 6261,
+          "sha256": "5cf3d28962bf937f0d650abb9a97683101947c68da3095ea90280825de858fd4"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/report.md",
+        "bytes": 1032,
+        "sha256": "d07cf6e9fd97268da189411f1af368cadcd2c772daf6a80c0ab32d2e2ae241db",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/d07cf6e9fd97268da189411f1af368cadcd2c772daf6a80c0ab32d2e2ae241db.gz",
+          "bytes": 843,
+          "sha256": "7b609a61c11d6b1f9841034cb25f39ba5e2a67d23555f13622edbc400e1123b3"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/review-validation.cjs",
+        "bytes": 4223,
+        "sha256": "15c39904f325ab3b17182aaecebeab72f7085de4917ce9b340e88aede196b575",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/15c39904f325ab3b17182aaecebeab72f7085de4917ce9b340e88aede196b575.gz",
+          "bytes": 1897,
+          "sha256": "54bceb14f411d7196dd5db85445ba7113b9d689c3698f6e40fde255c02c2054e"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/validation.json",
+        "bytes": 2078,
+        "sha256": "dd1f347b39c456fd286d3eb426acd52fe3fc98709ac488f62c5751d4c16b93b7",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/dd1f347b39c456fd286d3eb426acd52fe3fc98709ac488f62c5751d4c16b93b7.gz",
+          "bytes": 607,
+          "sha256": "6c8d5a4f9906f9c7db5b65e8883b047b85088cdaab253090460e325bb8730c30"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/old-bounded-gated.jsonl.actual.bin",
+        "bytes": 1713464,
+        "sha256": "6a2b8c79069bf8ede414bbf7e0bcaff7cc5e2061c9a2bfc9a251ee7c7e749bf1",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/6a2b8c79069bf8ede414bbf7e0bcaff7cc5e2061c9a2bfc9a251ee7c7e749bf1.gz",
+          "bytes": 1290241,
+          "sha256": "fa17b583e69dd26a13fcc094885e2de8ff94f53aecabbbc31e884d75edc02696"
+        }
+      },
+      {
+        "path": ".ruyi-runtime/m3-c11-verification-20261029/index-race-independent-review/old-bounded-gated.jsonl.expected.bin",
+        "bytes": 1716784,
+        "sha256": "44131469ec59291fb1f13ca594b4a6c85586c3cc95ad5b263ad8ccdde65b5911",
+        "archive": {
+          "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/44131469ec59291fb1f13ca594b4a6c85586c3cc95ad5b263ad8ccdde65b5911.gz",
+          "bytes": 1292735,
+          "sha256": "7759157c02dd77cca3ef34fc74227d11d0fb4a930d2a394193dab5d55af8328f"
+        }
+      }
+    ]
+  },
+  "diagnosticOnly": {
+    "command": "node --test dev-harness/unit/session-artifacts-work-data.test.js",
+    "testFileUnchanged": true,
+    "tests": 19,
+    "pass": 19,
+    "fail": 0,
+    "exitCode": 0,
+    "durationMs": 3316.67,
+    "log": {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-1.log",
+      "bytes": 2303,
+      "sha256": "f69812720e36b48eebd73c2816cdbeb975cfcafdb61e1b1cbf066952d20ce452",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/f69812720e36b48eebd73c2816cdbeb975cfcafdb61e1b1cbf066952d20ce452.gz",
+        "bytes": 1091,
+        "sha256": "6b4c2a3a4e58c04879bbcf55af0c0203a11dbdc6e84c174a591050428bc4f152"
+      }
+    },
+    "events": {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-events.json",
+      "bytes": 482,
+      "sha256": "0d4d02ef1a8f8569e6f0480adbd1e5097484d3809e47c856008c2da491774978",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/0d4d02ef1a8f8569e6f0480adbd1e5097484d3809e47c856008c2da491774978.gz",
+        "bytes": 188,
+        "sha256": "a7afd05eac9eba58ba4659ad476e1f0922d7d2bd990b9bc1b64b04e1fe8f885e"
+      }
+    },
+    "samples": {
+      "path": ".ruyi-runtime/m3-c11-verification-20261029/index-diagnostic-samples.jsonl",
+      "bytes": 1205,
+      "sha256": "648e112c3f55e4e77896412d157c958708778e9458f7a3c15214eb7e2de519f1",
+      "archive": {
+        "path": "docs/optimization-plan/evidence/m3-completed-intent-20261029/blobs/648e112c3f55e4e77896412d157c958708778e9458f7a3c15214eb7e2de519f1.gz",
+        "bytes": 398,
+        "sha256": "8d003b67c85d1965ca55d87ab7ceebe329130e0aad16ecbdf24326005eb48785"
+      }
+    },
+    "scope": "Single unchanged whole suite with pre/post input verification. Two memory samples and three short-lived child read errors; no claim about the earlier failing run peak or cause. Not a replacement for the complete standard gate."
+  },
+  "egress": {
+    "baselineCommit": "68648a94be4782a093c85c708f295ae1075e8ea3",
+    "reviewedFiles": [
+      "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js",
+      "ruyi-workbench/app/src/13aj-work-data-control.js",
+      "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "ruyi-workbench/app/src/14-main.js",
+      "ruyi-workbench/app/src/manifest.json",
+      "ruyi-workbench/app/src/module-contracts.json"
+    ],
+    "before": {
+      "sources": 316,
+      "candidates": 793,
+      "errorCount": 154
+    },
+    "after": {
+      "sources": 316,
+      "candidates": 793,
+      "errorCount": 154
+    },
+    "addedErrorIds": [],
+    "removedErrorIds": [],
+    "changedCandidates": [
+      {
+        "id": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js#seal#run#1",
+        "file": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js",
+        "symbol": "seal",
+        "callee": "run",
+        "category": "process",
+        "fingerprint": "9bf026728a937f4ec0bb866d65c134b70af0fc8057ccf87af29a5fec13eeb94e"
+      },
+      {
+        "id": "ruyi-workbench/app/src/manifest.json#<module>#<configuration>#1",
+        "file": "ruyi-workbench/app/src/manifest.json",
+        "symbol": "<module>",
+        "callee": "<configuration>",
+        "category": "capability",
+        "fingerprint": "6b3b91d69639d66e9a5db9e937e498905cbd3b12bd94e244128e4d6c36462f68",
+        "uncertainty": "Declarative configuration can define executable, endpoint or connector capabilities"
+      },
+      {
+        "id": "ruyi-workbench/app/src/module-contracts.json#<module>#<configuration>#1",
+        "file": "ruyi-workbench/app/src/module-contracts.json",
+        "symbol": "<module>",
+        "callee": "<configuration>",
+        "category": "capability",
+        "fingerprint": "be138e6d0fe69eee8e27645b16e24436d947003a7e0984fbf922c6b6e9f5e02e",
+        "uncertainty": "Declarative configuration can define executable, endpoint or connector capabilities"
+      }
+    ],
+    "manifestChange": "Only independently reviewed 13aj source fingerprint advanced; no entry classifications, historical errors or generated global inventory updated.",
+    "globalGatePassed": false
+  },
+  "implementationInputs": [
+    {
+      "path": "README.md",
+      "bytes": 65304,
+      "sha256": "a60cb934b3bd1d951a28d96a11a0cf9cce6d46c7aacf8f240a77f4f5c4a06877"
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72352,
+      "sha256": "214737322fffbaa704d3436076e287b59f9554915e6f0cbe82de45a8158a7a0d"
+    },
+    {
+      "path": "dev-harness/durable-state-inventory.js",
+      "bytes": 63884,
+      "sha256": "711ffbe7e99fcd0940b1f70b79b4b3f878d3e63ece2cecd6176c5e9669bff0df"
+    },
+    {
+      "path": "dev-harness/lib/work-data-completed-claim-producer.cjs",
+      "bytes": 6080,
+      "sha256": "5ac1bf6c030ce42b1ec7ee04ad6147bb553cfa4c35b8e5c2bfe1bb4981c67437"
+    },
+    {
+      "path": "dev-harness/lib/work-data-fixture-marker.js",
+      "bytes": 2782,
+      "sha256": "5f3934cc034b20f986713a6ea1daaef06df690dc8b12f0b1517fe2409f1bd78a"
+    },
+    {
+      "path": "dev-harness/lib/work-data-owned-claim-fixture.js",
+      "bytes": 11732,
+      "sha256": "038ba8061a956780929e696f0b1a888a22eca3bf7477c11c0f8274ba20de7233"
+    },
+    {
+      "path": "dev-harness/lib/work-data-production-host-fixture.js",
+      "bytes": 24851,
+      "sha256": "7466a48f71b6e9dad789cc3b5a82455d59b2ef6ffd65e438e4c7c32bd6e16608"
+    },
+    {
+      "path": "dev-harness/privacy-m1/egress/manifest.json",
+      "bytes": 214567,
+      "sha256": "4459638572f33ec45f085ffc595d24b8bc714591b03954844a5f18d74cb3d03a"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "bytes": 14522,
+      "sha256": "098824c045f1e97410ba9b8c88604a66a1485613af8ff0ed374c54ae7b25166d"
+    },
+    {
+      "path": "dev-harness/run-all.js",
+      "bytes": 50866,
+      "sha256": "6016c6619e3bb1baf436f465fa028cb3d51bca917a6c5c9949dfee723bdac715"
+    },
+    {
+      "path": "dev-harness/unit/session-artifacts-work-data.test.js",
+      "bytes": 27741,
+      "sha256": "cde0b0008c385591f220ca5c5333e1aef614dd4744135db3fd9b6da698f4ac86"
+    },
+    {
+      "path": "dev-harness/unit/work-data-completed-intent-host.test.js",
+      "bytes": 15522,
+      "sha256": "c22826aca8ff78e35cdbff984a1adfd65b75570de0968bb417031062315f9f86"
+    },
+    {
+      "path": "dev-harness/unit/work-data-fixture-marker.test.js",
+      "bytes": 15124,
+      "sha256": "10a2bed713778ccb6f08a859bf947de61a53584ac4ad2831998fbbdb922212a5"
+    },
+    {
+      "path": "dev-harness/unit/work-data-full-snapshot.test.js",
+      "bytes": 29745,
+      "sha256": "d676ec739a028c5315dbc4aa7252b62f874be6e9d0c9b961546023048d2a10b2"
+    },
+    {
+      "path": "dev-harness/unit/work-data-maintenance-control.test.js",
+      "bytes": 12006,
+      "sha256": "543dfe7fb434464f038f28be5ba25ea96519a76bd57f4689b5f3d99a1ddb2af9"
+    },
+    {
+      "path": "dev-harness/unit/work-data-maintenance-glue.test.js",
+      "bytes": 20305,
+      "sha256": "b19ebdef8974e1d00b31eca60f5bb2728453cd51ea49bfe2286e6c102c88f22d"
+    },
+    {
+      "path": "dev-harness/unit/work-data-maintenance-snapshot-diagnostics.test.js",
+      "bytes": 13601,
+      "sha256": "5ff5d86735b0a7baa9387e78587e92800e7d6548fb72a1456d237bca3499cebd"
+    },
+    {
+      "path": "dev-harness/work-data-completed-intent-recovery.e2e.js",
+      "bytes": 13716,
+      "sha256": "03f3b00c3e350605ada6250c3324ccf8dfb622064c32f4e7631274c556d2a795"
+    },
+    {
+      "path": "dev-harness/work-data-owned-source-recovery.e2e.js",
+      "bytes": 22805,
+      "sha256": "6babae14818ca99cba08af69d2705b07737be316dc04be464819fe218078618c"
+    },
+    {
+      "path": "dev-harness/work-data-production-maintenance.e2e.js",
+      "bytes": 60206,
+      "sha256": "19232c9ffb034e2de456f12d96dbe40274f708f24363550e1b23226d3640d8c3"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.json",
+      "bytes": 73761,
+      "sha256": "72ed771a4d3a96553e67e002e6a382f190acc7bba89a80c8e82f69fec18c95ec"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.md",
+      "bytes": 55466,
+      "sha256": "73e2471c9d17b2304a4022c598d459be8f2b868f9975d3035fe74e30a2dc8eb8"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "bytes": 1078215,
+      "sha256": "a8e4194b82daa7f11b58cd9fff8670087bd67c5b5a4b0da2e04777b2f652073e"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "bytes": 151741,
+      "sha256": "13ad851d2eb8e138650a0e1765100cad8a7c271c022071e09b8c66a59134071e"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 222522,
+      "sha256": "68dcff936f3316b036836ab3169df9299a3d3b024a5e6a1319a67e3974efe153"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 37223,
+      "sha256": "777e21e9b1d940aa8bc524193fe101817ef5f2f51ad29eff57873f9c6eec8747"
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "sha256": "03371009c4fedb8dd2743a2c894a50f54b2cc5c7d692079b948e5e0c06e26933"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 8124529,
+      "sha256": "fd78b57cff70525cdbcfd88840d8da874cd6697f6aba4867eea2891ce3e45f63"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01ab-work-data-full-snapshot.js",
+      "bytes": 39994,
+      "sha256": "f1108300bf821173cf51ba9fdb93c5453433095868ddae1453f0fe864dd31e20"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aj-work-data-control.js",
+      "bytes": 17113,
+      "sha256": "38e26acf735a49adfa0c03aca383317b2d7e2396fce624ab50ef42f2baba40d0"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "bytes": 22053,
+      "sha256": "c69a4e638ce1e50996f42d8059cca12926494bab88694fb5681e54f34a434072"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "bytes": 68918,
+      "sha256": "86dc9cab96ca0e2f36680d206c5e27bc80fffb70c8d7c6e89df92243370b52dd"
+    },
+    {
+      "path": "ruyi-workbench/app/src/14-main.js",
+      "bytes": 49499,
+      "sha256": "542f587a1c0b918ffd9b104ca772a84aa141bcbdd1a50ef09bdd230435675f16"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 36169,
+      "sha256": "4fc597f5186e17d2a958cd30c6a763076e44103a656d7ebd44f8f752819e8e61"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 794889,
+      "sha256": "5b4f861d1ba797a84be29423b875d5e7d77e4a4ffbec4718c050e4ea2fa01865"
+    }
+  ],
+  "batchValidationComplete": true
+}
