@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "description": "Finite exact M4 image auth insertion inverse for historical tests only; never runtime authorization downgrade",
+  "sourcePath": "ruyi-workbench/app/src/01b-route-auth.js",
+  "sha256": "c587587d7f3fbc37925682c221d5b5bba27812991418d28c3bd47577b93031d5",
+  "baseSha256": "b1b95399a0c6ede4fcc71af77fd07e115614c9d2ac3713542f1a6a31fb23f2cf",
+  "inverseSpans": [
+    {
+      "before": "  { m: 'POST', p: '/api/upload', auth: 'token-browser' },\n  { m: 'POST', p: '/api/media/images/prepare', auth: 'token-browser' },\n  { m: 'GET', p: '/api/media/images/', auth: 'token', prefix: true },\n  { m: 'DELETE', p: '/api/media/images/', auth: 'token-browser', prefix: true },\n",
+      "after": "  { m: 'POST', p: '/api/upload', auth: 'token-browser' },\n"
+    }
+  ]
+}

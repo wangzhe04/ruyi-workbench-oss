@@ -4,17 +4,21 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { imageBindings } = require('../lib/composer-race-fixture');
 
 function fixture() {
   const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/public/js/chat-stream-runtime.js'), 'utf8');
-  const create = vm.runInNewContext(source.replace(/^export /gm, '') + '\ncreateChatStreamRuntime', {
+  const state = { currentSession: { id: 'delegated' }, streaming: false, config: {}, sessionRelay: null, sessionExecution: { sessionId: 'delegated', execution: { serverInstanceId: 'fixture', driverRunId: 'delegated-run' } } };
+  const importLine = "import { prepareProtectedImages } from './attachment-tray.js';";
+  assert.deepEqual(source.match(/^import .*;$/gm), [importLine]);
+  const create = vm.runInNewContext(source.replace(importLine, '').replace(/^export /gm, '') + '\ncreateChatStreamRuntime', {
     document: { querySelector: () => null },
     window: {},
+    prepareProtectedImages: imageBindings(state).prepareProtectedImages,
   });
   const nodes = {
     sendBtn: { classList: { toggle() {} } }, promptInput: { value: '' }, steerDeliveryMode: {},
   };
-  const state = { currentSession: { id: 'delegated' }, streaming: false, config: {}, sessionRelay: null, sessionExecution: { sessionId: 'delegated', execution: { serverInstanceId: 'fixture', driverRunId: 'delegated-run' } } };
   const calls = [];
   const runtime = create({ state, $: id => nodes[id], t: key => key,
     isProviderMode: () => true,

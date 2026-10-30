@@ -31,6 +31,7 @@
         "LEGACY_API_ERROR_CODES",
         "LEGACY_DATA_DIR_NAME",
         "MAX_BODY_BYTES",
+        "MediaImageHooks",
         "MemoryCliHooks",
         "MigrationHooks",
         "OVERLAY_ID",
@@ -2233,6 +2234,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "nowIso",
           "kinds": [
             "call"
@@ -2959,6 +2967,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "os",
           "kinds": [
             "read"
@@ -3148,6 +3163,7 @@
       "file": "04-visual-pipeline.js",
       "layer": "foundation",
       "provides": [
+        "VisualMediaHooks",
         "VisualPipeline"
       ],
       "requires": []
@@ -3949,6 +3965,7 @@
       "layer": "foundation",
       "provides": [
         "PROVIDER_LAN_HOST_SUFFIXES",
+        "ProviderMediaHooks",
         "abortableDelay",
         "providerApiBase",
         "providerBaseIsLocalOrLan",
@@ -15439,6 +15456,13 @@
           "symbol": "lstatOrNull",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -28131,6 +28155,7 @@
         "WorkDataMaintenance",
         "workDataDeferredAgentWakes",
         "workDataDeferredStewardWake",
+        "workDataHelpersMayStillRun",
         "workDataMaintenance"
       ],
       "requires": [
@@ -28144,6 +28169,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
           "kinds": [
             "read"
           ]
@@ -29522,6 +29554,294 @@
         {
           "provider": "01h-privacy-core.js",
           "symbol": "PrivacyCore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13bb-media-derived-store.js",
+      "layer": "unclassified",
+      "provides": [
+        "MediaDerivedStore"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01x-work-data-migration-codecs.js",
+          "symbol": "WorkDataMigrationCodecs",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13bc-media-image-processor.js",
+      "layer": "unclassified",
+      "provides": [
+        "MediaImageProcessor"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13bd-media-image-service.js",
+      "layer": "unclassified",
+      "provides": [
+        "MediaImageService"
+      ],
+      "requires": [
+        {
+          "provider": "13ba-media-image-contract.js",
+          "symbol": "MediaImageContract",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13be-media-image-host.js",
+      "layer": "unclassified",
+      "provides": [
+        "MediaImageHost"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "appRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "assertSessionIdForPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionSaveIsTombstoned",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sanitizeFsSegmentName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualMediaHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "ProviderMediaHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ba-media-image-contract.js",
+          "symbol": "MediaImageContract",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13bb-media-derived-store.js",
+          "symbol": "MediaDerivedStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13bc-media-image-processor.js",
+          "symbol": "MediaImageProcessor",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13bd-media-image-service.js",
+          "symbol": "MediaImageService",
           "kinds": [
             "read"
           ]

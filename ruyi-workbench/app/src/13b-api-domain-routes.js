@@ -366,6 +366,7 @@ async function steerAttachments(raw) {
     const image = /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
     const sendPath = image ? await fsp.realpath(path.join(root, id, 'send.jpg')).catch(() => '') : '';
     out.push({ id, name, path: file, size: stat.size, ...(image ? { kind: 'image' } : {}),
+      ...(typeof item.protectedImage?.reference === 'string' ? { protectedImage: { reference: item.protectedImage.reference } } : {}),
       ...(sendPath && insideUploads(sendPath) ? { sendPath } : {}),
       ...(typeof item.textPreview === 'string' ? { textPreview: item.textPreview.slice(0, 12000) } : {}),
       ...(typeof item.ocrText === 'string' ? { ocrText: item.ocrText.slice(0, 12000) } : {}),

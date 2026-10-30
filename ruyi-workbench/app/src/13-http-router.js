@@ -1380,6 +1380,7 @@ async function handleApi(req, res, pathname) {
     await maybeCompressImageAttachment(file);
     return send(res, json({ ok: true, file }));
   }
+  if (typeof MediaImageHooks.handleApiRoutes === 'function' && await MediaImageHooks.handleApiRoutes(req, res, pathname)) return;
   // 图片/附件回显:读取 makeAttachmentRecord 写下的上传件原字节(聊天气泡里的图片缩略图/大图)。
   // 只读内容型 GET:token 门 + handler 自查(同 /api/file/preview 纵深);第二道闸把目标锁死在
   // uploads 根内(词法 + realpath 双校验,符号链接也逃不出),服务面 = 工作台自己写过的上传目录。

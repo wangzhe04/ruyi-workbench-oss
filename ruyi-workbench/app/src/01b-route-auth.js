@@ -89,6 +89,9 @@ const ROUTE_AUTH = [
   // fetch + ReadableStream 读这条流(前端本来就是这么发 /api/chat/stream 的),不用 EventSource。
   { m: 'GET', p: '/api/events/stream', auth: 'token-browser' },
   { m: 'POST', p: '/api/upload', auth: 'token-browser' },
+  { m: 'POST', p: '/api/media/images/prepare', auth: 'token-browser' },
+  { m: 'GET', p: '/api/media/images/', auth: 'token', prefix: true },
+  { m: 'DELETE', p: '/api/media/images/', auth: 'token-browser', prefix: true },
   // 图片/附件回显:聊天里已发送附件的原字节只读读取。内容型 GET,token 级同 /api/file/preview;
   // handler 内再做 uploads 目录 realpath 包含校验(只服务 makeAttachmentRecord 写下的文件)。
   { m: 'GET', p: '/api/upload/content', auth: 'token' },

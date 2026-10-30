@@ -1,4 +1,5 @@
 'use strict';
+import { prepareProtectedImages } from './attachment-tray.js';
 
 export function applyToolUseUpdate(card, evt, deps = {}) {
   if (!card || !evt) return;
@@ -740,6 +741,10 @@ export function createChatStreamRuntime(deps = {}) {
         const created = await newSession();
         if (!created || state.currentSession?.id !== created.id) return;
       }
+      const imageSessionId = state.currentSession.id, imageSelection = sessionSelectionSeq();
+      try { await prepareProtectedImages(Array.isArray(options.attachments) ? options.attachments : state.attachments, imageSessionId); }
+      catch (error) { toast(apiErrText(error), 'err'); return; }
+      if (state.currentSession?.id !== imageSessionId || sessionSelectionSeq() !== imageSelection) return;
     } finally { sendPreflight = false; }
 
     const turnSessionId = state.currentSession.id;
@@ -1035,6 +1040,8 @@ export function createChatStreamRuntime(deps = {}) {
     try {
       const delivery = $('steerDeliveryMode');
       const mode = delivery && !delivery.hidden ? delivery.value : 'queue';
+      await prepareProtectedImages(sentAttachments, sessionId);
+      if (!sameSelection()) return;
       const r = await api('/api/steer', { method: 'POST', body: JSON.stringify({ sessionId, text, mode, attachments: sentAttachments }) });
       if (!sameSelection()) return; // 包括 A→B→A；旧现场的回包不更新输入框、队列或触发重发。
       // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：

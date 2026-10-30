@@ -3,15 +3,15 @@
   "generatedBy": "dev-harness/encrypted-storage-freeze.js",
   "scope": "M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration",
   "encryptionImplemented": false,
-  "count": 77,
+  "count": 78,
   "classCounts": {
-    "required": 44,
+    "required": 45,
     "excluded": 33
   },
   "batchCounts": {
     "not-migrated": 33,
     "sessions": 12,
-    "index-cache": 8,
+    "index-cache": 9,
     "memory-queue": 13,
     "tasks": 7,
     "logs": 2,
@@ -71,7 +71,8 @@
     "scheduler-fires",
     "background-job-ledger",
     "audit-log",
-    "migration-skill-backups"
+    "migration-skill-backups",
+    "media-derived"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -552,6 +553,15 @@
         }
       ],
       "reason": "playbook bodies embed prompts and examples",
+      "adapter": "wired"
+    },
+    {
+      "id": "media-derived",
+      "encryption": "required",
+      "keyPurpose": "cache",
+      "migrationBatch": "index-cache",
+      "plaintextMetadata": [],
+      "reason": "protected image pixels, manifests and source/policy proofs are derived work data; the original MediaDerivedStore seals the complete payload and uses its original domain validator during migration",
       "adapter": "wired"
     },
     {

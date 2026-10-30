@@ -1,0 +1,510 @@
+{
+  "schema": 1,
+  "kind": "media-corresponding-source-recipe",
+  "profileId": "m4-image-cpython312-candidate-v2",
+  "scope": "Source correspondence work queue; technical source sets, archive byte identity, build provenance and distribution permission are separate claims.",
+  "legacy": {
+    "artifact": "opencv-windows-ffmpeg-source-sidecar.zip",
+    "bytes": 19922194,
+    "sha256": "09b13acc951b1ca1ed5f0971a51564599daad1bf733d2bf1f02c29d5c124f0d7",
+    "contentLockSha256": "9129d3e4e08b5cf59311e97bf71f64ed1ba521533c35aa859362ddfca8d4db40",
+    "provenanceSha256": "19f223b29e6ff7b1eef46a08685e157e7e5f2c81ce76c6ad48a968bb8f8aa249",
+    "restored": false,
+    "contentLockLocated": false,
+    "exactArchiveReconstructionProved": false
+  },
+  "evidence": [
+    {
+      "kind": "retained-primary-observations-and-recovery-route",
+      "file": "docs/optimization-plan/evidence/m3-host-m4-stage-20261027/blobs/4968ffd371ca54231d74da585709b33dbc700e8daff4203ad13a89327258efd3.gz",
+      "decodedSha256": "4968ffd371ca54231d74da585709b33dbc700e8daff4203ad13a89327258efd3",
+      "authority": "historical observations only; no new network query"
+    },
+    {
+      "kind": "opencv-and-font-technical-set",
+      "file": "docs/optimization-plan/evidence/m4-source-technical-closure-20261029.json",
+      "bytes": 380152,
+      "sha256": "fa14e742fbda8d09b5de541d0468480572e4cc0a85bb4f4625a25fd66422935a",
+      "paths": 6909,
+      "uniqueObjects": 6728,
+      "coversFullRuntimeCorrespondingSource": false,
+      "coversLegacy09b": false
+    }
+  ],
+  "binaryInputs": [
+    {
+      "path": "payload/offline_packages/cffi-2.1.1-cp312-cp312-win_amd64.whl",
+      "bytes": 185919,
+      "sha256": "f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a"
+    },
+    {
+      "path": "payload/offline_packages/charset_normalizer-3.4.9-cp312-cp312-win_amd64.whl",
+      "bytes": 162557,
+      "sha256": "4b3dac63058cc36820b0dd072f89898604e2d39686fe05321729d00d8ac185a0"
+    },
+    {
+      "path": "payload/offline_packages/cryptography-50.0.0-cp311-abi3-win_amd64.whl",
+      "bytes": 3840395,
+      "sha256": "bd1c592e4d5974f0d08d4888e432157adba757c66da0246918e43677fafa2d30"
+    },
+    {
+      "path": "payload/offline_packages/et_xmlfile-2.0.0-py3-none-any.whl",
+      "bytes": 18059,
+      "sha256": "7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa"
+    },
+    {
+      "path": "payload/offline_packages/lxml-6.1.1-cp312-cp312-win_amd64.whl",
+      "bytes": 3997255,
+      "sha256": "26e6eda8d38c1fcab1090dd196ee87cbd13788e531937610e2589085de074e77"
+    },
+    {
+      "path": "payload/offline_packages/numpy-2.5.1-cp312-cp312-win_amd64.whl",
+      "bytes": 12430966,
+      "sha256": "f7d60026c0bdb1380e83bfa7a0419c4577ee4b9a08880afcb6dadeb74c649fa2"
+    },
+    {
+      "path": "payload/offline_packages/opencv_python_headless-5.0.0.93-cp37-abi3-win_amd64.whl",
+      "bytes": 43825962,
+      "sha256": "829717b6a95554f273e49e357cee3b3a2a26b6f4842fbc1bed2b45bdd8f87e0e"
+    },
+    {
+      "path": "payload/offline_packages/openpyxl-3.1.5-py2.py3-none-any.whl",
+      "bytes": 250910,
+      "sha256": "5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2"
+    },
+    {
+      "path": "payload/offline_packages/pdfminer_six-20260107-py3-none-any.whl",
+      "bytes": 6592252,
+      "sha256": "366585ba97e80dffa8f00cebe303d2f381884d8637af4ce422f1df3ef38111a9"
+    },
+    {
+      "path": "payload/offline_packages/pdfplumber-0.11.10-py3-none-any.whl",
+      "bytes": 60047,
+      "sha256": "7741ea81bf165b474b153e6789d10d18e06b6ddcf3ec84289c3ef2fed6802580"
+    },
+    {
+      "path": "payload/offline_packages/pillow-12.3.0-cp312-cp312-win_amd64.whl",
+      "bytes": 7227137,
+      "sha256": "a2b55dd6b2a4c4b7d87ffa56bdb33fdc5fdb9a462173861a7bc097f17d91cb09"
+    },
+    {
+      "path": "payload/offline_packages/psutil-7.2.2-cp37-abi3-win_amd64.whl",
+      "bytes": 137737,
+      "sha256": "eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988"
+    },
+    {
+      "path": "payload/offline_packages/pycparser-3.0-py3-none-any.whl",
+      "bytes": 48172,
+      "sha256": "b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992"
+    },
+    {
+      "path": "payload/offline_packages/pypdf-6.14.2-py3-none-any.whl",
+      "bytes": 349514,
+      "sha256": "3f07891af76dc002657e04993ab9b4de81de29f9013b9761d0b7968bff12e946"
+    },
+    {
+      "path": "payload/offline_packages/pypdfium2-5.12.1-py3-none-win_amd64.whl",
+      "bytes": 3859845,
+      "sha256": "9609be73a6701a68f29dffe0335f7a2e4b3ba581542ed65d35d49f761a4600ca"
+    },
+    {
+      "path": "payload/offline_packages/python_docx-1.2.0-py3-none-any.whl",
+      "bytes": 252987,
+      "sha256": "3fd478f3250fbbbfd3b94fe1e985955737c145627498896a8a6bf81f4baf66c7"
+    },
+    {
+      "path": "payload/offline_packages/python_pptx-1.0.2-py3-none-any.whl",
+      "bytes": 472788,
+      "sha256": "160838e0b8565a8b1f67947675886e9fea18aa5e795db7ae531606d68e785cba"
+    },
+    {
+      "path": "payload/offline_packages/reportlab-5.0.0-py3-none-any.whl",
+      "bytes": 1956710,
+      "sha256": "9d5a3affa84919e1111ede580031266a570e93b1ce388219621347965ff1d93c"
+    },
+    {
+      "path": "payload/offline_packages/typing_extensions-4.16.0-py3-none-any.whl",
+      "bytes": 45571,
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+    },
+    {
+      "path": "payload/offline_packages/winsdk-1.0.0b10-cp312-cp312-win_amd64.whl",
+      "bytes": 12015329,
+      "sha256": "8231ce5f16e1fc88bb7dda0adf35633b5b26101eae3b0799083ca2177f03e4e5"
+    },
+    {
+      "path": "payload/offline_packages/xlsxwriter-3.2.9-py3-none-any.whl",
+      "bytes": 175315,
+      "sha256": "9a5db42bc5dff014806c58a20b9eae7322a134abb6fce3c92c181bfb275ec5b3"
+    },
+    {
+      "path": "payload/python_embed/Lib/site-packages/cv2/cv2.pyd",
+      "bytes": 85848064,
+      "sha256": "eefedf6ee006a84bbc7d3df5ec66046429b8c95dbfd5f8f8f98c5772b91d6d48"
+    },
+    {
+      "path": "payload/python_embed/Lib/site-packages/cv2/opencv_videoio_ffmpeg500_64.dll",
+      "bytes": 30876160,
+      "sha256": "7aabff029d1fa47cf56ede4dbbe05dc62da3208f07cd16471d4c966a33f9aa31"
+    },
+    {
+      "path": "payload/python_embed/python.exe",
+      "bytes": 104952,
+      "sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a"
+    },
+    {
+      "path": "payload/python_embed/python312.dll",
+      "bytes": 6945272,
+      "sha256": "9a0e3435aaa680d868150f87ab3e388ad2eebc22f87e036155c7b4eda8cd2120"
+    },
+    {
+      "path": "payload/python_embed/python312.zip",
+      "bytes": 3835482,
+      "sha256": "fb131c0ef7e35cc5250a74c8cd18744bf4115fb8163710711f3758d7df3d1f88"
+    }
+  ],
+  "components": [
+    {
+      "name": "pillow",
+      "version": "12.3.0",
+      "metadata": "python_embed/Lib/site-packages/pillow-12.3.0.dist-info/METADATA",
+      "metadataSha256": "2c4378001803cfac65809a50722d46e0da4ce8061e717f103e5d52734bab30f5",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/pillow-12.3.0.dist-info/licenses/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "winsdk",
+      "version": "1.0.0b10",
+      "metadata": "python_embed/Lib/site-packages/winsdk-1.0.0b10.dist-info/METADATA",
+      "metadataSha256": "468353ffba554182c8e1c4184ba085509d838c9d48a4d87df4169c6b20f13dfe",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/winsdk-1.0.0b10.dist-info/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "pypdfium2",
+      "version": "5.12.1",
+      "metadata": "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/METADATA",
+      "metadataSha256": "30533ca749d12267b4d1ab74af1f5b5e271c6a104eca648bd0ecd07cd0963c3b",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/LICENSES/Apache-2.0.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/LICENSES/BSD-3-Clause.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/LICENSES/CC-BY-4.0.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/abseil.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/agg23.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/fast_float.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/freetype.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/icu.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/lcms.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libjpeg_turbo.ijg",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libjpeg_turbo.md",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libopenjpeg.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libpng.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libtiff.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/llvm-libc.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/pdfium-binaries.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/pdfium.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/simdutf.txt",
+        "python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/zlib.txt"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "pypdf",
+      "version": "6.14.2",
+      "metadata": "python_embed/Lib/site-packages/pypdf-6.14.2.dist-info/METADATA",
+      "metadataSha256": "975d36e73b040576d10f04b6f9042f722c3ff38100615f5bb27c1b65e2813d76",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/pypdf-6.14.2.dist-info/licenses/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "pdfplumber",
+      "version": "0.11.10",
+      "metadata": "python_embed/Lib/site-packages/pdfplumber-0.11.10.dist-info/METADATA",
+      "metadataSha256": "11a7f2c3a00208fe38389ad3022fbcde4610aec3b9ded312d82701eda1f56c23",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/pdfplumber-0.11.10.dist-info/licenses/LICENSE.txt"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "pdfminer.six",
+      "version": "20260107",
+      "metadata": "python_embed/Lib/site-packages/pdfminer_six-20260107.dist-info/METADATA",
+      "metadataSha256": "4ca427c77b90fe19db60c0b3b8dbb4c0adc82979d089ec2f1b9238acff15ff9c",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/pdfminer_six-20260107.dist-info/licenses/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "python-docx",
+      "version": "1.2.0",
+      "metadata": "python_embed/Lib/site-packages/python_docx-1.2.0.dist-info/METADATA",
+      "metadataSha256": "4c4cc819ebe6de4aca44daccfd3f9173e6f46d9ed900ad1c388ff9efb7b6b1d7",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/python_docx-1.2.0.dist-info/licenses/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "python-pptx",
+      "version": "1.0.2",
+      "metadata": "python_embed/Lib/site-packages/python_pptx-1.0.2.dist-info/METADATA",
+      "metadataSha256": "d38c6af5f1817cc528706264d8343cd1c95dbdec5672f29b944f54f79134a3a2",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/python_pptx-1.0.2.dist-info/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "openpyxl",
+      "version": "3.1.5",
+      "metadata": "python_embed/Lib/site-packages/openpyxl-3.1.5.dist-info/METADATA",
+      "metadataSha256": "23f80ca9830dd89435da1710f26deda8f81e5409287e74540210c72627a4ad96",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/openpyxl-3.1.5.dist-info/LICENCE.rst"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "lxml",
+      "version": "6.1.1",
+      "metadata": "python_embed/Lib/site-packages/lxml-6.1.1.dist-info/METADATA",
+      "metadataSha256": "0b6279dfca6a89d340c72bfdec06aac78e9879845ac900d043ed65d0b9648bae",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/lxml-6.1.1.dist-info/licenses/LICENSE.txt",
+        "python_embed/Lib/site-packages/lxml-6.1.1.dist-info/licenses/LICENSES.txt"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "reportlab",
+      "version": "5.0.0",
+      "metadata": "python_embed/Lib/site-packages/reportlab-5.0.0.dist-info/METADATA",
+      "metadataSha256": "bdbc7e1eb4b81901d80ef39dc4762d5dae2bbbd55be0849da2825167121f4d8b",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/reportlab-5.0.0.dist-info/licenses/LICENSE",
+        "python_embed/Lib/site-packages/reportlab/fonts/DarkGarden-copying-gpl.txt",
+        "python_embed/Lib/site-packages/reportlab/fonts/DarkGarden-copying.txt",
+        "python_embed/Lib/site-packages/reportlab/fonts/bitstream-vera-license.txt"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "opencv-python-headless",
+      "version": "5.0.0.93",
+      "metadata": "python_embed/Lib/site-packages/opencv_python_headless-5.0.0.93.dist-info/METADATA",
+      "metadataSha256": "5e8fb8a066deaddf9337c649463dd7657920f64567ce23ded4b82b3a23ae1bae",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/cv2/LICENSE-3RD-PARTY.txt",
+        "python_embed/Lib/site-packages/cv2/LICENSE.txt",
+        "python_embed/Lib/site-packages/opencv_python_headless-5.0.0.93.dist-info/LICENSE-3RD-PARTY.txt",
+        "python_embed/Lib/site-packages/opencv_python_headless-5.0.0.93.dist-info/LICENSE.txt"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.1",
+      "metadata": "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/METADATA",
+      "metadataSha256": "6ae45122ee97050e48849438320430d05f01814f72e66e69cbeed027d2c6a1e8",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/LICENSE.txt",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/highway/LICENSE",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/multiarray/dragon4_LICENSE.txt",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/umath/svml/LICENSE",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/fft/pocketfft/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/linalg/lapack_lite/LICENSE.txt",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/ma/LICENSE",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/distributions/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/mt19937/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/pcg64/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/philox/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/sfc64/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/splitmix64/LICENSE.md",
+        "python_embed/Lib/site-packages/numpy/_core/include/numpy/random/LICENSE.txt",
+        "python_embed/Lib/site-packages/numpy/ma/LICENSE",
+        "python_embed/Lib/site-packages/numpy/random/LICENSE.md"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "metadata": "python_embed/Lib/site-packages/psutil-7.2.2.dist-info/METADATA",
+      "metadataSha256": "a263a40220d921d9cb963fc636d34f817aa2eb72c2696e3e3465d088cdb1976b",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/psutil-7.2.2.dist-info/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.9",
+      "metadata": "python_embed/Lib/site-packages/charset_normalizer-3.4.9.dist-info/METADATA",
+      "metadataSha256": "83a2993c753cc6098985f8a75286025a01e96453403284ce25e3fef7665472e1",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/charset_normalizer-3.4.9.dist-info/licenses/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.0",
+      "metadata": "python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/METADATA",
+      "metadataSha256": "d4e345f82cb783877d73261f00303577cdf20d13229176c2d03a0a5603cb3ab5",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/licenses/LICENSE",
+        "python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/licenses/LICENSE.APACHE",
+        "python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/licenses/LICENSE.BSD"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "cffi",
+      "version": "2.1.1",
+      "metadata": "python_embed/Lib/site-packages/cffi-2.1.1.dist-info/METADATA",
+      "metadataSha256": "67b6a7595df7ede2195016a05d285faa7d362a8f57c238984edb8bb674b5770d",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/cffi-2.1.1.dist-info/licenses/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "metadata": "python_embed/Lib/site-packages/pycparser-3.0.dist-info/METADATA",
+      "metadataSha256": "f547a60b0ab54cc2f242213d1f87960ad80df7dd5dfeb98d17a444d48bfb6b93",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/pycparser-3.0.dist-info/licenses/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "metadata": "python_embed/Lib/site-packages/typing_extensions-4.16.0.dist-info/METADATA",
+      "metadataSha256": "b05084ca1d50879865178d9fff9fabeab61bdfb1f361bfbde95421ffc8f9be46",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/typing_extensions-4.16.0.dist-info/licenses/LICENSE"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "et_xmlfile",
+      "version": "2.0.0",
+      "metadata": "python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/METADATA",
+      "metadataSha256": "0e97d7ea909ed0fbe03d88bc8b6f58677cee1b07bd3353ce361cd2405915204e",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/AUTHORS.txt",
+        "python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/LICENCE.python",
+        "python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/LICENCE.rst"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    },
+    {
+      "name": "xlsxwriter",
+      "version": "3.2.9",
+      "metadata": "python_embed/Lib/site-packages/xlsxwriter-3.2.9.dist-info/METADATA",
+      "metadataSha256": "10d504f188e087f07a06b9038ed0535f37ac072c232e60c075ddb0aedb7b7d78",
+      "licenseFiles": [
+        "python_embed/Lib/site-packages/xlsxwriter-3.2.9.dist-info/LICENSE.txt"
+      ],
+      "sourceCorrespondence": "pending",
+      "buildProvenance": "pending",
+      "distributionAcceptance": "pending"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "cpython",
+      "requirement": "Exact CPython 3.12.10 embedded distribution origin, release signatures/recipe and interpreter/stdlib/native source and notices; current tool Python 3.12.14 is unrelated.",
+      "status": "pending"
+    },
+    {
+      "id": "wheel-release",
+      "requirement": "Bind each listed wheel to its immutable release/source/recipe and installed member correspondence; preserve exact METADATA and notices; wheel bytes alone do not prove source/build/legal closure.",
+      "status": "pending"
+    },
+    {
+      "id": "opencv-release",
+      "requirement": "Separate opencv-python b83046cda41133f1bf2e73e99dba16a1248f103a and OpenCV submodule 40738fb16ceddb5fb3fea747585f7ce6abb0605b from the FFmpeg plugin wrapper source a0a660fcb1e58a295e6caa6aee64ed4d369b0181.",
+      "status": "pending"
+    },
+    {
+      "id": "ffmpeg",
+      "requirement": "Bind plugin binary 06dc20cad65dc7fcf784f70c95d46750520889a7 to source commit 664c0098dcb47b361f20c1d6a518653c23f5f2b5; independently close FFmpeg n7.1, libvpx v1.16.0, AOM v3.14.1, OpenH264 API v2.5.0, wrapper, build flags, static compiler runtime, LICENSE/NOTICE/PATENTS and source/member census.",
+      "status": "pending"
+    },
+    {
+      "id": "openh264",
+      "requirement": "The historical 32-byte API archive is insufficient evidence of headers. Corresponding wels headers/LICENSE, any external codec and actual enabled paths require independent closure.",
+      "status": "pending"
+    },
+    {
+      "id": "old-content-lock",
+      "requirement": "Original 9129 content-lock and 19f provenance bytes remain unlocated in the bounded retained route. Hashes cannot reconstruct them or the exact ZIP encoding of 09b; use a new identity for new material.",
+      "status": "pending"
+    },
+    {
+      "id": "distribution",
+      "requirement": "Independent complete notices/source/package-distribution review. No legal acceptance is inferred from a technical source collection or license filenames.",
+      "status": "pending"
+    }
+  ],
+  "sourceArchiveAvailable": false,
+  "provenanceComplete": false,
+  "legalAcceptance": false,
+  "executionAuthorized": false,
+  "ready": false
+}

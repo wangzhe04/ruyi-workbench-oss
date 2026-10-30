@@ -9,6 +9,7 @@ for (const reply of ['success', 'failure', 'no-live', 'network']) {
     test(`steer ${reply}: A→B${back ? '→A' : ''} keeps new draft and never paints/retries old request`, async () => {
       const fx = fixture();
       const pending = fx.send('A original');
+      await tick(); // The image-preparation boundary completes before the steer request.
       fx.choose('B'); if (back) fx.choose('A');
       fx.nodes.promptInput.value = 'new draft';
       if (reply === 'network') fx.response.reject(new TypeError('Failed to fetch'));
@@ -125,4 +126,31 @@ test('automatic creation superseded by a selection does not send into that selec
   const pending = fx.send('original'); await tick(); fx.choose('B');
   fx.creation.resolve(null); await pending;
   assert.equal(fx.streams.length, 0); assert.equal(fx.nodes.promptInput.value, 'original');
+});
+
+test('a protected image being edited blocks steer without consuming the draft', async () => {
+  const fx = fixture();
+  fx.state.config.privacyModeV1 = 'basic';
+  fx.state.attachments = [{ id: 'image1', name: 'picture.png', imageEditing: true }];
+  await fx.send('keep this draft');
+  assert.equal(fx.calls.length, 0);
+  assert.equal(fx.streams.length, 0);
+  assert.equal(fx.nodes.promptInput.value, 'keep this draft');
+  assert.equal(fx.state.attachments.length, 1);
+  assert.equal(fx.toasts.length, 1);
+});
+
+test('selection change during real image preparation prevents the steer request', async () => {
+  const imageReply = deferred(), requested = deferred();
+  const fx = fixture({ imageApi: () => { requested.resolve(); return imageReply.promise; } });
+  fx.state.config.privacyModeV1 = 'basic';
+  fx.state.attachments = [{ id: 'image1', name: 'picture.png' }];
+  const pending = fx.send('keep this draft');
+  await requested.promise;
+  fx.choose('B');
+  imageReply.resolve({});
+  await pending;
+  assert.equal(fx.calls.length, 0);
+  assert.equal(fx.streams.length, 0);
+  assert.equal(fx.nodes.promptInput.value, 'keep this draft');
 });

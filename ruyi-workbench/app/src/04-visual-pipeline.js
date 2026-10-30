@@ -1,3 +1,4 @@
+const VisualMediaHooks = {};
 const VisualPipeline = (() => {
   const nodeFsp = require('fs/promises');
   const nodePath = require('path');
@@ -23,6 +24,10 @@ const VisualPipeline = (() => {
   // the model still knows an image was attached but nothing bloats the request). Non-image attachments are
   // already described in the text part; they are NOT re-read here. Returns a parts array. Never throws.
   async function buildUserContentParts(textContent, attachments) {
+    if (typeof VisualMediaHooks.buildUserContentParts === 'function') {
+      const protectedParts = await VisualMediaHooks.buildUserContentParts(textContent, attachments);
+      if (protectedParts !== null) return protectedParts;
+    }
     const parts = [{ type: 'text', text: String(textContent || '') }];
     for (const a of (attachments || [])) {
       if (!a || !a.path || !IMAGE_EXT_RE.test(String(a.name || a.path))) continue;

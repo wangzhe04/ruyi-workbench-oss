@@ -167,7 +167,7 @@ test('same durable pending receipt requires token and origin again before any re
 
 test('finite WT auth inverse round-trips both complete registries and rejects unknown or partial auth drift',()=>{
  const history=require('../fixtures/thread-relay/auth-history.json'),retention=require('../fixtures/external-bots-retention/history.json');
- const helper=require('../lib/external-bots-source-history'),current=fs.readFileSync(p.join(repo,history.sourcePath),'utf8');
+ const helper=require('../lib/external-bots-source-history'),current=helper.beforeMediaImageAuth(fs.readFileSync(p.join(repo,history.sourcePath),'utf8'));
  const sha=value=>c.createHash('sha256').update(value).digest('hex');let base=current;
  a.equal(sha(current),history.sha256);a.equal(history.baseSha256,retention.auth.sha256);
  for(const row of history.inverseSpans.toReversed()){a.equal(base.split(row.before).length,2);base=base.replace(row.before,row.after);}
@@ -183,11 +183,23 @@ test('finite WT auth inverse round-trips both complete registries and rejects un
   current.replace(history.inverseSpans[0].after,history.inverseSpans[0].after.replace("auth: 'body-token'","auth: 'none'"))];
  for(const changed of variants){a.notEqual(changed,current);a.throws(()=>helper.beforeRetentionAuth(changed));}
  const helperSource=fs.readFileSync(p.join(repo,'dev-harness/lib/external-bots-source-history.js'),'utf8');
- const code=functionBlock(helperSource,'beforeThreadRelayAuth')+'\n'+functionBlock(helperSource,'beforeRetentionAuth')+'\nbeforeRetentionAuth';
+ const code=functionBlock(helperSource,'beforeMediaImageAuth')+'\n'+functionBlock(helperSource,'beforeThreadRelayAuth')+'\n'+functionBlock(helperSource,'beforeRetentionAuth')+'\nbeforeRetentionAuth';
  for(const span of [{before:history.inverseSpans[0].before+'missing',after:history.inverseSpans[0].after},
    {before:history.inverseSpans[0].before,after:history.inverseSpans[0].after+unrelated},
    {before:history.inverseSpans[0].before,after:history.inverseSpans[0].before}]){
-  const fixture={...history,inverseSpans:[span]},read=name=>{if(name==='../fixtures/thread-relay/auth-history.json')return fixture;if(name==='../fixtures/external-bots-retention/history.json')return retention;throw Error('unexpected fixture');};
+  const fixture={...history,inverseSpans:[span]},read=name=>{if(name==='../fixtures/media-image-auth/history.json')return require('../fixtures/media-image-auth/history.json');if(name==='../fixtures/thread-relay/auth-history.json')return fixture;if(name==='../fixtures/external-bots-retention/history.json')return retention;throw Error('unexpected fixture');};
   const inverse=vm.runInNewContext(code,{assert:a,hash:sha,require:read});a.throws(()=>inverse(current));
  }
+});
+
+test('finite image auth inverse preserves complete registries and refuses partial or unknown image drift',()=>{
+ const helper=require('../lib/external-bots-source-history'),history=require('../fixtures/media-image-auth/history.json');
+ const current=fs.readFileSync(p.join(repo,history.sourcePath),'utf8'),sha=value=>c.createHash('sha256').update(value).digest('hex');
+ a.equal(sha(current),history.sha256);const base=helper.beforeMediaImageAuth(current);a.equal(sha(base),history.baseSha256);
+ a.equal(history.baseSha256,require('../fixtures/thread-relay/auth-history.json').sha256);
+ let forward=base;for(const row of history.inverseSpans){a.equal(forward.split(row.after).length,2);forward=forward.replace(row.after,row.before);}a.equal(forward,current);
+ a.equal(helper.beforeRetentionAuth(current),helper.beforeRetentionAuth(base));
+ const rows=history.inverseSpans[0].before.slice(history.inverseSpans[0].after.length).trimEnd().split('\n');a.equal(rows.length,3);
+ const variants=[current+'\n',current.replace('//','// unknown image drift '),...rows.flatMap(row=>[current.replace(row+'\n',''),current.replace(row+'\n',row+'\n'+row+'\n'),current.replace(row,row.replace(/auth: '[^']+'/,"auth: 'none'"))])];
+ for(const changed of variants){a.notEqual(changed,current);a.throws(()=>helper.beforeRetentionAuth(changed));}
 });

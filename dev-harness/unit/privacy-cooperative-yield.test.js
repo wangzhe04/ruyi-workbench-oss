@@ -12,7 +12,7 @@ if (process.env.RUYI_GATEWAY_DRAFT_DIR) {
   fixtureLibrary = fixtureModule.exports;
 } else fixtureLibrary = require(fixturePath);
 const { fixture, gateway } = fixtureLibrary;
-const { functionBlock } = require(path.join(repo, 'dev-harness/lib/source-slice'));
+const { functionBlock, constBlock } = require(path.join(repo, 'dev-harness/lib/source-slice'));
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-gateway-cooperative-'));
 const source = file => fs.readFileSync(process.env.RUYI_GATEWAY_DRAFT_DIR ? path.join(process.env.RUYI_GATEWAY_DRAFT_DIR, 'src', file) : path.join(repo, 'ruyi-workbench/app/src', file), 'utf8');
 const policy = rules => ({ privacyModeV1: 'enhanced', privacyRulesV1: rules || [], providers: [] });
@@ -22,7 +22,9 @@ const fresh = (schedule = setImmediate, fx = fixture()) => {
   const api = gateway(dir, fx, { source: source('03a-privacy-gateway.js'), setImmediate: schedule });
   api.configure(policy()); return { api, fx };
 };
-const boundary = (api, fetch) => vm.runInNewContext(functionBlock(source('04h-provider-http.js'), 'providerModelPostOnce') + '\nproviderModelPostOnce;', { PrivacyGateway: api, fetch });
+// This text-only gateway fixture has no media adapter installed. Use the real
+// registration cell; composed media/dispatch authority is covered by its own suite.
+const boundary = (api, fetch) => vm.runInNewContext(constBlock(source('04h-provider-http.js'), 'ProviderMediaHooks') + '\n' + functionBlock(source('04h-provider-http.js'), 'providerModelPostOnce') + '\nproviderModelPostOnce;', { PrivacyGateway: api, fetch });
 const wide = Array.from({ length: 2000 }, () => 'ordinary public leaf');
 const protocols = [
   { messages: [{ role: 'user', content: 'Public request' }], metadata: { rows: wide } },

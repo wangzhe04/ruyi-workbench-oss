@@ -7,7 +7,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const tempBase = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(tempBase, 'ruyi-thread-brief-boundary-'));
 const data = path.join(root, 'data'); fs.mkdirSync(data);
 Object.assign(process.env, require('../lib/release-checks').releaseEnvironment(path.join(root, 'home'), data));
-const app = require('../lib/server-internals').loadServerInternals(['PrivacyGateway', 'PrivacyCore', 'threadBriefOnce', 'buildThreadBriefMessages', 'providerPostJsonOnce', 'providerModelPostOnce', 'THREAD_BRIEF_INPUT_CHARS', 'THREAD_BRIEF_REPLY_CHARS'], { withEval: true });
+const app = require('../lib/server-internals').loadServerInternals(['PrivacyGateway', 'PrivacyCore', 'ProviderMediaHooks', 'threadBriefOnce', 'buildThreadBriefMessages', 'providerPostJsonOnce', 'providerModelPostOnce', 'THREAD_BRIEF_INPUT_CHARS', 'THREAD_BRIEF_REPLY_CHARS'], { withEval: true });
 const f = require('../lib/privacy-test-fixture').fixture();
 let seals = 0, opens = 0, workerStarts = 0, serial = 0;
 app.PrivacyCore.configHooks.sealLocal = (...args) => { seals++; return f.vault.sealLocal(...args); };
@@ -153,6 +153,7 @@ test('actual provider POST rechecks policy after boundary resolution and before 
     // Without the POST caller's post-await assert, its actual fetch is now reachable.
     const post = vm.runInNewContext('(() => { const providerModelPostOnce = ' + app.providerModelPostOnce.toString() + '; return ' + app.providerPostJsonOnce.toString() + '; })()', {
       AbortController, setTimeout, clearTimeout,
+      ProviderMediaHooks: app.ProviderMediaHooks,
       PrivacyGateway: { ...gateway, beforeModelRequest: body => ({ then(resolve, reject) {
         gateway.beforeModelRequest(body).then(prepared => {
           boundaryResolved++; resolve(prepared); gateway.configure(policy('enhanced'));

@@ -704,6 +704,7 @@ const WorkDataServeUploadBootstrap = ((io,p,osApi,clock) => {
     try{
       if(typeof LocalSecretCrypto!=='undefined'){const inspect=LocalSecretCrypto.helperMayStillRun;if(inspect!==undefined&&(typeof inspect!=='function'||inspect.call(LocalSecretCrypto)!==false))return true;}
       if(typeof MigrationHooks!=='undefined'){const inspect=MigrationHooks.helperMayStillRun;if(inspect!==undefined&&(typeof inspect!=='function'||inspect.call(MigrationHooks)!==false))return true;}
+      if(typeof WorkDataMaintenanceHooks!=='undefined'){const inspect=WorkDataMaintenanceHooks.helperMayStillRun;if(inspect!==undefined&&(typeof inspect!=='function'||inspect.call(WorkDataMaintenanceHooks)!==false))return true;}
       return false;
     }catch{return true;}
   }

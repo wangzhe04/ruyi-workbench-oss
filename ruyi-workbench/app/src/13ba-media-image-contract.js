@@ -92,6 +92,16 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
   }
   // mapWords is inserted byte-for-byte from the reviewed M1 prototype by the
   // candidate generator. It uses PrivacyCore's existing UTF-16 detector intervals.
+  function collectWords(words) {
+  let text = '', previousLine;
+  const spans = words.map(word => {
+    if (!word || typeof word.text !== 'string' || !Number.isInteger(word.line) || !Array.isArray(word.box)) throw failure('invalid-ocr');
+    if (text) text += word.line === previousLine ? ' ' : '\n';
+    const start = text.length; text += word.text; previousLine = word.line;
+    return { ...word, start, end: text.length };
+  });
+  return { text, spans };
+  }
   function mapWords(words, detector, width, height) {
   let text = '', previousLine;
   const spans = words.map(word => {
@@ -163,11 +173,16 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
       };
       try {
         if (deadline > now() + LIMITS.ttlMs) fail('deadline_limit'); check();
+        const canonical = regions?.space === 'canonical-pixels-v1';
         if (regions !== null && (!regions || typeof regions !== 'object' || Array.isArray(regions)
-          || Object.keys(regions).sort().join(',') !== 'boxes,height,orientation,sourceHash,sourceRevision,space,width'
+          || Object.keys(regions).sort().join(',') !== (canonical
+            ? 'boxes,height,sourceHash,sourceRevision,space,transformHash,width'
+            : 'boxes,height,orientation,sourceHash,sourceRevision,space,width')
           || !Array.isArray(regions.boxes) || regions.boxes.length > LIMITS.regions
           || regions.boxes.some(value => !Array.isArray(value) || value.length !== 4 || value.some(n => !Number.isFinite(n)))
-          || !hex(regions.sourceHash) || !revision(regions.sourceRevision) || regions.space !== 'source-pixels-v1')) fail('region_binding');
+          || !hex(regions.sourceHash) || !revision(regions.sourceRevision)
+          || (canonical ? !hex(regions.transformHash) || !Number.isSafeInteger(regions.width) || !Number.isSafeInteger(regions.height)
+            : regions.space !== 'source-pixels-v1'))) fail('region_binding');
         const explicit = regions === null ? null : JSON.parse(JSON.stringify(regions));
         // No raw path, arbitrary metadata, detector, or processor callback is
         // accepted from an upload request. Owners capture their own authority.
@@ -178,7 +193,7 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
           || sha(JSON.stringify(policy.config)) !== policy.hash) fail('policy_invalid');
         if (!processor || !hex(processor.hash) || !revision(processor.version)) fail('processor_invalid');
         stamp = JSON.stringify([source.hash,source.revision,source.scope,policy.hash,policy.revision,policy.rulesHash,processor.hash,processor.version]);
-        const detector = PrivacyCore.createDetector(policy.config);
+        let detector = PrivacyCore.createDetector(policy.config);
         sourceBytes = Buffer.from(source.bytes);
         job = processorOwner.start({ source: sourceBytes, sourceHash: source.hash, signal, deadline, processor });
         if (!job || !job.promise || typeof job.finish !== 'function') fail('processor_job_required');
@@ -212,11 +227,31 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
         if (frame.words.reduce((n, word) => n + (typeof word?.text === 'string' ? word.text.length : LIMITS.text + 1), 0)
           + frame.codes.reduce((n, code) => n + (typeof code?.text === 'string' ? code.text.length : LIMITS.text + 1), 0) > LIMITS.text) fail('recognition_limit');
         for (const word of frame.words) box(word.box, width, height);
-        // Empty OCR or no detected sensitive interval is not an automatic safe
-        // verdict. The original conservative M1 refusal remains for this slice.
-        const mapped = mapWords(frame.words, detector, width, height);
+        if (typeof policyOwner.prepareDetector === 'function') {
+          detector = await policyOwner.prepareDetector([collectWords(frame.words).text, ...frame.codes.map(code => code.text)], { signal, deadline });
+          check();
+        }
+        // Only the genuine processor owner can attest that BOTH local detectors
+        // actually completed over this exact frame after OS process close. Empty
+        // arrays or request booleans cannot substitute for this private proof.
+        const verifiedDetection = typeof processorOwner.assertCoverage === 'function'
+          && processorOwner.assertCoverage(frame) === true;
+        let mapped;
+        try { mapped = mapWords(frame.words, detector, width, height); }
+        catch (error) {
+          if (!verifiedDetection || error?.code !== 'privacy.image_unrecognized') throw error;
+          mapped = { boxes: [], hitCount: 0, categories: [], matchedWords: 0, crossWord: false };
+        }
         const boxes = mapped.boxes.map(value => box(value, width, height));
-        boxes.push(...explicitBoxes(explicit, source, frame));
+        if (explicit?.space === 'canonical-pixels-v1') {
+          // Coordinates are pixels of the exact protected PNG displayed by the
+          // editor. Bind them to the real processor transform, never infer EXIF
+          // from browser dimensions. The original source-pixel mapper stays intact.
+          if (explicit.sourceHash !== source.hash || explicit.sourceRevision !== source.revision
+            || explicit.width !== width || explicit.height !== height
+            || explicit.transformHash !== sha(JSON.stringify({width:transform.width,height:transform.height,orientation:transform.orientation}))) fail('region_binding');
+          boxes.push(...explicit.boxes.map(value => box(value, width, height)));
+        } else boxes.push(...explicitBoxes(explicit, source, frame));
         for (const code of frame.codes) {
           check();
           if (!code || typeof code.text !== 'string' || code.text.length > LIMITS.text || !['qr', 'barcode'].includes(code.kind)) fail('code_invalid');

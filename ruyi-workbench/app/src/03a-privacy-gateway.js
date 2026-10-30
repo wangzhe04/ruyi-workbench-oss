@@ -6,7 +6,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const PREFIX = '[[RUYI_PVT:', pattern = () => /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
   let currentPolicy = { mode: 'off', signature: '' }, unavailable = false;
   let policyEpoch = 0;
-  function setUnavailable(value) { if (unavailable !== value) policyEpoch++; unavailable = value; }
+  function setUnavailable(value) { if (unavailable !== value) { policyEpoch++; host.invalidateMedia?.(); } unavailable = value; }
   const fail = suffix => { throw Object.assign(new Error('privacy.' + suffix), { code: 'privacy.' + suffix, statusCode: 409 }); };
   const enabled = config => ['basic', 'enhanced', 'strict'].includes(config?.privacyModeV1);
   function assertPolicyAvailable(config) {
@@ -64,10 +64,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const mode = config.privacyModeV1 || 'off';
     // The disabled path must not enumerate secrets, build detectors or start workers.
     // A mode change still invalidates any already-running protected context.
-    if (mode === 'off') { if (currentPolicy.signature !== 'off') policyEpoch++; currentPolicy = { mode, signature: 'off', config }; return; }
+    if (mode === 'off') { if (currentPolicy.signature !== 'off') { policyEpoch++; host.invalidateMedia?.(); } currentPolicy = { mode, signature: 'off', config }; return; }
     const signature = cryptoApi.createHash('sha256').update(JSON.stringify([mode, options(config)])).digest('hex');
     const policy = { mode, signature, config: structuredClone(config) };
-    if (currentPolicy.signature !== signature) policyEpoch++;
+    if (currentPolicy.signature !== signature) { policyEpoch++; host.invalidateMedia?.(); }
     currentPolicy = policy;
     } catch (error) { setUnavailable(true); throw error; }
   }
@@ -744,6 +744,19 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         return rows;
       }
       if (item && typeof item === 'object') {
+        // Only a process-private, currently owned image reference is projectable.
+        // Raw data URLs and caller-supplied "protected" metadata still enter the
+        // original fail-closed media/string checks below.
+        const media = typeof host.projectMediaPart === 'function' ? host.projectMediaPart(item, { scopeId: context.scopeId, pointer }) : null;
+        if (media) {
+          // A field rule naming any payload/control descendant cannot disappear
+          // behind the host capability. Pixels are not a textual field rewrite.
+          function* inspectMediaFields(value, at) {
+            yield* assertTypedField(at, value);
+            if(value&&typeof value==='object')for(const [key,row]of Object.entries(value))yield* inspectMediaFields(row,at+'/'+key);
+          }
+          yield* inspectMediaFields(media,pointer);return media;
+        }
         if (mediaShape(item)) fail('media_not_supported');
         if (!structuredData && (item.type === 'redacted_thinking' || (item.type === 'reasoning' && item.encrypted_content))) fail('opaque_content_not_supported');
         const result = Object.create(null);
@@ -1607,7 +1620,33 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  function captureMediaPolicy() {
+    assertPolicyAvailable();
+    if (!['off', 'basic', 'enhanced', 'strict'].includes(currentPolicy.mode)) fail('policy_unavailable');
+    if (currentPolicy.mode === 'off') return null;
+    const context = active();
+    if (!context || context.policy !== currentPolicy.signature) fail('scope_changed');
+    const epoch = policyEpoch, signature = currentPolicy.signature, scopeId = context.scopeId;
+    const config = structuredClone(options(currentPolicy.config));
+    const snapshot = Object.freeze({ config, hash: cryptoApi.createHash('sha256').update(JSON.stringify(config)).digest('hex'),
+      rulesHash: cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.rules])).digest('hex'), revision: signature,
+      scopeId, async prepareDetector(inputs, { signal, deadline } = {}) {
+        snapshot.assert();
+        if (!Array.isArray(inputs) || inputs.some(value => typeof value !== 'string')) fail('image_recognition_invalid');
+        if (!config.rules.some(rule => rule.kind === 'regex')) return core.createDetector(config);
+        const timeout = AbortSignal.timeout(Math.max(1, deadline - Date.now()));
+        const matches = await PrivacyRegex.scan(config.rules, inputs, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+        snapshot.assert();
+        return core.createDetector({ ...config, regexMatches: input => { if(!matches.has(input))fail('regex_scan_required');return matches.get(input); } });
+      }, assert() {
+        assertPolicyAvailable();
+        if (policyEpoch !== epoch || currentPolicy.signature !== signature) fail('policy_changed');
+        if (active()?.scopeId !== scopeId) fail('scope_changed');
+        return true;
+      } });
+    return snapshot;
+  }
+  return Object.freeze({ captureMediaPolicy, enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;

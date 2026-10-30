@@ -3,6 +3,7 @@
 // EC-D：会话侧栏、任务/授权状态、历史渲染、空态与 Playbook 领域。
 import { state, MSG_WINDOW_STEP, MSG_WINDOW_TAIL, MSG_WINDOW_THRESHOLD } from './state.js';
 import { api } from './net.js';
+import { invalidateImageOperations } from './protected-image-state.js';
 import { validExecutionSnapshot } from './run-health.js';
 import { $, el, autoGrow, fileBasename, toast, chatProviders, paintSessionMeta } from './util.js';
 // 每个 Agent CLI 的品牌名、路径键、原生用量接口只问这一张登记表（ENGINEERING-SPEC §11.1）。
@@ -285,6 +286,7 @@ async function openSession(id, opts = {}) {
   if (restore && sessionChoices > 0) return;
   if (!restore) sessionChoices += 1;
   const seq = ++sessionOpenSeq;
+  invalidateImageOperations();
   sessionOpenPending = seq;
   try {
     const executionRead = ++sessionExecutionReadSeq;
@@ -872,6 +874,7 @@ function sessionDisplayTitle(s) {
 async function newSession(options = {}) {
   const cwd = options.cwd != null ? String(options.cwd) : (state.config.defaultWorkspace || '');
   const seq = ++sessionOpenSeq; sessionChoices += 1;   // 新建与打开共用选择序号，迟到的创建也不能盖过后来的选择。
+  invalidateImageOperations();
   // 50-fix(标题不生成):不再把本地化占位名(新会话/New chat)当标题传给后端 —— 后端回合结束的
   // 自动命名以 'New session' 占位判定,中文占位名永不匹配导致所有会话标题卡死。传空串,
   // 后端默认 'New session' → 首轮结束自动命名生效;展示侧经 sessionDisplayTitle 本地化占位。

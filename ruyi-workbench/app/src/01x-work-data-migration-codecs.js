@@ -12,7 +12,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     ...Array.from({ length: 9 }, (_, n) => 'com' + (n + 1)), ...Array.from({ length: 9 }, (_, n) => 'lpt' + (n + 1))]);
   const safeId = value => /^[A-Za-z0-9_-]{1,64}$/.test(value) && !value.startsWith('_') && !reserved.has(value.toLowerCase());
   const shortId = '([A-Za-z0-9_-]{1,64})', project = '([a-f0-9]{16})';
-  const entries = [];
+  const entries = [], Hooks = {};
   const define = (family, codec, purpose, pattern, bind, options = {}) => {
     entries.push(Object.freeze({ family, codec, purpose, pattern, bind, ...options }));
   };
@@ -62,6 +62,8 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   text('playbooks', 'workflow', /^playbooks\/([^/]+\.json)$/, 'user', m => 'playbook:' + hash(m[1]), { chunked: true });
   text('web-cache', 'cache', /^webcache\/([a-f0-9]{64})\.json$/, 'global', m => 'web-cache:' + nativeIdentity(m[1]), { chunked: true });
   text('proxy-models-cache', 'cache', /^proxy-models-cache\.json$/, 'global', 'proxy-models-cache', { chunked: true });
+  text('media-derived', 'cache', /^media-derived-v1\/([a-f0-9]{32})\/(mimg_[a-f0-9]{32})\.json$/, m => m[1], m => m[2],
+    { chunked: true, maxPlaintextBytes: 4 * Math.ceil(5 * 1024 * 1024 / 3) + 32768 });
   text('migration-log', 'migration', /^migrations\/([0-9TZ-]+)\.json$/, 'global', m => 'migration-log:' + m[1], { chunked: true });
   text('skill-import-record', 'backup', new RegExp('^skills/' + shortId + '/\\.ruyi-import\\.json$'), 'skills', m => 'skill-import:' + nativeIdentity(m[1]), { chunked: true });
   const aux = (family, purpose, pattern, binding, options = {}) => define(family, 'aux-records', purpose, pattern,
@@ -86,6 +88,8 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   }
   function describe(relative) {
     relativePath(relative);
+    if (/^media-derived-v1(?:\/|$)/i.test(relative) && !/^media-derived-v1\/[a-f0-9]{32}\/mimg_[a-f0-9]{32}\.json$/.test(relative))
+      fail('special_owner_required', { reason:'media-owned-namespace-artifact' });
     if (/(?:\.prevbody|\.corrupt(?:[-.]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-)/.test(nativeIdentity(relative)))
       return Object.freeze({ family: null, codec: 'special-owner-required', reason: 'retained-or-uncommitted-owner-artifact' });
     for (const entry of entries) {
@@ -98,6 +102,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     }
     if (/^sessions\/_fulltext-index-v1(?:\/|$)/.test(nativeIdentity(relative)))
       return Object.freeze({ family: null, codec: 'special-owner-required', reason: 'fulltext-owned-namespace-artifact' });
+    if (/^media-derived-v1(?:\/|$)/i.test(relative)) fail('special_owner_required', { reason: 'media-owned-namespace-artifact' });
     fail('path_unmapped');
   }
   const nativeKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
@@ -169,6 +174,9 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       let data; try { data = JSON.parse(value.replace(/^\uFEFF/, '')); } catch { fail('special_owner_required', { reason: 'invalid-legacy-json' }); }
       if (!data || typeof data !== 'object' || (descriptor.shape === 'array' ? !Array.isArray(data) : Array.isArray(data)))
         fail('special_owner_required', { reason: 'invalid-legacy-shape' });
+      if (descriptor.family === 'media-derived') {
+        if (!Hooks.mediaDerived || Hooks.mediaDerived.validateSealedText(value, descriptor) !== true) fail('special_owner_required', { reason: 'media-validator-unavailable' });
+      }
       return bytes;
     };
     async function transform({ relative, targetMode } = {}, retained = false, readOnly = false) {
@@ -329,5 +337,5 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     }
     return Object.freeze({ describe, describeRetained, catalog, transform: options => transform(options), transformRetained: options => transform(options, true), verify: options => transform(options, false, true), verifyRetained: options => transform(options, true, true) });
   }
-  return Object.freeze({ create, describe, describeRetained, catalog });
+  return Object.freeze({ create, describe, describeRetained, catalog, Hooks });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'), require('node:zlib'), require('node:util').TextDecoder);

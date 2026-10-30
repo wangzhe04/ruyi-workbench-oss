@@ -172,6 +172,16 @@ const workDataMaintenance = WorkDataMaintenance.create({
   },
 });
 Object.assign(WorkDataMaintenanceHooks, workDataMaintenance);
+// Media owns its permanent uncertainty; maintenance only observes the existing
+// late-bound hook. Missing/uninitialized media has not created a helper.
+function workDataHelpersMayStillRun(){
+  try{
+    if(typeof MediaImageHooks==='undefined')return false;
+    const inspect=MediaImageHooks.helperMayStillRun;
+    return inspect!==undefined&&(typeof inspect!=='function'||inspect.call(MediaImageHooks)!==false);
+  }catch{return true;}
+}
+WorkDataMaintenanceHooks.helperMayStillRun=workDataHelpersMayStillRun;
 WorkDataMaintenanceHooks.deferStewardWake = () => { workDataDeferredStewardWake = true; };
 WorkDataMaintenanceHooks.stewardTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('steward-intake', () => stewardRunTick()) : Promise.resolve({ skipped: true });
 WorkDataMaintenanceHooks.schedulerTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('scheduler-tick', () => schedulerTick()) : Promise.resolve({ skipped: true });

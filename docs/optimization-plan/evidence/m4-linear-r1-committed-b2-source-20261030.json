@@ -1,0 +1,1289 @@
+{
+  "schema": 1,
+  "status": "SOURCE_COMBINATION_PENDING_NONAUTHOR_REVIEW_AND_STANDARD_GATES",
+  "base": "8cca9b26a5584852d9479df9557a95b43675012d",
+  "oldM4Head": "c5ebb3f55daa958293ad987a289415b5797c6244",
+  "onlyM4CommitParent": "7bec048c327864800bff4f887ee35e1649663493",
+  "priorB2Product": "ee47a541168230b2323cf3d947033f77872c6839",
+  "sourceCombination": "True three-way one-M4-commit delta plus accepted profile source and six exact Linear R1 candidates; no uncommitted M3/C",
+  "componentSummary": {
+    "sha256": "9b3ba0e5f816ace5cb57f2655a53bbcd8349602d9dead3d7679a43d1ff078e97",
+    "cases": 17,
+    "scope": "Fixed public synthetic native component matrix; not HTTP/full17 delivery"
+  },
+  "boundedArchive": {
+    "index": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+    "sha256": "9ebebb2cf78adbca8b1e1940d80f9a7bf594ec9598b4967ded0da2b4c38ecdf3",
+    "references": 223,
+    "uniqueBlobs": 204,
+    "rawBytes": 4760842,
+    "packedBytes": 1177874,
+    "rootAccepted58PrepromotionSnapshots": true
+  },
+  "source58Mapping": [
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/qualify-full17-case.cjs",
+        "bytes": 49162,
+        "sha256": "34874900dccfedb8953106396b733a60a70eea3080b23fee2816650c2d549a3a"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/34874900dccfedb8953106396b733a60a70eea3080b23fee2816650c2d549a3a.gz",
+      "packedSha256": "9fa75a7efe4a4997f98f015c3e9308d3dd8fd3b947e8cdc9af8518c5b99d1915",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/qualify-full17-case.cjs",
+        "bytes": 49162,
+        "sha256": "34874900dccfedb8953106396b733a60a70eea3080b23fee2816650c2d549a3a"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/aggregate.cjs",
+        "bytes": 5485,
+        "sha256": "ac76b58d27e641fd30e188de5b1a2b51e5397da1b2e4309e940bc8b5d9c260e6"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/ac76b58d27e641fd30e188de5b1a2b51e5397da1b2e4309e940bc8b5d9c260e6.gz",
+      "packedSha256": "8b54fe5015551e9d9c0731fe817ea58e9dabfd97338168ebf3eea25ebc642229",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/aggregate.cjs",
+        "bytes": 5485,
+        "sha256": "ac76b58d27e641fd30e188de5b1a2b51e5397da1b2e4309e940bc8b5d9c260e6"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-default-http-executor-prepared-20261030/budget-observer.cjs",
+        "bytes": 1895,
+        "sha256": "267e0f920e00e9560c60752e3af42a61ab51de92610d90d02cf687a244181107"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/267e0f920e00e9560c60752e3af42a61ab51de92610d90d02cf687a244181107.gz",
+      "packedSha256": "63f1bd0e3f144e76d2cc8f000c2351f8de35c000d3a8a7e31e60c3d37812dc97",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-default-http-executor-prepared-20261030/budget-observer.cjs",
+        "bytes": 1895,
+        "sha256": "267e0f920e00e9560c60752e3af42a61ab51de92610d90d02cf687a244181107"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-fixture-generator-owner-source-r1-20261030/startup-sinks.cjs",
+        "bytes": 2997,
+        "sha256": "dcc8eb6339b91009e4c83bc26c87778596fddae5d93a1f9adbf8359e0c1a1fe8"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/dcc8eb6339b91009e4c83bc26c87778596fddae5d93a1f9adbf8359e0c1a1fe8.gz",
+      "packedSha256": "747ed88cdfbcf47bf4058adef4b6e863b63ff0678de3e91bdc699d4a59d71c0f",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-fixture-generator-owner-source-r1-20261030/startup-sinks.cjs",
+        "bytes": 2997,
+        "sha256": "dcc8eb6339b91009e4c83bc26c87778596fddae5d93a1f9adbf8359e0c1a1fe8"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/REPORT.json",
+        "bytes": 11910,
+        "sha256": "d632672077f5d797dae62ef18fbe7a400f302bd538c9fcbd9d78a3c2fdde1295"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/d632672077f5d797dae62ef18fbe7a400f302bd538c9fcbd9d78a3c2fdde1295.gz",
+      "packedSha256": "beb92fa7900ed42d5f418414f13a7978c82f5c16e56343820223dcbf1b55d581",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/REPORT.json",
+        "bytes": 11910,
+        "sha256": "d632672077f5d797dae62ef18fbe7a400f302bd538c9fcbd9d78a3c2fdde1295"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/PINS.json",
+        "bytes": 18347,
+        "sha256": "0ca24565178319024e5dc041ed90418115e79bbfb15c02d2bf9988984555c844"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/0ca24565178319024e5dc041ed90418115e79bbfb15c02d2bf9988984555c844.gz",
+      "packedSha256": "53300108a67005e594285986dcbe76c54d18bf3e9dc08cc66a6254e0917c12bf",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/PINS.json",
+        "bytes": 18347,
+        "sha256": "0ca24565178319024e5dc041ed90418115e79bbfb15c02d2bf9988984555c844"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/fixture-recipe.cjs",
+        "bytes": 5289,
+        "sha256": "7d04f7c35730995ae9a71e0691e7ed0764a2de88a83d1f45d37a750574295839"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/7d04f7c35730995ae9a71e0691e7ed0764a2de88a83d1f45d37a750574295839.gz",
+      "packedSha256": "4fbfab48cb5b369362c32fd1cf020c74d454b1474e2e5f058c62b3f337778b28",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/fixture-recipe.cjs",
+        "bytes": 5289,
+        "sha256": "7d04f7c35730995ae9a71e0691e7ed0764a2de88a83d1f45d37a750574295839"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/full17-oracles.cjs",
+        "bytes": 19145,
+        "sha256": "de65dd837cef18dd15314d3cc092343d4c93b4b8b75c1e3c99d71e0f2c5d4e7e"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/de65dd837cef18dd15314d3cc092343d4c93b4b8b75c1e3c99d71e0f2c5d4e7e.gz",
+      "packedSha256": "ea5b7cbf2ff31b4983feb89a76b4ce750a9981a2e2b606281692e0c9f8867b68",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/full17-oracles.cjs",
+        "bytes": 19145,
+        "sha256": "de65dd837cef18dd15314d3cc092343d4c93b4b8b75c1e3c99d71e0f2c5d4e7e"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/fixture-recipe.json",
+        "bytes": 3904,
+        "sha256": "b5728f38e66144df20cfa2ba45e9520a51f9c06efe35489045305e8e65a08024"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/b5728f38e66144df20cfa2ba45e9520a51f9c06efe35489045305e8e65a08024.gz",
+      "packedSha256": "391b3c70a2d979234bc5c8c05df64e9ee1a26cba057affc1b5b5c85a5bb86caf",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/fixture-recipe.json",
+        "bytes": 3904,
+        "sha256": "b5728f38e66144df20cfa2ba45e9520a51f9c06efe35489045305e8e65a08024"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/generate-fixtures.py",
+        "bytes": 9580,
+        "sha256": "b2c2070dc4a899a638536ec3d666fd443de94b23c434bd1f4a8537bf3a71166f"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/b2c2070dc4a899a638536ec3d666fd443de94b23c434bd1f4a8537bf3a71166f.gz",
+      "packedSha256": "2b1a555e5c3bcbb431157b81f20eaa922046de07b8e2a8ae5dc6e02d92f785cb",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-source-r1-20261030/generate-fixtures.py",
+        "bytes": 9580,
+        "sha256": "b2c2070dc4a899a638536ec3d666fd443de94b23c434bd1f4a8537bf3a71166f"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": "ruyi-workbench/app/src/13ba-media-image-contract.js",
+        "bytes": 24262,
+        "sha256": "f63c273f2b1031f1493c6d48b34783d31212faef6ea15c10bed29b8e3faecac4"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/f63c273f2b1031f1493c6d48b34783d31212faef6ea15c10bed29b8e3faecac4.gz",
+      "packedSha256": "d9385476b0040e6335d597382a93f2566cecfb1570440987f5c9c5a77681e1ff",
+      "currentAtOriginalPath": {
+        "file": "ruyi-workbench/app/src/13ba-media-image-contract.js",
+        "bytes": 24262,
+        "sha256": "f63c273f2b1031f1493c6d48b34783d31212faef6ea15c10bed29b8e3faecac4"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": "ruyi-workbench/app/src/01i-privacy-rules.js",
+        "bytes": 26429,
+        "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36.gz",
+      "packedSha256": "d638dfab9dcc2c69965133238b70aba6b92e472036b760a9e0a1a502cf7db0a8",
+      "currentAtOriginalPath": {
+        "file": "ruyi-workbench/app/src/01i-privacy-rules.js",
+        "bytes": 26429,
+        "sha256": "c1624d7bd25b4add3021270ed6a82d629d7328f7fb0485ecd09315ac5ed72a36"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": "ruyi-workbench/app/src/01h-privacy-core.js",
+        "bytes": 48184,
+        "sha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783.gz",
+      "packedSha256": "125c0dad561130691bd15190621c6456cb7246c6d0974e1c2bd643c8628fb93f",
+      "currentAtOriginalPath": {
+        "file": "ruyi-workbench/app/src/01h-privacy-core.js",
+        "bytes": 48184,
+        "sha256": "4330b92d45b3f5aad2772176e598c05e8c1e7fe9cde3406aaf0f5cc9918b7783"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-component-qualification-d9-r2-20261030/script-transport.cjs",
+        "bytes": 4257,
+        "sha256": "ff0e8160525c9c13ab798366b8df71d9c364f74a1532f1c9bfc387897c2a1703"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/ff0e8160525c9c13ab798366b8df71d9c364f74a1532f1c9bfc387897c2a1703.gz",
+      "packedSha256": "5b8efa9525a4328eeaf37e758374f05c40dbe625de52cd3d4f35d713b6215838",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-component-qualification-d9-r2-20261030/script-transport.cjs",
+        "bytes": 4257,
+        "sha256": "ff0e8160525c9c13ab798366b8df71d9c364f74a1532f1c9bfc387897c2a1703"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": "ruyi-workbench/app/src/13bc-media-image-processor.js",
+        "bytes": 23885,
+        "sha256": "97922bb582c18ebaec42dd660824cc1c2016150062763605a815a6359961aa0d"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/97922bb582c18ebaec42dd660824cc1c2016150062763605a815a6359961aa0d.gz",
+      "packedSha256": "95ddf199979df74dce8a11d2d3729741e74a1b2990779c8d9b33f3169cb92657",
+      "currentAtOriginalPath": {
+        "file": "ruyi-workbench/app/src/13bc-media-image-processor.js",
+        "bytes": 36495,
+        "sha256": "89d84753ad3bb5444ca790be4fe33236b83a2f60c23a537aac95d652dc0d42a6"
+      },
+      "changedAfterAcceptedSnapshot": true,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": "ruyi-workbench/resources/media-profiles/m4-image-cpython312-candidate-v2.json",
+        "bytes": 681897,
+        "sha256": "542d5887f72635c43ce797a2a399b4c3d29a3d87010f511551b57c6474ebb508"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/542d5887f72635c43ce797a2a399b4c3d29a3d87010f511551b57c6474ebb508.gz",
+      "packedSha256": "2a22c8c1cebb3d527143259d94c65e4f2dfc661a68c27da090452eb8187df926",
+      "currentAtOriginalPath": {
+        "file": "ruyi-workbench/resources/media-profiles/m4-image-cpython312-candidate-v2.json",
+        "bytes": 681912,
+        "sha256": "c01f10516422efc066ebcfa877dba12d31f2b1fb2bd8639c19dd09df518be89f"
+      },
+      "changedAfterAcceptedSnapshot": true,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": "ruyi-workbench/resources/media-profiles/m4-image-cpython312-candidate-v2-sources.json",
+        "bytes": 24134,
+        "sha256": "d55ab549e614a602fecfdbd9c9f33bdb77798795f90118efdcab9348eb6fa0e8"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/d55ab549e614a602fecfdbd9c9f33bdb77798795f90118efdcab9348eb6fa0e8.gz",
+      "packedSha256": "30a60a3629ef4c89b258a47a49a636048519bb93b3f7134cf53147ef7e4e5857",
+      "currentAtOriginalPath": {
+        "file": "ruyi-workbench/resources/media-profiles/m4-image-cpython312-candidate-v2-sources.json",
+        "bytes": 24134,
+        "sha256": "d55ab549e614a602fecfdbd9c9f33bdb77798795f90118efdcab9348eb6fa0e8"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-restore-tree-node-verify-terra-20261030/REPORT.json",
+        "bytes": 3098,
+        "sha256": "b4d275caaaa0b8bca273f0509c505176615d862250b8fe9cc5b4e21a07f3063c"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/b4d275caaaa0b8bca273f0509c505176615d862250b8fe9cc5b4e21a07f3063c.gz",
+      "packedSha256": "c1e0791bde2b685b3b7b375650b81230a4a7278ebca70292ef4f1bf516be61cf",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-restore-tree-node-verify-terra-20261030/REPORT.json",
+        "bytes": 3098,
+        "sha256": "b4d275caaaa0b8bca273f0509c505176615d862250b8fe9cc5b4e21a07f3063c"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-restore-fs-candidate-20261030/fs-observers.cjs",
+        "bytes": 13594,
+        "sha256": "c1e819fa67029ca8c9b8364868b4d89ee3c2ec6b4e69222d3c54d44d927def18"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/c1e819fa67029ca8c9b8364868b4d89ee3c2ec6b4e69222d3c54d44d927def18.gz",
+      "packedSha256": "4bcdabbba602e6cf0e730a302eb8b889c7cb046241b23649cb2579e65c5d7158",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-restore-fs-candidate-20261030/fs-observers.cjs",
+        "bytes": 13594,
+        "sha256": "c1e819fa67029ca8c9b8364868b4d89ee3c2ec6b4e69222d3c54d44d927def18"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-component-qualification-d4-20261030/copy-byte-observation.cjs",
+        "bytes": 3665,
+        "sha256": "1dfc4cecfcbe73820fbeac9e4ea5e9ffe0b899eb0460aeffaa8142cf660acd44"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/1dfc4cecfcbe73820fbeac9e4ea5e9ffe0b899eb0460aeffaa8142cf660acd44.gz",
+      "packedSha256": "8bc21b5943a4311ad699e2fff25abf294c37968314dacb47a0132e2e56496a91",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-component-qualification-d4-20261030/copy-byte-observation.cjs",
+        "bytes": 3665,
+        "sha256": "1dfc4cecfcbe73820fbeac9e4ea5e9ffe0b899eb0460aeffaa8142cf660acd44"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-component-qualification-d9-r3-20261030/qualification-bootstrap.py",
+        "bytes": 25453,
+        "sha256": "4d87085fe02fbef3ace40747d39514245e1f675e3b707afcd35c5e251007beb4"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/4d87085fe02fbef3ace40747d39514245e1f675e3b707afcd35c5e251007beb4.gz",
+      "packedSha256": "978a4593982fedfe5be6ccbae867e17037035a03c4325f1fd7435c45015e2401",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-component-qualification-d9-r3-20261030/qualification-bootstrap.py",
+        "bytes": 25453,
+        "sha256": "4d87085fe02fbef3ace40747d39514245e1f675e3b707afcd35c5e251007beb4"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-component-qualification-d2-20261030/passive-tree-observation.cjs",
+        "bytes": 6948,
+        "sha256": "62ab4f9dfdeafb1597b6db6cbca905e8f4707891af341a4420fa2e3849ccdd1b"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/62ab4f9dfdeafb1597b6db6cbca905e8f4707891af341a4420fa2e3849ccdd1b.gz",
+      "packedSha256": "eb9ee3bda45c241120ceeb2fae07b4d412cdbdb9ebe8ee01416ebb25728daef1",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-component-qualification-d2-20261030/passive-tree-observation.cjs",
+        "bytes": 6948,
+        "sha256": "62ab4f9dfdeafb1597b6db6cbca905e8f4707891af341a4420fa2e3849ccdd1b"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full-image-next-r1-independent-review-20261030/REPORT.json",
+        "bytes": 5375,
+        "sha256": "a3c98ae54aabc8d4fba2db1af7f55b273da75fbe974d690d4d3d35de1dcd1bcb"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/a3c98ae54aabc8d4fba2db1af7f55b273da75fbe974d690d4d3d35de1dcd1bcb.gz",
+      "packedSha256": "0b0550902ec3fda555818d17120e0d1b5c6b1fdbe136ce1cb8e2781851ff3d02",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full-image-next-r1-independent-review-20261030/REPORT.json",
+        "bytes": 5375,
+        "sha256": "a3c98ae54aabc8d4fba2db1af7f55b273da75fbe974d690d4d3d35de1dcd1bcb"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-public-full17-generator-terra-packet-20261030/REPORT.json",
+        "bytes": 19833,
+        "sha256": "9cbf33f89563549d7872180aff5df5ac9d9ca50f166da800bdded12956446f46"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/9cbf33f89563549d7872180aff5df5ac9d9ca50f166da800bdded12956446f46.gz",
+      "packedSha256": "400decdb1f688478ddbb40d52fb38271fe6312c7043081253222bf24af0ec168",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-public-full17-generator-terra-packet-20261030/REPORT.json",
+        "bytes": 19833,
+        "sha256": "9cbf33f89563549d7872180aff5df5ac9d9ca50f166da800bdded12956446f46"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-generated-fixtures-root-readback-20261030/REPORT.json",
+        "bytes": 16957,
+        "sha256": "5953b0b6036dd1468d218d94c7d46b7c6601e9a8b1e4ee0f2033d9717e02e2df"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/5953b0b6036dd1468d218d94c7d46b7c6601e9a8b1e4ee0f2033d9717e02e2df.gz",
+      "packedSha256": "6562c64b44a5e4fc5b913b834b6956973f1b40c42d55cf4f3d2bf93fc5b3b2eb",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-generated-fixtures-root-readback-20261030/REPORT.json",
+        "bytes": 16957,
+        "sha256": "5953b0b6036dd1468d218d94c7d46b7c6601e9a8b1e4ee0f2033d9717e02e2df"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-component-qualification-d9-r3-independent-review-20261030/REPORT.json",
+        "bytes": 6765,
+        "sha256": "4af4676b761d0a6dfcc93ef16220e42d7008c837f34a33a5aa9a4c1be6a47a7d"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/4af4676b761d0a6dfcc93ef16220e42d7008c837f34a33a5aa9a4c1be6a47a7d.gz",
+      "packedSha256": "c9a69a424289e9e41c3a168c5fb7626756b307bbbf16fe981bf1f893a46d95fe",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-component-qualification-d9-r3-independent-review-20261030/REPORT.json",
+        "bytes": 6765,
+        "sha256": "4af4676b761d0a6dfcc93ef16220e42d7008c837f34a33a5aa9a4c1be6a47a7d"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-fixture-generator-owner-r1-independent-review-20261030/REPORT.json",
+        "bytes": 5067,
+        "sha256": "2e70a599c8a7e730b85cfa43724473596ce626c8450c78256f1f15750b7f9d84"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/2e70a599c8a7e730b85cfa43724473596ce626c8450c78256f1f15750b7f9d84.gz",
+      "packedSha256": "b334416422c04cb19812b995f5ce48117109f3610737e8e0218f1e806926eb61",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-fixture-generator-owner-r1-independent-review-20261030/REPORT.json",
+        "bytes": 5067,
+        "sha256": "2e70a599c8a7e730b85cfa43724473596ce626c8450c78256f1f15750b7f9d84"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full17-component-actual-plan-20261030/executor.cjs",
+        "bytes": 8418,
+        "sha256": "695f225dc352cc47c3808cd98b76eddbb67da8fbfda7005700219d8360749a32"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/695f225dc352cc47c3808cd98b76eddbb67da8fbfda7005700219d8360749a32.gz",
+      "packedSha256": "31603de39ad07239c564a8680249405fbb2779bbd20db78dc7fe3c07deaf8552",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full17-component-actual-plan-20261030/executor.cjs",
+        "bytes": 8418,
+        "sha256": "695f225dc352cc47c3808cd98b76eddbb67da8fbfda7005700219d8360749a32"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full17-component-actual-plan-20261030/aggregate-completed.cjs",
+        "bytes": 1204,
+        "sha256": "52565b0a7638a63bfbd1ae59f13d34b3fa24357eee39bf2e9523b276d650a10f"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/52565b0a7638a63bfbd1ae59f13d34b3fa24357eee39bf2e9523b276d650a10f.gz",
+      "packedSha256": "8f83c0c05d5ce9e4b623e6c9717de7f211b1195ea18af074543f4ad326052ce8",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full17-component-actual-plan-20261030/aggregate-completed.cjs",
+        "bytes": 1204,
+        "sha256": "52565b0a7638a63bfbd1ae59f13d34b3fa24357eee39bf2e9523b276d650a10f"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-full17-component-actual-plan-20261030/prepare.cjs",
+        "bytes": 7809,
+        "sha256": "a3d34a8a0aa7f3ed5ec72091f76a321293b1e8658b1c6dd2a91adef0cb7c21ce"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/a3d34a8a0aa7f3ed5ec72091f76a321293b1e8658b1c6dd2a91adef0cb7c21ce.gz",
+      "packedSha256": "51ce1886fb6fc34e43fb4e2dadafe0098b40088148bf8a29a679d8a4c8962f79",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-full17-component-actual-plan-20261030/prepare.cjs",
+        "bytes": 7809,
+        "sha256": "a3d34a8a0aa7f3ed5ec72091f76a321293b1e8658b1c6dd2a91adef0cb7c21ce"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/ruyi-workbench/app/src/13bc-media-image-processor.js",
+        "bytes": 36495,
+        "sha256": "89d84753ad3bb5444ca790be4fe33236b83a2f60c23a537aac95d652dc0d42a6"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/89d84753ad3bb5444ca790be4fe33236b83a2f60c23a537aac95d652dc0d42a6.gz",
+      "packedSha256": "62bc9ff4376a90c7655d11e4bbbe6974512724732acaaef0aabad5a6c03cce77",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/ruyi-workbench/app/src/13bc-media-image-processor.js",
+        "bytes": 36495,
+        "sha256": "89d84753ad3bb5444ca790be4fe33236b83a2f60c23a537aac95d652dc0d42a6"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/ruyi-workbench/resources/media-profiles/m4-image-cpython312-candidate-v2.json",
+        "bytes": 681912,
+        "sha256": "c01f10516422efc066ebcfa877dba12d31f2b1fb2bd8639c19dd09df518be89f"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/c01f10516422efc066ebcfa877dba12d31f2b1fb2bd8639c19dd09df518be89f.gz",
+      "packedSha256": "f8e9c441acda943fc54ae9bb4ddc5a03ace259cc3e662c52b8f5641f8d6d8afd",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/ruyi-workbench/resources/media-profiles/m4-image-cpython312-candidate-v2.json",
+        "bytes": 681912,
+        "sha256": "c01f10516422efc066ebcfa877dba12d31f2b1fb2bd8639c19dd09df518be89f"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/ruyi-workbench/tools/verify-media-profile.cjs",
+        "bytes": 4205,
+        "sha256": "0df4623f7310f6bffe9ebd33c01153022ecffdc0d1dfbc340e3c19586789d7c2"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/0df4623f7310f6bffe9ebd33c01153022ecffdc0d1dfbc340e3c19586789d7c2.gz",
+      "packedSha256": "65aa954c57819fcad8a85b239020d6dd9a159c3d582357a461c728f3f6ea175b",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/ruyi-workbench/tools/verify-media-profile.cjs",
+        "bytes": 4205,
+        "sha256": "0df4623f7310f6bffe9ebd33c01153022ecffdc0d1dfbc340e3c19586789d7c2"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/ruyi-workbench/tools/generate-media-profile.cjs",
+        "bytes": 13247,
+        "sha256": "45bd4b80d6294f2a951fb53079724adae1275e70290a5cdb808717e1a499deae"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/45bd4b80d6294f2a951fb53079724adae1275e70290a5cdb808717e1a499deae.gz",
+      "packedSha256": "70e3916140f3b3095b2c56d04bc435aa09f62c09100b0f45bb9fce21ac1fea6b",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/ruyi-workbench/tools/generate-media-profile.cjs",
+        "bytes": 13247,
+        "sha256": "45bd4b80d6294f2a951fb53079724adae1275e70290a5cdb808717e1a499deae"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/dev-harness/unit/media-image-linear-support.test.js",
+        "bytes": 20587,
+        "sha256": "b313a3b29507a65590b1c877a8b78cad0781d15beef316a4f11fce8256440230"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/b313a3b29507a65590b1c877a8b78cad0781d15beef316a4f11fce8256440230.gz",
+      "packedSha256": "e9f43e71351d5a77d993851ee6198b0c414f7108f1be8d553a1f78470568b95c",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/dev-harness/unit/media-image-linear-support.test.js",
+        "bytes": 20587,
+        "sha256": "b313a3b29507a65590b1c877a8b78cad0781d15beef316a4f11fce8256440230"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/dev-harness/unit/media-image-processor-proof.test.js",
+        "bytes": 4493,
+        "sha256": "c6e12226145e4e197d114d155701262381b4c2ae827c9e11ae805af5ed66e0ca"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/c6e12226145e4e197d114d155701262381b4c2ae827c9e11ae805af5ed66e0ca.gz",
+      "packedSha256": "a3746ee04eb574ae08672c4dd46a0dd591545feee9b7622cafe9deb663eb9685",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/candidate/dev-harness/unit/media-image-processor-proof.test.js",
+        "bytes": 4493,
+        "sha256": "c6e12226145e4e197d114d155701262381b4c2ae827c9e11ae805af5ed66e0ca"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/linear-support-function.js",
+        "bytes": 10380,
+        "sha256": "8647154ddd4083acf1089f9e421b8d29cf4886c90aee29a4f08d2b14ab1c9494"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/8647154ddd4083acf1089f9e421b8d29cf4886c90aee29a4f08d2b14ab1c9494.gz",
+      "packedSha256": "a8cb979c64bae14c79e0479e69fb0a3c2abaa4d3793ca5a956e2de28ccea5aee",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/linear-support-function.js",
+        "bytes": 10380,
+        "sha256": "8647154ddd4083acf1089f9e421b8d29cf4886c90aee29a4f08d2b14ab1c9494"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/build.cjs",
+        "bytes": 9451,
+        "sha256": "dfb03bfdae6294a9a2b98918d1452132a85eabcd23fb654f3d992fde29b30a23"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/dfb03bfdae6294a9a2b98918d1452132a85eabcd23fb654f3d992fde29b30a23.gz",
+      "packedSha256": "9c2bcdec250c69fad994d5673d730b636d46825d9b82c8b88c61d63cab2f29e9",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/build.cjs",
+        "bytes": 9451,
+        "sha256": "dfb03bfdae6294a9a2b98918d1452132a85eabcd23fb654f3d992fde29b30a23"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/prepare-plan.cjs",
+        "bytes": 7560,
+        "sha256": "3596c686234cd543f95bc58302aa43ebbb9a4ff411abefbdb9478410b8760057"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/3596c686234cd543f95bc58302aa43ebbb9a4ff411abefbdb9478410b8760057.gz",
+      "packedSha256": "63448221dc33f7fb5bae29b20b12f31ac669d3da3d59cf16e908cc522a9cb305",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/prepare-plan.cjs",
+        "bytes": 7560,
+        "sha256": "3596c686234cd543f95bc58302aa43ebbb9a4ff411abefbdb9478410b8760057"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/worker.py",
+        "bytes": 10062,
+        "sha256": "6b18285b905b828398cb22997da9626714395a2eca70fe6cfdf6f757b14ff741"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/6b18285b905b828398cb22997da9626714395a2eca70fe6cfdf6f757b14ff741.gz",
+      "packedSha256": "291a5e31afd8a623c40c536d600aba3fb6c94b94bf1c6e71be4ebbe5e42fc539",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/worker.py",
+        "bytes": 10062,
+        "sha256": "6b18285b905b828398cb22997da9626714395a2eca70fe6cfdf6f757b14ff741"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/qualify-full17-case.cjs",
+        "bytes": 49349,
+        "sha256": "1bc0d83c18aaab9222ce950d7d675de00ad2a83335e877ebd02734f13630c999"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/1bc0d83c18aaab9222ce950d7d675de00ad2a83335e877ebd02734f13630c999.gz",
+      "packedSha256": "189f0331bc39580d22ced43818b4ccb2d79f2d0763cee7923f0482852ddf3533",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/qualify-full17-case.cjs",
+        "bytes": 49349,
+        "sha256": "1bc0d83c18aaab9222ce950d7d675de00ad2a83335e877ebd02734f13630c999"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/executor.cjs",
+        "bytes": 8418,
+        "sha256": "695f225dc352cc47c3808cd98b76eddbb67da8fbfda7005700219d8360749a32"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/695f225dc352cc47c3808cd98b76eddbb67da8fbfda7005700219d8360749a32.gz",
+      "packedSha256": "31603de39ad07239c564a8680249405fbb2779bbd20db78dc7fe3c07deaf8552",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/executor.cjs",
+        "bytes": 8418,
+        "sha256": "695f225dc352cc47c3808cd98b76eddbb67da8fbfda7005700219d8360749a32"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/aggregate-completed.cjs",
+        "bytes": 1204,
+        "sha256": "52565b0a7638a63bfbd1ae59f13d34b3fa24357eee39bf2e9523b276d650a10f"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/52565b0a7638a63bfbd1ae59f13d34b3fa24357eee39bf2e9523b276d650a10f.gz",
+      "packedSha256": "8f83c0c05d5ce9e4b623e6c9717de7f211b1195ea18af074543f4ad326052ce8",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/aggregate-completed.cjs",
+        "bytes": 1204,
+        "sha256": "52565b0a7638a63bfbd1ae59f13d34b3fa24357eee39bf2e9523b276d650a10f"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-diagnostic-terra-packet-20261030/REPORT.json",
+        "bytes": 199553,
+        "sha256": "becaa42e67b9a0ac489548c4d0b558b6b4f59d23f6c14435ce329c1829da9800"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/becaa42e67b9a0ac489548c4d0b558b6b4f59d23f6c14435ce329c1829da9800.gz",
+      "packedSha256": "1165c2ca87aede3b929432f5e46a7bea1a512303cffefe23b3fe84afb9e97771",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-diagnostic-terra-packet-20261030/REPORT.json",
+        "bytes": 199553,
+        "sha256": "becaa42e67b9a0ac489548c4d0b558b6b4f59d23f6c14435ce329c1829da9800"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-diagnostic-executor-actual-20261030/stdout.log",
+        "bytes": 160362,
+        "sha256": "0ec8f28fb30292e46d4f1f831af4a8f1060db48297850445846ae65fb742823b"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/0ec8f28fb30292e46d4f1f831af4a8f1060db48297850445846ae65fb742823b.gz",
+      "packedSha256": "1c78d42765123df718ad4c73611ec29b43c72bb2131e2d1d1229aefa816d6f2f",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-diagnostic-executor-actual-20261030/stdout.log",
+        "bytes": 160362,
+        "sha256": "0ec8f28fb30292e46d4f1f831af4a8f1060db48297850445846ae65fb742823b"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-20261030/REPORT.json",
+        "bytes": 14963,
+        "sha256": "0757e567111934698fb1f81bbf09e136e546f58464c3559efcda8d053622693e"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/0757e567111934698fb1f81bbf09e136e546f58464c3559efcda8d053622693e.gz",
+      "packedSha256": "44aadee9f4ff26e54e6e050a84efd5209d9f2ef1dc5b1be8f91f12a5563891f8",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-20261030/REPORT.json",
+        "bytes": 14963,
+        "sha256": "0757e567111934698fb1f81bbf09e136e546f58464c3559efcda8d053622693e"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-20261030/PINS.json",
+        "bytes": 21276,
+        "sha256": "1c49ff1cb8915775bd341d59d01a9419f45c015630b48ecd0614482b083d8a8b"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/1c49ff1cb8915775bd341d59d01a9419f45c015630b48ecd0614482b083d8a8b.gz",
+      "packedSha256": "f6b1a0e9c50fd51b7441beaf50a284c61988742c79710b489b88fbf039f80a14",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-20261030/PINS.json",
+        "bytes": 21276,
+        "sha256": "1c49ff1cb8915775bd341d59d01a9419f45c015630b48ecd0614482b083d8a8b"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-20261030/FROZEN.json",
+        "bytes": 7426,
+        "sha256": "fc2c024b7e7a07984ad3f77c6d552d7731b041cb2d029a3ff7f9edffaee57732"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/fc2c024b7e7a07984ad3f77c6d552d7731b041cb2d029a3ff7f9edffaee57732.gz",
+      "packedSha256": "5ce8f672dd0ac9765aca70fd0ade26c2eb3b610b08ad194788510f1bd9fdb654",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-20261030/FROZEN.json",
+        "bytes": 7426,
+        "sha256": "fc2c024b7e7a07984ad3f77c6d552d7731b041cb2d029a3ff7f9edffaee57732"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-20261030/candidate/ruyi-workbench/app/src/13bc-media-image-processor.js",
+        "bytes": 33150,
+        "sha256": "4e40eb4bbc92ea09428965a23f4cf50bd5d8a78af077c7845b2fab78c6a631a9"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/4e40eb4bbc92ea09428965a23f4cf50bd5d8a78af077c7845b2fab78c6a631a9.gz",
+      "packedSha256": "bfa420e5a92d3c4405d717c268d87419f67a62dc18be606f5457f5f9d8bc598a",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-20261030/candidate/ruyi-workbench/app/src/13bc-media-image-processor.js",
+        "bytes": 33150,
+        "sha256": "4e40eb4bbc92ea09428965a23f4cf50bd5d8a78af077c7845b2fab78c6a631a9"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-independent-review-20261030/REPORT.json",
+        "bytes": 6774,
+        "sha256": "c62f44b1c2803120ddcbe7bbd5e07c747e281ae748751336bf0ed1a2ce09daaf"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/c62f44b1c2803120ddcbe7bbd5e07c747e281ae748751336bf0ed1a2ce09daaf.gz",
+      "packedSha256": "1ef158647bb7a997c3f9d993a293821e0e2d1f3625912e7ebe687cd67f039124",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-independent-review-20261030/REPORT.json",
+        "bytes": 6774,
+        "sha256": "c62f44b1c2803120ddcbe7bbd5e07c747e281ae748751336bf0ed1a2ce09daaf"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-independent-review-20261030/PINS.json",
+        "bytes": 1905,
+        "sha256": "098fb5f14be44712a6ef5ecd0b3d15ade78775b8874627500b99e99af1ff1780"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/098fb5f14be44712a6ef5ecd0b3d15ade78775b8874627500b99e99af1ff1780.gz",
+      "packedSha256": "951ac5884da54672997a553a3e111e6d929ec0f3e92ed7169f13afefc11e7c99",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-independent-review-20261030/PINS.json",
+        "bytes": 1905,
+        "sha256": "098fb5f14be44712a6ef5ecd0b3d15ade78775b8874627500b99e99af1ff1780"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-independent-review-20261030/COUNTER.json",
+        "bytes": 1871,
+        "sha256": "1c7633fa331a7df93ce47100450770a0ab57e43dcb6d7e824e15d72d95e6ff5f"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/1c7633fa331a7df93ce47100450770a0ab57e43dcb6d7e824e15d72d95e6ff5f.gz",
+      "packedSha256": "046bec5a2596abf180e9afcc6b77367b31673567c4648dd6d0138f70121c30fb",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-independent-review-20261030/COUNTER.json",
+        "bytes": 1871,
+        "sha256": "1c7633fa331a7df93ce47100450770a0ab57e43dcb6d7e824e15d72d95e6ff5f"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-diagnostic-source-20261030/official-barcode.cpp",
+        "bytes": 13569,
+        "sha256": "1a6c0531f17ce9569b40a4cb3f440f2fc62d6bd46a2ab0b807e4931848831141"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/1a6c0531f17ce9569b40a4cb3f440f2fc62d6bd46a2ab0b807e4931848831141.gz",
+      "packedSha256": "1790b5ef917f84a18d5c9d84797f235b8d5b52ce3271368e5793bad83539118e",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-diagnostic-source-20261030/official-barcode.cpp",
+        "bytes": 13569,
+        "sha256": "1a6c0531f17ce9569b40a4cb3f440f2fc62d6bd46a2ab0b807e4931848831141"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-diagnostic-source-20261030/official-upcean_decoder.cpp",
+        "bytes": 10022,
+        "sha256": "7c0026d1b6fac7ff0e955a5e302f0aa8dd3456a9ede78da4511a28ca5a42a29f"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/7c0026d1b6fac7ff0e955a5e302f0aa8dd3456a9ede78da4511a28ca5a42a29f.gz",
+      "packedSha256": "1ff819ea22c74d9d7034a84a2d205146c4d87337d01bf855d58d6d70af20d927",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-diagnostic-source-20261030/official-upcean_decoder.cpp",
+        "bytes": 10022,
+        "sha256": "7c0026d1b6fac7ff0e955a5e302f0aa8dd3456a9ede78da4511a28ca5a42a29f"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/OFFICIAL-SOURCE-PINS.json",
+        "bytes": 2048,
+        "sha256": "92b0820fb34ad2b7b22d65a71f9d720c840f58563e4f0ae282b05cfa103d5792"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/92b0820fb34ad2b7b22d65a71f9d720c840f58563e4f0ae282b05cfa103d5792.gz",
+      "packedSha256": "9f28cde13dd1ce8003d7746941d7dc136d26bcf2834d319e0f9cb176f6096cc9",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/OFFICIAL-SOURCE-PINS.json",
+        "bytes": 2048,
+        "sha256": "92b0820fb34ad2b7b22d65a71f9d720c840f58563e4f0ae282b05cfa103d5792"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/official-abs_decoder.hpp",
+        "bytes": 2497,
+        "sha256": "0ca98a91780e0413f9f7363b7043df8e4f087c5c719bb83bf29ee9c53c172f31"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/0ca98a91780e0413f9f7363b7043df8e4f087c5c719bb83bf29ee9c53c172f31.gz",
+      "packedSha256": "f433e42639152736ba1073464acac9741fff2d185886a21f83b32ba6673a0d88",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/official-abs_decoder.hpp",
+        "bytes": 2497,
+        "sha256": "0ca98a91780e0413f9f7363b7043df8e4f087c5c719bb83bf29ee9c53c172f31"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/official-ean8_decoder.cpp",
+        "bytes": 2520,
+        "sha256": "4cbbd7879727c8d714063109cf669cdd6783b1b3ac772fc828f460101e4a0218"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/4cbbd7879727c8d714063109cf669cdd6783b1b3ac772fc828f460101e4a0218.gz",
+      "packedSha256": "9637d87075d8fc95cf78789b015bae66ca4e47d57b9c1dd42c2be727cf8cd0ed",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/official-ean8_decoder.cpp",
+        "bytes": 2520,
+        "sha256": "4cbbd7879727c8d714063109cf669cdd6783b1b3ac772fc828f460101e4a0218"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    },
+    {
+      "snapshot": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/official-upcean_decoder.hpp",
+        "bytes": 2121,
+        "sha256": "532be8a8e72317dac07937e578495a9a81c7a8720a8401ef13a815b6351208aa"
+      },
+      "archiveIndex": "docs/optimization-plan/evidence/m4-linear-support-r1-20261030.json",
+      "archiveBlob": "m4-linear-support-r1-20261030/blobs/532be8a8e72317dac07937e578495a9a81c7a8720a8401ef13a815b6351208aa.gz",
+      "packedSha256": "9af4118b89bc4c6894d110f1f86bcf505473eea299837924f8ce9216e6182fb5",
+      "currentAtOriginalPath": {
+        "file": ".ruyi-runtime/m4-linear-support-source-r1-20261030/official-upcean_decoder.hpp",
+        "bytes": 2121,
+        "sha256": "532be8a8e72317dac07937e578495a9a81c7a8720a8401ef13a815b6351208aa"
+      },
+      "changedAfterAcceptedSnapshot": false,
+      "historicalSnapshotStillRetained": true
+    }
+  ],
+  "profileIndependentReviews": [
+    {
+      "originalPath": ".ruyi-runtime/m4-resource-profile-independent-review-20261030/REPORT.json",
+      "sha256": "ce50a039f4800aa87d8e273103ec25dd588d3f0e728ee1232393c694a3589480",
+      "report": {
+        "schema": 1,
+        "verdict": "REQUEST_CHANGES",
+        "scope": "FROZEN_SOURCE_BATCH_ONLY_NOT_NATIVE_OR_WHOLE_IMAGE_QUALIFICATION",
+        "baseline": "c5ebb3f55daa958293ad987a289415b5797c6244",
+        "frozenAuthorReport": {
+          "file": ".ruyi-runtime/m4-media-profile-20261029/REPORT.json",
+          "bytes": 2965,
+          "sha256": "19e14bc466220eb00c8a6de7660899b036f608d6ea38204c075103e6d31cad00"
+        },
+        "frozenAuthorFullpins": {
+          "file": ".ruyi-runtime/m4-media-profile-20261029/FULLPINS.json",
+          "bytes": 7204,
+          "sha256": "6ac4105e294a0857bfc917adbcfdf254f42a7d9e352fb17e02e6b9ded32e14fa"
+        },
+        "productFiles": 17,
+        "fullpinsRowsMatched": 34,
+        "legacyFourLocksUnchanged": true,
+        "findings": [
+          {
+            "id": "R1",
+            "priority": 1,
+            "file": "dev-harness/media-resource-profile.e2e.js",
+            "start": 70,
+            "end": 75,
+            "relatedLines": [
+              89,
+              103,
+              107
+            ],
+            "title": "Isolate OFF and each strict fixture in fresh sessions",
+            "consequence": "OFF raw image retained in providerHistory causes existing Gateway refusal on strict ON send; subsequent deletion leaves stale image references in shared history. Default zero-POST case is also confounded.",
+            "evidence": ".ruyi-runtime/m4-resource-profile-independent-review-20261030/CHECKS.json",
+            "actualPureRefusal": "privacy.media_not_supported",
+            "nextDeletedReferenceCode": "privacy.image_expired",
+            "fix": "Dedicated OFF session, fresh default ON session, fresh full session per fixture; preserve all byte/POST/preview/one-image/deletion assertions."
+          }
+        ],
+        "validation": {
+          "node": "v24.14.0",
+          "pureTests": 47,
+          "passed": 47,
+          "failed": 0,
+          "skipped": 0,
+          "syntaxFiles": 9,
+          "syntaxPassed": 9,
+          "buildFresh": true,
+          "factsStatic": true,
+          "moduleGraphStatic": true,
+          "independentRepro": true,
+          "fullUnit": false,
+          "allStatic": false,
+          "httpE2E": false,
+          "fullComponentE2E": false
+        },
+        "growth": {
+          "trackedManualProductSource": {
+            "added": 18,
+            "removed": 2
+          },
+          "newToolSources": [
+            {
+              "file": "ruyi-workbench/tools/generate-media-profile.cjs",
+              "lines": 93
+            },
+            {
+              "file": "ruyi-workbench/tools/media-profile-tree.cjs",
+              "lines": 122
+            },
+            {
+              "file": "ruyi-workbench/tools/verify-media-profile.cjs",
+              "lines": 55
+            },
+            {
+              "file": "ruyi-workbench/tools/media-profile-restore.cjs",
+              "lines": 81
+            }
+          ],
+          "newToolLines": 351,
+          "newTestLines": [
+            {
+              "file": "dev-harness/media-resource-profile.e2e.js",
+              "lines": 136
+            },
+            {
+              "file": "dev-harness/unit/media-resource-profile.test.js",
+              "lines": 125
+            }
+          ],
+          "generatedServer": {
+            "added": 18,
+            "removed": 2
+          },
+          "generatedManifest": {
+            "added": 15,
+            "removed": 15
+          },
+          "generatedProfileData": [
+            {
+              "file": "ruyi-workbench/resources/media-profiles/m4-image-cpython312-candidate-v2.json",
+              "bytes": 681897,
+              "sha256": "542d5887f72635c43ce797a2a399b4c3d29a3d87010f511551b57c6474ebb508"
+            },
+            {
+              "file": "ruyi-workbench/resources/media-profiles/m4-image-cpython312-candidate-v2-sources.json",
+              "bytes": 24134,
+              "sha256": "d55ab549e614a602fecfdbd9c9f33bdb77798795f90118efdcab9348eb6fa0e8"
+            }
+          ]
+        },
+        "reuse": {
+          "designAnchors": [
+            "86 section 7",
+            "92 section 7",
+            "92 section 10.1"
+          ],
+          "existingEntry": "13bc.create capture/assert/start/assertCoverage and close owner",
+          "existingLeases": [
+            "13be held upload fd, source identity/hash/revision/scope",
+            "13bd four-owner budget, scope epoch/transfer/revocation and retained cleanup",
+            "Contract private source/policy/processor capture, coverage, TTL/regions/payload binding and final synchronous finish",
+            "13bd recipient, delivery submit/complete and final provider assertion"
+          ],
+          "missingBoundedAdapter": "Adopt/restore exact resources under reviewed source/new-target custodians; privately bind fixed launch parameters and resource lifecycle into existing 13bc owner, then qualify selected-language real image chain.",
+          "noNewHardGate": "No inferred universal malicious-same-user-process protection or complete OS telemetry requirement. Freeze finite runtime/source/dependency acceptance criteria and close them with actual evidence."
+        },
+        "limitations": {
+          "actualWholeTreeObserved": false,
+          "resourcesRestored": false,
+          "nativeExecuted": false,
+          "realPythonExecuted": false,
+          "serverStarted": false,
+          "httpExecuted": false,
+          "browserUsed": false,
+          "networkUsed": false,
+          "productModified": false,
+          "oldArchivesModified": false,
+          "execute": false,
+          "egressAuthorized": false,
+          "sourceArchiveAvailable": false,
+          "provenanceComplete": false,
+          "legalAcceptance": false,
+          "ready": false
+        },
+        "notes": "REPORT.md is the complete review. Machinery is acceptable only as non-executing source scaffolding; batch verdict requires R1 correction/refreeze. First reproduction fixture error retained in FIRST-RED.txt."
+      }
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-resource-profile-r1-independent-review-20261030/REPORT.json",
+      "sha256": "255888fdb679f4f23cfa5714628982c356311aab4c7dc2a3cb04819ddce9c1e5",
+      "report": {
+        "schema": 1,
+        "verdict": "ACCEPT",
+        "revision": "R1",
+        "scope": "EXACT_R1_TWO_FILE_SOURCE_CORRECTION_ONLY",
+        "closedFinding": "R1/P1 session history contamination",
+        "newFindings": [],
+        "authorReport": {
+          "file": ".ruyi-runtime/m4-media-profile-r1-20261030/REPORT.json",
+          "bytes": 2398,
+          "sha256": "bca097aa07ff9e758f418950d4bbe588efaba9fc1b45a7bd186977ace742123c"
+        },
+        "authorPins": {
+          "file": ".ruyi-runtime/m4-media-profile-r1-20261030/PINS.json",
+          "bytes": 6619,
+          "sha256": "626b85479d6ad994d5bce14c4c6450ea2371dfa874fe34ffa3209aa1ecdb5f16"
+        },
+        "pinRowsMatched": 35,
+        "unchangedProducts": 15,
+        "legacyLocksUnchanged": 4,
+        "originalAssertionLinesPreserved": 13,
+        "oldUnitExactPrefix": true,
+        "changedProducts": [
+          {
+            "file": "dev-harness/unit/media-resource-profile.test.js",
+            "bytes": 21194,
+            "sha256": "a3816619257a05ea85cab7b43a302d0da5e8ec40eae91a9d4648c95bf641a2e7"
+          },
+          {
+            "file": "dev-harness/media-resource-profile.e2e.js",
+            "bytes": 16453,
+            "sha256": "6887d44188cd4b7151202fe3e32f8b27f4277440cb63fcfeaace479d2eaec994"
+          }
+        ],
+        "validation": {
+          "node": "v24.14.0",
+          "pureTests": 49,
+          "pass": 49,
+          "fail": 0,
+          "skip": 0,
+          "syntaxFiles": 2,
+          "syntaxPass": 2,
+          "actualGatewayVmCounterexampleReplayed": true,
+          "freshHistoryPositive": true,
+          "oldFullFinalAssertions": [
+            false,
+            false
+          ],
+          "r1FullFinalAssertions": [
+            true,
+            true
+          ],
+          "inverseSharedOnFinalAssertions": [
+            true,
+            false
+          ],
+          "buildFactsGraphRerun": false,
+          "fullUnit": false,
+          "allStatic": false
+        },
+        "limits": {
+          "actualHttp": false,
+          "server": false,
+          "native": false,
+          "realPython": false,
+          "browser": false,
+          "network": false,
+          "resourcesRestored": false,
+          "productModified": false,
+          "commit": false,
+          "sourceArchiveAvailable": false,
+          "provenanceComplete": false,
+          "legalAcceptance": false,
+          "execute": false,
+          "ready": false
+        },
+        "next": "Root/Terra permanent default HTTP twice with fresh isolated roots. Full requires actual resources/language/reviewed fixture pack; source acceptance is not whole-image/M4 qualification."
+      }
+    }
+  ],
+  "runtimeFusion": {
+    "order": "media.assert -> try media.submit -> original dispatch.assert -> immediate fetch; complete/release retained",
+    "acceptedDispatchHasSideEffect": true,
+    "originalDispatchOwnersUnchanged": true
+  },
+  "facts": {
+    "schema": 1,
+    "_comment": "门面数字单一事实源(第46波46f)。由 dev-harness/facts-generate.js 机械生成,facts.static.e2e.js 重算比对。改数字请跑生成器,不要手改本文件。每字段注明测量轴。",
+    "_axes": {
+      "nativeTools": "TOOL_HANDLERS 派发注册表键数(经 toolCall 可达全集;含按需注册件)。README「39 常驻+3 按需」是【常驻轴】旧口径,与本轴不同 —— 文档刷新时以本数为准重述。",
+      "accTools": "ACC 活注册表 list_tools 数(venv 探针;CI acc-smoke 对账)。",
+      "e2eCount": "dev-harness/*.e2e.js 总件数(含 live 跳过件)。",
+      "defaultPort": "00-boot.js DEFAULT_PORT 常量(默认监听端口;文档与实现各写各的防漂移)。",
+      "tokenBootstrap": "浏览器获取 UI token 的方式(47c S1):api-bootstrap = POST /api/bootstrap 握手,HTML 不再明文下发 token。",
+      "liveProbes": "run-all.js SKIP 集中真 live probe 件数(需真实外部依赖;每条文件名须含 live 或在白名单)。"
+    },
+    "generatedAt": "2026-10-30T04:53:44.306Z",
+    "workbenchVersion": "3.0.1",
+    "accVersion": "1.9.1",
+    "nativeTools": 121,
+    "accTools": 108,
+    "e2eCount": 621,
+    "e2eLiveSkipped": 7,
+    "unitSuites": 426,
+    "accSmokes": 25,
+    "defaultPort": 8765,
+    "tokenBootstrap": "api-bootstrap",
+    "liveProbes": 7
+  },
+  "modules": 131,
+  "scope": {
+    "http": false,
+    "full17": false,
+    "ready": false,
+    "legalAcceptance": false,
+    "provenanceComplete": false,
+    "sourceArchiveComplete": false,
+    "archive21": false,
+    "namespaceLeaseProved": false,
+    "sourceWriteExclusionProved": false,
+    "commit": false,
+    "push": false
+  },
+  "next": "See ../drafts/m4-linear-r1-committed-b2-20261030.md for specific production HTTP/owner/source/notices/legal/three-provider/DPAPI and remaining M4 technical steps"
+}

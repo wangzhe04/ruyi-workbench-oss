@@ -6,18 +6,42 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const { functionBlock } = require('../lib/source-slice');
+const { imageBindings } = require('../lib/composer-race-fixture');
 const source = fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/public/js/session-experience.js'), 'utf8');
-function fixture() {
+function fixture(imageApi) {
   let release;
   const result = new Promise(resolve => { release = resolve; });
   const state = { currentSession: { id: 's', messages: ['current'] }, sessionExecution: undefined };
+  const images = imageBindings(state, imageApi);
   const c = vm.createContext({ state, sessionOpenSeq: 0, sessionChoices: 0, sessionExecutionReadSeq: 0,
+    invalidateImageOperations: images.invalidateImageOperations,
     sessionOpenPending: null, sessionOpenRefreshPending: false,
     sessionExecutionNeedsRefresh: false, activeTurns: new Map(), api: async () => result,
     syncLivePolling() {}, renderCurrentSession() { throw Error('stale read rendered'); },
   });
-  return { c, state, release };
+  return { c, state, release, images };
 }
+test('opening another session invalidates the real in-flight image preparation', async () => {
+  let resolveImage, signal, notifyStarted;
+  const started = new Promise(resolve => { notifyStarted = resolve; });
+  const imageResponse = new Promise(resolve => { resolveImage = resolve; });
+  const { c, state, release, images } = fixture((_url, options) => {
+    signal = options.signal; notifyStarted(); return imageResponse;
+  });
+  state.config = { privacyModeV1: 'basic' };
+  const record = { id: 'image1', name: 'picture.png' };
+  const preparation = images.prepareProtectedImages([record], 's');
+  await started;
+  vm.runInContext(functionBlock(source, 'openSession'), c);
+  const opening = c.openSession('next');
+  assert.equal(signal.aborted, true);
+  resolveImage({});
+  await assert.rejects(preparation, /reviewRequired/);
+  c.sessionExecutionReadSeq += 1;
+  release({ ok: true, session: { id: 'next', messages: [] }, execution: null });
+  await opening;
+  assert.equal(record.protectedImage, undefined);
+});
 test('an open read started before epoch change cannot refill identity, body or render', async () => {
   const { c, state, release } = fixture();
   vm.runInContext(functionBlock(source, 'openSession'), c);

@@ -5,7 +5,7 @@
 // RUYI_RELAY_R1_BEFORE only for the pinned R1 09c/10 gzip bytes.
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), crypto = require('node:crypto');
 const { createRequire } = require('node:module');
-const { functionBlock, sliceBlock } = require('./lib/source-slice');
+const { constBlock, functionBlock, sliceBlock } = require('./lib/source-slice');
 const { createRunner } = require('./lib/harness');
 const old = process.argv.includes('--observe-r1'), test = createRunner(old ? 'THREAD RELAY R2 R1 NEGATIVE' : 'THREAD RELAY R2'); const { ok } = test;
 const root = path.resolve(__dirname, '../ruyi-workbench/app/src'), read = name => fs.readFileSync(path.join(root, name), 'utf8');
@@ -58,7 +58,9 @@ function ownerHooks(owners) {
       const r = await attempt(() => execute(f));
       ok(!!r.error && f.state.engines === 0, 'caller consumes same assert after await and late callback → ' + kind);
     }
-    const postSource = functionBlock(read('04h-provider-http.js'), 'providerModelPostOnce');
+    // Text-only dispatch composition still needs the provider module's real registration cell.
+    const postSource = constBlock(read('04h-provider-http.js'), 'ProviderMediaHooks') + '\n'
+      + functionBlock(read('04h-provider-http.js'), 'providerModelPostOnce');
     for (const mode of ['privacy-source', 'privacy-policy', 'final-source', 'final-pending', 'late-owner', 'own-write', 'normal']) {
       const { f } = await setup('wire_' + mode), hooks = ownerHooks(f.owners);
       const post = vm.runInNewContext(postSource + '\nproviderModelPostOnce', {

@@ -7,7 +7,7 @@ const assert = require('node:assert/strict'), { createRequire } = require('node:
 const root = path.resolve(__dirname, '..'), old = process.argv.includes('--observe-r2');
 const before = process.env.RUYI_RELAY_R2_BEFORE;
 if (old) assert(before, 'RUYI_RELAY_R2_BEFORE is required');
-const { functionBlock, sliceBlock } = require(path.join(root, 'dev-harness/lib/source-slice'));
+const { constBlock, functionBlock, sliceBlock } = require(path.join(root, 'dev-harness/lib/source-slice'));
 const file = name => old && fs.existsSync(path.join(before, 'ruyi-workbench/app/src', name + '.gz'))
   ? require('node:zlib').gunzipSync(fs.readFileSync(path.join(before, 'ruyi-workbench/app/src', name + '.gz'))).toString('utf8')
   : fs.readFileSync(path.join(root, 'ruyi-workbench/app/src', name), 'utf8');
@@ -278,7 +278,9 @@ async function additional() {
       require, ModelDispatchContext: context, SessionExecutionHooks: {}, turnSettlers: f.f.owners,
     });
     const insert = () => f.f.cache.set('a\0late-replan', { id: 'late-replan', sessionId: 'a', type: 'replan', status: 'pending' });
-    const post = vm.runInNewContext(functionBlock(file('04h-provider-http.js'), 'providerModelPostOnce') + '\nproviderModelPostOnce', {
+    // Keep the text-only provider's actual registration cell alongside its original POST function.
+    const post = vm.runInNewContext(constBlock(file('04h-provider-http.js'), 'ProviderMediaHooks') + '\n'
+      + functionBlock(file('04h-provider-http.js'), 'providerModelPostOnce') + '\nproviderModelPostOnce', {
       ModelDispatchContext: context, fetch: () => { f.f.state.engines++; return { ok: true }; },
       PrivacyGateway: { active: () => null, withPolicy: (sid, work) => work(), disclosurePolicyGuard: () => () => {}, assertPolicyAvailable() {},
         beforeModelRequest: async body => { if (when === 'privacy') insert(); return body; } },

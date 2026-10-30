@@ -29,6 +29,12 @@ function beforeRetention(value) {
   for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
   assert.equal(hash(value),history.baseSha256);return value;
 }
+function beforeMediaImageAuth(value) {
+  const history=require('../fixtures/media-image-auth/history.json');
+  if(hash(value)!==history.sha256)return value;
+  for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
+  assert.equal(hash(value),history.baseSha256);return value;
+}
 function beforeThreadRelayAuth(value) {
   const history=require('../fixtures/thread-relay/auth-history.json');
   if(hash(value)!==history.sha256)return value;
@@ -36,6 +42,7 @@ function beforeThreadRelayAuth(value) {
   assert.equal(hash(value),history.baseSha256);return value;
 }
 function beforeRetentionAuth(value) {
+  value=beforeMediaImageAuth(value);
   value=beforeThreadRelayAuth(value);
   const {auth}=require('../fixtures/external-bots-retention/history.json');
   assert.equal(hash(value),auth.sha256);assert.equal(value.split(auth.rows).length,2);value=value.replace(auth.rows,'');
@@ -78,4 +85,4 @@ function retryCoreSource(value=src()) {
   for(const row of [...replyRetryContracts.apiSpans].reverse()) {assert.equal(value.split(row.after).length,2);value=value.replace(row.after,row.before);}
   assert.equal(hash(value),replyRetryContracts.product.coreSha256);return value;
 }
-module.exports={historicalSource,retryCoreSource,replyRetryContracts,replyRetrySourceV2,beforeProgress,beforeProgressDelivery,beforeRetention,beforeRetentionAuth};
+module.exports={historicalSource,retryCoreSource,replyRetryContracts,replyRetrySourceV2,beforeProgress,beforeProgressDelivery,beforeRetention,beforeRetentionAuth,beforeMediaImageAuth};

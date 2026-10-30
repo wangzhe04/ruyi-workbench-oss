@@ -2291,6 +2291,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
   markSessionDeleted(id, purgeAssociated);
   stopSession(id, 'deleted');
+  if (typeof MediaImageHooks.revokeScope === 'function') await MediaImageHooks.revokeScope(id);
   // 后台班组不在 activeChildren 里。删除线程同样要停它们,否则它们仍会派发后续节点。
   // 停止只请求 abort,不是等待收尾;清关联数据时还要等已在飞的快照/事件写完,迟到写由同一墓碑拒掉。
   const deletedRunIds = new Set([...activeAgentRuns.values()].filter(live => live && live.run && live.run.sessionId === id).map(live => live.run.id));

@@ -1,4 +1,5 @@
 // ── 架构还债批 2 · A:OpenAI 兼容服务商 HTTP 路径的原语只有这一个住处 ─────────────────────────────────────
+const ProviderMediaHooks = {};
 // 修前这套东西散在五个模块:端点 URL 归一化住在 CLI 引擎文件(05),请求头(content-type + Bearer + 自定义头)
 // 在 05/06/07/08/09/10 各手写一份,非流式补全的「fetch + 超时 AbortController + 读回体」在 05 与 06 各一份,
 // 子代理的瞬时错误重试(08)与 Claude CLI 子代理的重试(07)各写一个 while/for 循环、各带一份可被中止的退避睡眠。
@@ -67,14 +68,27 @@ async function providerModelPostOnce({ url, headers, body, signal }) {
     const policyGuard = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.disclosurePolicyGuard() : null;
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     const prepared = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body, { signal }) : body;
-    const encoded = JSON.stringify(prepared);
+    let media = null;
+    try {
+    if (typeof ProviderMediaHooks.beforeModelPost === 'function')
+      media = await ProviderMediaHooks.beforeModelPost({ body: prepared, url, headers, signal });
+    const encoded = JSON.stringify(media ? media.body : prepared);
     const dispatch = typeof ModelDispatchContext !== 'undefined' && ModelDispatchContext.current();
     const dispatchFence = dispatch ? await dispatch.prepare() : null;
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
     if (policyGuard) policyGuard();
-    if (dispatch) dispatch.assert(dispatchFence);
-    return fetch(url, { method: 'POST', headers, body: encoded, signal });
+    // No await between the final source/policy/processor/artifact check and fetch.
+    // Encoding and the preceding async storage borrow cannot leave stale authority.
+    if (media) media.assert();
+    try {
+      if (media?.submit) media.submit();
+      if (dispatch) dispatch.assert(dispatchFence);
+      const response = await fetch(url, { method: 'POST', headers, body: encoded, signal });
+      if (media?.complete) media.complete(response?.ok === true);
+      return response;
+    } catch (error) { if (media?.complete) media.complete(false); throw error; }
+    } finally { if (media) media.release(); }
   };
   // OFF 也绑定当前策略，拒绝 beforeModelRequest 的 await 期间发生的开启/规则切换。
   // 已有上下文保持原 scope；独立探测沿用 gateway 的 auxiliary fallback。OFF 不建 scope。

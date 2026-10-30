@@ -487,6 +487,7 @@ function stewardSanitizeAttachments(raw) {
     const id = String(a.id || '').slice(0, 80), name = String(a.name || '').slice(0, 260);
     if (!id || !name) continue;
     const rec = { id, name, path: String(a.path || '').slice(0, 1200), size: Math.max(0, Number(a.size) || 0) };
+    if (typeof a.protectedImage?.reference === 'string') rec.protectedImage = { reference: a.protectedImage.reference };
     if (a.kind === 'audio') rec.kind = 'audio';
     if (typeof a.textPreview === 'string') rec.textPreview = a.textPreview.slice(0, 4000);
     out.push(rec);

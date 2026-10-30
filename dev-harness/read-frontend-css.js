@@ -86,7 +86,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // In-memory HEAD substitution restores 68f1ea1b7b4188b41332f49a23a08900a4f6e50ce6f765239692bab5f8493ee6; D51/F3 in-memory corruption controls reject.
 // M5 W/T: workbench.css adds only seven scoped thread-relay rules already exercised by the two fresh relay browser journeys.
 // In-memory HEAD substitution restores 0aef5a1e1e0ffd850215d10d248a4730eb3067850b962d86ae0d3ecdcd70dca6; original D51/F3 assertions reject a one-rule in-memory mutation.
-const LEGACY_STYLES_SHA256 = '03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b';
+// M4+committed-B2 composition20261030: only the accepted image editor composer CSS is added to8cca.
+// Exact in-memory replacement with8cca composer restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b; no other CSS layer is replaced.
+const LEGACY_STYLES_SHA256 = '3709bb1f71a20235d5672d4b614fad142f51e5b3e520965d13875fde336e9dbf';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

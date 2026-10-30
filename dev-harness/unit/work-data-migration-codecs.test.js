@@ -61,7 +61,7 @@ const cases = [
   ['migration-log','migrations/2026-10-24T12-00-00-000Z.json'], ['skill-import-record','skills/tool_one/.ruyi-import.json'],
 ];
 
-test('fixed catalog covers exactly the 41 required families with honest special-owner status', () => {
+test('fixed catalog covers every required family with honest special-owner status', () => {
   const freeze = JSON.parse(syncFs.readFileSync(path.join(REPO, 'docs/architecture/encrypted-storage-freeze.json')));
   const expected = freeze.entries.filter(row => row.encryption === 'required').map(row => row.id).sort();
   assert.deepEqual(Array.from(codecs.catalog(), row => row.family).sort(), expected);

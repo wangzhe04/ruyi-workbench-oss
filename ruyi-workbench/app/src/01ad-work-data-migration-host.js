@@ -10,6 +10,10 @@ const WorkDataMigrationHost = ((io,p,c) => {
   const nativeScope=name=>{const folded=key(name);return folded==='migrations/skill-backup-bindings-v2.sealed'||folded==='migrations/skill-backups'||folded.startsWith('migrations/skill-backups/')||folded==='.work-data/skill-backups'||folded.startsWith('.work-data/skill-backups/');};
   function classify(name,legacy,directory=false){
     const folded=key(name);
+    if(directory&&/^media-derived-v1(?:\/|$)/i.test(name)){
+      if(/^media-derived-v1(?:\/[a-f0-9]{32})?$/.test(name))return {kind:'media-directory'};
+      fail('special_owner_required',{file:name});
+    }
     if(nativeScope(name))return {kind:'special-backup'};
     if(/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|\.sealed-stage$)/.test(folded))fail('special_owner_required',{file:name});
     // The tree census supplies this flag; a file cannot borrow directory admission.

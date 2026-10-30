@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const vm = require('vm');
+const { imageBindings } = require('../lib/composer-race-fixture');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-compact-trigger-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 const app = path.resolve(__dirname, '../../ruyi-workbench/app');
@@ -224,7 +225,16 @@ function frontend(config = configFor(), legacy = {}) {
   const context = vm.createContext({ window: {}, localStorage: {
     getItem: k => storage.get(k) ?? null, removeItem: k => storage.delete(k),
   } });
-  const load = (file, name) => vm.runInContext(fs.readFileSync(path.join(app, 'public/js', file), 'utf8').replace(/export function /g, 'function ') + `\n${name}`, context);
+  const load = (file, name) => {
+    let source = fs.readFileSync(path.join(app, 'public/js', file), 'utf8');
+    if (file === 'chat-stream-runtime.js') {
+      const importLine = "import { prepareProtectedImages } from './attachment-tray.js';";
+      assert.deepEqual(source.match(/^import .*;$/gm), [importLine]);
+      source = source.replace(importLine, '');
+      context.prepareProtectedImages = imageBindings(state, api).prepareProtectedImages;
+    }
+    return vm.runInContext(source.replace(/export function /g, 'function ') + `\n${name}`, context);
+  };
   const api = async (url, options) => {
     calls.push({ url, options });
     if (url === '/api/config') {

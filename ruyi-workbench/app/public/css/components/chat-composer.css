@@ -196,3 +196,21 @@
    只保留「在干什么」与本次工具计时 —— 390px 实测整句会被省略号从中间切断,而句首才是要看的。 */
 @media (max-width: 560px) { .turn-activity .ta-notices { display: none; } }
 @media (max-width: 430px) { .turn-activity .ta-text { max-width: none; } .turn-activity .ta-part:nth-child(n+2) { display: none; } }
+
+.image-region-editor { box-sizing: border-box; width: min(960px, 95vw); max-height: 92dvh; overflow: auto; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+.image-region-editor::backdrop { background: rgb(0 0 0 / .6); }
+.image-region-editor h2 { margin-top: 0; }
+.image-region-hint, .image-region-status { overflow-wrap: anywhere; }
+.image-region-surface { position: relative; max-width: 100%; margin: 12px auto; touch-action: none; user-select: none; cursor: crosshair; }
+.image-region-surface > img { display: block; width: 100%; height: auto; }
+.image-region-masks { position: absolute; inset: 0; pointer-events: none; }
+.image-region-mask { position: absolute; background: #000; outline: 1px solid #fff; outline-offset: -1px; }
+.image-region-coordinates { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)) auto; gap: 8px; align-items: end; }
+.image-region-coordinates label { display: grid; gap: 4px; min-width: 0; }
+.image-region-coordinates input { box-sizing: border-box; width: 100%; min-width: 0; }
+.image-region-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: end; }
+.image-region-list { max-height: 160px; overflow: auto; padding-left: 28px; }
+.image-region-list li { padding: 4px; overflow-wrap: anywhere; }
+.image-region-list button { margin-left: 8px; }
+.image-region-editor :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 560px) { .image-region-editor { padding: 12px; } .image-region-coordinates { grid-template-columns: repeat(2,minmax(0,1fr)); } .image-region-coordinates > button { grid-column: 1 / -1; } .image-region-actions > button { flex: 1 1 45%; } }

@@ -32,6 +32,7 @@ const SessionExecutionHooks = {};
 const ThreadRelayHooks = {};
 const ProxyModelHooks = {};
 const DeliveryHooks = {};
+const MediaImageHooks = {};
 const ExternalBotHooks = {};
 const WorkDataMaintenanceHooks = {};
 const WorkDataSetupHooks = {};
@@ -1773,6 +1774,9 @@ const ROUTE_AUTH = [
   // fetch + ReadableStream 读这条流(前端本来就是这么发 /api/chat/stream 的),不用 EventSource。
   { m: 'GET', p: '/api/events/stream', auth: 'token-browser' },
   { m: 'POST', p: '/api/upload', auth: 'token-browser' },
+  { m: 'POST', p: '/api/media/images/prepare', auth: 'token-browser' },
+  { m: 'GET', p: '/api/media/images/', auth: 'token', prefix: true },
+  { m: 'DELETE', p: '/api/media/images/', auth: 'token-browser', prefix: true },
   // 图片/附件回显:聊天里已发送附件的原字节只读读取。内容型 GET,token 级同 /api/file/preview;
   // handler 内再做 uploads 目录 realpath 包含校验(只服务 makeAttachmentRecord 写下的文件)。
   { m: 'GET', p: '/api/upload/content', auth: 'token' },
@@ -11072,7 +11076,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     ...Array.from({ length: 9 }, (_, n) => 'com' + (n + 1)), ...Array.from({ length: 9 }, (_, n) => 'lpt' + (n + 1))]);
   const safeId = value => /^[A-Za-z0-9_-]{1,64}$/.test(value) && !value.startsWith('_') && !reserved.has(value.toLowerCase());
   const shortId = '([A-Za-z0-9_-]{1,64})', project = '([a-f0-9]{16})';
-  const entries = [];
+  const entries = [], Hooks = {};
   const define = (family, codec, purpose, pattern, bind, options = {}) => {
     entries.push(Object.freeze({ family, codec, purpose, pattern, bind, ...options }));
   };
@@ -11122,6 +11126,8 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   text('playbooks', 'workflow', /^playbooks\/([^/]+\.json)$/, 'user', m => 'playbook:' + hash(m[1]), { chunked: true });
   text('web-cache', 'cache', /^webcache\/([a-f0-9]{64})\.json$/, 'global', m => 'web-cache:' + nativeIdentity(m[1]), { chunked: true });
   text('proxy-models-cache', 'cache', /^proxy-models-cache\.json$/, 'global', 'proxy-models-cache', { chunked: true });
+  text('media-derived', 'cache', /^media-derived-v1\/([a-f0-9]{32})\/(mimg_[a-f0-9]{32})\.json$/, m => m[1], m => m[2],
+    { chunked: true, maxPlaintextBytes: 4 * Math.ceil(5 * 1024 * 1024 / 3) + 32768 });
   text('migration-log', 'migration', /^migrations\/([0-9TZ-]+)\.json$/, 'global', m => 'migration-log:' + m[1], { chunked: true });
   text('skill-import-record', 'backup', new RegExp('^skills/' + shortId + '/\\.ruyi-import\\.json$'), 'skills', m => 'skill-import:' + nativeIdentity(m[1]), { chunked: true });
   const aux = (family, purpose, pattern, binding, options = {}) => define(family, 'aux-records', purpose, pattern,
@@ -11146,6 +11152,8 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
   }
   function describe(relative) {
     relativePath(relative);
+    if (/^media-derived-v1(?:\/|$)/i.test(relative) && !/^media-derived-v1\/[a-f0-9]{32}\/mimg_[a-f0-9]{32}\.json$/.test(relative))
+      fail('special_owner_required', { reason:'media-owned-namespace-artifact' });
     if (/(?:\.prevbody|\.corrupt(?:[-.]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-)/.test(nativeIdentity(relative)))
       return Object.freeze({ family: null, codec: 'special-owner-required', reason: 'retained-or-uncommitted-owner-artifact' });
     for (const entry of entries) {
@@ -11158,6 +11166,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     }
     if (/^sessions\/_fulltext-index-v1(?:\/|$)/.test(nativeIdentity(relative)))
       return Object.freeze({ family: null, codec: 'special-owner-required', reason: 'fulltext-owned-namespace-artifact' });
+    if (/^media-derived-v1(?:\/|$)/i.test(relative)) fail('special_owner_required', { reason: 'media-owned-namespace-artifact' });
     fail('path_unmapped');
   }
   const nativeKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
@@ -11229,6 +11238,9 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       let data; try { data = JSON.parse(value.replace(/^\uFEFF/, '')); } catch { fail('special_owner_required', { reason: 'invalid-legacy-json' }); }
       if (!data || typeof data !== 'object' || (descriptor.shape === 'array' ? !Array.isArray(data) : Array.isArray(data)))
         fail('special_owner_required', { reason: 'invalid-legacy-shape' });
+      if (descriptor.family === 'media-derived') {
+        if (!Hooks.mediaDerived || Hooks.mediaDerived.validateSealedText(value, descriptor) !== true) fail('special_owner_required', { reason: 'media-validator-unavailable' });
+      }
       return bytes;
     };
     async function transform({ relative, targetMode } = {}, retained = false, readOnly = false) {
@@ -11389,7 +11401,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
     }
     return Object.freeze({ describe, describeRetained, catalog, transform: options => transform(options), transformRetained: options => transform(options, true), verify: options => transform(options, false, true), verifyRetained: options => transform(options, true, true) });
   }
-  return Object.freeze({ create, describe, describeRetained, catalog });
+  return Object.freeze({ create, describe, describeRetained, catalog, Hooks });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'), require('node:zlib'), require('node:util').TextDecoder);
 
 // One root binding per process, after the stable control-base OS owner and before any store IO.
@@ -12287,6 +12299,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
             finally{inner?.fill(0);if(compressed!==file.data)compressed.fill(0);}
           } else text=await openedText(file,descriptor);
           if (descriptor.codec==='text'&&!descriptor.markdown) { value=JSON.parse(text.replace(/^\uFEFF/,'')); if(!value||typeof value!=='object'||(descriptor.shape==='array'?!Array.isArray(value):Array.isArray(value)))fail('source_invalid'); }
+          if (descriptor.family==='media-derived' && WorkDataMigrationCodecs.Hooks.mediaDerived?.validateSealedText(text,descriptor)!==true) fail('source_invalid');
         } else {
           try { text=decode(file.data); value=JSON.parse(text.replace(/^\uFEFF/,'')); } catch { /* Opaque media and arbitrary non-JSON user content remain exact bytes. */ }
           if(text!==undefined){const fullProbe=WorkDataRecords.lineProbe();fullProbe.feed(file.data);if(fullProbe.reserved()||text.trimStart().startsWith('{')&&workMarker.test(text))fail('special_owner_required',{file:file.path});}
@@ -12317,6 +12330,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     function checkAuthority(files,directories,generation,native){
       for(const directory of directories){
         const logical=namespace(directory).logical;
+        if(/^media-derived-v1(?:\/|$)/i.test(logical)&&!/^media-derived-v1(?:\/[a-f0-9]{32})?$/.test(logical))fail('special_owner_required',{file:directory,reason:'media-owned-namespace-directory'});
         if(fulltextNamespace(logical)&&ownerPath(logical)!=='sessions/_fulltext-index-v1'){
           let descriptor;try{descriptor=WorkDataMigrationCodecs.describe(logical+'/manifest.json');}catch{}
           if(descriptor?.family!=='session-fulltext-manifest')fail('special_owner_required',{file:directory,reason:'fulltext-owned-namespace-directory'});
@@ -12434,6 +12448,10 @@ const WorkDataMigrationHost = ((io,p,c) => {
   const nativeScope=name=>{const folded=key(name);return folded==='migrations/skill-backup-bindings-v2.sealed'||folded==='migrations/skill-backups'||folded.startsWith('migrations/skill-backups/')||folded==='.work-data/skill-backups'||folded.startsWith('.work-data/skill-backups/');};
   function classify(name,legacy,directory=false){
     const folded=key(name);
+    if(directory&&/^media-derived-v1(?:\/|$)/i.test(name)){
+      if(/^media-derived-v1(?:\/[a-f0-9]{32})?$/.test(name))return {kind:'media-directory'};
+      fail('special_owner_required',{file:name});
+    }
     if(nativeScope(name))return {kind:'special-backup'};
     if(/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|\.sealed-stage$)/.test(folded))fail('special_owner_required',{file:name});
     // The tree census supplies this flag; a file cannot borrow directory admission.
@@ -15614,6 +15632,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
   markSessionDeleted(id, purgeAssociated);
   stopSession(id, 'deleted');
+  if (typeof MediaImageHooks.revokeScope === 'function') await MediaImageHooks.revokeScope(id);
   // 后台班组不在 activeChildren 里。删除线程同样要停它们,否则它们仍会派发后续节点。
   // 停止只请求 abort,不是等待收尾;清关联数据时还要等已在飞的快照/事件写完,迟到写由同一墓碑拒掉。
   const deletedRunIds = new Set([...activeAgentRuns.values()].filter(live => live && live.run && live.run.sessionId === id).map(live => live.run.id));
@@ -21568,6 +21587,10 @@ function buildAttachmentPrompt(attachments) {
     '<attached_files>',
   ];
   for (const file of attachments) {
+    if (typeof MediaImageHooks !== 'undefined' && typeof MediaImageHooks.attachmentPrompt === 'function') {
+      const protectedPrompt = MediaImageHooks.attachmentPrompt(file);
+      if (protectedPrompt !== null) { lines.push(protectedPrompt); continue; }
+    }
     lines.push(`- ${file.name || path.basename(file.path)}: ${file.path}`);
     if (file.textPreview) {
       lines.push('  <preview>');
@@ -21600,7 +21623,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const PREFIX = '[[RUYI_PVT:', pattern = () => /\[\[RUYI_PVT:[A-Z]+:[a-f0-9]{32}\]\]/g;
   let currentPolicy = { mode: 'off', signature: '' }, unavailable = false;
   let policyEpoch = 0;
-  function setUnavailable(value) { if (unavailable !== value) policyEpoch++; unavailable = value; }
+  function setUnavailable(value) { if (unavailable !== value) { policyEpoch++; host.invalidateMedia?.(); } unavailable = value; }
   const fail = suffix => { throw Object.assign(new Error('privacy.' + suffix), { code: 'privacy.' + suffix, statusCode: 409 }); };
   const enabled = config => ['basic', 'enhanced', 'strict'].includes(config?.privacyModeV1);
   function assertPolicyAvailable(config) {
@@ -21658,10 +21681,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const mode = config.privacyModeV1 || 'off';
     // The disabled path must not enumerate secrets, build detectors or start workers.
     // A mode change still invalidates any already-running protected context.
-    if (mode === 'off') { if (currentPolicy.signature !== 'off') policyEpoch++; currentPolicy = { mode, signature: 'off', config }; return; }
+    if (mode === 'off') { if (currentPolicy.signature !== 'off') { policyEpoch++; host.invalidateMedia?.(); } currentPolicy = { mode, signature: 'off', config }; return; }
     const signature = cryptoApi.createHash('sha256').update(JSON.stringify([mode, options(config)])).digest('hex');
     const policy = { mode, signature, config: structuredClone(config) };
-    if (currentPolicy.signature !== signature) policyEpoch++;
+    if (currentPolicy.signature !== signature) { policyEpoch++; host.invalidateMedia?.(); }
     currentPolicy = policy;
     } catch (error) { setUnavailable(true); throw error; }
   }
@@ -22338,6 +22361,19 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         return rows;
       }
       if (item && typeof item === 'object') {
+        // Only a process-private, currently owned image reference is projectable.
+        // Raw data URLs and caller-supplied "protected" metadata still enter the
+        // original fail-closed media/string checks below.
+        const media = typeof host.projectMediaPart === 'function' ? host.projectMediaPart(item, { scopeId: context.scopeId, pointer }) : null;
+        if (media) {
+          // A field rule naming any payload/control descendant cannot disappear
+          // behind the host capability. Pixels are not a textual field rewrite.
+          function* inspectMediaFields(value, at) {
+            yield* assertTypedField(at, value);
+            if(value&&typeof value==='object')for(const [key,row]of Object.entries(value))yield* inspectMediaFields(row,at+'/'+key);
+          }
+          yield* inspectMediaFields(media,pointer);return media;
+        }
         if (mediaShape(item)) fail('media_not_supported');
         if (!structuredData && (item.type === 'redacted_thinking' || (item.type === 'reasoning' && item.encrypted_content))) fail('opaque_content_not_supported');
         const result = Object.create(null);
@@ -23201,7 +23237,33 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   const assertCliAllowed = () => assertSupported({ privacyModeV1: currentPolicy.mode }, 'cli');
   function assertToolChannel() { assertPolicyAvailable(); if (!active() && currentPolicy.mode !== 'off') fail('tool_channel_not_supported'); }
   function assertMediaAllowed(config) { assertPolicyAvailable(config); if (enabled(config) || currentPolicy.mode !== 'off') fail('media_not_supported'); }
-  return Object.freeze({ enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
+  function captureMediaPolicy() {
+    assertPolicyAvailable();
+    if (!['off', 'basic', 'enhanced', 'strict'].includes(currentPolicy.mode)) fail('policy_unavailable');
+    if (currentPolicy.mode === 'off') return null;
+    const context = active();
+    if (!context || context.policy !== currentPolicy.signature) fail('scope_changed');
+    const epoch = policyEpoch, signature = currentPolicy.signature, scopeId = context.scopeId;
+    const config = structuredClone(options(currentPolicy.config));
+    const snapshot = Object.freeze({ config, hash: cryptoApi.createHash('sha256').update(JSON.stringify(config)).digest('hex'),
+      rulesHash: cryptoApi.createHash('sha256').update(JSON.stringify([core.ruleCatalogVersion || 1, config.rules])).digest('hex'), revision: signature,
+      scopeId, async prepareDetector(inputs, { signal, deadline } = {}) {
+        snapshot.assert();
+        if (!Array.isArray(inputs) || inputs.some(value => typeof value !== 'string')) fail('image_recognition_invalid');
+        if (!config.rules.some(rule => rule.kind === 'regex')) return core.createDetector(config);
+        const timeout = AbortSignal.timeout(Math.max(1, deadline - Date.now()));
+        const matches = await PrivacyRegex.scan(config.rules, inputs, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+        snapshot.assert();
+        return core.createDetector({ ...config, regexMatches: input => { if(!matches.has(input))fail('regex_scan_required');return matches.get(input); } });
+      }, assert() {
+        assertPolicyAvailable();
+        if (policyEpoch !== epoch || currentPolicy.signature !== signature) fail('policy_changed');
+        if (active()?.scopeId !== scopeId) fail('scope_changed');
+        return true;
+      } });
+    return snapshot;
+  }
+  return Object.freeze({ captureMediaPolicy, enabled, configure, active, run, withPolicy, prepareLocalDisclosure, prepareMultiSourceDisclosure, createConnectionScope, disclosurePolicyGuard, prepareDisclosure, refreshDisclosure, assertDisclosure, foreignView, preview, ruleVersion, restoreHistory, bindHostHistory, bindRestoredHostHistory, projectHostHistory, protectHostHistory, restoreHostHistoryProjection, displayCacheKey, displayText, displayMessages, displayEnvelope, createDisplayStream, beforeRequest, beforeModelRequest, toolResult, modelToolResult, projectSource, sliceSource, markSourceView, prepareCall, prepareExecution, executionArgs, updateExecutionInput, transferExecutionCall, revalidateExecution, assertExecution, withExecution, beforeExecutionIo, assertIo, isExecutingOriginal: () => !!executionLocal.getStore(), assertSupported, assertCliAllowed, assertPolicyAvailable, assertMediaAllowed, assertToolChannel, markUnavailable: () => { setUnavailable(true); }, recoveryRequired: () => unavailable, setHost: value => Object.assign(host, value) });
 })(require('node:crypto'), require('node:fs').promises, require('node:path'), require('node:async_hooks').AsyncLocalStorage, PrivacyCore, require('node:url').URL);
 PrivacyCore.configHooks.configurePrivacy = PrivacyGateway.configure;
 PrivacyCore.configHooks.assertCliAllowed = PrivacyGateway.assertCliAllowed;
@@ -23317,6 +23379,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
   return Object.freeze({ query, stopSync, setHost: hooks => Object.assign(host, hooks) });
 })();
 
+const VisualMediaHooks = {};
 const VisualPipeline = (() => {
   const nodeFsp = require('fs/promises');
   const nodePath = require('path');
@@ -23342,6 +23405,10 @@ const VisualPipeline = (() => {
   // the model still knows an image was attached but nothing bloats the request). Non-image attachments are
   // already described in the text part; they are NOT re-read here. Returns a parts array. Never throws.
   async function buildUserContentParts(textContent, attachments) {
+    if (typeof VisualMediaHooks.buildUserContentParts === 'function') {
+      const protectedParts = await VisualMediaHooks.buildUserContentParts(textContent, attachments);
+      if (protectedParts !== null) return protectedParts;
+    }
     const parts = [{ type: 'text', text: String(textContent || '') }];
     for (const a of (attachments || [])) {
       if (!a || !a.path || !IMAGE_EXT_RE.test(String(a.name || a.path))) continue;
@@ -28018,6 +28085,7 @@ ToolboxHooks.asrSelectionChanged = onAsrSelectionChanged;
 ToolboxHooks.healthForProvider = toolboxHealthForProvider;
 
 // ── 架构还债批 2 · A:OpenAI 兼容服务商 HTTP 路径的原语只有这一个住处 ─────────────────────────────────────
+const ProviderMediaHooks = {};
 // 修前这套东西散在五个模块:端点 URL 归一化住在 CLI 引擎文件(05),请求头(content-type + Bearer + 自定义头)
 // 在 05/06/07/08/09/10 各手写一份,非流式补全的「fetch + 超时 AbortController + 读回体」在 05 与 06 各一份,
 // 子代理的瞬时错误重试(08)与 Claude CLI 子代理的重试(07)各写一个 while/for 循环、各带一份可被中止的退避睡眠。
@@ -28086,14 +28154,27 @@ async function providerModelPostOnce({ url, headers, body, signal }) {
     const policyGuard = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.disclosurePolicyGuard() : null;
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     const prepared = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body, { signal }) : body;
-    const encoded = JSON.stringify(prepared);
+    let media = null;
+    try {
+    if (typeof ProviderMediaHooks.beforeModelPost === 'function')
+      media = await ProviderMediaHooks.beforeModelPost({ body: prepared, url, headers, signal });
+    const encoded = JSON.stringify(media ? media.body : prepared);
     const dispatch = typeof ModelDispatchContext !== 'undefined' && ModelDispatchContext.current();
     const dispatchFence = dispatch ? await dispatch.prepare() : null;
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
     if (policyGuard) policyGuard();
-    if (dispatch) dispatch.assert(dispatchFence);
-    return fetch(url, { method: 'POST', headers, body: encoded, signal });
+    // No await between the final source/policy/processor/artifact check and fetch.
+    // Encoding and the preceding async storage borrow cannot leave stale authority.
+    if (media) media.assert();
+    try {
+      if (media?.submit) media.submit();
+      if (dispatch) dispatch.assert(dispatchFence);
+      const response = await fetch(url, { method: 'POST', headers, body: encoded, signal });
+      if (media?.complete) media.complete(response?.ok === true);
+      return response;
+    } catch (error) { if (media?.complete) media.complete(false); throw error; }
+    } finally { if (media) media.release(); }
   };
   // OFF 也绑定当前策略，拒绝 beforeModelRequest 的 await 期间发生的开启/规则切换。
   // 已有上下文保持原 scope；独立探测沿用 gateway 的 auxiliary fallback。OFF 不建 scope。
@@ -76835,6 +76916,7 @@ async function handleApi(req, res, pathname) {
     await maybeCompressImageAttachment(file);
     return send(res, json({ ok: true, file }));
   }
+  if (typeof MediaImageHooks.handleApiRoutes === 'function' && await MediaImageHooks.handleApiRoutes(req, res, pathname)) return;
   // 图片/附件回显:读取 makeAttachmentRecord 写下的上传件原字节(聊天气泡里的图片缩略图/大图)。
   // 只读内容型 GET:token 门 + handler 自查(同 /api/file/preview 纵深);第二道闸把目标锁死在
   // uploads 根内(词法 + realpath 双校验,符号链接也逃不出),服务面 = 工作台自己写过的上传目录。
@@ -78331,6 +78413,7 @@ async function steerAttachments(raw) {
     const image = /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
     const sendPath = image ? await fsp.realpath(path.join(root, id, 'send.jpg')).catch(() => '') : '';
     out.push({ id, name, path: file, size: stat.size, ...(image ? { kind: 'image' } : {}),
+      ...(typeof item.protectedImage?.reference === 'string' ? { protectedImage: { reference: item.protectedImage.reference } } : {}),
       ...(sendPath && insideUploads(sendPath) ? { sendPath } : {}),
       ...(typeof item.textPreview === 'string' ? { textPreview: item.textPreview.slice(0, 12000) } : {}),
       ...(typeof item.ocrText === 'string' ? { ocrText: item.ocrText.slice(0, 12000) } : {}),
@@ -93546,6 +93629,7 @@ function stewardSanitizeAttachments(raw) {
     const id = String(a.id || '').slice(0, 80), name = String(a.name || '').slice(0, 260);
     if (!id || !name) continue;
     const rec = { id, name, path: String(a.path || '').slice(0, 1200), size: Math.max(0, Number(a.size) || 0) };
+    if (typeof a.protectedImage?.reference === 'string') rec.protectedImage = { reference: a.protectedImage.reference };
     if (a.kind === 'audio') rec.kind = 'audio';
     if (typeof a.textPreview === 'string') rec.textPreview = a.textPreview.slice(0, 4000);
     out.push(rec);
@@ -105162,6 +105246,16 @@ const workDataMaintenance = WorkDataMaintenance.create({
   },
 });
 Object.assign(WorkDataMaintenanceHooks, workDataMaintenance);
+// Media owns its permanent uncertainty; maintenance only observes the existing
+// late-bound hook. Missing/uninitialized media has not created a helper.
+function workDataHelpersMayStillRun(){
+  try{
+    if(typeof MediaImageHooks==='undefined')return false;
+    const inspect=MediaImageHooks.helperMayStillRun;
+    return inspect!==undefined&&(typeof inspect!=='function'||inspect.call(MediaImageHooks)!==false);
+  }catch{return true;}
+}
+WorkDataMaintenanceHooks.helperMayStillRun=workDataHelpersMayStillRun;
 WorkDataMaintenanceHooks.deferStewardWake = () => { workDataDeferredStewardWake = true; };
 WorkDataMaintenanceHooks.stewardTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('steward-intake', () => stewardRunTick()) : Promise.resolve({ skipped: true });
 WorkDataMaintenanceHooks.schedulerTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('scheduler-tick', () => schedulerTick()) : Promise.resolve({ skipped: true });
@@ -108311,6 +108405,16 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
   }
   // mapWords is inserted byte-for-byte from the reviewed M1 prototype by the
   // candidate generator. It uses PrivacyCore's existing UTF-16 detector intervals.
+  function collectWords(words) {
+  let text = '', previousLine;
+  const spans = words.map(word => {
+    if (!word || typeof word.text !== 'string' || !Number.isInteger(word.line) || !Array.isArray(word.box)) throw failure('invalid-ocr');
+    if (text) text += word.line === previousLine ? ' ' : '\n';
+    const start = text.length; text += word.text; previousLine = word.line;
+    return { ...word, start, end: text.length };
+  });
+  return { text, spans };
+  }
   function mapWords(words, detector, width, height) {
   let text = '', previousLine;
   const spans = words.map(word => {
@@ -108382,11 +108486,16 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
       };
       try {
         if (deadline > now() + LIMITS.ttlMs) fail('deadline_limit'); check();
+        const canonical = regions?.space === 'canonical-pixels-v1';
         if (regions !== null && (!regions || typeof regions !== 'object' || Array.isArray(regions)
-          || Object.keys(regions).sort().join(',') !== 'boxes,height,orientation,sourceHash,sourceRevision,space,width'
+          || Object.keys(regions).sort().join(',') !== (canonical
+            ? 'boxes,height,sourceHash,sourceRevision,space,transformHash,width'
+            : 'boxes,height,orientation,sourceHash,sourceRevision,space,width')
           || !Array.isArray(regions.boxes) || regions.boxes.length > LIMITS.regions
           || regions.boxes.some(value => !Array.isArray(value) || value.length !== 4 || value.some(n => !Number.isFinite(n)))
-          || !hex(regions.sourceHash) || !revision(regions.sourceRevision) || regions.space !== 'source-pixels-v1')) fail('region_binding');
+          || !hex(regions.sourceHash) || !revision(regions.sourceRevision)
+          || (canonical ? !hex(regions.transformHash) || !Number.isSafeInteger(regions.width) || !Number.isSafeInteger(regions.height)
+            : regions.space !== 'source-pixels-v1'))) fail('region_binding');
         const explicit = regions === null ? null : JSON.parse(JSON.stringify(regions));
         // No raw path, arbitrary metadata, detector, or processor callback is
         // accepted from an upload request. Owners capture their own authority.
@@ -108397,7 +108506,7 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
           || sha(JSON.stringify(policy.config)) !== policy.hash) fail('policy_invalid');
         if (!processor || !hex(processor.hash) || !revision(processor.version)) fail('processor_invalid');
         stamp = JSON.stringify([source.hash,source.revision,source.scope,policy.hash,policy.revision,policy.rulesHash,processor.hash,processor.version]);
-        const detector = PrivacyCore.createDetector(policy.config);
+        let detector = PrivacyCore.createDetector(policy.config);
         sourceBytes = Buffer.from(source.bytes);
         job = processorOwner.start({ source: sourceBytes, sourceHash: source.hash, signal, deadline, processor });
         if (!job || !job.promise || typeof job.finish !== 'function') fail('processor_job_required');
@@ -108431,11 +108540,31 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
         if (frame.words.reduce((n, word) => n + (typeof word?.text === 'string' ? word.text.length : LIMITS.text + 1), 0)
           + frame.codes.reduce((n, code) => n + (typeof code?.text === 'string' ? code.text.length : LIMITS.text + 1), 0) > LIMITS.text) fail('recognition_limit');
         for (const word of frame.words) box(word.box, width, height);
-        // Empty OCR or no detected sensitive interval is not an automatic safe
-        // verdict. The original conservative M1 refusal remains for this slice.
-        const mapped = mapWords(frame.words, detector, width, height);
+        if (typeof policyOwner.prepareDetector === 'function') {
+          detector = await policyOwner.prepareDetector([collectWords(frame.words).text, ...frame.codes.map(code => code.text)], { signal, deadline });
+          check();
+        }
+        // Only the genuine processor owner can attest that BOTH local detectors
+        // actually completed over this exact frame after OS process close. Empty
+        // arrays or request booleans cannot substitute for this private proof.
+        const verifiedDetection = typeof processorOwner.assertCoverage === 'function'
+          && processorOwner.assertCoverage(frame) === true;
+        let mapped;
+        try { mapped = mapWords(frame.words, detector, width, height); }
+        catch (error) {
+          if (!verifiedDetection || error?.code !== 'privacy.image_unrecognized') throw error;
+          mapped = { boxes: [], hitCount: 0, categories: [], matchedWords: 0, crossWord: false };
+        }
         const boxes = mapped.boxes.map(value => box(value, width, height));
-        boxes.push(...explicitBoxes(explicit, source, frame));
+        if (explicit?.space === 'canonical-pixels-v1') {
+          // Coordinates are pixels of the exact protected PNG displayed by the
+          // editor. Bind them to the real processor transform, never infer EXIF
+          // from browser dimensions. The original source-pixel mapper stays intact.
+          if (explicit.sourceHash !== source.hash || explicit.sourceRevision !== source.revision
+            || explicit.width !== width || explicit.height !== height
+            || explicit.transformHash !== sha(JSON.stringify({width:transform.width,height:transform.height,orientation:transform.orientation}))) fail('region_binding');
+          boxes.push(...explicit.boxes.map(value => box(value, width, height)));
+        } else boxes.push(...explicitBoxes(explicit, source, frame));
         for (const code of frame.codes) {
           check();
           if (!code || typeof code.text !== 'string' || code.text.length > LIMITS.text || !['qr', 'barcode'].includes(code.kind)) fail('code_invalid');
@@ -108525,6 +108654,941 @@ const MediaImageContract = ((cryptoApi, zlibApi) => {
   }
   return Object.freeze({ create, LIMITS });
 })(require('node:crypto'), require('node:zlib'));
+
+'use strict';
+// M4 storage candidate only. This does not prove OCR/decoder coverage or authorize media egress.
+const MediaDerivedStore = ((io, nodePath, cryptoApi, zlibApi) => {
+  const MAX_PNG = 5 * 1024 * 1024, MAX_PIXELS = 8000000;
+  const MAX_TEXT = 4 * Math.ceil(MAX_PNG / 3) + 32768, MAX_FILE = 12 * 1024 * 1024;
+  const SCHEMA = 1, PURPOSE = 'cache';
+  const manifestKeys = 'authorization,bytes,coverage,expiresAt,height,mime,name,payloadHash,policyHash,policyRevision,processorHash,processorVersion,regionsHash,rulesHash,schema,scope,sourceHash,sourceRevision,transformHash,type,width';
+  const bindingKeys = 'policyHash,policyRevision,processorHash,processorVersion,revocationRevision,rulesHash,sourceHash,sourceRevision';
+  const fail = suffix => { throw Object.assign(new Error('media_store.' + suffix), { code: 'media_store.' + suffix, statusCode: 409 }); };
+  const fillBuffer = Function.prototype.call.bind(Buffer.prototype.fill);
+  const hash = value => cryptoApi.createHash('sha256').update(value).digest('hex');
+  const exact = (v, keys) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).sort().join(',') === keys;
+  const revision = v => typeof v === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(v);
+  const digest = v => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
+  const recordId = v => typeof v === 'string' && /^mimg_[a-f0-9]{32}$/.test(v);
+  const clone = value => JSON.parse(JSON.stringify(value));
+  function validateBinding(value) {
+    if (!exact(value, bindingKeys)) fail('authority_shape');
+    for (const key of ['sourceHash','policyHash','rulesHash','processorHash']) if (!digest(value[key])) fail('authority_shape');
+    for (const key of ['sourceRevision','policyRevision','processorVersion','revocationRevision']) if (!revision(value[key])) fail('authority_shape');
+    return value;
+  }
+  function crc32(bytes) {
+    let n = 0xffffffff;
+    for (const byte of bytes) { n ^= byte; for (let b = 0; b < 8; b++) n = (n >>> 1) ^ (0xedb88320 & -(n & 1)); }
+    return (n ^ 0xffffffff) >>> 0;
+  }
+  function validatePng(bytes, manifest) {
+    if (!Buffer.isBuffer(bytes) || bytes.length < 57 || bytes.length > MAX_PNG || hash(bytes) !== manifest.payloadHash
+      || bytes.length !== manifest.bytes || bytes.subarray(0,8).toString('hex') !== '89504e470d0a1a0a') fail('payload');
+    let offset = 8, idat;
+    for (const type of ['IHDR','IDAT','IEND']) {
+      if (offset + 12 > bytes.length) fail('png');
+      const length = bytes.readUInt32BE(offset), end = offset + 12 + length;
+      if (end > bytes.length || bytes.toString('ascii',offset+4,offset+8) !== type
+        || crc32(bytes.subarray(offset+4,end-4)) !== bytes.readUInt32BE(end-4)) fail('png');
+      const data = bytes.subarray(offset+8,end-4);
+      if (type === 'IHDR' && (length !== 13 || data.readUInt32BE(0) !== manifest.width || data.readUInt32BE(4) !== manifest.height
+        || data[8] !== 8 || data[9] !== 2 || data[10] !== 0 || data[11] !== 0 || data[12] !== 0)) fail('png');
+      if (type === 'IDAT') { if (!length) fail('png'); idat = data; }
+      if (type === 'IEND' && length !== 0) fail('png');
+      offset = end;
+    }
+    if (offset !== bytes.length) fail('png');
+    const row = manifest.width * 3 + 1, size = row * manifest.height;
+    let raw;
+    try {
+      const result = zlibApi.inflateSync(idat, { maxOutputLength: size, info: true }); raw = result.buffer;
+      if (raw.length !== size || result.engine.bytesWritten !== idat.length) fail('png');
+      for (let y = 0; y < manifest.height; y++) if (raw[y*row] !== 0) fail('png');
+    } catch (error) { if (error?.code === 'media_store.png') throw error; fail('png'); }
+    finally { if (raw) fillBuffer(raw,0); }
+  }
+  function validateManifest(manifest, scopeId) {
+    if (!exact(manifest, manifestKeys) || manifest.schema !== 1 || manifest.type !== 'protected-image'
+      || manifest.mime !== 'image/png' || manifest.name !== 'protected.png' || manifest.scope !== scopeId
+      || manifest.authorization !== 'none' || manifest.coverage !== 'single-canonical-frame-ocr+local-codes+explicit-regions'
+      || !Number.isSafeInteger(manifest.bytes) || manifest.bytes < 1 || manifest.bytes > MAX_PNG
+      || !Number.isSafeInteger(manifest.expiresAt) || manifest.expiresAt < 1
+      || !Number.isSafeInteger(manifest.width) || !Number.isSafeInteger(manifest.height)
+      || manifest.width < 1 || manifest.height < 1 || manifest.width * manifest.height > MAX_PIXELS) fail('manifest');
+    for (const key of ['sourceHash','policyHash','rulesHash','processorHash','payloadHash','regionsHash','transformHash']) if (!digest(manifest[key])) fail('manifest');
+    for (const key of ['sourceRevision','policyRevision','processorVersion']) if (!revision(manifest[key])) fail('manifest');
+    return manifest;
+  }
+  function parseStoredText(text, { scopeId, id } = {}) {
+      if (!revision(scopeId) || !recordId(id)) fail('binding');
+      if (typeof text !== 'string' || Buffer.byteLength(text,'utf8') > MAX_TEXT) fail('record_limit');
+      let value; try { value = JSON.parse(text); } catch { fail('record'); }
+      if (!exact(value,'data,id,issuedAt,manifest,revocationRevision,schema,sourceId') || value.schema !== SCHEMA || value.id !== id
+        || !revision(value.sourceId) || !revision(value.revocationRevision) || typeof value.data !== 'string'
+        || value.data.length > 4 * Math.ceil(MAX_PNG/3) || value.data.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value.data)) fail('record');
+      validateManifest(value.manifest,scopeId);
+      if (!Number.isSafeInteger(value.issuedAt) || value.issuedAt < 0 || value.manifest.expiresAt <= value.issuedAt || value.manifest.expiresAt - value.issuedAt > 60000) fail('ttl');
+      const bytes = Buffer.from(value.data,'base64');
+      try { if (bytes.toString('base64') !== value.data) fail('base64'); validatePng(bytes,value.manifest); }
+      finally { fillBuffer(bytes,0); }
+      return value;
+    }
+  function validateSealedText(text, { scopeId, recordId: id } = {}) { parseStoredText(text, { scopeId, id }); return true; }
+  function create({ root, scopeId, keys, enabled, writeJson, authority, now = Date.now } = {}) {
+    if (typeof root !== 'string' || !nodePath.isAbsolute(root) || !revision(scopeId) || typeof enabled !== 'function'
+      || typeof writeJson !== 'function' || !authority || typeof authority.capture !== 'function' || typeof authority.assert !== 'function'
+      || typeof now !== 'function') fail('host');
+    root = nodePath.resolve(root); // A trusted composition supplies one dedicated family root.
+    // An unavailable switch is never permission to persist plaintext. Keep legacy Store defaults unchanged.
+    const strictEnabled = async () => {
+      let value;
+      try { value = await enabled(); }
+      catch (cause) { throw Object.assign(new Error('media_store.switch_unavailable', { cause }), { code:'media_store.switch_unavailable', statusCode:503 }); }
+      if (value !== true && value !== false) fail('switch_unavailable');
+      return value;
+    };
+    const chains = new Map(), issued = new Map();
+    const fileFor = id => { if (!recordId(id)) fail('id'); return nodePath.join(root, id + '.json'); };
+    const serial = (id, work) => {
+      const previous = chains.get(id) || Promise.resolve();
+      const next = previous.catch(() => {}).then(work); chains.set(id,next);
+      next.finally(() => { if (chains.get(id) === next) chains.delete(id); }).catch(() => {}); return next;
+    };
+    async function checkPath(id, missing = false) {
+      const file = fileFor(id), parsed = nodePath.parse(root); let current = parsed.root;
+      const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+      for (const part of root.slice(parsed.root.length).split(nodePath.sep).filter(Boolean)) {
+        current = nodePath.join(current,part);
+        const st = await io.lstat(current);
+        if (!st.isDirectory() || st.isSymbolicLink() || fold(await io.realpath(current)) !== fold(current)) fail('path');
+      }
+      let st; try { st = await io.lstat(file); } catch (e) { if (missing && e.code === 'ENOENT') return file; throw e; }
+      if (!st.isFile() || st.isSymbolicLink() || st.size > MAX_FILE || fold(await io.realpath(file)) !== fold(file)) fail('path');
+      return file;
+    }
+    function parse(text, id) { return parseStoredText(text, { scopeId, id }); }
+    const storeFor = (id, file, writer = writeJson) => WorkDataStore.createText({ file: () => file, purpose: PURPOSE, schema: SCHEMA,
+      scopeId, recordId: id, keys, enabled:strictEnabled, writeJson:writer, chunked: true, maxPlaintextBytes: MAX_TEXT, maxFileBytes: MAX_FILE,
+      validateSealedText: text => { parse(text,id); return true; } });
+    async function capture(sourceId, manifest, revocationRevision) {
+      // The real composition must resolve durable current source/policy/processor/revocation authority.
+      // A previously stored manifest or a process ticket is never that authority.
+      const snapshot = await authority.capture(sourceId);
+      validateBinding(snapshot?.binding);
+      const check = () => {
+        const result = authority.assert(snapshot,sourceId);
+        if (result && typeof result.then === 'function') { Promise.resolve(result).catch(() => {}); fail('authority_async'); }
+        if (result !== true) fail('revoked');
+        validateBinding(snapshot.binding);
+        for (const key of ['sourceHash','sourceRevision','policyHash','policyRevision','rulesHash','processorHash','processorVersion']) {
+          if (snapshot.binding[key] !== manifest[key]) fail('binding');
+        }
+        if (snapshot.binding.revocationRevision !== revocationRevision) fail('revoked');
+        if (!Number.isSafeInteger(now()) || now() >= manifest.expiresAt) fail('expired');
+      };
+      check(); return check;
+    }
+    async function put({ sourceId, manifest, bytes } = {}) {
+      if (!revision(sourceId) || !Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > MAX_PNG) fail('input');
+      validateManifest(manifest,scopeId);
+      // Own copies before the first await; callers cannot change bytes/manifest during persistence.
+      const owned = Buffer.from(bytes), frozenManifest = clone(manifest);
+      try {
+        validateManifest(frozenManifest,scopeId); validatePng(owned,frozenManifest);
+        await strictEnabled();
+        const snapshot = await authority.capture(sourceId); validateBinding(snapshot?.binding);
+        const revocationRevision = snapshot.binding.revocationRevision;
+        // Keep the exact first authority snapshot through every await, including write completion.
+        const check = () => {
+          const result = authority.assert(snapshot,sourceId);
+          if (result && typeof result.then === 'function') { Promise.resolve(result).catch(() => {}); fail('authority_async'); }
+          if (result !== true) fail('revoked');
+          validateBinding(snapshot.binding);
+          for (const key of ['sourceHash','sourceRevision','policyHash','policyRevision','rulesHash','processorHash','processorVersion']) if (snapshot.binding[key] !== frozenManifest[key]) fail('binding');
+          if (snapshot.binding.revocationRevision !== revocationRevision || now() >= frozenManifest.expiresAt) fail('revoked');
+        };
+        check();
+        const id = 'mimg_' + cryptoApi.randomBytes(16).toString('hex');
+        return await serial(id,async () => {
+          const file = await checkPath(id,true); check();
+          // Never overwrite an existing record, even on a random ID collision.
+          try { await io.lstat(file); fail('collision'); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+          check();
+          const issuedAt = now();
+          const value = { schema:SCHEMA,id,sourceId,issuedAt,revocationRevision,manifest:frozenManifest,data:owned.toString('base64') };
+          const text = JSON.stringify(value); parse(text,id);
+          const publish = async (target, payload, options) => {
+            if (target !== file) fail('path');
+            const stage = file + '.publish-' + cryptoApi.randomBytes(16).toString('hex');
+            let failed = false, primary;
+            try { await writeJson(stage,payload,options); check(); await io.link(stage,file); issued.set(id,await io.lstat(file,{bigint:true})); }
+            catch (error) { failed = true; primary = error; }
+            try { await io.unlink(stage); } catch (error) {
+              if (error.code !== 'ENOENT') throw new AggregateError([...(failed?[primary]:[]),error],'media_store.cleanup_failed');
+            }
+            if (failed) throw primary;
+          };
+          await storeFor(id,file,publish).write(text);
+          issued.set(id, await io.lstat(file, { bigint: true }));
+          check(); await checkPath(id); check();
+          return Object.freeze({ id, manifest:Object.freeze(clone(frozenManifest)) });
+        });
+      } finally { fillBuffer(owned,0); }
+    }
+    async function read(id) {
+      return serial(id,async () => {
+        // Store reads do not consult enabled(); apply this same strict wrapper before any cold read.
+        await strictEnabled();
+        const file = await checkPath(id), value = parse(await storeFor(id,file).read(),id);
+        await checkPath(id);
+        const check = await capture(value.sourceId,value.manifest,value.revocationRevision); check();
+        const bytes = Buffer.from(value.data,'base64'), manifest = Object.freeze(clone(value.manifest)); let released = false;
+        return Object.freeze({ bytes, manifest,
+          assert() {
+            if (released) fail('released');
+            try { check(); if (hash(bytes) !== manifest.payloadHash) fail('payload'); return true; }
+            catch (primary) { released = true; try { fillBuffer(bytes,0); } catch (cleanup) { throw new AggregateError([primary,cleanup],'media_store.cleanup_failed'); } throw primary; }
+          },
+          release() { if (!released) { released = true; fillBuffer(bytes,0); } } });
+      });
+    }
+    async function remove(id) {
+      return serial(id, async () => {
+        const original = issued.get(id); if (!original) fail('unowned_remove');
+        const file = await checkPath(id), current = await io.lstat(file, { bigint: true });
+        if (current.nlink !== 1n || ['dev','ino','size','mtimeNs','ctimeNs'].some(key => current[key] !== original[key])) fail('path');
+        await io.unlink(file); issued.delete(id); return true;
+      });
+    }
+    async function dispose() { for (const id of [...issued.keys()]) await remove(id); }
+    return Object.freeze({ put, read, remove, dispose });
+  }
+  return Object.freeze({ create, validateSealedText, SCHEMA, PURPOSE, LIMITS:Object.freeze({MAX_PNG,MAX_TEXT,MAX_FILE,MAX_PIXELS}) });
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'), require('node:zlib'));
+// Fixed late binding: no later-module reference from the early migration codec. Structural validation grants no use/send authority.
+if (typeof WorkDataMigrationCodecs !== 'undefined' && WorkDataMigrationCodecs.Hooks) Object.defineProperty(WorkDataMigrationCodecs.Hooks, 'mediaDerived', {
+  value: Object.freeze({ validateSealedText: MediaDerivedStore.validateSealedText, maxPlaintextBytes: MediaDerivedStore.LIMITS.MAX_TEXT }),
+  enumerable: true, writable: false, configurable: false });
+
+// M4 genuine component owner. No normal startup binding or media send is added.
+const MediaImageProcessor = ((io, nodePath, cryptoApi, childProcess, proc) => {
+  const VERSION = 'm4-image-components-v3-linear-support-unscored';
+  const SCRIPT = "\"\"\"One private in-memory image job using the already frozen Full components.\n\nNo filenames, network, cloud services, installation, or source discovery protocol.\nRecognition confidence remains UNKNOWN: successful OCR is not an egress grant.\n\"\"\"\nimport asyncio\nimport hashlib\nimport io\nimport json\nimport math\nimport struct\nimport sys\n\nVERSION = \"m4-image-components-v3-linear-support-unscored\"\nMAX_SOURCE = 8 * 1024 * 1024\nMAX_PIXELS = 8_000_000\nMAX_TEXT = 1024 * 1024\nMAX_WORDS = 20_000\nMAX_CODES = 4096\nMAX_META = 2 * 1024 * 1024\n\n\ndef exact_read(size):\n    data = bytearray()\n    while len(data) < size:\n        chunk = sys.stdin.buffer.read(size - len(data))\n        if not chunk:\n            raise ValueError(\"input_incomplete\")\n        data.extend(chunk)\n    return data\n\n\ndef canonical(data):\n    # Same Pillow/ImageOps mechanism as the reviewed M1 worker, extended to\n    # return RGBA and the original EXIF transform rather than copy metadata.\n    from PIL import Image, ImageOps\n    image = Image.open(io.BytesIO(data))\n    if image.format not in (\"PNG\", \"JPEG\", \"WEBP\", \"BMP\"):\n        raise ValueError(\"format_unsupported\")\n    width, height = image.size\n    if width < 1 or height < 1 or width * height > MAX_PIXELS:\n        raise ValueError(\"pixel_limit\")\n    if getattr(image, \"n_frames\", 1) != 1:\n        raise ValueError(\"animation_unsupported\")\n    orientation = image.getexif().get(274, 1)\n    if type(orientation) is not int or orientation not in range(1, 9):\n        raise ValueError(\"orientation_invalid\")\n    image.load()\n    rgba = ImageOps.exif_transpose(image).convert(\"RGBA\")\n    expected = (height, width) if orientation > 4 else (width, height)\n    if rgba.size != expected:\n        raise ValueError(\"orientation_invalid\")\n    white = Image.new(\"RGBA\", rgba.size, (255, 255, 255, 255))\n    rgb = Image.alpha_composite(white, rgba).convert(\"RGB\")\n    normalized = io.BytesIO()\n    # Fresh RGB object: neither OCR nor code detection sees hidden alpha RGB,\n    # source metadata, thumbnails, or source ancillary chunks.\n    fresh = Image.new(\"RGB\", rgb.size)\n    fresh.paste(rgb)\n    fresh.save(normalized, \"PNG\")\n    return rgba, rgb, normalized.getvalue(), {\"width\": width, \"height\": height, \"orientation\": orientation}\n\n\nasync def recognize(data, language, width, height):\n    # The reviewed M1 in-memory Windows.Media.Ocr transport, with explicit\n    # language and resource disposal. There is no English fallback.\n    from winsdk.windows.media.ocr import OcrEngine\n    from winsdk.windows.globalization import Language\n    from winsdk.windows.graphics.imaging import BitmapDecoder\n    from winsdk.windows.storage.streams import InMemoryRandomAccessStream, DataWriter\n    engine = OcrEngine.try_create_from_language(Language(language))\n    if engine is None:\n        raise ValueError(\"ocr_language_missing\")\n    if width > OcrEngine.max_image_dimension or height > OcrEngine.max_image_dimension:\n        raise ValueError(\"ocr_dimension_unsupported\")\n    stream = InMemoryRandomAccessStream()\n    writer = DataWriter(stream.get_output_stream_at(0))\n    bitmap = None\n    try:\n        writer.write_bytes(data)\n        await writer.store_async()\n        await writer.flush_async()\n        writer.detach_stream()\n        stream.seek(0)\n        decoder = await BitmapDecoder.create_async(stream)\n        bitmap = await decoder.get_software_bitmap_async()\n        result = await engine.recognize_async(bitmap)\n        words = []\n        for line_id, line in enumerate(result.lines):\n            for word in line.words:\n                r = word.bounding_rect\n                words.append({\"text\": word.text, \"line\": line_id,\n                              \"box\": [math.floor(r.x), math.floor(r.y), math.ceil(r.x + r.width), math.ceil(r.y + r.height)]})\n                if len(words) > MAX_WORDS:\n                    raise ValueError(\"recognition_limit\")\n        return words\n    finally:\n        if bitmap is not None:\n            bitmap.close()\n        writer.close()\n        stream.close()\n\n\ndef code_box(points, width, height):\n    left = math.floor(min(float(point[0]) for point in points))\n    top = math.floor(min(float(point[1]) for point in points))\n    right = math.ceil(max(float(point[0]) for point in points)) + 1\n    bottom = math.ceil(max(float(point[1]) for point in points)) + 1\n    return [max(0, left), max(0, top), min(width, right), min(height, bottom)]\n\n\ndef recognize_codes(rgb):\n    import cv2\n    import numpy\n    pixels = cv2.cvtColor(numpy.asarray(rgb), cv2.COLOR_RGB2BGR)\n    width, height = rgb.size\n    codes = []\n    qr = cv2.QRCodeDetector()\n    detected, points = qr.detectMulti(pixels)\n    if detected:\n        decoded, texts, decoded_points, _ = qr.detectAndDecodeMulti(pixels)\n        if not decoded or decoded_points is None or len(points) != len(decoded_points) or len(texts) != len(points) or any(not text for text in texts):\n            raise ValueError(\"code_undecodable\")\n        codes.extend({\"kind\": \"qr\", \"text\": text, \"box\": code_box(polygon, width, height)} for text, polygon in zip(texts, decoded_points))\n    linear = cv2.barcode.BarcodeDetector()\n    # Two bounded scales of the same decoder; no iterative retries or fallback\n    # engine. Per-axis ratios preserve canonical coordinates for odd sizes.\n    for divisor in (1, 2):\n        sample_width, sample_height = max(1, width // divisor), max(1, height // divisor)\n        if sample_width <= 40 or sample_height <= 40:\n            continue\n        sample = pixels if divisor == 1 else cv2.resize(pixels, (sample_width, sample_height), interpolation=cv2.INTER_AREA)\n        detected, points = linear.detect(sample)\n        if detected:\n            decoded, texts, types, decoded_points = linear.detectAndDecodeWithType(sample)\n            if not decoded or decoded_points is None or len(points) != len(decoded_points) or len(texts) != len(points) or len(types) != len(texts) or any(not text for text in texts) or any(not kind for kind in types):\n                raise ValueError(\"code_undecodable\")\n            if len(codes) + len(texts) > MAX_CODES:\n                raise ValueError(\"recognition_limit\")\n            scale_x, scale_y = width / sample_width, height / sample_height\n            for text, kind, polygon in zip(texts, types, decoded_points):\n                raw_points = [[float(point[0]), float(point[1])] for point in polygon]\n                mapped = [[point[0] * scale_x, point[1] * scale_y] for point in raw_points]\n                codes.append({\"kind\": \"barcode\", \"text\": text, \"box\": code_box(mapped, width, height),\n                              \"linear\": {\"width\": sample_width, \"height\": sample_height, \"polygon\": raw_points, \"format\": kind}})\n    if len(codes) > MAX_CODES:\n        raise ValueError(\"recognition_limit\")\n    return codes\n\n\ndef main():\n    size = struct.unpack(\">I\", exact_read(4))[0]\n    if size < 1 or size > 2048:\n        raise ValueError(\"input_invalid\")\n    meta = json.loads(exact_read(size).decode(\"utf-8\", \"strict\"))\n    if set(meta) != {\"schema\", \"bytes\", \"sourceHash\", \"processorHash\", \"language\", \"version\"} or meta[\"schema\"] != 1 or meta[\"version\"] != VERSION:\n        raise ValueError(\"input_invalid\")\n    if type(meta[\"bytes\"]) is not int or not 1 <= meta[\"bytes\"] <= MAX_SOURCE:\n        raise ValueError(\"source_limit\")\n    data = exact_read(meta[\"bytes\"])\n    try:\n        if sys.stdin.buffer.read(1) or hashlib.sha256(data).hexdigest() != meta[\"sourceHash\"]:\n            raise ValueError(\"source_changed\")\n        rgba, rgb, normalized, transform = canonical(data)\n        words = asyncio.run(asyncio.wait_for(recognize(normalized, meta[\"language\"], *rgb.size), 35))\n        codes = recognize_codes(rgb)\n        if sum(len(row[\"text\"]) for row in words + codes) > MAX_TEXT:\n            raise ValueError(\"recognition_limit\")\n        payload = rgba.tobytes()\n        header = {\"schema\": 1, \"width\": rgba.width, \"height\": rgba.height, \"rgbaBytes\": len(payload),\n                  \"sourceHash\": meta[\"sourceHash\"], \"processorHash\": meta[\"processorHash\"], \"frames\": 1,\n                  \"orientationApplied\": True, \"ocrComplete\": True, \"codesComplete\": True,\n                  \"transform\": transform, \"words\": words, \"codes\": codes,\n                  \"recognitionConfidence\": \"unknown\", \"language\": meta[\"language\"],\n                  \"codeProfile\": \"opencv-qr-and-opencv-supported-linear-v3-source-support\"}\n        wire = json.dumps(header, ensure_ascii=True, separators=(\",\", \":\")).encode(\"utf-8\")\n        if len(wire) > MAX_META:\n            raise ValueError(\"output_limit\")\n        sys.stdout.buffer.write(struct.pack(\">I\", len(wire)))\n        sys.stdout.buffer.write(wire)\n        sys.stdout.buffer.write(payload)\n        sys.stdout.buffer.flush()\n    finally:\n        data[:] = b\"\\0\" * len(data)\n\n\nif __name__ == \"__main__\":\n    try:\n        main()\n    except BaseException as exc:\n        known = {\"input_incomplete\", \"input_invalid\", \"source_limit\", \"source_changed\",\n                 \"format_unsupported\", \"pixel_limit\", \"animation_unsupported\",\n                 \"orientation_invalid\", \"ocr_language_missing\", \"ocr_dimension_unsupported\",\n                 \"recognition_limit\", \"code_undecodable\", \"output_limit\"}\n        code = \"component_failed\"\n        if isinstance(exc, ImportError):\n            code = \"component_missing\"\n        elif isinstance(exc, TimeoutError):\n            code = \"recognition_timeout\"\n        elif isinstance(exc, ValueError) and len(exc.args) == 1 and type(exc.args[0]) is str and exc.args[0] in known:\n            code = exc.args[0]\n        # Only this finite code vocabulary is disclosed, never exception text,\n        # paths, recognized text or traceback. Partial success output remains\n        # malformed and is rejected by the parent, not repaired or filtered.\n        raw = json.dumps({\"schema\": 1, \"code\": code}, separators=(\",\", \":\")).encode(\"ascii\")\n        try:\n            sys.stdout.buffer.write(struct.pack(\">I\", len(raw)) + raw)\n            sys.stdout.buffer.flush()\n        except BaseException:\n            pass\n        sys.exit(2)\n";
+  const INVENTORY = '4e84862cf50907c84b14a55dcabcc347ae3a52e78a88031b7ecb878565d6735f', owners = new WeakSet();
+  const LIMIT = Object.freeze({ source: 8388608, pixels: 8000000, metadata: 2097152, stderr: 16384, processMs: 60000, settleMs: 2000 });
+  const hash = b => cryptoApi.createHash('sha256').update(b).digest('hex'), internalErrors = new WeakSet();
+  function fail(suffix, unknown = false) {
+    const error=Object.assign(Error('privacy.image_processor_' + suffix), {code:'privacy.image_processor_' + suffix,retry:false,
+      ...(unknown?{helperMayStillRun:true,ownershipRetained:true}:{})});internalErrors.add(error);return error;
+  }
+  const controlled = cause => internalErrors.has(cause) ? cause : Object.assign(fail('dependency_failed'),{cause});
+  const fold = text => proc.platform === 'win32' ? text.toLowerCase() : text;
+  const shape = (v, keys) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).sort().join(',') === keys;
+  const same = (a, b) => ['dev','ino','size','mtimeNs','ctimeNs','nlink'].every(k => a[k] === b[k]);
+  const frozenProof = value => value?.schema === 1 && value.verificationKind === 'offline-artifact-inventory'
+    && value.dependencyFilesVerified === true && value.pythonVersion === '3.12.10' && value.runtimeArtifacts === 4987
+    && value.verifiedRuntimeBytes === 413946142 && value.sourceArchiveVerified === true && value.verifiedSourceBytes === 19922194
+    && value.installsPerformed === false && value.mediaProcessingEnabled === false && value.mediaEgressEnabled === false;
+  function refineLinearBox(rgba, width, height, code, budget, check) {
+    // A decoded native polygon seeds source ink support; it is never itself a
+    // claim that detector-localized strip height covers the complete barcode.
+    check();
+    const reject = () => { throw fail('worker_code_undecodable'); };
+    const support=code.linear;
+    if (!shape(code,'box,kind,linear,text') || code.kind!=='barcode' || typeof code.text!=='string'
+      || !shape(support,'format,height,polygon,width') || !Number.isSafeInteger(support.width) || !Number.isSafeInteger(support.height)
+      || !((support.width===width&&support.height===height)
+        || (support.width===Math.max(1,Math.floor(width/2))&&support.height===Math.max(1,Math.floor(height/2))))
+      || !Array.isArray(support.polygon) || support.polygon.length!==4
+      || support.polygon.some(p=>!Array.isArray(p)||p.length!==2||!Number.isFinite(p[0])||!Number.isFinite(p[1])
+        ||p[0]<-support.width||p[0]>support.width*2||p[1]<-support.height||p[1]>support.height*2)) reject();
+    // Validate only the value/type already returned by the same native engine.
+    // This never searches for or produces a decoded value. The pinned native
+    // source supports EAN-8/EAN-13 and its leading-zero UPC-A representation.
+    const digits=support.format==='EAN_13'?13:support.format==='EAN_8'?8:support.format==='UPC_A'?12:0;
+    if(!digits||!new RegExp('^[0-9]{'+digits+'}$').test(code.text))reject();
+    let checksum=0;for(let i=code.text.length-1,weight=1;i>=0;i--,weight=4-weight)checksum+=Number(code.text[i])*weight;
+    if(checksum%10)reject();
+    const value=support.format==='UPC_A'?'0'+code.text:code.text,L=['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'],parities=['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG','LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL'],invert=s=>s.replace(/[01]/g,c=>c==='0'?'1':'0');
+    const pattern=support.format==='EAN_8'?'101'+[...value.slice(0,4)].map(d=>L[Number(d)]).join('')+'01010'+[...value.slice(4)].map(d=>invert(L[Number(d)])).join('')+'101'
+      :'101'+[...value.slice(1,7)].map((d,i)=>parities[Number(value[0])][i]==='L'?L[Number(d)]:invert(L[Number(d)]).split('').reverse().join('')).join('')+'01010'+[...value.slice(7)].map(d=>invert(L[Number(d)])).join('')+'101';
+    const expected=pattern.match(/0+|1+/g).map(s=>s.length),quietModules=support.format==='EAN_13'?[11,7]:support.format==='UPC_A'?[9,9]:[7,7];
+    const sx=width/support.width,sy=height/support.height,points=support.polygon.map(p=>[p[0]*sx,p[1]*sy]);
+    const coarse=[Math.max(0,Math.floor(Math.min(...points.map(p=>p[0])))),Math.max(0,Math.floor(Math.min(...points.map(p=>p[1])))),
+      Math.min(width,Math.ceil(Math.max(...points.map(p=>p[0])))+1),Math.min(height,Math.ceil(Math.max(...points.map(p=>p[1])))+1)];
+    if (!Array.isArray(code.box)||code.box.length!==4||code.box.some((v,i)=>v!==coarse[i])||coarse[0]>=coarse[2]||coarse[1]>=coarse[3]) reject();
+    const edges=points.map((p,i)=>[points[(i+1)%4][0]-p[0],points[(i+1)%4][1]-p[1]]),lengths=edges.map(v=>Math.hypot(...v));
+    if (lengths.some(v=>!Number.isFinite(v)||v<1)) reject();
+    let side=0;for(let i=1;i<4;i++)if(lengths[i]>lengths[side])side=i;
+    const ux=edges[side][0]/lengths[side],uy=edges[side][1]/lengths[side],vx=-uy,vy=ux;
+    const us=points.map(p=>p[0]*ux+p[1]*uy),vs=points.map(p=>p[0]*vx+p[1]*vy),u0=Math.min(...us),u1=Math.max(...us),v0=Math.min(...vs),v1=Math.max(...vs),spanU=u1-u0,spanV=v1-v0;
+    let winding=0;for(let i=0;i<4;i++){const a=edges[i],b=edges[(i+1)%4],cross=a[0]*b[1]-a[1]*b[0];if(Math.abs(cross)<0.001||winding&&Math.sign(cross)!==winding)reject();winding=Math.sign(cross);}
+    if(spanU<2||spanV<1||spanU<spanV)reject();
+    const pad=Math.max(2,Math.ceil(sx),Math.ceil(sy)),search=[];
+    // Observe the entire source along U, rather than stopping in a possibly
+    // internal white gap. The bounded V strip still rejects truncated strokes.
+    const sourceU=[[0,0],[width,0],[0,height],[width,height]].map(p=>p[0]*ux+p[1]*uy);
+    for(const u of [Math.min(...sourceU),Math.max(...sourceU)])for(const v of [v0-spanU/2,v1+spanU/2])search.push([u*ux+v*vx,u*uy+v*vy]);
+    const left=Math.max(0,Math.floor(Math.min(...search.map(p=>p[0])))),top=Math.max(0,Math.floor(Math.min(...search.map(p=>p[1])))),
+      right=Math.min(width,Math.ceil(Math.max(...search.map(p=>p[0])))),bottom=Math.min(height,Math.ceil(Math.max(...search.map(p=>p[1])))),rw=right-left,rh=bottom-top,size=rw*rh;
+    if(!Number.isSafeInteger(size)||size<1||size>budget.remaining)throw fail('worker_recognition_limit');budget.remaining-=size;
+    let gray,seen,queue;
+    try {
+      gray=new Uint8Array(size);seen=new Uint8Array(size);queue=new Int32Array(size);
+      const hist=new Uint32Array(256);let total=0;
+      try {
+        for(let y=0;y<rh;y++){if(!(y%32))check();for(let x=0;x<rw;x++){const at=((y+top)*width+x+left)*4,alpha=rgba[at+3],r=Math.round((rgba[at]*alpha+255*(255-alpha))/255),g=Math.round((rgba[at+1]*alpha+255*(255-alpha))/255),b=Math.round((rgba[at+2]*alpha+255*(255-alpha))/255),value=Math.round((299*r+587*g+114*b)/1000);gray[y*rw+x]=value;hist[value]++;total+=value;}}
+        let count=0,sum=0,best=-1,threshold=0;
+        for(let i=0;i<256;i++){count+=hist[i];sum+=i*hist[i];if(!count||count===size)continue;const delta=sum/count-(total-sum)/(size-count),score=count*(size-count)*delta*delta;if(score>best){best=score;threshold=i;}}
+        if(best<=0)reject();
+        const inside=(x,y)=>{for(let i=0;i<4;i++){const p=points[i],e=edges[i];if((e[0]*(y-p[1])-e[1]*(x-p[0]))*winding<-0.001)return false;}return true;};
+        const candidates=[];
+        for(const dark of [true,false]){
+          seen.fill(0);const selected=[],unseeded=[];let invalid=false;
+          const ink=at=>dark?gray[at]<=threshold:gray[at]>threshold;
+          for(let root=0;root<size;root++){
+            if(!(root%4096))check();if(seen[root]||!ink(root))continue;
+            if(--budget.components<0)throw fail('worker_recognition_limit');
+            let head=0,tail=1,count=0,seeds=0,minX=rw,maxX=0,minY=rh,maxY=0,minU=Infinity,maxU=-Infinity,minV=Infinity,maxV=-Infinity;queue[0]=root;seen[root]=1;
+            while(head<tail){if(!(head%4096))check();const at=queue[head++],x=at%rw,y=Math.floor(at/rw),px=x+left+0.5,py=y+top+0.5,u=px*ux+py*uy,v=px*vx+py*vy;count++;if(inside(px,py))seeds++;minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);minU=Math.min(minU,u);maxU=Math.max(maxU,u);minV=Math.min(minV,v);maxV=Math.max(maxV,v);
+              for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if((!dx&&!dy)||x+dx<0||x+dx>=rw||y+dy<0||y+dy>=rh)continue;const next=(y+dy)*rw+x+dx;if(!seen[next]&&ink(next)){seen[next]=1;queue[tail++]=next;}}
+            }
+            const c={minX,maxX,minY,maxY,minU,maxU,minV,maxV,count},du=maxU-minU+1,dv=maxV-minV+1;
+            // A single surround touching every ROI side is the background,
+            // never evidence for masking an entire image/column.
+            if(minX===0&&maxX===rw-1&&minY===0&&maxY===rh-1)continue;
+            if(!seeds){if(du<=spanU/8)unseeded.push(c);continue;}
+            if(minX===0||maxX===rw-1||minY===0||maxY===rh-1
+              ||du>spanU/8||dv<Math.max(2*du,spanV/2)){invalid=true;continue;}
+            selected.push(c);if(selected.length>128)throw fail('worker_recognition_limit');
+          }
+          if(invalid||selected.length<4)continue;
+          const minU=Math.min(...selected.map(c=>c.minU)),maxU=Math.max(...selected.map(c=>c.maxU)),commonLow=Math.max(...selected.map(c=>c.minV)),commonHigh=Math.min(...selected.map(c=>c.maxV)),commonV=commonHigh-commonLow+1;
+          if(maxU-minU+1<spanU/2||commonV<spanV/2||unseeded.some((c,index)=>{if(!(index%64))check();return c.maxU>=minU&&c.minU<=maxU&&((c.maxV-c.minV+1)>=2*(c.maxU-c.minU+1)||selected.some(s=>Math.abs(s.minU-c.minU)<=pad&&Math.abs(s.maxU-c.maxU)<=pad));}))continue;
+          // A partial strip cannot be called complete merely because its ROI
+          // ends in whitespace. All guards/digits/parity/checksum of the given
+          // native value must match the complete source stroke/gap run vector.
+          const ordered=[...selected].sort((a,b)=>a.minU-b.minU),observed=[];
+          for(let i=0;i<ordered.length;i++){observed.push(ordered[i].maxU-ordered[i].minU+1);if(i+1<ordered.length)observed.push(ordered[i+1].minU-ordered[i].maxU-1);}
+          const module=(maxU-minU+1)/pattern.length,tolerance=Math.min(1.5,module*0.45);
+          if(module<1||observed.length!==expected.length)continue;
+          let complete=false;
+          for(const reverse of [false,true]){
+            const runs=reverse?[...expected].reverse():expected;
+            if(observed.some((n,i)=>n<=0||Math.abs(n-runs[i]*module)>tolerance))continue;
+            const quiet=reverse?[...quietModules].reverse():quietModules,guards=[[minU-Math.max(pad,module*quiet[0]),minU],[maxU,maxU+Math.max(pad,module*quiet[1])]];
+            let clear=true;
+            for(const band of guards)for(const u of band)for(const v of [commonLow,commonHigh]){const x=u*ux+v*vx,y=u*uy+v*vy;if(x<left+0.5||x>right-0.5||y<top+0.5||y>bottom-0.5)clear=false;}
+            if(!clear)continue;
+            for(let at=0;at<size;at++){if(!(at%4096))check();if(!ink(at))continue;const x=at%rw+left+0.5,y=Math.floor(at/rw)+top+0.5,u=x*ux+y*uy,v=x*vx+y*vy;if(v>=commonLow&&v<=commonHigh&&((u>=guards[0][0]&&u<minU)||(u>maxU&&u<=guards[1][1]))){clear=false;break;}}
+            if(clear){complete=true;break;}
+          }
+          if(!complete)continue;
+          const bounds=[Math.min(coarse[0],left+Math.min(...selected.map(c=>c.minX))),Math.min(coarse[1],top+Math.min(...selected.map(c=>c.minY))),
+            Math.max(coarse[2],left+Math.max(...selected.map(c=>c.maxX))+1),Math.max(coarse[3],top+Math.max(...selected.map(c=>c.maxY))+1)];
+          // Extent comes from connected, seeded source strokes, not the search
+          // ROI or a geometric padding rectangle.
+          if(bounds[0]===0&&bounds[1]===0&&bounds[2]===width&&bounds[3]===height)continue;
+          candidates.push(bounds);
+        }
+        check();if(candidates.length!==1)reject();return candidates[0];
+      } finally { hist.fill(0); }
+    } finally { if(gray)gray.fill(0);if(seen)seen.fill(0);if(queue)queue.fill(0); }
+  }
+
+  async function create({ runtimeRoot, sourceRoot, language = 'en-US', resourceProfile = 'legacy-full-4987-v1' } = {}) {
+    if (proc.platform !== 'win32') throw fail('platform_unsupported');
+    if (![runtimeRoot,sourceRoot].every(v => typeof v === 'string' && v.length < 4096 && nodePath.isAbsolute(v) && nodePath.resolve(v) === v)
+      || typeof language !== 'string' || !/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,3}$/.test(language)) throw fail('host_invalid');
+    if (resourceProfile !== 'legacy-full-4987-v1') {
+      // The host selects an explicit code-pinned profile. Browser requests,
+      // arbitrary manifests, receipts and environment booleans cannot activate
+      // it. The new candidate has no execution-qualified resource/source owner.
+      try {
+        const adapter = require('../tools/verify-media-profile.cjs');
+        const capture = adapter.captureMediaProfile({profileId:resourceProfile,workerHash:hash(SCRIPT),language});
+        adapter.assertMediaProfileExecutable(capture);
+      } catch (cause) {
+        const suffix = cause?.code === 'media.profile_qualification_pending' ? 'resource_profile_pending'
+          : cause?.code === 'media.profile_unknown' ? 'resource_profile_unknown' : 'resource_profile_invalid';
+        throw Object.assign(fail(suffix),{cause});
+      }
+      throw fail('resource_profile_pending');
+    }
+    // Reuse the shipped, immutable 4987-file/21-distribution and source-sidecar
+    // gate. A package receipt is never itself a payload/disclosure capability.
+    let verifyMediaArtifacts;
+    try { ({ verifyMediaArtifacts } = require('../tools/verify-media-artifacts.cjs')); }
+    catch { throw fail('component_missing'); }
+    const verify = async signal => {try{const proof=await verifyMediaArtifacts(runtimeRoot,sourceRoot,{signal});if(!frozenProof(proof))throw fail('dependency_receipt');}catch(cause){throw controlled(cause);}};
+    const executable = nodePath.join(runtimeRoot,'python_embed','python.exe');
+    const executableStat = async () => {
+      const st = await io.lstat(executable,{bigint:true});
+      if (!st.isFile() || st.isSymbolicLink() || st.nlink !== 1n || fold(await io.realpath(executable)) !== fold(executable)) throw fail('executable_alias');
+      return st;
+    };
+    await verify(); const originalExecutable = await executableStat();
+    const processorHash = hash(JSON.stringify({ schema:1, version:VERSION, workerHash:hash(SCRIPT), inventory:INVENTORY, language }));
+    const captures = new WeakSet(), frames = new WeakMap(); let active = null, retired = false, uncertain = false, retained = null, poisoned = false;
+    const frameStamp = frame => hash(JSON.stringify({ ...frame, rgba: hash(frame.rgba) }));
+    function assertCoverage(frame) {
+      const stamp = frames.get(frame);
+      if (retired || uncertain || poisoned || !stamp || !Buffer.isBuffer(frame.rgba) || frameStamp(frame) !== stamp) throw fail('coverage_unverified', uncertain);
+      return true;
+    }
+    const latch = record => {
+      uncertain = true;
+      if (!retained) retained = { record, timer:setInterval(() => { void record.child; void record.source; },60000) };
+    };
+    const assert = snapshot => {
+      if (retired || uncertain || poisoned || !captures.has(snapshot) || snapshot.hash !== processorHash || snapshot.version !== VERSION) throw fail('owner_changed',uncertain);
+      return true;
+    };
+    function capture() {
+      if (retired || uncertain || poisoned) throw fail('owner_changed',uncertain);
+      const snapshot = Object.freeze({ hash:processorHash, version:VERSION }); captures.add(snapshot); return snapshot;
+    }
+    function decode(bytes, sourceHash, check) {
+      if (bytes.length < 5) throw fail('output_invalid');
+      const size=bytes.readUInt32BE(0); if (size<1 || size>LIMIT.metadata || size+4>bytes.length) throw fail('output_invalid');
+      const raw=bytes.subarray(4,4+size),text=raw.toString('utf8');if(!Buffer.from(text).equals(raw))throw fail('output_invalid');
+      let data;try{data=JSON.parse(text);}catch{throw fail('output_invalid');}
+      if (!shape(data,'codeProfile,codes,codesComplete,frames,height,language,ocrComplete,orientationApplied,processorHash,recognitionConfidence,rgbaBytes,schema,sourceHash,transform,width,words')
+        ||data.schema!==1||data.sourceHash!==sourceHash||data.processorHash!==processorHash||data.language!==language
+        ||data.frames!==1||data.orientationApplied!==true||data.ocrComplete!==true||data.codesComplete!==true
+        ||data.recognitionConfidence!=='unknown'||data.codeProfile!=='opencv-qr-and-opencv-supported-linear-v3-source-support'
+        ||!Number.isSafeInteger(data.width)||!Number.isSafeInteger(data.height)||data.width<1||data.height<1||data.width*data.height>LIMIT.pixels
+        ||data.rgbaBytes!==data.width*data.height*4||bytes.length!==4+size+data.rgbaBytes
+        ||!Array.isArray(data.words)||data.words.length>20000||!Array.isArray(data.codes)||data.codes.length>4096)throw fail('output_invalid');
+      // The existing MediaImageContract performs the full word/box/transform and
+      // detector validation. This owner cannot mint its artifact or authorization.
+      const rgba=Buffer.from(bytes.subarray(4+size));
+      try {
+        const budget={remaining:LIMIT.pixels*2,components:32768},codes=[];
+        for(const code of data.codes){check();if(code?.kind!=='barcode'){codes.push(code);continue;}
+          const box=refineLinearBox(rgba,data.width,data.height,code,budget,check),prior=codes.find(value=>value.kind==='barcode'&&Math.max(0,Math.min(value.box[2],box[2])-Math.max(value.box[0],box[0]))*Math.max(0,Math.min(value.box[3],box[3])-Math.max(value.box[1],box[1]))>Math.min((value.box[2]-value.box[0])*(value.box[3]-value.box[1]),(box[2]-box[0])*(box[3]-box[1]))/2);
+          if(prior){if(prior.text!==code.text)throw fail('worker_code_undecodable');const merged=[Math.min(prior.box[0],box[0]),Math.min(prior.box[1],box[1]),Math.max(prior.box[2],box[2]),Math.max(prior.box[3],box[3])];if(merged[0]===0&&merged[1]===0&&merged[2]===data.width&&merged[3]===data.height)throw fail('worker_code_undecodable');prior.box=merged;}else codes.push({kind:'barcode',text:code.text,box});
+        }
+        data.codes=codes;delete data.rgbaBytes;delete data.schema;check();return Object.assign(data,{rgba});
+      } catch(error){rgba.fill(0);throw error;}
+    }
+    function workerRefusal(bytes) {
+      if(bytes.length<5||bytes.length>4096)return fail('process_failed');
+      const size=bytes.readUInt32BE(0);if(size+4!==bytes.length)return fail('process_failed');
+      let value;try{value=JSON.parse(bytes.subarray(4).toString('utf8'));}catch{return fail('process_failed');}
+      const codes=['input_incomplete','input_invalid','source_limit','source_changed','format_unsupported','pixel_limit','animation_unsupported',
+        'orientation_invalid','ocr_language_missing','ocr_dimension_unsupported','recognition_limit','code_undecodable','output_limit','component_failed','component_missing','recognition_timeout'];
+      return shape(value,'code,schema')&&value.schema===1&&codes.includes(value.code)?fail('worker_'+value.code):fail('process_failed');
+    }
+    function start({ source, sourceHash, signal, deadline, processor } = {}) {
+      assert(processor);
+      if (active || !Buffer.isBuffer(source) || source.length<1 || source.length>LIMIT.source || hash(source)!==sourceHash
+        ||!Number.isFinite(deadline)||deadline<=Date.now()||deadline>Date.now()+LIMIT.processMs||signal?.aborted)throw fail('input_invalid');
+      const record={source:Buffer.from(source),child:null,spawn:false,exit:false,close:false,exitCode:null,closeCode:null,
+        stopped:null,settled:false,output:[],outputBytes:0,stderrBytes:0,wire:null,timer:null,settleTimer:null};active=record;
+      let resolve,reject;const promise=new Promise((r,j)=>{resolve=r;reject=j;});
+      const wipe = () => {record.source.fill(0);if(record.wire)record.wire.fill(0);for(const b of record.output)b.fill(0);record.output.length=0;};
+      const settle = (error,value) => {if(record.settled)return;if(error&&uncertain&&Object.getOwnPropertyDescriptor(error,'helperMayStillRun')?.value!==true)error=Object.assign(fail('process_uncertain',true),{cause:error});record.settled=true;clearTimeout(record.timer);clearTimeout(record.settleTimer);signal?.removeEventListener('abort',abort);
+        if(record.close||!record.child)wipe();if(active===record)active=null;error?reject(error):resolve(value);};
+      const stop = suffix => {
+        if(record.stopped||record.settled)return;record.stopped=suffix;clearTimeout(record.timer);
+        if(!record.child||record.close){settle(fail(suffix));return;}
+        record.settleTimer=setTimeout(()=>{latch(record);settle(fail(suffix,true));},LIMIT.settleMs);
+        try{record.child.kill();}catch{ /* A kill request/throw is not actual close. */ }
+      };
+      record.stop=stop;
+      const abort = () => stop('cancelled');signal?.addEventListener('abort',abort,{once:true});
+      record.timer=setTimeout(()=>stop('timeout'),Math.max(1,deadline-Date.now()));
+      const guarded = work => (...args) => {try{work(...args);}catch{stop('transport_failed');}};
+      const admitted = () => {
+        if(record.settled||record.stopped||active!==record)return false;
+        if(retired||uncertain||signal?.aborted||Date.now()>=deadline)throw fail('cancelled');
+        return true;
+      };
+      void(async()=>{
+        try{
+          await verify(signal);if(!admitted())return;
+          const currentExecutable=await executableStat();if(!admitted())return;
+          if(!same(originalExecutable,currentExecutable))throw fail('executable_changed');
+          const environment={};for(const key of['SystemRoot','SystemDrive','WINDIR','TEMP','TMP'])if(typeof proc.env[key]==='string')environment[key]=proc.env[key];
+          // -I ignores user Python paths/site and -B prevents a new bytecode cache.
+          if(!admitted())return;
+          record.child=childProcess.spawn(executable,['-I','-B','-X','utf8','-c',SCRIPT],{windowsHide:true,shell:false,env:environment,cwd:nodePath.dirname(executable),stdio:['pipe','pipe','pipe']});
+          const child=record.child;
+          child.once('spawn',guarded(()=>{record.spawn=true;}));child.once('exit',guarded(code=>{record.exit=true;record.exitCode=code;}));
+          child.once('error',guarded(()=>{poisoned=true;stop('process_failed');}));
+          const transportError=guarded(()=>{poisoned=true;stop('transport_failed');});
+          child.stdout.on('error',transportError);child.stderr.on('error',transportError);child.stdin.on('error',transportError);
+          child.stdout.on('data',guarded(bytes=>{if(record.settled||record.stopped){bytes.fill(0);return;}record.outputBytes+=bytes.length;
+            if(record.outputBytes>4+LIMIT.metadata+LIMIT.pixels*4){bytes.fill(0);stop('output_limit');return;}record.output.push(Buffer.from(bytes));}));
+          child.stderr.on('data',guarded(bytes=>{record.stderrBytes+=bytes.length;bytes.fill(0);if(record.stderrBytes>LIMIT.stderr)stop('stderr_limit');}));
+          child.once('close',(code)=>{void(async()=>{
+            record.close=true;record.closeCode=code;
+            if(record.settled){wipe();return;}
+            if(record.stopped){settle(fail(record.stopped));return;}
+            if(!record.spawn||!record.exit||record.exitCode!==code||record.stderrBytes)throw fail('process_failed');
+            if(code!==0){const bytes=Buffer.concat(record.output,record.outputBytes);try{throw code===2?workerRefusal(bytes):fail('process_failed');}finally{bytes.fill(0);}}
+            await verify(signal);if(!admitted())return;
+            const currentExecutable=await executableStat();if(!admitted())return;
+            if(!same(originalExecutable,currentExecutable))throw fail('executable_changed');
+            const bytes=Buffer.concat(record.output,record.outputBytes);let frame,published=false;
+            try{frame=decode(bytes,sourceHash,()=>{if(!admitted())throw fail('cancelled');});if(!admitted())return;frames.set(frame,frameStamp(frame));settle(null,frame);published=true;}
+            finally{bytes.fill(0);if(frame&&!published)frame.rgba.fill(0);}
+          })().catch(error=>settle(controlled(error)));});
+          const meta=Buffer.from(JSON.stringify({schema:1,bytes:record.source.length,sourceHash,processorHash,language,version:VERSION}));
+          const size=Buffer.alloc(4);size.writeUInt32BE(meta.length);record.wire=Buffer.concat([size,meta,record.source]);meta.fill(0);size.fill(0);
+          child.stdin.end(record.wire,guarded(()=>record.wire.fill(0)));
+        }catch(error){if(record.child)stop('transport_failed');else settle(controlled(error));}
+      })();
+      return Object.freeze({promise,finish({failed=false}={}){
+        if(!record.settled)stop(failed?'consumer_cancelled':'finish_before_completion');
+        if(record.child&&!record.close){latch(record);return Object.freeze({closed:false,helperMayStillRun:true,ownershipRetained:true});}
+        return Object.freeze({closed:true,helperMayStillRun:uncertain,ownershipRetained:uncertain});
+      }});
+    }
+    const owner=Object.freeze({capture,assert,start,assertCoverage,invalidate(){retired=true;const record=active;if(record){record.stop('invalidated');if(record.child&&!record.close)latch(record);}},
+      helperMayStillRun:()=>uncertain,profile:Object.freeze({version:VERSION,language,recognitionConfidence:'unknown',automaticDelivery:false,
+        codeProfile:'opencv-qr-and-opencv-supported-linear-v3-source-support',dependencyInventory:INVENTORY})});
+    owners.add(owner);return owner;
+  }
+  return Object.freeze({create,VERSION,isOwner:value=>owners.has(value)});
+})(require('node:fs/promises'),require('node:path'),require('node:crypto'),require('node:child_process'),process);
+
+// Process-private capabilities for prepared image pixels. JSON references name an
+// existing capability; neither an upload record nor a stored manifest creates one.
+const MediaImageService = ((cryptoApi, HeadersApi) => {
+  const PREFIX = 'https://ruyi.invalid/protected-image/';
+  const fail = suffix => { throw Object.assign(Error('privacy.image_' + suffix), { code: 'privacy.image_' + suffix, statusCode: 409 }); };
+  const hash = value => cryptoApi.createHash('sha256').update(value).digest('hex');
+  const clone = value => JSON.parse(JSON.stringify(value));
+  function cleanupFailure(primary, failed, errors) {
+    const causes = [...(failed ? [primary] : []), ...errors], seen = new Set();
+    const unknown = value => {
+      if (value === null || !['object','function'].includes(typeof value)) return false;
+      if (seen.has(value)) return false; if (seen.size >= 256) return true; seen.add(value);
+      try {
+        let owner = value;
+        for (let depth = 0; owner !== null && depth < 8; depth++, owner = Object.getPrototypeOf(owner)) {
+          const flag = Object.getOwnPropertyDescriptor(owner, 'helperMayStillRun');
+          if (flag && (!Object.hasOwn(flag,'value') || flag.value === true)) return true;
+        }
+        for (const key of ['cause','errors']) {
+          const descriptor = Object.getOwnPropertyDescriptor(value,key); if (!descriptor) continue;
+          if (!Object.hasOwn(descriptor,'value')) return true;
+          if (key === 'errors' && Array.isArray(descriptor.value)) { for (const item of descriptor.value) if (unknown(item)) return true; }
+          else if (unknown(descriptor.value)) return true;
+        }
+        return false;
+      } catch { return true; }
+    };
+    return Object.assign(new AggregateError(causes, 'privacy.image_cleanup_failed', { cause:causes[0] }), {
+      code:'privacy.image_cleanup_failed',cleanupFailed:true,ownershipRetained:true,helperMayStillRun:causes.some(unknown) });
+  }
+  function partReference(part) {
+    if (!part || typeof part !== 'object' || Array.isArray(part)) return null;
+    if (part.type === 'image_url' && Object.keys(part).sort().join(',') === 'image_url,type'
+      && part.image_url && Object.keys(part.image_url).join(',') === 'url') return part.image_url.url;
+    if (part.type === 'input_image' && Object.keys(part).sort().join(',') === 'image_url,type') return part.image_url;
+    if (part.type === 'image' && Object.keys(part).sort().join(',') === 'source,type'
+      && part.source && Object.keys(part.source).sort().join(',') === 'type,url' && part.source.type === 'url') return part.source.url;
+    return null;
+  }
+  const referenceId = ref => typeof ref === 'string' && ref.startsWith(PREFIX) && /^[a-f0-9]{32}$/.test(ref.slice(PREFIX.length)) ? ref.slice(PREFIX.length) : null;
+  const validPointer = pointer => /^(?:\/(?:messages|input))?\/\d+\/content\/\d+$/.test(pointer);
+  function create({ contract = MediaImageContract, context, storeFor, now = Date.now } = {}) {
+    if (typeof context !== 'function' || typeof storeFor !== 'function') fail('host_required');
+    const records = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
+    function beginScope(sessionId) {
+      if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}$/.test(sessionId)) fail('scope_changed');
+      // Apply the existing four-owner budget before host IO too. Retained
+      // cleanup owners remain budgeted after losing their active scope lease.
+      if (scopeOwnerCount + retained.size >= 4) fail('busy');
+      let epoch = scopes.get(sessionId);
+      if (!epoch) { epoch = { sessionId, revoked:false, owners:new Set() }; scopes.set(sessionId,epoch); }
+      let released=false;
+      const owner=Object.freeze({
+        assert() { if (released || epoch.revoked) fail('revoked'); return true; },
+        release() { if (!released) { released=true; scopeOwnerCount--; epoch.owners.delete(owner); if (!epoch.owners.size && scopes.get(sessionId)===epoch) scopes.delete(sessionId); } },
+        retainCleanup(resource,primary,failed,cleanup) {
+          const failure=cleanupFailure(primary,failed,[cleanup]);
+          if(!released) { retained.add({scopeOwner:owner,resource,failure}); owner.release(); }
+          return failure;
+        },
+      });
+      scopeOwnerCount++; epoch.owners.add(owner); scopeOwners.set(owner,{epoch,claimed:false}); return owner;
+    }
+    function assertScopeOwner(owner, sessionId) {
+      if (scopeOwners.get(owner)?.epoch.sessionId !== sessionId) fail('scope_changed');
+      owner.assert();
+    }
+    function claimScopeOwner(owner, sessionId) {
+      assertScopeOwner(owner,sessionId);
+      const known=scopeOwners.get(owner); if(known.claimed)fail('scope_owner_transferred'); known.claimed=true;
+    }
+    function revokeEpoch(sessionId) {
+      const epoch=scopes.get(sessionId);
+      if (epoch) { epoch.revoked=true; scopes.delete(sessionId); }
+    }
+    function check(record) {
+      if (!record || record.dead || now() >= record.manifest.expiresAt) fail('expired');
+      assertScopeOwner(record.scopeOwner,record.sessionId);
+      const scope = context();
+      if (!scope || scope.scopeId !== record.sessionId) fail('scope_changed');
+      record.policy.assert(); record.source.assert(); record.processor.assert(record.processorSnapshot);
+      record.pipeline.describe(record.token);
+      return true;
+    }
+    const find = id => { const record = records.get(id); check(record); return record; };
+    async function remove(id) {
+      const record = records.get(id); if (!record) return;
+      // Revoke synchronously before the first cleanup await. A failed unlink never
+      // restores sending authority or causes the source upload to be removed.
+      record.dead = true; records.delete(id); clearTimeout(record.timer);
+      const errors = [];
+      for (const borrowed of [...record.borrows]) try { borrowed.release(); } catch (error) { errors.push(error); }
+      try { record.pipeline.release(record.token); } catch (error) { errors.push(error); }
+      try { await record.store.remove(record.storedId); } catch (error) { errors.push(error); }
+      try { await record.source.release(); } catch (error) { errors.push(error); }
+      record.scopeOwner.release();
+      if (errors.length) { retained.add(record); throw cleanupFailure(undefined, false, errors); }
+    }
+    async function prepare({ sessionId, source, policy, processor, recipient, signal, regions = null, scopeOwner } = {}) {
+      // A supplied source lease transfers to the service at entry, including
+      // admission refusal. Only the call which acquires preparing may clear it.
+      let pipeline, token, record, borrowed, returned = false, failed = false, primary, admitted = false, ownsScope = false;
+      try {
+        if (scopeOwner !== undefined) { claimScopeOwner(scopeOwner,sessionId); ownsScope=true; }
+        if (preparing || records.size + retained.size >= 4) fail('busy');
+        if (!source || typeof source.release !== 'function' || !policy || !processor || typeof recipient !== 'string' || !/^[a-f0-9]{64}$/.test(recipient)) fail('host_required');
+        if (context()?.scopeId !== sessionId) fail('scope_changed');
+        if (scopeOwner === undefined) { scopeOwner=beginScope(sessionId); claimScopeOwner(scopeOwner,sessionId); ownsScope=true; }
+        assertScopeOwner(scopeOwner,sessionId);
+        preparing = true; admitted = true;
+        policy.assert(); source.assert();
+        const processorSnapshot = processor.capture();
+        pipeline = contract.create({ sourceOwner: { capture: () => source.snapshot, assert: () => { assertScopeOwner(scopeOwner,sessionId); return source.assert(); } },
+          policyOwner: { capture: () => policy, assert: () => policy.assert(), prepareDetector:policy.prepareDetector }, processorOwner: processor, now });
+        token = await pipeline.prepare({ signal, regions }); assertScopeOwner(scopeOwner,sessionId);
+        const manifest = pipeline.describe(token), id = cryptoApi.randomBytes(16).toString('hex');
+        record = { id, sessionId, scopeOwner, source, policy, processor, processorSnapshot, pipeline, token, manifest,
+          recipient, dead: false, store: null, storedId: null, timer: null, borrows:new Set(), deliveryState:'ready' };
+        const authority = {
+          capture: async sourceId => {
+            if (sourceId !== source.id) fail('source_changed'); check(record);
+            return Object.freeze({ binding: Object.freeze({ sourceHash: manifest.sourceHash, sourceRevision: manifest.sourceRevision,
+              policyHash: manifest.policyHash, policyRevision: manifest.policyRevision, rulesHash: manifest.rulesHash,
+              processorHash: manifest.processorHash, processorVersion: manifest.processorVersion, revocationRevision: id }) });
+          },
+          assert: snapshot => { if (snapshot?.binding?.revocationRevision !== id) fail('revoked'); return check(record); },
+        };
+        record.store = await storeFor({ scopeId: manifest.scope, authority }); check(record);
+        borrowed = pipeline.borrow(token, { purpose: 'preview' }); borrowed.assert();
+        const stored = await record.store.put({ sourceId: source.id, manifest, bytes: borrowed.bytes }); record.storedId = stored.id; check(record);
+        borrowed.release(); borrowed = null;
+        records.set(id, record);
+        record.timer = setTimeout(() => { void remove(id).catch(() => {}); }, Math.max(1, manifest.expiresAt - now())); record.timer.unref?.();
+        returned = true;
+        return Object.freeze({ id, reference: PREFIX + id, manifest, recognitionConfidence: 'unknown' });
+      } catch (error) { failed=true;primary=error;throw error; }
+      finally {
+        if (admitted) preparing = false;
+        const errors=[];
+        if (borrowed) try { borrowed.release(); } catch(error) { errors.push(error); }
+        if (!returned) {
+          // Known failures are cleaned; an unknown processor owner remains held by
+          // its own uncertainty keeper and is never replaced with another worker.
+          try { if(record?.store?.dispose)await record.store.dispose();else if(record?.storedId)await record.store.remove(record.storedId); } catch(error) { errors.push(error); }
+          try { if(token)pipeline.release(token); } catch(error) { errors.push(error); }
+          try { if (typeof source?.release === 'function') await source.release(); } catch(error) { errors.push(error); }
+          if (ownsScope) scopeOwner.release();
+        }
+        if(errors.length){retained.add(record||{source,pipeline,token});throw cleanupFailure(primary,failed,errors);}
+      }
+    }
+    async function borrow(id) {
+      const record = find(id), borrowed = await record.store.read(record.storedId);
+      try { check(record); borrowed.assert(); const owned=Object.freeze({ bytes: borrowed.bytes, manifest: borrowed.manifest,
+        assert() { check(record); return borrowed.assert(); }, release() { record.borrows.delete(owned); borrowed.release(); } });
+        record.borrows.add(owned); return owned; }
+      catch (error) { borrowed.release(); throw error; }
+    }
+    function referenceFor(attachment) {
+      const ref = attachment?.protectedImage?.reference, id = referenceId(ref);
+      if (!id) fail('preparation_required');
+      const record = find(id);
+      if (attachment.id !== record.source.id || attachment.name !== record.source.name) fail('source_changed');
+      return ref;
+    }
+    function projectPart(part, { scopeId, pointer } = {}) {
+      const ref = partReference(part), id = referenceId(ref); if (!id) return null;
+      if (!validPointer(pointer)) fail('media_position');
+      const record = find(id); if (record.sessionId !== scopeId) fail('scope_changed');
+      return clone(part);
+    }
+    async function delivery(body, recipient, signal, currentRecipient = () => recipient) {
+      const captures = [], replacements = []; let nodes = 0, changed = false;
+      const walk = async (value, pointer = '', userContent = false) => {
+        if (++nodes > 50000) fail('structure_limit');
+        if (value === null || typeof value !== 'object') return value;
+        if (Array.isArray(value)) { const out = []; for (let i = 0; i < value.length; i++) out.push(await walk(value[i], pointer + '/' + i, userContent)); return out; }
+        const ref = partReference(value), id = referenceId(ref);
+        if (id) {
+          if (!validPointer(pointer) || !userContent) fail('media_position');
+          const record = find(id); if (record.recipient !== recipient) fail('recipient_changed');
+          if (signal?.aborted) fail('cancelled');
+          const borrowed = await borrow(id); captures.push(borrowed); borrowed.assert(); changed = true;
+          const data = borrowed.bytes.toString('base64');
+          const result = value.type === 'image' ? { type: 'image', source: { type: 'base64', media_type: 'image/png', data } }
+            : value.type === 'input_image' ? { type: 'input_image', image_url: 'data:image/png;base64,' + data }
+              : { type: 'image_url', image_url: { url: 'data:image/png;base64,' + data } };
+          replacements.push({ record, result }); return result;
+        }
+        // The generic gateway has already rejected raw media while ON. Still
+        // reject foreign/stale opaque references here, including after OFF.
+        const out = {};
+        for (const [key, item] of Object.entries(value)) {
+          if (typeof item === 'string' && item.startsWith(PREFIX)) fail('unknown_artifact');
+          out[key] = await walk(item, pointer + '/' + key, key === 'content' ? value.role === 'user' : userContent);
+        }
+        return out;
+      };
+      try {
+        const result = await walk(body);
+        const assert = () => {
+          if (signal?.aborted) fail('cancelled');
+          if (currentRecipient() !== recipient) fail('recipient_changed');
+          for (const { record } of replacements) { check(record); if (record.recipient !== recipient) fail('recipient_changed'); }
+          for (const borrowed of captures) borrowed.assert();
+          return true;
+        };
+        let submitted=false;
+        const submit=()=>{
+          assert();if(submitted)fail('delivery_already_submitted');
+          for(const {record} of replacements)if(record.deliveryState!=='ready')fail(record.deliveryState==='unknown'?'delivery_unknown':'delivery_busy');
+          for(const {record} of replacements)record.deliveryState='pending';submitted=true;
+        };
+        const complete=accepted=>{if(submitted)for(const {record} of replacements)record.deliveryState=accepted===true?'ready':'unknown';};
+        assert(); return Object.freeze({ body: changed ? result : body, assert, submit, complete, release() { for (const borrowed of captures) borrowed.release(); } });
+      } catch (error) { for (const borrowed of captures) borrowed.release(); throw error; }
+    }
+    async function revokeScope(sessionId) {
+      // Authority is revoked for host/source/processor/store pending owners before
+      // cleanup awaits. A new same-id incarnation receives a different epoch.
+      revokeEpoch(sessionId);
+      const ids=[...records].filter(([,record])=>record.sessionId===sessionId).map(([id,record])=>{record.dead=true;return id;});
+      const results=await Promise.allSettled(ids.map(remove)),errors=results.filter(row=>row.status==='rejected').map(row=>row.reason);
+      if(errors.length)throw cleanupFailure(undefined,false,errors);
+    }
+    async function invalidate() {
+      for(const sessionId of [...scopes.keys()])revokeEpoch(sessionId);
+      const ids=[...records.keys()]; for(const record of records.values())record.dead=true;
+      const results=await Promise.allSettled(ids.map(remove)),errors=results.filter(row=>row.status==='rejected').map(row=>row.reason);
+      if(errors.length)throw cleanupFailure(undefined,false,errors);
+    }
+    return Object.freeze({ beginScope, prepare, borrow, remove, referenceFor, projectPart, delivery, revokeScope, invalidate });
+  }
+  function recipientHash(url, headers) {
+    // Use Fetch's own parser: all explicit wire headers participate, including
+    // custom credentials/account routing. Names fold, values trim and duplicate
+    // names combine in precisely the same order as the eventual fetch request.
+    let values;
+    try { values = [...new HeadersApi(headers || {}).entries()]; }
+    catch { fail('recipient_invalid'); }
+    return hash(JSON.stringify([String(url), values]));
+  }
+  return Object.freeze({ create, recipientHash, partReference, referenceId });
+})(require('node:crypto'), globalThis.Headers);
+
+// Lazy production composition. Loading this module starts no processes and does
+// not inspect or copy a runtime. Only an authenticated prepare request does so.
+const MediaImageHost = (() => {
+  const fail = suffix => { throw Object.assign(Error('privacy.image_' + suffix), { code: 'privacy.image_' + suffix, statusCode: 409 }); };
+  const hash = value => crypto.createHash('sha256').update(value).digest('hex');
+  const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const same = (a, b) => ['dev','ino','size','mtimeNs','ctimeNs','nlink'].every(key => a[key] === b[key]);
+  const managed = work => typeof WorkDataMaintenanceHooks.run === 'function' ? WorkDataMaintenanceHooks.run('media-image', work) : work();
+  let processorPromise = null, processorOwner = null, preparedAny = false;
+  function processor() {
+    // Paths are supplied by the application installation/environment, never by
+    // browser JSON. There is no PATH lookup or cloud/installation fallback.
+    if (!processorPromise) {
+      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(appRoot(), 'mcp', 'ai-computer-control'));
+      const sourceRoot = path.resolve(process.env.RUYI_MEDIA_SOURCES_ROOT || path.join(appRoot(), 'resources', 'media-runtime-sources'));
+      processorPromise = MediaImageProcessor.create({ runtimeRoot, sourceRoot, language: process.env.RUYI_MEDIA_OCR_LANGUAGE || 'zh-Hans-CN',
+        resourceProfile: process.env.RUYI_MEDIA_RESOURCE_PROFILE ?? 'legacy-full-4987-v1' }).then(owner => { processorOwner = owner; return owner; });
+      // Keep the failed result. Repeated user sends do not create implicit worker
+      // or dependency retries under an unknown ownership state.
+      processorPromise.catch(() => {});
+    }
+    return processorPromise;
+  }
+  // This cache is never replaced, including after configuration changes or a
+  // failed request. Observe that same resolved owner without creating resources.
+  function helperMayStillRun() { return processorOwner === null ? false : processorOwner.helperMayStillRun() !== false; }
+  function assertAncestors(target) {
+    const absolute = path.resolve(target), parsed = path.parse(absolute); let current = parsed.root;
+    for (const bit of absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
+      current = path.join(current, bit);
+      const stat = fs.lstatSync(current, { bigint: true });
+      if (!stat.isDirectory() || stat.isSymbolicLink() || fold(fs.realpathSync.native(current)) !== fold(current)) fail('source_alias');
+    }
+  }
+  async function sourceFor({ id, name }, sessionId, scopeOwner) {
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string'
+      || !name || name.length > 200 || name !== path.win32.basename(name) || sanitizeFsSegmentName(name) !== name || /[. ]$/.test(name)) fail('source_invalid');
+    const root = path.resolve(paths.uploads), file = path.join(root, id, name), directory = path.dirname(file);
+    assertAncestors(directory);
+    const visible = fs.lstatSync(file, { bigint: true });
+    if (!visible.isFile() || visible.isSymbolicLink() || visible.nlink !== 1n || visible.size < 1n || visible.size > BigInt(MediaImageContract.LIMITS.sourceBytes)) fail('source_invalid');
+    const handle = await fsp.open(file, 'r'); let released = false, bytes;
+    const assert = () => {
+      scopeOwner.assert();
+      if (released || path.resolve(paths.uploads) !== root) fail('source_changed');
+      assertAncestors(directory);
+      const held = fs.fstatSync(handle.fd, { bigint: true }), current = fs.lstatSync(file, { bigint: true });
+      if (!held.isFile() || !current.isFile() || current.isSymbolicLink() || !same(visible, held) || !same(visible, current)) fail('source_changed');
+      return true;
+    };
+    try {
+      assert(); bytes = Buffer.alloc(Number(visible.size)); let offset=0;
+      while(offset<bytes.length){const row=await handle.read(bytes,offset,bytes.length-offset,null);if(!row.bytesRead)fail('source_changed');offset+=row.bytesRead;assert();}
+      const tail=Buffer.alloc(1);try{if((await handle.read(tail,0,1,null)).bytesRead)fail('source_changed');}finally{tail.fill(0);}assert();
+      const sourceHash = hash(bytes), scope = hash(sessionId).slice(0,32);
+      const revision = hash(JSON.stringify(['dev','ino','size','mtimeNs','ctimeNs'].map(key => String(visible[key]))));
+      const snapshot = Object.freeze({ bytes, hash: sourceHash, revision, scope });
+      return Object.freeze({ id, name, snapshot, assert, async release() { if (!released) { released = true; bytes.fill(0); await handle.close(); } } });
+    } catch (error) {
+      bytes?.fill(0);
+      try { await handle.close(); }
+      catch (cleanup) { throw scopeOwner.retainCleanup({handle,bytes},error,true,cleanup); }
+      throw error;
+    }
+  }
+  async function writeRecord(target, payload, options) {
+    if (typeof payload === 'string') return atomicWriteJson(target, async function* () { yield Buffer.from(payload); }, { stream: true });
+    return atomicWriteJson(target, payload, options);
+  }
+  const service = MediaImageService.create({ context: () => PrivacyGateway.active(), storeFor: async ({ scopeId, authority }) => {
+    if (!/^[a-f0-9]{32}$/.test(scopeId)) fail('scope_changed');
+    const root = path.join(paths.data, 'media-derived-v1', scopeId);
+    assertAncestors(paths.data);
+    // A new family has no legacy external files; create only our own two levels.
+    for (const directory of [path.dirname(root), root]) {
+      try { await fsp.mkdir(directory); } catch (error) { if (error.code !== 'EEXIST') throw error; }
+      assertAncestors(directory);
+    }
+    const store = MediaDerivedStore.create({ root, scopeId, authority, keys: WorkDataStore.requireKeys(),
+      enabled: async () => { const config = await readConfig(); if (typeof config.workDataEncryptionV1 !== 'boolean') fail('storage_unavailable'); return config.workDataEncryptionV1; },
+      writeJson: writeRecord });
+    return Object.freeze({ put: value => store.put(value), read: id => store.read(id), remove: id => managed(() => store.remove(id)), dispose:()=>managed(()=>store.dispose()) });
+  } });
+  function currentRecipient(config) {
+    const provider = activeOpenAiProvider(config);
+    if (!provider || provider.vision !== true) fail('vision_required');
+    const wire = providerWireProtocol(provider);
+    return MediaImageService.recipientHash(wire.completionUrl(provider.baseUrl), wire.requestHeaders(provider, { model: provider.model }));
+  }
+  async function prepare(input, signal) {
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => !['sessionId','id','name','regions'].includes(key))) fail('request_invalid');
+    const sessionId=assertSessionIdForPath(input.sessionId), scopeOwner=service.beginScope(sessionId);
+    let source, transferred=false, primary, failed=false;
+    try {
+      scopeOwner.assert();
+      const config=await readConfig(); scopeOwner.assert();
+      const session=await loadSession(sessionId); scopeOwner.assert();
+      if (!session || sessionSaveIsTombstoned(session)) throw Object.assign(Error('session.not_found'), {code:'session.not_found',statusCode:404});
+      return await PrivacyGateway.run(sessionId,config,()=>managed(async()=>{
+        scopeOwner.assert();
+        const policy=PrivacyGateway.captureMediaPolicy(); if(!policy)fail('protection_disabled');
+        const recipient=currentRecipient(config);
+        source=await sourceFor(input,sessionId,scopeOwner); scopeOwner.assert();
+        policy.assert();source.assert();
+        const owner=await processor(); scopeOwner.assert(); policy.assert();source.assert();
+        if(!MediaImageProcessor.isOwner(owner))fail('processor_unavailable');
+        transferred=true;
+        const result=await service.prepare({sessionId,source,policy,processor:owner,recipient,signal,regions:input.regions??null,scopeOwner});
+        // prepare published in this turn; revocation in the await continuation
+        // must still refuse the HTTP result. Service cleanup owns the record.
+        scopeOwner.assert(); preparedAny=true; return result;
+      }));
+    } catch(error) { failed=true; primary=error; throw error; }
+    finally {
+      if(!transferred) {
+        try { if(source)await source.release(); }
+        catch(cleanup) { throw scopeOwner.retainCleanup(source,primary,failed,cleanup); }
+        finally { scopeOwner.release(); }
+      }
+    }
+  }
+  async function buildUserContentParts(textContent, attachments) {
+    const config = await readConfig();
+    PrivacyGateway.assertPolicyAvailable(config);
+    if (config.privacyModeV1 === 'off') return null;
+    const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('policy_unavailable');
+    const parts = [{ type: 'text', text: String(textContent || '') }];
+    for (const attachment of attachments || []) if (attachment?.kind === 'image' || /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment?.name || attachment?.path || '')) {
+      parts.push({ type: 'image_url', image_url: { url: service.referenceFor(attachment) } });
+    }
+    return parts;
+  }
+  function projectPart(part, detail) { return service.projectPart(part, detail); }
+  async function beforeModelPost({ body, url, headers, signal }) {
+    // Preserve the ordinary OFF identity path, including objects which must only
+    // be inspected by the original JSON encoder, until this process owns media.
+    if (!preparedAny && !PrivacyGateway.active()) return null;
+    const currentRecipient=()=>MediaImageService.recipientHash(url,headers);
+    return managed(() => service.delivery(body, currentRecipient(), signal, currentRecipient));
+  }
+  function attachmentPrompt(file) {
+    const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) return null;
+    if (!(file?.kind === 'image' || /\.(png|jpe?g|gif|webp|bmp)$/i.test(file?.name || file?.path || ''))) return null;
+    service.referenceFor(file);
+    return '- protected.png: locally processed image attached below; original filename, path and OCR text withheld.';
+  }
+  async function handleApiRoutes(req, res, pathname) {
+    const routeRoot='/api/media/images/';
+    if (!pathname.startsWith(routeRoot)) return false;
+    if (!tokenOk(req)) { send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403)); return true; }
+    const controller = new AbortController();
+    const abort = () => controller.abort(); req.once('aborted', abort);
+    const closed = () => { if (!res.writableFinished) abort(); }; res.once('close', closed);
+    try {
+      if (req.method === 'POST' && pathname === '/api/media/images/prepare') {
+        const body = await readJsonBody(req), result = await prepare(body, controller.signal);
+        send(res, json({ ok: true, ...result })); return true;
+      }
+      const match = /^\/api\/media\/images\/([a-f0-9]{32})(?:\/(preview))?$/.exec(pathname);
+      if (!match || !['GET','DELETE'].includes(req.method) || (req.method === 'GET' && !match[2]) || (req.method === 'DELETE' && match[2])) return false;
+      if (req.method === 'DELETE' && pathname.startsWith('/api/media/images/')) { await managed(() => service.remove(match[1])); send(res, json({ ok: true })); return true; }
+      if (req.method === 'GET' && pathname.startsWith('/api/media/images/')) {
+      const q = new URL(req.url, 'http://localhost').searchParams;
+      const sessionId = assertSessionIdForPath(q.get('sessionId')), config = await readConfig();
+      await PrivacyGateway.run(sessionId, config, () => managed(async () => {
+        const borrowed = await service.borrow(match[1]);
+        try {
+          borrowed.assert();
+          res.writeHead(200, { 'content-type': 'image/png', 'content-length': borrowed.bytes.length, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-ruyi-payload-sha256': borrowed.manifest.payloadHash,
+            'x-ruyi-manifest-sha256': hash(JSON.stringify(borrowed.manifest)) });
+          res.end(borrowed.bytes, () => borrowed.release());
+        } catch (error) { borrowed.release(); throw error; }
+      }));
+      return true;
+      }
+      return false;
+    } catch (error) {
+      if (res.headersSent) { res.destroy(); return true; }
+      const code = /^(?:privacy\.image_|privacy\.(?:policy|scope)|media_store\.|work_data)/.test(error?.code || '') ? error.code : 'privacy.image_request_failed';
+      send(res, apiFailure(code, {}, code, error?.statusCode || 409)); return true;
+    } finally { req.removeListener('aborted', abort); res.removeListener('close', closed); }
+  }
+  PrivacyGateway.setHost({ projectMediaPart: projectPart, invalidateMedia: () => { void service.invalidate().catch(() => {}); } });
+  Object.assign(ProviderMediaHooks, { beforeModelPost });
+  Object.assign(VisualMediaHooks, { buildUserContentParts });
+  Object.assign(MediaImageHooks, { attachmentPrompt, handleApiRoutes, helperMayStillRun,
+    revokeScope: sessionId => service.revokeScope(sessionId) });
+  return Object.freeze({ prepare });
+})();
 
 // Production adapter building blocks only. No startup/configure side effect, no
 // claim/upload/activation implementation, and no public worker-ready capability.
@@ -109825,6 +110889,7 @@ const WorkDataServeUploadBootstrap = ((io,p,osApi,clock) => {
     try{
       if(typeof LocalSecretCrypto!=='undefined'){const inspect=LocalSecretCrypto.helperMayStillRun;if(inspect!==undefined&&(typeof inspect!=='function'||inspect.call(LocalSecretCrypto)!==false))return true;}
       if(typeof MigrationHooks!=='undefined'){const inspect=MigrationHooks.helperMayStillRun;if(inspect!==undefined&&(typeof inspect!=='function'||inspect.call(MigrationHooks)!==false))return true;}
+      if(typeof WorkDataMaintenanceHooks!=='undefined'){const inspect=WorkDataMaintenanceHooks.helperMayStillRun;if(inspect!==undefined&&(typeof inspect!=='function'||inspect.call(WorkDataMaintenanceHooks)!==false))return true;}
       return false;
     }catch{return true;}
   }

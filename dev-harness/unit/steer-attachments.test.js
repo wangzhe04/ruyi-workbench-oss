@@ -79,6 +79,7 @@ test('composer 图片插话发送附件,只清理发出的快照;失败或仍在
   const first = { id: 'image1', name: 'picture.png' }, later = { id: 'image2', name: 'later.png' };
   f.state.attachments = [first];
   const pending = f.send('看图');
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(f.calls[0].body.attachments[0].id, 'image1');
   f.state.attachments.push(later); f.response.resolve({ ok: true }); await pending;
   assert.deepEqual(f.state.attachments, [later]); assert.equal(f.rows[0].attachments[0].id, 'image1');
@@ -87,7 +88,7 @@ test('composer 图片插话发送附件,只清理发出的快照;失败或仍在
   assert.equal(failed.state.attachments.length, 1); assert.equal(failed.nodes.promptInput.value, '保留');
   failed.state.uploading = 1; await failed.runtime.sendPrompt(); assert.equal(failed.calls.length, 1);
   const imageOnly = composerFixture(); imageOnly.state.attachments = [first];
-  const justImage = imageOnly.send(''); assert.equal(imageOnly.calls[0].body.attachments.length, 1);
+  const justImage = imageOnly.send(''); await new Promise(resolve => setImmediate(resolve)); assert.equal(imageOnly.calls[0].body.attachments.length, 1);
   imageOnly.response.resolve({ ok: true }); await justImage;
   assert.equal(imageOnly.state.attachments.length, 0);
   const ended = composerFixture(); ended.state.attachments = [first];

@@ -1672,6 +1672,10 @@ function buildAttachmentPrompt(attachments) {
     '<attached_files>',
   ];
   for (const file of attachments) {
+    if (typeof MediaImageHooks !== 'undefined' && typeof MediaImageHooks.attachmentPrompt === 'function') {
+      const protectedPrompt = MediaImageHooks.attachmentPrompt(file);
+      if (protectedPrompt !== null) { lines.push(protectedPrompt); continue; }
+    }
     lines.push(`- ${file.name || path.basename(file.path)}: ${file.path}`);
     if (file.textPreview) {
       lines.push('  <preview>');

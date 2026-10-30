@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 127,
-    "providedSymbols": 4244,
-    "requiredSymbols": 4110,
-    "edges": 881,
+    "modules": 131,
+    "providedSymbols": 4252,
+    "requiredSymbols": 4150,
+    "edges": 900,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -43,6 +43,7 @@
         "LEGACY_API_ERROR_CODES",
         "LEGACY_DATA_DIR_NAME",
         "MAX_BODY_BYTES",
+        "MediaImageHooks",
         "MemoryCliHooks",
         "MigrationHooks",
         "OVERLAY_ID",
@@ -2315,6 +2316,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "nowIso",
           "kinds": [
             "call"
@@ -3043,6 +3051,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "os",
           "kinds": [
             "read"
@@ -3238,6 +3253,7 @@
       "layer": "foundation",
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）",
       "provides": [
+        "VisualMediaHooks",
         "VisualPipeline"
       ],
       "requires": []
@@ -4049,6 +4065,7 @@
       "note": "架构还债批 2·A:OpenAI 兼容服务商 HTTP 原语的唯一住处(端点 URL 归一化/请求头/非流式 POST/瞬时错误重试骨架;自 05/06/07/08/09/10 纯搬家,零出边故不进任何环)",
       "provides": [
         "PROVIDER_LAN_HOST_SUFFIXES",
+        "ProviderMediaHooks",
         "abortableDelay",
         "providerApiBase",
         "providerBaseIsLocalOrLan",
@@ -15607,6 +15624,13 @@
           "symbol": "lstatOrNull",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -28361,6 +28385,7 @@
         "WorkDataMaintenance",
         "workDataDeferredAgentWakes",
         "workDataDeferredStewardWake",
+        "workDataHelpersMayStillRun",
         "workDataMaintenance"
       ],
       "requires": [
@@ -28374,6 +28399,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
           "kinds": [
             "read"
           ]
@@ -29783,8 +29815,304 @@
       ]
     },
     {
-      "file": "13aq-work-data-native-adapters.js",
+      "file": "13bb-media-derived-store.js",
       "order": 122,
+      "layer": "unclassified",
+      "note": "M4 production image candidate; resource and actual processing/send acceptance pending",
+      "provides": [
+        "MediaDerivedStore"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01x-work-data-migration-codecs.js",
+          "symbol": "WorkDataMigrationCodecs",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13bc-media-image-processor.js",
+      "order": 123,
+      "layer": "unclassified",
+      "note": "M4 production image candidate; resource and actual processing/send acceptance pending",
+      "provides": [
+        "MediaImageProcessor"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13bd-media-image-service.js",
+      "order": 124,
+      "layer": "unclassified",
+      "note": "M4 production image candidate; resource and actual processing/send acceptance pending",
+      "provides": [
+        "MediaImageService"
+      ],
+      "requires": [
+        {
+          "provider": "13ba-media-image-contract.js",
+          "symbol": "MediaImageContract",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13be-media-image-host.js",
+      "order": 125,
+      "layer": "unclassified",
+      "note": "M4 production image candidate; resource and actual processing/send acceptance pending",
+      "provides": [
+        "MediaImageHost"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "appRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "assertSessionIdForPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionSaveIsTombstoned",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sanitizeFsSegmentName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualMediaHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "ProviderMediaHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13ba-media-image-contract.js",
+          "symbol": "MediaImageContract",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13bb-media-derived-store.js",
+          "symbol": "MediaDerivedStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13bc-media-image-processor.js",
+          "symbol": "MediaImageProcessor",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13bd-media-image-service.js",
+          "symbol": "MediaImageService",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13aq-work-data-native-adapters.js",
+      "order": 126,
       "layer": "unclassified",
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false",
       "provides": [
@@ -29900,7 +30228,7 @@
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "order": 123,
+      "order": 127,
       "layer": "unclassified",
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability",
       "provides": [
@@ -29932,7 +30260,7 @@
     },
     {
       "file": "13aw-work-data-root-preference.js",
-      "order": 124,
+      "order": 128,
       "layer": "unclassified",
       "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted",
       "provides": [
@@ -29950,7 +30278,7 @@
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "order": 125,
+      "order": 129,
       "layer": "unclassified",
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis).",
       "provides": [
@@ -30095,7 +30423,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 126,
+      "order": 130,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -34929,6 +35257,7 @@
       "to": "00-boot.js",
       "symbols": [
         "EventStreamHooks",
+        "MediaImageHooks",
         "RUYI_EVENTS",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
@@ -35181,6 +35510,7 @@
       "from": "03-bridge-guard.js",
       "to": "00-boot.js",
       "symbols": [
+        "MediaImageHooks",
         "URL",
         "WorkDataRootHooks",
         "agentCliHomes",
@@ -38544,6 +38874,7 @@
         "EventStreamHooks",
         "ExternalBotHooks",
         "InternalMcpHooks",
+        "MediaImageHooks",
         "MemoryCliHooks",
         "MigrationHooks",
         "OVERLAY_ID",
@@ -39763,6 +40094,7 @@
       "to": "00-boot.js",
       "symbols": [
         "InternalMcpHooks",
+        "MediaImageHooks",
         "MemoryCliHooks",
         "SessionFullTextHooks",
         "WorkDataMaintenanceHooks",
@@ -40897,6 +41229,175 @@
       "to": "01h-privacy-core.js",
       "symbols": [
         "PrivacyCore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13bb-media-derived-store.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13bb-media-derived-store.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13bb-media-derived-store.js",
+      "to": "01x-work-data-migration-codecs.js",
+      "symbols": [
+        "WorkDataMigrationCodecs"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13bc-media-image-processor.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "VERSION",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13bd-media-image-service.js",
+      "to": "13ba-media-image-contract.js",
+      "symbols": [
+        "MediaImageContract"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "MediaImageHooks",
+        "URL",
+        "WorkDataMaintenanceHooks",
+        "apiFailure",
+        "appRoot",
+        "crypto",
+        "fs",
+        "fsp",
+        "json",
+        "path",
+        "paths"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "01-config.js",
+      "symbols": [
+        "assertSessionIdForPath",
+        "atomicWriteJson",
+        "readConfig",
+        "readJsonBody",
+        "send",
+        "tokenOk"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "01p-work-data-store.js",
+      "symbols": [
+        "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "loadSession",
+        "sessionSaveIsTombstoned"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "sanitizeFsSegmentName"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "04-visual-pipeline.js",
+      "symbols": [
+        "VisualMediaHooks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "ProviderMediaHooks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "04i-provider-wire.js",
+      "symbols": [
+        "providerWireProtocol"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "05-claude-engine.js",
+      "symbols": [
+        "activeOpenAiProvider"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "13ba-media-image-contract.js",
+      "symbols": [
+        "MediaImageContract"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "13bb-media-derived-store.js",
+      "symbols": [
+        "MediaDerivedStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "13bc-media-image-processor.js",
+      "symbols": [
+        "MediaImageProcessor"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13be-media-image-host.js",
+      "to": "13bd-media-image-service.js",
+      "symbols": [
+        "MediaImageService"
       ],
       "direction": "backward"
     },

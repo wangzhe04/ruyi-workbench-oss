@@ -3,7 +3,7 @@
 // registration. Pause at the real first save; model IO is a fetch counter only.
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), assert = require('node:assert/strict');
 const { createRequire } = require('node:module');
-const { functionBlock, sliceBlock } = require('./lib/source-slice');
+const { constBlock, functionBlock, sliceBlock } = require('./lib/source-slice');
 const { createRunner } = require('./lib/harness');
 const t = createRunner('THREAD RELAY NESTED STATIC'), repo = path.resolve(__dirname, '..'), src = path.join(repo, 'ruyi-workbench/app/src');
 const flag = process.argv.find(value => value.startsWith('--baseline-root=')), before = flag && path.resolve(flag.slice('--baseline-root='.length));
@@ -31,7 +31,9 @@ async function probe({ source = 'thread_relay', background = false, delegation =
   });
   Object.assign(box.PrivacyGateway, { active: () => null, withPolicy: (sid, work) => work(), beforeModelRequest: async body => body, disclosurePolicyGuard: () => () => {}, assertPolicyAvailable() {} });
   const launch = sliceBlock(read('09-workflow.js'), '  const launchOrchestrateFromTurn =', '\n  // v1.0-S6'); assert.ok(launch.length > 5000);
-  vm.runInNewContext(functionBlock(read('09-workflow.js'), 'runAgentWorkflow') + '\n' + functionBlock(read('04h-provider-http.js'), 'providerModelPostOnce')
+  // This text-only provider slice shares its real module registration cell in the same VM.
+  vm.runInNewContext(functionBlock(read('09-workflow.js'), 'runAgentWorkflow') + '\n'
+    + constBlock(read('04h-provider-http.js'), 'ProviderMediaHooks') + '\n' + functionBlock(read('04h-provider-http.js'), 'providerModelPostOnce')
     + '\nfunction nestedLaunch(session,provider,config,delegationPlan){const model="inert",isProviderPlanMode=false,planApproved=false,subagentTurnCap=4,ctrl=null,reg={};let subagentTotal=0;const backgroundAgentRunIds=new Set();' + launch
     + '\nreturn launchOrchestrateFromTurn;}\nSessionExecutionHooks.nestedLaunch=nestedLaunch;SessionExecutionHooks.nestedPost=providerModelPostOnce;', box);
   const assertDispatch = box.SessionExecutionHooks.assertDispatch;

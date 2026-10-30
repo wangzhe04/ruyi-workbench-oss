@@ -4,13 +4,27 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+// The attachment tray re-exports this production image state function.
+function imageBindings(state, api = async () => { throw Error('unexpected image API'); }) {
+  const file = path.resolve(__dirname, '../../ruyi-workbench/app/public/js/protected-image-state.js');
+  const source = fs.readFileSync(file, 'utf8');
+  const imports = source.match(/^import .*;$/gm) || [];
+  const expected = ["import { state } from './state.js';", "import { api, apiRaw } from './net.js';", "import { t } from './i18n.js';"];
+  if (JSON.stringify(imports.map(line => line.trim())) !== JSON.stringify(expected)) throw Error('image state imports changed');
+  const tray = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/public/js/attachment-tray.js'), 'utf8');
+  if (!tray.includes("export { prepareProtectedImages } from './protected-image-state.js';")) throw Error('image re-export changed');
+  const context = vm.createContext({ state, api, apiRaw: api, t: key => key, AbortController, URL, TextEncoder, crypto: require('node:crypto').webcrypto });
+  const script = source.replace(/^import .*;\r?\n/gm, '').replace(/^export /gm, '');
+  return vm.runInContext(script + '\n({ prepareProtectedImages, invalidateImageOperations })', context);
+}
+
 function deferred() {
   let resolve, reject;
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
 
-function fixture() {
+function fixture({ imageApi } = {}) {
   class Element {
     constructor() { this.value = ''; this.children = []; this.dataset = {}; this.style = {}; this.events = []; this.isConnected = true; this.classList = { add() {}, remove() {}, toggle() {} }; }
     append(...items) { this.children.push(...items); }
@@ -33,9 +47,12 @@ function fixture() {
     localStorage: { removeItem: key => store.delete(key) },
     AbortController, setTimeout, clearTimeout, setInterval, clearInterval,
     fetch: (url, options) => { streams.push({ url, body: JSON.parse(options.body) }); return new Promise(() => {}); },
+    prepareProtectedImages: imageBindings(state, imageApi).prepareProtectedImages,
   };
   const source = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/public/js/chat-stream-runtime.js'), 'utf8');
-  const create = vm.runInNewContext(source.replace(/^export /gm, '') + '\ncreateChatStreamRuntime', context);
+  const importLine = "import { prepareProtectedImages } from './attachment-tray.js';";
+  if (!source.includes(importLine)) throw Error('image preparation import changed');
+  const create = vm.runInNewContext(source.replace(importLine, '').replace(/^export /gm, '') + '\ncreateChatStreamRuntime', context);
   const fx = { state, nodes, calls, streams, toasts, rows, store, seq: 0, response: deferred(), preflight: null, creation: null, win };
   fx.choose = id => { fx.seq += 1; state.currentSession = id ? { id, messages: [] } : null; state.sessionRelay = null; fx.runtime.steerPendingList.length = 0; fx.runtime.steeredSeen.length = 0; };
   fx.runtime = create({
@@ -54,4 +71,4 @@ function fixture() {
   return fx;
 }
 
-module.exports = { fixture, deferred };
+module.exports = { fixture, deferred, imageBindings };

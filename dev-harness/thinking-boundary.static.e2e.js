@@ -4,8 +4,8 @@
 // it updates only the meter and must never manufacture a second thinking panel.
 // 架构还债批 3·D:修前用 indexOf('const THINKING_NARRATIVE_BOUNDARY_TYPES') 到
 // indexOf('\n\nexport function createChatStreamRuntime') 切一段源码进 vm 跑 —— 中间插一个 helper、
-// 调一下两者顺序或空行,切片就断。现在 import 前端模块本身(chat-stream-runtime.js 零 import,Node 直接可载),
-// 断言的是浏览器里跑的同一个函数。
+// 调一下两者顺序或空行,切片就断。现在在最小 window 壳中 import 完整真实前端模块及其附件/图片依赖,
+// 断言仍是浏览器里跑的同一个函数,不替换图片绑定或思考边界实现。
 const assert = require('assert');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -13,6 +13,9 @@ const { pathToFileURL } = require('url');
 const file = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'js', 'chat-stream-runtime.js');
 
 (async () => {
+const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+if (typeof globalThis.window === 'undefined') globalThis.window = {};
+try {
 const { isThinkingNarrativeBoundary: boundary } = await import(pathToFileURL(file).href);
 assert(typeof boundary === 'function', 'thinking-boundary helper is exported by chat-stream-runtime.js');
 
@@ -83,4 +86,8 @@ assert.equal(countThinkingPanels([
 ]), 2, 'the parent own tool_use still splits, whatever the sub-agents do in between');
 
 console.log('THINKING BOUNDARY STATIC E2E: ALL PASS');
+} finally {
+  if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+  else delete globalThis.window;
+}
 })().catch(err => { console.error(err && err.stack || err); console.log('THINKING BOUNDARY STATIC E2E: FAIL (1)'); process.exit(1); });

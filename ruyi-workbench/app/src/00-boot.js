@@ -32,6 +32,7 @@ const SessionExecutionHooks = {};
 const ThreadRelayHooks = {};
 const ProxyModelHooks = {};
 const DeliveryHooks = {};
+const MediaImageHooks = {};
 const ExternalBotHooks = {};
 const WorkDataMaintenanceHooks = {};
 const WorkDataSetupHooks = {};

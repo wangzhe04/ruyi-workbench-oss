@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-30T01:31:03.869Z",
+  "generatedAt": "2026-10-30T04:52:32.250Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -17,15 +17,16 @@
       "ruyi-workbench/app/src/13w-external-bots.js",
       "ruyi-workbench/app/src/13ab-privacy-api.js",
       "ruyi-workbench/app/src/13ac-mcp-consumer.js",
-      "ruyi-workbench/app/src/13ah-work-data-setup.js"
+      "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "ruyi-workbench/app/src/13be-media-image-host.js"
     ]
   },
   "summary": {
-    "routeAuthEntries": 181,
-    "decisionPoints": 195,
+    "routeAuthEntries": 184,
+    "decisionPoints": 198,
     "byKind": {
-      "exact": 170,
-      "prefix": 13,
+      "exact": 171,
+      "prefix": 15,
       "regex": 12
     },
     "authLevels": [
@@ -445,6 +446,24 @@
       "p": "/api/upload",
       "auth": "token-browser",
       "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/media/images/prepare",
+      "auth": "token-browser",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/media/images/",
+      "auth": "token",
+      "prefix": true
+    },
+    {
+      "m": "DELETE",
+      "p": "/api/media/images/",
+      "auth": "token-browser",
+      "prefix": true
     },
     {
       "m": "GET",
@@ -1190,6 +1209,7 @@
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\help-viewer.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\onboarding.e2e.js",
         "dev-harness\\overlay-update-core.e2e.js",
@@ -1199,6 +1219,7 @@
         "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\net-errors.test.js",
         "dev-harness\\unit\\surface-hardening-w2.test.js",
         "dev-harness\\unit\\work-data-maintenance-http.test.js",
@@ -2774,9 +2795,11 @@
         "dev-harness\\external-bots.browser.e2e.js",
         "dev-harness\\file-text-encoding.e2e.js",
         "dev-harness\\frontend-wave2.browser.e2e.js",
+        "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\steward-attachments.browser.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\tool-result-render.browser.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\tool-result-shrink.test.js",
         "dev-harness\\vision-loop.e2e.js"
       ]
@@ -2794,7 +2817,9 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\tool-result-render.browser.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\tool-result-shrink.test.js",
         "dev-harness\\vision-loop.e2e.js"
       ]
@@ -2894,6 +2919,7 @@
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\mcp-bridge.e2e.js",
         "dev-harness\\mcp-config.e2e.js",
+        "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-recall-injection.e2e.js",
@@ -3002,6 +3028,7 @@
         "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\shutdown-active-turns.test.js",
         "dev-harness\\unit\\steer-attachments.test.js",
@@ -3099,8 +3126,10 @@
       "domain": "13ab-privacy-api.js",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\privacy-failure.browser.e2e.js",
         "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\privacy-config-health.test.js",
         "dev-harness\\unit\\privacy-missing-config-vault.test.js"
       ]
@@ -3138,8 +3167,10 @@
       "domain": "13ab-privacy-api.js",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\privacy-failure.browser.e2e.js",
         "dev-harness\\privacy-gateway.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\privacy-config-health.test.js",
         "dev-harness\\unit\\privacy-missing-config-vault.test.js"
       ]
@@ -3941,6 +3972,57 @@
     },
     {
       "kind": "exact",
+      "path": "/api/media/images/prepare",
+      "file": "13be-media-image-host.js",
+      "handler": "MediaImageHost",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13be-media-image-host.js",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\media-resource-profile.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/media/images/",
+      "file": "13be-media-image-host.js",
+      "handler": "MediaImageHost",
+      "methods": [
+        "DELETE"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13be-media-image-host.js",
+      "auth": "token-browser",
+      "coveredBy": [
+        "dev-harness\\media-resource-profile.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js"
+      ]
+    },
+    {
+      "kind": "prefix",
+      "path": "/api/media/images/",
+      "file": "13be-media-image-host.js",
+      "handler": "MediaImageHost",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "13be-media-image-host.js",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\media-resource-profile.e2e.js",
+        "dev-harness\\unit\\media-resource-profile.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/overlay/precheck",
       "file": "13c-overlay-routes.js",
       "handler": "handleOverlayApiRoutes",
@@ -4126,6 +4208,7 @@
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\mcp-consumer-restart.e2e.js",
+        "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-scope.e2e.js",
@@ -4275,6 +4358,7 @@
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\fulltext-consumer-entry.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",
@@ -4437,6 +4521,7 @@
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\mcp-consumer-restart.e2e.js",
+        "dev-harness\\media-resource-profile.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\memory-scope.e2e.js",
@@ -4586,6 +4671,7 @@
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\fulltext-consumer-entry.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\media-resource-profile.test.js",
         "dev-harness\\unit\\privacy-display-http.test.js",
         "dev-harness\\unit\\release-audit-w4-gates.test.js",
         "dev-harness\\unit\\session-execution-read-epoch.test.js",

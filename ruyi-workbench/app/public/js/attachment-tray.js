@@ -12,6 +12,9 @@ import { $, el, fmtBytes, toast } from './util.js';
 import { api } from './net.js';
 import { icon } from './icons.js';
 import { t } from './i18n.js';
+import { prepareProtectedImages, releaseImagePreviews, discardProtectedImage, invalidateImageOperations, isProtectedImage } from './protected-image-state.js';
+import { openImageRegionEditor } from './image-region-editor.js';
+export { prepareProtectedImages } from './protected-image-state.js';
 
 const IMAGE_NAME_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
 const UPLOAD_MAX_BYTES = 90 * 1048576;
@@ -23,9 +26,7 @@ export function createAttachmentTray({ apiErrText = error => String((error && er
   let stageGeneration = 0;
 
   function revokeAttachmentPreview(record) {
-    if (!record || !record.previewUrl) return;
-    try { URL.revokeObjectURL(record.previewUrl); } catch { /* ignore */ }
-    delete record.previewUrl;
+    releaseImagePreviews(record);
   }
 
   function renderAttachments() {
@@ -41,8 +42,23 @@ export function createAttachmentTray({ apiErrText = error => String((error && er
         pill.appendChild(thumb);
       }
       pill.append(el('span', '', `${f.name} · ${fmtBytes(f.size)}`));
+      if (isProtectedImage(f) && state.config?.privacyModeV1 !== 'off') {
+        const preview = el('button', 'attach-protected-preview', t(f.imageBasePreview ? 'mediaImage.editRegions' : 'mediaImage.reviewCurrent'));
+        preview.type = 'button';
+        preview.dataset.imageAttachmentId = String(f.id);
+        preview.disabled = !!f.imagePreparationController;
+        preview.onclick = async () => {
+          if (f.imageBasePreview) { openImageRegionEditor(f,{onChange:renderAttachments}); return; }
+          try { await prepareProtectedImages([f],state.currentSession?.id,{force:true,review:true,regions:null}); }
+          catch(e) { toast(apiErrText(e),'err'); }
+          renderAttachments();
+        };
+        pill.appendChild(preview);
+      }
       const x = el('button', 'attach-x'); x.appendChild(icon('close', 12)); x.setAttribute('aria-label', t('chat.attachRemoveAria')); x.title = t('common.remove');
-      x.onclick = () => { const [removed] = state.attachments.splice(i, 1); revokeAttachmentPreview(removed); renderAttachments(); };
+      x.onclick = () => { const [removed] = state.attachments.splice(i, 1); removed?.imagePreparationController?.abort(); revokeAttachmentPreview(removed);
+        if (removed) void discardProtectedImage(removed).catch(() => {});
+        renderAttachments(); };
       pill.appendChild(x);
       tray.appendChild(pill);
     });
@@ -76,6 +92,7 @@ export function createAttachmentTray({ apiErrText = error => String((error && er
   // 清场（新线程）：中止全部在飞的上传、撤掉占位、让回来的结果作废。
   function resetUploads() {
     stageGeneration += 1;
+    invalidateImageOperations();
     for (const slot of [...pendingUploads]) {
       slot.cancelled = true;
       try { slot.controller.abort(); } catch { /* 同上 */ }
@@ -109,6 +126,7 @@ export function createAttachmentTray({ apiErrText = error => String((error && er
         const record = res.file;
         if (record && IMAGE_NAME_RE.test(String(record.name || ''))) record.previewUrl = URL.createObjectURL(file);
         if (record) state.attachments.push(record);
+        if (record && state.currentSession?.id) await prepareProtectedImages([record], state.currentSession.id, { signal:slot.controller.signal });
       } catch (e) {
         if (slot.cancelled || (e && e.name === 'AbortError')) continue;   // 用户点了 ×：不是失败，不弹错
         toast(t('toast.uploadFail', { p1: apiErrText(e) }), 'err');

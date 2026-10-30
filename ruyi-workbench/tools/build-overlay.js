@@ -103,6 +103,8 @@ const PAYLOAD_FILES = [
   'app/public/js/presence-viewing.js', // 2026-10:interaction-prompts.js 静态 import 它(用户正看着的提问/权限,管家不插手),漏发即弹窗全挂
   'app/public/js/background-tray.js', // 135c:app.js 静态 import 它,漏发即整页白屏
   'app/public/js/attachment-tray.js', // W1-chat F13:app.js 静态 import 它(附件托盘/上传中占位),漏发即整页白屏
+  'app/public/js/protected-image-state.js', // M4: verified preview, explicit-region binding and operation ownership
+  'app/public/js/image-region-editor.js', // M4: local pointer/keyboard mask editor
   'app/public/js/tool-runtime.js',
   'app/public/js/workspace-preferences.js',
   // 第56波:任务单五态派生纯函数(Pretender P0;PoC 与将来新壳层共用,须随离线包发布)

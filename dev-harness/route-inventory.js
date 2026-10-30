@@ -57,6 +57,7 @@ const ROUTER_FILES = [
   '13ab-privacy-api.js',
   '13ac-mcp-consumer.js',
   '13ah-work-data-setup.js',
+  '13be-media-image-host.js',
 ];
 const ROUTE_AUTH_FILE = '01b-route-auth.js';
 

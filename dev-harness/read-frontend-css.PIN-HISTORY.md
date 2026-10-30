@@ -910,3 +910,6 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 // 自证：只读 HEAD chat-live.css 时载荷精确回到 0990a6250d726cc0df5a0ac053ccd5ffeb8077af0db8663e31117772fb2f8fa3；内存损坏后 D51/F3 必须失败，磁盘 CSS 不改坏。
 
 // M3-3: append only scoped work-data panel settings rules; 1440/768/390 browser layout verified.
+
+// M4 explicit image regions original source pin a0b6f51682fbabc3a03352730206589f4a1f29819f993ebadb4ebf20c8a2111b; prior c5ebb proof remains in Git.
+// M4+8cca combined source pin 3709bb1f71a20235d5672d4b614fad142f51e5b3e520965d13875fde336e9dbf;8cca composer-only substitution restores 03dfe2f7a8aa5e4511c16016a0ae69dcb7016e102e1cef38732f27ef2f4a7c4b.

@@ -245,6 +245,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
             finally{inner?.fill(0);if(compressed!==file.data)compressed.fill(0);}
           } else text=await openedText(file,descriptor);
           if (descriptor.codec==='text'&&!descriptor.markdown) { value=JSON.parse(text.replace(/^\uFEFF/,'')); if(!value||typeof value!=='object'||(descriptor.shape==='array'?!Array.isArray(value):Array.isArray(value)))fail('source_invalid'); }
+          if (descriptor.family==='media-derived' && WorkDataMigrationCodecs.Hooks.mediaDerived?.validateSealedText(text,descriptor)!==true) fail('source_invalid');
         } else {
           try { text=decode(file.data); value=JSON.parse(text.replace(/^\uFEFF/,'')); } catch { /* Opaque media and arbitrary non-JSON user content remain exact bytes. */ }
           if(text!==undefined){const fullProbe=WorkDataRecords.lineProbe();fullProbe.feed(file.data);if(fullProbe.reserved()||text.trimStart().startsWith('{')&&workMarker.test(text))fail('special_owner_required',{file:file.path});}
@@ -275,6 +276,7 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
     function checkAuthority(files,directories,generation,native){
       for(const directory of directories){
         const logical=namespace(directory).logical;
+        if(/^media-derived-v1(?:\/|$)/i.test(logical)&&!/^media-derived-v1(?:\/[a-f0-9]{32})?$/.test(logical))fail('special_owner_required',{file:directory,reason:'media-owned-namespace-directory'});
         if(fulltextNamespace(logical)&&ownerPath(logical)!=='sessions/_fulltext-index-v1'){
           let descriptor;try{descriptor=WorkDataMigrationCodecs.describe(logical+'/manifest.json');}catch{}
           if(descriptor?.family!=='session-fulltext-manifest')fail('special_owner_required',{file:directory,reason:'fulltext-owned-namespace-directory'});
