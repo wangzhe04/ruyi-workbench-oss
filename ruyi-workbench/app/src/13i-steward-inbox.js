@@ -442,8 +442,10 @@ function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   // hunt2-steward ④:成败账只在盖得住【这一回合】时才算数(06i stewardCoveringLastTurn)。账是上一个
   // 管家回合留下的(这一回合是用户在 2.0 里自己聊的,不写账)→ 当作账缺席,按 done 报。
   const last = stewardCoveringLastTurn(h.stewardLastTurn, seq);
+  if (Number(last?.seq) === seq && ['pending', 'unknown'].includes(last?.scheduler?.state)) return null;
   const kind = stewardKindFor('sessionTurn', 'turn_settled', last);
   if (!kind) return null;
+  if (kind === 'done' && last && last.quiet === true) return null;
   const quick = !!(h.stewardQuick && typeof h.stewardQuick === 'object');
   const payload = { source: 'session_turn', turnSeq: seq };
   if (h.launchedBy) payload.launchedBy = stewardClipSummary(h.launchedBy);
@@ -1132,7 +1134,13 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
   // 收尾:activeChildren 已删、turnOutcomePending 还没加(中间是 reconcile / 存会话 / onTurnEnd 几次 await)。
   // 修前已见过的线程落在这两个窗口里会被报一条「跑完了」并把基线推到 N,真正的结果(尤其是失败)再也报不出来。
   // 首见那一支早有 inFlight 判据兜同一个窗口;这里对所有线程统一用 turnSettlers。
-  if (activeChildren.has(sid) || turnOutcomePending.has(sid) || turnSettlers.has(sid)) {
+  const pendingOwner = turnOutcomePending.get(sid);
+  const pendingSeq = Number(pendingOwner?.outcomeSeq);
+  let durablePending = Number(head.stewardLastTurn?.seq) === turnSeq && ['pending', 'unknown'].includes(head.stewardLastTurn?.scheduler?.state);
+  if (!durablePending && turnSeq > (Number(known?.turnSeq) || 0) && typeof SchedulerHooks !== 'undefined' && typeof SchedulerHooks.sessionTurnAdmission === 'function') {
+    try { durablePending = !await SchedulerHooks.sessionTurnAdmission(head); } catch { durablePending = true; }
+  }
+  if (activeChildren.has(sid) || (pendingOwner && (!Number.isFinite(pendingSeq) || pendingSeq >= turnSeq)) || durablePending || turnSettlers.has(sid)) {
     // (turnOutcomePending:回合已收、成败账正在写 —— 同样等下一拍,见 04 的头注)
     // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
     // 117p(用户第七轮走查:「2.0 回合已经跑完了,管家没有收到体现也没收工」):首见就撞上活回合时,

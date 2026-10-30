@@ -1917,6 +1917,12 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
 let configWriteChain = Promise.resolve();
 let configReadGeneration = 0;
+function configReadFence() {
+  const generation = configReadGeneration;
+  const stamp = () => { try { const st = fs.statSync(paths.config, { bigint: true }); return [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':'); } catch (error) { if (error.code === 'ENOENT') return 'missing'; throw error; } };
+  const captured = stamp();
+  return () => { if (generation !== configReadGeneration || stamp() !== captured) throw Object.assign(new Error('thread_relay.permission_changed'), { code: 'thread_relay.permission_changed', statusCode: 409 }); };
+}
 function invalidateConfigReads() { configReadGeneration++; configReadCache = null; }
 async function writeConfigAtomic(data, options = {}) {
   if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.()) {
@@ -2166,7 +2172,7 @@ async function readConfig() {
   } catch (error) { if (current() && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
 }
 
-// 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带订阅者要的开关位,
+// 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带调度开关与权限档,
 // 【不带整份配置】(里面有服务商密钥;总线纪律③:它只是一条线,不承载正文;13r 只转发它认得的名字,这一声不出进程)。
 // 订阅者:13s 的调度器 —— 启动那一刻 schedulerEnabledV1 关着就没起(红线⑤:关着零开销、零写入),修前用户之后在设置里
 // 打开要重启才生效;现在听到这一声当场补起。零订阅者时 emit 是 no-op。
@@ -2176,7 +2182,7 @@ function configEmitWritten(config) {
   if (typeof config?.credentialEncryptionV1 === 'boolean') lastGoodCredentialEncryptionV1 = config.credentialEncryptionV1;
   if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
   lastGoodConfig = cloneConfigSnapshot(config);
-  RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true) });
+  RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true), permissionMode: String(config && config.permissionMode || 'default') });
 }
 
 // 128a:before ＝ 这次写入之前的内存视图(mutateConfig 在 mutator 动手前拍的快照)。next 里归一化后值与它

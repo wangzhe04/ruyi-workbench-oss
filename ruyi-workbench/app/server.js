@@ -29,6 +29,7 @@ const VERSION = '3.0.1'; // 如意 Ruyi 3.0.1 修复更新（2026-10-16）
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
 // Runtime execution admission/cancellation hooks; early declaration also serves session rewind.
 const SessionExecutionHooks = {};
+const ThreadRelayHooks = {};
 const ProxyModelHooks = {};
 const DeliveryHooks = {};
 const ExternalBotHooks = {};
@@ -1749,6 +1750,8 @@ const ROUTE_AUTH = [
   // (前缀条目带尾斜杠,按 startsWith 匹配不到本裸路径,两条不冲突。)
   { m: 'GET', p: '/api/interventions', auth: 'token-browser' },
   { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
+  { m: 'POST', p: '/api/thread-relays', auth: 'body-token' },
+  { m: 'GET', p: '/api/thread-relays', auth: 'token' },
   // 代理模式 v2:MCP 子进程(Claude/Kimi)的 wait_agents / agent_result 回环 —— 同 launch 的 body-token 门(handler 内
   // 另接受 UI 头 token,供管理面/测试直调)。
   { m: 'POST', p: '/api/agent-workflow/wait', auth: 'body-token' },
@@ -5682,6 +5685,12 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
 let configWriteChain = Promise.resolve();
 let configReadGeneration = 0;
+function configReadFence() {
+  const generation = configReadGeneration;
+  const stamp = () => { try { const st = fs.statSync(paths.config, { bigint: true }); return [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':'); } catch (error) { if (error.code === 'ENOENT') return 'missing'; throw error; } };
+  const captured = stamp();
+  return () => { if (generation !== configReadGeneration || stamp() !== captured) throw Object.assign(new Error('thread_relay.permission_changed'), { code: 'thread_relay.permission_changed', statusCode: 409 }); };
+}
 function invalidateConfigReads() { configReadGeneration++; configReadCache = null; }
 async function writeConfigAtomic(data, options = {}) {
   if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.()) {
@@ -5931,7 +5940,7 @@ async function readConfig() {
   } catch (error) { if (current() && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.(); throw error; }
 }
 
-// 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带订阅者要的开关位,
+// 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带调度开关与权限档,
 // 【不带整份配置】(里面有服务商密钥;总线纪律③:它只是一条线,不承载正文;13r 只转发它认得的名字,这一声不出进程)。
 // 订阅者:13s 的调度器 —— 启动那一刻 schedulerEnabledV1 关着就没起(红线⑤:关着零开销、零写入),修前用户之后在设置里
 // 打开要重启才生效;现在听到这一声当场补起。零订阅者时 emit 是 no-op。
@@ -5941,7 +5950,7 @@ function configEmitWritten(config) {
   if (typeof config?.credentialEncryptionV1 === 'boolean') lastGoodCredentialEncryptionV1 = config.credentialEncryptionV1;
   if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
   lastGoodConfig = cloneConfigSnapshot(config);
-  RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true) });
+  RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true), permissionMode: String(config && config.permissionMode || 'default') });
 }
 
 // 128a:before ＝ 这次写入之前的内存视图(mutateConfig 在 mutator 动手前拍的快照)。next 里归一化后值与它
@@ -14053,7 +14062,7 @@ function foldInterventionJournalText(txt) {
   };
 }
 
-async function readInterventionsWithMeta(sessionId) {
+async function readInterventionsWithMeta(sessionId, options = {}) {
   const sid = String(sessionId || '');
   // 读自己的写:registerIntervention / settleIntervention 是「发出去不等」地排进这条会话的写链的。待决事件
   // (permission_request / ask_user)在排队那一刻就推给了前端,用户(或 e2e)紧接着作答时,决定核心
@@ -14061,7 +14070,8 @@ async function readInterventionsWithMeta(sessionId) {
   // 回合干等到超时(Windows CI kimi-agent-cli「permission_request 之后 30 s 无事件」的根因:
   // 决定 POST 回的是 404 unknown or expired request)。写链只做 append,不回头读账,这里等它不会自锁。
   const pending = interventionWriteChains.get(sid);
-  if (pending) { try { await pending; } catch { /* append 失败已在写链里吞掉:照读盘上现有的 */ } }
+  if (pending) { try { const written = await pending; if (options.strict && written !== true) throw Object.assign(new Error('intervention admission state unavailable'), { code: 'intervention.state_unavailable' }); }
+    catch (error) { if (options.strict) throw error; /* legacy readers retain the best-effort projection */ } }
   let txt;
   for (let attempt = 0; ; attempt++) {
     try { txt = await fsp.readFile(interventionFilePath(sid), 'utf8'); break; }
@@ -14069,6 +14079,7 @@ async function readInterventionsWithMeta(sessionId) {
       // 每 128 次 append 一次的压实是「写临时文件 + rename」;Windows 上 rename 那一瞬读会撞 EPERM/EBUSY。
       // 修前任何读错都当成「这条会话没有待决」—— 同样判 not_found。瞬时锁有界重试,其余(ENOENT 等)照旧当空。
       if (attempt < 3 && /^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) { await new Promise(r => setTimeout(r, 10 + attempt * 20)); continue; }
+      if (options.strict && e.code !== 'ENOENT') throw e;
       return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 };
     }
   }
@@ -15219,7 +15230,31 @@ function sessionTodosSignature(todos) {
 
 // 116-2a: patch 的应用规则单列一处 —— 立即落盘路径与「延后到回合 settle 之后」的重做路径必须逐字
 // 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
-function applySessionMetaPatch(session, patch) {
+function sessionSchedulerTurnReceipt(raw) {
+  if (!raw || typeof raw !== 'object' || !['pending', 'unknown', 'settled'].includes(raw.state)) return null;
+  const taskId = String(raw.taskId || ''), runId = String(raw.runId || ''), boundKey = String(raw.occurrenceKey || '');
+  if (!taskId || taskId.length > 200 || !runId || runId.length > 200 || !boundKey.startsWith(taskId + '@') || boundKey.length > 300) return null;
+  return { taskId, runId, occurrenceKey: boundKey, state: raw.state };
+}
+function sessionSchedulerTurnMatches(last, expected) {
+  const receipt = sessionSchedulerTurnReceipt(last?.scheduler);
+  return !!(receipt && expected && Number(last.seq) === Number(expected.seq)
+    && receipt.taskId === expected.taskId && receipt.runId === expected.runId && receipt.occurrenceKey === expected.occurrenceKey
+    && (Array.isArray(expected.state) ? expected.state : [expected.state]).includes(receipt.state));
+}
+function sessionStampSchedulerTurn(session, owner) {
+  if (!owner || owner.source !== 'scheduler') return;
+  const receipt = sessionSchedulerTurnReceipt({ ...owner.requestMeta, state: 'pending' });
+  const seq = Number(session.turnSeq);
+  if (!receipt || !Number.isSafeInteger(seq) || seq < 1) throw new Error('Scheduler turn identity missing before session commit');
+  // The engine already incremented its real turnSeq. This marker is committed
+  // atomically with that head, before its first model/tool invocation.
+  session.stewardLastTurn = { seq, ok: false, aborted: false, errorClass: 'scheduler_pending', at: nowIso(), scheduler: receipt };
+}
+function applySessionMetaPatch(session, patch, options = {}) {
+  if (options.external && Object.prototype.hasOwnProperty.call(patch, 'stewardLastTurn')) {
+    throw Object.assign(new Error('Turn outcome is owned by its execution'), { code: 'SESSION_METADATA_INTERNAL', apiCode: 'session.metadata_internal', statusCode: 400 });
+  }
   const id = session.id;
   // 116-5a(27 号文 §11.8.3):走这条通道改标题的只有两个调用面 —— PATCH /api/sessions/:id(用户
   // 在界面上改名)与 steward_thread_rename(管家替用户改名)。两者都是【有意起的名字】,应当压过
@@ -15341,6 +15376,8 @@ function applySessionMetaPatch(session, patch) {
       errorClass: String(t.errorClass || '').slice(0, 64),
       at: String(t.at || ''),
       todosStartSig: String(t.todosStartSig || '').slice(0, 64),
+      ...(t.quiet === true ? { quiet: true } : {}),
+      ...(sessionSchedulerTurnReceipt(t.scheduler) ? { scheduler: sessionSchedulerTurnReceipt(t.scheduler) } : {}),
     };
   }
   // 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。严格归一成固定六字段,与
@@ -15411,10 +15448,10 @@ function stewardWatchNoteFrom(p) {
 // (改名、权限档、stewardLastTurn、threadBrief……)是真数据,不能跟着丢:在【新读】的副本上重放一次。
 // 有界:连着撞上三次撤回才会放弃,那时把 SESSION_STALE_SAVE 如实抛给调用方(与 save 失败同一条语义)。
 const SESSION_META_STALE_REPLAYS = 2;
-async function updateSessionMeta(id, patch) {
-  return updateSessionMetaAttempt(id, patch, 0);
+async function updateSessionMeta(id, patch, options = {}) {
+  return updateSessionMetaAttempt(id, patch, 0, options);
 }
-async function updateSessionMetaAttempt(id, patch, replayDepth) {
+async function updateSessionMetaAttempt(id, patch, replayDepth, options = {}) {
   const p = (patch && typeof patch === 'object') ? patch : {};
   const watchNote = stewardWatchNoteFrom(p);
   // hunt2-P4:读-改-存进 mutateSession 同一条 per-id 链(与它互斥,见 withSessionMutateLock 头注)。
@@ -15422,15 +15459,25 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
   const step = await withSessionMutateLock(id, async () => {
     const loaded = await loadSession(id);
     if (!loaded) return { session: null };
-    applySessionMetaPatch(loaded, p);
+    if (options.expectedSchedulerOutcome && !sessionSchedulerTurnMatches(loaded.stewardLastTurn, options.expectedSchedulerOutcome)) return { session: loaded };
+    // Recovery owns Tasks. Waiting for a live turn here can wait back on that
+    // same owner through admission. Keep the already durable pending receipt;
+    // the original fire journal records unknown with its exact seq instead.
+    // Current-owner finalizers retain their normal waitForCommit path.
+    if (options.preserveSchedulerPendingIfBusy && options.waitForCommit && options.expectedSchedulerOutcome
+        && (activeChildren.has(id) || turnSettlers.has(id))) return { session: loaded, preservedSchedulerPending: true };
+    applySessionMetaPatch(loaded, p, options);
     // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
     if (activeChildren.has(id) || turnSettlers.has(id)) return { session: loaded, deferred: true };
+    if (options.waitForCommit && sessionSaveIsTombstoned(loaded)) return { session: null };
     try { await saveSession(loaded, { throwIfStale: true, writer: 'session_meta' }); }
     catch (error) { return { session: loaded, error }; }
+    if (options.waitForCommit && sessionSaveIsTombstoned(loaded)) return { session: null };
     return { session: loaded };
   });
   const session = step.session;
   if (!session) return null; // missing/corrupt — caller maps to 404
+  if (step.preservedSchedulerPending) return session;
   if (!step.deferred) {
     if (step.error) {
       const error = step.error;
@@ -15438,7 +15485,7 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
       // 107-F7b:从头再走一遍(重新 load、重新判活回合),而不是只在原地重试 save —— 撤回之后可能已经
       // 起了新回合,那时补丁该走下面那条延后通道,不能拿新副本去跟活回合抢写。
       logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: replayDepth + 1 });
-      return updateSessionMetaAttempt(id, patch, replayDepth + 1);
+      return updateSessionMetaAttempt(id, patch, replayDepth + 1, options);
     }
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:会话头刚变过,五态由订阅者现算
     // 121-K3(§4.4「工作台 → 管家」):用户刚按下「交给管家盯」。复用 missionAttachThread 已经在派的
@@ -15457,29 +15504,40 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
         settler.promise.then(() => true, () => true),
         new Promise(r => setTimeout(() => r(false), SESSION_META_DEFER_TIMEOUT_MS)),
       ]);
-      if (!settled) { forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id }); }
+      if (!settled) {
+        if (options.waitForCommit) throw new Error('Session outcome commit is still blocked by a turn');
+        forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id });
+      }
     }
     // hunt2-P4:settle 已在上面(链外)等过;读-改-存这一段进 per-id 读改写链,与 mutateSession 互斥。
     const fresh = await withSessionMutateLock(id, async () => {
-      let copy = await loadSession(id).catch(() => null);
+      if (options.waitForCommit && (activeChildren.has(id) || turnSettlers.has(id))) throw new Error('Session outcome commit owner changed');
+      let copy = await loadSession(id).catch(error => { if (options.waitForCommit) throw error; return null; });
       if (!copy) return null;                 // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
-      applySessionMetaPatch(copy, p);
+      if (options.expectedSchedulerOutcome && !sessionSchedulerTurnMatches(copy.stewardLastTurn, options.expectedSchedulerOutcome)) return copy;
+      applySessionMetaPatch(copy, p, options);
       // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
       // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
       // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
       for (let attempt = 0; ; attempt++) {
-        try { await saveSession(copy, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
+        try {
+          if (options.waitForCommit && sessionSaveIsTombstoned(copy)) return null;
+          await saveSession(copy, { throwIfStale: true, writer: 'session_meta_deferred' });
+          if (options.waitForCommit && sessionSaveIsTombstoned(copy)) return null;
+          break;
+        }
         catch (error) {
-          if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
+          if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) { if (options.waitForCommit) throw error; break; }
           logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
-          copy = await loadSession(id).catch(() => null);
+          copy = await loadSession(id).catch(error => { if (options.waitForCommit) throw error; return null; });
           if (!copy) return null;
-          applySessionMetaPatch(copy, p);
+          if (options.expectedSchedulerOutcome && !sessionSchedulerTurnMatches(copy.stewardLastTurn, options.expectedSchedulerOutcome)) return copy;
+          applySessionMetaPatch(copy, p, options);
         }
       }
       return copy;
     });
-    if (!fresh) return;
+    if (!fresh) return null;
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
     // 121-K6a:note 算在 patch 到来那一刻(watchNote,外层闭包变量),不是等到这里才重算——委托话是
@@ -15495,11 +15553,14 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
         stillActive: activeChildren.has(id), stillSettling: turnSettlers.has(id),
       });
     }
+    return fresh;
   });
   // 自清,避免长驻会话把链表越挂越长;只清自己那一条(后来者可能已经顶上)。
   const wrapped = chain.then(() => {}, () => {});
   sessionMetaDeferChains.set(id, wrapped);
   wrapped.then(() => { if (sessionMetaDeferChains.get(id) === wrapped) sessionMetaDeferChains.delete(id); });
+  // Outcome publication needs the actual write, never the accepted projection.
+  if (options.waitForCommit) return chain;
   // 返回值是「投影」:磁盘上的会话 + 本次 patch,与落盘后的结果一致(调用方据此回 200)。
   return session;
 }
@@ -17438,6 +17499,7 @@ async function saveSession(session, opts) {
   applySessionTitleOverride(session);
   applySessionPermissionModeOverride(session);
   applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
+  sessionStampSchedulerTurn(session, opts && opts.executionOwner);
   const finalPath = sessionPath(id);
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];
@@ -23454,6 +23516,18 @@ const VisualPipeline = (() => {
   return Object.freeze({ buildUserContentParts, hasImageAttachment, extractToolImages, stripToolImageFields, pruneOldImages, sniffImageMime, imageSizeFromBuffer });
 })();
 
+// Carries only an original owner's private prepare/assert callbacks across its
+// engine's async calls until its first accepted dispatch. Derived workflows keep
+// their original lifetimes; a consumed parent context supplies no callbacks.
+// No permission facts, storage, timers or IO live here.
+const ModelDispatchContext = ((AsyncLocalStorage) => {
+  const local = new AsyncLocalStorage();
+  return Object.freeze({ run: (callbacks, work) => local.run(callbacks, work), current: () => {
+    const callbacks = local.getStore();
+    return callbacks?.active && !callbacks.active() ? null : callbacks;
+  } });
+})(require('node:async_hooks').AsyncLocalStorage);
+
 // 117w-W1 提交②(27 号文 §11.19.2):Windows 文件系统非法字符的【唯一一份】替换表 —— 尖括号、
 // 冒号、双引号、两种斜杠、竖线、问号、星号、控制字符,一律换成下划线;中文与其它可见字符原样保留。
 // 修前它是 makeAttachmentRecord 里的一条内联正则,提交② 的派生子工作区(13k stewardWorkspaceSlug)
@@ -23878,6 +23952,21 @@ function installActiveChildEventFanout(reg) {
 // 若只看 activeChildren 就会在这个窗口截断落盘,然后被 dying turn 的收尾 save 整份盖回(丢失写:
 // 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
 const turnSettlers = new Map();
+// Guard the original relay's first accepted submit, including a delegation that
+// precedes its own model POST. Afterwards normal engine/workflow owners take over.
+// This context confers no execution authority.
+SessionExecutionHooks.withDispatchOwner = (owner, work) => owner?.prepareDispatch
+  ? ModelDispatchContext.run({ active: () => !owner.dispatchAccepted, prepare: sessionId => {
+    if (owner.dispatchAccepted) return null;
+    if (sessionId != null && sessionId !== owner.sessionId) throw Object.assign(new Error('Dispatch owner changed'), { code: 'SESSION_DISPATCH_OWNER_CHANGED' });
+    return owner.prepareDispatch();
+  }, assert: fence => { if (!owner.dispatchAccepted) SessionExecutionHooks.assertDispatch(owner, fence, true); } }, work) : work();
+SessionExecutionHooks.assertDispatch = (owner, fence, submitted = false) => {
+  assertSessionExecutionOwner(owner.sessionId, owner);
+  if (!fence || typeof fence.assert !== 'function') throw Object.assign(new Error('Dispatch fence missing'), { code: 'SESSION_DISPATCH_FENCE_REQUIRED' });
+  fence.assert();
+  if (submitted) { owner.dispatchAccepted = true; owner.prepareDispatch = null; }
+};
 // A logical driver owns all of its queued/child turns. Never infer ownership from the current child.
 // Bounded evidence for completed-then-undo. A newer admitted driver replaces the old identity.
 const sessionLastExecutions = new Map();
@@ -23919,9 +24008,15 @@ function sessionExecutionCheckRewind(sessionId, expectedExecution) {
   return sessionExecutionCheck(sessionId, expectedExecution);
 }
 function assertSessionExecutionOwner(sessionId, owner) {
+  if (owner && owner.authority) owner.authority.assertCurrent();
   if (owner && (owner.cancelRequested || turnSettlers.get(sessionId) !== owner)) {
     throw Object.assign(new Error('Execution stopped or superseded'), { code: 'STEWARD_TURN_CANCELLED' });
   }
+}
+async function revalidateSessionExecutionPermission(sessionId, owner) {
+  assertSessionExecutionOwner(sessionId, owner);
+  if (owner && owner.authority) await owner.authority.revalidate();
+  assertSessionExecutionOwner(sessionId, owner);
 }
 function registerSessionExecutionChild(sessionId, reg, owner) {
   assertSessionExecutionOwner(sessionId, owner);
@@ -23962,7 +24057,7 @@ SessionExecutionHooks.stop = requestSessionExecutionStop;
 // (会话头 stewardLastTurn)是紧跟着再写的 —— 这中间的几毫秒里收件箱第四源读到头会看见「回合跑完、没有成败账」
 // 并按「账缺席 = done」报,于是一个失败回合被报成收工(2026-10 真机:network_down 失败回合被管家说成「已收工」)。
 // 收件箱收集(13i)把本表与活回合同等对待:在表里就等下一拍。只活在内存。
-const turnOutcomePending = new Set();
+const turnOutcomePending = new Map(); // sessionId -> publishing execution owner
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
 const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer, deadlineAt }
 
@@ -27992,9 +28087,12 @@ async function providerModelPostOnce({ url, headers, body, signal }) {
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     const prepared = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body, { signal }) : body;
     const encoded = JSON.stringify(prepared);
+    const dispatch = typeof ModelDispatchContext !== 'undefined' && ModelDispatchContext.current();
+    const dispatchFence = dispatch ? await dispatch.prepare() : null;
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
     if (policyGuard) policyGuard();
+    if (dispatch) dispatch.assert(dispatchFence);
     return fetch(url, { method: 'POST', headers, body: encoded, signal });
   };
   // OFF 也绑定当前策略，拒绝 beforeModelRequest 的 await 期间发生的开启/规则切换。
@@ -31948,8 +32046,11 @@ async function runClaudeTurn({
   // 把先登记的从表里挤掉 —— Stop 只杀得到一个,另一个成了孤儿。这里在「最后一个 await 之后、spawn 之前」
   // 再判一次(从这行到 activeChildren.set 全是同步代码,中间没有让出点),保证同会话同一时刻只有一个子进程。
   if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+  const spawnFence = executionOwner?.prepareDispatch ? await executionOwner.prepareDispatch() : null;
   assertSessionExecutionOwner(session.id, executionOwner);
+  if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
+  if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
@@ -32122,6 +32223,8 @@ async function runClaudeTurn({
   };
 
   child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
+  try {
+  if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence, true);
   if (interactive) {
     // stream-json input: send the user turn as a JSON envelope, keep stdin OPEN for tool_result /
     // AskUserQuestion answers written via /api/chat/answer. Closed when the turn's `result` arrives.
@@ -32130,6 +32233,12 @@ async function runClaudeTurn({
     child.stdin.write(fullPrompt, 'utf8');
     child.stdin.end();
   } else child.stdin.end();
+  } catch (error) {
+    // A synchronous post-spawn callback may invalidate the fence. Retire through
+    // the original stop/exit path so listeners, leases and timers still settle.
+    logEvent({ kind: 'relay_dispatch_refused', sessionId: session.id, code: String(error.code || 'io') });
+    stopSession(session.id, 'relay_dispatch_refused');
+  }
 
   const stderrDecodeStream = {};   // hunt2-engines#8:一条 stderr 一个解码状态,块边界切开的汉字不再被误判成 GB18030
   child.stderr.on('data', chunk => {
@@ -36193,8 +36302,11 @@ async function runKimiAcpTurnPrepared(context) {
     // (MCP 同步、基线捕获、hooks),同会话并发的两个回合会各起一个 ACP 子进程。从这行到 activeChildren.set
     // 全是同步代码,在这里判一次就不会有两个子进程同时在册。
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+    const spawnFence = executionOwner?.prepareDispatch ? await executionOwner.prepareDispatch() : null;
     assertSessionExecutionOwner(session.id, executionOwner);
+    if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
     if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
+    if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     reg = {
       child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(),
@@ -36486,6 +36598,9 @@ async function runKimiAcpTurnPrepared(context) {
         })
         : [{ type: 'text', text: prompt }];
       if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+      const promptFence = executionOwner?.prepareDispatch ? await executionOwner.prepareDispatch() : null;
+      assertSessionExecutionOwner(session.id, executionOwner);
+      if (promptFence) SessionExecutionHooks.assertDispatch(executionOwner, promptFence, true);
       const response = await rpc.request('session/prompt', {
         sessionId: nativeSessionId,
         prompt: Array.isArray(promptParts) && promptParts.length ? promptParts : [{ type: 'text', text: prompt }],
@@ -38479,7 +38594,7 @@ function normalizePlaybook(raw) {
   const uiMode = (raw.uiMode === 'simple' || raw.uiMode === 'pro') ? raw.uiMode : 'both';
   // 枚举钳制:编造的一类静默丢成 ''(未分类)。摘掉这道钳制,`service:'编造的一类'` 会原样穿透。
   const service = PLAYBOOK_SERVICES.includes(raw.service) ? raw.service : '';
-  return {
+  const normalized = {
     id,
     title: title.slice(0, 120),
     icon: String(raw.icon || '📄').slice(0, 8),
@@ -38492,6 +38607,9 @@ function normalizePlaybook(raw) {
     service,
     ...(reuse ? { reuse } : {}),
   };
+  // Content identity also covers declared inputs and acceptance checks. A saved
+  // schedule pins this revision; editing the library never rewrites that copy.
+  return { ...normalized, revision: crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex') };
 }
 
 function builtinPlaybooksDir() { return path.join(externalRoot(), 'resources', 'playbooks'); }
@@ -43442,6 +43560,8 @@ function prerouteText(q, index, memory, opts) {
 //           preroute(q,config?,extra?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           extra.focus = 用户此刻看着的那条线程,128h-J03,可缺;
 //           零模型、缓存命中不重装配)
+// Library owner adapters filled by 13k: normalizePlaybook(raw) -> template|null;
+// loadAllPlaybooks() -> Promise<template[]>; no parallel template repository.
 const StewardHooks = {};
 
 // ============================================================================
@@ -46933,7 +47053,7 @@ const SchedulerHooks = {};
 
 // ── 值域与上限(单一事实源;13s 与 API 都引用这里,不各写一份字面量)────────────────────────────
 const SCHEDULER_SCHEDULE_KINDS = Object.freeze(['once', 'daily', 'weekly', 'monthly', 'cron']);
-const SCHEDULER_PAYLOAD_KINDS = Object.freeze(['reminder', 'prompt']);   // playbook/workflow → 127 波
+const SCHEDULER_PAYLOAD_KINDS = Object.freeze(['reminder', 'prompt', 'playbook']);
 const SCHEDULER_TARGET_MODES = Object.freeze(['new-session', 'existing-session']);
 const SCHEDULER_ON_MISSED = Object.freeze(['run-once-late', 'skip']);
 // 失败后的处理:目前只有 'notify'(记账、计入连败、三次熔断)。29 号文设计过 'retry-once',但调度器从未实现它 ——
@@ -47173,6 +47293,7 @@ function nextFireAt(schedPlanRaw, schedFromMs) {
   const plan = (schedPlanRaw && typeof schedPlanRaw === 'object' && !Array.isArray(schedPlanRaw)) ? schedPlanRaw : null;
   const from = Number(schedFromMs);
   if (!plan || !Number.isFinite(from)) return null;
+  if (plan.tz && plan.tz !== 'local') return schedulerZonedNextFireAt(plan, from);
   const kind = String(plan.kind || '');
   if (kind === 'cron') {
     const parsed = parseCronExpr(plan.expr);
@@ -47224,6 +47345,60 @@ function nextFireAt(schedPlanRaw, schedFromMs) {
     }
     return null;
   }
+  return null;
+}
+
+// Keep the same wall-clock calendar and DST contract for an explicitly selected
+// IANA zone. Intl is built into Node; no global TZ mutation or external service.
+function schedulerZoneParts(schedMs, schedZone, schedFormatter = null) {
+  const fields = (schedFormatter || new Intl.DateTimeFormat('en-US', { timeZone: schedZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })).formatToParts(schedMs);
+  return Object.fromEntries(fields.filter(item => item.type !== 'literal').map(item => [item.type, Number(item.value)]));
+}
+function schedulerZoneWallMs(schedDate, schedHour, schedMinute, schedZone, schedFormatter, schedOffsets) {
+  const wall = Date.UTC(schedDate.getUTCFullYear(), schedDate.getUTCMonth(), schedDate.getUTCDate(), schedHour, schedMinute);
+  const candidates = [...schedOffsets].map(offset => {
+    const ms = wall - offset, parts = schedulerZoneParts(ms, schedZone, schedFormatter);
+    return { ms, shift: Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute) - wall };
+  });
+  const exact = candidates.filter(row => row.shift === 0).sort((a, b) => a.ms - b.ms);
+  if (exact.length) return exact[0].ms; // fold: first occurrence only
+  const forward = candidates.filter(row => row.shift > 0).sort((a, b) => a.shift - b.shift);
+  return forward.length ? forward[0].ms : null; // gap: advance by its size
+}
+function schedulerZonedNextFireAt(schedPlan, schedFrom) {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone: schedPlan.tz, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
+    const parts = schedulerZoneParts(schedFrom, schedPlan.tz, formatter);
+    const parsed = schedPlan.kind === 'cron' ? parseCronExpr(schedPlan.expr) : null;
+    const clock = parsed ? null : schedulerParseHhMm(schedPlan.at);
+    if (parsed ? !parsed.ok : !clock) return null;
+    const once = schedPlan.kind === 'once' ? schedulerParseYmd(schedPlan.date) : null;
+    if (schedPlan.kind === 'once' && !once) return null;
+    for (let index = 0; index < (once ? 1 : SCHEDULER_CRON_DAY_SCAN); index++) {
+      const date = once ? new Date(Date.UTC(once.year, once.month, once.day)) : new Date(Date.UTC(parts.year, parts.month - 1, parts.day + index));
+      const year = date.getUTCFullYear(), month = date.getUTCMonth(), day = date.getUTCDate();
+      const kind = schedPlan.kind;
+      if (kind === 'once' && schedPlan.date !== date.toISOString().slice(0, 10)) continue;
+      if (kind === 'weekly' && !(schedPlan.days || []).includes(date.getUTCDay())) continue;
+      if (kind === 'monthly' && day !== Math.min(schedPlan.dayOfMonth, schedulerDaysInMonth(year, month))) continue;
+      if (parsed && !schedulerCronDayMatches(parsed, year, month, day)) continue;
+      if (!['once', 'daily', 'weekly', 'monthly', 'cron'].includes(kind)) return null;
+      const offsets = new Set();
+      for (const delta of [-36, -12, 0, 12, 36]) {
+        const probe = date.getTime() + delta * 3600000, zoned = schedulerZoneParts(probe, schedPlan.tz, formatter);
+        offsets.add(Date.UTC(zoned.year, zoned.month - 1, zoned.day, zoned.hour, zoned.minute) - probe);
+      }
+      let nextCandidate = null;
+      for (const hour of (parsed ? parsed.hour : [clock.hour])) for (const minute of (parsed ? parsed.minute : [clock.minute])) {
+        const candidate = schedulerZoneWallMs(date, hour, minute, schedPlan.tz, formatter, offsets);
+        // Gap-forward conversion can reorder wall candidates (including a
+        // non-hour gap). Select by epoch after converting the whole bounded day.
+        if (candidate != null && candidate > schedFrom && (nextCandidate == null || candidate < nextCandidate)) nextCandidate = candidate;
+      }
+      if (nextCandidate != null) return nextCandidate;
+      if (kind === 'once' && schedPlan.date <= date.toISOString().slice(0, 10)) return null;
+    }
+  } catch { /* invalid zone or calendar */ }
   return null;
 }
 
@@ -47403,7 +47578,11 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
     }
   }
   // 时区字段只记「系统本地」这一个事实(29 号文 §3 的 tz 列);不接受用户指定别的时区(非目标)。
-  schedule.tz = 'local';
+  schedule.tz = schedulerCleanLine(rawSchedule.tz || 'local', 100);
+  if (schedule.tz !== 'local') {
+    try { schedule.tz = new Intl.DateTimeFormat('en', { timeZone: schedule.tz }).resolvedOptions().timeZone; }
+    catch { return schedulerFail('invalid_timezone', 'choose a valid time zone'); }
+  }
 
   // ② 载荷
   const rawPayload = (raw.payload && typeof raw.payload === 'object' && !Array.isArray(raw.payload)) ? raw.payload : null;
@@ -47419,8 +47598,13 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   }
   // 同上:局部名不能叫 text(纪律 12)。
   const payloadText = schedulerCleanBlock(rawPayload.text, SCHEDULER_LIMITS.textChars);
-  if (!payloadText) return schedulerFail('invalid_request', 'payload.text is required');
-  const payload = { kind: payloadKind, text: payloadText };
+  if (payloadKind !== 'playbook' && !payloadText) return schedulerFail('invalid_request', 'payload.text is required');
+  let payload = { kind: payloadKind, text: payloadText };
+  if (payloadKind === 'playbook') {
+    const bound = typeof SchedulerHooks.normalizePlaybookPayload === 'function' ? SchedulerHooks.normalizePlaybookPayload(rawPayload) : null;
+    if (!bound || !bound.ok) return schedulerFail((bound && bound.code) || 'playbook_invalid', (bound && bound.message) || 'choose a saved template and complete its inputs');
+    payload = bound.payload;
+  }
   // sourceRef:安静卡「稍后」建的那条 once reminder 用它指回收件箱行(M2 §3.5)。只留三个标量键。
   const rawSourceRef = (rawPayload.sourceRef && typeof rawPayload.sourceRef === 'object' && !Array.isArray(rawPayload.sourceRef)) ? rawPayload.sourceRef : null;
   if (rawSourceRef) {
@@ -47455,7 +47639,7 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   // 其余情形【静默丢】,空值与值域外的值同样不落字段 —— 不带 tier 的任务与修前逐字节同形
   // (判据 ③:没有 tier 键,13s 也就不会去碰 engineRoute)。与权限档「越界回落跟随全局」同一口径。
   const wantedTier = schedulerCleanLine(rawTarget.tier, 16);
-  if (payloadKind === 'prompt' && targetMode === 'new-session' && SCHEDULER_THREAD_TIERS.includes(wantedTier)) {
+  if (payloadKind !== 'reminder' && targetMode === 'new-session' && SCHEDULER_THREAD_TIERS.includes(wantedTier)) {
     target.tier = wantedTier;
   }
   // reminder 不起回合,目标无意义 —— 归一成 new-session 但永远不会被用到(13s 的 reminder 分支不看它)。
@@ -49408,6 +49592,8 @@ PermissionWaitHooks.scheduler = schedulerAskWaitOverrideMs;
 // 而是打检查点(onPause)+ 发 permission_paused 事件 + 把决定窗口延长到 ttlMs;窗口内仍可经 /api/permission/decision 决定,
 // 到 ttlMs 无人应答则回落 deny(fail-closed)。entry.timer 在 Map 里被重赋为 TTL 定时器,故 clearPendingPermissions/decision 照常清对。
 function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs, tier, pause) {
+  const owner = typeof turnSettlers !== 'undefined' ? turnSettlers.get(sessionId) : null;
+  if (owner && owner.authority) assertSessionExecutionOwner(sessionId, owner);
   return new Promise(resolve => {
     const requestId = makeId('perm');
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
@@ -49432,7 +49618,9 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
     // 128f-⑪:调用方传进来的 timeoutMs 已经是 permissionWaitMs 的结果(09／05b);定时那一格在这里再认一次是双保险。
     const baseMs = schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs);   // 0 = 不限时(04 promptWaitMs)
     // deadlineAt:13q 的 steward.deferred 要告诉用户「还等你多久」(存档暂停那一支延长后另算,见下)。
-    const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
+    const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs,
+      revalidateAuthority: owner && owner.authority ? () => revalidateSessionExecutionPermission(sessionId, owner) : null,
+      assertAuthority: owner && owner.authority ? () => assertSessionExecutionOwner(sessionId, owner) : null };
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
@@ -49464,6 +49652,15 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       }, baseMs);
     }
     pendingPermissions.set(requestId, entry);
+    if (owner && owner.authority) {
+      try { assertSessionExecutionOwner(sessionId, owner); }
+      catch {
+        // The event callback can synchronously revoke/stop the owner before
+        // this entry exists. Do not leave an orphaned prompt after that stop.
+        clearTimeout(entry.timer); pendingPermissions.delete(requestId);
+        settle({ behavior: 'deny', message: 'scheduler authority revoked' });
+      }
+    }
   });
 }
 
@@ -49898,7 +50095,11 @@ function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
   return Object.freeze({ read: () => operate('read'), write: snapshotText => operate('write', snapshotText), filePath: () => agentRunFile(sid, rid) });
 }
 async function readAgentRunSnapshot(sessionId, runId, metadata = {}) {
-  return safeJsonParse(await agentRunSnapshotStore(sessionId, runId, metadata).read(), null);
+  const run = safeJsonParse(await agentRunSnapshotStore(sessionId, runId, metadata).read(), null);
+  if (metadata.strict && (!run || run.id !== runId || run.sessionId !== sessionId || !Array.isArray(run.nodes))) {
+    throw Object.assign(new Error('agent run snapshot unavailable'), { code: 'agent_run.snapshot_invalid' });
+  }
+  return run;
 }
 // Storage housekeeping loads before autonomy. Use the existing late hook instead of a forward edge.
 EventStreamHooks.readAgentRunSnapshot = readAgentRunSnapshot;
@@ -50947,7 +51148,7 @@ async function listAgentRuns(sessionId) {
   for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
     try {
       const run = await readAgentRunSnapshot(sessionId, file.slice(0, -5));
-      if (run) out.push(run);
+      if (run && !run.historyDeletedAt) out.push(run);
     } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* skip corrupt/incomplete legacy records */ }
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
@@ -50971,6 +51172,7 @@ const agentRunDigestStats = { reads: 0, hits: 0 };
 // 磁盘快照里 digest 视图会读到的全部字段(与 13d handleAgentRunApiRoutes 的 digest 逐字段同口径);
 // 取值表达式与旧的「(mem || r).xxx」写法一字不差,所以磁盘态的 digest 行与修前逐字节相同。
 function agentRunDigestShadow(run) {
+  if (run.historyDeletedAt) return null;
   return Object.freeze({
     id: run.id, status: run.status, eventSeq: Number(run.eventSeq) || 0,
     updatedAt: run.updatedAt || '', createdAt: run.createdAt || '', completedAt: run.completedAt || '',
@@ -51097,6 +51299,7 @@ async function agentRunPermissionMode(sessionId, config) {
 }
 function classifyRunResumeTier(run, currentPermissionMode) {
   const reasons = [];
+  if (run && ['thread_relay', 'existing_thread_relay'].includes(run.kind)) reasons.push({ nodeId: '', reason: 'thread_relay_identity_reconciliation_required' });
   if (run && run.kind === 'steward_delegation') reasons.push({ nodeId: '', reason: 'delegation_result_unknown' });
   for (const n of (Array.isArray(run && run.nodes) ? run.nodes : [])) {
     if (n.status === 'succeeded') continue;
@@ -54276,8 +54479,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     return out;
   };
+  // A legitimate first delegation accepts the relay before installing its own
+  // workflow owner. Keep the last source/policy/target fence before registration;
+  // inherited background work must not keep the parent admission context alive.
+  const dispatch = typeof ModelDispatchContext !== 'undefined' && ModelDispatchContext.current();
+  const dispatchFence = dispatch ? await dispatch.prepare(parentSession.id) : null;
   // 角色库/路由预检里的 await 期间线程可能被删除。复检与注册在同一同步段,删除必能看见并停止已注册的 run。
   if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0, runId };
+  if (dispatch) dispatch.assert(dispatchFence);
   activeAgentRuns.set(runId, runtime);
   // 已登记为运行中:launchPersistedAgentRun 等的就是这一刻(见那边的注释)。
   if (typeof onRegistered === 'function') { try { onRegistered(); } catch { /* 回调失败不影响运行 */ } }
@@ -54903,7 +55112,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           runtime.nodeControls.set(node.id, nodeCtrl);
           let sub;
           try {
-            sub = await runSubAgent({
+            sub = run.kind === 'existing_thread_relay'
+              ? await ThreadRelayHooks.execute(run, node, nodeCtrl && nodeCtrl.signal, nodeEvent)
+              : await runSubAgent({
               parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
               task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
               displayTask: node.task, agentKey: node.id,
@@ -55319,13 +55530,15 @@ async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
   const reg = activeChildren.get(sessionId);
   if (reg && reg.session) drop(reg.session);
 }
-async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
+async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride, relayAdmission }) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent-resume')) return WorkDataMaintenanceHooks.run('agent-resume', () => launchPersistedAgentRun(...arguments));
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
   try { run = await readAgentRunSnapshot(sessionId, runId); }
   catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; run = null; }
   if (!run) return { ok: false, error: 'agent run not found' };
+  if (run.kind === 'thread_relay') return { ok: false, error: 'thread_relay.contract_not_executable' };
+  if (run.kind === 'existing_thread_relay') ThreadRelayHooks.admit(run, relayAdmission);
   await syncRunEventSeq(run);   // 对抗轮修: 磁盘装载点快进 eventSeq(见 syncRunEventSeq 注释)
   if (interventionKind) bumpRunIntervention(run, interventionKind); // 29c: 冷 resume/retry_node 是人工干预(boot 自动续跑不传,不计)
   // 第40波: boot 自动续跑扫到 N 个 run 时,逐个 readConfig 是 N 次盘 IO;调用方(boot sweep)已持有刚读的
@@ -55335,7 +55548,7 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   // Only the nodes that actually need an OpenAI Provider require one to be configured to resume —
   // an all-Claude-engine run resumes fine with none (see the dual-engine note on the launch handler).
   const needsProvider = (Array.isArray(run.nodes) ? run.nodes : []).some(n => (n.engine || 'openai') === 'openai');
-  if (needsProvider && !provider) return { ok: false, error: '当前没有可用的 Provider，无法恢复工作流（该运行含 OpenAI 引擎节点）' };
+  if (needsProvider && !provider && run.kind !== 'existing_thread_relay') return { ok: false, error: '当前没有可用的 Provider，无法恢复工作流（该运行含 OpenAI 引擎节点）' };
   const parentSession = await loadSession(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; });
   if (!parentSession) return { ok: false, error: 'session not found' };
   const onEvent = () => {}; // management UI polls persisted state; no chat stream is required
@@ -56307,6 +56520,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // shell_poll:waitMs 长轮询(≤30s)循环里看 ctx.signal,必须可被插话 / 停止打断,否则排队的插话要等满 30s。
   const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run', 'shell_poll']);
   const awaitProviderTool = async (tc, runner, interruptible = false) => {
+    if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
     const startedAt = Date.now();
     const toolAbort = interruptible ? new AbortController() : null;
     const turnSignal = ctrl && ctrl.signal;
@@ -56372,7 +56586,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const STOPPED = Symbol('turn_stopped');
         let onTurnStop = null;
         const stopped = new Promise(resolve => { onTurnStop = () => resolve(STOPPED); turnSignal.addEventListener('abort', onTurnStop, { once: true }); });
-        const running = Promise.resolve().then(() => runner(null));
+        const running = Promise.resolve().then(async () => {
+          if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
+          return runner(null);
+        });
         let raced;
         try { raced = await Promise.race([running, stopped]); }
         finally { turnSignal.removeEventListener('abort', onTurnStop); }
@@ -56383,6 +56600,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         return raced;
       }
+      if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
       const result = await runner(toolAbort && toolAbort.signal);
       // 13a-t 字节轴【只计数,不改写】(20-C1 三个 High 阻断未解除,不做结果引用改写)。
       if (interruptible && ttbByteShadowBytes > 0 && result && typeof result === 'object') {
@@ -57207,6 +57425,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const batchToolCallsStart = toolCalls.length;
         const offeredToolNames = new Set(allTools.map(t => t && t.function && t.function.name).filter(Boolean));
         for (const tc0 of localToolCalls) {
+          if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
           const tc = unwrapProxiedControlCall(tc0, offeredToolNames);   // tool_invoke_* → 引擎特判工具时解开成直调(见该函数头注)
           let args = {}; try { args = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
@@ -57477,6 +57696,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                         tc,
                         async signal => {
                           if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { bridge, session, config, workingDir, signal });
+                          if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
                           return client.callTool(bridge.toolName, args, undefined, { signal });
                         },
                         true,
@@ -57487,6 +57707,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 }
               } else if (tc.name === 'request_user_input') {
                 if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
                 if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
@@ -57502,6 +57723,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 resultObj = validateNativeToolArgs(tc.name, normalizeMetaToolArgs(tc.name, args));
               } else if (tc.name === 'todo_write') {
                 if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
                 if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,
@@ -57521,6 +57743,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   : { ok: true, count: items.length };
               } else if (tc.name === 'mission_update') {
                 if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
                 if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // 第26波b provider-engine 特例:in-process 合并进 session.mission(闭包持 session + onEvent)。
                 if (session.mission) {
@@ -57551,7 +57774,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     tc,
                     // mainTurn:会话自己的主回合标记(08 子代理、MCP 子进程、/api/tools 都不带)。只写本会话旁车的工具(C2 scratchpad_write)
                     // 据此 fail-closed;代理 tool_invoke_* 把同一个 ctx 原样转给目标(12 invokeAdaptiveMcpTool)。
-                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
+                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true, executionOwner }),
                     // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)
@@ -57999,6 +58222,483 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
 }
 
 // 110-4b: token 估算与分桶簇(fmtTokensServer/CJK_RE/setEstimateBucketsV1/estimateTextTokens/classifyTextForEstimate/estimateContentTokens/estimateHistoryTokens/CONTEXT_WINDOW_FALLBACK/EVAPORATED_PREFIX)抽至 09d-token-estimation.js。
+
+// M5-W: bounded sequential continuation of explicitly selected existing threads.
+// Contract and execution receipts use the existing M3 agent-run snapshot owner. No
+// new scheduler, permission store, history-completion heuristic or replay engine.
+const ThreadRelay = (() => {
+  const chains = new Map(), admissions = new WeakSet();
+  const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const failure = code => { throw Object.assign(new Error('thread_relay.' + code), { code: 'thread_relay.' + code, apiCode: 'thread_relay.' + code, statusCode: 409 }); };
+  const id = value => safeSessionId(value) || failure('invalid_id');
+  const identity = (...parts) => 'run_' + hash(parts).slice(0, 32);
+  function policy(config, source, target) {
+    // A snapshot can restrict admission, never grant permission. The turn itself
+    // resolves current session/global permissions and current grants as usual.
+    return hash([config, ...[source, target].map(session => [session.id, session.cwd,
+      resolvePermissionMode({ session: applySessionPermissionModeOverride(session), config }),
+      (autonomyGrants.get(session.id) || []).map(grant => [grant.grantId, grant.revoked, grant.expiresAt])])]);
+  }
+  async function session(sessionId) {
+    const value = await loadSession(id(sessionId));
+    if (!value || value.kind === 'steward' || sessionSaveIsTombstoned(value)) failure('thread_missing');
+    return value;
+  }
+  async function snapshot(sessionId, runId) {
+    try { return await readAgentRunSnapshot(sessionId, runId, { strict: true }); }
+    catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  }
+  async function idle(value) {
+    return threadGate(value.id);
+  }
+  function completionId(sessionId) {
+    // Same M3 task/snapshot owner, deliberately outside the runnable run_ list.
+    return 'delivery_' + hash(sessionId).slice(0, 32); // One bounded latest fact per thread.
+  }
+  async function completion(sessionId, ref) {
+    if (!ref || ref.latestTurnSeq !== ref.turnSeq) return { status: 'unknown' };
+    const receiptId = completionId(sessionId, ref), record = await snapshot(sessionId, receiptId);
+    const receipt = record?.deliveryCompletion;
+    if (record?.kind !== 'thread_delivery_completion' || record.id !== receiptId || record.sessionId !== sessionId
+        || receipt?.schema !== 1 || hash(receipt.reference) !== hash(reference(ref))
+        || !receipt.execution?.driverRunId || !receipt.execution?.serverInstanceId) return { status: 'unknown' };
+    return { ...receipt, identity: receiptId };
+  }
+  async function captureTurn({ session: completed, owner, config, result, error, stopped }) {
+    const sessionId = completed.id;
+    if (completed.kind === 'steward' || !owner || turnSettlers.get(sessionId) !== owner || result?.superseded) return { status: 'unknown' };
+    const current = await session(sessionId);
+    if (Number(current.turnSeq) !== Number(completed.turnSeq) || Number(current.rewindGen || 0) !== Number(completed.rewindGen || 0)) return { status: 'unknown' };
+    const projected = await StewardHooks.deliveryProjection(sessionId, Number(completed.turnSeq), config, { skipRelayCompletion: true });
+    if (!projected.ok || turnSettlers.get(sessionId) !== owner) return { status: 'unknown' };
+    const ref = reference(projected), receiptId = completionId(sessionId, ref);
+    const status = stopped || owner.cancelRequested || result?.aborted ? 'stopped'
+      : !error && result?.ok === true ? 'succeeded' : result ? 'failed' : 'unknown';
+    const receipt = { schema: 1, status, reference: ref, at: nowIso(),
+      execution: sessionExecutionSnapshot(sessionId), error: String(error || result?.errorClass || '') };
+    const record = { schemaVersion: 4, id: receiptId, sessionId, kind: 'thread_delivery_completion',
+      status, nodes: [], createdAt: receipt.at, deliveryCompletion: receipt };
+    // Do not call saveAgentRun: this fact is not a runnable workflow, notification,
+    // index update or session-head mutation. Existing session GET/ETag bytes stay unchanged.
+    const committed = await runKeyedChain(agentRunWriteChains, receiptId, async () => {
+      if (turnSettlers.get(sessionId) !== owner) return false;
+      await agentRunSnapshotStore(sessionId, receiptId).write(JSON.stringify(record)); return true;
+    });
+    return committed ? { ...receipt, identity: receiptId } : { status: 'unknown' };
+  }
+  async function threadGate(sid, { run = null, owner = null, ownRequests = new Map(), expectedCwd, expectedTurnSeq, changed = 'target_changed' } = {}) {
+    const ownPending = (kind, requestId) => {
+      const proof = ownRequests.get(kind + ':' + requestId);
+      const pendingOwner = (kind === 'permission' ? pendingPermissions : kind === 'question' ? pendingQuestions : pendingPlans).get(requestId);
+      if (!owner || proof?.owner !== owner || turnSettlers.get(sid) !== owner || pendingOwner?.sessionId !== sid) return false;
+      if (!proof.pendingOwner) proof.pendingOwner = pendingOwner;
+      return proof.pendingOwner === pendingOwner;
+    };
+    const assertLive = () => {
+      const currentOwner = turnSettlers.get(sid);
+      if (owner && (currentOwner !== owner || owner.cancelRequested)) failure('thread_blocked');
+      if (currentOwner && currentOwner !== owner || turnOutcomePending.has(sid)
+          || [...activeAgentRuns.values()].some(live => live.run.sessionId === sid && live.run !== run)) failure('target_busy');
+      const child = activeChildren.get(sid);
+      if (child && (!owner || child.executionOwner !== owner)) failure('target_busy');
+      // These are the original pending owners, including requests not yet on disk.
+      for (const row of interventionRecordCache.values()) if (row.sessionId === sid && row.status === 'pending'
+          && !ownPending(row.type, row.id)) failure('decision_pending');
+      for (const [kind, map] of [['permission', pendingPermissions], ['question', pendingQuestions], ['plan', pendingPlans]]) {
+        for (const [requestId, entry] of map) if (entry.sessionId === sid && !ownPending(kind, requestId)) failure('decision_pending');
+      }
+    };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      assertLive();
+      const revision = sessionDiskWriteSeqOf(sid), current = await session(sid);
+      const pending = await readInterventionsWithMeta(sid, { strict: true });
+      if (revision !== sessionDiskWriteSeqOf(sid)) continue;
+      if (expectedCwd !== undefined && current.cwd !== expectedCwd
+          || expectedTurnSeq !== undefined && !owner && (Number(current.turnSeq) || 0) !== expectedTurnSeq) failure(changed);
+      if (pending.degraded || pending.interventions.some(row => row.status === 'pending' && !ownPending(row.type, row.id))) failure('decision_pending');
+      if (stewardThreadStateFromHead(current, owner ? { queued: false } : undefined).state === 'stopped') failure('thread_blocked');
+      const assert = () => { assertLive(); if (revision !== sessionDiskWriteSeqOf(sid)) failure(changed); };
+      assert(); return { assert };
+    }
+    failure(changed);
+  }
+  async function targetGate(run, owner = null, ownRequests = new Map()) {
+    const spec = run.threadRelayExecution;
+    return threadGate(run.sessionId, { run, owner, ownRequests, expectedCwd: spec.targetCwd, expectedTurnSeq: spec.targetTurnSeq });
+  }
+  function reference(value) {
+    if (!value || !Number.isSafeInteger(value.turnSeq) || value.turnSeq < 1
+        || !Number.isSafeInteger(value.latestTurnSeq) || value.latestTurnSeq !== value.turnSeq
+        || !/^[a-f0-9]{64}$/.test(value.sourceStamp || '') || !/^[a-f0-9]{64}$/.test(value.fileStamp || '')) failure('source_invalid');
+    return { turnSeq: value.turnSeq, latestTurnSeq: value.latestTurnSeq, sourceStamp: value.sourceStamp, fileStamp: value.fileStamp };
+  }
+  async function material(sourceId, input, config) {
+    const source = await session(sourceId);
+    const sourceAdmission = await threadGate(source.id, { changed: 'source_changed' });
+    const ref = reference(input.reference);
+    const checked = await StewardHooks.validateDeliveryReference(source.id, ref, config);
+    if (!checked.ok) failure('source_changed');
+    if ((await completion(source.id, ref)).status !== 'succeeded') failure('source_unverified');
+    const delivery = await StewardHooks.deliveryProjection(source.id, ref.turnSeq, config);
+    if (delivery.inProgress || delivery.outdated) failure('source_unverified');
+    if (input.accepted !== true) failure('acceptance_required');
+    const selected = input.materials;
+    if (!selected || typeof selected.text !== 'boolean' || !Array.isArray(selected.files) || selected.files.length > 8
+        || !selected.text && !selected.files.length || new Set(selected.files).size !== selected.files.length) failure('materials_invalid');
+    const revisionGuard = StewardHooks.deliveryRevisionGuard(source, ref,
+      selected.files.map(selectedPath => delivery.files.find(file => file.path === selectedPath && file.status === 'same') || failure('material_changed')),
+      agentRunFile(source.id, completionId(source.id)));
+    // Only host-loaded rows from this exact delivery may be restored. An alias
+    // supplied by a browser, another scope or a model is never restoration proof.
+    const original = StewardHooks.deliverySource(source, ref.turnSeq);
+    if (!original?.rows.some(row => row.role === 'assistant' && !row.meta?.imported && Number(row.turnSummary?.turnSeq) === ref.turnSeq)) failure('source_unverified');
+    const protectedRows = selected.text ? original.rows.filter(row => row.role === 'assistant' && !row.meta?.imported) : [];
+    const restored = await PrivacyGateway.prepareLocalDisclosure(source.id, () => PrivacyGateway.restoreHistory(source.id, { messages: protectedRows }));
+    const parts = selected.text ? restored.value.messages.map(row => String(row.content || '')) : [];
+    const approvedFiles = [];
+    for (const selectedPath of selected.files) {
+      const file = delivery.files.find(row => row.path === selectedPath && row.status === 'same');
+      if (!file) failure('material_changed');
+      const read = await StewardHooks.inspectDeliveryFile(file, source, config, { bytes: 0 }, true);
+      if (!read.bytes || read.fingerprint !== file.fingerprint || read.bytes.length > 128 * 1024 || read.bytes.includes(0)) failure('material_unreadable');
+      const text = read.bytes.toString('utf8');
+      if (!Buffer.from(text, 'utf8').equals(read.bytes)) failure('material_unreadable');
+      approvedFiles.push({ path: file.path, fingerprint: file.fingerprint });
+      parts.push(file.name + '\n' + text);
+    }
+    const text = parts.join('\n\n');
+    if (!text.trim() || Buffer.byteLength(text) > 256 * 1024 || text.includes('[[RUYI_PVT:')) failure('foreign_reference');
+    restored.assert();
+    // Re-check file/source revision after all asynchronous reads, before binding.
+    const finalCheck = await StewardHooks.validateDeliveryReference(source.id, ref, await readConfig());
+    if (!finalCheck.ok) failure('source_changed');
+    const assert = () => { sourceAdmission.assert(); revisionGuard(); restored.assert(); };
+    assert();
+    return { source, text, assert, binding: { sessionId: source.id, reference: ref,
+      materials: { text: selected.text, files: approvedFiles }, hash: hash(text),
+      acceptance: { kind: 'human', at: nowIso(), sourceStamp: ref.sourceStamp, fileStamp: ref.fileStamp } } };
+  }
+  async function read(rootId, relayId) {
+    const run = await snapshot(id(rootId), id(relayId));
+    if (!run || run.kind !== 'thread_relay' || run.sessionId !== rootId || run.threadRelay?.schema !== 1) failure('not_found');
+    return run;
+  }
+  async function reconcile(run) {
+    for (const edge of run.threadRelay.edges) {
+      if (!edge.submittedAt || ['accepted', 'cancelled'].includes(edge.state)) continue;
+      const waited = await waitForAgentRunResults(edge.targetSessionId, [edge.runId], 0);
+      const envelope = waited.runs?.find(row => row.runId === edge.runId);
+      const row = await readAgentRunRecord(edge.targetSessionId, edge.runId);
+      const execution = row?.run?.threadRelayExecution;
+      const receipt = execution?.receipt;
+      if (!matchesExecution(row?.run, run, edge)) { edge.state = 'unknown'; continue; }
+      if (receipt?.identity !== edge.runId) { edge.state = 'unknown'; continue; }
+      if (receipt.status === 'succeeded' && envelope?.live !== true) { edge.state = 'review'; edge.resultTurnSeq = receipt.turnSeq; }
+      else if (['failed', 'stopped'].includes(receipt.status)) edge.state = receipt.status;
+      // The original wrapper can stop before it ever enters runSessionTurn.
+      // A running/unknown receipt or an entered target remains unknown instead.
+      else if (envelope?.live !== true && receipt.status === 'intent' && ['stopped', 'failed'].includes(row.run.status)
+          && (execution.entryPhase === 'not_entered' || !execution.entryPhase && row.run.nodes?.every(node => !node.attempts && !node.startedAt && !node.modelStartedAt))) {
+        edge.state = row.run.status;
+        edge.reason = row.run.error || row.run.nodes?.find(node => node.error)?.error || 'thread_relay.' + (edge.state === 'stopped' ? 'stopped' : 'target_failed');
+        edge.receipt = receipt; continue;
+      }
+      else edge.state = envelope?.live === true ? 'running' : 'unknown';
+      edge.receipt = receipt;
+      edge.reason = receipt.error || '';
+    }
+    return run;
+  }
+  const taskStamp = value => typeof value?.task === 'string' ? hash(value.task) : value?.taskHash;
+  function matchesExecution(executionRun, master, edge) {
+    const spec = executionRun?.threadRelayExecution;
+    return executionRun?.kind === 'existing_thread_relay' && executionRun.id === edge.runId && executionRun.sessionId === edge.targetSessionId
+      && spec?.relayId === master.id && spec.rootId === master.sessionId && spec.edgeId === edge.id
+      && hash(spec.source) === hash(edge.source) && spec.policyStamp === edge.policyStamp
+      && spec.targetCwd === edge.targetCwd && spec.targetTurnSeq === edge.targetTurnSeq
+      && /^[a-f0-9]{64}$/.test(taskStamp(spec) || '') && taskStamp(spec) === taskStamp(edge)
+      && spec.receipt?.identity === edge.runId;
+  }
+  async function retireHistory(sessionId, runId) {
+    const original = await snapshot(sessionId, runId);
+    if (!original || !['thread_relay', 'existing_thread_relay'].includes(original.kind)) failure('not_found');
+    const relayId = original.kind === 'thread_relay' ? runId : original.threadRelayExecution?.relayId;
+    return runKeyedChain(chains, relayId, async () => {
+      if (activeAgentRuns.has(runId)) failure('target_busy');
+      const current = await snapshot(sessionId, runId);
+      if (!current || current.kind !== original.kind) failure('identity_conflict');
+      // Re-read under the same relay lock as submit; never write the DELETE
+      // route's old copy. saveAgentRun alone owns its snapshot write chain.
+      const run = { schemaVersion: current.schemaVersion, id: current.id, sessionId: current.sessionId, kind: current.kind,
+        status: current.status, createdAt: current.createdAt, completedAt: current.completedAt, error: current.error,
+        historyDeletedAt: current.historyDeletedAt || nowIso(), nodes: [] };
+      if (current.kind === 'thread_relay') {
+        run.status = 'cancelled';
+        run.threadRelay = { schema: 1, requestHash: current.threadRelay.requestHash, cancelled: true, retiredAt: run.historyDeletedAt,
+          edges: current.threadRelay.edges.map(edge => ({ id: edge.id, dependsOn: edge.dependsOn, targetSessionId: edge.targetSessionId,
+            targetCwd: edge.targetCwd, targetTurnSeq: edge.targetTurnSeq, attempt: edge.attempt, runId: edge.runId,
+            state: edge.state, source: edge.source, policyStamp: edge.policyStamp, taskHash: taskStamp(edge),
+            submittedAt: edge.submittedAt, receipt: edge.receipt, resultTurnSeq: edge.resultTurnSeq, reason: edge.reason })) };
+      } else {
+        const spec = current.threadRelayExecution;
+        run.threadRelayExecution = { relayId: spec.relayId, rootId: spec.rootId, edgeId: spec.edgeId, source: spec.source,
+          policyStamp: spec.policyStamp, targetCwd: spec.targetCwd, targetTurnSeq: spec.targetTurnSeq,
+          taskHash: taskStamp(spec), entryPhase: spec.entryPhase, receipt: spec.receipt };
+        run.nodes = (current.nodes || []).map(node => ({ id: node.id, status: node.status, attempts: node.attempts,
+          startedAt: node.startedAt, modelStartedAt: node.modelStartedAt, error: node.error, errorClass: node.errorClass }));
+      }
+      await saveAgentRun(run);
+    });
+  }
+  async function create(body) {
+    const rootId = id(body.sessionId), key = id(body.requestId), relayId = identity('relay', rootId, key);
+    return runKeyedChain(chains, relayId, async () => {
+      const existing = await snapshot(rootId, relayId);
+      const requestHash = hash({ source: body.source, targets: body.targets });
+      if (existing) {
+        if (existing.kind !== 'thread_relay' || existing.threadRelay?.requestHash !== requestHash) failure('identity_conflict');
+        return reconcile(existing);
+      }
+      if (!Array.isArray(body.targets) || body.targets.length < 1 || body.targets.length > 7) failure('chain_bounds');
+      const config = await readConfig(), approved = await material(rootId, body.source, config);
+      const seen = new Set([rootId]), edges = [];
+      for (const [index, target] of body.targets.entries()) {
+        const targetId = id(target.sessionId);
+        if (seen.has(targetId)) failure('thread_repeated');
+        seen.add(targetId);
+        const thread = await session(targetId);
+        const task = String(target.task || '').trim();
+        if (!task || task.length > 8000 || task.includes('[[RUYI_PVT:')) failure('task_invalid');
+        const edgeId = 'edge_' + hash([relayId, index]).slice(0, 24);
+        const edge = { id: edgeId, dependsOn: index ? edges[index - 1].id : null, targetSessionId: targetId,
+          targetTitle: sessionDisplayTitle(thread), targetCwd: thread.cwd, targetTurnSeq: Number(thread.turnSeq) || 0,
+          task, attempt: 1, runId: identity(relayId, edgeId, index ? null : approved.binding.reference, targetId, 1), state: index ? 'waiting' : 'ready',
+          ...(index ? {} : { source: approved.binding, policyStamp: policy(config, approved.source, thread) }) };
+        const previous = index ? null : await snapshot(targetId, edge.runId);
+        if (previous) {
+          const spec = previous.threadRelayExecution;
+          if (previous.kind !== 'existing_thread_relay' || previous.id !== edge.runId || previous.sessionId !== targetId
+              || spec?.relayId !== relayId || spec.rootId !== rootId || spec.edgeId !== edgeId || taskStamp(spec) !== hash(task)
+              || spec.receipt?.identity !== edge.runId || spec.source?.sessionId !== rootId
+              || spec.source.hash !== approved.binding.hash || hash(spec.source.reference) !== hash(approved.binding.reference)
+              || hash(spec.source.materials) !== hash(approved.binding.materials)) failure('identity_conflict');
+          Object.assign(edge, { source: spec.source, policyStamp: spec.policyStamp, targetCwd: spec.targetCwd,
+            targetTurnSeq: spec.targetTurnSeq, submittedAt: spec.receipt.at || previous.createdAt, state: 'unknown' });
+          if (!edge.submittedAt) failure('result_unverified');
+        } else await idle(thread);
+        edges.push(edge);
+      }
+      const run = { schemaVersion: 4, id: relayId, sessionId: rootId, title: 'Existing thread relay',
+        kind: 'thread_relay', status: 'relay_ready', createdAt: nowIso(), nodes: [],
+        threadRelay: { schema: 1, requestHash, cancelled: false, edges } };
+      await saveAgentRun(run); return reconcile(run);
+    });
+  }
+  async function submit(rootId, relayId, edgeId) {
+    return runKeyedChain(chains, relayId, async () => {
+      const run = await reconcile(await read(rootId, relayId)), chain = run.threadRelay;
+      if (chain.cancelled) failure('cancelled');
+      const edge = chain.edges.find(row => row.id === edgeId);
+      if (!edge) failure('edge_missing');
+      if (edge.submittedAt) return run; // Same identity always returns the same receipt, including unknown.
+      // An existing target receipt is authoritative even if a degraded/older
+      // master has lost its intent. Never overwrite it with another intent.
+      const previous = await snapshot(edge.targetSessionId, edge.runId);
+      if (previous) {
+        if (!matchesExecution(previous, run, edge)) failure('identity_conflict');
+        edge.submittedAt = previous.threadRelayExecution.receipt.at || previous.createdAt;
+        if (!edge.submittedAt) failure('result_unverified');
+        edge.state = 'unknown'; await saveAgentRun(run); return reconcile(run);
+      }
+      if (edge.state !== 'ready' || edge.dependsOn && !chain.edges.some(row => row.id === edge.dependsOn && row.state === 'accepted')) failure('dependency_unaccepted');
+      const config = await readConfig(), target = await session(edge.targetSessionId);
+      await idle(target);
+      if (target.cwd !== edge.targetCwd || (Number(target.turnSeq) || 0) !== edge.targetTurnSeq) failure('target_changed');
+      const approved = await material(edge.source.sessionId, { reference: edge.source.reference, accepted: true,
+        materials: { text: edge.source.materials.text, files: edge.source.materials.files.map(file => file.path) } }, config);
+      if (approved.binding.hash !== edge.source.hash) failure('material_changed');
+      if (policy(config, approved.source, target) !== edge.policyStamp) failure('permission_changed');
+      // Durable intent precedes both the execution record and the launch call.
+      edge.submittedAt = nowIso(); edge.state = 'unknown';
+      await saveAgentRun(run);
+      const execution = { schemaVersion: 4, id: edge.runId, sessionId: target.id, cwd: target.cwd,
+        turnSeq: target.turnSeq, kind: 'existing_thread_relay', background: true, launchedByModel: false,
+        status: 'queued', createdAt: nowIso(), concurrency: 1, poolPolicy: 'off', taskPool: [], messages: [],
+        threadRelayExecution: { relayId, rootId, edgeId, source: edge.source, policyStamp: edge.policyStamp,
+          targetCwd: edge.targetCwd, targetTurnSeq: edge.targetTurnSeq, task: edge.task, entryPhase: 'not_entered',
+          receipt: { identity: edge.runId, status: 'intent', at: nowIso() } },
+        nodes: [{ id: 'continue', task: edge.task, dependsOn: [], resources: [], toolTier: 'exec', engine: 'openai',
+          status: 'queued', attempts: 0, maxRetries: 0, failurePolicy: 'block', dependencyPolicy: 'all_success',
+          degradedPolicy: 'fail', maxIters: 100 }] };
+      await saveAgentRun(execution);
+      const admission = Object.freeze({}); admissions.add(admission);
+      const launched = await launchPersistedAgentRun({ sessionId: target.id, runId: edge.runId, relayAdmission: admission });
+      edge.state = launched.ok ? 'running' : 'unknown';
+      await saveAgentRun(run); return reconcile(run);
+    });
+  }
+  async function accept(body) {
+    return runKeyedChain(chains, body.relayId, async () => {
+      const run = await reconcile(await read(body.sessionId, body.relayId)), chain = run.threadRelay;
+      if (chain.cancelled) failure('cancelled');
+      const edge = chain.edges.find(row => row.id === body.edgeId);
+      if (!edge || edge.state !== 'review' || !edge.receipt || edge.receipt.status !== 'succeeded') failure('result_unverified');
+      const approved = await material(edge.targetSessionId, body.source, await readConfig());
+      if (approved.binding.reference.turnSeq !== edge.receipt.turnSeq) failure('source_changed');
+      edge.state = 'accepted'; edge.acceptedDelivery = approved.binding;
+      const next = chain.edges.find(row => row.dependsOn === edge.id);
+      if (next) {
+        const target = await session(next.targetSessionId); await idle(target);
+        if (target.cwd !== next.targetCwd || (Number(target.turnSeq) || 0) !== next.targetTurnSeq) failure('target_changed');
+        next.source = approved.binding; next.policyStamp = policy(await readConfig(), approved.source, target); next.state = 'ready';
+        next.runId = identity(run.id, next.id, approved.binding.reference, next.targetSessionId, next.attempt);
+      }
+      run.status = chain.edges.every(row => row.state === 'accepted') ? 'succeeded' : 'relay_ready';
+      await saveAgentRun(run); return run;
+    });
+  }
+  async function cancel(body) {
+    return runKeyedChain(chains, body.relayId, async () => {
+      const run = await read(body.sessionId, body.relayId);
+      run.threadRelay.cancelled = true; run.status = 'cancelled';
+      // Persist retirement first; a late success can never reopen a cancelled chain.
+      await saveAgentRun(run);
+      for (const edge of run.threadRelay.edges) {
+        const live = activeAgentRuns.get(edge.runId);
+        if (live) { live.stopRequested = true; live.ctrl?.abort(); }
+        const owner = turnSettlers.get(edge.targetSessionId);
+        if (owner?.requestMeta?.relayExecutionId === edge.runId) requestSessionExecutionStop(edge.targetSessionId, sessionExecutionSnapshot(edge.targetSessionId), 'stopped');
+        if (edge.state !== 'accepted') edge.state = 'cancelled';
+      }
+      await saveAgentRun(run); return run;
+    });
+  }
+  function admit(run, capability) {
+    if (run.kind !== 'existing_thread_relay') return;
+    if (!admissions.delete(capability) || run.threadRelayExecution?.receipt?.status !== 'intent') failure('replay_forbidden');
+  }
+  async function execute(run, node, signal, onEvent) {
+    try { return await executeTarget(run, node, signal, onEvent); }
+    catch (error) {
+      const spec = run.threadRelayExecution;
+      if (spec?.receipt?.status === 'intent') {
+        const receipt = { ...spec.receipt, status: signal?.aborted ? 'stopped' : 'failed', error: signal?.aborted ? 'thread_relay.stopped' : String(error.code || error.message || error), at: nowIso() };
+        await saveAgentRun({ ...run, threadRelayExecution: { ...spec, receipt } });
+        spec.receipt = receipt;
+      }
+      throw error;
+    }
+  }
+  async function executeTarget(run, node, signal, onEvent) {
+    const spec = run.threadRelayExecution;
+    if (!spec || spec.receipt.status !== 'intent') failure('replay_forbidden');
+    const master = await read(spec.rootId, spec.relayId), edge = master.threadRelay.edges.find(row => row.id === spec.edgeId);
+    if (master.threadRelay.cancelled || !edge || edge.runId !== run.id || !edge.submittedAt || signal?.aborted) failure('cancelled');
+    await targetGate(run);
+    const config = await readConfig(), target = await session(run.sessionId);
+    const approved = await material(spec.source.sessionId, { reference: spec.source.reference, accepted: true,
+      materials: { text: spec.source.materials.text, files: spec.source.materials.files.map(file => file.path) } }, config);
+    if (approved.binding.hash !== spec.source.hash || policy(config, approved.source, target) !== spec.policyStamp) failure('permission_changed');
+    // Admission borrows the existing workspace lease. Once the original turn
+    // owner is registered it takes over execution/arbiter/tool leases; retaining
+    // a second group here would deadlock that owner's own file tools.
+    let lease = await acquireResourceLease('turn:' + target.id + ':' + (Number(target.turnSeq) + 1),
+      normalizeAgentResources(['workspace:' + target.cwd], target.cwd), signal,
+      blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: [target.cwd], blockers }));
+    try {
+      if (signal?.aborted) failure('cancelled');
+      (await targetGate(run)).assert();
+      let ownOwner = null;
+      const ownRequests = new Map();
+      const targetEvent = event => {
+        if (ownOwner && turnSettlers.get(target.id) === ownOwner) {
+          const kind = event?.type === 'permission_request' ? 'permission' : event?.type === 'ask_user' ? 'question' : event?.type === 'plan' ? 'plan' : '';
+          const requestId = kind === 'permission' ? event.requestId : kind === 'question' ? event.questionId : event?.planId;
+          if (kind && requestId) ownRequests.set(kind + ':' + requestId, { owner: ownOwner, pendingOwner: null });
+        }
+        onEvent(event);
+      };
+      // Persist the boundary before calling the original target turn owner.
+      // Only not_entered intent can later use a wrapper-only terminal fact.
+      spec.entryPhase = 'entering';
+      await saveAgentRun(run);
+      // The target receives host-restored originals as fresh input. Its ordinary
+      // PrivacyGateway projects/re-signs them under the target conversation scope.
+      const result = await PrivacyGateway.run(target.id, config, () => SessionExecutionHooks.runTurn({ sessionId: target.id, source: 'thread_relay',
+        expectedCwd: spec.targetCwd, expectedTurnSeq: spec.targetTurnSeq,
+        message: spec.task + '\n\n' + approved.text, messageMeta: { origin: 'thread_relay', relayExecutionId: run.id },
+        requestMeta: { relayExecutionId: run.id }, onEvent: targetEvent,
+        relayLifecycle: {
+          identity: run.id, signal,
+          prepareAdmission: () => targetGate(run),
+          async registered(owner, currentConfig, currentSession) {
+            if (owner.requestMeta?.relayExecutionId !== run.id || turnSettlers.get(target.id) !== owner) failure('target_busy');
+            ownOwner = owner;
+            const targetAdmission = await targetGate(run, owner, ownRequests);
+            const currentMaster = await read(spec.rootId, spec.relayId);
+            if (currentMaster.threadRelay.cancelled) failure('cancelled');
+            if (signal?.aborted || policy(currentConfig, approved.source, currentSession) !== spec.policyStamp) failure('permission_changed');
+            const receipt = { identity: run.id, status: 'running', execution: sessionExecutionSnapshot(target.id), at: nowIso() };
+            await saveAgentRun({ ...run, threadRelayExecution: { ...spec, receipt } });
+            targetAdmission.assert();
+            spec.receipt = receipt;
+            releaseResourceLease(lease); lease = '';
+          },
+          async beforeDispatch() {
+            const assertConfig = configReadFence();
+            const sourceRevision = sessionDiskWriteSeqOf(spec.source.sessionId);
+            const currentMaster = await read(spec.rootId, spec.relayId);
+            if (currentMaster.threadRelay.cancelled || signal?.aborted) failure('cancelled');
+            const currentConfig = await readConfig(), currentSource = await session(spec.source.sessionId);
+            const checked = await StewardHooks.validateDeliveryReference(currentSource.id, spec.source.reference, currentConfig);
+            if (!checked.ok) failure('source_changed');
+            const currentTarget = await session(target.id);
+            if (policy(currentConfig, currentSource, currentTarget) !== spec.policyStamp) failure('permission_changed');
+            const targetAdmission = await targetGate(run, ownOwner, ownRequests);
+            const sourceAdmission = await threadGate(currentSource.id, { changed: 'source_changed' });
+            const assert = () => {
+              if (signal?.aborted || ownOwner?.cancelRequested) failure('cancelled');
+              if (sourceRevision !== sessionDiskWriteSeqOf(spec.source.sessionId)) failure('source_changed');
+              sourceAdmission.assert();
+              approved.assert(); assertConfig();
+              if (policy(currentConfig, currentSource, currentTarget) !== spec.policyStamp) failure('permission_changed');
+              targetAdmission.assert();
+            };
+            assert(); return { assert };
+          },
+          async settled(outcome) {
+            const status = outcome.stopped ? 'stopped' : outcome.ok && outcome.result?.ok === true && !outcome.result.aborted && !outcome.result.superseded
+              ? outcome.deliveryCompletion?.status === 'succeeded' ? 'succeeded' : 'unknown' : 'failed';
+            const receipt = { ...spec.receipt, status, turnSeq: outcome.turnSeq, error: outcome.error || '',
+              deliveryCompletion: outcome.deliveryCompletion?.identity || '', at: nowIso() };
+            await saveAgentRun({ ...run, threadRelayExecution: { ...spec, receipt } });
+            spec.receipt = receipt;
+          },
+        } }));
+      return { ok: spec.receipt.status === 'succeeded' && result.ok && !result.stopped && result.result?.ok === true && !result.result.aborted && !result.result.superseded,
+        result: '', error: result.stopped ? 'thread_relay.stopped' : result.error || (result.result?.ok === true ? '' : 'thread_relay.target_failed') };
+    } finally { releaseResourceLease(lease); }
+  }
+  async function route(req, res, pathname) {
+    if (req.method === 'GET' && pathname === '/api/thread-relays') {
+      if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'invalid token', 403));
+      const query = new URL(req.url, 'http://x').searchParams;
+      const rootId = id(query.get('sessionId')), relayId = query.get('relayId');
+      const rows = relayId ? [await reconcile(await read(rootId, relayId))]
+        : await Promise.all((await listAgentRuns(rootId)).filter(run => run.kind === 'thread_relay').map(reconcile));
+      return send(res, json({ ok: true, relays: rows }));
+    }
+    if (req.method !== 'POST' || pathname !== '/api/thread-relays') return;
+    const body = await readJsonBody(req);
+    if (!tokenMatches(body.token)) return send(res, apiFailure('auth.token_invalid', {}, 'invalid token', 403));
+    const run = body.action === 'create' ? await create(body) : body.action === 'start' ? await submit(id(body.sessionId), id(body.relayId), id(body.edgeId))
+      : body.action === 'accept' ? await accept(body) : body.action === 'cancel' ? await cancel(body) : failure('action_invalid');
+    return send(res, json({ ok: true, relay: run }));
+  }
+  return Object.freeze({ create, submit, accept, cancel, read, reconcile, admit, execute, route, material, captureTurn, completion, targetGate, retireHistory });
+})();
+Object.assign(ThreadRelayHooks, { admit: ThreadRelay.admit, execute: ThreadRelay.execute, route: ThreadRelay.route,
+  captureTurn: ThreadRelay.captureTurn, completion: ThreadRelay.completion, retireHistory: ThreadRelay.retireHistory });
 
 // ── v1.0.2-S2: 上下文窗口三级自适应 ─────────────────────────────────────────────────────────────────
 // 用户痛点:DeepSeek 有 1M 窗却被当 64K 用。解析链(优先级从高到低):
@@ -61600,7 +62300,7 @@ async function runSessionTurn(input) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const loadedSession = body.sessionId ? await loadSession(body.sessionId) : null;
-  if (source === 'steward' && body.sessionId && !loadedSession) throw Object.assign(new Error('目标线程已不存在,没有另开任务'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  if (['steward', 'thread_relay'].includes(source) && body.sessionId && !loadedSession) throw Object.assign(new Error('目标线程已不存在,没有另开任务'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
   if (loadedSession && typeof body.expectedCwd === 'string' && String(loadedSession.cwd || '') !== body.expectedCwd) throw Object.assign(new Error('目标线程的工作区已变化,请重新选择目标'), { code: 'SESSION_WORKSPACE_CHANGED', statusCode: 409 });
   if (loadedSession && Number.isSafeInteger(body.expectedTurnSeq) && Number(loadedSession.turnSeq) !== body.expectedTurnSeq) throw Object.assign(new Error('目标任务已进入其它回合,请刷新交付卡后重试'), { code: 'DELIVERY_CHANGED', statusCode: 409 });
   if (loadedSession && body.expectedDelivery) {
@@ -61651,6 +62351,7 @@ async function runSessionTurn(input) {
   // 不是某个人在同一扇窗口里改口。两条定时任务同刻指向同一条既有线程时,修前后一个把前一个当「同源」顶掉
   // (09/05 的 supersede):前一个的消息丢了,它的记账却还是 succeeded。现在后来者拿 409,13s 按 target_busy 记 skipped
   // (不计连败),唤醒侧(runAgentWake)则把账退回去等那一回合收尾时补唤醒。
+  const relayAdmission = source === 'thread_relay' && body.relayLifecycle ? await body.relayLifecycle.prepareAdmission() : null;
   const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
   if (busySettler && busySource && (busySource !== source || EXCLUSIVE_TURN_SOURCES.has(source) || body.expectedDelivery)) {
@@ -61801,6 +62502,7 @@ async function runSessionTurn(input) {
   if (typeof SessionExecutionHooks.admissionBlocked === 'function' && SessionExecutionHooks.admissionBlocked(session.id)) {
     throw Object.assign(new Error('Session rewind is in progress'), { code: 'SESSION_EXECUTION_LOCKED', status: 409 });
   }
+  if (relayAdmission) relayAdmission.assert(); // No await between this fence and registering the original owner.
   const previousOwner = turnSettlers.get(session.id);
   if (previousOwner && typeof previousOwner.cancel === 'function') previousOwner.cancel('superseded');
   const driverRunId = makeId('drun');
@@ -61811,7 +62513,9 @@ async function runSessionTurn(input) {
   let settleResolve = null;
   const settleEntry = {
     promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null,
-    driverRunId, phase: 'starting', cancelRequested: false,
+    driverRunId, sessionId: session.id, phase: 'starting', cancelRequested: false,
+    turnSeqAtStart: Number(session.turnSeq) || 0,
+    authority: source === 'scheduler' && typeof body.executionAuthority?.assertCurrent === 'function' && typeof body.executionAuthority?.revalidate === 'function' ? body.executionAuthority : null,
     cancel(reason = 'stopped') {
       if (executionAbort.signal.aborted) return;
       this.cancelRequested = true; this.phase = 'stopping'; turnStopped = true;
@@ -61831,6 +62535,21 @@ async function runSessionTurn(input) {
   let briefSettleCandidate = false;
   let briefSettleProvider = null;
   try {
+    // Only an in-process relay supplies lifecycle functions. Persist the stable
+    // identity receipt under the registered execution owner before any engine IO.
+    if (source === 'thread_relay' && body.relayLifecycle) {
+      const lifecycle = body.relayLifecycle;
+      const relayExecution = sessionExecutionSnapshot(session.id);
+      const cancelRelay = () => requestSessionExecutionStop(session.id, relayExecution, 'stopped');
+      if (lifecycle.signal?.aborted) throw Object.assign(new Error('Relay cancelled'), { code: 'STEWARD_TURN_CANCELLED' });
+      lifecycle.signal?.addEventListener('abort', cancelRelay, { once: true });
+      settleEntry.relayCancel = cancelRelay;
+      await lifecycle.registered(settleEntry, storedConfig, session);
+      assertSessionExecutionOwner(session.id, settleEntry);
+    }
+    // Bound any old scheduled-run ambiguity before an ordinary newer turn can
+    // advance this head. Registration above still owns the admission interval.
+    if (source !== 'scheduler' && typeof SchedulerHooks !== 'undefined' && typeof SchedulerHooks.sessionTurnAdmission === 'function') await SchedulerHooks.sessionTurnAdmission(session);
     // Keep the admission check→owner registration synchronous. Legacy-history I/O happens only
     // after this turn owns the session, under the existing cancellation and finally cleanup.
     if (typeof PrivacyGateway !== 'undefined') {
@@ -61883,6 +62602,7 @@ async function runSessionTurn(input) {
       }
     }
     assertSessionExecutionOwner(session.id, settleEntry);
+    if (settleEntry.authority) await revalidateSessionExecutionPermission(session.id, settleEntry);
     const provider = activeOpenAiProvider(config);
     const pinnedRoute = inferSessionEngineRoute(routeSource);
     if (pinnedRoute?.engine === 'openai' && !provider) {
@@ -61901,8 +62621,15 @@ async function runSessionTurn(input) {
         // {origin:'agent_wake'})。driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。管家【会话】解析到
         // CLI 引擎时在 13h 就返回 unsupported_engine;CLI 引擎的普通线程(管家递话、唤醒)照样把出身标落在用户消息上。
         const turnMessageMeta = driverAuto ? null : (body.messageMeta || null);
-        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry, delegationPlan: !driverAuto && body.source === 'steward' ? body.delegationPlan : null });
-        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        if (source === 'thread_relay' && body.relayLifecycle && !settleEntry.dispatchAccepted) {
+          settleEntry.prepareDispatch = body.relayLifecycle.beforeDispatch;
+          const fence = await settleEntry.prepareDispatch();
+          SessionExecutionHooks.assertDispatch(settleEntry, fence);
+        }
+        await SessionExecutionHooks.withDispatchOwner(settleEntry, async () => {
+          if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry, delegationPlan: !driverAuto && body.source === 'steward' ? body.delegationPlan : null });
+          else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
@@ -61933,6 +62660,21 @@ async function runSessionTurn(input) {
     }
   } finally {
     onFlush();  // D1:回合收尾 flush 残留 delta,防最后一批丢(HTTP 壳的合批缓冲;进程内调用方通常是空实现)
+    // Admission/provider failures can leave this owner at the previous turnSeq.
+    // They report their own error, but cannot rewrite that turn's durable facts.
+    let deliveryCompletion = { status: 'unknown' };
+    if (Number(session.turnSeq) > (Number(settleEntry.turnSeqAtStart) || 0) && typeof ThreadRelayHooks.captureTurn === 'function') {
+      try { deliveryCompletion = await ThreadRelayHooks.captureTurn({ session, owner: settleEntry, config: storedConfig,
+        result: lastResult, error: turnError, stopped: turnStopped || settleEntry.cancelRequested }); }
+      catch (error) { logEvent({ kind: 'thread_delivery_receipt_unavailable', sessionId: session.id, code: String(error.code || 'io') }); }
+    }
+    if (source === 'thread_relay' && body.relayLifecycle) {
+      body.relayLifecycle.signal?.removeEventListener('abort', settleEntry.relayCancel);
+      try {
+        await body.relayLifecycle.settled({ ok: !turnError, stopped: turnStopped || settleEntry.cancelRequested,
+          turnSeq: Number(session.turnSeq) || 0, result: lastResult, error: turnError, deliveryCompletion });
+      } catch (error) { turnError = String(error.code || error.message || error); }
+    }
     finished = true;
     // 116h:并发位无条件释放(settle / abort / 异常三条路都经这里),释放即唤醒队列。release 幂等。
     if (stewardSlot && typeof stewardSlot.release === 'function') { try { stewardSlot.release(); } catch { /* best-effort */ } }
@@ -61945,16 +62687,30 @@ async function runSessionTurn(input) {
     // 发起的回合会写(13k stewardRecordLaunchOutcome / 13s),用户自己在界面上发起的回合没有 —— 收件箱第四源读不到
     // 成败账就按「账缺席 = done」报,于是 ok:false 的 network_down 回合被管家说成「已收工」、「失败自动重试」也
     // 永远等不到 failed 事件;五态两张表读的 lastTurnFailed 同样读不到。判据取回合自己发出的 result 事件(ok/aborted/
-    // errorClass,三引擎同形),与 13k 同口径。管家/调度器发起的回合照旧由它们自己写;被新回合顶掉的不写(新回合会写)。
+    // errorClass,三引擎同形),与 13k 同口径。调度器把精确结果/quiet 交本收尾屏障发布;
+    // 管家发起的回合由它自己写;被新回合顶掉的不写(新回合会写)。
     // 第二轮工具走查(F5):这里原先还要求 stewardWatchedThread(只给「被盯」的线程落账),于是没标 stewardWatch 的
     // 普通线程失败了也没有账,steward_thread_status / threads_search / missions 一律读成「已收工 done」,而它最后
     // 一句其实是错误信息。账本只是事实记录,【不】等于「管家要为它动手」—— 后者仍由收件箱第四源自己的
     // stewardWatchedThread 判据把关(13i stewardCollectSessionTurn 末尾 `!watched` 直接 return null),所以对
     // 未被盯的线程多写这一笔账不会多出任何收件箱事件。
     const outcomeId = session.id;
+    const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合
+    const turnAdvanced = Number(session.turnSeq) > (Number(settleEntry.turnSeqAtStart) || 0);
+    const schedulerPublishes = source === 'scheduler' && turnStillOwned && !lastResult?.superseded && turnAdvanced;
     let outcomePatch = null;
+    let outcomePublicationError = null;
     try {
-      if (outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
+      if (source === 'scheduler' && turnStillOwned && !schedulerPublishes && typeof body.schedulerOutcome === 'function') {
+        // No real turn was admitted (for example provider unavailable / queue
+        // cancelled). Stop its dispatch timer without stamping an older turn.
+        body.schedulerOutcome({ ok: !turnError, turnSeq: Number(session.turnSeq) || 0, result: lastResult, stopped: turnStopped });
+      }
+      if (schedulerPublishes) {
+        const turn = { ok: !turnError, turnSeq: Number(session.turnSeq) || 0, result: lastResult, stopped: turnStopped, error: turnError || undefined };
+        outcomePatch = typeof body.schedulerOutcome === 'function' ? body.schedulerOutcome(turn)
+          : { seq: turn.turnSeq, ok: !turnError && lastResult?.ok === true, aborted: turnStopped || lastResult?.aborted === true, errorClass: String(lastResult?.errorClass || turnError || ''), at: nowIso(), todosStartSig };
+      } else if (turnStillOwned && turnAdvanced && outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
           && !(lastResult && lastResult.superseded)) {
         if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
         else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
@@ -61963,9 +62719,11 @@ async function runSessionTurn(input) {
         // (Windows CI session-get-etag 实测 304 变 200)。被盯的线程照旧每回合都记(todosStartSig 要用)。
         if (outcomePatch && outcomePatch.ok === true && !stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) outcomePatch = null;
       }
-    } catch { outcomePatch = null; }
-    if (outcomePatch) turnOutcomePending.add(outcomeId);
-    const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合(没有更新的回合接手)
+    } catch (error) { outcomePatch = null; if (schedulerPublishes) outcomePublicationError = error; }
+    if (outcomePatch || outcomePublicationError) {
+      settleEntry.outcomeSeq = Number(outcomePatch?.seq ?? session.turnSeq) || 0;
+      turnOutcomePending.set(outcomeId, settleEntry);
+    }
     if (turnStillOwned) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     if (session.kind === 'steward' && typeof PrivacyCore.configHooks.settleStewardPrivacy === 'function') {
       privacySettingsResult = await PrivacyCore.configHooks.settleStewardPrivacy(session.id, Number(session.turnSeq),
@@ -61985,14 +62743,30 @@ async function runSessionTurn(input) {
         try { if ((await EventStreamHooks.pendingAgentWakeJobs(session)).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
       }
     }
-    if (outcomePatch) {
+    if (schedulerPublishes && (outcomePatch || outcomePublicationError)) {
+      try {
+        if (outcomePublicationError) throw outcomePublicationError;
+        const receipt = sessionSchedulerTurnReceipt(outcomePatch.scheduler);
+        const committed = await updateSessionMeta(outcomeId, { launchedBy: 'steward', stewardLastTurn: outcomePatch }, { waitForCommit: true,
+          ...(receipt ? { expectedSchedulerOutcome: { ...receipt, state: ['pending', 'unknown'], seq: Number(outcomePatch.seq) } } : {}),
+        });
+        if (!committed || !(Number(committed.stewardLastTurn?.seq) >= Number(outcomePatch.seq))) throw new Error('Scheduler outcome was not committed');
+        if (receipt && !sessionSchedulerTurnMatches(committed.stewardLastTurn, { ...receipt, seq: Number(outcomePatch.seq) })) throw new Error('Scheduler outcome identity changed before commit');
+        if (turnOutcomePending.get(outcomeId) === settleEntry) turnOutcomePending.delete(outcomeId);
+      } catch (cause) {
+        // Keep this owner's pending fence and the scheduler's durable in-flight
+        // occurrence. Recovery reports unknown; it must never replay the work.
+        throw Object.assign(new Error('Scheduler outcome publication is uncertain'), { code: 'SCHEDULER_OUTCOME_UNCERTAIN', cause });
+      }
+      try { if (typeof StewardHooks.onThreadSettled === 'function') StewardHooks.onThreadSettled(); } catch { /* notification is a side channel */ }
+    } else if (outcomePatch) {
       // 不 await:成败账是旁路,回合的收尾(brief 补写、返回值)不该排在一次会话头写盘后面;读侧在
       // turnOutcomePending 挂着期间按「账在路上」处理(04),落盘或失败后摘掉。
       Promise.resolve()
         .then(() => updateSessionMeta(outcomeId, { stewardLastTurn: outcomePatch }))
         .catch(() => { /* 旁路:少一笔账只是退回「账缺席」,不反噬回合 */ })
         .finally(() => {
-          turnOutcomePending.delete(outcomeId);
+          if (turnOutcomePending.get(outcomeId) === settleEntry) turnOutcomePending.delete(outcomeId);
           if (typeof StewardHooks.onThreadSettled === 'function') StewardHooks.onThreadSettled();
         });
     }
@@ -62048,7 +62822,8 @@ async function runSessionTurn(input) {
 //   · 唤醒回合不是用户的意思表示:source 不是 'http',所以不改「上次用的引擎」、不清 stewardTaint(见 runSessionTurn)。
 const AGENT_WAKE_SOURCE = 'agent_wake';
 // 系统自己起的回合:同一条线程上已经有一个同源回合在跑时,后来者不顶替、而是被挡回去(见 runSessionTurn 的忙判定)。
-const EXCLUSIVE_TURN_SOURCES = new Set(['scheduler', AGENT_WAKE_SOURCE]);
+SessionExecutionHooks.runTurn = runSessionTurn;
+const EXCLUSIVE_TURN_SOURCES = new Set(['scheduler', AGENT_WAKE_SOURCE, 'thread_relay']);
 const AGENT_WAKE_DEBOUNCE_MS = 1500;   // 同一批并行代理前后脚收尾时合成一次唤醒
 const agentWakeTimers = new Map();     // sessionId -> 防抖定时器
 const agentWakeAttempted = new Map();  // sessionId -> Set(账本 job id):已经为它唤醒过的信封
@@ -72537,10 +73312,12 @@ async function toolCall(name, args = {}, ctx = null) {
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
   try {
-    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, checked => {
+    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, async checked => {
       if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, name);
+      if (ctx && ctx.executionOwner && ctx.executionOwner.authority) await revalidateSessionExecutionPermission(ctx.sessionId, ctx.executionOwner);
       return entry.handler(checked, ctx);
     });
+    if (ctx && ctx.executionOwner && ctx.executionOwner.authority) await revalidateSessionExecutionPermission(ctx.sessionId, ctx.executionOwner);
     return await entry.handler(args, ctx);
   }
   catch (e) {
@@ -75671,6 +76448,8 @@ async function handleApi(req, res, pathname) {
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     return send(res, await CliBusinessHooks.agentLaunch(body, { isClosed: () => res.writableEnded || res.destroyed }));
   }
+  if (req.method === 'GET' && pathname === '/api/thread-relays') { await ThreadRelayHooks.route(req, res, pathname); return; }
+  if (req.method === 'POST' && pathname === '/api/thread-relays') { await ThreadRelayHooks.route(req, res, pathname); return; }
   // 代理模式 v2:MCP 子进程(Claude/Kimi)的 wait_agents / agent_result 回环(实现见 agentWorkflowLoopbackRoute)。
   if (req.method === 'POST' && pathname === '/api/agent-workflow/wait') return agentWorkflowLoopbackRoute(req, res, 'wait');
   if (req.method === 'POST' && pathname === '/api/agent-workflow/result') return agentWorkflowLoopbackRoute(req, res, 'result');
@@ -79180,7 +79959,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
         return send(res, apiFailure('permission.confirm_required', { desktopTools: true },
           'giving a thread desktop tools requires an explicit confirm:true (it can see your screen and press keys while you are away)', 409));
       }
-      const session = await updateSessionMeta(id, body);
+      const session = await updateSessionMeta(id, body, { external: true });
       if (!session) return send(res, apiSessionNotFound());
       const patchedConfig = await readConfig();
       // 审计:权限档是安全面,每一次改动都要能事后对账(谁、哪条线程、从哪档到哪档、生效档是什么)。
@@ -80225,6 +81004,14 @@ async function decideIntervention(command = {}) {
     if (type === 'permission') {
       runtimeEntry = pendingPermissions.get(interventionId);
       if (!runtimeEntry || runtimeEntry.sessionId !== missionId) return { ok: false, reason: 'delivery_unavailable', message: 'permission consumer is not live' };
+      if (action === 'allow' && typeof runtimeEntry.revalidateAuthority === 'function') {
+        try { await runtimeEntry.revalidateAuthority(); }
+        catch (error) {
+          // Storage/key failures happen before the CAS intent. Revocation is
+          // retired as denied by execute, using the original pending consumer.
+          if (!error || !['SCHEDULER_AUTHORITY_REVOKED', 'STEWARD_TURN_CANCELLED'].includes(error.code)) throw error;
+        }
+      }
       return { ok: true };
     }
     if (type === 'question') {
@@ -80293,6 +81080,17 @@ async function decideIntervention(command = {}) {
 
   const execute = () => {
     if (type === 'permission') {
+      if (action === 'allow' && typeof runtimeEntry.assertAuthority === 'function') {
+        try { runtimeEntry.assertAuthority(); }
+        catch (error) {
+          if (error && (error.code === 'SCHEDULER_AUTHORITY_REVOKED' || error.code === 'STEWARD_TURN_CANCELLED')) {
+            runtimeEntry.commandApplying = true; clearTimeout(runtimeEntry.timer);
+            runtimeEntry.resolve({ behavior: 'deny', message: 'scheduler authority revoked' }, { skipInterventionSettle: true });
+            return { ok: false, reason: 'authorization_revoked', message: 'scheduler authority revoked', authorizationRevoked: true };
+          }
+          throw error;
+        }
+      }
       runtimeEntry.commandApplying = true;
       clearTimeout(runtimeEntry.timer);
       const decision = action === 'allow'
@@ -80379,7 +81177,7 @@ async function decideIntervention(command = {}) {
         decisionFingerprint,
         preflight,
         action: execute,
-        resolveStatus: result => result && result.ok === false ? 'indeterminate' : toStatus,
+        resolveStatus: result => result && result.authorizationRevoked === true ? 'denied' : result && result.ok === false ? 'indeterminate' : toStatus,
         extra: result => ({
           action,
           ...(type === 'question' ? { answer: normalizedAnswer } : {}),
@@ -80963,16 +81761,21 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     if (activeAgentRuns.has(runId)) return send(res, json({ ok: false, error: '运行中的工作流不能删除' }, 409));
     try {
       const file = agentRunFile(sessionId, runId);
-      const run = await readAgentRunSnapshot(sessionId, runId);
+      const run = await readAgentRunSnapshot(sessionId, runId, { strict: true });
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
-      await fsp.unlink(file);
+      // Relay identities retain their original M3 receipt after history removal.
+      // Removing both ordinary history rows must never make a used ID fresh.
+      if (run?.kind === 'thread_relay' || run?.kind === 'existing_thread_relay') await ThreadRelayHooks.retireHistory(sessionId, runId);
+      else await fsp.unlink(file);
       agentRunDigestWriteSeq += 1;
       agentRunDigestCache.delete(file);   // digest 摘要缓存(08):文件没了条目一并撤
       // 对抗轮修(第25波): 删除快照必须连带删姊妹事件日志 —— 用户删「运行记录」的心智模型是数据消失,
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});
       await fsp.unlink(agentRunEventsFile(sessionId, runId) + '.gz').catch(() => {}); // v1.9 数据管家: 归档压缩变体一并删
-    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error;
+      if (error.code === 'thread_relay.target_busy') return send(res, json({ ok: false, error: '运行中的工作流不能删除' }, 409));
+      return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
     await bumpMissionChangeSeq(sessionId, {
       type: 'run_deleted', cursor: { runId }, detail: { runId },
     });
@@ -82370,8 +83173,10 @@ function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   // hunt2-steward ④:成败账只在盖得住【这一回合】时才算数(06i stewardCoveringLastTurn)。账是上一个
   // 管家回合留下的(这一回合是用户在 2.0 里自己聊的,不写账)→ 当作账缺席,按 done 报。
   const last = stewardCoveringLastTurn(h.stewardLastTurn, seq);
+  if (Number(last?.seq) === seq && ['pending', 'unknown'].includes(last?.scheduler?.state)) return null;
   const kind = stewardKindFor('sessionTurn', 'turn_settled', last);
   if (!kind) return null;
+  if (kind === 'done' && last && last.quiet === true) return null;
   const quick = !!(h.stewardQuick && typeof h.stewardQuick === 'object');
   const payload = { source: 'session_turn', turnSeq: seq };
   if (h.launchedBy) payload.launchedBy = stewardClipSummary(h.launchedBy);
@@ -83060,7 +83865,13 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
   // 收尾:activeChildren 已删、turnOutcomePending 还没加(中间是 reconcile / 存会话 / onTurnEnd 几次 await)。
   // 修前已见过的线程落在这两个窗口里会被报一条「跑完了」并把基线推到 N,真正的结果(尤其是失败)再也报不出来。
   // 首见那一支早有 inFlight 判据兜同一个窗口;这里对所有线程统一用 turnSettlers。
-  if (activeChildren.has(sid) || turnOutcomePending.has(sid) || turnSettlers.has(sid)) {
+  const pendingOwner = turnOutcomePending.get(sid);
+  const pendingSeq = Number(pendingOwner?.outcomeSeq);
+  let durablePending = Number(head.stewardLastTurn?.seq) === turnSeq && ['pending', 'unknown'].includes(head.stewardLastTurn?.scheduler?.state);
+  if (!durablePending && turnSeq > (Number(known?.turnSeq) || 0) && typeof SchedulerHooks !== 'undefined' && typeof SchedulerHooks.sessionTurnAdmission === 'function') {
+    try { durablePending = !await SchedulerHooks.sessionTurnAdmission(head); } catch { durablePending = true; }
+  }
+  if (activeChildren.has(sid) || (pendingOwner && (!Number.isFinite(pendingSeq) || pendingSeq >= turnSeq)) || durablePending || turnSettlers.has(sid)) {
     // (turnOutcomePending:回合已收、成败账正在写 —— 同样等下一拍,见 04 的头注)
     // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
     // 117p(用户第七轮走查:「2.0 回合已经跑完了,管家没有收到体现也没收工」):首见就撞上活回合时,
@@ -84118,6 +84929,35 @@ function stewardDisplayKind(head) {
 // 3.x 第四轮：只读交付投影。证据随既有 turnSummary 保存，不另建成果或验收账本。
 // 引擎及工具通过 StewardHooks 迟绑定，避免给既有依赖环增加成员。
 const STEWARD_DELIVERY_LIMITS = Object.freeze({ files: 20, checks: 50, fileBytes: 8 * 1024 * 1024, totalBytes: 32 * 1024 * 1024 });
+function stewardDeliveryRevisionGuard(source, reference, files, completionFile) {
+  const revision = sessionDiskWriteSeqOf(source.id);
+  const identity = st => [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':');
+  const stamp = file => {
+    try { return fs.realpathSync(file) + '\0' + identity(fs.statSync(file, { bigint: true })); }
+    catch (error) { if (error.code === 'ENOENT') return 'missing'; throw error; }
+  };
+  const bodies = sessionBodyPaths(source.id);
+  const pathsToGuard = [path.join(paths.sessions, source.id + '.json'), bodies.messages, bodies.provider, ...files.map(file => file.path)];
+  if (completionFile) pathsToGuard.push(completionFile);
+  const stamps = pathsToGuard.map(stamp);
+  return () => {
+    if (revision !== sessionDiskWriteSeqOf(source.id) || pathsToGuard.some((file, index) => stamp(file) !== stamps[index]))
+      throw Object.assign(new Error('thread_relay.source_changed'), { code: 'thread_relay.source_changed', statusCode: 409 });
+    for (const [index, file] of files.entries()) {
+      // Selected files are already root/identity checked, UTF-8 and at most 128 KiB.
+      // Re-hash these bounded original bytes at the final synchronous boundary.
+      const fd = fs.openSync(file.path, 'r');
+      try {
+        const stat = fs.fstatSync(fd, { bigint: true });
+        if (!stat.isFile() || stat.size > 128n * 1024n || !stamps[index + 3].endsWith('\0' + identity(stat))) throw new Error('material identity changed');
+        const bytes = Buffer.alloc(Number(stat.size) + 1), length = fs.readSync(fd, bytes, 0, bytes.length, 0);
+        if (length !== Number(stat.size) || identity(fs.fstatSync(fd, { bigint: true })) !== identity(stat)
+            || crypto.createHash('sha256').update(bytes.subarray(0, length)).digest('hex') !== file.fingerprint) throw new Error('material bytes changed');
+      } catch { throw Object.assign(new Error('thread_relay.material_changed'), { code: 'thread_relay.material_changed', statusCode: 409 }); }
+      finally { fs.closeSync(fd); }
+    }
+  };
+}
 function stewardDeliveryRows(session, turnSeq) {
   return (Array.isArray(session.messages) ? session.messages : []).filter(row => Number(row && row.turnSeq) === turnSeq);
 }
@@ -84220,7 +85060,7 @@ function stewardDeliverySource(session, turnSeq) {
     turnSeq, rows: rows.map(row => ({ role: row.role, content: row.content, segments: row.segments, turnSummary: row.turnSummary })) })).digest('hex');
   return { rows, summary, evidence, stamp };
 }
-async function stewardDeliveryProjection(sessionId, turnSeq, config) {
+async function stewardDeliveryProjection(sessionId, turnSeq, config, options = {}) {
   const session = await loadSession(sessionId, { omitProviderHistory: true });
   if (!session || stewardRawKind(session) === 'steward') return stewardFail('not_found', '交付来源任务不存在');
   const source = stewardDeliverySource(session, turnSeq);
@@ -84239,11 +85079,13 @@ async function stewardDeliveryProjection(sessionId, turnSeq, config) {
   const fileStamp = crypto.createHash('sha256').update(JSON.stringify(files.map(file => [file.path, file.status, file.fingerprint || '', file.size]))).digest('hex');
   const checks = recorded ? recorded.checks.map(item => ({ ...item,
     applicable: item.currentTurn === true && allFilesSame && !inProgress && Number(session.turnSeq) === turnSeq })) : [];
+  const relayCompletion = options.skipRelayCompletion || typeof ThreadRelayHooks.completion !== 'function' ? 'unknown'
+    : (await ThreadRelayHooks.completion(sessionId, { turnSeq, latestTurnSeq: Number(session.turnSeq) || 0, sourceStamp: source.stamp, fileStamp })).status;
   return { ok: true, sessionId, title: sessionDisplayTitle(session), turnSeq, latestTurnSeq: Number(session.turnSeq) || 0,
     sourceStamp: source.stamp, fileStamp, capturedAt: recorded?.capturedAt || '', evidenceRecorded: !!recorded,
     files, filesTruncated: all.length > files.length, checks, checksRecorded: recorded?.checksRecorded === true,
     unfinished: checks.filter(item => item.status !== 'done').map(item => ({ id: item.id, desc: item.desc, status: item.status })),
-    outdated: Number(session.turnSeq) > turnSeq, inProgress };
+    outdated: Number(session.turnSeq) > turnSeq, inProgress, relayCompletion };
 }
 async function stewardValidateDeliveryReference(sessionId, reference, config) {
   if (!reference || !Number.isSafeInteger(reference.turnSeq) || reference.turnSeq <= 0 || !/^[a-f0-9]{64}$/.test(reference.sourceStamp || '') || !Number.isSafeInteger(reference.latestTurnSeq)) return stewardFail('invalid_request', '修订来源无效,请重新打开交付卡');
@@ -84276,6 +85118,9 @@ async function handleStewardDeliveryApiRoutes(req, res, pathname) {
 }
 DeliveryHooks.capture = stewardCaptureDelivery;
 StewardHooks.deliveryProjection = stewardDeliveryProjection;
+StewardHooks.deliverySource = stewardDeliverySource;
+StewardHooks.deliveryRevisionGuard = stewardDeliveryRevisionGuard;
+StewardHooks.inspectDeliveryFile = stewardDeliveryInspect;
 StewardHooks.validateDeliveryReference = stewardValidateDeliveryReference;
 StewardHooks.handleDeliveryApiRoutes = handleStewardDeliveryApiRoutes;
 
@@ -86145,6 +86990,10 @@ async function stewardEnrichInboxRows(rows) {
   }
   return list;
 }
+
+// Scheduler consumes the same library owner through the existing engine-facing
+// thread boundary. Keep 13s outside the provider-engine dependency cycle.
+Object.assign(StewardHooks, { normalizePlaybook, loadAllPlaybooks });
 
 // 收工:回合结束后由 13h 调 —— 把 stewardQuick.closedAt 落在会话头上。收工后这条线程从管家的总览
 // 与 steward_threads_search 里消失(经典壳照常看得见,它只是数据)。幂等:已收工的再调是无操作。
@@ -93261,6 +94110,48 @@ function schedulerDayKey(schedMs) {
 }
 function schedulerEnabled(schedConfig) { return !!(schedConfig && schedConfig.schedulerEnabledV1 === true); }
 
+// A library revision is selected at creation/edit time, then kept as ordinary
+// scheduler data under the existing tasks owner and encrypted fire journal.
+function schedulerNormalizePlaybookPayload(raw) {
+  if (!raw.playbookId || !raw.revision) return schedulerFail('invalid_request', 'payload.kind must be one of reminder/prompt, or playbook with a selected saved template revision');
+  const template = StewardHooks.normalizePlaybook(raw.template);
+  if (!template || raw.playbookId !== template.id || raw.revision !== template.revision) return schedulerFail('playbook_changed', 'the template changed; select it again');
+  const values = raw.values;
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return schedulerFail('playbook_inputs_invalid', 'complete the template inputs');
+  const declared = new Set(template.inputs.map(input => input.key));
+  if (declared.size !== template.inputs.length) return schedulerFail('playbook_inputs_invalid', 'each template input must have a unique name');
+  if (Object.keys(values).some(key => !declared.has(key))) return schedulerFail('playbook_inputs_invalid', 'an input is no longer part of the template');
+  const boundValues = {};
+  for (const input of template.inputs) {
+    const value = values[input.key] === undefined ? '' : values[input.key];
+    if (typeof value !== 'string' || value.length > 4000 || (input.required && !value.trim())) return schedulerFail('playbook_inputs_invalid', 'complete the required inputs: ' + input.label);
+    if (value && input.type !== 'text' && (!/^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(value) || /[\r\n]/.test(value))) return schedulerFail('playbook_inputs_invalid', 'choose a full ' + input.type + ' path: ' + input.label);
+    boundValues[input.key] = value;
+  }
+  if (!Array.isArray(raw.checks) || !raw.checks.length || raw.checks.length > 8 || raw.checks.some(check => typeof check !== 'string' || !check.trim() || check.length > 300)) return schedulerFail('playbook_checks_required', 'add at least one acceptance condition');
+  const checks = raw.checks.map(check => check.trim());
+  const prompt = stewardAssemblePlaybookPrompt(template, boundValues)
+    + '\n\n[Acceptance conditions / 验收条件]\n' + checks.map((check, index) => (index + 1) + '. ' + check).join('\n')
+    + '\nReport the actual result and evidence; say clearly when blocked, incomplete or unchanged. / 说明实际结果与证据，明确受阻、未完成或无变化。';
+  return { ok: true, payload: { kind: 'playbook', playbookId: template.id, revision: template.revision, template, values: boundValues, checks, text: prompt } };
+}
+SchedulerHooks.normalizePlaybookPayload = schedulerNormalizePlaybookPayload;
+
+async function schedulerBindPlaybookBody(body, current = null) {
+  if (!body || !body.payload || body.payload.kind !== 'playbook') return body;
+  const requested = body.payload;
+  if (current && current.payload.kind === 'playbook' && requested.playbookId === current.payload.playbookId && requested.revision === current.payload.revision) {
+    return { ...body, payload: { ...requested, template: current.payload.template } };
+  }
+  const template = (await StewardHooks.loadAllPlaybooks()).find(row => row.id === requested.playbookId);
+  if (!template || requested.revision !== template.revision) return { ...body, payload: { ...requested, template: null } };
+  return { ...body, payload: { ...requested, template } };
+}
+function schedulerOccurrenceSnapshot(task) {
+  return JSON.parse(JSON.stringify({ id: task.id, title: task.title, revision: task.revision, schedule: task.schedule,
+    payload: task.payload, target: task.target, autonomy: task.autonomy, policy: task.policy, ...(task.workdir ? { workdir: task.workdir } : {}) }));
+}
+
 // 事件:任务或 fires 变了。13r 只转发,不承载正文(§6.1 红线)—— 帧里只有「哪条任务、到了哪一段、
 // 什么结果」,标题与文案都不进这条线(前端从 GET /api/scheduler/tasks 那一份拿)。
 function schedulerEmitChanged(schedTaskId, schedPhase, schedOutcome) {
@@ -93540,6 +94431,13 @@ function schedulerRestorePersistedState(schedTask, schedRawTask) {
   if (Number.isFinite(persistedNext)) schedTask.state.nextFireAt = new Date(persistedNext).toISOString();
   const persistedUpdated = Date.parse(String(schedRawTask && schedRawTask.updatedAt));
   if (Number.isFinite(persistedUpdated)) schedTask.updatedAt = new Date(persistedUpdated).toISOString();
+  for (const key of ['queuedOccurrence', 'inFlightSnapshot']) {
+    if (!rawState[key]) continue;
+    const snapshot = key === 'queuedOccurrence' ? rawState[key].snapshot : rawState[key];
+    const checked = normalizeSchedulerTask(snapshot, 0);
+    if (!checked.ok || checked.task.id !== schedTask.id || (key === 'queuedOccurrence' && !Number.isFinite(Number(rawState[key].dueMs)))) throw schedulerStorageFailure('snapshot_invalid');
+    schedTask.state[key] = JSON.parse(JSON.stringify(rawState[key]));
+  }
   return schedTask;
 }
 async function schedulerLoad() {
@@ -93602,6 +94500,7 @@ async function schedulerRecordMissedSkip(task, missed, now) {
     phase: 'reconciled',
     outcome: 'skipped',
     error: reason,
+    ...(task.payload.kind === 'playbook' ? { snapshot: schedulerOccurrenceSnapshot(task) } : {}),
   });
   void schedulerNotify('onSchedulerNotice', {
     kind: 'skipped', taskId: task.id, title: task.title,
@@ -93616,32 +94515,113 @@ async function schedulerRecordMissedSkip(task, missed, now) {
 //      **那一次 occurrence 就此消费掉**(nextFireAt 推过它),否则重启会把同一个 occurrence 再触发
 //      一遍 —— 而它上一次可能已经真的动过文件了(J11「不重发」)。
 //   ② 错过的时点 —— 必须排在 ① 之后:被崩溃消费掉的那个时点不该再算作「错过」。
+async function schedulerRetireSessionTurn(taskId, runId, entry) {
+  if (!entry.sessionId) return null; // no dispatched session was durably identified
+  const head = await loadSession(entry.sessionId);
+  if (!head) return null; // deleted session; never create or guess another target
+  const last = head.stewardLastTurn, receipt = sessionSchedulerTurnReceipt(last?.scheduler);
+  if (!receipt) return { sessionId: head.id, legacyTurnThrough: Number.isSafeInteger(entry.legacyTurnThrough) ? entry.legacyTurnThrough : Math.max(0, Number(head.turnSeq) || 0) };
+  if (receipt.taskId !== taskId || receipt.runId !== runId || receipt.occurrenceKey !== entry.occurrenceKey) return null;
+  const identity = { sessionId: head.id, turnSeq: Number(last.seq) };
+  if (receipt.state !== 'pending') return identity; // real settled result / prior durable unknown
+  const current = await updateSessionMeta(head.id, { stewardLastTurn: { ...last, ok: false, aborted: false,
+    errorClass: 'scheduler_unknown', scheduler: { ...receipt, state: 'unknown' } } },
+  { waitForCommit: true, preserveSchedulerPendingIfBusy: true, expectedSchedulerOutcome: { ...receipt, seq: Number(last.seq) } });
+  // Busy recovery preserves the original durable pending head; the fire below
+  // records unknown with this same identity, without claiming a head rewrite.
+  if (!current) throw Object.assign(new Error('Scheduler recovery outcome was not committed'), { code: 'SCHEDULER_OUTCOME_UNCERTAIN' });
+  return identity;
+}
+function schedulerRecoveryEntries(rows, byRun = new Map()) {
+  for (const row of rows) {
+    const runId = String(row.runId || ''); if (!runId) continue;
+    const entry = byRun.get(runId) || { runId, occurrenceKey: '', dueAt: '', mode: 'ontime', reconciled: false };
+    for (const key of ['taskId', 'occurrenceKey', 'dueAt', 'mode', 'sessionId', 'phase', 'outcome']) if (row[key]) entry[key] = String(row[key]);
+    if (row.snapshot) entry.snapshot = row.snapshot;
+    if (Number.isSafeInteger(row.legacyTurnThrough) && row.legacyTurnThrough >= 0) entry.legacyTurnThrough = row.legacyTurnThrough;
+    if (Number.isSafeInteger(row.turnSeq) && row.turnSeq > 0) entry.turnSeq = row.turnSeq;
+    if (row.phase === 'reconciled') entry.reconciled = true;
+    byRun.set(runId, entry);
+  }
+  return byRun;
+}
+async function schedulerReadRecoveryEntries(sessionId = '', runIds = null) {
+  // History's bounded UI tail cannot prove that an old association is absent.
+  // Use the original authenticated full visitor, retaining only matching runs.
+  return withSchedulerFireLock(() => {
+    const journal = schedulerFireJournal();
+    return journal.withOperation(async operation => {
+      const wanted = new Set(runIds || []), byRun = new Map();
+      const scan = async visit => {
+        const proof = await journal.readWindow(0, 0, text => {
+          if (!String(text).trim()) return;
+          let row; try { row = JSON.parse(text); } catch { throw schedulerStorageFailure('fire_history_incomplete'); }
+          if (!schedulerFireRowValid(row)) throw schedulerStorageFailure('fire_history_incomplete');
+          visit(row);
+        }, false, null, operation);
+        if (proof.tornBytes) throw schedulerStorageFailure('fire_history_incomplete');
+        return proof;
+      };
+      const first = runIds ? null : await scan(row => { if (row.sessionId === sessionId && row.runId) wanted.add(String(row.runId)); });
+      if (!wanted.size) return byRun;
+      const proof = await scan(row => { if (wanted.has(String(row.runId || ''))) schedulerRecoveryEntries([row], byRun); });
+      if (first && (first.stamp !== proof.stamp || first.digest !== proof.digest)) throw schedulerStorageFailure('fire_history_changed');
+      return byRun;
+    });
+  });
+}
+async function schedulerSessionTurnAdmission(head) {
+  const seq = Math.max(0, Number(head?.turnSeq) || 0), last = head?.stewardLastTurn;
+  if (!seq || Number(last?.seq) >= seq && !['pending', 'unknown'].includes(last?.scheduler?.state)) return true;
+  if (Number(last?.seq) === seq && ['pending', 'unknown'].includes(last?.scheduler?.state)) return false;
+  // Ordinary sessions on installations with no scheduler history never load
+  // task/key owners or create a scheduler directory merely to check a turn.
+  try { await fsp.stat(schedulerFiresPath()); } catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+  await schedulerLoad();
+  return schedulerTaskAdmission(async () => {
+    await schedulerFirePreflight();
+    // Missing is empty; every other read/key failure must hold the old cursor.
+    try { await fsp.stat(schedulerFiresPath()); } catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+    let allowed = true;
+    for (const entry of (await schedulerReadRecoveryEntries(head.id)).values()) {
+      if (entry.sessionId !== head.id || entry.reconciled && entry.outcome !== 'unknown') continue;
+      const receipt = sessionSchedulerTurnReceipt(last?.scheduler);
+      if (entry.turnSeq && entry.turnSeq !== seq || receipt && receipt.runId === entry.runId && Number(last.seq) !== seq) continue;
+      let through = entry.legacyTurnThrough;
+      if (!Number.isSafeInteger(through)) {
+        // This bounds ambiguity observed in an old head; it does NOT assert
+        // that its current assistant/turn was executed by this scheduled run.
+        through = seq;
+        await schedulerAppendFire({ taskId: entry.taskId, runId: entry.runId, occurrenceKey: entry.occurrenceKey,
+          dueAt: entry.dueAt, mode: entry.mode, phase: entry.reconciled ? 'reconciled' : entry.phase || 'running',
+          ...(entry.reconciled ? { outcome: 'unknown', error: 'interrupted' } : {}), sessionId: head.id,
+          legacyTurnThrough: through, ...(entry.snapshot ? { snapshot: entry.snapshot } : {}) });
+      }
+      if (seq <= through) allowed = false;
+    }
+    return allowed;
+  });
+}
+SchedulerHooks.sessionTurnAdmission = schedulerSessionTurnAdmission;
 async function schedulerRecover(schedFireRows) {
   return schedulerTaskAdmission(async operation => {
     await schedulerFirePreflight();
     const now = schedulerClockNow();
-    const rows = Array.isArray(schedFireRows) ? schedFireRows : await schedulerReadFireRows();
-    const byRun = new Map();          // runId -> { occurrenceKey, dueAt, mode, reconciled }
-    for (const row of rows) {
-      const runId = String(row.runId || '');
-      if (!runId) continue;
-      const entry = byRun.get(runId) || { occurrenceKey: '', dueAt: '', mode: 'ontime', reconciled: false };
-      if (row.occurrenceKey) entry.occurrenceKey = String(row.occurrenceKey);
-      if (row.dueAt) entry.dueAt = String(row.dueAt);
-      if (row.mode) entry.mode = String(row.mode);
-      if (String(row.phase) === 'reconciled') entry.reconciled = true;
-      byRun.set(runId, entry);
-    }
     let dirty = false;
 
     // 只走「装载那一刻盘上就有的」那些任务(见 loadedFromDisk 的头注)。
     const fromDisk = schedulerRuntime.tasks.filter(task => schedulerRuntime.loadedFromDisk.has(task.id));
+    // The load-time tail is only a hint. Recovery decisions use complete current
+    // authenticated history for the original in-flight run identities.
+    const byRun = await schedulerReadRecoveryEntries('', fromDisk.map(task => String(task.state.inFlightRunId || '')).filter(Boolean));
 
     // ① 崩溃残留
     for (const task of fromDisk) {
       const runId = String(task.state.inFlightRunId || '');
       if (!runId) continue;
-      const entry = byRun.get(runId) || { occurrenceKey: occurrenceKey(task.id, now), dueAt: '', mode: 'ontime', reconciled: false };
+      const bound = task.state.inFlightSnapshot && task.state.inFlightSnapshot.occurrence;
+      const entry = byRun.get(runId) || { occurrenceKey: bound ? bound.key : occurrenceKey(task.id, now), dueAt: bound ? bound.dueAt : '', mode: bound ? bound.mode : 'ontime', reconciled: false };
+      const turnIdentity = await schedulerRetireSessionTurn(task.id, runId, entry);
       if (!entry.reconciled) {
         await schedulerAppendFire({
           taskId: task.id,
@@ -93654,6 +94634,8 @@ async function schedulerRecover(schedFireRows) {
           phase: 'reconciled',
           outcome: 'unknown',
           error: 'interrupted',
+          ...(turnIdentity || (entry.sessionId ? { sessionId: entry.sessionId } : {})),
+          ...(task.state.inFlightSnapshot ? { snapshot: task.state.inFlightSnapshot } : {}),
         });
         void schedulerNotify('onSchedulerNotice', {
           kind: 'unknown', taskId: task.id, title: task.title,
@@ -93662,6 +94644,8 @@ async function schedulerRecover(schedFireRows) {
         schedulerEmitChanged(task.id, 'reconciled', 'unknown');
       }
       task.state.inFlightRunId = '';
+      delete task.state.inFlightSnapshot;
+      delete task.state.queuedOccurrence;
       task.state.lastResult = 'unknown';
       // 把 nextFireAt 推过那个已经消费掉的时点。dueAt 读不出来时用「现在」兜底(仍然只往前走)。
       const consumedMs = Date.parse(entry.dueAt);
@@ -93674,9 +94658,14 @@ async function schedulerRecover(schedFireRows) {
     // ② 错过的时点
     for (const task of fromDisk) {
       if (!task.state.enabled) continue;
+      if (task.state.queuedOccurrence) {
+        schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: task.state.queuedOccurrence.dueMs });
+        continue;
+      }
       const missed = missedOccurrence(task, now);
       if (!missed) continue;
       if (missed.runLate) {
+        if (task.payload.kind === 'playbook') task.state.queuedOccurrence = { dueMs: missed.dueMs, snapshot: schedulerOccurrenceSnapshot(task) };
         schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: missed.dueMs });
       } else {
         await schedulerRecordMissedSkip(task, missed, now);
@@ -93700,16 +94689,79 @@ async function schedulerRecover(schedFireRows) {
 // → 定时回合按 auto 跑),全局是 bypass 而任务没给档时也原样拿到 bypass(与「永不含 bypass」相悖)。
 // 现在按 06i 的全序(plan < default < acceptEdits < auto < bypass)取 min(任务档 || 全局档, 全局档),
 // 结果若仍是 bypass(只可能来自全局档)一律落到 default。全局档本身不认识 → 按 default 算(fail-closed)。
-function schedulerPermissionModeFor(schedTask, schedConfig) {
+function schedulerPermissionModeFor(schedTask, schedConfig, schedLiveTask = schedTask) {
+  if (!schedLiveTask) throw Object.assign(new Error('scheduler authority revoked: task removed'), { code: 'SCHEDULER_AUTHORITY_REVOKED' });
   const wanted0 = String((schedTask && schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
+  const liveWanted0 = String((schedLiveTask.autonomy && schedLiveTask.autonomy.permissionMode) || '');
   const globalRaw = String((schedConfig && schedConfig.permissionMode) || 'default');
   const globalMode = stewardPermissionRank(globalRaw) >= 0 ? globalRaw : 'default';
   const wanted = (wanted0 && wanted0 !== 'bypass' && wanted0 !== 'bypassPermissions' && PERMISSION_MODES.includes(wanted0)) ? wanted0 : globalMode;
-  const narrowest = stewardPermissionRank(wanted) <= stewardPermissionRank(globalMode) ? wanted : globalMode;
+  const liveWanted = (liveWanted0 && liveWanted0 !== 'bypass' && liveWanted0 !== 'bypassPermissions' && PERMISSION_MODES.includes(liveWanted0)) ? liveWanted0 : globalMode;
+  const narrowest = [wanted, liveWanted, globalMode].reduce((left, right) => stewardPermissionRank(left) <= stewardPermissionRank(right) ? left : right);
   return (narrowest === 'bypass' || narrowest === 'bypassPermissions') ? 'default' : narrowest;
 }
 
+// Content stays immutable. Authority remains live and can only retire this
+// execution, never replace its message or manufacture a new occurrence.
+function schedulerExecutionAuthority(snapshot, liveTask, runId, mode, sessionId) {
+  let ceiling = '', currentConfig = null, revoked = false;
+  const initiallyPaused = liveTask.state.enabled === false;
+  const failure = () => Object.assign(new Error('scheduler authority revoked; review this run before starting a new occurrence'), { code: 'SCHEDULER_AUTHORITY_REVOKED' });
+  const revoke = () => {
+    revoked = true;
+    const owner = turnSettlers.get(sessionId);
+    if (owner && owner.source === 'scheduler' && owner.requestMeta && owner.requestMeta.runId === runId) owner.cancel('scheduler_authority_revoked');
+  };
+  const assertCurrent = () => {
+    const current = schedulerRuntime.tasks.find(row => row.id === snapshot.id);
+    if (revoked || current !== liveTask || current.state.inFlightRunId !== runId
+        || (current.state.enabled === false && (mode !== 'manual' || !initiallyPaused))) {
+      revoke(); throw failure();
+    }
+    if (currentConfig) {
+      const currentMode = schedulerPermissionModeFor(snapshot, currentConfig, current);
+      if (ceiling && stewardPermissionRank(currentMode) < stewardPermissionRank(ceiling)) { revoke(); throw failure(); }
+      return currentMode;
+    }
+    return '';
+  };
+  const unsubscribe = RUYI_EVENTS.subscribe((name, payload) => {
+    if (name === 'config.written' && payload && typeof payload.permissionMode === 'string') currentConfig = { permissionMode: payload.permissionMode };
+    else if (name !== 'schedule.changed' || !payload || payload.taskId !== snapshot.id) return;
+    try { assertCurrent(); } catch { /* the original owner cancellation retires pending decisions */ }
+  });
+  return {
+    assertCurrent,
+    async revalidate() {
+      currentConfig = await readConfig();
+      await schedulerLoad(); // same task owner / key authority as dispatch admission
+      const currentMode = assertCurrent();
+      if (!ceiling) ceiling = currentMode;
+      return ceiling;
+    },
+    dispose: () => { if (typeof unsubscribe === 'function') unsubscribe(); },
+  };
+}
+
 // 一次触发。mode ∈ ontime|late|manual。返回本次的 outcome(e2e 与 run-now 都读它)。
+function schedulerTurnOutcome(result, options = {}) {
+  const inner = result?.result && typeof result.result === 'object' ? result.result : null;
+  const neverRan = !inner && !!result?.stopped;
+  const turnOk = inner ? inner.ok === true : !!(result?.ok && !neverRan);
+  let outcome, error = String(options.error || '');
+  if (options.queueTimedOut) { outcome = 'skipped'; error = 'queue_timeout'; }
+  else if (options.timedOut) { outcome = 'failed'; error = error || 'timeout'; }
+  else if (!result || !turnOk) { outcome = 'failed'; error = error || (neverRan ? 'stopped' : String(inner?.errorClass || 'turn_failed')); }
+  else if (options.permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
+  else outcome = 'succeeded';
+  return { outcome, error, patch: {
+    seq: Math.max(0, Number(result?.turnSeq) || 0), ok: outcome === 'succeeded',
+    aborted: !!(inner ? inner.aborted : result?.stopped),
+    errorClass: String(inner?.errorClass || (options.timedOut ? 'timeout' : error)), at: nowIso(),
+    ...(options.quiet && outcome === 'succeeded' ? { quiet: true } : {}),
+  } };
+}
+
 async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('scheduler-fire')) return WorkDataMaintenanceHooks.run('scheduler-fire', () => schedulerFireOnce(...arguments));
   const task = schedTask;
@@ -93718,6 +94770,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   const occKey = occurrenceKey(task.id, schedDueMs);
   const dueAt = new Date(schedDueMs).toISOString();
   let runId = '', fireBase = null;
+  let executionTask = null;
   let outcome = 'succeeded';
   let error = '';
   let sessionId = '';
@@ -93732,18 +94785,23 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       // Recovery already advances a late task's nextFireAt; only ontime binds that due.
       if (schedMode !== 'manual' && (!task.state.enabled
         || (schedMode === 'ontime' && Date.parse(task.state.nextFireAt) !== schedDueMs))) return 'skipped';
+      const queued = task.state.queuedOccurrence;
+      executionTask = queued && queued.dueMs === schedDueMs ? JSON.parse(JSON.stringify(queued.snapshot)) : schedulerOccurrenceSnapshot(task);
+      if (executionTask.payload.kind === 'playbook' && schedulerRuntime.attempts.has(occKey)) return 'skipped';
+      executionTask.occurrence = { key: occKey, dueAt, mode: schedMode };
       await schedulerFirePreflight();
       if (schedulerRuntime.globalRuns.date !== day) schedulerRuntime.globalRuns = { date: day, count: 0 };
       if (!task.state.runsToday || task.state.runsToday.date !== day) task.state.runsToday = { date: day, count: 0 };
 
       // ── 上限(29 号文 §4)。撞上限不是失败,是【这一次不跑】:记一行 skipped 并推进下一次。
       const globalFull = schedulerRuntime.globalRuns.count >= SCHEDULER_LIMITS.globalRunsPerDay;
-      const taskFull = task.state.runsToday.count >= task.policy.maxRunsPerDay;
+      const taskFull = task.state.runsToday.count >= Math.min(task.policy.maxRunsPerDay, executionTask.policy.maxRunsPerDay);
       if (globalFull || taskFull) {
         await schedulerAppendFire({
           taskId: task.id, title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
           occurrenceKey: occKey, dueAt, runId: '', executionGeneration: 0, mode: schedMode,
           phase: 'reconciled', outcome: 'skipped', error: globalFull ? 'global_daily_cap' : 'task_daily_cap',
+          ...(executionTask.payload.kind === 'playbook' ? { snapshot: executionTask } : {}),
         });
         if (schedMode !== 'manual') {
           const bumped = nextFireAt(task.schedule, startedMs);
@@ -93751,6 +94809,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         }
         task.state.lastResult = 'skipped';
         task.state.lastMode = schedMode;
+        if (queued && queued.dueMs === schedDueMs) delete task.state.queuedOccurrence;
         await schedulerSaveTasks(operation);
         schedulerEmitChanged(task.id, 'reconciled', 'skipped');
         return 'skipped';
@@ -93766,10 +94825,13 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         runId,
         executionGeneration: attempts,
         mode: schedMode,
+        ...(executionTask.payload.kind === 'playbook' ? { snapshot: executionTask } : {}),
       };
 
       // ── ① 登记(原子写 inFlightRunId + lastFiredAt,再落一行 registered)────────────────────
       task.state.inFlightRunId = runId;
+      if (executionTask.payload.kind === 'playbook') task.state.inFlightSnapshot = executionTask;
+      if (queued && queued.dueMs === schedDueMs) delete task.state.queuedOccurrence;
       task.state.lastFiredAt = new Date(startedMs).toISOString();
       task.state.lastMode = schedMode;
       task.state.runsToday = { date: day, count: task.state.runsToday.count + 1 };
@@ -93786,6 +94848,8 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
     if (skipped) return skipped;
 
     // ── ② 派单 ────────────────────────────────────────────────────────────────
+    {
+    const task = executionTask; // immutable content; the outer task owns live state
     const config = await readConfig();
 
     if (task.payload.kind === 'reminder') {
@@ -93843,7 +94907,10 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
           await saveSession(session);
           // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
           // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
-          if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks(operation);
+          if (String(task.workdir || '') !== workdirBefore) {
+            schedTask.workdir = task.workdir;
+            await schedulerSaveTasks(operation);
+          }
         }
         return session;
       }, 65536);
@@ -93861,6 +94928,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       const askWaitMs = schedulerAskWaitMs(config);
       schedulerAskWaitSessions.set(sessionId, askWaitMs);
       let permissionDenied = 0;
+      let meaningfulChange = false;
       // 超时只计回合真正在干活的时间,【不含】卡在「等你批准」上的那一段。无人值守的批准窗口(schedulerAskWaitMinutes,
       // 缺省 30 分)与回合超时(timeoutMinutes,缺省 30 分,从回合开始算)同量级:修前回合头一个动作就是要批准的话,
       // 超时计时器与批准窗口同刻到期,超时那一支又排在 permissionDenied 之前判 —— needs_you 实际走不到,
@@ -93876,6 +94944,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       const askSpentMs = () => askClosedMs + (askOpenSince ? Math.min(Date.now() - askOpenSince, askCapMs) : 0);
       const onEvent = evt => {
         if (!evt || typeof evt !== 'object') return;
+        if (evt.type === 'turn_summary' && ((evt.filesChanged || []).length || (evt.artifacts || []).length)) meaningfulChange = true;
         if (evt.type === 'permission_request' && evt.requestId) {
           if (!pendingAsks.size) askOpenSince = Date.now();
           pendingAsks.add(String(evt.requestId));
@@ -93904,12 +94973,14 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       // (装载会话 / 引擎还没登记中止器)或刚好收尾 —— 不判超时,稍后再看,而不是留一个永远不会再触发的计时器。
       const turnStartedMs = Date.now();
       let timer = null;
+      let executionFinished = false;
       const armTimeout = delayMs => {
         timer = setTimeout(onTimeout, Math.max(1, Math.round(delayMs)));
         if (timer && typeof timer.unref === 'function') timer.unref();
       };
       const onTimeout = () => {
         timer = null;
+        if (executionFinished) return;
         const leftMs = turnTimeoutMs - (Date.now() - turnStartedMs - askSpentMs());
         if (leftMs > 50) { armTimeout(leftMs); return; }   // 扣掉等批准的时间,还没到
         let stopped = false;
@@ -93922,23 +94993,35 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       };
       armTimeout(turnTimeoutMs);
       let result = null;
+      const authority = task.payload.kind === 'playbook' ? schedulerExecutionAuthority(task, schedTask, runId, schedMode, sessionId) : null;
       try {
         result = await runSessionTurn({
           sessionId,
           message: task.payload.text,
           cwd: session.cwd,
-          permissionMode: schedulerPermissionModeFor(task, config),
+          permissionMode: authority ? await authority.revalidate() : schedulerPermissionModeFor(task, config, schedTask),
+          ...(authority ? { executionAuthority: authority } : {}),
           source: 'scheduler',
-          requestMeta: { taskId: task.id, runId },
+          schedulerOutcome: turn => {
+            executionFinished = true;
+            if (timer) { clearTimeout(timer); timer = null; }
+            if (queueTimedOut) return null;
+            return { ...schedulerTurnOutcome(turn, {
+              timedOut, permissionDenied, quiet: task.payload.kind === 'playbook' && !meaningfulChange,
+            }).patch, scheduler: { taskId: task.id, runId, occurrenceKey: occKey, state: 'settled' } };
+          },
+          requestMeta: { taskId: task.id, runId, occurrenceKey: occKey, ...(task.payload.kind === 'playbook' ? { playbookRevision: task.payload.revision } : {}) },
           onEvent,
         });
       } catch (e) {
+        if (e?.code === 'SCHEDULER_OUTCOME_UNCERTAIN') throw e;
         error = String((e && e.message) || e).slice(0, 400);
         // 8a:目标线程(existing-session)此刻有一个别处发起的回合在跑 —— runSessionTurn 在起回合【之前】
         // 就回 409,一个字节都没动那条线程。这不是这条任务的失败:修前记成 failed、计入连败,用户在那条线程里
         // 连着聊三次就把任务熔断停用了。判据只认稳定错误码,不认文案。
         if (e && e.code === 'SESSION_TURN_BUSY_ELSEWHERE') { targetBusy = true; targetBusySource = String(e.turnSource || ''); }
       } finally {
+        if (authority) authority.dispose();
         if (timer) { clearTimeout(timer); timer = null; }
         // 挡回我们的若是【另一个定时回合】(两条任务同刻指向同一条既有线程,见 10 runSessionTurn 的同源忙判定),
         // 表里那一格是它正在用的无人值守等待窗口(两边写进去的值相同)—— 在这里删掉,它后面的批准就退回 120 秒的默认窗口。
@@ -93946,16 +95029,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       }
       // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
       // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
-      const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
-      // 没有内层 result 事件而 stopped:回合是在【排队时】被撤的(runSessionTurn 的 STEWARD_TURN_CANCELLED 分支只发 process/stopped,
-      // 返回 ok:true、result:null)—— 它一个字都没跑,不能顺着外层 ok 记成 succeeded。
-      const neverRan = !inner && !!(result && result.stopped);
-      const turnOk = inner ? inner.ok === true : !!(result && result.ok && !neverRan);
-      if (queueTimedOut) { outcome = 'skipped'; error = 'queue_timeout'; }
-      else if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
-      else if (!result || !turnOk) { outcome = 'failed'; error = error || (neverRan ? 'stopped' : String((inner && inner.errorClass) || 'turn_failed')); }
-      else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
-      else outcome = 'succeeded';
+      ({ outcome, error } = schedulerTurnOutcome(result, { error, timedOut, queueTimedOut, permissionDenied }));
       if (targetBusy || queueTimedOut) {
         // 8a:按「这一次不跑」记 skipped(与撞上限同一个结果值,原因 target_busy),不计连败;日程推进到【下一个】
         // 时点(收尾段对非 manual 一律如此)—— 不选「下一拍重试」:用户在那条线程里一聊半小时,每 30 秒一拍的
@@ -93967,27 +95041,12 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         error = targetBusy ? 'target_busy' : 'queue_timeout';
         refundDailyCounts = true;
       }
-      // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
-      // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
-      // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
-      // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
-      // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
-      // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
-      // 8a:target_busy 时这条线程上根本没有定时回合,不往别人的回合头上记一笔「管家末回合」。
-      // queue_timeout 同理:回合没跑过,线程上没有它的成败可记。
-      if (!targetBusy && !queueTimedOut) void updateSessionMeta(sessionId, {
-        launchedBy: 'steward',
-        stewardLastTurn: {
-          seq: Math.max(0, Number(result && result.turnSeq) || 0),
-          ok: outcome === 'succeeded',
-          aborted: !!(inner ? inner.aborted : (result && result.stopped)),
-          errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
-          at: nowIso(),
-        },
-      }).catch(() => null);
+      // runSessionTurn commits schedulerOutcome behind its existing outcome fence.
+      // A returned turn has published result/quiet before inbox consumption.
+    }
     }
   } catch (e) {
-    if (!fireBase || schedulerIsWorkDataError(e)) throw e;
+    if (!fireBase || schedulerIsWorkDataError(e) || e?.code === 'SCHEDULER_OUTCOME_UNCERTAIN') throw e;
     outcome = 'failed';
     error = 'dispatch_error: ' + String((e && (e.code || e.message)) || e).slice(0, 380);
     try { logEvent({ kind: 'scheduler_fire_error', taskId: task.id, runId, detail: String((e && e.message) || e).slice(0, 400) }); } catch { /* 观测不反噬 */ }
@@ -94003,6 +95062,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       if (schedulerRuntime.globalRuns.date === day) schedulerRuntime.globalRuns = { date: day, count: Math.max(0, schedulerRuntime.globalRuns.count - 1) };
     }
     task.state.inFlightRunId = '';
+    delete task.state.inFlightSnapshot;
     task.state.lastResult = outcome;
     // skipped(撞上限 / 8a 目标线程忙)既不是失败也不是成功:连败计数原样不动(与上面撞上限那一支同口径)。
     if (outcome === 'failed') task.state.consecutiveFailures = (Number(task.state.consecutiveFailures) || 0) + 1;
@@ -94039,6 +95099,9 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         kind: 'needs_you', taskId: task.id, title: task.title,
         occurrenceKey: occKey, mode: schedMode, at: new Date(finishedMs).toISOString(), sessionId,
       });
+    } else if (outcome === 'failed' && executionTask.payload.kind === 'playbook') {
+      void schedulerNotify('onSchedulerNotice', { kind: 'failed', taskId: task.id, title: executionTask.title,
+        occurrenceKey: occKey, mode: schedMode, at: new Date(finishedMs).toISOString(), sessionId, reason: error });
     }
     return outcome;
   }, 4096);
@@ -94102,13 +95165,23 @@ async function schedulerTick() {
     await schedulerLoad();
     if (generation !== schedulerRuntime.generation) return;
     await schedulerTaskAdmission(() => schedulerFirePreflight());
+    // A failed registration can leave the durable queued snapshot intact after
+    // its in-memory selection was consumed. Re-select that same identity only.
+    for (const task of schedulerRuntime.tasks) {
+      const pending = task.state.queuedOccurrence;
+      if (pending && !schedulerRuntime.lateQueue.some(row => row.taskId === task.id && row.dueMs === pending.dueMs)) schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: pending.dueMs });
+    }
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
-    while (schedulerRuntime.lateQueue.length) {
+    for (let queuedCount = schedulerRuntime.lateQueue.length; queuedCount > 0; queuedCount--) {
       if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
       if (generation !== schedulerRuntime.generation) return;
       const queued = schedulerRuntime.lateQueue.shift();
       const task = schedulerRuntime.tasks.find(row => row.id === queued.taskId);
-      if (!task || !task.state.enabled || task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
+      if (!task) continue;
+      if (!task.state.enabled || task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) {
+        schedulerRuntime.lateQueue.push(queued);
+        continue;
+      }
       schedulerDispatchFire(task, 'late', queued.dueMs);
     }
     // ② 到点的任务。按 nextFireAt 升序派单 —— 同一拍里两条都到点时,先到的先派单,但谁先【收尾】
@@ -94273,10 +95346,12 @@ function schedulerMergeRuns(schedRows, schedTaskId) {
     entry.executionGeneration = Number(row.executionGeneration) || entry.executionGeneration || 0;
     entry.phase = String(row.phase || entry.phase || '');
     if (row.sessionId) entry.sessionId = String(row.sessionId);
+    if (Number.isSafeInteger(Number(row.turnSeq)) && Number(row.turnSeq) > 0) entry.turnSeq = Number(row.turnSeq);
     if (row.outcome) entry.outcome = String(row.outcome);
     if (row.error) entry.error = String(row.error);
     if (row.durationMs != null) entry.durationMs = Number(row.durationMs) || 0;
     if (row.costTokens != null) entry.costTokens = Number(row.costTokens) || 0;
+    if (row.snapshot) entry.snapshot = row.snapshot;
     if (row.tripped) entry.tripped = true;
     byRun.set(key, entry);
   }
@@ -94310,6 +95385,26 @@ async function schedulerRouteGate(req, res) {
 }
 
 async function handleSchedulerApiRoutes(req, res, pathname) {
+  if (req.method === 'POST' && pathname === '/api/scheduler/tasks/preview') {
+    const locale = await schedulerRouteGate(req, res); if (!locale) return;
+    let body;
+    try {
+      body = await readJsonBody(req);
+      body = await schedulerBindPlaybookBody(body, schedulerRuntime.tasks.find(task => task.id === body.taskId));
+    }
+    catch (error) { if (schedulerIsWorkDataError(error)) throw error; return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
+    const now = schedulerClockNow();
+    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0, workdir: '' }, now);
+    if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
+    const times = [];
+    let cursor = now;
+    for (let index = 0; index < 5; index++) {
+      const next = nextFireAt(normalized.task.schedule, cursor);
+      if (next == null) break;
+      times.push(new Date(next).toISOString()); cursor = next;
+    }
+    return send(res, json({ ok: true, times, timezone: normalized.task.schedule.tz, task: schedulerPublicTask(normalized.task, locale) }));
+  }
   if (req.method === 'GET' && pathname === '/api/scheduler/tasks') {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
     return send(res, json({
@@ -94323,12 +95418,13 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
     let body = {};
     try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
+    body = await schedulerBindPlaybookBody(body);
     if (schedulerRuntime.tasks.length >= SCHEDULER_LIMITS.maxTasks) {
       return send(res, apiFailure('scheduler.capacity_exceeded', { max: SCHEDULER_LIMITS.maxTasks },
         'at most ' + SCHEDULER_LIMITS.maxTasks + ' scheduler tasks', 409));
     }
     // workdir 是服务端自有字段(127 波 2-ter S-b,见 06j ⑦ 段):新建时一律剥掉,调用方写不进来。
-    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0, workdir: '' }, schedulerClockNow());
+    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0, workdir: '', state: { enabled: !body.state || body.state.enabled !== false } }, schedulerClockNow());
     if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
     normalized.task.id = makeId('sch');
     await schedulerTaskAdmission(async operation => {
@@ -94354,6 +95450,7 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     // 读 body 期间表可能变过(并发 DELETE):按 id 重新找,不拿旧下标。
     const current = schedulerRuntime.tasks.find(task => task.id === id);
     if (!current) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
+    body = await schedulerBindPlaybookBody(body, current);
     // 部分更新:只认这五个顶层键,其余一律不动(id/createdAt/createdBy/revision 由服务端管)。
     // 127 波 2-ter:改档位就走这里 —— target 是整份替换(target.tier 随之生效或消失),不另开工具。
     // workdir 同属服务端自有(S-b):body 里带了也不认,永远取 current 那一份(显式写出来,不靠 ...current 的顺序)。
@@ -94389,6 +95486,7 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
         normalized.task.state.nextFireAt = current.state.nextFireAt;
       }
       normalized.task.state.inFlightRunId = current.state.inFlightRunId;
+      for (const key of ['queuedOccurrence', 'inFlightSnapshot']) if (current.state[key]) normalized.task.state[key] = current.state[key];
       // 从熔断里被重新打开:连败计数清零,否则下一次失败立刻再熔断。
       if (normalized.task.state.enabled && !current.state.enabled) normalized.task.state.consecutiveFailures = 0;
       // hunt2-P1:【原地】换内容,不换对象。在飞的 schedulerFireOnce 攥着的就是 current 这个对象 —— 修前这里
@@ -94839,6 +95937,7 @@ const SCHEDULER_NOTICE_TEXT = Object.freeze({
   skipped: title => `定时任务《${title}》错过了这一次,已经跳过`,
   tripped: title => `定时任务《${title}》连着失败三次,已经自动停用`,
   needs_you: title => `定时任务《${title}》要你批准之后才跑得下去`,
+  failed: title => `定时任务《${title}》这次未完成，请打开运行记录核对原因`,
   unknown: title => `定时任务《${title}》上一次的结果不明(如意当时被关掉了),先核对一下`,
 });
 async function schedulerOnSchedulerNotice(schedRow) {

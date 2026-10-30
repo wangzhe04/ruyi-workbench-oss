@@ -1865,6 +1865,10 @@ async function stewardEnrichInboxRows(rows) {
   return list;
 }
 
+// Scheduler consumes the same library owner through the existing engine-facing
+// thread boundary. Keep 13s outside the provider-engine dependency cycle.
+Object.assign(StewardHooks, { normalizePlaybook, loadAllPlaybooks });
+
 // 收工:回合结束后由 13h 调 —— 把 stewardQuick.closedAt 落在会话头上。收工后这条线程从管家的总览
 // 与 steward_threads_search 里消失(经典壳照常看得见,它只是数据)。幂等:已收工的再调是无操作。
 async function stewardQuickClose(sessionId) {

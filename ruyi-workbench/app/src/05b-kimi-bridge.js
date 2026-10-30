@@ -2524,8 +2524,11 @@ async function runKimiAcpTurnPrepared(context) {
     // (MCP 同步、基线捕获、hooks),同会话并发的两个回合会各起一个 ACP 子进程。从这行到 activeChildren.set
     // 全是同步代码,在这里判一次就不会有两个子进程同时在册。
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+    const spawnFence = executionOwner?.prepareDispatch ? await executionOwner.prepareDispatch() : null;
     assertSessionExecutionOwner(session.id, executionOwner);
+    if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
     if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
+    if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     reg = {
       child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(),
@@ -2817,6 +2820,9 @@ async function runKimiAcpTurnPrepared(context) {
         })
         : [{ type: 'text', text: prompt }];
       if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+      const promptFence = executionOwner?.prepareDispatch ? await executionOwner.prepareDispatch() : null;
+      assertSessionExecutionOwner(session.id, executionOwner);
+      if (promptFence) SessionExecutionHooks.assertDispatch(executionOwner, promptFence, true);
       const response = await rpc.request('session/prompt', {
         sessionId: nativeSessionId,
         prompt: Array.isArray(promptParts) && promptParts.length ? promptParts : [{ type: 'text', text: prompt }],

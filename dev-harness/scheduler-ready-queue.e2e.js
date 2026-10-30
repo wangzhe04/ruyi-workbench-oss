@@ -18,14 +18,43 @@ const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的�
 const { readServerSource } = require('./src-reader');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const { getFreePort } = require('./free-port.js');
+const { releaseEnvironment } = require('./lib/release-checks');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort();
-const HOME = path.join(os.tmpdir(), 'wcw-ready-queue-e2e');
+const TEMP_ROOT = fs.realpathSync(os.tmpdir());
+const FIXTURE_ROOT = fs.mkdtempSync(path.join(TEMP_ROOT, 'wcw-ready-queue-e2e-'));
+const FIXTURE_ID = fs.lstatSync(FIXTURE_ROOT);
+const HOME = path.join(FIXTURE_ROOT, 'data');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
+function observeReadyQueueWorkbench(child) {
+  // Leave 4 KiB for the two bounded lifecycle snapshots; all forwarded text includes its prefix in this cap.
+  const stdioLimitBytes = 60 * 1024;
+  let capturedBytes = 0, truncated = false;
+  const lifecycle = { spawn: false, error: null, exit: null, close: null };
+  const forward = (stream, data) => {
+    let bytes = Buffer.concat([Buffer.from('[readyqueue-wb ' + stream + '] '), Buffer.from(data)]);
+    const remaining = stdioLimitBytes - capturedBytes;
+    if (bytes.length > remaining) { bytes = bytes.subarray(0, remaining); truncated = true; }
+    capturedBytes += bytes.length;
+    if (bytes.length) process.stdout.write(bytes);
+  };
+  child.stdout.on('data', data => forward('stdout', data));
+  child.stderr.on('data', data => forward('stderr', data));
+  child.once('spawn', () => { lifecycle.spawn = true; });
+  child.once('error', error => {
+    lifecycle.error = { code: typeof error?.code === 'string' ? error.code.slice(0, 96) : null,
+      name: typeof error?.name === 'string' ? error.name.slice(0, 48) : 'Error' };
+    fail++; // An observed child spawn error must retain the original failing outcome.
+  });
+  child.once('exit', (code, signal) => { lifecycle.exit = { code, signal }; });
+  child.once('close', (code, signal) => { lifecycle.close = { code, signal }; });
+  return phase => console.log('\nREADY_QUEUE_WB_DIAGNOSTIC ' + JSON.stringify({ phase, ...lifecycle,
+    maxBytes: 64 * 1024, stdioLimitBytes, capturedBytes, truncated }));
+}
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 function httpReq(port, method, p, body, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -72,7 +101,6 @@ const fake = http.createServer((req, res) => {
 });
 
 (async () => {
-  fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   const src = readServerSource();
 
@@ -94,8 +122,9 @@ const fake = http.createServer((req, res) => {
     activeProvider: 'fake',
   }, null, 2));
   await new Promise(r => fake.listen(FAKE_PORT, '127.0.0.1', r));
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
-  wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
+  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: releaseEnvironment(path.join(FIXTURE_ROOT, 'user-home'), HOME), windowsHide: true });
+  const wbStartup = observeReadyQueueWorkbench(wb);
+  let completed = false;
   try {
     ok(await up(WB_PORT), 'workbench up on :' + WB_PORT);
     // 117q-P1-33:见 waitToken 头注——单次直读可能在 runtime.json 落盘前抢跑,读到空串。
@@ -178,11 +207,17 @@ const fake = http.createServer((req, res) => {
     const starts = evts.filter(e => e.type === 'node_start').map(e => e.nodeId + '#' + e.attemptId);
     const settles = evts.filter(e => e.type === 'node_settled' || e.type === 'node_requeued').map(e => e.nodeId + '#' + e.attemptId);
     ok(starts.length && starts.every(k => settles.includes(k)), 'E node_start 与 settle/requeue 按 attemptId 配对(' + starts.length + ' 对)');
+    completed = true;
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
+    wbStartup('before-cleanup');
     kill(wb); try { fake.close(); } catch { /* ignore */ }
     await sleep(300);
-    fs.rmSync(HOME, { recursive: true, force: true });
+    wbStartup('after-cleanup');
+    const rootStat = fs.lstatSync(FIXTURE_ROOT, { throwIfNoEntry: false });
+    const ownedRoot = rootStat && rootStat.isDirectory() && !rootStat.isSymbolicLink() && rootStat.dev === FIXTURE_ID.dev && rootStat.ino === FIXTURE_ID.ino && path.dirname(FIXTURE_ROOT) === TEMP_ROOT && path.basename(FIXTURE_ROOT).startsWith('wcw-ready-queue-e2e-');
+    if (completed && fail === 0 && ownedRoot) fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true });
+    else { console.log('READY_QUEUE_RETAINED_HOME ' + HOME); console.log('READY_QUEUE_RETAINED_ROOT ' + FIXTURE_ROOT); }
     console.log('\nSCHEDULER-READY-QUEUE E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exitCode = fail ? 1 : 0;
   }

@@ -2,6 +2,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 (async () => {
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { getFreePort } = require('./free-port.js');
+const { releaseEnvironment } = require('./lib/release-checks');
 // E2E for v0.9-S2 (C2 / §7.8): Playbooks. Backend-testable slices only; the empty-state card grid + form
 // modal are verified via the preview self-check (see delivery notes), not headless DOM here.
 //
@@ -42,6 +43,19 @@ const FAKE_PORT = await getFreePort(), WB_PORT = await getFreePort(), DEAD_PORT 
 // present in THIS checkout — so a fixed "unavailable" live-assertion would be environment-dependent).
 const srv = require(path.join(WB, 'app', 'server.js'));
 
+const FAKE_ENGINE_ROUTE = Object.freeze({ engine: 'openai', providerId: 'fake', model: 'fake-model' });
+function playbooksChildEnv(home, data) {
+  // Own every child path, including canonical data-root aliases inherited from a runner.
+  return { ...releaseEnvironment(home, data), WCW_TEST_NO_NET_ANCHORS: '1', WCW_TEST_LOCAL_PROVIDER_ANCHOR: '0' };
+}
+function requireFakeChatRoute(caps, session) {
+  const route = session && session.engineRoute;
+  if (!caps || caps.engine !== 'openai' || !caps.provider || caps.provider.id !== 'fake'
+      || !route || route.engine !== 'openai' || route.providerId !== 'fake' || route.model !== 'fake-model') {
+    throw new Error('PLAYBOOKS_FIXTURE_FAKE_ROUTE_REQUIRED');
+  }
+  return true;
+}
 
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -74,7 +88,8 @@ function reqJson(port, method, p, payload, headers) {
   });
 }
 function getToken(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/', timeout: 5000 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { const m = b.match(/name="wcw-token"\s+content="([a-f0-9]+)"/); res(m ? m[1] : ''); }); }); r.on('error', () => res('')); r.on('timeout', () => { r.destroy(); res(''); }); }); } // 117q-§8.14:抓 token 这一次原给 1500,重载下 GET / p90=2083ms 被击穿(不是竞态,见 30 号文 §8.14)
-function postStream(port, payload) {
+function postStream(port, payload, fixture) {
+  requireFakeChatRoute(fixture && fixture.caps, fixture && fixture.session);
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
     const req = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data) } }, res => {
@@ -104,6 +119,8 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
 function seedConfig(home, extra) {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     configSchema: 6, version: '1.0.0', permissionMode: 'bypass',
+    includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, discoverModelsFromProxy: false,
+    stewardEnabledV1: false, schedulerEnabledV1: false,
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake Model' }] }],
     activeProvider: 'fake',
     // capabilityProbeUrl at a DEAD port → getCapabilities.network.online === false (deterministic offline).
@@ -122,15 +139,16 @@ const DRAFT_JSON = JSON.stringify({
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
-  const HOME = path.join(os.tmpdir(), 'wcw-playbooks-e2e');
+  const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'wcw-playbooks-e2e-'));
+  const HOME = path.join(ROOT, 'wb-data');
   const CAP_DIR = path.join(HOME, 'captures');
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   seedConfig(HOME);
 
-  const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], { windowsHide: true, env: { ...process.env, FAKE_CAPTURE_DIR: CAP_DIR, FAKE_DRAFT_JSON: DRAFT_JSON } });
+  const fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js'), String(FAKE_PORT)], { windowsHide: true, env: { ...playbooksChildEnv(path.join(ROOT, 'fake-home'), path.join(ROOT, 'fake-data')), FAKE_CAPTURE_DIR: CAP_DIR, FAKE_DRAFT_JSON: DRAFT_JSON } });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: playbooksChildEnv(path.join(ROOT, 'wb-home'), HOME), windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
 
   try {
@@ -248,10 +266,12 @@ const DRAFT_JSON = JSON.stringify({
 
     // ── ④ draft ──────────────────────────────────────────────────────────────────────────────────────
     // Create a session with a completed turn, then ask the server to draft a playbook from it.
-    const sess = (await reqJson(WB_PORT, 'POST', '/api/sessions', {}, hdr)).json;
+    const sess = (await reqJson(WB_PORT, 'POST', '/api/sessions', { engineRoute: FAKE_ENGINE_ROUTE }, hdr)).json;
     const sid = sess && sess.session && sess.session.id;
     ok(!!sid, '④ session created');
-    await postStream(WB_PORT, { sessionId: sid, message: '把 D:\\报表 下的表格合并成一个' });
+    const fakeChat = { caps: liveCaps, session: sess && sess.session };
+    ok(requireFakeChatRoute(fakeChat.caps, fakeChat.session), 'fixture: capabilities and session explicitly select the fake OpenAI provider before chat');
+    await postStream(WB_PORT, { sessionId: sid, message: '把 D:\\报表 下的表格合并成一个' }, fakeChat);
     await sleep(300);
     const noTokDraft = await reqJson(WB_PORT, 'POST', '/api/playbooks/draft', { sessionId: sid }, {});
     ok(noTokDraft.status === 403, '④ draft without token → 403');
@@ -273,7 +293,7 @@ const DRAFT_JSON = JSON.stringify({
     // End-to-end: an assembled prompt reaches the fake (proves the same string the UI sends lands upstream).
     clearCaptures(CAP_DIR);
     const marker = 'PLAYBOOK-ASSEMBLED::合并 D:\\表格 到 all.xlsx';
-    await postStream(WB_PORT, { sessionId: sid, message: marker });
+    await postStream(WB_PORT, { sessionId: sid, message: marker }, fakeChat);
     await sleep(300);
     const caps = readCaptures(CAP_DIR);
     ok(caps.some(b => lastUserTextOf(b).includes('PLAYBOOK-ASSEMBLED')), '⑤ assembled prompt reaches the provider via /api/chat/stream');
@@ -442,12 +462,12 @@ const DRAFT_JSON = JSON.stringify({
       '⑧ 离线降级文案:说要联网、现在离线,并给下一步(本地文件/恢复网络)');
 
     // 第二个实例:无 provider、无 capabilityProbeUrl、WCW_TEST_NO_NET_ANCHORS=1 → network.online === null(真未知)。
-    const HOME2 = path.join(os.tmpdir(), 'wcw-playbooks-e2e-unknown');
+    const HOME2 = path.join(ROOT, 'wb2-data');
     fs.rmSync(HOME2, { recursive: true, force: true });
     fs.mkdirSync(HOME2, { recursive: true });
-    fs.writeFileSync(path.join(HOME2, 'config.json'), JSON.stringify({ configSchema: 6, version: '1.0.0', permissionMode: 'bypass', activeProvider: '' }, null, 2));
+    seedConfig(HOME2, { providers: [], activeProvider: '', capabilityProbeUrl: '' });
     const WB2_PORT = await getFreePort();
-    const wb2 = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB2_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME2, WCW_TEST_NO_NET_ANCHORS: '1' }, windowsHide: true });
+    const wb2 = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB2_PORT)], { cwd: WB, env: playbooksChildEnv(path.join(ROOT, 'wb2-home'), HOME2), windowsHide: true });
     wb2.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb2!] ' + l.trim())));
     try {
       let h2 = null; for (let i = 0; i < 200 && !h2; i++) { await sleep(150); h2 = await health(WB2_PORT); }
@@ -485,7 +505,7 @@ const DRAFT_JSON = JSON.stringify({
   } finally {
     killp(wb); killp(fake);
     await sleep(300);
-    fs.rmSync(HOME, { recursive: true, force: true });
+    fs.rmSync(ROOT, { recursive: true, force: true });
   }
 
   console.log('\nPLAYBOOKS E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));

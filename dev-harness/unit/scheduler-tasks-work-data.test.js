@@ -3,7 +3,7 @@ const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), fsp = require('node:fs/promises'), path = require('node:path');
 const os = require('node:os'), vm = require('node:vm'), crypto = require('node:crypto');
-const { functionBlock } = require('../lib/source-slice');
+const { functionBlock, constBlock } = require('../lib/source-slice');
 const repo = process.env.RUYI_SCHEDULER_REPO || path.resolve(__dirname, '../..');
 const candidate = process.env.RUYI_SCHEDULER_SOURCE || path.join(repo, 'ruyi-workbench/app/src');
 const { loadWorkDataChunks } = require(path.join(repo, 'dev-harness/lib/work-data-chunks-fixture'));
@@ -59,6 +59,7 @@ function fixture(options = {}) {
   const observedJournals = { create: host => {
     const store = journals.journals.create(host);
     return { ...store, append: async (rows, ...args) => {
+      if (state.failBeforeRegistered && JSON.parse(rows[0]).phase === 'registered') throw Object.assign(Error('synthetic pre-append interruption'), { code: 'work_data.test_interrupt' });
       const result = await store.append(rows, ...args);
       if (host.context.kind === 'scheduler-fires' && state.onAppendFire) await state.onAppendFire(JSON.parse(rows[0]));
       return result;
@@ -68,37 +69,56 @@ function fixture(options = {}) {
     setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, process: { env: {} },
     WorkDataStore: fx.store, WorkDataJournals: observedJournals, paths: { data: dir }, atomicWriteJson: async (file, data, options) => { if (state.failSaves && String(file).endsWith('tasks-v1.json')) throw Object.assign(Error('synthetic disk full'), { code: 'ENOSPC' }); return fx.atomicWriteJson(file, data, options); },
     __clockNow: Date.parse('2026-10-23T12:00:00Z'),
-    RUYI_EVENTS: { subscribe() {}, emit(name, row) { state.events.push([name, row]); } },
     readConfig: async () => ({ schedulerEnabledV1: true, workDataEncryptionV1: state.enabled, permissionMode: 'default' }),
     logEvent: row => state.events.push(row), makeId: prefix => prefix + '_' + crypto.randomBytes(8).toString('hex'),
     StewardHooks: {}, stewardToolHandler: (_name, fn) => fn, stewardFail: (code, message, params) => ({ ok: false, error: code, message, ...params }),
     stewardUnattendedByModel: () => false, stewardSanitizeText: value => String(value), stewardAppendDecision: row => { state.decisions.push(row); },
     safeSessionId: id => String(id || ''), stewardReadSessionHead: async id => ({ id }), stewardRawKind: head => head.kind || '',
-    STEWARD_SESSION_ID: 'steward', PERMISSION_MODES: ['default'], stewardPermissionRank: () => 1,
+    loadAllPlaybooks: async () => state.playbooks || [],
+    STEWARD_SESSION_ID: 'steward', turnSettlers: new Map(),
     schedulerAskWaitSessions: new Map(), activeChildren: new Map(),
     createSession: async () => { state.sessions++; return { id: 'sess_' + state.sessions, cwd: dir }; },
     saveSession: async () => {}, loadSession: async id => ({ id, cwd: dir }),
-    updateSessionMeta: async () => {}, nowIso: () => new Date().toISOString(),
-    runSessionTurn: async row => { state.turns++; return state.onTurn ? state.onTurn(row) : { ok: true, result: { ok: true } }; },
+    updateSessionMeta: async (_sid, patch) => { state.meta = patch; }, nowIso: () => new Date().toISOString(),
+    // Synthetic turn for scheduler/storage tests only. The real finalizer,
+    // metadata chain and collector are exercised by the lifecycle source VM.
+    runSessionTurn: async row => {
+      state.turns++;
+      const result = state.onTurn ? await state.onTurn(row) : { ok: true, result: { ok: true } };
+      const patch = typeof row.schedulerOutcome === 'function' ? row.schedulerOutcome(result) : null;
+      if (patch) await context.updateSessionMeta(row.sessionId, { launchedBy: 'steward', stewardLastTurn: patch });
+      return result;
+    },
     safeDecodeURIComponent: value => decodeURIComponent(value),
     readJsonBody: async req => { if (req.beforeBody) await req.beforeBody(); return req.body || {}; },
     apiFailure: (code, params, message, status) => ({ ok: false, error: code, params, message, status }),
     json: value => value, send: (res, value) => { res.value = value; return value; },
   });
-  let source = functionBlock(fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/01-config.js'), 'utf8'), 'readFileTail') + '\n'
+  const providerSource = fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/06-provider-engine.js'), 'utf8');
+  const bootSource = fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/00-boot.js'), 'utf8');
+  const stewardSource = fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/06i-steward-core.js'), 'utf8');
+  let source = constBlock(bootSource, 'RUYI_EVENT_SUBSCRIBERS') + '\n' + constBlock(bootSource, 'RUYI_EVENTS') + '\n'
+    + constBlock(fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/01e-permission-modes.js'), 'utf8'), 'PERMISSION_MODES') + '\n'
+    + constBlock(stewardSource, 'STEWARD_PERMISSION_RANK') + '\n' + functionBlock(stewardSource, 'stewardPermissionRank') + '\n'
+    + ['PLAYBOOK_INPUT_TYPES', 'PLAYBOOK_REQUIRES', 'PLAYBOOK_SERVICES', 'PLAYBOOK_REUSE_OPEN'].map(name => constBlock(providerSource, name)).join('\n') + '\n'
+    + ['normalizePlaybookReuse', 'playbookReuseTemplate', 'normalizePlaybook'].map(name => functionBlock(providerSource, name)).join('\n') + '\n'
+    + functionBlock(fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/06i-steward-core.js'), 'utf8'), 'stewardAssemblePlaybookPrompt') + '\n'
+    + functionBlock(fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/01-config.js'), 'utf8'), 'readFileTail') + '\n'
     + functionBlock(fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/02-session-store.js'), 'utf8'), 'repairMissionChangeTornTail') + '\n'
+    + functionBlock(fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/02-session-store.js'), 'utf8'), 'sessionSchedulerTurnReceipt') + '\n'
     + fs.readFileSync(path.join(repo, 'ruyi-workbench/app/src/06j-scheduler-core.js'), 'utf8') + '\n'
     + fs.readFileSync(path.join(candidate, '13s-scheduler.js'), 'utf8') + '\n'
     + fs.readFileSync(path.join(candidate, '13t-steward-schedule.js'), 'utf8');
   if (options.cap) source = source.replace('const SCHEDULER_TASK_ENGINEERING_BYTES = 256 * 1024 * 1024;', 'const SCHEDULER_TASK_ENGINEERING_BYTES = ' + options.cap + ';');
   if (options.fireWindow) source = source.replace('const SCHEDULER_FIRES_FULL_READ_BYTES = 8 * 1024 * 1024;', 'const SCHEDULER_FIRES_FULL_READ_BYTES = ' + options.fireWindow.full + ';')
     .replace('const SCHEDULER_FIRES_TAIL_BYTES = 1024 * 1024;', 'const SCHEDULER_FIRES_TAIL_BYTES = ' + options.fireWindow.tail + ';');
-  const names = ['schedulerRuntime', 'SchedulerHooks', 'schedulerTasksPath', 'schedulerFiresPath', 'schedulerTaskPayload', 'schedulerTaskStore', 'withSchedulerTaskOperation',
+  const names = ['RUYI_EVENTS', 'normalizePlaybook', 'nextFireAt', 'occurrenceKey', 'schedulerRuntime', 'SchedulerHooks', 'schedulerTasksPath', 'schedulerFiresPath', 'schedulerTaskPayload', 'schedulerTaskStore', 'withSchedulerTaskOperation',
     'schedulerTaskAdmission', 'schedulerReadTasksFile', 'schedulerSaveTasks', 'schedulerLoad', 'schedulerRecover', 'schedulerFireOnce', 'schedulerTick', 'schedulerRunNow',
     'schedulerAppendFire', 'schedulerReadFireRows', 'schedulerReadFiresText', 'schedulerFireJournal', 'schedulerFirePreflight',
     'handleSchedulerApiRoutes', 'normalizeSchedulerTask', 'schedulerClockNow', 'schedulerDayKey', 'startScheduler', 'stopScheduler',
     'stewardImplScheduleCreate', 'stewardImplScheduleList', 'stewardImplScheduleDelete', 'stewardImplSchedulePause', 'stewardImplScheduleResume', 'schedulerCommitmentsSince'];
-  const api = vm.runInContext(source + '\nschedulerClockNow = () => __clockNow;\n({' + names.join(',') + '});', context);
+  const api = vm.runInContext(source + '\nObject.assign(StewardHooks, { normalizePlaybook, loadAllPlaybooks });\nschedulerClockNow = () => __clockNow;\n({' + names.join(',') + '});', context);
+  api.RUYI_EVENTS.subscribe((name, row) => { state.events.push([name, row]); });
   api.SchedulerHooks.onReminderDue = async () => { state.reminders++; };
   api.SchedulerHooks.prepareThread = async () => {};
   api.SchedulerHooks.onSchedulerNotice = async () => {};
@@ -517,4 +537,144 @@ test('fire failure after a real reminder keeps inFlight and cold recovery record
   fs.writeFileSync(f.fires, f.state.cleanFires); f.runtime.loaded = false;
   const rows = await f.schedulerLoad(); await f.schedulerRecover(rows);
   assert.equal(f.state.reminders, 1); assert.equal(f.runtime.tasks[0].state.lastResult, 'unknown'); assert.equal((await f.schedulerReadFireRows()).at(-1).outcome, 'unknown');
+});
+
+function scheduledPlaybook(f, suffix = 'old') {
+  const template = f.normalizePlaybook({ id: 'pb_schedule', title: '认可做法 ' + suffix,
+    inputs: [{ key: 'material', label: '材料', type: 'file', required: true }, { key: 'note', label: '说明', type: 'text' }],
+    promptTemplate: 'Read {material}; ' + suffix + '; note: {note}', requires: [] });
+  return { template, payload: { kind: 'playbook', playbookId: template.id, revision: template.revision,
+    values: { material: 'C:/owned/' + suffix + '.txt', note: '{material} remains literal' }, checks: ['本次材料必须重新计算 ' + suffix] } };
+}
+async function createScheduledPlaybook(f, suffix = 'old') {
+  const row = scheduledPlaybook(f, suffix); f.state.playbooks = [row.template];
+  const result = await f.call('POST', '/api/scheduler/tasks', { title: '定时核对', schedule: { kind: 'daily', at: '09:00', tz: 'UTC' },
+    payload: row.payload, target: { mode: 'existing-session', sessionId: 'original_session' } });
+  assert.equal(result.ok, true); return f.runtime.tasks.find(task => task.id === result.task.id);
+}
+test('Playbook content revision binds types, required fields and checks; forged template/text is ignored at admission', async () => {
+  const f = fixture(), row = scheduledPlaybook(f); f.state.playbooks = [row.template];
+  assert.match(row.template.revision, /^[a-f0-9]{64}$/);
+  assert.notEqual(f.normalizePlaybook({ ...row.template, inputs: row.template.inputs.map(input => ({ ...input, required: true })) }).revision, row.template.revision);
+  const body = { title: '预览', schedule: { kind: 'daily', at: '09:00', tz: 'UTC' }, payload: row.payload };
+  const preview = await f.call('POST', '/api/scheduler/tasks/preview', body);
+  assert.equal(preview.ok, true); assert.equal(preview.times.length, 5); assert.equal(f.runtime.tasks.length, 0);
+  assert.equal(fs.existsSync(f.fires), false);
+  for (const payload of [{ ...row.payload, revision: '0'.repeat(64) }, { ...row.payload, values: { material: '' } },
+    { ...row.payload, values: { material: 13 } }, { ...row.payload, values: { material: 'relative.txt' } },
+    { ...row.payload, values: { ...row.payload.values, guessed: 'x' } }, { ...row.payload, checks: [] }]) {
+    const invalid = await f.call('POST', '/api/scheduler/tasks', { ...body, payload });
+    assert.equal(invalid.ok, false); assert.equal(f.runtime.tasks.length, 0);
+  }
+  const created = await f.call('POST', '/api/scheduler/tasks', { ...body, payload: { ...row.payload, template: { ...row.template, promptTemplate: 'FORGED' }, text: 'FORGED' },
+    state: { inFlightSnapshot: { bad: true }, queuedOccurrence: { bad: true } } });
+  assert.equal(created.ok, true); assert.equal(created.task.payload.text.includes('FORGED'), false);
+  assert.match(created.task.payload.text, /\{material\} remains literal/); assert.match(created.task.payload.text, /验收条件/);
+  assert.equal(created.task.state.queuedOccurrence, undefined);
+});
+test('IANA time zones share preview/execution calendar: DST gap, fold once, monthly clamp, cron and invalid-zone refusal', () => {
+  const f = fixture(), next = (plan, from) => new Date(f.nextFireAt(plan, Date.parse(from))).toISOString();
+  assert.equal(next({ kind: 'daily', at: '02:30', tz: 'America/New_York' }, '2026-03-08T00:00:00Z'), '2026-03-08T07:30:00.000Z');
+  const fold = { kind: 'daily', at: '01:30', tz: 'America/New_York' };
+  assert.equal(next(fold, '2026-11-01T00:00:00Z'), '2026-11-01T05:30:00.000Z');
+  assert.equal(next(fold, '2026-11-01T05:30:00Z'), '2026-11-02T06:30:00.000Z');
+  assert.equal(next({ kind: 'monthly', at: '09:00', dayOfMonth: 31, tz: 'Asia/Shanghai' }, '2028-01-31T02:00:00Z'), '2028-02-29T01:00:00.000Z');
+  assert.equal(next({ kind: 'cron', expr: '0 9 * * 1-5', tz: 'Asia/Tokyo' }, '2026-10-23T01:00:00Z'), '2026-10-26T00:00:00.000Z');
+  assert.equal(next({ kind: 'once', date: '2036-12-31', at: '09:00', tz: 'Asia/Shanghai' }, '2026-10-23T01:00:00Z'), '2036-12-31T01:00:00.000Z');
+  const invalid = f.normalizeSchedulerTask({ title: 'x', schedule: { kind: 'daily', at: '09:00', tz: 'Not/AZone' }, payload: { kind: 'prompt', text: 'x' } }, 0);
+  assert.equal(invalid.code, 'invalid_timezone');
+});
+test('editing a library never rewrites a saved schedule; editing future inputs preserves an active execution snapshot', async () => {
+  const f = fixture(), task = await createScheduledPlaybook(f), due = Date.parse(task.state.nextFireAt);
+  const originalRevision = task.payload.revision, newer = scheduledPlaybook(f, 'new'); f.state.playbooks = [newer.template];
+  let release, arrived;
+  const held = new Promise(resolve => { arrived = resolve; });
+  f.state.onAppendFire = row => row.phase === 'dispatched' ? new Promise(resolve => { release = resolve; arrived(); }) : null;
+  let observed; f.state.onTurn = async row => { observed = row; return { ok: true, result: { ok: true } }; };
+  const firing = f.schedulerFireOnce(task, 'ontime', due);
+  await held;
+  const disk = JSON.parse(fs.readFileSync(f.file, 'utf8'));
+  assert.equal(disk.tasks[0].state.inFlightSnapshot.payload.revision, originalRevision);
+  assert.equal(disk.tasks[0].state.inFlightSnapshot.target.sessionId, 'original_session');
+  await f.call('PATCH', '/api/scheduler/tasks/' + task.id, { payload: newer.payload, target: { mode: 'existing-session', sessionId: 'future_session' }, autonomy: { permissionMode: 'plan' } });
+  release(); assert.equal(await firing, 'succeeded');
+  assert.match(observed.message, /old\.txt/); assert.doesNotMatch(observed.message, /new\.txt/);
+  assert.equal(observed.sessionId, 'original_session'); assert.equal(observed.requestMeta.playbookRevision, originalRevision);
+  assert.equal(task.payload.revision, newer.template.revision); assert.equal(task.state.inFlightSnapshot, undefined);
+  const rows = await f.schedulerReadFireRows();
+  assert.ok(rows.filter(row => row.runId).every(row => row.snapshot.payload.revision === originalRevision));
+  assert.equal(await f.schedulerFireOnce(task, 'late', due), 'skipped'); assert.equal(f.state.turns, 1);
+});
+test('missed queued occurrence survives edits, pause and a cold reload with its original inputs and target', async () => {
+  const f = fixture(), task = await createScheduledPlaybook(f), due = Date.parse(task.state.nextFireAt);
+  f.context.__clockNow = due + 60000; f.runtime.loadedFromDisk = new Set([task.id]);
+  await f.schedulerRecover([]);
+  assert.equal(task.state.queuedOccurrence.snapshot.payload.revision, task.payload.revision);
+  const newer = scheduledPlaybook(f, 'new'); f.state.playbooks = [newer.template];
+  await f.call('PATCH', '/api/scheduler/tasks/' + task.id, { enabled: false, payload: newer.payload, target: { mode: 'new-session' } });
+  await f.schedulerTick(); assert.equal(f.state.turns, 0); assert.equal(f.runtime.lateQueue.length, 1);
+  await f.call('PATCH', '/api/scheduler/tasks/' + task.id, { enabled: true });
+  f.runtime.loaded = false; f.runtime.lateQueue = [];
+  const fires = await f.schedulerLoad(); await f.schedulerRecover(fires);
+  const loaded = f.runtime.tasks[0];
+  assert.equal(f.runtime.lateQueue.length, 1); assert.match(loaded.state.queuedOccurrence.snapshot.payload.text, /old\.txt/);
+  let observed; f.state.onTurn = async row => { observed = row; return { ok: true, result: { ok: true } }; };
+  assert.equal(await f.schedulerFireOnce(loaded, 'late', due), 'succeeded');
+  assert.equal(observed.sessionId, 'original_session'); assert.match(observed.message, /old\.txt/);
+  assert.equal(loaded.state.queuedOccurrence, undefined); assert.equal(loaded.payload.revision, newer.template.revision);
+});
+test('Playbook snapshot is sealed by the same owner and crash recovery records unknown without replay after revision edits', async () => {
+  const f = fixture(); f.state.enabled = true;
+  const task = await createScheduledPlaybook(f), due = Date.parse(task.state.nextFireAt), revision = task.payload.revision;
+  f.state.onAppendFire = row => { if (row.phase === 'registered') throw Object.assign(Error('synthetic interrupted commit boundary'), { code: 'work_data.test_interrupt' }); };
+  await assert.rejects(() => f.schedulerFireOnce(task, 'ontime', due), privateError);
+  assert.equal(f.state.turns, 0); assert.ok(task.state.inFlightRunId);
+  assert.equal(fs.readFileSync(f.file).includes(Buffer.from('old.txt')), false); assert.equal(fs.readFileSync(f.fires).includes(Buffer.from('old.txt')), false);
+  const newer = scheduledPlaybook(f, 'new'); f.state.playbooks = [newer.template];
+  await f.call('PATCH', '/api/scheduler/tasks/' + task.id, { payload: newer.payload });
+  f.state.onAppendFire = null; f.runtime.loaded = false;
+  const fires = await f.schedulerLoad(); await f.schedulerRecover(fires);
+  const loaded = f.runtime.tasks[0], rows = await f.schedulerReadFireRows();
+  assert.equal(loaded.state.lastResult, 'unknown'); assert.equal(rows.at(-1).outcome, 'unknown');
+  assert.equal(rows.at(-1).snapshot.payload.revision, revision); assert.equal(f.state.turns, 0);
+  assert.equal(await f.schedulerFireOnce(loaded, 'late', due), 'skipped'); assert.equal(f.state.turns, 0);
+  f.state.missing = true;
+  await assert.rejects(() => f.call('POST', '/api/scheduler/tasks/preview', { title: 'x' }), privateError);
+});
+
+test('the first durable task registration preserves occurrence identity when the fire append never happens', async () => {
+  const f = fixture(), task = await createScheduledPlaybook(f), due = Date.parse(task.state.nextFireAt);
+  f.state.failBeforeRegistered = true;
+  await assert.rejects(() => f.schedulerFireOnce(task, 'ontime', due), privateError);
+  assert.equal(task.state.inFlightSnapshot.occurrence.key, f.occurrenceKey(task.id, due));
+  f.state.failBeforeRegistered = false; f.context.__clockNow = due + 300000; f.runtime.loaded = false;
+  const rows = await f.schedulerLoad(); await f.schedulerRecover(rows);
+  const recovered = (await f.schedulerReadFireRows()).at(-1);
+  assert.equal(recovered.occurrenceKey, f.occurrenceKey(task.id, due)); assert.equal(recovered.dueAt, new Date(due).toISOString());
+  assert.equal(recovered.outcome, 'unknown'); assert.equal(f.state.turns, 0);
+});
+test('successful no-change Playbook turns are quiet; actual turn-summary changes and failures remain observable', async () => {
+  const f = fixture(), task = await createScheduledPlaybook(f);
+  await f.schedulerRunNow(task); assert.equal(f.state.meta.stewardLastTurn.quiet, true);
+  f.state.onTurn = async row => { row.onEvent({ type: 'turn_summary', filesChanged: [{ path: 'actual-report.md' }] }); return { ok: true, result: { ok: true } }; };
+  await f.schedulerRunNow(task); assert.equal(f.state.meta.stewardLastTurn.quiet, undefined);
+  f.state.onTurn = async () => ({ ok: true, result: { ok: false, errorClass: 'source_missing' } });
+  await f.schedulerRunNow(task); assert.equal(f.state.meta.stewardLastTurn.quiet, undefined); assert.equal(task.state.lastResult, 'failed');
+});
+
+test('quiet success survives the actual session metadata whitelist and inbox projection; failures and newer turns are never hidden', () => {
+  const sessionSource = fs.readFileSync(path.join(candidate, '02-session-store.js'), 'utf8');
+  const inboxSource = fs.readFileSync(path.join(candidate, '13i-steward-inbox.js'), 'utf8');
+  const coreSource = fs.readFileSync(path.join(candidate, '06i-steward-core.js'), 'utf8');
+  const context = vm.createContext({ stewardSanitizeText: value => String(value) });
+  const source = ['STEWARD_EVENT_KINDS', 'STEWARD_SOURCE_EVENT_MAP', 'STEWARD_SUMMARY_CHARS'].map(name => constBlock(inboxSource, name)).join('\n') + '\n'
+    + ['stewardResolveMissionResultKind', 'stewardResolveRunEndKind', 'stewardResolveNodeSettledKind', 'stewardResolveSessionTurnKind'].map(name => functionBlock(inboxSource, name)).join('\n') + '\n'
+    + constBlock(inboxSource, 'STEWARD_KIND_RESOLVERS') + '\n'
+    + ['stewardKindFor', 'stewardClipSummary', 'stewardIsoAt', 'stewardNormalizeSessionTurn'].map(name => functionBlock(inboxSource, name)).join('\n') + '\n'
+    + functionBlock(coreSource, 'stewardCoveringLastTurn') + '\n' + functionBlock(sessionSource, 'sessionSchedulerTurnReceipt') + '\n' + functionBlock(sessionSource, 'applySessionMetaPatch');
+  const api = vm.runInContext(source + '\n({applySessionMetaPatch, stewardNormalizeSessionTurn});', context);
+  const head = { id: 'sess_quiet' }; api.applySessionMetaPatch(head, { stewardLastTurn: { seq: 1, ok: true, quiet: true } });
+  assert.equal(head.stewardLastTurn.quiet, true); assert.equal(api.stewardNormalizeSessionTurn(head.id, head.id, head, 1), null);
+  head.stewardLastTurn.ok = false; assert.equal(api.stewardNormalizeSessionTurn(head.id, head.id, head, 1).kind, 'failed');
+  assert.equal(api.stewardNormalizeSessionTurn(head.id, head.id, head, 2).kind, 'done');
 });

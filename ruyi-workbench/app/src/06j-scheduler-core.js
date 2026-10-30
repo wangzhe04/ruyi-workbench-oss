@@ -51,7 +51,7 @@ const SchedulerHooks = {};
 
 // ── 值域与上限(单一事实源;13s 与 API 都引用这里,不各写一份字面量)────────────────────────────
 const SCHEDULER_SCHEDULE_KINDS = Object.freeze(['once', 'daily', 'weekly', 'monthly', 'cron']);
-const SCHEDULER_PAYLOAD_KINDS = Object.freeze(['reminder', 'prompt']);   // playbook/workflow → 127 波
+const SCHEDULER_PAYLOAD_KINDS = Object.freeze(['reminder', 'prompt', 'playbook']);
 const SCHEDULER_TARGET_MODES = Object.freeze(['new-session', 'existing-session']);
 const SCHEDULER_ON_MISSED = Object.freeze(['run-once-late', 'skip']);
 // 失败后的处理:目前只有 'notify'(记账、计入连败、三次熔断)。29 号文设计过 'retry-once',但调度器从未实现它 ——
@@ -291,6 +291,7 @@ function nextFireAt(schedPlanRaw, schedFromMs) {
   const plan = (schedPlanRaw && typeof schedPlanRaw === 'object' && !Array.isArray(schedPlanRaw)) ? schedPlanRaw : null;
   const from = Number(schedFromMs);
   if (!plan || !Number.isFinite(from)) return null;
+  if (plan.tz && plan.tz !== 'local') return schedulerZonedNextFireAt(plan, from);
   const kind = String(plan.kind || '');
   if (kind === 'cron') {
     const parsed = parseCronExpr(plan.expr);
@@ -342,6 +343,60 @@ function nextFireAt(schedPlanRaw, schedFromMs) {
     }
     return null;
   }
+  return null;
+}
+
+// Keep the same wall-clock calendar and DST contract for an explicitly selected
+// IANA zone. Intl is built into Node; no global TZ mutation or external service.
+function schedulerZoneParts(schedMs, schedZone, schedFormatter = null) {
+  const fields = (schedFormatter || new Intl.DateTimeFormat('en-US', { timeZone: schedZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })).formatToParts(schedMs);
+  return Object.fromEntries(fields.filter(item => item.type !== 'literal').map(item => [item.type, Number(item.value)]));
+}
+function schedulerZoneWallMs(schedDate, schedHour, schedMinute, schedZone, schedFormatter, schedOffsets) {
+  const wall = Date.UTC(schedDate.getUTCFullYear(), schedDate.getUTCMonth(), schedDate.getUTCDate(), schedHour, schedMinute);
+  const candidates = [...schedOffsets].map(offset => {
+    const ms = wall - offset, parts = schedulerZoneParts(ms, schedZone, schedFormatter);
+    return { ms, shift: Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute) - wall };
+  });
+  const exact = candidates.filter(row => row.shift === 0).sort((a, b) => a.ms - b.ms);
+  if (exact.length) return exact[0].ms; // fold: first occurrence only
+  const forward = candidates.filter(row => row.shift > 0).sort((a, b) => a.shift - b.shift);
+  return forward.length ? forward[0].ms : null; // gap: advance by its size
+}
+function schedulerZonedNextFireAt(schedPlan, schedFrom) {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', { timeZone: schedPlan.tz, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
+    const parts = schedulerZoneParts(schedFrom, schedPlan.tz, formatter);
+    const parsed = schedPlan.kind === 'cron' ? parseCronExpr(schedPlan.expr) : null;
+    const clock = parsed ? null : schedulerParseHhMm(schedPlan.at);
+    if (parsed ? !parsed.ok : !clock) return null;
+    const once = schedPlan.kind === 'once' ? schedulerParseYmd(schedPlan.date) : null;
+    if (schedPlan.kind === 'once' && !once) return null;
+    for (let index = 0; index < (once ? 1 : SCHEDULER_CRON_DAY_SCAN); index++) {
+      const date = once ? new Date(Date.UTC(once.year, once.month, once.day)) : new Date(Date.UTC(parts.year, parts.month - 1, parts.day + index));
+      const year = date.getUTCFullYear(), month = date.getUTCMonth(), day = date.getUTCDate();
+      const kind = schedPlan.kind;
+      if (kind === 'once' && schedPlan.date !== date.toISOString().slice(0, 10)) continue;
+      if (kind === 'weekly' && !(schedPlan.days || []).includes(date.getUTCDay())) continue;
+      if (kind === 'monthly' && day !== Math.min(schedPlan.dayOfMonth, schedulerDaysInMonth(year, month))) continue;
+      if (parsed && !schedulerCronDayMatches(parsed, year, month, day)) continue;
+      if (!['once', 'daily', 'weekly', 'monthly', 'cron'].includes(kind)) return null;
+      const offsets = new Set();
+      for (const delta of [-36, -12, 0, 12, 36]) {
+        const probe = date.getTime() + delta * 3600000, zoned = schedulerZoneParts(probe, schedPlan.tz, formatter);
+        offsets.add(Date.UTC(zoned.year, zoned.month - 1, zoned.day, zoned.hour, zoned.minute) - probe);
+      }
+      let nextCandidate = null;
+      for (const hour of (parsed ? parsed.hour : [clock.hour])) for (const minute of (parsed ? parsed.minute : [clock.minute])) {
+        const candidate = schedulerZoneWallMs(date, hour, minute, schedPlan.tz, formatter, offsets);
+        // Gap-forward conversion can reorder wall candidates (including a
+        // non-hour gap). Select by epoch after converting the whole bounded day.
+        if (candidate != null && candidate > schedFrom && (nextCandidate == null || candidate < nextCandidate)) nextCandidate = candidate;
+      }
+      if (nextCandidate != null) return nextCandidate;
+      if (kind === 'once' && schedPlan.date <= date.toISOString().slice(0, 10)) return null;
+    }
+  } catch { /* invalid zone or calendar */ }
   return null;
 }
 
@@ -521,7 +576,11 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
     }
   }
   // 时区字段只记「系统本地」这一个事实(29 号文 §3 的 tz 列);不接受用户指定别的时区(非目标)。
-  schedule.tz = 'local';
+  schedule.tz = schedulerCleanLine(rawSchedule.tz || 'local', 100);
+  if (schedule.tz !== 'local') {
+    try { schedule.tz = new Intl.DateTimeFormat('en', { timeZone: schedule.tz }).resolvedOptions().timeZone; }
+    catch { return schedulerFail('invalid_timezone', 'choose a valid time zone'); }
+  }
 
   // ② 载荷
   const rawPayload = (raw.payload && typeof raw.payload === 'object' && !Array.isArray(raw.payload)) ? raw.payload : null;
@@ -537,8 +596,13 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   }
   // 同上:局部名不能叫 text(纪律 12)。
   const payloadText = schedulerCleanBlock(rawPayload.text, SCHEDULER_LIMITS.textChars);
-  if (!payloadText) return schedulerFail('invalid_request', 'payload.text is required');
-  const payload = { kind: payloadKind, text: payloadText };
+  if (payloadKind !== 'playbook' && !payloadText) return schedulerFail('invalid_request', 'payload.text is required');
+  let payload = { kind: payloadKind, text: payloadText };
+  if (payloadKind === 'playbook') {
+    const bound = typeof SchedulerHooks.normalizePlaybookPayload === 'function' ? SchedulerHooks.normalizePlaybookPayload(rawPayload) : null;
+    if (!bound || !bound.ok) return schedulerFail((bound && bound.code) || 'playbook_invalid', (bound && bound.message) || 'choose a saved template and complete its inputs');
+    payload = bound.payload;
+  }
   // sourceRef:安静卡「稍后」建的那条 once reminder 用它指回收件箱行(M2 §3.5)。只留三个标量键。
   const rawSourceRef = (rawPayload.sourceRef && typeof rawPayload.sourceRef === 'object' && !Array.isArray(rawPayload.sourceRef)) ? rawPayload.sourceRef : null;
   if (rawSourceRef) {
@@ -573,7 +637,7 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   // 其余情形【静默丢】,空值与值域外的值同样不落字段 —— 不带 tier 的任务与修前逐字节同形
   // (判据 ③:没有 tier 键,13s 也就不会去碰 engineRoute)。与权限档「越界回落跟随全局」同一口径。
   const wantedTier = schedulerCleanLine(rawTarget.tier, 16);
-  if (payloadKind === 'prompt' && targetMode === 'new-session' && SCHEDULER_THREAD_TIERS.includes(wantedTier)) {
+  if (payloadKind !== 'reminder' && targetMode === 'new-session' && SCHEDULER_THREAD_TIERS.includes(wantedTier)) {
     target.tier = wantedTier;
   }
   // reminder 不起回合,目标无意义 —— 归一成 new-session 但永远不会被用到(13s 的 reminder 分支不看它)。

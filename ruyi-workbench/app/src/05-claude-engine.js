@@ -728,8 +728,11 @@ async function runClaudeTurn({
   // 把先登记的从表里挤掉 —— Stop 只杀得到一个,另一个成了孤儿。这里在「最后一个 await 之后、spawn 之前」
   // 再判一次(从这行到 activeChildren.set 全是同步代码,中间没有让出点),保证同会话同一时刻只有一个子进程。
   if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
+  const spawnFence = executionOwner?.prepareDispatch ? await executionOwner.prepareDispatch() : null;
   assertSessionExecutionOwner(session.id, executionOwner);
+  if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
+  if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
@@ -902,6 +905,8 @@ async function runClaudeTurn({
   };
 
   child.stdin.on('error', () => {}); // ignore EPIPE if the child exits first
+  try {
+  if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence, true);
   if (interactive) {
     // stream-json input: send the user turn as a JSON envelope, keep stdin OPEN for tool_result /
     // AskUserQuestion answers written via /api/chat/answer. Closed when the turn's `result` arrives.
@@ -910,6 +915,12 @@ async function runClaudeTurn({
     child.stdin.write(fullPrompt, 'utf8');
     child.stdin.end();
   } else child.stdin.end();
+  } catch (error) {
+    // A synchronous post-spawn callback may invalidate the fence. Retire through
+    // the original stop/exit path so listeners, leases and timers still settle.
+    logEvent({ kind: 'relay_dispatch_refused', sessionId: session.id, code: String(error.code || 'io') });
+    stopSession(session.id, 'relay_dispatch_refused');
+  }
 
   const stderrDecodeStream = {};   // hunt2-engines#8:一条 stderr 一个解码状态,块边界切开的汉字不再被误判成 GB18030
   child.stderr.on('data', chunk => {

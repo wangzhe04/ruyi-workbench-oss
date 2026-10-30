@@ -380,6 +380,7 @@ const SCHEDULER_NOTICE_TEXT = Object.freeze({
   skipped: title => `定时任务《${title}》错过了这一次,已经跳过`,
   tripped: title => `定时任务《${title}》连着失败三次,已经自动停用`,
   needs_you: title => `定时任务《${title}》要你批准之后才跑得下去`,
+  failed: title => `定时任务《${title}》这次未完成，请打开运行记录核对原因`,
   unknown: title => `定时任务《${title}》上一次的结果不明(如意当时被关掉了),先核对一下`,
 });
 async function schedulerOnSchedulerNotice(schedRow) {

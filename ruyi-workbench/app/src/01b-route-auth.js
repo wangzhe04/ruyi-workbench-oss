@@ -66,6 +66,8 @@ const ROUTE_AUTH = [
   // (前缀条目带尾斜杠,按 startsWith 匹配不到本裸路径,两条不冲突。)
   { m: 'GET', p: '/api/interventions', auth: 'token-browser' },
   { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },
+  { m: 'POST', p: '/api/thread-relays', auth: 'body-token' },
+  { m: 'GET', p: '/api/thread-relays', auth: 'token' },
   // 代理模式 v2:MCP 子进程(Claude/Kimi)的 wait_agents / agent_result 回环 —— 同 launch 的 body-token 门(handler 内
   // 另接受 UI 头 token,供管理面/测试直调)。
   { m: 'POST', p: '/api/agent-workflow/wait', auth: 'body-token' },

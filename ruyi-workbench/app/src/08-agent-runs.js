@@ -387,7 +387,7 @@ async function listAgentRuns(sessionId) {
   for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
     try {
       const run = await readAgentRunSnapshot(sessionId, file.slice(0, -5));
-      if (run) out.push(run);
+      if (run && !run.historyDeletedAt) out.push(run);
     } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; /* skip corrupt/incomplete legacy records */ }
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
@@ -411,6 +411,7 @@ const agentRunDigestStats = { reads: 0, hits: 0 };
 // 磁盘快照里 digest 视图会读到的全部字段(与 13d handleAgentRunApiRoutes 的 digest 逐字段同口径);
 // 取值表达式与旧的「(mem || r).xxx」写法一字不差,所以磁盘态的 digest 行与修前逐字节相同。
 function agentRunDigestShadow(run) {
+  if (run.historyDeletedAt) return null;
   return Object.freeze({
     id: run.id, status: run.status, eventSeq: Number(run.eventSeq) || 0,
     updatedAt: run.updatedAt || '', createdAt: run.createdAt || '', completedAt: run.completedAt || '',
@@ -537,6 +538,7 @@ async function agentRunPermissionMode(sessionId, config) {
 }
 function classifyRunResumeTier(run, currentPermissionMode) {
   const reasons = [];
+  if (run && ['thread_relay', 'existing_thread_relay'].includes(run.kind)) reasons.push({ nodeId: '', reason: 'thread_relay_identity_reconciliation_required' });
   if (run && run.kind === 'steward_delegation') reasons.push({ nodeId: '', reason: 'delegation_result_unknown' });
   for (const n of (Array.isArray(run && run.nodes) ? run.nodes : [])) {
     if (n.status === 'succeeded') continue;

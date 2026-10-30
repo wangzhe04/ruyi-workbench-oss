@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 125,
-    "providedSymbols": 4210,
-    "requiredSymbols": 4031,
-    "edges": 863,
+    "modules": 127,
+    "providedSymbols": 4231,
+    "requiredSymbols": 4110,
+    "edges": 881,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -60,6 +60,7 @@
         "StringDecoder",
         "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
+        "ThreadRelayHooks",
         "URL",
         "USAGE_CACHE_CHECK_BYTES",
         "USAGE_CACHE_ROW_BYTES",
@@ -548,6 +549,7 @@
         "configReadCache",
         "configReadCacheLookup",
         "configReadCacheStore",
+        "configReadFence",
         "configReadGeneration",
         "configRecoveryCredentialChoice",
         "configValueEquals",
@@ -2220,9 +2222,12 @@
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
+        "sessionSchedulerTurnMatches",
+        "sessionSchedulerTurnReceipt",
         "sessionScratchpadChains",
         "sessionScratchpadPath",
         "sessionScratchpadStore",
+        "sessionStampSchedulerTurn",
         "sessionTitleOverrides",
         "sessionTodosSignature",
         "sessionV1BackupPath",
@@ -3238,8 +3243,18 @@
       "requires": []
     },
     {
-      "file": "04-permission-runtime.js",
+      "file": "03c-model-dispatch-context.js",
       "order": 40,
+      "layer": "foundation",
+      "note": "Original owner prepare/assert callback context for final model IO only; no authority, persistence, IO or timers",
+      "provides": [
+        "ModelDispatchContext"
+      ],
+      "requires": []
+    },
+    {
+      "file": "04-permission-runtime.js",
+      "order": 41,
       "layer": "foundation",
       "note": "pendingPermissions/plan 批准/原生权限请求",
       "provides": [
@@ -3406,6 +3421,7 @@
         "requestUserQuestion",
         "resolveBridge",
         "resolveExternalMcpServers",
+        "revalidateSessionExecutionPermission",
         "runAutomaticInterventionDecision",
         "safeMcpInventory",
         "safeUrlForDisplay",
@@ -3737,6 +3753,13 @@
           ]
         },
         {
+          "provider": "03c-model-dispatch-context.js",
+          "symbol": "ModelDispatchContext",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "collectDisplayUrlRestores",
           "kinds": [
@@ -3796,7 +3819,7 @@
     },
     {
       "file": "04-desktop-shell.js",
-      "order": 41,
+      "order": 42,
       "layer": "foundation",
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）",
       "provides": [
@@ -3887,7 +3910,7 @@
     },
     {
       "file": "04f-toolbox-services.js",
-      "order": 42,
+      "order": 43,
       "layer": "foundation",
       "note": "ruyi-toolbox 服务类组件：拉起／探活／接成能力端点／回收（登记读取与 MCP 并入住 04）",
       "provides": [
@@ -4021,7 +4044,7 @@
     },
     {
       "file": "04h-provider-http.js",
-      "order": 43,
+      "order": 44,
       "layer": "foundation",
       "note": "架构还债批 2·A:OpenAI 兼容服务商 HTTP 原语的唯一住处(端点 URL 归一化/请求头/非流式 POST/瞬时错误重试骨架;自 05/06/07/08/09/10 纯搬家,零出边故不进任何环)",
       "provides": [
@@ -4049,12 +4072,19 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "03c-model-dispatch-context.js",
+          "symbol": "ModelDispatchContext",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
     {
       "file": "04i-provider-anthropic.js",
-      "order": 44,
+      "order": 45,
       "layer": "foundation",
       "note": "58 号方案批 2: Anthropic Messages 线协议(apiStyle:anthropic)的编解码纯函数——端点/鉴权头(x-api-key/Bearer/auto)、chat 形历史→Messages(system-reminder 折叠、tool_result 合并与排序、角色交替、图片)、自适应思考与 output_config.effort、非流式与流式解码(思考块+签名收进 providerBlocks,只回放最后一条 user 之后那段)、用量归一(input+cache_read+cache_creation)、400 兼容重打(签名失配去思考块、网关不认的参数去掉);只引用 04h,makeId/redact/配对自愈由 04i-provider-wire 的登记表胶水注入,不进任何环",
       "provides": [
@@ -4130,7 +4160,7 @@
     },
     {
       "file": "04i-provider-wire.js",
-      "order": 45,
+      "order": 46,
       "layer": "foundation",
       "note": "58 号方案批 1: 服务商线协议登记表 PROVIDER_WIRE_PROTOCOLS(chat/responses 的端点、请求头、请求体编码、推理强度、工具、流式/非流式解码、用量归一、落历史字段)与唯一的协议值归一 normalizeProviderApiStyle/providerWireProtocol;Responses 翻译(toResponsesContent/buildResponsesInputItems/toResponsesTools/responsesHistoryWithCompleteToolPairs)自 07、推理强度(PROVIDER_REASONING_EFFORTS/providerReasoningEffort/applyProviderReasoningEffort)自 05 纯搬家;只引用 04h,环内工具经 ProviderWireHooks 由 07 延迟绑定,不进任何环",
       "provides": [
@@ -4296,7 +4326,7 @@
     },
     {
       "file": "04j-hanzi-pinyin.js",
-      "order": 46,
+      "order": 47,
       "layer": "foundation",
       "note": "59 号文 §6(语音词库第二步):汉字 → 普通话读音(不带声调)的离线小表 —— Unicode Unihan(kMandarin 主读音 + kXHC1983 其余现代读音,Unicode License v3,THIRD-PARTY-NOTICES §4)经 dev-harness/hanzi-pinyin-generate.js 生成的生成物,不手改;冻结对象 HanziPinyin(readings),零出边、不进任何环",
       "provides": [
@@ -4306,7 +4336,7 @@
     },
     {
       "file": "04j-voice-lexicon.js",
-      "order": 47,
+      "order": 48,
       "layer": "foundation",
       "note": "59 号文(语音词库第一步):个人词 + 原厂常用词表的纯函数内核 —— 词条形状与清洗、设置页文本读写、按这一句挑词、给句尾改错 <glossary> / 整段识别 prompt / 实时识别热词各出一份形状;冻结对象 VoiceLexicon,零出边、不进任何环(同 11b 模具);落盘住 05、路由住 13b",
       "provides": [
@@ -4316,7 +4346,7 @@
     },
     {
       "file": "04j-voice-learn.js",
-      "order": 48,
+      "order": 49,
       "layer": "foundation",
       "note": "59 号文 §6(语音词库第二步):从用户手改里学词的纯函数内核 —— 机器写的几句在发出去的字里定位与对齐、抽改动、读音像不像(拼音/辅音骨架/字母)、人名单字改动拼窗口、打字里抽专名英文词、请改字大模型复核的提示词与回体校验、落进词库(攒次数、先验、纠、墓碑、腾位置);冻结对象 VoiceLearn,只读 04j 的 VoiceLexicon 与 HanziPinyin(二者零出边),不进任何环;路由住 13b",
       "provides": [
@@ -4341,7 +4371,7 @@
     },
     {
       "file": "05-claude-engine.js",
-      "order": 49,
+      "order": 50,
       "layer": "engine",
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线",
       "provides": [
@@ -4563,6 +4593,13 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5452,7 +5489,7 @@
     },
     {
       "file": "05b-kimi-bridge.js",
-      "order": 50,
+      "order": 51,
       "layer": "engine",
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强",
       "provides": [
@@ -5718,6 +5755,13 @@
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -6141,7 +6185,7 @@
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "order": 51,
+      "order": 52,
       "layer": "engine",
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器",
       "provides": [
@@ -6283,7 +6327,7 @@
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "order": 52,
+      "order": 53,
       "layer": "engine",
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级",
       "provides": [
@@ -6338,7 +6382,7 @@
     },
     {
       "file": "06-provider-engine.js",
-      "order": 53,
+      "order": 54,
       "layer": "engine",
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks",
       "provides": [
@@ -6977,7 +7021,7 @@
     },
     {
       "file": "06b-prompt-registry.js",
-      "order": 54,
+      "order": 55,
       "layer": "engine",
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)",
       "provides": [
@@ -7004,7 +7048,7 @@
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "order": 55,
+      "order": 56,
       "layer": "engine",
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine",
       "provides": [
@@ -7036,7 +7080,7 @@
     },
     {
       "file": "06h-retrieval-index.js",
-      "order": 56,
+      "order": 57,
       "layer": "engine",
       "note": "113a:离线检索原语(特征哈希向量/TF-IDF/余弦/RRF),记忆召回与会话搜索共用",
       "provides": [
@@ -7060,7 +7104,7 @@
     },
     {
       "file": "06i-steward-core.js",
-      "order": 57,
+      "order": 58,
       "layer": "engine",
       "note": "第116波116a:管家(Steward)引擎侧纯函数与延迟绑定命名空间 StewardHooks(不实现,契约声明)",
       "provides": [
@@ -7244,7 +7288,7 @@
     },
     {
       "file": "06d-memory-domain.js",
-      "order": 58,
+      "order": 59,
       "layer": "engine",
       "note": "第104波：跨会话记忆、提议、关系图与检索",
       "provides": [
@@ -7728,7 +7772,7 @@
     },
     {
       "file": "06e-mission-domain.js",
-      "order": 59,
+      "order": 60,
       "layer": "engine",
       "note": "第104波：Mission 提示摘要与 until-done 驱动",
       "provides": [
@@ -7839,7 +7883,7 @@
     },
     {
       "file": "06f-autonomy-grants.js",
-      "order": 60,
+      "order": 61,
       "layer": "engine",
       "note": "第104波：自治授权签发、消费、撤销与预检",
       "provides": [
@@ -7958,7 +8002,7 @@
     },
     {
       "file": "06g-resource-leases.js",
-      "order": 61,
+      "order": 62,
       "layer": "engine",
       "note": "第104波：Agent 资源归一化、冲突检测与租约",
       "provides": [
@@ -8024,7 +8068,7 @@
     },
     {
       "file": "06j-scheduler-core.js",
-      "order": 62,
+      "order": 63,
       "layer": "engine",
       "note": "第123波 M1(37 号文 §3.1;设计权威 29 号文 §3):定时任务纯函数内核 —— normalizeSchedulerTask / nextFireAt / parseCronExpr / describeSchedule / occurrenceKey / missedOccurrence(零 I/O、零全局状态、时间全由入参喂)",
       "provides": [
@@ -8071,13 +8115,16 @@
         "schedulerLocalMs",
         "schedulerParseHhMm",
         "schedulerParseYmd",
-        "schedulerStripControl"
+        "schedulerStripControl",
+        "schedulerZoneParts",
+        "schedulerZoneWallMs",
+        "schedulerZonedNextFireAt"
       ],
       "requires": []
     },
     {
       "file": "06k-config-patch.js",
-      "order": 63,
+      "order": 64,
       "layer": "engine",
       "note": "架构还债批 2 B2: 从 13-http-router.js 搬出 applyConfigPatch(配置补丁落盘与副作用;纯搬家,零行为变更),经 01 的 ConfigPatchHooks 调用、零入边",
       "provides": [
@@ -8235,7 +8282,7 @@
     },
     {
       "file": "07-autonomy.js",
-      "order": 64,
+      "order": 65,
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
@@ -8758,6 +8805,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "assertSessionExecutionOwner",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
           "kinds": [
             "call"
@@ -8829,9 +8883,23 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "revalidateSessionExecutionPermission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -9013,7 +9081,7 @@
     },
     {
       "file": "08-agent-runs.js",
-      "order": 65,
+      "order": 66,
       "layer": "orchestration",
       "note": "run 事件日志/恢复分级/runSubAgentCore",
       "provides": [
@@ -10046,7 +10114,7 @@
     },
     {
       "file": "09b-replan-ledger.js",
-      "order": 66,
+      "order": 67,
       "layer": "orchestration",
       "note": "110-4a: 节点续点与重规划补丁账本(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -10092,7 +10160,7 @@
     },
     {
       "file": "09d-token-estimation.js",
-      "order": 67,
+      "order": 68,
       "layer": "orchestration",
       "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -10141,7 +10209,7 @@
     },
     {
       "file": "09-workflow.js",
-      "order": 68,
+      "order": 69,
       "layer": "orchestration",
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
       "provides": [
@@ -10280,6 +10348,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ThreadRelayHooks",
           "kinds": [
             "read"
           ]
@@ -10733,6 +10808,13 @@
           ]
         },
         {
+          "provider": "03c-model-dispatch-context.js",
+          "symbol": "ModelDispatchContext",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -10868,6 +10950,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "resolveBridge",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "revalidateSessionExecutionPermission",
           "kinds": [
             "call"
           ]
@@ -12115,8 +12204,362 @@
       ]
     },
     {
+      "file": "09c-thread-relay.js",
+      "order": 70,
+      "layer": "orchestration",
+      "note": "M5-W bounded existing-thread relay contract, M3 agent-run snapshots, stable admission and execution receipts; late-bound execution/HTTP hooks",
+      "provides": [
+        "ThreadRelay"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ThreadRelayHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadFence",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenMatches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenOk",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "interventionRecordCache",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionsWithMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDiskWriteSeqOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionSaveIsTombstoned",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPermissions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPlans",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingQuestions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "requestSessionExecutionStop",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sessionExecutionSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
+          "symbol": "autonomyGrants",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "acquireResourceLease",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "normalizeAgentResources",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "releaseResourceLease",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunSnapshotStore",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunWriteChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "readAgentRunSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "listAgentRuns",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "readAgentRunRecord",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "saveAgentRun",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "launchPersistedAgentRun",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "waitForAgentRunResults",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "10-context-governance.js",
-      "order": 69,
+      "order": 71,
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
@@ -12451,6 +12894,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "ThreadRelayHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "URL",
           "kinds": [
             "call"
@@ -12738,6 +13188,20 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionSchedulerTurnMatches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionSchedulerTurnReceipt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionTodosSignature",
           "kinds": [
             "call"
@@ -12872,6 +13336,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "requestSessionExecutionStop",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "revalidateSessionExecutionPermission",
           "kinds": [
             "call"
           ]
@@ -13038,6 +13509,13 @@
           ]
         },
         {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SchedulerHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "buildOpenAiTools",
           "kinds": [
@@ -13125,7 +13603,7 @@
     },
     {
       "file": "11-native-tools.js",
-      "order": 70,
+      "order": 72,
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
@@ -13645,7 +14123,7 @@
     },
     {
       "file": "11b-file-text-io.js",
-      "order": 71,
+      "order": 73,
       "layer": "tools",
       "note": "单文件工具的文本 I/O 内核:编码嗅探/GB18030 编码、有界流式读、原子写、file_edit 未命中诊断;零出边(冻结对象 FileTextIo),不进依赖环",
       "provides": [
@@ -13670,7 +14148,7 @@
     },
     {
       "file": "11c-file-visual-io.js",
-      "order": 72,
+      "order": 74,
       "layer": "tools",
       "note": "",
       "provides": [
@@ -13695,7 +14173,7 @@
     },
     {
       "file": "11d-media-inspection.js",
-      "order": 73,
+      "order": 75,
       "layer": "tools",
       "note": "Local dependency discovery, bounded audio measurement and parse-only syntax validation; built-ins only",
       "provides": [
@@ -13705,7 +14183,7 @@
     },
     {
       "file": "12-tool-dispatch.js",
-      "order": 74,
+      "order": 76,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -14388,6 +14866,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "revalidateSessionExecutionPermission",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "safeMcpInventory",
           "kinds": [
             "call"
@@ -14818,7 +15303,7 @@
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 75,
+      "order": 77,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -14837,7 +15322,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 76,
+      "order": 78,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -15225,6 +15710,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ThreadRelayHooks",
           "kinds": [
             "read"
           ]
@@ -16732,7 +17224,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 77,
+      "order": 79,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -17259,7 +17751,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 78,
+      "order": 80,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -17371,7 +17863,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 79,
+      "order": 81,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -17582,6 +18074,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ThreadRelayHooks",
           "kinds": [
             "read"
           ]
@@ -18395,7 +18894,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 80,
+      "order": 82,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -18774,7 +19273,7 @@
     },
     {
       "file": "13i-steward-inbox.js",
-      "order": 81,
+      "order": 83,
       "layer": "transport",
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)",
       "provides": [
@@ -19078,6 +19577,13 @@
           ]
         },
         {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SchedulerHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "07-autonomy.js",
           "symbol": "activeAgentRuns",
           "kinds": [
@@ -19109,7 +19615,7 @@
     },
     {
       "file": "13j-steward-tool-base.js",
-      "order": 82,
+      "order": 84,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)",
       "provides": [
@@ -19421,7 +19927,7 @@
     },
     {
       "file": "13aa-steward-delivery.js",
-      "order": 83,
+      "order": 85,
       "layer": "unclassified",
       "note": "Bounded per-turn delivery evidence, file freshness and revision source projection via StewardHooks",
       "provides": [
@@ -19432,6 +19938,7 @@
         "stewardDeliveryInspect",
         "stewardDeliveryProjection",
         "stewardDeliveryReferencedFiles",
+        "stewardDeliveryRevisionGuard",
         "stewardDeliveryRows",
         "stewardDeliverySource",
         "stewardValidateDeliveryReference"
@@ -19467,6 +19974,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -19495,7 +20009,21 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ThreadRelayHooks",
           "kinds": [
             "read"
           ]
@@ -19559,6 +20087,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionBodyPaths",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDiskWriteSeqOf",
           "kinds": [
             "call"
           ]
@@ -19658,7 +20200,7 @@
     },
     {
       "file": "13k-steward-threads.js",
-      "order": 84,
+      "order": 86,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)",
       "provides": [
@@ -20023,6 +20565,20 @@
           "symbol": "listPlaybooksWithAvailability",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "normalizePlaybook",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -20610,7 +21166,7 @@
     },
     {
       "file": "13l-steward-ops.js",
-      "order": 85,
+      "order": 87,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
@@ -21556,7 +22112,7 @@
     },
     {
       "file": "13g-steward.js",
-      "order": 86,
+      "order": 88,
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
@@ -22132,7 +22688,7 @@
     },
     {
       "file": "13m-steward-runner-base.js",
-      "order": 87,
+      "order": 89,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
@@ -22298,7 +22854,7 @@
     },
     {
       "file": "13n-steward-arbiter.js",
-      "order": 88,
+      "order": 90,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
       "provides": [
@@ -22497,7 +23053,7 @@
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "order": 89,
+      "order": 91,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
@@ -22998,7 +23554,7 @@
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "order": 90,
+      "order": 92,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
       "provides": [
@@ -23514,7 +24070,7 @@
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "order": 91,
+      "order": 93,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
       "provides": [
@@ -24196,7 +24752,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 92,
+      "order": 94,
       "layer": "transport",
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
       "provides": [
@@ -24572,7 +25128,7 @@
     },
     {
       "file": "13r-event-stream.js",
-      "order": 93,
+      "order": 95,
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
@@ -24733,7 +25289,7 @@
     },
     {
       "file": "13s-scheduler.js",
-      "order": 94,
+      "order": 96,
       "layer": "transport",
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗",
       "provides": [
@@ -24755,6 +25311,7 @@
         "schedulerAppendFire",
         "schedulerAskWaitMs",
         "schedulerAuthenticateLoaded",
+        "schedulerBindPlaybookBody",
         "schedulerClockNow",
         "schedulerDayKey",
         "schedulerDir",
@@ -24762,6 +25319,7 @@
         "schedulerEmitChanged",
         "schedulerEnabled",
         "schedulerEnsureTimer",
+        "schedulerExecutionAuthority",
         "schedulerFireJournal",
         "schedulerFireOnce",
         "schedulerFirePreflight",
@@ -24773,22 +25331,28 @@
         "schedulerLocaleOf",
         "schedulerMaybeCrash",
         "schedulerMergeRuns",
+        "schedulerNormalizePlaybookPayload",
         "schedulerNotify",
+        "schedulerOccurrenceSnapshot",
         "schedulerPermissionModeFor",
         "schedulerPublicTask",
         "schedulerReadFireRows",
         "schedulerReadFiresText",
         "schedulerReadLegacyFiresText",
+        "schedulerReadRecoveryEntries",
         "schedulerReadTasksFile",
         "schedulerRecordMissedSkip",
         "schedulerRecover",
+        "schedulerRecoveryEntries",
         "schedulerRestorePersistedState",
         "schedulerRestoreTaskSnapshot",
+        "schedulerRetireSessionTurn",
         "schedulerRouteGate",
         "schedulerRunNow",
         "schedulerRuntime",
         "schedulerRuntimeSnapshot",
         "schedulerSaveTasks",
+        "schedulerSessionTurnAdmission",
         "schedulerStorageFailure",
         "schedulerTaskAdmission",
         "schedulerTaskBusy",
@@ -24800,6 +25364,7 @@
         "schedulerTasksPath",
         "schedulerTick",
         "schedulerTickMs",
+        "schedulerTurnOutcome",
         "schedulerTurnTimeoutMs",
         "startScheduler",
         "stopScheduler",
@@ -24977,6 +25542,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionSchedulerTurnReceipt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
           "kinds": [
             "call"
@@ -24997,10 +25569,24 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAssemblePlaybookPrompt",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -25068,6 +25654,13 @@
         },
         {
           "provider": "06j-scheduler-core.js",
+          "symbol": "schedulerFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
           "symbol": "SchedulerHooks",
           "kinds": [
             "read"
@@ -25091,7 +25684,7 @@
     },
     {
       "file": "13t-steward-schedule.js",
-      "order": 95,
+      "order": 97,
       "layer": "transport",
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环",
       "provides": [
@@ -25425,7 +26018,7 @@
     },
     {
       "file": "13u-migration-center.js",
-      "order": 96,
+      "order": 98,
       "layer": "transport",
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
@@ -25844,7 +26437,7 @@
     },
     {
       "file": "13v-external-channel-protocols.js",
-      "order": 97,
+      "order": 99,
       "layer": "transport",
       "note": "External QQ/Feishu signed protocol normalization; pure built-in crypto helpers",
       "provides": [
@@ -25876,7 +26469,7 @@
     },
     {
       "file": "13x-external-channel-delivery.js",
-      "order": 98,
+      "order": 100,
       "layer": "transport",
       "note": "Single bounded official QQ/Feishu reply delivery, explicit sent/failed/unknown outcomes",
       "provides": [
@@ -25901,7 +26494,7 @@
     },
     {
       "file": "13y-external-bot-credentials.js",
-      "order": 99,
+      "order": 101,
       "layer": "transport",
       "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS",
       "provides": [
@@ -25968,7 +26561,7 @@
     },
     {
       "file": "13z-external-bot-discovery.js",
-      "order": 100,
+      "order": 102,
       "layer": "transport",
       "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted",
       "provides": [
@@ -25978,7 +26571,7 @@
     },
     {
       "file": "13ab-privacy-api.js",
-      "order": 101,
+      "order": 103,
       "layer": "unclassified",
       "note": "81-P2: token-authenticated security settings and recovery API",
       "provides": [
@@ -26249,7 +26842,7 @@
     },
     {
       "file": "13w-external-bots.js",
-      "order": 102,
+      "order": 104,
       "layer": "transport",
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker",
       "provides": [
@@ -26541,7 +27134,7 @@
     },
     {
       "file": "13ac-mcp-consumer.js",
-      "order": 103,
+      "order": 105,
       "layer": "unclassified",
       "note": "Authenticated independent stdio consumer relay, bounded host-owned scopes and grants",
       "provides": [
@@ -26834,7 +27427,7 @@
     },
     {
       "file": "13ad-memory-cli-relay.js",
-      "order": 104,
+      "order": 106,
       "layer": "unclassified",
       "note": "Per-execution read-only memory relay for native CLI consumers",
       "provides": [
@@ -27027,7 +27620,7 @@
     },
     {
       "file": "13ae-cli-business-services.js",
-      "order": 105,
+      "order": 107,
       "layer": "unclassified",
       "note": "M3-3: CLI business services shared by HTTP and serve-owned internal MCP, late-bound through boot hooks",
       "provides": [
@@ -27470,7 +28063,7 @@
     },
     {
       "file": "13af-internal-mcp-relay.js",
-      "order": 106,
+      "order": 108,
       "layer": "unclassified",
       "note": "M3-3: exact execution capability relay; default stdio has no data-root writer",
       "provides": [
@@ -27747,7 +28340,7 @@
     },
     {
       "file": "13ag-work-data-maintenance.js",
-      "order": 107,
+      "order": 109,
       "layer": "unclassified",
       "note": "M3-3: work-data-maintenance",
       "provides": [
@@ -28321,7 +28914,7 @@
     },
     {
       "file": "13at-work-data-restore-uploads.js",
-      "order": 108,
+      "order": 110,
       "layer": "unclassified",
       "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and one job-bound private job/nonce handoff consumed by the cold restore worker; HTTP upload custody and the warm runtime keeper are wired, and a restore recovers into an independent fresh target whose private successor is started on that target root under the TEMP activation receipt (B2). The receipt remains a single-handoff TEMP record — never a migration, ownership or long-lived serving-root authority; the persistent boot-root preference is a separate record (B3).",
       "provides": [
@@ -28346,7 +28939,7 @@
     },
     {
       "file": "13av-work-data-handoff-claim.js",
-      "order": 109,
+      "order": 111,
       "layer": "unclassified",
       "note": "M3-3: durable warm/cold handoff claim with exact identity CAS and fail-closed cleanup, plus the separate activation-v1 TEMP namespace that binds one committed restore to its canonical fresh target, target identity/authority, successor nonce, cold parent and source result proof with create-only writes and sha/dev/ino CAS removal; never a migration or ownership authority",
       "provides": [
@@ -28364,7 +28957,7 @@
     },
     {
       "file": "13ah-work-data-setup.js",
-      "order": 110,
+      "order": 112,
       "layer": "unclassified",
       "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, restore, status, jobs and upload; restore admission requires the real worker and upload broker, resolves exactly one job-bound grant after directory and authority checks, and recovers into a separate fresh target whose private successor is then started on that target root under the TEMP activation receipt; the persistent source result still expresses no serving-root preference (restored target metadata only, no restartRoot or activation preference)",
       "provides": [
@@ -28569,7 +29162,7 @@
     },
     {
       "file": "13ai-work-data-worker.js",
-      "order": 111,
+      "order": 113,
       "layer": "unclassified",
       "note": "K3 cold maintenance worker: authenticated private IPC plus proof of parent death before it touches the base, restore-upload handoff validation and execute()-only mutation; the parent reads no config or store, releases no ownership and switches no warm root",
       "provides": [
@@ -28602,7 +29195,7 @@
     },
     {
       "file": "13aj-work-data-control.js",
-      "order": 112,
+      "order": 114,
       "layer": "unclassified",
       "note": "K3 durable single pending maintenance intent with its per-write receipts: a private issued receipt gates every update/removal, an interrupted write never authorizes the next mutation, and boot refuses unfinished intent/result state before normal recovery",
       "provides": [
@@ -28634,7 +29227,7 @@
     },
     {
       "file": "13al-work-data-maintenance-http.js",
-      "order": 113,
+      "order": 115,
       "layer": "unclassified",
       "note": "K3 bounded cold-worker progress HTTP: loopback-only status transport whose caller has already proved parent death and current exclusive OS ownership; it opens no data root and starts no maintenance",
       "provides": [
@@ -28673,7 +29266,7 @@
     },
     {
       "file": "13an-work-data-disposable-tree.js",
-      "order": 114,
+      "order": 116,
       "layer": "unclassified",
       "note": "K3 disposal of the owned disposable native rehearsal tree: requires the real native namespace census plus WorkDataTree's private identity proof and refuses any capture above the existing 96 MB bound instead of omitting tail, stream or unknown objects",
       "provides": [
@@ -28683,7 +29276,7 @@
     },
     {
       "file": "13ak-work-data-cold-operations.js",
-      "order": 115,
+      "order": 117,
       "layer": "unclassified",
       "note": "K3 cold operation bodies for the fresh maintenance worker: backup, restore and rehearsal run on host-supplied real owner lifetimes and the reviewed snapshot/codec/native owners; never starts a normal server or changes process-global paths",
       "provides": [
@@ -28778,7 +29371,7 @@
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "order": 116,
+      "order": 118,
       "layer": "unclassified",
       "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and successor maintenance; in production the successor is WorkDataRuntimeHost startSuccessorMaintenance driving the prepare/complete two-phase handoff into a fresh serve that must re-prove the same listener and authority, while runSuccessor remains only the legacy harness path; only a reviewed production host may configure it",
       "provides": [
@@ -28859,7 +29452,7 @@
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "order": 117,
+      "order": 119,
       "layer": "unclassified",
       "note": "M3-4 committed-message text index owner",
       "provides": [
@@ -28971,7 +29564,7 @@
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "order": 118,
+      "order": 120,
       "layer": "unclassified",
       "note": "M3-4 authorized UI/model/MCP fulltext consumers",
       "provides": [
@@ -29152,7 +29745,7 @@
     },
     {
       "file": "13ba-media-image-contract.js",
-      "order": 119,
+      "order": 121,
       "layer": "unclassified",
       "note": "M4 bounded in-memory image contract; production media owners unbound",
       "provides": [
@@ -29177,7 +29770,7 @@
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "order": 120,
+      "order": 122,
       "layer": "unclassified",
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false",
       "provides": [
@@ -29293,7 +29886,7 @@
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "order": 121,
+      "order": 123,
       "layer": "unclassified",
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability",
       "provides": [
@@ -29325,7 +29918,7 @@
     },
     {
       "file": "13aw-work-data-root-preference.js",
-      "order": 122,
+      "order": 124,
       "layer": "unclassified",
       "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted",
       "provides": [
@@ -29343,7 +29936,7 @@
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "order": 123,
+      "order": 125,
       "layer": "unclassified",
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis).",
       "provides": [
@@ -29488,7 +30081,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 124,
+      "order": 126,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -34798,6 +35391,14 @@
     },
     {
       "from": "04-permission-runtime.js",
+      "to": "03c-model-dispatch-context.js",
+      "symbols": [
+        "ModelDispatchContext"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "04-permission-runtime.js",
       "to": "05-claude-engine.js",
       "symbols": [
         "collectDisplayUrlRestores",
@@ -34876,6 +35477,14 @@
       "direction": "backward"
     },
     {
+      "from": "04h-provider-http.js",
+      "to": "03c-model-dispatch-context.js",
+      "symbols": [
+        "ModelDispatchContext"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "04i-provider-anthropic.js",
       "to": "04h-provider-http.js",
       "symbols": [
@@ -34939,6 +35548,7 @@
         "InternalMcpHooks",
         "MemoryCliHooks",
         "RUYI_EVENTS",
+        "SessionExecutionHooks",
         "URL",
         "WorkDataRootHooks",
         "appendUsageLedger",
@@ -35266,6 +35876,7 @@
         "MAX_BODY_BYTES",
         "MemoryCliHooks",
         "RUYI_EVENTS",
+        "SessionExecutionHooks",
         "StringDecoder",
         "URL",
         "cp",
@@ -36150,6 +36761,7 @@
       "symbols": [
         "ManagedMcp",
         "PermissionWaitHooks",
+        "assertSessionExecutionOwner",
         "killChildTree",
         "logEvent",
         "parseClaudeEvent",
@@ -36158,7 +36770,9 @@
         "promptWaitMs",
         "redact",
         "resolveBridge",
-        "runAutomaticInterventionDecision"
+        "revalidateSessionExecutionPermission",
+        "runAutomaticInterventionDecision",
+        "turnSettlers"
       ],
       "direction": "backward"
     },
@@ -36562,6 +37176,7 @@
         "RUYI_EVENTS",
         "SubAgentMemoryHooks",
         "TOOL_TIER_RANK",
+        "ThreadRelayHooks",
         "WorkDataMaintenanceHooks",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
@@ -36703,6 +37318,14 @@
     },
     {
       "from": "09-workflow.js",
+      "to": "03c-model-dispatch-context.js",
+      "symbols": [
+        "ModelDispatchContext"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
       "to": "04-permission-runtime.js",
       "symbols": [
         "ManagedMcp",
@@ -36725,6 +37348,7 @@
         "registerSessionExecutionChild",
         "requestUserQuestion",
         "resolveBridge",
+        "revalidateSessionExecutionPermission",
         "stopSession"
       ],
       "direction": "backward"
@@ -37036,6 +37660,146 @@
       "direction": "backward"
     },
     {
+      "from": "09c-thread-relay.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "SessionExecutionHooks",
+        "ThreadRelayHooks",
+        "URL",
+        "apiFailure",
+        "crypto",
+        "json",
+        "nowIso",
+        "runKeyedChain",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "01-config.js",
+      "symbols": [
+        "configReadFence",
+        "readConfig",
+        "readJsonBody",
+        "safeSessionId",
+        "send",
+        "tokenMatches",
+        "tokenOk"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "interventionRecordCache",
+        "loadSession",
+        "readInterventionsWithMeta",
+        "sessionDiskWriteSeqOf",
+        "sessionDisplayTitle",
+        "sessionSaveIsTombstoned"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "applySessionPermissionModeOverride"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "activeChildren",
+        "pendingPermissions",
+        "pendingPlans",
+        "pendingQuestions",
+        "requestSessionExecutionStop",
+        "sessionExecutionSnapshot",
+        "turnOutcomePending",
+        "turnSettlers"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "06f-autonomy-grants.js",
+      "symbols": [
+        "autonomyGrants"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "06g-resource-leases.js",
+      "symbols": [
+        "acquireResourceLease",
+        "normalizeAgentResources",
+        "releaseResourceLease"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "StewardHooks",
+        "stewardThreadStateFromHead"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "activeAgentRuns",
+        "agentRunFile",
+        "agentRunSnapshotStore",
+        "agentRunWriteChains",
+        "readAgentRunSnapshot"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "08-agent-runs.js",
+      "symbols": [
+        "listAgentRuns",
+        "readAgentRunRecord",
+        "saveAgentRun"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09c-thread-relay.js",
+      "to": "09-workflow.js",
+      "symbols": [
+        "launchPersistedAgentRun",
+        "waitForAgentRunResults"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "09d-token-estimation.js",
       "to": "07-autonomy.js",
       "symbols": [
@@ -37057,6 +37821,7 @@
       "symbols": [
         "EventStreamHooks",
         "SessionExecutionHooks",
+        "ThreadRelayHooks",
         "URL",
         "WorkDataMaintenanceHooks",
         "apiSessionIdInvalid",
@@ -37145,6 +37910,8 @@
         "sessionMessagesStamp",
         "sessionMissionId",
         "sessionObjectIsStale",
+        "sessionSchedulerTurnMatches",
+        "sessionSchedulerTurnReceipt",
         "sessionTodosSignature",
         "toolImageSessionTag",
         "updateSessionMeta",
@@ -37193,6 +37960,7 @@
         "recordSessionExecutionOwner",
         "redact",
         "requestSessionExecutionStop",
+        "revalidateSessionExecutionPermission",
         "sessionExecutionSnapshot",
         "stopSession",
         "turnOutcomePending",
@@ -37265,6 +38033,14 @@
         "StewardHooks",
         "stewardTaintToolCall",
         "stewardWatchedThread"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "10-context-governance.js",
+      "to": "06j-scheduler-core.js",
+      "symbols": [
+        "SchedulerHooks"
       ],
       "direction": "backward"
     },
@@ -37593,6 +38369,7 @@
         "logEvent",
         "resolveBridge",
         "resolveExternalMcpServers",
+        "revalidateSessionExecutionPermission",
         "safeMcpInventory"
       ],
       "direction": "backward"
@@ -37758,6 +38535,7 @@
         "OVERLAY_ID",
         "ProxyModelHooks",
         "SKILL_ID_RE",
+        "ThreadRelayHooks",
         "URL",
         "VERSION",
         "WorkDataMaintenanceHooks",
@@ -38236,14 +39014,17 @@
       "to": "00-boot.js",
       "symbols": [
         "DeliveryHooks",
+        "ThreadRelayHooks",
         "URL",
         "apiFailure",
         "apiSessionNotFound",
         "crypto",
+        "fs",
         "fsp",
         "json",
         "nowIso",
         "path",
+        "paths",
         "text"
       ],
       "direction": "backward"
@@ -38267,6 +39048,8 @@
         "kindForPath",
         "loadSession",
         "readMissionContainer",
+        "sessionBodyPaths",
+        "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
         "sessionMissionId"
       ],
@@ -40146,6 +40929,7 @@
         "ProxyModelHooks",
         "RUYI_EVENTS",
         "SessionFullTextHooks",
+        "ThreadRelayHooks",
         "URL",
         "apiFailure",
         "apiSessionIdInvalid",
@@ -40889,6 +41673,14 @@
     },
     {
       "from": "13i-steward-inbox.js",
+      "to": "06j-scheduler-core.js",
+      "symbols": [
+        "SchedulerHooks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13i-steward-inbox.js",
       "to": "07-autonomy.js",
       "symbols": [
         "activeAgentRuns"
@@ -41129,7 +41921,9 @@
       "from": "13k-steward-threads.js",
       "to": "06-provider-engine.js",
       "symbols": [
-        "listPlaybooksWithAvailability"
+        "listPlaybooksWithAvailability",
+        "loadAllPlaybooks",
+        "normalizePlaybook"
       ],
       "direction": "backward"
     },
@@ -42376,6 +43170,7 @@
         "loadSession",
         "repairMissionChangeTornTail",
         "saveSession",
+        "sessionSchedulerTurnReceipt",
         "updateSessionMeta"
       ],
       "direction": "backward"
@@ -42385,7 +43180,8 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "logEvent",
-        "stopSession"
+        "stopSession",
+        "turnSettlers"
       ],
       "direction": "backward"
     },
@@ -42395,6 +43191,7 @@
       "symbols": [
         "STEWARD_SESSION_ID",
         "StewardHooks",
+        "stewardAssemblePlaybookPrompt",
         "stewardPermissionRank"
       ],
       "direction": "backward"
@@ -42410,7 +43207,8 @@
         "missedOccurrence",
         "nextFireAt",
         "normalizeSchedulerTask",
-        "occurrenceKey"
+        "occurrenceKey",
+        "schedulerFail"
       ],
       "direction": "backward"
     },

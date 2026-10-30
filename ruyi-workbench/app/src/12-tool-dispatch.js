@@ -3443,10 +3443,12 @@ async function toolCall(name, args = {}, ctx = null) {
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
   try {
-    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, checked => {
+    if (typeof PrivacyGateway !== 'undefined') return await PrivacyGateway.withExecution(name, args, ctx || {}, async checked => {
       if (typeof InternalMcpHooks !== 'undefined' && InternalMcpHooks.isContext(ctx)) InternalMcpHooks.assertTool(ctx, name);
+      if (ctx && ctx.executionOwner && ctx.executionOwner.authority) await revalidateSessionExecutionPermission(ctx.sessionId, ctx.executionOwner);
       return entry.handler(checked, ctx);
     });
+    if (ctx && ctx.executionOwner && ctx.executionOwner.authority) await revalidateSessionExecutionPermission(ctx.sessionId, ctx.executionOwner);
     return await entry.handler(args, ctx);
   }
   catch (e) {

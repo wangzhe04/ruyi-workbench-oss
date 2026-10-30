@@ -415,9 +415,29 @@ ok(hookNames.length >= 10 && unlabelled.length === 0,
 
 
 // ─── I 后端面：只用 116 已有的 + 117e 第 0 步那一条 ───────────────────────────────
+// Saved Playbooks adds one read in its existing schedule-form owner. Project only that
+// exact default-GET expression before applying the unchanged legacy route surface below.
+// This is a narrow source-spelling contract, not a general JavaScript scope analyzer.
+function beforeSavedSchedulePlaybooks(source) {
+  const owner = functionBlock(source, 'fillSchedulePlaybooks');
+  const call = "api('/api/playbooks')";
+  if (!owner || (source.match(/async function fillSchedulePlaybooks\s*\(/g) || []).length !== 1
+    || source.split(call).length !== 2 || owner.split(call).length !== 2
+    || (owner.match(/\/api\//g) || []).length !== 1
+    || !owner.includes('const response = await ' + call + ';')
+    || !owner.includes('scheduleTemplates = response?.playbooks || [];')) return null;
+  return source.replace(call, "api('')");
+}
+function settingsRoutePaths(source) {
+  return [...new Set([
+    ...[...source.matchAll(/'(\/api\/[a-z/-]+)[^']*'/g)].map(match => match[1]),
+    ...[...source.matchAll(/`(\/api\/[a-z/-]+)\?/g)].map(match => match[1]),
+  ])].sort();
+}
+const settingsRouteCode = beforeSavedSchedulePlaybooks(settingsCode);
 const routes = [...new Set([
-  ...[...settingsCode.matchAll(/'(\/api\/[a-z/-]+)[^']*'/g)].map(match => match[1]),
-  ...[...settingsCode.matchAll(/`(\/api\/[a-z/-]+)\?/g)].map(match => match[1]),
+  ...[...(settingsRouteCode || settingsCode).matchAll(/'(\/api\/[a-z/-]+)[^']*'/g)].map(match => match[1]),
+  ...[...(settingsRouteCode || settingsCode).matchAll(/`(\/api\/[a-z/-]+)\?/g)].map(match => match[1]),
 ])].sort();
 const ALLOWED = [
   '/api/config-is-not-called-here',  // 占位：配置写口只经注入的 saveConfigPartial，本模块不拼它
@@ -432,6 +452,23 @@ const ALLOWED = [
 ].filter(route => !route.includes('not-called-here')).sort();
 ok(JSON.stringify(routes) === JSON.stringify(ALLOWED),
   `I1 设置模块仅调用现有路由；记忆导出已委托受保护出口（实测 ${JSON.stringify(routes)}）`);
+ok(settingsRouteCode !== null, 'I1c Saved Playbooks only adds its exact default-GET call in the schedule-form owner');
+const acceptsSettingsRoutes = source => {
+  const legacy = beforeSavedSchedulePlaybooks(source);
+  return legacy !== null && JSON.stringify(settingsRoutePaths(legacy)) === JSON.stringify(ALLOWED);
+};
+const playbookCall = "api('/api/playbooks')";
+for (const [name, source, expected] of [
+  ['owned saved-playbook read', settingsCode, true],
+  ['unknown route', settingsCode + "\napi('/api/unknown');", false],
+  ['same-prefix route', settingsCode.replace(playbookCall, "api('/api/playbooks/unknown')"), false],
+  ['duplicate read outside owner', settingsCode + "\n" + playbookCall + ';', false],
+  ['missing owned read', settingsCode.replace(playbookCall, "api('')"), false],
+  ['changed method', settingsCode.replace(playbookCall, "api('/api/playbooks', { method: 'POST' })"), false],
+  ['moved read', settingsCode.replace(playbookCall, "api('')") + "\n" + playbookCall + ';', false],
+  ['unknown route in owner', settingsCode.replace(playbookCall, playbookCall + "; await api('/api/unknown')"), false],
+  ['duplicate owner', settingsCode + "\nasync function fillSchedulePlaybooks() {}", false],
+]) ok(acceptsSettingsRoutes(source) === expected, 'I1d finite route projection: ' + name);
 const exportRoutes = [...new Set([...privacyExport.matchAll(/'(\/api\/[a-z/-]+)'/g)].map(match => match[1]))];
 ok(JSON.stringify(exportRoutes) === JSON.stringify(['/api/privacy/export'])
   && privacyExport.includes("op: 'validate'") && !/\bfetch\(/.test(stripComments(privacyExport)),

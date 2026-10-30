@@ -2,8 +2,8 @@
 // ── 夹具 HOME 守卫的锁(27 号文 §11.21.7 债④) ────────────────────────────────────────
 //
 // ① 静态扫:dev-harness 下每一处 spawn-family 调用,凡 options.env 带 RUYI_HOME,就必须
-//    spread process.env —— 那是 run-all 注入的【临时 USERPROFILE/HOME】唯一的来路;不 spread
-//    就只剩「没设家目录」或「显式写死真机家」两种形状,前者子进程的 os.homedir() 落回真机家。
+//    spread process.env 继承 run-all 的隔离，或直接 spread 本仓 fixtureChildEnv() 的完整隔离结果。
+//    helper 分支只认唯一原导入、无同名替换、完整 env spread，不能靠无关文本或后置覆盖蒙混。
 //    同时钉住处数,防「扫描器匹配到 0 处」式假绿(件数变了就把常量跟着改,并在注释里写来路)。
 // ② 接线锁:守卫文件、run-all 的注入与 --require 装法都不许被悄悄摘掉。
 // ③ 行为探针:真起 4 个 node 子进程(装法照抄 run-all),验证守卫红/绿分明。
@@ -15,6 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const cp = require('child_process');
+const vm = require('node:vm');
 const { functionBlock, bracedBlock } = require('./lib/source-slice');
 
 const HARNESS = __dirname;
@@ -149,7 +150,8 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // contributes a RUYI_HOME spawn (spread process.env), so the active scope is 220.
 // The archive remains outside this root scan; isolation predicates are unchanged.
 // MCP8: direct220 ->214; ACC(-2), resource-mask(-1), steward-tools(-1), tool-loading(-2) moved to six explicitly scanned authenticated helper calls. No isolation surface was removed.
-const RUYI_HOME_SPAWN_SITES = 215; // +1: external-bots-retention.e2e starts its own isolated server with fixtureChildEnv and RUYI_HOME. // +1: credential-vault.e2e uses an isolated DPAPI worker. // +1: external-bot-discovery starts an isolated production service with its own fake official host. // +1: external-bot-setup starts an isolated production service. // +2: external-bots and external-bots-control each spawn their isolated production service. // +1: agent-coordination.e2e starts its workbench with an isolated fixture home. // +1: agent-parent-mailbox.e2e starts an isolated workbench. // 205 -> 207:2026-10 子代理思维链 + 时限:新增 subagent-thinking-continuity.e2e 与 agent-node-limits.e2e(各一处带 RUYI_HOME 起真服务的 spawn 点;browser 件走 lib/browser-fixture 不另计)。204 -> 205:2026-10 第二波安全走查:新增 security-gates-w2.e2e(带 RUYI_HOME 起真服务的 spawn 点)。203 -> 204:安全 B(表面加固)合并。202 -> 203:Anthropic 接入两件新 e2e。201 -> 202:2026-10 合入 fix/mem-scope。199 -> 201:2026-10 走查「记忆 B」:新增 memory-recall-injection.e2e 与 memory-subagent.e2e。198 -> 199:2026-10 子代理 Retry-After e2e。197 -> 198:2026-10 走查 W1 存储批:新增 store-walkthrough-w1.e2e(带 RUYI_HOME 起真服务的 spawn 点)。195 -> 197:2026-10 走查合并:新增 preflight-relative-write.e2e 与 file-text-encoding.e2e。194 -> 195:2026-10 走查合并:新增 settings-wave1.browser 与 provider-no-model-locale.e2e。192 -> 194:2026-10 新增 agent-wake.e2e 与 provider-compact-recall.e2e(各一个带 RUYI_HOME 起真服务的 spawn 点)。190 -> 192:2026-10 合并 master(PR #43):agent-workflow-claude-engine.e2e 新增 (D) 权限档、(R) 命令行阶梯两段各一个 spawn 点(master 上 182 -> 184)。189 -> 190:2026-10 61-C2 新增 session-scratchpad.e2e(带 RUYI_HOME 起真服务的 spawn 点)。188 -> 189:2026-10 61-C1 新增 playbook-skill-tools.e2e(带 RUYI_HOME 起真服务的 spawn 点)。187 -> 188:2026-10 61-C3 新增 memory-batch-proposal.e2e(与 61-C4 checkpoint-visibility.e2e 各 +1,合并后叠加)。186 -> 187:2026-10 新增 checkpoint-visibility.e2e(带 RUYI_HOME 起真服务的 spawn 点)。185 -> 186:2026-10 新增 harness-friction.e2e(带 RUYI_HOME 起真服务的 spawn 点)。182 -> 185:2026-10 新增 acc-capability-gates.e2e(带 RUYI_HOME 起真服务 ×2 与 MCP 子进程 ×1 的 spawn 点)。181 -> 182:2026-10 新增 tool-invoke-promote.e2e(带 RUYI_HOME 起真服务的 spawn 点)。180 -> 181:2026-10 新增 steward-viewing-gate.e2e(带 RUYI_HOME 起真服务的 spawn 点)。179 -> 180:59 号文 §6 新增 voice-learn.e2e(带 RUYI_HOME 起真服务的 spawn 点)。178 -> 179:59 号文新增 voice-lexicon.e2e(带 RUYI_HOME 起真服务的 spawn 点)。177 -> 178:新增 tool-audit-r2-meta.e2e(带 RUYI_HOME 起真服务的 spawn 点)。176 -> 177:新增 steward-continue-unfinished.e2e 的 spawn 点。173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
+// WT: scheduled-playbooks, thread-relay, thread-relay-nested each add one canonical isolated server site.
+const RUYI_HOME_SPAWN_SITES = 218; // +1: external-bots-retention.e2e starts its own isolated server with fixtureChildEnv and RUYI_HOME. // +1: credential-vault.e2e uses an isolated DPAPI worker. // +1: external-bot-discovery starts an isolated production service with its own fake official host. // +1: external-bot-setup starts an isolated production service. // +2: external-bots and external-bots-control each spawn their isolated production service. // +1: agent-coordination.e2e starts its workbench with an isolated fixture home. // +1: agent-parent-mailbox.e2e starts an isolated workbench. // 205 -> 207:2026-10 子代理思维链 + 时限:新增 subagent-thinking-continuity.e2e 与 agent-node-limits.e2e(各一处带 RUYI_HOME 起真服务的 spawn 点;browser 件走 lib/browser-fixture 不另计)。204 -> 205:2026-10 第二波安全走查:新增 security-gates-w2.e2e(带 RUYI_HOME 起真服务的 spawn 点)。203 -> 204:安全 B(表面加固)合并。202 -> 203:Anthropic 接入两件新 e2e。201 -> 202:2026-10 合入 fix/mem-scope。199 -> 201:2026-10 走查「记忆 B」:新增 memory-recall-injection.e2e 与 memory-subagent.e2e。198 -> 199:2026-10 子代理 Retry-After e2e。197 -> 198:2026-10 走查 W1 存储批:新增 store-walkthrough-w1.e2e(带 RUYI_HOME 起真服务的 spawn 点)。195 -> 197:2026-10 走查合并:新增 preflight-relative-write.e2e 与 file-text-encoding.e2e。194 -> 195:2026-10 走查合并:新增 settings-wave1.browser 与 provider-no-model-locale.e2e。192 -> 194:2026-10 新增 agent-wake.e2e 与 provider-compact-recall.e2e(各一个带 RUYI_HOME 起真服务的 spawn 点)。190 -> 192:2026-10 合并 master(PR #43):agent-workflow-claude-engine.e2e 新增 (D) 权限档、(R) 命令行阶梯两段各一个 spawn 点(master 上 182 -> 184)。189 -> 190:2026-10 61-C2 新增 session-scratchpad.e2e(带 RUYI_HOME 起真服务的 spawn 点)。188 -> 189:2026-10 61-C1 新增 playbook-skill-tools.e2e(带 RUYI_HOME 起真服务的 spawn 点)。187 -> 188:2026-10 61-C3 新增 memory-batch-proposal.e2e(与 61-C4 checkpoint-visibility.e2e 各 +1,合并后叠加)。186 -> 187:2026-10 新增 checkpoint-visibility.e2e(带 RUYI_HOME 起真服务的 spawn 点)。185 -> 186:2026-10 新增 harness-friction.e2e(带 RUYI_HOME 起真服务的 spawn 点)。182 -> 185:2026-10 新增 acc-capability-gates.e2e(带 RUYI_HOME 起真服务 ×2 与 MCP 子进程 ×1 的 spawn 点)。181 -> 182:2026-10 新增 tool-invoke-promote.e2e(带 RUYI_HOME 起真服务的 spawn 点)。180 -> 181:2026-10 新增 steward-viewing-gate.e2e(带 RUYI_HOME 起真服务的 spawn 点)。179 -> 180:59 号文 §6 新增 voice-learn.e2e(带 RUYI_HOME 起真服务的 spawn 点)。178 -> 179:59 号文新增 voice-lexicon.e2e(带 RUYI_HOME 起真服务的 spawn 点)。177 -> 178:新增 tool-audit-r2-meta.e2e(带 RUYI_HOME 起真服务的 spawn 点)。176 -> 177:新增 steward-continue-unfinished.e2e 的 spawn 点。173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js', 'lib/internal-mcp-fixture.js'];
 const MCP_HOME_HELPER_SITES = 6;
 const MCP_HOME_HELPERS = ['spawnInternalMcpHost', 'spawnAuthenticatedMcp', 'spawnMcpWithOwnedHost'];
@@ -182,6 +184,106 @@ function argsTextAt(src, callIndex, openParen) {
   return src.slice(openParen + 1, i - 1);
 }
 
+// A narrow source contract for the canonical helper spelling used by these
+// fixtures, not an arbitrary JavaScript authority/scope analyzer.
+// Only this CommonJS header spelling is supported. Reject unsupported syntax
+// before the import rather than infer general JavaScript scope or authority.
+function canonicalImportAtTopLevel(source, at) {
+  const stack = [];
+  for (let i = 0; i < at;) {
+    const c = source[i], next = source[i + 1];
+    if (c === "'" || c === '"') {
+      const quote = c; let closed = false; i++;
+      while (i < at) {
+        if (source.charCodeAt(i) === 92) { i += 2; continue; }
+        if (source[i++] === quote) { closed = true; break; }
+      }
+      if (!closed || i > at) return false;
+      continue;
+    }
+    if (c === '/' && next === '/') {
+      const end = source.indexOf(String.fromCharCode(10), i + 2);
+      if (end < 0 || end >= at) return false;
+      i = end + 1; continue;
+    }
+    if (c === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      if (end < 0 || end + 2 > at) return false;
+      i = end + 2; continue;
+    }
+    // Templates and non-comment slash forms are outside the supported header.
+    if (c === String.fromCharCode(96) || c === '/') return false;
+    if ('({['.includes(c)) stack.push(c);
+    else if (')}]'.includes(c) && stack.pop() !== { ')': '(', '}': '{', ']': '[' }[c]) return false;
+    i++;
+  }
+  return stack.length === 0;
+}
+function hasCanonicalFixtureEnv(source, args) {
+  const bindings=[...source.matchAll(/^[ \t]*const[ \t]+\{([^{}]+)\}[ \t]*=[ \t]*require\(['"]([^'"]+)['"]\)[ \t]*;[ \t]*\r?$/gm)]
+    .filter(match=>match[1].split(',').map(value=>value.trim()).includes('fixtureChildEnv'));
+  if(bindings.length!==1||!/^\.\/lib\/fixture-home(?:\.js)?$/.test(bindings[0][2]))return false;
+  if(!canonicalImportAtTopLevel(source,bindings[0].index))return false;
+  const rest=source.replace(bindings[0][0],'');
+  if(/\b(?:function|class)\s+fixtureChildEnv\b|\bfixtureChildEnv\s*=|\b(?:function\b[^\n(]*\([^)]*\bfixtureChildEnv\b|\([^)]*\bfixtureChildEnv\b[^)]*\)\s*=>)/.test(rest))return false;
+  if((args.match(/\benv\s*:/g)||[]).length!==1)return false;
+  const block=bracedBlock(args,'env:');if(!block)return false;
+  const body=block.slice(block.indexOf('{')+1,-1),call=/^\s*\.\.\.fixtureChildEnv\(\)\s*,/.exec(body);if(!call)return false;
+  const tail=body.slice(call[0].length).replace(/'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g,'STRING');
+  const fields=tail.split(',').map(value=>value.trim()).filter(Boolean);
+  if(!fields.length||!fields.every(value=>/^[A-Z][A-Z0-9_]*\s*:\s*(?:[A-Za-z_$][\w$]*|\d+)$/.test(value)))return false;
+  const names=fields.map(value=>value.split(':')[0].trim());
+  return names.includes('RUYI_HOME')&&!names.some(key=>/^(?:USERPROFILE|HOME|APPDATA|LOCALAPPDATA|HOMEDRIVE|HOMEPATH|RUYI_REAL_HOME)$/.test(key));
+}
+function spawnHomeIsolated(source,args) {
+  if(/\b(?:USERPROFILE|HOME)\s*:\s*process\.env\.RUYI_REAL_HOME\b/.test(args))return false;
+  // Keep the pre-existing inherited-env branch. The new helper-only spelling
+  // cannot acquire that branch by adding a raw spread after the helper.
+  const helper=args.search(/\bfixtureChildEnv\s*\(/),inherited=args.indexOf('...process.env');
+  if(helper>=0&&!(inherited>=0&&inherited<helper))return hasCanonicalFixtureEnv(source,args);
+  return /\.\.\.process\.env/.test(args);
+}
+
+const canonicalImport="const { fixtureChildEnv } = require('./lib/fixture-home');";
+const canonicalArgs="node, [], { env: { ...fixtureChildEnv(), RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data, WCW_TEST_NO_NET_ANCHORS: '1' } }";
+for(const[label,source,args,expected]of[
+  ['owned complete helper',canonicalImport,canonicalArgs,true],
+  ['quoted fake import','const note = '+JSON.stringify(canonicalImport)+';',canonicalArgs,false],
+  ['line-comment fake import','// '+canonicalImport,canonicalArgs,false],
+  ['block-comment fake import','/*\n'+canonicalImport+'\n*/',canonicalArgs,false],
+  ['template fake import','const note = '+String.fromCharCode(96)+canonicalImport+String.fromCharCode(96)+';',canonicalArgs,false],
+  ['multiline template fake import','const note = '+String.fromCharCode(96)+'\n'+canonicalImport+'\n'+String.fromCharCode(96)+';',canonicalArgs,false],
+  ['nested scope fake import','function start() {\n'+canonicalImport+'\n}',canonicalArgs,false],
+  ['nested brackets fake import','[\n'+canonicalImport+'\n]',canonicalArgs,false],
+  ['unsupported slash header','const pattern = /safe/;\n'+canonicalImport,canonicalArgs,false],
+  ['real import after complete comments','/* header */\n// header\n'+canonicalImport,canonicalArgs,true],
+  ['foreign import',canonicalImport.replace('./lib/fixture-home','./other'),canonicalArgs,false],
+  ['same-name function',canonicalImport+' function fixtureChildEnv() {}',canonicalArgs,false],
+  ['same-name reassignment',canonicalImport+' fixtureChildEnv = fake;',canonicalArgs,false],
+  ['shadowed parameter',canonicalImport+' function start(fixtureChildEnv) {}',canonicalArgs,false],
+  ['helper text outside env',canonicalImport,"node, [], { note: '...fixtureChildEnv()', env: { RUYI_HOME: data } }",false],
+  ['raw env reintroduced',canonicalImport,canonicalArgs.replace('RUYI_HOME: data','...process.env, RUYI_HOME: data'),false],
+  ['uppercase home overridden',canonicalImport,canonicalArgs.replace('RUYI_HOME: data','HOME: real, RUYI_HOME: data'),false],
+  ['casefold home alias',canonicalImport,canonicalArgs.replace('RUYI_HOME: data','home: real, RUYI_HOME: data'),false],
+  ['helper arguments unsupported',canonicalImport,canonicalArgs.replace('fixtureChildEnv()','fixtureChildEnv({ baseEnv: fake })'),false],
+  ['explicit real home in legacy env','',"node, [], {env:{...process.env, RUYI_HOME:data, HOME:process.env.RUYI_REAL_HOME}}",false],
+])ok(spawnHomeIsolated(source,args)===expected,'canonical fixture env: '+label);
+
+function canonicalHelperOwnsHomes(source) {
+  const declaration=functionBlock(source,'fixtureChildEnv');if(!declaration)return false;
+  const create=vm.runInNewContext(declaration+'\nfixtureChildEnv',{
+    process:{env:{USERPROFILE:'REAL',HOME:'REAL',LOCALAPPDATA:'REAL',APPDATA:'REAL',SAFE:'kept'}},
+    fixtureHomeDir:()=>'/fixture/home',fixtureHomeDirPerTest:()=>'/fixture/per-test',
+    fakeAppDataDirs:()=>({local:'/fixture/local',roaming:'/fixture/roaming'}),REAL_HOME:'/real',
+  });
+  const env=create();return env.USERPROFILE==='/fixture/home'&&env.HOME==='/fixture/home'
+    &&env.LOCALAPPDATA==='/fixture/local'&&env.APPDATA==='/fixture/roaming'&&env.SAFE==='kept';
+}
+const canonicalHomeSource=fs.readFileSync(path.join(HARNESS,'lib/fixture-home.js'),'utf8');
+ok(canonicalHelperOwnsHomes(canonicalHomeSource),'canonical helper actual function supplies all four isolated home/AppData fields');
+const lostHome=canonicalHomeSource.replace('USERPROFILE: home, HOME: home,','USERPROFILE: base.USERPROFILE, HOME: base.HOME,');
+ok(lostHome!==canonicalHomeSource&&!canonicalHelperOwnsHomes(lostHome),'canonical helper cannot retain inherited real HOME/USERPROFILE');
+
 function scanRuyiHomeSpawnSites() {
   const sites = [];
   // 本件自己不进判据:探针必须【故意】构造"数据家设了、家目录没隔离"的 env 去打守卫
@@ -200,6 +302,7 @@ function scanRuyiHomeSpawnSites() {
         line: src.slice(0, m.index).split('\n').length,
         method: m[1],
         spread: /\.\.\.process\.env/.test(args),
+        isolated: spawnHomeIsolated(src,args),
       });
     }
   }
@@ -240,7 +343,7 @@ for (const name of ['spawnInternalMcpHost', 'spawnAuthenticatedMcp', 'hostMain']
 }
 
 const sites = scanRuyiHomeSpawnSites();
-const offenders = sites.filter(s => !s.spread);
+const offenders = sites.filter(s => !s.isolated);
 const e2eOnly = sites.filter(s => s.file.endsWith('.e2e.js'));
 
 ok(sites.length >= RUYI_HOME_SPAWN_FLOOR,
@@ -249,7 +352,7 @@ ok(sites.length === RUYI_HOME_SPAWN_SITES,
   `件数锁定:${sites.length} 处 == 常量 ${RUYI_HOME_SPAWN_SITES}(新增/删除夹具后请同步常量并注明来路;` +
   `其中 *.e2e.js 内 ${e2eOnly.length} 处)`);
 ok(offenders.length === 0,
-  '每一处都 spread process.env —— 隔离子进程的家目录只有这一条来路' +
+  '每一处都继承隔离 process.env 或完整可信 fixtureChildEnv()，不以原始 env 覆盖 helper 隔离' +
   (offenders.length ? ' → 违规:' + JSON.stringify(offenders.map(o => o.file + ':' + o.line + '(' + o.method + ')')) : ''));
 
 // ── ② 接线锁 ──────────────────────────────────────────────────────────────────────────

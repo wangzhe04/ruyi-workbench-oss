@@ -262,8 +262,14 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     }
     return out;
   };
+  // A legitimate first delegation accepts the relay before installing its own
+  // workflow owner. Keep the last source/policy/target fence before registration;
+  // inherited background work must not keep the parent admission context alive.
+  const dispatch = typeof ModelDispatchContext !== 'undefined' && ModelDispatchContext.current();
+  const dispatchFence = dispatch ? await dispatch.prepare(parentSession.id) : null;
   // 角色库/路由预检里的 await 期间线程可能被删除。复检与注册在同一同步段,删除必能看见并停止已注册的 run。
   if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0, runId };
+  if (dispatch) dispatch.assert(dispatchFence);
   activeAgentRuns.set(runId, runtime);
   // 已登记为运行中:launchPersistedAgentRun 等的就是这一刻(见那边的注释)。
   if (typeof onRegistered === 'function') { try { onRegistered(); } catch { /* 回调失败不影响运行 */ } }
@@ -889,7 +895,9 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           runtime.nodeControls.set(node.id, nodeCtrl);
           let sub;
           try {
-            sub = await runSubAgent({
+            sub = run.kind === 'existing_thread_relay'
+              ? await ThreadRelayHooks.execute(run, node, nodeCtrl && nodeCtrl.signal, nodeEvent)
+              : await runSubAgent({
               parentSession: agentSession, provider: subProvider, config, engine: node.engine || 'openai',
               task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
               displayTask: node.task, agentKey: node.id,
@@ -1305,13 +1313,15 @@ async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
   const reg = activeChildren.get(sessionId);
   if (reg && reg.session) drop(reg.session);
 }
-async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
+async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride, relayAdmission }) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent-resume')) return WorkDataMaintenanceHooks.run('agent-resume', () => launchPersistedAgentRun(...arguments));
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
   try { run = await readAgentRunSnapshot(sessionId, runId); }
   catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; run = null; }
   if (!run) return { ok: false, error: 'agent run not found' };
+  if (run.kind === 'thread_relay') return { ok: false, error: 'thread_relay.contract_not_executable' };
+  if (run.kind === 'existing_thread_relay') ThreadRelayHooks.admit(run, relayAdmission);
   await syncRunEventSeq(run);   // 对抗轮修: 磁盘装载点快进 eventSeq(见 syncRunEventSeq 注释)
   if (interventionKind) bumpRunIntervention(run, interventionKind); // 29c: 冷 resume/retry_node 是人工干预(boot 自动续跑不传,不计)
   // 第40波: boot 自动续跑扫到 N 个 run 时,逐个 readConfig 是 N 次盘 IO;调用方(boot sweep)已持有刚读的
@@ -1321,7 +1331,7 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   // Only the nodes that actually need an OpenAI Provider require one to be configured to resume —
   // an all-Claude-engine run resumes fine with none (see the dual-engine note on the launch handler).
   const needsProvider = (Array.isArray(run.nodes) ? run.nodes : []).some(n => (n.engine || 'openai') === 'openai');
-  if (needsProvider && !provider) return { ok: false, error: '当前没有可用的 Provider，无法恢复工作流（该运行含 OpenAI 引擎节点）' };
+  if (needsProvider && !provider && run.kind !== 'existing_thread_relay') return { ok: false, error: '当前没有可用的 Provider，无法恢复工作流（该运行含 OpenAI 引擎节点）' };
   const parentSession = await loadSession(sessionId).catch(error => { if (String(error && error.code || '').startsWith('work_data')) throw error; return null; });
   if (!parentSession) return { ok: false, error: 'session not found' };
   const onEvent = () => {}; // management UI polls persisted state; no chat stream is required
@@ -2293,6 +2303,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // shell_poll:waitMs 长轮询(≤30s)循环里看 ctx.signal,必须可被插话 / 停止打断,否则排队的插话要等满 30s。
   const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run', 'shell_poll']);
   const awaitProviderTool = async (tc, runner, interruptible = false) => {
+    if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
     const startedAt = Date.now();
     const toolAbort = interruptible ? new AbortController() : null;
     const turnSignal = ctrl && ctrl.signal;
@@ -2358,7 +2369,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const STOPPED = Symbol('turn_stopped');
         let onTurnStop = null;
         const stopped = new Promise(resolve => { onTurnStop = () => resolve(STOPPED); turnSignal.addEventListener('abort', onTurnStop, { once: true }); });
-        const running = Promise.resolve().then(() => runner(null));
+        const running = Promise.resolve().then(async () => {
+          if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
+          return runner(null);
+        });
         let raced;
         try { raced = await Promise.race([running, stopped]); }
         finally { turnSignal.removeEventListener('abort', onTurnStop); }
@@ -2369,6 +2383,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         return raced;
       }
+      if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
       const result = await runner(toolAbort && toolAbort.signal);
       // 13a-t 字节轴【只计数,不改写】(20-C1 三个 High 阻断未解除,不做结果引用改写)。
       if (interruptible && ttbByteShadowBytes > 0 && result && typeof result === 'object') {
@@ -3193,6 +3208,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         const batchToolCallsStart = toolCalls.length;
         const offeredToolNames = new Set(allTools.map(t => t && t.function && t.function.name).filter(Boolean));
         for (const tc0 of localToolCalls) {
+          if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
           const tc = unwrapProxiedControlCall(tc0, offeredToolNames);   // tool_invoke_* → 引擎特判工具时解开成直调(见该函数头注)
           let args = {}; try { args = (typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.executionArgs(tc) : JSON.parse(tc.rawArgs || '{}')); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
@@ -3463,6 +3479,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                         tc,
                         async signal => {
                           if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { bridge, session, config, workingDir, signal });
+                          if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
                           return client.callTool(bridge.toolName, args, undefined, { signal });
                         },
                         true,
@@ -3473,6 +3490,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 }
               } else if (tc.name === 'request_user_input') {
                 if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
                 if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
@@ -3488,6 +3506,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 resultObj = validateNativeToolArgs(tc.name, normalizeMetaToolArgs(tc.name, args));
               } else if (tc.name === 'todo_write') {
                 if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
                 if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,
@@ -3507,6 +3526,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   : { ok: true, count: items.length };
               } else if (tc.name === 'mission_update') {
                 if (typeof PrivacyGateway !== 'undefined') args = await PrivacyGateway.revalidateExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
+                if (executionOwner && executionOwner.authority) await revalidateSessionExecutionPermission(session.id, executionOwner);
                 if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertExecution(tc.name, args, { sessionId: session.id, session, config, workingDir, signal: ctrl && ctrl.signal, mainTurn: true });
                 // 第26波b provider-engine 特例:in-process 合并进 session.mission(闭包持 session + onEvent)。
                 if (session.mission) {
@@ -3537,7 +3557,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     tc,
                     // mainTurn:会话自己的主回合标记(08 子代理、MCP 子进程、/api/tools 都不带)。只写本会话旁车的工具(C2 scratchpad_write)
                     // 据此 fail-closed;代理 tool_invoke_* 把同一个 ctx 原样转给目标(12 invokeAdaptiveMcpTool)。
-                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
+                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true, executionOwner }),
                     // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)

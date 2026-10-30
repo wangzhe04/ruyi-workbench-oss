@@ -9,7 +9,14 @@ function beforeRetention(value) {
   for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
   assert.equal(hash(value),history.baseSha256);return value;
 }
+function beforeThreadRelayAuth(value) {
+  const history=require('../fixtures/thread-relay/auth-history.json');
+  if(hash(value)!==history.sha256)return value;
+  for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
+  assert.equal(hash(value),history.baseSha256);return value;
+}
 function beforeRetentionAuth(value) {
+  value=beforeThreadRelayAuth(value);
   const {auth}=require('../fixtures/external-bots-retention/history.json');
   assert.equal(hash(value),auth.sha256);assert.equal(value.split(auth.rows).length,2);value=value.replace(auth.rows,'');
   assert.equal(hash(value),auth.baseSha256);return value;

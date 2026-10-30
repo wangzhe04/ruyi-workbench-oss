@@ -41,6 +41,7 @@ import { chatProviders } from './util.js';
 // 不再复用 readScheduleTasks；排序也换成「暂停与算不出下一次的也要在表里」（upcomingSchedules
 // 按设计会把它们滤掉，那是「接下来」要的语义，不是这张表要的）。
 import { scheduleWhenLabel } from './rail-pocket.js';
+import { apiErrorInfo } from './net.js';
 // 40 号文 P0①：危险动作的确认件与文案键都住 js/confirm-panel.js（33 号文 §4「四套收一套」的那一份）。
 // 本文件只调，不自己拼键、更不用 globalThis.confirm（119 波已把原生框清零）。
 import { confirmDanger } from './confirm-panel.js';
@@ -807,6 +808,7 @@ export function createStewardSettingsDomain({
   // normalizeScheduleTasks 那一份只留 K7 要的四个字段，够不着徽标与展开。
   const SCHEDULE_TASKS_PATH = '/api/scheduler/tasks';
   const SCHEDULE_RUNS_LIMIT = 5;
+  let scheduleEditingId = '', scheduleTemplates = [], schedulePreviewBody = '', scheduleTemplatesTicket = 0, scheduleEditingEpoch = 0;
   // 五档计划各自要显示哪几个字段块（表单里的其余块 hidden）。表在这里只有一份。
   const SCHEDULE_KIND_FIELDS = Object.freeze({
     once: ['at', 'date'], daily: ['at'], weekly: ['at', 'days'], monthly: ['at', 'dom'], cron: ['cron'],
@@ -863,6 +865,11 @@ export function createStewardSettingsDomain({
     chip.dataset.outcome = badge.outcome;
     chip.dataset.mode = badge.mode;
     item.appendChild(chip);
+    if (run.snapshot?.payload?.kind === 'playbook') item.appendChild(el('span', 'field-help muted', run.snapshot.payload.template.title));
+    if (run.error) {
+      const key = /target_session_not_found/.test(run.error) ? 'settings.steward.schedule.recovery.targetMissing' : /target_busy/.test(run.error) ? 'settings.steward.schedule.recovery.targetBusy' : /permission_denied/.test(run.error) ? 'settings.steward.schedule.recovery.approval' : /interrupted/.test(run.error) ? 'settings.steward.schedule.recovery.unknown' : 'settings.steward.schedule.recovery.failedRun';
+      item.appendChild(el('span', 'field-help muted', t(key)));
+    }
     if (run.sessionId) {
       // 唯一的落点：在如意里打开那条线程。**不印路径、不给复制**（28 号 §2 的 UX 红线）。
       const open = button('steward-schedule-run-open', t('settings.steward.schedule.openThread'),
@@ -930,10 +937,13 @@ export function createStewardSettingsDomain({
     chip.dataset.outcome = badge.outcome;
     chip.dataset.mode = badge.mode;
     head.appendChild(chip);
+    if (task.payload?.kind === 'playbook') head.appendChild(el('span', 'field-help muted', task.payload.template.title));
+    if (state.queuedOccurrence || state.inFlightSnapshot) head.appendChild(el('span', 'field-help muted', t('settings.steward.schedule.waitingCopy')));
     item.appendChild(head);
 
     const actions = el('div', 'steward-schedule-actions');
     const id = encodeURIComponent(String(task.id || ''));
+    actions.appendChild(button('steward-schedule-act', t('settings.steward.schedule.edit'), () => editSchedule(task)));
     actions.appendChild(button('steward-schedule-act',
       t(state.enabled === false ? 'settings.steward.schedule.resume' : 'settings.steward.schedule.pause'),
       () => scheduleAction(`${SCHEDULE_TASKS_PATH}/${id}`, {
@@ -1024,7 +1034,13 @@ export function createStewardSettingsDomain({
       const block = byId(blockId);
       if (block) block.hidden = !wanted.includes(field);
     }
-    const isPrompt = String((byId('cfgStewardSchedulePayloadKind') || {}).value || '') === 'prompt';
+    const payloadKind = String((byId('cfgStewardSchedulePayloadKind') || {}).value || 'reminder');
+    const isPrompt = payloadKind !== 'reminder';
+    const playbookBlock = byId('cfgStewardSchedulePlaybookBlock');
+    if (playbookBlock) playbookBlock.hidden = payloadKind !== 'playbook';
+    const textBlock = byId('cfgStewardScheduleTextBlock');
+    if (textBlock) textBlock.hidden = payloadKind === 'playbook';
+    for (const field of (byId('cfgStewardScheduleInputs')?.querySelectorAll('[data-input-key]') || [])) field.disabled = payloadKind !== 'playbook';
     const targetBlock = byId('cfgStewardScheduleTargetBlock');
     if (targetBlock) targetBlock.hidden = !isPrompt;
     const permissionBlock = byId('cfgStewardSchedulePermissionBlock');
@@ -1038,7 +1054,7 @@ export function createStewardSettingsDomain({
     return kind;
   }
   // 「哪一条线程」的候选来自左栏已经取回来的那一份（GET /api/missions），不裸发第二份请求。
-  async function fillScheduleSessions() {
+  async function fillScheduleSessions(epoch = scheduleEditingEpoch) {
     const select = byId('cfgStewardScheduleSessionId');
     if (!select) return 0;
     let rows = [];
@@ -1046,6 +1062,7 @@ export function createStewardSettingsDomain({
       const payload = await api('/api/missions?limit=50');
       rows = (payload && Array.isArray(payload.missions)) ? payload.missions : [];
     } catch { rows = []; }
+    if (epoch !== scheduleEditingEpoch || byId('cfgStewardScheduleForm')?.hidden) return 0;
     clear(select);
     for (const row of rows) {
       const sessionId = String((row && row.sessionId) || '');
@@ -1055,6 +1072,76 @@ export function createStewardSettingsDomain({
       select.appendChild(option);
     }
     return select.options.length;
+  }
+  function fillScheduleInputs(values = null, checks = null) {
+    const host = byId('cfgStewardScheduleInputs'), select = byId('cfgStewardSchedulePlaybook');
+    if (!host || !select) return;
+    const template = scheduleTemplates[Number(select.value)];
+    clear(host);
+    for (const input of (template?.inputs || [])) {
+      const wrap = el('label', 'field-block');
+      wrap.appendChild(el('span', '', input.label + (input.required ? ' *' : '') + ' · ' + t('playbook.reuse.type.' + input.type)));
+      const field = el(input.type === 'text' ? 'textarea' : 'input', '');
+      if (input.type === 'text') field.rows = 2; else field.type = 'text';
+      field.dataset.inputKey = input.key; field.dataset.inputType = input.type;
+      field.maxLength = 4000; field.required = input.required === true;
+      field.disabled = byId('cfgStewardSchedulePayloadKind')?.value !== 'playbook';
+      field.value = values?.[input.key] || '';
+      wrap.appendChild(field); host.appendChild(wrap);
+    }
+    const node = byId('cfgStewardScheduleChecks');
+    if (node) node.value = (checks || template?.reuse?.checks || []).join('\n');
+    schedulePreviewBody = '';
+  }
+  function schedulePlaybookDraft() {
+    const template = scheduleTemplates[Number(byId('cfgStewardSchedulePlaybook')?.value)];
+    if (!template) return null;
+    const values = {};
+    for (const field of (byId('cfgStewardScheduleInputs')?.querySelectorAll('[data-input-key]') || [])) values[field.dataset.inputKey] = field.value;
+    return { payload: { kind: 'playbook', template, values, checks: String(byId('cfgStewardScheduleChecks')?.value || '').split('\n') } };
+  }
+  async function fillSchedulePlaybooks(task = null, epoch = scheduleEditingEpoch, preserveDraft = false) {
+    if (epoch !== scheduleEditingEpoch || byId('cfgStewardScheduleForm')?.hidden) return;
+    const select = byId('cfgStewardSchedulePlaybook'); if (!select) return;
+    const ticket = ++scheduleTemplatesTicket;
+    scheduleFormError('');
+    try {
+      const response = await api('/api/playbooks');
+      if (epoch !== scheduleEditingEpoch || ticket !== scheduleTemplatesTicket || byId('cfgStewardScheduleForm')?.hidden) return;
+      if (preserveDraft) task = schedulePlaybookDraft(); // read latest typing before replacing options
+      scheduleTemplates = response?.playbooks || [];
+      const pinned = task?.payload?.kind === 'playbook' ? task.payload.template : null;
+      if (pinned && !scheduleTemplates.some(pb => pb.id === pinned.id && pb.revision === pinned.revision)) scheduleTemplates.unshift(pinned);
+      clear(select);
+      for (const [index, template] of scheduleTemplates.entries()) {
+        const option = el('option', '', template.title + (template === pinned ? ' · ' + t('settings.steward.schedule.savedCopy') : ''));
+        option.value = String(index); select.appendChild(option);
+      }
+      if (pinned) select.value = String(scheduleTemplates.findIndex(pb => pb.id === pinned.id && pb.revision === pinned.revision));
+      fillScheduleInputs(task?.payload?.values, task?.payload?.checks);
+    } catch (error) {
+      if (epoch === scheduleEditingEpoch && ticket === scheduleTemplatesTicket && !byId('cfgStewardScheduleForm')?.hidden) scheduleFormError(t('settings.steward.schedule.form.failed', { reason: stewardErrorText(error) }));
+    }
+  }
+  async function editSchedule(task) {
+    scheduleEditingId = task.id;
+    toggleScheduleForm(true);
+    const epoch = scheduleEditingEpoch;
+    const put = (id, value) => { const node = byId('cfgStewardSchedule' + id); if (node) node.value = value == null ? '' : String(value); };
+    put('Title', task.title); put('Kind', task.schedule.kind); put('At', task.schedule.at);
+    put('Date', task.schedule.date); put('Dom', task.schedule.dayOfMonth || 1); put('Cron', task.schedule.expr);
+    put('Timezone', task.schedule.tz === 'local' ? Intl.DateTimeFormat().resolvedOptions().timeZone : task.schedule.tz);
+    put('PayloadKind', task.payload.kind); put('Text', task.payload.text); put('Target', task.target.mode);
+    put('Permission', task.autonomy.permissionMode); put('Tier', task.target.tier);
+    put('OnMissed', task.policy.onMissed); put('Grace', task.policy.graceMinutes);
+    const days = byId('cfgStewardScheduleDaysBlock');
+    if (days) for (const node of days.querySelectorAll('input[data-dow]')) node.checked = (task.schedule.days || []).includes(Number(node.dataset.dow));
+    await fillScheduleSessions(epoch);
+    if (epoch !== scheduleEditingEpoch) return;
+    put('SessionId', task.target.sessionId);
+    await fillSchedulePlaybooks(task, epoch);
+    if (epoch !== scheduleEditingEpoch) return;
+    syncScheduleForm();
   }
   function scheduleFormPlan(kind) {
     const at = String((byId('cfgStewardScheduleAt') || {}).value || '');
@@ -1079,7 +1166,26 @@ export function createStewardSettingsDomain({
     finally { scheduleSubmitting = false; if (submitBtn) submitBtn.disabled = false; }
   }
   async function submitScheduleOnce() {
+    const epoch = scheduleEditingEpoch;
     scheduleFormError('');
+    const body = scheduleFormBody();
+    if (body.payload.kind === 'playbook' && schedulePreviewBody !== JSON.stringify(body)) {
+      await previewSchedule();
+      return false;
+    }
+    let response = null;
+    try { response = await api(scheduleEditingId ? `${SCHEDULE_TASKS_PATH}/${encodeURIComponent(scheduleEditingId)}` : SCHEDULE_TASKS_PATH, { method: scheduleEditingId ? 'PATCH' : 'POST', body: JSON.stringify(body) }); }
+    catch (error) { response = { ok: false, error }; }
+    if (epoch !== scheduleEditingEpoch) return false;
+    if (!response || response.ok !== true) {
+      scheduleFormError(t('settings.steward.schedule.form.failed', { reason: scheduleErrorReason(response) }));
+      return false;
+    }
+    toggleScheduleForm(false);
+    await loadSchedule();
+    return true;
+  }
+  function scheduleFormBody() {
     const kind = String((byId('cfgStewardScheduleKind') || {}).value || 'once');
     const payloadKind = String((byId('cfgStewardSchedulePayloadKind') || {}).value || 'reminder');
     const body = {
@@ -1087,7 +1193,18 @@ export function createStewardSettingsDomain({
       schedule: scheduleFormPlan(kind),
       payload: { kind: payloadKind, text: String((byId('cfgStewardScheduleText') || {}).value || '').trim() },
     };
-    if (payloadKind === 'prompt') {
+    body.schedule.tz = String(byId('cfgStewardScheduleTimezone')?.value || 'local');
+    body.policy = { ...(scheduleRows.find(row => row.id === scheduleEditingId)?.policy || {}),
+      onMissed: String(byId('cfgStewardScheduleOnMissed')?.value || 'run-once-late'), graceMinutes: Number(byId('cfgStewardScheduleGrace')?.value || 0) };
+    if (scheduleEditingId) body.taskId = scheduleEditingId;
+    if (payloadKind === 'playbook') {
+      const template = scheduleTemplates[Number(byId('cfgStewardSchedulePlaybook')?.value)];
+      const values = {};
+      for (const field of (byId('cfgStewardScheduleInputs')?.querySelectorAll('[data-input-key]') || [])) values[field.dataset.inputKey] = field.value;
+      body.payload = { kind: 'playbook', playbookId: template?.id || '', revision: template?.revision || '', values,
+        checks: String(byId('cfgStewardScheduleChecks')?.value || '').split('\n').map(check => check.trim()).filter(Boolean) };
+    }
+    if (payloadKind !== 'reminder') {
       const mode = String((byId('cfgStewardScheduleTarget') || {}).value || 'new-session');
       body.target = mode === 'existing-session'
         ? { mode, sessionId: String((byId('cfgStewardScheduleSessionId') || {}).value || '') }
@@ -1096,33 +1213,63 @@ export function createStewardSettingsDomain({
       const tier = mode === 'existing-session' ? '' : String((byId('cfgStewardScheduleTier') || {}).value || '');
       if (tier) body.target.tier = tier;
       const permission = String((byId('cfgStewardSchedulePermission') || {}).value || '');
-      if (permission) body.autonomy = { permissionMode: permission };
+      if (permission || scheduleEditingId) body.autonomy = { permissionMode: permission };
     }
-    let response = null;
-    try { response = await api(SCHEDULE_TASKS_PATH, { method: 'POST', body: JSON.stringify(body) }); }
-    catch (error) { response = { ok: false, error }; }
-    if (!response || response.ok !== true) {
-      // 建不成【留在表单里】并把原因印在旁边（不 toast 完就把表单收掉——用户刚填的东西还在里面）。
-      scheduleFormError(t('settings.steward.schedule.form.failed', { reason: stewardErrorText((response && response.error) || response) }));
-      return false;
+    return body;
+  }
+  function scheduleErrorReason(response) {
+    const code = apiErrorInfo(response?.error || response).code;
+    if (/playbook_changed/.test(code)) return t('settings.steward.schedule.form.templateChanged');
+    if (/playbook_inputs_invalid/.test(code)) return t('settings.steward.schedule.form.inputsInvalid');
+    if (/playbook_checks_required/.test(code)) return t('settings.steward.schedule.form.checksRequired');
+    if (/invalid_timezone/.test(code)) return t('settings.steward.schedule.form.zoneInvalid');
+    return stewardErrorText(response?.error || response);
+  }
+  async function previewSchedule() {
+    const epoch = scheduleEditingEpoch;
+    const body = scheduleFormBody(), list = byId('cfgStewardSchedulePreview');
+    if (list) clear(list);
+    let response;
+    try { response = await api(`${SCHEDULE_TASKS_PATH}/preview`, { method: 'POST', body: JSON.stringify(body) }); }
+    catch (error) { response = { error }; }
+    if (epoch !== scheduleEditingEpoch) return false;
+    if (!response?.ok) { scheduleFormError(t('settings.steward.schedule.form.failed', { reason: scheduleErrorReason(response) })); return false; }
+    if (JSON.stringify(body) !== JSON.stringify(scheduleFormBody())) return false;
+    for (const value of response.times) {
+      const timeZone = response.timezone === 'local' ? undefined : response.timezone;
+      list?.appendChild(el('li', '', new Date(value).toLocaleString(lang() === 'en' ? 'en-US' : 'zh-CN', { timeZone, timeZoneName: 'short' })));
     }
-    toggleScheduleForm(false);
-    await loadSchedule();
+    schedulePreviewBody = JSON.stringify(body);
+    scheduleFormError(t('settings.steward.schedule.form.previewReady'));
     return true;
   }
   function toggleScheduleForm(open) {
+    // Every open/close starts a new owner, including create and switching tasks.
+    scheduleEditingEpoch++;
+    scheduleTemplatesTicket++;
+    schedulePreviewBody = '';
+    const preview = byId('cfgStewardSchedulePreview'); if (preview) clear(preview);
     const form = byId('cfgStewardScheduleForm');
     if (!form) return false;
     form.hidden = !open;
+    const submit = byId('cfgStewardScheduleSubmitBtn');
+    if (submit) { const key = scheduleEditingId ? 'common.save' : 'settings.steward.schedule.form.submit'; submit.dataset.i18n = key; submit.textContent = t(key); }
     if (open) {
       scheduleFormError('');
       const date = byId('cfgStewardScheduleDate');
       if (date && !date.value) date.value = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
       syncScheduleForm();
-      void fillScheduleSessions();
+      if (!scheduleEditingId) {
+        void fillScheduleSessions();
+        const zone = byId('cfgStewardScheduleTimezone'); if (zone) zone.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        void fillSchedulePlaybooks();
+      }
+    } else {
+      scheduleEditingId = ''; schedulePreviewBody = '';
     }
     return open;
   }
+  byId('settingsModal')?.addEventListener('ruyi:modalclosed', () => toggleScheduleForm(false));
 
   /* ═══════════════ 填充与接线 ═══════════════ */
 
@@ -1315,7 +1462,10 @@ export function createStewardSettingsDomain({
     // 123-M2（§3.6）：新建表单。计划四档＋cron 高级用同一张 SCHEDULE_KIND_FIELDS 表切字段块，
     // 不重画表单（零 innerHTML 的另一半：DOM 是静态的，JS 只改 hidden 与 value）。
     const newSchedule = byId('cfgStewardScheduleNewBtn');
-    if (newSchedule) newSchedule.onclick = () => toggleScheduleForm(byId('cfgStewardScheduleForm') ? byId('cfgStewardScheduleForm').hidden : true);
+    if (newSchedule) newSchedule.onclick = () => { scheduleEditingId = ''; return toggleScheduleForm(byId('cfgStewardScheduleForm') ? byId('cfgStewardScheduleForm').hidden : true); };
+    const previewScheduleBtn = byId('cfgStewardSchedulePreviewBtn'); if (previewScheduleBtn) previewScheduleBtn.onclick = () => previewSchedule();
+    const templateSelect = byId('cfgStewardSchedulePlaybook'); if (templateSelect) templateSelect.onchange = () => fillScheduleInputs();
+    const reloadTemplates = byId('cfgStewardSchedulePlaybookRefresh'); if (reloadTemplates) reloadTemplates.onclick = () => fillSchedulePlaybooks(null, scheduleEditingEpoch, true);
     const cancelSchedule = byId('cfgStewardScheduleCancelBtn');
     if (cancelSchedule) cancelSchedule.onclick = () => toggleScheduleForm(false);
     const scheduleForm = byId('cfgStewardScheduleForm');

@@ -572,7 +572,7 @@
         <section class="tool-section" id="tab-agent-runs">
           <div class="debug-head">
             <label data-i18n="workflow.title">Agent 工作流</label>
-            <div class="row-actions"><button id="workflowEditorBtn" class="mini primary" data-testid="workflowEditorBtn" data-i18n="workflow.editorButton">新建 / 编辑</button><button id="agentRunsRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button></div>
+            <div class="row-actions"><button id="workflowEditorBtn" class="mini primary" data-testid="workflowEditorBtn" data-i18n="workflow.editorButton">新建 / 编辑</button><button id="threadRelayBtn" class="mini" data-i18n="relay.title">已有线程接力</button><button id="agentRunsRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button></div>
           </div>
           <!-- v3 (§B2): 简易模式「AI 工作」聚合入口 —— 顶部两个 mini 链接切到隐藏的「用量 / 审计」页签
                (专家模式它们是常驻页签;本行由 CSS 仅在简易模式显示)。switchTab 不拦这两个 tab,点击即切。 -->
@@ -1435,6 +1435,7 @@
                     <select id="cfgStewardSchedulePayloadKind">
                       <option value="reminder" data-i18n="settings.steward.schedule.payload.reminder">只提醒我（不动模型）</option>
                       <option value="prompt" data-i18n="settings.steward.schedule.payload.prompt">让如意跑一个回合</option>
+                      <option value="playbook" data-i18n="settings.steward.schedule.payload.playbook">按保存的做法执行</option>
                     </select>
                   </div>
                   <div class="field-block" id="cfgStewardScheduleTargetBlock">
@@ -1445,9 +1446,28 @@
                     </select>
                   </div>
                 </div>
-                <div class="field-block">
+                <div class="field-block" id="cfgStewardScheduleTextBlock">
                   <label for="cfgStewardScheduleText" data-i18n="settings.steward.schedule.form.text">说什么</label>
                   <textarea id="cfgStewardScheduleText" rows="3" maxlength="4000" placeholder="到点要提醒的话，或要让如意去做的那件事" data-i18n-attr="placeholder:settings.steward.schedule.form.textPlaceholder"></textarea>
+                </div>
+                <div id="cfgStewardSchedulePlaybookBlock" hidden>
+                  <div class="field-block">
+                    <label for="cfgStewardSchedulePlaybook" data-i18n="settings.steward.schedule.form.playbook">选择保存的做法</label>
+                    <select id="cfgStewardSchedulePlaybook"></select>
+                    <button type="button" id="cfgStewardSchedulePlaybookRefresh" class="btn btn-sm" data-i18n="settings.steward.schedule.form.reloadTemplates">重新载入做法</button>
+                  </div>
+                  <div id="cfgStewardScheduleInputs" class="field-grid"></div>
+                  <div class="field-block">
+                    <label for="cfgStewardScheduleChecks" data-i18n="settings.steward.schedule.form.checks">怎样算完成（每行一项）</label>
+                    <textarea id="cfgStewardScheduleChecks" rows="3" maxlength="2400"></textarea>
+                  </div>
+                  <p class="field-help muted" data-i18n="settings.steward.schedule.form.snapshotHint">保存后使用这份做法。修改只影响未来尚未生成的任务；已经等待、待批准或运行中的任务保留原内容。每次执行仍遵循当前权限。</p>
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardScheduleTimezone" data-i18n="settings.steward.schedule.form.timezone">时区</label>
+                  <input id="cfgStewardScheduleTimezone" type="text" list="cfgStewardScheduleZones" value="Asia/Shanghai" />
+                  <datalist id="cfgStewardScheduleZones"><option value="Asia/Shanghai"></option><option value="UTC"></option><option value="America/New_York"></option><option value="Europe/London"></option><option value="Asia/Tokyo"></option></datalist>
+                  <p class="field-help muted" data-i18n="settings.steward.schedule.form.timezoneHint">按所选时区的当地时间执行。夏令时跳过的时间顺延，重复的时间只执行一次。</p>
                 </div>
                 <div class="field-grid">
                   <div class="field-block" id="cfgStewardScheduleSessionBlock">
@@ -1476,6 +1496,14 @@
                   </div>
                 </div>
                 <p class="field-help muted" id="cfgStewardScheduleFormError" role="status"></p>
+                <div class="field-grid">
+                  <div class="field-block"><label for="cfgStewardScheduleOnMissed" data-i18n="settings.steward.schedule.form.onMissed">错过时间时</label>
+                    <select id="cfgStewardScheduleOnMissed"><option value="run-once-late" data-i18n="settings.steward.schedule.form.runLate">宽限内补做一次</option><option value="skip" data-i18n="settings.steward.schedule.form.skip">跳过这一次</option></select>
+                  </div>
+                  <div class="field-block"><label for="cfgStewardScheduleGrace" data-i18n="settings.steward.schedule.form.grace">最多迟到多少分钟</label><input id="cfgStewardScheduleGrace" type="number" min="0" max="10080" value="720" /></div>
+                </div>
+                <button type="button" id="cfgStewardSchedulePreviewBtn" class="btn btn-sm" data-i18n="settings.steward.schedule.form.preview">预览接下来五次</button>
+                <ol id="cfgStewardSchedulePreview" aria-live="polite"></ol>
                 <div class="steward-settings-row">
                   <button type="submit" id="cfgStewardScheduleSubmitBtn" class="btn btn-sm btn-primary" data-i18n="settings.steward.schedule.form.submit">建这一条</button>
                   <button type="button" id="cfgStewardScheduleCancelBtn" class="btn btn-sm" data-i18n="settings.steward.schedule.form.cancel">取消</button>

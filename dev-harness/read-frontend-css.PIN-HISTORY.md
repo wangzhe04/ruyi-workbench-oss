@@ -908,3 +908,5 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 // M2-6b3: reviewed 12-line compact clipboard plaintext menu CSS; no other layer changes.
 // 2026-10-23: 生成物并入本轮变更；chat-live.css 新增行内文件动作与窄屏换行，移除独立 chip 样式。
 // 自证：只读 HEAD chat-live.css 时载荷精确回到 0990a6250d726cc0df5a0ac053ccd5ffeb8077af0db8663e31117772fb2f8fa3；内存损坏后 D51/F3 必须失败，磁盘 CSS 不改坏。
+
+// M3-3: append only scoped work-data panel settings rules; 1440/768/390 browser layout verified.

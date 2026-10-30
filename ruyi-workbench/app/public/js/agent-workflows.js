@@ -7,6 +7,7 @@ import { $, el, fmtTokens, toast, stewardShortTitle, workflowTemplateLabel } fro
 import { getLocale, hasTranslation, t } from './i18n.js';
 import { createWorkbenchDomain } from './workbench.js';
 import { EVENT_STREAM_INSTANCE_EVENT } from './event-stream.js';
+import { openThreadRelay } from './thread-relay.js';
 // 32 号文 §4（M2-b）：pause/resume 的判据与文案键搬进叶子 js/run-state.js —— 2.0 这张 run 卡与
 // 3.0 管家壳的看板行／抽屉底部同一份（修前四处各写一遍 `live && !paused` 之类的判据）。
 import { runControlAction, runIsLive, runTextKeys } from './run-state.js';
@@ -23,11 +24,14 @@ export function createAgentWorkflowsDomain({
   activeTurns = new Map(),
   newSession = async () => {},
   openToolPane = () => {},
+  openExistingThread = async () => {},
   scheduleRender = () => {},
   renderCurrentSession = () => {},
   renderSessions = () => {},
   scrollIsSticky = () => true,
 } = {}) {
+const relayButton = $('threadRelayBtn');
+if (relayButton) relayButton.onclick = () => openThreadRelay({ buildModal, openExistingThread }).catch(error => toast(apiErrText(error), 'err'));
 let agentWorkflowLibrary = [];
 function cloneWorkflow(value) { return JSON.parse(JSON.stringify(value || {})); }
 // 模板标题现经 workflowTemplateLabel 按当前 locale 查表(见 util.js 头注)——这颗下拉是常驻顶栏控件,不像

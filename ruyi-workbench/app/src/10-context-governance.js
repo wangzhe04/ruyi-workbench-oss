@@ -3598,7 +3598,7 @@ async function runSessionTurn(input) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const loadedSession = body.sessionId ? await loadSession(body.sessionId) : null;
-  if (source === 'steward' && body.sessionId && !loadedSession) throw Object.assign(new Error('目标线程已不存在,没有另开任务'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
+  if (['steward', 'thread_relay'].includes(source) && body.sessionId && !loadedSession) throw Object.assign(new Error('目标线程已不存在,没有另开任务'), { code: 'SESSION_NOT_FOUND', statusCode: 404 });
   if (loadedSession && typeof body.expectedCwd === 'string' && String(loadedSession.cwd || '') !== body.expectedCwd) throw Object.assign(new Error('目标线程的工作区已变化,请重新选择目标'), { code: 'SESSION_WORKSPACE_CHANGED', statusCode: 409 });
   if (loadedSession && Number.isSafeInteger(body.expectedTurnSeq) && Number(loadedSession.turnSeq) !== body.expectedTurnSeq) throw Object.assign(new Error('目标任务已进入其它回合,请刷新交付卡后重试'), { code: 'DELIVERY_CHANGED', statusCode: 409 });
   if (loadedSession && body.expectedDelivery) {
@@ -3649,6 +3649,7 @@ async function runSessionTurn(input) {
   // 不是某个人在同一扇窗口里改口。两条定时任务同刻指向同一条既有线程时,修前后一个把前一个当「同源」顶掉
   // (09/05 的 supersede):前一个的消息丢了,它的记账却还是 succeeded。现在后来者拿 409,13s 按 target_busy 记 skipped
   // (不计连败),唤醒侧(runAgentWake)则把账退回去等那一回合收尾时补唤醒。
+  const relayAdmission = source === 'thread_relay' && body.relayLifecycle ? await body.relayLifecycle.prepareAdmission() : null;
   const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
   if (busySettler && busySource && (busySource !== source || EXCLUSIVE_TURN_SOURCES.has(source) || body.expectedDelivery)) {
@@ -3799,6 +3800,7 @@ async function runSessionTurn(input) {
   if (typeof SessionExecutionHooks.admissionBlocked === 'function' && SessionExecutionHooks.admissionBlocked(session.id)) {
     throw Object.assign(new Error('Session rewind is in progress'), { code: 'SESSION_EXECUTION_LOCKED', status: 409 });
   }
+  if (relayAdmission) relayAdmission.assert(); // No await between this fence and registering the original owner.
   const previousOwner = turnSettlers.get(session.id);
   if (previousOwner && typeof previousOwner.cancel === 'function') previousOwner.cancel('superseded');
   const driverRunId = makeId('drun');
@@ -3809,7 +3811,9 @@ async function runSessionTurn(input) {
   let settleResolve = null;
   const settleEntry = {
     promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null,
-    driverRunId, phase: 'starting', cancelRequested: false,
+    driverRunId, sessionId: session.id, phase: 'starting', cancelRequested: false,
+    turnSeqAtStart: Number(session.turnSeq) || 0,
+    authority: source === 'scheduler' && typeof body.executionAuthority?.assertCurrent === 'function' && typeof body.executionAuthority?.revalidate === 'function' ? body.executionAuthority : null,
     cancel(reason = 'stopped') {
       if (executionAbort.signal.aborted) return;
       this.cancelRequested = true; this.phase = 'stopping'; turnStopped = true;
@@ -3829,6 +3833,21 @@ async function runSessionTurn(input) {
   let briefSettleCandidate = false;
   let briefSettleProvider = null;
   try {
+    // Only an in-process relay supplies lifecycle functions. Persist the stable
+    // identity receipt under the registered execution owner before any engine IO.
+    if (source === 'thread_relay' && body.relayLifecycle) {
+      const lifecycle = body.relayLifecycle;
+      const relayExecution = sessionExecutionSnapshot(session.id);
+      const cancelRelay = () => requestSessionExecutionStop(session.id, relayExecution, 'stopped');
+      if (lifecycle.signal?.aborted) throw Object.assign(new Error('Relay cancelled'), { code: 'STEWARD_TURN_CANCELLED' });
+      lifecycle.signal?.addEventListener('abort', cancelRelay, { once: true });
+      settleEntry.relayCancel = cancelRelay;
+      await lifecycle.registered(settleEntry, storedConfig, session);
+      assertSessionExecutionOwner(session.id, settleEntry);
+    }
+    // Bound any old scheduled-run ambiguity before an ordinary newer turn can
+    // advance this head. Registration above still owns the admission interval.
+    if (source !== 'scheduler' && typeof SchedulerHooks !== 'undefined' && typeof SchedulerHooks.sessionTurnAdmission === 'function') await SchedulerHooks.sessionTurnAdmission(session);
     // Keep the admission check→owner registration synchronous. Legacy-history I/O happens only
     // after this turn owns the session, under the existing cancellation and finally cleanup.
     if (typeof PrivacyGateway !== 'undefined') {
@@ -3881,6 +3900,7 @@ async function runSessionTurn(input) {
       }
     }
     assertSessionExecutionOwner(session.id, settleEntry);
+    if (settleEntry.authority) await revalidateSessionExecutionPermission(session.id, settleEntry);
     const provider = activeOpenAiProvider(config);
     const pinnedRoute = inferSessionEngineRoute(routeSource);
     if (pinnedRoute?.engine === 'openai' && !provider) {
@@ -3899,8 +3919,15 @@ async function runSessionTurn(input) {
         // {origin:'agent_wake'})。driverAuto 续跑回合不带它(那条消息是驱动器发的,不是任何外部来源)。管家【会话】解析到
         // CLI 引擎时在 13h 就返回 unsupported_engine;CLI 引擎的普通线程(管家递话、唤醒)照样把出身标落在用户消息上。
         const turnMessageMeta = driverAuto ? null : (body.messageMeta || null);
-        if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry, delegationPlan: !driverAuto && body.source === 'steward' ? body.delegationPlan : null });
-        else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        if (source === 'thread_relay' && body.relayLifecycle && !settleEntry.dispatchAccepted) {
+          settleEntry.prepareDispatch = body.relayLifecycle.beforeDispatch;
+          const fence = await settleEntry.prepareDispatch();
+          SessionExecutionHooks.assertDispatch(settleEntry, fence);
+        }
+        await SessionExecutionHooks.withDispatchOwner(settleEntry, async () => {
+          if (provider) await runOpenAiTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, provider, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry, delegationPlan: !driverAuto && body.source === 'steward' ? body.delegationPlan : null });
+          else await runClaudeTurn({ session, message: String(msg || ''), attachments: atts, cwd: body.cwd, onEvent: emit, config, driverAuto, agentTeam: turnAgentTeam, messageMeta: turnMessageMeta, executionOwner: settleEntry });
+        });
       } finally { if (driverAuto) driverAutoSessions.delete(session.id); }
     };
     // 116-5a(27 号文 §11.8「线程自动摘要」)第一次机会:首回合【发起时】就把名字要回来,不等回合。
@@ -3931,6 +3958,21 @@ async function runSessionTurn(input) {
     }
   } finally {
     onFlush();  // D1:回合收尾 flush 残留 delta,防最后一批丢(HTTP 壳的合批缓冲;进程内调用方通常是空实现)
+    // Admission/provider failures can leave this owner at the previous turnSeq.
+    // They report their own error, but cannot rewrite that turn's durable facts.
+    let deliveryCompletion = { status: 'unknown' };
+    if (Number(session.turnSeq) > (Number(settleEntry.turnSeqAtStart) || 0) && typeof ThreadRelayHooks.captureTurn === 'function') {
+      try { deliveryCompletion = await ThreadRelayHooks.captureTurn({ session, owner: settleEntry, config: storedConfig,
+        result: lastResult, error: turnError, stopped: turnStopped || settleEntry.cancelRequested }); }
+      catch (error) { logEvent({ kind: 'thread_delivery_receipt_unavailable', sessionId: session.id, code: String(error.code || 'io') }); }
+    }
+    if (source === 'thread_relay' && body.relayLifecycle) {
+      body.relayLifecycle.signal?.removeEventListener('abort', settleEntry.relayCancel);
+      try {
+        await body.relayLifecycle.settled({ ok: !turnError, stopped: turnStopped || settleEntry.cancelRequested,
+          turnSeq: Number(session.turnSeq) || 0, result: lastResult, error: turnError, deliveryCompletion });
+      } catch (error) { turnError = String(error.code || error.message || error); }
+    }
     finished = true;
     // 116h:并发位无条件释放(settle / abort / 异常三条路都经这里),释放即唤醒队列。release 幂等。
     if (stewardSlot && typeof stewardSlot.release === 'function') { try { stewardSlot.release(); } catch { /* best-effort */ } }
@@ -3943,16 +3985,30 @@ async function runSessionTurn(input) {
     // 发起的回合会写(13k stewardRecordLaunchOutcome / 13s),用户自己在界面上发起的回合没有 —— 收件箱第四源读不到
     // 成败账就按「账缺席 = done」报,于是 ok:false 的 network_down 回合被管家说成「已收工」、「失败自动重试」也
     // 永远等不到 failed 事件;五态两张表读的 lastTurnFailed 同样读不到。判据取回合自己发出的 result 事件(ok/aborted/
-    // errorClass,三引擎同形),与 13k 同口径。管家/调度器发起的回合照旧由它们自己写;被新回合顶掉的不写(新回合会写)。
+    // errorClass,三引擎同形),与 13k 同口径。调度器把精确结果/quiet 交本收尾屏障发布;
+    // 管家发起的回合由它自己写;被新回合顶掉的不写(新回合会写)。
     // 第二轮工具走查(F5):这里原先还要求 stewardWatchedThread(只给「被盯」的线程落账),于是没标 stewardWatch 的
     // 普通线程失败了也没有账,steward_thread_status / threads_search / missions 一律读成「已收工 done」,而它最后
     // 一句其实是错误信息。账本只是事实记录,【不】等于「管家要为它动手」—— 后者仍由收件箱第四源自己的
     // stewardWatchedThread 判据把关(13i stewardCollectSessionTurn 末尾 `!watched` 直接 return null),所以对
     // 未被盯的线程多写这一笔账不会多出任何收件箱事件。
     const outcomeId = session.id;
+    const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合
+    const turnAdvanced = Number(session.turnSeq) > (Number(settleEntry.turnSeqAtStart) || 0);
+    const schedulerPublishes = source === 'scheduler' && turnStillOwned && !lastResult?.superseded && turnAdvanced;
     let outcomePatch = null;
+    let outcomePublicationError = null;
     try {
-      if (outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
+      if (source === 'scheduler' && turnStillOwned && !schedulerPublishes && typeof body.schedulerOutcome === 'function') {
+        // No real turn was admitted (for example provider unavailable / queue
+        // cancelled). Stop its dispatch timer without stamping an older turn.
+        body.schedulerOutcome({ ok: !turnError, turnSeq: Number(session.turnSeq) || 0, result: lastResult, stopped: turnStopped });
+      }
+      if (schedulerPublishes) {
+        const turn = { ok: !turnError, turnSeq: Number(session.turnSeq) || 0, result: lastResult, stopped: turnStopped, error: turnError || undefined };
+        outcomePatch = typeof body.schedulerOutcome === 'function' ? body.schedulerOutcome(turn)
+          : { seq: turn.turnSeq, ok: !turnError && lastResult?.ok === true, aborted: turnStopped || lastResult?.aborted === true, errorClass: String(lastResult?.errorClass || turnError || ''), at: nowIso(), todosStartSig };
+      } else if (turnStillOwned && turnAdvanced && outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
           && !(lastResult && lastResult.superseded)) {
         if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
         else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
@@ -3961,9 +4017,11 @@ async function runSessionTurn(input) {
         // (Windows CI session-get-etag 实测 304 变 200)。被盯的线程照旧每回合都记(todosStartSig 要用)。
         if (outcomePatch && outcomePatch.ok === true && !stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) outcomePatch = null;
       }
-    } catch { outcomePatch = null; }
-    if (outcomePatch) turnOutcomePending.add(outcomeId);
-    const turnStillOwned = turnSettlers.get(session.id) === settleEntry;   // 收尾时线程还归本回合(没有更新的回合接手)
+    } catch (error) { outcomePatch = null; if (schedulerPublishes) outcomePublicationError = error; }
+    if (outcomePatch || outcomePublicationError) {
+      settleEntry.outcomeSeq = Number(outcomePatch?.seq ?? session.turnSeq) || 0;
+      turnOutcomePending.set(outcomeId, settleEntry);
+    }
     if (turnStillOwned) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     if (session.kind === 'steward' && typeof PrivacyCore.configHooks.settleStewardPrivacy === 'function') {
       privacySettingsResult = await PrivacyCore.configHooks.settleStewardPrivacy(session.id, Number(session.turnSeq),
@@ -3983,14 +4041,30 @@ async function runSessionTurn(input) {
         try { if ((await EventStreamHooks.pendingAgentWakeJobs(session)).length) scheduleAgentWake(session.id, 'turn_end'); } catch { /* 旁路,不反噬收尾 */ }
       }
     }
-    if (outcomePatch) {
+    if (schedulerPublishes && (outcomePatch || outcomePublicationError)) {
+      try {
+        if (outcomePublicationError) throw outcomePublicationError;
+        const receipt = sessionSchedulerTurnReceipt(outcomePatch.scheduler);
+        const committed = await updateSessionMeta(outcomeId, { launchedBy: 'steward', stewardLastTurn: outcomePatch }, { waitForCommit: true,
+          ...(receipt ? { expectedSchedulerOutcome: { ...receipt, state: ['pending', 'unknown'], seq: Number(outcomePatch.seq) } } : {}),
+        });
+        if (!committed || !(Number(committed.stewardLastTurn?.seq) >= Number(outcomePatch.seq))) throw new Error('Scheduler outcome was not committed');
+        if (receipt && !sessionSchedulerTurnMatches(committed.stewardLastTurn, { ...receipt, seq: Number(outcomePatch.seq) })) throw new Error('Scheduler outcome identity changed before commit');
+        if (turnOutcomePending.get(outcomeId) === settleEntry) turnOutcomePending.delete(outcomeId);
+      } catch (cause) {
+        // Keep this owner's pending fence and the scheduler's durable in-flight
+        // occurrence. Recovery reports unknown; it must never replay the work.
+        throw Object.assign(new Error('Scheduler outcome publication is uncertain'), { code: 'SCHEDULER_OUTCOME_UNCERTAIN', cause });
+      }
+      try { if (typeof StewardHooks.onThreadSettled === 'function') StewardHooks.onThreadSettled(); } catch { /* notification is a side channel */ }
+    } else if (outcomePatch) {
       // 不 await:成败账是旁路,回合的收尾(brief 补写、返回值)不该排在一次会话头写盘后面;读侧在
       // turnOutcomePending 挂着期间按「账在路上」处理(04),落盘或失败后摘掉。
       Promise.resolve()
         .then(() => updateSessionMeta(outcomeId, { stewardLastTurn: outcomePatch }))
         .catch(() => { /* 旁路:少一笔账只是退回「账缺席」,不反噬回合 */ })
         .finally(() => {
-          turnOutcomePending.delete(outcomeId);
+          if (turnOutcomePending.get(outcomeId) === settleEntry) turnOutcomePending.delete(outcomeId);
           if (typeof StewardHooks.onThreadSettled === 'function') StewardHooks.onThreadSettled();
         });
     }
@@ -4046,7 +4120,8 @@ async function runSessionTurn(input) {
 //   · 唤醒回合不是用户的意思表示:source 不是 'http',所以不改「上次用的引擎」、不清 stewardTaint(见 runSessionTurn)。
 const AGENT_WAKE_SOURCE = 'agent_wake';
 // 系统自己起的回合:同一条线程上已经有一个同源回合在跑时,后来者不顶替、而是被挡回去(见 runSessionTurn 的忙判定)。
-const EXCLUSIVE_TURN_SOURCES = new Set(['scheduler', AGENT_WAKE_SOURCE]);
+SessionExecutionHooks.runTurn = runSessionTurn;
+const EXCLUSIVE_TURN_SOURCES = new Set(['scheduler', AGENT_WAKE_SOURCE, 'thread_relay']);
 const AGENT_WAKE_DEBOUNCE_MS = 1500;   // 同一批并行代理前后脚收尾时合成一次唤醒
 const agentWakeTimers = new Map();     // sessionId -> 防抖定时器
 const agentWakeAttempted = new Map();  // sessionId -> Set(账本 job id):已经为它唤醒过的信封

@@ -987,7 +987,7 @@ function normalizePlaybook(raw) {
   const uiMode = (raw.uiMode === 'simple' || raw.uiMode === 'pro') ? raw.uiMode : 'both';
   // 枚举钳制:编造的一类静默丢成 ''(未分类)。摘掉这道钳制,`service:'编造的一类'` 会原样穿透。
   const service = PLAYBOOK_SERVICES.includes(raw.service) ? raw.service : '';
-  return {
+  const normalized = {
     id,
     title: title.slice(0, 120),
     icon: String(raw.icon || '📄').slice(0, 8),
@@ -1000,6 +1000,9 @@ function normalizePlaybook(raw) {
     service,
     ...(reuse ? { reuse } : {}),
   };
+  // Content identity also covers declared inputs and acceptance checks. A saved
+  // schedule pins this revision; editing the library never rewrites that copy.
+  return { ...normalized, revision: crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex') };
 }
 
 function builtinPlaybooksDir() { return path.join(externalRoot(), 'resources', 'playbooks'); }

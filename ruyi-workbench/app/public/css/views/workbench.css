@@ -1,4 +1,11 @@
 /* Workbench canvas, inspector, task pool, mailbox, and MCP operations. */
+.thread-relay { display: grid; gap: 12px; min-width: 0; }
+.thread-relay select, .thread-relay textarea { max-width: 100%; width: 100%; }
+.thread-relay-step, .thread-relay-card, .thread-relay-review { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-sm); }
+.thread-relay-edge + .thread-relay-edge { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.thread-relay-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; font: inherit; }
+.thread-relay p { overflow-wrap: anywhere; }
+.thread-relay input[type="checkbox"] { width: auto; }
 /* ============================================================
    UI v3 P3a「工作台」全宽只读画布视图。视觉基线 = docs/mockups/p3-workbench-r2.html
    + docs/UI-DESIGN-R2-NOTES.md。所有 class 以 .wb- 前缀隔离;状态类用 wb-st-、边用 wb-e-

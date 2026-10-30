@@ -1,6 +1,35 @@
 // 3.x 第四轮：只读交付投影。证据随既有 turnSummary 保存，不另建成果或验收账本。
 // 引擎及工具通过 StewardHooks 迟绑定，避免给既有依赖环增加成员。
 const STEWARD_DELIVERY_LIMITS = Object.freeze({ files: 20, checks: 50, fileBytes: 8 * 1024 * 1024, totalBytes: 32 * 1024 * 1024 });
+function stewardDeliveryRevisionGuard(source, reference, files, completionFile) {
+  const revision = sessionDiskWriteSeqOf(source.id);
+  const identity = st => [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':');
+  const stamp = file => {
+    try { return fs.realpathSync(file) + '\0' + identity(fs.statSync(file, { bigint: true })); }
+    catch (error) { if (error.code === 'ENOENT') return 'missing'; throw error; }
+  };
+  const bodies = sessionBodyPaths(source.id);
+  const pathsToGuard = [path.join(paths.sessions, source.id + '.json'), bodies.messages, bodies.provider, ...files.map(file => file.path)];
+  if (completionFile) pathsToGuard.push(completionFile);
+  const stamps = pathsToGuard.map(stamp);
+  return () => {
+    if (revision !== sessionDiskWriteSeqOf(source.id) || pathsToGuard.some((file, index) => stamp(file) !== stamps[index]))
+      throw Object.assign(new Error('thread_relay.source_changed'), { code: 'thread_relay.source_changed', statusCode: 409 });
+    for (const [index, file] of files.entries()) {
+      // Selected files are already root/identity checked, UTF-8 and at most 128 KiB.
+      // Re-hash these bounded original bytes at the final synchronous boundary.
+      const fd = fs.openSync(file.path, 'r');
+      try {
+        const stat = fs.fstatSync(fd, { bigint: true });
+        if (!stat.isFile() || stat.size > 128n * 1024n || !stamps[index + 3].endsWith('\0' + identity(stat))) throw new Error('material identity changed');
+        const bytes = Buffer.alloc(Number(stat.size) + 1), length = fs.readSync(fd, bytes, 0, bytes.length, 0);
+        if (length !== Number(stat.size) || identity(fs.fstatSync(fd, { bigint: true })) !== identity(stat)
+            || crypto.createHash('sha256').update(bytes.subarray(0, length)).digest('hex') !== file.fingerprint) throw new Error('material bytes changed');
+      } catch { throw Object.assign(new Error('thread_relay.material_changed'), { code: 'thread_relay.material_changed', statusCode: 409 }); }
+      finally { fs.closeSync(fd); }
+    }
+  };
+}
 function stewardDeliveryRows(session, turnSeq) {
   return (Array.isArray(session.messages) ? session.messages : []).filter(row => Number(row && row.turnSeq) === turnSeq);
 }
@@ -103,7 +132,7 @@ function stewardDeliverySource(session, turnSeq) {
     turnSeq, rows: rows.map(row => ({ role: row.role, content: row.content, segments: row.segments, turnSummary: row.turnSummary })) })).digest('hex');
   return { rows, summary, evidence, stamp };
 }
-async function stewardDeliveryProjection(sessionId, turnSeq, config) {
+async function stewardDeliveryProjection(sessionId, turnSeq, config, options = {}) {
   const session = await loadSession(sessionId, { omitProviderHistory: true });
   if (!session || stewardRawKind(session) === 'steward') return stewardFail('not_found', '交付来源任务不存在');
   const source = stewardDeliverySource(session, turnSeq);
@@ -122,11 +151,13 @@ async function stewardDeliveryProjection(sessionId, turnSeq, config) {
   const fileStamp = crypto.createHash('sha256').update(JSON.stringify(files.map(file => [file.path, file.status, file.fingerprint || '', file.size]))).digest('hex');
   const checks = recorded ? recorded.checks.map(item => ({ ...item,
     applicable: item.currentTurn === true && allFilesSame && !inProgress && Number(session.turnSeq) === turnSeq })) : [];
+  const relayCompletion = options.skipRelayCompletion || typeof ThreadRelayHooks.completion !== 'function' ? 'unknown'
+    : (await ThreadRelayHooks.completion(sessionId, { turnSeq, latestTurnSeq: Number(session.turnSeq) || 0, sourceStamp: source.stamp, fileStamp })).status;
   return { ok: true, sessionId, title: sessionDisplayTitle(session), turnSeq, latestTurnSeq: Number(session.turnSeq) || 0,
     sourceStamp: source.stamp, fileStamp, capturedAt: recorded?.capturedAt || '', evidenceRecorded: !!recorded,
     files, filesTruncated: all.length > files.length, checks, checksRecorded: recorded?.checksRecorded === true,
     unfinished: checks.filter(item => item.status !== 'done').map(item => ({ id: item.id, desc: item.desc, status: item.status })),
-    outdated: Number(session.turnSeq) > turnSeq, inProgress };
+    outdated: Number(session.turnSeq) > turnSeq, inProgress, relayCompletion };
 }
 async function stewardValidateDeliveryReference(sessionId, reference, config) {
   if (!reference || !Number.isSafeInteger(reference.turnSeq) || reference.turnSeq <= 0 || !/^[a-f0-9]{64}$/.test(reference.sourceStamp || '') || !Number.isSafeInteger(reference.latestTurnSeq)) return stewardFail('invalid_request', '修订来源无效,请重新打开交付卡');
@@ -159,5 +190,8 @@ async function handleStewardDeliveryApiRoutes(req, res, pathname) {
 }
 DeliveryHooks.capture = stewardCaptureDelivery;
 StewardHooks.deliveryProjection = stewardDeliveryProjection;
+StewardHooks.deliverySource = stewardDeliverySource;
+StewardHooks.deliveryRevisionGuard = stewardDeliveryRevisionGuard;
+StewardHooks.inspectDeliveryFile = stewardDeliveryInspect;
 StewardHooks.validateDeliveryReference = stewardValidateDeliveryReference;
 StewardHooks.handleDeliveryApiRoutes = handleStewardDeliveryApiRoutes;

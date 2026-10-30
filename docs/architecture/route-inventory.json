@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-29T13:08:14.909Z",
+  "generatedAt": "2026-10-30T00:51:26.377Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -21,10 +21,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 179,
-    "decisionPoints": 192,
+    "routeAuthEntries": 181,
+    "decisionPoints": 195,
     "byKind": {
-      "exact": 167,
+      "exact": 170,
       "prefix": 13,
       "regex": 12
     },
@@ -360,6 +360,18 @@
       "m": "POST",
       "p": "/api/agent-workflow/launch",
       "auth": "body-token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/thread-relays",
+      "auth": "body-token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/thread-relays",
+      "auth": "token",
       "prefix": false
     },
     {
@@ -1183,6 +1195,8 @@
         "dev-harness\\overlay-update-core.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\surface-hardening-w2.e2e.js",
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\unit\\net-errors.test.js",
@@ -1327,9 +1341,13 @@
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\scheduled-playbooks-lifecycle.static.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\service-match.browser.e2e.js",
         "dev-harness\\settings-skills.browser.e2e.js",
-        "dev-harness\\steward-content-tools.e2e.js"
+        "dev-harness\\steward-content-tools.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js"
       ]
     },
     {
@@ -1382,9 +1400,13 @@
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\scheduled-playbooks-lifecycle.static.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\service-match.browser.e2e.js",
         "dev-harness\\settings-skills.browser.e2e.js",
-        "dev-harness\\steward-content-tools.e2e.js"
+        "dev-harness\\steward-content-tools.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js"
       ]
     },
     {
@@ -1403,7 +1425,8 @@
       "coveredBy": [
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\playbook-reuse.browser.e2e.js",
-        "dev-harness\\playbooks.e2e.js"
+        "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\steward-settings.static.e2e.js"
       ]
     },
     {
@@ -1549,6 +1572,8 @@
         "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\repo-hygiene.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\steering-claude.e2e.js",
@@ -2261,6 +2286,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks-lifecycle.static.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
@@ -2399,6 +2425,44 @@
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/thread-relays",
+      "file": "13-http-router.js",
+      "handler": "handleApi",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay.browser.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
+        "dev-harness\\unit\\external-bots-retry-api.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/thread-relays",
+      "file": "13-http-router.js",
+      "handler": "handleApi",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "core-inline",
+      "auth": "body-token",
+      "coveredBy": [
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay.browser.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
+        "dev-harness\\unit\\external-bots-retry-api.test.js"
       ]
     },
     {
@@ -2924,6 +2988,9 @@
         "dev-harness\\surface-hardening-w2.browser.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay.browser.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\tool-audit-r2-meta.e2e.js",
         "dev-harness\\tool-dispatch-hardening.e2e.js",
@@ -4114,6 +4181,7 @@
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\run-health.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\security-gates-w2.e2e.js",
@@ -4189,6 +4257,9 @@
         "dev-harness\\thread-brief.static.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay.browser.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\thread-switch-race.browser.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
@@ -4421,6 +4492,7 @@
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\run-health.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\security-gates-w2.e2e.js",
@@ -4496,6 +4568,9 @@
         "dev-harness\\thread-brief.static.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay.browser.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\thread-switch-race.browser.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
@@ -4658,6 +4733,7 @@
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\run-health.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
@@ -4713,6 +4789,9 @@
         "dev-harness\\thread-brief.static.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\thread-index-visibility.e2e.js",
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay.browser.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\thread-switch-race.browser.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
@@ -4775,6 +4854,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks-lifecycle.static.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
@@ -4841,6 +4921,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks-lifecycle.static.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
@@ -5190,6 +5271,7 @@
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-decisions.browser.e2e.js",
@@ -5221,6 +5303,7 @@
       "coveredBy": [
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\mission-index-scale.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-decisions.browser.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
@@ -5335,6 +5418,7 @@
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\permission-plain.browser.e2e.js",
         "dev-harness\\preflight-relative-write.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\security-gates-w2.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
@@ -5436,13 +5520,17 @@
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay-retirement.static.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\poll-path-caches.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
-        "dev-harness\\wait-primitive.e2e.js"
+        "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\workflow-combination.static.e2e.js"
       ]
     },
     {
@@ -5483,9 +5571,12 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\thread-relay-retirement.static.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
-        "dev-harness\\wait-primitive.e2e.js"
+        "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\workflow-combination.static.e2e.js"
       ]
     },
     {
@@ -5525,9 +5616,12 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\thread-relay-retirement.static.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
-        "dev-harness\\wait-primitive.e2e.js"
+        "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\workflow-combination.static.e2e.js"
       ]
     },
     {
@@ -5567,9 +5661,12 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\thread-relay-retirement.static.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
-        "dev-harness\\wait-primitive.e2e.js"
+        "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\workflow-combination.static.e2e.js"
       ]
     },
     {
@@ -5609,9 +5706,12 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\thread-relay-retirement.static.e2e.js",
+        "dev-harness\\thread-relay.e2e.js",
         "dev-harness\\unit\\agent-run-snapshot-work-data.test.js",
         "dev-harness\\unit\\work-data-setup.test.js",
-        "dev-harness\\wait-primitive.e2e.js"
+        "dev-harness\\wait-primitive.e2e.js",
+        "dev-harness\\workflow-combination.static.e2e.js"
       ]
     },
     {
@@ -5866,7 +5966,9 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\steward-delivery-history.browser.e2e.js",
-        "dev-harness\\steward-delivery.browser.e2e.js"
+        "dev-harness\\steward-delivery.browser.e2e.js",
+        "dev-harness\\thread-relay-nested.e2e.js",
+        "dev-harness\\thread-relay.e2e.js"
       ]
     },
     {
@@ -6106,6 +6208,23 @@
     },
     {
       "kind": "exact",
+      "path": "/api/scheduler/tasks/preview",
+      "file": "13s-scheduler.js",
+      "handler": "handleSchedulerApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "scheduler",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\scheduled-playbooks.e2e.js",
+        "dev-harness\\unit\\scheduler-tasks-work-data.test.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/scheduler/tasks",
       "file": "13s-scheduler.js",
       "handler": "handleSchedulerApiRoutes",
@@ -6119,6 +6238,9 @@
       "coveredBy": [
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks-contract.static.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
         "dev-harness\\scheduler-steward.e2e.js",
@@ -6150,6 +6272,9 @@
       "coveredBy": [
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks-contract.static.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
         "dev-harness\\scheduler-steward.e2e.js",
@@ -6180,6 +6305,9 @@
       "domain": "scheduler",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\scheduled-playbooks-contract.static.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
         "dev-harness\\scheduler-steward.e2e.js",
@@ -6207,6 +6335,9 @@
       "domain": "scheduler",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\scheduled-playbooks-contract.static.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
         "dev-harness\\scheduler-steward.e2e.js",
@@ -6234,6 +6365,9 @@
       "domain": "scheduler",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\scheduled-playbooks-contract.static.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
         "dev-harness\\scheduler-steward.e2e.js",
@@ -6261,6 +6395,9 @@
       "domain": "scheduler",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\scheduled-playbooks-contract.static.e2e.js",
+        "dev-harness\\scheduled-playbooks.browser.e2e.js",
+        "dev-harness\\scheduled-playbooks.e2e.js",
         "dev-harness\\scheduler-api.e2e.js",
         "dev-harness\\scheduler-crash.e2e.js",
         "dev-harness\\scheduler-steward.e2e.js",

@@ -760,7 +760,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
         return send(res, apiFailure('permission.confirm_required', { desktopTools: true },
           'giving a thread desktop tools requires an explicit confirm:true (it can see your screen and press keys while you are away)', 409));
       }
-      const session = await updateSessionMeta(id, body);
+      const session = await updateSessionMeta(id, body, { external: true });
       if (!session) return send(res, apiSessionNotFound());
       const patchedConfig = await readConfig();
       // 审计:权限档是安全面,每一次改动都要能事后对账(谁、哪条线程、从哪档到哪档、生效档是什么)。
@@ -1805,6 +1805,14 @@ async function decideIntervention(command = {}) {
     if (type === 'permission') {
       runtimeEntry = pendingPermissions.get(interventionId);
       if (!runtimeEntry || runtimeEntry.sessionId !== missionId) return { ok: false, reason: 'delivery_unavailable', message: 'permission consumer is not live' };
+      if (action === 'allow' && typeof runtimeEntry.revalidateAuthority === 'function') {
+        try { await runtimeEntry.revalidateAuthority(); }
+        catch (error) {
+          // Storage/key failures happen before the CAS intent. Revocation is
+          // retired as denied by execute, using the original pending consumer.
+          if (!error || !['SCHEDULER_AUTHORITY_REVOKED', 'STEWARD_TURN_CANCELLED'].includes(error.code)) throw error;
+        }
+      }
       return { ok: true };
     }
     if (type === 'question') {
@@ -1873,6 +1881,17 @@ async function decideIntervention(command = {}) {
 
   const execute = () => {
     if (type === 'permission') {
+      if (action === 'allow' && typeof runtimeEntry.assertAuthority === 'function') {
+        try { runtimeEntry.assertAuthority(); }
+        catch (error) {
+          if (error && (error.code === 'SCHEDULER_AUTHORITY_REVOKED' || error.code === 'STEWARD_TURN_CANCELLED')) {
+            runtimeEntry.commandApplying = true; clearTimeout(runtimeEntry.timer);
+            runtimeEntry.resolve({ behavior: 'deny', message: 'scheduler authority revoked' }, { skipInterventionSettle: true });
+            return { ok: false, reason: 'authorization_revoked', message: 'scheduler authority revoked', authorizationRevoked: true };
+          }
+          throw error;
+        }
+      }
       runtimeEntry.commandApplying = true;
       clearTimeout(runtimeEntry.timer);
       const decision = action === 'allow'
@@ -1959,7 +1978,7 @@ async function decideIntervention(command = {}) {
         decisionFingerprint,
         preflight,
         action: execute,
-        resolveStatus: result => result && result.ok === false ? 'indeterminate' : toStatus,
+        resolveStatus: result => result && result.authorizationRevoked === true ? 'denied' : result && result.ok === false ? 'indeterminate' : toStatus,
         extra: result => ({
           action,
           ...(type === 'question' ? { answer: normalizedAnswer } : {}),
@@ -2543,16 +2562,21 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     if (activeAgentRuns.has(runId)) return send(res, json({ ok: false, error: '运行中的工作流不能删除' }, 409));
     try {
       const file = agentRunFile(sessionId, runId);
-      const run = await readAgentRunSnapshot(sessionId, runId);
+      const run = await readAgentRunSnapshot(sessionId, runId, { strict: true });
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
-      await fsp.unlink(file);
+      // Relay identities retain their original M3 receipt after history removal.
+      // Removing both ordinary history rows must never make a used ID fresh.
+      if (run?.kind === 'thread_relay' || run?.kind === 'existing_thread_relay') await ThreadRelayHooks.retireHistory(sessionId, runId);
+      else await fsp.unlink(file);
       agentRunDigestWriteSeq += 1;
       agentRunDigestCache.delete(file);   // digest 摘要缓存(08):文件没了条目一并撤
       // 对抗轮修(第25波): 删除快照必须连带删姊妹事件日志 —— 用户删「运行记录」的心智模型是数据消失,
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});
       await fsp.unlink(agentRunEventsFile(sessionId, runId) + '.gz').catch(() => {}); // v1.9 数据管家: 归档压缩变体一并删
-    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error; return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
+    } catch (error) { if (String(error && error.code || '').startsWith('work_data')) throw error;
+      if (error.code === 'thread_relay.target_busy') return send(res, json({ ok: false, error: '运行中的工作流不能删除' }, 409));
+      return send(res, json({ ok: false, error: 'agent run not found' }, 404)); }
     await bumpMissionChangeSeq(sessionId, {
       type: 'run_deleted', cursor: { runId }, detail: { runId },
     });

@@ -141,6 +141,48 @@ function schedulerDayKey(schedMs) {
 }
 function schedulerEnabled(schedConfig) { return !!(schedConfig && schedConfig.schedulerEnabledV1 === true); }
 
+// A library revision is selected at creation/edit time, then kept as ordinary
+// scheduler data under the existing tasks owner and encrypted fire journal.
+function schedulerNormalizePlaybookPayload(raw) {
+  if (!raw.playbookId || !raw.revision) return schedulerFail('invalid_request', 'payload.kind must be one of reminder/prompt, or playbook with a selected saved template revision');
+  const template = StewardHooks.normalizePlaybook(raw.template);
+  if (!template || raw.playbookId !== template.id || raw.revision !== template.revision) return schedulerFail('playbook_changed', 'the template changed; select it again');
+  const values = raw.values;
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return schedulerFail('playbook_inputs_invalid', 'complete the template inputs');
+  const declared = new Set(template.inputs.map(input => input.key));
+  if (declared.size !== template.inputs.length) return schedulerFail('playbook_inputs_invalid', 'each template input must have a unique name');
+  if (Object.keys(values).some(key => !declared.has(key))) return schedulerFail('playbook_inputs_invalid', 'an input is no longer part of the template');
+  const boundValues = {};
+  for (const input of template.inputs) {
+    const value = values[input.key] === undefined ? '' : values[input.key];
+    if (typeof value !== 'string' || value.length > 4000 || (input.required && !value.trim())) return schedulerFail('playbook_inputs_invalid', 'complete the required inputs: ' + input.label);
+    if (value && input.type !== 'text' && (!/^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(value) || /[\r\n]/.test(value))) return schedulerFail('playbook_inputs_invalid', 'choose a full ' + input.type + ' path: ' + input.label);
+    boundValues[input.key] = value;
+  }
+  if (!Array.isArray(raw.checks) || !raw.checks.length || raw.checks.length > 8 || raw.checks.some(check => typeof check !== 'string' || !check.trim() || check.length > 300)) return schedulerFail('playbook_checks_required', 'add at least one acceptance condition');
+  const checks = raw.checks.map(check => check.trim());
+  const prompt = stewardAssemblePlaybookPrompt(template, boundValues)
+    + '\n\n[Acceptance conditions / 验收条件]\n' + checks.map((check, index) => (index + 1) + '. ' + check).join('\n')
+    + '\nReport the actual result and evidence; say clearly when blocked, incomplete or unchanged. / 说明实际结果与证据，明确受阻、未完成或无变化。';
+  return { ok: true, payload: { kind: 'playbook', playbookId: template.id, revision: template.revision, template, values: boundValues, checks, text: prompt } };
+}
+SchedulerHooks.normalizePlaybookPayload = schedulerNormalizePlaybookPayload;
+
+async function schedulerBindPlaybookBody(body, current = null) {
+  if (!body || !body.payload || body.payload.kind !== 'playbook') return body;
+  const requested = body.payload;
+  if (current && current.payload.kind === 'playbook' && requested.playbookId === current.payload.playbookId && requested.revision === current.payload.revision) {
+    return { ...body, payload: { ...requested, template: current.payload.template } };
+  }
+  const template = (await StewardHooks.loadAllPlaybooks()).find(row => row.id === requested.playbookId);
+  if (!template || requested.revision !== template.revision) return { ...body, payload: { ...requested, template: null } };
+  return { ...body, payload: { ...requested, template } };
+}
+function schedulerOccurrenceSnapshot(task) {
+  return JSON.parse(JSON.stringify({ id: task.id, title: task.title, revision: task.revision, schedule: task.schedule,
+    payload: task.payload, target: task.target, autonomy: task.autonomy, policy: task.policy, ...(task.workdir ? { workdir: task.workdir } : {}) }));
+}
+
 // 事件:任务或 fires 变了。13r 只转发,不承载正文(§6.1 红线)—— 帧里只有「哪条任务、到了哪一段、
 // 什么结果」,标题与文案都不进这条线(前端从 GET /api/scheduler/tasks 那一份拿)。
 function schedulerEmitChanged(schedTaskId, schedPhase, schedOutcome) {
@@ -420,6 +462,13 @@ function schedulerRestorePersistedState(schedTask, schedRawTask) {
   if (Number.isFinite(persistedNext)) schedTask.state.nextFireAt = new Date(persistedNext).toISOString();
   const persistedUpdated = Date.parse(String(schedRawTask && schedRawTask.updatedAt));
   if (Number.isFinite(persistedUpdated)) schedTask.updatedAt = new Date(persistedUpdated).toISOString();
+  for (const key of ['queuedOccurrence', 'inFlightSnapshot']) {
+    if (!rawState[key]) continue;
+    const snapshot = key === 'queuedOccurrence' ? rawState[key].snapshot : rawState[key];
+    const checked = normalizeSchedulerTask(snapshot, 0);
+    if (!checked.ok || checked.task.id !== schedTask.id || (key === 'queuedOccurrence' && !Number.isFinite(Number(rawState[key].dueMs)))) throw schedulerStorageFailure('snapshot_invalid');
+    schedTask.state[key] = JSON.parse(JSON.stringify(rawState[key]));
+  }
   return schedTask;
 }
 async function schedulerLoad() {
@@ -482,6 +531,7 @@ async function schedulerRecordMissedSkip(task, missed, now) {
     phase: 'reconciled',
     outcome: 'skipped',
     error: reason,
+    ...(task.payload.kind === 'playbook' ? { snapshot: schedulerOccurrenceSnapshot(task) } : {}),
   });
   void schedulerNotify('onSchedulerNotice', {
     kind: 'skipped', taskId: task.id, title: task.title,
@@ -496,32 +546,113 @@ async function schedulerRecordMissedSkip(task, missed, now) {
 //      **那一次 occurrence 就此消费掉**(nextFireAt 推过它),否则重启会把同一个 occurrence 再触发
 //      一遍 —— 而它上一次可能已经真的动过文件了(J11「不重发」)。
 //   ② 错过的时点 —— 必须排在 ① 之后:被崩溃消费掉的那个时点不该再算作「错过」。
+async function schedulerRetireSessionTurn(taskId, runId, entry) {
+  if (!entry.sessionId) return null; // no dispatched session was durably identified
+  const head = await loadSession(entry.sessionId);
+  if (!head) return null; // deleted session; never create or guess another target
+  const last = head.stewardLastTurn, receipt = sessionSchedulerTurnReceipt(last?.scheduler);
+  if (!receipt) return { sessionId: head.id, legacyTurnThrough: Number.isSafeInteger(entry.legacyTurnThrough) ? entry.legacyTurnThrough : Math.max(0, Number(head.turnSeq) || 0) };
+  if (receipt.taskId !== taskId || receipt.runId !== runId || receipt.occurrenceKey !== entry.occurrenceKey) return null;
+  const identity = { sessionId: head.id, turnSeq: Number(last.seq) };
+  if (receipt.state !== 'pending') return identity; // real settled result / prior durable unknown
+  const current = await updateSessionMeta(head.id, { stewardLastTurn: { ...last, ok: false, aborted: false,
+    errorClass: 'scheduler_unknown', scheduler: { ...receipt, state: 'unknown' } } },
+  { waitForCommit: true, preserveSchedulerPendingIfBusy: true, expectedSchedulerOutcome: { ...receipt, seq: Number(last.seq) } });
+  // Busy recovery preserves the original durable pending head; the fire below
+  // records unknown with this same identity, without claiming a head rewrite.
+  if (!current) throw Object.assign(new Error('Scheduler recovery outcome was not committed'), { code: 'SCHEDULER_OUTCOME_UNCERTAIN' });
+  return identity;
+}
+function schedulerRecoveryEntries(rows, byRun = new Map()) {
+  for (const row of rows) {
+    const runId = String(row.runId || ''); if (!runId) continue;
+    const entry = byRun.get(runId) || { runId, occurrenceKey: '', dueAt: '', mode: 'ontime', reconciled: false };
+    for (const key of ['taskId', 'occurrenceKey', 'dueAt', 'mode', 'sessionId', 'phase', 'outcome']) if (row[key]) entry[key] = String(row[key]);
+    if (row.snapshot) entry.snapshot = row.snapshot;
+    if (Number.isSafeInteger(row.legacyTurnThrough) && row.legacyTurnThrough >= 0) entry.legacyTurnThrough = row.legacyTurnThrough;
+    if (Number.isSafeInteger(row.turnSeq) && row.turnSeq > 0) entry.turnSeq = row.turnSeq;
+    if (row.phase === 'reconciled') entry.reconciled = true;
+    byRun.set(runId, entry);
+  }
+  return byRun;
+}
+async function schedulerReadRecoveryEntries(sessionId = '', runIds = null) {
+  // History's bounded UI tail cannot prove that an old association is absent.
+  // Use the original authenticated full visitor, retaining only matching runs.
+  return withSchedulerFireLock(() => {
+    const journal = schedulerFireJournal();
+    return journal.withOperation(async operation => {
+      const wanted = new Set(runIds || []), byRun = new Map();
+      const scan = async visit => {
+        const proof = await journal.readWindow(0, 0, text => {
+          if (!String(text).trim()) return;
+          let row; try { row = JSON.parse(text); } catch { throw schedulerStorageFailure('fire_history_incomplete'); }
+          if (!schedulerFireRowValid(row)) throw schedulerStorageFailure('fire_history_incomplete');
+          visit(row);
+        }, false, null, operation);
+        if (proof.tornBytes) throw schedulerStorageFailure('fire_history_incomplete');
+        return proof;
+      };
+      const first = runIds ? null : await scan(row => { if (row.sessionId === sessionId && row.runId) wanted.add(String(row.runId)); });
+      if (!wanted.size) return byRun;
+      const proof = await scan(row => { if (wanted.has(String(row.runId || ''))) schedulerRecoveryEntries([row], byRun); });
+      if (first && (first.stamp !== proof.stamp || first.digest !== proof.digest)) throw schedulerStorageFailure('fire_history_changed');
+      return byRun;
+    });
+  });
+}
+async function schedulerSessionTurnAdmission(head) {
+  const seq = Math.max(0, Number(head?.turnSeq) || 0), last = head?.stewardLastTurn;
+  if (!seq || Number(last?.seq) >= seq && !['pending', 'unknown'].includes(last?.scheduler?.state)) return true;
+  if (Number(last?.seq) === seq && ['pending', 'unknown'].includes(last?.scheduler?.state)) return false;
+  // Ordinary sessions on installations with no scheduler history never load
+  // task/key owners or create a scheduler directory merely to check a turn.
+  try { await fsp.stat(schedulerFiresPath()); } catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+  await schedulerLoad();
+  return schedulerTaskAdmission(async () => {
+    await schedulerFirePreflight();
+    // Missing is empty; every other read/key failure must hold the old cursor.
+    try { await fsp.stat(schedulerFiresPath()); } catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+    let allowed = true;
+    for (const entry of (await schedulerReadRecoveryEntries(head.id)).values()) {
+      if (entry.sessionId !== head.id || entry.reconciled && entry.outcome !== 'unknown') continue;
+      const receipt = sessionSchedulerTurnReceipt(last?.scheduler);
+      if (entry.turnSeq && entry.turnSeq !== seq || receipt && receipt.runId === entry.runId && Number(last.seq) !== seq) continue;
+      let through = entry.legacyTurnThrough;
+      if (!Number.isSafeInteger(through)) {
+        // This bounds ambiguity observed in an old head; it does NOT assert
+        // that its current assistant/turn was executed by this scheduled run.
+        through = seq;
+        await schedulerAppendFire({ taskId: entry.taskId, runId: entry.runId, occurrenceKey: entry.occurrenceKey,
+          dueAt: entry.dueAt, mode: entry.mode, phase: entry.reconciled ? 'reconciled' : entry.phase || 'running',
+          ...(entry.reconciled ? { outcome: 'unknown', error: 'interrupted' } : {}), sessionId: head.id,
+          legacyTurnThrough: through, ...(entry.snapshot ? { snapshot: entry.snapshot } : {}) });
+      }
+      if (seq <= through) allowed = false;
+    }
+    return allowed;
+  });
+}
+SchedulerHooks.sessionTurnAdmission = schedulerSessionTurnAdmission;
 async function schedulerRecover(schedFireRows) {
   return schedulerTaskAdmission(async operation => {
     await schedulerFirePreflight();
     const now = schedulerClockNow();
-    const rows = Array.isArray(schedFireRows) ? schedFireRows : await schedulerReadFireRows();
-    const byRun = new Map();          // runId -> { occurrenceKey, dueAt, mode, reconciled }
-    for (const row of rows) {
-      const runId = String(row.runId || '');
-      if (!runId) continue;
-      const entry = byRun.get(runId) || { occurrenceKey: '', dueAt: '', mode: 'ontime', reconciled: false };
-      if (row.occurrenceKey) entry.occurrenceKey = String(row.occurrenceKey);
-      if (row.dueAt) entry.dueAt = String(row.dueAt);
-      if (row.mode) entry.mode = String(row.mode);
-      if (String(row.phase) === 'reconciled') entry.reconciled = true;
-      byRun.set(runId, entry);
-    }
     let dirty = false;
 
     // 只走「装载那一刻盘上就有的」那些任务(见 loadedFromDisk 的头注)。
     const fromDisk = schedulerRuntime.tasks.filter(task => schedulerRuntime.loadedFromDisk.has(task.id));
+    // The load-time tail is only a hint. Recovery decisions use complete current
+    // authenticated history for the original in-flight run identities.
+    const byRun = await schedulerReadRecoveryEntries('', fromDisk.map(task => String(task.state.inFlightRunId || '')).filter(Boolean));
 
     // ① 崩溃残留
     for (const task of fromDisk) {
       const runId = String(task.state.inFlightRunId || '');
       if (!runId) continue;
-      const entry = byRun.get(runId) || { occurrenceKey: occurrenceKey(task.id, now), dueAt: '', mode: 'ontime', reconciled: false };
+      const bound = task.state.inFlightSnapshot && task.state.inFlightSnapshot.occurrence;
+      const entry = byRun.get(runId) || { occurrenceKey: bound ? bound.key : occurrenceKey(task.id, now), dueAt: bound ? bound.dueAt : '', mode: bound ? bound.mode : 'ontime', reconciled: false };
+      const turnIdentity = await schedulerRetireSessionTurn(task.id, runId, entry);
       if (!entry.reconciled) {
         await schedulerAppendFire({
           taskId: task.id,
@@ -534,6 +665,8 @@ async function schedulerRecover(schedFireRows) {
           phase: 'reconciled',
           outcome: 'unknown',
           error: 'interrupted',
+          ...(turnIdentity || (entry.sessionId ? { sessionId: entry.sessionId } : {})),
+          ...(task.state.inFlightSnapshot ? { snapshot: task.state.inFlightSnapshot } : {}),
         });
         void schedulerNotify('onSchedulerNotice', {
           kind: 'unknown', taskId: task.id, title: task.title,
@@ -542,6 +675,8 @@ async function schedulerRecover(schedFireRows) {
         schedulerEmitChanged(task.id, 'reconciled', 'unknown');
       }
       task.state.inFlightRunId = '';
+      delete task.state.inFlightSnapshot;
+      delete task.state.queuedOccurrence;
       task.state.lastResult = 'unknown';
       // 把 nextFireAt 推过那个已经消费掉的时点。dueAt 读不出来时用「现在」兜底(仍然只往前走)。
       const consumedMs = Date.parse(entry.dueAt);
@@ -554,9 +689,14 @@ async function schedulerRecover(schedFireRows) {
     // ② 错过的时点
     for (const task of fromDisk) {
       if (!task.state.enabled) continue;
+      if (task.state.queuedOccurrence) {
+        schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: task.state.queuedOccurrence.dueMs });
+        continue;
+      }
       const missed = missedOccurrence(task, now);
       if (!missed) continue;
       if (missed.runLate) {
+        if (task.payload.kind === 'playbook') task.state.queuedOccurrence = { dueMs: missed.dueMs, snapshot: schedulerOccurrenceSnapshot(task) };
         schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: missed.dueMs });
       } else {
         await schedulerRecordMissedSkip(task, missed, now);
@@ -580,16 +720,79 @@ async function schedulerRecover(schedFireRows) {
 // → 定时回合按 auto 跑),全局是 bypass 而任务没给档时也原样拿到 bypass(与「永不含 bypass」相悖)。
 // 现在按 06i 的全序(plan < default < acceptEdits < auto < bypass)取 min(任务档 || 全局档, 全局档),
 // 结果若仍是 bypass(只可能来自全局档)一律落到 default。全局档本身不认识 → 按 default 算(fail-closed)。
-function schedulerPermissionModeFor(schedTask, schedConfig) {
+function schedulerPermissionModeFor(schedTask, schedConfig, schedLiveTask = schedTask) {
+  if (!schedLiveTask) throw Object.assign(new Error('scheduler authority revoked: task removed'), { code: 'SCHEDULER_AUTHORITY_REVOKED' });
   const wanted0 = String((schedTask && schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
+  const liveWanted0 = String((schedLiveTask.autonomy && schedLiveTask.autonomy.permissionMode) || '');
   const globalRaw = String((schedConfig && schedConfig.permissionMode) || 'default');
   const globalMode = stewardPermissionRank(globalRaw) >= 0 ? globalRaw : 'default';
   const wanted = (wanted0 && wanted0 !== 'bypass' && wanted0 !== 'bypassPermissions' && PERMISSION_MODES.includes(wanted0)) ? wanted0 : globalMode;
-  const narrowest = stewardPermissionRank(wanted) <= stewardPermissionRank(globalMode) ? wanted : globalMode;
+  const liveWanted = (liveWanted0 && liveWanted0 !== 'bypass' && liveWanted0 !== 'bypassPermissions' && PERMISSION_MODES.includes(liveWanted0)) ? liveWanted0 : globalMode;
+  const narrowest = [wanted, liveWanted, globalMode].reduce((left, right) => stewardPermissionRank(left) <= stewardPermissionRank(right) ? left : right);
   return (narrowest === 'bypass' || narrowest === 'bypassPermissions') ? 'default' : narrowest;
 }
 
+// Content stays immutable. Authority remains live and can only retire this
+// execution, never replace its message or manufacture a new occurrence.
+function schedulerExecutionAuthority(snapshot, liveTask, runId, mode, sessionId) {
+  let ceiling = '', currentConfig = null, revoked = false;
+  const initiallyPaused = liveTask.state.enabled === false;
+  const failure = () => Object.assign(new Error('scheduler authority revoked; review this run before starting a new occurrence'), { code: 'SCHEDULER_AUTHORITY_REVOKED' });
+  const revoke = () => {
+    revoked = true;
+    const owner = turnSettlers.get(sessionId);
+    if (owner && owner.source === 'scheduler' && owner.requestMeta && owner.requestMeta.runId === runId) owner.cancel('scheduler_authority_revoked');
+  };
+  const assertCurrent = () => {
+    const current = schedulerRuntime.tasks.find(row => row.id === snapshot.id);
+    if (revoked || current !== liveTask || current.state.inFlightRunId !== runId
+        || (current.state.enabled === false && (mode !== 'manual' || !initiallyPaused))) {
+      revoke(); throw failure();
+    }
+    if (currentConfig) {
+      const currentMode = schedulerPermissionModeFor(snapshot, currentConfig, current);
+      if (ceiling && stewardPermissionRank(currentMode) < stewardPermissionRank(ceiling)) { revoke(); throw failure(); }
+      return currentMode;
+    }
+    return '';
+  };
+  const unsubscribe = RUYI_EVENTS.subscribe((name, payload) => {
+    if (name === 'config.written' && payload && typeof payload.permissionMode === 'string') currentConfig = { permissionMode: payload.permissionMode };
+    else if (name !== 'schedule.changed' || !payload || payload.taskId !== snapshot.id) return;
+    try { assertCurrent(); } catch { /* the original owner cancellation retires pending decisions */ }
+  });
+  return {
+    assertCurrent,
+    async revalidate() {
+      currentConfig = await readConfig();
+      await schedulerLoad(); // same task owner / key authority as dispatch admission
+      const currentMode = assertCurrent();
+      if (!ceiling) ceiling = currentMode;
+      return ceiling;
+    },
+    dispose: () => { if (typeof unsubscribe === 'function') unsubscribe(); },
+  };
+}
+
 // 一次触发。mode ∈ ontime|late|manual。返回本次的 outcome(e2e 与 run-now 都读它)。
+function schedulerTurnOutcome(result, options = {}) {
+  const inner = result?.result && typeof result.result === 'object' ? result.result : null;
+  const neverRan = !inner && !!result?.stopped;
+  const turnOk = inner ? inner.ok === true : !!(result?.ok && !neverRan);
+  let outcome, error = String(options.error || '');
+  if (options.queueTimedOut) { outcome = 'skipped'; error = 'queue_timeout'; }
+  else if (options.timedOut) { outcome = 'failed'; error = error || 'timeout'; }
+  else if (!result || !turnOk) { outcome = 'failed'; error = error || (neverRan ? 'stopped' : String(inner?.errorClass || 'turn_failed')); }
+  else if (options.permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
+  else outcome = 'succeeded';
+  return { outcome, error, patch: {
+    seq: Math.max(0, Number(result?.turnSeq) || 0), ok: outcome === 'succeeded',
+    aborted: !!(inner ? inner.aborted : result?.stopped),
+    errorClass: String(inner?.errorClass || (options.timedOut ? 'timeout' : error)), at: nowIso(),
+    ...(options.quiet && outcome === 'succeeded' ? { quiet: true } : {}),
+  } };
+}
+
 async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('scheduler-fire')) return WorkDataMaintenanceHooks.run('scheduler-fire', () => schedulerFireOnce(...arguments));
   const task = schedTask;
@@ -598,6 +801,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   const occKey = occurrenceKey(task.id, schedDueMs);
   const dueAt = new Date(schedDueMs).toISOString();
   let runId = '', fireBase = null;
+  let executionTask = null;
   let outcome = 'succeeded';
   let error = '';
   let sessionId = '';
@@ -612,18 +816,23 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       // Recovery already advances a late task's nextFireAt; only ontime binds that due.
       if (schedMode !== 'manual' && (!task.state.enabled
         || (schedMode === 'ontime' && Date.parse(task.state.nextFireAt) !== schedDueMs))) return 'skipped';
+      const queued = task.state.queuedOccurrence;
+      executionTask = queued && queued.dueMs === schedDueMs ? JSON.parse(JSON.stringify(queued.snapshot)) : schedulerOccurrenceSnapshot(task);
+      if (executionTask.payload.kind === 'playbook' && schedulerRuntime.attempts.has(occKey)) return 'skipped';
+      executionTask.occurrence = { key: occKey, dueAt, mode: schedMode };
       await schedulerFirePreflight();
       if (schedulerRuntime.globalRuns.date !== day) schedulerRuntime.globalRuns = { date: day, count: 0 };
       if (!task.state.runsToday || task.state.runsToday.date !== day) task.state.runsToday = { date: day, count: 0 };
 
       // ── 上限(29 号文 §4)。撞上限不是失败,是【这一次不跑】:记一行 skipped 并推进下一次。
       const globalFull = schedulerRuntime.globalRuns.count >= SCHEDULER_LIMITS.globalRunsPerDay;
-      const taskFull = task.state.runsToday.count >= task.policy.maxRunsPerDay;
+      const taskFull = task.state.runsToday.count >= Math.min(task.policy.maxRunsPerDay, executionTask.policy.maxRunsPerDay);
       if (globalFull || taskFull) {
         await schedulerAppendFire({
           taskId: task.id, title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
           occurrenceKey: occKey, dueAt, runId: '', executionGeneration: 0, mode: schedMode,
           phase: 'reconciled', outcome: 'skipped', error: globalFull ? 'global_daily_cap' : 'task_daily_cap',
+          ...(executionTask.payload.kind === 'playbook' ? { snapshot: executionTask } : {}),
         });
         if (schedMode !== 'manual') {
           const bumped = nextFireAt(task.schedule, startedMs);
@@ -631,6 +840,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         }
         task.state.lastResult = 'skipped';
         task.state.lastMode = schedMode;
+        if (queued && queued.dueMs === schedDueMs) delete task.state.queuedOccurrence;
         await schedulerSaveTasks(operation);
         schedulerEmitChanged(task.id, 'reconciled', 'skipped');
         return 'skipped';
@@ -646,10 +856,13 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         runId,
         executionGeneration: attempts,
         mode: schedMode,
+        ...(executionTask.payload.kind === 'playbook' ? { snapshot: executionTask } : {}),
       };
 
       // ── ① 登记(原子写 inFlightRunId + lastFiredAt,再落一行 registered)────────────────────
       task.state.inFlightRunId = runId;
+      if (executionTask.payload.kind === 'playbook') task.state.inFlightSnapshot = executionTask;
+      if (queued && queued.dueMs === schedDueMs) delete task.state.queuedOccurrence;
       task.state.lastFiredAt = new Date(startedMs).toISOString();
       task.state.lastMode = schedMode;
       task.state.runsToday = { date: day, count: task.state.runsToday.count + 1 };
@@ -666,6 +879,8 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
     if (skipped) return skipped;
 
     // ── ② 派单 ────────────────────────────────────────────────────────────────
+    {
+    const task = executionTask; // immutable content; the outer task owns live state
     const config = await readConfig();
 
     if (task.payload.kind === 'reminder') {
@@ -723,7 +938,10 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
           await saveSession(session);
           // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
           // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
-          if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks(operation);
+          if (String(task.workdir || '') !== workdirBefore) {
+            schedTask.workdir = task.workdir;
+            await schedulerSaveTasks(operation);
+          }
         }
         return session;
       }, 65536);
@@ -741,6 +959,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       const askWaitMs = schedulerAskWaitMs(config);
       schedulerAskWaitSessions.set(sessionId, askWaitMs);
       let permissionDenied = 0;
+      let meaningfulChange = false;
       // 超时只计回合真正在干活的时间,【不含】卡在「等你批准」上的那一段。无人值守的批准窗口(schedulerAskWaitMinutes,
       // 缺省 30 分)与回合超时(timeoutMinutes,缺省 30 分,从回合开始算)同量级:修前回合头一个动作就是要批准的话,
       // 超时计时器与批准窗口同刻到期,超时那一支又排在 permissionDenied 之前判 —— needs_you 实际走不到,
@@ -756,6 +975,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       const askSpentMs = () => askClosedMs + (askOpenSince ? Math.min(Date.now() - askOpenSince, askCapMs) : 0);
       const onEvent = evt => {
         if (!evt || typeof evt !== 'object') return;
+        if (evt.type === 'turn_summary' && ((evt.filesChanged || []).length || (evt.artifacts || []).length)) meaningfulChange = true;
         if (evt.type === 'permission_request' && evt.requestId) {
           if (!pendingAsks.size) askOpenSince = Date.now();
           pendingAsks.add(String(evt.requestId));
@@ -784,12 +1004,14 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       // (装载会话 / 引擎还没登记中止器)或刚好收尾 —— 不判超时,稍后再看,而不是留一个永远不会再触发的计时器。
       const turnStartedMs = Date.now();
       let timer = null;
+      let executionFinished = false;
       const armTimeout = delayMs => {
         timer = setTimeout(onTimeout, Math.max(1, Math.round(delayMs)));
         if (timer && typeof timer.unref === 'function') timer.unref();
       };
       const onTimeout = () => {
         timer = null;
+        if (executionFinished) return;
         const leftMs = turnTimeoutMs - (Date.now() - turnStartedMs - askSpentMs());
         if (leftMs > 50) { armTimeout(leftMs); return; }   // 扣掉等批准的时间,还没到
         let stopped = false;
@@ -802,23 +1024,35 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       };
       armTimeout(turnTimeoutMs);
       let result = null;
+      const authority = task.payload.kind === 'playbook' ? schedulerExecutionAuthority(task, schedTask, runId, schedMode, sessionId) : null;
       try {
         result = await runSessionTurn({
           sessionId,
           message: task.payload.text,
           cwd: session.cwd,
-          permissionMode: schedulerPermissionModeFor(task, config),
+          permissionMode: authority ? await authority.revalidate() : schedulerPermissionModeFor(task, config, schedTask),
+          ...(authority ? { executionAuthority: authority } : {}),
           source: 'scheduler',
-          requestMeta: { taskId: task.id, runId },
+          schedulerOutcome: turn => {
+            executionFinished = true;
+            if (timer) { clearTimeout(timer); timer = null; }
+            if (queueTimedOut) return null;
+            return { ...schedulerTurnOutcome(turn, {
+              timedOut, permissionDenied, quiet: task.payload.kind === 'playbook' && !meaningfulChange,
+            }).patch, scheduler: { taskId: task.id, runId, occurrenceKey: occKey, state: 'settled' } };
+          },
+          requestMeta: { taskId: task.id, runId, occurrenceKey: occKey, ...(task.payload.kind === 'playbook' ? { playbookRevision: task.payload.revision } : {}) },
           onEvent,
         });
       } catch (e) {
+        if (e?.code === 'SCHEDULER_OUTCOME_UNCERTAIN') throw e;
         error = String((e && e.message) || e).slice(0, 400);
         // 8a:目标线程(existing-session)此刻有一个别处发起的回合在跑 —— runSessionTurn 在起回合【之前】
         // 就回 409,一个字节都没动那条线程。这不是这条任务的失败:修前记成 failed、计入连败,用户在那条线程里
         // 连着聊三次就把任务熔断停用了。判据只认稳定错误码,不认文案。
         if (e && e.code === 'SESSION_TURN_BUSY_ELSEWHERE') { targetBusy = true; targetBusySource = String(e.turnSource || ''); }
       } finally {
+        if (authority) authority.dispose();
         if (timer) { clearTimeout(timer); timer = null; }
         // 挡回我们的若是【另一个定时回合】(两条任务同刻指向同一条既有线程,见 10 runSessionTurn 的同源忙判定),
         // 表里那一格是它正在用的无人值守等待窗口(两边写进去的值相同)—— 在这里删掉,它后面的批准就退回 120 秒的默认窗口。
@@ -826,16 +1060,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       }
       // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
       // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
-      const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
-      // 没有内层 result 事件而 stopped:回合是在【排队时】被撤的(runSessionTurn 的 STEWARD_TURN_CANCELLED 分支只发 process/stopped,
-      // 返回 ok:true、result:null)—— 它一个字都没跑,不能顺着外层 ok 记成 succeeded。
-      const neverRan = !inner && !!(result && result.stopped);
-      const turnOk = inner ? inner.ok === true : !!(result && result.ok && !neverRan);
-      if (queueTimedOut) { outcome = 'skipped'; error = 'queue_timeout'; }
-      else if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
-      else if (!result || !turnOk) { outcome = 'failed'; error = error || (neverRan ? 'stopped' : String((inner && inner.errorClass) || 'turn_failed')); }
-      else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
-      else outcome = 'succeeded';
+      ({ outcome, error } = schedulerTurnOutcome(result, { error, timedOut, queueTimedOut, permissionDenied }));
       if (targetBusy || queueTimedOut) {
         // 8a:按「这一次不跑」记 skipped(与撞上限同一个结果值,原因 target_busy),不计连败;日程推进到【下一个】
         // 时点(收尾段对非 manual 一律如此)—— 不选「下一拍重试」:用户在那条线程里一聊半小时,每 30 秒一拍的
@@ -847,27 +1072,12 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         error = targetBusy ? 'target_busy' : 'queue_timeout';
         refundDailyCounts = true;
       }
-      // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
-      // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
-      // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
-      // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
-      // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
-      // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
-      // 8a:target_busy 时这条线程上根本没有定时回合,不往别人的回合头上记一笔「管家末回合」。
-      // queue_timeout 同理:回合没跑过,线程上没有它的成败可记。
-      if (!targetBusy && !queueTimedOut) void updateSessionMeta(sessionId, {
-        launchedBy: 'steward',
-        stewardLastTurn: {
-          seq: Math.max(0, Number(result && result.turnSeq) || 0),
-          ok: outcome === 'succeeded',
-          aborted: !!(inner ? inner.aborted : (result && result.stopped)),
-          errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
-          at: nowIso(),
-        },
-      }).catch(() => null);
+      // runSessionTurn commits schedulerOutcome behind its existing outcome fence.
+      // A returned turn has published result/quiet before inbox consumption.
+    }
     }
   } catch (e) {
-    if (!fireBase || schedulerIsWorkDataError(e)) throw e;
+    if (!fireBase || schedulerIsWorkDataError(e) || e?.code === 'SCHEDULER_OUTCOME_UNCERTAIN') throw e;
     outcome = 'failed';
     error = 'dispatch_error: ' + String((e && (e.code || e.message)) || e).slice(0, 380);
     try { logEvent({ kind: 'scheduler_fire_error', taskId: task.id, runId, detail: String((e && e.message) || e).slice(0, 400) }); } catch { /* 观测不反噬 */ }
@@ -883,6 +1093,7 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       if (schedulerRuntime.globalRuns.date === day) schedulerRuntime.globalRuns = { date: day, count: Math.max(0, schedulerRuntime.globalRuns.count - 1) };
     }
     task.state.inFlightRunId = '';
+    delete task.state.inFlightSnapshot;
     task.state.lastResult = outcome;
     // skipped(撞上限 / 8a 目标线程忙)既不是失败也不是成功:连败计数原样不动(与上面撞上限那一支同口径)。
     if (outcome === 'failed') task.state.consecutiveFailures = (Number(task.state.consecutiveFailures) || 0) + 1;
@@ -919,6 +1130,9 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
         kind: 'needs_you', taskId: task.id, title: task.title,
         occurrenceKey: occKey, mode: schedMode, at: new Date(finishedMs).toISOString(), sessionId,
       });
+    } else if (outcome === 'failed' && executionTask.payload.kind === 'playbook') {
+      void schedulerNotify('onSchedulerNotice', { kind: 'failed', taskId: task.id, title: executionTask.title,
+        occurrenceKey: occKey, mode: schedMode, at: new Date(finishedMs).toISOString(), sessionId, reason: error });
     }
     return outcome;
   }, 4096);
@@ -982,13 +1196,23 @@ async function schedulerTick() {
     await schedulerLoad();
     if (generation !== schedulerRuntime.generation) return;
     await schedulerTaskAdmission(() => schedulerFirePreflight());
+    // A failed registration can leave the durable queued snapshot intact after
+    // its in-memory selection was consumed. Re-select that same identity only.
+    for (const task of schedulerRuntime.tasks) {
+      const pending = task.state.queuedOccurrence;
+      if (pending && !schedulerRuntime.lateQueue.some(row => row.taskId === task.id && row.dueMs === pending.dueMs)) schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: pending.dueMs });
+    }
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
-    while (schedulerRuntime.lateQueue.length) {
+    for (let queuedCount = schedulerRuntime.lateQueue.length; queuedCount > 0; queuedCount--) {
       if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
       if (generation !== schedulerRuntime.generation) return;
       const queued = schedulerRuntime.lateQueue.shift();
       const task = schedulerRuntime.tasks.find(row => row.id === queued.taskId);
-      if (!task || !task.state.enabled || task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
+      if (!task) continue;
+      if (!task.state.enabled || task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) {
+        schedulerRuntime.lateQueue.push(queued);
+        continue;
+      }
       schedulerDispatchFire(task, 'late', queued.dueMs);
     }
     // ② 到点的任务。按 nextFireAt 升序派单 —— 同一拍里两条都到点时,先到的先派单,但谁先【收尾】
@@ -1153,10 +1377,12 @@ function schedulerMergeRuns(schedRows, schedTaskId) {
     entry.executionGeneration = Number(row.executionGeneration) || entry.executionGeneration || 0;
     entry.phase = String(row.phase || entry.phase || '');
     if (row.sessionId) entry.sessionId = String(row.sessionId);
+    if (Number.isSafeInteger(Number(row.turnSeq)) && Number(row.turnSeq) > 0) entry.turnSeq = Number(row.turnSeq);
     if (row.outcome) entry.outcome = String(row.outcome);
     if (row.error) entry.error = String(row.error);
     if (row.durationMs != null) entry.durationMs = Number(row.durationMs) || 0;
     if (row.costTokens != null) entry.costTokens = Number(row.costTokens) || 0;
+    if (row.snapshot) entry.snapshot = row.snapshot;
     if (row.tripped) entry.tripped = true;
     byRun.set(key, entry);
   }
@@ -1190,6 +1416,26 @@ async function schedulerRouteGate(req, res) {
 }
 
 async function handleSchedulerApiRoutes(req, res, pathname) {
+  if (req.method === 'POST' && pathname === '/api/scheduler/tasks/preview') {
+    const locale = await schedulerRouteGate(req, res); if (!locale) return;
+    let body;
+    try {
+      body = await readJsonBody(req);
+      body = await schedulerBindPlaybookBody(body, schedulerRuntime.tasks.find(task => task.id === body.taskId));
+    }
+    catch (error) { if (schedulerIsWorkDataError(error)) throw error; return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
+    const now = schedulerClockNow();
+    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0, workdir: '' }, now);
+    if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
+    const times = [];
+    let cursor = now;
+    for (let index = 0; index < 5; index++) {
+      const next = nextFireAt(normalized.task.schedule, cursor);
+      if (next == null) break;
+      times.push(new Date(next).toISOString()); cursor = next;
+    }
+    return send(res, json({ ok: true, times, timezone: normalized.task.schedule.tz, task: schedulerPublicTask(normalized.task, locale) }));
+  }
   if (req.method === 'GET' && pathname === '/api/scheduler/tasks') {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
     return send(res, json({
@@ -1203,12 +1449,13 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
     let body = {};
     try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
+    body = await schedulerBindPlaybookBody(body);
     if (schedulerRuntime.tasks.length >= SCHEDULER_LIMITS.maxTasks) {
       return send(res, apiFailure('scheduler.capacity_exceeded', { max: SCHEDULER_LIMITS.maxTasks },
         'at most ' + SCHEDULER_LIMITS.maxTasks + ' scheduler tasks', 409));
     }
     // workdir 是服务端自有字段(127 波 2-ter S-b,见 06j ⑦ 段):新建时一律剥掉,调用方写不进来。
-    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0, workdir: '' }, schedulerClockNow());
+    const normalized = normalizeSchedulerTask({ ...body, id: '', revision: 0, workdir: '', state: { enabled: !body.state || body.state.enabled !== false } }, schedulerClockNow());
     if (!normalized.ok) return send(res, apiFailure('scheduler.' + normalized.code, {}, normalized.message, 400));
     normalized.task.id = makeId('sch');
     await schedulerTaskAdmission(async operation => {
@@ -1234,6 +1481,7 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     // 读 body 期间表可能变过(并发 DELETE):按 id 重新找,不拿旧下标。
     const current = schedulerRuntime.tasks.find(task => task.id === id);
     if (!current) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
+    body = await schedulerBindPlaybookBody(body, current);
     // 部分更新:只认这五个顶层键,其余一律不动(id/createdAt/createdBy/revision 由服务端管)。
     // 127 波 2-ter:改档位就走这里 —— target 是整份替换(target.tier 随之生效或消失),不另开工具。
     // workdir 同属服务端自有(S-b):body 里带了也不认,永远取 current 那一份(显式写出来,不靠 ...current 的顺序)。
@@ -1269,6 +1517,7 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
         normalized.task.state.nextFireAt = current.state.nextFireAt;
       }
       normalized.task.state.inFlightRunId = current.state.inFlightRunId;
+      for (const key of ['queuedOccurrence', 'inFlightSnapshot']) if (current.state[key]) normalized.task.state[key] = current.state[key];
       // 从熔断里被重新打开:连败计数清零,否则下一次失败立刻再熔断。
       if (normalized.task.state.enabled && !current.state.enabled) normalized.task.state.consecutiveFailures = 0;
       // hunt2-P1:【原地】换内容,不换对象。在飞的 schedulerFireOnce 攥着的就是 current 这个对象 —— 修前这里

@@ -2353,4 +2353,6 @@ function prerouteText(q, index, memory, opts) {
 //           preroute(q,config?,extra?) -> { kind, hits }(装配 index/memory 后调纯函数 prerouteText;
 //           extra.focus = 用户此刻看着的那条线程,128h-J03,可缺;
 //           零模型、缓存命中不重装配)
+// Library owner adapters filled by 13k: normalizePlaybook(raw) -> template|null;
+// loadAllPlaybooks() -> Promise<template[]>; no parallel template repository.
 const StewardHooks = {};

@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "verdict": "ACCEPT_SOURCE_AND_SELECTED_EVIDENCE_FOR_COMMIT",
+  "reviewer": "Root non-author of evidence archive and handoff docs",
+  "sourceTree": "e2b7fbd654b2381f56be50079bbdb32963bfed4a",
+  "sourceRows": 85,
+  "sourcePinsSha256": "dc5c74bddc0c6578f69f1ecea8fdff0ad82bcb8357ec703614b1d461710ba667",
+  "evidenceManifestAtReviewSha256": "fddc930b8612a1c69176380710a3f0839ad279a8ccd130cbbd824734b12ef678",
+  "artifactListSha256": "0bd0665d00d0ee9ab7c96c46b5f342dfed1740c86961c12ca96f1b58daea5282",
+  "originalFiles": 503,
+  "uniqueBlobs": 457,
+  "rawBytes": 14645781,
+  "uniquePackedBytes": 3418401,
+  "originalPreparedFilesVerified": 169,
+  "importedOriginResolution": {
+    "logicalPath": "prepared-r2/PREPARED.json",
+    "origin": "MAIN/.ruyi-runtime/wt-delivery-evidence-20261030/prepared-r2/PREPARED.json",
+    "sha256": "5d55129df4381e8e88906a231365035cf18d1f2201cbb9c3ca618d8b90c97e1b"
+  },
+  "completedValidation": {
+    "acceptedRelatedRuns": 33,
+    "distinctRelatedCases": 26,
+    "originalFullfast": "RED:4424 unit;4397 pass;1 fail;26 skip;child2/close2;unchanged",
+    "affectedUnit": "22/22 original file after exact history inverse;Root independent2/2",
+    "static": "87 originalPASS plus9 final targetedPASS;originalREDs retained",
+    "eol": "PASS: original R15a gate and final staged2210 tracked text files",
+    "repoHygiene": "PASS real HTTP/MCP"
+  },
+  "checks": [
+    "Every selected gzip was independently decompressed and raw/packed bytes and hashes verified against its original file.",
+    "All169 originally selected related artifacts are retained;33 accepted runs/26cases and the historicR11 RED stay distinguishable.",
+    "All96 original static cases and all9 final targeted case outputs are present and match recorded hashes.",
+    "Final targeted cases and outer gates passed their recorded closure predicates; the original fullfast remains RED.",
+    "All85 current source files remain byte-identical to the reviewed frozen source; handoff prose was read and corrections applied by its author."
+  ],
+  "docs": [
+    {
+      "file": "docs/optimization-plan/92-3.1-implementation-handoff.md",
+      "bytes": 286551,
+      "sha256": "9e694ef7bb5745fc7d68e98639814e90b279f00f64a8b20e317e3c0134cf0c92"
+    },
+    {
+      "file": "docs/optimization-plan/96-m3-3-migration-and-recovery.md",
+      "bytes": 42711,
+      "sha256": "52221a50fa13ab0f96ead61b244cc720aa617cadaa96cc088cf121f3d5d97c5f"
+    },
+    {
+      "file": "docs/optimization-plan/97-3.1-cross-machine-handoff-20261025.md",
+      "bytes": 26232,
+      "sha256": "3a630e6792a3b7e6154efeb94be7bc81abd132732cfb1a969b30069bba43eb76"
+    }
+  ],
+  "limits": [
+    "Selected evidence only; no keys, configuration, real TEMP, asset binaries or complete execution payload.",
+    "Original logs preserved; normalized ISO date representations are metadata only.",
+    "Original full fast remains RED; 87 earlier static passes and nine final targeted passes are separate runs.",
+    "Original runOne combines some streams and reports case close code; no claim of independent stream closure or all OS descendants closing.",
+    "Selected evidence and composite gates qualify this workflow foundation batch only.",
+    "Complete M3/M4/M5/M6, full default E2E, actual packages, real platforms and cross-machine delivery remain unfinished."
+  ],
+  "finalMetadataEol": {
+    "command": [
+      "C:/Program Files/nodejs/node.exe",
+      "dev-harness/eol-policy.static.e2e.js"
+    ],
+    "toolChunk": "b33be6",
+    "exitCode": 0,
+    "trackedTextFiles": 2210,
+    "originalFooter": "EOL POLICY STATIC E2E: ALL PASS",
+    "independentRealtimeWatchdog": false
+  }
+}

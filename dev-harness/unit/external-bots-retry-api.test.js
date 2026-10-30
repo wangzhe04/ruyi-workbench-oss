@@ -164,3 +164,30 @@ test('same durable pending receipt requires token and origin again before any re
  for(const gate of ['token','origin']){const f=await failed(),body=request(await item(f));await f.call(body);const bytes=f.disk(),wakes=f.trace.wakes;f.auth[gate]=false;
  const result=await f.call(body);a.equal(result.result.status,403);a.equal(f.trace.wakes,wakes);a.equal(f.disk(),bytes);}
 });
+
+test('finite WT auth inverse round-trips both complete registries and rejects unknown or partial auth drift',()=>{
+ const history=require('../fixtures/thread-relay/auth-history.json'),retention=require('../fixtures/external-bots-retention/history.json');
+ const helper=require('../lib/external-bots-source-history'),current=fs.readFileSync(p.join(repo,history.sourcePath),'utf8');
+ const sha=value=>c.createHash('sha256').update(value).digest('hex');let base=current;
+ a.equal(sha(current),history.sha256);a.equal(history.baseSha256,retention.auth.sha256);
+ for(const row of history.inverseSpans.toReversed()){a.equal(base.split(row.before).length,2);base=base.replace(row.before,row.after);}
+ a.equal(sha(base),history.baseSha256);let forward=base;
+ for(const row of history.inverseSpans){a.equal(forward.split(row.after).length,2);forward=forward.replace(row.after,row.before);}
+ a.equal(forward,current);a.equal(sha(forward),history.sha256);
+ const old=helper.beforeRetentionAuth(base),mapped=helper.beforeRetentionAuth(current);
+ a.equal(mapped,old);a.equal(sha(mapped),retention.auth.baseSha256);
+ const post="  { m: 'POST', p: '/api/thread-relays', auth: 'body-token' },\n",get="  { m: 'GET', p: '/api/thread-relays', auth: 'token' },\n";
+ const unrelated="  { m: 'GET', p: '/api/unreviewed-fixture-only', auth: 'none' },\n";
+ const variants=[current+'\n',current.replace('//','// unrelated drift '),current.replace(post,''),current.replace(get,''),current.replace(post,post+post),current.replace(get,get+get),
+  current.replace(post,post.replace("auth: 'body-token'","auth: 'token'")),current.replace(history.inverseSpans[0].after,history.inverseSpans[0].after+unrelated),
+  current.replace(history.inverseSpans[0].after,history.inverseSpans[0].after.replace("auth: 'body-token'","auth: 'none'"))];
+ for(const changed of variants){a.notEqual(changed,current);a.throws(()=>helper.beforeRetentionAuth(changed));}
+ const helperSource=fs.readFileSync(p.join(repo,'dev-harness/lib/external-bots-source-history.js'),'utf8');
+ const code=functionBlock(helperSource,'beforeThreadRelayAuth')+'\n'+functionBlock(helperSource,'beforeRetentionAuth')+'\nbeforeRetentionAuth';
+ for(const span of [{before:history.inverseSpans[0].before+'missing',after:history.inverseSpans[0].after},
+   {before:history.inverseSpans[0].before,after:history.inverseSpans[0].after+unrelated},
+   {before:history.inverseSpans[0].before,after:history.inverseSpans[0].before}]){
+  const fixture={...history,inverseSpans:[span]},read=name=>{if(name==='../fixtures/thread-relay/auth-history.json')return fixture;if(name==='../fixtures/external-bots-retention/history.json')return retention;throw Error('unexpected fixture');};
+  const inverse=vm.runInNewContext(code,{assert:a,hash:sha,require:read});a.throws(()=>inverse(current));
+ }
+});

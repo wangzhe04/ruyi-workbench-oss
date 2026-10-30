@@ -739,7 +739,7 @@ function foldInterventionJournalText(txt) {
   };
 }
 
-async function readInterventionsWithMeta(sessionId) {
+async function readInterventionsWithMeta(sessionId, options = {}) {
   const sid = String(sessionId || '');
   // 读自己的写:registerIntervention / settleIntervention 是「发出去不等」地排进这条会话的写链的。待决事件
   // (permission_request / ask_user)在排队那一刻就推给了前端,用户(或 e2e)紧接着作答时,决定核心
@@ -747,7 +747,8 @@ async function readInterventionsWithMeta(sessionId) {
   // 回合干等到超时(Windows CI kimi-agent-cli「permission_request 之后 30 s 无事件」的根因:
   // 决定 POST 回的是 404 unknown or expired request)。写链只做 append,不回头读账,这里等它不会自锁。
   const pending = interventionWriteChains.get(sid);
-  if (pending) { try { await pending; } catch { /* append 失败已在写链里吞掉:照读盘上现有的 */ } }
+  if (pending) { try { const written = await pending; if (options.strict && written !== true) throw Object.assign(new Error('intervention admission state unavailable'), { code: 'intervention.state_unavailable' }); }
+    catch (error) { if (options.strict) throw error; /* legacy readers retain the best-effort projection */ } }
   let txt;
   for (let attempt = 0; ; attempt++) {
     try { txt = await fsp.readFile(interventionFilePath(sid), 'utf8'); break; }
@@ -755,6 +756,7 @@ async function readInterventionsWithMeta(sessionId) {
       // 每 128 次 append 一次的压实是「写临时文件 + rename」;Windows 上 rename 那一瞬读会撞 EPERM/EBUSY。
       // 修前任何读错都当成「这条会话没有待决」—— 同样判 not_found。瞬时锁有界重试,其余(ENOENT 等)照旧当空。
       if (attempt < 3 && /^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) { await new Promise(r => setTimeout(r, 10 + attempt * 20)); continue; }
+      if (options.strict && e.code !== 'ENOENT') throw e;
       return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 };
     }
   }
@@ -1905,7 +1907,31 @@ function sessionTodosSignature(todos) {
 
 // 116-2a: patch 的应用规则单列一处 —— 立即落盘路径与「延后到回合 settle 之后」的重做路径必须逐字
 // 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
-function applySessionMetaPatch(session, patch) {
+function sessionSchedulerTurnReceipt(raw) {
+  if (!raw || typeof raw !== 'object' || !['pending', 'unknown', 'settled'].includes(raw.state)) return null;
+  const taskId = String(raw.taskId || ''), runId = String(raw.runId || ''), boundKey = String(raw.occurrenceKey || '');
+  if (!taskId || taskId.length > 200 || !runId || runId.length > 200 || !boundKey.startsWith(taskId + '@') || boundKey.length > 300) return null;
+  return { taskId, runId, occurrenceKey: boundKey, state: raw.state };
+}
+function sessionSchedulerTurnMatches(last, expected) {
+  const receipt = sessionSchedulerTurnReceipt(last?.scheduler);
+  return !!(receipt && expected && Number(last.seq) === Number(expected.seq)
+    && receipt.taskId === expected.taskId && receipt.runId === expected.runId && receipt.occurrenceKey === expected.occurrenceKey
+    && (Array.isArray(expected.state) ? expected.state : [expected.state]).includes(receipt.state));
+}
+function sessionStampSchedulerTurn(session, owner) {
+  if (!owner || owner.source !== 'scheduler') return;
+  const receipt = sessionSchedulerTurnReceipt({ ...owner.requestMeta, state: 'pending' });
+  const seq = Number(session.turnSeq);
+  if (!receipt || !Number.isSafeInteger(seq) || seq < 1) throw new Error('Scheduler turn identity missing before session commit');
+  // The engine already incremented its real turnSeq. This marker is committed
+  // atomically with that head, before its first model/tool invocation.
+  session.stewardLastTurn = { seq, ok: false, aborted: false, errorClass: 'scheduler_pending', at: nowIso(), scheduler: receipt };
+}
+function applySessionMetaPatch(session, patch, options = {}) {
+  if (options.external && Object.prototype.hasOwnProperty.call(patch, 'stewardLastTurn')) {
+    throw Object.assign(new Error('Turn outcome is owned by its execution'), { code: 'SESSION_METADATA_INTERNAL', apiCode: 'session.metadata_internal', statusCode: 400 });
+  }
   const id = session.id;
   // 116-5a(27 号文 §11.8.3):走这条通道改标题的只有两个调用面 —— PATCH /api/sessions/:id(用户
   // 在界面上改名)与 steward_thread_rename(管家替用户改名)。两者都是【有意起的名字】,应当压过
@@ -2027,6 +2053,8 @@ function applySessionMetaPatch(session, patch) {
       errorClass: String(t.errorClass || '').slice(0, 64),
       at: String(t.at || ''),
       todosStartSig: String(t.todosStartSig || '').slice(0, 64),
+      ...(t.quiet === true ? { quiet: true } : {}),
+      ...(sessionSchedulerTurnReceipt(t.scheduler) ? { scheduler: sessionSchedulerTurnReceipt(t.scheduler) } : {}),
     };
   }
   // 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。严格归一成固定六字段,与
@@ -2097,10 +2125,10 @@ function stewardWatchNoteFrom(p) {
 // (改名、权限档、stewardLastTurn、threadBrief……)是真数据,不能跟着丢:在【新读】的副本上重放一次。
 // 有界:连着撞上三次撤回才会放弃,那时把 SESSION_STALE_SAVE 如实抛给调用方(与 save 失败同一条语义)。
 const SESSION_META_STALE_REPLAYS = 2;
-async function updateSessionMeta(id, patch) {
-  return updateSessionMetaAttempt(id, patch, 0);
+async function updateSessionMeta(id, patch, options = {}) {
+  return updateSessionMetaAttempt(id, patch, 0, options);
 }
-async function updateSessionMetaAttempt(id, patch, replayDepth) {
+async function updateSessionMetaAttempt(id, patch, replayDepth, options = {}) {
   const p = (patch && typeof patch === 'object') ? patch : {};
   const watchNote = stewardWatchNoteFrom(p);
   // hunt2-P4:读-改-存进 mutateSession 同一条 per-id 链(与它互斥,见 withSessionMutateLock 头注)。
@@ -2108,15 +2136,25 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
   const step = await withSessionMutateLock(id, async () => {
     const loaded = await loadSession(id);
     if (!loaded) return { session: null };
-    applySessionMetaPatch(loaded, p);
+    if (options.expectedSchedulerOutcome && !sessionSchedulerTurnMatches(loaded.stewardLastTurn, options.expectedSchedulerOutcome)) return { session: loaded };
+    // Recovery owns Tasks. Waiting for a live turn here can wait back on that
+    // same owner through admission. Keep the already durable pending receipt;
+    // the original fire journal records unknown with its exact seq instead.
+    // Current-owner finalizers retain their normal waitForCommit path.
+    if (options.preserveSchedulerPendingIfBusy && options.waitForCommit && options.expectedSchedulerOutcome
+        && (activeChildren.has(id) || turnSettlers.has(id))) return { session: loaded, preservedSchedulerPending: true };
+    applySessionMetaPatch(loaded, p, options);
     // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
     if (activeChildren.has(id) || turnSettlers.has(id)) return { session: loaded, deferred: true };
+    if (options.waitForCommit && sessionSaveIsTombstoned(loaded)) return { session: null };
     try { await saveSession(loaded, { throwIfStale: true, writer: 'session_meta' }); }
     catch (error) { return { session: loaded, error }; }
+    if (options.waitForCommit && sessionSaveIsTombstoned(loaded)) return { session: null };
     return { session: loaded };
   });
   const session = step.session;
   if (!session) return null; // missing/corrupt — caller maps to 404
+  if (step.preservedSchedulerPending) return session;
   if (!step.deferred) {
     if (step.error) {
       const error = step.error;
@@ -2124,7 +2162,7 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
       // 107-F7b:从头再走一遍(重新 load、重新判活回合),而不是只在原地重试 save —— 撤回之后可能已经
       // 起了新回合,那时补丁该走下面那条延后通道,不能拿新副本去跟活回合抢写。
       logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: replayDepth + 1 });
-      return updateSessionMetaAttempt(id, patch, replayDepth + 1);
+      return updateSessionMetaAttempt(id, patch, replayDepth + 1, options);
     }
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:会话头刚变过,五态由订阅者现算
     // 121-K3(§4.4「工作台 → 管家」):用户刚按下「交给管家盯」。复用 missionAttachThread 已经在派的
@@ -2143,29 +2181,40 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
         settler.promise.then(() => true, () => true),
         new Promise(r => setTimeout(() => r(false), SESSION_META_DEFER_TIMEOUT_MS)),
       ]);
-      if (!settled) { forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id }); }
+      if (!settled) {
+        if (options.waitForCommit) throw new Error('Session outcome commit is still blocked by a turn');
+        forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id });
+      }
     }
     // hunt2-P4:settle 已在上面(链外)等过;读-改-存这一段进 per-id 读改写链,与 mutateSession 互斥。
     const fresh = await withSessionMutateLock(id, async () => {
-      let copy = await loadSession(id).catch(() => null);
+      if (options.waitForCommit && (activeChildren.has(id) || turnSettlers.has(id))) throw new Error('Session outcome commit owner changed');
+      let copy = await loadSession(id).catch(error => { if (options.waitForCommit) throw error; return null; });
       if (!copy) return null;                 // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
-      applySessionMetaPatch(copy, p);
+      if (options.expectedSchedulerOutcome && !sessionSchedulerTurnMatches(copy.stewardLastTurn, options.expectedSchedulerOutcome)) return copy;
+      applySessionMetaPatch(copy, p, options);
       // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
       // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
       // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
       for (let attempt = 0; ; attempt++) {
-        try { await saveSession(copy, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
+        try {
+          if (options.waitForCommit && sessionSaveIsTombstoned(copy)) return null;
+          await saveSession(copy, { throwIfStale: true, writer: 'session_meta_deferred' });
+          if (options.waitForCommit && sessionSaveIsTombstoned(copy)) return null;
+          break;
+        }
         catch (error) {
-          if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
+          if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) { if (options.waitForCommit) throw error; break; }
           logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
-          copy = await loadSession(id).catch(() => null);
+          copy = await loadSession(id).catch(error => { if (options.waitForCommit) throw error; return null; });
           if (!copy) return null;
-          applySessionMetaPatch(copy, p);
+          if (options.expectedSchedulerOutcome && !sessionSchedulerTurnMatches(copy.stewardLastTurn, options.expectedSchedulerOutcome)) return copy;
+          applySessionMetaPatch(copy, p, options);
         }
       }
       return copy;
     });
-    if (!fresh) return;
+    if (!fresh) return null;
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
     // 121-K6a:note 算在 patch 到来那一刻(watchNote,外层闭包变量),不是等到这里才重算——委托话是
@@ -2181,11 +2230,14 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
         stillActive: activeChildren.has(id), stillSettling: turnSettlers.has(id),
       });
     }
+    return fresh;
   });
   // 自清,避免长驻会话把链表越挂越长;只清自己那一条(后来者可能已经顶上)。
   const wrapped = chain.then(() => {}, () => {});
   sessionMetaDeferChains.set(id, wrapped);
   wrapped.then(() => { if (sessionMetaDeferChains.get(id) === wrapped) sessionMetaDeferChains.delete(id); });
+  // Outcome publication needs the actual write, never the accepted projection.
+  if (options.waitForCommit) return chain;
   // 返回值是「投影」:磁盘上的会话 + 本次 patch,与落盘后的结果一致(调用方据此回 200)。
   return session;
 }
@@ -4124,6 +4176,7 @@ async function saveSession(session, opts) {
   applySessionTitleOverride(session);
   applySessionPermissionModeOverride(session);
   applySessionDesktopToolsOverride(session);   // 117z-E2 提交①:桌面覆盖同款(见它的头注)
+  sessionStampSchedulerTurn(session, opts && opts.executionOwner);
   const finalPath = sessionPath(id);
   const messages = Array.isArray(session.messages) ? session.messages : [];
   const providerHistory = Array.isArray(session.providerHistory) ? session.providerHistory : [];

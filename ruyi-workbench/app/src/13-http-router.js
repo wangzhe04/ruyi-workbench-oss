@@ -993,6 +993,8 @@ async function handleApi(req, res, pathname) {
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     return send(res, await CliBusinessHooks.agentLaunch(body, { isClosed: () => res.writableEnded || res.destroyed }));
   }
+  if (req.method === 'GET' && pathname === '/api/thread-relays') { await ThreadRelayHooks.route(req, res, pathname); return; }
+  if (req.method === 'POST' && pathname === '/api/thread-relays') { await ThreadRelayHooks.route(req, res, pathname); return; }
   // 代理模式 v2:MCP 子进程(Claude/Kimi)的 wait_agents / agent_result 回环(实现见 agentWorkflowLoopbackRoute)。
   if (req.method === 'POST' && pathname === '/api/agent-workflow/wait') return agentWorkflowLoopbackRoute(req, res, 'wait');
   if (req.method === 'POST' && pathname === '/api/agent-workflow/result') return agentWorkflowLoopbackRoute(req, res, 'result');

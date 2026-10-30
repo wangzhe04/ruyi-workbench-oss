@@ -422,6 +422,21 @@ function installActiveChildEventFanout(reg) {
 // 若只看 activeChildren 就会在这个窗口截断落盘,然后被 dying turn 的收尾 save 整份盖回(丢失写:
 // 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
 const turnSettlers = new Map();
+// Guard the original relay's first accepted submit, including a delegation that
+// precedes its own model POST. Afterwards normal engine/workflow owners take over.
+// This context confers no execution authority.
+SessionExecutionHooks.withDispatchOwner = (owner, work) => owner?.prepareDispatch
+  ? ModelDispatchContext.run({ active: () => !owner.dispatchAccepted, prepare: sessionId => {
+    if (owner.dispatchAccepted) return null;
+    if (sessionId != null && sessionId !== owner.sessionId) throw Object.assign(new Error('Dispatch owner changed'), { code: 'SESSION_DISPATCH_OWNER_CHANGED' });
+    return owner.prepareDispatch();
+  }, assert: fence => { if (!owner.dispatchAccepted) SessionExecutionHooks.assertDispatch(owner, fence, true); } }, work) : work();
+SessionExecutionHooks.assertDispatch = (owner, fence, submitted = false) => {
+  assertSessionExecutionOwner(owner.sessionId, owner);
+  if (!fence || typeof fence.assert !== 'function') throw Object.assign(new Error('Dispatch fence missing'), { code: 'SESSION_DISPATCH_FENCE_REQUIRED' });
+  fence.assert();
+  if (submitted) { owner.dispatchAccepted = true; owner.prepareDispatch = null; }
+};
 // A logical driver owns all of its queued/child turns. Never infer ownership from the current child.
 // Bounded evidence for completed-then-undo. A newer admitted driver replaces the old identity.
 const sessionLastExecutions = new Map();
@@ -463,9 +478,15 @@ function sessionExecutionCheckRewind(sessionId, expectedExecution) {
   return sessionExecutionCheck(sessionId, expectedExecution);
 }
 function assertSessionExecutionOwner(sessionId, owner) {
+  if (owner && owner.authority) owner.authority.assertCurrent();
   if (owner && (owner.cancelRequested || turnSettlers.get(sessionId) !== owner)) {
     throw Object.assign(new Error('Execution stopped or superseded'), { code: 'STEWARD_TURN_CANCELLED' });
   }
+}
+async function revalidateSessionExecutionPermission(sessionId, owner) {
+  assertSessionExecutionOwner(sessionId, owner);
+  if (owner && owner.authority) await owner.authority.revalidate();
+  assertSessionExecutionOwner(sessionId, owner);
 }
 function registerSessionExecutionChild(sessionId, reg, owner) {
   assertSessionExecutionOwner(sessionId, owner);
@@ -506,7 +527,7 @@ SessionExecutionHooks.stop = requestSessionExecutionStop;
 // (会话头 stewardLastTurn)是紧跟着再写的 —— 这中间的几毫秒里收件箱第四源读到头会看见「回合跑完、没有成败账」
 // 并按「账缺席 = done」报,于是一个失败回合被报成收工(2026-10 真机:network_down 失败回合被管家说成「已收工」)。
 // 收件箱收集(13i)把本表与活回合同等对待:在表里就等下一拍。只活在内存。
-const turnOutcomePending = new Set();
+const turnOutcomePending = new Map(); // sessionId -> publishing execution owner
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
 const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer, deadlineAt }
 

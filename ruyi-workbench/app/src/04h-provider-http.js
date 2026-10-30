@@ -68,9 +68,12 @@ async function providerModelPostOnce({ url, headers, body, signal }) {
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     const prepared = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.beforeModelRequest(body, { signal }) : body;
     const encoded = JSON.stringify(prepared);
+    const dispatch = typeof ModelDispatchContext !== 'undefined' && ModelDispatchContext.current();
+    const dispatchFence = dispatch ? await dispatch.prepare() : null;
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertPolicyAvailable();
     if (policyGuard) policyGuard();
+    if (dispatch) dispatch.assert(dispatchFence);
     return fetch(url, { method: 'POST', headers, body: encoded, signal });
   };
   // OFF 也绑定当前策略，拒绝 beforeModelRequest 的 await 期间发生的开启/规则切换。

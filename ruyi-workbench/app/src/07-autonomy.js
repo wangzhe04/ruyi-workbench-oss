@@ -1686,6 +1686,8 @@ PermissionWaitHooks.scheduler = schedulerAskWaitOverrideMs;
 // 而是打检查点(onPause)+ 发 permission_paused 事件 + 把决定窗口延长到 ttlMs;窗口内仍可经 /api/permission/decision 决定,
 // 到 ttlMs 无人应答则回落 deny(fail-closed)。entry.timer 在 Map 里被重赋为 TTL 定时器,故 clearPendingPermissions/decision 照常清对。
 function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs, tier, pause) {
+  const owner = typeof turnSettlers !== 'undefined' ? turnSettlers.get(sessionId) : null;
+  if (owner && owner.authority) assertSessionExecutionOwner(sessionId, owner);
   return new Promise(resolve => {
     const requestId = makeId('perm');
     onEvent({ type: 'permission_request', requestId, toolName, input, tier: tier || 'exec', revertible: toolIsRevertible(toolName) });
@@ -1710,7 +1712,9 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
     // 128f-⑪:调用方传进来的 timeoutMs 已经是 permissionWaitMs 的结果(09／05b);定时那一格在这里再认一次是双保险。
     const baseMs = schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs);   // 0 = 不限时(04 promptWaitMs)
     // deadlineAt:13q 的 steward.deferred 要告诉用户「还等你多久」(存档暂停那一支延长后另算,见下)。
-    const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
+    const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs,
+      revalidateAuthority: owner && owner.authority ? () => revalidateSessionExecutionPermission(sessionId, owner) : null,
+      assertAuthority: owner && owner.authority ? () => assertSessionExecutionOwner(sessionId, owner) : null };
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
@@ -1742,6 +1746,15 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       }, baseMs);
     }
     pendingPermissions.set(requestId, entry);
+    if (owner && owner.authority) {
+      try { assertSessionExecutionOwner(sessionId, owner); }
+      catch {
+        // The event callback can synchronously revoke/stop the owner before
+        // this entry exists. Do not leave an orphaned prompt after that stop.
+        clearTimeout(entry.timer); pendingPermissions.delete(requestId);
+        settle({ behavior: 'deny', message: 'scheduler authority revoked' });
+      }
+    }
   });
 }
 
@@ -2176,7 +2189,11 @@ function agentRunSnapshotStore(sessionId, runId, metadata = {}) {
   return Object.freeze({ read: () => operate('read'), write: snapshotText => operate('write', snapshotText), filePath: () => agentRunFile(sid, rid) });
 }
 async function readAgentRunSnapshot(sessionId, runId, metadata = {}) {
-  return safeJsonParse(await agentRunSnapshotStore(sessionId, runId, metadata).read(), null);
+  const run = safeJsonParse(await agentRunSnapshotStore(sessionId, runId, metadata).read(), null);
+  if (metadata.strict && (!run || run.id !== runId || run.sessionId !== sessionId || !Array.isArray(run.nodes))) {
+    throw Object.assign(new Error('agent run snapshot unavailable'), { code: 'agent_run.snapshot_invalid' });
+  }
+  return run;
 }
 // Storage housekeeping loads before autonomy. Use the existing late hook instead of a forward edge.
 EventStreamHooks.readAgentRunSnapshot = readAgentRunSnapshot;

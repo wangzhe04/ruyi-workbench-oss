@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "description": "Exact WT thread-relay auth insertion inverse for historical test reconstruction only; never a runtime route downgrade.",
+  "sourcePath": "ruyi-workbench/app/src/01b-route-auth.js",
+  "source": {
+    "tree": "20405b27e503e4151632fb94653463a2ec9446e1",
+    "blob": "46516f04cbeb257b0518a8e2be02985c78c6d9a6"
+  },
+  "target": {
+    "commit": "2b47f936d26f80c62d779551986ebacb7dc79f71",
+    "blob": "33a29b6035eaddb85f23d1d722c508b475db4903"
+  },
+  "sha256": "b1b95399a0c6ede4fcc71af77fd07e115614c9d2ac3713542f1a6a31fb23f2cf",
+  "baseSha256": "aa5db773c2fab67147e76ecdc2703732ded09a0c49a849976059a13d973b8cf2",
+  "inverseSpans": [
+    {
+      "before": "  { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },\n  { m: 'POST', p: '/api/thread-relays', auth: 'body-token' },\n  { m: 'GET', p: '/api/thread-relays', auth: 'token' },\n",
+      "after": "  { m: 'POST', p: '/api/agent-workflow/launch', auth: 'body-token' },\n"
+    }
+  ]
+}

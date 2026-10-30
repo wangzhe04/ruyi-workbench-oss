@@ -813,6 +813,7 @@ function modalReturnTarget(trigger) {
 function closeModal(id) {
   const bd = $(id);
   bd.classList.add('hidden');
+  bd.dispatchEvent(new Event('ruyi:modalclosed'));
   const t = modalReturnTarget(_modalTriggers.get(bd)); _modalTriggers.delete(bd);
   if (t) { try { t.focus(); } catch { /* ignore */ } }
 }

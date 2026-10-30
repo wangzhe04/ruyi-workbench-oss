@@ -418,6 +418,7 @@ const {
   },
   newSession: () => newSession(),
   openToolPane: () => openToolPane(),
+  openExistingThread: id => openSession(id),
   scheduleRender: live => scheduleRender(live),
   renderCurrentSession: () => renderCurrentSession(),
   renderSessions: () => renderSessions(), scrollIsSticky: () => isStickyScroll(),
