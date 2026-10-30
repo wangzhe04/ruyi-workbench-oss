@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 127 | 4231 | 4110 | 881 | 67 | 0 | 1 |
+| 127 | 4244 | 4110 | 881 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -119,7 +119,7 @@
 | 101 | `13y-external-bot-credentials.js` | transport | 1 | 8 | 4 |
 | 102 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
 | 103 | `13ab-privacy-api.js` | unclassified | 2 | 37 | 16 |
-| 104 | `13w-external-bots.js` | transport | 93 | 27 | 10 |
+| 104 | `13w-external-bots.js` | transport | 106 | 27 | 10 |
 | 105 | `13ac-mcp-consumer.js` | unclassified | 2 | 40 | 12 |
 | 106 | `13ad-memory-cli-relay.js` | unclassified | 1 | 26 | 9 |
 | 107 | `13ae-cli-business-services.js` | unclassified | 6 | 61 | 13 |

@@ -100952,10 +100952,11 @@ const ExternalChannelDelivery = (() => {
         });
         request.on('error', () => finish({ failure: 'network' }));
         request.end(bytes);
-      } catch { finish({ failure: request ? 'network' : 'predispatch' }); if (request) request.destroy(); }
+      } catch (error) { finish({ failure: error?.code === 'external_delivery.reply_window_closed' ? 'window_closed' : request ? 'network' : 'predispatch' }); if (request) request.destroy(); }
     });
   }
   function classify(result, tokenPhase) {
+    if (result.failure === 'window_closed') return failure('pending', 'reply_window_closed');
     const status = tokenPhase ? 'failed' : 'unknown';
     if (result.failure === 'predispatch') return failure('failed', 'predispatch');
     if (result.failure) return failure(status, (tokenPhase ? 'token_' : '') + result.failure);
@@ -100967,6 +100968,8 @@ const ExternalChannelDelivery = (() => {
   async function sendReply(connection, originalMessage, text, options = {}) {
     if (!object(connection) || !object(originalMessage) || !object(options)) return failure('failed', 'invalid_input');
     const platform = connection.platform;
+    const messageSeq = options.messageSeq === undefined ? 1 : options.messageSeq;
+    if (!Number.isSafeInteger(messageSeq) || messageSeq < 1 || messageSeq > (originalMessage.conversationType === 'group' ? 5 : 4)) return failure('failed', 'invalid_input');
     if (!['qq', 'feishu'].includes(platform) || !id(connection.appId) || typeof options.attemptId !== 'string'
       || !/^[A-Za-z0-9_-]{1,50}$/.test(options.attemptId)) return failure('failed', 'invalid_config');
     if (!id(originalMessage.messageId) || !id(originalMessage.conversationId) || !id(originalMessage.senderId)
@@ -100974,6 +100977,13 @@ const ExternalChannelDelivery = (() => {
     const tenantId = connection.tenantId || (platform === 'qq' ? connection.appId : undefined);
     if (!id(tenantId) || tenantId !== originalMessage.tenantId) return failure('failed', 'identity_mismatch');
     if (platform === 'qq' && originalMessage.conversationType === 'direct' && originalMessage.conversationId !== originalMessage.senderId) return failure('failed', 'identity_mismatch');
+    const assertWindow = () => {
+      if (platform === 'qq' && originalMessage.feedback) {
+        const at = Date.parse(originalMessage.feedback.sentAt);
+        if (!Number.isFinite(at) || Date.now() >= at + 300000) throw Object.assign(new Error('passive window closed'), { code: 'external_delivery.reply_window_closed' });
+      }
+    };
+    try { assertWindow(); } catch { return failure('pending', 'reply_window_closed'); }
     if (typeof text !== 'string' || !text.trim() || text.length > 1048576
       || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text) || Buffer.from(text).toString('utf8') !== text) return failure('failed', 'text_invalid');
     const credential = platform === 'qq' ? connection.botSecret : connection.appSecret;
@@ -101006,17 +101016,19 @@ const ExternalChannelDelivery = (() => {
       dispatched = true;
       if (!prepared || typeof prepared.text !== 'string' || (options.prepare && typeof prepared.assertCurrent !== 'function')) throw new Error('invalid preparation');
       bounded = boundedText(prepared.text); text = bounded.text;
-      if (prepared.assertCurrent) requestOptions.assertDispatch = bytes => {
+      requestOptions.assertDispatch = bytes => {
+        assertWindow();
         if (requestOptions.signal?.aborted) throw new Error('cancelled');
-        prepared.assertCurrent({ text, bytes });
+        prepared.assertCurrent?.({ text, bytes });
       };
       if (requestOptions.signal?.aborted) return Promise.resolve({ failure: 'predispatch' });
+      try { assertWindow(); } catch { return Promise.resolve({ failure: 'window_closed' }); }
       requestOptions.timeoutMs = deadline - Date.now();
       if (requestOptions.timeoutMs <= 0) return Promise.resolve({ failure: 'predispatch' });
       return post(hostname, platform === 'qq'
         ? '/v2/' + (group ? 'groups/' : 'users/') + encodeURIComponent(conversationId) + '/messages'
         : '/open-apis/im/v1/messages/' + encodeURIComponent(messageId) + '/reply',
-      platform === 'qq' ? { msg_type: 0, content: text, msg_id: messageId, msg_seq: 1 }
+      platform === 'qq' ? { msg_type: 0, content: text, msg_id: messageId, msg_seq: messageSeq }
         : { msg_type: 'text', content: JSON.stringify({ text }), uuid },
       (platform === 'qq' ? 'QQBot ' : 'Bearer ') + token, requestOptions);
     };
@@ -101904,7 +101916,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
 // External ingress defaults to an independent inbox. Explicit local owner bindings may additionally
 // run the existing Steward and deliver one bounded reply; queued/running/sending facts are durable.
 const EXTERNAL_BOT_LIMITS = Object.freeze({ connections: 16, retiredIds: 4096, items: 1000, textChars: 8192, textBytes: 32768, bodyBytes: 65536, stateBytes: 40 * 1024 * 1024, readTimeoutMs: 5000, inflightCallbacks: 8, callbacksPerMinute: 120 });
-const EXTERNAL_BOT_CONNECTION_KEYS = Object.freeze(['id', 'platform', 'label', 'enabled', 'appId', 'tenantId', 'botUserId', 'allowedSenderIds', 'allowedConversationIds', 'verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'appSecretEnv', 'mode', 'ownerSenderId', 'ownerConversationId', 'ownerConversationType']);
+const EXTERNAL_BOT_CONNECTION_KEYS = Object.freeze(['id', 'platform', 'label', 'enabled', 'appId', 'tenantId', 'botUserId', 'allowedSenderIds', 'allowedConversationIds', 'verificationTokenEnv', 'encryptKeyEnv', 'botSecretEnv', 'appSecretEnv', 'mode', 'ownerSenderId', 'ownerConversationId', 'ownerConversationType', 'progressUpdates']);
 const externalBotActors = new WeakMap();
 const externalBotActiveActors = new Map();
 const externalBotUnsettled = new Map();
@@ -101924,6 +101936,8 @@ let externalBotWorkerAgain = false;
 let externalBotWorkerStopped = false;
 let externalBotRecoveryDone = false;
 let externalBotWorkerError = '';
+let externalBotWorkerSignal = null;
+let externalBotFeedbackTimer = null;
 function externalBotError(code, statusCode = 400) {
   return Object.assign(new Error(code), { code, apiCode: code, statusCode });
 }
@@ -101940,6 +101954,7 @@ function externalBotNormalizeConnection(raw, id) {
   if (raw.tenantId !== undefined && typeof raw.tenantId !== 'string') throw externalBotError('external_channel.connection_invalid');
   if (!/^[a-z][a-z0-9_-]{0,63}$/.test(id)) throw externalBotError('external_channel.connection_invalid');
   if (raw.enabled !== undefined && typeof raw.enabled !== 'boolean') throw externalBotError('external_channel.connection_invalid');
+  if (raw.progressUpdates !== undefined && typeof raw.progressUpdates !== 'boolean') throw externalBotError('external_channel.connection_invalid');
   const out = { id, platform: raw.platform, label: raw.label ?? '', enabled: raw.enabled === true, appId: raw.appId,
     tenantId: raw.tenantId || (raw.platform === 'qq' ? raw.appId : ''), botUserId: raw.botUserId ?? '',
     allowedSenderIds: raw.allowedSenderIds ?? [], allowedConversationIds: raw.allowedConversationIds ?? [],
@@ -101958,6 +101973,7 @@ function externalBotNormalizeConnection(raw, id) {
     || (out.ownerSenderId && !externalBotIdentity(out.ownerSenderId)) || (out.ownerConversationId && !externalBotIdentity(out.ownerConversationId))) throw externalBotError('external_channel.connection_invalid');
   if (out.mode === 'control' && (!out.ownerSenderId || !out.ownerConversationId || !['direct', 'group'].includes(raw.ownerConversationType)
     || !out.allowedSenderIds.includes(out.ownerSenderId) || !out.allowedConversationIds.includes(out.ownerConversationId))) throw externalBotError('external_channel.owner_invalid');
+  if (raw.progressUpdates === true) out.progressUpdates = true;
   return out;
 }
 async function externalBotCredentialSnapshot(connection) {
@@ -102197,14 +102213,111 @@ async function externalBotDiscoverOperation(body) {
     return { ok: true, created, connectionId: connection.id, discovery, connection: snapshot.connection, readiness: snapshot.readiness };
   });
 }
+// Payload6 is required for progress intents and QQ sequence reservations. The
+// M3 queue envelope/AAD remain schema1; an old payload1-5 reader must refuse6.
+function externalBotUpgradeFeedbackState(state) {
+  if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
+  if (state.schema < 4) for (const row of state.items) row.replyHistory = [];
+  if (state.schema < 5) { state.retentionReceipts = []; state.retentionRequests = []; }
+  state.schema = 6;
+}
+function externalBotFeedback(item, message, progress = false, queryId = '', language = 'zh') {
+  const sent = Date.parse(message.sentAt || item.receivedAt), received = Date.parse(item.receivedAt);
+  return { sentAt: new Date(Math.min(Number.isFinite(sent) ? sent : received, received)).toISOString(), language, queryId,
+    finalSeq: progress ? 2 : 1, reservations: [], cooldownUntil: '',
+    progress: progress ? { text: language === 'en' ? 'Your request was accepted and is starting. Use /status to check its progress. This is not a completion receipt.'
+      : '已接受指令，正在开始处理。可发送“进度”查询；这条提示不代表任务已完成。',
+      delivery: { status: 'pending', attemptId: makeId('progress'), messageId: '', errorCode: '', updatedAt: nowIso() } } : null };
+}
+function externalBotValidFeedback(item) {
+  const f = item.feedback;
+  if (f === undefined) return true;
+  if (!item.control && item.kind !== 'control' || !f || typeof f !== 'object' || Array.isArray(f)
+    || Object.keys(f).sort().join(',') !== 'cooldownUntil,finalSeq,language,progress,queryId,reservations,sentAt'
+    || !['zh', 'en'].includes(f.language) || ![1, 2].includes(f.finalSeq) || typeof f.queryId !== 'string'
+    || f.queryId.length > 128 || ![f.sentAt, f.cooldownUntil].every((v, i) => typeof v === 'string' && (!v && i === 1 || Number.isFinite(Date.parse(v))))
+    || !Array.isArray(f.reservations) || f.reservations.length > 130
+    || !f.reservations.every(r => r && Object.keys(r).sort().join(',') === 'at,attemptId'
+      && typeof r.attemptId === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(r.attemptId) && typeof r.at === 'string' && Number.isFinite(Date.parse(r.at)))
+    || new Set(f.reservations.map(r => r.attemptId)).size !== f.reservations.length) return false;
+  if (f.progress === null) return f.finalSeq === 1;
+  return f.finalSeq === 2 && f.queryId === '' && f.progress && Object.keys(f.progress).sort().join(',') === 'delivery,text'
+    && typeof f.progress.text === 'string' && f.progress.text.length > 0 && f.progress.text.length <= 500
+    && f.progress.delivery && Object.keys(f.progress.delivery).sort().join(',') === 'attemptId,errorCode,messageId,status,updatedAt'
+    && ['pending', 'sending', 'sent', 'failed', 'unknown'].includes(f.progress.delivery.status)
+    && typeof f.progress.delivery.attemptId === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(f.progress.delivery.attemptId)
+    && externalBotString(f.progress.delivery.messageId, 128, true) && externalBotString(f.progress.delivery.errorCode, 128, true)
+    && typeof f.progress.delivery.updatedAt === 'string' && Number.isFinite(Date.parse(f.progress.delivery.updatedAt))
+    && (f.progress.delivery.status !== 'sent' || Boolean(f.progress.delivery.messageId));
+}
+function externalBotStatusCommand(text) {
+  const match = /^(\/status|status|进度|查询进度)(?:\s+([A-Za-z0-9_-]{1,128}))?$/i.exec(text.trim());
+  return match ? { targetId: match[2] || '', language: /[\u4e00-\u9fff]/.test(match[1]) ? 'zh' : 'en' }
+    : /^(\/status|status|进度|查询进度)(?:\s|$)/i.test(text.trim()) ? { targetId: '!invalid', language: /[\u4e00-\u9fff]/.test(text) ? 'zh' : 'en' } : null;
+}
+function externalBotStatusText(target, language) {
+  if (!target) return language === 'en' ? 'No matching request in this authorized conversation. Use /status followed by a request number, or check Ruyi locally.'
+    : '此授权聊天中没有匹配的指令。可发送“进度 指令编号”，或在如意本地查看。';
+  const en = language === 'en', execution = target.execution.status, sending = target.delivery?.status || 'not_queued';
+  const labels = en ? { queued: 'waiting to start', running: 'processing', completed: 'processing finished', failed: 'processing failed', unknown: 'unconfirmed; check existing work before issuing the instruction again', pending: 'saved locally, awaiting sending', sending: 'sending; receipt not confirmed', sent: 'platform acknowledged sending', cancelled: 'sending cancelled', not_queued: 'reply not ready' }
+    : { queued: '等待开始', running: '处理中', completed: '处理已结束', failed: '处理未完成', unknown: '结果未确认，请核对现有任务，不要重复下达指令', pending: '已保存在本地，等待发送', sending: '发送中，尚未确认回执', sent: '平台已确认发送', cancelled: '已取消发送', not_queued: '答复尚未就绪' };
+  const waiting = externalBotFeedbackWaiting(target, 'delivery');
+  const reply = sending === 'failed' ? en ? 'not sent' : '未发送' : labels[sending];
+  return en ? `Request ${target.id}\nAccepted: yes\nExecution: ${labels[execution]}\nReply: ${reply}${waiting === 'window_closed' ? '\nThe passive reply window closed. View the saved result in Ruyi.' : ''}`
+    : `指令 ${target.id}\n接受：已接受\n执行：${labels[execution]}\n答复：${reply}${waiting === 'window_closed' ? '\n原消息回复窗口已关闭，请在如意查看本地结果。' : ''}`;
+}
+function externalBotFeedbackWaiting(item, slot) {
+  if (!item.feedback) return '';
+  const delivery = slot === 'progress' ? item.feedback.progress?.delivery : item.delivery;
+  if (delivery?.status !== 'pending') return '';
+  // QQ's 2026-10-28 endpoint field says5min; the overview says60min for
+  // direct replies. Use their supported intersection, never active/recall APIs.
+  if (item.platform === 'qq' && Date.now() >= Date.parse(item.feedback.sentAt) + 300000) return 'window_closed';
+  return Date.now() < Date.parse(item.feedback.cooldownUntil) ? 'throttled' : 'ready';
+}
+function externalBotFeedbackDelay(state, item) {
+  const now = Date.now();
+  // The durable original control identity survives a disabled/deleted connection.
+  // Recreating a connection to the same app cannot reset its sending budget.
+  const rows = state.items.filter(row => row.platform === item.platform && row.control?.appId === item.control?.appId);
+  const app = rows.flatMap(row => row.feedback?.reservations || []).map(r => Date.parse(r.at)).filter(at => at > now - 60000);
+  const room = rows.filter(row => row.conversationId === item.conversationId).flatMap(row => row.feedback?.reservations || []).map(r => Date.parse(r.at)).filter(at => at > now - 60000);
+  // Product budgets, NOT a statement of platform quota:12/app/min,6/chat/min,
+  // one/chat/sec. Platform429 and an explicit Retry-After remain authoritative.
+  return Math.max(now, ...rows.map(row => Date.parse(row.feedback?.cooldownUntil) || 0),
+    app.length >= 12 ? Math.min(...app) + 60000 : 0, room.length >= 6 ? Math.min(...room) + 60000 : 0,
+    room.length ? Math.max(...room) + 1000 : 0);
+}
+function externalBotScheduleFeedbackWake(at) {
+  if (externalBotFeedbackTimer || externalBotWorkerStopped) return;
+  externalBotFeedbackTimer = setTimeout(() => {
+    externalBotFeedbackTimer = null;
+    if (externalBotWorkerStopped) return;
+    // A timer outlives the intake lease which created it. Re-enter only while
+    // open, and keep that fresh lease until the original drain actually settles.
+    // Closed intake still records the original wake for the host's resume path.
+    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.fresh && WorkDataMaintenanceHooks.accepting()) {
+      void WorkDataMaintenanceHooks.fresh('external-worker', () => externalBotWakeWorker())
+        .catch(() => { externalBotWorkerError = 'external_channel.storage_unavailable'; externalBotWorkerAgain = true; });
+    } else externalBotWakeWorker();
+  }, Math.max(1, Math.min(60000, at - Date.now())));
+  externalBotFeedbackTimer.unref?.();
+}
+function externalBotSendingItem(item, slot) {
+  return slot === 'progress' ? { ...item, delivery: item.feedback.progress.delivery,
+    execution: { ...item.execution, replyText: item.feedback.progress.text } } : item;
+}
 function externalBotPublicItem(item) {
   const out = {};
   for (const key of ['id', 'connectionId', 'platform', 'connectionLabel', 'tenantId', 'conversationId', 'senderId', 'conversationType', 'text', 'messageId', 'eventId', 'receivedAt', 'readAt', 'control', 'execution', 'delivery']) out[key] = item[key];
   if (item.archivedAt !== undefined) out.archivedAt = item.archivedAt;
   if (item.replyHistory !== undefined) out.replyHistory = item.replyHistory;
+  if (item.feedback) out.feedback = { queryId: item.feedback.queryId, progress: item.feedback.progress?.delivery || null,
+    progressWaiting: externalBotFeedbackWaiting(item, 'progress'), replyWaiting: externalBotFeedbackWaiting(item, 'delivery') };
   if (externalBotReplyRetryWindow(item)) out.retryAvailable = true;
   if (externalBotCancellationWindow(item)) out.cancelAvailable = true;
   const unsettled = externalBotUnsettled.get(item.id);
+  if (unsettled?.slot === 'progress' && out.feedback?.progress?.status === 'sending') out.feedback.progress = { ...out.feedback.progress, status: 'unknown', errorCode: 'external_channel.delivery_unknown', updatedAt: unsettled.at };
   if (unsettled?.kind === 'run' && out.execution?.status === 'running') out.execution = { ...out.execution, status: 'unknown', errorCode: 'external_channel.execution_unknown', finishedAt: unsettled.at };
   if (unsettled?.kind === 'send' && out.delivery?.status === 'sending') out.delivery = { ...out.delivery, status: 'unknown', errorCode: 'external_channel.delivery_unknown', updatedAt: unsettled.at };
   return out;
@@ -102398,6 +102511,11 @@ function externalBotRetentionHash(value) { return crypto.createHash('sha256').up
 function externalBotRetentionEligible(item, cutoff) {
   if (externalBotActiveActors.has(item.id) || externalBotUnsettled.has(item.id) || externalBotDeliveries.has(item.id)) return false;
   const dates = [item.receivedAt];
+  if (item.feedback?.progress) {
+    if (!['sent', 'failed'].includes(item.feedback.progress.delivery.status)) return false;
+    if (item.feedback.progress.delivery.status === 'failed' && ![...EXTERNAL_BOT_RETENTION_FAILURES, 'external_delivery.progress_superseded'].includes(item.feedback.progress.delivery.errorCode)) return false;
+    dates.push(item.feedback.progress.delivery.updatedAt);
+  }
   if (item.control === null) {
     if (!item.readAt || item.execution !== null || item.delivery !== null) return false;
   } else {
@@ -102425,10 +102543,10 @@ function externalBotValidReceiptDelivery(delivery, execution) {
 }
 function externalBotValidRetentionReceipt(row) {
   if (!row || typeof row !== 'object' || Array.isArray(row)
-    || Object.keys(row).sort().join(',') !== 'contentHash,delivery,execution,id,kind,receivedAt,reclaimedAt,replyHistory,sourceHash'
+    || Object.keys(row).filter(key => key !== 'feedback').sort().join(',') !== 'contentHash,delivery,execution,id,kind,receivedAt,reclaimedAt,replyHistory,sourceHash'
     || !externalBotString(row.id) || !['inbox', 'control'].includes(row.kind)
     || !['sourceHash', 'contentHash'].every(key => typeof row[key] === 'string' && /^[a-f0-9]{64}$/.test(row[key]))
-    || !['receivedAt', 'reclaimedAt'].every(key => typeof row[key] === 'string' && row[key] && Number.isFinite(Date.parse(row[key])))) return false;
+    || !['receivedAt', 'reclaimedAt'].every(key => typeof row[key] === 'string' && row[key] && Number.isFinite(Date.parse(row[key]))) || !externalBotValidFeedback(row)) return false;
   if (row.kind === 'inbox') return row.execution === null && row.delivery === null && Array.isArray(row.replyHistory) && row.replyHistory.length === 0;
   const execution = row.execution;
   return execution && Object.keys(execution).sort().join(',') === 'actionFailures,contractIncomplete,errorCode,finishedAt,proposals,status,turnSeq'
@@ -102445,7 +102563,7 @@ function externalBotRetentionReceipt(item, reclaimedAt) {
   const execution = item.execution && Object.fromEntries(['status', 'finishedAt', 'errorCode', 'turnSeq', 'actionFailures', 'proposals', 'contractIncomplete'].map(key => [key, item.execution[key]]));
   const delivery = item.delivery && Object.fromEntries(['status', 'attemptId', 'messageId', 'errorCode', 'updatedAt', ...(item.delivery.status === 'cancelled' ? ['cancelledAt'] : [])].map(key => [key, item.delivery[key]]));
   return { id: item.id, kind: item.control === null ? 'inbox' : 'control', sourceHash: externalBotRetentionHash(item.sourceKey), contentHash: item.contentHash,
-    receivedAt: item.receivedAt, reclaimedAt, execution, delivery, replyHistory: item.replyHistory || [] };
+    receivedAt: item.receivedAt, reclaimedAt, execution, delivery, replyHistory: item.replyHistory || [], ...(item.feedback ? { feedback: item.feedback } : {}) };
 }
 function externalBotValidRetentionState(state) {
   if (state.schema < 5) return state.retentionReceipts === undefined && state.retentionRequests === undefined;
@@ -102510,7 +102628,7 @@ async function externalBotRetentionCommit(body) {
   const reclaimedAt = nowIso(), receipt = { requestId: body.requestId, requestHash, count: items.length, reclaimedAt };
   if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
   if (state.schema < 4) for (const row of state.items) row.replyHistory = [];
-  state.schema = 5;
+  state.schema = Math.max(state.schema, 5);
   state.retentionReceipts = [...(state.retentionReceipts || []), ...items.map(item => externalBotRetentionReceipt(item, reclaimedAt))];
   state.retentionRequests = [...(state.retentionRequests || []), receipt];
   const selected = new Set(items.map(item => item.id));
@@ -102529,7 +102647,7 @@ function externalBotValidItem(item) {
     && item.sourceKey === JSON.stringify([item.connectionId, item.tenantId, item.conversationId, item.messageId])
     && item.contentHash === crypto.createHash('sha256').update(JSON.stringify([item.senderId, item.conversationType, item.text])).digest('hex')
     && typeof item.receivedAt === 'string' && Number.isFinite(Date.parse(item.receivedAt))
-    && typeof item.readAt === 'string' && (!item.readAt || Number.isFinite(Date.parse(item.readAt))) && externalBotValidControlState(item);
+    && typeof item.readAt === 'string' && (!item.readAt || Number.isFinite(Date.parse(item.readAt))) && externalBotValidControlState(item) && externalBotValidFeedback(item);
 }
 function externalBotValidControlState(item) {
   if (item.control === null) return item.execution === null && item.delivery === null;
@@ -102612,27 +102730,55 @@ async function externalBotRecover() {
       if (item.delivery?.status === 'sending') {
         item.delivery = { ...item.delivery, status: 'unknown', errorCode: 'external_channel.delivery_unknown', updatedAt: nowIso() }; changed = true;
       }
+      if (item.feedback?.progress?.delivery.status === 'sending') {
+        item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'unknown', errorCode: 'external_channel.delivery_unknown', updatedAt: nowIso() }; changed = true;
+      }
+      if (item.feedback?.progress?.delivery.status === 'pending' && !['queued', 'running'].includes(item.execution?.status)) {
+        item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', errorCode: 'external_delivery.progress_superseded', updatedAt: nowIso() }; changed = true;
+      }
     }
     if (changed) await externalBotWriteState(state);
     externalBotUnsettled.clear();
     externalBotRecoveryDone = true;
   });
 }
-async function externalBotNextJob() {
+async function externalBotNextJob(sendOnly = false) {
   return runKeyedChain(externalBotChains, 'state', async () => {
     const state = await externalBotReadState();
-    const item = state.items.find(row => row.delivery?.status === 'pending') || state.items.find(row => row.execution?.status === 'queued');
-    if (!item) return null;
+    let slot = 'delivery', deferred = false;
+    const available = row => {
+      if (!row.feedback) return true;
+      if (externalBotFeedbackWaiting(row, slot) === 'window_closed') return false;
+      const at = externalBotFeedbackDelay(state, row);
+      if (at > Date.now()) { if (Date.parse(row.feedback.cooldownUntil) !== at) { row.feedback.cooldownUntil = new Date(at).toISOString(); deferred = true; } externalBotScheduleFeedbackWake(at); return false; }
+      return true;
+    };
+    let item = state.items.find(row => row.delivery?.status === 'pending' && available(row));
+    if (!item) { slot = 'progress'; item = state.items.find(row => row.execution?.status === 'running' && row.feedback?.progress?.delivery.status === 'pending' && available(row)); }
+    if (!item && !sendOnly) { slot = ''; item = state.items.find(row => row.execution?.status === 'queued'); }
+    if (!item) { if (deferred) await externalBotWriteState(state); return null; }
     const connection = state.connections.find(row => row.id === item.connectionId);
+    if (slot === 'progress' && !connection?.progressUpdates) {
+      item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', errorCode: 'external_channel.control_revoked', updatedAt: nowIso() };
+      await externalBotWriteState(state); return { kind: 'skip' };
+    }
     if (!(await externalBotOwnerMatches(connection, item))) {
       if (item.execution?.status === 'queued') item.execution = { ...item.execution, status: 'failed', finishedAt: nowIso(), errorCode: 'external_channel.control_revoked', replyText: '' };
       if (item.delivery?.status === 'pending') item.delivery = { ...item.delivery, status: 'failed', updatedAt: nowIso(), errorCode: 'external_channel.control_revoked' };
+      if (item.feedback?.progress?.delivery.status === 'pending') item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', updatedAt: nowIso(), errorCode: 'external_channel.control_revoked' };
       await externalBotWriteState(state); return { kind: 'skip' };
     }
-    if (item.delivery?.status === 'pending') {
-      item.delivery = { ...item.delivery, status: 'sending', updatedAt: nowIso() }; await externalBotWriteState(state);
+    if (slot) {
+      const delivery = slot === 'progress' ? item.feedback.progress.delivery : item.delivery;
+      if (item.feedback) {
+        if (item.feedback.reservations.length >= 130 || item.feedback.reservations.some(row => row.attemptId === delivery.attemptId)) throw externalBotError('external_channel.delivery_history_full', 409);
+        item.feedback.reservations.push({ attemptId: delivery.attemptId, at: nowIso() });
+      }
+      delivery.status = 'sending'; delivery.updatedAt = nowIso();
+      try { await externalBotWriteState(state); }
+      catch (error) { if (item.feedback) { externalBotUnsettled.set(item.id, { kind: 'send', slot, at: nowIso() }); externalBotRecoveryDone = false; } throw error; }
       const credentials = await externalBotCredentialSnapshot(connection);
-      return { kind: 'send', item: JSON.parse(JSON.stringify(item)), connection: { ...connection, ...credentials.values }, credentialRevision: credentials.credentialRevision,
+      return { kind: 'send', slot, item: JSON.parse(JSON.stringify(externalBotSendingItem(item, slot))), connection: { ...connection, ...credentials.values }, credentialRevision: credentials.credentialRevision,
         connectionFingerprint: externalBotConnectionFingerprint(connection) };
     }
     item.execution = { ...item.execution, status: 'running', serverInstanceId: OVERLAY_ID, startedAt: nowIso() }; await externalBotWriteState(state);
@@ -102651,6 +102797,7 @@ async function externalBotFinishJob(job, result) {
         errorCode: externalBotResultUncertain(result) ? 'external_channel.execution_unknown' : result?.ok === true ? '' : result?.error === 'external_channel.control_revoked' ? result.error : 'external_channel.execution_failed',
         replyText: externalBotReplyText(result), turnSeq: Math.max(0, Number.isSafeInteger(result?.turnSeq) ? result.turnSeq : 0), ...externalBotOutcome(result) };
       item.delivery = { status: 'pending', attemptId: makeId('reply'), messageId: '', errorCode: '', updatedAt: nowIso() };
+      if (item.feedback?.progress?.delivery.status === 'pending') item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', errorCode: 'external_delivery.progress_superseded', updatedAt: nowIso() };
       // A completed business turn must not become running/unknown just because its
       // outbox source is too large. Never send a clipped, unscanned private prefix.
       if (Buffer.byteLength(item.execution.replyText) > 1048576 || Buffer.byteLength(JSON.stringify(state)) > EXTERNAL_BOT_LIMITS.stateBytes) {
@@ -102658,22 +102805,33 @@ async function externalBotFinishJob(job, result) {
         item.delivery = { ...item.delivery, status: 'failed', errorCode: 'external_delivery.source_limit' };
       }
     } else {
+      if (job.slot === 'progress') {
+        const progress = item.feedback?.progress;
+        if (!progress || progress.delivery.status !== 'sending' || progress.delivery.attemptId !== job.item.delivery.attemptId) throw externalBotError('external_channel.delivery_unknown', 409);
+        const sent = result?.status === 'sent' && externalBotIdentity(result.messageId);
+        progress.delivery = { ...progress.delivery, status: sent ? 'sent' : result?.status === 'pending' && result.errorCode === 'external_delivery.reply_window_closed' ? 'pending' : result?.status === 'failed' ? 'failed' : 'unknown',
+          messageId: sent ? result.messageId : '', errorCode: sent ? '' : typeof result?.errorCode === 'string' && /^external_(channel|delivery)\.[a-z_]{1,80}$/.test(result.errorCode) ? result.errorCode : 'external_channel.delivery_unknown', updatedAt: nowIso() };
+        if (result?.errorCode === 'external_delivery.rate_limited') item.feedback.cooldownUntil = new Date(Date.now() + Math.min(86400000, Math.max(1000, result.retryAfterMs || 60000))).toISOString();
+        await externalBotWriteState(state); return;
+      }
       // A cancelled precommit attempt has no message request to settle. Keep the
       // durable cancellation and completed business result when its old job exits.
       if (item.delivery?.status === 'cancelled' && item.delivery.attemptId === job.item.delivery.attemptId) return;
       if (item.delivery?.status !== 'sending' || item.delivery.attemptId !== job.item.delivery.attemptId) throw externalBotError('external_channel.delivery_unknown', 409);
       const sent = result?.status === 'sent' && externalBotIdentity(result.messageId);
-      item.delivery = { ...item.delivery, status: sent ? 'sent' : result?.status === 'failed' ? 'failed' : 'unknown',
+      item.delivery = { ...item.delivery, status: sent ? 'sent' : result?.status === 'pending' && result.errorCode === 'external_delivery.reply_window_closed' ? 'pending' : result?.status === 'failed' ? 'failed' : 'unknown',
         messageId: sent ? result.messageId : '', errorCode: sent ? '' : (typeof result?.errorCode === 'string' && /^external_(channel|delivery)\.[a-z_]{1,80}$/.test(result.errorCode) ? result.errorCode : 'external_channel.delivery_unknown'), updatedAt: nowIso() };
     }
+    if (item.feedback && result?.errorCode === 'external_delivery.rate_limited') item.feedback.cooldownUntil = new Date(Date.now() + Math.min(86400000, Math.max(1000, result.retryAfterMs || 60000))).toISOString();
     await externalBotWriteState(state);
   });
 }
 function externalBotReplyBinding(connection, item, credentialRevision) {
   const recipient = JSON.stringify([connection.id, connection.platform, connection.appId, connection.botUserId, connection.tenantId,
     item.conversationType, item.conversationId, item.senderId, item.messageId, connection.controlRevision, credentialRevision]);
-  const sourceHash = crypto.createHash('sha256').update(JSON.stringify([item.id, item.control, item.execution,
-    item.delivery?.attemptId, item.delivery?.status])).digest('hex');
+  const source = [item.id, item.control, item.execution, item.delivery?.attemptId, item.delivery?.status];
+  if (item.feedback) source.push(item.feedback);
+  const sourceHash = crypto.createHash('sha256').update(JSON.stringify(source)).digest('hex');
   return { recipient, purpose: 'external-bot-reply', sourceHash };
 }
 async function externalBotPrepareReply(job, controller, dispatch, assertPolicy = PrivacyGateway.disclosurePolicyGuard()) {
@@ -102682,9 +102840,10 @@ async function externalBotPrepareReply(job, controller, dispatch, assertPolicy =
   // Release the chain after request creation, not after the platform response.
   const prepared = await runKeyedChain(externalBotChains, 'state', async () => {
     const check = async () => {
-      const state = await externalBotReadState(), item = state.items.find(row => row.id === job.item.id);
+      const state = await externalBotReadState(), saved = state.items.find(row => row.id === job.item.id);
+      const item = saved && externalBotSendingItem(saved, job.slot);
       const connection = state.connections.find(row => row.id === job.item.connectionId);
-      if (!item || !connection || item.delivery?.status !== 'sending' || controller.signal.aborted || externalBotWorkerStopped
+      if (!item || !connection || job.slot === 'progress' && !connection.progressUpdates || item.delivery?.status !== 'sending' || controller.signal.aborted || externalBotWorkerStopped
         || externalBotConnectionFingerprint(connection) !== job.connectionFingerprint || !(await externalBotOwnerMatches(connection, item))) throw externalBotError('external_channel.control_revoked', 403);
       const credentials = await externalBotCredentialSnapshot(connection);
       const binding = externalBotReplyBinding(connection, item, credentials.credentialRevision);
@@ -102716,6 +102875,48 @@ async function externalBotPrepareReply(job, controller, dispatch, assertPolicy =
   });
   return prepared.result;
 }
+async function externalBotSendJob(job) {
+  const controller = new AbortController(); let result, entered = false;
+  externalBotDeliveries.set(job.item.id, { connectionId: job.item.connectionId, controlRevision: job.item.control.controlRevision, slot: job.slot, attemptId: job.item.delivery.attemptId, submitted: false, controller });
+  try {
+    const allowed = await runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(), item = state.items.find(row => row.id === job.item.id);
+      return item && await externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item);
+    });
+    result = !allowed || controller.signal.aborted ? { status: 'failed', errorCode: 'external_channel.control_revoked' }
+      : await PrivacyGateway.withPolicy(STEWARD_SESSION_ID, () => {
+        const assertPolicy = PrivacyGateway.disclosurePolicyGuard(); entered = true;
+        return ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText, {
+          attemptId: job.item.delivery.attemptId, messageSeq: job.slot === 'progress' ? 1 : job.item.feedback?.finalSeq || 1,
+          signal: controller.signal, prepare: dispatch => externalBotPrepareReply(job, controller, dispatch, assertPolicy) });
+      });
+  } catch { result = entered ? { status: 'unknown', errorCode: 'external_channel.delivery_unknown' } : { status: 'failed', errorCode: 'external_delivery.predispatch' }; }
+  finally { externalBotDeliveries.delete(job.item.id); }
+  try { await externalBotFinishJob(job, result); }
+  catch (error) { externalBotUnsettled.set(job.item.id, { kind: 'send', slot: job.slot, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
+}
+async function externalBotRunWithFeedback(job) {
+  // One original worker and one business owner. During that same owner's wait,
+  // pump only its existing outbox (including read-only queries), never another
+  // queued business instruction. A wake cannot create a second drain/engine.
+  let done = false, result;
+  const running = Promise.resolve().then(() => runStewardTurn({ trigger: 'external', externalActor: job.actor, message: job.item.text }))
+    .then(value => { result = value; done = true; }, error => { result = error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }; done = true; });
+  while (!done && !externalBotWorkerStopped) {
+    try {
+      const send = await externalBotNextJob(true);
+      if (send) { if (send.kind !== 'skip') await externalBotSendJob(send); continue; }
+    } catch { externalBotWorkerError = 'external_channel.storage_unavailable'; break; }
+    if (done) break;
+    if (externalBotWorkerAgain) { externalBotWorkerAgain = false; continue; }
+    let notify;
+    const wake = new Promise(resolve => { notify = resolve; externalBotWorkerSignal = resolve; });
+    await Promise.race([running, wake]);
+    if (externalBotWorkerSignal === notify) externalBotWorkerSignal = null;
+  }
+  await running;
+  return result;
+}
 async function externalBotDrain() {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return;
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('external-worker')) return WorkDataMaintenanceHooks.run('external-worker', () => externalBotDrain(...arguments));
@@ -102728,26 +102929,11 @@ async function externalBotDrain() {
       externalBotWorkerAgain = false;
       while (!externalBotWorkerStopped && (typeof WorkDataMaintenanceHooks === 'undefined' || !WorkDataMaintenanceHooks.accepting || WorkDataMaintenanceHooks.accepting())) {
         const job = await externalBotNextJob(); if (!job) break; if (job.kind === 'skip') continue;
-        let result, sendEntered = false;
+        let result;
         try {
-          if (job.kind === 'run') result = await runStewardTurn({ trigger: 'external', externalActor: job.actor, message: job.item.text });
-          else {
-            const controller = new AbortController();
-            externalBotDeliveries.set(job.item.id, { connectionId: job.item.connectionId, controlRevision: job.item.control.controlRevision, attemptId: job.item.delivery.attemptId, submitted: false, controller });
-            const allowed = await runKeyedChain(externalBotChains, 'state', async () => {
-              const state = await externalBotReadState(); const item = state.items.find(row => row.id === job.item.id);
-              return item && await externalBotOwnerMatches(state.connections.find(row => row.id === item.connectionId), item);
-            });
-            result = !allowed || controller.signal.aborted ? { status: 'failed', errorCode: 'external_channel.control_revoked' }
-              : await PrivacyGateway.withPolicy(STEWARD_SESSION_ID, () => {
-                const assertPolicy = PrivacyGateway.disclosurePolicyGuard();
-                sendEntered = true;
-                return ExternalChannelDelivery.sendReply(job.connection, job.item, job.item.execution.replyText,
-                  { attemptId: job.item.delivery.attemptId, signal: controller.signal, prepare: dispatch => externalBotPrepareReply(job, controller, dispatch, assertPolicy) });
-              });
-          }
-        } catch (error) { result = job.kind === 'run' ? (error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }) : sendEntered
-          ? { status: 'unknown', errorCode: 'external_channel.delivery_unknown' } : { status: 'failed', errorCode: 'external_delivery.predispatch' }; }
+          if (job.kind === 'run') result = await externalBotRunWithFeedback(job);
+          else { await externalBotSendJob(job); continue; }
+        } catch (error) { if (job.kind === 'send') throw error; result = error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }; }
         finally { if (job.actor) { externalBotActors.delete(job.actor); externalBotActiveActors.delete(job.item.id); } externalBotDeliveries.delete(job.item.id); }
         try { await externalBotFinishJob(job, result); }
         catch (error) { externalBotUnsettled.set(job.item.id, { kind: job.kind, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
@@ -102757,11 +102943,11 @@ async function externalBotDrain() {
   } catch { externalBotWorkerError = 'external_channel.storage_unavailable'; }
   finally { externalBotWorkerBusy = false; }
 }
-function externalBotWakeWorker() { if (!externalBotWorkerStopped) { if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) { externalBotWorkerAgain = true; return; } void externalBotDrain(); } }
+function externalBotWakeWorker() { if (!externalBotWorkerStopped) { externalBotWorkerAgain = true; externalBotWorkerSignal?.(); if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return; return externalBotDrain(); } }
 function externalBotValidState(state) {
   if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
     || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
-  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts', 'retentionReceipts', 'retentionRequests'].includes(key)) || ![1, 2, 3, 4, 5].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
+  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts', 'retentionReceipts', 'retentionRequests'].includes(key)) || ![1, 2, 3, 4, 5, 6].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
     || !Array.isArray(state.items) || state.items.length > EXTERNAL_BOT_LIMITS.items
     || !Array.isArray(state.retiredConnectionIds) || state.retiredConnectionIds.length > EXTERNAL_BOT_LIMITS.retiredIds
     || state.retiredConnectionIds.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(id))
@@ -102777,7 +102963,7 @@ function externalBotValidState(state) {
     }
   } catch { return false; }
   return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(item => externalBotValidItem(item)
-      && (state.schema >= 3 || item.delivery?.status !== 'cancelled') && externalBotValidReplyHistory(item, state.schema)
+      && (state.schema >= 3 || item.delivery?.status !== 'cancelled') && (state.schema >= 6 || item.feedback === undefined) && externalBotValidReplyHistory(item, state.schema)
       && (state.schema === 1 ? item.archivedAt === undefined : typeof item.archivedAt === 'string' && (!item.archivedAt || Number.isFinite(Date.parse(item.archivedAt)))))
     && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
     && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length
@@ -102844,6 +103030,9 @@ async function externalBotReadState() {
   catch { throw externalBotError('external_channel.storage_unavailable', 503); }
 }
 async function externalBotWriteState(state) {
+  if (state.items.some(item => item.feedback) || state.connections.some(connection => connection.progressUpdates)) externalBotUpgradeFeedbackState(state);
+  // Keep payload6 readable after OFF as well as in the chunked sealed store.
+  if (state.schema >= 6 && Buffer.byteLength(JSON.stringify(state, null, 2), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes) throw externalBotError('external_channel.inbox_full', 503);
   if (Buffer.byteLength(JSON.stringify(state), 'utf8') > EXTERNAL_BOT_LIMITS.stateBytes) throw externalBotError('external_channel.inbox_full', 503);
   try { await externalBotStore.write(state); }
   catch { throw externalBotError('external_channel.storage_unavailable', 503); }
@@ -102916,7 +103105,7 @@ async function externalBotUpdateConnection(body, setupReceipt) {
   // rolled back. Token-phase aborts can prevent a message POST, while post-phase ambiguity stays unknown.
   for (const delivery of externalBotDeliveries.values()) {
     const current = state.connections.find(row => row.id === delivery.connectionId);
-    if (!current || !current.enabled || current.controlRevision !== delivery.controlRevision) delivery.controller.abort();
+    if (!current || !current.enabled || current.controlRevision !== delivery.controlRevision || delivery.slot === 'progress' && !current.progressUpdates) delivery.controller.abort();
   }
   for (const actor of externalBotActiveActors.values()) {
     const current = state.connections.find(row => row.id === actor.connectionId);
@@ -102980,11 +103169,29 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   if (state.items.length >= EXTERNAL_BOT_LIMITS.items) throw externalBotError('external_channel.inbox_full', 503);
   const control = connection.mode === 'control' && connection.ownerSenderId === message.senderId && connection.ownerConversationId === message.conversationId && connection.ownerConversationType === message.conversationType
     ? { connectionId: connection.id, controlRevision: connection.controlRevision, platform, appId: connection.appId, tenantId: message.tenantId, senderId: message.senderId, conversationId: message.conversationId, conversationType: message.conversationType } : null;
-  state.items.push({ id: makeId('botmsg'), connectionId: connection.id, platform, connectionLabel: connection.label,
+  const item = { id: makeId('botmsg'), connectionId: connection.id, platform, connectionLabel: connection.label,
     tenantId: message.tenantId, conversationId: message.conversationId, senderId: message.senderId,
     conversationType: message.conversationType, text: message.text, messageId: message.messageId, eventId: message.eventId,
     receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema >= 2 ? { archivedAt: '' } : {}), ...(state.schema >= 4 ? { replyHistory: [] } : {}),
-    execution: control ? { status: 'queued', serverInstanceId: '', startedAt: '', finishedAt: '', errorCode: '', replyText: '', turnSeq: 0, actionFailures: 0, proposals: 0, contractIncomplete: false } : null, delivery: null });
+    execution: control ? { status: 'queued', serverInstanceId: '', startedAt: '', finishedAt: '', errorCode: '', replyText: '', turnSeq: 0, actionFailures: 0, proposals: 0, contractIncomplete: false } : null, delivery: null };
+  const query = control && externalBotStatusCommand(message.text);
+  if (control && (connection.progressUpdates || query)) {
+    let target = null;
+    if (query) target = state.items.slice().reverse().find(row => row.control && !row.feedback?.queryId
+      && row.connectionId === item.connectionId && row.platform === item.platform && row.tenantId === item.tenantId
+      && row.senderId === item.senderId && row.conversationId === item.conversationId && row.conversationType === item.conversationType
+      && row.control.controlRevision === control.controlRevision && (!query.targetId || row.id === query.targetId));
+    item.feedback = externalBotFeedback(item, message, !query && connection.progressUpdates === true, query ? target?.id || 'not_found' : '', query?.language || 'zh');
+    if (query) {
+      // The same owner projection used locally includes uncommitted run/send outcomes.
+      // Keep the original identity/window facts while describing authoritative uncertainty.
+      const projected = target && externalBotPublicItem(target);
+      const statusTarget = target && { ...target, execution: projected.execution, delivery: projected.delivery };
+      item.execution = { ...item.execution, status: 'completed', finishedAt: nowIso(), replyText: externalBotStatusText(statusTarget, query.language) };
+      item.delivery = { status: 'pending', attemptId: makeId('reply'), messageId: '', errorCode: '', updatedAt: nowIso() };
+    }
+  }
+  state.items.push(item);
   await externalBotWriteState(state);
   return ack;
 }
@@ -103127,7 +103334,7 @@ Object.assign(ExternalBotHooks, {
   stewardSetup: externalBotStewardSetup,
   actorSignal: actor => externalBotActors.get(actor)?.controller.signal || null,
   start: () => { externalBotWorkerStopped = false; externalBotWakeWorker(); },
-  stop: () => { externalBotWorkerStopped = true; externalBotPairings.clear(); for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
+  stop: () => { externalBotWorkerStopped = true; externalBotWorkerSignal?.(); externalBotWorkerSignal = null; clearTimeout(externalBotFeedbackTimer); externalBotFeedbackTimer = null; externalBotPairings.clear(); for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
 });
 
 // Independent MCP consumers use a running host. No management credential enters

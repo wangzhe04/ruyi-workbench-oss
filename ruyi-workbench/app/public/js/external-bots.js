@@ -14,25 +14,33 @@ const IDS = { id: 'cfgStewardBotId', platform: 'cfgStewardBotPlatform', label: '
   botUserId: 'cfgStewardBotUserId', verificationTokenEnv: 'cfgStewardBotVerificationEnv', encryptKeyEnv: 'cfgStewardBotEncryptEnv', botSecretEnv: 'cfgStewardBotSecretEnv',
   mode: 'cfgStewardBotMode', ownerSenderId: 'cfgStewardBotOwnerSender', ownerConversationId: 'cfgStewardBotOwnerConversation', ownerConversationType: 'cfgStewardBotOwnerType', appSecretEnv: 'cfgStewardBotAppSecretEnv' };
 const strings = value => Array.isArray(value) && value.every(id => typeof id === 'string' && id.length > 0);
+export function validExternalFeedback(value) {
+  return value === undefined || Boolean(value && typeof value === 'object' && !Array.isArray(value)
+    && typeof value.queryId === 'string' && value.queryId.length <= 128
+    && [value.progressWaiting, value.replyWaiting].every(reason => ['', 'ready', 'throttled', 'window_closed'].includes(reason))
+    && (value.progress === null || value.progress && ['pending', 'sending', 'sent', 'failed', 'unknown'].includes(value.progress.status)
+      && typeof value.progress.attemptId === 'string' && /^[A-Za-z0-9_-]{1,50}$/.test(value.progress.attemptId)));
+}
 export function validExternalConnection(row) {
   return Boolean(row && typeof row.id === 'string' && row.id && ['feishu', 'qq'].includes(row.platform)
     && typeof row.label === 'string' && typeof row.enabled === 'boolean'
     && strings(row.allowedSenderIds) && strings(row.allowedConversationIds)
     && FIELDS.every(key => row[key] === undefined || typeof row[key] === 'string')
     && ENV_FIELDS.every(key => !row[key] || ENV_NAME.test(row[key]))
+    && (row.progressUpdates === undefined || typeof row.progressUpdates === 'boolean')
     && (row.mode === undefined || ['inbox', 'control'].includes(row.mode)));
 }
 export function validExternalInboxItem(row) {
   return Boolean(row && ['feishu', 'qq'].includes(row.platform)
     && ['id', 'connectionId', 'conversationId', 'senderId', 'text', 'receivedAt'].every(key => typeof row[key] === 'string' && row[key])
-    && ['connectionLabel', 'tenantId', 'conversationType', 'messageId', 'eventId', 'readAt'].every(key => row[key] === undefined || row[key] === null || typeof row[key] === 'string')
+    && ['connectionLabel', 'tenantId', 'conversationType', 'messageId', 'eventId', 'readAt'].every(key => row[key] === undefined || row[key] === null || typeof row[key] === 'string') && validExternalFeedback(row.feedback)
     && (!row.execution || (['queued', 'running', 'completed', 'failed', 'unknown', 'cancelled'].includes(row.execution.status)
       && ['errorCode', 'replyText'].every(key => row.execution[key] === undefined || typeof row.execution[key] === 'string')))
     && (!row.delivery || ['pending', 'sending', 'sent', 'failed', 'unknown', 'cancelled'].includes(row.delivery.status)
       && (row.delivery.status !== 'cancelled' || typeof row.delivery.cancelledAt === 'string' && row.delivery.cancelledAt.length <= 64 && Boolean(row.delivery.cancelledAt) && Number.isFinite(Date.parse(row.delivery.cancelledAt)))));
 }
 export function validExternalDeliveryItem(row) {
-  return validExternalInboxItem(row) && validReplyRetryHistory(row)
+  return validExternalInboxItem(row) && validReplyRetryHistory(row) && validExternalFeedback(row.feedback)
     && (row.retryAvailable === undefined || typeof row.retryAvailable === 'boolean')
     && (!row.retryAvailable || row.delivery?.status === 'failed') && (row.cancelAvailable === undefined || typeof row.cancelAvailable === 'boolean')
     && (!row.cancelAvailable || ['pending', 'sending'].includes(row.delivery?.status)) && Boolean(row.execution && row.acceptance?.status === 'accepted'
@@ -52,6 +60,7 @@ function validReclaimedExternalItem(row) {
 }
 function connectionPayload(row) {
   const value = { enabled: row.enabled === true, allowedSenderIds: [...row.allowedSenderIds], allowedConversationIds: [...row.allowedConversationIds] };
+  if (row.progressUpdates === true) value.progressUpdates = true;
   for (const key of FIELDS) if (row[key]) value[key] = row[key];
   return value;
 }
@@ -147,6 +156,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       copy.appendChild(el('p', 'muted', t(row.configured ? 'externalBots.configured' : 'externalBots.notConfigured')));
       copy.appendChild(el('p', '', t(row.mode === 'control' ? 'externalBots.controlMode' : 'externalBots.inboxMode')));
       if (row.mode === 'control') copy.appendChild(el('p', 'muted', [row.ownerSenderId, row.ownerConversationId, t(row.ownerConversationType === 'group' ? 'externalBots.group' : 'externalBots.direct')].join(' · ')));
+      if (row.mode === 'control') copy.appendChild(el('p', 'muted', t(row.progressUpdates ? 'externalBots.progressEnabled' : 'externalBots.progressQueryHelp')));
       const actions = el('div', 'external-bots-actions');
       actions.append(control('botSetup.open', 'setup', () => setup.open(row.id)), control('externalBots.edit', 'edit', () => edit(row)),
         control(row.enabled ? 'externalBots.disable' : 'externalBots.enable', 'toggle', () => mutate(row.enabled ? { op: 'disable', id: row.id }
@@ -164,6 +174,17 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       select.value = filter;
     }
     renderDeliveryFilter();
+  }
+  function renderFeedback(item, host) {
+    if (!item.feedback) return;
+    if (item.feedback.progress) host.appendChild(el('p', 'external-bots-fact', t('externalBots.progressFact') + ' · ' + t('externalBots.delivery.' + item.feedback.progress.status)));
+    for (const reason of new Set([item.feedback.progressWaiting, item.feedback.replyWaiting])) {
+      if (reason === 'window_closed') host.appendChild(el('p', 'field-help', t('externalBots.feedbackWindowClosed')));
+      if (reason === 'throttled') host.appendChild(el('p', 'field-help', t('externalBots.feedbackThrottled')));
+      if (reason === 'ready') host.appendChild(el('p', 'field-help', t('externalBots.feedbackReady')));
+    }
+    if (item.feedback.queryId) host.appendChild(el('p', 'muted', t('externalBots.progressReadOnly')));
+    host.appendChild(el('p', 'external-bots-source muted', t('externalBots.progressRequestNumber') + ' · ' + item.id));
   }
   function renderInbox() {
     const host = byId('cfgStewardBotInbox');
@@ -191,6 +212,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
         control('externalBots.markRead', 'read', () => markRead(item)));
       if (item.readAt) actions.lastChild.disabled = true;
       details.append(summary, source, text);
+      renderFeedback(item, details);
       if (item.execution) {
         details.appendChild(el('p', 'external-bots-fact', t('externalBots.execution.' + item.execution.status)));
         if (item.execution.errorCode) details.appendChild(el('p', 'muted', errorText({ code: item.execution.errorCode })));
@@ -242,6 +264,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       const details = el('details', ''), summary = el('summary', 'external-bots-message-summary');
       summary.appendChild(el('span', 'external-bots-preview', item.text.replace(/\s+/g, ' ').slice(0, 120)));
       details.append(summary, el('p', 'external-bots-source muted', [item.senderId, item.conversationId, item.messageId].filter(Boolean).join(' · ')), el('pre', 'external-bots-text', item.text));
+      renderFeedback(item, details);
       if (item.execution.replyText) details.append(el('strong', '', t('externalBots.reply')), el('pre', 'external-bots-text', item.execution.replyText));
       if (item.execution.errorCode) details.appendChild(el('p', 'muted', errorText({ code: item.execution.errorCode })));
       if (item.delivery) {
@@ -664,6 +687,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
       const node = byId(id); if (node) node.value = (row?.[key] || []).join('\n');
     }
     const enabled = byId('cfgStewardBotEnabled'); if (enabled) enabled.checked = row?.enabled === true;
+    const progress = byId('cfgStewardBotProgress'); if (progress) progress.checked = row?.progressUpdates === true;
     if (!row) { const id = byId(IDS.id); if (id) id.value = 'bot_' + globalThis.crypto.randomUUID().replace(/-/g, ''); }
     platformFields(false);
     modeFields();
@@ -682,6 +706,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
   function modeFields() {
     const control = byId(IDS.mode)?.value === 'control';
     for (const key of ['ownerSenderId', 'ownerConversationId', 'ownerConversationType']) { const node = byId(IDS[key]); if (node) { node.closest('label').hidden = !control; node.required = control; } }
+    const progress = byId('cfgStewardBotProgress'); if (progress) progress.closest('label').hidden = !control;
   }
   function save(event) {
     event?.preventDefault();
@@ -689,6 +714,7 @@ export function createExternalBotsPanel({ api, t = key => key, isVisible = visib
     for (const key of FIELDS) connection[key] = String(byId(IDS[key])?.value || '').trim();
     if (!/^[a-z][a-z0-9_-]{0,63}$/.test(connection.id)) { say('externalBots.invalidConnection', 'err'); return false; }
     connection.enabled = byId('cfgStewardBotEnabled')?.checked === true;
+    connection.progressUpdates = connection.mode === 'control' && byId('cfgStewardBotProgress')?.checked === true;
     connection.allowedSenderIds = String(byId('cfgStewardBotAllowedSenders')?.value || '').split(/[\r\n,]+/).map(id => id.trim()).filter(Boolean);
     connection.allowedConversationIds = String(byId('cfgStewardBotAllowedConversations')?.value || '').split(/[\r\n,]+/).map(id => id.trim()).filter(Boolean);
     if (connection.mode === 'control' && (!connection.ownerSenderId || !connection.ownerConversationId

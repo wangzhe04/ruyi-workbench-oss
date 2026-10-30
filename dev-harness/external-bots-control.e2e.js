@@ -51,6 +51,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   fs.writeFileSync(retryFaults, '(' + installRetryFaults.toString() + ')(' + JSON.stringify({ hold:holdRetryFlag, held:retryHeldFlag, lose:loseRetryCommitFlag, lost:retryCommitLostFlag }) + ');');
   let server, fake, apiServer, port, apiPort, token = '', targetId = '', heldTokenResponse = null, holdToken = false, deliveryMode = 'ok', holdMessage = false, heldMessageResponse = null, retryTokenMode = 'ok';
   const commandCalls = new Map(), toolReceipts = [], outbound = [];
+  const progressRequests = new Map(); // Original held fake-provider request references only.
   const request = async (method, route, body, headers = {}, admin = true) => {
     const response = await fetch(`http://127.0.0.1:${port}${route}`, { method, headers: { 'content-type':'application/json', ...(admin ? { 'x-wcw-token': token } : {}), ...headers },
       ...(body === undefined ? {} : { body: Buffer.isBuffer(body) ? body : JSON.stringify(body) }), signal: AbortSignal.timeout(30000) });
@@ -105,6 +106,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       const marker=latest.match(/CONTROL_[A-Z]+(?:_[0-9]+)?/)?.[0];
       if(!marker)return textFrames(JSON.stringify({say:'已查看，无需额外动作。',why:'系统事件',acts:[],actions:[]}));
       const step=(commandCalls.get(marker)||0)+1;commandCalls.set(marker,step);
+      if (['CONTROL_PROGRESS', 'CONTROL_QPROGRESS'].includes(marker) && step === 1) { req.open(); progressRequests.set(marker, req); return; }
       const recentTool=req.messages.filter(row=>row.role==='tool').at(-1);if(recentTool)toolReceipts.push({marker,content:recentTool.content});
       const call=(name,args)=>toolCallFrames(name,args,'call_'+marker+'_'+step);
       if(marker==='CONTROL_CREATE'&&step===1)return call('steward_thread_new',{title:'REMOTE_TASK',cwd:work,tier:'fast',brief:{userText:'准备一句子任务已就绪，等待后续指令。',goal:'输出就绪回执',acceptance:['真实任务存在']}});
@@ -320,6 +322,32 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     const { historicalSource }=require('./lib/external-bots-source-history');
     const oldRejected=['v1','v2','v3'].every(version=>vm.runInNewContext(historicalSource(version)+';externalBotValidState(ledger)',{ledger:ledger4,Buffer,ExternalBotHooks:{},crypto,path})===false);
     ok(ledger4.schema===4&&oldRejected,'R11 exact historical v1/v2/v3 validators reject entire real producer payload4 ledger');
+    // B2 actual acceptance entrance: original HTTP callback/worker/model turn,
+    // held at the real fakeProvider request, and original official API adapter.
+    // Kept after all B1 payload4 assertions so their semantics remain unchanged.
+    for (const platform of ['feishu', 'qq']) {
+      const marker = platform === 'qq' ? 'CONTROL_QPROGRESS' : 'CONTROL_PROGRESS', messageId = 'b2_' + platform;
+      const selected = platform === 'qq' ? { ...qqConnection(), mode:'control', ownerSenderId:'qq_person', ownerConversationId:'qq_room', ownerConversationType:'group' } : connection();
+      const configured = await request('POST','/api/external-bots/connections',{op:'upsert',connection:{...selected,progressUpdates:true},controlConfirmed:true});
+      ok(configured.status===200, 'B2 ' + platform + ' progress setting uses original owner confirmation/API');
+      const text = '请汇报 ' + marker;
+      await callback(messageId,text,platform);
+      await until(()=>progressRequests.get(marker),'held original B2 provider');
+      const running = await until(async()=>{const row=await readItem(messageId);return row?.feedback?.progress?.status==='sent'&&row;},'B2 committed progress');
+      ok(running.execution.status==='running'&&running.delivery===null&&commandCalls.get(marker)===1,'B2 '+platform+' automatic notice arrives while original provider/owner is still pending');
+      const providerBefore=fake.requests.length,queryId=messageId+'_status';await callback(queryId,'/status '+running.id,platform);
+      const queried=await delivered(queryId);
+      ok(queried.feedback?.queryId===running.id&&queried.execution.turnSeq===0&&/processing/.test(queried.execution.replyText)
+        &&fake.requests.length===providerBefore&&commandCalls.get(marker)===1,'B2 '+platform+' active query traverses callback/worker/adapter without a second business/provider call');
+      const held=progressRequests.get(marker);for(const frame of textFrames(JSON.stringify({say:'B2_ACTUAL_FINAL',why:'original held provider completed',acts:[],actions:[]})))held.sse(frame);held.end();progressRequests.delete(marker);
+      const final=await delivered(messageId),replies=outbound.filter(row=>platform==='qq'?row.body.msg_id===messageId:row.path.includes('/'+messageId+'/reply'));
+      ok(final.execution.status==='completed'&&final.feedback.progress.status==='sent'&&replies.length===2
+        &&(platform==='qq'?replies[0].body.msg_seq===1&&replies[1].body.msg_seq===2:replies[0].body.uuid!==replies[1].body.uuid),'B2 '+platform+' final keeps original execution and a separate stable sequence/attempt from progress');
+      const requestsBefore=outbound.length;await stop();await start();await callback(messageId,text,platform,'b2_repeat_'+platform);
+      const repeated=await readItem(messageId);
+      ok(repeated.feedback.progress.attemptId===final.feedback.progress.attemptId&&repeated.delivery.attemptId===final.delivery.attemptId
+        &&commandCalls.get(marker)===1&&outbound.length===requestsBefore,'B2 '+platform+' actual cold restart and duplicate callback preserve progress/final receipts without business/send replay');
+    }
     ok(fake.errors.length===0,'C19 scripted model fixture has no hidden handler failures');
   } catch(error){runner.fail(error.stack||String(error));}
   finally{if(fs.existsSync(holdRetryFlag))fs.unlinkSync(holdRetryFlag);if(fs.existsSync(holdFlag))fs.unlinkSync(holdFlag);if(fs.existsSync(holdCancelFlag))fs.unlinkSync(holdCancelFlag);if(heldTokenResponse)heldTokenResponse.destroy();if(heldMessageResponse)heldMessageResponse.destroy();await stop();if(fake)await fake.close();if(apiServer){apiServer.closeAllConnections();await new Promise(resolve=>apiServer.close(resolve));}runner.done({exit:true});}

@@ -1,0 +1,631 @@
+{
+  "schema": 1,
+  "status": "B2_COMPLETE_INTERNAL_SOURCE_CANDIDATE_AWAITING_NON_AUTHOR_REVIEW_AND_ACTUAL",
+  "base": "2b47f936d26f80c62d779551986ebacb7dc79f71",
+  "branch": "codex/m5-bot-progress",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 65304,
+      "sha256": "1529d0534dc2eb3b194ebf73d13d8e8dd2f2663ac5fdf7672eebf55db49f955e"
+    },
+    {
+      "path": "README_EN.md",
+      "bytes": 72352,
+      "sha256": "09aaedbd72d8c5f7b0985ff15c7f45f2de61e4452fe8cdc5751c88e8d303e48d"
+    },
+    {
+      "path": "dev-harness/durable-state-inventory.js",
+      "bytes": 64335,
+      "sha256": "6b09ff8dee73763b667d0e55ed6c9b5c1df07b716f2dbcf70083548ac092aea4"
+    },
+    {
+      "path": "dev-harness/external-bots-control.e2e.js",
+      "bytes": 43794,
+      "sha256": "d51abeb7072f6f942d6abb778a0acdbfbc36c75b963a7d8f5774b35966db537d"
+    },
+    {
+      "path": "dev-harness/external-bots-progress-source.e2e.js",
+      "bytes": 17163,
+      "sha256": "b6138279fc2edf982e2ebb629e7b05d63d513834efb1fcbd7627eb8a2abc2c2b"
+    },
+    {
+      "path": "dev-harness/external-bots-progress.static.e2e.js",
+      "bytes": 9043,
+      "sha256": "7217553b23fdeead41e1df936dd48db3a0a7a4eaa1f07e4766eaf02f11041d44"
+    },
+    {
+      "path": "dev-harness/external-bots.browser.e2e.js",
+      "bytes": 40341,
+      "sha256": "d86a2fe5a52245da5b4f12dba8b07264a5fc45b36e21892e23b32859188f2bc9"
+    },
+    {
+      "path": "dev-harness/fixtures/external-bots-progress/history.json",
+      "bytes": 65517,
+      "sha256": "19e001d14fd9b9a2986b1c8b1ac6b13c61bef2ded9c6e3f69437f91fbf000bff"
+    },
+    {
+      "path": "dev-harness/lib/external-bots-progress-fixture.js",
+      "bytes": 9165,
+      "sha256": "bc794450c7c96e576ab4655f44fdf057cf81bbc7912ec9880d3a11d7cc7ae26b"
+    },
+    {
+      "path": "dev-harness/lib/external-bots-source-history.js",
+      "bytes": 3728,
+      "sha256": "6a1db14164536ee51907cae5d443571a5716a22be9bfd809a3636cb42186faf3"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.json",
+      "bytes": 74212,
+      "sha256": "244982ed228f1da9507fa7daaabafa6da4862a8e3446ae1542c976e19db36bb0"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.md",
+      "bytes": 55917,
+      "sha256": "ca06c98bfd25a11a6c4bae82a2aa91331287b1aebb4d4c5d7a67fb96995fa35d"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "bytes": 1079225,
+      "sha256": "81adf3fc8a6d822766bd4554bb8e7139d5b1a9753de0b6d37e6494e048e681c3"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "bytes": 151742,
+      "sha256": "d5f7180d1368de9a2df342569e7cf9ce10fafe8251c6f4af30257754c9d0d34b"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "bytes": 224249,
+      "sha256": "116a9c64280be56fedf401e06633f3bae1ec3e341d1f181d0e613d3c82cff91f"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "bytes": 37700,
+      "sha256": "db76dbd3e26a2029e4701ff556bacc5b2925c2826f282c547de78c727cd60792"
+    },
+    {
+      "path": "docs/i18n/locales/en-US.json",
+      "bytes": 357825,
+      "sha256": "df6cbf305c0252e7dea0d72d7ed05bfa95cddbf583ebbb25c295fa5d8187f2e8"
+    },
+    {
+      "path": "docs/i18n/locales/zh-CN.json",
+      "bytes": 341985,
+      "sha256": "6f5687c17a5dd9e0f315ed3f326c1e7cffcb759d52984372401a2ae5c9abb07e"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/m5-bot-progress-20261030-PROTOCOL.md",
+      "bytes": 3544,
+      "sha256": "d4a8d4500c86576c0f7b8738116d1004b4bfcb01b24fc85f1eeb181e17dff7d8"
+    },
+    {
+      "path": "docs/optimization-plan/evidence/m5-bot-progress-20261030-REPORT.md",
+      "bytes": 9081,
+      "sha256": "5b267f29b68735292e2a60c362843ca571d9d8e3fae1080e21f6276531f6c39b"
+    },
+    {
+      "path": "facts.json",
+      "bytes": 1335,
+      "sha256": "f7a7d5ce00de93d5249f25e7f21b4003fcb0ea86cc968e7b66280a8076c30c57"
+    },
+    {
+      "path": "ruyi-workbench/app/public/index.html",
+      "bytes": 206436,
+      "sha256": "05c7bb5b7be4eb8b7a9b6d8558ce4e762f5417119e30c83f9089a0a61964d308"
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/external-bots.js",
+      "bytes": 59587,
+      "sha256": "ae6ed77e9027153ba1f90975681d42ca8c29f50d829e356b621d2905cb384095"
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/en-US.json",
+      "bytes": 357825,
+      "sha256": "df6cbf305c0252e7dea0d72d7ed05bfa95cddbf583ebbb25c295fa5d8187f2e8"
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "bytes": 341985,
+      "sha256": "6f5687c17a5dd9e0f315ed3f326c1e7cffcb759d52984372401a2ae5c9abb07e"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "bytes": 8159004,
+      "sha256": "8ba1ca85174b9f42458764224b19e27c433314d91c35de8e519ed6d910acb3ab"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "bytes": 121454,
+      "sha256": "7c5986adc7db92a29742d2e0fb889ac10e04fa4ef603469f482fb290dfd7fed2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "bytes": 11547,
+      "sha256": "fc8be61895159daa8b5ec219078b1c944f11fe3f3593c44a51473737348606d3"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "bytes": 36169,
+      "sha256": "da5b558ba9f04ac5f18194530dd5556b5391c9c85eb899e69f69b82cdcd5b1ba"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "bytes": 795899,
+      "sha256": "f7397119796dd7bc7ee143ae4117c27ca20bcbad55e2a4538d2b7c3f5c1fcefa"
+    }
+  ],
+  "delta": [
+    {
+      "path": "README.md",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "path": "README_EN.md",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "path": "dev-harness/durable-state-inventory.js",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "path": "dev-harness/external-bots-control.e2e.js",
+      "added": 28,
+      "deleted": 0
+    },
+    {
+      "path": "dev-harness/external-bots.browser.e2e.js",
+      "added": 21,
+      "deleted": 1
+    },
+    {
+      "path": "dev-harness/lib/external-bots-source-history.js",
+      "added": 7,
+      "deleted": 0
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.json",
+      "added": 2,
+      "deleted": 2
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.md",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "added": 16,
+      "deleted": 2
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "added": 2,
+      "deleted": 2
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "added": 2,
+      "deleted": 1
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "added": 2,
+      "deleted": 2
+    },
+    {
+      "path": "docs/i18n/locales/en-US.json",
+      "added": 10,
+      "deleted": 0
+    },
+    {
+      "path": "docs/i18n/locales/zh-CN.json",
+      "added": 10,
+      "deleted": 0
+    },
+    {
+      "path": "facts.json",
+      "added": 2,
+      "deleted": 2
+    },
+    {
+      "path": "ruyi-workbench/app/public/index.html",
+      "added": 3,
+      "deleted": 0
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/external-bots.js",
+      "added": 28,
+      "deleted": 2
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/en-US.json",
+      "added": 10,
+      "deleted": 0
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "added": 10,
+      "deleted": 0
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "added": 240,
+      "deleted": 47
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "added": 224,
+      "deleted": 43
+    },
+    {
+      "path": "ruyi-workbench/app/src/13x-external-channel-delivery.js",
+      "added": 16,
+      "deleted": 4
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "added": 53,
+      "deleted": 53
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "added": 15,
+      "deleted": 1
+    }
+  ],
+  "protectedFiles": [
+    {
+      "path": "ruyi-workbench/app/src/00-boot.js",
+      "bytes": 107884,
+      "sha256": "e1b24a1b25845619bb6395ecd56e6c538fce6d5696a2dac516e73aa8e6915fce"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01b-route-auth.js",
+      "bytes": 19967,
+      "sha256": "aa5db773c2fab67147e76ecdc2703732ded09a0c49a849976059a13d973b8cf2"
+    },
+    {
+      "path": "ruyi-workbench/app/src/02-session-store.js",
+      "bytes": 464610,
+      "sha256": "4561f0c3fb92354d93e5db50e39998e16ff57d2ee0ccfb01e45a104484b1df12"
+    },
+    {
+      "path": "ruyi-workbench/app/src/03a-privacy-gateway.js",
+      "bytes": 107663,
+      "sha256": "51709c7829d39cbdf21ab2222a2e1d8ce60dc51501d5550b5289ce16a263e91a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/09-workflow.js",
+      "bytes": 360462,
+      "sha256": "8dcccec708a3438e9f33ea77d29a8724e19b301d5478540af522ef0879671ed5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/10-context-governance.js",
+      "bytes": 321438,
+      "sha256": "24bf80e13327fb3837000bc6addc672571d603540358926b9d6ab8bbc4d035ca"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13s-scheduler.js",
+      "bytes": 86791,
+      "sha256": "564639df1026b43e1985597f9df6beb248eb54ae20abc50d86d7ade9e587500b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13v-external-channel-protocols.js",
+      "bytes": 14755,
+      "sha256": "4696fb6ced6c09b4a716ae9e4cea5e0363f2761e1615e7eff7393dae8ea1201e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "bytes": 20475,
+      "sha256": "ad2dc2ed042eb0952a822a7963b50696a6672d80ed2cd11b48d17859c3638c51"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13z-external-bot-discovery.js",
+      "bytes": 6315,
+      "sha256": "6148674adf92ba96a8849adbfc02fc072caa216bdd8e3521edc2e100e21d1766"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-dependency-policy.json",
+      "bytes": 28287,
+      "sha256": "0e05a9356822d031e7c0126f35dec2b9f76bdbc604e079a29d28f507fb147a9f"
+    },
+    {
+      "path": "ruyi-workbench/package.json",
+      "bytes": 1502,
+      "sha256": "11a8627f73b0c99c02ceb8dff64f07ae3ecac0dac2e3e148fc12aa592d07bce5"
+    },
+    {
+      "path": "dev-harness/facts-generate.js",
+      "bytes": 6512,
+      "sha256": "f58b925efc32c210d2a0d1b0e42484b4537707bfbcbab7d084f88fe24ea9cf68"
+    },
+    {
+      "path": "dev-harness/lib/media-artifact-test-guard.js",
+      "bytes": 1909,
+      "sha256": "08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91"
+    },
+    {
+      "path": "dev-harness/fixtures/external-bots-retention/history.json",
+      "bytes": 37334,
+      "sha256": "897bf38ceeb4bc9a592a64fe367ed36adb8090e977c2a4b2b4704e5de7e45eec"
+    },
+    {
+      "path": "dev-harness/fixtures/external-bots-cancel/history.json",
+      "bytes": 27200,
+      "sha256": "e15eeca029dd3db99019ce0b4a6dc41d51a2b3c1754838ad847fab473e76412d"
+    },
+    {
+      "path": "dev-harness/fixtures/external-bots-retry/contracts.json",
+      "bytes": 11583,
+      "sha256": "393b55935288924442d1ed3fbc17b1e9466233a16923d3777f26cbc99f79ee13"
+    }
+  ],
+  "protectedBodies": [
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "symbol": "externalBotOwnerMatches",
+      "sha256": "938e6c398abb97050f56391f2bf2536012a13f6f25c6cbb11d5bab69837140e5"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "symbol": "externalBotValidateActor",
+      "sha256": "a65d8f6012794c8c793ebfb45c6fc3e519a9552b26aff6552ffb10129c0ec79f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "symbol": "externalBotValidControlState",
+      "sha256": "a3afcd29e3b19d901d3f71d0980a8d7a524f319343f97b3a52381e57e6adc206"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "symbol": "externalBotCredentialSnapshot",
+      "sha256": "e817628a1dc0a9d15efd94275463034b69c320d621ab13b3db93f08c3469f00e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "symbol": "externalBotSecrets",
+      "sha256": "432681555c6a3ff3be8beb898e5c559eab842a99433bf236ebb8063ade639550"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "symbol": "externalBotReadState",
+      "sha256": "0ec89247f164cc23546e559774da17e3197bfbd36ca906b0f4ff1da235418a22"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "symbol": "externalBotStore",
+      "kind": "constBlock",
+      "sha256": "6240970bec80cf266002dbcd0af4b04278e7d190fbd056c336bef48832fb8e84"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/prepare.cjs",
+      "bytes": 3531,
+      "sha256": "f0c628184068591e6ab850b185f42ca8f0155912f18dd4b90f900daa5b28efd2"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/history.cjs",
+      "bytes": 1859,
+      "sha256": "6a5d7b1bb567cd029c0c0ef1c4cf27370c53e0abfdc82d422569170a3371a6ba"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/update-inventory.cjs",
+      "bytes": 970,
+      "sha256": "7a835b503003ebeeb4589e3e17d9aa26b4a2d951bb1634566d15363e5fffa4b3"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/run-source.cjs",
+      "bytes": 2788,
+      "sha256": "8e3397082e584cb4d2731d839a004675fb9922da8b138223fe6a76985a301073"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/finish-source.cjs",
+      "bytes": 2854,
+      "sha256": "d0817d2ffa17eb141a9a6261b8b3feb0c826fa1401e7351eef1f731ff248f589"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/verify-final.cjs",
+      "bytes": 3027,
+      "sha256": "b76a807ac1192530c183474768eb2e554ea34a7a526b98db282183815f0ad71c"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/counts-only.cjs",
+      "bytes": 2880,
+      "sha256": "5cf52cd80db51e032eb4a8251cbd97dfd93279f0e3594823f8cab88bcd484067"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/counts.json",
+      "bytes": 561,
+      "sha256": "48ab074d4c46a1192a43b7dccb7cb8130bbdc7512ee4880738db93e808918b0b"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/mechanical-facts-preimage.json",
+      "bytes": 1449,
+      "sha256": "315b34ab5458edaf8f0995bef88142ab7d781a17002fd239afa19114d3123b04"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/official-facts.cjs",
+      "bytes": 2971,
+      "sha256": "63ebebab7c2b3579b5db55346e0c7eb71ab7482eaa5c897fafd84cd9aa70f782"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/official-facts.json",
+      "bytes": 597,
+      "sha256": "e657fecc0a160b77066aaa99fbda1274a7d6b7781ca71938a1e986311ceb6832"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/official-facts.stdout.txt",
+      "bytes": 415,
+      "sha256": "f9014c1a90a61e46ac26bfc445c51b99909636ee632d731a313e00baaf0f190e"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/official-facts-static.stdout.txt",
+      "bytes": 2333,
+      "sha256": "a44e516b6fad59c7273526677a74b081d18da2f0e7ee3fdc2c89c03e0f6fa5e0"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/before.stdout.txt",
+      "bytes": 220,
+      "sha256": "80a9c0e1d29d9a117e3c9ad9236d2c3f17557367321ce3d623c86eb341cf8a70"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/route-static.stdout.txt",
+      "bytes": 1313,
+      "sha256": "8cb5f3b7a55e32ec8ecf6eca213b335c653bb7234801d53776c384e5422274fc"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/i18n-static.stdout.txt",
+      "bytes": 749,
+      "sha256": "5bedf61a9ef0e495586ae9cea0dbd76cf1219669416983063171de31fdb10cd5"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/inventory-static.stdout.txt",
+      "bytes": 798,
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/validation.json",
+      "bytes": 4581,
+      "sha256": "d893ae3ed66713c4b242d9f22320dfe052f4f1e28ef190f5c3e8982b1f858ea8"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/validation-sealed.json",
+      "bytes": 3131,
+      "sha256": "fc72807c62c874bc52fd6b065244399bbb478e82e6015644869a2f066e3a603d"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/source-sealed.stdout.txt",
+      "bytes": 3592,
+      "sha256": "85e7e6835c6650a52ec2753f81e023eabc6d75dcda9b87c9523088e4992cafbe"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/source-owned-handles.stdout.txt",
+      "bytes": 3592,
+      "sha256": "85e7e6835c6650a52ec2753f81e023eabc6d75dcda9b87c9523088e4992cafbe"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/pure-sealed.stdout.txt",
+      "bytes": 1754,
+      "sha256": "8f3ab357ce1a3c399a9b1dc1822dca0dab1d222b38497262eb26b72a523fd14b"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/build-sealed.stdout.txt",
+      "bytes": 106,
+      "sha256": "b6657120028dcb62b217da6706646b82333e8746b93482663b9944fd96337e17"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/build-check-sealed.stdout.txt",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/graph-static-sealed.stdout.txt",
+      "bytes": 1233,
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/route-static-sealed.stdout.txt",
+      "bytes": 1313,
+      "sha256": "9cbe6bc4199239ea56dfac66bc3024ca3ba8bd413d52d4355c820e9c630edde4"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/facts-static-sealed.stdout.txt",
+      "bytes": 2333,
+      "sha256": "a44e516b6fad59c7273526677a74b081d18da2f0e7ee3fdc2c89c03e0f6fa5e0"
+    },
+    {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/execution-notes.json",
+      "bytes": 3470,
+      "sha256": "1f0ab867d8b45bc6a510f1868feb0834c899ae6c5bba5b481875ef8ab02e26e3"
+    }
+  ],
+  "validation": {
+    "sourceVmM3FsSyntheticHttps": 29,
+    "pureVmUi": 19,
+    "originalNegativeControls": 2,
+    "syntax": {
+      "files": 11,
+      "paths": [
+        "dev-harness/durable-state-inventory.js",
+        "dev-harness/external-bots-control.e2e.js",
+        "dev-harness/external-bots-progress-source.e2e.js",
+        "dev-harness/external-bots-progress.static.e2e.js",
+        "dev-harness/external-bots.browser.e2e.js",
+        "dev-harness/lib/external-bots-progress-fixture.js",
+        "dev-harness/lib/external-bots-source-history.js",
+        "ruyi-workbench/app/public/js/external-bots.js",
+        "ruyi-workbench/app/server.js",
+        "ruyi-workbench/app/src/13w-external-bots.js",
+        "ruyi-workbench/app/src/13x-external-channel-delivery.js"
+      ],
+      "failures": 0,
+      "modulesExecuted": 0
+    },
+    "buildFresh": true,
+    "moduleGraph": {
+      "modules": 125,
+      "edges": 863,
+      "scc": 1,
+      "policyUnchanged": true
+    },
+    "routes": {
+      "decisionPoints": 192,
+      "authRules": 179,
+      "warnings": 0
+    },
+    "durableInventorySurfaces": 77,
+    "i18nFourCatalog": true,
+    "originalFactsGeneratorGuarded": {
+      "path": ".ruyi-runtime/m5-bot-progress-20261030/official-facts.json",
+      "bytes": 597,
+      "sha256": "e657fecc0a160b77066aaa99fbda1274a7d6b7781ca71938a1e986311ceb6832"
+    },
+    "facts": {
+      "e2eCount": 601,
+      "baseE2eCount": 599,
+      "defaultCount": 594,
+      "accTools": 108,
+      "accLiveProbe": false
+    },
+    "diffCheck": true,
+    "actualEntryLinesPreserved": true,
+    "historyInverseSpans": 20,
+    "actualHttpProviderBrowserEngine": false,
+    "platformSent": false,
+    "directoryUnitExecuted": false
+  },
+  "actualPreparedOnly": [
+    {
+      "path": "dev-harness/external-bots-control.e2e.js",
+      "scope": "original isolated actual callback/fakeProvider held owner/progress/status/adapter/final/cold path for QQ and Feishu; old assertions preserved",
+      "next": "two fresh serial runs after independent acceptance and Root authorization"
+    },
+    {
+      "path": "dev-harness/external-bots.browser.e2e.js",
+      "scope": "natural progress preference and original confirmation; real old QQ callback creates local pending; zh/en UI screenshots",
+      "next": "two fresh serial runs after independent acceptance and Root authorization"
+    }
+  ],
+  "budget": {
+    "businessPayload": 6,
+    "m3QueueAadSchema": 1,
+    "progressSlotsPerItem": 1,
+    "sendReservationsPerItem": 130,
+    "originalBodyRows": 1000,
+    "originalBusinessBytes": 41943040,
+    "productAppPerMinute": 12,
+    "productChatPerMinute": 6,
+    "productChatIntervalMs": 1000,
+    "platformQuotaClaim": false,
+    "qqPassiveIntersectionMs": 300000
+  },
+  "sourceReadyForReview": true,
+  "wholeM5Ready": false,
+  "actualAccepted": false,
+  "realPlatformAccepted": false
+}

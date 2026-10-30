@@ -604,163 +604,163 @@
     {
       "file": "13x-external-channel-delivery.js",
       "startLine": 100890,
-      "endLine": 101042,
+      "endLine": 101054,
       "note": "Single bounded official QQ/Feishu reply delivery, explicit sent/failed/unknown outcomes"
     },
     {
       "file": "13y-external-bot-credentials.js",
-      "startLine": 101043,
-      "endLine": 101342,
+      "startLine": 101055,
+      "endLine": 101354,
       "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS"
     },
     {
       "file": "13z-external-bot-discovery.js",
-      "startLine": 101343,
-      "endLine": 101438,
+      "startLine": 101355,
+      "endLine": 101450,
       "note": "Owner-initiated fixed official-host Feishu identity probe, bounded and never persisted"
     },
     {
       "file": "13ab-privacy-api.js",
-      "startLine": 101439,
-      "endLine": 101903,
+      "startLine": 101451,
+      "endLine": 101915,
       "note": "81-P2: token-authenticated security settings and recovery API"
     },
     {
       "file": "13w-external-bots.js",
-      "startLine": 101904,
-      "endLine": 103132,
+      "startLine": 101916,
+      "endLine": 103339,
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker"
     },
     {
       "file": "13ac-mcp-consumer.js",
-      "startLine": 103133,
-      "endLine": 103741,
+      "startLine": 103340,
+      "endLine": 103948,
       "note": "Authenticated independent stdio consumer relay, bounded host-owned scopes and grants"
     },
     {
       "file": "13ad-memory-cli-relay.js",
-      "startLine": 103742,
-      "endLine": 103959,
+      "startLine": 103949,
+      "endLine": 104166,
       "note": "Per-execution read-only memory relay for native CLI consumers"
     },
     {
       "file": "13ae-cli-business-services.js",
-      "startLine": 103960,
-      "endLine": 104428,
+      "startLine": 104167,
+      "endLine": 104635,
       "note": "M3-3: CLI business services shared by HTTP and serve-owned internal MCP, late-bound through boot hooks"
     },
     {
       "file": "13af-internal-mcp-relay.js",
-      "startLine": 104429,
-      "endLine": 104783,
+      "startLine": 104636,
+      "endLine": 104990,
       "note": "M3-3: exact execution capability relay; default stdio has no data-root writer"
     },
     {
       "file": "13ag-work-data-maintenance.js",
-      "startLine": 104784,
-      "endLine": 104964,
+      "startLine": 104991,
+      "endLine": 105171,
       "note": "M3-3: work-data-maintenance"
     },
     {
       "file": "13at-work-data-restore-uploads.js",
-      "startLine": 104965,
-      "endLine": 104987,
+      "startLine": 105172,
+      "endLine": 105194,
       "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and one job-bound private job/nonce handoff consumed by the cold restore worker; HTTP upload custody and the warm runtime keeper are wired, and a restore recovers into an independent fresh target whose private successor is started on that target root under the TEMP activation receipt (B2). The receipt remains a single-handoff TEMP record — never a migration, ownership or long-lived serving-root authority; the persistent boot-root preference is a separate record (B3)."
     },
     {
       "file": "13av-work-data-handoff-claim.js",
-      "startLine": 104988,
-      "endLine": 105477,
+      "startLine": 105195,
+      "endLine": 105684,
       "note": "M3-3: durable warm/cold handoff claim with exact identity CAS and fail-closed cleanup, plus the separate activation-v1 TEMP namespace that binds one committed restore to its canonical fresh target, target identity/authority, successor nonce, cold parent and source result proof with create-only writes and sha/dev/ino CAS removal; never a migration or ownership authority"
     },
     {
       "file": "13ah-work-data-setup.js",
-      "startLine": 105478,
-      "endLine": 105781,
+      "startLine": 105685,
+      "endLine": 105988,
       "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, restore, status, jobs and upload; restore admission requires the real worker and upload broker, resolves exactly one job-bound grant after directory and authority checks, and recovers into a separate fresh target whose private successor is then started on that target root under the TEMP activation receipt; the persistent source result still expresses no serving-root preference (restored target metadata only, no restartRoot or activation preference)"
     },
     {
       "file": "13ai-work-data-worker.js",
-      "startLine": 105782,
-      "endLine": 106192,
+      "startLine": 105989,
+      "endLine": 106399,
       "note": "K3 cold maintenance worker: authenticated private IPC plus proof of parent death before it touches the base, restore-upload handoff validation and execute()-only mutation; the parent reads no config or store, releases no ownership and switches no warm root"
     },
     {
       "file": "13aj-work-data-control.js",
-      "startLine": 106193,
-      "endLine": 106436,
+      "startLine": 106400,
+      "endLine": 106643,
       "note": "K3 durable single pending maintenance intent with its per-write receipts: a private issued receipt gates every update/removal, an interrupted write never authorizes the next mutation, and boot refuses unfinished intent/result state before normal recovery"
     },
     {
       "file": "13al-work-data-maintenance-http.js",
-      "startLine": 106437,
-      "endLine": 106544,
+      "startLine": 106644,
+      "endLine": 106751,
       "note": "K3 bounded cold-worker progress HTTP: loopback-only status transport whose caller has already proved parent death and current exclusive OS ownership; it opens no data root and starts no maintenance"
     },
     {
       "file": "13an-work-data-disposable-tree.js",
-      "startLine": 106545,
-      "endLine": 106581,
+      "startLine": 106752,
+      "endLine": 106788,
       "note": "K3 disposal of the owned disposable native rehearsal tree: requires the real native namespace census plus WorkDataTree's private identity proof and refuses any capture above the existing 96 MB bound instead of omitting tail, stream or unknown objects"
     },
     {
       "file": "13ak-work-data-cold-operations.js",
-      "startLine": 106582,
-      "endLine": 106963,
+      "startLine": 106789,
+      "endLine": 107170,
       "note": "K3 cold operation bodies for the fresh maintenance worker: backup, restore and rehearsal run on host-supplied real owner lifetimes and the reviewed snapshot/codec/native owners; never starts a normal server or changes process-global paths"
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "startLine": 106964,
-      "endLine": 107513,
+      "startLine": 107171,
+      "endLine": 107720,
       "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and successor maintenance; in production the successor is WorkDataRuntimeHost startSuccessorMaintenance driving the prepare/complete two-phase handoff into a fresh serve that must re-prove the same listener and authority, while runSuccessor remains only the legacy harness path; only a reviewed production host may configure it"
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "startLine": 107514,
-      "endLine": 107862,
+      "startLine": 107721,
+      "endLine": 108069,
       "note": "M3-4 committed-message text index owner"
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "startLine": 107863,
-      "endLine": 108012,
+      "startLine": 108070,
+      "endLine": 108219,
       "note": "M3-4 authorized UI/model/MCP fulltext consumers"
     },
     {
       "file": "13ba-media-image-contract.js",
-      "startLine": 108013,
-      "endLine": 108321,
+      "startLine": 108220,
+      "endLine": 108528,
       "note": "M4 bounded in-memory image contract; production media owners unbound"
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "startLine": 108322,
-      "endLine": 108594,
+      "startLine": 108529,
+      "endLine": 108801,
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false"
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "startLine": 108595,
-      "endLine": 108636,
+      "startLine": 108802,
+      "endLine": 108843,
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability"
     },
     {
       "file": "13aw-work-data-root-preference.js",
-      "startLine": 108637,
-      "endLine": 108914,
+      "startLine": 108844,
+      "endLine": 109121,
       "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted"
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "startLine": 108915,
-      "endLine": 109748,
+      "startLine": 109122,
+      "endLine": 109955,
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis)."
     },
     {
       "file": "14-main.js",
-      "startLine": 109749,
-      "endLine": 110661,
+      "startLine": 109956,
+      "endLine": 110868,
       "note": "main()/module.exports"
     }
   ]

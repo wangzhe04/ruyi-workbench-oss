@@ -63,10 +63,11 @@ const ExternalChannelDelivery = (() => {
         });
         request.on('error', () => finish({ failure: 'network' }));
         request.end(bytes);
-      } catch { finish({ failure: request ? 'network' : 'predispatch' }); if (request) request.destroy(); }
+      } catch (error) { finish({ failure: error?.code === 'external_delivery.reply_window_closed' ? 'window_closed' : request ? 'network' : 'predispatch' }); if (request) request.destroy(); }
     });
   }
   function classify(result, tokenPhase) {
+    if (result.failure === 'window_closed') return failure('pending', 'reply_window_closed');
     const status = tokenPhase ? 'failed' : 'unknown';
     if (result.failure === 'predispatch') return failure('failed', 'predispatch');
     if (result.failure) return failure(status, (tokenPhase ? 'token_' : '') + result.failure);
@@ -78,6 +79,8 @@ const ExternalChannelDelivery = (() => {
   async function sendReply(connection, originalMessage, text, options = {}) {
     if (!object(connection) || !object(originalMessage) || !object(options)) return failure('failed', 'invalid_input');
     const platform = connection.platform;
+    const messageSeq = options.messageSeq === undefined ? 1 : options.messageSeq;
+    if (!Number.isSafeInteger(messageSeq) || messageSeq < 1 || messageSeq > (originalMessage.conversationType === 'group' ? 5 : 4)) return failure('failed', 'invalid_input');
     if (!['qq', 'feishu'].includes(platform) || !id(connection.appId) || typeof options.attemptId !== 'string'
       || !/^[A-Za-z0-9_-]{1,50}$/.test(options.attemptId)) return failure('failed', 'invalid_config');
     if (!id(originalMessage.messageId) || !id(originalMessage.conversationId) || !id(originalMessage.senderId)
@@ -85,6 +88,13 @@ const ExternalChannelDelivery = (() => {
     const tenantId = connection.tenantId || (platform === 'qq' ? connection.appId : undefined);
     if (!id(tenantId) || tenantId !== originalMessage.tenantId) return failure('failed', 'identity_mismatch');
     if (platform === 'qq' && originalMessage.conversationType === 'direct' && originalMessage.conversationId !== originalMessage.senderId) return failure('failed', 'identity_mismatch');
+    const assertWindow = () => {
+      if (platform === 'qq' && originalMessage.feedback) {
+        const at = Date.parse(originalMessage.feedback.sentAt);
+        if (!Number.isFinite(at) || Date.now() >= at + 300000) throw Object.assign(new Error('passive window closed'), { code: 'external_delivery.reply_window_closed' });
+      }
+    };
+    try { assertWindow(); } catch { return failure('pending', 'reply_window_closed'); }
     if (typeof text !== 'string' || !text.trim() || text.length > 1048576
       || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text) || Buffer.from(text).toString('utf8') !== text) return failure('failed', 'text_invalid');
     const credential = platform === 'qq' ? connection.botSecret : connection.appSecret;
@@ -117,17 +127,19 @@ const ExternalChannelDelivery = (() => {
       dispatched = true;
       if (!prepared || typeof prepared.text !== 'string' || (options.prepare && typeof prepared.assertCurrent !== 'function')) throw new Error('invalid preparation');
       bounded = boundedText(prepared.text); text = bounded.text;
-      if (prepared.assertCurrent) requestOptions.assertDispatch = bytes => {
+      requestOptions.assertDispatch = bytes => {
+        assertWindow();
         if (requestOptions.signal?.aborted) throw new Error('cancelled');
-        prepared.assertCurrent({ text, bytes });
+        prepared.assertCurrent?.({ text, bytes });
       };
       if (requestOptions.signal?.aborted) return Promise.resolve({ failure: 'predispatch' });
+      try { assertWindow(); } catch { return Promise.resolve({ failure: 'window_closed' }); }
       requestOptions.timeoutMs = deadline - Date.now();
       if (requestOptions.timeoutMs <= 0) return Promise.resolve({ failure: 'predispatch' });
       return post(hostname, platform === 'qq'
         ? '/v2/' + (group ? 'groups/' : 'users/') + encodeURIComponent(conversationId) + '/messages'
         : '/open-apis/im/v1/messages/' + encodeURIComponent(messageId) + '/reply',
-      platform === 'qq' ? { msg_type: 0, content: text, msg_id: messageId, msg_seq: 1 }
+      platform === 'qq' ? { msg_type: 0, content: text, msg_id: messageId, msg_seq: messageSeq }
         : { msg_type: 'text', content: JSON.stringify({ text }), uuid },
       (platform === 'qq' ? 'QQBot ' : 'Bearer ') + token, requestOptions);
     };

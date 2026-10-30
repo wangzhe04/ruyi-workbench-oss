@@ -3,7 +3,27 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const repo=path.resolve(__dirname,'../..'),src=()=>fs.readFileSync(path.join(repo,'ruyi-workbench/app/src/13w-external-bots.js'),'utf8'),hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const replyRetryContracts=require('../fixtures/external-bots-retry/contracts.json');
+function beforeFeedbackWake(value) {
+  const history=require('../fixtures/external-bots-progress/deferred-wake-history.json');
+  if(hash(value)!==history.sha256)return value;
+  for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
+  assert.equal(hash(value),history.baseSha256);return value;
+}
+function beforeProgressDelivery(value) {
+  const history=require('../fixtures/external-bots-progress/delivery-history.json');
+  if(hash(value)!==history.sha256)return value;
+  for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
+  assert.equal(hash(value),history.baseSha256);return value;
+}
+function beforeProgress(value) {
+  value=beforeFeedbackWake(value);
+  const history=require('../fixtures/external-bots-progress/history.json');
+  if(hash(value)!==history.sha256)return value;
+  for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
+  assert.equal(hash(value),history.baseSha256);return value;
+}
 function beforeRetention(value) {
+  value=beforeProgress(value);
   const history=require('../fixtures/external-bots-retention/history.json');
   if(hash(value)!==history.sha256)return value;
   for(const row of [...history.inverseSpans].reverse()){assert.equal(value.split(row.before).length,2);value=value.replace(row.before,row.after);}
@@ -58,4 +78,4 @@ function retryCoreSource(value=src()) {
   for(const row of [...replyRetryContracts.apiSpans].reverse()) {assert.equal(value.split(row.after).length,2);value=value.replace(row.after,row.before);}
   assert.equal(hash(value),replyRetryContracts.product.coreSha256);return value;
 }
-module.exports={historicalSource,retryCoreSource,replyRetryContracts,replyRetrySourceV2,beforeRetention,beforeRetentionAuth};
+module.exports={historicalSource,retryCoreSource,replyRetryContracts,replyRetrySourceV2,beforeProgress,beforeProgressDelivery,beforeRetention,beforeRetentionAuth};

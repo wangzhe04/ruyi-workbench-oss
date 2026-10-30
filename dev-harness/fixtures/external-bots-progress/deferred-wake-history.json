@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "description": "Exact deferred feedback wake revision to the original reviewed B2 R1 source. Test data only; unknown whole source drift is not an accepted revision.",
+  "sha256": "2f8b7611576b8318d30e6130630678d4952626b7d3c352292ec33e44c5cc9775",
+  "baseSha256": "014af7e765c3042fe4c6e462fa340d1d4c2cbf022523d63cbd9c3258ae29d446",
+  "inverseSpans": [
+    {
+      "before": "function externalBotScheduleFeedbackWake(at) {\n  if (externalBotFeedbackTimer || externalBotWorkerStopped) return;\n  externalBotFeedbackTimer = setTimeout(() => {\n    externalBotFeedbackTimer = null;\n    if (externalBotWorkerStopped) return;\n    // A timer outlives the intake lease which created it. Re-enter only while\n    // open, and keep that fresh lease until the original drain actually settles.\n    // Closed intake still records the original wake for the host's resume path.\n    if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.fresh && WorkDataMaintenanceHooks.accepting()) {\n      void WorkDataMaintenanceHooks.fresh('external-worker', () => externalBotWakeWorker())\n        .catch(() => { externalBotWorkerError = 'external_channel.storage_unavailable'; externalBotWorkerAgain = true; });\n    } else externalBotWakeWorker();\n  }, Math.max(1, Math.min(60000, at - Date.now())));\n  externalBotFeedbackTimer.unref?.();\n}",
+      "after": "function externalBotScheduleFeedbackWake(at) {\n  if (externalBotFeedbackTimer || externalBotWorkerStopped) return;\n  externalBotFeedbackTimer = setTimeout(() => { externalBotFeedbackTimer = null; externalBotWakeWorker(); }, Math.max(1, Math.min(60000, at - Date.now())));\n  externalBotFeedbackTimer.unref?.();\n}"
+    },
+    {
+      "before": "function externalBotWakeWorker() { if (!externalBotWorkerStopped) { externalBotWorkerAgain = true; externalBotWorkerSignal?.(); if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return; return externalBotDrain(); } }",
+      "after": "function externalBotWakeWorker() { if (!externalBotWorkerStopped) { externalBotWorkerAgain = true; externalBotWorkerSignal?.(); if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.accepting && !WorkDataMaintenanceHooks.accepting()) return; void externalBotDrain(); } }"
+    }
+  ]
+}

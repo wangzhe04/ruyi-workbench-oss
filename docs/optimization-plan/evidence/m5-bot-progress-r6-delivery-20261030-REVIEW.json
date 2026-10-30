@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "verdict": "PASS_BOUNDED_DELIVERY",
+  "sourceReview": {
+    "verdict": "PASS",
+    "base": "b20da3aa38c073c10dff3b87534b02b547f97dd6",
+    "sourceTree": "6bf5633a810cae5288e445bc4891ab6f96ed5c17",
+    "sourceRows": 107,
+    "sourceChangedPaths": 38,
+    "privatePatchForwardReverse": true,
+    "defaultIndexUnchanged": true,
+    "candidateManifestSha256": "a65624ff879c59d3bd9e7fdad8aeb8e6be8e20b601ab3cf0bd0e128d2090699f",
+    "archive": {
+      "references": 325,
+      "unique": 312,
+      "rawBytes": 7671958,
+      "packedBytes": 1952566,
+      "allOriginalsExact": true
+    },
+    "docs": [
+      {
+        "file": "docs/optimization-plan/92-3.1-implementation-handoff.md",
+        "bytes": 288140,
+        "sha256": "0dc2a430fdbdf664497a6790ed093c34cb0ce14f9a5593c83a93fee430c4ebea"
+      },
+      {
+        "file": "docs/optimization-plan/96-m3-3-migration-and-recovery.md",
+        "bytes": 43201,
+        "sha256": "744fcbc8b0e216ce6b56908bd88429a9f399861b235eceb5da32fdce82dfbb8f"
+      },
+      {
+        "file": "docs/optimization-plan/97-3.1-cross-machine-handoff-20261025.md",
+        "bytes": 26722,
+        "sha256": "508aa89152ad67d462a712ef436c09334d03743e4935ed07f70d2f145ec2036e"
+      },
+      {
+        "file": "docs/optimization-plan/86-3.1-completion-and-privacy-roadmap.md",
+        "bytes": 48428,
+        "sha256": "eb117a9d1743f1aac1954002628905af35118b97f169995c03d24c8b8efb2bd2"
+      }
+    ],
+    "visualReadback": "Root viewed final R6 second-browser English public screenshot; authorized conversation wording visible with pending reply explanation.",
+    "scope": [
+      "Selected archive references only; not recursively complete transitive evidence.",
+      "R5 fullfast remains RED; unit and final static/browser/EOL/hygiene are separate runs.",
+      "No claim of independent per-runOne streams or all OS descendants closing."
+    ]
+  },
+  "independentReadback": {
+    "reportSha256": "23af5a11723b87917506a417454c75263add29acaefa659405c91298e70fc058",
+    "resultSha256": "ad248f6340187133f38a8ddbd058efbd6838dad220b61a96cec11edb70dd7e95",
+    "report": "# B2 R6 independent archive readback\n\nVerdict: PASS for the specified candidate and bounded checks. Index SHA-256 a65624ff879c59d3bd9e7fdad8aeb8e6be8e20b601ab3cf0bd0e128d2090699f. Blob paths resolve relative to the directory with the index basename without .json. 325 references, 312 unique blobs and 312 files, 7,671,958 raw bytes and 1,952,566 unique gzip bytes. Each original was readable and matched its raw length/hash; each gzip matched its length/hash, inflated successfully and was byte-identical to its original. WT resolves to the m5-workflow-integration checkout; public-fixture-browser2 resolves to the screenshot directory named in browser 2 stdout.\n\nSOURCE-PINS SHA-256 04a6eb2b8aed626852c618ac6d6f313df0dd8462de027be3764d28cea48c344c; all 107 current source rows match length and SHA-256. R6 REPORT's 218 bound original files match. Its 97 static result objects exactly match 001–097 JSON; all report ok, status 0, no timeout, and their merged logs match recorded hashes. Both browser logs contain 243 PASS lines, terminal ALL PASS, and executor results record exit/close zero and stream completion. EOL and hygiene report PASS with exit/close zero and recorded stream/file completion; their output also reports ALL PASS. These are recorded results, not reruns. Original R5 fullfast remains RED; per-case independent stream closure and all descendant closure are not established.\n\nContent review: path/extension screening found only cjs, patch, json, log and two public fixture PNGs, no user home/config/key or resource binary files. Pattern scan found no PEM, AWS or GitHub token patterns; two identical OpenAI-shaped matches are synthetic sk- followed by repeated a in test output. This bounded screening is not a proof that all possible sensitive data is absent. Paths in logs contain local usernames and temporary fixture-home paths as metadata; fixture keys appear in test output. No user home contents are archived.\n\nGuard SHA-256 08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91. Scripts executed under that guard; no actual test, HTTP, browser, native, fullfast or network run. No candidate, live source/docs, or Git index was modified. See RESULT.json for detailed machine readback.\r\n"
+  },
+  "liveManifestSha256": "9a5dc88c67acba92848c6a9eed507d72f5a7523faf9014b71053adae0771f5e9",
+  "metadataChanges": [
+    "Four handoff scope notes only.",
+    "Archive status, full baseline, explicit blob root and logical original-path mappings."
+  ],
+  "reviewPreparationNotes": [
+    "First Root review had a mistyped expected manifest hash; corrected without source changes.",
+    "Second Root review omitted logical path alias resolution; corrected using the archived builder mappings.",
+    "Successful review rebuilt source tree and reversed to baseline using a separate private Git index; default index unchanged."
+  ],
+  "scope": [
+    "Selected originals only; no complete 10236 inputs, private Git index, keys, profiles or actual user data.",
+    "Original R5 fullfast remains RED; R5 unit and R6 static/EOL/hygiene are separately evidenced.",
+    "Original runOne merges output and reports close status; not independent stream or all OS descendants closure.",
+    "Only local fake protocol/model; real platforms not tested.",
+    "Local temporary paths and synthetic test keys occur in retained test logs; no real user home contents were selected."
+  ]
+}

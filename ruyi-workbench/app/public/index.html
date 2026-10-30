@@ -1537,6 +1537,9 @@
                   <label class="external-bots-field" for="cfgStewardBotAllowedConversations"><span data-i18n="externalBots.allowedConversations">允许的聊天 ID</span><textarea id="cfgStewardBotAllowedConversations" rows="2" spellcheck="false"></textarea></label>
                 </div>
                 <p class="field-help muted" data-i18n="externalBots.platformHint">飞书必填租户 ID 与机器人 open_id；QQ 可留空这两项。</p><p class="field-help muted" data-i18n="externalBots.envHint">只填 RUYI_BOT_ 开头的环境变量名，不填密钥。飞书使用验证令牌和加密密钥；QQ 使用机器人密钥。环境变量须在工作台启动前设置。</p><p class="field-help muted" data-i18n="externalBots.allowHint">每行一个 ID 或用逗号分隔。启用前须同时配置发送者与聊天名单。</p><p class="field-help muted" data-i18n="externalBots.identityHint">平台、应用、租户和机器人身份创建后固定；更换应用请新建连接。删除后该连接 ID 永不复用。</p>
+                <label class="external-bots-enabled" for="cfgStewardBotProgress"><input type="checkbox" id="cfgStewardBotProgress" /><span data-i18n="externalBots.progressUpdates">发送开始处理提示（平台允许时）</span></label>
+                <p class="field-help muted" data-i18n="externalBots.progressCompatibility">开启进度提示或首次查询后，这些记录需要当前或更新版本的工作台，旧版本将拒绝读取。</p>
+                <p class="field-help muted" data-i18n="externalBots.progressQueryHelp">在已授权的聊天中发送“进度”或“进度 指令编号”可查询现有指令，不会重新执行。平台窗口关闭时，答复保留在如意本地。</p>
                 <label class="external-bots-enabled" for="cfgStewardBotEnabled"><input type="checkbox" id="cfgStewardBotEnabled" /><span data-i18n="externalBots.enableForm">启用此连接（新连接默认关闭）</span></label>
                 <div class="external-bots-actions"><button type="submit" id="cfgStewardBotSave" class="btn btn-sm btn-primary" data-i18n="externalBots.save">保存连接</button><button type="button" id="cfgStewardBotCancel" class="btn btn-sm" data-i18n="externalBots.cancel">取消</button></div>
               </form>
