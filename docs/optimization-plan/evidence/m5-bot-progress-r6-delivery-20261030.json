@@ -1,14 +1,14 @@
 {
   "schema": 1,
-  "status": "VERIFIED_BOUNDED_GATES",
+  "status": "COMMITTED",
   "applicationVersion": "3.0.1",
   "baseline": "b20da3aa38c073c10dff3b87534b02b547f97dd6",
   "sourceTree": "6bf5633a810cae5288e445bc4891ab6f96ed5c17",
   "sourcePinsSha256": "04a6eb2b8aed626852c618ac6d6f313df0dd8462de027be3764d28cea48c344c",
-  "originalFiles": 325,
-  "uniqueBlobs": 312,
-  "rawBytes": 7671958,
-  "uniquePackedBytes": 1952566,
+  "originalFiles": 332,
+  "uniqueBlobs": 318,
+  "rawBytes": 7687775,
+  "uniquePackedBytes": 1957086,
   "limits": [
     "Selected originals only; no complete 10236 inputs, private Git index, keys, profiles or actual user data.",
     "Original R5 fullfast remains RED; R5 unit and R6 static/EOL/hygiene are separately evidenced.",
@@ -2616,6 +2616,62 @@
       "blob": "blobs/38f41d9b327a1a381665be030fa32c49546222221f75080e658de62d26314316.gz",
       "packedBytes": 68848,
       "packedSha256": "19d334d7c168ea109cce9d74a696366004055f4551ccca73b5b6cad2a218d404"
+    },
+    {
+      "originalPath": ".ruyi-runtime/b2-r6-staged-eol-terra-20261030/eol-result.json",
+      "bytes": 332,
+      "sha256": "fd38cf9cd8dcf1eb668d7d574a9f8add19ad1a9eb52f071f9ea6bdb1c7652fc8",
+      "blob": "blobs/fd38cf9cd8dcf1eb668d7d574a9f8add19ad1a9eb52f071f9ea6bdb1c7652fc8.gz",
+      "packedBytes": 136,
+      "packedSha256": "4cd44969f47805946c9ef5e172b3b7d114c98c1600c1a1b203b146943a5af40a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/b2-r6-staged-eol-terra-20261030/stdout.log",
+      "bytes": 257,
+      "sha256": "f30bef99640ff7d9fbe2b8bd68671c75b65b0c9271a8e4734d11d185a6fa8afc",
+      "blob": "blobs/f30bef99640ff7d9fbe2b8bd68671c75b65b0c9271a8e4734d11d185a6fa8afc.gz",
+      "packedBytes": 165,
+      "packedSha256": "ae796c0a7cb41254d79b70bd257ca8c097265a0d73a541ddd2c3da8f0bcc9d85"
+    },
+    {
+      "originalPath": ".ruyi-runtime/b2-r6-staged-eol-terra-20261030/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/b2-r6-staged-eol-terra-20261030/staged-result.json",
+      "bytes": 2181,
+      "sha256": "86f576ff963eee885e6725d123796a06ad5ce8a0786c23896a43e50e05dd4eef",
+      "blob": "blobs/86f576ff963eee885e6725d123796a06ad5ce8a0786c23896a43e50e05dd4eef.gz",
+      "packedBytes": 633,
+      "packedSha256": "8dcb10d9af13c924e47d00d5448a46de2621d60ae5837b67cbbaaa8a932308ed"
+    },
+    {
+      "originalPath": ".ruyi-runtime/b2-r6-staged-eol-terra-20261030/REPORT.md",
+      "bytes": 1026,
+      "sha256": "99b067851d5dd1754c6e56f9cc6d418aed8b93deb3198fea3dadd0484942ba8b",
+      "blob": "blobs/99b067851d5dd1754c6e56f9cc6d418aed8b93deb3198fea3dadd0484942ba8b.gz",
+      "packedBytes": 628,
+      "packedSha256": "a40fe2fafee929178efe429890af698bed31165bb50fb44a42eed1612a63295b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/b2-r6-root-delivery-review-20261030/REPORT.json",
+      "bytes": 1734,
+      "sha256": "552fffa256581ac279996797166aaa28498a75f3c3d552561db0d39e7028a7c8",
+      "blob": "blobs/552fffa256581ac279996797166aaa28498a75f3c3d552561db0d39e7028a7c8.gz",
+      "packedBytes": 936,
+      "packedSha256": "b29858db67c500a49c366d61495becfd1ae04e007e0f5269bc777aa9a2595b86"
+    },
+    {
+      "originalPath": ".ruyi-runtime/b2-r6-archive-independent-readback-20261030/RESULT.json",
+      "bytes": 10287,
+      "sha256": "ad248f6340187133f38a8ddbd058efbd6838dad220b61a96cec11edb70dd7e95",
+      "blob": "blobs/ad248f6340187133f38a8ddbd058efbd6838dad220b61a96cec11edb70dd7e95.gz",
+      "packedBytes": 2022,
+      "packedSha256": "dfedfa0def09a941687f2eef85352f871ef9335497fbc2d86f8d723be671a92f"
     }
   ],
   "blobRoot": "m5-bot-progress-r6-delivery-20261030",
@@ -2624,5 +2680,15 @@
     "WT/": "C:/Users/87179/.codex/worktrees/m5-workflow-integration/ruyi-workbench-oss/",
     "public-fixture-browser2/": "C:/Users/87179/AppData/Local/Temp/b2-VUrrs6/home/Temp/ruyi-external-bots-shots-1793332335230/"
   },
-  "preparedManifestSha256": "a65624ff879c59d3bd9e7fdad8aeb8e6be8e20b601ab3cf0bd0e128d2090699f"
+  "preparedManifestSha256": "a65624ff879c59d3bd9e7fdad8aeb8e6be8e20b601ab3cf0bd0e128d2090699f",
+  "productCommit": "ee47a541168230b2323cf3d947033f77872c6839",
+  "productTree": "8dca8f271b818c143f7e0e5b0409724deb53468a",
+  "stagedEol": {
+    "tree": "8dca8f271b818c143f7e0e5b0409724deb53468a",
+    "checkedTrackedTextFiles": 2223,
+    "verdict": "PASS",
+    "resultSha256": "fd38cf9cd8dcf1eb668d7d574a9f8add19ad1a9eb52f071f9ea6bdb1c7652fc8",
+    "stdoutSha256": "f30bef99640ff7d9fbe2b8bd68671c75b65b0c9271a8e4734d11d185a6fa8afc",
+    "scope": "Verification of the product commit tree. This follow-up adds commit identity and bounded verification metadata only."
+  }
 }

@@ -67,5 +67,40 @@
     "Original runOne merges output and reports close status; not independent stream or all OS descendants closure.",
     "Only local fake protocol/model; real platforms not tested.",
     "Local temporary paths and synthetic test keys occur in retained test logs; no real user home contents were selected."
-  ]
+  ],
+  "productCommit": "ee47a541168230b2323cf3d947033f77872c6839",
+  "productTree": "8dca8f271b818c143f7e0e5b0409724deb53468a",
+  "committedManifestSha256": "478cf49a41936c434fbf9930be28cca51eb7246dac853a01b68ff8ec8ca55ecd",
+  "stagedEol": {
+    "tree": "8dca8f271b818c143f7e0e5b0409724deb53468a",
+    "checkedTrackedTextFiles": 2223,
+    "verdict": "PASS",
+    "resultSha256": "fd38cf9cd8dcf1eb668d7d574a9f8add19ad1a9eb52f071f9ea6bdb1c7652fc8",
+    "stdoutSha256": "f30bef99640ff7d9fbe2b8bd68671c75b65b0c9271a8e4734d11d185a6fa8afc",
+    "scope": "Verification of the product commit tree. This follow-up adds commit identity and bounded verification metadata only.",
+    "facts": {
+      "spawn": true,
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "close": {
+        "code": 0,
+        "signal": null
+      },
+      "stdout": {
+        "end": true,
+        "close": true,
+        "finish": true,
+        "fileClose": true
+      },
+      "stderr": {
+        "end": true,
+        "close": true,
+        "finish": true,
+        "fileClose": true
+      },
+      "errors": []
+    }
+  }
 }
