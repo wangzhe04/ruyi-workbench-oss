@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "status": "PASS_SCOPED_BATCH_FINAL_MAIN_CHECKS",
+  "productCommit": "871863aa9f6fdc2b5f18efd5be26d04963caf3e9",
+  "sourceTree": "b1b5e6d9da52185b591718f97cea8535fea046a2",
+  "testedMetadataCommit": "b437a5e850128224b5b55cc5f8616ed79379b9f2",
+  "testedMetadataTree": "2e3315f1c24d6c20e9abdc23792fb4e7d84d0313",
+  "finalStampScope": "Only docs and evidence are changed after this tested commit; source and test subtree identities are preserved",
+  "unchangedCodeSubtrees": {
+    "ruyi-workbench": "d934f157c47de5897d7a835ff054612edc3be4eb",
+    "dev-harness": "e53b50cfd1ea9c8f6f615b01c094938ec882b452"
+  },
+  "checks": [
+    {
+      "name": "syntax",
+      "status": 0,
+      "signal": null,
+      "error": null
+    },
+    {
+      "name": "build",
+      "status": 0,
+      "signal": null,
+      "error": null
+    },
+    {
+      "file": "eol-policy.static.e2e.js",
+      "ok": true,
+      "timedOut": false,
+      "status": 0,
+      "ms": 10058,
+      "outputSha256": "77aa4469dca7c67ce4569fc1b72d0ef2ca0a8ae5a0be9dcec06a91533137cbd9"
+    },
+    {
+      "file": "repo-hygiene.e2e.js",
+      "ok": true,
+      "timedOut": false,
+      "status": 0,
+      "ms": 31352,
+      "outputSha256": "4fe59ad6d153a1dc34c6d4bd1b7e900abe3ad0fdeb723a42056dd044a5de54a2"
+    }
+  ],
+  "originalToolNaturalExit": 0,
+  "originalToolTerminalChunk": "742aa0",
+  "casReadback": {
+    "status": "PASS",
+    "candidatePinsSha256": "81dfba9278528f221812bc563680aa464bfd62e13281c869dcec70b8d078c6ac",
+    "pinnedFiles": 914,
+    "newCasRefsVerified": 432,
+    "newCasRawBytes": 6530702,
+    "virtualDocLinkFailures": [],
+    "scope": "Explicit candidate pins and every new compressed/raw CAS byte verified; relative file links checked through candidate/M4/Main overlay, not external URLs or anchors"
+  },
+  "artifacts": [
+    {
+      "source": "actual/syntax.log",
+      "sha256": "2d76f2d94c81708655c7910f1dbd4dcf852fa9015035c832ba3ef640f9fecc7c",
+      "bytes": 60,
+      "blob": "m4-final-main-checks-20261030/blobs/2d76f2d94c81708655c7910f1dbd4dcf852fa9015035c832ba3ef640f9fecc7c.gz",
+      "packedSha256": "5a324bf25c6de08e02ada8037322da77d35f6828b658c1ce568dca411059ab38",
+      "packedBytes": 80
+    },
+    {
+      "source": "actual/build.log",
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "bytes": 69,
+      "blob": "m4-final-main-checks-20261030/blobs/93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501.gz",
+      "packedSha256": "0f69f09eea90f8e39c72fdb8943376b094e9142da0af5a3fa3c8c7ee04a1e7b5",
+      "packedBytes": 92
+    },
+    {
+      "source": "actual/eol-policy.static.e2e.js.log",
+      "sha256": "77aa4469dca7c67ce4569fc1b72d0ef2ca0a8ae5a0be9dcec06a91533137cbd9",
+      "bytes": 257,
+      "blob": "m4-final-main-checks-20261030/blobs/77aa4469dca7c67ce4569fc1b72d0ef2ca0a8ae5a0be9dcec06a91533137cbd9.gz",
+      "packedSha256": "0bf79767c99fa82d8b67f5c7fe82ec2ec1a87d0a95e9aab80811617b12e8c004",
+      "packedBytes": 166
+    },
+    {
+      "source": "actual/repo-hygiene.e2e.js.log",
+      "sha256": "4fe59ad6d153a1dc34c6d4bd1b7e900abe3ad0fdeb723a42056dd044a5de54a2",
+      "bytes": 5006,
+      "blob": "m4-final-main-checks-20261030/blobs/4fe59ad6d153a1dc34c6d4bd1b7e900abe3ad0fdeb723a42056dd044a5de54a2.gz",
+      "packedSha256": "bc4f2e0859e8ae6a54ab230ae6e7e4a83324765924857fb3a352e8bad70d5490",
+      "packedBytes": 1837
+    },
+    {
+      "source": "actual/RESULT.json",
+      "sha256": "425f8c07212d1d627f27e24f279b55457af3c121af82913aeaf595e9260fe6e4",
+      "bytes": 931,
+      "blob": "m4-final-main-checks-20261030/blobs/425f8c07212d1d627f27e24f279b55457af3c121af82913aeaf595e9260fe6e4.gz",
+      "packedSha256": "77acdca1313be4ec7b8128f41fa2fcd36ba4776a73ae88eaebb2fb8ce28f87f3",
+      "packedBytes": 456
+    },
+    {
+      "source": "EXPECT.json",
+      "sha256": "73883eef5b50c5de07c440c475554911ee025dd7609839c21673a9b4b1665cb2",
+      "bytes": 230,
+      "blob": "m4-final-main-checks-20261030/blobs/73883eef5b50c5de07c440c475554911ee025dd7609839c21673a9b4b1665cb2.gz",
+      "packedSha256": "2dace61aa3876446e272bf89f769dd71604f6cfd3939136d217531dfa0ff9662",
+      "packedBytes": 180
+    },
+    {
+      "source": "EXTERNAL-TOOL-TERMINAL.json",
+      "sha256": "b6edc81f70987e3650555535cc23201aec1fac474180f115681a90ecdd3e081f",
+      "bytes": 904,
+      "blob": "m4-final-main-checks-20261030/blobs/b6edc81f70987e3650555535cc23201aec1fac474180f115681a90ecdd3e081f.gz",
+      "packedSha256": "01ac8c4cbcb745d34d49428be05523a5208d0ea1c6052612453aa8c2cf1478d6",
+      "packedBytes": 523
+    }
+  ],
+  "limits": [
+    "R7 fullfast remains RED; R7 unit is inherited through exact unchanged source/test/lib trees and R8 static was separate",
+    "No 3.1 release, complete default E2E, whole M4/M3/M5/M6, real platform or all OS descendants certification"
+  ]
+}
