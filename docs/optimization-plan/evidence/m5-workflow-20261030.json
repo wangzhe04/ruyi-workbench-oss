@@ -1,6 +1,7 @@
 {
   "schema": 1,
-  "status": "VALIDATED_PENDING_COMMIT",
+  "status": "COMMITTED",
+  "productCommit": "2bb8bdebaaa2112f1b4743a3940da2bd8a7d1783",
   "applicationVersion": "3.0.1",
   "sourceTree": "e2b7fbd654b2381f56be50079bbdb32963bfed4a",
   "sourcePinsSha256": "dc5c74bddc0c6578f69f1ecea8fdff0ad82bcb8357ec703614b1d461710ba667",
