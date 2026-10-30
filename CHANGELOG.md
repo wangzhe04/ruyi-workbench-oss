@@ -1,5 +1,7 @@
 # 发行说明 · Changelog
 
+> 2026-10-30 development checkpoint: image helper uncertainty now reaches shared maintenance checks and retains ownership conservatively. 图片辅助进程的未知状态已接入共享维护检查，保守保留所有权。This is an unreleased scoped change; version remains 3.0.1. 进度与剩余范围见 [当前交接](docs/optimization-plan/98-3.1-current-handoff-20261030.md)。
+
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 

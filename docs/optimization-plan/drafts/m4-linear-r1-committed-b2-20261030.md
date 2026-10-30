@@ -1,5 +1,7 @@
 # M4 image owner and native linear source support on committed B2
 
+> **后续收口（2026-10-30）：** 本文保留旧 8c208 / Linear R1 阶段的技术记录；最新 P1 修复、分开 unit/static 验证、提交与下一批队列请先读 [当前交接](../98-3.1-current-handoff-20261030.md)。旧候选及其有限通过不自动成为新候选验收。
+
 This source combination starts from real commit
 `8cca9b26a5584852d9479df9557a95b43675012d` (B2 product
 `ee47a541168230b2323cf3d947033f77872c6839`). It does not include uncommitted

@@ -1,0 +1,2630 @@
+{
+  "schema": 1,
+  "status": "CANDIDATE_PENDING_REVIEW_AND_COMMIT",
+  "applicationVersion": "3.0.1",
+  "base": "8cca9b26a5584852d9479df9557a95b43675012d",
+  "sourceTree": "8c208f7557a15afc451fe57a7a0d838df257e43e",
+  "sourcePinsSha256": "d66b295e13b34227102dae9fe55d037b7ccb2f3cd29866da5bfad20e54fba564",
+  "originalFiles": 322,
+  "uniqueBlobs": 303,
+  "rawBytes": 3474547,
+  "rawCapBytes": 67108864,
+  "uniquePackedBytes": 1192370,
+  "dependencies": [
+    {
+      "index": "m4-linear-support-r1-20261030.json",
+      "sha256": "9ebebb2cf78adbca8b1e1940d80f9a7bf594ec9598b4967ded0da2b4c38ecdf3",
+      "artifactCount": 223,
+      "uniqueBlobs": 204,
+      "scope": "fixed synthetic component matrix; historical index retained as-is"
+    }
+  ],
+  "results": {
+    "r2": "RED: unit 4601 / 4539 pass / 36 fail / 26 skip; 97 static not run",
+    "r4": "RED: unit 4605 / 4578 pass / 1 fail / 26 skip; 97 static not run",
+    "r5": "RED: unit 4605 / 4579 pass / 0 fail / 26 skip; static 90 pass / 7 fail",
+    "r6": "separate static-only original runOne 97 / 97 pass, no retry",
+    "syntax": {
+      "command": "C:/Program Files/nodejs/node.exe dev-harness/syntax-gate.js",
+      "toolStartChunk": "5684a9",
+      "session": 28647,
+      "terminalChunk": "912145",
+      "naturalExit": 0,
+      "filesChecked": 1415,
+      "failed": 0,
+      "node": "v24.14.0",
+      "stdoutSha256": "7c9f4272adf837a037c938f918407166e6c2db056709b300876a2de0b1f5097e",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scope": "original source syntax gate before candidate docs/archive staging"
+    }
+  },
+  "scopeClarification": "Whole-tree audit excluded 9013 archive metadata rows from physical iteration; separate 637 delta / 700 raw audit did read 544 selected archive paths totaling 14915678 bytes.",
+  "limits": [
+    "Candidate only; no commit, push or release.",
+    "R5 unit and R6 static were separate executions; R5 fullfast remains RED.",
+    "runOne combined per-case stdout/stderr; no separate per-case streams or all OS descendants proof.",
+    "No complete native acceptance, Full21, real UI, three-provider preview=wire, DPAPI/backup/migration/cold restart, legal/provenance or release proof.",
+    "No 6909 media source rescan; no additional resource/font scan.",
+    "Repo hygiene and staged EOL for these new artifacts remain pending.",
+    "Selected original logs may contain synthetic temp paths and fixture data; real user data and accounts were not selected.",
+    "No full SOURCE.patch, 637 raw snapshots, private Git index, objects, system executable or full resource archive copied."
+  ],
+  "artifacts": [
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/after-last-unit-run.log",
+      "bytes": 665493,
+      "sha256": "ed2e18b0e9218f3d9b574b4caec95903e72a535b2add26455b10b19f001918a0",
+      "blob": "m4-image-scope-r6-20261030/blobs/ed2e18b0e9218f3d9b574b4caec95903e72a535b2add26455b10b19f001918a0.gz",
+      "packedBytes": 234119,
+      "packedSha256": "4e51083ea7e85e662958e4f693997141be2b61081c8145b5e4031939c89b59ee"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/build.result.json",
+      "bytes": 1234,
+      "sha256": "f0cbfdcfc9873b08bd2d8f57308ae22e6f1964d8e3085fa3712446c2bf779aef",
+      "blob": "m4-image-scope-r6-20261030/blobs/f0cbfdcfc9873b08bd2d8f57308ae22e6f1964d8e3085fa3712446c2bf779aef.gz",
+      "packedBytes": 421,
+      "packedSha256": "ffa32e026fd9e94cd41d777225a26d22fa700ba3257f4861b8f66696272add64"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/build.stdout.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "blob": "m4-image-scope-r6-20261030/blobs/93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501.gz",
+      "packedBytes": 92,
+      "packedSha256": "8859b808a256c4bf9524f423d705aa2cfaac432419ced6a0337e04eedd29f20b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/build.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/census.result.json",
+      "bytes": 1234,
+      "sha256": "b0b788caa67b63c1b2aee061c94e45c2ae3bfb2e0de2c7d500bf371b6cc12246",
+      "blob": "m4-image-scope-r6-20261030/blobs/b0b788caa67b63c1b2aee061c94e45c2ae3bfb2e0de2c7d500bf371b6cc12246.gz",
+      "packedBytes": 422,
+      "packedSha256": "7f249f1d7975cce5666c78022fcaa9c684d1981a116a3c58103eb10252aff446"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/census.stdout.log",
+      "bytes": 9,
+      "sha256": "8cdf3bc4c40841c0b6684800d4f53559c400ce3827ceaaf80d10f82901fab63b",
+      "blob": "m4-image-scope-r6-20261030/blobs/8cdf3bc4c40841c0b6684800d4f53559c400ce3827ceaaf80d10f82901fab63b.gz",
+      "packedBytes": 29,
+      "packedSha256": "9e6e7beae23da329ebb57376c2ce53c7b589d15563ea26d29fd7e579296dbd95"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/census.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/fast.result.json",
+      "bytes": 1234,
+      "sha256": "90e603e792b346f7ee7145cc522645aa487015b510eca86ce0b76e5ee8ad384b",
+      "blob": "m4-image-scope-r6-20261030/blobs/90e603e792b346f7ee7145cc522645aa487015b510eca86ce0b76e5ee8ad384b.gz",
+      "packedBytes": 421,
+      "packedSha256": "c27e1551c4ae1f53a5e2d81260510d862649fd4a9644fa5f108a6030e69485ac"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/fast.stdout.log",
+      "bytes": 471,
+      "sha256": "98cb90ddcfe17d484aa722683da562903a94a0869f1b8c2b32bfeab43d56a1ad",
+      "blob": "m4-image-scope-r6-20261030/blobs/98cb90ddcfe17d484aa722683da562903a94a0869f1b8c2b32bfeab43d56a1ad.gz",
+      "packedBytes": 433,
+      "packedSha256": "5e9d7853e7ccefadec8787a22c2469f02a7e9f7d62f57f132c600ead5cd98eff"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/fast.stderr.log",
+      "bytes": 1921,
+      "sha256": "65ab8ce3020b3a871f5deb25ed7abfc76b6c500a652469917b73035ffefc3feb",
+      "blob": "m4-image-scope-r6-20261030/blobs/65ab8ce3020b3a871f5deb25ed7abfc76b6c500a652469917b73035ffefc3feb.gz",
+      "packedBytes": 627,
+      "packedSha256": "6f1ba14b46920373f4c71beb5b1d398062a9066f8d9915f89957a05c7d03c6eb"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/invocation.json",
+      "bytes": 6018,
+      "sha256": "2d8f0ce346b88283e4f2f9327a02a6a19185bd7477b1773c2b4e68cd5f691688",
+      "blob": "m4-image-scope-r6-20261030/blobs/2d8f0ce346b88283e4f2f9327a02a6a19185bd7477b1773c2b4e68cd5f691688.gz",
+      "packedBytes": 1776,
+      "packedSha256": "a6c92ba5621fd18a058562c6240f40a3f4373d2ed3f62c8f7c312aa8055a005f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/REPORT.json",
+      "bytes": 820,
+      "sha256": "d75d9c68ac50c9d77fbee07ddcf00cfef88333283670c8bacad4b1a852541271",
+      "blob": "m4-image-scope-r6-20261030/blobs/d75d9c68ac50c9d77fbee07ddcf00cfef88333283670c8bacad4b1a852541271.gz",
+      "packedBytes": 474,
+      "packedSha256": "eb8a77ff6762ffa6040df1181493ae873a3569658de37ae8382ec66ad879c2db"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/ROOT-READBACK-AND-WINDOW-RELEASE.json",
+      "bytes": 1510,
+      "sha256": "e4264bbe9c8fd4376b6f8c5b0d66882c2439c48a8431ff72da78f691794487e5",
+      "blob": "m4-image-scope-r6-20261030/blobs/e4264bbe9c8fd4376b6f8c5b0d66882c2439c48a8431ff72da78f691794487e5.gz",
+      "packedBytes": 829,
+      "packedSha256": "260775a1f2782b5c034ae987f10c45b26c6fbbf690c247ff011cb095ffa649ee"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-prepared-20261030/adapter.cjs",
+      "bytes": 9694,
+      "sha256": "22490d145f551597551857462dc3c4ace374acdcd865e8048e1a097975616425",
+      "blob": "m4-image-scope-r6-20261030/blobs/22490d145f551597551857462dc3c4ace374acdcd865e8048e1a097975616425.gz",
+      "packedBytes": 4135,
+      "packedSha256": "128d7018ac6e90599a87f9f7e4262e56c62803b2132c1b8892d183e10da596bf"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-prepared-20261030/INPUTS.json",
+      "bytes": 2553,
+      "sha256": "3d067b53e77ed4ce9911503eab3d98c27f6ad89cfba93951cd4c2198e9beb460",
+      "blob": "m4-image-scope-r6-20261030/blobs/3d067b53e77ed4ce9911503eab3d98c27f6ad89cfba93951cd4c2198e9beb460.gz",
+      "packedBytes": 1052,
+      "packedSha256": "ee83452c1932d67e609f93853cf606f207aded7cd0d331f4dba008c2e5dd3e8e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-prepared-20261030/REPORT.md",
+      "bytes": 3513,
+      "sha256": "f63294af660986d778a8bc6c504389f6402e5096e44461606cb5c27e67bf30a1",
+      "blob": "m4-image-scope-r6-20261030/blobs/f63294af660986d778a8bc6c504389f6402e5096e44461606cb5c27e67bf30a1.gz",
+      "packedBytes": 1912,
+      "packedSha256": "586735328a8619c347e5b76b3631a2ff770575e7d11e0db5c6ed0e931f9aa68d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-prepared-20261030/ROOT-REVIEW-AND-AUTHORIZATION.json",
+      "bytes": 2385,
+      "sha256": "46ef8d88f6f936e880709b945d48bc3226c80701f01aa0c76d7441a2301e5d7f",
+      "blob": "m4-image-scope-r6-20261030/blobs/46ef8d88f6f936e880709b945d48bc3226c80701f01aa0c76d7441a2301e5d7f.gz",
+      "packedBytes": 1360,
+      "packedSha256": "3eecf5eba04d41d6cb68c58433968444fbb2e27e350384e52569004b85059af8"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/after-last-unit-run.log",
+      "bytes": 626877,
+      "sha256": "747fe7d8eaf6e4a0d5cda593c6007d2a142f0d8feb16c9e669e22d74084254cf",
+      "blob": "m4-image-scope-r6-20261030/blobs/747fe7d8eaf6e4a0d5cda593c6007d2a142f0d8feb16c9e669e22d74084254cf.gz",
+      "packedBytes": 230627,
+      "packedSha256": "dcdb7451359baf4f248282a6b8e407b21c15fd0943a3db02dc35d368a57fefe7"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/build.result.json",
+      "bytes": 1233,
+      "sha256": "3ec4f3f55207e3b9f0f37fd11bff6e45ec7c601eb03ce75cee87d39f630dec9b",
+      "blob": "m4-image-scope-r6-20261030/blobs/3ec4f3f55207e3b9f0f37fd11bff6e45ec7c601eb03ce75cee87d39f630dec9b.gz",
+      "packedBytes": 421,
+      "packedSha256": "abd0d7ff98a36f4936733497278e61a2af44f90762f244336ce0fdf49dace254"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/build.stdout.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "blob": "m4-image-scope-r6-20261030/blobs/93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501.gz",
+      "packedBytes": 92,
+      "packedSha256": "8859b808a256c4bf9524f423d705aa2cfaac432419ced6a0337e04eedd29f20b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/build.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/census.result.json",
+      "bytes": 1234,
+      "sha256": "dedef35f591b23dbc0cc0779d0127387e48bca60c1876ef89d79b9ffd81d6af7",
+      "blob": "m4-image-scope-r6-20261030/blobs/dedef35f591b23dbc0cc0779d0127387e48bca60c1876ef89d79b9ffd81d6af7.gz",
+      "packedBytes": 422,
+      "packedSha256": "6599832c5bc9f07c9f4b0d9d03b4231fd7a9ec8c24d34269c2e54510959cd3e3"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/census.stdout.log",
+      "bytes": 9,
+      "sha256": "8cdf3bc4c40841c0b6684800d4f53559c400ce3827ceaaf80d10f82901fab63b",
+      "blob": "m4-image-scope-r6-20261030/blobs/8cdf3bc4c40841c0b6684800d4f53559c400ce3827ceaaf80d10f82901fab63b.gz",
+      "packedBytes": 29,
+      "packedSha256": "9e6e7beae23da329ebb57376c2ce53c7b589d15563ea26d29fd7e579296dbd95"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/census.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/fast.result.json",
+      "bytes": 1233,
+      "sha256": "03a0614701c66d15772130ef6c202dd3dadf4d8eb6112aa0bb898921722940e2",
+      "blob": "m4-image-scope-r6-20261030/blobs/03a0614701c66d15772130ef6c202dd3dadf4d8eb6112aa0bb898921722940e2.gz",
+      "packedBytes": 418,
+      "packedSha256": "42e7b5710e448f543c404cb389ebf5d1f66e85556b9b9890ca345a5c005255ab"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/fast.stdout.log",
+      "bytes": 474,
+      "sha256": "256e26dc2ef86fa395e5ab3fb7234efda25fbed48c89381f099c2fc6fa41bcad",
+      "blob": "m4-image-scope-r6-20261030/blobs/256e26dc2ef86fa395e5ab3fb7234efda25fbed48c89381f099c2fc6fa41bcad.gz",
+      "packedBytes": 435,
+      "packedSha256": "64371282d49b786d9ae924d076a62ccac6364b3292fd4eacc4e8de72ea8b09f4"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/fast.stderr.log",
+      "bytes": 1892,
+      "sha256": "839320f119b39e56c666e4dcee435b6d1e9e9ec3e222c346c562db46df37c43f",
+      "blob": "m4-image-scope-r6-20261030/blobs/839320f119b39e56c666e4dcee435b6d1e9e9ec3e222c346c562db46df37c43f.gz",
+      "packedBytes": 1104,
+      "packedSha256": "90a29cb0f3b7a7eff35f5d55ded5a9d96f27795bf6db0626b8a7afea3ffcda29"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/invocation.json",
+      "bytes": 6206,
+      "sha256": "5cf86273be6b42216920ccc9cb7826df6f31dba1f36f388c8fbab6a231a0c8a1",
+      "blob": "m4-image-scope-r6-20261030/blobs/5cf86273be6b42216920ccc9cb7826df6f31dba1f36f388c8fbab6a231a0c8a1.gz",
+      "packedBytes": 1902,
+      "packedSha256": "f511a37ce0823bde2f045f8a46d017f1799ee46346326b5b1f38a0740da1166a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/REPORT.json",
+      "bytes": 978,
+      "sha256": "c91288cf3e15650df4329cb42fde1e9c343da56c859c715dd8848c825e58cd90",
+      "blob": "m4-image-scope-r6-20261030/blobs/c91288cf3e15650df4329cb42fde1e9c343da56c859c715dd8848c825e58cd90.gz",
+      "packedBytes": 538,
+      "packedSha256": "ee1c111f55e7252f1b71cef22c5476f27915e890218d2a023747af1843c88f77"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/ROOT-READBACK-AND-WINDOW-RELEASE.json",
+      "bytes": 960,
+      "sha256": "17e2302bd2481ad716bb8ac32abf5efb00cac27194282b18728dff52224ad3fa",
+      "blob": "m4-image-scope-r6-20261030/blobs/17e2302bd2481ad716bb8ac32abf5efb00cac27194282b18728dff52224ad3fa.gz",
+      "packedBytes": 560,
+      "packedSha256": "001c2fdb2bb927e3b5e4f3360ea55f61548b5abb163143663c2ae0b1d47d8c7b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-prepared-20261030/adapter.cjs",
+      "bytes": 9830,
+      "sha256": "02853c7359dccc579deb43ed2f7d1c7161c0993d0e6cd8674f13df47bceff15d",
+      "blob": "m4-image-scope-r6-20261030/blobs/02853c7359dccc579deb43ed2f7d1c7161c0993d0e6cd8674f13df47bceff15d.gz",
+      "packedBytes": 4171,
+      "packedSha256": "5fc2bfeda50fe645080290cf360610de5478d2c9f5eee70392209c748ffec903"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-prepared-20261030/INPUTS.json",
+      "bytes": 3757,
+      "sha256": "c62a070ea7005a19ce53ddcb7fe96ebc6ff55a46410f6524514a9702e436b0f0",
+      "blob": "m4-image-scope-r6-20261030/blobs/c62a070ea7005a19ce53ddcb7fe96ebc6ff55a46410f6524514a9702e436b0f0.gz",
+      "packedBytes": 1436,
+      "packedSha256": "c45703b09271d9c8c4b4eca4fa803817407aaeb9dcb0b6f0dcfdd95b5bb30e6d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-prepared-20261030/REPORT.json",
+      "bytes": 3615,
+      "sha256": "0073554224bbfcdb29e9757926caea1cf87b92b29004609c8a7e7c50415199bb",
+      "blob": "m4-image-scope-r6-20261030/blobs/0073554224bbfcdb29e9757926caea1cf87b92b29004609c8a7e7c50415199bb.gz",
+      "packedBytes": 1610,
+      "packedSha256": "d746ffe6de8af93de76509fe102d07695426e17c32c401ff4443bd7dee4f3a19"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-prepared-20261030/ROOT-REVIEW-AND-AUTHORIZATION.json",
+      "bytes": 1723,
+      "sha256": "24e37e0143d6432ec25c86adec069687e241dda031aa97e1d60e8dbe74037767",
+      "blob": "m4-image-scope-r6-20261030/blobs/24e37e0143d6432ec25c86adec069687e241dda031aa97e1d60e8dbe74037767.gz",
+      "packedBytes": 1013,
+      "packedSha256": "f4be96798306f0bf58ddcbeddfc22cee436caaff73e40499117806a35d99cc2b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/after-last-unit-run.log",
+      "bytes": 625846,
+      "sha256": "8b54b2c16b9b26bf8e51355afc3cd9f3a51eeb992a229e3cc096360f0c190c4d",
+      "blob": "m4-image-scope-r6-20261030/blobs/8b54b2c16b9b26bf8e51355afc3cd9f3a51eeb992a229e3cc096360f0c190c4d.gz",
+      "packedBytes": 230271,
+      "packedSha256": "cc21728a8375bd3bbf9e70f6766c21317e4350896f1604cb279fa296de032a30"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/build.result.json",
+      "bytes": 1232,
+      "sha256": "cfbc5e910fbe3cc774aff5500e617acddfd87f47713ea9ce16d2528121f92a59",
+      "blob": "m4-image-scope-r6-20261030/blobs/cfbc5e910fbe3cc774aff5500e617acddfd87f47713ea9ce16d2528121f92a59.gz",
+      "packedBytes": 420,
+      "packedSha256": "30d1ef6052049477da60b0845592963ffc320f7c1fe0f894fb6f4655ebb471f3"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/build.stdout.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "blob": "m4-image-scope-r6-20261030/blobs/93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501.gz",
+      "packedBytes": 92,
+      "packedSha256": "8859b808a256c4bf9524f423d705aa2cfaac432419ced6a0337e04eedd29f20b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/build.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/census.result.json",
+      "bytes": 1243,
+      "sha256": "d51b16e4c640280736ddc34a62f36683ea2ca29bfc0157cbb79c9c1990e06bd9",
+      "blob": "m4-image-scope-r6-20261030/blobs/d51b16e4c640280736ddc34a62f36683ea2ca29bfc0157cbb79c9c1990e06bd9.gz",
+      "packedBytes": 425,
+      "packedSha256": "9dcdeb5b4ba4002e197cb0895ba9329506b2d36cbb5d1595c80e19e9ff4cd6ee"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/census.stdout.log",
+      "bytes": 9,
+      "sha256": "8cdf3bc4c40841c0b6684800d4f53559c400ce3827ceaaf80d10f82901fab63b",
+      "blob": "m4-image-scope-r6-20261030/blobs/8cdf3bc4c40841c0b6684800d4f53559c400ce3827ceaaf80d10f82901fab63b.gz",
+      "packedBytes": 29,
+      "packedSha256": "9e6e7beae23da329ebb57376c2ce53c7b589d15563ea26d29fd7e579296dbd95"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/census.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/fast.result.json",
+      "bytes": 1240,
+      "sha256": "9546af4decfc561ebb63477852db67ba41af6c60683356c256d554b2f7557eaf",
+      "blob": "m4-image-scope-r6-20261030/blobs/9546af4decfc561ebb63477852db67ba41af6c60683356c256d554b2f7557eaf.gz",
+      "packedBytes": 424,
+      "packedSha256": "41154e363a286761d013b8be592360ffa85f40a690b089ff64c291bf2f034e74"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/fast.stdout.log",
+      "bytes": 21981,
+      "sha256": "64110e5ba77b0febc9c66e114e3e4209cfc1bbd878e95944dec6178ea7c31cd3",
+      "blob": "m4-image-scope-r6-20261030/blobs/64110e5ba77b0febc9c66e114e3e4209cfc1bbd878e95944dec6178ea7c31cd3.gz",
+      "packedBytes": 5923,
+      "packedSha256": "f49076e0260c237c634f71d1afb574d991fc81e1778618bb9e719d74f5526d8e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/fast.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/invocation.json",
+      "bytes": 6206,
+      "sha256": "c7f422df22fd60c413bdde310546d47fd5bd148e230f5b9f17789a41f435f44f",
+      "blob": "m4-image-scope-r6-20261030/blobs/c7f422df22fd60c413bdde310546d47fd5bd148e230f5b9f17789a41f435f44f.gz",
+      "packedBytes": 1902,
+      "packedSha256": "f5727e5c9ae996bb7fdcee61bc03ad3442780327aea70b66626db6d0db4171f4"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/REPORT.json",
+      "bytes": 1126,
+      "sha256": "5795100b469979fcb686b6d74600c2bfbee98434ef52358d04810d57a15edd42",
+      "blob": "m4-image-scope-r6-20261030/blobs/5795100b469979fcb686b6d74600c2bfbee98434ef52358d04810d57a15edd42.gz",
+      "packedBytes": 611,
+      "packedSha256": "0aeb5a454787ab6bd68a4e4e3e061139bd3c1e695707a491020bf8d98ecec937"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/ROOT-READBACK-AND-WINDOW-RELEASE.json",
+      "bytes": 1274,
+      "sha256": "e08fa23f6df63dce2f45f271f7d0ef42632f5d082f7dd98e460c713393982c61",
+      "blob": "m4-image-scope-r6-20261030/blobs/e08fa23f6df63dce2f45f271f7d0ef42632f5d082f7dd98e460c713393982c61.gz",
+      "packedBytes": 684,
+      "packedSha256": "55ab4786d7c82d4654dba6d8c932b8d569e46c06950ba0c6f21bb9255ec50c05"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/after-last-run.log",
+      "bytes": 4408,
+      "sha256": "386b2e4b32e26b4e96a17d47b899a9543c63b61984792477dfab290bfcc65502",
+      "blob": "m4-image-scope-r6-20261030/blobs/386b2e4b32e26b4e96a17d47b899a9543c63b61984792477dfab290bfcc65502.gz",
+      "packedBytes": 1482,
+      "packedSha256": "f6823fa0a10d8c15275bddb37a5c7daad7c7065222c1d2220e3d00dad3b20100"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-prepared-20261030/adapter.cjs",
+      "bytes": 9830,
+      "sha256": "51ab6d76f33fe486ecb3116a6acb19a2f854e68a234bcd78ef71fdf796e70013",
+      "blob": "m4-image-scope-r6-20261030/blobs/51ab6d76f33fe486ecb3116a6acb19a2f854e68a234bcd78ef71fdf796e70013.gz",
+      "packedBytes": 4171,
+      "packedSha256": "fe4e3c79822a82457b61488be2eec749fda42548b76a8354e5b7a4bfb46ae03f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-prepared-20261030/INPUTS.json",
+      "bytes": 3757,
+      "sha256": "607f07e14dfbc91b5c600e4836f2f189fd21da52a936e3e1c0f48e4dda4fadb3",
+      "blob": "m4-image-scope-r6-20261030/blobs/607f07e14dfbc91b5c600e4836f2f189fd21da52a936e3e1c0f48e4dda4fadb3.gz",
+      "packedBytes": 1434,
+      "packedSha256": "6da687cee0d4498e9fdfb52ba7fd8cde82ff3968837043c3ba1bea92a9087b3d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-prepared-20261030/REPORT.json",
+      "bytes": 3623,
+      "sha256": "0fc367ee8e235279f65b33f5462eedc4726b6d3d287bed54334bd705f33e480f",
+      "blob": "m4-image-scope-r6-20261030/blobs/0fc367ee8e235279f65b33f5462eedc4726b6d3d287bed54334bd705f33e480f.gz",
+      "packedBytes": 1596,
+      "packedSha256": "ac8e038454cd71b066c38ce64ce61c8361722fc5495f093471e66e78e4c616a4"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-prepared-20261030/ROOT-REVIEW-AND-AUTHORIZATION.json",
+      "bytes": 1614,
+      "sha256": "5f553b3836b704b3598ca0e8ce47f73b4708ade28d04f9276e3efa3ababad8f2",
+      "blob": "m4-image-scope-r6-20261030/blobs/5f553b3836b704b3598ca0e8ce47f73b4708ade28d04f9276e3efa3ababad8f2.gz",
+      "packedBytes": 960,
+      "packedSha256": "2c923d463edd6efcf2914140083a019176eaea2cd3bc752db5edfcec335ee8ce"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/001.json",
+      "bytes": 228,
+      "sha256": "e6568727b6078386f7e482e9d4c77629c2a68234709aa9a3ae3c21479977a4c7",
+      "blob": "m4-image-scope-r6-20261030/blobs/e6568727b6078386f7e482e9d4c77629c2a68234709aa9a3ae3c21479977a4c7.gz",
+      "packedBytes": 187,
+      "packedSha256": "f6a956258b65bea12d3dc85b4bcf9b701cbaa0877429c6760baf7d4a24497b8a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/001.log",
+      "bytes": 4389,
+      "sha256": "b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd",
+      "blob": "m4-image-scope-r6-20261030/blobs/b5397c8ecd5662cf2221c9bfa0106f4f505cfa053fc1b875b6ccbbb6efcf69dd.gz",
+      "packedBytes": 1906,
+      "packedSha256": "4d76d495e9f82561d44dd462707b2e4c016f0512a68d5208f19d62c7da912982"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/002.json",
+      "bytes": 222,
+      "sha256": "cbd256222a64e9831a32ffdc566dbf7de1f5129695638d98e660633eab830fb6",
+      "blob": "m4-image-scope-r6-20261030/blobs/cbd256222a64e9831a32ffdc566dbf7de1f5129695638d98e660633eab830fb6.gz",
+      "packedBytes": 182,
+      "packedSha256": "3e7ada1fdca55fb417947998daee1890a57f83de9d5049697e2fa76919907966"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/002.log",
+      "bytes": 1029,
+      "sha256": "4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc",
+      "blob": "m4-image-scope-r6-20261030/blobs/4d69b76c4e86694978bed42ebb675e87ce070783038238ebb120643014af46cc.gz",
+      "packedBytes": 702,
+      "packedSha256": "d35c90dbf9516887c0e4695f47883213cc4bd33158b8e61f8cebf628c9fb43ef"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/003.json",
+      "bytes": 220,
+      "sha256": "d93a7b97da20d11aded40a371c56f6e0c0d3908b04598dca27fe5329791706cb",
+      "blob": "m4-image-scope-r6-20261030/blobs/d93a7b97da20d11aded40a371c56f6e0c0d3908b04598dca27fe5329791706cb.gz",
+      "packedBytes": 183,
+      "packedSha256": "ef2a6017ec0699a04e17f0ceec34823d87c2932f18357ed0fa5e4a4bc9dd8d9e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/003.log",
+      "bytes": 4237,
+      "sha256": "648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111",
+      "blob": "m4-image-scope-r6-20261030/blobs/648c221594da7b81bb3d41c9b501fb965136ab50138db108c9b02186da3c4111.gz",
+      "packedBytes": 2255,
+      "packedSha256": "52b81ec9c9751c281a52562f02b11ec185f77a2f30ef2b51beda12f1e31f85ab"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/004.json",
+      "bytes": 225,
+      "sha256": "0974596762c56d0b37472552e36d139f6ba5b1ea75bfc4af13ac6ab4b5b7a36b",
+      "blob": "m4-image-scope-r6-20261030/blobs/0974596762c56d0b37472552e36d139f6ba5b1ea75bfc4af13ac6ab4b5b7a36b.gz",
+      "packedBytes": 184,
+      "packedSha256": "7219d6e55ebcc3345b2cf21b688c3ce56ce2602b619996ee49758ddca82bad06"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/004.log",
+      "bytes": 93,
+      "sha256": "b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06",
+      "blob": "m4-image-scope-r6-20261030/blobs/b6b3e5fc96b9311ba23b80fc083f5a71d67a8661c174e9f66b4e69f96e4b6f06.gz",
+      "packedBytes": 106,
+      "packedSha256": "c3a307653594076bf5276ddba5c3a85e6161b625b1b3cab3d2515f4d2927fa58"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/005.json",
+      "bytes": 241,
+      "sha256": "d48a328552375230339e11fcba32e2373e0d149c9ef684fae7aca664df62ad04",
+      "blob": "m4-image-scope-r6-20261030/blobs/d48a328552375230339e11fcba32e2373e0d149c9ef684fae7aca664df62ad04.gz",
+      "packedBytes": 202,
+      "packedSha256": "9eff4d213764c877005c298c49f901dbb6e0096987c3a4627351f1ebc7e2a241"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/005.log",
+      "bytes": 829,
+      "sha256": "e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370",
+      "blob": "m4-image-scope-r6-20261030/blobs/e37414a83245b40c99088e34bd365eaaa50c8c1ae896d5a202f082c6f3684370.gz",
+      "packedBytes": 619,
+      "packedSha256": "75e4fccae6bf531601933894f010ed211fcd9030620824509e890575019266c2"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/006.json",
+      "bytes": 238,
+      "sha256": "771a313b3fbc30502ddd9fe1aa91490fe09a210e404887b5c2027fef307d94e5",
+      "blob": "m4-image-scope-r6-20261030/blobs/771a313b3fbc30502ddd9fe1aa91490fe09a210e404887b5c2027fef307d94e5.gz",
+      "packedBytes": 195,
+      "packedSha256": "d8be6aee54616b1e98b1e07f5187ff63976a08bfdb11a072b2b9cb49e53c83b4"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/006.log",
+      "bytes": 869,
+      "sha256": "12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87",
+      "blob": "m4-image-scope-r6-20261030/blobs/12e7c650556c9593a7dd10dae6f1c8524b8f22fc3e7385010eb68eb15d314b87.gz",
+      "packedBytes": 347,
+      "packedSha256": "33b55c1cfe45c4dba28ca47108b9d89f2af32ab822913ca9fa191fd0b321ae9b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/007.json",
+      "bytes": 220,
+      "sha256": "acd121b516a46090cbcefd2af8c60f90a273e3cb838985cc2a4afdfe7383bc9a",
+      "blob": "m4-image-scope-r6-20261030/blobs/acd121b516a46090cbcefd2af8c60f90a273e3cb838985cc2a4afdfe7383bc9a.gz",
+      "packedBytes": 181,
+      "packedSha256": "7644b313259b66ec168eebff99e271260c385ef8252ff96906b44579e1671e18"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/007.log",
+      "bytes": 35,
+      "sha256": "84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd",
+      "blob": "m4-image-scope-r6-20261030/blobs/84f291cbc10adca224b6286f5ab655da628386000f15898628b3ca5db91144cd.gz",
+      "packedBytes": 55,
+      "packedSha256": "0b8e3d461b3c99aecef100c17b5b1a2dcbd13fc708091983a8b5b72046bd0959"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/008.json",
+      "bytes": 219,
+      "sha256": "e1729a5de0ef666742ee0632279261d53dc04c710819e6e12756945fc47eadfa",
+      "blob": "m4-image-scope-r6-20261030/blobs/e1729a5de0ef666742ee0632279261d53dc04c710819e6e12756945fc47eadfa.gz",
+      "packedBytes": 182,
+      "packedSha256": "46861bb62cb252756d8c5aadc40b1b31277ae82534c4ba68d907c04250a08add"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/008.log",
+      "bytes": 962,
+      "sha256": "2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7",
+      "blob": "m4-image-scope-r6-20261030/blobs/2caea1b2c632281a2e4048fcc6712fdd71564b673f7bab1c69ddf629c85ad0a7.gz",
+      "packedBytes": 521,
+      "packedSha256": "0286670bcb8057a040da3dd15d5b969c17b68a1ee13c079a1249e8dd3bc9f84a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/009.json",
+      "bytes": 231,
+      "sha256": "593f18b81e8ee10b3a0961f93d0243ecbdb57b8917217c00d5bc5d9d6721e3ed",
+      "blob": "m4-image-scope-r6-20261030/blobs/593f18b81e8ee10b3a0961f93d0243ecbdb57b8917217c00d5bc5d9d6721e3ed.gz",
+      "packedBytes": 191,
+      "packedSha256": "bb767ded97e23002f4c2983e14f8597ef9853bf72e58099724b217cd77fa9c38"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/009.log",
+      "bytes": 745,
+      "sha256": "903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff",
+      "blob": "m4-image-scope-r6-20261030/blobs/903b651eac75d00b21044acaea65d4c50c805d7e24033b670490a8910087c7ff.gz",
+      "packedBytes": 400,
+      "packedSha256": "965f7c43340c6bddb8470273971284ef2087381570c69811114b67f2a332057b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/010.json",
+      "bytes": 222,
+      "sha256": "4def157dd2affdc2186b6aa79eb6f1b1e3362ec971cd6d57b2a6724b3a76b0a9",
+      "blob": "m4-image-scope-r6-20261030/blobs/4def157dd2affdc2186b6aa79eb6f1b1e3362ec971cd6d57b2a6724b3a76b0a9.gz",
+      "packedBytes": 184,
+      "packedSha256": "f36e7fa334d0d198ad5ca541ed602a8602a6aba332389811b8c4df6fbedbbaf5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/010.log",
+      "bytes": 5477,
+      "sha256": "33ff37927a028dc03d5b2dbac71cdebf8124908d336afde3a1717206aee980bc",
+      "blob": "m4-image-scope-r6-20261030/blobs/33ff37927a028dc03d5b2dbac71cdebf8124908d336afde3a1717206aee980bc.gz",
+      "packedBytes": 2757,
+      "packedSha256": "bbc5bfa47da5d9e05813c5060d89c2f5a07c9978be3233481c07b1a624f011db"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/011.json",
+      "bytes": 217,
+      "sha256": "d64091e3a0b63fbe6783ba7a1373e2b5e9610c46953c5c8aefe527c96a80c617",
+      "blob": "m4-image-scope-r6-20261030/blobs/d64091e3a0b63fbe6783ba7a1373e2b5e9610c46953c5c8aefe527c96a80c617.gz",
+      "packedBytes": 180,
+      "packedSha256": "421539953a6e3c732995890988ec86e109589c4703481a549496494f12586c6d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/011.log",
+      "bytes": 4662,
+      "sha256": "9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e",
+      "blob": "m4-image-scope-r6-20261030/blobs/9f62bf9669f9e09448cc76f0b04c3052a1344878b7c085e66e131c15efe8c65e.gz",
+      "packedBytes": 772,
+      "packedSha256": "d6070fca74c839135f3102e04019cc6b95397277362a3faed4465cbe9bb76555"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/012.json",
+      "bytes": 216,
+      "sha256": "359fd427f1be2705095c60f78124d3d01a81166b0c489cff19a8d9f6bf245994",
+      "blob": "m4-image-scope-r6-20261030/blobs/359fd427f1be2705095c60f78124d3d01a81166b0c489cff19a8d9f6bf245994.gz",
+      "packedBytes": 177,
+      "packedSha256": "0d1c77601eaae1eff08f16ecf594cbde45f63053e8de415faa7a190da08a0cfe"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/012.log",
+      "bytes": 740,
+      "sha256": "07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd",
+      "blob": "m4-image-scope-r6-20261030/blobs/07aae1f4f96eef9da286e03969b905e5c802654a1592de122dbc1ef655b678cd.gz",
+      "packedBytes": 463,
+      "packedSha256": "92d1508fa93157dedfd7d5ec3ced59adb2a3c07cb6850deba7d6ddcaa335ff60"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/013.json",
+      "bytes": 226,
+      "sha256": "0c80a751abda6c292838a97645c6efd1305ff373ba1f58711665090680ca99bf",
+      "blob": "m4-image-scope-r6-20261030/blobs/0c80a751abda6c292838a97645c6efd1305ff373ba1f58711665090680ca99bf.gz",
+      "packedBytes": 186,
+      "packedSha256": "8f9f1929b7b631921357163f6c6782acc1a2b6311a586a8338a18590e02e08f9"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/013.log",
+      "bytes": 1326,
+      "sha256": "d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0",
+      "blob": "m4-image-scope-r6-20261030/blobs/d31fdbc576ea7c5f03b51c23e7e0d2834f25695f97c354503530cd265aea9ee0.gz",
+      "packedBytes": 429,
+      "packedSha256": "dcd73c05e2617c6bbd9aa1e942319ee233858453a4854d766e4214441404cad5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/014.json",
+      "bytes": 218,
+      "sha256": "4f3cbec040d8b0042bde1005d2d064b9752815e6e81a37d27f6160b3f21c2381",
+      "blob": "m4-image-scope-r6-20261030/blobs/4f3cbec040d8b0042bde1005d2d064b9752815e6e81a37d27f6160b3f21c2381.gz",
+      "packedBytes": 180,
+      "packedSha256": "933c8a86f5668b583aba9eea2393d9e4bc2a4d5434898aecfba16545a7a8fe09"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/014.log",
+      "bytes": 33,
+      "sha256": "738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309",
+      "blob": "m4-image-scope-r6-20261030/blobs/738a254f5b9705c733d30162b2b7555efa24bea0483698e02e4f8c328442c309.gz",
+      "packedBytes": 53,
+      "packedSha256": "8c2584c292155f2c176c7723cf6c350ab772b87ff4d9fce9b8c2b339a7c6343f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/015.json",
+      "bytes": 220,
+      "sha256": "24b6f51acf9d626539498f87034ae9d70d7e60206834bc212dd405807ce88774",
+      "blob": "m4-image-scope-r6-20261030/blobs/24b6f51acf9d626539498f87034ae9d70d7e60206834bc212dd405807ce88774.gz",
+      "packedBytes": 181,
+      "packedSha256": "c72832ec5a5a5bcde642c2668222cf8d373b79a289909e84e39d89b217908583"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/015.log",
+      "bytes": 3360,
+      "sha256": "e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3e9b79c24b834804b4d850b57c17a3cca4c1f7a36b9b2b5d9c36777d7b06201.gz",
+      "packedBytes": 1978,
+      "packedSha256": "f65c78e4c1901b0dbac618707453a7948329b3d873d254303eddae573428981b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/016.json",
+      "bytes": 230,
+      "sha256": "3a13fbb7dddea36a5429bda4dfc68172fdc620c5f17c3571235fd92690c46984",
+      "blob": "m4-image-scope-r6-20261030/blobs/3a13fbb7dddea36a5429bda4dfc68172fdc620c5f17c3571235fd92690c46984.gz",
+      "packedBytes": 191,
+      "packedSha256": "ef82d33a9a5c864412274d306fa5661170cba5fa791a7c80f2d05b944a2473ad"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/016.log",
+      "bytes": 798,
+      "sha256": "7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144",
+      "blob": "m4-image-scope-r6-20261030/blobs/7d32409d1d8da3d1e85151b7c084a9018307a830269b3576aaa098f9820cb144.gz",
+      "packedBytes": 371,
+      "packedSha256": "b85d922c1aad1e9b6bf916fb22f646c39f3f77e6c74c4126b600b065e7db67bb"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/017.json",
+      "bytes": 219,
+      "sha256": "4832fdc552d9f655b7afa203f9600a341514ef6b35ff98268bccfb67019226e8",
+      "blob": "m4-image-scope-r6-20261030/blobs/4832fdc552d9f655b7afa203f9600a341514ef6b35ff98268bccfb67019226e8.gz",
+      "packedBytes": 181,
+      "packedSha256": "d2e3f1daf93d651b928297ee399532df9e5f7552e0eea9bc08f26eb5eed70a6c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/017.log",
+      "bytes": 802,
+      "sha256": "2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784",
+      "blob": "m4-image-scope-r6-20261030/blobs/2c85ab0ed6302b795df7cc88cea016ff8b917c194aa084226e3e340cfdeab784.gz",
+      "packedBytes": 664,
+      "packedSha256": "b1d50ab4143de74da498c0691b03c3e5db6b66609c3d8f125d99f4bbd1771249"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/018.json",
+      "bytes": 231,
+      "sha256": "379b9f9b39aee733bab13be3b57f328ddf902a340cb690cc1e3a6f3c3f05fa7a",
+      "blob": "m4-image-scope-r6-20261030/blobs/379b9f9b39aee733bab13be3b57f328ddf902a340cb690cc1e3a6f3c3f05fa7a.gz",
+      "packedBytes": 191,
+      "packedSha256": "138154c3f5c70daceccb032bada60e14dd7ed02af4623114d96334fa671b3f5f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/018.log",
+      "bytes": 1698,
+      "sha256": "19a6f8667430609d14ee107ad0d45c2e457a512b21e00474c8c7d72a1b37ecf4",
+      "blob": "m4-image-scope-r6-20261030/blobs/19a6f8667430609d14ee107ad0d45c2e457a512b21e00474c8c7d72a1b37ecf4.gz",
+      "packedBytes": 767,
+      "packedSha256": "736f892b4d95dd24fa22c0e32f1eb80df4e09b0bb4b9c28de7223fd0e9ed0a90"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/019.json",
+      "bytes": 224,
+      "sha256": "679d38e3d2627648c52940ae5f568ac8bb70149bc8fb65ea7107e9f602c75d6d",
+      "blob": "m4-image-scope-r6-20261030/blobs/679d38e3d2627648c52940ae5f568ac8bb70149bc8fb65ea7107e9f602c75d6d.gz",
+      "packedBytes": 186,
+      "packedSha256": "c5e98719afe8b5df94e2788758a406d765d9e2875bc19df2bc5404985eaf39f8"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/019.log",
+      "bytes": 4486,
+      "sha256": "96f2098072103b6fc6cc201eb5c20134c8d307b641ad807f06a955766fa17e20",
+      "blob": "m4-image-scope-r6-20261030/blobs/96f2098072103b6fc6cc201eb5c20134c8d307b641ad807f06a955766fa17e20.gz",
+      "packedBytes": 2636,
+      "packedSha256": "8390ce14eb7cb0084c2f255855be5b8ca468f0ef0312903246060fb3556d93eb"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/020.json",
+      "bytes": 218,
+      "sha256": "4b2f90da9fb0059d35be762f6be6b485d674f1491104d2534161b39ef9ac2422",
+      "blob": "m4-image-scope-r6-20261030/blobs/4b2f90da9fb0059d35be762f6be6b485d674f1491104d2534161b39ef9ac2422.gz",
+      "packedBytes": 181,
+      "packedSha256": "6d5f84775a5e47ca1b6079f876e858fac3481570375887bfd76e604827faa17f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/020.log",
+      "bytes": 257,
+      "sha256": "3fa496fb0b2a3baa725d6b5eba0429214aa431fb8704ad2d0714b823364ddd99",
+      "blob": "m4-image-scope-r6-20261030/blobs/3fa496fb0b2a3baa725d6b5eba0429214aa431fb8704ad2d0714b823364ddd99.gz",
+      "packedBytes": 165,
+      "packedSha256": "bb949ca17c1561084bd74d707f5de9d94425f0692385f9e33e9c3a41addbc972"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/021.json",
+      "bytes": 229,
+      "sha256": "872b5a2681707def130f1675837c13eb08938ae823a0855afcd20c08f6e2925e",
+      "blob": "m4-image-scope-r6-20261030/blobs/872b5a2681707def130f1675837c13eb08938ae823a0855afcd20c08f6e2925e.gz",
+      "packedBytes": 190,
+      "packedSha256": "d0463285b8da37c18da9df6cb8fd7d4c1787d70aa6cbd3894bb54eb2581db4a2"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/021.log",
+      "bytes": 1901,
+      "sha256": "b81bb1e5287e05b63404e995cfd2621a6682f418df27fb7523aaf428fda2756e",
+      "blob": "m4-image-scope-r6-20261030/blobs/b81bb1e5287e05b63404e995cfd2621a6682f418df27fb7523aaf428fda2756e.gz",
+      "packedBytes": 949,
+      "packedSha256": "acd2a8f206a03f40076173a0c0ff060072cf3545d0f91136cd2a0df0e554fc49"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/022.json",
+      "bytes": 212,
+      "sha256": "7be5e92b67062fdac5ff4cad79d48cf6828d2feaed8036966d3f754a7c03cae0",
+      "blob": "m4-image-scope-r6-20261030/blobs/7be5e92b67062fdac5ff4cad79d48cf6828d2feaed8036966d3f754a7c03cae0.gz",
+      "packedBytes": 174,
+      "packedSha256": "4bbc03b54509b6bdbc97e0e031b7190e5e426185c43afa36b9bfbbc8798e179a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/022.log",
+      "bytes": 2333,
+      "sha256": "19e46b44bb94ae365a240e83d6163597cf9b19f42a2d8cd3a598d4cf9c417cc8",
+      "blob": "m4-image-scope-r6-20261030/blobs/19e46b44bb94ae365a240e83d6163597cf9b19f42a2d8cd3a598d4cf9c417cc8.gz",
+      "packedBytes": 905,
+      "packedSha256": "73a00c040ec3f2672e61329de80f454d9dcee02312641a93303766d1c8df3b89"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/023.json",
+      "bytes": 224,
+      "sha256": "82e9e86271616089efe144c0aa07b56e88f55caa90c3ad317cd8d9e637ae386c",
+      "blob": "m4-image-scope-r6-20261030/blobs/82e9e86271616089efe144c0aa07b56e88f55caa90c3ad317cd8d9e637ae386c.gz",
+      "packedBytes": 186,
+      "packedSha256": "aa15390ffc9f3d3cbe8539fbd316d292c3860fba33e7433983286fdb8012a491"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/023.log",
+      "bytes": 1244,
+      "sha256": "e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93",
+      "blob": "m4-image-scope-r6-20261030/blobs/e7714116d2257433c85455bd9be917f6cc5fa79b99ddc5f0a8686ecc2bdf8f93.gz",
+      "packedBytes": 696,
+      "packedSha256": "1d9c18bbdbed779c401fcd8aa077f717e1bd79eca478421c8415091f0a5b8869"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/024.json",
+      "bytes": 220,
+      "sha256": "d6ce3515b6334115c696c6c5479a31b5da205d6355391b79674d2f0bad3da830",
+      "blob": "m4-image-scope-r6-20261030/blobs/d6ce3515b6334115c696c6c5479a31b5da205d6355391b79674d2f0bad3da830.gz",
+      "packedBytes": 184,
+      "packedSha256": "38c5e73ea78da0d08eb0e7ccfc6ab00156eaf19dedff067c9dea07a8078e24f5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/024.log",
+      "bytes": 5688,
+      "sha256": "6e720f330e56f4f830afbfdcf49dc97a9c33b3468f8b98ad57b4d51773766800",
+      "blob": "m4-image-scope-r6-20261030/blobs/6e720f330e56f4f830afbfdcf49dc97a9c33b3468f8b98ad57b4d51773766800.gz",
+      "packedBytes": 2477,
+      "packedSha256": "27ac5d90e52a01ed54d8412e1fd3dd6c8489568ac47772f574b1912a8647aa56"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/025.json",
+      "bytes": 223,
+      "sha256": "bd6b8fb4a3d1da8d703ab926bfb78c931356fd12328060e98f08936bb9fb1f45",
+      "blob": "m4-image-scope-r6-20261030/blobs/bd6b8fb4a3d1da8d703ab926bfb78c931356fd12328060e98f08936bb9fb1f45.gz",
+      "packedBytes": 183,
+      "packedSha256": "d5b3b19652520dfcf440062c39824a3c13d9367256af74ed5ba32763eafb04d1"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/025.log",
+      "bytes": 7594,
+      "sha256": "a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0",
+      "blob": "m4-image-scope-r6-20261030/blobs/a69f82716331a20f9ad207866f9fcc6c092f990012782ab6391fd99dcd1ccdf0.gz",
+      "packedBytes": 2485,
+      "packedSha256": "cad74c10e028a4a3a2c67d37978df348ecb03e1f8e8f4b22ec7efa039f6e25f8"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/026.json",
+      "bytes": 218,
+      "sha256": "d9aa0c7f37b16058e9a592b2b5f7b2b3bff7419db40361b1fa45a0297ba5b964",
+      "blob": "m4-image-scope-r6-20261030/blobs/d9aa0c7f37b16058e9a592b2b5f7b2b3bff7419db40361b1fa45a0297ba5b964.gz",
+      "packedBytes": 180,
+      "packedSha256": "65ee3700f37cb144c65d8fc152704dcaecd562f77ac5dbac83ea3628ba9dd71d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/026.log",
+      "bytes": 3392,
+      "sha256": "d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2",
+      "blob": "m4-image-scope-r6-20261030/blobs/d165059c0a44e52911cb1e2f6efed0c3f1feef7108920f271a6f51417ba1bab2.gz",
+      "packedBytes": 2140,
+      "packedSha256": "8377dc0c918cc2941267c8c76d12c10758b53f6d6295b481c3aa7f49d4662da8"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/027.json",
+      "bytes": 220,
+      "sha256": "2ad78273fc0403f8b10c66536668426a78303ddc617b5e1e5e3fd6f7559a4261",
+      "blob": "m4-image-scope-r6-20261030/blobs/2ad78273fc0403f8b10c66536668426a78303ddc617b5e1e5e3fd6f7559a4261.gz",
+      "packedBytes": 182,
+      "packedSha256": "cd4d527fabcb910d65cb12200f978575d8dfe53c0093744d21511d5eeaaa6ea0"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/027.log",
+      "bytes": 673,
+      "sha256": "e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3e10243676c6b7ac5742b683e659e6cc6de54b6dd4f5500813564cf3ab70e99.gz",
+      "packedBytes": 397,
+      "packedSha256": "36577c2d473c33d6386e72093fbaabbd44e44bb2488cf4de881a50b213ec816a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/028.json",
+      "bytes": 212,
+      "sha256": "1f6436ae852811509ed145e23b6ee6b3d3cbb46e7da9b7c8326053336217878a",
+      "blob": "m4-image-scope-r6-20261030/blobs/1f6436ae852811509ed145e23b6ee6b3d3cbb46e7da9b7c8326053336217878a.gz",
+      "packedBytes": 174,
+      "packedSha256": "0d61a71a8cebfe9785a78d5184ede3f93c7d0336d6c6f45a24210fafc2ef57f9"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/028.log",
+      "bytes": 749,
+      "sha256": "c032b68abc35a9c34d4187de1bc83987b0ff5d3bec3a97f9604f4022b18f72d8",
+      "blob": "m4-image-scope-r6-20261030/blobs/c032b68abc35a9c34d4187de1bc83987b0ff5d3bec3a97f9604f4022b18f72d8.gz",
+      "packedBytes": 442,
+      "packedSha256": "a841fc1658cd18c3a75d666b72c3667a820c5b856918c9bd59dd475faf9f639f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/029.json",
+      "bytes": 229,
+      "sha256": "e082e42c4712603034beb30edc3424cc08b54c5b22fbeaad5a70139817413be9",
+      "blob": "m4-image-scope-r6-20261030/blobs/e082e42c4712603034beb30edc3424cc08b54c5b22fbeaad5a70139817413be9.gz",
+      "packedBytes": 188,
+      "packedSha256": "dcce9146fd893638f73277777a9664f03fa92d317c78a4c8132c42243715e163"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/029.log",
+      "bytes": 863,
+      "sha256": "fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8",
+      "blob": "m4-image-scope-r6-20261030/blobs/fb545bbef31d39fdfe3ad540d60f3b182e8f0ecf9a8de5e5c63ed601093aeac8.gz",
+      "packedBytes": 613,
+      "packedSha256": "38fee65b7337ad85f1022a548eb8f7d843067c85fcf5aaaf14acbd3cd4b89715"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/030.json",
+      "bytes": 219,
+      "sha256": "bf25014baea9aa372dc9a13c6359ad475f6b9732adfa3edb5575e47b14ba06c8",
+      "blob": "m4-image-scope-r6-20261030/blobs/bf25014baea9aa372dc9a13c6359ad475f6b9732adfa3edb5575e47b14ba06c8.gz",
+      "packedBytes": 181,
+      "packedSha256": "0836b0eeb94cf626544722615125e3c3d1abad270c14d2f16935e504cf36a2b8"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/030.log",
+      "bytes": 600,
+      "sha256": "d02fe5acd47a0d8164d937527e95b38e0a63be442761040f214a155e1c00e764",
+      "blob": "m4-image-scope-r6-20261030/blobs/d02fe5acd47a0d8164d937527e95b38e0a63be442761040f214a155e1c00e764.gz",
+      "packedBytes": 413,
+      "packedSha256": "f2353172f589ce6f5886684d835cbdc6e450b1cde0f5de5873b2d95b091a9905"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/031.json",
+      "bytes": 221,
+      "sha256": "15c56b506fc194515cc128da552220721812c2d01ad017ab941153c8c1f9549a",
+      "blob": "m4-image-scope-r6-20261030/blobs/15c56b506fc194515cc128da552220721812c2d01ad017ab941153c8c1f9549a.gz",
+      "packedBytes": 182,
+      "packedSha256": "febbc73a42b2b899180ae8179aed05022eca9eba0e8cd514cde0365d95355fc8"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/031.log",
+      "bytes": 7248,
+      "sha256": "2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf",
+      "blob": "m4-image-scope-r6-20261030/blobs/2afdd672383aa3343c17a099d1899548f0d0bfbbd1ba2f9ae30f2d309ff73daf.gz",
+      "packedBytes": 3995,
+      "packedSha256": "c694271bcae43c2c69a19822f567d4a98b84d535eeb1d297de55cb9698eaa695"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/032.json",
+      "bytes": 222,
+      "sha256": "126d3ef71b55285c0999c02522f0cfaf07365b34f0eb25b923a51351a9a1483c",
+      "blob": "m4-image-scope-r6-20261030/blobs/126d3ef71b55285c0999c02522f0cfaf07365b34f0eb25b923a51351a9a1483c.gz",
+      "packedBytes": 185,
+      "packedSha256": "e8b12ebe04f9120a65e596e5d7074b81cda8831b6f6893dd6ee825a3d6541a79"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/032.log",
+      "bytes": 32031,
+      "sha256": "1335b93359717898558c0dbda04771d180910081a2b725d4c3eba1c82f0c8e1d",
+      "blob": "m4-image-scope-r6-20261030/blobs/1335b93359717898558c0dbda04771d180910081a2b725d4c3eba1c82f0c8e1d.gz",
+      "packedBytes": 5194,
+      "packedSha256": "bb66d22cc4bb89e03c0cdabdd56bafde467d68d2b2a3f3c5579f57a9490dec0e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/033.json",
+      "bytes": 218,
+      "sha256": "e1e450f2c7e80006dea5f73372c88f49be3e7f8ffc9a770f82e976f25ec1b341",
+      "blob": "m4-image-scope-r6-20261030/blobs/e1e450f2c7e80006dea5f73372c88f49be3e7f8ffc9a770f82e976f25ec1b341.gz",
+      "packedBytes": 180,
+      "packedSha256": "cccb2ecbd167a90f30287f4955027ac62db4b9d3e14e8c85acdd829589a4459d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/033.log",
+      "bytes": 2978,
+      "sha256": "acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c",
+      "blob": "m4-image-scope-r6-20261030/blobs/acac8044feb97ba31652aeadb42a05c4fa57d0e6e5b8ba7abb113cfc6806f46c.gz",
+      "packedBytes": 1184,
+      "packedSha256": "1f91440315c1288735be07fa95b72c3ae1cfe4e09bb88a7e9dcb9c2024a5cba1"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/034.json",
+      "bytes": 229,
+      "sha256": "9a60c9d8a5b1c01ad88df8bb4d6a35194992ef004ee7a4a06817be248a29f118",
+      "blob": "m4-image-scope-r6-20261030/blobs/9a60c9d8a5b1c01ad88df8bb4d6a35194992ef004ee7a4a06817be248a29f118.gz",
+      "packedBytes": 187,
+      "packedSha256": "f98a82362fd84acfa9b5a6c51ffb350926e067b340dde53940649560ef281b08"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/034.log",
+      "bytes": 441,
+      "sha256": "3d9460ec1f9f6bc018d6f25200762abf3a54710499956a7f57451f33d04a1386",
+      "blob": "m4-image-scope-r6-20261030/blobs/3d9460ec1f9f6bc018d6f25200762abf3a54710499956a7f57451f33d04a1386.gz",
+      "packedBytes": 293,
+      "packedSha256": "9144b32b0109271c4020eebd8a8f6cc15760aaac19e58f957d430bf738ee1eb2"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/035.json",
+      "bytes": 221,
+      "sha256": "c0477ae6837ba6124fcf47b5ae51641cca4754e2e29fa19355ffef89fc36415e",
+      "blob": "m4-image-scope-r6-20261030/blobs/c0477ae6837ba6124fcf47b5ae51641cca4754e2e29fa19355ffef89fc36415e.gz",
+      "packedBytes": 183,
+      "packedSha256": "38b15125231dd62907da803c166264f0c5bedd9dfb872b8172a26768f320bf21"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/035.log",
+      "bytes": 813,
+      "sha256": "854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527",
+      "blob": "m4-image-scope-r6-20261030/blobs/854a1e6d05ccb1d7aef04aaa3e0d45d2d1963ee2085b4349813afd6c6d964527.gz",
+      "packedBytes": 475,
+      "packedSha256": "5514d07e6a6cc07e491360e607ae847345ac77b09422848157cd2dfc26b63624"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/036.json",
+      "bytes": 221,
+      "sha256": "4c6e225340dec7ba4098ae41a06f5f2aea02301b0d579c36c207403520864687",
+      "blob": "m4-image-scope-r6-20261030/blobs/4c6e225340dec7ba4098ae41a06f5f2aea02301b0d579c36c207403520864687.gz",
+      "packedBytes": 183,
+      "packedSha256": "7d1305ba402a03078a6120090a4ca68fc02fd1ce43e2fa9419b02bb7091cb589"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/036.log",
+      "bytes": 9088,
+      "sha256": "88dda0ca09930bb54665c15ade8d89c88c214414e22ba159c7d6f93c2387a9da",
+      "blob": "m4-image-scope-r6-20261030/blobs/88dda0ca09930bb54665c15ade8d89c88c214414e22ba159c7d6f93c2387a9da.gz",
+      "packedBytes": 4269,
+      "packedSha256": "d2e9ecfd47ca0c611ae07681c5c9e57833ffd925e0b9695d487a398941311bab"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/037.json",
+      "bytes": 225,
+      "sha256": "1701599341015cb39cf72b3eda8599793408b0ea862214ef229ab12be64bb252",
+      "blob": "m4-image-scope-r6-20261030/blobs/1701599341015cb39cf72b3eda8599793408b0ea862214ef229ab12be64bb252.gz",
+      "packedBytes": 184,
+      "packedSha256": "01efdca50704f1f0609b1c765f93d1a0985712f1b9e98765146ba778641139bb"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/037.log",
+      "bytes": 1115,
+      "sha256": "0f2bcaca66defbf9e53cc5954f1630c7d631776ad6109707b92c4e75647c2604",
+      "blob": "m4-image-scope-r6-20261030/blobs/0f2bcaca66defbf9e53cc5954f1630c7d631776ad6109707b92c4e75647c2604.gz",
+      "packedBytes": 788,
+      "packedSha256": "d868f24ed1c0f34afb900283b596fb1c23b21434c95a1ea4f7565bf8defc5c9d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/038.json",
+      "bytes": 231,
+      "sha256": "a3ed6a2c77a269abe7bd2d1e9b5145f14b41e4133249dc1031b056b2c67e087f",
+      "blob": "m4-image-scope-r6-20261030/blobs/a3ed6a2c77a269abe7bd2d1e9b5145f14b41e4133249dc1031b056b2c67e087f.gz",
+      "packedBytes": 192,
+      "packedSha256": "d4ed95677ddf48f9b0aafdb76de3512e91513926ca2dd8a09726e7403856b107"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/038.log",
+      "bytes": 1233,
+      "sha256": "bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a",
+      "blob": "m4-image-scope-r6-20261030/blobs/bcfda1fa0f4bc0096182458fd3723983febf119a28cbec93aa57dbb3f339dc0a.gz",
+      "packedBytes": 650,
+      "packedSha256": "95fe6ad3aad76b5830cad821008842c9c525c8cb4bbbf1a455667d4bdf584464"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/039.json",
+      "bytes": 225,
+      "sha256": "a00b59eaf48e581c8a03e3f9cbddda714c6e6ec66ba107d068b82a28226d0c14",
+      "blob": "m4-image-scope-r6-20261030/blobs/a00b59eaf48e581c8a03e3f9cbddda714c6e6ec66ba107d068b82a28226d0c14.gz",
+      "packedBytes": 185,
+      "packedSha256": "584603c1e3cdd9d9a979cd79fb008d7937ff06938a85ca85a312c2676bf84f13"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/039.log",
+      "bytes": 1836,
+      "sha256": "eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b",
+      "blob": "m4-image-scope-r6-20261030/blobs/eb7cc60656e00b62313f38866b2ffc440d06794ecb506d23710bf60a7721c42b.gz",
+      "packedBytes": 819,
+      "packedSha256": "7f0972b69d98bef3dd0c3bb64aeece92a274eb248dbdf2557995e96b04f8ca81"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/040.json",
+      "bytes": 223,
+      "sha256": "c367dcae5ea8c57b1366fdfeee7626ceeaf4ce807b272a83c1c797147f1c55f3",
+      "blob": "m4-image-scope-r6-20261030/blobs/c367dcae5ea8c57b1366fdfeee7626ceeaf4ce807b272a83c1c797147f1c55f3.gz",
+      "packedBytes": 185,
+      "packedSha256": "bcdafa7f1bd6e9e1173ca50655863d359aa4caa44c28b56aa3808135df46d174"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/040.log",
+      "bytes": 1350,
+      "sha256": "2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6",
+      "blob": "m4-image-scope-r6-20261030/blobs/2c30be4dcdd0f5f402ec8096e4abf898d46af523a6b6588119d784d35f336bd6.gz",
+      "packedBytes": 900,
+      "packedSha256": "dde144264943ce036ea1d6d648dc0becd04701a7aa6f78179975ccaee4ac8d82"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/041.json",
+      "bytes": 232,
+      "sha256": "6496a578fcede8a7b85c98ca2899d76d1981e088162b2fc773076925747b3864",
+      "blob": "m4-image-scope-r6-20261030/blobs/6496a578fcede8a7b85c98ca2899d76d1981e088162b2fc773076925747b3864.gz",
+      "packedBytes": 193,
+      "packedSha256": "bbcbfb463d1365221676da06334dab6cee338e3cf817538370cc671409a7e5b9"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/041.log",
+      "bytes": 1545,
+      "sha256": "a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d",
+      "blob": "m4-image-scope-r6-20261030/blobs/a97facab64b7603decafdff8c120f3d6694a0aa42bdf48b58ff2e1d37f880f5d.gz",
+      "packedBytes": 781,
+      "packedSha256": "a0503f029b8a0de7ecc5309701939a1c85f2cd5495727b263fd6ae0e73c199a1"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/042.json",
+      "bytes": 217,
+      "sha256": "59cb0a72039974963f213ef34d03e2763bc2cca6803d78e00e99f2c944f78ac8",
+      "blob": "m4-image-scope-r6-20261030/blobs/59cb0a72039974963f213ef34d03e2763bc2cca6803d78e00e99f2c944f78ac8.gz",
+      "packedBytes": 179,
+      "packedSha256": "48d0e195b1d5fb113cacd8f07b78d689a22822548a7d04a4818a8700905d9f7d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/042.log",
+      "bytes": 9579,
+      "sha256": "4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb",
+      "blob": "m4-image-scope-r6-20261030/blobs/4386bcc907a400507957cca20c65753354d84eca50093ca4c49d04efb69972cb.gz",
+      "packedBytes": 5092,
+      "packedSha256": "91028485f57a431d1645ca6dda909e7c4573ff08df4730e40eeb891fe0e0f577"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/043.json",
+      "bytes": 227,
+      "sha256": "57c697a309e985608124ccaeaa7e6911df5d722ee062a8eead787bec24921f55",
+      "blob": "m4-image-scope-r6-20261030/blobs/57c697a309e985608124ccaeaa7e6911df5d722ee062a8eead787bec24921f55.gz",
+      "packedBytes": 187,
+      "packedSha256": "037be2ace56af3f4e2dea8d4931f2dcf6a198273d0d24110db834fafaa0241f2"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/043.log",
+      "bytes": 1818,
+      "sha256": "0b2b107f8268f09a6c094e73b31da38ab062c430ff43f1cdfa116fa72aefdb6e",
+      "blob": "m4-image-scope-r6-20261030/blobs/0b2b107f8268f09a6c094e73b31da38ab062c430ff43f1cdfa116fa72aefdb6e.gz",
+      "packedBytes": 1079,
+      "packedSha256": "ab7471d01f61038f2a7080e1e75037f82a29733d26748aa4092815df72dcf810"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/044.json",
+      "bytes": 225,
+      "sha256": "a70d7f97fa718a64e22ce41c525689586dd1bc04cb0690ba6592fb3f3548e212",
+      "blob": "m4-image-scope-r6-20261030/blobs/a70d7f97fa718a64e22ce41c525689586dd1bc04cb0690ba6592fb3f3548e212.gz",
+      "packedBytes": 185,
+      "packedSha256": "25c4a6f908516e0f213ccad48932c524c4243f8ec6ca1f7b2a246b63bd3e204a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/044.log",
+      "bytes": 1269,
+      "sha256": "5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675",
+      "blob": "m4-image-scope-r6-20261030/blobs/5ef3a5cdea077d87523a868d32893a6f5da77ceff377fe1a20dd19019d7ac675.gz",
+      "packedBytes": 628,
+      "packedSha256": "f3bb48a2a8ccff4e7c866b7118762f4c295714f77e584b38149ca38750c0ce40"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/045.json",
+      "bytes": 221,
+      "sha256": "f190ef28ece639d42eaeab90e147fcdc9a35bb4a987529ea09edd9f9c9870e85",
+      "blob": "m4-image-scope-r6-20261030/blobs/f190ef28ece639d42eaeab90e147fcdc9a35bb4a987529ea09edd9f9c9870e85.gz",
+      "packedBytes": 183,
+      "packedSha256": "a704bb515f354b565b100365b1880bc6af98272cb648a66d2c7f7d5a6fad01a7"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/045.log",
+      "bytes": 856,
+      "sha256": "9e42cd0fcd70c9b11b339d9dd7dbeda1c7db04d2cfb42d2e8b957d4c09d5574b",
+      "blob": "m4-image-scope-r6-20261030/blobs/9e42cd0fcd70c9b11b339d9dd7dbeda1c7db04d2cfb42d2e8b957d4c09d5574b.gz",
+      "packedBytes": 598,
+      "packedSha256": "dbbf1d1cdb816a90994c73b8ecbec8db803f0dd2ee382552efd64d9ea6bca691"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/046.json",
+      "bytes": 222,
+      "sha256": "b55c16eb4209de63aec62d2cbd0c8153287058037ef34201fcafb636be4024a0",
+      "blob": "m4-image-scope-r6-20261030/blobs/b55c16eb4209de63aec62d2cbd0c8153287058037ef34201fcafb636be4024a0.gz",
+      "packedBytes": 183,
+      "packedSha256": "2b20ab339bb069e12ae06028f681389e82215d88dfe6e7b09ece43e721fc7953"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/046.log",
+      "bytes": 2394,
+      "sha256": "6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5",
+      "blob": "m4-image-scope-r6-20261030/blobs/6a22008ec8df33b6cc0c5611c07561debd59f5efca5c111639c12ec60e32cba5.gz",
+      "packedBytes": 1460,
+      "packedSha256": "a1f2afd3d638cdcfe2e11e15b4772587d2c77bb75326e3e666964d3172aaa5c5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/047.json",
+      "bytes": 222,
+      "sha256": "781a34bf48eb73f7bff033465c0b7e7957dfe33bbe9e3b456d9804abd592002a",
+      "blob": "m4-image-scope-r6-20261030/blobs/781a34bf48eb73f7bff033465c0b7e7957dfe33bbe9e3b456d9804abd592002a.gz",
+      "packedBytes": 185,
+      "packedSha256": "79bdf43dccec5e26cdfb51b858b9731eb2e22045a3d2a21b3ba21a40592e2764"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/047.log",
+      "bytes": 8054,
+      "sha256": "909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4",
+      "blob": "m4-image-scope-r6-20261030/blobs/909083e2d6ffebd0b778cba82b0a03b94dd3fe08e78f1856a1cd3d6b2895d4f4.gz",
+      "packedBytes": 4288,
+      "packedSha256": "4dddb637d2a7840b40e0bec91b5086176b0b1ea798b468f238478daab031f514"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/048.json",
+      "bytes": 235,
+      "sha256": "d485eae7e675a4d7b92b9f35679dc4e887e18425707902fb8dd82cbbdb2a6d6c",
+      "blob": "m4-image-scope-r6-20261030/blobs/d485eae7e675a4d7b92b9f35679dc4e887e18425707902fb8dd82cbbdb2a6d6c.gz",
+      "packedBytes": 194,
+      "packedSha256": "858fa2581955439eddb2e227dddf7992a1ddf9436e299947b805fe1714c71b86"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/048.log",
+      "bytes": 50,
+      "sha256": "8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb",
+      "blob": "m4-image-scope-r6-20261030/blobs/8ebf1488a84da259f7bca75149577ab2608d706e7fdb2ab3116db47021ab7cfb.gz",
+      "packedBytes": 70,
+      "packedSha256": "56c179ab5aa0a7e173079d22f2c08a52e48cbfd0d9bcc3d46e6ac16ffedbebf4"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/049.json",
+      "bytes": 218,
+      "sha256": "0850f193489cf60423aec908154b03e0676e99945e51fd4e35ced496461e0c5b",
+      "blob": "m4-image-scope-r6-20261030/blobs/0850f193489cf60423aec908154b03e0676e99945e51fd4e35ced496461e0c5b.gz",
+      "packedBytes": 181,
+      "packedSha256": "31eb87851d1fcd5089e924f10eef50230bd5c725b55c2c6cc4e8959d6b8c0db8"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/049.log",
+      "bytes": 2975,
+      "sha256": "65c52cdefb204f3ca63d617edae18480b42b4a3296baa5e2b8764c1136e3c029",
+      "blob": "m4-image-scope-r6-20261030/blobs/65c52cdefb204f3ca63d617edae18480b42b4a3296baa5e2b8764c1136e3c029.gz",
+      "packedBytes": 1941,
+      "packedSha256": "7244044dc80afa2acf4ef11c5862da43799f51324193b53cd180ce0e553b22bf"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/050.json",
+      "bytes": 228,
+      "sha256": "2eda490f9b5d9825818f62ccd945bea2d6ebd42604023ef51eb01d9393904ba0",
+      "blob": "m4-image-scope-r6-20261030/blobs/2eda490f9b5d9825818f62ccd945bea2d6ebd42604023ef51eb01d9393904ba0.gz",
+      "packedBytes": 188,
+      "packedSha256": "0051ff29b7a10b4d712f36b3e3331f6bd18ef8dd649712f2fb077f1750d100af"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/050.log",
+      "bytes": 335,
+      "sha256": "1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00",
+      "blob": "m4-image-scope-r6-20261030/blobs/1d2c1ccb56b77379628da51b18bc439fd309fca1cd9d31267a9038d06da00b00.gz",
+      "packedBytes": 227,
+      "packedSha256": "4f53636499ce63c2d4c1b157219946f86323cbfc4efaaa3197071fca2fbcaba6"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/051.json",
+      "bytes": 223,
+      "sha256": "f1b7fdd2e86c84f39ffe066924b7f6b165e549a7b24774ec7c43f4589658e519",
+      "blob": "m4-image-scope-r6-20261030/blobs/f1b7fdd2e86c84f39ffe066924b7f6b165e549a7b24774ec7c43f4589658e519.gz",
+      "packedBytes": 187,
+      "packedSha256": "d64e30d4d30576e34dade992ff2391ec34ef9950cb691bbad4d0417bb6e30729"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/051.log",
+      "bytes": 1313,
+      "sha256": "17b6f9aa3c5d9fc52549ca8aef65367af69c7d7b517191b8d780081edc7eed3b",
+      "blob": "m4-image-scope-r6-20261030/blobs/17b6f9aa3c5d9fc52549ca8aef65367af69c7d7b517191b8d780081edc7eed3b.gz",
+      "packedBytes": 760,
+      "packedSha256": "f9b5045aa10b0ab0e233185e6fd3dc8db843f43779af735ed0b06963e954558a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/052.json",
+      "bytes": 227,
+      "sha256": "b67d14e40d40fbf5c6e9fdb4b009bdf7e9b8c3455fe34d4a7c083b1db2ecdd8d",
+      "blob": "m4-image-scope-r6-20261030/blobs/b67d14e40d40fbf5c6e9fdb4b009bdf7e9b8c3455fe34d4a7c083b1db2ecdd8d.gz",
+      "packedBytes": 187,
+      "packedSha256": "bb093642935fcb741aa1a8746864df8ff19434e40634ea12def7f60c02f193b7"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/052.log",
+      "bytes": 12813,
+      "sha256": "888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e",
+      "blob": "m4-image-scope-r6-20261030/blobs/888dd9ec7400effaa99db645e0dd38db1daef114eb233ea33a7d950019b99c9e.gz",
+      "packedBytes": 5561,
+      "packedSha256": "d303615ba8c87d4605850f9570ec185b61388353121c43458404bdee38b775d0"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/053.json",
+      "bytes": 242,
+      "sha256": "82bb15233e4d296b6588c31952defe54beb30bae29ce96136b9dd1aedb599180",
+      "blob": "m4-image-scope-r6-20261030/blobs/82bb15233e4d296b6588c31952defe54beb30bae29ce96136b9dd1aedb599180.gz",
+      "packedBytes": 199,
+      "packedSha256": "968c1ca4bb9f7a693fe4997aad613e11606b95025464abb589bd729a36ae723d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/053.log",
+      "bytes": 1420,
+      "sha256": "fee8b76a4d0f726ca92fa0ee557a8ae32adf38fce2a264ba025bd7b460ac8691",
+      "blob": "m4-image-scope-r6-20261030/blobs/fee8b76a4d0f726ca92fa0ee557a8ae32adf38fce2a264ba025bd7b460ac8691.gz",
+      "packedBytes": 555,
+      "packedSha256": "7b4b7381b6b2dcdca2124a8d8f6052dca71e7ca4d01280295a980fc51e15e2dc"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/054.json",
+      "bytes": 240,
+      "sha256": "704e432f941f0ca76892e48a9e9bfd08cdf69f4d83431bfbea7d877b6e6a127b",
+      "blob": "m4-image-scope-r6-20261030/blobs/704e432f941f0ca76892e48a9e9bfd08cdf69f4d83431bfbea7d877b6e6a127b.gz",
+      "packedBytes": 199,
+      "packedSha256": "9be0d9421ec974f76ee394050f99845fa4cd7dc98ed9bbcd59adebe631f6c23f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/054.log",
+      "bytes": 2053,
+      "sha256": "bb334448cfd698941f103415da8618ddd303adf79f9a7107862808e7bbe1ef6a",
+      "blob": "m4-image-scope-r6-20261030/blobs/bb334448cfd698941f103415da8618ddd303adf79f9a7107862808e7bbe1ef6a.gz",
+      "packedBytes": 619,
+      "packedSha256": "740795b60114c6a7ed8fb9d6ac364c1bdd484f65900853672ccecf5177d93b77"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/055.json",
+      "bytes": 235,
+      "sha256": "a5d9292bdf0404b4a2524aa4cf1fb93efbd3266020d25ca742257b45b811d63f",
+      "blob": "m4-image-scope-r6-20261030/blobs/a5d9292bdf0404b4a2524aa4cf1fb93efbd3266020d25ca742257b45b811d63f.gz",
+      "packedBytes": 193,
+      "packedSha256": "57ec81d55f5a559727e1749288f904a095635001436fbe15ed6bf5c875225113"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/055.log",
+      "bytes": 1193,
+      "sha256": "ce3f54f3aee43e5859347e5de51d42994c309bae362d3b3584cbc4fdf0a70888",
+      "blob": "m4-image-scope-r6-20261030/blobs/ce3f54f3aee43e5859347e5de51d42994c309bae362d3b3584cbc4fdf0a70888.gz",
+      "packedBytes": 606,
+      "packedSha256": "ff18dbb0863b0b5f3d9459b31ed2765cd5e14c44df957f3dd3ff0d5557a042a6"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/056.json",
+      "bytes": 236,
+      "sha256": "06635785db89052c11b4e1c307b72741178c36e751c3b760960e1a9244b2e542",
+      "blob": "m4-image-scope-r6-20261030/blobs/06635785db89052c11b4e1c307b72741178c36e751c3b760960e1a9244b2e542.gz",
+      "packedBytes": 196,
+      "packedSha256": "6483c652b564f6b30280c780fffa1369334d1229d3e25c13dd11c4c5ef4e4ca5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/056.log",
+      "bytes": 2292,
+      "sha256": "9f19387f392c48e68582f4460a16ff204be78f9bcdd62e668b6cd6bd3e955c70",
+      "blob": "m4-image-scope-r6-20261030/blobs/9f19387f392c48e68582f4460a16ff204be78f9bcdd62e668b6cd6bd3e955c70.gz",
+      "packedBytes": 844,
+      "packedSha256": "34c32e55bdca6cabe8b6ed5359679a1560fd78b597ccc5559366f218f76ab0e9"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/057.json",
+      "bytes": 238,
+      "sha256": "9df3d89aba389b33ff5040321f5c92dec572f300f14ce2aed79aa18bd9edbf49",
+      "blob": "m4-image-scope-r6-20261030/blobs/9df3d89aba389b33ff5040321f5c92dec572f300f14ce2aed79aa18bd9edbf49.gz",
+      "packedBytes": 198,
+      "packedSha256": "45116142622f987ffd344a76b9a87d44fe7603cf86977cd4f5439e7d522eec1c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/057.log",
+      "bytes": 1812,
+      "sha256": "c9740f5ad7241ad7f975aa536823893f27b30a4e3d54f9d34c9b0dae44d0d2f1",
+      "blob": "m4-image-scope-r6-20261030/blobs/c9740f5ad7241ad7f975aa536823893f27b30a4e3d54f9d34c9b0dae44d0d2f1.gz",
+      "packedBytes": 592,
+      "packedSha256": "7c876fec78ce80e079c3bb797c2a6f6f3885a9d27a521beb64c007b9449f0ee4"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/058.json",
+      "bytes": 230,
+      "sha256": "b59e724bfc689dcd9f43b3f67d0ca9003561f28de8cebe39fae5f19e3e9a3c7d",
+      "blob": "m4-image-scope-r6-20261030/blobs/b59e724bfc689dcd9f43b3f67d0ca9003561f28de8cebe39fae5f19e3e9a3c7d.gz",
+      "packedBytes": 190,
+      "packedSha256": "0cc9926306440764519977ad7715e2f40bcaefc3ede367a17abec7db22da2396"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/058.log",
+      "bytes": 2592,
+      "sha256": "e963efdfc2c96027ca1fa27609db55701ed55ec5aba417dc3c1a3319682af6ac",
+      "blob": "m4-image-scope-r6-20261030/blobs/e963efdfc2c96027ca1fa27609db55701ed55ec5aba417dc3c1a3319682af6ac.gz",
+      "packedBytes": 697,
+      "packedSha256": "8354353d34cea3496a0a12a47a3fb6522331f14d32045dfbc4825b3703186d18"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/059.json",
+      "bytes": 231,
+      "sha256": "771026bcd1c0379034df045963948b97f6d96e10a77894bd7bdcddbc367b2899",
+      "blob": "m4-image-scope-r6-20261030/blobs/771026bcd1c0379034df045963948b97f6d96e10a77894bd7bdcddbc367b2899.gz",
+      "packedBytes": 192,
+      "packedSha256": "68c4c08ff7c79c0794b795f436e369832d29b1f902fe88819c019ac5defc4b24"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/059.log",
+      "bytes": 2285,
+      "sha256": "4c0725a1b81736e4634bc591aae02d93fb7a9d9bfc042678ae961f5a74ec0e6e",
+      "blob": "m4-image-scope-r6-20261030/blobs/4c0725a1b81736e4634bc591aae02d93fb7a9d9bfc042678ae961f5a74ec0e6e.gz",
+      "packedBytes": 570,
+      "packedSha256": "285f11c0ac21ade223ae781dc14fc34c8e0a62a3aa57441fcbe670bed289e896"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/060.json",
+      "bytes": 230,
+      "sha256": "536ab78f514cafbe9b6299f519dce650be3a451f14db4b4b963cd21fce6d568b",
+      "blob": "m4-image-scope-r6-20261030/blobs/536ab78f514cafbe9b6299f519dce650be3a451f14db4b4b963cd21fce6d568b.gz",
+      "packedBytes": 191,
+      "packedSha256": "7edfec14b343199b57292df5665b6d081516b02be6b67a8cfcc5bbf1dd6a6f5d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/060.log",
+      "bytes": 1023,
+      "sha256": "805d4f049779c95512a2556a25f78b09369d1af40804b29b6b6a14ef32cc438a",
+      "blob": "m4-image-scope-r6-20261030/blobs/805d4f049779c95512a2556a25f78b09369d1af40804b29b6b6a14ef32cc438a.gz",
+      "packedBytes": 314,
+      "packedSha256": "8317a8a725e48f3d07f4bfaeaf260bdb19f93e0ce7b91b18f0a8f64bb0aa72e4"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/061.json",
+      "bytes": 219,
+      "sha256": "6df70b816df9c42fe43aa1aeb3ca1af3522d88f22e36cb2ad32c237ec8bbb972",
+      "blob": "m4-image-scope-r6-20261030/blobs/6df70b816df9c42fe43aa1aeb3ca1af3522d88f22e36cb2ad32c237ec8bbb972.gz",
+      "packedBytes": 180,
+      "packedSha256": "51ea0c339230401d418ed8d3bd75cbe01b27949bdfc556186fdc0b3a66459232"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/061.log",
+      "bytes": 3111,
+      "sha256": "6f84f1e3877a8203668f0d03020023c5c6f3453061e81f2e455efba852df50f9",
+      "blob": "m4-image-scope-r6-20261030/blobs/6f84f1e3877a8203668f0d03020023c5c6f3453061e81f2e455efba852df50f9.gz",
+      "packedBytes": 1343,
+      "packedSha256": "12c0f2b8a490823b4af21b4765853cd966d34d30a6a38be8609429cbe8e233a6"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/062.json",
+      "bytes": 226,
+      "sha256": "2d480d70e6a3f890a963b5cd61587112c0ac54644f64f15fabc5949a66ecc2de",
+      "blob": "m4-image-scope-r6-20261030/blobs/2d480d70e6a3f890a963b5cd61587112c0ac54644f64f15fabc5949a66ecc2de.gz",
+      "packedBytes": 186,
+      "packedSha256": "dac1b09d6778234ed1720f9c186559e6133750b279fe4f6ab6e7c78cc1ed22ad"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/062.log",
+      "bytes": 2070,
+      "sha256": "98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a",
+      "blob": "m4-image-scope-r6-20261030/blobs/98067ff58898834aad0a3ebe8090dcee47875a1496f2bf648234dc7b87d43a4a.gz",
+      "packedBytes": 867,
+      "packedSha256": "aee9f1e3e61ece0027165d477f6da9d6cc072de13b9b6945d16615624bf558ee"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/063.json",
+      "bytes": 234,
+      "sha256": "400d29eea971540d133d39553d827cddc09d23b3e882af251e99536d66f6b853",
+      "blob": "m4-image-scope-r6-20261030/blobs/400d29eea971540d133d39553d827cddc09d23b3e882af251e99536d66f6b853.gz",
+      "packedBytes": 195,
+      "packedSha256": "f154baaf7920bafa7862d13f297e07f6fbd89965638c2b94c9b8de03755439ff"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/063.log",
+      "bytes": 2961,
+      "sha256": "06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b",
+      "blob": "m4-image-scope-r6-20261030/blobs/06a8602d22ee06467ce3379029a4c61faaed07da62688291bafb92db6aacee8b.gz",
+      "packedBytes": 1131,
+      "packedSha256": "2ab9615f420327e65c9e44f2c795b6e1117284f792fb49d568cef1dd53c2bf4a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/064.json",
+      "bytes": 223,
+      "sha256": "5d80ac5f0bf10d225df121c662dbca78ed64fe7e4e779df30dc2706ffce3a10a",
+      "blob": "m4-image-scope-r6-20261030/blobs/5d80ac5f0bf10d225df121c662dbca78ed64fe7e4e779df30dc2706ffce3a10a.gz",
+      "packedBytes": 184,
+      "packedSha256": "c3fa2df37946212d8ea1c392f239089a202f9db2b4b1ada2ad2ae095a8274577"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/064.log",
+      "bytes": 5313,
+      "sha256": "ce7d06c30520d09c6bced2e2a9e43f74af86569badc6cf0d8c008488d5cfdb3c",
+      "blob": "m4-image-scope-r6-20261030/blobs/ce7d06c30520d09c6bced2e2a9e43f74af86569badc6cf0d8c008488d5cfdb3c.gz",
+      "packedBytes": 2910,
+      "packedSha256": "55b96408629d49c68eea4d0fb12792b8b969c8fe1f8c8f84ea0209f7f72e73db"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/065.json",
+      "bytes": 221,
+      "sha256": "5e640435274c0782fd1eefc230c8775db36ff7d18a7ca299a4f0cccb4bea0651",
+      "blob": "m4-image-scope-r6-20261030/blobs/5e640435274c0782fd1eefc230c8775db36ff7d18a7ca299a4f0cccb4bea0651.gz",
+      "packedBytes": 185,
+      "packedSha256": "3db7396f9ab28a335679f29a59c888a08c31ad72e42462006a1b1b5de7d53a4f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/065.log",
+      "bytes": 5169,
+      "sha256": "e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf",
+      "blob": "m4-image-scope-r6-20261030/blobs/e08852048064f2f50f68dbc9f4b47f356b6051a05a68bd9c5fc2810c7ff51bbf.gz",
+      "packedBytes": 2766,
+      "packedSha256": "29f61c792cd52d685b5b8facc6c8278f3dc80f03831bd5e155d41a6d2955e5d3"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/066.json",
+      "bytes": 220,
+      "sha256": "bbcc122afc2984fd80d94b5236f200ad40f5be9329c1f834529c81599a76f64e",
+      "blob": "m4-image-scope-r6-20261030/blobs/bbcc122afc2984fd80d94b5236f200ad40f5be9329c1f834529c81599a76f64e.gz",
+      "packedBytes": 182,
+      "packedSha256": "e236c2ab22a755bc922e7bb70f18bbae3a7b7b4b0dd3907281935ef8ede9e3df"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/066.log",
+      "bytes": 22752,
+      "sha256": "1693b5c4e17f3fb818b554e8f47e72e906982b47e60910893c119e927216c502",
+      "blob": "m4-image-scope-r6-20261030/blobs/1693b5c4e17f3fb818b554e8f47e72e906982b47e60910893c119e927216c502.gz",
+      "packedBytes": 10412,
+      "packedSha256": "747cdb6a5ed897428ca49c24c8de1d948a61a336a715db0c22c27ff58918bf18"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/067.json",
+      "bytes": 222,
+      "sha256": "9ef35bc1b5c16667bea4fb2bea98596210282fed7b251ded4d4a296b9db0862d",
+      "blob": "m4-image-scope-r6-20261030/blobs/9ef35bc1b5c16667bea4fb2bea98596210282fed7b251ded4d4a296b9db0862d.gz",
+      "packedBytes": 184,
+      "packedSha256": "71377d97406819ca25277a54354a16a27592324bb28af9958c8a8d5bc51c4f04"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/067.log",
+      "bytes": 6750,
+      "sha256": "a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec",
+      "blob": "m4-image-scope-r6-20261030/blobs/a72b713b1cd3095bbe54a4a28fecbd6671de92408ee3e0e232f68e934c3dedec.gz",
+      "packedBytes": 2503,
+      "packedSha256": "7842f578b0e4435b111c8fea2b1fc01df99f4e6171db25e6d7676d4f4751f36d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/068.json",
+      "bytes": 227,
+      "sha256": "fad20f658b1e153b8fae6ed3a99bd9f634ec9b1549a3fcd41ff86f9b8abdb4b4",
+      "blob": "m4-image-scope-r6-20261030/blobs/fad20f658b1e153b8fae6ed3a99bd9f634ec9b1549a3fcd41ff86f9b8abdb4b4.gz",
+      "packedBytes": 185,
+      "packedSha256": "640d5562d540180633531da219eb9dc13123c0e49e981e4256c1f9462208ffef"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/068.log",
+      "bytes": 31862,
+      "sha256": "73e86bf8292f90aef8f7dff6cda8454becb80b960eb9292fb5ebb46745ee9227",
+      "blob": "m4-image-scope-r6-20261030/blobs/73e86bf8292f90aef8f7dff6cda8454becb80b960eb9292fb5ebb46745ee9227.gz",
+      "packedBytes": 14796,
+      "packedSha256": "044bc689fc12776bcb7d0ecd91e740e3f183f9216bc7be001ddbc646bcda86db"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/069.json",
+      "bytes": 221,
+      "sha256": "823810ee1fa5d8cb476b05e942695946ef53c3871e4341de7d7e90f530570d84",
+      "blob": "m4-image-scope-r6-20261030/blobs/823810ee1fa5d8cb476b05e942695946ef53c3871e4341de7d7e90f530570d84.gz",
+      "packedBytes": 182,
+      "packedSha256": "1f786a39319e53a7e74f47d19ffb5d9523973658ef0c854876252f4693553729"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/069.log",
+      "bytes": 23315,
+      "sha256": "43ae8a49341cfffdde3987e0cff3949d8bb8dd03b47b3410aa2e49c2996009d6",
+      "blob": "m4-image-scope-r6-20261030/blobs/43ae8a49341cfffdde3987e0cff3949d8bb8dd03b47b3410aa2e49c2996009d6.gz",
+      "packedBytes": 10774,
+      "packedSha256": "c20ea855ae4838e3f38ae9c909176951e2993f351d1a1d902330dd689789d21e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/070.json",
+      "bytes": 221,
+      "sha256": "c4a0ac7a93f08026ebf722bec0f63dcf8b106e35d240e506e3886fb4c93288a4",
+      "blob": "m4-image-scope-r6-20261030/blobs/c4a0ac7a93f08026ebf722bec0f63dcf8b106e35d240e506e3886fb4c93288a4.gz",
+      "packedBytes": 183,
+      "packedSha256": "397386357b26d73ebc963cb99238b23207db9a2fd8fc4623035eeeda77874e58"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/070.log",
+      "bytes": 5780,
+      "sha256": "596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f",
+      "blob": "m4-image-scope-r6-20261030/blobs/596ecae5025fea42e21224f8bc10de0fbb3fa8cabe1001d6417c7d409c15123f.gz",
+      "packedBytes": 2957,
+      "packedSha256": "34d4bdf98724c05e55a8084e7e72f4d1a3ce029c507c2f52a49d24144c336349"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/071.json",
+      "bytes": 221,
+      "sha256": "0467294baa1141c9f62b1b04cbbd03ae98658abd5f95fb721fc8639a02cceb56",
+      "blob": "m4-image-scope-r6-20261030/blobs/0467294baa1141c9f62b1b04cbbd03ae98658abd5f95fb721fc8639a02cceb56.gz",
+      "packedBytes": 184,
+      "packedSha256": "32235539d7b3befe5a145be0ce28cf427dea67ff904b1d3623d461cef7a303e9"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/071.log",
+      "bytes": 14598,
+      "sha256": "66e2834d5824e97722d1552ad9c9db9bde99307c1ca49c86a7aa6938c46f2084",
+      "blob": "m4-image-scope-r6-20261030/blobs/66e2834d5824e97722d1552ad9c9db9bde99307c1ca49c86a7aa6938c46f2084.gz",
+      "packedBytes": 5981,
+      "packedSha256": "410cda80f301e6da7cb185d332c41063c532adfdd689f926821776a51dafb8ba"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/072.json",
+      "bytes": 223,
+      "sha256": "17f4b6a9c5f56c543b9d3d4a33860463541b50c54abc80305ce88e55507cf74c",
+      "blob": "m4-image-scope-r6-20261030/blobs/17f4b6a9c5f56c543b9d3d4a33860463541b50c54abc80305ce88e55507cf74c.gz",
+      "packedBytes": 184,
+      "packedSha256": "fdc3dfeb2b47ce662ee97e237878e70a326f15cb4d40d06b8960bbbf2c580962"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/072.log",
+      "bytes": 12976,
+      "sha256": "baf2e116020e0325d0ce591b68037fe535b06937b9aea5c09aa0d12c6fb9d829",
+      "blob": "m4-image-scope-r6-20261030/blobs/baf2e116020e0325d0ce591b68037fe535b06937b9aea5c09aa0d12c6fb9d829.gz",
+      "packedBytes": 6646,
+      "packedSha256": "1002afec0c88c99877a2a2176175342401af09256a6a9d9d49541116e4a46674"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/073.json",
+      "bytes": 220,
+      "sha256": "3627815ec30a41b2a61ea8ac1cb783937f05ff6b70f184d1e49c4a7db338fd98",
+      "blob": "m4-image-scope-r6-20261030/blobs/3627815ec30a41b2a61ea8ac1cb783937f05ff6b70f184d1e49c4a7db338fd98.gz",
+      "packedBytes": 182,
+      "packedSha256": "4120247742ada5825a8b0ca56fa3753f9e59a2cc8eb5941cb6e25da87e2002cf"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/073.log",
+      "bytes": 5481,
+      "sha256": "47520bd414010c40997fff3b912122a99b4ff732abadf5170373a9c7ea299ac0",
+      "blob": "m4-image-scope-r6-20261030/blobs/47520bd414010c40997fff3b912122a99b4ff732abadf5170373a9c7ea299ac0.gz",
+      "packedBytes": 3118,
+      "packedSha256": "f78cb244f721420c37d5faead793f87f4bf039b9e639d44684076d4574462d2e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/074.json",
+      "bytes": 221,
+      "sha256": "851723fcfc0206ff56496d2f726cc1fbb316fc3c84f2473e7ef3cb62ae603788",
+      "blob": "m4-image-scope-r6-20261030/blobs/851723fcfc0206ff56496d2f726cc1fbb316fc3c84f2473e7ef3cb62ae603788.gz",
+      "packedBytes": 182,
+      "packedSha256": "753fa19ff94151d9f15bd2141192c71b940797c19809a4fff6023c91d328bb8b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/074.log",
+      "bytes": 11387,
+      "sha256": "b822bff5746187a2960c2ebebe9e300f4bc4a88726fde238fb3cddbc7a559f9b",
+      "blob": "m4-image-scope-r6-20261030/blobs/b822bff5746187a2960c2ebebe9e300f4bc4a88726fde238fb3cddbc7a559f9b.gz",
+      "packedBytes": 5406,
+      "packedSha256": "179e84ae77e91df5125a83f9100567359050e037636c63d8748d4c0e92638db5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/075.json",
+      "bytes": 226,
+      "sha256": "6dda398ad856568e7a079cd6307cae4de58d90fefe4ccf22480623012e120770",
+      "blob": "m4-image-scope-r6-20261030/blobs/6dda398ad856568e7a079cd6307cae4de58d90fefe4ccf22480623012e120770.gz",
+      "packedBytes": 187,
+      "packedSha256": "7a61ec9fca4757320d08ed933ee0d336a54e2b59fa6b1214b661f0f9c27e7a33"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/075.log",
+      "bytes": 12740,
+      "sha256": "203e48d665cb68d56b9f40724f8041acec0105d090db507515814dba1409fca3",
+      "blob": "m4-image-scope-r6-20261030/blobs/203e48d665cb68d56b9f40724f8041acec0105d090db507515814dba1409fca3.gz",
+      "packedBytes": 6995,
+      "packedSha256": "150c19f6c01a55bc3141077f22ef86e766266024cae4feb7aba750bdb6574bb6"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/076.json",
+      "bytes": 231,
+      "sha256": "44d97667d43f97428bfd8b64d58c2da45f2b34888622e1ed6c4302389670bdb4",
+      "blob": "m4-image-scope-r6-20261030/blobs/44d97667d43f97428bfd8b64d58c2da45f2b34888622e1ed6c4302389670bdb4.gz",
+      "packedBytes": 190,
+      "packedSha256": "5d58328edfe2528f719780a7311765aa9508750bc5b873bb77ae0b9f0f55bf84"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/076.log",
+      "bytes": 1189,
+      "sha256": "d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4",
+      "blob": "m4-image-scope-r6-20261030/blobs/d4ba05fc5c8b64318e12235b4fdd31011e8a8aa4fdde31dd9557b715835d8be4.gz",
+      "packedBytes": 642,
+      "packedSha256": "2b84cc392b56245794278347225816cef7e7ce7243c2dfd1f4a001ca5276d9f7"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/077.json",
+      "bytes": 224,
+      "sha256": "9970947328f6a109ddcd5f7addc4146f9f2cc11bb7daf88f538f76aebe2b2cca",
+      "blob": "m4-image-scope-r6-20261030/blobs/9970947328f6a109ddcd5f7addc4146f9f2cc11bb7daf88f538f76aebe2b2cca.gz",
+      "packedBytes": 187,
+      "packedSha256": "20eacd3f8e920186a625f00601b0529dcd7d95492cf26c55c1883e3fe70ee1a5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/077.log",
+      "bytes": 605,
+      "sha256": "8b338279c169bf4d5dc037adbd9ad7450c510d6a1c794c09042d1650ecc35edb",
+      "blob": "m4-image-scope-r6-20261030/blobs/8b338279c169bf4d5dc037adbd9ad7450c510d6a1c794c09042d1650ecc35edb.gz",
+      "packedBytes": 417,
+      "packedSha256": "55568791d8d7e0de6d5a1b9102fb3f0cd3cb2138cb2e157dadbd8065e81685ff"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/078.json",
+      "bytes": 219,
+      "sha256": "04ee6f9f71e4139e7b0db06e202e216b7e78d695a103fed4ad154425b3a1ae96",
+      "blob": "m4-image-scope-r6-20261030/blobs/04ee6f9f71e4139e7b0db06e202e216b7e78d695a103fed4ad154425b3a1ae96.gz",
+      "packedBytes": 180,
+      "packedSha256": "55110e732ab4a45b2113ce6cd34d5f7d9bf5193bebf3546c7116c8ca0755c964"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/078.log",
+      "bytes": 3219,
+      "sha256": "ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216",
+      "blob": "m4-image-scope-r6-20261030/blobs/ba3aa3fc179ebfb0e0634a68a5307c207fba3a7736235d4f2181fe3241cfd216.gz",
+      "packedBytes": 1674,
+      "packedSha256": "47ad76531c648497ed97fc49e9a0e423b7c60fca464bbdfe3a7d31b4ca873d11"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/079.json",
+      "bytes": 224,
+      "sha256": "1a63255585e87493a5b29385739b6059594242cc01bb7f3096e734367636e1bf",
+      "blob": "m4-image-scope-r6-20261030/blobs/1a63255585e87493a5b29385739b6059594242cc01bb7f3096e734367636e1bf.gz",
+      "packedBytes": 184,
+      "packedSha256": "28106e4699298ea81ca18fea3d7d0eb7c96db87b12100a2443323856bf3975b5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/079.log",
+      "bytes": 1725,
+      "sha256": "5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb",
+      "blob": "m4-image-scope-r6-20261030/blobs/5df2c96d36a43af83272badf9b16cb07908db255bbb4ea8293a563a61844c6cb.gz",
+      "packedBytes": 1073,
+      "packedSha256": "05cdb33fd48bb440d703a4d7201d99e4e016f137851f742bafaa8587523aaeb7"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/080.json",
+      "bytes": 229,
+      "sha256": "d42f31bf7dbd414bd49c08192756ff6f955e910178f130dcb34b25bf223e7c1a",
+      "blob": "m4-image-scope-r6-20261030/blobs/d42f31bf7dbd414bd49c08192756ff6f955e910178f130dcb34b25bf223e7c1a.gz",
+      "packedBytes": 191,
+      "packedSha256": "a19c65ab994caaf4b88e413d9aa8205df8bcf9c8753ef01935905b55ab5c04e1"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/080.log",
+      "bytes": 2161,
+      "sha256": "5307c45d470ed637f3cd34cae7fcc63e04738617f24468363c47931ecb0ace17",
+      "blob": "m4-image-scope-r6-20261030/blobs/5307c45d470ed637f3cd34cae7fcc63e04738617f24468363c47931ecb0ace17.gz",
+      "packedBytes": 752,
+      "packedSha256": "f7ec3ca541c9750462f0673d8239e1139f737304ebbc9bf725bea8f5561f7aee"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/081.json",
+      "bytes": 228,
+      "sha256": "f59227dbc51195967c52967df24ad4547b8211f8cf42fc1880f6fb803abd87f3",
+      "blob": "m4-image-scope-r6-20261030/blobs/f59227dbc51195967c52967df24ad4547b8211f8cf42fc1880f6fb803abd87f3.gz",
+      "packedBytes": 189,
+      "packedSha256": "ee73b1d800caae950a55c6ee377f3d874217095f8273ff6ab0469f0b4d3bae25"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/081.log",
+      "bytes": 1770,
+      "sha256": "7e894ac710724286ba11b3a8515bc75ef4f2797d438b672eb951cc05de0bccf8",
+      "blob": "m4-image-scope-r6-20261030/blobs/7e894ac710724286ba11b3a8515bc75ef4f2797d438b672eb951cc05de0bccf8.gz",
+      "packedBytes": 819,
+      "packedSha256": "bc37653eac44247ccd16f9e5b58e7d69d948fefe83df84c297f3cef4e3e9b7cc"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/082.json",
+      "bytes": 228,
+      "sha256": "3552ba3a567053b78af709abf3888147cd09edbd251a72ac5316d8b42b89e8fa",
+      "blob": "m4-image-scope-r6-20261030/blobs/3552ba3a567053b78af709abf3888147cd09edbd251a72ac5316d8b42b89e8fa.gz",
+      "packedBytes": 189,
+      "packedSha256": "abcb0ba197e5dcfbf9a1f6e7864c561f4e53676b7f40dbf2d431f1afcc8be69a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/082.log",
+      "bytes": 2068,
+      "sha256": "ceafef72c5aa9f52495cad786b4dae1db202b92eba46c1666c147f0182212dbb",
+      "blob": "m4-image-scope-r6-20261030/blobs/ceafef72c5aa9f52495cad786b4dae1db202b92eba46c1666c147f0182212dbb.gz",
+      "packedBytes": 597,
+      "packedSha256": "80eef7251196a70bfe89620e5862f94d919ad10666d2c11e493ec73f2bb79ed5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/083.json",
+      "bytes": 226,
+      "sha256": "a03a90481e08a2990e07a8ee8dd59f163d03100c4ebee774283c757116fd7074",
+      "blob": "m4-image-scope-r6-20261030/blobs/a03a90481e08a2990e07a8ee8dd59f163d03100c4ebee774283c757116fd7074.gz",
+      "packedBytes": 186,
+      "packedSha256": "9e4bfcaa0dcac1df58d4698c919cdead5a24fa36f0dd681dbe646ed2860a6ace"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/083.log",
+      "bytes": 1031,
+      "sha256": "b4c68981988ceda13fa8f34d8a07d0a51c86c64b958390669bde6953d842b807",
+      "blob": "m4-image-scope-r6-20261030/blobs/b4c68981988ceda13fa8f34d8a07d0a51c86c64b958390669bde6953d842b807.gz",
+      "packedBytes": 260,
+      "packedSha256": "0dc79f286025f5faaef51bcf5c8d7e79f13306f1cd4d60dcaf00b377abccf3eb"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/084.json",
+      "bytes": 230,
+      "sha256": "1956479675fc0082dfc3b7f4dce53391ede879b2cdef897a23ba70770de5ed4c",
+      "blob": "m4-image-scope-r6-20261030/blobs/1956479675fc0082dfc3b7f4dce53391ede879b2cdef897a23ba70770de5ed4c.gz",
+      "packedBytes": 191,
+      "packedSha256": "3e17d454be34506657999e864bbc1f67e22a4f9d59715a11afc576c0589d9c15"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/084.log",
+      "bytes": 3860,
+      "sha256": "e14a4f0b05383793cb9eb6e8cdbd6e78aff6f46831f91a11844a3be33ae69e6e",
+      "blob": "m4-image-scope-r6-20261030/blobs/e14a4f0b05383793cb9eb6e8cdbd6e78aff6f46831f91a11844a3be33ae69e6e.gz",
+      "packedBytes": 1317,
+      "packedSha256": "7e8b5bfc7a4c29c879570c35c476e1a84d0b92f630aeb126f71dd86976c84914"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/085.json",
+      "bytes": 224,
+      "sha256": "5b09ee7762a164e3fd0495526385b5c8a6fdc9a4702f1b3f94bb6c483ddd4c51",
+      "blob": "m4-image-scope-r6-20261030/blobs/5b09ee7762a164e3fd0495526385b5c8a6fdc9a4702f1b3f94bb6c483ddd4c51.gz",
+      "packedBytes": 184,
+      "packedSha256": "9652247fd2d7ab5ec1a6969385f8108ef17330e95d47c323d0e825154607a1fb"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/085.log",
+      "bytes": 2817,
+      "sha256": "2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8",
+      "blob": "m4-image-scope-r6-20261030/blobs/2ac77d6f09c101da1ccce542177c3da432fea11ae412a213b8d9aad4cf22c7f8.gz",
+      "packedBytes": 1302,
+      "packedSha256": "49891062087797c2537944b37c3806e5efd767b0b04a4ca2125cf3fa95fc32e3"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/086.json",
+      "bytes": 225,
+      "sha256": "422ef5a4aabb9f9fb5000e0c8ebc7258904c64023df6472757d73d1f4cc8b66b",
+      "blob": "m4-image-scope-r6-20261030/blobs/422ef5a4aabb9f9fb5000e0c8ebc7258904c64023df6472757d73d1f4cc8b66b.gz",
+      "packedBytes": 186,
+      "packedSha256": "03af4e4253f907e5ccaa953149e368e92080211864d12f9a39944b960815ef5f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/086.log",
+      "bytes": 1054,
+      "sha256": "efaa98a4a931e7f49236157fea514b0bb8a6b19d21022dc3a41127b8fd432f9b",
+      "blob": "m4-image-scope-r6-20261030/blobs/efaa98a4a931e7f49236157fea514b0bb8a6b19d21022dc3a41127b8fd432f9b.gz",
+      "packedBytes": 718,
+      "packedSha256": "177a0ca8e7c0bacbd6a4bbd6c51b7c39b367903949fe34452e05cbff0bea3a81"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/087.json",
+      "bytes": 221,
+      "sha256": "a6641b303df31bd8ea12312b320e999c6d36f211523f1325d625b1c86177fde4",
+      "blob": "m4-image-scope-r6-20261030/blobs/a6641b303df31bd8ea12312b320e999c6d36f211523f1325d625b1c86177fde4.gz",
+      "packedBytes": 184,
+      "packedSha256": "9ec413ce07744ce4c4aa02befc10d26bcc6a41c3e17e46e67535bb795505db19"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/087.log",
+      "bytes": 2351,
+      "sha256": "d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570",
+      "blob": "m4-image-scope-r6-20261030/blobs/d1ffced034cdd329cee048f4b12cd824b059ba995d6286142637200fd9223570.gz",
+      "packedBytes": 1368,
+      "packedSha256": "da5d94d3aaf4f796ddded8be5745a1f2f8ab4221c440c58f09b97e8755b5e8ba"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/088.json",
+      "bytes": 216,
+      "sha256": "2060b5037eea2c270eff91d3d1b62837ff2d609b997ddc9b02767cd7240dc7e3",
+      "blob": "m4-image-scope-r6-20261030/blobs/2060b5037eea2c270eff91d3d1b62837ff2d609b997ddc9b02767cd7240dc7e3.gz",
+      "packedBytes": 179,
+      "packedSha256": "d16d7b5cda76c1c3b6eee0d0cdec4b633142c3c29c2c17894064074a4cf7de35"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/088.log",
+      "bytes": 1159,
+      "sha256": "f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f",
+      "blob": "m4-image-scope-r6-20261030/blobs/f62968b5ec104f0dfd8b7348bbae701fede9069f447038a0f08d9a6efe98021f.gz",
+      "packedBytes": 698,
+      "packedSha256": "cc70fcca0d3b635b64a92259bd9e2daa8e0953975a71e951b49acfa5d96b3e9c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/089.json",
+      "bytes": 215,
+      "sha256": "3bef311227a2d5f83f4813dbeae8192c836c44b84efd7e40993a46a279325e82",
+      "blob": "m4-image-scope-r6-20261030/blobs/3bef311227a2d5f83f4813dbeae8192c836c44b84efd7e40993a46a279325e82.gz",
+      "packedBytes": 177,
+      "packedSha256": "0e60857b8ae345fdb4021b7cc635a1312edfa6554e663d909fac92570042340c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/089.log",
+      "bytes": 3986,
+      "sha256": "d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58",
+      "blob": "m4-image-scope-r6-20261030/blobs/d8ae3553b40a5ef9453073dea5996ff1ed4d31d7ca279f2c98aee7fc0e8d9f58.gz",
+      "packedBytes": 1788,
+      "packedSha256": "4424b5d09ea523752aadc07f80489e06e9fed3a387a602f3fcdf8a75562b0810"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/090.json",
+      "bytes": 215,
+      "sha256": "e3a79f5e68cd27498f0cb0f3d65b142d2db5099ab5d194e0e5f120282b961d50",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3a79f5e68cd27498f0cb0f3d65b142d2db5099ab5d194e0e5f120282b961d50.gz",
+      "packedBytes": 178,
+      "packedSha256": "6e87f5e73c7ff31090a344841ed65fe9ba26d82824148278b2ab81c5f4002c3e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/090.log",
+      "bytes": 4131,
+      "sha256": "95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc",
+      "blob": "m4-image-scope-r6-20261030/blobs/95ce939d26c237932cfe135962abcf7e797f0ea0f094fba826833a78934d5fcc.gz",
+      "packedBytes": 2142,
+      "packedSha256": "9853adcb9c019c8ecb60299fa0c189469a408ccb1a9a29457947959b11b06c0f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/091.json",
+      "bytes": 216,
+      "sha256": "a1c7cd3e7db2155ec007646338afee0dd336ee50fdf6c7f07d6d65e665dc6723",
+      "blob": "m4-image-scope-r6-20261030/blobs/a1c7cd3e7db2155ec007646338afee0dd336ee50fdf6c7f07d6d65e665dc6723.gz",
+      "packedBytes": 178,
+      "packedSha256": "e71be0d4e1e852846cd3970d40ec82e3cb886b4b0a41420241f5505c4b827256"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/091.log",
+      "bytes": 4739,
+      "sha256": "5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9",
+      "blob": "m4-image-scope-r6-20261030/blobs/5870af2757692ac4df88381bae9fc263cd7df4598f39630dfaf103f28ba9f7c9.gz",
+      "packedBytes": 2690,
+      "packedSha256": "396d8ba548471e53f9ca50c3092f8a3d2b105024c241f123535ae95bb23eac2f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/092.json",
+      "bytes": 216,
+      "sha256": "dcc5022958d3d1db90d8242be4b0b82dbd11268115deea0714a2bd0453069aa7",
+      "blob": "m4-image-scope-r6-20261030/blobs/dcc5022958d3d1db90d8242be4b0b82dbd11268115deea0714a2bd0453069aa7.gz",
+      "packedBytes": 179,
+      "packedSha256": "9322a2a827862eb88e85189ba554a44622fa9214b08f9aaf27b3108502f046bc"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/092.log",
+      "bytes": 4227,
+      "sha256": "48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f",
+      "blob": "m4-image-scope-r6-20261030/blobs/48904a9aceda7b8f07751a2d77aa5ad6c4f31b729de05046942d5b52f5c95e3f.gz",
+      "packedBytes": 2356,
+      "packedSha256": "e59bcb654c653819cf31d03fe90fd28f1b96bfd243217c47192a771d67a49930"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/093.json",
+      "bytes": 218,
+      "sha256": "82dfa0b0999a0b713702e85ca525a224e0870208335a7a430fea2fd43eec39ed",
+      "blob": "m4-image-scope-r6-20261030/blobs/82dfa0b0999a0b713702e85ca525a224e0870208335a7a430fea2fd43eec39ed.gz",
+      "packedBytes": 183,
+      "packedSha256": "43aed1d11672c1ae092ffbeb514a298fa96e97b910fa62cef9c5fab72771f46c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/093.log",
+      "bytes": 3383,
+      "sha256": "6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3",
+      "blob": "m4-image-scope-r6-20261030/blobs/6d67653931da7703f8bfd7d13419de4a5ffa4e25c35c79c19dba43120333bfc3.gz",
+      "packedBytes": 1988,
+      "packedSha256": "efb54e6d971558267c767caa4f2b1758bac5d36c0d5353492b01fd986b9f96da"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/094.json",
+      "bytes": 218,
+      "sha256": "1588dd333a420c7f7f59680f1f7d84541ed004cf82c0a88f48fcde5ed96bc6fa",
+      "blob": "m4-image-scope-r6-20261030/blobs/1588dd333a420c7f7f59680f1f7d84541ed004cf82c0a88f48fcde5ed96bc6fa.gz",
+      "packedBytes": 180,
+      "packedSha256": "b4667b9f04dcb9bc989aa77cb888245d65ce13bfa275afea26b6d19099af11c9"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/094.log",
+      "bytes": 1284,
+      "sha256": "2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f",
+      "blob": "m4-image-scope-r6-20261030/blobs/2e6f749742f2f866e2bcae88d8a8779dfc866068e1f3214328296bd39bed069f.gz",
+      "packedBytes": 873,
+      "packedSha256": "77e8f2a6480f5f2428e9bb71106e410d5317fead55acdbbba35d2d5cb6eb459b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/095.json",
+      "bytes": 223,
+      "sha256": "5ec6e36fa2c3e2f3cfbe340af2b7a9774112199c6d4d112ab43285b702018d99",
+      "blob": "m4-image-scope-r6-20261030/blobs/5ec6e36fa2c3e2f3cfbe340af2b7a9774112199c6d4d112ab43285b702018d99.gz",
+      "packedBytes": 185,
+      "packedSha256": "f30dcc1433a2d748a3e0f5b7f2e8ace2a3aef07cad8b9d534c82d467cae37c17"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/095.log",
+      "bytes": 1379,
+      "sha256": "38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd",
+      "blob": "m4-image-scope-r6-20261030/blobs/38e8753d8b5c80546909a087adb74d1b3b500cd21a343ee915281f82e10c4ccd.gz",
+      "packedBytes": 946,
+      "packedSha256": "07c2f3cd4c6a1b8bff34c1a4daa30a6fb572dd06133505efdf9a69d601ff04e4"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/096.json",
+      "bytes": 227,
+      "sha256": "4d7741a660f87a7e8868be8707ba5f51baa587b20978310f364da5ac767194b8",
+      "blob": "m4-image-scope-r6-20261030/blobs/4d7741a660f87a7e8868be8707ba5f51baa587b20978310f364da5ac767194b8.gz",
+      "packedBytes": 188,
+      "packedSha256": "c258080d39d422d89cdefa0ae24116d2c60e909bb41037059ab8125366c793c9"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/096.log",
+      "bytes": 2043,
+      "sha256": "bfb514cc688aa2ee97c0122d52bc8929080a60394e3aaf9561e381734b6dff08",
+      "blob": "m4-image-scope-r6-20261030/blobs/bfb514cc688aa2ee97c0122d52bc8929080a60394e3aaf9561e381734b6dff08.gz",
+      "packedBytes": 835,
+      "packedSha256": "58d2c0ef2d918c19ef1418ed4eba850dcef03cdad641fc909010d088cc82ff56"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/097.json",
+      "bytes": 225,
+      "sha256": "1cca23dfb0aaf6adf9b9d0c5e8f2a370b9b72f8e89bb6e97593e0f6e1714828a",
+      "blob": "m4-image-scope-r6-20261030/blobs/1cca23dfb0aaf6adf9b9d0c5e8f2a370b9b72f8e89bb6e97593e0f6e1714828a.gz",
+      "packedBytes": 188,
+      "packedSha256": "e4be6075a382395f5a245c23ac06ed5d8ca6c702be9a3ba5029ac09c74c68b14"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/097.log",
+      "bytes": 3537,
+      "sha256": "1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f",
+      "blob": "m4-image-scope-r6-20261030/blobs/1f8dd7df95a2e7359e12e76f9612e742e46abce39d4087d060c18f7984de182f.gz",
+      "packedBytes": 2120,
+      "packedSha256": "20364c9319bfa38bc8a543ef0f03a7b6a75d746dfa4e8503f7603b3ea9306916"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/plan.json",
+      "bytes": 4332,
+      "sha256": "3f63d76a0f28382f5594dd8a38f6d9296685ebd45a64ccaf63052375a8dbad20",
+      "blob": "m4-image-scope-r6-20261030/blobs/3f63d76a0f28382f5594dd8a38f6d9296685ebd45a64ccaf63052375a8dbad20.gz",
+      "packedBytes": 1197,
+      "packedSha256": "4332997536c67bdbd3e6bbf81b1093be962b6b4ecd9b66a9ddb2350ba711743a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/result.json",
+      "bytes": 25456,
+      "sha256": "8ca07688f8a00893257ec9a4a51f465aff61c71287c74053bb139c674b654123",
+      "blob": "m4-image-scope-r6-20261030/blobs/8ca07688f8a00893257ec9a4a51f465aff61c71287c74053bb139c674b654123.gz",
+      "packedBytes": 5633,
+      "packedSha256": "85bd48d3091412ba70bbfbc9a58b357661c7e0b3d4c09bbbc471311d34dd78a5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/EXECUTOR-READBACK.json",
+      "bytes": 23109,
+      "sha256": "c097e4fb6646d2bbc01026800772bc8b04f7e574f77acc06025df90ce38998e9",
+      "blob": "m4-image-scope-r6-20261030/blobs/c097e4fb6646d2bbc01026800772bc8b04f7e574f77acc06025df90ce38998e9.gz",
+      "packedBytes": 6799,
+      "packedSha256": "e135ed5b01440bf12ef5e9935cb8b34f832d234d6ab54cc6bea54512dd8b22f1"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-actual-20261030/ROOT-READBACK-AND-WINDOW-RELEASE.json",
+      "bytes": 833,
+      "sha256": "9dc6ffe5237768b23ac3f9738715591a2114a3c5cb6d1d8f47b327ed2799c405",
+      "blob": "m4-image-scope-r6-20261030/blobs/9dc6ffe5237768b23ac3f9738715591a2114a3c5cb6d1d8f47b327ed2799c405.gz",
+      "packedBytes": 505,
+      "packedSha256": "8c1eb9adbda7202ab031c4271333ceac24b7bf13c626661ed46d2be95cc130fd"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-outer-20261030/invocation.json",
+      "bytes": 1332,
+      "sha256": "ad5694700bd84685e2b399f5d5ef614363cc7cbfe92fa0e138915154752236cb",
+      "blob": "m4-image-scope-r6-20261030/blobs/ad5694700bd84685e2b399f5d5ef614363cc7cbfe92fa0e138915154752236cb.gz",
+      "packedBytes": 491,
+      "packedSha256": "2aedad052b5c0d6b05bb604a4bc9e62ec621f5c18f4c12932a677ba6793df7ff"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-outer-20261030/result.json",
+      "bytes": 2384,
+      "sha256": "979070fcfea53552323949d033e2907cfefe35768c46ac5863c8cab5fe2dd8ae",
+      "blob": "m4-image-scope-r6-20261030/blobs/979070fcfea53552323949d033e2907cfefe35768c46ac5863c8cab5fe2dd8ae.gz",
+      "packedBytes": 739,
+      "packedSha256": "0f638639701b66a7af43000bbb6d130e949e61be53c4111d37a379cbe184f32c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-outer-20261030/stdout.log",
+      "bytes": 9809,
+      "sha256": "8e3efa4cc0aecaf3bed09fb789c953617cedd5575c9636d152c08d335415137f",
+      "blob": "m4-image-scope-r6-20261030/blobs/8e3efa4cc0aecaf3bed09fb789c953617cedd5575c9636d152c08d335415137f.gz",
+      "packedBytes": 1579,
+      "packedSha256": "7d64ca9eb92435816f51bbccbf95e55d58f3915e37bc01c260c21ae5aa7c284a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-outer-20261030/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/launcher.cjs",
+      "bytes": 5263,
+      "sha256": "7e57ee6fd8d7325a7ecff977861befda651bec2acbfd359b4df3c3a1f47a7720",
+      "blob": "m4-image-scope-r6-20261030/blobs/7e57ee6fd8d7325a7ecff977861befda651bec2acbfd359b4df3c3a1f47a7720.gz",
+      "packedBytes": 2401,
+      "packedSha256": "2093e86c9cd39ddfab287b3e6623b7169812e413e76a6755bbbb38c605bb4b41"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/observer.cjs",
+      "bytes": 3144,
+      "sha256": "e6ccfe45d66851f6fef11b0974aae55e8e5760387c42c3e7f2a7587842fed01e",
+      "blob": "m4-image-scope-r6-20261030/blobs/e6ccfe45d66851f6fef11b0974aae55e8e5760387c42c3e7f2a7587842fed01e.gz",
+      "packedBytes": 1533,
+      "packedSha256": "f23e29b8855507403a263ea7b8cce864bcfc373581defb5241a044688a82220d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/INPUTS.json",
+      "bytes": 8162,
+      "sha256": "83c356078101fe5b0840cf0b486b7821c52c97a0a8876563a396d227990822fb",
+      "blob": "m4-image-scope-r6-20261030/blobs/83c356078101fe5b0840cf0b486b7821c52c97a0a8876563a396d227990822fb.gz",
+      "packedBytes": 2608,
+      "packedSha256": "896f97282b4dfeb4054f10cce43a76686e943b822b25131c22fc8a2075158662"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/REPORT.json",
+      "bytes": 2953,
+      "sha256": "a58f07e196354c481e23f396775738697066e68452cfafa805ebcb12706cef53",
+      "blob": "m4-image-scope-r6-20261030/blobs/a58f07e196354c481e23f396775738697066e68452cfafa805ebcb12706cef53.gz",
+      "packedBytes": 1601,
+      "packedSha256": "5b097392f0a4b7aa9c570e635b1fa508151834fc5019a3dd08556492d4c7d38a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/PINS.json",
+      "bytes": 933,
+      "sha256": "4d5181a37d68b84b1ceb0f2d8d81a1b2e25f14f65a6d56518a923b40be990991",
+      "blob": "m4-image-scope-r6-20261030/blobs/4d5181a37d68b84b1ceb0f2d8d81a1b2e25f14f65a6d56518a923b40be990991.gz",
+      "packedBytes": 433,
+      "packedSha256": "116ed812a9c98480597d718583fef578e327cf6e1391637fd8ee66df51fb453c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/ROOT-PREPARED-REVIEW.json",
+      "bytes": 1154,
+      "sha256": "1a59cf8d0b4748b2c604a1be26c5b14b129d1feaba885228928cea5e909268d8",
+      "blob": "m4-image-scope-r6-20261030/blobs/1a59cf8d0b4748b2c604a1be26c5b14b129d1feaba885228928cea5e909268d8.gz",
+      "packedBytes": 668,
+      "packedSha256": "0c6cec8df283c6fe02e99858fc9ec186b96209d4c183ffc708ea49526544e284"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/ROOT-REVIEW-AND-AUTHORIZATION.json",
+      "bytes": 1600,
+      "sha256": "cfb60fee251bfe00bdc43993a0e25e7abaa0d4ec387f76535e3199307c68fbcd",
+      "blob": "m4-image-scope-r6-20261030/blobs/cfb60fee251bfe00bdc43993a0e25e7abaa0d4ec387f76535e3199307c68fbcd.gz",
+      "packedBytes": 967,
+      "packedSha256": "4c9a7bacd2f4d4abe5f03048d53a6131c5e2c62b532a30d870659a4306c311df"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/B2-M4-observer.diff",
+      "bytes": 5700,
+      "sha256": "99f3884403241ea0d3feda6953e18fe9b2b70f4528580f805ddf88b0b0137961",
+      "blob": "m4-image-scope-r6-20261030/blobs/99f3884403241ea0d3feda6953e18fe9b2b70f4528580f805ddf88b0b0137961.gz",
+      "packedBytes": 1693,
+      "packedSha256": "2a1a0e7c85243925966e8424c1ba106c8d41ff2b7aa9bb2bfe43aa3eabe6d325"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-r6-prepared-20261030/B2-M4-launcher.cjs.diff",
+      "bytes": 8934,
+      "sha256": "41c60aa62cd460fb6a4f969d666b65dd012f167746480937a5eb6d559054c59c",
+      "blob": "m4-image-scope-r6-20261030/blobs/41c60aa62cd460fb6a4f969d666b65dd012f167746480937a5eb6d559054c59c.gz",
+      "packedBytes": 3026,
+      "packedSha256": "b607cf7f7a142748adc2173922c705fdfc363e25b2f2f48d527dc5d87c9b0921"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-repair-freeze-r4-20261030/SOURCE-PINS.json",
+      "bytes": 5006,
+      "sha256": "d66b295e13b34227102dae9fe55d037b7ccb2f3cd29866da5bfad20e54fba564",
+      "blob": "m4-image-scope-r6-20261030/blobs/d66b295e13b34227102dae9fe55d037b7ccb2f3cd29866da5bfad20e54fba564.gz",
+      "packedBytes": 1643,
+      "packedSha256": "fc9a7cf546e8ab2ce90334de63d93d7e68471673f2852dbf4bebcd9981930e24"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-repair-freeze-r4-20261030/SOURCE-REPORT.json",
+      "bytes": 10556,
+      "sha256": "bd8a5b46ad364211a8ad55d59dac20974d662afff2680b76120671d0a36daa5d",
+      "blob": "m4-image-scope-r6-20261030/blobs/bd8a5b46ad364211a8ad55d59dac20974d662afff2680b76120671d0a36daa5d.gz",
+      "packedBytes": 3626,
+      "packedSha256": "3eb25cb0d58a53a1ea3529d9f1ad06ac4e1661c5052010232bb8300c807df05c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-repair-freeze-r4-20261030/DELTA.json",
+      "bytes": 418037,
+      "sha256": "17096b50274cb654098644ba5b3fc8716399bcc36634c68b1e2d9541ed4639f9",
+      "blob": "m4-image-scope-r6-20261030/blobs/17096b50274cb654098644ba5b3fc8716399bcc36634c68b1e2d9541ed4639f9.gz",
+      "packedBytes": 72578,
+      "packedSha256": "287a85ba64255fd85f7a61e597afff864327b5defcf4432f8b3cb39a0538bca3"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-repair-freeze-r4-20261030/REPAIR.patch",
+      "bytes": 70160,
+      "sha256": "1259a0816d1612dd0dac12bae2d7c05e19020f1ebe81de271076e122ac61dd40",
+      "blob": "m4-image-scope-r6-20261030/blobs/1259a0816d1612dd0dac12bae2d7c05e19020f1ebe81de271076e122ac61dd40.gz",
+      "packedBytes": 20305,
+      "packedSha256": "c2ec40bba828989e0d52f0f21cd245a828ff27bbffe60122408709118128df5f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-repair-freeze-r4-20261030/UNIT-INHERITANCE-AUDIT.json",
+      "bytes": 979,
+      "sha256": "9727050502930c8625284e9eb2b62ee849684b520a686537c7eb40b5f808eb7b",
+      "blob": "m4-image-scope-r6-20261030/blobs/9727050502930c8625284e9eb2b62ee849684b520a686537c7eb40b5f808eb7b.gz",
+      "packedBytes": 466,
+      "packedSha256": "59ba22fa946eabbc4c1bf0f3361d765470d1a97897f6f753d9ba45f2c424cf7a"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-repair-freeze-r4-20261030/ROOT-SCOPE-CLARIFICATION.json",
+      "bytes": 740,
+      "sha256": "da97aaf55cdacc35c154ff51d9452484a683e3251d8869a2631fb6dba5b152cb",
+      "blob": "m4-image-scope-r6-20261030/blobs/da97aaf55cdacc35c154ff51d9452484a683e3251d8869a2631fb6dba5b152cb.gz",
+      "packedBytes": 432,
+      "packedSha256": "43c292b00472da5ac303920473b38a9667739785d5fc9ef6f75c22ceb0851027"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-independent-repair-review-sol-20261030/REPORT.md",
+      "bytes": 7187,
+      "sha256": "1d82171583ccb764e0d23b81cf5f24eff7e2a352eec1069829e54308f9123f82",
+      "blob": "m4-image-scope-r6-20261030/blobs/1d82171583ccb764e0d23b81cf5f24eff7e2a352eec1069829e54308f9123f82.gz",
+      "packedBytes": 4532,
+      "packedSha256": "859ece121b9fb82966077d6ad58bb4a84e58188cf587ff979cd10cc5c932cf66"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-independent-repair-review-sol-20261030/PINS.json",
+      "bytes": 1075,
+      "sha256": "65a5d0fac7a83bf23224109328749c210be3b3dde26a2577fb6760da961c59f6",
+      "blob": "m4-image-scope-r6-20261030/blobs/65a5d0fac7a83bf23224109328749c210be3b3dde26a2577fb6760da961c59f6.gz",
+      "packedBytes": 514,
+      "packedSha256": "4a111606e0fd6165e30045913fb07e244b4d41c308636036c17199c630d52421"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-remaining-fixture-independent-review-sol-r1-20261030/ADDENDUM.md",
+      "bytes": 6598,
+      "sha256": "c4d4ffd3d5c247c18e083d62ebeca8c619282a36f9483ffc2763cc129945b0cb",
+      "blob": "m4-image-scope-r6-20261030/blobs/c4d4ffd3d5c247c18e083d62ebeca8c619282a36f9483ffc2763cc129945b0cb.gz",
+      "packedBytes": 3776,
+      "packedSha256": "ddd6e696e1e1053cb1df98e35e6ad66aa40d607a8b154ee474107b2f0753df3e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-remaining-fixture-independent-review-sol-r1-20261030/PINS.json",
+      "bytes": 420,
+      "sha256": "52b96e9bc6ca562b4748117f9f3fa0792cb8389eabdf41e059366ff25db8878d",
+      "blob": "m4-image-scope-r6-20261030/blobs/52b96e9bc6ca562b4748117f9f3fa0792cb8389eabdf41e059366ff25db8878d.gz",
+      "packedBytes": 292,
+      "packedSha256": "b4c52a1a2f152d3ddcebb948ba7e6640514084eb42ad5e22589ab8292143e34b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-fulltext-count-fix-r1-20261030/REPORT.json",
+      "bytes": 1187,
+      "sha256": "aa6693a7c8064a211607293b81792af7f3cb55ee7a684cc8d452a8fa5997fabf",
+      "blob": "m4-image-scope-r6-20261030/blobs/aa6693a7c8064a211607293b81792af7f3cb55ee7a684cc8d452a8fa5997fabf.gz",
+      "packedBytes": 714,
+      "packedSha256": "a2440669ebb304f1bd9ed736f1864b4d2b348e6be751d58d785d642710b439c2"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-fulltext-count-fix-r1-20261030/PINS.json",
+      "bytes": 806,
+      "sha256": "50e8268222e03cee6362e44d1fbf0adcb8154ce91555acce6741daa058b9a8a9",
+      "blob": "m4-image-scope-r6-20261030/blobs/50e8268222e03cee6362e44d1fbf0adcb8154ce91555acce6741daa058b9a8a9.gz",
+      "packedBytes": 404,
+      "packedSha256": "b522f93de87c57824662c6a6036d800fc314b780a69b88b97b12a8ccf0e90b92"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-fulltext-count-fix-r1-20261030/ROOT-REVIEW.json",
+      "bytes": 422,
+      "sha256": "c25aa8d361d8b092abd9ea12e2c30e96b254bcbde4697e6faea24220c91bd68c",
+      "blob": "m4-image-scope-r6-20261030/blobs/c25aa8d361d8b092abd9ea12e2c30e96b254bcbde4697e6faea24220c91bd68c.gz",
+      "packedBytes": 321,
+      "packedSha256": "8572ffc092b9a3ba0ac40f5b266ffa9dddce9bc0ba516b869a0742c8d0f6a9ef"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-metadata-fixes-r1-20261030/REPORT.json",
+      "bytes": 3089,
+      "sha256": "88f40f222009d0fd356127ca0502243a3237e8b77071c25d2bb7d2628132acbc",
+      "blob": "m4-image-scope-r6-20261030/blobs/88f40f222009d0fd356127ca0502243a3237e8b77071c25d2bb7d2628132acbc.gz",
+      "packedBytes": 1421,
+      "packedSha256": "39e64e2c4a0f6c0252ea5c2068b36ae07f59ec5c1f3760fb963be40d50e82162"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-metadata-fixes-r1-20261030/PINS.json",
+      "bytes": 2539,
+      "sha256": "413002554ecba009cf18821322f3daaaf655aa401addb0059bdbd2917b3249a5",
+      "blob": "m4-image-scope-r6-20261030/blobs/413002554ecba009cf18821322f3daaaf655aa401addb0059bdbd2917b3249a5.gz",
+      "packedBytes": 831,
+      "packedSha256": "29c31fbab292f08ba8ca0e316e8e08990fb2eae4bc19639c00179a7b57391f23"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-runtime-bindings-fix-r1-20261030/REPORT.md",
+      "bytes": 4856,
+      "sha256": "6b6caa77548c0d75ed7f093ab2a9060ec3bebecf5132f6204a6f5a6735827d55",
+      "blob": "m4-image-scope-r6-20261030/blobs/6b6caa77548c0d75ed7f093ab2a9060ec3bebecf5132f6204a6f5a6735827d55.gz",
+      "packedBytes": 3151,
+      "packedSha256": "54ba72c7b47373467e501cd6e15498aa001f0addcdefacff03ac8a6e48bbe114"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-runtime-bindings-fix-r1-20261030/PINS.json",
+      "bytes": 2733,
+      "sha256": "bd477c2f3aa656b6a2275ddc00c3ed948dc172aeaa9fed15bf240c565333b751",
+      "blob": "m4-image-scope-r6-20261030/blobs/bd477c2f3aa656b6a2275ddc00c3ed948dc172aeaa9fed15bf240c565333b751.gz",
+      "packedBytes": 1052,
+      "packedSha256": "126588ea085fd990456b74ed7b1b8e778d97b6e35d73cfa4cb1845e85de3eab5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-runtime-bindings-fix-r1-20261030/PATCHES.json",
+      "bytes": 5416,
+      "sha256": "c5484b0031604b6309db29dd09aed26f2d3e24b82d6b0638480d7067af7df9c5",
+      "blob": "m4-image-scope-r6-20261030/blobs/c5484b0031604b6309db29dd09aed26f2d3e24b82d6b0638480d7067af7df9c5.gz",
+      "packedBytes": 1802,
+      "packedSha256": "2a3576aa362f803d9e9e63c4d842352d426335f11680834f123482528b16ba72"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-runtime-bindings-fix-r1-20261030/FIXTURE.diff",
+      "bytes": 10396,
+      "sha256": "7cf1685f96e344c58a32ba63c08dee771d16c2c645fd9c83ba0e53827c069278",
+      "blob": "m4-image-scope-r6-20261030/blobs/7cf1685f96e344c58a32ba63c08dee771d16c2c645fd9c83ba0e53827c069278.gz",
+      "packedBytes": 3237,
+      "packedSha256": "bf6629120810b9cb969a914aa566ffe64e9a7217c88a1d4e07caf1f5b6c509ad"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-seven-targeted-r1-20261030/REPORT.json",
+      "bytes": 6142,
+      "sha256": "ab6dc11f1e420dfd9496c382e5729aa2694711e83707a6f5e72ae1e26313cdd2",
+      "blob": "m4-image-scope-r6-20261030/blobs/ab6dc11f1e420dfd9496c382e5729aa2694711e83707a6f5e72ae1e26313cdd2.gz",
+      "packedBytes": 1801,
+      "packedSha256": "60c70b98bba4604df633c7fddd22e90e3528bb0275be76c4b0f5fc7f1367f765"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-static-seven-targeted-r1-20261030/PINS.json",
+      "bytes": 2378,
+      "sha256": "3241a47fc8f8ad288be35e003631b605bf33f56b3a906836ee4bf2fbcfc4b80d",
+      "blob": "m4-image-scope-r6-20261030/blobs/3241a47fc8f8ad288be35e003631b605bf33f56b3a906836ee4bf2fbcfc4b80d.gz",
+      "packedBytes": 656,
+      "packedSha256": "ac5b908c2d3d0b96b0d968f4994fa2c0d9af4a8509ecf74521f6b1b5e260bde7"
+    },
+    {
+      "originalPath": ".ruyi-runtime/M4-LinearR1-CommittedB2-20261030/REPORT.json",
+      "bytes": 8991,
+      "sha256": "bd50567179860d66c34d673032bc86c59d84ddcf98f3182661d471f5e6c157b9",
+      "blob": "m4-image-scope-r6-20261030/blobs/bd50567179860d66c34d673032bc86c59d84ddcf98f3182661d471f5e6c157b9.gz",
+      "packedBytes": 3405,
+      "packedSha256": "30b59d7bb65b39a446ff52c4bef9e0dbc1e1aae5f4141dbc163a69498fa3ec45"
+    },
+    {
+      "originalPath": ".ruyi-runtime/M4-LinearR1-CommittedB2-20261030/FROZEN.json",
+      "bytes": 1172,
+      "sha256": "134e86d4f69c0218338b9d977eecfbfaa495aef0a237d42df8e2a60d0ef3e568",
+      "blob": "m4-image-scope-r6-20261030/blobs/134e86d4f69c0218338b9d977eecfbfaa495aef0a237d42df8e2a60d0ef3e568.gz",
+      "packedBytes": 595,
+      "packedSha256": "f7b6cd2c56ed9c3253bf7d484d21d071a01367445f7c515a742ac8dc25f9482e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-r6-delivery/syntax.stdout.log",
+      "bytes": 60,
+      "sha256": "7c9f4272adf837a037c938f918407166e6c2db056709b300876a2de0b1f5097e",
+      "blob": "m4-image-scope-r6-20261030/blobs/7c9f4272adf837a037c938f918407166e6c2db056709b300876a2de0b1f5097e.gz",
+      "packedBytes": 80,
+      "packedSha256": "a65f017c9a9b464e01eb6cd9e722c73599913d29e89360a9f1f32721cce901a6"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-r6-delivery/syntax.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/M4-LinearR1-CommittedB2-20261030/PINS.json",
+      "bytes": 300571,
+      "sha256": "b010b729228c0bf999d746af6d1bb55086455de9966c4f104456e65015b7f479",
+      "blob": "m4-image-scope-r6-20261030/blobs/b010b729228c0bf999d746af6d1bb55086455de9966c4f104456e65015b7f479.gz",
+      "packedBytes": 73654,
+      "packedSha256": "a8dd5ed33cd7a106e66fdb94b70a6c4ddf7c81f8236d2a9aaff3dd763dc64fd0"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-frontend-fixture-fix-20261030/REPORT.md",
+      "bytes": 2904,
+      "sha256": "9dc6f7c90e8c0e85b7243908fecf20f947862d081eeaf5180625bb7ee6648170",
+      "blob": "m4-image-scope-r6-20261030/blobs/9dc6f7c90e8c0e85b7243908fecf20f947862d081eeaf5180625bb7ee6648170.gz",
+      "packedBytes": 1456,
+      "packedSha256": "eb627155158ffcdf876008c4840a6a549aea28947db053e6bd9393a10f0877c3"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-frontend-fixture-fix-20261030/PINS.json",
+      "bytes": 1416,
+      "sha256": "899dcacb25ced99e6c4cabfcff94303254443786ad761bd3f26f5ecf55fff0e8",
+      "blob": "m4-image-scope-r6-20261030/blobs/899dcacb25ced99e6c4cabfcff94303254443786ad761bd3f26f5ecf55fff0e8.gz",
+      "packedBytes": 611,
+      "packedSha256": "f2f765e5d6fb39606ce304f8c0b88cab2a5b0587caff618af29876355acd0ea7"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-frontend-fixture-fix-20261030/frozen-core.log",
+      "bytes": 3321,
+      "sha256": "e8636d741bac3208c66083f93cadf092f81580660d465baf0d46cd06e01693b0",
+      "blob": "m4-image-scope-r6-20261030/blobs/e8636d741bac3208c66083f93cadf092f81580660d465baf0d46cd06e01693b0.gz",
+      "packedBytes": 1120,
+      "packedSha256": "aede0776019764ce61b01dfbc683b2ae81a89dba527bda780a7e2e9a926099f5"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-frontend-fixture-fix-20261030/serial-steer.log",
+      "bytes": 233,
+      "sha256": "bead97c63b3766bd2596ab038d046761fdb25f140a1ec420950c1ab2d759151e",
+      "blob": "m4-image-scope-r6-20261030/blobs/bead97c63b3766bd2596ab038d046761fdb25f140a1ec420950c1ab2d759151e.gz",
+      "packedBytes": 219,
+      "packedSha256": "45b7d772d2a0759cfc87906877c0e7e0483397c3631d161d4c8984058bedfe73"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-frontend-fixture-fix-20261030/serial-voice.log",
+      "bytes": 772,
+      "sha256": "41702d717a58ce518fe780e691747c319ab38f83394fed78995efdaa76b063d5",
+      "blob": "m4-image-scope-r6-20261030/blobs/41702d717a58ce518fe780e691747c319ab38f83394fed78995efdaa76b063d5.gz",
+      "packedBytes": 556,
+      "packedSha256": "a42bb8547059ca24f72c13a0d4874e1a21c37f1918e97df4b46ec833d200b846"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-backend-fixes-r1-20261030/PREIMAGES.json",
+      "bytes": 1592,
+      "sha256": "884c7945141155135c1a2de71b25fbedc593122a45637ebad6831bd6812ef239",
+      "blob": "m4-image-scope-r6-20261030/blobs/884c7945141155135c1a2de71b25fbedc593122a45637ebad6831bd6812ef239.gz",
+      "packedBytes": 684,
+      "packedSha256": "36f1c512c0cd8ba019aceb6cf11738f3c2ed1b6f16e33734d4372a4668753c86"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-remaining-fixture-fix-r1-20261030/REPORT.json",
+      "bytes": 1939,
+      "sha256": "bb8cb807b154d8af74ac4ff397ee0c6ea2902abd3d988768611234d4135090ae",
+      "blob": "m4-image-scope-r6-20261030/blobs/bb8cb807b154d8af74ac4ff397ee0c6ea2902abd3d988768611234d4135090ae.gz",
+      "packedBytes": 929,
+      "packedSha256": "b3e3950f219628fb564959dd7dd6fc4515ccc89e82989b7d813b1adef5938a9b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-remaining-fixture-fix-r1-20261030/PINS.json",
+      "bytes": 1475,
+      "sha256": "50037ea4013b144b28982a0c34c2263fab6c9b09d9bf57b1f1d1c3331ede243b",
+      "blob": "m4-image-scope-r6-20261030/blobs/50037ea4013b144b28982a0c34c2263fab6c9b09d9bf57b1f1d1c3331ede243b.gz",
+      "packedBytes": 589,
+      "packedSha256": "a07edb24cf5b373be03a35026c3a9209567a19144d95a0cd3bbe2f8c5173884f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-remaining-fixture-fix-r1-20261030/foreign.stdout.log",
+      "bytes": 461,
+      "sha256": "153e912af422eef1d0a9875c3cabab97562578cabae0918766bc2ff37d321652",
+      "blob": "m4-image-scope-r6-20261030/blobs/153e912af422eef1d0a9875c3cabab97562578cabae0918766bc2ff37d321652.gz",
+      "packedBytes": 297,
+      "packedSha256": "6ad119ae8edabc84da4df5c1522bfd7078772ad352656db18e97e255da896585"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-remaining-fixture-fix-r1-20261030/context.stdout.log",
+      "bytes": 2101,
+      "sha256": "60c109b443facea537f0ea2b2277a59f890f7be1c0b7a47a43788be94e7b3d86",
+      "blob": "m4-image-scope-r6-20261030/blobs/60c109b443facea537f0ea2b2277a59f890f7be1c0b7a47a43788be94e7b3d86.gz",
+      "packedBytes": 1016,
+      "packedSha256": "cd73885c477fc73b1e90dc936699fdeea6c6bb5090d63c8a7521dad829305cae"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-fulltext-count-fix-r1-20261030/targeted.stdout.log",
+      "bytes": 4470,
+      "sha256": "4a6c0e3f6014d2033148a5e8f0d09b010c2cf9f8f414f3525e385963a6a0f456",
+      "blob": "m4-image-scope-r6-20261030/blobs/4a6c0e3f6014d2033148a5e8f0d09b010c2cf9f8f414f3525e385963a6a0f456.gz",
+      "packedBytes": 1100,
+      "packedSha256": "447c94a8f16f380c30757aeb752fa289f76b4aef855d60a4bee070ed0da0bd98"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/external-bots-retry-api.test.stdout.log",
+      "bytes": 2763,
+      "sha256": "de1d84462f4ef532c0c4876056e21504360c27d5342ab71c1208a4e60358c41e",
+      "blob": "m4-image-scope-r6-20261030/blobs/de1d84462f4ef532c0c4876056e21504360c27d5342ab71c1208a4e60358c41e.gz",
+      "packedBytes": 1303,
+      "packedSha256": "aeff3e3e9a3f0b98505baa2798a645cd2b74d5c41cf26367b832700750c09a0b"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/external-bots-retry-api.test.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/external-bots-retry-api.test.status.json",
+      "bytes": 454,
+      "sha256": "74cf915f20e57e06664cba459b50b5fa72f0fe49dac0c04170f502f827af7165",
+      "blob": "m4-image-scope-r6-20261030/blobs/74cf915f20e57e06664cba459b50b5fa72f0fe49dac0c04170f502f827af7165.gz",
+      "packedBytes": 317,
+      "packedSha256": "b95f823f6122e5ecd3a3d8aeedad2f20c92557463cf90a72a5ec4469c0453af3"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/privacy-cooperative-yield.test.stdout.log",
+      "bytes": 1039,
+      "sha256": "a26cacd36f555ba75496d4c68426abac68d26c715fe47af0b0a684df73ca6fee",
+      "blob": "m4-image-scope-r6-20261030/blobs/a26cacd36f555ba75496d4c68426abac68d26c715fe47af0b0a684df73ca6fee.gz",
+      "packedBytes": 591,
+      "packedSha256": "16b2205b759846b605cb91e14ad3adf5474ede38fb6b99f2ac5e298b7ad0a8ab"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/privacy-cooperative-yield.test.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/privacy-cooperative-yield.test.status.json",
+      "bytes": 456,
+      "sha256": "31bd1c50c7abe6ae13350d955e504c1f8efc9d95ed370ca7329a2d0c4e9048e0",
+      "blob": "m4-image-scope-r6-20261030/blobs/31bd1c50c7abe6ae13350d955e504c1f8efc9d95ed370ca7329a2d0c4e9048e0.gz",
+      "packedBytes": 317,
+      "packedSha256": "00b551b5007d075c1ebb4df7e11260457c763c386257df812501ef4a3ffec07f"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/privacy-thread-brief-boundary.test.stdout.log",
+      "bytes": 953,
+      "sha256": "81611f6b12d7a5a73e36367e4d81d53a5f9d7c95975de4f7d45fbbb61708e5f3",
+      "blob": "m4-image-scope-r6-20261030/blobs/81611f6b12d7a5a73e36367e4d81d53a5f9d7c95975de4f7d45fbbb61708e5f3.gz",
+      "packedBytes": 541,
+      "packedSha256": "a3bc7642fcfaca0dd062e39a84c6b285b604118596aad656858890486bb6ee7e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/privacy-thread-brief-boundary.test.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/privacy-thread-brief-boundary.test.status.json",
+      "bytes": 460,
+      "sha256": "2ff31f2e37da3cc6d7273e534fc3a5fb170dd06516d6883900ed73f3332db4fd",
+      "blob": "m4-image-scope-r6-20261030/blobs/2ff31f2e37da3cc6d7273e534fc3a5fb170dd06516d6883900ed73f3332db4fd.gz",
+      "packedBytes": 319,
+      "packedSha256": "9253545f770839d68be3b19892645e2bfe05ea5c934f83308948c300b411b85d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/work-data-migration-codecs.test.stdout.log",
+      "bytes": 2859,
+      "sha256": "942633e90e368bf7b6a3eae6acadd435f2ef96d678d60e806cd9ea1cd02d8526",
+      "blob": "m4-image-scope-r6-20261030/blobs/942633e90e368bf7b6a3eae6acadd435f2ef96d678d60e806cd9ea1cd02d8526.gz",
+      "packedBytes": 1354,
+      "packedSha256": "b4b05a80fd3687b3a1fbce89ebd0fc1fe8fb9686b528f9f471f7141421941f6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/work-data-migration-codecs.test.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/work-data-migration-codecs.test.status.json",
+      "bytes": 457,
+      "sha256": "dd3c3907dcb5222dcf93f192336bd7b5f2d86148116fd967bd90ee6a974dd665",
+      "blob": "m4-image-scope-r6-20261030/blobs/dd3c3907dcb5222dcf93f192336bd7b5f2d86148116fd967bd90ee6a974dd665.gz",
+      "packedBytes": 315,
+      "packedSha256": "cded28e11355bddc1ba9e9038dfb55fef23aacb9bca5ac7c0c279af3baf18a8d"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/encrypted-storage-freeze-check.stdout.log",
+      "bytes": 65,
+      "sha256": "c5cdc347417165b47315e7f629511ce25fabb712297222b1ada3ad4d4998be71",
+      "blob": "m4-image-scope-r6-20261030/blobs/c5cdc347417165b47315e7f629511ce25fabb712297222b1ada3ad4d4998be71.gz",
+      "packedBytes": 84,
+      "packedSha256": "477de0d6982a04d449a5addfd64acedd7a759b992ea0951dd91be5d71c7dc255"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/encrypted-storage-freeze-check.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/encrypted-storage-freeze-check.status.json",
+      "bytes": 207,
+      "sha256": "e50ec2d3945120fe315a5cd6d8b0571d8b0207350ccc1f739debf2e9588d9561",
+      "blob": "m4-image-scope-r6-20261030/blobs/e50ec2d3945120fe315a5cd6d8b0571d8b0207350ccc1f739debf2e9588d9561.gz",
+      "packedBytes": 170,
+      "packedSha256": "1fbc3a850a1ac144d14d4abbe2b99524c77de87857ff03b73fd0414b943aba51"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/encrypted-storage-freeze-static.stdout.log",
+      "bytes": 1698,
+      "sha256": "19a6f8667430609d14ee107ad0d45c2e457a512b21e00474c8c7d72a1b37ecf4",
+      "blob": "m4-image-scope-r6-20261030/blobs/19a6f8667430609d14ee107ad0d45c2e457a512b21e00474c8c7d72a1b37ecf4.gz",
+      "packedBytes": 767,
+      "packedSha256": "736f892b4d95dd24fa22c0e32f1eb80df4e09b0bb4b9c28de7223fd0e9ed0a90"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/encrypted-storage-freeze-static.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "blob": "m4-image-scope-r6-20261030/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedBytes": 20,
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-source-targeted-r1-20261030/encrypted-storage-freeze-static.status.json",
+      "bytes": 210,
+      "sha256": "875c43eb0a2f691cef99f4cbdc557f54e01da90611a7d65b91e057df80585dad",
+      "blob": "m4-image-scope-r6-20261030/blobs/875c43eb0a2f691cef99f4cbdc557f54e01da90611a7d65b91e057df80585dad.gz",
+      "packedBytes": 173,
+      "packedSha256": "0fc597351bcc701e10fc6098593dbeef25ee5838d17629fc7e75c5bfa2aaae4c"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r2-actual-20261030/TERRA-READBACK.md",
+      "bytes": 2335,
+      "sha256": "8f7ce0738fc279e13766c970c9497e60c18f5637533be296b6f209376719034c",
+      "blob": "m4-image-scope-r6-20261030/blobs/8f7ce0738fc279e13766c970c9497e60c18f5637533be296b6f209376719034c.gz",
+      "packedBytes": 1388,
+      "packedSha256": "6b1cffc5db636da682aeb75ab1049c26e5ed8272f6e1703665e59b34b36e6e92"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r4-actual-20261030/EXECUTOR-READBACK.json",
+      "bytes": 848,
+      "sha256": "b808af4274e0da1e0930b2ae4b19361e2d80d0fa1837757d9d67fe1b85758157",
+      "blob": "m4-image-scope-r6-20261030/blobs/b808af4274e0da1e0930b2ae4b19361e2d80d0fa1837757d9d67fe1b85758157.gz",
+      "packedBytes": 520,
+      "packedSha256": "015c80c5f5a63a459ed924156e8f4be4055545403ce9c531776314677a315482"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-standard-fast-r5-actual-20261030/EXECUTOR-READBACK.json",
+      "bytes": 848,
+      "sha256": "77287a062e2e017a9a71bd1f06bad946419db51351212740128bb473bec64695",
+      "blob": "m4-image-scope-r6-20261030/blobs/77287a062e2e017a9a71bd1f06bad946419db51351212740128bb473bec64695.gz",
+      "packedBytes": 520,
+      "packedSha256": "200095c183ace58645428516ffbddf8fd25ede075b590b431feb5f7992cfd396"
+    },
+    {
+      "originalPath": ".ruyi-runtime/m4-r6-delivery/SYNTAX-RECEIPT.json",
+      "bytes": 491,
+      "sha256": "b14cfbe7d9090d6f112540a28a8aab44fd1f13d279cd88409c8353a01165a9dd",
+      "blob": "m4-image-scope-r6-20261030/blobs/b14cfbe7d9090d6f112540a28a8aab44fd1f13d279cd88409c8353a01165a9dd.gz",
+      "packedBytes": 342,
+      "packedSha256": "22c152712118c94834dc27809232c9e8d895b94056f7dda7e8a462f2482bcb07"
+    }
+  ]
+}
