@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-30",
+  "reviewer": "independent agent /root/p0_review",
+  "scope": [
+    "MACOS-PORTING/probes",
+    ".github/workflows/macos-p0.yml",
+    "P0 evidence and decision boundaries"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "priority": "P2",
+      "finding": "pip timeout did not kill wheel-build descendants",
+      "resolution": "run_command starts dedicated session and always stops owned process group; real descendant timeout self-test passed",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "R2",
+      "priority": "P2",
+      "finding": "venv alone did not isolate pip/matplotlib user caches",
+      "resolution": "isolated_env sets HOME/USERPROFILE/XDG_CACHE_HOME/XDG_CONFIG_HOME/MPLCONFIGDIR/PIP_CACHE_DIR/PIP_CONFIG_FILE; child environment self-test passed; original install evidence explicitly retains narrower isolation scope",
+      "status": "resolved_verified"
+    }
+  ],
+  "result": "passed_targeted_rereview_no_new_blockers",
+  "verification": "Reviewer reran Python --self-test: exit 0, ownedDescendantStopped=true, isolatedChildEnvironment=true; checked v1 decisions and probe limits.",
+  "documentationFollowup": "evidence/P0/README.md now exists and records that the historical dependency install preceded HOME/cache isolation fixes; final documentation consistency checked by implementer."
+}

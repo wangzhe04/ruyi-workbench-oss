@@ -1,0 +1,31 @@
+name: macOS P0 baseline
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [master, main, 'codex/**']
+permissions:
+  contents: read
+jobs:
+  baseline:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Same-source cross-platform subset (not full compatibility)
+        run: node MACOS-PORTING/probes/run-baseline.cjs --profile ci --output p0-results
+      - name: Preserve results including failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p0-${{ matrix.os }}
+          path: p0-results/
+          if-no-files-found: error
+          retention-days: 14

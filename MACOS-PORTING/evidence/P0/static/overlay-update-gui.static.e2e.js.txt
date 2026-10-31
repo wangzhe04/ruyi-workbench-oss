@@ -1,0 +1,29 @@
+PASS G1 更新中心页签按钮在(index.html)
+PASS G2 stab-update 面板在
+PASS G3 ovPickBtn 按钮在
+PASS G3 ovPrecheckBtn 按钮在
+PASS G3 ovApplyBtn 按钮在
+PASS G3 ovRollbackBtn 按钮在
+PASS G3 ovRefreshBtn 按钮在
+PASS G3 ovForceChk 按钮在
+PASS G4 预览/状态/结果/审计字段全在(14 个)
+PASS G5 refreshOverlayStatus() 在 settings-operations 模块
+PASS G5 overlayPickZip() 在 settings-operations 模块
+PASS G5 overlayPrecheck() 在 settings-operations 模块
+PASS G5 overlayApply() 在 settings-operations 模块
+PASS G5 overlayRollback() 在 settings-operations 模块
+PASS G5b app.js 仅保留模块组合与一次绑定
+PASS G6 switchSettingsTab update hook 在
+PASS G7 ovPickBtn 绑 overlayPickZip
+PASS G8 ovApplyBtn 绑 overlayApply
+PASS G9 ovRollbackBtn 绑 overlayRollback
+PASS G10 operations 模块调四条 overlay API
+PASS G11 operations 模块调 /api/pick-file(选 zip)
+PASS G11b 运维模块零 innerHTML，更新审计/结果走安全 DOM
+PASS G12 中英 locale 含 10 个关键 settings.update.* 键且对等
+PASS G13 zh compatInfo 占位符 {{p1}}/{{p2}}
+PASS G14 en compatInfo 占位符 {{p1}}/{{p2}}
+PASS G15 /api/pick-file 路由 + pickFile 函数入 bundle
+PASS G16 pickFile 用 OpenFileDialog(选单文件)
+
+ALL PASS

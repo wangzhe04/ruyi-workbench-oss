@@ -1,0 +1,525 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-30",
+  "baselineCommit": "f5223548",
+  "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
+  "effortUnit": "person_day",
+  "dayDefinition": "8 小时项目工作；包含实现、相关测试、缺陷修复、文档和复核响应",
+  "estimateType": "源码审计后的粗估区间，非统计置信区间或交付承诺",
+  "totalBaseDays": {
+    "low": 60,
+    "high": 96
+  },
+  "riskReserve": {
+    "lowRate": 0.2,
+    "highRate": 0.3,
+    "appliedOnce": true
+  },
+  "totalBudgetDays": {
+    "low": 72,
+    "high": 125
+  },
+  "phases": [
+    {
+      "id": "P0",
+      "title": "基线与方案冻结",
+      "document": "01-P0-BASELINE.md",
+      "dependsOn": [],
+      "status": "done",
+      "effortDays": {
+        "low": 4,
+        "high": 6
+      },
+      "tasks": [
+        {
+          "id": "P0-01",
+          "title": "建立 Mac/Windows 基线",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "记录环境和同一 SHA 的通过/失败/skip；定位 Windows 夹具依赖；Mac CI 先运行确认可行的构建与纯函数集合。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P0/baseline-catalog.json",
+            "evidence/P0/ci-local/report.json",
+            "evidence/P0/upstream-ci.json"
+          ],
+          "completedDate": "2026-10-30"
+        },
+        {
+          "id": "P0-02",
+          "title": "冻结平台与能力契约",
+          "effortDays": {
+            "low": 1,
+            "high": 1
+          },
+          "deliverable": "确定接口、错误形状、平台能力目录、arm64 首发/最低系统范围、数据根与 Windows 兼容策略。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "11-P0-DECISIONS.md"
+          ],
+          "completedDate": "2026-10-30"
+        },
+        {
+          "id": "P0-03",
+          "title": "做高风险探针",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "限时验证 WKWebView SSE/媒体、本地鉴权、AX/截图权限归属、Keychain helper、Python 3.12 与核心 wheels；记录失败和备选。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P0/README.md",
+            "probes/README.md"
+          ],
+          "completedDate": "2026-10-30"
+        },
+        {
+          "id": "P0-04",
+          "title": "拆分工单并冻结验收样例",
+          "effortDays": {
+            "low": 1,
+            "high": 1
+          },
+          "deliverable": "确定测试应用/输入文件、发布身份、资源供应者；更新任务依赖和估算，不把探针当正式功能。",
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "11-P0-DECISIONS.md",
+            "09-EFFORT-ESTIMATE.md",
+            "10-TRACKING.md"
+          ],
+          "completedDate": "2026-10-30"
+        }
+      ],
+      "completedDate": "2026-10-30",
+      "owner": "Codex（实施）；/root/p0_review（独立复核）",
+      "completionScope": "设计、探针与证据基线完成；最低系统、正式签名/权限、新远程 CI 等开放项见 11-P0-DECISIONS.md O1–O8，不代表产品 Mac 兼容完成",
+      "evidence": [
+        "evidence/P0/README.md",
+        "11-P0-DECISIONS.md",
+        "evidence/P0/review.json"
+      ]
+    },
+    {
+      "id": "P1",
+      "title": "运行时与系统边界",
+      "document": "02-P1-RUNTIME.md",
+      "dependsOn": [
+        "P0"
+      ],
+      "status": "planned",
+      "effortDays": {
+        "low": 8,
+        "high": 12
+      },
+      "tasks": [
+        {
+          "id": "P1-01",
+          "title": "平台启动与依赖定位",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "新增集中平台层；Mac 启动入口、--open、Finder reveal、Node/Python/rg 探测；适配干净 PATH，不 source 用户 profile。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P1-02",
+          "title": "文件与系统路径策略",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "定义 Mac 受保护路径；复核 realpath、大小写敏感卷、符号链接、POSIX 绝对路径、原子写与回退；修复对应测试夹具。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P1-03",
+          "title": "一次性与常驻 shell",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "实现平台默认 shell、显式脚本语言和非 TTY 常驻会话；同步 schema、bash 别名、命令长度、Unicode、输出上限与取消语义。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P1-04",
+          "title": "自有进程树治理",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "统一 CLI/MCP/shell/toolbox 的启动登记与停止；替代 /proc 假设；覆盖子孙、父进程先退出、身份校验；同步测试清理器。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "Agent、凭据与核心业务",
+      "document": "03-P2-AGENT-CORE.md",
+      "dependsOn": [
+        "P1"
+      ],
+      "status": "planned",
+      "effortDays": {
+        "low": 8,
+        "high": 12
+      },
+      "tasks": [
+        {
+          "id": "P2-01",
+          "title": "CLI 与平台能力贯通",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "适配 Claude/Kimi 发现、启动、恢复、权限与停止；同步 MCP 清单与模型提示，移除 Mac 上的 Windows 路径要求和无实现工具。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P2-02",
+          "title": "Keychain 保护器与恢复",
+          "effortDays": {
+            "low": 3,
+            "high": 4
+          },
+          "deliverable": "实现并测试结构化 helper/Keychain 接口；替换 DPAPI 能力判断、保存/启用门、恢复路径；覆盖拒绝、锁定、数据损坏和身份变化。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P2-03",
+          "title": "核心业务端到端回归",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "验证 Provider、会话/检查点、管家、多 Agent/工作流、记忆、用量与应用内调度；定义错过任务和重启去重，修复本阶段适配造成的问题。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P2-04",
+          "title": "机器人与后台连接适配",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "贯通外部机器人本地凭据、环境变量引用、配置/重连及退出回收；网络协议用假端点验证，真实服务另记录联调状态。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "title": "文档、浏览器与模板",
+      "document": "04-P3-DOCUMENT-BROWSER.md",
+      "dependsOn": [
+        "P1"
+      ],
+      "status": "planned",
+      "effortDays": {
+        "low": 6,
+        "high": 10
+      },
+      "tasks": [
+        {
+          "id": "P3-01",
+          "title": "拆分 ACC 平台依赖与注册",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "pywin32/winsdk/UIA 条件化；共享模块可独立安装，失败隔离且报告真实能力；为 Mac 文件工具补保护规则。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P3-02",
+          "title": "文档与图表生成/读取",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "验证 docx/xlsx/pptx/pdf 与图片提取、图表、中文字体；把依赖清单和最小样例固定下来，保证检查点与写入审计。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P3-03",
+          "title": "Playwright 与浏览器运行时",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "验证 Mac Chromium、独立 profile、离线浏览器缓存路径、标签页/输入/截图和退出清理；区别原生打开 URL 与浏览器自动化。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P3-04",
+          "title": "平台模板与能力文案",
+          "effortDays": {
+            "low": 1,
+            "high": 2
+          },
+          "deliverable": "逐项检查 16 个 Playbook、离线技能/角色及示例命令；为 PowerShell/Windows 控制模板提供 Mac 路径或禁用条件；更新中英文说明。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "title": "Mac 桌面壳",
+      "document": "05-P4-DESKTOP-APP.md",
+      "dependsOn": [
+        "P2",
+        "P3"
+      ],
+      "status": "planned",
+      "effortDays": {
+        "low": 10,
+        "high": 16
+      },
+      "tasks": [
+        {
+          "id": "P4-01",
+          "title": "App 宿主与服务管理",
+          "effortDays": {
+            "low": 3,
+            "high": 5
+          },
+          "deliverable": "新增拟议 desktop-macos 宿主；窗口/WebView、单实例、Node 启动/健康、错误页面、窗口状态；按 P0 结论选一种技术栈。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P4-02",
+          "title": "受控系统桥与交互",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "原生文件选择器、Finder/编辑器、菜单栏、通知、Cmd 快捷键与安全的 URL 打开；验证页面来源/消息 schema。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P4-03",
+          "title": "麦克风与媒体兼容",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "按 WebView 实际能力选择录音格式或 PCM；测试授权、拒绝、重试、语音流式路径和资源释放，保留 ASR 协议与词库。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P4-04",
+          "title": "生命周期与签名身份复验",
+          "effortDays": {
+            "low": 3,
+            "high": 5
+          },
+          "deliverable": "关闭窗口/退出/登录启动的明确设置；睡眠唤醒、调度恢复、MCP/CLI 回收；用拟发行身份验证 Keychain/TCC，提前准备签名。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "title": "Mac 桌面自动化",
+      "document": "06-P5-AUTOMATION.md",
+      "dependsOn": [
+        "P4"
+      ],
+      "status": "planned",
+      "effortDays": {
+        "low": 16,
+        "high": 26
+      },
+      "tasks": [
+        {
+          "id": "P5-01",
+          "title": "屏幕/窗口捕获与坐标",
+          "effortDays": {
+            "low": 3,
+            "high": 5
+          },
+          "deliverable": "使用适合最低系统版本的截图后端；建立逻辑点/像素/缩放/原点契约；处理 Retina、多屏、负坐标和权限拒绝。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P5-02",
+          "title": "输入、剪贴板与窗口操作",
+          "effortDays": {
+            "low": 3,
+            "high": 4
+          },
+          "deliverable": "Mac 键位、Cmd 粘贴、中文输入、鼠标/滚轮、文本与图片剪贴板、应用启动和窗口动作；保护焦点和目标身份。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P5-03",
+          "title": "AX 元素后端",
+          "effortDays": {
+            "low": 5,
+            "high": 8
+          },
+          "deliverable": "实现元素查询、定位、支持的动作；处理失效元素、超时/深度/数量上限与应用不支持；替代 UIA 特定属性映射。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P5-04",
+          "title": "OCR 与视觉组合",
+          "effortDays": {
+            "low": 3,
+            "high": 5
+          },
+          "deliverable": "Vision 或验证通过的离线引擎；中英识别、文字定位、坐标回映射与点击；保留图像算法，改接 Mac 截图。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P5-05",
+          "title": "宏录制和执行后验证",
+          "effortDays": {
+            "low": 2,
+            "high": 4
+          },
+          "deliverable": "受控输入录制/停止/重放与组合动作；串联 observe/act_and_verify；测试焦点变化、锁屏/权限撤销；同步工具目录和能力状态。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "title": "离线打包与发行",
+      "document": "07-P6-RELEASE.md",
+      "dependsOn": [
+        "P5"
+      ],
+      "status": "planned",
+      "effortDays": {
+        "low": 8,
+        "high": 14
+      },
+      "tasks": [
+        {
+          "id": "P6-01",
+          "title": "arm64 离线依赖与包布局",
+          "effortDays": {
+            "low": 2,
+            "high": 4
+          },
+          "deliverable": "打包 Node/Python/rg/必要 wheels 与浏览器；区分各发行变体承诺能力、许可、hash 校验和版本锁；不打入官方 Agent CLI。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P6-02",
+          "title": "签名、公证与安装",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "递归处理 App/helper/原生依赖签名、hardened runtime 与必要 entitlement；公证与票据附加；干净标准用户安装/首次运行验证。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P6-03",
+          "title": "更新、回退与数据迁移",
+          "effortDays": {
+            "low": 2,
+            "high": 3
+          },
+          "deliverable": "首发支持整包替换升级和保留旧包的回退；Mac Trash 语义、路径映射、旧配置与凭据恢复文档；旧 Windows overlay 明确不可用。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        },
+        {
+          "id": "P6-04",
+          "title": "最终回归与交付文档",
+          "effortDays": {
+            "low": 2,
+            "high": 4
+          },
+          "deliverable": "全量适用回归和受控真机验收；更新中英文用户/管理/离线部署说明及兼容清单；记录候选 SHA、版本、hash、测试和独立复核。",
+          "status": "planned",
+          "owner": null,
+          "evidence": []
+        }
+      ]
+    }
+  ],
+  "estimateCheckpoint": {
+    "date": "2026-10-30",
+    "completedPhases": [
+      "P0"
+    ],
+    "remainingPhases": [
+      "P1",
+      "P2",
+      "P3",
+      "P4",
+      "P5",
+      "P6"
+    ],
+    "remainingBaseDays": {
+      "low": 56,
+      "high": 90
+    },
+    "remainingBudgetDays": {
+      "low": 68,
+      "high": 117
+    },
+    "actualPersonDays": null,
+    "rationale": "逐项复核剩余工作包后维持原范围与估算；总额保留原始全项目预算，不将机器执行时间换算为人工投入。开放风险见 11-P0-DECISIONS.md。"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-30",
+  "scope": "Final probe/workflow source hashes; historical execution may precede documented fixes. Not a claim that every artifact was rerun with these bytes.",
+  "files": {
+    "MACOS-PORTING/probes/README.md": "35f7ec1af86bb5c2c996f5e4df07288d03c6a8989b7610d82e8ef3e2b01521ba",
+    "MACOS-PORTING/probes/native-probe.m": "4d24fdb13cd4bdaef55ef55e8dafa35aa2b848a53259d547c6047e95d396a68c",
+    "MACOS-PORTING/probes/python-deps-probe.py": "a6912c2099775b936399a841d03c7544eb950d6f5ff834833bf2125b90b52363",
+    "MACOS-PORTING/probes/run-baseline.cjs": "5736bd28f66b8289d5532aafc63df2c09c6488478cc305d5802e2c1d5bbe3c55",
+    "MACOS-PORTING/probes/swift-toolchain.swift": "99583edd8116864b1e083503a389eecee07a2492a7a00141e56f17b7be44de64",
+    "MACOS-PORTING/probes/webview-probe.cjs": "ef755890bd98730da696d3dfcde4cb219d82032eef571e328ce1751b6abd565b",
+    ".github/workflows/macos-p0.yml": "22e7d15cc36ef850232fc8b7966ceb1047fdb9288395bf76360161064d633f06"
+  }
+}

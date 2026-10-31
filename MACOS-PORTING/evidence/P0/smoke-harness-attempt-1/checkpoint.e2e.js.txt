@@ -1,0 +1,14 @@
+PASS workbench up on :51509
+PASS UI token scraped
+PASS session created
+PASS (a) fake-openai listening on :51508
+FAIL (a) a.txt exists with edited content after turn 1
+PASS (a) GET /api/checkpoints ok
+FAIL (a) turn 1 has TWO checkpoint entries (got 0)
+FAIL (a) has a create entry for a.txt
+FAIL (a) has a modify entry (file_edit)
+ERROR TypeError: Cannot read properties of undefined (reading 'turnSeq')
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/checkpoint.e2e.js:116:68
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+CHECKPOINT E2E: FAIL (5)

@@ -1,0 +1,6 @@
+{
+  "identity": "ad-hoc; NOT Developer ID/notarized",
+  "bundleId": "org.ruyi.workbench.p0-probe",
+  "exitCode": 0,
+  "diagnostics": "/tmp/RuyiP0Probe.app: replacing existing signature\n"
+}
