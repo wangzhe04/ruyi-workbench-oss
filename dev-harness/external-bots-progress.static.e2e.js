@@ -38,7 +38,7 @@ const api=vm.runInContext(methods.map(name=>functionBlock(source,name)).join('\n
  assert.equal(crypto.createHash('sha256').update(history.retryCoreSource()).digest('hex'),history.replyRetryContracts.product.coreSha256);
  t.ok(true,'exact B2 inverse layer preserves original historical v1/v2/v3 and retry-core source hashes and assertions');
  const wakeHistory=require('./fixtures/external-bots-progress/deferred-wake-history.json');
- assert.equal(crypto.createHash('sha256').update(source).digest('hex'),wakeHistory.sha256);
+ assert.equal(crypto.createHash('sha256').update(history.beforeRemoteActions(source)).digest('hex'),wakeHistory.sha256);
  for(const corrupt of [source+'\n// unrelated source drift',source.replace(wakeHistory.inverseSpans[0].before,''),source.replace(wakeHistory.inverseSpans[1].before,wakeHistory.inverseSpans[1].before+'\n// changed wake')])assert.throws(()=>history.replyRetrySourceV2(corrupt),assert.AssertionError);
  const savedSpan=wakeHistory.inverseSpans[0].before;try{wakeHistory.inverseSpans[0].before+='\n// tampered fixture span';assert.throws(()=>history.replyRetrySourceV2(source),assert.AssertionError);}finally{wakeHistory.inverseSpans[0].before=savedSpan;}
  t.ok(true,'finite deferred-wake inverse accepts only its complete new source and rejects unrelated drift, missing/changed wake and tampered fixture span');

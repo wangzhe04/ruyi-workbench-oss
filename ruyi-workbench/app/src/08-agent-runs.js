@@ -724,7 +724,7 @@ async function runSubAgentCore(opts) {
 // node/run stops; clearing every permission for the parent could consume an unrelated later prompt.
 async function requestDelegationPermission(session, config, name, args, tier, onEvent, signal) {
   let requestId = '';
-  const decision = requestNativePermission(session.id, name, args, evt => { if (evt.type === 'permission_request') requestId = evt.requestId; onEvent(evt); }, permissionWaitMs(session.id, config, session), tier);
+  const decision = requestNativePermission(session.id, name, args, evt => { if (evt.type === 'permission_request') requestId = evt.requestId; onEvent(evt); }, permissionWaitMs(session.id, config, session), tier, undefined, { owner: null, reg: null, signal });
   const cancel = () => {
     const entry = pendingPermissions.get(requestId);
     if (!entry || entry.sessionId !== session.id || entry.commandApplying) return;

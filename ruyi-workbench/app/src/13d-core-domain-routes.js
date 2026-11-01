@@ -1612,6 +1612,8 @@ function interventionDecisionFingerprint(missionId, interventionId, payload) {
     .digest('hex');
 }
 
+interventionReceiptCodec.fingerprint = interventionDecisionFingerprint;
+
 function interventionCommandFailure(reason, status, params = {}, message = '') {
   return {
     status,
@@ -1691,11 +1693,13 @@ function mapInterventionTransitionFailure(result) {
   }, String(result && result.message || 'intervention cannot be delivered'));
 }
 
-async function decideIntervention(command = {}) {
+async function decideIntervention(command = {}, humanWitness) {
+  const human = humanWitness === undefined ? null : consumeInterventionHumanWitness(humanWitness, command);
+  if (humanWitness !== undefined && !human) return interventionCommandFailure('human_witness_invalid', 403);
   const rawMissionId = String(command.missionId || '');
   const missionId = safeSessionId(rawMissionId);
   const interventionId = String(command.interventionId || '');
-  const source = String(command.source || 'contract').slice(0, 64);
+  const source = human ? 'external_human' : String(command.source === 'external_human' ? 'contract' : command.source || 'contract').slice(0, 64);
   const contractRequest = command.contractRequest !== false;
   const payload = command.payload && typeof command.payload === 'object' && !Array.isArray(command.payload)
     ? command.payload
@@ -1731,7 +1735,9 @@ async function decideIntervention(command = {}) {
     }
   }
 
-  const current = (await readInterventions(missionId).catch(() => []))
+  const strict = human ? await readInterventionJournalProof(missionId) : null;
+  if (human && strict.kind !== 'present') return interventionCommandFailure('decision_unknown', 503, { reason: strict.reason });
+  const current = (human ? strict.interventions : await readInterventions(missionId).catch(() => []))
     .find(iv => iv && String(iv.id) === interventionId);
   if (!current || String(current.sessionId || missionId) !== missionId) {
     return interventionCommandFailure('not_found', 404, {}, 'mission or intervention not found');
@@ -1796,6 +1802,8 @@ async function decideIntervention(command = {}) {
         ? { action, ...(payload.feedback !== undefined ? { feedback: String(payload.feedback) } : {}) }
         : { action };
   const decisionFingerprint = interventionDecisionFingerprint(missionId, interventionId, decisionPayload);
+  if (human && !human.matches({ missionId, interventionId, type, action, expectedVersion: command.expectedVersion, idempotencyKey, decisionFingerprint })) return interventionCommandFailure('human_witness_invalid', 403);
+  const withEffect = work => human ? human.withEffect(work) : work();
   let runtimeEntry = null;
   let poolContext = null;
   let replanContext = null;
@@ -1863,24 +1871,25 @@ async function decideIntervention(command = {}) {
     const item = (Array.isArray(live.run.taskPool) ? live.run.taskPool : []).find(p => p && String(p.id) === interventionId);
     if (!item || item.status !== 'proposed') return { ok: false, reason: 'pool_item_unavailable', runId, message: 'pool item is no longer proposed' };
     let config = null, cwd = '', roleLibrary = new Map();
+    const roleSources = [], assertConfig = human ? configReadFence() : () => {};
     if (action === 'approve') {
       try {
         config = await readConfig();
         const session = await loadSession(missionId);
         cwd = normalizeCwd(session && session.cwd, config.defaultWorkspace);
-        roleLibrary = new Map((await getAgentRoleLibrary(cwd, config)).map(role => [role.id, role]));
-      } catch { /* preserve the existing empty-role-library fallback */ }
+        roleLibrary = new Map((await getAgentRoleLibrary(cwd, config, human ? { strict: true, sources: roleSources } : undefined)).map(role => [role.id, role]));
+      } catch (error) { if (human) throw error; /* preserve the existing empty-role-library fallback */ }
       const dryRun = { ...live.run, nodes: Array.isArray(live.run.nodes) ? [...live.run.nodes] : [] };
       const proxyModelsCache = config?.agentAutoModelTiering ? await ProxyModelHooks.read() : { models: [] };
       const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config, proxyModelsCache, dryRun: true });
       if (!dry.ok) return { ok: false, reason: dry.reason || 'pool_materialize_rejected', runId, message: dry.error || 'pool item cannot be materialized' };
     }
-    poolContext = { runId, live, item, config, cwd, roleLibrary };
+    poolContext = { runId, live, item, config, cwd, roleLibrary, roleSources, assertConfig };
     return { ok: true };
   };
 
   const execute = () => {
-    if (type === 'permission') {
+    if (type === 'permission') return withEffect(() => {
       if (action === 'allow' && typeof runtimeEntry.assertAuthority === 'function') {
         try { runtimeEntry.assertAuthority(); }
         catch (error) {
@@ -1899,14 +1908,14 @@ async function decideIntervention(command = {}) {
         : { behavior: 'deny', message: String(payload.message || 'denied by user') };
       runtimeEntry.resolve(decision, { skipInterventionSettle: true });
       return { ok: true, delivered: true };
-    }
-    if (type === 'question') {
+    });
+    if (type === 'question') return withEffect(() => {
       runtimeEntry.commandApplying = true;
       clearTimeout(runtimeEntry.timer);
       const delivered = runtimeEntry.deliver(normalizedAnswer, { skipInterventionSettle: true, preserveRegistry: true });
       return { ok: delivered !== false, delivered: delivered !== false, reason: delivered === false ? 'delivery_failed' : '' };
-    }
-    if (type === 'plan') {
+    });
+    if (type === 'plan') return withEffect(() => {
       runtimeEntry.commandApplying = true;
       clearTimeout(runtimeEntry.timer);
       runtimeEntry.resolve({
@@ -1914,9 +1923,9 @@ async function decideIntervention(command = {}) {
         note: payload.feedback != null ? String(payload.feedback).slice(0, 2000) : '',
       }, { skipInterventionSettle: true });
       return { ok: true, delivered: true };
-    }
+    });
     if (type === 'replan') {
-      return (async () => {
+      return withEffect(async () => {
         const { runObj, patch } = replanContext;
         if (patch.status !== 'pending') return { ok: false, reason: 'run_state_changed' };
         if (action === 'reject') {
@@ -1934,11 +1943,13 @@ async function decideIntervention(command = {}) {
         appendAgentRunEvent(runObj, { type: 'run_replan', data: { action: 'applied', patchId: interventionId, by: String(command.decidedBy || 'user'), applied: ap.applied } });
         await saveAgentRun(runObj);
         return { ok: true, patchId: interventionId, applied: ap.applied };
-      })();
+      });
     }
     return (async () => {
-      const { runId, live, item, config, cwd, roleLibrary } = poolContext;
+      const { runId, live, item, config, cwd, roleLibrary, roleSources, assertConfig } = poolContext;
       const proxyModelsCache = action === 'approve' && config?.agentAutoModelTiering ? await ProxyModelHooks.read() : { models: [] };
+      return withEffect(async () => {
+      assertConfig(); for (const proof of roleSources) proof.assert();
       if (activeAgentRuns.get(runId) !== live || live.closing || live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted) || item.status !== 'proposed') {
         return { ok: false, reason: 'run_state_changed' };
       }
@@ -1961,6 +1972,7 @@ async function decideIntervention(command = {}) {
       }
       await saveAgentRun(live.run);
       return { ok: true, poolId: interventionId, nodeId: mat.node.id };
+      });
     })();
   };
 
@@ -1973,7 +1985,8 @@ async function decideIntervention(command = {}) {
       toStatus,
       {
         source,
-        decidedBy: String(command.decidedBy || 'user'),
+        ...(human ? { withCommit: human.withCommit, prepareEffect: human.prepareEffect } : {}),
+        decidedBy: human ? 'user' : String(command.decidedBy || 'user'),
         idempotencyKey,
         decisionFingerprint,
         preflight,

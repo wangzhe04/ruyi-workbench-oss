@@ -40,7 +40,7 @@ function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, fo
   return 'none';
 }
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered, admitPoolNode, originTurnAgentCap, followup }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered, admitPoolNode, poolDecisionBudget, originTurnAgentCap, followup }) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent')) return WorkDataMaintenanceHooks.run('agent', () => runAgentWorkflow(...arguments));
   if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0 };
   let run, nodes, runId;
@@ -239,7 +239,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // Manual steers and automatic wrap-up instructions use separate queues: a full user queue must never block
   // the reliability control message, and the user's messages are always delivered first.
   const runtime = {
-    run, admitPoolNode, registeredAgentTools: new Map(), permissionWaits: new Map(), ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [],
+    run, admitPoolNode, poolDecisionBudget, registeredAgentTools: new Map(), permissionWaits: new Map(), ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [],
     steerQueues: new Map(), autoSteerQueues: new Map(), mailQueues: new Map(), nodeControls: new Map(),
     closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false,
   };
@@ -2577,7 +2577,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 代理模式 v2 turn-local state。`subagentTotal` = 本回合接纳的初始节点及以后经审批物化的节点数(重试不另计),上限
   // config.subagentMaxPerTurn(旧 spawn_agent 的「每回合扇出预算」语义平移到 orchestrate;0 = 功能关 → 工具不 offer,
   // 此路径不可达)。并发仍由 run.concurrency(= subagentMaxConcurrent)在工作流运行时内约束。
-  let subagentTotal = 0;
+  let subagentTotal = 0, subagentBudgetRevision = 0;
   let crossSessionMailCount = 0;
   const subagentTurnCap = Math.max(0, Number(config.subagentMaxPerTurn) || 0);
   // Background runs survive the parent model's next iterations (and even the end of this chat turn)
@@ -2605,8 +2605,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const modelNotes = orchestrateModelNotes(resolved.nodes, provider);   // model 不在服务商清单里:只提示,不拒绝
     const runId = makeId('run');
     let registered = false, refunded = false;
-    const refundAdmission = () => { if (!registered && !refunded) { subagentTotal -= nodeCount; refunded = true; } };
-    subagentTotal += nodeCount; // Admit each initial node once; retries do not create agents.
+    const refundAdmission = () => { if (!registered && !refunded) { subagentTotal -= nodeCount; subagentBudgetRevision++; refunded = true; } };
+    subagentTotal += nodeCount; subagentBudgetRevision++; // Admit each initial node once; retries do not create agents.
     const common = {
       parentSession: session, provider, config, nodes: resolved.nodes, parentEngine: 'openai', parentModel: model,
       permModeOverride: subPermMode,
@@ -2618,8 +2618,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       ...(fromDelegation ? { runKind: 'steward_delegation', runTitle: session.title } : {}),
       admitPoolNode: consume => {
         if (subagentTurnCap > 0 && subagentTotal >= subagentTurnCap) return { ok: false, reason: 'turn_budget_exhausted' };
-        if (consume) subagentTotal++;
+        if (consume) { subagentTotal++; subagentBudgetRevision++; }
         return { ok: true, reason: 'ok' };
+      },
+      poolDecisionBudget: () => {
+        const revision = subagentBudgetRevision, total = subagentTotal;
+        return { material: [subagentTurnCap, total, revision], assert: () => {
+          if (revision !== subagentBudgetRevision || total !== subagentTotal) throw Object.assign(new Error('original pool budget changed'), { code: 'intervention.pool_budget_changed' });
+        } };
       },
       onRegistered: () => { registered = true; },
     };
@@ -3015,7 +3021,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
           let decision;
           reg.planPending = true;
-          try { decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs); }
+          try { decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs, { reg, owner: executionOwner, signal: ctrl?.signal }); }
           finally { reg.planPending = false; reg.lastEventAt = Date.now(); } // 等待审批不算空闲:决定落定后看门狗从此刻重新计时
           // A stop/abort during the pause settles the promise as reject via clearPendingPlans → reg.state
           // will already be non-running; treat that as an aborted turn (not a plan_rejected result).
@@ -3450,7 +3456,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // 存档暂停开始:置 reg.pausePending 令 idle 看门狗豁免(否则 TTL 内先杀回合)。onPause 闭包持 reg(runOpenAiTurn 作用域)。
                 onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session, turnSaveOpts).catch(() => {}); },
               } : null;
-              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, permissionWaitMs(session.id, config, session), tier, pauseOpts);   // 128f-⑪
+              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, permissionWaitMs(session.id, config, session), tier, pauseOpts, { reg, owner: executionOwner, signal: ctrl?.signal });   // 128f-⑪
               reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
               reg.lastEventAt = Date.now();
               if (!decision || decision.behavior !== 'allow') resultObj = { ok: false, error: (decision && decision.message) || 'denied by user' };
@@ -3495,7 +3501,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
                 // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
-                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.questionTimeoutMs, assistantText);
+                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.questionTimeoutMs, assistantText, { reg, owner: executionOwner, signal: ctrl?.signal });
                 resultObj = answer && answer.ok
                   ? { ok: true, answers: answer.answers, content: answer.content }
                   : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };

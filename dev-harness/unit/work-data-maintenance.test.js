@@ -88,14 +88,15 @@ test('an already emptied inbox queue clears its timer without inventing an owner
 });
 
 test('actual bot worker completes an already acquired job but never dequeues the next one',async()=>{
- const f=fixture(),acquired=deferred(),job=deferred(),finished=deferred();let dequeues=0,runs=0,completions=0,outboxPolls=0;
+ const f=fixture(),acquired=deferred(),job=deferred(),finished=deferred();let dequeues=0,runs=0,completions=0,outboxPolls=0,reconciles=0;
  const context={WorkDataMaintenanceHooks:f.m,externalBotWorkerStopped:false,externalBotWorkerBusy:false,externalBotWorkerAgain:false,externalBotWorkerError:'',externalBotRecoveryDone:true,
   externalBotActors:new WeakMap(),externalBotActiveActors:new Map(),externalBotDeliveries:new Map(),externalBotUnsettled:new Map(),externalBotRecover:async()=>{},
+  ExternalBotHooks:{remoteViews:{reconcileRecovered:async()=>{reconciles++;}}},
   externalBotWorkerSignal:null,externalBotNextJob:async outboxOnly=>{if(outboxOnly){outboxPolls++;return null;}dequeues++;acquired.resolve();await job.promise;return{kind:'run',actor:{},item:{id:'accepted',text:'old'}};},
   runStewardTurn:async()=>{assert.equal(f.m.active(),true);runs++;await finished.promise;return{ok:true};},externalBotFinishJob:async(current,result)=>{assert.equal(current.kind,'run');assert.equal(current.item.id,'accepted');assert.equal(result.ok,true);completions++;}};
  const bot=source('13w-external-bots.js');
  const run=vm.runInNewContext(functionBlock(bot,'externalBotRunWithFeedback')+'\n'+functionBlock(bot,'externalBotDrain')+'\nexternalBotDrain',context);
- const task=run();await acquired.promise;const lease=f.m.begin();job.resolve();await turns();assert.equal(runs,1);let idle=false;const wait=lease.idle().then(()=>{idle=true;});await turns();assert.equal(idle,false);finished.resolve();await task;await wait;assert.equal(completions,1);assert.equal(dequeues,1);assert.ok(outboxPolls>=1);assert.equal(context.externalBotWorkerError,'');lease.resume();
+ const task=run();await acquired.promise;assert.equal(reconciles,1);const lease=f.m.begin();job.resolve();await turns();assert.equal(runs,1);let idle=false;const wait=lease.idle().then(()=>{idle=true;});await turns();assert.equal(idle,false);finished.resolve();await task;await wait;assert.equal(completions,1);assert.equal(dequeues,1);assert.ok(outboxPolls>=1);assert.equal(context.externalBotWorkerError,'');lease.resume();
 });
 
 test('closed inbox drains accepted carry and adopted records without polling source journals or pruning cursor owners',async()=>{

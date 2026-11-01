@@ -768,6 +768,114 @@ async function readInterventions(sessionId) {
   return (await readInterventionsWithMeta(sessionId)).interventions;
 }
 
+// C2 private read evidence. Presence, complete bytes and decoding are distinct from
+// the legacy readable-prefix projection. These values never grant an effect.
+const interventionJournalArms = new Map();
+const interventionReceiptCodec = { fingerprint: null };
+function interventionJournalStamp(file) {
+  const st = fs.lstatSync(file, { bigint: true });
+  if (!st.isFile() || st.isSymbolicLink()) throw Object.assign(new Error('journal unavailable'), { code: 'intervention.state_unavailable' });
+  return { identity: [st.dev, st.ino, st.birthtimeNs].join(':'), stamp: [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':') };
+}
+async function readInterventionJournalProof(sessionId, options = {}) {
+  try {
+    const pending = interventionWriteChains.get(sessionId);
+    if (pending) { try { if (await pending !== true && !options.reconcile) return { kind: 'unknown', reason: 'write_ack_unavailable' }; } catch { if (!options.reconcile) return { kind: 'unknown', reason: 'write_ack_unavailable' }; } }
+    const file = interventionFilePath(sessionId), before = interventionJournalStamp(file);
+    const stored = new TextDecoder('utf-8', { fatal: true }).decode(await fsp.readFile(file));
+    const text = await decodeSessionJournalText(sessionId, 'interventions', stored);
+    const after = interventionJournalStamp(file);
+    if (before.stamp !== after.stamp || typeof text !== 'string' || !text.endsWith('\n')) return { kind: 'unknown', reason: 'journal_changed' };
+    const lines = text.split('\n').filter(Boolean), rows = lines.map(line => JSON.parse(line));
+    if (!rows.length || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string'
+      || row.sessionId !== sessionId || typeof row.status !== 'string' || !Number.isSafeInteger(row.interventionVersion) || row.interventionVersion < 0)) return { kind: 'unknown', reason: 'journal_invalid' };
+    if (rows.some(row => ['pending', 'applying'].includes(row.status) && Object.hasOwn(row, 'decisionResponse'))) return { kind: 'unknown', reason: 'invalid_phase_response' };
+    const meta = foldInterventionJournalText(text);
+    if (meta.degraded || meta.corruptLines) return { kind: 'unknown', reason: 'journal_degraded' };
+    return { kind: 'present', text, rows, interventions: meta.interventions, identity: after.identity,
+      assert: () => { if (interventionJournalStamp(file).stamp !== after.stamp) throw Object.assign(new Error('journal changed'), { code: 'intervention.state_unavailable' }); } };
+  } catch (error) { return { kind: 'unknown', reason: String(error?.code || 'journal_unavailable') }; }
+}
+function armInterventionJournal(sessionId) {
+  const arm = Object.freeze({}), set = interventionJournalArms.get(sessionId) || new Set();
+  set.add(arm); interventionJournalArms.set(sessionId, set);
+  return () => { set.delete(arm); if (!set.size) interventionJournalArms.delete(sessionId); };
+}
+function validateInterventionReceiptTerminal(terminal, command, compacted) {
+  const { missionId: sid, interventionId: id, expectedVersion: version, idempotencyKey: key, decisionFingerprint: fingerprint, type, action } = command;
+  const unknown = reason => ({ kind: 'unknown', reason });
+  if (!terminal || terminal.id !== id || terminal.sessionId !== sid || terminal.type !== type || terminal.status === 'indeterminate'
+    || !INTERVENTION_TERMINAL.has(terminal.status)) return unknown('terminal_unproven');
+  const common = ['id', 'sessionId', 'type', 'status', 'requestedAt', 'decidedAt', 'decidedBy', 'interventionVersion', 'source', 'idempotencyKey', 'decisionFingerprint', 'action', 'decisionResponse'];
+  if (common.some(field => !Object.hasOwn(terminal, field)) || !Number.isSafeInteger(terminal.interventionVersion) || terminal.interventionVersion < 2
+    || typeof terminal.requestedAt !== 'string' || !Number.isFinite(Date.parse(terminal.requestedAt)) || typeof terminal.decidedAt !== 'string' || !Number.isFinite(Date.parse(terminal.decidedAt))
+    || Date.parse(terminal.decidedAt) < Date.parse(terminal.requestedAt) || typeof terminal.decidedBy !== 'string' || !terminal.decidedBy
+    || typeof terminal.source !== 'string' || !terminal.source || typeof terminal.idempotencyKey !== 'string' || !terminal.idempotencyKey
+    || typeof terminal.decisionFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(terminal.decisionFingerprint)) return unknown('terminal_shape');
+  const fields = type === 'permission' ? ['toolName', 'tier', 'revertible', 'input'] : type === 'question' ? ['questionSummary', 'questions', 'context']
+    : type === 'plan' ? ['planSummary'] : type === 'pool' ? ['runId', 'proposedBy', 'task'] : type === 'replan' ? ['runId', 'nodeId', 'triggerType', 'summary'] : null;
+  if (!fields) return unknown('type_unsupported');
+  const extras = type === 'question' ? ['answer'] : type === 'plan' ? ['feedback'] : type === 'pool' ? ['nodeId', 'backfilled'] : [];
+  const allowed = compacted ? [...common, ...fields, ...extras] : [...common, 'toolName', 'tier', ...extras, ...(type === 'replan' ? ['nodeId'] : [])];
+  if (Object.keys(terminal).some(field => !allowed.includes(field))) return unknown('invalid_terminal_fields');
+  if (compacted) {
+    if (fields.some(field => !Object.hasOwn(terminal, field))) return unknown('compacted_metadata_missing');
+    if (type === 'permission' && (typeof terminal.toolName !== 'string' || !terminal.toolName || !['read', 'edit', 'exec'].includes(terminal.tier)
+      || typeof terminal.revertible !== 'boolean' || !terminal.input || typeof terminal.input !== 'object' || Array.isArray(terminal.input))) return unknown('permission_metadata');
+    if (type === 'question' && (typeof terminal.questionSummary !== 'string' || typeof terminal.context !== 'string' || !Array.isArray(terminal.questions)
+      || !terminal.questions.length || terminal.questions.length > 3 || terminal.questions.some(question => !question || typeof question.id !== 'string' || !question.id || typeof question.question !== 'string' || !Array.isArray(question.options)))) return unknown('question_metadata');
+    if (type === 'plan' && typeof terminal.planSummary !== 'string') return unknown('plan_metadata');
+    if (type === 'pool' && (typeof terminal.proposedBy !== 'string' || typeof terminal.task !== 'string' || terminal.task.length > 500 || terminal.backfilled !== undefined && terminal.backfilled !== true)) return unknown('pool_metadata');
+    if (type === 'replan' && (typeof terminal.nodeId !== 'string' || !terminal.nodeId || typeof terminal.triggerType !== 'string' || !terminal.triggerType || typeof terminal.summary !== 'string')) return unknown('replan_metadata');
+    if (['pool', 'replan'].includes(type) && (typeof terminal.runId !== 'string' || !terminal.runId || terminal.runId !== command.runId)) return unknown('run_mismatch');
+  }
+  const actualAction = terminal.action, validActions = type === 'permission' ? ['allow', 'deny'] : type === 'question' ? ['answer'] : ['approve', 'reject'];
+  if (!validActions.includes(actualAction)) return unknown('action_invalid');
+  if (type === 'question' && !Object.hasOwn(terminal, 'answer') || type === 'plan' && Object.hasOwn(terminal, 'feedback') && (typeof terminal.feedback !== 'string' || terminal.feedback.length > 2000)) return unknown('canonical_payload_unproven');
+  const payload = type === 'question' ? { action: actualAction, answer: terminal.answer }
+    : type === 'plan' && Object.hasOwn(terminal, 'feedback') ? { action: actualAction, feedback: terminal.feedback } : { action: actualAction };
+  if (typeof interventionReceiptCodec.fingerprint !== 'function' || interventionReceiptCodec.fingerprint(sid, id, payload) !== terminal.decisionFingerprint) return unknown('canonical_fingerprint_mismatch');
+  const response = terminal.decisionResponse;
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return unknown('response_missing');
+  const revoked = response.ok === false && type === 'permission' && actualAction === 'allow' && terminal.status === 'denied' && response.reason === 'authorization_revoked'
+    && response.error?.code === 'intervention.authorization_revoked' && response.error?.params?.type === type;
+  if (!revoked) {
+    const responseFields = ['ok', 'missionId', 'interventionId', 'type', 'action', 'status', 'interventionVersion', 'delivered', 'nodeId'];
+    if (response.ok !== true || Object.keys(response).some(field => !responseFields.includes(field)) || response.missionId !== sid || response.interventionId !== id || response.type !== type
+      || response.action !== actualAction || response.status !== terminal.status || response.interventionVersion !== terminal.interventionVersion) return unknown('response_mismatch');
+    if (['permission', 'question', 'plan'].includes(type) && response.delivered !== true) return unknown('delivery_unproven');
+    if (type === 'pool' && actualAction === 'approve' && (terminal.nodeId !== id || response.nodeId !== id)) return unknown('node_unproven');
+    const expected = actualAction === 'allow' ? 'allowed' : actualAction === 'deny' ? 'denied' : actualAction === 'answer' ? terminal.answer?.ok === false ? 'cancelled' : 'answered' : actualAction === 'approve' ? 'approved' : 'rejected';
+    if (terminal.status !== expected) return unknown('status_mismatch');
+  }
+  if (terminal.idempotencyKey !== key) return { kind: 'superseded', status: terminal.status };
+  if (terminal.interventionVersion !== version + 2 || terminal.decisionFingerprint !== fingerprint || actualAction !== action || terminal.source !== 'external_human' || terminal.decidedBy !== 'user') return unknown('command_mismatch');
+  return revoked ? { kind: 'rejected', status: terminal.status, reason: response.reason } : { kind: 'applied', status: terminal.status, interventionVersion: version + 2 };
+}
+async function readInterventionDecisionReceipt(command) {
+  const { missionId: sid, interventionId: id, type } = command;
+  return runKeyedChain(interventionTransitionLocks, ivCacheKey(sid, id), async () => {
+    const proof = await readInterventionJournalProof(sid, { reconcile: true });
+    if (proof.kind !== 'present') return proof;
+    if (proof.rows.some(row => !['pending', 'applying', ...INTERVENTION_TERMINAL].includes(row.status))) return { kind: 'unknown', reason: 'journal_shape' };
+    const current = proof.interventions.find(row => row.id === id), own = proof.rows.filter(row => row.id === id);
+    if (!current || current.type !== type || !own.length) return { kind: 'unknown', reason: 'intervention_missing' };
+    if (['pool', 'replan'].includes(type) && (!command.runId || current.runId !== command.runId)) return { kind: 'unknown', reason: 'run_mismatch' };
+    const terminal = own.at(-1), compacted = own.length === 1;
+    // The original compactor writes one complete authoritative row, with its own
+    // explicit version/response. This branch is readonly and never an armed phase.
+    if (!compacted) {
+      const applying = own.at(-2), keys = ['id', 'sessionId', 'type', 'requestedAt', 'toolName', 'tier', 'status', 'decidedAt', 'decidedBy', 'interventionVersion', 'source', 'idempotencyKey', 'decisionFingerprint'];
+      if (!applying || applying.status !== 'applying' || applying.id !== id || applying.sessionId !== sid || applying.type !== type
+        || applying.interventionVersion !== terminal.interventionVersion - 1 || applying.decidedAt !== '' || applying.decidedBy !== ''
+        || applying.source !== terminal.source || applying.idempotencyKey !== terminal.idempotencyKey || applying.decisionFingerprint !== terminal.decisionFingerprint
+        || Object.keys(applying).some(field => !keys.includes(field))) return { kind: 'unknown', reason: 'applying_unproven' };
+    }
+    const result = validateInterventionReceiptTerminal(terminal, command, compacted);
+    proof.assert(); return result;
+  });
+}
+
 // 压实判据(compactInterventionJournal 与 13e 索引重建共用):日志 ≥ 64 KB、行数 > 256,且行数超过存活条数的 1.5 倍。
 // 修前是「行数 > 存活条数 × 3」—— 每条介入走完 register → applying → terminal 恰好 3 行,等号不过,永远压不动
 // (2000 条已决介入的日志只增不减)。1.5 倍 = 冗余行超过存活行的一半,压完后日志要再长出一截才会再压,摊还 O(1)。
@@ -784,6 +892,7 @@ async function compactInterventionJournal(sessionId, opts = {}) {
   if (!sid) return { ok: false, skipped: 'invalid_session' };
   const file = interventionFilePath(sid);
   return runKeyedChain(interventionWriteChains, sid, async () => {
+    if (interventionJournalArms.get(sid)?.size) return { ok: false, compacted: false, skipped: 'remote_decision_armed' };
     let txt = '';
     try { txt = await fsp.readFile(file, 'utf8'); } catch { return { ok: true, compacted: false, rowsBefore: 0, rowsAfter: 0, bytesBefore: 0, bytesAfter: 0 }; }
     const folded = foldInterventionJournalText(await decodeSessionJournalText(sid, 'interventions', txt));
@@ -793,6 +902,7 @@ async function compactInterventionJournal(sessionId, opts = {}) {
     if (!opts.force && !worthwhile) return { ok: true, compacted: false, rowsBefore: folded.rowCount, rowsAfter, bytesBefore: folded.bytes, bytesAfter: folded.bytes };
     const payload = folded.interventions.map(rec => JSON.stringify(rec)).join('\n') + (rowsAfter ? '\n' : '');
     const storedPayload = await encodeSessionJournalReplacement(file, sid, 'interventions', payload);
+    if (interventionJournalArms.get(sid)?.size) return { ok: false, compacted: false, skipped: 'remote_decision_armed' };
     await atomicWriteJson(file, storedPayload);
     sessionJournalAppendStates.delete(file);
     markPretenderIndexDirty(sid, 'source');
@@ -918,6 +1028,7 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
         return { ...preflight, ok: false, interventionVersion: curVer };
       }
     }
+    const commit = async () => {
     // 3. 落 applying(pending -> applying)。authoritative:await 落盘后再推进。
     if (crashAt === 'before_applying') throw new Error('__cas_crash:before_applying');
     // 落盘只写增量行(迁移改了的字段),不再整份重抄 cur —— 修前 register/applying/terminal 三行各带一份完整 input,
@@ -953,6 +1064,7 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     if (crashAt === 'after_applying') throw new Error('__cas_crash:after_applying');
     // 4. 执行 action(75b 契约路径在此 resolve promise / 跑工具;75a-2 测试可空)
     if (crashAt === 'before_resolve') throw new Error('__cas_crash:before_resolve');
+    if (typeof opts.prepareEffect === 'function') await opts.prepareEffect();
     let result;
     if (typeof opts.action === 'function') {
       const actionResult = opts.action();
@@ -1004,6 +1116,8 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     }
     if (crashAt === 'after_terminal') throw new Error('__cas_crash:after_terminal');
     return { ok: true, status: resolvedStatus, interventionVersion: curVer + 2, result, response };
+    };
+    return typeof opts.withCommit === 'function' ? opts.withCommit(commit) : commit();
   }
 }
 // ── perf(会话正文逐行 sha1 的去重):进程内确定性计数器 ───────────────────────────────────────────────────

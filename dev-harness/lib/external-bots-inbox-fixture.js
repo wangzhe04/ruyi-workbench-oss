@@ -32,7 +32,7 @@ function fixture(options = {}) {
   const envReads = []; const localCredentials = new Map(); let credentialRevision = 0, clockOffset = 0;
   class FixtureDate extends Date { static now() { return Date.now() + clockOffset; } }
   const read = () => fs.readFileSync(file, 'utf8');
-  const context = vm.createContext({ Buffer, TextDecoder, URL, URLSearchParams, AbortController, Date: FixtureDate, setTimeout, clearTimeout, crypto, path,
+  const context = vm.createContext({ Buffer, structuredClone, TextDecoder, URL, URLSearchParams, AbortController, Date: FixtureDate, setTimeout, clearTimeout, crypto, path,
     fs, fsp: { ...fsp, stat: async (...args) => { if (storage.readError) throw storage.readError; return fsp.stat(...args); } },
     WorkDataStore: fx.store, readConfig: async () => ({ workDataEncryptionV1: storage.enabled }),
     process: { env: new Proxy({ RUYI_BOT_QQ: 'TEST_ONLY_FAKE_KEY' }, { get(object, key) { envReads.push(key); assert.match(key, /^RUYI_BOT_/); return object[key]; } }) },
@@ -56,7 +56,8 @@ function fixture(options = {}) {
     async save(connection,patch) { const current=await this.snapshot(connection);assert.equal(patch.expectedRevision,current.credentialRevision);const values={...localCredentials.get(connection.id),...patch.set};for(const slot of patch.remove||[])delete values[slot];localCredentials.set(connection.id,values);credentialRevision++;return this.inspect(connection); },
   };
   vm.runInContext(functionBlock(src('00-boot.js'), 'runKeyedChain')
-    + (options.source || src('13w-external-bots.js')) + `;globalThis.api={
+    + (options.source || src('13w-external-bots.js'))
+    + (!options.source && fs.existsSync(path.join(__dirname, '../../ruyi-workbench/app/src/13w1-external-remote-views.js')) ? src('13w1-external-remote-views.js') : '') + `;globalThis.api={
       read:externalBotReadState,write:externalBotWriteState,publicConnection:externalBotPublicConnection,
       page:async query=>externalBotDeliveryPage(await externalBotReadState(),new URLSearchParams(query)),archive:body=>runKeyedChain(externalBotChains,'state',()=>externalBotArchiveDelivery(body)),
       setup:externalBotStewardSetup,snapshot:async id=>externalBotSetupSnapshot((await externalBotReadState()).connections.find(c=>c.id===id)),

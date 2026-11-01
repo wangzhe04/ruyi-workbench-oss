@@ -51,7 +51,7 @@ test('exact route is token only; old auth rows and full core invert byte exactly
   a.ok(drift,`整文件身份只允许被其它特性追加的整条路由行挪动(实测 ${sha256(splicedAuth)} 回不到 ${spans.auth.base})`);
   for(const row of drift){a.match(row,/^  \{ m: '[A-Z]+', p: '\/[^']*', auth: '[a-z-]+'(, prefix: true)? \},$/,'被追加的必须是完整路由行');a.ok(!row.includes('/api/external-bots/'),'被追加的路由行不得碰外部机器人');}}
  for(const name of ['externalBotRetryReply','externalBotCancellationWindow','externalBotCancelDelivery','externalBotNextJob','externalBotFinishJob','externalBotPrepareReply','externalBotRecover','externalBotDrain','externalBotWakeWorker'])a.equal(functionBlock(replyRetrySourceV2(source),name),functionBlock(inverse,name));
- a.equal(constBlock(source,'externalBotStore'),constBlock(inverse,'externalBotStore'));
+ a.equal(constBlock(require('../lib/external-bots-source-history').beforeRemoteActions(source),'externalBotStore'),constBlock(inverse,'externalBotStore'));
 });
 test('token and origin gates refuse before reading request body or touching ledger',async()=>{
  for(const gate of ['token','origin']){const f=await failed(),body=request(await item(f)),bytes=f.disk(),writes=f.counts().writes;f.auth[gate]=false;const r=await f.call(body);

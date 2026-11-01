@@ -50,10 +50,13 @@ function fixture(snapshotMode = 'auto', liveMode = snapshotMode, globalMode = 'a
   let source = common;
   if (!baseline) source += '\n' + constBlock(boot, 'RUYI_EVENT_SUBSCRIBERS') + '\n' + constBlock(boot, 'RUYI_EVENTS') + '\n'
     + constBlock(runtime, 'turnSettlers') + '\n' + functionBlock(runtime, 'assertSessionExecutionOwner') + '\n'
+    + constBlock(runtime, 'interventionConsumerOrigins') + '\n'
+    + functionBlock(runtime, 'captureInterventionConsumer') + '\n' + functionBlock(runtime, 'registerInterventionConsumer') + '\n'
+    + functionBlock(runtime, 'assertInterventionConsumer') + '\n'
     + functionBlock(runtime, 'revalidateSessionExecutionPermission') + '\n' + functionBlock(sched, 'schedulerExecutionAuthority') + '\n'
     + functionBlock(autonomy, 'requestNativePermission') + '\n' + functionBlock(tools, 'toolCall');
   const names = ['schedulerOccurrenceSnapshot', 'schedulerPermissionModeFor', 'occurrenceKey', 'stewardPermissionRank'];
-  if (!baseline) names.push('schedulerExecutionAuthority', 'RUYI_EVENTS', 'turnSettlers', 'revalidateSessionExecutionPermission', 'requestNativePermission', 'toolCall');
+  if (!baseline) names.push('schedulerExecutionAuthority', 'RUYI_EVENTS', 'turnSettlers', 'revalidateSessionExecutionPermission', 'requestNativePermission', 'toolCall', 'assertInterventionConsumer');
   const api = vm.runInContext(source + '\n({' + names.join(',') + '});', context, { timeout: 1000 });
   const snapshot = api.schedulerOccurrenceSnapshot(live), original = JSON.stringify(snapshot);
   live.autonomy.permissionMode = liveMode; live.revision = 2;
@@ -90,11 +93,14 @@ async function pendingDecision(f) {
   const entry = f.context.pendingPermissions.get('permission_control'); assert.ok(entry);
   Object.assign(f.context, { type: 'permission', action: 'allow', payload: {}, missionId: f.context.sessionId, interventionId: 'permission_control', runtimeEntry: entry });
   const text = functionBlock(decision, 'decideIntervention');
+  // This fixture follows the original local decision path, without a verified
+  // external-human witness. Preserve execute's real enclosing effect definition.
+  const effect = constBlock(text, 'withEffect');
   const preflight = bracedBlock(text, 'const preflight = async authoritative =>') + ';', execute = bracedBlock(text, 'const execute = () =>') + ';';
   const resolverStart = text.indexOf('resolveStatus: ') + 'resolveStatus: '.length;
   const resolverEnd = text.indexOf(',\n        extra:', resolverStart);
   assert.ok(resolverEnd > resolverStart);
-  const parts = vm.runInContext('(function(){' + preflight + '\n' + execute + '\nreturn {preflight, execute, status:' + text.slice(resolverStart, resolverEnd) + '};})()', f.context, { timeout: 1000 });
+  const parts = vm.runInContext('(function(){const human = null;\n' + effect + '\n' + preflight + '\n' + execute + '\nreturn {preflight, execute, status:' + text.slice(resolverStart, resolverEnd) + '};})()', f.context, { timeout: 1000 });
   return { answer, entry, parts };
 }
 const revoked = error => error && ['SCHEDULER_AUTHORITY_REVOKED', 'STEWARD_TURN_CANCELLED'].includes(error.code);
@@ -189,6 +195,26 @@ const revoked = error => error && ['SCHEDULER_AUTHORITY_REVOKED', 'STEWARD_TURN_
     {
       const f = fixture(); await f.dispatchActual(); f.context.schedulerRuntime.tasks = [];
       await assert.rejects(() => f.dispatchActual(), revoked); f.close(); t.ok(true, 'missing live task refuses submission rather than falling back to old snapshot');
+    }
+    for (const change of ['owner', 'input', 'resolve']) {
+      const f = fixture(); await f.dispatchActual();
+      const input = { path: 'C:/synthetic-unused/original.md' };
+      const answer = f.api.requestNativePermission(f.context.sessionId, 'file_write', input, f.context.onEvent, 1000, 'edit');
+      const entry = f.context.pendingPermissions.get('permission_control'); assert.ok(entry);
+      const resolve = entry.resolve;
+      try {
+        assert.ok(f.api.assertInterventionConsumer(entry));
+        if (change === 'owner') f.api.turnSettlers.set(f.context.sessionId, { source: 'scheduler', requestMeta: { runId: 'replacement' } });
+        if (change === 'input') input.path = 'C:/synthetic-unused/replaced.md';
+        if (change === 'resolve') entry.resolve = () => { throw Error('replacement must never run'); };
+        assert.throws(() => f.api.assertInterventionConsumer(entry), error => change === 'owner'
+          ? revoked(error) : error.code === (change === 'input' ? 'intervention.consumer_input_changed' : 'intervention.consumer_changed'));
+        assert.equal(f.effects(), 0); f.invariant();
+      } finally {
+        resolve({ behavior: 'deny', message: 'bounded private-origin control cleanup' });
+        assert.equal((await answer).behavior, 'deny'); assert.equal(f.context.pendingPermissions.get('permission_control'), entry); f.close();
+      }
+      t.ok(true, 'real private scheduled consumer rejects ' + change + ' replacement before effect');
     }
   } catch (error) { t.fail(error.stack || String(error)); }
   finally { t.done({ exit: true }); }

@@ -1861,6 +1861,7 @@
         "applySessionTitleOverride",
         "archiveMissionContainer",
         "archiveMissionResult",
+        "armInterventionJournal",
         "asResultObject",
         "boundedChangeText",
         "bridgedWriteRelativePathArg",
@@ -1905,7 +1906,10 @@
         "inflightSessionIndex",
         "interventionAppendCounts",
         "interventionFilePath",
+        "interventionJournalArms",
+        "interventionJournalStamp",
         "interventionJournalWorthCompacting",
+        "interventionReceiptCodec",
         "interventionRecordCache",
         "interventionTransitionLocks",
         "interventionWriteChains",
@@ -2030,6 +2034,8 @@
         "pendingSessionIndex",
         "planSessionBodyAppend",
         "providerHistoryToolCalls",
+        "readInterventionDecisionReceipt",
+        "readInterventionJournalProof",
         "readInterventions",
         "readInterventionsWithMeta",
         "readMissionChangesWithMeta",
@@ -2166,6 +2172,7 @@
         "updateSessionMeta",
         "updateSessionMetaAttempt",
         "updateSessionScratchpad",
+        "validateInterventionReceiptTerminal",
         "waitMissionTurnSettled",
         "withJournalArtifactOperation",
         "withJournalWriteLock",
@@ -3236,6 +3243,7 @@
         "_toolboxSkipLogged",
         "activeChildren",
         "appendLiveTail",
+        "assertInterventionConsumer",
         "assertSessionExecutionOwner",
         "auditLogContext",
         "auditLogEnabled",
@@ -3253,6 +3261,7 @@
         "bridgedToolTimeoutMs",
         "buildClaudeRecoveryHistory",
         "buildMcpConnectorInventory",
+        "captureInterventionConsumer",
         "classifyMcpError",
         "claudeProviderTailSince",
         "claudeResumeRouteKey",
@@ -3263,6 +3272,7 @@
         "collectBridgedTools",
         "collectBridgedToolsScan",
         "configureMcpFromTool",
+        "consumeInterventionHumanWitness",
         "decodeClaudeTaskXmlText",
         "deltaOf",
         "driverAutoSessions",
@@ -3275,6 +3285,8 @@
         "hasPendingPermissionForSession",
         "hasPendingQuestionForSession",
         "installActiveChildEventFanout",
+        "interventionConsumerOrigins",
+        "interventionHumanConsumers",
         "invalidateMcpDropInCache",
         "invalidateMcpRuntime",
         "invalidateToolboxCache",
@@ -3338,6 +3350,7 @@
         "recordSessionExecutionOwner",
         "recoverWorkbenchAudit",
         "redact",
+        "registerInterventionConsumer",
         "registerSessionExecutionChild",
         "registerUserQuestion",
         "rememberAuditLogFailure",
@@ -8346,6 +8359,7 @@
         "schedulerAskWaitOverrideMs",
         "schedulerAskWaitSessions",
         "searchToolCatalog",
+        "strictAgentRoleSource",
         "tokenizeToolSearchText",
         "toolArgEnumText",
         "toolArgTypeText",
@@ -8411,6 +8425,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
           "kinds": [
             "read"
           ]
@@ -8734,6 +8755,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "captureInterventionConsumer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
           "kinds": [
             "call"
@@ -8798,6 +8826,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "registerInterventionConsumer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "resolveBridge",
           "kinds": [
             "call"
@@ -8815,13 +8850,6 @@
           "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "turnSettlers",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -18015,6 +18043,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "configReadFence",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -18162,6 +18197,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "interventionReceiptCodec",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "journalReadIndex",
           "kinds": [
             "call"
@@ -18240,6 +18282,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "patchMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionJournalProof",
           "kinds": [
             "call"
           ]
@@ -18424,6 +18473,13 @@
           "symbol": "activeChildren",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "consumeInterventionHumanWitness",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -26718,6 +26774,8 @@
         "EXTERNAL_BOT_DISCOVERY_LIMITS",
         "EXTERNAL_BOT_LIMITS",
         "EXTERNAL_BOT_LOCAL_REPLY_RETRY",
+        "EXTERNAL_BOT_REMOTE",
+        "EXTERNAL_BOT_REMOTE_BINDING_KEYS",
         "EXTERNAL_BOT_REPLY_RETRY_ERRORS",
         "EXTERNAL_BOT_REPLY_RETRY_MAX",
         "EXTERNAL_BOT_RETENTION",
@@ -26753,6 +26811,7 @@
         "externalBotFeedbackTimer",
         "externalBotFeedbackWaiting",
         "externalBotFinishJob",
+        "externalBotHumanAdmission",
         "externalBotIdentity",
         "externalBotInflight",
         "externalBotNextJob",
@@ -26769,6 +26828,23 @@
         "externalBotReadState",
         "externalBotRecover",
         "externalBotRecoveryDone",
+        "externalBotRemoteBinding",
+        "externalBotRemoteCodeHash",
+        "externalBotRemoteCodeMatches",
+        "externalBotRemoteCommand",
+        "externalBotRemoteDate",
+        "externalBotRemoteDedupe",
+        "externalBotRemoteDigest",
+        "externalBotRemoteDisposition",
+        "externalBotRemoteHash",
+        "externalBotRemoteKeys",
+        "externalBotRemoteNewCode",
+        "externalBotRemoteOfferId",
+        "externalBotRemoteReceipt",
+        "externalBotRemoteRecord",
+        "externalBotRemoteValidClaim",
+        "externalBotRemoteValidFacts",
+        "externalBotRemoteWriteAllowed",
         "externalBotReplyBinding",
         "externalBotReplyRetryReceipt",
         "externalBotReplyRetryWindow",
@@ -26782,6 +26858,7 @@
         "externalBotRetentionPreview",
         "externalBotRetentionReceipt",
         "externalBotRetryReply",
+        "externalBotRunRemoteJob",
         "externalBotRunWithFeedback",
         "externalBotSafeCredentialError",
         "externalBotSaveCredentials",
@@ -26802,16 +26879,19 @@
         "externalBotUnsettled",
         "externalBotUpdateConnection",
         "externalBotUpgradeFeedbackState",
+        "externalBotUpgradeRemoteState",
         "externalBotValidControlState",
         "externalBotValidFeedback",
         "externalBotValidItem",
         "externalBotValidReceiptDelivery",
+        "externalBotValidRemoteState",
         "externalBotValidReplyHistory",
         "externalBotValidRetentionReceipt",
         "externalBotValidRetentionState",
         "externalBotValidSetupReceipt",
         "externalBotValidState",
         "externalBotValidateActor",
+        "externalBotVerifiedIngressTickets",
         "externalBotWakeWorker",
         "externalBotWorkerAgain",
         "externalBotWorkerBusy",
@@ -27010,6 +27090,421 @@
           "symbol": "ExternalBotDiscovery",
           "kinds": [
             "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13w1-external-remote-views.js",
+      "layer": "unclassified",
+      "provides": [
+        "ExternalBotRemoteViews"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadFence",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "armInterventionJournal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "interventionFilePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionDecisionReceipt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionJournalProof",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionsWithMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDiskWriteSeqOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "assertInterventionConsumer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "interventionHumanConsumers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPlans",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "readAgentRunSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "canonicalDecisionValue",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "decideIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "interventionDecisionFingerprint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "normalizeContractQuestionDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "pendingInterventionRefs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "getPretenderProjectionIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13v-external-channel-protocols.js",
+          "symbol": "ExternalChannelProtocols",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "EXTERNAL_BOT_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "EXTERNAL_BOT_REMOTE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotConnectionFingerprint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotCredentialSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotDeliveries",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotError",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotHumanAdmission",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotIdentity",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotOwnerMatches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotReadState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteBinding",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteCodeHash",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteCodeMatches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteCommand",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteDedupe",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteDigest",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteHash",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteKeys",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteNewCode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteOfferId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteRecord",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRetentionHash",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotUpgradeRemoteState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotVerifiedIngressTickets",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotWorkerStopped",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotWriteState",
+          "kinds": [
+            "call"
           ]
         }
       ]
@@ -27770,6 +28265,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "permissionWaitMs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "registerInterventionConsumer",
           "kinds": [
             "call"
           ]

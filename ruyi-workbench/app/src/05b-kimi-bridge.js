@@ -1088,7 +1088,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
         }],
         context.onEvent,
         context.config.questionTimeoutMs,
-        context.state.assistantText,
+        context.state.assistantText, { reg: context.reg, owner: context.reg?.executionOwner, signal: context.requestSignal },
       );
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0]
         && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
@@ -1127,7 +1127,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
     let decision = acceptEditsAuto
       ? { behavior: 'allow', scope: 'once', kimiAutoEdit: true }
       : await requestNativePermission(
-        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier   // 128f-⑪
+        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier, undefined, { reg: context.reg, owner: context.reg?.executionOwner, signal: context.requestSignal }   // 128f-⑪
       );
     // A native agent that omits allow_once cannot be safely auto-approved: selecting allow_always would
     // widen the scope beyond Ruyi's acceptEdits policy. Fall back to the ordinary UI permission request.
@@ -1136,7 +1136,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
     if (autoEditFallback) {
       acceptEditsAuto = false;
       decision = await requestNativePermission(
-        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier   // 128f-⑪
+        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier, undefined, { reg: context.reg, owner: context.reg?.executionOwner, signal: context.requestSignal }   // 128f-⑪
       );
     }
     if (!decision || decision.behavior !== 'allow') {
@@ -1507,7 +1507,7 @@ async function ensureKimiAcpOperationPermission(context, kind, input) {
   if (visibleInput && typeof visibleInput === 'object') delete visibleInput.__kimiAcpNativeBashWrapper;
   const decision = await requestNativePermission(
     context.session.id, kind === 'terminal' ? 'Bash' : 'Write', visibleInput,
-    context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), kind === 'terminal' ? 'exec' : 'edit'   // 128f-⑪
+    context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), kind === 'terminal' ? 'exec' : 'edit', undefined, { reg: context.reg, owner: context.reg?.executionOwner, signal: context.requestSignal }   // 128f-⑪
   );
   if (!decision || decision.behavior !== 'allow') throw kimiAcpRequestError(-32000, 'Operation denied by user');
   if (decision.scope === 'session') {
@@ -1888,7 +1888,7 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
         context.session.id, String(params.elicitationId || makeId('kimi_elicitation')),
         [{ id: 'kimi_url_elicitation', header: 'Kimi 外部授权', question: `${message}\n\n完整地址：${url.href}`, answerMode: 'single', allowOther: false,
           options: [{ id: 'open', label: '同意并打开', description: `将在系统浏览器打开 ${url.hostname}` }, { id: 'decline', label: '拒绝', description: '不打开此地址' }] }],
-        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText
+        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText, { reg: context.reg, owner: context.reg?.executionOwner, signal: requestMeta?.signal }
       ), requestMeta && requestMeta.signal);
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0] && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
       if (selected !== 'open') return { action: selected === 'decline' ? 'decline' : 'cancel' };
@@ -1913,7 +1913,7 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
       const batch = rows.slice(start, start + 3);
       const answer = await awaitKimiAcpWithSignal(requestUserQuestion(
         context.session.id, String(params.toolCallId || makeId('kimi_elicitation')), batch.map(row => row.ui),
-        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText
+        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText, { reg: context.reg, owner: context.reg?.executionOwner, signal: requestMeta?.signal }
       ), requestMeta && requestMeta.signal);
       if (!answer || answer.ok === false) return { action: 'cancel' };
       for (const row of batch) {
@@ -2601,6 +2601,7 @@ async function runKimiAcpTurnPrepared(context) {
         key,
         context: {
           ...reverseContext,
+          requestSignal: requestMeta?.signal,
           onEvent: event => {
             let opened = null;
             if (event && event.type === 'permission_request' && event.requestId) opened = [String(event.requestId), 'permission'];

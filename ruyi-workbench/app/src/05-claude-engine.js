@@ -971,7 +971,7 @@ async function runClaudeTurn({
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
         registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.questionTimeoutMs,
-          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))), assistantText);
+          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))), assistantText, { reg, owner: executionOwner });
       }
     } else if (ev.kind === 'tool_result') {
       const tc = toolCalls.find(t => t.id === ev.id);

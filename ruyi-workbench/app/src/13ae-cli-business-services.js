@@ -272,7 +272,7 @@ async function cliQuestionService(body, { method = 'POST', trusted = false, owne
     const reg = ownerReg || activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return (apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig(); ownerCheck();
-    ownerCheck(); const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || ''); ownerCheck();
+    ownerCheck(); const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || '', { reg, owner: reg.executionOwner, assert: ownerCheck, isClosed }); ownerCheck();
     return (json(answer && answer.ok
       ? { ok: true, answers: answer.answers, content: answer.content }
       : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));
@@ -362,6 +362,7 @@ async function cliPermissionService(body, { method = 'POST', trusted = false, ow
       // 128f-⑪:「等多久」问 04 的 permissionWaitMs(修前这一支只认 config,定时线程上的 CLI 引擎也是 120 s)。
       const baseMs = permissionWaitMs(sessionId, config, reg && reg.session);
       const entry = { resolve, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
+      registerInterventionConsumer(entry, sessionId, { reg, owner: reg.executionOwner, assert: ownerCheck, isClosed, input: body.input, inputOf: () => body.input });
       const clearExpiredOwner = () => {
         if (ownerAlive()) return false;
         // Registry cleanup belongs to the intervention command core, not to a stale CLI grant.

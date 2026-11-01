@@ -1,3 +1,6 @@
+// Tickets are minted only by the original successful protocol callback below.
+const externalBotVerifiedIngressTickets = new WeakMap();
+const externalBotHumanAdmission = { admit: null };
 // External ingress defaults to an independent inbox. Explicit local owner bindings may additionally
 // run the existing Steward and deliver one bounded reply; queued/running/sending facts are durable.
 const EXTERNAL_BOT_LIMITS = Object.freeze({ connections: 16, retiredIds: 4096, items: 1000, textChars: 8192, textBytes: 32768, bodyBytes: 65536, stateBytes: 40 * 1024 * 1024, readTimeoutMs: 5000, inflightCallbacks: 8, callbacksPerMinute: 120 });
@@ -304,7 +307,172 @@ function externalBotUpgradeFeedbackState(state) {
   if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
   if (state.schema < 4) for (const row of state.items) row.replyHistory = [];
   if (state.schema < 5) { state.retentionReceipts = []; state.retentionRequests = []; }
-  state.schema = 6;
+  state.schema = Math.max(state.schema, 6);
+}
+// Payload7 is a data contract only. These private facts confer no human authority;
+// admission, source fences and the original intervention journal remain separate owners.
+const EXTERNAL_BOT_REMOTE = Object.freeze({ active: 256, receipts: 4096, ttlMs: 5 * 60 * 1000,
+  actions: Object.freeze({ permission: Object.freeze(['allow', 'deny']), question: Object.freeze(['answer']),
+    plan: Object.freeze(['approve', 'reject']), pool: Object.freeze(['approve', 'reject']), replan: Object.freeze(['approve', 'reject']) }) });
+const EXTERNAL_BOT_REMOTE_BINDING_KEYS = Object.freeze(['bootId', 'connectionId', 'platform', 'appId', 'tenantId', 'botUserId',
+  'controlRevision', 'credentialRevision', 'ownerSenderId', 'ownerConversationType', 'ownerConversationId', 'sessionId',
+  'interventionId', 'type', 'expectedVersion', 'runId', 'executionId', 'sourceFingerprint', 'policyFingerprint', 'recipientFingerprint', 'audienceRevision']);
+function externalBotRemoteKeys(value, keys) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join(',') === [...keys].sort().join(','));
+}
+function externalBotRemoteHash(domain, value) {
+  return crypto.createHash('sha256').update(JSON.stringify(['ruyi.external-action.v1', domain, value])).digest('hex');
+}
+function externalBotRemoteDigest(value) { return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value); }
+function externalBotRemoteOfferId(value) { return typeof value === 'string' && /^[A-Za-z0-9_-]{1,121}$/.test(value); }
+function externalBotRemoteDate(value) {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+function externalBotRemoteCodeHash(code) {
+  if (typeof code !== 'string' || !/^ra_[A-Za-z0-9_-]{21}[AQgw]$/.test(code)) throw externalBotError('external_channel.request_invalid');
+  return externalBotRemoteHash('code', code);
+}
+function externalBotRemoteNewCode() {
+  const code = 'ra_' + crypto.randomBytes(16).toString('base64url');
+  return { code, codeHash: externalBotRemoteCodeHash(code) }; // Caller owns the volatile code; never pass it to the ledger.
+}
+function externalBotRemoteCodeMatches(codeHash, code) {
+  if (!externalBotRemoteDigest(codeHash)) return false;
+  try { return crypto.timingSafeEqual(Buffer.from(codeHash, 'hex'), Buffer.from(externalBotRemoteCodeHash(code), 'hex')); }
+  catch { return false; }
+}
+function externalBotUpgradeRemoteState(state) {
+  externalBotUpgradeFeedbackState(state);
+  if (state.schema < 7) { state.remoteActions = []; state.remoteActionReceipts = []; }
+  state.schema = Math.max(state.schema, 7);
+}
+function externalBotRemoteBinding(raw) {
+  if (!externalBotRemoteKeys(raw, EXTERNAL_BOT_REMOTE_BINDING_KEYS)
+    || !['bootId', 'connectionId', 'appId', 'tenantId', 'ownerSenderId', 'ownerConversationId', 'sessionId', 'interventionId'].every(key => externalBotIdentity(raw[key]))
+    || !['qq', 'feishu'].includes(raw.platform) || !['direct', 'group'].includes(raw.ownerConversationType)
+    || !externalBotString(raw.botUserId, 128, true) || raw.platform === 'feishu' && !externalBotIdentity(raw.botUserId)
+    || !Number.isSafeInteger(raw.controlRevision) || raw.controlRevision < 1 || !Number.isSafeInteger(raw.expectedVersion) || raw.expectedVersion < 0
+    || !Object.hasOwn(EXTERNAL_BOT_REMOTE.actions, raw.type)
+    || !['runId', 'executionId'].every(key => externalBotString(raw[key], 128, true))
+    || !['credentialRevision', 'sourceFingerprint', 'policyFingerprint', 'recipientFingerprint'].every(key => externalBotRemoteDigest(raw[key]))
+    || !(raw.audienceRevision === '' || externalBotRemoteDigest(raw.audienceRevision))) throw externalBotError('external_channel.request_invalid');
+  // An audience revision is stored evidence, not a claim that the platform can supply it.
+  return Object.fromEntries(EXTERNAL_BOT_REMOTE_BINDING_KEYS.map(key => [key, raw[key]]));
+}
+function externalBotRemoteCommand(connectionId, message, command) {
+  if (!externalBotIdentity(connectionId) || !message || !['tenantId', 'conversationId', 'senderId', 'messageId'].every(key => externalBotIdentity(message[key]))
+    || !['direct', 'group'].includes(message.conversationType) || typeof message.text !== 'string' || !message.text.trim()
+    || message.text.length > EXTERNAL_BOT_LIMITS.textChars || Buffer.byteLength(message.text, 'utf8') > EXTERNAL_BOT_LIMITS.textBytes
+    || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(message.text)
+    || !externalBotRemoteKeys(command, ['offerId', 'action', 'decisionFingerprint']) || !externalBotRemoteOfferId(command.offerId)
+    || !['allow', 'deny', 'answer', 'approve', 'reject'].includes(command.action) || !externalBotRemoteDigest(command.decisionFingerprint)) throw externalBotError('external_channel.request_invalid');
+  // decisionFingerprint must come from the original typed core normalizer in the later admission layer.
+  // Hashing it here neither normalizes an answer nor grants permission to execute it.
+  const textHash = externalBotRetentionHash(message.text);
+  return { offerId: command.offerId, action: command.action,
+    sourceHash: externalBotRetentionHash(JSON.stringify([connectionId, message.tenantId, message.conversationId, message.messageId])), textHash,
+    contentHash: externalBotRetentionHash(JSON.stringify([message.senderId, message.conversationType, textHash])),
+    commandHash: externalBotRemoteHash('command', [command.offerId, command.action, command.decisionFingerprint]), decisionFingerprint: command.decisionFingerprint };
+}
+function externalBotRemoteValidClaim(claim, offerId, type, issuedAt, expiresAt, updatedAt) {
+  return externalBotRemoteKeys(claim, ['action', 'sourceHash', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint', 'idempotencyKey', 'claimedAt'])
+    && EXTERNAL_BOT_REMOTE.actions[type]?.includes(claim.action)
+    && ['sourceHash', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint'].every(key => externalBotRemoteDigest(claim[key]))
+    && claim.commandHash === externalBotRemoteHash('command', [offerId, claim.action, claim.decisionFingerprint])
+    && claim.idempotencyKey === 'extdec:' + offerId && externalBotRemoteDate(claim.claimedAt)
+    && claim.claimedAt >= issuedAt && claim.claimedAt < expiresAt && claim.claimedAt <= updatedAt;
+}
+function externalBotRemoteValidFacts(row, type) {
+  if (!externalBotRemoteOfferId(row.offerId) || !externalBotRemoteDigest(row.codeHash) || !externalBotRemoteDigest(row.bindingHash)
+    || !Object.hasOwn(EXTERNAL_BOT_REMOTE.actions, type) || !['issuedAt', 'expiresAt', 'updatedAt'].every(key => externalBotRemoteDate(row[key]))
+    || row.expiresAt <= row.issuedAt || Date.parse(row.expiresAt) - Date.parse(row.issuedAt) > EXTERNAL_BOT_REMOTE.ttlMs || row.updatedAt < row.issuedAt
+    || !['prepared', 'offered', 'claimed', 'applying', 'applied', 'rejected', 'unknown', 'revoked', 'expired'].includes(row.status)
+    || !(row.resultHash === '' || externalBotRemoteDigest(row.resultHash))) return false;
+  const claimed = row.claim !== null;
+  return (!claimed || externalBotRemoteValidClaim(row.claim, row.offerId, type, row.issuedAt, row.expiresAt, row.updatedAt))
+    && (!['prepared', 'offered', 'revoked', 'expired'].includes(row.status) || !claimed)
+    && (!['claimed', 'applying', 'applied', 'rejected'].includes(row.status) || claimed)
+    && (['applied', 'rejected'].includes(row.status) ? externalBotRemoteDigest(row.resultHash) : row.resultHash === '');
+}
+function externalBotRemoteRecord(raw) {
+  if (!externalBotRemoteKeys(raw, ['offerId', 'codeHash', 'binding', 'bindingHash', 'allowedActions', 'issuedAt', 'expiresAt', 'updatedAt', 'status', 'announcementItemId', 'claim', 'resultHash'])) throw externalBotError('external_channel.request_invalid');
+  const binding = externalBotRemoteBinding(raw.binding);
+  if (!externalBotRemoteValidFacts(raw, binding.type) || raw.bindingHash !== externalBotRemoteHash('binding', binding)
+    || !Array.isArray(raw.allowedActions) || JSON.stringify(raw.allowedActions) !== JSON.stringify(EXTERNAL_BOT_REMOTE.actions[binding.type])
+    || !externalBotString(raw.announcementItemId, 128, true) || raw.status !== 'prepared' && !raw.announcementItemId && !(raw.claim === null && ['revoked', 'expired'].includes(raw.status))) throw externalBotError('external_channel.request_invalid');
+  return { offerId: raw.offerId, codeHash: raw.codeHash, binding, bindingHash: raw.bindingHash, allowedActions: [...raw.allowedActions],
+    issuedAt: raw.issuedAt, expiresAt: raw.expiresAt, updatedAt: raw.updatedAt, status: raw.status,
+    announcementItemId: raw.announcementItemId, claim: raw.claim === null ? null : { ...raw.claim }, resultHash: raw.resultHash };
+}
+function externalBotRemoteReceipt(record) {
+  const row = externalBotRemoteRecord(record);
+  if (!['applied', 'rejected', 'revoked', 'expired'].includes(row.status)) throw externalBotError('external_channel.request_invalid');
+  // Only a body-free projection. A future original-owner retention transaction must prove eligibility.
+  return { offerId: row.offerId, codeHash: row.codeHash, bindingHash: row.bindingHash, type: row.binding.type,
+    status: row.status, issuedAt: row.issuedAt, expiresAt: row.expiresAt, updatedAt: row.updatedAt, claim: row.claim, resultHash: row.resultHash };
+}
+function externalBotRemoteDisposition(record, bootId = OVERLAY_ID, at = Date.now()) {
+  const row = externalBotRemoteRecord(record);
+  // No claim means no admitted core intent. The original owner may close an old offer;
+  // claimed uncertainty still needs the original journal and can never be revoked here.
+  if (row.status === 'unknown' && row.claim === null && (row.binding.bootId !== bootId || Date.parse(row.expiresAt) <= at)) return 'closed';
+  if (['claimed', 'applying', 'unknown'].includes(row.status)) return 'reconcile';
+  if (['applied', 'rejected'].includes(row.status)) return 'terminal'; // Recorded metadata still requires the original strict receipt.
+  if (['revoked', 'expired'].includes(row.status) || row.binding.bootId !== bootId || Date.parse(row.expiresAt) <= at) return 'closed';
+  return 'unclaimed'; // No disposition authorizes execution, restoration or automatic sending.
+}
+function externalBotRemoteDedupe(state, command) {
+  if (!externalBotRemoteKeys(command, ['offerId', 'action', 'sourceHash', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint'])
+    || !externalBotRemoteOfferId(command.offerId) || !['allow', 'deny', 'answer', 'approve', 'reject'].includes(command.action)
+    || !['sourceHash', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint'].every(key => externalBotRemoteDigest(command[key]))
+    || command.commandHash !== externalBotRemoteHash('command', [command.offerId, command.action, command.decisionFingerprint])) throw externalBotError('external_channel.request_invalid');
+  const rows = [...(state.remoteActions || []), ...(state.remoteActionReceipts || [])];
+  const prior = rows.find(row => row.claim?.sourceHash === command.sourceHash);
+  if (prior) {
+    if (prior.offerId !== command.offerId || ['action', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint'].some(key => prior.claim[key] !== command[key])) throw externalBotError('external_channel.message_conflict', 409);
+    return { status: 'duplicate', offerId: prior.offerId, idempotencyKey: prior.claim.idempotencyKey };
+  }
+  if (rows.some(row => row.offerId === command.offerId && row.claim)) throw externalBotError('external_channel.message_conflict', 409);
+  return { status: 'unrecorded', offerId: command.offerId }; // Never an execution/admission instruction.
+}
+function externalBotValidRemoteState(state) {
+  if (state.schema < 7) return state.remoteActions === undefined && state.remoteActionReceipts === undefined;
+  if (!Array.isArray(state.remoteActions) || state.remoteActions.length > EXTERNAL_BOT_REMOTE.active
+    || !Array.isArray(state.remoteActionReceipts) || state.remoteActionReceipts.length > EXTERNAL_BOT_REMOTE.receipts) return false;
+  try { for (const row of state.remoteActions) externalBotRemoteRecord(row); } catch { return false; }
+  if (!state.remoteActionReceipts.every(row => externalBotRemoteKeys(row, ['offerId', 'codeHash', 'bindingHash', 'type', 'status', 'issuedAt', 'expiresAt', 'updatedAt', 'claim', 'resultHash'])
+    && ['applied', 'rejected', 'revoked', 'expired'].includes(row.status) && externalBotRemoteValidFacts(row, row.type))) return false;
+  const rows = [...state.remoteActions, ...state.remoteActionReceipts], claims = rows.filter(row => row.claim);
+  return ['offerId', 'codeHash'].every(key => new Set(rows.map(row => row[key])).size === rows.length)
+    && new Set(claims.map(row => row.claim.sourceHash)).size === claims.length;
+}
+function externalBotRemoteWriteAllowed(previous, next) {
+  if (previous.schema >= 7 && next.schema < previous.schema) return false;
+  const oldRows = previous.remoteActions || [], oldReceipts = previous.remoteActionReceipts || [];
+  const rows = next.remoteActions || [], receipts = next.remoteActionReceipts || [];
+  const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  if (oldReceipts.some(old => !receipts.some(row => row.offerId === old.offerId && equal(row, old)))) return false;
+  const transitions = { prepared: ['prepared', 'offered', 'revoked', 'expired', 'unknown'], offered: ['offered', 'claimed', 'revoked', 'expired', 'unknown'],
+    claimed: ['claimed', 'applying', 'rejected', 'unknown'], applying: ['applying', 'applied', 'rejected', 'unknown'], unknown: ['unknown', 'applied', 'rejected'] };
+  for (const old of oldRows) {
+    const row = rows.find(value => value.offerId === old.offerId);
+    if (!row) {
+      if (!['applied', 'rejected', 'revoked', 'expired'].includes(old.status) || !receipts.some(value => equal(value, externalBotRemoteReceipt(old)))) return false;
+      continue;
+    }
+    const allowed = old.status === 'unknown' && old.claim === null ? ['unknown', 'revoked', 'expired'] : transitions[old.status];
+    if (!allowed) { if (!equal(row, old)) return false; continue; }
+    if (!allowed.includes(row.status) || row.updatedAt < old.updatedAt
+      || !equal(Object.fromEntries(['offerId', 'codeHash', 'binding', 'bindingHash', 'allowedActions', 'issuedAt', 'expiresAt'].map(key => [key, row[key]])),
+        Object.fromEntries(['offerId', 'codeHash', 'binding', 'bindingHash', 'allowedActions', 'issuedAt', 'expiresAt'].map(key => [key, old[key]])))
+      || old.announcementItemId && row.announcementItemId !== old.announcementItemId
+      || old.claim && !equal(row.claim, old.claim) || !old.claim && row.claim && row.status !== 'claimed') return false;
+  }
+  return rows.every(row => oldRows.some(old => old.offerId === row.offerId)
+      || !oldReceipts.some(old => old.offerId === row.offerId) && row.status === 'prepared' && row.claim === null)
+    && receipts.every(row => oldReceipts.some(old => old.offerId === row.offerId)
+      || oldRows.some(old => old.offerId === row.offerId && ['applied', 'rejected', 'revoked', 'expired'].includes(old.status) && equal(row, externalBotRemoteReceipt(old))));
 }
 function externalBotFeedback(item, message, progress = false, queryId = '', language = 'zh') {
   const sent = Date.parse(message.sentAt || item.receivedAt), received = Date.parse(item.receivedAt);
@@ -533,6 +701,7 @@ function externalBotReplyRetryReceipt(item, row) {
     retryRequestId: row.retryRequestId, requestedAt: row.requestedAt };
 }
 function externalBotReplyRetryWindow(item) {
+  if (item.remoteView) return false; // New source display requires a new owner message and projection.
   return Boolean(item.control && ['completed', 'failed', 'unknown'].includes(item.execution?.status) && item.delivery?.status === 'failed'
     && EXTERNAL_BOT_REPLY_RETRY_ERRORS.includes(item.delivery.errorCode) && !item.delivery.messageId
     && item.delivery.updatedAt && Number.isFinite(Date.parse(item.delivery.updatedAt))
@@ -593,7 +762,10 @@ const EXTERNAL_BOT_RETENTION_FAILURES = Object.freeze([...EXTERNAL_BOT_REPLY_RET
   'external_delivery.rate_limited', 'external_delivery.rejected', 'external_delivery.source_limit', 'external_channel.control_revoked']);
 const externalBotRetentionKey = crypto.randomBytes(32); // Preview authority expires on restart.
 function externalBotRetentionHash(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
-function externalBotRetentionEligible(item, cutoff) {
+function externalBotRetentionEligible(item, cutoff, state) {
+  // C0 cannot prove original-journal effects or announcement settlement. Keep all linked
+  // bodies until the original-owner retention integration can atomically retain C receipts.
+  if (state?.remoteActions?.some(row => row.announcementItemId === item.id || row.claim?.sourceHash === externalBotRetentionHash(item.sourceKey))) return false;
   if (externalBotActiveActors.has(item.id) || externalBotUnsettled.has(item.id) || externalBotDeliveries.has(item.id)) return false;
   const dates = [item.receivedAt];
   if (item.feedback?.progress) {
@@ -628,8 +800,9 @@ function externalBotValidReceiptDelivery(delivery, execution) {
 }
 function externalBotValidRetentionReceipt(row) {
   if (!row || typeof row !== 'object' || Array.isArray(row)
-    || Object.keys(row).filter(key => key !== 'feedback').sort().join(',') !== 'contentHash,delivery,execution,id,kind,receivedAt,reclaimedAt,replyHistory,sourceHash'
+    || Object.keys(row).filter(key => !['feedback', 'commandTextHash'].includes(key)).sort().join(',') !== 'contentHash,delivery,execution,id,kind,receivedAt,reclaimedAt,replyHistory,sourceHash'
     || !externalBotString(row.id) || !['inbox', 'control'].includes(row.kind)
+    || row.commandTextHash !== undefined && (row.kind !== 'control' || !externalBotRemoteDigest(row.commandTextHash))
     || !['sourceHash', 'contentHash'].every(key => typeof row[key] === 'string' && /^[a-f0-9]{64}$/.test(row[key]))
     || !['receivedAt', 'reclaimedAt'].every(key => typeof row[key] === 'string' && row[key] && Number.isFinite(Date.parse(row[key]))) || !externalBotValidFeedback(row)) return false;
   if (row.kind === 'inbox') return row.execution === null && row.delivery === null && Array.isArray(row.replyHistory) && row.replyHistory.length === 0;
@@ -648,12 +821,13 @@ function externalBotRetentionReceipt(item, reclaimedAt) {
   const execution = item.execution && Object.fromEntries(['status', 'finishedAt', 'errorCode', 'turnSeq', 'actionFailures', 'proposals', 'contractIncomplete'].map(key => [key, item.execution[key]]));
   const delivery = item.delivery && Object.fromEntries(['status', 'attemptId', 'messageId', 'errorCode', 'updatedAt', ...(item.delivery.status === 'cancelled' ? ['cancelledAt'] : [])].map(key => [key, item.delivery[key]]));
   return { id: item.id, kind: item.control === null ? 'inbox' : 'control', sourceHash: externalBotRetentionHash(item.sourceKey), contentHash: item.contentHash,
-    receivedAt: item.receivedAt, reclaimedAt, execution, delivery, replyHistory: item.replyHistory || [], ...(item.feedback ? { feedback: item.feedback } : {}) };
+    receivedAt: item.receivedAt, reclaimedAt, execution, delivery, replyHistory: item.replyHistory || [], ...(item.feedback ? { feedback: item.feedback } : {}), ...(item.remoteCommand ? { commandTextHash: item.remoteCommand.textHash } : {}) };
 }
 function externalBotValidRetentionState(state) {
   if (state.schema < 5) return state.retentionReceipts === undefined && state.retentionRequests === undefined;
   if (!Array.isArray(state.retentionReceipts) || state.retentionReceipts.length > EXTERNAL_BOT_RETENTION.receipts
     || !state.retentionReceipts.every(externalBotValidRetentionReceipt)
+    || state.schema < 7 && state.retentionReceipts.some(row => row.commandTextHash !== undefined)
     || !Array.isArray(state.retentionRequests) || state.retentionRequests.length > EXTERNAL_BOT_RETENTION.requests
     || !state.retentionRequests.every(row => row && Object.keys(row).sort().join(',') === 'count,reclaimedAt,requestHash,requestId'
       && typeof row.requestId === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(row.requestId)
@@ -669,7 +843,7 @@ async function externalBotRetentionPreview(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join(',') !== 'requestId,retainDays'
     || typeof body.requestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(body.requestId) || !EXTERNAL_BOT_RETENTION.days.includes(body.retainDays)) throw externalBotError('external_channel.request_invalid');
   const state = await externalBotReadState(), now = Date.now(), cutoff = now - body.retainDays * 86400000;
-  const eligible = state.items.filter(item => externalBotRetentionEligible(item, cutoff));
+  const eligible = state.items.filter(item => externalBotRetentionEligible(item, cutoff, state));
   const remaining = EXTERNAL_BOT_RETENTION.receipts - (state.retentionReceipts?.length || 0);
   if (eligible.length && (!remaining || (state.retentionRequests?.length || 0) >= EXTERNAL_BOT_RETENTION.requests)) throw externalBotError('external_channel.retention_receipts_full', 409);
   const items = eligible.slice(0, Math.min(EXTERNAL_BOT_RETENTION.batch, remaining));
@@ -705,7 +879,7 @@ async function externalBotRetentionCommit(body) {
     || new Set(payload.selection.map(row => row[0])).size !== payload.selection.length) throw externalBotError('external_channel.request_invalid');
   const items = payload.selection.map(([id, fingerprint]) => {
     const item = state.items.find(row => row.id === id);
-    if (!item || externalBotRetentionFingerprint(item) !== fingerprint || !externalBotRetentionEligible(item, payload.cutoff)) throw externalBotError('external_channel.retention_changed', 409);
+    if (!item || externalBotRetentionFingerprint(item) !== fingerprint || !externalBotRetentionEligible(item, payload.cutoff, state)) throw externalBotError('external_channel.retention_changed', 409);
     return item;
   });
   if ((state.retentionReceipts?.length || 0) + items.length > EXTERNAL_BOT_RETENTION.receipts
@@ -730,9 +904,11 @@ function externalBotValidItem(item) {
     && ['direct', 'group'].includes(item.conversationType) && typeof item.text === 'string' && item.text.trim().length > 0
     && item.text.length <= EXTERNAL_BOT_LIMITS.textChars && Buffer.byteLength(item.text, 'utf8') <= EXTERNAL_BOT_LIMITS.textBytes && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(item.text)
     && item.sourceKey === JSON.stringify([item.connectionId, item.tenantId, item.conversationId, item.messageId])
-    && item.contentHash === crypto.createHash('sha256').update(JSON.stringify([item.senderId, item.conversationType, item.text])).digest('hex')
+    && item.contentHash === crypto.createHash('sha256').update(JSON.stringify([item.senderId, item.conversationType, item.remoteCommand ? item.remoteCommand.textHash : item.text])).digest('hex')
+    && (item.remoteCommand === undefined || item.control !== null && ExternalBotHooks.remoteViews?.validCommand(item.remoteCommand) === true && item.text === '/' + item.remoteCommand.kind)
     && typeof item.receivedAt === 'string' && Number.isFinite(Date.parse(item.receivedAt))
-    && typeof item.readAt === 'string' && (!item.readAt || Number.isFinite(Date.parse(item.readAt))) && externalBotValidControlState(item) && externalBotValidFeedback(item);
+    && typeof item.readAt === 'string' && (!item.readAt || Number.isFinite(Date.parse(item.readAt))) && externalBotValidControlState(item) && externalBotValidFeedback(item)
+    && (item.remoteView === undefined || ExternalBotHooks.remoteViews?.valid(item.remoteView) === true);
 }
 function externalBotValidControlState(item) {
   if (item.control === null) return item.execution === null && item.delivery === null;
@@ -840,15 +1016,22 @@ async function externalBotNextJob(sendOnly = false) {
     };
     let item = state.items.find(row => row.delivery?.status === 'pending' && available(row));
     if (!item) { slot = 'progress'; item = state.items.find(row => row.execution?.status === 'running' && row.feedback?.progress?.delivery.status === 'pending' && available(row)); }
-    if (!item && !sendOnly) { slot = ''; item = state.items.find(row => row.execution?.status === 'queued'); }
+    if (!item) { slot = ''; item = state.items.find(row => row.execution?.status === 'queued' && row.remoteCommand); }
+    if (!item && !sendOnly) { slot = ''; item = state.items.find(row => row.execution?.status === 'queued' && !row.remoteCommand); }
     if (!item) { if (deferred) await externalBotWriteState(state); return null; }
     const connection = state.connections.find(row => row.id === item.connectionId);
+    if (!slot && item.remoteCommand && item.remoteCommand.bootId !== OVERLAY_ID && !state.remoteActions?.some(row => row.claim?.sourceHash === externalBotRetentionHash(item.sourceKey))) {
+      item.execution = { ...item.execution, status: 'failed', finishedAt: nowIso(), errorCode: 'external_channel.control_revoked', replyText: '' };
+      item.delivery = { status: 'failed', attemptId: makeId('reply'), messageId: '', errorCode: 'external_channel.control_revoked', updatedAt: nowIso() };
+      await externalBotWriteState(state); return { kind: 'skip' };
+    }
     if (slot === 'progress' && !connection?.progressUpdates) {
       item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', errorCode: 'external_channel.control_revoked', updatedAt: nowIso() };
       await externalBotWriteState(state); return { kind: 'skip' };
     }
     if (!(await externalBotOwnerMatches(connection, item))) {
       if (item.execution?.status === 'queued') item.execution = { ...item.execution, status: 'failed', finishedAt: nowIso(), errorCode: 'external_channel.control_revoked', replyText: '' };
+      if (item.remoteCommand && !item.delivery) item.delivery = { status: 'failed', attemptId: makeId('reply'), messageId: '', errorCode: 'external_channel.control_revoked', updatedAt: nowIso() };
       if (item.delivery?.status === 'pending') item.delivery = { ...item.delivery, status: 'failed', updatedAt: nowIso(), errorCode: 'external_channel.control_revoked' };
       if (item.feedback?.progress?.delivery.status === 'pending') item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', updatedAt: nowIso(), errorCode: 'external_channel.control_revoked' };
       await externalBotWriteState(state); return { kind: 'skip' };
@@ -867,6 +1050,7 @@ async function externalBotNextJob(sendOnly = false) {
         connectionFingerprint: externalBotConnectionFingerprint(connection) };
     }
     item.execution = { ...item.execution, status: 'running', serverInstanceId: OVERLAY_ID, startedAt: nowIso() }; await externalBotWriteState(state);
+    if (item.remoteCommand) return { kind: 'remote', item: JSON.parse(JSON.stringify(item)) };
     const actor = Object.freeze({}); const proof = { itemId: item.id, connectionId: item.connectionId, controlRevision: item.control.controlRevision, controller: new AbortController() };
     externalBotActors.set(actor, proof); externalBotActiveActors.set(item.id, proof);
     return { kind: 'run', item: JSON.parse(JSON.stringify(item)), actor };
@@ -920,6 +1104,10 @@ function externalBotReplyBinding(connection, item, credentialRevision) {
   return { recipient, purpose: 'external-bot-reply', sourceHash };
 }
 async function externalBotPrepareReply(job, controller, dispatch, assertPolicy = PrivacyGateway.disclosurePolicyGuard()) {
+  if (job.item.remoteView) {
+    if (!ExternalBotHooks.remoteViews) throw externalBotError('external_channel.delivery_changed', 409);
+    return ExternalBotHooks.remoteViews.prepare(job, controller, dispatch, assertPolicy);
+  }
   assertPolicy();
   // The adapter continuation creates the request within the existing state chain.
   // Release the chain after request creation, not after the platform response.
@@ -947,10 +1135,12 @@ async function externalBotPrepareReply(job, controller, dispatch, assertPolicy =
       .map(key => [current.connection[key], process.env[current.connection[key]]]);
     const fullText = await PrivacyGateway.refreshDisclosure(receipt, current.binding);
     const text = externalBotBoundReplyText(fullText);
+    const receiptAudience = current.item.remoteCommand ? await ExternalBotHooks.remoteViews?.receiptAudience(current.connection, current.item) : null;
     return { result: dispatch({ text, assertCurrent: () => {
       if (controller.signal.aborted || externalBotWorkerStopped || env.some(([key, value]) => process.env[key] !== value)) throw externalBotError('external_channel.control_revoked', 403);
       assertPolicy();
       PrivacyGateway.assertDisclosure(receipt, { ...current.binding, value: fullText });
+      receiptAudience?.assert();
       const owner = externalBotDeliveries.get(job.item.id);
       if (!owner || owner.controller !== controller || owner.attemptId !== job.item.delivery.attemptId || owner.submitted)
         throw externalBotError('external_channel.delivery_changed', 409);
@@ -979,6 +1169,15 @@ async function externalBotSendJob(job) {
   finally { externalBotDeliveries.delete(job.item.id); }
   try { await externalBotFinishJob(job, result); }
   catch (error) { externalBotUnsettled.set(job.item.id, { kind: 'send', slot: job.slot, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
+  if (job.item.remoteView && result?.status === 'sent') {
+    try { await ExternalBotHooks.remoteViews?.recordDelivery(job.item.id); } catch { /* Original durable delivery stays sent; stale views cannot arm a later code. */ }
+  }
+}
+async function externalBotRunRemoteJob(job) {
+  try {
+    if (!ExternalBotHooks.remoteViews) throw externalBotError('external_channel.storage_unavailable', 503);
+    await ExternalBotHooks.remoteViews.runCommand(job);
+  } catch (error) { externalBotUnsettled.set(job.item.id, { kind: 'run', at: nowIso() }); externalBotRecoveryDone = false; throw error; }
 }
 async function externalBotRunWithFeedback(job) {
   // One original worker and one business owner. During that same owner's wait,
@@ -990,8 +1189,19 @@ async function externalBotRunWithFeedback(job) {
   while (!done && !externalBotWorkerStopped) {
     try {
       const send = await externalBotNextJob(true);
-      if (send) { if (send.kind !== 'skip') await externalBotSendJob(send); continue; }
-    } catch { externalBotWorkerError = 'external_channel.storage_unavailable'; break; }
+      if (send) { if (send.kind === 'remote') await externalBotRunRemoteJob(send); else if (send.kind !== 'skip') await externalBotSendJob(send); continue; }
+    } catch {
+      externalBotWorkerError = 'external_channel.storage_unavailable';
+      // Consume old wake intent. An uncertain started job is never replayed;
+      // only a later original wake edge or this original owner settling resumes us.
+      externalBotWorkerAgain = false;
+      let notify;
+      const wake = new Promise(resolve => { notify = resolve; externalBotWorkerSignal = resolve; });
+      await Promise.race([running, wake]);
+      if (externalBotWorkerSignal === notify) externalBotWorkerSignal = null;
+      if (done || externalBotWorkerStopped) break;
+      continue;
+    }
     if (done) break;
     if (externalBotWorkerAgain) { externalBotWorkerAgain = false; continue; }
     let notify;
@@ -1010,6 +1220,7 @@ async function externalBotDrain() {
   externalBotWorkerBusy = true;
   try {
     await externalBotRecover();
+    await ExternalBotHooks.remoteViews?.reconcileRecovered();
     do {
       externalBotWorkerAgain = false;
       while (!externalBotWorkerStopped && (typeof WorkDataMaintenanceHooks === 'undefined' || !WorkDataMaintenanceHooks.accepting || WorkDataMaintenanceHooks.accepting())) {
@@ -1017,8 +1228,9 @@ async function externalBotDrain() {
         let result;
         try {
           if (job.kind === 'run') result = await externalBotRunWithFeedback(job);
+          else if (job.kind === 'remote') { await externalBotRunRemoteJob(job); continue; }
           else { await externalBotSendJob(job); continue; }
-        } catch (error) { if (job.kind === 'send') throw error; result = error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }; }
+        } catch (error) { if (['send', 'remote'].includes(job.kind)) throw error; result = error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }; }
         finally { if (job.actor) { externalBotActors.delete(job.actor); externalBotActiveActors.delete(job.item.id); } externalBotDeliveries.delete(job.item.id); }
         try { await externalBotFinishJob(job, result); }
         catch (error) { externalBotUnsettled.set(job.item.id, { kind: job.kind, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
@@ -1032,7 +1244,7 @@ function externalBotWakeWorker() { if (!externalBotWorkerStopped) { externalBotW
 function externalBotValidState(state) {
   if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
     || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
-  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts', 'retentionReceipts', 'retentionRequests'].includes(key)) || ![1, 2, 3, 4, 5, 6].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
+  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts', 'retentionReceipts', 'retentionRequests', 'remoteActions', 'remoteActionReceipts'].includes(key)) || ![1, 2, 3, 4, 5, 6, 7].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
     || !Array.isArray(state.items) || state.items.length > EXTERNAL_BOT_LIMITS.items
     || !Array.isArray(state.retiredConnectionIds) || state.retiredConnectionIds.length > EXTERNAL_BOT_LIMITS.retiredIds
     || state.retiredConnectionIds.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(id))
@@ -1048,11 +1260,11 @@ function externalBotValidState(state) {
     }
   } catch { return false; }
   return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(item => externalBotValidItem(item)
-      && (state.schema >= 3 || item.delivery?.status !== 'cancelled') && (state.schema >= 6 || item.feedback === undefined) && externalBotValidReplyHistory(item, state.schema)
+      && (state.schema >= 3 || item.delivery?.status !== 'cancelled') && (state.schema >= 7 || item.remoteView === undefined && item.remoteCommand === undefined) && (state.schema >= 6 || item.feedback === undefined) && externalBotValidReplyHistory(item, state.schema)
       && (state.schema === 1 ? item.archivedAt === undefined : typeof item.archivedAt === 'string' && (!item.archivedAt || Number.isFinite(Date.parse(item.archivedAt)))))
     && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
     && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length
-    && externalBotValidRetentionState(state);
+    && externalBotValidRetentionState(state) && externalBotValidRemoteState(state);
 }
 // This authority/dedupe ledger never caches or quarantines. Only a missing file is an initial state.
 // The 40 MiB business cap measures compact JSON; the old plaintext read cap still measures disk bytes.
@@ -1104,7 +1316,8 @@ const externalBotStore = (() => {
   async function write(value) {
     // Match DurableJsonStore's strict schema check, JSON snapshot and pretty plaintext bytes.
     const snapshot = parse(JSON.stringify(value), true);
-    await read(); // Never overwrite a bad legacy ledger, even when sealing is currently disabled.
+    const previous = await read(); // Never overwrite a bad legacy ledger, even when sealing is currently disabled.
+    if (!externalBotRemoteWriteAllowed(previous, snapshot)) throw new Error('invalid external action ledger transition');
     await textStore().write(JSON.stringify(snapshot, null, 2));
     return snapshot;
   }
@@ -1219,6 +1432,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
     || !['direct', 'group'].includes(message.conversationType) || typeof message.text !== 'string' || !message.text.trim()
     || message.text.length > EXTERNAL_BOT_LIMITS.textChars || Buffer.byteLength(message.text, 'utf8') > EXTERNAL_BOT_LIMITS.textBytes
     || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(message.text)) throw externalBotError('external_channel.message_invalid');
+  const remote = ExternalBotHooks.remoteViews?.sanitize(connection, message) || null;
   const setupReceipt = externalBotSetupReceipt(connection.id, message);
   const priorSetup = (state.setupReceipts || []).find(row => row.sourceKey === setupReceipt.sourceKey);
   if (priorSetup) {
@@ -1229,7 +1443,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   const reclaimed = state.retentionReceipts?.find(row => row.sourceHash === externalBotRetentionHash(setupReceipt.sourceKey));
   if (reclaimed) {
     // Re-pairing must not repurpose an already accepted message identity or bypass its conflict check.
-    const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, message.text])).digest('hex');
+    const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, reclaimed.commandTextHash ? setupReceipt.textHash : message.text])).digest('hex');
     if (reclaimed.contentHash !== contentHash) throw externalBotError('external_channel.message_conflict', 409);
     return ack;
   }
@@ -1245,7 +1459,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   if (!connection.enabled) throw externalBotError('external_channel.connection_unavailable', 404);
   if (message.tenantId !== connection.tenantId || !connection.allowedSenderIds.includes(message.senderId) || !connection.allowedConversationIds.includes(message.conversationId)) throw externalBotError('external_channel.source_forbidden', 403);
   const sourceKey = JSON.stringify([connection.id, message.tenantId, message.conversationId, message.messageId]);
-  const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, message.text])).digest('hex');
+  const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, remote ? setupReceipt.textHash : message.text])).digest('hex');
   const existing = state.items.find(item => item.sourceKey === sourceKey);
   if (existing) {
     if (existing.contentHash !== contentHash) throw externalBotError('external_channel.message_conflict', 409);
@@ -1254,13 +1468,15 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   if (state.items.length >= EXTERNAL_BOT_LIMITS.items) throw externalBotError('external_channel.inbox_full', 503);
   const control = connection.mode === 'control' && connection.ownerSenderId === message.senderId && connection.ownerConversationId === message.conversationId && connection.ownerConversationType === message.conversationType
     ? { connectionId: connection.id, controlRevision: connection.controlRevision, platform, appId: connection.appId, tenantId: message.tenantId, senderId: message.senderId, conversationId: message.conversationId, conversationType: message.conversationType } : null;
+  if (remote) externalBotUpgradeRemoteState(state);
   const item = { id: makeId('botmsg'), connectionId: connection.id, platform, connectionLabel: connection.label,
     tenantId: message.tenantId, conversationId: message.conversationId, senderId: message.senderId,
-    conversationType: message.conversationType, text: message.text, messageId: message.messageId, eventId: message.eventId,
+    conversationType: message.conversationType, text: remote ? '/' + remote.kind : message.text, ...(remote ? { remoteCommand: remote } : {}), messageId: message.messageId, eventId: message.eventId,
     receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema >= 2 ? { archivedAt: '' } : {}), ...(state.schema >= 4 ? { replyHistory: [] } : {}),
     execution: control ? { status: 'queued', serverInstanceId: '', startedAt: '', finishedAt: '', errorCode: '', replyText: '', turnSeq: 0, actionFailures: 0, proposals: 0, contractIncomplete: false } : null, delivery: null };
-  const query = control && externalBotStatusCommand(message.text);
-  if (control && (connection.progressUpdates || query)) {
+  if (remote) item.feedback = externalBotFeedback(item, message, false);
+  const query = !remote && control && externalBotStatusCommand(message.text);
+  if (!remote && control && (connection.progressUpdates || query)) {
     let target = null;
     if (query) target = state.items.slice().reverse().find(row => row.control && !row.feedback?.queryId
       && row.connectionId === item.connectionId && row.platform === item.platform && row.tenantId === item.tenantId
@@ -1277,7 +1493,15 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
     }
   }
   state.items.push(item);
-  await externalBotWriteState(state);
+  let armHuman = null;
+  if (remote && control && ['decide', 'answer'].includes(remote.kind)) {
+    const ticket = Object.freeze({});
+    externalBotVerifiedIngressTickets.set(ticket, { message, connection, credentials, bodyHash: crypto.createHash('sha256').update(rawBody).digest('hex'),
+      sourceKey, contentHash, bootId: OVERLAY_ID, connectionFingerprint: externalBotConnectionFingerprint(connection) });
+    armHuman = await externalBotHumanAdmission.admit(ticket, state, item);
+  }
+  await externalBotWriteState(state); // Only a confirmed claim+item write can arm volatile human payload.
+  if (armHuman) await armHuman();
   return ack;
 }
 async function externalBotSetupHttpOperation(req, res, operation) {
@@ -1419,5 +1643,5 @@ Object.assign(ExternalBotHooks, {
   stewardSetup: externalBotStewardSetup,
   actorSignal: actor => externalBotActors.get(actor)?.controller.signal || null,
   start: () => { externalBotWorkerStopped = false; externalBotWakeWorker(); },
-  stop: () => { externalBotWorkerStopped = true; externalBotWorkerSignal?.(); externalBotWorkerSignal = null; clearTimeout(externalBotFeedbackTimer); externalBotFeedbackTimer = null; externalBotPairings.clear(); for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
+  stop: () => { externalBotWorkerStopped = true; externalBotWorkerSignal?.(); externalBotWorkerSignal = null; clearTimeout(externalBotFeedbackTimer); externalBotFeedbackTimer = null; externalBotPairings.clear(); ExternalBotHooks.remoteViews?.clear(); for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
 });

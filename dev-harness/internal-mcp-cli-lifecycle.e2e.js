@@ -280,7 +280,10 @@ async function main() {
   finally {
     for (const child of [...ownedChildren]) await stop(child);
     check(path.dirname(root) === temp && path.basename(root).startsWith('ruyi-cli-relay-lifecycle-'), 'cleanup path');
-    if (!t.failures) fs.rmSync(root, { recursive: true, force: true });
+    if (!t.failures) {
+      if (process.env.RUYI_INTERNAL_CLI_KEEP_ARTIFACTS === '1') console.log('ARTIFACTS ' + root);
+      else fs.rmSync(root, { recursive: true, force: true });
+    }
     t.done();
   }
 }

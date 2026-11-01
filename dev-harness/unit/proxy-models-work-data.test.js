@@ -141,14 +141,63 @@ test('proposal cache await precedes every mutation and closing/cap guards remain
 test('approval cache await is followed by live/stop/item validation before synchronous materialization', async () => {
   const f = fixture(); f.state.enabled = true; await f.api.setProxyModelsCache([{ id: 'cache-model' }]);
   const route = fs.readFileSync(path.join(path.dirname(process.env.RUYI_PROXY_CACHE_SOURCE || path.join(sourceDir, '13-http-router.js')), '13d-core-domain-routes.js'), 'utf8');
-  const body = sliceBlock(route, '      const { runId, live, item, config, cwd, roleLibrary } = poolContext;', '    })();');
+  const decision = functionBlock(route, 'decideIntervention'), body = bracedBlock(decision, 'const execute = () =>'), effect = constBlock(decision, 'withEffect');
   assert.ok(body.includes('await ProxyModelHooks.read')); const run = { nodes: [] }, live = { run, stopRequested: false }, item = { status: 'proposed' };
   let release, calls = 0; const gate = new Promise(resolve => { release = resolve; });
-  const sandbox = { action: 'approve', poolContext: { runId: 'run', live, item, config: { agentAutoModelTiering: true }, cwd: root, roleLibrary: new Map() },
+  const sandbox = { type: 'pool', action: 'approve', human: null, poolContext: { runId: 'run', live, item, config: { agentAutoModelTiering: true }, cwd: root, roleLibrary: new Map(), roleSources: [{ assert() {} }], assertConfig() {} },
     activeAgentRuns: new Map([['run', live]]), ProxyModelHooks: { read: async () => { await gate; return f.api.getProxyModelsCache(); } },
     materializePoolItem: () => { calls++; throw new Error('must not materialize'); } };
-  const execute = vm.runInNewContext('(async()=>{' + body + '})', sandbox), pending = execute();
+  const execute = vm.runInNewContext(effect + '\n' + body + ';execute;', sandbox), pending = execute();
   live.stopRequested = true; release(); const denied = await pending;
   assert.equal(denied.reason, 'run_state_changed'); assert.equal(calls, 0); assert.equal(item.status, 'proposed'); assert.equal(run.nodes.length, 0);
   live.stopRequested = false; f.state.missing = true; await assert.rejects(execute(), privateError); assert.equal(calls, 0); assert.equal(item.status, 'proposed');
+});
+
+test('complete original approval preserves encrypted cache await and config/role/live guards; omitted-await and state-guard countercopies are detected', async () => {
+  const route = fs.readFileSync(path.join(path.dirname(process.env.RUYI_PROXY_CACHE_SOURCE || path.join(sourceDir, '13-http-router.js')), '13d-core-domain-routes.js'), 'utf8');
+  const decision = functionBlock(route, 'decideIntervention'), original = bracedBlock(decision, 'const execute = () =>'), effect = constBlock(decision, 'withEffect');
+  assert.ok(original.includes('await ProxyModelHooks.read'));assert.ok(effect.includes('human.withEffect(work)'));
+  for (const kind of ['positive','replace','closing','stop','abort','item','config-proof','role-proof','missing-key','no-await','no-state-guard']) {
+    const f = fixture();f.state.enabled = true;await f.api.setProxyModelsCache([{ id: 'cache-model' }]);
+    const run = { nodes: [] }, live = { run, stopRequested: false, ctrl: new AbortController() }, item = { status: 'proposed' };
+    let release, entered = false, calls = 0, configChecks = 0, roleChecks = 0;const reads = [];
+    const gate = new Promise(resolve => { release = resolve; });
+    const sandbox = { type: 'pool', action: 'approve', human: null,
+      poolContext: { runId: 'run', live, item, config: { agentAutoModelTiering: true }, cwd: root, roleLibrary: new Map(),
+        assertConfig() { configChecks++;if (kind === 'config-proof') throw Error('original config proof changed'); },
+        roleSources: [{ assert() { roleChecks++;if (kind === 'role-proof') throw Error('original role proof changed'); } }] },
+      activeAgentRuns: new Map([['run', live]]),
+      ProxyModelHooks: { read: () => { entered = true;const pending = gate.then(() => f.api.getProxyModelsCache());reads.push(pending);pending.catch(() => {});return pending; } },
+      materializePoolItem: () => { calls++;return { ok: false, reason: 'bounded-materialize-observer' }; } };
+    let body = original;
+    if (kind === 'no-await') body = body.replace('await ProxyModelHooks.read()', 'ProxyModelHooks.read()');
+    if (kind === 'no-state-guard') {
+      const guard = "if (activeAgentRuns.get(runId) !== live || live.closing || live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted) || item.status !== 'proposed')";
+      assert.equal(body.split(guard).length,2);body = body.replace(guard, 'if (false)');
+    }
+    const execute = vm.runInNewContext(effect + '\n' + body + ';execute;', sandbox), pending = execute();let outcome = 'pending';
+    pending.then(() => { outcome = 'fulfilled'; }, () => { outcome = 'rejected'; });
+    for (let turn = 0;turn < 8;turn++) await Promise.resolve();
+    assert.equal(entered,true);
+    if (kind === 'no-await') { assert.equal(calls,1);assert.equal(outcome,'fulfilled'); }
+    else { assert.equal(calls,0);assert.equal(configChecks,0);assert.equal(roleChecks,0);assert.equal(outcome,'pending'); }
+    if (kind === 'replace') sandbox.activeAgentRuns.set('run',{run});
+    if (kind === 'closing') live.closing = true;
+    if (kind === 'stop' || kind === 'no-state-guard') live.stopRequested = true;
+    if (kind === 'abort') live.ctrl.abort();
+    if (kind === 'item') item.status = 'rejected';
+    if (kind === 'missing-key') f.state.missing = true;
+    release();
+    if (kind === 'missing-key') await assert.rejects(pending, privateError);
+    else if (kind === 'config-proof' || kind === 'role-proof') await assert.rejects(pending, /original (?:config|role) proof changed/);
+    else {
+      const result = await pending;
+      if (['positive','no-await','no-state-guard'].includes(kind)) { assert.equal(result.reason,'bounded-materialize-observer');assert.equal(calls,1); }
+      else { assert.equal(result.reason,'run_state_changed');assert.equal(calls,0); }
+    }
+    assert.equal(run.nodes.length,0);
+    if (kind === 'missing-key' || kind === 'config-proof' || kind === 'role-proof') assert.equal(calls,0);
+    if (kind === 'positive') { assert.equal(configChecks,1);assert.equal(roleChecks,1); }
+    const settled = await Promise.allSettled(reads);assert.ok(settled.every(row => row.status === (kind === 'missing-key' ? 'rejected' : 'fulfilled')));
+  }
 });

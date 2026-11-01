@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 132,
-    "providedSymbols": 4283,
-    "requiredSymbols": 4189,
-    "edges": 911,
+    "modules": 133,
+    "providedSymbols": 4322,
+    "requiredSymbols": 4254,
+    "edges": 921,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1943,6 +1943,7 @@
         "applySessionTitleOverride",
         "archiveMissionContainer",
         "archiveMissionResult",
+        "armInterventionJournal",
         "asResultObject",
         "boundedChangeText",
         "bridgedWriteRelativePathArg",
@@ -1987,7 +1988,10 @@
         "inflightSessionIndex",
         "interventionAppendCounts",
         "interventionFilePath",
+        "interventionJournalArms",
+        "interventionJournalStamp",
         "interventionJournalWorthCompacting",
+        "interventionReceiptCodec",
         "interventionRecordCache",
         "interventionTransitionLocks",
         "interventionWriteChains",
@@ -2112,6 +2116,8 @@
         "pendingSessionIndex",
         "planSessionBodyAppend",
         "providerHistoryToolCalls",
+        "readInterventionDecisionReceipt",
+        "readInterventionJournalProof",
         "readInterventions",
         "readInterventionsWithMeta",
         "readMissionChangesWithMeta",
@@ -2248,6 +2254,7 @@
         "updateSessionMeta",
         "updateSessionMetaAttempt",
         "updateSessionScratchpad",
+        "validateInterventionReceiptTerminal",
         "waitMissionTurnSettled",
         "withJournalArtifactOperation",
         "withJournalWriteLock",
@@ -3330,6 +3337,7 @@
         "_toolboxSkipLogged",
         "activeChildren",
         "appendLiveTail",
+        "assertInterventionConsumer",
         "assertSessionExecutionOwner",
         "auditLogContext",
         "auditLogEnabled",
@@ -3347,6 +3355,7 @@
         "bridgedToolTimeoutMs",
         "buildClaudeRecoveryHistory",
         "buildMcpConnectorInventory",
+        "captureInterventionConsumer",
         "classifyMcpError",
         "claudeProviderTailSince",
         "claudeResumeRouteKey",
@@ -3357,6 +3366,7 @@
         "collectBridgedTools",
         "collectBridgedToolsScan",
         "configureMcpFromTool",
+        "consumeInterventionHumanWitness",
         "decodeClaudeTaskXmlText",
         "deltaOf",
         "driverAutoSessions",
@@ -3369,6 +3379,8 @@
         "hasPendingPermissionForSession",
         "hasPendingQuestionForSession",
         "installActiveChildEventFanout",
+        "interventionConsumerOrigins",
+        "interventionHumanConsumers",
         "invalidateMcpDropInCache",
         "invalidateMcpRuntime",
         "invalidateToolboxCache",
@@ -3432,6 +3444,7 @@
         "recordSessionExecutionOwner",
         "recoverWorkbenchAudit",
         "redact",
+        "registerInterventionConsumer",
         "registerSessionExecutionChild",
         "registerUserQuestion",
         "rememberAuditLogFailure",
@@ -8488,6 +8501,7 @@
         "schedulerAskWaitOverrideMs",
         "schedulerAskWaitSessions",
         "searchToolCatalog",
+        "strictAgentRoleSource",
         "tokenizeToolSearchText",
         "toolArgEnumText",
         "toolArgTypeText",
@@ -8553,6 +8567,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
           "kinds": [
             "read"
           ]
@@ -8876,6 +8897,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "captureInterventionConsumer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "killChildTree",
           "kinds": [
             "call"
@@ -8940,6 +8968,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "registerInterventionConsumer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "resolveBridge",
           "kinds": [
             "call"
@@ -8957,13 +8992,6 @@
           "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "turnSettlers",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -18189,6 +18217,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "configReadFence",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -18336,6 +18371,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "interventionReceiptCodec",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "journalReadIndex",
           "kinds": [
             "call"
@@ -18414,6 +18456,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "patchMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionJournalProof",
           "kinds": [
             "call"
           ]
@@ -18598,6 +18647,13 @@
           "symbol": "activeChildren",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "consumeInterventionHumanWitness",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -26938,6 +26994,8 @@
         "EXTERNAL_BOT_DISCOVERY_LIMITS",
         "EXTERNAL_BOT_LIMITS",
         "EXTERNAL_BOT_LOCAL_REPLY_RETRY",
+        "EXTERNAL_BOT_REMOTE",
+        "EXTERNAL_BOT_REMOTE_BINDING_KEYS",
         "EXTERNAL_BOT_REPLY_RETRY_ERRORS",
         "EXTERNAL_BOT_REPLY_RETRY_MAX",
         "EXTERNAL_BOT_RETENTION",
@@ -26973,6 +27031,7 @@
         "externalBotFeedbackTimer",
         "externalBotFeedbackWaiting",
         "externalBotFinishJob",
+        "externalBotHumanAdmission",
         "externalBotIdentity",
         "externalBotInflight",
         "externalBotNextJob",
@@ -26989,6 +27048,23 @@
         "externalBotReadState",
         "externalBotRecover",
         "externalBotRecoveryDone",
+        "externalBotRemoteBinding",
+        "externalBotRemoteCodeHash",
+        "externalBotRemoteCodeMatches",
+        "externalBotRemoteCommand",
+        "externalBotRemoteDate",
+        "externalBotRemoteDedupe",
+        "externalBotRemoteDigest",
+        "externalBotRemoteDisposition",
+        "externalBotRemoteHash",
+        "externalBotRemoteKeys",
+        "externalBotRemoteNewCode",
+        "externalBotRemoteOfferId",
+        "externalBotRemoteReceipt",
+        "externalBotRemoteRecord",
+        "externalBotRemoteValidClaim",
+        "externalBotRemoteValidFacts",
+        "externalBotRemoteWriteAllowed",
         "externalBotReplyBinding",
         "externalBotReplyRetryReceipt",
         "externalBotReplyRetryWindow",
@@ -27002,6 +27078,7 @@
         "externalBotRetentionPreview",
         "externalBotRetentionReceipt",
         "externalBotRetryReply",
+        "externalBotRunRemoteJob",
         "externalBotRunWithFeedback",
         "externalBotSafeCredentialError",
         "externalBotSaveCredentials",
@@ -27022,16 +27099,19 @@
         "externalBotUnsettled",
         "externalBotUpdateConnection",
         "externalBotUpgradeFeedbackState",
+        "externalBotUpgradeRemoteState",
         "externalBotValidControlState",
         "externalBotValidFeedback",
         "externalBotValidItem",
         "externalBotValidReceiptDelivery",
+        "externalBotValidRemoteState",
         "externalBotValidReplyHistory",
         "externalBotValidRetentionReceipt",
         "externalBotValidRetentionState",
         "externalBotValidSetupReceipt",
         "externalBotValidState",
         "externalBotValidateActor",
+        "externalBotVerifiedIngressTickets",
         "externalBotWakeWorker",
         "externalBotWorkerAgain",
         "externalBotWorkerBusy",
@@ -27235,8 +27315,425 @@
       ]
     },
     {
-      "file": "13ac-mcp-consumer.js",
+      "file": "13w1-external-remote-views.js",
       "order": 105,
+      "layer": "unclassified",
+      "note": "C1 private typed source/protected view and volatile offer preparation; no public ingress or decision authority",
+      "provides": [
+        "ExternalBotRemoteViews"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "OVERLAY_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configReadFence",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "armInterventionJournal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "interventionFilePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionDecisionReceipt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionJournalProof",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readInterventionsWithMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionDiskWriteSeqOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03a-privacy-gateway.js",
+          "symbol": "PrivacyGateway",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "assertInterventionConsumer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "interventionHumanConsumers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "pendingPlans",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "readAgentRunSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "canonicalDecisionValue",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "decideIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "interventionDecisionFingerprint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "normalizeContractQuestionDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "pendingInterventionRefs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "getPretenderProjectionIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13v-external-channel-protocols.js",
+          "symbol": "ExternalChannelProtocols",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "EXTERNAL_BOT_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "EXTERNAL_BOT_REMOTE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotChains",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotConnectionFingerprint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotCredentialSnapshot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotDeliveries",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotError",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotHumanAdmission",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotIdentity",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotOwnerMatches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotReadState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteBinding",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteCodeHash",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteCodeMatches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteCommand",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteDedupe",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteDigest",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteHash",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteKeys",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteNewCode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteOfferId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRemoteRecord",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotRetentionHash",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotUpgradeRemoteState",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotVerifiedIngressTickets",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotWorkerStopped",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13w-external-bots.js",
+          "symbol": "externalBotWriteState",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ac-mcp-consumer.js",
+      "order": 106,
       "layer": "unclassified",
       "note": "Authenticated independent stdio consumer relay, bounded host-owned scopes and grants",
       "provides": [
@@ -27529,7 +28026,7 @@
     },
     {
       "file": "13ad-memory-cli-relay.js",
-      "order": 106,
+      "order": 107,
       "layer": "unclassified",
       "note": "Per-execution read-only memory relay for native CLI consumers",
       "provides": [
@@ -27722,7 +28219,7 @@
     },
     {
       "file": "13ae-cli-business-services.js",
-      "order": 107,
+      "order": 108,
       "layer": "unclassified",
       "note": "M3-3: CLI business services shared by HTTP and serve-owned internal MCP, late-bound through boot hooks",
       "provides": [
@@ -28002,6 +28499,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "registerInterventionConsumer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "requestUserQuestion",
           "kinds": [
             "call"
@@ -28165,7 +28669,7 @@
     },
     {
       "file": "13af-internal-mcp-relay.js",
-      "order": 108,
+      "order": 109,
       "layer": "unclassified",
       "note": "M3-3: exact execution capability relay; default stdio has no data-root writer",
       "provides": [
@@ -28442,7 +28946,7 @@
     },
     {
       "file": "13ag-work-data-maintenance.js",
-      "order": 109,
+      "order": 110,
       "layer": "unclassified",
       "note": "M3-3: work-data-maintenance",
       "provides": [
@@ -29107,7 +29611,7 @@
     },
     {
       "file": "13at-work-data-restore-uploads.js",
-      "order": 110,
+      "order": 111,
       "layer": "unclassified",
       "note": "K3 production restore-upload custody: host-owned sealed upload store with exclusive ownership re-checks and one job-bound private job/nonce handoff consumed by the cold restore worker; HTTP upload custody and the warm runtime keeper are wired, and a restore recovers into an independent fresh target whose private successor is started on that target root under the TEMP activation receipt (B2). The receipt remains a single-handoff TEMP record — never a migration, ownership or long-lived serving-root authority; the persistent boot-root preference is a separate record (B3).",
       "provides": [
@@ -29132,7 +29636,7 @@
     },
     {
       "file": "13av-work-data-handoff-claim.js",
-      "order": 111,
+      "order": 112,
       "layer": "unclassified",
       "note": "M3-3: durable warm/cold handoff claim with exact identity CAS and fail-closed cleanup, plus the separate activation-v1 TEMP namespace that binds one committed restore to its canonical fresh target, target identity/authority, successor nonce, cold parent and source result proof with create-only writes and sha/dev/ino CAS removal; never a migration or ownership authority",
       "provides": [
@@ -29150,7 +29654,7 @@
     },
     {
       "file": "13ah-work-data-setup.js",
-      "order": 112,
+      "order": 113,
       "layer": "unclassified",
       "note": "K3 authenticated setup jobs plus HTTP maintenance admission for enable, export, disable, restore, status, jobs and upload; restore admission requires the real worker and upload broker, resolves exactly one job-bound grant after directory and authority checks, and recovers into a separate fresh target whose private successor is then started on that target root under the TEMP activation receipt; the persistent source result still expresses no serving-root preference (restored target metadata only, no restartRoot or activation preference)",
       "provides": [
@@ -29362,7 +29866,7 @@
     },
     {
       "file": "13ai-work-data-worker.js",
-      "order": 113,
+      "order": 114,
       "layer": "unclassified",
       "note": "K3 cold maintenance worker: authenticated private IPC plus proof of parent death before it touches the base, restore-upload handoff validation and execute()-only mutation; the parent reads no config or store, releases no ownership and switches no warm root",
       "provides": [
@@ -29402,7 +29906,7 @@
     },
     {
       "file": "13aj-work-data-control.js",
-      "order": 114,
+      "order": 115,
       "layer": "unclassified",
       "note": "K3 durable single pending maintenance intent with its per-write receipts: a private issued receipt gates every update/removal, an interrupted write never authorizes the next mutation, and boot refuses unfinished intent/result state before normal recovery",
       "provides": [
@@ -29434,7 +29938,7 @@
     },
     {
       "file": "13al-work-data-maintenance-http.js",
-      "order": 115,
+      "order": 116,
       "layer": "unclassified",
       "note": "K3 bounded cold-worker progress HTTP: loopback-only status transport whose caller has already proved parent death and current exclusive OS ownership; it opens no data root and starts no maintenance",
       "provides": [
@@ -29473,7 +29977,7 @@
     },
     {
       "file": "13an-work-data-disposable-tree.js",
-      "order": 116,
+      "order": 117,
       "layer": "unclassified",
       "note": "K3 disposal of the owned disposable native rehearsal tree: requires the real native namespace census plus WorkDataTree's private identity proof and refuses any capture above the existing 96 MB bound instead of omitting tail, stream or unknown objects",
       "provides": [
@@ -29483,7 +29987,7 @@
     },
     {
       "file": "13ak-work-data-cold-operations.js",
-      "order": 117,
+      "order": 118,
       "layer": "unclassified",
       "note": "K3 cold operation bodies for the fresh maintenance worker: backup, restore and rehearsal run on host-supplied real owner lifetimes and the reviewed snapshot/codec/native owners; never starts a normal server or changes process-global paths",
       "provides": [
@@ -29578,7 +30082,7 @@
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "order": 118,
+      "order": 119,
       "layer": "unclassified",
       "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and successor maintenance; in production the successor is WorkDataRuntimeHost startSuccessorMaintenance driving the prepare/complete two-phase handoff into a fresh serve that must re-prove the same listener and authority, while runSuccessor remains only the legacy harness path; only a reviewed production host may configure it",
       "provides": [
@@ -29666,7 +30170,7 @@
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "order": 119,
+      "order": 120,
       "layer": "unclassified",
       "note": "M3-4 committed-message text index owner",
       "provides": [
@@ -29778,7 +30282,7 @@
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "order": 120,
+      "order": 121,
       "layer": "unclassified",
       "note": "M3-4 authorized UI/model/MCP fulltext consumers",
       "provides": [
@@ -29959,7 +30463,7 @@
     },
     {
       "file": "13ba-media-image-contract.js",
-      "order": 121,
+      "order": 122,
       "layer": "unclassified",
       "note": "M4 bounded in-memory image contract; production media owners unbound",
       "provides": [
@@ -29984,7 +30488,7 @@
     },
     {
       "file": "13bb-media-derived-store.js",
-      "order": 122,
+      "order": 123,
       "layer": "unclassified",
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending",
       "provides": [
@@ -30016,7 +30520,7 @@
     },
     {
       "file": "13bc-media-image-processor.js",
-      "order": 123,
+      "order": 124,
       "layer": "unclassified",
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending",
       "provides": [
@@ -30041,7 +30545,7 @@
     },
     {
       "file": "13bd-media-image-service.js",
-      "order": 124,
+      "order": 125,
       "layer": "unclassified",
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending",
       "provides": [
@@ -30059,7 +30563,7 @@
     },
     {
       "file": "13be-media-image-host.js",
-      "order": 125,
+      "order": 126,
       "layer": "unclassified",
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending",
       "provides": [
@@ -30280,7 +30784,7 @@
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "order": 126,
+      "order": 127,
       "layer": "unclassified",
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false",
       "provides": [
@@ -30396,7 +30900,7 @@
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "order": 127,
+      "order": 128,
       "layer": "unclassified",
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability",
       "provides": [
@@ -30428,7 +30932,7 @@
     },
     {
       "file": "13aw-work-data-root-preference.js",
-      "order": 128,
+      "order": 129,
       "layer": "unclassified",
       "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted",
       "provides": [
@@ -30446,7 +30950,7 @@
     },
     {
       "file": "13ax-desktop-lifetime.js",
-      "order": 129,
+      "order": 130,
       "layer": "unclassified",
       "note": "M3-D1 private desktop lifetime transport and owner-composed cooperative close; no data-root or maintenance authority",
       "provides": [
@@ -30578,7 +31082,7 @@
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "order": 130,
+      "order": 131,
       "layer": "unclassified",
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis).",
       "provides": [
@@ -30723,7 +31227,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 131,
+      "order": 132,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -37306,6 +37810,7 @@
         "cp",
         "createNdjsonLineFeeder",
         "crypto",
+        "fs",
         "fsp",
         "makeId",
         "nowIso",
@@ -37426,6 +37931,7 @@
         "ManagedMcp",
         "PermissionWaitHooks",
         "assertSessionExecutionOwner",
+        "captureInterventionConsumer",
         "killChildTree",
         "logEvent",
         "parseClaudeEvent",
@@ -37433,10 +37939,10 @@
         "pendingPlans",
         "promptWaitMs",
         "redact",
+        "registerInterventionConsumer",
         "resolveBridge",
         "revalidateSessionExecutionPermission",
-        "runAutomaticInterventionDecision",
-        "turnSettlers"
+        "runAutomaticInterventionDecision"
       ],
       "direction": "backward"
     },
@@ -40214,6 +40720,7 @@
         "logEvent",
         "pendingPermissions",
         "permissionWaitMs",
+        "registerInterventionConsumer",
         "requestUserQuestion",
         "runAutomaticInterventionDecision"
       ],
@@ -41897,6 +42404,7 @@
       "to": "01-config.js",
       "symbols": [
         "atomicWriteJson",
+        "configReadFence",
         "readConfig",
         "readJsonBody",
         "safeSessionId",
@@ -41953,6 +42461,7 @@
         "deleteSession",
         "detectDanglingTurn",
         "foldTurnSummaries",
+        "interventionReceiptCodec",
         "journalReadIndex",
         "listMissionContainers",
         "listSessions",
@@ -41965,6 +42474,7 @@
         "missionMergeInto",
         "missionSplitThreads",
         "patchMissionContainer",
+        "readInterventionJournalProof",
         "readInterventions",
         "readMissionChangesWithMeta",
         "readMissionContainer",
@@ -42019,6 +42529,7 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
+        "consumeInterventionHumanWitness",
         "extendUserQuestion",
         "logEvent",
         "normalizeQuestionAnswer",
@@ -44514,6 +45025,134 @@
       "to": "13z-external-bot-discovery.js",
       "symbols": [
         "ExternalBotDiscovery"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "ExternalBotHooks",
+        "OVERLAY_ID",
+        "crypto",
+        "fs",
+        "makeId",
+        "nowIso",
+        "runKeyedChain",
+        "text"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "01-config.js",
+      "symbols": [
+        "configReadFence",
+        "readConfig"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "armInterventionJournal",
+        "interventionFilePath",
+        "readInterventionDecisionReceipt",
+        "readInterventionJournalProof",
+        "readInterventionsWithMeta",
+        "readSessionHeadResilient",
+        "sessionDiskWriteSeqOf"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "03a-privacy-gateway.js",
+      "symbols": [
+        "PrivacyGateway"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "assertInterventionConsumer",
+        "interventionHumanConsumers",
+        "pendingPlans"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "activeAgentRuns",
+        "agentRunFile",
+        "readAgentRunSnapshot"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "13d-core-domain-routes.js",
+      "symbols": [
+        "canonicalDecisionValue",
+        "decideIntervention",
+        "interventionDecisionFingerprint",
+        "normalizeContractQuestionDecision",
+        "pendingInterventionRefs"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "13e-pretender-index.js",
+      "symbols": [
+        "getPretenderProjectionIndex"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "13v-external-channel-protocols.js",
+      "symbols": [
+        "ExternalChannelProtocols"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w1-external-remote-views.js",
+      "to": "13w-external-bots.js",
+      "symbols": [
+        "EXTERNAL_BOT_LIMITS",
+        "EXTERNAL_BOT_REMOTE",
+        "externalBotChains",
+        "externalBotConnectionFingerprint",
+        "externalBotCredentialSnapshot",
+        "externalBotDeliveries",
+        "externalBotError",
+        "externalBotHumanAdmission",
+        "externalBotIdentity",
+        "externalBotOwnerMatches",
+        "externalBotReadState",
+        "externalBotRemoteBinding",
+        "externalBotRemoteCodeHash",
+        "externalBotRemoteCodeMatches",
+        "externalBotRemoteCommand",
+        "externalBotRemoteDedupe",
+        "externalBotRemoteDigest",
+        "externalBotRemoteHash",
+        "externalBotRemoteKeys",
+        "externalBotRemoteNewCode",
+        "externalBotRemoteOfferId",
+        "externalBotRemoteRecord",
+        "externalBotRetentionHash",
+        "externalBotUpgradeRemoteState",
+        "externalBotVerifiedIngressTickets",
+        "externalBotWorkerStopped",
+        "externalBotWriteState"
       ],
       "direction": "backward"
     },

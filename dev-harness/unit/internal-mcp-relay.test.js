@@ -26,13 +26,35 @@ function fixture(extra={}){
   ...extra};
  const tool=extra.toolCall||(async(name,args,ctx)=>{state.calls.push({name,args,ctx});state.ctx=ctx;if(state.onCall)return state.onCall(name,args,ctx);return{ok:true,name,args};});context.toolCall=tool;
  context.cliTodoService=undefined;
- vm.createContext(context);vm.runInContext(read('13ae-cli-business-services.js'),context);
+ vm.createContext(context);
+ // Compose the actual consumer capability registry used by the shared CLI
+ // permission service. A roots-shaped/no-op stub cannot model this contract.
+ if(!extra.omitConsumerRegistrar){const source=read('04-permission-runtime.js');vm.runInContext([
+  constBlock(source,'interventionConsumerOrigins'),
+  ...['assertSessionExecutionOwner','captureInterventionConsumer','registerInterventionConsumer','assertInterventionConsumer'].map(name=>functionBlock(source,name))
+ ].join('\n'),context);}
+ vm.runInContext(read('13ae-cli-business-services.js'),context);
  const relay=vm.runInContext(read('13af-internal-mcp-relay.js')+'\nInternalMcpRelay;',context);context.InternalMcpRelay=relay;
  const acquire=()=>{const grant=relay.create({session:state.session,executionOwner:owner,config:state.config,packs:['files']}),reg={child:child(),kind:'claude',state:'running',exited:false,session:state.session,executionOwner:owner,onEvent:event=>state.events.push(event)};children.set('sid',reg);relay.bind(grant,reg,owner);return{grant,reg,token:grant.definition.env.RUYI_INTERNAL_MCP_CAP};};
  const request=async(token,message,headers={},stream)=>{const req=Readable.from(stream||[Buffer.from(JSON.stringify(message))]);req.method='POST';req.headers={'x-ruyi-internal-mcp-cap':token,...headers};const res=Object.assign(new EventEmitter(),{destroyed:false,writableEnded:false,headersSent:false,frames:[],writeHead(status){this.status=status;this.headersSent=true;},write(text){this.frames.push(JSON.parse(text));return true;},end(){this.writableEnded=true;}});await relay.handle(req,res,'/api/mcp/internal/request');return res;};
  return{state,context,children,settlers,runs,owner,relay,acquire,request};
 }
 const rpc=(name,args={},id=1)=>({jsonrpc:'2.0',id,method:'tools/call',params:{name,arguments:args}}),last=res=>res.frames.at(-1);
+async function permissionEntry(pending,registry,id,yieldTurn=()=>new Promise(resolve=>setImmediate(resolve))){
+ let outcome='pending',failure;
+ Promise.resolve(pending).then(()=>{outcome='fulfilled';},error=>{outcome='rejected';failure=error;});
+ // Observe the exact operation's rejection before trusting a readiness row.
+ // The original fixture's immediate readConfig/registration needs one turn;
+ // a missing hook or early return must fail, never spin until an absent timer.
+ for(let turn=0;turn<16;turn++){
+  await Promise.resolve();
+  if(outcome==='rejected')throw failure;
+  if(outcome==='fulfilled')throw Error('permission request settled before registration');
+  const entry=registry.get(id);if(entry)return entry;
+  await yieldTurn();
+ }
+ throw Error('permission prompt registration did not settle in the fixture turn bound');
+}
 
 test('capability requires exact registered main execution; plain API tokens and caller SID grant no authority',async()=>{
  const f=fixture(),g=f.acquire();assert.equal(g.grant.definition.env.WCW_TOKEN,'');assert.equal(g.grant.definition.env.RUYI_HOME,'C:/base');
@@ -282,7 +304,7 @@ test('post-await receipt mutations and UI events require the original execution 
   if(kind==='wait'){f.context.waitForAgentRunResults=async()=>{entered.resolve();await gate.promise;return{ok:true};};pending=f.context.cliAgentResultService({sessionId:'sid'},'wait',options);}
   else if(kind==='result'){f.context.agentRunResultSlice=async()=>{entered.resolve();await gate.promise;return{ok:true,live:false,runStatus:'succeeded',runId:'run_one'};};pending=f.context.cliAgentResultService({sessionId:'sid'},'result',options);}
   else if(kind==='launch'){f.context.runAgentWorkflow=async call=>{entered.resolve();await gate.promise;await call.onComplete({id:'run_one'});return{ok:true};};pending=f.context.cliAgentLaunchService({sessionId:'sid',task:'work',envelope:true},options);}
-  else if(kind==='permission'){g.reg.lastEventAt=123;f.context.nativeToolGate=()=> 'ask';pending=f.context.cliPermissionService({sessionId:'sid',toolName:'Edit',input:{}},options);while(!f.context.pendingPermissions.has('perm_one'))await new Promise(r=>setImmediate(r));entered.resolve();}
+  else if(kind==='permission'){g.reg.lastEventAt=123;f.context.nativeToolGate=()=> 'ask';pending=f.context.cliPermissionService({sessionId:'sid',toolName:'Edit',input:{}},options);await permissionEntry(pending,f.context.pendingPermissions,'perm_one');entered.resolve();}
   else{f.context.mutateSession=async(sid,work)=>{await work(f.state.session);entered.resolve();await gate.promise;return{ok:true,session:f.state.session};};pending=kind==='todo'?f.context.cliTodoService({sessionId:'sid',items:[{text:'one'}]},options):f.context.cliMissionService({sessionId:'sid',action:'update',goal:'new'},options);}
   const rejected=assert.rejects(pending,/lost exact owner/);await entered.promise;
   const replacement={...g.reg,session:{id:'sid',cwd:'C:/replacement'}};f.children.set('sid',replacement);
@@ -329,6 +351,29 @@ test('an expired permission timer clears only its own prompt through command-cor
  const f=fixture(),g=f.acquire(),timers=[],commands=[];f.state.config.autonomyPauseOnTimeout=true;f.context.driverAutoSessions.add('sid');g.reg.lastEventAt=123;
  Object.assign(f.context,{setTimeout:fn=>{timers.push(fn);return{};},nativeToolGate:()=> 'ask',runAutomaticInterventionDecision:(command,apply)=>{commands.push(command);apply();},settleIntervention:()=>{}});
  const ownerCheck=()=>{if(f.children.get('sid')!==g.reg)throw Error('lost exact owner');};const pending=f.context.cliPermissionService({sessionId:'sid',toolName:'Edit',input:{}},{ownerReg:g.reg,ownerCheck});
- const rejected=assert.rejects(pending,/lost exact owner/);while(!f.context.pendingPermissions.has('perm_one'))await new Promise(r=>setImmediate(r));f.context.pendingPermissions.set('new_prompt',{sessionId:'sid'});f.children.set('sid',{...g.reg});timers[0]();await rejected;
+ const rejected=assert.rejects(pending,/lost exact owner/);await permissionEntry(pending,f.context.pendingPermissions,'perm_one');f.context.pendingPermissions.set('new_prompt',{sessionId:'sid'});f.children.set('sid',{...g.reg});timers[0]();await rejected;
  assert.equal(commands.length,1);assert.equal(commands[0].source,'clear_permission');assert.equal(commands[0].interventionId,'perm_one');assert.equal(f.context.pendingPermissions.has('perm_one'),false);assert.equal(f.context.pendingPermissions.has('new_prompt'),true);assert.equal(g.reg.pausePending,undefined);assert.equal(g.reg.lastEventAt,123);assert.deepEqual(f.state.events.map(x=>x.type),['permission_request']);
+});
+
+test('permission registration readiness propagates the original missing hook/rejection and refuses early settlement without spinning',async()=>{
+ const f=fixture({omitConsumerRegistrar:true}),g=f.acquire();let turns=0;
+ Object.assign(f.context,{setTimeout:()=>({}),nativeToolGate:()=> 'ask'});
+ const pending=f.context.cliPermissionService({sessionId:'sid',toolName:'Edit',input:{}},{ownerReg:g.reg,ownerCheck:()=>{}});
+ await assert.rejects(permissionEntry(pending,f.context.pendingPermissions,'perm_one',async()=>{turns++;}),/registerInterventionConsumer is not defined/);
+ assert.ok(turns<16);assert.equal(f.context.pendingPermissions.size,0);const initialTurns=turns;
+ const rejected=Error('original early rejection');await assert.rejects(permissionEntry(Promise.reject(rejected),new Map(),'perm_one',async()=>{turns++;}),error=>error===rejected);
+ await assert.rejects(permissionEntry(Promise.resolve({behavior:'deny'}),new Map(),'perm_one',async()=>{turns++;}),/settled before registration/);
+ await assert.rejects(permissionEntry(Promise.resolve({behavior:'deny'}),new Map([['perm_one',{}]]),'perm_one',async()=>{turns++;}),/settled before registration/);assert.equal(turns,initialTurns);
+ await assert.rejects(permissionEntry(new Promise(()=>{}),new Map(),'perm_one',async()=>{turns++;}),/fixture turn bound/);assert.equal(turns,initialTurns+16);
+});
+test('consumer private origin in the relay fixture rejects exact reg/owner/input/resolve replacement',async()=>{
+ for(const kind of ['reg','owner','input','resolve']){
+  const f=fixture(),g=f.acquire(),body={sessionId:'sid',toolName:'Edit',input:{content:'shown'}},ownerCheck=()=>{if(f.children.get('sid')!==g.reg)throw Error('lost exact owner');f.context.assertSessionExecutionOwner('sid',f.owner);};
+  Object.assign(f.context,{setTimeout:()=>({}),nativeToolGate:()=> 'ask'});
+  const pending=f.context.cliPermissionService(body,{ownerReg:g.reg,ownerCheck}),entry=await permissionEntry(pending,f.context.pendingPermissions,'perm_one'),resolve=entry.resolve;
+  const origin=f.context.assertInterventionConsumer(entry);assert.equal(origin.owner,f.owner);assert.equal(origin.reg,g.reg);
+  if(kind==='reg')f.children.set('sid',{...g.reg});else if(kind==='owner')f.settlers.set('sid',{});else if(kind==='input')body.input={content:'shown'};else entry.resolve=()=>{};
+  assert.throws(()=>f.context.assertInterventionConsumer(entry),error=>['intervention.consumer_changed','intervention.consumer_input_changed','STEWARD_TURN_CANCELLED'].includes(error.code));
+  resolve({behavior:'deny'});await pending.catch(()=>{});
+ }
 });

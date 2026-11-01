@@ -14119,6 +14119,114 @@ async function readInterventions(sessionId) {
   return (await readInterventionsWithMeta(sessionId)).interventions;
 }
 
+// C2 private read evidence. Presence, complete bytes and decoding are distinct from
+// the legacy readable-prefix projection. These values never grant an effect.
+const interventionJournalArms = new Map();
+const interventionReceiptCodec = { fingerprint: null };
+function interventionJournalStamp(file) {
+  const st = fs.lstatSync(file, { bigint: true });
+  if (!st.isFile() || st.isSymbolicLink()) throw Object.assign(new Error('journal unavailable'), { code: 'intervention.state_unavailable' });
+  return { identity: [st.dev, st.ino, st.birthtimeNs].join(':'), stamp: [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':') };
+}
+async function readInterventionJournalProof(sessionId, options = {}) {
+  try {
+    const pending = interventionWriteChains.get(sessionId);
+    if (pending) { try { if (await pending !== true && !options.reconcile) return { kind: 'unknown', reason: 'write_ack_unavailable' }; } catch { if (!options.reconcile) return { kind: 'unknown', reason: 'write_ack_unavailable' }; } }
+    const file = interventionFilePath(sessionId), before = interventionJournalStamp(file);
+    const stored = new TextDecoder('utf-8', { fatal: true }).decode(await fsp.readFile(file));
+    const text = await decodeSessionJournalText(sessionId, 'interventions', stored);
+    const after = interventionJournalStamp(file);
+    if (before.stamp !== after.stamp || typeof text !== 'string' || !text.endsWith('\n')) return { kind: 'unknown', reason: 'journal_changed' };
+    const lines = text.split('\n').filter(Boolean), rows = lines.map(line => JSON.parse(line));
+    if (!rows.length || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string'
+      || row.sessionId !== sessionId || typeof row.status !== 'string' || !Number.isSafeInteger(row.interventionVersion) || row.interventionVersion < 0)) return { kind: 'unknown', reason: 'journal_invalid' };
+    if (rows.some(row => ['pending', 'applying'].includes(row.status) && Object.hasOwn(row, 'decisionResponse'))) return { kind: 'unknown', reason: 'invalid_phase_response' };
+    const meta = foldInterventionJournalText(text);
+    if (meta.degraded || meta.corruptLines) return { kind: 'unknown', reason: 'journal_degraded' };
+    return { kind: 'present', text, rows, interventions: meta.interventions, identity: after.identity,
+      assert: () => { if (interventionJournalStamp(file).stamp !== after.stamp) throw Object.assign(new Error('journal changed'), { code: 'intervention.state_unavailable' }); } };
+  } catch (error) { return { kind: 'unknown', reason: String(error?.code || 'journal_unavailable') }; }
+}
+function armInterventionJournal(sessionId) {
+  const arm = Object.freeze({}), set = interventionJournalArms.get(sessionId) || new Set();
+  set.add(arm); interventionJournalArms.set(sessionId, set);
+  return () => { set.delete(arm); if (!set.size) interventionJournalArms.delete(sessionId); };
+}
+function validateInterventionReceiptTerminal(terminal, command, compacted) {
+  const { missionId: sid, interventionId: id, expectedVersion: version, idempotencyKey: key, decisionFingerprint: fingerprint, type, action } = command;
+  const unknown = reason => ({ kind: 'unknown', reason });
+  if (!terminal || terminal.id !== id || terminal.sessionId !== sid || terminal.type !== type || terminal.status === 'indeterminate'
+    || !INTERVENTION_TERMINAL.has(terminal.status)) return unknown('terminal_unproven');
+  const common = ['id', 'sessionId', 'type', 'status', 'requestedAt', 'decidedAt', 'decidedBy', 'interventionVersion', 'source', 'idempotencyKey', 'decisionFingerprint', 'action', 'decisionResponse'];
+  if (common.some(field => !Object.hasOwn(terminal, field)) || !Number.isSafeInteger(terminal.interventionVersion) || terminal.interventionVersion < 2
+    || typeof terminal.requestedAt !== 'string' || !Number.isFinite(Date.parse(terminal.requestedAt)) || typeof terminal.decidedAt !== 'string' || !Number.isFinite(Date.parse(terminal.decidedAt))
+    || Date.parse(terminal.decidedAt) < Date.parse(terminal.requestedAt) || typeof terminal.decidedBy !== 'string' || !terminal.decidedBy
+    || typeof terminal.source !== 'string' || !terminal.source || typeof terminal.idempotencyKey !== 'string' || !terminal.idempotencyKey
+    || typeof terminal.decisionFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(terminal.decisionFingerprint)) return unknown('terminal_shape');
+  const fields = type === 'permission' ? ['toolName', 'tier', 'revertible', 'input'] : type === 'question' ? ['questionSummary', 'questions', 'context']
+    : type === 'plan' ? ['planSummary'] : type === 'pool' ? ['runId', 'proposedBy', 'task'] : type === 'replan' ? ['runId', 'nodeId', 'triggerType', 'summary'] : null;
+  if (!fields) return unknown('type_unsupported');
+  const extras = type === 'question' ? ['answer'] : type === 'plan' ? ['feedback'] : type === 'pool' ? ['nodeId', 'backfilled'] : [];
+  const allowed = compacted ? [...common, ...fields, ...extras] : [...common, 'toolName', 'tier', ...extras, ...(type === 'replan' ? ['nodeId'] : [])];
+  if (Object.keys(terminal).some(field => !allowed.includes(field))) return unknown('invalid_terminal_fields');
+  if (compacted) {
+    if (fields.some(field => !Object.hasOwn(terminal, field))) return unknown('compacted_metadata_missing');
+    if (type === 'permission' && (typeof terminal.toolName !== 'string' || !terminal.toolName || !['read', 'edit', 'exec'].includes(terminal.tier)
+      || typeof terminal.revertible !== 'boolean' || !terminal.input || typeof terminal.input !== 'object' || Array.isArray(terminal.input))) return unknown('permission_metadata');
+    if (type === 'question' && (typeof terminal.questionSummary !== 'string' || typeof terminal.context !== 'string' || !Array.isArray(terminal.questions)
+      || !terminal.questions.length || terminal.questions.length > 3 || terminal.questions.some(question => !question || typeof question.id !== 'string' || !question.id || typeof question.question !== 'string' || !Array.isArray(question.options)))) return unknown('question_metadata');
+    if (type === 'plan' && typeof terminal.planSummary !== 'string') return unknown('plan_metadata');
+    if (type === 'pool' && (typeof terminal.proposedBy !== 'string' || typeof terminal.task !== 'string' || terminal.task.length > 500 || terminal.backfilled !== undefined && terminal.backfilled !== true)) return unknown('pool_metadata');
+    if (type === 'replan' && (typeof terminal.nodeId !== 'string' || !terminal.nodeId || typeof terminal.triggerType !== 'string' || !terminal.triggerType || typeof terminal.summary !== 'string')) return unknown('replan_metadata');
+    if (['pool', 'replan'].includes(type) && (typeof terminal.runId !== 'string' || !terminal.runId || terminal.runId !== command.runId)) return unknown('run_mismatch');
+  }
+  const actualAction = terminal.action, validActions = type === 'permission' ? ['allow', 'deny'] : type === 'question' ? ['answer'] : ['approve', 'reject'];
+  if (!validActions.includes(actualAction)) return unknown('action_invalid');
+  if (type === 'question' && !Object.hasOwn(terminal, 'answer') || type === 'plan' && Object.hasOwn(terminal, 'feedback') && (typeof terminal.feedback !== 'string' || terminal.feedback.length > 2000)) return unknown('canonical_payload_unproven');
+  const payload = type === 'question' ? { action: actualAction, answer: terminal.answer }
+    : type === 'plan' && Object.hasOwn(terminal, 'feedback') ? { action: actualAction, feedback: terminal.feedback } : { action: actualAction };
+  if (typeof interventionReceiptCodec.fingerprint !== 'function' || interventionReceiptCodec.fingerprint(sid, id, payload) !== terminal.decisionFingerprint) return unknown('canonical_fingerprint_mismatch');
+  const response = terminal.decisionResponse;
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return unknown('response_missing');
+  const revoked = response.ok === false && type === 'permission' && actualAction === 'allow' && terminal.status === 'denied' && response.reason === 'authorization_revoked'
+    && response.error?.code === 'intervention.authorization_revoked' && response.error?.params?.type === type;
+  if (!revoked) {
+    const responseFields = ['ok', 'missionId', 'interventionId', 'type', 'action', 'status', 'interventionVersion', 'delivered', 'nodeId'];
+    if (response.ok !== true || Object.keys(response).some(field => !responseFields.includes(field)) || response.missionId !== sid || response.interventionId !== id || response.type !== type
+      || response.action !== actualAction || response.status !== terminal.status || response.interventionVersion !== terminal.interventionVersion) return unknown('response_mismatch');
+    if (['permission', 'question', 'plan'].includes(type) && response.delivered !== true) return unknown('delivery_unproven');
+    if (type === 'pool' && actualAction === 'approve' && (terminal.nodeId !== id || response.nodeId !== id)) return unknown('node_unproven');
+    const expected = actualAction === 'allow' ? 'allowed' : actualAction === 'deny' ? 'denied' : actualAction === 'answer' ? terminal.answer?.ok === false ? 'cancelled' : 'answered' : actualAction === 'approve' ? 'approved' : 'rejected';
+    if (terminal.status !== expected) return unknown('status_mismatch');
+  }
+  if (terminal.idempotencyKey !== key) return { kind: 'superseded', status: terminal.status };
+  if (terminal.interventionVersion !== version + 2 || terminal.decisionFingerprint !== fingerprint || actualAction !== action || terminal.source !== 'external_human' || terminal.decidedBy !== 'user') return unknown('command_mismatch');
+  return revoked ? { kind: 'rejected', status: terminal.status, reason: response.reason } : { kind: 'applied', status: terminal.status, interventionVersion: version + 2 };
+}
+async function readInterventionDecisionReceipt(command) {
+  const { missionId: sid, interventionId: id, type } = command;
+  return runKeyedChain(interventionTransitionLocks, ivCacheKey(sid, id), async () => {
+    const proof = await readInterventionJournalProof(sid, { reconcile: true });
+    if (proof.kind !== 'present') return proof;
+    if (proof.rows.some(row => !['pending', 'applying', ...INTERVENTION_TERMINAL].includes(row.status))) return { kind: 'unknown', reason: 'journal_shape' };
+    const current = proof.interventions.find(row => row.id === id), own = proof.rows.filter(row => row.id === id);
+    if (!current || current.type !== type || !own.length) return { kind: 'unknown', reason: 'intervention_missing' };
+    if (['pool', 'replan'].includes(type) && (!command.runId || current.runId !== command.runId)) return { kind: 'unknown', reason: 'run_mismatch' };
+    const terminal = own.at(-1), compacted = own.length === 1;
+    // The original compactor writes one complete authoritative row, with its own
+    // explicit version/response. This branch is readonly and never an armed phase.
+    if (!compacted) {
+      const applying = own.at(-2), keys = ['id', 'sessionId', 'type', 'requestedAt', 'toolName', 'tier', 'status', 'decidedAt', 'decidedBy', 'interventionVersion', 'source', 'idempotencyKey', 'decisionFingerprint'];
+      if (!applying || applying.status !== 'applying' || applying.id !== id || applying.sessionId !== sid || applying.type !== type
+        || applying.interventionVersion !== terminal.interventionVersion - 1 || applying.decidedAt !== '' || applying.decidedBy !== ''
+        || applying.source !== terminal.source || applying.idempotencyKey !== terminal.idempotencyKey || applying.decisionFingerprint !== terminal.decisionFingerprint
+        || Object.keys(applying).some(field => !keys.includes(field))) return { kind: 'unknown', reason: 'applying_unproven' };
+    }
+    const result = validateInterventionReceiptTerminal(terminal, command, compacted);
+    proof.assert(); return result;
+  });
+}
+
 // 压实判据(compactInterventionJournal 与 13e 索引重建共用):日志 ≥ 64 KB、行数 > 256,且行数超过存活条数的 1.5 倍。
 // 修前是「行数 > 存活条数 × 3」—— 每条介入走完 register → applying → terminal 恰好 3 行,等号不过,永远压不动
 // (2000 条已决介入的日志只增不减)。1.5 倍 = 冗余行超过存活行的一半,压完后日志要再长出一截才会再压,摊还 O(1)。
@@ -14135,6 +14243,7 @@ async function compactInterventionJournal(sessionId, opts = {}) {
   if (!sid) return { ok: false, skipped: 'invalid_session' };
   const file = interventionFilePath(sid);
   return runKeyedChain(interventionWriteChains, sid, async () => {
+    if (interventionJournalArms.get(sid)?.size) return { ok: false, compacted: false, skipped: 'remote_decision_armed' };
     let txt = '';
     try { txt = await fsp.readFile(file, 'utf8'); } catch { return { ok: true, compacted: false, rowsBefore: 0, rowsAfter: 0, bytesBefore: 0, bytesAfter: 0 }; }
     const folded = foldInterventionJournalText(await decodeSessionJournalText(sid, 'interventions', txt));
@@ -14144,6 +14253,7 @@ async function compactInterventionJournal(sessionId, opts = {}) {
     if (!opts.force && !worthwhile) return { ok: true, compacted: false, rowsBefore: folded.rowCount, rowsAfter, bytesBefore: folded.bytes, bytesAfter: folded.bytes };
     const payload = folded.interventions.map(rec => JSON.stringify(rec)).join('\n') + (rowsAfter ? '\n' : '');
     const storedPayload = await encodeSessionJournalReplacement(file, sid, 'interventions', payload);
+    if (interventionJournalArms.get(sid)?.size) return { ok: false, compacted: false, skipped: 'remote_decision_armed' };
     await atomicWriteJson(file, storedPayload);
     sessionJournalAppendStates.delete(file);
     markPretenderIndexDirty(sid, 'source');
@@ -14269,6 +14379,7 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
         return { ...preflight, ok: false, interventionVersion: curVer };
       }
     }
+    const commit = async () => {
     // 3. 落 applying(pending -> applying)。authoritative:await 落盘后再推进。
     if (crashAt === 'before_applying') throw new Error('__cas_crash:before_applying');
     // 落盘只写增量行(迁移改了的字段),不再整份重抄 cur —— 修前 register/applying/terminal 三行各带一份完整 input,
@@ -14304,6 +14415,7 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     if (crashAt === 'after_applying') throw new Error('__cas_crash:after_applying');
     // 4. 执行 action(75b 契约路径在此 resolve promise / 跑工具;75a-2 测试可空)
     if (crashAt === 'before_resolve') throw new Error('__cas_crash:before_resolve');
+    if (typeof opts.prepareEffect === 'function') await opts.prepareEffect();
     let result;
     if (typeof opts.action === 'function') {
       const actionResult = opts.action();
@@ -14355,6 +14467,8 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     }
     if (crashAt === 'after_terminal') throw new Error('__cas_crash:after_terminal');
     return { ok: true, status: resolvedStatus, interventionVersion: curVer + 2, result, response };
+    };
+    return typeof opts.withCommit === 'function' ? opts.withCommit(commit) : commit();
   }
 }
 // ── perf(会话正文逐行 sha1 的去重):进程内确定性计数器 ───────────────────────────────────────────────────
@@ -24497,7 +24611,45 @@ function normalizeQuestionContext(value) {
   return `…\n${clean.slice(-5998)}`;
 }
 
-function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver, context = '') {
+// Registration-only identities are private, nonserializable and never inferred
+// from whichever execution happens to own this session when a remote click arrives.
+const interventionConsumerOrigins = new WeakMap();
+// Consume-only core registry; the sole mint remains the private verified bot closure.
+const interventionHumanConsumers = new WeakMap();
+function consumeInterventionHumanWitness(witness, command) {
+  const consume = witness && interventionHumanConsumers.get(witness);
+  if (!consume) return null;
+  interventionHumanConsumers.delete(witness); return consume(command);
+}
+function captureInterventionConsumer(sessionId, options = {}) {
+  const reg = Object.hasOwn(options, 'reg') ? options.reg : activeChildren.get(sessionId) || null;
+  return { owner: turnSettlers.get(sessionId) || null, ...options, reg, child: reg?.child };
+}
+function registerInterventionConsumer(entry, sessionId, options = {}) {
+  const owner = Object.hasOwn(options, 'owner') ? options.owner : turnSettlers.get(sessionId) || null;
+  const reg = Object.hasOwn(options, 'reg') ? options.reg : activeChildren.get(sessionId) || null;
+  const child = Object.hasOwn(options, 'child') ? options.child : reg?.child, resolve = entry.resolve, deliver = entry.deliver;
+  const signal = options.signal || reg?.ctrl?.signal || reg?.controller?.signal || null;
+  const stdin = child?.stdin, write = stdin?.write;
+  const input = options.input, hasInput = Object.hasOwn(options, 'input'), inputMaterial = hasInput ? JSON.stringify(input) : '';
+  const assert = () => {
+    if (!owner && !reg && !signal && typeof options.assert !== 'function') throw Object.assign(new Error('original consumer unavailable'), { code: 'intervention.consumer_unavailable' });
+    if (owner) assertSessionExecutionOwner(sessionId, owner);
+    if (reg && (activeChildren.get(sessionId) !== reg || reg.child !== child || child?.stdin !== stdin || stdin?.write !== write || stdin?.writable === false || reg.closed || reg.exited || reg.stopped || reg.aborted || child?.killed || child?.exitCode != null || child?.stdin?.destroyed || child?.stdin?.writableEnded || reg.ctrl?.signal?.aborted || reg.controller?.signal?.aborted)) throw Object.assign(new Error('original consumer changed'), { code: 'intervention.consumer_changed' });
+    if (hasInput && (JSON.stringify(input) !== inputMaterial || options.inputOf && options.inputOf() !== input)) throw Object.assign(new Error('original permission input changed'), { code: 'intervention.consumer_input_changed' });
+    if (signal?.aborted || options.isClosed?.() || entry.resolve !== resolve || entry.deliver !== deliver) throw Object.assign(new Error('original consumer ended'), { code: 'intervention.consumer_changed' });
+    options.assert?.();
+  };
+  interventionConsumerOrigins.set(entry, Object.freeze({ assert, owner, reg, child, signal }));
+}
+function assertInterventionConsumer(entry) {
+  const origin = interventionConsumerOrigins.get(entry);
+  if (!origin) throw Object.assign(new Error('original consumer unavailable'), { code: 'intervention.consumer_unavailable' });
+  origin.assert(); return origin;
+}
+
+function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver, context = '', origin = {}) {
+  origin = captureInterventionConsumer(sessionId, origin);
   // Provider call ids are often reused as "call_1" across sessions, so never use them as registry keys.
   const sourceId = String(questionId || '');
   const id = makeId('question');
@@ -24544,6 +24696,7 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
       });
     }, entry.timeoutMs);
   };
+  registerInterventionConsumer(entry, sessionId, origin);
   entry.timeoutMs = promptWaitMs(timeoutMs);   // 0/缺省 = 不限时(见 promptWaitMs)
   entry.armTimeout();
   pendingQuestions.set(id, entry);
@@ -24556,9 +24709,9 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   return id;
 }
 
-function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, context = '') {
+function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, context = '', origin = {}) {
   return new Promise(resolve => {
-    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; }, context);
+    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; }, context, origin);
     if (!id) resolve({ ok: false, answers: [], content: '', error: 'no valid questions' });
   });
 }
@@ -32415,7 +32568,7 @@ async function runClaudeTurn({
       // Interactive: an AskUserQuestion tool_use is ours to answer — surface a modal instead of a plain card.
       if (interactive && isAskUserTool(ev.name)) {
         registerUserQuestion(session.id, ev.id, (ev.input && ev.input.questions) || ev.input || {}, onEvent, config.questionTimeoutMs,
-          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))), assistantText);
+          answer => writeToChild(session.id, buildUserEnvelope(formatQuestionGuidance(answer))), assistantText, { reg, owner: executionOwner });
       }
     } else if (ev.kind === 'tool_result') {
       const tc = toolCalls.find(t => t.id === ev.id);
@@ -34994,7 +35147,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
         }],
         context.onEvent,
         context.config.questionTimeoutMs,
-        context.state.assistantText,
+        context.state.assistantText, { reg: context.reg, owner: context.reg?.executionOwner, signal: context.requestSignal },
       );
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0]
         && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
@@ -35033,7 +35186,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
     let decision = acceptEditsAuto
       ? { behavior: 'allow', scope: 'once', kimiAutoEdit: true }
       : await requestNativePermission(
-        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier   // 128f-⑪
+        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier, undefined, { reg: context.reg, owner: context.reg?.executionOwner, signal: context.requestSignal }   // 128f-⑪
       );
     // A native agent that omits allow_once cannot be safely auto-approved: selecting allow_always would
     // widen the scope beyond Ruyi's acceptEdits policy. Fall back to the ordinary UI permission request.
@@ -35042,7 +35195,7 @@ async function handleKimiAcpPermissionRequest(params, context) {
     if (autoEditFallback) {
       acceptEditsAuto = false;
       decision = await requestNativePermission(
-        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier   // 128f-⑪
+        context.session.id, title, input, context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), tier, undefined, { reg: context.reg, owner: context.reg?.executionOwner, signal: context.requestSignal }   // 128f-⑪
       );
     }
     if (!decision || decision.behavior !== 'allow') {
@@ -35413,7 +35566,7 @@ async function ensureKimiAcpOperationPermission(context, kind, input) {
   if (visibleInput && typeof visibleInput === 'object') delete visibleInput.__kimiAcpNativeBashWrapper;
   const decision = await requestNativePermission(
     context.session.id, kind === 'terminal' ? 'Bash' : 'Write', visibleInput,
-    context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), kind === 'terminal' ? 'exec' : 'edit'   // 128f-⑪
+    context.onEvent, permissionWaitMs(context.session.id, context.config, context.session), kind === 'terminal' ? 'exec' : 'edit', undefined, { reg: context.reg, owner: context.reg?.executionOwner, signal: context.requestSignal }   // 128f-⑪
   );
   if (!decision || decision.behavior !== 'allow') throw kimiAcpRequestError(-32000, 'Operation denied by user');
   if (decision.scope === 'session') {
@@ -35794,7 +35947,7 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
         context.session.id, String(params.elicitationId || makeId('kimi_elicitation')),
         [{ id: 'kimi_url_elicitation', header: 'Kimi 外部授权', question: `${message}\n\n完整地址：${url.href}`, answerMode: 'single', allowOther: false,
           options: [{ id: 'open', label: '同意并打开', description: `将在系统浏览器打开 ${url.hostname}` }, { id: 'decline', label: '拒绝', description: '不打开此地址' }] }],
-        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText
+        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText, { reg: context.reg, owner: context.reg?.executionOwner, signal: requestMeta?.signal }
       ), requestMeta && requestMeta.signal);
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0] && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
       if (selected !== 'open') return { action: selected === 'decline' ? 'decline' : 'cancel' };
@@ -35819,7 +35972,7 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
       const batch = rows.slice(start, start + 3);
       const answer = await awaitKimiAcpWithSignal(requestUserQuestion(
         context.session.id, String(params.toolCallId || makeId('kimi_elicitation')), batch.map(row => row.ui),
-        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText
+        context.onEvent, context.config.questionTimeoutMs, context.state.assistantText, { reg: context.reg, owner: context.reg?.executionOwner, signal: requestMeta?.signal }
       ), requestMeta && requestMeta.signal);
       if (!answer || answer.ok === false) return { action: 'cancel' };
       for (const row of batch) {
@@ -36507,6 +36660,7 @@ async function runKimiAcpTurnPrepared(context) {
         key,
         context: {
           ...reverseContext,
+          requestSignal: requestMeta?.signal,
           onEvent: event => {
             let opened = null;
             if (event && event.type === 'permission_request' && event.requestId) opened = [String(event.requestId), 'permission'];
@@ -49742,8 +49896,9 @@ PermissionWaitHooks.scheduler = schedulerAskWaitOverrideMs;
 // 第27f波:pause = { enabled, ttlMs, onPause(requestId) } —— 无人值守回合的权限超时【存档暂停】。基础超时到点后不立即拒杀,
 // 而是打检查点(onPause)+ 发 permission_paused 事件 + 把决定窗口延长到 ttlMs;窗口内仍可经 /api/permission/decision 决定,
 // 到 ttlMs 无人应答则回落 deny(fail-closed)。entry.timer 在 Map 里被重赋为 TTL 定时器,故 clearPendingPermissions/decision 照常清对。
-function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs, tier, pause) {
-  const owner = typeof turnSettlers !== 'undefined' ? turnSettlers.get(sessionId) : null;
+function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs, tier, pause, origin = {}) {
+  origin = captureInterventionConsumer(sessionId, origin);
+  const owner = origin.owner;
   if (owner && owner.authority) assertSessionExecutionOwner(sessionId, owner);
   return new Promise(resolve => {
     const requestId = makeId('perm');
@@ -49772,6 +49927,7 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
     const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs,
       revalidateAuthority: owner && owner.authority ? () => revalidateSessionExecutionPermission(sessionId, owner) : null,
       assertAuthority: owner && owner.authority ? () => assertSessionExecutionOwner(sessionId, owner) : null };
+    registerInterventionConsumer(entry, sessionId, { ...origin, input });
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
@@ -49826,7 +49982,8 @@ function looksLikePlan(text) {
 // requestNativePermission but on the plan channel. Resolves { decision:'approve'|'reject', note? }. The
 // timeout is REJECT (per spec: 超时=permissionTimeoutMs → 视为 reject). clearPendingPlans (abort/stop/turn-end)
 // also settles the promise as reject so the awaiting loop can never hang.
-function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
+function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs, origin = {}) {
+  origin = captureInterventionConsumer(sessionId, origin);
   return new Promise(resolve => {
     const planId = makeId('plan');
     onEvent({ type: 'plan', planId, markdown: String(markdown || '') });
@@ -49854,7 +50011,9 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
       });
       // 123-M1:计划审批与权限请求同一条口径 —— 无人值守回合等 schedulerAskWaitMinutes,到时仍是【拒】。
     }, schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs));   // 0 = 不限时(04 promptWaitMs)
-    pendingPlans.set(planId, { resolve: settle, sessionId, timer, markdown: String(markdown || '') });
+    const entry = { resolve: settle, sessionId, timer, markdown: String(markdown || '') };
+    registerInterventionConsumer(entry, sessionId, origin);
+    pendingPlans.set(planId, entry);
   });
 }
 
@@ -50373,8 +50532,32 @@ async function cleanupAgentWorktree(isolation) {
 }
 
 function projectAgentRoleFile(cwd) { return path.join(path.resolve(cwd), '.ruyi', 'agents.json'); }
-async function readProjectAgentRoles(cwd) {
+function strictAgentRoleSource(file, directory = false) {
+  const capture = () => {
+    try {
+      const st = fs.lstatSync(file, { bigint: true });
+      if (st.isSymbolicLink() || (directory ? !st.isDirectory() : !st.isFile())) throw new Error('invalid role source');
+      const bytes = directory ? null : fs.readFileSync(file);
+      const value = directory ? fs.readdirSync(file).sort() : new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      if (!directory && Buffer.byteLength(value) > 512 * 1024) throw new Error('role source too large');
+      return { identity: [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':'), value, bytesHash: bytes ? crypto.createHash('sha256').update(bytes).digest('hex') : '' };
+    } catch (error) { if (error.code === 'ENOENT') return { identity: 'absent', value: directory ? [] : null }; throw error; }
+  };
+  const before = capture(), material = JSON.stringify(before);
+  return { value: before.value, assert: () => { if (JSON.stringify(capture()) !== material) throw Object.assign(new Error('role source changed'), { code: 'intervention.role_source_changed' }); } };
+}
+async function readProjectAgentRoles(cwd, opts = {}) {
   const file = projectAgentRoleFile(cwd);
+  if (opts.strict) {
+    const proof = strictAgentRoleSource(file); opts.sources.push(proof);
+    if (proof.value === null) return [];
+    const parsed = JSON.parse(proof.value);
+    const roles = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.roles) ? parsed.roles : null;
+    if (!roles || roles.length > 32) throw new Error('invalid role source');
+    const normalized = roles.map(role => normalizeAgentRole(role, { source: 'project' }));
+    if (normalized.some(role => !role)) throw new Error('invalid role source');
+    return normalized;
+  }
   try {
     const st = await fsp.stat(file); if (!st.isFile() || st.size > 512 * 1024) return [];
     const parsed = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
@@ -50389,14 +50572,19 @@ function parseSimpleYamlValue(value) {
   if (/^\d+$/.test(s)) return Number(s);
   return s.replace(/^['"]|['"]$/g, '');
 }
-async function readClaudeProjectAgentRoles(cwd) {
+async function readClaudeProjectAgentRoles(cwd, opts = {}) {
   const dir = path.join(path.resolve(cwd), '.claude', 'agents');
-  let files = []; try { files = await fsp.readdir(dir); } catch { return []; }
+  let files = [];
+  if (opts.strict) { const proof = strictAgentRoleSource(dir, true); opts.sources.push(proof); files = proof.value; }
+  else try { files = await fsp.readdir(dir); } catch { return []; }
   const out = [];
   for (const file of files.filter(f => /\.md$/i.test(f)).slice(0, 32)) {
     try {
-      const raw = await fsp.readFile(path.join(dir, file), 'utf8'); if (raw.length > 128 * 1024) continue;
-      const m = /^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n([\s\S]*)$/m.exec(raw); if (!m) continue;
+      const proof = opts.strict ? strictAgentRoleSource(path.join(dir, file)) : null;
+      if (proof) opts.sources.push(proof);
+      const raw = proof ? proof.value : await fsp.readFile(path.join(dir, file), 'utf8');
+      if (raw === null || raw.length > 128 * 1024) { if (opts.strict) throw new Error('invalid role source'); continue; }
+      const m = /^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n([\s\S]*)$/m.exec(raw); if (!m) { if (opts.strict) throw new Error('malformed role source'); continue; }
       const fm = {};
       for (const line of m[1].split(/\r?\n/)) { const hit = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/.exec(line); if (hit) fm[hit[1]] = parseSimpleYamlValue(hit[2]); }
       const role = normalizeAgentRole({
@@ -50405,23 +50593,24 @@ async function readClaudeProjectAgentRoles(cwd) {
         permissionMode: fm.permissionMode === 'bypassPermissions' ? 'bypass' : fm.permissionMode, maxTurns: fm.maxTurns, mcpServers: Array.isArray(fm.mcpServers) ? fm.mcpServers : [], isolation: fm.isolation,
       }, { source: 'claude-project' });
       if (role) { role.nativeClaude = true; role.file = path.join(dir, file); out.push(role); }
-    } catch { /* malformed native agent stays Claude's concern */ }
+      else if (opts.strict) throw new Error('invalid role source');
+    } catch (error) { if (opts.strict) throw error; /* malformed native agent stays Claude's concern */ }
   }
   return out;
 }
 // 安全走查 S3:opts.parentMode = 调用方认的父回合档位(缺省取 config.permissionMode —— 回合内的 config 已解析成这条线程的档)。
 // 项目来源的角色(.ruyi/agents.json / .claude/agents)在返回时带上【有效档位】标注(effectivePermissionMode / effectiveToolTier / roleClamped),
 // 角色自己声明的 permissionMode / toolTier 原样保留(设置页编辑器原样存回);真正的夹紧在子代理起跑处(08 / 07)按那一刻的父档再算一次。
-async function getAgentRoleLibrary(cwd, config, opts) {
+async function getAgentRoleLibrary(cwd, config, opts = {}) {
   const merged = new Map();
   for (const raw of BUILTIN_AGENT_ROLES) { const role = normalizeAgentRole(raw, { source: 'builtin', builtin: true }); merged.set(role.id, role); }
   for (const role of (Array.isArray(config.agentRoleOverrides) ? config.agentRoleOverrides : [])) {
     const current = merged.get(role.id); merged.set(role.id, current ? mergeAgentRole(current, role, 'global') : normalizeAgentRole(role, { source: 'global' }));
   }
-  for (const role of await readProjectAgentRoles(cwd)) {
+  for (const role of await readProjectAgentRoles(cwd, opts)) {
     const current = merged.get(role.id); merged.set(role.id, current ? mergeAgentRole(current, role, 'project') : role);
   }
-  const claudeNative = await readClaudeProjectAgentRoles(cwd);
+  const claudeNative = await readClaudeProjectAgentRoles(cwd, opts);
   for (const role of claudeNative) if (!merged.has(role.id)) merged.set(role.id, role);
   const parentMode = (opts && opts.parentMode) || (config && config.permissionMode) || 'default';
   return [...merged.values()].filter(Boolean).map(role => annotateAgentRoleEffective(role, parentMode));
@@ -51636,7 +51825,7 @@ async function runSubAgentCore(opts) {
 // node/run stops; clearing every permission for the parent could consume an unrelated later prompt.
 async function requestDelegationPermission(session, config, name, args, tier, onEvent, signal) {
   let requestId = '';
-  const decision = requestNativePermission(session.id, name, args, evt => { if (evt.type === 'permission_request') requestId = evt.requestId; onEvent(evt); }, permissionWaitMs(session.id, config, session), tier);
+  const decision = requestNativePermission(session.id, name, args, evt => { if (evt.type === 'permission_request') requestId = evt.requestId; onEvent(evt); }, permissionWaitMs(session.id, config, session), tier, undefined, { owner: null, reg: null, signal });
   const cancel = () => {
     const entry = pendingPermissions.get(requestId);
     if (!entry || entry.sessionId !== session.id || entry.commandApplying) return;
@@ -54408,7 +54597,7 @@ function nodeWrapUpAction({ now, modelStartedAt, requestedAt, lastActivityAt, fo
   return 'none';
 }
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered, admitPoolNode, originTurnAgentCap, followup }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, launchedByModel, onRegistered, admitPoolNode, poolDecisionBudget, originTurnAgentCap, followup }) {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('agent')) return WorkDataMaintenanceHooks.run('agent', () => runAgentWorkflow(...arguments));
   if (sessionSaveIsTombstoned(parentSession)) return { ok: false, error: 'session not found', startedCount: 0 };
   let run, nodes, runId;
@@ -54607,7 +54796,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   // Manual steers and automatic wrap-up instructions use separate queues: a full user queue must never block
   // the reliability control message, and the user's messages are always delivered first.
   const runtime = {
-    run, admitPoolNode, registeredAgentTools: new Map(), permissionWaits: new Map(), ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [],
+    run, admitPoolNode, poolDecisionBudget, registeredAgentTools: new Map(), permissionWaits: new Map(), ctrl: localCtrl, paused: false, stopRequested: false, resumeWaiters: [],
     steerQueues: new Map(), autoSteerQueues: new Map(), mailQueues: new Map(), nodeControls: new Map(),
     closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false,
   };
@@ -56945,7 +57134,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 代理模式 v2 turn-local state。`subagentTotal` = 本回合接纳的初始节点及以后经审批物化的节点数(重试不另计),上限
   // config.subagentMaxPerTurn(旧 spawn_agent 的「每回合扇出预算」语义平移到 orchestrate;0 = 功能关 → 工具不 offer,
   // 此路径不可达)。并发仍由 run.concurrency(= subagentMaxConcurrent)在工作流运行时内约束。
-  let subagentTotal = 0;
+  let subagentTotal = 0, subagentBudgetRevision = 0;
   let crossSessionMailCount = 0;
   const subagentTurnCap = Math.max(0, Number(config.subagentMaxPerTurn) || 0);
   // Background runs survive the parent model's next iterations (and even the end of this chat turn)
@@ -56973,8 +57162,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const modelNotes = orchestrateModelNotes(resolved.nodes, provider);   // model 不在服务商清单里:只提示,不拒绝
     const runId = makeId('run');
     let registered = false, refunded = false;
-    const refundAdmission = () => { if (!registered && !refunded) { subagentTotal -= nodeCount; refunded = true; } };
-    subagentTotal += nodeCount; // Admit each initial node once; retries do not create agents.
+    const refundAdmission = () => { if (!registered && !refunded) { subagentTotal -= nodeCount; subagentBudgetRevision++; refunded = true; } };
+    subagentTotal += nodeCount; subagentBudgetRevision++; // Admit each initial node once; retries do not create agents.
     const common = {
       parentSession: session, provider, config, nodes: resolved.nodes, parentEngine: 'openai', parentModel: model,
       permModeOverride: subPermMode,
@@ -56986,8 +57175,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       ...(fromDelegation ? { runKind: 'steward_delegation', runTitle: session.title } : {}),
       admitPoolNode: consume => {
         if (subagentTurnCap > 0 && subagentTotal >= subagentTurnCap) return { ok: false, reason: 'turn_budget_exhausted' };
-        if (consume) subagentTotal++;
+        if (consume) { subagentTotal++; subagentBudgetRevision++; }
         return { ok: true, reason: 'ok' };
+      },
+      poolDecisionBudget: () => {
+        const revision = subagentBudgetRevision, total = subagentTotal;
+        return { material: [subagentTurnCap, total, revision], assert: () => {
+          if (revision !== subagentBudgetRevision || total !== subagentTotal) throw Object.assign(new Error('original pool budget changed'), { code: 'intervention.pool_budget_changed' });
+        } };
       },
       onRegistered: () => { registered = true; },
     };
@@ -57383,7 +57578,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
           let decision;
           reg.planPending = true;
-          try { decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs); }
+          try { decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs, { reg, owner: executionOwner, signal: ctrl?.signal }); }
           finally { reg.planPending = false; reg.lastEventAt = Date.now(); } // 等待审批不算空闲:决定落定后看门狗从此刻重新计时
           // A stop/abort during the pause settles the promise as reject via clearPendingPlans → reg.state
           // will already be non-running; treat that as an aborted turn (not a plan_rejected result).
@@ -57818,7 +58013,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // 存档暂停开始:置 reg.pausePending 令 idle 看门狗豁免(否则 TTL 内先杀回合)。onPause 闭包持 reg(runOpenAiTurn 作用域)。
                 onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session, turnSaveOpts).catch(() => {}); },
               } : null;
-              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, permissionWaitMs(session.id, config, session), tier, pauseOpts);   // 128f-⑪
+              const decision = await requestNativePermission(session.id, tc.name, args, onEvent, permissionWaitMs(session.id, config, session), tier, pauseOpts, { reg, owner: executionOwner, signal: ctrl?.signal });   // 128f-⑪
               reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
               reg.lastEventAt = Date.now();
               if (!decision || decision.behavior !== 'allow') resultObj = { ok: false, error: (decision && decision.message) || 'denied by user' };
@@ -57863,7 +58058,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // A Provider function call pauses this tool iteration until the matching UI answer arrives.
                 // Its structured result is appended as the normal role:'tool' reply below, so every
                 // OpenAI-compatible backend sees the choice in the protocol shape it already understands.
-                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.questionTimeoutMs, assistantText);
+                const answer = await requestUserQuestion(session.id, tc.id, args.questions, onEvent, config.questionTimeoutMs, assistantText, { reg, owner: executionOwner, signal: ctrl?.signal });
                 resultObj = answer && answer.ok
                   ? { ok: true, answers: answer.answers, content: answer.content }
                   : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };
@@ -80970,6 +81165,8 @@ function interventionDecisionFingerprint(missionId, interventionId, payload) {
     .digest('hex');
 }
 
+interventionReceiptCodec.fingerprint = interventionDecisionFingerprint;
+
 function interventionCommandFailure(reason, status, params = {}, message = '') {
   return {
     status,
@@ -81049,11 +81246,13 @@ function mapInterventionTransitionFailure(result) {
   }, String(result && result.message || 'intervention cannot be delivered'));
 }
 
-async function decideIntervention(command = {}) {
+async function decideIntervention(command = {}, humanWitness) {
+  const human = humanWitness === undefined ? null : consumeInterventionHumanWitness(humanWitness, command);
+  if (humanWitness !== undefined && !human) return interventionCommandFailure('human_witness_invalid', 403);
   const rawMissionId = String(command.missionId || '');
   const missionId = safeSessionId(rawMissionId);
   const interventionId = String(command.interventionId || '');
-  const source = String(command.source || 'contract').slice(0, 64);
+  const source = human ? 'external_human' : String(command.source === 'external_human' ? 'contract' : command.source || 'contract').slice(0, 64);
   const contractRequest = command.contractRequest !== false;
   const payload = command.payload && typeof command.payload === 'object' && !Array.isArray(command.payload)
     ? command.payload
@@ -81089,7 +81288,9 @@ async function decideIntervention(command = {}) {
     }
   }
 
-  const current = (await readInterventions(missionId).catch(() => []))
+  const strict = human ? await readInterventionJournalProof(missionId) : null;
+  if (human && strict.kind !== 'present') return interventionCommandFailure('decision_unknown', 503, { reason: strict.reason });
+  const current = (human ? strict.interventions : await readInterventions(missionId).catch(() => []))
     .find(iv => iv && String(iv.id) === interventionId);
   if (!current || String(current.sessionId || missionId) !== missionId) {
     return interventionCommandFailure('not_found', 404, {}, 'mission or intervention not found');
@@ -81154,6 +81355,8 @@ async function decideIntervention(command = {}) {
         ? { action, ...(payload.feedback !== undefined ? { feedback: String(payload.feedback) } : {}) }
         : { action };
   const decisionFingerprint = interventionDecisionFingerprint(missionId, interventionId, decisionPayload);
+  if (human && !human.matches({ missionId, interventionId, type, action, expectedVersion: command.expectedVersion, idempotencyKey, decisionFingerprint })) return interventionCommandFailure('human_witness_invalid', 403);
+  const withEffect = work => human ? human.withEffect(work) : work();
   let runtimeEntry = null;
   let poolContext = null;
   let replanContext = null;
@@ -81221,24 +81424,25 @@ async function decideIntervention(command = {}) {
     const item = (Array.isArray(live.run.taskPool) ? live.run.taskPool : []).find(p => p && String(p.id) === interventionId);
     if (!item || item.status !== 'proposed') return { ok: false, reason: 'pool_item_unavailable', runId, message: 'pool item is no longer proposed' };
     let config = null, cwd = '', roleLibrary = new Map();
+    const roleSources = [], assertConfig = human ? configReadFence() : () => {};
     if (action === 'approve') {
       try {
         config = await readConfig();
         const session = await loadSession(missionId);
         cwd = normalizeCwd(session && session.cwd, config.defaultWorkspace);
-        roleLibrary = new Map((await getAgentRoleLibrary(cwd, config)).map(role => [role.id, role]));
-      } catch { /* preserve the existing empty-role-library fallback */ }
+        roleLibrary = new Map((await getAgentRoleLibrary(cwd, config, human ? { strict: true, sources: roleSources } : undefined)).map(role => [role.id, role]));
+      } catch (error) { if (human) throw error; /* preserve the existing empty-role-library fallback */ }
       const dryRun = { ...live.run, nodes: Array.isArray(live.run.nodes) ? [...live.run.nodes] : [] };
       const proxyModelsCache = config?.agentAutoModelTiering ? await ProxyModelHooks.read() : { models: [] };
       const dry = materializePoolItem(dryRun, { ...item }, { roleLibrary, cwd, config, proxyModelsCache, dryRun: true });
       if (!dry.ok) return { ok: false, reason: dry.reason || 'pool_materialize_rejected', runId, message: dry.error || 'pool item cannot be materialized' };
     }
-    poolContext = { runId, live, item, config, cwd, roleLibrary };
+    poolContext = { runId, live, item, config, cwd, roleLibrary, roleSources, assertConfig };
     return { ok: true };
   };
 
   const execute = () => {
-    if (type === 'permission') {
+    if (type === 'permission') return withEffect(() => {
       if (action === 'allow' && typeof runtimeEntry.assertAuthority === 'function') {
         try { runtimeEntry.assertAuthority(); }
         catch (error) {
@@ -81257,14 +81461,14 @@ async function decideIntervention(command = {}) {
         : { behavior: 'deny', message: String(payload.message || 'denied by user') };
       runtimeEntry.resolve(decision, { skipInterventionSettle: true });
       return { ok: true, delivered: true };
-    }
-    if (type === 'question') {
+    });
+    if (type === 'question') return withEffect(() => {
       runtimeEntry.commandApplying = true;
       clearTimeout(runtimeEntry.timer);
       const delivered = runtimeEntry.deliver(normalizedAnswer, { skipInterventionSettle: true, preserveRegistry: true });
       return { ok: delivered !== false, delivered: delivered !== false, reason: delivered === false ? 'delivery_failed' : '' };
-    }
-    if (type === 'plan') {
+    });
+    if (type === 'plan') return withEffect(() => {
       runtimeEntry.commandApplying = true;
       clearTimeout(runtimeEntry.timer);
       runtimeEntry.resolve({
@@ -81272,9 +81476,9 @@ async function decideIntervention(command = {}) {
         note: payload.feedback != null ? String(payload.feedback).slice(0, 2000) : '',
       }, { skipInterventionSettle: true });
       return { ok: true, delivered: true };
-    }
+    });
     if (type === 'replan') {
-      return (async () => {
+      return withEffect(async () => {
         const { runObj, patch } = replanContext;
         if (patch.status !== 'pending') return { ok: false, reason: 'run_state_changed' };
         if (action === 'reject') {
@@ -81292,11 +81496,13 @@ async function decideIntervention(command = {}) {
         appendAgentRunEvent(runObj, { type: 'run_replan', data: { action: 'applied', patchId: interventionId, by: String(command.decidedBy || 'user'), applied: ap.applied } });
         await saveAgentRun(runObj);
         return { ok: true, patchId: interventionId, applied: ap.applied };
-      })();
+      });
     }
     return (async () => {
-      const { runId, live, item, config, cwd, roleLibrary } = poolContext;
+      const { runId, live, item, config, cwd, roleLibrary, roleSources, assertConfig } = poolContext;
       const proxyModelsCache = action === 'approve' && config?.agentAutoModelTiering ? await ProxyModelHooks.read() : { models: [] };
+      return withEffect(async () => {
+      assertConfig(); for (const proof of roleSources) proof.assert();
       if (activeAgentRuns.get(runId) !== live || live.closing || live.stopRequested || (live.ctrl && live.ctrl.signal && live.ctrl.signal.aborted) || item.status !== 'proposed') {
         return { ok: false, reason: 'run_state_changed' };
       }
@@ -81319,6 +81525,7 @@ async function decideIntervention(command = {}) {
       }
       await saveAgentRun(live.run);
       return { ok: true, poolId: interventionId, nodeId: mat.node.id };
+      });
     })();
   };
 
@@ -81331,7 +81538,8 @@ async function decideIntervention(command = {}) {
       toStatus,
       {
         source,
-        decidedBy: String(command.decidedBy || 'user'),
+        ...(human ? { withCommit: human.withCommit, prepareEffect: human.prepareEffect } : {}),
+        decidedBy: human ? 'user' : String(command.decidedBy || 'user'),
         idempotencyKey,
         decisionFingerprint,
         preflight,
@@ -102073,6 +102281,9 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
   return true;
 };
 
+// Tickets are minted only by the original successful protocol callback below.
+const externalBotVerifiedIngressTickets = new WeakMap();
+const externalBotHumanAdmission = { admit: null };
 // External ingress defaults to an independent inbox. Explicit local owner bindings may additionally
 // run the existing Steward and deliver one bounded reply; queued/running/sending facts are durable.
 const EXTERNAL_BOT_LIMITS = Object.freeze({ connections: 16, retiredIds: 4096, items: 1000, textChars: 8192, textBytes: 32768, bodyBytes: 65536, stateBytes: 40 * 1024 * 1024, readTimeoutMs: 5000, inflightCallbacks: 8, callbacksPerMinute: 120 });
@@ -102379,7 +102590,172 @@ function externalBotUpgradeFeedbackState(state) {
   if (state.schema === 1) for (const row of state.items) row.archivedAt = '';
   if (state.schema < 4) for (const row of state.items) row.replyHistory = [];
   if (state.schema < 5) { state.retentionReceipts = []; state.retentionRequests = []; }
-  state.schema = 6;
+  state.schema = Math.max(state.schema, 6);
+}
+// Payload7 is a data contract only. These private facts confer no human authority;
+// admission, source fences and the original intervention journal remain separate owners.
+const EXTERNAL_BOT_REMOTE = Object.freeze({ active: 256, receipts: 4096, ttlMs: 5 * 60 * 1000,
+  actions: Object.freeze({ permission: Object.freeze(['allow', 'deny']), question: Object.freeze(['answer']),
+    plan: Object.freeze(['approve', 'reject']), pool: Object.freeze(['approve', 'reject']), replan: Object.freeze(['approve', 'reject']) }) });
+const EXTERNAL_BOT_REMOTE_BINDING_KEYS = Object.freeze(['bootId', 'connectionId', 'platform', 'appId', 'tenantId', 'botUserId',
+  'controlRevision', 'credentialRevision', 'ownerSenderId', 'ownerConversationType', 'ownerConversationId', 'sessionId',
+  'interventionId', 'type', 'expectedVersion', 'runId', 'executionId', 'sourceFingerprint', 'policyFingerprint', 'recipientFingerprint', 'audienceRevision']);
+function externalBotRemoteKeys(value, keys) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join(',') === [...keys].sort().join(','));
+}
+function externalBotRemoteHash(domain, value) {
+  return crypto.createHash('sha256').update(JSON.stringify(['ruyi.external-action.v1', domain, value])).digest('hex');
+}
+function externalBotRemoteDigest(value) { return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value); }
+function externalBotRemoteOfferId(value) { return typeof value === 'string' && /^[A-Za-z0-9_-]{1,121}$/.test(value); }
+function externalBotRemoteDate(value) {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+function externalBotRemoteCodeHash(code) {
+  if (typeof code !== 'string' || !/^ra_[A-Za-z0-9_-]{21}[AQgw]$/.test(code)) throw externalBotError('external_channel.request_invalid');
+  return externalBotRemoteHash('code', code);
+}
+function externalBotRemoteNewCode() {
+  const code = 'ra_' + crypto.randomBytes(16).toString('base64url');
+  return { code, codeHash: externalBotRemoteCodeHash(code) }; // Caller owns the volatile code; never pass it to the ledger.
+}
+function externalBotRemoteCodeMatches(codeHash, code) {
+  if (!externalBotRemoteDigest(codeHash)) return false;
+  try { return crypto.timingSafeEqual(Buffer.from(codeHash, 'hex'), Buffer.from(externalBotRemoteCodeHash(code), 'hex')); }
+  catch { return false; }
+}
+function externalBotUpgradeRemoteState(state) {
+  externalBotUpgradeFeedbackState(state);
+  if (state.schema < 7) { state.remoteActions = []; state.remoteActionReceipts = []; }
+  state.schema = Math.max(state.schema, 7);
+}
+function externalBotRemoteBinding(raw) {
+  if (!externalBotRemoteKeys(raw, EXTERNAL_BOT_REMOTE_BINDING_KEYS)
+    || !['bootId', 'connectionId', 'appId', 'tenantId', 'ownerSenderId', 'ownerConversationId', 'sessionId', 'interventionId'].every(key => externalBotIdentity(raw[key]))
+    || !['qq', 'feishu'].includes(raw.platform) || !['direct', 'group'].includes(raw.ownerConversationType)
+    || !externalBotString(raw.botUserId, 128, true) || raw.platform === 'feishu' && !externalBotIdentity(raw.botUserId)
+    || !Number.isSafeInteger(raw.controlRevision) || raw.controlRevision < 1 || !Number.isSafeInteger(raw.expectedVersion) || raw.expectedVersion < 0
+    || !Object.hasOwn(EXTERNAL_BOT_REMOTE.actions, raw.type)
+    || !['runId', 'executionId'].every(key => externalBotString(raw[key], 128, true))
+    || !['credentialRevision', 'sourceFingerprint', 'policyFingerprint', 'recipientFingerprint'].every(key => externalBotRemoteDigest(raw[key]))
+    || !(raw.audienceRevision === '' || externalBotRemoteDigest(raw.audienceRevision))) throw externalBotError('external_channel.request_invalid');
+  // An audience revision is stored evidence, not a claim that the platform can supply it.
+  return Object.fromEntries(EXTERNAL_BOT_REMOTE_BINDING_KEYS.map(key => [key, raw[key]]));
+}
+function externalBotRemoteCommand(connectionId, message, command) {
+  if (!externalBotIdentity(connectionId) || !message || !['tenantId', 'conversationId', 'senderId', 'messageId'].every(key => externalBotIdentity(message[key]))
+    || !['direct', 'group'].includes(message.conversationType) || typeof message.text !== 'string' || !message.text.trim()
+    || message.text.length > EXTERNAL_BOT_LIMITS.textChars || Buffer.byteLength(message.text, 'utf8') > EXTERNAL_BOT_LIMITS.textBytes
+    || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(message.text)
+    || !externalBotRemoteKeys(command, ['offerId', 'action', 'decisionFingerprint']) || !externalBotRemoteOfferId(command.offerId)
+    || !['allow', 'deny', 'answer', 'approve', 'reject'].includes(command.action) || !externalBotRemoteDigest(command.decisionFingerprint)) throw externalBotError('external_channel.request_invalid');
+  // decisionFingerprint must come from the original typed core normalizer in the later admission layer.
+  // Hashing it here neither normalizes an answer nor grants permission to execute it.
+  const textHash = externalBotRetentionHash(message.text);
+  return { offerId: command.offerId, action: command.action,
+    sourceHash: externalBotRetentionHash(JSON.stringify([connectionId, message.tenantId, message.conversationId, message.messageId])), textHash,
+    contentHash: externalBotRetentionHash(JSON.stringify([message.senderId, message.conversationType, textHash])),
+    commandHash: externalBotRemoteHash('command', [command.offerId, command.action, command.decisionFingerprint]), decisionFingerprint: command.decisionFingerprint };
+}
+function externalBotRemoteValidClaim(claim, offerId, type, issuedAt, expiresAt, updatedAt) {
+  return externalBotRemoteKeys(claim, ['action', 'sourceHash', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint', 'idempotencyKey', 'claimedAt'])
+    && EXTERNAL_BOT_REMOTE.actions[type]?.includes(claim.action)
+    && ['sourceHash', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint'].every(key => externalBotRemoteDigest(claim[key]))
+    && claim.commandHash === externalBotRemoteHash('command', [offerId, claim.action, claim.decisionFingerprint])
+    && claim.idempotencyKey === 'extdec:' + offerId && externalBotRemoteDate(claim.claimedAt)
+    && claim.claimedAt >= issuedAt && claim.claimedAt < expiresAt && claim.claimedAt <= updatedAt;
+}
+function externalBotRemoteValidFacts(row, type) {
+  if (!externalBotRemoteOfferId(row.offerId) || !externalBotRemoteDigest(row.codeHash) || !externalBotRemoteDigest(row.bindingHash)
+    || !Object.hasOwn(EXTERNAL_BOT_REMOTE.actions, type) || !['issuedAt', 'expiresAt', 'updatedAt'].every(key => externalBotRemoteDate(row[key]))
+    || row.expiresAt <= row.issuedAt || Date.parse(row.expiresAt) - Date.parse(row.issuedAt) > EXTERNAL_BOT_REMOTE.ttlMs || row.updatedAt < row.issuedAt
+    || !['prepared', 'offered', 'claimed', 'applying', 'applied', 'rejected', 'unknown', 'revoked', 'expired'].includes(row.status)
+    || !(row.resultHash === '' || externalBotRemoteDigest(row.resultHash))) return false;
+  const claimed = row.claim !== null;
+  return (!claimed || externalBotRemoteValidClaim(row.claim, row.offerId, type, row.issuedAt, row.expiresAt, row.updatedAt))
+    && (!['prepared', 'offered', 'revoked', 'expired'].includes(row.status) || !claimed)
+    && (!['claimed', 'applying', 'applied', 'rejected'].includes(row.status) || claimed)
+    && (['applied', 'rejected'].includes(row.status) ? externalBotRemoteDigest(row.resultHash) : row.resultHash === '');
+}
+function externalBotRemoteRecord(raw) {
+  if (!externalBotRemoteKeys(raw, ['offerId', 'codeHash', 'binding', 'bindingHash', 'allowedActions', 'issuedAt', 'expiresAt', 'updatedAt', 'status', 'announcementItemId', 'claim', 'resultHash'])) throw externalBotError('external_channel.request_invalid');
+  const binding = externalBotRemoteBinding(raw.binding);
+  if (!externalBotRemoteValidFacts(raw, binding.type) || raw.bindingHash !== externalBotRemoteHash('binding', binding)
+    || !Array.isArray(raw.allowedActions) || JSON.stringify(raw.allowedActions) !== JSON.stringify(EXTERNAL_BOT_REMOTE.actions[binding.type])
+    || !externalBotString(raw.announcementItemId, 128, true) || raw.status !== 'prepared' && !raw.announcementItemId && !(raw.claim === null && ['revoked', 'expired'].includes(raw.status))) throw externalBotError('external_channel.request_invalid');
+  return { offerId: raw.offerId, codeHash: raw.codeHash, binding, bindingHash: raw.bindingHash, allowedActions: [...raw.allowedActions],
+    issuedAt: raw.issuedAt, expiresAt: raw.expiresAt, updatedAt: raw.updatedAt, status: raw.status,
+    announcementItemId: raw.announcementItemId, claim: raw.claim === null ? null : { ...raw.claim }, resultHash: raw.resultHash };
+}
+function externalBotRemoteReceipt(record) {
+  const row = externalBotRemoteRecord(record);
+  if (!['applied', 'rejected', 'revoked', 'expired'].includes(row.status)) throw externalBotError('external_channel.request_invalid');
+  // Only a body-free projection. A future original-owner retention transaction must prove eligibility.
+  return { offerId: row.offerId, codeHash: row.codeHash, bindingHash: row.bindingHash, type: row.binding.type,
+    status: row.status, issuedAt: row.issuedAt, expiresAt: row.expiresAt, updatedAt: row.updatedAt, claim: row.claim, resultHash: row.resultHash };
+}
+function externalBotRemoteDisposition(record, bootId = OVERLAY_ID, at = Date.now()) {
+  const row = externalBotRemoteRecord(record);
+  // No claim means no admitted core intent. The original owner may close an old offer;
+  // claimed uncertainty still needs the original journal and can never be revoked here.
+  if (row.status === 'unknown' && row.claim === null && (row.binding.bootId !== bootId || Date.parse(row.expiresAt) <= at)) return 'closed';
+  if (['claimed', 'applying', 'unknown'].includes(row.status)) return 'reconcile';
+  if (['applied', 'rejected'].includes(row.status)) return 'terminal'; // Recorded metadata still requires the original strict receipt.
+  if (['revoked', 'expired'].includes(row.status) || row.binding.bootId !== bootId || Date.parse(row.expiresAt) <= at) return 'closed';
+  return 'unclaimed'; // No disposition authorizes execution, restoration or automatic sending.
+}
+function externalBotRemoteDedupe(state, command) {
+  if (!externalBotRemoteKeys(command, ['offerId', 'action', 'sourceHash', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint'])
+    || !externalBotRemoteOfferId(command.offerId) || !['allow', 'deny', 'answer', 'approve', 'reject'].includes(command.action)
+    || !['sourceHash', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint'].every(key => externalBotRemoteDigest(command[key]))
+    || command.commandHash !== externalBotRemoteHash('command', [command.offerId, command.action, command.decisionFingerprint])) throw externalBotError('external_channel.request_invalid');
+  const rows = [...(state.remoteActions || []), ...(state.remoteActionReceipts || [])];
+  const prior = rows.find(row => row.claim?.sourceHash === command.sourceHash);
+  if (prior) {
+    if (prior.offerId !== command.offerId || ['action', 'textHash', 'contentHash', 'commandHash', 'decisionFingerprint'].some(key => prior.claim[key] !== command[key])) throw externalBotError('external_channel.message_conflict', 409);
+    return { status: 'duplicate', offerId: prior.offerId, idempotencyKey: prior.claim.idempotencyKey };
+  }
+  if (rows.some(row => row.offerId === command.offerId && row.claim)) throw externalBotError('external_channel.message_conflict', 409);
+  return { status: 'unrecorded', offerId: command.offerId }; // Never an execution/admission instruction.
+}
+function externalBotValidRemoteState(state) {
+  if (state.schema < 7) return state.remoteActions === undefined && state.remoteActionReceipts === undefined;
+  if (!Array.isArray(state.remoteActions) || state.remoteActions.length > EXTERNAL_BOT_REMOTE.active
+    || !Array.isArray(state.remoteActionReceipts) || state.remoteActionReceipts.length > EXTERNAL_BOT_REMOTE.receipts) return false;
+  try { for (const row of state.remoteActions) externalBotRemoteRecord(row); } catch { return false; }
+  if (!state.remoteActionReceipts.every(row => externalBotRemoteKeys(row, ['offerId', 'codeHash', 'bindingHash', 'type', 'status', 'issuedAt', 'expiresAt', 'updatedAt', 'claim', 'resultHash'])
+    && ['applied', 'rejected', 'revoked', 'expired'].includes(row.status) && externalBotRemoteValidFacts(row, row.type))) return false;
+  const rows = [...state.remoteActions, ...state.remoteActionReceipts], claims = rows.filter(row => row.claim);
+  return ['offerId', 'codeHash'].every(key => new Set(rows.map(row => row[key])).size === rows.length)
+    && new Set(claims.map(row => row.claim.sourceHash)).size === claims.length;
+}
+function externalBotRemoteWriteAllowed(previous, next) {
+  if (previous.schema >= 7 && next.schema < previous.schema) return false;
+  const oldRows = previous.remoteActions || [], oldReceipts = previous.remoteActionReceipts || [];
+  const rows = next.remoteActions || [], receipts = next.remoteActionReceipts || [];
+  const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  if (oldReceipts.some(old => !receipts.some(row => row.offerId === old.offerId && equal(row, old)))) return false;
+  const transitions = { prepared: ['prepared', 'offered', 'revoked', 'expired', 'unknown'], offered: ['offered', 'claimed', 'revoked', 'expired', 'unknown'],
+    claimed: ['claimed', 'applying', 'rejected', 'unknown'], applying: ['applying', 'applied', 'rejected', 'unknown'], unknown: ['unknown', 'applied', 'rejected'] };
+  for (const old of oldRows) {
+    const row = rows.find(value => value.offerId === old.offerId);
+    if (!row) {
+      if (!['applied', 'rejected', 'revoked', 'expired'].includes(old.status) || !receipts.some(value => equal(value, externalBotRemoteReceipt(old)))) return false;
+      continue;
+    }
+    const allowed = old.status === 'unknown' && old.claim === null ? ['unknown', 'revoked', 'expired'] : transitions[old.status];
+    if (!allowed) { if (!equal(row, old)) return false; continue; }
+    if (!allowed.includes(row.status) || row.updatedAt < old.updatedAt
+      || !equal(Object.fromEntries(['offerId', 'codeHash', 'binding', 'bindingHash', 'allowedActions', 'issuedAt', 'expiresAt'].map(key => [key, row[key]])),
+        Object.fromEntries(['offerId', 'codeHash', 'binding', 'bindingHash', 'allowedActions', 'issuedAt', 'expiresAt'].map(key => [key, old[key]])))
+      || old.announcementItemId && row.announcementItemId !== old.announcementItemId
+      || old.claim && !equal(row.claim, old.claim) || !old.claim && row.claim && row.status !== 'claimed') return false;
+  }
+  return rows.every(row => oldRows.some(old => old.offerId === row.offerId)
+      || !oldReceipts.some(old => old.offerId === row.offerId) && row.status === 'prepared' && row.claim === null)
+    && receipts.every(row => oldReceipts.some(old => old.offerId === row.offerId)
+      || oldRows.some(old => old.offerId === row.offerId && ['applied', 'rejected', 'revoked', 'expired'].includes(old.status) && equal(row, externalBotRemoteReceipt(old))));
 }
 function externalBotFeedback(item, message, progress = false, queryId = '', language = 'zh') {
   const sent = Date.parse(message.sentAt || item.receivedAt), received = Date.parse(item.receivedAt);
@@ -102608,6 +102984,7 @@ function externalBotReplyRetryReceipt(item, row) {
     retryRequestId: row.retryRequestId, requestedAt: row.requestedAt };
 }
 function externalBotReplyRetryWindow(item) {
+  if (item.remoteView) return false; // New source display requires a new owner message and projection.
   return Boolean(item.control && ['completed', 'failed', 'unknown'].includes(item.execution?.status) && item.delivery?.status === 'failed'
     && EXTERNAL_BOT_REPLY_RETRY_ERRORS.includes(item.delivery.errorCode) && !item.delivery.messageId
     && item.delivery.updatedAt && Number.isFinite(Date.parse(item.delivery.updatedAt))
@@ -102668,7 +103045,10 @@ const EXTERNAL_BOT_RETENTION_FAILURES = Object.freeze([...EXTERNAL_BOT_REPLY_RET
   'external_delivery.rate_limited', 'external_delivery.rejected', 'external_delivery.source_limit', 'external_channel.control_revoked']);
 const externalBotRetentionKey = crypto.randomBytes(32); // Preview authority expires on restart.
 function externalBotRetentionHash(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
-function externalBotRetentionEligible(item, cutoff) {
+function externalBotRetentionEligible(item, cutoff, state) {
+  // C0 cannot prove original-journal effects or announcement settlement. Keep all linked
+  // bodies until the original-owner retention integration can atomically retain C receipts.
+  if (state?.remoteActions?.some(row => row.announcementItemId === item.id || row.claim?.sourceHash === externalBotRetentionHash(item.sourceKey))) return false;
   if (externalBotActiveActors.has(item.id) || externalBotUnsettled.has(item.id) || externalBotDeliveries.has(item.id)) return false;
   const dates = [item.receivedAt];
   if (item.feedback?.progress) {
@@ -102703,8 +103083,9 @@ function externalBotValidReceiptDelivery(delivery, execution) {
 }
 function externalBotValidRetentionReceipt(row) {
   if (!row || typeof row !== 'object' || Array.isArray(row)
-    || Object.keys(row).filter(key => key !== 'feedback').sort().join(',') !== 'contentHash,delivery,execution,id,kind,receivedAt,reclaimedAt,replyHistory,sourceHash'
+    || Object.keys(row).filter(key => !['feedback', 'commandTextHash'].includes(key)).sort().join(',') !== 'contentHash,delivery,execution,id,kind,receivedAt,reclaimedAt,replyHistory,sourceHash'
     || !externalBotString(row.id) || !['inbox', 'control'].includes(row.kind)
+    || row.commandTextHash !== undefined && (row.kind !== 'control' || !externalBotRemoteDigest(row.commandTextHash))
     || !['sourceHash', 'contentHash'].every(key => typeof row[key] === 'string' && /^[a-f0-9]{64}$/.test(row[key]))
     || !['receivedAt', 'reclaimedAt'].every(key => typeof row[key] === 'string' && row[key] && Number.isFinite(Date.parse(row[key]))) || !externalBotValidFeedback(row)) return false;
   if (row.kind === 'inbox') return row.execution === null && row.delivery === null && Array.isArray(row.replyHistory) && row.replyHistory.length === 0;
@@ -102723,12 +103104,13 @@ function externalBotRetentionReceipt(item, reclaimedAt) {
   const execution = item.execution && Object.fromEntries(['status', 'finishedAt', 'errorCode', 'turnSeq', 'actionFailures', 'proposals', 'contractIncomplete'].map(key => [key, item.execution[key]]));
   const delivery = item.delivery && Object.fromEntries(['status', 'attemptId', 'messageId', 'errorCode', 'updatedAt', ...(item.delivery.status === 'cancelled' ? ['cancelledAt'] : [])].map(key => [key, item.delivery[key]]));
   return { id: item.id, kind: item.control === null ? 'inbox' : 'control', sourceHash: externalBotRetentionHash(item.sourceKey), contentHash: item.contentHash,
-    receivedAt: item.receivedAt, reclaimedAt, execution, delivery, replyHistory: item.replyHistory || [], ...(item.feedback ? { feedback: item.feedback } : {}) };
+    receivedAt: item.receivedAt, reclaimedAt, execution, delivery, replyHistory: item.replyHistory || [], ...(item.feedback ? { feedback: item.feedback } : {}), ...(item.remoteCommand ? { commandTextHash: item.remoteCommand.textHash } : {}) };
 }
 function externalBotValidRetentionState(state) {
   if (state.schema < 5) return state.retentionReceipts === undefined && state.retentionRequests === undefined;
   if (!Array.isArray(state.retentionReceipts) || state.retentionReceipts.length > EXTERNAL_BOT_RETENTION.receipts
     || !state.retentionReceipts.every(externalBotValidRetentionReceipt)
+    || state.schema < 7 && state.retentionReceipts.some(row => row.commandTextHash !== undefined)
     || !Array.isArray(state.retentionRequests) || state.retentionRequests.length > EXTERNAL_BOT_RETENTION.requests
     || !state.retentionRequests.every(row => row && Object.keys(row).sort().join(',') === 'count,reclaimedAt,requestHash,requestId'
       && typeof row.requestId === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(row.requestId)
@@ -102744,7 +103126,7 @@ async function externalBotRetentionPreview(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join(',') !== 'requestId,retainDays'
     || typeof body.requestId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(body.requestId) || !EXTERNAL_BOT_RETENTION.days.includes(body.retainDays)) throw externalBotError('external_channel.request_invalid');
   const state = await externalBotReadState(), now = Date.now(), cutoff = now - body.retainDays * 86400000;
-  const eligible = state.items.filter(item => externalBotRetentionEligible(item, cutoff));
+  const eligible = state.items.filter(item => externalBotRetentionEligible(item, cutoff, state));
   const remaining = EXTERNAL_BOT_RETENTION.receipts - (state.retentionReceipts?.length || 0);
   if (eligible.length && (!remaining || (state.retentionRequests?.length || 0) >= EXTERNAL_BOT_RETENTION.requests)) throw externalBotError('external_channel.retention_receipts_full', 409);
   const items = eligible.slice(0, Math.min(EXTERNAL_BOT_RETENTION.batch, remaining));
@@ -102780,7 +103162,7 @@ async function externalBotRetentionCommit(body) {
     || new Set(payload.selection.map(row => row[0])).size !== payload.selection.length) throw externalBotError('external_channel.request_invalid');
   const items = payload.selection.map(([id, fingerprint]) => {
     const item = state.items.find(row => row.id === id);
-    if (!item || externalBotRetentionFingerprint(item) !== fingerprint || !externalBotRetentionEligible(item, payload.cutoff)) throw externalBotError('external_channel.retention_changed', 409);
+    if (!item || externalBotRetentionFingerprint(item) !== fingerprint || !externalBotRetentionEligible(item, payload.cutoff, state)) throw externalBotError('external_channel.retention_changed', 409);
     return item;
   });
   if ((state.retentionReceipts?.length || 0) + items.length > EXTERNAL_BOT_RETENTION.receipts
@@ -102805,9 +103187,11 @@ function externalBotValidItem(item) {
     && ['direct', 'group'].includes(item.conversationType) && typeof item.text === 'string' && item.text.trim().length > 0
     && item.text.length <= EXTERNAL_BOT_LIMITS.textChars && Buffer.byteLength(item.text, 'utf8') <= EXTERNAL_BOT_LIMITS.textBytes && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(item.text)
     && item.sourceKey === JSON.stringify([item.connectionId, item.tenantId, item.conversationId, item.messageId])
-    && item.contentHash === crypto.createHash('sha256').update(JSON.stringify([item.senderId, item.conversationType, item.text])).digest('hex')
+    && item.contentHash === crypto.createHash('sha256').update(JSON.stringify([item.senderId, item.conversationType, item.remoteCommand ? item.remoteCommand.textHash : item.text])).digest('hex')
+    && (item.remoteCommand === undefined || item.control !== null && ExternalBotHooks.remoteViews?.validCommand(item.remoteCommand) === true && item.text === '/' + item.remoteCommand.kind)
     && typeof item.receivedAt === 'string' && Number.isFinite(Date.parse(item.receivedAt))
-    && typeof item.readAt === 'string' && (!item.readAt || Number.isFinite(Date.parse(item.readAt))) && externalBotValidControlState(item) && externalBotValidFeedback(item);
+    && typeof item.readAt === 'string' && (!item.readAt || Number.isFinite(Date.parse(item.readAt))) && externalBotValidControlState(item) && externalBotValidFeedback(item)
+    && (item.remoteView === undefined || ExternalBotHooks.remoteViews?.valid(item.remoteView) === true);
 }
 function externalBotValidControlState(item) {
   if (item.control === null) return item.execution === null && item.delivery === null;
@@ -102915,15 +103299,22 @@ async function externalBotNextJob(sendOnly = false) {
     };
     let item = state.items.find(row => row.delivery?.status === 'pending' && available(row));
     if (!item) { slot = 'progress'; item = state.items.find(row => row.execution?.status === 'running' && row.feedback?.progress?.delivery.status === 'pending' && available(row)); }
-    if (!item && !sendOnly) { slot = ''; item = state.items.find(row => row.execution?.status === 'queued'); }
+    if (!item) { slot = ''; item = state.items.find(row => row.execution?.status === 'queued' && row.remoteCommand); }
+    if (!item && !sendOnly) { slot = ''; item = state.items.find(row => row.execution?.status === 'queued' && !row.remoteCommand); }
     if (!item) { if (deferred) await externalBotWriteState(state); return null; }
     const connection = state.connections.find(row => row.id === item.connectionId);
+    if (!slot && item.remoteCommand && item.remoteCommand.bootId !== OVERLAY_ID && !state.remoteActions?.some(row => row.claim?.sourceHash === externalBotRetentionHash(item.sourceKey))) {
+      item.execution = { ...item.execution, status: 'failed', finishedAt: nowIso(), errorCode: 'external_channel.control_revoked', replyText: '' };
+      item.delivery = { status: 'failed', attemptId: makeId('reply'), messageId: '', errorCode: 'external_channel.control_revoked', updatedAt: nowIso() };
+      await externalBotWriteState(state); return { kind: 'skip' };
+    }
     if (slot === 'progress' && !connection?.progressUpdates) {
       item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', errorCode: 'external_channel.control_revoked', updatedAt: nowIso() };
       await externalBotWriteState(state); return { kind: 'skip' };
     }
     if (!(await externalBotOwnerMatches(connection, item))) {
       if (item.execution?.status === 'queued') item.execution = { ...item.execution, status: 'failed', finishedAt: nowIso(), errorCode: 'external_channel.control_revoked', replyText: '' };
+      if (item.remoteCommand && !item.delivery) item.delivery = { status: 'failed', attemptId: makeId('reply'), messageId: '', errorCode: 'external_channel.control_revoked', updatedAt: nowIso() };
       if (item.delivery?.status === 'pending') item.delivery = { ...item.delivery, status: 'failed', updatedAt: nowIso(), errorCode: 'external_channel.control_revoked' };
       if (item.feedback?.progress?.delivery.status === 'pending') item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', updatedAt: nowIso(), errorCode: 'external_channel.control_revoked' };
       await externalBotWriteState(state); return { kind: 'skip' };
@@ -102942,6 +103333,7 @@ async function externalBotNextJob(sendOnly = false) {
         connectionFingerprint: externalBotConnectionFingerprint(connection) };
     }
     item.execution = { ...item.execution, status: 'running', serverInstanceId: OVERLAY_ID, startedAt: nowIso() }; await externalBotWriteState(state);
+    if (item.remoteCommand) return { kind: 'remote', item: JSON.parse(JSON.stringify(item)) };
     const actor = Object.freeze({}); const proof = { itemId: item.id, connectionId: item.connectionId, controlRevision: item.control.controlRevision, controller: new AbortController() };
     externalBotActors.set(actor, proof); externalBotActiveActors.set(item.id, proof);
     return { kind: 'run', item: JSON.parse(JSON.stringify(item)), actor };
@@ -102995,6 +103387,10 @@ function externalBotReplyBinding(connection, item, credentialRevision) {
   return { recipient, purpose: 'external-bot-reply', sourceHash };
 }
 async function externalBotPrepareReply(job, controller, dispatch, assertPolicy = PrivacyGateway.disclosurePolicyGuard()) {
+  if (job.item.remoteView) {
+    if (!ExternalBotHooks.remoteViews) throw externalBotError('external_channel.delivery_changed', 409);
+    return ExternalBotHooks.remoteViews.prepare(job, controller, dispatch, assertPolicy);
+  }
   assertPolicy();
   // The adapter continuation creates the request within the existing state chain.
   // Release the chain after request creation, not after the platform response.
@@ -103022,10 +103418,12 @@ async function externalBotPrepareReply(job, controller, dispatch, assertPolicy =
       .map(key => [current.connection[key], process.env[current.connection[key]]]);
     const fullText = await PrivacyGateway.refreshDisclosure(receipt, current.binding);
     const text = externalBotBoundReplyText(fullText);
+    const receiptAudience = current.item.remoteCommand ? await ExternalBotHooks.remoteViews?.receiptAudience(current.connection, current.item) : null;
     return { result: dispatch({ text, assertCurrent: () => {
       if (controller.signal.aborted || externalBotWorkerStopped || env.some(([key, value]) => process.env[key] !== value)) throw externalBotError('external_channel.control_revoked', 403);
       assertPolicy();
       PrivacyGateway.assertDisclosure(receipt, { ...current.binding, value: fullText });
+      receiptAudience?.assert();
       const owner = externalBotDeliveries.get(job.item.id);
       if (!owner || owner.controller !== controller || owner.attemptId !== job.item.delivery.attemptId || owner.submitted)
         throw externalBotError('external_channel.delivery_changed', 409);
@@ -103054,6 +103452,15 @@ async function externalBotSendJob(job) {
   finally { externalBotDeliveries.delete(job.item.id); }
   try { await externalBotFinishJob(job, result); }
   catch (error) { externalBotUnsettled.set(job.item.id, { kind: 'send', slot: job.slot, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
+  if (job.item.remoteView && result?.status === 'sent') {
+    try { await ExternalBotHooks.remoteViews?.recordDelivery(job.item.id); } catch { /* Original durable delivery stays sent; stale views cannot arm a later code. */ }
+  }
+}
+async function externalBotRunRemoteJob(job) {
+  try {
+    if (!ExternalBotHooks.remoteViews) throw externalBotError('external_channel.storage_unavailable', 503);
+    await ExternalBotHooks.remoteViews.runCommand(job);
+  } catch (error) { externalBotUnsettled.set(job.item.id, { kind: 'run', at: nowIso() }); externalBotRecoveryDone = false; throw error; }
 }
 async function externalBotRunWithFeedback(job) {
   // One original worker and one business owner. During that same owner's wait,
@@ -103065,8 +103472,19 @@ async function externalBotRunWithFeedback(job) {
   while (!done && !externalBotWorkerStopped) {
     try {
       const send = await externalBotNextJob(true);
-      if (send) { if (send.kind !== 'skip') await externalBotSendJob(send); continue; }
-    } catch { externalBotWorkerError = 'external_channel.storage_unavailable'; break; }
+      if (send) { if (send.kind === 'remote') await externalBotRunRemoteJob(send); else if (send.kind !== 'skip') await externalBotSendJob(send); continue; }
+    } catch {
+      externalBotWorkerError = 'external_channel.storage_unavailable';
+      // Consume old wake intent. An uncertain started job is never replayed;
+      // only a later original wake edge or this original owner settling resumes us.
+      externalBotWorkerAgain = false;
+      let notify;
+      const wake = new Promise(resolve => { notify = resolve; externalBotWorkerSignal = resolve; });
+      await Promise.race([running, wake]);
+      if (externalBotWorkerSignal === notify) externalBotWorkerSignal = null;
+      if (done || externalBotWorkerStopped) break;
+      continue;
+    }
     if (done) break;
     if (externalBotWorkerAgain) { externalBotWorkerAgain = false; continue; }
     let notify;
@@ -103085,6 +103503,7 @@ async function externalBotDrain() {
   externalBotWorkerBusy = true;
   try {
     await externalBotRecover();
+    await ExternalBotHooks.remoteViews?.reconcileRecovered();
     do {
       externalBotWorkerAgain = false;
       while (!externalBotWorkerStopped && (typeof WorkDataMaintenanceHooks === 'undefined' || !WorkDataMaintenanceHooks.accepting || WorkDataMaintenanceHooks.accepting())) {
@@ -103092,8 +103511,9 @@ async function externalBotDrain() {
         let result;
         try {
           if (job.kind === 'run') result = await externalBotRunWithFeedback(job);
+          else if (job.kind === 'remote') { await externalBotRunRemoteJob(job); continue; }
           else { await externalBotSendJob(job); continue; }
-        } catch (error) { if (job.kind === 'send') throw error; result = error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }; }
+        } catch (error) { if (['send', 'remote'].includes(job.kind)) throw error; result = error?.code === 'external_channel.control_revoked' ? { ok: false, error: error.code } : { ok: false, executionUnknown: true }; }
         finally { if (job.actor) { externalBotActors.delete(job.actor); externalBotActiveActors.delete(job.item.id); } externalBotDeliveries.delete(job.item.id); }
         try { await externalBotFinishJob(job, result); }
         catch (error) { externalBotUnsettled.set(job.item.id, { kind: job.kind, at: nowIso() }); externalBotRecoveryDone = false; throw error; }
@@ -103107,7 +103527,7 @@ function externalBotWakeWorker() { if (!externalBotWorkerStopped) { externalBotW
 function externalBotValidState(state) {
   if (state?.setupReceipts !== undefined && (!Array.isArray(state.setupReceipts) || state.setupReceipts.length > 4096
     || !state.setupReceipts.every(externalBotValidSetupReceipt) || new Set(state.setupReceipts.map(row => row.sourceKey)).size !== state.setupReceipts.length)) return false;
-  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts', 'retentionReceipts', 'retentionRequests'].includes(key)) || ![1, 2, 3, 4, 5, 6].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
+  if (Object.keys(state).some(key => !['schema', 'connections', 'items', 'retiredConnectionIds', 'setupReceipts', 'retentionReceipts', 'retentionRequests', 'remoteActions', 'remoteActionReceipts'].includes(key)) || ![1, 2, 3, 4, 5, 6, 7].includes(state.schema) || !Array.isArray(state.connections) || state.connections.length > EXTERNAL_BOT_LIMITS.connections
     || !Array.isArray(state.items) || state.items.length > EXTERNAL_BOT_LIMITS.items
     || !Array.isArray(state.retiredConnectionIds) || state.retiredConnectionIds.length > EXTERNAL_BOT_LIMITS.retiredIds
     || state.retiredConnectionIds.some(id => typeof id !== 'string' || !/^[a-z][a-z0-9_-]{0,63}$/.test(id))
@@ -103123,11 +103543,11 @@ function externalBotValidState(state) {
     }
   } catch { return false; }
   return new Set(state.connections.map(row => row.id)).size === state.connections.length && state.items.every(item => externalBotValidItem(item)
-      && (state.schema >= 3 || item.delivery?.status !== 'cancelled') && (state.schema >= 6 || item.feedback === undefined) && externalBotValidReplyHistory(item, state.schema)
+      && (state.schema >= 3 || item.delivery?.status !== 'cancelled') && (state.schema >= 7 || item.remoteView === undefined && item.remoteCommand === undefined) && (state.schema >= 6 || item.feedback === undefined) && externalBotValidReplyHistory(item, state.schema)
       && (state.schema === 1 ? item.archivedAt === undefined : typeof item.archivedAt === 'string' && (!item.archivedAt || Number.isFinite(Date.parse(item.archivedAt)))))
     && !state.connections.some(row => state.retiredConnectionIds.includes(row.id))
     && new Set(state.items.map(row => row.id)).size === state.items.length && new Set(state.items.map(row => row.sourceKey)).size === state.items.length
-    && externalBotValidRetentionState(state);
+    && externalBotValidRetentionState(state) && externalBotValidRemoteState(state);
 }
 // This authority/dedupe ledger never caches or quarantines. Only a missing file is an initial state.
 // The 40 MiB business cap measures compact JSON; the old plaintext read cap still measures disk bytes.
@@ -103179,7 +103599,8 @@ const externalBotStore = (() => {
   async function write(value) {
     // Match DurableJsonStore's strict schema check, JSON snapshot and pretty plaintext bytes.
     const snapshot = parse(JSON.stringify(value), true);
-    await read(); // Never overwrite a bad legacy ledger, even when sealing is currently disabled.
+    const previous = await read(); // Never overwrite a bad legacy ledger, even when sealing is currently disabled.
+    if (!externalBotRemoteWriteAllowed(previous, snapshot)) throw new Error('invalid external action ledger transition');
     await textStore().write(JSON.stringify(snapshot, null, 2));
     return snapshot;
   }
@@ -103294,6 +103715,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
     || !['direct', 'group'].includes(message.conversationType) || typeof message.text !== 'string' || !message.text.trim()
     || message.text.length > EXTERNAL_BOT_LIMITS.textChars || Buffer.byteLength(message.text, 'utf8') > EXTERNAL_BOT_LIMITS.textBytes
     || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(message.text)) throw externalBotError('external_channel.message_invalid');
+  const remote = ExternalBotHooks.remoteViews?.sanitize(connection, message) || null;
   const setupReceipt = externalBotSetupReceipt(connection.id, message);
   const priorSetup = (state.setupReceipts || []).find(row => row.sourceKey === setupReceipt.sourceKey);
   if (priorSetup) {
@@ -103304,7 +103726,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   const reclaimed = state.retentionReceipts?.find(row => row.sourceHash === externalBotRetentionHash(setupReceipt.sourceKey));
   if (reclaimed) {
     // Re-pairing must not repurpose an already accepted message identity or bypass its conflict check.
-    const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, message.text])).digest('hex');
+    const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, reclaimed.commandTextHash ? setupReceipt.textHash : message.text])).digest('hex');
     if (reclaimed.contentHash !== contentHash) throw externalBotError('external_channel.message_conflict', 409);
     return ack;
   }
@@ -103320,7 +103742,7 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   if (!connection.enabled) throw externalBotError('external_channel.connection_unavailable', 404);
   if (message.tenantId !== connection.tenantId || !connection.allowedSenderIds.includes(message.senderId) || !connection.allowedConversationIds.includes(message.conversationId)) throw externalBotError('external_channel.source_forbidden', 403);
   const sourceKey = JSON.stringify([connection.id, message.tenantId, message.conversationId, message.messageId]);
-  const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, message.text])).digest('hex');
+  const contentHash = crypto.createHash('sha256').update(JSON.stringify([message.senderId, message.conversationType, remote ? setupReceipt.textHash : message.text])).digest('hex');
   const existing = state.items.find(item => item.sourceKey === sourceKey);
   if (existing) {
     if (existing.contentHash !== contentHash) throw externalBotError('external_channel.message_conflict', 409);
@@ -103329,13 +103751,15 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
   if (state.items.length >= EXTERNAL_BOT_LIMITS.items) throw externalBotError('external_channel.inbox_full', 503);
   const control = connection.mode === 'control' && connection.ownerSenderId === message.senderId && connection.ownerConversationId === message.conversationId && connection.ownerConversationType === message.conversationType
     ? { connectionId: connection.id, controlRevision: connection.controlRevision, platform, appId: connection.appId, tenantId: message.tenantId, senderId: message.senderId, conversationId: message.conversationId, conversationType: message.conversationType } : null;
+  if (remote) externalBotUpgradeRemoteState(state);
   const item = { id: makeId('botmsg'), connectionId: connection.id, platform, connectionLabel: connection.label,
     tenantId: message.tenantId, conversationId: message.conversationId, senderId: message.senderId,
-    conversationType: message.conversationType, text: message.text, messageId: message.messageId, eventId: message.eventId,
+    conversationType: message.conversationType, text: remote ? '/' + remote.kind : message.text, ...(remote ? { remoteCommand: remote } : {}), messageId: message.messageId, eventId: message.eventId,
     receivedAt: nowIso(), readAt: '', sourceKey, contentHash, control, ...(state.schema >= 2 ? { archivedAt: '' } : {}), ...(state.schema >= 4 ? { replyHistory: [] } : {}),
     execution: control ? { status: 'queued', serverInstanceId: '', startedAt: '', finishedAt: '', errorCode: '', replyText: '', turnSeq: 0, actionFailures: 0, proposals: 0, contractIncomplete: false } : null, delivery: null };
-  const query = control && externalBotStatusCommand(message.text);
-  if (control && (connection.progressUpdates || query)) {
+  if (remote) item.feedback = externalBotFeedback(item, message, false);
+  const query = !remote && control && externalBotStatusCommand(message.text);
+  if (!remote && control && (connection.progressUpdates || query)) {
     let target = null;
     if (query) target = state.items.slice().reverse().find(row => row.control && !row.feedback?.queryId
       && row.connectionId === item.connectionId && row.platform === item.platform && row.tenantId === item.tenantId
@@ -103352,7 +103776,15 @@ async function externalBotAcceptCallback(platform, connectionId, headers, rawBod
     }
   }
   state.items.push(item);
-  await externalBotWriteState(state);
+  let armHuman = null;
+  if (remote && control && ['decide', 'answer'].includes(remote.kind)) {
+    const ticket = Object.freeze({});
+    externalBotVerifiedIngressTickets.set(ticket, { message, connection, credentials, bodyHash: crypto.createHash('sha256').update(rawBody).digest('hex'),
+      sourceKey, contentHash, bootId: OVERLAY_ID, connectionFingerprint: externalBotConnectionFingerprint(connection) });
+    armHuman = await externalBotHumanAdmission.admit(ticket, state, item);
+  }
+  await externalBotWriteState(state); // Only a confirmed claim+item write can arm volatile human payload.
+  if (armHuman) await armHuman();
   return ack;
 }
 async function externalBotSetupHttpOperation(req, res, operation) {
@@ -103494,8 +103926,547 @@ Object.assign(ExternalBotHooks, {
   stewardSetup: externalBotStewardSetup,
   actorSignal: actor => externalBotActors.get(actor)?.controller.signal || null,
   start: () => { externalBotWorkerStopped = false; externalBotWakeWorker(); },
-  stop: () => { externalBotWorkerStopped = true; externalBotWorkerSignal?.(); externalBotWorkerSignal = null; clearTimeout(externalBotFeedbackTimer); externalBotFeedbackTimer = null; externalBotPairings.clear(); for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
+  stop: () => { externalBotWorkerStopped = true; externalBotWorkerSignal?.(); externalBotWorkerSignal = null; clearTimeout(externalBotFeedbackTimer); externalBotFeedbackTimer = null; externalBotPairings.clear(); ExternalBotHooks.remoteViews?.clear(); for (const delivery of externalBotDeliveries.values()) delivery.controller.abort(); for (const actor of externalBotActiveActors.values()) actor.controller.abort(); },
 });
+
+// Private C1 preparation owned by the existing external-bot lifecycle. No route,
+// model capability, decision consumer, engine or durable store is created here.
+const ExternalBotRemoteViews = (() => {
+  const limits = Object.freeze({ views: 256, sourceBytes: 1048576, pageChars: 1600, pageBytes: 7000, pages: 1024 });
+  const views = new Map(), lists = new Map(), snapshots = new WeakMap(), codes = new Map();
+  const humans = new WeakMap(), payloads = new Map();
+  const fail = () => { throw externalBotError('external_channel.request_invalid'); };
+  const stale = () => { throw externalBotError('external_channel.delivery_changed', 409); };
+  const digest = value => externalBotRemoteHash('source-view', value);
+  const handle = () => 'rv_' + crypto.randomBytes(16).toString('base64url');
+  const validHandle = value => typeof value === 'string' && /^r[vl]_[A-Za-z0-9_-]{21}[AQgw]$/.test(value);
+  const viewOf = id => views.get(id) || lists.get(id);
+  function answerJson(text) {
+    let value; try { value = JSON.parse(text); } catch { return fail(); }
+    // JSON.parse alone would silently accept duplicate object keys. Only token
+    // structure is scanned here; original question semantics stay in13d.
+    const tokens = text.match(/"(?:\\.|[^"\\])*"|[{}\[\]:,]/g) || [], stack = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      if (token === '{') stack.push(new Set()); else if (token === '[') stack.push(null);
+      else if (token === '}' || token === ']') stack.pop();
+      else if (token[0] === '"' && tokens[i + 1] === ':') { const keys = stack.at(-1), key = JSON.parse(token); if (!keys || keys.has(key)) fail(); keys.add(key); }
+    }
+    if (!Array.isArray(value) || value.length < 1 || value.length > 3) fail();
+    const seen = new Set();
+    for (const row of value) {
+      if (!row || typeof row !== 'object' || Array.isArray(row) || Object.keys(row).some(key => !['q', 'options', 'text'].includes(key))
+        || !Number.isSafeInteger(row.q) || row.q < 1 || row.q > 3 || seen.has(row.q)) fail();
+      seen.add(row.q);
+      if (row.options !== undefined && (!Array.isArray(row.options) || row.options.length > 12 || row.options.some(n => !Number.isSafeInteger(n) || n < 1 || n > 12) || new Set(row.options).size !== row.options.length)) fail();
+      if (row.text !== undefined && (typeof row.text !== 'string' || !row.text.trim() || row.text.length > 4000)) fail();
+      if (!row.options?.length && !row.text?.trim()) fail();
+    }
+    return value;
+  }
+  function parse(text) {
+    if (typeof text !== 'string' || !/^\s*\/(pending|decide|answer|revoke|action)\b/i.test(text)) return null;
+    if (text.length > EXTERNAL_BOT_LIMITS.textChars || Buffer.byteLength(text) > EXTERNAL_BOT_LIMITS.textBytes || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) fail();
+    const match = /^\s*\/(pending|decide|answer|revoke|action)(?:\s+([\s\S]*?))?\s*$/i.exec(text); if (!match) fail();
+    const kind = match[1].toLowerCase(), tail = match[2] || '';
+    if (kind === 'pending') {
+      if (!tail) return { kind, handle: '', page: 1 };
+      const parts = tail.split(/\s+/); if (parts.length > 2 || !validHandle(parts[0]) || parts[1] !== undefined && !/^[1-9][0-9]{0,3}$/.test(parts[1])) fail();
+      const page = parts[1] === undefined ? 1 : Number(parts[1]); if (page > limits.pages) fail(); return { kind, handle: parts[0], page };
+    }
+    if (kind === 'action') { if (!validHandle(tail)) fail(); return { kind, handle: tail }; }
+    const code = tail.split(/\s/, 1)[0]; externalBotRemoteCodeHash(code);
+    const rest = tail.slice(code.length).trim();
+    if (kind === 'revoke') { if (rest) fail(); return { kind, code }; }
+    if (kind === 'decide') {
+      const decision = /^(allow|deny|approve|reject)(?:\s+([\s\S]*))?$/.exec(rest); if (!decision || decision[2] && (!['approve', 'reject'].includes(decision[1]) || decision[2].length > 2000)) fail();
+      return { kind, code, action: decision[1], ...(decision[2] ? { feedback: decision[2] } : {}) };
+    }
+    if (!rest || rest.length > 8192) fail();
+    return { kind, code, answer: rest.startsWith('[') ? answerJson(rest) : rest.length <= 4000 ? rest : fail() };
+  }
+  function fileStamp(file) {
+    const st = fs.lstatSync(file, { bigint: true }); if (!st.isFile() || st.isSymbolicLink()) stale();
+    return [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':');
+  }
+  async function readSource(sessionId, interventionId) {
+    const assertConfig = configReadFence(), seq = sessionDiskWriteSeqOf(sessionId);
+    const journal = interventionFilePath(sessionId), journalStamp = fileStamp(journal);
+    const meta = await readInterventionsWithMeta(sessionId, { strict: true }); if (fileStamp(journal) !== journalStamp) stale();
+    if (!meta || meta.degraded || meta.corruptLines || !Array.isArray(meta.interventions)) stale();
+    const iv = meta.interventions.find(row => row.id === interventionId);
+    if (!iv || iv.status !== 'pending' || iv.sessionId !== sessionId || !Object.hasOwn(EXTERNAL_BOT_REMOTE.actions, iv.type)) stale();
+    const head = await readSessionHeadResilient(sessionId); if (!head || head.id !== sessionId) stale();
+    const config = await readConfig(); assertConfig();
+    let entry = null, live = null, run = null, detail, origin = null, assertFile = () => {};
+    if (iv.type === 'permission' || iv.type === 'question' || iv.type === 'plan') {
+      const registry = iv.type === 'permission' ? pendingPermissions : iv.type === 'question' ? pendingQuestions : pendingPlans;
+      entry = registry.get(interventionId); if (!entry || entry.sessionId !== sessionId || entry.commandApplying) stale();
+      origin = assertInterventionConsumer(entry);
+      if (iv.type === 'permission') { if (!iv.input || typeof iv.input !== 'object' || Array.isArray(iv.input)) stale(); detail = { toolName: iv.toolName, input: iv.input, tier: iv.tier, revertible: iv.revertible === true }; }
+      else if (iv.type === 'question') { if (!Array.isArray(iv.questions) || JSON.stringify(entry.questions) !== JSON.stringify(iv.questions)) stale(); detail = { questions: iv.questions, context: iv.context || '' }; }
+      else { if (typeof entry.markdown !== 'string' || !entry.markdown) stale(); detail = { markdown: entry.markdown }; }
+    } else {
+      live = activeAgentRuns.get(iv.runId);
+      if (live && !live.closing && live.run?.sessionId === sessionId) run = live.run;
+      else if (iv.type === 'replan') {
+        const file = agentRunFile(sessionId, iv.runId), before = fileStamp(file); run = await readAgentRunSnapshot(sessionId, iv.runId); assertFile = () => { if (fileStamp(file) !== before) stale(); }; assertFile();
+      }
+      if (!run || run.sessionId !== sessionId || iv.type === 'pool' && (!live || live.closing || live.stopRequested || live.ctrl?.signal?.aborted || run.status === 'paused')) stale();
+      detail = (iv.type === 'pool' ? run.taskPool : run.replanPatches)?.find(row => row.id === interventionId);
+      if (!detail || detail.status !== (iv.type === 'pool' ? 'proposed' : 'pending') || iv.type === 'replan' && (!Array.isArray(detail.changes) || !detail.changes.length)) stale();
+    }
+    const runNodes = run?.nodes, nodePointers = runNodes?.slice(), proposer = iv.type === 'pool' && runNodes?.find(node => node.id === detail.proposedBy);
+    // Only the live pool's reporting clock/log may change during a shown
+    // decision. Preserve every other proposer field, including lifecycle and
+    // unknown future semantics, as well as its exact object identity below.
+    const proposerAuthorityOf = () => proposer && JSON.stringify(Object.fromEntries(Object.entries(proposer)
+      .filter(([key]) => key !== 'progressLog' && key !== 'lastActivityAt')));
+    const proposerMaterial = proposerAuthorityOf(), admitPoolNode = live?.admitPoolNode, budgetReader = live?.poolDecisionBudget;
+    const budgetProof = iv.type === 'pool' && Number(run?.originTurnAgentCap) > 0 ? budgetReader?.() : null;
+    if (iv.type === 'pool' && Number(run?.originTurnAgentCap) > 0 && (!budgetProof || typeof budgetProof.assert !== 'function')) stale();
+    const decisionRunOf = () => run && ({ poolPolicy: run.poolPolicy, poolAutoCap: run.poolAutoCap, originTurnAgentCap: run.originTurnAgentCap,
+      permissionModeAtLaunch: run.permissionModeAtLaunch, permissionMode: run.permissionMode, permissionCeiling: run.permissionCeiling, cwd: run.cwd,
+      nodes: run.nodes?.map(node => ({ id: node.id, task: node.task, dependsOn: node.dependsOn, engine: node.engine, toolTier: node.toolTier, model: node.model,
+        maxIters: node.maxIters, roleId: node.roleId, roleSnapshot: node.roleSnapshot, resources: node.resources, isolationMode: node.isolationMode, fromPool: node.fromPool, proposedBy: node.proposedBy })) });
+    const decisionRunMaterial = JSON.stringify(decisionRunOf());
+    const full = { type: iv.type, title: head.title || '', detail };
+    // saveAgentRun updates this clock on ordinary throttled progress saves.
+    // It is not a live pool authority revision. Replan, including cold file
+    // snapshots, keeps the original timestamp and file-identity protection.
+    const authorityOf = () => ({ intervention: iv, run: run && { id: run.id, status: run.status,
+      ...(iv.type === 'pool' && live ? {} : { updatedAt: run.updatedAt }), revision: run.revision, permissionMode: run.permissionMode, permissionCeiling: run.permissionCeiling }, head, config });
+    const authority = authorityOf(), authorityMaterial = JSON.stringify(authority);
+    const fingerprint = digest([full, authority, decisionRunOf(), budgetProof?.material]); if (Buffer.byteLength(JSON.stringify([full, authority])) > limits.sourceBytes) fail();
+    const entryMaterial = entry && (iv.type === 'question' ? JSON.stringify(entry.questions) : iv.type === 'plan' ? entry.markdown : null), detailMaterial = JSON.stringify(detail);
+    const assert = () => {
+      assertConfig(); assertFile(); if (fileStamp(journal) !== journalStamp || sessionDiskWriteSeqOf(sessionId) !== seq || JSON.stringify(authorityOf()) !== authorityMaterial) stale();
+      if (entry) { const registry = iv.type === 'permission' ? pendingPermissions : iv.type === 'question' ? pendingQuestions : pendingPlans;
+        if (registry.get(interventionId) !== entry || entry.commandApplying || (iv.type === 'question' ? JSON.stringify(entry.questions) !== entryMaterial : iv.type === 'plan' ? entry.markdown !== entryMaterial : false)) stale();
+        if (typeof entry.assertAuthority === 'function') entry.assertAuthority();
+      }
+      if (live && (activeAgentRuns.get(iv.runId) !== live || live.run !== run || live.closing || live.stopRequested || live.ctrl?.signal?.aborted || iv.type === 'pool' && live.run?.status === 'paused' || JSON.stringify((iv.type === 'pool' ? live.run?.taskPool : live.run?.replanPatches)?.find(row => row.id === interventionId)) !== detailMaterial)) stale();
+    };
+    const liveControl = live?.ctrl, liveSignal = liveControl?.signal;
+    const assertOrigin = () => {
+      assertConfig(); assertFile();
+      if (JSON.stringify(decisionRunOf()) !== decisionRunMaterial || run && (run.nodes !== runNodes || run.nodes?.some((node, index) => node !== nodePointers[index]))
+        || proposerAuthorityOf() !== proposerMaterial || live && (live.admitPoolNode !== admitPoolNode || live.poolDecisionBudget !== budgetReader)) stale();
+      budgetProof?.assert();
+      if (sessionDiskWriteSeqOf(sessionId) !== seq || JSON.stringify(authorityOf()) !== authorityMaterial) stale();
+      if (entry) {
+        const registry = iv.type === 'permission' ? pendingPermissions : iv.type === 'question' ? pendingQuestions : pendingPlans;
+        if (registry.get(interventionId) !== entry || entry.commandApplying || assertInterventionConsumer(entry) !== origin
+          || (iv.type === 'question' ? JSON.stringify(entry.questions) !== entryMaterial : iv.type === 'plan' ? entry.markdown !== entryMaterial : false)) stale();
+        if (typeof entry.assertAuthority === 'function') entry.assertAuthority();
+      }
+      if (live && (live.ctrl !== liveControl || liveSignal?.aborted || activeAgentRuns.get(iv.runId) !== live || live.run !== run || live.closing || live.stopRequested || live.ctrl?.signal?.aborted
+        || iv.type === 'pool' && live.run?.status === 'paused' || JSON.stringify((iv.type === 'pool' ? live.run?.taskPool : live.run?.replanPatches)?.find(row => row.id === interventionId)) !== detailMaterial)) stale();
+    };
+    const journalProof = await readInterventionJournalProof(sessionId);
+    if (journalProof.kind !== 'present') stale();
+    assert(); assertOrigin(); journalProof.assert();
+    const ticket = Object.freeze({}); snapshots.set(ticket, { sessionId, interventionId, iv: structuredClone(iv), full: structuredClone(full), fingerprint, assert, assertOrigin, journalProof, deadline: Number(entry?.deadlineAt) || 0 }); return ticket;
+  }
+  async function audience(connection, item) {
+    if (item.conversationType === 'direct') return { revision: '', assert: () => {} };
+    // The platform adapter must prove a continuous audience revision, not a member
+    // hash. No adapter currently supplies the external docs66:118 contract.
+    const proof = await ExternalChannelProtocols.prepareAudienceRevision?.(connection, item.conversationId);
+    if (!proof || !externalBotRemoteDigest(proof.revision) || typeof proof.assert !== 'function') stale();
+    proof.assert(); return proof;
+  }
+  function typedDecision(parsed, source) {
+    const type = source.iv.type;
+    if (type === 'question') {
+      if (parsed.kind !== 'answer') fail();
+      const questions = source.iv.questions;
+      const rows = typeof parsed.answer === 'string'
+        ? questions.length === 1 && questions[0].answerMode === 'text' ? [{ q: 1, text: parsed.answer }] : fail()
+        : parsed.answer;
+      const answers = rows.map(row => {
+        const question = questions[row.q - 1]; if (!question) fail();
+        const selectedOptionIds = (row.options || []).map(index => { const option = question.options[index - 1]; if (!option) fail(); return option.id; });
+        return { questionId: question.id, selectedOptionIds, ...(row.text ? { otherText: row.text } : {}) };
+      });
+      const payload = { action: 'answer', answer: { answers } }, normalized = normalizeContractQuestionDecision(payload, questions);
+      if (!normalized.ok) fail();
+      return { payload, decisionPayload: { action: 'answer', answer: normalized.answer } };
+    }
+    if (parsed.kind !== 'decide' || !EXTERNAL_BOT_REMOTE.actions[type].includes(parsed.action) || parsed.feedback !== undefined && type !== 'plan') fail();
+    const payload = { action: parsed.action, ...(parsed.feedback !== undefined ? { feedback: parsed.feedback } : {}) };
+    return { payload, decisionPayload: payload };
+  }
+  async function phaseProof(source, command, phase) {
+    const proof = await readInterventionJournalProof(source.sessionId), initial = source.journalProof;
+    if (proof.kind !== 'present' || proof.identity !== initial.identity || !proof.text.startsWith(initial.text)) stale();
+    const tail = proof.text.slice(initial.text.length), lines = tail.split('\n').filter(Boolean);
+    if (phase === 'pending') { if (tail !== '') stale(); }
+    else {
+      if (lines.length !== 1 || tail !== lines[0] + '\n') stale();
+      const iv = source.iv, expected = { id: iv.id, sessionId: source.sessionId,
+        ...(iv.type ? { type: iv.type } : {}), ...(iv.requestedAt ? { requestedAt: iv.requestedAt } : {}),
+        ...(iv.toolName ? { toolName: iv.toolName } : {}), ...(iv.tier ? { tier: iv.tier } : {}), status: 'applying', decidedAt: '', decidedBy: '',
+        interventionVersion: command.expectedVersion + 1, source: 'external_human', idempotencyKey: command.idempotencyKey, decisionFingerprint: command.decisionFingerprint };
+      if (JSON.stringify(canonicalDecisionValue(JSON.parse(lines[0]))) !== JSON.stringify(canonicalDecisionValue(expected))) stale();
+    }
+    return proof;
+  }
+  async function admitVerified(ticket, state, item) {
+    const verified = externalBotVerifiedIngressTickets.get(ticket); externalBotVerifiedIngressTickets.delete(ticket);
+    if (!verified || verified.bootId !== OVERLAY_ID || verified.sourceKey !== item.sourceKey || verified.contentHash !== item.contentHash
+      || verified.connectionFingerprint !== externalBotConnectionFingerprint(verified.connection) || !externalBotRemoteDigest(verified.bodyHash)) stale();
+    const { message, connection, credentials } = verified;
+    if (!await externalBotOwnerMatches(connection, item) || item.control?.controlRevision !== connection.controlRevision) stale();
+    const parsed = parse(message.text), row = state.remoteActions.find(row => row.codeHash === item.remoteCommand.codeHash), token = row && codes.get(row.offerId);
+    // Existing claims, including a lost ACK, can only be reconciled. Never arm again.
+    if (!row || row.claim) return null; // Unknown code stays a sanitized, non-authorizing C job.
+    const view = token && views.get(token.viewId), source = view && snapshots.get(view.ticket);
+    const announcement = row && state.items.find(value => value.id === row.announcementItemId);
+    if (!row || !token || !view || !source || !announcement || announcement.delivery?.status !== 'sent' || announcement.delivery.attemptId !== token.attemptId || view.sent.size !== view.parts.length || payloads.size >= EXTERNAL_BOT_REMOTE.active || row.status !== 'offered' || row.binding.bootId !== OVERLAY_ID
+      || Date.parse(row.expiresAt) <= Date.now() || token.bindingHash !== row.bindingHash || !externalBotRemoteCodeMatches(row.codeHash, parsed.code)
+      || source.fingerprint !== row.binding.sourceFingerprint || credentials.credentialRevision !== row.binding.credentialRevision) stale();
+    const current = await owner(state, item.id), audienceProof = await audience(connection, item);
+    if (token.recipient !== current.recipient || row.binding.recipientFingerprint !== digest(current.recipient) || audienceProof.revision !== row.binding.audienceRevision) stale();
+    source.assert(); source.assertOrigin(); view.assertProjection();
+    const typed = typedDecision(parsed, source), decisionFingerprint = interventionDecisionFingerprint(source.sessionId, source.interventionId, typed.decisionPayload);
+    const hashes = externalBotRemoteCommand(connection.id, message, { offerId: row.offerId, action: typed.payload.action, decisionFingerprint });
+    if (externalBotRemoteDedupe(state, hashes).status === 'duplicate') return null;
+    const claimedAt = nowIso(); row.status = 'claimed'; row.updatedAt = claimedAt;
+    const { offerId, ...facts } = hashes; row.claim = { ...facts, idempotencyKey: 'extdec:' + row.offerId, claimedAt };
+    const freeze = value => { if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value); } return value; };
+    const command = freeze({ missionId: source.sessionId, interventionId: source.interventionId, expectedVersion: source.iv.interventionVersion || 0,
+      idempotencyKey: row.claim.idempotencyKey, contractRequest: true, payload: typed.payload, decisionFingerprint, type: source.iv.type, action: typed.payload.action, runId: source.iv.runId || '' });
+    const claimMaterial = JSON.stringify(row.claim), bindingHash = row.bindingHash, itemId = item.id;
+    return async () => {
+      const pending = await phaseProof(source, command, 'pending'); pending.assert();
+      source.assert(); source.assertOrigin(); view.assertProjection(); audienceProof.assert();
+      if (Date.parse(row.expiresAt) <= Date.now() || externalBotWorkerStopped) stale();
+      const witness = Object.freeze({}), release = armInterventionJournal(source.sessionId);
+      const slot = { witness, command, release, offerId, claimMaterial, bindingHash, itemId, source, view, audienceProof, recipient: current.recipient, used: false };
+      humans.set(witness, slot); interventionHumanConsumers.set(witness, command => consumeHuman(witness, command)); payloads.set(itemId, slot); codes.delete(offerId);
+    };
+  }
+  function consumeHuman(witness, command) {
+    const slot = witness && humans.get(witness);
+    if (!slot || slot.used || command !== slot.command || payloads.get(slot.itemId) !== slot) return null;
+    slot.used = true; payloads.delete(slot.itemId);
+    const { source, view, audienceProof } = slot;
+    const native = ['permission', 'question', 'plan'].includes(command.type); let preparedEffect = null;
+    const readOwned = async status => {
+      const state = await externalBotReadState(), current = await owner(state, slot.itemId), row = state.remoteActions.find(row => row.offerId === slot.offerId);
+      if (!row || row.status !== status || row.bindingHash !== slot.bindingHash || JSON.stringify(row.claim) !== slot.claimMaterial || current.recipient !== slot.recipient
+        || current.item.execution?.status !== 'running' || current.item.execution.serverInstanceId !== OVERLAY_ID || row.binding.bootId !== OVERLAY_ID || Date.parse(row.expiresAt) <= Date.now()) stale();
+      const env = ['botSecretEnv', 'verificationTokenEnv', 'encryptKeyEnv', 'appSecretEnv'].filter(key => current.connection[key]).map(key => [current.connection[key], process.env[current.connection[key]]]);
+      const assert = () => { if (externalBotWorkerStopped || Date.parse(row.expiresAt) <= Date.now() || env.some(([key, value]) => process.env[key] !== value)) stale(); audienceProof.assert(); };
+      return { state, row, assert };
+    };
+    const prepareEffect = async () => {
+      // Already owns the bot chain from withCommit. Re-entering it would deadlock.
+      const current = await readOwned('applying'), phase = await phaseProof(source, command, 'applying');
+      const assert = () => { current.assert(); phase.assert(); source.assertOrigin(); view.assertProjection(); };
+      assert(); return assert;
+    };
+    return Object.freeze({
+      matches: facts => Object.entries(facts).every(([key, value]) => command[key] === value),
+      withCommit: work => runKeyedChain(externalBotChains, 'state', async () => {
+        const current = await readOwned('claimed'), proof = await phaseProof(source, command, 'pending');
+        current.assert(); proof.assert(); source.assert(); source.assertOrigin(); view.assertProjection();
+        current.row.status = 'applying'; current.row.updatedAt = nowIso(); await externalBotWriteState(current.state);
+        const pending = await phaseProof(source, command, 'pending'); current.assert(); pending.assert(); source.assert(); source.assertOrigin();
+        return work();
+      }),
+      prepareEffect: native ? async () => { preparedEffect = await prepareEffect(); } : undefined,
+      withEffect: work => {
+        if (native) { if (!preparedEffect) stale(); const assert = preparedEffect; preparedEffect = null; assert(); return work(); }
+        return prepareEffect().then(assert => { assert(); return work(); });
+      },
+    });
+  }
+  function receiptOwnerMatches(row, current) {
+    const binding = row?.binding, connection = current.connection, item = current.item;
+    // Read repair uses current original owner authorization. A boot/credential
+    // revision cannot recreate execution authority or hide an existing receipt.
+    return binding && binding.connectionId === connection.id && binding.platform === connection.platform && binding.appId === connection.appId
+      && binding.tenantId === connection.tenantId && binding.botUserId === connection.botUserId && binding.ownerSenderId === item.senderId
+      && binding.ownerConversationId === item.conversationId && binding.ownerConversationType === item.conversationType;
+  }
+  async function settleHuman(job, row, receipt) {
+    const resultHash = digest(['decision-receipt', row.offerId, row.claim.commandHash, receipt]);
+    return runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(), current = await owner(state, job.item.id), record = state.remoteActions.find(value => value.offerId === row.offerId);
+      if (!record || !receiptOwnerMatches(record, current) || JSON.stringify(record.claim) !== JSON.stringify(row.claim)) stale();
+      if (current.item.execution?.status === 'completed' && ['applied', 'rejected'].includes(record.status)) return; // Already repaired, including a lost bot ACK.
+      const status = receipt.kind === 'applied' ? 'applied' : ['rejected', 'superseded'].includes(receipt.kind) ? 'rejected' : 'unknown';
+      if (!['applied', 'rejected'].includes(record.status)) { record.status = status; record.updatedAt = nowIso(); record.resultHash = status === 'unknown' ? '' : resultHash; }
+      const item = current.item;
+      item.execution = { ...item.execution, status: 'completed', finishedAt: nowIso(), replyText: status === 'applied' ? '决定已交付并确认。' : status === 'rejected' ? '此决定未获交付，原待决事项已由权威记录结算。' : '动作结果无法确认，可能已交付。请在如意核对；不会重放此决定。' };
+      item.delivery = { status: 'pending', attemptId: makeId('reply'), messageId: '', errorCode: '', updatedAt: nowIso() }; await externalBotWriteState(state);
+    });
+  }
+  async function runHuman(job) {
+    const slot = payloads.get(job.item.id);
+    const row = await runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(), current = await owner(state, job.item.id);
+      const row = state.remoteActions.find(row => row.claim?.sourceHash === externalBotRetentionHash(job.item.sourceKey)) || state.remoteActions.find(row => row.codeHash === job.item.remoteCommand.codeHash || row.offerId === job.item.remoteCommand.handle);
+      if (row && !receiptOwnerMatches(row, current)) stale(); return row;
+    });
+    if (!row?.claim) stale();
+    const command = slot?.command || { missionId: row.binding.sessionId, interventionId: row.binding.interventionId, expectedVersion: row.binding.expectedVersion,
+      idempotencyKey: row.claim.idempotencyKey, decisionFingerprint: row.claim.decisionFingerprint, type: row.binding.type, action: row.claim.action, runId: row.binding.runId };
+    try {
+      if (slot) await decideIntervention(command, slot.witness); // No payload means query only, even in the same boot.
+      const receipt = await readInterventionDecisionReceipt(command);
+      await settleHuman(job, row, receipt);
+    } finally { if (slot) { slot.release(); humans.delete(slot.witness); interventionHumanConsumers.delete(slot.witness); payloads.delete(job.item.id); } }
+  }
+  async function reconcileRecovered() {
+    const jobs = await runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState();
+      return (state.remoteActions || []).filter(row => row.claim && ['claimed', 'applying', 'unknown'].includes(row.status)).map(row => {
+        const item = state.items.find(item => externalBotRetentionHash(item.sourceKey) === row.claim.sourceHash);
+        return item?.execution?.status === 'unknown' && !payloads.has(item.id) && validCommand(item.remoteCommand) ? { item: structuredClone(item) } : null;
+      }).filter(Boolean);
+    });
+    for (const job of jobs) {
+      // A live volatile slot is skipped; this path only queries lost-payload work.
+      try { await runHuman(job); } catch (error) { if (error?.code === 'external_channel.storage_unavailable') throw error; }
+    }
+  }
+  async function collect() {
+    const index = await getPretenderProjectionIndex(); if (!index || index.degraded?.active || !Array.isArray(index.sessions)) stale();
+    const refs = pendingInterventionRefs(index).refs; if (refs.length > EXTERNAL_BOT_REMOTE.active) fail();
+    const tickets = []; for (const { slice, iv } of refs) tickets.push(await readSource(slice.sessionId, iv.id)); return tickets;
+  }
+  function pages(text) {
+    const result = []; let page = '';
+    for (const point of text) { if (page.length + point.length > limits.pageChars || Buffer.byteLength(page + point) > limits.pageBytes) { result.push(page); page = ''; } page += point; }
+    if (page || !result.length) result.push(page); if (result.length > limits.pages) fail(); return result;
+  }
+  async function project(ticket, recipient, knownSecrets = []) {
+    const source = snapshots.get(ticket); if (!source || typeof recipient !== 'string' || !recipient) stale(); source.assert();
+    const binding = { recipient, purpose: 'external-bot-pending-view', sourceHash: source.fingerprint, knownSecrets };
+    const display = structuredClone(source.full);
+    if (display.type === 'question') display.detail.questions = display.detail.questions.map((q, i) => ({ q: i + 1, header: q.header, question: q.question,
+      answerMode: q.answerMode, allowOther: q.allowOther, otherLabel: q.otherLabel, otherPlaceholder: q.otherPlaceholder,
+      options: q.options.map((option, index) => ({ option: index + 1, label: option.label, description: option.description })) }));
+    const projected = await PrivacyGateway.prepareMultiSourceDisclosure(PrivacyGateway.foreignView(display), [source.sessionId], binding);
+    source.assert(); projected.assert();
+    const text = typeof projected.value === 'string' ? projected.value : JSON.stringify(projected.value, null, 2), parts = pages(text);
+    for (const [id, view] of views) if (view.expiresAt <= Date.now()) views.delete(id);
+    if (views.size >= limits.views) fail(); const id = handle(), expiresAt = Math.min(Date.now() + EXTERNAL_BOT_REMOTE.ttlMs, source.deadline > 0 ? source.deadline : Infinity);
+    if (expiresAt <= Date.now()) stale();
+    views.set(id, { ticket, recipient, parts, expiresAt, assertProjection: projected.assert, projectionHash: digest(projected.value), sent: new Map() });
+    return { handle: id, type: source.iv.type, title: String(projected.value.title || '').slice(0, 120), pages: parts.length, expiresAt: new Date(expiresAt).toISOString() };
+  }
+  async function page(id, number, recipient) {
+    const view = viewOf(id), source = view && snapshots.get(view.ticket);
+    if (!view || !source || view.recipient !== recipient || view.expiresAt <= Date.now() || !Number.isSafeInteger(number) || number < 1 || number > view.parts.length) stale();
+    if (source.refresh) await source.refresh(); else { const fresh = await readSource(source.sessionId, source.interventionId); if (snapshots.get(fresh).fingerprint !== source.fingerprint) stale(); }
+    source.assert(); view.assertProjection(); return { text: view.parts[number - 1], page: number, pages: view.parts.length, complete: number === view.parts.length && Array.from({ length: number - 1 }, (_, i) => i + 1).every(i => view.sent.has(i)),
+      assert: () => { source.assert(); view.assertProjection(); if (view.expiresAt <= Date.now() || view.recipient !== recipient || viewOf(id) !== view) stale(); },
+      };
+  }
+  async function owner(state, itemId) {
+    const item = state.items.find(row => row.id === itemId), connection = item && state.connections.find(row => row.id === item.connectionId);
+    if (!item || !await externalBotOwnerMatches(connection, item)) stale();
+    const credentials = await externalBotCredentialSnapshot(connection);
+    const recipient = JSON.stringify([connection.id, connection.platform, connection.appId, connection.tenantId, connection.botUserId, item.conversationType, item.conversationId, item.senderId, connection.controlRevision, credentials.credentialRevision]);
+    return { item, connection, credentials, recipient };
+  }
+  async function context(itemId) {
+    return runKeyedChain(externalBotChains, 'state', async () => ({ recipient: (await owner(await externalBotReadState(), itemId)).recipient }));
+  }
+  function validPresentation(row) {
+    return externalBotRemoteKeys(row, ['handle', 'page', 'pages', 'projectionHash', 'recipientHash', 'offerId']) && validHandle(row.handle)
+      && Number.isSafeInteger(row.page) && Number.isSafeInteger(row.pages) && row.page >= 1 && row.page <= row.pages && row.pages <= limits.pages
+      && externalBotRemoteDigest(row.projectionHash) && externalBotRemoteDigest(row.recipientHash) && (row.offerId === '' || externalBotRemoteOfferId(row.offerId));
+  }
+  async function stage(itemId, id, number) {
+    const initial = await context(itemId), prepared = await page(id, number, initial.recipient), view = viewOf(id), source = snapshots.get(view.ticket);
+    return runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(), current = await owner(state, itemId);
+      if (current.recipient !== initial.recipient || !(current.item.execution?.status === 'queued' || current.item.remoteCommand && current.item.execution?.status === 'running' && current.item.execution.serverInstanceId === OVERLAY_ID) || current.item.remoteView) stale();
+      prepared.assert(); externalBotUpgradeRemoteState(state);
+      let offerId = '', token = null;
+      const audienceProof = await audience(current.connection, current.item);
+      if (prepared.complete && !view.list) {
+        if (state.remoteActions.length >= EXTERNAL_BOT_REMOTE.active || state.remoteActionReceipts.length >= EXTERNAL_BOT_REMOTE.receipts) fail();
+        // An offer is a fixed data intent, not a human decision. No decision consumer is called.
+        token = externalBotRemoteNewCode(); offerId = id;
+        if (state.remoteActions.some(row => row.offerId === offerId) || state.remoteActionReceipts.some(row => row.offerId === offerId)) stale();
+        const binding = externalBotRemoteBinding({ bootId: OVERLAY_ID, connectionId: current.connection.id, platform: current.connection.platform, appId: current.connection.appId,
+          tenantId: current.connection.tenantId, botUserId: current.connection.botUserId, controlRevision: current.connection.controlRevision, credentialRevision: current.credentials.credentialRevision,
+          ownerSenderId: current.item.senderId, ownerConversationType: current.item.conversationType, ownerConversationId: current.item.conversationId,
+          sessionId: source.sessionId, interventionId: source.interventionId, type: source.iv.type, expectedVersion: source.iv.interventionVersion || 0,
+          runId: source.iv.runId || '', executionId: '', sourceFingerprint: source.fingerprint, policyFingerprint: source.fingerprint,
+          recipientFingerprint: digest(current.recipient), audienceRevision: audienceProof.revision });
+        const now = nowIso(), row = externalBotRemoteRecord({ offerId, codeHash: token.codeHash, binding, bindingHash: externalBotRemoteHash('binding', binding),
+          allowedActions: [...EXTERNAL_BOT_REMOTE.actions[binding.type]], issuedAt: now, expiresAt: new Date(view.expiresAt).toISOString(), updatedAt: now,
+          status: 'prepared', announcementItemId: current.item.id, claim: null, resultHash: '' });
+        state.remoteActions.push(row); await externalBotWriteState(state); // Failed/lost ACK never arms or sends a raw code.
+      }
+      prepared.assert();
+      const item = current.item;
+      item.remoteView = { handle: id, page: number, pages: view.parts.length, projectionHash: view.projectionHash, recipientHash: digest(current.recipient), offerId };
+      item.execution = { ...item.execution, status: 'completed', finishedAt: nowIso(), replyText: prepared.text };
+      item.delivery = { status: 'pending', attemptId: makeId('reply'), messageId: '', errorCode: '', updatedAt: nowIso() };
+      if (item.feedback?.progress?.delivery.status === 'pending') item.feedback.progress.delivery = { ...item.feedback.progress.delivery, status: 'failed', errorCode: 'external_delivery.progress_superseded', updatedAt: nowIso() };
+      if (offerId) { const row = state.remoteActions.find(row => row.offerId === offerId); row.status = 'offered'; row.announcementItemId = item.id; row.updatedAt = nowIso(); }
+      try { await externalBotWriteState(state); } catch (error) { codes.delete(offerId); throw error; }
+      if (token) codes.set(offerId, { code: token.code, codeHash: token.codeHash, viewId: id, itemId, attemptId: item.delivery.attemptId, recipient: current.recipient, bindingHash: state.remoteActions.find(row => row.offerId === offerId).bindingHash });
+      return { itemId, offerId, page: number, pages: view.parts.length }; // Never returns raw code or full source.
+    });
+  }
+  async function recordDelivery(itemId) {
+    return runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(), current = await owner(state, itemId), marker = current.item.remoteView, view = marker && viewOf(marker.handle);
+      if (!validPresentation(marker) || !view || current.recipient !== view.recipient || marker.projectionHash !== view.projectionHash
+        || marker.pages !== view.parts.length || current.item.execution.replyText !== view.parts[marker.page - 1]
+        || current.item.delivery?.status !== 'sent' || !externalBotIdentity(current.item.delivery.messageId)) stale();
+      view.sent.set(marker.page, [current.item.delivery.attemptId, current.item.delivery.messageId]);
+    });
+  }
+  async function prepare(job, controller, dispatch, assertPolicy) {
+    const marker = job.item.remoteView, view = marker && viewOf(marker.handle);
+    if (!validPresentation(marker) || !view) stale();
+    const prepared = await page(marker.handle, marker.page, view.recipient);
+    const pending = await runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(), current = await owner(state, job.item.id), item = current.item;
+      if (controller.signal.aborted || externalBotWorkerStopped || current.recipient !== view.recipient || JSON.stringify(item.remoteView) !== JSON.stringify(marker)
+        || item.delivery?.status !== 'sending' || item.delivery.attemptId !== job.item.delivery.attemptId || current.credentials.credentialRevision !== job.credentialRevision
+        || externalBotConnectionFingerprint(current.connection) !== job.connectionFingerprint || item.execution.replyText !== prepared.text) stale();
+      const audienceProof = await audience(current.connection, item);
+      let suffix = '';
+      if (marker.offerId) {
+        const token = codes.get(marker.offerId), row = state.remoteActions.find(row => row.offerId === marker.offerId);
+        if (!token || !row || row.status !== 'offered' || row.claim !== null || row.binding.bootId !== OVERLAY_ID || Date.parse(row.expiresAt) <= Date.now()
+          || token.recipient !== current.recipient || token.itemId !== item.id || token.attemptId !== item.delivery.attemptId || token.bindingHash !== row.bindingHash
+          || !externalBotRemoteCodeMatches(row.codeHash, token.code) || !prepared.complete || audienceProof.revision !== row.binding.audienceRevision) stale();
+        suffix = '\n\n' + row.allowedActions.map(action => (action === 'answer' ? '/answer ' : '/decide ') + token.code + (action === 'answer' ? ' TEXT' : ' ' + action)).join('\n');
+      }
+      const text = prepared.text + suffix;
+      const env = ['botSecretEnv', 'verificationTokenEnv', 'encryptKeyEnv', 'appSecretEnv'].filter(key => current.connection[key]).map(key => [current.connection[key], process.env[current.connection[key]]]);
+      const assert = wire => {
+        prepared.assert(); assertPolicy(); audienceProof.assert();
+        if (controller.signal.aborted || externalBotWorkerStopped || env.some(([key, value]) => process.env[key] !== value) || wire?.text !== text) stale();
+        const active = externalBotDeliveries.get(item.id); if (!active || active.controller !== controller || active.attemptId !== item.delivery.attemptId || active.submitted) stale();
+        if (marker.offerId && codes.get(marker.offerId)?.codeHash !== state.remoteActions.find(row => row.offerId === marker.offerId)?.codeHash) stale();
+        active.submitted = true;
+      };
+      prepared.assert(); assertPolicy(); return { result: dispatch({ text, assertCurrent: assert }) };
+    });
+    return pending.result;
+  }
+  async function withdraw(itemId, code) {
+    const hash = externalBotRemoteCodeHash(code);
+    return withdrawHash(itemId, hash);
+  }
+  async function withdrawHash(itemId, hash) {
+    return runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(), current = await owner(state, itemId), row = state.remoteActions?.find(row => row.codeHash === hash);
+      const token = row && codes.get(row.offerId);
+      if (!row || row.binding.recipientFingerprint !== digest(current.recipient)) stale();
+      if (row.claim !== null || ['claimed', 'applying'].includes(row.status)) return { status: 'reconcile', offerId: row.offerId };
+      if (['revoked', 'expired'].includes(row.status)) return { status: row.status, offerId: row.offerId };
+      if (!token || token.codeHash !== hash || token.recipient !== current.recipient || row.binding.bootId !== OVERLAY_ID || Date.parse(row.expiresAt) <= Date.now()) stale();
+      if (['prepared', 'offered', 'unknown'].includes(row.status)) { row.status = 'revoked'; row.updatedAt = nowIso(); await externalBotWriteState(state); }
+      codes.delete(row.offerId); return { status: row.status, offerId: row.offerId };
+    });
+  }
+  async function expire() {
+    return runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(); let changed = false;
+      for (const row of state.remoteActions || []) if (row.claim === null && ['prepared', 'offered', 'unknown'].includes(row.status)
+        && (row.binding.bootId !== OVERLAY_ID || Date.parse(row.expiresAt) <= Date.now())) { row.status = row.binding.bootId !== OVERLAY_ID ? 'revoked' : 'expired'; row.updatedAt = nowIso(); codes.delete(row.offerId); changed = true; }
+      if (changed) await externalBotWriteState(state);
+      for (const [id, slot] of payloads) {
+        const row = state.remoteActions.find(row => row.offerId === slot.offerId), connection = row && state.connections.find(value => value.id === row.binding.connectionId);
+        if (!row || row.binding.bootId !== OVERLAY_ID || Date.parse(row.expiresAt) <= Date.now() || !connection?.enabled || connection.controlRevision !== row.binding.controlRevision) { slot.release(); humans.delete(slot.witness); interventionHumanConsumers.delete(slot.witness); payloads.delete(id); }
+      }
+      for (const [id, view] of views) if (view.expiresAt <= Date.now()) views.delete(id);
+      for (const [id, view] of lists) if (view.expiresAt <= Date.now()) lists.delete(id);
+    });
+  }
+  function sanitize(connection, message) {
+    if (!/^\s*\/(pending|action|revoke|decide|answer)\b/i.test(message.text)) return null;
+    if (!connection.enabled || connection.mode !== 'control' || message.tenantId !== connection.tenantId || !connection.allowedSenderIds.includes(message.senderId)
+      || !connection.allowedConversationIds.includes(message.conversationId) || message.senderId !== connection.ownerSenderId || message.conversationId !== connection.ownerConversationId || message.conversationType !== connection.ownerConversationType) throw externalBotError('external_channel.source_forbidden', 403);
+    let parsed; try { parsed = parse(message.text); } catch { parsed = { kind: 'invalid' }; }
+    const row = { kind: parsed.kind, textHash: externalBotRetentionHash(message.text), codeHash: parsed.code ? externalBotRemoteCodeHash(parsed.code) : '', handle: parsed.handle || '', page: parsed.page || 0, bootId: OVERLAY_ID };
+    return { ...row, commandHash: externalBotRemoteHash('readonly-ingress', row) };
+  }
+  function validCommand(row) {
+    if (!externalBotRemoteKeys(row, ['kind', 'textHash', 'codeHash', 'handle', 'page', 'bootId', 'commandHash']) || !['pending', 'action', 'revoke', 'decide', 'answer', 'invalid'].includes(row.kind)
+      || !externalBotRemoteDigest(row.textHash) || !externalBotRemoteDigest(row.commandHash) || !externalBotIdentity(row.bootId) || !(row.codeHash === '' || externalBotRemoteDigest(row.codeHash))
+      || !(row.handle === '' || validHandle(row.handle)) || !Number.isSafeInteger(row.page) || row.page < 0 || row.page > limits.pages) return false;
+    const { commandHash, ...facts } = row;
+    return commandHash === externalBotRemoteHash('readonly-ingress', facts) && (row.kind === 'pending' ? row.page >= 1 && row.codeHash === ''
+      : row.kind === 'action' ? validHandle(row.handle) && row.page === 0 && row.codeHash === '' : ['revoke', 'decide', 'answer'].includes(row.kind) ? externalBotRemoteDigest(row.codeHash) && row.handle === '' && row.page === 0 : row.codeHash === '' && row.handle === '' && row.page === 0);
+  }
+  async function list(recipient, knownSecrets) {
+    for (const [id, view] of lists) if (view.recipient === recipient || view.expiresAt <= Date.now()) lists.delete(id);
+    for (const [id, view] of views) if (view.expiresAt <= Date.now() || view.recipient === recipient && ![...codes.values()].some(code => code.viewId === id)) views.delete(id);
+    if (lists.size >= EXTERNAL_BOT_LIMITS.connections) fail();
+    const tickets = await collect(); let entries = [];
+    // Learning in a later source can dirty an earlier proof. Only unpublished,
+    // unarmed temporary handles may be discarded and reprojected, never offers.
+    for (let pass = 0; pass < 4; pass++) {
+      entries = [];
+      try {
+        for (const ticket of tickets) entries.push(await project(ticket, recipient, knownSecrets));
+        for (const entry of entries) { const view = views.get(entry.handle); snapshots.get(view.ticket).assert(); view.assertProjection(); }
+        break;
+      } catch (error) {
+        for (const entry of entries) views.delete(entry.handle);
+        if (error?.code !== 'privacy.disclosure_dirty' || pass === 3) throw error;
+      }
+    }
+    const id = 'rl_' + crypto.randomBytes(16).toString('base64url'), ticket = Object.freeze({}), sources = tickets.map(ticket => snapshots.get(ticket));
+    const assert = () => { for (const source of sources) source.assert(); for (const entry of entries) { const view = views.get(entry.handle); if (!view) stale(); view.assertProjection(); } };
+    const refresh = async () => { for (const source of sources) { const current = await readSource(source.sessionId, source.interventionId); if (snapshots.get(current).fingerprint !== source.fingerprint) stale(); } };
+    snapshots.set(ticket, { assert, refresh });
+    const parts = pages(entries.length ? entries.map(entry => `${entry.handle} ${entry.type} ${entry.title}\n/pending ${entry.handle} 1`).join('\n\n') : '当前没有待处理的事项。');
+    if (parts.length > 1) for (let i = 0; i < parts.length; i++) parts[i] += `\n\n${i + 1}/${parts.length}${i + 1 < parts.length ? '\n/pending ' + id + ' ' + (i + 2) : ''}`;
+    const expiresAt = Math.min(Date.now() + EXTERNAL_BOT_REMOTE.ttlMs, ...entries.map(entry => Date.parse(entry.expiresAt)));
+    lists.set(id, { list: true, ticket, recipient, parts, expiresAt, assertProjection: assert, projectionHash: digest(parts), sent: new Map() }); return id;
+  }
+  async function plainReply(job, text, failed = false) {
+    return runKeyedChain(externalBotChains, 'state', async () => {
+      const state = await externalBotReadState(), current = await owner(state, job.item.id), item = current.item;
+      if (!validCommand(item.remoteCommand) || item.execution?.status !== 'running' || item.execution.serverInstanceId !== OVERLAY_ID || JSON.stringify(item.remoteCommand) !== JSON.stringify(job.item.remoteCommand)) stale();
+      item.execution = { ...item.execution, status: failed ? 'failed' : 'completed', finishedAt: nowIso(), errorCode: failed ? 'external_channel.request_invalid' : '', replyText: text };
+      item.delivery = { status: 'pending', attemptId: makeId('reply'), messageId: '', errorCode: '', updatedAt: nowIso() }; await externalBotWriteState(state);
+    });
+  }
+  async function runCommand(job) {
+    const command = job.item.remoteCommand;
+    if (!validCommand(command)) stale();
+    if (command.bootId !== OVERLAY_ID && ['decide', 'answer'].includes(command.kind)) { await runHuman(job); return; }
+    if (command.bootId !== OVERLAY_ID) stale();
+    try {
+      await expire(); const current = await runKeyedChain(externalBotChains, 'state', async () => owner(await externalBotReadState(), job.item.id));
+      if (command.kind === 'pending') { const id = command.handle || await list(current.recipient, Object.values(current.credentials.values).filter(Boolean)); await stage(job.item.id, id, command.page); return; }
+      if (command.kind === 'revoke') { const result = await withdrawHash(job.item.id, command.codeHash); await plainReply(job, result.status === 'reconcile' ? '此项已认领，结果需要核对；本条没有撤销或重复执行原动作。' : '此项代码已失效；原待决结果没有改变。'); return; }
+      if (['decide', 'answer'].includes(command.kind)) { await runHuman(job); return; }
+      if (command.kind === 'invalid') { await plainReply(job, '命令格式无效。请使用 /pending 查看当前待决事项。', true); return; }
+      const facts = await runKeyedChain(externalBotChains, 'state', async () => {
+        const state = await externalBotReadState(); await owner(state, job.item.id);
+        const row = state.remoteActions?.find(row => command.kind === 'action' ? row.offerId === command.handle : row.codeHash === command.codeHash);
+        if (!row || !(row.claim ? receiptOwnerMatches(row, current) : row.binding.recipientFingerprint === digest(current.recipient))) stale(); return { claimed: row.claim !== null, closed: ['revoked', 'expired'].includes(row.status) || row.binding.bootId !== OVERLAY_ID || Date.parse(row.expiresAt) <= Date.now() };
+      });
+      if (facts.claimed) { await runHuman(job); return; }
+      await plainReply(job, facts.claimed ? '此项已认领，动作结果请在如意核对；本条没有再次执行。' : facts.closed ? '此项代码已失效，请重新使用 /pending 查看当前待决事项。' : command.kind === 'action' ? '此项尚未认领，原待决结果没有改变。' : '本条没有交付或执行决定，原待决结果没有改变，请在如意处理此项。');
+    } catch (error) {
+      if (error?.code === 'external_channel.storage_unavailable') throw error;
+      await plainReply(job, ['decide', 'answer', 'action'].includes(command.kind) ? '动作结果无法确认，可能已交付。请在如意核对；不会重放此决定。' : '当前事项或代码已变化，未交付任何决定。请重新使用 /pending 查看。', true);
+    }
+  }
+  externalBotHumanAdmission.admit = admitVerified;
+  const hooks = Object.freeze({ valid: validPresentation, sanitize, validCommand, runCommand, prepare, recordDelivery, reconcileRecovered, receiptAudience: audience, clear: () => { for (const slot of payloads.values()) { slot.release(); humans.delete(slot.witness); interventionHumanConsumers.delete(slot.witness); } payloads.clear(); codes.clear(); views.clear(); lists.clear(); } });
+  Object.assign(ExternalBotHooks, { remoteViews: hooks });
+  return Object.freeze({ parse, readSource, collect, project, page, context, stage, recordDelivery, withdraw, expire, sanitize, validCommand, runCommand });
+})();
 
 // Independent MCP consumers use a running host. No management credential enters
 // their process. This is an application authorization boundary, not OS isolation.
@@ -104598,7 +105569,7 @@ async function cliQuestionService(body, { method = 'POST', trusted = false, owne
     const reg = ownerReg || activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return (apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig(); ownerCheck();
-    ownerCheck(); const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || ''); ownerCheck();
+    ownerCheck(); const answer = await requestUserQuestion(sessionId, makeId('question'), body.questions, reg.onEvent, config.questionTimeoutMs, reg.questionContext || '', { reg, owner: reg.executionOwner, assert: ownerCheck, isClosed }); ownerCheck();
     return (json(answer && answer.ok
       ? { ok: true, answers: answer.answers, content: answer.content }
       : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' }));
@@ -104688,6 +105659,7 @@ async function cliPermissionService(body, { method = 'POST', trusted = false, ow
       // 128f-⑪:「等多久」问 04 的 permissionWaitMs(修前这一支只认 config,定时线程上的 CLI 引擎也是 120 s)。
       const baseMs = permissionWaitMs(sessionId, config, reg && reg.session);
       const entry = { resolve, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
+      registerInterventionConsumer(entry, sessionId, { reg, owner: reg.executionOwner, assert: ownerCheck, isClosed, input: body.input, inputOf: () => body.input });
       const clearExpiredOwner = () => {
         if (ownerAlive()) return false;
         // Registry cleanup belongs to the intervention command core, not to a stale CLI grant.

@@ -1685,8 +1685,9 @@ PermissionWaitHooks.scheduler = schedulerAskWaitOverrideMs;
 // 第27f波:pause = { enabled, ttlMs, onPause(requestId) } —— 无人值守回合的权限超时【存档暂停】。基础超时到点后不立即拒杀,
 // 而是打检查点(onPause)+ 发 permission_paused 事件 + 把决定窗口延长到 ttlMs;窗口内仍可经 /api/permission/decision 决定,
 // 到 ttlMs 无人应答则回落 deny(fail-closed)。entry.timer 在 Map 里被重赋为 TTL 定时器,故 clearPendingPermissions/decision 照常清对。
-function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs, tier, pause) {
-  const owner = typeof turnSettlers !== 'undefined' ? turnSettlers.get(sessionId) : null;
+function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs, tier, pause, origin = {}) {
+  origin = captureInterventionConsumer(sessionId, origin);
+  const owner = origin.owner;
   if (owner && owner.authority) assertSessionExecutionOwner(sessionId, owner);
   return new Promise(resolve => {
     const requestId = makeId('perm');
@@ -1715,6 +1716,7 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
     const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs,
       revalidateAuthority: owner && owner.authority ? () => revalidateSessionExecutionPermission(sessionId, owner) : null,
       assertAuthority: owner && owner.authority ? () => assertSessionExecutionOwner(sessionId, owner) : null };
+    registerInterventionConsumer(entry, sessionId, { ...origin, input });
     if (pause && pause.enabled) {
       entry.timer = setTimeout(() => {
         try { if (pause.onPause) pause.onPause(requestId); } catch { /* 检查点失败不阻断 */ }
@@ -1769,7 +1771,8 @@ function looksLikePlan(text) {
 // requestNativePermission but on the plan channel. Resolves { decision:'approve'|'reject', note? }. The
 // timeout is REJECT (per spec: 超时=permissionTimeoutMs → 视为 reject). clearPendingPlans (abort/stop/turn-end)
 // also settles the promise as reject so the awaiting loop can never hang.
-function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
+function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs, origin = {}) {
+  origin = captureInterventionConsumer(sessionId, origin);
   return new Promise(resolve => {
     const planId = makeId('plan');
     onEvent({ type: 'plan', planId, markdown: String(markdown || '') });
@@ -1797,7 +1800,9 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
       });
       // 123-M1:计划审批与权限请求同一条口径 —— 无人值守回合等 schedulerAskWaitMinutes,到时仍是【拒】。
     }, schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs));   // 0 = 不限时(04 promptWaitMs)
-    pendingPlans.set(planId, { resolve: settle, sessionId, timer, markdown: String(markdown || '') });
+    const entry = { resolve: settle, sessionId, timer, markdown: String(markdown || '') };
+    registerInterventionConsumer(entry, sessionId, origin);
+    pendingPlans.set(planId, entry);
   });
 }
 
@@ -2316,8 +2321,32 @@ async function cleanupAgentWorktree(isolation) {
 }
 
 function projectAgentRoleFile(cwd) { return path.join(path.resolve(cwd), '.ruyi', 'agents.json'); }
-async function readProjectAgentRoles(cwd) {
+function strictAgentRoleSource(file, directory = false) {
+  const capture = () => {
+    try {
+      const st = fs.lstatSync(file, { bigint: true });
+      if (st.isSymbolicLink() || (directory ? !st.isDirectory() : !st.isFile())) throw new Error('invalid role source');
+      const bytes = directory ? null : fs.readFileSync(file);
+      const value = directory ? fs.readdirSync(file).sort() : new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      if (!directory && Buffer.byteLength(value) > 512 * 1024) throw new Error('role source too large');
+      return { identity: [st.dev, st.ino, st.size, st.mtimeNs, st.ctimeNs].join(':'), value, bytesHash: bytes ? crypto.createHash('sha256').update(bytes).digest('hex') : '' };
+    } catch (error) { if (error.code === 'ENOENT') return { identity: 'absent', value: directory ? [] : null }; throw error; }
+  };
+  const before = capture(), material = JSON.stringify(before);
+  return { value: before.value, assert: () => { if (JSON.stringify(capture()) !== material) throw Object.assign(new Error('role source changed'), { code: 'intervention.role_source_changed' }); } };
+}
+async function readProjectAgentRoles(cwd, opts = {}) {
   const file = projectAgentRoleFile(cwd);
+  if (opts.strict) {
+    const proof = strictAgentRoleSource(file); opts.sources.push(proof);
+    if (proof.value === null) return [];
+    const parsed = JSON.parse(proof.value);
+    const roles = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.roles) ? parsed.roles : null;
+    if (!roles || roles.length > 32) throw new Error('invalid role source');
+    const normalized = roles.map(role => normalizeAgentRole(role, { source: 'project' }));
+    if (normalized.some(role => !role)) throw new Error('invalid role source');
+    return normalized;
+  }
   try {
     const st = await fsp.stat(file); if (!st.isFile() || st.size > 512 * 1024) return [];
     const parsed = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
@@ -2332,14 +2361,19 @@ function parseSimpleYamlValue(value) {
   if (/^\d+$/.test(s)) return Number(s);
   return s.replace(/^['"]|['"]$/g, '');
 }
-async function readClaudeProjectAgentRoles(cwd) {
+async function readClaudeProjectAgentRoles(cwd, opts = {}) {
   const dir = path.join(path.resolve(cwd), '.claude', 'agents');
-  let files = []; try { files = await fsp.readdir(dir); } catch { return []; }
+  let files = [];
+  if (opts.strict) { const proof = strictAgentRoleSource(dir, true); opts.sources.push(proof); files = proof.value; }
+  else try { files = await fsp.readdir(dir); } catch { return []; }
   const out = [];
   for (const file of files.filter(f => /\.md$/i.test(f)).slice(0, 32)) {
     try {
-      const raw = await fsp.readFile(path.join(dir, file), 'utf8'); if (raw.length > 128 * 1024) continue;
-      const m = /^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n([\s\S]*)$/m.exec(raw); if (!m) continue;
+      const proof = opts.strict ? strictAgentRoleSource(path.join(dir, file)) : null;
+      if (proof) opts.sources.push(proof);
+      const raw = proof ? proof.value : await fsp.readFile(path.join(dir, file), 'utf8');
+      if (raw === null || raw.length > 128 * 1024) { if (opts.strict) throw new Error('invalid role source'); continue; }
+      const m = /^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n([\s\S]*)$/m.exec(raw); if (!m) { if (opts.strict) throw new Error('malformed role source'); continue; }
       const fm = {};
       for (const line of m[1].split(/\r?\n/)) { const hit = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/.exec(line); if (hit) fm[hit[1]] = parseSimpleYamlValue(hit[2]); }
       const role = normalizeAgentRole({
@@ -2348,23 +2382,24 @@ async function readClaudeProjectAgentRoles(cwd) {
         permissionMode: fm.permissionMode === 'bypassPermissions' ? 'bypass' : fm.permissionMode, maxTurns: fm.maxTurns, mcpServers: Array.isArray(fm.mcpServers) ? fm.mcpServers : [], isolation: fm.isolation,
       }, { source: 'claude-project' });
       if (role) { role.nativeClaude = true; role.file = path.join(dir, file); out.push(role); }
-    } catch { /* malformed native agent stays Claude's concern */ }
+      else if (opts.strict) throw new Error('invalid role source');
+    } catch (error) { if (opts.strict) throw error; /* malformed native agent stays Claude's concern */ }
   }
   return out;
 }
 // 安全走查 S3:opts.parentMode = 调用方认的父回合档位(缺省取 config.permissionMode —— 回合内的 config 已解析成这条线程的档)。
 // 项目来源的角色(.ruyi/agents.json / .claude/agents)在返回时带上【有效档位】标注(effectivePermissionMode / effectiveToolTier / roleClamped),
 // 角色自己声明的 permissionMode / toolTier 原样保留(设置页编辑器原样存回);真正的夹紧在子代理起跑处(08 / 07)按那一刻的父档再算一次。
-async function getAgentRoleLibrary(cwd, config, opts) {
+async function getAgentRoleLibrary(cwd, config, opts = {}) {
   const merged = new Map();
   for (const raw of BUILTIN_AGENT_ROLES) { const role = normalizeAgentRole(raw, { source: 'builtin', builtin: true }); merged.set(role.id, role); }
   for (const role of (Array.isArray(config.agentRoleOverrides) ? config.agentRoleOverrides : [])) {
     const current = merged.get(role.id); merged.set(role.id, current ? mergeAgentRole(current, role, 'global') : normalizeAgentRole(role, { source: 'global' }));
   }
-  for (const role of await readProjectAgentRoles(cwd)) {
+  for (const role of await readProjectAgentRoles(cwd, opts)) {
     const current = merged.get(role.id); merged.set(role.id, current ? mergeAgentRole(current, role, 'project') : role);
   }
-  const claudeNative = await readClaudeProjectAgentRoles(cwd);
+  const claudeNative = await readClaudeProjectAgentRoles(cwd, opts);
   for (const role of claudeNative) if (!merged.has(role.id)) merged.set(role.id, role);
   const parentMode = (opts && opts.parentMode) || (config && config.permissionMode) || 'default';
   return [...merged.values()].filter(Boolean).map(role => annotateAgentRoleEffective(role, parentMode));

@@ -888,7 +888,45 @@ function normalizeQuestionContext(value) {
   return `…\n${clean.slice(-5998)}`;
 }
 
-function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver, context = '') {
+// Registration-only identities are private, nonserializable and never inferred
+// from whichever execution happens to own this session when a remote click arrives.
+const interventionConsumerOrigins = new WeakMap();
+// Consume-only core registry; the sole mint remains the private verified bot closure.
+const interventionHumanConsumers = new WeakMap();
+function consumeInterventionHumanWitness(witness, command) {
+  const consume = witness && interventionHumanConsumers.get(witness);
+  if (!consume) return null;
+  interventionHumanConsumers.delete(witness); return consume(command);
+}
+function captureInterventionConsumer(sessionId, options = {}) {
+  const reg = Object.hasOwn(options, 'reg') ? options.reg : activeChildren.get(sessionId) || null;
+  return { owner: turnSettlers.get(sessionId) || null, ...options, reg, child: reg?.child };
+}
+function registerInterventionConsumer(entry, sessionId, options = {}) {
+  const owner = Object.hasOwn(options, 'owner') ? options.owner : turnSettlers.get(sessionId) || null;
+  const reg = Object.hasOwn(options, 'reg') ? options.reg : activeChildren.get(sessionId) || null;
+  const child = Object.hasOwn(options, 'child') ? options.child : reg?.child, resolve = entry.resolve, deliver = entry.deliver;
+  const signal = options.signal || reg?.ctrl?.signal || reg?.controller?.signal || null;
+  const stdin = child?.stdin, write = stdin?.write;
+  const input = options.input, hasInput = Object.hasOwn(options, 'input'), inputMaterial = hasInput ? JSON.stringify(input) : '';
+  const assert = () => {
+    if (!owner && !reg && !signal && typeof options.assert !== 'function') throw Object.assign(new Error('original consumer unavailable'), { code: 'intervention.consumer_unavailable' });
+    if (owner) assertSessionExecutionOwner(sessionId, owner);
+    if (reg && (activeChildren.get(sessionId) !== reg || reg.child !== child || child?.stdin !== stdin || stdin?.write !== write || stdin?.writable === false || reg.closed || reg.exited || reg.stopped || reg.aborted || child?.killed || child?.exitCode != null || child?.stdin?.destroyed || child?.stdin?.writableEnded || reg.ctrl?.signal?.aborted || reg.controller?.signal?.aborted)) throw Object.assign(new Error('original consumer changed'), { code: 'intervention.consumer_changed' });
+    if (hasInput && (JSON.stringify(input) !== inputMaterial || options.inputOf && options.inputOf() !== input)) throw Object.assign(new Error('original permission input changed'), { code: 'intervention.consumer_input_changed' });
+    if (signal?.aborted || options.isClosed?.() || entry.resolve !== resolve || entry.deliver !== deliver) throw Object.assign(new Error('original consumer ended'), { code: 'intervention.consumer_changed' });
+    options.assert?.();
+  };
+  interventionConsumerOrigins.set(entry, Object.freeze({ assert, owner, reg, child, signal }));
+}
+function assertInterventionConsumer(entry) {
+  const origin = interventionConsumerOrigins.get(entry);
+  if (!origin) throw Object.assign(new Error('original consumer unavailable'), { code: 'intervention.consumer_unavailable' });
+  origin.assert(); return origin;
+}
+
+function registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, deliver, context = '', origin = {}) {
+  origin = captureInterventionConsumer(sessionId, origin);
   // Provider call ids are often reused as "call_1" across sessions, so never use them as registry keys.
   const sourceId = String(questionId || '');
   const id = makeId('question');
@@ -935,6 +973,7 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
       });
     }, entry.timeoutMs);
   };
+  registerInterventionConsumer(entry, sessionId, origin);
   entry.timeoutMs = promptWaitMs(timeoutMs);   // 0/缺省 = 不限时(见 promptWaitMs)
   entry.armTimeout();
   pendingQuestions.set(id, entry);
@@ -947,9 +986,9 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
   return id;
 }
 
-function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, context = '') {
+function requestUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, context = '', origin = {}) {
   return new Promise(resolve => {
-    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; }, context);
+    const id = registerUserQuestion(sessionId, questionId, questions, onEvent, timeoutMs, answer => { resolve(answer); return true; }, context, origin);
     if (!id) resolve({ ok: false, answers: [], content: '', error: 'no valid questions' });
   });
 }
