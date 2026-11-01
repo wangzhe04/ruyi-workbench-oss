@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "baseMain": "3284869066ebb3319c3238e97a766aa565fb8bea",
+  "branch": "codex/3.1-completion-plan",
+  "scope": "Documentation, limited safe evidence and recovery metadata only",
+  "productPromotion": false,
+  "newActualExecuted": false,
+  "formalRelease": false,
+  "independentReviews": {
+    "documents": {
+      "decision": "ACCEPT_DOCUMENT_FACTS_AND_SCOPE_ONLY",
+      "file": "docs-review-DECISION.json",
+      "sha256": "48cdc7271902cc5a74b377f99d058651ee71d1899d44626d35b83a130680c8c8"
+    },
+    "casAndRecovery": {
+      "decision": "PASS_SAFE_CAS_AND_SOURCE_RECOVERY_ONLY",
+      "file": "cas-review-DECISION.json",
+      "sha256": "fca8b82607a0c61baa35d3963d1787c9fb3a55dd58a6f5d1179b26cf77e1d280"
+    }
+  },
+  "buildCheck": {
+    "command": "C:/Program Files/nodejs/node.exe ruyi-workbench/app/build.js --check",
+    "exitCode": 0,
+    "receipt": "build-preflight.json"
+  },
+  "buildReceiptArchive": {
+    "originalSource": "E:/Claude/3.1-closeout-20261102/FINAL-METADATA-PREFLIGHT.json",
+    "originalRawBytes": 1017,
+    "originalRawSha256": "4a0b35c652261379daf826d5a7e7336302f85fe384ed54e0e483ed64b6d593b8",
+    "originalPreservedIn": "build-preflight.original.json.gz",
+    "packedBytes": 619,
+    "packedSha256": "8f0fed0f8c4a257507601af642b9fa6c6e7404a1b56b4780af94a8de48c5bf3a",
+    "readableCopy": "build-preflight.json",
+    "readableBytes": 993,
+    "readableSha256": "cbc9ca26b4c8c709a523f033e4339bf299a2bee9a351fb3cf6e19f9a5a1afbe3",
+    "onlyTransform": "CRLF to LF; JSON value unchanged; original external receipt untouched"
+  },
+  "eolHistory": [
+    {
+      "phase": "Before independent-review metadata archive",
+      "exitCode": 0,
+      "trackedTextFiles": 2302,
+      "result": "ALL PASS"
+    },
+    {
+      "phase": "After adding exact review/build receipt copies",
+      "exitCode": 1,
+      "trackedTextFiles": 2310,
+      "failure": "build-preflight.json expected LF, found CRLF",
+      "originalToolChunk": "4d146e",
+      "preserved": true
+    }
+  ],
+  "repair": "Only the newly added readable receipt copy was converted to LF; original byte payload is preserved as gzip and at its external source. No old evidence, guard, assertions or budget changed.",
+  "finalEol": {
+    "status": "PASS_AFTER_REPAIR",
+    "command": "C:/Program Files/nodejs/node.exe dev-harness/eol-policy.static.e2e.js",
+    "exitCode": 0,
+    "trackedTextFiles": 2311,
+    "originalToolChunk": "2850a9",
+    "originalFailurePreserved": true
+  },
+  "diffChecks": {
+    "initialAndStagedExitCode": 0
+  },
+  "archivedReviewPinsArePartial": true,
+  "transitiveReviewToolsAndPrivateIndexesArchived": false,
+  "exactStagedScope": {
+    "files": 161,
+    "allRegular100644": true,
+    "onlyFourMainDocumentsAndExplicitEvidence": true,
+    "fourReviewedDocumentRawHashesMatch": true,
+    "casIndexUnchangedFromReview": true,
+    "unstagedOrUntrackedFilesAtCheck": 0
+  }
+}

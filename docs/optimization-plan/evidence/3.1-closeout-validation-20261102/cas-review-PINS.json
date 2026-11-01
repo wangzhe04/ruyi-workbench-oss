@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "decision": "PASS_SAFE_CAS_AND_SOURCE_RECOVERY_ONLY",
+  "actual": false,
+  "files": [
+    {
+      "file": "audit.cjs",
+      "bytes": 13621,
+      "sha256": "ca4bff51dcf9654db7d9d6d57fa6f8a1f64021873ce984d804fea970ade286a8"
+    },
+    {
+      "file": "INTEGRITY.json",
+      "bytes": 146410,
+      "sha256": "0f10761ea51384958aba72bbdb9eff4ef81b881e153b068332c20f93384b7f45"
+    },
+    {
+      "file": "REPORT.md",
+      "bytes": 5555,
+      "sha256": "b5c720ab347fbde25a6c828dec5136d678647b8cc1299950ec69e66922b1fa9c"
+    },
+    {
+      "file": "DECISION.json",
+      "bytes": 1784,
+      "sha256": "fca8b82607a0c61baa35d3963d1787c9fb3a55dd58a6f5d1179b26cf77e1d280"
+    },
+    {
+      "file": "seal-review.cjs",
+      "bytes": 1602,
+      "sha256": "409b33a0678e61359f6a490c48c58d3d4c9ef54035e3ccc5e4c70348499e31e3"
+    }
+  ],
+  "excludedLocalControlFiles": [
+    "private-indexes/*.index",
+    "empty-hooks/",
+    "empty-git-config"
+  ],
+  "privateIndexesOnlyHashMetadataInIntegrity": true
+}

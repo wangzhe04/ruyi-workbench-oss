@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "decision": "ACCEPT_DOCUMENT_FACTS_AND_SCOPE_ONLY_NO_NEW_ACTUAL_OR_PRODUCT_PROMOTION",
+  "reviewerIsDocumentAuthor": false,
+  "unresolvedP1P2": [],
+  "requiredTextRepairs": [],
+  "reviewBaseMain": "3284869066ebb3319c3238e97a766aa565fb8bea",
+  "documents": [
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/98-3.1-current-handoff-20261030.md",
+      "bytes": 9547,
+      "sha256": "15caa5798c545a092c62d30a15395ad73fa9c9160c60612187a14ca224b1e24b"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/99-3.1-closeout-20261102.md",
+      "bytes": 14000,
+      "sha256": "bee145b95e89f6c5533f60980234ac85c04293fd68bce33bd3095cc9f304d117"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/92-3.1-implementation-handoff.md",
+      "bytes": 311455,
+      "sha256": "ad55d2913fb3a599f2c15f368b7cd4bc0e7488e7ced0a114d7761be41d3cfe53"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/README.md",
+      "bytes": 9142,
+      "sha256": "eb32caf4a198f92fd90a2470c36e81a7ae78f827397d36fffe03be067189e52a"
+    }
+  ],
+  "casIndexSha256": "a6fceae47696c1a81b55601f075426c67cb3792807676d01767611b67e325a47",
+  "casDescriptors": {
+    "references": 151,
+    "uniqueGzip": 146,
+    "packedBytes": 13275684,
+    "netRawSourceReferences": 54,
+    "recoveryTrees": 4
+  },
+  "gui02": {
+    "limitedActualAccepted": true,
+    "passGroups": 6,
+    "contractFacts": 10,
+    "scope03ActualOrGo": false,
+    "oldUnknownPreserved": true
+  },
+  "m4R8": "SOURCE_ONLY_NO_ACTUAL_NO_FULLUNIT_CLAIM",
+  "nativeR1": "EXPLICIT_120000_RED_PERMANENT_LATE_ZERO_SEPARATE",
+  "focusedR2": "AUTHOR_SOURCE_FREEZE_PENDING_NONAUTHOR_AND_ACTUAL",
+  "manual240": "HISTORICAL_DIFFERENT_CONTRACT_NOT_NEW_AUTHORIZATION",
+  "scope86Reduced": false,
+  "version": "3.0.1",
+  "formalRelease": false,
+  "metadataOnlyThisBatch": true,
+  "casPayloadSafetyReviewedHere": false,
+  "requiresSeparateCasSafetyDecision": true,
+  "archiveReplayOrTestsOrActualRunHere": false,
+  "mainDocsOrProductChangedByReviewer": false,
+  "stageCommitPushAuthorizedByThisDecision": false
+}

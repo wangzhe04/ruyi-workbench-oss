@@ -1,0 +1,3275 @@
+{
+  "status": "PASS_INDEPENDENT_SAFE_CAS_AND_SOURCE_RECOVERY_ONLY",
+  "index": {
+    "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/evidence/3.1-closeout-20261102.json",
+    "bytes": 103435,
+    "sha256": "a6fceae47696c1a81b55601f075426c67cb3792807676d01767611b67e325a47"
+  },
+  "selection": {
+    "file": "E:/Claude/3.1-closeout-20261102/SELECTION-02.json",
+    "bytes": 20687,
+    "sha256": "4d6f74b7674a3dd7fcb6efd0de055b17820a30a54140a4bfef2ea255a64d107b"
+  },
+  "terraReadback": {
+    "file": "E:/Claude/3.1-closeout-20261102/RECOVERY-READBACK.json",
+    "sha256": "d6facb4d68bde2516093d6cf234eb1896eb5001fd7d227270f704220025cf9cc"
+  },
+  "counts": {
+    "references": 151,
+    "selected": 97,
+    "rawSource": 54,
+    "uniqueBlobs": 146,
+    "uniquePackedBytes": 13275684,
+    "rawReferenceBytes": 55451002,
+    "uniqueRawBytes": 46436710
+  },
+  "bounds": {
+    "packedPerFile": 8388608,
+    "rawPerFile": 16777216,
+    "packedAggregate": 33554432,
+    "rawUniqueAggregate": 134217728,
+    "totalReads": 82812486,
+    "totalReadCap": 268435456
+  },
+  "kinds": {
+    "safe-report": 84,
+    "recovery-patch": 7,
+    "source-code": 5,
+    "safe-result-metadata": 1,
+    "raw-source": 54
+  },
+  "aliasGroups": [
+    {
+      "rawSha256": "025da31bd72a4f3e4947000c14416c2f69c89104d06a85e1ac70155f523d8135",
+      "artifact": "3.1-closeout-20261102/blobs/025da31bd72a4f3e4947000c14416c2f69c89104d06a85e1ac70155f523d8135.gz",
+      "references": [
+        "recovery/gui-r2/README.md",
+        "recovery/native-focused-r2/README.md"
+      ]
+    },
+    {
+      "rawSha256": "672fdeca0bcc0e79c1b16d2963c2fe556e4a3706d6ed4ee93848a71c2783df6c",
+      "artifact": "3.1-closeout-20261102/blobs/672fdeca0bcc0e79c1b16d2963c2fe556e4a3706d6ed4ee93848a71c2783df6c.gz",
+      "references": [
+        "recovery/gui-r2/README_EN.md",
+        "recovery/native-focused-r2/README_EN.md"
+      ]
+    },
+    {
+      "rawSha256": "1b2ce027368b3e7a0128e10fd62c48cb115527df75c4a9750dfa7146e6ee62c9",
+      "artifact": "3.1-closeout-20261102/blobs/1b2ce027368b3e7a0128e10fd62c48cb115527df75c4a9750dfa7146e6ee62c9.gz",
+      "references": [
+        "recovery/native-size-r1/ruyi-workbench/app/server.js",
+        "recovery/native-focused-r2/ruyi-workbench/app/server.js"
+      ]
+    },
+    {
+      "rawSha256": "5c770ea1f8f43e9d3e039413b5d04c9a576872ad7f96cea1e3a3f6f4501abd9d",
+      "artifact": "3.1-closeout-20261102/blobs/5c770ea1f8f43e9d3e039413b5d04c9a576872ad7f96cea1e3a3f6f4501abd9d.gz",
+      "references": [
+        "recovery/native-size-r1/ruyi-workbench/app/src/13u-migration-center.js",
+        "recovery/native-focused-r2/ruyi-workbench/app/src/13u-migration-center.js"
+      ]
+    },
+    {
+      "rawSha256": "e920b2c23b2c618e79daf8811fb2597431015a3e52466a5ab012ef8987438fdd",
+      "artifact": "3.1-closeout-20261102/blobs/e920b2c23b2c618e79daf8811fb2597431015a3e52466a5ab012ef8987438fdd.gz",
+      "references": [
+        "recovery/native-size-r1/ruyi-workbench/app/src/manifest.json",
+        "recovery/native-focused-r2/ruyi-workbench/app/src/manifest.json"
+      ]
+    }
+  ],
+  "recoveries": [
+    {
+      "id": "gui-r2",
+      "patchRef": "gui-r2-recovery/M3-GUI-R2-ON-328486.patch",
+      "expectedTree": "92c2999e9e86e0834a5508c11008ff696ae73b47",
+      "rebuiltTree": "92c2999e9e86e0834a5508c11008ff696ae73b47",
+      "netPaths": 9,
+      "rawSource": [
+        {
+          "file": "README.md",
+          "bytes": 65304,
+          "rawSha256": "025da31bd72a4f3e4947000c14416c2f69c89104d06a85e1ac70155f523d8135",
+          "expectedGitBlob": "b46623b560e88db7492d045039d3a5e41158cd4a",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "README_EN.md",
+          "bytes": 72352,
+          "rawSha256": "672fdeca0bcc0e79c1b16d2963c2fe556e4a3706d6ed4ee93848a71c2783df6c",
+          "expectedGitBlob": "57441c3d3ac7009e82b5085899825297d9edc0e4",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/lib/work-data-production-browser-attach.js",
+          "bytes": 51342,
+          "rawSha256": "f654b28bb4def993021067c0410acfe3b5b944c8153598514633ef963c167c50",
+          "expectedGitBlob": "d7ed72cb750eda197d3e42cb22e23b3e74eeb639",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/run-all.js",
+          "bytes": 51085,
+          "rawSha256": "7c1169cfaae27d3453b51d176719dd2449752a74edf3dfde3e26e7af70a31a95",
+          "expectedGitBlob": "c4b7e6fefd478622e6d8ccfd10b79fe571260e3c",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/unit/work-data-encrypted-browser.test.js",
+          "bytes": 24541,
+          "rawSha256": "1980523cf493a260d6daed5fb4768b0340f4345d673a430338bb288aa5e36dff",
+          "expectedGitBlob": "2f74be8b743cc7cabb7e3fe4275ca89844c3bd95",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/work-data-production-restore-encrypted.browser.e2e.js",
+          "bytes": 19875,
+          "rawSha256": "c2f7b3f43fa22968d3627a8fe316167702fba236ff0ee699406acbd6b65350c6",
+          "expectedGitBlob": "1878e877f67c0bb4236350e185a0a5abcf137034",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "docs/architecture/route-inventory.json",
+          "bytes": 233308,
+          "rawSha256": "914b6f9b5aa02c1f9f1fc348adde6fe84c93f26fd836628f938f23fd9c564b5d",
+          "expectedGitBlob": "0decd56884883bec4f701e7208e0433743f1ec45",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "docs/architecture/route-inventory.md",
+          "bytes": 39109,
+          "rawSha256": "76811b22586959a4baa3162eb46d537cbb0395c9ba92ea377487853338ab238c",
+          "expectedGitBlob": "214f3774e72117d093d2a33a3bc1aa20bf9e828b",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "facts.json",
+          "bytes": 1335,
+          "rawSha256": "36b6ef57741868e2d59a37b0830bea9c8f6f6879e8552fad9d61959a10073e49",
+          "expectedGitBlob": "237154640342be8b09cb2948698681abec9cb90d",
+          "canonicalNormalization": "none"
+        }
+      ],
+      "privateIndex": {
+        "path": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/gui-r2.index",
+        "bytes": 2291752,
+        "sha256": "507c6114bc7aa58fb3ba52eaa01a355572677f1394dc2b9c106ba0c7e7307d1b",
+        "payloadExcludedFromReviewPinsAndCas": true
+      }
+    },
+    {
+      "id": "m4-r8",
+      "patchRef": "m4-r8/M4-R8-ON-MAIN.patch",
+      "expectedTree": "e9c8b0c365065b9566897bcd707fafa597c89e33",
+      "rebuiltTree": "e9c8b0c365065b9566897bcd707fafa597c89e33",
+      "netPaths": 25,
+      "rawSource": [
+        {
+          "file": "README.md",
+          "bytes": 65304,
+          "rawSha256": "d75e3066421a96c0a49bb59b3da2fc0a8201d41a4df10d7d914ffdb7cb228834",
+          "expectedGitBlob": "9d8801bdf1b53fe17e18dd0f32c0b0a9efef0225",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "README_EN.md",
+          "bytes": 72352,
+          "rawSha256": "8c8b16e8f94960fe39bfbb61bebc0acfeb58c1b47571f5ea82bd9ebba285eb8e",
+          "expectedGitBlob": "7fe82a33a615b4e7b1fcfe2d6569c269e0755024",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/lib/media-stage-diagnostics.cjs",
+          "bytes": 7067,
+          "rawSha256": "1ab20537ab2147714817ac99c0cd08f8c2e75b57063132e75fe5a7ed55a145f4",
+          "expectedGitBlob": "9268b9cd5acd207a673fbc16e51212db623cbc15",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/lib/media-stage-inert-fixture.cjs",
+          "bytes": 8608,
+          "rawSha256": "bc45d7456340efd87967fbccdeb9b5bef403b1ebd24555473bcb7090fd1e77d6",
+          "expectedGitBlob": "e9499d65360ed76c7ff6036bc2a983838ff7055b",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/media-owned-stage.README.txt",
+          "bytes": 12158,
+          "rawSha256": "f06fb683a32673669b726c8fa7169b2c37953dab95cc817825a153f0e52bad51",
+          "expectedGitBlob": "d051d9af1de2de4683a369bf68224cc4bcc59c5c",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/media-owned-stage.e2e.js",
+          "bytes": 8315,
+          "rawSha256": "23825712400bd357c5d40ffc44f86d031fc568b7c7b0a30408711d872dc12b29",
+          "expectedGitBlob": "c1487b99b3ba709a9d356495204a6b5781a8d04f",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/media-stage-contract-generate.js",
+          "bytes": 5345,
+          "rawSha256": "c4c2cb9352d42cab955637dfc912c85b076ec77af98c05530ec8b58ee4c0801a",
+          "expectedGitBlob": "69fd8185fc863c210dde0900efe1acd2b36d9578",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/unit/media-owned-stage-pure.test.js",
+          "bytes": 77493,
+          "rawSha256": "3e0a0ec4f3324b15d2cd1eb6728d219ba05a0c6bde850170fc0e01a229094dbd",
+          "expectedGitBlob": "3d0f1914176bd37ec5ab34142ee29e4022a70ad9",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/unit/media-stage-diagnostics-pure.test.js",
+          "bytes": 14854,
+          "rawSha256": "43498e64a1d3286625dbe728b7367017a14a6a97c7e2304e8aa24dd26dbeb0ba",
+          "expectedGitBlob": "681e226de3529f4289daad534c119121d3b812f6",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "docs/architecture/module-dependency-graph.json",
+          "bytes": 1137676,
+          "rawSha256": "bff4d7283868e3344e9ec8f7596ab68c49d10478c69f88bdeccb729610aefb7d",
+          "expectedGitBlob": "8a3ab8321636a44729f9dc968f63b901b7f95b82",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "docs/architecture/module-dependency-graph.md",
+          "bytes": 161487,
+          "rawSha256": "c1f38e0442e34b5444b52a86f4675541561d6f7ecb04b72ea38ee9956fd6cd7b",
+          "expectedGitBlob": "61e3394fc7413e5eeb30d11282fd37046e1d0659",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "facts.json",
+          "bytes": 1335,
+          "rawSha256": "d23273a9463afe6d5f95ec569c3e084848651818512db72afeca9678c2aead3f",
+          "expectedGitBlob": "497e26fc4d88db3709bbac317fd55a29a0088360",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/build.js",
+          "bytes": 9590,
+          "rawSha256": "b5ee0fbf1ac6ddf91442becc3a16a13bdb3c19d7cb4df165f5d9b23092c33c74",
+          "expectedGitBlob": "df61894827cef17ad10e9a026a3f41f1e7a19f2d",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/server.js",
+          "bytes": 8499859,
+          "rawSha256": "2b355550ffeeb1dab8d4aa8b5f4fd47ee4dd6f71196423b53638235e49007f56",
+          "expectedGitBlob": "d1416e515a939e7cd75bddba519272f87cfd3324",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/src/13ay-media-owned-copy.js",
+          "bytes": 7798,
+          "rawSha256": "7092cb4fee94582e3342045fbaf2bdb7881a58adb17fe6af4cc698fcb00b5414",
+          "expectedGitBlob": "6a495916cc242d8e4e24298d6dcf35746f9b897e",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/src/13az-media-stage-owner.js",
+          "bytes": 35874,
+          "rawSha256": "35b09a44a2567d433da333c45fd0e57c27f8463ec0d4cc1cb9d1aaef08ead05a",
+          "expectedGitBlob": "820bb6a862709b30193e620b8e4e46b9e71fb6d6",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/src/manifest.json",
+          "bytes": 38471,
+          "rawSha256": "09c6dff86742d2a0c9c08cfe4f67cc9cabf2a5bcb4aa6a8598fe191af6b0ade3",
+          "expectedGitBlob": "3cc83d8b366aa80d37b95eb2642b46935d1c24e3",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/src/module-contracts.json",
+          "bytes": 837127,
+          "rawSha256": "183d7048d61eab6cd3773e0835c0ff98fe127ba607cb8f3adf890569a376b5e0",
+          "expectedGitBlob": "d4276e443270e30c005bfde405e3f7c630a9a694",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/resources/media-profiles/m4-owned-stage-3251-v1.json",
+          "bytes": 906758,
+          "rawSha256": "6a63ff4df7591ce3d5395ede95c68671e7c360cc53574c8af4ef81b57c070010",
+          "expectedGitBlob": "3899a47c564969630791c05d6959f6ee313bcf75",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/tools/build-overlay.js",
+          "bytes": 22817,
+          "rawSha256": "8252bbbceafa3b08aabc546d721af0d5cfe6c05aedf9ae6fda7254c426b8a99e",
+          "expectedGitBlob": "966a1dc9c51f051dda18fadc8422eb2903b96736",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/tools/media-profile-restore.cjs",
+          "bytes": 7624,
+          "rawSha256": "b40d68dc980ae4ba8a857913e885313a24c033ac37ef84f689acadeb5da354be",
+          "expectedGitBlob": "957ed5e7efa398093d7dbd31923ffffa3f90ff67",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/tools/media-stage-contract.cjs",
+          "bytes": 3129,
+          "rawSha256": "cd2d5d6059e7cd156d2ef9e311812bbb58353c7004cd9e6f2561aea55b6e1788",
+          "expectedGitBlob": "838fc028e300c8b7c46a52fae0d1b660bd2762e2",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/tools/media-stage-runtime.cjs",
+          "bytes": 56543,
+          "rawSha256": "de057f269bcd0c01bdf427bf9ef9a0f65c9f63eb8004a1b74a838802699d77ae",
+          "expectedGitBlob": "3dc408ce6b34275ee8699546c6098663f5a0bf91",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/tools/media-stage.cjs",
+          "bytes": 8288,
+          "rawSha256": "d0a9abf7abb7b252bb76a8974c4b14aeee051aba9a3b5db4ea94814dba3ce45c",
+          "expectedGitBlob": "f7da0a8db006baf62923508968b8a6fe61a252b5",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/tools/package-offline.ps1",
+          "bytes": 34450,
+          "rawSha256": "51e067e00b8d758c80989addd184ca1f349ad1de928bdb20e3eee1f003d5e489",
+          "expectedGitBlob": "40e4e8eea4010ee20899d2b7c68fc118fb3237d9",
+          "canonicalNormalization": "CRLF-to-LF"
+        }
+      ],
+      "privateIndex": {
+        "path": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/m4-r8.index",
+        "bytes": 2292968,
+        "sha256": "55899c825cc6e9703a37060c1fc5b49a16d8a4f1a30c63cedbb4e21a3c812540",
+        "payloadExcludedFromReviewPinsAndCas": true
+      }
+    },
+    {
+      "id": "native-size-r1",
+      "patchRef": "native-size-r1/ON-MAIN.patch",
+      "expectedTree": "a187ad3a96a06a39b56a71be34a0ac4baf96a70a",
+      "rebuiltTree": "a187ad3a96a06a39b56a71be34a0ac4baf96a70a",
+      "netPaths": 8,
+      "rawSource": [
+        {
+          "file": "README.md",
+          "bytes": 65304,
+          "rawSha256": "737cd67141541fb7a2cd390f74ff2ac21b3d0739440de72a08d3d861f3b9f08b",
+          "expectedGitBlob": "4469259bff81d1e79284e69f769e51fb37ead0cc",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "README_EN.md",
+          "bytes": 72352,
+          "rawSha256": "fcb3deff4084084ab480585876df07196e894517ec71b9bacefd4b4168a4e967",
+          "expectedGitBlob": "29ab319bc9fa7fba29fcb1dcc441182657726b23",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/migration-skill-backup-representation.e2e.js",
+          "bytes": 16792,
+          "rawSha256": "f5d732c5c143b9bd0ac102196def38ce7b0bef2b54cc686156961cedec755627",
+          "expectedGitBlob": "06120d9e8e100d3a2fad7ddcdd581c30f97cbc7e",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/unit/migration-native-rename-size.test.js",
+          "bytes": 8676,
+          "rawSha256": "27ae452db7237da20668bbf59effcc285f3a5fe36bea7d2da47a7914fa813609",
+          "expectedGitBlob": "62e282311b589373558f1f58b9949ca88b76e129",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "facts.json",
+          "bytes": 1335,
+          "rawSha256": "e0b00d47fa70aa3ec378a063ac1fc1d2a0aeb4446c1ecb89f1b3f137804ae57e",
+          "expectedGitBlob": "f5d1ed27093e07376d3135dd619704c5c92389b7",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/server.js",
+          "bytes": 8456203,
+          "rawSha256": "1b2ce027368b3e7a0128e10fd62c48cb115527df75c4a9750dfa7146e6ee62c9",
+          "expectedGitBlob": "85b0d0fe59c32f997b42afeada795702105b596e",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/src/13u-migration-center.js",
+          "bytes": 382436,
+          "rawSha256": "5c770ea1f8f43e9d3e039413b5d04c9a576872ad7f96cea1e3a3f6f4501abd9d",
+          "expectedGitBlob": "4ae8fa236d822126cb3c8ce55a65f4ee9c719ac5",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/src/manifest.json",
+          "bytes": 37997,
+          "rawSha256": "e920b2c23b2c618e79daf8811fb2597431015a3e52466a5ab012ef8987438fdd",
+          "expectedGitBlob": "8beaee3b2304dc02912d4cc1b088449ae133443e",
+          "canonicalNormalization": "none"
+        }
+      ],
+      "privateIndex": {
+        "path": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-size-r1.index",
+        "bytes": 2291624,
+        "sha256": "590b9eea3bd617569fdbdc0c4ad61d869f6b3aa9cad7575bdead16e98515d1ac",
+        "payloadExcludedFromReviewPinsAndCas": true
+      }
+    },
+    {
+      "id": "native-focused-r2",
+      "patchRef": "native-focused-r2/ON-MAIN.patch",
+      "expectedTree": "36ea4e711fa8499f23125f7edeaba4880a98117f",
+      "rebuiltTree": "36ea4e711fa8499f23125f7edeaba4880a98117f",
+      "netPaths": 12,
+      "rawSource": [
+        {
+          "file": "README.md",
+          "bytes": 65304,
+          "rawSha256": "025da31bd72a4f3e4947000c14416c2f69c89104d06a85e1ac70155f523d8135",
+          "expectedGitBlob": "b46623b560e88db7492d045039d3a5e41158cd4a",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "README_EN.md",
+          "bytes": 72352,
+          "rawSha256": "672fdeca0bcc0e79c1b16d2963c2fe556e4a3706d6ed4ee93848a71c2783df6c",
+          "expectedGitBlob": "57441c3d3ac7009e82b5085899825297d9edc0e4",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/lib/migration-native-short-rename-fixture.js",
+          "bytes": 6620,
+          "rawSha256": "86ccd19697eb885e4a3624c839eaa442cb79c31a31eb5019749054f34af2b21f",
+          "expectedGitBlob": "ef3536fb73f54a194fe68851c2e8e54fcba30e92",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/lib/migration-native-short-rename-observer.js",
+          "bytes": 5257,
+          "rawSha256": "622062b0367b62ad980115771e53ab559c8658aebf2cf625cb395e58089e4f34",
+          "expectedGitBlob": "65cca86efa4b2022d28018590ab287c20f15686e",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/lib/migration-native-short-rename-release-mkdir.js",
+          "bytes": 3548,
+          "rawSha256": "e2521016621084bff54ca7602e71d52e900f922300b19debb9edd977d96272aa",
+          "expectedGitBlob": "dbcc610f8c6186a4aa6aa8d362a2c252b0d1cbe8",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/migration-native-short-rename.e2e.js",
+          "bytes": 11822,
+          "rawSha256": "7ef3ca0ff0c4873b1a5e8f1e11ee224832576006893b5d6c20c171b78416e438",
+          "expectedGitBlob": "0f3cd5b8b3489489056b83b7d6a7061da4b0a3be",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/run-all.js",
+          "bytes": 51209,
+          "rawSha256": "9ce01f0eb80dfcdba243d26f4e1ebe0c8f863ba54de202829076b6f9f8c536ca",
+          "expectedGitBlob": "f41fb960eec8b977bb91514b9cb92584c31ecab9",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "dev-harness/unit/migration-native-rename-size.test.js",
+          "bytes": 19033,
+          "rawSha256": "5e353c529e5041e585bd3d23b771280e6e479af72ebabaf7d8e34d27b542fb46",
+          "expectedGitBlob": "2d15741499ea0ef8bef4cc20e3552d7f7b586a64",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "facts.json",
+          "bytes": 1335,
+          "rawSha256": "f488b30aa38b70a0b1a929124e88a56cbbaf45d80ac00af39a61a31fe062ebe9",
+          "expectedGitBlob": "f51c9cf15ee30f3b2492efc5d2ddef75eb8a35b7",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/server.js",
+          "bytes": 8456203,
+          "rawSha256": "1b2ce027368b3e7a0128e10fd62c48cb115527df75c4a9750dfa7146e6ee62c9",
+          "expectedGitBlob": "85b0d0fe59c32f997b42afeada795702105b596e",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/src/13u-migration-center.js",
+          "bytes": 382436,
+          "rawSha256": "5c770ea1f8f43e9d3e039413b5d04c9a576872ad7f96cea1e3a3f6f4501abd9d",
+          "expectedGitBlob": "4ae8fa236d822126cb3c8ce55a65f4ee9c719ac5",
+          "canonicalNormalization": "none"
+        },
+        {
+          "file": "ruyi-workbench/app/src/manifest.json",
+          "bytes": 37997,
+          "rawSha256": "e920b2c23b2c618e79daf8811fb2597431015a3e52466a5ab012ef8987438fdd",
+          "expectedGitBlob": "8beaee3b2304dc02912d4cc1b088449ae133443e",
+          "canonicalNormalization": "none"
+        }
+      ],
+      "privateIndex": {
+        "path": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-focused-r2.index",
+        "bytes": 2292104,
+        "sha256": "f74d4f73294d719cf7f10b5c85a78f165372755a0770ebdb6b2ed1b9fee0d680",
+        "payloadExcludedFromReviewPinsAndCas": true
+      }
+    }
+  ],
+  "privacySurface": [
+    {
+      "id": "gui-r3/AUTHOR-REPORT.json",
+      "keyPath": "verification.stdout",
+      "type": "object",
+      "keys": [
+        "file",
+        "bytes",
+        "sha256"
+      ]
+    },
+    {
+      "id": "gui-r3/AUTHOR-REPORT.json",
+      "keyPath": "verification.stderr",
+      "type": "object",
+      "keys": [
+        "file",
+        "bytes",
+        "sha256"
+      ]
+    },
+    {
+      "id": "gui-actual02/ROOT-GO-GUI-02.json",
+      "keyPath": "authorization",
+      "type": "string",
+      "bytes": 25,
+      "sha256": "af843df808a0cd1000e17be8b28096f1bea726a97e9604e9c64c5de15c0bbc81",
+      "empty": false
+    },
+    {
+      "id": "m4-r8-preparation/SOURCE-PACKET.json",
+      "keyPath": "authorization",
+      "type": "null"
+    },
+    {
+      "id": "f1-test02/ROOT-F1-TEST-HOLD-02.json",
+      "keyPath": "environment",
+      "type": "string",
+      "bytes": 170,
+      "sha256": "0bc33dd122d051e22c7e531a01b20b87dcd9b9541c2494d09513e32885351ead",
+      "empty": false
+    }
+  ],
+  "commands": [
+    {
+      "args": [
+        "rev-parse",
+        "HEAD"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "rev-parse",
+        "--path-format=absolute",
+        "--git-path",
+        "index"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "ls-tree",
+        "-rz",
+        "--full-tree",
+        "92c2999e9e86e0834a5508c11008ff696ae73b47"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "b46623b560e88db7492d045039d3a5e41158cd4a"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "57441c3d3ac7009e82b5085899825297d9edc0e4"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "d7ed72cb750eda197d3e42cb22e23b3e74eeb639"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "c4b7e6fefd478622e6d8ccfd10b79fe571260e3c"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "2f74be8b743cc7cabb7e3fe4275ca89844c3bd95"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "1878e877f67c0bb4236350e185a0a5abcf137034"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "0decd56884883bec4f701e7208e0433743f1ec45"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "214f3774e72117d093d2a33a3bc1aa20bf9e828b"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "237154640342be8b09cb2948698681abec9cb90d"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "read-tree",
+        "3284869066ebb3319c3238e97a766aa565fb8bea"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/gui-r2.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "apply",
+        "--cached",
+        "--binary",
+        "--whitespace=warn",
+        "-"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/gui-r2.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": "<stdin>:427: new blank line at EOF.\n+\n<stdin>:607: new blank line at EOF.\n+\nwarning: 2 lines add whitespace errors.\n"
+    },
+    {
+      "args": [
+        "write-tree"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/gui-r2.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "diff",
+        "--cached",
+        "--name-only",
+        "--no-ext-diff",
+        "--no-textconv",
+        "3284869066ebb3319c3238e97a766aa565fb8bea"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/gui-r2.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "ls-tree",
+        "-rz",
+        "--full-tree",
+        "e9c8b0c365065b9566897bcd707fafa597c89e33"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "9d8801bdf1b53fe17e18dd0f32c0b0a9efef0225"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "7fe82a33a615b4e7b1fcfe2d6569c269e0755024"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "9268b9cd5acd207a673fbc16e51212db623cbc15"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "e9499d65360ed76c7ff6036bc2a983838ff7055b"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "d051d9af1de2de4683a369bf68224cc4bcc59c5c"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "c1487b99b3ba709a9d356495204a6b5781a8d04f"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "69fd8185fc863c210dde0900efe1acd2b36d9578"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "3d0f1914176bd37ec5ab34142ee29e4022a70ad9"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "681e226de3529f4289daad534c119121d3b812f6"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "8a3ab8321636a44729f9dc968f63b901b7f95b82"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "61e3394fc7413e5eeb30d11282fd37046e1d0659"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "497e26fc4d88db3709bbac317fd55a29a0088360"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "df61894827cef17ad10e9a026a3f41f1e7a19f2d"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "d1416e515a939e7cd75bddba519272f87cfd3324"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "6a495916cc242d8e4e24298d6dcf35746f9b897e"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "820bb6a862709b30193e620b8e4e46b9e71fb6d6"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "3cc83d8b366aa80d37b95eb2642b46935d1c24e3"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "d4276e443270e30c005bfde405e3f7c630a9a694"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "3899a47c564969630791c05d6959f6ee313bcf75"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "966a1dc9c51f051dda18fadc8422eb2903b96736"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "957ed5e7efa398093d7dbd31923ffffa3f90ff67"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "838fc028e300c8b7c46a52fae0d1b660bd2762e2"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "3dc408ce6b34275ee8699546c6098663f5a0bf91"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "f7da0a8db006baf62923508968b8a6fe61a252b5"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "40e4e8eea4010ee20899d2b7c68fc118fb3237d9"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "read-tree",
+        "3284869066ebb3319c3238e97a766aa565fb8bea"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/m4-r8.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "apply",
+        "--cached",
+        "--binary",
+        "--whitespace=warn",
+        "-"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/m4-r8.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": "<stdin>:860: trailing whitespace.\n \nwarning: 1 line adds whitespace errors.\n"
+    },
+    {
+      "args": [
+        "write-tree"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/m4-r8.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "diff",
+        "--cached",
+        "--name-only",
+        "--no-ext-diff",
+        "--no-textconv",
+        "3284869066ebb3319c3238e97a766aa565fb8bea"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/m4-r8.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "ls-tree",
+        "-rz",
+        "--full-tree",
+        "a187ad3a96a06a39b56a71be34a0ac4baf96a70a"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "4469259bff81d1e79284e69f769e51fb37ead0cc"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "29ab319bc9fa7fba29fcb1dcc441182657726b23"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "06120d9e8e100d3a2fad7ddcdd581c30f97cbc7e"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "62e282311b589373558f1f58b9949ca88b76e129"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "f5d1ed27093e07376d3135dd619704c5c92389b7"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "85b0d0fe59c32f997b42afeada795702105b596e"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "4ae8fa236d822126cb3c8ce55a65f4ee9c719ac5"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "8beaee3b2304dc02912d4cc1b088449ae133443e"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "read-tree",
+        "3284869066ebb3319c3238e97a766aa565fb8bea"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-size-r1.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "apply",
+        "--cached",
+        "--binary",
+        "--whitespace=warn",
+        "-"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-size-r1.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "write-tree"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-size-r1.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "diff",
+        "--cached",
+        "--name-only",
+        "--no-ext-diff",
+        "--no-textconv",
+        "3284869066ebb3319c3238e97a766aa565fb8bea"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-size-r1.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "ls-tree",
+        "-rz",
+        "--full-tree",
+        "36ea4e711fa8499f23125f7edeaba4880a98117f"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "b46623b560e88db7492d045039d3a5e41158cd4a"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "57441c3d3ac7009e82b5085899825297d9edc0e4"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "ef3536fb73f54a194fe68851c2e8e54fcba30e92"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "65cca86efa4b2022d28018590ab287c20f15686e"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "dbcc610f8c6186a4aa6aa8d362a2c252b0d1cbe8"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "0f3cd5b8b3489489056b83b7d6a7061da4b0a3be"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "f41fb960eec8b977bb91514b9cb92584c31ecab9"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "2d15741499ea0ef8bef4cc20e3552d7f7b586a64"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "f51c9cf15ee30f3b2492efc5d2ddef75eb8a35b7"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "85b0d0fe59c32f997b42afeada795702105b596e"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "4ae8fa236d822126cb3c8ce55a65f4ee9c719ac5"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "cat-file",
+        "blob",
+        "8beaee3b2304dc02912d4cc1b088449ae133443e"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "read-tree",
+        "3284869066ebb3319c3238e97a766aa565fb8bea"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-focused-r2.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "apply",
+        "--cached",
+        "--binary",
+        "--whitespace=warn",
+        "-"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-focused-r2.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "write-tree"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-focused-r2.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "diff",
+        "--cached",
+        "--name-only",
+        "--no-ext-diff",
+        "--no-textconv",
+        "3284869066ebb3319c3238e97a766aa565fb8bea"
+      ],
+      "index": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-focused-r2.index",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "rev-parse",
+        "HEAD"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "diff",
+        "HEAD",
+        "--name-only",
+        "--no-ext-diff",
+        "--no-textconv"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    },
+    {
+      "args": [
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "-z"
+      ],
+      "index": null,
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stderr": ""
+    }
+  ],
+  "main": {
+    "head": "3284869066ebb3319c3238e97a766aa565fb8bea",
+    "defaultIndexRawSha256": "71ea4b092298223e7fc8187f3990e0b0a8ce3b0051e04c46ba35254b8a69b087",
+    "defaultSemanticSha256": "8039ff42a2a03eaf4ece5b8ba418004e6d3b2c698ccf7e204b175983588265f5",
+    "defaultUnchanged": true,
+    "trackedChanged": [
+      "docs/optimization-plan/92-3.1-implementation-handoff.md",
+      "docs/optimization-plan/98-3.1-current-handoff-20261030.md",
+      "docs/optimization-plan/99-3.1-closeout-20261102.md",
+      "docs/optimization-plan/README.md",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102.json",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/025da31bd72a4f3e4947000c14416c2f69c89104d06a85e1ac70155f523d8135.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/028e831ede6089d93943619f6e07f370d78bd39a84b93ca1c08d062dc898f441.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/03c171d244bb297f23a556756068f64549a161699e2481f316fce9eff678e208.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/0975889349f118581b9bdf73f5989c6ef3748e608bb322c8a2dcc53b1a6782ce.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/09c6dff86742d2a0c9c08cfe4f67cc9cabf2a5bcb4aa6a8598fe191af6b0ade3.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/0b7682c5907189f850c6e617277ef6da140f697491e7ccf17f4862e3a9fa4ff7.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/0c6d1186742fc8444fed300f7e3a1051b6ee075c9b941ef2dfd22b9a4ac36204.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/0e83ef403da7a8ab3c7e57032e6de2fcb395b50fc64cad131997ab96181be4fc.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/0ff36384a816f8289bc8f40e3c108cbced20edcecdb7f7b89505a946cf8d2edb.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/102079b9306713c592dc02c516d1699cd36094930c7069006f3fad7911ce8151.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/12dafae6c0101bc935a303615c703875dc178796cf309e15cfefd45d922f86e0.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/172070d4c8af4387b738852431e2e1acc15bcf8fdd7e6fa0bd6afc97aaffe34d.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/179c38131f0c01709033e19312ac772b720c12357c6970a45d3a2438ede8c3d5.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/183d7048d61eab6cd3773e0835c0ff98fe127ba607cb8f3adf890569a376b5e0.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/1980523cf493a260d6daed5fb4768b0340f4345d673a430338bb288aa5e36dff.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/1a2825fe7635d6b86a6a27daf7129685bdb5dc75a652e2dd1ac4200c785fec90.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/1ab20537ab2147714817ac99c0cd08f8c2e75b57063132e75fe5a7ed55a145f4.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/1ab87dca5716d1f55eee1460575803cb2269971687bc0fad497eff52a91d00b3.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/1b2ce027368b3e7a0128e10fd62c48cb115527df75c4a9750dfa7146e6ee62c9.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/1c2414920b6dfde6defec922199ec907456cdb72e37d470feaca1169170ecee4.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/2195d438b286994d85231c631a25620f5a826c6db175f3ef3901722ee7abcc86.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/23825712400bd357c5d40ffc44f86d031fc568b7c7b0a30408711d872dc12b29.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/23d200561164945046b34ddc30e04c79c3f673404de6fcdb93602953e2059426.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/27ae452db7237da20668bbf59effcc285f3a5fe36bea7d2da47a7914fa813609.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/27d3499c05c85991892299f687aa21e1c54f38f274b40bb6bb3aea49ef8aecf8.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/2b355550ffeeb1dab8d4aa8b5f4fd47ee4dd6f71196423b53638235e49007f56.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/2c3b56c425e757f879b89f19ff473eb1667b7074eeff3af0dc5c7d82b3780bc8.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/357a993abf0302abb6751c2e96b41e9e3553374bf8e88f08998bf786301cf7c9.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/35b09a44a2567d433da333c45fd0e57c27f8463ec0d4cc1cb9d1aaef08ead05a.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/36b6ef57741868e2d59a37b0830bea9c8f6f6879e8552fad9d61959a10073e49.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/388dfc52876cbe5da059652100b52de602289ab99b0e58fc056f113c481cec3e.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/3c7a6f70a9fa4b3bd01175916c62f0a6504e5308051d70f9dd4c9d0825227bb6.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/3d75dca2a09c90ece7bfd9cf969976fa40af2277c5c89009c6e2d67884a93d0e.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/3e0a0ec4f3324b15d2cd1eb6728d219ba05a0c6bde850170fc0e01a229094dbd.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/43498e64a1d3286625dbe728b7367017a14a6a97c7e2304e8aa24dd26dbeb0ba.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/462f56a0cd6861f583aeb67c6606baa61d455b1e013d93d1e2b5b6909c03f15e.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/481d076a7d7be813730066da7c4a06e00b3e084b8d955ac05b7f94c0ce9a82d3.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/4b0b89b5d697e65452059228bb88d92e78f63405d0d83e9df0e89fea5d875755.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/4d3d1e4d1011687f1c07de69ee603a7e409af8e6a288f6110c2e1437b61f866c.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/51e067e00b8d758c80989addd184ca1f349ad1de928bdb20e3eee1f003d5e489.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/52574784ad5208ea7f062269d32630881b13eeab37d4daecb68b4bd0f908f681.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/5504f4d2c0cc1b143ce4f02b9b9a37fa2ba7d11cb55907f05336a12de33b183a.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/552809178763d5c9a0cbf20c77dcd2bbe8e4a2f7836c8c9a60677e9231cd64cc.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/5ae504c4b343e7a99fe7b07b6c0bf13bfb5f08ff0e37942ae0fdfe016a492cb8.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/5c770ea1f8f43e9d3e039413b5d04c9a576872ad7f96cea1e3a3f6f4501abd9d.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/5e353c529e5041e585bd3d23b771280e6e479af72ebabaf7d8e34d27b542fb46.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/5ede5d4b688fc37ac779d35f5752cfe6c7dc5a6c3f7c5b1d28f48124991c7556.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/5f89e04747864360a06dfa2c045748bb239ed0ab02010351a8464e63e1763db2.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/60316dcb8c408cda8b32dbafbdb4711a4dbed8aadf559a3c124e6a09f6210cf2.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/622062b0367b62ad980115771e53ab559c8658aebf2cf625cb395e58089e4f34.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/64639711e041073a3cdbc925274b60c1bbb76533bde8d42ccd397a6107bf2bc7.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/672fdeca0bcc0e79c1b16d2963c2fe556e4a3706d6ed4ee93848a71c2783df6c.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/69fbdf3e52dc9ec6a95827954b1f09ff164d0b6756fac90c75f681c8dc7c0652.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/6a63ff4df7591ce3d5395ede95c68671e7c360cc53574c8af4ef81b57c070010.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/6abbf6f046331a9298e2e9af8cf2f607ffff6c80aa76795eba41b5f7b82f006d.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/6adf69bc6efd276d7390eb093bf1eae69971cd8dec97ed933af8b69adeeed6f2.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/6b7893034fbb736449736380a20eb02a274ee391e8127b331cd541532606a799.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/6ec49356c93fbfe8eaaa41124384ce9c78b050e5a90cfdd38a3297577bec0a9a.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/7092cb4fee94582e3342045fbaf2bdb7881a58adb17fe6af4cc698fcb00b5414.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/71746e77a08b7e8eeb6d13b65b29e90195dcdda60bb9e19cdf2c698ce4b815ab.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/737cd67141541fb7a2cd390f74ff2ac21b3d0739440de72a08d3d861f3b9f08b.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/76811b22586959a4baa3162eb46d537cbb0395c9ba92ea377487853338ab238c.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/79384e4c1d8abc04047e882f31e71a81aa8a94248b1dd987108dee142a4fb4ba.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/7a1f2736ca312b7a78146460b8c85d59b2f200f8e053a1b35e929659ead37ed1.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/7a7da58e5fffe1c477d260007af8eaa039f383606560e9d7c813682f9ee122c1.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/7c1169cfaae27d3453b51d176719dd2449752a74edf3dfde3e26e7af70a31a95.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/7d8b86a1f5fcca328d87c5388cffc16265f5578fb9353588ddd59f5962cdea3c.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/7ef3ca0ff0c4873b1a5e8f1e11ee224832576006893b5d6c20c171b78416e438.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/7f897295df84ce7531ddad564ec4ccbacbb4a0233b26be1b42d8766b47a36545.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/8252bbbceafa3b08aabc546d721af0d5cfe6c05aedf9ae6fda7254c426b8a99e.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/842298216dd2f688378c56e974be109cf51b2d8a17c22f5df889345ec4b6822c.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/84c965bc0c979f515dfaadca1638a6c9e67a2c12a1bc877c4cadf90d87674089.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/86ccd19697eb885e4a3624c839eaa442cb79c31a31eb5019749054f34af2b21f.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/884e0746fa8cc8148859a5471434061b35233c104778dd04cfc5559f27108d5b.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/895903208a3b43aefb75d72efba386f2a7b963c07d21a78f48773eba100ad586.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/8c8b16e8f94960fe39bfbb61bebc0acfeb58c1b47571f5ea82bd9ebba285eb8e.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/8eeedb600d0089b55529e6f4ba8a09dc6b3e63c8af36150f4aac255ef3c9881f.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/8f19bd5df428322e0883cdc5e24ad1f5d7ff0cef01704638815cfd98e7e196c0.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/914b6f9b5aa02c1f9f1fc348adde6fe84c93f26fd836628f938f23fd9c564b5d.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/917c5bbc354b82aa7da519aeec8ad92f8ff923eb719e48055027e96f2883e9da.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/92556b144c5ac92d7a1976a552398746d5e779402bb2a78b9d225a91cf39e510.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/972f4023f7e9358f12cebc82bfdbee6b97eecc340b642041a448d685c9b2e8f1.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/99da2bd413737c5537129365e4e795cde4e8dbf0a497c0d2139bee45f7ba0668.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/9ce01f0eb80dfcdba243d26f4e1ebe0c8f863ba54de202829076b6f9f8c536ca.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/a23982b9ee4496dc45e3c16f5189b2aad743f3c93992d39f70f42d031ea119d8.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/a38558565949e32818eb5a4a13ad483a6be93c4e808eba19d68f5abf13ec8d7c.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/a61859f6ac8e9412bff36eb568e68542bc87a24e32681012868c9ee3372105f5.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/a8eae815cd3a32c50bce78b7bc57346422383d6aef65cac455e2f8e11f69e2e5.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/aaba6fb0fe6fa3987cb5b3bab25e049aca7ea8c9eb77778d7b9d0f110fc8b232.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/ad8bbd4254b73c89a0b1e6162ad0814337135fc38604eb3defbd474d54390872.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/addeabdba87fefe353b0fe81f8a99d6bb2de9d544e2cd05f81f2a21b3f0dda9c.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/af0808328092ee5d96a964a2a6eb1e4ded9c7e4c92924623a97e28296cd4d463.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/b00a3aebbf6e61694b82158049a384108d8ce0d60bc77941ff3833d732d4dc85.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/b40d68dc980ae4ba8a857913e885313a24c033ac37ef84f689acadeb5da354be.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/b44b0dc9e8ee2abcad9ca5b82b03983eefc55d3804dc98bdac6d70c5159f83db.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/b5ee0fbf1ac6ddf91442becc3a16a13bdb3c19d7cb4df165f5d9b23092c33c74.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/b787fda129ef21ae46151b394fe786a74b90e41442e5a3165fc1956a5ed7a803.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/bc45d7456340efd87967fbccdeb9b5bef403b1ebd24555473bcb7090fd1e77d6.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/bee09bf6477189ae59e8161a1f798daa2d5279326f47947b473a0b05bb9118c5.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/bff4d7283868e3344e9ec8f7596ab68c49d10478c69f88bdeccb729610aefb7d.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c045794e83ea59788575eef491c43ca0295cc3b83bfa214026198c1b83f344da.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c1b4d6b86d350c9d31242bd31e3dde0a39ed26611f010f0f91b3b638b4f33cdd.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c1f38e0442e34b5444b52a86f4675541561d6f7ecb04b72ea38ee9956fd6cd7b.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c2f7b3f43fa22968d3627a8fe316167702fba236ff0ee699406acbd6b65350c6.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c4c2cb9352d42cab955637dfc912c85b076ec77af98c05530ec8b58ee4c0801a.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c64bbfe95734529b1a6e1b862691464be66a5bd0039a71cefb6089bf41222c32.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c6591e8f620a2625a227a0416633086545221670d502888a5d9f88bc833f76af.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c76edbddb8a1d7bea4113e0c7b8fb85d4b934c6253b01dccf90fa94de533447e.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/c892536e98c7018caeaa898ea15ac86e7236b05d627dc588a45f1d6d8eb63b7d.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/cd2d5d6059e7cd156d2ef9e311812bbb58353c7004cd9e6f2561aea55b6e1788.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/d0a9abf7abb7b252bb76a8974c4b14aeee051aba9a3b5db4ea94814dba3ce45c.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/d23273a9463afe6d5f95ec569c3e084848651818512db72afeca9678c2aead3f.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/d2cdfdb12b0ed39a057b4c81d7051747e4f6f811a3ea87103b4ed11e66da6165.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/d4d216b1758d08172cc6d58118a9011c26980cd30e4f1faedba8b4a7234db635.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/d5e91c533af21bb62348b81c9fb57e0cd174db6212241745ff96a100501db7b8.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/d6914bf37d73ecef22542a25160c3c95dcb4bbe1eb4aaae7c74c0454e4bea6cb.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/d75e3066421a96c0a49bb59b3da2fc0a8201d41a4df10d7d914ffdb7cb228834.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/d9207b6072a01ffde2204c3067eea43d1720b2aea9b6537a81ba1dff237ecf30.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/dbfa966a789b38ca7f657f85fceadb26656279188cb70fd507a5f3eebebbdb03.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/dc73237e7c2250b8e6fb9720078d062b354819b509dfb5ea5e6645d34437218b.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/de057f269bcd0c01bdf427bf9ef9a0f65c9f63eb8004a1b74a838802699d77ae.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/dfe6d1bdffede8b25492988341c9cc9280774501eb279a6a692e1aa6066e4e23.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e0b00d47fa70aa3ec378a063ac1fc1d2a0aeb4446c1ecb89f1b3f137804ae57e.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e2521016621084bff54ca7602e71d52e900f922300b19debb9edd977d96272aa.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e2fbe35ee45cbfacd99b98178b2b2a096ca27c5a852a48b3b2b021186f2de8aa.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e3e2f02560d63473ce2ccb86381a8787c8a55041fe98c516da69870c15739736.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e3fb279aeae1ccbfc31c4e5646a4fffc2fd3e2043dccd6c4da11894ef1d6cb83.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e61601be8212affd147f2d31c1f4f0add9e90a84acc2ba71aace051ee711863f.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e6fbcc0571615ae30912b27323b3cf2a3aa2d2474a243a5e4ef0faf418d6dd7e.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e83d1e2b82ffd31a61a08f7193c44a2fde26349c025a3dc8382ce1cfcb6505e0.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/e920b2c23b2c618e79daf8811fb2597431015a3e52466a5ab012ef8987438fdd.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/ea8e361f978162f9c143faca712a93b64e8742108425f6111c145ace5c96117a.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/ee1cea020c17cec3c093f46a010fb56d3995d4b76f78f50df47e214328bb8ff5.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/efb4270c6a03b06385e2018374b99024a94a26d32f5952cddaac1fbf0e64ce11.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/efe256b7533a7973703f8168495793142469b354c135b7e4c373bd0643e0e368.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/f06fb683a32673669b726c8fa7169b2c37953dab95cc817825a153f0e52bad51.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/f400cb54cd2ed572369d863a606ebdb09d7576305cca1d2a4636deab1962ac0f.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/f488b30aa38b70a0b1a929124e88a56cbbaf45d80ac00af39a61a31fe062ebe9.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/f5d732c5c143b9bd0ac102196def38ce7b0bef2b54cc686156961cedec755627.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/f5dc85926baeee497ef74cf47c18cc95fc3c45de22f2808095e4d1b68a415194.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/f65171ac94c16fcef0e764e32d3d5670b559de3a7553e48a97bea6355b56decd.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/f654b28bb4def993021067c0410acfe3b5b944c8153598514633ef963c167c50.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/fcb3deff4084084ab480585876df07196e894517ec71b9bacefd4b4168a4e967.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/fcc1a941d62ccc63e922fb66478318e72fdd0da419d68e5cf1a1355438bb4391.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/fdb9ab7d768162056279d4e9c2fe4f0ef6aebc503bda106f9f36793c4f78de02.gz",
+      "docs/optimization-plan/evidence/3.1-closeout-20261102/blobs/ffa6f9fb6cfac5e9c23f6ee3b26f86be753095c6ed7b68a45cffd5640f6bd0f9.gz"
+    ],
+    "untrackedCount": 0,
+    "sourceProductDevHarnessPublicUnchanged": true
+  },
+  "archivePayloads": {
+    "allPackedAndRawHashesAndOriginalLeafCopiesExact": true,
+    "regularGzipTextOnly": true,
+    "noDircOrBinaryMagicOrNulOrPem": true,
+    "onlyExplicitSelectedGuiResultMetadataRead": true,
+    "noSiblingSceneReads": true,
+    "privateIndexesNotArchived": true,
+    "notAllTransitiveRefsReviewed": true
+  },
+  "readRecords": [
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/evidence/3.1-closeout-20261102.json",
+      "bytes": 103435,
+      "sha256": "a6fceae47696c1a81b55601f075426c67cb3792807676d01767611b67e325a47"
+    },
+    {
+      "file": "E:/Claude/3.1-closeout-20261102/SELECTION-02.json",
+      "bytes": 20687,
+      "sha256": "4d6f74b7674a3dd7fcb6efd0de055b17820a30a54140a4bfef2ea255a64d107b"
+    },
+    {
+      "file": "E:/Claude/3.1-closeout-20261102/RECOVERY-READBACK.json",
+      "bytes": 14862,
+      "sha256": "d6facb4d68bde2516093d6cf234eb1896eb5001fd7d227270f704220025cf9cc"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\7f897295df84ce7531ddad564ec4ccbacbb4a0233b26be1b42d8766b47a36545.gz",
+      "bytes": 1167013,
+      "sha256": "cef573f8102565878d705c155b0d652bf02edcc453d25a6f9d580de9d05a04dc"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-edge-rebind-20261101/SOURCE-FREEZE.json",
+      "bytes": 4305069,
+      "sha256": "7f897295df84ce7531ddad564ec4ccbacbb4a0233b26be1b42d8766b47a36545"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\2195d438b286994d85231c631a25620f5a826c6db175f3ef3901722ee7abcc86.gz",
+      "bytes": 2324,
+      "sha256": "9355a9b34fae2819950beca7b197a4a70d276ceef8601fbd8759abd3e7c42314"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-edge-rebind-20261101/DELIVERY-PINS.json",
+      "bytes": 5893,
+      "sha256": "2195d438b286994d85231c631a25620f5a826c6db175f3ef3901722ee7abcc86"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\0c6d1186742fc8444fed300f7e3a1051b6ee075c9b941ef2dfd22b9a4ac36204.gz",
+      "bytes": 1806,
+      "sha256": "b3457c18cd82c8fa4bbc3c023d06f04a5c28cd6eb915a11b596eeb3bf55baf8e"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-edge-rebind-20261101/REPORT.md",
+      "bytes": 3332,
+      "sha256": "0c6d1186742fc8444fed300f7e3a1051b6ee075c9b941ef2dfd22b9a4ac36204"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\5ae504c4b343e7a99fe7b07b6c0bf13bfb5f08ff0e37942ae0fdfe016a492cb8.gz",
+      "bytes": 3223,
+      "sha256": "d3be27cd0d465d635145c2cd25681da8127db50cfb54207bc0991329fb7004a5"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-edge-rebind-20261101/AUTHOR-REPORT.json",
+      "bytes": 7949,
+      "sha256": "5ae504c4b343e7a99fe7b07b6c0bf13bfb5f08ff0e37942ae0fdfe016a492cb8"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\ad8bbd4254b73c89a0b1e6162ad0814337135fc38604eb3defbd474d54390872.gz",
+      "bytes": 23259,
+      "sha256": "dd1df6cc7cb101ad7a45dd28d609b806c1e49ffba2ec5a9844fb595621711e31"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r2-classic-20261101/M3-GUI-R2-ON-328486.patch",
+      "bytes": 76806,
+      "sha256": "ad8bbd4254b73c89a0b1e6162ad0814337135fc38604eb3defbd474d54390872"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\917c5bbc354b82aa7da519aeec8ad92f8ff923eb719e48055027e96f2883e9da.gz",
+      "bytes": 1166310,
+      "sha256": "79880b8299eb1febb49be03b6344b3e91194c9463ef70b72bb8296a41926a3d6"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r2-classic-20261101/SOURCE-FREEZE.json",
+      "bytes": 4303001,
+      "sha256": "917c5bbc354b82aa7da519aeec8ad92f8ff923eb719e48055027e96f2883e9da"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\388dfc52876cbe5da059652100b52de602289ab99b0e58fc056f113c481cec3e.gz",
+      "bytes": 3296,
+      "sha256": "11d9ac03dda02af39251ed56438eb4c4bb4b7c3986d0bd470696dc9d37a49ad8"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r2-classic-20261101/DELIVERY-PINS.json",
+      "bytes": 11113,
+      "sha256": "388dfc52876cbe5da059652100b52de602289ab99b0e58fc056f113c481cec3e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\4b0b89b5d697e65452059228bb88d92e78f63405d0d83e9df0e89fea5d875755.gz",
+      "bytes": 1569,
+      "sha256": "23f2e0f8bb9202824da7af6dd8016c96cec017a04645b8af31f361cf6ffe2147"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/ROOT-GO-GUI-02.json",
+      "bytes": 3522,
+      "sha256": "4b0b89b5d697e65452059228bb88d92e78f63405d0d83e9df0e89fea5d875755"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\d2cdfdb12b0ed39a057b4c81d7051747e4f6f811a3ea87103b4ed11e66da6165.gz",
+      "bytes": 1324,
+      "sha256": "12f5d2a486da1fade846e62d1edad06124bf40f268c85e17a72c656d8831954a"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/ROOT-ACTUAL-02-ACCEPTANCE.json",
+      "bytes": 2254,
+      "sha256": "d2cdfdb12b0ed39a057b4c81d7051747e4f6f811a3ea87103b4ed11e66da6165"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\99da2bd413737c5537129365e4e795cde4e8dbf0a497c0d2139bee45f7ba0668.gz",
+      "bytes": 1404,
+      "sha256": "7c06ca8cebd50951f2f2e8e194d1a98f2f7c20674f8e86cfc63f4826ee91410e"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/ACTUAL-OBSERVATION-02.json",
+      "bytes": 3328,
+      "sha256": "99da2bd413737c5537129365e4e795cde4e8dbf0a497c0d2139bee45f7ba0668"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\d6914bf37d73ecef22542a25160c3c95dcb4bbe1eb4aaae7c74c0454e4bea6cb.gz",
+      "bytes": 397,
+      "sha256": "1c89707baa93aed934bfc4bf3de6fb4dfe43936d15261f79b776b557893ec014"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/TOP-EXEC-02.json",
+      "bytes": 619,
+      "sha256": "d6914bf37d73ecef22542a25160c3c95dcb4bbe1eb4aaae7c74c0454e4bea6cb"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c64bbfe95734529b1a6e1b862691464be66a5bd0039a71cefb6089bf41222c32.gz",
+      "bytes": 2670,
+      "sha256": "757e02409d39f8f5817c805d66216cab9daf083c59b455be6073dcd788c71dbd"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/controller-02-r2.cjs",
+      "bytes": 6157,
+      "sha256": "c64bbfe95734529b1a6e1b862691464be66a5bd0039a71cefb6089bf41222c32"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\d9207b6072a01ffde2204c3067eea43d1720b2aea9b6537a81ba1dff237ecf30.gz",
+      "bytes": 2670,
+      "sha256": "7af24606d85be9931da271bcc375d1df582186a87b00fb04c99129e265120dde"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/controller-03-r2.cjs",
+      "bytes": 6157,
+      "sha256": "d9207b6072a01ffde2204c3067eea43d1720b2aea9b6537a81ba1dff237ecf30"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\fcc1a941d62ccc63e922fb66478318e72fdd0da419d68e5cf1a1355438bb4391.gz",
+      "bytes": 1000,
+      "sha256": "67e7a57a47f7a88f1720ac9fad2320d4bf82dad3e399ff862a08157013f63812"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/CONTROLLER-R2-SOURCE-PACKET.json",
+      "bytes": 1670,
+      "sha256": "fcc1a941d62ccc63e922fb66478318e72fdd0da419d68e5cf1a1355438bb4391"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c76edbddb8a1d7bea4113e0c7b8fb85d4b934c6253b01dccf90fa94de533447e.gz",
+      "bytes": 571,
+      "sha256": "1b03cb867c2484bf3c936c91ee325a4c49f0294f9625b91c50d60beb69f0639f"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/CONTROLLER-03-SOURCE-PACKET.json",
+      "bytes": 997,
+      "sha256": "c76edbddb8a1d7bea4113e0c7b8fb85d4b934c6253b01dccf90fa94de533447e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\ea8e361f978162f9c143faca712a93b64e8742108425f6111c145ace5c96117a.gz",
+      "bytes": 841,
+      "sha256": "8580bf1a5414e0bb86812c3de2bec559a12450c4312d1dd6fceb65df7e935182"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/FRESH-ADMISSION-03.json",
+      "bytes": 1565,
+      "sha256": "ea8e361f978162f9c143faca712a93b64e8742108425f6111c145ace5c96117a"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\b00a3aebbf6e61694b82158049a384108d8ce0d60bc77941ff3833d732d4dc85.gz",
+      "bytes": 459,
+      "sha256": "0d45894cd533e6e31d48b4ff8e5645ec197399fb2d054bccb0a145db8af36e5f"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r2-actual-preparation-20261101/FRESH-ADMISSION-02-HOLD.json",
+      "bytes": 682,
+      "sha256": "b00a3aebbf6e61694b82158049a384108d8ce0d60bc77941ff3833d732d4dc85"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\03c171d244bb297f23a556756068f64549a161699e2481f316fce9eff678e208.gz",
+      "bytes": 1302479,
+      "sha256": "2268463836ffa1a274ba6c8bc8a35fc79e5e7614c3b48417a4deba760cf795d7"
+    },
+    {
+      "file": "E:/Claude/m4-owned-stage-r8-safe-directory-20261101/SOURCE-FREEZE.json",
+      "bytes": 4777090,
+      "sha256": "03c171d244bb297f23a556756068f64549a161699e2481f316fce9eff678e208"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\a61859f6ac8e9412bff36eb568e68542bc87a24e32681012868c9ee3372105f5.gz",
+      "bytes": 8298,
+      "sha256": "bf38a9a14e327b7f7a361686a988e4d897d12897ee7f974342a16912093b6f86"
+    },
+    {
+      "file": "E:/Claude/m4-owned-stage-r8-safe-directory-20261101/DELIVERY-PINS.json",
+      "bytes": 32450,
+      "sha256": "a61859f6ac8e9412bff36eb568e68542bc87a24e32681012868c9ee3372105f5"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\5ede5d4b688fc37ac779d35f5752cfe6c7dc5a6c3f7c5b1d28f48124991c7556.gz",
+      "bytes": 3081,
+      "sha256": "58cc8d2a300b2974caebc5116987bac575dc585d6cefd7bbbea2214116848477"
+    },
+    {
+      "file": "E:/Claude/m4-owned-stage-r8-safe-directory-20261101/AUTHOR-REPORT.md",
+      "bytes": 5917,
+      "sha256": "5ede5d4b688fc37ac779d35f5752cfe6c7dc5a6c3f7c5b1d28f48124991c7556"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\5504f4d2c0cc1b143ce4f02b9b9a37fa2ba7d11cb55907f05336a12de33b183a.gz",
+      "bytes": 485,
+      "sha256": "de75f143f1886fbb5589730ccbc651f360de3577b8ca0ae7c93cbfd59c25428e"
+    },
+    {
+      "file": "E:/Claude/m4-owned-stage-r8-safe-directory-20261101/FINAL-READBACK.json",
+      "bytes": 820,
+      "sha256": "5504f4d2c0cc1b143ce4f02b9b9a37fa2ba7d11cb55907f05336a12de33b183a"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\972f4023f7e9358f12cebc82bfdbee6b97eecc340b642041a448d685c9b2e8f1.gz",
+      "bytes": 267407,
+      "sha256": "edd176aced15c406d932e56af8d25621975c698e1897cebb916f76f86aef5a11"
+    },
+    {
+      "file": "E:/Claude/m4-owned-stage-r8-safe-directory-20261101/M4-R8-ON-MAIN.patch",
+      "bytes": 1238257,
+      "sha256": "972f4023f7e9358f12cebc82bfdbee6b97eecc340b642041a448d685c9b2e8f1"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\b44b0dc9e8ee2abcad9ca5b82b03983eefc55d3804dc98bdac6d70c5159f83db.gz",
+      "bytes": 10605,
+      "sha256": "7c04cf77cf2a603c83426787fbe9d8359e6bf85e0714b8ddb8fd3be83d75f6bc"
+    },
+    {
+      "file": "E:/Claude/m4-owned-stage-r8-safe-directory-20261101/R7-R8-SAFE-DIRECTORY.patch",
+      "bytes": 49608,
+      "sha256": "b44b0dc9e8ee2abcad9ca5b82b03983eefc55d3804dc98bdac6d70c5159f83db"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\27d3499c05c85991892299f687aa21e1c54f38f274b40bb6bb3aea49ef8aecf8.gz",
+      "bytes": 787,
+      "sha256": "03a48fafa7960585032acd69fc435ddc984535a66b13b30d355b2014eed198e1"
+    },
+    {
+      "file": "E:/Claude/m4-r8-actual-preparation-20261101/SOURCE-PACKET.json",
+      "bytes": 1279,
+      "sha256": "27d3499c05c85991892299f687aa21e1c54f38f274b40bb6bb3aea49ef8aecf8"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\6ec49356c93fbfe8eaaa41124384ce9c78b050e5a90cfdd38a3297577bec0a9a.gz",
+      "bytes": 2704,
+      "sha256": "ea43121f16f82f453be949dbf52a09bcc306dd5ce790ae00c671dd2e65b2a4e0"
+    },
+    {
+      "file": "E:/Claude/m4-r8-actual-preparation-20261101/launcher.cjs",
+      "bytes": 6402,
+      "sha256": "6ec49356c93fbfe8eaaa41124384ce9c78b050e5a90cfdd38a3297577bec0a9a"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\0e83ef403da7a8ab3c7e57032e6de2fcb395b50fc64cad131997ab96181be4fc.gz",
+      "bytes": 1345,
+      "sha256": "3f611ced2ea1b8733a4b4efa18bff80ae5dcf1ac8ace2ecfe56c71228d8f89b9"
+    },
+    {
+      "file": "E:/Claude/m4-r8-actual-preparation-20261101/CONTROLLER-SOURCE-PACKET.json",
+      "bytes": 2400,
+      "sha256": "0e83ef403da7a8ab3c7e57032e6de2fcb395b50fc64cad131997ab96181be4fc"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\3c7a6f70a9fa4b3bd01175916c62f0a6504e5308051d70f9dd4c9d0825227bb6.gz",
+      "bytes": 2657,
+      "sha256": "f68231f610b50bc1ba42ede3aa61d11288f9ef3b2c1539297375c3114ae767e0"
+    },
+    {
+      "file": "E:/Claude/m4-r8-actual-preparation-20261101/controller-stage-01.cjs",
+      "bytes": 6127,
+      "sha256": "3c7a6f70a9fa4b3bd01175916c62f0a6504e5308051d70f9dd4c9d0825227bb6"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\af0808328092ee5d96a964a2a6eb1e4ded9c7e4c92924623a97e28296cd4d463.gz",
+      "bytes": 1556,
+      "sha256": "3238158e25e7b6561674acf50d09b02c2713f99c7cbc6df7fc0d7aad7928b2c3"
+    },
+    {
+      "file": "E:/Claude/m4-r8-actual-preparation-20261101/observer-600.cjs",
+      "bytes": 4106,
+      "sha256": "af0808328092ee5d96a964a2a6eb1e4ded9c7e4c92924623a97e28296cd4d463"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\efe256b7533a7973703f8168495793142469b354c135b7e4c373bd0643e0e368.gz",
+      "bytes": 1950,
+      "sha256": "9e98f57d33b710225fd72e064bb6742a9ef8ed349348a6fdc8da222d131fd798"
+    },
+    {
+      "file": "E:/Claude/m4-r7-actual-preparation-20261101/ACTUAL-RED-RESULT-01.json",
+      "bytes": 4908,
+      "sha256": "efe256b7533a7973703f8168495793142469b354c135b7e4c373bd0643e0e368"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\4d3d1e4d1011687f1c07de69ee603a7e409af8e6a288f6110c2e1437b61f866c.gz",
+      "bytes": 924,
+      "sha256": "f8bd443706bff523fcf31ae66d25047288f6659074e27466e4c72ea6b726a83d"
+    },
+    {
+      "file": "E:/Claude/m4-r7-actual-preparation-20261101/ROOT-FINITE-RED-ACCEPTANCE-01.json",
+      "bytes": 1710,
+      "sha256": "4d3d1e4d1011687f1c07de69ee603a7e409af8e6a288f6110c2e1437b61f866c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\bee09bf6477189ae59e8161a1f798daa2d5279326f47947b473a0b05bb9118c5.gz",
+      "bytes": 982,
+      "sha256": "890f14dee803a3c0ff3739d6ebd7409023b55c9a733f38923938bb7e1cde4678"
+    },
+    {
+      "file": "E:/Claude/m4-r7-actual-preparation-20261101/ROOT-LIMITED-SCOPE-DISPOSITION-01.json",
+      "bytes": 1666,
+      "sha256": "bee09bf6477189ae59e8161a1f798daa2d5279326f47947b473a0b05bb9118c5"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e3fb279aeae1ccbfc31c4e5646a4fffc2fd3e2043dccd6c4da11894ef1d6cb83.gz",
+      "bytes": 762,
+      "sha256": "efc220b31f68b0d9d35963dd2dbc198b29813a885967837aada147cbb92db199"
+    },
+    {
+      "file": "E:/Claude/m3-n1-primitive-actual-preparation-20261101/ROOT-FINITE-RED-ACCEPTANCE-01.json",
+      "bytes": 1236,
+      "sha256": "e3fb279aeae1ccbfc31c4e5646a4fffc2fd3e2043dccd6c4da11894ef1d6cb83"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\6adf69bc6efd276d7390eb093bf1eae69971cd8dec97ed933af8b69adeeed6f2.gz",
+      "bytes": 1033,
+      "sha256": "98e8ecae5d8555621f390b81c95f5890740166fb02928c6111e4847959d07d89"
+    },
+    {
+      "file": "E:/Claude/m3-n1-primitive-actual-preparation-20261101/finite-red-snapshot-01/SNAPSHOT.json",
+      "bytes": 3164,
+      "sha256": "6adf69bc6efd276d7390eb093bf1eae69971cd8dec97ed933af8b69adeeed6f2"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\7a1f2736ca312b7a78146460b8c85d59b2f200f8e053a1b35e929659ead37ed1.gz",
+      "bytes": 1282980,
+      "sha256": "853fb9f301a5d842d8720748dabab75654374fa29a440fbcd9d7680517d2cac5"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-r1-20261101/SOURCE-FREEZE.json",
+      "bytes": 4651739,
+      "sha256": "7a1f2736ca312b7a78146460b8c85d59b2f200f8e053a1b35e929659ead37ed1"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\52574784ad5208ea7f062269d32630881b13eeab37d4daecb68b4bd0f908f681.gz",
+      "bytes": 1978,
+      "sha256": "8968218f5fc61f73d3284272d317a074afbf310c825f79acd4c3199457754753"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-r1-20261101/DELIVERY-PINS.json",
+      "bytes": 6284,
+      "sha256": "52574784ad5208ea7f062269d32630881b13eeab37d4daecb68b4bd0f908f681"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c045794e83ea59788575eef491c43ca0295cc3b83bfa214026198c1b83f344da.gz",
+      "bytes": 2398,
+      "sha256": "e335ae03df35f5c4deb592433d004074feaf2a4807bd80d89df73b4c29c972fc"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-r1-20261101/AUTHOR-REPORT.md",
+      "bytes": 4585,
+      "sha256": "c045794e83ea59788575eef491c43ca0295cc3b83bfa214026198c1b83f344da"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\efb4270c6a03b06385e2018374b99024a94a26d32f5952cddaac1fbf0e64ce11.gz",
+      "bytes": 2696,
+      "sha256": "2f6ac270ecea7b4fafeaa73e240c5b7f8385d86a5eec0c405f92a688734f6540"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-r1-20261101/ACTUAL-PLAN.md",
+      "bytes": 5483,
+      "sha256": "efb4270c6a03b06385e2018374b99024a94a26d32f5952cddaac1fbf0e64ce11"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\84c965bc0c979f515dfaadca1638a6c9e67a2c12a1bc877c4cadf90d87674089.gz",
+      "bytes": 12395,
+      "sha256": "59e4738d4261a55b88fe3de3ed659232b5c1e6885c84f0b661da39af05cc3e64"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-r1-20261101/ON-MAIN.patch",
+      "bytes": 36893,
+      "sha256": "84c965bc0c979f515dfaadca1638a6c9e67a2c12a1bc877c4cadf90d87674089"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\102079b9306713c592dc02c516d1699cd36094930c7069006f3fad7911ce8151.gz",
+      "bytes": 848,
+      "sha256": "6948f18b507b990ae1433a8f193ba3a45ff6307130391b4846a059891a8d7292"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-actual-preparation-20261101/ACTUAL-RED-01.json",
+      "bytes": 1785,
+      "sha256": "102079b9306713c592dc02c516d1699cd36094930c7069006f3fad7911ce8151"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\842298216dd2f688378c56e974be109cf51b2d8a17c22f5df889345ec4b6822c.gz",
+      "bytes": 846,
+      "sha256": "54205993f31366767f522102a0a7b4e10de19c833b3f61ccf49cab0396780bea"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-actual-preparation-20261101/ROOT-FINITE-RED-ACCEPTANCE-01.json",
+      "bytes": 1533,
+      "sha256": "842298216dd2f688378c56e974be109cf51b2d8a17c22f5df889345ec4b6822c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e3e2f02560d63473ce2ccb86381a8787c8a55041fe98c516da69870c15739736.gz",
+      "bytes": 5539,
+      "sha256": "ad147510a10ea755fef394b068295f533709e8b1725fad4166ebf43e98cbca9e"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-scope01-cost-design-20261101/REPORT.md",
+      "bytes": 11692,
+      "sha256": "e3e2f02560d63473ce2ccb86381a8787c8a55041fe98c516da69870c15739736"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e61601be8212affd147f2d31c1f4f0add9e90a84acc2ba71aace051ee711863f.gz",
+      "bytes": 2766,
+      "sha256": "7b07d17627199e9812237bb9506f32ee5df4696d3c662552ba8b50c1ba4f5e98"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-scope01-cost-design-20261101/PLAN.md",
+      "bytes": 5727,
+      "sha256": "e61601be8212affd147f2d31c1f4f0add9e90a84acc2ba71aace051ee711863f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\a38558565949e32818eb5a4a13ad483a6be93c4e808eba19d68f5abf13ec8d7c.gz",
+      "bytes": 3310,
+      "sha256": "ccbfd54c3953852d3dc40f671b927707b65de748fff1bbfb80f9c204ec1f1ebc"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-scope01-cost-design-20261101/SOURCE-COST-AND-BUDGET.json",
+      "bytes": 10245,
+      "sha256": "a38558565949e32818eb5a4a13ad483a6be93c4e808eba19d68f5abf13ec8d7c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\aaba6fb0fe6fa3987cb5b3bab25e049aca7ea8c9eb77778d7b9d0f110fc8b232.gz",
+      "bytes": 975,
+      "sha256": "e1831ba6a1a8bf615ccb45c970aabb7f425b0bdd8966b27f26432a6e6a91832d"
+    },
+    {
+      "file": "E:/Claude/m4-r6-actual-prep-20261101/ROOT-F1-TEST-HOLD-02.json",
+      "bytes": 1501,
+      "sha256": "aaba6fb0fe6fa3987cb5b3bab25e049aca7ea8c9eb77778d7b9d0f110fc8b232"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\64639711e041073a3cdbc925274b60c1bbb76533bde8d42ccd397a6107bf2bc7.gz",
+      "bytes": 1120,
+      "sha256": "018ae58b3e08cb7a661f1d634ddb7b01f5094a40e36bf2b1e306f1c1d2c2a7a1"
+    },
+    {
+      "file": "E:/Claude/m4-f1-readonly-current-cim-source-20261101/SHELVED.md",
+      "bytes": 1970,
+      "sha256": "64639711e041073a3cdbc925274b60c1bbb76533bde8d42ccd397a6107bf2bc7"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\addeabdba87fefe353b0fe81f8a99d6bb2de9d544e2cd05f81f2a21b3f0dda9c.gz",
+      "bytes": 657,
+      "sha256": "dc6e684426d762a810f2e468944bcb7be753f5b0c34d2a774785fd051dbfc1e4"
+    },
+    {
+      "file": "E:/Claude/m4-f1-readonly-current-cim-source-20261101/PINS.json",
+      "bytes": 1384,
+      "sha256": "addeabdba87fefe353b0fe81f8a99d6bb2de9d544e2cd05f81f2a21b3f0dda9c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\60316dcb8c408cda8b32dbafbdb4711a4dbed8aadf559a3c124e6a09f6210cf2.gz",
+      "bytes": 4777,
+      "sha256": "3a7407c3adf9ca9622e2e0f91481072bce443069e427621ae4242ee44358a83e"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-scope02-actual-independent-20261101/REPORT.md",
+      "bytes": 10025,
+      "sha256": "60316dcb8c408cda8b32dbafbdb4711a4dbed8aadf559a3c124e6a09f6210cf2"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\12dafae6c0101bc935a303615c703875dc178796cf309e15cfefd45d922f86e0.gz",
+      "bytes": 1614,
+      "sha256": "0de69333098055a1f52711d7e7ad057e257aa6ff50e035a8bf29f6c74302ada7"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-scope02-actual-independent-20261101/DECISION.json",
+      "bytes": 2921,
+      "sha256": "12dafae6c0101bc935a303615c703875dc178796cf309e15cfefd45d922f86e0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\ffa6f9fb6cfac5e9c23f6ee3b26f86be753095c6ed7b68a45cffd5640f6bd0f9.gz",
+      "bytes": 3443,
+      "sha256": "88f0ab6e186ed0fba4930348b2c8c2989af01829af9e7c7509650d4060f37a3f"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-scope02-actual-independent-20261101/PINS.json",
+      "bytes": 13593,
+      "sha256": "ffa6f9fb6cfac5e9c23f6ee3b26f86be753095c6ed7b68a45cffd5640f6bd0f9"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\69fbdf3e52dc9ec6a95827954b1f09ff164d0b6756fac90c75f681c8dc7c0652.gz",
+      "bytes": 5126,
+      "sha256": "b351805d0adb4fc0f10b23be61a6c0cf6c554ea19f3b2b77531912a570e07749"
+    },
+    {
+      "file": "E:/Claude/review/m3-encrypted-browser-r3-edge-rebind-independent-20261101/REPORT.md",
+      "bytes": 10369,
+      "sha256": "69fbdf3e52dc9ec6a95827954b1f09ff164d0b6756fac90c75f681c8dc7c0652"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\fdb9ab7d768162056279d4e9c2fe4f0ef6aebc503bda106f9f36793c4f78de02.gz",
+      "bytes": 1479,
+      "sha256": "e57433b9959bbb32577453a0e97ef56fdad01e803c329b0e2adf96f1dad86b44"
+    },
+    {
+      "file": "E:/Claude/review/m3-encrypted-browser-r3-edge-rebind-independent-20261101/DECISION.json",
+      "bytes": 2482,
+      "sha256": "fdb9ab7d768162056279d4e9c2fe4f0ef6aebc503bda106f9f36793c4f78de02"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c6591e8f620a2625a227a0416633086545221670d502888a5d9f88bc833f76af.gz",
+      "bytes": 630,
+      "sha256": "7f27e82792976f2dc635c28b1ccf55fe917f6fc1bb7c4ff9fdfca5b35b3c951e"
+    },
+    {
+      "file": "E:/Claude/review/m3-encrypted-browser-r3-edge-rebind-independent-20261101/PINS.json",
+      "bytes": 1322,
+      "sha256": "c6591e8f620a2625a227a0416633086545221670d502888a5d9f88bc833f76af"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\028e831ede6089d93943619f6e07f370d78bd39a84b93ca1c08d062dc898f441.gz",
+      "bytes": 3371,
+      "sha256": "bcf97d3c5ccd7b9bf55062a6bca85475602640af468f01ae2c3f0eaf3ae32da5"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-r2-independent-20261101/REPORT.md",
+      "bytes": 7033,
+      "sha256": "028e831ede6089d93943619f6e07f370d78bd39a84b93ca1c08d062dc898f441"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e6fbcc0571615ae30912b27323b3cf2a3aa2d2474a243a5e4ef0faf418d6dd7e.gz",
+      "bytes": 1007,
+      "sha256": "0a3ea0e738d22532f3614e12f41513d6a96fe08b055480a049478124eb79162f"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-r2-independent-20261101/DECISION.json",
+      "bytes": 1627,
+      "sha256": "e6fbcc0571615ae30912b27323b3cf2a3aa2d2474a243a5e4ef0faf418d6dd7e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\23d200561164945046b34ddc30e04c79c3f673404de6fcdb93602953e2059426.gz",
+      "bytes": 1829,
+      "sha256": "39cd0b5d0c300820385e4f4eaa5f8b0fbe608a966f5cce6e4ee25b1ce7b949e4"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-r2-independent-20261101/PINS.json",
+      "bytes": 6259,
+      "sha256": "23d200561164945046b34ddc30e04c79c3f673404de6fcdb93602953e2059426"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\d5e91c533af21bb62348b81c9fb57e0cd174db6212241745ff96a100501db7b8.gz",
+      "bytes": 1878,
+      "sha256": "cd2ce1b024e32e07a16ff18d267316cdff62843167e958c9d07578588e0315e8"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-03-independent-20261101/REPORT.md",
+      "bytes": 3466,
+      "sha256": "d5e91c533af21bb62348b81c9fb57e0cd174db6212241745ff96a100501db7b8"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\f5dc85926baeee497ef74cf47c18cc95fc3c45de22f2808095e4d1b68a415194.gz",
+      "bytes": 772,
+      "sha256": "8e84ad0b4b0c6ce65632c10bb5cab0c7bdb430984b135e487a526a19159bcab1"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-03-independent-20261101/DECISION.json",
+      "bytes": 1245,
+      "sha256": "f5dc85926baeee497ef74cf47c18cc95fc3c45de22f2808095e4d1b68a415194"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e83d1e2b82ffd31a61a08f7193c44a2fde26349c025a3dc8382ce1cfcb6505e0.gz",
+      "bytes": 1796,
+      "sha256": "b7032c26b7b51a397e1f90b5cd8733811a60b6501b0609967a4f585258fac062"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-03-independent-20261101/PINS.json",
+      "bytes": 6277,
+      "sha256": "e83d1e2b82ffd31a61a08f7193c44a2fde26349c025a3dc8382ce1cfcb6505e0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\6b7893034fbb736449736380a20eb02a274ee391e8127b331cd541532606a799.gz",
+      "bytes": 5483,
+      "sha256": "366f875f88a6f35c99e924e094aa1a2a70ba797a2f3fa25996ee4ffac0d41b20"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-implementation-independent-20261101/REPORT.md",
+      "bytes": 11461,
+      "sha256": "6b7893034fbb736449736380a20eb02a274ee391e8127b331cd541532606a799"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e2fbe35ee45cbfacd99b98178b2b2a096ca27c5a852a48b3b2b021186f2de8aa.gz",
+      "bytes": 1172,
+      "sha256": "3399d1e3e72651bfbe39fd63b3a6c35541733a87148175d389c71891b8933cf7"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-implementation-independent-20261101/DECISION.json",
+      "bytes": 1958,
+      "sha256": "e2fbe35ee45cbfacd99b98178b2b2a096ca27c5a852a48b3b2b021186f2de8aa"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\a23982b9ee4496dc45e3c16f5189b2aad743f3c93992d39f70f42d031ea119d8.gz",
+      "bytes": 2087,
+      "sha256": "636f0671323e877954df3d217e847c155bf7039f5f393202e4f83520536de2d2"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-implementation-independent-20261101/PINS.json",
+      "bytes": 7926,
+      "sha256": "a23982b9ee4496dc45e3c16f5189b2aad743f3c93992d39f70f42d031ea119d8"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\b787fda129ef21ae46151b394fe786a74b90e41442e5a3165fc1956a5ed7a803.gz",
+      "bytes": 3740,
+      "sha256": "225719cb0b670d313637e5fa1ccc3f762f985458ad8bea2651c6c2d214947c34"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-caller-independent-20261101/REPORT.md",
+      "bytes": 7296,
+      "sha256": "b787fda129ef21ae46151b394fe786a74b90e41442e5a3165fc1956a5ed7a803"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c892536e98c7018caeaa898ea15ac86e7236b05d627dc588a45f1d6d8eb63b7d.gz",
+      "bytes": 1677,
+      "sha256": "993f1a0bf4ab47788422ba488959582c37996f0f4715d499cbb1b828f0695b57"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-caller-independent-20261101/DECISION.json",
+      "bytes": 2801,
+      "sha256": "c892536e98c7018caeaa898ea15ac86e7236b05d627dc588a45f1d6d8eb63b7d"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\71746e77a08b7e8eeb6d13b65b29e90195dcdda60bb9e19cdf2c698ce4b815ab.gz",
+      "bytes": 2138,
+      "sha256": "dd13ea4c5144ffd625667ac3318d21874769e0483668305d537cb90b2fa81d7c"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-caller-independent-20261101/PINS.json",
+      "bytes": 7010,
+      "sha256": "71746e77a08b7e8eeb6d13b65b29e90195dcdda60bb9e19cdf2c698ce4b815ab"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\3d75dca2a09c90ece7bfd9cf969976fa40af2277c5c89009c6e2d67884a93d0e.gz",
+      "bytes": 2558,
+      "sha256": "df7a2b3941319208ae14f878c014e59893ffe97f0430df5e6b2671d2b485162e"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-controller-600-independent-20261101/REPORT.md",
+      "bytes": 4685,
+      "sha256": "3d75dca2a09c90ece7bfd9cf969976fa40af2277c5c89009c6e2d67884a93d0e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\357a993abf0302abb6751c2e96b41e9e3553374bf8e88f08998bf786301cf7c9.gz",
+      "bytes": 978,
+      "sha256": "bd56315f93dc5fd0af6f78f96a972dde7b7e5134ddc0e49fed1941f40a582cb5"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-controller-600-independent-20261101/DECISION.json",
+      "bytes": 1625,
+      "sha256": "357a993abf0302abb6751c2e96b41e9e3553374bf8e88f08998bf786301cf7c9"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\1a2825fe7635d6b86a6a27daf7129685bdb5dc75a652e2dd1ac4200c785fec90.gz",
+      "bytes": 1878,
+      "sha256": "251c2e86999954239536a7232596f58b2e2d6d7b8f01cc75b6a851eee700e734"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-controller-600-independent-20261101/PINS.json",
+      "bytes": 6337,
+      "sha256": "1a2825fe7635d6b86a6a27daf7129685bdb5dc75a652e2dd1ac4200c785fec90"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\481d076a7d7be813730066da7c4a06e00b3e084b8d955ac05b7f94c0ce9a82d3.gz",
+      "bytes": 3276,
+      "sha256": "d33b5668dae6ab4360b2304f7beeda7a0c6ea101bf5a043ef1ab191919da1c3f"
+    },
+    {
+      "file": "E:/Claude/review/m4-r7-first-red-independent-20261101/REPORT.md",
+      "bytes": 6941,
+      "sha256": "481d076a7d7be813730066da7c4a06e00b3e084b8d955ac05b7f94c0ce9a82d3"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\2c3b56c425e757f879b89f19ff473eb1667b7074eeff3af0dc5c7d82b3780bc8.gz",
+      "bytes": 980,
+      "sha256": "8c005addc3538d66235b762c101f2bf7867e384e09f69c1cbd69e2902a38fda2"
+    },
+    {
+      "file": "E:/Claude/review/m4-r7-first-red-independent-20261101/DECISION.json",
+      "bytes": 1705,
+      "sha256": "2c3b56c425e757f879b89f19ff473eb1667b7074eeff3af0dc5c7d82b3780bc8"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\0ff36384a816f8289bc8f40e3c108cbced20edcecdb7f7b89505a946cf8d2edb.gz",
+      "bytes": 1995,
+      "sha256": "74dbecb3425c65ff2885ad69a935c2b79edf69234ea3262e3fbea59d50ea1222"
+    },
+    {
+      "file": "E:/Claude/review/m4-r7-first-red-independent-20261101/PINS.json",
+      "bytes": 6857,
+      "sha256": "0ff36384a816f8289bc8f40e3c108cbced20edcecdb7f7b89505a946cf8d2edb"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\172070d4c8af4387b738852431e2e1acc15bcf8fdd7e6fa0bd6afc97aaffe34d.gz",
+      "bytes": 2911,
+      "sha256": "d5cf1b9e30b4111b924d1c550f5e1db17b827986dad2e44a7ed727a0074d49e2"
+    },
+    {
+      "file": "E:/Claude/review/m3-n1-first-red-independent-20261101/REPORT.md",
+      "bytes": 5942,
+      "sha256": "172070d4c8af4387b738852431e2e1acc15bcf8fdd7e6fa0bd6afc97aaffe34d"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\179c38131f0c01709033e19312ac772b720c12357c6970a45d3a2438ede8c3d5.gz",
+      "bytes": 1018,
+      "sha256": "ee15f422a8b77715c2066f907fcf3aafd2d2fc6f53c7d2d0fbb03bdf0b01c613"
+    },
+    {
+      "file": "E:/Claude/review/m3-n1-first-red-independent-20261101/DECISION.json",
+      "bytes": 1693,
+      "sha256": "179c38131f0c01709033e19312ac772b720c12357c6970a45d3a2438ede8c3d5"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\5f89e04747864360a06dfa2c045748bb239ed0ab02010351a8464e63e1763db2.gz",
+      "bytes": 2086,
+      "sha256": "72f7a8f0d192a10d0eb934e8d438c312322ad1f361c3911f95d408a643486604"
+    },
+    {
+      "file": "E:/Claude/review/m3-n1-first-red-independent-20261101/PINS.json",
+      "bytes": 7307,
+      "sha256": "5f89e04747864360a06dfa2c045748bb239ed0ab02010351a8464e63e1763db2"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\79384e4c1d8abc04047e882f31e71a81aa8a94248b1dd987108dee142a4fb4ba.gz",
+      "bytes": 4536,
+      "sha256": "7b48537e70f89fbb5eac87263b554029e97293b0d96357eb8aa69dde27b0d910"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-r1-independent-20261101/REPORT.md",
+      "bytes": 9325,
+      "sha256": "79384e4c1d8abc04047e882f31e71a81aa8a94248b1dd987108dee142a4fb4ba"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\0b7682c5907189f850c6e617277ef6da140f697491e7ccf17f4862e3a9fa4ff7.gz",
+      "bytes": 1580,
+      "sha256": "00e8dbaab77ed1fa2b4bf5bbc31ceb5cd77c56ae15d44aded9f4b14df1bd44b3"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-r1-independent-20261101/DECISION.json",
+      "bytes": 2737,
+      "sha256": "0b7682c5907189f850c6e617277ef6da140f697491e7ccf17f4862e3a9fa4ff7"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\dbfa966a789b38ca7f657f85fceadb26656279188cb70fd507a5f3eebebbdb03.gz",
+      "bytes": 3799,
+      "sha256": "6a42873196c1c40f180491b7878901f2aff7d64d14335c753963bbf2bc718ad6"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-r1-independent-20261101/PINS.json",
+      "bytes": 14095,
+      "sha256": "dbfa966a789b38ca7f657f85fceadb26656279188cb70fd507a5f3eebebbdb03"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\d4d216b1758d08172cc6d58118a9011c26980cd30e4f1faedba8b4a7234db635.gz",
+      "bytes": 3070,
+      "sha256": "78ed2f6035ee0fca5f040f8c8bafbe4ad8ab462005c91b45d0ece0013a7a47cd"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-actual01-firstred-independent-20261101/REPORT.md",
+      "bytes": 6406,
+      "sha256": "d4d216b1758d08172cc6d58118a9011c26980cd30e4f1faedba8b4a7234db635"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\92556b144c5ac92d7a1976a552398746d5e779402bb2a78b9d225a91cf39e510.gz",
+      "bytes": 765,
+      "sha256": "8eb713ce906998eb4b0fcd4535d5eb627dc107d3fefd31e0abc871a226e497ca"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-actual01-firstred-independent-20261101/DECISION.json",
+      "bytes": 1484,
+      "sha256": "92556b144c5ac92d7a1976a552398746d5e779402bb2a78b9d225a91cf39e510"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\7d8b86a1f5fcca328d87c5388cffc16265f5578fb9353588ddd59f5962cdea3c.gz",
+      "bytes": 1825,
+      "sha256": "c1f10204eb16317b5f8c6dfc9ea9a2d6142671e3c608b3a5f13617692ed93445"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-actual01-firstred-independent-20261101/PINS.json",
+      "bytes": 6466,
+      "sha256": "7d8b86a1f5fcca328d87c5388cffc16265f5578fb9353588ddd59f5962cdea3c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\462f56a0cd6861f583aeb67c6606baa61d455b1e013d93d1e2b5b6909c03f15e.gz",
+      "bytes": 4030,
+      "sha256": "6bc5144ddf65596c08d89995e8f7c787bc2f9ff9f25840541d592cb628b8d467"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-budget-contract-independent-20261101/REPORT.md",
+      "bytes": 8256,
+      "sha256": "462f56a0cd6861f583aeb67c6606baa61d455b1e013d93d1e2b5b6909c03f15e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\1c2414920b6dfde6defec922199ec907456cdb72e37d470feaca1169170ecee4.gz",
+      "bytes": 1142,
+      "sha256": "ab35f50fb235d64612deebc983552216338080fe9ececb16ea796b9bd9645499"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-budget-contract-independent-20261101/DECISION.json",
+      "bytes": 2070,
+      "sha256": "1c2414920b6dfde6defec922199ec907456cdb72e37d470feaca1169170ecee4"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\8f19bd5df428322e0883cdc5e24ad1f5d7ff0cef01704638815cfd98e7e196c0.gz",
+      "bytes": 2392,
+      "sha256": "c0331852e4aaed0b92672052acecb426f8ee32a8f2514c1d25862e7d24de4ec6"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-budget-contract-independent-20261101/PINS.json",
+      "bytes": 8444,
+      "sha256": "8f19bd5df428322e0883cdc5e24ad1f5d7ff0cef01704638815cfd98e7e196c0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\f65171ac94c16fcef0e764e32d3d5670b559de3a7553e48a97bea6355b56decd.gz",
+      "bytes": 3059,
+      "sha256": "d4fe181d93aaf0a714e7771d89cdf62bdd6dc2df425b69a837bf148aadcb6cf6"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-02-independent-20261101/REPORT.md",
+      "bytes": 6260,
+      "sha256": "f65171ac94c16fcef0e764e32d3d5670b559de3a7553e48a97bea6355b56decd"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\552809178763d5c9a0cbf20c77dcd2bbe8e4a2f7836c8c9a60677e9231cd64cc.gz",
+      "bytes": 728,
+      "sha256": "b615d76981350eb4f7fac56585b972f05b0f06599ce063cf86fbf8be06d72ae0"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-02-independent-20261101/DECISION.json",
+      "bytes": 1189,
+      "sha256": "552809178763d5c9a0cbf20c77dcd2bbe8e4a2f7836c8c9a60677e9231cd64cc"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\1ab87dca5716d1f55eee1460575803cb2269971687bc0fad497eff52a91d00b3.gz",
+      "bytes": 1750,
+      "sha256": "bfed37932ed9b314973442a664816c5e0a4ff2c469c086d0c7a39e01aaebc847"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-02-independent-20261101/PINS.json",
+      "bytes": 5773,
+      "sha256": "1ab87dca5716d1f55eee1460575803cb2269971687bc0fad497eff52a91d00b3"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\895903208a3b43aefb75d72efba386f2a7b963c07d21a78f48773eba100ad586.gz",
+      "bytes": 4893,
+      "sha256": "d66cc9548d18bcd5f05817fe5c10c66645ff83070d4440e85b7526997f583f21"
+    },
+    {
+      "file": "E:/Claude/review/m4-f1-test02-r7-window-independent-20261101/REPORT.md",
+      "bytes": 10791,
+      "sha256": "895903208a3b43aefb75d72efba386f2a7b963c07d21a78f48773eba100ad586"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\a8eae815cd3a32c50bce78b7bc57346422383d6aef65cac455e2f8e11f69e2e5.gz",
+      "bytes": 1811,
+      "sha256": "19d179e1dc9b1ce5191af4105b0d82c0e529c1ef1d937dc4978efc8d223c1c87"
+    },
+    {
+      "file": "E:/Claude/review/m4-f1-test02-r7-window-independent-20261101/DECISION.json",
+      "bytes": 3243,
+      "sha256": "a8eae815cd3a32c50bce78b7bc57346422383d6aef65cac455e2f8e11f69e2e5"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\884e0746fa8cc8148859a5471434061b35233c104778dd04cfc5559f27108d5b.gz",
+      "bytes": 2726,
+      "sha256": "e43ae910b97a5b1845792b81993082bb5985931d12d164601bad8bf8236de615"
+    },
+    {
+      "file": "E:/Claude/review/m4-f1-test02-r7-window-independent-20261101/PINS.json",
+      "bytes": 9860,
+      "sha256": "884e0746fa8cc8148859a5471434061b35233c104778dd04cfc5559f27108d5b"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\0975889349f118581b9bdf73f5989c6ef3748e608bb322c8a2dcc53b1a6782ce.gz",
+      "bytes": 2794,
+      "sha256": "72836d83107b583e8c14215abf6d0a1c20fd6f92217f39982a11d8948bc2ddad"
+    },
+    {
+      "file": "E:/rt/m3gui02/home/Temp/ruyi-encrypted-browser-restore-5FOL3v/evidence/result.json",
+      "bytes": 12633,
+      "sha256": "0975889349f118581b9bdf73f5989c6ef3748e608bb322c8a2dcc53b1a6782ce"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\f400cb54cd2ed572369d863a606ebdb09d7576305cca1d2a4636deab1962ac0f.gz",
+      "bytes": 1283810,
+      "sha256": "c8fcb7c74fd666a03f3493fcf3014ef246456243cdfce80e5408717d5cbd7ac6"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/SOURCE-FREEZE.json",
+      "bytes": 4654904,
+      "sha256": "f400cb54cd2ed572369d863a606ebdb09d7576305cca1d2a4636deab1962ac0f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\8eeedb600d0089b55529e6f4ba8a09dc6b3e63c8af36150f4aac255ef3c9881f.gz",
+      "bytes": 3473,
+      "sha256": "b2af60d7bed6399f50ba38b327971f7f48434e67a186a1e09f6a8cde23a9f6ee"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/DELIVERY-PINS.json",
+      "bytes": 14390,
+      "sha256": "8eeedb600d0089b55529e6f4ba8a09dc6b3e63c8af36150f4aac255ef3c9881f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\dfe6d1bdffede8b25492988341c9cc9280774501eb279a6a692e1aa6066e4e23.gz",
+      "bytes": 2690,
+      "sha256": "1c01288e37b38b92314bc8d8b027de27b1449b3ed254cf9feaa80d8af28beb01"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/AUTHOR-REPORT.md",
+      "bytes": 5348,
+      "sha256": "dfe6d1bdffede8b25492988341c9cc9280774501eb279a6a692e1aa6066e4e23"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\ee1cea020c17cec3c093f46a010fb56d3995d4b76f78f50df47e214328bb8ff5.gz",
+      "bytes": 2802,
+      "sha256": "1cdb6c2baa339b8d1854a4669cacb79be88eb2f934cf2a3ac863698445b05ba1"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/ACTUAL-PLAN.md",
+      "bytes": 5744,
+      "sha256": "ee1cea020c17cec3c093f46a010fb56d3995d4b76f78f50df47e214328bb8ff5"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\6abbf6f046331a9298e2e9af8cf2f607ffff6c80aa76795eba41b5f7b82f006d.gz",
+      "bytes": 586,
+      "sha256": "fd0305623b74c3bde38bee39146d72b5d5d8fb7acf286fd17edeab1cb93dce79"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/FINAL-READBACK.json",
+      "bytes": 1034,
+      "sha256": "6abbf6f046331a9298e2e9af8cf2f607ffff6c80aa76795eba41b5f7b82f006d"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\7a7da58e5fffe1c477d260007af8eaa039f383606560e9d7c813682f9ee122c1.gz",
+      "bytes": 23123,
+      "sha256": "56941cd556cc912703e745d6adaae607af97941cae8e091088994874b7ecca81"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/ON-MAIN.patch",
+      "bytes": 70764,
+      "sha256": "7a7da58e5fffe1c477d260007af8eaa039f383606560e9d7c813682f9ee122c1"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c1b4d6b86d350c9d31242bd31e3dde0a39ed26611f010f0f91b3b638b4f33cdd.gz",
+      "bytes": 5150,
+      "sha256": "53ae095054fea99600bcf6c6d2396e86d176de5b7c1dec43b1c4b34d8bf918d9"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/PRODUCT-ON-MAIN.patch",
+      "bytes": 16980,
+      "sha256": "c1b4d6b86d350c9d31242bd31e3dde0a39ed26611f010f0f91b3b638b4f33cdd"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\dc73237e7c2250b8e6fb9720078d062b354819b509dfb5ea5e6645d34437218b.gz",
+      "bytes": 18484,
+      "sha256": "b92c6e7616c4cace8b7c041a2dae788a337758893883800953955fc245ed2921"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/HARNESS-ON-PRODUCT.patch",
+      "bytes": 53784,
+      "sha256": "dc73237e7c2250b8e6fb9720078d062b354819b509dfb5ea5e6645d34437218b"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\025da31bd72a4f3e4947000c14416c2f69c89104d06a85e1ac70155f523d8135.gz",
+      "bytes": 30026,
+      "sha256": "279cc1ba58c496ebf9ebb52c7221e3238659031d658e6a950b3c6159d16b77f0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\672fdeca0bcc0e79c1b16d2963c2fe556e4a3706d6ed4ee93848a71c2783df6c.gz",
+      "bytes": 28101,
+      "sha256": "ea3e7867a30249aefffa9fd51d8fbb56d598d3a314889a802786d29372b39623"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\f654b28bb4def993021067c0410acfe3b5b944c8153598514633ef963c167c50.gz",
+      "bytes": 14951,
+      "sha256": "95160a99c6888adc962094e61fb22ca20c7bc7152b9ab0f52ae60065f73b440b"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\7c1169cfaae27d3453b51d176719dd2449752a74edf3dfde3e26e7af70a31a95.gz",
+      "bytes": 21761,
+      "sha256": "de539b2348c760a9641e77ab294271a59221f713ef00b2674686c15385f9b99c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\1980523cf493a260d6daed5fb4768b0340f4345d673a430338bb288aa5e36dff.gz",
+      "bytes": 8055,
+      "sha256": "a36f0ad24d278aeacc21a3f5bb41449e688698ffacb9292c0f197d51046d0817"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c2f7b3f43fa22968d3627a8fe316167702fba236ff0ee699406acbd6b65350c6.gz",
+      "bytes": 6305,
+      "sha256": "06710d37328337b25eab87a67781a786797b458c6f62e3842e307560153039b9"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\914b6f9b5aa02c1f9f1fc348adde6fe84c93f26fd836628f938f23fd9c564b5d.gz",
+      "bytes": 14898,
+      "sha256": "ffa4229ea41396f2e214a187ad1cf11a35c1f719370a6628f22c744b77662585"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\76811b22586959a4baa3162eb46d537cbb0395c9ba92ea377487853338ab238c.gz",
+      "bytes": 5249,
+      "sha256": "aef57ec5f49ce35f945ee1d078b6f185538fe180b3e84f269f03fa1d8288431f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\36b6ef57741868e2d59a37b0830bea9c8f6f6879e8552fad9d61959a10073e49.gz",
+      "bytes": 947,
+      "sha256": "7da48221c423fa7605f9eee3b731ac2166fb1b060f1a6f75d52cc7d2d5742c39"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\d75e3066421a96c0a49bb59b3da2fc0a8201d41a4df10d7d914ffdb7cb228834.gz",
+      "bytes": 30027,
+      "sha256": "8b4a59c1573a69e353f76a18de06966d617b5b14196d2a0e4cfdacdfdf5261c1"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\8c8b16e8f94960fe39bfbb61bebc0acfeb58c1b47571f5ea82bd9ebba285eb8e.gz",
+      "bytes": 28101,
+      "sha256": "8f8a691749515ff0bf15acaf2101cc1bbd2c540a66e8bfc92c95177009acc2fa"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\1ab20537ab2147714817ac99c0cd08f8c2e75b57063132e75fe5a7ed55a145f4.gz",
+      "bytes": 2621,
+      "sha256": "4b276342b725a0d08692cabea690fd16a558e3238182bf405c90e9eb6d703bfb"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\bc45d7456340efd87967fbccdeb9b5bef403b1ebd24555473bcb7090fd1e77d6.gz",
+      "bytes": 3148,
+      "sha256": "1fc6d8ae53e42d0a0bcb0fe4f9222dc8277c2d50df9cac9a34eacd8e826ed08a"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\f06fb683a32673669b726c8fa7169b2c37953dab95cc817825a153f0e52bad51.gz",
+      "bytes": 5493,
+      "sha256": "9174ff57ce1252af89b1bfd4627e9820d970bd63cd4788146d8240207e8c3ec0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\23825712400bd357c5d40ffc44f86d031fc568b7c7b0a30408711d872dc12b29.gz",
+      "bytes": 3160,
+      "sha256": "241dccb55b9a299c781f1c5460f3540f28ee3fecef156efc9b66cc4ac5fc8973"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c4c2cb9352d42cab955637dfc912c85b076ec77af98c05530ec8b58ee4c0801a.gz",
+      "bytes": 2346,
+      "sha256": "37c229d3431979214fb707e52ff24eb51f4b98bd964e9ea6e4d41c2c25d861cc"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\3e0a0ec4f3324b15d2cd1eb6728d219ba05a0c6bde850170fc0e01a229094dbd.gz",
+      "bytes": 19705,
+      "sha256": "56518e301bb93575ff2bcf5ffe35ae87cf6b0e1ac2c6132c4868b6397bf4f71c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\43498e64a1d3286625dbe728b7367017a14a6a97c7e2304e8aa24dd26dbeb0ba.gz",
+      "bytes": 5098,
+      "sha256": "00bcc1706be4e7f76da9503f6593f7320161a6ff04f0d5cc1849fd633bf9da5f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\bff4d7283868e3344e9ec8f7596ab68c49d10478c69f88bdeccb729610aefb7d.gz",
+      "bytes": 122876,
+      "sha256": "3e023e6f200e594cb2fb789ece1ee214e9f7192d4dc7948655b0d20c47d3f87e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\c1f38e0442e34b5444b52a86f4675541561d6f7ecb04b72ea38ee9956fd6cd7b.gz",
+      "bytes": 31183,
+      "sha256": "3de0dbdaea94242f71317ed0505ac81609923080b9de24a32747c1a9dff56b78"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\d23273a9463afe6d5f95ec569c3e084848651818512db72afeca9678c2aead3f.gz",
+      "bytes": 947,
+      "sha256": "51a6983edf1b0cb15ffcdbab098e0f650f9f5f77943ffbd971c5025250d312f9"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\b5ee0fbf1ac6ddf91442becc3a16a13bdb3c19d7cb4df165f5d9b23092c33c74.gz",
+      "bytes": 4038,
+      "sha256": "e02951816dce6c21340a883ba97760ae6935a9483e936675d5453fdbf2510f37"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\2b355550ffeeb1dab8d4aa8b5f4fd47ee4dd6f71196423b53638235e49007f56.gz",
+      "bytes": 2810248,
+      "sha256": "efdc512a3083e4b69ada40522928d3961e424fce734d95f0d0ae5b4ab769a2c4"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\7092cb4fee94582e3342045fbaf2bdb7881a58adb17fe6af4cc698fcb00b5414.gz",
+      "bytes": 2951,
+      "sha256": "82709420881bca511cf9363eda61bd0d4bb73e63ee38ca878739b8fb3990636f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\35b09a44a2567d433da333c45fd0e57c27f8463ec0d4cc1cb9d1aaef08ead05a.gz",
+      "bytes": 10570,
+      "sha256": "8ba4a5900ee93d07e638b4bd2e597307c57b38324025bf61d5409acae3b603e3"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\09c6dff86742d2a0c9c08cfe4f67cc9cabf2a5bcb4aa6a8598fe191af6b0ade3.gz",
+      "bytes": 13701,
+      "sha256": "0df9baf0381b4deaba9abfcd70a09f881f645f6dc3f848aff6eec5f908661c50"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\183d7048d61eab6cd3773e0835c0ff98fe127ba607cb8f3adf890569a376b5e0.gz",
+      "bytes": 75389,
+      "sha256": "f5509b8bf32ad5c0976042955a7b7ff6f4ed22992693a1d6acea18d3754795e0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\6a63ff4df7591ce3d5395ede95c68671e7c360cc53574c8af4ef81b57c070010.gz",
+      "bytes": 172010,
+      "sha256": "73c6e2a2698798499b143d8ab19d70869b91f89ae3d9d8e39cccbef33fbe41de"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\8252bbbceafa3b08aabc546d721af0d5cfe6c05aedf9ae6fda7254c426b8a99e.gz",
+      "bytes": 8535,
+      "sha256": "c0a372485292f465fabda0d42f6730db855a2ec635670182d48ab7f9295fddce"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\b40d68dc980ae4ba8a857913e885313a24c033ac37ef84f689acadeb5da354be.gz",
+      "bytes": 2861,
+      "sha256": "8aea9f1db72561a7adbd0d8fe3120b2ef66b7727bfda95a9dd5ae597e286875f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\cd2d5d6059e7cd156d2ef9e311812bbb58353c7004cd9e6f2561aea55b6e1788.gz",
+      "bytes": 1408,
+      "sha256": "37314d6a5d8865d3aa0e4c054256ea5dd729fe77f9e43466e3bdc8648996d606"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\de057f269bcd0c01bdf427bf9ef9a0f65c9f63eb8004a1b74a838802699d77ae.gz",
+      "bytes": 16477,
+      "sha256": "201610f9e61c275f90c6374f404ca3819597d49966996b3c0e281cf2c9aa3cf3"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\d0a9abf7abb7b252bb76a8974c4b14aeee051aba9a3b5db4ea94814dba3ce45c.gz",
+      "bytes": 3018,
+      "sha256": "d102e3318e7d68d34f01e99823577e287aeb32a34e55928f33c5302fc03a28e0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\51e067e00b8d758c80989addd184ca1f349ad1de928bdb20e3eee1f003d5e489.gz",
+      "bytes": 11187,
+      "sha256": "70221f592c2239f5280bc050532f9c1dae5ea61e8297db31178ea2aded3632f0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\737cd67141541fb7a2cd390f74ff2ac21b3d0739440de72a08d3d861f3b9f08b.gz",
+      "bytes": 30026,
+      "sha256": "e6179dfbb7a5fcda6189e2ea29b451a55c0afa0dfb8f26c2ead16b7c915af69a"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\fcb3deff4084084ab480585876df07196e894517ec71b9bacefd4b4168a4e967.gz",
+      "bytes": 28101,
+      "sha256": "935015e4a9676ba757da787e8e27ada8064d32bc5fc0531d9bc6439992fce6f1"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\f5d732c5c143b9bd0ac102196def38ce7b0bef2b54cc686156961cedec755627.gz",
+      "bytes": 5596,
+      "sha256": "1c73d455758aada9499f2779c44d0c6959eb173b4bc916ad762f3887a15904ab"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\27ae452db7237da20668bbf59effcc285f3a5fe36bea7d2da47a7914fa813609.gz",
+      "bytes": 3309,
+      "sha256": "3f3d8b7d22c59cf1135998248edc8dea8c0a84e846d9f86c90393c04258b5353"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e0b00d47fa70aa3ec378a063ac1fc1d2a0aeb4446c1ecb89f1b3f137804ae57e.gz",
+      "bytes": 948,
+      "sha256": "b128cdb06009728f333aceeb3828dfb2ea0da2a75ac9d12a3fa12e8f2dc1dfe4"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\1b2ce027368b3e7a0128e10fd62c48cb115527df75c4a9750dfa7146e6ee62c9.gz",
+      "bytes": 2798038,
+      "sha256": "72c753b767274434ad5b211f59b34cb725a5ca984227793c3170b1fce81a031d"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\5c770ea1f8f43e9d3e039413b5d04c9a576872ad7f96cea1e3a3f6f4501abd9d.gz",
+      "bytes": 90430,
+      "sha256": "7d6f3df2fe0ca03819b917db4e7694fc73ad04655bd0e24286416c6d2ad87a20"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e920b2c23b2c618e79daf8811fb2597431015a3e52466a5ab012ef8987438fdd.gz",
+      "bytes": 13561,
+      "sha256": "b6e5a0029676be233eecdad8086e2f2ae63442625ef12b8a5499dfc3d6bee844"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\86ccd19697eb885e4a3624c839eaa442cb79c31a31eb5019749054f34af2b21f.gz",
+      "bytes": 2487,
+      "sha256": "ca2103199c555f0d09b065b845b1dd694b6ccfe0da2b6c24ae016aefd40eba23"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\622062b0367b62ad980115771e53ab559c8658aebf2cf625cb395e58089e4f34.gz",
+      "bytes": 2104,
+      "sha256": "cf07423e64ada1c3f1e92e67eaa9b82436aafca7f3869dda6a70221a19d2a532"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\e2521016621084bff54ca7602e71d52e900f922300b19debb9edd977d96272aa.gz",
+      "bytes": 1257,
+      "sha256": "c411fa29115032d7af1f23876e7f88b62c6bfc1a550a7e3293e7df9270f07636"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\7ef3ca0ff0c4873b1a5e8f1e11ee224832576006893b5d6c20c171b78416e438.gz",
+      "bytes": 4536,
+      "sha256": "e9330cdbacbbc97923e9afdfd676ceb2a90fa93f9d42adbe1b4e78dc5dbe5c01"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\9ce01f0eb80dfcdba243d26f4e1ebe0c8f863ba54de202829076b6f9f8c536ca.gz",
+      "bytes": 21859,
+      "sha256": "44d2615f68fabf07130a9f6d514354a08ef2e0a55148589a675267332ef1d4ad"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\5e353c529e5041e585bd3d23b771280e6e479af72ebabaf7d8e34d27b542fb46.gz",
+      "bytes": 6678,
+      "sha256": "ba85f9ff036d9b0ada32d3d62832d2569989008bf604f523460511c42e146eca"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\steward-3x-implementation\\docs\\optimization-plan\\evidence\\3.1-closeout-20261102\\blobs\\f488b30aa38b70a0b1a929124e88a56cbbaf45d80ac00af39a61a31fe062ebe9.gz",
+      "bytes": 947,
+      "sha256": "3a1d6a33e3187c2f00b8a6d63c1649080f2ff8794d2cb66c38ecda1ebe85d936"
+    },
+    {
+      "file": "E:/Claude/ruyi-workbench-oss/.git/worktrees/ruyi-workbench-oss1/index",
+      "bytes": 2319692,
+      "sha256": "71ea4b092298223e7fc8187f3990e0b0a8ce3b0051e04c46ba35254b8a69b087"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\README.md",
+      "bytes": 65304,
+      "sha256": "025da31bd72a4f3e4947000c14416c2f69c89104d06a85e1ac70155f523d8135"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\README_EN.md",
+      "bytes": 72352,
+      "sha256": "672fdeca0bcc0e79c1b16d2963c2fe556e4a3706d6ed4ee93848a71c2783df6c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\dev-harness\\lib\\work-data-production-browser-attach.js",
+      "bytes": 51342,
+      "sha256": "f654b28bb4def993021067c0410acfe3b5b944c8153598514633ef963c167c50"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\dev-harness\\run-all.js",
+      "bytes": 51085,
+      "sha256": "7c1169cfaae27d3453b51d176719dd2449752a74edf3dfde3e26e7af70a31a95"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\dev-harness\\unit\\work-data-encrypted-browser.test.js",
+      "bytes": 24541,
+      "sha256": "1980523cf493a260d6daed5fb4768b0340f4345d673a430338bb288aa5e36dff"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\dev-harness\\work-data-production-restore-encrypted.browser.e2e.js",
+      "bytes": 19875,
+      "sha256": "c2f7b3f43fa22968d3627a8fe316167702fba236ff0ee699406acbd6b65350c6"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\docs\\architecture\\route-inventory.json",
+      "bytes": 233308,
+      "sha256": "914b6f9b5aa02c1f9f1fc348adde6fe84c93f26fd836628f938f23fd9c564b5d"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\docs\\architecture\\route-inventory.md",
+      "bytes": 39109,
+      "sha256": "76811b22586959a4baa3162eb46d537cbb0395c9ba92ea377487853338ab238c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-encrypted-browser-r2-classic-20261101\\facts.json",
+      "bytes": 1335,
+      "sha256": "36b6ef57741868e2d59a37b0830bea9c8f6f6879e8552fad9d61959a10073e49"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/gui-r2.index",
+      "bytes": 2291752,
+      "sha256": "507c6114bc7aa58fb3ba52eaa01a355572677f1394dc2b9c106ba0c7e7307d1b"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\README.md",
+      "bytes": 65304,
+      "sha256": "d75e3066421a96c0a49bb59b3da2fc0a8201d41a4df10d7d914ffdb7cb228834"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\README_EN.md",
+      "bytes": 72352,
+      "sha256": "8c8b16e8f94960fe39bfbb61bebc0acfeb58c1b47571f5ea82bd9ebba285eb8e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\dev-harness\\lib\\media-stage-diagnostics.cjs",
+      "bytes": 7067,
+      "sha256": "1ab20537ab2147714817ac99c0cd08f8c2e75b57063132e75fe5a7ed55a145f4"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\dev-harness\\lib\\media-stage-inert-fixture.cjs",
+      "bytes": 8608,
+      "sha256": "bc45d7456340efd87967fbccdeb9b5bef403b1ebd24555473bcb7090fd1e77d6"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\dev-harness\\media-owned-stage.README.txt",
+      "bytes": 12158,
+      "sha256": "f06fb683a32673669b726c8fa7169b2c37953dab95cc817825a153f0e52bad51"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\dev-harness\\media-owned-stage.e2e.js",
+      "bytes": 8315,
+      "sha256": "23825712400bd357c5d40ffc44f86d031fc568b7c7b0a30408711d872dc12b29"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\dev-harness\\media-stage-contract-generate.js",
+      "bytes": 5345,
+      "sha256": "c4c2cb9352d42cab955637dfc912c85b076ec77af98c05530ec8b58ee4c0801a"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\dev-harness\\unit\\media-owned-stage-pure.test.js",
+      "bytes": 77493,
+      "sha256": "3e0a0ec4f3324b15d2cd1eb6728d219ba05a0c6bde850170fc0e01a229094dbd"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\dev-harness\\unit\\media-stage-diagnostics-pure.test.js",
+      "bytes": 14854,
+      "sha256": "43498e64a1d3286625dbe728b7367017a14a6a97c7e2304e8aa24dd26dbeb0ba"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\docs\\architecture\\module-dependency-graph.json",
+      "bytes": 1137676,
+      "sha256": "bff4d7283868e3344e9ec8f7596ab68c49d10478c69f88bdeccb729610aefb7d"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\docs\\architecture\\module-dependency-graph.md",
+      "bytes": 161487,
+      "sha256": "c1f38e0442e34b5444b52a86f4675541561d6f7ecb04b72ea38ee9956fd6cd7b"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\facts.json",
+      "bytes": 1335,
+      "sha256": "d23273a9463afe6d5f95ec569c3e084848651818512db72afeca9678c2aead3f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\app\\build.js",
+      "bytes": 9590,
+      "sha256": "b5ee0fbf1ac6ddf91442becc3a16a13bdb3c19d7cb4df165f5d9b23092c33c74"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\app\\server.js",
+      "bytes": 8499859,
+      "sha256": "2b355550ffeeb1dab8d4aa8b5f4fd47ee4dd6f71196423b53638235e49007f56"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\app\\src\\13ay-media-owned-copy.js",
+      "bytes": 7798,
+      "sha256": "7092cb4fee94582e3342045fbaf2bdb7881a58adb17fe6af4cc698fcb00b5414"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\app\\src\\13az-media-stage-owner.js",
+      "bytes": 35874,
+      "sha256": "35b09a44a2567d433da333c45fd0e57c27f8463ec0d4cc1cb9d1aaef08ead05a"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\app\\src\\manifest.json",
+      "bytes": 38471,
+      "sha256": "09c6dff86742d2a0c9c08cfe4f67cc9cabf2a5bcb4aa6a8598fe191af6b0ade3"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\app\\src\\module-contracts.json",
+      "bytes": 837127,
+      "sha256": "183d7048d61eab6cd3773e0835c0ff98fe127ba607cb8f3adf890569a376b5e0"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\resources\\media-profiles\\m4-owned-stage-3251-v1.json",
+      "bytes": 906758,
+      "sha256": "6a63ff4df7591ce3d5395ede95c68671e7c360cc53574c8af4ef81b57c070010"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\tools\\build-overlay.js",
+      "bytes": 22817,
+      "sha256": "8252bbbceafa3b08aabc546d721af0d5cfe6c05aedf9ae6fda7254c426b8a99e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\tools\\media-profile-restore.cjs",
+      "bytes": 7624,
+      "sha256": "b40d68dc980ae4ba8a857913e885313a24c033ac37ef84f689acadeb5da354be"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\tools\\media-stage-contract.cjs",
+      "bytes": 3129,
+      "sha256": "cd2d5d6059e7cd156d2ef9e311812bbb58353c7004cd9e6f2561aea55b6e1788"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\tools\\media-stage-runtime.cjs",
+      "bytes": 56543,
+      "sha256": "de057f269bcd0c01bdf427bf9ef9a0f65c9f63eb8004a1b74a838802699d77ae"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\tools\\media-stage.cjs",
+      "bytes": 8288,
+      "sha256": "d0a9abf7abb7b252bb76a8974c4b14aeee051aba9a3b5db4ea94814dba3ce45c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m4-owned-stage-r8-safe-directory-20261101\\ruyi-workbench\\tools\\package-offline.ps1",
+      "bytes": 34450,
+      "sha256": "51e067e00b8d758c80989addd184ca1f349ad1de928bdb20e3eee1f003d5e489"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/m4-r8.index",
+      "bytes": 2292968,
+      "sha256": "55899c825cc6e9703a37060c1fc5b49a16d8a4f1a30c63cedbb4e21a3c812540"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-size-r1-20261101\\README.md",
+      "bytes": 65304,
+      "sha256": "737cd67141541fb7a2cd390f74ff2ac21b3d0739440de72a08d3d861f3b9f08b"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-size-r1-20261101\\README_EN.md",
+      "bytes": 72352,
+      "sha256": "fcb3deff4084084ab480585876df07196e894517ec71b9bacefd4b4168a4e967"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-size-r1-20261101\\dev-harness\\migration-skill-backup-representation.e2e.js",
+      "bytes": 16792,
+      "sha256": "f5d732c5c143b9bd0ac102196def38ce7b0bef2b54cc686156961cedec755627"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-size-r1-20261101\\dev-harness\\unit\\migration-native-rename-size.test.js",
+      "bytes": 8676,
+      "sha256": "27ae452db7237da20668bbf59effcc285f3a5fe36bea7d2da47a7914fa813609"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-size-r1-20261101\\facts.json",
+      "bytes": 1335,
+      "sha256": "e0b00d47fa70aa3ec378a063ac1fc1d2a0aeb4446c1ecb89f1b3f137804ae57e"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-size-r1-20261101\\ruyi-workbench\\app\\server.js",
+      "bytes": 8456203,
+      "sha256": "1b2ce027368b3e7a0128e10fd62c48cb115527df75c4a9750dfa7146e6ee62c9"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-size-r1-20261101\\ruyi-workbench\\app\\src\\13u-migration-center.js",
+      "bytes": 382436,
+      "sha256": "5c770ea1f8f43e9d3e039413b5d04c9a576872ad7f96cea1e3a3f6f4501abd9d"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-size-r1-20261101\\ruyi-workbench\\app\\src\\manifest.json",
+      "bytes": 37997,
+      "sha256": "e920b2c23b2c618e79daf8811fb2597431015a3e52466a5ab012ef8987438fdd"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-size-r1.index",
+      "bytes": 2291624,
+      "sha256": "590b9eea3bd617569fdbdc0c4ad61d869f6b3aa9cad7575bdead16e98515d1ac"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\README.md",
+      "bytes": 65304,
+      "sha256": "025da31bd72a4f3e4947000c14416c2f69c89104d06a85e1ac70155f523d8135"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\README_EN.md",
+      "bytes": 72352,
+      "sha256": "672fdeca0bcc0e79c1b16d2963c2fe556e4a3706d6ed4ee93848a71c2783df6c"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\dev-harness\\lib\\migration-native-short-rename-fixture.js",
+      "bytes": 6620,
+      "sha256": "86ccd19697eb885e4a3624c839eaa442cb79c31a31eb5019749054f34af2b21f"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\dev-harness\\lib\\migration-native-short-rename-observer.js",
+      "bytes": 5257,
+      "sha256": "622062b0367b62ad980115771e53ab559c8658aebf2cf625cb395e58089e4f34"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\dev-harness\\lib\\migration-native-short-rename-release-mkdir.js",
+      "bytes": 3548,
+      "sha256": "e2521016621084bff54ca7602e71d52e900f922300b19debb9edd977d96272aa"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\dev-harness\\migration-native-short-rename.e2e.js",
+      "bytes": 11822,
+      "sha256": "7ef3ca0ff0c4873b1a5e8f1e11ee224832576006893b5d6c20c171b78416e438"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\dev-harness\\run-all.js",
+      "bytes": 51209,
+      "sha256": "9ce01f0eb80dfcdba243d26f4e1ebe0c8f863ba54de202829076b6f9f8c536ca"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\dev-harness\\unit\\migration-native-rename-size.test.js",
+      "bytes": 19033,
+      "sha256": "5e353c529e5041e585bd3d23b771280e6e479af72ebabaf7d8e34d27b542fb46"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\facts.json",
+      "bytes": 1335,
+      "sha256": "f488b30aa38b70a0b1a929124e88a56cbbaf45d80ac00af39a61a31fe062ebe9"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\ruyi-workbench\\app\\server.js",
+      "bytes": 8456203,
+      "sha256": "1b2ce027368b3e7a0128e10fd62c48cb115527df75c4a9750dfa7146e6ee62c9"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\ruyi-workbench\\app\\src\\13u-migration-center.js",
+      "bytes": 382436,
+      "sha256": "5c770ea1f8f43e9d3e039413b5d04c9a576872ad7f96cea1e3a3f6f4501abd9d"
+    },
+    {
+      "file": "E:\\Claude\\worktrees\\m3-native-rename-focused-r2-20261101\\ruyi-workbench\\app\\src\\manifest.json",
+      "bytes": 37997,
+      "sha256": "e920b2c23b2c618e79daf8811fb2597431015a3e52466a5ab012ef8987438fdd"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-cas-independent-20261102/private-indexes/native-focused-r2.index",
+      "bytes": 2292104,
+      "sha256": "f74d4f73294d719cf7f10b5c85a78f165372755a0770ebdb6b2ed1b9fee0d680"
+    },
+    {
+      "file": "E:/Claude/ruyi-workbench-oss/.git/worktrees/ruyi-workbench-oss1/index",
+      "bytes": 2319692,
+      "sha256": "71ea4b092298223e7fc8187f3990e0b0a8ce3b0051e04c46ba35254b8a69b087"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/evidence/3.1-closeout-20261102.json",
+      "bytes": 103435,
+      "sha256": "a6fceae47696c1a81b55601f075426c67cb3792807676d01767611b67e325a47"
+    },
+    {
+      "file": "E:/Claude/3.1-closeout-20261102/SELECTION-02.json",
+      "bytes": 20687,
+      "sha256": "4d6f74b7674a3dd7fcb6efd0de055b17820a30a54140a4bfef2ea255a64d107b"
+    },
+    {
+      "file": "E:/Claude/3.1-closeout-20261102/RECOVERY-READBACK.json",
+      "bytes": 14862,
+      "sha256": "d6facb4d68bde2516093d6cf234eb1896eb5001fd7d227270f704220025cf9cc"
+    }
+  ],
+  "actual": false,
+  "nativeBrowserPowerShellCimActorLeaseFixtureExecution": false,
+  "gitObjectWritesMayHaveOccurred": true,
+  "mainOrCandidateSourceEdited": false
+}

@@ -1,0 +1,25 @@
+{
+  "at": "2026-11-01T16:26:58.0802885Z",
+  "nodeVersion": "v24.14.1",
+  "nodeSha256": "58e74bf02fc5bbacc41dcb8bef089961cd5bddd37830b87784e4fc624d145d1f",
+  "guardSha256": "08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91",
+  "command": "C:/Program Files/nodejs/node.exe ruyi-workbench/app/build.js --check",
+  "exitCode": 0,
+  "output": [
+    "build --check: 产物与 src 一致(新鲜),manifest 行区间自洽"
+  ],
+  "trackedDiff": [
+    "docs/optimization-plan/92-3.1-implementation-handoff.md",
+    "docs/optimization-plan/98-3.1-current-handoff-20261030.md",
+    "docs/optimization-plan/README.md"
+  ],
+  "untrackedDocs": [
+    "docs/optimization-plan/99-3.1-closeout-20261102.md"
+  ],
+  "untrackedCount": 148,
+  "untrackedIndex": true,
+  "untrackedBlobCount": 146,
+  "productTrackedDiffCount": 0,
+  "stagedCount": 0,
+  "initialPrecheck": "First observer wrongly omitted authorized untracked 99 document and stopped before build; corrected allowance, no Main change."
+}

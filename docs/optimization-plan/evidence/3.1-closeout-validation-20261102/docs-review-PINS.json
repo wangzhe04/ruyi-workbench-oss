@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "status": "SEALED_FINAL_DOCUMENT_FACT_SCOPE_REVIEW_NO_ACTUAL",
+  "scope": "Four final MD raw bytes and selected safe evidence metadata; separate CAS payload safety review required",
+  "local": [
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-docs-independent-20261102\\DECISION.json",
+      "bytes": 2211,
+      "sha256": "48cdc7271902cc5a74b377f99d058651ee71d1899d44626d35b83a130680c8c8"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-docs-independent-20261102\\FINAL-READBACK.json",
+      "bytes": 4963,
+      "sha256": "1040d68946ab33ed6fb77af7683d7d3a775dac2c86a25a0e1de7db03ddc88b21"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-docs-independent-20261102\\READBACK.json",
+      "bytes": 5066,
+      "sha256": "f9aacf7a238fbe8225b9f22a36d2908c5a24156c7be3522cdce4e962b3c684fa"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-docs-independent-20261102\\REPORT.md",
+      "bytes": 3929,
+      "sha256": "9a1632f3039f2e02caf04ce20d6a034434ec7dcf7afca31defca852db8477192"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-docs-independent-20261102\\final-readback.cjs",
+      "bytes": 2681,
+      "sha256": "ed7f419af383694cc8876a02ffc8190a0a14b694b13a9386c395a0c2dcb50cb3"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-docs-independent-20261102\\readback.cjs",
+      "bytes": 6390,
+      "sha256": "4447ca4a63a06d42fe87d660d600d6d2a07a6c5a04f9eb2d271e58eea99d93d1"
+    },
+    {
+      "file": "E:\\Claude\\review\\3.1-closeout-docs-independent-20261102\\seal.cjs",
+      "bytes": 1464,
+      "sha256": "8e86d8b12dfd4cf046aa5d3c8b8134c8379fff5e5e7c88c30db523f0121ccfd6"
+    }
+  ],
+  "selected": [
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/98-3.1-current-handoff-20261030.md",
+      "bytes": 9547,
+      "sha256": "15caa5798c545a092c62d30a15395ad73fa9c9160c60612187a14ca224b1e24b"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/99-3.1-closeout-20261102.md",
+      "bytes": 14000,
+      "sha256": "bee145b95e89f6c5533f60980234ac85c04293fd68bce33bd3095cc9f304d117"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/92-3.1-implementation-handoff.md",
+      "bytes": 311455,
+      "sha256": "ad55d2913fb3a599f2c15f368b7cd4bc0e7488e7ced0a114d7761be41d3cfe53"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/README.md",
+      "bytes": 9142,
+      "sha256": "eb32caf4a198f92fd90a2470c36e81a7ae78f827397d36fffe03be067189e52a"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/docs/optimization-plan/evidence/3.1-closeout-20261102.json",
+      "bytes": 103435,
+      "sha256": "a6fceae47696c1a81b55601f075426c67cb3792807676d01767611b67e325a47"
+    },
+    {
+      "file": "E:/Claude/3.1-closeout-20261102/RECOVERY-READBACK.json",
+      "bytes": 14862,
+      "sha256": "d6facb4d68bde2516093d6cf234eb1896eb5001fd7d227270f704220025cf9cc"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-scope02-actual-independent-20261101/REPORT.md",
+      "bytes": 10025,
+      "sha256": "60316dcb8c408cda8b32dbafbdb4711a4dbed8aadf559a3c124e6a09f6210cf2"
+    },
+    {
+      "file": "E:/Claude/m3-encrypted-browser-r3-actual-preparation-20261101/ROOT-ACTUAL-02-ACCEPTANCE.json",
+      "bytes": 2254,
+      "sha256": "d2cdfdb12b0ed39a057b4c81d7051747e4f6f811a3ea87103b4ed11e66da6165"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-implementation-independent-20261101/REPORT.md",
+      "bytes": 11461,
+      "sha256": "6b7893034fbb736449736380a20eb02a274ee391e8127b331cd541532606a799"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-caller-independent-20261101/REPORT.md",
+      "bytes": 7296,
+      "sha256": "b787fda129ef21ae46151b394fe786a74b90e41442e5a3165fc1956a5ed7a803"
+    },
+    {
+      "file": "E:/Claude/review/m4-r8-controller-600-independent-20261101/REPORT.md",
+      "bytes": 4685,
+      "sha256": "3d75dca2a09c90ece7bfd9cf969976fa40af2277c5c89009c6e2d67884a93d0e"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-actual01-firstred-independent-20261101/REPORT.md",
+      "bytes": 6406,
+      "sha256": "d4d216b1758d08172cc6d58118a9011c26980cd30e4f1faedba8b4a7234db635"
+    },
+    {
+      "file": "E:/Claude/review/m3-native-rename-size-budget-contract-independent-20261101/REPORT.md",
+      "bytes": 8256,
+      "sha256": "462f56a0cd6861f583aeb67c6606baa61d455b1e013d93d1e2b5b6909c03f15e"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-size-actual-preparation-20261101/ROOT-FINITE-RED-ACCEPTANCE-01.json",
+      "bytes": 1533,
+      "sha256": "842298216dd2f688378c56e974be109cf51b2d8a17c22f5df889345ec4b6822c"
+    },
+    {
+      "file": "E:/Claude/review/m4-r7-first-red-independent-20261101/REPORT.md",
+      "bytes": 6941,
+      "sha256": "481d076a7d7be813730066da7c4a06e00b3e084b8d955ac05b7f94c0ce9a82d3"
+    },
+    {
+      "file": "E:/Claude/m3-native-rename-focused-r2-20261101/AUTHOR-REPORT.md",
+      "bytes": 5348,
+      "sha256": "dfe6d1bdffede8b25492988341c9cc9280774501eb279a6a692e1aa6066e4e23"
+    },
+    {
+      "file": "E:/Claude/review/m3-gui-r3-controller-03-independent-20261101/REPORT.md",
+      "bytes": 3466,
+      "sha256": "d5e91c533af21bb62348b81c9fb57e0cd174db6212241745ff96a100501db7b8"
+    },
+    {
+      "file": "E:/Claude/worktrees/steward-3x-implementation/dev-harness/lib/media-artifact-test-guard.js",
+      "bytes": 1909,
+      "sha256": "08364ef8a42836d8625b241425670502ea6ec0a49a6b3d9fe8c66f9f23b4bf91"
+    }
+  ]
+}
