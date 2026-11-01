@@ -3,6 +3,31 @@ const { test } = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), fsp = require('node:fs/promises');
 const { auditFixture } = require('../lib/audit-log-fixture');
 
+test('query clock is independent of log time and retains Date API and seven-day boundary', async t => {
+  const f = auditFixture(t); f.state.enabled = false;
+  const D = f.context.Date;
+  assert.equal(D.now(), Date.parse('2026-10-25T12:00:00.000Z'));
+  assert.equal(D(), new Date(f.state.queryNowMs).toString());
+  assert.equal(new D().toISOString(), '2026-10-25T12:00:00.000Z');
+  assert.equal(new D('2020-01-02T03:04:05.000Z').toISOString(), '2020-01-02T03:04:05.000Z');
+  assert.equal(D.parse('2020-01-02T03:04:05.000Z'), Date.parse('2020-01-02T03:04:05.000Z'));
+  assert.equal(D.UTC(2020, 0, 2), Date.UTC(2020, 0, 2));
+  f.api.logEvent({ kind: 'intervention', source: 'test' }); await f.api.flushWorkbenchLogs();
+  f.state.queryNowMs = Date.parse('2026-10-31T23:59:59.999Z');
+  assert.equal((await f.api.buildOpsMetrics(7)).interventions.total, 1);
+  f.state.queryNowMs = Date.parse('2026-11-01T00:00:00.000Z');
+  assert.equal((await f.api.buildOpsMetrics(7)).interventions.total, 0);
+  assert.equal(f.state.now, '2026-10-24T23:59:59.000Z');
+});
+
+test('retention query clock remains independent of old sealed write clock', async t => {
+  const f = auditFixture(t); f.state.now = '2020-01-01T00:00:00.000Z';
+  f.api.logEvent({ kind: 'old' }); await f.api.flushWorkbenchLogs();
+  const before = await fsp.readFile(f.file()); f.state.enabled = false;
+  await assert.rejects(f.api.sweepLogsStore({ logsKeepDays: 7 }, { freedBytes: 0, actions: [] }), { code: 'work_data_journal.downgrade_refused' });
+  assert.deepEqual(await fsp.readFile(f.file()), before);
+});
+
 test('OFF original JSON bytes, single oversized row and captured midnight file day survive queued writes', async t => {
   const f = auditFixture(t); f.state.enabled = false;
   let unlock; f.state.onConfig = () => new Promise(resolve => { unlock = resolve; });

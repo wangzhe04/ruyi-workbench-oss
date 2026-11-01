@@ -732,8 +732,10 @@ async function runClaudeTurn({
   assertSessionExecutionOwner(session.id, executionOwner);
   if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
   if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
   const reg = { buildSteerAttachmentPrompt: buildAttachmentPrompt, child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, permissionMode: String(config.permissionMode || ''), liveSegments: turnSegments }; // 审计 C:permissionMode = 本回合 spawn CLI 时用的解析档(请求级 > 会话级 > 全局),13d 的 CLI 权限桥按它判而不是按全局档;47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())

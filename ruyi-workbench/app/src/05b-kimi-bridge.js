@@ -3,6 +3,8 @@
 // with exact compaction/failure state. A separate ACP process is kept for the whole Ruyi turn so reverse RPC
 // (permissions/questions) and queued follow-up steering share one live native Kimi session.
 const kimiBridgeState = { child: null, port: 0, token: '', starting: null, signalHooked: false, modelWindows: new Map(), modelsAt: 0, modelsTriedAt: 0 };
+const kimiHttpControllers = new Set(), kimiChildCloses = new WeakMap();
+let kimiServerClosing = false;
 const { fileURLToPath } = require('url');
 
 function kimiCodeHome() {
@@ -23,10 +25,13 @@ async function freeLoopbackPort() {
 }
 
 async function kimiHttp(port, token, method, pathname, body) {
+  if(kimiServerClosing)throw Error('desktop_lifetime.closing');
+  const controller=new AbortController();kimiHttpControllers.add(controller);
+  try {
   const headers = { authorization: `Bearer ${token}` };
   if (body !== undefined) headers['content-type'] = 'application/json';
   const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
-    method, headers, body: body === undefined ? undefined : JSON.stringify(body),
+    method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal:controller.signal,
   });
   const raw = await response.text();
   const payload = raw ? safeJsonParse(raw) : null;
@@ -36,9 +41,12 @@ async function kimiHttp(port, token, method, pathname, body) {
   }
   if (payload && Number(payload.code) !== 0) throw new Error(payload.msg || payload.message || `Kimi Server code ${payload.code}`);
   return payload && Object.prototype.hasOwnProperty.call(payload, 'data') ? payload.data : payload;
+  }finally{kimiHttpControllers.delete(controller);}
 }
 
 async function ensureKimiServer(config) {
+  if(kimiServerClosing)throw Error('desktop_lifetime.closing');
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
   if (kimiBridgeState.port && kimiBridgeState.token) {
     try {
       await kimiHttp(kimiBridgeState.port, kimiBridgeState.token, 'GET', '/api/v1/sessions');
@@ -54,10 +62,17 @@ async function ensureKimiServer(config) {
     if (!driver.path || !(await agentCliLauncherUsable(driver.path))) throw new Error('未检测到 Kimi Code CLI');   // 异步 + 记忆,超时不算缺失(见 01 agentCliLauncherUsable)
     const port = await freeLoopbackPort();
     const launch = prepareAgentCliSpawn('kimi', driver.path, ['web', '--port', String(port), '--no-open', '--log-level', 'warn']);
+    if(kimiServerClosing)throw Error('desktop_lifetime.closing');
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     const child = cp.spawn(launch.command, launch.args, {
       cwd: normalizeCwd(config.defaultWorkspace, os.homedir()), env: process.env,
       windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'], ...launch.opts,
     });
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
+    kimiChildCloses.set(child,new Promise((resolve,reject)=>{
+      child.once('close',resolve);child.once('error',error=>{if(!child.pid)resolve();else reject(error);});
+    }));
+    void kimiChildCloses.get(child).catch(()=>{});
     child.on('error', () => {});
     kimiBridgeState.child = child;
     kimiBridgeState.port = port;
@@ -71,6 +86,7 @@ async function ensureKimiServer(config) {
     }
     let lastError = null;
     for (let i = 0; i < 80; i++) {
+      if(kimiServerClosing)break;
       if (!token) { try { token = String(await fsp.readFile(tokenFile, 'utf8')).trim(); } catch { /* retry */ } }
       if (token) {
         try {
@@ -89,20 +105,23 @@ async function ensureKimiServer(config) {
   try { return await kimiBridgeState.starting; } finally { kimiBridgeState.starting = null; }
 }
 
-async function stopKimiServer() {
+async function stopKimiServer({ shutdown = false } = {}) {
+  if(shutdown){
+    kimiServerClosing=true;
+    for(const controller of kimiHttpControllers)controller.abort();
+    if(kimiBridgeState.starting)await kimiBridgeState.starting.catch(()=>{});
+  }
   const child = kimiBridgeState.child;
-  kimiBridgeState.child = null; kimiBridgeState.port = 0; kimiBridgeState.token = '';
-  if (!child || child.exitCode != null) return;
-  await new Promise(resolve => {
-    let settled = false;
-    const done = () => { if (!settled) { settled = true; clearTimeout(timer); resolve(); } };
-    const timer = setTimeout(() => {
-      try { if (child.pid) killChildTree(child.pid); } catch { /* ignore */ }
-      done();
-    }, 2000);
-    child.once('close', done);
-    try { child.kill(); } catch { done(); }
-  });
+  if (!child) return;
+  const close=kimiChildCloses.get(child);if(!close)throw Error('desktop_lifetime.kimi_close_unobserved');
+  let deadline;
+  try{
+    // Keep the launcher alive until the existing creation-time-aware tree owner
+    // captures it. Killing a .cmd wrapper first can orphan the actual server.
+    if(child.exitCode===null&&child.signalCode===null&&child.pid)killChildTree(child.pid);
+    await Promise.race([close,new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error('desktop_lifetime.kimi_close_timeout')),10000);})]);
+    if(kimiBridgeState.child===child){kimiBridgeState.child=null;kimiBridgeState.port=0;kimiBridgeState.token='';}
+  }finally{clearTimeout(deadline);}
 }
 
 async function kimiApi(config, method, pathname, body) {
@@ -1676,7 +1695,9 @@ async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
   const spawnArgs = nativeBashWrapper ? nativeBashWrapper.argv : args;
   let child;
   try {
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     child = cp.spawn(spawnCommand, spawnArgs, { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
   } catch (error) { throw kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`); }
   let resolveExit;
   const waitPromise = new Promise(resolve => { resolveExit = resolve; });
@@ -2528,8 +2549,10 @@ async function runKimiAcpTurnPrepared(context) {
     assertSessionExecutionOwner(session.id, executionOwner);
     if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
     if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
     reg = {
       child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(),
       lastEventAt: Date.now(), interactive: true, onEvent: null, session, kind: 'kimi-acp', traceId: activeTraceId,

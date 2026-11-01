@@ -13,7 +13,7 @@ test('compiled desktop isolates explicit data roots and retains default desktop 
   const source = path.resolve(__dirname, '../../ruyi-workbench/desktop/RuyiDesktop.cs');
   const csc = path.join(process.env.WINDIR, 'Microsoft.NET/Framework64/v4.0.30319/csc.exe');
   cp.execFileSync(csc, ['/nologo', '/target:exe', '/platform:x64', '/codepage:65001', '/main:RuyiDesktop.IsolationProbe', '/out:' + exe,
-    '/r:System.dll', '/r:System.Core.dll', '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Web.Extensions.dll', source, probe], { windowsHide: true, timeout: 30000, stdio: 'pipe' });
+    '/r:System.dll', '/r:System.Core.dll', '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/r:System.Web.Extensions.dll', source, path.join(path.dirname(source), 'DesktopLifetimeHost.cs'), probe], { windowsHide: true, timeout: 30000, stdio: 'pipe' });
   const run = (primary, legacy) => {
     const env = { ...process.env }; delete env.RUYI_HOME; delete env.WIN_CLAUDE_WORKBENCH_HOME;
     if (primary !== undefined) env.RUYI_HOME = primary;

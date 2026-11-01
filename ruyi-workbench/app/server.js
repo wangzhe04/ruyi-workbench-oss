@@ -38,6 +38,16 @@ const WorkDataMaintenanceHooks = {};
 const WorkDataSetupHooks = {};
 const WorkDataMaintenanceWorkerHooks = {};
 const WorkDataMaintenanceRuntimeHooks = {};
+// Desktop capabilities are consumed before any provider/CLI/helper can inherit env.
+const desktopLifetimeBootstrap = (() => {
+  let value = null;
+  for (const key of Object.keys(process.env)) if (key.toUpperCase() === 'RUYI_DESKTOP_CONTROL_V1') {
+    if (value !== null) throw Error('desktop_lifetime.bootstrap_invalid');
+    value = process.env[key]; delete process.env[key];
+  }
+  return value;
+})();
+const DesktopLifetimeHooks = {};
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // 127-114b(26 号文 §3/45 号文 §2 ②): ASR 转写入站专用上限 25 MB —— 早于上面的 128 MB 总闸判定
@@ -23303,6 +23313,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
     }
   }
   function start() {
+    if(typeof host.admitHelper==='function')host.admitHelper();
     if (child) return;
     if (process.platform !== 'win32') throw error('unsupported');
     const root = process.env.SystemRoot;
@@ -23313,6 +23324,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
     child = owned;
+    if(typeof host.trackChild==='function')host.trackChild(owned);
     owned.stdout.setEncoding('utf8');
     owned.stdout.on('data', chunk => {
       if (child !== owned) return;
@@ -24285,6 +24297,20 @@ function killPosixChildTree(pid) {
 function killChildTree(pid) {
   if (!pid) return;
   if (process.platform !== 'win32') { killPosixChildTree(pid); return; }
+  // Desktop cleanup belongs to the existing close owner, including after fresh
+  // helper admission has closed. Track the actual PowerShell, never cmd/start.
+  // Keeping it referenced lets that owner await its original close event.
+  if (typeof desktopLifetimeBootstrap !== 'undefined' && desktopLifetimeBootstrap !== null) {
+    if (typeof WorkDataMaintenanceHooks === 'undefined' || typeof WorkDataMaintenanceHooks.trackChild !== 'function'
+      || typeof DesktopLifetimeHooks === 'undefined' || typeof DesktopLifetimeHooks.environment !== 'function')
+      throw Error('desktop_lifetime.helper_unavailable');
+    const child = cp.spawn('powershell.exe', ownTreeKillCommand(pid), {
+      windowsHide: true, stdio: 'ignore', env: DesktopLifetimeHooks.environment(process.env, null),
+    });
+    WorkDataMaintenanceHooks.trackChild(child);
+    child.on('error', () => { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } });
+    return;
+  }
   try {
     const args = ownTreeKillCommand(pid);
     const inner = `start "" /b powershell.exe ${args.join(' ')}`;
@@ -25098,6 +25124,7 @@ class McpStdioClient {
   // Spawn + handshake (initialize -> notifications/initialized -> tools/list). Throws on failure and
   // leaves the client marked dead (caller caches the failure so it won't respawn in a tight loop).
   async start() {
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     if (this.started) return;
     this.started = true;
     const s = batchSafeSpawn(this.command, this.args);   // transparently wrap .cmd/.bat
@@ -25115,6 +25142,7 @@ class McpStdioClient {
       throw new Error(`spawn failed: ${e && e.message ? e.message : e}`);
     }
     this.child = child;
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
     this.pid = child.pid;
     // Don't let the live MCP child keep the event loop from exiting on a clean shutdown; we reap it
     // explicitly via killAllMcpClients()/killChildTree on exit.
@@ -27787,6 +27815,7 @@ function toolboxEntry(component) {
 
 // 起一个服务(幂等、并发互斥:同一个组件同时只有一趟在起 —— 55 波「getMcpClient 必须并发互斥防孤儿」同一条教训)。
 function startToolboxService(component) {
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
   const entry = toolboxEntry(component);
   if (entry.starting) return entry.starting;
   entry.starting = (async () => {
@@ -27818,10 +27847,12 @@ function startToolboxService(component) {
     if (!port) { Object.assign(entry, { state: 'failed', error: 'no-free-port' }); logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, reason: 'no-free-port' }); return entry; }
     let child = null;
     try {
+      if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
       child = cp.spawn(component.run.command, component.run.args, {
         cwd: component.run.cwd, shell: false, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'],
         env: { ...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...component.run.env, [svc.portEnv]: String(port), RUYI_TOOLBOX_PARENT_PID: String(process.pid) },
       });
+      if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
     } catch (err) {
       Object.assign(entry, { state: 'failed', error: 'spawn: ' + String(err && err.message || err).slice(0, 200) });
       logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, reason: 'spawn' });
@@ -28079,6 +28110,20 @@ function toolboxStatusView(config) {
 // 消费点经 04 的 ToolboxHooks 调进来(见那里的头注:本模块零入边)。
 ToolboxHooks.reconcile = reconcileToolbox;
 ToolboxHooks.stopAllSync = stopAllToolboxServicesSync;
+ToolboxHooks.stopAll = async () => {
+  const requested=new Set([...toolboxServices.values()].filter(row=>row.owned&&row.child).map(row=>row.child));
+  stopAllToolboxServicesSync();
+  await Promise.all([...toolboxServices.values()].map(row=>row.starting).filter(Boolean).map(pending=>pending.catch(error=>{
+    if(error?.code!=='work_data.maintenance_busy')throw error;
+  })));
+  // A previously admitted health probe can finish after stop. Only these existing
+  // entries are revisited; start admission remains closed and adopted services stay alive.
+  for(const [id,row] of toolboxServices){
+    if(row.owned&&row.child&&!requested.has(row.child))stopToolboxService(id);
+    if(row.owned&&row.child&&typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.awaitChild)await WorkDataMaintenanceHooks.awaitChild(row.child);
+    row.stopping=false;
+  }
+};
 ToolboxHooks.ensureForProvider = ensureToolboxServiceForProvider;
 ToolboxHooks.statusView = toolboxStatusView;
 ToolboxHooks.asrSelectionChanged = onAsrSelectionChanged;
@@ -32131,8 +32176,10 @@ async function runClaudeTurn({
   assertSessionExecutionOwner(session.id, executionOwner);
   if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
   if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
   const reg = { buildSteerAttachmentPrompt: buildAttachmentPrompt, child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, permissionMode: String(config.permissionMode || ''), liveSegments: turnSegments }; // 审计 C:permissionMode = 本回合 spawn CLI 时用的解析档(请求级 > 会话级 > 全局),13d 的 CLI 权限桥按它判而不是按全局档;47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
@@ -33862,6 +33909,8 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
 // with exact compaction/failure state. A separate ACP process is kept for the whole Ruyi turn so reverse RPC
 // (permissions/questions) and queued follow-up steering share one live native Kimi session.
 const kimiBridgeState = { child: null, port: 0, token: '', starting: null, signalHooked: false, modelWindows: new Map(), modelsAt: 0, modelsTriedAt: 0 };
+const kimiHttpControllers = new Set(), kimiChildCloses = new WeakMap();
+let kimiServerClosing = false;
 const { fileURLToPath } = require('url');
 
 function kimiCodeHome() {
@@ -33882,10 +33931,13 @@ async function freeLoopbackPort() {
 }
 
 async function kimiHttp(port, token, method, pathname, body) {
+  if(kimiServerClosing)throw Error('desktop_lifetime.closing');
+  const controller=new AbortController();kimiHttpControllers.add(controller);
+  try {
   const headers = { authorization: `Bearer ${token}` };
   if (body !== undefined) headers['content-type'] = 'application/json';
   const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
-    method, headers, body: body === undefined ? undefined : JSON.stringify(body),
+    method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal:controller.signal,
   });
   const raw = await response.text();
   const payload = raw ? safeJsonParse(raw) : null;
@@ -33895,9 +33947,12 @@ async function kimiHttp(port, token, method, pathname, body) {
   }
   if (payload && Number(payload.code) !== 0) throw new Error(payload.msg || payload.message || `Kimi Server code ${payload.code}`);
   return payload && Object.prototype.hasOwnProperty.call(payload, 'data') ? payload.data : payload;
+  }finally{kimiHttpControllers.delete(controller);}
 }
 
 async function ensureKimiServer(config) {
+  if(kimiServerClosing)throw Error('desktop_lifetime.closing');
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
   if (kimiBridgeState.port && kimiBridgeState.token) {
     try {
       await kimiHttp(kimiBridgeState.port, kimiBridgeState.token, 'GET', '/api/v1/sessions');
@@ -33913,10 +33968,17 @@ async function ensureKimiServer(config) {
     if (!driver.path || !(await agentCliLauncherUsable(driver.path))) throw new Error('未检测到 Kimi Code CLI');   // 异步 + 记忆,超时不算缺失(见 01 agentCliLauncherUsable)
     const port = await freeLoopbackPort();
     const launch = prepareAgentCliSpawn('kimi', driver.path, ['web', '--port', String(port), '--no-open', '--log-level', 'warn']);
+    if(kimiServerClosing)throw Error('desktop_lifetime.closing');
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     const child = cp.spawn(launch.command, launch.args, {
       cwd: normalizeCwd(config.defaultWorkspace, os.homedir()), env: process.env,
       windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'], ...launch.opts,
     });
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
+    kimiChildCloses.set(child,new Promise((resolve,reject)=>{
+      child.once('close',resolve);child.once('error',error=>{if(!child.pid)resolve();else reject(error);});
+    }));
+    void kimiChildCloses.get(child).catch(()=>{});
     child.on('error', () => {});
     kimiBridgeState.child = child;
     kimiBridgeState.port = port;
@@ -33930,6 +33992,7 @@ async function ensureKimiServer(config) {
     }
     let lastError = null;
     for (let i = 0; i < 80; i++) {
+      if(kimiServerClosing)break;
       if (!token) { try { token = String(await fsp.readFile(tokenFile, 'utf8')).trim(); } catch { /* retry */ } }
       if (token) {
         try {
@@ -33948,20 +34011,23 @@ async function ensureKimiServer(config) {
   try { return await kimiBridgeState.starting; } finally { kimiBridgeState.starting = null; }
 }
 
-async function stopKimiServer() {
+async function stopKimiServer({ shutdown = false } = {}) {
+  if(shutdown){
+    kimiServerClosing=true;
+    for(const controller of kimiHttpControllers)controller.abort();
+    if(kimiBridgeState.starting)await kimiBridgeState.starting.catch(()=>{});
+  }
   const child = kimiBridgeState.child;
-  kimiBridgeState.child = null; kimiBridgeState.port = 0; kimiBridgeState.token = '';
-  if (!child || child.exitCode != null) return;
-  await new Promise(resolve => {
-    let settled = false;
-    const done = () => { if (!settled) { settled = true; clearTimeout(timer); resolve(); } };
-    const timer = setTimeout(() => {
-      try { if (child.pid) killChildTree(child.pid); } catch { /* ignore */ }
-      done();
-    }, 2000);
-    child.once('close', done);
-    try { child.kill(); } catch { done(); }
-  });
+  if (!child) return;
+  const close=kimiChildCloses.get(child);if(!close)throw Error('desktop_lifetime.kimi_close_unobserved');
+  let deadline;
+  try{
+    // Keep the launcher alive until the existing creation-time-aware tree owner
+    // captures it. Killing a .cmd wrapper first can orphan the actual server.
+    if(child.exitCode===null&&child.signalCode===null&&child.pid)killChildTree(child.pid);
+    await Promise.race([close,new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error('desktop_lifetime.kimi_close_timeout')),10000);})]);
+    if(kimiBridgeState.child===child){kimiBridgeState.child=null;kimiBridgeState.port=0;kimiBridgeState.token='';}
+  }finally{clearTimeout(deadline);}
 }
 
 async function kimiApi(config, method, pathname, body) {
@@ -35535,7 +35601,9 @@ async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
   const spawnArgs = nativeBashWrapper ? nativeBashWrapper.argv : args;
   let child;
   try {
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     child = cp.spawn(spawnCommand, spawnArgs, { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
   } catch (error) { throw kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`); }
   let resolveExit;
   const waitPromise = new Promise(resolve => { resolveExit = resolve; });
@@ -36387,8 +36455,10 @@ async function runKimiAcpTurnPrepared(context) {
     assertSessionExecutionOwner(session.id, executionOwner);
     if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
     if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     if (spawnFence) SessionExecutionHooks.assertDispatch(executionOwner, spawnFence);
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
     reg = {
       child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(),
       lastEventAt: Date.now(), interactive: true, onEvent: null, session, kind: 'kimi-acp', traceId: activeTraceId,
@@ -63623,9 +63693,11 @@ async function shellStart(args, config, ctx = {}) {
   }
   let child;
   try {
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     child = cp.spawn('powershell.exe', launchArgs, {
       cwd, env: { ...process.env }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
   } catch (e) {
     return { ok: false, error: (e && e.message) ? e.message : 'spawn failed' };
   }
@@ -75701,6 +75773,7 @@ async function handleApi(req, res, pathname) {
   }
 
   if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.handle && await WorkDataSetupHooks.handle(req, res, pathname)) return;
+  if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.closing?.()&&typeof WorkDataSetupHooks.bypasses==='function'&&!WorkDataSetupHooks.bypasses(req,pathname))DesktopLifetimeHooks.admit();
   if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.runHttp && !WorkDataSetupHooks.bypasses(req, pathname) && !WorkDataMaintenanceHooks.entered('http')) return WorkDataSetupHooks.runHttp(req, pathname, () => handleApi(req, res, pathname));
 
   if (pathname === '/api/mcp/internal/request' && await InternalMcpHooks.handle(req, res, pathname)) return;
@@ -77193,6 +77266,7 @@ async function listenForWorkbenchServe(server, port, host, config, opts) {
 }
 
 async function startServer(opts) {
+  if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.connect)await DesktopLifetimeHooks.connect();
   // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
   // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
   const bindHost = resolveBindHost(opts);
@@ -77321,6 +77395,20 @@ function stopAllActiveTurnsSync(reason = 'shutdown') {
     try { if (stopSession(id, reason)) stopped += 1; } catch { /* 收尾绝不抛 */ }
   }
   return stopped;
+}
+
+// Keep the original asynchronous warmup order, but its real promises now belong
+// to one existing maintenance admission, including every derived background task.
+async function warmWorkbenchServices(config){
+  const settle=pending=>Promise.resolve(pending).catch(()=>{});
+  await Promise.all([
+    settle(startScheduler(config)),
+    typeof ToolboxHooks.reconcile==='function'?settle(ToolboxHooks.reconcile()):Promise.resolve(),
+    settle(ensureDesktopMcpWarm(config).then(()=>Promise.all([
+      settle(syncMcpServersToClaude(config)),settle(syncAgentCliMcpManifests(config)),
+      settle(getCapabilities(config)),settle(generateMcpConfig(config.mcpCommandMode).then(file=>{console.log(`MCP config: ${file}`);})),
+    ]))),
+  ]);
 }
 
 async function startServerInner(opts, bindHost = resolveBindHost(opts), maintenanceOwnership) {
@@ -77454,6 +77542,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
     { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() },
     { mode: 0o600 }).catch(() => {});   // 安全走查 S11:里面是接口令牌,只给属主读写(POSIX;Windows 靠用户目录 ACL)
   if (maintenanceOwnership && typeof WorkDataMaintenanceRuntimeHooks.captureServe === 'function') await WorkDataMaintenanceRuntimeHooks.captureServe({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership:maintenanceOwnership,server,listener:{host,port}});
+  if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.capture)DesktopLifetimeHooks.capture({server,listener:{host,port}});
   if (typeof PrivacyCore.configHooks.consumerListen === 'function') await PrivacyCore.configHooks.consumerListen();
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);
@@ -77483,31 +77572,11 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   // /api/status 里 generateMcpConfig/detectDesktopMcp 也仍是同步路径 —— 首个请求最多付一次探针,这是接受的。
   const BOOT_PROBE_WARMUP_MS = 500;
   setTimeout(() => setImmediate(() => {
-    // 第123波 M1(37 号文 §3.2「启动恢复」):调度器起在这一段的【最前面】,不在 listen 之后的
-    // 关键路径上。理由是实测出来的:第一版把 `await startScheduler(config)` 直接写在 server_start
-    // 那一行之后,walkthrough-round2 的 B1(「全新 HOME 启动落管家视角」)从 0/6 红变成 3/10 红 ——
-    // 那一件量的正是「首屏 bind 期 config 到没到」,startScheduler 里那一次 readConfig 与两次落空的
-    // 文件读把最初那一两个请求往后挤了。本段的存在理由就是「把起跑那一刻让出去」(见上面的头注),
-    // 调度器与 MCP 同步、能力矩阵预热是同一类活:都该等首屏拿到东西之后再做。
-    // 排在本段最前而不是最后:它比下面三件都轻,而且恢复那一步可能要立刻补跑一个回合,
-    // 不该排在 detectDesktopMcp 那 2 s 同步探针后面。schedulerEnabledV1 显式 false 时它立即返回,
-    // 不建目录、不读盘、不起 interval、零写入;开着但零任务时同样不起 interval(29 号文 §4「开关」)。
-    // fire-and-forget:调度器是旁路,失败绝不阻断已经开起来的服务。
-    void startScheduler(config).catch(() => {});
-    // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
-    // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐)。
-    // 39 号文:下面四件的【同步前缀】都要走 resolveExternalMcpServers -> detectDesktopMcp -> pickPython。
-    // 先用 ensureDesktopMcpWarm() 异步探一趟(execFile,不占事件循环),两张缓存热了再放它们跑,
-    // 于是这一整段里一发 spawnSync 都不会有。预热失败也照跑(它自己 catch 成 null),最坏退回旧行为。
-    // ruyi-toolbox:登记过的服务类组件在这里拉起并接成能力端点(04f)。void —— 绝不挡启动,失败只记日志与状态。
-    if (typeof ToolboxHooks.reconcile === 'function') void ToolboxHooks.reconcile().catch(() => {});
-    void ensureDesktopMcpWarm(config).then(() => {
-      void syncMcpServersToClaude(config).catch(() => {});
-      void syncAgentCliMcpManifests(config).catch(() => {});   // 选中的 CLI 若从用户配置读 MCP(Kimi),推一次(01)
-      // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
-      void getCapabilities(config).catch(() => {});
-      void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});
-    });
+    const work=()=>warmWorkbenchServices(config);
+    if(typeof WorkDataMaintenanceHooks.fresh==='function'){
+      if(!WorkDataMaintenanceHooks.accepting()){WorkDataMaintenanceHooks.deferBootWarmup(work);return;}
+      void WorkDataMaintenanceHooks.fresh('boot-warmup',work).catch(()=>{});
+    }else void work().catch(()=>{});
   }), BOOT_PROBE_WARMUP_MS).unref();
   // v0.7d: reap any bridged desktop/external MCP children on shutdown so they aren't orphaned.
   let cleanedUp = false;
@@ -77681,7 +77750,12 @@ function kimiModelList(config, discovered) {
 
 // Query the installed Kimi Code CLI itself, which is the source of truth for OAuth-managed and custom
 // providers. This is local/read-only and avoids baking account-specific aliases into Ruyi.
+const kimiModelProbeChildren = new Set();
+function stopKimiModelProbes() {
+  for(const child of kimiModelProbeChildren)if(child.exitCode===null&&child.signalCode===null)killChildTree(child.pid);
+}
 function discoverKimiModels(config) {
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
   const fallback = kimiModelList(config);
   const selected = selectedAgentCli({ ...(config || {}), agentCliType: 'kimi' });
   if (!selected.path) return Promise.resolve({ ok: false, models: fallback, discoveredCount: 0, error: '未检测到 Kimi Code CLI' });
@@ -77698,6 +77772,8 @@ function discoverKimiModels(config) {
     }, 10000);
     try {
       child = cp.spawn(launch.command, launch.args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], ...launch.opts });
+      if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
+      kimiModelProbeChildren.add(child);child.once('close',()=>kimiModelProbeChildren.delete(child));
     } catch (error) {
       finish({ ok: false, models: fallback, discoveredCount: 0, error: `无法启动 Kimi Code CLI: ${redact(error && error.message || String(error))}` });
       return;
@@ -105080,7 +105156,7 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
     const context = new AsyncLocalStorage(), live = new Set(), writes = new Set();
     let phase = 'open', epoch = 0, lease = null;
     const changed = () => { epoch++; if (phase === 'idle') phase = 'waiting'; };
-    const accepting = () => phase === 'open';
+    const accepting = () => phase === 'open' && host.extraAdmission?.() !== false;
     const active = () => { const token = context.getStore()?.token; return !!token && live.has(token); };
     const entered = kind => active() && context.getStore().kind === kind;
     async function run(kind, work) {
@@ -105175,7 +105251,9 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
 
 const workDataDeferredAgentWakes = new Map();
 let workDataDeferredStewardWake = false;
+let workDataDeferredBootWarmup = null;
 const workDataMaintenance = WorkDataMaintenance.create({
+  extraAdmission:()=>workDataInfrastructurePhase==='open'&&(typeof DesktopLifetimeHooks==='undefined'||!DesktopLifetimeHooks.canAdmit||DesktopLifetimeHooks.canAdmit()),
   owns(owner) {
     return !!owner && ([...turnSettlers.values()].includes(owner) || [...activeAgentRuns.values()].includes(owner)
       || [...shellSessions.values()].includes(owner) && owner.running === true
@@ -105205,6 +105283,7 @@ const workDataMaintenance = WorkDataMaintenance.create({
       index: fulltext.active + inflightSessionIndex.size + sessionIndexRebuildsActive + Number(!!pretenderIndexRuntime.building) + pretenderIndexRuntime.writers,
       shells: [...shellSessions.values()].filter(row => row.running).length,
       services: [...toolboxServices.values()].filter(row => row.starting || row.stopping).length,
+      helperRequests:Number(!!kimiBridgeState.starting)+kimiHttpControllers.size+kimiModelProbeChildren.size,
     } };
   },
   pause() {
@@ -105243,25 +105322,82 @@ const workDataMaintenance = WorkDataMaintenance.create({
     for (const [sessionId, reason] of workDataDeferredAgentWakes) scheduleAgentWake(sessionId, reason);
     workDataDeferredAgentWakes.clear();
     if (saved.externalWorker || externalBotWorkerAgain) externalBotWakeWorker();
+    if(workDataDeferredBootWarmup){const work=workDataDeferredBootWarmup;workDataDeferredBootWarmup=null;queueMicrotask(()=>{
+      if(workDataMaintenance.accepting())void workDataMaintenance.fresh('boot-warmup',work).catch(()=>{});
+      else workDataDeferredBootWarmup=work;
+    });}
   },
 });
 Object.assign(WorkDataMaintenanceHooks, workDataMaintenance);
+// Completion obligations belong to the existing maintenance owner. This is not a
+// process monitor: only the original ChildProcess object can create a row and only
+// its close event (or a proven no-PID spawn error) can settle it. No PID lookups.
+const workDataChildClosures=new Map(),workDataInfrastructureRetained=new Set();
+let workDataInfrastructurePhase='open',workDataInfrastructureTicket=null,workDataInfrastructureFailureSet=false,workDataInfrastructureCause;
+function workDataInfrastructureFailure(error){
+  if(!workDataInfrastructureFailureSet){workDataInfrastructureFailureSet=true;workDataInfrastructureCause=error;}
+  workDataInfrastructureRetained.add({children:workDataChildClosures,error});
+}
+function workDataTrackChildClose(child){
+  if(!child||typeof child.once!=='function'||workDataChildClosures.has(child))return child;
+  let resolve,reject;const done=new Promise((yes,no)=>{resolve=yes;reject=no;});void done.catch(()=>{});
+  workDataChildClosures.set(child,{child,done});
+  child.once('close',()=>{workDataChildClosures.delete(child);resolve();});
+  child.once('error',error=>{
+    if(!Number.isSafeInteger(child.pid)||child.pid<1){workDataChildClosures.delete(child);resolve();}
+    else{workDataInfrastructureFailure(error);reject(error);}
+  });return child;
+}
+function workDataAdmitHelper(){
+  if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet
+    ||typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.canAdmit&&DesktopLifetimeHooks.canAdmit()!==true)
+    throw Object.assign(Error('work_data.maintenance_busy'),{code:'work_data.maintenance_busy',statusCode:409});
+}
+function workDataPrepareInfrastructure({normalClose=false}={}){
+  if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_unavailable');
+  const phase=workDataMaintenance.status().phase;
+  if(phase!=='idle'&&!(normalClose&&typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.normalCloseRequested?.()===true))throw Error('work_data.maintenance_not_idle');
+  workDataInfrastructurePhase='paused';workDataInfrastructureTicket=Object.freeze({});return workDataInfrastructureTicket;
+}
+function workDataResumeInfrastructure(ticket){
+  if(ticket!==workDataInfrastructureTicket||workDataInfrastructurePhase!=='paused'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_uncertain');
+  workDataInfrastructureTicket=null;workDataInfrastructurePhase='open';
+}
+async function workDataCloseInfrastructure(ticket){
+  if(ticket!==workDataInfrastructureTicket||workDataInfrastructurePhase!=='paused'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_uncertain');
+  workDataInfrastructurePhase='closing';
+  try{
+    PrivacyLocalDriveProbe.stopSync();
+    await ToolboxHooks.stopAll();stopKimiModelProbes();await stopKimiServer({shutdown:true});
+    killAllMcpClients();killAllShellSessions();
+    while(workDataChildClosures.size)await Promise.all([...workDataChildClosures.values()].map(row=>row.done));
+    if(workDataInfrastructureFailureSet)throw workDataInfrastructureCause;
+    workDataInfrastructurePhase='closed';
+  }catch(error){workDataInfrastructureFailure(error);throw error;}
+}
 // Media owns its permanent uncertainty; maintenance only observes the existing
 // late-bound hook. Missing/uninitialized media has not created a helper.
 function workDataHelpersMayStillRun(){
+  if(workDataInfrastructureFailureSet)return true;
   try{
     if(typeof MediaImageHooks==='undefined')return false;
     const inspect=MediaImageHooks.helperMayStillRun;
     return inspect!==undefined&&(typeof inspect!=='function'||inspect.call(MediaImageHooks)!==false);
   }catch{return true;}
 }
-WorkDataMaintenanceHooks.helperMayStillRun=workDataHelpersMayStillRun;
+Object.assign(WorkDataMaintenanceHooks,{trackChild:workDataTrackChildClose,awaitChild:child=>workDataChildClosures.get(child)?.done||Promise.resolve(),
+  admitHelper:workDataAdmitHelper,prepareInfrastructure:workDataPrepareInfrastructure,resumeInfrastructure:workDataResumeInfrastructure,
+  closeInfrastructure:workDataCloseInfrastructure,helperMayStillRun:workDataHelpersMayStillRun});
 WorkDataMaintenanceHooks.deferStewardWake = () => { workDataDeferredStewardWake = true; };
+WorkDataMaintenanceHooks.deferBootWarmup = work => { if(typeof work!=='function')throw TypeError('boot warmup');workDataDeferredBootWarmup=work; };
 WorkDataMaintenanceHooks.stewardTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('steward-intake', () => stewardRunTick()) : Promise.resolve({ skipped: true });
 WorkDataMaintenanceHooks.schedulerTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('scheduler-tick', () => schedulerTick()) : Promise.resolve({ skipped: true });
 WorkDataMaintenanceHooks.deferWake = (sessionId, reason) => { workDataDeferredAgentWakes.set(sessionId, reason); };
 InternalMcpHooks.Hooks.run = (work, owner) => workDataMaintenance.continueOwner(owner, work);
 MemoryCliHooks.Hooks.run = (work, owner) => workDataMaintenance.continueOwner(owner, work);
+// The foundation probe already owns a late-bound host. Bind this same maintenance
+// owner here rather than creating a foundation -> bootstrap dependency cycle.
+PrivacyLocalDriveProbe.setHost({admitHelper:workDataAdmitHelper,trackChild:workDataTrackChildClose});
 
 // Restore upload custody/bridge used by the HTTP upload route and the warm runtime host.
 // Ingestion, admission and activation stay with WorkDataSetup / WorkDataRuntimeHost.
@@ -105800,12 +105936,21 @@ const WorkDataSetup = (() => {
     }finally {for(const chunk of chunks)chunk.fill(0);}
   }
   function create(host) {
-    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false,receiving=false;
+    if(host.infrastructure!==undefined&&(!host.infrastructure||['prepareInfrastructure','closeInfrastructure','resumeInfrastructure'].some(name=>typeof host.infrastructure[name]!=='function')))throw fail('infrastructure_unavailable',503);
+    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false,receiving=false,desktopClosing=false;
     const view=job=>Object.freeze({id:job.id,operation:job.operation,state:job.state,createdAt:job.createdAt,cancellable:!job.committed&&!job.cancelRequested&&!['failed','cancelled'].includes(job.state),
       takeover:job.committed,retry:false,error:job.error||null,operationMayHaveExecuted:job.committed});
     const ensureExpected=async expected=>{const current=await host.inspect();if(!same(expected,authority(current.authority)))throw fail('authority_changed');return current;};
     const code=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed';
     const cancelled=job=>{if(job.cancelRequested)throw fail('cancelled');};
+    const uncertainJob=(job,error)=>{
+      if(job.uncertainFailure)return;
+      job.uncertainFailure=true;job.error=code(error);job.state='uncertain';
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.reportUncertain){
+        try{void Promise.resolve(DesktopLifetimeHooks.reportUncertain()).catch(()=>{});}catch{/* Keep the original authority and pending close. */}
+      }
+    };
+    const workerFailed=job=>{if(job.workerFailure)throw job.workerFailure.error;};
     const awaitReady=(job,ready)=>new Promise((resolve,reject)=>{
       const cleanup=()=>job.abort.signal.removeEventListener('abort',abort),abort=()=>{cleanup();reject(fail('cancelled'));};
       job.abort.signal.addEventListener('abort',abort,{once:true});if(job.abort.signal.aborted)return abort();
@@ -105820,18 +105965,35 @@ const WorkDataSetup = (() => {
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
         job.handle=await worker.start({...job.args,id:job.id,password:job.secret.toString('utf8')});job.secret.fill(0);job.secret=null;
         if(!job.handle || !job.handle.ready || typeof job.handle.ready.then!=='function' || typeof job.handle.cancel!=='function' || typeof job.handle.handoff!=='function')throw fail('worker_contract_invalid');
-        const ready=Promise.resolve(job.handle.ready);ready.catch(()=>{});cancelled(job);await awaitReady(job,ready);cancelled(job);job.state='ready';
+        if(host.infrastructure&&(typeof job.handle.commit!=='function'||typeof job.handle.assertArmed!=='function'||typeof job.handle.failure?.then!=='function'))throw fail('worker_contract_invalid');
+        if(job.handle.failure){
+          const observe=error=>{if(!job.workerFailure)job.workerFailure={error};if(job.committed)uncertainJob(job,job.workerFailure.error);};
+          void Promise.resolve(job.handle.failure).then(observe,observe);
+        }
+        const ready=Promise.resolve(job.handle.ready);ready.catch(()=>{});cancelled(job);await awaitReady(job,ready);cancelled(job);workerFailed(job);job.state='ready';
+        if(host.infrastructure?.prepareInfrastructure)job.infrastructure=host.infrastructure.prepareInfrastructure();
         // This synchronous boundary is indivisible with respect to cancel HTTP.
         // Once commitment begins no timeout or uncertain result may reopen warm IO.
-        job.lease.assertIdle();job.committed=true;job.state='handoff';job.lease.retire();
+        job.lease.assertIdle();job.committed=true;job.state='handoff';
+        // Acknowledge the original go/armed commitment before resident close. The
+        // cold worker's short ready-to-go deadline must not time helper shutdown.
+        if(host.infrastructure)await job.handle.commit();workerFailed(job);
+        // Closing resident helpers loses process-local state, so it belongs after
+        // the existing non-cancellable boundary, before retirement and parent exit.
+        if(job.infrastructure){job.infrastructureClose=host.infrastructure.closeInfrastructure(job.infrastructure);await job.infrastructureClose;workerFailed(job);await job.lease.idle();workerFailed(job);job.lease.assertIdle();job.handle.assertArmed();}
+        job.lease.retire();
         await job.handle.handoff();
         // Handoff completion is not conversion completion. Success is reported
         // only by a successor reading the cold worker's durable receipt.
-      }catch(error){failed=error;job.error=code(error);job.state=job.committed?'uncertain':job.cancelRequested?'cancelled':'failed';}
+      }catch(error){failed=error;
+        if(job.committed)uncertainJob(job,error);
+        else{job.error=code(error);job.state=job.cancelRequested?'cancelled':'failed';}
+      }
       finally {
         if(job.secret){job.secret.fill(0);job.secret=null;}job.args=null;
         if(!job.committed){
           try{if(job.handle)await job.handle.cancel();}catch(error){job.error=code(error);job.state='failed';}
+          try{if(job.infrastructure)host.infrastructure.resumeInfrastructure(job.infrastructure);}catch{job.error='work_data_setup.resume_failed';job.state='failed';}
           try{if(job.lease && !job.abort.signal.aborted)job.lease.resume();}catch{job.error='work_data_setup.resume_failed';job.state='failed';}
           if(active===job)active=null;
         }
@@ -105839,7 +106001,8 @@ const WorkDataSetup = (() => {
       return failed;
     }
     async function submit(body) {
-      if(creating||active||!host.maintenance.accepting())throw fail('busy');creating=true;
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.admissionOpen&&DesktopLifetimeHooks.admissionOpen()!==true)throw fail('busy');
+      if(desktopClosing||creating||active||!host.maintenance.accepting())throw fail('busy');creating=true;
       let secret;
       try {
         if(!exact(body,['operation','password','expectedAuthority','backupDirectory','targetDirectory','uploadId','confirmPlaintext']) || !['enable','disable','export','restore'].includes(body.operation))throw fail('request_invalid',400);
@@ -105881,6 +106044,16 @@ const WorkDataSetup = (() => {
       if(!['cancelled','failed'].includes(job.state)){job.cancelRequested=true;job.state='cancel_requested';job.abort.abort();}
       return view(job);
     }
+    async function closeForDesktop() {
+      desktopClosing=true;
+      // A submit/upload already admitted owns its cleanup; do not retire underneath it.
+      while(creating||receiving)await new Promise(resolve=>setTimeout(resolve,25));
+      const job=active;if(!job)return true;
+      if(job.committed)return false;
+      await cancel(job.id);
+      while(active===job){if(job.done)await job.done;else await new Promise(resolve=>setTimeout(resolve,25));}
+      return true;
+    }
     async function status() {
       const observed=await host.inspect(),worker=host.worker();let lastResult=null;
       if(typeof worker.readResult==='function'){try{lastResult=await worker.readResult();}catch{throw fail('result_unavailable',503);}}
@@ -105917,7 +106090,7 @@ const WorkDataSetup = (() => {
       // Same admission as every other transfer: no job may be preparing and the
       // process must still be accepting. The path carries an id only; the runtime
       // resolves the one current result and verifies the bytes before any header.
-      if(active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
+      if(desktopClosing||active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
       const worker=host.worker();
       if(typeof worker.downloadPackage!=='function')throw fail('download_unavailable',501);
       const headers=loopbackSameOrigin(req,'package_origin_invalid'),id=pathname.slice('/api/work-data/results/'.length,-'/package'.length);
@@ -105945,7 +106118,7 @@ const WorkDataSetup = (() => {
     async function receiveUpload(req) {
       // The main router authenticates the header token before this handler. This
       // route additionally binds the actual loopback socket and same-port Origin.
-      if(active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
+      if(desktopClosing||active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
       const worker=host.worker();
       if(typeof worker.putUpload!=='function'||typeof worker.resolveUpload!=='function')throw fail('upload_unavailable',501);
       const headers=loopbackSameOrigin(req,'upload_origin_invalid');
@@ -106000,7 +106173,7 @@ const WorkDataSetup = (() => {
       try{return await host.maintenance.continueOwner(owner,()=>host.maintenance.run('http',work));}
       finally{cachedBodies.delete(req);}
     }
-    return Object.freeze({submit,cancel,status,handle,runHttp,bypasses,cachedBody:req=>cachedBodies.get(req)});
+    return Object.freeze({submit,cancel,status,handle,runHttp,bypasses,closeForDesktop,cachedBody:req=>cachedBodies.get(req)});
   }
   return Object.freeze({create,authority,readJson});
 })();
@@ -106061,7 +106234,7 @@ function workDataSetupReceiptOwner(pathname,body) {
   if(!entry||body.sessionId!==undefined&&entry.sessionId!==body.sessionId)return null;
   return turnSettlers.get(entry.sessionId)||null;
 }
-const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks,inspect:workDataSetupInspect,validateDirectories:workDataSetupDirectories,
+const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks,infrastructure:WorkDataMaintenanceHooks,inspect:workDataSetupInspect,validateDirectories:workDataSetupDirectories,
   workerReady:()=>{
     const hooks=typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks;
     return !hooks||typeof hooks.workerReady!=='function'?true:hooks.workerReady()===true;
@@ -106086,7 +106259,7 @@ Object.assign(WorkDataSetupHooks,workDataSetup);
 // execute(); the TEMP handoff claim is metadata only and widens no authority.
 const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   const VERSION = 1, MAX_INPUT = 32 * 1024, ID = /^[a-f0-9]{48}$/;
-  const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_))/i;
+  const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_|DESKTOP_CONTROL_))/i;
   const fail = (suffix, uncertain = false) => Object.assign(new Error('work_data_setup.' + suffix), {
     code: 'work_data_setup.' + suffix, apiCode: 'work_data_setup.' + suffix,
     statusCode: 409, operationMayHaveExecuted: uncertain, retry: false,
@@ -106158,16 +106331,17 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   }
   function create(host) {
     const pending = new Map();
+    let issuing=false;
     const wait = (ms, callback) => host.setTimeout(callback, ms);
     function environment(base) {
       const env = {};
       for (const [key, value] of Object.entries(host.env)) if (!SECRET_ENV.test(key)
-        && !['NODE_OPTIONS', 'NODE_PATH', 'RUYI_TEST_SERVER_JS', 'WIN_CLAUDE_WORKBENCH_HOME'].includes(key.toUpperCase())) env[key] = value;
+        && !['NODE_OPTIONS', 'NODE_PATH', 'NODE_DEBUG', 'NODE_DEBUG_NATIVE', 'RUYI_TEST_SERVER_JS', 'WIN_CLAUDE_WORKBENCH_HOME'].includes(key.toUpperCase())) env[key] = value;
       env.RUYI_HOME = base;
       return env;
     }
     async function start(request) {
-      if (pending.size) throw fail('busy');
+      if (pending.size||issuing) throw fail('busy');
       const claims = claimApi(host);
       const base = await host.base();
       const nonce=cryptoApi.randomBytes(32).toString('hex');let upload=null;
@@ -106179,14 +106353,23 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           uploadFile: upload?.file || null, uploadSha256: upload?.sha256 || null }, serve: { ...host.listener() },...(upload?{upload}:{}) });
       const bytes=Buffer.from(JSON.stringify(input),'utf8');input.password=null;
       if(bytes.length>MAX_INPUT){bytes.fill(0);throw fail('input_invalid');}
+      if(pending.size||issuing){bytes.fill(0);throw fail('busy');}
+      issuing=true;
+      let desktop,childEnv;
+      try{desktop=typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.issue?await DesktopLifetimeHooks.issue('cold',input.id,nonce):null;
+        childEnv=desktop?DesktopLifetimeHooks.environment(environment(base),desktop):environment(base);
+      }catch(error){issuing=false;bytes.fill(0);throw error;}
       // No await after the final concurrent-start check until this exact child is registered.
-      if(pending.size){bytes.fill(0);throw fail('busy');}
-      let child;try{child=host.spawn(environment(base));}catch(error){bytes.fill(0);throw error;}
+      if(pending.size){issuing=false;bytes.fill(0);throw fail('busy');}
+      let child;try{child=host.spawn(childEnv);}catch(error){bytes.fill(0);throw error;}finally{issuing=false;}
       let state = 'waiting', closed = false, registering = null, claimReceipt = null, claimedAt = null;
-      let stopRequested = false, cancelRequest = null;
-      let readyResolve, readyReject, armedResolve, armedReject;
+      let stopRequested = false, cancelRequest = null, commitRequest = null;
+      let readyResolve, readyReject, armedResolve, armedReject, failureResolve;
       const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
       const armed = new Promise((resolve, reject) => { armedResolve = resolve; armedReject = reject; });
+      // Unlike ready/armed, this observation remains live after their success.
+      // It conveys only this exact child's first failure; it releases no owner.
+      const failure = new Promise(resolve => { failureResolve = resolve; });
       // A pre-handoff failure can reject armed before handoff() attaches a consumer.
       void armed.catch(() => {}); void ready.catch(() => {});
       let timer;
@@ -106219,20 +106402,21 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
         if (closed) return;
         closed = true;
         const failure = Object.assign(fail('claim_failed'), { cause: error });
-        readyReject(failure); armedReject(failure);
+        readyReject(failure); armedReject(failure);failureResolve(failure);
         release(); stopChild(); void forgetClaim();
       };
       const rejected = suffix => {
         if (closed) return;
         closed = true;
-        const error = fail(suffix, uncertain()); readyReject(error); armedReject(error);
+        const error = fail(suffix, uncertain()); readyReject(error); armedReject(error);failureResolve(error);
         // A commitment uncertainty never reopens parent admission. No kill/retry is
         // attempted: the child may already be obtaining the actual base owner.
         if (!uncertain()) release();
       };
       child.on('error', () => rejected('worker_launch_failed'));
       child.on('exit', () => rejected('worker_exited'));
-      child.on('disconnect', () => { if (state !== 'armed') rejected('worker_disconnected'); });
+      child.on('close', () => rejected('worker_closed'));
+      child.on('disconnect', () => rejected('worker_disconnected'));
       child.on('message', message => {
         if (closed || keys(message) !== 'id,kind,nonce,schema' || message.schema !== VERSION
           || message.id !== input.id || message.nonce !== input.nonce) return;
@@ -106303,16 +106487,28 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
         })();
         try { return await cancelRequest; } catch (error) { cancelRequest = null; throw error; }
       }
-      return Object.freeze({ ready, cancel,
-        async handoff() {
+      const assertArmed = () => { if(closed||state!=='armed')throw fail('handoff_invalid',uncertain()); };
+      function commit() {
+        if(commitRequest)return commitRequest;
+        commitRequest=(async()=>{
           await ready;
           if (closed || state !== 'ready') throw fail('handoff_invalid', uncertain());
           state = 'committing';
           timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_arm_timeout'));
           try { await send('go'); await armed; }
-          catch { throw fail('handoff_uncertain', true); }
+          catch { rejected('handoff_uncertain');throw fail('handoff_uncertain', true); }
+          assertArmed();
+        })();
+        return commitRequest;
+      }
+      return Object.freeze({ ready, failure, cancel, commit, assertArmed,
+        async handoff() {
+          // Existing callers may commit and exit together. Setup splits them so
+          // the original bounded parent-exit wait owns infrastructure close too.
+          await commit();assertArmed();
           // exitParent is called only after the child acknowledges the irrevocable
           // commitment. It exits the process; it must never release ownership early.
+          if(desktop)await DesktopLifetimeHooks.transfer(desktop);
           await host.exitParent({ id: input.id });
         },
       });
@@ -107632,7 +107828,8 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         if(!activationReceipt(receipt)||fold(receipt.base)!==fold(home))throw fail('activation_failed');
       }
       const common=host.workerApi.create({env:proc.env});
-      const child=host.workerApi.spawnCold(spec,common.environment(home));
+      const desktop=typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.issue?await DesktopLifetimeHooks.issue('successor',result.id,nonce):null;
+      const child=host.workerApi.spawnCold(spec,desktop?DesktopLifetimeHooks.environment(common.environment(home),desktop):common.environment(home));
       const input={schema:1,id:result.id,parentPid:proc.pid,nonce,base:home,serve:result.listener,
         expectedAuthority:target?target.authority:result.expectedAuthority,...(target?{activation:{kind:'separate-fresh-root',resultSha256:target.resultSha256}}:{})};
       const readyMessage=new Promise((resolve,reject)=>{
@@ -107645,9 +107842,10 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         child.on('message',message);child.once('error',failed);child.once('exit',exited);child.stdin.once('error',failed);
       });
       const bytes=Buffer.from(JSON.stringify(input));child.stdin.end(bytes,()=>bytes.fill(0));
-      await readyMessage;return child;
+      await readyMessage;if(desktop)await DesktopLifetimeHooks.transfer(desktop);return child;
     }
     async function holdAfterSuccessorFailure(result,error) {
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.reportUncertain)void DesktopLifetimeHooks.reportUncertain().catch(()=>{});
       latch(error);let owner,http;
       // A restore failure is reported against the actual target root. When this host
       // cannot obtain that owner the status stays typed unavailable; the source is
@@ -107663,6 +107861,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       await new Promise(()=>{});
     }
     async function onOwnedFailure({error,ownership:owner,assertExclusive,base,input}) {
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.reportUncertain)void DesktopLifetimeHooks.reportUncertain().catch(()=>{});
       latch(error);let current=null;
       try {const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* No expected-authority fallback. Status remains typed unavailable. */ }
       const job={id:input.id,operation:input.operation,state:'uncertain',createdAt:Date.now(),phase:'preflight',error:safeCode(error)};
@@ -110183,6 +110382,202 @@ const WorkDataRootPreference = ((io, p, c) => {
     decode: bytes => codec().decode(bytes), create });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));
 
+// Bounded diagnostic metadata only. No lifecycle authority or control message.
+const DesktopLifetimeDiagnostic = (() => {
+  const stages = new Set(["setup","begin","cancel","infrastructure","settlers","first-idle","first-helper-check","http-close","second-idle","second-helper-check","retire","retired","finished-request","deferred-request"]);
+  const reasons = new Set(["unclassified","desktop_lifetime.uncertain","desktop_lifetime.helper_uncertain","desktop_lifetime.listener_changed","desktop_lifetime.channel_unavailable","desktop_lifetime.response_timeout","desktop_lifetime.owner_refused","desktop_lifetime.protocol","desktop_lifetime.channel_closed","desktop_lifetime.exit_returned","work_data.maintenance_busy","work_data.maintenance_nested","work_data.maintenance_cancelled","work_data.maintenance_stale_continuation","work_data.maintenance_owner_unavailable","work_data.maintenance_lease_expired","work_data.maintenance_not_idle","work_data.maintenance_infrastructure_unavailable","work_data.maintenance_infrastructure_uncertain"]);
+  const names = new Set(['Error','TypeError','RangeError','SyntaxError','AbortError','TimeoutError']);
+  let stage='setup',kind='close',seq=0,emitted=false;
+  const own=(error,key)=>{try{const row=error&&Object.getOwnPropertyDescriptor(error,key);return row&&Object.hasOwn(row,'value')?row.value:undefined;}catch{return undefined;}};
+  return Object.freeze({
+    stage(value){if(stages.has(value))stage=value;},
+    request(value,number){if(['close','finished','deferred'].includes(value))kind=value;seq=Number.isSafeInteger(number)&&number>=0&&number<=2147483647?number:0;},
+    failure(error){
+      if(emitted)return;emitted=true;
+      const code=own(error,'code'),message=own(error,'message');let name=own(error,'name');
+      if(!names.has(name))try{name=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(error),'name')?.value;}catch{}
+      if(!names.has(name))name='unknown';
+      const reason=reasons.has(code)?code:reasons.has(message)?message:'unclassified';
+      const marker='RUYI_DESKTOP_DIAG_V1 stage='+stage+' reason='+reason+' name='+name+' kind='+kind+' seq='+seq+'\n';
+      try{fs.writeSync(2,marker);}catch{ /* Diagnostic output never replaces the original error. */ }
+    },
+  });
+})();
+
+// Private desktop lifetime transport. It conveys no data-root or maintenance authority.
+const DesktopLifetime = (() => {
+  const MAX_FRAME = 8192, HEX = /^[a-f0-9]{64}$/, ID = /^[a-f0-9]{48}$/;
+  const fail = suffix => Object.assign(Error('desktop_lifetime.' + suffix), { code: 'desktop_lifetime.' + suffix });
+  const shape = (value, names) => value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join(',') === names.split(',').sort().join(',');
+  const pipeName = value => typeof value==='string'&&/^ruyi-desktop-[a-f0-9]{64}$/.test(value);
+  function descriptor(raw) {
+    let value; try { value = typeof raw === 'string' && raw.length <= 1024 ? JSON.parse(raw) : null; } catch { throw fail('bootstrap_invalid'); }
+    if (!shape(value, 'schema,pipe,cap,role') || value.schema !== 1 || !pipeName(value.pipe)
+      || !HEX.test(value.cap) || !['serve', 'cold', 'successor'].includes(value.role)) throw fail('bootstrap_invalid');
+    return Object.freeze({ ...value });
+  }
+  function create({ bootstrap, proc, connect, clock, stop }) {
+    const config = descriptor(bootstrap), pending = new Map(), retained = new Set(), issued = new Map(), endpoints = new Set([config.pipe]);
+    let socket = null, connected = null, sequence = 0, buffer = '', closing = false, active = false, stopPromise = null, unknownSet = false, unknown = null, holdAttempted = false;
+    function retain(error) {
+      if (!unknownSet) { unknownSet = true; unknown = error; }
+      if (!holdAttempted) { holdAttempted = true; try { const hold = clock.setInterval(() => {}, 60000); hold?.ref?.(); retained.add(hold); }
+        catch (error) { retained.add({ error, primary: unknown, socket }); } }
+      for (const row of pending.values()) { clock.clearTimeout(row.timer); row.reject(unknown); } pending.clear();
+      return unknown;
+    }
+    function send(value) {
+      const bytes = Buffer.from(JSON.stringify(value) + '\n');
+      if (bytes.length > MAX_FRAME || !socket || socket.destroyed) throw retain(fail('channel_unavailable'));
+      socket.write(bytes, error => { if (error) retain(error); });
+    }
+    function request(kind, fields = {}) {
+      if (unknownSet) return Promise.reject(unknown);
+      const seq = ++sequence;
+      if(closing&&(kind==='finished'||kind==='deferred')){DesktopLifetimeDiagnostic.stage(kind+'-request');DesktopLifetimeDiagnostic.request(kind,seq);}
+      return new Promise((resolve, reject) => {
+        const timer = clock.setTimeout(() => retain(fail('response_timeout')), 15000);
+        pending.set(seq, { resolve, reject, timer, kind });
+        try { send({ schema: 1, seq, kind, ...fields }); } catch (error) { retain(error); }
+      });
+    }
+    function receive(value) {
+      if (!value || typeof value !== 'object' || value.schema !== 1 || !Number.isSafeInteger(value.seq)) throw fail('protocol');
+      if(shape(value,'schema,seq,kind')&&value.seq===0&&value.kind==='active'){
+        if(active)throw fail('protocol');active=true;return;
+      }
+      if (shape(value, 'schema,seq,kind') && value.seq === 0 && value.kind === 'close') {
+        closing = true;
+        DesktopLifetimeDiagnostic.request('close',0);
+        if (!stopPromise) stopPromise = Promise.resolve().then(stop).then(async result => {
+          // A committed takeover keeps the same desktop request pending for the successor.
+          if (result === false) { await request('deferred'); return; }
+          await request('finished');
+          proc.exit(0);
+          throw fail('exit_returned');
+        }).catch(error => { retain(error); DesktopLifetimeDiagnostic.failure(error); try { send({ schema: 1, seq: 0, kind: 'uncertain' }); } catch {} });
+        return;
+      }
+      const row = pending.get(value.seq);
+      if (!row || !(shape(value, 'schema,seq,kind') || row.kind === 'issue' && shape(value, 'schema,seq,kind,cap,pipe'))
+        || !['ok', 'error'].includes(value.kind) || row.kind === 'issue' && value.kind === 'ok' && (!HEX.test(value.cap)||!pipeName(value.pipe)||endpoints.has(value.pipe)||issued.has(value.cap))) throw fail('protocol');
+      if(row.kind==='issue'&&value.kind==='ok')endpoints.add(value.pipe);
+      pending.delete(value.seq); clock.clearTimeout(row.timer);
+      if (value.kind === 'error') row.reject(retain(fail('owner_refused'))); else row.resolve(value);
+    }
+    function open() {
+      if (connected) return connected;
+      connected = new Promise((resolve, reject) => {
+        try { socket = connect('\\\\.\\pipe\\' + config.pipe); } catch (error) { reject(retain(error)); return; }
+        socket.setEncoding('utf8');
+        socket.on('data', chunk => {
+          try {
+            buffer += chunk;
+            let at;
+            while ((at = buffer.indexOf('\n')) !== -1) {
+              const line = buffer.slice(0, at); buffer = buffer.slice(at + 1);
+              if (!line || line.includes('\r') || Buffer.byteLength(line) >= MAX_FRAME) throw fail('protocol');
+              receive(JSON.parse(line));
+            }
+            if (Buffer.byteLength(buffer) >= MAX_FRAME) throw fail('frame_budget');
+          } catch (error) { retain(error); socket.destroy(); }
+        });
+        socket.on('error', error => { reject(retain(error)); });
+        socket.on('close', () => { reject(retain(fail('channel_closed'))); });
+        // C# creates this unique role endpoint with FIRST_PIPE_INSTANCE and max=1
+        // before publishing its descriptor, and never reopens its name. That
+        // exclusive live endpoint authenticates the server before this bearer.
+        socket.once('connect', () => { request('hello', { cap: config.cap, pid: proc.pid }).then(resolve, reject); });
+      });
+      return connected;
+    }
+    return Object.freeze({ open, role: config.role, active: () => active, closing: () => closing, unknown: () => unknownSet,
+      async serving(listener) { await open(); if (!shape(listener, 'host,port') || !['127.0.0.1', '::1', 'localhost'].includes(listener.host)
+        || !Number.isInteger(listener.port) || listener.port < 1 || listener.port > 65535) throw retain(fail('listener_invalid'));
+        return request('serving', listener); },
+      async issue(role, id, nonce) { await open(); if(!active)throw fail('role_pending');if (!['cold', 'successor'].includes(role) || !ID.test(id) || !HEX.test(nonce)) throw fail('grant_invalid');
+        const result = await request('issue', { role, id, nonce });
+        const grant=Object.freeze({ schema: 1, pipe: result.pipe, cap: result.cap, role });issued.set(grant.cap,grant);return grant; },
+      async transfer(grant) { if (!grant || issued.get(grant.cap)!==grant) throw fail('grant_invalid'); const result=await request('transfer', { cap: grant.cap });issued.delete(grant.cap);return result; },
+      async reportUncertain(){await open();return request('uncertain');},
+    });
+  }
+  return Object.freeze({ create, descriptor, MAX_FRAME });
+})();
+
+let desktopLifetimeClient = null, desktopLifetimeServer = null, desktopLifetimeStopping = false, desktopLifetimeFailure = null, desktopLifetimeFailureSet = false;
+function desktopLifetimeAdmit() {
+  if (desktopLifetimeStopping || desktopLifetimeFailureSet) throw Object.assign(Error('work_data.maintenance_busy'), { code: 'work_data.maintenance_busy', apiCode:'work_data.maintenance_busy', statusCode: 409 });
+}
+async function desktopLifetimeStopInfrastructure() {
+  if (typeof ExternalBotHooks.stop === 'function') ExternalBotHooks.stop();
+  if (typeof StewardHooks.stopInbox === 'function') StewardHooks.stopInbox();
+  stopScheduler();
+  const ticket=WorkDataMaintenanceHooks.prepareInfrastructure({normalClose:true});
+  await WorkDataMaintenanceHooks.closeInfrastructure(ticket);
+}
+async function desktopLifetimeStop() {
+  DesktopLifetimeDiagnostic.stage('setup');
+  if(desktopLifetimeFailureSet||desktopLifetimeClient?.unknown())throw Error('desktop_lifetime.uncertain');
+  desktopLifetimeStopping = true;
+  // Setup serializes a pending submit/upload before cancelling its own uncommitted job.
+  if (await WorkDataSetupHooks.closeForDesktop() === false) return false;
+  DesktopLifetimeDiagnostic.stage('begin');
+  const lease = WorkDataMaintenanceHooks.begin();
+  const settlers = [...turnSettlers.values()];
+  DesktopLifetimeDiagnostic.stage('cancel');
+  for (const row of settlers) if (typeof row.cancel === 'function') row.cancel('shutdown');
+  for (const [runId, row] of activeAgentRuns) await agentRunActionCommand({ sessionId: row.run.sessionId, runId, action: 'stop' });
+  stopAllActiveTurnsSync('shutdown');
+  DesktopLifetimeDiagnostic.stage('infrastructure');
+  await desktopLifetimeStopInfrastructure();
+  DesktopLifetimeDiagnostic.stage('settlers');
+  await Promise.all(settlers.map(row => row.promise));
+  DesktopLifetimeDiagnostic.stage('first-idle');
+  await lease.idle();
+  lease.assertIdle();
+  DesktopLifetimeDiagnostic.stage('first-helper-check');
+  if (LocalSecretCrypto.helperMayStillRun?.() !== false || MigrationHooks.helperMayStillRun?.() !== false
+    || WorkDataMaintenanceRuntimeHooks.helperMayStillRun?.() !== false) throw Error('desktop_lifetime.helper_uncertain');
+  DesktopLifetimeDiagnostic.stage('http-close');
+  if (!desktopLifetimeServer?.listening) throw Error('desktop_lifetime.listener_changed');
+  await new Promise((resolve, reject) => { desktopLifetimeServer.close(error => error ? reject(error) : resolve()); desktopLifetimeServer.closeAllConnections(); });
+  DesktopLifetimeDiagnostic.stage('second-idle');
+  await lease.idle();
+  DesktopLifetimeDiagnostic.stage('second-helper-check');
+  if (LocalSecretCrypto.helperMayStillRun?.() !== false || MigrationHooks.helperMayStillRun?.() !== false
+    || WorkDataMaintenanceRuntimeHooks.helperMayStillRun?.() !== false) throw Error('desktop_lifetime.helper_uncertain');
+  DesktopLifetimeDiagnostic.stage('retire');
+  lease.assertIdle(); lease.retire();
+  DesktopLifetimeDiagnostic.stage('retired');
+  return true;
+}
+Object.assign(DesktopLifetimeHooks, {
+  async connect() {
+    if (desktopLifetimeBootstrap === null) return false;
+    if (!desktopLifetimeClient) desktopLifetimeClient = DesktopLifetime.create({ bootstrap: desktopLifetimeBootstrap, proc: process,
+      connect: name => require('node:net').createConnection(name), clock: { setTimeout, clearTimeout, setInterval },
+      stop: () => desktopLifetimeStop().catch(error => { desktopLifetimeFailureSet = true; desktopLifetimeFailure = error; throw error; }) });
+    await desktopLifetimeClient.open(); return true;
+  },
+  admit: desktopLifetimeAdmit,
+  canAdmit:()=>!desktopLifetimeStopping&&!desktopLifetimeFailureSet&&desktopLifetimeClient?.unknown()!==true,
+  normalCloseRequested:()=>desktopLifetimeStopping,
+  closing: () => desktopLifetimeStopping||desktopLifetimeFailureSet,
+  admissionOpen: () => !desktopLifetimeClient || desktopLifetimeClient.active(),
+  helperMayStillRun: () => desktopLifetimeFailureSet || desktopLifetimeClient?.unknown() === true,
+  async reportUncertain(){if(desktopLifetimeClient)await desktopLifetimeClient.reportUncertain();},
+  capture({ server, listener }) { desktopLifetimeServer = server; desktopLifetimeServer.desktopListener = listener; },
+  async serving() { if (desktopLifetimeClient) { if (!desktopLifetimeServer) throw Error('desktop_lifetime.listener_missing'); await desktopLifetimeClient.serving(desktopLifetimeServer.desktopListener); } },
+  async issue(role, id, nonce) { return desktopLifetimeClient ? desktopLifetimeClient.issue(role, id, nonce) : null; },
+  async transfer(grant) { if (grant) { if (!desktopLifetimeClient) throw Error('desktop_lifetime.owner_missing'); await desktopLifetimeClient.transfer(grant); } },
+  environment(env, grant) {
+    const clean={};for(const[key,value]of Object.entries(env))if(!['NODE_OPTIONS','NODE_PATH','NODE_DEBUG','NODE_DEBUG_NATIVE'].includes(key.toUpperCase())&&!/^RUYI_DESKTOP_CONTROL_/i.test(key))clean[key]=value;
+    return grant ? { ...clean, RUYI_DESKTOP_CONTROL_V1: JSON.stringify(grant) } : clean;
+  },
+});
+
 // Explicit production host assembly. Loading this module only installs the
 // maintenance-runtime hooks (no acquisition, configure, IO, ready or process
 // startup); startServer calls acquireServe/configureServe explicitly.
@@ -110270,7 +110665,11 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       if(holdTimer===null){try{holdTimer=clock.setInterval(()=>{void contexts;},60000);if(holdTimer&&typeof holdTimer.ref==='function')holdTimer.ref();}catch(timerError){retained.add({contexts,cause,timerError});}}
       return Object.assign(fail('source_uncertain',cause),{helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true});
     };
-    function helperUnknown(){if(unknown)return true;try{if(N.helperMayStillRun()!==false){retain(undefined);return true;}return false;}catch(error){retain(error);return true;}}
+    function helperUnknown(){if(unknown)return true;try{
+      const inspect=bindings.maintenance?.helperMayStillRun;
+      if(N.helperMayStillRun()!==false||inspect!==undefined&&(typeof inspect!=='function'||inspect.call(bindings.maintenance)!==false)){retain(undefined);return true;}
+      return false;
+    }catch(error){retain(error);return true;}}
     function assertFinishSafe(){if(helperUnknown())throw Object.assign(fail('source_uncertain',unknownCause),{helperMayStillRun:true,ownershipRetained:true});return true;}
     function ensure(ctx){
       if(!ctx||ctx.finished)throw fail('source_closed');
@@ -110539,11 +110938,33 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
     async function withWarmSource(request,work){
       const ctx=warm;if(!ctx||!ctx.accepting||jobs.size||typeof work!=='function')throw fail('warm_job_unavailable');ensure(ctx);
       const pin=N.sourceKeeper({base:ctx.base,ownership:ctx.ownership});if(!O.isSourceKeeper(pin,ctx.ownership,ctx.base))throw retain(fail('keeper_invalid'));
-      const job={pin,committed:false,finished:false};jobs.add(job);let handle;
-      try{handle=await work();ensure(ctx);if(!handle||!handle.ready||typeof handle.ready.then!=='function'||typeof handle.cancel!=='function'||typeof handle.handoff!=='function')throw fail('worker_contract_invalid');}
+      const job={pin,committed:false,finished:false,handingOff:false};jobs.add(job);let handle,commitRequest;
+      try{handle=await work();ensure(ctx);if(!handle||!handle.ready||typeof handle.ready.then!=='function'
+        ||typeof handle.cancel!=='function'||typeof handle.handoff!=='function'||typeof handle.commit!=='function'
+        ||typeof handle.assertArmed!=='function'||typeof handle.failure?.then!=='function')throw fail('worker_contract_invalid');}
       catch(error){throw retain(error);}
       const ready=Promise.resolve(handle.ready).then(value=>{ensure(ctx);return value;});void ready.catch(()=>{});
-      return Object.freeze({ready,async cancel(){if(job.committed)throw fail('handoff_committed');if(job.finished)return;try{await handle.cancel();ensure(ctx);await pin.releaseChecked(assertFinishSafe);ensure(ctx);job.finished=true;jobs.delete(job);}catch(error){throw retain(error);}},async handoff(){if(job.finished||job.committed)throw fail('handoff_invalid');ensure(ctx);job.committed=true;try{await handle.handoff();}catch(error){throw retain(error);}throw retain(fail('parent_exit_returned'));}});
+      function commit(){
+        if(commitRequest)return commitRequest;
+        if(job.finished||job.handingOff)throw fail('handoff_invalid');
+        ensure(ctx);job.committed=true;
+        commitRequest=(async()=>{try{
+          // Keep the original live observation and receiver. After commitment,
+          // its failure retains this same source keeper even during resident close.
+          const observe=error=>{retain(error);};
+          void Promise.resolve(handle.failure).then(observe,observe).catch(()=>{});
+          await handle.commit();ensure(ctx);
+        }catch(error){throw retain(error);}})();return commitRequest;
+      }
+      return Object.freeze({ready,get failure(){try{return handle.failure;}catch(error){throw retain(error);}},commit,
+        assertArmed(){try{ensure(ctx);handle.assertArmed();ensure(ctx);}catch(error){throw retain(error);}},
+        async cancel(){if(job.committed)throw fail('handoff_committed');if(job.finished)return;try{await handle.cancel();ensure(ctx);await pin.releaseChecked(assertFinishSafe);ensure(ctx);job.finished=true;jobs.delete(job);}catch(error){throw retain(error);}},
+        async handoff(){
+          if(job.finished||job.handingOff)throw fail('handoff_invalid');ensure(ctx);
+          const committed=commit();job.handingOff=true;
+          try{await committed;ensure(ctx);handle.assertArmed();await handle.handoff();}catch(error){throw retain(error);}
+          throw retain(fail('parent_exit_returned'));
+        }});
     }
     // The fresh-root activation owner is installed once on the process hooks. Each
     // role sees only the verbs it owns: cold writes and inspects the receipt, the
@@ -111026,6 +111447,8 @@ function workDataCliHelperUnknown(error) {
     if (typeof LocalSecretCrypto !== 'undefined') { const inspect=LocalSecretCrypto.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(LocalSecretCrypto)!==false)) workDataCliHelperHeld=true; }
     if (typeof MigrationHooks !== 'undefined') { const inspect=MigrationHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(MigrationHooks)!==false)) workDataCliHelperHeld=true; }
     if (typeof WorkDataMaintenanceRuntimeHooks !== 'undefined') { const inspect=WorkDataMaintenanceRuntimeHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(WorkDataMaintenanceRuntimeHooks)!==false)) workDataCliHelperHeld=true; }
+    if (typeof DesktopLifetimeHooks !== 'undefined') { const inspect=DesktopLifetimeHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(DesktopLifetimeHooks)!==false)) workDataCliHelperHeld=true; }
+    if (typeof WorkDataMaintenanceHooks !== 'undefined') { const inspect=WorkDataMaintenanceHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(WorkDataMaintenanceHooks)!==false)) workDataCliHelperHeld=true; }
   } catch { workDataCliHelperHeld=true; }
   if (workDataCliHelperHeld) return true;
   // A retained OS owner recorded on the failure itself is the same unknown: exiting now
@@ -111105,6 +111528,7 @@ async function startWorkbenchServe(argv) {
   // 失败绝不阻断已经开起来的服务(管家是旁路,不是主链路)。
   await startStewardInbox(await readConfig()).catch(() => {});
   if (typeof WorkDataMaintenanceRuntimeHooks.activateServe === 'function') WorkDataMaintenanceRuntimeHooks.activateServe();
+  if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.serving)await DesktopLifetimeHooks.serving();
   return served;
 }
 // P2-4: the explicit operational exit for the boot-root preference. It never acquires
@@ -111143,6 +111567,7 @@ async function clearBootRootPreference() {
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
+  if(['work-data-maintenance','work-data-successor'].includes(command)&&typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.connect)await DesktopLifetimeHooks.connect();
   // Detect the raw option before parseArgs can consume a following "doctor" as
   // its value or hide an =value spelling among ordinary doctor options.
   const raw = process.argv.slice(2);

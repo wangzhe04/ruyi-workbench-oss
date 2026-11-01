@@ -4,7 +4,7 @@
 // execute(); the TEMP handoff claim is metadata only and widens no authority.
 const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   const VERSION = 1, MAX_INPUT = 32 * 1024, ID = /^[a-f0-9]{48}$/;
-  const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_))/i;
+  const SECRET_ENV = /^(?:WCW_|RUYI_(?:INTERNAL_MCP_|MEMORY_|MCP_CONSUMER_|MAINTENANCE_|DESKTOP_CONTROL_))/i;
   const fail = (suffix, uncertain = false) => Object.assign(new Error('work_data_setup.' + suffix), {
     code: 'work_data_setup.' + suffix, apiCode: 'work_data_setup.' + suffix,
     statusCode: 409, operationMayHaveExecuted: uncertain, retry: false,
@@ -76,16 +76,17 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
   }
   function create(host) {
     const pending = new Map();
+    let issuing=false;
     const wait = (ms, callback) => host.setTimeout(callback, ms);
     function environment(base) {
       const env = {};
       for (const [key, value] of Object.entries(host.env)) if (!SECRET_ENV.test(key)
-        && !['NODE_OPTIONS', 'NODE_PATH', 'RUYI_TEST_SERVER_JS', 'WIN_CLAUDE_WORKBENCH_HOME'].includes(key.toUpperCase())) env[key] = value;
+        && !['NODE_OPTIONS', 'NODE_PATH', 'NODE_DEBUG', 'NODE_DEBUG_NATIVE', 'RUYI_TEST_SERVER_JS', 'WIN_CLAUDE_WORKBENCH_HOME'].includes(key.toUpperCase())) env[key] = value;
       env.RUYI_HOME = base;
       return env;
     }
     async function start(request) {
-      if (pending.size) throw fail('busy');
+      if (pending.size||issuing) throw fail('busy');
       const claims = claimApi(host);
       const base = await host.base();
       const nonce=cryptoApi.randomBytes(32).toString('hex');let upload=null;
@@ -97,14 +98,23 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
           uploadFile: upload?.file || null, uploadSha256: upload?.sha256 || null }, serve: { ...host.listener() },...(upload?{upload}:{}) });
       const bytes=Buffer.from(JSON.stringify(input),'utf8');input.password=null;
       if(bytes.length>MAX_INPUT){bytes.fill(0);throw fail('input_invalid');}
+      if(pending.size||issuing){bytes.fill(0);throw fail('busy');}
+      issuing=true;
+      let desktop,childEnv;
+      try{desktop=typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.issue?await DesktopLifetimeHooks.issue('cold',input.id,nonce):null;
+        childEnv=desktop?DesktopLifetimeHooks.environment(environment(base),desktop):environment(base);
+      }catch(error){issuing=false;bytes.fill(0);throw error;}
       // No await after the final concurrent-start check until this exact child is registered.
-      if(pending.size){bytes.fill(0);throw fail('busy');}
-      let child;try{child=host.spawn(environment(base));}catch(error){bytes.fill(0);throw error;}
+      if(pending.size){issuing=false;bytes.fill(0);throw fail('busy');}
+      let child;try{child=host.spawn(childEnv);}catch(error){bytes.fill(0);throw error;}finally{issuing=false;}
       let state = 'waiting', closed = false, registering = null, claimReceipt = null, claimedAt = null;
-      let stopRequested = false, cancelRequest = null;
-      let readyResolve, readyReject, armedResolve, armedReject;
+      let stopRequested = false, cancelRequest = null, commitRequest = null;
+      let readyResolve, readyReject, armedResolve, armedReject, failureResolve;
       const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
       const armed = new Promise((resolve, reject) => { armedResolve = resolve; armedReject = reject; });
+      // Unlike ready/armed, this observation remains live after their success.
+      // It conveys only this exact child's first failure; it releases no owner.
+      const failure = new Promise(resolve => { failureResolve = resolve; });
       // A pre-handoff failure can reject armed before handoff() attaches a consumer.
       void armed.catch(() => {}); void ready.catch(() => {});
       let timer;
@@ -137,20 +147,21 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
         if (closed) return;
         closed = true;
         const failure = Object.assign(fail('claim_failed'), { cause: error });
-        readyReject(failure); armedReject(failure);
+        readyReject(failure); armedReject(failure);failureResolve(failure);
         release(); stopChild(); void forgetClaim();
       };
       const rejected = suffix => {
         if (closed) return;
         closed = true;
-        const error = fail(suffix, uncertain()); readyReject(error); armedReject(error);
+        const error = fail(suffix, uncertain()); readyReject(error); armedReject(error);failureResolve(error);
         // A commitment uncertainty never reopens parent admission. No kill/retry is
         // attempted: the child may already be obtaining the actual base owner.
         if (!uncertain()) release();
       };
       child.on('error', () => rejected('worker_launch_failed'));
       child.on('exit', () => rejected('worker_exited'));
-      child.on('disconnect', () => { if (state !== 'armed') rejected('worker_disconnected'); });
+      child.on('close', () => rejected('worker_closed'));
+      child.on('disconnect', () => rejected('worker_disconnected'));
       child.on('message', message => {
         if (closed || keys(message) !== 'id,kind,nonce,schema' || message.schema !== VERSION
           || message.id !== input.id || message.nonce !== input.nonce) return;
@@ -221,16 +232,28 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
         })();
         try { return await cancelRequest; } catch (error) { cancelRequest = null; throw error; }
       }
-      return Object.freeze({ ready, cancel,
-        async handoff() {
+      const assertArmed = () => { if(closed||state!=='armed')throw fail('handoff_invalid',uncertain()); };
+      function commit() {
+        if(commitRequest)return commitRequest;
+        commitRequest=(async()=>{
           await ready;
           if (closed || state !== 'ready') throw fail('handoff_invalid', uncertain());
           state = 'committing';
           timer = wait(host.handshakeTimeoutMs || 15_000, () => rejected('worker_arm_timeout'));
           try { await send('go'); await armed; }
-          catch { throw fail('handoff_uncertain', true); }
+          catch { rejected('handoff_uncertain');throw fail('handoff_uncertain', true); }
+          assertArmed();
+        })();
+        return commitRequest;
+      }
+      return Object.freeze({ ready, failure, cancel, commit, assertArmed,
+        async handoff() {
+          // Existing callers may commit and exit together. Setup splits them so
+          // the original bounded parent-exit wait owns infrastructure close too.
+          await commit();assertArmed();
           // exitParent is called only after the child acknowledges the irrevocable
           // commitment. It exits the process; it must never release ownership early.
+          if(desktop)await DesktopLifetimeHooks.transfer(desktop);
           await host.exitParent({ id: input.id });
         },
       });

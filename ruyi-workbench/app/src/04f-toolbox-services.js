@@ -73,6 +73,7 @@ function toolboxEntry(component) {
 
 // 起一个服务(幂等、并发互斥:同一个组件同时只有一趟在起 —— 55 波「getMcpClient 必须并发互斥防孤儿」同一条教训)。
 function startToolboxService(component) {
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
   const entry = toolboxEntry(component);
   if (entry.starting) return entry.starting;
   entry.starting = (async () => {
@@ -104,10 +105,12 @@ function startToolboxService(component) {
     if (!port) { Object.assign(entry, { state: 'failed', error: 'no-free-port' }); logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, reason: 'no-free-port' }); return entry; }
     let child = null;
     try {
+      if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
       child = cp.spawn(component.run.command, component.run.args, {
         cwd: component.run.cwd, shell: false, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'],
         env: { ...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...component.run.env, [svc.portEnv]: String(port), RUYI_TOOLBOX_PARENT_PID: String(process.pid) },
       });
+      if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
     } catch (err) {
       Object.assign(entry, { state: 'failed', error: 'spawn: ' + String(err && err.message || err).slice(0, 200) });
       logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, reason: 'spawn' });
@@ -365,6 +368,20 @@ function toolboxStatusView(config) {
 // 消费点经 04 的 ToolboxHooks 调进来(见那里的头注:本模块零入边)。
 ToolboxHooks.reconcile = reconcileToolbox;
 ToolboxHooks.stopAllSync = stopAllToolboxServicesSync;
+ToolboxHooks.stopAll = async () => {
+  const requested=new Set([...toolboxServices.values()].filter(row=>row.owned&&row.child).map(row=>row.child));
+  stopAllToolboxServicesSync();
+  await Promise.all([...toolboxServices.values()].map(row=>row.starting).filter(Boolean).map(pending=>pending.catch(error=>{
+    if(error?.code!=='work_data.maintenance_busy')throw error;
+  })));
+  // A previously admitted health probe can finish after stop. Only these existing
+  // entries are revisited; start admission remains closed and adopted services stay alive.
+  for(const [id,row] of toolboxServices){
+    if(row.owned&&row.child&&!requested.has(row.child))stopToolboxService(id);
+    if(row.owned&&row.child&&typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.awaitChild)await WorkDataMaintenanceHooks.awaitChild(row.child);
+    row.stopping=false;
+  }
+};
 ToolboxHooks.ensureForProvider = ensureToolboxServiceForProvider;
 ToolboxHooks.statusView = toolboxStatusView;
 ToolboxHooks.asrSelectionChanged = onAsrSelectionChanged;

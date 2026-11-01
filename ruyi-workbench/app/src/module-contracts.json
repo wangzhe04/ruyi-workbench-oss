@@ -23,6 +23,7 @@
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "DeliveryHooks",
+        "DesktopLifetimeHooks",
         "EventStreamHooks",
         "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
@@ -111,6 +112,7 @@
         "decodeConsoleText",
         "decodeTextFileBytes",
         "defaultDataRoots",
+        "desktopLifetimeBootstrap",
         "ensureDirs",
         "exePath",
         "exposeBundledPythonRuntime",
@@ -3403,6 +3405,20 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "desktopLifetimeBootstrap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "ensureDirs",
           "kinds": [
             "call"
@@ -3509,6 +3525,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -3891,6 +3914,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -4519,6 +4549,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5495,9 +5532,12 @@
         "kimiAcpWireOutcome",
         "kimiApi",
         "kimiBridgeState",
+        "kimiChildCloses",
         "kimiCodeHome",
         "kimiContextWindow",
         "kimiHttp",
+        "kimiHttpControllers",
+        "kimiServerClosing",
         "kimiSessionStatus",
         "kimiStatusFingerprint",
         "kimiUsageFromStatus",
@@ -5693,6 +5733,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -15211,6 +15258,7 @@
         "installIntegration",
         "killPid",
         "kimiModelList",
+        "kimiModelProbeChildren",
         "listenForWorkbenchServe",
         "listenOnNextFreePort",
         "listenOnce",
@@ -15244,7 +15292,9 @@
         "startServer",
         "startServerInner",
         "stopAllActiveTurnsSync",
+        "stopKimiModelProbes",
         "tierModelForNode",
+        "warmWorkbenchServices",
         "writeStartError"
       ],
       "requires": [
@@ -15358,6 +15408,13 @@
           "symbol": "defaultDataRoots",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -16232,6 +16289,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "killAllMcpClients",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "killChildTree",
           "kinds": [
             "call"
           ]
@@ -28153,12 +28217,32 @@
       "layer": "unclassified",
       "provides": [
         "WorkDataMaintenance",
+        "workDataAdmitHelper",
+        "workDataChildClosures",
+        "workDataCloseInfrastructure",
         "workDataDeferredAgentWakes",
+        "workDataDeferredBootWarmup",
         "workDataDeferredStewardWake",
         "workDataHelpersMayStillRun",
-        "workDataMaintenance"
+        "workDataInfrastructureCause",
+        "workDataInfrastructureFailure",
+        "workDataInfrastructureFailureSet",
+        "workDataInfrastructurePhase",
+        "workDataInfrastructureRetained",
+        "workDataInfrastructureTicket",
+        "workDataMaintenance",
+        "workDataPrepareInfrastructure",
+        "workDataResumeInfrastructure",
+        "workDataTrackChildClose"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "fs",
@@ -28349,6 +28433,13 @@
           ]
         },
         {
+          "provider": "03b-privacy-local-drive.js",
+          "symbol": "PrivacyLocalDriveProbe",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -28364,7 +28455,21 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "killAllMcpClients",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logStream",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
           "kinds": [
             "read"
           ]
@@ -28402,6 +28507,27 @@
           "symbol": "voiceLexiconChains",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiBridgeState",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiHttpControllers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "stopKimiServer",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -28476,6 +28602,13 @@
         },
         {
           "provider": "11-native-tools.js",
+          "symbol": "killAllShellSessions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
           "symbol": "shellSessions",
           "kinds": [
             "read"
@@ -28490,9 +28623,23 @@
         },
         {
           "provider": "13-http-router.js",
+          "symbol": "kimiModelProbeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
           "symbol": "proxyModelsCacheChains",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "stopKimiModelProbes",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -28788,6 +28935,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -28977,6 +29131,13 @@
         "WorkDataMaintenanceWorker"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
@@ -29176,6 +29337,13 @@
         "WorkDataMaintenanceRuntime"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "http",
@@ -30009,6 +30177,136 @@
       ]
     },
     {
+      "file": "13ax-desktop-lifetime.js",
+      "layer": "unclassified",
+      "provides": [
+        "DesktopLifetime",
+        "DesktopLifetimeDiagnostic",
+        "desktopLifetimeAdmit",
+        "desktopLifetimeClient",
+        "desktopLifetimeFailure",
+        "desktopLifetimeFailureSet",
+        "desktopLifetimeServer",
+        "desktopLifetimeStop",
+        "desktopLifetimeStopInfrastructure",
+        "desktopLifetimeStopping"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "desktopLifetimeBootstrap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataSetupHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "stopAllActiveTurnsSync",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "agentRunActionCommand",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "stopScheduler",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "13au-work-data-runtime-host.js",
       "layer": "unclassified",
       "provides": [
@@ -30216,6 +30514,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -30287,6 +30592,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "usageLedgerCacheStats",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]

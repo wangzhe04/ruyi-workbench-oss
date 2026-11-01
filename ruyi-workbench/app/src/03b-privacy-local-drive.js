@@ -32,6 +32,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
     }
   }
   function start() {
+    if(typeof host.admitHelper==='function')host.admitHelper();
     if (child) return;
     if (process.platform !== 'win32') throw error('unsupported');
     const root = process.env.SystemRoot;
@@ -42,6 +43,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
     child = owned;
+    if(typeof host.trackChild==='function')host.trackChild(owned);
     owned.stdout.setEncoding('utf8');
     owned.stdout.on('data', chunk => {
       if (child !== owned) return;

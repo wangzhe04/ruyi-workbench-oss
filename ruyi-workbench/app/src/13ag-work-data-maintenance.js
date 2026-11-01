@@ -6,7 +6,7 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
     const context = new AsyncLocalStorage(), live = new Set(), writes = new Set();
     let phase = 'open', epoch = 0, lease = null;
     const changed = () => { epoch++; if (phase === 'idle') phase = 'waiting'; };
-    const accepting = () => phase === 'open';
+    const accepting = () => phase === 'open' && host.extraAdmission?.() !== false;
     const active = () => { const token = context.getStore()?.token; return !!token && live.has(token); };
     const entered = kind => active() && context.getStore().kind === kind;
     async function run(kind, work) {
@@ -101,7 +101,9 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
 
 const workDataDeferredAgentWakes = new Map();
 let workDataDeferredStewardWake = false;
+let workDataDeferredBootWarmup = null;
 const workDataMaintenance = WorkDataMaintenance.create({
+  extraAdmission:()=>workDataInfrastructurePhase==='open'&&(typeof DesktopLifetimeHooks==='undefined'||!DesktopLifetimeHooks.canAdmit||DesktopLifetimeHooks.canAdmit()),
   owns(owner) {
     return !!owner && ([...turnSettlers.values()].includes(owner) || [...activeAgentRuns.values()].includes(owner)
       || [...shellSessions.values()].includes(owner) && owner.running === true
@@ -131,6 +133,7 @@ const workDataMaintenance = WorkDataMaintenance.create({
       index: fulltext.active + inflightSessionIndex.size + sessionIndexRebuildsActive + Number(!!pretenderIndexRuntime.building) + pretenderIndexRuntime.writers,
       shells: [...shellSessions.values()].filter(row => row.running).length,
       services: [...toolboxServices.values()].filter(row => row.starting || row.stopping).length,
+      helperRequests:Number(!!kimiBridgeState.starting)+kimiHttpControllers.size+kimiModelProbeChildren.size,
     } };
   },
   pause() {
@@ -169,22 +172,79 @@ const workDataMaintenance = WorkDataMaintenance.create({
     for (const [sessionId, reason] of workDataDeferredAgentWakes) scheduleAgentWake(sessionId, reason);
     workDataDeferredAgentWakes.clear();
     if (saved.externalWorker || externalBotWorkerAgain) externalBotWakeWorker();
+    if(workDataDeferredBootWarmup){const work=workDataDeferredBootWarmup;workDataDeferredBootWarmup=null;queueMicrotask(()=>{
+      if(workDataMaintenance.accepting())void workDataMaintenance.fresh('boot-warmup',work).catch(()=>{});
+      else workDataDeferredBootWarmup=work;
+    });}
   },
 });
 Object.assign(WorkDataMaintenanceHooks, workDataMaintenance);
+// Completion obligations belong to the existing maintenance owner. This is not a
+// process monitor: only the original ChildProcess object can create a row and only
+// its close event (or a proven no-PID spawn error) can settle it. No PID lookups.
+const workDataChildClosures=new Map(),workDataInfrastructureRetained=new Set();
+let workDataInfrastructurePhase='open',workDataInfrastructureTicket=null,workDataInfrastructureFailureSet=false,workDataInfrastructureCause;
+function workDataInfrastructureFailure(error){
+  if(!workDataInfrastructureFailureSet){workDataInfrastructureFailureSet=true;workDataInfrastructureCause=error;}
+  workDataInfrastructureRetained.add({children:workDataChildClosures,error});
+}
+function workDataTrackChildClose(child){
+  if(!child||typeof child.once!=='function'||workDataChildClosures.has(child))return child;
+  let resolve,reject;const done=new Promise((yes,no)=>{resolve=yes;reject=no;});void done.catch(()=>{});
+  workDataChildClosures.set(child,{child,done});
+  child.once('close',()=>{workDataChildClosures.delete(child);resolve();});
+  child.once('error',error=>{
+    if(!Number.isSafeInteger(child.pid)||child.pid<1){workDataChildClosures.delete(child);resolve();}
+    else{workDataInfrastructureFailure(error);reject(error);}
+  });return child;
+}
+function workDataAdmitHelper(){
+  if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet
+    ||typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.canAdmit&&DesktopLifetimeHooks.canAdmit()!==true)
+    throw Object.assign(Error('work_data.maintenance_busy'),{code:'work_data.maintenance_busy',statusCode:409});
+}
+function workDataPrepareInfrastructure({normalClose=false}={}){
+  if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_unavailable');
+  const phase=workDataMaintenance.status().phase;
+  if(phase!=='idle'&&!(normalClose&&typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.normalCloseRequested?.()===true))throw Error('work_data.maintenance_not_idle');
+  workDataInfrastructurePhase='paused';workDataInfrastructureTicket=Object.freeze({});return workDataInfrastructureTicket;
+}
+function workDataResumeInfrastructure(ticket){
+  if(ticket!==workDataInfrastructureTicket||workDataInfrastructurePhase!=='paused'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_uncertain');
+  workDataInfrastructureTicket=null;workDataInfrastructurePhase='open';
+}
+async function workDataCloseInfrastructure(ticket){
+  if(ticket!==workDataInfrastructureTicket||workDataInfrastructurePhase!=='paused'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_uncertain');
+  workDataInfrastructurePhase='closing';
+  try{
+    PrivacyLocalDriveProbe.stopSync();
+    await ToolboxHooks.stopAll();stopKimiModelProbes();await stopKimiServer({shutdown:true});
+    killAllMcpClients();killAllShellSessions();
+    while(workDataChildClosures.size)await Promise.all([...workDataChildClosures.values()].map(row=>row.done));
+    if(workDataInfrastructureFailureSet)throw workDataInfrastructureCause;
+    workDataInfrastructurePhase='closed';
+  }catch(error){workDataInfrastructureFailure(error);throw error;}
+}
 // Media owns its permanent uncertainty; maintenance only observes the existing
 // late-bound hook. Missing/uninitialized media has not created a helper.
 function workDataHelpersMayStillRun(){
+  if(workDataInfrastructureFailureSet)return true;
   try{
     if(typeof MediaImageHooks==='undefined')return false;
     const inspect=MediaImageHooks.helperMayStillRun;
     return inspect!==undefined&&(typeof inspect!=='function'||inspect.call(MediaImageHooks)!==false);
   }catch{return true;}
 }
-WorkDataMaintenanceHooks.helperMayStillRun=workDataHelpersMayStillRun;
+Object.assign(WorkDataMaintenanceHooks,{trackChild:workDataTrackChildClose,awaitChild:child=>workDataChildClosures.get(child)?.done||Promise.resolve(),
+  admitHelper:workDataAdmitHelper,prepareInfrastructure:workDataPrepareInfrastructure,resumeInfrastructure:workDataResumeInfrastructure,
+  closeInfrastructure:workDataCloseInfrastructure,helperMayStillRun:workDataHelpersMayStillRun});
 WorkDataMaintenanceHooks.deferStewardWake = () => { workDataDeferredStewardWake = true; };
+WorkDataMaintenanceHooks.deferBootWarmup = work => { if(typeof work!=='function')throw TypeError('boot warmup');workDataDeferredBootWarmup=work; };
 WorkDataMaintenanceHooks.stewardTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('steward-intake', () => stewardRunTick()) : Promise.resolve({ skipped: true });
 WorkDataMaintenanceHooks.schedulerTick = () => workDataMaintenance.accepting() ? workDataMaintenance.fresh('scheduler-tick', () => schedulerTick()) : Promise.resolve({ skipped: true });
 WorkDataMaintenanceHooks.deferWake = (sessionId, reason) => { workDataDeferredAgentWakes.set(sessionId, reason); };
 InternalMcpHooks.Hooks.run = (work, owner) => workDataMaintenance.continueOwner(owner, work);
 MemoryCliHooks.Hooks.run = (work, owner) => workDataMaintenance.continueOwner(owner, work);
+// The foundation probe already owns a late-bound host. Bind this same maintenance
+// owner here rather than creating a foundation -> bootstrap dependency cycle.
+PrivacyLocalDriveProbe.setHost({admitHelper:workDataAdmitHelper,trackChild:workDataTrackChildClose});

@@ -85,7 +85,11 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       if(holdTimer===null){try{holdTimer=clock.setInterval(()=>{void contexts;},60000);if(holdTimer&&typeof holdTimer.ref==='function')holdTimer.ref();}catch(timerError){retained.add({contexts,cause,timerError});}}
       return Object.assign(fail('source_uncertain',cause),{helperMayStillRun:true,ownershipRetained:true,operationMayHaveExecuted:true});
     };
-    function helperUnknown(){if(unknown)return true;try{if(N.helperMayStillRun()!==false){retain(undefined);return true;}return false;}catch(error){retain(error);return true;}}
+    function helperUnknown(){if(unknown)return true;try{
+      const inspect=bindings.maintenance?.helperMayStillRun;
+      if(N.helperMayStillRun()!==false||inspect!==undefined&&(typeof inspect!=='function'||inspect.call(bindings.maintenance)!==false)){retain(undefined);return true;}
+      return false;
+    }catch(error){retain(error);return true;}}
     function assertFinishSafe(){if(helperUnknown())throw Object.assign(fail('source_uncertain',unknownCause),{helperMayStillRun:true,ownershipRetained:true});return true;}
     function ensure(ctx){
       if(!ctx||ctx.finished)throw fail('source_closed');
@@ -354,11 +358,33 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
     async function withWarmSource(request,work){
       const ctx=warm;if(!ctx||!ctx.accepting||jobs.size||typeof work!=='function')throw fail('warm_job_unavailable');ensure(ctx);
       const pin=N.sourceKeeper({base:ctx.base,ownership:ctx.ownership});if(!O.isSourceKeeper(pin,ctx.ownership,ctx.base))throw retain(fail('keeper_invalid'));
-      const job={pin,committed:false,finished:false};jobs.add(job);let handle;
-      try{handle=await work();ensure(ctx);if(!handle||!handle.ready||typeof handle.ready.then!=='function'||typeof handle.cancel!=='function'||typeof handle.handoff!=='function')throw fail('worker_contract_invalid');}
+      const job={pin,committed:false,finished:false,handingOff:false};jobs.add(job);let handle,commitRequest;
+      try{handle=await work();ensure(ctx);if(!handle||!handle.ready||typeof handle.ready.then!=='function'
+        ||typeof handle.cancel!=='function'||typeof handle.handoff!=='function'||typeof handle.commit!=='function'
+        ||typeof handle.assertArmed!=='function'||typeof handle.failure?.then!=='function')throw fail('worker_contract_invalid');}
       catch(error){throw retain(error);}
       const ready=Promise.resolve(handle.ready).then(value=>{ensure(ctx);return value;});void ready.catch(()=>{});
-      return Object.freeze({ready,async cancel(){if(job.committed)throw fail('handoff_committed');if(job.finished)return;try{await handle.cancel();ensure(ctx);await pin.releaseChecked(assertFinishSafe);ensure(ctx);job.finished=true;jobs.delete(job);}catch(error){throw retain(error);}},async handoff(){if(job.finished||job.committed)throw fail('handoff_invalid');ensure(ctx);job.committed=true;try{await handle.handoff();}catch(error){throw retain(error);}throw retain(fail('parent_exit_returned'));}});
+      function commit(){
+        if(commitRequest)return commitRequest;
+        if(job.finished||job.handingOff)throw fail('handoff_invalid');
+        ensure(ctx);job.committed=true;
+        commitRequest=(async()=>{try{
+          // Keep the original live observation and receiver. After commitment,
+          // its failure retains this same source keeper even during resident close.
+          const observe=error=>{retain(error);};
+          void Promise.resolve(handle.failure).then(observe,observe).catch(()=>{});
+          await handle.commit();ensure(ctx);
+        }catch(error){throw retain(error);}})();return commitRequest;
+      }
+      return Object.freeze({ready,get failure(){try{return handle.failure;}catch(error){throw retain(error);}},commit,
+        assertArmed(){try{ensure(ctx);handle.assertArmed();ensure(ctx);}catch(error){throw retain(error);}},
+        async cancel(){if(job.committed)throw fail('handoff_committed');if(job.finished)return;try{await handle.cancel();ensure(ctx);await pin.releaseChecked(assertFinishSafe);ensure(ctx);job.finished=true;jobs.delete(job);}catch(error){throw retain(error);}},
+        async handoff(){
+          if(job.finished||job.handingOff)throw fail('handoff_invalid');ensure(ctx);
+          const committed=commit();job.handingOff=true;
+          try{await committed;ensure(ctx);handle.assertArmed();await handle.handoff();}catch(error){throw retain(error);}
+          throw retain(fail('parent_exit_returned'));
+        }});
     }
     // The fresh-root activation owner is installed once on the process hooks. Each
     // role sees only the verbs it owns: cold writes and inspects the receipt, the

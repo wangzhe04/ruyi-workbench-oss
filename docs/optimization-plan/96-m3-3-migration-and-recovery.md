@@ -1,5 +1,9 @@
 # 96 · M3-3 迁移、恢复包与启用 UI
 
+**2026-11-01 本机最新 M3 组合：** Desktop 生命周期/M3 已在真实 Main2bce 基底重建并经独审。R4 原完整 fast4667 unit（4641 PASS、26 SKIP、0 FAIL）和97 static整轮通过；R3原三失败整轮仍RED。四场景38及合成维护14/恢复26/上传20、runtime限定证据保持原R3B身份，不表示完整迁移/恢复GUI/全部family/非空/index/附件完成。当前仅交付准备，尚未集成Main，真实产品commit待补；本机Main为 E:/Claude/worktrees/steward-3x-implementation。详见[最新入口98](98-3.1-current-handoff-20261030.md)、[92 §12.56](92-3.1-implementation-handoff.md#1256--desktop-生命周期与-m3-真实-main-组合2026-11-01交付待集成)与[有限证据](evidence/m3-desktop-lifetime-20261101.json)。下方历史批次与旧首红保持原身份。
+
+
+
 **2026-10-30 WT 最新批：** 既有会话接力与定时 Playbook 基础产品批已完成有限验证，已提交 `2bb8bdebaaa2112f1b4743a3940da2bd8a7d1783`；应用版本仍为 3.0.1。原完整 fast 失败与分开静态门均如实保留，不能称完整 fast 全绿。范围、原始结果及未完成边界见 [92 §12.53](92-3.1-implementation-handoff.md) 和[有限证据](evidence/m5-workflow-20261030.json)。此前本页把这两项称为候选的导航保留为历史，不代表当前状态。
 
 

@@ -1,0 +1,2737 @@
+{
+  "schema": 1,
+  "status": "PREPARED_PENDING_ROOT_REVIEW_AND_MAIN_INTEGRATION",
+  "createdAt": "2026-11-01T05:18:12.326Z",
+  "productCommitSha": null,
+  "productCommitStatus": "UNKNOWN_PENDING_REAL_COMMIT",
+  "mainBaseline": {
+    "head": "2bce9e86ec75559ad038b007efe0c1ca54c2e53a",
+    "branch": "codex/3.1-completion-plan",
+    "status": "",
+    "indexSha256": "70f30d25591fbedd9d4ed93d7580bc905e08086d1a3d9857bff9df4fcb5cc28e"
+  },
+  "candidate": {
+    "sourceTree": "cd46c0c96c175b953214e5df7e2a3da76452bc48",
+    "freezeSha256": "6c5444a1f158e8f4f744328682658e5a9deeff8cfd7aa15a3966d40754d35c9b",
+    "files": 11834,
+    "rawBytes": 258749012
+  },
+  "sourceDeltaSummary": {
+    "files": 39,
+    "addedFiles": 7,
+    "removedFiles": 0,
+    "groups": {
+      "generated-inventory-and-readme": {
+        "files": 7,
+        "added": 494,
+        "removed": 49,
+        "paths": [
+          {
+            "file": "README.md",
+            "added": 3,
+            "removed": 3
+          },
+          {
+            "file": "README_EN.md",
+            "added": 3,
+            "removed": 3
+          },
+          {
+            "file": "docs/architecture/module-dependency-graph.json",
+            "added": 438,
+            "removed": 8
+          },
+          {
+            "file": "docs/architecture/module-dependency-graph.md",
+            "added": 39,
+            "removed": 27
+          },
+          {
+            "file": "docs/architecture/route-inventory.json",
+            "added": 4,
+            "removed": 1
+          },
+          {
+            "file": "docs/architecture/route-inventory.md",
+            "added": 4,
+            "removed": 4
+          },
+          {
+            "file": "facts.json",
+            "added": 3,
+            "removed": 3
+          }
+        ]
+      },
+      "harness-tests-fixtures": {
+        "files": 11,
+        "added": 928,
+        "removed": 9,
+        "paths": [
+          {
+            "file": "dev-harness/desktop-lifetime.e2e.js",
+            "added": 68,
+            "removed": 0
+          },
+          {
+            "file": "dev-harness/fixtures/desktop-lifetime-probe.cs",
+            "added": 34,
+            "removed": 0
+          },
+          {
+            "file": "dev-harness/lib/audit-log-fixture.js",
+            "added": 9,
+            "removed": 2
+          },
+          {
+            "file": "dev-harness/run-all.js",
+            "added": 1,
+            "removed": 0
+          },
+          {
+            "file": "dev-harness/unit/agent-cli-registry.test.js",
+            "added": 8,
+            "removed": 1
+          },
+          {
+            "file": "dev-harness/unit/audit-log-work-data.test.js",
+            "added": 25,
+            "removed": 0
+          },
+          {
+            "file": "dev-harness/unit/desktop-isolation.test.js",
+            "added": 1,
+            "removed": 1
+          },
+          {
+            "file": "dev-harness/unit/desktop-lifetime-pure.test.js",
+            "added": 444,
+            "removed": 0
+          },
+          {
+            "file": "dev-harness/unit/desktop-owned-kill-pure.test.js",
+            "added": 222,
+            "removed": 0
+          },
+          {
+            "file": "dev-harness/unit/work-data-maintenance.test.js",
+            "added": 6,
+            "removed": 5
+          },
+          {
+            "file": "dev-harness/unit/work-data-warm-worker-contract-pure.test.js",
+            "added": 110,
+            "removed": 0
+          }
+        ]
+      },
+      "generated-server": {
+        "files": 1,
+        "added": 494,
+        "removed": 69,
+        "paths": [
+          {
+            "file": "ruyi-workbench/app/server.js",
+            "added": 494,
+            "removed": 69
+          }
+        ]
+      },
+      "manual-app-src-js": {
+        "files": 15,
+        "added": 493,
+        "removed": 69,
+        "paths": [
+          {
+            "file": "ruyi-workbench/app/src/00-boot.js",
+            "added": 10,
+            "removed": 0
+          },
+          {
+            "file": "ruyi-workbench/app/src/03b-privacy-local-drive.js",
+            "added": 2,
+            "removed": 0
+          },
+          {
+            "file": "ruyi-workbench/app/src/04-permission-runtime.js",
+            "added": 16,
+            "removed": 0
+          },
+          {
+            "file": "ruyi-workbench/app/src/04f-toolbox-services.js",
+            "added": 17,
+            "removed": 0
+          },
+          {
+            "file": "ruyi-workbench/app/src/05-claude-engine.js",
+            "added": 2,
+            "removed": 0
+          },
+          {
+            "file": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+            "added": 37,
+            "removed": 14
+          },
+          {
+            "file": "ruyi-workbench/app/src/11-native-tools.js",
+            "added": 2,
+            "removed": 0
+          },
+          {
+            "file": "ruyi-workbench/app/src/13-http-router.js",
+            "added": 29,
+            "removed": 25
+          },
+          {
+            "file": "ruyi-workbench/app/src/13ag-work-data-maintenance.js",
+            "added": 62,
+            "removed": 2
+          },
+          {
+            "file": "ruyi-workbench/app/src/13ah-work-data-setup.js",
+            "added": 46,
+            "removed": 9
+          },
+          {
+            "file": "ruyi-workbench/app/src/13ai-work-data-worker.js",
+            "added": 36,
+            "removed": 13
+          },
+          {
+            "file": "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+            "added": 5,
+            "removed": 2
+          },
+          {
+            "file": "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+            "added": 30,
+            "removed": 4
+          },
+          {
+            "file": "ruyi-workbench/app/src/13ax-desktop-lifetime.js",
+            "added": 195,
+            "removed": 0
+          },
+          {
+            "file": "ruyi-workbench/app/src/14-main.js",
+            "added": 4,
+            "removed": 0
+          }
+        ]
+      },
+      "generated-app-src-manifests": {
+        "files": 2,
+        "added": 580,
+        "removed": 262,
+        "paths": [
+          {
+            "file": "ruyi-workbench/app/src/manifest.json",
+            "added": 267,
+            "removed": 261
+          },
+          {
+            "file": "ruyi-workbench/app/src/module-contracts.json",
+            "added": 313,
+            "removed": 1
+          }
+        ]
+      },
+      "desktop-source-build": {
+        "files": 3,
+        "added": 457,
+        "removed": 107,
+        "paths": [
+          {
+            "file": "ruyi-workbench/desktop/DesktopLifetimeHost.cs",
+            "added": 412,
+            "removed": 0
+          },
+          {
+            "file": "ruyi-workbench/desktop/RuyiDesktop.cs",
+            "added": 44,
+            "removed": 106
+          },
+          {
+            "file": "ruyi-workbench/desktop/build-desktop.ps1",
+            "added": 1,
+            "removed": 1
+          }
+        ]
+      }
+    }
+  },
+  "standard": {
+    "r4": "PASS 4667/4641/0/26 unit; static97/97/0flaky;7liveSkip",
+    "r3": "PERMANENT RED 4665/4636/3/26;static97notStarted",
+    "independentReviewSource": "m3/review-final-standard/STANDARD-GATE-REVIEW.json"
+  },
+  "native": "R3B original scoped receipts retained; R4 reference limited to individually unchanged execution inputs, no relabelled execution",
+  "parallel": {
+    "c2": "R2full9RED:5casesPassed,case6poolFenceFail,3notRun;noProductPromotion",
+    "m4": "R2sourceAliasP2,noActual;R3repairPendingReview;noProductPromotion"
+  },
+  "metadataIndex": {
+    "status": "HASH_AND_SEMANTIC_ROWS_ONLY_NO_PRIVATE_INDEX_PAYLOAD",
+    "sourceTree": "cd46c0c96c175b953214e5df7e2a3da76452bc48",
+    "semanticFiles": {
+      "casSource": "m3/r4-source/SOURCE-FREEZE.json",
+      "field": "files",
+      "count": 11834,
+      "fields": [
+        "file",
+        "mode",
+        "blob"
+      ]
+    },
+    "indices": [
+      {
+        "sourceOrigin": "E:/Claude/m3-standard-repair-r4-20261101/default-index-before.bin",
+        "bytes": 2115212,
+        "sha256": "7ed8e5cb8ab903b783e1fd16034f5f5e09a420333fab1d700bcf1985d61e0bb5"
+      },
+      {
+        "sourceOrigin": "E:/Claude/m3-standard-repair-r4-20261101/default-index-after.bin",
+        "bytes": 2115126,
+        "sha256": "3962b77b6af5ec39e8c1250b2d3579c6a1744b6820f3d4a09061fe0e1c47f0a4"
+      },
+      {
+        "sourceOrigin": "E:/Claude/m3-standard-repair-r4-20261101/current-candidate.index",
+        "bytes": 2115212,
+        "sha256": "7e661fca7284826f304332a566e499f569b9253b2eaa760b33f90700d54951b5"
+      }
+    ],
+    "note": "Private index payload deliberately excluded; default/private semantic rows independently match freeze."
+  },
+  "dependencies": [
+    {
+      "file": "docs/optimization-plan/evidence/m4-final-batch-20261030.json",
+      "sha256": "005a07aaf423343fe8c44589721ad6ef52650ccd8d23d506c2164c85d97c9f2b",
+      "scope": "Existing committed finite CAS for earlier M4 R7/R8 and C2 R4/R5/R6 histories; retain original reds and dependency identities. Payload/transitive refs not recopied."
+    }
+  ],
+  "recovery": {
+    "baseline": "2bce9e86ec75559ad038b007efe0c1ca54c2e53a",
+    "sourceDeltaRole": "source-delta",
+    "overlayRole": "metadata-overlay",
+    "packedThenBoundedGunzipThenRawVerification": true,
+    "oldAbsolutePathsProvenanceOnlyNeverExecute": true,
+    "privateIndexPayloadIncluded": false,
+    "notAllRuntimeOrHistoricalTransitivesIncluded": true
+  },
+  "entries": [
+    {
+      "role": "source-delta",
+      "source": "README.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/README.md",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "a2207683b7db7f8768e9ad455b04f73a48f497354f770b59cfcaa761da703cf0",
+      "bytes": 65304,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a2207683b7db7f8768e9ad455b04f73a48f497354f770b59cfcaa761da703cf0.gz",
+      "packedSha256": "9405a4d65eaaca6e747ec12a264432192cb1233a7dc4af8b87e8dced7116e283",
+      "packedBytes": 30027
+    },
+    {
+      "role": "source-delta",
+      "source": "README_EN.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/README_EN.md",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "e04070ef2348499764ce012c4b1beef52794187de46ff2f52e37d2da5f89a956",
+      "bytes": 72352,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e04070ef2348499764ce012c4b1beef52794187de46ff2f52e37d2da5f89a956.gz",
+      "packedSha256": "0773bb6409274634932175d6864c94a184ee59fbfc692a55d0053564eb84b19b",
+      "packedBytes": 28100
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/desktop-lifetime.e2e.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/desktop-lifetime.e2e.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "742e1c4bb1e7df5e03ce06bcedc8f7a0177f9ce13a8a7c1b2e9df717e0086d3d",
+      "bytes": 8821,
+      "blob": "m3-desktop-lifetime-20261101/blobs/742e1c4bb1e7df5e03ce06bcedc8f7a0177f9ce13a8a7c1b2e9df717e0086d3d.gz",
+      "packedSha256": "6021f4fd27e18b186aee4332c8cc4356e86c91f4f1809b59b372ee2445f1b328",
+      "packedBytes": 3706
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/fixtures/desktop-lifetime-probe.cs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/fixtures/desktop-lifetime-probe.cs",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "72d3936d66bdaa8df1abe73eba7b77db6456450a220a9a37f010393db12d4007",
+      "bytes": 2325,
+      "blob": "m3-desktop-lifetime-20261101/blobs/72d3936d66bdaa8df1abe73eba7b77db6456450a220a9a37f010393db12d4007.gz",
+      "packedSha256": "a9ef86049b62183d26a703e7a375e08a485e644c64b332221f7bdc0bb57a5d09",
+      "packedBytes": 980
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/lib/audit-log-fixture.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/lib/audit-log-fixture.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "ad0bc5278ae6e407b84ee1bc0ad427972220d330fd9d720f0258889ed81eefc5",
+      "bytes": 5383,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ad0bc5278ae6e407b84ee1bc0ad427972220d330fd9d720f0258889ed81eefc5.gz",
+      "packedSha256": "44429f966e2cdd0dd5e9d3a804ed977440dfa7ae0ad1c8611a2923bcc2fe7f3c",
+      "packedBytes": 2223
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/run-all.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/run-all.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "147ecfbfebd8b26150be48e4ab4f9cac33656cb6f2b8f354a3de85234fbb6157",
+      "bytes": 50959,
+      "blob": "m3-desktop-lifetime-20261101/blobs/147ecfbfebd8b26150be48e4ab4f9cac33656cb6f2b8f354a3de85234fbb6157.gz",
+      "packedSha256": "8cd2ee2f7be2f491324ad5ebb2e7ebc6d5acae900503511444338c53e2bde312",
+      "packedBytes": 21745
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/unit/agent-cli-registry.test.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/unit/agent-cli-registry.test.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "49fb9fb592f76db5a00e41200121cf687a4862e005dc204d98fdf5d7fe52ff2a",
+      "bytes": 18552,
+      "blob": "m3-desktop-lifetime-20261101/blobs/49fb9fb592f76db5a00e41200121cf687a4862e005dc204d98fdf5d7fe52ff2a.gz",
+      "packedSha256": "92e109df9a4121e8ba09cf2705345f20e7dee238ea438d2d3a5ef3b9da36930f",
+      "packedBytes": 6289
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/unit/audit-log-work-data.test.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/unit/audit-log-work-data.test.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "aae70095e0be13019ab09099c46ed0bbfdd7130526da8f213a6f5e953cb31f7f",
+      "bytes": 24012,
+      "blob": "m3-desktop-lifetime-20261101/blobs/aae70095e0be13019ab09099c46ed0bbfdd7130526da8f213a6f5e953cb31f7f.gz",
+      "packedSha256": "71a187af4bc24d2d685b498b070c04694d1a300e777af22f28458b9e33d7209a",
+      "packedBytes": 5269
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/unit/desktop-isolation.test.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/unit/desktop-isolation.test.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "f5aa96aefd4cab5e827f8752fe9012609aa730b49658c10eeb16ee72c58cd420",
+      "bytes": 4122,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f5aa96aefd4cab5e827f8752fe9012609aa730b49658c10eeb16ee72c58cd420.gz",
+      "packedSha256": "f10d51e43558d94108893f4343ffea0dee0d23009b0c7d0314ce215bc0ee2a30",
+      "packedBytes": 1691
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/unit/desktop-lifetime-pure.test.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/unit/desktop-lifetime-pure.test.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "a01809133dd1b82b8d21b006aa697427e6e17bf7a309164e5346bf564fa4fc46",
+      "bytes": 45373,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a01809133dd1b82b8d21b006aa697427e6e17bf7a309164e5346bf564fa4fc46.gz",
+      "packedSha256": "f95a8ea9893e15dd7dff37c62cd35a8bc3775ae69c254a23e8949cc27f61a153",
+      "packedBytes": 12496
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/unit/desktop-owned-kill-pure.test.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/unit/desktop-owned-kill-pure.test.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "555ec92612321d570e815b1b4e2c809ce2eb705dc29bcf942c515c2451e4d6f6",
+      "bytes": 10995,
+      "blob": "m3-desktop-lifetime-20261101/blobs/555ec92612321d570e815b1b4e2c809ce2eb705dc29bcf942c515c2451e4d6f6.gz",
+      "packedSha256": "c85a90eb8a64da593564ed0f26a7e10fa527c794c31b9b03c36032ae7a6b8eb5",
+      "packedBytes": 3422
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/unit/work-data-maintenance.test.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/unit/work-data-maintenance.test.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "dde538676c42634f3c44e65cd61b80698e4ee6ccc80ea025d86cc9bd50984dbe",
+      "bytes": 15433,
+      "blob": "m3-desktop-lifetime-20261101/blobs/dde538676c42634f3c44e65cd61b80698e4ee6ccc80ea025d86cc9bd50984dbe.gz",
+      "packedSha256": "cfa29f91f4c37d1fa950db83b9232e89f670e2ae0e7b8c91ae71e3ba02b7af7a",
+      "packedBytes": 4658
+    },
+    {
+      "role": "source-delta",
+      "source": "dev-harness/unit/work-data-warm-worker-contract-pure.test.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/dev-harness/unit/work-data-warm-worker-contract-pure.test.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "57ae678831ec0544994f8d55d9e4a42bf84bde9d9f2b256b530801e19a9a41ce",
+      "bytes": 10910,
+      "blob": "m3-desktop-lifetime-20261101/blobs/57ae678831ec0544994f8d55d9e4a42bf84bde9d9f2b256b530801e19a9a41ce.gz",
+      "packedSha256": "588b8ab6e8efeab3311ba076cd8b001c1e0c9363e1314a6a6d4b46fbe91b545b",
+      "packedBytes": 3418
+    },
+    {
+      "role": "source-delta",
+      "source": "docs/architecture/module-dependency-graph.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/docs/architecture/module-dependency-graph.json",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "e766944e8daf5284e53543c8ceac6277c20606bdcd82f5617efa346e9a683f03",
+      "bytes": 1119480,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e766944e8daf5284e53543c8ceac6277c20606bdcd82f5617efa346e9a683f03.gz",
+      "packedSha256": "c8d8c9d86c3f650520f0793db419b107a74dc5f3c4874017ef076f4c939e0a92",
+      "packedBytes": 121104
+    },
+    {
+      "role": "source-delta",
+      "source": "docs/architecture/module-dependency-graph.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/docs/architecture/module-dependency-graph.md",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "3d6f8b4ef2cc24e26c1d4c9ff702b0eab4ee614b18b7950663d529a46fe97e2a",
+      "bytes": 158674,
+      "blob": "m3-desktop-lifetime-20261101/blobs/3d6f8b4ef2cc24e26c1d4c9ff702b0eab4ee614b18b7950663d529a46fe97e2a.gz",
+      "packedSha256": "1262cf441be37ae9095bbb49ac89aaf8e30c1fc0553e9c89794a64b99f497913",
+      "packedBytes": 30591
+    },
+    {
+      "role": "source-delta",
+      "source": "docs/architecture/route-inventory.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/docs/architecture/route-inventory.json",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "5487cec23cf0dfe4bd127f9353a4b173fc08167af1bb6fc2d30d1ace89798ca9",
+      "bytes": 232810,
+      "blob": "m3-desktop-lifetime-20261101/blobs/5487cec23cf0dfe4bd127f9353a4b173fc08167af1bb6fc2d30d1ace89798ca9.gz",
+      "packedSha256": "ca7b00d1bc4bdff43780f120f7b4db2f95a57efbacd73256b79e14ecad3ed6a2",
+      "packedBytes": 14863
+    },
+    {
+      "role": "source-delta",
+      "source": "docs/architecture/route-inventory.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/docs/architecture/route-inventory.md",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "50cbddb5334b4a15508ef40cdb7d8b2204eaf5997411c4404b70b958dc3cd69a",
+      "bytes": 39109,
+      "blob": "m3-desktop-lifetime-20261101/blobs/50cbddb5334b4a15508ef40cdb7d8b2204eaf5997411c4404b70b958dc3cd69a.gz",
+      "packedSha256": "c7726db2f5d3e5aab955b62a7f3fec3d9f0f97c98190b988000b5b4f1b34a6fc",
+      "packedBytes": 5251
+    },
+    {
+      "role": "source-delta",
+      "source": "facts.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/facts.json",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "73375e1f02fe6250d7d1fed3a5c64e27a5687e1f7ae5c79e06703dd11feb4f5a",
+      "bytes": 1335,
+      "blob": "m3-desktop-lifetime-20261101/blobs/73375e1f02fe6250d7d1fed3a5c64e27a5687e1f7ae5c79e06703dd11feb4f5a.gz",
+      "packedSha256": "3767b088f6dd9c375e0a3f3d59f6a3abcb27daa2cf420ab49f50b57faa596693",
+      "packedBytes": 947
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/server.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/server.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "f645669bbe5f4f5556096d00ad81308ef61a77f84a9802d00927d73f1536f6b2",
+      "bytes": 8363253,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f645669bbe5f4f5556096d00ad81308ef61a77f84a9802d00927d73f1536f6b2.gz",
+      "packedSha256": "f4e2383dcdfa6c5212de6e6f663f52704cf4001ba0c8194cc6ac787e56eec624",
+      "packedBytes": 2777564
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/00-boot.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/00-boot.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "365461edc8197af993f656f0f2e6d7f7c165b89d76d62c11225cff521815c156",
+      "bytes": 108378,
+      "blob": "m3-desktop-lifetime-20261101/blobs/365461edc8197af993f656f0f2e6d7f7c165b89d76d62c11225cff521815c156.gz",
+      "packedSha256": "d04c044d4a24203958f250a09c0e36bdc1d9e0917ed6290a0a6c878cdf0384c0",
+      "packedBytes": 42362
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/03b-privacy-local-drive.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/03b-privacy-local-drive.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "ebde94c416a7149b185da3e856e25242b27a03386f7c802bc9db0a9bf63c284b",
+      "bytes": 5985,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ebde94c416a7149b185da3e856e25242b27a03386f7c802bc9db0a9bf63c284b.gz",
+      "packedSha256": "3a98b0433e9f6c0781bba3c3e04ab4b923c0d4c165ca0c71d3346ac4b37b0bd0",
+      "packedBytes": 2254
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/04-permission-runtime.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/04-permission-runtime.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "11a9e881ae744630f01bd0b6f6a9582725585216791b4750192847e19491d0b9",
+      "bytes": 222973,
+      "blob": "m3-desktop-lifetime-20261101/blobs/11a9e881ae744630f01bd0b6f6a9582725585216791b4750192847e19491d0b9.gz",
+      "packedSha256": "8183fa895a4378439de5a5863cf385698ec0fd37bab59b243ecf7f12a45ded88",
+      "packedBytes": 78553
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/04f-toolbox-services.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/04f-toolbox-services.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "ecd1fc70e18dcec845c923da911000146f94273e98321dee0c9d4e16591b352f",
+      "bytes": 27325,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ecd1fc70e18dcec845c923da911000146f94273e98321dee0c9d4e16591b352f.gz",
+      "packedSha256": "ad3cb284c36f07d698485d8277ccd5b6e2b875829322f21d85bc362ff436fa45",
+      "packedBytes": 10278
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/05-claude-engine.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/05-claude-engine.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "e8864a02d1e8dcd79a3d13143e897177d31ffea1372617b4e6fb0bcb6ca306ff",
+      "bytes": 186155,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e8864a02d1e8dcd79a3d13143e897177d31ffea1372617b4e6fb0bcb6ca306ff.gz",
+      "packedSha256": "eb67439550db5aee71a1515b841323d3e5693d08769263e22cab761e1a1478c1",
+      "packedBytes": 67495
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/05b-kimi-bridge.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "f446a57ae79c34c9c87396add9492ace339e5bf52fef606af2f7517b6472b853",
+      "bytes": 174383,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f446a57ae79c34c9c87396add9492ace339e5bf52fef606af2f7517b6472b853.gz",
+      "packedSha256": "3564ceeb38b8dad87a195c37e6d59e795dc9a878f3237d865edad4a6a0b7a228",
+      "packedBytes": 48939
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/11-native-tools.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/11-native-tools.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "5798d0e52cb113c2db9383d957d676899a90c558ae3bf8cee1ad124216b3bc98",
+      "bytes": 398588,
+      "blob": "m3-desktop-lifetime-20261101/blobs/5798d0e52cb113c2db9383d957d676899a90c558ae3bf8cee1ad124216b3bc98.gz",
+      "packedSha256": "752bc6a7217c14842b0a7335037a44847b3b2680cad56576a36b2c90c3e510c2",
+      "packedBytes": 144831
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/13-http-router.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/13-http-router.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "02b8a9267e9a19f025aec3b9124510189ea609d844f3865da6f1c69df0f4db91",
+      "bytes": 195088,
+      "blob": "m3-desktop-lifetime-20261101/blobs/02b8a9267e9a19f025aec3b9124510189ea609d844f3865da6f1c69df0f4db91.gz",
+      "packedSha256": "524802c12eb0791d6b6a599ce5c93f28a14e2a33c3ee353ae6eb49e7315ad7c0",
+      "packedBytes": 69956
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/13ag-work-data-maintenance.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/13ag-work-data-maintenance.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "709958720541312706388ef7077d3d745ef85531411abb7e09ed031677dfa843",
+      "bytes": 18168,
+      "blob": "m3-desktop-lifetime-20261101/blobs/709958720541312706388ef7077d3d745ef85531411abb7e09ed031677dfa843.gz",
+      "packedSha256": "17e73557d20d2da60dc834bce74872fee9d1d31f536f1e2ed029b5dbd10715c2",
+      "packedBytes": 5216
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/13ah-work-data-setup.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/13ah-work-data-setup.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "c9ac18212aed5f1da1c20fbe7af440ad1ff97ab7bd64e3c4d87dfd283246b5c9",
+      "bytes": 30227,
+      "blob": "m3-desktop-lifetime-20261101/blobs/c9ac18212aed5f1da1c20fbe7af440ad1ff97ab7bd64e3c4d87dfd283246b5c9.gz",
+      "packedSha256": "29b4d050fa88c3c8215f8819428610617c16875e047be87f4f8c0bf1754170fa",
+      "packedBytes": 8981
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/13ai-work-data-worker.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/13ai-work-data-worker.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "f8d20ac66714481c9dc837fcd418ccd839a8900ced81f344ae675591a4034171",
+      "bytes": 28546,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f8d20ac66714481c9dc837fcd418ccd839a8900ced81f344ae675591a4034171.gz",
+      "packedSha256": "ea9a8761f931e2ae4d49f6d05b769fae2daf7294f6f150ecc73929229cd5418c",
+      "packedBytes": 8383
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "cbdfc6e3812fce4487510fe4c4f6a3145a53afa608a5c5f143fd30e044b666a8",
+      "bytes": 45508,
+      "blob": "m3-desktop-lifetime-20261101/blobs/cbdfc6e3812fce4487510fe4c4f6a3145a53afa608a5c5f143fd30e044b666a8.gz",
+      "packedSha256": "9361be913b0b3b5280f224f18b7f0dcae5dc029747d0c914319550127d587e90",
+      "packedBytes": 12395
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/13au-work-data-runtime-host.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "38e8e578a1da12b20c37f982f89f9188de47697df7a272b5d624e2f1541ff784",
+      "bytes": 70471,
+      "blob": "m3-desktop-lifetime-20261101/blobs/38e8e578a1da12b20c37f982f89f9188de47697df7a272b5d624e2f1541ff784.gz",
+      "packedSha256": "0e00de4f2c6aecb44545d0878b3abae07912f5e6004a6dad0080c531f4b2db8d",
+      "packedBytes": 18794
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/13ax-desktop-lifetime.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/13ax-desktop-lifetime.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "75e8044e5d96f224486660b585fc69a8555e1021bb439d263e52a90471f9000d",
+      "bytes": 14251,
+      "blob": "m3-desktop-lifetime-20261101/blobs/75e8044e5d96f224486660b585fc69a8555e1021bb439d263e52a90471f9000d.gz",
+      "packedSha256": "6ce9b5300480c86d4223ca3d74862cb6658286487c66ea16299f69158062c566",
+      "packedBytes": 4508
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/14-main.js",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/14-main.js",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "06ecc615081698874e241548a16c2c351a67caa39387bff82a7f527b109162f1",
+      "bytes": 50294,
+      "blob": "m3-desktop-lifetime-20261101/blobs/06ecc615081698874e241548a16c2c351a67caa39387bff82a7f527b109162f1.gz",
+      "packedSha256": "108ddc1a5c2ac7d5e912cd797aa197bfe73028f26e583bcc689a03f9bb80d8f1",
+      "packedBytes": 20566
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/manifest.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/manifest.json",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "d4fa3b8b29c95af4430d64978a2a0ddd04ac478ff5916c301e30d971438656dc",
+      "bytes": 37758,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d4fa3b8b29c95af4430d64978a2a0ddd04ac478ff5916c301e30d971438656dc.gz",
+      "packedSha256": "69606e2b0527888ad625ee7c9134b724f11a34ab80243537508b71bb22720aab",
+      "packedBytes": 13502
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/app/src/module-contracts.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/app/src/module-contracts.json",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "efaa2481cfce6bc71b0946c6a116fd46f0ab994c63bf7363ec26e77160b86c79",
+      "bytes": 823609,
+      "blob": "m3-desktop-lifetime-20261101/blobs/efaa2481cfce6bc71b0946c6a116fd46f0ab994c63bf7363ec26e77160b86c79.gz",
+      "packedSha256": "e58108465bc604c86b30d8aec73dbe8a0518061ae8a72b5ed77e75a8f3f29afb",
+      "packedBytes": 74521
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/desktop/DesktopLifetimeHost.cs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/desktop/DesktopLifetimeHost.cs",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "0f20d18916dee0915a6794954ecb0e621e9ae141d372cedf5c6d24a109792235",
+      "bytes": 33298,
+      "blob": "m3-desktop-lifetime-20261101/blobs/0f20d18916dee0915a6794954ecb0e621e9ae141d372cedf5c6d24a109792235.gz",
+      "packedSha256": "c8b157076f050639451f95eb5e07bc2ff6cd460669b5b587f03221e2397da798",
+      "packedBytes": 9220
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/desktop/RuyiDesktop.cs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/desktop/RuyiDesktop.cs",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "6fab94bb9603177e7ce623b2e0a66ff3bd6c79fa1a4a92da45050d32c95b65f8",
+      "bytes": 86848,
+      "blob": "m3-desktop-lifetime-20261101/blobs/6fab94bb9603177e7ce623b2e0a66ff3bd6c79fa1a4a92da45050d32c95b65f8.gz",
+      "packedSha256": "298b46431b8a6e2284d7b5e8fa45bf606b864614f1e9105ff95bf8e39b5e9f64",
+      "packedBytes": 25016
+    },
+    {
+      "role": "source-delta",
+      "source": "ruyi-workbench/desktop/build-desktop.ps1",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/worktrees/m3-standard-repair-r4-20261101/ruyi-workbench/desktop/build-desktop.ps1",
+        "kind": "reviewed-candidate-source"
+      },
+      "sha256": "e961299de5e91b85d69439390c60baad646bca824f2a3207bbfe231389bfcdfd",
+      "bytes": 2030,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e961299de5e91b85d69439390c60baad646bca824f2a3207bbfe231389bfcdfd.gz",
+      "packedSha256": "0ddfaaaf4082e625d2944ada5dbaa2bd3333aca776655d10d6361bfc735a50c7",
+      "packedBytes": 954
+    },
+    {
+      "role": "m3-reconstruction-provenance",
+      "source": "m3/reconstruction/HISTORICAL-CHAIN.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-recovery-20261101/HISTORICAL-CHAIN.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "68cc83e33d86a4ac62bb82e603bc23ac08d6c7c8d8f5b3a23c4ae06c33f566b6",
+      "bytes": 907,
+      "blob": "m3-desktop-lifetime-20261101/blobs/68cc83e33d86a4ac62bb82e603bc23ac08d6c7c8d8f5b3a23c4ae06c33f566b6.gz",
+      "packedSha256": "cb1eef8326e420b58b8670c02aa35dc5653e43330e051b5cae9d60736a4b453c",
+      "packedBytes": 457
+    },
+    {
+      "role": "m3-reconstruction-provenance",
+      "source": "m3/reconstruction/THREE-WAY-ALIGNMENT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-recovery-20261101/THREE-WAY-ALIGNMENT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e11cce5377b7bf770a447ac675621fb21188ee27b1385af3310df2f9ca97d961",
+      "bytes": 17513,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e11cce5377b7bf770a447ac675621fb21188ee27b1385af3310df2f9ca97d961.gz",
+      "packedSha256": "5d3d597cd5815386e1014cb1e36bec470268dcefacbf0d1b11b163d292c510d3",
+      "packedBytes": 4119
+    },
+    {
+      "role": "m3-reconstruction-provenance",
+      "source": "m3/reconstruction/MANUAL-RESOLUTION.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-recovery-20261101/MANUAL-RESOLUTION.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "8356d145757f56e807fc275fa5f4b228c38ca558162c5b8fe3cc34105038fb3f",
+      "bytes": 471,
+      "blob": "m3-desktop-lifetime-20261101/blobs/8356d145757f56e807fc275fa5f4b228c38ca558162c5b8fe3cc34105038fb3f.gz",
+      "packedSha256": "5657530e85c5ea4c9fe28c59594fe56635d30cd2cde117a70f96bc83d34073af",
+      "packedBytes": 323
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-reconstruction/REPORT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-independent-review-20261101/REPORT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "7c41f26080450fd0d32c5b72f8775dc3330cad845787c0cf20bcce668983df98",
+      "bytes": 5673,
+      "blob": "m3-desktop-lifetime-20261101/blobs/7c41f26080450fd0d32c5b72f8775dc3330cad845787c0cf20bcce668983df98.gz",
+      "packedSha256": "44e54b395f7458b9e04260c074adb968a2a7cb69262adc1cc8c917f011f46f43",
+      "packedBytes": 2731
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-eol-r2/REPORT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-independent-review-eol-r2-20261101/REPORT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "df14c22afaad11f0408907b78f19c649c18683f340e84cc335b78ca8d2356706",
+      "bytes": 17519,
+      "blob": "m3-desktop-lifetime-20261101/blobs/df14c22afaad11f0408907b78f19c649c18683f340e84cc335b78ca8d2356706.gz",
+      "packedSha256": "7898a2b2a2bf51e26dbb070fd9a0f4da85f517a08b2a1b01f39a8d2217cba992",
+      "packedBytes": 6526
+    },
+    {
+      "role": "m3-first-red-diagnostic",
+      "source": "m3/maintenance-r2-diagnostic/REPORT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-red-review-20261101/REPORT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "267d5963a46953c3fc18d7faf8a75e593ff72aa7024bd4878704c6236c4b2afd",
+      "bytes": 17327,
+      "blob": "m3-desktop-lifetime-20261101/blobs/267d5963a46953c3fc18d7faf8a75e593ff72aa7024bd4878704c6236c4b2afd.gz",
+      "packedSha256": "3016d813559e5f00221e83c0203073759050dafe647f2b9210785b35ea934bcd",
+      "packedBytes": 5832
+    },
+    {
+      "role": "m3-first-red-diagnostic",
+      "source": "m3/maintenance-r2-diagnostic/reproduce.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-red-review-20261101/reproduce.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "16d57b9c968df6145366693b23cc89563945fed4ecdad78646404cc0e167cf31",
+      "bytes": 7049,
+      "blob": "m3-desktop-lifetime-20261101/blobs/16d57b9c968df6145366693b23cc89563945fed4ecdad78646404cc0e167cf31.gz",
+      "packedSha256": "74d6dfcbaea47cc7b4c3e9f0d4ff45924f33232a96f1490320e02b6436ef5dea",
+      "packedBytes": 2824
+    },
+    {
+      "role": "m3-first-red-diagnostic",
+      "source": "m3/maintenance-r2-diagnostic/PURE-RESULT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-red-review-20261101/PURE-RESULT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "2da1656072fdb4b6570442b03c8c3fb3bec82baaf98cf1f6af469207adc18d68",
+      "bytes": 3719,
+      "blob": "m3-desktop-lifetime-20261101/blobs/2da1656072fdb4b6570442b03c8c3fb3bec82baaf98cf1f6af469207adc18d68.gz",
+      "packedSha256": "71df888e13fe9c0833d90367da8dae52bece69bf750494a1ead3048dc7371748",
+      "packedBytes": 931
+    },
+    {
+      "role": "m3-first-red-readonly-followup",
+      "source": "m3/maintenance-r2-readonly-get/identity.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-readonly-get-20261101/identity.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "8de27f2b8a58c48175aa6dd21246806c8c2b10ba2e501de609192a00f9efe7ae",
+      "bytes": 507,
+      "blob": "m3-desktop-lifetime-20261101/blobs/8de27f2b8a58c48175aa6dd21246806c8c2b10ba2e501de609192a00f9efe7ae.gz",
+      "packedSha256": "1622e247d228ede63044ea13b581fe109d9bc17e9d782f625683c1417a58c619",
+      "packedBytes": 323
+    },
+    {
+      "role": "m3-first-red-readonly-followup",
+      "source": "m3/maintenance-r2-readonly-get/result.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-readonly-get-20261101/result.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "304dbfbb2d414043a15b7745c4015f69351d410107a63509eeec20297b48b662",
+      "bytes": 1563,
+      "blob": "m3-desktop-lifetime-20261101/blobs/304dbfbb2d414043a15b7745c4015f69351d410107a63509eeec20297b48b662.gz",
+      "packedSha256": "5fa880737a120adf096eaf5e940788097adb8d3062a22d70dbd8f14098f5b325",
+      "packedBytes": 638
+    },
+    {
+      "role": "m3-first-red-readonly-followup",
+      "source": "m3/maintenance-r2-readonly-get/response.body",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-readonly-get-20261101/response.body",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "642576f8346dec379c0bf363954879527cafb3d473619b818b143a8eb7ee6166",
+      "bytes": 352,
+      "blob": "m3-desktop-lifetime-20261101/blobs/642576f8346dec379c0bf363954879527cafb3d473619b818b143a8eb7ee6166.gz",
+      "packedSha256": "3a82452fef4595b049080bfdde85f5cb3a84372d221f82b4d3e6655d503bb684",
+      "packedBytes": 244
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-r3b/REPORT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r3b-independent-review-20261101/REPORT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "80c6f3c3ad4a19224c8fb06342cede4fea1f7c1a4b5f3ef1bae2f5932d1df934",
+      "bytes": 12164,
+      "blob": "m3-desktop-lifetime-20261101/blobs/80c6f3c3ad4a19224c8fb06342cede4fea1f7c1a4b5f3ef1bae2f5932d1df934.gz",
+      "packedSha256": "293ac806c354c1e3e191ac862ee75c2980fa7a3121fcfe343b472edbbf01c57f",
+      "packedBytes": 4944
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-native-and-index/REPORT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-independent-review-20261101/REPORT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "92484d63ca1dda579abf6a304438aa3cf98abc6085a8cf92cabda547d771adbc",
+      "bytes": 10938,
+      "blob": "m3-desktop-lifetime-20261101/blobs/92484d63ca1dda579abf6a304438aa3cf98abc6085a8cf92cabda547d771adbc.gz",
+      "packedSha256": "bc13a446dae0d0167cabfa2d96ac5a2dccc81cac73382f19356ec738b8656436",
+      "packedBytes": 4972
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-native-and-index/READBACK.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-independent-review-20261101/READBACK.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "1b77f7b44b3c69ca9751793018fa66bee219d83cf51cb625c2d8f906840a73a8",
+      "bytes": 21377,
+      "blob": "m3-desktop-lifetime-20261101/blobs/1b77f7b44b3c69ca9751793018fa66bee219d83cf51cb625c2d8f906840a73a8.gz",
+      "packedSha256": "43ea6dceca4bb87cd3a72120fcc3c72a214124c475e2a1d7d997dc2b4b9b1259",
+      "packedBytes": 4033
+    },
+    {
+      "role": "m3-first-red-diagnostic",
+      "source": "m3/fullfast-r3-diagnostic/REPORT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-fullfast-red-review-20261101/REPORT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a30ba04a2d3df015e57d06acd5982e834c4a7c310031455826bfba7e92257d5c",
+      "bytes": 13269,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a30ba04a2d3df015e57d06acd5982e834c4a7c310031455826bfba7e92257d5c.gz",
+      "packedSha256": "8f2fd927de444df26433600fab452ce96c7fb68ae2f60f8d7e73f9e67472c4cf",
+      "packedBytes": 4836
+    },
+    {
+      "role": "m3-first-red-diagnostic",
+      "source": "m3/fullfast-r3-diagnostic/counter.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-fullfast-red-review-20261101/counter.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "6a683ce4f987a1a9dc80cccc63033e86741fd3f1944f3dd95dc3db2e536d81a6",
+      "bytes": 8761,
+      "blob": "m3-desktop-lifetime-20261101/blobs/6a683ce4f987a1a9dc80cccc63033e86741fd3f1944f3dd95dc3db2e536d81a6.gz",
+      "packedSha256": "20267f347bb7e40d66195c0b1eaee032254df8b41cadc9fe4196f99ee88058f5",
+      "packedBytes": 3510
+    },
+    {
+      "role": "m3-first-red-diagnostic",
+      "source": "m3/fullfast-r3-diagnostic/COUNTERS-R2.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-fullfast-red-review-20261101/COUNTERS-R2.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "492976a4932bd3a06782ecd3d4fa660aeacb3f2783edfea8b08cd38a548d507e",
+      "bytes": 4751,
+      "blob": "m3-desktop-lifetime-20261101/blobs/492976a4932bd3a06782ecd3d4fa660aeacb3f2783edfea8b08cd38a548d507e.gz",
+      "packedSha256": "038bdcba59abd9a2294e45971c27ddadcb71271099c0369c34bdf88127fc0090",
+      "packedBytes": 1390
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-r4/REPORT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-independent-review-20261101/REPORT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a5928e52f012ea0ca9877f7e498bd7a169044ed1bcd5c3520a7f340c66bd4655",
+      "bytes": 11846,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a5928e52f012ea0ca9877f7e498bd7a169044ed1bcd5c3520a7f340c66bd4655.gz",
+      "packedSha256": "48b998e03faf1650dbbd06baae8695e990d48e5284a8efb35b40ea95bf5b9873",
+      "packedBytes": 5099
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-r4/READBACK.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-independent-review-20261101/READBACK.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "cee81f30174201ffd2d915601eb4f2edd5c5129d32fd08f70056cadb4abd623b",
+      "bytes": 4427,
+      "blob": "m3-desktop-lifetime-20261101/blobs/cee81f30174201ffd2d915601eb4f2edd5c5129d32fd08f70056cadb4abd623b.gz",
+      "packedSha256": "abb2e352fd6ce3417b5fd374d0c56e67ec3d6de4cf86403903f6f6feb6077623",
+      "packedBytes": 1716
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-r4/COUNTERS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-independent-review-20261101/COUNTERS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "8aea967c6949eede238b7551bae7ce9da685ea9e02de2dda0ff6e39aee554c90",
+      "bytes": 3184,
+      "blob": "m3-desktop-lifetime-20261101/blobs/8aea967c6949eede238b7551bae7ce9da685ea9e02de2dda0ff6e39aee554c90.gz",
+      "packedSha256": "cb8a90f1b00bf5b9374b01491215f4bead80badc25f648e547d178a7ca6695e8",
+      "packedBytes": 1028
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-r4/targeted.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-independent-review-20261101/targeted.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "8468cd33231643e9629d56992392c890e213327c665c4a7ee621f7ebccbd2dc4",
+      "bytes": 8448,
+      "blob": "m3-desktop-lifetime-20261101/blobs/8468cd33231643e9629d56992392c890e213327c665c4a7ee621f7ebccbd2dc4.gz",
+      "packedSha256": "66431dc22c11dda351ffaa4bf0fce55d3f51517e995828e3c3a9490ea6924386",
+      "packedBytes": 3413
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-r4/audit.stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-independent-review-20261101/audit.stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a853ded340c1a12bf92c923823a94d9145c26224090f36cadf5d230fa3a6b5e4",
+      "bytes": 2974,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a853ded340c1a12bf92c923823a94d9145c26224090f36cadf5d230fa3a6b5e4.gz",
+      "packedSha256": "4660742651d324d83f35ec06a5969dd12f1b43f087770288827a69c71a26a0a4",
+      "packedBytes": 1410
+    },
+    {
+      "role": "m3-independent-review",
+      "source": "m3/review-r4/audit.stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-independent-review-20261101/audit.stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-source-identity",
+      "source": "m3/r3b-source/SOURCE-FREEZE.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/SOURCE-FREEZE.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "86a0c68bb59bd8458546bec110b0d84ae0f68cfe90fa6a0e01027cd8965dcb1d",
+      "bytes": 3980479,
+      "blob": "m3-desktop-lifetime-20261101/blobs/86a0c68bb59bd8458546bec110b0d84ae0f68cfe90fa6a0e01027cd8965dcb1d.gz",
+      "packedSha256": "38843e03a51616580d6076c7d7f0f65bcd790eab543545947d0330aa4d7d08f1",
+      "packedBytes": 1072896
+    },
+    {
+      "role": "m3-r3b-source-identity",
+      "source": "m3/r3b-source/R2-R3B-REPAIR.patch",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/R2-R3B-REPAIR.patch",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "61c0cdec6d7d976065fe9b1b29ba435cbac8f8f64792f4e944dce8857177e3ca",
+      "bytes": 29293,
+      "blob": "m3-desktop-lifetime-20261101/blobs/61c0cdec6d7d976065fe9b1b29ba435cbac8f8f64792f4e944dce8857177e3ca.gz",
+      "packedSha256": "e782f468abc2f541666a51f976b9204a375246b9401eea48ac74a588f452c278",
+      "packedBytes": 8953
+    },
+    {
+      "role": "m3-r3b-source-identity",
+      "source": "m3/r3b-source/DELIVERY-PINS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/DELIVERY-PINS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "9bba0c55d7687c1a506f098d6c68fef5a2f1292d225de98d6e4b7a4e314645a1",
+      "bytes": 2104,
+      "blob": "m3-desktop-lifetime-20261101/blobs/9bba0c55d7687c1a506f098d6c68fef5a2f1292d225de98d6e4b7a4e314645a1.gz",
+      "packedSha256": "0c22106834ed553480dba3a984c3cd27e8e1da9856d5cb30baf52fdbd90884bb",
+      "packedBytes": 838
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/SOURCE-FREEZE.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/SOURCE-FREEZE.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "6c5444a1f158e8f4f744328682658e5a9deeff8cfd7aa15a3966d40754d35c9b",
+      "bytes": 3980705,
+      "blob": "m3-desktop-lifetime-20261101/blobs/6c5444a1f158e8f4f744328682658e5a9deeff8cfd7aa15a3966d40754d35c9b.gz",
+      "packedSha256": "94e6ce84eb85f756266ae186becf6b1905c44cdfe4bc2744056ffcf62555f321",
+      "packedBytes": 1072983
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/M3-ON-CURRENT-MAIN.patch",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/M3-ON-CURRENT-MAIN.patch",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a3a920e0b44a11f9975de00f8e6b2edb15c5b951a5f1684f1c0882406c93d5a6",
+      "bytes": 412101,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a3a920e0b44a11f9975de00f8e6b2edb15c5b951a5f1684f1c0882406c93d5a6.gz",
+      "packedSha256": "45f4dc7a6e11dfc958bd0bf835d994056b522dea5e59dd9fabbc3890b739584e",
+      "packedBytes": 113935
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/R3B-R4-REPAIR.patch",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/R3B-R4-REPAIR.patch",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "1aabe478863dac9c9b909a0ce6599c6b75f8cb6db76c6cbea8fa61280443f8f1",
+      "bytes": 7129,
+      "blob": "m3-desktop-lifetime-20261101/blobs/1aabe478863dac9c9b909a0ce6599c6b75f8cb6db76c6cbea8fa61280443f8f1.gz",
+      "packedSha256": "6a9e39472306c9979743af60957618933010f67e7ab4762018895b29d7c68e63",
+      "packedBytes": 2715
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/DELTA-AND-INHERITANCE.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/DELTA-AND-INHERITANCE.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "8741196dc1cf7d8c30555cb3ba6924e77b4228c02c746943cb56be15b1aef832",
+      "bytes": 4131,
+      "blob": "m3-desktop-lifetime-20261101/blobs/8741196dc1cf7d8c30555cb3ba6924e77b4228c02c746943cb56be15b1aef832.gz",
+      "packedSha256": "d51c86c7412289e56ba2656ec702e8566a7f16dc28cc6889fa1a081de69ab502",
+      "packedBytes": 1424
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/REPORT.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/REPORT.md",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "3b18efcc11710e97d03093c4b7c11ecb2ace25ed482a4d3362d4dc8fee679759",
+      "bytes": 2179,
+      "blob": "m3-desktop-lifetime-20261101/blobs/3b18efcc11710e97d03093c4b7c11ecb2ace25ed482a4d3362d4dc8fee679759.gz",
+      "packedSha256": "715cb7a4e6b94ef7c2bd422b59fd1e87d4cbd152bbc89a27ee10505475dde22e",
+      "packedBytes": 1276
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/verify-freeze.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/verify-freeze.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "bdac5c9a1294689f2203b3d0d1619fe19e2cc2deaf6231458761f23d1cc224ec",
+      "bytes": 1309,
+      "blob": "m3-desktop-lifetime-20261101/blobs/bdac5c9a1294689f2203b3d0d1619fe19e2cc2deaf6231458761f23d1cc224ec.gz",
+      "packedSha256": "790fa6050aa333842a49a45122018c3b1cddfd7ef20f5fe86884364fdae64d03",
+      "packedBytes": 671
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/registry-counter.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/registry-counter.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "ae81a803a77f000d1812f801d146903f8bf36e8044f5fa99f481a144e25344e8",
+      "bytes": 716,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ae81a803a77f000d1812f801d146903f8bf36e8044f5fa99f481a144e25344e8.gz",
+      "packedSha256": "bf301b79f97bf27d571272701ddbd0fc32cc0d6c0bba04cdf145ac06ce648e96",
+      "packedBytes": 359
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/audit-inverses.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/audit-inverses.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "653f870808f46bb21bece5116b5e8fdea822296ab97c727d80cb7a19059876f3",
+      "bytes": 147,
+      "blob": "m3-desktop-lifetime-20261101/blobs/653f870808f46bb21bece5116b5e8fdea822296ab97c727d80cb7a19059876f3.gz",
+      "packedSha256": "7c930cfa5a8118567a78f7c26a6d500bdb595243b57f07b53699c1dc4c2e7fc0",
+      "packedBytes": 128
+    },
+    {
+      "role": "m3-r4-source-identity",
+      "source": "m3/r4-source/syntax.stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-repair-r4-20261101/syntax.stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "09bbfa7393fc266e3adbbe565e8ebd813c0b74ec0840850338c9bd586ba90f1e",
+      "bytes": 60,
+      "blob": "m3-desktop-lifetime-20261101/blobs/09bbfa7393fc266e3adbbe565e8ebd813c0b74ec0840850338c9bd586ba90f1e.gz",
+      "packedSha256": "ac16b5503c88018706f3636ca71d9374a9489b20a70e168492b776123d69890d",
+      "packedBytes": 80
+    },
+    {
+      "role": "m3-first-red-actual",
+      "source": "m3/maintenance-r2-outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-eol-r2-20261101/actual-maintenance-01/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "7f35c0e7b921a393cbe423e0edca448cc28904104f5cba619117624c43aee89f",
+      "bytes": 1276,
+      "blob": "m3-desktop-lifetime-20261101/blobs/7f35c0e7b921a393cbe423e0edca448cc28904104f5cba619117624c43aee89f.gz",
+      "packedSha256": "114ec736c691573107f8bef8bf8892ec629208d2ccc639b5ff1229ae8a1e7320",
+      "packedBytes": 463
+    },
+    {
+      "role": "m3-first-red-actual",
+      "source": "m3/maintenance-r2-outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-eol-r2-20261101/actual-maintenance-01/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-first-red-actual",
+      "source": "m3/maintenance-r2-outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-eol-r2-20261101/actual-maintenance-01/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "243a18e544bb392a44c446ad08e6ec5a84b3c581041d4104136c4a1ad366ac61",
+      "bytes": 171,
+      "blob": "m3-desktop-lifetime-20261101/blobs/243a18e544bb392a44c446ad08e6ec5a84b3c581041d4104136c4a1ad366ac61.gz",
+      "packedSha256": "6c5c2323ba4d35fc1c64e2e99e95e37790e87cb2a90dcf690ac2b2a3dc84d434",
+      "packedBytes": 145
+    },
+    {
+      "role": "m3-first-red-actual",
+      "source": "m3/maintenance-r2-inner/failure-summary.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3maintenance01/temp/ruyi-production-maintenance-LJms0W/evidence/failure-summary.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "4676f3d5bc3643285f4fc6283b8939aa938ee6721d23c04bc3ba9de5ac97e3fc",
+      "bytes": 383,
+      "blob": "m3-desktop-lifetime-20261101/blobs/4676f3d5bc3643285f4fc6283b8939aa938ee6721d23c04bc3ba9de5ac97e3fc.gz",
+      "packedSha256": "b5a202477a3384bc7a314b1043bab99c632986a405f8787efea1fe31ecab6db9",
+      "packedBytes": 277
+    },
+    {
+      "role": "m3-first-red-actual",
+      "source": "m3/maintenance-r2-inner/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3maintenance01/temp/ruyi-production-maintenance-LJms0W/evidence/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "d3c1d0a9588e5877050001bef6a37e480cf87926da6e27abb7dacb03f5d8d856",
+      "bytes": 82737,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d3c1d0a9588e5877050001bef6a37e480cf87926da6e27abb7dacb03f5d8d856.gz",
+      "packedSha256": "7ba3e4fa61543fc43acfdc193164cdd7669e6fdbbda74cda80a3fa9191a34c03",
+      "packedBytes": 15179
+    },
+    {
+      "role": "m3-index-metadata-receipt",
+      "source": "m3/standard-preparation/PLAN.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-preparation-20261101/PLAN.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "f9fa70bbb353bd8c4ac91479cb9421a6523613b366eb85a2dddd204f41381345",
+      "bytes": 2324,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f9fa70bbb353bd8c4ac91479cb9421a6523613b366eb85a2dddd204f41381345.gz",
+      "packedSha256": "53f8344c38a2a2edc1f18a1304f09e926a1de4e0c58006ef5dd36542a751f18f",
+      "packedBytes": 797
+    },
+    {
+      "role": "m3-index-metadata-receipt",
+      "source": "m3/standard-preparation/INDEX-STAGING.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-preparation-20261101/INDEX-STAGING.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "9c51ee8759c3d2b86f7122f66187601102b48931afe7063ccd237398602e3b7b",
+      "bytes": 1313,
+      "blob": "m3-desktop-lifetime-20261101/blobs/9c51ee8759c3d2b86f7122f66187601102b48931afe7063ccd237398602e3b7b.gz",
+      "packedSha256": "944b3c93becea16f1bb84b8ed738b3ac432e0e8194d1107191c0111f2c4d0f42",
+      "packedBytes": 727
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/STANDARD-GATE-INPUTS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/STANDARD-GATE-INPUTS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "35852145a8661601501e82ae09f979de8c1cac7116698a263d81846b34a46696",
+      "bytes": 22067,
+      "blob": "m3-desktop-lifetime-20261101/blobs/35852145a8661601501e82ae09f979de8c1cac7116698a263d81846b34a46696.gz",
+      "packedSha256": "0def92b5d6dcac8bc823f3c158f4a0b77329d978231dd55f4918cde008fe7ecc",
+      "packedBytes": 5490
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/BROWSER-CENSUS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/BROWSER-CENSUS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "0102f47e4ab2d12113523b5a80b7a72c0a8ab92fdc2272e215d7d4cbc671b82f",
+      "bytes": 210,
+      "blob": "m3-desktop-lifetime-20261101/blobs/0102f47e4ab2d12113523b5a80b7a72c0a8ab92fdc2272e215d7d4cbc671b82f.gz",
+      "packedSha256": "f0279107061b735f1479609cce7a4a1e293d9469b80c56f02f479a80b495c986",
+      "packedBytes": 172
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/FINAL-BROWSER-CENSUS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/FINAL-BROWSER-CENSUS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "899aacfd4864abd0594b1da844afb74ef870d4ceb079afeaeb3356207d272e80",
+      "bytes": 166,
+      "blob": "m3-desktop-lifetime-20261101/blobs/899aacfd4864abd0594b1da844afb74ef870d4ceb079afeaeb3356207d272e80.gz",
+      "packedSha256": "3354a78b2f3cf5172d6f3a0621c4c844f6fe8574307b6fa8e4d3177352df955f",
+      "packedBytes": 149
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/RUNNER-IDENTITY.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/RUNNER-IDENTITY.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "c67473a7a386c0daf9566cdc07d57f37cf7a41358d6f14d289f7abb0751cfda0",
+      "bytes": 257,
+      "blob": "m3-desktop-lifetime-20261101/blobs/c67473a7a386c0daf9566cdc07d57f37cf7a41358d6f14d289f7abb0751cfda0.gz",
+      "packedSha256": "b9c87b1c0fefcec0d36cd4af85b9d5b268d51c442cd1a547ec3ddc47cacfe1c5",
+      "packedBytes": 204
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "38e51da4729299fe1a5a42fa7507ab447de0f86d947934b328b869c1ad34f485",
+      "bytes": 1258,
+      "blob": "m3-desktop-lifetime-20261101/blobs/38e51da4729299fe1a5a42fa7507ab447de0f86d947934b328b869c1ad34f485.gz",
+      "packedSha256": "a86e2f69c2a60924e2961d838750de61673763c6dd93f884a2ed12c205758c13",
+      "packedBytes": 416
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "dd9fb52757f4e9e2d2391b3c9f5e7646e73a64448fb2f104994dc974178ce4a0",
+      "bytes": 442,
+      "blob": "m3-desktop-lifetime-20261101/blobs/dd9fb52757f4e9e2d2391b3c9f5e7646e73a64448fb2f104994dc974178ce4a0.gz",
+      "packedSha256": "d17c5429ac85649ef1d30dd30f2010a6aa943ba188a2dd02f1a709e8d118bede",
+      "packedBytes": 411
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "216140276f19c05e7ef0a93a42074e9b9d697b5254717675e44512462e6474d6",
+      "bytes": 10985,
+      "blob": "m3-desktop-lifetime-20261101/blobs/216140276f19c05e7ef0a93a42074e9b9d697b5254717675e44512462e6474d6.gz",
+      "packedSha256": "23d930a7b21462b403d07763b224842f22107c1a56ab940fbfc7e5fdcd0d01c5",
+      "packedBytes": 4172
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/after-last-unit-run.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/after-last-unit-run.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "92b58448d517e6874ed118f2e3b017a716d3b5501730cdf5bd717c5b6720a05d",
+      "bytes": 640060,
+      "blob": "m3-desktop-lifetime-20261101/blobs/92b58448d517e6874ed118f2e3b017a716d3b5501730cdf5bd717c5b6720a05d.gz",
+      "packedSha256": "5227b8cadd3666210f66228571e62f7b90ffc3ba0fb84bfb0aeb4b7ff580a35a",
+      "packedBytes": 235079
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/prepare.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/prepare.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a022dfb0786e4c75a2702d68baf40441836a07f7d39195cb10450f2653fd3f39",
+      "bytes": 3411,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a022dfb0786e4c75a2702d68baf40441836a07f7d39195cb10450f2653fd3f39.gz",
+      "packedSha256": "b8b9056f53379208872a8b04bd898d5c93450221aacd4ce60e70ee44a25c297a",
+      "packedBytes": 1811
+    },
+    {
+      "role": "m3-fullfast-r3-permanent-red",
+      "source": "m3/fullfast-r3-red/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-standard-gate-20261101/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "b9a923c7be1afa29fc7156ebba171172fc05d1e518b9ffd4e33fbb6ef7eec75b",
+      "bytes": 2031,
+      "blob": "m3-desktop-lifetime-20261101/blobs/b9a923c7be1afa29fc7156ebba171172fc05d1e518b9ffd4e33fbb6ef7eec75b.gz",
+      "packedSha256": "53cd080db2e264bd0f2107c9dd3b58f3876e4026e66af797e30adbf4d743fcd3",
+      "packedBytes": 954
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/STANDARD-GATE-INPUTS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/STANDARD-GATE-INPUTS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "71a51f6bf1ae34e7d3d5bd0228de00389b778f49eeca87c492f8804c272e88ff",
+      "bytes": 21988,
+      "blob": "m3-desktop-lifetime-20261101/blobs/71a51f6bf1ae34e7d3d5bd0228de00389b778f49eeca87c492f8804c272e88ff.gz",
+      "packedSha256": "90785882eb750a1614306b5cc44acaac98a6c632822da475253405fb256c21b0",
+      "packedBytes": 5390
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/FINAL-BROWSER-CENSUS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/FINAL-BROWSER-CENSUS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "f0a9b2af3d36cb5a0f2f654c4fb7cca83b9ed82deeef8f9f2e10595e81669f0e",
+      "bytes": 166,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f0a9b2af3d36cb5a0f2f654c4fb7cca83b9ed82deeef8f9f2e10595e81669f0e.gz",
+      "packedSha256": "9fb319685a73a9bddd72e75617a5e2e5c6deb340bec2d55294de4a72d58cfdc6",
+      "packedBytes": 148
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/RUNNER-IDENTITY.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/RUNNER-IDENTITY.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "f5806d78c5cde773024c6a977e8360a71028855e8498de355d3a4260f85eda2e",
+      "bytes": 257,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f5806d78c5cde773024c6a977e8360a71028855e8498de355d3a4260f85eda2e.gz",
+      "packedSha256": "c59633da130f71bb0c46d37f1dad5150487baabb051b5e510b0397e96dab0618",
+      "packedBytes": 204
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "d60efa5fcc47627fe4ac01f44b3e2ff19d59268a9871ea117cb9174fe7a8237c",
+      "bytes": 8563,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d60efa5fcc47627fe4ac01f44b3e2ff19d59268a9871ea117cb9174fe7a8237c.gz",
+      "packedSha256": "1c228176baac8b85be895c30704c8d6110953ebf92434d9daa8fc215874d5f95",
+      "packedBytes": 1041
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "1f43f7402751a8b268a46d2b2aee1c39834255b3032cfcc42cf2090955232043",
+      "bytes": 7352,
+      "blob": "m3-desktop-lifetime-20261101/blobs/1f43f7402751a8b268a46d2b2aee1c39834255b3032cfcc42cf2090955232043.gz",
+      "packedSha256": "1bb942e31b315627812cb560804e7724a351f74d9e415438140cada1ea76923e",
+      "packedBytes": 2121
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/after-last-unit-run.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/after-last-unit-run.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "33bd301f97415705ff9b324fcaf3c16dd582b8c8360d73318f7a15bcd67ee502",
+      "bytes": 629104,
+      "blob": "m3-desktop-lifetime-20261101/blobs/33bd301f97415705ff9b324fcaf3c16dd582b8c8360d73318f7a15bcd67ee502.gz",
+      "packedSha256": "08352029cf04256ea0c08cf484391d907753a2957e34e92ca902e5f5fc6b8a6b",
+      "packedBytes": 230937
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/after-last-run.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/after-last-run.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "1239b4843dcac4c7cee9caf4f9cc7f781bc57882ace5b9a740843ab8660f1473",
+      "bytes": 4368,
+      "blob": "m3-desktop-lifetime-20261101/blobs/1239b4843dcac4c7cee9caf4f9cc7f781bc57882ace5b9a740843ab8660f1473.gz",
+      "packedSha256": "d43fb70a2a91852161c5581d21ae27f968a1114ba739a7895999ffea69ef7f1d",
+      "packedBytes": 1420
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/prepare.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/prepare.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "d9af2b6d92107631706705dbd200a7cd55b65fd666f9f73dd766dec79fbaa948",
+      "bytes": 3513,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d9af2b6d92107631706705dbd200a7cd55b65fd666f9f73dd766dec79fbaa948.gz",
+      "packedSha256": "8f2ca1d1bf6721f0d3dc5cf7626fcd204089d10f96cee3c353796fddfc85b1ff",
+      "packedBytes": 1842
+    },
+    {
+      "role": "m3-fullfast-r4-actual-pass",
+      "source": "m3/fullfast-r4-green/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-r4-standard-gate-20261101/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "ac6f6977718ed3fdcd981571e3a884bc9ec7495efa105ade848177e405928aee",
+      "bytes": 2039,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ac6f6977718ed3fdcd981571e3a884bc9ec7495efa105ade848177e405928aee.gz",
+      "packedSha256": "1a5e65fd1b86b540c304c3c4267cca2392dfdd2e79b5d59073a4c52a3b1cd985",
+      "packedBytes": 957
+    },
+    {
+      "role": "m3-independent-standard-review",
+      "source": "m3/review-final-standard/STANDARD-GATE-REVIEW.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-delivery-prepared-20261101/STANDARD-GATE-REVIEW.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "fca009f4ef558d8f88eb42026dbacf20b5fafe39554342945dccc20739fcbf2d",
+      "bytes": 3890,
+      "blob": "m3-desktop-lifetime-20261101/blobs/fca009f4ef558d8f88eb42026dbacf20b5fafe39554342945dccc20739fcbf2d.gz",
+      "packedSha256": "9b016a5b9b5671c129bbed8739a34a216d90dfefc2d238eab6450b7ee1bcec70",
+      "packedBytes": 1846
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/host-idle/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-idle/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "d6dc3698734065bc6d873c50189b6822d0bf0aff2e3894519c9852bd5ea6ece4",
+      "bytes": 1753,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d6dc3698734065bc6d873c50189b6822d0bf0aff2e3894519c9852bd5ea6ece4.gz",
+      "packedSha256": "bb618107d2396cfd71a0cfb8c2afbff908f5df35539a5dadc9b986f227811d31",
+      "packedBytes": 540
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/host-idle/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-idle/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "cf479fd4914903ab11b7c7dab2bc8f005bc7122b547c758f74fdda73b67b104a",
+      "bytes": 706,
+      "blob": "m3-desktop-lifetime-20261101/blobs/cf479fd4914903ab11b7c7dab2bc8f005bc7122b547c758f74fdda73b67b104a.gz",
+      "packedSha256": "f06afdc7a5851bc72c41c32016890fdb8b44898276bc1ca47b8f878a2c69bde5",
+      "packedBytes": 419
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/host-idle/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-idle/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/host-idle/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-idle/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "d6ce342ebd8e3444b0a206368582c910e204b0b6f124b00176215a4ddea58678",
+      "bytes": 2630,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d6ce342ebd8e3444b0a206368582c910e204b0b6f124b00176215a4ddea58678.gz",
+      "packedSha256": "459a0ba43d2b7fdd1d9fd64c08c1be613bf45797c6a095208bea307564e82ac2",
+      "packedBytes": 1074
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/host-idle/outer/checked.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-idle/checked.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "7f79c430c4e21833e6366f77c5dd76fc87da890d4df20c51f843b7ffb0b9785c",
+      "bytes": 471,
+      "blob": "m3-desktop-lifetime-20261101/blobs/7f79c430c4e21833e6366f77c5dd76fc87da890d4df20c51f843b7ffb0b9785c.gz",
+      "packedSha256": "02044b7063eb766652447022969529b3c20fe71ea4e275edada70efc41e1288a",
+      "packedBytes": 298
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/host-idle/outer/process-observations.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-idle/process-observations.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a45fc76d80657505a6e29326a772d274c4bad78b2432df786389cc8b5587ba77",
+      "bytes": 3122,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a45fc76d80657505a6e29326a772d274c4bad78b2432df786389cc8b5587ba77.gz",
+      "packedSha256": "277a0af4056397205b1e079220ec8230122f3ffb8c9ceb18dcd1d326213b6e3f",
+      "packedBytes": 405
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/host-idle/inner/events.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-hostidle01/temp/ruyi-desktop-lifetime-P6Ltoy/events.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "1c5afdb1f760332ae7f190fe9019e04893dcc50ba0c60626f83f843ae55fcdc1",
+      "bytes": 1653,
+      "blob": "m3-desktop-lifetime-20261101/blobs/1c5afdb1f760332ae7f190fe9019e04893dcc50ba0c60626f83f843ae55fcdc1.gz",
+      "packedSha256": "b9147030a30eb195b64b6e373b541789fb53e7285ac3b565e960b475f0e40096",
+      "packedBytes": 263
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/host-idle/inner/terminal.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-hostidle01/temp/ruyi-desktop-lifetime-P6Ltoy/terminal.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "7af3dd13de20850751a93fe7ab59496dec8826eec460cfe7f9ddabcac33a23ff",
+      "bytes": 182,
+      "blob": "m3-desktop-lifetime-20261101/blobs/7af3dd13de20850751a93fe7ab59496dec8826eec460cfe7f9ddabcac33a23ff.gz",
+      "packedSha256": "f384914ecb32d9552a4a52fdc190b10b44dce8d0d8b470b78b972ca1c28c8b44",
+      "packedBytes": 135
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/host-active/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-active/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "615c3fcb44f9e0a27e79f0f5b9891a1ad3fbc23b729e7eb219f09ae3de331421",
+      "bytes": 1823,
+      "blob": "m3-desktop-lifetime-20261101/blobs/615c3fcb44f9e0a27e79f0f5b9891a1ad3fbc23b729e7eb219f09ae3de331421.gz",
+      "packedSha256": "6cc53ca1bc7314168d40336375c6970007db484d811da03be6409b0e10030507",
+      "packedBytes": 546
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/host-active/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-active/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "2d509ce20eaa623befdbfc4f99166d95d6237f0de805f5a4915240e7b031d17e",
+      "bytes": 804,
+      "blob": "m3-desktop-lifetime-20261101/blobs/2d509ce20eaa623befdbfc4f99166d95d6237f0de805f5a4915240e7b031d17e.gz",
+      "packedSha256": "30c906c52fcb04e36b902912ac4bf71b1b27210bb95c64843b186402adac1b58",
+      "packedBytes": 465
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/host-active/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-active/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/host-active/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-active/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "0ed337ec0381ccae7fe030facd9d4697c9bc0dfdacd384e0533c470f95e35558",
+      "bytes": 2637,
+      "blob": "m3-desktop-lifetime-20261101/blobs/0ed337ec0381ccae7fe030facd9d4697c9bc0dfdacd384e0533c470f95e35558.gz",
+      "packedSha256": "860a2a144cd7b4a5b41854f25143591bba3578f8becc70ccaafcf5e908339f26",
+      "packedBytes": 1072
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/host-active/outer/checked.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-active/checked.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "9d2557c4db717de9152f6900f27f854a135978f4f95394d87f607eccd392f5cb",
+      "bytes": 473,
+      "blob": "m3-desktop-lifetime-20261101/blobs/9d2557c4db717de9152f6900f27f854a135978f4f95394d87f607eccd392f5cb.gz",
+      "packedSha256": "9c8e91fabb32e0b96fef68c1129281bebc6ec70222537d4309d1ff4baf3a45f1",
+      "packedBytes": 296
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/host-active/outer/process-observations.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/host-active/process-observations.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "58e5102deca08d6e59ed72e4d5cc01dadecaaa4b7c552f88efa4a94d84010835",
+      "bytes": 4757,
+      "blob": "m3-desktop-lifetime-20261101/blobs/58e5102deca08d6e59ed72e4d5cc01dadecaaa4b7c552f88efa4a94d84010835.gz",
+      "packedSha256": "a8d5d49bdab3190ada0edd54088c165cbbbd6748e81fba6398778fe5b8a85df6",
+      "packedBytes": 441
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/host-active/inner/events.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-hostactive01/temp/ruyi-desktop-lifetime-9uHXbF/events.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "ea6735a77174b2c304505c23eea8eb4f4080dea677007e8678273f09c30dbec8",
+      "bytes": 1653,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ea6735a77174b2c304505c23eea8eb4f4080dea677007e8678273f09c30dbec8.gz",
+      "packedSha256": "e4e862a4e34cc966d01b4ae1bfecc44561e2513654427632092d8126632ba5e3",
+      "packedBytes": 263
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/host-active/inner/terminal.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-hostactive01/temp/ruyi-desktop-lifetime-9uHXbF/terminal.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "3dfb18427e9a1ce268f0505def03b4509a551a734757644a2c1e3d7ef0cbe922",
+      "bytes": 181,
+      "blob": "m3-desktop-lifetime-20261101/blobs/3dfb18427e9a1ce268f0505def03b4509a551a734757644a2c1e3d7ef0cbe922.gz",
+      "packedSha256": "ed5d8b310af393f0d66be57fa1e5e1f42910bb413751bd23f0690ea78c26eb74",
+      "packedBytes": 131
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/window-idle/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-idle/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "b602135bf2b59521456ce892b1dae82a03ff830e8f707423d8f3a2ad183cf3d0",
+      "bytes": 1777,
+      "blob": "m3-desktop-lifetime-20261101/blobs/b602135bf2b59521456ce892b1dae82a03ff830e8f707423d8f3a2ad183cf3d0.gz",
+      "packedSha256": "8d75aaca19adaf769eceed02e1caf0bb1153f2cd5b13ac92ca6b8de14a25e157",
+      "packedBytes": 545
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/window-idle/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-idle/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "cf930b6e833d6cba672e1f412dd59d1c375227c5bc38fbcafa8017517bbaa3a5",
+      "bytes": 708,
+      "blob": "m3-desktop-lifetime-20261101/blobs/cf930b6e833d6cba672e1f412dd59d1c375227c5bc38fbcafa8017517bbaa3a5.gz",
+      "packedSha256": "ea9357d102ca1a53332c5b656189c3cebab8202a943f4dc8ddac9500623ae5c7",
+      "packedBytes": 422
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/window-idle/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-idle/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/window-idle/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-idle/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "525ea1ba0048f9a4bd6c766d73060868906dea36f0074229f0806ec64863310a",
+      "bytes": 2657,
+      "blob": "m3-desktop-lifetime-20261101/blobs/525ea1ba0048f9a4bd6c766d73060868906dea36f0074229f0806ec64863310a.gz",
+      "packedSha256": "c92f58bf9cdbcf89bc73595fa6c824bdc192dfdc148646d3672d4aebd49af599",
+      "packedBytes": 1081
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/window-idle/outer/checked.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-idle/checked.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "76ddfc96269e6d23cc036dbe45addb22fbc2db91f12d1165ae8e1f1f0bece87f",
+      "bytes": 475,
+      "blob": "m3-desktop-lifetime-20261101/blobs/76ddfc96269e6d23cc036dbe45addb22fbc2db91f12d1165ae8e1f1f0bece87f.gz",
+      "packedSha256": "964cc06e5b27a87c9ffdcdc79e2361ca227e10c7097c5b3738dfb9bdd3cce1c7",
+      "packedBytes": 301
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/window-idle/outer/process-observations.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-idle/process-observations.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "15f2a2dc295b7c5c3d5e19ed2fb77f7df4c1f981177cb29365d51b86302bc8f8",
+      "bytes": 3176,
+      "blob": "m3-desktop-lifetime-20261101/blobs/15f2a2dc295b7c5c3d5e19ed2fb77f7df4c1f981177cb29365d51b86302bc8f8.gz",
+      "packedSha256": "4964004ef95d4baef1faa585ab34f14d762ae3ef850173056affbafd85074368",
+      "packedBytes": 407
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/window-idle/inner/events.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-windowidle01/temp/ruyi-desktop-lifetime-mliWVI/events.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "0f7ad651e3cd2e34a199a4ad9a0408e9cfaee51cd0367264f6748e59a66680d3",
+      "bytes": 1707,
+      "blob": "m3-desktop-lifetime-20261101/blobs/0f7ad651e3cd2e34a199a4ad9a0408e9cfaee51cd0367264f6748e59a66680d3.gz",
+      "packedSha256": "64a55248017040942d471b6d8eea45783abd7a2bc31f6aab625aff2dff36c423",
+      "packedBytes": 276
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/window-idle/inner/terminal.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-windowidle01/temp/ruyi-desktop-lifetime-mliWVI/terminal.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "9665cd947fbacdd7114bc79764ac27922be35f521222104647e3e907f063029d",
+      "bytes": 184,
+      "blob": "m3-desktop-lifetime-20261101/blobs/9665cd947fbacdd7114bc79764ac27922be35f521222104647e3e907f063029d.gz",
+      "packedSha256": "70a0a74db95f0f35685c9f630c2ad6ff9101a5a2075bef059ce881664fad1fb8",
+      "packedBytes": 137
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/window-active/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-active/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "3565a477a78a230d1717aee5f25751f60bdb914a86909ae7a9b7ab25f9cf0b51",
+      "bytes": 1980,
+      "blob": "m3-desktop-lifetime-20261101/blobs/3565a477a78a230d1717aee5f25751f60bdb914a86909ae7a9b7ab25f9cf0b51.gz",
+      "packedSha256": "237cf16e9b9a0a59d47d3116b74b1aea4f5d8c6ba4cbad3a90bb23f03c2599b2",
+      "packedBytes": 565
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/window-active/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-active/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e71b01d61b6e2c6edaea4bce7194be252184c77f307c3e1cb27febe3d86fa496",
+      "bytes": 806,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e71b01d61b6e2c6edaea4bce7194be252184c77f307c3e1cb27febe3d86fa496.gz",
+      "packedSha256": "6d011bb0d0bdd4b989af834cf6f19edf8c41218b6f9b557eea9da49f110e11c7",
+      "packedBytes": 465
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/window-active/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-active/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/window-active/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-active/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "0f5422869b23de8a5cd2faef7fcad66c15c7c6e82d9183ca4897b492ab896070",
+      "bytes": 2662,
+      "blob": "m3-desktop-lifetime-20261101/blobs/0f5422869b23de8a5cd2faef7fcad66c15c7c6e82d9183ca4897b492ab896070.gz",
+      "packedSha256": "53295813aadd6a4c99792caaec43bfc05e5f56f733ef0deed2c27e6075cd0926",
+      "packedBytes": 1079
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/window-active/outer/checked.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-active/checked.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "af295f15da6df49ec7e06cda98c2ae5ad3192b679d0e2ce2a302417c71fa2e96",
+      "bytes": 477,
+      "blob": "m3-desktop-lifetime-20261101/blobs/af295f15da6df49ec7e06cda98c2ae5ad3192b679d0e2ce2a302417c71fa2e96.gz",
+      "packedSha256": "22e44d2357cc3a9d9a9a6790dcd19b7c428890bd17a4668e459230c33f115368",
+      "packedBytes": 296
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/window-active/outer/process-observations.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/window-active/process-observations.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "359313bf65f24056109ddb6377b5cf490cfdcb21c4e5933dcf72fb2b6dc53a39",
+      "bytes": 14554,
+      "blob": "m3-desktop-lifetime-20261101/blobs/359313bf65f24056109ddb6377b5cf490cfdcb21c4e5933dcf72fb2b6dc53a39.gz",
+      "packedSha256": "378eded8c2b3203dcd0b6fd569d78215fcdba0f8cef1fa656af65d86bf0598a3",
+      "packedBytes": 713
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/window-active/inner/events.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-windowactive01/temp/ruyi-desktop-lifetime-sKu6qy/events.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "c9cf0b368b6f43c5de253ef302ac798f3da706642bf06dd0c5565c7452e2ff37",
+      "bytes": 1707,
+      "blob": "m3-desktop-lifetime-20261101/blobs/c9cf0b368b6f43c5de253ef302ac798f3da706642bf06dd0c5565c7452e2ff37.gz",
+      "packedSha256": "453bb36e9137dc5dfff00a5c7d6fbf3945e87cbc0d429f4d4acf42c7ecbb4603",
+      "packedBytes": 273
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/window-active/inner/terminal.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-windowactive01/temp/ruyi-desktop-lifetime-sKu6qy/terminal.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "dd7e31ab91eda4b2a5e65af36794c4538a19e8d9094ba25de3fef43ac1b96732",
+      "bytes": 183,
+      "blob": "m3-desktop-lifetime-20261101/blobs/dd7e31ab91eda4b2a5e65af36794c4538a19e8d9094ba25de3fef43ac1b96732.gz",
+      "packedSha256": "ac8f80b7e1c2e93ce01853b43482254ef72a175f59f65dbe680943f106204742",
+      "packedBytes": 133
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/maintenance/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/maintenance/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "69826557b7c91aded333d1469a564b4771db835a6cdcafe77d1728f41393ce14",
+      "bytes": 1370,
+      "blob": "m3-desktop-lifetime-20261101/blobs/69826557b7c91aded333d1469a564b4771db835a6cdcafe77d1728f41393ce14.gz",
+      "packedSha256": "45786532bdd75d24a3e758cc6617d977a46584cfe78c6afc1c8ac0f7a66449e1",
+      "packedBytes": 465
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/maintenance/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/maintenance/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "989467fe898e0a1f0577a326432b09e720eb6cb9b7305bbffb2bd8ccad339482",
+      "bytes": 1386,
+      "blob": "m3-desktop-lifetime-20261101/blobs/989467fe898e0a1f0577a326432b09e720eb6cb9b7305bbffb2bd8ccad339482.gz",
+      "packedSha256": "62140319e4ac7ef12e2a0ce7aca574b47abfe2d8a14fdec5c03e65de04948ab0",
+      "packedBytes": 571
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/maintenance/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/maintenance/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/maintenance/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/maintenance/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "dc560e599db3e2ea4509baeb2c3df6339307d4cc45e302f95c70382cd9055b2c",
+      "bytes": 1823,
+      "blob": "m3-desktop-lifetime-20261101/blobs/dc560e599db3e2ea4509baeb2c3df6339307d4cc45e302f95c70382cd9055b2c.gz",
+      "packedSha256": "06091301e1d0ab8ac98164bd0f5bea0c13283c344d0e97a6963c4554fcacac39",
+      "packedBytes": 807
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/maintenance/inner/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-maintenance01/temp/ruyi-production-maintenance-MxtTbI/evidence/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e49575233aec45b78bf6e8fc19c731410a609924714fbfb77c82d96da6e09f09",
+      "bytes": 93770,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e49575233aec45b78bf6e8fc19c731410a609924714fbfb77c82d96da6e09f09.gz",
+      "packedSha256": "ec0bf5c310cf96169b195aa67802b0f8158625ee450201b8d210ece38901faf6",
+      "packedBytes": 16886
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/maintenance/inner/result.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-maintenance01/temp/ruyi-production-maintenance-MxtTbI/evidence/result.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "ae89d2c7df43f138c67ab3341264a1d201e2621a024287fab97bf8a9009f4d63",
+      "bytes": 3341,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ae89d2c7df43f138c67ab3341264a1d201e2621a024287fab97bf8a9009f4d63.gz",
+      "packedSha256": "16a42708de68623ba3739bb1227544ea95a258cccb88f82170481307ab4f2141",
+      "packedBytes": 1240
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/maintenance/inner/execution-inputs-after.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-maintenance01/temp/ruyi-production-maintenance-MxtTbI/evidence/execution-inputs-after.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "9632a1cebbf7f1ade902c0d884fe8c292525710be41747d41732178d97065d46",
+      "bytes": 160,
+      "blob": "m3-desktop-lifetime-20261101/blobs/9632a1cebbf7f1ade902c0d884fe8c292525710be41747d41732178d97065d46.gz",
+      "packedSha256": "e98757d551325e4f35147205efeec6684aef113b54ced37a8a0e04a37a656398",
+      "packedBytes": 146
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/restore/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/restore/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "ed95a16a1b0fc54cd59f55406bbf0b88a310316f7355adde6309a7e42f82a3c1",
+      "bytes": 1751,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ed95a16a1b0fc54cd59f55406bbf0b88a310316f7355adde6309a7e42f82a3c1.gz",
+      "packedSha256": "5b02a36d03706e81bb68e3ddc750cb1bb29d7e67ba1948e8f88f3755e0e0af83",
+      "packedBytes": 547
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/restore/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/restore/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "d84931db44ece6ec5bb61acf8f94c8e86ab6e63f79f3ce3119085cf7b43485a6",
+      "bytes": 2989,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d84931db44ece6ec5bb61acf8f94c8e86ab6e63f79f3ce3119085cf7b43485a6.gz",
+      "packedSha256": "8f05136845cc1197e6acbc8b4172d638dd19101723ce63b1485a44c4579c2299",
+      "packedBytes": 851
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/restore/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/restore/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/restore/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/restore/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "94975cb671294bb115595884e94cba9833734cf07b1c75ad324d22f9c163204f",
+      "bytes": 2631,
+      "blob": "m3-desktop-lifetime-20261101/blobs/94975cb671294bb115595884e94cba9833734cf07b1c75ad324d22f9c163204f.gz",
+      "packedSha256": "8f293041b5f7e593588f80f9c4975055a4997fd2514767a9e61532928ff5ef5f",
+      "packedBytes": 1075
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/restore/outer/process-observations.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/restore/process-observations.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "d11a595c3d6160cceec882e5a5626a3908f482a28a3503d57f5a8b8ca3abd5ca",
+      "bytes": 379742,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d11a595c3d6160cceec882e5a5626a3908f482a28a3503d57f5a8b8ca3abd5ca.gz",
+      "packedSha256": "3fc09e416eee1ce32448dab4ac208ed0e030258ef22bbc190c6802f648ff93ad",
+      "packedBytes": 9693
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/restore/inner/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-restore01/temp/ruyi-production-restore-G9dXvW/evidence/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "3925a42177de29687d1d479552914f2f8d71035e61a37d7b4eb541b2d17728f5",
+      "bytes": 147641,
+      "blob": "m3-desktop-lifetime-20261101/blobs/3925a42177de29687d1d479552914f2f8d71035e61a37d7b4eb541b2d17728f5.gz",
+      "packedSha256": "9d135ad8e0b77213e820f85f2024db876b6bc0488a3f9c672f7bbf3a8ae657c1",
+      "packedBytes": 23491
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/restore/inner/result.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-restore01/temp/ruyi-production-restore-G9dXvW/evidence/result.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "1cf3380d9798cf381c81b329560ad1bde7e3a7c226b6a1a024b053f423628947",
+      "bytes": 21178,
+      "blob": "m3-desktop-lifetime-20261101/blobs/1cf3380d9798cf381c81b329560ad1bde7e3a7c226b6a1a024b053f423628947.gz",
+      "packedSha256": "d721218705196afbd4cf7b78af3502727dd4d9070b15969e98c8d3379ec4cfeb",
+      "packedBytes": 4274
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/restore/inner/execution-inputs-after.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-restore01/temp/ruyi-production-restore-G9dXvW/evidence/execution-inputs-after.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "9632a1cebbf7f1ade902c0d884fe8c292525710be41747d41732178d97065d46",
+      "bytes": 160,
+      "blob": "m3-desktop-lifetime-20261101/blobs/9632a1cebbf7f1ade902c0d884fe8c292525710be41747d41732178d97065d46.gz",
+      "packedSha256": "e98757d551325e4f35147205efeec6684aef113b54ced37a8a0e04a37a656398",
+      "packedBytes": 146
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/upload/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/upload/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "13b920dc454c182fdb3fa0dd4408554bd55774a0d29c219c71b534fc0d1ff0b2",
+      "bytes": 1610,
+      "blob": "m3-desktop-lifetime-20261101/blobs/13b920dc454c182fdb3fa0dd4408554bd55774a0d29c219c71b534fc0d1ff0b2.gz",
+      "packedSha256": "377197b57d0b4e4ebbb44ecf19a1651b9b32832d3e8887c6bd969da9cc5486e4",
+      "packedBytes": 529
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/upload/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/upload/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "cdbf1af172d19697078235a662a25a11c308968feb6e8df4cafe5dd2cdeeee11",
+      "bytes": 1967,
+      "blob": "m3-desktop-lifetime-20261101/blobs/cdbf1af172d19697078235a662a25a11c308968feb6e8df4cafe5dd2cdeeee11.gz",
+      "packedSha256": "49274c1c85dcfce7075d3cde9b1ff71cabc6ff29c62edb5e2e2973f51ce52686",
+      "packedBytes": 702
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/upload/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/upload/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/upload/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/upload/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "8d27de3373d7e51b5f5fe6cd16651cf59144c638e0bca8000b97100c96a4977e",
+      "bytes": 2623,
+      "blob": "m3-desktop-lifetime-20261101/blobs/8d27de3373d7e51b5f5fe6cd16651cf59144c638e0bca8000b97100c96a4977e.gz",
+      "packedSha256": "96c4566dd92ec6acf442836fac7396e86f1d4fcaeff52b3a0e61d9063f4fcfab",
+      "packedBytes": 1073
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/upload/outer/process-observations.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/upload/process-observations.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "899fb92a70ef33ef269512b30813cfddc081ebe04fc11083c345f19043275c7e",
+      "bytes": 26575,
+      "blob": "m3-desktop-lifetime-20261101/blobs/899fb92a70ef33ef269512b30813cfddc081ebe04fc11083c345f19043275c7e.gz",
+      "packedSha256": "9ca5324e211564065b3c61bb3b6f9ff244e90804e729eea9c6b5b9240889204a",
+      "packedBytes": 993
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/upload/inner/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-upload01/temp/ruyi-full-serve-upload-ur1udd/evidence/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "01f6ef7177b9b829d8438145056b5ef60244cbef3cfe13d9866959a0b2106572",
+      "bytes": 74438,
+      "blob": "m3-desktop-lifetime-20261101/blobs/01f6ef7177b9b829d8438145056b5ef60244cbef3cfe13d9866959a0b2106572.gz",
+      "packedSha256": "dc5dea0979a986bb77072374d2d0053214353667aeb7a5f121026de19fb7e042",
+      "packedBytes": 15822
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/upload/inner/result.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-upload01/temp/ruyi-full-serve-upload-ur1udd/evidence/result.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "5e0261fc808446cf314a74dab3b73415e61dfc8010d1f5a1f507b60823f5f155",
+      "bytes": 5131,
+      "blob": "m3-desktop-lifetime-20261101/blobs/5e0261fc808446cf314a74dab3b73415e61dfc8010d1f5a1f507b60823f5f155.gz",
+      "packedSha256": "4882ba637742110474ced5bddc8ea05f3980ef5b2afadb228e50d4518f080ab3",
+      "packedBytes": 1600
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/upload/inner/execution-inputs-after.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-upload01/temp/ruyi-full-serve-upload-ur1udd/evidence/execution-inputs-after.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "9632a1cebbf7f1ade902c0d884fe8c292525710be41747d41732178d97065d46",
+      "bytes": 160,
+      "blob": "m3-desktop-lifetime-20261101/blobs/9632a1cebbf7f1ade902c0d884fe8c292525710be41747d41732178d97065d46.gz",
+      "packedSha256": "e98757d551325e4f35147205efeec6684aef113b54ced37a8a0e04a37a656398",
+      "packedBytes": 146
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/runtime/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/runtime/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "67a99a76f96d279de5802e16d1f78a6af05a240fe00838f524156d0598fe2c21",
+      "bytes": 1817,
+      "blob": "m3-desktop-lifetime-20261101/blobs/67a99a76f96d279de5802e16d1f78a6af05a240fe00838f524156d0598fe2c21.gz",
+      "packedSha256": "53e2886dbcfd7656183f0f6b5d6a577b4598c32e345b0383a67fbad571265b3e",
+      "packedBytes": 544
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/runtime/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/runtime/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "ca991a444777facd624c1e78d4dadfb50f5a6e5e70e7f7594c146ba1391a2af9",
+      "bytes": 1052,
+      "blob": "m3-desktop-lifetime-20261101/blobs/ca991a444777facd624c1e78d4dadfb50f5a6e5e70e7f7594c146ba1391a2af9.gz",
+      "packedSha256": "3ed16d52b90583a7242bc848084854b678bf8cac97b999d53a7a1524796d6dd3",
+      "packedBytes": 488
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/runtime/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/runtime/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/runtime/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/runtime/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "b874b2e6feebead6df3ba1ae92a9c5dc0cf2504b381c70045eeeeb1f8c2c6ac3",
+      "bytes": 2630,
+      "blob": "m3-desktop-lifetime-20261101/blobs/b874b2e6feebead6df3ba1ae92a9c5dc0cf2504b381c70045eeeeb1f8c2c6ac3.gz",
+      "packedSha256": "a694cbad7df46cf5e669450d48c5c41ee2e72cb6cfe730a6a60cd4ef7e39deb1",
+      "packedBytes": 1069
+    },
+    {
+      "role": "m3-r3b-actual-observation",
+      "source": "m3/native-r3b/runtime/outer/process-observations.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-gates-20261101/runtime/process-observations.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "6bdba3deed16da87ef25a9484207656b9b6979f72c2ee8ee1e1447bfb5db1fef",
+      "bytes": 223301,
+      "blob": "m3-desktop-lifetime-20261101/blobs/6bdba3deed16da87ef25a9484207656b9b6979f72c2ee8ee1e1447bfb5db1fef.gz",
+      "packedSha256": "aaebc782ae54a05d1545783dd3dbd05f84131fd43ef77678e79761303feb73c4",
+      "packedBytes": 4783
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/official-build/outer/events.jsonl",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/build/events.jsonl",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e5641f9b5728bafcf37b2e4e3aae37ac08df2d6afee262150638b51312214c23",
+      "bytes": 1593,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e5641f9b5728bafcf37b2e4e3aae37ac08df2d6afee262150638b51312214c23.gz",
+      "packedSha256": "6cc6e073a1807e11ff909e4979451049948d5441743c7afc0b42fffe733ddfd4",
+      "packedBytes": 514
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/official-build/outer/stdout.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/build/stdout.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "0d065fe464545fb73767f2f4a8a427d25c8221bd36983101e12ae595086c5db1",
+      "bytes": 224,
+      "blob": "m3-desktop-lifetime-20261101/blobs/0d065fe464545fb73767f2f4a8a427d25c8221bd36983101e12ae595086c5db1.gz",
+      "packedSha256": "b6a6d82512b411f92d86cc17157f394c5cf68c6b16d76ee74cdf81cbcdefa0d4",
+      "packedBytes": 154
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/official-build/outer/stderr.log",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/build/stderr.log",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "blob": "m3-desktop-lifetime-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+      "packedSha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e",
+      "packedBytes": 20
+    },
+    {
+      "role": "m3-r3b-actual-outer",
+      "source": "m3/native-r3b/official-build/outer/launcher.cjs",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/build/launcher.cjs",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "c9833e49529a3bf4857f068f2da7a72d65d1b29d826c07b0a7c1dab5d5a807f0",
+      "bytes": 1842,
+      "blob": "m3-desktop-lifetime-20261101/blobs/c9833e49529a3bf4857f068f2da7a72d65d1b29d826c07b0a7c1dab5d5a807f0.gz",
+      "packedSha256": "01cadeafcdd933e1e5cc7014d0c04b6e4433103b3605296ab1ee90d146912c2c",
+      "packedBytes": 849
+    },
+    {
+      "role": "m3-r3b-actual-build-metadata",
+      "source": "m3/native-r3b/official-build/outer/input-hashes.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/build/input-hashes.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a1cfe1c458cb0ded8e454a8fb99913ab1a30d06a7387bbfa4c22f8c957e6d562",
+      "bytes": 1330,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a1cfe1c458cb0ded8e454a8fb99913ab1a30d06a7387bbfa4c22f8c957e6d562.gz",
+      "packedSha256": "db4093b8b6d08368b79ec1080e53c208bf1dc8a0cf7e27e46e5f0e8341951d63",
+      "packedBytes": 520
+    },
+    {
+      "role": "m3-r3b-actual-build-metadata",
+      "source": "m3/native-r3b/official-build/outer/output-hashes.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-maintenance-r3b-20261101/actual-r3b-20261101/build/output-hashes.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "524f207801a3db5eb666089009c99bd867c00d27891e949f4a46edf3173adeca",
+      "bytes": 444,
+      "blob": "m3-desktop-lifetime-20261101/blobs/524f207801a3db5eb666089009c99bd867c00d27891e949f4a46edf3173adeca.gz",
+      "packedSha256": "de28862067ee1c563376bc251efc161f523e4271d1aea0b618d31445e7b3ccee",
+      "packedBytes": 272
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/upload/inner/normal-process-terminal.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-upload01/temp/ruyi-full-serve-upload-ur1udd/evidence/normal-process-terminal.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "d65b53ca1e708e40fa3161cc25f3c087745356f7ed3b7acab655b6fb479c0d85",
+      "bytes": 1204,
+      "blob": "m3-desktop-lifetime-20261101/blobs/d65b53ca1e708e40fa3161cc25f3c087745356f7ed3b7acab655b6fb479c0d85.gz",
+      "packedSha256": "4b62c8bf1958276e8aa04dbb6a6b5541fe385f5b49a0a572c5124c50e93819dc",
+      "packedBytes": 433
+    },
+    {
+      "role": "m3-r3b-actual-scene",
+      "source": "m3/native-r3b/upload/inner/pending-process-terminal.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/rt/m3r3b-upload01/temp/ruyi-full-serve-upload-ur1udd/evidence/pending-process-terminal.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "2277da136e4fb3e8e195752c254c374e5d1d548dec2d9bf090e742d66d75e4e5",
+      "bytes": 695,
+      "blob": "m3-desktop-lifetime-20261101/blobs/2277da136e4fb3e8e195752c254c374e5d1d548dec2d9bf090e742d66d75e4e5.gz",
+      "packedSha256": "fd50ee5b0a07fc0d702548e6a1d6129d0b41319027cff67901a0796605bd45ac",
+      "packedBytes": 286
+    },
+    {
+      "role": "c2-progress-only-not-promoted",
+      "source": "parallel-c2/r2-diagnostic/REPORT.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/c2-r2-full9-01-diagnostic-20261101/REPORT.md",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "8255f2ad0bdedcf9b2f40edbeeaa24fa521b93c41cd7922f1706229a499efc0e",
+      "bytes": 9925,
+      "blob": "m3-desktop-lifetime-20261101/blobs/8255f2ad0bdedcf9b2f40edbeeaa24fa521b93c41cd7922f1706229a499efc0e.gz",
+      "packedSha256": "f2addaf39a6900469b2041c090c822ed89e568ff2a22050c28033b12909a8715",
+      "packedBytes": 5829
+    },
+    {
+      "role": "c2-progress-only-not-promoted",
+      "source": "parallel-c2/r2-diagnostic/REPAIR-CONTRACT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/c2-r2-full9-01-diagnostic-20261101/REPAIR-CONTRACT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a7d5bc2fd8b60a928ed09b0496496cfba1b0da74e90816585648ceff6e789a03",
+      "bytes": 5378,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a7d5bc2fd8b60a928ed09b0496496cfba1b0da74e90816585648ceff6e789a03.gz",
+      "packedSha256": "1b725b84cb1076da2e67b08bae7a5f4ae5a2b2d07d6c587762249800908e0431",
+      "packedBytes": 2489
+    },
+    {
+      "role": "c2-progress-only-not-promoted",
+      "source": "parallel-c2/r2-diagnostic/ACTUAL-READBACK.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/c2-r2-full9-01-diagnostic-20261101/ACTUAL-READBACK.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "f97b9f30779a5fc8d00552f502e4f0b0cb5d8203d6037940d7a21acd5de3fea8",
+      "bytes": 11256,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f97b9f30779a5fc8d00552f502e4f0b0cb5d8203d6037940d7a21acd5de3fea8.gz",
+      "packedSha256": "e13ea2762ba466a818ee39532fc1b38cca94d2f9bfd2cd0d0e64183a55433910",
+      "packedBytes": 3745
+    },
+    {
+      "role": "c2-progress-only-not-promoted",
+      "source": "parallel-c2/r2-diagnostic/ARTIFACTS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/c2-r2-full9-01-diagnostic-20261101/ARTIFACTS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "0585d06657ba1f8caae270a244eebb898569995d027c5e9855d9c94ba97219c3",
+      "bytes": 3370,
+      "blob": "m3-desktop-lifetime-20261101/blobs/0585d06657ba1f8caae270a244eebb898569995d027c5e9855d9c94ba97219c3.gz",
+      "packedSha256": "e6b6524623970f37f7a154580baaa1dc564027d2a481b1776a73224e697b28d9",
+      "packedBytes": 1239
+    },
+    {
+      "role": "c2-first-red-actual-not-promoted",
+      "source": "parallel-c2/r2-full9-red/FIRST-FAILURE.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/c2-journey-isolation-r2-20261101/actual-full9-01/FIRST-FAILURE.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "88563f01b749b1a8c76ce95a046f14e81731d72d9ad9acf6b7f14e00ffeed412",
+      "bytes": 9018,
+      "blob": "m3-desktop-lifetime-20261101/blobs/88563f01b749b1a8c76ce95a046f14e81731d72d9ad9acf6b7f14e00ffeed412.gz",
+      "packedSha256": "fd5c6061ad618ad0c36a8300dea4fe42e005e0e61c46392714a1854897db2073",
+      "packedBytes": 2429
+    },
+    {
+      "role": "c2-first-red-actual-not-promoted",
+      "source": "parallel-c2/r2-full9-red/ACTUAL-RESULT.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/c2-journey-isolation-r2-20261101/actual-full9-01/ACTUAL-RESULT.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "512bc8daa303a9d01c8f339e8b357fc25942799e61eb742cd2ab8231240252ad",
+      "bytes": 55120,
+      "blob": "m3-desktop-lifetime-20261101/blobs/512bc8daa303a9d01c8f339e8b357fc25942799e61eb742cd2ab8231240252ad.gz",
+      "packedSha256": "e0f6059c3886a8da0cca129b2ab5799bda94ac1b1a2c84b5609a603d69964385",
+      "packedBytes": 4494
+    },
+    {
+      "role": "c2-progress-only-not-promoted",
+      "source": "parallel-c2/prior-full9-diagnostic/REPORT.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/c2-full9-01-diagnostic-20261101/REPORT.md",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "7a755bdd442391ed1367e0dfe45332cc894b32dc8b3ff4cef26979369fd1a83f",
+      "bytes": 9531,
+      "blob": "m3-desktop-lifetime-20261101/blobs/7a755bdd442391ed1367e0dfe45332cc894b32dc8b3ff4cef26979369fd1a83f.gz",
+      "packedSha256": "d02e2331e55533623ba872a3abe86676cbfa7ac95d963bb44a8a27368212ebdb",
+      "packedBytes": 4549
+    },
+    {
+      "role": "c2-progress-only-not-promoted",
+      "source": "parallel-c2/prior-minimum-diagnostic/REPORT.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/c2-minimum-actual-20261101/REPORT.md",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "3084fd1f5f4c7655537467905fbed75a927a851528218a3853ee5f6aabc4d302",
+      "bytes": 9847,
+      "blob": "m3-desktop-lifetime-20261101/blobs/3084fd1f5f4c7655537467905fbed75a927a851528218a3853ee5f6aabc4d302.gz",
+      "packedSha256": "d2d77bcf26d619ea8f53b57263fd74399ca04f91fef845db278963ebaccd678b",
+      "packedBytes": 4556
+    },
+    {
+      "role": "m4-progress-only-not-promoted",
+      "source": "parallel-m4/r2-source-review/REPORT.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/m4-owned-stage-r2-20261101/REPORT.md",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "224eb891ffca7a3698fe7b00d00915c0a1ee34e5da358ea3cf64fd21a36adb99",
+      "bytes": 7711,
+      "blob": "m3-desktop-lifetime-20261101/blobs/224eb891ffca7a3698fe7b00d00915c0a1ee34e5da358ea3cf64fd21a36adb99.gz",
+      "packedSha256": "ad892b9247f4925783c5d8128d0b8eaa7b6b3c0f38e99c4f366cdb28e8ee47b9",
+      "packedBytes": 3777
+    },
+    {
+      "role": "m4-progress-only-not-promoted",
+      "source": "parallel-m4/r2-source-review/NAMESPACE-ALIAS-COUNTER-R2.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/m4-owned-stage-r2-20261101/NAMESPACE-ALIAS-COUNTER-R2.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "c40a1c34e2e5799219be08c90e293af27c4795141ccf677c12a18d820e0e9a9d",
+      "bytes": 975,
+      "blob": "m3-desktop-lifetime-20261101/blobs/c40a1c34e2e5799219be08c90e293af27c4795141ccf677c12a18d820e0e9a9d.gz",
+      "packedSha256": "8220e5c3f2c3f0867d5c1899c3736d9bfdb7d4dce7fbf8694a944cb9a7efa6b6",
+      "packedBytes": 554
+    },
+    {
+      "role": "m4-progress-only-not-promoted",
+      "source": "parallel-m4/r2-source-review/REVIEW-PINS.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/review/m4-owned-stage-r2-20261101/REVIEW-PINS.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "0482f656fa59cc70d5aa63536b9b62502446856a6b2fb06a7a7b728724353ec7",
+      "bytes": 3048,
+      "blob": "m3-desktop-lifetime-20261101/blobs/0482f656fa59cc70d5aa63536b9b62502446856a6b2fb06a7a7b728724353ec7.gz",
+      "packedSha256": "84abcc364413d68ab1311b9810cd4fe831bd12505fd27918cf9a1d178b2e7bd2",
+      "packedBytes": 1054
+    },
+    {
+      "role": "m3-index-metadata-receipt",
+      "source": "m3/index-metadata/INDEX-METADATA.json",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-delivery-prepared-20261101/INDEX-METADATA.json",
+        "kind": "selected-original-evidence"
+      },
+      "sha256": "a9cec7a42e3d07a853a298bdbf923873ab06507fe9c5f6ffe5eb5bee4e341f61",
+      "bytes": 1080,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a9cec7a42e3d07a853a298bdbf923873ab06507fe9c5f6ffe5eb5bee4e341f61.gz",
+      "packedSha256": "87689b00af7a7045848c67f3a1b513ecd6774c010296fd6172311ac18ba659db",
+      "packedBytes": 577
+    },
+    {
+      "role": "metadata-overlay",
+      "source": "docs/optimization-plan/98-3.1-current-handoff-20261030.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-delivery-prepared-r2-20261101/overlay/docs/optimization-plan/98-3.1-current-handoff-20261030.md",
+        "kind": "new-prepared-r2-overlay"
+      },
+      "sha256": "a075fbafce799652a52e4707eacb4b4e3869aac2c2a89ecab5ae69c3edc18c44",
+      "bytes": 4306,
+      "blob": "m3-desktop-lifetime-20261101/blobs/a075fbafce799652a52e4707eacb4b4e3869aac2c2a89ecab5ae69c3edc18c44.gz",
+      "packedSha256": "70092f25006d57006139dd06b31ef27eb4856899b24ed404bfc2eec4da375f15",
+      "packedBytes": 3035,
+      "metadataRevision": "prepared-r2-replaces-r1-current-overlay"
+    },
+    {
+      "role": "metadata-overlay",
+      "source": "docs/optimization-plan/92-3.1-implementation-handoff.md",
+      "sourceOrigin": {
+        "absolutePath": "E:/Claude/m3-delivery-prepared-r2-20261101/overlay/docs/optimization-plan/92-3.1-implementation-handoff.md",
+        "kind": "new-prepared-r2-overlay"
+      },
+      "sha256": "f0674439c3815c957258417fc7542acf81bb7e73d794b2109b0d22e387bbf876",
+      "bytes": 298730,
+      "blob": "m3-desktop-lifetime-20261101/blobs/f0674439c3815c957258417fc7542acf81bb7e73d794b2109b0d22e387bbf876.gz",
+      "packedSha256": "d3f5762120d67a9a9b63bcc7fdc79ff28512394439ef7e57c78c41141f569c8b",
+      "packedBytes": 131713,
+      "metadataRevision": "prepared-r2-replaces-r1-current-overlay"
+    },
+    {
+      "role": "metadata-overlay",
+      "source": "docs/optimization-plan/96-m3-3-migration-and-recovery.md",
+      "sourceOrigin": {
+        "absolutePath": "E:\\Claude\\m3-delivery-prepared-20261101/overlay/docs/optimization-plan/96-m3-3-migration-and-recovery.md",
+        "kind": "new-prepared-overlay"
+      },
+      "sha256": "257ef66b23dc1cc9874a9fa9ce60f51dcdd18011fa198dd8f5ce7b86d3a3e04c",
+      "bytes": 44025,
+      "blob": "m3-desktop-lifetime-20261101/blobs/257ef66b23dc1cc9874a9fa9ce60f51dcdd18011fa198dd8f5ce7b86d3a3e04c.gz",
+      "packedSha256": "89e370ef9d88325c72ee5a8303f38f1e288774563f9502ad8d4eb0a832c7b57b",
+      "packedBytes": 20888
+    }
+  ],
+  "metadataRevision": {
+    "revision": "prepared-r2",
+    "supersedesPreparedR1IndexSha256": "f3cce47181e7bada5390dc90855d4b6ebd15c75e0e06af72fd5a89ab3d6aa238",
+    "scope": "Only metadata statistics separation and Sol xhigh preference; no product/39promotion/raw/sourceCAS/test/actual changes.",
+    "oldPacketPreserved": true,
+    "oldTwoOverlayBlobs": "Remain only in immutable R1 packet; not copied as unreferenced blobs into active R2 packet."
+  }
+}

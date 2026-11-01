@@ -11,7 +11,14 @@ function auditFixture(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-audit-source-'));
   t.after(() => { assert.equal(path.dirname(dir), path.resolve(os.tmpdir())); fs.rmSync(dir, { recursive: true, force: true }); });
   const logs = path.join(dir, 'logs'), configFile = path.join(dir, 'config.json'); fs.mkdirSync(logs);
-  const state = { enabled: true, acquires: 0, releases: 0, now: '2026-10-24T23:59:59.000Z', diagnostics: [], appendBatches: [] };
+  const state = { enabled: true, acquires: 0, releases: 0, now: '2026-10-24T23:59:59.000Z', queryNowMs: Date.parse('2026-10-25T12:00:00.000Z'), diagnostics: [], appendBatches: [] };
+  function QueryDate(...args) {
+    if (!new.target) return new Date(state.queryNowMs).toString();
+    return Reflect.construct(Date, args.length ? args : [state.queryNowMs], new.target);
+  }
+  Object.setPrototypeOf(QueryDate, Date);
+  QueryDate.prototype = Date.prototype;
+  QueryDate.now = () => state.queryNowMs;
   const master = crypto.randomBytes(32);
   const io = { ...fsp, readFile: async (file, ...args) => {
     if (file !== configFile) return fsp.readFile(file, ...args);
@@ -36,7 +43,7 @@ function auditFixture(t) {
     const journal = shared.WorkDataJournals.create(host);
     return { ...journal, append: async (rows, ...args) => { state.appendBatches.push(rows.map(row => Buffer.byteLength(row))); return journal.append(rows, ...args); } };
   } };
-  const context = vm.createContext({ ...shared, WorkDataJournals: journals, require, Buffer, crypto, fs, fsp: io, path, Date, Set,
+  const context = vm.createContext({ ...shared, WorkDataJournals: journals, require, Buffer, crypto, fs, fsp: io, path, Date: QueryDate, Set,
     paths: { logs, data: dir, config: configFile }, configMutateChain: Promise.resolve(), configWriteChain: Promise.resolve(), configReadGeneration: 0, configDegraded: false, process: { stderr: { write: value => state.diagnostics.push(value) } },
     readConfig: async () => { throw Error('audit must not enter config recovery'); },
     normalizeConfig: raw => ({ config: { workDataEncryptionV1: false, privacyPolicyRecoveryRequiredV1: false, ...raw } }),

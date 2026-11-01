@@ -368,7 +368,8 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         if(!activationReceipt(receipt)||fold(receipt.base)!==fold(home))throw fail('activation_failed');
       }
       const common=host.workerApi.create({env:proc.env});
-      const child=host.workerApi.spawnCold(spec,common.environment(home));
+      const desktop=typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.issue?await DesktopLifetimeHooks.issue('successor',result.id,nonce):null;
+      const child=host.workerApi.spawnCold(spec,desktop?DesktopLifetimeHooks.environment(common.environment(home),desktop):common.environment(home));
       const input={schema:1,id:result.id,parentPid:proc.pid,nonce,base:home,serve:result.listener,
         expectedAuthority:target?target.authority:result.expectedAuthority,...(target?{activation:{kind:'separate-fresh-root',resultSha256:target.resultSha256}}:{})};
       const readyMessage=new Promise((resolve,reject)=>{
@@ -381,9 +382,10 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
         child.on('message',message);child.once('error',failed);child.once('exit',exited);child.stdin.once('error',failed);
       });
       const bytes=Buffer.from(JSON.stringify(input));child.stdin.end(bytes,()=>bytes.fill(0));
-      await readyMessage;return child;
+      await readyMessage;if(desktop)await DesktopLifetimeHooks.transfer(desktop);return child;
     }
     async function holdAfterSuccessorFailure(result,error) {
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.reportUncertain)void DesktopLifetimeHooks.reportUncertain().catch(()=>{});
       latch(error);let owner,http;
       // A restore failure is reported against the actual target root. When this host
       // cannot obtain that owner the status stays typed unavailable; the source is
@@ -399,6 +401,7 @@ const WorkDataMaintenanceRuntime = ((io,p,c) => {
       await new Promise(()=>{});
     }
     async function onOwnedFailure({error,ownership:owner,assertExclusive,base,input}) {
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.reportUncertain)void DesktopLifetimeHooks.reportUncertain().catch(()=>{});
       latch(error);let current=null;
       try {const actual=full(await host.readAuthority(base));if(authority(actual))current=actual;}catch{ /* No expected-authority fallback. Status remains typed unavailable. */ }
       const job={id:input.id,operation:input.operation,state:'uncertain',createdAt:Date.now(),phase:'preflight',error:safeCode(error)};

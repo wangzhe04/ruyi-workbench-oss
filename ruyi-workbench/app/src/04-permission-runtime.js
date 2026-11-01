@@ -688,6 +688,20 @@ function killPosixChildTree(pid) {
 function killChildTree(pid) {
   if (!pid) return;
   if (process.platform !== 'win32') { killPosixChildTree(pid); return; }
+  // Desktop cleanup belongs to the existing close owner, including after fresh
+  // helper admission has closed. Track the actual PowerShell, never cmd/start.
+  // Keeping it referenced lets that owner await its original close event.
+  if (typeof desktopLifetimeBootstrap !== 'undefined' && desktopLifetimeBootstrap !== null) {
+    if (typeof WorkDataMaintenanceHooks === 'undefined' || typeof WorkDataMaintenanceHooks.trackChild !== 'function'
+      || typeof DesktopLifetimeHooks === 'undefined' || typeof DesktopLifetimeHooks.environment !== 'function')
+      throw Error('desktop_lifetime.helper_unavailable');
+    const child = cp.spawn('powershell.exe', ownTreeKillCommand(pid), {
+      windowsHide: true, stdio: 'ignore', env: DesktopLifetimeHooks.environment(process.env, null),
+    });
+    WorkDataMaintenanceHooks.trackChild(child);
+    child.on('error', () => { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } });
+    return;
+  }
   try {
     const args = ownTreeKillCommand(pid);
     const inner = `start "" /b powershell.exe ${args.join(' ')}`;
@@ -1501,6 +1515,7 @@ class McpStdioClient {
   // Spawn + handshake (initialize -> notifications/initialized -> tools/list). Throws on failure and
   // leaves the client marked dead (caller caches the failure so it won't respawn in a tight loop).
   async start() {
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     if (this.started) return;
     this.started = true;
     const s = batchSafeSpawn(this.command, this.args);   // transparently wrap .cmd/.bat
@@ -1518,6 +1533,7 @@ class McpStdioClient {
       throw new Error(`spawn failed: ${e && e.message ? e.message : e}`);
     }
     this.child = child;
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
     this.pid = child.pid;
     // Don't let the live MCP child keep the event loop from exiting on a clean shutdown; we reap it
     // explicitly via killAllMcpClients()/killChildTree on exit.

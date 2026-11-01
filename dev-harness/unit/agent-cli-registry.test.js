@@ -199,6 +199,7 @@ test('[G] 迁走的调用点不再与 CLI 类型字面量比较', () => {
     agentConversationContextMeta: functionBlock(src, 'agentConversationContextMeta'),
     applyConfigPatch: functionBlock(src, 'applyConfigPatch'),
     startServerInner: functionBlock(src, 'startServerInner'),
+    warmWorkbenchServices: functionBlock(src, 'warmWorkbenchServices'),
     'route /api/models': bracedBlock(src, "if (req.method === 'GET' && pathname === '/api/models')"),
     'route /api/agent/compact': bracedBlock(src, "if (req.method === 'POST' && pathname === '/api/agent/compact')"),
   };
@@ -215,10 +216,16 @@ test('[G] 迁走的调用点不再与 CLI 类型字面量比较', () => {
   assert.equal(statusModels.length, 1);
   assert.match(statusModels[0], /agentCliAdapter\(conversationConfig\.agentCliType\)\.modelCatalog\.offline\(conversationConfig\)/);
   // 改配置与启动预热两处的 Kimi MCP 同步都收进 01 syncAgentCliMcpManifests(按登记表推),不再直调 Kimi 的同步函数。
-  for (const name of ['applyConfigPatch', 'startServerInner']) {
+  for (const name of ['applyConfigPatch', 'startServerInner', 'warmWorkbenchServices']) {
     assert.doesNotMatch(code(blocks[name]), /(?<![.\w])syncMcpServersToKimi\(/, `${name} 不直调 syncMcpServersToKimi`);
+  }
+  for (const name of ['applyConfigPatch', 'warmWorkbenchServices']) {
     assert.match(code(blocks[name]), /syncAgentCliMcpManifests\(/, `${name} 经 syncAgentCliMcpManifests 同步`);
   }
+  assert.match(code(blocks.warmWorkbenchServices), /syncAgentCliMcpManifests\(config\)/);
+  assert.match(code(blocks.startServerInner), /const work\s*=\s*\(\)\s*=>\s*warmWorkbenchServices\(config\)/);
+  assert.match(code(blocks.startServerInner), /WorkDataMaintenanceHooks\.fresh\('boot-warmup',work\)/);
+  assert.match(code(blocks.startServerInner), /WorkDataMaintenanceHooks\.deferBootWarmup\(work\)/);
 });
 
 test.after(() => { fs.rmSync(root, { recursive: true, force: true }); });

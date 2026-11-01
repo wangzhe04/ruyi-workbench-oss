@@ -33,7 +33,7 @@ else { Write-Host "[Ruyi] ruyi.ico not found, building without embedded icon (ru
 & $csc @('/nologo','/target:winexe','/platform:x64','/optimize+','/codepage:65001',
   '/r:System.dll','/r:System.Core.dll','/r:System.Windows.Forms.dll','/r:System.Drawing.dll',
   '/r:System.Web.Extensions.dll',
-  "/win32manifest:$manifest","/out:$outExe") @iconArgs $src
+  "/win32manifest:$manifest","/out:$outExe") @iconArgs $src (Join-Path $desktopDir "DesktopLifetimeHost.cs")
 if ($LASTEXITCODE -ne 0) { throw "csc build failed (exit $LASTEXITCODE)" }
 
 Copy-Item -LiteralPath $loaderSrc -Destination $loaderDst -Force

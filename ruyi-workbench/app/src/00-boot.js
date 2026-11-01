@@ -38,6 +38,16 @@ const WorkDataMaintenanceHooks = {};
 const WorkDataSetupHooks = {};
 const WorkDataMaintenanceWorkerHooks = {};
 const WorkDataMaintenanceRuntimeHooks = {};
+// Desktop capabilities are consumed before any provider/CLI/helper can inherit env.
+const desktopLifetimeBootstrap = (() => {
+  let value = null;
+  for (const key of Object.keys(process.env)) if (key.toUpperCase() === 'RUYI_DESKTOP_CONTROL_V1') {
+    if (value !== null) throw Error('desktop_lifetime.bootstrap_invalid');
+    value = process.env[key]; delete process.env[key];
+  }
+  return value;
+})();
+const DesktopLifetimeHooks = {};
 const DEFAULT_PORT = 8765;
 const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // 127-114b(26 号文 §3/45 号文 §2 ②): ASR 转写入站专用上限 25 MB —— 早于上面的 128 MB 总闸判定

@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 198(精确 171 / 前缀 15 / 正则 12),ROUTE_AUTH 184 条,生成于 2026-10-30T04:52:32.250Z。
+> 判定点 198(精确 171 / 前缀 15 / 正则 12),ROUTE_AUTH 184 条,生成于 2026-11-01T04:01:05.438Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -121,7 +121,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js · `handleApi` | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js · `handleApi` | chat-ux-wave1.browser.e2e.js, external-bots.browser.e2e.js, file-text-encoding.e2e.js 等 11 件 |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js · `handleApi` | media-resource-profile.e2e.js, tool-result-render.browser.e2e.js, media-resource-profile.test.js 等 5 件 |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 204 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 205 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 22 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js · `startServerInner` | — |
 
@@ -289,9 +289,9 @@
 |---|---|---|---|---|---|
 | GET | `/api/work-data/status` | exact | token | 13ah-work-data-setup.js · `handle` | work-data-maintenance-http.test.js, work-data-settings.test.js, work-data-production-maintenance.e2e.js 等 6 件 |
 | GET | `/api/work-data/results/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-production-host.test.js, work-data-settings.test.js, work-data-setup.test.js 等 5 件 |
-| POST | `/api/work-data/jobs` | exact | token | 13ah-work-data-setup.js · `handle` | net-errors.test.js, work-data-maintenance-http.test.js, work-data-production-browser.test.js 等 9 件 |
+| POST | `/api/work-data/jobs` | exact | token | 13ah-work-data-setup.js · `handle` | net-errors.test.js, work-data-maintenance-http.test.js, work-data-production-browser.test.js 等 10 件 |
 | POST | `/api/work-data/uploads` | exact | token | 13ah-work-data-setup.js · `handle` | external-bots-retry-api.test.js, net-errors.test.js, work-data-production-browser.test.js 等 7 件 |
-| GET/POST | `/api/work-data/jobs/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-maintenance-http.test.js, work-data-setup.test.js, work-data-production-maintenance.e2e.js 等 5 件 |
+| GET/POST | `/api/work-data/jobs/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-maintenance-http.test.js, work-data-setup.test.js, work-data-warm-worker-contract-pure.test.js 等 6 件 |
 
 ## 域路由委派(handleApi → 域 handler)
 

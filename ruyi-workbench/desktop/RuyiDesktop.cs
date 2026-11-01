@@ -357,114 +357,26 @@ namespace RuyiDesktop
     /* ============================ 后台服务宿主 ============================ */
 
     // node app/server.js serve —— 绑进 Job Object（KILL_ON_JOB_CLOSE）：
-    // 外壳进程无论正常退出、被杀还是崩溃，服务子进程树都会被系统回收（「点 × 关闭进程」的硬保证）。
+    // 普通关闭等待同一寿命 owner 的排空证明；崩溃/强退仍由已确认分配的外层 Job 收底。
     internal sealed class ServerHost : IDisposable
     {
-        private readonly IntPtr job;
-        private Process process;
+        private readonly DesktopLifetimeHost lifetime = new DesktopLifetimeHost();
         private readonly StringBuilder stderrTail = new StringBuilder();
-        public event Action<string> UrlReady;       // "http://127.0.0.1:port/"
+        public event Action<string> UrlReady;
         public event Action<int> Exited;
-
-        public bool Running { get { return process != null && !process.HasExited; } }
-        public string StderrTail { get { lock (stderrTail) { return stderrTail.ToString(); } } }
-
+        public event Action<string> Observed;
+        public bool Running { get { return lifetime.Running; } }
+        public string StderrTail { get { lock(stderrTail) { return stderrTail.ToString(); } } }
         public ServerHost()
         {
-            job = Native.CreateJobObject(IntPtr.Zero, null);
-            if (job != IntPtr.Zero)
-            {
-                var info = new Native.JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
-                info.BasicLimitInformation.LimitFlags = Native.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-                Native.SetInformationJobObject(job, 9 /* ExtendedLimitInformation */, ref info, Marshal.SizeOf(typeof(Native.JOBOBJECT_EXTENDED_LIMIT_INFORMATION)));
-            }
+            lifetime.UrlReady += delegate(string url) { var handler=UrlReady; if(handler!=null)handler(url); };
+            lifetime.Exited += delegate(int code) { var handler=Exited; if(handler!=null)handler(code); };
+            lifetime.Observed += delegate(string value) { var handler=Observed; if(handler!=null)handler(value); };
+            lifetime.ErrorLine += delegate(string line) { lock(stderrTail) { stderrTail.AppendLine(line); if(stderrTail.Length>8000)stderrTail.Remove(0,stderrTail.Length-8000); } };
         }
-
-        public void Start(string baseDir)
-        {
-            string bundled = Path.Combine(baseDir, @"runtime\node\node.exe");
-            string nodeExe = File.Exists(bundled) ? bundled : "node";
-            string serverJs = Path.Combine(baseDir, @"app\server.js");
-            if (!File.Exists(serverJs)) throw new FileNotFoundException("找不到 app\\server.js —— 请从完整安装包运行。", serverJs);
-
-            var psi = new ProcessStartInfo();
-            psi.FileName = nodeExe;
-            psi.Arguments = "\"" + serverJs + "\" serve"; // 不带 --open：窗口由外壳自持
-            psi.WorkingDirectory = baseDir;
-            psi.UseShellExecute = false;
-            psi.CreateNoWindow = true;                    // 不再有后台 terminal 窗口
-            psi.RedirectStandardOutput = true;
-            psi.RedirectStandardError = true;
-            psi.StandardOutputEncoding = Encoding.UTF8;
-            psi.StandardErrorEncoding = Encoding.UTF8;
-            string explicitRoot = DesktopIsolation.ExplicitDataRoot();
-            if (explicitRoot != null) psi.EnvironmentVariables["RUYI_HOME"] = explicitRoot;
-
-            process = new Process();
-            process.StartInfo = psi;
-            process.EnableRaisingEvents = true;
-            process.OutputDataReceived += OnOutput;
-            process.ErrorDataReceived += OnError;
-            process.Exited += delegate(object s, EventArgs e)
-            {
-                int code = 0;
-                try { code = process.ExitCode; } catch { /* ignore */ }
-                var handler = Exited;
-                if (handler != null) handler(code);
-            };
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            if (job != IntPtr.Zero) Native.AssignProcessToJobObject(job, process.Handle);
-        }
-
-        private void OnOutput(object sender, DataReceivedEventArgs e)
-        {
-            if (e.Data == null) return;
-            // server.js 启动成功后打印 "UI: http://host:port/" —— 以真实监听地址为准（含端口回退）。
-            var m = Regex.Match(e.Data, @"UI:\s*(http://[0-9A-Za-z._:-]+/?)");
-            if (m.Success)
-            {
-                var handler = UrlReady;
-                if (handler != null) handler(m.Groups[1].Value);
-            }
-        }
-
-        private void OnError(object sender, DataReceivedEventArgs e)
-        {
-            if (e.Data == null) return;
-            lock (stderrTail)
-            {
-                stderrTail.AppendLine(e.Data);
-                if (stderrTail.Length > 8000) stderrTail.Remove(0, stderrTail.Length - 8000);
-            }
-        }
-
-        public void Kill()
-        {
-            try
-            {
-                if (process != null && !process.HasExited)
-                {
-                    // .NET Framework 无整树 Kill —— taskkill /T 兜底；Job Object 仍是最终保险。
-                    var tk = new Process();
-                    tk.StartInfo.FileName = "taskkill.exe";
-                    tk.StartInfo.Arguments = "/F /T /PID " + process.Id;
-                    tk.StartInfo.UseShellExecute = false;
-                    tk.StartInfo.CreateNoWindow = true;
-                    tk.Start();
-                    tk.WaitForExit(3000);
-                }
-            }
-            catch { /* Job Object 兜底 */ }
-        }
-
-        public void Dispose()
-        {
-            Kill();
-            try { if (process != null) process.Dispose(); } catch { /* ignore */ }
-            if (job != IntPtr.Zero) { try { Marshal.GetLastWin32Error(); } catch { /* ignore */ } }
-        }
+        public bool Start(string baseDir) { return lifetime.Start(baseDir, DesktopIsolation.ExplicitDataRoot()); }
+        public System.Threading.Tasks.Task<bool> StopAsync() { return lifetime.StopAsync(); }
+        public void Dispose() { lifetime.Dispose(); }
     }
 
     /* ============================ 原生标题栏（三键 / 拖动 / 双击最大化） ============================ */
@@ -1491,12 +1403,30 @@ namespace RuyiDesktop
 
         /* ---------- 关闭：× 即退出整个进程（服务随 Job Object / taskkill 一并回收） ---------- */
 
-        protected override void OnFormClosing(FormClosingEventArgs e)
+        private bool closeCompleted, closePending;
+        public void OnStartupRetained()
         {
+            bootFailureShown=true;
+            titlePanel.SetStatus("启动未完成，数据已保留。请保留窗口并查看诊断。", false);
+        }
+        protected override async void OnFormClosing(FormClosingEventArgs e)
+        {
+            if(!closeCompleted)
+            {
+                e.Cancel=true;
+                if(closePending)return;
+                closePending=true;
+                titlePanel.SetStatus("正在完成后台收尾，请稍候…", false);
+                bool completed=false;
+                try { completed=await server.StopAsync(); } catch { /* Keep the window and lifetime owner. */ }
+                closePending=false;
+                if(completed) { closeCompleted=true; Close(); }
+                else titlePanel.SetStatus("关闭未完成，数据已保留。请保留窗口并查看诊断。", false);
+                return;
+            }
             bootTimer.Dispose();
             if (trayIcon != null) { trayIcon.Visible = false; trayIcon.Dispose(); }
             if (controller != null) { try { controller.Close(); } catch { /* ignore */ } }
-            server.Kill();
             base.OnFormClosing(e);
         }
 
@@ -1703,7 +1633,15 @@ namespace RuyiDesktop
                 Application.SetCompatibleTextRenderingDefault(false);
 
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                using (var server = new ServerHost())
+                ServerHost serverHost;
+                try { serverHost=new ServerHost(); }
+                catch (Win32Exception ex)
+                {
+                    MessageBox.Show("无法建立后台进程管理，服务尚未启动。请保留此提示并检查本机的进程管理限制。\n\n系统错误：" + ex.NativeErrorCode,
+                        "如意工作台", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                using (var server = serverHost)
                 {
                     var form = new ShellForm(server);
                     server.UrlReady += delegate(string url)
@@ -1716,7 +1654,7 @@ namespace RuyiDesktop
                     };
                     try
                     {
-                        server.Start(baseDir);
+                        if(!server.Start(baseDir))form.OnStartupRetained();
                     }
                     catch (Win32Exception)
                     {
@@ -1731,7 +1669,7 @@ namespace RuyiDesktop
                         return;
                     }
                     Application.Run(form);
-                    // using 退出时 ServerHost.Kill 兜底；Job Object 是最终保险。
+                    // 正常退出已完成排空；故障/强退仍由宿主持有的 Job 收底。
                 }
             }
             finally

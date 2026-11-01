@@ -22,12 +22,21 @@ const WorkDataSetup = (() => {
     }finally {for(const chunk of chunks)chunk.fill(0);}
   }
   function create(host) {
-    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false,receiving=false;
+    if(host.infrastructure!==undefined&&(!host.infrastructure||['prepareInfrastructure','closeInfrastructure','resumeInfrastructure'].some(name=>typeof host.infrastructure[name]!=='function')))throw fail('infrastructure_unavailable',503);
+    const jobs=new Map(),cachedBodies=new WeakMap();let active=null,creating=false,receiving=false,desktopClosing=false;
     const view=job=>Object.freeze({id:job.id,operation:job.operation,state:job.state,createdAt:job.createdAt,cancellable:!job.committed&&!job.cancelRequested&&!['failed','cancelled'].includes(job.state),
       takeover:job.committed,retry:false,error:job.error||null,operationMayHaveExecuted:job.committed});
     const ensureExpected=async expected=>{const current=await host.inspect();if(!same(expected,authority(current.authority)))throw fail('authority_changed');return current;};
     const code=error=>/^work_data(?:_[a-z0-9]+)*\.[a-z0-9_.-]{1,96}$/.test(String(error?.code||''))?error.code:'work_data_setup.worker_failed';
     const cancelled=job=>{if(job.cancelRequested)throw fail('cancelled');};
+    const uncertainJob=(job,error)=>{
+      if(job.uncertainFailure)return;
+      job.uncertainFailure=true;job.error=code(error);job.state='uncertain';
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.reportUncertain){
+        try{void Promise.resolve(DesktopLifetimeHooks.reportUncertain()).catch(()=>{});}catch{/* Keep the original authority and pending close. */}
+      }
+    };
+    const workerFailed=job=>{if(job.workerFailure)throw job.workerFailure.error;};
     const awaitReady=(job,ready)=>new Promise((resolve,reject)=>{
       const cleanup=()=>job.abort.signal.removeEventListener('abort',abort),abort=()=>{cleanup();reject(fail('cancelled'));};
       job.abort.signal.addEventListener('abort',abort,{once:true});if(job.abort.signal.aborted)return abort();
@@ -42,18 +51,35 @@ const WorkDataSetup = (() => {
         const worker=host.worker();if(typeof worker.start!=='function')throw fail('worker_unavailable',501);
         job.handle=await worker.start({...job.args,id:job.id,password:job.secret.toString('utf8')});job.secret.fill(0);job.secret=null;
         if(!job.handle || !job.handle.ready || typeof job.handle.ready.then!=='function' || typeof job.handle.cancel!=='function' || typeof job.handle.handoff!=='function')throw fail('worker_contract_invalid');
-        const ready=Promise.resolve(job.handle.ready);ready.catch(()=>{});cancelled(job);await awaitReady(job,ready);cancelled(job);job.state='ready';
+        if(host.infrastructure&&(typeof job.handle.commit!=='function'||typeof job.handle.assertArmed!=='function'||typeof job.handle.failure?.then!=='function'))throw fail('worker_contract_invalid');
+        if(job.handle.failure){
+          const observe=error=>{if(!job.workerFailure)job.workerFailure={error};if(job.committed)uncertainJob(job,job.workerFailure.error);};
+          void Promise.resolve(job.handle.failure).then(observe,observe);
+        }
+        const ready=Promise.resolve(job.handle.ready);ready.catch(()=>{});cancelled(job);await awaitReady(job,ready);cancelled(job);workerFailed(job);job.state='ready';
+        if(host.infrastructure?.prepareInfrastructure)job.infrastructure=host.infrastructure.prepareInfrastructure();
         // This synchronous boundary is indivisible with respect to cancel HTTP.
         // Once commitment begins no timeout or uncertain result may reopen warm IO.
-        job.lease.assertIdle();job.committed=true;job.state='handoff';job.lease.retire();
+        job.lease.assertIdle();job.committed=true;job.state='handoff';
+        // Acknowledge the original go/armed commitment before resident close. The
+        // cold worker's short ready-to-go deadline must not time helper shutdown.
+        if(host.infrastructure)await job.handle.commit();workerFailed(job);
+        // Closing resident helpers loses process-local state, so it belongs after
+        // the existing non-cancellable boundary, before retirement and parent exit.
+        if(job.infrastructure){job.infrastructureClose=host.infrastructure.closeInfrastructure(job.infrastructure);await job.infrastructureClose;workerFailed(job);await job.lease.idle();workerFailed(job);job.lease.assertIdle();job.handle.assertArmed();}
+        job.lease.retire();
         await job.handle.handoff();
         // Handoff completion is not conversion completion. Success is reported
         // only by a successor reading the cold worker's durable receipt.
-      }catch(error){failed=error;job.error=code(error);job.state=job.committed?'uncertain':job.cancelRequested?'cancelled':'failed';}
+      }catch(error){failed=error;
+        if(job.committed)uncertainJob(job,error);
+        else{job.error=code(error);job.state=job.cancelRequested?'cancelled':'failed';}
+      }
       finally {
         if(job.secret){job.secret.fill(0);job.secret=null;}job.args=null;
         if(!job.committed){
           try{if(job.handle)await job.handle.cancel();}catch(error){job.error=code(error);job.state='failed';}
+          try{if(job.infrastructure)host.infrastructure.resumeInfrastructure(job.infrastructure);}catch{job.error='work_data_setup.resume_failed';job.state='failed';}
           try{if(job.lease && !job.abort.signal.aborted)job.lease.resume();}catch{job.error='work_data_setup.resume_failed';job.state='failed';}
           if(active===job)active=null;
         }
@@ -61,7 +87,8 @@ const WorkDataSetup = (() => {
       return failed;
     }
     async function submit(body) {
-      if(creating||active||!host.maintenance.accepting())throw fail('busy');creating=true;
+      if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.admissionOpen&&DesktopLifetimeHooks.admissionOpen()!==true)throw fail('busy');
+      if(desktopClosing||creating||active||!host.maintenance.accepting())throw fail('busy');creating=true;
       let secret;
       try {
         if(!exact(body,['operation','password','expectedAuthority','backupDirectory','targetDirectory','uploadId','confirmPlaintext']) || !['enable','disable','export','restore'].includes(body.operation))throw fail('request_invalid',400);
@@ -103,6 +130,16 @@ const WorkDataSetup = (() => {
       if(!['cancelled','failed'].includes(job.state)){job.cancelRequested=true;job.state='cancel_requested';job.abort.abort();}
       return view(job);
     }
+    async function closeForDesktop() {
+      desktopClosing=true;
+      // A submit/upload already admitted owns its cleanup; do not retire underneath it.
+      while(creating||receiving)await new Promise(resolve=>setTimeout(resolve,25));
+      const job=active;if(!job)return true;
+      if(job.committed)return false;
+      await cancel(job.id);
+      while(active===job){if(job.done)await job.done;else await new Promise(resolve=>setTimeout(resolve,25));}
+      return true;
+    }
     async function status() {
       const observed=await host.inspect(),worker=host.worker();let lastResult=null;
       if(typeof worker.readResult==='function'){try{lastResult=await worker.readResult();}catch{throw fail('result_unavailable',503);}}
@@ -139,7 +176,7 @@ const WorkDataSetup = (() => {
       // Same admission as every other transfer: no job may be preparing and the
       // process must still be accepting. The path carries an id only; the runtime
       // resolves the one current result and verifies the bytes before any header.
-      if(active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
+      if(desktopClosing||active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
       const worker=host.worker();
       if(typeof worker.downloadPackage!=='function')throw fail('download_unavailable',501);
       const headers=loopbackSameOrigin(req,'package_origin_invalid'),id=pathname.slice('/api/work-data/results/'.length,-'/package'.length);
@@ -167,7 +204,7 @@ const WorkDataSetup = (() => {
     async function receiveUpload(req) {
       // The main router authenticates the header token before this handler. This
       // route additionally binds the actual loopback socket and same-port Origin.
-      if(active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
+      if(desktopClosing||active||creating||receiving||!host.maintenance.accepting())throw fail('busy');
       const worker=host.worker();
       if(typeof worker.putUpload!=='function'||typeof worker.resolveUpload!=='function')throw fail('upload_unavailable',501);
       const headers=loopbackSameOrigin(req,'upload_origin_invalid');
@@ -222,7 +259,7 @@ const WorkDataSetup = (() => {
       try{return await host.maintenance.continueOwner(owner,()=>host.maintenance.run('http',work));}
       finally{cachedBodies.delete(req);}
     }
-    return Object.freeze({submit,cancel,status,handle,runHttp,bypasses,cachedBody:req=>cachedBodies.get(req)});
+    return Object.freeze({submit,cancel,status,handle,runHttp,bypasses,closeForDesktop,cachedBody:req=>cachedBodies.get(req)});
   }
   return Object.freeze({create,authority,readJson});
 })();
@@ -283,7 +320,7 @@ function workDataSetupReceiptOwner(pathname,body) {
   if(!entry||body.sessionId!==undefined&&entry.sessionId!==body.sessionId)return null;
   return turnSettlers.get(entry.sessionId)||null;
 }
-const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks,inspect:workDataSetupInspect,validateDirectories:workDataSetupDirectories,
+const workDataSetup = WorkDataSetup.create({maintenance:WorkDataMaintenanceHooks,infrastructure:WorkDataMaintenanceHooks,inspect:workDataSetupInspect,validateDirectories:workDataSetupDirectories,
   workerReady:()=>{
     const hooks=typeof WorkDataMaintenanceRuntimeHooks==='undefined'?null:WorkDataMaintenanceRuntimeHooks;
     return !hooks||typeof hooks.workerReady!=='function'?true:hooks.workerReady()===true;

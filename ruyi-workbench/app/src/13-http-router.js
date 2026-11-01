@@ -165,6 +165,7 @@ async function handleApi(req, res, pathname) {
   }
 
   if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.handle && await WorkDataSetupHooks.handle(req, res, pathname)) return;
+  if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.closing?.()&&typeof WorkDataSetupHooks.bypasses==='function'&&!WorkDataSetupHooks.bypasses(req,pathname))DesktopLifetimeHooks.admit();
   if (typeof WorkDataSetupHooks !== 'undefined' && WorkDataSetupHooks.runHttp && !WorkDataSetupHooks.bypasses(req, pathname) && !WorkDataMaintenanceHooks.entered('http')) return WorkDataSetupHooks.runHttp(req, pathname, () => handleApi(req, res, pathname));
 
   if (pathname === '/api/mcp/internal/request' && await InternalMcpHooks.handle(req, res, pathname)) return;
@@ -1657,6 +1658,7 @@ async function listenForWorkbenchServe(server, port, host, config, opts) {
 }
 
 async function startServer(opts) {
+  if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.connect)await DesktopLifetimeHooks.connect();
   // S13:绑定地址的合法性是命令行用法问题,不是「启动失败」—— 在 try 之外判,拒绝时不落 last-start-error.json(否则下次成功启动
   // 顶部条会冒出一条「再启动一次通常就好」的误导文字),也不碰数据目录。
   const bindHost = resolveBindHost(opts);
@@ -1785,6 +1787,20 @@ function stopAllActiveTurnsSync(reason = 'shutdown') {
     try { if (stopSession(id, reason)) stopped += 1; } catch { /* 收尾绝不抛 */ }
   }
   return stopped;
+}
+
+// Keep the original asynchronous warmup order, but its real promises now belong
+// to one existing maintenance admission, including every derived background task.
+async function warmWorkbenchServices(config){
+  const settle=pending=>Promise.resolve(pending).catch(()=>{});
+  await Promise.all([
+    settle(startScheduler(config)),
+    typeof ToolboxHooks.reconcile==='function'?settle(ToolboxHooks.reconcile()):Promise.resolve(),
+    settle(ensureDesktopMcpWarm(config).then(()=>Promise.all([
+      settle(syncMcpServersToClaude(config)),settle(syncAgentCliMcpManifests(config)),
+      settle(getCapabilities(config)),settle(generateMcpConfig(config.mcpCommandMode).then(file=>{console.log(`MCP config: ${file}`);})),
+    ]))),
+  ]);
 }
 
 async function startServerInner(opts, bindHost = resolveBindHost(opts), maintenanceOwnership) {
@@ -1918,6 +1934,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
     { port, host, pid: process.pid, token: runtimeToken, overlayId: OVERLAY_ID, version: VERSION, launchMode: LAUNCH_MODE, startedAt: nowIso() },
     { mode: 0o600 }).catch(() => {});   // 安全走查 S11:里面是接口令牌,只给属主读写(POSIX;Windows 靠用户目录 ACL)
   if (maintenanceOwnership && typeof WorkDataMaintenanceRuntimeHooks.captureServe === 'function') await WorkDataMaintenanceRuntimeHooks.captureServe({base:await ServerOwnership.canonicalRoot(dataRoot()),ownership:maintenanceOwnership,server,listener:{host,port}});
+  if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.capture)DesktopLifetimeHooks.capture({server,listener:{host,port}});
   if (typeof PrivacyCore.configHooks.consumerListen === 'function') await PrivacyCore.configHooks.consumerListen();
   console.log(`${APP_NAME} ${VERSION}  (launch: ${LAUNCH_MODE}, overlay ${OVERLAY_ID})`);
   console.log(`UI: ${url}`);
@@ -1947,31 +1964,11 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   // /api/status 里 generateMcpConfig/detectDesktopMcp 也仍是同步路径 —— 首个请求最多付一次探针,这是接受的。
   const BOOT_PROBE_WARMUP_MS = 500;
   setTimeout(() => setImmediate(() => {
-    // 第123波 M1(37 号文 §3.2「启动恢复」):调度器起在这一段的【最前面】,不在 listen 之后的
-    // 关键路径上。理由是实测出来的:第一版把 `await startScheduler(config)` 直接写在 server_start
-    // 那一行之后,walkthrough-round2 的 B1(「全新 HOME 启动落管家视角」)从 0/6 红变成 3/10 红 ——
-    // 那一件量的正是「首屏 bind 期 config 到没到」,startScheduler 里那一次 readConfig 与两次落空的
-    // 文件读把最初那一两个请求往后挤了。本段的存在理由就是「把起跑那一刻让出去」(见上面的头注),
-    // 调度器与 MCP 同步、能力矩阵预热是同一类活:都该等首屏拿到东西之后再做。
-    // 排在本段最前而不是最后:它比下面三件都轻,而且恢复那一步可能要立刻补跑一个回合,
-    // 不该排在 detectDesktopMcp 那 2 s 同步探针后面。schedulerEnabledV1 显式 false 时它立即返回,
-    // 不建目录、不读盘、不起 interval、零写入;开着但零任务时同样不起 interval(29 号文 §4「开关」)。
-    // fire-and-forget:调度器是旁路,失败绝不阻断已经开起来的服务。
-    void startScheduler(config).catch(() => {});
-    // v2.7.1 (boot fix): claude add-json 串行慢,await 拖死 boot(10 MCP x <=10s)。fire-and-forget:
-    // 后台同步最多 15s 预算,超预算余量丢弃(add-json 幂等,下次 boot 补齐)。
-    // 39 号文:下面四件的【同步前缀】都要走 resolveExternalMcpServers -> detectDesktopMcp -> pickPython。
-    // 先用 ensureDesktopMcpWarm() 异步探一趟(execFile,不占事件循环),两张缓存热了再放它们跑,
-    // 于是这一整段里一发 spawnSync 都不会有。预热失败也照跑(它自己 catch 成 null),最坏退回旧行为。
-    // ruyi-toolbox:登记过的服务类组件在这里拉起并接成能力端点(04f)。void —— 绝不挡启动,失败只记日志与状态。
-    if (typeof ToolboxHooks.reconcile === 'function') void ToolboxHooks.reconcile().catch(() => {});
-    void ensureDesktopMcpWarm(config).then(() => {
-      void syncMcpServersToClaude(config).catch(() => {});
-      void syncAgentCliMcpManifests(config).catch(() => {});   // 选中的 CLI 若从用户配置读 MCP(Kimi),推一次(01)
-      // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
-      void getCapabilities(config).catch(() => {});
-      void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});
-    });
+    const work=()=>warmWorkbenchServices(config);
+    if(typeof WorkDataMaintenanceHooks.fresh==='function'){
+      if(!WorkDataMaintenanceHooks.accepting()){WorkDataMaintenanceHooks.deferBootWarmup(work);return;}
+      void WorkDataMaintenanceHooks.fresh('boot-warmup',work).catch(()=>{});
+    }else void work().catch(()=>{});
   }), BOOT_PROBE_WARMUP_MS).unref();
   // v0.7d: reap any bridged desktop/external MCP children on shutdown so they aren't orphaned.
   let cleanedUp = false;
@@ -2145,7 +2142,12 @@ function kimiModelList(config, discovered) {
 
 // Query the installed Kimi Code CLI itself, which is the source of truth for OAuth-managed and custom
 // providers. This is local/read-only and avoids baking account-specific aliases into Ruyi.
+const kimiModelProbeChildren = new Set();
+function stopKimiModelProbes() {
+  for(const child of kimiModelProbeChildren)if(child.exitCode===null&&child.signalCode===null)killChildTree(child.pid);
+}
 function discoverKimiModels(config) {
+  if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
   const fallback = kimiModelList(config);
   const selected = selectedAgentCli({ ...(config || {}), agentCliType: 'kimi' });
   if (!selected.path) return Promise.resolve({ ok: false, models: fallback, discoveredCount: 0, error: '未检测到 Kimi Code CLI' });
@@ -2162,6 +2164,8 @@ function discoverKimiModels(config) {
     }, 10000);
     try {
       child = cp.spawn(launch.command, launch.args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], ...launch.opts });
+      if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
+      kimiModelProbeChildren.add(child);child.once('close',()=>kimiModelProbeChildren.delete(child));
     } catch (error) {
       finish({ ok: false, models: fallback, discoveredCount: 0, error: `无法启动 Kimi Code CLI: ${redact(error && error.message || String(error))}` });
       return;

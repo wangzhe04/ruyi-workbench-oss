@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 131,
-    "providedSymbols": 4252,
-    "requiredSymbols": 4150,
-    "edges": 900,
+    "modules": 132,
+    "providedSymbols": 4283,
+    "requiredSymbols": 4189,
+    "edges": 911,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -35,6 +35,7 @@
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "DeliveryHooks",
+        "DesktopLifetimeHooks",
         "EventStreamHooks",
         "ExternalBotHooks",
         "INSTALL_REGISTRY_MAX",
@@ -123,6 +124,7 @@
         "decodeConsoleText",
         "decodeTextFileBytes",
         "defaultDataRoots",
+        "desktopLifetimeBootstrap",
         "ensureDirs",
         "exePath",
         "exposeBundledPythonRuntime",
@@ -3497,6 +3499,20 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "desktopLifetimeBootstrap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "ensureDirs",
           "kinds": [
             "call"
@@ -3603,6 +3619,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -3989,6 +4012,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -4631,6 +4661,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5609,9 +5646,12 @@
         "kimiAcpWireOutcome",
         "kimiApi",
         "kimiBridgeState",
+        "kimiChildCloses",
         "kimiCodeHome",
         "kimiContextWindow",
         "kimiHttp",
+        "kimiHttpControllers",
+        "kimiServerClosing",
         "kimiSessionStatus",
         "kimiStatusFingerprint",
         "kimiUsageFromStatus",
@@ -5807,6 +5847,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -15379,6 +15426,7 @@
         "installIntegration",
         "killPid",
         "kimiModelList",
+        "kimiModelProbeChildren",
         "listenForWorkbenchServe",
         "listenOnNextFreePort",
         "listenOnce",
@@ -15412,7 +15460,9 @@
         "startServer",
         "startServerInner",
         "stopAllActiveTurnsSync",
+        "stopKimiModelProbes",
         "tierModelForNode",
+        "warmWorkbenchServices",
         "writeStartError"
       ],
       "requires": [
@@ -15526,6 +15576,13 @@
           "symbol": "defaultDataRoots",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -16400,6 +16457,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "killAllMcpClients",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "killChildTree",
           "kinds": [
             "call"
           ]
@@ -28383,12 +28447,32 @@
       "note": "M3-3: work-data-maintenance",
       "provides": [
         "WorkDataMaintenance",
+        "workDataAdmitHelper",
+        "workDataChildClosures",
+        "workDataCloseInfrastructure",
         "workDataDeferredAgentWakes",
+        "workDataDeferredBootWarmup",
         "workDataDeferredStewardWake",
         "workDataHelpersMayStillRun",
-        "workDataMaintenance"
+        "workDataInfrastructureCause",
+        "workDataInfrastructureFailure",
+        "workDataInfrastructureFailureSet",
+        "workDataInfrastructurePhase",
+        "workDataInfrastructureRetained",
+        "workDataInfrastructureTicket",
+        "workDataMaintenance",
+        "workDataPrepareInfrastructure",
+        "workDataResumeInfrastructure",
+        "workDataTrackChildClose"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "fs",
@@ -28579,6 +28663,13 @@
           ]
         },
         {
+          "provider": "03b-privacy-local-drive.js",
+          "symbol": "PrivacyLocalDriveProbe",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -28594,7 +28685,21 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "killAllMcpClients",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logStream",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
           "kinds": [
             "read"
           ]
@@ -28632,6 +28737,27 @@
           "symbol": "voiceLexiconChains",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiBridgeState",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiHttpControllers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "stopKimiServer",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -28706,6 +28832,13 @@
         },
         {
           "provider": "11-native-tools.js",
+          "symbol": "killAllShellSessions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
           "symbol": "shellSessions",
           "kinds": [
             "read"
@@ -28720,9 +28853,23 @@
         },
         {
           "provider": "13-http-router.js",
+          "symbol": "kimiModelProbeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
           "symbol": "proxyModelsCacheChains",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "stopKimiModelProbes",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -29024,6 +29171,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -29215,6 +29369,13 @@
         "WorkDataMaintenanceWorker"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
@@ -29424,6 +29585,13 @@
         "WorkDataMaintenanceRuntime"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "http",
@@ -30277,8 +30445,140 @@
       ]
     },
     {
-      "file": "13au-work-data-runtime-host.js",
+      "file": "13ax-desktop-lifetime.js",
       "order": 129,
+      "layer": "unclassified",
+      "note": "M3-D1 private desktop lifetime transport and owner-composed cooperative close; no data-root or maintenance authority",
+      "provides": [
+        "DesktopLifetime",
+        "DesktopLifetimeDiagnostic",
+        "desktopLifetimeAdmit",
+        "desktopLifetimeClient",
+        "desktopLifetimeFailure",
+        "desktopLifetimeFailureSet",
+        "desktopLifetimeServer",
+        "desktopLifetimeStop",
+        "desktopLifetimeStopInfrastructure",
+        "desktopLifetimeStopping"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "desktopLifetimeBootstrap",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ExternalBotHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataSetupHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "stopAllActiveTurnsSync",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "agentRunActionCommand",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "stopScheduler",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13au-work-data-runtime-host.js",
+      "order": 130,
       "layer": "unclassified",
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis).",
       "provides": [
@@ -30423,7 +30723,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 130,
+      "order": 131,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -30484,6 +30784,13 @@
           "symbol": "dataRoot",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "DesktopLifetimeHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -30559,6 +30866,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "usageLedgerCacheStats",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
           ]
@@ -35638,15 +35952,18 @@
       "from": "04-permission-runtime.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopLifetimeHooks",
         "OVERLAY_ID",
         "SessionExecutionHooks",
         "URL",
         "VERSION",
+        "WorkDataMaintenanceHooks",
         "WorkDataRootHooks",
         "cp",
         "crypto",
         "dataRoot",
         "decodeTextFileBytes",
+        "desktopLifetimeBootstrap",
         "ensureDirs",
         "externalRoot",
         "fs",
@@ -35781,6 +36098,7 @@
       "from": "04f-toolbox-services.js",
       "to": "00-boot.js",
       "symbols": [
+        "WorkDataMaintenanceHooks",
         "cp",
         "http",
         "path",
@@ -35894,6 +36212,7 @@
         "RUYI_EVENTS",
         "SessionExecutionHooks",
         "URL",
+        "WorkDataMaintenanceHooks",
         "WorkDataRootHooks",
         "appendUsageLedger",
         "claudeCostFields",
@@ -36223,6 +36542,7 @@
         "SessionExecutionHooks",
         "StringDecoder",
         "URL",
+        "WorkDataMaintenanceHooks",
         "cp",
         "createCappedDiagnosticText",
         "createNdjsonLineFeeder",
@@ -38871,6 +39191,7 @@
         "CliBusinessHooks",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
+        "DesktopLifetimeHooks",
         "EventStreamHooks",
         "ExternalBotHooks",
         "InternalMcpHooks",
@@ -39108,6 +39429,7 @@
         "ToolboxHooks",
         "activeChildren",
         "killAllMcpClients",
+        "killChildTree",
         "killOwnProcessTree",
         "logEvent",
         "makeAttachmentRecord",
@@ -40093,6 +40415,7 @@
       "from": "13ag-work-data-maintenance.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopLifetimeHooks",
         "InternalMcpHooks",
         "MediaImageHooks",
         "MemoryCliHooks",
@@ -40139,10 +40462,20 @@
     },
     {
       "from": "13ag-work-data-maintenance.js",
+      "to": "03b-privacy-local-drive.js",
+      "symbols": [
+        "PrivacyLocalDriveProbe"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ag-work-data-maintenance.js",
       "to": "04-permission-runtime.js",
       "symbols": [
+        "ToolboxHooks",
         "activeChildren",
         "flushWorkbenchLogs",
+        "killAllMcpClients",
         "logStream",
         "turnOutcomePending",
         "turnSettlers"
@@ -40163,6 +40496,16 @@
       "to": "05-claude-engine.js",
       "symbols": [
         "voiceLexiconChains"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ag-work-data-maintenance.js",
+      "to": "05b-kimi-bridge.js",
+      "symbols": [
+        "kimiBridgeState",
+        "kimiHttpControllers",
+        "stopKimiServer"
       ],
       "direction": "backward"
     },
@@ -40215,6 +40558,7 @@
       "to": "11-native-tools.js",
       "symbols": [
         "backgroundJobChains",
+        "killAllShellSessions",
         "shellSessions"
       ],
       "direction": "backward"
@@ -40231,7 +40575,9 @@
       "from": "13ag-work-data-maintenance.js",
       "to": "13-http-router.js",
       "symbols": [
-        "proxyModelsCacheChains"
+        "kimiModelProbeChildren",
+        "proxyModelsCacheChains",
+        "stopKimiModelProbes"
       ],
       "direction": "backward"
     },
@@ -40349,6 +40695,7 @@
       "from": "13ah-work-data-setup.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopLifetimeHooks",
         "URL",
         "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceRuntimeHooks",
@@ -40446,6 +40793,7 @@
       "from": "13ai-work-data-worker.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopLifetimeHooks",
         "VERSION"
       ],
       "direction": "backward"
@@ -40587,6 +40935,7 @@
       "from": "13am-work-data-maintenance-runtime.js",
       "to": "00-boot.js",
       "symbols": [
+        "DesktopLifetimeHooks",
         "MigrationHooks",
         "WorkDataMaintenanceRuntimeHooks",
         "http"
@@ -41068,6 +41417,85 @@
       "to": "00-boot.js",
       "symbols": [
         "BootRootPreference"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "DesktopLifetimeHooks",
+        "ExternalBotHooks",
+        "MigrationHooks",
+        "WorkDataMaintenanceHooks",
+        "WorkDataMaintenanceRuntimeHooks",
+        "WorkDataSetupHooks",
+        "desktopLifetimeBootstrap",
+        "fs"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "01-config.js",
+      "symbols": [
+        "send"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "01j-local-crypto.js",
+      "symbols": [
+        "LocalSecretCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "turnSettlers"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "StewardHooks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "activeAgentRuns"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "13-http-router.js",
+      "symbols": [
+        "stopAllActiveTurnsSync"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "13d-core-domain-routes.js",
+      "symbols": [
+        "agentRunActionCommand"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-desktop-lifetime.js",
+      "to": "13s-scheduler.js",
+      "symbols": [
+        "stopScheduler"
       ],
       "direction": "backward"
     },
@@ -44139,9 +44567,11 @@
       "to": "00-boot.js",
       "symbols": [
         "CONFIG_SCHEMA",
+        "DesktopLifetimeHooks",
         "EventStreamHooks",
         "MigrationHooks",
         "RUYI_EVENTS",
+        "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceRuntimeHooks",
         "WorkDataRootHooks",
         "apiSessionIdInvalid",

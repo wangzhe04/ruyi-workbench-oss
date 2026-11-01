@@ -6,6 +6,8 @@ function workDataCliHelperUnknown(error) {
     if (typeof LocalSecretCrypto !== 'undefined') { const inspect=LocalSecretCrypto.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(LocalSecretCrypto)!==false)) workDataCliHelperHeld=true; }
     if (typeof MigrationHooks !== 'undefined') { const inspect=MigrationHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(MigrationHooks)!==false)) workDataCliHelperHeld=true; }
     if (typeof WorkDataMaintenanceRuntimeHooks !== 'undefined') { const inspect=WorkDataMaintenanceRuntimeHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(WorkDataMaintenanceRuntimeHooks)!==false)) workDataCliHelperHeld=true; }
+    if (typeof DesktopLifetimeHooks !== 'undefined') { const inspect=DesktopLifetimeHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(DesktopLifetimeHooks)!==false)) workDataCliHelperHeld=true; }
+    if (typeof WorkDataMaintenanceHooks !== 'undefined') { const inspect=WorkDataMaintenanceHooks.helperMayStillRun; if (inspect!==undefined && (typeof inspect!=='function' || inspect.call(WorkDataMaintenanceHooks)!==false)) workDataCliHelperHeld=true; }
   } catch { workDataCliHelperHeld=true; }
   if (workDataCliHelperHeld) return true;
   // A retained OS owner recorded on the failure itself is the same unknown: exiting now
@@ -85,6 +87,7 @@ async function startWorkbenchServe(argv) {
   // 失败绝不阻断已经开起来的服务(管家是旁路,不是主链路)。
   await startStewardInbox(await readConfig()).catch(() => {});
   if (typeof WorkDataMaintenanceRuntimeHooks.activateServe === 'function') WorkDataMaintenanceRuntimeHooks.activateServe();
+  if(typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.serving)await DesktopLifetimeHooks.serving();
   return served;
 }
 // P2-4: the explicit operational exit for the boot-root preference. It never acquires
@@ -123,6 +126,7 @@ async function clearBootRootPreference() {
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
   const command = argv._[0] || 'serve';
+  if(['work-data-maintenance','work-data-successor'].includes(command)&&typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.connect)await DesktopLifetimeHooks.connect();
   // Detect the raw option before parseArgs can consume a following "doctor" as
   // its value or hide an =value spelling among ordinary doctor options.
   const raw = process.argv.slice(2);

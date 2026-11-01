@@ -488,9 +488,11 @@ async function shellStart(args, config, ctx = {}) {
   }
   let child;
   try {
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.admitHelper)WorkDataMaintenanceHooks.admitHelper();
     child = cp.spawn('powershell.exe', launchArgs, {
       cwd, env: { ...process.env }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
+    if(typeof WorkDataMaintenanceHooks!=='undefined'&&WorkDataMaintenanceHooks.trackChild)WorkDataMaintenanceHooks.trackChild(child);
   } catch (e) {
     return { ok: false, error: (e && e.message) ? e.message : 'spawn failed' };
   }
