@@ -1,0 +1,462 @@
+{
+  "schema": 1,
+  "status": "PRODUCT_COMMITTED_AND_PUSHED_MAIN_FINAL_FOUR_GATES_ACCEPTED",
+  "createdAt": "2026-11-01T07:50:26.457Z",
+  "productCommitSha": "7715e999b95d1365003e8781ee7d3b77773b20b8",
+  "productTree": "f8b4c51b0fe1ab54053647fc8da3294f2d9ac563",
+  "previousMain": "441d0b5b79de92bb4a10f853a1bcd8f5c693b368",
+  "candidateSourceTree": "9fd93cf1f3403d7830012cd59203604d70fdfd6b",
+  "version": "3.0.1",
+  "formalRelease": false,
+  "references": [
+    {
+      "id": "FIRST-PRECHECK-RED.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\FIRST-PRECHECK-RED.json",
+      "bytes": 430,
+      "sha256": "06dacfabf92eec9aaceafbe4ea36581b10d1025177e80b5fe4001e44caf1f891",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/06dacfabf92eec9aaceafbe4ea36581b10d1025177e80b5fe4001e44caf1f891.gz",
+        "bytes": 313,
+        "sha256": "3d4d40d2f237de76bc14d7a322755a7c32a9e243ce53c8815f08619b1377c1d8"
+      }
+    },
+    {
+      "id": "r2/PREFLIGHT.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\r2\\PREFLIGHT.json",
+      "bytes": 256,
+      "sha256": "eecb12eea25f36a8b9563face2a0dac51e801bef24464d882bc3f513fa5c03ea",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/eecb12eea25f36a8b9563face2a0dac51e801bef24464d882bc3f513fa5c03ea.gz",
+        "bytes": 210,
+        "sha256": "c8ab608c6e28a04670d37c404ba5605bd84dcf889aa2f80b4d09ef2e0e94807d"
+      }
+    },
+    {
+      "id": "r2/SOURCE-TREE.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\r2\\SOURCE-TREE.json",
+      "bytes": 72,
+      "sha256": "b4469625d09052bc3f821af68f5fc4b0d56542f597a960b7d3c9cca03a9615c8",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/b4469625d09052bc3f821af68f5fc4b0d56542f597a960b7d3c9cca03a9615c8.gz",
+        "bytes": 87,
+        "sha256": "a811164ba90d33182d4b722c3d46cbee47a6925c2086894d7bcf47fcbabd2fe5"
+      }
+    },
+    {
+      "id": "r2/INTEGRATION-RECEIPT.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\r2\\INTEGRATION-RECEIPT.json",
+      "bytes": 97548,
+      "sha256": "bdfed2f25dbf5ece5229e55f1a523985180dca1fe15349bfcaed79b577b1b883",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/bdfed2f25dbf5ece5229e55f1a523985180dca1fe15349bfcaed79b577b1b883.gz",
+        "bytes": 25613,
+        "sha256": "653f2e4acb9379f5ffedbd6a956751f059cc871e3d7d8d0d34f508eaa9c04822"
+      }
+    },
+    {
+      "id": "POSTCHECK.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\POSTCHECK.json",
+      "bytes": 440,
+      "sha256": "d865eedf878bb2bc521046f71036f08ea274faabf7d6f8551fde9324d0f2297b",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/d865eedf878bb2bc521046f71036f08ea274faabf7d6f8551fde9324d0f2297b.gz",
+        "bytes": 279,
+        "sha256": "a43c6e67edba4d21c315465a1c8b316847740b341dad4efff0c93e4951f38e11"
+      }
+    },
+    {
+      "id": "ROOT-MAIN-COPY-ACCEPTANCE.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\ROOT-MAIN-COPY-ACCEPTANCE.json",
+      "bytes": 877,
+      "sha256": "8084bf446ac080ea919258b642f6602813ff34e1efe5426f6a4fb09084414f49",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/8084bf446ac080ea919258b642f6602813ff34e1efe5426f6a4fb09084414f49.gz",
+        "bytes": 583,
+        "sha256": "b4098d8cc7a5b275bd8be838f033418f274710287fdeee9205cef1b5dd214c9a"
+      }
+    },
+    {
+      "id": "ROOT-FINAL-GATES-ACCEPTANCE.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\ROOT-FINAL-GATES-ACCEPTANCE.json",
+      "bytes": 1462,
+      "sha256": "4914e1fd9f8d16f90907c880c6a4d47f635623711c41593878826331c198a880",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/4914e1fd9f8d16f90907c880c6a4d47f635623711c41593878826331c198a880.gz",
+        "bytes": 631,
+        "sha256": "f3c9d2da1074a1d4d2c4c6d66ea295ae2d9e213e94de30e0d269c49cf93b78db"
+      }
+    },
+    {
+      "id": "terra-main-copy-r2.cjs",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\terra-main-copy-r2.cjs",
+      "bytes": 4644,
+      "sha256": "9fb3bc5c2124538bf3a0bb9782004e819d358bca1b3d14934430db1ee9c284cb",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/9fb3bc5c2124538bf3a0bb9782004e819d358bca1b3d14934430db1ee9c284cb.gz",
+        "bytes": 1818,
+        "sha256": "a7ebb86669bcb35949fe3e15e38b17443ea1bb78aceaa283cf97d5d581c3d8d3"
+      }
+    },
+    {
+      "id": "resume-r3.cjs",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\resume-r3.cjs",
+      "bytes": 2966,
+      "sha256": "f8d7efd1403c0990ce2dc22f936df93ccb173d133df7efea689e6d3003f3d06b",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/f8d7efd1403c0990ce2dc22f936df93ccb173d133df7efea689e6d3003f3d06b.gz",
+        "bytes": 1303,
+        "sha256": "f5194a3411dd6e353a8dedef5c37c685db2ff0598064e26315217f96a892ff41"
+      }
+    },
+    {
+      "id": "postcheck.cjs",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\postcheck.cjs",
+      "bytes": 1914,
+      "sha256": "db0b016d7e4bfb939b7d2237901e81c863f15b6996ee5180cf68fbc9dbb9ecfe",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/db0b016d7e4bfb939b7d2237901e81c863f15b6996ee5180cf68fbc9dbb9ecfe.gz",
+        "bytes": 988,
+        "sha256": "7e4a57cd8dbe92af7ef2fbb06be614a36db0bd9580bab1b8660287168354474f"
+      }
+    },
+    {
+      "id": "main-gate.cjs",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\main-gate.cjs",
+      "bytes": 3466,
+      "sha256": "19429d18d0aeaeeb18b8d714bf882c229bb8681a984c04ce2696df26fd14d2df",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/19429d18d0aeaeeb18b8d714bf882c229bb8681a984c04ce2696df26fd14d2df.gz",
+        "bytes": 1569,
+        "sha256": "86f2276a287b4956009ce69e8ed048fef707350b0228578777879490b46a04e8"
+      }
+    },
+    {
+      "id": "../c2-delivery-prepared-r5-20261101/terra-main-copy.cjs",
+      "originalFile": "E:/Claude/c2-delivery-prepared-r5-20261101/terra-main-copy.cjs",
+      "bytes": 4618,
+      "sha256": "173195397f1c01f030469f5f74f3acd66e73db65c47d440cdf7598c08f478f24",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/173195397f1c01f030469f5f74f3acd66e73db65c47d440cdf7598c08f478f24.gz",
+        "bytes": 1814,
+        "sha256": "213e50a856bfcbd9dd98d8aa17e76ef86610fe6cd981d02ebff42736cea8d514"
+      }
+    },
+    {
+      "id": "outer-syntax01/stdout.log",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-syntax01\\stdout.log",
+      "bytes": 60,
+      "sha256": "bf502fb50c5f840675541d00bac25ce5907de30b60a280e810a73a6a96bbd842",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/bf502fb50c5f840675541d00bac25ce5907de30b60a280e810a73a6a96bbd842.gz",
+        "bytes": 80,
+        "sha256": "a455357b39ffabe2a121dd94566d26392505ac97b18a1b08d2282d6f36cec936"
+      }
+    },
+    {
+      "id": "outer-syntax01/stderr.log",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-syntax01\\stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+        "bytes": 20,
+        "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "id": "outer-syntax01/events.jsonl",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-syntax01\\events.jsonl",
+      "bytes": 1278,
+      "sha256": "906feb7d403bc0e96e5c1bcd0eee3a27691e0b6d47e1594baf93d0aef8efa9b1",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/906feb7d403bc0e96e5c1bcd0eee3a27691e0b6d47e1594baf93d0aef8efa9b1.gz",
+        "bytes": 427,
+        "sha256": "15d4335569320f6c234c6f53092787554bb9b8f31b3d3a76a2744b8527338e32"
+      }
+    },
+    {
+      "id": "outer-syntax01/ENV-RECEIPT.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-syntax01\\ENV-RECEIPT.json",
+      "bytes": 8061,
+      "sha256": "958c47eda9b2f7fb2ebe8d244e76fcd030a28d8d2b51f2b2159a1914fd4a3c60",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/958c47eda9b2f7fb2ebe8d244e76fcd030a28d8d2b51f2b2159a1914fd4a3c60.gz",
+        "bytes": 894,
+        "sha256": "56880dfe4a500568b550a30d81a23c27919bf7b322157a65f30935fabb1cd11f"
+      }
+    },
+    {
+      "id": "outer-build01/stdout.log",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-build01\\stdout.log",
+      "bytes": 69,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501.gz",
+        "bytes": 92,
+        "sha256": "8859b808a256c4bf9524f423d705aa2cfaac432419ced6a0337e04eedd29f20b"
+      }
+    },
+    {
+      "id": "outer-build01/stderr.log",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-build01\\stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+        "bytes": 20,
+        "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "id": "outer-build01/events.jsonl",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-build01\\events.jsonl",
+      "bytes": 1278,
+      "sha256": "6cf329aee42e5d318d62bbdec227271404d5747f966151ecdcea454b7755446c",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/6cf329aee42e5d318d62bbdec227271404d5747f966151ecdcea454b7755446c.gz",
+        "bytes": 430,
+        "sha256": "68a44f84080bb4c388c8cb2a4ac6f36db31e122355dbdb547dafbe666619cc7d"
+      }
+    },
+    {
+      "id": "outer-build01/ENV-RECEIPT.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-build01\\ENV-RECEIPT.json",
+      "bytes": 8061,
+      "sha256": "958c47eda9b2f7fb2ebe8d244e76fcd030a28d8d2b51f2b2159a1914fd4a3c60",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/958c47eda9b2f7fb2ebe8d244e76fcd030a28d8d2b51f2b2159a1914fd4a3c60.gz",
+        "bytes": 894,
+        "sha256": "56880dfe4a500568b550a30d81a23c27919bf7b322157a65f30935fabb1cd11f"
+      }
+    },
+    {
+      "id": "outer-eol01/stdout.log",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-eol01\\stdout.log",
+      "bytes": 257,
+      "sha256": "a8a87f7597de8b4ff82e2d44b27a8291f43e7907ab6222df0833a05dab34d2d2",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/a8a87f7597de8b4ff82e2d44b27a8291f43e7907ab6222df0833a05dab34d2d2.gz",
+        "bytes": 165,
+        "sha256": "c4f08e7106d7e2fb4c01d7c1c7e696f1315a2b5173426d766275f9e76c978a97"
+      }
+    },
+    {
+      "id": "outer-eol01/stderr.log",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-eol01\\stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+        "bytes": 20,
+        "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "id": "outer-eol01/events.jsonl",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-eol01\\events.jsonl",
+      "bytes": 1268,
+      "sha256": "c5b596e25b76d92e861bffadfcf4d0bcad5c37514f6c447da5a9c046767fc558",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/c5b596e25b76d92e861bffadfcf4d0bcad5c37514f6c447da5a9c046767fc558.gz",
+        "bytes": 430,
+        "sha256": "6ba3283b735d25416a37f46623b0a493a7eecce2abbb4c821508d401190ce75b"
+      }
+    },
+    {
+      "id": "outer-eol01/ENV-RECEIPT.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-eol01\\ENV-RECEIPT.json",
+      "bytes": 8061,
+      "sha256": "958c47eda9b2f7fb2ebe8d244e76fcd030a28d8d2b51f2b2159a1914fd4a3c60",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/958c47eda9b2f7fb2ebe8d244e76fcd030a28d8d2b51f2b2159a1914fd4a3c60.gz",
+        "bytes": 894,
+        "sha256": "56880dfe4a500568b550a30d81a23c27919bf7b322157a65f30935fabb1cd11f"
+      }
+    },
+    {
+      "id": "outer-hygiene01/stdout.log",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\stdout.log",
+      "bytes": 5000,
+      "sha256": "d2891e424dd8a0086533c3178abdb374f349924438a1f258254b48c6fdb8657b",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/d2891e424dd8a0086533c3178abdb374f349924438a1f258254b48c6fdb8657b.gz",
+        "bytes": 1827,
+        "sha256": "b74fafe93ad9dd73382dcef4677a13546134a76ca133700de1cc17c271d82464"
+      }
+    },
+    {
+      "id": "outer-hygiene01/stderr.log",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.gz",
+        "bytes": 20,
+        "sha256": "46b50c321b39e89a491b6727a01628c34245605a30beb3e7414c5e01cff90e6e"
+      }
+    },
+    {
+      "id": "outer-hygiene01/events.jsonl",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\events.jsonl",
+      "bytes": 1289,
+      "sha256": "bf71f9119109862de4945995c99a15daf24992a564cec08e71e9a65e521ff8b4",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/bf71f9119109862de4945995c99a15daf24992a564cec08e71e9a65e521ff8b4.gz",
+        "bytes": 434,
+        "sha256": "cd051b5c4caa93cdbef9dc185c94af5a8287d55d201c3b067d941bf59e8c1641"
+      }
+    },
+    {
+      "id": "outer-hygiene01/ENV-RECEIPT.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\ENV-RECEIPT.json",
+      "bytes": 8061,
+      "sha256": "958c47eda9b2f7fb2ebe8d244e76fcd030a28d8d2b51f2b2159a1914fd4a3c60",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/958c47eda9b2f7fb2ebe8d244e76fcd030a28d8d2b51f2b2159a1914fd4a3c60.gz",
+        "bytes": 894,
+        "sha256": "56880dfe4a500568b550a30d81a23c27919bf7b322157a65f30935fabb1cd11f"
+      }
+    },
+    {
+      "id": "outer-hygiene01/PROCESS-IDENTITY.json",
+      "originalFile": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\PROCESS-IDENTITY.json",
+      "bytes": 262,
+      "sha256": "8b25891be3042c6556bc4561db34cd6ba1f17492f6c91f2a605e89bd81e8cfde",
+      "artifact": {
+        "blob": "c2-main-final-checks-20261101/blobs/8b25891be3042c6556bc4561db34cd6ba1f17492f6c91f2a605e89bd81e8cfde.gz",
+        "bytes": 207,
+        "sha256": "53c2ddff352a9b206e29cc3b2ef2519da049d4a49c9b33cdb6c3c6b2841e09b6"
+      }
+    }
+  ],
+  "summary": {
+    "references": 29,
+    "uniqueGzip": 23,
+    "rawReferencedBytes": 161698,
+    "sourceCopied": 61,
+    "preparedMetadata": 3,
+    "oldM3ArchivePreserved": 190,
+    "sourceEvidenceIndexReferences": 740,
+    "sourceEvidenceIndexUniqueBlobs": 649
+  },
+  "mainFinalGates": {
+    "syntax": "1438 checked/0 failed",
+    "build": "fresh --check natural0",
+    "eol": "2299 tracked text PASS",
+    "hygiene": "23525ms natural0, original stdout/stderr/events/held-child and sink closure",
+    "RootAcceptance": {
+      "at": "2026-11-01T07:45:42.789Z",
+      "status": "ROOT_FINAL_MAIN_GATES_ACCEPTED_COMMIT_AUTHORIZED",
+      "tree": "f8b4c51b0fe1ab54053647fc8da3294f2d9ac563",
+      "checks": {
+        "syntax": {
+          "elapsedMs": 76043,
+          "naturalExit": 0,
+          "originalArgs": [
+            "dev-harness/syntax-gate.js"
+          ],
+          "separateStreamsAndSinksClosed": true
+        },
+        "build": {
+          "elapsedMs": 278,
+          "naturalExit": 0,
+          "originalArgs": [
+            "ruyi-workbench/app/build.js",
+            "--check"
+          ],
+          "separateStreamsAndSinksClosed": true
+        },
+        "eol": {
+          "elapsedMs": 2830,
+          "naturalExit": 0,
+          "originalArgs": [
+            "dev-harness/eol-policy.static.e2e.js"
+          ],
+          "separateStreamsAndSinksClosed": true
+        },
+        "hygiene": {
+          "elapsedMs": 23525,
+          "naturalExit": 0,
+          "originalArgs": [
+            "dev-harness/repo-hygiene.e2e.js"
+          ],
+          "separateStreamsAndSinksClosed": true
+        }
+      },
+      "hygieneIdentity": {
+        "ProcessId": 14004,
+        "ParentProcessId": 44308,
+        "CreationDate": "2026-11-01T15:44:39.288802+08:00",
+        "ExecutablePath": "C:\\Program Files\\nodejs\\node.exe",
+        "CommandLine": "\"C:/Program Files/nodejs/node.exe\" dev-harness/repo-hygiene.e2e.js"
+      },
+      "limits": [
+        "Main final four gates only, candidate fullfast and R4 actual retain original identities.",
+        "No blanket OS-descendant/kernel cleanup claim.",
+        "R1/R2 outer integration tool errors retained."
+      ]
+    }
+  },
+  "outerIntegrationErrors": {
+    "ENOBUFS": "FIRST-PRECHECK-RED.json is original external read-only git-list buffer failure receipt; Main unchanged then.",
+    "ENAMETOOLONG": "Original R3 INTEGRATION-RECEIPT outerFailures and Root copy acceptance preserve external R2 git-argument failure; exact original stack was conversation tool output, not reconstructed.",
+    "claim": "External integration scripts, not original product/test gate failures or reruns."
+  },
+  "privacy": {
+    "exactSyntheticRuntimeNeedles": 28,
+    "exactRuntimeTokenHits": 0,
+    "classifiedSyntheticMatches": [
+      {
+        "file": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\stdout.log",
+        "matchedBytes": 16,
+        "sha256": "7b6829e5a4792258033388fa65bba0bf7f7da5c5f0646124289c72d82a8ad9f6",
+        "classification": "PINNED_HYGIENE_SYNTHETIC_LITERAL_OR_ITS_ORIGINAL_KEYHEAD_PREFIX"
+      },
+      {
+        "file": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\stdout.log",
+        "matchedBytes": 16,
+        "sha256": "a174596aa03bcab87a5de02fbf5228130081c8af942306aa53b274d70e2c4d05",
+        "classification": "PINNED_HYGIENE_SYNTHETIC_LITERAL_OR_ITS_ORIGINAL_KEYHEAD_PREFIX"
+      },
+      {
+        "file": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\stdout.log",
+        "matchedBytes": 6,
+        "sha256": "13e0fd2991a0e22e806573a6ea0d08cdd4a3ffca2603f4e71bc297a47b376f9d",
+        "classification": "PINNED_HYGIENE_SYNTHETIC_LITERAL_OR_ITS_ORIGINAL_KEYHEAD_PREFIX"
+      },
+      {
+        "file": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\stdout.log",
+        "matchedBytes": 6,
+        "sha256": "13e0fd2991a0e22e806573a6ea0d08cdd4a3ffca2603f4e71bc297a47b376f9d",
+        "classification": "PINNED_HYGIENE_SYNTHETIC_LITERAL_OR_ITS_ORIGINAL_KEYHEAD_PREFIX"
+      },
+      {
+        "file": "E:\\Claude\\c2-main-final-20261101\\outer-hygiene01\\stdout.log",
+        "matchedBytes": 6,
+        "sha256": "13e0fd2991a0e22e806573a6ea0d08cdd4a3ffca2603f4e71bc297a47b376f9d",
+        "classification": "PINNED_HYGIENE_SYNTHETIC_LITERAL_OR_ITS_ORIGINAL_KEYHEAD_PREFIX"
+      }
+    ],
+    "source": {
+      "file": "dev-harness/repo-hygiene.e2e.js",
+      "commit": "7715e999b95d1365003e8781ee7d3b77773b20b8",
+      "sha256": "84fcc516bf4bc851a130e3dc1d2f2b56c1e5e0171df18985e3214f3c1c1c5189",
+      "blob": "d6d14af90fe6ea43541db87389db5a38303712e3",
+      "purpose": "Original fixed hygiene fake provider/MCP fixtures and original keyHead prefix. No real runtime/admin/API token values printed or persisted."
+    },
+    "excludes": [
+      "before.index/all Git binaries",
+      "large before source copies/semantic index dumps",
+      "runtime/config/token/key/user data",
+      "tool/resource binaries"
+    ],
+    "limits": "Finite exact/pattern and original-fixture classification; not general DLP."
+  },
+  "limits": [
+    "This small followup does not rearchive740 old refs or alter any existing source/CAS evidence index/blob.",
+    "R5 candidate fullfast and limited R4 full9/twoCLI remain their original paths/hosts/execution, never Main reruns.",
+    "Outer streams separately captured; original per-case runOne may combine stdout/stderr. No all-OS/kernel-descendant cleanup claim.",
+    "Only existing fake/direct/encryptionOFF C2 actual scope, not group/DPAPI/browser/real platform/full C/M5/3.1 completion.",
+    "No fullfast/native/actual gate rerun or formal release by this metadata author."
+  ]
+}
