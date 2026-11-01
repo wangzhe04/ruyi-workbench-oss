@@ -1,6 +1,6 @@
 # 96 · M3-3 迁移、恢复包与启用 UI
 
-**2026-11-01 本机最新 M3 组合：** Desktop 生命周期/M3 已在真实 Main2bce 基底重建并经独审。R4 原完整 fast4667 unit（4641 PASS、26 SKIP、0 FAIL）和97 static整轮通过；R3原三失败整轮仍RED。四场景38及合成维护14/恢复26/上传20、runtime限定证据保持原R3B身份，不表示完整迁移/恢复GUI/全部family/非空/index/附件完成。当前仅交付准备，尚未集成Main，真实产品commit待补；本机Main为 E:/Claude/worktrees/steward-3x-implementation。详见[最新入口98](98-3.1-current-handoff-20261030.md)、[92 §12.56](92-3.1-implementation-handoff.md#1256--desktop-生命周期与-m3-真实-main-组合2026-11-01交付待集成)与[有限证据](evidence/m3-desktop-lifetime-20261101.json)。下方历史批次与旧首红保持原身份。
+**2026-11-01 本机最新 M3 组合：** Desktop 生命周期/M3 已在真实 Main2bce 基底重建并经独审。R4 原完整 fast4667 unit（4641 PASS、26 SKIP、0 FAIL）和97 static整轮通过；R3原三失败整轮仍RED。四场景38及合成维护14/恢复26/上传20、runtime限定证据保持原R3B身份，不表示完整迁移/恢复GUI/全部family/非空/index/附件完成。本批已集成 Main，产品提交 5d6ae8b162519d385b2aaa80441c228f3aff3adf；Main 原 syntax、build、EOL 与隔离 repo-hygiene 通过，详见[Main 最终检查证据](evidence/m3-main-final-checks-20261101.json)。本机Main为 E:/Claude/worktrees/steward-3x-implementation。详见[最新入口98](98-3.1-current-handoff-20261030.md)、[92 §12.56](92-3.1-implementation-handoff.md#1256--desktop-生命周期与-m3-真实-main-组合2026-11-01已集成)与[有限证据](evidence/m3-desktop-lifetime-20261101.json)。下方历史批次与旧首红保持原身份。
 
 
 
