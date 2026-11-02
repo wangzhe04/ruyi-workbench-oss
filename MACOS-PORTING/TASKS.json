@@ -326,7 +326,8 @@
             "evidence/P1/write-queue-cancellation/README.md",
             "evidence/P1/execution-entry-audit.md",
             "evidence/P1/final-review.json",
-            "evidence/P1/frozen-mac-regression/README.md"
+            "evidence/P1/frozen-mac-regression/README.md",
+            "evidence/P1/media-repeat-audit/README.md"
           ],
           "startedDate": "2026-11-02",
           "baselineCommit": "0a430880",
@@ -364,7 +365,7 @@
           ],
           "remainingAcceptance": [
             "最终交付SHA上的Windows进程相关回归",
-            "媒体语法超时单次失败根因取证（两次完整复跑与8次实验未重现）",
+            "媒体语法超时单次失败根因取证（五次完整复跑与8次实验未重现）",
             "Windows与Finder证据齐备后的阶段验收结论"
           ],
           "review": {
