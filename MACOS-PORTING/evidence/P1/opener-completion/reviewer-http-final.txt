@@ -1,0 +1,24 @@
+✔ [S1] spawnDetachedChecked:程序不存在 → {ok:false, code:ENOENT},不成为 uncaughtException (211.06525ms)
+✔ [S1] spawnDetachedChecked:能起的程序 → {ok:true, pid}(成功路径与原 spawn().unref() 同参) (0.634333ms)
+✔ [S2] createSession:非字符串/空白的 cwd 与 title 当没传 (480.577625ms)
+✔ [H1] 请求体是 JSON null → 按空体处理,不再 TypeError 500 (5.05425ms)
+✔ [H2] 坏百分号编码的路径段 → 4xx,不再 URIError 500 (6.812458ms)
+✔ [H3] DELETE /api/sessions/<坏 id> → 400 session.id_invalid(不再回假的 ok:true) (14.081459ms)
+✔ [H4] /api/tools:未知工具 404、工具参数错 400,不再 500 (24.742542ms)
+✔ [H5] /api/chat/stream 带坏 sessionId → 400,不再静默新建一条会话 (3.285625ms)
+✔ [H6] 非字符串 cwd 不再让 /api/memory* 与会话落盘 500 (91.063042ms)
+✔ [H7] 声明的 Content-Length 超总闸 → 立即 413 api.body_too_large(不先缓冲、不报 internal_error) (11.62725ms)
+✔ [H8] office_open 起不来打开程序 → 工具失败,服务不崩(Mac 注入缺失 opener;Linux 无 Explorer) (309.32725ms)
+✔ [H9] /api/events/stream 连接数有上限(第 33 条 → 503),已有连接不受影响 (75.744459ms)
+✔ [L1] 子进程 stdin 挂了 error 监听(Kimi ACP RPC、PowerShell 会话):EPIPE 不成 uncaughtException (2.589708ms)
+✔ [L2] NDJSON 流壳:收尾后的迟到事件不写、res 挂 error 监听(streamChat / 管家运行器) (1.52775ms)
+✔ [L3] agent-runs digest 轮询不再深拷贝 live run(只读标量,浅展开等值) (0.803042ms)
+✔ [L4] 分离式启动全部走 spawnDetachedChecked:产品源码里不再有裸 spawn(...).unref() (25.592292ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1399.800875

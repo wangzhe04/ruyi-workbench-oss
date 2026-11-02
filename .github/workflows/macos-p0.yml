@@ -19,6 +19,9 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24'
+      - name: Build macOS process identity helper
+        if: runner.os == 'macOS'
+        run: node ruyi-workbench/tools/build-macos-process-helper.js
       - name: Same-source cross-platform subset (not full compatibility)
         run: node MACOS-PORTING/probes/run-baseline.cjs --profile ci --output p0-results
       - name: Preserve results including failures

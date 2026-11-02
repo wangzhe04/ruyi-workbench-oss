@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0,
+    "log": "fast-final-3.txt"
+  },
+  "syntax": {
+    "files": 1105,
+    "fail": 0
+  },
+  "independentTests": {
+    "gitRuntime": 40,
+    "cleanupRetry": 18,
+    "agentWorktree": 9,
+    "snapshotUnit": 2
+  },
+  "dependencyGraph": {
+    "modules": 89,
+    "edges": 636,
+    "scc": 1,
+    "debtIncreased": false
+  },
+  "hashes": {
+    "ruyi-workbench/app/server.js": "db4b255882f79f539a4137025c957a9ccdfd2f240096eaa375557493e382c21d",
+    "ruyi-workbench/app/src/07-autonomy.js": "ce75295fb181c5db9ad96d3052d522fd7a8ed417f7dace298302b18bd9efd006",
+    "ruyi-workbench/app/src/09-workflow.js": "c76d0da591ca7d697264b64f66d6b6d8819178a1ea68e93445e7835fbd00ffee",
+    "ruyi-workbench/app/src/11-native-tools.js": "f52598df94f699627a5cdd8c4fa130201bff9f8eb390899c0fa3125c024eccfd",
+    "ruyi-workbench/app/src/13d-core-domain-routes.js": "4aa6345e87ac919a3459f10231a6d59a21e82f0a464de7de39e5d1080d765562",
+    "dev-harness/macos-git-runtime.e2e.js": "33fde9301dc736aea1c6bb5ef350450b1bc69969ad5624199bd7865cb0ee4661",
+    "dev-harness/worktree-cleanup-retry.e2e.js": "cf7dd197d61a453341dfc7a046630afbfcfe7cef00f7a7930293b45e0d78174b"
+  },
+  "remaining": [
+    "CLI/model/version probes",
+    "Media and rg process lifecycle",
+    "Raw PID compatibility audit",
+    "Remaining file/path and lifecycle coverage",
+    "Clean install, Windows/macOS14 same-SHA and Finder"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "filePolicyRuns": [
+    48,
+    48
+  ],
+  "encoding": 10,
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": 80,
+  "syntax": 1117,
+  "review": "passed_targeted_review",
+  "scope": "Cancellation before write-lock admission"
+}

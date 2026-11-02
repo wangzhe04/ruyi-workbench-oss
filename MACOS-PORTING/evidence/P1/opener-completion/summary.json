@@ -1,0 +1,70 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1115,
+    "fail": 0
+  },
+  "openerE2E": {
+    "runs": 2,
+    "passPerRun": 18,
+    "fail": 0
+  },
+  "relatedE2E": {
+    "runtimeStart": 26,
+    "fileGuard": 56
+  },
+  "independentTests": {
+    "opener": 18,
+    "runtimeStart": 26,
+    "httpHardeningUnit": 16
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "ceebe0006c08afe232eecb8ba31d1d66eb966b398b47c27fab369f8db2a5f75b",
+    "ruyi-workbench/app/src/00-platform-runtime.js": "6fc836ad79bbb2f33c049be258f89ea5d4a89dfa853051e3445ed34d781443ef",
+    "ruyi-workbench/app/src/00-boot.js": "e1493e44913d27e77b90522a5ae91d7ba368c0e686efb2100eb96e94761dbfe2",
+    "ruyi-workbench/app/src/03-bridge-guard.js": "a4e98ec087e7e7755ac575cd63eac7ac852c2394dbb08b8621e0acb427e1c545",
+    "ruyi-workbench/app/src/04-desktop-shell.js": "198ee712a1fa49a23ff8a8365f13cb3c54020789d2260bcc3274a372d3d7a326",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "befe846a00e7819a5f1b569b9ababdeee19df03948fb6c6aa002613ac241a973",
+    "dev-harness/macos-opener.e2e.js": "d0c8c583e1e3ae6a8abf6261edba1ef957c9ec9d1f2ac9af3d18e6186819a2ef",
+    "dev-harness/unit/http-input-hardening.test.js": "9098b6d8d08911f5b6482d0ac196289b4bd69cd25adfbd7549869db3a5be8b8c"
+  },
+  "correctedFailures": [
+    "Generic builders still used Explorer before Mac dispatch was added",
+    "Legacy startup fixture missed native-supervised open; fixed directory now uses delegated completion helper",
+    "Old HTTP negative fixture assumed no opener on non-Windows; Mac now injects missing launcher explicitly"
+  ],
+  "finder": {
+    "automationPreflight": -1744,
+    "systemPromptRequested": false,
+    "userQuestionPending": true,
+    "visibleAcceptance": false,
+    "legacyFixtureSideEffect": "temporary directory positioning requests occurred before fixture corrections; not counted as acceptance"
+  },
+  "remaining": [
+    "Finder authorization and visible acceptance",
+    "Shared probe and JS worker cancellation",
+    "Real FFmpeg and clean installation",
+    "Remaining paths/lifecycle",
+    "Windows/macOS14 same-SHA evidence"
+  ]
+}

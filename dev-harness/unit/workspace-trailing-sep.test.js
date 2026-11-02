@@ -9,7 +9,8 @@ const path = require('path');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-ws-sep-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 process.env.RUYI_HOME = root;
-const { normalizeConfig } = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+const { loadServerInternals } = require('../lib/server-internals');
+const { normalizeConfig } = loadServerInternals(['normalizeConfig'], { testPlatform: 'win32' });
 
 test('[W1] 带不带结尾分隔符是同一个常用文件夹', () => {
   const { config } = normalizeConfig({ workspaces: [{ path: 'C:\\Users\\me\\Projects' }, { path: 'C:\\Users\\me\\Projects\\' }, { path: 'c:\\users\\me\\projects\\\\' }] });

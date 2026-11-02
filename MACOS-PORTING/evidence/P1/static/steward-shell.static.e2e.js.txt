@@ -1,0 +1,57 @@
+(node:20372) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/shell-mode.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS A1 SHELL_MODES 是冻结两值且顺序固定 steward/classic（默认在前）（实测 ["steward","classic"]）
+PASS A2 normalizeShellMode 的落点：显式 classic → classic，其余（无偏好／未知值／退役的 preview）一律 steward
+PASS A2b preview 只作为【退役映射】存在，不在 SHELL_MODES 里 —— 视角不许复活成三值
+PASS A3 index.html 预绘脚本与 normalizeShellMode 行为同构（同一真值表两份实现），localStorage 抛异常也落 steward（实测 规则 '(stored === 'classic') ? stored : 'steward'' / 异常 'steward'）
+PASS A4 data-shell-mode 写入点只有预绘脚本 / applyShellMode / recoverStewardShell（实测 [["index.html",2],["js/shell-mode.js",1],["js/steward-shell.js",1]]）
+PASS A5 shell-mode 唯一那处写入住在 applyShellMode 里，recoverClassicShell 走同一条路（不另开写口）
+PASS A6 进管家视角前先过注入的准入判定，缺省注入即 fail-closed（准入恒 false）
+PASS B1 #stewardShell 是 .app-shell 之后的同级后置容器，且 #previewShell 已随交办台退役（DOM 里零残留）
+PASS B2 stewardHeader 空位在管家壳容器内
+PASS B2 stewardFeed 空位在管家壳容器内
+PASS B2 stewardComposer 空位在管家壳容器内
+PASS B2 stewardStatus 空位在管家壳容器内
+PASS B2b 视角切换的第二入口已退役：#stewardClassicBtn 在 DOM 与壳层 JS 里都零残留
+PASS B3 管家壳容器可编程获焦（tabindex=-1）
+PASS B4 对话流是 role="log" 的礼貌播报区
+PASS B5 状态区是 role="status" 的礼貌播报区
+PASS B6 117a 的输入框只是禁用占位（真输入归 117c）
+PASS B7a 视角选择器的选项恰好是 SHELL_MODES 且同序（实测 ["steward","classic"]）
+PASS B7b 管家项与「先打开管家」提示都在 DOM 里，标签与选项文案走 shell.* 那套键
+PASS C1 管家壳模块零 innerHTML/insertAdjacentHTML/document.write
+PASS C2a 全文件恰好一处 setInterval、一处 clearInterval(不会散落出第二套计时)
+PASS C2b setInterval 只住在起表那一处（createPollLifecycle 的 arm，5 s 下限起表），起表前先 onStart 当场拉一次
+PASS C2b2 节拍由 pollStewardTick 判：连接时 30 s 兜底，断开时「壳可见且真有事在跑」才用 5s、否则仍按 config.stewardPollMs（后端下限未动）
+PASS C2b3 事件流只改节拍不改启停：syncPolling 的门控零 streamConnected；steward.say 到达走的是既有那一处状态拉取（零新请求路）
+PASS C2c clearInterval 只住在停表那一处（createPollLifecycle 的 disarm），本文件零直调 polling.start()/polling.stop()
+PASS C2d 唯一入口 syncPolling 先判 isStewardMode()(与页面可见性)才决定启停，非管家模式恒停表
+PASS C2g createPollLifecycle：幂等起表、先 onStart 再 arm、门控为否即停表归零、停表幂等、onStart 可缺省；chips 自己仍零计时器（实测 onStart,arm:1,disarm:1,onStart,arm:2）
+PASS C3a 全文件恰好一处 api() 调用、零直调 fetch(轮询之外零请求，一律经注入的 api())
+PASS C2e 全文件零 setTimeout(117l-B2 的头像动效靠 animationend 摘类，没有引入第二种计时)
+PASS C2f nudge 是显式的一次性口子，不写进 presenceInputs(derivePresence 是纯投影，不该有「播过没有」的记忆)
+PASS C3b 唯一的 api() 调用住在 pollStewardState 里，目标就是状态轮询端点
+PASS C3c pollStewardState 只由起表那一刻（onStart）、门控内的节拍 pollStewardTick 与 isStewardMode() 守着的 steward.say 调用(不会绕开门控单独发请求；实测定义＋直调 3)
+PASS C4 recoverStewardShell 的三条 fail-closed 分支（依赖缺失/骨架缺失/开关关）各有 i18n 原因
+PASS C5 fail-closed 会写属性、按需落盘本机偏好、同步设置页选择器
+PASS C6 canEnterSteward 只看管家开关与骨架齐备两件事
+PASS C7 开关判据读 config.stewardEnabledV1，空位清单是冻结常量
+PASS C8 管家壳领域导出是冻结对象
+PASS C9 组合根只做领域组合与绑定，config 刷新点同步管家项的可选性
+PASS C9b 121-K1：组合根从 js/shell-mode.js 取视角控制器并统一绑定，零 preview-shell 残留
+PASS D1 管家视角隐藏工作台视角
+PASS D2 交办台的隐藏规则与样式层已随它退役（本层与兼容清单零残留）
+PASS D3 管家壳默认不显示，只有管家模式才铺开
+PASS D4 管家壳 CSS 全部使用主题/语义 token，无硬编码色值
+PASS D5 reduced-motion 降级分支存在
+PASS D6 390px 窄屏断点存在
+PASS D7 骨架层零动画、零默认轮询税
+PASS E1 管家壳 i18n 中英键对称(369)
+PASS E2 管家壳文案不提前暴露内部代号与保留大版本号
+PASS E3 三条 fail-closed 原因文案都在目录里
+PASS E4 管家壳 JS/CSS 进入 overlay 载荷
+PASS E5 兼容样式清单与直载 CSS 同步
+
+STEWARD SHELL STATIC E2E: ALL PASS

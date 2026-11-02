@@ -1,0 +1,10 @@
+✔ [W1] 钩子会失败 + gpgsign 要签名而 gpg 不存在:finalizeAgentWorktree 仍成功,钩子一个没跑 (733.887917ms)
+✔ [W2] 没有改动的隔离树:clean,worktree 被清掉(路径不变) (232.288042ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1145.325666

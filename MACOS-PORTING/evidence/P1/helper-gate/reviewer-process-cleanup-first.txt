@@ -1,0 +1,20 @@
+PASS native identity checks and interrupted-cleanup state restoration pass
+PASS libproc exposes exact microsecond process identities
+PASS helper refuses the calling process instead of treating an arbitrary PID as ownership
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS inconsistent helper exit counts cannot claim complete cleanup
+PASS native helper runtime is protected from model file writes
+PASS helper alias is write-protected: ruyi-process-helper
+PASS helper alias is write-protected: helper-symlink
+PASS helper alias is write-protected: helper-hardlink
+PASS same-named ordinary workspace file remains writable
+PASS symlinked runtime directory protects its actual target
+PASS symlinked helper protects its single-link external target
+FAIL Error: condition timed out
+    at until (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-process-cleanup.e2e.js:20:9)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-process-cleanup.e2e.js:127:7
+
+MACOS PROCESS CLEANUP E2E: FAIL (1)

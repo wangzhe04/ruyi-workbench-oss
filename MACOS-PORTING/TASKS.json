@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "date": "2026-10-30",
+  "date": "2026-11-03",
   "baselineCommit": "f5223548",
   "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
   "effortUnit": "person_day",
@@ -113,7 +113,7 @@
       "dependsOn": [
         "P0"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "effortDays": {
         "low": 8,
         "high": 12
@@ -127,9 +127,50 @@
             "high": 3
           },
           "deliverable": "新增集中平台层；Mac 启动入口、--open、Finder reveal、Node/Python/rg 探测；适配干净 PATH，不 source 用户 profile。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P1/README.md",
+            "evidence/P1/summary.json",
+            "evidence/P1/ownership/README.md",
+            "evidence/P1/ownership/summary.json",
+            "evidence/P1/ownership/review.json",
+            "evidence/P1/opener-completion/README.md",
+            "evidence/P1/controlled-layout/README.md",
+            "evidence/P1/frozen-mac-regression/README.md"
+          ],
+          "startedDate": "2026-10-31",
+          "baselineCommit": "0a430880",
+          "deliveryCommit": null,
+          "implementedScope": [
+            "集中平台启动策略和干净 PATH",
+            "Mac .command 入口与 --open",
+            "Finder reveal 与固定目录打开，保留路径和鉴权护栏",
+            "POSIX Node/Python 候选及 rg PATH 来源",
+            "Mac 内核文件锁与专属短路径，覆盖跨 TMPDIR 互斥",
+            "有身份记录的旧 socket 崩溃恢复与退出写入保护",
+            "Mac宿主打开统一/usr/bin/open完成语义，规范路径与file URL，脚本/应用包别名不执行，超时仅停止launcher"
+          ],
+          "remainingAcceptance": [
+            "Finder实际窗口与选中对象可见验收（自动化权限预检-1744，授权请求待用户答复）",
+            "最终交付SHA上的Windows相关回归与启动汇总"
+          ],
+          "review": {
+            "scope": "startup ownership, socket recovery and associated path guards",
+            "reviewer": "/root/ownership_review",
+            "status": "passed_targeted_rereview",
+            "resolvedFindings": 4,
+            "openerIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/opener-completion/review.json"
+            },
+            "controlledLayoutIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/controlled-layout/review.json"
+            }
+          }
         },
         {
           "id": "P1-02",
@@ -139,9 +180,49 @@
             "high": 3
           },
           "deliverable": "定义 Mac 受保护路径；复核 realpath、大小写敏感卷、符号链接、POSIX 绝对路径、原子写与回退；修复对应测试夹具。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P1/files/README.md",
+            "evidence/P1/files/review.json",
+            "evidence/P1/write-queue-cancellation/README.md",
+            "evidence/P1/atomic-write-cancellation/README.md",
+            "evidence/P1/file-mutation-recovery/README.md",
+            "evidence/P1/temporary-cleanup/README.md",
+            "evidence/P1/provider-stop/README.md",
+            "evidence/P1/frozen-mac-regression/README.md"
+          ],
+          "startedDate": "2026-11-02",
+          "baselineCommit": "0a430880",
+          "deliveryCommit": null,
+          "remaining": [
+            "最终交付SHA上的Windows文件相关回归"
+          ],
+          "review": {
+            "reviewer": "/root/ownership_review",
+            "status": "passed_targeted_review",
+            "record": "evidence/P1/files/review.json",
+            "atomicWriteIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/atomic-write-cancellation/review.json"
+            },
+            "mutationRecoveryIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/file-mutation-recovery/review.json"
+            },
+            "temporaryCleanupIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/temporary-cleanup/review.json"
+            },
+            "providerStopIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/provider-stop/review.json"
+            }
+          }
         },
         {
           "id": "P1-03",
@@ -151,9 +232,58 @@
             "high": 3
           },
           "deliverable": "实现平台默认 shell、显式脚本语言和非 TTY 常驻会话；同步 schema、bash 别名、命令长度、Unicode、输出上限与取消语义。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P1/shell/README.md",
+            "evidence/P1/shell/review.json",
+            "evidence/P1/helper-gate/README.md",
+            "evidence/P1/helper-loss/README.md",
+            "evidence/P1/capabilities/README.md",
+            "evidence/P1/discovery-ui/README.md",
+            "evidence/P1/frozen-mac-regression/README.md"
+          ],
+          "startedDate": "2026-11-02",
+          "baselineCommit": "0a430880",
+          "deliveryCommit": null,
+          "implementedScope": [
+            "shell_run 平台默认入口与显式语言，Mac script_run 默认 bash",
+            "无 profile/启动注入的 /bin/bash，非 TTY 常驻与后台作业",
+            "私有FD完成状态、cwd/变量保留、命令串行/忙状态、输出上限与取消",
+            "exec/目录权限/会话归属、schema/prompt/ledger/工具发现同步",
+            "版本化helper能力探针、缓存撤销及Mac受管新执行失败关闭",
+            "v2 guardian保留进程组锚点，单helper故障真实停止及最终清理确认",
+            "异步运行时快照与缓存撤销接入原生provider工具发现/提示词/状态API/体检",
+            "CLI/MCP完整与adaptive发现接入runtime gate，能力弹层实时状态及真实Chrome验证"
+          ],
+          "remainingAcceptance": [
+            "最终交付SHA上的Windows真实PowerShell相关回归"
+          ],
+          "review": {
+            "scope": "Mac one-shot/bash scripting and persistent/background shell with native private fd",
+            "status": "passed_targeted_rereview",
+            "reviewer": "/root/ownership_review",
+            "helperGateIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/helper-gate/review.json"
+            },
+            "helperLossIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/helper-loss/review.json"
+            },
+            "capabilityIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/capabilities/review.json"
+            },
+            "discoveryUiIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/discovery-ui/review.json"
+            }
+          }
         },
         {
           "id": "P1-04",
@@ -163,11 +293,212 @@
             "high": 3
           },
           "deliverable": "统一 CLI/MCP/shell/toolbox 的启动登记与停止；替代 /proc 假设；覆盖子孙、父进程先退出、身份校验；同步测试清理器。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P1/processes/README.md",
+            "evidence/P1/processes/review.json",
+            "evidence/P1/supervisor/README.md",
+            "evidence/P1/process-integration/README.md",
+            "evidence/P1/git-runtime/README.md",
+            "evidence/P1/shell/README.md",
+            "evidence/P1/helper-gate/README.md",
+            "evidence/P1/helper-loss/README.md",
+            "evidence/P1/capabilities/README.md",
+            "evidence/P1/discovery-ui/README.md",
+            "evidence/P1/worktree-runtime/README.md",
+            "evidence/P1/cli-model-probe/README.md",
+            "evidence/P1/process-handles/README.md",
+            "evidence/P1/document-reader/README.md",
+            "evidence/P1/media-runtime/README.md",
+            "evidence/P1/rg-runtime/README.md",
+            "evidence/P1/executable-probes/README.md",
+            "evidence/P1/python-probes/README.md",
+            "evidence/P1/synchronous-probe-audit/README.md",
+            "evidence/P1/synchronous-probes/README.md",
+            "evidence/P1/overlay-boundary/README.md",
+            "evidence/P1/opener-completion/README.md",
+            "evidence/P1/search-cancellation/README.md",
+            "evidence/P1/path-cancellation/README.md",
+            "evidence/P1/write-queue-cancellation/README.md",
+            "evidence/P1/execution-entry-audit.md",
+            "evidence/P1/final-review.json",
+            "evidence/P1/frozen-mac-regression/README.md"
+          ],
+          "startedDate": "2026-11-02",
+          "baselineCommit": "0a430880",
+          "deliveryCommit": null,
+          "implementedScope": [
+            "libproc 精确启动时间与自有直接子树快照清理",
+            "Mac 测试清理器和既有 git/MCP/CLI/shell 停止入口接入",
+            "真实ChildProcess安全兜底与清理范围/不完整结果传播",
+            "ProcessRuntime 不透明句柄与启动前身份登记，DesktopShell 一次性入口接入",
+            "原生 supervisor 在主命令退出或 owner 控制通道断开后清理自有组及已观察后代",
+            "MCP、Claude/Kimi 主 CLI、Kimi terminal/web、子 agent、toolbox 服务启动接入并关联 owner",
+            "MCP 并发取消、toolbox 停止与 Kimi terminal/主回合收尾传播真实清理结果",
+            "外部清理器收集已核验 session leader 锚定组的孤儿进程",
+            "Mac git 监督捕获，保留二进制/UTF8/字节预算与超时语义，清理失败优先传播",
+            "工具调用 AsyncLocalStorage owner 上下文，git 与一次性执行继承会话/工具/调用身份",
+            "常驻/后台 shell 启动与停止接入监督，私有FD模式和清理结果贯通",
+            "版本化helper能力探针、缓存撤销及Mac受管新执行失败关闭",
+            "v2 guardian保留进程组锚点，单helper故障真实停止及最终清理确认",
+            "异步运行时快照与缓存撤销接入原生provider工具发现/提示词/状态API/体检",
+            "CLI/MCP完整与adaptive发现接入runtime gate，能力弹层实时状态及真实Chrome验证",
+            "隔离worktree Git监督执行；清理不确定停止自动重试；applying意图与仓库级应用串行防重放",
+            "Kimi模型发现probe监督执行、UTF8字节预算、超时/异常/管道收尾",
+            "Mac旧式清理拒绝裸PID和普通PID对象，真实ChildProcess与内核身份校验保持",
+            "Mac文档读取Python监督执行、取消/30秒预算/双流16MiB上限，清理确认后解析与候选回退",
+            "Mac媒体/语法/依赖探针监督执行与ctx.signal取消，流式测量与有界收尾，嵌套清理失败停止探测",
+            "Mac rg异步版本、主搜索及非UTF8补扫监督执行，确认清理后回退JS，不完整清理与输出管道失败中止搜索",
+            "Mac异步CLI/可执行文件版本探针监督执行，保留ok/missing/slow判据，清理不完整中止候选扫描",
+            "Mac异步Python导入探针监督执行、Full/Core选择与64KiB预算，清理不完整阻止候选回退及缓存写入",
+            "同步probe基础：v2原生deadline入口与guardian兜底，经spawnSync FD3回传完整/不完整清理帧；产品同步入口已由后续接入批完成",
+            "Mac同步CLI/Git/rg/Python探针接入原生deadline与共享严格帧校验，清理不完整停止扫描/缓存，helper恢复避免rg永久空缓存",
+            "剩余执行入口审计补齐Mac Windows-overlay拒绝边界，HTTP鉴权保持、零PowerShell/解压副作用、界面中英不可用状态",
+            "Mac宿主打开统一/usr/bin/open完成语义，规范路径与file URL，脚本/应用包别名不执行，超时仅停止launcher",
+            "file_search/docs_search取消贯通遍历与内容regex worker，终止确认与不完整失败，rg共享探针独立服务owner及可取消等待",
+            "路径matcher共享worker退出确认、取消与批次间错误收尾，file_list/glob/project_snapshot传入signal并阻止部分结果发布"
+          ],
+          "remainingAcceptance": [
+            "最终交付SHA上的Windows进程相关回归",
+            "媒体语法超时单次失败根因取证（两次完整复跑与8次实验未重现）",
+            "Windows与Finder证据齐备后的阶段验收结论"
+          ],
+          "review": {
+            "scope": "observed-tree foundation",
+            "status": "passed_targeted_rereview",
+            "reviewer": "/root/ownership_review",
+            "resolvedFindings": 5,
+            "supervisorIncrement": {
+              "scope": "DesktopShell start/stop, native supervisor and opaque handles",
+              "status": "passed_targeted_rereview",
+              "reviewer": "/root/ownership_review",
+              "evidence": "evidence/P1/supervisor/review.json"
+            },
+            "integrationIncrement": {
+              "scope": "CLI/MCP/toolbox startup integration; anchored group cleanup; Kimi canonical plan boundary",
+              "status": "passed_targeted_rereview",
+              "reviewer": "/root/ownership_review",
+              "evidence": "evidence/P1/process-integration/review.json"
+            },
+            "gitIncrement": {
+              "scope": "Mac git capture/supervision and tool invocation owner context",
+              "status": "passed_targeted_rereview",
+              "reviewer": "/root/ownership_review",
+              "evidence": "evidence/P1/git-runtime/review.json"
+            },
+            "helperGateIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/helper-gate/review.json"
+            },
+            "helperLossIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/helper-loss/review.json"
+            },
+            "capabilityIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/capabilities/review.json"
+            },
+            "discoveryUiIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/discovery-ui/review.json"
+            },
+            "worktreeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/worktree-runtime/review.json"
+            },
+            "cliModelProbeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/cli-model-probe/review.json"
+            },
+            "processHandlesIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/process-handles/review.json"
+            },
+            "documentReaderIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/document-reader/review.json"
+            },
+            "mediaRuntimeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/media-runtime/review.json"
+            },
+            "rgRuntimeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/rg-runtime/review.json"
+            },
+            "executableProbeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/executable-probes/review.json"
+            },
+            "pythonProbeIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/python-probes/review.json"
+            },
+            "syncSupervisorIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/synchronous-probe-audit/review.json"
+            },
+            "syncProbeIntegrationIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/synchronous-probes/review.json"
+            },
+            "overlayBoundaryIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/overlay-boundary/review.json"
+            },
+            "openerIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/opener-completion/review.json"
+            },
+            "searchCancellationIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/search-cancellation/review.json"
+            },
+            "writeQueueCancellationIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/write-queue-cancellation/review.json"
+            },
+            "pathCancellationIncrement": {
+              "reviewer": "/root/ownership_review",
+              "status": "passed_targeted_review",
+              "evidence": "evidence/P1/path-cancellation/review.json"
+            }
+          }
         }
-      ]
+      ],
+      "owner": "Codex",
+      "startedDate": "2026-10-31",
+      "validation": {
+        "macEvidence": "evidence/P1/frozen-mac-regression/README.md",
+        "finalCodeReview": "evidence/P1/final-review.json",
+        "selectedSuites": 29,
+        "selectedAssertions": 818,
+        "unitPassed": 2491,
+        "unitSkipped": 18,
+        "staticPassed": 80,
+        "unreproducedMediaFailure": true,
+        "windowsActual": "pending",
+        "finderVisible": "pending"
+      }
     },
     {
       "id": "P2",

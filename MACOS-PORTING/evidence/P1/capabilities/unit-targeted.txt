@@ -1,0 +1,53 @@
+✔ [G1] git_status 不传 cwd:落在对话工作目录 (217.982875ms)
+✔ [G2] 显式 cwd 不存在:报错并点名路径,不换成家目录 (46.983958ms)
+✔ [G3] git_diff 只有未跟踪文件:列出 untracked,不是「没有改动」 (315.764166ms)
+✔ [G4] 中文路径在 status / diff 里原样显示 (333.943875ms)
+✔ [G5] 大 diff:序列化远低于 60K,truncated 在 diff 之前,附 stat 文件清单 (262.315125ms)
+✔ [G6] 超过 maxBuffer 的巨型 diff:优雅截断而非「Git 命令执行失败」 (243.580292ms)
+✔ [G7] git_commit:addAll 默认 false;schema 文字与代码一致;没暂存时提示 addAll/paths (187.303291ms)
+✔ [G8] git_commit 超时:说「被终止」+ timedOut,不是 hookRejected;暂存区状态照实报 (1729.701667ms)
+✔ [G8] 钩子起的整棵进程树随超时一并结束(不留孤儿) (1732.068292ms)
+✔ [G8] 钩子真的拒绝(快速非零退出)仍报 hookRejected,不被误当超时 (354.760125ms)
+✔ [G8] git_commit 的 schema 暴露 timeoutMs、默认超时说清 (8.688625ms)
+✔ syntax gate rejects invalid edits/writes before changing bytes and never executes valid source (155.566833ms)
+✔ recursive copy/move/delete and batches use checkpoints; preflight failures leave all sources intact (117.736958ms)
+✔ directory operations reject symbolic links rather than traversing external contents (8.643625ms)
+✔ acceptance receipt binds multiple gate states to existing evidence without claiming independent verification (7.694542ms)
+✔ image declaration and capability search surface native vision and provider-only background jobs (42.02ms)
+✔ streamed audio metadata retains bounded curves, channel peaks and clipping risk (0.453083ms)
+﹣ real FFmpeg WAV inspection measures tone/silence locally; never claims listening (23.548458ms) # FFmpeg unavailable; parser covered separately
+✔ dependency diagnostics give executable evidence and actionable missing-tool hints (128.303416ms)
+✔ encrypted missing config leaves UI and recovery handlers usable, preserves master/records and stays paused until confirmation (200.24225ms)
+✔ cold config loss with only a retained encrypted vault keeps encryption and recovery UI available without wrapping a new key (144.07ms)
+✔ successful explicit plaintext choice is retained for same-process recovery and never deletes the old vault (46.767666ms)
+✔ a valid previous explicit plaintext config restores after missing, corrupt or empty current config without locking recovery UI (138.125208ms)
+✔ unknown legacy previous config after interrupted encryption append recovers conservatively and preserves its explicit-key projection (84.603125ms)
+✔ an unknown previous config respects a newer committed plaintext snapshot in the same process (27.13075ms)
+✔ recovery choice matrix prioritizes real refs, real boolean choices, committed snapshots and conservative existing-vault protection (17.247375ms)
+✔ restoring previous encrypted references without their vault stays closed and never creates a replacement key (39.028959ms)
+✔ previous encrypted references override a contradictory false flag and a committed plaintext snapshot without rotating the master (25.97ms)
+✔ failed mutator or failed disable commit cannot turn a mutable last-good object into plaintext consent (47.10375ms)
+✔ new installation without vault stays off with zero crypto and its initial defaults grant no later plaintext exception (22.317167ms)
+✔ a nonempty sparse legacy config cannot turn normalized default false into plaintext consent (23.879458ms)
+✔ failed recovery persistence remains closed and retries without rotating or deleting vault state (26.354625ms)
+✔ the general vault guard still rejects an unconfirmed plaintext write when a vault already exists (22.848916ms)
+✔ [C1] 起手工具第一发就在;被关掉的、管家会话、full 模式不受影响 (3.567292ms)
+✔ [C2] 话题词不再带进 code / memory 包,明确意图照旧 (0.489709ms)
+✔ [C3] 会话工具表跨重启按原序恢复 (5.221875ms)
+✔ [C3] legacy PowerShell tool history retains its order when the platform starter changes (0.503209ms)
+✔ [C4] 中途装载只追加在尾部,frozenNames 跟着变 (0.627583ms)
+✔ N8-A 任何一条工具描述里都没有整段(≥80 字符)重复 (3.796375ms)
+✔ N8-A orchestrate_agents 的描述只有一种「调用形态」讲法 (0.130834ms)
+✔ N8-B 记忆维护三件套不在 core 包,在 memory 包 (5.977ms)
+✔ N8-B 系统提示里的记忆指引:provider 回合说明维护工具按需装载(full 模式不说) (0.149708ms)
+✔ N8-C 字符预算棘轮(只减不增) (2.820916ms)
+✔ C2 scratchpad_write:只在显式 scratchpadEnabled 时发放、常驻 core、schema ≤ 750 字符 (1.519708ms)
+✔ N8-D 核心编辑工具的描述带着模型学不到的行为 (0.148917ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 5579.661292

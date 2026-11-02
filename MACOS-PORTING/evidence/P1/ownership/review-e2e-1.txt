@@ -1,0 +1,12 @@
+FAIL Error: serve failed: Error: 另一个如意实例正在初始化数据目录，请稍后重试。 / Another instance is initializing a data directory.
+    at ownershipError (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2333:26)
+    at acquireMacStartupLock (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2518:17)
+    at async Object.acquire (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2532:58)
+    at async startServer (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:69094:21)
+    at async main (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:89832:20)
+
+    at ready (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/server-ownership.e2e.js:62:59)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/server-ownership.e2e.js:85:47
+[keep] /private/tmp/ruyi-own-review-r8TbcG/ruyi-ownership-HJn5vc
+
+SERVER OWNERSHIP E2E: FAIL (1)

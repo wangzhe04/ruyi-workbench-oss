@@ -1,0 +1,12 @@
+PASS E0 前置:真服务起得来、拿得到令牌、能建会话
+PASS U1 GBK 的 .txt 附件预览解成「你好，世界」(修前 U+FFFD;got "你好，世界")
+PASS U2 带 BOM 的 UTF-16LE .csv 附件预览解对、BOM 不进文本(got "名称,数量\r\n苹果,3\r\n")
+PASS U3 普通 UTF-8 附件预览不变(got "# 标题\n正文 ok\n")
+PASS U4 带 BOM 的 UTF-8 保持修前口径:BOM 字符留在文本里(got "﻿带 BOM")
+PASS P1 GBK 的 .txt 预览解成「你好，世界」(got "你好，世界")
+PASS P2 带 BOM 的 UTF-16LE .csv 预览解对(got "名称,数量\r\n苹果,3\r\n")
+PASS P3 GBK 的 .html 源码预览同样按内容判(got "<p>你好，世界</p>")
+PASS P4 >1MB 的 UTF-8 中文预览:截断在字中间只留完整的字,不判成 GBK、不带 U+FFFD(got length 349525, 末字 "中")
+PASS P5 普通 UTF-8 预览不变(got "# Hello 世界\n")
+
+FILE TEXT ENCODING E2E: ALL PASS

@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Mac FileVisualIo.document and runMacReader",
+    "Cancellation/deadline/output limits and confirmed cleanup before fallback",
+    "Real file_read lifecycle regression fixtures"
+  ],
+  "blockingFindings": 0,
+  "resolvedSuggestions": [
+    "Include cleanup escapeCoverage/unconfirmed metadata and preserve it on invalid JSON"
+  ],
+  "tests": {
+    "documentReader": 14,
+    "processRuntime": 62
+  },
+  "limitations": [
+    "Windows execFile branch not tested on Windows",
+    "Escape coverage observed-only"
+  ],
+  "inventoryFollowup": "Reviewer confirmed 335→336 matches the newly added owned-child fixture; safety predicates and dependency ceilings remain enforced."
+}

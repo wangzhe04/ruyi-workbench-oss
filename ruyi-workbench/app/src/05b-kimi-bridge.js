@@ -54,10 +54,10 @@ async function ensureKimiServer(config) {
     if (!driver.path || !(await agentCliLauncherUsable(driver.path))) throw new Error('未检测到 Kimi Code CLI');   // 异步 + 记忆,超时不算缺失(见 01 agentCliLauncherUsable)
     const port = await freeLoopbackPort();
     const launch = prepareAgentCliSpawn('kimi', driver.path, ['web', '--port', String(port), '--no-open', '--log-level', 'warn']);
-    const child = cp.spawn(launch.command, launch.args, {
+    const child = ProcessRuntime.spawn(launch.command, launch.args, {
       cwd: normalizeCwd(config.defaultWorkspace, os.homedir()), env: process.env,
       windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'], ...launch.opts,
-    });
+    }, { kind: 'kimi-server' });
     child.on('error', () => {});
     kimiBridgeState.child = child;
     kimiBridgeState.port = port;
@@ -65,7 +65,7 @@ async function ensureKimiServer(config) {
       kimiBridgeState.signalHooked = true;
       // startServer owns the actual process.exit signal handlers. This listener only closes the direct
       // Node child first; spawning taskkill from process 'exit' is unsafe in libuv's closing phase.
-      const closeOnSignal = () => { try { if (kimiBridgeState.child) kimiBridgeState.child.kill(); } catch { /* ignore */ } };
+      const closeOnSignal = () => { try { if (kimiBridgeState.child) killChildTree(kimiBridgeState.child); } catch { /* ignore */ } };
       process.once('SIGINT', closeOnSignal);
       process.once('SIGTERM', closeOnSignal);
     }
@@ -82,7 +82,7 @@ async function ensureKimiServer(config) {
       if (child.exitCode != null) break;
       await new Promise(resolve => setTimeout(resolve, 250));
     }
-    try { if (child.pid) killChildTree(child.pid); } catch { /* ignore */ }
+    try { if (child.pid) killChildTree(child); } catch { /* ignore */ }
     kimiBridgeState.child = null; kimiBridgeState.port = 0; kimiBridgeState.token = '';
     throw lastError || new Error('Kimi Server 启动超时；请先运行 kimi login');
   })();
@@ -97,11 +97,11 @@ async function stopKimiServer() {
     let settled = false;
     const done = () => { if (!settled) { settled = true; clearTimeout(timer); resolve(); } };
     const timer = setTimeout(() => {
-      try { if (child.pid) killChildTree(child.pid); } catch { /* ignore */ }
+      try { if (child.pid) killChildTree(child); } catch { /* ignore */ }
       done();
     }, 2000);
     child.once('close', done);
-    try { child.kill(); } catch { done(); }
+    try { killChildTree(child); } catch { done(); }
   });
 }
 
@@ -440,12 +440,16 @@ function kimiWireSessionDir(nativeSessionId) {
 // deliberately reads the file before it has been created, and Kimi expects that first read
 // to behave like an empty document. Keep the exception constrained to one direct .md child
 // of those exact directories so normal ACP filesystem requests still use the shared guard.
-function isKimiAcpPlanFilePath(rawPath, context) {
+function isKimiAcpPlanFilename(rawPath) {
   if (!rawPath || !path.isAbsolute(rawPath)) return false;
+  const filename = path.basename(path.resolve(String(rawPath)));
+  return Boolean(filename && !filename.startsWith('.') && filename.length <= 200 && /\.md$/i.test(filename)
+    && !/[<>:"/\\|?*\u0000-\u001f]/.test(filename));
+}
+
+function isKimiAcpPlanFilePath(rawPath, context) {
+  if (!isKimiAcpPlanFilename(rawPath)) return false;
   const absPath = path.resolve(String(rawPath));
-  const filename = path.basename(absPath);
-  if (!filename || filename.startsWith('.') || filename.length > 200 || !/\.md$/i.test(filename)) return false;
-  if (/[<>:"/\\|?*\u0000-\u001f]/.test(filename)) return false;
 
   const nativeSessionId = String(context && context.reg && context.reg.nativeSessionId || '');
   const nativeDirRaw = nativeSessionId ? kimiWireSessionDir(nativeSessionId) : '';
@@ -477,14 +481,15 @@ function kimiAcpSamePath(left, right) {
   return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
-// The synchronous shape check above is kept for the offline contract test and for early rejection. The
-// actual ACP exception must go through this async canonical check before it bypasses guardFileToolPath:
+// The synchronous shape check above describes lexical paths for offline callers. The actual ACP
+// exception must use canonical paths so OS aliases do not fail before containment is checked:
 // resolve the nearest existing ancestor so a missing plan file can still be created, but a symlink/junction
 // in either the session tree or its parent cannot redirect the write outside KIMI_CODE_HOME/session state.
 async function resolveKimiAcpPlanFilePath(rawPath, context) {
-  if (!isKimiAcpPlanFilePath(rawPath, context)) return '';
+  if (!isKimiAcpPlanFilename(rawPath)) return '';
   const absPath = path.resolve(String(rawPath));
   const realPath = await realpathForContainment(absPath);
+  if (!isKimiAcpPlanFilename(realPath)) return '';
   const nativeSessionId = String(context && context.reg && context.reg.nativeSessionId || '');
   const nativeDirRaw = nativeSessionId ? kimiWireSessionDir(nativeSessionId) : '';
   if (nativeDirRaw && path.isAbsolute(nativeDirRaw)) {
@@ -506,7 +511,7 @@ async function resolveKimiAcpPlanFilePath(rawPath, context) {
   // Legacy cwd/plan is only an exception after the ACP plan update identified the exact current file.
   // Unknown legacy .md paths deliberately fall back to the ordinary read/write guard.
   const known = context && context.reg && context.reg.kimiAcpPlanFile;
-  if (!known || !kimiAcpSamePath(known, absPath)) return '';
+  if (!known || !kimiAcpSamePath(await realpathForContainment(known), realPath)) return '';
   const cwdRaw = context && context.session && context.session.cwd;
   if (!cwdRaw) return '';
   const cwd = await realpathForContainment(cwdRaw);
@@ -1579,14 +1584,26 @@ function settleKimiAcpTerminal(terminal, exitCode, signal) {
 }
 
 async function killKimiAcpTerminal(terminal) {
-  if (!terminal || terminal.exited) return;
-  try { if (terminal.child && terminal.child.pid) killChildTree(terminal.child.pid); } catch { /* best effort */ }
-  await Promise.race([terminal.waitPromise, new Promise(resolve => setTimeout(resolve, 3000))]);
+  if (!terminal) return;
+  const supervised = ProcessRuntime.result(terminal.child)?.scope === 'owned-group-and-observed';
   if (!terminal.exited) {
-    try { terminal.child.kill('SIGKILL'); } catch { /* already gone */ }
-    await Promise.race([terminal.waitPromise, new Promise(resolve => setTimeout(resolve, 500))]);
+    try { if (terminal.child && terminal.child.pid) killChildTree(terminal.child); } catch { /* best effort */ }
+    await Promise.race([terminal.waitPromise, new Promise(resolve => setTimeout(resolve, 3000))]);
+    if (!terminal.exited) {
+      try {
+        if (supervised) killChildTree(terminal.child);
+        else terminal.child.kill('SIGKILL');
+      } catch { /* already gone */ }
+      await Promise.race([terminal.waitPromise, new Promise(resolve => setTimeout(resolve, 500))]);
+    }
+    if (!terminal.exited && !supervised) settleKimiAcpTerminal(terminal, null, 'SIGKILL');
   }
-  if (!terminal.exited) settleKimiAcpTerminal(terminal, null, 'SIGKILL');
+  if (supervised) {
+    const cleanup = await ProcessRuntime.waitForCleanup(terminal.child, 500);
+    if (!cleanup || cleanup.incomplete || !terminal.exited) {
+      throw kimiAcpRequestError(-32000, 'Terminal cleanup has not been confirmed');
+    }
+  }
 }
 
 function awaitKimiAcpWithSignal(promise, signal) {
@@ -1676,7 +1693,8 @@ async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
   const spawnArgs = nativeBashWrapper ? nativeBashWrapper.argv : args;
   let child;
   try {
-    child = cp.spawn(spawnCommand, spawnArgs, { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    child = ProcessRuntime.spawn(spawnCommand, spawnArgs, { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
+      { kind: 'kimi-terminal', sessionId: String(params.sessionId), toolCallId: terminalId });
   } catch (error) { throw kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`); }
   let resolveExit;
   const waitPromise = new Promise(resolve => { resolveExit = resolve; });
@@ -1693,12 +1711,11 @@ async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
     settleKimiAcpTerminal(terminal, null, 'ERROR');
   });
   child.once('close', (code, signal) => settleKimiAcpTerminal(terminal, code, signal));
-  await new Promise((resolve, reject) => {
-    if (terminal.exited && terminal.signal === 'ERROR') return reject(kimiAcpRequestError(-32000, kimiAcpTerminalOutputText(terminal).trim() || 'Failed to create terminal'));
-    const onSpawn = () => { child.removeListener('error', onError); resolve(); };
-    const onError = error => { child.removeListener('spawn', onSpawn); reject(kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`)); };
-    child.once('spawn', onSpawn); child.once('error', onError);
-  }).catch(error => { context.reg.kimiAcpTerminals.delete(terminalId); throw error; });
+  const readiness = await ProcessRuntime.ready(child);
+  if (!readiness.ok) {
+    context.reg.kimiAcpTerminals.delete(terminalId);
+    throw kimiAcpRequestError(-32000, `Failed to create terminal: ${readiness.error && readiness.error.message || 'execution unavailable'}`);
+  }
   if (requestMeta && requestMeta.signal && requestMeta.signal.aborted) {
     context.reg.kimiAcpTerminals.delete(terminalId);
     await killKimiAcpTerminal(terminal);
@@ -1719,9 +1736,9 @@ async function handleKimiAcpTerminalRequest(method, params, context, requestMeta
   if (method === 'terminal/wait_for_exit') return awaitKimiAcpWithSignal(terminal.waitPromise, requestMeta && requestMeta.signal);
   if (method === 'terminal/kill') { await killKimiAcpTerminal(terminal); return {}; }
   if (method === 'terminal/release') {
+    await killKimiAcpTerminal(terminal);
     terminal.released = true;
     context.reg.kimiAcpTerminals.delete(terminal.id);
-    await killKimiAcpTerminal(terminal);
     rememberKimiAcpTerminal(context.reg, terminal);
     return {};
   }
@@ -1731,7 +1748,13 @@ async function handleKimiAcpTerminalRequest(method, params, context, requestMeta
 async function cleanupKimiAcpTerminals(reg) {
   const terminals = reg && reg.kimiAcpTerminals ? [...reg.kimiAcpTerminals.values()] : [];
   if (reg && reg.kimiAcpTerminals) reg.kimiAcpTerminals.clear();
-  await Promise.all(terminals.map(async terminal => { terminal.released = true; await killKimiAcpTerminal(terminal); }));
+  const results = await Promise.allSettled(terminals.map(async terminal => { terminal.released = true; await killKimiAcpTerminal(terminal); }));
+  const unconfirmed = results.filter(result => result.status === 'rejected').length;
+  if (unconfirmed && reg) {
+    reg.kimiAcpCleanupIncomplete = Number(reg.kimiAcpCleanupIncomplete || 0) + unconfirmed;
+    try { reg.onEvent?.({ type: 'stderr', text: `[Kimi terminal] ${unconfirmed} 个终端的清理尚未确认完成` }); } catch { /* observer may be closed */ }
+  }
+  return { unconfirmed };
 }
 
 function kimiAcpTextLines(text) {
@@ -2274,14 +2297,17 @@ async function closeKimiAcpProcess(child, rpc, nativeSessionId, capabilities, on
     onEvent({ type: 'stderr', text: '[Kimi ACP 能力] agent 未声明 close；结束当前 ACP 回合但不发送 session/close' });
   }
   try { if (child.stdin && !child.stdin.destroyed) child.stdin.end(); } catch { /* ignore */ }
-  if (child.exitCode != null) return;
-  await new Promise(resolve => {
-    let done = false;
-    const finish = () => { if (!done) { done = true; clearTimeout(timer); resolve(); } };
-    const timer = setTimeout(finish, 350);
-    child.once('close', finish);
-  });
-  if (child.exitCode == null) { try { killChildTree(child.pid); } catch { /* ignore */ } }
+  if (child.exitCode == null && child.signalCode == null) {
+    await new Promise(resolve => {
+      let done = false;
+      const finish = () => { if (!done) { done = true; clearTimeout(timer); child.removeListener('close', finish); resolve(); } };
+      const timer = setTimeout(finish, 350);
+      child.once('close', finish);
+    });
+    if (child.exitCode == null && child.signalCode == null) { try { killChildTree(child); } catch { /* ignore */ } }
+  }
+  if (ProcessRuntime.result(child)?.scope === 'owned-group-and-observed') return ProcessRuntime.waitForCleanup(child);
+  return null;
 }
 
 function friendlyKimiAcpError(error) {
@@ -2524,7 +2550,8 @@ async function runKimiAcpTurnPrepared(context) {
     if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.assertSupported(await readConfig(), 'cli');
     assertSessionExecutionOwner(session.id, executionOwner);
     if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
-    child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
+    child = ProcessRuntime.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts },
+      { kind: 'cli', agentCliType: 'kimi', sessionId: session.id, traceId: activeTraceId, turnSeq: session.turnSeq });
     reg = {
       child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(),
       lastEventAt: Date.now(), interactive: true, onEvent: null, session, kind: 'kimi-acp', traceId: activeTraceId,
@@ -2643,7 +2670,7 @@ async function runKimiAcpTurnPrepared(context) {
       rpc.cancelReverseRequests(new Error('Ruyi turn cancelled'));
       reg.kimiAcpCleanupPromise = cleanupKimiAcpTerminals(reg);
       if (nativeSessionId) rpc.notify('session/cancel', { sessionId: nativeSessionId });
-      setTimeout(() => { if (child && child.exitCode == null) killChildTree(child.pid); }, 1200);
+      setTimeout(() => { if (child && child.exitCode == null) killChildTree(child); }, 1200);
     };
     const idleLimitMs = Math.max(1000, Number(process.env.WCW_TURN_IDLE_MS) || config.turnIdleTimeoutMs);
     watchdog = setInterval(() => {
@@ -2871,12 +2898,23 @@ async function runKimiAcpTurnPrepared(context) {
       clearPendingPlans(session.id, 'turn ended');
     }
     if (rpc) rpc.cancelReverseRequests(new Error('Kimi ACP turn ended'));
-    if (reg && reg.kimiAcpCleanupPromise) await reg.kimiAcpCleanupPromise;
-    if (reg) await cleanupKimiAcpTerminals(reg);
-    if (child) await closeKimiAcpProcess(child, rpc, nativeSessionId, session.kimiAcpCapabilities, onEvent);
-    if (activeChildren.get(session.id) === reg) activeChildren.delete(session.id);
+    try {
+      if (reg && reg.kimiAcpCleanupPromise) await reg.kimiAcpCleanupPromise;
+      if (reg) await cleanupKimiAcpTerminals(reg);
+    } finally {
+      try {
+        if (child) {
+          const cleanup = await closeKimiAcpProcess(child, rpc, nativeSessionId, session.kimiAcpCapabilities, onEvent);
+          if (reg && cleanup) reg.cleanup = cleanup;
+        }
+      } finally {
+        if (activeChildren.get(session.id) === reg) activeChildren.delete(session.id);
+      }
+    }
   }
 
+  const cleanupIncomplete = Boolean(reg && (reg.kimiAcpCleanupIncomplete || reg.cleanup?.incomplete));
+  if (cleanupIncomplete && !state.error) state.error = new Error('Kimi 子进程清理尚未确认完成');
   if (state.error && state.error.code === 'STEWARD_TURN_CANCELLED') throw state.error;
   const wasStopped = Boolean(reg && reg.state !== 'running');
   // ACP 0.37+ emits authoritative used/size after every turn. Only fall back to wire/Server API when an
@@ -2953,5 +2991,6 @@ async function runKimiAcpTurnPrepared(context) {
   logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', agentDriver: 'kimi-acp', ok: turnOk, exitCode: turnOk ? 0 : 1, replyLen: finalText.length, tools: cleanToolCalls.length, aborted: wasStopped, durationMs: Date.now() - turnStartedAt });
   onEvent({ type: 'turn_summary', ...turnSummary });
   onEvent({ type: 'process', state: wasStopped ? 'stopped' : 'idle' });
-  onEvent({ type: 'result', ok: turnOk, exitCode: turnOk ? 0 : 1, aborted: wasStopped, error: !turnOk && !wasStopped ? redact(errorText).slice(0, 2000) : undefined });
+  onEvent({ type: 'result', ok: turnOk, exitCode: turnOk ? 0 : 1, aborted: wasStopped,
+    ...(reg?.cleanup || reg?.kimiAcpCleanupIncomplete ? { cleanupIncomplete, cleanupScope: reg?.cleanup?.scope, cleanupEscapeCoverage: reg?.cleanup?.escapeCoverage } : {}), error: !turnOk && !wasStopped ? redact(errorText).slice(0, 2000) : undefined });
 }

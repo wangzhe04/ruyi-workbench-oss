@@ -1,0 +1,261 @@
+PASS A1 steward-conversation.js 零 innerHTML/insertAdjacentHTML/document.write
+PASS A2 steward-conversation.js 的 import 全部是本域内相对路径（零第三方库）
+PASS A1 steward-composer.js 零 innerHTML/insertAdjacentHTML/document.write
+PASS A2 steward-composer.js 的 import 全部是本域内相对路径（零第三方库）
+PASS A3 对话流的节点创建委托给 steward-chips.js 共享的 el()/button()（117n-M1 去重）：零本地重复定义，createElement 仍可在 chips.js 里查证（零 innerHTML 的证据没消失，只是搬了家）
+PASS A3c steward-composer.js 的 doc/byId/el 也从 steward-chips.js import，零本地重复定义
+PASS A3d steward-composer.js 零 SVG path 字面量、零 createElementNS：两枚圆键字形走 icons.js 的 ICONS 表（F5a 漏网图标收编）
+(node:62018) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-conversation.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS B1 STEWARD_ACTS_MAX === 2（§2.4 文字预算；实测 2）
+PASS B2 渲染 acts 时按 STEWARD_ACTS_MAX 截断（一行按钮永远 ≤3）
+PASS B3 主动作类名全文件恰好一处，且只在对话模块里（实测 conversation=1）
+PASS B4 主动作只给第一个 primary（第二个 primary 一律降为安静按钮），类名是唯一的导出常量
+PASS B5 CSS 里 .is-primary 是唯一的主动作视觉档
+PASS C1 两模块与样式层零出现 速问
+PASS C1 两模块与样式层零出现 不立单
+PASS C1 两模块与样式层零出现 已切到档位
+PASS C1 两模块与样式层零出现 Pretender
+PASS C1 两模块与样式层零出现 3\.0
+PASS C2 stewardShell.* 文案零出现 速问
+PASS C2 stewardShell.* 文案零出现 不立单
+PASS C2 stewardShell.* 文案零出现 已切到档位
+PASS C2 stewardShell.* 文案零出现 Pretender
+PASS C2 stewardShell.* 文案零出现 3\.0
+PASS C3 index.html 零出现 速问
+PASS C3 index.html 零出现 不立单
+PASS C3 index.html 零出现 已切到档位
+PASS C3 index.html 零出现 Pretender
+PASS C3 index.html 零出现 3\.0
+PASS D1 预判去抖窗口是 150ms 的导出常量
+PASS D2 去抖用的是 STEWARD_PREROUTE_DEBOUNCE_MS，不是散落的字面量
+PASS D3 预判请求带序号，过期响应直接丢弃（慢的那一次不许覆盖新判定）
+PASS D4 预判受「管家模式 + 管家开关」双重门控（非管家模式零请求，延续 117b 纪律）
+PASS D5 预判走既有的 GET /api/steward/preroute（128h-J03 起多带一个可缺的 focus）
+PASS D5e 输入框清空的那一支让在途预判作废(prerouteSeq += 1)
+PASS D5f 发出一句话之后在途预判作废(cancelPreroute / closePicker 之后 prerouteSeq += 1)
+PASS D5b 预判随请求带上焦点（右栏抽屉此刻那一条）—— 「继续那个」据此定位
+PASS D6 currentTarget() 只回 picked —— 自动预判永远不是递送目标
+PASS D6b 预判命中只用来显示 chip 上那句「像是接着『X』」（hintedThread 一处判定）
+PASS D6c companion：**手选的目标仍然直递**（那是用户明示），其余一律经管家并带上 routeHint（133e：托盘里的附件作为独立键一起走，用户那句话仍逐字不动）
+PASS D6d routeHint 只带 sessionId 与命中理由，≤3 条 —— 标题一个字都不进请求（服务端自己重查）
+PASS D7 routeHint 与附件都与用户那句话分开走请求体（用户消息逐字不动）；没有 hint／附件时那个键整个不出现
+PASS D8 输入区不再有「上一句没发完就不许再发」的闸（走查⑥：第二句此前被无声丢弃）
+PASS D9 复用【唯一那一份】stewardShortTitle（住 util.js，STEWARD_TITLE_MAX=24），不在本文件里另起一份截断函数（33 号文 §4：这份实现的落点从 steward-conversation.js 搬到 util.js 叶子，函数体逐字未改）
+PASS D9b 自动预判（hintedThread 命中）的标题在塞进 chip 之前过 stewardShortTitle —— 不再原样吐一整句用户的话
+PASS D9c 手选目标（target/picked）的标题同样过 stewardShortTitle —— ①的截短对两条分支都成立
+PASS D10 × 的显隐判据是「手选或自动命中，两者之一就有东西可撤」，不再只看 picked（修前自动命中的提示没有关闭出口）
+PASS D10b 点 × 撤自动预判：routeKind/routeHits/routeReason 清空，并置 hintDismissed（「用户已经否掉这一次预判」的状态位）
+PASS D10c runPreroute 响应回来时先看 hintDismissed —— 否掉之后不会随后续输入自己把 chip 变回去
+PASS D10d hintDismissed 至少三处复位（runPreroute 空查询分支／resetComposer／submit 的 finally）——用户重打一句新的话，预判要正常回来
+PASS E1 撤回窄窗是 10 秒的导出常量
+PASS E2 撤回只发一次guarded rewind，携原execution；旧身份缺失不猜目标，不另发stop
+PASS E3 rewind 的锚点只取 undoRef.rewindTargetTurnSeq（无回落），并请求文件回退
+PASS E3b 没有回退锚点：不出撤回按钮，撤回也不先 stop
+PASS E3a 回退没成真就不说「已撤回」（诚实优先；按钮行留着可重试）
+PASS E4 rewind 没回文件时如实标注（诚实优先，不假装全撤了）
+PASS E5 撤回成功后管家追问「那递给谁？」（i18n，不调模型）
+PASS E6 撤回／换一条之后就地打开候选列表，靠迟绑定回调（conversation 不 import composer）
+PASS E7 10 秒到点同一个按钮改称「换一条」，行为仍是「先回退再递」
+PASS F1 两个 CustomEvent 名是导出常量且逐字固定
+PASS F2 派发处引用常量而不是字面量
+PASS F3 「细节」开关记在本机 localStorage，不同步服务端
+PASS G1 stewardShell.chat.* 中英键对称（86 条）
+PASS G1 stewardShell.compose.* 中英键对称（20 条）
+PASS G1 stewardShell.acts.* 中英键对称（5 条）
+PASS G2 两模块引用的 112 个 i18n 键中英都齐备（缺: 无）
+PASS H1 styles.css @import 与 index.html 直链同步收录 steward-conversation.css
+PASS H2 read-frontend-css.js 的 CSS_PAYLOAD_GROUPS 收录 steward-conversation.css
+PASS H3 离线包清单收录 117c 的三个新文件
+PASS H4 对话层 CSS 全部使用主题/语义 token，无硬编码色值
+PASS H5 reduced-motion 下「···」占位退化为静态
+PASS H6 390px 窄屏断点存在
+PASS H7 思考占位是「···」而不是转圈（§8.4 末句）
+PASS I1 steward-conversation.js 恰好一处 setInterval（撤回倒计时）与一处 clearInterval
+PASS I2 steward-conversation.js 恰好一处 setTimeout（立账本的有界重试，次数与间隔都是常量；实测 1 处）
+PASS I3 steward-composer.js 恰好一处 setTimeout（预判去抖）与一处 clearTimeout
+PASS I4 steward-composer.js 零 setInterval
+PASS I5 steward-shell.js 仍然全文件恰好一处 setInterval（117b 的 C2a 未被 117c 稀释）
+PASS I6 倒计时只在一次真实递话后起，且到点自清（不会有「没递话却在跑的计时器」）
+PASS I7 离开管家壳时两个模块各自收摊（倒计时清掉、去抖清掉、在途预判作废）
+PASS I8 进壳即到访、出壳即收摊，由 steward-shell.js 的模式观察者单点驱动
+PASS I9 一次进壳只到访一次（config 每次刷新都会重跑准入判定，不能把正在进行的对话清屏重画）
+PASS J1 只调 116 已有的路由，零新增后端面（实测 ["/api/mission","/api/session/rewind","/api/sessions/","/api/sessions/steward","/api/steward/act","/api/steward/message","/api/steward/reset","/api/steward/visit","/api/upload"]）
+PASS J2 唯一的直调 fetch 是 /api/steward/message 的 NDJSON 流（api() 吃不下流），鉴权头复用 net.js
+PASS J3 读流骨架只有 net.js 一份（decoder ＋ 按行切 ＋ 末尾残行补发），本模块 import 它而不自己再抄一份
+PASS K1 stewardErrorText / stewardErrorCode 是导出的纯函数
+PASS K2 stewardErrorText 取 message ‖ error ‖ code（对象套娃再递归一次），永不吐 [object Object]
+PASS K3 结构化 error 也能查到人话键（stewardActErrorKey 走 stewardErrorCode，不走 String）
+PASS K4 errGeneric 的每一处调用都过 stewardErrorText（实测 ["stewardErrorText(result.error)","stewardErrorText(error)","stewardErrorText(error)","stewardErrorText(result.message || result.error)","stewardErrorText((rewound && rewound.error) || 'rewind_failed')","stewardErrorText(error)"]）
+PASS K5 两个纯函数之外零 String(<error 值>)（结构化对象绝不直落文案）
+PASS L1 连发队列上限是导出常量 5（实测 5）
+PASS L2 「正在流就静默丢弃」那一行已经不在了
+PASS L3 在流时第二句【立刻上屏】并入队（不是丢掉，也不是等发完再画）
+PASS L4 超过上限时在输入框旁如实说一句，而不是继续往里堆
+PASS L5 当前这条流的 finally 里 shift 下一条（按序发，不并发）
+PASS L6 排队中的行带 is-queued，样式层有对应的淡化档
+PASS L6b 「排队中」是真节点（读屏念得到），不是 CSS 生成内容
+PASS L7 人已经离开管家壳就不再替他把排队的话发出去（清队列，并把每一行的「排队中」小标摘掉）
+PASS L8 ※ 浮层里「依据」「已办」两个小标题（用户第四轮走查④）
+PASS L8b 两段各自只在有内容时才渲染；两段都空时仍是那句「这一条没有更多依据」
+PASS L8c 「其它候选」走【依据】那一段，不会被扣上「已办」的帽子（分段之后的必然要求）
+PASS L9 样式层有 .steward-why-h
+PASS L10 输入区那行小字有骨架，且空的时候不占位
+PASS M1 .steward-menu 不再有 top:100% 那个顶栏锚点，改成 fixed（锚点由 JS 按头像 rect 逐次写行内样式）
+PASS M1b companion：117k 那道 [hidden] 守卫原样还在（作者 display:flex 仍会压过 UA 表）
+PASS M2 打开时读的是【头像】的 getBoundingClientRect()，不是顶栏的
+PASS M3 有上下翻转分支：下方够放就开下方，不够就开上方（底缘贴住头像顶）
+PASS M3b 空隙是导出常量，定位与「放不放得下」的判定读同一个数（实测 8）
+PASS M4 菜单挂在 #stewardShell 上：#stewardStage 有 backdrop-filter(给 fixed 后代造包含块)＋overflow:hidden(会切掉菜单)
+PASS M5 开着时窗口 resize／对话流 scroll 即关（关着时两个监听一件事都不做）
+PASS M5b companion：117k 的 Esc 栈与 owns 判定原样保留（只改了锚点，没改开合契约）
+PASS M6 历史消息的空槽不再画那个 8px 灰点（十几轮之后左边一列点，用户说的就是它）
+PASS M7 is-group-start / is-group-end 在 appendRow 时按【前一行的角色】维护（追加式，不重排整条流）
+PASS M7b 三个类都在 JS 里一处维护：组界靠 markGroup，「不是最新那条」靠 markStale(判据＝头像在谁那儿)
+PASS M8 组的左侧竖线只画给多行组；头像所在的【最新那一组】整组不画（头像本身就是锚）
+PASS M9 旧行的 act 降成幽灵档，最新那一条仍是金底主按钮（.is-primary 那条原样在）
+PASS M9b companion：降噪只改样式 —— 没有 disabled、没有 pointer-events:none，旧行的按钮照样可点
+PASS M10 组内 --sp-1、组间 --sp-1+--sp-3＝原来的 --sp-4：组与组之间的间距一个像素没变，用户气泡不进组内档
+PASS M11 steward.queued 有自己的人话键（它不是 steward.busy：忙＝插不进去，排队＝还没轮到它开跑）
+PASS M11b wait.label 只取不编：三种落点都找得到，一个都没有就回空串
+PASS M11c 取不到 wait 就换成不带括号的那一句；表外仍回空串(由调用方落到 errGeneric，原始 error 原样带出去)
+PASS M12 locale 键 stewardShell.chat.errQueued 中英齐备
+PASS M12 locale 键 stewardShell.chat.errQueuedPlain 中英齐备
+PASS M12b 带括号的那句有 {{wait}} 插值、不带括号的那句没有(否则界面会出现一对空括号)
+PASS M13 抽屉「直接对这条线程说」走 relay 时读同两个键，不把服务端原文塞进「没做成：…」的模板
+PASS L1 管家壳里回车发送的输入框恰好三处(composer + 抽屉两个)，且三处都走 chips.js 同一个守卫、壳里零第二处裸 Enter 判据
+PASS L2 回车发送的守卫只有一处定义，且带 !event.isComposing(中文候选词回车不误发)
+PASS N1 对话区把两个渲染器作为【可选】依赖收下，缺席时默认 null（Node 里 await import 本模块那条路照常走得通）
+PASS N2 没有渲染器（或渲染器抛了）就回落 textContent —— 话一定说得出来，不会留空节点
+PASS N3 注入线：组合根 app.js → steward-shell.js → steward-conversation.js（三段都是注入，零 import）
+PASS N3b 两个文件都【没有】直接 import 渲染器（走注入＝与经典壳六个消费面同一份，不长出第二条净化通道）
+PASS N4 say 的上屏收在一个 paintSay 里（实测 7 处出现：定义 + 追加/流式/终态两支）
+PASS N4b 流式那一路只渲染 markdown、不每个分片都跑 highlightIn（代码高亮与 mermaid 留到终态一次）
+PASS N5 ※ 浮层里的依据行仍然是 el()+textContent（机器回执不进 markdown）
+PASS N5b 行动行（actionWhyLines）只产字符串、只进 ※ 的纯文本行，不经渲染器
+PASS N5c 用户气泡仍是 textContent（用户原话逐字不动，不被 markdown 重排）
+PASS O1 stewardInboxSource 是导出的纯函数
+PASS O2 带显示名的事件行取到 id 与显示名（实测 {"sessionId":"sess_abc123","title":"周报-W36"}）
+PASS O3 没有显示名时（13h 那条「线程 <id>」的回落）仍取得到 id，标题留空
+PASS O2b 新词「会话「标题」(id)」同样取到 id 与显示名（实测 {"sessionId":"sess_abc123","title":"周报-W36"}）
+PASS O3b 新词的无显示名回落「会话 <id>」同样取得到 id
+PASS O4 认不出来源就回 null —— 宁可不加小头，也不编一个来源出来
+PASS O5 越界的 id 不认（与服务端 safeSessionId 的 1..64 同一把尺）
+PASS O6 小头只加给 trigger==='inbox' 的那一条（用户自己问的那条不加）
+PASS O7 点小头走的是既有的 steward:focus-thread（focusThread 一处派发，不新增第二条聚焦通道）
+PASS O8 locale 键 stewardShell.chat.fromThread 中英齐备且带 {{title}} 插值
+PASS O9 样式层有 markdown 排版与来源小头两组规则（取值同源 chat-narrative.css 的 .md 族）
+PASS P1 三支新判据都是导出的纯函数（stewardTriggerInfo / stewardInboxTurnSeq / stewardDeliverableFrom）
+PASS P2 H4：trigger 的两种形状都认 —— 新回合的对象逐字取出，老回合的字符串照旧算数，缺席回空
+PASS P2b 回合号越界/非正数一律归 0（调用方据此退到「最后一条助手话」，不去编一个回合号）
+PASS P3 回合号取自 13i 那句「第 N 回合跑完了/失败」的旧词形态（历史消息里逐字是「线程第 N 回合」），取不到回 0
+PASS P3b 新词「会话第 N 回合跑完了/失败」同样取到回合号
+PASS P3c 服务端 13i 现在写的是「会话第 N 回合…／会话停住了」(与上面的解析器同刀改才同时成立)
+PASS P4 交付＝turnSeq 对得上的那条助手话（09-workflow 落盘时每条助手消息都带 turnSeq）
+PASS P4b 不知道回合号（或那一回合没落到）就退到最后一条【非空】助手话
+PASS P5 一条都挑不出来就回 null —— 调用方据此画兜底那一句，绝不留一个空盒子
+PASS P5b 折叠阈值是导出常量（§11.13.3 H2「超 8 行折叠」；实测 8）
+PASS P6 交付正文经 paintSay 上屏（＝注入的 renderMarkdownInto ＋ highlightIn；本模块仍然只有这一处渲染入口）
+PASS P6b 交付正文【唯一】那处 textContent 直写是「取不到」的兜底一句（实测 1 处）——有渲染器时正文绝不走纯文本，缺席时由 paintSay 内部统一回落
+PASS P7 自动回放交付卡只在「收件箱触发且认得出来源」那一支挂（定义 1 处 + 回放调用 1 处 + 用户主动重开 1 处，实测全文件 3）——用户自己问的那条一发请求都不多发；117v-V1 ③ 放出线程卡时它【没有】跟着放出来（刚开的线程还没有交付）
+PASS P7b 主动重开只接受真实来源 sessionId 与正整数 turnSeq 并复用交付渲染，不伪造回复、不推进回放水位、不直接发请求
+PASS P8 取原文走【既有】的 GET /api/sessions/<id>（13d 的信封本来就带 session.messages，零新增路由）
+PASS P8b 全文件仍然只有一处裸 fetch（NDJSON 那条流），交付卡走注入的 api()（实测 1 处）
+PASS P9 按 sessionId|turnSeq 在本实例里缓存（同一条线程反复出现只取一次），失败不进缓存（下次还能再试）
+PASS P10 import 仅登记的本域内相对路径，含共享设置回执和递话恢复叶子（实测 ["./confirm-panel.js","./icons.js","./net.js","./popover.js","./steward-chips.js","./steward-delivery.js","./steward-handoff-recovery.js","./steward-settings-receipt.js","./thread-facts.js","./util.js"]）
+PASS P11 「看全文」＝注入的 openClassicWindow（与抽屉同一个入口），缺席时回落既有的 steward:open-thread；本模块不 import 抽屉/视窗模块（不长出第二条切壳通道）
+PASS P11b 交付卡那枚「看全文」有【自己】的键且词里写明去处（zh「在工作台看全文」／en「Read it all in the Workbench」），与抽屉那枚（打开线程的琥珀色 act 旁边那个泛泛的词）区分得开；本模块不再引 stewardShell.drawer.fullText
+PASS P11c 「这一次没取到原文」那句兜底引的就是这一枚按钮【现在】的词（改了词就得跟着改，中英都是）
+PASS P12 locale 键 stewardShell.chat.deliverableHead 中英齐备
+PASS P12 locale 键 stewardShell.chat.deliverableHeadPlain 中英齐备
+PASS P12 locale 键 stewardShell.chat.deliverableLoading 中英齐备
+PASS P12 locale 键 stewardShell.chat.deliverableMissing 中英齐备
+PASS P12 locale 键 stewardShell.chat.deliverableExpand 中英齐备
+PASS P12 locale 键 stewardShell.chat.deliverableCollapse 中英齐备
+PASS P12 locale 键 stewardShell.chat.deliverableFull 中英齐备
+PASS P12b 带回合号那句有 {{seq}} 插值、不带的那句没有（不知道回合号时界面不出现一个空的「第  回合」）
+PASS P13 样式层有交付卡三组规则：卡本体（左描边，不是盒子）、折叠、markdown 排版（同源 .md 一族）
+PASS P13b 交付卡零 transition／零 animation（故 reduced-motion 的关闭清单一个字没加）
+PASS Q1 三支新判据都是导出的纯函数，色卡是 4 色的导出常量（实测 4）
+PASS Q1b 色号按首次出现顺序循环（第 5 条线程回到 1 号色），越界/非数一律归 1 号
+PASS Q2 五态只从信封上的权威字段派生：relay.channel（13h 那条递话阶梯的输出）＞ resumable.live ＞ 会话头的 stewardLastTurn/turnSeq
+PASS Q2b 优先级：等你 ＞ 在跑 ＞ 上一回合的结果（正在等你拿主意时不该说「在跑」，正在跑时不该说「上次失败了」）
+PASS Q2c 一回合都没跑过、信封什么都没说时【不出药丸】—— 宁可少一枚药丸，不许编一个状态（§8.1 原则 2）
+PASS Q2d 药丸人话复用全仓既有的那组键（mission.state.* ＋ 管家壳自己那句「排队中」），不新开一套词
+PASS Q3 线程名取信封的 displayTitle（02 一处判定）；模型取会话头 engineRoute.model，缺席才回落最后一条助手消息上的 model；都取不到就空着
+PASS Q4 「最后动静」只算出 (value, unit)，人话交给 Intl.RelativeTimeFormat 按 documentElement.lang 去说（零新增 i18n 键）
+PASS Q4b 时间在未来、或根本没有时间戳时回 null（调用方据此整段不说，不猜一个「刚刚」出来）
+PASS Q4c 相对时间走平台的 Intl，不去抄 thread-facts.js 的 elapsedLabel（那一支格式化的是【时长】「3m 20s」，不是「3 分钟前」），也不留任何指向已退役 preview-* 的 import
+PASS Q5 四色是一组【色相角 + 共用饱和度/明度】的自定义属性，颜色由一条 hsl() 算出来（27 号文 §11.13.1「同明度同饱和度只换色相」）
+PASS Q5b 整层【只有一处】构造颜色：换四色只需改令牌，不必改任何一条元素规则（实测 1 处）
+PASS Q5c 2 号色规则全层恰好一条、且与【面】无关（行首就是属性选择器），只把 --thread-hue 指到另一根令牌上，不写第二个颜色值（实测 1 条）
+PASS Q5c 3 号色规则全层恰好一条、且与【面】无关（行首就是属性选择器），只把 --thread-hue 指到另一根令牌上，不写第二个颜色值（实测 1 条）
+PASS Q5c 4 号色规则全层恰好一条、且与【面】无关（行首就是属性选择器），只把 --thread-hue 指到另一根令牌上，不写第二个颜色值（实测 1 条）
+PASS Q5d 深浅两档各一组饱和度/明度（月白底要压暗、墨夜底要提亮），主题层特指度更高因此还能整组覆盖
+PASS Q5e JS 只写色【号】（一处 dataset.threadHue），一个颜色值都不写（零行内样式、零 hsl/rgb 字面量）
+PASS Q6 折叠仍是【一处】实现，而调用方只剩交付卡那一个（clampIfLong 2 处出现 = 定义 + fillDeliverable，collapseToggle 同 = 定义 + deliverableActs）
+PASS Q6a 管家的话【不折叠】：finishSay 的函数体内一个 clampIfLong/collapseToggle/is-clamped 都没有，那枚按钮行（.steward-say-acts）整份文件不再生成（判据锚在【函数体】上——整文件匹配会被交付卡那一路假绿；实测函数体 229 字符）
+PASS Q6b 「展开」按钮、is-clamped 的加/减/翻转各自全文件恰好一处 —— 想再造一个折叠必须先动这几行
+PASS Q6c 仅剩的那处折叠读一个全层只定义一次的高度令牌（--steward-clamp-h）：改折叠高度只有一处可改
+PASS Q6d 阈值仍是那一个常量（STEWARD_DELIVERABLE_LINES=8，全文件恰好「定义 + clampIfLong 里用一次」两处），没有第二个「8」；`clampIfLong(node, text)` 只以【定义签名】的身份出现一次，再没有谁这么调它
+PASS Q7 信封上那四个字段（resumable/relay/engineRoute/stewardLastTurn）只在 stewardThreadFacts 一处读 —— 卡头的事实不许散落在渲染代码里
+PASS Q7b 卡头与交付原文 await 的是【同一个】被缓存的 promise（loadDeliverable 一发信封解出两样），卡头与原文不重复取历史；文件和检查由独立投影核对
+PASS Q7c companion：后端面仅使用已登记对话路由与新对话 reset（路由白名单与 J1 逐字相同）
+PASS Q7d companion：卡头零新增 import（要的东西全在信封里，不去别的域借函数）——名单仍是 P10 那一份
+PASS Q8 线程段与说话人分组同一种追加式做法（只看前一行），三个类在 JS 里一处维护
+PASS Q8b 线程卡【不碰】分组的任何一个类，组间/组内的间距规则一个字没改（卡是叠在分组之上的一层）
+PASS Q8c 一行只有一个锚：有色条的那几行让出那道淡竖线；色条按与竖线同一个接线法跨过组内的 --sp-1
+PASS Q9 首句抬成引子是【纯呈现】：只给第一个段落加一个类，不切句、不改文本、不重排 markdown 块（第一块是标题时不加）
+PASS Q10 卡头复用的既有 locale 键 mission.state.running 中英齐备（本刀零新增键）
+PASS Q10 卡头复用的既有 locale 键 mission.state.needs_you 中英齐备（本刀零新增键）
+PASS Q10 卡头复用的既有 locale 键 mission.state.done 中英齐备（本刀零新增键）
+PASS Q10 卡头复用的既有 locale 键 mission.state.stopped 中英齐备（本刀零新增键）
+PASS Q10 卡头复用的既有 locale 键 stewardShell.chat.queued 中英齐备（本刀零新增键）
+PASS Q10 卡头复用的既有 locale 键 stewardShell.acts.open 中英齐备（本刀零新增键）
+PASS W1 频道条在对话流里零残留：两个模块级状态、八个函数、两个导出常量全部退役（§2.4：左栏就是索引）
+PASS W2 样式层那一族（chip／滚动容器／过滤规则／只服务它的高度上限变量）也零残留
+PASS W3 「卡头只长在段首那一行」那条规则与 resealThreads 留着（它不属于频道条：段界是追加时看上一行算出来的），且它自己也不再认识那个过滤类
+PASS W4 输入区那份同名常量、监听器与两支临时目标也已清净（121-K5：频道条零残留）
+PASS Y1 倒计时那一拍【只改一个数】：tick 里调 paintUndoRing，零 textContent／innerText（实测这一拍 164 字符）
+PASS Y2 每秒被写的就是那一个 0–1 的自定义属性（paintUndoRing 里零 textContent）
+PASS Y3 环由 CSS 画：JS 写的属性名与 CSS 读的是同一个（导出常量 --steward-undo-left），改一边另一边立刻对不上
+PASS Y4 按钮的文字一辈子只写过一次（建它的时候那句「撤回」）：整个 startUndoCountdown 里零 btn.textContent —— 宽度不跳的根据就是这一条
+PASS Y5 copy-P2-2 的 aria 契约没被本刀稀释：环那个 span 仍是 aria-hidden，按钮 aria-label 仍固定「撤回」，且每秒那一拍连 aria 都不碰（#stewardFeed 是 aria-live 区）
+PASS Y6 环＝conic-gradient ＋ 中心挖空的 mask，且零 transition／零 animation（所以 reduced-motion 的关闭清单一个字都不用加）
+PASS Y7 到期那一下换图标：加 .steward-act-switch ＋ 在文字【前面】插一枚 icons.js 词汇表里真有的字形（实测 "swap"）——【图标出现】就是那次改口的过渡（改前是文字无声地换掉）
+PASS Y8 第三态「✓ 已撤回」：字形是 settleRow 的【可选】第三参，只有撤回这一处传 —— 另两处回执（dismiss／换 Provider）仍是两个参数，一个字没动
+PASS Y9 本模块取的每一枚字形都在【全仓唯一那张】词汇表里（实测取了 ["lensWork","swap","done","done"]，icons.js 共 76 枚，未知 []），本文件一条 SVG path、一次 createElementNS 都没有（F5a 的「不留孤本」）
+PASS Y10 三态用到的 5 个键在【四份】目录里都齐（app 与 docs 各中英；缺: 无）
+PASS Y11 undoCountdown 没成死键：秒数改写进环那枚 aria-hidden 元素的 title（鼠标停上去仍看得到「还剩几秒」，而整棵子树不在无障碍树里，读屏照旧不会每秒念一遍）
+PASS Y12 companion：本刀既没多起一个计时器（仍然全文件一处 setInterval），也没开 innerHTML 的口子
+PASS Z1 ② 导航 ≠ 表态：「点完要不要落回执」按 act.kind 判（不看按钮上的字），runAct 里唯一那处 settleRow（实测 1 处）落在【非导航】那一支 —— open_thread 点完按钮行原样留着，从 2.0 回来还能再点
+PASS Z2 ② companion：导航那一支既把按钮恢复可点（runAct 入口统一 disable 过一次，不恢复的话按钮还在却按不动，与「失效」没区别），也照旧真去开线程
+PASS Z3 ③ 回放这一支：线程卡（＝频道条 chip 的唯一来源）挂不挂，只看「这一回合有没有真开出一条线程」——「本回合真开的那条」这一档兜底对非 inbox 的回合同样给到，不再被 inbox 独占
+PASS Z4 ③「当场」：用户问、管家开线程的【那一轮】就挂卡 —— 回放那条路要等下一次进壳或下一条收件箱增量才走得到，只改回放等于「刷新一下才长出 chip」
+PASS AA1 ① 四档间距的【序关系】成立：卡间 28 ＞ 组间 16 ＞ 卡内块间 12 ＞ 组内 4（px，按 tokens.css 现算） —— F1 之后对话流的单位是一张几百像素高的线程卡，卡与卡之间却只有组内那一档，用户说的「很密」就是它
+PASS AA2 ① 卡间是【一档两个落点】：卡的第一行与卡后面那一行读同一个 token（实测都是 --sp-6）—— 不是两个各调各的数
+PASS AA3 ① 四档判据挂在【已有的类】上：三条规则用到的 ["is-thread","is-thread-start","is-thread-end"] 每一个都是 JS 里真在维护的段界类（陌生的: []）—— 没有为了间距新造第二套分组状态
+PASS AA4 ② 整层零「把滚动条压成 0」（修前那两条声明正是「看不见也摸不着」的病根；频道条已退役，这条锁留给后来的任何滚动区）
+PASS AA7 ③ 交付原文＝【最后一个活动段之后】的 text 段：工具调用之间那两句过程叙述与两段 thinking 一个字都没进来（用户第十轮再追加②「参杂了一些线程推进的原文，也不要有」）
+PASS AA7b ③ 子代理段同样算「活动」边界：派 agent 之前那句叙述不进交付（实测「结论：偏多，三条理由。」）
+PASS AA7c ③ 反向边界：记账类段【尾随】在正文之后时，交付仍然是那段正文（判据只认 tool/subagent，没有一刀切成「所有非文本段」；实测「结论：偏多，三条理由。」）
+PASS AA8 ③ 没有工具段时＝全部 text 段拼接，而它与今天的 content 【逐字相等】（content 本来就是所有 assistant_delta 的拼接）—— 回落一致，thinking 仍然不进
+PASS AA9 ③ 边界：segments 缺席／空／不是数组的老会话（EC-D 之前落盘的）回落到 content 整段 —— **绝不许因为拿不到账本就返回空**，那是把「读不到」演成「它没交付」
+PASS AA10 ③ 以工具调用收尾、后面一句收口的话都没有 → 这一条【没有交付原文】（回空串、from 回 null，调用方画「这一次没取到原文」＋「到 2.0 视窗看全文」）；这一档【不】回落到 content —— 回落等于把用户刚说「不要有」的那几句过程叙述原样端回去
+PASS AA11 ③ 挑回合的形状一个字没变（{text,turnSeq}／对不上就退到最后一条），变的只是「这一条消息取哪一段文字」
+PASS AA12 ③ 判据只有一处：挑段全在 stewardDeliverableText 里，stewardDeliverableFrom 自己不再碰 message.content（不留第二份取段口径）；两支都还是零 DOM、零请求的纯函数
+PASS AB0 三段都切得到（切不到 = 本组静默失效；实得 179/576/702）
+PASS AB1 三态判据只看 result，一个 say 字样都没有（不是关键词表）
+PASS AB2 装配回执的那一段也不碰 say
+PASS AB3 画到可见层的那一段同样不碰 say
+PASS AB4 三态齐备且顺序固定（done / failed / 其余一律 no_receipt —— 修前那条两值判据把第三格算成了 done）
+PASS AB5 ※ 浮层与可见徽标读的是【同一份】actionReceipts()（一个判据，两处渲染）
+PASS AB6 每条徽标都带 kind 与态（判据面按 data-* 读，不必去抠文案）
+PASS AC1 只有「默认递给如意」那一态挂 is-quiet（手选／命中／另起一件／定时／会问你都不挂）
+PASS AC2 「@」是 aria-hidden 的装饰节点，label 仍照旧写「→ 如意」（读屏与既有断言读它）
+PASS AC3 样式层按 is-quiet 换皮：label 收、@ 露；非 quiet 态 @ 不出
+PASS AC4 quiet 态输入行 200px 就与「@」同行（390px 不再让 @ 独占一行）；chip 一长仍是 117r-D3 那条 520 基准
+
+STEWARD CONVERSATION STATIC E2E: ALL PASS

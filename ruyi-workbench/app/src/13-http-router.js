@@ -244,7 +244,7 @@ async function handleApi(req, res, pathname) {
     // 健康项报 preparing、desktopMcp 报 probing、mcpConfigPath 只回路径;前端见 probing 自己有界跟进。
     // 修前这里三处 await 预热:Full 包首个 /api/status 实测 8.7–8.9 s,整个界面跟着等内嵌 Python 导入 FastMCP。
     const desktopPending = desktopMcpDetectionPending(config);
-    const { health, manifest } = await computeHealth(config, { desktopPending });
+    const { health, manifest, runtime } = await computeHealth(config, { desktopPending });
     return send(res, json({
       ok: true,
       app: APP_NAME,
@@ -300,6 +300,7 @@ async function handleApi(req, res, pathname) {
         };
       })(),
       health,
+      runtime,
       manifest,
       // 118c: 一次性启动提示(上次启动失败的人话 / 本次改用了哪个端口)。纯进程内常量,恒定形状,
       // 两个位都可能为 null。前端顶部条消费,详见 START_NOTICE 处的口径说明。
@@ -1473,7 +1474,7 @@ async function handleApi(req, res, pathname) {
     if (!OPEN_PATH_TARGETS.includes(target)) {
       return send(res, apiFailure('openPath.target_unknown', {}, '只能打开如意自己的几个固定位置,不接受任意路径', 400));
     }
-    if (process.platform !== 'win32') return send(res, json({ ok: false, error: '仅支持 Windows' }));
+    if (process.platform !== 'win32' && process.platform !== 'darwin') return send(res, json({ ok: false, error: '仅支持 Windows 和 macOS' }));
     const sessionId = safeSessionId(body && body.sessionId);
     const session = sessionId ? await loadSession(sessionId) : null;
     const dir = openPathTargetDir(target, session);
@@ -1481,11 +1482,13 @@ async function handleApi(req, res, pathname) {
       // 只可能是 workspace:当前会话还没有工作文件夹。给人话,不给路径。
       return send(res, apiFailure('openPath.workspace_missing', {}, '这个会话还没有选工作文件夹,先在上方选一个再打开', 400));
     }
-    let exists = false;
-    try { exists = fs.existsSync(dir); } catch { exists = false; }
-    if (!exists) return send(res, apiFailure('openPath.missing', { target }, '这个位置暂时还不存在,等如意用一会儿再试', 404));
-    const started = DesktopShell.revealInExplorer(dir, 'open');
-    if (!started) return send(res, json({ ok: false, error: '无法打开资源管理器(系统未提供 PowerShell/Explorer)' }));
+    const realDirectory = await fsp.realpath(dir).catch(() => null);
+    const directoryStat = realDirectory ? await fsp.stat(realDirectory).catch(() => null) : null;
+    if (!directoryStat || !directoryStat.isDirectory()) {
+      return send(res, apiFailure('openPath.missing', { target }, '这个位置不存在或不是文件夹，请选择有效的工作文件夹', 404));
+    }
+    const started = await DesktopShell.revealInExplorer(realDirectory, 'open');
+    if (!started) return send(res, json({ ok: false, error: '无法打开文件管理器，请检查系统默认打开程序' }));
     logEvent({ kind: 'open_path', target, pathLen: dir.length });
     return send(res, json({ ok: true, target }));
   }
@@ -1567,9 +1570,9 @@ async function handleApi(req, res, pathname) {
   // v1.0.2-S3: 在资源管理器中打开/定位文件。POST /api/file/reveal {sessionId, path, mode:'open'|'select'}.
   // 安全命门:path 经 fs.realpath 解析后须位于该 session 工作区(cwd)或 dataRoot 下(guardWorkspacePath —
   // 与 /api/file/preview 同一护栏), 文件必须存在。执行绝不走 shell(命令注入面), 用 cp.spawn('explorer.exe',…,
-  // {detached, stdio:'ignore'}).unref()。非 win32 → {ok:false,error:'仅支持 Windows'}。token 白名单已加。
+  // Windows 使用前台助手，macOS 使用 /usr/bin/open；两者沿用 token 鉴权和路径护栏。
   if (req.method === 'POST' && pathname === '/api/file/reveal') {
-    if (process.platform !== 'win32') return send(res, json({ ok: false, error: '仅支持 Windows' }));
+    if (process.platform !== 'win32' && process.platform !== 'darwin') return send(res, json({ ok: false, error: '仅支持 Windows 和 macOS' }));
     const body = await readJsonBody(req);
     const mode = (body && body.mode === 'select') ? 'select' : 'open';
     const rawPath = body && typeof body.path === 'string' ? body.path : '';
@@ -1585,8 +1588,8 @@ async function handleApi(req, res, pathname) {
     // buildRevealSpawn 仍是「模式决策」的权威:决定 open vs select + 对可执行/脚本扩展名把 open 降级为 select。
     // 但【执行】改走 revealInExplorer(前台助手),不再直接 spawn explorer(后台服务直接 spawn 会开在浏览器后面)。
     const spawnSpec = buildRevealSpawn(mode, guard.absPath);
-    const okStarted = DesktopShell.revealInExplorer(guard.absPath, spawnSpec.mode);
-    if (!okStarted) return send(res, json({ ok: false, error: '无法打开资源管理器(系统未提供 PowerShell/Explorer)' }));
+    const okStarted = await DesktopShell.revealInExplorer(guard.absPath, spawnSpec.mode);
+    if (!okStarted) return send(res, json({ ok: false, error: '无法打开文件管理器，请检查系统默认打开程序' }));
     logEvent({ kind: 'file_reveal', sessionId: sessionId || '', mode: spawnSpec.mode, degraded: !!spawnSpec.degraded, pathLen: guard.absPath.length });
     // 把关加固:可执行/脚本类「打开」被降级为「定位」时明确告知前端(前端可提示用户)。
     return send(res, json(spawnSpec.degraded
@@ -1966,6 +1969,7 @@ async function startServer(opts) {
       }
     }
     const result = await startServerInner(opts, bindHost);
+    await ownership.releaseStartup();
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
     // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.
     if (ownership.portable) process.once('exit', () => { void ownership.release(); });
@@ -2259,8 +2263,8 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts)) {
     process.exit(1);
   });
   if (opts.open) {
-    // cmd.exe 起不来(被策略拦)时只提示手动打开,不让上面的 uncaughtException 兜底把刚起来的服务带走。
-    spawnDetachedChecked('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' })
+    const opener = platformOpenSpawn(url, 'browser');
+    spawnDetachedChecked(opener.command, opener.args, { detached: true, windowsHide: true, stdio: 'ignore' })
       .then(started => { if (!started.ok) { try { console.error(`--open: 无法自动打开浏览器(${started.error}),请手动访问 ${url}`); } catch { /* ignore */ } } });
   }
 }
@@ -2343,8 +2347,13 @@ function kimiModelList(config, discovered) {
 
 // Query the installed Kimi Code CLI itself, which is the source of truth for OAuth-managed and custom
 // providers. This is local/read-only and avoids baking account-specific aliases into Ruyi.
-function discoverKimiModels(config) {
+async function discoverKimiModels(config) {
   const fallback = kimiModelList(config);
+  const supervised = process.platform === 'darwin';
+  if (supervised) {
+    const capability = await ProcessRuntime.helperCapabilityAsync();
+    if (!capability.ready) return { ok: false, models: fallback, discoveredCount: 0, code: capability.code, capability, error: 'Mac 进程监督器尚未就绪' };
+  }
   const selected = selectedAgentCli({ ...(config || {}), agentCliType: 'kimi' });
   if (!selected.path) return Promise.resolve({ ok: false, models: fallback, discoveredCount: 0, error: '未检测到 Kimi Code CLI' });
   const launch = prepareAgentCliSpawn('kimi', selected.path, ['provider', 'list', '--json']);
@@ -2353,22 +2362,67 @@ function discoverKimiModels(config) {
     let stdout = '';
     let stderr = '';
     let settled = false;
-    const finish = value => { if (settled) return; settled = true; clearTimeout(timer); resolve(value); };
+    let stopping = false;
+    let stdoutBytes = 0, stderrBytes = 0;
+    const stdoutDecoder = supervised ? new (require('string_decoder').StringDecoder)('utf8') : null;
+    const stderrDecoder = supervised ? new (require('string_decoder').StringDecoder)('utf8') : null;
+    const finish = value => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      const cleanup = supervised && child ? ProcessRuntime.result(child) : null;
+      const cleanupFields = cleanup ? { cleanupScope: cleanup.scope, cleanupIncomplete: cleanup.incomplete,
+        cleanupEscapeCoverage: cleanup.escapeCoverage, cleanupUnconfirmed: cleanup.unconfirmed } : {};
+      if (value.ok && cleanup?.incomplete) value = { ok: false, models: fallback, discoveredCount: 0, error: 'Kimi 模型探针的进程清理尚未确认' };
+      if (supervised) {
+        try { child?.stdout?.destroy(); child?.stderr?.destroy(); } catch { /* Completion still reports the cleanup result. */ }
+      }
+      resolve({ ...cleanupFields, ...value });
+    };
+    const stopProbe = async reason => {
+      if (stopping || settled) return;
+      stopping = true; clearTimeout(timer);
+      let cleanup;
+      try { killChildTree(child); cleanup = await ProcessRuntime.waitForCleanup(child, 1500); }
+      catch { cleanup = { incomplete: true }; }
+      finally {
+        let error = reason === 'timeout' ? '读取 Kimi Code 模型列表超时' : 'Kimi Code 模型探针输出超过上限';
+        if (cleanup?.incomplete !== false) error += '，进程清理尚未确认';
+        finish({ ok: false, models: fallback, discoveredCount: 0, cleanupIncomplete: cleanup?.incomplete !== false,
+          timedOut: reason === 'timeout', code: reason === 'timeout' ? 'process_timeout' : 'process_output_limit', error });
+      }
+    };
     const timer = setTimeout(() => {
+      if (supervised) { void stopProbe('timeout'); return; }
       try { if (child && !child.killed) child.kill(); } catch { /* best effort */ }
       finish({ ok: false, models: fallback, discoveredCount: 0, error: '读取 Kimi Code 模型列表超时' });
     }, 10000);
     try {
-      child = cp.spawn(launch.command, launch.args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], ...launch.opts });
+      const options = { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], ...launch.opts };
+      child = supervised
+        ? ProcessRuntime.spawn(launch.command, launch.args, options, { ...ProcessRuntime.currentOwner(), kind: 'cli-model-discovery', cliType: 'kimi' })
+        : cp.spawn(launch.command, launch.args, options);
     } catch (error) {
       finish({ ok: false, models: fallback, discoveredCount: 0, error: `无法启动 Kimi Code CLI: ${redact(error && error.message || String(error))}` });
       return;
     }
-    child.stdout.on('data', chunk => { if (stdout.length < 1024 * 1024) stdout += decodeClaudeCliText(chunk); });
-    child.stderr.on('data', chunk => { if (stderr.length < 64 * 1024) stderr += decodeClaudeCliText(chunk); });
-    child.on('error', error => finish({ ok: false, models: fallback, discoveredCount: 0, error: `无法启动 Kimi Code CLI: ${redact(error && error.message || String(error))}` }));
+    child.stdout.on('data', chunk => {
+      if (stopping || settled) return;
+      if (!supervised) { if (stdout.length < 1024 * 1024) stdout += decodeClaudeCliText(chunk); return; }
+      stdoutBytes += chunk.length;
+      if (stdoutBytes > 1024 * 1024) { void stopProbe('output-limit'); return; }
+      stdout += stdoutDecoder.write(chunk);
+    });
+    child.stderr.on('data', chunk => {
+      if (stopping || settled) return;
+      if (!supervised) { if (stderr.length < 64 * 1024) stderr += decodeClaudeCliText(chunk); return; }
+      stderrBytes += chunk.length;
+      if (stderrBytes > 64 * 1024) { void stopProbe('output-limit'); return; }
+      stderr += stderrDecoder.write(chunk);
+    });
+    child.on('error', error => { if (!stopping) finish({ ok: false, models: fallback, discoveredCount: 0, error: `无法启动 Kimi Code CLI: ${redact(error && error.message || String(error))}` }); });
     child.on('close', code => {
-      if (settled) return;
+      if (settled || stopping) return;
+      if (supervised) { stdout += stdoutDecoder.end(); stderr += stderrDecoder.end(); }
       if (code !== 0) {
         finish({ ok: false, models: fallback, discoveredCount: 0, error: redact(stderr.trim() || `Kimi Code CLI 退出码 ${code}`).slice(0, 1000) });
         return;
@@ -2561,11 +2615,13 @@ async function startMcp() {
           const listConfig = await readConfig();
           PrivacyGateway.assertPolicyAvailable(listConfig);
           if (PrivacyGateway.enabled(listConfig)) return sendMcp(msg.id, { tools: [], _meta: { privacy: 'privacy.engine_not_supported' } });
+          const runtime = await ProcessRuntime.capabilitySnapshot();
           const recallEnabled = observationRecallEnabled(listConfig);
           // 116c: Claude/Kimi CLI 桥的 offer 面。管家会话由注入的 WCW_SESSION_KIND 标识;缺失/非
           // 'steward' 一律隐藏 steward_*(fail-closed —— 普通 CLI 会话永远看不到管家工具)。
           const stewardSession = process.env.WCW_SESSION_KIND === 'steward';
           const listed = MCP_TOOLS.filter(t => {
+            if (!runtimeToolRequirementsMet(t.name, runtime).met) return false;
             if (t.name === 'request_user_input' && !userInputEnabled) return false;
             if (t.name === 'observation_recall' && !recallEnabled) return false; // 105a: 双开关门
             if (isStewardToolName(t.name) && !stewardSession) return false; // 116c: 管家工具族门
@@ -2695,6 +2751,7 @@ async function installIntegration() {
 // 严重度小表(纯机器判定,没有文案),人话一个字都不重复。
 const DOCTOR_HUMAN_LANGS = Object.freeze(['zh-CN', 'en-US']);
 const DOCTOR_HEALTH_SEVERITY = Object.freeze({
+  'process-supervisor': Object.freeze({ ok: 'ok', bad: 'error' }),
   'agent-cli': Object.freeze({ ok: 'ok', bad: 'warn' }),
   'claude-cli': Object.freeze({ ok: 'ok', bad: 'warn' }),
   'data-writable': Object.freeze({ ok: 'ok', bad: 'error' }),

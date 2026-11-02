@@ -1,0 +1,20 @@
+PASS ①a index.html 里 #threadCommission 横幅 DOM 已清零
+PASS ①b thread-head.js 里横幅渲染族（renderCommission/threadCommissionOf/…）已清零
+PASS ①c 「看原件」注入链（experience→app→shell→thread-head）与 ruyi:original-toggled 事件已清零
+PASS ①d chat-shell.css 里 .thread-commission 一族与「看原件」闪烁样式已清零
+PASS ①e workbench.css 主视图状态机里那枚 #threadCommission 选择器已收走
+PASS ①f 15 条退役文案键四份 locale 清零（残留 0）
+PASS ②a decorateCommissionedFirstMessage( 在文件里找得到（切片非空，本组不是空洞断言）
+PASS ②b 判据＝有委托书 ＆ 正文以原话开头 ＆ 含围栏（三者缺一不改画）
+PASS ②c 气泡正文只印原话，补充逐字放进 details 的 <pre>（不拼围栏标签）
+PASS ②d 改画那一段一个字都没动 session.messages（改的是显示，不是数据）
+PASS ②e 开合状态按【线程】记（sessionId 表），点 summary 即开合
+PASS ②f 折叠块样式在场（brief-fence 一族）
+PASS ②g 折叠块两条 summary 键四份 locale 齐备（缺 0）
+PASS ②h 插值一律 {{name}}（单花括号 0 处）
+PASS ②i 界面用到的 threadCommission.* 键只剩折叠块这两条（实得 2 条：threadCommission.fenceSummary、threadCommission.fenceSummaryPlain）
+PASS ③ 委托书的写入口全仓恰一处（13k-steward-threads.js），实得 ["13k-steward-threads.js"]
+PASS ④a thread-head.js 里 api( 恰一处（管家条开关那一发 PATCH），实得 1
+PASS ④b 横幅退役后线程头两个 brief 都不读（委托书唯一的界面消费面是会话域那个折叠块）
+
+THREAD COMMISSION STATIC E2E: ALL PASS

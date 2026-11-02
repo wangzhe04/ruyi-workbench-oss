@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1113,
+    "fail": 0
+  },
+  "syncProbeE2E": {
+    "runs": 2,
+    "passPerRun": 27,
+    "fail": 0
+  },
+  "independentTests": {
+    "syncProbesFinal": 27,
+    "processRuntime": 62,
+    "asyncExecutableProbe": 14,
+    "execResultShapeUnit": 14
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "b4d0a998f7ad43283f46dd88ca12b4052dd4e69ee1d7496cef8756300223be80",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "bc7ab28ded1015e6cf86a877f1bb8de1207f558b9ebe6b3c7ae9606f55814e86",
+    "ruyi-workbench/app/src/01-config.js": "b6343d6a94d6a24c8c284e9b525e236309e8c5f2220a8c39d22d8c6e93ec2495",
+    "ruyi-workbench/app/src/03-bridge-guard.js": "f83e830dc24b78b737f1a59b64f1c4f8fece9b21230e1fce420250b0633ed475",
+    "ruyi-workbench/app/src/11-native-tools.js": "e4e73bd06f492c67be1355166c16a89774d056e363a3830c9893ffc2cfe13926",
+    "dev-harness/macos-sync-probe.e2e.js": "00334a48d320b078d8da9204bb6d67b4abe5b45b8768155857667649d7538da8",
+    "dev-harness/unit/exec-result-shape.test.js": "a89829020de98f85798c5718b7c3de5ce9f799f1e52c0d2eec2217258c8a08d6"
+  },
+  "correctedValidationFailures": [
+    "Two freshness failures from rebuilding during an earlier unit run; final source frozen for rerun",
+    "Timing-dependent retained-pipe unit fixture replaced on Mac with deterministic protocol and real bounded holder; all original assertions preserved"
+  ],
+  "remaining": [
+    "Other platform execution paths and lifecycle combinations",
+    "Shared probe and JS worker cancellation",
+    "Real FFmpeg and clean installation",
+    "Windows/macOS14 same-SHA and actual Finder"
+  ]
+}

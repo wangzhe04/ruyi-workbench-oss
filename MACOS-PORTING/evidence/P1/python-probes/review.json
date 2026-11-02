@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Mac async Python import probe lifecycle",
+    "Full/Core selection and cache writes after cleanup confirmation"
+  ],
+  "blockingFindings": 0,
+  "resolvedSuggestions": [
+    "Verify earlier Core cannot hide subsequent incomplete Full probe",
+    "Verify restored helper permits fresh same-key selection"
+  ],
+  "tests": {
+    "pythonProbes": 15,
+    "processRuntime": 62
+  },
+  "limitations": [
+    "Controlled Python executable fixtures",
+    "Synchronous Python probe remains outside this batch",
+    "Windows runtime not tested"
+  ]
+}

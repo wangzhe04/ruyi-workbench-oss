@@ -36,38 +36,45 @@ test('[P2] 快照解析', () => {
 
 const alive = pid => { const t = snapshotProcessTable(); return Boolean(t && t.some(r => r.pid === pid)); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const liveTreeSkip = process.platform === 'win32' ? false
+  : process.platform === 'darwin' ? (snapshotProcessTable() ? false : 'build macOS process helper before live cleanup tests') : true;
 
 // 根是一个 node,它再 spawn 一个长跑的 node(孙子),把孙子的 pid 打到 stdout。
 async function rootWithGrandchild(detached) {
   const opts = detached ? "{stdio:'ignore',detached:true,windowsHide:true}" : "{stdio:'ignore',windowsHide:true}";
-  const script = `const c=require('child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],${opts});console.log(c.pid);setInterval(()=>{},1000);`;
+  const script = `const c=require('child_process').spawn(process.execPath,['-e','setTimeout(()=>process.exit(0),60000);setInterval(()=>{},1000)'],${opts});console.log(c.pid);setTimeout(()=>process.exit(0),60000);setInterval(()=>{},1000);`;
   const root = cp.spawn(process.execPath, ['-e', script], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
   const grandPid = await new Promise((resolve, reject) => {
     let buf = '';
-    root.stdout.on('data', d => { buf += d; const m = /(\d+)/.exec(buf); if (m) resolve(Number(m[1])); });
-    setTimeout(() => reject(new Error('grandchild pid not reported')), 10000);
+    const timer = setTimeout(() => { killOwnTree(root); reject(new Error('grandchild pid not reported')); }, 10000);
+    root.once('error', error => { clearTimeout(timer); reject(error); });
+    root.stdout.on('data', d => { buf += d; const m = /(\d+)/.exec(buf); if (m) { clearTimeout(timer); resolve(Number(m[1])); } });
   });
   return { root, grandPid };
 }
 
 // libuv 把非 detached 的子进程放进一个「句柄关闭即杀」的 job ⇒ 根一死它们就跟着没了(128c 取证时撞见的:
 // 修前以为是 /T 杀的)。真正需要按树去收的是逃出这个 job 的:detached 的、以及非 node 父进程拉起的(cmd start、python)。
-test('[R1] 真进程:detached 的孙子不会随根一起死,由树遍历收掉', { skip: process.platform !== 'win32' }, async () => {
+test('[R1] 真进程:detached 的孙子不会随根一起死,由树遍历收掉', { skip: liveTreeSkip }, async () => {
   const { root, grandPid } = await rootWithGrandchild(true);
-  assert.ok(alive(grandPid), '前提:孙子在跑');
-  const res = killOwnTree(root);
-  assert.ok(res.killed.includes(root.pid), `根被杀(${JSON.stringify(res)})`);
-  assert.ok(res.killed.includes(grandPid), `detached 孙子由树遍历杀掉(${JSON.stringify(res)})`);
-  await sleep(300);
-  assert.equal(alive(grandPid), false, '孙子确实没了');
+  try {
+    assert.ok(alive(grandPid), '前提:孙子在跑');
+    const res = killOwnTree(root);
+    assert.ok(res.killed.includes(root.pid), `根被杀(${JSON.stringify(res)})`);
+    assert.ok(res.killed.includes(grandPid), `detached 孙子由树遍历杀掉(${JSON.stringify(res)})`);
+    await sleep(300);
+    assert.equal(alive(grandPid), false, '孙子确实没了');
+  } finally { killOwnTree(root); }
 });
 
-test('[R1b] 真进程:普通(非 detached)孙子随根一起走(libuv job),收尾后同样不留', { skip: process.platform !== 'win32' }, async () => {
+test('[R1b] 真进程:普通(非 detached)孙子随根一起走(libuv job),收尾后同样不留', { skip: liveTreeSkip }, async () => {
   const { root, grandPid } = await rootWithGrandchild(false);
-  assert.ok(alive(grandPid), '前提:孙子在跑');
-  killOwnTree(root);
-  await sleep(300);
-  assert.equal(alive(grandPid), false, '孙子没了');
+  try {
+    assert.ok(alive(grandPid), '前提:孙子在跑');
+    killOwnTree(root);
+    await sleep(300);
+    assert.equal(alive(grandPid), false, '孙子没了');
+  } finally { killOwnTree(root); }
 });
 
 test('[R2] 根已退出 ⇒ 不碰', async () => {

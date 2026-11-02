@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "blockingFindings": 0,
+  "reviewerAssertions": 35,
+  "reviewerSkipped": 0,
+  "scope": [
+    "Relocated real Node/service/helper layout",
+    "Clean PATH and isolated home",
+    "Helper disappearance and recovery",
+    "Missing/invalid Node startup failure",
+    "OS opener interception"
+  ],
+  "limitations": [
+    "Current macOS only",
+    "Uses copied existing Node binary",
+    "Does not prove clean-machine or complete offline distribution"
+  ]
+}

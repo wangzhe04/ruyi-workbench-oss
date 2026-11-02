@@ -1,0 +1,15 @@
+PASS invalid browser mode falls back to system/user browser
+PASS desktop MCP receives the configured browser mode
+PASS desktop MCP receives the configured CDP endpoint
+PASS mcp_list inventory exposes env names but never secret values
+PASS provider tool surface includes MCP inspect/configure tools
+PASS native browser tool contract preserves the current Workbench tab
+PASS Chromium browser handoff explicitly opens a new tab
+PASS Firefox browser handoff uses its new-tab argument
+PASS local folders retain the safe Explorer handoff rather than opening in a browser
+PASS browser/tool customization requests preload the integrations tool pack
+PASS system prompt forbids bundled test Chrome and explains the Direct3D UIA fallback
+PASS AI receives an explicit-request, inspect-first, permission-gated MCP modification policy
+PASS 108b default (zh) MCP policy keeps inspect-first + exec-tier gating and names the settings panel boundary
+
+BROWSER/MCP STATIC: ALL PASS

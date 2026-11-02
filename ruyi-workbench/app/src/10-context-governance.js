@@ -377,7 +377,7 @@ const TOOL_RESULT_DISPLAY_CAP = 120000; // N3:落盘/发 SSE 的展示副本上�
 // 绝不产生半截坏图。替换后仍超限才回退平切(此时 base64 已缩为占位,平切不再切到图)。
 // 字段名白名单覆盖 ACC 截图族(image / image_base64)与常见 MCP 图片约定,值长度门槛防误伤非图大字段。
 const IMG_B64_TRIM_RE = /("(?:[A-Za-z0-9_]*?(?:image|base64|screenshot|thumbnail|b64)[A-Za-z0-9_]*?)"\s*:\s*")((?:data:[a-z0-9+.-]+\/[a-z0-9+.-]+;base64,)?[A-Za-z0-9+/=]{8000,})/g;
-const TOOL_EXEC_CLASS_RE = /^(?:powershell_run|script_run|shell_start|shell_send|shell_poll|git_[a-z_]+)$/;
+const TOOL_EXEC_CLASS_RE = /^(?:shell_run|shell_run|powershell_run|script_run|shell_start|shell_send|shell_poll|git_[a-z_]+)$/;
 const TOOL_OUTPUT_KEY_RE = /^(?:stdout|stderr|output|log|logs)$/;
 
 // 预算(字符)按估算 token 折算:同一批字符里 CJK 占比越高,能放的字符越少。只在串够长时才扫一遍(O(n),无分配)。

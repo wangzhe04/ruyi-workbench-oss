@@ -1,0 +1,14 @@
+PASS H0 index.html 里有 CSP meta
+PASS H1 script-src 只有 'self' 与 sha256 哈希(实得 'self' 'sha256-cEZAaMEoutk22UQJv1fdgsnXprYXVfAvyBZqNZBTt7I=')
+PASS H1b script-src 里没有 unsafe-inline / unsafe-eval / 通配 / 外域
+PASS H2a 找到了内联脚本(1 段)
+PASS H2 每段内联脚本的哈希都在 CSP 里
+PASS H3 CSP 里没有过期哈希
+PASS H2b 内联脚本是经典脚本(预绘必须同步跑在任何模块之前)
+PASS H4 index.html 没有内联事件处理属性(无)
+PASS H4b index.html 没有 javascript: 链接
+PASS H5 前端代码里没有依赖 unsafe-inline 的写法(无)
+PASS H6 其余指令原样(default/connect/base-uri/form-action 是 self,object-src 是 none)
+PASS H6b style-src 仍保留 unsafe-inline(界面大量 style= 属性,不在本次收紧范围;如要收紧须先清 style 属性)
+
+INLINE SCRIPT CSP HASH E2E: ALL PASS

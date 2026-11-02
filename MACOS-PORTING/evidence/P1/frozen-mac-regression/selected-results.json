@@ -1,0 +1,176 @@
+[
+  {
+    "test": "provider-tool-stop",
+    "assertions": 9,
+    "status": "passed",
+    "log": "provider-tool-stop.txt"
+  },
+  {
+    "test": "provider-turnloop-hardening",
+    "assertions": 31,
+    "status": "passed",
+    "log": "provider-turnloop-hardening.txt"
+  },
+  {
+    "test": "server-ownership",
+    "assertions": 20,
+    "status": "passed",
+    "log": "server-ownership.txt"
+  },
+  {
+    "test": "macos-runtime-start",
+    "assertions": 35,
+    "status": "passed",
+    "log": "macos-runtime-start.txt"
+  },
+  {
+    "test": "macos-opener",
+    "assertions": 18,
+    "status": "passed",
+    "log": "macos-opener.txt"
+  },
+  {
+    "test": "macos-process-cleanup",
+    "assertions": 37,
+    "status": "passed",
+    "log": "macos-process-cleanup.txt"
+  },
+  {
+    "test": "macos-process-runtime",
+    "assertions": 62,
+    "status": "passed",
+    "log": "macos-process-runtime.txt"
+  },
+  {
+    "test": "macos-sync-supervisor",
+    "assertions": 18,
+    "status": "passed",
+    "log": "macos-sync-supervisor.txt"
+  },
+  {
+    "test": "macos-sync-probe",
+    "assertions": 27,
+    "status": "passed",
+    "log": "macos-sync-probe.txt"
+  },
+  {
+    "test": "macos-shell-runtime",
+    "assertions": 32,
+    "status": "passed",
+    "log": "macos-shell-runtime.txt"
+  },
+  {
+    "test": "macos-git-runtime",
+    "assertions": 40,
+    "status": "passed",
+    "log": "macos-git-runtime.txt"
+  },
+  {
+    "test": "worktree-cleanup-retry",
+    "assertions": 18,
+    "status": "passed",
+    "log": "worktree-cleanup-retry.txt"
+  },
+  {
+    "test": "macos-cli-models",
+    "assertions": 13,
+    "status": "passed",
+    "log": "macos-cli-models.txt"
+  },
+  {
+    "test": "macos-document-reader",
+    "assertions": 14,
+    "status": "passed",
+    "log": "macos-document-reader.txt"
+  },
+  {
+    "test": "macos-media-runtime",
+    "assertions": 19,
+    "status": "passed",
+    "log": "macos-media-runtime.txt"
+  },
+  {
+    "test": "macos-rg-runtime",
+    "assertions": 15,
+    "status": "passed",
+    "log": "macos-rg-runtime.txt"
+  },
+  {
+    "test": "macos-executable-probe",
+    "assertions": 14,
+    "status": "passed",
+    "log": "macos-executable-probe.txt"
+  },
+  {
+    "test": "macos-python-probe",
+    "assertions": 15,
+    "status": "passed",
+    "log": "macos-python-probe.txt"
+  },
+  {
+    "test": "macos-capabilities",
+    "assertions": 16,
+    "status": "passed",
+    "log": "macos-capabilities.txt"
+  },
+  {
+    "test": "macos-mcp-capabilities",
+    "assertions": 7,
+    "status": "passed",
+    "log": "macos-mcp-capabilities.txt"
+  },
+  {
+    "test": "macos-overlay-boundary",
+    "assertions": 15,
+    "status": "passed",
+    "log": "macos-overlay-boundary.txt"
+  },
+  {
+    "test": "macos-file-policy",
+    "assertions": 48,
+    "status": "passed",
+    "log": "macos-file-policy.txt"
+  },
+  {
+    "test": "atomic-write-cancellation",
+    "assertions": 42,
+    "status": "passed",
+    "log": "atomic-write-cancellation.txt"
+  },
+  {
+    "test": "file-mutation-recovery",
+    "assertions": 20,
+    "status": "passed",
+    "log": "file-mutation-recovery.txt"
+  },
+  {
+    "test": "search-cancellation",
+    "assertions": 20,
+    "status": "passed",
+    "log": "search-cancellation.txt"
+  },
+  {
+    "test": "path-matcher-cancellation",
+    "assertions": 20,
+    "status": "passed",
+    "log": "path-matcher-cancellation.txt"
+  },
+  {
+    "test": "checkpoint",
+    "assertions": 45,
+    "status": "passed",
+    "log": "checkpoint.txt"
+  },
+  {
+    "test": "file-guard",
+    "assertions": 56,
+    "status": "passed",
+    "log": "file-guard.txt"
+  },
+  {
+    "test": "tool-audit-r2-files",
+    "assertions": 92,
+    "status": "passed",
+    "log": "tool-audit-r2-files.txt"
+  }
+]

@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1110,
+    "fail": 0
+  },
+  "probeE2E": {
+    "runs": 2,
+    "passPerRun": 14,
+    "fail": 0
+  },
+  "independentTests": {
+    "executableProbes": 14,
+    "processRuntime": 62
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "4ad3143702dfe6642f7a95445c10ec98e1baace539ca2c16ed0649c42665e109",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "2e005d3e1d5bdabe25ba3fa0c03dda99403464c9f246538fee439a21a85e0ea2",
+    "ruyi-workbench/app/src/01-config.js": "53e8628dccfe120a714e17b30aed81ea1ffa808a2c28d7ec5921111a1d024b53",
+    "dev-harness/macos-executable-probe.e2e.js": "5548b16d8c7043ebab73360a4a491d5073f7581fe163db95f2a700b1dc593375"
+  },
+  "remaining": [
+    "Synchronous CLI/rg probes and Python import probes",
+    "Shared probe cancellation and JS worker cancellation",
+    "Real FFmpeg and clean installation",
+    "Remaining paths/lifecycle",
+    "Windows/macOS14 same-SHA and actual Finder"
+  ]
+}

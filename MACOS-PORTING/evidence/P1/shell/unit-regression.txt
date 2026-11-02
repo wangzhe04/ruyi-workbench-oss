@@ -1,0 +1,52 @@
+✔ [E1] 同一份输出里 GBK 行与 UTF-8 行各自解对 (0.472916ms)
+✔ [E2] 流式解码:切在汉字中间不出替换符,尾巴 flush 时吐出 (0.7815ms)
+✔ [E3] 交互式 shell 的中文输入改成纯 ASCII 的等价命令 (0.183542ms)
+✔ [E4] 接线:runProcess、shell 会话、覆盖包、进程取证都走按行解码 (3.143458ms)
+✔ [E6] 前导的形状:同一行放在 $ProgressPreference 之前;无 BOM 编码;豁免脚本不加;shell_start 两种形态都带 (2.491166ms)
+﹣ [E5] 源头编码:powershell_run / script_run / shell_start 的中文输出与中文文件名不再变成 ? (0.0905ms) # 仅 Windows 且有 powershell.exe
+✔ [S1] 大 stdout + 末尾 stderr:结果头+尾,stderr 与退出码在 stdout 之前,整体远低于 60K (56.346916ms)
+✔ [S1] 小输出原样不变(无省略字段) (49.649125ms)
+✔ [S2] `\r` 进度条折叠成最终一行 (49.678917ms)
+✔ [S3] 一次性运行的 stdin 是 EOF:读 stdin 的程序立刻返回而不是挂到超时 (49.460541ms)
+✔ [S4] 主进程退出后,占着输出管道的脱离孙进程不拖住工具调用 (552.041083ms)
+✔ [S5] timeoutMs 非数字:分发层按 schema 拒并点名字段;非正数用默认值,不再 9ms 就被杀 (3111.982ms)
+✔ [S5] 超时结果:error + hint + 已产生的部分输出 (1226.71925ms)
+✔ [S6] cwd 不存在:明说「工作目录不存在」,不是 spawn ENOENT (1.975667ms)
+✔ [S7] python 子进程环境:PYTHONUTF8=1 / PYTHONIOENCODING=utf-8 (31.575667ms)
+✔ [S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(powershell_run 与 script_run) (315.154666ms)
+✔ [S9] shell_poll:状态字段在前、输出封顶(头+尾)、可用 cursor 分页读回中间 (170.11775ms)
+✔ [S9] shell_poll waitMs:有新输出或进程退出就提前返回 (1668.942167ms)
+✔ [S9] 后台任务:主进程退出、孙进程占着管道 → 及时 running:false(不永久占名额) (625.248916ms)
+✔ [S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在秒级到达,不是等满 30 秒 (965.254625ms)
+▶ hunt2 · 写族文件工具与检查点完整性
+  ✔ #1 >5MB 文件 file_move:不留「回滚删掉唯一一份」的条目;覆盖式移动拒绝 (227.164375ms)
+  ✔ #2 file_edit:GBK 文件原编码写回、无法解码的拒绝且逐字节不变;UTF-8 文件的检查点是原字节 (20.266167ms)
+  ✔ #3 archive_zip 打包数据根的祖先目录:敏感控制面不入包 (76.453125ms)
+  ✔ #4 git 基线对账:GBK 原字节、CRLF 还原、git 读失败不当成新建 (1054.146583ms)
+  ✔ #5 跨盘 EXDEV:copy+unlink 成功后检查点仍在、可回滚 (105.269625ms)
+  ✔ #6 entrySeq:中间条目被删后新条目不撞号 (6.025042ms)
+  ✔ #7 同一文件并发 file_edit 两处替换都落盘 (3.922417ms)
+  ✔ #8 CRLF 文件 + 以 "\n" 开头的 oldText:不产出 \r\r\n (2.571541ms)
+  ✔ #9 漏传 content / newText 不再静默清空 (2.174917ms)
+  ✔ #10 file_write 保住 BOM;新建 .ps1 带 BOM (6.318666ms)
+  ✔ #11 持久 shell:跨 chunk 的汉字按流解码 (681.819916ms)
+  ✔ #12 撤回之后,被截掉回合的后台任务回执不复活 (119.971166ms)
+  ✔ #13 archive_unzip 批量记账:索引写入次数远少于文件数 (374.598333ms)
+  ✔ #15 file_edit 未命中:firstDiff 先按长词元定位真正的形近行 (2.382ms)
+  ✔ #17 file_edit 在检查点存不下时带 checkpointWarn (154.060167ms)
+  ✔ #18 索引一次瞬时读错误:本次记账失败,既有条目原样保留 (2.357917ms)
+  ✔ #19 删会话一并删掉后台任务账本 (91.995833ms)
+✔ hunt2 · 写族文件工具与检查点完整性 (2932.516208ms)
+✔ [C1] 起手工具第一发就在;被关掉的、管家会话、full 模式不受影响 (3.544292ms)
+✔ [C2] 话题词不再带进 code / memory 包,明确意图照旧 (0.470584ms)
+✔ [C3] 会话工具表跨重启按原序恢复 (3.25525ms)
+✔ [C3] legacy PowerShell tool history retains its order when the platform starter changes (0.452041ms)
+✔ [C4] 中途装载只追加在尾部,frozenNames 跟着变 (0.572625ms)
+ℹ tests 42
+ℹ suites 1
+ℹ pass 41
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 23149.886083

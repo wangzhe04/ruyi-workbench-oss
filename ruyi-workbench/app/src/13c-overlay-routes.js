@@ -132,6 +132,10 @@ async function readOverlayStatusDirect(target) {
 }
 
 async function handleOverlayApiRoutes(req, res, pathname) {
+  if (process.platform === 'darwin' && req.method === 'POST'
+    && ['/api/overlay/precheck', '/api/overlay/apply', '/api/overlay/rollback'].includes(pathname)) {
+    return send(res, apiFailure('overlay.platform_unsupported', {}, 'macOS 不支持此 Windows overlay 更新方式。', 501));
+  }
   // POST /api/overlay/precheck { zipPath } -- 解压 + precheck(写入前全检),返回预览。
   if (req.method === 'POST' && pathname === '/api/overlay/precheck') {
     const body = await readJsonBody(req);
@@ -176,9 +180,11 @@ async function handleOverlayApiRoutes(req, res, pathname) {
   // GET /api/overlay/status -- 当前版本/备份/审计尾(直接读文件,无需 PS1)。GET 须 handler 内自查 token(同 /api/audit 纪律)。
   if (req.method === 'GET' && pathname === '/api/overlay/status') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
+    if (process.platform === 'darwin') return send(res, json({ ok: true, supported: false, platform: process.platform,
+      code: 'overlay.platform_unsupported', current: null, backups: [], audit: [] }));
     try {
       const status = await readOverlayStatusDirect(externalRoot());
-      return send(res, json({ ok: true, ...status }));
+      return send(res, json({ ok: true, supported: true, platform: process.platform, ...status }));
     } catch (e) {
       return send(res, json({ ok: false, error: String(e && e.message || e) }, 500));
     }

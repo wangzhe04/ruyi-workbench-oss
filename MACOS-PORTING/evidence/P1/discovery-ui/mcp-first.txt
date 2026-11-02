@@ -1,0 +1,8 @@
+PASS real MCP tools/list offers managed tools with ready helper
+PASS same MCP process refresh removes managed execution tools immediately after helper removal
+PASS MCP discovery retains inspection, cleanup and ordinary file tools
+PASS adaptive MCP search uses the same unavailable snapshot
+PASS stale adaptive invocation reports runtime unavailable without executing or claiming unknown tool
+PASS MCP discovery recovers after helper replacement without restarting the client
+
+MACOS MCP CAPABILITIES E2E: ALL PASS

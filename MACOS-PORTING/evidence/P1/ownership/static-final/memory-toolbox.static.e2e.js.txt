@@ -1,0 +1,13 @@
+PASS tool pane exposes a first-class Memory tab
+PASS memory toolbox has budget overview, search, and core/review filters
+PASS Memory tab lazy-loads its own data
+PASS toolbox supports viewing, editing, and deleting entries
+PASS toolbox supports core membership and importance protection controls
+PASS core capsule fallbacks track the widened defaults (200 items / 16000 chars)
+PASS capsule/retrieval/index limits are resolved through the config-reading predicates, not the raw constants
+PASS protected LRU accounts for importance and implicit rule use
+PASS metadata quick actions preserve the full memory through a dedicated backend route
+PASS toolbox has distinct active states, budget feedback, and narrow-screen polish
+PASS new memory UI is localized in Chinese and English
+
+MEMORY TOOLBOX STATIC E2E: ALL PASS

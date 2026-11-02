@@ -1,0 +1,44 @@
+✔ [G1] git_status 不传 cwd:落在对话工作目录 (87.518542ms)
+✔ [G2] 显式 cwd 不存在:报错并点名路径,不换成家目录 (40.079ms)
+✔ [G3] git_diff 只有未跟踪文件:列出 untracked,不是「没有改动」 (142.935583ms)
+✔ [G4] 中文路径在 status / diff 里原样显示 (123.114084ms)
+✔ [G5] 大 diff:序列化远低于 60K,truncated 在 diff 之前,附 stat 文件清单 (138.086167ms)
+✔ [G6] 超过 maxBuffer 的巨型 diff:优雅截断而非「Git 命令执行失败」 (167.093958ms)
+✔ [G7] git_commit:addAll 默认 false;schema 文字与代码一致;没暂存时提示 addAll/paths (93.192667ms)
+✔ [G8] git_commit 超时:说「被终止」+ timedOut,不是 hookRejected;暂存区状态照实报 (1637.920375ms)
+✔ [G8] 钩子起的整棵进程树随超时一并结束(不留孤儿) (1623.946792ms)
+✔ [G8] 钩子真的拒绝(快速非零退出)仍报 hookRejected,不被误当超时 (756.082ms)
+✔ [G8] git_commit 的 schema 暴露 timeoutMs、默认超时说清 (9.30125ms)
+✔ [P1] 撞号的陌生进程(比父亲还老)不算子孙;真子孙一个不漏 (0.70375ms)
+✔ [P2] 快照解析 (0.084625ms)
+✔ [R1] 真进程:detached 的孙子不会随根一起死,由树遍历收掉 (351.17825ms)
+✔ [R1b] 真进程:普通(非 detached)孙子随根一起走(libuv job),收尾后同样不留 (348.499417ms)
+✔ [R2] 根已退出 ⇒ 不碰 (23.80325ms)
+✔ [1] 连不上的 SSE 连接器:start 如实拒掉,不抛成 uncaughtException (59.832583ms)
+✔ [1][3] SSE 连上但一直不给 endpoint 事件:按 startupTimeoutMs 拒掉并断开 (1003.14775ms)
+✔ [2] streamable-HTTP 会话失效(404):就地重握手并重发,后续调用恢复 (5.617042ms)
+✔ [3] enabledTools / disabledTools 进目录前过滤,调用时再挡;bearerTokenEnvVar 补 Authorization (70.543291ms)
+✔ [3] startupTimeoutMs / toolTimeoutMs 落到客户端已有的超时参数上 (2084.201791ms)
+✔ [4] 同 id 连接器改好之后,不再吃旧配置的失败冷却 (78.427792ms)
+✔ [5] 对端发来的 ping 请求不再冒充响应 (93.067125ms)
+✔ [6] 5MB 单行响应完整收下;超上限的行整行丢弃、如实拒掉那一次,客户端照常可用 (59.30775ms)
+✔ [7] 前缀撞车不丢工具;工具函数名合法且 ≤64 (27.789333ms)
+✔ [8] 数组结果进 items;工具 ok:true 不再盖掉 isError (40.991292ms)
+✔ [9] config.toml:多行数组、env 子表、行尾注释、单引号值、远程条目、无法解析的段标 unsupported (1.57225ms)
+✔ [10] 大于 256KB 的 ~/.claude.json 照常导入 (3.565041ms)
+✔ [11] 链接进 mcp/ 的 drop-in 目录被识别 (0.633166ms)
+✔ [14] killAllMcpClients 也杀还在握手的客户端 (2182.514417ms)
+✔ [15] 健康探针真发 tools/list:握手后卡死的服务器不再报 ok (2045.951042ms)
+✔ [16] tools/list 跟 nextCursor 翻页 (60.506625ms)
+✔ [F7] stdio:服务端自己回的 "timed out" 错误原样交给模型,不杀健康的 MCP 进程 (46.404417ms)
+✔ [F7] stdio:桥接自己的超时仍照旧 —— 杀进程树并如实说 (1149.32825ms)
+✔ [F7] stdio:用户插话中断仍走 steerInterrupted (258.416333ms)
+✔ [F7] http:服务端 JSON-RPC error 含 "timed out" 原样回传、连接不重置;真超时与插话照旧 (1226.898416ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11572.78725

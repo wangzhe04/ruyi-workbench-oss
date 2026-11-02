@@ -1,0 +1,25 @@
+PASS sync launcher probe waits for detached descendant cleanup
+PASS sync wrapper preserves UTF-8 streams and numeric exit status
+PASS legacy non-batch executable presence accepts a completed nonzero version exit
+PASS target signal remains distinct from timeout
+PASS missing executable preserves errno after cleanup confirmation
+PASS native timeout returns ETIMEDOUT only after complete synchronous cleanup
+PASS per-stream output budget is enforced after a fully captured small overflow
+PASS ignored version output remains unbounded by capture budget
+PASS sync Python import probe preserves cwd/env and Full classification
+PASS sync Python retains Core fallback classification
+PASS missing helper rejects before target execution
+PASS valid complete protocol is accepted before malformed variants
+PASS older v2 helper remains async-ready but cannot run the new synchronous deadline entry
+PASS malformed, incomplete or contradictory protocol rejects success
+PASS malformed, incomplete or contradictory protocol rejects success
+PASS malformed, incomplete or contradictory protocol rejects success
+PASS malformed, incomplete or contradictory protocol rejects success
+PASS malformed, incomplete or contradictory protocol rejects success
+PASS trailing blank control frame is rejected consistently with async parser
+PASS sync Claude candidate scan stops on cleanup uncertainty
+PASS sync Python scan stops without caching or trying a later candidate
+PASS sync rg discovery stops on cleanup uncertainty
+PASS outer sync safety deadline refuses retained output pipes within a bounded wait
+
+MACOS SYNC PROBE E2E: ALL PASS

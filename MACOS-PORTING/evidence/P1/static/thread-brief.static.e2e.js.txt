@@ -1,0 +1,42 @@
+PASS ① sessionDisplayTitle 在 src/ 里只定义一次,且住 02-session-store.js(实得 ["02-session-store.js"])
+PASS ① 优先级第一条:人起的名字压过一切(titleSource === 'user' 直接回原话)
+PASS ① 优先级第二、三条:生成的名字 > 原话
+PASS ① 117l-A1-fix companion:占位符判据复用既有的 isUntitledSessionTitle(中英占位集单点),不另立一张表
+PASS ① 117l-A1-fix companion:第四档是首条用户消息的摘录,取不到仍旧回落原话(绝不返回空标题)
+PASS ① 117l-A1-fix companion:摘录函数也只定义一次,且与判据住同一处(实得 ["02-session-store.js"])
+PASS ① 117l-A1-fix companion:只在入参【自己带着正文】时才走(会话头/索引条目的调用面不去多读一次正文文件)
+PASS ② 事项卡片(13d buildMissionCard)带 displayTitle —— 看板/抽屉/「现在这一件」读它
+PASS ② 113b 会话搜索结果带 briefTitle/briefGist
+PASS ② GET /api/sessions/:id 的信封带 displayTitle(抽屉标题读它)
+PASS ② 117l companion:liveTail 在同一个信封上【条件】展开(没有活回合时这个键不存在)
+PASS ② 117l-A1-fix2:GET /api/sessions/:id 活回合分支的 resumable 带 live:true(抽屉 isLive() 靠它)
+PASS ② 117l-A1-fix2 companion:非活回合分支仍是 detectDanglingTurn(session) 原样,没被顺手改动
+PASS ② steward_threads_search 结果带 brief
+PASS ② 管家总览行带 displayTitle(preroute 与「现在这一件」的 focus 都读它)
+PASS ② 递送预判 hit 带 displayTitle
+PASS ② hit.title 仍是原话(打分吃它;显示名是【多】给的一个键,不是替换)
+PASS ② preroute 索引行的 title 仍是原话(同上)
+PASS ③ public/ 下读 titleSource 的只有经典壳那一处(实得 ["js/session-experience.js"])
+PASS ③ 经典壳那一处与服务端逐条同优先级
+PASS ③ js/steward-board.js 只读服务端算好的 displayTitle
+PASS ③ js/steward-drawer.js 只读服务端算好的 displayTitle
+PASS ③ js/steward-composer.js 只读服务端算好的 displayTitle
+PASS ③ js/steward-conversation.js 只读服务端算好的 displayTitle
+PASS ③ 抽屉标题读 GET /api/sessions/:id 信封里的 displayTitle,不自己拼
+PASS ④ 定位到了 06-provider-engine 的摘要块(锚点没漂)
+PASS ④ 红线:摘要块里没有任何给 title 赋值的语句(原话是权威,brief 只是【多】给的一个名字)
+PASS ④ 落盘只经 updateSessionMeta 的白名单,写的只有 threadBrief
+PASS ⑤ 设置页有这个控件
+PASS ⑤ 控件与说明都走 i18n 键
+PASS ⑤ 填充判的是 !== false —— 它【默认开】,缺字段不等于关
+PASS ⑤ 改动即存,落的是布尔真值
+PASS ⑤ zh-CN 有 settings.steward.threadBrief
+PASS ⑤ en-US 有 settings.steward.threadBrief
+PASS ⑤ zh-CN 有 settings.steward.threadBriefHint
+PASS ⑤ en-US 有 settings.steward.threadBriefHint
+PASS ⑤ 中文说明写明工作台视角的线程列表也用它(它不随管家总开关)
+PASS ⑤ 英文说明同口径
+PASS ⑤ 服务端归一同口径(默认开)
+PASS ⑥ stewardThreadBriefV1 在 confirm 档(开着就在每条新线程上花钱,且记 aux 不进 stewardMaxCostPerDay)
+
+THREAD BRIEF STATIC E2E: ALL PASS

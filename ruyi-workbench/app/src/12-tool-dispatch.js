@@ -130,9 +130,17 @@ function fileToolWriteLockKey(filePath) {
   const resolved = path.resolve(String(filePath || ''));
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
-function withFileToolWriteLock(filePaths, work) {
-  const keys = [...new Set(filePaths.map(fileToolWriteLockKey))].sort();
-  const enter = i => (i >= keys.length ? work() : runKeyedChain(fileToolWriteChains, keys[i], () => enter(i + 1)));
+function withFileToolWriteLock(filePaths, signal, work) {
+  // Darwin aliases include case/Unicode spellings, Data paths and hard links. A shared
+  // chain keeps read-modify-write stable even when atomic rename replaces the inode.
+  // This deliberately serializes writes to unrelated files on macOS as well.
+  const keys = process.platform === 'darwin' ? ['darwin-file-writes'] : [...new Set(filePaths.map(fileToolWriteLockKey))].sort();
+  const enter = i => {
+    // A queued request must recheck Stop after the previous writer releases its lock.
+    // Once work begins, let its checkpoint/mutation transaction finish consistently.
+    if (signal && signal.aborted) return { ok: false, code: 'aborted', error: 'File operation cancelled before acquiring its write lock' };
+    return i >= keys.length ? work() : runKeyedChain(fileToolWriteChains, keys[i], () => enter(i + 1));
+  };
   return enter(0);
 }
 
@@ -246,7 +254,9 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   if (isControlPlaneToolName(targetName)) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   const config = await readConfig();
   const desktopOverride = await policyDesktopOverrideFor(ctx);
-  const { bridged, catalog } = await adaptiveCatalogForMcp(config, { desktopOverride });
+  const { bridged, catalog, runtime } = await adaptiveCatalogForMcp(config, { desktopOverride });
+  const runtimeRequirement = runtimeToolRequirementsMet(targetName, runtime);
+  if (!runtimeRequirement.met) return { ok: false, code: runtime.capabilities['process.supervisor'].code || 'runtime-unavailable', error: runtimeRequirement.reason };
   // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的目标在【目录查找之前】拒,回与原生一致的 tool-disabled ——
   // 目录里已经没有它(11 adaptiveCatalogForMcp 滤掉了),先查目录只会得到一句误导的 unknown-tool。判据与 09 / 08 同一个
   // toolDisabledByPolicy;配置优先用回合 ctx 里那份(主循环),MCP 子进程里没有就用盘上的。原生目标照旧由下面的 toolCall 判。
@@ -769,14 +779,16 @@ async function buildWorkbenchSelfStatus(args, ctx) {
           modalities,
           providerCapabilities: { protocol: p ? providerWireProtocol(p).id : 'cli', visionConfigured: p ? p.vision === true : null, source: 'configuration', modelSupportProbed: false },
         };
+        const runtime = await ProcessRuntime.capabilitySnapshot();
         out.capabilities = {
+          runtime,
           modalities,
           matrix: [
             { modality: 'image', tools: ['file_read'], input: 'as:image or auto', providerVisionEnabled: modalities.vision },
             { modality: 'document', tools: ['file_read'], input: 'PDF/OOXML/ODF; embedded images and page windows' },
             { modality: 'audio', tools: ['audio_inspect', 'audio_transcribe'], analysis: 'local FFmpeg measurements', listening: false, transcriptionConfigured: modalities.asr },
             { modality: 'code', tools: ['code_check', 'file_edit', 'file_write'], input: 'validateSyntax:true checks candidate before writing' },
-            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!p && !RUNTIME.isMcpChild, engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
+            { modality: 'background', tools: ['shell_start', 'shell_poll', 'shell_kill'], available: !!p && !RUNTIME.isMcpChild && (process.platform !== 'darwin' || runtime.capabilities['shell.session'].ready), engine: 'native provider turns', fallback: 'CLI engine native background-command tools' },
             { modality: 'verification', tools: ['acceptance_report', 'media_probe', 'checkpoint_list'] },
           ],
           checkpointScope: 'Native journaled file operations only. Shell/script/ffmpeg/browser/application side effects are not checkpointed; recursive operations restore file contents, not empty-directory metadata.',
@@ -976,10 +988,23 @@ function fileToolNotFound(p, raw) {
   return { ok: false, code: 'not_found', error: '文件不存在', path: p,
     hint: '文件不存在;先用 glob 或 file_list 确认路径' + (rel ? `(传入的是相对路径,已按工作区解析为 ${p})` : '') };
 }
-// 文件系统异常 -> {ok:false, code, hint} 信封;不认识的 errno 返回 null,调用方照旧抛出。
+function assertFileToolActive(ctx) {
+  if (ctx && ctx.signal && ctx.signal.aborted) {
+    throw Object.assign(new Error('File operation cancelled before commit'), { code: 'ABORT_ERR' });
+  }
+}
+function fileToolCleanupFields(result) {
+  if (!result || !result.cleanupIncomplete) return {};
+  return { cleanupIncomplete: true, cleanupPath: result.cleanupPath, cleanupError: result.cleanupError,
+    cleanupWarning: '临时文件清理失败；请检查 cleanupPath 所指文件并在确认后清理' };
+}
+// Preserve the operation's outcome while exposing any uncertain target or temporary state.
 function fileToolFsFailure(e, p, extra) {
-  const env = FileTextIo.fsErrorEnvelope(e, p);
-  return env ? { ...env, ...(extra || {}) } : null;
+  const env = FileTextIo.fsErrorEnvelope(e, p) || (e && (e.targetMayBeModified || e.cleanupIncomplete)
+    ? { ok: false, code: 'write_failed', path: p, errno: e.code, error: String(e.message || e) } : null);
+  return env ? { ...env, ...(extra || {}), ...fileToolCleanupFields(e),
+    ...(e && e.targetMayBeModified ? { targetMayBeModified: true,
+      hint: '文件可能已被部分写入；请检查文件，并使用可用的写入前检查点恢复' } : {}) } : null;
 }
 // F4:file_read 的体积预算。模型侧(10 truncateToolResult)对序列化后 > TOOL_RESULT_CAP(60000)的 file_read 结果只留
 // 头 40000 + 尾 8000,中间静默丢掉而工具自己还回 truncated:false。这里让【内容序列化后】≤ 预算(给信封/non_ascii 留 8K),
@@ -1245,14 +1270,14 @@ const FILE_TOOL_HANDLERS = {
     const output = await toolCall('file_write', { path: args.path, content: JSON.stringify(report, null, 2) + '\n' }, ctx);
     return output.ok ? { ...output, report } : output;
   } },
-  media_probe: { paths: null, guardNote: 'Read-only executable/version discovery; no installation or browser launch', handler: async args => MediaInspection.dependencies(args.refresh === true) },
+  media_probe: { paths: null, guardNote: 'Read-only executable/version discovery; no installation or browser launch', handler: async (args, ctx) => MediaInspection.dependencies(args.refresh === true, ctx && ctx.signal) },
   audio_inspect: { paths: 'read', guardNote: '', handler: async (args, ctx) => {
     const p = await resolveFileToolPath(args.path, ctx);
     const guard = await guardFileToolPath(p, ctx, { tool: 'audio_inspect', write: false });
     if (!guard.ok) return { ok: false, code: guard.code, error: guard.error };
     const st = await fsp.stat(guard.path || p).catch(() => null);
     if (!st || !st.isFile()) return { ok: false, code: 'not_found', error: 'Audio source must be an existing local file.' };
-    return MediaInspection.inspectAudio(guard.absPath || p, args);
+    return MediaInspection.inspectAudio(guard.absPath || p, args, ctx && ctx.signal);
   } },
   code_check: { paths: 'read', guardNote: '', handler: async (args, ctx) => {
     const p = await resolveFileToolPath(args.path, ctx);
@@ -1266,7 +1291,7 @@ const FILE_TOOL_HANDLERS = {
       content = source.content;
     }
     if (Buffer.byteLength(String(content), 'utf8') > 1048576) return { ok: false, code: 'source_too_large', error: 'Syntax check input is limited to 1 MB.' };
-    return { path: p, ...await MediaInspection.checkSyntax(p, String(content)) };
+    return { path: p, ...await MediaInspection.checkSyntax(p, String(content), ctx && ctx.signal) };
   } },
   file_read: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const privacyTextRead = typeof PrivacyGateway !== 'undefined' && !!PrivacyGateway.active();
@@ -1406,7 +1431,7 @@ const FILE_TOOL_HANDLERS = {
         if (args.encoding && Buffer.isEncoding(String(args.encoding))) legacyEncoding = String(args.encoding);
         else return { ok: false, code: 'bad_encoding', error: `unsupported encoding: ${String(args.encoding)}`, path: p, hint: `可用: ${FileTextIo.ACCEPTED_ENCODINGS_TEXT}` };
       }
-      return withFileToolWriteLock([p], async () => {
+      return withFileToolWriteLock([p], ctx && ctx.signal, async () => {
         // v0.8-S4a: checkpoint BEFORE writing. op = create when the file doesn't yet exist (no before to
         // store), else modify (snapshot the existing bytes). Reading the old content can't block the write.
         // F15/F10:先 stat,不为了「比一比」把 300MB 旧文件整个读进来;超过检查点上限的只读头部 64KB 用来判编码/BOM/换行。
@@ -1452,7 +1477,7 @@ const FILE_TOOL_HANDLERS = {
         let content = targetLineEnding ? normalizeTextLineEndings(String(args.content), targetLineEnding) : String(args.content);
         if (args.validateSyntax === true) {
           if (legacyEncoding) return { ok: false, code: 'unsupported_syntax', error: 'Syntax validation requires text content, not a binary encoding.', written: false };
-          const validation = await MediaInspection.checkSyntax(p, content);
+          const validation = await MediaInspection.checkSyntax(p, content, ctx && ctx.signal);
           if (!validation.ok) return { ...validation, path: p, written: false };
         }
         // hunt2 #10:保住 UTF-8 BOM。模型给的 content 从不带 BOM,整份覆写曾把原文件的 BOM 剥掉(file_edit 保得住);
@@ -1495,17 +1520,20 @@ const FILE_TOOL_HANDLERS = {
         const jctx = await journalSessionCtx(ctx);
         const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, existed ? 'modify' : 'create', existed ? before : null);
         // F11:原子写(同目录临时文件 + rename,瞬时锁退避重试);写失败撤掉刚记的检查点,并把 EBUSY/ENOSPC 等变成带 hint 的信封。
+        let writeResult;
         try {
+          assertFileToolActive(ctx);
           if (args.createDirs !== false) await fsp.mkdir(path.dirname(p), { recursive: true });
-          await FileTextIo.writeFileAtomic(p, payload);
+          writeResult = await FileTextIo.writeFileAtomic(p, payload, { signal: ctx && ctx.signal });
         } catch (e) {
-          const dropped = await fileToolDropPhantom(jctx, 'file_write', p, jr);
-          const f = fileToolFsFailure(e, p, { checkpointRolledBack: !!(dropped && dropped.ok) });
+          const dropped = e.targetMayBeModified ? null : await fileToolDropPhantom(jctx, 'file_write', p, jr);
+          const f = fileToolFsFailure(e, p, { checkpointRolledBack: !!(dropped && dropped.ok),
+            ...(e.targetMayBeModified ? { checkpointRetained: !!(jr && jr.ok && Number.isFinite(jr.entrySeq)), checkpointWarn: journalCheckpointWarn(jr) } : {}) });
           if (f) return f;
           throw e;
         }
         // b2-P1: 检查点失败/超限时警告式披露(写操作可重放,不中止,但模型应向用户说明不可一键撤销)。
-        const ret = { ok: true, path: p, op: existed ? 'modify' : 'create', bytes: payload.length, sourceLineEnding, writtenLineEnding,
+        const ret = { ...fileToolCleanupFields(writeResult), ok: true, path: p, op: existed ? 'modify' : 'create', bytes: payload.length, sourceLineEnding, writtenLineEnding,
           ...(legacyEncoding ? {} : { encoding: targetEnc }) };
         const warn = journalCheckpointWarn(jr);
         if (warn) ret.checkpointWarn = warn;
@@ -1521,7 +1549,7 @@ const FILE_TOOL_HANDLERS = {
       // hunt2 #9:newText 缺省曾按 '' 处理 = 模型漏传参数就静默删掉 oldText。删除文本请显式传空串。
       if (args.newText == null) return { ok: false, error: 'newText is required', path: p, hint: '要删除 oldText 请显式传 newText:""' };
       const newText = String(args.newText);
-      return withFileToolWriteLock([p], async () => {
+      return withFileToolWriteLock([p], ctx && ctx.signal, async () => {
         // v0.8-S7 error guidance: distinguish "file doesn't exist" (structured hint) from other read errors.
         // 走查 W1·F8:先 stat 再读 —— 修前整份 readFile 完才判 >50MB(先吃了内存;>2GiB 时 readFile 直接抛裸 ERR_FS_FILE_TOO_LARGE)。
         let stBefore = null;
@@ -1606,7 +1634,7 @@ const FILE_TOOL_HANDLERS = {
           ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
         const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
         if (args.validateSyntax === true) {
-          const validation = await MediaInspection.checkSyntax(p, updated);
+          const validation = await MediaInspection.checkSyntax(p, updated, ctx && ctx.signal);
           if (!validation.ok) return { ...validation, path: p, written: false };
         }
         // 2026-10 走查(R2):替换后与原文逐字符相同(oldText == newText,或换行规范化后等价)—— 不写盘、不记检查点
@@ -1626,15 +1654,17 @@ const FILE_TOOL_HANDLERS = {
         // hunt2 #2:检查点存读到的原字节(Buffer),不存解码后的串 —— 撤销必须逐字节还原。
         const jctx = await journalSessionCtx(ctx);
         const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_edit', p, 'modify', rawBytes);
-        try { await FileTextIo.writeFileAtomic(p, payload); }
+        let writeResult;
+        try { writeResult = await FileTextIo.writeFileAtomic(p, payload, { signal: ctx && ctx.signal }); }
         catch (e) {
           // F11:写失败 -> 撤掉刚记的检查点(否则留一条描述「没发生的改动」的条目),并把锁/磁盘满等变成带 hint 的信封。
-          const dropped = await fileToolDropPhantom(jctx, 'file_edit', p, jr);
-          const f = fileToolFsFailure(e, p, { checkpointRolledBack: !!(dropped && dropped.ok) });
+          const dropped = e.targetMayBeModified ? null : await fileToolDropPhantom(jctx, 'file_edit', p, jr);
+          const f = fileToolFsFailure(e, p, { checkpointRolledBack: !!(dropped && dropped.ok),
+            ...(e.targetMayBeModified ? { checkpointRetained: !!(jr && jr.ok && Number.isFinite(jr.entrySeq)), checkpointWarn: journalCheckpointWarn(jr) } : {}) });
           if (f) return f;
           throw e;
         }
-        const ret = { ok: true, path: p, op: 'modify', replacements: args.replaceAll ? count : 1,
+        const ret = { ...fileToolCleanupFields(writeResult), ok: true, path: p, op: 'modify', replacements: args.replaceAll ? count : 1,
           sourceLineEnding, writtenLineEnding: detectTextLineEnding(updated), normalizedOldText, ...(fileEnc !== 'utf8' ? { encoding: fileEnc } : {}) };
         const warn = journalCheckpointWarn(jr);
         if (warn) ret.checkpointWarn = warn;
@@ -1648,7 +1678,7 @@ const FILE_TOOL_HANDLERS = {
       // directories (only files are journaled/deletable here).
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_delete', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      return withFileToolWriteLock([p], async () => {
+      return withFileToolWriteLock([p], ctx && ctx.signal, async () => {
         const st = await fsp.stat(p).catch(() => null);
         // v0.8-S7 error guidance: same ENOENT hint as file_read/file_edit so the model confirms the path first.
         if (!st) return fileToolNotFound(p, args.path);
@@ -1673,7 +1703,7 @@ const FILE_TOOL_HANDLERS = {
         // (此前唯独删除硬性拒绝,导致清理大日志/大产物在原生工具里根本做不到;安全性由权限档位与用户审批把守,
         //  与同样会不可逆丢掉旧内容的 file_write 覆盖一致。)
         const checkpointWarn = journalCheckpointWarn(jr);
-        try { await fsp.unlink(p); }
+        try { assertFileToolActive(ctx); await fsp.unlink(p); }
         catch (e) {
           const dropped = await fileToolDropPhantom(jctx, 'file_delete', p, jr);
           const f = fileToolFsFailure(e, p, { checkpointRolledBack: !!(dropped && dropped.ok) });
@@ -1699,10 +1729,10 @@ const FILE_TOOL_HANDLERS = {
       // 的差别把区外文件系统的存在性泄给了模型(对 /etc/xxx、别的用户目录逐个探测)。
       { const gf = await guardFileToolPath(from, ctx, { tool: 'file_move', write: true }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
       { const gt = await guardFileToolPath(to, ctx, { tool: 'file_move', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
-      const fromSt = await fsp.stat(from).catch(() => null);
-      if (!fromSt) return { ...fileToolNotFound(from, args.from), error: '源文件不存在', hint: '先用 glob 或 file_list 确认路径' };
-      if (fromSt.isDirectory()) return { ok: false, error: '暂不支持移动文件夹', hint: '仅支持移动单个文件' };
-      return withFileToolWriteLock([from, to], async () => {
+      return withFileToolWriteLock([from, to], ctx && ctx.signal, async () => {
+        const fromSt = await fsp.stat(from).catch(() => null);
+        if (!fromSt) return { ...fileToolNotFound(from, args.from), error: '源文件不存在', hint: '先用 glob 或 file_list 确认路径' };
+        if (fromSt.isDirectory()) return { ok: false, error: '暂不支持移动文件夹', hint: '仅支持移动单个文件' };
         const toSt = await fsp.stat(to).catch(() => null);
         // 目标是目录:rename / 记检查点读目录都会炸(修前是裸 EISDIR 异常)—— 明说,并提示把文件名写进 to。
         if (toSt && toSt.isDirectory()) return { ok: false, code: 'target_is_directory', error: '目标是一个已存在的目录', path: to, hint: 'to 要写成「目录/新文件名」(含文件名),file_move 不会自动把文件放进目录里' };
@@ -1742,34 +1772,51 @@ const FILE_TOOL_HANDLERS = {
           if (jrTo && Number.isFinite(jrTo.entrySeq)) recordedSeqs.push(jrTo.entrySeq);
           checkpointWarn = journalCheckpointWarn(jrTo);
         }
-        await fsp.mkdir(path.dirname(to), { recursive: true });
         try {
+          assertFileToolActive(ctx);
+          await fsp.mkdir(path.dirname(to), { recursive: true });
+          assertFileToolActive(ctx);
           if (caseOnly) {
             // 大小写不敏感文件系统上的纯改大小写:经一个临时名中转两步改(直接 rename 在个别驱动 / 同步盘上不会真的改大小写)。
             const tmp = path.join(path.dirname(from), `.${path.win32.basename(from)}.${process.pid}.${Date.now().toString(36)}.rn`);
             await fsp.rename(from, tmp);
             try { await fsp.rename(tmp, to); }
-            catch (e2) { await fsp.rename(tmp, from).catch(() => {}); throw e2; }
+            catch (e2) {
+              try { await fsp.rename(tmp, from); }
+              catch (restoreError) {
+                e2.targetMayBeModified = true;
+                e2.recoveryPath = tmp;
+                e2.restoreError = String(restoreError.message || restoreError);
+              }
+              throw e2;
+            }
           } else await fsp.rename(from, to);
         } catch (e) {
-          if (e && e.code === 'EXDEV') {
+          if (e && e.code === 'EXDEV' && !e.targetMayBeModified) {
             // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
-            // hunt2 #5:检查点只在退化也失败时才回滚 —— 修前 drop 在进这个分支之前就跑了,copy+unlink 成功后文件
-            // 已经移走、检查点却是 0 条,撤回本轮什么也不做(Windows 上 C:→D: 就是这条路)。
+            // Retain checkpoints once fallback copying starts, including partial-copy and unlink failures.
+            let copyStarted = false;
             try {
+              assertFileToolActive(ctx);
+              copyStarted = true;
               await fsp.copyFile(from, to);
               await fsp.unlink(from);
             } catch (e2) {
-              // copy+delete 也失败：from 未动、to 可能半写 —— 回滚检查点,如实披露部分状态。
-              const dropped = await dropRecorded();
-              return { ok: false, error: `跨盘移动失败: ${(e2 && e2.message) || String(e2)}。from 未移动;to 可能不完整。`, from, to, partial: true, checkpointRolledBack: !!(dropped && dropped.ok) };
+              // Once copy begins, either path may need its original checkpoint for recovery.
+              if (copyStarted) e2.targetMayBeModified = true;
+              const dropped = copyStarted ? null : await dropRecorded();
+              const failure = fileToolFsFailure(e2, to);
+              return { ...(failure || {}), ok: false, error: `跨盘移动失败: ${(e2 && e2.message) || String(e2)}。`, from, to,
+                partial: copyStarted, checkpointRolledBack: !!(dropped && dropped.ok),
+                ...(copyStarted ? { checkpointRetained: recordedSeqs.length > 0, checkpointWarn } : {}) };
             }
           } else {
-            // b3-P2: 移动失败时刚写的两条检查点尚未对应任何真实变更 —— 回滚它们,避免 phantom journal
-            // (回滚作用于未发生的移动)。drop 失败只影响撤销精度,不影响本条错误本身。
-            const dropped = await dropRecorded();
+            // Drop only uncommitted records; failed restoration still needs both recovery snapshots.
+            const dropped = e.targetMayBeModified ? null : await dropRecorded();
             const f = fileToolFsFailure(e, from);
-            return { ok: false, error: `移动失败: ${(e && e.message) || String(e)}。`, from, to, ...(f ? { code: f.code, hint: f.hint } : {}), checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+            return { ...(f || {}), ok: false, error: `移动失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok),
+              ...(e.targetMayBeModified ? { partial: true, recoveryPath: e.recoveryPath, restoreError: e.restoreError,
+                checkpointRetained: recordedSeqs.length > 0, checkpointWarn } : { phantomJournal: !(dropped && dropped.ok) }) };
           }
         }
         return { ok: true, from, to, op: 'move', overwritten: toExists, ...(checkpointWarn ? { checkpointWarn } : {}) };
@@ -1786,10 +1833,10 @@ const FILE_TOOL_HANDLERS = {
       // 2026-10 走查(R2):围栏先于 stat(同 file_move:不让区外路径的存在性经「拒绝 / not_found」的差别泄给模型)。
       { const gf = await guardFileToolPath(from, ctx, { tool: 'file_copy', write: false }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
       { const gt = await guardFileToolPath(to, ctx, { tool: 'file_copy', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
-      const fromSt = await fsp.stat(from).catch(() => null);
-      if (!fromSt) return { ...fileToolNotFound(from, args.from), error: '源文件不存在', hint: '先用 glob 或 file_list 确认路径' };
-      if (fromSt.isDirectory()) return { ok: false, error: '暂不支持复制文件夹', hint: '仅支持复制单个文件' };
-      return withFileToolWriteLock([from, to], async () => {
+      return withFileToolWriteLock([from, to], ctx && ctx.signal, async () => {
+        const fromSt = await fsp.stat(from).catch(() => null);
+        if (!fromSt) return { ...fileToolNotFound(from, args.from), error: '源文件不存在', hint: '先用 glob 或 file_list 确认路径' };
+        if (fromSt.isDirectory()) return { ok: false, error: '暂不支持复制文件夹', hint: '仅支持复制单个文件' };
         const toSt = await fsp.stat(to).catch(() => null);
         if (toSt && toSt.isDirectory()) return { ok: false, code: 'target_is_directory', error: '目标是一个已存在的目录', path: to, hint: 'to 要写成「目录/新文件名」(含文件名),file_copy 不会自动把文件放进目录里' };
         // 复制到自己身上:copyFile 会报错 / 在个别平台截断成空文件 —— 同一个文件就什么也不做。
@@ -1799,20 +1846,28 @@ const FILE_TOOL_HANDLERS = {
         const toBefore = toExists ? await fileToolBeforeForCheckpoint(to, toSt.size) : null;
         const jctx = await journalSessionCtx(ctx);
         const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_copy', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
+        let copyStarted = false;
         try {
+          assertFileToolActive(ctx);
           await fsp.mkdir(path.dirname(to), { recursive: true });
+          assertFileToolActive(ctx);
+          copyStarted = true;
           await fsp.copyFile(from, to);
         } catch (e) {
-          // b3-P2: 复制失败(写满/权限等)时 to 未产生(或半写),检查点尚未对应真实变更 —— 回滚 phantom 条目。
-          const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_copy', [to]).catch(() => ({ ok: false }));
-          const f = fileToolFsFailure(e, to);
-          return { ok: false, error: `复制失败: ${(e && e.message) || String(e)}。`, from, to, ...(f ? { code: f.code, hint: f.hint } : {}), checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+          if (copyStarted) e.targetMayBeModified = true;
+          const dropped = copyStarted ? null : await fileToolDropPhantom(jctx, 'file_copy', to, jr);
+          const failure = fileToolFsFailure(e, to);
+          return { ...(failure || {}), ok: false, error: `复制失败: ${(e && e.message) || String(e)}。`, from, to,
+            checkpointRolledBack: !!(dropped && dropped.ok),
+            ...(copyStarted ? { partial: true, checkpointRetained: !!(jr && jr.ok && Number.isFinite(jr.entrySeq)),
+              checkpointWarn: journalCheckpointWarn(jr) } : { phantomJournal: !(dropped && dropped.ok) }) };
         }
         const checkpointWarn = journalCheckpointWarn(jr);
         return { ok: true, from, to, op: 'copy', overwritten: toExists, ...(checkpointWarn ? { checkpointWarn } : {}) };
       });
   } },
   file_list: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      assertSearchExecution(ctx && ctx.signal);
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_list', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
@@ -1823,7 +1878,7 @@ const FILE_TOOL_HANDLERS = {
       const cls = classifyListPattern(args.pattern, root);
       if (cls.kind === 'invalid') return { ok: false, error: cls.error, code: 'bad_pattern', hint: cls.hint, root };
       const recursive = args.recursive !== false;
-      const walked = await walkFiles(walkRoot, {
+      const walked = await walkFiles(walkRoot, { signal: ctx && ctx.signal,
         recursive, maxFiles: args.maxFiles, maxDepth: args.maxDepth, ignoreCase: args.ignoreCase,
         pattern: cls.kind === 'regex' ? String(args.pattern) : '', accept: cls.kind === 'glob' ? cls.accept : null,
         // 递归列举:广度优先(先把浅层列全);非递归 = 目录浏览,只藏 node_modules/.git/.venv(build/dist 也要能点开看)。
@@ -1852,7 +1907,15 @@ const FILE_TOOL_HANDLERS = {
       // maxResults ≤0 / 非数字按没传(200)—— 修前 0 或负数让两个引擎都立刻停在 0 条并报 truncated。
       const maxResultsReq = Number(args.maxResults);
       const maxResults = args.maxResults != null && maxResultsReq >= 1 ? Math.floor(maxResultsReq) : 200;
-      let matches = await searchFileContent(walkRoot, String(args.pattern || ''), { ...args, maxResults, ...fileToolPrivacySourceOptions(ctx, 'file_search') });
+      let matches;
+      try {
+        matches = await searchFileContent(walkRoot, String(args.pattern || ''), { ...args, maxResults, signal: ctx && ctx.signal, ...fileToolPrivacySourceOptions(ctx, 'file_search') });
+      } catch (error) {
+        if (!error.searchExecutionFailure) throw error;
+        return { ok: false, root, code: error.code, error: error.message, cleanupScope: error.cleanupScope,
+          cleanupIncomplete: error.cleanupIncomplete, cleanupEscapeCoverage: error.cleanupEscapeCoverage,
+          cleanupUnconfirmed: error.cleanupUnconfirmed };
+      }
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
       const regexTimedOut = !!(matches && matches.regexTimedOut);   // 审计 F:JS 正则撞了时间预算
@@ -1902,6 +1965,7 @@ const FILE_TOOL_HANDLERS = {
       return resp;
   } },
   glob: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      assertSearchExecution(ctx && ctx.signal);
       // v0.8-S1: glob file matcher. Self-written `**`/`*`/`?` → RegExp; reuses walkFiles for traversal
       // (its default ignoreDirs: node_modules/.git/.venv). Returns files sorted by mtime DESC, capped
       // at maxResults (default 500) with a `truncated` flag.
@@ -1924,7 +1988,7 @@ const FILE_TOOL_HANDLERS = {
       // F2:glob 在遍历时过滤(accept),maxFiles 只数【命中】的文件 —— 修前先按遍历顺序取前 max(4×maxResults,4000)
       // 个条目(含目录、无关文件)再事后匹配,前面塞满 __pycache__/.github 时 `**/*.md` 一个都找不到。
       const scanCap = Math.max(maxResults * 4, 4000);
-      const all = await walkFiles(walkRoot, {
+      const all = await walkFiles(walkRoot, { signal: ctx && ctx.signal,
         recursive: true, maxFiles: scanCap, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 12,
         emitDirs: false, accept: rel => globRe.test(rel), ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true,
         allowDirs: explicitAllowDirs(walkRoot, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
@@ -1943,6 +2007,7 @@ const FILE_TOOL_HANDLERS = {
       return resp;
   } },
   project_snapshot: { paths: "read", guardNote: '', handler: async (args, ctx) => {
+      assertSearchExecution(ctx && ctx.signal);
       const root = await resolveFileToolRoot(args, ctx);
       // 第41波(41a 表驱动首擒):file_list/file_search/glob 都有读闸,唯独本工具没有 —— 远端模型可越界列目录。
       // 注册表声明让这条不对称现形,补上同族读闸(本地模型越界读仍放行,与 file_list 完全同闸,行为只收不松)。
@@ -1953,7 +2018,7 @@ const FILE_TOOL_HANDLERS = {
       const walkRoot = guardedWalkRoot(root, g);   // 安全走查 S7:遍历用 realpath 根
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
-      const walked = await walkFiles(walkRoot, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(walkRoot, []) });
+      const walked = await walkFiles(walkRoot, { signal: ctx && ctx.signal, recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(walkRoot, []) });
       respellWalkPaths(walked, walkRoot, root);   // 第三波(复核 #6)
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'project_snapshot') + ' (entries are listed breadth-first: every top-level entry comes before deeper ones)'; }
@@ -2009,18 +2074,20 @@ const ARCHIVE_TOOL_HANDLERS = {
       const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_zip', dest, destExists ? 'modify' : 'create', destExists ? destBefore : null);
       // 2026-10 走查(R2):原子写(同目录临时文件 + rename),与 file_write / file_edit 同一条路 —— 修前 writeFile 直写,
       // 中途失败(磁盘满 / 被占用)会留下半个 zip 并把旧包写坏;失败时撤掉刚记的检查点,把错误变成带 hint 的信封。
+      let writeResult;
       try {
         await fsp.mkdir(path.dirname(dest), { recursive: true });
-        await FileTextIo.writeFileAtomic(dest, zipBuf);
+        writeResult = await FileTextIo.writeFileAtomic(dest, zipBuf);
       } catch (e) {
-        const dropped = await fileToolDropPhantom(jctx, 'archive_zip', dest, jr);
-        const f = fileToolFsFailure(e, dest, { checkpointRolledBack: !!(dropped && dropped.ok) });
+        const dropped = e.targetMayBeModified ? null : await fileToolDropPhantom(jctx, 'archive_zip', dest, jr);
+        const f = fileToolFsFailure(e, dest, { checkpointRolledBack: !!(dropped && dropped.ok),
+            ...(e.targetMayBeModified ? { checkpointRetained: !!(jr && jr.ok && Number.isFinite(jr.entrySeq)), checkpointWarn: journalCheckpointWarn(jr) } : {}) });
         if (f) return f;
         throw e;
       }
       const fileCount = entries.filter(e => !e.isDir).length;
       const checkpointWarn = journalCheckpointWarn(jr); // hunt2 #17
-      return { ok: true, dest, op: destExists ? 'modify' : 'create', entries: entries.length, files: fileCount, bytes: zipBuf.length,
+      return { ...fileToolCleanupFields(writeResult), ok: true, dest, op: destExists ? 'modify' : 'create', entries: entries.length, files: fileCount, bytes: zipBuf.length,
         // 被悄悄丢掉的东西如实报:符号链接(不入包,免得打进包外内容)、dest 自己、重复的输入、因同名而改了包内名字的输入。
         ...(entries.skippedLinks ? { skippedLinks: entries.skippedLinks, linksHint: 'symbolic links are never packed (they could point outside the packed folder)' } : {}),
         ...(entries.skippedDest ? { skippedDest: true, destHint: 'dest lies inside a packed folder; the output file itself was left out of the archive' } : {}),
@@ -2298,6 +2365,16 @@ async function runPythonScript(scriptPath, opts) {
 }
 
 const SHELL_TOOL_HANDLERS = {
+  shell_run: { paths: null, guardNote: 'exec tier and workspace execution guard', handler: async (args, ctx) => {
+      const language = args.language || (process.platform === 'darwin' ? 'bash' : 'powershell');
+      if (language === 'powershell') return SHELL_TOOL_HANDLERS.powershell_run.handler(args, ctx);
+      if (!String(args.command || '').trim()) return { ok: false, code: 'invalid_args', error: 'command 不能为空' };
+      const guard = await guardWorkspaceExecute(args.cwd, ctx);
+      if (!guard.ok) return { ok: false, error: guard.error, code: guard.code };
+      const problem = await execCwdProblem(guard.cwd);
+      if (problem) return problem;
+      return DesktopShell.runBash(String(args.command), guard.cwd, args.timeoutMs, ctx && ctx.signal, { shape: true });
+  } },
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
       if (!String(args.command == null ? '' : args.command).trim()) return { ok: false, code: 'invalid_args', error: 'command 不能为空', hint: '传入要执行的 PowerShell 命令文本' };
       // 107-S0:三个执行工具一律跑在闸交回的 g.cwd(03 resolveExecCwd)—— 判的目录就是跑的目录;修前缺省 cwd 落家目录。
@@ -2309,7 +2386,7 @@ const SHELL_TOOL_HANDLERS = {
       return powershellMissingOr(await DesktopShell.runPowerShell(String(args.command || ''), g.cwd, args.timeoutMs, ctx && ctx.signal, { shape: true }));
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
-      if (!String(args.code == null ? '' : args.code).trim()) return { ok: false, code: 'invalid_args', error: 'code 不能为空', hint: '传入要执行的脚本源码(language 缺省为 powershell,也可选 python / node)' };
+      if (!String(args.code == null ? '' : args.code).trim()) return { ok: false, code: 'invalid_args', error: 'code 不能为空', hint: '传入要执行的脚本源码(Mac 缺省 bash，Windows 缺省 powershell，也可显式选 python / node)' };
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
       const badCwd = await execCwdProblem(g.cwd);
@@ -2330,7 +2407,8 @@ const SHELL_TOOL_HANDLERS = {
           };
         }
       }
-      const language = String(args.language || 'powershell').toLowerCase();
+      const language = String(args.language || (process.platform === 'darwin' ? 'bash' : 'powershell')).toLowerCase();
+      if (language === 'bash') return DesktopShell.runBash(String(args.code), g.cwd, args.timeoutMs, ctx && ctx.signal, { shape: true });
       const id = makeId('script');
       const dir = path.join(paths.generated, 'scripts');
       await fsp.mkdir(dir, { recursive: true });
@@ -2519,14 +2597,19 @@ const DESKTOP_TOOL_HANDLERS = {
       if (!String(args.path == null ? '' : args.path).trim()) return { ok: false, code: 'invalid_args', error: 'path 不能为空', hint: '传入要打开的文档 / 图片 / 文件夹的完整路径' };
       if (await openToolUncDenied(args.path, ctx)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR };
       const target = path.resolve(String(args.path || ''));
+      let openTarget = target;
+      if (process.platform === 'darwin') {
+        try { openTarget = await fsp.realpath(target); }
+        catch (error) { return { ok: false, code: error.code || 'not_found', error: '无法解析要打开的文件路径', target }; }
+      }
       // 只「打开」查看类文件(与 /api/file/reveal 同一张白名单 REVEAL_OPEN_SAFE_EXTS):修前 office_open 一个 .bat/.exe/.lnk
       // 就是交给关联程序【执行】—— allowCommandTools:false 时命令工具全关,这条路照样能跑脚本。其余扩展名只在资源管理器里
       // 定位出来,让用户自己决定要不要运行。
-      const ext = path.extname(target).slice(1).toLowerCase();
+      const ext = path.extname(openTarget).slice(1).toLowerCase();
       if (!REVEAL_OPEN_SAFE_EXTS.has(ext)) {
-        const st = await fsp.stat(target).catch(() => null);
+        const st = await fsp.stat(openTarget).catch(() => null);
         if (!(st && st.isDirectory())) {
-          const r = buildRevealSpawn('select', target);
+          const r = buildRevealSpawn('select', openTarget);
           const shown = await spawnDetachedChecked(r.command, r.args, { detached: true, windowsHide: true, stdio: 'ignore' });
           if (!shown.ok) return { ok: false, error: `无法启动资源管理器:${shown.error}`, target };
           return { ok: true, opened: false, revealed: target, note: `.${ext || '(无扩展名)'} 不是文档/图片/音视频类文件,出于安全没有直接打开(可能会被执行),只在资源管理器里选中了它;要运行请让用户自己决定` };
@@ -2536,10 +2619,11 @@ const DESKTOP_TOOL_HANDLERS = {
       // (无 S3 外传通道),"打开桌面/下载里的文档"正是非程序员用户的正当主流程,读闸会误杀;模型可控路径
       // 的风险面是命令注入(S2 已修)与关联程序执行,后者由 exec tier 权限弹窗/授权书把守,与其它 exec 工具同级。
       // v1.4.6-S2: same cmd.exe injection fix as browser_open — direct explorer.exe spawn, no shell.
-      const s = buildOpenSpawn(target);
+      const s = buildOpenSpawn(openTarget);
       // 启动失败(ENOENT/EPERM…)是异步 'error' 事件:等到 spawn/error 再回话,不再先报「opened」再把服务带崩。
       const started = await spawnDetachedChecked(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' });
       if (!started.ok) return { ok: false, error: `无法启动打开程序 ${s.command}:${started.error}`, target };
+      if (s.mode === 'select') return { ok: true, opened: false, revealed: target };
       return { ok: true, opened: target };
   } },
 };
@@ -2654,20 +2738,36 @@ const NETWORK_TOOL_HANDLERS = {
       // 以 `-` 开头的值会被浏览器当成命令行开关(--renderer-cmd-prefix=… 这类),不是网址。
       if (target.startsWith('-')) return { ok: false, error: 'url 不能以 - 开头', target };
       if (await openToolUncDenied(target, ctx)) return { ok: false, code: 'not-allowed', error: UNC_DENIED_ERROR, target };
+      let openTarget = target;
+      let localUrl = null;
+      if (process.platform === 'darwin' && !/^https?:/i.test(target)) {
+        try {
+          localUrl = /^file:/i.test(target) ? new URL(target) : null;
+          const localPath = localUrl ? require('url').fileURLToPath(localUrl) : path.resolve(target);
+          openTarget = await fsp.realpath(localPath);
+        } catch (error) { return { ok: false, code: error.code || 'invalid_args', error: '无法解析要打开的本地浏览器路径', target }; }
+      }
       // 网址 / 本地 HTML 之外只放行【文件夹】(资源管理器打开)。修前 calc.exe、.bat 之类的路径会落到系统关联打开 = 执行。
-      if (!isBrowserDocumentTarget(target)) {
-        const st = await fsp.stat(path.resolve(target)).catch(() => null);
+      if (!isBrowserDocumentTarget(openTarget)) {
+        const st = await fsp.stat(path.resolve(openTarget)).catch(() => null);
         if (!(st && st.isDirectory())) {
           return { ok: false, error: 'browser_open 只打开网址(http/https/file)、本地 .html 文件或文件夹', target, hint: '打开文档用 office_open;运行程序用命令工具' };
         }
       }
       // Shell-free and non-destructive: URLs/local HTML open in an explicit new browser tab where the
       // default-browser executable is available; folders keep the safe Explorer handoff behavior.
-      const s = buildBrowserOpenSpawn(target);
+      let handoffTarget = openTarget;
+      if (localUrl && isBrowserDocumentTarget(openTarget)) {
+        const canonicalUrl = require('url').pathToFileURL(openTarget);
+        canonicalUrl.search = localUrl.search; canonicalUrl.hash = localUrl.hash;
+        handoffTarget = canonicalUrl.href;
+      }
+      const s = buildBrowserOpenSpawn(handoffTarget);
       // 默认浏览器路径可能是注册表里的残留(已卸载):失败走普通工具失败,不再成为 uncaughtException。
       const started = await spawnDetachedChecked(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' });
       if (!started.ok) return { ok: false, error: `无法启动浏览器 ${s.command}:${started.error}`, target, browserMode: s.mode };
-      return { ok: true, opened: target, browserMode: s.mode, preservedWorkbench: true };
+      if (s.mode === 'file-selection') return { ok: true, opened: false, revealed: target, browserMode: s.mode, preservedWorkbench: true };
+      return { ok: true, opened: target, browserMode: s.mode, preservedWorkbench: s.preservesWorkbench };
   } },
 };
 
@@ -2731,7 +2831,12 @@ const CODE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      return respellWalkPaths(await docsSearch(guardedWalkRoot(root, g), String(args.query || ''), { ...args, ...fileToolPrivacySourceOptions(ctx, 'docs_search') }), guardedWalkRoot(root, g), root);
+      try {
+        return respellWalkPaths(await docsSearch(guardedWalkRoot(root, g), String(args.query || ''), { ...args, signal: ctx && ctx.signal, ...fileToolPrivacySourceOptions(ctx, 'docs_search') }), guardedWalkRoot(root, g), root);
+      } catch (error) {
+        if (!error.searchExecutionFailure) throw error;
+        return { ok: false, root, code: error.code, error: error.message, cleanupIncomplete: error.cleanupIncomplete, cleanupScope: error.cleanupScope };
+      }
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       // v2.6 (对抗验证 HIGH 收口): 与 file_search/file_list/glob/project_snapshot 同款读闸 —— 仅靠 walkFiles
@@ -3110,7 +3215,7 @@ const TOOL_NAME_ALIASES = {
   list_directory: 'file_list', list_dir: 'file_list', ls: 'file_list', read_file: 'file_read', cat: 'file_read',
   write_file: 'file_write', create_file: 'file_write', edit_file: 'file_edit', replace_in_file: 'file_edit',
   delete_file: 'file_delete', grep: 'file_search', search_files: 'file_search', find_files: 'glob',
-  run_command: 'powershell_run', shell: 'powershell_run', bash: 'powershell_run', run_script: 'script_run',
+  run_command: 'shell_run', shell: 'shell_run', bash: 'shell_run', run_script: 'script_run',
   // 61-A6:取网页正文是 web_fetch 的事(http_request 是原始 HTTP、exec 档);web_fetch 本身缺席时才退到 http_request。
   fetch: 'web_fetch', web_fetch: 'http_request', screenshot: 'desktop_screenshot',
 };
@@ -3303,8 +3408,15 @@ async function toolCall(name, args = {}, ctx = null) {
   args = normalizeMetaToolArgs(name, args);   // todo_write/mission_update:content/completed 等同义词先归一,再校验
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
-  try { return await entry.handler(args, ctx); }
+  try {
+    return await ProcessRuntime.withOwner({
+      toolName: name, sessionId: ctx?.sessionId || ctx?.session?.id || '',
+      turnSeq: ctx?.turnSeq ?? ctx?.session?.turnSeq, toolCallId: ctx?.toolCallId || '', invocationId: makeId('process_call'),
+    }, () => entry.handler(args, ctx));
+  }
   catch (e) {
+    if (e && e.searchExecutionFailure) return { ok: false, code: e.code, error: e.message,
+      cleanupIncomplete: e.cleanupIncomplete, cleanupScope: e.cleanupScope };
     // 路径里混进 NUL(\0):Node 在 stat/open 上抛 ERR_INVALID_ARG_VALUE,修前是裸 TypeError 一路抛给模型。
     // 只认这一类(fsErrorEnvelope 给 bad_path),其余异常照旧向上抛。
     if (e && e.code === 'ERR_INVALID_ARG_VALUE') {
@@ -3415,6 +3527,12 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   const health = [];
   const push = (id, ok, detail) => health.push({ id, ok, detail });
 
+  const runtime = await ProcessRuntime.capabilitySnapshot();
+  if (process.platform === 'darwin') {
+    const supervisor = runtime.capabilities['process.supervisor'];
+    push('process-supervisor', supervisor.ready, supervisor.ready ? 'ready' : supervisor.reasonCode);
+  }
+
   const selectedCli = selectedAgentCli(config);
   // 128f-⑬:修前每一次 /api/status 都同步探一遍选中的 CLI(不记忆),换线程就钉一次事件循环;见 01 agentCliLauncherOk。
   const selectedCliOk = Boolean(selectedCli.path && await agentCliLauncherOk(selectedCli.path));
@@ -3458,7 +3576,7 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   const mani = await verifyManifest();
   if (mani.present) push('overlay-integrity', Boolean(mani.ok), mani.ok ? `v${mani.version || '?'} verified` : `mismatches: ${(mani.mismatches || []).map(m => m.path).join(', ') || mani.error}`);
 
-  return { health, manifest: mani };
+  return { health, manifest: mani, runtime };
 }
 
 // hunt2-mcp:Windows 记事本存的 SKILL.md 带 UTF-8 BOM,修前 `^---` 对不上,整段 frontmatter 被当正文(name/description

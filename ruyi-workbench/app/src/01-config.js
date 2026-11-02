@@ -587,7 +587,8 @@ function normalizeWorkspacePathString(value) {
 //     不再往常用工作区写任何一行),这一行留下,如意那张表里对应的条目标 adopted:true。迁出只认
 //     「不在如意那张表里」的行,所以收编过的行下一次读配置不会再被挪走(否则两条迁移会来回拉锯)。
 function stewardManagedWorkspaceKey(value) {
-  return String(value == null ? '' : value).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+  const normalized = String(value == null ? '' : value).replace(/[\\/]+/g, '/').replace(/\/+$/, '');
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
 }
 function normalizeStewardManagedWorkspaces(config, wsRows) {
   const rawList = Array.isArray(config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : [];
@@ -1240,7 +1241,7 @@ function normalizeConfig(raw, opts = {}) {
     else config.residentSkills = clean;
   }
   // v0.9-S3 (C3): recentWorkspaces — de-duped array of non-empty absolute-path strings, ≤10 (LRU: the
-  // front is most-recent). Drop non-strings/empties; a duplicate (case-insensitive) keeps only the first
+  // front is most-recent). Drop non-strings/empties; a duplicate (case-insensitive on Windows) keeps only the first
   // occurrence (so the front-inserted entry wins). A non-array coerces to []. Never widens anything.
   {
     const rawArr = Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [];
@@ -1250,7 +1251,7 @@ function normalizeConfig(raw, opts = {}) {
       if (typeof w !== 'string') continue;
       const s = normalizeWorkspacePathString(w);
       if (!s) continue;
-      const key = s.toLowerCase();
+      const key = samePathKey(s);
       if (seen.has(key)) continue;
       seen.add(key);
       clean.push(s);
@@ -1286,7 +1287,7 @@ function normalizeConfig(raw, opts = {}) {
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
   // from defaultWorkspace + recentWorkspaces lives in CONFIG_MIGRATIONS (to:10), which runs just above and
-  // leaves the seed rows in config.workspaces for this block to cleanse. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe,
+  // leaves the seed rows in config.workspaces for this block to cleanse. Cleanse: trimmed string path (≤1000), boolean flags, platform-aware de-dupe,
   // capped at WORKSPACE_TABLE_CAP rows (117w-W1④ raised it 20 -> 64; see that constant for why).
   // defaultWorkspace is kept in sync with the highest-priority (first) workspace for backward compat.
   {
@@ -1297,7 +1298,7 @@ function normalizeConfig(raw, opts = {}) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
       const p = normalizeWorkspacePathString(raw.path);
       if (!p) return;
-      const key = p.toLowerCase();
+      const key = samePathKey(p);
       if (seen.has(key)) return;
       seen.add(key);
       const entry = { path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false };
@@ -2759,7 +2760,15 @@ function refreshInBackground(key, probe) {
 }
 // 异步版的「跑一发 <cmd> --version 看退出码」:与各处 spawnSync 同一组参数(stdio 全忽略、隐藏窗口、超时即杀
 // 直接子进程),回同形 { error, status } —— 超时被杀时 status 为 null,与 spawnSync 超时同判。
+function spawnProbeSync(command, args, options = {}) {
+  if (process.platform !== 'darwin') return cp.spawnSync(command, args, options);
+  const result = ProcessRuntime.probeSync(command, args, options);
+  if (result.cleanupIncomplete) throw Object.assign(result.error, { cleanupIncomplete: true, cleanupScope: result.cleanupScope,
+    cleanupEscapeCoverage: result.cleanupEscapeCoverage, cleanupUnconfirmed: result.cleanupUnconfirmed });
+  return result;
+}
 function spawnProbeAsync(command, args, spawnOpts = {}, timeout = 4000) {
+  if (process.platform === 'darwin') return ProcessRuntime.probe(command, args, spawnOpts, timeout);
   return new Promise(resolve => {
     let settled = false;
     const done = result => { if (!settled) { settled = true; resolve(result); } };
@@ -2781,13 +2790,14 @@ function detectClaudePathUncached() {
     try {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
-      const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+      const ok = spawnProbeSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
       // 61-C6:批处理启动器(claude.cmd)经 cmd.exe 探,没装时 cmd 也有退出码(1 / 9009)—— 修前「有退出码就算探到」,
       // 没装 Claude Code 的机器也报「Claude Code: claude.cmd」。批处理要求退出码 0;直启的 exe 仍是有退出码即可。
       const found = !ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0);
       // P1: shim(claude.cmd)命中时优先解析出真身 claude.exe(绕过 cmd.exe 8191 上限);解析不出原样返回。
       if (found) return resolveClaudeLauncher(command);
-    } catch {
+    } catch (error) {
+      if (error.cleanupIncomplete) throw error;
       // keep scanning
     }
   }
@@ -2799,9 +2809,11 @@ async function detectClaudePathUncachedAsync() {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
       const ok = await spawnProbeAsync(s.command, s.args, s.opts);
+      if (ok.cleanupIncomplete) throw Object.assign(ok.error, { cleanupIncomplete: true });
       // 判据与同步版逐字相同(61-C6:批处理启动器要求退出码 0)。
       if (!ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0)) return await resolveClaudeLauncherAsync(command);
-    } catch {
+    } catch (error) {
+      if (error.cleanupIncomplete) throw error;
       // keep scanning
     }
   }
@@ -2884,9 +2896,9 @@ function probeAgentCliLauncher(command) {
   if (!command) return false;
   try {
     const s = agentCliProbeSpawn(command);
-    const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+    const ok = spawnProbeSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
     return !ok.error && ok.status === 0;
-  } catch { return false; }
+  } catch (error) { if (error.cleanupIncomplete) throw error; return false; }
 }
 // 探测结果三态('ok' | 'missing' | 'slow')。spawnProbeAsync 带 timeout 选项:到点 Node 杀掉子进程,close 事件给
 // status=null 且【没有 error】—— 与「启动器根本起不来」(spawn 的 'error':ENOENT/EACCES…)、「--version 退出码非 0」
@@ -2901,8 +2913,10 @@ async function probeAgentCliLauncherVerdictAsync(command) {
   if (!command) return 'missing';
   try {
     const s = agentCliProbeSpawn(command);
-    return agentCliProbeVerdict(await spawnProbeAsync(s.command, s.args, s.opts));
-  } catch { return 'missing'; }
+    const result = await spawnProbeAsync(s.command, s.args, s.opts);
+    if (result.cleanupIncomplete) throw Object.assign(result.error, { cleanupIncomplete: true });
+    return agentCliProbeVerdict(result);
+  } catch (error) { if (error.cleanupIncomplete) throw error; return 'missing'; }
 }
 async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探用,判据与上面同步版逐字相同(只有 'ok' 为真)
   return (await probeAgentCliLauncherVerdictAsync(command)) === 'ok';
@@ -3143,7 +3157,7 @@ function externalServerJs() {
 }
 
 function bundledNodeExe() {
-  const p = path.join(externalRoot(), 'runtime', 'node', 'node.exe');
+  const p = path.join(externalRoot(), 'runtime', 'node', process.platform === 'win32' ? 'node.exe' : 'bin/node');
   if (fs.existsSync(p)) return p;
   // When we are already running under node (not the pkg exe), process.execPath IS a node binary.
   if (!isPkg()) return process.execPath;
@@ -3270,12 +3284,18 @@ function desktopPythonCandidates(root) {
   const candidates = [];
   const seen = new Set();
   const addPath = (command, source) => {
-    const key = path.resolve(String(command || '')).toLowerCase();
+    const absolute = path.resolve(String(command || ''));
+    const key = process.platform === 'win32' ? absolute.toLowerCase() : absolute;
     if (!command || seen.has(key)) return;
     seen.add(key);
     candidates.push({ command, args: [], source, requireExisting: true });
   };
-  if (root) {
+  if (root && process.platform !== 'win32') {
+    addPath(path.join(root, 'runtime', 'python', 'bin', 'python3'), 'bundled-runtime');
+    addPath(path.join(root, '.venv', 'bin', 'python3'), 'repo-venv');
+    addPath(path.join(root, 'venv', 'bin', 'python3'), 'installed-venv');
+  }
+  if (root && process.platform === 'win32') {
     // Distribution invariant: a portable Full package must use the CPython 3.12 runtime shipped beside
     // ACC by default. Machine-local venvs/runtimes are compatibility fallbacks, never prerequisites for
     // a package copied to a clean target computer.
@@ -3313,7 +3333,7 @@ function desktopPythonCandidates(root) {
 
 function probeDesktopPython(candidate, cwd, desktopEnv) {
   try {
-    const result = cp.spawnSync(candidate.command, [...(candidate.args || []), '-X', 'utf8', '-c', DESKTOP_PYTHON_IMPORT_PROBE], {
+    const result = spawnProbeSync(candidate.command, [...(candidate.args || []), '-X', 'utf8', '-c', DESKTOP_PYTHON_IMPORT_PROBE], {
       cwd: cwd || undefined,
       env: { ...process.env, ...(desktopEnv || {}) },
       windowsHide: true,
@@ -3323,13 +3343,49 @@ function probeDesktopPython(candidate, cwd, desktopEnv) {
     });
     if (!result || result.error || result.status !== 0) return '';
     return String(result.stdout || '').includes('__RUYI_ACC_FULL__') ? 'full' : 'core';
-  } catch { return ''; }
+  } catch (error) { if (error.cleanupIncomplete) throw error; return ''; }
 }
 
 // 39 号文:同步探针的异步孪生 —— 同一发 python、同一套超时/解析口径,只是不占住事件循环。
 // 用 execFile 而不是 spawn:它与上面那发 spawnSync 一样【不过 shell】(Windows 上对 PATH 里的 .cmd
 // 同样 ENOENT,两条路的答案不会分家),而且原生支持 timeout/maxBuffer/encoding,三个口径逐字对齐。
-function probeDesktopPythonAsync(candidate, cwd, desktopEnv) {
+async function probeDesktopPythonAsync(candidate, cwd, desktopEnv) {
+  if (process.platform === 'darwin') {
+    let capture;
+    try {
+      capture = ProcessRuntime.capture(candidate.command, [...(candidate.args || []), '-X', 'utf8', '-c', DESKTOP_PYTHON_IMPORT_PROBE], {
+        cwd: cwd || undefined, env: { ...process.env, ...(desktopEnv || {}) },
+        windowsHide: true, encoding: 'utf8', maxBuffer: 64 * 1024,
+      }, { ...ProcessRuntime.currentOwner(), kind: 'desktop-python-probe' });
+    } catch { return ''; }
+    const { child } = capture;
+    let timer, timedOut = false;
+    const deadline = new Promise(resolve => {
+      timer = setTimeout(async () => {
+        timedOut = true;
+        let cleanup = { scope: 'unknown', incomplete: true };
+        try { ProcessRuntime.stopChild(child); cleanup = await ProcessRuntime.waitForCleanup(child, 1500); }
+        catch { /* preserve uncertainty */ }
+        finally {
+          child.stdout.destroy(); child.stderr.destroy();
+          resolve({ cleanup });
+        }
+      }, DESKTOP_PYTHON_PROBE_TIMEOUT_MS);
+    });
+    try {
+      const result = await Promise.race([capture.output.then(async output => ({ ...output,
+        cleanup: await ProcessRuntime.waitForCleanup(child, 1500) })), deadline]);
+      if (result.cleanup?.incomplete || result.error?.code === 'ERR_PROCESS_OUTPUT_INCOMPLETE') {
+        throw Object.assign(new Error('Python probe cleanup or output has not been confirmed'), {
+          code: result.cleanup?.incomplete ? 'process_cleanup_incomplete' : 'process_output_incomplete',
+          cleanupIncomplete: result.cleanup?.incomplete === true, cleanupScope: result.cleanup?.scope,
+          cleanupEscapeCoverage: result.cleanup?.escapeCoverage, cleanupUnconfirmed: result.cleanup?.unconfirmed,
+        });
+      }
+      if (timedOut || result.error) return '';
+      return String(result.stdout || '').includes('__RUYI_ACC_FULL__') ? 'full' : 'core';
+    } finally { clearTimeout(timer); }
+  }
   return new Promise(resolve => {
     let settled = false;
     const finish = probed => { if (!settled) { settled = true; resolve(probed); } };

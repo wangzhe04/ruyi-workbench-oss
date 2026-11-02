@@ -1,0 +1,117 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "independent agent /root/ownership_review",
+  "scope": "P1-04 observed-tree foundation; full lifetime registration remains open",
+  "findings": [
+    {
+      "id": "R1",
+      "priority": "P1",
+      "finding": "native helper runtime target writable through Data aliases and directory/file symlink targets",
+      "resolution": "physical runtime roots, verified Data aliases and actual executable inode protection; ordinary same-named file positive control",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "R2",
+      "priority": "P1",
+      "finding": "missing helper cancellation left a root writing while reporting process tree killed",
+      "resolution": "real ChildProcess fallback; cleanup scope/incomplete propagation through process, git and MCP results",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "R3",
+      "priority": "P2",
+      "finding": "interrupted cleanup resumed processes already stopped before helper admission",
+      "resolution": "record SSTOP and only restore identities stopped by this helper; native TU regression",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "R4",
+      "priority": "P2",
+      "finding": "PID-only deduplication across snapshots omitted reused PID with a new creation identity",
+      "resolution": "deduplicate identity pairs; synthetic native identity test",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "R5",
+      "priority": "P2",
+      "finding": "new Mac live cleanup fixtures could leak on missing dependencies or assertion failure",
+      "resolution": "dependency check before spawning, finally cleanup, bounded child lifetime, cleared fixture deadline",
+      "status": "resolved_verified"
+    }
+  ],
+  "result": "passed_targeted_rereview_no_unresolved_foundation_blockers",
+  "verification": {
+    "nativeE2e": "25/25",
+    "cleanerUnit": "5/5",
+    "nativeTU": "4 checks, strict compile passed",
+    "missingHelperCancellation": "direct-child, incomplete=true, heartbeat unchanged, root exited",
+    "DataAliasWriteGuard": "autoexec-denied",
+    "buildFreshness": "pass",
+    "gitDiffCheck": "pass"
+  },
+  "remainingScope": [
+    "spawn-time opaque owner registration",
+    "root-exit and escape lifetime management",
+    "Windows and macOS14 execution validation",
+    "real high-speed PID reuse validation"
+  ],
+  "reviewedSha256": {
+    "ruyi-workbench/app/server.js": "95fcfcbe0b0f206cc11f0a4eba440057a75886194a99f786697d225e74809514",
+    "ruyi-workbench/resources/macos-process-helper.c": "3c4487e58c46b724093db9f1f420a9770c45596a7dcdaff4bd3dede2d1769934",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "f0bbdcad6847d6bee3dab10b1f67f23539b1682b9b6054b27ded7f8d7860a183"
+  },
+  "fixtureFollowup": {
+    "result": "static_review_passed",
+    "scope": [
+      "script-run-cleanup filesystem identity comparison",
+      "steward-inbox stdout flush and fixture home isolation including EBUSY child"
+    ],
+    "subsequentVerification": {
+      "targeted": "11/11",
+      "fullUnit": {
+        "tests": 2507,
+        "pass": 2489,
+        "fail": 0,
+        "skip": 18
+      },
+      "static": "80/80"
+    }
+  },
+  "exitConfirmationReview": {
+    "date": "2026-11-02",
+    "reviewer": "/root/ownership_review",
+    "result": "passed_no_unresolved_findings_in_scope",
+    "findings": [
+      {
+        "finding": "fixed-directory opener accepted script cwd and symlink",
+        "resolution": "realpath plus isDirectory before opener; two HTTP regressions",
+        "status": "resolved_verified"
+      },
+      {
+        "finding": "exit confirmation protocol lacked consistency checks and per-identity scan budget",
+        "resolution": "bounded per-identity confirmation; safe integer/count/classification checks; missing, contradictory and zero-row reports incomplete",
+        "status": "resolved_verified"
+      }
+    ],
+    "independentVerification": {
+      "startupE2e": "26/26",
+      "cleanupE2e": "32/32 before final zero-row regression",
+      "finalZeroRow": "pure stub validation in both consumers passed",
+      "buildFreshness": "pass",
+      "gitDiffCheck": "pass"
+    },
+    "remaining": [
+      "spawn-time opaque ownership",
+      "natural-root-exit and server-death supervision",
+      "escaped descendant lifetime",
+      "actual Finder UI",
+      "Windows runtime",
+      "macOS14 runtime"
+    ],
+    "sha256": {
+      "ruyi-workbench/app/server.js": "793a55c64c73b7dd6950e452cb040435ee2bdf762d14ac9558fd23c88435991e",
+      "ruyi-workbench/resources/macos-process-helper.c": "15c1deab0194ab9303de2a79315a88c112e421a564d8a6655731018c907214a2",
+      "ruyi-workbench/runtime/macos/ruyi-process-helper": "9cc84c54b969cb2bdb84a8620df1900e40989f26cf6a35754a323717e008379b"
+    }
+  }
+}

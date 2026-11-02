@@ -1,0 +1,16 @@
+PASS file_read preserves document metadata and split UTF-8
+PASS successful document read confirms descendant cleanup
+PASS document execution registers runtime ownership
+PASS invalid reader JSON remains a failure
+PASS nonzero reader exit remains a failure
+PASS pre-aborted read starts no process
+PASS abort stops the descendant and reports failure
+PASS stdout stops the descendant and reports failure
+PASS stderr stops the descendant and reports failure
+PASS timeout stops the descendant and reports failure
+FAIL TypeError: Assignment to constant variable.
+    at eval (eval at module.exports.__eval (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:91655:34), <anonymous>:1:61)
+    at module.exports.__eval (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:91655:34)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-document-reader.e2e.js:59:7
+
+MACOS DOCUMENT READER E2E: FAIL (1)

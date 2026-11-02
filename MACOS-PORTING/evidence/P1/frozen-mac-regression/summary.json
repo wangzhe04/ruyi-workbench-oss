@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "sourceHashesVerified": true,
+  "selectedSuites": 29,
+  "selectedAssertions": 818,
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1120,
+    "fail": 0
+  },
+  "buildFresh": true,
+  "diffCheck": true,
+  "unreproducedMediaFailure": true,
+  "allDefaultE2eExecuted": false,
+  "e2eInventory": {
+    "total": 564,
+    "default": 557,
+    "live": 7
+  },
+  "stageComplete": false
+}

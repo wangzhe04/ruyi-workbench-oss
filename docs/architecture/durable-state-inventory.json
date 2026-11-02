@@ -2,14 +2,28 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 67,
+  "count": 68,
   "lifecycleCounts": {
-    "dedicated-exemption": 20,
+    "dedicated-exemption": 21,
     "external-exemption": 10,
     "regenerable-exemption": 7,
     "shared-lifecycle": 30
   },
   "entries": [
+    {
+      "id": "mac-serve-socket-owner",
+      "pattern": "/private/tmp/ruyi-serve-v1-<uid>/<root-hash>.lock.<endpoint-hash>.owner.json",
+      "owner": "01g-server-ownership.js",
+      "anchor": "'.owner.json'",
+      "schema": "schema 1 canonical root, PID, legacy socket path and filesystem identity",
+      "writePrimitive": "private O_NOFOLLOW file write under the kernel ownership lock; no replacement of the lock inode",
+      "corruption": "missing, oversized, malformed or mismatched evidence preserves a residual socket and refuses startup",
+      "capacity": "one <=4KiB record per data root and legacy endpoint; no automatic lock-file deletion",
+      "cache": "none",
+      "recovery": "only matching dead-owner sockets with refused connections can be removed under the kernel lock",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "bootstrap ownership evidence precedes application state and cannot depend on DurableJsonStore; partial writes fail closed"
+    },
     {
       "id": "credential-import-v1",
       "pattern": "<data>/credential-import-v1.json",

@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "reviewerAssertions": 9,
+  "blockingFindings": 0,
+  "scope": [
+    "Real Provider turn Stop signal propagation",
+    "Preservation of steer/time-budget set and late-result behavior",
+    "Queued and committed write consistency",
+    "Windows symlink EPERM fixture handling"
+  ],
+  "counterfactual": "runner(null) reproduces two failed assertions"
+}

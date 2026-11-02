@@ -1,0 +1,75 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "independent agent /root/ownership_review",
+  "scope": [
+    "Mac startup ownership and socket recovery",
+    "ownership namespace protection and rg exclusions",
+    "ownership unit/e2e fixtures"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "priority": "P2",
+      "finding": "FIFO metadata blocks synchronous open before file type validation",
+      "resolution": "O_NONBLOCK for private ownership file opens; isolated read/write FIFO regression",
+      "verification": "independent probe rejected in 91ms and preserved FIFO",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "R2",
+      "priority": "P2",
+      "finding": "record growth between fstat and read bypasses the stated size cap",
+      "resolution": "fixed 4097-byte buffer and bounded read loop; reject above4096 bytes",
+      "verification": "independent 2MiB-growth injection read4097 bytes and preserved socket",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "R3",
+      "priority": "P1",
+      "finding": "APFS Data-volume alias bypasses ownership-directory sensitive path checks",
+      "resolution": "protect Data aliases and exclude their namespace from rg; bypass read/write tests",
+      "verification": "independent guard probe returned not-allowed for Data-volume lock path",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "R4",
+      "priority": "P1",
+      "finding": "existing canonicalRoot allowed Data aliases to hold separate locks; missing-tail spelling and partial mkdir could split startup admission",
+      "resolution": "physical getcwd path verified by bigint dev/ino; fixed per-user startup gate with bounded wait and post-creation validation; preserve legacy realpath socket aliases",
+      "verification": "Data alias second acquire rejected; partial-ancestor mkdir and unrelated-root queue tests passed",
+      "status": "resolved_verified",
+      "origin": "pre-existing path identity issue affecting this work package"
+    }
+  ],
+  "withdrawnInference": "Existing-directory case variant double-lock inference was withdrawn: old async realpath already restores stored casing, unlike realpathSync. Data aliases and missing-tail spelling remained real findings.",
+  "independentValidation": {
+    "ownershipUnit": "14/14 pass",
+    "buildFreshness": "pass",
+    "gitDiffCheck": "pass",
+    "lockfDescriptorProbe": [
+      0,
+      75,
+      0
+    ],
+    "dataAliasProbe": "pass",
+    "fifoProbe": "pass",
+    "boundedReadProbe": "pass"
+  },
+  "result": "passed_targeted_rereview_no_unresolved_blockers",
+  "unverified": [
+    "Windows runtime",
+    "Linux runtime",
+    "macOS 14",
+    "case-sensitive volume"
+  ],
+  "retainedLimitations": [
+    "startup gate queues for at most2seconds then fails closed",
+    "residual sockets without matching evidence require manual verification"
+  ],
+  "reviewedSha256": {
+    "ruyi-workbench/app/server.js": "b462a6256201b42e29bedee2679ef45791dd0094b7c67700ef5a43b52fcb6b46",
+    "ruyi-workbench/app/src/01g-server-ownership.js": "f99027cb8f24b5ea9fb0e88eb8e3cbe716cf116990ab5e683fad56a180acb50b",
+    "dev-harness/server-ownership.e2e.js": "5c7d9583f6e3a1fd9e33dae46143da23451b195a4a531111a91087990a07a789",
+    "dev-harness/unit/server-ownership.test.js": "00efd31f1a549778a3af6543ed757d49183bb2e89027412cfdba08a6242d5a47"
+  }
+}

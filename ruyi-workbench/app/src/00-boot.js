@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 'use strict';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -179,6 +178,8 @@ function exposeBundledPythonRuntime() {
   return pythonExe;
 }
 
+// Finder/GUI launches have a minimal PATH. Add fixed runtime locations before vendor/probe snapshots.
+Object.assign(process.env, platformRuntimeEnvironment(process.env));
 const BUNDLED_PYTHON_RUNTIME = exposeBundledPythonRuntime();
 
 // 随包 ripgrep(app/vendor-bin/rg.exe)对模型开的每一个子进程都可见 —— 与上面随包 Python 同一个模具:
@@ -323,6 +324,27 @@ function runKeyedChain(chains, key, work) {
 // detached/stdio/windowsHide 全由调用方原样传入,行为不变。不关心结果的调用方可以不 await(错误已被吸收)。
 function spawnDetachedChecked(command, args, options) {
   const child = cp.spawn(command, args || [], options);
+  // LaunchServices owns the destination application's lifetime. Wait only for the
+  // Mac launcher to confirm its handoff, and bound that launcher's own lifetime.
+  if (process.platform === 'darwin' && command === '/usr/bin/open') {
+    const completed = new Promise(resolve => {
+      let settled = false;
+      const finish = result => {
+        if (settled) return;
+        settled = true; clearTimeout(timer); resolve(result);
+      };
+      const timer = setTimeout(() => {
+        try { child.kill('SIGKILL'); } catch { /* report the unconfirmed handoff */ }
+        finish({ ok: false, code: 'open_timeout', error: 'macOS opener timed out', pid: child.pid });
+      }, 5000);
+      child.on('error', error => finish({ ok: false, error: error.message, code: error.code || null }));
+      child.once('exit', (code, signal) => finish(code === 0 && !signal
+        ? { ok: true, pid: child.pid }
+        : { ok: false, code: 'open_failed', error: `macOS opener exited with ${signal || code}`, exitCode: code, signal, pid: child.pid }));
+    });
+    child.unref();
+    return completed;
+  }
   const started = new Promise(resolve => {
     child.on('error', error => resolve({ ok: false, error: (error && error.message) || String(error), code: (error && error.code) || null }));
     child.once('spawn', () => resolve({ ok: true, pid: child.pid }));

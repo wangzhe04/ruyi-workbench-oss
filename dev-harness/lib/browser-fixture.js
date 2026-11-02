@@ -275,6 +275,7 @@ async function startBrowserFixture(opts = {}) {
     if (!keepRoot) { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* windows 句柄 */ } }
   };
 
+  try {
   fx.provider = await startProvider(providerPort, opts.provider);
   fx.server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(appPort)], {
     cwd: WB,
@@ -298,6 +299,8 @@ async function startBrowserFixture(opts = {}) {
   fx.browser = cp.spawn(executable, [
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking',
+    // Isolated macOS test profiles must not wait on the user's login keychain.
+    ...(process.platform === 'darwin' ? ['--use-mock-keychain', '--password-store=basic'] : []),
     '--force-device-scale-factor=1', `--window-size=${width},${height}`,
     // 130:件自己要的额外开关(麦克风件要 --use-fake-device-for-media-stream ＋ --use-fake-ui-for-media-stream);
     // 放这里而不是各自复制一份 CdpClient —— 那正是本夹具存在的理由。
@@ -363,6 +366,10 @@ async function startBrowserFixture(opts = {}) {
   };
   ok(Boolean(await fx.waitForEval(READY)), 'F0e 首屏就绪');
   return fx;
+  } catch (error) {
+    await fx.close({ keepRoot: true });
+    throw error;
+  }
 }
 
 module.exports = { startBrowserFixture, startProvider, CdpClient, request, waitForHttp, waitForTarget, READY, sleep, WB, ROOT };

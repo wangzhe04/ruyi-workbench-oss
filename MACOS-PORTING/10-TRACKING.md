@@ -1,13 +1,13 @@
 # 执行与交接看板
 
-更新时间：2026-10-30。**P0 已完成基线、设计契约与技术探针；P1–P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
+更新时间：2026-11-03。**P0 已完成基线、设计契约与技术探针；P1-01 启动与所有权恢复已实现，P1 进行中；P2–P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
 
 ## 1. 阶段状态
 
 | 阶段 | 前置 | 状态 | 负责人 | 实际人日 | 验收记录 |
 |---|---|---|---|---|---|
 | P0 | 无 | done（设计/基线） | Codex；独立复核 p0_review | 未核算 | [结果](evidence/P0/README.md) / [复核](evidence/P0/review.json) |
-| P1 | P0 | planned | 未分配 | 未记录 | 无 |
+| P1 | P0 | in_progress（P1-01 / P1-02 / P1-03 / P1-04） | Codex | 未核算 | [启动](evidence/P1/README.md) / [所有权恢复](evidence/P1/ownership/README.md) / [独立复核](evidence/P1/ownership/review.json) / [执行监督](evidence/P1/supervisor/README.md) / [入口接入](evidence/P1/process-integration/README.md) / [Mac shell](evidence/P1/shell/README.md) / [文件策略](evidence/P1/files/README.md) / [helper 运行时门](evidence/P1/helper-gate/README.md) / [单 helper 故障恢复](evidence/P1/helper-loss/README.md) / [能力状态](evidence/P1/capabilities/README.md) / [发现与界面](evidence/P1/discovery-ui/README.md) / [工作树执行](evidence/P1/worktree-runtime/README.md) / [模型探针](evidence/P1/cli-model-probe/README.md) / [清理句柄](evidence/P1/process-handles/README.md) / [文档读取](evidence/P1/document-reader/README.md) / [媒体执行](evidence/P1/media-runtime/README.md) / [rg搜索](evidence/P1/rg-runtime/README.md) / [异步执行探针](evidence/P1/executable-probes/README.md) / [Python探针](evidence/P1/python-probes/README.md) / [同步探针基础](evidence/P1/synchronous-probe-audit/README.md) / [同步探针接入](evidence/P1/synchronous-probes/README.md) / [overlay平台边界](evidence/P1/overlay-boundary/README.md) / [宿主打开](evidence/P1/opener-completion/README.md) / [搜索取消](evidence/P1/search-cancellation/README.md) / [路径匹配取消](evidence/P1/path-cancellation/README.md) / [写队列取消](evidence/P1/write-queue-cancellation/README.md) / [原子写取消与恢复](evidence/P1/atomic-write-cancellation/README.md) / [文件变更恢复](evidence/P1/file-mutation-recovery/README.md) / [临时清理结果](evidence/P1/temporary-cleanup/README.md) / [受控启动布局](evidence/P1/controlled-layout/README.md) / [主回合Stop](evidence/P1/provider-stop/README.md) / [冻结Mac回归](evidence/P1/frozen-mac-regression/README.md) / [验收缺口审计](evidence/P1/acceptance-audit.md) |
 | P2 | P1 | planned | 未分配 | 未记录 | 无 |
 | P3 | P1；M1 交付需 P2 | planned | 未分配 | 未记录 | 无 |
 | P4 | P2、P3 | planned | 未分配 | 未记录 | 无 |
@@ -60,7 +60,7 @@
 | 离线包承诺的组件 | 按实际工具依赖冻结，不为 Full 名称虚挂能力 | P3/P6 |
 | 首发升级方式 | 整包替换、数据备份/回退；增量更新另估 | P0/P6 |
 
-设计契约已冻结，部分原生 API 已有探针证据，均尚未接入产品。不得在产品中写成“已经支持”；正式身份、最低系统与权限开放项按 [v1 决策](11-P0-DECISIONS.md) 逐项关闭。下一步 P1 优先处理孙进程回收、路径夹具与 stale socket 所有权恢复。
+设计契约已冻结，正式身份、最低系统与权限开放项按 [v1 决策](11-P0-DECISIONS.md) 逐项关闭。2026-11-02 已接入 Mac 内核锁、有证据的 stale socket 恢复、已观察子树清理与一次性执行监督，未知 socket 归属保持拒绝。接入范围和限制见对应证据。下一步 P1 继续统一其余进程启动入口，随后推进文件边界与 shell 工作包。
 
 ## 5. 文档维护规则
 
