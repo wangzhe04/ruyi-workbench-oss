@@ -25988,6 +25988,7 @@
         "migrationCapsuleCapture",
         "migrationCapsuleCapturePreserved",
         "migrationCapsuleCarrierHeaderValid",
+        "migrationCapsuleCode",
         "migrationCapsuleCreateOwnedPortable",
         "migrationCapsuleDecode",
         "migrationCapsuleDescriptor",
@@ -26148,6 +26149,7 @@
           "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
+            "call",
             "read"
           ]
         },
@@ -26197,6 +26199,7 @@
           "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
+            "call",
             "read"
           ]
         },

@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "status": "ACCEPT_FINITE_V8_FINAL_EXACT_BYTE_ARCHIVE_ALLOWLIST",
+  "selectionFile": "C:\\r31-1102/native-review/V8-FINAL-ARCHIVE-SELECTION.json",
+  "selectionSha256": "1cc6932b1802a646db494b5cf7c150a7b168b8767113fdd4596537a861044b86",
+  "selectionBytes": 94637,
+  "sourceFreezeSha256": "be8597d181e115edd382f74718bce3bb11001344c7b806efa057b36e093736ef",
+  "unresolvedEvidenceP1P2": 0,
+  "scopeActualGo": false,
+  "selectedFiles": 250,
+  "candidateRawSources": 29,
+  "rawReferenceBytes": 31032637,
+  "allFourScopesAndBothPairsAccepted": true,
+  "scopeProof": [
+    {
+      "scope": "T81",
+      "rootReceiptSha256": "a947b06d27fbddd9863f90cd0201075a74db23e75d7ec7ce8731cc67a4feba79",
+      "caseTerminalElapsedNs": "136358378400",
+      "toolExitCode": 0
+    },
+    {
+      "scope": "T82",
+      "rootReceiptSha256": "0d01ac391f457c461dd028a6eb9321ceceb37718cadb9bdf9b2bb5cbdeac8606",
+      "caseTerminalElapsedNs": "135399171000",
+      "toolExitCode": 0
+    },
+    {
+      "scope": "G81",
+      "rootReceiptSha256": "59eee77f2169204ff69752fc3fb71083b678759e807cc378a243b57011021f41",
+      "caseTerminalElapsedNs": null,
+      "toolExitCode": 0
+    },
+    {
+      "scope": "G82",
+      "rootReceiptSha256": "059b6f2bf9246d9dd7bf7eefa9124ad61f9990acd7ce3ac9dccd3eb2012d3915",
+      "caseTerminalElapsedNs": null,
+      "toolExitCode": 0
+    }
+  ],
+  "rawHostIdentityHoldsNotSelected": 4,
+  "stoppedDraftsNotSelected": 10,
+  "additionalNonessentialLeavesOmitted": 27,
+  "noSceneOrPrivatePayloadReads": true,
+  "noRealPackOrRepoWrites": true,
+  "wholeM3And3_1Complete": false,
+  "released": false,
+  "reportSha256": "ea8c3607d5327c94def5fd5abf88002761892c7d2a017fef87e1501340e93641",
+  "pinsSha256": "601b0a8369058b93b81688b6bc6eca91ca39f0255646c6e1d8b3c3f9023264ff"
+}

@@ -680,6 +680,9 @@ function providerIsLocal(config) {
 // .git/COMMIT_EDITMSG 这类日常写)。改条目只改这里。
 // 精确匹配 .git/hooks/ 等自动执行入口(不误伤 .gitignore/.gitattributes 等工作区根级文件)。
 const AUTOEXEC_DENYLIST = [
+  // Reserved, short-lived public compiler output. Ordinary file tools must
+  // never modify code which a native capsule broker is about to load.
+  /(^|[\\/])ruyi-native-code-[a-z0-9]{6}([\\/]|$)/i,
   // git hooks（.git/hooks/ 内的任何文件，.githooks/，.husky/）；.git/config 可通过 core.hooksPath 把 hook 重定向到任意目录。
   /(^|[\\/])\.git[\\/]hooks[\\/]/i, /(^|[\\/])\.git[\\/]config(?:\.worktree)?$/i, /(^|[\\/])\.githooks[\\/]/i, /(^|[\\/])\.husky[\\/]/i,
   // IDE 任务

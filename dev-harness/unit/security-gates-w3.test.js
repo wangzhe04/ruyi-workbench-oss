@@ -59,6 +59,19 @@ const dump = r => JSON.stringify(r);
 const ctxFor = (cwd, mode, extra) => ({ session: { cwd }, config: { permissionMode: mode || 'default', defaultWorkspace: home, recentWorkspaces: [], workspaces: [], ...(extra || {}) } });
 const denied = p => I.AUTOEXEC_DENYLIST.some(re => re.test(I.normalizeAutoexecPath(p)));
 
+describe('native capsule code staging is a file-tool execution boundary', () => {
+  it('denies the reserved directory, children, case, ADS and trailing-dot spellings', () => {
+    for (const value of ['C:/Temp/ruyi-native-code-aB12cD','C:/Temp/ruyi-native-code-aB12cD/capsule.dll','C:/Temp/RUYI-NATIVE-CODE-AB12CD./manifest.json:stream']) assert.equal(denied(value),true,value);
+    for (const value of ['C:/project/native-code.txt','C:/project/ruyi-native-code-not-a-suffix/capsule.dll','C:/project/ruyi-native-code-aB12cD-not-reserved.txt']) assert.equal(denied(value),false,value);
+  });
+  it('ordinary write and delete guards refuse even with bypass workspace permissions', async () => {
+    for (const tool of ['file_write','file_edit','file_delete']) {
+      const result=await I.guardFileToolPath(path.join(ws,'ruyi-native-code-aB12cD','capsule.dll'),ctxFor(ws,'bypass'),{tool,write:true});
+      assert.equal(result.ok,false);assert.equal(result.code,'autoexec-denied');
+    }
+  });
+});
+
 // ───────────────────────────── #1 ADS ─────────────────────────────
 describe('#1 · NTFS 备用数据流后缀(::$DATA)不能绕过持久化地板', () => {
   it('normalizeAutoexecPath 砍掉 :stream 后缀,盘符保留', () => {

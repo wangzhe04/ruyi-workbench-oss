@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 133,
-    "providedSymbols": 4322,
+    "providedSymbols": 4323,
     "requiredSymbols": 4254,
     "edges": 921,
     "forwardEdges": 67,
@@ -26196,6 +26196,7 @@
         "migrationCapsuleCapture",
         "migrationCapsuleCapturePreserved",
         "migrationCapsuleCarrierHeaderValid",
+        "migrationCapsuleCode",
         "migrationCapsuleCreateOwnedPortable",
         "migrationCapsuleDecode",
         "migrationCapsuleDescriptor",
@@ -26356,6 +26357,7 @@
           "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
+            "call",
             "read"
           ]
         },
@@ -26405,6 +26407,7 @@
           "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
+            "call",
             "read"
           ]
         },

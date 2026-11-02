@@ -3,13 +3,14 @@
 // NTFS capsule bridge. Generation readActive receipts below are a controlled
 // owner-host seam; this is not the complete server/desktop root-switch pipeline.
 const path=require('node:path'),repo=process.env.MIGRATION_REPO||path.resolve(__dirname,'..');
+const keepArtifacts=process.env.RUYI_MIGRATION_REPRESENTATION_KEEP_ARTIFACTS==='1';
 require(path.join(repo,'dev-harness/lib/self-isolate-home'));
 const fs=require('node:fs'),fsp=require('node:fs/promises'),os=require('node:os'),crypto=require('node:crypto'),cp=require('node:child_process'),assert=require('node:assert/strict');
 const {releaseEnvironment}=require(path.join(repo,'dev-harness/lib/release-checks'));
-const {basicMetadata,setShortName}=require(path.join(repo,'dev-harness/lib/skill-capsule-native-fixture'));
+const {basicMetadata,setShortNames}=require(path.join(repo,'dev-harness/lib/skill-capsule-native-fixture'));
 const t=require(path.join(repo,'dev-harness/lib/harness')).createRunner('MIGRATION BACKUP REPRESENTATION');
 const names=['flushWorkbenchLogs','readConfig','writeConfig','workDataKeys','WorkDataKeys','DurableJsonStore','LocalSecretCrypto','paths','WorkDataStore','MigrationHooks','migrationCopySkills','migrationLogs',
- 'migrationUndoSkillCopy','migrationCapsuleRead','migrationCapsuleDescriptor','migrationCapsuleCapturePreserved','skillImportRecordStore','migrationReadBackupHistory'];
+ 'migrationUndoSkillCopy','migrationCapsuleRead','migrationCapsuleDescriptor','migrationCapsuleCapturePreserved','skillImportRecordStore','migrationReadBackupHistory','migrationCapsuleCode'];
 const runtimes=[];
 // server-internals captures the generated-server override at require time. Load
 // it only after replacing the complete environment, including removed keys.
@@ -31,10 +32,11 @@ function checkObjects(root,snapshot){
 const descriptor=(backup,stamp,skillId,keys)=>({backup,stamp,id:skillId,scopeId:'skill-backups:'+stamp,recordId:'skill-backup:'+(process.platform==='win32'?skillId.toLowerCase():skillId),archiveKeys:keys,intentKeys:keys});
 async function flush(){for(const api of runtimes)await api.flushWorkbenchLogs({allowFailure:true});}
 function clear(){for(const api of runtimes)api.workDataKeys.clear();}
+async function proveCodeCache(api,role){await api.migrationCapsuleCode.idle();const stats=api.migrationCapsuleCode.stats();assert.equal(stats.disabled,false);assert.equal(stats.pending,0);assert.equal(stats.published,1);assert.ok(stats.compiled>0);assert.ok(stats.loaded>0);assert.equal(stats.compiled+stats.loaded,stats.sourceChildren+stats.byteChildren);console.log('NATIVE CODE CACHE '+role+' '+JSON.stringify(stats));}
 async function cold(payload){
  isolate(payload.home,payload.data);const api=load(),owner=api.MigrationHooks.createBackupOwner({base:payload.data,readActive:async()=>payload.selected,sourceKeys:api.WorkDataStore.requireKeys()});
  try{await owner.activate();let copies=0;const copy=fsp.copyFile;fsp.copyFile=async(...args)=>{copies++;return copy(...args);};try{await api.MigrationHooks.recover();const repeated=await api.migrationUndoSkillCopy(payload.receipt);assert.equal(repeated.outcome,'restored-previous');}finally{fsp.copyFile=copy;}
-  checkMetadata(payload.live,payload.snapshot,payload.security);checkObjects(payload.live,payload.snapshot);assert.equal(id(payload.backup),payload.historyId);assert.equal((await api.migrationReadBackupHistory(payload.backup)).historyOnly,true);assert.equal(copies,0,'new process never replays copy');console.log('COLD NODE HISTORY PASS');
+  checkMetadata(payload.live,payload.snapshot,payload.security);checkObjects(payload.live,payload.snapshot);assert.equal(id(payload.backup),payload.historyId);assert.equal((await api.migrationReadBackupHistory(payload.backup)).historyOnly,true);assert.equal(copies,0,'new process never replays copy');await proveCodeCache(api,'cold');console.log('COLD NODE HISTORY PASS');
  }finally{await flush();clear();}
 }
 (async()=>{
@@ -46,9 +48,13 @@ async function cold(payload){
   const api=load(),skillId='Tool_One',live=path.join(data,'skills',skillId),external=revision=>write(path.join(home,'.codex','skills',skillId,'SKILL.md'),'---\nname: '+skillId+'\ndescription: Owned synthetic native fixture\n---\n\nSYNTH_CAPSULE '+revision+'\n');
   await toggle(api,false);external(1);assert.equal((await api.migrationCopySkills({keys:['codex:'+skillId]})).copied,1);
   write(path.join(live,'original-directory','private.bin'),Buffer.from([0,255,13,10,128,42]));write(path.join(live,'original-directory','private.bin')+':original-ads','OWNED FILE ADS');write(live+':original-directory-ads','OWNED DIRECTORY ADS');write(path.join(live,'original-directory','long-empty-alias-file.txt'),'EMPTY ALIAS DATA');
-  setShortName(live,'OLDROOT');setShortName(path.join(live,'original-directory'),'OLDDIR');setShortName(path.join(live,'original-directory','private.bin'),'OLDBIN.BIN');setShortName(path.join(live,'original-directory','long-empty-alias-file.txt'),'');fs.chmodSync(path.join(live,'original-directory','private.bin'),0o444);
+  // Canonical one-character relative names exercise the native rename header floor.
+  write(path.join(live,'D','A'),Buffer.from([17,34]));write(path.join(live,'D','B'),Buffer.from([51]));write(path.join(live,'D','A')+':short-ads',Buffer.from([68,85]));fs.chmodSync(path.join(live,'D','A'),0o444);
+  setShortNames([[live,'OLDROOT'],[path.join(live,'original-directory'),'OLDDIR'],[path.join(live,'original-directory','private.bin'),'OLDBIN.BIN'],[path.join(live,'original-directory','long-empty-alias-file.txt'),'']]);fs.chmodSync(path.join(live,'original-directory','private.bin'),0o444);
   const originalId=id(live);external(2);const copied=await api.migrationCopySkills({keys:['codex:'+skillId],overwrite:true});assert.equal(copied.copied,1);const log=(await api.migrationLogs()).find(x=>x.id===copied.id);assert.ok(log);const receipt=log.files.find(x=>x.kind==='skill-copy');assert.ok(receipt);const legacyBackup=receipt.backup;assert.equal(id(legacyBackup),originalId);assert.equal(fs.existsSync(path.join(data,'work-data-key-v1.json')),false,'ordinary OFF copy never creates a key');
   const before=await api.migrationCapsuleCapturePreserved(legacyBackup,'1'.repeat(64)),security=metadata(legacyBackup,before);assert.equal(before.entries.find(x=>x.rel==='original-directory/private.bin').attrs&1,1);assert.equal(before.entries.find(x=>x.rel==='original-directory/long-empty-alias-file.txt').shortName,'');
+  for(const rel of ['D','D/A','D/B'])assert.equal(before.entries.some(x=>x.rel===rel),true,'short-name fixture included before conversion');
+  assert.equal(before.entries.find(x=>x.rel==='D/A').attrs&1,1);assert.equal(before.entries.find(x=>x.rel==='D/A').streams.some(x=>x.name===':short-ads:$DATA'),true);
   const configBeforeStage=fs.readFileSync(api.paths.config),keyFile=path.join(data,'work-data-key-v1.json'),staged=await api.workDataKeys.stageNew();
   try{
    assert.equal(fs.existsSync(keyFile),false,'stageNew alone never publishes active key state');assert.equal((await api.readConfig()).workDataEncryptionV1,false,'key staging leaves active policy OFF');assert.deepEqual(fs.readFileSync(api.paths.config),configBeforeStage);
@@ -78,6 +84,6 @@ async function cold(payload){
 
   // Preserve final Basic values after the intentionally observable data checks.
   const finalSnapshot=await api.migrationCapsuleCapturePreserved(g2Live,'4'.repeat(64));await flush();clear();const payload={home,data,selected,receipt:undoReceipt,live:g2Live,backup,historyId:id(backup),snapshot:finalSnapshot,security};
-  const restarted=cp.spawnSync(process.execPath,[__filename,'--cold'],{env:{...releaseEnvironment(home,data),MIGRATION_REPO:repo},input:JSON.stringify(payload),encoding:'utf8',windowsHide:true,timeout:120000});assert.equal(restarted.status,0,(restarted.stderr||'')+(restarted.stdout||''));assert.match(restarted.stdout,/COLD NODE HISTORY PASS/);assert.equal(id(g2Live),originalId);t.ok(true,'fresh Node DPAPI owner authenticates receipts and repeats terminal undo/recover without copying, recreating originals or changing history identity');
- }catch(error){failed=true;throw error;}finally{await flush();clear();if(!failed){assert.equal(path.dirname(root),temp);assert.ok(path.basename(root).startsWith('ruyi-skill-representation-native-'));const writable=async directory=>{for(const name of await fsp.readdir(directory)){const file=path.join(directory,name),stat=await fsp.lstat(file);assert.equal(stat.isSymbolicLink(),false,'no unknown link in owned cleanup');if(stat.isDirectory())await writable(file);else await fsp.chmod(file,0o666);}};await writable(root);await fsp.rm(root,{recursive:true,force:true});}else console.error('Retained owned native fixture '+root);}
-})().catch(error=>{t.fail(error?.stack||String(error));}).finally(()=>t.done({exit:true}));
+  const restarted=cp.spawnSync(process.execPath,[__filename,'--cold'],{env:{...releaseEnvironment(home,data),MIGRATION_REPO:repo},input:JSON.stringify(payload),encoding:'utf8',windowsHide:true,timeout:120000});assert.equal(restarted.status,0,(restarted.stderr||'')+(restarted.stdout||''));assert.match(restarted.stdout,/COLD NODE HISTORY PASS/);assert.equal(id(g2Live),originalId);const coldCodeLine=restarted.stdout.split(/\r?\n/).find(line=>line.startsWith('NATIVE CODE CACHE cold '));assert.ok(coldCodeLine);console.log(coldCodeLine);await proveCodeCache(api,'parent');t.ok(true,'fresh Node DPAPI owner authenticates receipts and repeats terminal undo/recover without copying, recreating originals or changing history identity');
+ }catch(error){failed=true;throw error;}finally{await flush();clear();if(!failed&&!keepArtifacts){assert.equal(path.dirname(root),temp);assert.ok(path.basename(root).startsWith('ruyi-skill-representation-native-'));const writable=async directory=>{for(const name of await fsp.readdir(directory)){const file=path.join(directory,name),stat=await fsp.lstat(file);assert.equal(stat.isSymbolicLink(),false,'no unknown link in owned cleanup');if(stat.isDirectory())await writable(file);else await fsp.chmod(file,0o666);}};await writable(root);await fsp.rm(root,{recursive:true,force:true});}else console.error('Retained owned native fixture '+root);}
+})().catch(error=>{t.fail(error?.stack||String(error));}).finally(()=>t.done());

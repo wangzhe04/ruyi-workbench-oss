@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 133 | 4322 | 4254 | 921 | 67 | 0 | 1 |
+| 133 | 4323 | 4254 | 921 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -113,7 +113,7 @@
 | 95 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
 | 96 | `13s-scheduler.js` | transport | 77 | 44 | 11 |
 | 97 | `13t-steward-schedule.js` | transport | 23 | 43 | 10 |
-| 98 | `13u-migration-center.js` | transport | 114 | 42 | 12 |
+| 98 | `13u-migration-center.js` | transport | 115 | 42 | 12 |
 | 99 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
 | 100 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
 | 101 | `13y-external-bot-credentials.js` | transport | 1 | 8 | 4 |

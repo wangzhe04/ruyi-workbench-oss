@@ -1,0 +1,14 @@
+{
+  "index": "C:\\r31-1102\\cwt\\docs\\optimization-plan\\evidence\\v8-native-gui-acceptance-20261102.json",
+  "sha256": "a4e81b8ef55d10a22dafa17fd2adcaf624f0453c76fa99db0facdf4ed260df2e",
+  "counts": {
+    "references": 250,
+    "uniqueBlobs": 229,
+    "packedBytes": 6419840,
+    "rawReferenceBytes": 31032637
+  },
+  "complete": true,
+  "incompleteMarkerAbsent": true,
+  "selectionSha256": "1cc6932b1802a646db494b5cf7c150a7b168b8767113fdd4596537a861044b86",
+  "finalPrivacyDecisionSha256": "fec6a3d1f2b270ddd2ee68c84bdfa6a66929a600680a31abf27ec37682efbb9e"
+}

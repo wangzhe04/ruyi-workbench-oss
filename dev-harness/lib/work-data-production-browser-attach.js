@@ -32,7 +32,7 @@ async function observedCdp(client, method, params = {}, timeout = 10000) {
 function safeFailure(error) {
   const errorName = ['Error', 'AssertionError', 'TypeError', 'RangeError'].includes(error?.name) ? error.name : 'UnknownError';
   const frame = String(error?.stack || '').split(/\r?\n/).map(line => /(?:^|[\\/])(work-data-production-[a-z0-9.-]+\.(?:js|cjs)):(\d+):(\d+)\)?$/.exec(line)).find(Boolean);
-  const code = ['ERR_ASSERTION', 'ENOENT', 'EEXIST', 'EACCES', 'EPERM', 'ECONNREFUSED', 'ECONNRESET', 'EPIPE', 'CDP_COMMAND_FAILED'].includes(error?.code) ? error.code : null;
+  const code = ['ERR_ASSERTION', 'ENOENT', 'EEXIST', 'EACCES', 'EPERM', 'ECONNREFUSED', 'ECONNRESET', 'EPIPE', 'CDP_COMMAND_FAILED', 'M3_BROWSER_CLASSIC_TIMEOUT', 'M3_BROWSER_SEARCH_TIMEOUT', 'M3_BROWSER_BODY_TIMEOUT'].includes(error?.code) ? error.code : null;
   const operator = ['strictEqual', 'deepStrictEqual', 'match', 'ok', 'fail'].includes(error?.operator) ? error.operator : null;
   // Only literal fixture diagnostics are eligible; arbitrary CDP/HTTP/assertion
   // messages and their interpolated values never cross into the journal.
@@ -179,6 +179,86 @@ function assertFinalEvidence(facts, pendingProofFailure = null) {
   return true;
 }
 
+// Passive evidence for the one already-issued, fixture-owned session GET.
+// Never issues HTTP, stores headers/body text, or substitutes a response.
+function summarizeSessionRead(raw, status, sessionId, bodyTerm) {
+  const bytes = postDataBytes(raw.body, 65536, raw.base64Encoded === true);
+  try {
+    const text = bytes.toString('utf8');
+    assert.equal(Buffer.from(text).equals(bytes), true, 'session response strict UTF-8');
+    const value = JSON.parse(text), session = value && value.session;
+    const known = new Set(['work_data.body_locked', 'work_data_store.decrypt', 'work_data_store.validate',
+      'work_data_store.downgrade_refused', 'work_data_keys.unavailable', 'session_not_found', 'session_id_invalid']);
+    const code = typeof value?.error === 'string' ? value.error : value?.error?.code;
+    const summary = { status, bytes: bytes.length, sha256: hash(bytes), bodyAvailable: true,
+      expectedSession: session?.id === sessionId, sessionId: session?.id === sessionId ? sessionId : null,
+      messageCount: Array.isArray(session?.messages) ? session.messages.length : null,
+      termMessages: 0, textBytes: 0, errorCode: known.has(code) ? code : null, rawBodySaved: false };
+    if (summary.expectedSession && Array.isArray(session.messages)) {
+      for (const message of session.messages) if (typeof message?.content === 'string') {
+        summary.textBytes += Buffer.byteLength(message.content);
+        if (message.content.includes(bodyTerm)) summary.termMessages++;
+      }
+    }
+    return summary;
+  } finally { bytes.fill(0); }
+}
+function createSessionReadObserver({ origin, capture, check = () => {}, record = () => {}, now = Date.now }) {
+  let armed = null, overflow = false;
+  const rows = new Map();
+  const safe = row => ({ ordinal: row.ordinal, status: row.status, completed: row.completed,
+    unavailable: row.unavailable, ...(row.summary ? { summary: { ...row.summary } } : {}) });
+  function arm(sessionId, bodyTerm, deadline) {
+    assert.equal(armed, null, 'session read observation is one-shot');
+    assert.match(sessionId, /^[A-Za-z0-9_-]{1,64}$/);
+    assert.equal(typeof bodyTerm, 'string'); assert.ok(bodyTerm.length >= 2 && bodyTerm.length <= 128);
+    assert.ok(Number.isFinite(deadline)); armed = { sessionId, bodyTerm, deadline };
+  }
+  function request(event) {
+    if (!armed) return false;
+    let url; try { url = new URL(event.request?.url); } catch { return false; }
+    if (event.request?.method !== 'GET' || url.origin !== origin || url.search || url.hash
+      || url.pathname !== '/api/sessions/' + encodeURIComponent(armed.sessionId)) return false;
+    if (rows.size >= 16 || rows.has(event.requestId) || typeof event.requestId !== 'string'
+      || !event.requestId || event.requestId.length > 256) { overflow = true; return true; }
+    rows.set(event.requestId, { ordinal: rows.size + 1, status: null, responseSeen: false, completed: false, unavailable: null, summary: null });
+    return true;
+  }
+  function response(event) { const row = rows.get(event.requestId); if (!row) return false;
+    if (row.responseSeen) { overflow = true; return true; }
+    row.responseSeen = true; row.status = event.response?.status; return true; }
+  function failed(event) { const row = rows.get(event.requestId); if (!row) return false;
+    row.completed = true; row.unavailable = 'network-failed'; record(safe(row)); return true; }
+  function finished(event) {
+    const row = rows.get(event.requestId); if (!row) return null;
+    if (row.completed) { overflow = true; return Promise.resolve(); }
+    row.completed = true;
+    return (async () => {
+      check();
+      let raw;
+      try {
+        if (row.status === 304) row.unavailable = 'not-modified-body-missing';
+        else if (!(armed.deadline > now())) row.unavailable = 'observation-deadline';
+        else {
+          try { raw = await capture(event.requestId, Math.min(10000, armed.deadline - now())); }
+          catch { row.unavailable = 'cdp-body-unavailable'; }
+          check();
+          if (raw) {
+            try { row.summary = summarizeSessionRead(raw, row.status, armed.sessionId, armed.bodyTerm); }
+            catch { row.unavailable = 'body-invalid-or-bound'; }
+          }
+        }
+      } finally { if (raw && typeof raw.body === 'string') raw.body = ''; }
+      check(); record(safe(row));
+    })();
+  }
+  function snapshot() { return { armed: Boolean(armed), sessionId: armed?.sessionId || null, overflow, requests: [...rows.values()].map(safe),
+    scope: 'Exact session GET after click arm; passive observation, not a new request or exclusive initiator proof.' }; }
+  function ready() { return !overflow && rows.size > 0 && [...rows.values()].every(row => row.completed && !row.unavailable
+      && row.summary?.status === 200 && row.summary.expectedSession && row.summary.termMessages > 0); }
+  return { arm, request, response, failed, finished, snapshot, ready };
+}
+
 async function attachProductionBrowser({ harness, root, url, directories, selectedBytes, expectedJob, captureReceivedUpload, record, guard = () => {} }) {
   assert.equal(process.platform, 'win32');
   assert.equal(typeof captureReceivedUpload, 'function', 'actual receiver capture callback is required');
@@ -192,13 +272,16 @@ async function attachProductionBrowser({ harness, root, url, directories, select
   const browser = findBrowserExecutable(); assert.ok(browser, 'a real browser must exist');
   const debugPort = await getFreePort('127.0.0.1');
   let observationFailure = null, child, cdp, exit = null, close = null, resolveClose, step = 'spawn', cleanupResult = null;
-  let action = null, selectedFileProven = false, pendingProofFailure = null, secretClearObservation = null;
+  let action = null, selectedFileProven = false, pendingProofFailure = null, secretClearObservation = null, readState = null;
   const proofFailure = error => { if (!pendingProofFailure) pendingProofFailure = error; };
   const closed = new Promise(resolve => { resolveClose = resolve; }), events = [], pending = new Set(), requests = new Map();
   const facts = { uploads: [], jobs: [], folderChoices: [], exceptions: 0, postDataUnavailable: 0 };
   const latch = error => { if (!observationFailure) observationFailure = error; };
   const healthy = () => { guard(); if (observationFailure) throw observationFailure; };
   function note(value) { try { record(value); } catch (error) { latch(error); throw error; } }
+  const sessionReads = createSessionReadObserver({ origin, check: healthy,
+    capture: (requestId, timeout) => observedCdp(cdp, 'Network.getResponseBody', { requestId }, timeout),
+    record: summary => note({ kind: 'browser-session-read-response', ...summary }) });
   function track(work) { const task = Promise.resolve().then(work); pending.add(task); task.catch(latch).finally(() => pending.delete(task)); }
   function snapshot(label) {
     const table = snapshotProcessTable(); if (!Array.isArray(table)) throw Error('browser process snapshot unavailable');
@@ -304,6 +387,7 @@ async function attachProductionBrowser({ harness, root, url, directories, select
     finally { clearTimeout(connectionTimer); }
     cdp.on('Runtime.exceptionThrown', () => { facts.exceptions++; latch(Error('actual page raised an exception')); });
     cdp.on('Network.requestWillBeSent', event => {
+      if (sessionReads.request(event)) return;
       const kind = requestKind(event.request?.url, event.request?.method, origin); if (!kind) return;
       const contentType = Object.entries(event.request.headers || {}).find(([name]) => name.toLowerCase() === 'content-type')?.[1];
       if (kind === 'upload' && contentType !== 'application/octet-stream') { latch(Error('actual upload is not octet-stream')); return; }
@@ -358,12 +442,14 @@ async function attachProductionBrowser({ harness, root, url, directories, select
       });
     });
     cdp.on('Network.responseReceived', event => {
+      if (sessionReads.response(event)) return;
       const row = requests.get(event.requestId); if (!row) return;
       row.status = event.response.status;
       if (row.status !== (row.kind === 'upload' ? 201 : 202)) latch(Error('actual mutation HTTP status failed'));
     });
-    cdp.on('Network.loadingFailed', event => { const row = requests.get(event.requestId); if (row) { row.failed = true; latch(Error('mutation response did not finish')); } });
+    cdp.on('Network.loadingFailed', event => { if (sessionReads.failed(event)) return; const row = requests.get(event.requestId); if (row) { row.failed = true; latch(Error('mutation response did not finish')); } });
     cdp.on('Network.loadingFinished', event => {
+      const sessionTask = sessionReads.finished(event); if (sessionTask) { track(() => sessionTask); return; }
       const row = requests.get(event.requestId); if (!row) return;
       if (row.responseFinished) { latch(Error('mutation response finished twice')); return; }
       row.responseFinished = true;
@@ -416,7 +502,8 @@ async function attachProductionBrowser({ harness, root, url, directories, select
     // settings item starts inside the hidden gear menu).
     const selectors = new Set(['#appGearBtn', '#openSettingsBtn', '#settingsTabs [data-stab="security"]',
       '#workDataOperation', '#workDataPickBackup', '#workDataPickParent', '#workDataRestoreName',
-      '#workDataRestoreFile', '#workDataPassword', '#workDataPasswordConfirm', '#workDataConfirmRestore', '#workDataSubmit']);
+      '#workDataRestoreFile', '#workDataPassword', '#workDataPasswordConfirm', '#workDataConfirmRestore', '#workDataSubmit',
+      '#settingsModal [data-close-modal]', '[data-lens="classic"]', '#sessionSearch', '#railList .rail-search-snippet']);
     function uiStep(label, selector = null) {
       assert.ok(selector === null || selectors.has(selector), 'diagnostic selector must be fixed');
       step = label; action = selector ? { selector, state: 'waiting' } : null;
@@ -527,14 +614,59 @@ async function attachProductionBrowser({ harness, root, url, directories, select
       await Promise.all([...pending]); healthy(); assertFinalEvidence(facts, pendingProofFailure);
       return facts;
     }
-    return { prepare, submit, assertTargetServing, close: closeOwned, facts, evaluate,
+    async function assertReadableRestoredSession({ sessionId, bodyTerm }) {
+      assert.match(sessionId, /^[A-Za-z0-9_-]{1,64}$/);
+      assert.equal(typeof bodyTerm, 'string'); assert.ok(bodyTerm.length >= 2 && bodyTerm.length <= 128);
+      const row = '#railList .steward-board-thread[data-session-id="' + sessionId + '"]';
+      readState = { last: null };
+      async function sample() {
+        healthy();
+        const value = await evaluate('(()=>{const r=document.querySelector(' + JSON.stringify(row) + '),m=document.getElementById("messages"),mode=document.documentElement.getAttribute("data-shell-mode"),s=document.querySelectorAll("#railList .rail-search-snippet");return{mode:mode==="classic"||mode==="steward"?mode:"other",expectedRow:!!r,uniqueSnippet:s.length===1,snippetTerm:!!r?.querySelector(".rail-search-snippet")?.textContent.includes(' + JSON.stringify(bodyTerm) + '),selectedExpected:!!r?.classList.contains("is-sel"),selectedCount:document.querySelectorAll("#railList .steward-board-thread.is-sel").length,messageElement:!!m,messageCount:m?.querySelectorAll?.("[data-message-key]").length||0,textLength:m?.textContent.length||0,termFound:!!m?.textContent.includes(' + JSON.stringify(bodyTerm) + ')};})()');
+        healthy(); readState.last = value; return value;
+      }
+      async function readWait(check, milliseconds, label, code) {
+        try { return await waitUntil(check, milliseconds, label); }
+        catch (error) { if (error?.message === label + ' deadline') error.code = code; throw error; }
+      }
+      step = 'target-close-settings-for-read';
+      await click('#settingsModal [data-close-modal]');
+      await waitUntil(() => evaluate('document.getElementById("settingsModal").classList.contains("hidden")'), 10000, 'restored settings closes');
+      // A real lens intent, not a config/default-profile assumption. Mode and
+      // search observations share the original single30s search budget.
+      step = 'target-select-classic-for-read'; await click('[data-lens="classic"]');
+      const searchDeadline = Date.now() + 30000;
+      await readWait(async () => (await sample()).mode === 'classic', Math.max(0, searchDeadline - Date.now()),
+        'restored classic view', 'M3_BROWSER_CLASSIC_TIMEOUT');
+      step = 'target-search-body-term';
+      assert.equal(await evaluate('document.getElementById("sessionSearch").value'), '');
+      await insert('#sessionSearch', bodyTerm);
+      await readWait(async () => { const s = await sample(); return s.mode === 'classic' && s.expectedRow && s.uniqueSnippet && s.snippetTerm; },
+        Math.max(0, searchDeadline - Date.now()), 'restored body search result', 'M3_BROWSER_SEARCH_TIMEOUT');
+      step = 'target-open-body-search-result';
+      // No extra HTTP. Only observe matching GETs issued after this click arm.
+      // Click/adoption/GET/body proof share the original single30s body budget.
+      const bodyDeadline = Date.now() + 30000;
+      sessionReads.arm(sessionId, bodyTerm, bodyDeadline);
+      await click('#railList .rail-search-snippet');
+      await readWait(async () => { const s = await sample(); return s.mode === 'classic' && s.selectedExpected && s.selectedCount === 1
+        && s.messageElement && s.termFound && sessionReads.ready(); },
+        Math.max(0, bodyDeadline - Date.now()), 'restored message body renders', 'M3_BROWSER_BODY_TIMEOUT');
+      healthy();
+      const proof = { sessionId, queryBytes: Buffer.byteLength(bodyTerm), querySha256: hash(Buffer.from(bodyTerm)),
+        bodySearchHit: true, messageBodyVisible: true, actualInputAndClick: true, lastState: readState.last, sessionGet: sessionReads.snapshot(),
+        scope: 'This synthetic restored body only; not complete index, attachments or all families.' };
+      note({ kind: 'browser-restored-session-readable', ...proof }); return proof;
+    }
+
+    return { prepare, submit, assertTargetServing, assertReadableRestoredSession, close: closeOwned, facts, evaluate,
       failureDiagnostic: () => ({ step, action, networkObservation, secretClearObservation,
         pendingProofFailure: pendingProofFailure ? safeFailure(pendingProofFailure) : null,
         acceptedJob: facts.jobs[0]?.accepted ? { ...facts.jobs[0].accepted, source: facts.jobs[0].receiptSource, status: facts.jobs[0].status } : null,
         preparation: { folderChoices: facts.folderChoices.length, selectedFileProven },
         mutationRequests: { uploads: facts.uploads.length, jobs: facts.jobs.length },
         mutations: [...facts.uploads, ...facts.jobs].map(mutationDiagnostic),
-        observationFailure: observationFailure ? safeFailure(observationFailure) : null, cleanup: cleanupResult }) };
+        observationFailure: observationFailure ? safeFailure(observationFailure) : null,
+        readObservation: { state: readState, sessionGet: sessionReads.snapshot() }, cleanup: cleanupResult }) };
   } catch (error) {
     latch(error);
     const failedStep = step;
@@ -545,4 +677,4 @@ async function attachProductionBrowser({ harness, root, url, directories, select
     throw error;
   }
 }
-module.exports = { attachProductionBrowser, requestKind, proveUpload, proveUploadEntries, observedCdp, readMutationReceipt, acceptedJobForTracking, assertFinalEvidence, mutationDiagnostic, captureReceiver, fileBodyUnavailable, receipt, safeFailure };
+module.exports = { attachProductionBrowser, requestKind, proveUpload, proveUploadEntries, observedCdp, readMutationReceipt, acceptedJobForTracking, assertFinalEvidence, mutationDiagnostic, captureReceiver, fileBodyUnavailable, receipt, safeFailure, summarizeSessionRead, createSessionReadObserver };

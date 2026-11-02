@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "status": "PROJECT_CHECKS_PASS_WITH_TWO_NONBLOCKING_EOF_FORMAT_WARNINGS",
+  "sourceFreezeSha256": "be8597d181e115edd382f74718bce3bb11001344c7b806efa057b36e093736ef",
+  "baseMain": "9b219c06d3ce5c9c0c7c1e7b7dd60b428d5ccb70",
+  "productVersion": "3.0.1",
+  "nativePair": {
+    "status": "FINITE_V8_ORIGINAL_COMPLETE_DEFAULT_CASE240_PAIR_ACCEPTED",
+    "caseBudgetMs": 240000,
+    "caseSeconds": [
+      136.3583784,
+      135.399171
+    ],
+    "innerCommandMs": 120000,
+    "closeMs": 2000
+  },
+  "guiPair": {
+    "status": "FINITE_V8_FINAL_GUI_PAIR_ACCEPTED",
+    "wholeBudgetMs": 900000,
+    "launcherObservationSeconds": [
+      229.5079483,
+      233.5415454
+    ]
+  },
+  "priorFullGates": {
+    "unitFiles": 445,
+    "unitTests": 4840,
+    "unitPass": 4809,
+    "unitSkip": 31,
+    "unitFail": 0,
+    "staticPass": 97,
+    "staticFail": 0,
+    "staticFlaky": 0,
+    "liveExcluded": 7,
+    "rootAcceptanceSha256": "757a127ddc3d5ecd172b23c8bde6048f6b35c14f1b8850811b410d9f5345d56b"
+  },
+  "finalSource": {
+    "rootSession": 70348,
+    "completionChunk": "e5b474",
+    "actualToolExitCode": 0,
+    "checks": [
+      {
+        "name": "syntax",
+        "args": [
+          "dev-harness/syntax-gate.js"
+        ],
+        "status": 0,
+        "signal": null,
+        "errorCode": null,
+        "elapsedMs": 203975.0465,
+        "stdoutBytes": 60,
+        "stdoutSha256": "d9e634aa1697aec3bf219ed7990b728949fbdcc92fa937caf1a28a1c8119edd6",
+        "stderrBytes": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "build-check",
+        "args": [
+          "ruyi-workbench/app/build.js",
+          "--check"
+        ],
+        "status": 0,
+        "signal": null,
+        "errorCode": null,
+        "elapsedMs": 540.6138,
+        "stdoutBytes": 69,
+        "stdoutSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "stderrBytes": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "independentDecisionSha256": "ee94e54d636ef65c46f75f55b53c25bee60dd024ce38ed2fe3a85b5aad9a4de6"
+  },
+  "finalTail": {
+    "rootSession": 13876,
+    "completionChunk": "3e81e0",
+    "actualToolExitCode": 0,
+    "checks": [
+      {
+        "name": "eol",
+        "args": [
+          "dev-harness/eol-policy.static.e2e.js"
+        ],
+        "status": 0,
+        "signal": null,
+        "errorCode": null,
+        "elapsedMs": 5442.8629,
+        "stdoutBytes": 257,
+        "stdoutSha256": "5d3553fbc45fa7723ea99b92e7538023cb2775ea9decbef7ddf2fa7f21cf6254",
+        "stderrBytes": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "hygiene",
+        "args": [
+          "--require",
+          "C:/r31-1102/cwt/dev-harness/lib/fixture-home-guard.js",
+          "C:/r31-1102/cwt/dev-harness/repo-hygiene.e2e.js"
+        ],
+        "status": 0,
+        "signal": null,
+        "errorCode": null,
+        "elapsedMs": 17893.7723,
+        "stdoutBytes": 5066,
+        "stdoutSha256": "715bfa4c6d8aa1b558e80eb6f61eb435ce7b700637ef06ddbcefd59af388b753",
+        "stderrBytes": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "testBrowserCountBeforeHygiene": 0
+  },
+  "acceptedSliceContinuity": {
+    "files": 29,
+    "guiExecutionFiles": 284,
+    "ruyiWorkbenchFiles": 371,
+    "appProductFiles": 263,
+    "sourcePacketSha256": "95f2fff0f382fb0ec1ba75c1b6b7b78c04206d2943574d80f64e80e36e2f6626",
+    "acceptedProductModuleSha256": "b9189bd7463687e4c911cec09aece0ec0902944e998eefc7075a6844cb7b08c8"
+  },
+  "archive": {
+    "indexSha256": "a4e81b8ef55d10a22dafa17fd2adcaf624f0453c76fa99db0facdf4ed260df2e",
+    "counts": {
+      "references": 250,
+      "uniqueBlobs": 229,
+      "packedBytes": 6419840,
+      "rawReferenceBytes": 31032637
+    },
+    "sourceRecoveredFiles": 29,
+    "independentReadbackSha256": "d1642443f98d5d5fd98571051b16458f56f5e57c8b9d44b324c65246f5b47192",
+    "recoveryFirstGuardFailurePreserved": true
+  },
+  "additionalGitWhitespaceCheck": {
+    "exitCode": 2,
+    "firstStageHelperToolChunk": "ec94d8",
+    "firstStageHelperExitCode": 1,
+    "classification": "P3 nonblocking cosmetic EOF blank lines; accepted raw bytes preserved",
+    "warnings": [
+      "dev-harness/unit/work-data-encrypted-browser.test.js:155: new blank line at EOF.",
+      "dev-harness/work-data-production-restore-encrypted.browser.e2e.js:174: new blank line at EOF."
+    ],
+    "globalGitWhitespaceConfigChanged": false
+  },
+  "finalStagedReview": "Separate independent review is required before commit; its decision is recorded in the local commit message.",
+  "oldCase120RedsPermanent": true,
+  "wholeM3And3_1Complete": false,
+  "default618SuiteOrCINewRun": false,
+  "released": false
+}

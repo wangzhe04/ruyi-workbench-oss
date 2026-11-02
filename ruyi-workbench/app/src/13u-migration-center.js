@@ -761,13 +761,14 @@ public static class RuyiSkillCapsule {
     string fullTarget = parent == null ? target : System.IO.Path.Combine(PathOf(parent), target);
     if (String.Equals(current, fullTarget, StringComparison.OrdinalIgnoreCase)) return;
     byte[] name = Encoding.Unicode.GetBytes(target); int offset = IntPtr.Size == 8 ? 20 : 12;
-    IntPtr value = Marshal.AllocHGlobal(offset + name.Length);
+    int size = checked((IntPtr.Size == 8 ? 24 : 16) + name.Length);
+    IntPtr value = Marshal.AllocHGlobal(size);
     try {
-      for (int i=0;i<offset + name.Length;i++) Marshal.WriteByte(value, i, 0);
+      for (int i=0;i<size;i++) Marshal.WriteByte(value, i, 0);
       if (parent != null) Marshal.WriteIntPtr(value, IntPtr.Size == 8 ? 8 : 4, parent.DangerousGetHandle());
       Marshal.WriteInt32(value, IntPtr.Size == 8 ? 16 : 8, name.Length); Marshal.Copy(name, 0, IntPtr.Add(value, offset), name.Length);
       IntPtr iosb = Marshal.AllocHGlobal(IntPtr.Size * 2);
-      try { int status = NtSetInformationFile(node.Handle, iosb, value, (uint)(offset + name.Length), 10); if (status < 0) throw new Win32Exception((int)RtlNtStatusToDosError(status)); }
+      try { int status = NtSetInformationFile(node.Handle, iosb, value, (uint)size, 10); if (status < 0) throw new Win32Exception((int)RtlNtStatusToDosError(status)); }
       finally { Marshal.FreeHGlobal(iosb); }
     } finally { Marshal.FreeHGlobal(value); }
   }
@@ -1772,6 +1773,301 @@ async function migrationCapsulePresent(backup, descriptor = migrationCapsuleDesc
   }
   return false;
 }
+// Only completed public code is reused. Each broker below still owns a new
+// PowerShell/CLR instance, the original native static state and its own close.
+const migrationCapsuleCode = (() => {
+  const io = require('node:fs/promises'), nodePath = require('node:path'), nodeOs = require('node:os');
+  const digest = value => require('node:crypto').createHash('sha256').update(value).digest('hex');
+  const brokerHash = digest(migrationCapsuleBroker.toString());
+  const limit = 128 * 1024;
+  let cached = null, disabled = false;
+  const adoptions = new Set();
+  const counts = { compiled: 0, published: 0, loaded: 0, sourceChildren: 0, byteChildren: 0, discarded: 0, disabled: false };
+  const same = (a, b) => nodePath.resolve(a).toLowerCase() === nodePath.resolve(b).toLowerCase();
+  async function directories(root) {
+    const rows = []; let at = nodePath.parse(root).root;
+    for (const part of ['', ...root.slice(at.length).split(nodePath.sep).filter(Boolean)]) {
+      if (part) at = nodePath.join(at, part);
+      const st = await io.lstat(at, { bigint: true });
+      if (!st.isDirectory() || st.isSymbolicLink() || !same(await io.realpath(at), at)) throw Error('native_code_path');
+      rows.push({ file: at, dev: String(st.dev), ino: String(st.ino) });
+    }
+    return rows;
+  }
+  async function read(file, max, singleLink = false, collect = true) {
+    const before = await io.lstat(file, { bigint: true });
+    if (!before.isFile() || before.isSymbolicLink() || singleLink && before.nlink !== 1n
+        || before.size < 1n || before.size > BigInt(max) || !same(await io.realpath(file), file)) throw Error('native_code_file');
+    const fd = await io.open(file, 'r');
+    try {
+      const first = await fd.stat({ bigint: true }), hash = require('node:crypto').createHash('sha256'), chunks = []; let size = 0;
+      if (!first.isFile() || first.isSymbolicLink() || singleLink && first.nlink !== 1n || first.size < 1n || first.size > BigInt(max)) throw Error('native_code_file');
+      for (const key of ['dev','ino','nlink','mode','size','mtimeNs','ctimeNs']) if (before[key] !== first[key]) throw Error('native_code_changed');
+      while (size < Number(first.size)) {
+        const buffer = Buffer.alloc(Math.min(65536, Number(first.size) - size));
+        const result = await fd.read(buffer, 0, buffer.length, size);
+        if (!Number.isInteger(result.bytesRead) || result.bytesRead < 1 || result.bytesRead > buffer.length || size + result.bytesRead > Number(first.size) || size + result.bytesRead > max) throw Error('native_code_short_read');
+        const bytes = buffer.subarray(0, result.bytesRead); hash.update(bytes); if (collect) chunks.push(bytes); size += result.bytesRead;
+      }
+      const last = await fd.stat({ bigint: true }), after = await io.lstat(file, { bigint: true });
+      for (const key of ['dev','ino','nlink','mode','size','mtimeNs','ctimeNs']) {
+        if (before[key] !== first[key] || first[key] !== last[key] || last[key] !== after[key]) throw Error('native_code_changed');
+      }
+      if (size !== Number(first.size) || !same(await io.realpath(file), file)) throw Error('native_code_changed');
+      return { bytes: collect ? Buffer.concat(chunks) : null, pin: { file, dev: String(first.dev), ino: String(first.ino), size, sha256: hash.digest('hex') } };
+    } finally { await fd.close(); }
+  }
+  function encodeMetadata(meta) {
+    // Only public code/context fields cross this closed wire. Every context is
+    // still freshly checked through the original held-FD/hash path above.
+    const types = require('node:util').types;
+    const check = condition => { if (!condition) throw Error('native_code_metadata'); };
+    function data(object, key) {
+      check(object && typeof object === 'object' && !types.isProxy(object));
+      const descriptor = Object.getOwnPropertyDescriptor(object, key);
+      check(descriptor && Object.hasOwn(descriptor, 'value') && !descriptor.get && !descriptor.set);
+      return descriptor.value;
+    }
+    function objectValue(object, key) { check(!Array.isArray(object)); return data(object, key); }
+    function array(object, length) {
+      check(Array.isArray(object) && !types.isProxy(object)); check(data(object, 'length') === length);
+      check(Object.getOwnPropertyNames(object).length === length + 1 && Object.getOwnPropertySymbols(object).length === 0);
+      const copy = []; for (let n = 0; n < length; n++) copy.push(data(object, String(n))); return copy;
+    }
+    function text(value) {
+      check(typeof value === 'string' && value.length > 0 && value.length <= 32760 && !value.includes('\0'));
+      check(Buffer.from(value, 'utf8').toString('utf8') === value); return value;
+    }
+    function path(value) { text(value); check(require('node:path').win32.isAbsolute(value) && /^[a-zA-Z]:[\\/]/.test(value)); return value; }
+    function hash(value) { text(value); check(value.length === 64 && /^[a-f0-9]{64}$/.test(value)); return value; }
+    check(objectValue(meta, 'revision') === 1 && objectValue(meta, 'arch') === 'x64');
+    const files = array(objectValue(meta, 'files'), 14), references = array(objectValue(meta, 'references'), 4);
+    const fields = ['rnc-meta-v1', '1', 'x64', path(objectValue(meta, 'executable')), hash(objectValue(meta, 'key')), hash(objectValue(meta, 'sourceHash')), '14'];
+    const paths = [];
+    for (const row of files) {
+      const file = path(objectValue(row, 'file')); check(!paths.some(old => old.toLowerCase() === file.toLowerCase())); paths.push(file);
+      fields.push(file, hash(objectValue(row, 'sha256')));
+    }
+    fields.push('4');
+    for (let n = 0; n < 4; n++) { const reference = path(references[n]); check(reference === paths[10 + n]); fields.push(reference); }
+    const present = ['artifactHash', 'clr', 'mvid'].map(key => Object.hasOwn(meta, key));
+    check(present.every(Boolean) || present.every(value => !value)); fields.push(present[0] ? '1' : '0');
+    if (present[0]) {
+      const artifactHash = hash(objectValue(meta, 'artifactHash')), clr = text(objectValue(meta, 'clr')), mvid = text(objectValue(meta, 'mvid'));
+      check(clr.length <= 23 && /^\d{1,5}(?:\.\d{1,5}){3}$/.test(clr));
+      check(mvid.length === 36 && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(mvid)); fields.push(artifactHash, clr, mvid);
+    }
+    check(fields.length === (present[0] ? 44 : 41)); for (const field of fields) text(field);
+    const bytes = Buffer.from(fields.join('\0'), 'utf8'); check(bytes.length <= 24570);
+    const encoded = bytes.toString('base64'); check(encoded.length <= 32760); return encoded;
+  }
+  async function context(source) {
+    if (process.arch !== 'x64') return null; // Other supported Windows architectures retain the original compiler path.
+    const windows = nodePath.resolve(process.env.SystemRoot || 'C:\\Windows');
+    const framework = nodePath.join(windows, 'Microsoft.NET', 'Framework64', 'v4.0.30319');
+    const executable = nodePath.join(windows, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const references = [nodePath.join(framework, 'mscorlib.dll'),
+      nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System', 'v4.0_4.0.0.0__b77a5c561934e089', 'System.dll'),
+      nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Web.Extensions', 'v4.0_4.0.0.0__31bf3856ad364e35', 'System.Web.Extensions.dll'),
+      nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Core', 'v4.0_4.0.0.0__b77a5c561934e089', 'System.Core.dll')];
+    const files = [];
+    for (const file of [executable, executable + '.config', nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Management.Automation', 'v4.0_3.0.0.0__31bf3856ad364e35', 'System.Management.Automation.dll'), nodePath.join(framework, 'csc.exe'), nodePath.join(framework, 'csc.exe.config'), nodePath.join(framework, 'csc.rsp'), nodePath.join(framework, 'Config', 'machine.config'), nodePath.join(framework, 'clr.dll'), nodePath.join(framework, 'System.dll'), nodePath.join(framework, 'System.Core.dll'), ...references]) {
+      await directories(nodePath.dirname(file)); files.push((await read(file, 32 * 1024 * 1024, false, false)).pin);
+    }
+    const value = { revision: 1, sourceHash: digest(source), bootstrapHash: digest(bootstrap + encodeMetadata.toString()), factoryHash: brokerHash, arch: process.arch, executable, references, files };
+    return { ...value, key: digest(JSON.stringify(value)) };
+  }
+  const bootstrap = String.raw`
+$ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+$meta64=$env:RUYI_SKILL_CAPSULE_CODE_META
+$source64=$env:RUYI_SKILL_CAPSULE_SOURCE; $sink=$env:RUYI_SKILL_CAPSULE_CODE_SINK
+$parts=$env:RUYI_SKILL_CAPSULE_CODE_PARTS; $encoded=''
+if(![String]::IsNullOrEmpty($parts)) { $n=0; if(![int]::TryParse($parts,[ref]$n) -or $n -lt 1 -or $n -gt 24){throw 'native_code_parts'}; for($i=0;$i -lt $n;$i++){ $part=[Environment]::GetEnvironmentVariable('RUYI_SKILL_CAPSULE_CODE_'+$i); if($part.Length -lt 1 -or $part.Length -gt 8192){throw 'native_code_part'}; $encoded+=$part } }
+foreach($name in @([Environment]::GetEnvironmentVariables().Keys)){if(([string]$name).StartsWith('RUYI_SKILL_CAPSULE_',[StringComparison]::OrdinalIgnoreCase)){[Environment]::SetEnvironmentVariable([string]$name,$null,[EnvironmentVariableTarget]::Process)}}
+$useCode=$false;try{$useCode=$ExecutionContext.SessionState.LanguageMode.ToString() -ceq 'FullLanguage' -and [System.Management.Automation.Security.SystemPolicy]::GetSystemLockdownPolicy().ToString() -ceq 'None'}catch{}
+if(!$useCode){
+  $source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($source64));$source64=$null
+  try{Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition $source}finally{$source=$null}
+  [RuyiSkillCapsule]::Run()
+}else{
+
+function CodeMetaDecode([string]$encoded,[bool]$expectedHit){
+ if($encoded.Length -lt 1 -or $encoded.Length -gt 32760){throw 'code_meta_limit'}
+ $bytes=[Convert]::FromBase64String($encoded);if($bytes.Length -lt 1 -or $bytes.Length -gt 24570){throw 'code_meta_limit'}
+ $utf8=[Text.UTF8Encoding]::new($false,$true);$fields=$utf8.GetString($bytes).Split([char]0);$bytes=$null
+ if($fields.Length -ne $(if($expectedHit){44}else{41})){throw 'code_meta_count'}
+ if($fields[0] -cne 'rnc-meta-v1' -or $fields[1] -cne '1' -or $fields[2] -cne 'x64' -or $fields[6] -cne '14'){throw 'code_meta_schema'}
+ $executable=$fields[3];$key=$fields[4];$sourceHash=$fields[5]
+ if($executable -cnotmatch '^[a-zA-Z]:[\\/]' -or ![IO.Path]::IsPathRooted($executable)){throw 'code_meta_path'}
+ if($key.Length -ne 64 -or $sourceHash.Length -ne 64 -or $key -cnotmatch '^[a-f0-9]{64}$' -or $sourceHash -cnotmatch '^[a-f0-9]{64}$'){throw 'code_meta_hash'}
+ $index=7;$files=@()
+ for($n=0;$n -lt 14;$n++){$file=$fields[$index];$index++;$sha=$fields[$index];$index++;if($file -cnotmatch '^[a-zA-Z]:[\\/]' -or ![IO.Path]::IsPathRooted($file)){throw 'code_meta_path'};if($sha.Length -ne 64 -or $sha -cnotmatch '^[a-f0-9]{64}$'){throw 'code_meta_hash'};foreach($old in $files){if([String]::Equals($old.file,$file,[StringComparison]::OrdinalIgnoreCase)){throw 'code_meta_duplicate'}};$files+=,@{file=$file;sha256=$sha}}
+ if($fields[$index] -cne '4'){throw 'code_meta_refs'};$index++;$references=@()
+ for($n=0;$n -lt 4;$n++){$file=$fields[$index];$index++;if($file -cnotmatch '^[a-zA-Z]:[\\/]' -or ![IO.Path]::IsPathRooted($file)){throw 'code_meta_path'};$found=$false;foreach($old in $files){if([String]::Equals($old.file,$file,[StringComparison]::OrdinalIgnoreCase)){$found=$true;break}};if(!$found -or ![String]::Equals($file,$files[10+$n].file,[StringComparison]::OrdinalIgnoreCase)){throw 'code_meta_reference'};foreach($old in $references){if([String]::Equals($old,$file,[StringComparison]::OrdinalIgnoreCase)){throw 'code_meta_reference'}};$references+=,$file}
+ if($fields[$index] -cne $(if($expectedHit){'1'}else{'0'})){throw 'code_meta_mode'};$index++
+ $meta=@{revision=1;arch='x64';executable=$executable;key=$key;sourceHash=$sourceHash;files=$files;references=$references}
+ if($expectedHit){$meta.artifactHash=$fields[$index];$index++;$meta.clr=$fields[$index];$index++;$meta.mvid=$fields[$index];$index++;if($meta.artifactHash.Length -ne 64 -or $meta.artifactHash -cnotmatch '^[a-f0-9]{64}$'){throw 'code_meta_hash'};if($meta.clr.Length -gt 23 -or $meta.mvid.Length -ne 36 -or $meta.clr -cnotmatch '^\d{1,5}(?:\.\d{1,5}){3}$' -or $meta.mvid -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$'){throw 'code_meta_runtime'}}
+ if($index -ne $fields.Length){throw 'code_meta_trailing'};$fields=$null;return $meta
+}
+
+$meta=CodeMetaDecode $meta64 ([bool]($encoded -ne ''));$meta64=$null
+function CodeHash([byte[]]$bytes){$sha=[Security.Cryptography.SHA256]::Create();try{return ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}}
+if($meta.revision -ne 1 -or $meta.arch -ne 'x64' -or [IntPtr]::Size -ne 8){throw 'native_code_context'}
+if(![String]::Equals([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName,$meta.executable,[StringComparison]::OrdinalIgnoreCase)){throw 'native_code_tool'}
+foreach($file in $meta.files){if($encoded -eq '' -or $meta.references -contains $file.file){if((CodeHash ([IO.File]::ReadAllBytes($file.file))) -ne $file.sha256){throw 'native_code_tool'}}}
+$refs=@();foreach($file in $meta.references){$ref=[Reflection.Assembly]::Load([Reflection.AssemblyName]::GetAssemblyName($file));if(![String]::Equals($ref.Location,$file,[StringComparison]::OrdinalIgnoreCase)){throw 'native_code_reference'};$refs+=,$ref}
+if($encoded -eq '') {
+  $source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($source64)); $source64=$null
+  if((CodeHash ([Text.Encoding]::UTF8.GetBytes($source))) -ne $meta.sourceHash){throw 'native_code_source'}
+  if(![IO.Directory]::Exists($sink) -or ([IO.File]::GetAttributes($sink) -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or [IO.Directory]::GetFileSystemEntries($sink).Length -ne 0){throw 'native_code_sink'}
+  function CodeAclCapability($aclFailure){
+    $cause=$aclFailure.Exception
+    for($depth=0;$depth -lt 4;$depth++){
+      if($null -eq $cause){return $false};$kind=$cause.GetType()
+      if($kind -eq [UnauthorizedAccessException] -or $kind -eq [Security.AccessControl.PrivilegeNotHeldException] -or $kind -eq [NotSupportedException] -or $kind -eq [PlatformNotSupportedException]){return $null -eq $cause.InnerException}
+      if($kind -ne [System.Management.Automation.MethodInvocationException] -and $kind -ne [Reflection.TargetInvocationException]){return $false}
+      $cause=$cause.InnerException
+    }
+    return $false
+  }
+  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User;$cacheAclReady=$true;$access=[Security.AccessControl.AccessControlSections]::Access
+  try{$acl=[IO.Directory]::GetAccessControl($sink,$access)}catch{if(CodeAclCapability $_){$cacheAclReady=$false}else{throw}}
+  if($cacheAclReady){
+    $acl.SetAccessRuleProtection($true,$false)
+    foreach($old in @($acl.GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier]))){$acl.RemoveAccessRuleSpecific($old)}
+    $rule=[Security.AccessControl.FileSystemAccessRule]::new($sid,[Security.AccessControl.FileSystemRights]::FullControl,([Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit),[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow);$acl.AddAccessRule($rule)
+    try{[IO.Directory]::SetAccessControl($sink,$acl)}catch{if(CodeAclCapability $_){$cacheAclReady=$false}else{throw}}
+  }
+  if($cacheAclReady){try{$checkedAcl=[IO.Directory]::GetAccessControl($sink,$access)}catch{if(CodeAclCapability $_){$cacheAclReady=$false}else{throw}}}
+  if($cacheAclReady){
+    $rules=@($checkedAcl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+    if(!$checkedAcl.AreAccessRulesProtected -or $rules.Length -ne 1 -or $rules[0].IsInherited -or !$rules[0].IdentityReference.Equals($sid) -or $rules[0].AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or $rules[0].FileSystemRights -ne [Security.AccessControl.FileSystemRights]::FullControl -or [int]$rules[0].InheritanceFlags -ne 3 -or $rules[0].PropagationFlags -ne [Security.AccessControl.PropagationFlags]::None){throw 'native_code_acl'}
+  }
+  if($cacheAclReady){
+  $temp=[IO.Path]::Combine($sink,'compiler');$null=[IO.Directory]::CreateDirectory($temp);$env:TEMP=$temp;$env:TMP=$temp
+  $dll=[IO.Path]::Combine($sink,'capsule.dll')
+  try {$types=@(Add-Type -ReferencedAssemblies $meta.references[2] -TypeDefinition $source -OutputAssembly $dll -OutputType Library -PassThru)}finally{$source=$null}
+  $type=@($types | Where-Object {$_.FullName -ceq 'RuyiSkillCapsule'});if($type.Length -ne 1){throw 'native_code_type'};$assembly=$type[0].Assembly
+  if(![String]::Equals($assembly.Location,$dll,[StringComparison]::OrdinalIgnoreCase)){throw 'native_code_assembly'}
+  $bytes=[IO.File]::ReadAllBytes($dll);if($bytes.Length -lt 1 -or $bytes.Length -gt 131072){throw 'native_code_limit'}
+  $manifest=@{revision=1;key=$meta.key;sourceHash=$meta.sourceHash;artifactHash=(CodeHash $bytes);artifactBytes=$bytes.Length;clr=[Environment]::Version.ToString();type='RuyiSkillCapsule';mvid=$assembly.ManifestModule.ModuleVersionId.ToString();references=@($assembly.GetReferencedAssemblies() | ForEach-Object {$_.FullName})} | ConvertTo-Json -Compress
+  $stream=[IO.File]::Open([IO.Path]::Combine($sink,'manifest.json'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+  try{$text=[Text.Encoding]::UTF8.GetBytes($manifest);$stream.Write($text,0,$text.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+  $bytes=$null;$types=$null;$type=$null
+  }else{
+    # Optional ACL capability failed before TEMP redirection, compilation or
+    # consuming stdin. Compile the original source once in this same child;
+    # no manifest means the parent disables reuse after known close.
+    [Console]::Error.WriteLine('RUYI_CODE_V1_ACL_FALLBACK')
+    try{$types=@(Add-Type -ReferencedAssemblies $meta.references[2] -TypeDefinition $source -PassThru)}finally{$source=$null}
+    $type=@($types | Where-Object {$_.FullName -ceq 'RuyiSkillCapsule'});if($type.Length -ne 1){throw 'native_code_type'};$assembly=$type[0].Assembly
+  }
+} else {
+  $bytes=[Convert]::FromBase64String($encoded);$encoded=$null
+  if($bytes.Length -lt 1 -or $bytes.Length -gt 131072 -or (CodeHash $bytes) -ne $meta.artifactHash){throw 'native_code_artifact'}
+  $assembly=[Reflection.Assembly]::Load($bytes);$bytes=$null
+  if([Environment]::Version.ToString() -cne $meta.clr -or $assembly.ManifestModule.ModuleVersionId.ToString() -cne $meta.mvid){throw 'native_code_runtime'}
+}
+$type=$assembly.GetType('RuyiSkillCapsule',$true,$false);$method=$type.GetMethod('Run',[Reflection.BindingFlags]'Public,Static');if($null -eq $method -or $method.GetParameters().Length -ne 0 -or $method.ReturnType -ne [void]){throw 'native_code_method'}
+foreach($reference in $assembly.GetReferencedAssemblies()){if(!@($refs | Where-Object {$_.FullName -ceq $reference.FullName}).Length){throw 'native_code_dependency'}}
+if($encoded -eq $null -and $parts -ne '' -and $parts -ne $null){[Console]::Error.WriteLine('RUYI_CODE_V1_LOAD|'+$meta.artifactHash)}
+$meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
+[RuyiSkillCapsule]::Run()
+}
+`;
+  function disable() { disabled = true; cached = null; counts.disabled = true; counts.discarded++; }
+  async function prepare(source) {
+    if (disabled) return null;
+    let ctx, sink = null, lineage = null;
+    try {
+      ctx = await context(source); if (!ctx || disabled) return null;
+      // Conservative full CreateProcess argv upper bound, including quoting,
+      // separators and terminating NUL; check before creating any cache sink.
+      const encodedBootstrap = Buffer.from(bootstrap, 'utf16le').toString('base64');
+      const commandUnits = 1 + ctx.executable.length + 2 + ['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',encodedBootstrap].reduce((n, arg) => n + 1 + arg.length + 2, 0);
+      if (commandUnits > 32767) throw Error('native_code_command_limit');
+      if (cached && cached.key !== ctx.key) { disable(); return null; }
+      const hit = cached;
+      if (!hit) { sink = await io.mkdtemp(nodePath.join(nodePath.resolve(nodeOs.tmpdir()), 'ruyi-native-code-')); lineage = await directories(sink); }
+      const env = { ...process.env };
+      for (const key of Object.keys(env)) if (key.toUpperCase().startsWith('RUYI_SKILL_CAPSULE_')) delete env[key];
+      const meta = { ...ctx, ...(hit ? { artifactHash: hit.sha256, clr: hit.clr, mvid: hit.mvid } : {}) };
+      env.RUYI_SKILL_CAPSULE_CODE_META = encodeMetadata(meta);
+      // A policy change in the new child must retain the original Add-Type
+      // behavior instead of using a byte loader to bypass that policy.
+      env.RUYI_SKILL_CAPSULE_SOURCE = Buffer.from(source).toString('base64');
+      env.RUYI_SKILL_CAPSULE_CODE_SINK = sink || '';
+      if (hit) {
+        const encoded = hit.bytes.toString('base64'), parts = Math.ceil(encoded.length / 8192);
+        if (parts < 1 || parts > 24 || digest(hit.bytes) !== hit.sha256) throw Error('native_code_cache');
+        env.RUYI_SKILL_CAPSULE_CODE_PARTS = String(parts);
+        for (let n = 0; n < parts; n++) env['RUYI_SKILL_CAPSULE_CODE_' + n] = encoded.slice(n * 8192, (n + 1) * 8192);
+      } else env.RUYI_SKILL_CAPSULE_CODE_PARTS = '';
+      let observed = null;
+      return Object.freeze({ executable: ctx.executable, bootstrap, env,
+        observe(child) {
+          const flags = new Set(); observed = { flags, error: false, exit: null, close: null, marker: '' };
+          child.on('spawn', () => { if (hit) counts.byteChildren++; else counts.sourceChildren++; });
+          child.on('exit', (code, signal) => { observed.exit = code === 0 && signal == null; flags.add('exit'); });
+          child.on('close', (code, signal) => { observed.close = code === 0 && signal == null; flags.add('close'); });
+          child.on('error', () => { observed.error = true; });
+          for (const name of ['stdout','stderr']) {
+            child[name].on('end', () => flags.add(name + '-end')); child[name].on('close', () => flags.add(name + '-close'));
+            child[name].on('error', () => { observed.error = true; });
+          }
+          if (hit) child.stderr.on('data', bytes => {
+            // This is a bounded public-code identity marker, never a compiler
+            // diagnostic or native payload log. Other stderr disables reuse.
+            try {
+              if (observed.marker.length + bytes.length > 96) { observed.error = true; return; }
+              observed.marker += bytes.toString('ascii');
+            } catch { observed.error = true; }
+          });
+        },
+        complete(success) {
+          // The original Promise continuations run before this independent,
+          // bounded code-only adoption. A concurrent miss never waits for it.
+          let resolve; const task = new Promise(done => { resolve = done; }); adoptions.add(task);
+          require('node:timers').setImmediate(() => { void (async () => {
+          // An optional code-cache fault never turns completed business work
+          // into a retryable failure or changes original helper uncertainty.
+          try {
+            if (!success || migrationCapsuleBroker.helperMayStillRun === true || !observed || observed.error || !observed.exit || !observed.close || observed.flags.size !== 6) { disable(); return; }
+            if (hit) { if (observed.marker.replace(/\r\n/g,'\n') !== 'RUYI_CODE_V1_LOAD|' + hit.sha256 + '\n') throw Error('native_code_load_unproven'); counts.loaded++; return; }
+            if (JSON.stringify(await directories(sink)) !== JSON.stringify(lineage)) throw Error('native_code_directory');
+            const manifestRead = await read(nodePath.join(sink, 'manifest.json'), 16384, true), manifest = JSON.parse(manifestRead.bytes.toString('utf8'));
+            const artifact = await read(nodePath.join(sink, 'capsule.dll'), limit, true);
+            if (!manifest || JSON.stringify(Object.keys(manifest).sort()) !== JSON.stringify(['artifactBytes','artifactHash','clr','key','mvid','references','revision','sourceHash','type'])
+                || manifest.revision !== 1 || manifest.key !== ctx.key || manifest.sourceHash !== ctx.sourceHash || manifest.type !== 'RuyiSkillCapsule'
+                || manifest.artifactHash !== artifact.pin.sha256 || manifest.artifactBytes !== artifact.bytes.length || !/^4\.0\.\d+\.\d+$/.test(manifest.clr)
+                || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(manifest.mvid) || !Array.isArray(manifest.references)) throw Error('native_code_manifest');
+            const expectedReferences = ['mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089','System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089','System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35','System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'];
+            if (JSON.stringify([...manifest.references].sort()) !== JSON.stringify(expectedReferences.sort())) throw Error('native_code_reference');
+            if ((await context(source))?.key !== ctx.key || JSON.stringify(await directories(sink)) !== JSON.stringify(lineage)) throw Error('native_code_context');
+            // Only the two declared producer files and its empty compiler
+            // directory may be removed. Unknown leaves are retained unread.
+            if (JSON.stringify((await io.readdir(sink)).sort()) !== JSON.stringify(['capsule.dll','compiler','manifest.json'])) throw Error('native_code_cleanup_unknown');
+            const compiler = nodePath.join(sink, 'compiler'), compilerLineage = await directories(compiler);
+            if ((await io.readdir(compiler)).length !== 0) throw Error('native_code_cleanup_unknown');
+            const files = [artifact.pin, manifestRead.pin];
+            for (const pin of files) {
+              if (JSON.stringify(await directories(sink)) !== JSON.stringify(lineage)) throw Error('native_code_cleanup_changed');
+              const current = (await read(pin.file, 2 * 1024 * 1024, true)).pin; if (JSON.stringify(current) !== JSON.stringify(pin)) throw Error('native_code_cleanup_changed'); await io.unlink(pin.file);
+            }
+            if (JSON.stringify(await directories(compiler)) !== JSON.stringify(compilerLineage)) throw Error('native_code_cleanup_changed'); await io.rmdir(compiler);
+            if (JSON.stringify(await directories(sink)) !== JSON.stringify(lineage)) throw Error('native_code_cleanup_changed'); await io.rmdir(sink);
+            counts.compiled++;
+            if (!disabled && !cached && migrationCapsuleBroker.helperMayStillRun !== true) { cached = { key: ctx.key, sourceHash: ctx.sourceHash, bytes: artifact.bytes, sha256: artifact.pin.sha256, clr: manifest.clr, mvid: manifest.mvid }; counts.published++; }
+          } catch { disable(); } // Retain the owned code-only remainder; never remove an uncertain path.
+          })().catch(disable).finally(() => { adoptions.delete(task); resolve(); }); });
+        },
+      });
+    } catch { disable(); return null; }
+  }
+  return Object.freeze({ prepare, idle: () => Promise.all([...adoptions]), stats: () => Object.freeze({ ...counts, pending: adoptions.size,
+    ...(cached ? { codeIdentity: Object.freeze({ contextKey: cached.key, sourceHash: cached.sourceHash, artifactSha256: cached.sha256, clr: cached.clr, mvid: cached.mvid }) } : {}) }) });
+})();
 async function migrationCapsuleBroker() {
   const failure = (suffix, cause, uncertain = false) => {
     const code = 'work_data_backup.' + suffix;
@@ -1780,14 +2076,18 @@ async function migrationCapsuleBroker() {
   };
   if (migrationCapsuleBroker.helperMayStillRun === true) throw failure('native_helper_uncertain', null, true);
   if (process.platform !== 'win32') migrationCapsuleFail('platform_unsupported');
+  const startedAt = process.hrtime.bigint(), code = await migrationCapsuleCode.prepare(MIGRATION_SKILL_CAPSULE_NATIVE);
+  if (migrationCapsuleBroker.helperMayStillRun === true) throw failure('native_helper_uncertain', null, true);
+  if (process.hrtime.bigint() - startedAt >= 120000000000n) throw failure('native_timeout');
   const bootstrap = "$ErrorActionPreference='Stop'; $ruyiSkillCapsuleSource=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:RUYI_SKILL_CAPSULE_SOURCE)); [Environment]::SetEnvironmentVariable('RUYI_SKILL_CAPSULE_SOURCE',$null,[EnvironmentVariableTarget]::Process); try { Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition $ruyiSkillCapsuleSource } finally { $ruyiSkillCapsuleSource=$null }; [RuyiSkillCapsule]::Run()";
   let child;
   try {
-    child = require('node:child_process').spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(bootstrap, 'utf16le').toString('base64')], {
-      env: { ...process.env, RUYI_SKILL_CAPSULE_SOURCE: Buffer.from(MIGRATION_SKILL_CAPSULE_NATIVE, 'utf8').toString('base64') },
+    child = require('node:child_process').spawn(code?.executable || 'powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(code?.bootstrap || bootstrap, 'utf16le').toString('base64')], {
+      env: code?.env || { ...process.env, RUYI_SKILL_CAPSULE_SOURCE: Buffer.from(MIGRATION_SKILL_CAPSULE_NATIVE, 'utf8').toString('base64') },
       windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     });
   } catch (cause) { throw failure('native_unavailable', cause); } // no issued child
+  try { code?.observe(child); } catch { /* Optional code reuse cannot replace the original child/error pipeline. */ }
   const timers = require('node:timers');
   const decoder = new (require('node:string_decoder').StringDecoder)('utf8');
   let pending = null, closing = false, stopping = false, settled = false, spawned = false;
@@ -1839,6 +2139,9 @@ async function migrationCapsuleBroker() {
     if (code !== 0 || pending) firstError ||= failure('native_exit');
     finish(firstError);
   });
+  // A separate listener only schedules optional public-code adoption after the
+  // original close listener. It never settles/replaces the original promises.
+  child.on('close', () => { code?.complete(settled && !firstError && closing); });
   try {
     child.stdout.on('data', chunk => {
       if (settled || stopping) return;
@@ -1864,11 +2167,15 @@ async function migrationCapsuleBroker() {
     child.stderr.on?.('error', cause => stop('native_pipe', cause));
     child.stderr.resume(); // never capture/log compiler or payload stderr
   } catch (cause) { stop('native_pipe', cause); }
+  let firstCommand = true;
   const command = args => new Promise((resolve, reject) => {
     if (pending || closing || stopping || settled || migrationCapsuleBroker.helperMayStillRun === true) {
       reject(migrationCapsuleBroker.helperMayStillRun === true ? failure('native_helper_uncertain', firstError, true) : failure('native_exit')); return;
     }
-    const timer = timers.setTimeout(() => stop('native_timeout'), 120000);
+    const remaining = firstCommand ? Math.ceil(120000 - Number(process.hrtime.bigint() - startedAt) / 1e6) : 120000;
+    firstCommand = false;
+    if (remaining <= 0) { stop('native_timeout'); reject(firstError); return; }
+    const timer = timers.setTimeout(() => stop('native_timeout'), remaining);
     pending = { resolve, reject, timer };
     try {
       child.stdin.write(JSON.stringify(args) + '\n', cause => { if (cause) stop('native_pipe', cause); });

@@ -13,10 +13,10 @@ function fixture(options={}){
   Object.assign(child,{pid:options.noPID?undefined:424242,exitCode:null,signalCode:null,ends:0,kills:0,args});child.stdin=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.stderr.resume=()=>{};
   child.stdin.write=(text,callback)=>{child.input=text;if(options.writeThrows)throw options.writeThrows;callback?.(options.pipeError);return true;};
   child.stdin.end=()=>{child.ends++;if(options.endThrows)throw options.endThrows;};child.kill=()=>{child.kills++;if(options.killThrows)throw options.killThrows;return false;};children.push(child);return child;};
- const context={Buffer,process:{platform:'win32',env:{}},MigrationHooks:{},MIGRATION_SKILL_CAPSULE_NATIVE:'unchanged native fixture',MIGRATION_CAPSULE_ARCHIVE_LIMIT:1024,
+ const context={Buffer,process:{platform:'win32',env:{},hrtime:{bigint:()=>0n}},MigrationHooks:{},MIGRATION_SKILL_CAPSULE_NATIVE:'unchanged native fixture',MIGRATION_CAPSULE_ARCHIVE_LIMIT:1024,
    migrationRecoverSkillBackups:async()=>{},createMigrationBackupOwner(){},migrationScan(){},migrationApply(){},migrationUndo(){},migrationRecycle(){},migrationCopySkills(){},
    require:name=>name==='node:child_process'?{spawn}:name==='node:timers'?{setTimeout(fn,ms){const id=++sequence;timers.set(id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id)}:require(name)};
- const fragments=['migrationChain','migrationRecoveryNeeded','migrationBackupAuthority'].map(name=>constBlock(source,name));
+ const fragments=['migrationCapsuleCode','migrationChain','migrationRecoveryNeeded','migrationBackupAuthority'].map(name=>constBlock(source,name));
  fragments.push(...['migrationCapsuleFail','migrationSerial','migrationCapsuleBroker'].map(name=>functionBlock(source,name)),bracedBlock(source,'Object.assign(MigrationHooks,')+');');
  assert.ok(fragments.every(Boolean));vm.createContext(context);vm.runInContext(fragments.join('\n')+'\nthis.make=migrationCapsuleBroker;this.serial=migrationSerial;',context);
  const fire=ms=>{const entry=[...timers].find(([,value])=>value.ms===ms);assert.ok(entry,'actual timer '+ms+' exists');timers.delete(entry[0]);entry[1].fn();};

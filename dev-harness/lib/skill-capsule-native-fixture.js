@@ -54,7 +54,7 @@ public static class SkillCapsuleFixture {
 }`;
 function invoke(file, operation, relatives, alias) {
   const script = "$ErrorActionPreference='Stop'; Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:RUYI_NATIVE_FIXTURE_SOURCE))); "
-    + (operation === 'alias' ? '[SkillCapsuleFixture]::Alias($env:RUYI_NATIVE_FIXTURE_PATH,$env:RUYI_NATIVE_FIXTURE_ALIAS)' : operation === 'ea' ? '[SkillCapsuleFixture]::AddEa($env:RUYI_NATIVE_FIXTURE_PATH)' : '[SkillCapsuleFixture]::Metadata($env:RUYI_NATIVE_FIXTURE_PATH,$env:RUYI_NATIVE_FIXTURE_RELATIVES)');
+    + (operation === 'aliases' ? '$entries=(New-Object System.Web.Script.Serialization.JavaScriptSerializer).DeserializeObject($env:RUYI_NATIVE_FIXTURE_RELATIVES); foreach($entry in $entries){[SkillCapsuleFixture]::Alias([string]$entry[0],[string]$entry[1])}' : operation === 'alias' ? '[SkillCapsuleFixture]::Alias($env:RUYI_NATIVE_FIXTURE_PATH,$env:RUYI_NATIVE_FIXTURE_ALIAS)' : operation === 'ea' ? '[SkillCapsuleFixture]::AddEa($env:RUYI_NATIVE_FIXTURE_PATH)' : '[SkillCapsuleFixture]::Metadata($env:RUYI_NATIVE_FIXTURE_PATH,$env:RUYI_NATIVE_FIXTURE_RELATIVES)');
   const result = cp.spawnSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], {
     env: { ...process.env, RUYI_NATIVE_FIXTURE_SOURCE: Buffer.from(native).toString('base64'), RUYI_NATIVE_FIXTURE_PATH: file,
       RUYI_NATIVE_FIXTURE_RELATIVES: relatives ? JSON.stringify(relatives) : '', RUYI_NATIVE_FIXTURE_ALIAS: alias || '' },
@@ -62,6 +62,10 @@ function invoke(file, operation, relatives, alias) {
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error('native fixture failed: ' + result.status + ' ' + result.stderr);
-  return operation === 'ea' || operation === 'alias' ? undefined : JSON.parse(result.stdout.trim()).sort((a, b) => a.rel.localeCompare(b.rel));
+  return operation === 'ea' || operation === 'alias' || operation === 'aliases' ? undefined : JSON.parse(result.stdout.trim()).sort((a, b) => a.rel.localeCompare(b.rel));
 }
-module.exports = { basicMetadata: (file, relatives) => invoke(file, 'metadata', relatives), addEa: file => invoke(file, 'ea'), setShortName: (file, alias) => invoke(file, 'alias', null, alias) };
+function setShortNames(entries) {
+  if (!Array.isArray(entries) || entries.length !== 4 || Array.from(entries).some(row => !Array.isArray(row) || row.length !== 2 || typeof row[0] !== 'string' || !row[0] || typeof row[1] !== 'string')) throw new TypeError('exactly four setup alias pairs required');
+  return invoke(entries[0][0], 'aliases', entries);
+}
+module.exports = { basicMetadata: (file, relatives) => invoke(file, 'metadata', relatives), addEa: file => invoke(file, 'ea'), setShortName: (file, alias) => invoke(file, 'alias', null, alias), setShortNames };

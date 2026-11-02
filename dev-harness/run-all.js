@@ -60,10 +60,16 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // 实测撞 120s 硬超时(单跑无争用 ~39s),这些墙钟窗口本身就是在测「收件箱 tick 到达」这件事,
 // 挤在一起量不准,排到并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
+  // Real NTFS/owner qualification: serialize both complete representation and
+  // focused short-name ABI fixtures. Default/focused stay120s; the complete
+  // representation fixture has its user-approved240s whole-file override below.
+  'migration-skill-backup-representation.e2e.js',
+  'migration-native-short-rename.e2e.js',
   // Production recovery acceptance owns a real browser/native lifecycle and
   // records bounded process transitions. Keep its first execution budgets free
   // from competing functional buckets; phase deadlines remain unchanged.
   'work-data-production-restore.browser.e2e.js',
+  'work-data-production-restore-encrypted.browser.e2e.js',
   'work-data-owned-source-recovery.e2e.js',
   'work-data-completed-intent-recovery.e2e.js',
   // The hand-off undo button has a real 10-second expiry. CDP inspection and the
@@ -184,6 +190,11 @@ const PARALLEL_EXCLUSIVE = new Set([
 // 第46波46b: 按件超时表(默认 120s 之外的特例)。只收"实测稳定超过默认 60%"的件,
 // 每条附实测依据 —— 表不是兜底借口,能优化掉的慢件应优化而非加薪。
 const TIMEOUT_OVERRIDES = {
+  // Complete native representation is a whole-file hang guard: multiple
+  // transitions/cancellations/undo and a cold verifier, including two real24s
+  // alias windows. User-approved240s contract on2026-11-02; keep every native
+  // command120s/close2s and all assertions unchanged. Prior120s failures remain.
+  'migration-skill-backup-representation.e2e.js': 240000,
   // M2-8b fixed resources: real 15s heartbeats and complete 17s negative windows
   // across cancel/ABA/revoke/parser/backpressure/idle. Complete run was 231s (partial 207s);
   // keep the actual heartbeat and per-wait bounds, with a 360s owned-case watchdog.
@@ -265,6 +276,7 @@ const TIMEOUT_OVERRIDES = {
   // Initial whole-file budgets for the real settings restore and explicit
   // source recovery matrix. No existing inner wait or older gate is widened.
   'work-data-production-restore.browser.e2e.js': 900000,
+  'work-data-production-restore-encrypted.browser.e2e.js': 900000,
   'work-data-owned-source-recovery.e2e.js': 900000,
   // New C11 acceptance constructs two native complete-intent windows around
   // real enable/disable results; phase bounds remain those of the shared world.
