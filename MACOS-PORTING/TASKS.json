@@ -170,7 +170,8 @@
               "status": "passed_targeted_review",
               "evidence": "evidence/P1/controlled-layout/review.json"
             }
-          }
+          },
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
         },
         {
           "id": "P1-02",
@@ -222,7 +223,8 @@
               "status": "passed_targeted_review",
               "evidence": "evidence/P1/provider-stop/review.json"
             }
-          }
+          },
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
         },
         {
           "id": "P1-03",
@@ -283,7 +285,8 @@
               "status": "passed_targeted_review",
               "evidence": "evidence/P1/discovery-ui/review.json"
             }
-          }
+          },
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
         },
         {
           "id": "P1-04",
@@ -482,7 +485,8 @@
               "status": "passed_targeted_review",
               "evidence": "evidence/P1/path-cancellation/review.json"
             }
-          }
+          },
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
         }
       ],
       "owner": "Codex",
@@ -498,7 +502,8 @@
         "unreproducedMediaFailure": true,
         "windowsActual": "pending",
         "finderVisible": "pending"
-      }
+      },
+      "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
     },
     {
       "id": "P2",
