@@ -1,0 +1,263 @@
+{
+  "schema": 1,
+  "status": "ACCEPT_L02_240",
+  "scope": "L02",
+  "unresolvedP1P2": 0,
+  "actualGo": false,
+  "sourceDecisionSha256": "01c8101851d19a6fd799efba8ca69aabebad29ea49a1b6b55f3275cfcccaa4f0",
+  "rootReceiptSha256": "f6147b31d1f24ed349fb2e5861443a2219941807f8961061a40858e4385e5715",
+  "resultSha256": "3f0779c34a7b6630d3389dfceaf9b6d852080caf827164ff0b56648e3d14a1d0",
+  "callerSha256": "a707dfb6693450e7cea8bd9c3edc876e66f309c1095aa83aeff0a26634a53a38",
+  "entrySha256": "9e6aa326c2bfa39968b2a7f293c133d292f2194189976d4cf3c4c2d9702ad883",
+  "userBudgetAuthorizationSha256": "81023c4c57f4d163a538c8e0c6b562abd8fedb9b971bbcf2b22726ca499c64a6",
+  "rootToolFact": {
+    "session": 72279,
+    "completionChunk": "4dffff",
+    "naturalParentExitCode": 0,
+    "providedByRoot": true,
+    "notInferredFromCim": true
+  },
+  "wholeMs": 240000,
+  "terminalElapsedNs": "148799989500",
+  "canonicalGroups": 4,
+  "canonical": [
+    "actual native enable publishes encrypted generation and preserves original source",
+    "after-enable full export survives real native portable restore and independent cold process verification",
+    "actual reverse migration publishes complete plain generation",
+    "second full export and durable result retain all generations without pending intent"
+  ],
+  "strictStderrEmpty": true,
+  "allTenNaturalZero": true,
+  "entryPid": 1764,
+  "naturalEntryReturn": false,
+  "legacyForcedExit": true,
+  "parentObservationVersusEntry": "Parent direct tool naturally exited0; original legacy entry explicitly calls process.exit through runner.done({exit:true}), so it is not a natural entry-return/idle-drain proof",
+  "all26CurrentSourcePinsEqual": true,
+  "postPinsSupportedByExactCallerAndCurrentReadback": true,
+  "originalBusinessAndInternalBudgets": {
+    "fourOriginalCanonicalGroupsUnchanged": true,
+    "entryAndGeneratedProductHashesEqualOriginalL01Source": true,
+    "nativeCommandMs": 120000,
+    "nativeCloseMs": 2000,
+    "metadataMs": 30000,
+    "legacyVerifierTimeoutMs": 120000,
+    "onlyThisWholeFileBudgetNew240000": true
+  },
+  "originalL01Red": {
+    "independentRejectionSha256": "ccc3be9542e46536c2b4b0ec091f54be83c901c3f19bba20553519695decde6d",
+    "statusUnchanged": "REJECT_L01_ORIGINAL_120",
+    "accepted": false,
+    "doesNotBecomePassedUnderNewContract": true
+  },
+  "pairComplete": false,
+  "qualification": "First fresh round under separate explicit cold-operations240 authorization only; not a representation-authorization extension or performance optimization claim",
+  "limitations": [
+    "Accepts only L02; no automatic L03,C03/C04 or next actor GO. L03 requires its own fresh Root invocation and independent readback",
+    "No fixture DATA/package/key/config or inner native/CIM evidence was read; original producer assertions plus exact source and outer terminal evidence support the finite scope",
+    "Legacy forced entry exit must remain distinct from natural return and cannot certify full idle/OS-descendant closure",
+    "No metadata/ADS/Basic/security restore, full nonempty migration/B1-B8, wholeM3/3.1, release or publication qualification",
+    "PM01/D01 and L01 originals remain historical RED/diagnosticfalse; fresh240 pair is not complete until L03 independently passes"
+  ],
+  "allOsDescendantsClosedClaim": false,
+  "noAutomaticNextScopeGo": true,
+  "wholeM3Complete": false,
+  "released": false,
+  "reviewerExecutedActor": false,
+  "selectedFiles": [
+    {
+      "file": "C:/r31-1103/cold-task/final/SOURCE-REVIEW.json",
+      "bytes": 8645,
+      "sha256": "01c8101851d19a6fd799efba8ca69aabebad29ea49a1b6b55f3275cfcccaa4f0"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/final/SOURCE-INPUT.json",
+      "bytes": 4468,
+      "sha256": "9a4fd47cfb2e07e1cf026ecadb52f351be17ae99f65dcc03fddf448be6730902"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/final/L02/INPUT.json",
+      "bytes": 4606,
+      "sha256": "81aebe8d6a4c531f64e59b3979ba5d20a296fa00c19aea29c637af8276e614a6"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/final/L02/RESULT.json",
+      "bytes": 1129,
+      "sha256": "3f0779c34a7b6630d3389dfceaf9b6d852080caf827164ff0b56648e3d14a1d0"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/final/L02/TOP-EXEC.json",
+      "bytes": 368,
+      "sha256": "f6147b31d1f24ed349fb2e5861443a2219941807f8961061a40858e4385e5715"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/final/L02/stdout.log",
+      "bytes": 393,
+      "sha256": "c4d62288dcc8fa6e669305bc939a9d819dffbe3a188fe5a0c1148ba24cc66d30"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/final/L02/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/final/L02/events.jsonl",
+      "bytes": 745,
+      "sha256": "27588868df8c442b2d929edec7b02349fdb7eed197e68df349e33198812c35cc"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/USER-BUDGET-AUTHORIZATION.json",
+      "bytes": 459,
+      "sha256": "81023c4c57f4d163a538c8e0c6b562abd8fedb9b971bbcf2b22726ca499c64a6"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/final/run-case.cjs",
+      "bytes": 10203,
+      "sha256": "a707dfb6693450e7cea8bd9c3edc876e66f309c1095aa83aeff0a26634a53a38"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-cold-operations.e2e.js",
+      "bytes": 7288,
+      "sha256": "9e6aa326c2bfa39968b2a7f293c133d292f2194189976d4cf3c4c2d9702ad883"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/server.js",
+      "bytes": 8490850,
+      "sha256": "4e3f6307d7b25b30a05170f857b8789983257978e1cb41b3aedb0c0d74b3e622"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/manifest.json",
+      "bytes": 37997,
+      "sha256": "be18f434e32de247019f0c9bc5c94882d8638d6f9b9b408a371bdbb8dd77eeff"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "bytes": 32227,
+      "sha256": "a65e9b3edd464614c74f57cafd1a56fa963c66c527fc80a4475fd157cea1bfd6"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "bytes": 25796,
+      "sha256": "dcdf7218ad870eb8ccd5017b02395b5210b281d96aa4b2c8b61e52c6c8c4eec6"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-cold-preserved-snapshot.e2e.js",
+      "bytes": 7353,
+      "sha256": "1a291b12724aee2bd85134046c6be2f109ef7bcdcea20638884178265249dbee"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-maintenance.e2e.js",
+      "bytes": 60442,
+      "sha256": "35b0a384d4b30a46c56429f9f12e7d8c052d68384c22752ee7dde1fc4f64b09e"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-restore.e2e.js",
+      "bytes": 105164,
+      "sha256": "c3edd19c3750ea486174ee97e8d84d28ffd6178ebae89b0d7c902b6e8c6345d9"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-upload.e2e.js",
+      "bytes": 28954,
+      "sha256": "29c824775cb9a5595bd4c7483bc6c705705ca6d2e3d4a1c45a280f3393f5054f"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/skill-capsule-native-fixture.js",
+      "bytes": 6761,
+      "sha256": "8a887a056ce25a71050e50c41062fdae501b24a9e0567714b31ded230dff9b43"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/fixture-home-guard.js",
+      "bytes": 4557,
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/release-checks.js",
+      "bytes": 2826,
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-upload-core.js",
+      "bytes": 17255,
+      "sha256": "95d49f3a69c3318b23ef98428e63791bf9b21c0e4e401def419b603762c25b1b"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-upload-process.js",
+      "bytes": 22486,
+      "sha256": "d86bf0ee3eb919404d9f853e0fad3df7e4e21f37da7a6762fcd965cff0fe0988"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/kill-own-tree.js",
+      "bytes": 7839,
+      "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-maintenance-outer-job.ps1",
+      "bytes": 10235,
+      "sha256": "e3694c4bd5b54f190525170cf7e23a3c3965f2b81537ee42ef7a8979f02de5c1"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-production-host.test.js",
+      "bytes": 90653,
+      "sha256": "12a5f78b6d0528a0e2cf47e0f67fe0ece5b990461a7c8a1eccec18f18e80bc61"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-cold-operations.test.js",
+      "bytes": 47232,
+      "sha256": "127eb5749b9b22896c40efe889da1c45b31cdc3b78e58e5bc3da1f701d450608"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-cold-migration.test.js",
+      "bytes": 4941,
+      "sha256": "d95edc071095c817f58289dedeac3499e0c5e71e541a9bb1879f64e772ad1cc8"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/run-all.js",
+      "bytes": 52194,
+      "sha256": "7b41b8fccbb5768f07c7b934488682bd995d43ecbc135ca6bce173023008392d"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/migration-native-rename-size.test.js",
+      "bytes": 20899,
+      "sha256": "7bf92133088aba3870a62258495fead22dcf10e570b8a51b78866201eab4bd30"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-maintenance-snapshot-diagnostics.test.js",
+      "bytes": 17047,
+      "sha256": "87a1d8eff397d55ec57fd98c02a497ad53ff2029fd450d2d2c564bc29e74232d"
+    },
+    {
+      "file": "C:/r31-1102/observer-240.cjs",
+      "bytes": 4106,
+      "sha256": "14f80c1e412038b0b00d116fd316e6cef668bd4324de4e0ed9740a13067df036"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/L01/INDEPENDENT-ACCEPTANCE.json",
+      "bytes": 11458,
+      "sha256": "ccc3be9542e46536c2b4b0ec091f54be83c901c3f19bba20553519695decde6d"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/SOURCE-REVIEW.json",
+      "bytes": 10138,
+      "sha256": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "stage": "successor-enable",
+  "lastPassed": "C11: result plus complete intent still refuses boot and leaves both files untouched",
+  "code": "E2E_FAILURE",
+  "rawMessagesAndBodiesOmitted": true,
+  "errorName": "Error",
+  "failureLocation": {
+    "file": "work-data-production-maintenance.e2e.js",
+    "line": 487,
+    "column": 19
+  },
+  "diagnostics": {
+    "jobId": "b2baa15dcaa9ac89432ffa5e75440fddc076b542328afec1",
+    "operation": "enable",
+    "claim": [
+      {
+        "key": "absent",
+        "at": 1793682392517,
+        "present": false
+      },
+      {
+        "key": "E:work_data_claim.stage_pending",
+        "at": 1793682392929,
+        "error": "work_data_claim.stage_pending"
+      },
+      {
+        "key": "b2baa15dcaa9ac89432ffa5e75440fddc076b542328afec1:armed:bd9789c3ecb436a1c606c4326e1be7a6985ecd19bcc1dafc36195ca29fcf4962",
+        "at": 1793682393646,
+        "present": true,
+        "id": "b2baa15dcaa9ac89432ffa5e75440fddc076b542328afec1",
+        "phase": "armed",
+        "childPid": 33668,
+        "parentPid": 37720,
+        "sha256": "bd9789c3ecb436a1c606c4326e1be7a6985ecd19bcc1dafc36195ca29fcf4962",
+        "dev": "1587757136",
+        "ino": "25895697861145618"
+      },
+      {
+        "key": "E:work_data_claim.stage_pending",
+        "at": 1793682394456,
+        "error": "work_data_claim.stage_pending"
+      },
+      {
+        "key": "b2baa15dcaa9ac89432ffa5e75440fddc076b542328afec1:committed:cc230a124828269ca4727d12e776349ba039faf4fc4b4705f40ebfd16ce1228e",
+        "at": 1793682395208,
+        "present": true,
+        "id": "b2baa15dcaa9ac89432ffa5e75440fddc076b542328afec1",
+        "phase": "committed",
+        "childPid": 33668,
+        "parentPid": 37720,
+        "sha256": "cc230a124828269ca4727d12e776349ba039faf4fc4b4705f40ebfd16ce1228e",
+        "dev": "1587757136",
+        "ino": "24769797954302996"
+      },
+      {
+        "key": "E:work_data_claim.stage_pending",
+        "at": 1793682396641,
+        "error": "work_data_claim.stage_pending"
+      },
+      {
+        "key": "b2baa15dcaa9ac89432ffa5e75440fddc076b542328afec1:owned:8fb527b9c90d1daed7ba7edfd6a047db3c98cd2fb7dd3d487a5648a7c4204e4c",
+        "at": 1793682396803,
+        "present": true,
+        "id": "b2baa15dcaa9ac89432ffa5e75440fddc076b542328afec1",
+        "phase": "owned",
+        "childPid": 33668,
+        "parentPid": 37720,
+        "sha256": "8fb527b9c90d1daed7ba7edfd6a047db3c98cd2fb7dd3d487a5648a7c4204e4c",
+        "dev": "1587757136",
+        "ino": "26740122791277586"
+      },
+      {
+        "key": "absent",
+        "at": 1793682400836,
+        "present": false
+      }
+    ],
+    "cold": [
+      {
+        "key": "present",
+        "at": 1793682393656,
+        "pid": 33668
+      }
+    ],
+    "armedAt": 1793682393646,
+    "coldVerdict": {
+      "job": {
+        "id": "b2baa15dcaa9ac89432ffa5e75440fddc076b542328afec1",
+        "operation": "enable",
+        "state": "failed",
+        "createdAt": 1793682397516,
+        "cancellable": false,
+        "takeover": true,
+        "retry": false,
+        "error": "work_data_setup.preparation_failed",
+        "operationMayHaveExecuted": true,
+        "phase": "snapshot"
+      },
+      "authority": {
+        "generation": 0,
+        "id": null,
+        "mode": "plain",
+        "sha256": null
+      }
+    }
+  }
+}

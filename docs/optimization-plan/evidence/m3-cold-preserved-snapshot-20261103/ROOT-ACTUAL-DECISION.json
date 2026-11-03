@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "status": "ROOT_SINGLE_PM02_ADMITTED",
+  "scope": "PM02",
+  "entry": "work-data-production-maintenance.e2e.js",
+  "wholeMs": 900000,
+  "sourceDecisionSha256": "01c8101851d19a6fd799efba8ca69aabebad29ea49a1b6b55f3275cfcccaa4f0",
+  "fastResultSha256": "97326de4a1e6b153d6663c3242a0cc0b4c5fca142edd6c7ec2226498d674ddde",
+  "fastRootSha256": "f36864a3163bf5316d234a6982ddfaa9e626ff930ca1094285673ff67b7eb6f4",
+  "fastIndependentSha256": "1cc5059a07a57de5e349a0d3a0f2f086081e46d37a78494707bcf582c0689abf",
+  "userBudgetAuthorizationSha256": "81023c4c57f4d163a538c8e0c6b562abd8fedb9b971bbcf2b22726ca499c64a6",
+  "purpose": "fresh qualification of corrected HTTP-first runtime observation",
+  "strictStderr": true,
+  "noKillRetry": true,
+  "oneActualWindow": true,
+  "retainedPM01AndDiagnosticSceneUntouched": true,
+  "noAutomaticNextScope": true
+}

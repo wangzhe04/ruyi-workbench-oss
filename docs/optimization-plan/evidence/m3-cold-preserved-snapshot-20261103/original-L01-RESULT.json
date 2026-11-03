@@ -1,0 +1,46 @@
+{
+  "scope": "L01",
+  "entry": "work-data-cold-operations.e2e.js",
+  "accepted": false,
+  "passGroups": 0,
+  "decisionSha": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830",
+  "observer": {
+    "status": "HOLD_UNKNOWN",
+    "firstError": {
+      "reason": "absolute-observation-deadline",
+      "code": "n1.outer_deadline_unknown",
+      "observedElapsedNs": "120014172800"
+    },
+    "unknown": true,
+    "flags": {
+      "exit": true,
+      "close": true,
+      "stdout-end": true,
+      "stdout-close": true,
+      "stdout-sink-finish": true,
+      "stdout-sink-close": true,
+      "stderr-end": true,
+      "stderr-close": true,
+      "stderr-sink-finish": true,
+      "stderr-sink-close": true
+    },
+    "exitCode": 0,
+    "exitSignal": null,
+    "closeCode": 0,
+    "closeSignal": null,
+    "elapsedNs": "152862645700",
+    "terminalElapsedNs": "152862645700",
+    "budgetMs": 120000,
+    "noKillRetry": true,
+    "allOsDescendantsClosedClaim": false,
+    "cimCreationCaptured": false,
+    "actualImageCaptured": false
+  },
+  "failure": {
+    "code": "ERR_ASSERTION",
+    "message": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'HOLD_UNKNOWN'\n- 'OBSERVED_NATURAL_ZERO'\n"
+  },
+  "naturalEntryReturn": false,
+  "legacyForcedExit": true,
+  "scopeBoundary": "Synthetic finite regression only; no full M3, metadata restore, release or all-OS-descendant closure claim"
+}

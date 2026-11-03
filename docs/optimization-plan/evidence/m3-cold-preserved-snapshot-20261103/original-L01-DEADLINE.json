@@ -1,0 +1,32 @@
+{
+  "status": "HOLD_UNKNOWN",
+  "firstError": {
+    "reason": "absolute-observation-deadline",
+    "code": "n1.outer_deadline_unknown",
+    "observedElapsedNs": "120014172800"
+  },
+  "unknown": true,
+  "flags": {
+    "exit": false,
+    "close": false,
+    "stdout-end": false,
+    "stdout-close": false,
+    "stdout-sink-finish": false,
+    "stdout-sink-close": false,
+    "stderr-end": false,
+    "stderr-close": false,
+    "stderr-sink-finish": false,
+    "stderr-sink-close": false
+  },
+  "exitCode": null,
+  "exitSignal": null,
+  "closeCode": null,
+  "closeSignal": null,
+  "elapsedNs": "120014400500",
+  "terminalElapsedNs": null,
+  "budgetMs": 120000,
+  "noKillRetry": true,
+  "allOsDescendantsClosedClaim": false,
+  "cimCreationCaptured": false,
+  "actualImageCaptured": false
+}

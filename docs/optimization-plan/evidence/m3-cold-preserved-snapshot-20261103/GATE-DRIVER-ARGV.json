@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "status": "EXACT_DRIVER_AND_ARGV_PRESERVED_SCOPE_EQUIVALENCE_PENDING_ORIGINAL_RUN_RESULT",
+  "driverSha256": "9cecb63162fb721b2254e13e659e46401646120c56dd37ed6ce3a16ff2273f5e",
+  "scope": "full run-all fast with complete unit preflight",
+  "exactArgs": [
+    "dev-harness/run-all.js",
+    "dev-harness/work-data-production-maintenance.e2e.js",
+    "dev-harness/work-data-production-restore.e2e.js",
+    "dev-harness/unit/migration-native-rename-size.test.js",
+    "dev-harness/unit/work-data-maintenance-snapshot-diagnostics.test.js",
+    "--fast",
+    "--parallel",
+    "4"
+  ],
+  "constructionError": "broad external driver string replacement added four pin paths to argv",
+  "currentRunnerSha256": "7b41b8fccbb5768f07c7b934488682bd995d43ecbc135ca6bce173023008392d",
+  "branchReason": "includes --fast is checked first; explicit-file elseif does not execute; unit argv are constructed separately",
+  "mustVerifyResult": {
+    "unitFiles": 445,
+    "staticDistinct": 97,
+    "laneTokens": 194,
+    "failed": 0,
+    "flaky": 0,
+    "naturalParentZero": true
+  },
+  "notClaimStandardArgv": true,
+  "noActualPMOrPRFromTheseArgs": true,
+  "noSuiteRerun": true
+}

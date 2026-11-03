@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 133 | 4323 | 4254 | 921 | 67 | 0 | 1 |
+| 133 | 4323 | 4252 | 919 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -133,7 +133,7 @@
 | 115 | `13aj-work-data-control.js` | unclassified | 1 | 3 | 2 |
 | 116 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 4 | 2 |
 | 117 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
-| 118 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 12 | 10 |
+| 118 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 10 | 8 |
 | 119 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 11 | 8 |
 | 120 | `13ap-session-fulltext-index.js` | unclassified | 3 | 14 | 6 |
 | 121 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 24 | 10 |
@@ -669,13 +669,11 @@
 | `13ak-work-data-cold-operations.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `text` |
 | `13ak-work-data-cold-operations.js` | `01-config.js` | backward | `atomicWriteJson` |
 | `13ak-work-data-cold-operations.js` | `01aa-work-data-tree.js` | backward | `WorkDataTree` |
-| `13ak-work-data-cold-operations.js` | `01ab-work-data-full-snapshot.js` | backward | `WorkDataFullSnapshot` |
 | `13ak-work-data-cold-operations.js` | `01ae-work-data-maintenance-result.js` | backward | `WorkDataMaintenanceResult` |
 | `13ak-work-data-cold-operations.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
 | `13ak-work-data-cold-operations.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `13ak-work-data-cold-operations.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
 | `13ak-work-data-cold-operations.js` | `13aj-work-data-control.js` | backward | `WorkDataMaintenanceControl` |
-| `13ak-work-data-cold-operations.js` | `13y-external-bot-credentials.js` | backward | `ExternalBotCredentials` |
 | `13al-work-data-maintenance-http.js` | `00-boot.js` | backward | `URL`, `crypto`, `http` |
 | `13al-work-data-maintenance-http.js` | `01-config.js` | backward | `send` |
 | `13am-work-data-maintenance-runtime.js` | `00-boot.js` | backward | `DesktopLifetimeHooks`, `MigrationHooks`, `WorkDataMaintenanceRuntimeHooks`, `http` |

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "scope": "work-data-cold-operations.e2e.js whole-file budget only",
+  "userAnswer": "这件单独改为 240 秒，重新双轮验收（推荐）",
+  "wholeMs": 240000,
+  "freshRounds": 2,
+  "commandMs": 120000,
+  "closeMs": 2000,
+  "metadataMs": 30000,
+  "safetyAssertionsUnchanged": true,
+  "originalL01RedRemainsPermanent": true,
+  "differentFromPriorRepresentationAuthorization": true,
+  "notOtherTestsOrProductLatencyGuarantee": true
+}

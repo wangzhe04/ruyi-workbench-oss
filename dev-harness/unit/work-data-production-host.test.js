@@ -1119,7 +1119,7 @@ test('helper uncertainty arriving during preserved capture rejects its late succ
   assert.equal(f.servers[0].closeCalls, 0);
 });
 
-async function modelPreservedSnapshot(mode) {
+async function modelPreservedSnapshot(mode, cold = false) {
   // Run the permanent entry itself with memory-only endpoints. These controls
   // verify refusal/cleanup ordering, never NTFS or package qualification.
   const fs = require('node:fs'), vm = require('node:vm'), crypto = require('node:crypto');
@@ -1150,6 +1150,17 @@ async function modelPreservedSnapshot(mode) {
     lstat: async () => ({ isSymbolicLink: () => false }),
     rm: async () => { state.removed++; if (mode === 'remove-unknown') state.unknown = true; }
   };
+  if (cold) {
+    api.WorkDataNativeAdapters.create=()=>({helperMayStillRun:()=>state.unknown,coldOperationHost:progress=>({progress})});
+    api.WorkDataManifest={create:()=>({readActive:async()=>({generation:0,id:null,proof:{sha256:null}})})};
+    api.WorkDataColdOperations={create:host=>({execute:async()=>{
+      host.progress({phase:'snapshot'});host.progress({phase:'verify-backup'});
+      return {state:'verified',operation:'export',backup:{path:'MODELED_BACKUP',sha256:hash(Buffer.from('MODELED_PACKAGE'))},
+        profile:{ordinaryFiles:'default-stream-bytes',nativeMetadata:'not-captured'}};
+    }})};
+    io.stat=async()=>{throw Object.assign(Error('modeled absent rehearsal'),{code:'ENOENT'});};
+    io.readFile=async()=>Buffer.from('MODELED_PACKAGE');
+  }
   const env = { HOME: path.resolve('modeled-home') }, runner = {
     ok(value, label) { assert.equal(value, true); state.passed.push(label); }, fail() { state.failed++; }, done() {}
   };
@@ -1161,8 +1172,8 @@ async function modelPreservedSnapshot(mode) {
     ['node:fs', {}], ['node:fs/promises', io], ['node:path', path], ['node:os', { tmpdir: () => path.resolve('modeled-temp') }],
     ['node:crypto', crypto], ['node:assert/strict', assert]
   ]);
-  const source = fs.readFileSync(path.resolve(__dirname, '../work-data-preserved-snapshot.e2e.js'), 'utf8');
-  await vm.runInNewContext(source, { Buffer, process: { platform: 'win32', env: { ...env } },
+  const source = fs.readFileSync(path.resolve(__dirname, cold?'../work-data-cold-preserved-snapshot.e2e.js':'../work-data-preserved-snapshot.e2e.js'), 'utf8');
+  await vm.runInNewContext(source, { Buffer, __dirname:path.resolve(__dirname,'..'),process: { platform: 'win32',execPath:process.execPath,env: { ...env } },
     require(name) { assert.ok(modules.has(name), name); return modules.get(name); } });
   return state;
 }
@@ -1187,4 +1198,88 @@ test('permanent snapshot cleanup refuses late unknown before removal and never r
     assert.equal(state.failed, 1); assert.equal(state.released, 1); assert.equal(state.retained, 1);
     assert.equal(state.removed, mode === 'chmod-unknown' ? 0 : 1); assert.equal(state.passed.length, 4);
   }
+});
+
+test('permanent cold snapshot entry closes only its modeled known successful fixture', async () => {
+  const state=await modelPreservedSnapshot('known',true);
+  assert.equal(state.failed,0);assert.equal(state.passed.length,5);assert.equal(state.released,1);assert.equal(state.removed,1);assert.equal(state.retained,0);
+});
+
+test('permanent cold snapshot metadata failure and final unknown retain ownership and suppress success', async () => {
+  for(const mode of ['metadata-error','final-unknown']){
+    const state=await modelPreservedSnapshot(mode,true);
+    assert.equal(state.failed,1);assert.equal(state.released,0);assert.equal(state.retained,1);assert.equal(state.removed,0);assert.equal(state.flushes,1);assert.ok(state.passed.length<5);
+  }
+});
+
+test('permanent cold snapshot cleanup refuses late unknown before removal or success', async () => {
+  for(const mode of ['chmod-unknown','remove-unknown']){
+    const state=await modelPreservedSnapshot(mode,true);
+    assert.equal(state.failed,1);assert.equal(state.released,1);assert.equal(state.retained,1);assert.equal(state.removed,mode==='chmod-unknown'?0:1);assert.equal(state.passed.length,4);
+  }
+});
+
+test('public snapshot ignores replacement protector and raw-error observer options', async () => {
+  const f = createFixture(), owner = await f.lease([f.paths.base]); let traps = 0, actual = 0;
+  f.nativeBindings.protector.run = async () => { actual++; return Buffer.from('configured backend'); };
+  f.nativeBindings.fullSnapshot.create = options => ({ seal: () => options.protector.run('protect', Buffer.alloc(0), Buffer.alloc(0)) });
+  const options = Object.defineProperties({}, {
+    protector: { get() { traps++; throw Error('public backend override'); } },
+    onNativeCause: { get() { traps++; throw Error('public observer override'); } }
+  });
+  const value = await f.native.fullSnapshot(f.paths.base, owner, () => true, options).seal({});
+  assert.equal(value.toString(), 'configured backend'); assert.equal(actual, 1); assert.equal(traps, 0); await owner.release();
+});
+
+test('cold snapshot observes the same raw cause before actual key-owner sanitization and keeps its genuine keeper', async () => {
+  const f = createFixture(), owner = await f.lease([f.paths.base]), seen = [];
+  const raw = Object.freeze(Object.assign(Error('synthetic native error'), { helperMayStillRun: true }));
+  f.nativeBindings.protector.run = async () => { seen.push('backend'); throw raw; };
+  f.nativeBindings.fullSnapshot.create = options => ({ seal: async () => {
+    assert.equal(options.preservedRead.profile, 'bounded-native-v1'); assert.equal(options.assertExclusiveSync(owner), true);
+    const keys = f.api.keys.create({ protector: options.protector, enabled: () => true,
+      store: { read: async () => f.api.keys.empty(), write: async () => { throw Error('no key write after failed protection'); } } });
+    try { await keys.ensure(); } catch (error) { seen.push('sanitized'); assert.equal(error.code, 'work_data_key.protect_failed'); throw error; }
+  } });
+  const host = f.native.coldOperationHost(() => {});
+  await assert.rejects(host.fullSnapshot(f.paths.base, owner, () => true, { onNativeCause(value) { assert.equal(value, raw); seen.push('observer'); } }).seal({}),
+    { code: 'work_data_key.protect_failed' });
+  assert.deepEqual(seen, ['backend','observer','sanitized']); assert.equal(f.native.helperMayStillRun(), true);
+  assert.equal(f.api.ownership.owns(owner), false); assert.equal(f.servers[0].closeCalls, 0);
+});
+
+test('cold raw-error observer failures and pending returns never replace the original failure or release ownership', async () => {
+  for (const kind of ['throw', 'promise', 'getter', 'proxy']) {
+    const f = createFixture(), owner = await f.lease([f.paths.base]), raw = Error('synthetic settled native refusal'); let traps = 0;
+    f.nativeBindings.protector.run = async () => { throw raw; };
+    f.nativeBindings.fullSnapshot.create = options => ({ seal: () => options.protector.run('protect', Buffer.alloc(0), Buffer.alloc(0)) });
+    const onNativeCause = () => {
+      if (kind === 'throw') throw Error('observer failure');
+      if (kind === 'promise') return Promise.reject(Error('observer pending failure'));
+      if (kind === 'getter') return Object.defineProperty({}, 'then', { get() { traps++; throw Error('must not inspect'); } });
+      return new Proxy({}, { get() { traps++; throw Error('must not inspect'); } });
+    };
+    await assert.rejects(f.native.coldOperationHost(() => {}).fullSnapshot(f.paths.base, owner, () => true, { onNativeCause }).seal({}), error => error === raw);
+    await tick(); assert.equal(traps, 0); assert.equal(f.native.helperMayStillRun(), true);
+    assert.equal(f.api.ownership.owns(owner), false); assert.equal(f.servers[0].closeCalls, 0);
+  }
+});
+
+test('cold snapshot rejects async and proxy observers before snapshot creation or callback execution', async () => {
+  for (const proxy of [false, true]) {
+    const f = createFixture(), owner = await f.lease([f.paths.base]); let called = 0, created = 0;
+    const onNativeCause = proxy ? new Proxy(() => {}, { get() { called++; throw Error('must not inspect'); } }) : async () => { called++; };
+    f.nativeBindings.fullSnapshot.create = () => { created++; throw Error('must not create'); };
+    assert.throws(() => f.native.coldOperationHost(() => {}).fullSnapshot(f.paths.base, owner, () => true, { onNativeCause }), { code: 'work_data_adapter.snapshot_observer_invalid' });
+    assert.equal(called, 0); assert.equal(created, 0); assert.equal(f.native.helperMayStillRun(), false); await owner.release();
+  }
+});
+
+test('cold observer admission never reads a function constructor getter', async () => {
+  const f=createFixture(),owner=await f.lease([f.paths.base]),raw=Error('synthetic settled refusal');let traps=0,calls=0;
+  const onNativeCause=Object.defineProperty(value=>{assert.equal(value,raw);calls++;},'constructor',{get(){traps++;throw Error('must not inspect');}});
+  f.nativeBindings.protector.run=async()=>{throw raw;};
+  f.nativeBindings.fullSnapshot.create=options=>({seal:()=>options.protector.run('protect',Buffer.alloc(0),Buffer.alloc(0))});
+  await assert.rejects(f.native.coldOperationHost(()=>{}).fullSnapshot(f.paths.base,owner,()=>true,{onNativeCause}).seal({}),error=>error===raw);
+  assert.equal(traps,0);assert.equal(calls,1);assert.equal(f.native.helperMayStillRun(),false);await owner.release();
 });

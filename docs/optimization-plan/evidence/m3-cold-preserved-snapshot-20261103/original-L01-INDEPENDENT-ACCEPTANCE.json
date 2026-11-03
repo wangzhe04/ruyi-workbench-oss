@@ -1,0 +1,277 @@
+{
+  "schema": 1,
+  "status": "REJECT_L01_ORIGINAL_120",
+  "scope": "L01",
+  "accepted": false,
+  "unresolvedEvidenceP1P2": 0,
+  "actualGo": false,
+  "permanentOriginalBudgetRed": true,
+  "sourceDecisionSha256": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830",
+  "rootReceiptSha256": "4df18e97687a15f33fdc404c8d3859f98e984160d2e89a171fead6207adc480d",
+  "resultSha256": "f3b737c39a3bbddcd0d6ab9cb9db481016f916c282b4814caac98aee439aeb9a",
+  "callerSha256": "6455c68386e6994c737dbaa43f6194a31ca5a8330b1bc404b070f7908198ee3c",
+  "entrySha256": "9e6aa326c2bfa39968b2a7f293c133d292f2194189976d4cf3c4c2d9702ad883",
+  "rootToolFact": {
+    "session": 14355,
+    "completionChunk": "913760",
+    "naturalParentExitCode": 1,
+    "providedByRoot": true,
+    "notInferredFromCim": true
+  },
+  "originalWholeBudgetMs": 120000,
+  "firstDeadline": {
+    "firstError": {
+      "reason": "absolute-observation-deadline",
+      "code": "n1.outer_deadline_unknown",
+      "observedElapsedNs": "120014172800"
+    },
+    "receiptElapsedNs": "120014400500",
+    "allTenFlagsAtDeadline": false,
+    "permanentUnknown": true
+  },
+  "lateObservation": {
+    "terminalElapsedNs": "152862645700",
+    "legacyForcedChildExitCode": 0,
+    "legacyForcedChildCloseCode": 0,
+    "signalsNull": true,
+    "allTenTerminalsEventuallyObserved": true,
+    "stderrBytes": 0,
+    "canonicalGroups": 4,
+    "canonical": [
+      "actual native enable publishes encrypted generation and preserves original source",
+      "after-enable full export survives real native portable restore and independent cold process verification",
+      "actual reverse migration publishes complete plain generation",
+      "second full export and durable result retain all generations without pending intent"
+    ],
+    "originalAllPassMarkerPresent": true,
+    "normalEntryReturnClaim": false,
+    "doesNotClearOriginalDeadline": true
+  },
+  "callerPassGroupsFieldExplanation": "0 reflects the caller asserting HOLD_UNKNOWN before stdout parsing, not absence of the four original business PASS groups",
+  "failureInterpretation": {
+    "selectedEvidenceFailure": "Original whole-case observation deadline exceeded",
+    "specificNativeFailureObserved": false,
+    "noNativeCauseRootCauseConclusion": true,
+    "caveat": "No public selected log reports a native command/helper error; this does not locate elapsed-time cost or prove all native/internal events and OS descendants closed independently"
+  },
+  "all24CurrentSourcePinsEqual": true,
+  "originalRunAllRuntimeBudgetsMs": {
+    "L01": 120000,
+    "PM01": 900000,
+    "PR01": 900000
+  },
+  "scopeAndNextStepDisposition": {
+    "L01": "Original120 RED remains unaccepted; do not relabel under prior representation-only240 authorization; any new budget or optimization scope requires separate explicit decision and fresh review/admission",
+    "PM01_PR01": "May be considered as separate single Root invocations under their unchanged original900000 budgets after confirming no active actual window and current source/caller pins; keep L01 RED and independently review each result",
+    "noAutomaticNextScopeGo": true,
+    "independent900ScopesWouldNotCloseTheL01Debt": true,
+    "noActualStartedByReviewer": true
+  },
+  "minimalCloseoutAdvice": [
+    "Retain original INPUT/RESULT/DEADLINE/events/stdout/stderr/TOP and this rejection unchanged",
+    "If the user explicitly extends this distinct whole regression, create a new scope and matching observer/caller identity; never overwrite the original120 record or infer it from the older representation contract",
+    "If120 is retained, first use a separately reviewed passive phase measurement to locate cost while preserving original business assertions/native commands and deadlines; do not assume metadata, compilation or a specific helper is the root cause",
+    "Do not change native command120000, close2000, metadata30000 or other cases to wash this whole-case RED"
+  ],
+  "allOsDescendantsClosedClaim": false,
+  "wholeM3Complete": false,
+  "released": false,
+  "reviewerExecutedActor": false,
+  "selectedFiles": [
+    {
+      "file": "C:/r31-1103/cold-task/SOURCE-REVIEW.json",
+      "bytes": 10138,
+      "sha256": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/L01/INPUT.json",
+      "bytes": 4258,
+      "sha256": "aebd8c39d500b9a8ede8cd3cd3797cd53e1c74f1868ae3c1bcd006cedb260e7e"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/L01/RESULT.json",
+      "bytes": 1412,
+      "sha256": "f3b737c39a3bbddcd0d6ab9cb9db481016f916c282b4814caac98aee439aeb9a"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/L01/TOP-EXEC.json",
+      "bytes": 885,
+      "sha256": "4df18e97687a15f33fdc404c8d3859f98e984160d2e89a171fead6207adc480d"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/L01/DEADLINE.json",
+      "bytes": 786,
+      "sha256": "b4766d1a12fa935c2e41cfa08c09e80a825fb8bbc074f86e6484cfb49141627d"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/L01/stdout.log",
+      "bytes": 393,
+      "sha256": "c4d62288dcc8fa6e669305bc939a9d819dffbe3a188fe5a0c1148ba24cc66d30"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/L01/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/L01/events.jsonl",
+      "bytes": 841,
+      "sha256": "e57fdb4a17eedd73f591d9d0e64c2daeee82df69d9b2832758525db06a11cdf4"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/run-case.cjs",
+      "bytes": 8409,
+      "sha256": "6455c68386e6994c737dbaa43f6194a31ca5a8330b1bc404b070f7908198ee3c"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-cold-operations.e2e.js",
+      "bytes": 7288,
+      "sha256": "9e6aa326c2bfa39968b2a7f293c133d292f2194189976d4cf3c4c2d9702ad883"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/server.js",
+      "bytes": 8490850,
+      "sha256": "4e3f6307d7b25b30a05170f857b8789983257978e1cb41b3aedb0c0d74b3e622"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/manifest.json",
+      "bytes": 37997,
+      "sha256": "be18f434e32de247019f0c9bc5c94882d8638d6f9b9b408a371bdbb8dd77eeff"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "bytes": 32227,
+      "sha256": "a65e9b3edd464614c74f57cafd1a56fa963c66c527fc80a4475fd157cea1bfd6"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "bytes": 25796,
+      "sha256": "dcdf7218ad870eb8ccd5017b02395b5210b281d96aa4b2c8b61e52c6c8c4eec6"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-cold-preserved-snapshot.e2e.js",
+      "bytes": 7353,
+      "sha256": "1a291b12724aee2bd85134046c6be2f109ef7bcdcea20638884178265249dbee"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-maintenance.e2e.js",
+      "bytes": 60206,
+      "sha256": "19232c9ffb034e2de456f12d96dbe40274f708f24363550e1b23226d3640d8c3"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-restore.e2e.js",
+      "bytes": 105010,
+      "sha256": "9d5b2416d283aa09fd06a9baaa47ecb599ce51cc2209850d445cf83be481b3c1"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-upload.e2e.js",
+      "bytes": 28954,
+      "sha256": "29c824775cb9a5595bd4c7483bc6c705705ca6d2e3d4a1c45a280f3393f5054f"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/skill-capsule-native-fixture.js",
+      "bytes": 6761,
+      "sha256": "8a887a056ce25a71050e50c41062fdae501b24a9e0567714b31ded230dff9b43"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/fixture-home-guard.js",
+      "bytes": 4557,
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/release-checks.js",
+      "bytes": 2826,
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-upload-core.js",
+      "bytes": 17255,
+      "sha256": "95d49f3a69c3318b23ef98428e63791bf9b21c0e4e401def419b603762c25b1b"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-upload-process.js",
+      "bytes": 22486,
+      "sha256": "d86bf0ee3eb919404d9f853e0fad3df7e4e21f37da7a6762fcd965cff0fe0988"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/kill-own-tree.js",
+      "bytes": 7839,
+      "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-maintenance-outer-job.ps1",
+      "bytes": 10235,
+      "sha256": "e3694c4bd5b54f190525170cf7e23a3c3965f2b81537ee42ef7a8979f02de5c1"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-production-host.test.js",
+      "bytes": 90653,
+      "sha256": "12a5f78b6d0528a0e2cf47e0f67fe0ece5b990461a7c8a1eccec18f18e80bc61"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-cold-operations.test.js",
+      "bytes": 47232,
+      "sha256": "127eb5749b9b22896c40efe889da1c45b31cdc3b78e58e5bc3da1f701d450608"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-cold-migration.test.js",
+      "bytes": 4941,
+      "sha256": "d95edc071095c817f58289dedeac3499e0c5e71e541a9bb1879f64e772ad1cc8"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/run-all.js",
+      "bytes": 51872,
+      "sha256": "b65ece4768bc2024b985509160cb24b1260bd8d3c742473d89c283091de7de08"
+    },
+    {
+      "file": "C:/r31-1102/observer-120.cjs",
+      "bytes": 4106,
+      "sha256": "50c764c82bfb9720243270cdbc6ff5aee7f5e046892696ac3d7a8d5d7f475b77"
+    },
+    {
+      "file": "C:/r31-1102/prep.cjs",
+      "bytes": 10020,
+      "sha256": "19e97014d914743e0c80f6d08c8df7ad119a31cd37c8ef3f91e5ea9b02fe31b0"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/source-slice.js",
+      "bytes": 6684,
+      "sha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/checks-fast/INDEPENDENT-ACCEPTANCE.json",
+      "bytes": 21085,
+      "sha256": "5ebfaa7719ef2c955b04040dd9f8cd7953459563c069cc039c4d88640617b46f"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/C01/INDEPENDENT-ACCEPTANCE.json",
+      "bytes": 9866,
+      "sha256": "f13589b6101d42e0a5fc9a1daf0ac051eeb94ad7b8eca90053cdc819da379a36"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/C02/INDEPENDENT-ACCEPTANCE.json",
+      "bytes": 10761,
+      "sha256": "3061e9c1cad984470c921744b57d40ac443b5ff4c09ccf5fb8af5c2be0c4ffc0"
+    }
+  ]
+}

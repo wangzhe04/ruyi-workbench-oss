@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "scope": "PM02",
+  "actualToolSession": 94538,
+  "completionChunk": "e9f9b8",
+  "actualToolExitCode": 0,
+  "naturalCompletion": true,
+  "toolFactsProvidedByRoot": true,
+  "resultSha256": "ff4aa9e82ec8e8abcfa4c2f32466de6c727441ea946741035a851e6b714ad5d1",
+  "sourceDecisionSha256": "01c8101851d19a6fd799efba8ca69aabebad29ea49a1b6b55f3275cfcccaa4f0"
+}

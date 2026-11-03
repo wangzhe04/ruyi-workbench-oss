@@ -1,0 +1,109 @@
+{
+  "scope": "PM01",
+  "entry": "work-data-production-maintenance.e2e.js",
+  "budget": 900000,
+  "decisionSha": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830",
+  "nodeSha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088",
+  "callerSha256": "6455c68386e6994c737dbaa43f6194a31ca5a8330b1bc404b070f7908198ee3c",
+  "observerSha": "1d66f361df8ef8fac95701c323b8b84103dc3e6df4019195e89c0422aa137a73",
+  "pins": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "4e3f6307d7b25b30a05170f857b8789983257978e1cb41b3aedb0c0d74b3e622"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "be18f434e32de247019f0c9bc5c94882d8638d6f9b9b408a371bdbb8dd77eeff"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "sha256": "a65e9b3edd464614c74f57cafd1a56fa963c66c527fc80a4475fd157cea1bfd6"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "sha256": "dcdf7218ad870eb8ccd5017b02395b5210b281d96aa4b2c8b61e52c6c8c4eec6"
+    },
+    {
+      "file": "dev-harness/work-data-cold-preserved-snapshot.e2e.js",
+      "sha256": "1a291b12724aee2bd85134046c6be2f109ef7bcdcea20638884178265249dbee"
+    },
+    {
+      "file": "dev-harness/work-data-cold-operations.e2e.js",
+      "sha256": "9e6aa326c2bfa39968b2a7f293c133d292f2194189976d4cf3c4c2d9702ad883"
+    },
+    {
+      "file": "dev-harness/work-data-production-maintenance.e2e.js",
+      "sha256": "19232c9ffb034e2de456f12d96dbe40274f708f24363550e1b23226d3640d8c3"
+    },
+    {
+      "file": "dev-harness/work-data-production-restore.e2e.js",
+      "sha256": "9d5b2416d283aa09fd06a9baaa47ecb599ce51cc2209850d445cf83be481b3c1"
+    },
+    {
+      "file": "dev-harness/work-data-production-upload.e2e.js",
+      "sha256": "29c824775cb9a5595bd4c7483bc6c705705ca6d2e3d4a1c45a280f3393f5054f"
+    },
+    {
+      "file": "dev-harness/lib/server-internals.js",
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "dev-harness/lib/skill-capsule-native-fixture.js",
+      "sha256": "8a887a056ce25a71050e50c41062fdae501b24a9e0567714b31ded230dff9b43"
+    },
+    {
+      "file": "dev-harness/lib/fixture-home-guard.js",
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76"
+    },
+    {
+      "file": "dev-harness/lib/release-checks.js",
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172"
+    },
+    {
+      "file": "dev-harness/lib/self-isolate-home.js",
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "file": "dev-harness/lib/fixture-home.js",
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+    },
+    {
+      "file": "dev-harness/lib/harness.js",
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "file": "dev-harness/lib/work-data-production-upload-core.js",
+      "sha256": "95d49f3a69c3318b23ef98428e63791bf9b21c0e4e401def419b603762c25b1b"
+    },
+    {
+      "file": "dev-harness/lib/work-data-production-upload-process.js",
+      "sha256": "d86bf0ee3eb919404d9f853e0fad3df7e4e21f37da7a6762fcd965cff0fe0988"
+    },
+    {
+      "file": "dev-harness/lib/kill-own-tree.js",
+      "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+    },
+    {
+      "file": "dev-harness/lib/work-data-production-maintenance-outer-job.ps1",
+      "sha256": "e3694c4bd5b54f190525170cf7e23a3c3965f2b81537ee42ef7a8979f02de5c1"
+    },
+    {
+      "file": "dev-harness/unit/work-data-production-host.test.js",
+      "sha256": "12a5f78b6d0528a0e2cf47e0f67fe0ece5b990461a7c8a1eccec18f18e80bc61"
+    },
+    {
+      "file": "dev-harness/unit/work-data-cold-operations.test.js",
+      "sha256": "127eb5749b9b22896c40efe889da1c45b31cdc3b78e58e5bc3da1f701d450608"
+    },
+    {
+      "file": "dev-harness/unit/work-data-cold-migration.test.js",
+      "sha256": "d95edc071095c817f58289dedeac3499e0c5e71e541a9bb1879f64e772ad1cc8"
+    },
+    {
+      "file": "dev-harness/run-all.js",
+      "sha256": "b65ece4768bc2024b985509160cb24b1260bd8d3c742473d89c283091de7de08"
+    }
+  ],
+  "strictStderr": true,
+  "noKillRetry": true
+}

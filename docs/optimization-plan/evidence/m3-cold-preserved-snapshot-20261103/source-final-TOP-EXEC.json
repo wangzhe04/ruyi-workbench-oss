@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "scope": "checks-source-final",
+  "actualToolSession": 21222,
+  "completionChunk": "40f566",
+  "actualToolExitCode": 0,
+  "naturalCompletion": true,
+  "toolFactsProvidedByRoot": true,
+  "resultSha256": "00a6db303b5b0dc73690be4ab601670625cdb9043bbb53054d5e21665b6de941"
+}

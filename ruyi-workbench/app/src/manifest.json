@@ -712,91 +712,91 @@
     {
       "file": "13ak-work-data-cold-operations.js",
       "startLine": 108361,
-      "endLine": 108742,
+      "endLine": 108769,
       "note": "K3 cold operation bodies for the fresh maintenance worker: backup, restore and rehearsal run on host-supplied real owner lifetimes and the reviewed snapshot/codec/native owners; never starts a normal server or changes process-global paths"
     },
     {
       "file": "13am-work-data-maintenance-runtime.js",
-      "startLine": 108743,
-      "endLine": 109295,
+      "startLine": 108770,
+      "endLine": 109322,
       "note": "K3 warm/cold process composition: warm capture/activation, cold runCold and successor maintenance; in production the successor is WorkDataRuntimeHost startSuccessorMaintenance driving the prepare/complete two-phase handoff into a fresh serve that must re-prove the same listener and authority, while runSuccessor remains only the legacy harness path; only a reviewed production host may configure it"
     },
     {
       "file": "13ap-session-fulltext-index.js",
-      "startLine": 109296,
-      "endLine": 109644,
+      "startLine": 109323,
+      "endLine": 109671,
       "note": "M3-4 committed-message text index owner"
     },
     {
       "file": "13as-session-fulltext-consumers.js",
-      "startLine": 109645,
-      "endLine": 109794,
+      "startLine": 109672,
+      "endLine": 109821,
       "note": "M3-4 authorized UI/model/MCP fulltext consumers"
     },
     {
       "file": "13ba-media-image-contract.js",
-      "startLine": 109795,
-      "endLine": 110138,
+      "startLine": 109822,
+      "endLine": 110165,
       "note": "M4 bounded in-memory image contract; production media owners unbound"
     },
     {
       "file": "13bb-media-derived-store.js",
-      "startLine": 110139,
-      "endLine": 110354,
+      "startLine": 110166,
+      "endLine": 110381,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13bc-media-image-processor.js",
-      "startLine": 110355,
-      "endLine": 110638,
+      "startLine": 110382,
+      "endLine": 110665,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13bd-media-image-service.js",
-      "startLine": 110639,
-      "endLine": 110883,
+      "startLine": 110666,
+      "endLine": 110910,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13be-media-image-host.js",
-      "startLine": 110884,
-      "endLine": 111073,
+      "startLine": 110911,
+      "endLine": 111100,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "startLine": 111074,
-      "endLine": 111378,
+      "startLine": 111101,
+      "endLine": 111423,
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false"
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "startLine": 111379,
-      "endLine": 111420,
+      "startLine": 111424,
+      "endLine": 111465,
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability"
     },
     {
       "file": "13aw-work-data-root-preference.js",
-      "startLine": 111421,
-      "endLine": 111698,
+      "startLine": 111466,
+      "endLine": 111743,
       "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted"
     },
     {
       "file": "13ax-desktop-lifetime.js",
-      "startLine": 111699,
-      "endLine": 111894,
+      "startLine": 111744,
+      "endLine": 111939,
       "note": "M3-D1 private desktop lifetime transport and owner-composed cooperative close; no data-root or maintenance authority"
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "startLine": 111895,
-      "endLine": 112755,
+      "startLine": 111940,
+      "endLine": 112800,
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis)."
     },
     {
       "file": "14-main.js",
-      "startLine": 112756,
-      "endLine": 113672,
+      "startLine": 112801,
+      "endLine": 113717,
       "note": "main()/module.exports"
     }
   ]

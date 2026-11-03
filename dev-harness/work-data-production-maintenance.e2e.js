@@ -464,10 +464,13 @@ function createWorld({root,evidence,target}){
  async function waitSuccessor(ref,f,jobId,{notPids}){
   const deadline=Date.now()+BUDGET.successor;
   for(;;){
-   const rt=readJsonLoose(p.join(f.base,'runtime.json'));
-   if(rt&&Number.isInteger(rt.pid)&&rt.pid!==ref.pid&&!notPids.includes(rt.pid)&&rt.port===ref.port&&rt.token!==ref.token){
-    const probe=await probePort(ref.port);
-    if(probe.kind==='warm'){
+   // The cold snapshot proves Basic/atime as well as DATA. An ordinary runtime
+   // read here can itself invalidate that source proof. Poll HTTP until the
+   // same port belongs to a normal successor before opening its runtime file.
+   const probe=await probePort(ref.port);
+   if(probe.kind==='warm'){
+    const rt=readJsonLoose(p.join(f.base,'runtime.json'));
+    if(rt&&Number.isInteger(rt.pid)&&rt.pid!==ref.pid&&!notPids.includes(rt.pid)&&rt.port===ref.port&&rt.token!==ref.token){
      let st=null;
      try{st=await upload.makeHttp({port:rt.port,token:rt.token},'/api/work-data/status',undefined,{timeout:5000});}catch(error){if(!isTransport(error))throw error;}
      if(st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.lastResult?.id===jobId&&maintenanceIsQuiet(st.value)){

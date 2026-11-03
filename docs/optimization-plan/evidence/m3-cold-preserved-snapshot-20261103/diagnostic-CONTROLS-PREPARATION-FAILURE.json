@@ -1,0 +1,1 @@
+{"schema":1,"toolChunk":"0c7580","toolExitCode":1,"actorExecuted":false,"reason":"external validation seam index retained a suffix of the removed diagnostic observation; six in-memory controls had completed before equivalence assertion","correction":"remove exactly to original latch marker; no diagnostic/product source changed"}

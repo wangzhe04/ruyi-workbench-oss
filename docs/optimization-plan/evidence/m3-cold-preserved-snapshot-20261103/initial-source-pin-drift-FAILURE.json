@@ -1,0 +1,29 @@
+{
+  "phase": "source",
+  "status": "PROJECT_CHECKS_RED",
+  "results": [
+    {
+      "name": "syntax",
+      "status": 0,
+      "signal": null,
+      "errorCode": null,
+      "elapsedMs": 206115.1907,
+      "stdoutBytes": 60,
+      "stdoutSha256": "e610cedb35c0f8eca6c1309962ce002add8cdf2c09223e19a8ece485065ebfc2",
+      "stderrBytes": 0,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "build-check",
+      "status": 0,
+      "signal": null,
+      "errorCode": null,
+      "elapsedMs": 546.4297,
+      "stdoutBytes": 69,
+      "stdoutSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "stderrBytes": 0,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "code": "ERR_ASSERTION"
+}

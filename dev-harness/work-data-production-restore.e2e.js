@@ -735,10 +735,12 @@ function createWorld({root,evidence,target,harness,releaseEnvironment,snapshotPr
  async function waitSuccessor(ref,f,{homeBase=f.base,jobId,expectedAuthority=null,requireResultId=null,forbidResultId=null,notPids=[]}){
   const deadline=Date.now()+BUDGET.successor;
   for(;;){
-   const rt=(()=>{try{return JSON.parse(fs.readFileSync(p.join(homeBase,'runtime.json'),'utf8'));}catch{return null;}})();
-   if(rt&&Number.isInteger(rt.pid)&&rt.pid!==ref.pid&&!notPids.includes(rt.pid)&&rt.port===ref.port&&rt.token!==ref.token){
-    const probe=await probePort(ref.port);
-    if(probe.kind==='warm'){
+   // Source runtime DATA must not be opened while the cold owner is proving
+   // native metadata. A warm HTTP verdict comes before any filesystem read.
+   const probe=await probePort(ref.port);
+   if(probe.kind==='warm'){
+    const rt=(()=>{try{return JSON.parse(fs.readFileSync(p.join(homeBase,'runtime.json'),'utf8'));}catch{return null;}})();
+    if(rt&&Number.isInteger(rt.pid)&&rt.pid!==ref.pid&&!notPids.includes(rt.pid)&&rt.port===ref.port&&rt.token!==ref.token){
      let st=null;
      try{st=await upload.makeHttp({port:rt.port,token:rt.token},'/api/work-data/status',undefined,{timeout:5000});}catch(error){if(!isTransport(error))throw error;}
      const ready=st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.job===null;

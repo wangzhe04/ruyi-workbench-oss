@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "scope": "PM01",
+  "actualToolSession": 22174,
+  "completionChunk": "c2adb4",
+  "actualToolExitCode": 1,
+  "naturalCompletion": true,
+  "toolFactsProvidedByRoot": true,
+  "resultSha256": "65bd40334d19f00458459e3aef48efa20a5efc25ec886cb867c10283f52a73a5",
+  "sourceDecisionSha256": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830",
+  "originalRedPermanent": true,
+  "coldSceneRetained": true,
+  "noKillOrRetry": true,
+  "notWholeBudgetTimeout": true
+}

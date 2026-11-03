@@ -42,6 +42,7 @@ async function setup(t,options={}){
    const sealed=await full.seal({password:value.password,appVersion:'3.0.1',generation:value.generation??0});assert.ok(sealed.files>=2);
    if(options.verifyFresh)await options.verifyFresh({f,context,events,value});return options.freshResult??true;},
   async verifyDisposableNativeTree(value){events.push('native-tree');assert.ok(owners.some(owner=>!owner.released&&owner===value.ownership));return options.nativeResult??true;},
+  fullSnapshot(base,ownership,assertExclusive,{onNativeCause}){events.push('snapshot-host');if(options.snapshotFactory)return options.snapshotFactory({base,ownership,assertExclusive,onNativeCause,f});const protector={supported:()=>f.context.LocalSecretCrypto.supported(),async run(...args){try{return await f.context.LocalSecretCrypto.run(...args);}catch(cause){onNativeCause(cause);throw cause;}}};return f.api.WorkDataFullSnapshot.create({base,ownership,assertExclusive,protector,externalOwner:opts=>f.api.ExternalBotCredentials.create(opts)});},
   migrationFactory(args){events.push('migration');if(typeof options.migration!=='function')throw Error('migration must not run for these operations');return options.migration(x,args);},
   progress(value){events.push(value.phase);},helperMayStillRun:()=>options.helperMayStillRun===true,
  };
@@ -461,4 +462,38 @@ test('a restore target inside the backup directory is refused before any backup 
  assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false,'no result or intent is written');
  assert.equal(x.owners.length,0,'no target owner is acquired');
  assert.deepEqual(x.claim.events,['abandon'],'a zero-effect refusal retires the handoff record');
+});
+
+test('cold operation requires the snapshot host capability before any operation work',async t=>{
+ const x=await setup(t),host={...x.host};delete host.fullSnapshot;
+ assert.throws(()=>x.api.WorkDataColdOperations.create(host),{code:'work_data_setup.operation_host_invalid'});
+ assert.deepEqual(x.events,[]);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);
+});
+
+test('cold export delegates the exact source ownership and synchronous guard to its supplied snapshot host',async t=>{
+ let calls=0;const x=await setup(t,{snapshotFactory({base,ownership,assertExclusive,onNativeCause,f}){
+  calls++;assert.equal(base,f.base);assert.equal(ownership.roots[0],base);assert.equal(assertExclusive(ownership),true);
+  assert.equal(assertExclusive({roots:[base]}),false);assert.equal(typeof onNativeCause,'function');
+  return f.api.WorkDataFullSnapshot.create({base,ownership,assertExclusive,protector:f.a,externalOwner:opts=>f.api.ExternalBotCredentials.create(opts)});
+ }});
+ const result=await x.operation.execute(x.context);assert.equal(result.state,'verified');assert.equal(calls,2,'seal and rehearsal restore use host factories');
+ assert.equal(x.events.filter(value=>value==='snapshot-host').length,2);assert.ok(fs.existsSync(result.backup.path));
+});
+
+test('malformed snapshot owners fail without backup writes; pending or opaque ownership retains the claim',async t=>{
+ for(const kind of ['missing','promise','rejected-promise','getter','proxy']){
+  let traps=0;const x=withClaim(await setup(t,{snapshotFactory(){
+   if(kind==='missing')return{seal(){throw Error('must not run');}};
+   if(kind==='promise')return Promise.resolve({});
+   if(kind==='rejected-promise')return Promise.reject(Error('synthetic factory rejection'));
+   if(kind==='getter')return Object.defineProperty({restore(){}},'seal',{get(){traps++;throw Error('must not inspect');}});
+   return new Proxy({},{get(){traps++;throw Error('must not inspect');}});
+  }}));
+  await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'
+   &&error.cause?.code===(kind==='missing'?'work_data_setup.snapshot_host_invalid':'work_data_setup.snapshot_host_uncertain')
+   &&(error.helperMayStillRun===true)===(kind!=='missing'));
+  assert.equal(traps,0);assert.deepEqual(await fsp.readdir(x.backupDirectory),[]);assert.equal(x.owners.length,0);
+  assert.deepEqual(x.claim.events,kind==='missing'?['abandon']:[]);assert.equal(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-result-v1.json')),false);
+  await new Promise(resolve=>setImmediate(resolve));
+ }
 });

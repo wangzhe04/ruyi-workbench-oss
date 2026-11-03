@@ -5,8 +5,8 @@
   "summary": {
     "modules": 133,
     "providedSymbols": 4323,
-    "requiredSymbols": 4254,
-    "edges": 921,
+    "requiredSymbols": 4252,
+    "edges": 919,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -30033,13 +30033,6 @@
           ]
         },
         {
-          "provider": "01ab-work-data-full-snapshot.js",
-          "symbol": "WorkDataFullSnapshot",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01ae-work-data-maintenance-result.js",
           "symbol": "WorkDataMaintenanceResult",
           "kinds": [
@@ -30070,13 +30063,6 @@
         {
           "provider": "13aj-work-data-control.js",
           "symbol": "WorkDataMaintenanceControl",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13y-external-bot-credentials.js",
-          "symbol": "ExternalBotCredentials",
           "kinds": [
             "read"
           ]
@@ -41369,14 +41355,6 @@
     },
     {
       "from": "13ak-work-data-cold-operations.js",
-      "to": "01ab-work-data-full-snapshot.js",
-      "symbols": [
-        "WorkDataFullSnapshot"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13ak-work-data-cold-operations.js",
       "to": "01ae-work-data-maintenance-result.js",
       "symbols": [
         "WorkDataMaintenanceResult"
@@ -41412,14 +41390,6 @@
       "to": "13aj-work-data-control.js",
       "symbols": [
         "WorkDataMaintenanceControl"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13ak-work-data-cold-operations.js",
-      "to": "13y-external-bot-credentials.js",
-      "symbols": [
-        "ExternalBotCredentials"
       ],
       "direction": "backward"
     },

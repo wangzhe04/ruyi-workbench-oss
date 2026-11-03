@@ -6,7 +6,7 @@ require('./lib/self-isolate-home');
 const fs=require('node:fs'),fsp=require('node:fs/promises'),os=require('node:os'),crypto=require('node:crypto'),cp=require('node:child_process'),assert=require('node:assert/strict');
 const {releaseEnvironment}=require('./lib/release-checks');
 const runner=require('./lib/harness').createRunner('WORK DATA COLD OPERATIONS');
-const names=['WorkDataColdOperations','WorkDataFullSnapshot','WorkDataMaintenanceResult','WorkDataManifest','WorkDataMigrationHost','WorkDataNativePublish','WorkDataDisposableNativeTree','ServerOwnership','LocalSecretCrypto','ExternalBotCredentials','MigrationHooks','migrationCapsuleCapturePreserved','WorkDataKeys','WorkDataStore','flushWorkbenchLogs','paths'];
+const names=['WorkDataColdOperations','WorkDataFullSnapshot','WorkDataNativeAdapters','WorkDataMaintenanceResult','WorkDataManifest','WorkDataMigrationHost','WorkDataNativePublish','WorkDataDisposableNativeTree','ServerOwnership','LocalSecretCrypto','ExternalBotCredentials','MigrationHooks','migrationCapsuleCapturePreserved','WorkDataKeys','WorkDataStore','flushWorkbenchLogs','paths'];
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 function isolate(home,data){const env=releaseEnvironment(home,data);for(const key of Object.keys(process.env))if(!Object.hasOwn(env,key))delete process.env[key];Object.assign(process.env,env);}
 const load=()=>require('./lib/server-internals').loadServerInternals(names);
@@ -21,14 +21,17 @@ async function cold(input){
  if(process.argv.includes('--cold')){await cold(JSON.parse(fs.readFileSync(0,'utf8')));return;}
  const parent=path.resolve(os.tmpdir()),root=await fsp.mkdtemp(path.join(parent,'ruyi-cold-operations-native-')),base=path.join(root,'data'),home=path.join(root,'home'),backupDirectory=path.join(root,'backups');
  await fsp.mkdir(path.join(base,'sessions'),{recursive:true});await fsp.mkdir(backupDirectory);isolate(home,base);
- let owner,api,passed=false,helperUncertain=false;
+ let owner,api,native,passed=false,helperUncertain=false;
+ const uncertain=()=>helperUncertain||native?.helperMayStillRun()===true||!!api&&api.MigrationHooks.helperMayStillRun()!==false;
  try{
   api=load();await fsp.writeFile(path.join(base,'config.json'),'{"workDataEncryptionV1":false}');
   const original='{"id":"sess_native","private":"NATIVE_COLD_OPERATION_PRIVATE"}';await fsp.writeFile(path.join(base,'sessions/sess_native.json'),original);
   owner=await api.ServerOwnership.acquire([base]);const password='owned synthetic native password only',flush=api.WorkDataNativePublish.createFlush();
   const guard=async work=>{try{return await work();}catch(error){if(error?.helperMayStillRun===true)helperUncertain=true;throw error;}};
   const disposable=api.WorkDataDisposableNativeTree.create({capturePreserved:(...args)=>guard(()=>api.migrationCapsuleCapturePreserved(...args))});
-  const host={acquire:roots=>api.ServerOwnership.acquire(roots),flush:dirs=>guard(()=>flush(dirs)),helperMayStillRun:()=>helperUncertain,
+  native=api.WorkDataNativeAdapters.create();const snapshotHost=native.coldOperationHost(()=>{});
+  const host={acquire:roots=>api.ServerOwnership.acquire(roots),flush:dirs=>guard(()=>flush(dirs)),helperMayStillRun:()=>helperUncertain||native.helperMayStillRun(),
+   fullSnapshot:(...args)=>snapshotHost.fullSnapshot(...args),
    verifyDisposableNativeTree:value=>guard(()=>disposable(value)),migrationFactory:options=>api.WorkDataMigrationHost.create(options),progress:()=>{},
    async verifyFresh(value){const child=cp.spawnSync(process.execPath,[__filename,'--cold'],{env:releaseEnvironment(path.join(root,'cold-home'),value.target),input:JSON.stringify({home:path.join(root,'cold-home'),target:value.target,password:value.password,generation:value.generation??(await api.WorkDataManifest.create({base:value.target}).readActive()).generation}),encoding:'utf8',windowsHide:true,timeout:120000});assert.equal(child.status,0,child.stderr+'\n'+child.stdout);assert.match(child.stdout,/COLD FULL SNAPSHOT VERIFIED/);return true;},
   };
@@ -39,7 +42,7 @@ async function cold(input){
   const disabled=await execute('disable');assert.equal(disabled.state,'published');const plain=await api.WorkDataManifest.create({base}).readActive();assert.equal(plain.generation,2);assert.equal(plain.mode,'plain');assert.equal(await fsp.readFile(path.join(plain.root,'sessions/sess_native.json'),'utf8'),original);runner.ok(true,'actual reverse migration publishes complete plain generation');
   const second=await execute('export');assert.equal(second.state,'verified');assert.equal(hash(await fsp.readFile(second.backup.path)),second.backup.sha256);assert.equal(fs.existsSync(path.join(base,'.work-data/maintenance-v1.json')),false);runner.ok(true,'second full export and durable result retain all generations without pending intent');passed=true;
  }finally{
-  if(api)await api.flushWorkbenchLogs({allowFailure:true});if(owner&&!helperUncertain)await owner.release();
-  if(passed&&!helperUncertain){assert.equal(path.dirname(root),parent);assert.ok(path.basename(root).startsWith('ruyi-cold-operations-native-'));await fsp.rm(root,{recursive:true,force:true});}else console.error('Retained owned native operation fixture '+root);
+  if(api)await api.flushWorkbenchLogs({allowFailure:true});if(owner&&!uncertain())await owner.release();
+  if(passed&&!uncertain()){assert.equal(path.dirname(root),parent);assert.ok(path.basename(root).startsWith('ruyi-cold-operations-native-'));await fsp.rm(root,{recursive:true,force:true});assert.equal(uncertain(),false);}else {const late=passed;passed=false;console.error('Retained owned native operation fixture '+root);if(late)throw Object.assign(Error('cold_operations.owner_uncertain'),{code:'cold_operations.owner_uncertain',helperMayStillRun:true});}
  }
 })().catch(error=>runner.fail(error.stack||String(error))).finally(()=>runner.done({exit:true}));

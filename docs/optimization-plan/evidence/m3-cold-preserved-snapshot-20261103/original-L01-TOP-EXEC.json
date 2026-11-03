@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "scope": "L01",
+  "actualToolSession": 14355,
+  "completionChunk": "913760",
+  "actualToolExitCode": 1,
+  "naturalCompletion": true,
+  "toolFactsProvidedByRoot": true,
+  "resultSha256": "f3b737c39a3bbddcd0d6ab9cb9db481016f916c282b4814caac98aee439aeb9a",
+  "sourceDecisionSha256": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830",
+  "permanentOriginal120SecondRed": true,
+  "lateBusinessGroups": [
+    "actual native enable publishes encrypted generation and preserves original source",
+    "after-enable full export survives real native portable restore and independent cold process verification",
+    "actual reverse migration publishes complete plain generation",
+    "second full export and durable result retain all generations without pending intent"
+  ],
+  "lateLegacyForcedChildZero": true,
+  "lateResultsDoNotClearOriginalDeadline": true
+}

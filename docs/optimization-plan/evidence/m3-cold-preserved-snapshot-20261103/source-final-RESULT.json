@@ -1,0 +1,71 @@
+{
+  "phase": "source-final",
+  "status": "PROJECT_CHECKS_PASS",
+  "nodeVersion": "v24.14.0",
+  "pins": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "4e3f6307d7b25b30a05170f857b8789983257978e1cb41b3aedb0c0d74b3e622"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "sha256": "dcdf7218ad870eb8ccd5017b02395b5210b281d96aa4b2c8b61e52c6c8c4eec6"
+    },
+    {
+      "file": "dev-harness/work-data-cold-preserved-snapshot.e2e.js",
+      "sha256": "1a291b12724aee2bd85134046c6be2f109ef7bcdcea20638884178265249dbee"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "sha256": "a65e9b3edd464614c74f57cafd1a56fa963c66c527fc80a4475fd157cea1bfd6"
+    },
+    {
+      "file": "dev-harness/unit/work-data-production-host.test.js",
+      "sha256": "12a5f78b6d0528a0e2cf47e0f67fe0ece5b990461a7c8a1eccec18f18e80bc61"
+    },
+    {
+      "file": "dev-harness/run-all.js",
+      "sha256": "7b41b8fccbb5768f07c7b934488682bd995d43ecbc135ca6bce173023008392d"
+    },
+    {
+      "file": "dev-harness/work-data-production-maintenance.e2e.js",
+      "sha256": "35b0a384d4b30a46c56429f9f12e7d8c052d68384c22752ee7dde1fc4f64b09e"
+    },
+    {
+      "file": "dev-harness/work-data-production-restore.e2e.js",
+      "sha256": "c3edd19c3750ea486174ee97e8d84d28ffd6178ebae89b0d7c902b6e8c6345d9"
+    },
+    {
+      "file": "dev-harness/unit/migration-native-rename-size.test.js",
+      "sha256": "7bf92133088aba3870a62258495fead22dcf10e570b8a51b78866201eab4bd30"
+    },
+    {
+      "file": "dev-harness/unit/work-data-maintenance-snapshot-diagnostics.test.js",
+      "sha256": "87a1d8eff397d55ec57fd98c02a497ad53ff2029fd450d2d2c564bc29e74232d"
+    }
+  ],
+  "results": [
+    {
+      "name": "syntax",
+      "status": 0,
+      "signal": null,
+      "errorCode": null,
+      "elapsedMs": 273704.4708,
+      "stdoutBytes": 60,
+      "stdoutSha256": "e610cedb35c0f8eca6c1309962ce002add8cdf2c09223e19a8ece485065ebfc2",
+      "stderrBytes": 0,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "build-check",
+      "status": 0,
+      "signal": null,
+      "errorCode": null,
+      "elapsedMs": 582.7688,
+      "stdoutBytes": 69,
+      "stdoutSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "stderrBytes": 0,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

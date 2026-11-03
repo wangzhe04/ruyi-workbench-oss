@@ -1,0 +1,282 @@
+{
+  "schema": 1,
+  "status": "REJECT_PM01_ORIGINAL_900_SNAPSHOT_PREPARATION",
+  "scope": "PM01",
+  "accepted": false,
+  "unresolvedEvidenceP1P2": 0,
+  "actualGo": false,
+  "originalRedPermanent": true,
+  "sourceDecisionSha256": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830",
+  "rootReceiptSha256": "896796614d6aab77578eaeb4705dbffb2b2d294211f55dc984c8dd6e7cf262cd",
+  "resultSha256": "65bd40334d19f00458459e3aef48efa20a5efc25ec886cb867c10283f52a73a5",
+  "callerSha256": "6455c68386e6994c737dbaa43f6194a31ca5a8330b1bc404b070f7908198ee3c",
+  "rootToolFact": {
+    "session": 22174,
+    "completionChunk": "c2adb4",
+    "naturalParentExitCode": 1,
+    "providedByRoot": true,
+    "notInferredFromCim": true
+  },
+  "wholeBudgetMs": 900000,
+  "terminalElapsedNs": "148261659000",
+  "withinWholeBudget": true,
+  "outerFailure": {
+    "reason": "nonzero-exit",
+    "exitCode": 1,
+    "closeCode": 1,
+    "signalsNull": true,
+    "allTenTerminalFlags": true,
+    "deadlineReceiptPresent": false,
+    "stdoutBytes": 0,
+    "stderrBytes": 183
+  },
+  "producerObservation": {
+    "failureStage": "successor-enable",
+    "coldPhase": "snapshot",
+    "coldState": "failed",
+    "publicError": "work_data_setup.preparation_failed",
+    "reportedAuthority": {
+      "generation": 0,
+      "id": null,
+      "mode": "plain",
+      "sha256": null
+    },
+    "reportedBackupPathAbsent": true,
+    "claimWatcherFinalAbsent": true,
+    "journalAssertionPasses": 6,
+    "stdoutPassCountExplanation": "This permanent E2E prints ctx.checks only on full batch success. Empty stdout/caller passGroups0 does not erase six prior journal assertions."
+  },
+  "diagnosis": {
+    "rootCauseNotEstablished": true,
+    "rawCauseNotPersistedByOriginalHold": true,
+    "publicOperationMayHaveExecutedIsFixedConservativeHttpProjection": true,
+    "doNotInferActualMutationFromThatField": true,
+    "noConfirmedAsyncGuardNativeCensusOrLiveLogCause": true,
+    "firstFailureWindow": {
+      "ownedSampleMs": 1793682396803,
+      "nextAbsentSampleMs": 1793682400836,
+      "deltaMs": 4033,
+      "notExactNativeExecutionDuration": true
+    }
+  },
+  "retainedActor": {
+    "pid": 33668,
+    "createdUtc": "2026-11-03T05:06:32.6806610Z",
+    "expectedCommand": "coldwt/ruyi-workbench/app/server.js work-data-maintenance",
+    "identityAndRetentionProvidedByRoot": true,
+    "reviewerDidNotQueryCimOrOperateActor": true,
+    "noKillNoReuseNoRetry": true
+  },
+  "sourceContinuity": {
+    "inputPinsExactlyMatchOriginalSourceReview": true,
+    "originalPostPinsSupportedByExactCallerVerifyingBeforeHOLDAssertion": true,
+    "currentPinDifferencesAfterScope": [
+      {
+        "file": "dev-harness/run-all.js",
+        "expectedAtPM01": "b65ece4768bc2024b985509160cb24b1260bd8d3c742473d89c283091de7de08",
+        "currentSha256": "7b41b8fccbb5768f07c7b934488682bd995d43ecbc135ca6bce173023008392d"
+      }
+    ],
+    "laterDifferenceDisposition": "Root reported user-authorized cold-operations whole-budget update after PM01; do not relabel the original source identity or attribute this later run-all change to the PM01 failure",
+    "budgetAuthorizationSha256": "81023c4c57f4d163a538c8e0c6b562abd8fedb9b971bbcf2b22726ca499c64a6"
+  },
+  "nextStep": {
+    "noPR01OrUnchangedPM01Rerun": true,
+    "separateDiagnosticCopyOnly": true,
+    "onlyCodesFromDescriptorSafeBoundedCauseGraph": true,
+    "keepOriginalPrimaryLatchHoldAndRealApi": true,
+    "noDiagnosticOrBudgetGoGrantedByThisRejection": true
+  },
+  "noFixtureDataPackageKeysConfigOrTokenValuesReadOrEchoed": true,
+  "noAllOsDescendantsClosedClaim": true,
+  "wholeM3Complete": false,
+  "released": false,
+  "reviewerExecutedActor": false,
+  "selectedFiles": [
+    {
+      "file": "C:/r31-1103/cold-task/SOURCE-REVIEW.json",
+      "bytes": 10138,
+      "sha256": "85b9acff8e8d625099678326a462bd7a2c79c0e9665ba26bdf32dcc72823b830"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/PM01/INPUT.json",
+      "bytes": 4266,
+      "sha256": "ef2e3530b55bf13b23fd07352b767cc63a47100ce77a9b1ce10e26f6a339f67a"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/PM01/RESULT.json",
+      "bytes": 1395,
+      "sha256": "65bd40334d19f00458459e3aef48efa20a5efc25ec886cb867c10283f52a73a5"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/PM01/TOP-EXEC.json",
+      "bytes": 488,
+      "sha256": "896796614d6aab77578eaeb4705dbffb2b2d294211f55dc984c8dd6e7cf262cd"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/PM01/stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/PM01/stderr.log",
+      "bytes": 183,
+      "sha256": "fda0181a5315bba546ced92106fb9ebcfc151d45ba6f6a9e4e97cdaee745d678"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/PM01/events.jsonl",
+      "bytes": 746,
+      "sha256": "3d93269db0ad1d4e789a1035c71695f14d808b4f405252dbb239ebb14350e90d"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/PM01/isolation/temp/ruyi-production-maintenance-DZEn11/evidence/failure-summary.json",
+      "bytes": 3328,
+      "sha256": "536925a2f06ff540f467007b4e187b2647e5e76230f3c59ee29992205c68ecf7"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/PM01/isolation/temp/ruyi-production-maintenance-DZEn11/evidence/events.jsonl",
+      "bytes": 80166,
+      "sha256": "e679159b35e574959cf4e372bf2f1eeb16a172ebcbcb75231b667d8ff7d16483"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/run-case.cjs",
+      "bytes": 8409,
+      "sha256": "6455c68386e6994c737dbaa43f6194a31ca5a8330b1bc404b070f7908198ee3c"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/server.js",
+      "bytes": 8490850,
+      "sha256": "4e3f6307d7b25b30a05170f857b8789983257978e1cb41b3aedb0c0d74b3e622"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/manifest.json",
+      "bytes": 37997,
+      "sha256": "be18f434e32de247019f0c9bc5c94882d8638d6f9b9b408a371bdbb8dd77eeff"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "bytes": 32227,
+      "sha256": "a65e9b3edd464614c74f57cafd1a56fa963c66c527fc80a4475fd157cea1bfd6"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "bytes": 25796,
+      "sha256": "dcdf7218ad870eb8ccd5017b02395b5210b281d96aa4b2c8b61e52c6c8c4eec6"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-cold-preserved-snapshot.e2e.js",
+      "bytes": 7353,
+      "sha256": "1a291b12724aee2bd85134046c6be2f109ef7bcdcea20638884178265249dbee"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-cold-operations.e2e.js",
+      "bytes": 7288,
+      "sha256": "9e6aa326c2bfa39968b2a7f293c133d292f2194189976d4cf3c4c2d9702ad883"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-maintenance.e2e.js",
+      "bytes": 60206,
+      "sha256": "19232c9ffb034e2de456f12d96dbe40274f708f24363550e1b23226d3640d8c3"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-restore.e2e.js",
+      "bytes": 105010,
+      "sha256": "9d5b2416d283aa09fd06a9baaa47ecb599ce51cc2209850d445cf83be481b3c1"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/work-data-production-upload.e2e.js",
+      "bytes": 28954,
+      "sha256": "29c824775cb9a5595bd4c7483bc6c705705ca6d2e3d4a1c45a280f3393f5054f"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/skill-capsule-native-fixture.js",
+      "bytes": 6761,
+      "sha256": "8a887a056ce25a71050e50c41062fdae501b24a9e0567714b31ded230dff9b43"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/fixture-home-guard.js",
+      "bytes": 4557,
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/release-checks.js",
+      "bytes": 2826,
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-upload-core.js",
+      "bytes": 17255,
+      "sha256": "95d49f3a69c3318b23ef98428e63791bf9b21c0e4e401def419b603762c25b1b"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-upload-process.js",
+      "bytes": 22486,
+      "sha256": "d86bf0ee3eb919404d9f853e0fad3df7e4e21f37da7a6762fcd965cff0fe0988"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/kill-own-tree.js",
+      "bytes": 7839,
+      "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/lib/work-data-production-maintenance-outer-job.ps1",
+      "bytes": 10235,
+      "sha256": "e3694c4bd5b54f190525170cf7e23a3c3965f2b81537ee42ef7a8979f02de5c1"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-production-host.test.js",
+      "bytes": 90653,
+      "sha256": "12a5f78b6d0528a0e2cf47e0f67fe0ece5b990461a7c8a1eccec18f18e80bc61"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-cold-operations.test.js",
+      "bytes": 47232,
+      "sha256": "127eb5749b9b22896c40efe889da1c45b31cdc3b78e58e5bc3da1f701d450608"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/unit/work-data-cold-migration.test.js",
+      "bytes": 4941,
+      "sha256": "d95edc071095c817f58289dedeac3499e0c5e71e541a9bb1879f64e772ad1cc8"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/dev-harness/run-all.js",
+      "bytes": 52194,
+      "sha256": "7b41b8fccbb5768f07c7b934488682bd995d43ecbc135ca6bce173023008392d"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/USER-BUDGET-AUTHORIZATION.json",
+      "bytes": 459,
+      "sha256": "81023c4c57f4d163a538c8e0c6b562abd8fedb9b971bbcf2b22726ca499c64a6"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "bytes": 45508,
+      "sha256": "cbdfc6e3812fce4487510fe4c4f6a3145a53afa608a5c5f143fd30e044b666a8"
+    },
+    {
+      "file": "C:/r31-1103/coldwt/ruyi-workbench/app/src/13al-work-data-maintenance-http.js",
+      "bytes": 7779,
+      "sha256": "163802815e80873f1b6b287ff7a1e41301eec15ed802d71099d1ba99f266b4b9"
+    }
+  ]
+}

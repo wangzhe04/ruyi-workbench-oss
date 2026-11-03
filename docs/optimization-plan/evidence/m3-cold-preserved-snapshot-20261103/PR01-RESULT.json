@@ -1,0 +1,39 @@
+{
+  "scope": "PR01",
+  "entry": "work-data-production-restore.e2e.js",
+  "accepted": true,
+  "passGroups": 26,
+  "decisionSha": "01c8101851d19a6fd799efba8ca69aabebad29ea49a1b6b55f3275cfcccaa4f0",
+  "observer": {
+    "status": "OBSERVED_NATURAL_ZERO",
+    "firstError": null,
+    "unknown": false,
+    "flags": {
+      "exit": true,
+      "close": true,
+      "stdout-end": true,
+      "stdout-close": true,
+      "stdout-sink-finish": true,
+      "stdout-sink-close": true,
+      "stderr-end": true,
+      "stderr-close": true,
+      "stderr-sink-finish": true,
+      "stderr-sink-close": true
+    },
+    "exitCode": 0,
+    "exitSignal": null,
+    "closeCode": 0,
+    "closeSignal": null,
+    "elapsedNs": "274490303300",
+    "terminalElapsedNs": "274490303300",
+    "budgetMs": 900000,
+    "noKillRetry": true,
+    "allOsDescendantsClosedClaim": false,
+    "cimCreationCaptured": false,
+    "actualImageCaptured": false
+  },
+  "failure": null,
+  "naturalEntryReturn": true,
+  "legacyForcedExit": false,
+  "scopeBoundary": "Synthetic finite regression only; no full M3, metadata restore, release or all-OS-descendant closure claim"
+}

@@ -137,3 +137,47 @@ test('maintenance quiet rejects missing or invalid known counters and uses the s
  assert.equal(reads,1);assert.equal(yields,0,'a late status response cannot extend the old deadline');
  now=10;await assert.rejects(waitMaintenanceQuiet(async()=>{reads++;return f.status();},{deadline:10,now:()=>now}),/maintenance readiness deadline/);assert.equal(reads,1,'expired budget starts no new request');
 });
+
+function successorObservation(kind,{mutant=false,coldOnly=false}={}){
+ const file=kind==='maintenance'?'work-data-production-maintenance.e2e.js':'work-data-production-restore.e2e.js';
+ let body=functionBlock(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),'waitSuccessor');
+ if(mutant){const anchor='const probe=await probePort(ref.port);';assert.equal(body.split(anchor).length,2);body=body.replace(anchor,"const probe={kind:'warm'};");}
+ const state={events:[],runtimeReads:0,unsafeReads:0,identityReads:0},kinds=['cold','none','other','warm'];let clock=0,probes=0,warm=false;
+ const runtime={pid:20,port:12345,token:'synthetic-new-token',host:'127.0.0.1'};
+ const readRuntime=()=>{state.events.push('runtime');state.runtimeReads++;if(!warm)state.unsafeReads++;return runtime;};
+ const api=vm.runInNewContext(body+'\nwaitSuccessor',{
+  p:path,Date:{now:()=>clock},BUDGET:{successor:coldOnly?10:1000},a:assert,
+  async probePort(){const value=coldOnly?'cold':kinds[Math.min(probes++,kinds.length-1)];state.events.push('probe:'+value);warm=value==='warm';return{kind:value};},
+  readJsonLoose:readRuntime,fs:{readFileSync:()=>JSON.stringify(readRuntime())},
+  upload:{async makeHttp(){state.events.push('status');return{status:200,value:{capabilities:{worker:true},job:null,lastResult:{id:'synthetic-job'},maintenanceQuiet:true}};}},
+  maintenanceIsQuiet:value=>value.maintenanceQuiet===true,sameAuthority:()=>true,isTransport:()=>false,
+  async cimIdentity(pid){state.events.push('identity');state.identityReads++;return{pid};},
+  async readColdVerdict(){state.events.push('cold-verdict');return{job:{state:'failed',phase:'snapshot',error:'work_data_setup.preparation_failed'}};},
+  async sleep(){clock+=5;}
+ });
+ const ref={pid:10,port:12345,token:'synthetic-old-token'},f={base:path.resolve('synthetic-preserved-runtime')};
+ return{state,promise:kind==='maintenance'?api(ref,f,'synthetic-job',{notPids:[]}):api(ref,f,{jobId:'synthetic-job',requireResultId:'synthetic-job'})};
+}
+
+test('real successor observers wait for warm HTTP before opening source or rehearsal runtime DATA',async()=>{
+ for(const kind of ['maintenance','restore']){
+  const f=successorObservation(kind),value=await f.promise;
+  assert.equal(value.pid,20);assert.equal(value.token,'synthetic-new-token');assert.equal(f.state.runtimeReads,1);assert.equal(f.state.unsafeReads,0);assert.equal(f.state.identityReads,1);
+  assert.deepEqual(f.state.events,['probe:cold','probe:none','probe:other','probe:warm','runtime','status','identity']);
+ }
+});
+
+test('a successor-observer mutant that skips the warm HTTP proof exposes its unsafe runtime read',async()=>{
+ for(const kind of ['maintenance','restore']){
+  const f=successorObservation(kind,{mutant:true});await f.promise;
+  assert.equal(f.state.unsafeReads,1,'the negative control would open runtime DATA during the cold snapshot');assert.equal(f.state.events.includes('probe:warm'),false);
+ }
+});
+
+test('cold successor refusal preserves the original deadline and never opens runtime DATA',async()=>{
+ for(const kind of ['maintenance','restore']){
+  const f=successorObservation(kind,{coldOnly:true});
+  await assert.rejects(f.promise,/successor readiness deadline; cold job state=failed phase=snapshot error=work_data_setup.preparation_failed/);
+  assert.equal(f.state.runtimeReads,0);assert.equal(f.state.unsafeReads,0);assert.equal(f.state.identityReads,0);assert.equal(f.state.events.at(-1),'cold-verdict');
+ }
+});

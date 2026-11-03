@@ -14,6 +14,7 @@ async function setup(t,options={}){
  const host={acquire:async roots=>{const owner={roots,release:async()=>owners.delete(owner)};owners.add(owner);return owner;},flush:async()=>{},
   async verifyFresh(value){const owner={roots:[value.target]},full=f.api.WorkDataFullSnapshot.create({base:value.target,ownership:owner,assertExclusive:()=>true,protector:f.protector,externalOwner:opts=>f.api.ExternalBotCredentials.create(opts)});await full.seal({password:value.password,appVersion:'3.0.1',generation:value.generation??0});return true;},
   verifyDisposableNativeTree:async()=>true,progress:()=>{},helperMayStillRun:()=>false,
+  fullSnapshot:(base,ownership,assertExclusive,{onNativeCause})=>f.api.WorkDataFullSnapshot.create({base,ownership,assertExclusive,protector:{supported:()=>f.protector.supported(),async run(...args){try{return await f.protector.run(...args);}catch(cause){onNativeCause(cause);throw cause;}}},externalOwner:opts=>f.api.ExternalBotCredentials.create(opts)}),
   migrationFactory(value){const actual=f.api.WorkDataMigrationHost.create(value);return options.wrap?options.wrap(actual):actual;},
  };
  await f.write('config.json','{ "workDataEncryptionV1": false, "private":"ORIGINAL_PRIVATE" }');await f.write('sessions/sess_one.json','{"id":"sess_one","private":"SESSION_PRIVATE"}');

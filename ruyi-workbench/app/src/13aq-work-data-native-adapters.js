@@ -128,9 +128,10 @@ const WorkDataNativeAdapters = ((io, p, c) => {
           code:'work_data_adapter.source_keeper_cleanup',helperMayStillRun:true,ownershipRetained:true,retry:false});
       }
     }
-    function fullSnapshot(base, ownership, assertExclusive, {controlRecoveryProof} = {}) {
+    function createSnapshot(base, ownership, assertExclusive, {controlRecoveryProof} = {}, onNativeCause) {
       check(); if (typeof assertExclusive !== 'function' || !bindings.ownership.owns(ownership,base)) throw fail('ownership_required');
       if (assertExclusive.constructor?.name === 'AsyncFunction') throw fail('snapshot_sync_owner_required');
+      if (onNativeCause !== undefined && (typeof onNativeCause !== 'function' || require('node:util').types.isProxy(onNativeCause) || require('node:util').types.isAsyncFunction(onNativeCause))) throw fail('snapshot_observer_invalid');
       // Observe only a plain native Promise with descriptor-checked construction.
       // Unknown thenables are never awaited or inspected through their getters.
       const observePending = value => {
@@ -163,10 +164,26 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       };
       const preservedRead = Object.freeze({profile:'bounded-native-v1',
         capturePreserved:(...args) => guarded(() => bindings.capturePreserved(...args))});
-      const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusiveSync,assertExclusiveSync:exclusiveSync,preservedRead,protector,
+      // Only the cold host can observe raw crypto failure before key/vault owners
+      // sanitize it. The configured backend stays fixed and the original cause
+      // stays primary even if this internal observer itself fails.
+      const snapshotProtector = onNativeCause === undefined ? protector : Object.freeze({supported:protector.supported,
+        async run(...args) {
+          try { return await protector.run(...args); }
+          catch (cause) {
+            try { const observed = onNativeCause(cause); if (observed !== null && (typeof observed === 'object' || typeof observed === 'function')) { observePending(observed); unknown = true; } }
+            catch (observerCause) { latch(observerCause); unknown = true; }
+            throw cause;
+          }
+        }
+      });
+      const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusiveSync,assertExclusiveSync:exclusiveSync,preservedRead,protector:snapshotProtector,
         externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner,controlRecoveryProof});
       return Object.freeze({seal:value => withSource(ownership,base,() => owner.seal(value)),
         restore:value => withSource(ownership,base,() => withSource(value?.targetOwnership === undefined ? ownership : value.targetOwnership,value?.target,() => owner.restore(value)))});
+    }
+    function fullSnapshot(base, ownership, assertExclusive, {controlRecoveryProof} = {}) {
+      return createSnapshot(base,ownership,assertExclusive,{controlRecoveryProof});
     }
     async function readAuthority(base) { return guarded(async () => {
       const value = await bindings.manifest.create({base}).readActive();
@@ -287,6 +304,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
     function coldOperationHost(progress) {
       if (typeof progress !== 'function') throw fail('progress_invalid'); check();
       return Object.freeze({acquire:roots => {check();return bindings.ownership.acquire(roots);},sourceKeeper,flush,verifyFresh,
+        fullSnapshot:(base,ownership,assertExclusive,{onNativeCause}={})=>createSnapshot(base,ownership,assertExclusive,undefined,onNativeCause),
         verifyDisposableNativeTree:disposable,migrationFactory:options => {
           check(); const owner = bindings.migrationHost.create(options), wrapped = {};
           for (const name of ['prepare','publish','cancel','verifyPublished']) wrapped[name] = value => guarded(() => owner[name](value));

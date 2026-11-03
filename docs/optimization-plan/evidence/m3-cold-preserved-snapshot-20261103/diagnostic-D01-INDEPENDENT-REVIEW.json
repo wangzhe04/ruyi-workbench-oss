@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "status": "ACCEPT_FINITE_D01_CODE_OBSERVATION_NOT_PRODUCT_ACCEPTANCE",
+  "scope": "D01",
+  "diagnosticOnly": true,
+  "accepted": false,
+  "unresolvedEvidenceP1P2": 0,
+  "actualGo": false,
+  "sourceReviewSha256": "2f3ae3486828ce193f7fc48813cca68cccc8f3b575fbe7d901dfaa3b63860d99",
+  "controlsSha256": "457dfa2504e845434259f1ba5eee4a462c85ad36948563dcb644cb9aff3c3862",
+  "rootReceiptSha256": "37813c8631f64a34a181befc236719f9dcb100052fab30ca58418f88d6552f80",
+  "resultSha256": "f21a9a4d7fb1d17dc2fdf1b339cb68f4f1261cc114bc7a2984d810046d113a41",
+  "causeFileSha256": "bb9ea794c0a065adc79ce4ecbbc5c6ec40a9b8b513290df5b77545db95d1ba03",
+  "rootToolFact": {
+    "session": 62680,
+    "completionChunk": "0d478f",
+    "naturalParentExitCode": 1,
+    "providedByRoot": true
+  },
+  "wholeBudgetMs": 900000,
+  "terminalElapsedNs": "147015902000",
+  "outerNonzeroExitWithTenTerminals": true,
+  "all25DiagnosticPinsCurrentAndPostMatch": true,
+  "observedCodes": [
+    "work_data_setup.preparation_failed",
+    "work_data_tree.source_changed"
+  ],
+  "finiteConclusion": "A fresh diagnostic execution reproduced the snapshot failure and exposed work_data_tree.source_changed below preparation_failed; it narrows the component but not the particular comparison or sole physical cause",
+  "limitations": [
+    "D01 accepted remainsfalse; this is a limited code-receipt readback, not product/native/performance qualification",
+    "PM01 original900 RED and L01 original120 RED remain permanent",
+    "The corrected warm-before-runtime test observer has not been evaluated by D01; this probe used the older observer",
+    "No claim that runtime polling was the unique cause, no metadata-ignore/exclusion permission, no normal-return or all-OS descendant closure claim",
+    "Only explicit public diagnostic metadata and code/pins read; no retained fixture DATA/package/key/config, token or raw message/stack read or copied",
+    "No automatic next actual, no retry/kill or operation of retained actors by reviewer"
+  ],
+  "wholeM3Complete": false,
+  "released": false,
+  "reviewerExecutedActor": false,
+  "selectedFiles": [
+    {
+      "file": "C:/r31-1103/cold-task/diag/SOURCE-REVIEW.json",
+      "bytes": 6122,
+      "sha256": "2f3ae3486828ce193f7fc48813cca68cccc8f3b575fbe7d901dfaa3b63860d99"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/diag/CONTROLS.json",
+      "bytes": 4757,
+      "sha256": "457dfa2504e845434259f1ba5eee4a462c85ad36948563dcb644cb9aff3c3862"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/diag/D01/TOP-EXEC.json",
+      "bytes": 530,
+      "sha256": "37813c8631f64a34a181befc236719f9dcb100052fab30ca58418f88d6552f80"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/diag/D01/RESULT.json",
+      "bytes": 1002,
+      "sha256": "f21a9a4d7fb1d17dc2fdf1b339cb68f4f1261cc114bc7a2984d810046d113a41"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/diag/CAUSE-CODES.json",
+      "bytes": 124,
+      "sha256": "bb9ea794c0a065adc79ce4ecbbc5c6ec40a9b8b513290df5b77545db95d1ba03"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/diag/D01/INPUT.json",
+      "bytes": 4251,
+      "sha256": "489d090ca248ab06181e2f7411f8cc17ea58ec458262452d49c6476385b93d67"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/diag/D01/events.jsonl",
+      "bytes": 745,
+      "sha256": "3a776fd9629f20782585b15a851457be21db1d579be2cb576de50b5e4c6e736e"
+    },
+    {
+      "file": "C:/r31-1103/cold-task/diag/run-diagnostic.cjs",
+      "bytes": 3461,
+      "sha256": "3f260e5383bc21b5f65f4772eb5db19aa0ef458c3615754c721e12eacf9b9aed"
+    },
+    {
+      "file": "C:/r31-1103/dwt/ruyi-workbench/app/server.js",
+      "bytes": 8492343,
+      "sha256": "4ffb7f247bfa729148c2709ff9f7751745d136900c46d18acad796845dd5b1c5"
+    },
+    {
+      "file": "C:/r31-1103/dwt/ruyi-workbench/app/src/manifest.json",
+      "bytes": 37997,
+      "sha256": "634bdfd6dee15c04a345d9652efb14b48fa5525e0d78a62e25d779e4123aa2f6"
+    },
+    {
+      "file": "C:/r31-1103/dwt/ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+      "bytes": 32227,
+      "sha256": "a65e9b3edd464614c74f57cafd1a56fa963c66c527fc80a4475fd157cea1bfd6"
+    },
+    {
+      "file": "C:/r31-1103/dwt/ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "bytes": 25796,
+      "sha256": "dcdf7218ad870eb8ccd5017b02395b5210b281d96aa4b2c8b61e52c6c8c4eec6"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/work-data-cold-preserved-snapshot.e2e.js",
+      "bytes": 7353,
+      "sha256": "1a291b12724aee2bd85134046c6be2f109ef7bcdcea20638884178265249dbee"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/work-data-cold-operations.e2e.js",
+      "bytes": 7288,
+      "sha256": "9e6aa326c2bfa39968b2a7f293c133d292f2194189976d4cf3c4c2d9702ad883"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/work-data-production-maintenance.e2e.js",
+      "bytes": 60206,
+      "sha256": "19232c9ffb034e2de456f12d96dbe40274f708f24363550e1b23226d3640d8c3"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/work-data-production-restore.e2e.js",
+      "bytes": 105010,
+      "sha256": "9d5b2416d283aa09fd06a9baaa47ecb599ce51cc2209850d445cf83be481b3c1"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/work-data-production-upload.e2e.js",
+      "bytes": 28954,
+      "sha256": "29c824775cb9a5595bd4c7483bc6c705705ca6d2e3d4a1c45a280f3393f5054f"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/skill-capsule-native-fixture.js",
+      "bytes": 6761,
+      "sha256": "8a887a056ce25a71050e50c41062fdae501b24a9e0567714b31ded230dff9b43"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/fixture-home-guard.js",
+      "bytes": 4557,
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/release-checks.js",
+      "bytes": 2826,
+      "sha256": "b1d4fbc348fca8f5c35f73fef031ab17b8d9f074cbff367cfc0f76c16b8fe172"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/self-isolate-home.js",
+      "bytes": 2772,
+      "sha256": "f8e1f68e0d26991149ed39ec7838d9b4fb19e0140a6a572b02ef84f7a37ecf7e"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/fixture-home.js",
+      "bytes": 7828,
+      "sha256": "3bffc53ee6c1fadf66ca5f231b1f801a04f9aa20ed2dfea14a715e9904cbe3c5"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/harness.js",
+      "bytes": 2520,
+      "sha256": "35b4bd6e02164e39c6967863a31f08f4cf15303fa78b19bd6fef9f257a569eae"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/work-data-production-upload-core.js",
+      "bytes": 17255,
+      "sha256": "95d49f3a69c3318b23ef98428e63791bf9b21c0e4e401def419b603762c25b1b"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/work-data-production-upload-process.js",
+      "bytes": 22486,
+      "sha256": "d86bf0ee3eb919404d9f853e0fad3df7e4e21f37da7a6762fcd965cff0fe0988"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/kill-own-tree.js",
+      "bytes": 7839,
+      "sha256": "8c69745b086d224495db51e46fcbd0ba2935c27c5884e42cf9e66a8ef00a6730"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/lib/work-data-production-maintenance-outer-job.ps1",
+      "bytes": 10235,
+      "sha256": "e3694c4bd5b54f190525170cf7e23a3c3965f2b81537ee42ef7a8979f02de5c1"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/unit/work-data-production-host.test.js",
+      "bytes": 90653,
+      "sha256": "12a5f78b6d0528a0e2cf47e0f67fe0ece5b990461a7c8a1eccec18f18e80bc61"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/unit/work-data-cold-operations.test.js",
+      "bytes": 47232,
+      "sha256": "127eb5749b9b22896c40efe889da1c45b31cdc3b78e58e5bc3da1f701d450608"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/unit/work-data-cold-migration.test.js",
+      "bytes": 4941,
+      "sha256": "d95edc071095c817f58289dedeac3499e0c5e71e541a9bb1879f64e772ad1cc8"
+    },
+    {
+      "file": "C:/r31-1103/dwt/dev-harness/run-all.js",
+      "bytes": 51872,
+      "sha256": "b65ece4768bc2024b985509160cb24b1260bd8d3c742473d89c283091de7de08"
+    },
+    {
+      "file": "C:/r31-1103/dwt/ruyi-workbench/app/src/13am-work-data-maintenance-runtime.js",
+      "bytes": 47001,
+      "sha256": "a454e8d1df8f03437636759907d638695e98446d39a260e55195f673b0238827"
+    }
+  ]
+}

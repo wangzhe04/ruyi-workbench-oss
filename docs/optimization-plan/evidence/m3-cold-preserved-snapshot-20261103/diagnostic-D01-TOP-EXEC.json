@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "scope": "D01",
+  "actualToolSession": 62680,
+  "completionChunk": "0d478f",
+  "actualToolExitCode": 1,
+  "naturalCompletion": true,
+  "toolFactsProvidedByRoot": true,
+  "resultSha256": "f21a9a4d7fb1d17dc2fdf1b339cb68f4f1261cc114bc7a2984d810046d113a41",
+  "sourceReviewSha256": "2f3ae3486828ce193f7fc48813cca68cccc8f3b575fbe7d901dfaa3b63860d99",
+  "causeFileSha256": "bb9ea794c0a065adc79ce4ecbbc5c6ec40a9b8b513290df5b77545db95d1ba03",
+  "diagnosticOnly": true,
+  "accepted": false,
+  "doesNotClearPM01": true
+}
