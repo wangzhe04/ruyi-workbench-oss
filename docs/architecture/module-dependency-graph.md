@@ -133,7 +133,7 @@
 | 115 | `13aj-work-data-control.js` | unclassified | 1 | 3 | 2 |
 | 116 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 4 | 2 |
 | 117 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
-| 118 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 10 | 8 |
+| 118 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 9 | 7 |
 | 119 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 11 | 8 |
 | 120 | `13ap-session-fulltext-index.js` | unclassified | 3 | 14 | 6 |
 | 121 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 24 | 10 |
@@ -142,7 +142,7 @@
 | 124 | `13bc-media-image-processor.js` | unclassified | 1 | 2 | 1 |
 | 125 | `13bd-media-image-service.js` | unclassified | 1 | 1 | 1 |
 | 126 | `13be-media-image-host.js` | unclassified | 1 | 30 | 14 |
-| 127 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 15 | 13 |
+| 127 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 16 | 14 |
 | 128 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 129 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
 | 130 | `13ax-desktop-lifetime.js` | unclassified | 10 | 16 | 9 |
@@ -668,7 +668,6 @@
 | `13aj-work-data-control.js` | `01ab-work-data-full-snapshot.js` | backward | `WorkDataFullSnapshot` |
 | `13ak-work-data-cold-operations.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `text` |
 | `13ak-work-data-cold-operations.js` | `01-config.js` | backward | `atomicWriteJson` |
-| `13ak-work-data-cold-operations.js` | `01aa-work-data-tree.js` | backward | `WorkDataTree` |
 | `13ak-work-data-cold-operations.js` | `01ae-work-data-maintenance-result.js` | backward | `WorkDataMaintenanceResult` |
 | `13ak-work-data-cold-operations.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
 | `13ak-work-data-cold-operations.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
@@ -692,6 +691,7 @@
 | `13ap-session-fulltext-index.js` | `13d-core-domain-routes.js` | backward | `sessionSearchRowIsNoise` |
 | `13aq-work-data-native-adapters.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `text` |
 | `13aq-work-data-native-adapters.js` | `01-config.js` | backward | `atomicWriteJson` |
+| `13aq-work-data-native-adapters.js` | `01aa-work-data-tree.js` | backward | `WorkDataTree` |
 | `13aq-work-data-native-adapters.js` | `01ab-work-data-full-snapshot.js` | backward | `WorkDataFullSnapshot` |
 | `13aq-work-data-native-adapters.js` | `01ad-work-data-migration-host.js` | backward | `WorkDataMigrationHost` |
 | `13aq-work-data-native-adapters.js` | `01ae-work-data-maintenance-result.js` | backward | `WorkDataMaintenanceResult` |

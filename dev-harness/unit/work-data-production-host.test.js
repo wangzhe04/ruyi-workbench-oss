@@ -1034,6 +1034,63 @@ test('a future reordering that concatenates 13aw after 13au still installs once,
   assert.deepEqual(Object.keys(other.runtimeHost({ base: w.canonicalBase, role: 'cold' }).rootPreference).sort(), ['inspect', 'validate']);
 });
 
+test('rehearsal proof rebinds only to a new genuine target lease and keeps its private byte/identity receipt', async () => {
+  const f=createFixture(),target=f.paths.base,first=await f.lease([target]),reads=[],buffers=[];
+  let revision='a'.repeat(64);
+  f.nativeBindings.tree.createPreserved=options=>({
+    async capture(root){assert.equal(root,target);assert.equal(options.assertExclusive,options.assertExclusiveSync);assert.equal(options.assertExclusiveSync(options.ownership),true);reads.push(options.ownership);const data=Buffer.from('SYNTHETIC rehearsal');buffers.push(data);return {root,directories:[],files:[{path:'file',data,sha256:'b'.repeat(64)}],revision,release(){data.fill(0);}};},
+    fingerprint:snapshot=>({sha256:snapshot.revision}),
+  });
+  const proof=await f.native.coldOperationHost(()=>{}).captureRehearsal({target,ownership:first,assertExclusive:()=>true});
+  assert.equal(reads.length,1);assert.equal(buffers[0].includes(Buffer.from('rehearsal')),true);
+  await first.release();const second=await f.lease([target]);
+  await assert.rejects(proof.verify(first));await assert.rejects(proof.verify({roots:[target]}));assert.equal(reads.length,1);
+  assert.equal(await proof.verify(second),true);assert.equal(reads[1],second);assert.equal(buffers[1].every(byte=>byte===0),true);
+  revision='c'.repeat(64);await assert.rejects(proof.verify(second),{code:'work_data_adapter.rehearsal_changed'});
+  assert.equal(buffers[2].every(byte=>byte===0),true);assert.equal(f.native.helperMayStillRun(),false);
+  proof.release();assert.equal(buffers[0].every(byte=>byte===0),true);proof.release();
+  await assert.rejects(proof.verify(second));assert.equal(reads.length,3);await second.release();
+});
+
+test('rehearsal release uncertainty keeps the primary verify failure and retains the current genuine keeper', async () => {
+  const f=createFixture(),owner=await f.lease([f.paths.base]);let reads=0,closes=0;
+  const primary=Error('synthetic fingerprint failure'),cleanup=Error('synthetic buffer close failure');
+  f.nativeBindings.tree.createPreserved=options=>({
+    async capture(root){assert.equal(options.assertExclusiveSync(owner),true);const ordinal=++reads;return {root,directories:[],files:[],ordinal,release(){closes++;if(ordinal===2)throw cleanup;}};},
+    fingerprint(snapshot){if(snapshot.ordinal===2)throw primary;return {sha256:'a'.repeat(64)};},
+  });
+  const proof=await f.native.coldOperationHost(()=>{}).captureRehearsal({target:f.paths.base,ownership:owner,assertExclusive:()=>true});
+  await assert.rejects(proof.verify(owner),error=>error.helperMayStillRun===true&&error.cause===primary&&error.errors[1]===cleanup);
+  assert.equal(closes,1);assert.equal(f.native.helperMayStillRun(),true);assert.equal(f.servers[0].closeCalls,0);
+  await assert.rejects(owner.release());proof.release();assert.equal(closes,2);
+});
+
+test('rehearsal guards reject opaque pending ownership without reading getters or starting a capture', async () => {
+  const f=createFixture(),owner=await f.lease([f.paths.base]);let reads=0,traps=0;
+  f.nativeBindings.tree.createPreserved=options=>({async capture(){options.assertExclusiveSync(owner);reads++;},fingerprint:()=>({})});
+  const predicate=()=>Object.defineProperty({},'then',{get(){traps++;throw Error('getter');}});
+  Object.defineProperty(predicate,'constructor',{get(){traps++;throw Error('constructor');}});
+  await assert.rejects(f.native.coldOperationHost(()=>{}).captureRehearsal({target:f.paths.base,ownership:owner,assertExclusive:predicate}),
+    error=>error.helperMayStillRun===true);
+  assert.equal(reads,0);assert.equal(traps,0);assert.equal(f.servers[0].closeCalls,0);await assert.rejects(owner.release());
+});
+
+test('final rehearsal buffer release uncertainty revokes the latest checked target keeper before owner close', async () => {
+  const f=createFixture(),first=await f.lease([f.paths.base]);let count=0,releases=0;
+  f.nativeBindings.tree.createPreserved=()=>({async capture(root){const ordinal=++count;return {root,files:[],directories:[],release(){releases++;if(ordinal===1)throw Error('synthetic late buffer release');}};},fingerprint:()=>({sha256:'a'.repeat(64)})});
+  const proof=await f.native.coldOperationHost(()=>{}).captureRehearsal({target:f.paths.base,ownership:first,assertExclusive:()=>true});
+  await first.release();const second=await f.lease([f.paths.base]);await proof.verify(second);
+  assert.throws(()=>proof.release(),error=>error.helperMayStillRun===true);assert.equal(releases,2);proof.release();assert.equal(releases,2);
+  assert.equal(f.native.helperMayStillRun(),true);assert.equal(f.servers[1].closeCalls,0);await assert.rejects(second.release());
+});
+
+test('initial rehearsal fingerprint failure followed by release failure preserves primary and target exclusion', async () => {
+  const f=createFixture(),owner=await f.lease([f.paths.base]),primary=Error('synthetic initial fingerprint failure');
+  f.nativeBindings.tree.createPreserved=()=>({async capture(root){return {root,files:[],directories:[],release(){throw Error('synthetic initial cleanup failure');}};},fingerprint(){throw primary;}});
+  await assert.rejects(f.native.coldOperationHost(()=>{}).captureRehearsal({target:f.paths.base,ownership:owner,assertExclusive:()=>true}),error=>error.helperMayStillRun===true&&error.cause===primary);
+  assert.equal(f.native.helperMayStillRun(),true);assert.equal(f.servers[0].closeCalls,0);await assert.rejects(owner.release());
+});
+
 test('native snapshot adapter supplies the guarded preserved reader and one synchronous genuine-owner predicate', async () => {
   const f = createFixture(), owner = await f.lease([f.paths.base]), calls = [], revision = 'a'.repeat(64);
   let options;
@@ -1061,6 +1118,16 @@ test('native snapshot refuses a known async owner before creating an owner or ca
     { code: 'work_data_adapter.snapshot_sync_owner_required' });
   assert.equal(predicates, 0); assert.equal(creates, 0); assert.equal(captures, 0);
   assert.equal(f.native.helperMayStillRun(), false); await owner.release();
+});
+
+test('snapshot restore admits the genuine independent target lease as well as the source lease', async () => {
+  const f=createFixture(),source=await f.lease([f.paths.base]),targetRoot=path.join(f.root,'independent-target'),target=await f.lease([targetRoot]);
+  f.nativeBindings.fullSnapshot.create=options=>({async restore(value){
+    assert.equal(options.assertExclusiveSync(source),true);assert.equal(options.assertExclusiveSync(value.targetOwnership),true);
+    assert.equal(options.assertExclusiveSync({roots:[targetRoot]}),false);return {restored:true};
+  }});
+  const restored=await f.native.fullSnapshot(f.paths.base,source,candidate=>candidate===source||candidate===target).restore({target:targetRoot,targetOwnership:target});
+  assert.equal(restored.restored,true);await target.release();await source.release();
 });
 
 test('snapshot pending promises and opaque thenables retain genuine ownership without awaiting them', async () => {
@@ -1151,10 +1218,12 @@ async function modelPreservedSnapshot(mode, cold = false) {
     rm: async () => { state.removed++; if (mode === 'remove-unknown') state.unknown = true; }
   };
   if (cold) {
-    api.WorkDataNativeAdapters.create=()=>({helperMayStillRun:()=>state.unknown,coldOperationHost:progress=>({progress})});
+    api.WorkDataNativeAdapters.create=()=>({helperMayStillRun:()=>state.unknown,coldOperationHost:progress=>({progress,captureRehearsal:async()=>({verify:async()=>true,release(){}})})});
+    api.ServerOwnership.owns=()=>false;
     api.WorkDataManifest={create:()=>({readActive:async()=>({generation:0,id:null,proof:{sha256:null}})})};
     api.WorkDataColdOperations={create:host=>({execute:async()=>{
       host.progress({phase:'snapshot'});host.progress({phase:'verify-backup'});
+      const proof=await host.captureRehearsal({ownership:{},target:'MODELED_REHEARSAL'}),cleanupOwner={};await proof.verify(cleanupOwner);await proof.verify(cleanupOwner);proof.release();
       return {state:'verified',operation:'export',backup:{path:'MODELED_BACKUP',sha256:hash(Buffer.from('MODELED_PACKAGE'))},
         profile:{ordinaryFiles:'default-stream-bytes',nativeMetadata:'not-captured'}};
     }})};

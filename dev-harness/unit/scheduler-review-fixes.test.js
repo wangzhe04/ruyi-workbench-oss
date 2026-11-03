@@ -35,6 +35,9 @@ process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 process.env.RUYI_HOME = root;
 process.env.WCW_SCHEDULER_CLOCK_FILE = CLOCK;
 process.env.WCW_SCHEDULER_TICK_MS = '40';
+// The fake provider is local. Public capability probes are not part of this
+// scheduler contract and must not consume the 1500ms active-turn budget.
+process.env.WCW_TEST_NO_NET_ANCHORS = '1';
 const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
 const { handleSchedulerApiRoutes, stopScheduler, normalizeSchedulerTask } = srv;
 
@@ -89,14 +92,16 @@ test('setup', async () => {
     },
   });
   fs.mkdirSync(path.join(root, 'Ruyi'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'config.json'), JSON.stringify({
+  const config = {
     configSchema: 9, permissionMode: 'bypass', defaultWorkspace: root, desktopMcp: { enabled: false },
     includeWorkbenchMcp: false, schedulerEnabledV1: true,
     // 管家工具要开着管家(13g 门控壳);回合入口的仲裁器(13n)也只在管家开着时生效。
     stewardEnabledV1: true, stewardThreadBriefV1: false, stewardPollMs: 120000, stewardWorkspaceRoot: path.join(root, 'Ruyi'),
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model' }],
     activeProvider: 'fake',
-  }), 'utf8');
+  };
+  assert.deepEqual(srv.networkAnchors(config), [], 'fixture capability probes have no public or provider network targets');
+  fs.writeFileSync(path.join(root, 'config.json'), JSON.stringify(config), 'utf8');
   server = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
     Promise.resolve(handleSchedulerApiRoutes(req, res, pathname)).then(() => {

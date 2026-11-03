@@ -42,6 +42,7 @@ async function setup(t,options={}){
    const sealed=await full.seal({password:value.password,appVersion:'3.0.1',generation:value.generation??0});assert.ok(sealed.files>=2);
    if(options.verifyFresh)await options.verifyFresh({f,context,events,value});return options.freshResult??true;},
   async verifyDisposableNativeTree(value){events.push('native-tree');assert.ok(owners.some(owner=>!owner.released&&owner===value.ownership));return options.nativeResult??true;},
+  async captureRehearsal({target,ownership,assertExclusive}){const tree=api.WorkDataTree.create(),captured=await tree.capture(target);assert.equal(assertExclusive(ownership),true);return {...captured,async verify(owner){assert.equal(assertExclusive(owner),true);await tree.verify(captured);if(options.rehearsalVerify) return options.rehearsalVerify();return true;},release(){events.push('rehearsal-release');captured.release();if(options.rehearsalRelease) return options.rehearsalRelease();}};},
   fullSnapshot(base,ownership,assertExclusive,{onNativeCause}){events.push('snapshot-host');if(options.snapshotFactory)return options.snapshotFactory({base,ownership,assertExclusive,onNativeCause,f});const protector={supported:()=>f.context.LocalSecretCrypto.supported(),async run(...args){try{return await f.context.LocalSecretCrypto.run(...args);}catch(cause){onNativeCause(cause);throw cause;}}};return f.api.WorkDataFullSnapshot.create({base,ownership,assertExclusive,protector,externalOwner:opts=>f.api.ExternalBotCredentials.create(opts)});},
   migrationFactory(args){events.push('migration');if(typeof options.migration!=='function')throw Error('migration must not run for these operations');return options.migration(x,args);},
   progress(value){events.push(value.phase);},helperMayStillRun:()=>options.helperMayStillRun===true,
@@ -90,6 +91,41 @@ test('fresh-verifier failure retains verified backup and rehearsal and writes no
  await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.preparation_failed'&&error.operationMayHaveExecuted===false);
  assert.ok(fs.existsSync(x.backupFile));assert.ok(fs.existsSync(x.rehearsal));assert.equal(fs.existsSync(path.join(x.f.base,'.work-data')),false);assert.ok(x.owners.every(owner=>owner.released));assert.equal(x.events.includes('migration'),false);
 });
+test('rehearsal capability is required with no ordinary reader fallback',async t=>{
+ const x=await setup(t),host={...x.host};delete host.captureRehearsal;
+ assert.throws(()=>x.api.WorkDataColdOperations.create(host),{code:'work_data_setup.operation_host_invalid'});
+});
+
+test('rehearsal buffer release failure blocks removal and target close, and is attempted only once',async t=>{
+ let attempts=0;const x=withClaim(await setup(t,{rehearsalRelease(){attempts++;throw Error('synthetic cleanup failure');}}));
+ await assert.rejects(x.operation.execute(x.context),error=>error.helperMayStillRun===true&&error.cause?.code==='work_data_setup.rehearsal_cleanup_uncertain');
+ assert.equal(attempts,1);assert.equal(fs.existsSync(x.rehearsal),true);assert.equal(x.owners.at(-1).released,false);assert.deepEqual(x.claim.events,[]);
+ assert.equal(x.events.includes('migration'),false);
+});
+
+test('non-true preserved rehearsal verification cannot authorize native census or removal',async t=>{
+ const x=await setup(t,{rehearsalVerify:()=>({ok:true})});
+ await assert.rejects(x.operation.execute(x.context),error=>error.cause?.code==='work_data_setup.rehearsal_changed');
+ assert.equal(fs.existsSync(x.rehearsal),true);assert.equal(x.events.includes('native-tree'),false);assert.equal(x.events.includes('migration'),false);
+});
+
+test('rehearsal cleanup retains the original verifier failure when its buffer release also fails',async t=>{
+ const primary=Error('synthetic original verifier failure'),secondary=Error('synthetic release failure');
+ const x=await setup(t,{verifyFresh:async()=>{throw primary;},rehearsalRelease(){throw secondary;}});
+ await assert.rejects(x.operation.execute(x.context),error=>error.helperMayStillRun===true&&error.cause?.cause?.cause===primary&&error.cause.cause.errors[1].cause===secondary);
+ assert.equal(fs.existsSync(x.rehearsal),true);assert.equal(x.events.filter(value=>value==='rehearsal-release').length,1);
+});
+
+for(const kind of ['rejected','pending','getter'])test('nonvoid rehearsal release remains unknown without executing then: '+kind,async t=>{
+ let traps=0;const x=withClaim(await setup(t,{rehearsalRelease(){
+  if(kind==='rejected')return Promise.reject(Error('synthetic rejected close'));
+  if(kind==='pending')return new Promise(()=>{});
+  return Object.defineProperty({},'then',{get(){traps++;throw Error('getter');}});
+ }}));
+ await assert.rejects(x.operation.execute(x.context),error=>error.helperMayStillRun===true);
+ assert.equal(traps,0);assert.equal(fs.existsSync(x.rehearsal),true);assert.equal(x.owners.at(-1).released,false);assert.deepEqual(x.claim.events,[]);
+});
+
 test('new verifier-created object refuses cleanup and preserves all rehearsal files',async t=>{
  const x=await setup(t,{verifyFresh:async({value})=>fsp.writeFile(path.join(value.target,'foreign.bin'),'FOREIGN')});
  await assert.rejects(x.operation.execute(x.context),/preparation_failed/);assert.equal(await fsp.readFile(path.join(x.rehearsal,'foreign.bin'),'utf8'),'FOREIGN');assert.equal(x.events.includes('native-tree'),false);assert.equal(x.events.includes('migration'),false);

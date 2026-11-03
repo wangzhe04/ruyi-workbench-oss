@@ -26,7 +26,10 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const SERVER = path.join(ROOT, 'ruyi-workbench', 'app', 'server.js');
-const srv = require(SERVER);
+// One compiled server instance: keep assertions on its real public exports,
+// while the existing internal-test loader lends its private log drain.
+const { module: serverModule, flushWorkbenchLogs } = require('./lib/server-internals').loadServerInternals(['module', 'flushWorkbenchLogs']);
+const srv = serverModule.exports;
 const pkgVersion = String(require(path.join(ROOT, 'ruyi-workbench', 'package.json')).version || '');
 
 let fail = 0;
@@ -42,6 +45,18 @@ const baseConfig = (extra = {}) => ({
 });
 const RG_BUNDLED = { path: 'C:\\x\\vendor-bin\\rg.exe', source: 'bundled', shell: 'bundled' };
 const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine, config, session, rg });
+// This case checks engine text and binary facts, not live network/MCP health.
+// Keep the real rg/git probes and let their handles drain before natural exit.
+async function probeEngineBriefBinaries() {
+  process.env.WCW_TEST_NO_NET_ANCHORS = '1';
+  return srv.getCapabilities({ providers: [], activeProvider: '', externalMcpServers: [], desktopMcp: { enabled: false }, bridgeExternalToolsToProvider: false }, true);
+}
+async function finishEngineEnvBrief(failures = fail) {
+  await flushWorkbenchLogs({ allowFailure: false });
+  console.log('');
+  console.log(failures ? `ENGINE ENV BRIEF STATIC E2E: ${failures} FAILURE(S)` : 'ENGINE ENV BRIEF STATIC E2E: ALL PASS');
+  process.exitCode = failures ? 1 : 0;
+}
 
 (async () => {
   ok(typeof srv.buildEngineEnvBrief === 'function' && typeof srv.resolveEngineEnvBrief === 'function'
@@ -171,15 +186,12 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
     ok(info === null || ['env', 'bundled', 'system'].includes(info.source), 'G2 来源只会是 env/bundled/system 之一或 null (' + JSON.stringify(info) + ')');
   }
   ok(srv.peekRgProbe() === info, 'G3 探测结果进程级缓存(peek 不触发探测,拿到同一个对象)');
-  const caps2 = await srv.getCapabilities(null, true).catch(() => null);
+  const caps2 = await probeEngineBriefBinaries().catch(() => null);
   ok(caps2 && caps2.binaries && typeof caps2.binaries.rg === 'boolean' && (caps2.binaries.rg ? typeof caps2.binaries.rgSource === 'string' : caps2.binaries.rgSource === null)
     && typeof caps2.binaries.rgShell === 'string', 'G4 能力矩阵 binaries 加法字段 rgSource/rgShell (' + JSON.stringify(caps2 && caps2.binaries) + ')');
   const boot = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'src', '00-boot.js'), 'utf8');
   ok(/st\.isDirectory\(\) && !st\.isSymbolicLink\(\)/.test(boot) && !/USE_BUILTIN_RIPGREP\s*=/.test(src),
     'G5 只前置锚定的真目录(联接/符号链接不算),且不改 USE_BUILTIN_RIPGREP(Claude Code 自带 rg 行为不动)');
 
-  console.log('');
-  if (fail) { console.log(`ENGINE ENV BRIEF STATIC E2E: ${fail} FAILURE(S)`); process.exit(1); }
-  console.log('ENGINE ENV BRIEF STATIC E2E: ALL PASS');
-  process.exit(0);
-})().catch(error => { console.error(error); process.exit(1); });
+  await finishEngineEnvBrief();
+})().catch(error => { console.error(error); process.exitCode = 1; });

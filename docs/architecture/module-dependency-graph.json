@@ -30026,13 +30026,6 @@
           ]
         },
         {
-          "provider": "01aa-work-data-tree.js",
-          "symbol": "WorkDataTree",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01ae-work-data-maintenance-result.js",
           "symbol": "WorkDataMaintenanceResult",
           "kinds": [
@@ -30804,6 +30797,13 @@
         {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01aa-work-data-tree.js",
+          "symbol": "WorkDataTree",
           "kinds": [
             "read"
           ]
@@ -41347,14 +41347,6 @@
     },
     {
       "from": "13ak-work-data-cold-operations.js",
-      "to": "01aa-work-data-tree.js",
-      "symbols": [
-        "WorkDataTree"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "13ak-work-data-cold-operations.js",
       "to": "01ae-work-data-maintenance-result.js",
       "symbols": [
         "WorkDataMaintenanceResult"
@@ -41549,6 +41541,14 @@
       "to": "01-config.js",
       "symbols": [
         "atomicWriteJson"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01aa-work-data-tree.js",
+      "symbols": [
+        "WorkDataTree"
       ],
       "direction": "backward"
     },

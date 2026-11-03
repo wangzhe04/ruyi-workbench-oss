@@ -40,13 +40,20 @@ async function run(){
     assert.equal(file.attrs&1,1);assert.equal(file.streams.length,2);
     assert.equal(file.streams.find(row=>row.name===':public-ads:$DATA').hash,hash(ads));
     ok(true,'genuine cold source owner protects readonly DATA, a real ADS and an empty directory');
-    const phases=[],host=adapter.coldOperationHost(value=>phases.push(value.phase));
+    const phases=[],productionHost=adapter.coldOperationHost(value=>phases.push(value.phase)),proofCalls=[];
+    const host={...productionHost,async captureRehearsal(value){
+      const proof=await productionHost.captureRehearsal(value);proofCalls.push({kind:'capture',owner:value.ownership,target:value.target});
+      return {...proof,async verify(owner){proofCalls.push({kind:'verify',owner});return proof.verify(owner);},release(){proofCalls.push({kind:'release'});return proof.release();}};
+    }};
     const active=await api.WorkDataManifest.create({base}).readActive();
     const password='SYNTHETIC cold preserved package password',id=crypto.randomBytes(24).toString('hex');
     const result=await api.WorkDataColdOperations.create(host).execute({id,base,operation:'export',password,ownership:owner,assertExclusive:exclusive,
       expectedAuthority:{generation:active.generation,id:active.id,mode:'plain',sha256:active.proof.sha256},paths:{backupDirectory,targetDirectory:null,uploadFile:null,uploadSha256:null}});
     assert.equal(result.state,'verified');assert.equal(result.operation,'export');
     assert.deepEqual(phases,['snapshot','verify-backup']);
+    assert.deepEqual(proofCalls.map(row=>row.kind),['capture','verify','verify','release']);
+    assert.notEqual(proofCalls[0].owner,proofCalls[1].owner);assert.equal(proofCalls[1].owner,proofCalls[2].owner);
+    assert.equal(api.ServerOwnership.owns(proofCalls[0].owner),false);assert.equal(api.ServerOwnership.owns(proofCalls[1].owner),false);
     assert.equal(result.profile.ordinaryFiles,'default-stream-bytes');assert.equal(result.profile.nativeMetadata,'not-captured');
     assert.equal(await fsp.stat(path.join(backupDirectory,'.ruyi-work-data-verify-'+id)).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;}),false);
     ok(true,'production cold export completes real restore rehearsal and fresh-process verification');

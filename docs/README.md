@@ -22,7 +22,8 @@ Ruyi ships Chinese and English user and deployment guides. Historical design and
 | [发布与迭代路线](OPTIMIZATION-ROADMAP.md) | 当前发布基线、未发布内容和下一步范围 |
 | [3.1 补完与隐私路线](optimization-plan/86-3.1-completion-and-privacy-roadmap.md) | 当前执行入口；范围、隐私支持边界、依赖与发布门 |
 | [3.1 后续实施交接](optimization-plan/92-3.1-implementation-handoff.md) | 6.1 Sol 接手：实施批次、代码入口、设计约束、依赖与验收 |
-| [冷维护快照保留读取接线](optimization-plan/102-m3-cold-preserved-snapshot-20261103.md) | 2026-11-03有限交付：原生双轮、单件新240秒双轮、生产维护/恢复；原首红保留，完整M3/3.1仍待 |
+| [恢复演练保留读取与安全清理](optimization-plan/103-m3-native-rehearsal-preserved-20261103.md) | 2026-11-03有限交付：原生演练及240秒长回归双轮、生产维护/恢复；最终unit/static通过，M3后续继续 |
+| [冷维护快照保留读取接线](optimization-plan/102-m3-cold-preserved-snapshot-20261103.md) | 2026-11-03前片：原生双轮、单件新240秒双轮、生产维护/恢复；原首红保留，完整M3/3.1仍待 |
 | [子代理窗口与体验修正](optimization-plan/95-context-window-and-ux-fixes.md) | 子代理上下文窗口、撤回失败提示、管家默认模型调查 |
 | [M3-2 加密存储适配](optimization-plan/94-m3-2-encrypted-storage-adapter.md) | 受管记录存储边界、独立工作数据主钥、默认关闭的开关与首个族接线 |
 | [M3-1 工作数据加密冻结](optimization-plan/93-m3-1-encrypted-storage-freeze.md) | 存储族清册、独立密钥用途、v2 envelope、迁移/唯一权威合同与合成性能基线 |

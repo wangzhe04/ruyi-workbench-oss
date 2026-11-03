@@ -120,7 +120,7 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
   const nativeBindings = { ownership: api.ownership, manifest: { create: () => ({ readActive: async () => authority }) },
     fullSnapshot: { create: () => ({ seal: async () => ({ sourceProof: { sha256: 'd'.repeat(64), bytes: 17, files: 1, directories: 1 }, files: 1, directories: 1 }), restore: async () => ({ ok: true }) }) },
     nativePublish: { createFlush: () => async directories => { events.push('flush'); if(state.flushFailure)throw state.flushFailure; return { ok: true, flushDirectories: directories, directoryFlush: directories.map(() => 0) }; } },
-    disposableTree: { create: () => async () => true }, migrationHost: { create: () => ({}) },
+    disposableTree: { create: () => async () => true }, tree: {createPreserved:()=>{throw Error('preserved tree must be bound by this test');}}, migrationHost: { create: () => ({}) },
     worker: { create: () => ({}), spawnCold() { throw Error('No real child in pure fixture'); }, processChannel() { throw Error('No real IPC in pure fixture'); } },
     protector: { supported: () => true, run: async () => ({}) }, capturePreserved: async () => ({}), externalOwner: () => ({}), skillOwner: () => ({}),
     writeJson: async () => {}, helperMayStillRun: () => state.unknown, resultOwner: {}, appVersion: '3.0.1' };

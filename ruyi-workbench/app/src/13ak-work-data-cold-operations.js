@@ -61,7 +61,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
   }
   const treeBudget = (bytes,files,directories) => 16n*1024n*1024n+2n*BigInt(bytes)+65536n*BigInt(files)+8192n*BigInt(directories+1);
   function create(host) {
-    if (['acquire', 'flush', 'verifyFresh', 'verifyDisposableNativeTree', 'fullSnapshot', 'migrationFactory', 'progress', 'helperMayStillRun'].some(name => typeof host[name] !== 'function')) throw fail('operation_host_invalid');
+    if (['acquire', 'flush', 'verifyFresh', 'verifyDisposableNativeTree', 'fullSnapshot', 'captureRehearsal', 'migrationFactory', 'progress', 'helperMayStillRun'].some(name => typeof host[name] !== 'function')) throw fail('operation_host_invalid');
     async function execute(context) {
       const base = p.resolve(context.base), id = context.id;
       if (!/^[a-f0-9]{48}$/.test(id || '') || await context.assertExclusive(context.ownership) !== true) throw fail('ownership_required');
@@ -104,6 +104,20 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         const owner = await host.acquire([root]); owned.add(owner); return owner;
       };
       const release = async owner => { if (retainHelper(null)) throw fail('native_helper_uncertain',{helperMayStillRun:true}); if (!owned.has(owner)) throw fail('ownership_required'); owned.delete(owner); await owner.release(); };
+      const observePending = value => {
+        const types=require('node:util').types;
+        try {
+          if(!types.isPromise(value)||types.isProxy(value)||Object.getOwnPropertyDescriptor(value,'constructor'))return;
+          const proto=Object.getPrototypeOf(value),descriptor=proto&&!types.isProxy(proto)?Object.getOwnPropertyDescriptor(proto,'constructor'):null;
+          const ctor=descriptor?.value,species=typeof ctor==='function'&&!types.isProxy(ctor)?Object.getOwnPropertyDescriptor(ctor,Symbol.species):null;
+          if(descriptor&&Object.hasOwn(descriptor,'value')&&typeof ctor==='function'&&!types.isProxy(ctor)
+            &&Function.prototype.toString.call(ctor)==='function Promise() { [native code] }'&&species
+            &&(Object.hasOwn(species,'value')?species.value===undefined||species.value===null||species.value===ctor
+              :typeof species.get==='function'&&!types.isProxy(species.get)&&species.set===undefined
+                &&Function.prototype.toString.call(species.get)==='function get [Symbol.species]() { [native code] }'))
+            Reflect.apply(Promise.prototype.then,value,[()=>{},()=>{}]);
+        }catch{/* Pending ownership remains uncertain; no arbitrary then/getter is executed. */}
+      };
       // The genuine host owns preserved source reads and synchronous admission.
       // Do not fall back to the ordinary reader when that capability is missing.
       const full = () => {
@@ -112,18 +126,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         if (snapshot && (types.isProxy(snapshot) || types.isPromise(snapshot))) {
           // A factory may already have started asynchronous work. Observe only
           // a descriptor-verified native Promise; never await it as ownership.
-          try {
-            if (!types.isProxy(snapshot) && !Object.getOwnPropertyDescriptor(snapshot,'constructor')) {
-              const proto=Object.getPrototypeOf(snapshot), descriptor=proto&&!types.isProxy(proto)?Object.getOwnPropertyDescriptor(proto,'constructor'):null;
-              const ctor=descriptor?.value, species=typeof ctor==='function'&&!types.isProxy(ctor)?Object.getOwnPropertyDescriptor(ctor,Symbol.species):null;
-              if (descriptor && Object.hasOwn(descriptor,'value') && typeof ctor==='function' && !types.isProxy(ctor)
-                && Function.prototype.toString.call(ctor)==='function Promise() { [native code] }' && species
-                && (Object.hasOwn(species,'value') ? species.value===undefined||species.value===null||species.value===ctor
-                  : typeof species.get==='function'&&!types.isProxy(species.get)&&species.set===undefined
-                    &&Function.prototype.toString.call(species.get)==='function get [Symbol.species]() { [native code] }'))
-                Reflect.apply(Promise.prototype.then,snapshot,[()=>{},()=>{}]);
-            }
-          } catch { /* Opaque work remains uncertain and retains its owner. */ }
+          observePending(snapshot);
           throw fail('snapshot_host_uncertain',{helperMayStillRun:true});
         }
         if (!snapshot || typeof snapshot !== 'object') throw fail('snapshot_host_invalid');
@@ -296,7 +299,15 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         await absent(rehearsal);
         const rehearsalOwner = await acquire(rehearsal);
         const rehearsed = await full().restore({ serialized: captured.serialized, password: context.password, target: rehearsal, targetOwnership: rehearsalOwner });
-        const tree = WorkDataTree.create(), cleanupProof = await tree.capture(rehearsal);
+        const cleanupProof = await host.captureRehearsal({target:rehearsal,ownership:rehearsalOwner,assertExclusive});
+        let cleanupReleaseAttempted=false,cleanupPrimary,cleanupFailed=false;
+        const releaseCleanupProof=()=>{
+          if(cleanupReleaseAttempted)return;cleanupReleaseAttempted=true;
+          try {
+            const returned=cleanupProof.release();
+            if(returned!==undefined){observePending(returned);throw fail('rehearsal_release_unproven');}
+          } catch(cause){helperUncertain=true;throw fail('rehearsal_cleanup_uncertain',{cause,helperMayStillRun:true});}
+        };
         try {
           const original = await WorkDataRecovery.open(captured.serialized, context.password);
           try {
@@ -308,17 +319,27 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           await release(rehearsalOwner);
           if (await host.verifyFresh({ target: rehearsal, password: context.password, generation: expected.generation }) !== true) throw fail('fresh_verification_failed');
           const cleanupOwner = await acquire(rehearsal);
-          await tree.verify(cleanupProof);
+          if(await cleanupProof.verify(cleanupOwner)!==true)throw fail('rehearsal_changed');
           if (!owned.has(cleanupOwner) || p.dirname(rehearsal) !== backupDirectory || p.basename(rehearsal) !== '.ruyi-work-data-verify-' + id
             || inside(base, rehearsal) || inside(rehearsal, base)) throw fail('rehearsal_cleanup_invalid');
           // Default-stream verification cannot detect a newly added ADS. The
           // native namespace owner must prove the exact newly-created objects
           // have no extra streams/children before this disposable tree is removed.
           if (await host.verifyDisposableNativeTree({ target: rehearsal, snapshot: cleanupProof, ownership: cleanupOwner, assertExclusive }) !== true) throw fail('rehearsal_changed');
-          await tree.verify(cleanupProof);
+          if(await cleanupProof.verify(cleanupOwner)!==true)throw fail('rehearsal_changed');
+          // Buffer release must be proven before deletion or target-owner close.
+          // A failed release is attempted once and keeps the claim/owners held.
+          releaseCleanupProof();
+          if(retainHelper(null)||assertExclusive(cleanupOwner)!==true)throw fail('rehearsal_cleanup_uncertain',{helperMayStillRun:true});
           await io.rm(rehearsal, { recursive: true, force: false }); await host.flush([backupDirectory]);
           await release(cleanupOwner);
-        } finally { cleanupProof.release(); }
+        } catch(cause){cleanupFailed=true;cleanupPrimary=cause;throw cause;}
+        finally {
+          try{releaseCleanupProof();}catch(cause){
+            if(cleanupFailed)throw fail('rehearsal_cleanup_uncertain',{cause:new AggregateError([cleanupPrimary,cause],'work_data_setup.rehearsal_cleanup',{cause:cleanupPrimary}),helperMayStillRun:true});
+            throw cause;
+          }
+        }
         if (!await verifyBackup(backup)) throw fail('backup_changed');
         if (context.operation === 'export') {
           const exported = await completed({ id, operation: 'export', state: 'verified', backup, restartRoot: base,

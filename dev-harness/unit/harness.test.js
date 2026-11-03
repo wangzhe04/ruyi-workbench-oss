@@ -52,3 +52,45 @@ describe('lib/harness createRunner', () => {
     assert.throws(() => createRunner(''), TypeError);
   });
 });
+
+describe('engine brief permanent entry shutdown', () => {
+  const fs=require('node:fs'),vm=require('node:vm'),{functionBlock}=require('../lib/source-slice');
+  const source=fs.readFileSync(path.join(__dirname,'../engine-env-brief.static.e2e.js'),'utf8');
+  it('real binary capability call disables live network and MCP without replacing binary probes',async()=>{
+    const processModel={env:{}},calls=[];
+    const run=vm.runInNewContext(functionBlock(source,'probeEngineBriefBinaries')+';probeEngineBriefBinaries',{
+      process:processModel,srv:{getCapabilities(config,force){calls.push({config,force});return Promise.resolve({binaries:{rg:true}});}}
+    });
+    assert.equal((await run()).binaries.rg,true);assert.equal(processModel.env.WCW_TEST_NO_NET_ANCHORS,'1');assert.equal(calls.length,1);
+    assert.equal(calls[0].force,true);assert.equal(calls[0].config.providers.length,0);assert.equal(calls[0].config.externalMcpServers.length,0);
+    assert.equal(calls[0].config.desktopMcp.enabled,false);assert.equal(calls[0].config.bridgeExternalToolsToProvider,false);
+  });
+  it('verdict waits for actual log drain and never calls process.exit',async()=>{
+    let drained;const pending=new Promise(resolve=>{drained=resolve;}),lines=[],processModel={exit(){assert.fail('hard exit');}};
+    const finish=vm.runInNewContext(functionBlock(source,'finishEngineEnvBrief')+';finishEngineEnvBrief',{
+      process:processModel,console:{log:line=>lines.push(line)},flushWorkbenchLogs:()=>pending
+    });
+    const work=finish(0);await Promise.resolve();assert.deepEqual(lines,[]);assert.equal(processModel.exitCode,undefined);
+    drained();await work;assert.equal(lines.at(-1),'ENGINE ENV BRIEF STATIC E2E: ALL PASS');assert.equal(processModel.exitCode,0);
+    await finish(2);assert.equal(lines.at(-1),'ENGINE ENV BRIEF STATIC E2E: 2 FAILURE(S)');assert.equal(processModel.exitCode,1);
+  });
+  it('failed log drain cannot print ALL PASS or conceal the original error',async()=>{
+    const primary=Error('synthetic drain failure'),lines=[];
+    const finish=vm.runInNewContext(functionBlock(source,'finishEngineEnvBrief')+';finishEngineEnvBrief',{
+      process:{exit(){assert.fail('hard exit');}},console:{log:line=>lines.push(line)},flushWorkbenchLogs:async()=>{throw primary;}
+    });
+    await assert.rejects(finish(0),error=>error===primary);assert.deepEqual(lines,[]);
+  });
+  it('whole permanent entry uses one real server module with the private drain and public binary exports',()=>{
+    const os=require('node:os'),{fixtureChildEnv}=require('../lib/fixture-home');
+    const root=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-engine-brief-unit-')),{env,home}=fixtureChildEnv({perTest:true});
+    Object.assign(env,{TEMP:root,TMP:root,RUYI_HOME:path.join(home,'data')});
+    const result=cp.spawnSync(process.execPath,['--require',path.join(__dirname,'../lib/fixture-home-guard.js'),path.join(__dirname,'../engine-env-brief.static.e2e.js')],
+      {cwd:path.resolve(__dirname,'../..'),env,encoding:'utf8',windowsHide:true,timeout:120000,maxBuffer:2*1024*1024});
+    assert.equal(result.status,0,String(result.error||'')+String(result.stderr));assert.equal(result.signal,null);assert.equal(result.stderr,'');
+    assert.equal(result.stdout.trimEnd().split(/\r?\n/).at(-1),'ENGINE ENV BRIEF STATIC E2E: ALL PASS');
+    assert.equal(/^FAIL /m.test(result.stdout),false);assert.match(result.stdout,/PASS A0 /);assert.match(result.stdout,/PASS G5 /);
+    // These two exact fresh roots were created above and contain only this case.
+    for(const directory of [root,home]){assert.ok(path.resolve(directory).startsWith(path.resolve(os.tmpdir())+path.sep));assert.equal(fs.lstatSync(directory).isSymbolicLink(),false);fs.rmSync(directory,{recursive:true,force:false});}
+  });
+});
