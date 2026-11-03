@@ -1,0 +1,7 @@
+PASS genuine owner protects a nonempty readonly source with a real NTFS alternate stream
+PASS production snapshot selects the closed preserved reader while retaining its original backup profile
+PASS real encrypted recovery package contains exact default DATA and empty-directory names
+PASS source IDs, DATA, ADS, readonly, aliases, four Basic times and owner/group/DACL remain unchanged
+PASS genuine source owner closes once and the dedicated synthetic fixture is removed
+
+WORK DATA PRESERVED SNAPSHOT E2E: ALL PASS

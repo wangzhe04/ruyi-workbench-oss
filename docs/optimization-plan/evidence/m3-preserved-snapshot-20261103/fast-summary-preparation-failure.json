@@ -1,0 +1,9 @@
+{
+  "scope": "Root metadata post-processing only; not suite failure",
+  "toolChunk": "426c62",
+  "toolExitCode": 1,
+  "reason": "same-line regex counted94; three lane PASS tokens occurred on separate lines",
+  "resolution": "97 unique completed cases parsed in original token order with per-lane start/end pairing",
+  "suiteRerun": false,
+  "originalStdoutSha256": "c535737d74c78a325593434609c4591f6553eca281ebdae447fa9c52135366db"
+}

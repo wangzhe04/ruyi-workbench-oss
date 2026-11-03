@@ -1,0 +1,256 @@
+{
+  "schema": 1,
+  "status": "PRECOMMIT_PROJECT_AND_ACTUAL_CHECKS_PASS",
+  "baseCommit": "c5e7fad188841157dcc3d50bbb7747f6e9334834",
+  "productVersion": "3.0.1",
+  "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+  "sourceChecks": {
+    "session": 81022,
+    "completion": "62f3d0",
+    "actualToolExitCode": 0,
+    "results": [
+      {
+        "name": "syntax",
+        "status": 0,
+        "signal": null,
+        "errorCode": null,
+        "elapsedMs": 218795.3206,
+        "stdoutBytes": 60,
+        "stdoutSha256": "89d59a2a2552e18c104ab55fc9d8cccf547da03c7181498f4cb2c1cd85a6bba8",
+        "stderrBytes": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "build-check",
+        "status": 0,
+        "signal": null,
+        "errorCode": null,
+        "elapsedMs": 547.8492,
+        "stdoutBytes": 69,
+        "stdoutSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+        "stderrBytes": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  },
+  "fullFast": {
+    "session": 21668,
+    "completion": "a25425",
+    "actualToolExitCode": 0,
+    "resultSha256": "38e69d5b42eee3d74e8cce60dca6d8f19ed6755875f7a511eb77837717be7e41",
+    "independentAcceptanceSha256": "0e9d50a14feb0604652c5ab92e5da7628d0df6b528f338fe3f4500f8fa0fae77",
+    "unitFiles": 445,
+    "tests": 4849,
+    "passed": 4818,
+    "skipped": 31,
+    "failed": 0,
+    "staticPassed": 97,
+    "staticFailed": 0,
+    "flaky": 0,
+    "liveExcluded": 7
+  },
+  "sourceNativePair": {
+    "scopes": [
+      "S01",
+      "S02"
+    ],
+    "seconds": [
+      12.2387414,
+      10.4656114
+    ],
+    "wholeMs": 120000,
+    "independentAcceptanceSha256": "50e931afe10f12ae00c6ebfa1dee12e38a9edf249cef8b9bdc29f4ed7a160183"
+  },
+  "affectedRegressionScopes": [
+    {
+      "scope": "OW01",
+      "result": {
+        "scope": "OW01",
+        "status": "FINITE_AFFECTED_RECOVERY_REGRESSION_ACCEPTED",
+        "accepted": true,
+        "canonical": [
+          "plain-producer: a Job-owned actual producer dies with this owned claim and both original PIDs absent",
+          "plain-before-doctor: ordinary serve refuses the unknown owned job before touching the source",
+          "plain-doctor: real doctor returns unknown, durably preserves original claim bytes and retires only the pending name",
+          "plain: ordinary serve reacquires the released source and reads the original session after unknown recovery",
+          "matching-producer: a Job-owned actual producer dies with this owned claim and both original PIDs absent",
+          "matching-tampered-backup: doctor refuses and preserves the exact claim, source, targets, backups and other TEMP controls",
+          "matching-missing-backup: doctor refuses and preserves the exact claim, source, targets, backups and other TEMP controls",
+          "matching result: missing or tampered backup cannot downgrade to unknown; restored backup permits ordinary completed retirement",
+          "encrypted-producer: a Job-owned actual producer dies with this owned claim and both original PIDs absent",
+          "encrypted-invalid-key: doctor refuses and preserves the exact claim, source, targets, backups and other TEMP controls",
+          "encrypted-missing-key: doctor refuses and preserves the exact claim, source, targets, backups and other TEMP controls",
+          "encrypted-before-doctor: ordinary serve refuses the unknown owned job before touching the source",
+          "encrypted-doctor: real doctor returns unknown, durably preserves original claim bytes and retires only the pending name",
+          "encrypted: ordinary serve reads the original session; the older valid result never becomes this unknown job completion"
+        ],
+        "observer": {
+          "status": "OBSERVED_NATURAL_ZERO",
+          "firstError": null,
+          "unknown": false,
+          "flags": {
+            "exit": true,
+            "close": true,
+            "stdout-end": true,
+            "stdout-close": true,
+            "stdout-sink-finish": true,
+            "stdout-sink-close": true,
+            "stderr-end": true,
+            "stderr-close": true,
+            "stderr-sink-finish": true,
+            "stderr-sink-close": true
+          },
+          "exitCode": 0,
+          "exitSignal": null,
+          "closeCode": 0,
+          "closeSignal": null,
+          "elapsedNs": "195326117100",
+          "terminalElapsedNs": "195326117100",
+          "budgetMs": 900000,
+          "noKillRetry": true,
+          "allOsDescendantsClosedClaim": false,
+          "cimCreationCaptured": false,
+          "actualImageCaptured": false
+        },
+        "caseBudgetMs": 900000,
+        "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+        "entrySha": "6babae14818ca99cba08af69d2705b07737be316dc04be464819fe218078618c",
+        "scopeBoundary": "Unchanged original constructed crash-window regression; not full nonempty migration, genuine natural crash or release"
+      },
+      "root": {
+        "schema": 1,
+        "scope": "OW01",
+        "actualToolSession": 81098,
+        "completionChunk": "4de90a",
+        "actualToolExitCode": 0,
+        "naturalCompletion": true,
+        "resultSha256": "feab122a0dd2b738cb6f8f9e653881df9972fa5dcc6326869dd1a6857885f861",
+        "caseBudgetMs": 900000
+      },
+      "independentAcceptanceSha256": "d2dbf8f2c803c21051d12a85de724cc435ad55d0415c048628dec0d7abbbf244"
+    },
+    {
+      "scope": "CI01",
+      "result": {
+        "scope": "CI01",
+        "status": "FINITE_AFFECTED_RECOVERY_REGRESSION_ACCEPTED",
+        "accepted": true,
+        "canonical": [
+          "c10-no-result: real doctor refuses without changing complete source, claim or side inventories",
+          "c11-operation-mismatch: real doctor refuses without changing complete source, claim or side inventories",
+          "c11-bad-backup: real doctor refuses without changing complete source, claim or side inventories",
+          "c11-missing-key: real doctor refuses without changing complete source, claim or side inventories",
+          "c11-stage: real doctor refuses without changing complete source, claim or side inventories",
+          "enable-doctor: real doctor retires only exact complete intent and owned claim after full source/result verification",
+          "enable: subsequent ordinary source serve acquires real owner and reads unchanged business data and existing result",
+          "disable-doctor: real doctor retires only exact complete intent and owned claim after full source/result verification",
+          "disable: subsequent ordinary source serve acquires real owner and reads unchanged business data and existing result"
+        ],
+        "observer": {
+          "status": "OBSERVED_NATURAL_ZERO",
+          "firstError": null,
+          "unknown": false,
+          "flags": {
+            "exit": true,
+            "close": true,
+            "stdout-end": true,
+            "stdout-close": true,
+            "stdout-sink-finish": true,
+            "stdout-sink-close": true,
+            "stderr-end": true,
+            "stderr-close": true,
+            "stderr-sink-finish": true,
+            "stderr-sink-close": true
+          },
+          "exitCode": 0,
+          "exitSignal": null,
+          "closeCode": 0,
+          "closeSignal": null,
+          "elapsedNs": "300843508800",
+          "terminalElapsedNs": "300843508800",
+          "budgetMs": 1200000,
+          "noKillRetry": true,
+          "allOsDescendantsClosedClaim": false,
+          "cimCreationCaptured": false,
+          "actualImageCaptured": false
+        },
+        "caseBudgetMs": 1200000,
+        "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+        "entrySha": "03f3b00c3e350605ada6250c3324ccf8dfb622064c32f4e7631274c556d2a795",
+        "scopeBoundary": "Unchanged original constructed crash-window regression; not full nonempty migration, genuine natural crash or release"
+      },
+      "root": {
+        "schema": 1,
+        "scope": "CI01",
+        "actualToolSession": 15342,
+        "completionChunk": "bc0835",
+        "actualToolExitCode": 0,
+        "naturalCompletion": true,
+        "resultSha256": "633465c0e06e4e23ba64f41d7df4273abd3b987364d131eb0697ea678dfbd99e",
+        "caseBudgetMs": 1200000
+      },
+      "independentAcceptanceSha256": "b2a1d022772bccdc30d2748de896c44c30c270ac50de27899dda11d4c167784b"
+    }
+  ],
+  "finalStagedTail": {
+    "session": 52085,
+    "completion": "b907b1",
+    "actualToolExitCode": 0,
+    "results": [
+      {
+        "name": "eol",
+        "status": 0,
+        "signal": null,
+        "errorCode": null,
+        "elapsedMs": 4794.7733,
+        "stdoutBytes": 257,
+        "stdoutSha256": "4b317cd9c99625cba2b4cd13ba6e8d4fd7ef1261998b8d257454147ac4b56120",
+        "stderrBytes": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "hygiene",
+        "status": 0,
+        "signal": null,
+        "errorCode": null,
+        "elapsedMs": 18801.7326,
+        "stdoutBytes": 5039,
+        "stdoutSha256": "fb1d13a98be205ea7cab261803e0623d22fa1a9332cb92ca1f85e6d556933b85",
+        "stderrBytes": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "sourcePinsUnchanged": true,
+    "coveredStagedFiles": 51
+  },
+  "evidence": {
+    "explicitSafeFiles": 37,
+    "indexSha256": "43c620b69d83c79e216fe71ff1dc0e55a934f091daf1adea9cb4ef51c56a0a24",
+    "rawFullfastHomeAndUnitPayloadExcluded": true,
+    "explicitIgnoredCanonicalLogs": 10,
+    "globalIgnoreRulesChanged": false
+  },
+  "preparationOnlyIssues": [
+    {
+      "tool": "426c62",
+      "exitCode": 1,
+      "reason": "same-line static summary counted94; original per-lane token pairing resolves97; no suite rerun"
+    },
+    {
+      "tool": "2f08e8",
+      "exitCode": 1,
+      "reason": "stage helper initially excluded10 approved .log files via default ignore rule; fixed explicit51 allowlist force-add and37 byte hashes; finalstagedtail rerun on new tracked set"
+    },
+    {
+      "tool": "ed943b",
+      "exitCode": 1,
+      "reason": "read-only CRLF probe extra parenthesis; corrected without source/actor mutation"
+    }
+  ],
+  "afterThisMetadata": "Final EOL and independent staged review recorded separately before commit; no further runtime source changes",
+  "wholeM3And3_1Complete": false,
+  "metadataRestoreQualified": false,
+  "default619OrCIRun": false,
+  "pushed": false,
+  "released": false
+}

@@ -65,6 +65,7 @@ const PARALLEL_EXCLUSIVE = new Set([
   // representation fixture has its user-approved240s whole-file override below.
   'migration-skill-backup-representation.e2e.js',
   'migration-native-short-rename.e2e.js',
+  'work-data-preserved-snapshot.e2e.js',
   // Production recovery acceptance owns a real browser/native lifecycle and
   // records bounded process transitions. Keep its first execution budgets free
   // from competing functional buckets; phase deadlines remain unchanged.

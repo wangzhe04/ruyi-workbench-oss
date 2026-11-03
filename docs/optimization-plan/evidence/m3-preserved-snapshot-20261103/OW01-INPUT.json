@@ -1,0 +1,51 @@
+{
+  "scope": "OW01",
+  "file": "work-data-owned-source-recovery.e2e.js",
+  "budget": 900000,
+  "entrySha": "6babae14818ca99cba08af69d2705b07737be316dc04be464819fe218078618c",
+  "callerSha": "f78c1ad60d0ec6a5401a961fa970c495e3c050d6b70ad307343eae543b2a211e",
+  "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+  "nodeSha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088",
+  "fastSha256": "38e69d5b42eee3d74e8cce60dca6d8f19ed6755875f7a511eb77837717be7e41",
+  "toolPins": [
+    {
+      "file": "C:/r31-1102/prep.cjs",
+      "sha256": "19e97014d914743e0c80f6d08c8df7ad119a31cd37c8ef3f91e5ea9b02fe31b0"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/source-slice.js",
+      "sha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4"
+    }
+  ],
+  "environmentKeys": [
+    "APPDATA",
+    "ComSpec",
+    "CommonProgramFiles",
+    "CommonProgramW6432",
+    "HOME",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "LOCALAPPDATA",
+    "OS",
+    "PATH",
+    "PATHEXT",
+    "PROCESSOR_ARCHITECTURE",
+    "PSModulePath",
+    "PYTHONIOENCODING",
+    "PYTHONUTF8",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "RUYI_HOME",
+    "RUYI_REAL_HOME",
+    "SystemDrive",
+    "SystemRoot",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "windir"
+  ],
+  "oldSourceUnchanged": true,
+  "noKillRetry": true
+}

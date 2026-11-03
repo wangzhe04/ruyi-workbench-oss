@@ -1,0 +1,12 @@
+{"type":"spawn","elapsedNs":"89017500","pid":1176}
+{"type":"stdout-end","elapsedNs":"12235200300"}
+{"type":"stdout-sink-finish","elapsedNs":"12235628500"}
+{"type":"stderr-end","elapsedNs":"12236231500"}
+{"type":"stderr-sink-finish","elapsedNs":"12236289400"}
+{"type":"stderr-close","elapsedNs":"12236814600"}
+{"type":"stdout-close","elapsedNs":"12236956500"}
+{"type":"stdout-sink-close","elapsedNs":"12237065200"}
+{"type":"stderr-sink-close","elapsedNs":"12237137600"}
+{"type":"exit","elapsedNs":"12238608000","code":0,"signal":null}
+{"type":"close","elapsedNs":"12238686600","code":0,"signal":null}
+{"type":"all-terminal-observations","elapsedNs":"12238800800","missing":[],"terminalElapsedNs":"12238741400","budgetExceeded":false}

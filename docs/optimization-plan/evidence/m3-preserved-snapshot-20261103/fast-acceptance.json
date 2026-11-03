@@ -1,0 +1,660 @@
+{
+  "schema": 1,
+  "status": "ACCEPT_FINITE_COMPLETE_FAST_445_UNIT_97_STATIC",
+  "phase": "fast",
+  "unresolvedEvidenceP1P2": 0,
+  "rootReceiptSha256": "a883988f968464a4117690331b3018a25867bfe140b6c76a4db5c3eb6255423a",
+  "resultSha256": "38e69d5b42eee3d74e8cce60dca6d8f19ed6755875f7a511eb77837717be7e41",
+  "rootToolFact": {
+    "session": 21668,
+    "completionChunk": "a25425",
+    "naturalExitCode": 0,
+    "providedByRoot": true,
+    "notInferredFromCim": true
+  },
+  "fullFastElapsedMs": 471626.7287,
+  "sourcePins": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "b583fb65bddb9dc49bbb5ebe09a2cd080c03504d787765d507e0ed1946238717"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "sha256": "6e53dfc1444a98fa0e33377429dbd2a19b1c2092ca2d7078afdc7ed8c4de402b"
+    },
+    {
+      "file": "dev-harness/work-data-preserved-snapshot.e2e.js",
+      "sha256": "fa862e21fc4d8e8e7016491793b9bff5f41570a183256f3e6ec1bbb92a5a795f"
+    },
+    {
+      "file": "dev-harness/unit/work-data-production-host.test.js",
+      "sha256": "7ca30702296b89d002ab00b5aacb3496e1c15b348511077019d2023ba2edd727"
+    },
+    {
+      "file": "dev-harness/run-all.js",
+      "sha256": "837f30f29d04c9b7c77dfa1bdcf5ced2ef28f055cb29bdad943599a5b033c507"
+    }
+  ],
+  "originalSourcePrePostSupportedByExactDriverAndCurrentPins": true,
+  "independentCurrentFivePinsEqual": true,
+  "unit": {
+    "files": 445,
+    "tests": 4849,
+    "suites": 193,
+    "pass": 4818,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 31,
+    "todo": 0,
+    "duration_ms": 438303.1609,
+    "combinedStdoutStderr": true,
+    "copyMatchesOriginalLastUnitLog": true,
+    "sha256": "c16eb4e465627f2b8f1f3d61dc2e66ec9a580146b3e16a9ce5aaaee8c8c09bf9",
+    "displayedMinusRows": 32,
+    "formalSkippedTests": 31,
+    "additionalPosixDescribeSuiteSkipped": 1,
+    "markedUnavailablePlaceholderPassNotParserCoverage": true
+  },
+  "fast": {
+    "ran": 97,
+    "pass": 97,
+    "fail": 0,
+    "knownFail": 0,
+    "unexpectedPass": 0,
+    "flaky": 0,
+    "liveExcluded": [
+      "deepseek-live.e2e.js",
+      "deepseek-tools.e2e.js",
+      "desktop-bridge-live.e2e.js",
+      "claude-binary-live.e2e.js",
+      "claude-compact-probe-live.e2e.js",
+      "compact-quality-live.e2e.js",
+      "prompt-cache-discipline-live.e2e.js"
+    ],
+    "originalLaneTokens": 194,
+    "allStartsAndCompletionsPairedInOrder": true,
+    "activeLanesAtEnd": 0,
+    "maximumActiveLanes": 4,
+    "completed": [
+      {
+        "lane": 0,
+        "file": "acc-offline-installer.static.e2e.js",
+        "elapsedMs": 359
+      },
+      {
+        "lane": 1,
+        "file": "action-feedback.static.e2e.js",
+        "elapsedMs": 360
+      },
+      {
+        "lane": 0,
+        "file": "agent-workflows-polling-visibility.static.e2e.js",
+        "elapsedMs": 206
+      },
+      {
+        "lane": 2,
+        "file": "agent-mode-v2.static.e2e.js",
+        "elapsedMs": 628
+      },
+      {
+        "lane": 0,
+        "file": "c2-evidence-spawn-budget.static.e2e.js",
+        "elapsedMs": 245
+      },
+      {
+        "lane": 3,
+        "file": "agent-team-budget.static.e2e.js",
+        "elapsedMs": 802
+      },
+      {
+        "lane": 1,
+        "file": "architecture-contract-snapshots.static.e2e.js",
+        "elapsedMs": 671
+      },
+      {
+        "lane": 0,
+        "file": "css-typography-debt.static.e2e.js",
+        "elapsedMs": 359
+      },
+      {
+        "lane": 2,
+        "file": "asr-config-ui.static.e2e.js",
+        "elapsedMs": 495
+      },
+      {
+        "lane": 0,
+        "file": "ec-d-closure.static.e2e.js",
+        "elapsedMs": 323
+      },
+      {
+        "lane": 3,
+        "file": "browser-mcp.static.e2e.js",
+        "elapsedMs": 523
+      },
+      {
+        "lane": 2,
+        "file": "copy-terms.static.e2e.js",
+        "elapsedMs": 388
+      },
+      {
+        "lane": 3,
+        "file": "cost-zero.static.e2e.js",
+        "elapsedMs": 313
+      },
+      {
+        "lane": 2,
+        "file": "desktop-shell.static.e2e.js",
+        "elapsedMs": 268
+      },
+      {
+        "lane": 1,
+        "file": "copy-path-guard.static.e2e.js",
+        "elapsedMs": 996
+      },
+      {
+        "lane": 0,
+        "file": "external-bots-progress.static.e2e.js",
+        "elapsedMs": 696
+      },
+      {
+        "lane": 1,
+        "file": "desktop-dpi.static.e2e.js",
+        "elapsedMs": 271
+      },
+      {
+        "lane": 0,
+        "file": "frontend-domains.static.e2e.js",
+        "elapsedMs": 323
+      },
+      {
+        "lane": 1,
+        "file": "encrypted-storage-freeze.static.e2e.js",
+        "elapsedMs": 213
+      },
+      {
+        "lane": 3,
+        "file": "durable-state-inventory.static.e2e.js",
+        "elapsedMs": 847
+      },
+      {
+        "lane": 2,
+        "file": "engine-env-brief.static.e2e.js",
+        "elapsedMs": 953
+      },
+      {
+        "lane": 0,
+        "file": "inline-script-csp-hash.static.e2e.js",
+        "elapsedMs": 487
+      },
+      {
+        "lane": 2,
+        "file": "finalize-segments.static.e2e.js",
+        "elapsedMs": 235
+      },
+      {
+        "lane": 1,
+        "file": "facts.static.e2e.js",
+        "elapsedMs": 590
+      },
+      {
+        "lane": 2,
+        "file": "i18n-en-terms.static.e2e.js",
+        "elapsedMs": 216
+      },
+      {
+        "lane": 0,
+        "file": "mcp-ops-gui.static.e2e.js",
+        "elapsedMs": 369
+      },
+      {
+        "lane": 1,
+        "file": "health-i18n.static.e2e.js",
+        "elapsedMs": 383
+      },
+      {
+        "lane": 2,
+        "file": "live-full-text.static.e2e.js",
+        "elapsedMs": 320
+      },
+      {
+        "lane": 0,
+        "file": "model-menu-classes.static.e2e.js",
+        "elapsedMs": 327
+      },
+      {
+        "lane": 1,
+        "file": "kimi-plan-ui.static.e2e.js",
+        "elapsedMs": 316
+      },
+      {
+        "lane": 2,
+        "file": "memory-toolbox.static.e2e.js",
+        "elapsedMs": 262
+      },
+      {
+        "lane": 1,
+        "file": "media-artifact-package.static.e2e.js",
+        "elapsedMs": 256
+      },
+      {
+        "lane": 0,
+        "file": "new-thread-engine-default.static.e2e.js",
+        "elapsedMs": 575
+      },
+      {
+        "lane": 2,
+        "file": "ndjson-line-feeder.static.e2e.js",
+        "elapsedMs": 663
+      },
+      {
+        "lane": 2,
+        "file": "overlay-payload-lock.static.e2e.js",
+        "elapsedMs": 458
+      },
+      {
+        "lane": 2,
+        "file": "prompt-snapshot.static.e2e.js",
+        "elapsedMs": 465
+      },
+      {
+        "lane": 1,
+        "file": "module-dependency-graph.static.e2e.js",
+        "elapsedMs": 2110
+      },
+      {
+        "lane": 1,
+        "file": "onboarding.static.e2e.js",
+        "elapsedMs": 283
+      },
+      {
+        "lane": 1,
+        "file": "progress-events.static.e2e.js",
+        "elapsedMs": 537
+      },
+      {
+        "lane": 1,
+        "file": "resume-banner-dismiss.static.e2e.js",
+        "elapsedMs": 205
+      },
+      {
+        "lane": 2,
+        "file": "route-inventory.static.e2e.js",
+        "elapsedMs": 1862
+      },
+      {
+        "lane": 0,
+        "file": "process-safety.static.e2e.js",
+        "elapsedMs": 3202
+      },
+      {
+        "lane": 0,
+        "file": "rail-pocket.static.e2e.js",
+        "elapsedMs": 171
+      },
+      {
+        "lane": 0,
+        "file": "scheduled-playbooks-calendar-editor.static.e2e.js",
+        "elapsedMs": 229
+      },
+      {
+        "lane": 2,
+        "file": "scheduled-playbooks-contract.static.e2e.js",
+        "elapsedMs": 721
+      },
+      {
+        "lane": 0,
+        "file": "scheduled-playbooks-permissions.static.e2e.js",
+        "elapsedMs": 303
+      },
+      {
+        "lane": 0,
+        "file": "scheduler-ui.static.e2e.js",
+        "elapsedMs": 386
+      },
+      {
+        "lane": 0,
+        "file": "steward-avatar.static.e2e.js",
+        "elapsedMs": 181
+      },
+      {
+        "lane": 0,
+        "file": "steward-drawer.static.e2e.js",
+        "elapsedMs": 257
+      },
+      {
+        "lane": 0,
+        "file": "steward-shell.static.e2e.js",
+        "elapsedMs": 284
+      },
+      {
+        "lane": 0,
+        "file": "thinking-boundary.static.e2e.js",
+        "elapsedMs": 186
+      },
+      {
+        "lane": 0,
+        "file": "thread-relay-contract.static.e2e.js",
+        "elapsedMs": 264
+      },
+      {
+        "lane": 0,
+        "file": "tool-image-inline.static.e2e.js",
+        "elapsedMs": 195
+      },
+      {
+        "lane": 0,
+        "file": "ui-v3-p1.static.e2e.js",
+        "elapsedMs": 248
+      },
+      {
+        "lane": 1,
+        "file": "scheduled-playbooks-cold-effects.static.e2e.js",
+        "elapsedMs": 2984
+      },
+      {
+        "lane": 0,
+        "file": "ui-v3-wave1.static.e2e.js",
+        "elapsedMs": 323
+      },
+      {
+        "lane": 0,
+        "file": "workflow-editor-v2.static.e2e.js",
+        "elapsedMs": 248
+      },
+      {
+        "lane": 3,
+        "file": "eol-policy.static.e2e.js",
+        "elapsedMs": 8359
+      },
+      {
+        "lane": 1,
+        "file": "scheduled-playbooks-r5.static.e2e.js",
+        "elapsedMs": 3827
+      },
+      {
+        "lane": 1,
+        "file": "session-save-census.static.e2e.js",
+        "elapsedMs": 335
+      },
+      {
+        "lane": 1,
+        "file": "steward-board.static.e2e.js",
+        "elapsedMs": 303
+      },
+      {
+        "lane": 1,
+        "file": "steward-events.static.e2e.js",
+        "elapsedMs": 557
+      },
+      {
+        "lane": 3,
+        "file": "fixture-home.static.e2e.js",
+        "elapsedMs": 5741
+      },
+      {
+        "lane": 3,
+        "file": "i18n.static.e2e.js",
+        "elapsedMs": 574
+      },
+      {
+        "lane": 3,
+        "file": "manifest-ranges.static.e2e.js",
+        "elapsedMs": 288
+      },
+      {
+        "lane": 3,
+        "file": "mermaid-render.static.e2e.js",
+        "elapsedMs": 579
+      },
+      {
+        "lane": 3,
+        "file": "net-token-replay.static.e2e.js",
+        "elapsedMs": 162
+      },
+      {
+        "lane": 3,
+        "file": "overlay-update-gui.static.e2e.js",
+        "elapsedMs": 191
+      },
+      {
+        "lane": 3,
+        "file": "provider-reasoning-effort-ui.static.e2e.js",
+        "elapsedMs": 155
+      },
+      {
+        "lane": 3,
+        "file": "runtime-optimization.static.e2e.js",
+        "elapsedMs": 764
+      },
+      {
+        "lane": 3,
+        "file": "scheduled-playbooks-lifecycle.static.e2e.js",
+        "elapsedMs": 320
+      },
+      {
+        "lane": 3,
+        "file": "scheduled-playbooks-r7.static.e2e.js",
+        "elapsedMs": 1115
+      },
+      {
+        "lane": 3,
+        "file": "start-experience.static.e2e.js",
+        "elapsedMs": 189
+      },
+      {
+        "lane": 3,
+        "file": "steward-conversation.static.e2e.js",
+        "elapsedMs": 255
+      },
+      {
+        "lane": 3,
+        "file": "steward-settings.static.e2e.js",
+        "elapsedMs": 315
+      },
+      {
+        "lane": 3,
+        "file": "streaming-responsiveness.static.e2e.js",
+        "elapsedMs": 211
+      },
+      {
+        "lane": 3,
+        "file": "thread-relay-admission.static.e2e.js",
+        "elapsedMs": 385
+      },
+      {
+        "lane": 3,
+        "file": "thread-relay-retirement.static.e2e.js",
+        "elapsedMs": 541
+      },
+      {
+        "lane": 3,
+        "file": "ui-bugfix.static.e2e.js",
+        "elapsedMs": 206
+      },
+      {
+        "lane": 3,
+        "file": "ui-v3-p3b.static.e2e.js",
+        "elapsedMs": 255
+      },
+      {
+        "lane": 3,
+        "file": "workflow-combination.static.e2e.js",
+        "elapsedMs": 467
+      },
+      {
+        "lane": 1,
+        "file": "steward-tools.static.e2e.js",
+        "elapsedMs": 10237
+      },
+      {
+        "lane": 1,
+        "file": "thread-brief.static.e2e.js",
+        "elapsedMs": 518
+      },
+      {
+        "lane": 1,
+        "file": "thread-relay-dispatch.static.e2e.js",
+        "elapsedMs": 376
+      },
+      {
+        "lane": 1,
+        "file": "tool-verb-coverage.static.e2e.js",
+        "elapsedMs": 336
+      },
+      {
+        "lane": 1,
+        "file": "ui-v3-p2.static.e2e.js",
+        "elapsedMs": 235
+      },
+      {
+        "lane": 1,
+        "file": "ui-v4-glass.static.e2e.js",
+        "elapsedMs": 181
+      },
+      {
+        "lane": 2,
+        "file": "scheduled-playbooks-r6.static.e2e.js",
+        "elapsedMs": 19186
+      },
+      {
+        "lane": 2,
+        "file": "software-engineering-prompt.static.e2e.js",
+        "elapsedMs": 322
+      },
+      {
+        "lane": 2,
+        "file": "steward-config.static.e2e.js",
+        "elapsedMs": 401
+      },
+      {
+        "lane": 2,
+        "file": "steward-runner.static.e2e.js",
+        "elapsedMs": 503
+      },
+      {
+        "lane": 2,
+        "file": "steward-walkthrough.static.e2e.js",
+        "elapsedMs": 300
+      },
+      {
+        "lane": 2,
+        "file": "thread-commission.static.e2e.js",
+        "elapsedMs": 276
+      },
+      {
+        "lane": 2,
+        "file": "thread-relay-nested.static.e2e.js",
+        "elapsedMs": 212
+      },
+      {
+        "lane": 2,
+        "file": "turn-narrative.static.e2e.js",
+        "elapsedMs": 351
+      },
+      {
+        "lane": 2,
+        "file": "ui-v3-p3a.static.e2e.js",
+        "elapsedMs": 251
+      },
+      {
+        "lane": 2,
+        "file": "v17-review-fixes.static.e2e.js",
+        "elapsedMs": 482
+      }
+    ]
+  },
+  "onlyReadOnlyTestProfilePreflightAndResidualCountsZero": true,
+  "notNormalUserBrowserOrWholeOsProcessProof": true,
+  "summaryPreparationFailurePreserved": {
+    "scope": "Root metadata post-processing only; not suite failure",
+    "toolChunk": "426c62",
+    "toolExitCode": 1,
+    "reason": "same-line regex counted94; three lane PASS tokens occurred on separate lines",
+    "resolution": "97 unique completed cases parsed in original token order with per-lane start/end pairing",
+    "suiteRerun": false,
+    "originalStdoutSha256": "c535737d74c78a325593434609c4591f6553eca281ebdae447fa9c52135366db",
+    "independentParserUsesTokenOrder": true,
+    "notSuiteFailureOrRerun": true
+  },
+  "actualPrivateHomeProvenanceNotEchoedOrCopiedToReceipt": true,
+  "originalFullLogsRemainExternalOnly": true,
+  "noWholeRuntimeClosureOrInstalledTreeSweep": true,
+  "notFullProductE2EOrDefault626Suite": true,
+  "affectedOldRecoveryRegressionsPassed": false,
+  "noAutomaticNextActorGo": true,
+  "wholeM3Complete": false,
+  "reviewerExecutedActual": false,
+  "noFixtureDataKeysConfigOrDeletedRootRead": true,
+  "selectedFiles": [
+    {
+      "file": "C:/r31-1103/checks-fast/RESULT.json",
+      "bytes": 1262,
+      "sha256": "38e69d5b42eee3d74e8cce60dca6d8f19ed6755875f7a511eb77837717be7e41"
+    },
+    {
+      "file": "C:/r31-1103/checks-fast/TOP-EXEC.json",
+      "bytes": 4304,
+      "sha256": "a883988f968464a4117690331b3018a25867bfe140b6c76a4db5c3eb6255423a"
+    },
+    {
+      "file": "C:/r31-1103/cwt/ruyi-workbench/app/server.js",
+      "bytes": 8487437,
+      "sha256": "b583fb65bddb9dc49bbb5ebe09a2cd080c03504d787765d507e0ed1946238717"
+    },
+    {
+      "file": "C:/r31-1103/cwt/ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "bytes": 24409,
+      "sha256": "6e53dfc1444a98fa0e33377429dbd2a19b1c2092ca2d7078afdc7ed8c4de402b"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/work-data-preserved-snapshot.e2e.js",
+      "bytes": 6408,
+      "sha256": "fa862e21fc4d8e8e7016491793b9bff5f41570a183256f3e6ec1bbb92a5a795f"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/unit/work-data-production-host.test.js",
+      "bytes": 83327,
+      "sha256": "7ca30702296b89d002ab00b5aacb3496e1c15b348511077019d2023ba2edd727"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/run-all.js",
+      "bytes": 51826,
+      "sha256": "837f30f29d04c9b7c77dfa1bdcf5ced2ef28f055cb29bdad943599a5b033c507"
+    },
+    {
+      "file": "C:/r31-1103/checks-fast/full-fast.stdout.log",
+      "bytes": 7371,
+      "sha256": "c535737d74c78a325593434609c4591f6553eca281ebdae447fa9c52135366db"
+    },
+    {
+      "file": "C:/r31-1103/checks-fast/full-fast.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "C:/r31-1103/checks-fast/unit-preflight.combined.log",
+      "bytes": 645421,
+      "sha256": "c16eb4e465627f2b8f1f3d61dc2e66ec9a580146b3e16a9ce5aaaee8c8c09bf9"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/last-unit-run.log",
+      "bytes": 645421,
+      "sha256": "c16eb4e465627f2b8f1f3d61dc2e66ec9a580146b3e16a9ce5aaaee8c8c09bf9"
+    },
+    {
+      "file": "C:/r31-1103/run-project-checks.cjs",
+      "bytes": 3894,
+      "sha256": "d09cb740de5fd3064df9c5aa776b5c6d03d82ae69b1928effdc0c27b5ad4c24f"
+    },
+    {
+      "file": "C:/r31-1103/checks-fast/READONLY-BROWSER-PREFLIGHT.json",
+      "bytes": 37,
+      "sha256": "16a74c0c24c1bd7b57e126900599cd83c69f24d8279966b8ad93918d824b7fae"
+    },
+    {
+      "file": "C:/r31-1103/checks-fast/SUMMARY-PREPARATION-FAILURE.json",
+      "bytes": 434,
+      "sha256": "b1e24abfffd430a174b4091eb59090ebe1fe50a984f9488eb0235049922e6624"
+    }
+  ]
+}

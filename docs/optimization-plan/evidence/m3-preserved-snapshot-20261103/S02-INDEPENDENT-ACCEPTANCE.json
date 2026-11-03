@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "status": "ACCEPT_FINITE_S02_PRESERVED_SNAPSHOT",
+  "scope": "S02",
+  "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+  "rootReceiptSha256": "cd67a39debc45d1d92756ddbe24a900a26d93d68388d2cf5a2cb832e34569cd3",
+  "resultSha256": "bb234c64c41af73a6aad5437a026e53a2d2b4a2bea21bf806410c21fd22be322",
+  "unresolvedEvidenceP1P2": 0,
+  "wholeMs": 120000,
+  "terminalElapsedNs": "10465611400",
+  "allTenNaturalZero": true,
+  "rawSinkFinishCloseBoth": true,
+  "strictStderrEmpty": true,
+  "canonicalGroups": 5,
+  "currentSevenPinsAndNodeCallerObserverEqual": true,
+  "rootToolFact": {
+    "schema": 1,
+    "scope": "S02",
+    "actualToolSession": 66183,
+    "completionChunk": "b1bc28",
+    "actualToolExitCode": 0,
+    "naturalCompletion": true,
+    "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+    "resultSha256": "bb234c64c41af73a6aad5437a026e53a2d2b4a2bea21bf806410c21fd22be322",
+    "providedByRoot": true,
+    "reviewerDidNotExecuteActor": true
+  },
+  "finiteScope": "One fresh real production13aq fullSnapshot preserved source-read and password-sealed default DATA/empty-directory package only",
+  "sourcePreservationAssertionScope": "Original producer assertions compare readonly, real ADS, IDs/default DATA/Basic4/observed aliases and independent metadata helper owner/group/DACL before/after; raw witnesses not archived, not independently re-read by reviewer",
+  "sourceOracleAndCanonicalAssertionsNotIndependentRawDataProof": true,
+  "defaultPackageProfileUnchanged": true,
+  "metadataRestoreQualified": false,
+  "completeProductionRootSwitchQualified": false,
+  "nonemptyB1B8Complete": false,
+  "wholeM3Complete": false,
+  "fixtureCleanup": "Fifth canonical plus exact source and natural0 support genuine owner close/default synthetic fixture removal; removed root was not accessed by reviewer",
+  "allOsDescendantsClosedClaim": false,
+  "cimOrActualImageProof": false,
+  "wholeClosureOrInstallationProof": false,
+  "pairComplete": false,
+  "noAutomaticNextScopeGo": true,
+  "actualGo": false,
+  "reviewerExecutedActual": false,
+  "noFixtureDataPackageKeyConfigRead": true,
+  "selectedFiles": [
+    {
+      "file": "C:/r31-1103/SOURCE-GO.json",
+      "bytes": 2595,
+      "sha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175"
+    },
+    {
+      "file": "C:/r31-1103/S02/TOP-EXEC.json",
+      "bytes": 333,
+      "sha256": "cd67a39debc45d1d92756ddbe24a900a26d93d68388d2cf5a2cb832e34569cd3"
+    },
+    {
+      "file": "C:/r31-1103/S02/RESULT.json",
+      "bytes": 2161,
+      "sha256": "bb234c64c41af73a6aad5437a026e53a2d2b4a2bea21bf806410c21fd22be322"
+    },
+    {
+      "file": "C:/r31-1103/S02/INPUT.json",
+      "bytes": 1966,
+      "sha256": "a5c1b969be2d2fd9f6bd004e19e48a38784ccffde93f4c01522eb1466b956279"
+    },
+    {
+      "file": "C:/r31-1103/cwt/ruyi-workbench/app/server.js",
+      "bytes": 8487437,
+      "sha256": "b583fb65bddb9dc49bbb5ebe09a2cd080c03504d787765d507e0ed1946238717"
+    },
+    {
+      "file": "C:/r31-1103/cwt/ruyi-workbench/app/src/manifest.json",
+      "bytes": 37997,
+      "sha256": "73ed8936c1fa9c41d6d0bb12504ff9d6f1cba7ce5424e4d958ce8f3074dae5e2"
+    },
+    {
+      "file": "C:/r31-1103/cwt/ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "bytes": 24409,
+      "sha256": "6e53dfc1444a98fa0e33377429dbd2a19b1c2092ca2d7078afdc7ed8c4de402b"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/work-data-preserved-snapshot.e2e.js",
+      "bytes": 6408,
+      "sha256": "fa862e21fc4d8e8e7016491793b9bff5f41570a183256f3e6ec1bbb92a5a795f"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/skill-capsule-native-fixture.js",
+      "bytes": 6761,
+      "sha256": "8a887a056ce25a71050e50c41062fdae501b24a9e0567714b31ded230dff9b43"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/fixture-home-guard.js",
+      "bytes": 4557,
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76"
+    },
+    {
+      "file": "C:/Program Files/nodejs/node.exe",
+      "bytes": 91380224,
+      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+    },
+    {
+      "file": "C:/r31-1103/run-preserved-snapshot.cjs",
+      "bytes": 7001,
+      "sha256": "a6ee333d0029a9dabce5d86133017063ce316d21249fac147b6e3e4f19a4f6aa"
+    },
+    {
+      "file": "C:/r31-1102/observer-120.cjs",
+      "bytes": 4106,
+      "sha256": "50c764c82bfb9720243270cdbc6ff5aee7f5e046892696ac3d7a8d5d7f475b77"
+    },
+    {
+      "file": "C:/r31-1103/S02/events.jsonl",
+      "bytes": 734,
+      "sha256": "f53817615ca162e2c7d00603270131233da4e6ba12b2ee701e2d5924c3759fad"
+    },
+    {
+      "file": "C:/r31-1103/S02/stdout.log",
+      "bytes": 516,
+      "sha256": "c5b45182a6f029460176a7098ea42b24f5fa7d144801cf51e9546cb65593be23"
+    },
+    {
+      "file": "C:/r31-1103/S02/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

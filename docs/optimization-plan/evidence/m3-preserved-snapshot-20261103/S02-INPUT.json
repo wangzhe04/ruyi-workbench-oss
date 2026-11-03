@@ -1,0 +1,67 @@
+{
+  "scope": "S02",
+  "node": "C:/Program Files/nodejs/node.exe",
+  "nodeSha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088",
+  "pins": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "b583fb65bddb9dc49bbb5ebe09a2cd080c03504d787765d507e0ed1946238717"
+    },
+    {
+      "file": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "73ed8936c1fa9c41d6d0bb12504ff9d6f1cba7ce5424e4d958ce8f3074dae5e2"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "sha256": "6e53dfc1444a98fa0e33377429dbd2a19b1c2092ca2d7078afdc7ed8c4de402b"
+    },
+    {
+      "file": "dev-harness/work-data-preserved-snapshot.e2e.js",
+      "sha256": "fa862e21fc4d8e8e7016491793b9bff5f41570a183256f3e6ec1bbb92a5a795f"
+    },
+    {
+      "file": "dev-harness/lib/server-internals.js",
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "dev-harness/lib/skill-capsule-native-fixture.js",
+      "sha256": "8a887a056ce25a71050e50c41062fdae501b24a9e0567714b31ded230dff9b43"
+    },
+    {
+      "file": "dev-harness/lib/fixture-home-guard.js",
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76"
+    }
+  ],
+  "callerSha256": "a6ee333d0029a9dabce5d86133017063ce316d21249fac147b6e3e4f19a4f6aa",
+  "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+  "environmentKeys": [
+    "APPDATA",
+    "ComSpec",
+    "HOME",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "LOCALAPPDATA",
+    "OS",
+    "PATH",
+    "PATHEXT",
+    "PROCESSOR_ARCHITECTURE",
+    "PSModulePath",
+    "PYTHONIOENCODING",
+    "PYTHONUTF8",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "RUYI_HOME",
+    "RUYI_REAL_HOME",
+    "SystemDrive",
+    "SystemRoot",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "windir"
+  ],
+  "wholeMs": 120000,
+  "strictStderr": true,
+  "noKillRetry": true
+}

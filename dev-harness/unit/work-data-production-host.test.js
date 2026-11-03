@@ -1033,3 +1033,158 @@ test('a future reordering that concatenates 13aw after 13au still installs once,
   assert.deepEqual(Object.keys(factory.runtimeHost({ base: w.canonicalBase, role: 'cold' }).rootPreference).sort(), ['inspect', 'validate']);
   assert.deepEqual(Object.keys(other.runtimeHost({ base: w.canonicalBase, role: 'cold' }).rootPreference).sort(), ['inspect', 'validate']);
 });
+
+test('native snapshot adapter supplies the guarded preserved reader and one synchronous genuine-owner predicate', async () => {
+  const f = createFixture(), owner = await f.lease([f.paths.base]), calls = [], revision = 'a'.repeat(64);
+  let options;
+  f.nativeBindings.capturePreserved = async (...args) => { calls.push(args); return { native: true }; };
+  f.nativeBindings.fullSnapshot.create = value => { options = value; return { seal: async () => {
+    assert.equal(options.preservedRead.profile, 'bounded-native-v1');
+    assert.equal(options.assertExclusive, options.assertExclusiveSync);
+    assert.equal(options.assertExclusiveSync(owner), true);
+    assert.equal(options.assertExclusiveSync({ roots: [f.paths.base] }), false);
+    assert.equal(f.servers[0].closeCalls, 0);
+    assert.deepEqual(await options.preservedRead.capturePreserved(f.paths.base, revision), { native: true });
+    return readableProof();
+  } }; };
+  const result = await f.native.fullSnapshot(f.paths.base, owner, candidate => candidate === owner).seal({});
+  assert.deepEqual(result, readableProof()); assert.deepEqual(calls, [[f.paths.base, revision]]);
+  assert.deepEqual({ ...f.native.capabilities.operations }, { enable: false, disable: false, export: false, restore: false });
+  await owner.release(); assert.equal(options.assertExclusiveSync(owner), false);
+});
+
+test('native snapshot refuses a known async owner before creating an owner or calling its predicate', async () => {
+  const f = createFixture(), owner = await f.lease([f.paths.base]); let predicates = 0, creates = 0, captures = 0;
+  f.nativeBindings.fullSnapshot.create = () => { creates++; throw Error('must not create snapshot'); };
+  f.nativeBindings.capturePreserved = async () => { captures++; };
+  assert.throws(() => f.native.fullSnapshot(f.paths.base, owner, async () => { predicates++; return true; }),
+    { code: 'work_data_adapter.snapshot_sync_owner_required' });
+  assert.equal(predicates, 0); assert.equal(creates, 0); assert.equal(captures, 0);
+  assert.equal(f.native.helperMayStillRun(), false); await owner.release();
+});
+
+test('snapshot pending promises and opaque thenables retain genuine ownership without awaiting them', async () => {
+  for (const kind of ['pending', 'rejected', 'getter', 'proxy']) {
+    const f = createFixture(), owner = await f.lease([f.paths.base]); let traps = 0, captures = 0;
+    let value;
+    if (kind === 'pending') value = new Promise(() => {});
+    if (kind === 'rejected') value = Promise.reject(Error('synthetic rejected ownership'));
+    if (kind === 'getter') value = Object.defineProperty({}, 'then', { get() { traps++; throw Error('must not await'); } });
+    if (kind === 'proxy') value = new Proxy({}, { get() { traps++; throw Error('must not inspect'); } });
+    f.nativeBindings.capturePreserved = async () => { captures++; };
+    f.nativeBindings.fullSnapshot.create = options => ({ seal: async () => {
+      options.assertExclusiveSync(owner); await options.preservedRead.capturePreserved(f.paths.base, 'b'.repeat(64));
+    } });
+    await assert.rejects(f.native.fullSnapshot(f.paths.base, owner, () => value).seal({}),
+      error => error.code === 'work_data_adapter.snapshot_owner_uncertain' && error.helperMayStillRun && error.ownershipRetained);
+    await tick(); assert.equal(traps, 0); assert.equal(captures, 0); assert.equal(f.native.helperMayStillRun(), true);
+    assert.equal(f.servers[0].closeCalls, 0); assert.equal(f.api.ownership.owns(owner), false);
+  }
+});
+
+test('snapshot owner false and helper uncertainty inside a true predicate stop native capture', async () => {
+  for (const unknown of [false, true]) {
+    const f = createFixture(), owner = await f.lease([f.paths.base]); let captures = 0;
+    f.nativeBindings.capturePreserved = async () => { captures++; };
+    f.nativeBindings.fullSnapshot.create = options => ({ seal: async () => {
+      if (options.assertExclusiveSync(owner) !== true) throw Object.assign(Error('synthetic owner refusal'), { code: 'SYNTHETIC_OWNER_REFUSED' });
+      await options.preservedRead.capturePreserved(f.paths.base, 'c'.repeat(64));
+    } });
+    await assert.rejects(f.native.fullSnapshot(f.paths.base, owner, () => { f.state.unknown = unknown; return unknown; }).seal({}),
+      { code: unknown ? 'work_data_adapter.helper_uncertain' : 'SYNTHETIC_OWNER_REFUSED' });
+    assert.equal(captures, 0); assert.equal(f.native.helperMayStillRun(), unknown);
+    if (unknown) { assert.equal(f.servers[0].closeCalls, 0); assert.equal(f.api.ownership.owns(owner), false); }
+    else await owner.release();
+  }
+});
+
+test('preserved capture keeps its original failure and retains its genuine keeper on native uncertainty', async () => {
+  const f = createFixture(), owner = await f.lease([f.paths.base]);
+  const failure = Object.assign(Error('synthetic native uncertainty'), { helperMayStillRun: true }); let captures = 0;
+  f.nativeBindings.capturePreserved = async () => { captures++; throw failure; };
+  f.nativeBindings.fullSnapshot.create = options => ({ seal: () => options.preservedRead.capturePreserved(f.paths.base, 'd'.repeat(64)) });
+  await assert.rejects(f.native.fullSnapshot(f.paths.base, owner, () => true).seal({}), error => error === failure);
+  assert.equal(captures, 1); assert.equal(f.native.helperMayStillRun(), true);
+  assert.equal(f.servers[0].closeCalls, 0); assert.equal(f.api.ownership.owns(owner), false);
+});
+
+test('helper uncertainty arriving during preserved capture rejects its late success without releasing ownership', async () => {
+  const f = createFixture(), owner = await f.lease([f.paths.base]); let complete;
+  f.nativeBindings.capturePreserved = () => new Promise(resolve => { complete = resolve; });
+  f.nativeBindings.fullSnapshot.create = options => ({ seal: () => options.preservedRead.capturePreserved(f.paths.base, 'e'.repeat(64)) });
+  const pending = f.native.fullSnapshot(f.paths.base, owner, () => true).seal({});
+  await waitForModel(() => complete); f.state.unknown = true; complete({ native: true });
+  await assert.rejects(pending, { code: 'work_data_adapter.helper_uncertain' });
+  assert.equal(f.native.helperMayStillRun(), true); assert.equal(f.api.ownership.owns(owner), false);
+  assert.equal(f.servers[0].closeCalls, 0);
+});
+
+async function modelPreservedSnapshot(mode) {
+  // Run the permanent entry itself with memory-only endpoints. These controls
+  // verify refusal/cleanup ordering, never NTFS or package qualification.
+  const fs = require('node:fs'), vm = require('node:vm'), crypto = require('node:crypto');
+  const state = { unknown: false, released: 0, retained: 0, removed: 0, failed: 0, passed: [], flushes: 0, chmods: 0 };
+  const expected = Buffer.from([0,255,31,128,65,66,13,10]), ads = Buffer.from('SYNTHETIC public alternate stream');
+  const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+  const owner = {}, keeper = {
+    assertExclusive: () => { if (mode === 'final-unknown') state.unknown = true; return true; },
+    retainUnknown() { state.retained++; },
+    async releaseOwner(check) { assert.equal(check(), true); state.released++; }
+  };
+  const api = {
+    async flushWorkbenchLogs() { state.flushes++; },
+    MigrationHooks: { helperMayStillRun: () => state.unknown },
+    ServerOwnership: { acquire: async () => owner, createSourceKeeper: () => keeper, owns: () => state.released === 0 },
+    WorkDataNativeAdapters: { create: () => ({ helperMayStillRun: () => state.unknown, fullSnapshot: () => ({ seal: async () => ({
+      serialized: 'MODELED_PACKAGE', files: 2, directories: 2,
+      sourceProof: { nativeMetadata: 'preserved-reader-closed', nativeSha256: 'a'.repeat(64) },
+      profile: { ordinaryFiles: 'default-stream-bytes', nativeMetadata: 'not-captured' }
+    }) }) }) },
+    migrationCapsuleCapturePreserved: async () => ({ entries: [{ rel: 'data/payload.bin', attrs: 1,
+      streams: [{ name: '', hash: hash(expected) }, { name: ':public-ads:$DATA', hash: hash(ads) }] }] }),
+    WorkDataRecovery: { open: async () => ({ snapshot: { files: [{ path: 'data/payload.bin', data: expected }], directories: ['data','data/empty'], auxiliaries: [] }, release() {} }) }
+  };
+  const io = {
+    mkdtemp: async prefix => prefix + 'ABC123', mkdir: async () => {}, writeFile: async () => {},
+    chmod: async () => { state.chmods++; if (mode === 'chmod-unknown' && state.chmods === 2) state.unknown = true; },
+    lstat: async () => ({ isSymbolicLink: () => false }),
+    rm: async () => { state.removed++; if (mode === 'remove-unknown') state.unknown = true; }
+  };
+  const env = { HOME: path.resolve('modeled-home') }, runner = {
+    ok(value, label) { assert.equal(value, true); state.passed.push(label); }, fail() { state.failed++; }, done() {}
+  };
+  const modules = new Map([
+    ['./lib/self-isolate-home', {}], ['./lib/harness', { createRunner: () => runner }],
+    ['./lib/release-checks', { releaseEnvironment: () => ({ ...env }) }],
+    ['./lib/skill-capsule-native-fixture', { basicMetadata() { if (mode === 'metadata-error') throw Error('modeled metadata timeout'); return []; } }],
+    ['./lib/server-internals', { loadServerInternals: () => api }],
+    ['node:fs', {}], ['node:fs/promises', io], ['node:path', path], ['node:os', { tmpdir: () => path.resolve('modeled-temp') }],
+    ['node:crypto', crypto], ['node:assert/strict', assert]
+  ]);
+  const source = fs.readFileSync(path.resolve(__dirname, '../work-data-preserved-snapshot.e2e.js'), 'utf8');
+  await vm.runInNewContext(source, { Buffer, process: { platform: 'win32', env: { ...env } },
+    require(name) { assert.ok(modules.has(name), name); return modules.get(name); } });
+  return state;
+}
+
+test('permanent preserved snapshot entry closes and removes only the modeled known successful fixture', async () => {
+  const state = await modelPreservedSnapshot('known');
+  assert.equal(state.failed, 0); assert.equal(state.passed.length, 5);
+  assert.equal(state.released, 1); assert.equal(state.retained, 0); assert.equal(state.removed, 1);
+});
+
+test('permanent snapshot metadata failure and final unknown never release, flush final logs, remove or report success', async () => {
+  for (const mode of ['metadata-error', 'final-unknown']) {
+    const state = await modelPreservedSnapshot(mode);
+    assert.equal(state.failed, 1); assert.equal(state.released, 0); assert.equal(state.retained, 1);
+    assert.equal(state.removed, 0); assert.equal(state.flushes, 1); assert.ok(state.passed.length < 5);
+  }
+});
+
+test('permanent snapshot cleanup refuses late unknown before removal and never reports late removal as success', async () => {
+  for (const mode of ['chmod-unknown', 'remove-unknown']) {
+    const state = await modelPreservedSnapshot(mode);
+    assert.equal(state.failed, 1); assert.equal(state.released, 1); assert.equal(state.retained, 1);
+    assert.equal(state.removed, mode === 'chmod-unknown' ? 0 : 1); assert.equal(state.passed.length, 4);
+  }
+});

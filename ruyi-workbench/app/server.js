@@ -111203,8 +111203,40 @@ const WorkDataNativeAdapters = ((io, p, c) => {
     }
     function fullSnapshot(base, ownership, assertExclusive, {controlRecoveryProof} = {}) {
       check(); if (typeof assertExclusive !== 'function' || !bindings.ownership.owns(ownership,base)) throw fail('ownership_required');
-      const exclusive = async candidate => bindings.ownership.owns(candidate) && await assertExclusive(candidate) === true && bindings.ownership.owns(candidate);
-      const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusive,protector,
+      if (assertExclusive.constructor?.name === 'AsyncFunction') throw fail('snapshot_sync_owner_required');
+      // Observe only a plain native Promise with descriptor-checked construction.
+      // Unknown thenables are never awaited or inspected through their getters.
+      const observePending = value => {
+        const types = require('node:util').types;
+        try {
+          if (types.isProxy(value) || !types.isPromise(value) || Object.getOwnPropertyDescriptor(value,'constructor')) return;
+          const proto = Object.getPrototypeOf(value); if (!proto || types.isProxy(proto)) return;
+          const descriptor = Object.getOwnPropertyDescriptor(proto,'constructor'), ctor = descriptor?.value;
+          if (!descriptor || !Object.hasOwn(descriptor,'value') || typeof ctor !== 'function' || types.isProxy(ctor)
+            || Function.prototype.toString.call(ctor) !== 'function Promise() { [native code] }') return;
+          const species = Object.getOwnPropertyDescriptor(ctor,Symbol.species);
+          if (!species) return;
+          if (Object.hasOwn(species,'value')) { if (species.value !== undefined && species.value !== null && species.value !== ctor) return; }
+          else if (typeof species.get !== 'function' || types.isProxy(species.get) || species.set !== undefined
+            || Function.prototype.toString.call(species.get) !== 'function get [Symbol.species]() { [native code] }') return;
+          Reflect.apply(Promise.prototype.then,value,[()=>{},()=>{}]);
+        } catch { /* Untrusted pending work never becomes an ownership proof. */ }
+      };
+      // The native reader must recheck the actual owner synchronously before
+      // lending captured bytes. An async predicate is never a synchronous proof.
+      const exclusiveSync = candidate => {
+        check(); if (!bindings.ownership.owns(candidate)) return false;
+        const current = assertExclusive(candidate);
+        if (current !== null && (typeof current === 'object' || typeof current === 'function')) {
+          observePending(current);
+          const cause = Object.assign(fail('snapshot_owner_uncertain',true),{ownershipRetained:true}); latch(cause); throw cause;
+        }
+        if (current !== true) return false;
+        check(); return bindings.ownership.owns(candidate);
+      };
+      const preservedRead = Object.freeze({profile:'bounded-native-v1',
+        capturePreserved:(...args) => guarded(() => bindings.capturePreserved(...args))});
+      const owner = bindings.fullSnapshot.create({base,ownership,assertExclusive:exclusiveSync,assertExclusiveSync:exclusiveSync,preservedRead,protector,
         externalOwner:bindings.externalOwner,skillBackupOwner:bindings.skillOwner,maintenanceResultOwner:bindings.resultOwner,controlRecoveryProof});
       return Object.freeze({seal:value => withSource(ownership,base,() => owner.seal(value)),
         restore:value => withSource(ownership,base,() => withSource(value?.targetOwnership === undefined ? ownership : value.targetOwnership,value?.target,() => owner.restore(value)))});

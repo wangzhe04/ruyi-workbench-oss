@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "scope": "CI01",
+  "actualToolSession": 15342,
+  "completionChunk": "bc0835",
+  "actualToolExitCode": 0,
+  "naturalCompletion": true,
+  "resultSha256": "633465c0e06e4e23ba64f41d7df4273abd3b987364d131eb0697ea678dfbd99e",
+  "caseBudgetMs": 1200000
+}

@@ -1,0 +1,48 @@
+{
+  "scope": "CI01",
+  "status": "FINITE_AFFECTED_RECOVERY_REGRESSION_ACCEPTED",
+  "accepted": true,
+  "canonical": [
+    "c10-no-result: real doctor refuses without changing complete source, claim or side inventories",
+    "c11-operation-mismatch: real doctor refuses without changing complete source, claim or side inventories",
+    "c11-bad-backup: real doctor refuses without changing complete source, claim or side inventories",
+    "c11-missing-key: real doctor refuses without changing complete source, claim or side inventories",
+    "c11-stage: real doctor refuses without changing complete source, claim or side inventories",
+    "enable-doctor: real doctor retires only exact complete intent and owned claim after full source/result verification",
+    "enable: subsequent ordinary source serve acquires real owner and reads unchanged business data and existing result",
+    "disable-doctor: real doctor retires only exact complete intent and owned claim after full source/result verification",
+    "disable: subsequent ordinary source serve acquires real owner and reads unchanged business data and existing result"
+  ],
+  "observer": {
+    "status": "OBSERVED_NATURAL_ZERO",
+    "firstError": null,
+    "unknown": false,
+    "flags": {
+      "exit": true,
+      "close": true,
+      "stdout-end": true,
+      "stdout-close": true,
+      "stdout-sink-finish": true,
+      "stdout-sink-close": true,
+      "stderr-end": true,
+      "stderr-close": true,
+      "stderr-sink-finish": true,
+      "stderr-sink-close": true
+    },
+    "exitCode": 0,
+    "exitSignal": null,
+    "closeCode": 0,
+    "closeSignal": null,
+    "elapsedNs": "300843508800",
+    "terminalElapsedNs": "300843508800",
+    "budgetMs": 1200000,
+    "noKillRetry": true,
+    "allOsDescendantsClosedClaim": false,
+    "cimCreationCaptured": false,
+    "actualImageCaptured": false
+  },
+  "caseBudgetMs": 1200000,
+  "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+  "entrySha": "03f3b00c3e350605ada6250c3324ccf8dfb622064c32f4e7631274c556d2a795",
+  "scopeBoundary": "Unchanged original constructed crash-window regression; not full nonempty migration, genuine natural crash or release"
+}

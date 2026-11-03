@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "scope": "OW01",
+  "actualToolSession": 81098,
+  "completionChunk": "4de90a",
+  "actualToolExitCode": 0,
+  "naturalCompletion": true,
+  "resultSha256": "feab122a0dd2b738cb6f8f9e653881df9972fa5dcc6326869dd1a6857885f861",
+  "caseBudgetMs": 900000
+}

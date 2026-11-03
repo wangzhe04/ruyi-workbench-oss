@@ -1,0 +1,12 @@
+PASS c10-no-result: real doctor refuses without changing complete source, claim or side inventories
+PASS c11-operation-mismatch: real doctor refuses without changing complete source, claim or side inventories
+PASS c11-bad-backup: real doctor refuses without changing complete source, claim or side inventories
+PASS c11-missing-key: real doctor refuses without changing complete source, claim or side inventories
+PASS c11-stage: real doctor refuses without changing complete source, claim or side inventories
+PASS enable-doctor: real doctor retires only exact complete intent and owned claim after full source/result verification
+PASS enable: subsequent ordinary source serve acquires real owner and reads unchanged business data and existing result
+PASS disable-doctor: real doctor retires only exact complete intent and owned claim after full source/result verification
+PASS disable: subsequent ordinary source serve acquires real owner and reads unchanged business data and existing result
+Retained synthetic C11 evidence C:\r31-1103\CI01\isolation\temp\ruyi-c11-recovery-XmOCnt
+
+WORK DATA COMPLETED INTENT RECOVERY E2E: ALL PASS

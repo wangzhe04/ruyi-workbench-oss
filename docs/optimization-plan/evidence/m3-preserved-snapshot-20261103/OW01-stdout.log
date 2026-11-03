@@ -1,0 +1,17 @@
+PASS plain-producer: a Job-owned actual producer dies with this owned claim and both original PIDs absent
+PASS plain-before-doctor: ordinary serve refuses the unknown owned job before touching the source
+PASS plain-doctor: real doctor returns unknown, durably preserves original claim bytes and retires only the pending name
+PASS plain: ordinary serve reacquires the released source and reads the original session after unknown recovery
+PASS matching-producer: a Job-owned actual producer dies with this owned claim and both original PIDs absent
+PASS matching-tampered-backup: doctor refuses and preserves the exact claim, source, targets, backups and other TEMP controls
+PASS matching-missing-backup: doctor refuses and preserves the exact claim, source, targets, backups and other TEMP controls
+PASS matching result: missing or tampered backup cannot downgrade to unknown; restored backup permits ordinary completed retirement
+PASS encrypted-producer: a Job-owned actual producer dies with this owned claim and both original PIDs absent
+PASS encrypted-invalid-key: doctor refuses and preserves the exact claim, source, targets, backups and other TEMP controls
+PASS encrypted-missing-key: doctor refuses and preserves the exact claim, source, targets, backups and other TEMP controls
+PASS encrypted-before-doctor: ordinary serve refuses the unknown owned job before touching the source
+PASS encrypted-doctor: real doctor returns unknown, durably preserves original claim bytes and retires only the pending name
+PASS encrypted: ordinary serve reads the original session; the older valid result never becomes this unknown job completion
+Retained synthetic owned-source recovery evidence C:\r31-1103\OW01\isolation\temp\ruyi-owned-source-wIkbxe
+
+WORK DATA OWNED SOURCE RECOVERY E2E: ALL PASS

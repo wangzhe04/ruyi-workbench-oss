@@ -1,0 +1,182 @@
+{
+  "schema": 1,
+  "status": "ACCEPT_FINITE_CI01_AFFECTED_RECOVERY_REGRESSION",
+  "scope": "CI01",
+  "unresolvedEvidenceP1P2": 0,
+  "rootReceiptSha256": "2c5e69debe6ee6f825ddeacbbb8b8e2614e9a5d681f9c0cd5e1b3af123c0070b",
+  "resultSha256": "633465c0e06e4e23ba64f41d7df4273abd3b987364d131eb0697ea678dfbd99e",
+  "sourceDecisionSha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175",
+  "entrySha256": "03f3b00c3e350605ada6250c3324ccf8dfb622064c32f4e7631274c556d2a795",
+  "originalC5EntryByteExact": true,
+  "caseBudgetMs": 1200000,
+  "terminalElapsedNs": "300843508800",
+  "allTenNaturalZero": true,
+  "rawSinkFinishCloseBoth": true,
+  "strictStderrEmpty": true,
+  "canonicalGroups": 9,
+  "canonical": [
+    "c10-no-result: real doctor refuses without changing complete source, claim or side inventories",
+    "c11-operation-mismatch: real doctor refuses without changing complete source, claim or side inventories",
+    "c11-bad-backup: real doctor refuses without changing complete source, claim or side inventories",
+    "c11-missing-key: real doctor refuses without changing complete source, claim or side inventories",
+    "c11-stage: real doctor refuses without changing complete source, claim or side inventories",
+    "enable-doctor: real doctor retires only exact complete intent and owned claim after full source/result verification",
+    "enable: subsequent ordinary source serve acquires real owner and reads unchanged business data and existing result",
+    "disable-doctor: real doctor retires only exact complete intent and owned claim after full source/result verification",
+    "disable: subsequent ordinary source serve acquires real owner and reads unchanged business data and existing result"
+  ],
+  "rootToolFact": {
+    "schema": 1,
+    "scope": "CI01",
+    "actualToolSession": 15342,
+    "completionChunk": "bc0835",
+    "actualToolExitCode": 0,
+    "naturalCompletion": true,
+    "resultSha256": "633465c0e06e4e23ba64f41d7df4273abd3b987364d131eb0697ea678dfbd99e",
+    "caseBudgetMs": 1200000,
+    "providedByRoot": true,
+    "notInferredFromCim": true
+  },
+  "sourceOracleWorldChecksMatchedInOrder": true,
+  "producerScope": "Original actual claim/native flush/genuine OS owner modules in constructed Job-bound producer, deliberately exit73; not natural production cold-worker crash",
+  "doctorScope": "Unchanged generated-server completed-intent doctor: existing durable enable/disable result plus verified source/backup; retire exactly complete intent and owned claim, five refusal controls preserve original inventories; original migration-equivalence maps are not reproved",
+  "emptySpecialStoreOrdinarySourceOnly": true,
+  "fullNonemptyPipelineQualified": false,
+  "metadataRestoreQualified": false,
+  "wholeM3Complete": false,
+  "allOsDescendantsClosedClaim": false,
+  "independentFixtureDataOrClaimBytesRead": false,
+  "rawCheckpointValuesNotIndependentlyReplayed": true,
+  "onlyCompletedCi01Read": true,
+  "noAutomaticFurtherActorGo": true,
+  "actualGo": false,
+  "reviewerExecutedActual": false,
+  "readOnlyGitPublicSourceComparisonOnly": true,
+  "selectedFiles": [
+    {
+      "file": "C:/r31-1103/CI01/TOP-EXEC.json",
+      "bytes": 267,
+      "sha256": "2c5e69debe6ee6f825ddeacbbb8b8e2614e9a5d681f9c0cd5e1b3af123c0070b"
+    },
+    {
+      "file": "C:/r31-1103/CI01/RESULT.json",
+      "bytes": 2207,
+      "sha256": "633465c0e06e4e23ba64f41d7df4273abd3b987364d131eb0697ea678dfbd99e"
+    },
+    {
+      "file": "C:/r31-1103/CI01/INPUT.json",
+      "bytes": 1413,
+      "sha256": "0c239a5e502c11e60cf6290ada52fee729eeaddb7ab327dd6604a26219dafe99"
+    },
+    {
+      "file": "C:/r31-1103/SOURCE-GO.json",
+      "bytes": 2595,
+      "sha256": "7269ac702325180e7f5ea2cc966c95e351145093410629865844181588b35175"
+    },
+    {
+      "file": "C:/r31-1103/cwt/ruyi-workbench/app/server.js",
+      "bytes": 8487437,
+      "sha256": "b583fb65bddb9dc49bbb5ebe09a2cd080c03504d787765d507e0ed1946238717"
+    },
+    {
+      "file": "C:/r31-1103/cwt/ruyi-workbench/app/src/manifest.json",
+      "bytes": 37997,
+      "sha256": "73ed8936c1fa9c41d6d0bb12504ff9d6f1cba7ce5424e4d958ce8f3074dae5e2"
+    },
+    {
+      "file": "C:/r31-1103/cwt/ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "bytes": 24409,
+      "sha256": "6e53dfc1444a98fa0e33377429dbd2a19b1c2092ca2d7078afdc7ed8c4de402b"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/work-data-preserved-snapshot.e2e.js",
+      "bytes": 6408,
+      "sha256": "fa862e21fc4d8e8e7016491793b9bff5f41570a183256f3e6ec1bbb92a5a795f"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/server-internals.js",
+      "bytes": 4571,
+      "sha256": "6c5cef9c54ae1ba4800a28c74aa116e61fd61d0fea2b86345637e14766000bb9"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/skill-capsule-native-fixture.js",
+      "bytes": 6761,
+      "sha256": "8a887a056ce25a71050e50c41062fdae501b24a9e0567714b31ded230dff9b43"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/fixture-home-guard.js",
+      "bytes": 4557,
+      "sha256": "959e8ce5448e3befb5bb8d445b4191f616587caf80219ab6763a76d9a33a8a76"
+    },
+    {
+      "file": "C:/Program Files/nodejs/node.exe",
+      "bytes": 91380224,
+      "sha256": "63c259c81e5d472b5f11c8d506070130cb04a1ecf84b80377a34ed6ec9048088"
+    },
+    {
+      "file": "C:/r31-1103/run-recovery-regression.cjs",
+      "bytes": 6825,
+      "sha256": "f78c1ad60d0ec6a5401a961fa970c495e3c050d6b70ad307343eae543b2a211e"
+    },
+    {
+      "file": "C:/r31-1102/prep.cjs",
+      "bytes": 10020,
+      "sha256": "19e97014d914743e0c80f6d08c8df7ad119a31cd37c8ef3f91e5ea9b02fe31b0"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/source-slice.js",
+      "bytes": 6684,
+      "sha256": "7c3d766b5c0c8dd0fea7ec4445afeb9cdac812e5de52a8763b97deb92896e1c4"
+    },
+    {
+      "file": "C:/r31-1102/observer-900.cjs",
+      "bytes": 4106,
+      "sha256": "1d66f361df8ef8fac95701c323b8b84103dc3e6df4019195e89c0422aa137a73"
+    },
+    {
+      "file": "C:/r31-1103/checks-fast/RESULT.json",
+      "bytes": 1262,
+      "sha256": "38e69d5b42eee3d74e8cce60dca6d8f19ed6755875f7a511eb77837717be7e41"
+    },
+    {
+      "file": "C:/r31-1103/checks-fast/INDEPENDENT-ACCEPTANCE.json",
+      "bytes": 17087,
+      "sha256": "0e9d50a14feb0604652c5ab92e5da7628d0df6b528f338fe3f4500f8fa0fae77"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/work-data-completed-intent-recovery.e2e.js",
+      "bytes": 13716,
+      "sha256": "03f3b00c3e350605ada6250c3324ccf8dfb622064c32f4e7631274c556d2a795"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/work-data-owned-claim-fixture.js",
+      "bytes": 11732,
+      "sha256": "038ba8061a956780929e696f0b1a888a22eca3bf7477c11c0f8274ba20de7233"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/lib/work-data-completed-claim-producer.cjs",
+      "bytes": 6080,
+      "sha256": "5ac1bf6c030ce42b1ec7ee04ad6147bb553cfa4c35b8e5c2bfe1bb4981c67437"
+    },
+    {
+      "file": "C:/r31-1103/cwt/dev-harness/work-data-production-restore.e2e.js",
+      "bytes": 105010,
+      "sha256": "9d5b2416d283aa09fd06a9baaa47ecb599ce51cc2209850d445cf83be481b3c1"
+    },
+    {
+      "file": "C:/r31-1103/CI01/events.jsonl",
+      "bytes": 746,
+      "sha256": "a921c20ba8f288d050876b071ca056e5f372aa58e08996171ef7490403c9571c"
+    },
+    {
+      "file": "C:/r31-1103/CI01/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "C:/r31-1103/CI01/stdout.log",
+      "bytes": 1132,
+      "sha256": "6b18421fef9c6eadeffb4f434f0fdeb1bd3ea3aa17bf78b0ec9d5167a74de59e"
+    }
+  ]
+}

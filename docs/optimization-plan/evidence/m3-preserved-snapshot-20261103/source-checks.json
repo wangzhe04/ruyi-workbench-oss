@@ -1,0 +1,51 @@
+{
+  "phase": "source",
+  "status": "PROJECT_CHECKS_PASS",
+  "nodeVersion": "v24.14.0",
+  "pins": [
+    {
+      "file": "ruyi-workbench/app/server.js",
+      "sha256": "b583fb65bddb9dc49bbb5ebe09a2cd080c03504d787765d507e0ed1946238717"
+    },
+    {
+      "file": "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+      "sha256": "6e53dfc1444a98fa0e33377429dbd2a19b1c2092ca2d7078afdc7ed8c4de402b"
+    },
+    {
+      "file": "dev-harness/work-data-preserved-snapshot.e2e.js",
+      "sha256": "fa862e21fc4d8e8e7016491793b9bff5f41570a183256f3e6ec1bbb92a5a795f"
+    },
+    {
+      "file": "dev-harness/unit/work-data-production-host.test.js",
+      "sha256": "7ca30702296b89d002ab00b5aacb3496e1c15b348511077019d2023ba2edd727"
+    },
+    {
+      "file": "dev-harness/run-all.js",
+      "sha256": "837f30f29d04c9b7c77dfa1bdcf5ced2ef28f055cb29bdad943599a5b033c507"
+    }
+  ],
+  "results": [
+    {
+      "name": "syntax",
+      "status": 0,
+      "signal": null,
+      "errorCode": null,
+      "elapsedMs": 218795.3206,
+      "stdoutBytes": 60,
+      "stdoutSha256": "89d59a2a2552e18c104ab55fc9d8cccf547da03c7181498f4cb2c1cd85a6bba8",
+      "stderrBytes": 0,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "build-check",
+      "status": 0,
+      "signal": null,
+      "errorCode": null,
+      "elapsedMs": 547.8492,
+      "stdoutBytes": 69,
+      "stdoutSha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501",
+      "stderrBytes": 0,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}
