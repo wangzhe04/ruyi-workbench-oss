@@ -18,8 +18,8 @@
 
 修复后的复跑中，媒体专项的语法超时断言曾单次失败，原日志没有结果字段。增加失败诊断后，两次完整媒体专项和八次独立语法超时实验均通过，目标原字节保留、后代写入停止、清理完成。原失败日志与调查结果完整保留在 macos-media-runtime-failed.txt、media-diagnostic-1.txt、media-timeout-probe.txt 和 media-timeout-investigation.json。根因尚未确认，断言未放宽，生产媒体代码未为此修改。
 
-本集合是 P1 相关专项，仓库现有 557 件默认 e2e 尚未全部在 Mac 执行。Windows 实机、Finder 可见窗口/选中对象仍待验收，macOS 14 按 P3/P6 关口追踪。P1 继续进行中。
+本集合是 P1 相关专项，仓库现有 557 件默认 e2e 尚未全部在 Mac 执行。本次Windows实机门槛按用户要求移除。Finder可见窗口/选中对象交接P4-02/V10，macOS14按P3/P6关口追踪。P1实现阶段已收尾，详见 [收尾记录](../closeout/README.md)。
 
 候选提交整理时，部分历史控制台日志仅移除了行尾空白和多余空尾行，以通过提交差异检查；测试判定、错误信息与源码指纹保持。
 
-本地实现候选提交为 `a8374a243679a673e2e3363f4c9bb4037ff291a9`，分支 `codex/p1-macos-runtime`。提交后核对206个已跟踪产品文件与测试时指纹一致，本地构建 helper 的指纹也一致，记录见 commit-source-verification.json。文档证据后续单独提交，deliveryCommit 继续为空，等待阶段验收。
+本地实现候选提交为 `a8374a243679a673e2e3363f4c9bb4037ff291a9`，分支 `codex/p1-macos-runtime`。提交后核对206个已跟踪产品文件与测试时指纹一致，本地构建 helper 的指纹也一致，记录见 commit-source-verification.json。该实现提交已登记为P1的deliveryCommit，收尾文档单独提交。

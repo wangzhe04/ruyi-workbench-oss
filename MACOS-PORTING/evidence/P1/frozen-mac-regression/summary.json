@@ -1,7 +1,7 @@
 {
   "date": "2026-11-03",
   "baselineCommit": "0a430880",
-  "deliveryCommit": null,
+  "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
   "sourceHashesVerified": true,
   "selectedSuites": 29,
   "selectedAssertions": 818,
@@ -28,7 +28,11 @@
     "default": 557,
     "live": 7
   },
-  "stageComplete": false,
+  "stageComplete": true,
   "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
-  "committedSourceHashesVerified": true
+  "committedSourceHashesVerified": true,
+  "closeoutDate": "2026-11-03",
+  "closeoutEvidence": "../closeout/README.md",
+  "windowsGate": "waived_by_user_for_P1",
+  "finderVisible": "handoff_P4-02_V10"
 }

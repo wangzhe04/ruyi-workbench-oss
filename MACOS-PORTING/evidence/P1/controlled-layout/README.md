@@ -22,4 +22,4 @@ macos-runtime-start 保留原来源码启动与 HTTP 路由断言，新增复制
 
 此处证明当前 Mac 的受控重定位布局和 clean PATH 启动。Node 来自本机已有二进制，宿主 OS 与基础环境仍在，完整离线依赖包和干净标准用户机器在 P3/P6 验收。自动缺失 Node 用例在已经安装系统 fallback Node 的机器会明确 skip。
 
-Finder 实际窗口及选中对象仍需授权后的可见验收。本件的 opener 拦截不提供此项证据。Windows 同版本回归仍待完成。
+Finder 实际窗口及选中对象仍需授权后的可见验收。本件的 opener 拦截不提供此项证据。本次P1的Windows实机门槛已按用户要求移除，Finder可见验收交接P4-02/V10，详见 ../closeout/README.md。

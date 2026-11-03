@@ -1,8 +1,8 @@
 # P1：运行时与系统边界
 
-状态：进行中（2026-11-03，P1-01/02/03/04 已进入实现与验收） · 前置：P0 · 基础工作量：**8–12 人日**。估算包含本阶段实现、相关测试、修复、文档与独立复核响应；共用风险容量只在总估算另加一次。
+状态：已完成（2026-11-03，P1-01/02/03/04 实现阶段收尾） · 前置：P0 · 基础工作量：**8–12 人日**。估算包含本阶段实现、相关测试、修复、文档与独立复核响应；共用风险容量只在总估算另加一次。
 
-首批实现、测试结果与剩余验收见 [P1 实施记录](evidence/P1/README.md)。最新所有权恢复验证见 [补充记录](evidence/P1/ownership/README.md)。P1-04 已实现进程身份、清理基础与一次性执行监督入口，详见 [监督实现记录](evidence/P1/supervisor/README.md)。CLI/MCP/toolbox 已完成本批监督接入，见 [集成记录](evidence/P1/process-integration/README.md)。git 已完成监督捕获与工具 owner 接入，见 [git 记录](evidence/P1/git-runtime/README.md)。P1-03 已接入 Mac 一次性与常驻 shell，见 [shell 记录](evidence/P1/shell/README.md)。P1-02 已实现系统路径策略、卷大小写隔离与文件写入回滚，见 [文件策略记录](evidence/P1/files/README.md)。helper 运行时版本与能力门已接入，见 [能力门记录](evidence/P1/helper-gate/README.md)。单 helper 故障恢复已实现双层监督，见 [故障恢复记录](evidence/P1/helper-loss/README.md)。原生 provider 工具发现、提示词与体检已接入实时能力状态，见 [能力状态记录](evidence/P1/capabilities/README.md)。CLI/MCP 发现与能力弹层已完成本批接入和真实浏览器验证，见 [发现与界面记录](evidence/P1/discovery-ui/README.md)。隔离工作树 Git 已接入监督及失败恢复，见 [工作树记录](evidence/P1/worktree-runtime/README.md)。Kimi 模型发现探针已接入监督，见 [探针记录](evidence/P1/cli-model-probe/README.md)。当前执行入口清册、受控启动布局及文件失败恢复已补齐。阶段实际未闭合项与后续阶段边界见 [验收缺口审计](evidence/P1/acceptance-audit.md)，当前继续收集冻结源码回归、Finder 可见验收和 Windows 同版本证据。
+首批实现、测试结果与剩余验收见 [P1 实施记录](evidence/P1/README.md)。最新所有权恢复验证见 [补充记录](evidence/P1/ownership/README.md)。P1-04 已实现进程身份、清理基础与一次性执行监督入口，详见 [监督实现记录](evidence/P1/supervisor/README.md)。CLI/MCP/toolbox 已完成本批监督接入，见 [集成记录](evidence/P1/process-integration/README.md)。git 已完成监督捕获与工具 owner 接入，见 [git 记录](evidence/P1/git-runtime/README.md)。P1-03 已接入 Mac 一次性与常驻 shell，见 [shell 记录](evidence/P1/shell/README.md)。P1-02 已实现系统路径策略、卷大小写隔离与文件写入回滚，见 [文件策略记录](evidence/P1/files/README.md)。helper 运行时版本与能力门已接入，见 [能力门记录](evidence/P1/helper-gate/README.md)。单 helper 故障恢复已实现双层监督，见 [故障恢复记录](evidence/P1/helper-loss/README.md)。原生 provider 工具发现、提示词与体检已接入实时能力状态，见 [能力状态记录](evidence/P1/capabilities/README.md)。CLI/MCP 发现与能力弹层已完成本批接入和真实浏览器验证，见 [发现与界面记录](evidence/P1/discovery-ui/README.md)。隔离工作树 Git 已接入监督及失败恢复，见 [工作树记录](evidence/P1/worktree-runtime/README.md)。Kimi 模型发现探针已接入监督，见 [探针记录](evidence/P1/cli-model-probe/README.md)。当前执行入口清册、受控启动布局及文件失败恢复已补齐。阶段实际未闭合项与后续阶段边界见 [验收缺口审计](evidence/P1/acceptance-audit.md)，最终收尾依据、用户决定与后续交接见 [收尾记录](evidence/P1/closeout/README.md)。
 
 ## 目标
 
@@ -38,13 +38,13 @@
 
 ## 阶段验收
 
-- [ ] V02/V03/V04 通过；停止/超时后自有进程树不再继续工作且不误杀陌生进程。
-- [ ] 终端和受控干净环境均能起服务；浏览器打开不调用 cmd.exe/Explorer。
-- [ ] Windows 原 shell/引号/路径测试保持通过；明确不支持 TTY 交互式程序。
+- [x] Mac V02/V03/V04相关集合通过，29件专项共818条断言，覆盖停止/超时清理及陌生进程保护。
+- [x] 终端和受控重定位布局均能启动，系统打开使用Mac参数与完成协议。
+- [x] 默认bash及非TTY边界已实现并验证，Windows参数契约夹具保留。
+- [x] 构建新鲜度、完整单元、静态契约与独立复核通过，发现及处理结果已归档。
+- [x] TASKS与看板登记实现交付SHA、日志、已知限制和交接项。
 
-- [ ] 相关 Windows 回归、构建新鲜度与代码契约通过；独立复核发现均有处理记录。
-
-- [ ] TASKS.json 与执行看板已登记真实状态、提交 SHA、日志、已知限制。
+Windows实机回归按2026-11-03用户明确指示移出本次P1门槛。Finder可见交互按原矩阵V10交接P4-02。媒体单次超时失败保留为根因未确认的观察项，详见收尾记录。
 
 ## 回退与失败处理
 

@@ -113,7 +113,7 @@
       "dependsOn": [
         "P0"
       ],
-      "status": "in_progress",
+      "status": "done",
       "effortDays": {
         "low": 8,
         "high": 12
@@ -127,7 +127,7 @@
             "high": 3
           },
           "deliverable": "新增集中平台层；Mac 启动入口、--open、Finder reveal、Node/Python/rg 探测；适配干净 PATH，不 source 用户 profile。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P1/README.md",
@@ -137,11 +137,12 @@
             "evidence/P1/ownership/review.json",
             "evidence/P1/opener-completion/README.md",
             "evidence/P1/controlled-layout/README.md",
-            "evidence/P1/frozen-mac-regression/README.md"
+            "evidence/P1/frozen-mac-regression/README.md",
+            "evidence/P1/closeout/README.md"
           ],
           "startedDate": "2026-10-31",
           "baselineCommit": "0a430880",
-          "deliveryCommit": null,
+          "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
           "implementedScope": [
             "集中平台启动策略和干净 PATH",
             "Mac .command 入口与 --open",
@@ -151,10 +152,7 @@
             "有身份记录的旧 socket 崩溃恢复与退出写入保护",
             "Mac宿主打开统一/usr/bin/open完成语义，规范路径与file URL，脚本/应用包别名不执行，超时仅停止launcher"
           ],
-          "remainingAcceptance": [
-            "Finder实际窗口与选中对象可见验收（自动化权限预检-1744，授权请求待用户答复）",
-            "最终交付SHA上的Windows相关回归与启动汇总"
-          ],
+          "remainingAcceptance": [],
           "review": {
             "scope": "startup ownership, socket recovery and associated path guards",
             "reviewer": "/root/ownership_review",
@@ -171,7 +169,8 @@
               "evidence": "evidence/P1/controlled-layout/review.json"
             }
           },
-          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "completedDate": "2026-11-03"
         },
         {
           "id": "P1-02",
@@ -181,7 +180,7 @@
             "high": 3
           },
           "deliverable": "定义 Mac 受保护路径；复核 realpath、大小写敏感卷、符号链接、POSIX 绝对路径、原子写与回退；修复对应测试夹具。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P1/files/README.md",
@@ -191,14 +190,13 @@
             "evidence/P1/file-mutation-recovery/README.md",
             "evidence/P1/temporary-cleanup/README.md",
             "evidence/P1/provider-stop/README.md",
-            "evidence/P1/frozen-mac-regression/README.md"
+            "evidence/P1/frozen-mac-regression/README.md",
+            "evidence/P1/closeout/README.md"
           ],
           "startedDate": "2026-11-02",
           "baselineCommit": "0a430880",
-          "deliveryCommit": null,
-          "remaining": [
-            "最终交付SHA上的Windows文件相关回归"
-          ],
+          "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "remaining": [],
           "review": {
             "reviewer": "/root/ownership_review",
             "status": "passed_targeted_review",
@@ -224,7 +222,8 @@
               "evidence": "evidence/P1/provider-stop/review.json"
             }
           },
-          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "completedDate": "2026-11-03"
         },
         {
           "id": "P1-03",
@@ -234,7 +233,7 @@
             "high": 3
           },
           "deliverable": "实现平台默认 shell、显式脚本语言和非 TTY 常驻会话；同步 schema、bash 别名、命令长度、Unicode、输出上限与取消语义。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P1/shell/README.md",
@@ -243,11 +242,12 @@
             "evidence/P1/helper-loss/README.md",
             "evidence/P1/capabilities/README.md",
             "evidence/P1/discovery-ui/README.md",
-            "evidence/P1/frozen-mac-regression/README.md"
+            "evidence/P1/frozen-mac-regression/README.md",
+            "evidence/P1/closeout/README.md"
           ],
           "startedDate": "2026-11-02",
           "baselineCommit": "0a430880",
-          "deliveryCommit": null,
+          "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
           "implementedScope": [
             "shell_run 平台默认入口与显式语言，Mac script_run 默认 bash",
             "无 profile/启动注入的 /bin/bash，非 TTY 常驻与后台作业",
@@ -258,9 +258,7 @@
             "异步运行时快照与缓存撤销接入原生provider工具发现/提示词/状态API/体检",
             "CLI/MCP完整与adaptive发现接入runtime gate，能力弹层实时状态及真实Chrome验证"
           ],
-          "remainingAcceptance": [
-            "最终交付SHA上的Windows真实PowerShell相关回归"
-          ],
+          "remainingAcceptance": [],
           "review": {
             "scope": "Mac one-shot/bash scripting and persistent/background shell with native private fd",
             "status": "passed_targeted_rereview",
@@ -286,7 +284,8 @@
               "evidence": "evidence/P1/discovery-ui/review.json"
             }
           },
-          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "completedDate": "2026-11-03"
         },
         {
           "id": "P1-04",
@@ -296,7 +295,7 @@
             "high": 3
           },
           "deliverable": "统一 CLI/MCP/shell/toolbox 的启动登记与停止；替代 /proc 假设；覆盖子孙、父进程先退出、身份校验；同步测试清理器。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P1/processes/README.md",
@@ -327,11 +326,12 @@
             "evidence/P1/execution-entry-audit.md",
             "evidence/P1/final-review.json",
             "evidence/P1/frozen-mac-regression/README.md",
-            "evidence/P1/media-repeat-audit/README.md"
+            "evidence/P1/media-repeat-audit/README.md",
+            "evidence/P1/closeout/README.md"
           ],
           "startedDate": "2026-11-02",
           "baselineCommit": "0a430880",
-          "deliveryCommit": null,
+          "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
           "implementedScope": [
             "libproc 精确启动时间与自有直接子树快照清理",
             "Mac 测试清理器和既有 git/MCP/CLI/shell 停止入口接入",
@@ -363,11 +363,7 @@
             "file_search/docs_search取消贯通遍历与内容regex worker，终止确认与不完整失败，rg共享探针独立服务owner及可取消等待",
             "路径matcher共享worker退出确认、取消与批次间错误收尾，file_list/glob/project_snapshot传入signal并阻止部分结果发布"
           ],
-          "remainingAcceptance": [
-            "最终交付SHA上的Windows进程相关回归",
-            "媒体语法超时单次失败根因取证（五次完整复跑与8次实验未重现）",
-            "Windows与Finder证据齐备后的阶段验收结论"
-          ],
+          "remainingAcceptance": [],
           "review": {
             "scope": "observed-tree foundation",
             "status": "passed_targeted_rereview",
@@ -487,7 +483,8 @@
               "evidence": "evidence/P1/path-cancellation/review.json"
             }
           },
-          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
+          "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+          "completedDate": "2026-11-03"
         }
       ],
       "owner": "Codex",
@@ -501,10 +498,27 @@
         "unitSkipped": 18,
         "staticPassed": 80,
         "unreproducedMediaFailure": true,
-        "windowsActual": "pending",
-        "finderVisible": "pending"
+        "windowsActual": "not_verified_user_waived_P1_gate",
+        "finderVisible": "not_verified_handoff_P4-02_V10"
       },
-      "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9"
+      "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+      "completedDate": "2026-11-03",
+      "deliveryCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+      "closeoutEvidence": "evidence/P1/closeout/README.md",
+      "acceptanceDecision": {
+        "date": "2026-11-03",
+        "userInstruction": "不需要Windows回归，收尾P1",
+        "windowsRegression": "waived_for_this_P1_closeout",
+        "finderVisible": "handoff_P4-02_V10",
+        "mediaAnomaly": "known_observation_root_cause_unconfirmed"
+      },
+      "knownLimitations": [
+        "媒体单次语法超时失败根因未确认，后续五次完整媒体专项与八次独立实验通过",
+        "Finder可见实机验收交接P4-02/V10",
+        "macOS14及干净机器离线包按P3/P6验证",
+        "557件默认e2e未在Mac全量执行",
+        "observed-only、单helper故障模型、非TTY与未知socket拒绝边界"
+      ]
     },
     {
       "id": "P2",
@@ -668,7 +682,17 @@
           "deliverable": "原生文件选择器、Finder/编辑器、菜单栏、通知、Cmd 快捷键与安全的 URL 打开；验证页面来源/消息 schema。",
           "status": "planned",
           "owner": null,
-          "evidence": []
+          "evidence": [],
+          "acceptanceCarryover": [
+            {
+              "from": "P1-01",
+              "requirement": "Finder实际窗口及选中对象可见验收",
+              "matrix": "V10",
+              "status": "pending",
+              "permissionPreflight": -1744,
+              "evidence": "evidence/P1/finder/automation-preflight-recheck.txt"
+            }
+          ]
         },
         {
           "id": "P4-03",
@@ -836,12 +860,12 @@
     }
   ],
   "estimateCheckpoint": {
-    "date": "2026-10-30",
+    "date": "2026-11-03",
     "completedPhases": [
-      "P0"
+      "P0",
+      "P1"
     ],
     "remainingPhases": [
-      "P1",
       "P2",
       "P3",
       "P4",
@@ -849,14 +873,14 @@
       "P6"
     ],
     "remainingBaseDays": {
-      "low": 56,
-      "high": 90
+      "low": 48,
+      "high": 78
     },
     "remainingBudgetDays": {
-      "low": 68,
-      "high": 117
+      "low": 58,
+      "high": 102
     },
     "actualPersonDays": null,
-    "rationale": "逐项复核剩余工作包后维持原范围与估算；总额保留原始全项目预算，不将机器执行时间换算为人工投入。开放风险见 11-P0-DECISIONS.md。"
+    "rationale": "P1按用户调整后的验收边界收尾。剩余区间为P2–P6既有估算之和；原全项目预算保留，实际人工投入未核算。Finder可见验收归P4/V10，最低系统与离线包归P3/P6。"
   }
 }

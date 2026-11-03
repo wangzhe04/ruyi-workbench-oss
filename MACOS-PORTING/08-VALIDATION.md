@@ -52,3 +52,7 @@ node --require ./dev-harness/lib/self-isolate-home.js dev-harness/<相关用例>
 ## 5. 证据格式
 
 每条记录包含：工作包 ID、提交 SHA、OS/架构/Node/Python/CLI/浏览器版本、命令、退出码、通过/失败/skip 数、隔离根目录、异常归因、日志路径、复核者及时间。日志不得包含真实凭据。失败后的临时数据按仓库策略保留用于定位；通过后清理自有进程和夹具。
+
+## P1 本次收尾决定（2026-11-03）
+
+用户明确要求“不需要Windows回归，收尾P1”。本次P1的V14 Windows实机门槛据此移除，已保留Windows参数契约夹具。Finder可见窗口/选中对象按V10交接P4-02。P1的Mac相关V02/V03/V04证据和已知限制见 [收尾记录](evidence/P1/closeout/README.md)，其余阶段验收门槛按各自计划执行。
