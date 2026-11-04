@@ -26,7 +26,8 @@ function fixture(options={}){
  const process={arch:options.arch||'x64',env:{SystemRoot:'W:\\Windows',ruyi_skill_capsule_code_0:'UNTRUSTED',RUYI_SKILL_CAPSULE_SOURCE:'UNTRUSTED'},platform:'win32'};
  const broker=function migrationCapsuleBroker(){};
  const context={Buffer,process,migrationCapsuleBroker:broker,require:name=>name==='node:fs/promises'?io:name==='node:path'?win:name==='node:os'?{tmpdir:()=> 'T:\\owned'}:name==='node:timers'?{setImmediate:fn=>queueMicrotask(fn)}:require(name)};
- vm.createContext(context);vm.runInContext((options.block||block)+'\nthis.api=migrationCapsuleCode;',context);
+ let body=options.block||block;if(options.contextOnly){const anchor='return Object.freeze({ prepare, idle:';a.equal(body.split(anchor).length,2);body=body.replace(anchor,'return Object.freeze({ testContext:context, prepare, idle:');}
+ vm.createContext(context);vm.runInContext(body+'\nthis.api=migrationCapsuleCode;',context);
  const child=()=>{const ch=new EventEmitter();ch.stdout=new EventEmitter();ch.stderr=new EventEmitter();return ch;};
  const complete=(record,ch,{missing=null,success=true,marker=null}={})=>{
   ch.emit('spawn');if(marker!==null)ch.stderr.emit('data',Buffer.from(marker));
@@ -37,9 +38,85 @@ function fixture(options={}){
  return{api:context.api,broker,process,io,rows,put,directory,get,deleted,readPaths,child,complete,materialize,key,closed:()=>closed,allocated:()=>allocated};
 }
 async function published(f){const r=await f.api.prepare('PUBLIC SOURCE'),ch=f.child();r.observe(ch);const info=f.materialize(r);f.complete(r,ch);await f.api.idle();a.equal(f.api.stats().published,1);return info;}
+
+test('fresh public context hashes all fourteen files in fixed order with four bounded complete pipelines',async()=>{
+ const f=fixture({contextOnly:true}),open=f.io.open;let active=0,peak=0,opened=0,closed=0,release;
+ const gate=new Promise(resolve=>release=resolve);
+ f.io.open=async(...args)=>{const fd=await open(...args);active++;opened++;peak=Math.max(peak,active);if(active===4)release();const read=fd.read,close=fd.close;
+  fd.read=async(...args)=>{await gate;return read(...args);};fd.close=async()=>{await close();active--;closed++;};return fd;};
+ const ctx=await f.api.testContext('PUBLIC SOURCE');a.equal(ctx.files.length,14);a.equal(peak,4);a.equal(active,0);a.equal(opened,14);a.equal(closed,14);
+ a.equal(ctx.files[0].file,ctx.executable);a.equal(ctx.files[1].file,ctx.executable+'.config');a.deepEqual(Array.from(ctx.files.slice(10),row=>row.file),Array.from(ctx.references));
+ for(const row of ctx.files)a.equal(row.sha256,hash(f.get(row.file).bytes));
+ const before=opened;await f.api.testContext('PUBLIC SOURCE');a.equal(opened-before,14,'a later context never reuses file hash or ancestor authority');a.equal(active,0);
+});
+
+test('hash-only public IO reuses at most one MiB and hashes every byte including its final short block',async()=>{
+ const f=fixture({contextOnly:true}),file='W:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',bytes=Buffer.alloc(2*1024*1024+137);for(let n=0;n<bytes.length;n++)bytes[n]=n%251;f.put(file,bytes);
+ const open=f.io.open,reads=[];f.io.open=async(name,...args)=>{const fd=await open(name,...args),read=fd.read;if(f.key(name)===f.key(file))fd.read=async(buffer,offset,length,position)=>{reads.push({buffer:buffer.length,length,position});return read(buffer,offset,length,position);};return fd;};
+ const ctx=await f.api.testContext('PUBLIC SOURCE');a.equal(ctx.files[0].sha256,hash(bytes));a.equal(reads.length,3);a(reads.every(row=>row.buffer<=1024*1024&&row.length<=row.buffer));a.deepEqual(reads.map(row=>row.position),[0,1024*1024,2*1024*1024]);a.equal(reads.at(-1).length,137);
+});
+
+test('optional context failure waits every started FD close before returning compiler fallback',async()=>{
+ const f=fixture(),open=f.io.open,primary=Error('synthetic context read refusal');let active=0,opened=0,closed=0,release,finished=false;
+ const gate=new Promise(resolve=>release=resolve);
+ f.io.open=async(file,...args)=>{const fd=await open(file,...args);active++;opened++;const read=fd.read,close=fd.close;
+  fd.read=async(...args)=>{if(file.endsWith('powershell.exe'))throw primary;await gate;return read(...args);};fd.close=async()=>{await close();active--;closed++;};return fd;};
+ const preparing=f.api.prepare('PUBLIC SOURCE').then(value=>{finished=true;return value;});
+ try{for(let n=0;n<200&&!(opened===4&&closed===1);n++)await Promise.resolve();a.equal(opened,4);a.equal(closed,1);a.equal(active,3);a.equal(finished,false);a.equal(f.allocated(),0);}
+ finally{release();}
+ a.equal(await preparing,null);a.equal(closed,4);a.equal(active,0);a.equal(finished,true);a.equal(f.api.stats().disabled,true);a.equal(f.allocated(),0);
+});
 test('completed original producer publishes only private code; fresh hit has bounded parts and exact context',async()=>{
  const f=fixture(),r=await f.api.prepare('PUBLIC SOURCE'),ch=f.child();r.observe(ch);const info=f.materialize(r);a.equal(f.api.stats().published,0);a.equal(r.env.ruyi_skill_capsule_code_0,undefined);a.equal(Buffer.from(r.env.RUYI_SKILL_CAPSULE_SOURCE,'base64').toString(),'PUBLIC SOURCE');f.complete(r,ch);a.equal(f.api.stats().published,0);await f.api.idle();a.equal(f.api.stats().published,1);a.equal(f.api.stats().compiled,1);a.equal(f.api.stats().codeIdentity.sourceHash,hash('PUBLIC SOURCE'));a.equal(f.api.stats().codeIdentity.artifactSha256,hash(info.bytes));a.equal(JSON.stringify(f.api.stats()).includes('PUBLIC_ASSEMBLY_BYTES'),false);a.equal(f.api.stats().pending,0);
  const hot=await f.api.prepare('PUBLIC SOURCE'),meta=metadata(hot);a.equal(hot.env.RUYI_SKILL_CAPSULE_CODE_SINK,'');a.equal(meta.artifactHash,hash(info.bytes));a.equal(meta.mvid,info.manifest.mvid);a.equal(meta.clr,info.manifest.clr);a.equal(Buffer.from(hot.env.RUYI_SKILL_CAPSULE_CODE_0,'base64').toString(),info.bytes.toString());const hc=f.child();hot.observe(hc);f.complete(hot,hc,{marker:'RUYI_CODE_V1_LOAD|'+meta.artifactHash+'\r\n'});await f.api.idle();a.equal(f.api.stats().loaded,1);a.equal(f.api.stats().disabled,false);a.equal(f.allocated(),1);a.equal(f.deleted.length,4);a(f.closed()>0);
+});
+
+test('cached bootstrap derives the same policy decoder refs and loader while omitting only the cold producer arm',async()=>{
+ const f=fixture(),cold=await f.api.prepare('PUBLIC SOURCE'),child=f.child();cold.observe(child);f.materialize(cold);f.complete(cold,child);await f.api.idle();const hot=await f.api.prepare('PUBLIC SOURCE');
+ const original=vm.runInNewContext(constBlock(block,'bootstrap')+';bootstrap',{});a.equal(cold.bootstrap,original);a(hot.bootstrap.length<cold.bootstrap.length);a.equal(metadata(hot).artifactHash,f.api.stats().codeIdentity.artifactSha256);
+ a.equal(bracedDecoder(hot.bootstrap),bracedDecoder(cold.bootstrap));
+ for(const guard of ["LanguageMode.ToString() -ceq 'FullLanguage'","GetSystemLockdownPolicy().ToString() -ceq 'None'","StartsWith('RUYI_SKILL_CAPSULE_'","try{Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition $source}",'CodeHash ([IO.File]::ReadAllBytes($file.file))',"throw 'native_code_reference'","[Reflection.Assembly]::Load($bytes)","throw 'native_code_artifact'","throw 'native_code_runtime'","throw 'native_code_method'","throw 'native_code_dependency'","'RUYI_CODE_V1_LOAD|'",'[RuyiSkillCapsule]::Run()']){
+  a(hot.bootstrap.includes(guard),guard);
+ }
+ const refs=cold.bootstrap.slice(cold.bootstrap.indexOf('foreach($file in $meta.files)'),cold.bootstrap.indexOf("if($encoded -eq '') {\n  $source="));a(hot.bootstrap.includes(refs));
+ const loader=cold.bootstrap.slice(cold.bootstrap.indexOf('  $bytes=[Convert]::FromBase64String($encoded);'),cold.bootstrap.indexOf("\n}\n$type=$assembly.GetType('RuyiSkillCapsule'"));a(hot.bootstrap.includes(loader));
+ a(hot.bootstrap.includes("if($encoded -eq ''){throw 'native_code_cache_parts'}\n$meta=CodeMetaDecode $meta64 $true"));a.equal(hot.bootstrap.includes('-OutputAssembly $dll'),false);a.equal(hot.bootstrap.includes('function CodeAclCapability'),false);a(hot.bootstrap.indexOf('if(!$useCode)')<hot.bootstrap.indexOf('function CodeMetaDecode'));
+});
+
+test('cold hot specialization encoder and selector text all bind the private code context key',async()=>{
+ const base=fixture(),original=metadata(await base.api.prepare('PUBLIC SOURCE')).key;
+ for(const [before,after]of [
+  ["$ProgressPreference='SilentlyContinue'","$ProgressPreference='SilentlyContinue'\n# Different bootstrap identity."],
+  ['function specializeBootstrap(value) {','function specializeBootstrap(value) {\n    // Different specialization identity.'],
+  ['function bootstrapFor(hit) {','function bootstrapFor(hit) { /* Different selection identity. */'],
+  ['function encodeMetadata(meta) {','function encodeMetadata(meta) {\n    // Different encoder identity.'],
+ ]){a(block.includes(before));const f=fixture({block:block.replace(before,after)});a.notEqual(metadata(await f.api.prepare('PUBLIC SOURCE')).key,original);}
+});
+
+test('unrecognized or ambiguous specialization retains the complete original bootstrap',()=>{
+ const specialize=vm.runInNewContext('('+functionBlock(block,'specializeBootstrap')+')'),original=vm.runInNewContext(constBlock(block,'bootstrap')+';bootstrap',{});
+ for(const changed of[original.replace("if($encoded -eq '') {\n  $source=","if($encoded -eq '') {\n  # changed template\n  $source="),original+"\n} else {\n  $bytes=[Convert]::FromBase64String($encoded);",original+"\n}\n$type=$assembly.GetType('RuyiSkillCapsule'",original.replace("$meta=CodeMetaDecode $meta64 ([bool]($encoded -ne ''))",'$meta=other_decoder')])a.equal(specialize(changed),changed);
+});
+
+test('Windows parses both complete emitted bootstraps without executing source or native commands',{skip:process.platform!=='win32',timeout:60000},async()=>{
+ const f=fixture(),cold=await f.api.prepare('PUBLIC SOURCE');await published(f);const hot=await f.api.prepare('PUBLIC SOURCE');
+ const os=require('node:os'),cp=require('node:child_process'),root=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-code-bootstrap-parser-')),env=require('../lib/release-checks').releaseEnvironment(path.join(root,'home'),path.join(root,'data'));
+ const script="$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';$raw=[Console]::In.ReadToEnd();if($raw.Length -gt 1048576){throw 'input_limit'};$scripts=$raw|ConvertFrom-Json;$rows=@();foreach($script in $scripts){$tokens=$null;$issues=$null;$null=[System.Management.Automation.Language.Parser]::ParseInput([string]$script,[ref]$tokens,[ref]$issues);$rows+=@{errors=@($issues).Count}};[Console]::WriteLine((ConvertTo-Json -InputObject $rows -Compress))";
+ try{const result=cp.spawnSync(path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{env,windowsHide:true,encoding:'utf8',input:JSON.stringify([cold.bootstrap,hot.bootstrap]),timeout:30000,maxBuffer:1024*1024});a.equal(result.status,0,result.stderr);a.equal(result.stderr,'');a.deepEqual(JSON.parse(result.stdout),[{errors:0},{errors:0}]);}
+ finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
+test('policy-declined bootstrap control selects original source fallback without entering byte loader',{skip:process.platform!=='win32',timeout:60000},async()=>{
+ const f=fixture(),cold=await f.api.prepare('PUBLIC SOURCE');await published(f);const hot=await f.api.prepare('PUBLIC SOURCE'),os=require('node:os'),cp=require('node:child_process'),root=fs.mkdtempSync(path.join(os.tmpdir(),'ruyi-code-policy-control-'));
+ const policy="$useCode=$false;try{$useCode=$ExecutionContext.SessionState.LanguageMode.ToString() -ceq 'FullLanguage' -and [System.Management.Automation.Security.SystemPolicy]::GetSystemLockdownPolicy().ToString() -ceq 'None'}catch{}",compile='try{Add-Type -ReferencedAssemblies System.Web.Extensions -TypeDefinition $source}finally{$source=$null}';
+ try{for(const record of[cold,hot]){
+  a(record.bootstrap.includes(policy));a(record.bootstrap.includes(compile));
+  // Only the policy result and source execution are inert controls; validators
+  // and the alternative loader remain the actual emitted PowerShell body.
+  const script=record.bootstrap.replace(policy,'$useCode=$false').replace(compile,'$script:sourceFallback=$true').replace('[RuyiSkillCapsule]::Run()',"if(!$script:sourceFallback){throw 'missing_source_fallback'};[Console]::WriteLine('SOURCE_ONLY');return");
+  const base=require('../lib/release-checks').releaseEnvironment(path.join(root,'home'),path.join(root,'data')),env={...base,...Object.fromEntries(Object.entries(record.env).filter(([name])=>name.startsWith('RUYI_SKILL_CAPSULE_')))};
+  const result=cp.spawnSync(path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{env,windowsHide:true,encoding:'utf8',timeout:30000,maxBuffer:1024*1024});a.equal(result.status,0,result.stderr);a.equal(result.stderr,'');a.equal(result.stdout.trim(),'SOURCE_ONLY');
+ }}finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 test('live producer and concurrent misses never wait or share native state; a cold instance has no cache',async()=>{
  const f=fixture(),one=await f.api.prepare('PUBLIC SOURCE'),two=await f.api.prepare('PUBLIC SOURCE');a.notEqual(one.env.RUYI_SKILL_CAPSULE_CODE_SINK,two.env.RUYI_SKILL_CAPSULE_CODE_SINK);a.equal(f.api.stats().published,0);await published(f);const cold=fixture(),fresh=await cold.api.prepare('PUBLIC SOURCE');a(fresh.env.RUYI_SKILL_CAPSULE_CODE_SINK);a.equal(cold.api.stats().published,0);

@@ -157,7 +157,9 @@ const WorkDataMigrationHost = ((io,p,c) => {
     const receipt=expected=>Object.freeze({...expected,proof:Object.freeze({...expected.proof})});
     async function checkSource(plan){
       await current(plan.expected);await acceptIntent({ownedFile:{name:plan.intent.name,sha256:plan.intent.sha256,identity:{dev:plan.intent.identity.split(':')[0],ino:plan.intent.identity.split(':')[1]}}});
-      return usingSource(await sourceTree.capture(base),async snapshot=>{
+      return usingSource(await sourceTree.capture(base),snapshot=>validateSource(plan,snapshot));
+    }
+    async function validateSource(plan,snapshot){
         const files=new Map(plan.sourceProof.sourceFiles.map(row=>[key(row.path),row])),dirs=new Map(plan.sourceProof.sourceDirectories.map(row=>[key(row.path),row]));
         const candidate=name=>plan.candidate&&inside(plan.candidate.root,p.join(base,...name.split('/')));
         for(const file of snapshot.files){const prior=files.get(key(file.path));if(candidate(file.path))continue;
@@ -172,7 +174,27 @@ const WorkDataMigrationHost = ((io,p,c) => {
           const stat=await io.lstat(p.join(base,...name.split('/')),{bigint:true});if(prior.identity!==String(stat.dev)+':'+String(stat.ino))fail('source_changed',{file:name});dirs.delete(key(name));
         }
         for(const row of dirs.values())fail('source_changed',{file:row.path});
-      });
+    }
+    // Candidate and intent writes change a legacy base's complete census.
+    // Take a fresh read-only scope after those writes; each file must still
+    // match the ORIGINAL durable witness, never a redefined current baseline.
+    function codecSourceScope(plan){
+      if(preservedRead===undefined)return {};
+      return {withSourceReadScope:async work=>{
+        await current(plan.expected);await acceptIntent({ownedFile:{name:plan.intent.name,sha256:plan.intent.sha256,identity:{dev:plan.intent.identity.split(':')[0],ino:plan.intent.identity.split(':')[1]}}});
+        return usingSource(await sourceTree.capture(base),async captured=>{
+          await validateSource(plan,captured);
+          const result=await work(async file=>{
+            if(typeof file!=='string'||!p.isAbsolute(file)||!inside(plan.expected.root,file))fail('source_changed');
+            const name=p.relative(base,file).split(p.sep).join('/'),prior=plan.sourceProof.sourceFiles.find(row=>key(row.path)===key(name)),row=captured.files.find(row=>key(row.path)===key(name));
+            if(!prior||!row||prior.sha256!==row.sha256)fail('source_changed',{file:name});
+            const stat=await io.lstat(file,{bigint:true});
+            if(prior.identity!==String(stat.dev)+':'+String(stat.ino)||prior.mtimeNs!==String(stat.mtimeNs)||prior.ctimeNs!==String(stat.ctimeNs))fail('source_changed',{file:name});
+            return WorkDataTree.borrowCapturedFile(captured,file,ownership,{maxBytes:256*1024*1024});
+          });
+          await sourceTree.verify(captured);await validateSource(plan,captured);return result;
+        });
+      }};
     }
     async function writeNew(file,data){const handle=await io.open(file,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}}
     async function emptyStoreProof(plan){
@@ -235,7 +257,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
             });
           }
           plan.specialToken=await plan.special.prepare({expected:plan.expected,candidate:plan.candidate});await admission();if(!plan.existingSpecial)await emptyStoreProof(plan);
-          const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson});
+          const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson,...codecSourceScope(plan)});
           const transformed=[];for(const row of rows){if(row.kind==='stable-owner'||row.kind==='special-backup'||key(row.path)==='work-data-key-v1.json')continue;await admission();
             if(row.kind==='codec'||row.kind==='retained'){const result=await bridge[row.kind==='retained'?'transformRetained':'transform']({relative:row.path,targetMode});targetEntry(plan,row.path,result.targetPhysicalHash);transformed.push(Object.freeze({path:row.path,...result}));continue;}
             await plannedWrite(plan,row.path,row.kind==='config'?Buffer.from(configMirror(strict(row.data),targetMode==='encrypted')):row.data);
@@ -252,7 +274,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
         }catch(cause){for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;try{closeSource(source,cause,true);}catch(failure){cause=failure;}}if(!plan.mutationStarted)throw cause;let code='work_data_migration_host.prepare_failed';try{if(typeof cause?.code==='string'&&/^[a-zA-Z0-9_.-]{1,128}$/.test(cause.code))code=cause.code;}catch{}throw Object.assign(Error(code,{cause}),{code,apiCode:code,statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,candidateRetained:plan.candidate?.root||null,...(preservedRead!==undefined&&sourceUnknown(cause)?{helperMayStillRun:true,ownershipRetained:true}:{})});}
       });
     }
-    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await checkSource(plan);await tree.verify(plan.target);let publishing=false;return usingPlanSource(plan,()=>publishing,async()=>{try{await admission();publishing=true;plan.commitStarted=true;const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});await plan.special.recover();await plan.special.activate();
+    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});let publishing=false;try{await checkSource(plan);await tree.verify(plan.target);}catch(cause){if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;closeSource(source,cause,true);}throw cause;}return usingPlanSource(plan,()=>publishing,async()=>{try{await admission();publishing=true;plan.commitStarted=true;const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});await plan.special.recover();await plan.special.activate();
         const specialProof=await plan.special.verifyPublished({expected:result}),specialTree=await tree.capture(p.join(base,'.work-data','skill-backups'));let specialSha;
         try{specialSha=(await tree.verify(specialTree)).sha256;}finally{specialTree.release();}
         published.set(prepared,Object.freeze({expected:receipt(result),targetSha:plan.targetProof.sha256,specialSha,specialProof:Object.freeze({...specialProof}),instanceId:plan.targetInstanceId,transformed:prepared.transformed}));
@@ -260,19 +282,27 @@ const WorkDataMigrationHost = ((io,p,c) => {
     async function cancel(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await current(plan.expected);return usingPlanSource(plan,()=>true,async()=>{try{await plan.special.recoverRepresentation();await plan.special.recover();issued.delete(prepared);return Object.freeze({canceled:true,candidateRetained:plan.candidate.root});}finally{for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});});}
     async function verifyPublished(prepared){return run(async()=>{
       const proof=published.get(prepared);if(!proof)fail('published_token_invalid');const selected=await current(proof.expected);
-      const target=await tree.capture(selected.root);let keys,specialTree;
-      try{
-        if((await tree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');
+      const target=await sourceTree.capture(selected.root);let keys,specialTree,primary,failed=false;
+      return usingSource(target,async()=>{try{
+        if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');
         const headerRow=target.files.find(row=>key(row.path)==='work-data-key-v1.json');let header;try{header=JSON.parse(strict(headerRow.data));}catch{fail('key_header_invalid');}
         if(!WorkDataKeys.validate(header)||header.instanceId!==proof.instanceId)fail('key_header_invalid');
         keys=WorkDataKeys.create({protector,enabled:()=>selected.mode==='encrypted',store:{read:async()=>header}});const lease=await keys.snapshot();try{if(lease.instanceId!==proof.instanceId)fail('key_header_invalid');}finally{lease.release();}
-        const bridge=WorkDataMigrationCodecs.create({sourceRoot:selected.root,targetRoot:base,sourceKeys:keys,targetKeys:keys,writeJson});
+        const bridge=WorkDataMigrationCodecs.create({sourceRoot:selected.root,targetRoot:base,sourceKeys:keys,targetKeys:keys,writeJson,
+          ...(preservedRead===undefined?{}:{withSourceReadScope:async work=>{
+            const result=await work(file=>WorkDataTree.borrowCapturedFile(target,file,ownership,{maxBytes:256*1024*1024}));
+            if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');return result;
+          }})});
         for(const row of proof.transformed){await admission();const result=await bridge[key(row.path).endsWith('.prevbody')?'verifyRetained':'verify']({relative:row.path,targetMode:selected.mode});if(result.logicalHash!==row.logicalHash||result.logicalBytes!==row.logicalBytes||result.physicalHash!==row.targetPhysicalHash)fail('published_logical_changed',{file:row.path});}
         const owner=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:keys,targetKeys:keys});if(typeof owner?.verifyPublished!=='function')fail('special_owner_invalid');const actualSpecial=await owner.verifyPublished({expected:selected});
-        if(JSON.stringify(actualSpecial)!==JSON.stringify(proof.specialProof))fail('published_special_changed');specialTree=await tree.capture(p.join(base,'.work-data','skill-backups'));if((await tree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
-        await current(proof.expected);if((await tree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');if((await tree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
+        if(JSON.stringify(actualSpecial)!==JSON.stringify(proof.specialProof))fail('published_special_changed');specialTree=await sourceTree.capture(p.join(base,'.work-data','skill-backups'));if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
+        await current(proof.expected);if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
         return Object.freeze({active:selected,candidateId:selected.id,generation:selected.generation,mode:selected.mode,targetSha256:proof.targetSha,specialSha256:proof.specialSha,logicalFiles:proof.transformed.length,readOnly:true,processExitRequired:true});
-      }finally{specialTree?.release();target.release();keys?.clear();}
+      }catch(cause){failed=true;primary=cause;throw cause;}finally{
+        const errors=[];try{keys?.clear();}catch(cause){errors.push(cause);}
+        if(specialTree)try{closeSource(specialTree,undefined,false);}catch(cause){errors.push(cause);}
+        if(errors.length)throw sourceFailure(primary,failed,errors,errors.some(sourceUnknown));
+      }});
     });}
     return Object.freeze({prepare,publish,cancel,verifyPublished});
   }

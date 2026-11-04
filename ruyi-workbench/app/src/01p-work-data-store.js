@@ -175,6 +175,37 @@ const WorkDataStore = ((fsp, pathModule) => {
     }
     return result;
   }
+  // Migration may hash the same physical bytes it decodes. Do not wrap an
+  // owned Buffer until the existing read/key/token cleanup has fully settled.
+  async function readCapturedWithPhysical(host, target, options, binary, work) {
+    const { maxBytes, assertPhysical } = options || {};
+    if (!capturedMode(host) || !Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 1024 * 1024 * 1024
+      || typeof assertPhysical !== 'function') fail('captured_file_invalid');
+    let physical;
+    const value = await withCapturedFile(host, target, (bytes, assert) => {
+      if (bytes.length > maxBytes) fail('engineering_limit');
+      assert(); const gzip = binary && gzipMagic(bytes); let utf8Valid = null;
+      if (!gzip) {
+        let physicalText;
+        try { physicalText = new (require('node:util').TextDecoder)('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
+        catch { utf8Valid = false; }
+        if (physicalText !== undefined) {
+          const checked = Buffer.from(physicalText, 'utf8');
+          try { utf8Valid = checked.equals(bytes); } finally { checked.fill(0); }
+        }
+      }
+      physical = Object.freeze({ sha256: require('node:crypto').createHash('sha256').update(bytes).digest('hex'),
+        bytes: bytes.length, gzip, utf8Valid });
+      // This is a fixed, codec-owned raw-format assertion, never authority or
+      // a source of replacement bytes/metadata. Do not inspect a nonvoid result.
+      if (assertPhysical(physical) !== undefined) throw Object.assign(new Error('work_data_store.physical_check_unproven'), {
+        code: 'work_data_store.physical_check_unproven', apiCode: 'work_data_store.physical_check_unproven',
+        helperMayStillRun: true, ownershipRetained: true,
+      });
+      return work(bytes, assert);
+    });
+    return Object.freeze({ value, physical });
+  }
   function headerFromPrefix(prefix) {
     const max = 16 * 1024, newline = prefix.indexOf('\n');
     const first = newline < 0 ? prefix : prefix.slice(0, newline);
@@ -466,8 +497,10 @@ const WorkDataStore = ((fsp, pathModule) => {
     const read = () => capturedMode(host)
       ? withCapturedFile(host, file(), (bytes, assert) => capturedOperation(host, operation => readCapturedText(host, bytes, operation, assert)))
       : withOperation(host, readWithin);
+    const readWithPhysical = options => readCapturedWithPhysical(host, file(), options, false,
+      (bytes, assert) => capturedOperation(host, operation => readCapturedText(host, bytes, operation, assert)));
     const write = plainText => withOperation(host, operation => writeWithin(plainText, operation));
-    return Object.freeze({ read, write, filePath: file });
+    return Object.freeze({ read, readWithPhysical, write, filePath: file });
   }
   // DurableJsonStore-compatible whole-file JSON store (M3-2d). Same prepare pipeline as
   // DurableJsonStore (shape → schema → sanitize → schema stamp → capacity → validate), so a family
@@ -558,7 +591,6 @@ function createBinary(host) {
     unlock: async () => (await operation.credential()).key,
     instance: async () => (await operation.credential()).instanceId,
   });
-  async function read() {
     const consume = async (operation, captured, assert) => {
         let legacy;
         if (captured) {
@@ -582,10 +614,13 @@ function createBinary(host) {
           return validated.plainText === plainText ? validated.bytes : decode(plainText);
         } catch (error) { if (captured && validated) validated.bytes.fill(0); throw error; }
     };
+  async function read() {
     return capturedMode(host)
       ? withCapturedFile(host, file(), (bytes, assert) => capturedOperation(host, operation => consume(operation, bytes, assert)))
       : withOperation(host, operation => consume(operation, null, null), true);
   }
+  const readWithPhysical = options => readCapturedWithPhysical(host, file(), options, true,
+    (bytes, assert) => capturedOperation(host, operation => consume(operation, bytes, assert)));
   async function write(bytes) {
     if (capturedMode(host)) fail('captured_read_only');
     if (!Buffer.isBuffer(bytes) || !gzipMagic(bytes)) fail('binary_shape');
@@ -614,7 +649,7 @@ function createBinary(host) {
       return bytes;
     });
   }
-  return Object.freeze({ read, write, filePath: file });
+  return Object.freeze({ read, readWithPhysical, write, filePath: file });
 }
 
   function createJson(host) {
@@ -659,5 +694,15 @@ function createBinary(host) {
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
-  return Object.freeze({ create, createJson, createText, createBinary, CONTAINER, Hooks, requireKeys, acquireSnapshot, hasContainerMarker });
+  // Physical migration proofs use the same opaque grant and cleanup as Store
+  // decoding. Only an owned, bounded copy may outlive the one-read grant.
+  async function readCapturedBytes({ file, capturedFile, maxBytes } = {}) {
+    if (typeof file !== 'string' || !Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 1024 * 1024 * 1024)
+      fail('captured_file_invalid');
+    return withCapturedFile({ capturedFile }, file, (bytes, assert) => {
+      if (bytes.length > maxBytes) fail('engineering_limit');
+      assert(); return Buffer.from(bytes);
+    });
+  }
+  return Object.freeze({ create, createJson, createText, createBinary, readCapturedBytes, CONTAINER, Hooks, requireKeys, acquireSnapshot, hasContainerMarker });
 })(require('node:fs/promises'), require('node:path'));

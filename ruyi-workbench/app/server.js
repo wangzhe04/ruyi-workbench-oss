@@ -9115,6 +9115,37 @@ const WorkDataStore = ((fsp, pathModule) => {
     }
     return result;
   }
+  // Migration may hash the same physical bytes it decodes. Do not wrap an
+  // owned Buffer until the existing read/key/token cleanup has fully settled.
+  async function readCapturedWithPhysical(host, target, options, binary, work) {
+    const { maxBytes, assertPhysical } = options || {};
+    if (!capturedMode(host) || !Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 1024 * 1024 * 1024
+      || typeof assertPhysical !== 'function') fail('captured_file_invalid');
+    let physical;
+    const value = await withCapturedFile(host, target, (bytes, assert) => {
+      if (bytes.length > maxBytes) fail('engineering_limit');
+      assert(); const gzip = binary && gzipMagic(bytes); let utf8Valid = null;
+      if (!gzip) {
+        let physicalText;
+        try { physicalText = new (require('node:util').TextDecoder)('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
+        catch { utf8Valid = false; }
+        if (physicalText !== undefined) {
+          const checked = Buffer.from(physicalText, 'utf8');
+          try { utf8Valid = checked.equals(bytes); } finally { checked.fill(0); }
+        }
+      }
+      physical = Object.freeze({ sha256: require('node:crypto').createHash('sha256').update(bytes).digest('hex'),
+        bytes: bytes.length, gzip, utf8Valid });
+      // This is a fixed, codec-owned raw-format assertion, never authority or
+      // a source of replacement bytes/metadata. Do not inspect a nonvoid result.
+      if (assertPhysical(physical) !== undefined) throw Object.assign(new Error('work_data_store.physical_check_unproven'), {
+        code: 'work_data_store.physical_check_unproven', apiCode: 'work_data_store.physical_check_unproven',
+        helperMayStillRun: true, ownershipRetained: true,
+      });
+      return work(bytes, assert);
+    });
+    return Object.freeze({ value, physical });
+  }
   function headerFromPrefix(prefix) {
     const max = 16 * 1024, newline = prefix.indexOf('\n');
     const first = newline < 0 ? prefix : prefix.slice(0, newline);
@@ -9406,8 +9437,10 @@ const WorkDataStore = ((fsp, pathModule) => {
     const read = () => capturedMode(host)
       ? withCapturedFile(host, file(), (bytes, assert) => capturedOperation(host, operation => readCapturedText(host, bytes, operation, assert)))
       : withOperation(host, readWithin);
+    const readWithPhysical = options => readCapturedWithPhysical(host, file(), options, false,
+      (bytes, assert) => capturedOperation(host, operation => readCapturedText(host, bytes, operation, assert)));
     const write = plainText => withOperation(host, operation => writeWithin(plainText, operation));
-    return Object.freeze({ read, write, filePath: file });
+    return Object.freeze({ read, readWithPhysical, write, filePath: file });
   }
   // DurableJsonStore-compatible whole-file JSON store (M3-2d). Same prepare pipeline as
   // DurableJsonStore (shape → schema → sanitize → schema stamp → capacity → validate), so a family
@@ -9498,7 +9531,6 @@ function createBinary(host) {
     unlock: async () => (await operation.credential()).key,
     instance: async () => (await operation.credential()).instanceId,
   });
-  async function read() {
     const consume = async (operation, captured, assert) => {
         let legacy;
         if (captured) {
@@ -9522,10 +9554,13 @@ function createBinary(host) {
           return validated.plainText === plainText ? validated.bytes : decode(plainText);
         } catch (error) { if (captured && validated) validated.bytes.fill(0); throw error; }
     };
+  async function read() {
     return capturedMode(host)
       ? withCapturedFile(host, file(), (bytes, assert) => capturedOperation(host, operation => consume(operation, bytes, assert)))
       : withOperation(host, operation => consume(operation, null, null), true);
   }
+  const readWithPhysical = options => readCapturedWithPhysical(host, file(), options, true,
+    (bytes, assert) => capturedOperation(host, operation => consume(operation, bytes, assert)));
   async function write(bytes) {
     if (capturedMode(host)) fail('captured_read_only');
     if (!Buffer.isBuffer(bytes) || !gzipMagic(bytes)) fail('binary_shape');
@@ -9554,7 +9589,7 @@ function createBinary(host) {
       return bytes;
     });
   }
-  return Object.freeze({ read, write, filePath: file });
+  return Object.freeze({ read, readWithPhysical, write, filePath: file });
 }
 
   function createJson(host) {
@@ -9599,7 +9634,17 @@ function createBinary(host) {
     // Async-only: a sealed record needs the unlocked key, which has no synchronous form.
     return Object.freeze({ ...store, readSync: () => fail('sync_unsupported') });
   }
-  return Object.freeze({ create, createJson, createText, createBinary, CONTAINER, Hooks, requireKeys, acquireSnapshot, hasContainerMarker });
+  // Physical migration proofs use the same opaque grant and cleanup as Store
+  // decoding. Only an owned, bounded copy may outlive the one-read grant.
+  async function readCapturedBytes({ file, capturedFile, maxBytes } = {}) {
+    if (typeof file !== 'string' || !Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 1024 * 1024 * 1024)
+      fail('captured_file_invalid');
+    return withCapturedFile({ capturedFile }, file, (bytes, assert) => {
+      if (bytes.length > maxBytes) fail('engineering_limit');
+      assert(); return Buffer.from(bytes);
+    });
+  }
+  return Object.freeze({ create, createJson, createText, createBinary, readCapturedBytes, CONTAINER, Hooks, requireKeys, acquireSnapshot, hasContainerMarker });
 })(require('node:fs/promises'), require('node:path'));
 
 // M3-2c: frozen per-record format for append-only NDJSON bodies (messages / provider history).
@@ -11203,10 +11248,10 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       if (!Buffer.from(textValue, 'utf8').equals(bytes)) fail('utf8_invalid'); return textValue;
     } catch (cause) { if (cause?.code === 'work_data_migration.utf8_invalid') throw cause; fail('utf8_invalid'); }
   };
-  function create({ sourceRoot, targetRoot, sourceKeys, targetKeys, writeJson,
+  function create({ sourceRoot, targetRoot, sourceKeys, targetKeys, writeJson, withSourceReadScope,
     maxLogicalBytes = MAX_LOGICAL, maxPhysicalBytes = DEFAULT_PHYSICAL } = {}) {
     if (![sourceRoot, targetRoot].every(value => typeof value === 'string' && pathApi.isAbsolute(value))
-      || typeof writeJson !== 'function') fail('host_invalid');
+      || typeof writeJson !== 'function' || withSourceReadScope !== undefined && typeof withSourceReadScope !== 'function') fail('host_invalid');
     if (!Number.isSafeInteger(maxLogicalBytes) || maxLogicalBytes < 1 || maxLogicalBytes > MAX_LOGICAL
       || !Number.isSafeInteger(maxPhysicalBytes) || maxPhysicalBytes < 1 || maxPhysicalBytes > 1024 * 1024 * 1024) fail('engineering_limit_invalid');
     const source = pathApi.resolve(sourceRoot), target = pathApi.resolve(targetRoot);
@@ -11260,8 +11305,24 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       const input = pathApi.join(source, ...relative.split('/')), output = pathApi.join(target, ...relative.split('/'));
       if (activeTargets.has(output)) fail('target_busy');
       activeTargets.add(output);
-      let oldLease, newLease, stage, published = false, failed = false;
+      let oldLease, newLease, stage, published = false, failed = false, primary, capturedFile;
       const ownedBuffers = [];
+      const sourceScope = work => withSourceReadScope === undefined ? work() : withSourceReadScope(async factory => {
+        if (typeof factory !== 'function') fail('captured_source_invalid');
+        capturedFile = factory;
+        try { return await work(); } finally { capturedFile = undefined; }
+      });
+      function sourceGrant(file) {
+        if (withSourceReadScope === undefined) return {};
+        if (typeof capturedFile !== 'function') fail('captured_source_invalid');
+        const factory = capturedFile;
+        return { capturedFile: () => factory(file) };
+      }
+      const readSource = async () => {
+        const bytes = await (withSourceReadScope === undefined ? readPhysical(input)
+          : WorkDataStore.readCapturedBytes({ file: input, ...sourceGrant(input), maxBytes: maxPhysicalBytes }));
+        ownedBuffers.push(bytes); return bytes;
+      };
       const credential = async which => {
         const keys = which === 'source' ? sourceKeys : targetKeys;
         if (!keys || !(typeof keys.snapshot === 'function'
@@ -11277,6 +11338,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         recordId: descriptor.recordId, chunked: descriptor.chunked, maxPlaintextBytes: Math.min(maxLogicalBytes, descriptor.maxPlaintextBytes || maxLogicalBytes),
         ...(descriptor.markdown ? { legacyText: 'markdown' } : {}), keys: borrowed(which), enabled: () => enabled, writeJson,
         validateSealedText: () => { metadata.authenticated = true; return true; },
+        ...(which === 'source' ? sourceGrant(file) : {}),
       });
       const binaryStore = (file, which, enabled, metadata = {}) => WorkDataStore.createBinary({
         file: () => file, purpose: descriptor.purpose, schema: 1, scopeId: descriptor.scopeId, recordId: descriptor.recordId,
@@ -11287,6 +11349,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
           zlibApi.gunzipSync(bytes, { maxOutputLength: maxLogicalBytes });
           if (context?.sealed === true) metadata.authenticated = true; return true;
         },
+        ...(which === 'source' ? sourceGrant(file) : {}),
       });
       async function records(bytes, which) {
         const raw = utf8(bytes);
@@ -11323,21 +11386,42 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
       };
       try {
         await realDirectory(source); if (!readOnly) { await realDirectory(target); await absent(output); }
-        const original = await readPhysical(input); ownedBuffers.push(original);
-        const sourcePhysicalHash = hash(original), enabled = targetMode === 'encrypted';
-        let logical, rowData, binary; const readMetadata = {};
+        const enabled = targetMode === 'encrypted';
+        let logical, rowData, binary, sourcePhysicalHash; const readMetadata = {};
+        await sourceScope(async () => {
+        // A captured Store can derive the physical witness from the exact
+        // bytes it already decodes. Raw Records already consume one read.
+        const fused = withSourceReadScope !== undefined
+          && (descriptor.codec === 'text' || descriptor.codec === 'gzip' || descriptor.archive);
+        const assertPhysical = physical => {
+          if (!(physical.gzip && descriptor.codec !== 'text') && physical.utf8Valid !== true) fail('utf8_invalid');
+        };
+        let original;
+        if (!fused) { original = await readSource(); sourcePhysicalHash = hash(original); }
         if (descriptor.codec === 'text') {
-          utf8(original); logical = validateText(descriptor, await textStore(input, 'source', false, readMetadata).read());
+          const store = textStore(input, 'source', false, readMetadata); let plainSourceText;
+          if (fused) {
+            const read = await store.readWithPhysical({ maxBytes: maxPhysicalBytes, assertPhysical });
+            sourcePhysicalHash = read.physical.sha256; plainSourceText = read.value;
+          } else { utf8(original); plainSourceText = await store.read(); }
+          logical = validateText(descriptor, plainSourceText);
         } else if (descriptor.codec === 'gzip' || descriptor.archive) {
           // Valid gzip is binary, never UTF8-probed for a coincidental marker.
-          if (!(original[0] === 31 && original[1] === 139 && original[2] === 8)) utf8(original);
-          binary = await binaryStore(input, 'source', false, readMetadata).read(); ownedBuffers.push(binary);
+          const store = binaryStore(input, 'source', false, readMetadata);
+          if (fused) {
+            const read = await store.readWithPhysical({ maxBytes: maxPhysicalBytes, assertPhysical });
+            binary = read.value; ownedBuffers.push(binary); sourcePhysicalHash = read.physical.sha256;
+          } else {
+            if (!(original[0] === 31 && original[1] === 139 && original[2] === 8)) utf8(original);
+            binary = await store.read(); ownedBuffers.push(binary);
+          }
           if (descriptor.archive) {
             const inner = zlibApi.gunzipSync(binary, { maxOutputLength: maxLogicalBytes }); ownedBuffers.push(inner);
             rowData = await records(inner, 'source'); logical = rowData.logical;
           } else logical = logicalLimit(binary);
         } else { rowData = await records(original, 'source'); logical = rowData.logical; }
         ownedBuffers.push(logical);
+        });
         if (readOnly) {
           if (descriptor.codec === 'text' || descriptor.codec === 'gzip' || descriptor.archive) {
             if ((readMetadata.authenticated === true) !== enabled) fail('verification_failed');
@@ -11381,7 +11465,7 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
         ownedBuffers.push(verified);
         if (!logical.equals(verified)) fail('verification_failed');
         const stagedBytes = await readPhysical(stage); ownedBuffers.push(stagedBytes);
-        const current = await readPhysical(input); ownedBuffers.push(current);
+        const current = await sourceScope(readSource);
         if (hash(current) !== sourcePhysicalHash) fail('source_changed');
         await realDirectory(pathApi.dirname(output));
         // Exclusive hard-link publication cannot overwrite a raced existing file.
@@ -11395,18 +11479,31 @@ const WorkDataMigrationCodecs = ((fsApi, pathApi, cryptoApi, zlibApi, Decoder) =
           targetPhysicalHash: hash(finalBytes), domainValidation: 'host-owner-required' });
       } catch (cause) {
         failed = true;
-        if (String(cause?.code || '').startsWith('work_data')) {
-          const wrapped = new Error(String(cause.code));
-          throw Object.assign(wrapped, { code: cause.code, apiCode: cause.apiCode || cause.code, statusCode: cause.statusCode || 409,
-            ...(typeof cause.reason === 'string' ? { reason: cause.reason } : {}),
-            cause, ...(stage ? { retainedStage: stage } : {}), targetRetained: published });
-        }
-        fail('io_failed', { cause, ...(stage ? { retainedStage: stage } : {}), targetRetained: published });
+        // Optional metadata must never execute a getter or proxy and replace
+        // the original failure before asynchronous key cleanup can preserve it.
+        const data = name => {
+          let value=cause;
+          try{for(let depth=0;value!==null&&(typeof value==='object'||typeof value==='function')&&depth<8;depth++){
+            if(require('node:util').types.isProxy(value))return;
+            const d=Object.getOwnPropertyDescriptor(value,name);if(d)return Object.hasOwn(d,'value')?d.value:undefined;
+            value=Object.getPrototypeOf(value);
+          }}catch{}return undefined;
+        };
+        const rawCode=data('code'),code=typeof rawCode==='string'&&/^work_data[a-zA-Z0-9_.-]{0,118}$/.test(rawCode)?rawCode:'work_data_migration.io_failed',apiCode=data('apiCode'),statusCode=data('statusCode'),reason=data('reason');
+        primary = Object.assign(new Error(code), { code, apiCode:typeof apiCode==='string'?apiCode:code,statusCode:Number.isInteger(statusCode)?statusCode:409,
+          ...(typeof reason==='string'?{reason}:{}),cause, ...(stage ? { retainedStage: stage } : {}), targetRetained: published });
+        throw primary;
       } finally {
         activeTargets.delete(output);
-        for (const bytes of ownedBuffers) if (Buffer.isBuffer(bytes)) bytes.fill(0);
+        const cleanup=[];
+        for (const bytes of ownedBuffers) if (Buffer.isBuffer(bytes))try{bytes.fill(0);}catch(cause){cleanup.push(cause);}
         const releases = await Promise.allSettled([oldLease, newLease].filter(Boolean).map(lease => Promise.resolve().then(() => lease.release())));
-        if (!failed && releases.some(result => result.status === 'rejected')) fail('key_release_failed', { targetRetained: published });
+        const keyErrors=releases.filter(result => result.status === 'rejected').map(result => result.reason);cleanup.push(...keyErrors);
+        const code=keyErrors.length?'work_data_migration.key_release_failed':'work_data_migration.buffer_release_failed';
+        if (cleanup.length) throw Object.assign(new AggregateError([...(failed ? [primary] : []), ...cleanup], code, { cause: failed ? primary : cleanup[0] }), {
+          code, apiCode:code, statusCode: 503,
+          cleanupFailed: true, ownershipRetained: true, targetRetained: published, ...(stage ? { retainedStage: stage } : {}),
+        });
       }
     }
     return Object.freeze({ describe, describeRetained, catalog, transform: options => transform(options), transformRetained: options => transform(options, true), verify: options => transform(options, false, true), verifyRetained: options => transform(options, true, true) });
@@ -12924,7 +13021,9 @@ const WorkDataMigrationHost = ((io,p,c) => {
     const receipt=expected=>Object.freeze({...expected,proof:Object.freeze({...expected.proof})});
     async function checkSource(plan){
       await current(plan.expected);await acceptIntent({ownedFile:{name:plan.intent.name,sha256:plan.intent.sha256,identity:{dev:plan.intent.identity.split(':')[0],ino:plan.intent.identity.split(':')[1]}}});
-      return usingSource(await sourceTree.capture(base),async snapshot=>{
+      return usingSource(await sourceTree.capture(base),snapshot=>validateSource(plan,snapshot));
+    }
+    async function validateSource(plan,snapshot){
         const files=new Map(plan.sourceProof.sourceFiles.map(row=>[key(row.path),row])),dirs=new Map(plan.sourceProof.sourceDirectories.map(row=>[key(row.path),row]));
         const candidate=name=>plan.candidate&&inside(plan.candidate.root,p.join(base,...name.split('/')));
         for(const file of snapshot.files){const prior=files.get(key(file.path));if(candidate(file.path))continue;
@@ -12939,7 +13038,27 @@ const WorkDataMigrationHost = ((io,p,c) => {
           const stat=await io.lstat(p.join(base,...name.split('/')),{bigint:true});if(prior.identity!==String(stat.dev)+':'+String(stat.ino))fail('source_changed',{file:name});dirs.delete(key(name));
         }
         for(const row of dirs.values())fail('source_changed',{file:row.path});
-      });
+    }
+    // Candidate and intent writes change a legacy base's complete census.
+    // Take a fresh read-only scope after those writes; each file must still
+    // match the ORIGINAL durable witness, never a redefined current baseline.
+    function codecSourceScope(plan){
+      if(preservedRead===undefined)return {};
+      return {withSourceReadScope:async work=>{
+        await current(plan.expected);await acceptIntent({ownedFile:{name:plan.intent.name,sha256:plan.intent.sha256,identity:{dev:plan.intent.identity.split(':')[0],ino:plan.intent.identity.split(':')[1]}}});
+        return usingSource(await sourceTree.capture(base),async captured=>{
+          await validateSource(plan,captured);
+          const result=await work(async file=>{
+            if(typeof file!=='string'||!p.isAbsolute(file)||!inside(plan.expected.root,file))fail('source_changed');
+            const name=p.relative(base,file).split(p.sep).join('/'),prior=plan.sourceProof.sourceFiles.find(row=>key(row.path)===key(name)),row=captured.files.find(row=>key(row.path)===key(name));
+            if(!prior||!row||prior.sha256!==row.sha256)fail('source_changed',{file:name});
+            const stat=await io.lstat(file,{bigint:true});
+            if(prior.identity!==String(stat.dev)+':'+String(stat.ino)||prior.mtimeNs!==String(stat.mtimeNs)||prior.ctimeNs!==String(stat.ctimeNs))fail('source_changed',{file:name});
+            return WorkDataTree.borrowCapturedFile(captured,file,ownership,{maxBytes:256*1024*1024});
+          });
+          await sourceTree.verify(captured);await validateSource(plan,captured);return result;
+        });
+      }};
     }
     async function writeNew(file,data){const handle=await io.open(file,'wx',0o600);try{await handle.writeFile(data);await handle.sync();}finally{await handle.close();}}
     async function emptyStoreProof(plan){
@@ -13002,7 +13121,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
             });
           }
           plan.specialToken=await plan.special.prepare({expected:plan.expected,candidate:plan.candidate});await admission();if(!plan.existingSpecial)await emptyStoreProof(plan);
-          const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson});
+          const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson,...codecSourceScope(plan)});
           const transformed=[];for(const row of rows){if(row.kind==='stable-owner'||row.kind==='special-backup'||key(row.path)==='work-data-key-v1.json')continue;await admission();
             if(row.kind==='codec'||row.kind==='retained'){const result=await bridge[row.kind==='retained'?'transformRetained':'transform']({relative:row.path,targetMode});targetEntry(plan,row.path,result.targetPhysicalHash);transformed.push(Object.freeze({path:row.path,...result}));continue;}
             await plannedWrite(plan,row.path,row.kind==='config'?Buffer.from(configMirror(strict(row.data),targetMode==='encrypted')):row.data);
@@ -13019,7 +13138,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
         }catch(cause){for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;try{closeSource(source,cause,true);}catch(failure){cause=failure;}}if(!plan.mutationStarted)throw cause;let code='work_data_migration_host.prepare_failed';try{if(typeof cause?.code==='string'&&/^[a-zA-Z0-9_.-]{1,128}$/.test(cause.code))code=cause.code;}catch{}throw Object.assign(Error(code,{cause}),{code,apiCode:code,statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,candidateRetained:plan.candidate?.root||null,...(preservedRead!==undefined&&sourceUnknown(cause)?{helperMayStillRun:true,ownershipRetained:true}:{})});}
       });
     }
-    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await checkSource(plan);await tree.verify(plan.target);let publishing=false;return usingPlanSource(plan,()=>publishing,async()=>{try{await admission();publishing=true;plan.commitStarted=true;const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});await plan.special.recover();await plan.special.activate();
+    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});let publishing=false;try{await checkSource(plan);await tree.verify(plan.target);}catch(cause){if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;closeSource(source,cause,true);}throw cause;}return usingPlanSource(plan,()=>publishing,async()=>{try{await admission();publishing=true;plan.commitStarted=true;const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});await plan.special.recover();await plan.special.activate();
         const specialProof=await plan.special.verifyPublished({expected:result}),specialTree=await tree.capture(p.join(base,'.work-data','skill-backups'));let specialSha;
         try{specialSha=(await tree.verify(specialTree)).sha256;}finally{specialTree.release();}
         published.set(prepared,Object.freeze({expected:receipt(result),targetSha:plan.targetProof.sha256,specialSha,specialProof:Object.freeze({...specialProof}),instanceId:plan.targetInstanceId,transformed:prepared.transformed}));
@@ -13027,19 +13146,27 @@ const WorkDataMigrationHost = ((io,p,c) => {
     async function cancel(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await current(plan.expected);return usingPlanSource(plan,()=>true,async()=>{try{await plan.special.recoverRepresentation();await plan.special.recover();issued.delete(prepared);return Object.freeze({canceled:true,candidateRetained:plan.candidate.root});}finally{for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});});}
     async function verifyPublished(prepared){return run(async()=>{
       const proof=published.get(prepared);if(!proof)fail('published_token_invalid');const selected=await current(proof.expected);
-      const target=await tree.capture(selected.root);let keys,specialTree;
-      try{
-        if((await tree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');
+      const target=await sourceTree.capture(selected.root);let keys,specialTree,primary,failed=false;
+      return usingSource(target,async()=>{try{
+        if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');
         const headerRow=target.files.find(row=>key(row.path)==='work-data-key-v1.json');let header;try{header=JSON.parse(strict(headerRow.data));}catch{fail('key_header_invalid');}
         if(!WorkDataKeys.validate(header)||header.instanceId!==proof.instanceId)fail('key_header_invalid');
         keys=WorkDataKeys.create({protector,enabled:()=>selected.mode==='encrypted',store:{read:async()=>header}});const lease=await keys.snapshot();try{if(lease.instanceId!==proof.instanceId)fail('key_header_invalid');}finally{lease.release();}
-        const bridge=WorkDataMigrationCodecs.create({sourceRoot:selected.root,targetRoot:base,sourceKeys:keys,targetKeys:keys,writeJson});
+        const bridge=WorkDataMigrationCodecs.create({sourceRoot:selected.root,targetRoot:base,sourceKeys:keys,targetKeys:keys,writeJson,
+          ...(preservedRead===undefined?{}:{withSourceReadScope:async work=>{
+            const result=await work(file=>WorkDataTree.borrowCapturedFile(target,file,ownership,{maxBytes:256*1024*1024}));
+            if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');return result;
+          }})});
         for(const row of proof.transformed){await admission();const result=await bridge[key(row.path).endsWith('.prevbody')?'verifyRetained':'verify']({relative:row.path,targetMode:selected.mode});if(result.logicalHash!==row.logicalHash||result.logicalBytes!==row.logicalBytes||result.physicalHash!==row.targetPhysicalHash)fail('published_logical_changed',{file:row.path});}
         const owner=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:keys,targetKeys:keys});if(typeof owner?.verifyPublished!=='function')fail('special_owner_invalid');const actualSpecial=await owner.verifyPublished({expected:selected});
-        if(JSON.stringify(actualSpecial)!==JSON.stringify(proof.specialProof))fail('published_special_changed');specialTree=await tree.capture(p.join(base,'.work-data','skill-backups'));if((await tree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
-        await current(proof.expected);if((await tree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');if((await tree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
+        if(JSON.stringify(actualSpecial)!==JSON.stringify(proof.specialProof))fail('published_special_changed');specialTree=await sourceTree.capture(p.join(base,'.work-data','skill-backups'));if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
+        await current(proof.expected);if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
         return Object.freeze({active:selected,candidateId:selected.id,generation:selected.generation,mode:selected.mode,targetSha256:proof.targetSha,specialSha256:proof.specialSha,logicalFiles:proof.transformed.length,readOnly:true,processExitRequired:true});
-      }finally{specialTree?.release();target.release();keys?.clear();}
+      }catch(cause){failed=true;primary=cause;throw cause;}finally{
+        const errors=[];try{keys?.clear();}catch(cause){errors.push(cause);}
+        if(specialTree)try{closeSource(specialTree,undefined,false);}catch(cause){errors.push(cause);}
+        if(errors.length)throw sourceFailure(primary,failed,errors,errors.some(sourceUnknown));
+      }});
     });}
     return Object.freeze({prepare,publish,cancel,verifyPublished});
   }
@@ -98587,10 +98714,13 @@ const migrationCapsuleCode = (() => {
       const first = await fd.stat({ bigint: true }), hash = require('node:crypto').createHash('sha256'), chunks = []; let size = 0;
       if (!first.isFile() || first.isSymbolicLink() || singleLink && first.nlink !== 1n || first.size < 1n || first.size > BigInt(max)) throw Error('native_code_file');
       for (const key of ['dev','ino','nlink','mode','size','mtimeNs','ctimeNs']) if (before[key] !== first[key]) throw Error('native_code_changed');
+      // Public runtime/reference hashes need no retained byte chunks. Reuse one
+      // bounded buffer while retaining every held-FD/length/hash/path check.
+      const scratch = collect ? null : Buffer.alloc(Math.min(1024 * 1024, Number(first.size)));
       while (size < Number(first.size)) {
-        const buffer = Buffer.alloc(Math.min(65536, Number(first.size) - size));
-        const result = await fd.read(buffer, 0, buffer.length, size);
-        if (!Number.isInteger(result.bytesRead) || result.bytesRead < 1 || result.bytesRead > buffer.length || size + result.bytesRead > Number(first.size) || size + result.bytesRead > max) throw Error('native_code_short_read');
+        const buffer = scratch || Buffer.alloc(Math.min(65536, Number(first.size) - size));
+        const length = Math.min(buffer.length, Number(first.size) - size, max - size), result = await fd.read(buffer, 0, length, size);
+        if (!Number.isInteger(result.bytesRead) || result.bytesRead < 1 || result.bytesRead > length || size + result.bytesRead > Number(first.size) || size + result.bytesRead > max) throw Error('native_code_short_read');
         const bytes = buffer.subarray(0, result.bytesRead); hash.update(bytes); if (collect) chunks.push(bytes); size += result.bytesRead;
       }
       const last = await fd.stat({ bigint: true }), after = await io.lstat(file, { bigint: true });
@@ -98654,11 +98784,17 @@ const migrationCapsuleCode = (() => {
       nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System', 'v4.0_4.0.0.0__b77a5c561934e089', 'System.dll'),
       nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Web.Extensions', 'v4.0_4.0.0.0__31bf3856ad364e35', 'System.Web.Extensions.dll'),
       nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Core', 'v4.0_4.0.0.0__b77a5c561934e089', 'System.Core.dll')];
-    const files = [];
-    for (const file of [executable, executable + '.config', nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Management.Automation', 'v4.0_3.0.0.0__31bf3856ad364e35', 'System.Management.Automation.dll'), nodePath.join(framework, 'csc.exe'), nodePath.join(framework, 'csc.exe.config'), nodePath.join(framework, 'csc.rsp'), nodePath.join(framework, 'Config', 'machine.config'), nodePath.join(framework, 'clr.dll'), nodePath.join(framework, 'System.dll'), nodePath.join(framework, 'System.Core.dll'), ...references]) {
-      await directories(nodePath.dirname(file)); files.push((await read(file, 32 * 1024 * 1024, false, false)).pin);
+    const files = [], names = [executable, executable + '.config', nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Management.Automation', 'v4.0_3.0.0.0__31bf3856ad364e35', 'System.Management.Automation.dll'), nodePath.join(framework, 'csc.exe'), nodePath.join(framework, 'csc.exe.config'), nodePath.join(framework, 'csc.rsp'), nodePath.join(framework, 'Config', 'machine.config'), nodePath.join(framework, 'clr.dll'), nodePath.join(framework, 'System.dll'), nodePath.join(framework, 'System.Core.dll'), ...references];
+    // These fourteen public files are independent. Keep their original wire
+    // order and fresh checks; settle every started FD before optional fallback.
+    for (let offset = 0; offset < names.length; offset += 4) {
+      const results = await Promise.allSettled(names.slice(offset, offset + 4).map(async file => {
+        await directories(nodePath.dirname(file)); return (await read(file, 32 * 1024 * 1024, false, false)).pin;
+      }));
+      const failed = results.find(result => result.status === 'rejected'); if (failed) throw failed.reason;
+      files.push(...results.map(result => result.value));
     }
-    const value = { revision: 1, sourceHash: digest(source), bootstrapHash: digest(bootstrap + encodeMetadata.toString()), factoryHash: brokerHash, arch: process.arch, executable, references, files };
+    const value = { revision: 1, sourceHash: digest(source), bootstrapHash: bootstrapIdentity, factoryHash: brokerHash, arch: process.arch, executable, references, files };
     return { ...value, key: digest(JSON.stringify(value)) };
   }
   const bootstrap = String.raw`
@@ -98760,19 +98896,37 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
 [RuyiSkillCapsule]::Run()
 }
 `;
+  // The cached child never needs to parse the cold ACL/compiler/adoption arm.
+  // Derive it from the same validators, policy fallback and loader, rather than
+  // maintain a second set of security checks. A changed template falls back to
+  // the complete original bootstrap until its specialization is updated.
+  function specializeBootstrap(value) {
+    const startMarker = "if($encoded -eq '') {\n  $source=", armMarker = "} else {\n  $bytes=[Convert]::FromBase64String($encoded);",
+      tailMarker = "\n}\n$type=$assembly.GetType('RuyiSkillCapsule'", mode = "$meta=CodeMetaDecode $meta64 ([bool]($encoded -ne ''))";
+    const start = value.indexOf(startMarker), arm = value.indexOf(armMarker, start), tail = value.indexOf(tailMarker, arm);
+    if (start < 0 || arm <= start || tail <= arm || value.indexOf(startMarker, start + 1) !== -1
+      || value.indexOf(armMarker, arm + 1) !== -1 || value.indexOf(tailMarker, tail + 1) !== -1 || value.split(mode).length !== 2) return value;
+    const selected = value.slice(0, start) + value.slice(arm + '} else {\n'.length, tail) + value.slice(tail + '\n}'.length);
+    return selected.replace(mode, "if($encoded -eq ''){throw 'native_code_cache_parts'}\n$meta=CodeMetaDecode $meta64 $true");
+  }
+  const hotBootstrap = specializeBootstrap(bootstrap);
+  function bootstrapFor(hit) { return hit ? hotBootstrap : bootstrap; }
+  // Only immutable, trusted protocol text is prehashed; all fourteen physical
+  // file hashes and their ancestor/FD proofs are still fresh for each broker.
+  const bootstrapIdentity = digest(JSON.stringify([bootstrap, hotBootstrap, encodeMetadata.toString(), specializeBootstrap.toString(), bootstrapFor.toString()]));
   function disable() { disabled = true; cached = null; counts.disabled = true; counts.discarded++; }
   async function prepare(source) {
     if (disabled) return null;
     let ctx, sink = null, lineage = null;
     try {
       ctx = await context(source); if (!ctx || disabled) return null;
+      if (cached && cached.key !== ctx.key) { disable(); return null; }
+      const hit = cached, selectedBootstrap = bootstrapFor(hit);
       // Conservative full CreateProcess argv upper bound, including quoting,
       // separators and terminating NUL; check before creating any cache sink.
-      const encodedBootstrap = Buffer.from(bootstrap, 'utf16le').toString('base64');
+      const encodedBootstrap = Buffer.from(selectedBootstrap, 'utf16le').toString('base64');
       const commandUnits = 1 + ctx.executable.length + 2 + ['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',encodedBootstrap].reduce((n, arg) => n + 1 + arg.length + 2, 0);
       if (commandUnits > 32767) throw Error('native_code_command_limit');
-      if (cached && cached.key !== ctx.key) { disable(); return null; }
-      const hit = cached;
       if (!hit) { sink = await io.mkdtemp(nodePath.join(nodePath.resolve(nodeOs.tmpdir()), 'ruyi-native-code-')); lineage = await directories(sink); }
       const env = { ...process.env };
       for (const key of Object.keys(env)) if (key.toUpperCase().startsWith('RUYI_SKILL_CAPSULE_')) delete env[key];
@@ -98789,7 +98943,7 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
         for (let n = 0; n < parts; n++) env['RUYI_SKILL_CAPSULE_CODE_' + n] = encoded.slice(n * 8192, (n + 1) * 8192);
       } else env.RUYI_SKILL_CAPSULE_CODE_PARTS = '';
       let observed = null;
-      return Object.freeze({ executable: ctx.executable, bootstrap, env,
+      return Object.freeze({ executable: ctx.executable, bootstrap: selectedBootstrap, env,
         observe(child) {
           const flags = new Set(); observed = { flags, error: false, exit: null, close: null, marker: '' };
           child.on('spawn', () => { if (hit) counts.byteChildren++; else counts.sourceChildren++; });
@@ -109035,7 +109189,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           state.candidate = { id: candidate.id, mode: candidate.mode, headerSha256: headerSha256 ?? state.candidate?.headerSha256 ?? null };
           intent = await control.write(state, intent); return Object.freeze({ ownedFile: intent });
         };
-        const migration = host.migrationFactory({ base, ownership: context.ownership, assertExclusive,
+        const migration = host.migrationFactory({ base, ownership: context.ownership, assertExclusive,onNativeCause:retainHelper,
           manifest: WorkDataManifest.create({ base }), protector,
           assertDurableBackup: ({ backupReceipt, sourceProof }) => backupReceipt === backup && sourceProof === captured && verifyBackup(backupReceipt),
           assertIntent: async () => { await control.verify(intent); return Object.freeze({ ownedFile: intent }); },
@@ -111800,9 +111954,38 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       return Object.freeze({acquire:roots => {check();return bindings.ownership.acquire(roots);},sourceKeeper,flush,verifyFresh,captureRehearsal,
         fullSnapshot:(base,ownership,assertExclusive,{onNativeCause}={})=>createSnapshot(base,ownership,assertExclusive,undefined,onNativeCause),
         verifyDisposableNativeTree:disposable,migrationFactory:options => {
-          check(); const owner = bindings.migrationHost.create(options), wrapped = {};
-          for (const name of ['prepare','publish','cancel','verifyPublished']) wrapped[name] = value => guarded(() => owner[name](value));
+          check(); const {base,ownership,assertExclusive,onNativeCause}=options;
+          const exclusive=synchronousOwner(base,ownership,assertExclusive),types=require('node:util').types;
+          if(onNativeCause!==undefined&&(typeof onNativeCause!=='function'||types.isProxy(onNativeCause)||types.isAsyncFunction(onNativeCause)))throw fail('snapshot_observer_invalid');
+          const migrationProtector=Object.freeze({supported:protector.supported,async run(...args){
+            try{return await protector.run(...args);}catch(cause){
+              if(onNativeCause!==undefined)try{const observed=onNativeCause(cause);if(observed!==null&&(typeof observed==='object'||typeof observed==='function')){observePending(observed);unknown=true;}}catch(observerCause){latch(observerCause);unknown=true;}
+              throw cause;
+            }
+          }});
+          try{
+          const owner = bindings.migrationHost.create({...options,assertExclusive:exclusive,assertExclusiveSync:exclusive,
+            protector:migrationProtector,preservedRead:Object.freeze({profile:'bounded-native-v1',capturePreserved:(...args)=>guarded(()=>bindings.capturePreserved(...args))})}), wrapped = {};
+          if(owner&&(types.isProxy(owner)||types.isPromise(owner))){observePending(owner);unknown=true;throw fail('migration_host_uncertain',true);}
+          if(!owner||typeof owner!=='object')throw fail('migration_host_invalid');
+          for (const name of ['prepare','publish','cancel','verifyPublished']) {
+            const descriptor=Object.getOwnPropertyDescriptor(owner,name);
+            if(descriptor&&!Object.hasOwn(descriptor,'value')){unknown=true;throw fail('migration_host_uncertain',true);}
+            if(typeof descriptor?.value!=='function')throw fail('migration_host_invalid');
+            if(types.isProxy(descriptor.value)){unknown=true;throw fail('migration_host_uncertain',true);}
+            const method=descriptor.value;wrapped[name]=value=>withSource(ownership,base,()=>Reflect.apply(method,owner,[value]));
+          }
           return Object.freeze(wrapped);
+          }catch(cause){
+            if(latch(cause)){
+              // A malformed synchronous factory may already have started work.
+              // Retain a genuine pin even though no wrapped method was entered.
+              try{const keeper=bindings.ownership.createSourceKeeper(ownership,base);
+                if(!bindings.ownership.isSourceKeeper(keeper,ownership,base))throw fail('source_keeper_invalid');keeper.retainUnknown(cause);
+              }catch(cleanup){throw Object.assign(new AggregateError([cause,cleanup],'work_data_adapter.migration_factory_cleanup',{cause}),{code:'work_data_adapter.migration_factory_cleanup',helperMayStillRun:true,ownershipRetained:true,retry:false});}
+            }
+            throw cause;
+          }
         },
         progress,helperMayStillRun:() => latch(null)});
     }

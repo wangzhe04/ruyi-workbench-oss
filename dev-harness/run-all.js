@@ -67,6 +67,7 @@ const PARALLEL_EXCLUSIVE = new Set([
   'migration-native-short-rename.e2e.js',
   'work-data-preserved-snapshot.e2e.js',
   'work-data-cold-preserved-snapshot.e2e.js',
+  'work-data-migration-preserved-source.e2e.js',
   'work-data-cold-operations.e2e.js',
   // Production recovery acceptance owns a real browser/native lifecycle and
   // records bounded process transitions. Keep its first execution budgets free
@@ -262,10 +263,11 @@ const TIMEOUT_OVERRIDES = {
   // boot verdicts. This is a whole-file hang guard, not a product latency claim -
   // every product wait above keeps its own explicit deadline and is never widened.
   'work-data-production-maintenance.e2e.js': 900000,
-  // User-approved 2026-11-03: this four-operation native cold regression took
-  // 152.863s with all original assertions passing under the old120s RED. Only
-  // its whole-file guard becomes240s; command120/close2/metadata30 stay fixed.
-  'work-data-cold-operations.e2e.js': 240000,
+  // User-approved 2026-11-04: this four-operation native cold regression may
+  // need more than 240s after preserved source scopes; only the whole-file
+  // guard becomes 490s. command120/close2/metadata30 and every safety
+  // assertion stay fixed; earlier 120/240s RED remain failures.
+  'work-data-cold-operations.e2e.js': 490000,
   'work-data-bound-directory-deep-path.e2e.js': 900000,
   'desktop-lifetime.e2e.js': 210000,
   // 3.1 production restore: four real handoffs in two journeys (plain restore, then

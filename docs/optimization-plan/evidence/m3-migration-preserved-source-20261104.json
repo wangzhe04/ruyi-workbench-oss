@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "slice": "105-m3-migration-preserved-source-20261104",
+  "baseCommit": "9ff67cfc",
+  "recordedAt": "2026-11-04",
+  "workbenchVersion": "3.0.1",
+  "scope": "preserved source reads for cold migration and recovery: codec source scopes re-capture after candidate/intent writes, validate against the original durable witness, one-shot captured-file grants, fused physical decode; publish pre-check failure now releases the prepared source capture and keeps the plan retryable",
+  "sourceChanges": [
+    "ruyi-workbench/app/src/01ad-work-data-migration-host.js",
+    "ruyi-workbench/app/src/01x-work-data-migration-codecs.js",
+    "ruyi-workbench/app/src/13aq-work-data-native-adapters.js",
+    "ruyi-workbench/app/src/13ak-work-data-cold-operations.js",
+    "ruyi-workbench/app/src/13u-migration-center.js",
+    "ruyi-workbench/app/src/01p-work-data-store.js"
+  ],
+  "harnessChanges": [
+    "dev-harness/lib/work-data-migration-host-fixture.js",
+    "dev-harness/lib/work-data-preserved-reader-model.js",
+    "dev-harness/run-all.js",
+    "dev-harness/work-data-cold-operations.e2e.js",
+    "dev-harness/work-data-migration-preserved-source.e2e.js",
+    "dev-harness/unit/work-data-migration-captured-source.test.js",
+    "dev-harness/unit/work-data-migration-host.test.js",
+    "dev-harness/unit/work-data-production-host.test.js",
+    "dev-harness/unit/migration-native-code-cache.test.js",
+    "dev-harness/unit/migration-native-rename-size.test.js"
+  ],
+  "checks": {
+    "unitFull": {
+      "command": "node --test \"dev-harness/unit/*.test.js\"",
+      "files": 448,
+      "tests": 5014,
+      "pass": 4988,
+      "fail": 0,
+      "skipped": 26,
+      "suites": 194,
+      "durationMs": 386570,
+      "node": "v24.14.0",
+      "exitCode": 0
+    },
+    "unitTargeted": {
+      "command": "node --test work-data-migration-host / production-host / cold-operations / cold-migration / captured-source / migration-native-code-cache / migration-native-rename-size / attachment chunks / attachment reader",
+      "tests": 350,
+      "pass": 350,
+      "fail": 0,
+      "exitCode": 0
+    },
+    "nativeE2E": {
+      "file": "work-data-migration-preserved-source.e2e.js",
+      "result": "ALL PASS",
+      "durationMs": 17702,
+      "assertions": [
+        "one physical decode read serves both the logical value and the physical witness",
+        "two genuine grants, both inside closed preserved scopes",
+        "chunked target authenticates through its real owner",
+        "source DATA, identity, ADS, readonly, four Basic times and security metadata unchanged"
+      ]
+    },
+    "coldOperationsE2E": {
+      "file": "work-data-cold-operations.e2e.js",
+      "result": "ALL PASS",
+      "durationMs": 261425,
+      "budgetMs": 490000,
+      "previousBudgetMs": 240000,
+      "budgetAuthorization": "user-approved 2026-11-04"
+    },
+    "build": { "lines": 114294, "exitCode": 0 },
+    "moduleGraph": { "modules": 135, "edges": 922, "exitCode": 0 },
+    "facts": { "unitSuites": 448, "e2eCount": 628, "measuredUnitFiles": 448, "measuredE2eFiles": 628 },
+    "syntaxGate": { "files": 1456, "failed": 0, "node": "v24.14.0" }
+  },
+  "review": {
+    "firstRound": {
+      "reviewer": "independent sub-agent (deepseek-flash)",
+      "verdict": "fail",
+      "confidence": 0.72,
+      "findings": [
+        "F1: publish pre-check failure leaked plan.sourceCapture",
+        "F2: per-file source scope re-captures and re-verifies the whole tree (O(N^2) cost)",
+        "F3: key release failure replaces the primary error code with key_release_failed"
+      ]
+    },
+    "secondRound": {
+      "reviewer": "independent sub-agent (deepseek-flash)",
+      "verdict": "fail",
+      "confidence": 0.72,
+      "fixed": ["F1 verified correct; regression test added for the failed-publication path"],
+      "notObservable": "the captured tree registers by identity, so an external release counter cannot be attached without product test hooks; the new test pins the error code, retryability and clean cancel. It does NOT prove the release happened: publish pre-check release has no discriminating regression yet, and the native e2e only covers codec read scopes",
+      "deferred": ["F2 cost (batch scope design)", "F3 error-code precedence", "plan.disposable kept on purpose so the same plan stays retryable"]
+    },
+    "thirdRound": {
+      "reviewer": "independent sub-agent (worker + exec, deepseek-flash)",
+      "verdict": "fail",
+      "findings": [
+        "S1: root README counts were stale, facts.static.e2e.js failed 4 items",
+        "S2: the new publish-failure unit test does not discriminate (mutation experiment still passes)"
+      ],
+      "fixed": ["README.md and README_EN.md updated to 628 e2e / 448 suites; facts.static.e2e.js now ALL PASS", "test renamed and annotated to state that release is not observable in this harness"]
+    }
+  },
+  "notRun": ["full default e2e suite", "production maintenance/restore single files", "release packaging", "CI"],
+  "notClaimed": ["M3 complete", "retention sealed-fault", "all families or attachments wired", "release"]
+}

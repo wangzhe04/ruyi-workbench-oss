@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-04 当前片：** [104 · M3 附件分块与密封读取原语](104-m3-attachment-primitives-20261104.md)新增两个隔离草稿模块与79项单测，修正 binding 哈希字段序；无 IO/catalog/消费者接线、无真实NTFS与e2e，版本3.0.1，3.1未完成、未发布。
+> **2026-11-04 当前片：** [105 · migrationFactory 只读源解码](105-m3-migration-preserved-source-20261104.md)把保留源读取接进冷迁移/恢复：候选与 intent 写入后重新捕获并以原始见证校验、一次性 grant、fused 物理解码；修 publish 前置失败释放 sourceCapture。全量 unit 5014/4988/0、真实 NTFS 新 e2e 与 cold-operations（261.4s，490s 授权口径）全过；F2/F3 待办，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-04 前片：** [104 · M3 附件分块与密封读取原语](104-m3-attachment-primitives-20261104.md)新增两个隔离草稿模块与79项单测，修正 binding 哈希字段序；无 IO/catalog/消费者接线、无真实NTFS与e2e，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-03 前片：** [103 · 恢复演练保留读取与安全清理](103-m3-native-rehearsal-preserved-20261103.md)完成原生演练双轮、240秒冷长双轮及生产维护/恢复回归；最终unit/static通过，原首红保留。M3后续持续推进，版本3.0.1，未发布。
 

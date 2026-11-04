@@ -1803,10 +1803,13 @@ const migrationCapsuleCode = (() => {
       const first = await fd.stat({ bigint: true }), hash = require('node:crypto').createHash('sha256'), chunks = []; let size = 0;
       if (!first.isFile() || first.isSymbolicLink() || singleLink && first.nlink !== 1n || first.size < 1n || first.size > BigInt(max)) throw Error('native_code_file');
       for (const key of ['dev','ino','nlink','mode','size','mtimeNs','ctimeNs']) if (before[key] !== first[key]) throw Error('native_code_changed');
+      // Public runtime/reference hashes need no retained byte chunks. Reuse one
+      // bounded buffer while retaining every held-FD/length/hash/path check.
+      const scratch = collect ? null : Buffer.alloc(Math.min(1024 * 1024, Number(first.size)));
       while (size < Number(first.size)) {
-        const buffer = Buffer.alloc(Math.min(65536, Number(first.size) - size));
-        const result = await fd.read(buffer, 0, buffer.length, size);
-        if (!Number.isInteger(result.bytesRead) || result.bytesRead < 1 || result.bytesRead > buffer.length || size + result.bytesRead > Number(first.size) || size + result.bytesRead > max) throw Error('native_code_short_read');
+        const buffer = scratch || Buffer.alloc(Math.min(65536, Number(first.size) - size));
+        const length = Math.min(buffer.length, Number(first.size) - size, max - size), result = await fd.read(buffer, 0, length, size);
+        if (!Number.isInteger(result.bytesRead) || result.bytesRead < 1 || result.bytesRead > length || size + result.bytesRead > Number(first.size) || size + result.bytesRead > max) throw Error('native_code_short_read');
         const bytes = buffer.subarray(0, result.bytesRead); hash.update(bytes); if (collect) chunks.push(bytes); size += result.bytesRead;
       }
       const last = await fd.stat({ bigint: true }), after = await io.lstat(file, { bigint: true });
@@ -1870,11 +1873,17 @@ const migrationCapsuleCode = (() => {
       nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System', 'v4.0_4.0.0.0__b77a5c561934e089', 'System.dll'),
       nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Web.Extensions', 'v4.0_4.0.0.0__31bf3856ad364e35', 'System.Web.Extensions.dll'),
       nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Core', 'v4.0_4.0.0.0__b77a5c561934e089', 'System.Core.dll')];
-    const files = [];
-    for (const file of [executable, executable + '.config', nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Management.Automation', 'v4.0_3.0.0.0__31bf3856ad364e35', 'System.Management.Automation.dll'), nodePath.join(framework, 'csc.exe'), nodePath.join(framework, 'csc.exe.config'), nodePath.join(framework, 'csc.rsp'), nodePath.join(framework, 'Config', 'machine.config'), nodePath.join(framework, 'clr.dll'), nodePath.join(framework, 'System.dll'), nodePath.join(framework, 'System.Core.dll'), ...references]) {
-      await directories(nodePath.dirname(file)); files.push((await read(file, 32 * 1024 * 1024, false, false)).pin);
+    const files = [], names = [executable, executable + '.config', nodePath.join(windows, 'Microsoft.NET', 'assembly', 'GAC_MSIL', 'System.Management.Automation', 'v4.0_3.0.0.0__31bf3856ad364e35', 'System.Management.Automation.dll'), nodePath.join(framework, 'csc.exe'), nodePath.join(framework, 'csc.exe.config'), nodePath.join(framework, 'csc.rsp'), nodePath.join(framework, 'Config', 'machine.config'), nodePath.join(framework, 'clr.dll'), nodePath.join(framework, 'System.dll'), nodePath.join(framework, 'System.Core.dll'), ...references];
+    // These fourteen public files are independent. Keep their original wire
+    // order and fresh checks; settle every started FD before optional fallback.
+    for (let offset = 0; offset < names.length; offset += 4) {
+      const results = await Promise.allSettled(names.slice(offset, offset + 4).map(async file => {
+        await directories(nodePath.dirname(file)); return (await read(file, 32 * 1024 * 1024, false, false)).pin;
+      }));
+      const failed = results.find(result => result.status === 'rejected'); if (failed) throw failed.reason;
+      files.push(...results.map(result => result.value));
     }
-    const value = { revision: 1, sourceHash: digest(source), bootstrapHash: digest(bootstrap + encodeMetadata.toString()), factoryHash: brokerHash, arch: process.arch, executable, references, files };
+    const value = { revision: 1, sourceHash: digest(source), bootstrapHash: bootstrapIdentity, factoryHash: brokerHash, arch: process.arch, executable, references, files };
     return { ...value, key: digest(JSON.stringify(value)) };
   }
   const bootstrap = String.raw`
@@ -1976,19 +1985,37 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
 [RuyiSkillCapsule]::Run()
 }
 `;
+  // The cached child never needs to parse the cold ACL/compiler/adoption arm.
+  // Derive it from the same validators, policy fallback and loader, rather than
+  // maintain a second set of security checks. A changed template falls back to
+  // the complete original bootstrap until its specialization is updated.
+  function specializeBootstrap(value) {
+    const startMarker = "if($encoded -eq '') {\n  $source=", armMarker = "} else {\n  $bytes=[Convert]::FromBase64String($encoded);",
+      tailMarker = "\n}\n$type=$assembly.GetType('RuyiSkillCapsule'", mode = "$meta=CodeMetaDecode $meta64 ([bool]($encoded -ne ''))";
+    const start = value.indexOf(startMarker), arm = value.indexOf(armMarker, start), tail = value.indexOf(tailMarker, arm);
+    if (start < 0 || arm <= start || tail <= arm || value.indexOf(startMarker, start + 1) !== -1
+      || value.indexOf(armMarker, arm + 1) !== -1 || value.indexOf(tailMarker, tail + 1) !== -1 || value.split(mode).length !== 2) return value;
+    const selected = value.slice(0, start) + value.slice(arm + '} else {\n'.length, tail) + value.slice(tail + '\n}'.length);
+    return selected.replace(mode, "if($encoded -eq ''){throw 'native_code_cache_parts'}\n$meta=CodeMetaDecode $meta64 $true");
+  }
+  const hotBootstrap = specializeBootstrap(bootstrap);
+  function bootstrapFor(hit) { return hit ? hotBootstrap : bootstrap; }
+  // Only immutable, trusted protocol text is prehashed; all fourteen physical
+  // file hashes and their ancestor/FD proofs are still fresh for each broker.
+  const bootstrapIdentity = digest(JSON.stringify([bootstrap, hotBootstrap, encodeMetadata.toString(), specializeBootstrap.toString(), bootstrapFor.toString()]));
   function disable() { disabled = true; cached = null; counts.disabled = true; counts.discarded++; }
   async function prepare(source) {
     if (disabled) return null;
     let ctx, sink = null, lineage = null;
     try {
       ctx = await context(source); if (!ctx || disabled) return null;
+      if (cached && cached.key !== ctx.key) { disable(); return null; }
+      const hit = cached, selectedBootstrap = bootstrapFor(hit);
       // Conservative full CreateProcess argv upper bound, including quoting,
       // separators and terminating NUL; check before creating any cache sink.
-      const encodedBootstrap = Buffer.from(bootstrap, 'utf16le').toString('base64');
+      const encodedBootstrap = Buffer.from(selectedBootstrap, 'utf16le').toString('base64');
       const commandUnits = 1 + ctx.executable.length + 2 + ['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',encodedBootstrap].reduce((n, arg) => n + 1 + arg.length + 2, 0);
       if (commandUnits > 32767) throw Error('native_code_command_limit');
-      if (cached && cached.key !== ctx.key) { disable(); return null; }
-      const hit = cached;
       if (!hit) { sink = await io.mkdtemp(nodePath.join(nodePath.resolve(nodeOs.tmpdir()), 'ruyi-native-code-')); lineage = await directories(sink); }
       const env = { ...process.env };
       for (const key of Object.keys(env)) if (key.toUpperCase().startsWith('RUYI_SKILL_CAPSULE_')) delete env[key];
@@ -2005,7 +2032,7 @@ $meta=$null;$refs=$null;$assembly=$null;$type=$null;$method=$null
         for (let n = 0; n < parts; n++) env['RUYI_SKILL_CAPSULE_CODE_' + n] = encoded.slice(n * 8192, (n + 1) * 8192);
       } else env.RUYI_SKILL_CAPSULE_CODE_PARTS = '';
       let observed = null;
-      return Object.freeze({ executable: ctx.executable, bootstrap, env,
+      return Object.freeze({ executable: ctx.executable, bootstrap: selectedBootstrap, env,
         observe(child) {
           const flags = new Set(); observed = { flags, error: false, exit: null, close: null, marker: '' };
           child.on('spawn', () => { if (hit) counts.byteChildren++; else counts.sourceChildren++; });

@@ -1,6 +1,50 @@
 'use strict';
 const {test}=require('node:test'),fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto'),vm=require('node:vm'),assert=require('node:assert/strict');
 const {fixture,hash,source,repo,functionBlock}=require('../lib/work-data-migration-host-fixture');
+
+for(const generation of [0,1])test(generation?'generation-prefix source reads complete but an unbound synthetic generation still refuses publication':'preserved codec source scopes survive planned candidate writes and readonly publication',async t=>{
+ const f=await fixture(t,{preserved:true});let root=f.base;
+ if(generation){const before=await f.manifest.readActive(),candidate=await f.manifest.prepare({expected:before,mode:'plain'});root=candidate.root;await fsp.mkdir(path.join(root,'sessions'),{recursive:true});await fsp.writeFile(path.join(root,'config.json'),'{}');await fsp.writeFile(path.join(root,'sessions/one.json'),'{"id":"one","text":"ORIGINAL"}');await f.manifest.commit({expected:before,candidate});}
+ else{await f.write('config.json','{}');await f.write('sessions/one.json','{"id":"one","text":"ORIGINAL"}');}
+ const original=await fsp.readFile(path.join(root,'sessions/one.json')),expected=await f.manifest.readActive(),backup=await f.backupFirst();
+ if(generation){await assert.rejects(f.host.prepare({...backup,expected,targetMode:'encrypted'}),{code:'work_data_backup.binding_missing',operationMayHaveExecuted:true});
+   const bytes=await fsp.readFile(path.join(f.state.candidate.root,'sessions/one.json'));assert.equal(bytes.includes(Buffer.from('ORIGINAL')),false);assert.ok(f.state.nativeCaptures.length>=26);assert.deepEqual(await fsp.readFile(path.join(root,'sessions/one.json')),original);assert.equal((await f.manifest.readActive()).generation,1);return;
+ }
+ const token=await f.host.prepare({...backup,expected,targetMode:'encrypted'});
+ assert.equal(token.transformed.length,1);assert.equal(token.sourceGeneration,generation);assert.ok(f.state.nativeCaptures.length>=26);
+ await f.host.publish(token);const count=f.state.nativeCaptures.length,proof=await f.host.verifyPublished(token);assert.equal(proof.generation,generation+1);assert.equal(proof.logicalFiles,1);assert.ok(f.state.nativeCaptures.length>count);assert.deepEqual(await fsp.readFile(path.join(root,'sessions/one.json')),original);
+});
+
+// The captured tree is registered by identity inside 01aa, so this harness cannot
+// attach a release counter without product test hooks. This case therefore locks the
+// failed-publication contract (error code, retryability, clean cancel); it does NOT
+// prove the capture was released - that path has no discriminating regression yet.
+test('failed publication reports the changed source, stays retryable and cancels without ownership uncertainty',async t=>{
+ const f=await fixture(t,{preserved:true});await f.write('config.json','{}');
+ const expected=await f.manifest.readActive(),backup=await f.backupFirst(),prepared=await f.host.prepare({...backup,expected,targetMode:'encrypted'});
+ await f.write('sessions/one.json','{"id":"one","text":"CHANGED AFTER PREPARE"}');
+ await assert.rejects(()=>f.host.publish(prepared),error=>/source_changed/.test(error.code||'')&&error.operationMayHaveExecuted!==true);
+ await assert.rejects(()=>f.host.publish(prepared),error=>/source_changed/.test(error.code||''),'the same plan stays retryable instead of becoming busy or invalid');
+ const canceled=await f.host.cancel(prepared);assert.equal(canceled.canceled,true);
+ assert.equal((await f.manifest.readActive()).generation,0);
+});
+
+for(const kind of ['DATA','identity','mtime','bound'])test('preserved migration refuses '+kind+' changes after candidate mutation and retains its executed receipt',async t=>{
+ const f=await fixture(t,{preserved:true}),file=await f.write('sessions/one.json','{"id":"one","text":"ORIGINAL"}'),expected=await f.manifest.readActive(),backup=await f.backupFirst();let changed=false;
+ f.state.onNativeCapture=async()=>{
+  if(changed||!f.state.candidate||!fs.existsSync(path.join(f.state.candidate.root,'work-data-key-v1.json')))return;
+  changed=true;
+  if(kind==='bound')throw Object.assign(Error('closed native engineering bound refusal'),{code:'work_data_tree.preserved_native_engineering_limit'});
+  if(kind==='DATA')await fsp.writeFile(file,'{"id":"one","text":"CHANGED"}');
+  if(kind==='identity'){const bytes=await fsp.readFile(file);await fsp.rename(file,file+'.retained');await fsp.writeFile(file,bytes);await fsp.unlink(file+'.retained');}
+  if(kind==='mtime'){const stat=await fsp.stat(file);await fsp.utimes(file,stat.atime,new Date(stat.mtimeMs+10000));}
+ };
+ await assert.rejects(f.host.prepare({...backup,expected,targetMode:'encrypted'}),error=>{
+  assert.equal(error.operationMayHaveExecuted,true);assert.equal(error.resultUnavailable,true);assert.equal(error.retry,false);assert.equal(error.candidateRetained,f.state.candidate.root);
+  assert.match(error.code,kind==='bound'?/preserved_native_engineering_limit/:/source_changed/);return true;
+ });
+ assert.equal(changed,true);assert.equal((await f.manifest.readActive()).generation,0);assert.ok(fs.existsSync(f.state.candidate.root));assert.ok(fs.existsSync(path.join(f.base,'.work-data','maintenance-v1.json')));
+});
 test('actual full snapshot -> new work master -> complete ordinary shadow -> exact manifest -> cold codec read',async t=>{
  const f=await fixture(t),raw='{ "number":9007199254740993, "duplicate":1, "duplicate":2, "workDataEncryptionV1": false, "unknown":{"workDataEncryptionV1":true} }\r\n';await f.write('config.json',raw);await f.write('sessions/sess_one.json','{"id":"sess_one","private":"HELLO"}');await f.write('uploads/file.bin',Buffer.from([0,255,3]));await fsp.mkdir(path.join(f.base,'uploads/empty'));
  const original=await fsp.readFile(path.join(f.base,'sessions/sess_one.json')),expected=await f.manifest.readActive(),backup=await f.backupFirst(),prepared=await f.host.prepare({...backup,expected,targetMode:'encrypted'});assert.equal((await f.manifest.readActive()).generation,0);assert.equal(JSON.parse(await fsp.readFile(path.join(prepared.candidate.root,'config.json'),'utf8')).workDataEncryptionV1,true);assert.match(await fsp.readFile(path.join(prepared.candidate.root,'config.json'),'utf8'),/9007199254740993/);const result=await f.host.publish(prepared);assert.equal(result.active.generation,1);assert.deepEqual(await fsp.readFile(path.join(f.base,'sessions/sess_one.json')),original);assert.deepEqual(await fsp.readFile(path.join(result.active.root,'uploads/file.bin')),Buffer.from([0,255,3]));assert.ok(fs.statSync(path.join(result.active.root,'uploads/empty')).isDirectory());

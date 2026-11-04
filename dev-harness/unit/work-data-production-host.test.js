@@ -1352,3 +1352,47 @@ test('cold observer admission never reads a function constructor getter', async 
   await assert.rejects(f.native.coldOperationHost(()=>{}).fullSnapshot(f.paths.base,owner,()=>true,{onNativeCause}).seal({}),error=>error===raw);
   assert.equal(traps,0);assert.equal(calls,1);assert.equal(f.native.helperMayStillRun(),false);await owner.release();
 });
+
+test('cold migration factory fixes native backend, preserved reader and genuine synchronous admission for every method',async()=>{
+  const f=createFixture(),owner=await f.lease([f.paths.base]);let options,native=0,override=0;
+  f.nativeBindings.protector.run=async()=>{native++;return Buffer.from('configured');};
+  f.nativeBindings.capturePreserved=async()=>({native:true});
+  f.nativeBindings.migrationHost.create=value=>{options=value;return Object.fromEntries(['prepare','publish','cancel','verifyPublished'].map(name=>[name,async()=>{
+    assert.equal(options.assertExclusive,options.assertExclusiveSync);assert.equal(options.assertExclusiveSync(owner),true);assert.equal(options.assertExclusiveSync({roots:[f.paths.base]}),false);
+    assert.equal(options.preservedRead.profile,'bounded-native-v1');assert.deepEqual(await options.preservedRead.capturePreserved(),{native:true});
+    return options.protector.run();
+  }]));};
+  const host=f.native.coldOperationHost(()=>{}).migrationFactory({base:f.paths.base,ownership:owner,assertExclusive:value=>value===owner,
+    protector:{run(){override++;}},preservedRead:{capturePreserved(){override++;}}});
+  for(const name of ['prepare','publish','cancel','verifyPublished'])assert.equal((await host[name]({})).toString(),'configured');
+  assert.equal(native,4);assert.equal(override,0);await owner.release();assert.equal(f.servers[0].closeCalls,1);
+});
+
+test('cold migration raw uncertainty is observed before real key sanitation and retains its genuine method keeper',async()=>{
+  const f=createFixture(),owner=await f.lease([f.paths.base]),events=[],raw=Object.assign(Error('native unknown'),{helperMayStillRun:true});
+  f.nativeBindings.protector.run=async()=>{events.push('backend');throw raw;};
+  f.nativeBindings.migrationHost.create=options=>Object.fromEntries(['prepare','publish','cancel','verifyPublished'].map(name=>[name,async()=>{
+    const keys=f.api.keys.create({protector:options.protector,enabled:()=>true,store:{read:async()=>f.api.keys.empty(),write:async()=>{throw Error('no write');}}});
+    try{await keys.ensure();}catch(cause){events.push('sanitized');throw cause;}
+  }]));
+  const host=f.native.coldOperationHost(()=>{}).migrationFactory({base:f.paths.base,ownership:owner,assertExclusive:()=>true,onNativeCause(value){assert.equal(value,raw);events.push('observer');}});
+  await assert.rejects(host.prepare({}),{code:'work_data_key.protect_failed'});assert.deepEqual(events,['backend','observer','sanitized']);assert.equal(f.native.helperMayStillRun(),true);assert.equal(f.servers[0].closeCalls,0);await assert.rejects(owner.release());
+});
+
+test('malformed pending or opaque migration factories retain exclusion without invoking getters',async()=>{
+  for(const kind of ['pending','rejected','proxy','getter','proxy-method']){
+    const f=createFixture(),owner=await f.lease([f.paths.base]);let traps=0;
+    f.nativeBindings.migrationHost.create=()=>kind==='pending'?new Promise(()=>{}):kind==='rejected'?Promise.reject(Error('factory rejected')):kind==='proxy'?new Proxy({},{get(){traps++;throw Error('opaque');}}):kind==='getter'?Object.defineProperty({},'prepare',{get(){traps++;throw Error('getter');}}):{prepare:new Proxy(()=>{},{get(){traps++;throw Error('proxy method');}})};
+    assert.throws(()=>f.native.coldOperationHost(()=>{}).migrationFactory({base:f.paths.base,ownership:owner,assertExclusive:()=>true}),{code:'work_data_adapter.migration_host_uncertain'});
+    await tick();assert.equal(traps,0);assert.equal(f.native.helperMayStillRun(),true);assert.equal(f.servers[0].closeCalls,0);await assert.rejects(owner.release());
+  }
+});
+
+test('cold migration refuses async owner predicates before factory creation and catches late method uncertainty',async()=>{
+  const f=createFixture(),owner=await f.lease([f.paths.base]);let creates=0;
+  f.nativeBindings.migrationHost.create=()=>{creates++;return {};};
+  assert.throws(()=>f.native.coldOperationHost(()=>{}).migrationFactory({base:f.paths.base,ownership:owner,assertExclusive:async()=>true}),{code:'work_data_adapter.snapshot_sync_owner_required'});assert.equal(creates,0);
+  let complete;f.nativeBindings.migrationHost.create=()=>Object.fromEntries(['prepare','publish','cancel','verifyPublished'].map(name=>[name,()=>new Promise(resolve=>{complete=resolve;})]));
+  const host=f.native.coldOperationHost(()=>{}).migrationFactory({base:f.paths.base,ownership:owner,assertExclusive:()=>true}),pending=host.prepare({});
+  await waitForModel(()=>complete);f.state.unknown=true;complete({late:true});await assert.rejects(pending,{code:'work_data_adapter.helper_uncertain'});assert.equal(f.servers[0].closeCalls,0);await assert.rejects(owner.release());
+});

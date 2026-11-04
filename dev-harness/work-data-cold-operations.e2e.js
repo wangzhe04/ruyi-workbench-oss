@@ -33,7 +33,7 @@ async function cold(input){
   const host={acquire:roots=>api.ServerOwnership.acquire(roots),flush:dirs=>guard(()=>flush(dirs)),helperMayStillRun:()=>helperUncertain||native.helperMayStillRun(),
    fullSnapshot:(...args)=>snapshotHost.fullSnapshot(...args),
    captureRehearsal:(...args)=>snapshotHost.captureRehearsal(...args),
-   verifyDisposableNativeTree:value=>guard(()=>disposable(value)),migrationFactory:options=>api.WorkDataMigrationHost.create(options),progress:()=>{},
+   verifyDisposableNativeTree:value=>guard(()=>disposable(value)),migrationFactory:options=>snapshotHost.migrationFactory(options),progress:()=>{},
    async verifyFresh(value){const child=cp.spawnSync(process.execPath,[__filename,'--cold'],{env:releaseEnvironment(path.join(root,'cold-home'),value.target),input:JSON.stringify({home:path.join(root,'cold-home'),target:value.target,password:value.password,generation:value.generation??(await api.WorkDataManifest.create({base:value.target}).readActive()).generation}),encoding:'utf8',windowsHide:true,timeout:120000});assert.equal(child.status,0,child.stderr+'\n'+child.stdout);assert.match(child.stdout,/COLD FULL SNAPSHOT VERIFIED/);return true;},
   };
   const operation=api.WorkDataColdOperations.create(host);

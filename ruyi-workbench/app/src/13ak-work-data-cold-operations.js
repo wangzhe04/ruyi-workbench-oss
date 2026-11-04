@@ -356,7 +356,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           state.candidate = { id: candidate.id, mode: candidate.mode, headerSha256: headerSha256 ?? state.candidate?.headerSha256 ?? null };
           intent = await control.write(state, intent); return Object.freeze({ ownedFile: intent });
         };
-        const migration = host.migrationFactory({ base, ownership: context.ownership, assertExclusive,
+        const migration = host.migrationFactory({ base, ownership: context.ownership, assertExclusive,onNativeCause:retainHelper,
           manifest: WorkDataManifest.create({ base }), protector,
           assertDurableBackup: ({ backupReceipt, sourceProof }) => backupReceipt === backup && sourceProof === captured && verifyBackup(backupReceipt),
           assertIntent: async () => { await control.verify(intent); return Object.freeze({ ownedFile: intent }); },

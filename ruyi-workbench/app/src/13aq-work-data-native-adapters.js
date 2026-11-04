@@ -360,9 +360,38 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       return Object.freeze({acquire:roots => {check();return bindings.ownership.acquire(roots);},sourceKeeper,flush,verifyFresh,captureRehearsal,
         fullSnapshot:(base,ownership,assertExclusive,{onNativeCause}={})=>createSnapshot(base,ownership,assertExclusive,undefined,onNativeCause),
         verifyDisposableNativeTree:disposable,migrationFactory:options => {
-          check(); const owner = bindings.migrationHost.create(options), wrapped = {};
-          for (const name of ['prepare','publish','cancel','verifyPublished']) wrapped[name] = value => guarded(() => owner[name](value));
+          check(); const {base,ownership,assertExclusive,onNativeCause}=options;
+          const exclusive=synchronousOwner(base,ownership,assertExclusive),types=require('node:util').types;
+          if(onNativeCause!==undefined&&(typeof onNativeCause!=='function'||types.isProxy(onNativeCause)||types.isAsyncFunction(onNativeCause)))throw fail('snapshot_observer_invalid');
+          const migrationProtector=Object.freeze({supported:protector.supported,async run(...args){
+            try{return await protector.run(...args);}catch(cause){
+              if(onNativeCause!==undefined)try{const observed=onNativeCause(cause);if(observed!==null&&(typeof observed==='object'||typeof observed==='function')){observePending(observed);unknown=true;}}catch(observerCause){latch(observerCause);unknown=true;}
+              throw cause;
+            }
+          }});
+          try{
+          const owner = bindings.migrationHost.create({...options,assertExclusive:exclusive,assertExclusiveSync:exclusive,
+            protector:migrationProtector,preservedRead:Object.freeze({profile:'bounded-native-v1',capturePreserved:(...args)=>guarded(()=>bindings.capturePreserved(...args))})}), wrapped = {};
+          if(owner&&(types.isProxy(owner)||types.isPromise(owner))){observePending(owner);unknown=true;throw fail('migration_host_uncertain',true);}
+          if(!owner||typeof owner!=='object')throw fail('migration_host_invalid');
+          for (const name of ['prepare','publish','cancel','verifyPublished']) {
+            const descriptor=Object.getOwnPropertyDescriptor(owner,name);
+            if(descriptor&&!Object.hasOwn(descriptor,'value')){unknown=true;throw fail('migration_host_uncertain',true);}
+            if(typeof descriptor?.value!=='function')throw fail('migration_host_invalid');
+            if(types.isProxy(descriptor.value)){unknown=true;throw fail('migration_host_uncertain',true);}
+            const method=descriptor.value;wrapped[name]=value=>withSource(ownership,base,()=>Reflect.apply(method,owner,[value]));
+          }
           return Object.freeze(wrapped);
+          }catch(cause){
+            if(latch(cause)){
+              // A malformed synchronous factory may already have started work.
+              // Retain a genuine pin even though no wrapped method was entered.
+              try{const keeper=bindings.ownership.createSourceKeeper(ownership,base);
+                if(!bindings.ownership.isSourceKeeper(keeper,ownership,base))throw fail('source_keeper_invalid');keeper.retainUnknown(cause);
+              }catch(cleanup){throw Object.assign(new AggregateError([cause,cleanup],'work_data_adapter.migration_factory_cleanup',{cause}),{code:'work_data_adapter.migration_factory_cleanup',helperMayStillRun:true,ownershipRetained:true,retry:false});}
+            }
+            throw cause;
+          }
         },
         progress,helperMayStillRun:() => latch(null)});
     }

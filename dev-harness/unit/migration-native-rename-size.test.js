@@ -82,11 +82,11 @@ test('full native representation has approved240000 whole-file budget while defa
  const full=fs.readFileSync(path.join(repo,'dev-harness/migration-skill-backup-representation.e2e.js'),'utf8');assert.equal(full.split('await delay(24000)').length-1,2);assert.ok(full.includes('timeout:120000'));assert.deepEqual([F.LIMITS.commandMs,F.LIMITS.closeMs,F.LIMITS.metadataMs],[120000,2000,30000]);
 });
 
-test('cold four-operation native regression has its separately approved240000 whole-file budget only',()=>{
+test('cold four-operation native regression has its separately approved490000 whole-file budget only',()=>{
  const runner=fs.readFileSync(path.join(repo,'dev-harness/run-all.js'),'utf8'),ctx={};vm.createContext(ctx);
  vm.runInContext(['TIMEOUT_MS','TIMEOUT_OVERRIDES','SKIP','PARALLEL_EXCLUSIVE'].map(n=>constBlock(runner,n)).join('\n')+'\n'+functionBlock(runner,'timeoutFor')+'\nglobalThis.defaultMs=TIMEOUT_MS;globalThis.check=f=>({ms:timeoutFor(f),skip:SKIP.has(f),exclusive:PARALLEL_EXCLUSIVE.has(f)});',ctx);
  assert.equal(ctx.defaultMs,120000);assert.equal(ctx.check('unlisted-budget-control.e2e.js').ms,120000);
- for(const [file,expected]of [['work-data-cold-operations.e2e.js',240000],['migration-skill-backup-representation.e2e.js',240000],['migration-native-short-rename.e2e.js',120000],['work-data-preserved-snapshot.e2e.js',120000],['work-data-cold-preserved-snapshot.e2e.js',120000]]){
+ for(const [file,expected]of [['work-data-cold-operations.e2e.js',490000],['migration-skill-backup-representation.e2e.js',240000],['migration-native-short-rename.e2e.js',120000],['work-data-preserved-snapshot.e2e.js',120000],['work-data-cold-preserved-snapshot.e2e.js',120000]]){
   const value=ctx.check(file);assert.equal(value.ms,expected);assert.equal(value.skip,false);assert.equal(value.exclusive,true);
  }
  const cold=fs.readFileSync(path.join(repo,'dev-harness/work-data-cold-operations.e2e.js'),'utf8');assert.ok(cold.includes('timeout:120000'));
