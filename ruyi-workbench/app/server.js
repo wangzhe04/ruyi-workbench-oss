@@ -11579,6 +11579,325 @@ const WorkDataRootAuthority = ((fsApi, pathApi) => {
   return Object.freeze({ create, ...active });
 })(require('node:fs/promises'), require('node:path'));
 
+// Isolated format draft. No filesystem, key creation, migration or consumer wiring.
+// Manifest brands attest crypto parsing only; they never grant IO/delete authority.
+const WorkDataAttachmentChunks = ((cryptoApi) => {
+  const CHUNK_BYTES=256*1024, MAX_BYTES=256*1024*1024, MAX_CHUNKS=MAX_BYTES/CHUNK_BYTES, MAX_CARRIER=2*1024*1024;
+  const issued=new WeakMap(),hex=/^[a-f0-9]{64}$/,revisionPattern=/^[a-f0-9]{32}$/;
+  const fail=suffix=>{throw Object.assign(Error('work_data_blob.'+suffix),{code:'work_data_blob.'+suffix});};
+  const sha=bytes=>cryptoApi.createHash('sha256').update(bytes).digest('hex');
+  const buffer=value=>!require('node:util').types.isProxy(value)&&Buffer.isBuffer(value);
+  const integer=value=>Number.isSafeInteger(value)&&value>=0;
+  const own=(value,fields)=>{
+    if(!value||typeof value!=='object'||Array.isArray(value)||require('node:util').types.isProxy(value))fail('shape');
+    const descriptors=Object.getOwnPropertyDescriptors(value),names=Reflect.ownKeys(descriptors);
+    if(names.some(name=>typeof name!=='string'))fail('shape');
+    if(names.sort().join(',')!==fields.split(',').sort().join(',')||names.some(name=>!Object.hasOwn(descriptors[name],'value')))fail('shape');
+    return Object.fromEntries(names.map(name=>[name,descriptors[name].value]));
+  };
+  const cap=value=>{if(!Number.isSafeInteger(value)||value<1||value>MAX_BYTES)fail('limit_invalid');return value;};
+  function bindingOf(value){
+    const b=own(value,'purpose,instanceId,schema,scopeId,recordId,seq,generation');
+    for(const name of ['instanceId','scopeId','recordId'])if(typeof b[name]!=='string'||!b[name].length||b[name].length>160||!/^[A-Za-z0-9_.:-]+$/.test(b[name]))fail('binding');
+    if(!WorkDataCrypto.PURPOSES.includes(b.purpose)||!integer(b.schema)||!integer(b.seq)||!Number.isSafeInteger(b.generation)||b.generation<1||b.generation>99)fail('binding');
+    return Object.freeze(b);
+  }
+  // Pin an explicit field order for the binding hash. own() already returns a
+  // key-sorted object, but hashing an array keeps the manifest's binding
+  // identity independent of that helper's ordering detail.
+  const bindingText=b=>JSON.stringify([b.purpose,b.instanceId,b.schema,b.scopeId,b.recordId,b.seq,b.generation]);
+  // Validate the same UTF-16 scalar sequence without allocating temporary
+  // plaintext filename bytes. Lone surrogates fail the old UTF8 roundtrip too.
+  function scalarString(value){
+    for(let n=0;n<value.length;n++){
+      const unit=value.charCodeAt(n);
+      if(unit>=0xd800&&unit<=0xdbff){const next=value.charCodeAt(++n);if(!(next>=0xdc00&&next<=0xdfff))return false;}
+      else if(unit>=0xdc00&&unit<=0xdfff)return false;
+    }
+    return true;
+  }
+  function metadataOf(value){
+    const v=own(value,'logicalName,mime,kind');
+    if(typeof v.logicalName!=='string'||!v.logicalName.length||v.logicalName.length>200||/[\x00-\x1f]/.test(v.logicalName)||!scalarString(v.logicalName)
+      ||typeof v.mime!=='string'||v.mime.length>128||!/^[-A-Za-z0-9.+]+\/[-A-Za-z0-9.+]+$/.test(v.mime)
+      ||!['original','tool-image','send-derivative'].includes(v.kind))fail('metadata');
+    return Object.freeze(v);
+  }
+  function context(base,revision,kind,ordinal=0){return{...base,recordId:'blob-'+kind+':'+sha(base.recordId+'\0'+revision),seq:kind==='manifest'?1:ordinal+1};}
+  const partName=ordinal=>{if(!integer(ordinal)||ordinal>=MAX_CHUNKS)fail('ordinal');return'part-'+String(ordinal).padStart(6,'0')+'.json';};
+  function encode(plain,key,binding){return Buffer.from(JSON.stringify({workData:2,...WorkDataCrypto.seal(plain,key,binding)}),'utf8');}
+  function decode(bytes,key,binding){
+    if(!buffer(bytes)||bytes.length>MAX_CARRIER)fail('carrier_limit');
+    const raw=bytes.toString('utf8');if(!Buffer.from(raw,'utf8').equals(bytes))fail('carrier_utf8');
+    let parsed;try{parsed=JSON.parse(raw);}catch{fail('carrier');}
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||parsed.workData!==2)fail('carrier');
+    const{workData,...container}=parsed;return WorkDataCrypto.open(container,key,binding);
+  }
+  function createWriter({key,binding,revision,metadata,maxBytes}={}){
+    const base=bindingOf(binding),meta=metadataOf(metadata),maximum=cap(maxBytes);
+    if(typeof revision!=='string'||!revisionPattern.test(revision))fail('revision');
+    if(!buffer(key)||key.length!==32)fail('key');
+    const rows=[],digest=cryptoApi.createHash('sha256');let total=0,short=false,closed=false,material=Buffer.from(key),cleanupFailed=false,cleanupFailure;
+    const close=(primary,failed=false)=>{
+      if(!closed){
+        closed=true;
+        try{if(material)material.fill(0);}catch(error){cleanupFailed=true;cleanupFailure=error;}
+        finally{material=null;rows.length=0;}
+      }
+      // Failure is sticky: a repeated dispose cannot turn unproven key erasure into success.
+      if(cleanupFailed)throw Object.assign(new AggregateError([...(failed?[primary]:[]),cleanupFailure],'work_data_blob.cleanup',{cause:failed?primary:cleanupFailure}),{
+        code:'work_data_blob.cleanup',cleanupFailed:true,ownershipRetained:true,keyClearUnproven:true,
+      });
+      if(failed)throw primary;
+    };
+    return Object.freeze({
+      write(bytes){
+        try {
+        if(closed)fail('writer_closed');
+        if(!buffer(bytes)||!bytes.length||bytes.length>CHUNK_BYTES||short||rows.length>=MAX_CHUNKS||total+bytes.length>maximum)fail('chunk_limit');
+        const ordinal=rows.length,data=encode(Buffer.prototype.toString.call(bytes,'base64'),material,context(base,revision,'chunk',ordinal));
+        const row=Object.freeze({ordinal,bytes:bytes.length,sha256:sha(bytes),physicalBytes:data.length,physicalSha256:sha(data)});
+        digest.update(bytes);total+=bytes.length;short=bytes.length<CHUNK_BYTES;rows.push(row);
+        return Object.freeze({name:partName(ordinal),data}); // Caller owns/clears ciphertext Buffer.
+        }catch(error){close(error,true);}
+      },
+      finish(){
+        if(closed){close();fail('writer_closed');}
+        let result,failed=false,primary;
+        try {
+        const manifest={type:'attachment-chunks-v1',schema:1,revision,bindingHash:sha(bindingText(base)),metadata:meta,chunkBytes:CHUNK_BYTES,totalBytes:total,sha256:digest.digest('hex'),count:rows.length,chunks:rows};
+        result=encode(JSON.stringify(manifest),material,context(base,revision,'manifest'));
+        }catch(error){failed=true;primary=error;}
+        close(primary,failed);return result;
+      },
+      dispose(){close();},
+    });
+  }
+  function openManifest({data,key,binding,revision,maxBytes}={}){
+    const base=bindingOf(binding),maximum=cap(maxBytes);if(typeof revision!=='string'||!revisionPattern.test(revision))fail('revision');
+    const plain=decode(data,key,context(base,revision,'manifest'));let v;try{v=JSON.parse(plain);}catch{fail('manifest');}
+    const m=own(v,'type,schema,revision,bindingHash,metadata,chunkBytes,totalBytes,sha256,count,chunks');
+    if(m.type!=='attachment-chunks-v1'||m.schema!==1||m.revision!==revision||m.bindingHash!==sha(bindingText(base))||m.chunkBytes!==CHUNK_BYTES
+      ||!integer(m.totalBytes)||m.totalBytes>maximum||typeof m.sha256!=='string'||!hex.test(m.sha256)||!integer(m.count)||m.count>MAX_CHUNKS||m.count!==Math.ceil(m.totalBytes/CHUNK_BYTES)||!Array.isArray(m.chunks)||m.chunks.length!==m.count)fail('manifest');
+    const metadata=metadataOf(m.metadata);let total=0;
+    const chunks=m.chunks.map((entry,ordinal)=>{
+      const row=own(entry,'ordinal,bytes,sha256,physicalBytes,physicalSha256');
+      if(row.ordinal!==ordinal||!integer(row.bytes)||row.bytes<1||row.bytes>CHUNK_BYTES||ordinal+1<m.count&&row.bytes!==CHUNK_BYTES||typeof row.sha256!=='string'||!hex.test(row.sha256)
+        ||!integer(row.physicalBytes)||row.physicalBytes<1||row.physicalBytes>MAX_CARRIER||typeof row.physicalSha256!=='string'||!hex.test(row.physicalSha256))fail('manifest_chunk');
+      total+=row.bytes;return Object.freeze(row);
+    });
+    if(total!==m.totalBytes||!m.count&&m.sha256!==sha(Buffer.alloc(0)))fail('manifest');
+    const result=Object.freeze({...m,metadata,chunks:Object.freeze(chunks)});issued.set(result,{base,revision});return result;
+  }
+  function current(manifest){const state=issued.get(manifest);if(!state)fail('manifest_unavailable');return state;}
+  function selectChunks(manifest,start,end){
+    current(manifest);if(!integer(start)||!integer(end)||start>end||end>manifest.totalBytes)fail('range');
+    if(start===end)return Object.freeze([]);
+    return Object.freeze(Array.from({length:Math.floor((end-1)/CHUNK_BYTES)-Math.floor(start/CHUNK_BYTES)+1},(_,n)=>n+Math.floor(start/CHUNK_BYTES)));
+  }
+  function openChunk({manifest,ordinal,data,key}={}){
+    const state=current(manifest);if(!integer(ordinal)||ordinal>=manifest.count)fail('chunk_changed');const row=manifest.chunks[ordinal];
+    if(!buffer(data)||data.length!==row.physicalBytes||sha(data)!==row.physicalSha256)fail('chunk_changed');
+    const encoded=decode(data,key,context(state.base,state.revision,'chunk',ordinal));
+    if(encoded.length!==4*Math.ceil(row.bytes/3)||encoded.length%4||!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded))fail('chunk_encoding');
+    const bytes=Buffer.from(encoded,'base64');
+    try{if(bytes.length!==row.bytes||bytes.toString('base64')!==encoded||sha(bytes)!==row.sha256)fail('chunk_changed');return bytes;}
+    catch(error){bytes.fill(0);throw error;}
+  }
+  function verifyComplete(manifest,parts){
+    current(manifest);const digest=cryptoApi.createHash('sha256');let count=0,total=0;
+    for(const bytes of parts){const row=manifest.chunks[count++];if(!row||!buffer(bytes)||bytes.length!==row.bytes||sha(bytes)!==row.sha256)fail('whole_changed');digest.update(bytes);total+=bytes.length;}
+    if(count!==manifest.count||total!==manifest.totalBytes||digest.digest('hex')!==manifest.sha256)fail('whole_changed');return true;
+  }
+  return Object.freeze({createWriter,openManifest,openChunk,selectChunks,verifyComplete,partName,release:manifest=>{issued.delete(manifest);},CHUNK_BYTES,MAX_BYTES,MAX_CARRIER});
+})(require('node:crypto'));
+
+// Isolated sealed-reader draft. The composition must supply the authenticated
+// catalog authority. These leases grant plaintext access only, never deletion.
+const WorkDataAttachmentReader = ((io, nodePath, cryptoApi) => {
+  const fill = Function.prototype.call.bind(Buffer.prototype.fill);
+  const sha = value => cryptoApi.createHash('sha256').update(value).digest('hex');
+  const proxy = value => require('node:util').types.isProxy(value);
+  const fail = suffix => { throw Object.assign(Error('work_data_blob.' + suffix), { code:'work_data_blob.' + suffix, statusCode:409 }); };
+  const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const sameFile = (a,b) => ['dev','ino','size','mtimeNs','ctimeNs'].every(key => a[key] === b[key]);
+  const sameObject = (a,b) => a.dev === b.dev && a.ino === b.ino;
+  const uncertainCloseErrors=new WeakSet();
+  function cleanupFailure(primary, failed, errors, openUncertain = false) {
+    const unknown=openUncertain || [primary,...errors].some(error => uncertainCloseErrors.has(error));
+    const result=Object.assign(new AggregateError([...(failed ? [primary] : []), ...errors], 'work_data_blob.cleanup', { cause: failed ? primary : errors[0] }), {
+      code:'work_data_blob.cleanup', cleanupFailed:true, ownershipRetained:true, resourceMayStillBeOpen:unknown,
+    });
+    if (unknown) uncertainCloseErrors.add(result);return result;
+  }
+  function cleared(bytes,work) {
+    let result,failed=false,primary;const errors=[];
+    try { result=work(); } catch (error) { failed=true;primary=error; }
+    try { fill(bytes,0); } catch (error) { errors.push(error); }
+    if (errors.length) throw cleanupFailure(primary,failed,errors);
+    if (failed) throw primary;return result;
+  }
+  function descriptor(value) {
+    const names=['opaque','revision','manifestSha256','manifestBytes','generation','purpose','scopeId','recordId'];
+    if (!value || typeof value !== 'object' || proxy(value) || Array.isArray(value)) fail('selection');
+    const ds=Object.getOwnPropertyDescriptors(value),keys=Reflect.ownKeys(ds);
+    if (keys.some(key => typeof key !== 'string') || keys.slice().sort().join(',') !== names.slice().sort().join(',')
+      || keys.some(key => !Object.hasOwn(ds[key],'value'))) fail('selection');
+    const selected=Object.fromEntries(names.map(key => [key,ds[key].value]));
+    for (const key of ['opaque','revision']) if (typeof selected[key] !== 'string' || !/^[a-f0-9]{32}$/.test(selected[key])) fail('selection');
+    if (typeof selected.manifestSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(selected.manifestSha256)
+      || !Number.isSafeInteger(selected.manifestBytes) || selected.manifestBytes < 1 || selected.manifestBytes > WorkDataAttachmentChunks.MAX_CARRIER
+      || !Number.isSafeInteger(selected.generation) || selected.generation < 1 || selected.generation > 99
+      || !['session','cache'].includes(selected.purpose)) fail('selection');
+    for (const key of ['scopeId','recordId']) if (typeof selected[key] !== 'string' || !/^[A-Za-z0-9_.:-]{1,160}$/.test(selected[key])) fail('selection');
+    return Object.freeze(selected);
+  }
+  function create({root,keys,authority,maxReadBytes=8*1024*1024}={}) {
+    if (typeof root !== 'string' || !nodePath.isAbsolute(root) || !keys || typeof keys.snapshot !== 'function'
+      || !authority || ['capture','describe','assert'].some(name => typeof authority[name] !== 'function')
+      || !Number.isSafeInteger(maxReadBytes) || maxReadBytes < 1 || maxReadBytes > WorkDataAttachmentChunks.MAX_BYTES) fail('host');
+    root=nodePath.resolve(root);
+    const aborted=Object.getOwnPropertyDescriptor(AbortSignal.prototype,'aborted').get;
+    function cancellation(signal) { if (signal !== undefined && aborted.call(signal)) fail('cancelled'); }
+    async function directories(dir,check) {
+      const parsed=nodePath.parse(dir),rows=[];let cursor=parsed.root;
+      for (const part of ['',...dir.slice(parsed.root.length).split(nodePath.sep).filter(Boolean)]) {
+        if (part) cursor=nodePath.join(cursor,part);check();
+        const st=await io.lstat(cursor,{bigint:true});check();
+        if (!st.isDirectory() || st.isSymbolicLink() || fold(await io.realpath(cursor)) !== fold(cursor)) fail('path');check();
+        rows.push({path:cursor,stat:st});
+      }
+      return rows;
+    }
+    async function verifyDirectories(rows,check) {
+      for (const row of rows) {
+        check();const st=await io.lstat(row.path,{bigint:true});check();
+        if (!st.isDirectory() || st.isSymbolicLink() || !sameObject(row.stat,st) || fold(await io.realpath(row.path)) !== fold(row.path)) fail('path');check();
+      }
+    }
+    async function physical(file,expected,check,parents) {
+      let handle,bytes,failed=false,primary;const errors=[];
+      try {
+        check();await verifyDirectories(parents,check);
+        const before=await io.lstat(file,{bigint:true});check();
+        if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size !== BigInt(expected.bytes)
+          || fold(await io.realpath(file)) !== fold(file)) fail('physical');check();
+        handle=await io.open(file,'r');check();
+        const held=await handle.stat({bigint:true});check();
+        if (!held.isFile() || held.nlink !== 1n || !sameFile(before,held)) fail('physical');
+        bytes=Buffer.alloc(expected.bytes);let position=0;
+        while (position < bytes.length) {
+          const read=await handle.read(bytes,position,bytes.length-position,position);check();
+          if (!Number.isSafeInteger(read.bytesRead) || read.bytesRead < 1 || read.bytesRead > bytes.length-position) fail('physical');
+          position+=read.bytesRead;
+        }
+        const after=await handle.stat({bigint:true});check();
+        if (!sameFile(held,after) || after.nlink !== 1n || sha(bytes) !== expected.sha256) fail('physical');
+        const visible=await io.lstat(file,{bigint:true});check();
+        if (!visible.isFile() || visible.isSymbolicLink() || visible.nlink !== 1n || !sameFile(after,visible)) fail('physical');
+        await verifyDirectories(parents,check);
+      } catch (error) { failed=true;primary=error; }
+      let openUncertain=false;
+      if (handle) try { await handle.close(); } catch (error) { openUncertain=true;errors.push(error); }
+      // A return is admitted only after actual FD close and a final authority check.
+      if (!failed) try { check(); } catch (error) { failed=true;primary=error; }
+      if (failed || errors.length) {
+        if (bytes) try { fill(bytes,0); } catch (error) { errors.push(error); }
+        if (errors.length) throw cleanupFailure(primary,failed,errors,openUncertain);throw primary;
+      }
+      return bytes;
+    }
+    async function census(dir,names,check) {
+      let handle,failed=false,primary;const errors=[],actual=[];
+      try {
+        check();handle=await io.opendir(dir,{bufferSize:1});check();
+        for (;;) {
+          const entry=await handle.read();check();if (entry === null) break;
+          if (typeof entry.name !== 'string' || entry.name.length > 64 || actual.length >= names.length) fail('namespace');
+          actual.push(entry.name);
+        }
+        if (actual.slice().sort().join('\0') !== names.slice().sort().join('\0')) fail('namespace');
+      } catch (error) { failed=true;primary=error; }
+      if (handle) try { await handle.close(); } catch (error) { errors.push(error); }
+      if (errors.length) throw cleanupFailure(primary,failed,errors,true);
+      if (failed) throw primary;check();
+    }
+    async function operation(id,signal,work) {
+      if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,96}$/.test(id)) fail('id');cancellation(signal);
+      const ticket=await authority.capture(id);cancellation(signal);
+      const check=() => { cancellation(signal);if (authority.assert(ticket,id) !== true) fail('revoked'); };
+      check();const selected=descriptor(authority.describe(ticket,id));check();
+      let lease,manifest,result,failed=false,primary;const errors=[];
+      try {
+        lease=await WorkDataStore.acquireSnapshot(keys);check();
+        const binding={purpose:selected.purpose,instanceId:lease.instanceId,schema:1,scopeId:selected.scopeId,recordId:selected.recordId,seq:0,generation:selected.generation};
+        const dir=nodePath.join(root,selected.opaque,selected.revision),parents=await directories(dir,check);
+        const data=await physical(nodePath.join(dir,'manifest.json'),{bytes:selected.manifestBytes,sha256:selected.manifestSha256},check,parents);
+        cleared(data,() => { manifest=WorkDataAttachmentChunks.openManifest({data,key:lease.key,binding,revision:selected.revision,maxBytes:WorkDataAttachmentChunks.MAX_BYTES}); });
+        const names=['manifest.json',...Array.from({length:manifest.count},(_,index)=>WorkDataAttachmentChunks.partName(index))];
+        await census(dir,names,check);
+        const read=async ordinal => {
+          const row=manifest.chunks[ordinal];let encrypted=await physical(nodePath.join(dir,WorkDataAttachmentChunks.partName(ordinal)),{bytes:row.physicalBytes,sha256:row.physicalSha256},check,parents);
+          let bytes,failed=false,primary;const errors=[];
+          try { bytes=WorkDataAttachmentChunks.openChunk({manifest,ordinal,data:encrypted,key:lease.key});check(); }
+          catch (error) { failed=true;primary=error; }
+          try { fill(encrypted,0); } catch (error) { errors.push(error); } finally { encrypted=null; }
+          if (failed || errors.length) {
+            if (bytes) try { fill(bytes,0); } catch (error) { errors.push(error); }
+            if (errors.length) throw cleanupFailure(primary,failed,errors);throw primary;
+          }
+          return bytes;
+        };
+        result=await work({manifest,read,check,selected});check();
+        await census(dir,names,check);await verifyDirectories(parents,check);check();
+      } catch (error) { failed=true;primary=error; }
+      if (manifest) try { WorkDataAttachmentChunks.release(manifest); } catch (error) { errors.push(error); }
+      if (lease) try { await lease.release(); } catch (error) { errors.push(error); }
+      if (!failed && !errors.length) try { check(); } catch (error) { failed=true;primary=error; }
+      if (failed || errors.length) {
+        if (result) try { result.release(); } catch (error) { errors.push(error); }
+        if (errors.length) throw cleanupFailure(primary,failed,errors);throw primary;
+      }
+      return result;
+    }
+    function memoryLease(bytes,manifest,check,complete) {
+      const expected=sha(bytes);let released=false,cleanupCarrier;
+      const release=() => {
+        if (!released) { released=true;try { fill(bytes,0); } catch (error) { cleanupCarrier=cleanupFailure(undefined,false,[error]); } }
+        if (cleanupCarrier) throw cleanupCarrier;
+      };
+      return Object.freeze({bytes,metadata:manifest.metadata,totalBytes:manifest.totalBytes,sha256:manifest.sha256,revision:manifest.revision,complete,
+        assert() { if (cleanupCarrier) throw cleanupCarrier;if (released) fail('released');try { check();if (sha(bytes) !== expected) fail('lease_changed');return true; } catch (primary) { try { release(); } catch (error) { throw cleanupFailure(primary,true,[error]); } throw primary; } },release});
+    }
+    async function readRange(id,start=0,end,{signal}={}) {
+      return operation(id,signal,async({manifest,read,check}) => {
+        if (end === undefined) end=manifest.totalBytes;
+        const indices=WorkDataAttachmentChunks.selectChunks(manifest,start,end);if (end-start > maxReadBytes) fail('read_limit');
+        let result=Buffer.alloc(end-start),written=0;const full=start===0&&end===manifest.totalBytes,digest=full?cryptoApi.createHash('sha256'):null;
+        try {
+          for (const ordinal of indices) {
+            const bytes=await read(ordinal);
+            cleared(bytes,() => { if (digest) digest.update(bytes);const offset=ordinal*WorkDataAttachmentChunks.CHUNK_BYTES,from=Math.max(0,start-offset),to=Math.min(bytes.length,end-offset);written+=bytes.copy(result,written,from,to);check(); });
+          }
+          if (written !== result.length || full&&digest.digest('hex') !== manifest.sha256) fail('whole_changed');
+          check();const lease=memoryLease(result,manifest,check,full);result=null;return lease;
+        } catch (primary) { const errors=[];if (result) try { fill(result,0); } catch (error) { errors.push(error); }if (errors.length) throw cleanupFailure(primary,true,errors);throw primary; }
+      });
+    }
+    async function verifyWhole(id,{signal}={}) {
+      return operation(id,signal,async({manifest,read,check}) => {
+        const digest=cryptoApi.createHash('sha256');let count=0;
+        for (let ordinal=0;ordinal<manifest.count;ordinal++) { const bytes=await read(ordinal);cleared(bytes,() => { digest.update(bytes);count+=bytes.length;check(); }); }
+        if (count !== manifest.totalBytes || digest.digest('hex') !== manifest.sha256) fail('whole_changed');
+        // Metadata only. No filesystem/remove capability is attached to this value.
+        return Object.freeze({verified:true,totalBytes:manifest.totalBytes,sha256:manifest.sha256,revision:manifest.revision,release(){}});
+      });
+    }
+    return Object.freeze({readRange,verifyWhole});
+  }
+  return Object.freeze({create});
+})(require('node:fs/promises'),require('node:path'),require('node:crypto'));
+
 // Complete byte census for a quiesced, owner-held tree. No repair, filtering,
 // publication or domain-validation claims. The host owns native metadata and
 // portable conversions (notably original-object skill capsules) separately.

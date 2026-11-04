@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "slice": "104-m3-attachment-primitives-20261104",
+  "baseCommit": "3847514a50b9904b8a8eb748918cad713c18e57f",
+  "recordedAt": "2026-11-04",
+  "workbenchVersion": "3.0.1",
+  "scope": "source-only draft: authenticated attachment chunk format and sealed range reader; no IO wiring, catalog producer, consumers, migration, retention or index integration",
+  "files": [
+    "ruyi-workbench/app/src/01af-work-data-attachment-chunks.js",
+    "ruyi-workbench/app/src/01ag-work-data-attachment-reader.js",
+    "dev-harness/unit/work-data-attachment-chunks.test.js",
+    "dev-harness/unit/work-data-attachment-reader.test.js"
+  ],
+  "checks": {
+    "unit": {
+      "command": "node --test dev-harness/unit/work-data-attachment-chunks.test.js dev-harness/unit/work-data-attachment-reader.test.js",
+      "tests": 79,
+      "pass": 79,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "build": {
+      "command": "node ruyi-workbench/app/build.js",
+      "lines": 114111,
+      "manifestRangesRefilled": 108,
+      "exitCode": 0
+    },
+    "moduleGraph": {
+      "command": "node dev-harness/module-dependency-graph.js --check",
+      "modules": 135,
+      "edges": 922,
+      "exitCode": 0
+    },
+    "facts": {
+      "unitSuites": 447,
+      "e2eCount": 627,
+      "measuredUnitFiles": 447,
+      "measuredE2eFiles": 627
+    },
+    "syntaxGate": {
+      "command": "node dev-harness/syntax-gate.js",
+      "files": 1453,
+      "failed": 0,
+      "node": "v24.14.0"
+    }
+  },
+  "review": {
+    "reviewer": "independent sub-agent (deepseek-flash)",
+    "verdict": "fail",
+    "confidence": 0.72,
+    "fixed": ["bindingHash now hashes an explicit field order and the unit test pins the formula (the previous form was already deterministic because own() sorts keys; this is hardening, not a defect fix)"],
+    "deferred": [
+      "error triple (statusCode/apiCode) incomplete until a consumer channel exists",
+      "cleanup causes may carry sealed absolute paths",
+      "partial memory lease exposes sha256 guarded only by complete flag",
+      "writer does not validate MAX_CARRIER; chunk_encoding branch unreachable"
+    ]
+  },
+  "notRun": ["real NTFS acceptance", "attachment e2e", "migration/restore combinations", "full unit/static"],
+  "notClaimed": ["attachment encryption complete", "retention sealed-fault complete", "M3 complete", "release"]
+}

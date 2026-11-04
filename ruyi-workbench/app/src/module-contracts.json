@@ -1536,6 +1536,45 @@
       ]
     },
     {
+      "file": "01af-work-data-attachment-chunks.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataAttachmentChunks"
+      ],
+      "requires": [
+        {
+          "provider": "01n-work-data-crypto.js",
+          "symbol": "WorkDataCrypto",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "01ag-work-data-attachment-reader.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataAttachmentReader"
+      ],
+      "requires": [
+        {
+          "provider": "01af-work-data-attachment-chunks.js",
+          "symbol": "WorkDataAttachmentChunks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01aa-work-data-tree.js",
       "layer": "unclassified",
       "provides": [
