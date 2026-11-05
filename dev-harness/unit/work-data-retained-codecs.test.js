@@ -9,4 +9,25 @@ test('actual session messages/provider prevbody codecs keep original physical na
  const a=keys(),b=keys(),forward=codecs.create({sourceRoot:source,targetRoot:shadow,sourceKeys:a,targetKeys:b,writeJson:actual.atomicWriteJson}),reverse=codecs.create({sourceRoot:shadow,targetRoot:back,sourceKeys:b,targetKeys:a,writeJson:actual.atomicWriteJson});
  for(const kind of['messages','provider']){const relative='sessions/sess_one.'+kind+'.ndjson.prevbody',logical='{ "role":"user", "body":"原样", "dupe":1, "dupe":2 }',row=actual.WorkDataRecords.encodeLine(logical,a.master,{instanceId:a.instanceId,sessionId:'sess_one',kind,ordinal:0})+'\n';await fsp.writeFile(path.join(source,relative),row);const meta=codecs.describeRetained(relative);assert.equal(meta.canonical,'sessions/sess_one.'+kind+'.ndjson');await assert.rejects(()=>forward.transform({relative,targetMode:'encrypted'}),{code:'work_data_migration.special_owner_required'});const changed=await forward.transformRetained({relative,targetMode:'encrypted',purpose:'fake',recordId:'fake'});assert.equal(changed.family,'session-'+kind);assert.equal(await fsp.readFile(path.join(source,relative),'utf8'),row);const encrypted=await fsp.readFile(path.join(shadow,relative),'utf8');assert.equal(actual.WorkDataRecords.decodeLine(encrypted.trimEnd(),b.master,{instanceId:b.instanceId,sessionId:'sess_one',kind,ordinal:0}),logical);await reverse.transformRetained({relative,targetMode:'plain'});assert.equal(await fsp.readFile(path.join(back,relative),'utf8'),logical+'\n');}
 });
+test('retained sealed carriers fail closed on wrong keys or tampering without touching source or target',async t=>{
+ const root=await fsp.mkdtemp(path.join(os.tmpdir(),'ruyi-retained-fault-'));t.after(async()=>{assert.equal(path.dirname(root),path.resolve(os.tmpdir()));await fsp.rm(root,{recursive:true,force:true});});
+ const source=path.join(root,'source'),shadow=path.join(root,'shadow');for(const dir of[source,shadow])await fsp.mkdir(dir);await fsp.mkdir(path.join(source,'sessions'));
+ const a=keys(),b=keys(),wrong=keys(),relative='sessions/sess_one.messages.ndjson.prevbody';
+ const forward=codecs.create({sourceRoot:source,targetRoot:shadow,sourceKeys:a,targetKeys:b,writeJson:actual.atomicWriteJson});
+ const row=actual.WorkDataRecords.encodeLine(JSON.stringify({role:'user',body:'SEALED PRIVATE'}),a.master,{instanceId:a.instanceId,sessionId:'sess_one',kind:'messages',ordinal:0})+'\n';
+ await fsp.writeFile(path.join(source,relative),row);
+ await forward.transformRetained({relative,targetMode:'encrypted'});
+ const sealedBytes=await fsp.readFile(path.join(shadow,relative));
+ const wrongTarget=path.join(root,'wrong');await fsp.mkdir(wrongTarget);
+ const reverseWrong=codecs.create({sourceRoot:shadow,targetRoot:wrongTarget,sourceKeys:wrong,targetKeys:a,writeJson:actual.atomicWriteJson});
+ await assert.rejects(()=>reverseWrong.transformRetained({relative,targetMode:'plain'}),error=>String(error&&error.code||'').startsWith('work_data'));
+ assert.equal(fs.existsSync(path.join(wrongTarget,relative)),false);
+ assert.deepEqual(await fsp.readFile(path.join(shadow,relative)),sealedBytes);
+ const tampered=Buffer.from(sealedBytes);tampered[30]^=1;await fsp.writeFile(path.join(shadow,relative),tampered);
+ const plainTarget=path.join(root,'plain');await fsp.mkdir(plainTarget);
+ const reverse=codecs.create({sourceRoot:shadow,targetRoot:plainTarget,sourceKeys:b,targetKeys:a,writeJson:actual.atomicWriteJson});
+ await assert.rejects(()=>reverse.transformRetained({relative,targetMode:'plain'}),error=>String(error&&error.code||'').startsWith('work_data'));
+ assert.equal(fs.existsSync(path.join(plainTarget,relative)),false);
+ assert.deepEqual(await fsp.readFile(path.join(shadow,relative)),tampered);
+});
 test('unknown retained suffixes cannot manufacture a codec binding',()=>{for(const relative of['sessions/sess_one.changes.ndjson.prevbody','sessions/sess_one.json.prevbody','agent-runs/run_one/node_one.events.ndjson.gz.prev','sessions/sess_one.messages.ndjson.prevbody.prev','config.json.prev'])assert.throws(()=>codecs.describeRetained(relative),{code:'work_data_migration.special_owner_required'});});
