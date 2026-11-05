@@ -473,6 +473,46 @@ def test_waits():
         dialog.ctypes = old_ct
 
 
+# -------------------------------------------------------------------------------------------- F12b
+def test_region_math():
+    """Region 几何:act_and_verify 的点击框/前台窗框都要经过这里。
+    离线可跑:只喂元组与 PIL 图,不打真屏、不碰 pyautogui。多显示器负坐标那两条钉的是现在的语义 ——
+    主屏抓图的原点是 (0,0),落在别块屏上的 ROI 取不到 poll box,调用方应回落到「普通等待」而不是
+    去剪一张位置错的图。
+    """
+    print("F12b region clamp / clip / crop")
+    from PIL import Image
+    a = act_and_verify
+    old_bounds = a._virtual_bounds
+    try:
+        a._virtual_bounds = lambda: (0, 0, 1920, 1080)
+        check(a._clamp_roi(100, 100, 200, 100) == (100, 100, 200, 100), "in-bounds ROI is unchanged")
+        check(a._clamp_roi(-500, -500, 200, 200) == (0, 0, 200, 200), "negative click box is pulled back to the virtual origin")
+        check(a._clamp_roi(1800, 1000, 5000, 5000) == (1800, 1000, 120, 80), "oversized ROI is capped at the virtual edge")
+        check(a._clamp_roi(100, 100, 0, 0) == (100, 100, 2, 2), "degenerate w/h still yields a 2x2 box")
+        a._virtual_bounds = lambda: (-1920, 0, 3840, 1080)
+        check(a._clamp_roi(-1000, 100, 200, 200) == (-1000, 100, 200, 200), "a left-monitor ROI keeps its negative x (virtual bounds)")
+
+        def boom():
+            raise RuntimeError("no desktop")
+        a._virtual_bounds = boom
+        check(a._clamp_roi(10, 10, 20, 20) == (10, 10, 20, 20), "no virtual bounds -> the 100000 fallback still clamps sanely")
+    finally:
+        a._virtual_bounds = old_bounds
+
+    img = Image.new("RGB", (200, 100), (0, 0, 0))
+    check(a._clip_box(img, (500, 500, 10, 10)) is None, "a box fully off the grab has no clip box")
+    check(a._clip_box(img, (199, 0, 10, 10)) is None, "a 1px sliver is still degenerate")
+    check(a._clip_box(img, (-10, -10, 40, 40)) == (0, 0, 30, 30), "a partially off-screen box is clipped to the grab")
+    check(a._clip_box(img, (10, 20, 30, 40)) == (10, 20, 30, 40), "an in-grab box is returned as given")
+    check(a._clip_box(img, (-1000, 100, 200, 200)) is None, "a left-monitor ROI (negative x) is NOT clipped into the wrong place")
+    box = a._clip_box(img, (-10, -10, 40, 40))
+    cropped = a._crop(img, box)
+    check(cropped is not None and cropped.size == (box[2], box[3]), "crop size equals the clipped box")
+    check(a._crop(img, (500, 500, 10, 10)) is None, "crop of a fully off-screen box is None")
+
+    check(a.act_and_verify({"type": "key", "key": "x"}, region="not-a-region").get("error")
+          == "region must be 'x,y,width,height'", "a malformed region string is refused before any grab")
 # -------------------------------------------------------------------------------------------- F12
 def test_act_and_verify():
     print("F12 act_and_verify settle / shots / pruning")
@@ -514,6 +554,14 @@ def test_act_and_verify():
         check(len(set(paths)) == 12, "12 shots in the same second have 12 distinct names")
         files = sorted(os.listdir(d))
         check(len(files) == 8 and all(f.endswith(".jpg") for f in files), f"directory pruned to the newest 8 (has {len(files)})")
+        # 看【剪枝后仍然存活的 8 张】,而不是看 paths[-1]:同名秒里的排序决定了谁被剪掉,
+        # 盯某一张就成了时晴时雨的断言(2026-11-05 在 HEAD 上实测 FileNotFoundError)。
+        bad = []
+        for name in files:
+            with Image.open(os.path.join(d, name)) as im:  # 关掉句柄:Windows 上开着的文件删不掉
+                if im.format != "JPEG" or im.width > a._SHOT_WIDTH:
+                    bad.append((name, im.format, im.width))
+        check(not bad, f"saved shots are JPEG and bounded in width (bad: {bad})")
         # legacy PNGs are pruned too; unrelated files are kept
         for i in range(5):
             open(os.path.join(d, f"before-2020010{i}-000000.png"), "wb").write(b"x")
@@ -522,8 +570,7 @@ def test_act_and_verify():
         left = os.listdir(d)
         check("keep-me.txt" in left and len([f for f in left if f != "keep-me.txt"]) == 8,
               "prune keeps unrelated files and at most N shot files")
-        with Image.open(paths[-1]) as im:  # 关掉句柄:Windows 上开着的文件删不掉,TemporaryDirectory 收尾会 WinError 32
-            check(im.format == "JPEG" and im.width <= a._SHOT_WIDTH, "saved shots are JPEG and bounded in width")
+
 
     bbox = a._diff_bbox(base, changed)
     check(bbox is not None and bbox[0] <= 20 and bbox[2] >= 120, "diff region bounds the changed pixels")
@@ -720,7 +767,7 @@ def test_record_steps():
 
 def main() -> int:
     for fn in (test_virtual_bounds, test_uia_set_value, test_uia_find_invoke, test_window_candidates,
-               test_waits, test_act_and_verify, test_batch_images, test_type_text, test_record_steps):
+               test_waits, test_act_and_verify, test_region_math, test_batch_images, test_type_text, test_record_steps):
         try:
             fn()
         except Exception as e:  # noqa: BLE001
