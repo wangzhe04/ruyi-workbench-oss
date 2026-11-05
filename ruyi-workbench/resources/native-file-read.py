@@ -111,11 +111,46 @@ def hidden_refusal(found):
 
 
 def read_zip(filename, opts):
+    # 容器层的两种「读不出正文」先单独认出来,别让它们掉进 document_invalid:
+    # · 加密的 Office(CFB/EncryptedPackage,或 ODF 的 META-INF/manifest 里声明 encryption-data)——
+    #   读出来会是解密后的乱码或空,骗自己「读到了正文」比拒绝更糟;
+    # · Office 的 ~$ 锁/属主文件,本质是 OLE 存根,不是文档。
+    with open(filename, 'rb') as probe:
+        magic = probe.read(8)
+    if os.path.basename(filename).startswith('~$'):
+        return {'ok': False, 'code': 'document_stub', 'path': filename,
+                'error': 'This is an Office lock/owner file (~$...), not a document.',
+                'hint': 'Open the real file with the same name minus the ~$ prefix.'}
+    if magic.startswith(b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'):
+        return {'ok': False, 'code': 'document_encrypted', 'path': filename,
+                'error': 'This document is an OLE/CFB container (password-protected Office).',
+                'hint': 'Remove the password in an editor or Save As an unencrypted copy, then read it again. This reader never decrypts.'}
     with zipfile.ZipFile(filename) as z:
         if len(z.infolist()) > 10000:
             raise ValueError('too many archive entries')
         names = z.namelist()
         ext = os.path.splitext(filename)[1].lower()
+        if 'META-INF/manifest.xml' in names:
+            info = z.getinfo('META-INF/manifest.xml')
+            # 和其它部件同一条预算:压缩后极小、声明解压几十 MB 的 manifest 不许整块读进来。
+            if info.file_size > MAX_ENTRY:
+                raise ValueError('document XML exceeds read budget')
+            manifest = z.read(info)
+            # 只看【本读取器真正要读的部件】有没有被加密:ODF 分支只抽 content.xml。
+            # 图片被单独加密(content.xml 明文)时正文照旧能读 —— 那种不再整份拒掉。
+            encrypted = b'encryption-data' in manifest
+            try:
+                root = ET.fromstring(manifest)
+                name_of = lambda node: node.tag.rsplit('}', 1)[-1]
+                encrypted = any(name_of(entry) == 'file-entry' and entry.get('{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}full-path', entry.get('manifest:full-path')) == 'content.xml'
+                                and any(name_of(child) == 'encryption-data' for child in entry) for entry in root.iter())
+            except Exception:
+                pass  # 解析不了就按子串判(fail-closed)
+            if encrypted:
+                return {'ok': False, 'code': 'document_encrypted', 'path': filename,
+                        'error': 'This ODF document declares encrypted entries.',
+                        'hint': 'Save an unencrypted copy from the editor, then read it again. This reader never decrypts.'}
+
         if ext in ('.docx', '.docm', '.dotx'):
             xmls = [n for n in names if re.fullmatch(r'word/(document|header\d+|footer\d+|footnotes|endnotes)\.xml', n)]
             required = 'word/document.xml'

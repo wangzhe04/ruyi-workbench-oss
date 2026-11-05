@@ -157,4 +157,42 @@ test('超大内容部件仍报 document_invalid(不是「含隐藏层」)', { sk
   assert.equal(r.code, 'document_invalid', JSON.stringify(r).slice(0, 300));
 });
 
+test('加密容器与 ~$ 锁文件各报各的码,不混进 document_invalid', { skip }, async () => {
+  // 加密 Office(CFB/EncryptedPackage)读出来只会是乱码或空,这里直接拒绝并说清原因。
+  const cfb = Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.alloc(512)]);
+  const encrypted = await app.FileVisualIo.document(write('secret.docx', cfb), {}, HELPER);
+  assert.equal(encrypted.code, 'document_encrypted', JSON.stringify(encrypted).slice(0, 240));
+  assert.match(encrypted.hint, /never decrypts/);
+
+  const stub = await app.FileVisualIo.document(write('~$draft.docx', cfb), {}, HELPER);
+  assert.equal(stub.code, 'document_stub', JSON.stringify(stub).slice(0, 240));
+
+  // ODF 的加密是在 META-INF/manifest.xml 里声明的:不在正文 XML 上,读到的是密文。
+  const odf = zip([
+    { name: 'META-INF/manifest.xml', data: '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><manifest:file-entry manifest:full-path="content.xml"><manifest:encryption-data/></manifest:file-entry></manifest:manifest>' },
+    { name: 'content.xml', data: '<?xml version="1.0"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"/>' },
+  ]);
+  const odfEncrypted = await app.FileVisualIo.document(write('secret.odt', odf), {}, HELPER);
+  assert.equal(odfEncrypted.code, 'document_encrypted', JSON.stringify(odfEncrypted).slice(0, 240));
+});
+
+test('ODF 只加密图片时正文照旧读出;manifest 自身超限仍报 document_invalid', { skip }, async () => {
+  // 复审指出的行为变更:以前只看子串,连「只加密了 Pictures」的 ODT 也会整份拒;现在只认本读取器
+  // 真正要读的 content.xml。
+  const partial = zip([
+    { name: 'META-INF/manifest.xml', data: '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><manifest:file-entry manifest:full-path="Pictures/a.png"><manifest:encryption-data/></manifest:file-entry></manifest:manifest>' },
+    { name: 'content.xml', data: '<?xml version="1.0"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"><office:body><text:p>正文照读</text:p></office:body></office:document-content>' },
+  ]);
+  const r = await app.FileVisualIo.document(write('partial.odt', partial), {}, HELPER);
+  assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
+  assert.match(String(r.content || ''), /正文照读/);
+
+  const bigManifest = zip([
+    { name: 'META-INF/manifest.xml', data: '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">' + 'x'.repeat(9 * 1024 * 1024) + '</manifest:manifest>' },
+    { name: 'content.xml', data: '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"/>' },
+  ]);
+  const oversized = await app.FileVisualIo.document(write('big-manifest.odt', bigManifest), {}, HELPER);
+  assert.equal(oversized.code, 'document_invalid', JSON.stringify(oversized).slice(0, 240));
+});
+
 after(() => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });
