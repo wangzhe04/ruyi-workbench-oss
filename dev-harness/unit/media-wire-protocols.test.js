@@ -87,6 +87,11 @@ test('同一受保护图片经三个线协议编码后仍被交付层认出,且�
     assert.ok(JSON.stringify(encoded).includes(prepared.reference), apiStyle + ' 编码后丢了受保护图片引用');
     const encodedShape = SHAPE[apiStyle](encoded);
     assert.equal(base64In(encodedShape), '', apiStyle + ' 编码阶段不许已经出现图片字节');
+    // 隐私层的入口是 projectPart(03a 的 projectMediaPart):编码后的形状必须仍被它认出来,
+    // 否则网关会以 media_not_supported fail-closed —— 三种协议一个都不能例外。
+    const pointer = apiStyle === 'responses' ? '/input/0/content/1' : '/messages/0/content/1';
+    assert.ok(f.service.projectPart(encodedShape, { scopeId: 'sess_wire', pointer }),
+      apiStyle + ' 编码后的引用形状必须能过 projectPart(否则网关只会拒绝,图永远发不出去)');
 
     const batch = await f.service.delivery(encoded, f.recipient);
     try {
