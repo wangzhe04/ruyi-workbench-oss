@@ -71025,6 +71025,14 @@ const FileVisualIo = (() => {
     const st = await io.stat(p);
     if (!st.isFile()) throw Object.assign(new Error('not a regular file'), { code: 'EISDIR' });
     if (st.size > MAX_FILE_BYTES) return { ok: false, code: 'file_too_large', error: 'Document exceeds 50MB; split it before reading.', path: p };
+    // M4:只有 PDF 能把页面渲染成像素(pdfplumber 的 page.to_image)。Office/ODF 没有渲染器 ——
+    // 调用方要的是像素,这里再回一段正文就是静默的类型错配(2026-11-05 实测 as:'image' 返回 ok:true
+    // + mode:'document' + 0 张图)。渲染 + 遮盖那条链路没做完之前,这条路由显式拒绝。
+    if (args && args.as === 'image' && !/\.pdf$/i.test(p)) {
+      return { ok: false, code: 'document_render_unavailable', path: p,
+        error: 'This document format cannot be rendered to pixels by the native reader.',
+        hint: 'Read it as text (omit as:"image", or use as:"text"), or export the page you need as an image/PDF from an editor and read that file.' };
+    }
     const candidates = [];
     if (process.env.RUYI_BUNDLED_PYTHON) candidates.push([process.env.RUYI_BUNDLED_PYTHON, []]);
     candidates.push(['python', []], process.platform === 'win32' ? ['py', ['-3']] : ['python3', []]);

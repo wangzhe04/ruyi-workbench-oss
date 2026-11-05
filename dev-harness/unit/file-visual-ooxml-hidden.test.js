@@ -195,4 +195,16 @@ test('ODF 只加密图片时正文照旧读出;manifest 自身超限仍报 docum
   assert.equal(oversized.code, 'document_invalid', JSON.stringify(oversized).slice(0, 240));
 });
 
+test('as:"image" 对 Office 文档显式拒绝(不把正文当像素交回);as:"auto" 照旧读正文', { skip }, async () => {
+  // 2026-11-05 实测:as:'image' 打在 .docx 上会走正文分支,返回 ok:true + mode:'document' + 0 张图 ——
+  // 调用方要的是像素,拿到文字等于静默的类型错配。Office/ODF 没有渲染器,这里必须说清楚。
+  const file = write('asimage.docx', docx([]));
+  const asImage = await app.FileVisualIo.document(file, { as: 'image' }, HELPER);
+  assert.equal(asImage.code, 'document_render_unavailable', JSON.stringify(asImage).slice(0, 240));
+  assert.match(asImage.hint, /as:"text"/);
+  const asAuto = await app.FileVisualIo.document(file, {}, HELPER);
+  assert.equal(asAuto.ok, true, JSON.stringify(asAuto).slice(0, 240));
+  assert.match(String(asAuto.content || ''), /季度报告正文/);
+});
+
 after(() => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });
