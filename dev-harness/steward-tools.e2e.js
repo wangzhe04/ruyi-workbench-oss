@@ -346,6 +346,28 @@ try {
     const found = await call('steward_threads_search', { q: '季度报告' }, stewardCtx());
     ok(found && found.ok === true && found.results.some(r => r.sessionId === threadId), 'C11 steward_threads_search 能按标题/内容找到线程');
     ok(found && found.results.every(r => r.kind !== 'steward'), 'C11b 搜索结果永不包含管家自己的会话');
+    // C11c–e:走【真实派发链路】(srv.toolCall → 12-tool-dispatch → StewardHooks → 13g withModel →
+    // 13as modelAuthority → 13k)。116-5b 的 K4/K5 只在直接调用钩子那一层验过;那里一旦有人把 ctx 写成
+    // 没有 session.id,搜索会整体被作用域拒掉,而「行里有没有 brief」的断言只会表现为「结果空」——
+    // 2026-11 就是这么误读了一版。
+    // brief 只在会话头带 threadBrief 时才出现在结果行里:写一份再搜一次,验三件事——投影进结果行、
+    // displayTitle 换成 brief.title、title 仍是原话。写完立刻还原并 keepUpdatedAt,否则这条改写会把该线程
+    // 的显示名与热度留给后面的块((O8) 读的就是 HOME 那行的「最近线程名」)。
+    const headBefore = await srv.loadSession(threadId);
+    const rowBefore = found.results.find(r => r.sessionId === threadId) || null;
+    const previousBrief = headBefore.threadBrief || null;
+    headBefore.threadBrief = { schema: 1, title: '季度报告分析', gist: '按季度汇总并给三条结论', at: new Date().toISOString(), model: 'fake-model', stage: 'settled' };
+    await srv.saveSession(headBefore);
+    const again = await call('steward_threads_search', { q: '季度报告' }, stewardCtx());
+    const rowAfter = ((again && again.results) || []).find(r => r.sessionId === threadId) || null;
+    ok(again && again.ok === true && rowAfter && rowAfter.brief && rowAfter.brief.title === '季度报告分析' && rowAfter.brief.gist === '按季度汇总并给三条结论',
+      'C11c 派发链路把会话头的 threadBrief 投影进搜索结果(brief 标题+概括)');
+    ok(rowAfter && rowBefore && rowAfter.displayTitle === rowBefore.displayTitle,
+      `C11d 写 brief 不改已有显示名(显示优先级:已有的名字 > brief;got ${JSON.stringify(rowAfter && rowAfter.displayTitle)})`);
+    ok(rowAfter && rowAfter.title === headBefore.title, 'C11e 写了 brief 之后 title 仍是原话(管家凭它认出用户当时的说法),不被显示名顶替');
+    const restored = await srv.loadSession(threadId);
+    if (previousBrief) restored.threadBrief = previousBrief; else delete restored.threadBrief;
+    await srv.saveSession(restored, { keepUpdatedAt: true });
   }
 
   /* ═════════ (F) thread_read 配额与预算 ═════════ */
