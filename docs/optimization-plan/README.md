@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [106 · M3 附件二进制面登记](106-m3-attachment-surfaces-20261105.md)把 `uploads-attachment` 与 `uploads-tool-image` 登记进持久面清册与加密冻结表（78→80 面、45→47 required，adapter 仍 pending）；不加密、不接线，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [107 · M3 附件存储设计](107-m3-attachment-storage-design-20261105.md)给出附件加密的盘上布局、catalog/authority、读取与迁移映射及验收门；仅设计，无产品代码，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [106 · M3 附件二进制面登记](106-m3-attachment-surfaces-20261105.md)把 `uploads-attachment` 与 `uploads-tool-image` 登记进持久面清册与加密冻结表（78→80 面、45→47 required，adapter 仍 pending）；不加密、不接线，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-04 前片：** [105 · migrationFactory 只读源解码](105-m3-migration-preserved-source-20261104.md)把保留源读取接进冷迁移/恢复：候选与 intent 写入后重新捕获并以原始见证校验、一次性 grant、fused 物理解码；修 publish 前置失败释放 sourceCapture。全量 unit 5014/4988/0、真实 NTFS 新 e2e 与 cold-operations（261.4s，490s 授权口径）全过；F2/F3 待办，版本3.0.1，3.1未完成、未发布。
 
