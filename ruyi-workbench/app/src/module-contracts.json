@@ -1667,6 +1667,29 @@
       ]
     },
     {
+      "file": "01al-work-data-uploads-owner.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataUploadsOwner"
+      ],
+      "requires": [
+        {
+          "provider": "01af-work-data-attachment-chunks.js",
+          "symbol": "WorkDataAttachmentChunks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ak-work-data-attachment-runtime.js",
+          "symbol": "WorkDataAttachmentRuntime",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01aa-work-data-tree.js",
       "layer": "unclassified",
       "provides": [

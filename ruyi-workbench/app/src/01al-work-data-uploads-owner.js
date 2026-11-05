@@ -1,0 +1,74 @@
+// Isolated uploads migration owner draft. Enrolls the raw uploads layout
+// (uploads/<id>/<name> and uploads/toolimg_*/<name>), seals every file through
+// the attachment runtimes, verifies the whole set, and only then removes the
+// originals. No migration host is wired yet.
+const WorkDataUploadsOwner = ((fsp, nodePath) => {
+  const FACE_OF = value => /^file_[A-Za-z0-9]+$/.test(value) ? 'attachment' : /^toolimg_/.test(value) ? 'toolImage' : null;
+  const MIME = Object.freeze({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+    bmp: 'image/bmp', pdf: 'application/pdf', txt: 'text/plain', md: 'text/markdown', json: 'application/json',
+    wav: 'audio/wav', mp3: 'audio/mpeg', m4a: 'audio/mp4', webm: 'audio/webm', ogg: 'audio/ogg', flac: 'audio/flac' });
+  const fail = (suffix, details = {}) => { throw Object.assign(Error('work_data_uploads_owner.' + suffix), {
+    code: 'work_data_uploads_owner.' + suffix, apiCode: 'work_data_uploads_owner.' + suffix, statusCode: 409, ...details,
+  }); };
+  const mimeOf = name => MIME[String(name).slice(String(name).lastIndexOf('.') + 1).toLowerCase()] || 'application/octet-stream';
+  const kindOf = face => face === 'attachment' ? 'original' : 'tool-image';
+  function create({ root, keys, enabled } = {}) {
+    if (typeof root !== 'string' || !nodePath.isAbsolute(root)) fail('root');
+    const attachment = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'attachment' });
+    const toolImage = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'toolImage' });
+    const runtimeOf = face => face === 'attachment' ? attachment : toolImage;
+    async function enroll() {
+      let entries;
+      try { entries = await fsp.readdir(root, { withFileTypes: true }); }
+      catch (error) { if (error && error.code === 'ENOENT') return Object.freeze({ files: [], unsupported: [], sealed: 0 }); throw error; }
+      const files = [], unsupported = [];
+      let sealed = 0;
+      for (const entry of entries) {
+        const name = entry.name;
+        if (name === '_catalog-attachments-v1.json' || name === '_catalog-tool-images-v1.json') continue;
+        if (!entry.isDirectory()) { unsupported.push({ name, reason: 'root-file' }); continue; }
+        if (/^[a-f0-9]{32}$/i.test(name)) { sealed++; continue; }
+        const face = FACE_OF(name);
+        if (!face) { unsupported.push({ name, reason: 'unknown-directory' }); continue; }
+        let children;
+        try { children = await fsp.readdir(nodePath.join(root, name), { withFileTypes: true }); }
+        catch { unsupported.push({ name, reason: 'unreadable' }); continue; }
+        const regular = children.filter(child => child.isFile());
+        if (regular.length !== 1 || children.length !== 1) { unsupported.push({ name, reason: 'not-single-file' }); continue; }
+        let size;
+        try { size = (await fsp.lstat(nodePath.join(root, name, regular[0].name), { bigint: true })).size; }
+        catch { unsupported.push({ name, reason: 'unreadable' }); continue; }
+        if (size === 0n) { unsupported.push({ name, reason: 'empty-file' }); continue; }
+        if (size > BigInt(WorkDataAttachmentChunks.MAX_BYTES)) { unsupported.push({ name, reason: 'too-large' }); continue; }
+        files.push(Object.freeze({ id: name, face, file: regular[0].name, size: Number(size) }));
+      }
+      return Object.freeze({ files: Object.freeze(files), unsupported: Object.freeze(unsupported), sealed });
+    }
+    return Object.freeze({
+      enroll,
+      async sealAll() {
+        const report = await enroll();
+        if (report.unsupported.length) fail('unsupported', { unsupported: report.unsupported });
+        const sealed = [], verified = [];
+        for (const row of report.files) {
+          const bytes = await fsp.readFile(nodePath.join(root, row.id, row.file));
+          const receipt = await runtimeOf(row.face).seal({ id: row.id, kind: kindOf(row.face), logicalName: row.file, mime: mimeOf(row.file), data: bytes });
+          sealed.push(Object.freeze({ ...receipt, face: row.face, file: row.file }));
+        }
+        for (const row of sealed) { await runtimeOf(row.face).verify(row.id); verified.push(row.id); }
+        const removed = [];
+        for (const row of sealed) {
+          const dir = nodePath.join(root, row.id);
+          const stat = await fsp.lstat(dir, { bigint: true });
+          if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path', { id: row.id });
+          const real = await fsp.realpath(dir);
+          if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? dir.toLowerCase() : dir)) fail('path', { id: row.id });
+          await fsp.rm(dir, { recursive: true, force: true });
+          removed.push(row.id);
+        }
+        return Object.freeze({ sealed: Object.freeze(sealed), verified: Object.freeze(verified), removed: Object.freeze(removed), alreadySealed: report.sealed });
+      },
+    });
+  }
+  return Object.freeze({ create });
+})(require('node:fs/promises'), require('node:path'));
