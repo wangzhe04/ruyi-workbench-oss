@@ -324,6 +324,34 @@ try {
   fs.writeFileSync(path.join(WS, 'bin-ish.txt'), Buffer.from([0x81, 0x20, 0xfe, 0xfe, 0x80, 0x81, 0xff]));
   const nu = await call('file_edit', { path: 'bin-ish.txt', oldText: 'x', newText: 'y' });
   ok(nu.ok === false && nu.code === 'not_utf8' && /GBK|UTF-16/.test(String(nu.error)), `X3b not_utf8 文案提到 GBK / UTF-16(got ${JSON.stringify(nu).slice(0, 200)})`);
+  /* ═════════ (Y) 文档隐藏层拒绝面经【真工具】可达(M4) ═════════ */
+  {
+    const wNs = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const docx = extra => makeZip([{ name: 'word/document.xml',
+      data: `<w:document xmlns:w="${wNs}"><w:body><w:p><w:r><w:t>季度报告正文</w:t></w:r></w:p></w:body></w:document>` }, ...extra]);
+    fs.writeFileSync(path.join(WS, 'clean.docx'), docx([]));
+    const clean = await call('file_read', { path: 'clean.docx' });
+    fs.writeFileSync(path.join(WS, 'hidden.docx'), docx([{ name: 'word/comments.xml', data: `<w:comments xmlns:w="${wNs}"/>` }]));
+    const cfb = Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.alloc(256)]);
+    fs.writeFileSync(path.join(WS, 'secret.docx'), cfb);
+    fs.writeFileSync(path.join(WS, '~$draft.docx'), cfb);
+    if (clean && clean.code === 'reader_unavailable') {
+      // 没有 Python 文档读取器时,文档分支本来就只能给 reader_unavailable;这里不许它冒充「含隐藏层」。
+      const hidden = await call('file_read', { path: 'hidden.docx' });
+      ok(hidden.ok === false && hidden.code === 'reader_unavailable',
+        'Y0 无 Python 读取器:文档一律 reader_unavailable,不冒充 document_hidden_content');
+    } else {
+      ok(clean.ok === true && /季度报告正文/.test(String(clean.content || '')), 'Y1 干净 docx 经 file_read 照常读出');
+      const hidden = await call('file_read', { path: 'hidden.docx' });
+      ok(hidden.ok === false && hidden.code === 'document_hidden_content' && Array.isArray(hidden.found) && hidden.found.includes('comments')
+        && typeof hidden.hint === 'string' && hidden.hint.length > 20,
+        `Y2 带批注的 docx 经 file_read 被拒,found/hint 都到得了模型(got ${JSON.stringify({ code: hidden.code, found: hidden.found })})`);
+      const encrypted = await call('file_read', { path: 'secret.docx' });
+      ok(encrypted.ok === false && encrypted.code === 'document_encrypted', `Y3 加密 CFB 容器 -> document_encrypted(got ${encrypted.code})`);
+      const stub = await call('file_read', { path: '~$draft.docx' });
+      ok(stub.ok === false && stub.code === 'document_stub', `Y4 ~$ 锁文件 -> document_stub(got ${stub.code})`);
+    }
+  }
 } catch (e) {
   t.fail('fatal: ' + ((e && e.stack) || e));
 }
