@@ -1637,6 +1637,36 @@
       ]
     },
     {
+      "file": "01ak-work-data-attachment-runtime.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataAttachmentRuntime"
+      ],
+      "requires": [
+        {
+          "provider": "01ag-work-data-attachment-reader.js",
+          "symbol": "WorkDataAttachmentReader",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ai-work-data-attachment-store.js",
+          "symbol": "WorkDataAttachmentStore",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01aj-work-data-attachment-catalogs.js",
+          "symbol": "WorkDataAttachmentCatalogs",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01aa-work-data-tree.js",
       "layer": "unclassified",
       "provides": [

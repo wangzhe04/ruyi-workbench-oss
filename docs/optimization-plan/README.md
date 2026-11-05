@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [111 · M3 附件 catalog 持久化](111-m3-attachment-catalog-persistence-20261105.md)新增 `01aj`：两个面各自 sealed catalog 文件与串行链，关闭时拒绝打开；跨实例重开仍可读（3/3 单测）；无路由接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [112 · M3 附件运行时门面](112-m3-attachment-runtime-20261105.md)新增 `01ak`：统一 id→opaque/revision 派生，组合 catalog/写入器/读取器（seal/read/verify/has）；关闭开关即拒绝，3/3 单测；无 HTTP 接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [111 · M3 附件 catalog 持久化](111-m3-attachment-catalog-persistence-20261105.md)新增 `01aj`：两个面各自 sealed catalog 文件与串行链，关闭时拒绝打开；跨实例重开仍可读（3/3 单测）；无路由接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [110 · M3 附件封存写入器草稿](110-m3-attachment-store-20261105.md)新增 `01ai`：catalog 行 → 01af 分块/manifest（wx）→ 封存；失败标 uncertain 不留半成品，3/3 单测；无 HTTP/迁移接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
 
