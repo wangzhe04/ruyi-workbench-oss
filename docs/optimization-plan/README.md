@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [108 · M3 附件 catalog authority 草稿](108-m3-attachment-catalog-20261105.md)新增 `01ah` 隔离模块：pending/sealed/uncertain 状态机 + `capture/describe/assert`，5 项单测通过；无调用方接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [109 · M3 附件三件套真实组合验证](109-m3-attachment-composition-20261105.md)把分块写入器、catalog authority 与密封读取器放进同一临时目录组合跑通整读/范围读/篡改/撤权/census（3/3 通过）；仍未接线产品调用方，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [108 · M3 附件 catalog authority 草稿](108-m3-attachment-catalog-20261105.md)新增 `01ah` 隔离模块：pending/sealed/uncertain 状态机 + `capture/describe/assert`，5 项单测通过；无调用方接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [107 · M3 附件存储设计](107-m3-attachment-storage-design-20261105.md)给出附件加密的盘上布局、catalog/authority、读取与迁移映射及验收门；仅设计，无产品代码，版本3.0.1，3.1未完成、未发布。
 
