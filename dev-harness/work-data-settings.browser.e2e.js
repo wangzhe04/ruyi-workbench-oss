@@ -14,6 +14,29 @@ const runner=createRunner('WORK DATA SETTINGS BROWSER'),{ok}=runner;
  await fx.evaluate(`document.getElementById('openSettingsBtn').click();document.querySelector('#settingsTabs [data-stab="security"]').click();true`);
  ok(!!await fx.waitForEval(`document.getElementById('workDataOperation')?true:null`),'settings composition mounts the work data panel');
  const sibling=await fx.evaluate(`(()=>{const p=document.getElementById('privacySettings'),w=document.getElementById('workDataSettings');return p.parentElement===w.parentElement&&!p.contains(w);})()`);ok(sibling,'work data controls remain outside privacy render scope');
+ // 用户实报(2026-11):「设置 → 安全 → 工作数据」里的启用按钮是灰的,旁边写 work_data_setup.worker_unavailable。
+ // 这一格的判据只有一条:面板的开/关必须与【真实 serve 此刻宣告的能力】一致,不许出现「服务已就绪、界面永远灰着」。
+ // worker 能力是异步绑定的(listen 之后约 1 s 才由 activateServe 置 true —— 实测 0.0s false / 0.9s true),
+ // 所以这里用真 fetch(不桩)反复对表直到两边一致;两边永久不一致就是这条红。
+ {
+  // 目标态只有一个:服务宣告 worker 就绪(worker===true)且面板把闸放开(hidden===true)。
+  // 「两边都 false」是刚 listen 那一瞬的合法态,不算达成 —— 否则循环会在第一次采样就退出,0.9s 的激活窗口根本没被验。
+  let target=null,last=null,stuck=false;
+  for(let attempt=0;attempt<80&&!target&&!stuck;attempt++){
+   const real=await fx.request('GET','/api/work-data/status').catch(()=>null);
+   const worker=real?.json?.capabilities?.worker===true;
+   const hidden=await fx.evaluate(`(async()=>{const m=await import('/js/work-data-settings.js');await m.mountWorkDataSettings().refresh();return document.getElementById('workDataUnavailable').hidden;})().catch(()=>null)`);
+   last={worker,hidden};
+   // 读不到面板状态(evaluate 抛了)不算一次采样 —— 别把一次失败的读取当成「闸关着」。
+   if(hidden===null||hidden===undefined){await new Promise(resolve=>setTimeout(resolve,100));continue;}
+   if(worker&&hidden===true){target=last;break;}
+   if(worker&&hidden===false){stuck=true;break;}
+   await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  ok(!stuck,'the settings panel never stays shut behind an advertised maintenance worker (last saw '+JSON.stringify(last)+')');
+  // 真装配在 Windows(一等目标)上判;其它平台只保留上面那条「服务宣告了就必须开」的不变量。
+  if(process.platform==='win32')ok(target!==null,'a plain serve without a desktop host advertises the maintenance worker and the panel opens (last saw '+JSON.stringify(last)+')');
+ }
  const backup=path.join(fx.root,'synthetic-backup');fs.mkdirSync(backup);
  await fx.evaluate(`(()=>{const original=window.fetch;window.__workDataUiFixture={posts:[],job:null,statusReads:0,lastResult:null,packageRequests:0,saved:null};const a={generation:0,id:null,mode:'plain',sha256:null};const pkg=new TextEncoder().encode('SYNTHETIC UI PACKAGE BYTES');window.__workDataUiPackage=pkg;window.fetch=async(input,options={})=>{const url=String(typeof input==='string'?input:input.url),s=window.__workDataUiFixture;let body;const response=value=>new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});if(url==='/api/work-data/status'){s.statusReads++;return response({ok:true,authority:a,job:s.job,lastResult:s.lastResult,capabilities:{worker:true,upload:false,download:!!s.lastResult}});}if(url.indexOf('/api/work-data/results/')===0){s.packageRequests++;return new Response(pkg,{status:200,headers:{'content-type':'application/octet-stream','content-length':String(pkg.length),'content-disposition':'attachment; filename="ruyi-work-data-'+url.split('/')[4]+'.ruyi-backup"'}});}if(url==='/api/pick-folder')return response({ok:true,path:${JSON.stringify(backup)}});if(url==='/api/work-data/jobs'&&options.method==='POST'){body=JSON.parse(options.body);s.posts.push({operation:body.operation,authority:body.expectedAuthority,keys:Object.keys(body),passwordCorrect:body.password==='SYNTH_UI_SECRET_ONLY_123'});s.job={id:'a'.repeat(48),operation:body.operation,state:'handoff',cancellable:false,takeover:true,retry:false,error:null};return response({ok:true,job:s.job});}if(url==='/api/work-data/jobs/'+'a'.repeat(48))return response({ok:true,job:s.job});return original(input,options);};const proto=HTMLAnchorElement.prototype,native=proto.click;proto.click=function(){const s=window.__workDataUiFixture;if(this.download&&String(this.href).indexOf('blob:')===0){s.saved={download:this.download,href:this.href};}else if(native)native.call(this);};const nativeCreate=URL.createObjectURL;URL.createObjectURL=function(blob){window.__workDataUiFixture.lastBlob=blob;return nativeCreate.call(URL,blob);};return true;})()`);
  // Two races live here. refresh() reuses the panel's in-flight read, so a real status read
