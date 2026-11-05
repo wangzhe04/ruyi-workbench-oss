@@ -283,7 +283,7 @@ const WorkDataMigrationHost = ((io,p,c) => {
             await rebuildUploads();
           }
           if(uploadsRestoreFactory&&targetMode==='plain'){
-            const restorer=await uploadsRestoreFactory({sourceRoot:p.join(base,'uploads'),targetRoot:p.join(plan.candidate.root,'uploads'),keys:plan.keys});
+            const restorer=await uploadsRestoreFactory({sourceRoot:p.join(plan.expected.root,'uploads'),targetRoot:p.join(plan.candidate.root,'uploads'),keys:plan.keys});
             if(!restorer||typeof restorer.replaceInto!=='function'||typeof restorer.hasSealed!=='function')fail('uploads_owner_invalid');
             if(await restorer.hasSealed()){
               await restorer.replaceInto({target:p.join(plan.candidate.root,'uploads')});await admission();

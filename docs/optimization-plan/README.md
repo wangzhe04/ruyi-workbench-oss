@@ -1,6 +1,6 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [122 · ON→OFF 接进迁移主机](122-m3-cold-restore-wiring-20261105.md)`01ad` 新增 `uploadsRestoreFactory`，`13ak` 的 disable 现在解封到候选代（不再拒绝）；150/150 单测；host 级 enable→disable 往返用例受 fixture 限制待补，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [122 · ON→OFF 接进迁移主机](122-m3-cold-restore-wiring-20261105.md)`13ak` 的 disable 解封到候选代；**真实 NTFS 冷操作 e2e 通过**（enable 封存两面无明文、export 通过、disable 解封两面、二次 export 通过，262s）；150/150 单测；运行时路由仍未接，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [121 · 附件 ON→OFF 候选解封原语](121-m3-attachment-unseal-into-20261105.md)`01al` 新增 `unsealInto({target})`：把 sealed 行解到另一个根、不 retire、不动源根；9/9 单测；仍待接 01ad/13ak，版本3.0.1，3.1未完成、未发布。
 

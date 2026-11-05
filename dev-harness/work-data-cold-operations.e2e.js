@@ -26,6 +26,9 @@ async function cold(input){
  try{
   api=load();await fsp.writeFile(path.join(base,'config.json'),'{"workDataEncryptionV1":false}');
   const original='{"id":"sess_native","private":"NATIVE_COLD_OPERATION_PRIVATE"}';await fsp.writeFile(path.join(base,'sessions/sess_native.json'),original);
+  const attachment='COLD ATTACHMENT RAW',attachmentBytes=Buffer.from(attachment);
+  await fsp.mkdir(path.join(base,'uploads','file_0123456789abcdef'),{recursive:true});await fsp.writeFile(path.join(base,'uploads','file_0123456789abcdef','a.bin'),attachmentBytes);
+  await fsp.mkdir(path.join(base,'uploads','toolimg_tag_abc'),{recursive:true});await fsp.writeFile(path.join(base,'uploads','toolimg_tag_abc','shot.png'),Buffer.from('COLD TOOL IMAGE RAW'));
   owner=await api.ServerOwnership.acquire([base]);const password='owned synthetic native password only',flush=api.WorkDataNativePublish.createFlush();
   const guard=async work=>{try{return await work();}catch(error){if(error?.helperMayStillRun===true)helperUncertain=true;throw error;}};
   const disposable=api.WorkDataDisposableNativeTree.create({capturePreserved:(...args)=>guard(()=>api.migrationCapsuleCapturePreserved(...args))});
@@ -39,8 +42,20 @@ async function cold(input){
   const operation=api.WorkDataColdOperations.create(host);
   const execute=async kind=>{const active=await api.WorkDataManifest.create({base}).readActive();return guard(()=>operation.execute({id:crypto.randomBytes(24).toString('hex'),base,operation:kind,password,ownership:owner,assertExclusive:value=>value===owner,expectedAuthority:{generation:active.generation,id:active.id,mode:active.mode,sha256:active.proof.sha256},paths:{backupDirectory,targetDirectory:null,uploadFile:null,uploadSha256:null}}));};
   const enabled=await execute('enable');assert.equal(enabled.state,'published');const encrypted=await api.WorkDataManifest.create({base}).readActive();assert.equal(encrypted.mode,'encrypted');assert.equal(encrypted.generation,1);assert.equal((await fsp.readFile(path.join(encrypted.root,'sessions/sess_native.json'),'utf8')).includes('NATIVE_COLD_OPERATION_PRIVATE'),false);assert.equal(await fsp.readFile(path.join(base,'sessions/sess_native.json'),'utf8'),original);runner.ok(true,'actual native enable publishes encrypted generation and preserves original source');
+  const sealedUploads=fs.readdirSync(path.join(encrypted.root,'uploads'));
+  assert.equal(sealedUploads.some(name=>name.startsWith('file_')||name.startsWith('toolimg_')),false);
+  assert.equal(sealedUploads.filter(name=>/^[a-f0-9]{32}$/i.test(name)).length,2);
+  assert.equal(fs.existsSync(path.join(encrypted.root,'uploads/_catalog-attachments-v1.json')),true);
+  assert.equal(fs.existsSync(path.join(encrypted.root,'uploads/_catalog-tool-images-v1.json')),true);
+  for(const opaque of sealedUploads.filter(name=>/^[a-f0-9]{32}$/i.test(name)))for(const revision of fs.readdirSync(path.join(encrypted.root,'uploads',opaque)))for(const name of fs.readdirSync(path.join(encrypted.root,'uploads',opaque,revision))){const bytes=await fsp.readFile(path.join(encrypted.root,'uploads',opaque,revision,name));assert.equal(bytes.includes(attachmentBytes),false);assert.equal(bytes.includes(Buffer.from('COLD TOOL IMAGE RAW')),false);}
+  runner.ok(true,'enable seals both upload faces without plaintext in the encrypted generation');
   const exported=await execute('export');assert.equal(exported.state,'verified');assert.equal(hash(await fsp.readFile(exported.backup.path)),exported.backup.sha256);runner.ok(true,'after-enable full export survives real native portable restore and independent cold process verification');
   const disabled=await execute('disable');assert.equal(disabled.state,'published');const plain=await api.WorkDataManifest.create({base}).readActive();assert.equal(plain.generation,2);assert.equal(plain.mode,'plain');assert.equal(await fsp.readFile(path.join(plain.root,'sessions/sess_native.json'),'utf8'),original);runner.ok(true,'actual reverse migration publishes complete plain generation');
+  assert.equal(await fsp.readFile(path.join(plain.root,'uploads/file_0123456789abcdef/a.bin'),'utf8'),attachment);
+  assert.equal(await fsp.readFile(path.join(plain.root,'uploads/toolimg_tag_abc/shot.png'),'utf8'),'COLD TOOL IMAGE RAW');
+  assert.deepEqual(fs.readdirSync(path.join(plain.root,'uploads')).filter(name=>/^[a-f0-9]{32}$/i.test(name)),[]);
+  assert.equal(fs.existsSync(path.join(plain.root,'uploads/_catalog-attachments-v1.json')),false);
+  runner.ok(true,'disable unseals both upload faces back to the plain generation');
   const second=await execute('export');assert.equal(second.state,'verified');assert.equal(hash(await fsp.readFile(second.backup.path)),second.backup.sha256);assert.equal(fs.existsSync(path.join(base,'.work-data/maintenance-v1.json')),false);runner.ok(true,'second full export and durable result retain all generations without pending intent');passed=true;
  }finally{
   if(api)await api.flushWorkbenchLogs({allowFailure:true});if(owner&&!uncertain())await owner.release();

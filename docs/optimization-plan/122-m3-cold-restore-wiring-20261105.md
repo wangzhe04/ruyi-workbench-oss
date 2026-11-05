@@ -20,13 +20,18 @@
 - `work-data-migration-host.test.js`：33/33（真实 owner 的 enable 用例仍通过）。
 - `uploads-owner` **10/10**：新增 `replaceInto` 用例（清掉候选里的 stale 文件、按 sealed 行重建明文、源仍 sealed）。
 - `cold-operations` + `production-host` + `uploads-owner`：**150/150**。
+- **真实 NTFS 冷操作 e2e**（`work-data-cold-operations.e2e.js`，本机 Windows，262 秒，全部 ALL PASS）：
+  - enable：两个面（`file_*` 与 `toolimg_*`）在加密代里只剩 `<opaque>/<revision>/` + 两份 catalog，
+    逐分块扫描确认不含任一面的明文（catalog 由 target census 的文件哈希覆盖）；
+  - enable 后的全量导出与独立冷进程验证通过（说明 119 的 sealed 识别生效）；
+  - disable：两个面都解封回明文布局，候选代没有 32-hex 目录、没有 catalog；
+  - disable 后的第二次全量导出仍通过。
 - `build` 114891 行；`module-dependency-graph --check` 140 modules / 934 edges。
-- **缺口（已记录）**：host 级的「enable→disable 往返」没有自动化用例。原因：fixture 的第二次 `backupFirst()`
-  在已含 `.work-data/skill-backups` 的加密代上会要求特殊所有者（`work_data_full.special_owner_required`），
-  当前 fixture 没接这条。需要先给 fixture 提供加密代 + special-owner 的备份能力，或把该场景放到冷操作 e2e。
+- 修复记录：首轮 e2e 暴露 restore 读错了根（拿了 `base/uploads` 而不是源代 `expected.root/uploads`），
+  改为源代后通过。
 
 ## 下一步
 
-1. 补 host 级 enable→disable 往返（fixture 支持或换成冷操作 e2e）
-2. `work-data-cold-operations.e2e.js` 加附件夹具做真实 NTFS OFF→ON→OFF
-3. 全过后 adapter `pending → wired`
+1. 运行时上传/下载接入（启用后新上传必须写 sealed；当前路由仍写原始字节）
+2. 全过后 adapter `pending → wired`（清册里两面的状态更新）
+3. 继续 M3 其它面：非空 special、owner delta、retention、索引组合
