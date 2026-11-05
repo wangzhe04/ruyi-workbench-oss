@@ -802,49 +802,49 @@
     {
       "file": "13be-media-image-host.js",
       "startLine": 112144,
-      "endLine": 112333,
+      "endLine": 112368,
       "note": "M4 production image candidate; resource and actual processing/send acceptance pending"
     },
     {
       "file": "13aq-work-data-native-adapters.js",
-      "startLine": 112334,
-      "endLine": 112739,
+      "startLine": 112369,
+      "endLine": 112774,
       "note": "K1 reviewed production native/fullSnapshot adapter building blocks; operation caps false"
     },
     {
       "file": "13ar-work-data-verifier-entry.js",
-      "startLine": 112740,
-      "endLine": 112781,
+      "startLine": 112775,
+      "endLine": 112816,
       "note": "K2 private IPC verifier entry; no runtime configure or public worker capability"
     },
     {
       "file": "13aw-work-data-root-preference.js",
-      "startLine": 112782,
-      "endLine": 113059,
+      "startLine": 112817,
+      "endLine": 113094,
       "note": "B3: <home>/.ruyi/boot-root-v1.json records the long-lived boot root after a restore commits a fresh target; strict eight-key codec/validator owned by 00-boot, exact previous-receipt CAS, independent wx 0600 stage with sync/native flush/rename/readback, and target alias+dev/ino re-checks; byte-identical content is never rewritten, a read never repairs or deletes a bad record, and TEMP activation is never promoted"
     },
     {
       "file": "13ax-desktop-lifetime.js",
-      "startLine": 113060,
-      "endLine": 113255,
+      "startLine": 113095,
+      "endLine": 113290,
       "note": "M3-D1 private desktop lifetime transport and owner-composed cooperative close; no data-root or maintenance authority"
     },
     {
       "file": "13ax-work-data-attachment-upload.js",
-      "startLine": 113256,
-      "endLine": 113322,
+      "startLine": 113291,
+      "endLine": 113357,
       "note": "M3 attachments: registers the sealed-upload hook through WorkDataAttachmentUploadHooks so 13-http-router keeps no static edge to the attachment runtime; derived media work is not wired"
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "startLine": 113323,
-      "endLine": 114183,
+      "startLine": 113358,
+      "endLine": 114218,
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis)."
     },
     {
       "file": "14-main.js",
-      "startLine": 114184,
-      "endLine": 115100,
+      "startLine": 114219,
+      "endLine": 115135,
       "note": "main()/module.exports"
     }
   ]

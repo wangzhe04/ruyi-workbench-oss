@@ -112281,6 +112281,41 @@ const MediaImageHost = (() => {
     const currentRecipient=()=>MediaImageService.recipientHash(url,headers);
     return managed(() => service.delivery(body, currentRecipient(), signal, currentRecipient));
   }
+  // 「渲染 + 遮盖」的接缝:把渲染出来的页面(内存 Buffer)准备成受保护图片引用。
+  // 顺序固定:会话 → 策略(必须在 turn 的 PrivacyGateway scope 里) → 收件人(vision provider) → 处理器(真实原生组件)。
+  // 任何一步不满足都 fail-closed,绝不把原始像素交回调用方;成功时只回引用,像素留在派生库里由交付层替换。
+  async function prepareRenderedPages({ sessionId, pages, signal } = {}) {
+    if (!Array.isArray(pages) || !pages.length || pages.length > 4) fail('render_invalid');
+    for (const page of pages) {
+      if (!page || typeof page.name !== 'string' || !page.name || page.name.length > 200
+        || !Buffer.isBuffer(page.bytes) || page.bytes.length < 1 || page.bytes.length > MediaImageContract.LIMITS.sourceBytes) fail('render_invalid');
+    }
+    const session = assertSessionIdForPath(sessionId), config = await readConfig();
+    PrivacyGateway.assertPolicyAvailable(config);
+    return PrivacyGateway.run(session, config, () => managed(async () => {
+      const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
+      const recipient = currentRecipient(config);
+      const owner = await processor();
+      if (!MediaImageProcessor.isOwner(owner)) fail('processor_unavailable');
+      const references = [];
+      for (const [index, page] of pages.entries()) {
+        const source = MediaImageService.renderedSource({ id: 'render-' + index, name: page.name, bytes: page.bytes, sessionId: session });
+        policy.assert(); source.assert();
+        const prepared = await service.prepare({ sessionId: session, source, policy, processor: owner, recipient, signal });
+        references.push(Object.freeze({ name: page.name, id: prepared.id, reference: prepared.reference }));
+      }
+      // 跨页撤销:prepare 每页各自 beginScope,撤回可能发生在两页之间。收尾时逐条复核引用仍然有效,
+      // 否则宁可 fail-closed,也不把悬空引用交给交付层。
+      for (const item of references) {
+        try {
+          if (!service.projectPart({ type: 'image_url', image_url: { url: item.reference } }, { scopeId: session, pointer: '/messages/0/content/0' })) fail('render_revoked');
+        } catch { fail('render_revoked'); }
+      }
+      // 交付改写总开关:准备好受保护引用之后必须置位,否则 04h 会把引用原样发给 provider。
+      preparedAny = true;
+      return Object.freeze({ references: Object.freeze(references), recipient });
+    }));
+  }
   function attachmentPrompt(file) {
     const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) return null;
     if (!(file?.kind === 'image' || /\.(png|jpe?g|gif|webp|bmp)$/i.test(file?.name || file?.path || ''))) return null;
@@ -112326,7 +112361,7 @@ const MediaImageHost = (() => {
   PrivacyGateway.setHost({ projectMediaPart: projectPart, invalidateMedia: () => { void service.invalidate().catch(() => {}); } });
   Object.assign(ProviderMediaHooks, { beforeModelPost });
   Object.assign(VisualMediaHooks, { buildUserContentParts });
-  Object.assign(MediaImageHooks, { attachmentPrompt, handleApiRoutes, helperMayStillRun,
+  Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, handleApiRoutes, helperMayStillRun,
     revokeScope: sessionId => service.revokeScope(sessionId) });
   return Object.freeze({ prepare });
 })();
