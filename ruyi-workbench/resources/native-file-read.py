@@ -47,6 +47,69 @@ def text_window(value, opts):
     return result
 
 
+W_NS = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+ODF_TEXT_NS = '{urn:oasis:names:tc:opendocument:xmlns:text:1.0}'
+ODF_OFFICE_NS = '{urn:oasis:names:tc:opendocument:xmlns:office:1.0}'
+
+
+def ooxml_hidden_parts(names):
+    """只看部件名(不读字节、不扣预算)就能认定的隐藏层:
+    宏(vbaProject.bin)、嵌入对象(*/embeddings/*)、批注(comments*.xml / ppt/comments/* / xl/threadedComments/*)、
+    ActiveX(word/activeX/*)、词汇表正文(word/glossary/document.xml —— AutoText 正文既不抽取也读不到)。
+    不复述 customXml:实测 52% 的真实 docx 都带参考文献源(customXml/item1.xml = <b:Sources/>),
+    其中就包括工作台自己 write_document 产出的文件 —— 把它当隐藏层会直接把「写完就能读回」打断。
+    """
+    found = set()
+    for name in names:
+        lower = name.lower()
+        base = lower.rsplit('/', 1)[-1]
+        if lower.endswith('/'):
+            continue
+        if base == 'vbaproject.bin':
+            found.add('macros')
+        elif '/embeddings/' in lower:
+            found.add('embedded-objects')
+        elif base == 'comments.xml' or re.fullmatch(r'comments\d+\.xml', base) or lower.startswith('ppt/comments/') or lower.startswith('xl/threadedcomments/'):
+            found.add('comments')
+        elif '/activex/' in lower:
+            found.add('activex')
+        elif lower.startswith('xl/revisions/'):
+            found.add('tracked-changes')
+        elif lower == 'word/glossary/document.xml':
+            found.add('glossary')
+    return sorted(found)
+
+
+def ooxml_structure_layers(root, ext):
+    """修订/批注是靠【解析出来的元素】认的,不是靠 local name:WordprocessingML 的 {@w}ins / {@w}del
+    才是修订,DrawingML 的自定义几何里也有 <a:moveTo>/<a:lnTo>(那是画路径,不是修订)。
+    ODF 的修订是 <text:tracked-changes>、批注是 <office:annotation>。
+    """
+    found = set()
+    if ext in ('.odt', '.ods', '.odp'):
+        for node in root.iter():
+            if node.tag in (ODF_TEXT_NS + 'tracked-changes', ODF_TEXT_NS + 'changed-region'):
+                found.add('tracked-changes')
+            elif node.tag.startswith(ODF_OFFICE_NS) and node.tag in (ODF_OFFICE_NS + 'annotation', ODF_OFFICE_NS + 'annotation-end'):
+                found.add('comments')
+        return sorted(found)
+    for node in root.iter():
+        if not isinstance(node.tag, str) or not node.tag.startswith('{'):
+            continue
+        ns_end = node.tag.index('}') + 1
+        ns, name = node.tag[:ns_end], node.tag[ns_end:]
+        # 命名空间按形状认:过渡版与 ISO 29500 Strict(不同 URI)都是 wordprocessingml/main。
+        if 'wordprocessingml' in ns and ns.endswith('main}') and name in ('ins', 'del', 'moveFrom', 'moveTo'):
+            found.add('tracked-changes')
+            break
+    return sorted(found)
+
+def hidden_refusal(found):
+    return {'ok': False, 'code': 'document_hidden_content', 'found': list(found),
+            'error': 'Document contains layers this reader does not extract: ' + ', '.join(found),
+            'hint': 'This reader only returns paragraph text. Remove or accept tracked changes, delete comments, embedded objects, macros and ActiveX controls (Save As a new copy, then read it again), or open the file in an editor to inspect those layers yourself.'}
+
+
 def read_zip(filename, opts):
     with zipfile.ZipFile(filename) as z:
         if len(z.infolist()) > 10000:
@@ -69,6 +132,9 @@ def read_zip(filename, opts):
             xmls, required, media_prefix = ['content.xml'], 'content.xml', 'Pictures/'
         if required not in names:
             raise ValueError('not a valid document container')
+        hidden = ooxml_hidden_parts(names)
+        if hidden:
+            return hidden_refusal(hidden)
         budget = MAX_XML
 
         def tree(name):
@@ -92,6 +158,10 @@ def read_zip(filename, opts):
         pieces = []
         for name in sorted(xmls, key=lambda n: re.sub(r'\d+', lambda m: m[0].zfill(9), n)):
             root = tree(name)
+            # 修订/批注只在这一遍解析里认(不再为了判据把同一部件读第二遍,也不绕过 MAX_XML 预算)。
+            layered = ooxml_structure_layers(root, ext)
+            if layered:
+                return hidden_refusal(layered)
             lines = []
             if ext in ('.xlsx', '.xlsm'):
                 for row in (n for n in root.iter() if local(n) == 'row'):
