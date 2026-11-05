@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [131 · 完整索引组合：三个 fulltext 面转 wired](131-m3-fulltext-wired-20261105.md)：新增运行时证据（启用态索引写 `workData:3` 且无明文）后把 state/manifest/shard 转 wired；清册 80 面/47 required/46 wired，唯一 required-pending 只剩工具图片；版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [132 · M3 剩余块地图](132-m3-remaining-map-20261105.md)：把剩余五块（启用流程接线、非空 special、精确 owner delta、retention sealed-fault、索引收尾/工具图）钉成事实+进入点+完成判据；无产品改动，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [131 · 完整索引组合：三个 fulltext 面转 wired](131-m3-fulltext-wired-20261105.md)：新增运行时证据（启用态索引写 `workData:3` 且无明文）后把 state/manifest/shard 转 wired；清册 80 面/47 required/46 wired，唯一 required-pending 只剩工具图片；版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [130 · `uploads-attachment` adapter 转 wired](130-m3-adapter-wired-20261105.md)：依据 128 的启用代 HTTP 验收把原始附件面改为 wired，工具图仍 pending；清册仍 80 面/47 required，版本3.0.1，3.1未完成、未发布。
 
