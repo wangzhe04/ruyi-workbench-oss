@@ -3,15 +3,15 @@
   "generatedBy": "dev-harness/encrypted-storage-freeze.js",
   "scope": "M3-1 freeze: every durable-state-inventory surface classified for the work-data envelope; no product change and no user-data migration",
   "encryptionImplemented": false,
-  "count": 78,
+  "count": 80,
   "classCounts": {
-    "required": 45,
+    "required": 47,
     "excluded": 33
   },
   "batchCounts": {
     "not-migrated": 33,
-    "sessions": 12,
-    "index-cache": 9,
+    "sessions": 13,
+    "index-cache": 10,
     "memory-queue": 13,
     "tasks": 7,
     "logs": 2,
@@ -563,6 +563,24 @@
       "plaintextMetadata": [],
       "reason": "protected image pixels, manifests and source/policy proofs are derived work data; the original MediaDerivedStore seals the complete payload and uses its original domain validator during migration",
       "adapter": "wired"
+    },
+    {
+      "id": "uploads-attachment",
+      "encryption": "required",
+      "keyPurpose": "session",
+      "migrationBatch": "sessions",
+      "plaintextMetadata": [],
+      "reason": "raw user attachments (images, documents, audio) are user content and must be sealed with the session they belong to",
+      "adapter": "pending"
+    },
+    {
+      "id": "uploads-tool-image",
+      "encryption": "required",
+      "keyPurpose": "cache",
+      "migrationBatch": "index-cache",
+      "plaintextMetadata": [],
+      "reason": "tool-result images show user screens and documents; deriving them from a sealed transcript does not make plaintext copies acceptable",
+      "adapter": "pending"
     },
     {
       "id": "session-search-index",

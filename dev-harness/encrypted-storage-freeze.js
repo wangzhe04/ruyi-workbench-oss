@@ -75,6 +75,11 @@ const families = [
   ['playbooks', REQUIRED, 'workflow', 'tasks', [['playbookId', 'playbook identity']], 'playbook bodies embed prompts and examples'],
   // Index and caches derived from sealed content.
   ['media-derived', REQUIRED, 'cache', 'index-cache', [], 'protected image pixels, manifests and source/policy proofs are derived work data; the original MediaDerivedStore seals the complete payload and uses its original domain validator during migration'],
+  // M3 attachment surfaces: currently raw bytes on disk. Registered as required so the census
+  // cannot omit them; the adapter stays pending until the attachment codec and catalog producer
+  // are wired. Nothing here claims these files are already sealed.
+  ['uploads-attachment', REQUIRED, 'session', 'sessions', [], 'raw user attachments (images, documents, audio) are user content and must be sealed with the session they belong to'],
+  ['uploads-tool-image', REQUIRED, 'cache', 'index-cache', [], 'tool-result images show user screens and documents; deriving them from a sealed transcript does not make plaintext copies acceptable'],
   ['session-search-index', REQUIRED, 'search-index', 'index-cache', [['sessionId', 'group rows per session'], ['version', 'rebuild decision without decrypting every row']], 'derived text units are a plaintext side channel for sealed bodies'],
   ['session-fulltext-state', REQUIRED, 'search-index', 'index-cache', [], 'fulltext owner lifecycle state is workbench-owned derived state; codec closure never exempts the namespace from encryption'],
   ['session-fulltext-manifest', REQUIRED, 'search-index', 'index-cache', [], 'fulltext manifest carries source and generation proofs for sealed conversations; rebuilding it does not make plaintext disclosure acceptable'],
