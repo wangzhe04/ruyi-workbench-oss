@@ -1607,6 +1607,36 @@
       ]
     },
     {
+      "file": "01aj-work-data-attachment-catalogs.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataAttachmentCatalogs"
+      ],
+      "requires": [
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ah-work-data-attachment-catalog.js",
+          "symbol": "WorkDataAttachmentCatalog",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01p-work-data-store.js",
+          "symbol": "WorkDataStore",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01aa-work-data-tree.js",
       "layer": "unclassified",
       "provides": [

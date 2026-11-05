@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [110 · M3 附件封存写入器草稿](110-m3-attachment-store-20261105.md)新增 `01ai`：catalog 行 → 01af 分块/manifest（wx）→ 封存；失败标 uncertain 不留半成品，3/3 单测；无 HTTP/迁移接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [111 · M3 附件 catalog 持久化](111-m3-attachment-catalog-persistence-20261105.md)新增 `01aj`：两个面各自 sealed catalog 文件与串行链，关闭时拒绝打开；跨实例重开仍可读（3/3 单测）；无路由接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [110 · M3 附件封存写入器草稿](110-m3-attachment-store-20261105.md)新增 `01ai`：catalog 行 → 01af 分块/manifest（wx）→ 封存；失败标 uncertain 不留半成品，3/3 单测；无 HTTP/迁移接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [109 · M3 附件三件套真实组合验证](109-m3-attachment-composition-20261105.md)把分块写入器、catalog authority 与密封读取器放进同一临时目录组合跑通整读/范围读/篡改/撤权/census（3/3 通过）；仍未接线产品调用方，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
 
