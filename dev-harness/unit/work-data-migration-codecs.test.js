@@ -66,10 +66,11 @@ test('fixed catalog covers every required family with honest special-owner statu
   // uploads-attachment / uploads-tool-image are directory-level special-owner
   // namespaces (116), not per-file codecs; their registration is asserted below.
   const directoryOwned = new Set(['uploads-attachment', 'uploads-tool-image']);
+  const expectedAdapter = { 'uploads-attachment': 'wired', 'uploads-tool-image': 'pending' };
   for (const id of directoryOwned) {
     const row = freeze.entries.find(entry => entry.id === id);
     assert.equal(row.encryption, 'required');
-    assert.equal(row.adapter, 'pending');
+    assert.equal(row.adapter, expectedAdapter[id], `${id} adapter state`);
   }
   const expected = freeze.entries.filter(row => row.encryption === 'required' && !directoryOwned.has(row.id)).map(row => row.id).sort();
   assert.deepEqual(Array.from(codecs.catalog(), row => row.family).sort(), expected);
