@@ -2,6 +2,43 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),vm=require('node:vm');
 const {fixture,password,hash,read}=require('../lib/work-data-full-snapshot-fixture');
 const {functionBlock}=require('../lib/source-slice');
+test('a non-empty capsule tree reaches the snapshot only through its portable owner', async t => {
+ const { createBackupOwnerFixture } = require('../lib/migration-backup-owner-fixture');
+ const f = await fixture(t), capsuleRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'ruyi-capsule-unit-'));
+ t.after(async () => { assert.equal(path.dirname(capsuleRoot), path.resolve(os.tmpdir())); await fsp.rm(capsuleRoot, { recursive: true, force: true }); });
+ const capsules = createBackupOwnerFixture(capsuleRoot);
+ await capsules.capsule();
+ for (const relative of ['migrations/skill-backups', '.work-data/skill-backups']) {
+  const source = path.join(capsules.dir, ...relative.split('/'));
+  if (!fs.existsSync(source)) continue;
+  const target = path.join(f.base, ...relative.split('/'));
+  await fsp.mkdir(path.dirname(target), { recursive: true });
+  await fsp.cp(source, target, { recursive: true });
+ }
+ const portableOwner = async () => ({
+  async capturePortable(request) {
+   return { profile: 'synthetic-portable', data: Buffer.from(JSON.stringify({ schema: 1, sourcePath: request.source.sourcePath,
+     sourceSha256: request.source.sourceSha256, files: request.files.length, directories: request.directories.length })) };
+  },
+  async validatePortable({ data }) { return { profile: JSON.parse(Buffer.from(data).toString('utf8')).profile || 'synthetic-portable' }; },
+  async stagePortable() { throw Object.assign(Error('synthetic_stage_unused'), { code: 'work_data_backup.stage_unused' }); },
+  async installPortable() { throw Object.assign(Error('synthetic_install_unused'), { code: 'work_data_backup.install_unused' }); },
+  async verifyPortableInstalled() { throw Object.assign(Error('synthetic_verify_unused'), { code: 'work_data_backup.verify_unused' }); },
+ });
+ const ownership = { roots: [f.base] };
+ const host = f.api.WorkDataFullSnapshot.create({ base: f.base, ownership, assertExclusive: async value => value === ownership,
+  protector: f.a, externalOwner: options => f.api.ExternalBotCredentials.create(options), skillBackupOwner: portableOwner });
+ const sealed = await host.seal({ password, appVersion: '3.0.1', generation: 0 });
+ const opened = await f.api.WorkDataRecovery.open(sealed.serialized, password);
+ try {
+  const portable = opened.snapshot.auxiliaries.filter(row => row.type === 'skill-backup-portable');
+  assert.equal(portable.length, 1);
+  const payload = JSON.parse(Buffer.from(portable[0].data).toString('utf8'));
+  assert.equal(portable[0].sourcePath, payload.sourcePath);
+  assert.equal(portable[0].sourceSha256, payload.sourceSha256);
+  assert.ok(payload.files > 0, 'the capsule tree was present when the owner captured it');
+ } finally { opened.release(); }
+});
 test('C11 control profile hook defaults closed and installs only the immutable real validator',async t=>{
  const f=await fixture(t),ownership={roots:[f.base]},owner=proof=>f.api.WorkDataFullSnapshot.create({base:f.base,ownership,assertExclusive:async value=>value===ownership,protector:f.a,externalOwner:f.api.ExternalBotCredentials.create,controlRecoveryProof:proof});
  assert.equal(f.api.WorkDataFullSnapshot.Hooks?.controlRecoveryProfile,undefined);
