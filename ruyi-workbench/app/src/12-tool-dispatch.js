@@ -1466,7 +1466,11 @@ const FILE_TOOL_HANDLERS = {
         visualKind = await FileVisualIo.kind(p);
         // Text-only extraction still paginates/transforms document source and may start
         // an external parser. It is unsupported by the privacy boundary, even without pixels.
-        if (privacyTextRead && visualKind) return { ok: false, code: 'privacy.media_not_supported' };
+        // 隐私开着时,文档/图片读取在起任何解析器之前就被拒(像素与隐藏层都没经过遮盖链路)。
+        // 只给一个码等于让人猜:带上可执行的下一步。注意口径 —— 这里【不】建议用户降低保护,
+        // 与相邻的 document_render_unavailable / document_encrypted 一致:只给"换一种读法"。
+        if (privacyTextRead && visualKind) return { ok: false, code: 'privacy.media_not_supported',
+          hint: 'Privacy protection is on, so document/image reading is refused before any parser runs. Read a text copy instead: export the page or section to .txt/.md (or paste the text) and read that file.' };
         if (args.as === 'image' && !visualKind) return { ok: false, code: 'not_image', error: 'This file is not an image or supported visual document.', path: p };
         if (args.as === 'image') args = { ...args, includeImages: true };
         if (args.as === 'text' && visualKind === 'image') return { ok: false, code: 'not_text', error: 'Image bytes cannot be read as text; use as:image.', path: p };

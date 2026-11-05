@@ -175,7 +175,14 @@ test('privacy refuses document extraction and images before any external parser,
       await scoped(policy, async () => {
         for (const target of sources) for (const args of [{}, { as: 'text' }, { includeImages: false }, { as: 'text', includeImages: false }]) {
           const result = await rawRead(target, args, policy);
-          assert.deepEqual(result, { ok: false, code: 'privacy.media_not_supported' });
+          assert.equal(result.ok, false);
+          assert.equal(result.code, 'privacy.media_not_supported');
+          // 拒绝必须带可执行的下一步(2026-11-05 之前只有一个码,读者得自己猜),但【不许】劝人降低保护:
+          // 全仓同类拒绝都只给"换一种读法";而这条 hint 是要发给模型转述的,一句"关掉隐私"就是话术漏洞。
+          assert.equal(typeof result.hint, 'string');
+          assert.match(result.hint, /text copy/i);
+          assert.doesNotMatch(result.hint, /turn privacy off|disable privacy|关掉隐私|关闭隐私/i);
+          assert.deepEqual(Object.keys(result).sort(), ['code', 'hint', 'ok']);
           assert.equal(JSON.stringify(result).includes(target), false);
         }
       });
@@ -204,4 +211,25 @@ test('privacy edit misses project source diagnostics while exact edits and off-m
     const edited = await app.FILE_TOOL_HANDLERS.file_edit.handler({ path: target, oldText: original, newText: '{}' }, { ...context(policy), turnSeq: 1 });
     assert.equal(edited.ok, true); assert.equal(edited.replacements, 1); assert.equal(fs.readFileSync(target, 'utf8'), '{}');
   });
+});
+
+test('rendered document pages are a media payload: privacy ON withholds them, OFF passes them through', async () => {
+  // PDF 页面渲染(native-file-read.py 的 read_pdf → page.to_image → image_block)回来就是这个形状,
+  // 与 file_read 的 image 分支同构:{ name, mimeType, data }。M4 的「渲染 + 遮盖」在遮盖链路做出来之前,
+  // 这些像素**没有**经过任何派生/遮盖 —— 所以它们在交付面必须被拒,而不是当成普通文档结果发出去。
+  const rendered = { ok: true, mode: 'document', path: path.join(work, 'scan.pdf'), size: 2048,
+    content: '## Page 1\n季度报告正文', totalImages: 1, imageWarnings: [],
+    images: [{ name: 'page-1.png', mimeType: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUg==' }] };
+  const onPolicy = config('enhanced');
+  await scoped(onPolicy, async () => {
+    await assert.rejects(() => app.PrivacyGateway.toolResult(rendered), error => error.code === 'privacy.media_not_supported');
+    // 同一份结果的纯文本部分照旧能过(拒的是像素,不是文档本身)。
+    const textOnly = { ...rendered, images: [], totalImages: 0 };
+    const protectedText = await app.PrivacyGateway.toolResult(textOnly);
+    assert.equal(protectedText.ok, true);
+    assert.match(String(protectedText.content || protectedText.text || JSON.stringify(protectedText)), /季度报告正文/);
+  });
+  // OFF:不保护是既定语义(与图片附件一致),原样交回 —— 这条是对照组,证明上面拒的是「像素」。
+  const offPolicy = config('off');
+  await scoped(offPolicy, async () => assert.deepEqual(await app.PrivacyGateway.toolResult(rendered), rendered));
 });
