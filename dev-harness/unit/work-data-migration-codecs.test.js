@@ -63,7 +63,15 @@ const cases = [
 
 test('fixed catalog covers every required family with honest special-owner status', () => {
   const freeze = JSON.parse(syncFs.readFileSync(path.join(REPO, 'docs/architecture/encrypted-storage-freeze.json')));
-  const expected = freeze.entries.filter(row => row.encryption === 'required').map(row => row.id).sort();
+  // uploads-attachment / uploads-tool-image are directory-level special-owner
+  // namespaces (116), not per-file codecs; their registration is asserted below.
+  const directoryOwned = new Set(['uploads-attachment', 'uploads-tool-image']);
+  for (const id of directoryOwned) {
+    const row = freeze.entries.find(entry => entry.id === id);
+    assert.equal(row.encryption, 'required');
+    assert.equal(row.adapter, 'pending');
+  }
+  const expected = freeze.entries.filter(row => row.encryption === 'required' && !directoryOwned.has(row.id)).map(row => row.id).sort();
   assert.deepEqual(Array.from(codecs.catalog(), row => row.family).sort(), expected);
   assert.equal(codecs.catalog().filter(row => row.support === 'special-owner-required').length, 1);
   assert.equal(codecs.catalog().find(row => row.family === 'migration-skill-backups').codec, 'special-owner-required');
