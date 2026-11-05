@@ -26,7 +26,11 @@ const {releaseEnvironment}=require('./lib/release-checks'),{snapshotProcessTable
 const PASSWORD='SYNTHETIC production maintenance only 2026',SESSION_ID='sess_maintenance_synthetic';
 const SESSION_BYTES=JSON.stringify({id:SESSION_ID,private:'完整合成维护源，保持原字节。',title:'Synthetic maintenance session',messages:[]});
 // Waits are event- or product-fact-anchored; these are deadlines, not latencies.
-const BUDGET=Object.freeze({...upload.BUDGET,handoff:45000,claim:30000,coldPort:30000,coldOperation:180000,successor:90000,jobRelease:60000});
+// successor:后继进程只会在冷操作【发布完代次、写完持久结果、退休交接记录】之后才出现,
+// 所以这个观测窗必须盖住整次冷操作本身。本机实测(2026-11-05,合成根):enable 从 claim 08:05:09
+// 到结果落盘 08:06:53 用了 104 s —— 旧的 90 s 比它观测的动作还短,于是产品还在正常干活、
+// 测试已经判红(successor-enable,冷端 phase 停在 publish-generation)。改成冷操作预算 + 交接预算。
+const BUDGET=Object.freeze({...upload.BUDGET,handoff:45000,claim:30000,coldPort:30000,successor:180000+45000,jobRelease:60000});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const AUTHORITY0=Object.freeze({generation:0,id:null,mode:'plain',sha256:null});
 const TRANSPORT=new Set(['ECONNREFUSED','ECONNRESET','EPIPE','EHOSTUNREACH','ENOTFOUND','EAI_AGAIN']);
@@ -462,7 +466,8 @@ function createWorld({root,evidence,target}){
   return{samples,stop:async()=>{stopped=true;await done;}};
  }
  async function waitSuccessor(ref,f,jobId,{notPids}){
-  const deadline=Date.now()+BUDGET.successor;
+  const startedAt=Date.now();
+  const deadline=startedAt+BUDGET.successor;
   for(;;){
    // The cold snapshot proves Basic/atime as well as DATA. An ordinary runtime
    // read here can itself invalidate that source proof. Poll HTTP until the
@@ -486,9 +491,10 @@ function createWorld({root,evidence,target}){
     // A cold worker that never hands over keeps its read-only listener and its
     // own verdict. Read it here so the first red names the product code instead
     // of only reporting a successor deadline.
+    const waited=Math.round((Date.now()-startedAt)/1000);
     const held=await readColdVerdict(ref.port);
-    if(held)throw Error('successor readiness deadline; cold job state='+held.job?.state+' phase='+held.job?.phase+' error='+held.job?.error);
-    throw Error('successor readiness deadline; no cold verdict available on the same port');
+    if(held)throw Error('successor readiness deadline after '+waited+'s; cold job state='+held.job?.state+' phase='+held.job?.phase+' error='+held.job?.error);
+    throw Error('successor readiness deadline after '+waited+'s; no cold verdict available on the same port');
    }
    await sleep(50);
   }

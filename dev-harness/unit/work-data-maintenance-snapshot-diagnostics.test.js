@@ -177,7 +177,9 @@ test('a successor-observer mutant that skips the warm HTTP proof exposes its uns
 test('cold successor refusal preserves the original deadline and never opens runtime DATA',async()=>{
  for(const kind of ['maintenance','restore']){
   const f=successorObservation(kind,{coldOnly:true});
-  await assert.rejects(f.promise,/successor readiness deadline; cold job state=failed phase=snapshot error=work_data_setup.preparation_failed/);
+  // 两件（maintenance / restore）同一条件、措辞不必逐字相同：maintenance 那件带「已等了多少秒」，
+  // restore 那件没有。这里钉的是判据与三段事实（state/phase/error），不是那句话的后缀。
+  await assert.rejects(f.promise,/successor readiness deadline(?: after \d+s)?; cold job state=failed phase=snapshot error=work_data_setup\.preparation_failed/);
   assert.equal(f.state.runtimeReads,0);assert.equal(f.state.unsafeReads,0);assert.equal(f.state.identityReads,0);assert.equal(f.state.events.at(-1),'cold-verdict');
  }
 });

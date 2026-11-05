@@ -262,7 +262,11 @@ const TIMEOUT_OVERRIDES = {
   // verifier child and a fresh same-port successor; five more real serves decide the
   // boot verdicts. This is a whole-file hang guard, not a product latency claim -
   // every product wait above keeps its own explicit deadline and is never widened.
-  'work-data-production-maintenance.e2e.js': 900000,
+  // 2026-11-05: the file runs three handoff rounds and each one waits up to the
+  // successor window (225s now that it covers a real cold publish). Worst case is
+  // 3x225s of pure waiting before the rest of the file; at 900s the whole-file wall
+  // could fire before the round's own red names the cold phase. Measured green run: 417s.
+  'work-data-production-maintenance.e2e.js': 1200000,
   // User-approved 2026-11-04: this four-operation native cold regression may
   // need more than 240s after preserved source scopes; only the whole-file
   // guard becomes 490s. command120/close2/metadata30 and every safety
