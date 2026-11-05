@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 140 | 4330 | 4266 | 933 | 67 | 0 | 1 |
+| 140 | 4330 | 4267 | 934 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -140,7 +140,7 @@
 | 122 | `13aj-work-data-control.js` | unclassified | 1 | 3 | 2 |
 | 123 | `13al-work-data-maintenance-http.js` | unclassified | 1 | 4 | 2 |
 | 124 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
-| 125 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 9 | 7 |
+| 125 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 10 | 8 |
 | 126 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 11 | 8 |
 | 127 | `13ap-session-fulltext-index.js` | unclassified | 3 | 14 | 6 |
 | 128 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 24 | 10 |
@@ -690,6 +690,7 @@
 | `13ak-work-data-cold-operations.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `text` |
 | `13ak-work-data-cold-operations.js` | `01-config.js` | backward | `atomicWriteJson` |
 | `13ak-work-data-cold-operations.js` | `01ae-work-data-maintenance-result.js` | backward | `WorkDataMaintenanceResult` |
+| `13ak-work-data-cold-operations.js` | `01al-work-data-uploads-owner.js` | backward | `WorkDataUploadsOwner` |
 | `13ak-work-data-cold-operations.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
 | `13ak-work-data-cold-operations.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `13ak-work-data-cold-operations.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |

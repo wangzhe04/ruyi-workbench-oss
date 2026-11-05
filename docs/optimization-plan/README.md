@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [119 · 全量快照识别 sealed 附件](119-m3-snapshot-sealed-attachments-20261105.md)`01ab` 把 `uploads/` 下 catalog/manifest/part 识别为不透明认证字节，加密代导出/恢复不再拒绝；快照单测 20/20；13ak 与生产接线仍待，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [120 · 生产冷操作接入 uploads owner](120-m3-cold-uploads-owner-20261105.md)`13ak` 在 enable 时接真实 `01al` 封存候选附件，disable 遇 sealed 目录直接拒绝；140/140 单测；ON→OFF 解封与真 NTFS e2e 待，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [119 · 全量快照识别 sealed 附件](119-m3-snapshot-sealed-attachments-20261105.md)`01ab` 把 `uploads/` 下 catalog/manifest/part 识别为不透明认证字节，加密代导出/恢复不再拒绝；快照单测 20/20；13ak 与生产接线仍待，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [118 · 迁移主机接入 uploads owner（草稿）](118-m3-uploads-host-seam-20261105.md)`01ad` 新增可选 `uploadsOwnerFactory`：候选侧 raw uploads 交给 owner 封存并重登 target census，默认关闭；假 owner 集成测试 32/32；仍未接真实 owner/13ak/01ab，版本3.0.1，3.1未完成、未发布。
 

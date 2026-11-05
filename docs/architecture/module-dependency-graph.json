@@ -5,8 +5,8 @@
   "summary": {
     "modules": 140,
     "providedSymbols": 4330,
-    "requiredSymbols": 4266,
-    "edges": 933,
+    "requiredSymbols": 4267,
+    "edges": 934,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -30208,6 +30208,13 @@
           ]
         },
         {
+          "provider": "01al-work-data-uploads-owner.js",
+          "symbol": "WorkDataUploadsOwner",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01j-local-crypto.js",
           "symbol": "LocalSecretCrypto",
           "kinds": [
@@ -41637,6 +41644,14 @@
       "to": "01ae-work-data-maintenance-result.js",
       "symbols": [
         "WorkDataMaintenanceResult"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ak-work-data-cold-operations.js",
+      "to": "01al-work-data-uploads-owner.js",
+      "symbols": [
+        "WorkDataUploadsOwner"
       ],
       "direction": "backward"
     },

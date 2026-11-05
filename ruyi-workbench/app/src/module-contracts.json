@@ -29946,6 +29946,13 @@
           ]
         },
         {
+          "provider": "01al-work-data-uploads-owner.js",
+          "symbol": "WorkDataUploadsOwner",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01j-local-crypto.js",
           "symbol": "LocalSecretCrypto",
           "kinds": [
