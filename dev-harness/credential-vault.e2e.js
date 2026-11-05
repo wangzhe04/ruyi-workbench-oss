@@ -8,9 +8,30 @@ const { createRunner } = require('./lib/harness');
 async function worker() {
   const chunks = []; for await (const chunk of process.stdin) chunks.push(chunk);
   const task = JSON.parse(Buffer.concat(chunks));
+  // catch 里也要能拿到指引:app 是 try 内的块级常量,出了块就看不见了(2026-11-05 实测).
+  let guidanceFor = () => '';
   try {
-    const app = require('./lib/server-internals').loadServerInternals(['readConfig', 'mutateConfig', 'PrivacyCore']);
+    const app = require('./lib/server-internals').loadServerInternals(['readConfig', 'mutateConfig', 'PrivacyCore', 'LocalSecretCrypto', 'CredentialRecovery']);
+    guidanceFor = error => { try { return app.CredentialRecovery.startupGuidance(error) || ''; } catch { return ''; } };
     const hooks = app.PrivacyCore.configHooks;
+    if (task.foreignKey || task.tamperKey) {
+      // 模拟「另一个 Windows 账户 / 另一个实例」:把主机密文换成一把用不同 entropy 保护的密钥,
+      // 或原地翻一个字节。两种都必须在 unlock 处停住 —— 不能悄悄重建一个空库把凭据全丢掉。
+      const file = path.join(process.env.RUYI_HOME, 'credential-vault-v1.json');
+      const state = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (task.foreignKey) {
+        const foreign = await app.LocalSecretCrypto.run('protect', crypto.randomBytes(32), Buffer.from('foreign-account-entropy'));
+        state.protectedKey = foreign.toString('base64');
+      } else {
+        const blob = Buffer.from(state.protectedKey, 'base64');
+        blob[Math.max(0, blob.length >> 1)] ^= 1;
+        state.protectedKey = blob.toString('base64');
+      }
+      fs.writeFileSync(file, JSON.stringify(state));
+      // 把注入后的护封指纹留在旁边:父进程据此断言「库没有被重写」,而不是只看它「不等于好库」。
+      fs.writeFileSync(path.join(process.env.RUYI_HOME, 'foreign-injected.json'),
+        JSON.stringify({ protectedKey: state.protectedKey, instanceId: state.instanceId, records: state.records.length }));
+    }
     let config = await app.readConfig();
     if (task.recoveryCrash) {
       const previous = fs.readFileSync(path.join(process.env.RUYI_HOME, 'config.json'), 'utf8');
@@ -37,7 +58,7 @@ async function worker() {
       headersMatch: provider?.extraHeaders?.['x-fixture-secret'] === task.header, encryption: config.credentialEncryptionV1 === true }));
   } catch (error) {
     const code = String(error?.code || 'unknown');
-    process.stdout.write(JSON.stringify({ ok: false, code: /^credential_vault\.[a-z_]+$/.test(code) ? code : 'worker_failed' }));
+    process.stdout.write(JSON.stringify({ ok: false, code: /^credential_vault\.[a-z_]+$/.test(code) ? code : 'worker_failed', guidance: guidanceFor(error) }));
   }
 }
 async function main() {
@@ -108,6 +129,28 @@ async function main() {
     t.ok(interrupted.ok && interrupted.journalWritten && fs.existsSync(path.join(data, 'credential-import-v1.json')), 'A12 fixture leaves an encrypted interrupted transaction on disk');
     const afterCrash = await run();
     t.ok(afterCrash.ok && afterCrash.matches && !fs.existsSync(path.join(data, 'credential-import-v1.json')), 'A13 fresh process automatically rolls back the unfinished transaction before readConfig returns');
+    // A14–A17:主机密文解不开(换账户/换实例,或被篡改)—— M4 的 DPAPI 冷启动拒绝链路。
+    const goodVaultAgain = fs.readFileSync(vaultFile, 'utf8'), beforeForeign = fs.readFileSync(configFile, 'utf8');
+    const foreignRun = await run({ foreignKey: true });
+    t.ok(!foreignRun.ok && foreignRun.code === 'credential_vault.unlock_failed',
+      'A14 a master key wrapped for another account/instance stops at credential_vault.unlock_failed');
+    // A15 必须钉「库一个字节都没被重写」:父进程记下的注入值、worker 写下的注入值、事后文件三方对齐。
+    // 只看「≠ 好库的 blob」是空断言 —— 产品把库清空重建时它同样为真(2026-11-05 复审用变异实测过)。
+    const beforeState = JSON.parse(goodVaultAgain);
+    const injected = JSON.parse(fs.readFileSync(path.join(data, 'foreign-injected.json'), 'utf8'));
+    const afterForeignState = JSON.parse(fs.readFileSync(vaultFile, 'utf8'));
+    t.ok(afterForeignState.protectedKey === injected.protectedKey
+      && afterForeignState.instanceId === beforeState.instanceId
+      && afterForeignState.records.length === beforeState.records.length
+      && fs.readFileSync(configFile, 'utf8') === beforeForeign,
+      'A15 the foreign vault is byte-preserved (same injected blob, same instanceId/records): no silent re-init, configuration untouched');
+    fs.writeFileSync(vaultFile, goodVaultAgain);
+    const tamperRun = await run({ tamperKey: true });
+    t.ok(!tamperRun.ok && tamperRun.code === 'credential_vault.unlock_failed',
+      'A16 a corrupted master-key blob also stops at unlock_failed (not a decrypt/plaintext fallback)');
+    fs.writeFileSync(vaultFile, goodVaultAgain);
+    t.ok(typeof foreignRun.guidance === 'string' && foreignRun.guidance.includes('credential-vault-v1.json') && foreignRun.guidance.includes('RUYI_HOME'),
+      'A17 the failing process itself gets concrete guidance (keep the data dir, restore into a fresh RUYI_HOME; got ' + JSON.stringify({ code: foreignRun.code, guidance: String(foreignRun.guidance || '').slice(0, 60) }) + ')');
   } catch { t.fail('fixture failed; raw configuration and exception text suppressed'); }
   finally {
     for (const child of children) killOwnTree(child);
