@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [135 · 冷维护命令的 go/claim 协议](135-m3-maintenance-claim-gopher-20261105.md)：真实 enable 夹具输入校验已过，但缺父进程「写 armed claim → 发 IPC go → 主动退出」三步，worker 报 `worker_failed`；夹具已删，记录精确协议，无产品改动，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [136 · 维护网关的 host 依赖](136-m3-maintenance-gateway-host-20261105.md)：父进程协议应是实例化 `WorkDataMaintenanceWorker` 网关，需 base/pid/listener/spawn/claim/exitParent 一整套桌面宿主依赖；测试进程不可复刻，夹具已删；① 剩余为桌面/UI 触发点，建议转 ②③；版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [135 · 冷维护命令的 go/claim 协议](135-m3-maintenance-claim-gopher-20261105.md)：真实 enable 夹具输入校验已过，但缺父进程「写 armed claim → 发 IPC go → 主动退出」三步，worker 报 `worker_failed`；夹具已删，记录精确协议，无产品改动，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [134 · 私有 successor 握手的拒绝面](134-m3-successor-handshake-20261105.md)：真实进程验证空 stdin/错 nonce/陈旧 authority/多余 activation 在读盘前被拒，且不落密钥与活动代；6 项 PASS；合法握手与 UI 路径留后，版本3.0.1，3.1未完成、未发布。
 
