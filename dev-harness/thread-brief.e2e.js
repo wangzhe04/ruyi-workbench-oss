@@ -341,7 +341,15 @@ try {
     ok(card && card.brief && card.brief.gist === GIST, 'K3 卡片带那句概括(抽屉与搜索结果要用)');
 
     // ② 管家的线程搜索:13g steward_threads_search
-    const found = await srv.StewardHooks.threadsSearch({ q: 'AMD' }, { session: { kind: 'steward' } });
+    // 这个工具只在【管家会话的模型作用域】里可读(13as modelAuthority:真 session.id + kind='steward'
+    // + stewardEnabledV1)。早先这里只写 { session:{ kind:'steward' } },搜索会以
+    // session_search.model_scope_required 直接失败(!ok、results 空),而那两条红 K4/K5 只看
+    // 「带没带 brief」,于是被误读成「结果不带 brief」——基线红了很久没人翻到真因。
+    const stewardCaller = await srv.createSession({ title: '', cwd: HOME });
+    stewardCaller.kind = 'steward';
+    await srv.saveSession(stewardCaller);
+    const found = await srv.StewardHooks.threadsSearch({ q: 'AMD' }, { session: { id: stewardCaller.id, kind: 'steward' } });
+    ok(found && found.ok === true, `K3b 线程搜索真的跑起来了(不是作用域拒绝;got ${JSON.stringify(found && (found.message || found.ok))})`);
     const rowK = ((found && found.results) || []).find(r => r && r.sessionId === idK);
     ok(rowK && rowK.brief && rowK.brief.title === TITLE && rowK.brief.gist === GIST,
       `K4 线程搜索结果带 brief(got ${rowK && JSON.stringify(rowK.brief)})`);
