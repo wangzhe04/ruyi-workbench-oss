@@ -1,6 +1,10 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [137 · 非空 special：现状与确切断口](137-m3-nonempty-special-status-20261105.md)：47 项 owner/快照单测实跑通过；确认缺口是「带 owner 的非空 capsule 普通快照」无测试，`01ab:213` 路径已存在；下一片补该往返，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [139 · 非空 capsule 快照用例：夹具已现成](139-m3-capsule-fixture-recipe-20261105.md)：`migration-backup-owner-fixture.capsule()` 已能产出真实 capsule 且 owner 具备 01ab 需要的五个方法；记录“搬进快照 base 需先确认 capsule 路径相对/绝对”这一前置，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [138 · 全量 unit 检查点（绿）与一处真实回归修复](138-m3-unit-checkpoint-20261105.md)：全量 194 suites/5057 tests/5031 pass/0 fail；修正 adapter flip 后遗留的 codec 普查断言。
+
+> **2026-11-05 前片：** [137 · 非空 special：现状与确切断口](137-m3-nonempty-special-status-20261105.md)：47 项 owner/快照单测实跑通过；确认缺口是「带 owner 的非空 capsule 普通快照」无测试，`01ab:213` 路径已存在；下一片补该往返，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [136 · 维护网关的 host 依赖](136-m3-maintenance-gateway-host-20261105.md)：父进程协议应是实例化 `WorkDataMaintenanceWorker` 网关，需 base/pid/listener/spawn/claim/exitParent 一整套桌面宿主依赖；测试进程不可复刻，夹具已删；① 剩余为桌面/UI 触发点，建议转 ②③；版本3.0.1，3.1未完成、未发布。
 
