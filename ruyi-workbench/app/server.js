@@ -111982,6 +111982,10 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
         assertScopeOwner(scopeOwner,sessionId);
         preparing = true; admitted = true;
         policy.assert(); source.assert();
+        // 来源必须属于【这次准备】的会话:13be 的 uploads source 天然带 scope=hash(sessionId)[:32],
+        // 渲染件(renderedSource)也照这个形状写;这里再核一次,免得 A 会话造出来的来源在 B 会话下
+        // 被 prepare 成功、把记录落到 A 的命名空间里(2026-11-05 复审实测过)。
+        if (!source.snapshot || typeof source.snapshot.scope !== 'string' || source.snapshot.scope !== hash(sessionId).slice(0, 32)) fail('source_scope_mismatch');
         const processorSnapshot = processor.capture();
         pipeline = contract.create({ sourceOwner: { capture: () => source.snapshot, assert: () => { assertScopeOwner(scopeOwner,sessionId); return source.assert(); } },
           policyOwner: { capture: () => policy, assert: () => policy.assert(), prepareDetector:policy.prepareDetector }, processorOwner: processor, now });
@@ -112113,7 +112117,28 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
     catch { fail('recipient_invalid'); }
     return hash(JSON.stringify([String(url), values]));
   }
-  return Object.freeze({ create, recipientHash, partReference, referenceId });
+  // 「渲染 + 遮盖」的第一块:把渲染出来的像素(内存里的 Buffer)做成受证明的来源。
+  // prepare 原来只吃 uploads 里带 dev/ino 身份的 source;渲染件从来没有文件身份,所以这里给它自己的证明:
+  // 自己持有一份字节(复制,调用方之后改自己的 Buffer 不影响)、sha256 钉住内容、作用域由会话派生,
+  // assert() 会在作用域变化、已释放或内容被改时 fail-closed,release() 就地抹零。
+  function renderedSource({ id, name, bytes, sessionId, scopeOwner } = {}) {
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) fail('source_invalid');
+    if (typeof name !== 'string' || !name || name.length > 200) fail('source_invalid');
+    if (!Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > 4 * 1024 * 1024) fail('source_invalid');
+    if (typeof sessionId !== 'string' || !sessionId) fail('source_invalid');
+    const own = Buffer.from(bytes), digest = hash(own), scope = hash(sessionId).slice(0, 32);
+    let released = false;
+    const snapshot = Object.freeze({ bytes: own, hash: digest, revision: digest, scope });
+    return Object.freeze({ id, name, snapshot,
+      assert() {
+        if (scopeOwner && typeof scopeOwner.assert === 'function') scopeOwner.assert();
+        if (released) fail('source_changed');
+        if (hash(own) !== digest) fail('source_changed');
+        return true;
+      },
+      async release() { if (!released) { released = true; own.fill(0); } } });
+  }
+  return Object.freeze({ create, recipientHash, partReference, referenceId, renderedSource });
 })(require('node:crypto'), globalThis.Headers);
 
 // Lazy production composition. Loading this module starts no processes and does
