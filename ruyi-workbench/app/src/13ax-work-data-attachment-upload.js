@@ -18,15 +18,50 @@ WorkDataAttachmentUploadHooks.sealUpload = async function sealUpload(body) {
     ...(audioLike ? { kind: 'audio' } : {}), ...(imageLike ? { kind: 'image' } : {}) });
 };
 
+const attachmentRuntimes = () => ({
+  attachment: WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'attachment' }),
+  toolImage: WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'toolImage' }),
+});
+WorkDataAttachmentUploadHooks.sealToolImage = async ({ id, name, mime, data }) => {
+  const config = await readConfig();
+  if (config.workDataEncryptionV1 !== true) return null;
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'toolImage' });
+  try {
+    await runtime.seal({ id, kind: 'tool-image', logicalName: name, mime, data });
+    return true;
+  } catch (error) {
+    // The id is content-derived, so a repeated tool image hits id_exists; that is
+    // the sealed equivalent of the raw path's "already present, skip the write".
+    if (error && String(error.code || '').endsWith('id_exists') && await runtime.has(id)) return true;
+    throw error;
+  }
+};
+WorkDataAttachmentUploadHooks.removeToolImages = async sessionId => {
+  const prefix = 'toolimg_' + toolImageSessionTag(sessionId) + '_';
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'toolImage', allowSealedRemoval: true });
+  const removed = [];
+  for (const row of await runtime.list()) {
+    if (row.state !== 'sealed' || !row.id.startsWith(prefix)) continue;
+    try { await runtime.retireSealed(row.id); removed.push(row.id); }
+    catch { /* a single damaged row must not stop the rest of the sweep */ }
+  }
+  return Object.freeze({ removed: Object.freeze(removed) });
+};
 WorkDataAttachmentUploadHooks.info = async id => {
-  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
-  if (!(await runtime.has(id))) return null;
-  const stat = await runtime.stat(id);
-  return Object.freeze({ totalBytes: stat.totalBytes, sha256: stat.sha256, mime: stat.metadata?.mime || 'application/octet-stream' });
+  for (const runtime of Object.values(attachmentRuntimes())) {
+    if (await runtime.has(id)) {
+      const stat = await runtime.stat(id);
+      return Object.freeze({ totalBytes: stat.totalBytes, sha256: stat.sha256, mime: stat.metadata?.mime || 'application/octet-stream' });
+    }
+  }
+  return null;
 };
 WorkDataAttachmentUploadHooks.read = async ({ id, start, end }) => {
-  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
-  const lease = await runtime.read(id, start, end);
-  try { return Object.freeze({ bytes: Buffer.from(lease.bytes), totalBytes: lease.totalBytes, sha256: lease.sha256, mime: lease.metadata?.mime || 'application/octet-stream' }); }
-  finally { try { lease.release(); } catch {} }
+  for (const runtime of Object.values(attachmentRuntimes())) {
+    if (!(await runtime.has(id))) continue;
+    const lease = await runtime.read(id, start, end);
+    try { return Object.freeze({ bytes: Buffer.from(lease.bytes), totalBytes: lease.totalBytes, sha256: lease.sha256, mime: lease.metadata?.mime || 'application/octet-stream' }); }
+    finally { try { lease.release(); } catch {} }
+  }
+  throw Object.assign(Error('work_data_attachment_runtime.id_missing'), { code: 'work_data_attachment_runtime.id_missing', statusCode: 404 });
 };

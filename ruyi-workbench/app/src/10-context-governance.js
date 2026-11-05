@@ -691,14 +691,20 @@ async function boundToolResultForDisplay(name, resultObj, opts = null) {
         const fname = `${String(name || 'tool').replace(/^.+?__/, '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'tool'}.${ext}`;
         let stored = false;
         try {
-          await fsp.mkdir(path.join(paths.uploads, id), { recursive: true });
-          const target = path.join(paths.uploads, id, fname);
-          // 先写临时文件再 rename:崩在半路只会留下 .tmp,不会留下「id = 内容哈希 → 永远被当成完整」的截断图。
-          await fsp.access(target).catch(async () => {
-            const tmp = `${target}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
-            try { await fsp.writeFile(tmp, buf); await fsp.rename(tmp, target); }
-            catch (e) { fsp.unlink(tmp).catch(() => {}); throw e; }
-          });
+          let sealed = false;
+          if (typeof WorkDataAttachmentUploadHooks !== 'undefined' && typeof WorkDataAttachmentUploadHooks.sealToolImage === 'function') {
+            sealed = await WorkDataAttachmentUploadHooks.sealToolImage({ id, name: fname, mime, data: buf }) === true;
+          }
+          if (!sealed) {
+            await fsp.mkdir(path.join(paths.uploads, id), { recursive: true });
+            const target = path.join(paths.uploads, id, fname);
+            // 先写临时文件再 rename:崩在半路只会留下 .tmp,不会留下「id = 内容哈希 → 永远被当成完整」的截断图。
+            await fsp.access(target).catch(async () => {
+              const tmp = `${target}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+              try { await fsp.writeFile(tmp, buf); await fsp.rename(tmp, target); }
+              catch (e) { fsp.unlink(tmp).catch(() => {}); throw e; }
+            });
+          }
           stored = true;
         } catch { stored = false; }
         const parent = cowToolResultParent(resultObj, img.path, cloneOf);

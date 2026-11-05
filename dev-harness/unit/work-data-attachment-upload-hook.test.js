@@ -15,7 +15,8 @@ function load(root, { badKeys = false } = {}) {
     SRC('01ak-work-data-attachment-runtime.js'), SRC('13ax-work-data-attachment-upload.js')].join('\n');
   const keys = { async snapshot() { return { key: Buffer.from(badKeys ? Buffer.alloc(16) : key), instanceId: 'b'.repeat(32), release() {} }; } };
   const context = { require, Buffer, console, process, setTimeout, clearTimeout, crypto, fsp, AbortSignal, path,
-    paths: { uploads: root }, workDataKeys: keys, nowIso: () => '2026-11-05T00:00:00.000Z', WorkDataAttachmentUploadHooks: {} };
+    paths: { uploads: root }, workDataKeys: keys, nowIso: () => '2026-11-05T00:00:00.000Z', WorkDataAttachmentUploadHooks: {},
+    readConfig: async () => ({ workDataEncryptionV1: true }), toolImageSessionTag: () => 'tag' };
   vm.createContext(context);
   return vm.runInContext(code + '\n({hooks:WorkDataAttachmentUploadHooks,runtime:WorkDataAttachmentRuntime})', context);
 }
@@ -54,6 +55,20 @@ test('download hooks expose sealed info and ranged bytes', async t => {
   const part = await f.api.hooks.read({ id: record.id, start: 2, end: 5 });
   assert.equal(Buffer.from(part.bytes).toString('utf8'), '234');
   assert.equal(await f.api.hooks.info('file_ffffffffffffffff'), null);
+});
+test('tool image hooks seal into their own face and retire by session tag', async t => {
+  const f = await fixture(t);
+  const id = 'toolimg_tag_0123456789abcdef01234567';
+  assert.equal(await f.api.hooks.sealToolImage({ id, name: 'shot.png', mime: 'image/png', data: Buffer.from('PNGDATA') }), true);
+  assert.equal(await f.api.hooks.sealToolImage({ id, name: 'shot.png', mime: 'image/png', data: Buffer.from('PNGDATA') }), true, 'a repeated image is idempotent instead of failing the tool result');
+  const info = await f.api.hooks.info(id);
+  assert.equal(info.totalBytes, 7);
+  assert.equal(info.mime, 'image/png');
+  const whole = await f.api.hooks.read({ id, start: 0, end: 7 });
+  assert.equal(Buffer.from(whole.bytes).toString('utf8'), 'PNGDATA');
+  const removed = await f.api.hooks.removeToolImages('session-1');
+  assert.deepEqual(Array.from(removed.removed), [id]);
+  assert.equal(await f.api.hooks.info(id), null);
 });
 test('hook surfaces sealing failures instead of writing plaintext', async t => {
   const f = await fixture(t, { badKeys: true });

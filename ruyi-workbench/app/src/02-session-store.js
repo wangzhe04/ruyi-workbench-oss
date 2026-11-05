@@ -2389,13 +2389,20 @@ function sessionAssociatedSaveIsTombstoned(id) {
 function toolImageSessionTag(sessionId) { return crypto.createHash('sha1').update(String(sessionId)).digest('hex').slice(0, 10); }
 async function removeSessionToolImages(sessionId) {
   const prefix = `toolimg_${toolImageSessionTag(sessionId)}_`;
-  let names = [];
-  try { names = await fsp.readdir(paths.uploads); } catch { return 0; }
-  let n = 0;
+  let names = [], n = 0;
+  try { names = await fsp.readdir(paths.uploads); } catch { names = []; }
   for (const name of names) {
     if (!name.startsWith(prefix)) continue;
     await fsp.rm(path.join(paths.uploads, name), { recursive: true, force: true }).then(() => { n += 1; }).catch(() => {});
   }
+  // Sealed tool images (encryption on) live under <opaque>/<revision>, so the
+  // prefix sweep cannot see them; the attachment runtime retires them by id.
+  try {
+    if (typeof WorkDataAttachmentUploadHooks !== 'undefined' && typeof WorkDataAttachmentUploadHooks.removeToolImages === 'function') {
+      const removed = await WorkDataAttachmentUploadHooks.removeToolImages(sessionId);
+      n += (removed && removed.removed ? removed.removed.length : 0);
+    }
+  } catch { /* a failed retire leaves the rows for explicit cleanup */ }
   return n;
 }
 async function deleteSession(id, { purgeAssociated = false } = {}) {
