@@ -43,9 +43,22 @@ test('hook returns null for empty data and falls back to a safe mime', async t =
   const record = await f.api.hooks.sealUpload({ name: 'x.bin', mime: 'not a mime', data: Buffer.from('x').toString('base64') });
   assert.equal(record.name, 'x.bin');
 });
+test('download hooks expose sealed info and ranged bytes', async t => {
+  const f = await fixture(t);
+  const record = await f.api.hooks.sealUpload({ name: 'a.bin', mime: 'text/plain', data: Buffer.from('0123456789').toString('base64') });
+  const info = await f.api.hooks.info(record.id);
+  assert.equal(info.totalBytes, 10);
+  assert.equal(info.mime, 'text/plain');
+  const whole = await f.api.hooks.read({ id: record.id, start: 0, end: info.totalBytes });
+  assert.equal(Buffer.from(whole.bytes).toString('utf8'), '0123456789');
+  const part = await f.api.hooks.read({ id: record.id, start: 2, end: 5 });
+  assert.equal(Buffer.from(part.bytes).toString('utf8'), '234');
+  assert.equal(await f.api.hooks.info('file_ffffffffffffffff'), null);
+});
 test('hook surfaces sealing failures instead of writing plaintext', async t => {
   const f = await fixture(t, { badKeys: true });
   await assert.rejects(f.api.hooks.sealUpload({ name: 'x.bin', data: Buffer.from('x').toString('base64') }), /work_data/);
   const leftovers = fs.existsSync(f.root) ? fs.readdirSync(f.root).filter(name => name.startsWith('file_')) : [];
   assert.deepEqual(leftovers, []);
 });
+

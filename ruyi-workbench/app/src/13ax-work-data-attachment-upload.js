@@ -17,3 +17,16 @@ WorkDataAttachmentUploadHooks.sealUpload = async function sealUpload(body) {
   return Object.freeze({ id, name: safeName, size: bytes.length, createdAt: nowIso(), sealed: true,
     ...(audioLike ? { kind: 'audio' } : {}), ...(imageLike ? { kind: 'image' } : {}) });
 };
+
+WorkDataAttachmentUploadHooks.info = async id => {
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
+  if (!(await runtime.has(id))) return null;
+  const stat = await runtime.stat(id);
+  return Object.freeze({ totalBytes: stat.totalBytes, sha256: stat.sha256, mime: stat.metadata?.mime || 'application/octet-stream' });
+};
+WorkDataAttachmentUploadHooks.read = async ({ id, start, end }) => {
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
+  const lease = await runtime.read(id, start, end);
+  try { return Object.freeze({ bytes: Buffer.from(lease.bytes), totalBytes: lease.totalBytes, sha256: lease.sha256, mime: lease.metadata?.mime || 'application/octet-stream' }); }
+  finally { try { lease.release(); } catch {} }
+};

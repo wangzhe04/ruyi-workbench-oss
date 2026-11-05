@@ -15476,6 +15476,7 @@
         "sendMcpNotification",
         "setProxyModelsCache",
         "setSessionSkillsCore",
+        "singleByteRange",
         "sleep",
         "startErrorNextText",
         "startMcp",

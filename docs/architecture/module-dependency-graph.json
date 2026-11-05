@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 141,
-    "providedSymbols": 4332,
+    "providedSymbols": 4333,
     "requiredSymbols": 4275,
     "edges": 938,
     "forwardEdges": 67,
@@ -15658,6 +15658,7 @@
         "sendMcpNotification",
         "setProxyModelsCache",
         "setSessionSkillsCore",
+        "singleByteRange",
         "sleep",
         "startErrorNextText",
         "startMcp",

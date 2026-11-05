@@ -76833,6 +76833,23 @@ const HELP_DOC_FILES = Object.freeze({
   'admin-guide': Object.freeze({ 'zh-CN': 'ADMIN-GUIDE_CN.md', 'en-US': 'ADMIN-GUIDE_EN.md' }),
 });
 const HELP_DOC_LANGS = Object.freeze(['zh-CN', 'en-US']);
+// Single byte range for attachment downloads (raw and sealed share the parser).
+// Unknown units, multi-ranges and unsatisfiable bounds return null so callers
+// answer 416 with `bytes */size` instead of serving the whole body.
+function singleByteRange(header, total) {
+  const parsed = /^bytes=(\d*)-(\d*)$/.exec(String(header || '').trim());
+  if (!parsed || !Number.isSafeInteger(total) || total < 1) return null;
+  const [, from, to] = parsed;
+  let start = -1, end = -1;
+  if (from === '' && to === '') return null;
+  if (from === '') { const suffix = Number(to); if (!Number.isSafeInteger(suffix) || suffix <= 0) return null; start = Math.max(0, total - suffix); end = total - 1; }
+  else {
+    start = Number(from); end = to === '' ? total - 1 : Number(to);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) return null;
+    end = Math.min(end, total - 1); if (end < start || start >= total) return null;
+  }
+  return { start, end };
+}
 // 手册体量在 30~60KB 量级;512KB 上限只是防止有人把巨型文件放进 docs/manuals 后一次性灌进浏览器。
 const HELP_DOC_MAX_BYTES = 512 * 1024;
 
@@ -78232,6 +78249,28 @@ async function handleApi(req, res, pathname) {
     // name 只许纯 basename(无分隔符/无 ..);与 makeAttachmentRecord 的 safeName 同域。
     if (!name || name.length > 255 || name !== path.basename(name) || name === '.' || name === '..') {
       return send(res, apiFailure('upload.name_invalid', {}, 'invalid attachment name', 400));
+    }
+    // Sealed attachments (encryption on): resolve through the transport hook before
+    // any raw-path containment check, because a sealed attachment has no raw file.
+    const downloadConfig = await readConfig();
+    if (downloadConfig.workDataEncryptionV1 === true && typeof WorkDataAttachmentUploadHooks !== 'undefined'
+      && typeof WorkDataAttachmentUploadHooks.info === 'function' && typeof WorkDataAttachmentUploadHooks.read === 'function') {
+      let info = null;
+      try { info = await WorkDataAttachmentUploadHooks.info(id); } catch { info = null; }
+      if (info) {
+        const sealedHeaders = { 'content-type': info.mime, 'cache-control': 'private, max-age=86400', 'accept-ranges': 'bytes' };
+        const header = req.headers && req.headers.range;
+        try {
+          if (!header) {
+            const whole = await WorkDataAttachmentUploadHooks.read({ id, start: 0, end: info.totalBytes });
+            return send(res, { status: 200, headers: { ...sealedHeaders, 'content-length': String(whole.bytes.length) }, body: whole.bytes });
+          }
+          const range = singleByteRange(header, info.totalBytes);
+          if (!range) return send(res, { status: 416, headers: { ...sealedHeaders, 'content-range': 'bytes */' + info.totalBytes }, body: '' });
+          const part = await WorkDataAttachmentUploadHooks.read({ id, start: range.start, end: range.end + 1 });
+          return send(res, { status: 206, headers: { ...sealedHeaders, 'content-range': `bytes ${range.start}-${range.end}/${info.totalBytes}`, 'content-length': String(part.bytes.length) }, body: part.bytes });
+        } catch (error) { return send(res, apiFailure('upload.not_found', {}, 'attachment not found', 404)); }
+      }
     }
     const uploadsRoot = await fsp.realpath(paths.uploads).catch(() => paths.uploads);
     const target = path.resolve(path.join(paths.uploads, id, name));
@@ -113146,6 +113185,18 @@ WorkDataAttachmentUploadHooks.sealUpload = async function sealUpload(body) {
     ...(audioLike ? { kind: 'audio' } : {}), ...(imageLike ? { kind: 'image' } : {}) });
 };
 
+WorkDataAttachmentUploadHooks.info = async id => {
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
+  if (!(await runtime.has(id))) return null;
+  const stat = await runtime.stat(id);
+  return Object.freeze({ totalBytes: stat.totalBytes, sha256: stat.sha256, mime: stat.metadata?.mime || 'application/octet-stream' });
+};
+WorkDataAttachmentUploadHooks.read = async ({ id, start, end }) => {
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
+  const lease = await runtime.read(id, start, end);
+  try { return Object.freeze({ bytes: Buffer.from(lease.bytes), totalBytes: lease.totalBytes, sha256: lease.sha256, mime: lease.metadata?.mime || 'application/octet-stream' }); }
+  finally { try { lease.release(); } catch {} }
+};
 // Explicit production host assembly. Loading this module only installs the
 // maintenance-runtime hooks (no acquisition, configure, IO, ready or process
 // startup); startServer calls acquireServe/configureServe explicitly.
