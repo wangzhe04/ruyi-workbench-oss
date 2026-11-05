@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 141,
-    "providedSymbols": 4333,
-    "requiredSymbols": 4275,
-    "edges": 938,
+    "providedSymbols": 4334,
+    "requiredSymbols": 4279,
+    "edges": 939,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2579,6 +2579,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataAttachmentUploadHooks",
           "kinds": [
             "read"
           ]
@@ -13172,6 +13179,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataAttachmentUploadHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -31266,6 +31280,7 @@
       "layer": "unclassified",
       "note": "M3 attachments: registers the sealed-upload hook through WorkDataAttachmentUploadHooks so 13-http-router keeps no static edge to the attachment runtime; derived media work is not wired",
       "provides": [
+        "attachmentRuntimes",
         "sealUpload"
       ],
       "requires": [
@@ -31298,10 +31313,24 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01ak-work-data-attachment-runtime.js",
           "symbol": "WorkDataAttachmentRuntime",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "toolImageSessionTag",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -36432,6 +36461,7 @@
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "SessionExecutionHooks",
+        "WorkDataAttachmentUploadHooks",
         "WorkDataMaintenanceHooks",
         "WorkDataRootHooks",
         "crypto",
@@ -39345,6 +39375,7 @@
         "SessionExecutionHooks",
         "ThreadRelayHooks",
         "URL",
+        "WorkDataAttachmentUploadHooks",
         "WorkDataMaintenanceHooks",
         "apiSessionIdInvalid",
         "appendUsageLedger",
@@ -42364,6 +42395,14 @@
     },
     {
       "from": "13ax-work-data-attachment-upload.js",
+      "to": "01-config.js",
+      "symbols": [
+        "readConfig"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-work-data-attachment-upload.js",
       "to": "01ak-work-data-attachment-runtime.js",
       "symbols": [
         "WorkDataAttachmentRuntime"
@@ -42374,6 +42413,7 @@
       "from": "13ax-work-data-attachment-upload.js",
       "to": "02-session-store.js",
       "symbols": [
+        "toolImageSessionTag",
         "workDataKeys"
       ],
       "direction": "backward"

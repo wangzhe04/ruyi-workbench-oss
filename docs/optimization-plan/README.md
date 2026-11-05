@@ -1,6 +1,10 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [128 · 启用代 HTTP 往返通过](128-m3-http-roundtrip-pass-20261105.md)：冷 enable 后起真实服务，在加密代上上传/整读/206 区间/416 越界与「uploads 无明文」7 项全 PASS（75s）；附件证据链补齐，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [130 · `uploads-attachment` adapter 转 wired](130-m3-adapter-wired-20261105.md)：依据 128 的启用代 HTTP 验收把原始附件面改为 wired，工具图仍 pending；清册仍 80 面/47 required，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [129 · 工具图片接入 toolImage face](129-m3-tool-image-face-20261105.md)：启用态工具图经 `sealToolImage` 密封、下载 hook 两面查找、删会话按 catalog 退掉 sealed 行；5/5 hook 单测 + 32/32 工具相关；真实工具图 HTTP 未覆盖，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [128 · 启用代 HTTP 往返通过](128-m3-http-roundtrip-pass-20261105.md)：冷 enable 后起真实服务，在加密代上上传/整读/206 区间/416 越界与「uploads 无明文」7 项全 PASS（75s）；附件证据链补齐，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [127 · 启用代 HTTP 往返：第一次夹具尝试与阻塞点](127-m3-http-roundtrip-blocker-20261105.md)
 

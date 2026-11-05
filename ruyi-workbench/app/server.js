@@ -16758,13 +16758,20 @@ function sessionAssociatedSaveIsTombstoned(id) {
 function toolImageSessionTag(sessionId) { return crypto.createHash('sha1').update(String(sessionId)).digest('hex').slice(0, 10); }
 async function removeSessionToolImages(sessionId) {
   const prefix = `toolimg_${toolImageSessionTag(sessionId)}_`;
-  let names = [];
-  try { names = await fsp.readdir(paths.uploads); } catch { return 0; }
-  let n = 0;
+  let names = [], n = 0;
+  try { names = await fsp.readdir(paths.uploads); } catch { names = []; }
   for (const name of names) {
     if (!name.startsWith(prefix)) continue;
     await fsp.rm(path.join(paths.uploads, name), { recursive: true, force: true }).then(() => { n += 1; }).catch(() => {});
   }
+  // Sealed tool images (encryption on) live under <opaque>/<revision>, so the
+  // prefix sweep cannot see them; the attachment runtime retires them by id.
+  try {
+    if (typeof WorkDataAttachmentUploadHooks !== 'undefined' && typeof WorkDataAttachmentUploadHooks.removeToolImages === 'function') {
+      const removed = await WorkDataAttachmentUploadHooks.removeToolImages(sessionId);
+      n += (removed && removed.removed ? removed.removed.length : 0);
+    }
+  } catch { /* a failed retire leaves the rows for explicit cleanup */ }
   return n;
 }
 async function deleteSession(id, { purgeAssociated = false } = {}) {
@@ -60760,14 +60767,20 @@ async function boundToolResultForDisplay(name, resultObj, opts = null) {
         const fname = `${String(name || 'tool').replace(/^.+?__/, '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'tool'}.${ext}`;
         let stored = false;
         try {
-          await fsp.mkdir(path.join(paths.uploads, id), { recursive: true });
-          const target = path.join(paths.uploads, id, fname);
-          // 先写临时文件再 rename:崩在半路只会留下 .tmp,不会留下「id = 内容哈希 → 永远被当成完整」的截断图。
-          await fsp.access(target).catch(async () => {
-            const tmp = `${target}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
-            try { await fsp.writeFile(tmp, buf); await fsp.rename(tmp, target); }
-            catch (e) { fsp.unlink(tmp).catch(() => {}); throw e; }
-          });
+          let sealed = false;
+          if (typeof WorkDataAttachmentUploadHooks !== 'undefined' && typeof WorkDataAttachmentUploadHooks.sealToolImage === 'function') {
+            sealed = await WorkDataAttachmentUploadHooks.sealToolImage({ id, name: fname, mime, data: buf }) === true;
+          }
+          if (!sealed) {
+            await fsp.mkdir(path.join(paths.uploads, id), { recursive: true });
+            const target = path.join(paths.uploads, id, fname);
+            // 先写临时文件再 rename:崩在半路只会留下 .tmp,不会留下「id = 内容哈希 → 永远被当成完整」的截断图。
+            await fsp.access(target).catch(async () => {
+              const tmp = `${target}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+              try { await fsp.writeFile(tmp, buf); await fsp.rename(tmp, target); }
+              catch (e) { fsp.unlink(tmp).catch(() => {}); throw e; }
+            });
+          }
           stored = true;
         } catch { stored = false; }
         const parent = cowToolResultParent(resultObj, img.path, cloneOf);
@@ -113185,17 +113198,52 @@ WorkDataAttachmentUploadHooks.sealUpload = async function sealUpload(body) {
     ...(audioLike ? { kind: 'audio' } : {}), ...(imageLike ? { kind: 'image' } : {}) });
 };
 
+const attachmentRuntimes = () => ({
+  attachment: WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'attachment' }),
+  toolImage: WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'toolImage' }),
+});
+WorkDataAttachmentUploadHooks.sealToolImage = async ({ id, name, mime, data }) => {
+  const config = await readConfig();
+  if (config.workDataEncryptionV1 !== true) return null;
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'toolImage' });
+  try {
+    await runtime.seal({ id, kind: 'tool-image', logicalName: name, mime, data });
+    return true;
+  } catch (error) {
+    // The id is content-derived, so a repeated tool image hits id_exists; that is
+    // the sealed equivalent of the raw path's "already present, skip the write".
+    if (error && String(error.code || '').endsWith('id_exists') && await runtime.has(id)) return true;
+    throw error;
+  }
+};
+WorkDataAttachmentUploadHooks.removeToolImages = async sessionId => {
+  const prefix = 'toolimg_' + toolImageSessionTag(sessionId) + '_';
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true, face: 'toolImage', allowSealedRemoval: true });
+  const removed = [];
+  for (const row of await runtime.list()) {
+    if (row.state !== 'sealed' || !row.id.startsWith(prefix)) continue;
+    try { await runtime.retireSealed(row.id); removed.push(row.id); }
+    catch { /* a single damaged row must not stop the rest of the sweep */ }
+  }
+  return Object.freeze({ removed: Object.freeze(removed) });
+};
 WorkDataAttachmentUploadHooks.info = async id => {
-  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
-  if (!(await runtime.has(id))) return null;
-  const stat = await runtime.stat(id);
-  return Object.freeze({ totalBytes: stat.totalBytes, sha256: stat.sha256, mime: stat.metadata?.mime || 'application/octet-stream' });
+  for (const runtime of Object.values(attachmentRuntimes())) {
+    if (await runtime.has(id)) {
+      const stat = await runtime.stat(id);
+      return Object.freeze({ totalBytes: stat.totalBytes, sha256: stat.sha256, mime: stat.metadata?.mime || 'application/octet-stream' });
+    }
+  }
+  return null;
 };
 WorkDataAttachmentUploadHooks.read = async ({ id, start, end }) => {
-  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
-  const lease = await runtime.read(id, start, end);
-  try { return Object.freeze({ bytes: Buffer.from(lease.bytes), totalBytes: lease.totalBytes, sha256: lease.sha256, mime: lease.metadata?.mime || 'application/octet-stream' }); }
-  finally { try { lease.release(); } catch {} }
+  for (const runtime of Object.values(attachmentRuntimes())) {
+    if (!(await runtime.has(id))) continue;
+    const lease = await runtime.read(id, start, end);
+    try { return Object.freeze({ bytes: Buffer.from(lease.bytes), totalBytes: lease.totalBytes, sha256: lease.sha256, mime: lease.metadata?.mime || 'application/octet-stream' }); }
+    finally { try { lease.release(); } catch {} }
+  }
+  throw Object.assign(Error('work_data_attachment_runtime.id_missing'), { code: 'work_data_attachment_runtime.id_missing', statusCode: 404 });
 };
 // Explicit production host assembly. Loading this module only installs the
 // maintenance-runtime hooks (no acquisition, configure, IO, ready or process

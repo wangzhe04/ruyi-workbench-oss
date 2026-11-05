@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 141 | 4333 | 4275 | 938 | 67 | 0 | 1 |
+| 141 | 4334 | 4279 | 939 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -57,7 +57,7 @@
 | 39 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 40 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 41 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 42 | `02-session-store.js` | foundation | 402 | 84 | 22 |
+| 42 | `02-session-store.js` | foundation | 402 | 85 | 22 |
 | 43 | `03-bridge-guard.js` | foundation | 122 | 31 | 7 |
 | 44 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 45 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
@@ -93,7 +93,7 @@
 | 75 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 76 | `09-workflow.js` | orchestration | 32 | 279 | 29 |
 | 77 | `09c-thread-relay.js` | orchestration | 1 | 49 | 13 |
-| 78 | `10-context-governance.js` | orchestration | 228 | 115 | 21 |
+| 78 | `10-context-governance.js` | orchestration | 228 | 116 | 21 |
 | 79 | `11-native-tools.js` | tools | 144 | 52 | 9 |
 | 80 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 81 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
@@ -153,7 +153,7 @@
 | 135 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 136 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
 | 137 | `13ax-desktop-lifetime.js` | unclassified | 10 | 16 | 9 |
-| 138 | `13ax-work-data-attachment-upload.js` | unclassified | 1 | 7 | 4 |
+| 138 | `13ax-work-data-attachment-upload.js` | unclassified | 2 | 9 | 5 |
 | 139 | `13au-work-data-runtime-host.js` | unclassified | 2 | 19 | 14 |
 | 140 | `14-main.js` | entrypoint | 8 | 604 | 53 |
 
@@ -240,7 +240,7 @@
 | `01z-work-data-root-authority.js` | `00-boot.js` | backward | `WorkDataRootHooks`, `_workDataStableAliases`, `_workDataStableBase`, `dataRoot`, `dataRootAliases`, `paths` |
 | `01z-work-data-root-authority.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `01z-work-data-root-authority.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
-| `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `MediaImageHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
+| `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `MediaImageHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
 | `02-session-store.js` | `01-config.js` | backward | `DurableJsonStore`, `assertSessionIdForPath`, `atomicWriteJson`, `mutateConfig`, `noteSessionsDirOwnWrite`, `readConfig`, `readFileTail`, `safeSessionId`, `selectedAgentCli`, `sessionPath`, `sessionWriteChains` |
 | `02-session-store.js` | `01c-runtime-flags.js` | backward | `MEMORY_FIXED_SELECTION_HARD_MAX` |
 | `02-session-store.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
@@ -487,7 +487,7 @@
 | `09c-thread-relay.js` | `09-workflow.js` | backward | `launchPersistedAgentRun`, `waitForAgentRunResults` |
 | `09d-token-estimation.js` | `07-autonomy.js` | backward | `estimateToolSchemaTokens` |
 | `09d-token-estimation.js` | `10-context-governance.js` | forward | `ESTIMATION_RULES` |
-| `10-context-governance.js` | `00-boot.js` | backward | `EventStreamHooks`, `SessionExecutionHooks`, `ThreadRelayHooks`, `URL`, `WorkDataMaintenanceHooks`, `apiSessionIdInvalid`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
+| `10-context-governance.js` | `00-boot.js` | backward | `EventStreamHooks`, `SessionExecutionHooks`, `ThreadRelayHooks`, `URL`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `apiSessionIdInvalid`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `text`, `zlib` |
 | `10-context-governance.js` | `01-config.js` | backward | `DurableJsonStore`, `readConfig`, `readJsonBody`, `safeSessionId`, `send` |
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `evaporateBudgetBoundaryEnabled`, `historyReadDedupEnabled`, `observationRecallEnabled`, `reseedReattachFilesEnabled`, `reseedTailUnitsEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryPromptI18nEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
 | `10-context-governance.js` | `01e-permission-modes.js` | backward | `permissionModeFrom`, `resolvePermissionMode` |
@@ -766,8 +766,9 @@
 | `13ax-desktop-lifetime.js` | `13d-core-domain-routes.js` | backward | `agentRunActionCommand` |
 | `13ax-desktop-lifetime.js` | `13s-scheduler.js` | backward | `stopScheduler` |
 | `13ax-work-data-attachment-upload.js` | `00-boot.js` | backward | `WorkDataAttachmentUploadHooks`, `nowIso`, `path`, `paths` |
+| `13ax-work-data-attachment-upload.js` | `01-config.js` | backward | `readConfig` |
 | `13ax-work-data-attachment-upload.js` | `01ak-work-data-attachment-runtime.js` | backward | `WorkDataAttachmentRuntime` |
-| `13ax-work-data-attachment-upload.js` | `02-session-store.js` | backward | `workDataKeys` |
+| `13ax-work-data-attachment-upload.js` | `02-session-store.js` | backward | `toolImageSessionTag`, `workDataKeys` |
 | `13ax-work-data-attachment-upload.js` | `04-permission-runtime.js` | backward | `sanitizeFsSegmentName` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |

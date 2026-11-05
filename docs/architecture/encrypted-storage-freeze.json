@@ -72,7 +72,8 @@
     "background-job-ledger",
     "audit-log",
     "migration-skill-backups",
-    "media-derived"
+    "media-derived",
+    "uploads-attachment"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -571,7 +572,7 @@
       "migrationBatch": "sessions",
       "plaintextMetadata": [],
       "reason": "raw user attachments (images, documents, audio) are user content and must be sealed with the session they belong to",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "uploads-tool-image",
