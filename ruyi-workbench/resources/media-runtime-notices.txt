@@ -1,0 +1,97 @@
+Ruyi Workbench - media runtime third-party notices
+
+This file is generated from resources/media-runtime-dependencies.json.
+Do not edit by hand; run: node tools/generate-media-notices.cjs
+
+Platform: 10/11 x64
+Python: 3.12.10
+Inventory scope: M4-0 selected 21 media distribution RECORD closure plus exact CPython base/cached wheels; inventory only, not all ACC/software/OS or processor readiness
+Corresponding source and build evidence: resources/media-runtime-sources.json,
+resources/offline-manifest.json and docs/OFFLINE_DEPLOYMENT.md.
+
+Components (21):
+
+- cffi 2.1.1 - MIT-0
+  license files: python_embed/Lib/site-packages/cffi-2.1.1.dist-info/licenses/LICENSE
+  metadata: python_embed/Lib/site-packages/cffi-2.1.1.dist-info/METADATA
+  record: python_embed/Lib/site-packages/cffi-2.1.1.dist-info/RECORD
+- charset-normalizer 3.4.9 - MIT
+  license files: python_embed/Lib/site-packages/charset_normalizer-3.4.9.dist-info/licenses/LICENSE
+  metadata: python_embed/Lib/site-packages/charset_normalizer-3.4.9.dist-info/METADATA
+  record: python_embed/Lib/site-packages/charset_normalizer-3.4.9.dist-info/RECORD
+- cryptography 50.0.0 - Apache-2.0 OR BSD-3-Clause
+  license files: python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/licenses/LICENSE, python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/licenses/LICENSE.APACHE, python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/licenses/LICENSE.BSD
+  metadata: python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/METADATA
+  record: python_embed/Lib/site-packages/cryptography-50.0.0.dist-info/RECORD
+- et_xmlfile 2.0.0 - MIT
+  license files: python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/AUTHORS.txt, python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/LICENCE.python, python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/LICENCE.rst
+  metadata: python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/METADATA
+  record: python_embed/Lib/site-packages/et_xmlfile-2.0.0.dist-info/RECORD
+- lxml 6.1.1 - BSD-3-Clause
+  license files: python_embed/Lib/site-packages/lxml-6.1.1.dist-info/licenses/LICENSE.txt, python_embed/Lib/site-packages/lxml-6.1.1.dist-info/licenses/LICENSES.txt
+  metadata: python_embed/Lib/site-packages/lxml-6.1.1.dist-info/METADATA
+  record: python_embed/Lib/site-packages/lxml-6.1.1.dist-info/RECORD
+- numpy 2.5.1 - BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
+  license files: python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/LICENSE.txt, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/highway/LICENSE, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/multiarray/dragon4_LICENSE.txt, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/_core/src/umath/svml/LICENSE, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/fft/pocketfft/LICENSE.md, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/linalg/lapack_lite/LICENSE.txt, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/ma/LICENSE, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/LICENSE.md, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/distributions/LICENSE.md, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/mt19937/LICENSE.md, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/pcg64/LICENSE.md, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/philox/LICENSE.md, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/sfc64/LICENSE.md, python_embed/Lib/site-packages/numpy-2.5.1.dist-info/licenses/numpy/random/src/splitmix64/LICENSE.md, python_embed/Lib/site-packages/numpy/_core/include/numpy/random/LICENSE.txt, python_embed/Lib/site-packages/numpy/ma/LICENSE, python_embed/Lib/site-packages/numpy/random/LICENSE.md
+  metadata: python_embed/Lib/site-packages/numpy-2.5.1.dist-info/METADATA
+  record: python_embed/Lib/site-packages/numpy-2.5.1.dist-info/RECORD
+- opencv-python-headless 5.0.0.93 - Apache 2.0
+  license files: python_embed/Lib/site-packages/cv2/LICENSE-3RD-PARTY.txt, python_embed/Lib/site-packages/cv2/LICENSE.txt, python_embed/Lib/site-packages/opencv_python_headless-5.0.0.93.dist-info/LICENSE-3RD-PARTY.txt, python_embed/Lib/site-packages/opencv_python_headless-5.0.0.93.dist-info/LICENSE.txt
+  metadata: python_embed/Lib/site-packages/opencv_python_headless-5.0.0.93.dist-info/METADATA
+  record: python_embed/Lib/site-packages/opencv_python_headless-5.0.0.93.dist-info/RECORD
+- openpyxl 3.1.5 - MIT
+  license files: python_embed/Lib/site-packages/openpyxl-3.1.5.dist-info/LICENCE.rst
+  metadata: python_embed/Lib/site-packages/openpyxl-3.1.5.dist-info/METADATA
+  record: python_embed/Lib/site-packages/openpyxl-3.1.5.dist-info/RECORD
+- pdfminer.six 20260107 - MIT
+  license files: python_embed/Lib/site-packages/pdfminer_six-20260107.dist-info/licenses/LICENSE
+  metadata: python_embed/Lib/site-packages/pdfminer_six-20260107.dist-info/METADATA
+  record: python_embed/Lib/site-packages/pdfminer_six-20260107.dist-info/RECORD
+- pdfplumber 0.11.10 - MIT
+  license files: python_embed/Lib/site-packages/pdfplumber-0.11.10.dist-info/licenses/LICENSE.txt
+  metadata: python_embed/Lib/site-packages/pdfplumber-0.11.10.dist-info/METADATA
+  record: python_embed/Lib/site-packages/pdfplumber-0.11.10.dist-info/RECORD
+- pillow 12.3.0 - MIT-CMU
+  license files: python_embed/Lib/site-packages/pillow-12.3.0.dist-info/licenses/LICENSE
+  metadata: python_embed/Lib/site-packages/pillow-12.3.0.dist-info/METADATA
+  record: python_embed/Lib/site-packages/pillow-12.3.0.dist-info/RECORD
+- psutil 7.2.2 - BSD-3-Clause
+  license files: python_embed/Lib/site-packages/psutil-7.2.2.dist-info/LICENSE
+  metadata: python_embed/Lib/site-packages/psutil-7.2.2.dist-info/METADATA
+  record: python_embed/Lib/site-packages/psutil-7.2.2.dist-info/RECORD
+- pycparser 3.0 - BSD-3-Clause
+  license files: python_embed/Lib/site-packages/pycparser-3.0.dist-info/licenses/LICENSE
+  metadata: python_embed/Lib/site-packages/pycparser-3.0.dist-info/METADATA
+  record: python_embed/Lib/site-packages/pycparser-3.0.dist-info/RECORD
+- pypdf 6.14.2 - BSD-3-Clause
+  license files: python_embed/Lib/site-packages/pypdf-6.14.2.dist-info/licenses/LICENSE
+  metadata: python_embed/Lib/site-packages/pypdf-6.14.2.dist-info/METADATA
+  record: python_embed/Lib/site-packages/pypdf-6.14.2.dist-info/RECORD
+- pypdfium2 5.12.1 - BSD-3-Clause, Apache-2.0, dependency licenses
+  license files: python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/LICENSES/Apache-2.0.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/LICENSES/BSD-3-Clause.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/LICENSES/CC-BY-4.0.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/abseil.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/agg23.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/fast_float.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/freetype.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/icu.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/lcms.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libjpeg_turbo.ijg, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libjpeg_turbo.md, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libopenjpeg.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libpng.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/libtiff.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/llvm-libc.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/pdfium-binaries.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/pdfium.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/simdutf.txt, python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/licenses/data/windows_x64/BUILD_LICENSES/zlib.txt
+  metadata: python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/METADATA
+  record: python_embed/Lib/site-packages/pypdfium2-5.12.1.dist-info/RECORD
+- python-docx 1.2.0 - MIT
+  license files: python_embed/Lib/site-packages/python_docx-1.2.0.dist-info/licenses/LICENSE
+  metadata: python_embed/Lib/site-packages/python_docx-1.2.0.dist-info/METADATA
+  record: python_embed/Lib/site-packages/python_docx-1.2.0.dist-info/RECORD
+- python-pptx 1.0.2 - MIT
+  license files: python_embed/Lib/site-packages/python_pptx-1.0.2.dist-info/LICENSE
+  metadata: python_embed/Lib/site-packages/python_pptx-1.0.2.dist-info/METADATA
+  record: python_embed/Lib/site-packages/python_pptx-1.0.2.dist-info/RECORD
+- reportlab 5.0.0 - BSD license (see license.txt for details), Copyright (c) 2000-2025, ReportLab Inc.
+  license files: python_embed/Lib/site-packages/reportlab-5.0.0.dist-info/licenses/LICENSE, python_embed/Lib/site-packages/reportlab/fonts/DarkGarden-copying-gpl.txt, python_embed/Lib/site-packages/reportlab/fonts/DarkGarden-copying.txt, python_embed/Lib/site-packages/reportlab/fonts/bitstream-vera-license.txt
+  metadata: python_embed/Lib/site-packages/reportlab-5.0.0.dist-info/METADATA
+  record: python_embed/Lib/site-packages/reportlab-5.0.0.dist-info/RECORD
+- typing_extensions 4.16.0 - PSF-2.0
+  license files: python_embed/Lib/site-packages/typing_extensions-4.16.0.dist-info/licenses/LICENSE
+  metadata: python_embed/Lib/site-packages/typing_extensions-4.16.0.dist-info/METADATA
+  record: python_embed/Lib/site-packages/typing_extensions-4.16.0.dist-info/RECORD
+- winsdk 1.0.0b10 - MIT
+  license files: python_embed/Lib/site-packages/winsdk-1.0.0b10.dist-info/LICENSE
+  metadata: python_embed/Lib/site-packages/winsdk-1.0.0b10.dist-info/METADATA
+  record: python_embed/Lib/site-packages/winsdk-1.0.0b10.dist-info/RECORD
+- xlsxwriter 3.2.9 - BSD-2-Clause
+  license files: python_embed/Lib/site-packages/xlsxwriter-3.2.9.dist-info/LICENSE.txt
+  metadata: python_embed/Lib/site-packages/xlsxwriter-3.2.9.dist-info/METADATA
+  record: python_embed/Lib/site-packages/xlsxwriter-3.2.9.dist-info/RECORD
