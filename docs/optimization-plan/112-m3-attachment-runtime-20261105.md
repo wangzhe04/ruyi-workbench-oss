@@ -10,6 +10,7 @@
   为假时任何入口都拒绝（`work_data_attachment_runtime.disabled`，来自 01aj），不会退化成明文；
   即使门面已经成功打开过，开关关闭后也立即失效。
 - `opaqueFor(id) = sha256('attachment-opaque:' + id)[0..32]`：与 id 绑定且稳定，便于上传/下载两侧独立推导。
+  （115 起改为 `sha256('attachment-opaque:<face>:<id>')`，避免两个面共用同一目录。）
 - `revisionFor(data) = sha256(data)[0..32]`：内容派生，重复上传同一内容会落到同一位置（catalog 仍按 id 拒绝重复）。
 - `seal({id, kind, logicalName, mime, data})` → `{id, opaque, revision, totalBytes, sha256}`；
   `read(id, start, end)` → 范围租约；`verify(id)` → 整件校验；`has(id)` → 只认 `sealed` 行。

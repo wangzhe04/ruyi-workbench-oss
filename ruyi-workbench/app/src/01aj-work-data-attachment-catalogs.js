@@ -35,5 +35,5 @@ const WorkDataAttachmentCatalogs = ((pathApi) => {
     }
     return Object.freeze({ open, faces: Object.freeze(Object.keys(FACES)) });
   }
-  return Object.freeze({ create, faces: Object.freeze(Object.keys(FACES)) });
+  return Object.freeze({ create, faces: Object.freeze(Object.keys(FACES)), spec: face => FACES[face] || null });
 })(require('node:path'));

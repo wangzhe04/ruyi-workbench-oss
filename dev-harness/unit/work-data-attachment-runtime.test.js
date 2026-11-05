@@ -22,12 +22,12 @@ async function fixture(t) {
   t.after(async () => { try { assert.equal(path.dirname(root), path.resolve(os.tmpdir())); } finally { await fsp.rm(root, { recursive: true, force: true }); } });
   const api = load(), key = crypto.randomBytes(32), instanceId = 'b'.repeat(32), flags = { enabled: true };
   const keys = { async snapshot() { return { key: Buffer.from(key), instanceId, release() {} }; } };
-  const runtime = () => api.runtime.create({ root, keys, enabled: () => flags.enabled });
+  const runtime = (face = 'attachment') => api.runtime.create({ root, keys, enabled: () => flags.enabled, face });
   return { api, root, flags, runtime, id: 'file_0123456789abcdef', data: Buffer.concat([Buffer.alloc(270 * 1024, 5), Buffer.from('tail')]) };
 }
 test('runtime derives the location, seals, reads ranges and reports presence', async t => {
   const f = await fixture(t), first = f.runtime();
-  assert.equal(first.opaqueFor(f.id), sha('attachment-opaque:' + f.id).slice(0, 32));
+  assert.equal(first.opaqueFor(f.id), sha('attachment-opaque:attachment:' + f.id).slice(0, 32));
   assert.equal(first.revisionFor(f.data), sha(f.data).slice(0, 32));
   assert.equal(await first.has(f.id), false);
   const receipt = await first.seal({ id: f.id, kind: 'original', logicalName: '附件😀.bin', mime: 'application/octet-stream', data: f.data });
@@ -76,6 +76,31 @@ test('runtime refuses to discard a sealed attachment', async t => {
   await assert.rejects(runtime.discard(f.id), /sealed/);
   assert.equal(await runtime.has(f.id), true);
   assert.equal(fs.existsSync(path.join(f.root, runtime.opaqueFor(f.id), runtime.revisionFor(f.data), 'manifest.json')), true);
+});
+test('runtime opens the tool-image face with its own catalog and purpose', async t => {
+  const f = await fixture(t), tool = f.runtime('toolImage'), attachments = f.runtime();
+  const id = 'toolimg_0123456789abcdef01234567';
+  await tool.seal({ id, kind: 'tool-image', logicalName: 'shot.png', mime: 'image/png', data: f.data });
+  assert.equal(await tool.has(id), true);
+  assert.equal(await attachments.has(id), false);
+  assert.equal(fs.existsSync(path.join(f.root, '_catalog-tool-images-v1.json')), true);
+  assert.equal(fs.existsSync(path.join(f.root, '_catalog-attachments-v1.json')), false);
+  const lease = await tool.read(id), bytes = Buffer.from(lease.bytes);
+  assert.deepEqual(bytes, f.data);
+  lease.release();
+  assert.throws(() => f.api.runtime.create({ root: f.root, keys: { async snapshot() { return { key: Buffer.alloc(32), instanceId: 'b'.repeat(32), release() {} }; } }, enabled: () => true, face: 'unknown' }), /face/);
+});
+test('runtime keeps the same id separate across faces on disk', async t => {
+  const f = await fixture(t), attachments = f.runtime(), tool = f.runtime('toolImage');
+  await attachments.seal({ id: f.id, kind: 'original', logicalName: 'a.bin', mime: 'application/octet-stream', data: f.data });
+  await tool.seal({ id: f.id, kind: 'tool-image', logicalName: 'b.png', mime: 'image/png', data: f.data });
+  assert.equal(await attachments.has(f.id), true);
+  assert.equal(await tool.has(f.id), true);
+  assert.notEqual(attachments.opaqueFor(f.id), tool.opaqueFor(f.id));
+  const attachmentLease = await attachments.read(f.id), toolLease = await tool.read(f.id);
+  assert.deepEqual(Buffer.from(attachmentLease.bytes), f.data);
+  assert.deepEqual(Buffer.from(toolLease.bytes), f.data);
+  attachmentLease.release(); toolLease.release();
 });
 test('runtime keeps ids apart and refuses unknown ids', async t => {
   const f = await fixture(t), runtime = f.runtime();

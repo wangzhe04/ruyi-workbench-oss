@@ -6,20 +6,22 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
   const fail = suffix => { throw Object.assign(Error('work_data_attachment_runtime.' + suffix), {
     code: 'work_data_attachment_runtime.' + suffix, apiCode: 'work_data_attachment_runtime.' + suffix, statusCode: 409,
   }); };
-  function create({ root, keys, enabled, generation = 1 } = {}) {
+  function create({ root, keys, enabled, generation = 1, face = 'attachment' } = {}) {
     if (typeof root !== 'string' || !root.length) fail('root');
     if (!keys || typeof keys.snapshot !== 'function') fail('keys');
     if (typeof enabled !== 'function') fail('enabled');
     if (!Number.isSafeInteger(generation) || generation < 1 || generation > 99) fail('generation');
+    const spec = WorkDataAttachmentCatalogs.spec(face);
+    if (!spec) fail('face');
     const catalogs = WorkDataAttachmentCatalogs.create({ root, keys, enabled });
     const gate = () => { if (enabled() !== true) fail('disabled'); };
     let opened = null;
     function open() {
       if (opened) return opened;
-      const attachment = catalogs.open('attachment');
+      const attachment = catalogs.open(face);
       opened = Object.freeze({
         catalog: attachment,
-        store: WorkDataAttachmentStore.create({ root, keys, catalog: attachment, purpose: 'session', scopeId: 'sessions', generation }),
+        store: WorkDataAttachmentStore.create({ root, keys, catalog: attachment, purpose: spec.purpose, scopeId: spec.scopeId, generation }),
         reader: WorkDataAttachmentReader.create({ root, keys, authority: attachment }),
       });
       return opened;
@@ -28,7 +30,7 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
     // the location level; the catalog still refuses a duplicate id.
     const opaqueFor = id => {
       if (typeof id !== 'string' || !idPattern.test(id)) fail('id');
-      return cryptoApi.createHash('sha256').update('attachment-opaque:' + id).digest('hex').slice(0, 32);
+      return cryptoApi.createHash('sha256').update('attachment-opaque:' + face + ':' + id).digest('hex').slice(0, 32);
     };
     const revisionFor = data => {
       if (!Buffer.isBuffer(data) || !data.length) fail('data');
