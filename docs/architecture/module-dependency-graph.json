@@ -5,8 +5,8 @@
   "summary": {
     "modules": 140,
     "providedSymbols": 4330,
-    "requiredSymbols": 4265,
-    "edges": 932,
+    "requiredSymbols": 4266,
+    "edges": 933,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1719,6 +1719,13 @@
         "WorkDataAttachmentRuntime"
       ],
       "requires": [
+        {
+          "provider": "01af-work-data-attachment-chunks.js",
+          "symbol": "WorkDataAttachmentChunks",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "01ag-work-data-attachment-reader.js",
           "symbol": "WorkDataAttachmentReader",
@@ -36036,6 +36043,14 @@
       "to": "01p-work-data-store.js",
       "symbols": [
         "WorkDataStore"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "01ak-work-data-attachment-runtime.js",
+      "to": "01af-work-data-attachment-chunks.js",
+      "symbols": [
+        "WorkDataAttachmentChunks"
       ],
       "direction": "backward"
     },

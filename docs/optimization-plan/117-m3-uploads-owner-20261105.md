@@ -22,18 +22,27 @@
 
 ## 验证
 
-- 新增 `dev-harness/unit/work-data-uploads-owner.test.js`：**5/5 pass**
+- 新增 `dev-harness/unit/work-data-uploads-owner.test.js`：**8/8 pass**
   - 两个面各一目录 → 全部封存、校验、删除原件；两个面都能读回原字节；
   - 根下散文件 → 拒绝且原件未动、catalog 无行；
   - 多文件目录 → 拒绝，单文件目录也不会被提前封存；
   - 0 字节文件 → `empty-file` 拒绝；大写 32-hex 目录被识别为已封存；
-  - 已封存目录与 catalog 文件被正确识别/忽略。
-- 生成物：`build` 114718 行；`module-dependency-graph --check` 140 modules / 932 edges；
+  - 已封存目录与 catalog 文件被正确识别/忽略；
+  - 封存后 `unsealAll` 能还原两个面的原文件、清空 catalog 与 sealed 目录；
+  - 9 MiB 附件（超过 reader 默认 8 MiB）也能完整解封，且不留空的 `<opaque>/` 目录；
+  - 普通运行时 `retireSealed` 被拒（`sealed_removal_forbidden`）。
+- 生成物：`build` 114773 行；`module-dependency-graph --check` 140 modules / 933 edges；
   `facts` 454 unit / 629 e2e，两份 README 同步；`facts.static` ALL PASS。
 
 ## 边界与下一步
 
-- 只做了 OFF→ON 方向；ON→OFF 解封、sealed 目录清理、`01ad`/`13ak`/`01ab` 的注册表前置都还没有。
-- 失败时的“已封存行 + 源目录并存”只保证数据不丢，不保证隐私（明文仍在），这与 116 §5 的描述一致；
-  调用方必须在失败时清理或回滚。
+- 已做 OFF→ON（sealAll）与 ON→OFF（unsealAll）：解封逐行 `read` → `verifyWhole`（由 `retireSealed` 内部完成）
+  → 写回 `<root>/<id>/<logicalName>`（`wx`，已存在则失败）→ 才 retire sealed 目录与 catalog 行。
+- **sealed 删除只给迁移 owner**：`01ak.create({allowSealedRemoval:true})` 才暴露 `retireSealed`；
+  普通运行时调用会得到 `sealed_removal_forbidden`。
+- 仍未挂到迁移主机（116 的五处前置未改）；失败时“已封存行 + 源目录并存”只保证数据不丢、不保证隐私，
+  与 116 §5 一致。
+- 已知边界：解封是**整文件读入内存**（owner 把 reader 上限提到 `MAX_BYTES`，单文件最大 256 MiB）；
+  写回用 `wx`，若写回成功而 retire 失败，重试会因目标已存在而失败（需要人工清理或后续改临时文件+rename）；
+  必须先解封再关闭加密开关（`gate()` 要求 `enabled()===true`）；零化失败目前只吞掉不升级为错误。
 - 下一步按 116 的前置 1–5 改迁移主机，再把本 owner 挂上去，最后进 `work-data-cold-operations.e2e.js`。

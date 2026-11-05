@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 140 | 4330 | 4265 | 932 | 67 | 0 | 1 |
+| 140 | 4330 | 4266 | 933 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -47,7 +47,7 @@
 | 29 | `01ah-work-data-attachment-catalog.js` | unclassified | 1 | 1 | 1 |
 | 30 | `01ai-work-data-attachment-store.js` | unclassified | 1 | 1 | 1 |
 | 31 | `01aj-work-data-attachment-catalogs.js` | unclassified | 1 | 3 | 3 |
-| 32 | `01ak-work-data-attachment-runtime.js` | unclassified | 1 | 3 | 3 |
+| 32 | `01ak-work-data-attachment-runtime.js` | unclassified | 1 | 4 | 4 |
 | 33 | `01al-work-data-uploads-owner.js` | unclassified | 1 | 2 | 2 |
 | 34 | `01aa-work-data-tree.js` | unclassified | 1 | 2 | 2 |
 | 35 | `01ae-work-data-maintenance-result.js` | unclassified | 1 | 1 | 1 |
@@ -204,6 +204,7 @@
 | `01aj-work-data-attachment-catalogs.js` | `01-config.js` | backward | `atomicWriteJson` |
 | `01aj-work-data-attachment-catalogs.js` | `01ah-work-data-attachment-catalog.js` | backward | `WorkDataAttachmentCatalog` |
 | `01aj-work-data-attachment-catalogs.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
+| `01ak-work-data-attachment-runtime.js` | `01af-work-data-attachment-chunks.js` | backward | `WorkDataAttachmentChunks` |
 | `01ak-work-data-attachment-runtime.js` | `01ag-work-data-attachment-reader.js` | backward | `WorkDataAttachmentReader` |
 | `01ak-work-data-attachment-runtime.js` | `01ai-work-data-attachment-store.js` | backward | `WorkDataAttachmentStore` |
 | `01ak-work-data-attachment-runtime.js` | `01aj-work-data-attachment-catalogs.js` | backward | `WorkDataAttachmentCatalogs` |

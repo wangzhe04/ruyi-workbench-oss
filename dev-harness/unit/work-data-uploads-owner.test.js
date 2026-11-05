@@ -73,6 +73,37 @@ test('owner refuses empty files and recognises upper-case sealed directories', a
   await fsp.mkdir(path.join(f.root, 'A'.repeat(32), 'B'.repeat(32)), { recursive: true });
   assert.equal((await f.owner().enroll()).sealed, 1);
 });
+test('owner unseals every verified row back to the original layout', async t => {
+  const f = await fixture(t), original = Buffer.from('round trip attachment'), shot = Buffer.from('round trip image');
+  await f.put('file_0123456789abcdef/a.bin', original);
+  await f.put('toolimg_tag_abc/shot.png', shot);
+  await f.owner().sealAll();
+  assert.equal((await f.runtime('attachment').list()).length, 1);
+  const report = await f.owner().unsealAll();
+  assert.deepEqual(Array.from(report.restored, row => row.file).sort(), ['a.bin', 'shot.png']);
+  assert.deepEqual(Array.from(report.retired).sort(), ['file_0123456789abcdef', 'toolimg_tag_abc']);
+  assert.deepEqual(await fsp.readFile(path.join(f.root, 'file_0123456789abcdef', 'a.bin')), original);
+  assert.deepEqual(await fsp.readFile(path.join(f.root, 'toolimg_tag_abc', 'shot.png')), shot);
+  assert.equal((await f.runtime('attachment').list()).length, 0);
+  assert.equal((await f.runtime('toolImage').list()).length, 0);
+  assert.equal(await f.runtime('attachment').has('file_0123456789abcdef'), false);
+});
+test('sealed removal needs an explicit migration opt-in', async t => {
+  const f = await fixture(t), runtime = f.runtime('attachment');
+  const receipt = await runtime.seal({ id: 'file_0123456789abcdef', kind: 'original', logicalName: 'a.bin', mime: 'application/octet-stream', data: Buffer.from('x') });
+  assert.equal(receipt.id, 'file_0123456789abcdef');
+  await assert.rejects(runtime.retireSealed('file_0123456789abcdef'), /sealed_removal_forbidden/);
+});
+test('owner unseals an attachment above the default reader limit and leaves no empty tree', async t => {
+  const f = await fixture(t), big = Buffer.alloc(9 * 1024 * 1024, 7);
+  await f.put('file_0123456789abcdef/big.bin', big);
+  await f.owner().sealAll();
+  const report = await f.owner().unsealAll();
+  assert.equal(report.restored[0].size, big.length);
+  assert.deepEqual(await fsp.readFile(path.join(f.root, 'file_0123456789abcdef', 'big.bin')), big);
+  assert.equal((await f.owner().enroll()).sealed, 0);
+  assert.equal((await f.runtime('attachment').list()).length, 0);
+});
 test('owner enroll reports already sealed directories and ignores catalogs', async t => {
   const f = await fixture(t);
   await f.put('_catalog-attachments-v1.json', Buffer.from('{}'));

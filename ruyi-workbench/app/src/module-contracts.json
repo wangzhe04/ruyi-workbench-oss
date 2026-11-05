@@ -1644,6 +1644,13 @@
       ],
       "requires": [
         {
+          "provider": "01af-work-data-attachment-chunks.js",
+          "symbol": "WorkDataAttachmentChunks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01ag-work-data-attachment-reader.js",
           "symbol": "WorkDataAttachmentReader",
           "kinds": [

@@ -6,11 +6,12 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
   const fail = suffix => { throw Object.assign(Error('work_data_attachment_runtime.' + suffix), {
     code: 'work_data_attachment_runtime.' + suffix, apiCode: 'work_data_attachment_runtime.' + suffix, statusCode: 409,
   }); };
-  function create({ root, keys, enabled, generation = 1, face = 'attachment' } = {}) {
+  function create({ root, keys, enabled, generation = 1, face = 'attachment', allowSealedRemoval = false, maxReadBytes = 8 * 1024 * 1024 } = {}) {
     if (typeof root !== 'string' || !root.length) fail('root');
     if (!keys || typeof keys.snapshot !== 'function') fail('keys');
     if (typeof enabled !== 'function') fail('enabled');
     if (!Number.isSafeInteger(generation) || generation < 1 || generation > 99) fail('generation');
+    if (!Number.isSafeInteger(maxReadBytes) || maxReadBytes < 1 || maxReadBytes > WorkDataAttachmentChunks.MAX_BYTES) fail('read_limit');
     const spec = WorkDataAttachmentCatalogs.spec(face);
     if (!spec) fail('face');
     const catalogs = WorkDataAttachmentCatalogs.create({ root, keys, enabled });
@@ -22,7 +23,7 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
       opened = Object.freeze({
         catalog: attachment,
         store: WorkDataAttachmentStore.create({ root, keys, catalog: attachment, purpose: spec.purpose, scopeId: spec.scopeId, generation }),
-        reader: WorkDataAttachmentReader.create({ root, keys, authority: attachment }),
+        reader: WorkDataAttachmentReader.create({ root, keys, authority: attachment, maxReadBytes }),
       });
       return opened;
     }
@@ -55,6 +56,7 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
         const rows = await open().catalog.rows();
         return rows.some(row => row.id === id && row.state === 'sealed');
       },
+      async list() { gate(); return open().catalog.rows(); },
       // Explicit cleanup for a failed seal. Only pending/uncertain rows may be
       // discarded; a sealed copy is never deleted through this entry.
       async discard(id) {
@@ -64,28 +66,49 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
         const row = rows.find(value => value.id === id);
         if (!row) return Object.freeze({ discarded: false, id });
         if (row.state === 'sealed') fail('sealed');
-        const dir = nodePath.join(root, opaqueFor(id), row.revision);
-        const relative = nodePath.relative(nodePath.resolve(root), nodePath.resolve(dir));
-        if (!relative || relative.startsWith('..') || nodePath.isAbsolute(relative)) fail('path');
-        // Lexical containment is not enough: a junction/symlink at the opaque
-        // segment could point outside the uploads root. Verify each existing
-        // segment is a real directory whose realpath is itself before removing.
-        for (const [index, segment] of [root, nodePath.join(root, opaqueFor(id)), dir].entries()) {
-          let stat;
-          try { stat = await fsp.lstat(segment, { bigint: true }); }
-          catch (error) { if (error && error.code === 'ENOENT') continue; throw error; }
-          if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path');
-          // The root itself may legitimately be a junction/trailing-slash path;
-          // only the two derived segments must resolve to themselves.
-          if (index === 0) continue;
-          const real = await fsp.realpath(segment);
-          if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? segment.toLowerCase() : segment)) fail('path');
-        }
-        await fsp.rm(dir, { recursive: true, force: true });
+        await removeTree(id, row);
         await opened.catalog.remove(id);
         return Object.freeze({ discarded: true, id });
       },
+      // Migration-only: retire a verified sealed copy and its catalog row. The
+      // caller must opt in at create() time; runtime read paths never get this.
+      async retireSealed(id) {
+        gate();
+        if (allowSealedRemoval !== true) fail('sealed_removal_forbidden');
+        if (typeof id !== 'string' || !idPattern.test(id)) fail('id');
+        const opened = open(), rows = await opened.catalog.rows();
+        const row = rows.find(value => value.id === id);
+        if (!row) fail('id_missing');
+        if (row.state !== 'sealed') fail('not_sealed');
+        await opened.reader.verifyWhole(id);
+        await removeTree(id, row);
+        await opened.catalog.remove(id);
+        return Object.freeze({ retired: true, id });
+      },
     });
+    async function removeTree(id, row) {
+      const dir = nodePath.join(root, opaqueFor(id), row.revision);
+      const relative = nodePath.relative(nodePath.resolve(root), nodePath.resolve(dir));
+      if (!relative || relative.startsWith('..') || nodePath.isAbsolute(relative)) fail('path');
+      // Lexical containment is not enough: a junction/symlink at the opaque
+      // segment could point outside the uploads root. Verify each existing
+      // segment is a real directory whose realpath is itself before removing.
+      for (const [index, segment] of [root, nodePath.join(root, opaqueFor(id)), dir].entries()) {
+        let stat;
+        try { stat = await fsp.lstat(segment, { bigint: true }); }
+        catch (error) { if (error && error.code === 'ENOENT') continue; throw error; }
+        if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path');
+        // The root itself may legitimately be a junction/trailing-slash path;
+        // only the two derived segments must resolve to themselves.
+        if (index === 0) continue;
+        const real = await fsp.realpath(segment);
+        if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? segment.toLowerCase() : segment)) fail('path');
+      }
+      await fsp.rm(dir, { recursive: true, force: true });
+      // Leave no empty <opaque>/ directory behind: it would be counted as an
+      // already-sealed tree by enroll even after the row is gone.
+      try { await fsp.rmdir(nodePath.dirname(dir)); } catch {};
+    }
   }
   return Object.freeze({ create });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

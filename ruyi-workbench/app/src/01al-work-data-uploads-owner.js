@@ -14,8 +14,8 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
   const kindOf = face => face === 'attachment' ? 'original' : 'tool-image';
   function create({ root, keys, enabled } = {}) {
     if (typeof root !== 'string' || !nodePath.isAbsolute(root)) fail('root');
-    const attachment = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'attachment' });
-    const toolImage = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'toolImage' });
+    const attachment = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'attachment', allowSealedRemoval: true, maxReadBytes: WorkDataAttachmentChunks.MAX_BYTES });
+    const toolImage = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'toolImage', allowSealedRemoval: true, maxReadBytes: WorkDataAttachmentChunks.MAX_BYTES });
     const runtimeOf = face => face === 'attachment' ? attachment : toolImage;
     async function enroll() {
       let entries;
@@ -67,6 +67,38 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
           removed.push(row.id);
         }
         return Object.freeze({ sealed: Object.freeze(sealed), verified: Object.freeze(verified), removed: Object.freeze(removed), alreadySealed: report.sealed });
+      },
+      // ON->OFF: every sealed row is read back, written under its original id/file
+      // with wx, and only then retired from the catalog. A failed write keeps both
+      // copies (never a silent plaintext-only or sealed-only state).
+      async unsealAll() {
+        const restored = [], retired = [];
+        for (const face of ['attachment', 'toolImage']) {
+          const runtime = runtimeOf(face);
+          const rows = await runtime.list();
+          for (const row of rows) {
+            if (row.state !== 'sealed') continue;
+            const lease = await runtime.read(row.id);
+            let bytes = null, size = 0;
+            try {
+              bytes = Buffer.from(lease.bytes); size = bytes.length;
+              const dir = nodePath.join(root, row.id);
+              let exists = true;
+              try {
+                const stat = await fsp.lstat(dir, { bigint: true });
+                if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path', { id: row.id });
+                const real = await fsp.realpath(dir);
+                if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? dir.toLowerCase() : dir)) fail('path', { id: row.id });
+              } catch (error) { if (!error || error.code !== 'ENOENT') throw error; exists = false; }
+              if (!exists) await fsp.mkdir(dir, { recursive: true });
+              await fsp.writeFile(nodePath.join(dir, row.logicalName), bytes, { flag: 'wx' });
+            } finally { try { lease.release(); } catch {} if (bytes) bytes.fill(0); }
+            await runtime.retireSealed(row.id);
+            restored.push(Object.freeze({ id: row.id, face, file: row.logicalName, size }));
+            retired.push(row.id);
+          }
+        }
+        return Object.freeze({ restored: Object.freeze(restored), retired: Object.freeze(retired) });
       },
     });
   }
