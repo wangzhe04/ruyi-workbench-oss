@@ -104,11 +104,31 @@ def ooxml_structure_layers(root, ext):
             break
     return sorted(found)
 
-def hidden_refusal(found):
-    return {'ok': False, 'code': 'document_hidden_content', 'found': list(found),
-            'error': 'Document contains layers this reader does not extract: ' + ', '.join(found),
-            'hint': 'This reader only returns paragraph text. Remove or accept tracked changes, delete comments, embedded objects, macros and ActiveX controls (Save As a new copy, then read it again), or open the file in an editor to inspect those layers yourself.'}
+LAYER_REMEDIES = {
+    'tracked-changes': 'accept or reject the tracked changes',
+    'comments': 'delete the comments',
+    'embedded-objects': 'remove the embedded objects',
+    'macros': 'remove the macros',
+    'activex': 'remove the ActiveX controls',
+    'glossary': 'remove the building blocks (AutoText lives in the glossary part)',
+}
 
+
+def hidden_refusal(found):
+    """拒绝要说清「有哪些层 + 每层怎么处理」—— 只给一个码,读的人得自己猜清单是哪儿来的。"""
+    layers = list(found)
+    steps = []
+    for name in layers:
+        remedy = LAYER_REMEDIES.get(name)
+        if remedy and remedy not in steps:
+            steps.append(remedy)
+    if not steps:
+        steps.append('remove the layers listed in found')
+    return {'ok': False, 'code': 'document_hidden_content', 'found': layers,
+            'error': 'Document contains layers this reader does not extract: ' + ', '.join(layers),
+            'hint': 'This reader only returns paragraph text. To read this file: '
+                    + '; '.join(steps) + ' (Save As a new copy, then read it again), '
+                    + 'or open it in an editor to inspect those layers yourself.'}
 
 def read_zip(filename, opts):
     # 容器层的两种「读不出正文」先单独认出来,别让它们掉进 document_invalid:

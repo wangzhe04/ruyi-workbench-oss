@@ -70,10 +70,12 @@ const docXml = body => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><
 const PARAGRAPH = '<w:p><w:r><w:t>季度报告正文</w:t></w:r></w:p>';
 const docx = extra => zip([{ name: 'word/document.xml', data: docXml(PARAGRAPH) }, ...extra]);
 const write = (name, bytes) => { const p = path.join(root, name); fs.writeFileSync(p, bytes); return p; };
-const refused = async (file, expected) => {
+const refused = async (file, expected, hintKeyword) => {
   const r = await app.FileVisualIo.document(file, {}, HELPER);
   assert.equal(r.code, 'document_hidden_content', JSON.stringify(r).slice(0, 240));
   assert.ok(r.found.includes(expected), 'found=' + JSON.stringify(r.found));
+  // hint 要针对【这一层】给动作:六个码各一条,谁把 remedy 写错/写反(比如 macros 让人去删批注)这里会红。
+  if (hintKeyword) assert.match(r.hint, hintKeyword, expected + ' 的 hint 没给出该层的动作: ' + r.hint);
   return r;
 };
 
@@ -103,20 +105,21 @@ test('回归:DrawingML 的 <a:moveTo> 不是修订(pptx 照常读出)', { skip }
 });
 
 test('带批注 / 宏 / 嵌入对象 / ActiveX / 词汇表正文 → 各自被拒', { skip }, async () => {
+  // 每条都带 hint 关键词:六个现有码各自的 remedy 都被钉住(复审:只查 found 的话,remedy 写反也不红)。
   const cases = [
-    ['comments.docx', [{ name: 'word/comments.xml', data: `<w:comments xmlns:w="${W}"/>` }], 'comments'],
-    ['macro.docx', [{ name: 'word/vbaProject.bin', data: Buffer.from([1, 2, 3]) }], 'macros'],
-    ['embedded.docx', [{ name: 'word/embeddings/oleObject1.bin', data: Buffer.from([0, 1, 2]) }], 'embedded-objects'],
-    ['activex.docx', [{ name: 'word/activeX/activeX1.bin', data: Buffer.from([9, 9]) }], 'activex'],
-    ['glossary.docx', [{ name: 'word/glossary/document.xml', data: docXml(PARAGRAPH) }], 'glossary'],
+    ['comments.docx', [{ name: 'word/comments.xml', data: `<w:comments xmlns:w="${W}"/>` }], 'comments', /delete the comments/],
+    ['macro.docx', [{ name: 'word/vbaProject.bin', data: Buffer.from([1, 2, 3]) }], 'macros', /remove the macros/],
+    ['embedded.docx', [{ name: 'word/embeddings/oleObject1.bin', data: Buffer.from([0, 1, 2]) }], 'embedded-objects', /remove the embedded objects/],
+    ['activex.docx', [{ name: 'word/activeX/activeX1.bin', data: Buffer.from([9, 9]) }], 'activex', /remove the ActiveX controls/],
+    ['glossary.docx', [{ name: 'word/glossary/document.xml', data: docXml(PARAGRAPH) }], 'glossary', /remove the building blocks/],
   ];
-  for (const [name, extra, expected] of cases) await refused(write(name, docx(extra)), expected);
+  for (const [name, extra, expected, keyword] of cases) await refused(write(name, docx(extra)), expected, keyword);
 });
 
 test('修订只认 WordprocessingML 命名空间({w}ins / {w}del / {w}moveFrom / {w}moveTo)', { skip }, async () => {
   for (const tag of ['ins', 'del', 'moveFrom', 'moveTo']) {
     const body = `<w:p><w:${tag} w:id="1" w:author="a" w:date="2026-01-01T00:00:00Z"><w:r><w:t>改动</w:t></w:r></w:${tag}>${PARAGRAPH}</w:p>`;
-    await refused(write('tracked-' + tag + '.docx', zip([{ name: 'word/document.xml', data: docXml(body) }])), 'tracked-changes');
+    await refused(write('tracked-' + tag + '.docx', zip([{ name: 'word/document.xml', data: docXml(body) }])), 'tracked-changes', /accept or reject the tracked changes/);
   }
   // ISO 29500 Strict 用的是另一个 URI —— 正文按本地名抽取,修订判据不能只认过渡版那一个。
   const strict = 'http://purl.oclc.org/ooxml/wordprocessingml/main';
@@ -205,6 +208,28 @@ test('as:"image" 对 Office 文档显式拒绝(不把正文当像素交回);as:"
   const asAuto = await app.FileVisualIo.document(file, {}, HELPER);
   assert.equal(asAuto.ok, true, JSON.stringify(asAuto).slice(0, 240));
   assert.match(String(asAuto.content || ''), /季度报告正文/);
+});
+
+test('pptx 批注部件(ppt/comments/commentN.xml)与 .dotx 的词汇表正文各拒各的', { skip }, async () => {
+  // 之前只有 word/xl 的批注夹具,ppt/comments/* 这条前缀一直没被钉住(复审指出的单测缺口)。
+  const pptx = zip([
+    { name: 'ppt/presentation.xml', data: `<p:presentation xmlns:p="${P}"/>` },
+    { name: 'ppt/slides/slide1.xml', data: `<p:sld xmlns:p="${P}"><p:cSld/></p:sld>` },
+    { name: 'ppt/comments/comment1.xml', data: '<p:cmLst xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cm/></p:cmLst>' },
+  ]);
+  await refused(write('comments.pptx', pptx), 'comments');
+  // .dotx 模板常自带 building blocks(词汇表正文)。这不是误伤:AutoText 正文既不抽取也读不到,
+  // 所以如实拒绝并点名 glossary —— 而且 hint 要针对这一层给出动作(不是笼统地说「删批注」)。
+  const dotx = zip([
+    { name: 'word/document.xml', data: docXml(PARAGRAPH) },
+    { name: 'word/glossary/document.xml', data: docXml('<w:p><w:r><w:t>AutoText</w:t></w:r></w:p>') },
+  ]);
+  const template = await app.FileVisualIo.document(write('template.dotx', dotx), {}, HELPER);
+  assert.equal(template.code, 'document_hidden_content', JSON.stringify(template).slice(0, 240));
+  assert.ok(template.found.includes('glossary'), JSON.stringify(template.found));
+  assert.match(template.hint, /building blocks/, 'hint 要针对 glossary 给出动作,而不是笼统的「删批注」');
+  const commented = await app.FileVisualIo.document(write('c2.docx', docx([{ name: 'word/comments.xml', data: `<w:comments xmlns:w="${W}"/>` }])), {}, HELPER);
+  assert.match(commented.hint, /delete the comments/, 'hint 要针对 comments 给出动作');
 });
 
 after(() => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });
