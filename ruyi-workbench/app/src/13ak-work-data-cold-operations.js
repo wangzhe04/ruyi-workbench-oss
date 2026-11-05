@@ -356,16 +356,11 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           state.candidate = { id: candidate.id, mode: candidate.mode, headerSha256: headerSha256 ?? state.candidate?.headerSha256 ?? null };
           intent = await control.write(state, intent); return Object.freeze({ ownedFile: intent });
         };
-        // Attachments: enabling seals the candidate upload copies. Disabling from
-        // an encrypted generation that already contains sealed attachments is not
-        // implemented yet; refuse instead of copying opaque ciphertext as plaintext.
-        let uploadsOwnerFactory;
+        // Attachments: enabling seals the candidate upload copies; disabling
+        // unseals the sealed source rows into the candidate through replaceInto.
+        let uploadsOwnerFactory, uploadsRestoreFactory;
         if (context.operation === 'enable') uploadsOwnerFactory = ({ root, keys }) => WorkDataUploadsOwner.create({ root, keys, enabled: () => true });
-        else if (context.operation === 'disable') {
-          let names = [];
-          try { names = await io.readdir(p.join(base, 'uploads')); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
-          if (names.some(name => /^[a-f0-9]{32}$/i.test(name))) throw fail('uploads_unseal_unsupported', { base });
-        }
+        else if (context.operation === 'disable') uploadsRestoreFactory = ({ sourceRoot, keys }) => WorkDataUploadsOwner.create({ root: sourceRoot, keys, enabled: () => true });
         const migration = host.migrationFactory({ base, ownership: context.ownership, assertExclusive,onNativeCause:retainHelper,
           manifest: WorkDataManifest.create({ base }), protector,
           assertDurableBackup: ({ backupReceipt, sourceProof }) => backupReceipt === backup && sourceProof === captured && verifyBackup(backupReceipt),
@@ -376,6 +371,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
             && captured.specialCoverage?.type === 'skill-backup-portable' && captured.specialCoverage.originalObjects === 'refused' && await verifyBackup(backupReceipt),
           maintenanceResultOwner: WorkDataMaintenanceResult,
           ...(uploadsOwnerFactory ? { uploadsOwnerFactory } : {}),
+          ...(uploadsRestoreFactory ? { uploadsRestoreFactory } : {}),
           specialOwnerFactory: options => MigrationHooks.createBackupOwner(options), writeJson: atomicWriteJson });
         await progress('prepare-generation');
         const prepared = await migration.prepare({ expected: authority, targetMode: context.operation === 'enable' ? 'encrypted' : 'plain',

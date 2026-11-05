@@ -7,6 +7,7 @@
 
 - `unsealInto({target})`：`target` 必须是绝对路径，且与源根**不相交**（不能相等、也不能互相包含，Windows 大小写不敏感）；
   目标存在时必须是真实目录（非符号链接），创建后再次用 `realpath` 核对；返回 `{restored, retired: []}`。
+- `replaceInto({target})`：同样的 target 校验，先清空 target，再调用同一套解封流程（供 disable 迁移替换候选 uploads）。
 - 复用与 `unsealAll` 相同的 `writeRestored`：`stat` 取 totalBytes → 256 KiB 分段读 → 写入目标
   `<target>/<id>/<logicalName>`（`wx`）→ 校验 `size === totalBytes`；`<target>/<id>` 若已存在同样做 `lstat`+`realpath` 校验。
 - 源根的 sealed 行保持原样（仍可读、仍是 `sealed`），因此失败时源与目标至少各有一份完整副本。

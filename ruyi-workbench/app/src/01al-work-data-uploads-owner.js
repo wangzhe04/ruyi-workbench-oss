@@ -43,6 +43,21 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
       if (size !== info.totalBytes) fail('restore_size', { id: row.id });
       return size;
     }
+    async function checkedTarget(target) {
+      if (typeof target !== 'string' || !nodePath.isAbsolute(target)) fail('target', { target });
+      const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+      const resolved = nodePath.resolve(target), source = nodePath.resolve(root);
+      if (fold(resolved) === fold(source)) fail('target_same');
+      const within = (outer, inner) => { const rel = nodePath.relative(fold(outer), fold(inner)); return rel === '' || rel !== '..' && !rel.startsWith('..' + nodePath.sep) && !nodePath.isAbsolute(rel); };
+      if (within(resolved, source) || within(source, resolved)) fail('target_overlap');
+      let stat = null;
+      try { stat = await fsp.lstat(resolved, { bigint: true }); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
+      if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) fail('target');
+      await fsp.mkdir(resolved, { recursive: true });
+      const real = await fsp.realpath(resolved);
+      if (fold(real) !== fold(resolved)) fail('target');
+      return resolved;
+    }
     async function enroll() {
       let entries;
       try { entries = await fsp.readdir(root, { withFileTypes: true }); }
@@ -115,18 +130,30 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
       // OFF direction without mutating the source: every sealed row is read and
       // written into another root (the candidate generation), and no row is retired.
       async unsealInto({ target } = {}) {
-        if (typeof target !== 'string' || !nodePath.isAbsolute(target)) fail('target', { target });
-        const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
-        const resolved = nodePath.resolve(target), source = nodePath.resolve(root);
-        if (fold(resolved) === fold(source)) fail('target_same');
-        const within = (outer, inner) => { const rel = nodePath.relative(fold(outer), fold(inner)); return rel === '' || rel !== '..' && !rel.startsWith('..' + nodePath.sep) && !nodePath.isAbsolute(rel); };
-        if (within(resolved, source) || within(source, resolved)) fail('target_overlap');
-        let stat = null;
-        try { stat = await fsp.lstat(resolved, { bigint: true }); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
-        if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) fail('target');
+        const resolved = await checkedTarget(target);
+        const restored = [];
+        for (const face of ['attachment', 'toolImage']) {
+          const runtime = runtimeOf(face);
+          for (const row of await runtime.list()) {
+            if (row.state !== 'sealed') continue;
+            const size = await writeRestored(runtime, row, resolved);
+            restored.push(Object.freeze({ id: row.id, face, file: row.logicalName, size }));
+          }
+        }
+        return Object.freeze({ restored: Object.freeze(restored), retired: Object.freeze([]) });
+      },
+      // Disable path: the candidate already holds raw copies of the sealed files;
+      // replace that subtree with the unsealed layout before the census runs.
+      async hasSealed() {
+        for (const face of ['attachment', 'toolImage']) {
+          if ((await runtimeOf(face).list()).some(row => row.state === 'sealed')) return true;
+        }
+        return false;
+      },
+      async replaceInto({ target } = {}) {
+        const resolved = await checkedTarget(target);
+        await fsp.rm(resolved, { recursive: true, force: true });
         await fsp.mkdir(resolved, { recursive: true });
-        const real = await fsp.realpath(resolved);
-        if (fold(real) !== fold(resolved)) fail('target');
         const restored = [];
         for (const face of ['attachment', 'toolImage']) {
           const runtime = runtimeOf(face);

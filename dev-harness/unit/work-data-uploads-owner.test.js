@@ -104,6 +104,21 @@ test('owner unseals an attachment above the default reader limit and leaves no e
   assert.equal((await f.owner().enroll()).sealed, 0);
   assert.equal((await f.runtime('attachment').list()).length, 0);
 });
+test('owner replaceInto clears the candidate uploads and rewrites the plaintext layout', async t => {
+  const f = await fixture(t), original = Buffer.from('replace bytes');
+  await f.put('file_0123456789abcdef/a.bin', original);
+  await f.owner().sealAll();
+  const target = path.join(path.dirname(f.root), path.basename(f.root) + '-replace-target');
+  t.after(async () => { await fsp.rm(target, { recursive: true, force: true }); });
+  await fsp.mkdir(target, { recursive: true });
+  await fsp.writeFile(path.join(target, 'stale.bin'), Buffer.from('STALE'));
+  assert.equal(await f.owner().hasSealed(), true);
+  const report = await f.owner().replaceInto({ target });
+  assert.equal(report.restored[0].size, original.length);
+  assert.equal(fs.existsSync(path.join(target, 'stale.bin')), false);
+  assert.deepEqual(await fsp.readFile(path.join(target, 'file_0123456789abcdef', 'a.bin')), original);
+  assert.equal(await f.runtime('attachment').has('file_0123456789abcdef'), true);
+});
 test('owner unseals into another root without touching the sealed source', async t => {
   const f = await fixture(t), original = Buffer.from('candidate restore bytes');
   await f.put('file_0123456789abcdef/a.bin', original);

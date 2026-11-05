@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [121 · 附件 ON→OFF 候选解封原语](121-m3-attachment-unseal-into-20261105.md)`01al` 新增 `unsealInto({target})`：把 sealed 行解到另一个根、不 retire、不动源根；9/9 单测；仍待接 01ad/13ak，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [122 · ON→OFF 接进迁移主机](122-m3-cold-restore-wiring-20261105.md)`01ad` 新增 `uploadsRestoreFactory`，`13ak` 的 disable 现在解封到候选代（不再拒绝）；150/150 单测；host 级 enable→disable 往返用例受 fixture 限制待补，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [121 · 附件 ON→OFF 候选解封原语](121-m3-attachment-unseal-into-20261105.md)`01al` 新增 `unsealInto({target})`：把 sealed 行解到另一个根、不 retire、不动源根；9/9 单测；仍待接 01ad/13ak，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [120 · 生产冷操作接入 uploads owner](120-m3-cold-uploads-owner-20261105.md)`13ak` 在 enable 时接真实 `01al` 封存候选附件，disable 遇 sealed 目录直接拒绝；140/140 单测；ON→OFF 解封与真 NTFS e2e 待，版本3.0.1，3.1未完成、未发布。
 

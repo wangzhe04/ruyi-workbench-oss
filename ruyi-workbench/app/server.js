@@ -12402,6 +12402,21 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
       if (size !== info.totalBytes) fail('restore_size', { id: row.id });
       return size;
     }
+    async function checkedTarget(target) {
+      if (typeof target !== 'string' || !nodePath.isAbsolute(target)) fail('target', { target });
+      const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+      const resolved = nodePath.resolve(target), source = nodePath.resolve(root);
+      if (fold(resolved) === fold(source)) fail('target_same');
+      const within = (outer, inner) => { const rel = nodePath.relative(fold(outer), fold(inner)); return rel === '' || rel !== '..' && !rel.startsWith('..' + nodePath.sep) && !nodePath.isAbsolute(rel); };
+      if (within(resolved, source) || within(source, resolved)) fail('target_overlap');
+      let stat = null;
+      try { stat = await fsp.lstat(resolved, { bigint: true }); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
+      if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) fail('target');
+      await fsp.mkdir(resolved, { recursive: true });
+      const real = await fsp.realpath(resolved);
+      if (fold(real) !== fold(resolved)) fail('target');
+      return resolved;
+    }
     async function enroll() {
       let entries;
       try { entries = await fsp.readdir(root, { withFileTypes: true }); }
@@ -12474,18 +12489,30 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
       // OFF direction without mutating the source: every sealed row is read and
       // written into another root (the candidate generation), and no row is retired.
       async unsealInto({ target } = {}) {
-        if (typeof target !== 'string' || !nodePath.isAbsolute(target)) fail('target', { target });
-        const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
-        const resolved = nodePath.resolve(target), source = nodePath.resolve(root);
-        if (fold(resolved) === fold(source)) fail('target_same');
-        const within = (outer, inner) => { const rel = nodePath.relative(fold(outer), fold(inner)); return rel === '' || rel !== '..' && !rel.startsWith('..' + nodePath.sep) && !nodePath.isAbsolute(rel); };
-        if (within(resolved, source) || within(source, resolved)) fail('target_overlap');
-        let stat = null;
-        try { stat = await fsp.lstat(resolved, { bigint: true }); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
-        if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) fail('target');
+        const resolved = await checkedTarget(target);
+        const restored = [];
+        for (const face of ['attachment', 'toolImage']) {
+          const runtime = runtimeOf(face);
+          for (const row of await runtime.list()) {
+            if (row.state !== 'sealed') continue;
+            const size = await writeRestored(runtime, row, resolved);
+            restored.push(Object.freeze({ id: row.id, face, file: row.logicalName, size }));
+          }
+        }
+        return Object.freeze({ restored: Object.freeze(restored), retired: Object.freeze([]) });
+      },
+      // Disable path: the candidate already holds raw copies of the sealed files;
+      // replace that subtree with the unsealed layout before the census runs.
+      async hasSealed() {
+        for (const face of ['attachment', 'toolImage']) {
+          if ((await runtimeOf(face).list()).some(row => row.state === 'sealed')) return true;
+        }
+        return false;
+      },
+      async replaceInto({ target } = {}) {
+        const resolved = await checkedTarget(target);
+        await fsp.rm(resolved, { recursive: true, force: true });
         await fsp.mkdir(resolved, { recursive: true });
-        const real = await fsp.realpath(resolved);
-        if (fold(real) !== fold(resolved)) fail('target');
         const restored = [];
         for (const face of ['attachment', 'toolImage']) {
           const runtime = runtimeOf(face);
@@ -13436,12 +13463,13 @@ const WorkDataMigrationHost = ((io,p,c) => {
     const value=enabled?'true':'false';if(spans.length){for(const[start,end]of spans.reverse())text=text.slice(0,start)+value+text.slice(end);return text;}
     return text.slice(0,pos)+(Object.keys(parsed).length?',':'')+'"workDataEncryptionV1":'+value+text.slice(pos);
   }
-  function create({base,ownership,assertExclusive,assertExclusiveSync,preservedRead,manifest,protector,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,uploadsOwnerFactory,assertSpecialCoverage,maintenanceResultOwner,writeJson,limits={}}={}){
+  function create({base,ownership,assertExclusive,assertExclusiveSync,preservedRead,manifest,protector,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,uploadsOwnerFactory,uploadsRestoreFactory,assertSpecialCoverage,maintenanceResultOwner,writeJson,limits={}}={}){
     if(typeof base!=='string'||!p.isAbsolute(base)||!ownership||!Array.isArray(ownership.roots)||!ownership.roots.some(root=>key(p.resolve(root))===key(p.resolve(base)))
       ||[assertExclusive,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,assertSpecialCoverage,writeJson].some(fn=>typeof fn!=='function')
       ||!manifest||['readActive','prepare','commit'].some(name=>typeof manifest[name]!=='function')||!protector)fail('host_invalid');
     if(assertExclusiveSync!==undefined&&typeof assertExclusiveSync!=='function')fail('host_invalid');
     if(uploadsOwnerFactory!==undefined&&typeof uploadsOwnerFactory!=='function')fail('host_invalid');
+    if(uploadsRestoreFactory!==undefined&&typeof uploadsRestoreFactory!=='function')fail('host_invalid');
     if(preservedRead!==undefined&&(preservedRead?.profile!=='bounded-native-v1'||typeof preservedRead.capturePreserved!=='function'||typeof WorkDataTree.createPreserved!=='function'))fail('preserved_reader_invalid');
     base=p.resolve(base);const tree=WorkDataTree.create(limits),sourceTree=preservedRead===undefined?tree:WorkDataTree.createPreserved({capturePreserved:preservedRead.capturePreserved,ownership,assertExclusive,assertExclusiveSync,limits}),issued=new WeakMap(),published=new WeakMap();let busy=false;
     const admission=async()=>{if(await assertExclusive(ownership)!==true)fail('ownership_required');};
@@ -13650,14 +13678,26 @@ const WorkDataMigrationHost = ((io,p,c) => {
           // Uploads owner (M3 attachments): the raw copy above is replaced by a
           // sealed tree; every produced file/directory is re-registered so the
           // existing target census still proves the whole candidate generation.
-          if(uploadsOwnerFactory){
-            const owner=await uploadsOwnerFactory({root:p.join(plan.candidate.root,'uploads'),keys:plan.keys});
-            if(!owner||typeof owner.sealAll!=='function')fail('uploads_owner_invalid');
-            await owner.sealAll();await admission();
+          const rebuildUploads=async()=>{
             for(const name of [...plan.targetHashes.keys(),...plan.targetDirectories])if(name==='uploads'||name.startsWith('uploads/')){plan.targetHashes.delete(name);plan.targetDirectories.delete(name);}
             const walk=async rel=>{const dir=p.join(plan.candidate.root,'uploads',...rel.split('/').filter(Boolean));let entries;try{entries=await io.readdir(dir,{withFileTypes:true});}catch(error){if(error&&error.code==='ENOENT')return;throw error;}
               for(const entry of entries){const child=rel?rel+'/'+entry.name:entry.name;if(entry.isDirectory()){plan.targetDirectories.add(key('uploads/'+child));await walk(child);continue;}if(!entry.isFile())fail('uploads_owner_invalid');const bytes=await io.readFile(p.join(dir,entry.name));targetEntry(plan,'uploads/'+child,hash(bytes));}};
             await walk('');
+            try{const stat=await io.lstat(p.join(plan.candidate.root,'uploads'));if(stat.isDirectory())plan.targetDirectories.add(key('uploads'));}catch(error){if(!error||error.code!=='ENOENT')throw error;}
+          };
+          if(uploadsOwnerFactory&&targetMode==='encrypted'){
+            const owner=await uploadsOwnerFactory({root:p.join(plan.candidate.root,'uploads'),keys:plan.keys});
+            if(!owner||typeof owner.sealAll!=='function')fail('uploads_owner_invalid');
+            await owner.sealAll();await admission();
+            await rebuildUploads();
+          }
+          if(uploadsRestoreFactory&&targetMode==='plain'){
+            const restorer=await uploadsRestoreFactory({sourceRoot:p.join(base,'uploads'),targetRoot:p.join(plan.candidate.root,'uploads'),keys:plan.keys});
+            if(!restorer||typeof restorer.replaceInto!=='function'||typeof restorer.hasSealed!=='function')fail('uploads_owner_invalid');
+            if(await restorer.hasSealed()){
+              await restorer.replaceInto({target:p.join(plan.candidate.root,'uploads')});await admission();
+              await rebuildUploads();
+            }
           }
           await plan.special.prepareRepresentation(plan.specialToken,{mode:targetMode});await admission();const binding=await plan.special.prepareBindings(plan.specialToken);if(binding.ready!==true)fail('special_owner_required');
           // Re-enter the same owner to authenticate its durable candidate binding,
@@ -109739,16 +109779,11 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           state.candidate = { id: candidate.id, mode: candidate.mode, headerSha256: headerSha256 ?? state.candidate?.headerSha256 ?? null };
           intent = await control.write(state, intent); return Object.freeze({ ownedFile: intent });
         };
-        // Attachments: enabling seals the candidate upload copies. Disabling from
-        // an encrypted generation that already contains sealed attachments is not
-        // implemented yet; refuse instead of copying opaque ciphertext as plaintext.
-        let uploadsOwnerFactory;
+        // Attachments: enabling seals the candidate upload copies; disabling
+        // unseals the sealed source rows into the candidate through replaceInto.
+        let uploadsOwnerFactory, uploadsRestoreFactory;
         if (context.operation === 'enable') uploadsOwnerFactory = ({ root, keys }) => WorkDataUploadsOwner.create({ root, keys, enabled: () => true });
-        else if (context.operation === 'disable') {
-          let names = [];
-          try { names = await io.readdir(p.join(base, 'uploads')); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
-          if (names.some(name => /^[a-f0-9]{32}$/i.test(name))) throw fail('uploads_unseal_unsupported', { base });
-        }
+        else if (context.operation === 'disable') uploadsRestoreFactory = ({ sourceRoot, keys }) => WorkDataUploadsOwner.create({ root: sourceRoot, keys, enabled: () => true });
         const migration = host.migrationFactory({ base, ownership: context.ownership, assertExclusive,onNativeCause:retainHelper,
           manifest: WorkDataManifest.create({ base }), protector,
           assertDurableBackup: ({ backupReceipt, sourceProof }) => backupReceipt === backup && sourceProof === captured && verifyBackup(backupReceipt),
@@ -109759,6 +109794,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
             && captured.specialCoverage?.type === 'skill-backup-portable' && captured.specialCoverage.originalObjects === 'refused' && await verifyBackup(backupReceipt),
           maintenanceResultOwner: WorkDataMaintenanceResult,
           ...(uploadsOwnerFactory ? { uploadsOwnerFactory } : {}),
+          ...(uploadsRestoreFactory ? { uploadsRestoreFactory } : {}),
           specialOwnerFactory: options => MigrationHooks.createBackupOwner(options), writeJson: atomicWriteJson });
         await progress('prepare-generation');
         const prepared = await migration.prepare({ expected: authority, targetMode: context.operation === 'enable' ? 'encrypted' : 'plain',

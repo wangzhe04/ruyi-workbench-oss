@@ -54,12 +54,13 @@ const WorkDataMigrationHost = ((io,p,c) => {
     const value=enabled?'true':'false';if(spans.length){for(const[start,end]of spans.reverse())text=text.slice(0,start)+value+text.slice(end);return text;}
     return text.slice(0,pos)+(Object.keys(parsed).length?',':'')+'"workDataEncryptionV1":'+value+text.slice(pos);
   }
-  function create({base,ownership,assertExclusive,assertExclusiveSync,preservedRead,manifest,protector,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,uploadsOwnerFactory,assertSpecialCoverage,maintenanceResultOwner,writeJson,limits={}}={}){
+  function create({base,ownership,assertExclusive,assertExclusiveSync,preservedRead,manifest,protector,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,uploadsOwnerFactory,uploadsRestoreFactory,assertSpecialCoverage,maintenanceResultOwner,writeJson,limits={}}={}){
     if(typeof base!=='string'||!p.isAbsolute(base)||!ownership||!Array.isArray(ownership.roots)||!ownership.roots.some(root=>key(p.resolve(root))===key(p.resolve(base)))
       ||[assertExclusive,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,assertSpecialCoverage,writeJson].some(fn=>typeof fn!=='function')
       ||!manifest||['readActive','prepare','commit'].some(name=>typeof manifest[name]!=='function')||!protector)fail('host_invalid');
     if(assertExclusiveSync!==undefined&&typeof assertExclusiveSync!=='function')fail('host_invalid');
     if(uploadsOwnerFactory!==undefined&&typeof uploadsOwnerFactory!=='function')fail('host_invalid');
+    if(uploadsRestoreFactory!==undefined&&typeof uploadsRestoreFactory!=='function')fail('host_invalid');
     if(preservedRead!==undefined&&(preservedRead?.profile!=='bounded-native-v1'||typeof preservedRead.capturePreserved!=='function'||typeof WorkDataTree.createPreserved!=='function'))fail('preserved_reader_invalid');
     base=p.resolve(base);const tree=WorkDataTree.create(limits),sourceTree=preservedRead===undefined?tree:WorkDataTree.createPreserved({capturePreserved:preservedRead.capturePreserved,ownership,assertExclusive,assertExclusiveSync,limits}),issued=new WeakMap(),published=new WeakMap();let busy=false;
     const admission=async()=>{if(await assertExclusive(ownership)!==true)fail('ownership_required');};
@@ -268,14 +269,26 @@ const WorkDataMigrationHost = ((io,p,c) => {
           // Uploads owner (M3 attachments): the raw copy above is replaced by a
           // sealed tree; every produced file/directory is re-registered so the
           // existing target census still proves the whole candidate generation.
-          if(uploadsOwnerFactory){
-            const owner=await uploadsOwnerFactory({root:p.join(plan.candidate.root,'uploads'),keys:plan.keys});
-            if(!owner||typeof owner.sealAll!=='function')fail('uploads_owner_invalid');
-            await owner.sealAll();await admission();
+          const rebuildUploads=async()=>{
             for(const name of [...plan.targetHashes.keys(),...plan.targetDirectories])if(name==='uploads'||name.startsWith('uploads/')){plan.targetHashes.delete(name);plan.targetDirectories.delete(name);}
             const walk=async rel=>{const dir=p.join(plan.candidate.root,'uploads',...rel.split('/').filter(Boolean));let entries;try{entries=await io.readdir(dir,{withFileTypes:true});}catch(error){if(error&&error.code==='ENOENT')return;throw error;}
               for(const entry of entries){const child=rel?rel+'/'+entry.name:entry.name;if(entry.isDirectory()){plan.targetDirectories.add(key('uploads/'+child));await walk(child);continue;}if(!entry.isFile())fail('uploads_owner_invalid');const bytes=await io.readFile(p.join(dir,entry.name));targetEntry(plan,'uploads/'+child,hash(bytes));}};
             await walk('');
+            try{const stat=await io.lstat(p.join(plan.candidate.root,'uploads'));if(stat.isDirectory())plan.targetDirectories.add(key('uploads'));}catch(error){if(!error||error.code!=='ENOENT')throw error;}
+          };
+          if(uploadsOwnerFactory&&targetMode==='encrypted'){
+            const owner=await uploadsOwnerFactory({root:p.join(plan.candidate.root,'uploads'),keys:plan.keys});
+            if(!owner||typeof owner.sealAll!=='function')fail('uploads_owner_invalid');
+            await owner.sealAll();await admission();
+            await rebuildUploads();
+          }
+          if(uploadsRestoreFactory&&targetMode==='plain'){
+            const restorer=await uploadsRestoreFactory({sourceRoot:p.join(base,'uploads'),targetRoot:p.join(plan.candidate.root,'uploads'),keys:plan.keys});
+            if(!restorer||typeof restorer.replaceInto!=='function'||typeof restorer.hasSealed!=='function')fail('uploads_owner_invalid');
+            if(await restorer.hasSealed()){
+              await restorer.replaceInto({target:p.join(plan.candidate.root,'uploads')});await admission();
+              await rebuildUploads();
+            }
           }
           await plan.special.prepareRepresentation(plan.specialToken,{mode:targetMode});await admission();const binding=await plan.special.prepareBindings(plan.specialToken);if(binding.ready!==true)fail('special_owner_required');
           // Re-enter the same owner to authenticate its durable candidate binding,
