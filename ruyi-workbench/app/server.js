@@ -12236,7 +12236,7 @@ const WorkDataAttachmentCatalogs = ((pathApi) => {
 // Isolated attachment runtime facade. Composes the per-face catalogs, the sealed
 // writer and the reader for one data root, and owns the id/location derivation
 // both the upload and download paths must share. No HTTP route is wired here.
-const WorkDataAttachmentRuntime = ((cryptoApi) => {
+const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
   const idPattern = /^[A-Za-z0-9_.:-]{1,64}$/;
   const fail = suffix => { throw Object.assign(Error('work_data_attachment_runtime.' + suffix), {
     code: 'work_data_attachment_runtime.' + suffix, apiCode: 'work_data_attachment_runtime.' + suffix, statusCode: 409,
@@ -12288,10 +12288,40 @@ const WorkDataAttachmentRuntime = ((cryptoApi) => {
         const rows = await open().catalog.rows();
         return rows.some(row => row.id === id && row.state === 'sealed');
       },
+      // Explicit cleanup for a failed seal. Only pending/uncertain rows may be
+      // discarded; a sealed copy is never deleted through this entry.
+      async discard(id) {
+        gate();
+        if (typeof id !== 'string' || !idPattern.test(id)) fail('id');
+        const opened = open(), rows = await opened.catalog.rows();
+        const row = rows.find(value => value.id === id);
+        if (!row) return Object.freeze({ discarded: false, id });
+        if (row.state === 'sealed') fail('sealed');
+        const dir = nodePath.join(root, opaqueFor(id), row.revision);
+        const relative = nodePath.relative(nodePath.resolve(root), nodePath.resolve(dir));
+        if (!relative || relative.startsWith('..') || nodePath.isAbsolute(relative)) fail('path');
+        // Lexical containment is not enough: a junction/symlink at the opaque
+        // segment could point outside the uploads root. Verify each existing
+        // segment is a real directory whose realpath is itself before removing.
+        for (const [index, segment] of [root, nodePath.join(root, opaqueFor(id)), dir].entries()) {
+          let stat;
+          try { stat = await fsp.lstat(segment, { bigint: true }); }
+          catch (error) { if (error && error.code === 'ENOENT') continue; throw error; }
+          if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path');
+          // The root itself may legitimately be a junction/trailing-slash path;
+          // only the two derived segments must resolve to themselves.
+          if (index === 0) continue;
+          const real = await fsp.realpath(segment);
+          if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? segment.toLowerCase() : segment)) fail('path');
+        }
+        await fsp.rm(dir, { recursive: true, force: true });
+        await opened.catalog.remove(id);
+        return Object.freeze({ discarded: true, id });
+      },
     });
   }
   return Object.freeze({ create });
-})(require('node:crypto'));
+})(require('node:fs/promises'), require('node:path'), require('node:crypto'));
 
 // Complete byte census for a quiesced, owner-held tree. No repair, filtering,
 // publication or domain-validation claims. The host owns native metadata and

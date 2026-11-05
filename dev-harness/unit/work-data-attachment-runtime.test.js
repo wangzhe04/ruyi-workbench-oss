@@ -55,6 +55,28 @@ test('runtime refuses to operate while encryption is off, even after a successfu
   assert.throws(() => runtime.revisionFor(undefined), /data/);
   assert.throws(() => runtime.opaqueFor('../escape'), /id/);
 });
+test('runtime discards a failed seal but never a sealed copy', async t => {
+  const f = await fixture(t), runtime = f.runtime();
+  const dir = path.join(f.root, runtime.opaqueFor(f.id), runtime.revisionFor(f.data));
+  await fsp.mkdir(dir, { recursive: true });
+  await fsp.writeFile(path.join(dir, 'manifest.json'), Buffer.from('{}'));
+  await assert.rejects(runtime.seal({ id: f.id, kind: 'original', logicalName: 'a.bin', mime: 'application/octet-stream', data: f.data }), /EEXIST/);
+  assert.equal(await runtime.has(f.id), false);
+  const none = await runtime.discard('file_fedcba9876543210');
+  assert.equal(none.discarded, false);
+  assert.equal(none.id, 'file_fedcba9876543210');
+  const discarded = await runtime.discard(f.id);
+  assert.equal(discarded.discarded, true);
+  assert.equal(fs.existsSync(dir), false);
+  assert.equal((await runtime.discard(f.id)).discarded, false);
+});
+test('runtime refuses to discard a sealed attachment', async t => {
+  const f = await fixture(t), runtime = f.runtime();
+  await runtime.seal({ id: f.id, kind: 'original', logicalName: 'a.bin', mime: 'application/octet-stream', data: f.data });
+  await assert.rejects(runtime.discard(f.id), /sealed/);
+  assert.equal(await runtime.has(f.id), true);
+  assert.equal(fs.existsSync(path.join(f.root, runtime.opaqueFor(f.id), runtime.revisionFor(f.data), 'manifest.json')), true);
+});
 test('runtime keeps ids apart and refuses unknown ids', async t => {
   const f = await fixture(t), runtime = f.runtime();
   await runtime.seal({ id: f.id, kind: 'original', logicalName: 'a.bin', mime: 'application/octet-stream', data: f.data });
