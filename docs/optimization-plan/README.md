@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [132 · M3 剩余块地图](132-m3-remaining-map-20261105.md)：把剩余五块（启用流程接线、非空 special、精确 owner delta、retention sealed-fault、索引收尾/工具图）钉成事实+进入点+完成判据；无产品改动，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [133 · 启用流程：私有维护进程协议](133-m3-maintenance-protocol-20261105.md)：核实冷/暖维护命令、暖进程 stdin 输入与 `serve-ready` IPC 键集、失败拒绝条件，给出下一片夹具规格；无产品改动，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [132 · M3 剩余块地图](132-m3-remaining-map-20261105.md)：把剩余五块（启用流程接线、非空 special、精确 owner delta、retention sealed-fault、索引收尾/工具图）钉成事实+进入点+完成判据；无产品改动，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [131 · 完整索引组合：三个 fulltext 面转 wired](131-m3-fulltext-wired-20261105.md)：新增运行时证据（启用态索引写 `workData:3` 且无明文）后把 state/manifest/shard 转 wired；清册 80 面/47 required/46 wired，唯一 required-pending 只剩工具图片；版本3.0.1，3.1未完成、未发布。
 
