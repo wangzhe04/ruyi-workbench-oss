@@ -138,6 +138,20 @@ const MediaImageHost = (() => {
     const currentRecipient=()=>MediaImageService.recipientHash(url,headers);
     return managed(() => service.delivery(body, currentRecipient(), signal, currentRecipient));
   }
+  // 处理器可用性:给 media_probe 一个诚实的答案(它决定 file_read 的视觉分支与渲染件能不能经保护交付)。
+  // 只在第一次真的尝试建 owner —— 之后的调用命中同一个 promise 缓存,不会反复起进程。
+  async function availability() {
+    // 复审(2026-11-05):探针不能真的 `await processor()` —— 那个 promise 连失败都缓存,
+    // 杀软占用/半装/磁盘抖动会让渲染管线在进程重启前彻底不可用,而 media_probe 是 read 档工具。
+    // 这里只做文件级判定:渲染管线要跑的 python_embed 在不在。
+    try {
+      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(appRoot(), 'mcp', 'ai-computer-control'));
+      const executable = path.join(runtimeRoot, 'python_embed', process.platform === 'win32' ? 'python.exe' : 'python');
+      const stat = await fsp.stat(executable).catch(() => null);
+      if (!stat || !stat.isFile()) return { available: false, path: null, reason: 'component_missing' };
+      return { available: true, path: executable, reason: null };
+    } catch { return { available: false, path: null, reason: 'unavailable' }; }
+  }
   // 「渲染 + 遮盖」的接缝:把渲染出来的页面(内存 Buffer)准备成受保护图片引用。
   // 顺序固定:会话 → 策略(必须在 turn 的 PrivacyGateway scope 里) → 收件人(vision provider) → 处理器(真实原生组件)。
   // 任何一步不满足都 fail-closed,绝不把原始像素交回调用方;成功时只回引用,像素留在派生库里由交付层替换。
@@ -218,7 +232,7 @@ const MediaImageHost = (() => {
   PrivacyGateway.setHost({ projectMediaPart: projectPart, invalidateMedia: () => { void service.invalidate().catch(() => {}); } });
   Object.assign(ProviderMediaHooks, { beforeModelPost });
   Object.assign(VisualMediaHooks, { buildUserContentParts });
-  Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, handleApiRoutes, helperMayStillRun,
+  Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, availability, handleApiRoutes, helperMayStillRun,
     revokeScope: sessionId => service.revokeScope(sessionId) });
   return Object.freeze({ prepare });
 })();

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 141 | 4334 | 4279 | 939 | 67 | 0 | 1 |
+| 141 | 4334 | 4280 | 940 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -97,7 +97,7 @@
 | 79 | `11-native-tools.js` | tools | 144 | 52 | 9 |
 | 80 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 81 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
-| 82 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
+| 82 | `11d-media-inspection.js` | tools | 1 | 1 | 1 |
 | 83 | `12-tool-dispatch.js` | tools | 78 | 147 | 23 |
 | 84 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
 | 85 | `13-http-router.js` | transport | 75 | 264 | 33 |
@@ -519,6 +519,7 @@
 | `11-native-tools.js` | `07-autonomy.js` | backward | `MAIL_TEXT_MAX`, `activeAgentRuns`, `neutralizeInjectedPrefixes` |
 | `11b-file-text-io.js` | `00-boot.js` | backward | `cp`, `text` |
 | `11c-file-visual-io.js` | `00-boot.js` | backward | `cp`, `paths` |
+| `11d-media-inspection.js` | `00-boot.js` | backward | `MediaImageHooks` |
 | `12-tool-dispatch.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `InternalMcpHooks`, `MigrationHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `TOOL_TIER_RANK`, `URL`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
 | `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `agentCliLauncherOk`, `atomicWriteJson`, `commandForSelfMcp`, `defaultConfig`, `ensureDesktopMcpWarm`, `externalServerJs`, `normalizeConfig`, `readConfig`, `safeSessionId`, `selectedAgentCli`, `staticBase` |
 | `12-tool-dispatch.js` | `01c-runtime-flags.js` | backward | `execResultCacheEnabled`, `execResultCacheMaxEntries`, `observationRecallEnabled` |

@@ -90,9 +90,18 @@ const MediaInspection = (() => {
   }
 
   async function dependencies(refresh) {
-    const result = {};
+    const result = {}, capabilities = {};
     for (const kind of ['ffmpeg', 'ffprobe', 'chrome', 'python', 'node']) result[kind] = await locate(kind, refresh);
-    return { ok: true, dependencies: result, installsPerformed: false };
+    // 图像遮盖/派生管线(13bc 的原生处理器)能不能真的起来 —— 这决定 file_read 的视觉分支与
+    // 渲染件能不能经保护交付。这里不自己猜:问 13 层注册的 hook;没有 hook(或它抛非预期错)就
+    // 老实说 not_loaded,绝不写 available:true。
+    try {
+      const probe = MediaImageHooks && typeof MediaImageHooks.availability === 'function' ? await MediaImageHooks.availability() : null;
+      // 渲染/遮盖管线的处理器不是「可执行依赖」(没有 hint/path 那套形状),所以放在 capabilities 下,
+      // 不混进 dependencies —— 那个表有既有的逐项形状契约(media-harness.test.js 会逐项断言)。
+      capabilities.imageProcessor = probe && typeof probe.available === 'boolean' ? probe : { available: false, path: null, reason: 'not_loaded' };
+    } catch { capabilities.imageProcessor = { available: false, path: null, reason: 'not_loaded' }; }
+    return { ok: true, dependencies: result, capabilities, installsPerformed: false };
   }
 
   async function checkSyntax(file, content) {

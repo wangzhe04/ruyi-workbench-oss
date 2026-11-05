@@ -5,8 +5,8 @@
   "summary": {
     "modules": 141,
     "providedSymbols": 4334,
-    "requiredSymbols": 4279,
-    "edges": 939,
+    "requiredSymbols": 4280,
+    "edges": 940,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -14461,7 +14461,15 @@
       "provides": [
         "MediaInspection"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "12-tool-dispatch.js",
@@ -39760,6 +39768,14 @@
       "symbols": [
         "cp",
         "paths"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "11d-media-inspection.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "MediaImageHooks"
       ],
       "direction": "backward"
     },

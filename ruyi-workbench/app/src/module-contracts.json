@@ -14285,7 +14285,15 @@
       "provides": [
         "MediaInspection"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "12-tool-dispatch.js",

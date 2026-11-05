@@ -44,4 +44,17 @@ test('audio_inspect:运行时缺席给 dependency_missing(不是解码失败,也
   assert.equal(other.code, 'unsupported_media');
 });
 
+test('media_probe 也报图像处理器可用性:没有组件时说 component_missing,不假装可用', async () => {
+  // 这一项决定 file_read 的视觉分支与渲染件能不能经保护交付 —— 之前 media_probe 只报 ffmpeg/chrome/python/node,
+  // 用户/模型无法在动手前知道「图像遮盖管线在不在」。
+  const probe = await app.MediaInspection.dependencies(true);
+  const value = probe.capabilities && probe.capabilities.imageProcessor;
+  assert.deepEqual(Object.keys(probe.dependencies).sort(), ['chrome','ffmpeg','ffprobe','node','python'], 'dependencies 表的形状不变(只放可执行依赖)');
+  assert.ok(value && typeof value.available === 'boolean', JSON.stringify(value));
+  if (value.available) return;                       // 装了媒体运行时组件的机器
+  assert.ok(['component_missing', 'not_loaded', 'owner_invalid', 'unavailable'].includes(value.reason), JSON.stringify(value));
+  // 本机实测是 component_missing(没有 media runtime 组件);其它机器可能落到别的已知原因,
+  // 所以这里只要求「不可用必须给已知原因」,不把本机读数写成跨机器断言。
+});
+
 after(() => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });
