@@ -960,7 +960,12 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             // 工具修复补全再走同一管线。Claude 引擎节点不做(单发 -p 进程成本高，且解析加固通常已足够)。修复成功
             // → 节点照常过门；仍失败 → 维持现有失败路径。修复调用/记账全程防御式，异常不影响主流程。
             if (!parsed.ok && (node.engine || 'openai') === 'openai' && provider) {
-              const fixed = await repairNodeJsonViaProvider(provider, config, parentSession, node, effectiveSchema, node.result, parsed.error);
+              // signal:回合/run 级取消(用户按停、断线、看门狗中止整个 run)也管这一发 —— 否则 run 已经停了,
+              // 修复补全还会挂到 60 s 超时才回来。这里刻意用 localCtrl 而不是 nodeCtrl:上面 finally 已把
+              // nodeControls 注销、node 状态也已落定,node 级看门狗不再中止这个节点的控制器;run 级控制器仍活着。
+              const repairSignal = (localCtrl && localCtrl.signal) || (nodeCtrl && nodeCtrl.signal) || undefined;
+              const fixed = await repairNodeJsonViaProvider(provider, config, parentSession, node, effectiveSchema, node.result, parsed.error,
+                { signal: repairSignal });
               if (fixed) { const p2 = parseStructuredAgentOutput(fixed); if (p2.ok) { parsed = p2; node.jsonRepaired = true; } }
             }
             if (!parsed.ok) { node.status = 'failed'; node.error = parsed.error; node.errorClass = 'schema_failed'; node.schemaErrors = [parsed.error]; }

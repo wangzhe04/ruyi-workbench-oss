@@ -1313,7 +1313,7 @@ async function draftPlaybookFromSession(sessionId, options = {}) {
 // shape as providerSummaryCall). Returns { ok, content } | { ok:false, error }. Used by the draft feature.
 // 线协议(58 号批 1)问 04i 的登记表:端点、请求头、请求体(Responses 把调用方后插的 system 规则折进 instructions ——
 // 否则 JSON 修复器/记忆审稿人的严格协议会被丢掉)、回体取字。URL/请求头/一次 POST 的原语在 04h。
-async function providerRawCompletion(provider, history) {
+async function providerRawCompletion(provider, history, options) {
   const wire = providerWireProtocol(provider);
   const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
@@ -1327,8 +1327,13 @@ async function providerRawCompletion(provider, history) {
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   wire.applyTemperature(bodyObj, temp);
   // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
-  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000 });
-  if (r.threw) { const e = r.error; return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') }; }
+  // options.signal:调用方(回合/节点)取消时与那个 60 s 超时在 04h 合流 —— 取消不报成超时。
+  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000, signal: options && options.signal });
+  if (r.threw) {
+    const e = r.error;
+    if (r.cancelled) return { ok: false, error: 'request cancelled', cancelled: true };
+    return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') };
+  }
   if (!r.res || !r.ok) {
     const d = r.raw;
     return { ok: false, error: `HTTP ${r.res ? r.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
@@ -1589,7 +1594,7 @@ async function threadBriefOnce(o, sid, policyBound = false) {
 // providerRawCompletion 的非流式模式：system 层钉「JSON 修复器」，user 层携原始输出 + 解析错误 + schema 要点，
 // 只求模型吐回单个合法 JSON 对象；结果交回同一解析管线。这一次补全按 aux 台账记账(kind:'aux'/note:'json-repair'，
 // 仿 playbook-draft)。全程防御式——修复/记账的任何异常都不得影响节点执行主流程(返回 null 即维持原失败路径)。
-async function repairNodeJsonViaProvider(provider, config, session, node, schema, rawOutput, parseError) {
+async function repairNodeJsonViaProvider(provider, config, session, node, schema, rawOutput, parseError, options) {
   try {
     const sys = '你是 JSON 修复器，只输出修正后的单个 JSON 对象，无任何其它文字（不要 Markdown、不要标题、不要代码围栏、不要解释）。字符串值内部的双引号必须转义为 \\"，去掉尾逗号，补齐缺失的括号与引号。';
     const schemaHint = schema ? ('\n\n目标 JSON Schema（要点）：\n' + JSON.stringify(schema).slice(0, 1500)) : '';
@@ -1598,7 +1603,7 @@ async function repairNodeJsonViaProvider(provider, config, session, node, schema
     const rawStr = String(rawOutput || '');
     const rawSlice = rawStr.length <= 12000 ? rawStr : (rawStr.slice(0, 2000) + '\n…(中段省略)…\n' + rawStr.slice(-10000));
     const user = '下面的文本本应是一个 JSON 对象，但解析失败了。请只输出修正后的 JSON 对象。\n\n解析错误：' + String(parseError || '').slice(0, 300) + schemaHint + '\n\n原始输出：\n' + rawSlice;
-    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
+    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }], options);
     // v1.4-OSS 用量看板(补): 每次实际发出的修复补全记一行 aux(note:'json-repair')。usage 缺失直接跳过不估算。
     // 防御式 —— 记账绝不可影响修复流程。
     try {

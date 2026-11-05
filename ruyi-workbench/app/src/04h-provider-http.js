@@ -97,21 +97,39 @@ async function providerModelPostOnce({ url, headers, body, signal }) {
     : postPreparedBody();
 }
 // 非流式一次性 POST:超时由 AbortController 管(计时覆盖读回体),回体整段读成文本再试 JSON。
-// 不抛:fetch/读体之外的异常以 { threw:true, error } 交回,由调用方按自己的口径出错误文本
+// 调用方也可以带 signal(回合/节点的取消):它与内部超时【合流】到同一个控制器,但两类中止分开记账 ——
+// 用户停止 / 节点被停不是「端点慢」,不能报成超时。cancelled / timedOut 原样交回,错误文本仍由调用方自己出
 // (05 的改字是 'timeout (20s)',06 的起草是 'draft request timed out (60s)',两者都不许在这里被统一掉)。
+// 不抛:fetch/读体之外的异常以 { threw:true, error } 交回。
 // sseFallback:回体不是 JSON 但像 SSE 时拼成 chat 形回体(只有 05 的改字开这个口,06 修前就不认 SSE)。
-async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback }) {
+async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback, signal }) {
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  const external = signal && typeof signal.addEventListener === 'function' ? signal : null;
+  const abortError = () => Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
+  let timedOut = false, cancelled = Boolean(external && external.aborted);
+  const onCallerAbort = () => { cancelled = true; try { if (ctrl) ctrl.abort(); } catch { /* ignore */ } };
+  const timer = ctrl ? setTimeout(() => { timedOut = true; try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  if (external && !cancelled) { try { external.addEventListener('abort', onCallerAbort, { once: true }); } catch { /* 非常规宿主:退化成只有内部超时 */ } }
   try {
-    const res = await providerModelPostOnce({ url, headers, body, signal: ctrl ? ctrl.signal : undefined });
-    let raw = ''; if (res) { try { raw = await res.text(); } catch { raw = ''; } }
+    // 调用前就取消了:一发都不发(否则会白走一遍隐私闸与媒体钩子,还可能留下审计痕迹)。
+    if (cancelled) return { threw: true, cancelled: true, timedOut: false, error: abortError() };
+    const res = await providerModelPostOnce({ url, headers, body, signal: ctrl ? ctrl.signal : (external || undefined) });
+    let raw = '', readFailed = false;
+    if (res) { try { raw = await res.text(); } catch { raw = ''; readFailed = true; } }
+    // 读回体期间才被取消:回体多半是空的,不能落成「服务商给了空补全」。
+    if (cancelled) return { threw: true, cancelled: true, timedOut: false, error: abortError() };
+    // 读回体时才到的超时同理:计时覆盖读回体,读不出来就是超时,不是「空补全」。
+    if (timedOut && (readFailed || !raw)) return { threw: true, cancelled: false, timedOut: true, error: abortError() };
     let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = null; }
     if (sseFallback && !parsed && /(^|\n)data:/.test(raw)) parsed = providerSseAsCompletion(raw);
     return { res, status: res ? res.status : undefined, ok: Boolean(res && res.ok), raw, parsed };
   } catch (e) {
-    return { threw: true, error: e };
-  } finally { if (timer) clearTimeout(timer); }
+    return { threw: true, error: e, cancelled, timedOut };
+  } finally {
+    if (timer) clearTimeout(timer);
+    // 调用方的 signal 往往活得很久(回合级控制器):不摘监听器就是每发一次漏一个闭包。
+    if (external) { try { external.removeEventListener('abort', onCallerAbort); } catch { /* ignore */ } }
+  }
 }
 
 // ── 瞬时错误重试策略(一份) ─────────────────────────────────────────────────────────────────────────────

@@ -2242,23 +2242,28 @@ function asrFixSanity(input, output) {
 //     端点不认这两个字段回 400 时去掉再打一次;正文为空当失败(usage 照样带回来给记账)。
 // 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;58 号批 1 起请求体形状(encodeQuick)
 // 与回体取字(decodeCompletion)按协议问 04i 的登记表。
-async function providerFixCompletion(provider, model, messages) {
+async function providerFixCompletion(provider, model, messages, options) {
   const wire = providerWireProtocol(provider);
   const url = wire.completionUrl(provider.baseUrl);
   if (!url || !model || typeof fetch !== 'function') {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
   const headers = wire.requestHeaders(provider, { model });
+  const signal = options && options.signal;
   const build = plain => wire.encodeQuick({ model, messages, plain, provider });
   const once = async bodyObj => {
     // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
-    const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
-    if (r.threw) { const e = r.error; return { status: 0, ok: false, j: null, error: (e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed') }; }
+    // 调用方的 signal(回合/请求取消)与那个 20 s 超时在 04h 合流,但取消不报成超时。
+    const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true, signal });
+    if (r.threw) { const e = r.error; return { status: 0, ok: false, j: null, cancelled: r.cancelled, error: r.cancelled ? 'request cancelled' : ((e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed')) }; }
     return { status: r.status, ok: r.ok, j: r.parsed };
   };
   let r = await once(build(false));
   if (!r.ok && r.status === 400) r = await once(build(true));
-  if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.status + (r.j ? ': ' + redact(JSON.stringify(r.j).slice(0, 300)) : '')) };
+  if (!r.ok) {
+    if (r.cancelled) return { ok: false, error: r.error, cancelled: true };
+    return { ok: false, error: r.error || ('HTTP ' + r.status + (r.j ? ': ' + redact(JSON.stringify(r.j).slice(0, 300)) : '')) };
+  }
   const decoded = wire.decodeCompletion(r.j);
   const content = decoded.text.trim();
   const usage = (decoded.usage && typeof decoded.usage === 'object') ? decoded.usage : null;

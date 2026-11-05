@@ -29409,21 +29409,39 @@ async function providerModelPostOnce({ url, headers, body, signal }) {
     : postPreparedBody();
 }
 // 非流式一次性 POST:超时由 AbortController 管(计时覆盖读回体),回体整段读成文本再试 JSON。
-// 不抛:fetch/读体之外的异常以 { threw:true, error } 交回,由调用方按自己的口径出错误文本
+// 调用方也可以带 signal(回合/节点的取消):它与内部超时【合流】到同一个控制器,但两类中止分开记账 ——
+// 用户停止 / 节点被停不是「端点慢」,不能报成超时。cancelled / timedOut 原样交回,错误文本仍由调用方自己出
 // (05 的改字是 'timeout (20s)',06 的起草是 'draft request timed out (60s)',两者都不许在这里被统一掉)。
+// 不抛:fetch/读体之外的异常以 { threw:true, error } 交回。
 // sseFallback:回体不是 JSON 但像 SSE 时拼成 chat 形回体(只有 05 的改字开这个口,06 修前就不认 SSE)。
-async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback }) {
+async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback, signal }) {
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  const external = signal && typeof signal.addEventListener === 'function' ? signal : null;
+  const abortError = () => Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
+  let timedOut = false, cancelled = Boolean(external && external.aborted);
+  const onCallerAbort = () => { cancelled = true; try { if (ctrl) ctrl.abort(); } catch { /* ignore */ } };
+  const timer = ctrl ? setTimeout(() => { timedOut = true; try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  if (external && !cancelled) { try { external.addEventListener('abort', onCallerAbort, { once: true }); } catch { /* 非常规宿主:退化成只有内部超时 */ } }
   try {
-    const res = await providerModelPostOnce({ url, headers, body, signal: ctrl ? ctrl.signal : undefined });
-    let raw = ''; if (res) { try { raw = await res.text(); } catch { raw = ''; } }
+    // 调用前就取消了:一发都不发(否则会白走一遍隐私闸与媒体钩子,还可能留下审计痕迹)。
+    if (cancelled) return { threw: true, cancelled: true, timedOut: false, error: abortError() };
+    const res = await providerModelPostOnce({ url, headers, body, signal: ctrl ? ctrl.signal : (external || undefined) });
+    let raw = '', readFailed = false;
+    if (res) { try { raw = await res.text(); } catch { raw = ''; readFailed = true; } }
+    // 读回体期间才被取消:回体多半是空的,不能落成「服务商给了空补全」。
+    if (cancelled) return { threw: true, cancelled: true, timedOut: false, error: abortError() };
+    // 读回体时才到的超时同理:计时覆盖读回体,读不出来就是超时,不是「空补全」。
+    if (timedOut && (readFailed || !raw)) return { threw: true, cancelled: false, timedOut: true, error: abortError() };
     let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = null; }
     if (sseFallback && !parsed && /(^|\n)data:/.test(raw)) parsed = providerSseAsCompletion(raw);
     return { res, status: res ? res.status : undefined, ok: Boolean(res && res.ok), raw, parsed };
   } catch (e) {
-    return { threw: true, error: e };
-  } finally { if (timer) clearTimeout(timer); }
+    return { threw: true, error: e, cancelled, timedOut };
+  } finally {
+    if (timer) clearTimeout(timer);
+    // 调用方的 signal 往往活得很久(回合级控制器):不摘监听器就是每发一次漏一个闭包。
+    if (external) { try { external.removeEventListener('abort', onCallerAbort); } catch { /* ignore */ } }
+  }
 }
 
 // ── 瞬时错误重试策略(一份) ─────────────────────────────────────────────────────────────────────────────
@@ -34867,23 +34885,28 @@ function asrFixSanity(input, output) {
 //     端点不认这两个字段回 400 时去掉再打一次;正文为空当失败(usage 照样带回来给记账)。
 // 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;58 号批 1 起请求体形状(encodeQuick)
 // 与回体取字(decodeCompletion)按协议问 04i 的登记表。
-async function providerFixCompletion(provider, model, messages) {
+async function providerFixCompletion(provider, model, messages, options) {
   const wire = providerWireProtocol(provider);
   const url = wire.completionUrl(provider.baseUrl);
   if (!url || !model || typeof fetch !== 'function') {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
   const headers = wire.requestHeaders(provider, { model });
+  const signal = options && options.signal;
   const build = plain => wire.encodeQuick({ model, messages, plain, provider });
   const once = async bodyObj => {
     // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
-    const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
-    if (r.threw) { const e = r.error; return { status: 0, ok: false, j: null, error: (e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed') }; }
+    // 调用方的 signal(回合/请求取消)与那个 20 s 超时在 04h 合流,但取消不报成超时。
+    const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true, signal });
+    if (r.threw) { const e = r.error; return { status: 0, ok: false, j: null, cancelled: r.cancelled, error: r.cancelled ? 'request cancelled' : ((e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed')) }; }
     return { status: r.status, ok: r.ok, j: r.parsed };
   };
   let r = await once(build(false));
   if (!r.ok && r.status === 400) r = await once(build(true));
-  if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.status + (r.j ? ': ' + redact(JSON.stringify(r.j).slice(0, 300)) : '')) };
+  if (!r.ok) {
+    if (r.cancelled) return { ok: false, error: r.error, cancelled: true };
+    return { ok: false, error: r.error || ('HTTP ' + r.status + (r.j ? ': ' + redact(JSON.stringify(r.j).slice(0, 300)) : '')) };
+  }
   const decoded = wire.decodeCompletion(r.j);
   const content = decoded.text.trim();
   const usage = (decoded.usage && typeof decoded.usage === 'object') ? decoded.usage : null;
@@ -40253,7 +40276,7 @@ async function draftPlaybookFromSession(sessionId, options = {}) {
 // shape as providerSummaryCall). Returns { ok, content } | { ok:false, error }. Used by the draft feature.
 // 线协议(58 号批 1)问 04i 的登记表:端点、请求头、请求体(Responses 把调用方后插的 system 规则折进 instructions ——
 // 否则 JSON 修复器/记忆审稿人的严格协议会被丢掉)、回体取字。URL/请求头/一次 POST 的原语在 04h。
-async function providerRawCompletion(provider, history) {
+async function providerRawCompletion(provider, history, options) {
   const wire = providerWireProtocol(provider);
   const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
@@ -40267,8 +40290,13 @@ async function providerRawCompletion(provider, history) {
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   wire.applyTemperature(bodyObj, temp);
   // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
-  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000 });
-  if (r.threw) { const e = r.error; return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') }; }
+  // options.signal:调用方(回合/节点)取消时与那个 60 s 超时在 04h 合流 —— 取消不报成超时。
+  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000, signal: options && options.signal });
+  if (r.threw) {
+    const e = r.error;
+    if (r.cancelled) return { ok: false, error: 'request cancelled', cancelled: true };
+    return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') };
+  }
   if (!r.res || !r.ok) {
     const d = r.raw;
     return { ok: false, error: `HTTP ${r.res ? r.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
@@ -40529,7 +40557,7 @@ async function threadBriefOnce(o, sid, policyBound = false) {
 // providerRawCompletion 的非流式模式：system 层钉「JSON 修复器」，user 层携原始输出 + 解析错误 + schema 要点，
 // 只求模型吐回单个合法 JSON 对象；结果交回同一解析管线。这一次补全按 aux 台账记账(kind:'aux'/note:'json-repair'，
 // 仿 playbook-draft)。全程防御式——修复/记账的任何异常都不得影响节点执行主流程(返回 null 即维持原失败路径)。
-async function repairNodeJsonViaProvider(provider, config, session, node, schema, rawOutput, parseError) {
+async function repairNodeJsonViaProvider(provider, config, session, node, schema, rawOutput, parseError, options) {
   try {
     const sys = '你是 JSON 修复器，只输出修正后的单个 JSON 对象，无任何其它文字（不要 Markdown、不要标题、不要代码围栏、不要解释）。字符串值内部的双引号必须转义为 \\"，去掉尾逗号，补齐缺失的括号与引号。';
     const schemaHint = schema ? ('\n\n目标 JSON Schema（要点）：\n' + JSON.stringify(schema).slice(0, 1500)) : '';
@@ -40538,7 +40566,7 @@ async function repairNodeJsonViaProvider(provider, config, session, node, schema
     const rawStr = String(rawOutput || '');
     const rawSlice = rawStr.length <= 12000 ? rawStr : (rawStr.slice(0, 2000) + '\n…(中段省略)…\n' + rawStr.slice(-10000));
     const user = '下面的文本本应是一个 JSON 对象，但解析失败了。请只输出修正后的 JSON 对象。\n\n解析错误：' + String(parseError || '').slice(0, 300) + schemaHint + '\n\n原始输出：\n' + rawSlice;
-    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
+    const sc = await providerRawCompletion(provider, [{ role: 'system', content: sys }, { role: 'user', content: user }], options);
     // v1.4-OSS 用量看板(补): 每次实际发出的修复补全记一行 aux(note:'json-repair')。usage 缺失直接跳过不估算。
     // 防御式 —— 记账绝不可影响修复流程。
     try {
@@ -56545,7 +56573,12 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             // 工具修复补全再走同一管线。Claude 引擎节点不做(单发 -p 进程成本高，且解析加固通常已足够)。修复成功
             // → 节点照常过门；仍失败 → 维持现有失败路径。修复调用/记账全程防御式，异常不影响主流程。
             if (!parsed.ok && (node.engine || 'openai') === 'openai' && provider) {
-              const fixed = await repairNodeJsonViaProvider(provider, config, parentSession, node, effectiveSchema, node.result, parsed.error);
+              // signal:回合/run 级取消(用户按停、断线、看门狗中止整个 run)也管这一发 —— 否则 run 已经停了,
+              // 修复补全还会挂到 60 s 超时才回来。这里刻意用 localCtrl 而不是 nodeCtrl:上面 finally 已把
+              // nodeControls 注销、node 状态也已落定,node 级看门狗不再中止这个节点的控制器;run 级控制器仍活着。
+              const repairSignal = (localCtrl && localCtrl.signal) || (nodeCtrl && nodeCtrl.signal) || undefined;
+              const fixed = await repairNodeJsonViaProvider(provider, config, parentSession, node, effectiveSchema, node.result, parsed.error,
+                { signal: repairSignal });
               if (fixed) { const p2 = parseStructuredAgentOutput(fixed); if (p2.ok) { parsed = p2; node.jsonRepaired = true; } }
             }
             if (!parsed.ok) { node.status = 'failed'; node.error = parsed.error; node.errorClass = 'schema_failed'; node.schemaErrors = [parsed.error]; }

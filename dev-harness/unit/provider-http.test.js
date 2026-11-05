@@ -6,6 +6,8 @@
 //   [H3] 请求头:content-type → Bearer(key 去空白;空 key 不带)→ 自定义头整份覆盖(含覆盖 authorization);键序即插入序。
 //   [H4] providerFixCompletion(句尾改字):URL、头、请求体逐字节;400 去掉思考开关再打一次;SSE 回体兜底;错误文本。
 //   [H5] providerRawCompletion(起草/JSON 修复/记忆审稿):URL、头、请求体(身份系统层除外)逐字节;不认 SSE;错误文本。
+//   [H6] 调用方 signal(04h 把它与内部超时合流):预取消不发请求、飞行中取消报 'request cancelled' 而不是超时文本、
+//        不带 signal 时口径不变、结算后摘掉调用方 signal 上的监听器。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -47,11 +49,22 @@ const URLS = {
 // fetch 桩:按剧本逐发回应,记下每一发的 URL/方法/头(保序)/请求体。
 const calls = [];
 let script = [];
+let lastSignal = null;
 const realFetch = global.fetch;
 global.fetch = async (url, init) => {
+  lastSignal = (init && init.signal) || null;
   calls.push({ url, method: init && init.method, headers: Object.entries((init && init.headers) || {}), body: init && init.body, hasSignal: Boolean(init && init.signal) });
   const step = script.shift() || { status: 200, body: '{}' };
   if (step.throw) { const e = new Error(step.throw.message); if (step.throw.name) e.name = step.throw.name; throw e; }
+  // abort:这一发的回体已拿到手,但调用方在此刻取消(验「取消后不再打兜底那一发」这类时序)。
+  if (step.abort) step.abort();
+  // hang:一直不回话,直到调用方把 signal 中止(模拟端点慢 + 用户按停)。
+  if (step.hang) return await new Promise((_, reject) => {
+    const s = init && init.signal;
+    const onAbort = () => { const e = new Error('aborted'); e.name = 'AbortError'; reject(e); };
+    if (!s) { reject(new Error('stub hang needs a signal')); return; }
+    if (s.aborted) onAbort(); else s.addEventListener('abort', onAbort, { once: true });
+  });
   return new Response(step.body, { status: step.status, headers: { 'content-type': step.ct || 'application/json' } });
 };
 async function run(steps, fn) {
@@ -207,6 +220,61 @@ test('[H5b] 2026-10 走查(w1-provider):200 回体里装着失败 → 报真因,
   r = await run([{ status: 200, body: JSON.stringify({ error: null, choices: [{ message: { content: 'fine' } }] }) }], () => providerRawCompletion(P.A, RAW_HIST));
   assert.equal(r.result.ok, true);
   assert.equal(r.result.content, 'fine');
+});
+
+test('[H6] 调用方 signal:取消不报成超时、预取消不发请求、结算后不留监听器', async () => {
+  // ① 调用前就取消了:一发都不发(隐私闸/媒体钩子也不白走)
+  const pre = new AbortController(); pre.abort();
+  let r = await run([], () => providerRawCompletion(P.A, RAW_HIST, { signal: pre.signal }));
+  assert.deepEqual(r, { result: { ok: false, error: 'request cancelled', cancelled: true }, calls: [] });
+  r = await run([], () => providerFixCompletion(P.A, 'fm', FIX_MSGS, { signal: pre.signal }));
+  assert.deepEqual(r, { result: { ok: false, error: 'request cancelled', cancelled: true }, calls: [] });
+
+  // ② 飞行中取消:报取消,不报 'draft request timed out (60s)' / 'timeout (20s)'(那是端点慢的口径)
+  calls.length = 0; script = [{ hang: true }];
+  const mid = new AbortController();
+  const pending = providerRawCompletion(P.A, RAW_HIST, { signal: mid.signal });
+  await new Promise(res => setImmediate(res));
+  mid.abort();
+  r = await pending;
+  assert.deepEqual(r, { ok: false, error: 'request cancelled', cancelled: true });
+  assert.equal(calls.length, 1);
+  assert.equal(Boolean(lastSignal && lastSignal.aborted), true, 'fetch 拿到的是合流后已中止的那个信号');
+
+  calls.length = 0; script = [{ hang: true }, { hang: true }];
+  const mid2 = new AbortController();
+  const pending2 = providerFixCompletion(P.A, 'fm', FIX_MSGS, { signal: mid2.signal });
+  await new Promise(res => setImmediate(res));
+  mid2.abort();
+  r = await pending2;
+  assert.deepEqual(r, { ok: false, error: 'request cancelled', cancelled: true });
+  assert.equal(calls.length, 1, '取消中只发过这一发');
+
+  // ②b 已取消 → 报 cancelled,不报 'HTTP 400'。注:05 里没有单独的「取消就别再打兜底那一发」守卫 ——
+  // 取消走的是 threw 分支(status 0),`status === 400` 根本为假;这里钉的是错误文本与「取消没有多打一发」。
+  const retryCtrl = new AbortController();
+  r = await run([{ status: 400, body: '{"error":"x"}', abort: () => retryCtrl.abort() }, { status: 200, body: CHAT_OK }],
+    () => providerFixCompletion(P.A, 'fm', FIX_MSGS, { signal: retryCtrl.signal }));
+  assert.deepEqual(r.result, { ok: false, error: 'request cancelled', cancelled: true });
+  assert.equal(r.calls.length, 1, '400 之后已取消:没有再出网一发');
+
+  // ③ 不带 signal 时口径不变:夹具抛 AbortError = 内部计时器那一发 → 仍是超时文本
+  r = await run([{ throw: { name: 'AbortError', message: 'aborted' } }], () => providerRawCompletion(P.A, RAW_HIST));
+  assert.deepEqual(r.result, { ok: false, error: 'draft request timed out (60s)' });
+  r = await run([{ throw: { name: 'AbortError', message: 'aborted' } }], () => providerFixCompletion(P.A, 'fm', FIX_MSGS));
+  assert.deepEqual(r.result, { ok: false, error: 'timeout (20s)' });
+
+  // ④ 正常结算后调用方才取消:结果不受影响,且调用方 signal 上的监听器已经摘掉(回合级 signal 活得很久)
+  const added = []; let addCalls = 0;
+  const fake = {
+    aborted: false,
+    addEventListener: (_t, fn) => { addCalls++; added.push(fn); },
+    removeEventListener: (_t, fn) => { const i = added.indexOf(fn); if (i >= 0) added.splice(i, 1); },
+  };
+  const done = await run([{ status: 200, body: CHAT_OK }], () => providerRawCompletion(P.A, RAW_HIST, { signal: fake }));
+  assert.equal(done.result.ok, true);
+  assert.equal(addCalls, 1, '取消语义靠这个监听器:确实挂过');
+  assert.equal(added.length, 0, '结算后摘掉,不留在调用方 signal 上');
 });
 
 process.on('exit', () => {
