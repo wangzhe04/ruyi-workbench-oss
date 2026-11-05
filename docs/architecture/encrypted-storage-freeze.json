@@ -73,7 +73,10 @@
     "audit-log",
     "migration-skill-backups",
     "media-derived",
-    "uploads-attachment"
+    "uploads-attachment",
+    "session-fulltext-state",
+    "session-fulltext-manifest",
+    "session-fulltext-shard"
   ],
   "envelope": {
     "formatVersion": 2,
@@ -608,7 +611,7 @@
       "migrationBatch": "index-cache",
       "plaintextMetadata": [],
       "reason": "fulltext owner lifecycle state is workbench-owned derived state; codec closure never exempts the namespace from encryption",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-fulltext-manifest",
@@ -617,7 +620,7 @@
       "migrationBatch": "index-cache",
       "plaintextMetadata": [],
       "reason": "fulltext manifest carries source and generation proofs for sealed conversations; rebuilding it does not make plaintext disclosure acceptable",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-fulltext-shard",
@@ -626,7 +629,7 @@
       "migrationBatch": "index-cache",
       "plaintextMetadata": [],
       "reason": "fulltext canonical text and UTF16 origin runs derive from sealed conversation bodies and must remain encrypted through migration and portable restore",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "web-cache",
