@@ -70969,6 +70969,11 @@ const FileVisualIo = (() => {
   const MAX_FILE_BYTES = 50 * 1024 * 1024;
   const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|tiff?)$/i;
   const DOCUMENT_EXT = /\.(pdf|docx|docm|dotx|pptx|pptm|xlsx|xlsm|odt|ods|odp)$/i;
+  // 隐私 M4(2026-11-05):PDF 隐藏层(嵌入文件/脚本/表单/打开动作/批注)不在「抽取出来的正文」里。
+  // 判据【不能】放在 JS 里按原始字节找字面名 —— 复审实测:合法的 `/J#53cript` 名转义与 PDF 1.5+ 对象流
+  // 都能 100% 绕过,而正文里出现 "/JavaScript" 的良性文档会被误拒。所以判据放在真正的解析器里
+  // (resources/native-file-read.py 的 pdf_hidden_layers:查 catalog 与页面 annots),那边发现就整份拒绝
+  // (code: document_hidden_content)。JS 这层只负责把结果原样交回,不再自己猜。
   const clamp = (v, fallback, min, max) => Number.isFinite(Number(v)) && v != null
     ? Math.max(min, Math.min(max, Math.floor(Number(v)))) : fallback;
   function options(args) {

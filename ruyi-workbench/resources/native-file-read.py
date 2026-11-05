@@ -131,9 +131,68 @@ def read_zip(filename, opts):
         return result
 
 
+def pdf_hidden_layers(doc):
+    """PDF 的隐藏层不在「抽取出来的正文」里:嵌入文件/脚本/表单/打开动作/批注。
+    这份读取器只交正文,所以只要发现这些结构就拒绝,而不是让调用方以为整份文档都读过了。
+    判据走真实解析器(catalog 与页面 annots),不是原始字节里的字面名 —— 后者既能被 #XX 转义与
+    对象流绕过,也会把正文里提到 /JavaScript 的良性文档误拒。
+    """
+    found = set()
+    try:
+        catalog = doc.doc.catalog
+    except Exception:
+        return ['catalog-unreadable']
+    # 读不出 catalog(悬空 /Root、空 dict)时不能当成「什么都没发现」——那等于对整份文档放行。
+    if not catalog or not hasattr(catalog, 'keys') or not len(catalog):
+        return ['catalog-unreadable']
+    def resolve(value):
+        try:
+            return value.resolve() if hasattr(value, 'resolve') else value
+        except Exception:
+            return value
+    for key, name in (('AcroForm', 'form'), ('OpenAction', 'open-action'), ('AA', 'additional-actions')):
+        try:
+            if key in catalog:
+                found.add(name)
+        except Exception:
+            found.add('catalog-unreadable')
+    try:
+        names = resolve(catalog.get('Names')) if 'Names' in catalog else None
+        if names:
+            if 'EmbeddedFiles' in names:
+                found.add('embedded-files')
+            if 'JavaScript' in names:
+                found.add('javascript')
+    except Exception:
+        found.add('names-unreadable')
+    try:
+        for page in doc.pages:
+            try:
+                if page.annots:
+                    found.add('annotations')
+            except Exception:
+                found.add('annotations-unreadable')
+            # 页面级附加动作(/AA)不在 catalog 上,漏了它照样能藏脚本。
+            # pdfminer 的 PDFPage 把键放在 .attrs 里,dict 的 `in` 看不到它们。
+            try:
+                attrs = getattr(page.page_obj, 'attrs', None)
+                if attrs is not None and 'AA' in attrs:
+                    found.add('additional-actions')
+            except Exception:
+                pass
+    except Exception:
+        found.add('pages-unreadable')
+    return sorted(found)
+
+
 def read_pdf(filename, opts):
     import pdfplumber
     with pdfplumber.open(filename) as doc:
+        hidden = pdf_hidden_layers(doc)
+        if hidden:
+            return {'ok': False, 'code': 'document_hidden_content', 'found': hidden,
+                    'error': 'PDF contains layers this reader does not extract: ' + ', '.join(hidden),
+                    'hint': 'This reader only returns page text. Flatten or clean the PDF (print/save as a new PDF, remove annotations, forms, embedded files and actions) and read it again, or open it in a viewer to inspect those layers yourself.'}
         start = opts['pageOffset'] - 1
         end = min(start + opts['pageLimit'], len(doc.pages))
         result = {'ok': True, 'mode': 'document', 'totalPages': len(doc.pages), 'pageOffset': start + 1, 'images': [], 'imageWarnings': []}
