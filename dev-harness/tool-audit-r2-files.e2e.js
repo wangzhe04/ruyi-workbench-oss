@@ -351,6 +351,12 @@ try {
       const stub = await call('file_read', { path: '~$draft.docx' });
       ok(stub.ok === false && stub.code === 'document_stub', `Y4 ~$ 锁文件 -> document_stub(got ${stub.code})`);
     }
+    // Y5 放在 if/else 之外:document_render_unavailable 在起任何解释器之前就返回,没有 Python 读取器的
+    // 机器上同样要验(否则这条工具层证据会在那种环境下静默消失)。
+    const asImage = await call('file_read', { path: 'clean.docx', as: 'image' });
+    ok(asImage.ok === false && asImage.code === 'document_render_unavailable' && /as:["']text["']/.test(String(asImage.hint))
+      && !('content' in asImage),
+      `Y5 as:'image' 打在 docx 上 -> document_render_unavailable(工具层;got ${JSON.stringify({ code: asImage.code })})`);
   }
 } catch (e) {
   t.fail('fatal: ' + ((e && e.stack) || e));

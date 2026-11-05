@@ -173,7 +173,9 @@ test('privacy refuses document extraction and images before any external parser,
     for (const mode of ['basic', 'enhanced', 'strict']) {
       const policy = config(mode);
       await scoped(policy, async () => {
-        for (const target of sources) for (const args of [{}, { as: 'text' }, { includeImages: false }, { as: 'text', includeImages: false }]) {
+        // as:'image' 也必须在矩阵里:11c 新加的 document_render_unavailable 不能被当成绕过隐私媒体的后门 ——
+        // 顺序上先撞隐私闸(在起解析器之前),而不是先走到渲染分支。
+        for (const target of sources) for (const args of [{}, { as: 'text' }, { includeImages: false }, { as: 'text', includeImages: false }, { as: 'image' }, { as: 'image', includeImages: true }]) {
           const result = await rawRead(target, args, policy);
           assert.equal(result.ok, false);
           assert.equal(result.code, 'privacy.media_not_supported');
@@ -232,4 +234,16 @@ test('rendered document pages are a media payload: privacy ON withholds them, OF
   // OFF:不保护是既定语义(与图片附件一致),原样交回 —— 这条是对照组,证明上面拒的是「像素」。
   const offPolicy = config('off');
   await scoped(offPolicy, async () => assert.deepEqual(await app.PrivacyGateway.toolResult(rendered), rendered));
+});
+test('as:"image" 打在非视觉文件上时是 not_image(与隐私闸、与文档渲染各是各的码)', async () => {
+  // 12-tool-dispatch 的第三条分支:as:'image' 但 kind() 不是图片/文档 → not_image。
+  // 它不属于隐私闸那一格(隐私关时也会给),所以单独一条,不进上面的矩阵。
+  const plain = file('plain-note.txt', 'hello');
+  const offPolicy = config('off');
+  await scoped(offPolicy, async () => {
+    const r = await rawRead(plain, { as: 'image' }, offPolicy);
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'not_image');
+    assert.match(String(r.error || ''), /not an image/i);
+  });
 });
