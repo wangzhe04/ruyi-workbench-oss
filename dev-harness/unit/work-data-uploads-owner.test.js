@@ -104,6 +104,25 @@ test('owner unseals an attachment above the default reader limit and leaves no e
   assert.equal((await f.owner().enroll()).sealed, 0);
   assert.equal((await f.runtime('attachment').list()).length, 0);
 });
+test('owner unseals into another root without touching the sealed source', async t => {
+  const f = await fixture(t), original = Buffer.from('candidate restore bytes');
+  await f.put('file_0123456789abcdef/a.bin', original);
+  await f.owner().sealAll();
+  const target = path.join(path.dirname(f.root), path.basename(f.root) + '-candidate-uploads');
+  t.after(async () => { await fsp.rm(target, { recursive: true, force: true }); });
+  const report = await f.owner().unsealInto({ target });
+  assert.equal(report.restored[0].size, original.length);
+  assert.deepEqual(await fsp.readFile(path.join(target, 'file_0123456789abcdef', 'a.bin')), original);
+  assert.equal(await f.runtime('attachment').has('file_0123456789abcdef'), true);
+  assert.equal((await f.runtime('attachment').list()).length, 1);
+  const lease = await f.runtime('attachment').read('file_0123456789abcdef'), bytes = Buffer.from(lease.bytes);
+  assert.deepEqual(bytes, original); lease.release();
+  await assert.rejects(f.owner().unsealInto({ target: f.root }), /target_same/);
+  await assert.rejects(f.owner().unsealInto({ target: f.root.toUpperCase() }), /target_same/);
+  await assert.rejects(f.owner().unsealInto({ target: path.join(f.root, 'inner') }), /target_overlap/);
+  await assert.rejects(f.owner().unsealInto({ target: path.dirname(f.root) }), /target_overlap/);
+  await assert.rejects(f.owner().unsealInto({ target: 'relative/path' }), /target/);
+});
 test('owner enroll reports already sealed directories and ignores catalogs', async t => {
   const f = await fixture(t);
   await f.put('_catalog-attachments-v1.json', Buffer.from('{}'));

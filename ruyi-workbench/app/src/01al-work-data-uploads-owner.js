@@ -17,6 +17,32 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
     const attachment = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'attachment', allowSealedRemoval: true });
     const toolImage = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'toolImage', allowSealedRemoval: true });
     const runtimeOf = face => face === 'attachment' ? attachment : toolImage;
+    async function writeRestored(runtime, row, targetRoot) {
+      const info = await runtime.stat(row.id);
+      const dir = nodePath.join(targetRoot, row.id);
+      let exists = true;
+      try {
+        const stat = await fsp.lstat(dir, { bigint: true });
+        if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path', { id: row.id });
+        const real = await fsp.realpath(dir);
+        if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? dir.toLowerCase() : dir)) fail('path', { id: row.id });
+      } catch (error) { if (!error || error.code !== 'ENOENT') throw error; exists = false; }
+      if (!exists) await fsp.mkdir(dir, { recursive: true });
+      const handle = await fsp.open(nodePath.join(dir, row.logicalName), 'wx');
+      let size = 0;
+      try {
+        for (let offset = 0; offset < info.totalBytes; offset += WorkDataAttachmentChunks.CHUNK_BYTES) {
+          const lease = await runtime.read(row.id, offset, Math.min(info.totalBytes, offset + WorkDataAttachmentChunks.CHUNK_BYTES));
+          let bytes = null;
+          try {
+            bytes = Buffer.from(lease.bytes); size += bytes.length;
+            await handle.write(bytes, 0, bytes.length, offset);
+          } finally { try { lease.release(); } catch {} if (bytes) bytes.fill(0); }
+        }
+      } finally { await handle.close(); }
+      if (size !== info.totalBytes) fail('restore_size', { id: row.id });
+      return size;
+    }
     async function enroll() {
       let entries;
       try { entries = await fsp.readdir(root, { withFileTypes: true }); }
@@ -78,35 +104,39 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
           const rows = await runtime.list();
           for (const row of rows) {
             if (row.state !== 'sealed') continue;
-            const info = await runtime.stat(row.id);
-            const dir = nodePath.join(root, row.id);
-            let exists = true;
-            try {
-              const stat = await fsp.lstat(dir, { bigint: true });
-              if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path', { id: row.id });
-              const real = await fsp.realpath(dir);
-              if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? dir.toLowerCase() : dir)) fail('path', { id: row.id });
-            } catch (error) { if (!error || error.code !== 'ENOENT') throw error; exists = false; }
-            if (!exists) await fsp.mkdir(dir, { recursive: true });
-            const handle = await fsp.open(nodePath.join(dir, row.logicalName), 'wx');
-            let size = 0;
-            try {
-              for (let offset = 0; offset < info.totalBytes; offset += WorkDataAttachmentChunks.CHUNK_BYTES) {
-                const lease = await runtime.read(row.id, offset, Math.min(info.totalBytes, offset + WorkDataAttachmentChunks.CHUNK_BYTES));
-                let bytes = null;
-                try {
-                  bytes = Buffer.from(lease.bytes); size += bytes.length;
-                  await handle.write(bytes, 0, bytes.length, offset);
-                } finally { try { lease.release(); } catch {} if (bytes) bytes.fill(0); }
-              }
-            } finally { await handle.close(); }
-            if (size !== info.totalBytes) fail('restore_size', { id: row.id });
+            const size = await writeRestored(runtime, row, root);
             await runtime.retireSealed(row.id);
             restored.push(Object.freeze({ id: row.id, face, file: row.logicalName, size }));
             retired.push(row.id);
           }
         }
         return Object.freeze({ restored: Object.freeze(restored), retired: Object.freeze(retired) });
+      },
+      // OFF direction without mutating the source: every sealed row is read and
+      // written into another root (the candidate generation), and no row is retired.
+      async unsealInto({ target } = {}) {
+        if (typeof target !== 'string' || !nodePath.isAbsolute(target)) fail('target', { target });
+        const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
+        const resolved = nodePath.resolve(target), source = nodePath.resolve(root);
+        if (fold(resolved) === fold(source)) fail('target_same');
+        const within = (outer, inner) => { const rel = nodePath.relative(fold(outer), fold(inner)); return rel === '' || rel !== '..' && !rel.startsWith('..' + nodePath.sep) && !nodePath.isAbsolute(rel); };
+        if (within(resolved, source) || within(source, resolved)) fail('target_overlap');
+        let stat = null;
+        try { stat = await fsp.lstat(resolved, { bigint: true }); } catch (error) { if (!error || error.code !== 'ENOENT') throw error; }
+        if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) fail('target');
+        await fsp.mkdir(resolved, { recursive: true });
+        const real = await fsp.realpath(resolved);
+        if (fold(real) !== fold(resolved)) fail('target');
+        const restored = [];
+        for (const face of ['attachment', 'toolImage']) {
+          const runtime = runtimeOf(face);
+          for (const row of await runtime.list()) {
+            if (row.state !== 'sealed') continue;
+            const size = await writeRestored(runtime, row, resolved);
+            restored.push(Object.freeze({ id: row.id, face, file: row.logicalName, size }));
+          }
+        }
+        return Object.freeze({ restored: Object.freeze(restored), retired: Object.freeze([]) });
       },
     });
   }
