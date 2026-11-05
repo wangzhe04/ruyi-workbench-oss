@@ -1372,6 +1372,20 @@ async function handleApi(req, res, pathname) {
   await handleSchedulerApiRoutes(req, res, pathname); if (res.writableEnded) return;
   if (req.method === 'POST' && pathname === '/api/upload') {
     const body = await readJsonBody(req);
+    const uploadConfig = await readConfig();
+    if (uploadConfig.workDataEncryptionV1 === true) {
+      // Encryption is on: the attachment must never touch the disk as plaintext.
+      // The sealed writer lives in a transport module loaded after this one
+      // (13ax), reached through a hook namespace so 13 keeps no static edge to it.
+      if (typeof WorkDataAttachmentUploadHooks === 'undefined' || typeof WorkDataAttachmentUploadHooks.sealUpload !== 'function') {
+        return send(res, apiFailure('upload.sealed_unavailable', {}, 'attachment could not be sealed', 503));
+      }
+      let sealedFile;
+      try { sealedFile = await WorkDataAttachmentUploadHooks.sealUpload(body); }
+      catch (error) { return send(res, apiFailure('upload.sealed_unavailable', {}, 'attachment could not be sealed', 503)); }
+      if (!sealedFile) return send(res, apiFailure('upload.empty', {}, 'attachment is empty', 400));
+      return send(res, json({ ok: true, file: sealedFile }));
+    }
     const file = await makeAttachmentRecord(body);
     // 127-114c②:音频附件尽力转写(函数内部绝不 throw —— 未配置零行为,失败只落 transcribeError,
     // 文件已落盘可下载,转写是增量)。13→13b 既有边,委派行形状同下楼几条域路由。

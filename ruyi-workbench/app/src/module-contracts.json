@@ -60,6 +60,7 @@
         "USAGE_DICT_COLUMNS",
         "UsageRowView",
         "VERSION",
+        "WorkDataAttachmentUploadHooks",
         "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceRuntimeHooks",
         "WorkDataMaintenanceWorkerHooks",
@@ -15839,6 +15840,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataAttachmentUploadHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
@@ -30959,6 +30967,64 @@
         {
           "provider": "13s-scheduler.js",
           "symbol": "stopScheduler",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13ax-work-data-attachment-upload.js",
+      "layer": "unclassified",
+      "provides": [
+        "sealUpload"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataAttachmentUploadHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ak-work-data-attachment-runtime.js",
+          "symbol": "WorkDataAttachmentRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "workDataKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sanitizeFsSegmentName",
           "kinds": [
             "call"
           ]

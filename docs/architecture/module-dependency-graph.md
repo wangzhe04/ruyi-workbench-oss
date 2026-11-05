@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 140 | 4330 | 4267 | 934 | 67 | 0 | 1 |
+| 141 | 4332 | 4275 | 938 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 183 | 7 | 4 |
+| 0 | `00-boot.js` | bootstrap | 184 | 7 | 4 |
 | 1 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 2 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 3 | `01c-runtime-flags.js` | foundation | 37 | 0 | 0 |
@@ -100,7 +100,7 @@
 | 82 | `11d-media-inspection.js` | tools | 1 | 0 | 0 |
 | 83 | `12-tool-dispatch.js` | tools | 78 | 147 | 23 |
 | 84 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 85 | `13-http-router.js` | transport | 74 | 263 | 33 |
+| 85 | `13-http-router.js` | transport | 74 | 264 | 33 |
 | 86 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
 | 87 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 88 | `13d-core-domain-routes.js` | transport | 69 | 140 | 17 |
@@ -153,8 +153,9 @@
 | 135 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 136 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
 | 137 | `13ax-desktop-lifetime.js` | unclassified | 10 | 16 | 9 |
-| 138 | `13au-work-data-runtime-host.js` | unclassified | 2 | 19 | 14 |
-| 139 | `14-main.js` | entrypoint | 8 | 604 | 53 |
+| 138 | `13ax-work-data-attachment-upload.js` | unclassified | 1 | 7 | 4 |
+| 139 | `13au-work-data-runtime-host.js` | unclassified | 2 | 19 | 14 |
+| 140 | `14-main.js` | entrypoint | 8 | 604 | 53 |
 
 ## 模块边
 
@@ -541,7 +542,7 @@
 | `12-tool-dispatch.js` | `11b-file-text-io.js` | backward | `FileTextIo` |
 | `12-tool-dispatch.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
 | `12-tool-dispatch.js` | `11d-media-inspection.js` | backward | `MediaInspection` |
-| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `CliBusinessHooks`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `DesktopLifetimeHooks`, `EventStreamHooks`, `ExternalBotHooks`, `InternalMcpHooks`, `MediaImageHooks`, `MemoryCliHooks`, `MigrationHooks`, `OVERLAY_ID`, `ProxyModelHooks`, `SKILL_ID_RE`, `ThreadRelayHooks`, `URL`, `VERSION`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `dataRootSource`, `decodeConsoleText`, `defaultDataRoots`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isDirectServeInvocation`, `isPkg`, `json`, `lstatOrNull`, `migrateLegacyDataRoot`, `nowIso`, `os`, `path`, `paths`, `recordInstallLaunch`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
+| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `CliBusinessHooks`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `DesktopLifetimeHooks`, `EventStreamHooks`, `ExternalBotHooks`, `InternalMcpHooks`, `MediaImageHooks`, `MemoryCliHooks`, `MigrationHooks`, `OVERLAY_ID`, `ProxyModelHooks`, `SKILL_ID_RE`, `ThreadRelayHooks`, `URL`, `VERSION`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `dataRootSource`, `decodeConsoleText`, `defaultDataRoots`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isDirectServeInvocation`, `isPkg`, `json`, `lstatOrNull`, `migrateLegacyDataRoot`, `nowIso`, `os`, `path`, `paths`, `recordInstallLaunch`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
 | `13-http-router.js` | `00b-ruyi-names.js` | backward | `LEGACY_RUYI_MCP_SERVER_IDS`, `RUYI_MCP_SERVER_ID` |
 | `13-http-router.js` | `01-config.js` | backward | `ConfigPatchHooks`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `beginBootCliPathProbes`, `contentTypeFor`, `decodeClaudeCliText`, `desktopMcpDetectionPending`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `ensureDesktopMcpWarm`, `externalServerJs`, `finishBootCliPathProbes`, `generateMcpConfig`, `hostAllowed`, `isLoopbackBindHost`, `mcpConfigFilePath`, `mutateConfig`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `requestIsLoopback`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `sweepStaleScriptFiles`, `syncAgentCliMcpManifests`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `tokenMatches`, `tokenOk`, `waitForBootCliPathProbes` |
 | `13-http-router.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `memoryRelevanceMax`, `observationRecallEnabled` |
@@ -764,6 +765,10 @@
 | `13ax-desktop-lifetime.js` | `13-http-router.js` | backward | `stopAllActiveTurnsSync` |
 | `13ax-desktop-lifetime.js` | `13d-core-domain-routes.js` | backward | `agentRunActionCommand` |
 | `13ax-desktop-lifetime.js` | `13s-scheduler.js` | backward | `stopScheduler` |
+| `13ax-work-data-attachment-upload.js` | `00-boot.js` | backward | `WorkDataAttachmentUploadHooks`, `nowIso`, `path`, `paths` |
+| `13ax-work-data-attachment-upload.js` | `01ak-work-data-attachment-runtime.js` | backward | `WorkDataAttachmentRuntime` |
+| `13ax-work-data-attachment-upload.js` | `02-session-store.js` | backward | `workDataKeys` |
+| `13ax-work-data-attachment-upload.js` | `04-permission-runtime.js` | backward | `sanitizeFsSegmentName` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRevertLogRecord`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |

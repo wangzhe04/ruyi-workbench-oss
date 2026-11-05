@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 140,
-    "providedSymbols": 4330,
-    "requiredSymbols": 4267,
-    "edges": 934,
+    "modules": 141,
+    "providedSymbols": 4332,
+    "requiredSymbols": 4275,
+    "edges": 938,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -72,6 +72,7 @@
         "USAGE_DICT_COLUMNS",
         "UsageRowView",
         "VERSION",
+        "WorkDataAttachmentUploadHooks",
         "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceRuntimeHooks",
         "WorkDataMaintenanceWorkerHooks",
@@ -16021,6 +16022,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "WorkDataAttachmentUploadHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "WorkDataMaintenanceHooks",
           "kinds": [
             "read"
@@ -31252,8 +31260,68 @@
       ]
     },
     {
-      "file": "13au-work-data-runtime-host.js",
+      "file": "13ax-work-data-attachment-upload.js",
       "order": 138,
+      "layer": "unclassified",
+      "note": "M3 attachments: registers the sealed-upload hook through WorkDataAttachmentUploadHooks so 13-http-router keeps no static edge to the attachment runtime; derived media work is not wired",
+      "provides": [
+        "sealUpload"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "WorkDataAttachmentUploadHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01ak-work-data-attachment-runtime.js",
+          "symbol": "WorkDataAttachmentRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "workDataKeys",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sanitizeFsSegmentName",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13au-work-data-runtime-host.js",
+      "order": 139,
       "layer": "unclassified",
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis).",
       "provides": [
@@ -31398,7 +31466,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 139,
+      "order": 140,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -39993,6 +40061,7 @@
         "ThreadRelayHooks",
         "URL",
         "VERSION",
+        "WorkDataAttachmentUploadHooks",
         "WorkDataMaintenanceHooks",
         "WorkDataMaintenanceRuntimeHooks",
         "WorkDataRootHooks",
@@ -42278,6 +42347,41 @@
       "to": "13s-scheduler.js",
       "symbols": [
         "stopScheduler"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-work-data-attachment-upload.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "WorkDataAttachmentUploadHooks",
+        "nowIso",
+        "path",
+        "paths"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-work-data-attachment-upload.js",
+      "to": "01ak-work-data-attachment-runtime.js",
+      "symbols": [
+        "WorkDataAttachmentRuntime"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-work-data-attachment-upload.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "workDataKeys"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ax-work-data-attachment-upload.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "sanitizeFsSegmentName"
       ],
       "direction": "backward"
     },

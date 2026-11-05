@@ -36,6 +36,7 @@ const MediaImageHooks = {};
 const ExternalBotHooks = {};
 const WorkDataMaintenanceHooks = {};
 const WorkDataSetupHooks = {};
+const WorkDataAttachmentUploadHooks = {};
 const WorkDataMaintenanceWorkerHooks = {};
 const WorkDataMaintenanceRuntimeHooks = {};
 // Desktop capabilities are consumed before any provider/CLI/helper can inherit env.

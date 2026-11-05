@@ -36,6 +36,7 @@ const MediaImageHooks = {};
 const ExternalBotHooks = {};
 const WorkDataMaintenanceHooks = {};
 const WorkDataSetupHooks = {};
+const WorkDataAttachmentUploadHooks = {};
 const WorkDataMaintenanceWorkerHooks = {};
 const WorkDataMaintenanceRuntimeHooks = {};
 // Desktop capabilities are consumed before any provider/CLI/helper can inherit env.
@@ -78195,6 +78196,20 @@ async function handleApi(req, res, pathname) {
   await handleSchedulerApiRoutes(req, res, pathname); if (res.writableEnded) return;
   if (req.method === 'POST' && pathname === '/api/upload') {
     const body = await readJsonBody(req);
+    const uploadConfig = await readConfig();
+    if (uploadConfig.workDataEncryptionV1 === true) {
+      // Encryption is on: the attachment must never touch the disk as plaintext.
+      // The sealed writer lives in a transport module loaded after this one
+      // (13ax), reached through a hook namespace so 13 keeps no static edge to it.
+      if (typeof WorkDataAttachmentUploadHooks === 'undefined' || typeof WorkDataAttachmentUploadHooks.sealUpload !== 'function') {
+        return send(res, apiFailure('upload.sealed_unavailable', {}, 'attachment could not be sealed', 503));
+      }
+      let sealedFile;
+      try { sealedFile = await WorkDataAttachmentUploadHooks.sealUpload(body); }
+      catch (error) { return send(res, apiFailure('upload.sealed_unavailable', {}, 'attachment could not be sealed', 503)); }
+      if (!sealedFile) return send(res, apiFailure('upload.empty', {}, 'attachment is empty', 400));
+      return send(res, json({ ok: true, file: sealedFile }));
+    }
     const file = await makeAttachmentRecord(body);
     // 127-114c②:音频附件尽力转写(函数内部绝不 throw —— 未配置零行为,失败只落 transcribeError,
     // 文件已落盘可下载,转写是增量)。13→13b 既有边,委派行形状同下楼几条域路由。
@@ -113110,6 +113125,26 @@ Object.assign(DesktopLifetimeHooks, {
     return grant ? { ...clean, RUYI_DESKTOP_CONTROL_V1: JSON.stringify(grant) } : clean;
   },
 });
+
+// Transport adapter: registers the sealed-upload hook so 13-http-router keeps no
+// static edge to the attachment runtime (SCC ceiling). Loaded after the router.
+WorkDataAttachmentUploadHooks.sealUpload = async function sealUpload(body) {
+  const rawName = typeof body?.name === 'string' ? body.name : '';
+  let safeName = sanitizeFsSegmentName(path.win32.basename(rawName)).replace(/[. ]+$/, '').slice(0, 200);
+  if (!safeName || /^[. ]*$/.test(safeName)) safeName = 'upload.bin';
+  const encoded = String(body?.data || '').includes(',') ? String(body.data).split(',').pop() : String(body?.data || '');
+  const bytes = Buffer.from(encoded, 'base64');
+  if (!bytes.length) return null;
+  const mime = typeof body?.mime === 'string' && /^[-A-Za-z0-9.+]+[/][-A-Za-z0-9.+]+$/.test(body.mime) ? body.mime : 'application/octet-stream';
+  const id = 'file_' + require('node:crypto').randomBytes(8).toString('hex');
+  const runtime = WorkDataAttachmentRuntime.create({ root: paths.uploads, keys: workDataKeys, enabled: () => true });
+  await runtime.seal({ id, kind: 'original', logicalName: safeName, mime, data: bytes });
+  const audioLike = /\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(safeName);
+  const imageLike = /\.(png|jpe?g|gif|webp|bmp)$/i.test(safeName);
+  // Derived work (OCR/transcribe/compress) needs the sealed bytes and is not wired.
+  return Object.freeze({ id, name: safeName, size: bytes.length, createdAt: nowIso(), sealed: true,
+    ...(audioLike ? { kind: 'audio' } : {}), ...(imageLike ? { kind: 'image' } : {}) });
+};
 
 // Explicit production host assembly. Loading this module only installs the
 // maintenance-runtime hooks (no acquisition, configure, IO, ready or process
