@@ -31,7 +31,7 @@
   - 封存后 `unsealAll` 能还原两个面的原文件、清空 catalog 与 sealed 目录；
   - 9 MiB 附件（超过 reader 默认 8 MiB）也能完整解封，且不留空的 `<opaque>/` 目录；
   - 普通运行时 `retireSealed` 被拒（`sealed_removal_forbidden`）。
-- 生成物：`build` 114773 行；`module-dependency-graph --check` 140 modules / 933 edges；
+- 生成物：`build` 114790 行；`module-dependency-graph --check` 140 modules / 933 edges；
   `facts` 454 unit / 629 e2e，两份 README 同步；`facts.static` ALL PASS。
 
 ## 边界与下一步
@@ -42,7 +42,10 @@
   普通运行时调用会得到 `sealed_removal_forbidden`。
 - 仍未挂到迁移主机（116 的五处前置未改）；失败时“已封存行 + 源目录并存”只保证数据不丢、不保证隐私，
   与 116 §5 一致。
-- 已知边界：解封是**整文件读入内存**（owner 把 reader 上限提到 `MAX_BYTES`，单文件最大 256 MiB）；
-  写回用 `wx`，若写回成功而 retire 失败，重试会因目标已存在而失败（需要人工清理或后续改临时文件+rename）；
+- 已知边界：解封按 **256 KiB 分块**流式读取（`01ak.stat` 只解析 manifest 拿 `totalBytes`，再逐段 `readRange` 写入同一个 `wx` 文件句柄），
+  不再把整文件读进内存，也不再抬高 reader 上限；
+  写回用 `wx`，若写回成功而 retire 失败、或写到一半失败留下半写文件，重试都会因目标已存在而失败
+  （数据不丢：封存副本仍在；需要人工清理或后续改临时文件+rename）；
   必须先解封再关闭加密开关（`gate()` 要求 `enabled()===true`）；零化失败目前只吞掉不升级为错误。
+- 解封结束会校验 `size === stat.totalBytes`，不一致报 `restore_size`。
 - 下一步按 116 的前置 1–5 改迁移主机，再把本 owner 挂上去，最后进 `work-data-cold-operations.e2e.js`。

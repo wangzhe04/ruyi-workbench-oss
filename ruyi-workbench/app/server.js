@@ -12292,6 +12292,15 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
         return rows.some(row => row.id === id && row.state === 'sealed');
       },
       async list() { gate(); return open().catalog.rows(); },
+      // Cheap metadata probe: readRange(id,0,0) parses the manifest without
+      // materializing any chunk, so callers can stream by range instead of
+      // raising the whole-file read limit.
+      async stat(id) {
+        gate();
+        const lease = await open().reader.readRange(id, 0, 0);
+        try { return Object.freeze({ totalBytes: lease.totalBytes, sha256: lease.sha256, revision: lease.revision, metadata: lease.metadata }); }
+        finally { lease.release(); }
+      },
       // Explicit cleanup for a failed seal. Only pending/uncertain rows may be
       // discarded; a sealed copy is never deleted through this entry.
       async discard(id) {
@@ -12364,8 +12373,8 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
   const kindOf = face => face === 'attachment' ? 'original' : 'tool-image';
   function create({ root, keys, enabled } = {}) {
     if (typeof root !== 'string' || !nodePath.isAbsolute(root)) fail('root');
-    const attachment = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'attachment', allowSealedRemoval: true, maxReadBytes: WorkDataAttachmentChunks.MAX_BYTES });
-    const toolImage = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'toolImage', allowSealedRemoval: true, maxReadBytes: WorkDataAttachmentChunks.MAX_BYTES });
+    const attachment = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'attachment', allowSealedRemoval: true });
+    const toolImage = WorkDataAttachmentRuntime.create({ root, keys, enabled, face: 'toolImage', allowSealedRemoval: true });
     const runtimeOf = face => face === 'attachment' ? attachment : toolImage;
     async function enroll() {
       let entries;
@@ -12428,21 +12437,29 @@ const WorkDataUploadsOwner = ((fsp, nodePath) => {
           const rows = await runtime.list();
           for (const row of rows) {
             if (row.state !== 'sealed') continue;
-            const lease = await runtime.read(row.id);
-            let bytes = null, size = 0;
+            const info = await runtime.stat(row.id);
+            const dir = nodePath.join(root, row.id);
+            let exists = true;
             try {
-              bytes = Buffer.from(lease.bytes); size = bytes.length;
-              const dir = nodePath.join(root, row.id);
-              let exists = true;
-              try {
-                const stat = await fsp.lstat(dir, { bigint: true });
-                if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path', { id: row.id });
-                const real = await fsp.realpath(dir);
-                if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? dir.toLowerCase() : dir)) fail('path', { id: row.id });
-              } catch (error) { if (!error || error.code !== 'ENOENT') throw error; exists = false; }
-              if (!exists) await fsp.mkdir(dir, { recursive: true });
-              await fsp.writeFile(nodePath.join(dir, row.logicalName), bytes, { flag: 'wx' });
-            } finally { try { lease.release(); } catch {} if (bytes) bytes.fill(0); }
+              const stat = await fsp.lstat(dir, { bigint: true });
+              if (!stat.isDirectory() || stat.isSymbolicLink()) fail('path', { id: row.id });
+              const real = await fsp.realpath(dir);
+              if ((process.platform === 'win32' ? real.toLowerCase() : real) !== (process.platform === 'win32' ? dir.toLowerCase() : dir)) fail('path', { id: row.id });
+            } catch (error) { if (!error || error.code !== 'ENOENT') throw error; exists = false; }
+            if (!exists) await fsp.mkdir(dir, { recursive: true });
+            const handle = await fsp.open(nodePath.join(dir, row.logicalName), 'wx');
+            let size = 0;
+            try {
+              for (let offset = 0; offset < info.totalBytes; offset += WorkDataAttachmentChunks.CHUNK_BYTES) {
+                const lease = await runtime.read(row.id, offset, Math.min(info.totalBytes, offset + WorkDataAttachmentChunks.CHUNK_BYTES));
+                let bytes = null;
+                try {
+                  bytes = Buffer.from(lease.bytes); size += bytes.length;
+                  await handle.write(bytes, 0, bytes.length, offset);
+                } finally { try { lease.release(); } catch {} if (bytes) bytes.fill(0); }
+              }
+            } finally { await handle.close(); }
+            if (size !== info.totalBytes) fail('restore_size', { id: row.id });
             await runtime.retireSealed(row.id);
             restored.push(Object.freeze({ id: row.id, face, file: row.logicalName, size }));
             retired.push(row.id);

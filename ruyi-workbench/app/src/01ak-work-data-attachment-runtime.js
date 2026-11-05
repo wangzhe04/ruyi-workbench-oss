@@ -57,6 +57,15 @@ const WorkDataAttachmentRuntime = ((fsp, nodePath, cryptoApi) => {
         return rows.some(row => row.id === id && row.state === 'sealed');
       },
       async list() { gate(); return open().catalog.rows(); },
+      // Cheap metadata probe: readRange(id,0,0) parses the manifest without
+      // materializing any chunk, so callers can stream by range instead of
+      // raising the whole-file read limit.
+      async stat(id) {
+        gate();
+        const lease = await open().reader.readRange(id, 0, 0);
+        try { return Object.freeze({ totalBytes: lease.totalBytes, sha256: lease.sha256, revision: lease.revision, metadata: lease.metadata }); }
+        finally { lease.release(); }
+      },
       // Explicit cleanup for a failed seal. Only pending/uncertain rows may be
       // discarded; a sealed copy is never deleted through this entry.
       async discard(id) {

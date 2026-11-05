@@ -95,7 +95,7 @@ test('sealed removal needs an explicit migration opt-in', async t => {
   await assert.rejects(runtime.retireSealed('file_0123456789abcdef'), /sealed_removal_forbidden/);
 });
 test('owner unseals an attachment above the default reader limit and leaves no empty tree', async t => {
-  const f = await fixture(t), big = Buffer.alloc(9 * 1024 * 1024, 7);
+  const f = await fixture(t), big = Buffer.alloc(9 * 1024 * 1024 + 1, 7);
   await f.put('file_0123456789abcdef/big.bin', big);
   await f.owner().sealAll();
   const report = await f.owner().unsealAll();
