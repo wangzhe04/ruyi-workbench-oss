@@ -1403,7 +1403,26 @@ async function handleApi(req, res, pathname) {
     let buffer = null;
     try { buffer = await fsp.readFile(real); } catch { buffer = null; }
     if (!buffer) return send(res, apiFailure('upload.not_found', {}, 'attachment not found', 404));
-    return send(res, { status: 200, headers: { 'content-type': contentTypeFor(name), 'cache-control': 'private, max-age=86400' }, body: buffer });
+    const baseHeaders = { 'content-type': contentTypeFor(name), 'cache-control': 'private, max-age=86400', 'accept-ranges': 'bytes' };
+    const range = req.headers && req.headers.range;
+    if (!range) return send(res, { status: 200, headers: { ...baseHeaders, 'content-length': String(buffer.length) }, body: buffer });
+    // Single-range only; unknown units, multiple ranges and unsatisfiable bounds
+    // answer 416 with `bytes */size` instead of silently serving the whole file.
+    const parsed = /^bytes=(\d*)-(\d*)$/.exec(String(range).trim());
+    let start = -1, end = -1;
+    if (parsed && buffer.length > 0) {
+      const [, from, to] = parsed;
+      if (from === '' && to === '') { start = -1; }
+      else if (from === '') { const suffix = Number(to); if (Number.isSafeInteger(suffix) && suffix > 0) { start = Math.max(0, buffer.length - suffix); end = buffer.length - 1; } }
+      else {
+        start = Number(from); end = to === '' ? buffer.length - 1 : Number(to);
+        if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) start = -1;
+        else { end = Math.min(end, buffer.length - 1); if (end < start || start >= buffer.length) start = -1; }
+      }
+    }
+    if (start < 0 || end < start || end >= buffer.length) return send(res, { status: 416, headers: { ...baseHeaders, 'content-range': 'bytes */' + buffer.length }, body: '' });
+    const slice = buffer.subarray(start, end + 1);
+    return send(res, { status: 206, headers: { ...baseHeaders, 'content-range': `bytes ${start}-${end}/${buffer.length}`, 'content-length': String(slice.length) }, body: slice });
   }
   if (req.method === 'POST' && pathname === '/api/chat/stream') {
     // 116-3 A2:管家会话不接受普通聊天入口发起的回合(判据与抛点在 10 的 runSessionTurn 顶部;

@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [112 · M3 附件运行时门面](112-m3-attachment-runtime-20261105.md)新增 `01ak`：统一 id→opaque/revision 派生，组合 catalog/写入器/读取器（seal/read/verify/has）；关闭开关即拒绝，3/3 单测；无 HTTP 接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [113 · 附件下载 Range 支持](113-upload-range-20261105.md)下载路由支持单区间 Range（206/416、`accept-ranges`、尾部/夹紧/越界语义），真实 HTTP e2e 10 项全过；仍未接密封读写，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [112 · M3 附件运行时门面](112-m3-attachment-runtime-20261105.md)新增 `01ak`：统一 id→opaque/revision 派生，组合 catalog/写入器/读取器（seal/read/verify/has）；关闭开关即拒绝，3/3 单测；无 HTTP 接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [111 · M3 附件 catalog 持久化](111-m3-attachment-catalog-persistence-20261105.md)新增 `01aj`：两个面各自 sealed catalog 文件与串行链，关闭时拒绝打开；跨实例重开仍可读（3/3 单测）；无路由接线，adapter 仍 pending，版本3.0.1，3.1未完成、未发布。
 
