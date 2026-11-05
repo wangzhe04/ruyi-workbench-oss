@@ -1591,6 +1591,22 @@
       ]
     },
     {
+      "file": "01ai-work-data-attachment-store.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataAttachmentStore"
+      ],
+      "requires": [
+        {
+          "provider": "01af-work-data-attachment-chunks.js",
+          "symbol": "WorkDataAttachmentChunks",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01aa-work-data-tree.js",
       "layer": "unclassified",
       "provides": [
