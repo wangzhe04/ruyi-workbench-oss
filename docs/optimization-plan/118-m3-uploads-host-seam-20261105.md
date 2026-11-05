@@ -18,10 +18,14 @@ uploads owner 重新封存，并把 owner 产出的文件/目录重新登记回 
 
 ## 验证
 
-- `work-data-migration-host.test.js` 新增 1 条：假 owner 把候选侧 raw 目录替换成 `_catalog-*` 与
-  `<opaque>/<revision>/manifest.json`，断言候选侧 raw 目录消失、catalog 存在、源根原件保留、
-  `publish` 与 `verifyPublished` 均通过。
-- 该文件 32/32 pass（含原有 31 条）。
+- `work-data-migration-host.test.js` 新增 2 条：
+  - 假 owner：把候选侧 raw 目录替换成 `_catalog-*` 与 `<opaque>/<revision>/manifest.json`，断言候选侧 raw
+    目录消失、catalog 存在、源根原件保留、`publish` 与 `verifyPublished` 均通过；
+  - **真实 owner**（fixture 现在把 01af/01ah/01ag/01ai/01aj/01ak/01al 一起载入）：两个面各一个 raw 目录 →
+    候选侧只剩 `<opaque>/<revision>/` 与两份 catalog，递归扫描候选侧 `uploads/` 下**全部文件（含 catalog）**
+    确认两个面的原始明文字节都不存在，源根原件在 prepare 与 publish 后都仍在，`publish` 与
+    `verifyPublished` 通过。
+- 该文件 **33/33 pass**（含原有 31 条）。
 - 生成物：`build` 114803 行。
 
 ## 边界（下一步）

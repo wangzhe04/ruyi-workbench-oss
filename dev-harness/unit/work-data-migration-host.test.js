@@ -52,6 +52,37 @@ test('uploads owner replaces the raw candidate copy and still passes target veri
  assert.equal((await f.host.verifyPublished(prepared)).readOnly, true);
 });
 
+test('real uploads owner seals the candidate generation with actual crypto', async t => {
+ const f = await fixture(t, { realUploadsOwner: true });
+ await f.write('uploads/file_0123456789abcdef/a.bin', 'REAL ATTACHMENT RAW');
+ await f.write('uploads/toolimg_tag_abc/shot.png', 'TOOL IMAGE RAW');
+ const expected = await f.manifest.readActive(), backup = await f.backupFirst();
+ const prepared = await f.host.prepare({ ...backup, expected, targetMode: 'encrypted' });
+ const candidate = prepared.candidate.root;
+ assert.equal(fs.existsSync(path.join(candidate, 'uploads/file_0123456789abcdef')), false);
+ assert.equal(fs.existsSync(path.join(candidate, 'uploads/toolimg_tag_abc')), false);
+ assert.equal(fs.existsSync(path.join(candidate, 'uploads/_catalog-attachments-v1.json')), true);
+ assert.equal(fs.existsSync(path.join(candidate, 'uploads/_catalog-tool-images-v1.json')), true);
+ const sealedDirs = fs.readdirSync(path.join(candidate, 'uploads')).filter(name => /^[a-f0-9]{32}$/.test(name));
+ assert.equal(sealedDirs.length, 2);
+ const raw = [Buffer.from('REAL ATTACHMENT RAW'), Buffer.from('TOOL IMAGE RAW')];
+ const leaked = [], uploadsRoot = path.join(candidate, 'uploads');
+ const walk = async rel => {
+  for (const entry of await fsp.readdir(path.join(uploadsRoot, rel), { withFileTypes: true })) {
+   const child = rel ? rel + '/' + entry.name : entry.name;
+   if (entry.isDirectory()) { await walk(child); continue; }
+   const bytes = await fsp.readFile(path.join(uploadsRoot, child));
+   if (raw.some(value => bytes.includes(value))) leaked.push(child);
+  }
+ };
+ await walk('');
+ assert.deepEqual(leaked, []);
+ assert.equal(await fsp.readFile(path.join(f.base, 'uploads/file_0123456789abcdef/a.bin'), 'utf8'), 'REAL ATTACHMENT RAW');
+ await f.host.publish(prepared);
+ assert.equal(await fsp.readFile(path.join(f.base, 'uploads/file_0123456789abcdef/a.bin'), 'utf8'), 'REAL ATTACHMENT RAW');
+ assert.equal((await f.host.verifyPublished(prepared)).readOnly, true);
+});
+
 for(const kind of ['DATA','identity','mtime','bound'])test('preserved migration refuses '+kind+' changes after candidate mutation and retains its executed receipt',async t=>{
  const f=await fixture(t,{preserved:true}),file=await f.write('sessions/one.json','{"id":"one","text":"ORIGINAL"}'),expected=await f.manifest.readActive(),backup=await f.backupFirst();let changed=false;
  f.state.onNativeCapture=async()=>{
