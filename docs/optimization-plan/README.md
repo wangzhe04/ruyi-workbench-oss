@@ -1,6 +1,8 @@
 # 优化方案索引
 
-> **2026-11-05 当前片：** [118 · 迁移主机接入 uploads owner（草稿）](118-m3-uploads-host-seam-20261105.md)`01ad` 新增可选 `uploadsOwnerFactory`：候选侧 raw uploads 交给 owner 封存并重登 target census，默认关闭；假 owner 集成测试 32/32；仍未接真实 owner/13ak/01ab，版本3.0.1，3.1未完成、未发布。
+> **2026-11-05 当前片：** [119 · 全量快照识别 sealed 附件](119-m3-snapshot-sealed-attachments-20261105.md)`01ab` 把 `uploads/` 下 catalog/manifest/part 识别为不透明认证字节，加密代导出/恢复不再拒绝；快照单测 20/20；13ak 与生产接线仍待，版本3.0.1，3.1未完成、未发布。
+
+> **2026-11-05 前片：** [118 · 迁移主机接入 uploads owner（草稿）](118-m3-uploads-host-seam-20261105.md)`01ad` 新增可选 `uploadsOwnerFactory`：候选侧 raw uploads 交给 owner 封存并重登 target census，默认关闭；假 owner 集成测试 32/32；仍未接真实 owner/13ak/01ab，版本3.0.1，3.1未完成、未发布。
 
 > **2026-11-05 前片：** [117 · 迁移侧 uploads owner 草稿](117-m3-uploads-owner-20261105.md)新增 `01al`：枚举 `uploads/` 两个面、逐文件封存、整组校验后删原件；4/4 单测；未挂迁移主机，版本3.0.1，3.1未完成、未发布。
 

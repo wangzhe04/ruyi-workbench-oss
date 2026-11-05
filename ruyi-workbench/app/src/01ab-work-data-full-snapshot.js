@@ -32,6 +32,14 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       ||/(?:\.corrupt(?:[.-]|$)|\.tmp(?:[.-]|$)|\.sealed-stage-|\.work-data-stage-|\.migration-codec-|(?:^|\/)\.ruyi-copy-)/.test(logical))return 'native-or-uncommitted-owner-required';
     return '';
   }
+  // Sealed attachment payloads (107/116) are already authenticated ciphertext or
+  // chunked catalogs. The snapshot carries them byte-exact instead of parsing
+  // their JSON envelopes as user content.
+  function sealedAttachment(relative){
+    const logical=namespace(relative).logical,folded=process.platform==='win32'?logical.toLowerCase():logical;
+    if(folded==='uploads/_catalog-attachments-v1.json'||folded==='uploads/_catalog-tool-images-v1.json')return true;
+    return /^uploads\/[a-f0-9]{32}\/[a-f0-9]{32}\/(?:manifest\.json|part-\d{6}\.json)$/.test(folded);
+  }
   function capturedCleanupFailure(code,primary,failed,errors,releaseFailed=false) {
     const unknown=value=>{
       if(value===null||!['object','function'].includes(typeof value))return false;
@@ -246,6 +254,9 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
           } else text=await openedText(file,descriptor);
           if (descriptor.codec==='text'&&!descriptor.markdown) { value=JSON.parse(text.replace(/^\uFEFF/,'')); if(!value||typeof value!=='object'||(descriptor.shape==='array'?!Array.isArray(value):Array.isArray(value)))fail('source_invalid'); }
           if (descriptor.family==='media-derived' && WorkDataMigrationCodecs.Hooks.mediaDerived?.validateSealedText(text,descriptor)!==true) fail('source_invalid');
+        } else if (sealedAttachment(logical)) {
+          // Authenticated ciphertext/catalog bytes: no JSON envelope probing, no
+          // user-content parsing; the portable package preserves them exactly.
         } else {
           try { text=decode(file.data); value=JSON.parse(text.replace(/^\uFEFF/,'')); } catch { /* Opaque media and arbitrary non-JSON user content remain exact bytes. */ }
           if(text!==undefined){const fullProbe=WorkDataRecords.lineProbe();fullProbe.feed(file.data);if(fullProbe.reserved()||text.trimStart().startsWith('{')&&workMarker.test(text))fail('special_owner_required',{file:file.path});}

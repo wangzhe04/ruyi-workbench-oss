@@ -52,6 +52,23 @@ test('real ordinary fullbase codecs include retained masters, credential history
  const header=JSON.parse(await fsp.readFile(path.join(target,'work-data-key-v1.json'),'utf8')),cold=f.api.WorkDataKeys.create({protector:f.b,enabled:()=>true,store:{read:async()=>header}});const desc=f.api.WorkDataMigrationCodecs.describe('sessions/sess_one.json'),real=f.fx.store.createText({file:()=>path.join(target,'sessions/sess_one.json'),purpose:desc.purpose,schema:desc.schema,scopeId:desc.scopeId,recordId:desc.recordId,keys:cold,enabled:()=>true,writeJson:f.fx.atomicWriteJson});assert.equal(await real.read(),'{"id":"sess_one","private":"BODY_PRIVATE"}');
  const recoveredVault=JSON.parse(await fsp.readFile(path.join(target,'credential-vault-v1.json'),'utf8')),coldVault=f.api.CredentialVault.create({core:f.fx.privacy,protector:f.b,size:async()=>Buffer.byteLength(JSON.stringify(recoveredVault)),store:{read:async()=>recoveredVault}});const hydrated=await coldVault.hydrateConfig(JSON.parse(await fsp.readFile(path.join(target,'config.json.prev'),'utf8')));assert.equal(hydrated.raw.providers[0].apiKey,'HISTORICAL_PRIVATE');
 });
+test('sealed attachment payloads are carried byte-exact instead of parsed as user JSON', async t => {
+ const f=await fixture(t),opaque='a'.repeat(32),revision='b'.repeat(32);
+ const files={
+  [`uploads/${opaque}/${revision}/manifest.json`]:JSON.stringify({workData:2,envelope:{ciphertext:'MANIFEST'}}),
+  [`uploads/${opaque}/${revision}/part-000000.json`]:JSON.stringify({workData:2,envelope:{ciphertext:'PART'}}),
+  'uploads/_catalog-attachments-v1.json':JSON.stringify({workData:3,format:'chunks-v1',data:'CATALOG'}),
+ };
+ for(const [relative,text] of Object.entries(files))await f.write(relative,text);
+ const sealed=await f.owner().seal({password,appVersion:'3.0.1',generation:0});
+ const opened=await f.api.WorkDataRecovery.open(sealed.serialized,password);
+ try{
+  for(const [relative,text] of Object.entries(files))assert.equal(opened.snapshot.files.find(row=>row.path===relative).data.toString('utf8'),text);
+ }finally{opened.release();}
+ const target=path.join(f.root,'restored-sealed');f.state.target=target;
+ await f.owner(f.b).restore({serialized:sealed.serialized,password,target});f.state.target=null;
+ for(const [relative,text] of Object.entries(files))assert.equal(await fsp.readFile(path.join(target,...relative.split('/')),'utf8'),text);
+});
 test('actual direct-DPAPI auxiliary owner preserves historical source files and rewraps every record for a different simulated account',async t=>{
  const f=await fixture(t),bot=f.api.ExternalBotCredentials.create({root:f.base}),connection={id:'bot_one',platform:'qq',appId:'app_one',tenantId:'tenant_one',botUserId:'',enabled:false};await bot.save(connection,{set:{botSecret:'BOT_PRIVATE'},remove:[],expectedRevision:(await bot.inspect(connection)).credentialRevision});
  const original=await fsp.readFile(path.join(f.base,'external-bot-credentials.json'));await f.write('external-bot-credentials.json.prev',original);const shot=await f.owner().seal({password,appVersion:'3.0.1',generation:0}),opened=await f.api.WorkDataRecovery.open(shot.serialized,password);try{assert.equal(opened.snapshot.auxiliaries.length,2);}finally{opened.release();}
