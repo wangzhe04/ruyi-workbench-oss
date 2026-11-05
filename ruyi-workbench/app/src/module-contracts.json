@@ -1575,6 +1575,22 @@
       ]
     },
     {
+      "file": "01ah-work-data-attachment-catalog.js",
+      "layer": "unclassified",
+      "provides": [
+        "WorkDataAttachmentCatalog"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01aa-work-data-tree.js",
       "layer": "unclassified",
       "provides": [
