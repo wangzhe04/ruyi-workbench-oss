@@ -74,6 +74,7 @@
     "migration-skill-backups",
     "media-derived",
     "uploads-attachment",
+    "uploads-tool-image",
     "session-fulltext-state",
     "session-fulltext-manifest",
     "session-fulltext-shard"
@@ -584,7 +585,7 @@
       "migrationBatch": "index-cache",
       "plaintextMetadata": [],
       "reason": "tool-result images show user screens and documents; deriving them from a sealed transcript does not make plaintext copies acceptable",
-      "adapter": "pending"
+      "adapter": "wired"
     },
     {
       "id": "session-search-index",

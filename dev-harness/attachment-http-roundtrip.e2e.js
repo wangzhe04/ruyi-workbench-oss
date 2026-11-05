@@ -9,7 +9,7 @@ const { releaseEnvironment } = require('./lib/release-checks'), { killOwnTree } 
 const t = require('./lib/harness').createRunner('ATTACHMENT HTTP ROUNDTRIP'), { ok } = t;
 const names = ['WorkDataColdOperations', 'WorkDataFullSnapshot', 'WorkDataNativeAdapters', 'WorkDataMaintenanceResult', 'WorkDataManifest',
   'WorkDataMigrationHost', 'WorkDataNativePublish', 'WorkDataDisposableNativeTree', 'ServerOwnership', 'LocalSecretCrypto', 'ExternalBotCredentials',
-  'MigrationHooks', 'migrationCapsuleCapturePreserved', 'WorkDataKeys', 'WorkDataStore', 'flushWorkbenchLogs', 'paths'];
+  'MigrationHooks', 'migrationCapsuleCapturePreserved', 'WorkDataKeys', 'WorkDataStore', 'flushWorkbenchLogs', 'paths', 'WorkDataAttachmentRuntime'];
 const WB = path.resolve(__dirname, '../ruyi-workbench');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 (async () => {
@@ -51,6 +51,13 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     ok(enabled.state === 'published', 'cold enable published an encrypted generation');
     await api.flushWorkbenchLogs({ allowFailure: true });
     await owner.release(); owner = null;
+    const activeRoot = (await api.WorkDataManifest.create({ base }).readActive()).root;
+    const activeHeader = JSON.parse(await fsp.readFile(path.join(activeRoot, 'work-data-key-v1.json'), 'utf8'));
+    const activeKeys = api.WorkDataKeys.create({ protector: api.LocalSecretCrypto, enabled: () => true, store: { read: async () => activeHeader } });
+    const toolId = 'toolimg_tag_0123456789abcdef01234567';
+    const toolRuntime = api.WorkDataAttachmentRuntime.create({ root: path.join(activeRoot, 'uploads'), keys: activeKeys, enabled: () => true, face: 'toolImage', allowSealedRemoval: true });
+    const toolSealed = await toolRuntime.seal({ id: toolId, kind: 'tool-image', logicalName: 'shot.png', mime: 'image/png', data: Buffer.from('TOOL IMAGE SEALED') });
+    ok(!!toolSealed && !!toolSealed.sha256, 'tool image sealed into the tool-image face with real keys');
 
     const serverEnv = releaseEnvironment(serverHome, base);
     const port = await getFreePort();
@@ -74,6 +81,12 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     ok(ranged.status === 206 && Buffer.from(await ranged.arrayBuffer()).toString('utf8') === 'SEALED', 'sealed range returns 206 with exact bytes');
     const beyond = await fetch(url, { headers: { ...auth, range: 'bytes=999-' } });
     ok(beyond.status === 416 && beyond.headers.get('content-range') === 'bytes */22', 'unsatisfiable sealed range answers 416');
+    const toolUrl = `${baseUrl}/api/upload/content?id=${encodeURIComponent(toolId)}&name=shot.png`;
+    const toolWhole = await fetch(toolUrl, { headers: auth });
+    ok(toolWhole.status === 200 && Buffer.from(await toolWhole.arrayBuffer()).toString('utf8') === 'TOOL IMAGE SEALED', 'sealed tool image is served over HTTP');
+    await toolRuntime.retireSealed(toolId);
+    const toolGone = await fetch(toolUrl, { headers: auth });
+    ok(toolGone.status === 404, 'retired tool image is no longer served');
     const leaked = [];
     const walk = dir => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) walk(full); else if (fs.readFileSync(full).includes(Buffer.from('LIVE SEALED ATTACHMENT'))) leaked.push(full); } };
     const activeNow = await api.WorkDataManifest.create({ base }).readActive();
