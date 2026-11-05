@@ -107565,7 +107565,7 @@ Object.assign(InternalMcpHooks, InternalMcpRelay);
 const WorkDataMaintenance = ((AsyncLocalStorage) => {
   const failure = suffix => Object.assign(Error('work_data.maintenance_' + suffix), { code: 'work_data.maintenance_' + suffix, statusCode: 409 });
   function create(host) {
-    const context = new AsyncLocalStorage(), live = new Set(), writes = new Set();
+    const context = new AsyncLocalStorage(), live = new Set(), writes = new Map(); let ownerSeq = 0, admittedTotal = 0, releasedTotal = 0;
     let phase = 'open', epoch = 0, lease = null;
     const changed = () => { epoch++; if (phase === 'idle') phase = 'waiting'; };
     const accepting = () => phase === 'open' && host.extraAdmission?.() !== false;
@@ -107575,30 +107575,30 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
       const inherited = context.getStore();
       if (inherited && !active()) throw failure('stale_continuation');
       if (phase === 'retired' || !inherited && !accepting()) throw failure('busy');
-      const token = inherited?.token || { refs: 0 }; token.refs++; live.add(token); changed();
+      const token = inherited?.token || { refs: 0 }; if (token.refs === 0) { token.ownerId = ++ownerSeq; token.ownerKind = kind; admittedTotal++; } token.refs++; live.add(token); changed();
       try { return await context.run({ token, kind }, work); }
-      finally { if (--token.refs === 0) live.delete(token); changed(); }
+      finally { if (--token.refs === 0) { live.delete(token); releasedTotal++; } changed(); }
     }
     function continueOwner(owner, work) {
       if (phase === 'retired' || phase === 'idle' || !host.owns(owner)) return Promise.reject(failure('owner_unavailable'));
       // Only a caller that just validated an intrinsic registered owner can enter
       // here. No HTTP body/environment field is accepted as that capability.
       return context.run(null, async () => {
-        const token = { refs: 1 }; live.add(token); changed();
+        const token = { refs: 1, ownerId: ++ownerSeq, ownerKind: 'receipt' }; admittedTotal++; live.add(token); changed();
         try { return await context.run({ token, kind: 'receipt' }, work); }
-        finally { if (--token.refs === 0) live.delete(token); changed(); }
+        finally { if (--token.refs === 0) { live.delete(token); releasedTotal++; } changed(); }
       });
     }
     function track(pending) {
       if (!pending || typeof pending.then !== 'function') throw TypeError('pending writer must be a promise');
       if (writes.has(pending)) return pending;
-      writes.add(pending); changed();
-      pending.then(() => { writes.delete(pending); changed(); }, () => { writes.delete(pending); changed(); });
+      writes.set(pending, { ownerId: ++ownerSeq, ownerKind: 'writer' }); admittedTotal++; changed();
+      pending.then(() => { writes.delete(pending); releasedTotal++; changed(); }, () => { writes.delete(pending); releasedTotal++; changed(); });
       return pending;
     }
     function status() {
       const observed = host.snapshot();
-      return Object.freeze({ phase, epoch, admitted: live.size, writers: writes.size, dirty: observed.dirty || 0, busy: Object.freeze({ ...observed.busy }), processExitRequired: true });
+      return Object.freeze({ phase, epoch, admitted: live.size, writers: writes.size, owners: Object.freeze({ open: Object.freeze([...live].map(token => Object.freeze({ id: token.ownerId, kind: token.ownerKind })).concat([...writes.values()].map(row => Object.freeze({ id: row.ownerId, kind: row.ownerKind })))), admittedTotal, releasedTotal, delta: admittedTotal - releasedTotal }), dirty: observed.dirty || 0, busy: Object.freeze({ ...observed.busy }), processExitRequired: true });
     }
     function begin({ signal } = {}) {
       if (context.getStore()) throw failure('nested');
