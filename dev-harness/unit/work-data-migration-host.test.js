@@ -29,6 +29,29 @@ test('failed publication reports the changed source, stays retryable and cancels
  assert.equal((await f.manifest.readActive()).generation,0);
 });
 
+test('uploads owner replaces the raw candidate copy and still passes target verification', async t => {
+ const uploadsOwnerFactory = async ({root}) => ({
+  async sealAll() {
+   for (const entry of await fsp.readdir(root, { withFileTypes: true })) if (entry.isDirectory()) await fsp.rm(path.join(root, entry.name), { recursive: true, force: true });
+   const dir = path.join(root, 'a'.repeat(32), 'b'.repeat(32));
+   await fsp.mkdir(dir, { recursive: true });
+   await fsp.writeFile(path.join(dir, 'manifest.json'), Buffer.from('sealed manifest'));
+   await fsp.writeFile(path.join(root, '_catalog-attachments-v1.json'), Buffer.from('sealed catalog'));
+   return {};
+  },
+ });
+ const f = await fixture(t, { uploadsOwnerFactory });
+ await f.write('uploads/file_0123456789abcdef/a.bin', 'RAW');
+ const expected = await f.manifest.readActive(), backup = await f.backupFirst();
+ const prepared = await f.host.prepare({ ...backup, expected, targetMode: 'encrypted' });
+ const candidate = prepared.candidate.root;
+ assert.equal(fs.existsSync(path.join(candidate, 'uploads/file_0123456789abcdef')), false);
+ assert.equal(await fsp.readFile(path.join(candidate, 'uploads/_catalog-attachments-v1.json'), 'utf8'), 'sealed catalog');
+ assert.equal(await fsp.readFile(path.join(f.base, 'uploads/file_0123456789abcdef/a.bin'), 'utf8'), 'RAW');
+ await f.host.publish(prepared);
+ assert.equal((await f.host.verifyPublished(prepared)).readOnly, true);
+});
+
 for(const kind of ['DATA','identity','mtime','bound'])test('preserved migration refuses '+kind+' changes after candidate mutation and retains its executed receipt',async t=>{
  const f=await fixture(t,{preserved:true}),file=await f.write('sessions/one.json','{"id":"one","text":"ORIGINAL"}'),expected=await f.manifest.readActive(),backup=await f.backupFirst();let changed=false;
  f.state.onNativeCapture=async()=>{
