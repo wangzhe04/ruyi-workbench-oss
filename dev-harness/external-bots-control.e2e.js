@@ -21,7 +21,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const stateFile = path.join(home, 'external-bots', 'state-v1.json');
   const holdFlag = path.join(home, 'hold-inbox'), heldFlag = path.join(home, 'inbox-held'), failCompletedFlag = path.join(home, 'fail-completed');
   const faults = path.join(home, 'control-faults.cjs');
-  fs.writeFileSync(faults, `const fs=require('fs'),p=fs.promises,rename=p.rename;p.rename=async function(from,to){if(String(to).replaceAll('\\\\','/').endsWith('/external-bots/state-v1.json')){const data=JSON.parse(fs.readFileSync(from,'utf8'));if(fs.existsSync(${JSON.stringify(failCompletedFlag)})&&data.items.some(x=>x.messageId==='completion_failure'&&x.execution&&x.execution.status==='completed'))throw Object.assign(new Error('synthetic completion write failure'),{code:'ENOSPC'});if(fs.existsSync(${JSON.stringify(holdFlag)})){fs.writeFileSync(${JSON.stringify(heldFlag)},'held');while(fs.existsSync(${JSON.stringify(holdFlag)}))await new Promise(r=>setTimeout(r,10));}}return rename.call(this,from,to);};`);
+  fs.writeFileSync(faults, `const fs=require('fs'),p=fs.promises,rename=p.rename;p.rename=async function(from,to){if(require('path').basename(to)==='runtime.json'&&fs.existsSync(to))await new Promise(r=>setTimeout(r,200));if(String(to).replaceAll('\\\\','/').endsWith('/external-bots/state-v1.json')){const data=JSON.parse(fs.readFileSync(from,'utf8'));if(fs.existsSync(${JSON.stringify(failCompletedFlag)})&&data.items.some(x=>x.messageId==='completion_failure'&&x.execution&&x.execution.status==='completed'))throw Object.assign(new Error('synthetic completion write failure'),{code:'ENOSPC'});if(fs.existsSync(${JSON.stringify(holdFlag)})){fs.writeFileSync(${JSON.stringify(heldFlag)},'held');while(fs.existsSync(${JSON.stringify(holdFlag)}))await new Promise(r=>setTimeout(r,10));}}return rename.call(this,from,to);};`);
   let server, fake, apiServer, port, apiPort, token = '', targetId = '', heldTokenResponse = null, holdToken = false, deliveryMode = 'ok';
   const commandCalls = new Map(), toolReceipts = [], outbound = [];
   const request = async (method, route, body, headers = {}, admin = true) => {
@@ -30,7 +30,11 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     const text = await response.text(); let json; try { json = JSON.parse(text); } catch { json = null; } return { status: response.status, json, text };
   };
   const until = async (fn, name = 'condition') => { for (let i = 0; i < 1200; i++) { const value = await fn(); if (value) return value; await sleep(25); } throw new Error('timeout: ' + name); };
-  const readItem = async id => (await request('GET', '/api/external-bots/inbox')).json.items.find(item => item.messageId === id);
+  const readItem = async id => {
+    const response = await request('GET', '/api/external-bots/inbox');
+    if (response.status !== 200) throw new Error('inbox HTTP ' + response.status + ': ' + JSON.stringify(response.json));
+    return response.json.items.find(item => item.messageId === id);
+  };
   const delivered = id => until(async () => { const item = await readItem(id); return item?.delivery?.status === 'sent' && item; }, 'delivered ' + id);
   const callback = (id, text, platform = 'feishu', eventId = id) => {
     const wire = platform === 'feishu' ? feishuWire(feishuEvent({ messageId: id, eventId, text, group: true })) : qqWire(qqEvent({ messageId: id, eventId, text }));
@@ -43,7 +47,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       cwd: WB, windowsHide:true, stdio:'ignore', env:{ ...process.env, ...isolated.env, ...FAKE_BOT_ENV, RUYI_BOT_TEST_F_APP:'synthetic-app-secret', RUYI_FAKE_EXTERNAL_API_PORT:String(apiPort), RUYI_HOME:home, WIN_CLAUDE_WORKBENCH_HOME:home },
     });
     await until(async()=>{try{return(await request('GET','/health',undefined,{},false)).status===200;}catch{return false;}},'server');
-    token=await until(()=>{try{return JSON.parse(fs.readFileSync(path.join(home,'runtime.json'),'utf8')).token;}catch{return false;}},'token');
+    token=await until(()=>{try{const runtime=JSON.parse(fs.readFileSync(path.join(home,'runtime.json'),'utf8'));return runtime.pid===server.pid&&runtime.token;}catch{return false;}},'current process token');
   };
   const stop=async()=>{if(server){const child=server;killOwnTree(child);await until(()=>child.exitCode!==null||child.signalCode!==null,'server exit');server=null;}};
   const findExecution = content => {
