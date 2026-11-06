@@ -1,0 +1,8 @@
+{
+  "commit": "d95cce74ba5a81afd972b4e2ae9ea6e545540b03",
+  "files": {
+    "MACOS-PORTING/probes/audit-macos-minimum.py": "b0ed2cdc9376d867f88b6965e69caf1d47b80cfdbb78680fc102dc9c1181d7ba",
+    "dev-harness/macos-browser-runtime.e2e.js": "206313b20a4537dc03d7cb6302eb7be8c870417847741a547b1182d5acb6ccd0",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f"
+  }
+}

@@ -855,15 +855,23 @@
       ],
       "owner": "Codex",
       "startedDate": "2026-11-06",
-      "progress": "P3四个工作包均完成开发和单独Mac本地验收；整体仍in_progress，Windows同候选CI/实机回归未执行且未获豁免，最低系统与正式发行不计通过。",
+      "progress": "四包Mac本地验收完成；fork草稿PR #1已创建。e844首轮CI的Linux static/Windows release dry-run通过；Windows ACC、credential IPC及平台子集失败待日志归因。静态部署审计64 wheels/98 arm64最高14.0通过，macOS14未执行；整体仍in_progress。",
       "pendingPhaseAcceptance": [
-        "Windows同候选CI/实机回归未执行且未获豁免"
+        "Windows同候选CI/实机回归：首轮失败，未获豁免，修复与复验待完成"
       ],
       "localDelivery": {
         "status": "done",
         "completedDate": "2026-11-07",
         "scope": "四工作包Mac本地开发、专项验证与逐包独立复核验收；不等于P3阶段/M1或正式发行验收",
         "evidence": "evidence/P3/README.md"
+      },
+      "acceptanceFollowup": {
+        "status": "in_progress",
+        "pullRequest": "https://github.com/Sonata17inD/ruyi-workbench-mac/pull/1",
+        "firstCiCandidate": "e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd",
+        "handoff": "evidence/P3/acceptance/HANDOFF.md",
+        "minimumStaticEvidence": "evidence/P3/acceptance/minimum/README.md",
+        "windowsEvidence": "evidence/P3/acceptance/windows-e844/summary.json"
       }
     },
     {

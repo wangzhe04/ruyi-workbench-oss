@@ -99,3 +99,5 @@
 2026-11-07 P3-03完成单独本地验收，实现 `35ce93b9`：真实MCP/新环境离线重放各25项、8项生命周期和98读取回归通过；独立复核两个取消清理缺陷关闭。单元2490通过/18既有跳过，静态首轮78/80，两个工程门修正定向通过。Windows同候选回归未执行且未豁免，最低系统/正式发行仍未验证。下一包P3-04，见[P3-03证据](evidence/P3/browser/README.md)。
 
 2026-11-07 P3-04完成单独本地验收，实现 `2f45aba4`：71项资源独立审计，模板38/中英UI18/Playbooks94及相关权限、能力专项通过；独立复核3项发现关闭。完整单元2491通过/18既有跳过，静态79/80，修正旧枚举锁后该组定向通过。四包Mac本地验收完成，P3整体保持in_progress；未执行Windows同候选回归、最低系统和正式发行，不登记M1。见[P3-04证据](evidence/P3/templates/README.md)。
+
+2026-11-07阶段补验：已获用户授权发布fork内P3分支并创建[草稿PR #1](https://github.com/Sonata17inD/ruyi-workbench-mac/pull/1)。e844首轮CI的Linux static与Windows release dry-run通过；Windows ACC、凭据IPC及平台基线失败，待日志归因修复，仍未验收Windows。macos-14 job因不支持该runner配置而取消。补验实现 `d95cce74` 的64 wheels/98 arm64静态部署声明最高14.0，独立复核23样例通过；仅Chromium真实浏览器26项通过，原可选ffmpeg要求15.0的失败证据保留。macOS14实际运行、完整发行闭包仍未验证，P3保持in_progress。见[交接](evidence/P3/acceptance/HANDOFF.md)。

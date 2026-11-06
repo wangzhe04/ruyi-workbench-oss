@@ -1,0 +1,14 @@
+[
+  {
+    "path": ".github",
+    "blob_href": "https://github.com/Sonata17inD/ruyi-workbench-mac/blob/e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd/.github",
+    "start_line": 1,
+    "start_column": null,
+    "end_line": 1,
+    "end_column": null,
+    "annotation_level": "failure",
+    "title": "",
+    "message": "The configuration 'macos-14-arm64-us-default' is not supported",
+    "raw_details": ""
+  }
+]

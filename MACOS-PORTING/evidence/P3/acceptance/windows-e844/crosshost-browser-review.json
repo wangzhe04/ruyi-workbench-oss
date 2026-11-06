@@ -1,0 +1,71 @@
+{
+  "reviewer": "independent agent /root/p3_01_review",
+  "work_package": "P3 Windows CI browser smoke cross-host fixture correction",
+  "date": "2026-11-07",
+  "baselineCommit": "d95cce74ba5a81afd972b4e2ae9ea6e545540b03",
+  "scope": [
+    "mcp/ai-computer-control/tests/smoke_browser_runtime.py",
+    "Read-only product path review: mcp/ai-computer-control/src/ai_computer_control/tools/browser.py"
+  ],
+  "source_hashes": {
+    "mcp/ai-computer-control/tests/smoke_browser_runtime.py": "81e00ef07c43926cf12c1e3426e114d9b076399d290bcdd5ab60e9b82de41fb6",
+    "mcp/ai-computer-control/src/ai_computer_control/tools/browser.py": "d60d6e01079591e1da319a2b9bb3c3dec5e2f6ae7193841684a83a22f142454f"
+  },
+  "reportedCiJob": "https://github.com/Sonata17inD/ruyi-workbench-mac/actions/runs/42293298968/job/128151987396",
+  "findings": [
+    {
+      "id": "P3-CROSSHOST-R1",
+      "priority": "P2",
+      "status": "resolved",
+      "title": "Use host-consistent paths in the simulated macOS resolver fixture",
+      "initialEvidence": "Original actual smoke test passes on POSIX os.path but fails when browser.os.path is ntpath: expected the literal POSIX Mac path while resolver returns an empty string because isfile mock rejects every mixed-separator candidate. sys.platform patching does not replace host os.path.",
+      "exampleCandidate": "/Applications\\Google Chrome.app\\Contents\\MacOS\\Google Chrome",
+      "resolution": "Only test fixture changed: build mac expectation with os.path.join, matching native host path semantics, with comment explaining platform/path distinction. Existing isfile/access predicates and both Mac managed detection and Windows resolver assertions remain intact."
+    }
+  ],
+  "validation": [
+    {
+      "method": "Independent execution of original and fixed actual single smoke method under POSIX and ntpath path modules",
+      "evidence": "/tmp/ruyi-p3-windows-browser-fixture-review.json",
+      "results": [
+        {
+          "name": "original test/native POSIX path host",
+          "passed": true
+        },
+        {
+          "name": "original test/simulated Windows ntpath host",
+          "passed": false,
+          "type": "AssertionError",
+          "error": "'' != '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'\n+ /Applications/Google Chrome.app/Contents/MacOS/Google Chrome\n"
+        },
+        {
+          "name": "fixed test/native POSIX path host",
+          "passed": true
+        },
+        {
+          "name": "fixed test/simulated Windows ntpath host",
+          "passed": true
+        }
+      ],
+      "interpretation": "Original POSIX passes; original ntpath fails; fixed POSIX and fixed ntpath pass. This is simulated path-semantics evidence, not a Windows OS execution."
+    },
+    {
+      "method": "Read parent real Mac smoke execution log",
+      "evidence": "/tmp/ruyi-p3-browser-smoke-crosshost.txt",
+      "result": "8 tests, 21.719 seconds, OK; includes actual owned-driver/launcher cleanup paths."
+    },
+    {
+      "method": "Independent diff review and git diff --check",
+      "result": "pass; the source edit is limited to expectation construction and comment. Product browser.py has no working-tree diff."
+    }
+  ],
+  "productAssessment": "No product defect identified from this failure. Real Windows sys.platform is win32 and _managed_executable bypasses the Mac application loop and retains _windows_default_browser_executable. On real Mac, os.path is POSIX and the application candidates use normal POSIX paths. The failing combination of darwin platform and ntpath is created by the cross-host test simulation.",
+  "remaining_code_findings": [],
+  "conclusion": "approved_with_environment_limitations",
+  "source_modifications": false,
+  "limitations": [
+    "CI job failure was supplied by parent; this independent review did not retrieve the full Windows log or classify any other CI failure.",
+    "No real Windows test run performed; Windows registry/browser resolution and whole-candidate CI remain unverified by this review.",
+    "Local targeted execution uses isolated HOME, USERPROFILE and WCW_DATA_DIR; no real browser launched in the independent four-case comparison."
+  ]
+}
