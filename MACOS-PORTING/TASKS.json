@@ -803,9 +803,25 @@
             "high": 2
           },
           "deliverable": "验证 Mac Chromium、独立 profile、离线浏览器缓存路径、标签页/输入/截图和退出清理；区别原生打开 URL 与浏览器自动化。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P3/browser/README.md",
+            "evidence/P3/browser/validation.json",
+            "evidence/P3/browser/review.json",
+            "evidence/P3/browser/source-fingerprint.json"
+          ],
+          "implementationCommit": "35ce93b9106d331472ea94f49dfd82e9968f2da4",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-07",
+          "completionScope": "Mac浏览器运行时开发与单独本地验收；Windows实际同候选回归未执行且未豁免。",
+          "pendingPhaseAcceptance": [
+            "Windows同候选CI/实机回归"
+          ],
+          "laterPhaseCarryover": [
+            "macOS14、签名/干净机离线发行与默认有界面模式用户可见交互待受控实机验收"
+          ],
+          "progress": "真实MCP与全新离线wheel重放各25项、8项生命周期及98读取回归通过；独立复核修复两项真实取消驱动泄漏。完整单元2490通过/18既有跳过；静态首轮78/80，两个工程门修复定向通过。"
         },
         {
           "id": "P3-04",
@@ -822,7 +838,7 @@
       ],
       "owner": "Codex",
       "startedDate": "2026-11-06",
-      "progress": "P3-01/P3-02已完成开发和单独Mac本地验收；下一包P3-03。Windows同候选回归仍未执行且未豁免。"
+      "progress": "P3-01/P3-02/P3-03已完成开发和单独Mac本地验收；继续P3-04。Windows同候选实际回归仍未执行且未豁免。"
     },
     {
       "id": "P4",
