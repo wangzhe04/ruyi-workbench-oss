@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "date": "2026-11-03",
+  "date": "2026-11-06",
   "baselineCommit": "f5223548",
   "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
   "effortUnit": "person_day",
@@ -527,7 +527,7 @@
       "dependsOn": [
         "P1"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "effortDays": {
         "low": 8,
         "high": 12
@@ -541,9 +541,21 @@
             "high": 3
           },
           "deliverable": "适配 Claude/Kimi 发现、启动、恢复、权限与停止；同步 MCP 清单与模型提示，移除 Mac 上的 Windows 路径要求和无实现工具。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P2/cli/README.md",
+            "evidence/P2/cli/review.json",
+            "evidence/P2/cli/validation.json",
+            "evidence/P2/cli/source-fingerprint.json"
+          ],
+          "baselineSha": "f4fc6852",
+          "implementationCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa",
+          "progress": "第一批实现、相关回归和独立评审完成；正式CLI与Windows实机验收待完成，工作包保持in_progress。",
+          "acceptancePending": [
+            "本机未安装正式Claude/Kimi CLI；真实账户工具回合、停止/恢复未验收",
+            "Windows同SHA实机回归未执行"
+          ]
         },
         {
           "id": "P2-02",
@@ -581,7 +593,8 @@
           "owner": null,
           "evidence": []
         }
-      ]
+      ],
+      "startedAt": "2026-11-06"
     },
     {
       "id": "P3",

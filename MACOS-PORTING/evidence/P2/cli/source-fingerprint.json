@@ -1,0 +1,129 @@
+{
+  "implementationCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "8dfec4ee11a8e54db064d73a497cb41f6c0e73778366c6a8b20c6489f575b7eb"
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "027f9bb8bc919cf570f59df16e997b8072682c9a77fa992f530c5ae44ebba4e6"
+    },
+    {
+      "path": "dev-harness/claude-resume-recovery.e2e.js",
+      "sha256": "9614b55d08f1c99399dfad5ef7b220acc8caa16dfb9a2dac89018063bf824ae6"
+    },
+    {
+      "path": "dev-harness/engine-env-brief.static.e2e.js",
+      "sha256": "7768d730402444a344ca2e5eb46008df4a7e4832133b941b6c082cd9b1c6657a"
+    },
+    {
+      "path": "dev-harness/macos-agent-cli-discovery.e2e.js",
+      "sha256": "c76840124405ba50b2e857e1d1d79ef128a77baa6b8f9f4ae324900efc029178"
+    },
+    {
+      "path": "dev-harness/macos-capabilities.e2e.js",
+      "sha256": "5188bdd2293d7f831605780511d76a5f53945d02436eb7dd224e0518308d027f"
+    },
+    {
+      "path": "dev-harness/macos-mcp-capabilities.e2e.js",
+      "sha256": "bab0151ec800ecd3642c91296ea464870daf4f12a705207412f0fb38e8096b3b"
+    },
+    {
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "sha256": "c67158b9e07422ad773d68061bc17a8d4fe45905915abbbdb3bd1a02329bd0e4"
+    },
+    {
+      "path": "dev-harness/unit/agent-cli-registry.test.js",
+      "sha256": "d1b2cadc02a3136ebd43bb4871402ee42aba63484d5c184dd21c4b639f7869fa"
+    },
+    {
+      "path": "dev-harness/unit/bridged-tool-search-zh.test.js",
+      "sha256": "fd206be722655e9de24ee8b11e097f4a39e664b530e40db813809edd9282feed"
+    },
+    {
+      "path": "dev-harness/unit/exec-result-shape.test.js",
+      "sha256": "8040fd9fbfa562729e0ac2e235023ea20aef792e49c33cca5e3ef98aabcff75e"
+    },
+    {
+      "path": "dev-harness/unit/file-tool-checkpoint-integrity.test.js",
+      "sha256": "53a6b288d43811c0fa24246277776ef3ece4cbecab288579905e2ae62c8f79ab"
+    },
+    {
+      "path": "dev-harness/unit/privacy-tool-views.test.js",
+      "sha256": "6d21914bd03c27b19530c85e0779d5b98ff67b1b5938675e73a35c07858697bc"
+    },
+    {
+      "path": "dev-harness/unit/screenshot-relative-output.test.js",
+      "sha256": "5876cb1e695cd16f49854f4bb667bcf29dcba5ddeda0b24cbd44b26e1e4a1f95"
+    },
+    {
+      "path": "dev-harness/unit/tool-dispatch-hardening.test.js",
+      "sha256": "c7d65b8eecea9edaeb11a5335ff49ab964833e91379e07e9d3744f8ea30a56ae"
+    },
+    {
+      "path": "dev-harness/unit/tool-loading-cache-aware.test.js",
+      "sha256": "353ccf3b7b7d1e85cc7a16d31e6ad6245c04f5db39ffbb8e3e615de574c32fd8"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "sha256": "87cac2e77e76d9226fdb9e359f14a9ac69ddb0cdf1ab05562411350a0d46c5f3"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "sha256": "43bc5bd13551518a1a6de7cf3c81641c2cfb686d7f821f477361cea841305a61"
+    },
+    {
+      "path": "facts.json",
+      "sha256": "f177493168f573e46fd1fd3cc985bdfc71ba2b67a3dc84f416baeaa306dad149"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "570a5b9a6e130771d51697a28237e22824f075ba50adc8629ffd7964942f60e1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "0f0c7e6bd30e3f183fd33da5b24a21d7c862ca09c81ceb6586d3d0ea8fe7ed7f"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "sha256": "677f7062e2f3404ee209c698e6c0477fe92dee7bad40d715377439f7ac8cc9a7"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "6dcd7aa1f0f7937c2b68df7bc8da2c7cd28d5b8bb4e9ceb27dbaadb7223a1833"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "sha256": "725d1c743ec2c39f6b5c6870fb864f79a2f8cafd482c8a4cb6be38c4321fe249"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "dd6b22cd2516144effcc3e93ae4479da38c00eb6e5ac210d20e5648b0479144e"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "b83ec5e9d27fff84eda68d284838dfe154b05841c457f192035259fbfa59706a"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "6fe448db09030f077aa3e73df8117b43d68ad2249a14d79d0932d34453cd2219"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "ab7e593ec804ce6b7c15be1518b25f3251cfb24e6c4823d31f83e1909c810dc6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "sha256": "a734d5f3cd570f9d3d9f3e2d1034726a7674e2a7da014bf728f91e33bceeb6fb"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "8b79a3b00e7895a56447410dd03c021ac71865a876e19dd9d313ef8f44934ca9"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "3dc2fb7d4cb2d99bb33303913ef0b3e7f267852f43940b1584d2da32a7e5a134"
+    }
+  ]
+}
