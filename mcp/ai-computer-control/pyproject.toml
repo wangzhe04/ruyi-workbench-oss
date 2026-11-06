@@ -11,11 +11,13 @@ requires-python = ">=3.12"
 # 桌面基础操控都做不了的留在硬依赖;browser/uia/pptx/charts 全部移入 extras(代码本就
 # graceful-degrade,此前硬依赖声明与文档矛盾,且白白拉大最小安装体积)。
 # requirements_offline.txt 仍是【全量】离线安装(不受此裁剪影响)。
+# P3: Windows desktop packages use platform markers; macOS installs the shared
+# file/Office/browser subset. Desktop automation on macOS is a later phase.
 dependencies = [
     "mcp[cli]>=1.0.0,<2.0.0",
-    "pyautogui>=0.9.54",
+    "pyautogui>=0.9.54; sys_platform == 'win32'",
     "Pillow>=10.0.0",
-    "pywin32>=306",
+    "pywin32>=306; sys_platform == 'win32'",
     "psutil>=5.9.0",
     "python-docx>=1.0.0",
     "openpyxl>=3.1.0",
@@ -27,17 +29,17 @@ dependencies = [
 # Browser automation (browser_* 12 tools) — browser.py graceful-degrades with an install hint
 browser = ["playwright>=1.40.0"]
 # UIA accessibility-tree tools (ui_inspect/ui_find/ui_invoke) — uia.py graceful-degrades
-uia = ["uiautomation>=2.0.18", "comtypes>=1.2.0"]
+uia = ["uiautomation>=2.0.18; sys_platform == 'win32'", "comtypes>=1.2.0; sys_platform == 'win32'"]
 # PowerPoint generation (write_pptx) — office_pptx.py graceful-degrades
 pptx = ["python-pptx>=0.6.23"]
 # PNG charts (chart_image) — office_chart.py graceful-degrades
 charts = ["matplotlib>=3.8.0"]
 # Windows Runtime API OCR — ocr.py graceful-degrades to None if missing
-ocr = ["winsdk>=1.0.0b10"]
+ocr = ["winsdk>=1.0.0b10; sys_platform == 'win32'"]
 # OpenCV + NumPy for vision.py (template matching, edge detection)
 vision = ["opencv-python-headless>=4.8.0", "numpy>=1.26.0"]
 # Keyboard/macro live recording (record_start/record_stop) — record.py graceful-degrades if missing
-macro = ["pynput>=1.7.6"]
+macro = ["pynput>=1.7.6; sys_platform == 'win32'"]
 # PDF export (write_pdf, in document.py) — reportlab graceful-degrades if missing
 pdf-export = ["reportlab>=4.0.0"]
 # All optional features

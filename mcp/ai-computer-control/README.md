@@ -150,6 +150,28 @@ playwright install chromium
 python -m ai_computer_control
 ```
 
+### macOS 共享工具开发环境（P3）
+
+使用 Python 3.12 创建独立虚拟环境，再执行 `python -m pip install -e .`。
+基础安装不拉取 pywin32、PyAutoGUI、UIA、WinSDK 或 pynput；Windows 保留原依赖与完整工具注册。
+Mac 默认注册文件、Office、浏览器及其他共享工具，桌面、OCR、UIA、录制等后端留待 P5。
+`ACC_TOOLSETS` 只能裁剪当前平台支持的工具，不能启用尚未实现的 Mac 桌面工具。
+`diagnostics().unsupported_modules` 区分平台未支持模块与 `load_errors` 中的加载失败；
+`optional_modules` 只表示依赖可发现，不能作为浏览器已安装或系统权限已授权的证明。
+
+Office 的 PPTX、图表、PDF 导出与 Playwright 仍按 extras 安装；缺少可选依赖时给出对应提示。
+离线环境使用事先准备的本平台 wheel 缓存及 `--no-index --find-links` 安装，测试期间不下载资源。
+Mac 文件护栏保护系统树、根目录及用户 Keychains，解析链接和实际文件身份；临时工作区正常可写。
+共享子集的专项验证：
+
+```bash
+python tests/smoke_macos_shared.py
+# 仓库根目录；必须事先安装 ACC。未安装时此变量让验收失败，而非跳过。
+RUYI_ACC_REQUIRED=1 node dev-harness/macos-acc-shared.e2e.js
+```
+
+此处为开发环境说明。最低 macOS 14、干净机离线发行与正式签名仍按 P3/P6 交接验证。
+
 ## MCP 配置
 
 在 Claude Desktop 或其他支持 MCP 的 AI 工具中添加如下配置：

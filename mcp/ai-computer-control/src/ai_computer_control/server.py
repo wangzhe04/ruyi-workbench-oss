@@ -281,6 +281,21 @@ _TOOLSET_MODULES = {
 }
 _ALWAYS_MODULES = ["audit", "diagnostics"]
 
+# P3 shared Mac subset. Desktop/TCC backends belong to P5; importing their Windows
+# implementations (even if an optional package happens to be installed) must not
+# advertise tools that cannot execute. Windows registration remains unchanged.
+_MAC_UNSUPPORTED_TOOLSETS = frozenset({
+    "desktop", "uia", "ocr", "vision", "macro", "observe", "audio", "sync",
+})
+_UNSUPPORTED_MODULES = {
+    module: "platform.unsupported: macOS desktop backend is not implemented"
+    for group in _MAC_UNSUPPORTED_TOOLSETS for module in _TOOLSET_MODULES[group]
+} if sys.platform == "darwin" else {}
+
+
+def _platform_modules(modules: list[str]) -> list[str]:
+    return [module for module in modules if module not in _UNSUPPORTED_MODULES]
+
 
 def _active_modules() -> list[str]:
     hide_memory = _os.environ.get("ACC_HIDE_MEMORY", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -289,7 +304,7 @@ def _active_modules() -> list[str]:
         mods = []
         for group in _TOOLSET_MODULES.values():
             mods.extend(group)
-        return _ALWAYS_MODULES + [m for m in mods if not (hide_memory and m == "memory")]
+        return _platform_modules(_ALWAYS_MODULES + [m for m in mods if not (hide_memory and m == "memory")])
     mods = list(_ALWAYS_MODULES)
     unknown = []
     for name in (p.strip().lower() for p in raw.split(",")):
@@ -308,7 +323,7 @@ def _active_modules() -> list[str]:
         if m not in seen:
             seen.add(m)
             out.append(m)
-    return [m for m in out if not (hide_memory and m == "memory")]
+    return _platform_modules([m for m in out if not (hide_memory and m == "memory")])
 
 
 import importlib as _importlib  # noqa: E402

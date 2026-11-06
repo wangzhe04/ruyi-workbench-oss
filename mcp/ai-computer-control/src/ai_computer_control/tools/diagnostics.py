@@ -57,6 +57,8 @@ def _optional() -> dict:
     """
     def flag(module_path: str, mod_name: str) -> bool:
         m = sys.modules.get(module_path)  # only if the server already loaded it (never import here)
+        if m is None or module_path.rsplit(".", 1)[-1] in _server._UNSUPPORTED_MODULES:
+            return False
         if m is not None and hasattr(m, "_AVAILABLE"):
             return bool(m._AVAILABLE)
         return _has_module(mod_name)
@@ -125,6 +127,9 @@ def diagnostics() -> dict:
         "tool_count": tool_count,
         # Tool modules that failed to import (their tools are NOT registered). Empty dict = all loaded.
         "load_errors": dict(_server._LOAD_ERRORS),
+        # Deliberately unsupported modules are distinct from broken dependencies.
+        # These tools never enter tools/list, regardless of ACC_TOOLSETS.
+        "unsupported_modules": dict(_server._UNSUPPORTED_MODULES),
         # Tools the host removed via ACC_HIDE_TOOLS (sorted). Empty list = nothing hidden.
         "hidden_tools": list(getattr(_server, "HIDDEN_TOOLS", [])),
     }
