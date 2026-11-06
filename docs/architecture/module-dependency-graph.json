@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 89,
-    "providedSymbols": 3893,
-    "requiredSymbols": 3504,
+    "providedSymbols": 3894,
+    "requiredSymbols": 3505,
     "edges": 643,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -23793,6 +23793,7 @@
         "schedulerReadFireRows",
         "schedulerReadFiresText",
         "schedulerReadTasksFile",
+        "schedulerReconciledState",
         "schedulerRecordMissedSkip",
         "schedulerRecover",
         "schedulerRestorePersistedState",
@@ -24038,6 +24039,13 @@
         {
           "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_OUTCOMES",
           "kinds": [
             "read"
           ]
@@ -36080,6 +36088,7 @@
       "to": "06j-scheduler-core.js",
       "symbols": [
         "SCHEDULER_LIMITS",
+        "SCHEDULER_OUTCOMES",
         "SCHEDULER_PHASES",
         "SchedulerHooks",
         "describeSchedule",

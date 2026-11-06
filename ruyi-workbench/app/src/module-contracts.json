@@ -23623,6 +23623,7 @@
         "schedulerReadFireRows",
         "schedulerReadFiresText",
         "schedulerReadTasksFile",
+        "schedulerReconciledState",
         "schedulerRecordMissedSkip",
         "schedulerRecover",
         "schedulerRestorePersistedState",
@@ -23868,6 +23869,13 @@
         {
           "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "SCHEDULER_OUTCOMES",
           "kinds": [
             "read"
           ]

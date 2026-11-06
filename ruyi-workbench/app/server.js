@@ -87720,6 +87720,9 @@ async function schedulerRecordMissedSkip(task, missed, now) {
     outcome: 'skipped',
     error: reason,
   });
+  task.state.lastResult = 'skipped';
+  task.state.lastMode = 'late';
+  task.updatedAt = new Date(now).toISOString();
   void schedulerNotify('onSchedulerNotice', {
     kind: 'skipped', taskId: task.id, title: task.title,
     occurrenceKey: missed.occurrenceKey, mode: 'late', at: new Date(now).toISOString(),
@@ -87736,15 +87739,17 @@ async function schedulerRecordMissedSkip(task, missed, now) {
 async function schedulerRecover(schedFireRows) {
   const now = schedulerClockNow();
   const rows = Array.isArray(schedFireRows) ? schedFireRows : await schedulerReadFireRows();
-  const byRun = new Map();          // runId -> { occurrenceKey, dueAt, mode, reconciled }
+  const byRun = new Map();          // runId -> occurrence facts and its durable terminal row, if any
+  const skippedOccurrences = new Map();
   for (const row of rows) {
+    if (row.phase === 'reconciled' && row.outcome === 'skipped' && !row.runId && row.mode !== 'manual') skippedOccurrences.set(row.occurrenceKey, row);
     const runId = String(row.runId || '');
     if (!runId) continue;
-    const entry = byRun.get(runId) || { occurrenceKey: '', dueAt: '', mode: 'ontime', reconciled: false };
+    const entry = byRun.get(runId) || { occurrenceKey: '', dueAt: '', mode: 'ontime', terminal: null };
     if (row.occurrenceKey) entry.occurrenceKey = String(row.occurrenceKey);
     if (row.dueAt) entry.dueAt = String(row.dueAt);
     if (row.mode) entry.mode = String(row.mode);
-    if (String(row.phase) === 'reconciled') entry.reconciled = true;
+    if (String(row.phase) === 'reconciled' && SCHEDULER_OUTCOMES.includes(row.outcome)) entry.terminal = row;
     byRun.set(runId, entry);
   }
   let dirty = false;
@@ -87756,8 +87761,8 @@ async function schedulerRecover(schedFireRows) {
   for (const task of fromDisk) {
     const runId = String(task.state.inFlightRunId || '');
     if (!runId) continue;
-    const entry = byRun.get(runId) || { occurrenceKey: occurrenceKey(task.id, now), dueAt: '', mode: 'ontime', reconciled: false };
-    if (!entry.reconciled) {
+    const entry = byRun.get(runId) || { occurrenceKey: occurrenceKey(task.id, now), dueAt: '', mode: task.state.lastMode || 'ontime', terminal: null };
+    if (!entry.terminal) {
       await schedulerAppendFire({
         taskId: task.id,
         title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
@@ -87776,13 +87781,28 @@ async function schedulerRecover(schedFireRows) {
       });
       schedulerEmitChanged(task.id, 'reconciled', 'unknown');
     }
-    task.state.inFlightRunId = '';
-    task.state.lastResult = 'unknown';
-    // 把 nextFireAt 推过那个已经消费掉的时点。dueAt 读不出来时用「现在」兜底(仍然只往前走)。
+    // A terminal row may have committed before the task-table write. Restore its real outcome;
+    // only an occurrence with no terminal evidence becomes unknown and is consumed without replay.
     const consumedMs = Date.parse(entry.dueAt);
-    const fromMs = Number.isFinite(consumedMs) ? Math.max(now, consumedMs) : now;
-    const nextMs = nextFireAt(task.schedule, fromMs);
-    task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
+    const completedMs = Date.parse(entry.terminal?.at);
+    const fromMs = entry.terminal && Number.isFinite(completedMs) ? completedMs : (Number.isFinite(consumedMs) ? Math.max(now, consumedMs) : now);
+    const restored = schedulerReconciledState(task, entry.terminal ? entry.terminal.outcome : 'unknown', entry.mode, fromMs);
+    Object.assign(task.state, restored.state);
+    task.updatedAt = restored.updatedAt;
+    dirty = true;
+  }
+
+  // A skipped occurrence has no runId. Its terminal row must still consume the old due,
+  // including after a daily cap resets at midnight.
+  for (const task of fromDisk) {
+    const dueMs = Date.parse(task.state.nextFireAt);
+    if (!Number.isFinite(dueMs)) continue;
+    const skipped = skippedOccurrences.get(occurrenceKey(task.id, dueMs));
+    if (!skipped) continue;
+    const at = Date.parse(skipped.at);
+    const restored = schedulerReconciledState(task, 'skipped', skipped.mode, Number.isFinite(at) ? at : Math.max(now, dueMs));
+    Object.assign(task.state, restored.state);
+    task.updatedAt = restored.updatedAt;
     dirty = true;
   }
 
@@ -87793,10 +87813,13 @@ async function schedulerRecover(schedFireRows) {
     if (!missed) continue;
     if (missed.runLate) {
       schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: missed.dueMs });
+      // The queue is memory only. Keep the durable due until registration, so a second
+      // restart before the first tick can still recover this occurrence.
+      continue;
     } else {
       await schedulerRecordMissedSkip(task, missed, now);
     }
-    // 两条路都推进 nextFireAt ——「补跑只补一次」由 lateQueue 保证,不靠「还留着旧时点」。
+    // A skipped occurrence is consumed now. A queued late occurrence advances at settlement.
     const nextMs = nextFireAt(task.schedule, now);
     task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
     dirty = true;
@@ -87807,6 +87830,19 @@ async function schedulerRecover(schedFireRows) {
 }
 
 // ── 触发四段(§3.2)────────────────────────────────────────────────────────
+function schedulerReconciledState(task, outcome, mode, finishedMs) {
+  let failures = Number(task.state.consecutiveFailures) || 0;
+  if (outcome === 'failed') failures += 1;
+  else if (outcome !== 'skipped' && outcome !== 'unknown') failures = 0;
+  const state = { inFlightRunId: '', lastResult: outcome, lastMode: mode, consecutiveFailures: failures };
+  const tripped = failures >= SCHEDULER_LIMITS.consecutiveFailuresTrip;
+  if (tripped) state.enabled = false;
+  if (mode !== 'manual') {
+    const nextMs = nextFireAt(task.schedule, finishedMs);
+    state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
+  }
+  return { state, tripped, updatedAt: new Date(finishedMs).toISOString() };
+}
 // 权限档:【天花板 = 全局档,永不含 bypass】。任务没给(''),或给的档不在
 // PERMISSION_MODES 白名单里,或给的是 bypass —— 一律回落全局默认档;给了就与全局档取更紧的那个。这一句是 06j 那半条校验
 // (「不是 bypass 的非空字符串就留着」)的另一半:只有这里读得到 config。
@@ -87876,7 +87912,8 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   // createSession/saveSession ……)都【不许】越过收尾段直接冒出去。修前异常冒到 schedulerDispatchFire 只落一条
   // 日志:inFlightRunId 永远留在任务上(盘上也是)、没有 reconciled 行、nextFireAt 不推进 —— tick 从此永远跳过它,
   // run-now 永远 409,直到重启走崩溃残留恢复。现在一律按 failed 走同一段收尾(清 inFlightRunId、推进 nextFireAt、
-  // 计入连败熔断、补 reconciled 行);收尾自己再写不进去,内存里的状态也已经先摆正了,下一拍照常能派。
+  // 计入连败熔断、补 reconciled 行)。终态写不进去仍保留在飞证据,重启后按 unknown 消费;
+  // 终态已写而任务表保存失败,则重启从终态恢复收尾,不重放已执行的 occurrence。
   let outcome = 'succeeded';
   let error = '';
   let sessionId = '';
@@ -88092,33 +88129,27 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   // ── ④ 收尾 ────────────────────────────────────────────────────────────────
   schedulerMaybeCrash('before-reconcile');
   const finishedMs = schedulerClockNow();
-  task.state.inFlightRunId = '';
-  task.state.lastResult = outcome;
-  // skipped(撞上限 / 8a 目标线程忙)既不是失败也不是成功:连败计数原样不动(与上面撞上限那一支同口径)。
-  if (outcome === 'failed') task.state.consecutiveFailures = (Number(task.state.consecutiveFailures) || 0) + 1;
-  else if (outcome !== 'skipped') task.state.consecutiveFailures = 0;
-  let tripped = false;
-  if (task.state.consecutiveFailures >= SCHEDULER_LIMITS.consecutiveFailuresTrip) {
-    task.state.enabled = false;      // 熔断优先于重试(29 号文 §10)
-    tripped = true;
-  }
-  // manual(「再跑一次」)不动 nextFireAt:它是计划之外的一个新 occurrence,不该把日程往后推。
-  if (schedMode !== 'manual') {
-    const nextMs = nextFireAt(task.schedule, finishedMs);
-    task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
-  }
-  task.updatedAt = new Date(finishedMs).toISOString();
-  await schedulerSaveTasks();
+  // The receipt records the failure threshold at completion. A later explicit user reset
+  // during persistence may keep the task enabled; settlement and notices use the current state.
+  const tripped = schedulerReconciledState(task, outcome, schedMode, finishedMs).tripped;
+  // Commit the terminal evidence before clearing the durable in-flight marker. A restart
+  // can finish the task-table write from this row; the reverse order loses the receipt.
   await schedulerAppendFire({
-    ...fireBase, phase: 'reconciled', outcome,
+    ...fireBase, at: new Date(finishedMs).toISOString(), phase: 'reconciled', outcome,
     ...(error ? { error } : {}),
     ...(sessionId ? { sessionId } : {}),
     durationMs: Math.max(0, finishedMs - startedMs),
     costTokens,
     ...(tripped ? { tripped: true } : {}),
   });
+  // Keep the live marker too: another task or settings write persists the whole table.
+  // Read the current schedule/state after the append, which can overlap a user edit.
+  const reconciliation = schedulerReconciledState(task, outcome, schedMode, finishedMs);
+  Object.assign(task.state, reconciliation.state);
+  task.updatedAt = reconciliation.updatedAt;
+  await schedulerSaveTasks();
   schedulerEmitChanged(task.id, 'reconciled', outcome);
-  if (tripped) {
+  if (reconciliation.tripped) {
     void schedulerNotify('onSchedulerNotice', {
       kind: 'tripped', taskId: task.id, title: task.title,
       occurrenceKey: occKey, mode: schedMode, at: new Date(finishedMs).toISOString(),
@@ -88212,9 +88243,9 @@ async function schedulerTick() {
       const missed = missedOccurrence(task, now);
       if (missed && missed.lateByMs > SCHEDULER_ONTIME_SLACK_MS) {
         if (missed.runLate) { schedulerDispatchFire(task, 'late', missed.dueMs); continue; }
+        await schedulerRecordMissedSkip(task, missed, now);
         const nextMs = nextFireAt(task.schedule, now);
         task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
-        await schedulerRecordMissedSkip(task, missed, now);
         skippedAny = true;
         continue;
       }

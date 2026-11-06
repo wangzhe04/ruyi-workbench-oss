@@ -119,7 +119,93 @@ const registeredOf = (rows, taskId) => rows.filter(r => r.taskId === taskId && r
 // 每天 09:00 的 reminder —— 四段与 J10 共用同一种任务形状(daily 才有「下一次」可以往前推)。
 const DAILY_BODY = title => ({ title, schedule: { kind: 'daily', at: '09:00' }, payload: { kind: 'reminder', text: '到点了' } });
 
-(async () => {
+// Small cold-process workers isolate the two persistence boundaries that occur between normal ticks.
+async function recoveryWorker() {
+  let input = ''; for await (const chunk of process.stdin) input += chunk;
+  const command = JSON.parse(input);
+  const S = require('./lib/server-internals').loadServerInternals(['schedulerLoad', 'schedulerRecover', 'schedulerTick',
+    'schedulerFireOnce', 'schedulerRuntime', 'schedulerReadFireRows'], { withEval: true });
+  const rows = await S.schedulerLoad();
+  if (command.op === 'edit-settle') {
+    S.__eval(`schedulerAppendFire = ((append) => async row => {
+      if (row.phase === 'dispatched') throw Object.assign(new Error('synthetic dispatch failure'), { code: 'EIO' });
+      if (row.phase === 'reconciled') {
+        const task = schedulerRuntime.tasks[0];
+        task.schedule = { kind: 'daily', at: '21:00' };
+        task.state.nextFireAt = new Date(nextFireAt(task.schedule, schedulerClockNow())).toISOString();
+        task.state.enabled = true;
+        task.state.consecutiveFailures = 0;
+        await schedulerSaveTasks();
+      }
+      return append(row);
+    })(schedulerAppendFire);`);
+    await S.schedulerFireOnce(S.schedulerRuntime.tasks[0], 'ontime', command.dueMs);
+    console.log(JSON.stringify({ task: S.schedulerRuntime.tasks[0], rows: await S.schedulerReadFireRows() }));
+    return;
+  }
+  if (command.op === 'skip-crash' || command.op === 'skip-overlap') {
+    S.__eval(`schedulerAppendFire = ((append) => async row => {
+      ${command.op === 'skip-overlap' ? "if (row.phase === 'reconciled') { await schedulerSaveTasks(); process.exit(3); }" : ''}
+      const result = await append(row);
+      if (row.phase === 'reconciled') process.exit(3);
+      return result;
+    })(schedulerAppendFire);`);
+    if (command.op === 'skip-overlap') await S.schedulerTick();
+    else if (command.cap) await S.schedulerFireOnce(S.schedulerRuntime.tasks[0], 'late', command.dueMs);
+    else await S.schedulerRecover(rows);
+    throw new Error('skip persistence crash boundary was not reached');
+  }
+  if (['settle-crash', 'overlap-crash'].includes(command.op)) {
+    // Exit immediately after the first terminal persistence action, whichever store is written first.
+    S.__eval(`atomicWriteJson = ((write) => async (file, value, options) => {
+      const result = await write(file, value, options);
+      if (file === schedulerTasksPath() && value.tasks.some(task => !task.state.inFlightRunId)) process.exit(3);
+      return result;
+    })(atomicWriteJson);
+    schedulerAppendFire = ((append) => async row => {
+      ${command.fail ? 'if (row.phase === "dispatched") throw Object.assign(new Error("synthetic dispatch failure"), {code:"EIO"});' : ''}
+      ${command.op === 'overlap-crash' ? 'if (row.phase === "reconciled") { await schedulerSaveTasks(); process.exit(3); }' : ''}
+      const result = await append(row);
+      if (row.phase === 'reconciled') process.exit(3);
+      return result;
+    })(schedulerAppendFire);`);
+    await S.schedulerFireOnce(S.schedulerRuntime.tasks[0], command.mode, command.dueMs);
+    throw new Error('terminal crash boundary was not reached');
+  }
+  await S.schedulerRecover(rows);
+  if (command.op === 'drain') {
+    await S.schedulerTick();
+    while (S.schedulerRuntime.inFlightTaskIds.size) await sleep(10);
+  }
+  console.log(JSON.stringify({ queued: S.schedulerRuntime.lateQueue.length, task: S.schedulerRuntime.tasks[0], rows: await S.schedulerReadFireRows() }));
+}
+function coldWorker(data, command) {
+  const result = cp.spawnSync(process.execPath, [__filename, '--recovery-worker'], {
+    env: { ...process.env, RUYI_HOME: data, WIN_CLAUDE_WORKBENCH_HOME: data, HOME: data, USERPROFILE: data, WCW_SCHEDULER_CLOCK_FILE: CLOCK },
+    input: JSON.stringify(command), encoding: 'utf8', timeout: 10000, maxBuffer: 262144,
+  });
+  if (['settle-crash', 'overlap-crash', 'skip-crash', 'skip-overlap'].includes(command.op)) {
+    ok(!result.error && result.status === 3, `P2 ${command.op} reached the terminal persistence crash boundary`);
+    return null;
+  }
+  if (result.error || result.status) throw new Error(result.error?.message || result.stderr);
+  return JSON.parse(result.stdout);
+}
+function seedColdTask(label, now, at = '09:00', failures = 0) {
+  const data = path.join(HOME, label);
+  fs.mkdirSync(path.join(data, 'scheduler'), { recursive: true });
+  fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({ configSchema: 14, schedulerEnabledV1: true,
+    stewardEnabledV1: false, autoImportClaudeCodeMcp: false, includeWorkbenchMcp: false, defaultWorkspace: data,
+    desktopMcp: { enabled: false, autodetect: false } }));
+  const dueMs = new Date(now).setHours(...at.split(':').map(Number), 0, 0);
+  const task = { ...DAILY_BODY(label), id: 'sch_cold_boundary', schedule: { kind: 'daily', at },
+    state: { enabled: true, nextFireAt: new Date(dueMs).toISOString(), consecutiveFailures: failures } };
+  fs.writeFileSync(path.join(data, 'scheduler/tasks-v1.json'), JSON.stringify({ schema: 1, tasks: [task], globalRuns: { date: '', count: 0 } }));
+  return { data, dueMs, id: task.id };
+}
+
+if (process.argv.includes('--recovery-worker')) recoveryWorker().catch(error => { console.error(error.stack); process.exitCode = 1; });
+else (async () => {
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(WORK, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
@@ -252,6 +338,67 @@ const DAILY_BODY = title => ({ title, schedule: { kind: 'daily', at: '09:00' }, 
       ok(!!after && Date.parse(after.nextRunAt) > dueMs, 'J10b nextFireAt 仍然往前推了(跳过不等于卡住)');
       kill(back);
       await waitExit(back, 8000);
+    }
+    /* P2: recovery before the first tick must not consume an unregistered late occurrence. */
+    const coldNow = new Date(2026, 4, 4, 10, 0, 0).getTime();
+    setClock(coldNow);
+    const lateCase = seedColdTask('late-before-tick', coldNow);
+    const first = coldWorker(lateCase.data, { op: 'recover' });
+    ok(first.queued === 1 && Date.parse(first.task.state.nextFireAt) === lateCase.dueMs,
+      'P2 recovery keeps the old due on disk until its late occurrence is registered');
+    const resumed = coldWorker(lateCase.data, { op: 'drain' });
+    ok(registeredOf(resumed.rows, lateCase.id).length === 1 && reconciledOf(resumed.rows, lateCase.id)[0]?.outcome === 'succeeded',
+      'P2 a second cold process still dispatches and completes the unregistered late occurrence');
+    const again = coldWorker(lateCase.data, { op: 'drain' });
+    ok(registeredOf(again.rows, lateCase.id).length === 1, 'P2 another restart cannot duplicate the recovered occurrence');
+
+    /* P2: a crash between terminal log/task writes retains the result and its policy effects. */
+    for (const row of [{ mode: 'ontime', fail: false }, { mode: 'ontime', fail: true }, { mode: 'manual', fail: false }]) {
+      const fixture = seedColdTask('terminal-' + row.mode + '-' + row.fail, coldNow, row.mode === 'manual' ? '21:00' : '09:00', 2);
+      coldWorker(fixture.data, { op: 'settle-crash', ...row, dueMs: row.mode === 'manual' ? coldNow : fixture.dueMs });
+      const recovered = coldWorker(fixture.data, { op: 'drain' });
+      const terminal = reconciledOf(recovered.rows, fixture.id);
+      ok(terminal.length === 1 && terminal[0].outcome === (row.fail ? 'failed' : 'succeeded')
+        && recovered.task.state.lastResult === terminal[0].outcome && !recovered.task.state.inFlightRunId,
+        `P2 ${row.mode}/${row.fail ? 'failed' : 'succeeded'} restores the durable terminal result without changing it to unknown`);
+      ok(recovered.task.state.consecutiveFailures === (row.fail ? 3 : 0) && recovered.task.state.enabled === !row.fail,
+        'P2 recovery restores failure/reset counters and a tripped task stays disabled');
+      ok(row.mode === 'manual' ? Date.parse(recovered.task.state.nextFireAt) === fixture.dueMs : Date.parse(recovered.task.state.nextFireAt) > coldNow,
+        'P2 recovery preserves manual schedules and advances consumed planned occurrences');
+    }
+    const overlap = seedColdTask('terminal-overlap', coldNow);
+    coldWorker(overlap.data, { op: 'overlap-crash', mode: 'ontime', dueMs: overlap.dueMs });
+    const pending = JSON.parse(fs.readFileSync(path.join(overlap.data, 'scheduler/tasks-v1.json'), 'utf8')).tasks[0];
+    ok(!!pending.state.inFlightRunId, 'P2 another whole-table write cannot clear the live marker before terminal persistence');
+    const uncertain = coldWorker(overlap.data, { op: 'drain' });
+    ok(registeredOf(uncertain.rows, overlap.id).length === 1 && reconciledOf(uncertain.rows, overlap.id).length === 1
+      && uncertain.task.state.lastResult === 'unknown', 'P2 an interrupted overlapping save has one unknown receipt and never replays the work');
+    const edited = seedColdTask('terminal-edit', coldNow, '09:00', 2);
+    const editResult = coldWorker(edited.data, { op: 'edit-settle', dueMs: edited.dueMs });
+    const afterEdit = editResult.task;
+    ok(afterEdit.state.enabled && afterEdit.state.consecutiveFailures === 1 && !afterEdit.state.inFlightRunId
+      && Date.parse(afterEdit.state.nextFireAt) === new Date(2026, 4, 4, 21, 0).getTime(),
+      'P2 terminal persistence preserves a concurrent schedule edit and failure-counter reset');
+    ok(reconciledOf(editResult.rows, edited.id)[0]?.tripped === true,
+      'P2 the receipt retains the failure threshold observed at completion before the user reset');
+    for (const variant of ['policy', 'cap', 'overlap']) {
+      const cap = variant === 'cap';
+      const beforeMidnight = new Date(2026, 4, 4, 23, 59, 30).getTime();
+      setClock(beforeMidnight);
+      const fixture = seedColdTask('skipped-' + variant, beforeMidnight, '23:50');
+      const file = path.join(fixture.data, 'scheduler/tasks-v1.json'), seed = JSON.parse(fs.readFileSync(file, 'utf8'));
+      seed.tasks[0].schedule = { kind: 'once', date: '2026-05-04', at: '23:50' };
+      seed.tasks[0].policy = { onMissed: cap ? 'run-once-late' : 'skip', maxRunsPerDay: 1, graceMinutes: 720 };
+      seed.tasks[0].state.runsToday = { date: '2026-05-04', count: 1 };
+      fs.writeFileSync(file, JSON.stringify(seed));
+      coldWorker(fixture.data, { op: variant === 'overlap' ? 'skip-overlap' : 'skip-crash', cap, dueMs: fixture.dueMs });
+      if (variant === 'overlap') ok(Date.parse(JSON.parse(fs.readFileSync(file, 'utf8')).tasks[0].state.nextFireAt) === fixture.dueMs,
+        'P2 another whole-table save cannot consume a tick skip before its receipt is durable');
+      setClock(beforeMidnight + 2 * MINUTE);
+      const recovered = coldWorker(fixture.data, { op: 'drain' });
+      ok(reconciledOf(recovered.rows, fixture.id).length === 1 && !registeredOf(recovered.rows, fixture.id).length
+        && recovered.task.state.lastResult === 'skipped' && !recovered.task.state.nextFireAt,
+        `P2 ${variant} skip stays consumed across midnight without replaying work or duplicating its receipt`);
     }
   } finally {
     for (const child of children) kill(child);
