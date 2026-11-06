@@ -7046,6 +7046,12 @@ function resolveKimiNpmEntry(command) {
     path.resolve(dir, '..', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
     path.resolve(dir, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
   ];
+  if (process.platform !== 'win32') {
+    const globalEntry = path.resolve(dir, '..', 'lib', 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs');
+    // POSIX npm uses a bin/kimi symlink. A nearby stale package must not replace a native launcher.
+    try { if (fs.realpathSync(shim) === fs.realpathSync(globalEntry)) entries.push(globalEntry); }
+    catch { /* No matching npm symlink; keep the original launcher. */ }
+  }
   return entries.find(candidate => fs.existsSync(candidate)) || '';
 }
 // 未登记的类型同 selectedAgentCli 口径归到 claude(即 batchSafeSpawn)。
@@ -29002,6 +29008,8 @@ async function handleKimiAcpPermissionRequest(params, context) {
     const title = String(toolCall.title || 'KimiTool');
     const input = kimiAcpPermissionInput(toolCall, context);
     const tier = kimiAcpToolTier(toolCall);
+    // The fs guard uses canonical paths too, including macOS /var -> /private/var aliases.
+    if (tier === 'edit' && input.path) input.path = await realpathForContainment(input.path);
     const nativeBash = kimiAcpNativeBashApprovalDescriptor(toolCall, input, context);
     const acceptEditsCandidate = String(context.config && context.config.permissionMode || '') === 'acceptEdits'
       ? await kimiAcpConcreteEditGuard(toolCall, context)

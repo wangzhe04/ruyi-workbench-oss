@@ -2989,6 +2989,12 @@ function resolveKimiNpmEntry(command) {
     path.resolve(dir, '..', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
     path.resolve(dir, 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs'),
   ];
+  if (process.platform !== 'win32') {
+    const globalEntry = path.resolve(dir, '..', 'lib', 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs');
+    // POSIX npm uses a bin/kimi symlink. A nearby stale package must not replace a native launcher.
+    try { if (fs.realpathSync(shim) === fs.realpathSync(globalEntry)) entries.push(globalEntry); }
+    catch { /* No matching npm symlink; keep the original launcher. */ }
+  }
   return entries.find(candidate => fs.existsSync(candidate)) || '';
 }
 // 未登记的类型同 selectedAgentCli 口径归到 claude(即 batchSafeSpawn)。

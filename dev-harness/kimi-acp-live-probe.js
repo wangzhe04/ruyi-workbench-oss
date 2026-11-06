@@ -125,7 +125,7 @@ function isInside(root, target) {
 }
 
 function safeRemoveMkdtemp(root, generatedPaths = []) {
-  const tempRoot = path.resolve(os.tmpdir());
+  const tempRoot = fs.realpathSync(os.tmpdir());
   const target = path.resolve(root);
   if (target === tempRoot || !isInside(tempRoot, target)) {
     throw new Error(`refusing cleanup outside mkdtemp root: ${target}`);
@@ -1442,7 +1442,7 @@ async function run() {
     logFail('Kimi ACP compatibility loader', `missing ${KIMI_COMPAT_REGISTER}`);
     return;
   }
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-live-probe-'));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-live-probe-')));
   let model = null;
   try {
     const versionEnv = scrubbedEnv({

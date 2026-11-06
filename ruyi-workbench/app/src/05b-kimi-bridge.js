@@ -1101,6 +1101,8 @@ async function handleKimiAcpPermissionRequest(params, context) {
     const title = String(toolCall.title || 'KimiTool');
     const input = kimiAcpPermissionInput(toolCall, context);
     const tier = kimiAcpToolTier(toolCall);
+    // The fs guard uses canonical paths too, including macOS /var -> /private/var aliases.
+    if (tier === 'edit' && input.path) input.path = await realpathForContainment(input.path);
     const nativeBash = kimiAcpNativeBashApprovalDescriptor(toolCall, input, context);
     const acceptEditsCandidate = String(context.config && context.config.permissionMode || '') === 'acceptEdits'
       ? await kimiAcpConcreteEditGuard(toolCall, context)
