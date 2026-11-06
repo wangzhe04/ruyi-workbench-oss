@@ -1,0 +1,32 @@
+PASS facts.json 存在且 schema=1(不存在则跑 node dev-harness/facts-generate.js)
+PASS 版本一致: package.json(3.0.1) == 00-boot.js(3.0.1)
+PASS facts.workbenchVersion(3.0.1) == package.json(3.0.1)
+PASS 产物 server.js 版本与 package.json 一致(3.0.1)
+PASS facts.nativeTools(121) == TOOL_HANDLERS 重算(121)
+PASS facts.e2eCount(567) == 目录重算(567)
+PASS facts.e2eLiveSkipped(7) == SKIP 表重算(7)
+PASS facts.unitSuites(278) == 目录重算(278)
+PASS facts.accSmokes(26) == 目录重算(26)
+PASS facts.accVersion(1.9.1) == pyproject(1.9.1)
+PASS facts.accTools(108) 是正整数(无 venv,活对账由 CI acc-smoke 承担)
+PASS facts.defaultPort(8765) == 00-boot.js DEFAULT_PORT(8765)
+PASS facts.tokenBootstrap(api-bootstrap) == 'api-bootstrap'
+PASS ROUTE_AUTH 含 POST /api/bootstrap(auth=open,浏览器拿 token 唯一通道)
+PASS serveStatic 浏览器分支置空 token(HTML 不再明文下发)
+PASS facts.liveProbes(7) == SKIP 集大小(7)
+PASS SKIP 集每条都是 live probe(非 live 混入: 无)
+PASS README 无过时 ACC 工具数口径(99/98 绝迹;现行 108)
+PASS README.md 里扫得到「原生工具数」的说法（实得 2 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「原生工具数」都与 facts 一致(现行 121，实得 2 处)
+PASS README_EN.md 里扫得到「原生工具数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「原生工具数」都与 facts 一致(现行 121，实得 1 处)
+PASS README.md 里扫得到「e2e 总数」的说法（实得 2 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「e2e 总数」都与 facts 一致(现行 567，实得 2 处)
+PASS README_EN.md 里扫得到「e2e 总数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「e2e 总数」都与 facts 一致(现行 567，实得 1 处)
+PASS README.md 里扫得到「unit suite 数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「unit suite 数」都与 facts 一致(现行 278，实得 1 处)
+PASS README_EN.md 里扫得到「unit suite 数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「unit suite 数」都与 facts 一致(现行 278，实得 1 处)
+
+FACTS STATIC E2E: ALL PASS

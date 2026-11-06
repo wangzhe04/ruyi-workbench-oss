@@ -732,7 +732,7 @@
       "dependsOn": [
         "P1"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "effortDays": {
         "low": 6,
         "high": 10
@@ -746,9 +746,24 @@
             "high": 3
           },
           "deliverable": "pywin32/winsdk/UIA 条件化；共享模块可独立安装，失败隔离且报告真实能力；为 Mac 文件工具补保护规则。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P3/acc-shared/README.md",
+            "evidence/P3/acc-shared/validation.json",
+            "evidence/P3/acc-shared/review.json",
+            "evidence/P3/acc-shared/source-fingerprint.json"
+          ],
+          "implementationCommit": "f135bda1c4bb9703ccbb926f36d99f855ad0f63c",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "Mac共享ACC子集开发与单独本地验收；Windows实机/CI回归未执行，保留P3整体阶段关口，并未获豁免。",
+          "pendingPhaseAcceptance": [
+            "Windows同候选CI/实机回归"
+          ],
+          "laterPhaseCarryover": [
+            "macOS14 arm64最低系统与wheel部署目标继续P3/P6验证；当前不宣称已兼容"
+          ]
         },
         {
           "id": "P3-02",
@@ -786,7 +801,10 @@
           "owner": null,
           "evidence": []
         }
-      ]
+      ],
+      "owner": "Codex",
+      "startedDate": "2026-11-06",
+      "progress": "P3-01 已完成 Mac 共享 ACC 子集开发和单独本地验收；Windows 同候选回归保持阶段关口未执行。下一包 P3-02。"
     },
     {
       "id": "P4",

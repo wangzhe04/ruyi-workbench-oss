@@ -1,0 +1,158 @@
+# 夹具残留清理: 扫 834 个,清掉 181 个陈年的,留下 153 个新的与 0 个非夹具,删不掉 0 个
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试: ℹ tests 2508 / ℹ pass 2490 / ℹ fail 0 / ℹ skipped 18
+# build freshness: 产物与 src 一致
+(  1/80) [fast] acc-offline-installer.static.e2e.js ... FAIL exit=1 (重跑仍失败, 60ms)
+(  2/80) [fast] action-feedback.static.e2e.js ... PASS (34ms)
+(  3/80) [fast] agent-mode-v2.static.e2e.js ... PASS (111ms)
+(  4/80) [fast] agent-team-budget.static.e2e.js ... PASS (186ms)
+(  5/80) [fast] agent-workflows-polling-visibility.static.e2e.js ... PASS (28ms)
+(  6/80) [fast] architecture-contract-snapshots.static.e2e.js ... PASS (123ms)
+(  7/80) [fast] asr-config-ui.static.e2e.js ... PASS (53ms)
+(  8/80) [fast] browser-mcp.static.e2e.js ... PASS (151ms)
+(  9/80) [fast] c2-evidence-spawn-budget.static.e2e.js ... PASS (30ms)
+( 10/80) [fast] copy-path-guard.static.e2e.js ... PASS (96ms)
+( 11/80) [fast] copy-terms.static.e2e.js ... PASS (62ms)
+( 12/80) [fast] cost-zero.static.e2e.js ... PASS (30ms)
+( 13/80) [fast] css-typography-debt.static.e2e.js ... PASS (30ms)
+( 14/80) [fast] desktop-dpi.static.e2e.js ... PASS (28ms)
+( 15/80) [fast] desktop-shell.static.e2e.js ... PASS (28ms)
+( 16/80) [fast] durable-state-inventory.static.e2e.js ... PASS (96ms)
+( 17/80) [fast] ec-d-closure.static.e2e.js ... PASS (42ms)
+( 18/80) [fast] engine-env-brief.static.e2e.js ... PASS (409ms)
+( 19/80) [fast] eol-policy.static.e2e.js ... PASS (1383ms)
+( 20/80) [fast] facts.static.e2e.js ... FAIL exit=1 (重跑仍失败, 200ms)
+( 21/80) [fast] finalize-segments.static.e2e.js ... PASS (27ms)
+( 22/80) [fast] fixture-home.static.e2e.js ... PASS (787ms)
+( 23/80) [fast] frontend-domains.static.e2e.js ... PASS (38ms)
+( 24/80) [fast] health-i18n.static.e2e.js ... PASS (42ms)
+( 25/80) [fast] i18n-en-terms.static.e2e.js ... PASS (30ms)
+( 26/80) [fast] i18n.static.e2e.js ... PASS (210ms)
+( 27/80) [fast] inline-script-csp-hash.static.e2e.js ... PASS (45ms)
+( 28/80) [fast] kimi-plan-ui.static.e2e.js ... PASS (37ms)
+( 29/80) [fast] live-full-text.static.e2e.js ... PASS (37ms)
+( 30/80) [fast] manifest-ranges.static.e2e.js ... PASS (62ms)
+( 31/80) [fast] mcp-ops-gui.static.e2e.js ... PASS (53ms)
+( 32/80) [fast] memory-toolbox.static.e2e.js ... PASS (31ms)
+( 33/80) [fast] mermaid-render.static.e2e.js ... PASS (357ms)
+( 34/80) [fast] model-menu-classes.static.e2e.js ... PASS (32ms)
+( 35/80) [fast] module-dependency-graph.static.e2e.js ... PASS (601ms)
+( 36/80) [fast] ndjson-line-feeder.static.e2e.js ... PASS (66ms)
+( 37/80) [fast] net-token-replay.static.e2e.js ... PASS (30ms)
+( 38/80) [fast] new-thread-engine-default.static.e2e.js ... PASS (43ms)
+( 39/80) [fast] onboarding.static.e2e.js ... PASS (55ms)
+( 40/80) [fast] overlay-payload-lock.static.e2e.js ... PASS (75ms)
+( 41/80) [fast] overlay-update-gui.static.e2e.js ... PASS (45ms)
+( 42/80) [fast] process-safety.static.e2e.js ... PASS (192ms)
+( 43/80) [fast] progress-events.static.e2e.js ... PASS (196ms)
+( 44/80) [fast] prompt-snapshot.static.e2e.js ... PASS (109ms)
+( 45/80) [fast] provider-reasoning-effort-ui.static.e2e.js ... PASS (27ms)
+( 46/80) [fast] rail-pocket.static.e2e.js ... PASS (31ms)
+( 47/80) [fast] resume-banner-dismiss.static.e2e.js ... PASS (31ms)
+( 48/80) [fast] route-inventory.static.e2e.js ... PASS (571ms)
+( 49/80) [fast] runtime-optimization.static.e2e.js ... PASS (252ms)
+( 50/80) [fast] scheduler-ui.static.e2e.js ... PASS (100ms)
+( 51/80) [fast] session-save-census.static.e2e.js ... PASS (71ms)
+( 52/80) [fast] software-engineering-prompt.static.e2e.js ... PASS (95ms)
+( 53/80) [fast] start-experience.static.e2e.js ... PASS (38ms)
+( 54/80) [fast] steward-avatar.static.e2e.js ... PASS (37ms)
+( 55/80) [fast] steward-board.static.e2e.js ... PASS (59ms)
+( 56/80) [fast] steward-config.static.e2e.js ... PASS (160ms)
+( 57/80) [fast] steward-conversation.static.e2e.js ... PASS (62ms)
+( 58/80) [fast] steward-drawer.static.e2e.js ... PASS (55ms)
+( 59/80) [fast] steward-events.static.e2e.js ... PASS (123ms)
+( 60/80) [fast] steward-runner.static.e2e.js ... PASS (222ms)
+( 61/80) [fast] steward-settings.static.e2e.js ... PASS (72ms)
+( 62/80) [fast] steward-shell.static.e2e.js ... PASS (50ms)
+( 63/80) [fast] steward-tools.static.e2e.js ... PASS (1478ms)
+( 64/80) [fast] steward-walkthrough.static.e2e.js ... PASS (71ms)
+( 65/80) [fast] streaming-responsiveness.static.e2e.js ... PASS (38ms)
+( 66/80) [fast] thinking-boundary.static.e2e.js ... PASS (28ms)
+( 67/80) [fast] thread-brief.static.e2e.js ... PASS (77ms)
+( 68/80) [fast] thread-commission.static.e2e.js ... PASS (59ms)
+( 69/80) [fast] tool-image-inline.static.e2e.js ... PASS (41ms)
+( 70/80) [fast] tool-verb-coverage.static.e2e.js ... PASS (95ms)
+( 71/80) [fast] turn-narrative.static.e2e.js ... PASS (99ms)
+( 72/80) [fast] ui-bugfix.static.e2e.js ... PASS (37ms)
+( 73/80) [fast] ui-v3-p1.static.e2e.js ... PASS (48ms)
+( 74/80) [fast] ui-v3-p2.static.e2e.js ... PASS (50ms)
+( 75/80) [fast] ui-v3-p3a.static.e2e.js ... PASS (68ms)
+( 76/80) [fast] ui-v3-p3b.static.e2e.js ... PASS (60ms)
+( 77/80) [fast] ui-v3-wave1.static.e2e.js ... PASS (51ms)
+( 78/80) [fast] ui-v4-glass.static.e2e.js ... PASS (37ms)
+( 79/80) [fast] v17-review-fixes.static.e2e.js ... PASS (128ms)
+( 80/80) [fast] workflow-editor-v2.static.e2e.js ... PASS (45ms)
+
+# 汇总: 78 pass / 2 fail / 0 known-fail / 0 unexpected-pass / 0 flaky / 80 ran / 7 skipped
+# 收工残留测试浏览器(ruyi-/wcw- profile): 0
+
+# 失败件:先列该件【所有 FAIL 行】,再给末 25 行现场
+
+=== acc-offline-installer.static.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL Full offline requirements pin the verified winsdk cp312 release exactly
+FAIL Full offline requirements pin the verified winsdk cp312 release exactly
+--- 末 25 行 ---
+PASS every offline variant includes only the standalone callback gateway at its documented tools path
+PASS offline packages do not include the developer tools directory recursively
+PASS full-package assembly handles Chromium paths beyond legacy MAX_PATH
+PASS offline ZIP avoids Explorer-invisible dot entries and verifies every archive before release
+PASS packager rejects release names that make deep ACC paths unsafe for Windows Explorer
+PASS full-package assembly verifies the signed ACC manifest before release
+PASS Ruyi Full packager requires the OCR wheel, live imports, and manifest coverage before emitting a ZIP
+PASS long-path cleanup is constrained to the package output root
+PASS full package excludes nested local ACC zip build artifacts
+PASS a Full-labeled package cannot be emitted without ACC and WinSDK
+PASS SkipExeBuild cannot package a stale dist/Ruyi.exe
+PASS ACC metadata supports the bundled Python 3.12 runtime
+PASS ACC pins the compatible MCP 1.x API instead of accepting the breaking MCP 2.x surface
+PASS builder and target installer agree that Full covers the common document runtime, not only ACC core
+PASS Full offline requirements include common data, PDF, HTTP, and HTML parsing libraries
+PASS default offline packaging means Full, with explicit fresh-Full and Slim commands
+PASS desktop MCP autodetection prefers bundled then installed WinSDK-capable runtimes over core-only system Python
+PASS ACC setup failure is only remembered (RUYI_ACC_FAILED); it still never blocks the base Workbench
+PASS the failure notice runs AFTER the desktop shell / hidden node was started, on both start paths
+PASS the notice names acc-install-latest.log and keeps the window up (timeout, any key skips); a no-op when setup succeeded
+PASS packager validates the node.exe it bundles (version >= 20, real binary rather than a version-manager shim) before copying it
+PASS package.json engines still says node >=20 (the version floor the packager enforces)
+ACC OFFLINE INSTALLER CONTRACT: FAIL (1)
+FAIL Full offline requirements pin the verified winsdk cp312 release exactly
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-pPlutP
+
+=== facts.static.e2e.js (exit=1) ===
+--- FAIL 行 2 条 ---
+FAIL facts.e2eCount(566) == 目录重算(567)
+FAIL facts.accSmokes(25) == 目录重算(26)
+--- 末 25 行 ---
+PASS facts.unitSuites(278) == 目录重算(278)
+FAIL facts.accSmokes(25) == 目录重算(26)
+PASS facts.accVersion(1.9.1) == pyproject(1.9.1)
+PASS facts.accTools(108) 是正整数(无 venv,活对账由 CI acc-smoke 承担)
+PASS facts.defaultPort(8765) == 00-boot.js DEFAULT_PORT(8765)
+PASS facts.tokenBootstrap(api-bootstrap) == 'api-bootstrap'
+PASS ROUTE_AUTH 含 POST /api/bootstrap(auth=open,浏览器拿 token 唯一通道)
+PASS serveStatic 浏览器分支置空 token(HTML 不再明文下发)
+PASS facts.liveProbes(7) == SKIP 集大小(7)
+PASS SKIP 集每条都是 live probe(非 live 混入: 无)
+PASS README 无过时 ACC 工具数口径(99/98 绝迹;现行 108)
+PASS README.md 里扫得到「原生工具数」的说法（实得 2 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「原生工具数」都与 facts 一致(现行 121，实得 2 处)
+PASS README_EN.md 里扫得到「原生工具数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「原生工具数」都与 facts 一致(现行 121，实得 1 处)
+PASS README.md 里扫得到「e2e 总数」的说法（实得 2 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「e2e 总数」都与 facts 一致(现行 566，实得 2 处)
+PASS README_EN.md 里扫得到「e2e 总数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「e2e 总数」都与 facts 一致(现行 566，实得 1 处)
+PASS README.md 里扫得到「unit suite 数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README.md 里每一处「unit suite 数」都与 facts 一致(现行 278，实得 1 处)
+PASS README_EN.md 里扫得到「unit suite 数」的说法（实得 1 处；扫不到 = 本条静默失效）
+PASS README_EN.md 里每一处「unit suite 数」都与 facts 一致(现行 278，实得 1 处)
+FACTS STATIC E2E: FAIL (2)
+[fixture home 保留取证] /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-8drqyU

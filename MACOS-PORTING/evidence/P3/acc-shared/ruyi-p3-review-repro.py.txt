@@ -1,0 +1,13 @@
+import os,sys,tempfile,json
+from pathlib import Path
+from unittest.mock import patch
+with tempfile.TemporaryDirectory(prefix='p3-independent-review-') as d:
+ os.environ.update(HOME=d,USERPROFILE=d,WCW_DATA_DIR=d+'/data',ACC_TOOLSETS='filesystem')
+ sys.path.insert(0,str(Path.cwd()/'mcp/ai-computer-control/src'))
+ from ai_computer_control.tools import safety
+ p=Path(d)/'ExistingCase';p.mkdir()
+ custom=str(p/'FutureProtected')
+ with patch.object(safety,'_CUSTOM',{'protected_paths':[custom]}):
+  for t in [custom+'/x',str(Path(d)/'existingcase'/'FutureProtected'/'x'),str(p/'futureprotected'/'x')]:
+   print(json.dumps({'target':t,'canonical':safety._canonical_path(t),'reason':safety.protected_path_reason(t)}))
+ print('case_insensitive',Path(d,'existingcase').exists())
