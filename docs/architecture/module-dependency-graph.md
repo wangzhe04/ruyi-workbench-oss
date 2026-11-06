@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 89 | 3891 | 3496 | 640 | 67 | 0 | 1 |
+| 89 | 3891 | 3502 | 641 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -64,7 +64,7 @@
 | 46 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
 | 47 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 48 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 49 | `07-autonomy.js` | orchestration | 154 | 83 | 20 |
+| 49 | `07-autonomy.js` | orchestration | 156 | 85 | 21 |
 | 50 | `08-agent-runs.js` | orchestration | 127 | 118 | 22 |
 | 51 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 52 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
@@ -74,9 +74,9 @@
 | 56 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 57 | `11c-file-visual-io.js` | tools | 1 | 3 | 2 |
 | 58 | `11d-media-inspection.js` | tools | 1 | 2 | 2 |
-| 59 | `12-tool-dispatch.js` | tools | 76 | 138 | 23 |
+| 59 | `12-tool-dispatch.js` | tools | 74 | 140 | 23 |
 | 60 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 61 | `13-http-router.js` | transport | 70 | 274 | 36 |
+| 61 | `13-http-router.js` | transport | 70 | 276 | 36 |
 | 62 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
 | 63 | `13c-overlay-routes.js` | transport | 11 | 14 | 3 |
 | 64 | `13d-core-domain-routes.js` | transport | 65 | 149 | 18 |
@@ -297,7 +297,8 @@
 | `07-autonomy.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn`, `cmdLineBudgetFor`, `spawnCmdLineLength` |
 | `07-autonomy.js` | `01e-permission-modes.js` | backward | `BUILTIN_AGENT_ROLES`, `CLAUDE_PERMISSION_MODE_MAP`, `annotateAgentRoleEffective`, `clampAgentRoleToParent`, `mergeAgentRole`, `normalizeAgentRole` |
 | `07-autonomy.js` | `01h-process-runtime.js` | backward | `ProcessRuntime` |
-| `07-autonomy.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `registerIntervention`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `saveSession`, `settleIntervention` |
+| `07-autonomy.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `loadSession`, `registerIntervention`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `saveSession`, `settleIntervention` |
+| `07-autonomy.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf` |
 | `07-autonomy.js` | `02f-turn-effect-kinds.js` | backward | `unprefixedBridgedName` |
 | `07-autonomy.js` | `03-bridge-guard.js` | backward | `buildAttachmentPrompt`, `existsExecutableAsync`, `normalizeCwd`, `pathWithinRoot` |
 | `07-autonomy.js` | `03a-privacy-gateway.js` | backward | `PrivacyGateway` |
@@ -414,7 +415,7 @@
 | `12-tool-dispatch.js` | `06-provider-engine.js` | backward | `PLAYBOOK_REQUIRES`, `buildRuntimeIdentityFacts`, `evalPlaybookAvailability`, `getCapabilities`, `listPlaybooksWithAvailability`, `loadAllPlaybooks`, `markNetworkOnline`, `neutralizeAuthoredText`, `peekCapabilities`, `runtimeToolRequirementsMet`, `updateAutomaticThreadTitle` |
 | `12-tool-dispatch.js` | `06d-memory-domain.js` | backward | `listWorkbenchMemories`, `proposeMemoryRelationRevoke`, `proposeMemoryRelationTool`, `proposeMemoryRevision`, `proposeWorkbenchMemory`, `readWorkbenchMemory` |
 | `12-tool-dispatch.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName`, `stewardAssemblePlaybookPrompt`, `stewardPlaybookMissingInputs` |
-| `12-tool-dispatch.js` | `07-autonomy.js` | backward | `NATIVE_COMMAND_TOOL_NAMES`, `NATIVE_DESKTOP_TOOL_NAMES`, `bridgedToolTier`, `compareToolRetrievalShadow`, `listCompactTools`, `nativeToolDisabledByPolicy`, `nativeToolSchema`, `nativeToolsAcceptingArgKeys`, `searchToolCatalog`, `toolArgsSkeleton`, `toolDisabledByPolicy`, `toolDisabledResult` |
+| `12-tool-dispatch.js` | `07-autonomy.js` | backward | `NATIVE_COMMAND_TOOL_NAMES`, `NATIVE_DESKTOP_TOOL_NAMES`, `bridgedToolTier`, `compareToolRetrievalShadow`, `listCompactTools`, `nativeToolDisabledByPolicy`, `nativeToolSchema`, `nativeToolsAcceptingArgKeys`, `policyDesktopOverrideFor`, `policySessionFor`, `searchToolCatalog`, `toolArgsSkeleton`, `toolDisabledByPolicy`, `toolDisabledResult` |
 | `12-tool-dispatch.js` | `08-agent-runs.js` | backward | `BUILTIN_AGENT_WORKFLOWS`, `getAgentWorkflows` |
 | `12-tool-dispatch.js` | `10-context-governance.js` | backward | `providerTurnQuotaKey`, `rehydrateObservation` |
 | `12-tool-dispatch.js` | `11-native-tools.js` | backward | `NativeSourceHooks`, `binaryReadHint`, `gitDiff`, `gitStatus`, `isBinaryReadPath`, `levenshtein`, `powershellMissingOr`, `privacyReadTextWindow`, `privacySourceActive`, `privacySourceLine`, `privacySourceLineOffsets`, `privacySourceMark`, `privacySourceViews`, `probeRgAsync`, `readIfExists` |
@@ -446,7 +447,7 @@
 | `13-http-router.js` | `06d-memory-domain.js` | backward | `MEMORY_EXCLUSION_MAX`, `analyzeMemoryMaintenance`, `applyMemoryRelationProposal`, `confirmMemoryRelation`, `decideMemoryProposal`, `deleteMemory`, `deleteMemoryRelation`, `draftMemoryFromSession`, `listMemoryProjectGroups`, `listMemoryRelations`, `loadMemoryRegistry`, `memoryFailureResponse`, `migrateLegacyAccMemory`, `migrateMemory`, `moveMemoryScope`, `projectKeyForCwd`, `proposeMemoryFromSession`, `proposeMemoryRelation`, `readMemoryItem`, `replayPendingMemoryProposal`, `resolveCoreMemoryState`, `saveMemory`, `syncAgentInstructionImports`, `validateMemoryProposalSave` |
 | `13-http-router.js` | `06f-autonomy-grants.js` | backward | `activeDriverRuns`, `autonomyGrants`, `dryRunGrantFiles`, `listGrantsView`, `normalizeGrant`, `revokeAllGrants`, `revokeGrant` |
 | `13-http-router.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName` |
-| `13-http-router.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `buildClaudeAgentDefinitions`, `fetchOpenAiModels`, `getAgentRoleLibrary`, `probeProviderCompletion`, `projectAgentRoleFile`, `projectCwdDirectoryFailure`, `readClaudeProjectAgentRoles`, `readProjectAgentRoles`, `saveProjectAgentRoles`, `toolPackForName` |
+| `13-http-router.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `buildClaudeAgentDefinitions`, `fetchOpenAiModels`, `getAgentRoleLibrary`, `nativeToolDisabledByPolicy`, `policyDesktopOverrideFor`, `probeProviderCompletion`, `projectAgentRoleFile`, `projectCwdDirectoryFailure`, `readClaudeProjectAgentRoles`, `readProjectAgentRoles`, `saveProjectAgentRoles`, `toolPackForName` |
 | `13-http-router.js` | `08-agent-runs.js` | backward | `agentRunResultSlice`, `agentWorkflowSaveProblem`, `autoResumeInterruptedRuns`, `buildAgentRunEnvelope`, `deleteAgentWorkflow`, `getAgentWorkflows`, `markInterruptedAgentRuns`, `normalizeAgentWorkflow`, `resolveOrchestrateNodes`, `saveAgentRun`, `saveAgentWorkflow` |
 | `13-http-router.js` | `09-workflow.js` | backward | `AGENT_RUN_TERMINAL`, `deliverAgentRunEnvelope`, `resolveWaitAgentsMs`, `runAgentWorkflow`, `settleWaitEnvelopes`, `waitForAgentRunResults` |
 | `13-http-router.js` | `10-context-governance.js` | backward | `agentConversationContextMeta`, `cachedContextLength`, `configuredConversationWindow`, `contextWindowFromTable`, `learnedWindowCap`, `resolveContextWindow`, `runAgentExternalCompact`, `runProviderCompactTracked`, `scheduleAgentWakesAtBoot`, `streamChat`, `truncateToolResult` |

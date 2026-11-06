@@ -1893,6 +1893,7 @@ function renderCliEnvBrief(f) {
   const lines = [ENGINE_BRIEF_OPEN];
   lines.push(b.cliIdentity({ appName: APP_NAME, version: f.version, launchMode: f.launchMode, engineName: b.engineName[f.engine] }));
   lines.push(b.nativeTools[f.engine]);
+  if (process.platform === 'darwin') lines.push(pack.toolProtocol.intro);
   if (f.mcp) {
     lines.push(b.mcpIntro({ prefix: RUYI_MCP_TOOL_PREFIX }));
     lines.push(b.mcpMemory);

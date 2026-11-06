@@ -2711,6 +2711,11 @@ async function resolveClaudeLauncherAsync(launcher, { force = false } = {}) {
 function claudeInstallCandidates() {
   const home = os.homedir();
   const env = process.env;
+  if (process.platform === 'darwin') return [
+    path.join(home, '.local', 'bin', 'claude'),
+    path.join(home, '.claude', 'local', 'claude'),
+    '/opt/homebrew/bin/claude', '/usr/local/bin/claude',
+  ];
   const dirs = [
     env.APPDATA && path.join(env.APPDATA, 'npm'),
     env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs', 'claude'),
@@ -2782,7 +2787,8 @@ function spawnProbeAsync(command, args, spawnOpts = {}, timeout = 4000) {
 }
 function claudeProbeCandidates() {
   // 先 PATH 上的裸名(快、常见),再常见安装位置(必须真的存在才探)。
-  const onPath = [process.env.CLAUDE_CLI_PATH, 'claude.cmd', 'claude.exe', 'claude'].filter(Boolean).map(command => ({ command, mustExist: false }));
+  const names = process.platform === 'darwin' ? ['claude'] : ['claude.cmd', 'claude.exe', 'claude'];
+  const onPath = [process.env.CLAUDE_CLI_PATH, ...names].filter(Boolean).map(command => ({ command, mustExist: false }));
   return [...onPath, ...claudeInstallCandidates().map(command => ({ command, mustExist: true }))];
 }
 function detectClaudePathUncached() {
@@ -2923,7 +2929,7 @@ async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探�
 }
 function agentCliInstallCandidates(type) {
   if (!isAgentCliType(type)) return [];
-  return AGENT_CLI_TYPES[type].installCandidates({ env: process.env, home: os.homedir(), join: (...parts) => path.join(...parts) });
+  return AGENT_CLI_TYPES[type].installCandidates({ env: process.env, home: os.homedir(), join: (...parts) => path.join(...parts), platform: process.platform });
 }
 function agentCliProbeable(candidate) {
   // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.

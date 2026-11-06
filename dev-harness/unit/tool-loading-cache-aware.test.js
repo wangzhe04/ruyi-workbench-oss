@@ -87,10 +87,13 @@ test('[C3] 会话工具表跨重启按原序恢复', () => {
   assert.ok(!names(s4).includes('file_read'));
 });
 
-test('[C3] legacy PowerShell tool history retains its order when the platform starter changes', () => {
+test('[C3] legacy PowerShell tool history retains available tools in order when the platform starter changes', () => {
   const state = srv.createToolLoadingState(cfg, '你好', null, offered, null, freshKey(), { restoredNames: ['powershell_run', 'file_read'] });
   const got = names(state);
-  assert.deepEqual(got.slice(0, 2), ['powershell_run', 'file_read']);
+  if (process.platform === 'darwin') {
+    assert.ok(!got.includes('powershell_run'), 'a restored tool list cannot advertise an unavailable platform tool');
+    assert.equal(got[0], 'file_read');
+  } else assert.deepEqual(got.slice(0, 2), ['powershell_run', 'file_read']);
   for (const name of STARTER) assert.ok(got.includes(name));
 });
 

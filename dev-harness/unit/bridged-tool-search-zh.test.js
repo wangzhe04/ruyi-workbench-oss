@@ -14,7 +14,11 @@ const path = require('path');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-bridged-search-zh-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 process.env.RUYI_HOME = root;
-const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+// Ranking fixture includes the Windows native keyboard tool and its bridged counterpart.
+// Real Mac capability filtering is covered by macos-capabilities and macos-mcp-capabilities.
+const srv = require('../lib/server-internals').loadServerInternals([
+  'defaultConfig', 'buildOpenAiTools', 'createToolLoadingState', 'buildToolCatalog', 'searchToolCatalog',
+], { testPlatform: 'win32' });
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const SID = 'ai_computer_control';

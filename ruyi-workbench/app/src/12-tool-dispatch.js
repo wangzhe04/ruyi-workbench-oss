@@ -233,19 +233,6 @@ function toolInvokeMissingNameResult(proxyName, args) {
   };
 }
 
-// 能力总闸(allowDesktopTools 的会话级覆盖)要的会话头:回合内的调用 ctx 带 session;MCP 子进程(Claude / Kimi CLI 经如意 MCP)
-// 里 ctx 为空,按注入的 WCW_SESSION_ID 装(与下面桥接分支的 sidSession、journalSessionCtx 同一个来源)。装不到 = null = 跟随全局。
-async function policySessionFor(ctx) {
-  if (ctx && ctx.session) return ctx.session;
-  const sid = process.env.WCW_SESSION_ID || '';
-  if (!sid) return null;
-  try { return (await loadSession(sid)) || null; } catch { return null; }
-}
-async function policyDesktopOverrideFor(ctx) {
-  const session = await policySessionFor(ctx);
-  return session ? sessionDesktopToolsOf(session) : null;
-}
-
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 控制面工具(含内部的 permission_prompt、tool_load)不能经代理调:先于目录查找判,给明确的拒绝而不是「tool not found」。
   // 注意作用面:模型服务商回合里,代理到 list_tools / tool_search / tool_load / todo_write / mission_update / 代理工具族的调用
@@ -259,12 +246,10 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   if (!runtimeRequirement.met) return { ok: false, code: runtime.capabilities['process.supervisor'].code || 'runtime-unavailable', error: runtimeRequirement.reason };
   // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的目标在【目录查找之前】拒,回与原生一致的 tool-disabled ——
   // 目录里已经没有它(11 adaptiveCatalogForMcp 滤掉了),先查目录只会得到一句误导的 unknown-tool。判据与 09 / 08 同一个
-  // toolDisabledByPolicy;配置优先用回合 ctx 里那份(主循环),MCP 子进程里没有就用盘上的。原生目标照旧由下面的 toolCall 判。
+  // toolDisabledByPolicy;配置优先用回合 ctx 里那份(主循环),MCP 子进程里没有就用盘上的。原生与桥接目标在查目录前统一判。
   const policyBridge = resolveBridge(bridged.route, targetName);
-  if (policyBridge) {
-    const off = toolDisabledByPolicy(targetName, (ctx && ctx.config) || config, desktopOverride, policyBridge);
-    if (off) return toolDisabledResult(targetName, off);
-  }
+  const off = toolDisabledByPolicy(targetName, (ctx && ctx.config) || config, desktopOverride, policyBridge);
+  if (off) return toolDisabledResult(targetName, off);
   const item = catalog.find(x => x.name === targetName);
   if (!item) {
     const didYouMean = suggestToolNames(targetName, catalog.map(x => x.name).filter(n => !isControlPlaneToolName(n)));

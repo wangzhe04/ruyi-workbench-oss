@@ -147,7 +147,7 @@ const MCP_TOOLS = [
     description: 'One-shot platform shell (macOS bash, Windows PowerShell). No profiles or stdin. Explicit language overrides default. Bounded output.',
     inputSchema: { type: 'object', properties: {
       command: { type: 'string', description: 'command text' },
-      language: { type: 'string', enum: ['bash', 'powershell'], description: 'default platform shell' },
+      language: { type: 'string', enum: process.platform === 'darwin' ? ['bash'] : ['bash', 'powershell'], description: 'default platform shell' },
       cwd: { type: 'string', description: 'Conversation cwd, must exist' },
       timeoutMs: { type: 'number', description: '1000..1800000 ms, default 60000' },
     }, required: ['command'] },
@@ -175,7 +175,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        language: { type: 'string', enum: ['bash', 'powershell'], description: 'Default bash on macOS, powershell on Windows.' },
+        language: { type: 'string', enum: process.platform === 'darwin' ? ['bash'] : ['bash', 'powershell'], description: 'Default bash on macOS, powershell on Windows.' },
         cwd: { type: 'string', description: 'default: conversation folder' },
         name: { type: 'string', description: 'label' },
         command: { type: 'string', description: 'Finite background command. Poll until running:false. This mode rejects input.' },
@@ -232,7 +232,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        language: { type: 'string', enum: ['bash', 'powershell', 'python', 'node', 'javascript'], description: 'default bash on macOS, powershell on Windows' },
+        language: { type: 'string', enum: process.platform === 'darwin' ? ['bash', 'python', 'node', 'javascript'] : ['bash', 'powershell', 'python', 'node', 'javascript'], description: 'default bash on macOS, powershell on Windows' },
         code: { type: 'string', description: 'script source' },
         cwd: { type: 'string', description: 'default: conversation folder; must exist' },
         timeoutMs: { type: 'number', description: 'ms, default 60000' },

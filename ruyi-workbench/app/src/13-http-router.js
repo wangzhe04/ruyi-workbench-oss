@@ -314,7 +314,7 @@ async function handleApi(req, res, pathname) {
       errorClasses: ERROR_CLASSES,
       // 116c: /api/status 的工具清单是【设置页面向用户的目录】,管家工具族一律不出现在这里(四个
       // offer 面之一)—— 它们只属于 kind==='steward' 的管家会话,不是用户可挑选的会话工具。
-      tools: MCP_TOOLS.filter(t => (t.name !== 'observation_recall' || observationRecallEnabled(config)) && !isStewardToolName(t.name)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+      tools: MCP_TOOLS.filter(t => !nativeToolDisabledByPolicy(t.name, config) && (t.name !== 'observation_recall' || observationRecallEnabled(config)) && !isStewardToolName(t.name)).map(t => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
     }));
   }
   // v0.8-S6: capability matrix (§7.2). Read-only → same-origin gate is enough (not in needsToken). 60s
@@ -2620,8 +2620,10 @@ async function startMcp() {
           // 116c: Claude/Kimi CLI 桥的 offer 面。管家会话由注入的 WCW_SESSION_KIND 标识;缺失/非
           // 'steward' 一律隐藏 steward_*(fail-closed —— 普通 CLI 会话永远看不到管家工具)。
           const stewardSession = process.env.WCW_SESSION_KIND === 'steward';
+          const desktopOverride = await policyDesktopOverrideFor();
           const listed = MCP_TOOLS.filter(t => {
             if (!runtimeToolRequirementsMet(t.name, runtime).met) return false;
+            if (nativeToolDisabledByPolicy(t.name, listConfig, desktopOverride)) return false;
             if (t.name === 'request_user_input' && !userInputEnabled) return false;
             if (t.name === 'observation_recall' && !recallEnabled) return false; // 105a: 双开关门
             if (isStewardToolName(t.name) && !stewardSession) return false; // 116c: 管家工具族门

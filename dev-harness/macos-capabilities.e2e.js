@@ -28,6 +28,17 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       'capability matrix carries the real versioned native supervisor and default shell snapshot');
     t.ok(S.toolRequirementsMet('shell_run', ready, false, config).met && S.toolRequirementsMet('git_status', ready, false, config).met,
       'ready supervisor permits shell and git discovery');
+    const readyTools = S.buildOpenAiTools(config, ready);
+    const readyNames = readyTools.map(tool => tool.function.name);
+    for (const tool of readyTools.filter(tool => ['shell_run', 'shell_start', 'script_run'].includes(tool.function.name))) {
+      t.ok(!tool.function.parameters.properties.language.enum.includes('powershell'), tool.function.name + ' schema advertises only implemented Mac languages');
+    }
+    for (const name of ['powershell_run', 'desktop_screenshot', 'keyboard_send_keys']) {
+      t.ok(!readyNames.includes(name), name + ' is not offered on Mac even with command and desktop settings enabled');
+      const rejected = await S.toolCall(name, {}, { config });
+      t.ok(!rejected.ok && rejected.code === 'tool-disabled' && rejected.error.includes('platform.unsupported'),
+        name + ' stale direct invocation is rejected before reaching its Windows handler');
+    }
     t.ok(!S.toolRequirementsMet('shell_run', {}, false, config).met, 'unknown Mac supervisor state cannot advertise execution readiness');
     fs.unlinkSync(helper);
     const missing = await S.getCapabilities(config);

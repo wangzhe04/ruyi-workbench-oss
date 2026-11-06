@@ -29,6 +29,14 @@ let runtime;
     await client.start();
     let names = client.listTools().map(tool => tool.name);
     t.ok(names.includes('shell_run') && names.includes('git_status'), 'real MCP tools/list offers managed tools with ready helper');
+    const windowsOnly = ['powershell_run', 'desktop_screenshot', 'keyboard_send_keys'];
+    t.ok(windowsOnly.every(name => !names.includes(name)), 'MCP tools/list excludes Windows-only implementations on Mac');
+    const desktopSearch = await client.callTool('tool_search', { query: 'desktop_screenshot keyboard_send_keys powershell_run', limit: 20 }, 5000);
+    t.ok(desktopSearch.ok && !desktopSearch.matches.some(item => windowsOnly.includes(item.name)),
+      'adaptive MCP discovery excludes the same Windows-only tools');
+    const unsupported = await client.callTool('tool_invoke_exec', { name: 'desktop_screenshot', arguments: {} }, 5000);
+    t.ok(!unsupported.ok && unsupported.code === 'tool-disabled' && unsupported.error.includes('platform.unsupported'),
+      'stale MCP proxy invocation cannot reach a Windows-only handler');
     fs.unlinkSync(helper);
     names = (await client.refreshTools(5000)).map(tool => tool.name);
     t.ok(!names.includes('shell_run') && !names.includes('script_run') && !names.includes('git_status'),

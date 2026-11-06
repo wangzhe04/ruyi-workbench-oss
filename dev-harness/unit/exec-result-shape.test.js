@@ -22,6 +22,9 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-exec-shape-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = path.join(root, 'data');
 process.env.RUYI_HOME = path.join(root, 'data');
 const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+// Preserve the Windows PowerShell handler contract using the existing fake executable.
+const psToolCall = process.platform === 'darwin'
+  ? require('../lib/server-internals').loadServerInternals(['toolCall'], { testPlatform: 'win32' }).toolCall : srv.toolCall;
 const ws = path.join(root, 'ws');
 fs.mkdirSync(ws, { recursive: true });
 const ctx = () => ({ config: { permissionMode: 'default' }, session: { id: 's', cwd: ws } });
@@ -54,6 +57,10 @@ if (mode === 'argv') {
 }
 `;
 const fakePsPath = path.join(fakeBin, 'powershell.exe');
+const shQuote = text => "'" + text.replace(/'/g, "'\\''") + "'";
+const fakeJob = process.platform === 'darwin'
+  ? { language: 'bash', command: shQuote(process.execPath) + ' ' + shQuote(fakePsPath) }
+  : { language: 'powershell', command: 'fake' };
 const skipFake = process.platform === 'win32' ? 'Windows 上有真 powershell.exe,假件只在非 Windows 装' : false;
 if (!skipFake) {
   fs.writeFileSync(fakePsPath, FAKE_PS);
@@ -187,7 +194,7 @@ test('[S5] 超时结果:error + hint + 已产生的部分输出', async () => {
 test('[S6] cwd 不存在:明说「工作目录不存在」,不是 spawn ENOENT', async () => {
   const bad = path.join(root, 'no-such-dir');
   for (const [tool, args] of [['script_run', { language: 'node', code: 'console.log(1)' }], ['powershell_run', { command: 'echo 1' }]]) {
-    const r = await srv.toolCall(tool, { ...args, cwd: bad }, ctx());
+    const r = await (tool === 'powershell_run' ? psToolCall : srv.toolCall)(tool, { ...args, cwd: bad }, ctx());
     assert.equal(r.ok, false, tool);
     assert.match(String(r.error), /工作目录不存在/, tool + ': ' + JSON.stringify(r).slice(0, 200));
     assert.ok(String(r.error).includes(bad), tool);
@@ -206,7 +213,7 @@ test('[S7] python 子进程环境:PYTHONUTF8=1 / PYTHONIOENCODING=utf-8', { skip
 test('[S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(powershell_run 与 script_run)', { skip: skipFake }, async () => {
   process.env.FAKE_PS_MODE = 'argv';
   for (const [tool, args] of [['powershell_run', { command: 'Write-Output hi' }], ['script_run', { language: 'powershell', code: 'Write-Output hi' }]]) {
-    const r = await srv.toolCall(tool, { ...args, cwd: ws }, ctx());
+    const r = await psToolCall(tool, { ...args, cwd: ws }, ctx());
     assert.equal(r.ok, true, tool + ': ' + JSON.stringify(r).slice(0, 300));
     const seen = JSON.parse(r.stdout);
     assert.ok(seen.argv.includes('-NonInteractive'), tool + ' argv: ' + seen.argv.join(' '));
@@ -216,15 +223,15 @@ test('[S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(p
     assert.match(seen.script, /^﻿?try\{\[Console\]::OutputEncoding=\[Text\.UTF8Encoding\]::new\(\$false\)\}catch\{\};\$OutputEncoding=\[Console\]::OutputEncoding;\$ProgressPreference='SilentlyContinue'; Write-Output hi$/, tool);
   }
   // param()/using 开头的脚本不能被前置语句破坏
-  const r2 = await srv.toolCall('script_run', { language: 'powershell', code: 'param($x)\nWrite-Output $x', cwd: ws }, ctx());
+  const r2 = await psToolCall('script_run', { language: 'powershell', code: 'param($x)\nWrite-Output $x', cwd: ws }, ctx());
   assert.doesNotMatch(JSON.parse(r2.stdout).script, /ProgressPreference|OutputEncoding/);
-  const r3 = await srv.toolCall('script_run', { language: 'powershell', code: '<#\n.SYNOPSIS\n help\n#>\n[CmdletBinding()]\nparam($x)\nWrite-Output $x', cwd: ws }, ctx());
+  const r3 = await psToolCall('script_run', { language: 'powershell', code: '<#\n.SYNOPSIS\n help\n#>\n[CmdletBinding()]\nparam($x)\nWrite-Output $x', cwd: ws }, ctx());
   assert.doesNotMatch(JSON.parse(r3.stdout).script, /ProgressPreference|OutputEncoding/, '帮助注释在前、param 在后也不能前置语句');
 });
 
 async function startJob(mode, shellId) {
   process.env.FAKE_PS_MODE = mode;
-  const r = await srv.toolCall('shell_start', { language: 'powershell', command: 'fake', shellId, cwd: ws }, ctx());
+  const r = await srv.toolCall('shell_start', { ...fakeJob, shellId, cwd: ws }, ctx());
   assert.equal(r.ok, true, JSON.stringify(r));
   return r;
 }
@@ -293,7 +300,7 @@ test('[S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在�
     handler(req) {
       if (!req.stream || /起名字/.test(JSON.stringify(req.messages))) return textFrames('{"title":"t","gist":"g"}');
       const tools = req.messages.filter(m => m.role === 'tool').length;
-      if (tools === 0) { process.env.FAKE_PS_MODE = 'quiet'; return toolCallFrames('shell_start', { language: 'powershell', command: 'fake', shellId: 'q10', cwd: ws }, 'call_start'); }
+      if (tools === 0) { process.env.FAKE_PS_MODE = 'quiet'; return toolCallFrames('shell_start', { ...fakeJob, shellId: 'q10', cwd: ws }, 'call_start'); }
       if (tools === 1) return toolCallFrames('shell_poll', { shellId: 'q10', waitMs: 30000 }, 'call_poll');
       return [...textFrames('done'), usageFrame(8, 4)];
     },

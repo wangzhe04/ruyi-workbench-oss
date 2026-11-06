@@ -141,8 +141,24 @@ function desktopToolsDisabledReason(cfg, desktopOverride) {
   if (allowDesk) return '';
   return desktopOverride === false ? 'desktopTools=false (this session)' : 'allowDesktopTools=false';
 }
+// 能力总闸(allowDesktopTools 的会话级覆盖)要的会话头:回合内的调用 ctx 带 session;MCP 子进程(Claude / Kimi CLI 经如意 MCP)
+// 里 ctx 为空,按注入的 WCW_SESSION_ID 装(与下面桥接分支的 sidSession、journalSessionCtx 同一个来源)。装不到 = null = 跟随全局。
+async function policySessionFor(ctx) {
+  if (ctx && ctx.session) return ctx.session;
+  const sid = process.env.WCW_SESSION_ID || '';
+  if (!sid) return null;
+  try { return (await loadSession(sid)) || null; } catch { return null; }
+}
+async function policyDesktopOverrideFor(ctx) {
+  const session = await policySessionFor(ctx);
+  return session ? sessionDesktopToolsOf(session) : null;
+}
+
 function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
   const cfg = config || {};
+  if (process.platform === 'darwin' && (name === 'powershell_run' || NATIVE_DESKTOP_TOOL_NAMES.has(name))) {
+    return 'platform.unsupported: 此工具依赖 Windows PowerShell，尚无 Mac 实现';
+  }
   if (NATIVE_COMMAND_TOOL_NAMES.has(name) && cfg.allowCommandTools === false) return 'allowCommandTools=false';
   if (NATIVE_DESKTOP_TOOL_NAMES.has(name)) return desktopToolsDisabledReason(cfg, desktopOverride);
   return '';
@@ -222,7 +238,9 @@ function dropPolicyDisabledBridgedTools(tools, bridgedRoute, config, desktopOver
   });
 }
 function toolDisabledResult(name, reason) {
-  return { ok: false, code: 'tool-disabled', error: `tool '${name}' is disabled by settings (${reason})`, hint: '该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。' };
+  const unsupported = reason.startsWith('platform.unsupported:');
+  return { ok: false, code: 'tool-disabled', error: unsupported ? `tool '${name}' is unavailable (${reason})` : `tool '${name}' is disabled by settings (${reason})`,
+    hint: unsupported ? '请使用当前工具目录中可用的工具；开启设置不能补齐平台实现。' : '该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。' };
 }
 // 审计 N5:按名字取原生工具自己的 JSON schema(13f MCP_TOOLS),供分发前的入参校验(12 validateNativeToolArgs)。
 // 放在 07 而不是 12:07 本就读 MCP_TOOLS,12 再读就是新增一条前向边(module-dependency-graph 的债务上限会红)。

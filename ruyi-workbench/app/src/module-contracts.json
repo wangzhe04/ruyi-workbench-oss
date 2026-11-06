@@ -7438,6 +7438,8 @@
         "openAiStreamOnce",
         "packDescriptionsFor",
         "parseSimpleYamlValue",
+        "policyDesktopOverrideFor",
+        "policySessionFor",
         "probeProviderCompletion",
         "projectActionModelView",
         "projectAgentRoleFile",
@@ -7738,6 +7740,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "registerIntervention",
           "kinds": [
             "call"
@@ -7767,6 +7776,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -12672,8 +12688,6 @@
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
-        "policyDesktopOverrideFor",
-        "policySessionFor",
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "scratchpadWriteTool",
@@ -13468,6 +13482,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "nativeToolSchema",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "policyDesktopOverrideFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "policySessionFor",
           "kinds": [
             "call"
           ]
@@ -15286,6 +15314,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "policyDesktopOverrideFor",
           "kinds": [
             "call"
           ]

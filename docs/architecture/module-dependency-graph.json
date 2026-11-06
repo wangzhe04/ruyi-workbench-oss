@@ -5,8 +5,8 @@
   "summary": {
     "modules": 89,
     "providedSymbols": 3891,
-    "requiredSymbols": 3496,
-    "edges": 640,
+    "requiredSymbols": 3502,
+    "edges": 641,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -7548,6 +7548,8 @@
         "openAiStreamOnce",
         "packDescriptionsFor",
         "parseSimpleYamlValue",
+        "policyDesktopOverrideFor",
+        "policySessionFor",
         "probeProviderCompletion",
         "projectActionModelView",
         "projectAgentRoleFile",
@@ -7848,6 +7850,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "loadSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "registerIntervention",
           "kinds": [
             "call"
@@ -7877,6 +7886,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -12802,8 +12818,6 @@
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
-        "policyDesktopOverrideFor",
-        "policySessionFor",
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "scratchpadWriteTool",
@@ -13598,6 +13612,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "nativeToolSchema",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "policyDesktopOverrideFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "policySessionFor",
           "kinds": [
             "call"
           ]
@@ -15420,6 +15448,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "policyDesktopOverrideFor",
           "kinds": [
             "call"
           ]
@@ -31335,11 +31377,20 @@
       "to": "02-session-store.js",
       "symbols": [
         "BRIDGED_WRITE_PATH_ARGS",
+        "loadSession",
         "registerIntervention",
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
         "saveSession",
         "settleIntervention"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "07-autonomy.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "sessionDesktopToolsOf"
       ],
       "direction": "backward"
     },
@@ -32868,6 +32919,8 @@
         "nativeToolDisabledByPolicy",
         "nativeToolSchema",
         "nativeToolsAcceptingArgKeys",
+        "policyDesktopOverrideFor",
+        "policySessionFor",
         "searchToolCatalog",
         "toolArgsSkeleton",
         "toolDisabledByPolicy",
@@ -33338,6 +33391,8 @@
         "buildClaudeAgentDefinitions",
         "fetchOpenAiModels",
         "getAgentRoleLibrary",
+        "nativeToolDisabledByPolicy",
+        "policyDesktopOverrideFor",
         "probeProviderCompletion",
         "projectAgentRoleFile",
         "projectCwdDirectoryFailure",
