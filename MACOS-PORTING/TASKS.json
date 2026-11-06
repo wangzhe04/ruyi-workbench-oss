@@ -527,7 +527,7 @@
       "dependsOn": [
         "P1"
       ],
-      "status": "in_progress",
+      "status": "blocked",
       "effortDays": {
         "low": 8,
         "high": 12
@@ -616,7 +616,7 @@
             "evidence/P2/core/source-fingerprint.json"
           ],
           "baselineSha": "ce5a7db3",
-          "progress": "核心业务20组端到端、25条调度专项、完整单元2489通过/18跳过及80静态通过；调度持久化修复经独立评审交付。Windows实机与真实CLI待验，保持in_progress。",
+          "progress": "核心业务20组端到端、25条调度专项、完整单元2489通过/18跳过及80静态通过；调度持久化修复经独立评审交付。Windows实机与真实账号服务待验，保持in_progress。",
           "acceptancePending": [
             "Windows同SHA实机回归",
             "真实Claude/Kimi账号服务见P2-01；实际OS睡眠唤醒归P4"
@@ -651,9 +651,20 @@
       ],
       "startedAt": "2026-11-06",
       "evidence": [
-        "evidence/P2/README.md"
+        "evidence/P2/README.md",
+        "evidence/P2/acceptance/HANDOFF.md",
+        "evidence/P2/acceptance/readiness.json",
+        "evidence/P2/acceptance/review.json"
       ],
-      "progress": "P2-01至P2-04本地实施与独立评审完成，两家真实CLI的本地协议/工具/停止恢复通过；真实账号服务、正式登录Keychain授权/签名、机器人联调和Windows同版本环境验收待完成，保持in_progress。"
+      "progress": "P2-01至P2-04本地实施与独立评审完成，两家真实CLI的本地协议/工具/停止恢复通过；真实账号服务、正式登录Keychain授权/签名、机器人联调和Windows同版本环境验收待完成，保持in_progress。",
+      "externalAcceptance": {
+        "status": "blocked_awaiting_designated_environment",
+        "handoff": "evidence/P2/acceptance/HANDOFF.md",
+        "readiness": "evidence/P2/acceptance/readiness.json",
+        "unresolvedCodeFindings": 0,
+        "independentLocalWorkRemaining": false
+      },
+      "blockedReason": "本地实现、必要验证和独立评审完成；等待指定真实CLI/机器人服务、专用Mac登录Keychain交互账户，以及同候选Windows测试机或CI结果。正式签名升级ACL继续P4/P6复验。"
     },
     {
       "id": "P3",

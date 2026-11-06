@@ -1,12 +1,12 @@
 # P2 本地实施总览
 
-2026-11-06。P2 四个工作包均有本地实现、相关验证和独立复核；阶段保持 in_progress，真实环境验收尚未闭合。实际人日未核算，原 8–12 人日为计划估算。
+2026-11-06。P2 四个工作包均有本地实现、相关验证和独立复核；阶段状态为 blocked（外部验收环境未提供），未标记完成。实际人日未核算，原 8–12 人日为计划估算。
 
 | 工作包 | 本批交付及证据 | 未完成验收 |
 |---|---|---|
 | P2-01 CLI 与平台能力 | [CLI](cli/README.md)：Mac 发现、统一能力清单、schema 和平台提示；[真实 Kimi 增量](cli-live/README.md)验证本地模型下的真实 ACP/原生工具；[停止与恢复](kimi-lifecycle/README.md)验证同一原生会话；[真实 Claude](claude-live/README.md)验证原生 Bash 权限与停止/恢复 | Claude/Kimi 真实账号服务；Windows 同 SHA 实机 |
 | P2-02 Keychain | [Keychain](keychain/README.md)：保护器、保存/恢复、typed 错误、隔离真实钥匙串 | 登录钥匙串首次授权/真实拒绝恢复；正式签名升级 ACL；Windows 实机 |
-| P2-03 核心业务 | [核心业务](core/README.md)：Provider、会话、检查点、管家、多 Agent/工作流、记忆、用量；调度持久化恢复修复 | Windows 同 SHA；真实 CLI 依赖 P2-01；实际睡眠唤醒交 P4 |
+| P2-03 核心业务 | [核心业务](core/README.md)：Provider、会话、检查点、管家、多 Agent/工作流、记忆、用量；调度持久化恢复修复 | Windows 同 SHA；真实账号服务见 P2-01；实际睡眠唤醒交 P4 |
 | P2-04 机器人 | [机器人](bots/README.md)：本地 Keychain 配置整链、停止派发修复、callback/回复/重启恢复 | QQ/飞书真实服务联调；Windows 同 SHA；签名权限沿 P2-02 |
 
 ## 阶段验收核对
@@ -19,4 +19,6 @@
 
 当前系统没有常驻机器人 WebSocket，P2-04 的重连证据是 callback 重试、短请求取消和冷进程恢复。unknown 表示需要核对，不能显示为成功或自动重放。
 
-最终 Mac 桌面壳生命周期与正式签名权限在 P4 复验；最低系统、离线包、签名公证在 P6 验收。真实环境就绪前，P2 和各工作包保持进行中，禁止把本地离线测试写成完整产品验收。
+最终 Mac 桌面壳生命周期与正式签名权限在 P4 复验；最低系统、离线包、签名公证在 P6 验收。外部环境就绪前，P2 保持验收阻塞，各工作包不记 done，禁止把本地离线测试写成完整产品验收。
+
+外部验收输入、可执行步骤和同候选Windows命令见 [交接清单](acceptance/HANDOFF.md)；只读环境就绪核对见 [readiness.json](acceptance/readiness.json)。当前无未处理代码发现或必要的独立本地测试，等待指定测试环境。
