@@ -527,7 +527,7 @@
       "dependsOn": [
         "P1"
       ],
-      "status": "blocked",
+      "status": "in_progress",
       "effortDays": {
         "low": 8,
         "high": 12
@@ -572,7 +572,8 @@
             "8ebb66387dfc377fccdf43faa57138c9bb4b8a69",
             "921e6a89795bb4069941dfe53a8c1b94247d776d",
             "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7"
-          ]
+          ],
+          "localDeliveryStatus": "done"
         },
         {
           "id": "P2-02",
@@ -597,7 +598,8 @@
             "正式登录钥匙串的真实授权/拒绝与恢复",
             "Developer ID和helper升级ACL稳定性（P4/P6复验）",
             "Windows同SHA实机回归"
-          ]
+          ],
+          "localDeliveryStatus": "done"
         },
         {
           "id": "P2-03",
@@ -621,7 +623,8 @@
             "Windows同SHA实机回归",
             "真实Claude/Kimi账号服务见P2-01；实际OS睡眠唤醒归P4"
           ],
-          "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b"
+          "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b",
+          "localDeliveryStatus": "done"
         },
         {
           "id": "P2-04",
@@ -646,7 +649,8 @@
             "真实QQ/飞书服务联调",
             "Windows同SHA实机回归",
             "正式Keychain授权/签名沿P2-02及P4/P6复验"
-          ]
+          ],
+          "localDeliveryStatus": "done"
         }
       ],
       "startedAt": "2026-11-06",
@@ -654,17 +658,25 @@
         "evidence/P2/README.md",
         "evidence/P2/acceptance/HANDOFF.md",
         "evidence/P2/acceptance/readiness.json",
-        "evidence/P2/acceptance/review.json"
+        "evidence/P2/acceptance/review.json",
+        "evidence/P2/local-closeout.json"
       ],
-      "progress": "P2-01至P2-04本地实施与独立评审完成，两家真实CLI的本地协议/工具/停止恢复通过；真实账号服务、正式登录Keychain授权/签名、机器人联调和Windows同版本环境验收待完成，保持in_progress。",
+      "progress": "按用户指定范围，本地实现、离线验证与独立评审已收尾；7批交付复核无剩余代码发现，68个最新文件指纹与工作树一致。真实账号服务、登录Keychain交互和Windows同候选验收暂缓，未记通过；整个P2保持in_progress。",
       "externalAcceptance": {
-        "status": "blocked_awaiting_designated_environment",
+        "status": "deferred_by_user",
         "handoff": "evidence/P2/acceptance/HANDOFF.md",
         "readiness": "evidence/P2/acceptance/readiness.json",
         "unresolvedCodeFindings": 0,
-        "independentLocalWorkRemaining": false
+        "independentLocalWorkRemaining": false,
+        "userDecision": "暂不可用，先完成本地实现与离线验证",
+        "decisionDate": "2026-11-06"
       },
-      "blockedReason": "本地实现、必要验证和独立评审完成；等待指定真实CLI/机器人服务、专用Mac登录Keychain交互账户，以及同候选Windows测试机或CI结果。正式签名升级ACL继续P4/P6复验。"
+      "localDelivery": {
+        "status": "done",
+        "completedDate": "2026-11-06",
+        "scope": "本地实现、离线验证与独立评审；真实环境验收按用户安排暂缓",
+        "evidence": "evidence/P2/local-closeout.json"
+      }
     },
     {
       "id": "P3",

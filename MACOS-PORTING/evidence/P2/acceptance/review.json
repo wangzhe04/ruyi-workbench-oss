@@ -32,5 +32,10 @@
   "laterPhaseCarryover": [
     "Formal release identity and upgrade ACL in P4/P6"
   ],
-  "blockedAudit": "Same external acceptance dependencies remain in the three preceding goal-turn evidence snapshots 354dd5b1, 47dca698, 7e5b5eea; current readiness revalidated after all local implementation/protocol/lifecycle work is complete. Goal not achieved."
+  "blockedAudit": "Same external acceptance dependencies remain in the three preceding goal-turn evidence snapshots 354dd5b1, 47dca698, 7e5b5eea; current readiness revalidated after all local implementation/protocol/lifecycle work is complete. Goal not achieved.",
+  "userScopeFollowup": {
+    "date": "2026-11-06",
+    "decision": "暂不可用，先完成本地实现与离线验证",
+    "independentConclusion": "Local delivery satisfied; no further implementation/redundant testing; external acceptance deferred_by_user, full P2 not complete"
+  }
 }
