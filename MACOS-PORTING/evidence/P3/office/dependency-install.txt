@@ -1,0 +1,20 @@
+Looking in links: /tmp/ruyi-p3-office-wheels
+Processing /tmp/ruyi-p3-office-wheels/python_pptx-1.0.2-py3-none-any.whl
+Processing /tmp/ruyi-p3-office-wheels/matplotlib-3.11.2-cp312-cp312-macosx_11_0_arm64.whl
+Processing /tmp/ruyi-p3-office-wheels/reportlab-5.1.0-py3-none-any.whl
+Requirement already satisfied: Pillow>=3.3.2 in ./mcp/ai-computer-control/.venv/lib/python3.12/site-packages (from python-pptx) (13.0.0)
+Processing /tmp/ruyi-p3-office-wheels/xlsxwriter-3.3.1-py3-none-any.whl (from python-pptx)
+Requirement already satisfied: lxml>=3.1.0 in ./mcp/ai-computer-control/.venv/lib/python3.12/site-packages (from python-pptx) (6.1.3)
+Requirement already satisfied: typing-extensions>=4.9.0 in ./mcp/ai-computer-control/.venv/lib/python3.12/site-packages (from python-pptx) (4.16.0)
+Processing /tmp/ruyi-p3-office-wheels/contourpy-1.4.0-cp312-cp312-macosx_11_0_arm64.whl (from matplotlib)
+Processing /tmp/ruyi-p3-office-wheels/cycler-0.12.1-py3-none-any.whl (from matplotlib)
+Processing /tmp/ruyi-p3-office-wheels/fonttools-4.68.0-cp312-cp312-macosx_10_13_universal2.whl (from matplotlib)
+Processing /tmp/ruyi-p3-office-wheels/kiwisolver-1.5.1-cp312-cp312-macosx_11_0_arm64.whl (from matplotlib)
+Processing /tmp/ruyi-p3-office-wheels/numpy-2.5.4-cp312-cp312-macosx_14_0_arm64.whl (from matplotlib)
+Processing /tmp/ruyi-p3-office-wheels/packaging-26.3-py3-none-any.whl (from matplotlib)
+Processing /tmp/ruyi-p3-office-wheels/pyparsing-3.3.3-py3-none-any.whl (from matplotlib)
+Processing /tmp/ruyi-p3-office-wheels/python_dateutil-4.0.0-py3-none-any.whl (from matplotlib)
+Requirement already satisfied: charset-normalizer in ./mcp/ai-computer-control/.venv/lib/python3.12/site-packages (from reportlab) (3.5.2)
+Processing /tmp/ruyi-p3-office-wheels/tzdata-2026.6-py2.py3-none-any.whl (from python-dateutil>=2.7->matplotlib)
+Installing collected packages: XlsxWriter, tzdata, reportlab, pyparsing, packaging, numpy, kiwisolver, fonttools, cycler, python-pptx, python-dateutil, contourpy, matplotlib
+Successfully installed XlsxWriter-3.3.1 contourpy-1.4.0 cycler-0.12.1 fonttools-4.68.0 kiwisolver-1.5.1 matplotlib-3.11.2 numpy-2.5.4 packaging-26.3 pyparsing-3.3.3 python-dateutil-4.0.0 python-pptx-1.0.2 reportlab-5.1.0 tzdata-2026.6

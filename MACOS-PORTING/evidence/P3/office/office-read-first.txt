@@ -1,0 +1,116 @@
+== ① edit_file: CRLF / BOM 保真 ==
+  [ok  ] .bat 单行替换成功 (got {'success': True, 'replacements': 1, 'output_path': '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/acc_smoke_office_read_v2_8hyqkigh/a.bat', 'ok': True})
+  [ok  ] 单行替换后仍是 CRLF (回归: 曾整文件变 LF)
+  [ok  ] 多行 old/new 用 LF 书写也能匹配 CRLF 文件,新增行同样是 CRLF
+  [ok  ] .ps1 BOM 只有一个且 CRLF 保留 (got b'\xef\xbb\xbfWrite-Hos'...)
+  [ok  ] BOM 不双写 (回归: 曾变成 EF BB BF EF BB BF)
+  [ok  ] 无 BOM 的 LF 文件不被加 BOM、不被改行尾
+  [ok  ] encoding=utf-8-sig 也只有一个 BOM
+  [ok  ] 找不到时仍给诊断错误
+  [ok  ] 混用换行文件: CRLF 处的多行 LF 编辑命中,new 取该处的 CRLF (got b'a\r\nB\r\nC\r\nC2\r\nd\ne\r\nf\r\n')
+  [ok  ] 混用换行文件: LF 处的多行编辑也命中,保持 LF
+  [ok  ] 跨越混用换行处的片段: 给出换行指引而不是裸 TypeError (got 'old_string 在文件中未出现(0 次)。该片段在内容上存在,但它跨越了文件里 CRLF 与 LF 混用的位置(同一片段里两种换行都有),无法用单一换行匹')
+  [ok  ] old_string 越过文件尾的诊断不再抛 TypeError (got 'old_string 在文件中未出现(0 次)。最接近的匹配在第 1 行第 10 列附近(相似度 90%);首个差异:文件是 <EOF>,old_string ')
+  [ok  ] 多行 old_string 越过文件尾的诊断不再抛 TypeError
+
+== ② read_file: BOM / UTF-16 / GBK / 二进制 / 噪声 ==
+  [ok  ] UTF-8 BOM 被剥掉 (got '你好 BOM')
+  [ok  ] UTF-16(BOM) 正确解码 (got 'hello 世界\r\n', enc=utf-16)
+  [ok  ] 无 BOM 的 UTF-16-LE 也识别 (got 'line one\nline two\n')
+  [ok  ] ACP=cp1252 时 GBK 文件仍解成中文 (enc=gb18030)
+  [ok  ] ACP=cp1252 时西文文件仍按 cp1252 (enc=cp1252)
+  [ok  ] GBK 文件回退解码无乱码 (enc=gbk)
+  [ok  ] 标注了 encoding_fallback
+  [ok  ] 二进制拒读并给提示 (got keys ['binary', 'error', 'hint', 'ok', 'size'])
+  [ok  ] 普通中文不附 non_ascii 噪声 (got 2 字节)
+  [ok  ] 易混字符(nbsp / em dash)仍被报告 (got {'）', '\xa0', '—', '（'})
+  [ok  ] 紧贴 ASCII 的全角括号仍被报告
+
+== ③ list_directory ==
+  [ok  ] 递归列目录不因坏链接整体失败 (got None)
+  [ok  ] include_hidden=False 不列 .git/** 与隐藏文件 (got ['README.md', 'src', 'src/main.py'])
+  [ok  ] 普通条目都在
+  [ok  ] 坏符号链接被跳过并计数 skipped=1 (got 1)
+  [ok  ] include_hidden=True 时 .git 内容可见
+  [ok  ] total 等摘要键排在 entries 之前(宿主按字符硬切时不被截没) keys=['total', 'skipped', 'entries', 'ok']
+  [ok  ] 非递归列目录也封顶 1000 (got total=1000, capped=True)
+  [ok  ] capped 在 entries 之前
+  [ok  ] limit 参数生效
+  [ok  ] 没封顶不带 capped 键
+
+== ④ memory: 瞬时 OSError 不隔离健康库 ==
+  [ok  ] 先存一条
+  [ok  ] 瞬时锁后重试读到 (got {'found': True, 'key': 'pref', 'content': '深色主题', 'tags': [], 'updated': '2026-11-07T02:51:23+0800', 'ok': True})
+  [ok  ] 健康库没被改名成 .corrupt
+  [ok  ] 持续被锁: 返回明确错误而不是空库 (got {'error': '记忆库暂时被占用(可能被杀毒/网盘同步锁住),原文件未动,请稍后重试。', 'ok': False})
+  [ok  ] 持续被锁时 memory_save 不会用空库覆盖
+  [ok  ] 持续被锁也不隔离
+  [ok  ] 锁释放后数据完好
+  [ok  ] 真解析失败才隔离成 .corrupt
+  [ok  ] memory_save 遇到瞬时占用(WinError 32)重试后成功 (replace 调用 3 次, got {'success': True, 'key': 'retry', 'updated': '2026-11-07T02:51:23+0800', 'overwritten': False, 'ok': True})
+  [ok  ] memory 临时文件名含进程号(两个 ACC 进程不共用一个 .tmp) (got ['memory.json.13973.tmp'])
+  [ok  ] 成功后没有残留 .tmp
+
+== ⑤ read_document ==
+  [ok  ] 标题保留为 markdown # (got '# 第一章 概述\n\n这是正文第一段。\n\n## 1.1 背景\n\n- 要点甲\n- 要点乙\n1. 步骤一\n2. 步骤二\n\n| 合并表头 |  |  |\n| --- |')
+  [ok  ] 列表保留(项目符号 / 编号)
+  [ok  ] 合并单元格文字不重复 (count=1)
+  [ok  ] 表格为 markdown 行,竖线被转义
+  [ok  ] 表格在文档中的原位置(不是堆到末尾)
+  [ok  ] headings 大纲
+  [ok  ] 普通中文 docx 不附 non_ascii 噪声
+  [ok  ] docx 有字符上限并给 next_offset (total=35199)
+  [ok  ] 按 next_offset 续读拼回全文
+  [ok  ] 加密 PDF -> ok:false + 明确原因 (回归: 曾 ok:true error:'') got={'error': 'PDF 已加密(password-protected),需要密码才能读取。请让用户先解除密码保护,或另存为未加密的副本。', 'ok': False}
+  [ok  ] 扫描件 PDF: ok 且 note 建议 OCR (got note='没有抽到任何文字:该 PDF 多半是扫描件/图片 PDF(无文字层)。可把页面导出/截图为图片后用 ocr_image 做 OCR 识别。')
+  [ok  ] 加密 xlsx(OLE 头) -> 提示密码而非 'not a zip file' (got '文件是 OLE 复合文档而非 OOXML 压缩包:多半设置了【打开密码】(加密的 Office 文件会变成这种封装),也可能是旧版 .xls/.doc/.ppt 直接改了扩展名。请让用户解除密码保护,或另存为未加密的新版格式后重试。')
+  [ok  ] 损坏 docx 人话 (got '不是有效的 .docx 文件(已损坏,或是改了扩展名的其他格式如旧版 .doc/.xls)。')
+  [ok  ] 空异常消息回落到类型名
+  [ok  ] 不支持的格式给出去向提示
+  [ok  ] .pptx: 标题/文字/备注/表格 (got '## Slide 1: 季度汇报\n第一条要点\n第二条要点\n[备注] 讲者备注:强调增长\n\n## Slide 2: 数据表\n| 指标 | 值 |\n| --- | --- |\n| 营收 | 12% |')
+  [ok  ] .pptx: shape_type 抛错的形状不使整份读取失败,其余内容照读 (got ' 指标 | 值 |\n| --- | --- |\n| 营收 | 12% |\n\n## Slide 3\n无法归类的形状里的文字')
+
+== ⑥ pdf_read_pages ==
+  [ok  ] 总字符预算生效 (chars=9729, pages=3, truncated=True)
+  [ok  ] 给出 nextPage / next_pages (got 4, 4-30)
+  [ok  ] 按 next_pages 续读恰好覆盖 1..30 各一次 (got [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30])
+  [ok  ] 预算够用时不带续读键
+  [ok  ] 页码范围先做边界检查再展开('1-999999999' 立刻报越界,不建巨大列表)
+  [ok  ] 合法页码范围解析不变
+  [ok  ] 加密 PDF 明确报错 (got 'PDF 已加密(password-protected),需要密码才能读取。请让用户先解除密码保护,或另存为未加密的副本。')
+  [ok  ] 无文字层页给 no_text_pages + OCR 提示 (got '第 1-2 页没有文字层(多半是扫描件/图片 PDF)。可把该页导出/截图为图片后用 ocr_image 做 OCR 识别(或对屏幕上打开的 PDF 用 ocr_screen)。')
+
+== ⑦ excel_read ==
+  [ok  ] 数字格式读到 (got {'B': '¥#,##0.00', 'C': 'yyyy-mm-dd'})
+  [ok  ] 只开一次工作簿且是 read_only (回归: 曾再整本非只读重开) calls=[{'read_only': True, 'data_only': True}]
+  [ok  ] 截断信息带 next_range (got {'rows_returned': 50, 'rows_total': 301, 'next_start_row': 51, 'note': '数据超 max_rows=50，只返回前 50 行 (共 301 行)。缩小 range= (如续读用 next_range) 或调大 max_rows= 读更多。', 'next_range': 'A51:C301'})
+  [ok  ] 无 <dimension> 的表照读 (回归: 曾读成空表) rows=19
+  [ok  ] 概要里未知维度报 None 而不是 0
+  [ok  ] 未知总行数如实标注 (got {'rows_returned': 20, 'rows_total': None, 'next_start_row': 21, 'note': '数据超 max_rows=20，只返回前 20 行 (工作表未声明维度,总行数未知)。缩小 range= (如续读用 next_range) 或调大 max_rows= 读更多。', 'next_range': 'A21:C40'})
+  [ok  ] 读完整张表且不误报截断
+  [ok  ] 加密 xlsx 提示密码 (got '文件是 OLE 复合文档而非 OOXML 压缩包:多半设置了【打开密码】(加密的 Office 文件会变成这种封装),也可能是旧版 .xls/.doc/.ppt 直接改了扩展名。请让用户解除密码保护,或另存为未加密的新版格式后重试。')
+
+== ⑧ browser 纯逻辑(playwright 未装, 用假 page) ==
+  [ok  ] browser 模块 import 了 json (回归: 曾 NameError 被吞)
+  [ok  ] 选择器无匹配 -> 明确错误 (got {'error': "selector matched no element: '#missing'(页面可能还没加载完,或选择器有误;可先用 browser_get_elements 看页面结构)", 'found': False, 'url': 'http://example.test/', 'ok': False})
+  [ok  ] 命中时正常返回
+  [ok  ] get_text 默认封顶 20000 并标 truncated (got 20000)
+  [ok  ] max_chars 参数生效
+  [ok  ] screenshot 默认按 max_width=1280 缩放 (got w=1280, scale=0.5333)
+  [ok  ] max_width=0 保持原尺寸, format=jpeg 生效
+
+== ②b read_file: max_bytes 落在 UTF-8 字符中间 ==
+  [ok  ] 截断点落在多字节字符中间也仍按 UTF-8 解码(不整文件退成 GBK) (bad: [])
+  [ok  ] 截断后内容是完整字符的前缀(无 U+FFFD)
+  [ok  ] 真 GBK 文件截断时仍正常回退 GBK
+  [ok  ] _trim_partial_utf8 只丢残缺尾部
+
+== ⑨ fetch: HTML -> text 线性 / 标题 / Location 大小写 ==
+  [ok  ] 200KB 空格串的 <pre> 线性处理 (耗时 0.00s)
+  [ok  ] 空格+制表符混排同样线性
+  [ok  ] 内联 <svg><title> 不污染页面标题/正文 (got 'My Site', 'hello')
+  [ok  ] 只取第一个 <title>
+  [FAIL] section_fetch_html 抛异常: KeyError: 'fetch'
+
+OFFICE READ V2 SMOKE: FAIL (1)
+  - section_fetch_html 抛异常: KeyError: 'fetch'

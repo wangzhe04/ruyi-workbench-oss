@@ -773,9 +773,27 @@
             "high": 3
           },
           "deliverable": "验证 docx/xlsx/pptx/pdf 与图片提取、图表、中文字体；把依赖清单和最小样例固定下来，保证检查点与写入审计。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P3/office/README.md",
+            "evidence/P3/office/validation.json",
+            "evidence/P3/office/review.json",
+            "evidence/P3/office/source-fingerprint.json"
+          ],
+          "startedDate": "2026-11-06",
+          "progress": "真实MCP24项、独立产物24项、116 Office/98读取/43图表检查、锁定60依赖的新环境断网重放与六页视觉检查通过；独立复核无剩余发现。",
+          "implementationCommit": "bd2eb093fc85e05dfb36f63c9254fb24c271bfde",
+          "continuedDate": "2026-11-07",
+          "completedDate": "2026-11-07",
+          "localDeliveryStatus": "done",
+          "completionScope": "Mac文档/图表/字体开发与单独本地验收；Windows同候选实际回归未执行，仍保留P3阶段关口，未豁免。",
+          "pendingPhaseAcceptance": [
+            "Windows同候选CI/实机回归"
+          ],
+          "laterPhaseCarryover": [
+            "macOS14 arm64与wheel部署目标、签名发行保持原阶段交接"
+          ]
         },
         {
           "id": "P3-03",
@@ -804,7 +822,7 @@
       ],
       "owner": "Codex",
       "startedDate": "2026-11-06",
-      "progress": "P3-01 已完成 Mac 共享 ACC 子集开发和单独本地验收；Windows 同候选回归保持阶段关口未执行。下一包 P3-02。"
+      "progress": "P3-01/P3-02已完成开发和单独Mac本地验收；下一包P3-03。Windows同候选回归仍未执行且未豁免。"
     },
     {
       "id": "P4",

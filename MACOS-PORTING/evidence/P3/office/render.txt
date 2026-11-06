@@ -1,0 +1,4 @@
+convert /tmp/ruyi-p3-02-offline-artifacts/sample-hCknOk/report.docx as a Writer document -> /private/tmp/ruyi-p3-02-offline-artifacts/sample-hCknOk/renders-Xc8BZw/report.pdf using filter : writer_pdf_Export
+convert /tmp/ruyi-p3-02-offline-artifacts/sample-hCknOk/data.xlsx as a Calc document -> /private/tmp/ruyi-p3-02-offline-artifacts/sample-hCknOk/renders-Xc8BZw/data.pdf using filter : calc_pdf_Export
+convert /tmp/ruyi-p3-02-offline-artifacts/sample-hCknOk/slides.pptx as a Impress document -> /private/tmp/ruyi-p3-02-offline-artifacts/sample-hCknOk/renders-Xc8BZw/slides.pdf using filter : impress_pdf_Export
+RENDER_DIR=/tmp/ruyi-p3-02-offline-artifacts/sample-hCknOk/renders-Xc8BZw
