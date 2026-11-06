@@ -555,19 +555,23 @@
             "evidence/P2/kimi-lifecycle/README.md",
             "evidence/P2/kimi-lifecycle/review.json",
             "evidence/P2/kimi-lifecycle/validation.json",
-            "evidence/P2/kimi-lifecycle/source-fingerprint.json"
+            "evidence/P2/kimi-lifecycle/source-fingerprint.json",
+            "evidence/P2/claude-live/README.md",
+            "evidence/P2/claude-live/review.json",
+            "evidence/P2/claude-live/validation.json",
+            "evidence/P2/claude-live/source-fingerprint.json"
           ],
           "baselineSha": "f4fc6852",
           "implementationCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa",
-          "progress": "首批平台能力与真实Kimi增量已交付；真实CLI+本地模型八场景96通过，含同一原生会话恢复、active prompt停止/aborted落盘、再次恢复并完成新Read，独立评审通过。真实账号、Claude及Windows待验。",
+          "progress": "平台能力与两家真实CLI本地协议验证完成并独立评审：Kimi0.37.2八场景96通过，Claude2.1.318绝对路径与PATH隔离入口各6项通过，均含原生工具/权限/active prompt停止/同原生会话恢复。真实账号及Windows待验。",
           "acceptancePending": [
-            "真实Kimi账号服务联调；本地模型下的真实CLI工具/停止/恢复已通过，不等同账号验收",
-            "用户环境未检测到已配置的正式Claude CLI；Claude真实工具回合及停止/恢复未验收",
+            "真实Claude/Kimi账号服务联调；两家官方CLI+本地确定性模型的工具、权限、active prompt停止及原生恢复已通过，不等同真实账号服务",
             "Windows同SHA实机回归未执行"
           ],
           "incrementalImplementationCommits": [
             "8ebb66387dfc377fccdf43faa57138c9bb4b8a69",
-            "921e6a89795bb4069941dfe53a8c1b94247d776d"
+            "921e6a89795bb4069941dfe53a8c1b94247d776d",
+            "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7"
           ]
         },
         {
@@ -615,7 +619,7 @@
           "progress": "核心业务20组端到端、25条调度专项、完整单元2489通过/18跳过及80静态通过；调度持久化修复经独立评审交付。Windows实机与真实CLI待验，保持in_progress。",
           "acceptancePending": [
             "Windows同SHA实机回归",
-            "真实Claude/Kimi工具回合与停止/恢复见P2-01；真实OS睡眠唤醒归P4"
+            "真实Claude/Kimi账号服务见P2-01；实际OS睡眠唤醒归P4"
           ],
           "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b"
         },
@@ -649,7 +653,7 @@
       "evidence": [
         "evidence/P2/README.md"
       ],
-      "progress": "P2-01至P2-04本地首批实现、相关回归与独立评审完成；真实CLI/登录Keychain授权/机器人服务及Windows同版本环境验收待完成，阶段保持in_progress。"
+      "progress": "P2-01至P2-04本地实施与独立评审完成，两家真实CLI的本地协议/工具/停止恢复通过；真实账号服务、正式登录Keychain授权/签名、机器人联调和Windows同版本环境验收待完成，保持in_progress。"
     },
     {
       "id": "P3",

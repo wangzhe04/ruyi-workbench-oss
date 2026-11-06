@@ -83,3 +83,5 @@
 2026-11-06 P2-01 真实CLI增量 `8ebb6638`：临时隔离安装官方Kimi0.37.2并复用免凭据本地模型探针，实际发现并修复POSIX全局npm入口遗漏、目录别名导致重复Write审批。真实探针由73通过/11失败修至84通过/0失败/0skip，完整单元2490通过/18skip与80静态通过，独立复核无剩余代码发现。仅8行生产源码、扩展原测试，无新增测试文件。真实账号和实际停止/恢复仍待验。见 [真实Kimi证据](evidence/P2/cli-live/README.md)。
 
 2026-11-06 P2-01 真实生命周期增量 `921e6a89` 复用原探针，完成同一Kimi原生session三回合的Read、活回合停止、aborted落盘/连接释放、再次恢复并新Read。定向19通过，全部八场景96通过/0失败/0skip，独立复核通过。无生产代码变更，不重复无关完整单元；复用前批工程门禁并验证生产树无差异、当前语法/构建新鲜度。真实账号/Claude/Windows等仍待验。见 [生命周期证据](evidence/P2/kimi-lifecycle/README.md)。
+
+2026-11-06 P2-01 真实Claude增量 `0fb63eec` 扩展原live探针的显式本地模式，官方2.1.318经绝对MachO路径与PATH隔离入口均6项通过/0失败/0skip，各5环回请求；真实Bash权限桥、原生--resume、按执行身份stop/aborted落盘、再次续接均有证据。独立评审修复探针隔离/PATH/Windows skip三项问题。无生产代码变化，fixture-home新增启动点清册226专项通过；未重复无关完整单元。测试用Kimi/Claude临时安装已清理。剩余真实账号/正式Keychain/机器人服务/Windows保持未验收。见 [Claude证据](evidence/P2/claude-live/README.md)。
