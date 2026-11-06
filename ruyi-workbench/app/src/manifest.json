@@ -526,13 +526,13 @@
     {
       "file": "13w-external-bots.js",
       "startLine": 90846,
-      "endLine": 91592,
+      "endLine": 91595,
       "note": "Opt-in owner remote control with durable inbox, execution and reply delivery worker"
     },
     {
       "file": "14-main.js",
-      "startLine": 91593,
-      "endLine": 92340,
+      "startLine": 91596,
+      "endLine": 92343,
       "note": "main()/module.exports"
     }
   ]

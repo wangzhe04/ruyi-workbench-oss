@@ -91294,6 +91294,9 @@ async function externalBotDrain() {
         const job = await externalBotNextJob(); if (!job) break; if (job.kind === 'skip') continue;
         let result;
         try {
+          // stop may run while the claim is being persisted, before its actor/controller exists.
+          // Leave the durable claim for restart recovery; finally releases any newly registered actor.
+          if (externalBotWorkerStopped) break;
           if (job.kind === 'run') result = await runStewardTurn({ trigger: 'external', externalActor: job.actor, message: job.item.text });
           else {
             const controller = new AbortController();

@@ -145,6 +145,13 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       &&Number.isFinite(Date.parse(recovered.execution.finishedAt))&&commandCalls.get('CONTROL_FINISHFAIL')===completedCalls,'C17 restart settles running-to-unknown without replaying a command after failed result persistence');
     await callback('control_create','请创建任务 CONTROL_CREATE，并告诉我真实结果。','feishu','restart_duplicate');await sleep(100);
     ok(commandCalls.get('CONTROL_CREATE')===before,'C18 actual process restart preserves source-message execution dedupe');
+    holdToken=true;const beforeExit=outbound.length;await callback('exit_reply','请汇报 CONTROL_EXIT');
+    await until(()=>heldTokenResponse,'exit token request held');const exitCalls=commandCalls.get('CONTROL_EXIT');
+    await stop();heldTokenResponse.destroy();heldTokenResponse=null;holdToken=false;await start();
+    const exitItem=await until(async()=>{const item=await readItem('exit_reply');return item?.delivery?.status==='unknown'&&item;},'interrupted send recovery');
+    ok(exitItem.execution.status==='completed'&&exitItem.delivery.errorCode==='external_channel.delivery_unknown'
+      &&outbound.length===beforeExit&&commandCalls.get('CONTROL_EXIT')===exitCalls,
+      'C18b exit during token retrieval leaves delivery unknown after restart without repeating the command or reply');
     ok(fake.errors.length===0,'C19 scripted model fixture has no hidden handler failures');
   } catch(error){runner.fail(error.stack||String(error));}
   finally{if(fs.existsSync(holdFlag))fs.unlinkSync(holdFlag);if(heldTokenResponse)heldTokenResponse.destroy();await stop();if(fake)await fake.close();if(apiServer){apiServer.closeAllConnections();await new Promise(resolve=>apiServer.close(resolve));}runner.done({exit:true});}
