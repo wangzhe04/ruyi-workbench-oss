@@ -1,0 +1,441 @@
+{
+  "date": "2026-11-06",
+  "os": "27.0.1",
+  "arch": "arm64",
+  "node": "v24.15.0",
+  "baselineChecks": [
+    {
+      "name": "openai-engine",
+      "command": [
+        "node",
+        "dev-harness/openai-engine.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.3,
+      "log": "openai-engine.txt"
+    },
+    {
+      "name": "responses-fake",
+      "command": [
+        "node",
+        "dev-harness/responses-fake.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.9,
+      "log": "responses-fake.txt"
+    },
+    {
+      "name": "anthropic-fake",
+      "command": [
+        "node",
+        "dev-harness/anthropic-fake.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.0,
+      "log": "anthropic-fake.txt"
+    },
+    {
+      "name": "session-storage-v2",
+      "command": [
+        "node",
+        "dev-harness/session-storage-v2.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.8,
+      "log": "session-storage-v2.txt"
+    },
+    {
+      "name": "checkpoint",
+      "command": [
+        "node",
+        "dev-harness/checkpoint.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.1,
+      "log": "checkpoint.txt"
+    },
+    {
+      "name": "steward-runner",
+      "command": [
+        "node",
+        "dev-harness/steward-runner.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 3.3,
+      "log": "steward-runner.txt"
+    },
+    {
+      "name": "agent-workflow-templates",
+      "command": [
+        "node",
+        "dev-harness/agent-workflow-templates.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1,
+      "log": "agent-workflow-templates.txt"
+    },
+    {
+      "name": "agent-workflow-replan",
+      "command": [
+        "node",
+        "dev-harness/agent-workflow-replan.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.8,
+      "log": "agent-workflow-replan.txt"
+    },
+    {
+      "name": "workbench-memory-core",
+      "command": [
+        "node",
+        "dev-harness/workbench-memory-core.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.4,
+      "log": "workbench-memory-core.txt"
+    },
+    {
+      "name": "memory-recall-injection",
+      "command": [
+        "node",
+        "dev-harness/memory-recall-injection.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 4.0,
+      "log": "memory-recall-injection.txt"
+    },
+    {
+      "name": "usage-ledger",
+      "command": [
+        "node",
+        "dev-harness/usage-ledger.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 2.2,
+      "log": "usage-ledger.txt"
+    },
+    {
+      "name": "usage-subagent-ledger",
+      "command": [
+        "node",
+        "dev-harness/usage-subagent-ledger.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.6,
+      "log": "usage-subagent-ledger.txt"
+    },
+    {
+      "name": "scheduler",
+      "command": [
+        "node",
+        "dev-harness/scheduler.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 9.3,
+      "log": "baseline-scheduler.txt"
+    },
+    {
+      "name": "scheduler-crash",
+      "command": [
+        "node",
+        "dev-harness/scheduler-crash.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 12.1,
+      "logUnavailable": "Original baseline output overwritten; final check and separate old-source red regression preserved."
+    },
+    {
+      "name": "scheduler-ready-queue",
+      "command": [
+        "node",
+        "dev-harness/scheduler-ready-queue.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 7.6,
+      "log": "baseline-scheduler-ready-queue.txt"
+    }
+  ],
+  "baselineNote": "Original 15 checks preceded the production fix; scheduler-crash baseline log was overwritten during development. scheduler-crash-red.txt proves the added regression failures, not the original baseline pass.",
+  "checks": [
+    {
+      "name": "scheduler-unit",
+      "command": [
+        "node",
+        "--test",
+        "dev-harness/unit/scheduler-core.test.js",
+        "dev-harness/unit/scheduler-persist.test.js",
+        "dev-harness/unit/scheduler-review-fixes.test.js",
+        "dev-harness/unit/scheduler-enable-and-run-now.test.js"
+      ],
+      "exitCode": 0,
+      "seconds": 9.6,
+      "log": "scheduler-unit.txt"
+    },
+    {
+      "name": "openai-engine",
+      "command": [
+        "node",
+        "dev-harness/openai-engine.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.2,
+      "log": "openai-engine.txt"
+    },
+    {
+      "name": "openai-tools",
+      "command": [
+        "node",
+        "dev-harness/openai-tools.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.0,
+      "log": "openai-tools.txt"
+    },
+    {
+      "name": "responses-fake",
+      "command": [
+        "node",
+        "dev-harness/responses-fake.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.9,
+      "log": "responses-fake.txt"
+    },
+    {
+      "name": "anthropic-fake",
+      "command": [
+        "node",
+        "dev-harness/anthropic-fake.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.0,
+      "log": "anthropic-fake.txt"
+    },
+    {
+      "name": "session-storage-v2",
+      "command": [
+        "node",
+        "dev-harness/session-storage-v2.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.8,
+      "log": "session-storage-v2.txt"
+    },
+    {
+      "name": "checkpoint",
+      "command": [
+        "node",
+        "dev-harness/checkpoint.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.1,
+      "log": "checkpoint.txt"
+    },
+    {
+      "name": "steward-runner",
+      "command": [
+        "node",
+        "dev-harness/steward-runner.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 3.3,
+      "log": "steward-runner.txt"
+    },
+    {
+      "name": "steward-delivery",
+      "command": [
+        "node",
+        "dev-harness/steward-delivery.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.1,
+      "log": "steward-delivery.txt"
+    },
+    {
+      "name": "autonomy-resume",
+      "command": [
+        "node",
+        "dev-harness/autonomy-resume.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 6.3,
+      "log": "autonomy-resume.txt"
+    },
+    {
+      "name": "agent-workflow-templates",
+      "command": [
+        "node",
+        "dev-harness/agent-workflow-templates.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1,
+      "log": "agent-workflow-templates.txt"
+    },
+    {
+      "name": "agent-workflow-replan",
+      "command": [
+        "node",
+        "dev-harness/agent-workflow-replan.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.8,
+      "log": "agent-workflow-replan.txt"
+    },
+    {
+      "name": "workbench-memory-core",
+      "command": [
+        "node",
+        "dev-harness/workbench-memory-core.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.4,
+      "log": "workbench-memory-core.txt"
+    },
+    {
+      "name": "workbench-memory",
+      "command": [
+        "node",
+        "dev-harness/workbench-memory.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 6.3,
+      "log": "workbench-memory.txt"
+    },
+    {
+      "name": "memory-recall-injection",
+      "command": [
+        "node",
+        "dev-harness/memory-recall-injection.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 4.0,
+      "log": "memory-recall-injection.txt"
+    },
+    {
+      "name": "usage-ledger",
+      "command": [
+        "node",
+        "dev-harness/usage-ledger.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 2.2,
+      "log": "usage-ledger.txt"
+    },
+    {
+      "name": "usage-subagent-ledger",
+      "command": [
+        "node",
+        "dev-harness/usage-subagent-ledger.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.7,
+      "log": "usage-subagent-ledger.txt"
+    },
+    {
+      "name": "usage-accum",
+      "command": [
+        "node",
+        "dev-harness/usage-accum.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.9,
+      "log": "usage-accum.txt"
+    },
+    {
+      "name": "scheduler",
+      "command": [
+        "node",
+        "dev-harness/scheduler.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 9.6,
+      "log": "scheduler.txt"
+    },
+    {
+      "name": "scheduler-crash",
+      "command": [
+        "node",
+        "dev-harness/scheduler-crash.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 14.8,
+      "log": "scheduler-crash.txt"
+    },
+    {
+      "name": "scheduler-ready-queue",
+      "command": [
+        "node",
+        "dev-harness/scheduler-ready-queue.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 7.5,
+      "log": "scheduler-ready-queue.txt"
+    },
+    {
+      "name": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "seconds": 26.2,
+      "log": "syntax.txt"
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1,
+      "log": "build-check.txt"
+    },
+    {
+      "name": "static-first",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 1,
+      "seconds": 128.0,
+      "log": "static-first.txt"
+    },
+    {
+      "name": "fixture-home",
+      "command": [
+        "node",
+        "dev-harness/fixture-home.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.8,
+      "log": "fixture-home.txt"
+    },
+    {
+      "name": "static",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 0,
+      "seconds": 127.5,
+      "log": "static.txt"
+    }
+  ],
+  "developmentFailures": [
+    "scheduler-crash-red.txt: new persistence assertions fail on original implementation",
+    "static-first.txt: 79 static passed; fixture-home count 224 needed 225 for one new isolated worker spawn"
+  ],
+  "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b",
+  "finalSummary": {
+    "e2ePassed": 20,
+    "schedulerUnitPassed": 25,
+    "unitPassed": 2489,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "failures": 0
+  }
+}

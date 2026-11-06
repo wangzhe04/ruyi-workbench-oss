@@ -1,0 +1,83 @@
+PASS K[after-register] 崩溃档服务起来了
+PASS K[after-register] 建任务
+PASS K[after-register] 服务在该点真的死了(exit 3,预期 3)
+PASS K[after-register] 崩之前只登记过一次(registered 1 条)
+PASS K[after-register] 崩的时候还没有终态行 —— 这正是「结果未知」的现场
+PASS K[after-register] 重启起来了
+PASS K[after-register] J11:补出来的终态是 unknown/interrupted,【不判成功】(实测 unknown/interrupted)
+PASS K[after-register] 同一个 occurrence 【没有】被再触发一遍(registered 仍 1 条;实测 1)
+PASS K[after-register] 补的终态挂在【原来那个】 occurrence 上,不是新造一个
+PASS K[after-register] inFlightRunId 已清
+PASS K[after-register] 任务 lastResult 是 unknown
+PASS K[after-register] nextFireAt 已推过那个时点(2026-05-06T01:00:00.000Z > 2026-05-05T01:00:00.000Z)
+PASS K[after-register] 又跑了几拍仍然只有一条 registered(J11「不盲目重发」)
+PASS K[after-dispatch] 崩溃档服务起来了
+PASS K[after-dispatch] 建任务
+PASS K[after-dispatch] 服务在该点真的死了(exit 3,预期 3)
+PASS K[after-dispatch] 崩之前只登记过一次(registered 1 条)
+PASS K[after-dispatch] 崩的时候还没有终态行 —— 这正是「结果未知」的现场
+PASS K[after-dispatch] 重启起来了
+PASS K[after-dispatch] J11:补出来的终态是 unknown/interrupted,【不判成功】(实测 unknown/interrupted)
+PASS K[after-dispatch] 同一个 occurrence 【没有】被再触发一遍(registered 仍 1 条;实测 1)
+PASS K[after-dispatch] 补的终态挂在【原来那个】 occurrence 上,不是新造一个
+PASS K[after-dispatch] inFlightRunId 已清
+PASS K[after-dispatch] 任务 lastResult 是 unknown
+PASS K[after-dispatch] nextFireAt 已推过那个时点(2026-05-07T01:00:00.000Z > 2026-05-06T01:00:00.000Z)
+PASS K[after-dispatch] 又跑了几拍仍然只有一条 registered(J11「不盲目重发」)
+PASS K[mid-run] 崩溃档服务起来了
+PASS K[mid-run] 建任务
+PASS K[mid-run] 服务在该点真的死了(exit 3,预期 3)
+PASS K[mid-run] 崩之前只登记过一次(registered 1 条)
+PASS K[mid-run] 崩的时候还没有终态行 —— 这正是「结果未知」的现场
+PASS K[mid-run] 重启起来了
+PASS K[mid-run] J11:补出来的终态是 unknown/interrupted,【不判成功】(实测 unknown/interrupted)
+PASS K[mid-run] 同一个 occurrence 【没有】被再触发一遍(registered 仍 1 条;实测 1)
+PASS K[mid-run] 补的终态挂在【原来那个】 occurrence 上,不是新造一个
+PASS K[mid-run] inFlightRunId 已清
+PASS K[mid-run] 任务 lastResult 是 unknown
+PASS K[mid-run] nextFireAt 已推过那个时点(2026-05-08T01:00:00.000Z > 2026-05-07T01:00:00.000Z)
+PASS K[mid-run] 又跑了几拍仍然只有一条 registered(J11「不盲目重发」)
+PASS K[before-reconcile] 崩溃档服务起来了
+PASS K[before-reconcile] 建任务
+PASS K[before-reconcile] 服务在该点真的死了(exit 3,预期 3)
+PASS K[before-reconcile] 崩之前只登记过一次(registered 1 条)
+PASS K[before-reconcile] 崩的时候还没有终态行 —— 这正是「结果未知」的现场
+PASS K[before-reconcile] 重启起来了
+PASS K[before-reconcile] J11:补出来的终态是 unknown/interrupted,【不判成功】(实测 unknown/interrupted)
+PASS K[before-reconcile] 同一个 occurrence 【没有】被再触发一遍(registered 仍 1 条;实测 1)
+PASS K[before-reconcile] 补的终态挂在【原来那个】 occurrence 上,不是新造一个
+PASS K[before-reconcile] inFlightRunId 已清
+PASS K[before-reconcile] 任务 lastResult 是 unknown
+PASS K[before-reconcile] nextFireAt 已推过那个时点(2026-05-09T01:00:00.000Z > 2026-05-08T01:00:00.000Z)
+PASS K[before-reconcile] 又跑了几拍仍然只有一条 registered(J11「不盲目重发」)
+PASS J10a 服务起来了
+PASS J10a 建一条 daily(默认 graceMinutes 720、onMissed run-once-late)
+PASS J10a 停机时这条任务一次都没跑过
+PASS J10a 重启起来了
+PASS J10a 补跑那一次的触发模式是【late】而不是 ontime —— 界面要如实显示「补跑」(实测 late)
+PASS J10a 补跑真的跑成了(实测 succeeded)
+PASS J10a 补的是【原本那个时点】,不是「现在」
+PASS J10a 【只补一次】,永不追赶(实测 1 次)
+PASS J10b 服务起来了
+PASS J10b 建一条 graceMinutes:5 的 daily
+PASS J10b 重启起来了
+PASS J10b 超出宽限 -> skipped/grace_expired(实测 skipped/grace_expired)
+PASS J10b 那一行的 mode 仍是 late(它说的是「这是一个错过的时点」)
+PASS J10b 【没有】 registered 行 —— 它压根没被派出去
+PASS J10b nextFireAt 仍然往前推了(跳过不等于卡住)
+FAIL P2 recovery keeps the old due on disk until its late occurrence is registered
+FAIL P2 a second cold process still dispatches and completes the unregistered late occurrence
+FAIL P2 another restart cannot duplicate the recovered occurrence
+PASS P2 ontime/succeeded reached the terminal persistence crash boundary
+FAIL P2 ontime/succeeded restores the durable terminal result without changing it to unknown
+PASS P2 recovery restores failure/reset counters and a tripped task stays disabled
+PASS P2 recovery preserves manual schedules and advances consumed planned occurrences
+PASS P2 ontime/failed reached the terminal persistence crash boundary
+FAIL P2 ontime/failed restores the durable terminal result without changing it to unknown
+PASS P2 recovery restores failure/reset counters and a tripped task stays disabled
+PASS P2 recovery preserves manual schedules and advances consumed planned occurrences
+PASS P2 manual/succeeded reached the terminal persistence crash boundary
+FAIL P2 manual/succeeded restores the durable terminal result without changing it to unknown
+PASS P2 recovery restores failure/reset counters and a tripped task stays disabled
+PASS P2 recovery preserves manual schedules and advances consumed planned occurrences
+FAIL total 6

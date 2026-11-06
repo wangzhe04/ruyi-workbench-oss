@@ -590,9 +590,21 @@
             "high": 3
           },
           "deliverable": "验证 Provider、会话/检查点、管家、多 Agent/工作流、记忆、用量与应用内调度；定义错过任务和重启去重，修复本阶段适配造成的问题。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P2/core/README.md",
+            "evidence/P2/core/review.json",
+            "evidence/P2/core/validation.json",
+            "evidence/P2/core/source-fingerprint.json"
+          ],
+          "baselineSha": "ce5a7db3",
+          "progress": "核心业务20组端到端、25条调度专项、完整单元2489通过/18跳过及80静态通过；调度持久化修复经独立评审交付。Windows实机与真实CLI待验，保持in_progress。",
+          "acceptancePending": [
+            "Windows同SHA实机回归",
+            "真实Claude/Kimi工具回合与停止/恢复见P2-01；真实OS睡眠唤醒归P4"
+          ],
+          "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b"
         },
         {
           "id": "P2-04",
