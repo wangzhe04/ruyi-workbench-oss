@@ -1,0 +1,381 @@
+{
+  "reviewer": "independent agent /root/p3_01_review",
+  "work_package": "P3-04",
+  "date": "2026-11-07",
+  "baselineCommit": "b491997a2d2fe0c47b31c090f699a678f04a4dae",
+  "scope": [
+    "README.md",
+    "README_EN.md",
+    "dev-harness/browser-mcp.static.e2e.js",
+    "dev-harness/macos-capability-popover.browser.e2e.js",
+    "dev-harness/macos-platform-templates.e2e.js",
+    "dev-harness/playbooks.e2e.js",
+    "dev-harness/process-safety.static.e2e.js",
+    "dev-harness/unit/capability-probe-stall.test.js",
+    "docs/architecture/module-dependency-graph.json",
+    "docs/architecture/module-dependency-graph.md",
+    "docs/architecture/route-inventory.json",
+    "docs/architecture/route-inventory.md",
+    "docs/i18n/locales/en-US.json",
+    "docs/i18n/locales/zh-CN.json",
+    "facts.json",
+    "mcp/ai-computer-control/README.md",
+    "ruyi-workbench/app/public/js/navigation-controls.js",
+    "ruyi-workbench/app/public/js/skills-memory.js",
+    "ruyi-workbench/app/public/locales/en-US.json",
+    "ruyi-workbench/app/public/locales/zh-CN.json",
+    "ruyi-workbench/app/server.js",
+    "ruyi-workbench/app/src/01e-permission-modes.js",
+    "ruyi-workbench/app/src/06-provider-engine.js",
+    "ruyi-workbench/app/src/06b-prompt-registry.js",
+    "ruyi-workbench/app/src/08-agent-runs.js",
+    "ruyi-workbench/app/src/manifest.json",
+    "ruyi-workbench/app/src/module-contracts.json",
+    "ruyi-workbench/resources/playbooks/archive-by-content.json",
+    "ruyi-workbench/resources/playbooks/batch-rename.json",
+    "ruyi-workbench/resources/playbooks/clean-csv.json",
+    "ruyi-workbench/resources/playbooks/clean-downloads.json",
+    "ruyi-workbench/resources/playbooks/compare-documents.json",
+    "ruyi-workbench/resources/playbooks/desktop-open-app.json",
+    "ruyi-workbench/resources/playbooks/folder-inventory.json",
+    "ruyi-workbench/resources/playbooks/meeting-minutes.json",
+    "ruyi-workbench/resources/playbooks/merge-excel.json",
+    "ruyi-workbench/resources/playbooks/ocr-scan.json",
+    "ruyi-workbench/resources/playbooks/pdf-summarize.json",
+    "ruyi-workbench/resources/playbooks/presentation-outline.json",
+    "ruyi-workbench/resources/playbooks/scheduled-digest.json",
+    "ruyi-workbench/resources/playbooks/translate-document.json",
+    "ruyi-workbench/resources/playbooks/web-form-fill.json",
+    "ruyi-workbench/resources/playbooks/weekly-report.json",
+    "ruyi-workbench/resources/plugins/ruyi-offline/.claude-plugin/marketplace.json",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/.claude-plugin/plugin.json",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/code-reviewer-offline.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/frontend-offline.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/release-packager.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/windows-operator.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/api-probe.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/claude-md-audit.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/commit-message.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/dependency-inventory.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/explain-project.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/fix-tests.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/frontend-audit.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/offline-code-review.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/release-checklist.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/security-check.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/summarize-changes.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/test-changes.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/workbench-doctor.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/api-debugger/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/browser-debug/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/claude-md-management/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/code-review-offline/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/code-simplifier/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/commit-workflow/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/devops-ci-local/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/document-workflow/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/feature-development/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/frontend-design-craft/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/local-docs-context/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/lsp-local-setup/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/office-automation/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/offline-packaging/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/plugin-development/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/research-synthesis/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/security-guidance/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/spreadsheet-analysis/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/structured-writing/SKILL.md",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/windows-control/SKILL.md",
+    "dev-harness/asr-config-ui.static.e2e.js"
+  ],
+  "source_hashes": {
+    "README.md": "cc66417a49b2b8c020ba921acc334d95f2f17ed2eab62c682d31d949e7938db6",
+    "README_EN.md": "b6ac8a5e10b4e4affe9ca49a553abd03ae906d747bb40cd246f5f3084ea7d7c1",
+    "dev-harness/browser-mcp.static.e2e.js": "4296122ab6ccb787f2d4e2282116d6da193676f9868f6be1cb422f39e7e42ba0",
+    "dev-harness/macos-capability-popover.browser.e2e.js": "0e1544566e847fda78ede96651d5a0c970f3095359945675c9da3c5fa59a25cb",
+    "dev-harness/macos-platform-templates.e2e.js": "438362e85c1ccdac658faba85bf961546946ac7e6e1d8c1af3944864f3ebb5f8",
+    "dev-harness/playbooks.e2e.js": "5ba33247e7451a5c9d9905fb294222b9920e21c7d600e7da63df2e181760cf29",
+    "dev-harness/process-safety.static.e2e.js": "44cb1e06a8cc19b2a3565391c4faf1cfcea3803851ff08625287bb52e95df72c",
+    "dev-harness/unit/capability-probe-stall.test.js": "36954277c274be6dae972be18dcb5c08a916f24effd990b97f88a6e74127883c",
+    "docs/architecture/module-dependency-graph.json": "2838b6b5991adef1e02fe5f0a7ffbb4da7b3db0f53f7bb91dd7b494555dace2d",
+    "docs/architecture/module-dependency-graph.md": "84dcbc7a69edd60364aea72badb9c3eaccaa748646d43925e885cf2b431fe06b",
+    "docs/architecture/route-inventory.json": "4bfe8a366f02fa854277bd09f029a4491196fc6994e85cd0ff61915b33508b90",
+    "docs/architecture/route-inventory.md": "268f53d50682e53e76e41d18f4ec86cd79ecc494b2dd9e397bddbf59b84291b1",
+    "docs/i18n/locales/en-US.json": "fc0c78fd9dfa686c95cc22de10555105b3298f485aaeaf317a7c32ca446b34bb",
+    "docs/i18n/locales/zh-CN.json": "85faa650ee4b310b73f28870432e9625c78454ee8145717c6e3e461a1c704ad6",
+    "facts.json": "12c119c4a22e410c65080b30979cf59727ce329cfb0b5b9b642bb3c003d7f62a",
+    "mcp/ai-computer-control/README.md": "bf99853cb69e43ee9136fa71669d8643f5f9556a42f305bd1147136a93d44b53",
+    "ruyi-workbench/app/public/js/navigation-controls.js": "2ad4f43c9e954cfe35607be6f1fe94df691f3ad5d3af5c4b92ee52d7159e09f7",
+    "ruyi-workbench/app/public/js/skills-memory.js": "9f939e1be9117db740f78745bebcb884c4c6257400ba3383f973326e28240b2a",
+    "ruyi-workbench/app/public/locales/en-US.json": "fc0c78fd9dfa686c95cc22de10555105b3298f485aaeaf317a7c32ca446b34bb",
+    "ruyi-workbench/app/public/locales/zh-CN.json": "85faa650ee4b310b73f28870432e9625c78454ee8145717c6e3e461a1c704ad6",
+    "ruyi-workbench/app/server.js": "579a27dbc56a615db3888e455760de8bb0bd029451ee043b83ae972be23789e9",
+    "ruyi-workbench/app/src/01e-permission-modes.js": "05ee7ffb4d4f23b8a2b7b0dc24a599acc4ec730643a027d52a6693bb76a26d1c",
+    "ruyi-workbench/app/src/06-provider-engine.js": "03525d5f19e3ef35e4dc1ad54c0348adfadb93f735d9696269870b04e8f1d020",
+    "ruyi-workbench/app/src/06b-prompt-registry.js": "5ab04e05c64ec9d881916109cc7a227ecb6736369c4e8c1834f4e6c9e735723d",
+    "ruyi-workbench/app/src/08-agent-runs.js": "ffcde3d21347d86f6f5e6cd770e005272636828048e6ba23c173df15ba310d66",
+    "ruyi-workbench/app/src/manifest.json": "f09ab0abc7e8bc5a2b3c995b4036b3f2bc4c7c3542aa3b332856893a2eb09eb7",
+    "ruyi-workbench/app/src/module-contracts.json": "6924db59085c5d49d6f6b4405f3c8b0d3a53691641117f2997a42d753f2c1dbb",
+    "ruyi-workbench/resources/playbooks/archive-by-content.json": "dd053961d0efea03d6e228fce8c522d883ad5895c14a1e12dcb0784560718cf2",
+    "ruyi-workbench/resources/playbooks/batch-rename.json": "7e6f8889222a3fa9143fc94dc4e30342c5fbfe1b8095f8ceee938d037b6ab3db",
+    "ruyi-workbench/resources/playbooks/clean-csv.json": "cbd3bc39ef3124a45e99510c45a8ac524c9ca1b8940bc24524bce5a4ac8bbfd5",
+    "ruyi-workbench/resources/playbooks/clean-downloads.json": "96bf2e3b86cd4fa0436513a82d59bc8264a0304f2481858fd1d3ee9895a498c9",
+    "ruyi-workbench/resources/playbooks/compare-documents.json": "8a7d220445e562b89cc9c841969fad55a63b64656c99777f140e6c13be6a9c0d",
+    "ruyi-workbench/resources/playbooks/desktop-open-app.json": "8f86cb6064272b872b6dbced7a8b57126666a403ed3dcaf7daaa71197bb067c2",
+    "ruyi-workbench/resources/playbooks/folder-inventory.json": "4bb3bb87e2330ef2272235aa12a237129ffd959af9633f781bbb24532f41e38d",
+    "ruyi-workbench/resources/playbooks/meeting-minutes.json": "c7868f00405ef4969f2ee490aed527ad771a30a22bab60525b465336dc82f775",
+    "ruyi-workbench/resources/playbooks/merge-excel.json": "63b0c25689ab67ca5216462b25cb1a74bbcc068fa25778f2c4e5bb85bcd655f3",
+    "ruyi-workbench/resources/playbooks/ocr-scan.json": "67d86e2538d13e7a9fcfda71f77077c8614e930dc884cad320cd8d89f8300111",
+    "ruyi-workbench/resources/playbooks/pdf-summarize.json": "773d8f963f805dd3dcff53cfccc19a7c4550526c54bfe3d0362e3caa3911bbad",
+    "ruyi-workbench/resources/playbooks/presentation-outline.json": "4b15b6708ab66b2a8b107a4ec668aebff5746b49e04b718cbbfd0fa9a688582c",
+    "ruyi-workbench/resources/playbooks/scheduled-digest.json": "d0e374e25d697828db2a4790417bc44149f380e89fa85dcde5c3ffdae982d919",
+    "ruyi-workbench/resources/playbooks/translate-document.json": "c977b5a0ecb226e14165197ed12fbeb250ad5d986b481740c90121b8a7d4ee63",
+    "ruyi-workbench/resources/playbooks/web-form-fill.json": "96e3486d91a89b8c268bfdd2f37f52540eabb8cd102355e447da5f0d377b9aa3",
+    "ruyi-workbench/resources/playbooks/weekly-report.json": "7e12bd67a89195b774f2ad31e3dffeea5b212d82a9bfd269d70cb63ef7acc94e",
+    "ruyi-workbench/resources/plugins/ruyi-offline/.claude-plugin/marketplace.json": "1747c2b188892c6669ca50b0488c82e420f2bf51b04dacc5e99fb351f78d5663",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/.claude-plugin/plugin.json": "1778a95a9982341dbaf8d2ba4088c899e0e8f4327a9f8ef23ef1e1b1e700c540",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/code-reviewer-offline.md": "153326eec6310fee2eef5550023015068e0fd7c302b768ed49b0aaa8c70f3ee6",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/frontend-offline.md": "8a1d3841b98ba2b9831377539c4b92f65c5ef5285e1e6cb6d9cb1bbe76de3f3f",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/release-packager.md": "f44c75cfbb8a314023545cd68a8ddc70b9085ceab53512b5218682717d5fc61a",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/windows-operator.md": "17a675f89cf786e27c5f805a16e91e14f531ffccfc2a20d045e77cf68b4fc99a",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/api-probe.md": "b39ea3036370293cbaa44c81d5fef63bbca736cf151b7fa39db6c12e199a4dee",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/claude-md-audit.md": "a773600c5e8b5851e691b616a9fffab7417e505a0acecac2d63aa0cc52ee54f3",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/commit-message.md": "f9a67dec5cfd8990644880f1d8aa0efa414cc05c4d03c7ece1b9c72c8104003d",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/dependency-inventory.md": "8654206dec85cb68e89dcfcaadf5c19ff811630cbd2067ae30af72df0f38dd1d",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/explain-project.md": "2e10249e578583a204689af7be19f57160443b7977bbefb71523a96100b0bfa7",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/fix-tests.md": "cbfa0b0f349ae2bc656314c5e03578497d6adea2741d114f5ce05b2abd0e5f1a",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/frontend-audit.md": "d68e57ee6462f52f8cc862d9e9d294a085b50064d0faa9bf672fb3468c55f0c9",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/offline-code-review.md": "75cfbfb18b11a45fe9f11d38dc97c02893364bd91513af6dcbd873d45d1f2174",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/release-checklist.md": "3daa87e2767258c6a6d34f605300e9efe1c261cf8f0636f57988b5ae26d1f0bf",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/security-check.md": "70772a1e570ccd791cb3df36dac841ef382d814e2d6e5791d7dd61c984e73001",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/summarize-changes.md": "85af23db01679df40c27264a43177f1e4f9675103cf28bc1656ecb3f3cfde170",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/test-changes.md": "d073944eeb46fbd34b5a3984808d01db8fe0bd5bf8e6721f52529b00c9dd64dd",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/workbench-doctor.md": "e9c38f9b8a023db6118fe8dcd276bca912146b15cc8a93d66e19f8b11426191d",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/api-debugger/SKILL.md": "54a3cf2ee12e47f8b0efcffe0cd82d23b5289dc567a983180c492f07a5f3c414",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/browser-debug/SKILL.md": "424e84d4ed0af7a98ee69b5d29e9d4e91484d45a8d83bdbe59bff61257ec40e5",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/claude-md-management/SKILL.md": "91181ae6b69a74571be704cdc8b0c8b47fe25ac1bd328dd46b9db2a16bfe3fd4",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/code-review-offline/SKILL.md": "1429abb6cc8aeb78c20d1d0ef4ff32d6ea842032cdb75b7b074fa11bd7fba8b3",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/code-simplifier/SKILL.md": "57c5ecd541313fcfa65b082f536baf51995cb9a5e09e6f3f25aeb72a62d0c8a3",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/commit-workflow/SKILL.md": "32b0acef03734f83eafaec2fb74a284ce1d7eec47b5e42103565bd17adc53cf8",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/devops-ci-local/SKILL.md": "83fdad71074876342c9b1b21507f47b1ec54f5f5c6f259bfe0dbb68a99b9dc11",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/document-workflow/SKILL.md": "ff905fb687769a53bfc1300996a00c3ccb1e3b420c7e22973f25ec05418572fb",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/feature-development/SKILL.md": "382a789ecbc8af7dfa2359503dddf11ba707a71c7f0e383a72a280071aa41cc7",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/frontend-design-craft/SKILL.md": "1d73bb4ab12d186b66e7ca9c58db22084513e97dc08bab523a87aa30287053c0",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/local-docs-context/SKILL.md": "4f324a9ce4f29e66ca2276ff8f5e583aff6d2f20a1356a330174700231b5c953",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/lsp-local-setup/SKILL.md": "443abb134deac3573a5867be26f03a1465787cdaa5f5dac277b8cdf995245c67",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/office-automation/SKILL.md": "8035aabb349afe374357402ef02a2fd76762fc3dfe08852c9c98ba3855dd46c2",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/offline-packaging/SKILL.md": "cadd511fd0634d704d2f301e393028714e2ef7525d3c17bc106de40bc4d73496",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/plugin-development/SKILL.md": "7125025ea66148ca3f1e435e00420488579b5dc36efc2c229a1014b6f27e6164",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/research-synthesis/SKILL.md": "3ea8436056e6d19b448926c223fecf73e3ed49ee85388db78798e9a35e455cd5",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/security-guidance/SKILL.md": "ce10c86c226f0c0dc0caf3046c8098d9153efd5a4449883c8843e56d65f0c06d",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/spreadsheet-analysis/SKILL.md": "d331f9d4ded09201a844b69f68f1d8a277f67fe87f488389005b60f7a9d0b164",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/structured-writing/SKILL.md": "5cae5cb9c00159ceff23d6e5b481669e22c5d6301210fb619ab6fdb5bb6f1840",
+    "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/skills/windows-control/SKILL.md": "ad24658a384ca112bc12a95e3a8026838b6a966410f5092d557c88704e3797a1",
+    "dev-harness/asr-config-ui.static.e2e.js": "10cd25953b015ece2a8a1f205432b899c73cddac71ab70f98052cbb3a2eebe42"
+  },
+  "contentAudit": "/tmp/ruyi-p3-04-content-audit.json",
+  "contentItemsReviewed": {
+    "playbooks": 16,
+    "skills": 20,
+    "commands": 13,
+    "plugin_agents": 4,
+    "builtin_roles": 10,
+    "builtin_workflows": 8
+  },
+  "contentTotal": 71,
+  "findings": [
+    {
+      "id": "P304-R1",
+      "priority": "P2",
+      "status": "resolved",
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "title": "Do not upgrade installed desktop/OCR backends with unknown/denied readiness",
+      "initialEvidence": "Independent actual-server eval returned status available for installed=true/ready=null/authorization=unknown and even denied/ready=false; system-browser Windows path did the same.",
+      "resolution": "Unknown readiness now remains status unknown while retaining startable Windows behavior. Explicit denied/not-ready is unavailable. Independent six-case final matrix passes; native system browser follows the same backend facts."
+    },
+    {
+      "id": "P304-R2",
+      "priority": "P2",
+      "status": "resolved",
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "title": "Retain browser SDK lookup failure as unknown rather than missing binary",
+      "initialEvidence": "Independent real probeDesktopMcp with only the MCP transport stubbed showed probeError TimeoutError discarded and web-form-fill needs_config for an unobserved runtime path.",
+      "resolution": "probeError maps to runtimeInstalled=null/probeFailed=true; package fact is retained, unattached capability remains unknown and may be attempted. Independent final probe output is available=true,status=unknown."
+    },
+    {
+      "id": "P304-R3",
+      "priority": "P2",
+      "status": "resolved",
+      "file": "ruyi-workbench/app/src/06-provider-engine.js",
+      "title": "Do not publish an older target probe over the current hot snapshot",
+      "initialEvidence": "Controlled real getCapabilities: newer bundled B completed first, then older system A completion replaced peekCapabilities with system. Keyed normal callers reprobed, but unkeyed hot readers observed the old target.",
+      "resolution": "Every call, including a cache hit, records the requested target key. Publication requires both current promise identity and the requested key; old finally cannot clear a newer inflight. Independent reversed completion and cache-hit switch-back tests now preserve bundled; persistent unit test additionally proves same-target dedup."
+    },
+    {
+      "id": "P304-R4",
+      "priority": "P2",
+      "status": "resolved",
+      "files": [
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/commands/frontend-audit.md",
+        "ruyi-workbench/resources/plugins/ruyi-offline/offline-toolkit/agents/frontend-offline.md"
+      ],
+      "title": "Apply the Mac frontend boundary to directly invoked commands and agents too",
+      "initialEvidence": "Only the reusable frontend/browser skills were initially updated; direct frontend command/agent still unconditionally prescribed desktop_screenshot and resize_window on Mac.",
+      "resolution": "Both direct entry points now carry their own Mac handoff/DOM/target-URL/owned-profile/real-viewport boundaries while retaining Windows steps; agent description includes supported Mac source use."
+    }
+  ],
+  "contentAuditDisposition": [
+    {
+      "ids": [
+        "A01",
+        "A02",
+        "A10"
+      ],
+      "status": "addressed",
+      "evidence": "Windows enumeration/hash/recycle commands are explicitly conditional; Mac Python metadata routes preserve full counts/errors, reject dereference of root/directory/file links, and use actual volume case/Unicode semantics. Mac download cleanup remains suggestions only; no unverified Trash implementation introduced."
+    },
+    {
+      "ids": [
+        "A03",
+        "A04",
+        "A12"
+      ],
+      "status": "addressed",
+      "evidence": "Native Office/PDF file_read support is acknowledged; dedicated structured readers remain preferred. document-workflow now falls back to actual native reads before stopping. PDF defaults are current and remaining pages are requested only when total_pages>1. Native PDF preview is distinguished from an image-file path consumable by OCR; Mac OCR remains unavailable."
+    },
+    {
+      "ids": [
+        "A05"
+      ],
+      "status": "addressed",
+      "evidence": "Shared ACC presence, desktopAutomation, OCR and browserControl are separate prerequisites. Mac system handoff does not enable forms; prepared-but-unattached DOM remains unknown but startable; actual missing dependencies block. Installed Windows paths are preserved without claiming unknown authorization is verified."
+    },
+    {
+      "ids": [
+        "A06",
+        "A07",
+        "A08",
+        "A09"
+      ],
+      "status": "addressed",
+      "evidence": "Generic frontend/API/development/LSP/test/doctor guidance has explicit Mac paths and Windows-only executable conditions. CDP may select existing pages and must check URL; unsupported resize is not offered and screenshot scaling is not a viewport test. Windows operator and COM/release flows are explicitly scoped. Mac remains source development, not a signed/offline release; plugin+marketplace version are both 0.3.1."
+    },
+    {
+      "ids": [
+        "A11"
+      ],
+      "status": "retained_with_scope_note",
+      "evidence": "All 10 built-in roles and 8 workflows remain free of literal Windows desktop/path assumptions. Research/network and data-format prerequisites are existing cross-platform context; no unrelated workflow-engine rewrite was introduced. Global capability/offline policy remains authoritative."
+    }
+  ],
+  "validation": [
+    {
+      "command": "Independent /tmp/ruyi-p3-04-requires-review.cjs",
+      "result": "Six desktop/OCR unknown, denied, known-not-ready cases pass against actual generated server; /tmp/ruyi-p3-04-requires-review.txt."
+    },
+    {
+      "command": "Independent /tmp/ruyi-p3-04-status-error-review.cjs",
+      "result": "Real internal capability probe with isolated fake transport retains runtimeInstalled null and probeFailed true; form prerequisite remains unknown/startable. /tmp/ruyi-p3-04-status-error-review.txt."
+    },
+    {
+      "command": "Independent /tmp/ruyi-p3-04-cache-race-review.cjs",
+      "result": "Real cache implementation with only external probes stubbed passes old-completion publication guard and cache-hit switch-back. /tmp/ruyi-p3-04-cache-race-review.txt."
+    },
+    {
+      "command": "Read final real Workbench/ACC, existing Playbooks and actual browser UI logs",
+      "result": {
+        "templates-final": {
+          "pass": 38,
+          "fail": 0,
+          "skip": 0,
+          "allPass": true
+        },
+        "playbooks-final": {
+          "pass": 94,
+          "fail": 0,
+          "skip": 0,
+          "allPass": true
+        },
+        "popover-accepted": {
+          "pass": 18,
+          "fail": 0,
+          "skip": 0,
+          "allPass": true
+        }
+      }
+    },
+    {
+      "command": "Read cache-final log and persistent unit test implementation",
+      "result": "6/6 passed; added test checks reverse completion, cache-hit current-target selection and same-target inflight dedup with finally cleanup of all pending probes."
+    },
+    {
+      "command": "Independent visual inspection /tmp/ruyi-p3-04-popover-accepted/english.png",
+      "result": "New English shared/desktop/browser boundary text is readable, contained in the popover and viewport, and DOM label wraps without overflow. It does not display system handoff as DOM-ready. Parent also inspected Chinese ready state."
+    },
+    {
+      "command": "node ruyi-workbench/app/build.js --check; git diff --check",
+      "result": "Both pass; generated server is fresh."
+    },
+    {
+      "command": "Independent final incremental review and node dev-harness/asr-config-ui.static.e2e.js",
+      "result": "ALL PASS, exit 0; /tmp/ruyi-p3-04-review-asr-final.txt. The obsolete source-text lock for exactly three runtime requirements is replaced by reading the actual generated-server constant and asserting exactly the original network/desktopMcp/vision plus desktopAutomation/ocr/browserControl. ASR model-domain/non-reference, schema/migration, frontend isolation and locale assertions remain intact. No production behavior changed in this last increment."
+    }
+  ],
+  "executionLogCounts": {
+    "templates-final": {
+      "pass": 38,
+      "fail": 0,
+      "skip": 0,
+      "allPass": true
+    },
+    "playbooks-final": {
+      "pass": 94,
+      "fail": 0,
+      "skip": 0,
+      "allPass": true
+    },
+    "popover-accepted": {
+      "pass": 18,
+      "fail": 0,
+      "skip": 0,
+      "allPass": true
+    }
+  },
+  "remaining_code_findings": [],
+  "conclusion": "approved_with_environment_limitations",
+  "source_modifications": false,
+  "limitations": [
+    "No real Windows same-candidate or macOS 14 minimum-version execution; retained as phase gates, never counted passed.",
+    "71 guidance items were individually audited; this is not a claim that every skill/workflow was run with a real external model/account or that a user global Claude plugin installation was updated.",
+    "Final broad static evidence is 79/80 plus the corrected ASR group independently passing; no new all-80 batch execution is claimed.",
+    "No Mac desktop automation/OCR/Trash/signed offline packaging is claimed."
+  ],
+  "engineeringGates": {
+    "completeUnit": {
+      "tests": 2509,
+      "passed": 2491,
+      "failed": 0,
+      "existingSkipped": 18,
+      "evidence": "/tmp/ruyi-p3-04-fast-final.txt:9"
+    },
+    "broadStaticRun": {
+      "passed": 79,
+      "failed": 1,
+      "ran": 80,
+      "remainingFailureAtRunTime": "obsolete three-entry PLAYBOOK_REQUIRES source-text lock in asr-config-ui.static.e2e.js",
+      "evidence": "/tmp/ruyi-p3-04-fast-final.txt:92"
+    },
+    "targetedCorrectedGroup": {
+      "group": "asr-config-ui.static.e2e.js",
+      "result": "ALL PASS independently rerun after runtime-value contract update",
+      "evidence": "/tmp/ruyi-p3-04-review-asr-final.txt"
+    },
+    "interpretation": "The broad run is retained as 79/80, followed by the corrected group passing in isolation. This is not represented as a newly executed all-80 run. The final increment changes only this test contract, so unrelated 79 groups were not rerun."
+  },
+  "current_revision_notes": [
+    "All identified code/content findings have been resolved and independently rechecked.",
+    "71 content items have a disposition map in this record; the original pre-audit is preserved separately.",
+    "Final complete unit and broad-static-plus-targeted-corrected-group evidence is now recorded with original failures retained.",
+    "The final ASR test-only increment reads actual runtime values and preserves the separate ASR capability-domain guards."
+  ]
+}

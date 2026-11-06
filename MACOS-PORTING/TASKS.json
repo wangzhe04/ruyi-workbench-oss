@@ -831,14 +831,40 @@
             "high": 2
           },
           "deliverable": "逐项检查 16 个 Playbook、离线技能/角色及示例命令；为 PowerShell/Windows 控制模板提供 Mac 路径或禁用条件；更新中英文说明。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P3/templates/README.md",
+            "evidence/P3/templates/validation.json",
+            "evidence/P3/templates/review.json",
+            "evidence/P3/templates/content-audit.json",
+            "evidence/P3/templates/source-fingerprint.json"
+          ],
+          "implementationCommit": "2f45aba4a916b6ff321c5318c4d79ba953d734a3",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-07",
+          "completionScope": "Mac平台模板/能力文案开发与单独本地验收；71项内容审计不等于每种模型任务都已实跑。Windows同候选实际回归未执行且未豁免。",
+          "pendingPhaseAcceptance": [
+            "Windows同候选CI/实机回归"
+          ],
+          "laterPhaseCarryover": [
+            "macOS14、正式签名/干净机离线发行、默认有界面浏览器用户交互维持原阶段交接；Mac桌面/OCR待P5、废纸篓能力待P6"
+          ],
+          "progress": "71项资源独立审计；真实模板38、中英UI18、Playbooks94、能力56、权限37、技能工具26项通过。独立复核三项状态/缓存缺陷关闭；完整单元2491通过/18既有跳过，静态79/80，旧枚举锁更新后定向通过。"
         }
       ],
       "owner": "Codex",
       "startedDate": "2026-11-06",
-      "progress": "P3-01/P3-02/P3-03已完成开发和单独Mac本地验收；继续P3-04。Windows同候选实际回归仍未执行且未豁免。"
+      "progress": "P3四个工作包均完成开发和单独Mac本地验收；整体仍in_progress，Windows同候选CI/实机回归未执行且未获豁免，最低系统与正式发行不计通过。",
+      "pendingPhaseAcceptance": [
+        "Windows同候选CI/实机回归未执行且未获豁免"
+      ],
+      "localDelivery": {
+        "status": "done",
+        "completedDate": "2026-11-07",
+        "scope": "四工作包Mac本地开发、专项验证与逐包独立复核验收；不等于P3阶段/M1或正式发行验收",
+        "evidence": "evidence/P3/README.md"
+      }
     },
     {
       "id": "P4",

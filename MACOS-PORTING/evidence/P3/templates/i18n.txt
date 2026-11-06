@@ -1,0 +1,9 @@
+PASS catalogs: 4465 matched keys and placeholder contracts
+PASS placeholders: no single-brace {name} in any catalog (interpolate only fills {{name}})
+PASS mission.state.*: all four locales carry the unified five-state copy with zero legacy previewShell.state./stewardShell.drawer.state. keys
+PASS runtime: locale normalization, fallback, DOM attributes, pluralization, and named interpolation
+PASS error contract: structured and legacy API errors normalize safely
+PASS config: locale default and allowlist normalization
+PASS static wiring: locale settings and translated P0/P1 UI are present
+PASS mission.state.* single path: no client read of server stateLabel or mission-state.js .label; both views query the same prefix
+I18N STATIC E2E: ALL PASS

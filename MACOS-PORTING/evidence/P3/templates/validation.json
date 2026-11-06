@@ -1,0 +1,102 @@
+{
+  "date": "2026-11-07",
+  "package": "P3-04",
+  "baselineCommit": "b491997a",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "architecture": "arm64",
+    "node": "24.15.0",
+    "python": "3.12.10"
+  },
+  "localAcceptance": "passed",
+  "phaseAcceptance": "in_progress; actual Windows same-candidate regression remains unperformed/unwaived; minimum OS and release gates remain pending",
+  "checks": [
+    {
+      "command": "RUYI_TEMPLATES_REQUIRED=1 RUYI_BROWSER_CACHE_SOURCE=<prepared> node dev-harness/macos-platform-templates.e2e.js",
+      "result": "38 pass, 0 fail, 0 skip",
+      "evidence": "templates.txt"
+    },
+    {
+      "command": "node dev-harness/macos-capability-popover.browser.e2e.js",
+      "result": "18 pass, 0 fail, 0 skip; Chinese/English screenshots inspected",
+      "evidence": "popover.txt"
+    },
+    {
+      "command": "node dev-harness/playbooks.e2e.js",
+      "result": "94 pass, 0 fail",
+      "evidence": "playbooks.txt"
+    },
+    {
+      "command": "node dev-harness/capabilities.e2e.js",
+      "result": "56 pass, 0 fail",
+      "evidence": "capabilities.txt"
+    },
+    {
+      "command": "node dev-harness/acc-capability-gates.e2e.js",
+      "result": "37 pass, 0 fail",
+      "evidence": "acc-gates.txt"
+    },
+    {
+      "command": "node dev-harness/playbook-skill-tools.e2e.js",
+      "result": "26 pass, 0 fail",
+      "evidence": "skill-tools.txt"
+    },
+    {
+      "command": "node --test dev-harness/unit/capability-probe-stall.test.js",
+      "result": "6 pass, 0 fail, 0 skip; includes controlled actual production cache race/dedup",
+      "evidence": "cache.txt"
+    },
+    {
+      "command": "node --test dev-harness/unit/*.test.js (run-all prerequisite)",
+      "result": "2491 pass, 18 existing skips, 0 fail",
+      "evidence": "unit.txt"
+    },
+    {
+      "command": "node dev-harness/run-all.js --fast",
+      "result": "Unit prerequisite passed; static79 pass/1 fail/80 ran, 7 live pieces excluded. Old3-value PLAYBOOK_REQUIRES lock updated to exact6-value runtime assertion and independently rerun. No new full80/80 claim.",
+      "evidence": "fast.txt"
+    },
+    {
+      "command": "node dev-harness/asr-config-ui.static.e2e.js",
+      "result": "ALL PASS after enum contract update; ASR/runtime-domain isolation retained",
+      "evidence": "asr-contract-final.txt"
+    },
+    {
+      "command": "node dev-harness/syntax-gate.js",
+      "result": "1128 files, 0 errors",
+      "evidence": "syntax.txt"
+    },
+    {
+      "command": "node ruyi-workbench/app/build.js --check",
+      "result": "fresh",
+      "evidence": "build.txt"
+    }
+  ],
+  "contentAudit": {
+    "counts": {
+      "playbooks": 16,
+      "skills": 20,
+      "commands": 13,
+      "pluginAgents": 4,
+      "builtinRoles": 10,
+      "builtinWorkflows": 8
+    },
+    "total": 71,
+    "baseline": "content-audit.json",
+    "resolution": "content-resolution.json",
+    "scope": "All resources independently read; capability boundaries and platform text audited. This does not mean all71 workflows were executed by a live model."
+  },
+  "failureHistory": [
+    "Initial new HTTP fixture omitted token for playbook listing; production403 was correct. Fixture now obtains real bootstrap token.",
+    "Initial whole unit2485pass/5fail/18skip caused by docs/i18n mirrors not synchronized; first fast refused to run static. Both mirrors corrected before final full unit.",
+    "Final static79/80 because an unrelated ASR isolation lock froze the old3-value runtime enum. Exact runtime assertion now includes original3+new3, ASR isolation unchanged; targeted group passed.",
+    "Independent review found readiness/authorization upgrading, probe-timeout to missing-binary misclassification and stale-target async snapshot publication. All fixed and independently reprobed."
+  ],
+  "pending": [
+    "Windows same-candidate actual CI/real runtime, unwaived",
+    "macOS14 arm64 minimum OS and matching wheel compatibility",
+    "signed identity/clean-machine offline release",
+    "Mac desktop/OCR implementation P5; Trash capability P6; default-headed browser user-visible interaction remains separate"
+  ],
+  "implementationCommit": "2f45aba4a916b6ff321c5318c4d79ba953d734a3"
+}
