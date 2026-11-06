@@ -1,0 +1,50 @@
+✔ default state and unknown callbacks do not create storage; configuration resolves only declared reserved env references and never returns values (5.904208ms)
+✔ sender AND conversation scopes, message rather than event id dedupe, semantic conflict and restart persistence (5.92925ms)
+✔ ACK waits for disk commit; failed writes and corrupt/schema-less ledgers fail closed rather than manufacturing dedupe evidence (4.533417ms)
+✔ disable/reconfigure share the ingestion chain; retired and changed application identities cannot reuse previous authority (3.555125ms)
+✔ capacity retains every received/dedupe record and invalid rows or oversized retired-id sets are rejected whole (21.426583ms)
+✔ control requires explicit local confirmation, stable id retries and opaque item-bound capability; normal allowed peers remain inbox-only (6.083ms)
+✔ control admission commits running before invocation, persists result before send and never reruns duplicate deliveries (5.643334ms)
+✔ restart resumes only queued work after authority recheck; old running and sending become unknown without replay (12.240125ms)
+✔ write failure blocks running side effects, revoked queued work never invokes runner, and platform uncertainty is not marked sent or retried (5.478917ms)
+✔ a failed completion write projects unknown with a visible worker error and next recovery settles unknown without re-execution (5.725333ms)
+✔ disable aborts an in-flight delivery and retains the typed delivery error rather than claiming an unknown success (3.1405ms)
+✖ stop during job persistence prevents dispatch and releases the newly registered actor; restart does not replay (5.318292ms)
+✔ unexpected runner exceptions are unknown without retry advice or replay, and structured action facts remain distinct from a completed turn (6.87275ms)
+✔ setup preparation accepts only a local user, complete non-secret identity, and reuses exact disabled identity without modifying it (2.241958ms)
+✔ pairing authenticates only exact text, fixes the first candidate, and captures no inbox/model/delivery side effect (3.478208ms)
+✔ pairing expires and restarts fail old confirmations without durable pairing authority (3.808667ms)
+✔ configuration and credential changes revoke pairing and every old setup snapshot, including non-authority label changes (2.27525ms)
+✔ activation waits for the authoritative atomic write and a failed write grants no control (2.421791ms)
+✔ legacy disabled incomplete identities and one credential fault do not turn a committed mutation or the whole list into a false failure (2.084875ms)
+✔ setup-only evidence commits before candidate/ACK and a failed write cannot create even a temporary identity proof (2.102833ms)
+✔ setup-only receipt capacity rejects new messages without evicting old dedupe, and corrupt receipt integrity fails the whole ledger closed (57.995333ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 20
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 211.78675
+
+✖ failing tests:
+
+test at dev-harness/unit/external-bots-inbox.test.js:163:1
+✖ stop during job persistence prevents dispatch and releases the newly registered actor; restart does not replay (5.318292ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'failed'
+  - 'unknown'
+  
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/external-bots-inbox.test.js:176:12)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'unknown',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

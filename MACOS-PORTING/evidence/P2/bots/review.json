@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-06",
+  "reviewer": "independent agent /root/p2_cli_audit",
+  "scope": [
+    "13w worker claim/persistence/stop/dispatch and existing cleanup",
+    "Mac Keychain setup HTTP journey with original Windows/Linux branches",
+    "inbox run/send stop regression and real control sending restart e2e"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "Stop during awaiting a durable job claim can start new execution or sending after stop returns",
+      "independentReproduction": "Real externalBotDrain body with a gated NextJob produced sendCallsAfterStop=1",
+      "resolution": "Check stopped inside the existing job try/finally after claim; break prevents dispatch and cleanup removes newly registered actor. A committed running/sending claim becomes unknown on cold restart without replay.",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R2",
+      "finding": "Original setup e2e selected env references on Mac, bypassing local protected credentials",
+      "resolution": "Reuse disposable Keychain fixture and enter local credential-save branch on Darwin; actual prepare/save/pair/activate/control/restart and plaintext canary assertions pass.",
+      "status": "resolved_reviewed"
+    }
+  ],
+  "result": "reviewed_no_unresolved_code_findings",
+  "independentValidation": {
+    "gitDiffCheck": "pass",
+    "testValidity": "Write gate blocks actual claim persistence for run/send; held token request follows durable sending and actual process restart. No new test file or production framework.",
+    "executionBoundary": "Reviewer static review plus isolated no-network reproduction; final serial suites run by primary agent"
+  },
+  "unverified": [
+    "Real QQ/Feishu services and accounts",
+    "Windows same-SHA real DPAPI and runtime",
+    "Formal login Keychain authorization and signing upgrade ACL, tracked under P2-02",
+    "Same-process stop/start reentry is not current production lifecycle; P4 may validate if introduced"
+  ],
+  "implementationCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b",
+  "documentationReview": "Narrowed CLI detection wording to PATH/common locations and Keychain statement to protected credentials; no remaining material evidence-boundary finding."
+}

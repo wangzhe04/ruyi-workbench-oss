@@ -1,0 +1,45 @@
+PASS A1 exact callback response body/status
+PASS A2 route and raw UTF8 bytes unchanged
+PASS A3 fixed upstream Host ignores incoming Host
+PASS A4 credentials/forwarding/cross-platform headers never forwarded
+PASS A5 QQ official authentication headers retained
+PASS A6 response internal headers removed
+PASS A7 Feishu header allowlist
+PASS B route rejected /api/external-bots/connections
+PASS B route rejected /api/bootstrap
+PASS B route rejected /
+PASS B route rejected /api/external-bots/callback/qq
+PASS B route rejected /api/external-bots/callback/qq?connectionId=bot_a&extra=1
+PASS B route rejected /api/external-bots/callback/qq?connectionId=bot_a&connectionId=bot_b
+PASS B route rejected /api/external-bots/callback/qq?connectionId=bot_a#x
+PASS B route rejected /api/external-bots/callback/%71q?connectionId=bot_a
+PASS B route rejected /api/external-bots/callback/qq/?connectionId=bot_a
+PASS B route rejected /api/external-bots/callback/qq?connectionId=%62ot_a
+PASS B route rejected /api/external-bots/../external-bots/callback/qq?connectionId=bot_a
+PASS B route rejected http://127.0.0.1:63976/api/external-bots/callback/qq?connectionId=bot_a
+PASS B route rejected /api/external-bots/callback/qq?connectionId=bot_a%26x%3D1
+PASS B14 rejected routes never reach upstream
+PASS C1 declared oversized body rejected
+PASS C2 chunked oversized body rejected
+PASS C3 compressed body never transparently decoded
+PASS C4 duplicate authentication header rejected
+PASS D1 redirects rejected without following or exposing Location
+PASS D2 oversized response rejected before forwarding
+PASS D3 upstream timeout bounded
+PASS D4 first response chunk reaches client before upstream ends
+PASS D5 streaming completes intact
+PASS D6 concurrent requests bounded
+PASS D7 stalled inbound upload has a bounded total deadline
+PASS E invalid upstream rejected undefined
+PASS E invalid upstream rejected http://localhost:63976
+PASS E invalid upstream rejected https://example.com
+PASS E invalid upstream rejected http://127.0.0.2
+PASS E invalid upstream rejected http://2130706433
+PASS E invalid upstream rejected http://127.0.0.1@evil.invalid
+PASS E invalid upstream rejected http://127.0.0.1/private
+PASS E invalid upstream rejected http://127.0.0.1?x=1
+PASS E invalid upstream rejected http://127.0.0.1#x
+PASS E invalid upstream rejected http://%31%32%37.0.0.1
+PASS E11 IPv6 literal loopback accepted
+
+EXTERNAL BOT GATEWAY E2E: ALL PASS

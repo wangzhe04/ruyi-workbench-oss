@@ -1,0 +1,129 @@
+{
+  "date": "2026-11-06",
+  "os": "27.0.1",
+  "arch": "arm64",
+  "node": "v24.15.0",
+  "baselineSha": "0af25d60",
+  "checks": [
+    {
+      "name": "bot-unit",
+      "command": [
+        "node",
+        "--test",
+        "dev-harness/unit/external-bots-inbox.test.js",
+        "dev-harness/unit/external-bot-credentials.test.js",
+        "dev-harness/unit/external-bot-discovery.test.js",
+        "dev-harness/unit/external-bot-vault-guards.test.js",
+        "dev-harness/unit/external-bot-setup-ui.test.js",
+        "dev-harness/unit/external-bots-ui.test.js"
+      ],
+      "exitCode": 0,
+      "seconds": 2.2,
+      "log": "bot-unit.txt"
+    },
+    {
+      "name": "external-bot-setup",
+      "command": [
+        "node",
+        "dev-harness/external-bot-setup.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 3.1,
+      "log": "external-bot-setup.txt"
+    },
+    {
+      "name": "external-bots",
+      "command": [
+        "node",
+        "dev-harness/external-bots.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 5.6,
+      "log": "external-bots.txt"
+    },
+    {
+      "name": "external-bots-control",
+      "command": [
+        "node",
+        "dev-harness/external-bots-control.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 2.3,
+      "log": "external-bots-control.txt"
+    },
+    {
+      "name": "external-bot-discovery",
+      "command": [
+        "node",
+        "dev-harness/external-bot-discovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.5,
+      "log": "external-bot-discovery.txt"
+    },
+    {
+      "name": "external-channel-delivery",
+      "command": [
+        "node",
+        "dev-harness/external-channel-delivery.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 5.1,
+      "log": "external-channel-delivery.txt"
+    },
+    {
+      "name": "external-bot-gateway",
+      "command": [
+        "node",
+        "dev-harness/external-bot-gateway.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 2.1,
+      "log": "external-bot-gateway.txt"
+    },
+    {
+      "name": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "seconds": 26.1,
+      "log": "syntax.txt"
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1,
+      "log": "build-check.txt"
+    },
+    {
+      "name": "static",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 0,
+      "seconds": 127.5,
+      "log": "static.txt"
+    }
+  ],
+  "implementationCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b",
+  "finalSummary": {
+    "e2ePassed": 6,
+    "botUnitPassed": 88,
+    "unitPassed": 2490,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "failures": 0
+  },
+  "developmentFailures": [
+    "stop-red.txt: new stop-during-claim assertion fails on original implementation"
+  ]
+}

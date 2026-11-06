@@ -614,12 +614,29 @@
             "high": 2
           },
           "deliverable": "贯通外部机器人本地凭据、环境变量引用、配置/重连及退出回收；网络协议用假端点验证，真实服务另记录联调状态。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P2/bots/README.md",
+            "evidence/P2/bots/review.json",
+            "evidence/P2/bots/validation.json",
+            "evidence/P2/bots/source-fingerprint.json"
+          ],
+          "baselineSha": "0af25d60",
+          "progress": "Mac本地Keychain配置整链与停止派发窗口修复已交付并独立评审；88条bot单元、6组e2e、完整单元2490通过/18跳过与80静态通过。真实服务及Windows待验，保持in_progress。",
+          "implementationCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b",
+          "acceptancePending": [
+            "真实QQ/飞书服务联调",
+            "Windows同SHA实机回归",
+            "正式Keychain授权/签名沿P2-02及P4/P6复验"
+          ]
         }
       ],
-      "startedAt": "2026-11-06"
+      "startedAt": "2026-11-06",
+      "evidence": [
+        "evidence/P2/README.md"
+      ],
+      "progress": "P2-01至P2-04本地首批实现、相关回归与独立评审完成；真实CLI/登录Keychain授权/机器人服务及Windows同版本环境验收待完成，阶段保持in_progress。"
     },
     {
       "id": "P3",
