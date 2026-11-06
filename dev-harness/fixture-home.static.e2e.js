@@ -301,6 +301,17 @@ try {
     const text = fs.readFileSync(path.join(harnessDir, name), 'utf8');
     if (!text.includes('--user-data-dir')) continue;
     owners.push(name);
+    // P3-03 runs only on Mac; stopRuyiTestBrowsers is a Windows-only no-op there.
+    // Its real runtime acceptance instead observes the owned browser/driver/profile
+    // identities before close/EOF, then checks their absence and kills its own CDP tree.
+    if (name === 'macos-browser-runtime.e2e.js') {
+      ok(text.includes("process.platform !== 'darwin'") &&
+        /await killOwnTree\(proc\)/.test(text) &&
+        /gone\(browserOwned\)/.test(text) && /gone\(eofOwned\)/.test(text) &&
+        /profiles\.every\(p => !fs\.existsSync\(p\)\)/.test(text),
+        'Mac browser fixture verifies actual owned processes/profiles and cleans its own external tree');
+      continue;
+    }
     // 判【调用】而不是「这几个字出现过」:第一版写成 includes(名字),把它改名成 XXX 之后锁照样绿
     // —— 反向当场逮到这把松锁(本会话第三次同一族:锁要钉行为,不钉字符串出现过)。
     if (!/\bstopRuyiTestBrowsers\s*\(/.test(text)) missing.push(name);

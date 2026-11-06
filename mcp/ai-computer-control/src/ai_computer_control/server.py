@@ -44,6 +44,7 @@ if sys.platform == "win32":
 import functools
 import inspect
 import time
+from contextlib import asynccontextmanager
 
 from mcp.server.fastmcp import FastMCP
 
@@ -51,12 +52,32 @@ from ai_computer_control.utils.errors import exc_text, hint_for
 
 VERSION = "1.9.1"
 
+@asynccontextmanager
+async def _tool_lifespan(_server):
+    try:
+        yield {}
+    finally:
+        # Normal stdio EOF must release browsers before the server exits. Never
+        # import optional toolsets while shutting down a minimal installation.
+        browser = sys.modules.get("ai_computer_control.tools.browser")
+        if browser is not None:
+            import anyio
+            with anyio.move_on_after(10, shield=True) as scope:
+                result = await browser.shutdown_browser()
+                if result.get("cleanupIncomplete"):
+                    raise RuntimeError("browser cleanup incomplete: " + result["error"])
+            if scope.cancel_called:
+                raise RuntimeError("browser cleanup timed out")
+
+
 mcp = FastMCP(
     "AI Computer Control",
     instructions="A comprehensive toolkit for AI agents to control Windows computers. "
     "Provides screen capture, mouse/keyboard control, window management, "
     "file operations, browser automation, document editing, and more. "
-    "Every tool returns a dict with a boolean 'ok' field.",
+    "Every tool returns a dict with a boolean 'ok' field. "
+    "On macOS only implemented shared tools are registered; diagnostics reports unsupported backends.",
+    lifespan=_tool_lifespan,
 )
 
 # The original FastMCP decorator; our wrapper below registers through it.
