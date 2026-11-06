@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 89 | 3891 | 3502 | 641 | 67 | 0 | 1 |
+| 89 | 3893 | 3504 | 643 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -28,7 +28,7 @@
 | 10 | `01i-privacy-rules.js` | foundation | 1 | 0 | 0 |
 | 11 | `01h-privacy-core.js` | foundation | 1 | 1 | 1 |
 | 12 | `01m-privacy-regex.js` | foundation | 1 | 1 | 1 |
-| 13 | `01j-local-crypto.js` | foundation | 1 | 1 | 1 |
+| 13 | `01j-local-crypto.js` | foundation | 2 | 1 | 1 |
 | 14 | `01-config.js` | foundation | 201 | 61 | 14 |
 | 15 | `01k-credential-vault.js` | foundation | 1 | 8 | 4 |
 | 16 | `01l-credential-recovery.js` | foundation | 2 | 13 | 3 |
@@ -101,8 +101,8 @@
 | 83 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
 | 84 | `13y-external-bot-credentials.js` | transport | 1 | 7 | 3 |
 | 85 | `13z-external-bot-discovery.js` | transport | 1 | 0 | 0 |
-| 86 | `13ab-privacy-api.js` | unclassified | 1 | 17 | 11 |
-| 87 | `13w-external-bots.js` | transport | 66 | 22 | 7 |
+| 86 | `13ab-privacy-api.js` | unclassified | 1 | 18 | 12 |
+| 87 | `13w-external-bots.js` | transport | 67 | 23 | 8 |
 | 88 | `14-main.js` | entrypoint | 1 | 591 | 49 |
 
 ## 模块边
@@ -469,6 +469,7 @@
 | `13ab-privacy-api.js` | `01-config.js` | backward | `DurableJsonStore`, `mutateConfig`, `readConfig`, `send` |
 | `13ab-privacy-api.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
 | `13ab-privacy-api.js` | `01i-privacy-rules.js` | backward | `PrivacyRuleCatalog` |
+| `13ab-privacy-api.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
 | `13ab-privacy-api.js` | `01m-privacy-regex.js` | backward | `PrivacyRegex` |
 | `13ab-privacy-api.js` | `02e-session-engine-route.js` | backward | `sessionEngineRouteFromConfig` |
 | `13ab-privacy-api.js` | `02f-turn-effect-kinds.js` | backward | `normalizeToolInvokeArgs` |
@@ -692,6 +693,7 @@
 | `13v-external-channel-protocols.js` | `00-boot.js` | backward | `crypto`, `json`, `text` |
 | `13w-external-bots.js` | `00-boot.js` | backward | `ExternalBotHooks`, `OVERLAY_ID`, `URL`, `apiFailure`, `crypto`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `text` |
 | `13w-external-bots.js` | `01-config.js` | backward | `DurableJsonStore`, `originOk`, `send`, `tokenOk` |
+| `13w-external-bots.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
 | `13w-external-bots.js` | `13q-steward-runner-turn.js` | backward | `runStewardTurn` |
 | `13w-external-bots.js` | `13v-external-channel-protocols.js` | backward | `ExternalChannelProtocols` |
 | `13w-external-bots.js` | `13x-external-channel-delivery.js` | backward | `ExternalChannelDelivery` |

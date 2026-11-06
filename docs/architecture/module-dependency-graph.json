@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 89,
-    "providedSymbols": 3891,
-    "requiredSymbols": 3502,
-    "edges": 641,
+    "providedSymbols": 3893,
+    "requiredSymbols": 3504,
+    "edges": 643,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -449,9 +449,10 @@
       "file": "01j-local-crypto.js",
       "order": 13,
       "layer": "foundation",
-      "note": "81-P1: bounded shared Windows DPAPI helper, no app dependencies",
+      "note": "Bounded platform protector: unchanged Windows DPAPI and versioned Mac Keychain/AES-GCM envelopes",
       "provides": [
-        "LocalSecretCrypto"
+        "LocalSecretCrypto",
+        "LocalSecretCryptoHooks"
       ],
       "requires": [
         {
@@ -24753,7 +24754,7 @@
       "file": "13y-external-bot-credentials.js",
       "order": 84,
       "layer": "transport",
-      "note": "Bounded Windows DPAPI bot credential vault with explicit env precedence and credential revision CAS",
+      "note": "Platform-protected bot credential vault with explicit env precedence and credential revision CAS",
       "provides": [
         "ExternalBotCredentials"
       ],
@@ -24892,6 +24893,13 @@
           ]
         },
         {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01m-privacy-regex.js",
           "symbol": "PrivacyRegex",
           "kinds": [
@@ -24988,6 +24996,7 @@
         "externalBotOwnerMatches",
         "externalBotPairings",
         "externalBotPublicConnection",
+        "externalBotPublicConnections",
         "externalBotPublicItem",
         "externalBotRate",
         "externalBotReadBody",
@@ -25140,6 +25149,13 @@
           "symbol": "tokenOk",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -33639,6 +33655,14 @@
     },
     {
       "from": "13ab-privacy-api.js",
+      "to": "01j-local-crypto.js",
+      "symbols": [
+        "LocalSecretCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ab-privacy-api.js",
       "to": "01m-privacy-regex.js",
       "symbols": [
         "PrivacyRegex"
@@ -36306,6 +36330,14 @@
         "originOk",
         "send",
         "tokenOk"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13w-external-bots.js",
+      "to": "01j-local-crypto.js",
+      "symbols": [
+        "LocalSecretCrypto"
       ],
       "direction": "backward"
     },

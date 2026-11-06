@@ -413,7 +413,8 @@
       "file": "01j-local-crypto.js",
       "layer": "foundation",
       "provides": [
-        "LocalSecretCrypto"
+        "LocalSecretCrypto",
+        "LocalSecretCryptoHooks"
       ],
       "requires": [
         {
@@ -24708,6 +24709,13 @@
           ]
         },
         {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01m-privacy-regex.js",
           "symbol": "PrivacyRegex",
           "kinds": [
@@ -24802,6 +24810,7 @@
         "externalBotOwnerMatches",
         "externalBotPairings",
         "externalBotPublicConnection",
+        "externalBotPublicConnections",
         "externalBotPublicItem",
         "externalBotRate",
         "externalBotReadBody",
@@ -24954,6 +24963,13 @@
           "symbol": "tokenOk",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01j-local-crypto.js",
+          "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
           ]
         },
         {

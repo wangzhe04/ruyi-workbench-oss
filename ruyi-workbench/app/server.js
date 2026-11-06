@@ -3893,9 +3893,15 @@ const PrivacyRegex = ((workerThreads, core) => {
   return Object.freeze({ LIMITS, scan, validate, validateSchema, activeJobs: () => activeJobs });
 })(require('node:worker_threads'), PrivacyCore);
 
-// 81-P1: Shared bounded Windows DPAPI helper. Secrets travel only over stdin/stdout.
+// Shared platform protector. DPAPI bytes stay unchanged; Mac uses a versioned Keychain/AES-GCM envelope.
+const LocalSecretCryptoHooks = { helperPath: () => require('node:path').resolve(__dirname, '..', 'runtime', 'macos', 'ruyi-keychain-helper') };
 const LocalSecretCrypto = (() => {
   const childProcess = require('node:child_process'), path = require('node:path');
+  const cryptoApi = require('node:crypto');
+  const MAC_MAGIC = Buffer.from('ruyi.keychain.v1\0');
+  const MAC_PROVIDER = 'macos-keychain';
+  const MAC_ERRORS = Object.freeze(['dependency_missing', 'permission_required', 'permission_denied', 'keychain_locked', 'keychain_unavailable', 'keychain_corrupt', 'key_missing', 'key_changed', 'provider_mismatch']);
+  let macInFlight = 0;
   const LIMIT = Object.freeze({ processMs: 15000, outputBytes: 131072, cipherBytes: 65536 });
   const exact = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every(key => keys.includes(key));
   const base64 = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max * 2 && value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value) && Buffer.from(value, 'base64').length <= max && Buffer.from(value, 'base64').toString('base64') === value;
@@ -3919,7 +3925,7 @@ try {
   [Array]::Clear($result,0,$result.Length)
   exit 0
 } catch { [Console]::Out.Write('{"ok":false}'); exit 1 }`;
-  function run(op, value, entropy) {
+  function runDpapi(op, value, entropy) {
     if (!['protect', 'unprotect'].includes(op) || !Buffer.isBuffer(value) || !value.length || value.length > LIMIT.cipherBytes || !Buffer.isBuffer(entropy) || entropy.length > 4096) return Promise.reject(Object.assign(new Error('local_crypto.input_invalid'), { code: 'local_crypto.input_invalid' }));
     if (process.platform !== 'win32') return Promise.reject(Object.assign(new Error('local_crypto.unsupported'), { code: 'local_crypto.unsupported', apiCode: 'local_crypto.unsupported', statusCode: 501 }));
     return new Promise((resolve, reject) => {
@@ -3968,7 +3974,85 @@ try {
       } catch { stop('process_failed'); }
     });
   }
-  return Object.freeze({ run, supported: () => process.platform === 'win32' });
+  const failure = suffix => Object.assign(new Error('local_crypto.' + suffix), { code: 'local_crypto.' + suffix, apiCode: 'local_crypto.' + suffix, statusCode: suffix === 'unsupported' ? 501 : 503 });
+  function keychainKey(create) {
+    if (macInFlight >= 4) return Promise.reject(failure('process_busy'));
+    macInFlight++;
+    return new Promise((resolve, reject) => {
+      let child, complete = false, size = 0;
+      const output = [];
+      const finish = (suffix, key) => {
+        if (complete) return;
+        complete = true; clearTimeout(timer); macInFlight--;
+        for (const chunk of output) chunk.fill(0);
+        if (suffix) reject(failure(suffix)); else resolve(key);
+      };
+      // This native leaf never starts subprocesses. Killing it cannot leave a secret-bearing descendant.
+      const stop = suffix => { finish(suffix); if (child) child.kill(); };
+      const timer = setTimeout(() => stop('process_timeout'), LIMIT.processMs);
+      try {
+        child = childProcess.spawn(LocalSecretCryptoHooks.helperPath(), [], { stdio: ['pipe', 'pipe', 'ignore'], env: {} });
+        child.once('error', error => finish(error.code === 'ENOENT' ? 'dependency_missing' : 'process_failed'));
+        child.stdin.on('error', () => stop('process_failed'));
+        child.stdout.on('error', () => stop('process_failed'));
+        child.stdout.on('data', chunk => {
+          size += chunk.length;
+          if (complete || size > 4096) { chunk.fill(0); if (!complete) stop('process_capacity'); return; }
+          output.push(chunk);
+        });
+        child.once('close', code => {
+          if (complete) return;
+          const bytes = Buffer.concat(output);
+          let response;
+          try { response = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
+          catch { finish('process_failed'); return; }
+          finally { bytes.fill(0); }
+          if (!exact(response, ['ok', 'value', 'error'])) { finish('process_failed'); return; }
+          if (code !== 0 || response.ok !== true) {
+            finish(exact(response, ['ok', 'error']) && MAC_ERRORS.includes(response.error) ? response.error : 'process_failed'); return;
+          }
+          if (!exact(response, ['ok', 'value']) || !base64(response.value, 32) || Buffer.from(response.value, 'base64').length !== 32) { finish('process_failed'); return; }
+          finish(null, Buffer.from(response.value, 'base64'));
+        });
+        child.stdin.end(JSON.stringify({ version: 1, op: create ? 'get-or-create' : 'get' }));
+      } catch { stop('process_failed'); }
+    });
+  }
+  async function runMac(op, value, entropy) {
+    if (!['protect', 'unprotect'].includes(op) || !Buffer.isBuffer(value) || !value.length || value.length > (op === 'protect' ? 65536 : 98304)
+      || !Buffer.isBuffer(entropy) || entropy.length > 4096) throw failure('input_invalid');
+    let envelope;
+    if (op === 'unprotect') {
+      if (!value.subarray(0, MAC_MAGIC.length).equals(MAC_MAGIC)) throw failure('provider_mismatch');
+      try { envelope = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(value.subarray(MAC_MAGIC.length))); }
+      catch { throw failure('decrypt_failed'); }
+      if (!exact(envelope, ['schemaVersion', 'provider', 'keyId', 'nonce', 'ciphertext', 'tag']) || envelope.schemaVersion !== 1 || envelope.provider !== MAC_PROVIDER
+        || !/^[a-f0-9]{64}$/.test(envelope.keyId) || !base64(envelope.nonce, 12) || Buffer.from(envelope.nonce, 'base64').length !== 12
+        || !base64(envelope.tag, 16) || Buffer.from(envelope.tag, 'base64').length !== 16 || !base64(envelope.ciphertext, 65536)) throw failure('decrypt_failed');
+    }
+    const key = await keychainKey(op === 'protect');
+    try {
+      const keyId = cryptoApi.createHash('sha256').update(key).digest('hex');
+      const aad = Buffer.concat([MAC_MAGIC, Buffer.from(JSON.stringify([1, MAC_PROVIDER, keyId])), entropy]);
+      if (op === 'protect') {
+        const nonce = cryptoApi.randomBytes(12), cipher = cryptoApi.createCipheriv('aes-256-gcm', key, nonce);
+        cipher.setAAD(aad);
+        return Buffer.concat([MAC_MAGIC, Buffer.from(JSON.stringify({ schemaVersion: 1, provider: MAC_PROVIDER, keyId, nonce: nonce.toString('base64'),
+          ciphertext: Buffer.concat([cipher.update(value), cipher.final()]).toString('base64'), tag: cipher.getAuthTag().toString('base64') }))]);
+      }
+      if (envelope.keyId !== keyId) throw failure('key_changed');
+      const decipher = cryptoApi.createDecipheriv('aes-256-gcm', key, Buffer.from(envelope.nonce, 'base64'));
+      decipher.setAAD(aad); decipher.setAuthTag(Buffer.from(envelope.tag, 'base64'));
+      try { return Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext, 'base64')), decipher.final()]); }
+      catch { throw failure('decrypt_failed'); }
+    } finally { key.fill(0); }
+  }
+  function run(op, value, entropy) {
+    if (process.platform === 'darwin') return runMac(op, value, entropy);
+    if (op === 'unprotect' && Buffer.isBuffer(value) && value.subarray(0, MAC_MAGIC.length).equals(MAC_MAGIC)) return Promise.reject(failure('provider_mismatch'));
+    return runDpapi(op, value, entropy);
+  }
+  return Object.freeze({ run, supported: () => process.platform === 'win32' || process.platform === 'darwin', MAC_ERRORS });
 })();
 
 // 浏览器目标的合法模式(normalizeConfig 清洗与 mcp_configure set-browser 的入口校验共用一份,别再各抄一个数组)。
@@ -3984,7 +4068,7 @@ function defaultConfig() {
     privacyTechnicalV1: false,
     privacyRulesV1: [],
     privacyPolicyRecoveryRequiredV1: false,
-    credentialEncryptionV1: false, // Opt-in DPAPI storage. Existing encrypted references retain their explicit enabled state.
+    credentialEncryptionV1: false, // Opt-in platform-protected storage. Existing encrypted references retain their explicit enabled state.
     version: VERSION,
     agentCliType: 'claude',       // claude | kimi — native Agent CLI driver
     // 123-N2(用户 2026-09-13 真机:「新开线程会默认开 Kimi code cli,我希望改成默认上一次用的」):
@@ -8135,6 +8219,10 @@ const CredentialVault = ((cryptoApi) => {
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const id = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
   const fail = suffix => { throw Object.assign(new Error('credential_vault.' + suffix), { code: 'credential_vault.' + suffix, apiCode: 'credential_vault.' + suffix, statusCode: 503 }); };
+  const unlockFailure = error => {
+    const suffix = String(error?.code || '').replace(/^local_crypto\./, '');
+    fail(['dependency_missing', 'permission_required', 'permission_denied', 'keychain_locked', 'keychain_unavailable', 'keychain_corrupt', 'key_missing', 'key_changed', 'provider_mismatch'].includes(suffix) ? suffix : 'unlock_failed');
+  };
   const empty = () => ({ schema: 1, instanceId: '', protectedKey: '', records: [] });
   function validate(state) {
     if (!object(state) || Object.keys(state).sort().join(',') !== 'instanceId,protectedKey,records,schema' || state.schema !== 1 || !Array.isArray(state.records) || state.records.length > MAX.records) return false;
@@ -8224,7 +8312,7 @@ const CredentialVault = ((cryptoApi) => {
           state.instanceId = instanceId; state.protectedKey = wrapped.toString('base64'); wrapped.fill(0);
           keyCache = { binding: state.instanceId + ':' + state.protectedKey, key };
           return key;
-        } catch { key.fill(0); fail('unlock_failed'); }
+        } catch (error) { key.fill(0); unlockFailure(error); }
       }
       const binding = state.instanceId + ':' + state.protectedKey;
       if (keyCache?.binding === binding) return keyCache.key;
@@ -8233,7 +8321,7 @@ const CredentialVault = ((cryptoApi) => {
         if (key.length !== 32) { key.fill(0); fail('unlock_failed'); }
         if (keyCache) keyCache.key.fill(0);
         keyCache = { binding, key }; return key;
-      } catch { fail('unlock_failed'); }
+      } catch (error) { unlockFailure(error); }
     }
     const aad = (state, recordId, purpose = 'credential') => ({ instanceId: state.instanceId, recordId, purpose });
     function hydrate(raw, state, key) {
@@ -8347,7 +8435,7 @@ const CredentialVault = ((cryptoApi) => {
       });
     }
     async function prepareImport(serialized, password, options = {}) {
-      // Preparation is side-effect free. The recovery service merges verified runtime values under the destination key and retains rollback.
+      // Preparation writes no app config/vault or imported credentials; first use may initialize the system wrapping key. Recovery retains rollback.
       if (typeof serialized !== 'string' || Buffer.byteLength(serialized) > 2 * core.LIMITS.bytes) fail('backup_invalid');
       let data; try { data = JSON.parse(serialized); } catch { fail('backup_invalid'); }
       if (!object(data) || Object.keys(data).sort().join(',') !== 'envelope,exportId,kdf,schema' || data.schema !== 1 || !id(data.exportId)
@@ -8363,7 +8451,7 @@ const CredentialVault = ((cryptoApi) => {
         if (!object(payload) || payload.schema !== 1 || !id(payload.instanceId) || typeof payload.master !== 'string' || !object(payload.config)) fail('backup_invalid');
         key = Buffer.from(payload.master, 'base64'); if (key.length !== 32 || key.toString('base64') !== payload.master) fail('backup_invalid');
         if (!protector.supported()) fail('unsupported');
-        let wrapped; try { wrapped = await protector.run('protect', key, entropy(payload.instanceId)); } catch { fail('unlock_failed'); }
+        let wrapped; try { wrapped = await protector.run('protect', key, entropy(payload.instanceId)); } catch (error) { unlockFailure(error); }
         const state = { schema: 1, instanceId: payload.instanceId, protectedKey: wrapped.toString('base64'), records: payload.records }; wrapped.fill(0);
         if (!validate(state) || Buffer.byteLength(JSON.stringify(state)) > MAX.bytes) fail('backup_invalid');
         const runtime = hydrate(structuredClone(payload.config), state, key);
@@ -8433,10 +8521,19 @@ Object.assign(PrivacyCore.configHooks, CredentialVault.create({
 // An interrupted switch rolls back config on the next read; old encrypted records remain usable.
 const CredentialRecovery = ((cryptoApi) => {
   const fail = code => { throw Object.assign(new Error('credential_recovery.' + code), { code: 'credential_recovery.' + code, statusCode: 409 }); };
-  function startupGuidance(error) {
+  function startupGuidance(error, platform = require('node:process').platform) {
     // A portable package can restore credentials into a fresh profile, but replacing
     // this profile's master key would orphan its conversation reference mappings.
     // Never present an incorrect backup password or an unrelated failure as DPAPI loss.
+    const suffix = String(error?.code || '').replace(/^credential_vault\./, '');
+    if (platform === 'darwin' && ['permission_required', 'permission_denied', 'keychain_locked', 'dependency_missing', 'keychain_unavailable'].includes(suffix))
+      return '本地凭据暂时无法访问 macOS 钥匙串。请确认工作台组件完整、登录钥匙串已解锁，并恢复钥匙串对工作台的访问权限后重试。保留原数据目录；访问失败不会回落到明文。';
+    if (platform === 'darwin' && suffix === 'keychain_corrupt')
+      return 'macOS 钥匙串中的工作台封装密钥损坏，请保留原钥匙串及数据，先恢复系统钥匙串。仅更换 RUYI_HOME 无法修复系统密钥；如有口令保护的凭据恢复包，可在钥匙串正常的独立系统账户或另一台机器上，使用全新的数据目录预览并导入。';
+    if (platform === 'darwin' && ['unlock_failed', 'key_missing', 'key_changed', 'provider_mismatch'].includes(suffix))
+      return '本地凭据库无法在当前 Mac 钥匙串身份下解锁。请保留原数据目录及其中的密钥、credential-vault-v1.json、privacy-scopes 和会话，不要删除密钥或覆盖旧库。'
+        + 'Windows DPAPI 数据不能在 Mac 直接解密；请在原系统和账户导出口令保护的凭据恢复包。已有恢复包时，将 RUYI_HOME 设置为独立、全新的空目录，再按 Mac 启动方式运行工作台；'
+        + '进入「设置 → 权限与安全 → 本地隐私保护 → 凭据恢复包」，输入导出时的口令，先预览再确认导入。恢复包不恢复旧聊天、隐私规则或代号映射。';
     if (error?.code !== 'credential_vault.unlock_failed') return '';
     return '本地凭据库无法在当前 Windows 账户或系统环境下解锁（credential_vault.unlock_failed）。'
       + '请保留原数据目录及其中的密钥、credential-vault-v1.json、privacy-scopes 和会话，不要删除密钥或覆盖旧库。'
@@ -90284,7 +90381,7 @@ const ExternalChannelDelivery = (() => {
   return Object.freeze({ sendReply });
 })();
 
-// Dedicated local bot credentials, never a model tool. Windows DPAPI CurrentUser protects stored values;
+// Dedicated local bot credentials, never a model tool. The platform protector (DPAPI or Mac Keychain) protects stored values;
 // it does not protect against another program already running as the same OS user. No npm dependency.
 const ExternalBotCredentials = (() => {
   const SLOTS = Object.freeze({ qq: ['botSecret'], feishu: ['verificationToken', 'encryptKey', 'appSecret'] });
@@ -90340,12 +90437,12 @@ const ExternalBotCredentials = (() => {
     try { await store.write(state); } catch { store.invalidate(); fail('storage_unavailable'); }
   }
   // The command is static. Secret data goes only through bounded stdin, never argv, environment or files.
-  // No exception text or child stderr is exposed. DPAPI operates under the already loaded current user profile.
-  async function dpapi(op, value, owner) {
+  // No exception text or child stderr is exposed. The protector operates under the current OS user identity.
+  async function protectLocal(op, value, owner) {
     try { return await LocalSecretCrypto.run(op, value, Buffer.from('ruyi.external-bot-credentials.v1:' + JSON.stringify(owner))); }
     catch (error) {
       const suffix = String(error && error.code || '').replace(/^local_crypto\./, '');
-      fail(['unsupported', 'decrypt_failed', 'process_timeout', 'process_capacity'].includes(suffix) ? suffix : 'process_failed', suffix === 'unsupported' ? 501 : 503);
+      fail(['unsupported', 'decrypt_failed', 'process_timeout', 'process_capacity', 'process_busy', ...LocalSecretCrypto.MAC_ERRORS].includes(suffix) ? suffix : 'process_failed', suffix === 'unsupported' ? 501 : 503);
     }
   }
   function selectedEnv(connection, slots) {
@@ -90362,7 +90459,7 @@ const ExternalBotCredentials = (() => {
   }
   async function localValues(row, owner) {
     if (!row || !row.present.length) return {};
-    const bytes = await dpapi('unprotect', Buffer.from(row.cipher, 'base64'), owner);
+    const bytes = await protectLocal('unprotect', Buffer.from(row.cipher, 'base64'), owner);
     try {
       const values = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
       if (!exact(values, SLOTS[owner.platform]) || Object.keys(values).length !== row.present.length
@@ -90409,7 +90506,7 @@ const ExternalBotCredentials = (() => {
     if (object(connection)) connection = { ...connection };
     const owner = binding(connection);
     const env = selectedEnv(connection, SLOTS[owner.platform]);
-    if (process.platform !== 'win32') fail('unsupported', 501);
+    if (!LocalSecretCrypto.supported()) fail('unsupported', 501);
     if (connection.enabled !== false) fail('connection_enabled', 409);
     if (!exact(patch, ['set', 'remove', 'expectedRevision', 'replaceAll']) || typeof patch.expectedRevision !== 'string' || !/^[a-f0-9]{64}$/.test(patch.expectedRevision)
       || !exact(patch.set || {}, SLOTS[owner.platform]) || !Array.isArray(patch.remove || [])
@@ -90434,7 +90531,7 @@ const ExternalBotCredentials = (() => {
       let protectedValue = '';
       if (present.length) {
         const bytes = Buffer.from(JSON.stringify(values)); let cipher;
-        try { cipher = await dpapi('protect', bytes, owner); } finally { bytes.fill(0); }
+        try { cipher = await protectLocal('protect', bytes, owner); } finally { bytes.fill(0); }
         protectedValue = cipher.toString('base64'); cipher.fill(0);
       }
       // Retain a revision tombstone after removal: an old empty-vault observation must never become valid again.
@@ -90572,7 +90669,7 @@ const PrivacySettings = (() => {
       if (conditional && (body.expectedRuleVersion !== PrivacyGateway.ruleVersion(current) || body.expectedEncryption !== (current.credentialEncryptionV1 === true))) fail('privacy.settings_changed');
       if (Object.hasOwn(body, 'encryption')) {
         if (typeof body.encryption !== 'boolean') fail('privacy.settings_invalid');
-        if (body.encryption && process.platform !== 'win32') fail('credential_vault.unsupported');
+        if (body.encryption && !LocalSecretCrypto.supported()) fail('credential_vault.unsupported');
         if (!body.encryption && body.mode !== 'off') fail('privacy.encryption_required');
         if (!body.encryption && current.credentialEncryptionV1 === true && body.confirmPlaintext !== true) fail('privacy.plaintext_confirmation_required');
         current.credentialEncryptionV1 = body.encryption;
@@ -90626,7 +90723,7 @@ const PrivacySettings = (() => {
     if (!owner?.sessionId || !Number.isSafeInteger(owner.turnSeq) || !turnSettlers.has(owner.sessionId)) fail('privacy.turn_required');
     if (pending.has(owner.sessionId)) fail('privacy.update_pending');
     if (body.mode !== 'off' && !body.expectedEncryption) body.encryption = true;
-    if (body.encryption && process.platform !== 'win32') fail('credential_vault.unsupported');
+    if (body.encryption && !LocalSecretCrypto.supported()) fail('credential_vault.unsupported');
     pending.set(owner.sessionId, { turnSeq: owner.turnSeq, body: structuredClone(body) });
     return { ...preview, status: 'pending', effective: 'after_successful_turn', note: '本轮正常结束且应用空闲时保存；冲突、停止或失败则不保存。关闭脱敏保留凭据加密。' };
   }
@@ -90656,7 +90753,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
   const draft = PrivacySettings.draft;
   const encryption = (current, enabled, confirmPlaintext, mode = current.privacyModeV1) => {
     if (typeof enabled !== 'boolean') throw Object.assign(new Error(), { code: 'privacy.settings_invalid' });
-    if (enabled && process.platform !== 'win32') throw Object.assign(new Error(), { code: 'credential_vault.unsupported' });
+    if (enabled && !LocalSecretCrypto.supported()) throw Object.assign(new Error(), { code: 'credential_vault.unsupported' });
     if (!enabled && mode !== 'off') throw Object.assign(new Error(), { code: 'privacy.encryption_required' });
     if (!enabled && current.credentialEncryptionV1 === true && confirmPlaintext !== true) throw Object.assign(new Error(), { code: 'privacy.plaintext_confirmation_required' });
     current.credentialEncryptionV1 = enabled;
@@ -90664,7 +90761,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
   try {
     if (req.method === 'GET') {
       const config = await readConfig();
-      if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: process.platform === 'win32', recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
+      if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: LocalSecretCrypto.supported(), recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
         { id: 'nativeText', supported: true }, { id: 'managedMcpText', supported: true },
         { id: 'cli', supported: false }, { id: 'standaloneMcp', supported: false }, { id: 'media', supported: false }, { id: 'serverTools', supported: false },
       ] });
@@ -90788,6 +90885,13 @@ async function externalBotPublicConnection(connection) {
   try { out.configured = externalBotConfigured(connection, await externalBotSecrets(connection)); }
   catch (error) { out.credentialError = externalBotSafeCredentialError(error); }
   return out;
+}
+// A list may contain sixteen local credential owners. Read them in order so one
+// ordinary list request stays within the platform protector's bounded process capacity.
+async function externalBotPublicConnections(connections) {
+  const result = [];
+  for (const connection of connections) result.push(await externalBotPublicConnection(connection));
+  return result;
 }
 function externalBotSafeCredentialError(error) {
   return /^external_credentials\.[a-z_]+$/.test(error?.code) ? error.code : 'external_credentials.unavailable';
@@ -90979,8 +91083,8 @@ async function externalBotDiscoverOperation(body) {
   const label = body.label || '';
   if (!externalBotString(label, 120, true)) throw externalBotError('external_channel.request_invalid');
   const create = body.create === true;
-  // Other platforms have no DPAPI vault: probing is still allowed, persisting a secret is not.
-  if (create && process.platform !== 'win32') throw externalBotError('external_credentials.unsupported', 501);
+  // Unsupported platforms may probe, but cannot persist a local secret.
+  if (create && !LocalSecretCrypto.supported()) throw externalBotError('external_credentials.unsupported', 501);
   const appId = body.appId.trim();
   const discovery = await externalBotDiscoveryProbe(appId, body.appSecret);
   if (!create) return { ok: true, created: 'none', connectionId: '', discovery };
@@ -91294,7 +91398,7 @@ async function externalBotUpdateConnection(body, setupReceipt) {
     const current = state.connections.find(row => row.id === actor.connectionId);
     if (!current || !current.enabled || current.controlRevision !== actor.controlRevision) actor.controller.abort();
   }
-  return { ok: true, connections: await Promise.all(state.connections.map(externalBotPublicConnection)) };
+  return { ok: true, connections: await externalBotPublicConnections(state.connections) };
 }
 async function externalBotAcceptCallback(platform, connectionId, headers, rawBody) {
   const state = await externalBotReadState();
@@ -91405,7 +91509,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
     }
     if (req.method === 'GET' && pathname === '/api/external-bots/connections') {
       const state = await runKeyedChain(externalBotChains, 'state', externalBotReadState);
-      send(res, json({ ok: true, connections: await Promise.all(state.connections.map(externalBotPublicConnection)) })); return true;
+      send(res, json({ ok: true, connections: await externalBotPublicConnections(state.connections) })); return true;
     }
     if (req.method === 'POST' && pathname === '/api/external-bots/connections') {
       const body = externalBotDecodeJson(await externalBotReadBody(req));

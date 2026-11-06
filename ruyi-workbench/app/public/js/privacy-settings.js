@@ -169,6 +169,11 @@ export function mountPrivacySettings({ onSaved = async () => {} } = {}) {
       if (!loaded) { summaryUnknown = true; renderSummary(); }
       if (['privacy.settings_changed', 'privacy.config_changed', 'privacy.settings_conflict'].includes(detail.code)) conflict = true;
       const keys = { 'privacy.regex_timeout': 'regexTimeout', 'privacy.regex_startup_timeout': 'regexTimeout', 'privacy.regex_invalid': 'regexInvalid', 'privacy.regex_empty_match': 'regexEmpty', 'privacy.regex_busy': 'regexBusy', 'privacy.regex_input_limit': 'regexLimit', 'privacy.regex_matches_limit': 'regexLimit', 'privacy.regex_rules_limit': 'regexLimit', 'privacy.preview_input_limit': 'regexLimit', 'privacy.json_sensitive_structure': 'jsonStructure', 'privacy.numeric_sensitive': 'numericSensitive', 'privacy.typed_sensitive': 'typedSensitive', 'privacy.encryption_required': 'encryptionRequired', 'privacy.plaintext_confirmation_required': 'plaintextRequired', 'credential_vault.unsupported': 'encryptionUnsupported', 'privacy.settings_changed': 'settingsChanged', 'privacy.config_changed': 'settingsChanged', 'privacy.settings_conflict': 'settingsChanged' };
+      for (const code of ['permission_required', 'permission_denied']) keys['credential_vault.' + code] = 'keychainPermission';
+      keys['credential_vault.keychain_locked'] = 'keychainLocked';
+      for (const code of ['dependency_missing', 'keychain_unavailable']) keys['credential_vault.' + code] = 'protectorMissing';
+      for (const code of ['key_missing', 'key_changed', 'provider_mismatch']) keys['credential_vault.' + code] = 'protectorRecovery';
+      keys['credential_vault.keychain_corrupt'] = 'keychainRepair';
       status.textContent = t(error instanceof SyntaxError ? 'privacy.rulesInvalid' : 'privacy.' + (detail.code === 'privacy.policy_unavailable' ? 'policyRecoveryRequired' : keys[detail.code] || 'failed'));
     } finally { busy = false; render(); }
   }

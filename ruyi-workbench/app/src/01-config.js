@@ -11,7 +11,7 @@ function defaultConfig() {
     privacyTechnicalV1: false,
     privacyRulesV1: [],
     privacyPolicyRecoveryRequiredV1: false,
-    credentialEncryptionV1: false, // Opt-in DPAPI storage. Existing encrypted references retain their explicit enabled state.
+    credentialEncryptionV1: false, // Opt-in platform-protected storage. Existing encrypted references retain their explicit enabled state.
     version: VERSION,
     agentCliType: 'claude',       // claude | kimi — native Agent CLI driver
     // 123-N2(用户 2026-09-13 真机:「新开线程会默认开 Kimi code cli,我希望改成默认上一次用的」):

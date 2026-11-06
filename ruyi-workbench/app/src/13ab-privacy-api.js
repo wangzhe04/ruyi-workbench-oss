@@ -25,7 +25,7 @@ const PrivacySettings = (() => {
       if (conditional && (body.expectedRuleVersion !== PrivacyGateway.ruleVersion(current) || body.expectedEncryption !== (current.credentialEncryptionV1 === true))) fail('privacy.settings_changed');
       if (Object.hasOwn(body, 'encryption')) {
         if (typeof body.encryption !== 'boolean') fail('privacy.settings_invalid');
-        if (body.encryption && process.platform !== 'win32') fail('credential_vault.unsupported');
+        if (body.encryption && !LocalSecretCrypto.supported()) fail('credential_vault.unsupported');
         if (!body.encryption && body.mode !== 'off') fail('privacy.encryption_required');
         if (!body.encryption && current.credentialEncryptionV1 === true && body.confirmPlaintext !== true) fail('privacy.plaintext_confirmation_required');
         current.credentialEncryptionV1 = body.encryption;
@@ -79,7 +79,7 @@ const PrivacySettings = (() => {
     if (!owner?.sessionId || !Number.isSafeInteger(owner.turnSeq) || !turnSettlers.has(owner.sessionId)) fail('privacy.turn_required');
     if (pending.has(owner.sessionId)) fail('privacy.update_pending');
     if (body.mode !== 'off' && !body.expectedEncryption) body.encryption = true;
-    if (body.encryption && process.platform !== 'win32') fail('credential_vault.unsupported');
+    if (body.encryption && !LocalSecretCrypto.supported()) fail('credential_vault.unsupported');
     pending.set(owner.sessionId, { turnSeq: owner.turnSeq, body: structuredClone(body) });
     return { ...preview, status: 'pending', effective: 'after_successful_turn', note: '本轮正常结束且应用空闲时保存；冲突、停止或失败则不保存。关闭脱敏保留凭据加密。' };
   }
@@ -109,7 +109,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
   const draft = PrivacySettings.draft;
   const encryption = (current, enabled, confirmPlaintext, mode = current.privacyModeV1) => {
     if (typeof enabled !== 'boolean') throw Object.assign(new Error(), { code: 'privacy.settings_invalid' });
-    if (enabled && process.platform !== 'win32') throw Object.assign(new Error(), { code: 'credential_vault.unsupported' });
+    if (enabled && !LocalSecretCrypto.supported()) throw Object.assign(new Error(), { code: 'credential_vault.unsupported' });
     if (!enabled && mode !== 'off') throw Object.assign(new Error(), { code: 'privacy.encryption_required' });
     if (!enabled && current.credentialEncryptionV1 === true && confirmPlaintext !== true) throw Object.assign(new Error(), { code: 'privacy.plaintext_confirmation_required' });
     current.credentialEncryptionV1 = enabled;
@@ -117,7 +117,7 @@ PrivacyCore.configHooks.handleApiRoutes = async (req, res, pathname) => {
   try {
     if (req.method === 'GET') {
       const config = await readConfig();
-      if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: process.platform === 'win32', recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
+      if (req.method === 'GET' && pathname === '/api/privacy/status') reply({ ok: true, encryption: config.credentialEncryptionV1 === true, supported: LocalSecretCrypto.supported(), recoveryRequired: PrivacyGateway.recoveryRequired(), mode: config.privacyModeV1, coverage: 'native-text', activeProvider: config.activeProvider, nativeProviders: nativeProviders(config), channels: [
         { id: 'nativeText', supported: true }, { id: 'managedMcpText', supported: true },
         { id: 'cli', supported: false }, { id: 'standaloneMcp', supported: false }, { id: 'media', supported: false }, { id: 'serverTools', supported: false },
       ] });

@@ -4160,7 +4160,7 @@
   ,"botSetup.copyFailed": "Copy failed. Select and copy the displayed value manually."
   ,"botSetup.unavailable": "Could not open bot setup. Check the connection in settings."
   ,"botSetup.source.error": "Credential could not be read and is not ready. Check the fault before recovery."
-  ,"botSetup.decryptFailed": "Local credentials cannot be decrypted, possibly after a Windows account change or file damage. Existing values are not treated as empty. Explicitly choose full replacement below and re-enter every credential that does not use an environment reference."
+  ,"botSetup.decryptFailed": "Local credentials cannot be decrypted after an account change, missing Keychain key or damaged data. Existing values are not treated as empty. Explicitly choose full replacement below and re-enter every credential without an environment reference."
   ,"botSetup.credentialsUnavailable": "Secure local credential storage is unavailable. Resolve the local fault and check again. Storage mode will not change automatically."
   ,"botSetup.replaceAll": "Replace all local credentials for this connection. Environment references remain unchanged; their leftover local values will be removed."
   ,"botSetup.replaceRequired": "Recovery requires explicit full replacement and every credential without an environment reference. Password fields have cleared."
@@ -4168,7 +4168,7 @@
   ,"botSetup.envUnavailable": "This environment reference has no valid credential. Check its name and Ruyi’s launch environment. Old local values are never used as a fallback."
   ,"botSetup.slotDecryptFailed": "This local credential cannot be decrypted and is not ready. Use full replacement below to recover."
   ,"externalBots.discover": "Discover from app credentials"
-  ,"externalBots.discoverHint": "Enter the Feishu App ID and App Secret. Ruyi probes the fixed official endpoint once, reads the tenant key and bot open_id, prepares a disabled connection and stores the app secret in local credentials (Windows current-user protection). A failed probe stores nothing."
+  ,"externalBots.discoverHint": "Enter the Feishu App ID and App Secret. Ruyi probes the fixed official endpoint once, reads the tenant key and bot open_id, prepares a disabled connection and saves the secret in system-protected local credentials. A failed probe stores nothing."
   ,"externalBots.discoverSecret": "App Secret (local interface only)"
   ,"externalBots.discoverRun": "Probe and prepare"
   ,"externalBots.discoverRunning": "Probing the fixed official Feishu endpoint…"
@@ -4319,7 +4319,7 @@
   ,"privacy.legacy": "Credential encryption is off. Credentials use the existing plaintext local configuration format. Privacy defaults to off."
   ,"privacy.encryptionTitle": "Credential storage"
   ,"privacy.encryptionToggle": "Encrypt locally stored credentials"
-  ,"privacy.encryptionHelp": "Can be enabled independently under the current Windows user. Encryption can stay on while redaction is off. Changes require saving."
+  ,"privacy.encryptionHelp": "Enable separately to protect credentials with the system protector (Windows current user or Mac Keychain). Encryption can stay on after redaction is disabled. Save to apply changes."
   ,"privacy.confirmPlaintext": "I confirm this save will disable credential encryption and store credentials in plaintext locally. Existing encrypted records and backups will remain."
   ,"privacy.saveEncryption": "Apply credential storage"
   ,"privacy.encryptionSaved": "Credential storage updated."
@@ -4463,5 +4463,10 @@
   ,"privacy.menuHint": "Replace sensitive text before sending"
   ,"privacy.ruleEntryPending": "This rule is not in the draft yet. Add or update it, or cancel editing, before saving or reloading."
   ,"privacy.nativeSavedRefreshFailed": "The default engine was saved, but its status could not be refreshed. The old recovery preview was invalidated. Reopen Settings to verify; do not submit again."
-  ,"privacy.nativeCoverage": "Text requests from every provider using Workbench’s native model channels automatically follow the saved redaction policy. Change models or providers in the existing model settings."
+  ,"privacy.nativeCoverage": "Text requests from every provider using Workbench’s native model channels automatically follow the saved redaction policy. Change models or providers in the existing model settings.",
+  "privacy.keychainLocked": "Unlock the login Keychain and retry saving. Existing credentials are unchanged.",
+  "privacy.keychainPermission": "Restore the Workbench access permission in Keychain and retry. Existing credentials are unchanged.",
+  "privacy.protectorMissing": "The local credential protector is unavailable. Repair the Workbench runtime and retry.",
+  "privacy.protectorRecovery": "The local credential key is missing, its identity changed, or data is damaged. Preserve the original data and follow credential recovery.",
+  "privacy.keychainRepair": "The Workbench wrapping key in the system Keychain is damaged. Restore Keychain first; changing the data folder or re-entering credentials cannot repair this key."
 }
