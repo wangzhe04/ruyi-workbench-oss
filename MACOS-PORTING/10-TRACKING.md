@@ -1,6 +1,6 @@
 # 执行与交接看板
 
-更新时间：2026-11-06。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2-01 至 P2-04 本地实现、离线验证与复核已收尾，真实环境验收按用户安排暂缓；P3–P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
+更新时间：2026-11-06。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3–P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
 
 ## 1. 阶段状态
 
@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | P0 | 无 | done（设计/基线） | Codex；独立复核 p0_review | 未核算 | [结果](evidence/P0/README.md) / [复核](evidence/P0/review.json) |
 | P1 | P0 | done（附限制与P4交接） | Codex | 未核算 | [最终收尾](evidence/P1/closeout/README.md) / [启动](evidence/P1/README.md) / [所有权恢复](evidence/P1/ownership/README.md) / [独立复核](evidence/P1/ownership/review.json) / [执行监督](evidence/P1/supervisor/README.md) / [入口接入](evidence/P1/process-integration/README.md) / [Mac shell](evidence/P1/shell/README.md) / [文件策略](evidence/P1/files/README.md) / [helper 运行时门](evidence/P1/helper-gate/README.md) / [单 helper 故障恢复](evidence/P1/helper-loss/README.md) / [能力状态](evidence/P1/capabilities/README.md) / [发现与界面](evidence/P1/discovery-ui/README.md) / [工作树执行](evidence/P1/worktree-runtime/README.md) / [模型探针](evidence/P1/cli-model-probe/README.md) / [清理句柄](evidence/P1/process-handles/README.md) / [文档读取](evidence/P1/document-reader/README.md) / [媒体执行](evidence/P1/media-runtime/README.md) / [rg搜索](evidence/P1/rg-runtime/README.md) / [异步执行探针](evidence/P1/executable-probes/README.md) / [Python探针](evidence/P1/python-probes/README.md) / [同步探针基础](evidence/P1/synchronous-probe-audit/README.md) / [同步探针接入](evidence/P1/synchronous-probes/README.md) / [overlay平台边界](evidence/P1/overlay-boundary/README.md) / [宿主打开](evidence/P1/opener-completion/README.md) / [搜索取消](evidence/P1/search-cancellation/README.md) / [路径匹配取消](evidence/P1/path-cancellation/README.md) / [写队列取消](evidence/P1/write-queue-cancellation/README.md) / [原子写取消与恢复](evidence/P1/atomic-write-cancellation/README.md) / [文件变更恢复](evidence/P1/file-mutation-recovery/README.md) / [临时清理结果](evidence/P1/temporary-cleanup/README.md) / [受控启动布局](evidence/P1/controlled-layout/README.md) / [主回合Stop](evidence/P1/provider-stop/README.md) / [冻结Mac回归](evidence/P1/frozen-mac-regression/README.md) / [验收缺口审计](evidence/P1/acceptance-audit.md) |
-| P2 | P1 | in_progress（本地交付done；真实环境验收暂缓） | Codex | 未核算 | [P2 总览](evidence/P2/README.md) |
+| P2 | P1 | done（用户约定范围；暂缓项未验收） | Codex | 未核算 | [P2 总览](evidence/P2/README.md) |
 | P3 | P1；M1 交付需 P2 | planned | 未分配 | 未记录 | 无 |
 | P4 | P2、P3 | planned | 未分配 | 未记录 | 无 |
 | P5 | P4 | planned | 未分配 | 未记录 | 无 |
@@ -89,3 +89,5 @@
 2026-11-06 P2外部验收审计：两家真实CLI本地协议/工具/权限/停止与原生恢复、Keychain隔离域、核心业务和机器人离线链路均已归档，无未处理代码发现；独立复核确认没有必要的新增本地实现或测试。当前只读检查未发现Windows执行入口，签名有效身份数0，尚无指定账号、专用登录Keychain交互账户或Windows同候选结果。相同外部条件已连续多轮未就绪，P2登记blocked，不标complete。正式签名/升级ACL明确交P4/P6；恢复输入、Windows候选命令及Keychain真实ACL步骤见 [交接清单](evidence/P2/acceptance/HANDOFF.md)与[独立审计](evidence/P2/acceptance/review.json)。未新增代码或测试。
 
 2026-11-06 用户答复真实环境“暂不可用，先完成本地实现与离线验证”。据此本次本地交付收尾，P2的localDelivery=done、externalAcceptance=deferred_by_user，phase保留in_progress。再次核对7批实现指纹和68个最新文件，均匹配当前工作树；独立复核确认无剩余本地实现或必要测试。未重复跑无关套件。真实账号、登录Keychain交互、机器人真实服务和Windows同候选验收暂缓且未记通过；签名ACL等后续事项保留。详见 [本地收尾审计](evidence/P2/local-closeout.json)。
+
+2026-11-06 用户要求“除了暂缓部分，整体验收P2”。已按此范围验收并登记P2/四包done。最终候选 `287d2d21` 完整单元2490通过/18跳过，80静态与31组相关e2e通过；最终过程中修复路由覆盖生成清册遗漏、机器人重启夹具旧令牌竞态，均独立复核及相关复测。仅三类既有暂缓项排除，P3/P4/P6原交接保持，未把未执行项记通过。详见 [最终验收](evidence/P2/final-acceptance/README.md)。

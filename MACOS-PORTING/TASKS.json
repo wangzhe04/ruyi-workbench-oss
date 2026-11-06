@@ -527,7 +527,7 @@
       "dependsOn": [
         "P1"
       ],
-      "status": "in_progress",
+      "status": "done",
       "effortDays": {
         "low": 8,
         "high": 12
@@ -541,7 +541,7 @@
             "high": 3
           },
           "deliverable": "适配 Claude/Kimi 发现、启动、恢复、权限与停止；同步 MCP 清单与模型提示，移除 Mac 上的 Windows 路径要求和无实现工具。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P2/cli/README.md",
@@ -559,21 +559,25 @@
             "evidence/P2/claude-live/README.md",
             "evidence/P2/claude-live/review.json",
             "evidence/P2/claude-live/validation.json",
-            "evidence/P2/claude-live/source-fingerprint.json"
+            "evidence/P2/claude-live/source-fingerprint.json",
+            "evidence/P2/final-acceptance/acceptance.json"
           ],
           "baselineSha": "f4fc6852",
           "implementationCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa",
-          "progress": "平台能力与两家真实CLI本地协议验证完成并独立评审：Kimi0.37.2八场景96通过，Claude2.1.318绝对路径与PATH隔离入口各6项通过，均含原生工具/权限/active prompt停止/同原生会话恢复。真实账号及Windows待验。",
-          "acceptancePending": [
-            "真实Claude/Kimi账号服务联调；两家官方CLI+本地确定性模型的工具、权限、active prompt停止及原生恢复已通过，不等同真实账号服务",
-            "Windows同SHA实机回归未执行"
-          ],
+          "progress": "按用户指定验收范围完成；实现与既有验证见本包证据，最终串行回归和独立复核见P2 final-acceptance。暂缓事项独立保留，未记通过。",
           "incrementalImplementationCommits": [
             "8ebb66387dfc377fccdf43faa57138c9bb4b8a69",
             "921e6a89795bb4069941dfe53a8c1b94247d776d",
             "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7"
           ],
-          "localDeliveryStatus": "done"
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+          "deferredAcceptance": [
+            "真实Claude/Kimi账号服务联调",
+            "Windows同候选实机/CI验收"
+          ],
+          "laterPhaseCarryover": []
         },
         {
           "id": "P2-02",
@@ -583,23 +587,28 @@
             "high": 4
           },
           "deliverable": "实现并测试结构化 helper/Keychain 接口；替换 DPAPI 能力判断、保存/启用门、恢复路径；覆盖拒绝、锁定、数据损坏和身份变化。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P2/keychain/README.md",
             "evidence/P2/keychain/review.json",
             "evidence/P2/keychain/validation.json",
-            "evidence/P2/keychain/source-fingerprint.json"
+            "evidence/P2/keychain/source-fingerprint.json",
+            "evidence/P2/final-acceptance/acceptance.json"
           ],
           "baselineSha": "d4e99e22",
           "implementationCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005",
-          "progress": "Keychain保护器、保存/恢复与机器人本地凭据接入已实现并独立评审；真实隔离KC、2489条单元/18skip、80静态和3组相关e2e通过。正式授权/签名与Windows实机待验。",
-          "acceptancePending": [
-            "正式登录钥匙串的真实授权/拒绝与恢复",
-            "Developer ID和helper升级ACL稳定性（P4/P6复验）",
-            "Windows同SHA实机回归"
+          "progress": "按用户指定验收范围完成；实现与既有验证见本包证据，最终串行回归和独立复核见P2 final-acceptance。暂缓事项独立保留，未记通过。",
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+          "deferredAcceptance": [
+            "登录Keychain实际授权/拒绝交互及恢复",
+            "Windows同候选实机/CI验收"
           ],
-          "localDeliveryStatus": "done"
+          "laterPhaseCarryover": [
+            "正式签名身份及helper升级ACL稳定性：P4/P6"
+          ]
         },
         {
           "id": "P2-03",
@@ -609,22 +618,28 @@
             "high": 3
           },
           "deliverable": "验证 Provider、会话/检查点、管家、多 Agent/工作流、记忆、用量与应用内调度；定义错过任务和重启去重，修复本阶段适配造成的问题。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P2/core/README.md",
             "evidence/P2/core/review.json",
             "evidence/P2/core/validation.json",
-            "evidence/P2/core/source-fingerprint.json"
+            "evidence/P2/core/source-fingerprint.json",
+            "evidence/P2/final-acceptance/acceptance.json"
           ],
           "baselineSha": "ce5a7db3",
-          "progress": "核心业务20组端到端、25条调度专项、完整单元2489通过/18跳过及80静态通过；调度持久化修复经独立评审交付。Windows实机与真实账号服务待验，保持in_progress。",
-          "acceptancePending": [
-            "Windows同SHA实机回归",
-            "真实Claude/Kimi账号服务见P2-01；实际OS睡眠唤醒归P4"
-          ],
+          "progress": "按用户指定验收范围完成；实现与既有验证见本包证据，最终串行回归和独立复核见P2 final-acceptance。暂缓事项独立保留，未记通过。",
           "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b",
-          "localDeliveryStatus": "done"
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+          "deferredAcceptance": [
+            "Windows同候选实机/CI验收",
+            "真实账号服务见P2-01"
+          ],
+          "laterPhaseCarryover": [
+            "真实OS睡眠唤醒：P4"
+          ]
         },
         {
           "id": "P2-04",
@@ -634,23 +649,29 @@
             "high": 2
           },
           "deliverable": "贯通外部机器人本地凭据、环境变量引用、配置/重连及退出回收；网络协议用假端点验证，真实服务另记录联调状态。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P2/bots/README.md",
             "evidence/P2/bots/review.json",
             "evidence/P2/bots/validation.json",
-            "evidence/P2/bots/source-fingerprint.json"
+            "evidence/P2/bots/source-fingerprint.json",
+            "evidence/P2/final-acceptance/acceptance.json"
           ],
           "baselineSha": "0af25d60",
-          "progress": "Mac本地Keychain配置整链与停止派发窗口修复已交付并独立评审；88条bot单元、6组e2e、完整单元2490通过/18跳过与80静态通过。真实服务及Windows待验，保持in_progress。",
+          "progress": "按用户指定验收范围完成；实现与既有验证见本包证据，最终串行回归和独立复核见P2 final-acceptance。暂缓事项独立保留，未记通过。",
           "implementationCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b",
-          "acceptancePending": [
-            "真实QQ/飞书服务联调",
-            "Windows同SHA实机回归",
-            "正式Keychain授权/签名沿P2-02及P4/P6复验"
+          "localDeliveryStatus": "done",
+          "completedDate": "2026-11-06",
+          "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+          "deferredAcceptance": [
+            "真实QQ/飞书账号服务联调",
+            "Windows同候选实机/CI验收",
+            "登录Keychain交互见P2-02"
           ],
-          "localDeliveryStatus": "done"
+          "laterPhaseCarryover": [
+            "正式签名/升级ACL沿P2-02交P4/P6"
+          ]
         }
       ],
       "startedAt": "2026-11-06",
@@ -659,9 +680,15 @@
         "evidence/P2/acceptance/HANDOFF.md",
         "evidence/P2/acceptance/readiness.json",
         "evidence/P2/acceptance/review.json",
-        "evidence/P2/local-closeout.json"
+        "evidence/P2/local-closeout.json",
+        "evidence/P2/final-acceptance/acceptance.json",
+        "evidence/P2/final-acceptance/validation.json",
+        "evidence/P2/final-acceptance/review.json",
+        "evidence/P2/final-acceptance/source-audit.json",
+        "evidence/P2/final-acceptance/source-fingerprint.json",
+        "evidence/P2/final-acceptance/README.md"
       ],
-      "progress": "按用户指定范围，本地实现、离线验证与独立评审已收尾；7批交付复核无剩余代码发现，68个最新文件指纹与工作树一致。真实账号服务、登录Keychain交互和Windows同候选验收暂缓，未记通过；整个P2保持in_progress。",
+      "progress": "P2四个工作包按用户指定排除暂缓项的范围验收完成；当前候选完整单元2490通过/18跳过、80静态通过、31组相关e2e通过。独立评审无未解决发现；路由清册和重启令牌夹具问题已修复并复验。",
       "externalAcceptance": {
         "status": "deferred_by_user",
         "handoff": "evidence/P2/acceptance/HANDOFF.md",
@@ -669,13 +696,33 @@
         "unresolvedCodeFindings": 0,
         "independentLocalWorkRemaining": false,
         "userDecision": "暂不可用，先完成本地实现与离线验证",
-        "decisionDate": "2026-11-06"
+        "decisionDate": "2026-11-06",
+        "acceptanceDecision": "除既有暂缓项外，P2整体验收完成；暂缓项未计通过",
+        "finalScopeEvidence": "evidence/P2/final-acceptance/acceptance.json"
       },
       "localDelivery": {
         "status": "done",
         "completedDate": "2026-11-06",
         "scope": "本地实现、离线验证与独立评审；真实环境验收按用户安排暂缓",
         "evidence": "evidence/P2/local-closeout.json"
+      },
+      "completedDate": "2026-11-06",
+      "completionScope": "按用户“除了暂缓部分，整体验收P2”的范围完成；真实账号、登录Keychain交互、Windows验收保留未验收",
+      "acceptanceScope": {
+        "userDecision": "除了暂缓部分，整体验收P2",
+        "date": "2026-11-06",
+        "status": "passed",
+        "excludedDeferredIds": [
+          "D1",
+          "D2",
+          "D3"
+        ],
+        "evidence": "evidence/P2/final-acceptance/acceptance.json"
+      },
+      "review": {
+        "reviewer": "/root/p2_cli_audit",
+        "status": "passed",
+        "evidence": "evidence/P2/final-acceptance/review.json"
       }
     },
     {

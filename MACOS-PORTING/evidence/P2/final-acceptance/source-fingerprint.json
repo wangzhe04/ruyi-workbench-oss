@@ -1,0 +1,355 @@
+{
+  "candidateCommit": "287d2d2196e50bff49e47b6fe92e299a93565351",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "9934be78a78aec5c28149913b5129f70833e1f527a398acb7935c8b6d88748c1",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "de93b431972938b38f9b48508840c27f40c34f56031c7b1b60625b452ca82bcf",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/claude-resume-recovery.e2e.js",
+      "sha256": "9614b55d08f1c99399dfad5ef7b220acc8caa16dfb9a2dac89018063bf824ae6",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/engine-env-brief.static.e2e.js",
+      "sha256": "7768d730402444a344ca2e5eb46008df4a7e4832133b941b6c082cd9b1c6657a",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/macos-agent-cli-discovery.e2e.js",
+      "sha256": "c76840124405ba50b2e857e1d1d79ef128a77baa6b8f9f4ae324900efc029178",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/macos-capabilities.e2e.js",
+      "sha256": "5188bdd2293d7f831605780511d76a5f53945d02436eb7dd224e0518308d027f",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/macos-mcp-capabilities.e2e.js",
+      "sha256": "bab0151ec800ecd3642c91296ea464870daf4f12a705207412f0fb38e8096b3b",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "sha256": "c67158b9e07422ad773d68061bc17a8d4fe45905915abbbdb3bd1a02329bd0e4",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/agent-cli-registry.test.js",
+      "sha256": "d1b2cadc02a3136ebd43bb4871402ee42aba63484d5c184dd21c4b639f7869fa",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/bridged-tool-search-zh.test.js",
+      "sha256": "fd206be722655e9de24ee8b11e097f4a39e664b530e40db813809edd9282feed",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/exec-result-shape.test.js",
+      "sha256": "8040fd9fbfa562729e0ac2e235023ea20aef792e49c33cca5e3ef98aabcff75e",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/file-tool-checkpoint-integrity.test.js",
+      "sha256": "53a6b288d43811c0fa24246277776ef3ece4cbecab288579905e2ae62c8f79ab",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/privacy-tool-views.test.js",
+      "sha256": "6d21914bd03c27b19530c85e0779d5b98ff67b1b5938675e73a35c07858697bc",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/screenshot-relative-output.test.js",
+      "sha256": "5876cb1e695cd16f49854f4bb667bcf29dcba5ddeda0b24cbd44b26e1e4a1f95",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/tool-dispatch-hardening.test.js",
+      "sha256": "c7d65b8eecea9edaeb11a5335ff49ab964833e91379e07e9d3744f8ea30a56ae",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "dev-harness/unit/tool-loading-cache-aware.test.js",
+      "sha256": "353ccf3b7b7d1e85cc7a16d31e6ad6245c04f5db39ffbb8e3e615de574c32fd8",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "sha256": "6f2850572b0c56f9936f99aab1d5679a3184e0edfdd07b84c8fe90f2a320dd30",
+      "originCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "sha256": "920d4588801203cbf793cde2a8a4ec2df7c578df88b9d6f59bbf4d2391f46d45",
+      "originCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b"
+    },
+    {
+      "path": "facts.json",
+      "sha256": "660ef9bbc4a3857a92a715a7d42239f5d1c1852381c1f1810dddebf9bc7f6051",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "473f3bea74bc68c02edd4267154f86c806064df0c93fd11fe53251ff591d74a6",
+      "originCommit": "8ebb66387dfc377fccdf43faa57138c9bb4b8a69"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "15dafdb70a600ad5fa64a5be941637a05653527d41f6e651fed23e7ab6281001",
+      "originCommit": "8ebb66387dfc377fccdf43faa57138c9bb4b8a69"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01f-agent-cli-types.js",
+      "sha256": "677f7062e2f3404ee209c698e6c0477fe92dee7bad40d715377439f7ac8cc9a7",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06-provider-engine.js",
+      "sha256": "6dcd7aa1f0f7937c2b68df7bc8da2c7cd28d5b8bb4e9ceb27dbaadb7223a1833",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/06b-prompt-registry.js",
+      "sha256": "725d1c743ec2c39f6b5c6870fb864f79a2f8cafd482c8a4cb6be38c4321fe249",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/07-autonomy.js",
+      "sha256": "dd6b22cd2516144effcc3e93ae4479da38c00eb6e5ac210d20e5648b0479144e",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/11-native-tools.js",
+      "sha256": "b83ec5e9d27fff84eda68d284838dfe154b05841c457f192035259fbfa59706a",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/12-tool-dispatch.js",
+      "sha256": "6fe448db09030f077aa3e73df8117b43d68ad2249a14d79d0932d34453cd2219",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13-http-router.js",
+      "sha256": "ab7e593ec804ce6b7c15be1518b25f3251cfb24e6c4823d31f83e1909c810dc6",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13f-native-tool-schemas.js",
+      "sha256": "a734d5f3cd570f9d3d9f3e2d1034726a7674e2a7da014bf728f91e33bceeb6fb",
+      "originCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "afb14ba4d90dd20d094b987a134513d3d6125f16cc5391f402f1e24cc2e3896f",
+      "originCommit": "8ebb66387dfc377fccdf43faa57138c9bb4b8a69"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "56ca6a0b40a5c65a6f1ebe0b4786d3ca47f818022b37e2d0a499ce873f5688a7",
+      "originCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b"
+    },
+    {
+      "path": "dev-harness/credential-vault.e2e.js",
+      "sha256": "89371ecabd1ac85cd9b91b383a507e5db960ca5c090065356b1c157b52e158f8",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/durable-state-inventory.js",
+      "sha256": "594131cea53211124ac56954e88a5ccd60b6e4dac905cc735e4568c8b4f05dc1",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/external-bot-discovery.e2e.js",
+      "sha256": "32bb81cbadcc5688e4ae60d1327cf0147873d5ecadd3e8030c2477234e9c54f3",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/lib/macos-keychain-fixture.js",
+      "sha256": "ffa7a7c352e43b0fbac0a8c4c1cf0c6ae19902c3916759293699050ee03ab5e9",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/macos-keychain.e2e.js",
+      "sha256": "9adbb27e029fd8f0d75c5f0897107e3f7a042d6602f264586037f06d9fb34a6e",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/native/macos-keychain-fixture.m",
+      "sha256": "c8cc11166076f5d7b43a96caf1a37f5e24fcbe0fc12e0246dda8e541081edfd1",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/unit/credential-encryption-settings.test.js",
+      "sha256": "7dfe40beb957885df897c2ab73e04e9c50247ac54108ffc883854f6f109bc386",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/unit/credential-recovery.test.js",
+      "sha256": "b3c451920a231a581dd1c37471dc8ae34aba17d4cf12aa683b1f3414dce1907c",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/unit/external-bot-credentials.test.js",
+      "sha256": "eb4ab03b0a31bfc2892b88b5add2813fe60bc51c4ad51e06095ed757e75e2333",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/unit/external-bot-setup-ui.test.js",
+      "sha256": "8e76842540906da4e0cb784ce9b4550f3f35b6c3c100a8382a1ee98dd2ecdcfd",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/unit/steward-privacy-settings.test.js",
+      "sha256": "6fe5577af8afc2732ae7afd090b277ed0d3faae635ae87a655f0e824a5fba9e5",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.json",
+      "sha256": "ef5c5e86b34e239c2737a445f3ecea67cdfc0ad00b291a7143a6dce638c70c0b",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.md",
+      "sha256": "20223e0e9761b1d7c9b2b5d6abe4511bd23c639915e3a0d551b95cbdb4d8b2ab",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "docs/i18n/locales/en-US.json",
+      "sha256": "973ac63221be54c5250778f3c7a46046acbb0217ce27b0e3f994a577351c0ac7",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "docs/i18n/locales/zh-CN.json",
+      "sha256": "9d8eb62d08b03f48a87af73a8601d920dbda457093fbfb88bdcfd9004acebc34",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/external-bot-setup.js",
+      "sha256": "89fcd988495f0bce190a0bbffd4a065cadb54ef118cd161463025073c11649f7",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/privacy-settings.js",
+      "sha256": "93236d4df224da5b627658c4ff4874f468a9b693cdf3f3c0fdde65ed8ce34f44",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/en-US.json",
+      "sha256": "973ac63221be54c5250778f3c7a46046acbb0217ce27b0e3f994a577351c0ac7",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "sha256": "9d8eb62d08b03f48a87af73a8601d920dbda457093fbfb88bdcfd9004acebc34",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01j-local-crypto.js",
+      "sha256": "e0fb24dfb4785ce18ed3e440900fa8c0b0cb053bc499e45db898faa6656e125c",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01k-credential-vault.js",
+      "sha256": "91ffd2e3513ad4cacdbb710df4f9ea071869b0b1e41be9f12b17230f6f1d81fd",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01l-credential-recovery.js",
+      "sha256": "c3577dff7dae7364f28b4495b1e2e4d2345cab58b7e33dbe51c7ca6824a55a72",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "c43a072b27ddf2a69893b686e1a8bcf9ef95b9485c0f502db4bdb25e0cfb1ec4",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "e9a3911b077fe830286f3526923068b16a95de25182e0ca4b91f1cef11e1ba67",
+      "originCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "sha256": "6a35c6b0f9ddaecae835d305ae47416660f1236ab9a934af6f460b491c14fe16",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-keychain-helper.m",
+      "sha256": "1e1dfdea92eca0f86fccc52016db14576878e2f1bbc90bbe8257638fc36d5615",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-keychain-helper.js",
+      "sha256": "e5ece6edd3d4123fe887a89f21101a77b629becef25fdc389b507f38f2e83872",
+      "originCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005"
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "sha256": "d7f3a73290d9b3ebeed78e38a4a8c116d343f2165fcaddb5547277dd9cc69e00",
+      "originCommit": "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7"
+    },
+    {
+      "path": "dev-harness/scheduler-crash.e2e.js",
+      "sha256": "af21ed4098c6a3f49b61ff690ec0e1a9fbf85c10f0103e20d5da496062808a77",
+      "originCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13s-scheduler.js",
+      "sha256": "e81e6d4c167190ae46fd5619df7c913cb8b90ab2f5cfbfed9e27eeb681e264ec",
+      "originCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b"
+    },
+    {
+      "path": "dev-harness/external-bot-setup.e2e.js",
+      "sha256": "cf0637ca0238732b2455e15ced567e4b227f8f41c3706f6d06947273eda1b1b9",
+      "originCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b"
+    },
+    {
+      "path": "dev-harness/external-bots-control.e2e.js",
+      "sha256": "cee01e2d9b64d006d755162db975227ad594776c38c2e8a9173f162afe0eb440",
+      "originCommit": "287d2d2196e50bff49e47b6fe92e299a93565351"
+    },
+    {
+      "path": "dev-harness/unit/external-bots-inbox.test.js",
+      "sha256": "d250acd58627cecdeb8279704e0791b65dfcedb57789fa00ec716e730dc68f49",
+      "originCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b"
+    },
+    {
+      "path": "dev-harness/kimi-acp-live-probe.js",
+      "sha256": "616030589ee9f6a9f524cc5f1bedad15b80a0f9c1bfa36237721ac8b197d5781",
+      "originCommit": "921e6a89795bb4069941dfe53a8c1b94247d776d"
+    },
+    {
+      "path": "dev-harness/kimi-agent-cli.e2e.js",
+      "sha256": "99c561377aae83e32f156652addda8ab3daccd5c34a4bcaea52054f1872c309f",
+      "originCommit": "8ebb66387dfc377fccdf43faa57138c9bb4b8a69"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "sha256": "fae1d23a736282cfd986ca1d6d6c64fba8b3df543c14d9b855f5a0ee9633465b",
+      "originCommit": "8ebb66387dfc377fccdf43faa57138c9bb4b8a69"
+    },
+    {
+      "path": "dev-harness/claude-binary-live.e2e.js",
+      "sha256": "15eddb25eaba1622ffb4df08af6663c47a82222f007ef7e094a5397a0df4145d",
+      "originCommit": "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7"
+    },
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "sha256": "8117adf58ad344054e4241368caa02d6fe7799c57d7d2a7d844fc5a07d9ad953",
+      "originCommit": "55be6d9b65f575bcbdac4f97c1c1375aecebe09f"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "sha256": "df0b2078befe9fd39563ea7eebd4fa691c6596b5434690157bfc10cf3a97b716",
+      "originCommit": "55be6d9b65f575bcbdac4f97c1c1375aecebe09f"
+    }
+  ]
+}

@@ -55,5 +55,6 @@
     "kimi-lifecycle",
     "claude-live",
     "acceptance"
-  ]
+  ],
+  "subsequentScopedAcceptance": "final-acceptance/acceptance.json"
 }

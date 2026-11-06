@@ -1,0 +1,96 @@
+{
+  "date": "2026-11-06",
+  "status": "done_in_user_approved_scope",
+  "userDecision": "除了暂缓部分，整体验收P2",
+  "candidateCommit": "287d2d2196e50bff49e47b6fe92e299a93565351",
+  "acceptanceScope": "P2全阶段，排除用户已明确暂缓项；既定后续阶段交接保持原归属",
+  "scopeRequirements": [
+    {
+      "id": "P2-01",
+      "requirement": "CLI发现/启动/权限/停止/恢复；平台工具、MCP/schema与提示一致",
+      "evidence": [
+        "../cli/validation.json",
+        "../cli-live/validation.json",
+        "../kimi-lifecycle/validation.json",
+        "../claude-live/validation.json"
+      ],
+      "review": "satisfied_in_approved_scope"
+    },
+    {
+      "id": "P2-02",
+      "requirement": "Mac保护器、保存启用门、typed拒绝、锁定/缺失/损坏/恢复、版本信封与跨provider拒绝",
+      "evidence": [
+        "../keychain/validation.json"
+      ],
+      "review": "satisfied_in_approved_scope"
+    },
+    {
+      "id": "P2-03",
+      "requirement": "Provider、会话/检查点、管家、多Agent/工作流、记忆、用量、调度错过策略与重启去重",
+      "evidence": [
+        "../core/validation.json"
+      ],
+      "review": "satisfied_in_approved_scope"
+    },
+    {
+      "id": "P2-04",
+      "requirement": "机器人本地凭据/env引用、配置/配对、HTTP重试去重、撤权与退出/冷恢复",
+      "evidence": [
+        "../bots/validation.json"
+      ],
+      "review": "satisfied_in_approved_scope"
+    }
+  ],
+  "excludedDeferredAcceptance": [
+    {
+      "id": "D1",
+      "requirement": "Claude/Kimi及QQ/飞书真实账号服务联调",
+      "status": "deferred_by_user_not_verified"
+    },
+    {
+      "id": "D2",
+      "requirement": "登录Keychain的实际允许/拒绝交互与恢复",
+      "status": "deferred_by_user_not_verified"
+    },
+    {
+      "id": "D3",
+      "requirement": "Windows同SHA实机或CI验收",
+      "status": "deferred_by_user_not_verified"
+    }
+  ],
+  "existingLaterPhaseCarryover": [
+    {
+      "requirement": "正式签名身份/helper升级ACL",
+      "phase": "P4/P6",
+      "status": "pending"
+    },
+    {
+      "requirement": "真实OS睡眠唤醒/App宿主生命周期",
+      "phase": "P4",
+      "status": "pending"
+    },
+    {
+      "requirement": "最低系统、依赖与离线发行",
+      "phase": "P3/P6",
+      "status": "pending"
+    }
+  ],
+  "finalValidation": "validation.json",
+  "sourceAudit": "source-audit.json",
+  "sourceFingerprint": "source-fingerprint.json",
+  "independentReview": "review.json",
+  "scopedP2AcceptanceComplete": true,
+  "unrestrictedRealEnvironmentAcceptanceComplete": false,
+  "scopeBoundary": "Only the three existing deferred groups are excluded; no new P2 requirement deferred. Production behavior unchanged. Route coverage inventory and bot restart fixture readiness were corrected and independently reviewed.",
+  "remainingRequiredWorkInApprovedScope": [],
+  "validationSummary": {
+    "unitPassed": 2490,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "relatedE2ePassed": 31,
+    "finalCheckEntriesPassed": 37,
+    "finalFailed": 0,
+    "fastRunnerLiveEntriesSkipped": 7
+  },
+  "completionDate": "2026-11-06"
+}

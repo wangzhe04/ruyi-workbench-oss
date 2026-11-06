@@ -1,0 +1,26 @@
+PASS built-in debate and implementation templates are available
+PASS implementation and conditional fix stages use the specialized Coder role
+PASS root-cause workflow delegates the confirmed fix to Coder
+PASS built-in workflow nodes inherit role budgets instead of pinning the old maxIters=6 default
+PASS every high-risk evidence gate declares findings[].evidenceRefs output contract
+PASS non-gate source nodes stay free-text without a forced verdict schema
+PASS codebase-audit finding nodes carry no implicit review gate
+PASS debug-root-cause reproduce node carries no implicit verify gate
+PASS the downstream verify node still gates the audit
+PASS context / replan / reportedDependsOn survive normalization
+PASS nodes without them keep the old shape
+PASS synthesizer prompt matches its plan-mode permissions
+PASS only nine upstream-dependent reviewer/verifier nodes enable the evidence-blocking gate
+PASS conditional review preserves verdict while requiring machine-verifiable evidence
+PASS conditional fix still branches on review.verdict=fail
+PASS personal workflow and graph position are persisted
+PASS legacy saved maxIters=6 is treated as an inherited default
+PASS explicit workflow maxIters is capped at 300
+PASS project workflow overrides a personal workflow with the same id
+PASS conditions and loop policy survive normalization and storage
+PASS legacy personal/project workflows remain compatible without evidence output contracts
+PASS stored condition evaluates against structured predecessor output
+PASS deleting project override reveals the personal workflow
+PASS personal workflow can be deleted without affecting built-ins
+
+AGENT WORKFLOW TEMPLATES E2E: ALL PASS

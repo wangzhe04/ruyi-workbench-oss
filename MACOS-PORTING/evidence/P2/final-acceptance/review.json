@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-06",
+  "reviewer": "independent agent /root/p2_cli_audit",
+  "candidateCommit": "287d2d2196e50bff49e47b6fe92e299a93565351",
+  "result": "reviewed_no_unresolved_findings",
+  "scope": "All P2 requirements except the three existing user-deferred groups; original later-phase assignments retained",
+  "requirementsMapping": [
+    {
+      "id": "P2-01",
+      "requirement": "CLI发现/启动/权限/停止/恢复；平台工具、MCP/schema与提示一致",
+      "evidence": [
+        "../cli/validation.json",
+        "../cli-live/validation.json",
+        "../kimi-lifecycle/validation.json",
+        "../claude-live/validation.json"
+      ],
+      "review": "satisfied_in_approved_scope"
+    },
+    {
+      "id": "P2-02",
+      "requirement": "Mac保护器、保存启用门、typed拒绝、锁定/缺失/损坏/恢复、版本信封与跨provider拒绝",
+      "evidence": [
+        "../keychain/validation.json"
+      ],
+      "review": "satisfied_in_approved_scope"
+    },
+    {
+      "id": "P2-03",
+      "requirement": "Provider、会话/检查点、管家、多Agent/工作流、记忆、用量、调度错过策略与重启去重",
+      "evidence": [
+        "../core/validation.json"
+      ],
+      "review": "satisfied_in_approved_scope"
+    },
+    {
+      "id": "P2-04",
+      "requirement": "机器人本地凭据/env引用、配置/配对、HTTP重试去重、撤权与退出/冷恢复",
+      "evidence": [
+        "../bots/validation.json"
+      ],
+      "review": "satisfied_in_approved_scope"
+    }
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "finding": "Claude live probe added three existing endpoint references without refreshing route coveredBy inventory",
+      "resolution": "Original generator refreshed two inventory artifacts; 175 routes/161 auth unchanged; independent review and static check pass",
+      "commit": "55be6d9b",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "F2",
+      "finding": "Bot restart fixture read old runtime token after health became available but before current runtime publication; deterministic delayed rename reproduces403",
+      "resolution": "Wait for runtime.pid===server.pid; explicit HTTP diagnostics and existing controlled delay retain all business assertions. Green revalidation plus direct contracts passed.",
+      "commit": "287d2d2196e50bff49e47b6fe92e299a93565351",
+      "status": "resolved_reviewed"
+    }
+  ],
+  "independentConclusions": [
+    "Every non-deferred work package has valid implementation and verification evidence",
+    "Exactly three deferred groups excluded; no additional P2 requirement postponed",
+    "Formal signing/upgrade ACL, actual sleep/wake, minimum system and distribution remain in original P3/P4/P6",
+    "Generator and fixture fixes minimal; no production change or new test file",
+    "Scope/acceptance draft and both fixes independently reviewed; final runtime results executed serially by primary agent"
+  ],
+  "finalValidation": {
+    "unitPassed": 2490,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "relatedE2ePassed": 31,
+    "finalCheckEntriesPassed": 37,
+    "finalFailed": 0,
+    "fastRunnerLiveEntriesSkipped": 7
+  },
+  "evidenceBoundary": "P2 accepted only within the user-approved scope. Real accounts, login Keychain interaction and Windows not verified. First failed attempts remain archived. Reviewer did not duplicate runtime tests.",
+  "finalDocumentationReview": "Scope/candidate/status/deferred records and all 37 final check records independently checked. Clarified overview label to “验收完成，暂缓项除外”; no unresolved implementation, validation or scope finding."
+}
