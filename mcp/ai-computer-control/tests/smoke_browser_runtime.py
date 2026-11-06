@@ -92,7 +92,9 @@ class BrowserRuntime(unittest.IsolatedAsyncioTestCase):
 
     async def test_installed_mac_browser_detection_retains_windows_resolver(self):
         b = self.browser
-        mac = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        # sys.platform is simulated; os.path still follows the test host. Match
+        # the resolver's path construction on Windows as well as on macOS.
+        mac = os.path.join("/Applications", "Google Chrome.app", "Contents", "MacOS", "Google Chrome")
         with patch.dict(os.environ, {"ACC_BROWSER_EXECUTABLE": ""}), patch.object(b.sys, "platform", "darwin"), \
              patch.object(b.os.path, "isfile", side_effect=lambda p: p == mac), patch.object(b.os, "access", return_value=True):
             self.assertEqual(b._managed_executable("managed"), mac)
