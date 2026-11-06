@@ -33,6 +33,7 @@ _PLT = None
 
 # Wire the CJK font into matplotlib exactly once (font cache + rcParams). Done lazily on first render.
 _FONT_READY = False
+_FONT_INFO = None
 
 
 def _unavailable(detail: str = "") -> dict:
@@ -64,25 +65,29 @@ def _protected_write_guard(path: str, allow_protected: bool):
 def _ensure_font() -> dict:
     """Register the CJK font file with matplotlib and set it as the default family. Returns the
     font_chain() dict (carries a 'warning' if no CJK font file was found)."""
-    global _FONT_READY
+    global _FONT_READY, _FONT_INFO
     import matplotlib
     info = style_tokens.font_chain()
     if _FONT_READY:
-        return info
+        return _FONT_INFO or info
+    info = dict(info)
     if info.get("path"):
         try:
             import matplotlib.font_manager as fm
             fm.fontManager.addfont(info["path"])
             family = fm.FontProperties(fname=info["path"]).get_name()
+            info["family"] = family
             matplotlib.rcParams["font.sans-serif"] = [family, info["family"], "Microsoft YaHei",
                                                       "SimHei", "SimSun", "DejaVu Sans"]
             matplotlib.rcParams["font.family"] = "sans-serif"
-        except Exception:
+        except Exception as exc:
             # Best-effort: fall back to family-name-only hint.
             matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "SimSun", "DejaVu Sans"]
+            info.update(path=None, family=None, warning=f"无法加载中文字体，图中中文可能显示为方块: {exc}")
     # ASCII minus sign renders fine; disable the unicode minus that some CJK fonts lack a glyph for.
     matplotlib.rcParams["axes.unicode_minus"] = False
     _FONT_READY = True
+    _FONT_INFO = info
     return info
 
 

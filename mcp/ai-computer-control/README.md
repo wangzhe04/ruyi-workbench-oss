@@ -172,6 +172,31 @@ RUYI_ACC_REQUIRED=1 node dev-harness/macos-acc-shared.e2e.js
 
 此处为开发环境说明。最低 macOS 14、干净机离线发行与正式签名仍按 P3/P6 交接验证。
 
+### macOS Office 产物验证（P3-02）
+
+Office 默认使用本机可发现的 Mac 中文字体；图表注册字体文件并报告实际 family，PDF 尽量嵌入 TrueType 子集。
+没有可嵌入字体时，PDF 明确提示阅读器字体回退；不存在或损坏的图表字体也保留提示。系统字体不随仓库分发。
+空白 PDF 可能没有字体资源，最终嵌入事实以独立读取产物为准。
+`pdf_read_pages` 省略页码时最多读取实际存在的前 5 页；显式指定的越界页码仍会拒绝。
+
+固定输入为 `tests/fixtures/macos-office-sample.json`。仓库根目录下的
+`MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-office.lock.txt` 锁定已验证的 60 个运行依赖；
+ACC 源码 wheel 单独构建。先准备本平台的 wheel 缓存，再以 `--no-index --find-links` 在新虚拟环境重放。
+该锁文件记录 macOS 27.0.1/arm64/CPython 3.12.10 的开发环境，最低系统与正式离线发行仍需后续验证。
+
+从仓库根目录执行（先安装同一套运行依赖）：
+
+```bash
+RUYI_OFFICE_REQUIRED=1 RUYI_OFFICE_ARTIFACT_DIR=/tmp/ruyi-office-samples node dev-harness/macos-office-artifacts.e2e.js
+python mcp/ai-computer-control/tests/verify_macos_office_sample.py <输出的样例目录>
+node MACOS-PORTING/probes/render-office-samples.cjs <输出的样例目录>
+```
+
+MCP 专项使用真实工作台代理、真实 ACC、检查点和 HTTP 回滚；原有文件逐字节恢复，新产物撤销删除。
+`RUYI_ACC_PYTHON` 可指定隔离解释器；验证非 editable 安装时加 `RUYI_ACC_INSTALLED_ONLY=1`。
+渲染探针使用私有 HOME/profile/font-cache，加载本机字体，输出全新的 `renders-*` 目录以避免旧 PDF 假绿；
+需预先提供 LibreOffice，或用 `RUYI_OFFICE_RENDERER` 指定其可执行文件。转换后的 PDF 仍要独立读回和逐页目视检查。
+
 ## MCP 配置
 
 在 Claude Desktop 或其他支持 MCP 的 AI 工具中添加如下配置：

@@ -1477,6 +1477,10 @@ def _pdf_font_candidates():
             ("WQYZenHei", "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", None),
             ("WQYMicroHei", "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc", None),
         ]
+    import sys
+    if sys.platform == "darwin":
+        cands += [("MacCJK" + str(i), regular, bold)
+                  for i, (_family, regular, bold) in enumerate(style_tokens.mac_font_candidates())]
     return cands
 
 
@@ -1488,9 +1492,9 @@ def _resolve_cjk_font():
     Preference chain (first that works wins):
       1. C:\\Windows\\Fonts\\msyh.ttc   (Microsoft YaHei, TTFont subfontIndex=0; msyhbd.ttc as bold)
       2. C:\\Windows\\Fonts\\simsun.ttc (SimSun,          TTFont subfontIndex=0)
-      2b. (non-Windows) Noto Sans CJK / WenQuanYi when installed
+      2b. (non-Windows) Noto Sans CJK / WenQuanYi; installed macOS TrueType faces
       3. reportlab built-in UnicodeCIDFont('STSong-Light') — zero external files
-         (the CID font is resolved by the PDF *reader*)
+         (the CID font is resolved by the PDF *reader*, with an explicit warning)
       4. Helvetica (Latin only, extreme fallback) + a warning that Chinese may not show
 
     The chosen face is also registered as a font FAMILY (bold -> real bold face when one exists, else the
@@ -1535,7 +1539,8 @@ def _resolve_cjk_font():
     try:
         pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
         _family("STSong-Light", None)
-        _PDF_FONT_CACHE = {"name": "STSong-Light"}
+        _PDF_FONT_CACHE = {"name": "STSong-Light",
+                           "warning": "未找到可嵌入的中文字体，PDF 使用阅读器提供的 STSong-Light；跨设备显示需验证"}
         return _PDF_FONT_CACHE
     except Exception:
         pass
@@ -1610,7 +1615,7 @@ def write_pdf(
         allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path' (abs), 'pages', 'font' (+ 'warning' on the Helvetica fallback). Missing
+        dict with 'success', 'path' (abs), 'pages', 'font' (+ 'warning' when relying on reader fonts). Missing
         reportlab -> {'error': install guidance}. A target held open by another program ->
         {'error', 'code': 'file_locked', 'hint'}.
     """
