@@ -1,0 +1,29 @@
+(node:23087) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/external-bot-setup.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unread/failed setup never offers credential or authorization controls (7.484042ms)
+✔ dedicated password save sends only explicit slots and clears DOM before response (0.958167ms)
+✔ environment sources are not silently overwritten (0.618708ms)
+✔ pair writes carry the observed CAS token and never owner identities (9.580959ms)
+✔ candidate confirmation captures the original token, not a later polling snapshot (0.791459ms)
+✔ closing stops pairing poll and clears password values; late reads cannot reopen (0.321667ms)
+✔ old write completion cannot release the next connection write owner (0.324792ms)
+✔ restart invalidates active pairing and pending confirmation without authorizing (0.246084ms)
+✔ malformed candidate/source snapshots fail closed and external labels remain text (0.340334ms)
+✔ enabled setup is readonly and does not claim a platform probe or execute a test instruction (0.295542ms)
+✔ copy failure from a prior connection cannot overwrite the new guide (0.318666ms)
+✔ decrypt failure recovery is explicit, full local replacement and environment removal only (0.825ms)
+✔ server setup act is repeatable pure navigation, never a steward act request (2.308625ms)
+✔ polling is bounded and stops at expiry without issuing any POST (4.289666ms)
+✔ a read admitted before a write cannot replace the successful write snapshot (0.31175ms)
+✔ missing environment credential keeps its source visible and does not disable unrelated local entry (0.192ms)
+✔ background page suspends pairing checks and foreground resumes only a bounded active window (0.1965ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65.687208

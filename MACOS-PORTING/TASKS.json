@@ -565,9 +565,22 @@
             "high": 4
           },
           "deliverable": "实现并测试结构化 helper/Keychain 接口；替换 DPAPI 能力判断、保存/启用门、恢复路径；覆盖拒绝、锁定、数据损坏和身份变化。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P2/keychain/README.md",
+            "evidence/P2/keychain/review.json",
+            "evidence/P2/keychain/validation.json",
+            "evidence/P2/keychain/source-fingerprint.json"
+          ],
+          "baselineSha": "d4e99e22",
+          "implementationCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005",
+          "progress": "Keychain保护器、保存/恢复与机器人本地凭据接入已实现并独立评审；真实隔离KC、2489条单元/18skip、80静态和3组相关e2e通过。正式授权/签名与Windows实机待验。",
+          "acceptancePending": [
+            "正式登录钥匙串的真实授权/拒绝与恢复",
+            "Developer ID和helper升级ACL稳定性（P4/P6复验）",
+            "Windows同SHA实机回归"
+          ]
         },
         {
           "id": "P2-03",

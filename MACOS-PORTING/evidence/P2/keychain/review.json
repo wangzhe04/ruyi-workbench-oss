@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-06",
+  "reviewer": "independent agent /root/p2_cli_audit",
+  "scope": [
+    "Native fixed-namespace Keychain helper and build/test-domain separation",
+    "Versioned Mac envelopes, unchanged Windows DPAPI, typed failure propagation and no plaintext fallback",
+    "Credential APIs, portable recovery, bot persistence/list concurrency and frontend recovery",
+    "Disposable Keychain fixtures and existing test changes"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "New permanent bot decryption causes were absent from the existing full-replacement UI",
+      "resolution": "Added key_missing/key_changed/provider_mismatch to explicit recovery; existing UI journey covers old decrypt_failed and a new key_missing case",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R2",
+      "finding": "A damaged global wrapping key cannot be repaired by re-entering bot secrets or changing the data directory",
+      "resolution": "Removed keychain_corrupt from full-replacement causes; startup/UI require system Keychain recovery or a separate healthy OS account/machine",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R3",
+      "finding": "Promise.all over up to 16 bot credential owners exceeds the four-helper process limit during a normal list request",
+      "resolution": "Both list call sites reuse serial externalBotPublicConnections; the real Mac Keychain e2e checks five healthy local connections",
+      "status": "resolved_reviewed"
+    }
+  ],
+  "independentValidation": {
+    "dpapiPreservation": "functionBlock comparison: runDpapi body identical to original run",
+    "dependencyGraph": "31-module SCC retained",
+    "locales": "both locale JSON files parse",
+    "gitDiffCheck": "pass",
+    "finalReview": "no unresolved executable findings; no unnecessary production framework or redundant test files"
+  },
+  "result": "reviewed_no_unresolved_code_findings",
+  "testDiscipline": "One new Mac e2e, shared disposable fixture reused by the original discovery HTTP test; no new unit test file; existing Windows mock assertions retained.",
+  "unverified": [
+    "Production login Keychain authorization and real OS user-denial recovery",
+    "Formal signing identity / helper upgrade ACL stability (P4/P6)",
+    "Windows same-SHA runtime, minimum macOS 14, clean offline distribution",
+    "Real external bot service connectivity"
+  ],
+  "evidenceBoundary": "Real isolated Keychain lock/unlock/missing/damaged/key-material change are exercised. Permission denial/requirement uses fake IPC responses; replace-key does not prove signing identity migration. Reviewer ran no concurrent e2e and accessed no login Keychain.",
+  "implementationCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005",
+  "documentationClarification": "Preview does not write application config/vault or imported credentials; first use may initialize a random system wrapping key."
+}
