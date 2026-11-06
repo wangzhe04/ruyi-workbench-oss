@@ -67,7 +67,9 @@ test('[N4] 命令 / 桌面工具开关在分发点也生效(且与 offer 面同�
   assert.equal(viaProxy.code, 'tool-disabled');
   assert.equal(fs.existsSync(proof), false);
   // 会话级桌面覆盖 true 放行(全局关也一样);覆盖 false 拒
-  assert.equal(H.nativeToolDisabledByPolicy('desktop_screenshot', off, true), '');
+  const overridden = H.nativeToolDisabledByPolicy('desktop_screenshot', off, true);
+  if (process.platform === 'darwin') assert.match(overridden, /platform\.unsupported/, 'session override cannot supply a missing platform implementation');
+  else assert.equal(overridden, '');
   assert.notEqual(H.nativeToolDisabledByPolicy('desktop_screenshot', { allowDesktopTools: true }, false), '');
   // offer 面:被拒的工具不在 schema 里
   const names = buildOpenAiTools({ ...off, toolLoadingMode: 'auto' }, null, {}).map(t => t.function.name);
@@ -130,8 +132,11 @@ test('[N5] 入参按工具自己的 schema 校验:必填 / 类型 / enum / items
 test('[N5b] 宽进:枚举大小写 / 布尔 0-1 / 逗号串数组被规范成正统值,处理器看到的是规范值', () => {
   const V = H.validateNativeToolArgs;
   let a = { language: 'PowerShell', code: 'Write-Output 1' };
-  assert.equal(V('script_run', a), null, 'script_run language:PowerShell 修前被拒');
-  assert.equal(a.language, 'powershell', '就地规范成 schema 里的正统值');
+  if (process.platform === 'darwin') assert.equal(V('script_run', a).code, 'invalid-arguments', 'PowerShell has no Mac implementation');
+  else {
+    assert.equal(V('script_run', a), null, 'script_run language:PowerShell 修前被拒');
+    assert.equal(a.language, 'powershell', '就地规范成 schema 里的正统值');
+  }
   for (const [given, canon] of [['Node', 'node'], ['NODE', 'node'], [' Python ', 'python']]) {
     a = { language: given, code: 'x' };
     assert.equal(V('script_run', a), null, given);

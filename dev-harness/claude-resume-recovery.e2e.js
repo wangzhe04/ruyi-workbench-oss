@@ -178,7 +178,7 @@ process.stdin.on('data',()=>{
     const fourthMeta = fourth.find(e => e.type === 'meta');
     const callsAfterFourth = invocations();
     ok(fourthMeta && fourthMeta.resumeResetReason === 'cwd-changed', 'working-directory switch proactively resets the cwd-scoped binding');
-    ok(callsAfterFourth.at(-1).cwd === WS_B && !callsAfterFourth.at(-1).args.includes('--resume'), 'cwd-switch turn runs in the new workspace without stale resume');
+    ok(fs.realpathSync(callsAfterFourth.at(-1).cwd) === fs.realpathSync(WS_B) && !callsAfterFourth.at(-1).args.includes('--resume'), 'cwd-switch turn runs in the new workspace without stale resume');
     ok(fourth.some(e => e.type === 'result' && e.ok === true), 'cwd-switch turn succeeds');
   } catch (err) {
     failures++;

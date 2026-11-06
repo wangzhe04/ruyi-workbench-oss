@@ -1,0 +1,13 @@
+PASS normal model discovery preserves aliases, context lengths and split UTF-8
+PASS Kimi discovery preserves its own model catalog semantics
+PASS model probe is registered with immutable caller ownership
+PASS natural probe exit stops its writing descendant before reporting success
+PASS invalid JSON retains the configured fallback model
+PASS nonzero exit remains a failure with confirmed cleanup
+PASS stdout overflow fails closed and stops the descendant
+PASS stderr overflow fails closed and stops the descendant
+PASS real ten-second timeout confirms cleanup and stops further descendant writes
+PASS missing helper blocks the CLI probe before execution
+PASS valid model JSON cannot disguise incomplete process cleanup as successful discovery
+
+MACOS CLI MODELS E2E: ALL PASS

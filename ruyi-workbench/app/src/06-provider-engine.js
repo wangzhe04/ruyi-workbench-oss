@@ -27,20 +27,34 @@ const TOOL_REQUIRES = {
   http_download: { requires: ['network'], reason: '需要联网' },
   // v1.0-S4: the git 工具族 all need a runnable `git` binary (caps.gitCli). When git is absent the four tools
   // are filtered from the offered set (buildOpenAiTools) and listed under 「当前不可用」 with this reason.
-  git_status: { requires: ['gitCli'], reason: '需要安装 Git' },
-  git_diff: { requires: ['gitCli'], reason: '需要安装 Git' },
-  git_log: { requires: ['gitCli'], reason: '需要安装 Git' },
-  git_commit: { requires: ['gitCli'], reason: '需要安装 Git' },
+  git_status: { requires: ['gitCli', 'processSupervisor'], reason: '需要安装 Git' },
+  git_diff: { requires: ['gitCli', 'processSupervisor'], reason: '需要安装 Git' },
+  git_log: { requires: ['gitCli', 'processSupervisor'], reason: '需要安装 Git' },
+  git_commit: { requires: ['gitCli', 'processSupervisor'], reason: '需要安装 Git' },
+  shell_run: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
+  script_run: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
+  powershell_run: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
+  shell_start: { requires: ['processSupervisor'], reason: 'Mac 进程监督器尚未就绪' },
 };
 // Is a tool's requirement met given the capability matrix? Unknown cap keys are treated as satisfied
 // (fail-open: a typo in the table must never silently strip a tool). `enabled` gates testOnly entries.
 // `config` is consulted for capability keys that live in config rather than the probe matrix (searchBackend).
+function runtimeToolRequirementsMet(toolName, runtime) {
+  const requiresSupervisor = TOOL_REQUIRES[toolName]?.requires.includes('processSupervisor');
+  if (process.platform !== 'darwin' || !requiresSupervisor || runtime?.capabilities?.['process.supervisor']?.ready === true) return { met: true };
+  return { met: false, reason: 'Mac 进程监督器尚未就绪' };
+}
 function toolRequirementsMet(toolName, caps, toolRequiresEnabled, config) {
   const spec = TOOL_REQUIRES[toolName];
   if (!spec) return { met: true };
   if (spec.testOnly && !toolRequiresEnabled) return { met: true }; // test hook off → treat as no requirement
   const reqs = Array.isArray(spec.requires) ? spec.requires : [];
   for (const cap of reqs) {
+    if (cap === 'processSupervisor') {
+      const requirement = runtimeToolRequirementsMet(toolName, caps && caps.runtime);
+      if (requirement.met) continue;
+      return requirement;
+    }
     if (cap === 'network') { if (caps && caps.network && caps.network.online === true) continue; return { met: false, reason: spec.reason || '当前不可用' }; }
     // v0.9-S9: searchBackend is 'met' when config.searchBackend.type is a real backend (not 'none'). It is a
     // CONFIG fact, not a probe fact — pass config through so this check is deterministic offline too.
@@ -247,13 +261,18 @@ async function probeDesktopMcp(config) {
 }
 
 // The full capability matrix (§7.2). 60s cache. `force` (or a probe-URL change) busts it. Never throws.
+async function withRuntimeCapabilities(caps) {
+  if (process.platform !== 'darwin') return caps;
+  return { ...caps, runtime: await ProcessRuntime.capabilitySnapshot() };
+}
+
 async function getCapabilities(config, force) {
   config = config || await readConfig();
   const now = Date.now();
-  if (!force && _capCache && (now - _capCache.at) < (_capCache.ttl || CAP_CACHE_MS)) return _capCache.value;
+  if (!force && _capCache && (now - _capCache.at) < (_capCache.ttl || CAP_CACHE_MS)) return withRuntimeCapabilities(_capCache.value);
   // G1: in-flight 去重 —— 冷调用并发时(多子代理节点同时启动)共享同一个探测 Promise,避免各自全量探测。
   // 缓存有效期内直接命中;探测中则复用;探测完成后清空(下次冷调用重新探测,不跨周期复用 stale Promise)。
-  if (!force && _capInflight) return _capInflight;
+  if (!force && _capInflight) return _capInflight.then(withRuntimeCapabilities);
   _capInflight = (async () => {
   const provider = activeOpenAiProvider(config);
   const engine = provider ? 'openai' : 'claude';
@@ -284,7 +303,7 @@ async function getCapabilities(config, force) {
   _capCache = { at: Date.now(), value, ttl: (online === null && targets.length) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
   return value;
   })().finally(() => { _capInflight = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
-  return _capInflight;
+  return _capInflight.then(withRuntimeCapabilities);
 }
 // Test/维护 aid: drop the capability cache so the next getCapabilities re-probes immediately.
 function invalidateCapabilityCache() { _capCache = null; }
@@ -1874,6 +1893,7 @@ function renderCliEnvBrief(f) {
   const lines = [ENGINE_BRIEF_OPEN];
   lines.push(b.cliIdentity({ appName: APP_NAME, version: f.version, launchMode: f.launchMode, engineName: b.engineName[f.engine] }));
   lines.push(b.nativeTools[f.engine]);
+  if (process.platform === 'darwin') lines.push(pack.toolProtocol.intro);
   if (f.mcp) {
     lines.push(b.mcpIntro({ prefix: RUYI_MCP_TOOL_PREFIX }));
     lines.push(b.mcpMemory);

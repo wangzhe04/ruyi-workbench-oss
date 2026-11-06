@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Write-lock admission cancellation for file_write/edit/delete/move/copy",
+    "Deterministic queued cancellation and recovery assertions"
+  ],
+  "blockingFindings": 0,
+  "testsRunByReviewer": false,
+  "limitations": [
+    "Cancellation after the write transaction starts remains outside this increment",
+    "Windows runtime not exercised"
+  ]
+}

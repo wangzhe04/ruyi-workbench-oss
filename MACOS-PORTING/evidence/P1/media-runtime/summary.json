@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1108,
+    "fail": 0
+  },
+  "mediaE2E": {
+    "runs": 2,
+    "passPerRun": 19,
+    "fail": 0
+  },
+  "independentTests": {
+    "mediaRuntime": 19,
+    "processRuntime": 62
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "e1db4721d525ce9df657af363e9eed137634328dbfcafe9379a57ac552c53069",
+    "ruyi-workbench/app/src/11d-media-inspection.js": "dd185f06ada6739bbfb8777de403d1df63778982c282155fbbc1206251934a85",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "389fbb4be34f3db7a5f89febc41a5229f017af030eadd5dd304d95d389058fcd",
+    "dev-harness/macos-media-runtime.e2e.js": "46660b335cf3cad79fe4f5534c5ef1ea1c00b57bf45516985ac2a7e0acd3fcdd"
+  },
+  "remaining": [
+    "Real FFmpeg installation and media analysis",
+    "CLI locator/version/Python probes in 01-config",
+    "rg lifecycle",
+    "Remaining paths/lifecycle and clean installation",
+    "Windows/macOS14 same-SHA and actual Finder"
+  ]
+}

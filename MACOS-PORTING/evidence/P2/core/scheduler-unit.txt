@@ -1,0 +1,153 @@
+PASS ① 平年 1/31 -> 2/28 09:00(月末钳位,不溢出到 3/3);实得 Sun Feb 28 2027 09:00:00 GMT+0800 (China Standard Time)
+PASS ① 闰年 1/31 -> 2/29 09:00;实得 Tue Feb 29 2028 09:00:00 GMT+0800 (China Standard Time)
+PASS ① 3/31 -> 4/30 09:00(4 月无 31 号);实得 Fri Apr 30 2027 09:00:00 GMT+0800 (China Standard Time)
+PASS ① 4/30 -> 5/31 09:00(长月不钳);实得 Mon May 31 2027 09:00:00 GMT+0800 (China Standard Time)
+PASS ① dayOfMonth 29 在平年 2 月钳到 2/28;实得 Sun Feb 28 2027 07:00:00 GMT+0800 (China Standard Time)
+PASS ① 当月还没到点 -> 就是本月那一天;实得 Tue Jun 15 2027 18:00:00 GMT+0800 (China Standard Time)
+PASS ① 当月已过点(含正好等于)-> 下月同日;实得 Thu Jul 15 2027 18:00:00 GMT+0800 (China Standard Time)
+PASS ② once 2028-02-29 合法(闰年真有这一天)
+PASS ② once 2028-02-29 的 nextFireAt 就是那一天 09:00
+PASS ② once 2027-02-29 被拒(平年没有 2 月 29)
+PASS ② once 2027-04-31 被拒(4 月没有 31 号,不静默折成 5/1)
+PASS ④ */15 -> 分 0,15,30,45
+PASS ④ */15 从 10:07 起下一次是 10:15
+PASS ④ */15 从 10:45(正好在点上)起下一次是 11:00 —— 严格「之后」
+PASS ④ 0 9 * * 1-5 周六之后跳到周一 09:00;实得 Mon May 04 2026 09:00:00 GMT+0800 (China Standard Time)
+PASS ④ 0 0 29 2 * 只在闰年命中(2026-03 起算 -> 2028-02-29);实得 Tue Feb 29 2028 00:00:00 GMT+0800 (China Standard Time)
+PASS ④ 日与周都不是 * 时两个 restricted 旗都为真
+PASS ④ 日与周同时给 -> 取并集(周五 5/8 先于 13 号);实得 Fri May 08 2026 00:00:00 GMT+0800 (China Standard Time)
+PASS ④ 4 个字段被拒(必须 5 个)
+PASS ④ 分钟 60 越界被拒
+PASS ④ 小时 24 越界被拒
+PASS ④ 星期 8 越界被拒
+PASS ④ 名字写法(MON)不支持,明确拒而不是猜
+PASS ④ 星期 7 折成 0(周日两种写法同义)
+PASS ④ 5/20 = 从 5 起步进 20 到上界
+PASS ④ 0-4 展开成 5 个值
+PASS ④ 逗号列表
+PASS ④ 0 0 30 2 *(2 月 30 号永不存在)-> 五年扫不到,回 null 而不是死循环
+PASS ⑤ 过期的 once -> null(不再触发)
+PASS ⑤ occurrenceKey = taskId@dueIso
+PASS ⑤ daily 建好时 nextFireAt = 今天 09:00
+PASS ⑤ 还没到点 -> 没有错过
+PASS ⑤ 迟 90 分钟(grace 120)-> 在宽限内、该补跑一次、mode late
+PASS ⑤ 补跑引用的是【原本那个时点】的 occurrenceKey,不是「现在」
+PASS ⑤ 迟 210 分钟(grace 120)-> 超出宽限,不补跑(由 13s 记 skipped)
+PASS ⑤ onMissed:skip -> 即使在宽限内也不补跑(策略优先于宽限)
+PASS ⑥ scheduler.describe.once 键命中
+PASS ⑥ zh 逐字「9 月 14 日 09:00 一次」;实得「9 月 14 日 09:00 一次」
+PASS ⑥ en 逐字「once on 9/14 at 09:00」;实得「once on 9/14 at 09:00」
+PASS ⑥ scheduler.describe.daily 键命中
+PASS ⑥ zh 逐字「每天 07:30」;实得「每天 07:30」
+PASS ⑥ en 逐字「every day at 07:30」;实得「every day at 07:30」
+PASS ⑥ scheduler.describe.weekly.weekdays 键命中
+PASS ⑥ zh 逐字「每个工作日 18:00」;实得「每个工作日 18:00」
+PASS ⑥ en 逐字「every weekday at 18:00」;实得「every weekday at 18:00」
+PASS ⑥ scheduler.describe.weekly.weekend 键命中
+PASS ⑥ zh 逐字「每个周末 10:00」;实得「每个周末 10:00」
+PASS ⑥ en 逐字「every weekend at 10:00」;实得「every weekend at 10:00」
+PASS ⑥ scheduler.describe.weekly 键命中
+PASS ⑥ zh 逐字「每周一、四 20:15」;实得「每周一、四 20:15」
+PASS ⑥ en 逐字「every Mon, Thu at 20:15」;实得「every Mon, Thu at 20:15」
+PASS ⑥ scheduler.describe.monthly.lastDay 键命中
+PASS ⑥ zh 逐字「每月最后一天 09:00」;实得「每月最后一天 09:00」
+PASS ⑥ en 逐字「the last day of every month at 09:00」;实得「the last day of every month at 09:00」
+PASS ⑥ scheduler.describe.monthly 键命中
+PASS ⑥ zh 逐字「每月 5 日 09:00」;实得「每月 5 日 09:00」
+PASS ⑥ en 逐字「day 5 of every month at 09:00」;实得「day 5 of every month at 09:00」
+PASS ⑥ scheduler.describe.cron 键命中
+PASS ⑥ zh 逐字「按 cron 表达式 0 9 * * 1-5」;实得「按 cron 表达式 0 9 * * 1-5」
+PASS ⑥ en 逐字「on cron schedule 0 9 * * 1-5」;实得「on cron schedule 0 9 * * 1-5」
+PASS ⑥ 读不懂的计划回 invalid 键,不编一句话出来
+PASS ⑥ 非法时间回 invalid 键
+PASS ⑥ 返回值只有 key/params/locale 三样,生产代码不产出人话
+PASS ⑥ 返回形状恒为 {key, locale, params}
+PASS ⑥ SCHEDULER_DESCRIBE_KEYS 每个键在中英两张建议稿里都有文案(缺: )
+PASS ⑦ 合法任务通过
+PASS ⑦ title 去空白
+PASS ⑦ days 去重并升序
+PASS ⑦ 未给 policy -> 逐字等于 SCHEDULER_DEFAULT_POLICY
+PASS ⑦ 未给 target -> new-session
+PASS ⑦ 未给权限档 -> '' = 跟随全局默认档
+PASS ⑦ 纯函数不造 id(留给 13s),revision 从 0 起
+PASS ⑦ state 缺省:开着、零连败
+PASS ⑦ 越权 bypass 回落(29 号文 §10:任务级授权永不含 bypass)
+PASS ⑦ CLI 原生别名 bypassPermissions 同样回落
+PASS ⑦ 非 bypass 的档原样留着(白名单判定在 13s)
+PASS ⑦ 载荷带禁止键 localCommand -> 整条拒
+PASS ⑦ 载荷带禁止键 env -> 整条拒
+PASS ⑦ 载荷带禁止键 apiKey -> 整条拒
+PASS ⑦ 载荷带禁止键 dataRoot -> 整条拒
+PASS ⑦ 载荷带禁止键 cwd -> 整条拒
+PASS ⑦ 禁止键藏在数组里的对象上也拒(深扫)
+PASS ⑦ target.cwd 同样拒(绕过工作区表的唯一入口)
+PASS ⑦ 空标题被拒
+PASS ⑦ 未知计划类型被拒
+PASS ⑦ at 必须是两位 'HH:MM'
+PASS ⑦ playbook 载荷本波不收(127 波)
+PASS ⑦ 空正文被拒
+PASS ⑦ existing-session 缺 sessionId 被拒
+PASS ⑦ existing-session 带合法 sessionId 通过
+PASS ⑦ policy 越界钳位 + 未知枚举回默认
+PASS ⑦ 新建一条已经过期的 once -> 拒(它建出来就永远不会触发)
+PASS ⑦ 标题里的控制字符被清掉(NUL 丢、TAB 折空格)
+PASS ⑦ 非对象入参被拒
+PASS ⑧ 06j SCHEDULER_THREAD_TIERS 与 13f steward_thread_new 的 tier 枚举逐项相等(实得 ["strong","fast"] vs ["strong","fast"])
+PASS ⑧ steward_schedule_create 的 tier 枚举与之同一份(实得 ["strong","fast"])
+PASS ⑧ 值域常量是冻结的
+PASS ⑧ prompt + new-session 带 tier:strong -> 落进 target.tier(实得 {"mode":"new-session","tier":"strong"})
+PASS ⑧ prompt + new-session 带 tier:fast -> 落进 target.tier(实得 {"mode":"new-session","tier":"fast"})
+PASS ⑧ 判据 ③:不带 tier -> target 里【没有】tier 键(与修前逐字节同形;实得 {"mode":"new-session"})
+PASS ⑧ 空串 tier 不落字段
+PASS ⑧ 值域外的 tier(deepseek)静默丢,不拒整条(与权限档越界回落同口径)
+PASS ⑧ 判据 ④:existing-session 带 tier -> 静默丢(既有线程有它自己的引擎;实得 {"mode":"existing-session","sessionId":"sess_abc123"})
+PASS ⑧ reminder 载荷带 tier -> 静默丢(不起回合)
+PASS ⑧ 判据 ④:带了 tier 的 target 仍然拒 cwd(禁止键表不动)
+PASS ⑧ 禁止键表逐字没动(workdir 不是靠禁止键挡的,是靠入口剥离 + 到点再核候选表)
+PASS ⑧ 带着 workdir 的盘上任务 -> 原样带过去(实得 "C:\\Users\\me\\Ruyi\\巡检")
+PASS ⑧ 没有 workdir 的任务不落这个键(管家关着 / 还没触发过的任务与修前同形)
+PASS ⑧ 只有空白的 workdir 不落键
+PASS ⑧ workdir 里的控制字符同样清掉(实得 "C:\\ab c")
+PASS ⑧ workdir 截到 1000 字(与工作区路径同一个上限;实得 1000)
+PASS ③ TZ=America/New_York 子进程跑通(stderr: )
+PASS ③ 子进程真的在 America/New_York(7 月偏移 240 分钟);实得 240
+PASS ③ 春季跳过的 02:30 -> 落在 3/8 03:30 EDT(那一天真的没有 02:30);实得 {"iso":"2026-03-08T07:30:00.000Z","y":2026,"mo":3,"d":8,"hh":3,"mm":30,"off":240}
+PASS ③ 再下一次回到 3/9 02:30(只是切换那一天被顶到 03:30,不是从此永久改点);实得 {"iso":"2026-03-09T06:30:00.000Z","y":2026,"mo":3,"d":9,"hh":2,"mm":30,"off":240}
+PASS ③ 本地墙钟 09:00 跨春季切换仍是 09:00(偏移 300 -> 240,墙钟不动);实得 [{"iso":"2026-03-07T14:00:00.000Z","y":2026,"mo":3,"d":7,"hh":9,"mm":0,"off":300},{"iso":"2026-03-08T13:00:00.000Z","y":2026,"mo":3,"d":8,"hh":9,"mm":0,"off":240}]
+PASS ③ 秋季重复的 01:30 -> 落在【第一个】(EDT,偏移 240);实得 {"iso":"2026-11-01T05:30:00.000Z","y":2026,"mo":11,"d":1,"hh":1,"mm":30,"off":240}
+PASS ③ 下一次直接跳到 11/2 01:30,不把同一天的第二个 01:30 再触发一遍;实得 {"iso":"2026-11-02T06:30:00.000Z","y":2026,"mo":11,"d":2,"hh":1,"mm":30,"off":300}
+PASS ③ 本地墙钟 09:00 跨秋季切换仍是 09:00(偏移已回 300);实得 {"iso":"2026-11-01T14:00:00.000Z","y":2026,"mo":11,"d":1,"hh":9,"mm":0,"off":300}
+ALL PASS
+✔ dev-harness/unit/scheduler-core.test.js (218.564541ms)
+✔ setup (8.987791ms)
+✔ [E1] 启动时关着:什么都不起、一个字节都不写 (391.969958ms)
+✔ [E2] 之后在配置里打开:不重启,调度器当场起来,新任务到点触发 (93.994333ms)
+✔ [R1][R2] 管家的「立即运行」按任务把闸:慢任务在飞不挡别的任务,也不挡 tick (483.929458ms)
+✔ teardown (0.391ms)
+✔ setup (7.766875ms)
+✔ [S1] 任务表读不出来:不起、503、盘上不动;锁放开后补起 (358.628291ms)
+✔ [S2] 读不懂的行写盘时原样带回去 (10.583ms)
+✔ [S3] 回合在飞时 PATCH:收尾后 inFlightRunId 清空,再跑一次不 409 (523.083666ms)
+✔ [S4] run-now 挂着的时候,别的任务照常到点跑完 (100.869625ms)
+✔ [S5] 进程活着、时钟跳过去的错过:按 onMissed / graceMinutes 判 (385.830125ms)
+✔ [S6] 登记之后一步写失败:按 failed 收尾,不再永远在飞 (91.484541ms)
+✔ [S7] 运行中关掉总开关:到点不派;再打开接着走 (576.050583ms)
+✔ [S8] 目标线程被别处的回合占着:skipped/target_busy,不计连败 (344.006833ms)
+✔ teardown (0.742917ms)
+✔ setup (8.337709ms)
+✔ [U1] 任务表读不出来:六个定时工具回 scheduler.unavailable、盘上不动;锁放开后正常 (590.801ms)
+✔ [U2] 暂停后恢复:nextFireAt 按此刻重算(HTTP PATCH 与管家 resume),不补跑暂停期间的时点 (644.378834ms)
+✔ [U3] 无人值守等批准:批准窗口与回合超时同量级时仍记 needs_you,不是 failed/timeout;慢回合照旧超时 (3482.523292ms)
+✔ [U4] 回合在仲裁器里排队超过超时:撤出队列、记 skipped/queue_timeout、不计连败、没有跑过 (1477.086083ms)
+✔ [U5] 两条定时任务同刻指向同一条既有线程:后来者 skipped/target_busy,前一个照常跑完且等待窗口还在 (166.112042ms)
+✔ [U6] steward_runs_status:nodes.done 数成功态(节点成功终态叫 succeeded) (92.062958ms)
+✔ [U7] 06j:onFailure 只认 notify(retry-once 无人实现,回落);错误信息不带内部文档号 / 波次 (0.488375ms)
+✔ teardown (0.656875ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9598.888709

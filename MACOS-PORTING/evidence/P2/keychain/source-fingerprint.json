@@ -1,0 +1,149 @@
+{
+  "implementationCommit": "6e41e060758bd2ab6520a67af5a37162a7fa9005",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "9934be78a78aec5c28149913b5129f70833e1f527a398acb7935c8b6d88748c1"
+    },
+    {
+      "path": "README_EN.md",
+      "sha256": "de93b431972938b38f9b48508840c27f40c34f56031c7b1b60625b452ca82bcf"
+    },
+    {
+      "path": "dev-harness/credential-vault.e2e.js",
+      "sha256": "89371ecabd1ac85cd9b91b383a507e5db960ca5c090065356b1c157b52e158f8"
+    },
+    {
+      "path": "dev-harness/durable-state-inventory.js",
+      "sha256": "594131cea53211124ac56954e88a5ccd60b6e4dac905cc735e4568c8b4f05dc1"
+    },
+    {
+      "path": "dev-harness/external-bot-discovery.e2e.js",
+      "sha256": "32bb81cbadcc5688e4ae60d1327cf0147873d5ecadd3e8030c2477234e9c54f3"
+    },
+    {
+      "path": "dev-harness/lib/macos-keychain-fixture.js",
+      "sha256": "ffa7a7c352e43b0fbac0a8c4c1cf0c6ae19902c3916759293699050ee03ab5e9"
+    },
+    {
+      "path": "dev-harness/macos-keychain.e2e.js",
+      "sha256": "9adbb27e029fd8f0d75c5f0897107e3f7a042d6602f264586037f06d9fb34a6e"
+    },
+    {
+      "path": "dev-harness/native/macos-keychain-fixture.m",
+      "sha256": "c8cc11166076f5d7b43a96caf1a37f5e24fcbe0fc12e0246dda8e541081edfd1"
+    },
+    {
+      "path": "dev-harness/unit/credential-encryption-settings.test.js",
+      "sha256": "7dfe40beb957885df897c2ab73e04e9c50247ac54108ffc883854f6f109bc386"
+    },
+    {
+      "path": "dev-harness/unit/credential-recovery.test.js",
+      "sha256": "b3c451920a231a581dd1c37471dc8ae34aba17d4cf12aa683b1f3414dce1907c"
+    },
+    {
+      "path": "dev-harness/unit/external-bot-credentials.test.js",
+      "sha256": "eb4ab03b0a31bfc2892b88b5add2813fe60bc51c4ad51e06095ed757e75e2333"
+    },
+    {
+      "path": "dev-harness/unit/external-bot-setup-ui.test.js",
+      "sha256": "8e76842540906da4e0cb784ce9b4550f3f35b6c3c100a8382a1ee98dd2ecdcfd"
+    },
+    {
+      "path": "dev-harness/unit/steward-privacy-settings.test.js",
+      "sha256": "6fe5577af8afc2732ae7afd090b277ed0d3faae635ae87a655f0e824a5fba9e5"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.json",
+      "sha256": "ef5c5e86b34e239c2737a445f3ecea67cdfc0ad00b291a7143a6dce638c70c0b"
+    },
+    {
+      "path": "docs/architecture/durable-state-inventory.md",
+      "sha256": "20223e0e9761b1d7c9b2b5d6abe4511bd23c639915e3a0d551b95cbdb4d8b2ab"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "sha256": "920b53172d2b27b1535db5df831fe0b2fd332ac3b73539af38fbd1b3208fb96f"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "sha256": "18fde61f032437c36cb66b835ae754a4c6c2b907c0a02d13ca7d5e69552d9ab6"
+    },
+    {
+      "path": "docs/i18n/locales/en-US.json",
+      "sha256": "973ac63221be54c5250778f3c7a46046acbb0217ce27b0e3f994a577351c0ac7"
+    },
+    {
+      "path": "docs/i18n/locales/zh-CN.json",
+      "sha256": "9d8eb62d08b03f48a87af73a8601d920dbda457093fbfb88bdcfd9004acebc34"
+    },
+    {
+      "path": "facts.json",
+      "sha256": "660ef9bbc4a3857a92a715a7d42239f5d1c1852381c1f1810dddebf9bc7f6051"
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/external-bot-setup.js",
+      "sha256": "89fcd988495f0bce190a0bbffd4a065cadb54ef118cd161463025073c11649f7"
+    },
+    {
+      "path": "ruyi-workbench/app/public/js/privacy-settings.js",
+      "sha256": "93236d4df224da5b627658c4ff4874f468a9b693cdf3f3c0fdde65ed8ce34f44"
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/en-US.json",
+      "sha256": "973ac63221be54c5250778f3c7a46046acbb0217ce27b0e3f994a577351c0ac7"
+    },
+    {
+      "path": "ruyi-workbench/app/public/locales/zh-CN.json",
+      "sha256": "9d8eb62d08b03f48a87af73a8601d920dbda457093fbfb88bdcfd9004acebc34"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "c59165d2b541fb470653f5d06d37452303b519aefa15f3e6364eff00454124d1"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "3e05370c0630902cf76fb426e84a198a9638e469948151f2c520d63d0428127b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01j-local-crypto.js",
+      "sha256": "e0fb24dfb4785ce18ed3e440900fa8c0b0cb053bc499e45db898faa6656e125c"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01k-credential-vault.js",
+      "sha256": "91ffd2e3513ad4cacdbb710df4f9ea071869b0b1e41be9f12b17230f6f1d81fd"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01l-credential-recovery.js",
+      "sha256": "c3577dff7dae7364f28b4495b1e2e4d2345cab58b7e33dbe51c7ca6824a55a72"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13ab-privacy-api.js",
+      "sha256": "c43a072b27ddf2a69893b686e1a8bcf9ef95b9485c0f502db4bdb25e0cfb1ec4"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "0367082574e3c15528947cba7b7509e8e3f632503203e446b65e6b1cf19ca350"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13y-external-bot-credentials.js",
+      "sha256": "6a35c6b0f9ddaecae835d305ae47416660f1236ab9a934af6f460b491c14fe16"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "e1b43d534bbcf0ae54f3ca7790c8155b1a2bf69eb3e61e73c8dbe95b414b0171"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "f584afdebfb117805fa21d051084fd2d7494feede24142835ca1d3b7e58142c9"
+    },
+    {
+      "path": "ruyi-workbench/resources/macos-keychain-helper.m",
+      "sha256": "1e1dfdea92eca0f86fccc52016db14576878e2f1bbc90bbe8257638fc36d5615"
+    },
+    {
+      "path": "ruyi-workbench/tools/build-macos-keychain-helper.js",
+      "sha256": "e5ece6edd3d4123fe887a89f21101a77b629becef25fdc389b507f38f2e83872"
+    }
+  ]
+}

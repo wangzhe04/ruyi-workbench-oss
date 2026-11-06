@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "atomicRuns": [
+    27,
+    27
+  ],
+  "filePolicy": 48,
+  "fileAudit": 92,
+  "encoding": 10,
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1118,
+    "fail": 0
+  },
+  "buildFresh": true,
+  "diffCheck": true,
+  "firstGateFailure": "README_EN e2e count stale; corrected and full gate rerun passed",
+  "e2eInventory": {
+    "total": 562,
+    "default": 555,
+    "live": 7
+  },
+  "review": "passed_targeted_review"
+}

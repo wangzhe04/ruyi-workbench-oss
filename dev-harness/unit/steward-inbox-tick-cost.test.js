@@ -17,6 +17,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs'), os = require('os'), path = require('path'), cp = require('child_process');
+const { fixtureChildEnv } = require('../lib/fixture-home');
 
 const ROOT = path.resolve(__dirname, '../..');
 const SERVER = path.join(ROOT, 'ruyi-workbench', 'app', 'server.js');
@@ -141,7 +142,9 @@ function reference() {
   out.stateAfterAppendRef = reference();
 
   srv.stopStewardInbox();
-  process.stdout.write('RESULT ' + JSON.stringify(out) + '\n');
+  await new Promise((resolve, reject) => {
+    process.stdout.write('RESULT ' + JSON.stringify(out) + '\n', error => error ? reject(error) : resolve());
+  });
   process.exit(0);
 })().catch(err => { console.error(err && err.stack || err); process.exit(1); });
 `, 'utf8');
@@ -149,7 +152,7 @@ function reference() {
 function runChild() {
   const res = cp.spawnSync(process.execPath, [childScript, SERVER, HOME, String(SESSION_COUNT), String(PENDING_EVERY)], {
     encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, timeout: 240000,
-    env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME, RUYI_HOME: HOME, HOME, USERPROFILE: HOME },
+    env: { ...process.env, ...fixtureChildEnv(), WIN_CLAUDE_WORKBENCH_HOME: HOME, RUYI_HOME: HOME, HOME, USERPROFILE: HOME },
   });
   assert.equal(res.status, 0, 'child 退出码 ' + res.status + '\n' + res.stderr);
   const line = String(res.stdout).split('\n').find(l => l.startsWith('RESULT '));
@@ -238,11 +241,16 @@ const srv = require(server);
   const first = await srv.StewardHooks.inboxState(cfg);
   fsp.readFile = orig;
   const second = await srv.StewardHooks.inboxState(cfg);
-  process.stdout.write(JSON.stringify({ first: first.counts.byKind.needs_you, second: second.counts.byKind.needs_you }));
+  await new Promise((resolve, reject) => {
+    process.stdout.write(JSON.stringify({ first: first.counts.byKind.needs_you, second: second.counts.byKind.needs_you }), error => error ? reject(error) : resolve());
+  });
   process.exit(0);
 })();
 `);
-    const out = JSON.parse(cp.execFileSync(process.execPath, [script, SERVER, home], { encoding: 'utf8', env: { ...process.env, RUYI_HOME: home } }));
+    const out = JSON.parse(cp.execFileSync(process.execPath, [script, SERVER, home], {
+      encoding: 'utf8', timeout: 10000,
+      env: { ...process.env, ...fixtureChildEnv(), RUYI_HOME: home, HOME: home, USERPROFILE: home },
+    }));
     assert.equal(out.first, 0, '撞锁的那一次读不出东西(前提成立)');
     assert.equal(out.second, 3, '文件没变,下一次仍读出真值');
   } finally { fs.rmSync(home, { recursive: true, force: true }); }

@@ -1,0 +1,29 @@
+{
+  "implementationCommit": "79d9dfbd50a2cabf7327a5ba7d3083e2f152899b",
+  "files": [
+    {
+      "path": "dev-harness/external-bot-setup.e2e.js",
+      "sha256": "cf0637ca0238732b2455e15ced567e4b227f8f41c3706f6d06947273eda1b1b9"
+    },
+    {
+      "path": "dev-harness/external-bots-control.e2e.js",
+      "sha256": "836acfa5d991efc76c7b4fb03dc8a5fd21caed2fddb01e9d788c4e4e3e38eae3"
+    },
+    {
+      "path": "dev-harness/unit/external-bots-inbox.test.js",
+      "sha256": "d250acd58627cecdeb8279704e0791b65dfcedb57789fa00ec716e730dc68f49"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "aa430df114607d7d1a30d4fedbeace5d02c758a3e85e0e7219da182d7bbb9bbf"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13w-external-bots.js",
+      "sha256": "e9a3911b077fe830286f3526923068b16a95de25182e0ca4b91f1cef11e1ba67"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "acf0b9b464da1c673a50e8961499b4ec5bbaa402ea47a925b6018dcf5607dee4"
+    }
+  ]
+}

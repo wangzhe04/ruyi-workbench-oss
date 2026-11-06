@@ -1,0 +1,136 @@
+COMMAND node "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/kimi-acp-live-probe.js"
+KIMI_DISCOVERY source="RUYI_KIMI_CLI_PATH env override" launcher="/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/bin/kimi" entry="/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/lib/node_modules/@moonshot-ai/kimi-code/dist/main.mjs"
+COMMAND node "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/lib/node_modules/@moonshot-ai/kimi-code/dist/main.mjs" --version
+CLI_VERSION 0.37.2
+PASS real Kimi CLI executable — discovered npm launcher=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/bin/kimi; package entry launched without user configuration
+COMMAND local fixed-response model http://127.0.0.1:49529/v1/chat/completions
+KIMI_CONFIG_SCHEMA config.toml; provider.type=openai; provider.base_url=http://127.0.0.1:49529/v1
+COMMAND [handshake] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49530
+PASS [handshake] Ruyi isolated health — 127.0.0.1:49530
+PASS [handshake] isolated bootstrap token
+TERMINAL [handshake] none observed
+PASS [handshake] local fixed-response model received request — 1 request(s); tools=24
+PASS [handshake] real Kimi ACP metadata
+PASS [handshake] ACP handshake/model turn completed — no tool result counted in this handshake assertion
+COMMAND [read] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49537
+PASS [read] Ruyi isolated health — 127.0.0.1:49537
+PASS [read] isolated bootstrap token
+TERMINAL [read] command="/Applications/ChatGPT.app/Contents/Resources/codex-cli/codex-path/rg" argv=["--files","--hidden","--sortr=modified","--glob","!.git","--glob","!.svn","--glob","!.hg","--glob","!.bzr","--glob","!.jj","--glob","!.sl","--glob","*.txt","--glob","!**/.env","--glob","!**/id_rsa","--glob","!**/id_rsa[-_]*","--glob","!**/id_rsa.bak","--glob","!**/id_rsa.backup","--glob","!**/id_rsa.copy","--glob","!**/id_rsa.disabled","--glob","!**/id_rsa.key","--glob","!**/id_rsa.old","--glob","!**/id_rsa.orig","--glob","!**/id_rsa.pem","--glob","!**/id_rsa.save","--glob","!**/id_rsa.tmp","--glob","!**/id_ed25519","--glob","!**/id_ed25519[-_]*","--glob","!**/id_ed25519.bak","--glob","!**/id_ed25519.backup","--glob","!**/id_ed25519.copy","--glob","!**/id_ed25519.disabled","--glob","!**/id_ed25519.key","--glob","!**/id_ed25519.old","--glob","!**/id_ed25519.orig","--glob","!**/id_ed25519.pem","--glob","!**/id_ed25519.save","--glob","!**/id_ed25519.tmp","--glob","!**/id_ecdsa","--glob","!**/id_ecdsa[-_]*","--glob","!**/id_ecdsa.bak","--glob","!**/id_ecdsa.backup","--glob","!**/id_ecdsa.copy","--glob","!**/id_ecdsa.disabled","--glob","!**/id_ecdsa.key","--glob","!**/id_ecdsa.old","--glob","!**/id_ecdsa.orig","--glob","!**/id_ecdsa.pem","--glob","!**/id_ecdsa.save","--glob","!**/id_ecdsa.tmp","--glob","!**/.aws/credentials","--glob","!**/.aws/credentials/**","--glob","!**/.gcp/credentials","--glob","!**/.gcp/credentials/**","."] cwd="<probe-root>/workspace"
+TERMINAL [read] command="/Applications/ChatGPT.app/Contents/Resources/codex-cli/codex-path/rg" argv=["--hidden","--null","--glob","!.git","--glob","!.svn","--glob","!.hg","--glob","!.bzr","--glob","!.jj","--glob","!.sl","--with-filename","-n","--glob","!**/.env","--glob","!**/id_rsa","--glob","!**/id_rsa[-_]*","--glob","!**/id_rsa.bak","--glob","!**/id_rsa.backup","--glob","!**/id_rsa.copy","--glob","!**/id_rsa.disabled","--glob","!**/id_rsa.key","--glob","!**/id_rsa.old","--glob","!**/id_rsa.orig","--glob","!**/id_rsa.pem","--glob","!**/id_rsa.save","--glob","!**/id_rsa.tmp","--glob","!**/id_ed25519","--glob","!**/id_ed25519[-_]*","--glob","!**/id_ed25519.bak","--glob","!**/id_ed25519.backup","--glob","!**/id_ed25519.copy","--glob","!**/id_ed25519.disabled","--glob","!**/id_ed25519.key","--glob","!**/id_ed25519.old","--glob","!**/id_ed25519.orig","--glob","!**/id_ed25519.pem","--glob","!**/id_ed25519.save","--glob","!**/id_ed25519.tmp","--glob","!**/id_ecdsa","--glob","!**/id_ecdsa[-_]*","--glob","!**/id_ecdsa.bak","--glob","!**/id_ecdsa.backup","--glob","!**/id_ecdsa.copy","--glob","!**/id_ecdsa.disabled","--glob","!**/id_ecdsa.key","--glob","!**/id_ecdsa.old","--glob","!**/id_ecdsa.orig","--glob","!**/id_ecdsa.pem","--glob","!**/id_ecdsa.save","--glob","!**/id_ecdsa.tmp","--glob","!**/.aws/credentials","--glob","!**/.aws/credentials/**","--glob","!**/.gcp/credentials","--glob","!**/.gcp/credentials/**","--","KIMI_PROBE_MARKER","<probe-root>/workspace"] cwd="<probe-root>/workspace"
+PASS [read] local fixed-response model received request — 4 request(s); tools=24
+PASS [read] real Kimi ACP metadata
+PASS [read] actual Kimi tool schema — Glob, Grep, Read
+PASS [read] ACP turn completed with fixed model response
+PASS [read] real tool Glob — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [read] real tool Grep — model tool_call_id=kimi-live-2 -> ACP id=0:kimi-live-2; rawInput verified; non-error tool_result
+PASS [read] real tool Read — model tool_call_id=kimi-live-3 -> ACP id=0:kimi-live-3; rawInput verified; non-error tool_result
+PASS [read] Read returned fixture file content
+PASS [read] Grep searched the fixture
+PASS [read] Glob matched the fixture
+COMMAND [write] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49543
+PASS [write] Ruyi isolated health — 127.0.0.1:49543
+PASS [write] isolated bootstrap token
+TERMINAL [write] none observed
+PASS [write] local fixed-response model received request — 2 request(s); tools=24
+PASS [write] real Kimi ACP metadata
+PASS [write] actual Kimi tool schema — Write
+PASS [write] ACP turn completed with fixed model response
+PASS [write] real tool Write — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [write] Write changed the isolated workspace
+PASS [write] Write approval round-trip — exactly one permission_request; tool/input associated at event index 16
+COMMAND [planEnter] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49551
+PASS [planEnter] Ruyi isolated health — 127.0.0.1:49551
+PASS [planEnter] isolated bootstrap token
+TERMINAL [planEnter] none observed
+PASS [planEnter] local fixed-response model received request — 5 request(s); tools=24
+PASS [planEnter] real Kimi ACP metadata
+PASS [planEnter] actual Kimi tool schema — EnterPlanMode, Write, ExitPlanMode
+PASS [planEnter] native ExitPlanMode selectedLabel — Execute with verified workspace write via optionId=plan_opt_1
+PASS [planEnter] ACP turn completed with fixed model response
+PASS [planEnter] real EnterPlanMode transition — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [planEnter] real tool Write — model tool_call_id=kimi-live-2 -> ACP id=0:kimi-live-2; rawInput verified; non-error tool_result
+PASS [planEnter] real tool ExitPlanMode — model tool_call_id=kimi-live-3 -> ACP id=0:kimi-live-3; rawInput verified; non-error tool_result
+PASS [planEnter] plan Write persisted real file — <probe-root>/kimi-home/sessions/wd_workspace_9849b6237e10/session_31acfa11-f580-4e9f-a997-96e53285cadc/agents/main/plans/blue-beetle-stargirl-black-hawk.md
+PASS [planEnter] approved business Write persisted real workspace file — <probe-root>/workspace/plan-executed.txt
+PASS [planEnter] approved business Write result — model tool_call_id=kimi-live-4 -> ACP id=0:kimi-live-4; non-error tool_result
+PASS [planEnter] approved business Write manual permission — exactly one permission_request; tool/input associated at event index 49
+COMMAND [plan] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49558
+PASS [plan] Ruyi isolated health — 127.0.0.1:49558
+PASS [plan] isolated bootstrap token
+TERMINAL [plan] none observed
+PASS [plan] local fixed-response model received request — 4 request(s); tools=24
+PASS [plan] real Kimi ACP metadata
+PASS [plan] actual Kimi tool schema — Write, ExitPlanMode
+PASS [plan] native ExitPlanMode selectedLabel — Execute with verified workspace write via optionId=plan_opt_1
+PASS [plan] ACP turn completed with fixed model response
+PASS [plan] real tool Write — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [plan] real tool ExitPlanMode — model tool_call_id=kimi-live-2 -> ACP id=0:kimi-live-2; rawInput verified; non-error tool_result
+PASS [plan] plan Write persisted real file — <probe-root>/kimi-home/sessions/wd_workspace_391b1de41f3b/session_fd7c88eb-4080-4d75-a42b-07fbd4711d40/agents/main/plans/vixen-hawkman-polaris.md
+PASS [plan] approved business Write persisted real workspace file — <probe-root>/workspace/plan-executed.txt
+PASS [plan] approved business Write result — model tool_call_id=kimi-live-3 -> ACP id=0:kimi-live-3; non-error tool_result
+PASS [plan] approved business Write manual permission — exactly one permission_request; tool/input associated at event index 42
+COMMAND [planSearch] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49565
+PASS [planSearch] Ruyi isolated health — 127.0.0.1:49565
+PASS [planSearch] isolated bootstrap token
+TERMINAL [planSearch] command="/Applications/ChatGPT.app/Contents/Resources/codex-cli/codex-path/rg" argv=["--files","--hidden","--sortr=modified","--glob","!.git","--glob","!.svn","--glob","!.hg","--glob","!.bzr","--glob","!.jj","--glob","!.sl","--glob","*.txt","--glob","!**/.env","--glob","!**/id_rsa","--glob","!**/id_rsa[-_]*","--glob","!**/id_rsa.bak","--glob","!**/id_rsa.backup","--glob","!**/id_rsa.copy","--glob","!**/id_rsa.disabled","--glob","!**/id_rsa.key","--glob","!**/id_rsa.old","--glob","!**/id_rsa.orig","--glob","!**/id_rsa.pem","--glob","!**/id_rsa.save","--glob","!**/id_rsa.tmp","--glob","!**/id_ed25519","--glob","!**/id_ed25519[-_]*","--glob","!**/id_ed25519.bak","--glob","!**/id_ed25519.backup","--glob","!**/id_ed25519.copy","--glob","!**/id_ed25519.disabled","--glob","!**/id_ed25519.key","--glob","!**/id_ed25519.old","--glob","!**/id_ed25519.orig","--glob","!**/id_ed25519.pem","--glob","!**/id_ed25519.save","--glob","!**/id_ed25519.tmp","--glob","!**/id_ecdsa","--glob","!**/id_ecdsa[-_]*","--glob","!**/id_ecdsa.bak","--glob","!**/id_ecdsa.backup","--glob","!**/id_ecdsa.copy","--glob","!**/id_ecdsa.disabled","--glob","!**/id_ecdsa.key","--glob","!**/id_ecdsa.old","--glob","!**/id_ecdsa.orig","--glob","!**/id_ecdsa.pem","--glob","!**/id_ecdsa.save","--glob","!**/id_ecdsa.tmp","--glob","!**/.aws/credentials","--glob","!**/.aws/credentials/**","--glob","!**/.gcp/credentials","--glob","!**/.gcp/credentials/**","."] cwd="<probe-root>/workspace"
+TERMINAL [planSearch] command="/Applications/ChatGPT.app/Contents/Resources/codex-cli/codex-path/rg" argv=["--hidden","--null","--glob","!.git","--glob","!.svn","--glob","!.hg","--glob","!.bzr","--glob","!.jj","--glob","!.sl","--with-filename","-n","--glob","!**/.env","--glob","!**/id_rsa","--glob","!**/id_rsa[-_]*","--glob","!**/id_rsa.bak","--glob","!**/id_rsa.backup","--glob","!**/id_rsa.copy","--glob","!**/id_rsa.disabled","--glob","!**/id_rsa.key","--glob","!**/id_rsa.old","--glob","!**/id_rsa.orig","--glob","!**/id_rsa.pem","--glob","!**/id_rsa.save","--glob","!**/id_rsa.tmp","--glob","!**/id_ed25519","--glob","!**/id_ed25519[-_]*","--glob","!**/id_ed25519.bak","--glob","!**/id_ed25519.backup","--glob","!**/id_ed25519.copy","--glob","!**/id_ed25519.disabled","--glob","!**/id_ed25519.key","--glob","!**/id_ed25519.old","--glob","!**/id_ed25519.orig","--glob","!**/id_ed25519.pem","--glob","!**/id_ed25519.save","--glob","!**/id_ed25519.tmp","--glob","!**/id_ecdsa","--glob","!**/id_ecdsa[-_]*","--glob","!**/id_ecdsa.bak","--glob","!**/id_ecdsa.backup","--glob","!**/id_ecdsa.copy","--glob","!**/id_ecdsa.disabled","--glob","!**/id_ecdsa.key","--glob","!**/id_ecdsa.old","--glob","!**/id_ecdsa.orig","--glob","!**/id_ecdsa.pem","--glob","!**/id_ecdsa.save","--glob","!**/id_ecdsa.tmp","--glob","!**/.aws/credentials","--glob","!**/.aws/credentials/**","--glob","!**/.gcp/credentials","--glob","!**/.gcp/credentials/**","--","KIMI_PROBE_MARKER","<probe-root>/workspace"] cwd="<probe-root>/workspace"
+PASS [planSearch] local fixed-response model received request — 5 request(s); tools=24
+PASS [planSearch] real Kimi ACP metadata
+PASS [planSearch] actual Kimi tool schema — Glob, Grep, Write, ExitPlanMode
+PASS [planSearch] native ExitPlanMode selectedLabel — Execute with verified workspace write via optionId=plan_opt_1
+PASS [planSearch] ACP turn completed with fixed model response
+PASS [planSearch] real tool Glob — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [planSearch] real tool Grep — model tool_call_id=kimi-live-2 -> ACP id=0:kimi-live-2; rawInput verified; non-error tool_result
+PASS [planSearch] real tool Write — model tool_call_id=kimi-live-3 -> ACP id=0:kimi-live-3; rawInput verified; non-error tool_result
+PASS [planSearch] real tool ExitPlanMode — model tool_call_id=kimi-live-4 -> ACP id=0:kimi-live-4; rawInput verified; non-error tool_result
+PASS [planSearch] plan Write persisted real file — <probe-root>/kimi-home/sessions/wd_workspace_0a30dd9eaba2/session_33d86255-b9bb-4009-aa67-129b6b185ead/agents/main/plans/cloak-x-23-hellcat.md
+PASS [planSearch] Glob returned a real fixture hit
+PASS [planSearch] Grep returned a real fixture hit
+PASS [planSearch] read-only search hits occurred before plan approval — Glob/Grep results preceded plan Write and ExitPlanMode
+COMMAND [acceptEdits] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49572
+PASS [acceptEdits] Ruyi isolated health — 127.0.0.1:49572
+PASS [acceptEdits] isolated bootstrap token
+TERMINAL [acceptEdits] command="/bin/bash" argv=["-c","cd '<probe-root>/workspace' && printf KIMI_PROBE_BASH_OK"] cwd="<probe-root>/workspace"
+ACCEPT_EDITS_DIAG mode/config={"ruyi":{"permissionMode":"acceptEdits","agentCliType":"kimi","model":"fixture","agentDriver":"kimi-acp"},"kimi":{"default_provider":"fixture","default_model":"fixture","provider_type":"openai","base_url":"http://127.0.0.1:49529/v1","api_key":"<redacted>"},"nativeModeUpdates":[{"index":7,"update":{"sessionUpdate":"current_mode_update","currentModeId":"default"}},{"index":8,"update":{"sessionUpdate":"config_option_update","configOptions":[{"type":"[depth-limited]","id":"[depth-limited]","name":"[depth-limited]","category":"[depth-limited]","currentValue":"[depth-limited]","options":"[depth-limited]"},{"type":"[depth-limited]","id":"[depth-limited]","name":"[depth-limited]","category":"[depth-limited]","currentValue":"[depth-limited]","options":"[depth-limited]"},{"type":"[depth-limited]","id":"[depth-limited]","name":"[depth-limited]","category":"[depth-limited]","currentValue":"[depth-limited]","options":"[depth-limited]"}]}},{"index":10,"update":{"sessionUpdate":"config_option_update","configOptions":[{"type":"[depth-limited]","id":"[depth-limited]","name":"[depth-limited]","category":"[depth-limited]","currentValue":"[depth-limited]","options":"[depth-limited]"},{"type":"[depth-limited]","id":"[depth-limited]","name":"[depth-limited]","category":"[depth-limited]","currentValue":"[depth-limited]","options":"[depth-limited]"},{"type":"[depth-limited]","id":"[depth-limited]","name":"[depth-limited]","category":"[depth-limited]","currentValue":"[depth-limited]","options":"[depth-limited]"}]}}]}
+ACCEPT_EDITS_DIAG native {"index":13,"update":{"sessionUpdate":"tool_call","toolCallId":"0:kimi-live-1","title":"Write","kind":"edit","status":"pending","content":[{"type":"content","content":{"type":"text","text":"{\"path\":\"accept-edits-output.txt\",\"content\":\"KIMI_PROBE_ACCEPT_EDITS_OK\\n\",\"mode\":\"overwrite\"}"}}]}}
+ACCEPT_EDITS_DIAG native {"index":16,"update":{"sessionUpdate":"tool_call_update","toolCallId":"0:kimi-live-1","title":"Writing accept-edits-output.txt","kind":"edit","status":"in_progress","rawInput":{"path":"accept-edits-output.txt","content":"KIMI_PROBE_ACCEPT_EDITS_OK\n","mode":"overwrite"},"locations":[{"path":"<probe-root>/workspace/accept-edits-output.txt"}],"content":[{"type":"content","content":{"type":"text","text":"{\"path\":\"accept-edits-output.txt\",\"content\":\"KIMI_PROBE_ACCEPT_EDITS_OK\\n\",\"mode\":\"overwrite\"}"}}]}}
+ACCEPT_EDITS_DIAG native {"index":22,"update":{"sessionUpdate":"tool_call_update","toolCallId":"0:kimi-live-1","status":"completed","content":[{"type":"content","content":{"type":"text","text":"Wrote 27 bytes to accept-edits-output.txt"}}],"rawOutput":"Wrote 27 bytes to accept-edits-output.txt","locations":[{"path":"<probe-root>/workspace/accept-edits-output.txt"}]}}
+ACCEPT_EDITS_DIAG native {"index":24,"update":{"sessionUpdate":"tool_call","toolCallId":"0:kimi-live-2","title":"AskUserQuestion","kind":"other","status":"pending","content":[{"type":"content","content":{"type":"text","text":"{\"questions\":[{\"question\":\"Which deterministic probe option should be used?\",\"header\":\"Probe\",\"options\":[{\"label\":\"Alpha\",\"description\":\"Use the first fixture option.\"},{\"label\":\"Beta\",\"description\":\"Use the second fixture option.\"}],\"multi_select\":false}]}"}}]}}
+ACCEPT_EDITS_DIAG native {"index":26,"update":{"sessionUpdate":"tool_call_update","toolCallId":"0:kimi-live-2","title":"Asking user questions","kind":"other","status":"in_progress","rawInput":{"questions":[{"question":"Which deterministic probe option should be used?","header":"Probe","options":["[depth-limited]","[depth-limited]"],"multi_select":false}]},"content":[{"type":"content","content":{"type":"text","text":"{\"questions\":[{\"question\":\"Which deterministic probe option should be used?\",\"header\":\"Probe\",\"options\":[{\"label\":\"Alpha\",\"description\":\"Use the first fixture option.\"},{\"label\":\"Beta\",\"description\":\"Use the second fixture option.\"}],\"multi_select\":false}]}"}}]}}
+ACCEPT_EDITS_DIAG native {"index":31,"update":{"sessionUpdate":"tool_call_update","toolCallId":"0:kimi-live-2","status":"completed","content":[{"type":"content","content":{"type":"text","text":"{\"answers\":{\"Which deterministic probe option should be used?\":\"Beta\"}}"}}],"rawOutput":"{\"answers\":{\"Which deterministic probe option should be used?\":\"Beta\"}}"}}
+ACCEPT_EDITS_DIAG native {"index":33,"update":{"sessionUpdate":"tool_call","toolCallId":"0:kimi-live-3","title":"Bash","kind":"execute","status":"pending","content":[{"type":"content","content":{"type":"text","text":"{\"command\":\"printf KIMI_PROBE_BASH_OK\"}"}}]}}
+ACCEPT_EDITS_DIAG native {"index":38,"update":{"sessionUpdate":"tool_call_update","toolCallId":"0:kimi-live-3","title":"Running: printf KIMI_PROBE_BASH_OK","kind":"execute","status":"in_progress","rawInput":{"command":"printf KIMI_PROBE_BASH_OK"},"content":[{"type":"content","content":{"type":"text","text":"{\"command\":\"printf KIMI_PROBE_BASH_OK\"}"}}]}}
+ACCEPT_EDITS_DIAG native {"index":41,"update":{"sessionUpdate":"tool_call_update","toolCallId":"0:kimi-live-3","content":[{"type":"terminal","terminalId":"kimi_terminal_327bdc45d4df7052"}]}}
+ACCEPT_EDITS_DIAG native {"index":45,"update":{"sessionUpdate":"tool_call_update","toolCallId":"0:kimi-live-3","status":"completed","content":[{"type":"terminal","terminalId":"kimi_terminal_327bdc45d4df7052"}]}}
+ACCEPT_EDITS_DIAG reverse {"index":15,"method":"session/request_permission","params":{"sessionId":"session_5ef19959-370a-473e-9251-5ddcd6675b0a","options":[{"optionId":"approve_once","name":"Approve once","kind":"allow_once"},{"optionId":"approve_always","name":"Approve for this session","kind":"allow_always"},{"optionId":"reject","name":"Reject","kind":"reject_once"}],"toolCall":{"toolCallId":"0:kimi-live-1","title":"Write","content":[{"type":"content","content":{"type":"[depth-limited]","text":"[depth-limited]"}}]}}}
+ACCEPT_EDITS_DIAG reverse {"index":35,"method":"session/request_permission","params":{"sessionId":"session_5ef19959-370a-473e-9251-5ddcd6675b0a","options":[{"optionId":"approve_once","name":"Approve once","kind":"allow_once"},{"optionId":"approve_always","name":"Approve for this session","kind":"allow_always"},{"optionId":"reject","name":"Reject","kind":"reject_once"}],"toolCall":{"toolCallId":"0:kimi-live-3","title":"Bash","content":[{"type":"content","content":{"type":"[depth-limited]","text":"[depth-limited]"}}]}}}
+ACCEPT_EDITS_DIAG fs-write {"index":18,"method":"fs/write_text_file","params":{"sessionId":"session_5ef19959-370a-473e-9251-5ddcd6675b0a","path":"<probe-root>/workspace/accept-edits-output.txt","content":"KIMI_PROBE_ACCEPT_EDITS_OK\n"}}
+ACCEPT_EDITS_DIAG gates={"nativePermissionCount":2,"fsWriteCount":1,"ruyiWritePermissionCount":0,"observedNativeKinds":["edit","edit","other","other","execute","execute"],"writePermissionPredecessors":[],"conclusion":["native session/request_permission","ACP fs/write_text_file"]}
+PASS [acceptEdits] local fixed-response model received request — 4 request(s); tools=24
+PASS [acceptEdits] real Kimi ACP metadata
+PASS [acceptEdits] actual Kimi tool schema — Write, AskUserQuestion, Bash
+PASS [acceptEdits] ACP turn completed with fixed model response
+PASS [acceptEdits] real tool Write — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [acceptEdits] real tool AskUserQuestion — model tool_call_id=kimi-live-2 -> ACP id=0:kimi-live-2; rawInput verified; non-error tool_result
+PASS [acceptEdits] real tool Bash — model tool_call_id=kimi-live-3 -> ACP id=0:kimi-live-3; rawInput verified; non-error tool_result
+PASS [acceptEdits] Write changed the isolated workspace
+PASS [acceptEdits] Write auto-approval — no Write permission_request in acceptEdits
+PASS [acceptEdits] AskUserQuestion round-trip
+PASS [acceptEdits] Bash executed
+PASS [acceptEdits] Bash approval round-trip — exactly one permission_request; tool/input associated at event index 36
+COMMAND [lifecycle] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49579
+PASS [lifecycle] Ruyi isolated health — 127.0.0.1:49579
+PASS [lifecycle] isolated bootstrap token
+TERMINAL [lifecycle] none observed
+PASS [lifecycle] local fixed-response model received request — 2 request(s); tools=24
+PASS [lifecycle] real Kimi ACP metadata
+PASS [lifecycle] actual Kimi tool schema — Read
+PASS [lifecycle] ACP turn completed with fixed model response
+PASS [lifecycle] real tool Read — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [lifecycle] initial native session persisted
+PASS [lifecycle] resumed native session retains prior real Read context while active
+PASS [lifecycle] execution-bound stop aborts the active real CLI prompt without resetting its native session
+PASS [lifecycle] stop releases execution and HTTP request and persists aborted status
+PASS [lifecycle] post-stop native continuation preserves context and completes a fresh Read
+PASS local model fixture — 30 request(s), deterministic responses only
+SUMMARY pass=96 fail=0 skip=0

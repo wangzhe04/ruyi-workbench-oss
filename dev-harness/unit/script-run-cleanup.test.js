@@ -10,8 +10,10 @@ const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { fixtureChildEnv } = require('../lib/fixture-home');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-script-cleanup-'));
+Object.assign(process.env, fixtureChildEnv());
 process.env.RUYI_HOME = path.join(root, 'data');
 process.env.WIN_CLAUDE_WORKBENCH_HOME = process.env.RUYI_HOME;
 process.env.HOME = root;
@@ -33,7 +35,10 @@ test('[S1] node 脚本:运行期间文件在,结束后删掉,不留带密钥的�
   assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
   const seen = JSON.parse(String(r.stdout).trim());
   assert.equal(seen.existsWhileRunning, true, '运行期间脚本文件必须在');
-  assert.ok(seen.file.startsWith(scriptsDir()), `脚本落在 generated/scripts(${seen.file})`);
+  const actualDirectory = fs.statSync(path.dirname(seen.file), { bigint: true });
+  const expectedDirectory = fs.statSync(scriptsDir(), { bigint: true });
+  assert.deepEqual([actualDirectory.dev, actualDirectory.ino], [expectedDirectory.dev, expectedDirectory.ino],
+    `脚本落在 generated/scripts 的同一文件系统目录(${seen.file})`);
   assert.equal(fs.existsSync(seen.file), false, '返回之后脚本文件已删');
   assert.deepEqual(leftovers(), [], 'generated/scripts 里没有残留');
 });

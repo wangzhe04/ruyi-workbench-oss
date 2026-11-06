@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-02",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "protocolVersion": 2,
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1101,
+    "fail": 0
+  },
+  "independentE2E": {
+    "runtime": 62,
+    "shell": 32,
+    "git": 28,
+    "cleanup": 32
+  },
+  "runtimeFinalRuns": 2,
+  "hashes": {
+    "ruyi-workbench/app/server.js": "9e6d380fd1408728d82a67e13b61ad7b72f2cbcf00169f9fb452fb7cf0c6603c",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "48ad24c7e4e6ba358697fd40ac2d1f6bbf369624c2768c36e3cc52ec0dc66e97",
+    "ruyi-workbench/resources/macos-process-helper.c": "95226fe2d0770f9c8eb3b2268a138700106f250a93db04b58f200e374af907db",
+    "dev-harness/macos-process-runtime.e2e.js": "9a53922d0ba0ffd777c00be2ab4ed800bee0b8e165e924cf93848d5bff9eed28",
+    "dev-harness/macos-git-runtime.e2e.js": "d072bd9ef5fadb3d385c7af6532f928ce1777939e545b1300dea4a97ca7c579f"
+  },
+  "limitations": [
+    "Single-helper fault model",
+    "Only surviving observer has its own detached identity set",
+    "Windows/macOS14 unverified"
+  ]
+}

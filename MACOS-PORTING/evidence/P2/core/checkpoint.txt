@@ -1,0 +1,47 @@
+PASS workbench up on :62282
+PASS UI token scraped
+PASS session created
+PASS (a) fake-openai listening on :62281
+PASS (a) a.txt exists with edited content after turn 1
+PASS (a) GET /api/checkpoints ok
+PASS (a) turn 1 has TWO checkpoint entries (got 2)
+PASS (a) has a create entry for a.txt
+PASS (a) has a modify entry (file_edit)
+PASS (a) modify entry has a .gz on disk
+PASS (a) create entry has NO .gz (no before)
+PASS (a) turn_summary emitted
+PASS (a) turn_summary filesChanged for a.txt is revertible:true
+PASS (a) one filesChanged row per path (merged)
+PASS (b) rollback turn 1 ok
+PASS (b) a.txt removed (create inverse = delete) after whole-turn rollback
+PASS (b) reverted list includes the create op
+PASS (b) re-rolling turn 1 returns the structured idempotency error
+PASS (b2) persisted turnSummary marks a.txt reverted:true (got {"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-checkpoint-e2e/a.txt","op":"modify","revertible":true,"entrySeq":1,"reverted":true,"revertedAt":"2026-11-06T03:43:07.523Z"})
+PASS (b2) the created-then-reverted artifact is marked reverted (got {"path":"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-checkpoint-e2e/a.txt","kind":"txt","reverted":true})
+PASS (c) turn 2 file_write recreated a.txt (op:create)
+PASS (c) turn 2 recreated a.txt = v2-recreated
+PASS (c) turn 3 file_edit applied
+PASS (c) turn 3 edited a.txt = v3-edited
+PASS (c) journal has turn-2 create entry
+PASS (c) journal has turn-3 modify entry
+PASS (c) rollback turn 3 ok
+PASS (c) after rolling back turn 3, a.txt content = the turn-2 version (v2-recreated)
+PASS (d) file_delete returned op:delete
+PASS (d) del.txt is gone after file_delete
+PASS (d) GET checkpoints has an op:delete entry for del.txt
+PASS (d) rollback of the delete entry ok
+PASS (d) del.txt resurrected with identical content
+PASS (e) rollback without UI token → 403 (got 403)
+PASS (e) 403 body ok:false
+PASS (f) failing file_move returned ok:false (got "移动失败: fixture rename failure。")
+PASS (f) failing file_move reports checkpointRolledBack:true (got true)
+PASS (f) failing file_move does NOT set phantomJournal
+PASS (f) journal has NO file_move entries for the failed turn (got 0)
+PASS (f) source file untouched after failed move
+PASS (f) failure occurred at rename rather than at the path guard
+PASS (f) retry after rolled-back failure succeeds without data loss
+PASS (f) mkdir failure rolls back the recorded move checkpoints
+PASS (f) mkdir failure leaves no phantom move entries
+PASS (f) mkdir failure preserves source and absent destination
+
+CHECKPOINT E2E: ALL PASS

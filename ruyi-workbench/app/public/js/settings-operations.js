@@ -16,6 +16,7 @@ export function createSettingsOperationsDomain({
   openOnboarding = () => {},
 } = {}) {
   let overlayZipPath = '';
+  let overlaySupported = null;
   let mcpConnectorCache = [];
 
   /* ---------------- 更新中心 ---------------- */
@@ -39,6 +40,18 @@ export function createSettingsOperationsDomain({
       const current = $('ovCurrent');
       const hint = $('ovCurrentHint');
       const audit = $('ovAudit');
+      overlaySupported = status.supported !== false;
+      for (const id of ['ovPickBtn', 'ovPrecheckBtn', 'ovRollbackBtn']) {
+        const button = $(id); if (button) button.disabled = !overlaySupported;
+      }
+      if (!overlaySupported) {
+        const apply = $('ovApplyBtn'); if (apply) apply.disabled = true;
+        const preview = $('ovPreviewBox'); if (preview) preview.style.display = 'none';
+        current.textContent = t('settings.update.unsupportedPlatform');
+        hint.textContent = t('settings.update.unsupportedPlatformHint');
+        if (audit) audit.textContent = '';
+        return;
+      }
       if (status.current) {
         current.textContent = `v${status.current.version}  ·  ${new Date(status.current.appliedAt).toLocaleString(getLocale())}`;
         hint.textContent = status.backups && status.backups.length
@@ -66,6 +79,7 @@ export function createSettingsOperationsDomain({
   }
 
   async function overlayPickZip() {
+    if (overlaySupported !== true) return;
     try {
       const result = await api('/api/pick-file', {
         method: 'POST',
@@ -87,6 +101,7 @@ export function createSettingsOperationsDomain({
   }
 
   async function overlayPrecheck() {
+    if (overlaySupported !== true) return;
     if (!overlayZipPath) {
       toast(t('settings.update.pickFirst'), 'err');
       return;
@@ -129,6 +144,7 @@ export function createSettingsOperationsDomain({
   }
 
   async function overlayApply() {
+    if (overlaySupported !== true) return;
     if (!overlayZipPath) {
       toast(t('settings.update.pickFirst'), 'err');
       return;
@@ -171,6 +187,7 @@ export function createSettingsOperationsDomain({
   }
 
   async function overlayRollback() {
+    if (overlaySupported !== true) return;
     const hint = $('ovRollbackHint'); if (hint) hint.textContent = t('settings.update.rollingBack');
     try {
       const result = await api('/api/overlay/rollback', { method: 'POST', body: '{}' });
@@ -368,6 +385,9 @@ export function createSettingsOperationsDomain({
   }
 
   function bindSettingsOperations() {
+    for (const id of ['ovPickBtn', 'ovPrecheckBtn', 'ovApplyBtn', 'ovRollbackBtn']) {
+      const button = $(id); if (button) button.disabled = true;
+    }
     const refreshMcp = $('mcpRefreshBtn'); if (refreshMcp) refreshMcp.onclick = () => refreshMcpOps(true);
     const importMcp = $('mcpImportBtn');
     if (importMcp) importMcp.onclick = async () => { await importMcpFromFolder(importMcp); refreshMcpOps(false); };

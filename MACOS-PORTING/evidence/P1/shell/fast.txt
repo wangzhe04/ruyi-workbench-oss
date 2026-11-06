@@ -1,0 +1,48 @@
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试失败(node --test dev-harness/unit),拒跑 e2e:
+
+test at dev-harness/unit/tool-loading-cache-aware.test.js:65:1
+✖ [C3] 会话工具表跨重启按原序恢复 (4.934459ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(got.includes(n))
+
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/tool-loading-cache-aware.test.js:73:35)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at dev-harness/unit/tool-schema-budget.test.js:80:1
+✖ N8-C 字符预算棘轮(只减不增) (1.483459ms)
+  AssertionError [ERR_ASSERTION]: 默认 offered 63355 > 62900
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/tool-schema-budget.test.js:120:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

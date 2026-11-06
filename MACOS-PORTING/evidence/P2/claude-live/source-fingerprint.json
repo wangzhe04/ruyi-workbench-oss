@@ -1,0 +1,13 @@
+{
+  "implementationCommit": "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7",
+  "files": [
+    {
+      "path": "dev-harness/claude-binary-live.e2e.js",
+      "sha256": "15eddb25eaba1622ffb4df08af6663c47a82222f007ef7e094a5397a0df4145d"
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "sha256": "d7f3a73290d9b3ebeed78e38a4a8c116d343f2165fcaddb5547277dd9cc69e00"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+PASS normal CLI launcher verdict confirms descendant cleanup
+PASS probe inherits caller ownership
+PASS nonzero exit keeps its original verdict and status
+PASS missing target preserves ENOENT with confirmed cleanup
+PASS target signal preserves null status and historical slow verdict
+PASS bounded timeout retains slow verdict only after cleanup confirmation
+PASS version output remains ignored without introducing an output budget failure
+FAIL probe preserves explicit cwd and environment
+PASS missing helper cannot advertise an executable as available or slow
+PASS unconfirmed cleanup cannot become an ok or slow verdict
+PASS agent CLI discovery propagates cleanup uncertainty to stop candidate scanning
+PASS Claude discovery stops before its next candidate after incomplete cleanup
+
+MACOS EXECUTABLE PROBE E2E: FAIL (1)

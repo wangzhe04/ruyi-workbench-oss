@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "independent agent /root/ownership_review",
+  "scope": "CLI/MCP/toolbox startup integration; anchored group cleanup; Kimi canonical plan boundary",
+  "status": "passed_no_unresolved_findings_in_scope",
+  "findings": [
+    {
+      "id": "I1",
+      "finding": "concurrent MCP cancellation lost cleanup scope after another call cleared child",
+      "resolution": "only replace cleanup with a non-null confirmed result; real concurrent-abort regression",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "I2",
+      "finding": "toolbox could report stopped while supervised cleanup was pending/incomplete",
+      "resolution": "stopping state, guarded completion update, failed cleanup metadata and stale-child protection",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "I3",
+      "finding": "Kimi terminal close treated incomplete cleanup as success",
+      "resolution": "verify completion even for exited terminals; kill/release report unconfirmed errors",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "I4",
+      "finding": "background terminal cleanup rejection could skip main CLI close and owner deletion",
+      "resolution": "allSettled records failures, nested finally guarantees main close and owner removal, final result preserves incomplete status",
+      "status": "resolved_verified"
+    }
+  ],
+  "followup": {
+    "finding": "failed terminal release removed retry ownership before confirmation",
+    "resolution": "mark released/delete only after successful cleanup",
+    "verification": "independent static review and two-attempt release regression",
+    "status": "resolved_verified"
+  },
+  "independentVerification": {
+    "runtimeE2e": "33/33 before release-order followup",
+    "cleanupE2e": "33/33",
+    "killOwnTreeUnit": "5/5",
+    "canonicalPlanPaths": "10/10 isolated filesystem cases",
+    "buildFreshness": "pass",
+    "gitDiffCheck": "pass",
+    "releaseOrder": "static pass"
+  },
+  "sha256": {
+    "ruyi-workbench/app/server.js": "b90bcdeca38b9c6ff48a0ebd752fd18756b40205c2119026c17b77bb20b9b969",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "dcf941fe0635f6f32ac5d3c5ae4187da09b39441488ed078b19aa31611596e12",
+    "ruyi-workbench/resources/macos-process-helper.c": "0f790f771b144851cfecfb4cc3f1f4e43bde7f518ed4e41dd8e1a1206eeddc5c",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "055596401cc35d5b7e7010b8d557fc482219aa868d26542329e9721484daf3c9"
+  },
+  "remainingScope": [
+    "git and persistent shell integration",
+    "fine-grained tool owners and legacy PID migration",
+    "unobserved escaped descendants",
+    "helper capability/readiness and loss handling",
+    "Windows and macOS14 runtime validation"
+  ]
+}

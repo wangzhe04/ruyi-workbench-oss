@@ -1,0 +1,85 @@
+{
+  "recordedAt": "2026-10-30T08:44:40.663456+00:00",
+  "clientTimezone": "Asia/Shanghai",
+  "productSha": "f5223548b74b62b2eefe548c39b33ab5fadd91e3",
+  "scope": "local arm64 P0; new probe sources and workflow are uncommitted",
+  "commands": [
+    {
+      "command": [
+        "sw_vers"
+      ],
+      "exitCode": 0,
+      "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "uname",
+        "-m"
+      ],
+      "exitCode": 0,
+      "stdout": "arm64",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "v24.15.0",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3.12",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "Python 3.12.10",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "xcode-select",
+        "-p"
+      ],
+      "exitCode": 0,
+      "stdout": "/Library/Developer/CommandLineTools",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "xcrun",
+        "swiftc",
+        "--version"
+      ],
+      "exitCode": 0,
+      "stdout": "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)\nTarget: arm64-apple-macosx18.0",
+      "stderr": "swift-driver version: 1.115.1"
+    },
+    {
+      "command": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "exitCode": 0,
+      "stdout": "15.2",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "security",
+        "find-identity",
+        "-v",
+        "-p",
+        "codesigning"
+      ],
+      "exitCode": 0,
+      "stdout": "0 valid identities found",
+      "stderr": ""
+    }
+  ]
+}

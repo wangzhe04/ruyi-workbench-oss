@@ -1,0 +1,130 @@
+(node:15309) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-conversation.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS A1 三个「开线程」工具是可 Node import 的冻结常量表（不是散落字面量）
+PASS A2 执行成功的 thread_new 给出 result.sessionId
+PASS A3 result 里没有 sessionId 时回落到 args.sessionId（thread_continue 的形状）
+PASS A4 **降级成按钮的不算开出来**（propose_required 是「还没发生」，自动展示会抢在用户判断前面）
+PASS A5 不在表里的工具一概不触发展示
+PASS A6 一回合动了多条时取最后一条（事情发生的顺序）
+PASS A7 空/畸形输入一律空串，不抛
+PASS A8 回合结束、且这一回合真开出了线程就派 steward:focus-thread（宽屏切「现在这一件」，窄屏开抽屉，两者接同一个事件）
+PASS B1 **根因守卫**：.steward-target-picker[hidden] 必须显式 display:none —— 同一规则集里那条 display:flex 是作者样式，会压过 UA 表的 [hidden]
+PASS B1b 既有同款守卫仍在：.steward-drawer[hidden]
+PASS B1b 既有同款守卫仍在：.steward-chip-menu[hidden]
+PASS B1b 既有同款守卫仍在：.steward-shield-menu[hidden]
+PASS B1b 既有同款守卫仍在：.steward-side[hidden]
+PASS B1b 既有同款守卫仍在：.steward-menu[hidden]
+PASS B1b 既有同款守卫仍在：.steward-chip-fold-body[hidden]
+PASS B2 点列表外任意处收起（M2 起归 popover 原语的 mousedown ＋ shell 那处捕获阶段 click；composer 不再留第二路）
+PASS B3 候选按 sessionId 保留身份（62 号 E04：同名不再折叠，重名行带可分辨后缀）
+PASS B4 Esc 收起
+PASS B5 发送前先收起
+PASS C1 park：把【同一个】头像节点送回头部
+PASS C2 move：搬的是同一个节点，不复制 SVG（presence 的 data-state/.pulse/.shake 因此原样生效）
+PASS C2b 对话流里零 SVG 复制、零 cloneNode（历史消息的小圆点由 CSS 画）
+PASS C3 五个销毁点各 park 一次（实测 5）—— 漏一个头像就跟着那一行没了，之后 presence 再也画不出来
+PASS C3c 新对话移除在途回复之前先 park
+PASS C3 首跑那一行随语言重画之前先 park
+PASS C3b clearFeed 里 park 排在清空之前
+PASS C4 只有管家的话有槽（用户气泡不留 36px 空位）
+PASS C5 历史消息的空槽不再画点（那一列灰点已删）；真头像在槽里仍缩到 36px
+PASS C5b companion：槽位与 44px 左内边距一个像素没动 —— 删的只是点，正文左缘不会跟着左移
+PASS C5c companion：「这是如意在说」的视觉锚改由组的左侧竖线承担（117l-B2 ④），不是白删了一个信号
+PASS C6 头部有那枚 6px 状态点（头像搬走之后它是头部唯一的状态投影）
+PASS C7 状态点与 avatar 读同一处算出来的 next —— 一处 presence，不另起判据
+PASS C7b 状态点覆盖 waiting_you
+PASS C7b 状态点覆盖 error
+PASS C7b 状态点覆盖 sleeping
+PASS D1 走 116-4 新加的 ?since= 增量（整份拉一条长会话是几百 KB 的重复载荷）
+PASS D2 去重靠 createdAt 水位（ISO 8601 定长 UTC 串，字典序即时间序）
+PASS D2b 整屏重画时水位归零（clearFeed 之后由 renderHistorySince 重新推上去）
+PASS D3 只认 trigger==='inbox'：用户自己发的那一条是 sendToSteward 当场画的，再追加一次就重了
+PASS D3c companion：nudgeAvatar 只有「定义 1 ＋ 调用 1」两处，调用点就在 inbox 那一分支的第一句（实测 2 处）
+PASS D3d companion：nudge 靠 animationend 摘类，steward-shell.js 仍然零 setTimeout
+PASS D3b 首次轮询跳过（那一条属于进壳之前，enterVisit 已经画过）
+PASS D4 对话流的写口只有 conversation 模块，壳层不碰 feed 的 DOM
+PASS E1 抽屉的表按 5s 下限起
+PASS E1b 连接时 30 s 兜底；断开后有在跑的回合就每拍都拉，否则仍按 config.stewardPollMs
+PASS E1c 回合刚结束（live 真→假）当拍把事项行与快照一并重拉 —— 「已收工」要立刻看见
+PASS E2 看板同一条节拍纪律
+PASS E3 壳层状态轮询同一条节拍纪律
+PASS E6 连接时的兜底节拍 ≥30 s 且只有一份定义（实测 30000 ms，定义处 1）
+PASS E7 四个消费者各自仍然恰好一处 setInterval／一处 clearInterval（实测 1:1 1:1 1:1 1:1）
+PASS E8 2.0 在途卡：连接时不开表（liveTurnPollable 第二道门），断连即回到 3 s
+PASS E9 帧解析真值表：注释行（心跳）不是帧、id/event/data 三行齐全、多行 data 按 \n 拼、presence.ack 不带 id、坏 JSON 丢载荷保事件名（实测 [null,{"id":"7","event":"thread.state","data":{"sessionId":"s1","state":"running"}},{"id":"","event":"thread.done","data":{"a":1}},{"id":"","event":"presence.ack","data":{"lens":"steward"}},{"id":"9","event":"thread.live","data":null}]）
+PASS E10 新叶子只 import net.js 的 apiRaw（零裸 fetch、零 token 自拼、零全局写入、零 innerHTML）；线上事件名登记表 6+1 条、退避封顶 30 s（实测 imports=["./net.js"]）
+PASS E4 **后端下限一个字没动**：pollIntervalMs 仍是 config.stewardPollMs 按 5000 clamp，5s 只是前端节拍
+PASS E5 三问的「已收工 · 用时 X」只在真跑过回合时才说（一回合没跑过说「收工」是撒谎）
+PASS E5b 优先级：真活动 > 已收工 > 暂无（绝不因为「线程在跑」就编一个 thinking）
+PASS F1 permissionSwitchNeedsConfirm／permissionConfirmText 已删（121-K5 的 #permSelect 退役后零应用调用点）
+PASS F1e 全自动的确认闸读的就是这个单点：盾牌那一路在（2.0 顶栏那条下拉已退役）
+PASS F1f 组合根没有因为本片长胖（117j 纪律「app.js 不增行」；实测 1276 行）
+PASS F2 B2：任何一处写全局配置都会刷新线程头那组 chip（放在 saveConfigPartial 里 = 谁写都刷）
+PASS F3 UX-F2：后端的 message 原文照登（它比前端更知道是哪一种）
+PASS F3b 没有 message 时按「管家端点配了却不在列表里」二选一
+PASS F3c zh-CN 有 engineNotListed
+PASS F3c en-US 有 engineNotListed
+PASS F3d copy-P3-3：主动作（真能解决问题的那一个）用统一的金色主按钮类
+PASS F4 工具人话表前端只有一份，住 steward-chips.js（从行动流水那边复用，不抄第二份）；conversation.js 不再依赖 steward-settings.js
+PASS F4a 这张表在整个 public/js 里只有一处定义，且就在 steward-chips.js（实测定义方：steward-chips.js）
+PASS F4b 三级回落：后端标签 > 前端 i18n 表 > 工具 id（前两道都落空才用 id，那是诚实兜底）
+PASS F4c ※ 浮层那一行读的就是它
+PASS F5 UX-F5：open_thread 回执优先读 sessionTitle —— 否则会出「打开了「打开「X」」」
+PASS F5b 构造 open_thread act 的两处（renderDigest / renderPending）都带上了线程名
+PASS G1 Esc 栈是可 Node import 的共享原语（住零 import 的叶子模块，四个子域直接 import）
+PASS G1b 栈顶先关（后 push 的先响应；实测 ["b"]）
+PASS G1c 注销之后轮到下一层
+PASS G1d 返回 false 的层表示「我没开着」，继续往下问
+PASS G1e 一个抛错的层不会把 Esc 整条吃掉（当它没关掉，继续往下）
+PASS G1f 用例自己清干净了（栈是模块级共享状态）
+PASS G2 唯一那处 keydown 住 steward-shell.js；栈里没东西就不拦，抽屉/看板自己那两路照常收到
+PASS G2b 它【注册在抽屉/看板之前】—— 同型监听按注册顺序触发，这就是「栈顶先关」成立的原因
+PASS G3 chip 菜单 进 Esc 栈
+PASS G3 盾牌菜单 进 Esc 栈
+PASS G3 ※ 浮层与头像菜单 进 Esc 栈
+PASS G3 候选列表 进 Esc 栈
+PASS G3b ※ 浮层与头像菜单各一处（两个都要，不是只挂一个）
+PASS G4 copy-P2-4/5：chip 关掉时把焦点还回触发它的控件（M1-b 起由 popover 原语的锚点归还，且只有这一处）
+PASS G4 copy-P2-4/5：盾牌 关掉时把焦点还回触发它的控件
+PASS G4 copy-P2-4/5：头像菜单关掉时把焦点还回头像（M2 起由 popover 原语的锚点归还，且只有这一处）
+PASS G4 copy-P2-4/5：※ 浮层关掉时把焦点还回句尾那枚 ※（M2 起由 popover 原语的锚点归还，且只有这一处）
+PASS G4b 三处浮层都有 aria-controls（读屏要知道这颗按钮控制的是哪一块）
+PASS G5 copy-P2-2：数字进 aria-hidden 的 span，按钮 aria-label 固定「撤回」（feed 是 aria-live 区，每秒改一次文本读屏会一路念下去）
+PASS G6 copy-P2-3：presence 文案先比再写（它也在 aria-live 区，赋同样的值也会被念一遍）
+PASS G7 copy-P3-1：列表分隔符走 i18n（中文「、」/ 英文「, 」）
+PASS G7b zh-CN 有 listSeparator
+PASS G7b en-US 有 listSeparator
+PASS G8 copy-P3-4：抽屉页签支持 ←/→ 与 Home/End（它已经是正经 tablist，此前只能一个个 Tab 过去）
+PASS G9 classic-3：返回标记这件事整段退役（「在工作台打开」＝切视角＋openSession，零 sessionStorage）
+PASS G10 classic-4：新到访不去拉那条还没落盘的管家会话（那一发必然 404，而 newVisit 分支压根不用 messages）
+PASS H1 简易模式没有死键：设置页签既没有 CSS 隐藏清单、也没有 JS 白名单
+PASS H1c 管家页签在简易模式可达（管家总开关是它唯一的入口）
+PASS H2 准入通过就擦掉「管家还没打开，已回到经典布局」（它是 role=status aria-live，留着就是一句会被念出来的假话）
+PASS H3 预判只进 hint、不进目标：currentTarget() 只回 picked
+PASS H3b companion：**picked 仍直递**（手选是用户明示，§8.12 第 4 条没有被 D1 推翻；133e 附件是独立键）
+PASS H3c 117k 那条纪律原样保留：chip 上的提示也用生成名，不用整句原话
+PASS H4 抽屉的任务名读行里的 missionTitle（显式容器＝用户起的名；派生＝那条线程的显示名）
+PASS H5 抽屉有「读取中」闸：数据到之前不画占位事实
+PASS H5d companion：焦点交给问答框发生在 refreshOnce 之后、闸落下的那一帧（不是开抽屉那一帧）
+PASS H5b 三处占位都过闸：标题不落回 sess_xxxx、事项行不说「未归事项」、它刚说不说「它还没说过话」
+PASS H5c zh-CN 有 drawer.loading
+PASS H5c en-US 有 drawer.loading
+PASS H6 答完待决后把节拍闸清零，让已经在跑的那张表下一拍真的去拉一次（不加新计时器：抽屉零 setTimeout 是 C2 的契约）
+PASS H7 Esc 栈同时管「点别处收回」：判据抛错一律当【点在里面】（宁可不关，绝不误关用户正在点的那个）
+PASS H7b 只有一处 document click，且是【捕获阶段】（冒泡的话，同一次点击里刚被别的处理器打开的菜单会当场被关掉）
+PASS H7c 五处浮层（chip 菜单／※／头像菜单／盾牌／递送候选）都带上了 owns 判据
+PASS I1 ② 预判只当提示：没手选就发给管家并带 routeHint（修前 routeHits[0] 直接被当成目标直递）
+PASS I1b routeHint 与附件都与用户那句话分开走（用户消息逐字不动的纪律）
+PASS I2 ⑥ 管家在流时用户还能接着说：第二句入队而不是被静默丢弃
+PASS I2b 队列在当前这条流的 finally 里 shift（按序发，不并发）
+PASS I3 ① 问答卡排在线程头之后，骨架在 index.html，显隐配了 [hidden] 守卫
+PASS I3b 打开线程、同代际数据到齐才聚焦问答框；旧进程/旧打开请求不得抢当前输入焦点
+PASS I4 ①⑥ 「直接对这条线程说」走 /api/steward/relay 单口（修前猜错就 supersede 掉待决提问）
+PASS I4b ③ 「已收工 · 最近动过 X 前」（修前从建会话算起，真机上是「用时 770h 35m」）
+PASS J1 头部的状态点只有 #stewardPresenceDot 一颗：steward-avatar.css 里那枚靠 ~ 兄弟选择器取色的 ::before（头像搬进对话流后永远选不中、恒灰）整族退役
+PASS J2 用户走测：读宽共用一个 900 token，四行居中并受可用宽度约束
+PASS J3 走查⑧：≤640 顶栏三格改 auto｜1fr｜auto，≤480 分段钮与盾牌只留字形（人话收成读屏文字，不删）、状态胶囊收起
+
+STEWARD WALKTHROUGH STATIC E2E: ALL PASS

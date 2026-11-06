@@ -1,0 +1,129 @@
+PASS A1 js/mermaid-runtime.js 存在
+PASS A2 运行时导出 ensureMermaid()
+PASS A2 运行时导出 renderMermaidBlocks()
+PASS A2 运行时导出 mermaidSourceHash()
+PASS A2 运行时导出 mermaidThemeFor()
+PASS A2 运行时导出 mermaidThemeVariables()
+PASS A2 运行时导出 mermaidThemeCss()
+PASS A3 mermaid.initialize 恒用 securityLevel: 'strict'
+PASS A4 startOnLoad:false(禁止 mermaid 自行扫描全页)
+PASS A5 懒加载路径写死本源 /vendor/mermaid.min.js
+PASS A6 加载超时 8s(超时按缺库降级)
+PASS A7 运行时模块零外链字符串(无 http(s):// / cdn. / unpkg / jsdelivr)
+PASS A8 从不调用 bindFunctions(mermaid click 指令永不接线)
+PASS A9 单飞加载:失败结果同样被缓存,不产生重试风暴
+PASS A10 按「源码哈希 + 主题」缓存,流式重绘不重跑 mermaid
+PASS B1 chat-render-primitives 从 deps 取 renderMermaidBlocks(缺省安全空实现)
+PASS B2 highlightIn() 同一趟调用 renderMermaidBlocks(container)
+PASS B3 hljs 明确跳过 code.language-mermaid
+PASS B4 组合根 app.js 导入 mermaid 运行时
+PASS B5 组合根把真实实现注入 chat-render-primitives,并让每次换图都经聊天区的贴底守卫(keepPinnedAcross)
+PASS C1 index.html 无静态 mermaid script 标签(只走懒注入)
+PASS C2 CSP script-src 未放宽(只有 'self' 与内联预绘的 sha256 哈希;实际: 'self' 'sha256-cEZAaMEoutk22UQJv1fdgsnXprYXVfAvyBZqNZBTt7I=')
+PASS C3 CSP img-src 含 blob:(PNG 导出的 SVG->canvas 链路可用)
+PASS C4 THIRD-PARTY-NOTICES 有 mermaid 行(MIT + 上游地址)
+PASS C5 通知条目点名 mermaid.min.js 文件
+PASS C6 运行时模块进入 overlay 载荷
+PASS C6b 109c 的源码预处理 / 画完收尾两个模块也进入 overlay 载荷(运行时静态 import 它们,缺一个整个图表运行时加载失败)
+PASS C7 可选 vendor 登记在 OPTIONAL_PAYLOAD_FILES
+PASS C8 chat-narrative.css 含 .mermaid-block 样式
+PASS C8 chat-narrative.css 含 .mermaid-view 样式
+PASS C8 chat-narrative.css 含 .mermaid-tools 样式
+PASS C8 chat-narrative.css 含 .mermaid-hint 样式
+PASS C9 双语目录含 mermaid.fallbackHint
+PASS C9 双语目录含 mermaid.renderFailed
+PASS C9 双语目录含 mermaid.toggleSource
+PASS C9 双语目录含 mermaid.exportSvg
+PASS C9 双语目录含 mermaid.exportPng
+PASS C9 双语目录含 mermaid.exportFailed
+PASS C9 双语目录含 mermaid.diagramAria
+PASS C9 双语目录含 mermaid.viewerOpen
+PASS C9 双语目录含 mermaid.viewerHint
+PASS C9 双语目录含 mermaid.viewerIn
+PASS C9 双语目录含 mermaid.viewerOut
+PASS C9 双语目录含 mermaid.viewerFit
+PASS C9 双语目录含 mermaid.viewerClose
+(node:59623) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/mermaid-runtime.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS D1 mermaidThemeFor 亮暗映射到本模块的色板键(dark/light)
+PASS D1a dark: 从 color-schemes.css 切到 token 块(45 个色值)
+PASS D1b dark: 色板锚点与 token 一致(底=--panel-2、字=--ink/--ink-2、线=--muted)
+PASS D1c dark: darkMode 与字体随主题/参数走
+PASS D1d dark: 色值全是六位十六进制(mermaid 用 khroma 推导,不认 CSS 变量)
+PASS D1e dark: 节点字/标签字/连线对底色的对比度够(10.6 / 9.8 / 5.8)
+PASS D1f dark: 甘特图任务条上/条外的字都读得清(修前暗色下「已完成」是浅灰条配浅字)
+PASS D1g dark: 饼图 / 分支 / gitGraph / xychart 共用同一组分类色(暗色下不再被 base 主题压成黑块)
+PASS D1j dark: gitGraph 的 HIGHLIGHT 提交标记显式给色,对图底 ≥ 3:1(修前 1.5~1.6:1;实得 10.8)
+PASS D1k dark: 维恩图走分类色(修前 base 主题推导成主色压暗 30%,深底上近黑)
+PASS D1l dark: 报文图 / 树状图的字色对各自底色 ≥ 4.5:1(修前暗色下是黑字)
+PASS D1m dark: xychart 图例与数据标签用色板字色(修前回落成默认主题的 #131300)
+PASS D1n dark: 铁路图终结符底与架构图分组框显式给色
+PASS D1h dark: themeCSS 把甘特网格线与时间线主轴改回色板线色
+PASS D1o dark: themeCSS 补时间线事件框、ER 空心端点圈、C4 写死的 #444444
+PASS D1a light: 从 color-schemes.css 切到 token 块(50 个色值)
+PASS D1b light: 色板锚点与 token 一致(底=--panel-2、字=--ink/--ink-2、线=--muted)
+PASS D1c light: darkMode 与字体随主题/参数走
+PASS D1d light: 色值全是六位十六进制(mermaid 用 khroma 推导,不认 CSS 变量)
+PASS D1e light: 节点字/标签字/连线对底色的对比度够(13.2 / 9.8 / 5.0)
+PASS D1f light: 甘特图任务条上/条外的字都读得清(修前暗色下「已完成」是浅灰条配浅字)
+PASS D1g light: 饼图 / 分支 / gitGraph / xychart 共用同一组分类色(暗色下不再被 base 主题压成黑块)
+PASS D1j light: gitGraph 的 HIGHLIGHT 提交标记显式给色,对图底 ≥ 3:1(修前 1.5~1.6:1;实得 3.5)
+PASS D1k light: 维恩图走分类色(修前 base 主题推导成主色压暗 30%,深底上近黑)
+PASS D1l light: 报文图 / 树状图的字色对各自底色 ≥ 4.5:1(修前暗色下是黑字)
+PASS D1m light: xychart 图例与数据标签用色板字色(修前回落成默认主题的 #131300)
+PASS D1n light: 铁路图终结符底与架构图分组框显式给色
+PASS D1h light: themeCSS 把甘特网格线与时间线主轴改回色板线色
+PASS D1o light: themeCSS 补时间线事件框、ER 空心端点圈
+PASS D1i 12 个分类色压白字对比度都 ≥ 4:1
+PASS D2 mermaidSourceHash 稳定且对源码变化敏感
+PASS D3 缺库时渲染计数为 0
+PASS D4 缺库时仍建立 .mermaid-block 包裹节点
+PASS D5 缺库时原代码块内容与可见性不变
+PASS D6 缺库时不插入任何 SVG 视图
+PASS D7 缺库时补一行降级提示
+PASS D8 缺库时状态标记为 fallback
+PASS D9 有库时渲染一次并初始化一次
+PASS D9b initialize 收到 base 主题 + 暗色色板 + themeCSS(securityLevel 仍是 strict)
+PASS D9d 图里的 %%{init}%% / frontmatter 改不动主题(secure 含 mermaid 默认六项 + theme/themeVariables/themeCSS;实得 secure,securityLevel,startOnLoad,maxTextSize,suppressErrorRendering,maxEdges,theme,themeVariables,themeCSS)
+PASS D9c 离屏渲染宿主有确定宽度(甘特图按它排版;修前不定宽,被排成一小条;实得 760px)
+PASS D10 SVG 落入 .mermaid-view
+PASS D11 图表视图带无障碍标签
+PASS D12 成功渲染后源码块收起
+PASS D13 成功渲染后不显示降级提示
+PASS D14 工具条唯一
+PASS D15 工具条五个按钮(实际 5)
+PASS D16 按钮依次为 源码 / 复制 / 放大 / 导出 SVG / 导出 PNG
+PASS D17 按钮复用既有 .copy-code 样式类
+PASS D18 成功态记录源码哈希
+PASS D19 工具条按钮只挂一处点击回调(一次点击只触发一次)
+PASS D19b 「源码」按钮切回原始代码块
+PASS D19c 再按一次重新收起源码
+PASS D25a 未点放大前无灯箱
+PASS D25b 「放大」按钮开出全屏灯箱(role=dialog)
+PASS D25c 灯箱里是【同一份】已渲染 SVG
+PASS D25d 开箱即按「适应窗口」落位(transform 含 scale)
+PASS D25e 灯箱控制条:放大 / 缩小 / 适应窗口 / 关闭
+PASS D25f 灯箱单实例(重开不叠)
+PASS D25g 「关闭」按钮退出灯箱
+PASS D26a 点图本身也能开出灯箱
+PASS D26b 灯箱挂了键盘监听
+PASS D26c Esc 退出灯箱
+PASS D20 同源码重复渲染命中哈希缓存(render 仍只跑一次)
+PASS D21 源码变化时重新渲染
+PASS D22 渲染失败时降级不抛错
+PASS D23 渲染失败提示与缺库提示区分
+PASS D24 无 mermaid 围栏时不加载库、不改 DOM
+PASS D27a 首次渲染后挂上 <html data-theme> 的监听(只听这一个属性)
+PASS D27b 画到一半切主题:这一轮画完后按当前主题补画,标记与内容一致 → light/light,light/light,light/light
+PASS D27c 两路渲染交错(整页重绘 + 切主题重画):全页一条渲染队列,每块按自己的主题画 → light/light,light/light,light/light,light/light
+PASS D28a 前置:「源码」已打开
+PASS D28b 换色重画后「源码」仍开着(aria-expanded 同步),图已是新主题
+PASS D28c 换色重画失败:留着旧图、状态仍是 ok、不出降级提示
+PASS D29a 三块(成 / 败 / 成)各经宿主包一次,DOM 改动发生在包裹之内 → pending,pending,pending→ok,pending,pending | ok,pending,pending→ok,fallback,pending | ok,fallback,pending→ok,fallback,ok
+PASS D29b 切主题重画的两块同样经宿主包裹(重画沿用首画时的宿主选项;共 5 次)
+PASS D29c 缺库:三块一起回落,宿主只包一次
+PASS D29d 宿主回调抛错或忘了调 mutate:图照样换上去,每块恰好一次
+
+MERMAID RENDER STATIC E2E: ALL PASS

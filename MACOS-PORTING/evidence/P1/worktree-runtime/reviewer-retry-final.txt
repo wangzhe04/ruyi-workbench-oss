@@ -1,0 +1,19 @@
+PASS degraded failure persists isolation and failure classification
+PASS degraded cleanup failure prevents automatic re-execution
+PASS degraded persisted uncertainty prevents silent resume
+PASS failed failure persists isolation and failure classification
+PASS failed cleanup failure prevents automatic re-execution
+PASS failed persisted uncertainty prevents silent resume
+PASS finalize failure persists isolation and failure classification
+PASS finalize cleanup failure prevents automatic re-execution
+PASS finalize persisted uncertainty prevents silent resume
+PASS create failure persists isolation and failure classification
+PASS create cleanup failure prevents automatic re-execution
+PASS create uncertainty prevents snapshot finalization
+PASS create persisted uncertainty prevents silent resume
+PASS sub-cleanup failure persists isolation and failure classification
+PASS sub-cleanup cleanup failure prevents automatic re-execution
+PASS sub-cleanup uncertainty prevents snapshot finalization
+PASS sub-cleanup persisted uncertainty prevents silent resume
+
+WORKTREE CLEANUP RETRY E2E: ALL PASS

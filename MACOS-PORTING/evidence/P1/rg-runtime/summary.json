@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1109,
+    "fail": 0
+  },
+  "rgE2E": {
+    "runs": 2,
+    "passPerRun": 15,
+    "fail": 0
+  },
+  "independentTests": {
+    "rgRuntime": 15,
+    "processRuntime": 62
+  },
+  "realRgSmoke": "UTF-8 main and GBK high-byte repair passed with Codex-installed rg",
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "a0a7cdbc79f54f874861b6868336c4947cac912a9f284384b394e106260294d3",
+    "ruyi-workbench/app/src/11-native-tools.js": "99dae91a99f113cbe316c554c466b97c772d490fdd0763503be0ca2641d79ef6",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "f2ccab096902ae1f3a826fb5256e1de1fdab432d5abc00ed743acde6de47cbfa",
+    "dev-harness/macos-rg-runtime.e2e.js": "9a6c62f66033939507c69a703bcdce7b4527f1b5f68dda217161ce50ae7adaf3"
+  },
+  "remaining": [
+    "CLI/Python and rg cold sync probes",
+    "Shared probe cancellation semantics",
+    "Real FFmpeg media analysis",
+    "Remaining paths/lifecycle and clean installation",
+    "Windows/macOS14 same-SHA and actual Finder"
+  ]
+}

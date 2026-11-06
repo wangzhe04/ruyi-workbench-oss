@@ -1,0 +1,20 @@
+PASS helper explicitly advertises native deadline support
+PASS sync launch preserves stdout/stderr and exit status with confirmed cleanup
+PASS normal completion emits no deadline event
+PASS native timeout finishes both cleanup layers before the Node safety deadline
+PASS deadline event precedes primary cleanup and final guardian confirmation
+PASS native deadline stops detached descendant writes while owner Node is blocked
+PASS target and observed detached descendant identities have exited
+PASS natural target signal retains its status and full cleanup reports
+PASS SIGSTOP primary fault is recovered by guardian and stops target writes
+PASS SIGSTOP missing primary report cannot claim full protocol confirmation
+PASS SIGKILL primary fault is recovered by guardian and stops target writes
+PASS SIGKILL missing primary report cannot claim full protocol confirmation
+PASS zero native deadline preserves unbounded mode
+PASS invalid deadline rejects before target execution: "-1"
+PASS invalid deadline rejects before target execution: "1x"
+PASS invalid deadline rejects before target execution: "2147483648"
+PASS invalid deadline rejects before target execution: ""
+PASS failed target exec still confirms cleanup and reports errno
+
+MACOS SYNC SUPERVISOR E2E: ALL PASS

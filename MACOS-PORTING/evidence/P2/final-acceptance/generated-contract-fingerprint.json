@@ -1,0 +1,14 @@
+{
+  "implementationCommit": "55be6d9b65f575bcbdac4f97c1c1375aecebe09f",
+  "generator": "node dev-harness/route-inventory.js",
+  "files": [
+    {
+      "path": "docs/architecture/route-inventory.json",
+      "sha256": "8117adf58ad344054e4241368caa02d6fe7799c57d7d2a7d844fc5a07d9ad953"
+    },
+    {
+      "path": "docs/architecture/route-inventory.md",
+      "sha256": "df0b2078befe9fd39563ea7eebd4fa691c6596b5434690157bfc10cf3a97b716"
+    }
+  ]
+}

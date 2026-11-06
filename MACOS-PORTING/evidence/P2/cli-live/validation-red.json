@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-06",
+  "baselineSha": "aa9d57c03b1381e34e45aa728ae93a12da6e56d2",
+  "cli": "@moonshot-ai/kimi-code@0.37.2",
+  "packageIntegrity": "sha512-TAteYb84mV44MEzCaAlfz5f3TiN2yMHuwj9Kd0ePEIMBUqgjlqV1w7PvMT9TN0t87LYfv7BhIYz+ZCHDOM5aJw==",
+  "installation": "Temporary isolated npm prefix; --ignore-scripts; no repository dependencies added",
+  "model": "existing deterministic loopback model; no real account or credentials",
+  "command": [
+    "node",
+    "dev-harness/kimi-acp-live-probe.js"
+  ],
+  "exitCode": 1,
+  "seconds": 15.6,
+  "log": "kimi-protocol.txt"
+}

@@ -1,0 +1,16 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+BROWSER-DIAG {"url":"http://127.0.0.1:49945/","text":"跳到输入框\n管家\n工作台\n每步都问\n一键停机\n任务\n另起一件\n正在读取运行与排队…\n\n还没有任务，直接说你想做什么\n\n＋ 线程\n定时任务\n行动流水\n记得的关于你\n体检 · 用量\n如意\n空闲\n还没有任务，直接说你想做什么\n事项待决\n新对话\n对管家说\n@"}
+PASS real helper API renders three ready execution capabilities in the opened popover
+PASS in-flight refresh displays checking instead of stale ready status
+PASS unavailable response updates the already-open popover
+PASS late older response cannot overwrite the latest unavailable state
+PASS failed refresh shows unknown rather than preserving a readiness claim
+PASS refreshed popover is repositioned inside the viewport
+PASS closing popover removes the active capability view
+PASS capability updates produce no uncaught browser exceptions
+
+MACOS CAPABILITY POPOVER E2E: ALL PASS

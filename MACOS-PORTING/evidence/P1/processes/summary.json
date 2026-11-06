@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-02",
+  "status": "in_progress",
+  "scope": "observed-tree foundation",
+  "baseline": "0a430880",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "verification": {
+    "unit": {
+      "tests": 2507,
+      "pass": 2489,
+      "fail": 0,
+      "skip": 18,
+      "log": "exit-confirmation-unit-final.txt"
+    },
+    "static": {
+      "pass": 80,
+      "fail": 0,
+      "log": "exit-confirmation-fast-final.txt"
+    },
+    "nativeE2e": [
+      "33/33",
+      "33/33"
+    ],
+    "syntax": {
+      "files": 1096,
+      "fail": 0
+    },
+    "startupE2e": [
+      "26/26",
+      "26/26"
+    ],
+    "independentReview": "passed_scoped_increment"
+  },
+  "sha256": {
+    "ruyi-workbench/app/server.js": "793a55c64c73b7dd6950e452cb040435ee2bdf762d14ac9558fd23c88435991e",
+    "ruyi-workbench/resources/macos-process-helper.c": "15c1deab0194ab9303de2a79315a88c112e421a564d8a6655731018c907214a2",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "9cc84c54b969cb2bdb84a8620df1900e40989f26cf6a35754a323717e008379b"
+  },
+  "remainingScope": [
+    "spawn-time opaque owner registration",
+    "root-exit and escape lifetime management",
+    "Windows and macOS14 execution validation",
+    "real high-speed PID reuse validation",
+    "helper capability gate",
+    "unified ProcessRuntime start/stop",
+    "parent/server death cleanup"
+  ]
+}

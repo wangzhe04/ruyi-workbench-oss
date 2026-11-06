@@ -61,6 +61,9 @@ ok(JSON.stringify(fixtureDeclarations) === JSON.stringify(['URL', 'first', 'path
   '103b scanner finds top-level multi/deconstructed declarations without comment/string ghosts');
 ok(fixtureTokens.some(token => token.value === 'externalCall') && !fixtureTokens.some(token => token.value === 'hiddenIdentifier'),
   '103b scanner retains template-expression reads and discards quoted text');
+const executableDeclarations = declarationInfo(tokenize('#!/usr/bin/env node\n' + fixture)).provides.map(item => item.name).sort();
+ok(JSON.stringify(executableDeclarations) === JSON.stringify(fixtureDeclarations),
+  'platform entry hashbang does not hide declarations or create spurious dependency symbols');
 
 const hooks = graph.modules.find(module => module.file === '06c-agent-loop-hooks.js');
 ok(hooks && JSON.stringify(hooks.provides) === JSON.stringify(['AgentLoopHooks']),

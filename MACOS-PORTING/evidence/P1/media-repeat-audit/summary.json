@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-03",
+  "candidateCommit": "a8374a243679a673e2e3363f4c9bb4037ff291a9",
+  "repositoryRevision": "bfa8b4f3ea724d532f949d74c6e6a72b2abee486",
+  "sourceHashesVerified": true,
+  "runs": [
+    {
+      "run": 1,
+      "assertions": 19,
+      "status": "passed",
+      "log": "repeat-1.txt"
+    },
+    {
+      "run": 2,
+      "assertions": 19,
+      "status": "passed",
+      "log": "repeat-2.txt"
+    },
+    {
+      "run": 3,
+      "assertions": 19,
+      "status": "passed",
+      "log": "repeat-3.txt"
+    }
+  ],
+  "subsequentCompleteMediaPasses": 5,
+  "isolatedTimeoutPasses": 8,
+  "rootCause": "unconfirmed",
+  "productionChanges": false,
+  "assertionsWeakened": false
+}

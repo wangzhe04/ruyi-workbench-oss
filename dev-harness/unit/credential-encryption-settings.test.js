@@ -155,8 +155,7 @@ test('conditional privacy settings reject stale policy or encryption drafts with
 });
 
 test('unsupported platforms refuse real encryption handlers before any config, backup or vault write', async t => {
-  // Linux/macOS CI additionally exercises its real process.platform without a facade.
-  const platforms = ['linux', 'darwin', ...(process.platform !== 'win32' ? ['native-host'] : [])];
+  const platforms = ['linux', ...(process.platform === 'linux' ? ['native-host'] : [])];
   for (const platform of platforms) await t.test(platform, async t => {
     const hostPlatform = process.platform, f = setup(t, platform === 'native-host' ? null : platform);
     await f.app.readConfig();

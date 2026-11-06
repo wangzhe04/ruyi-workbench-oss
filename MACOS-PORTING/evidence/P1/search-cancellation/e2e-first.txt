@@ -1,0 +1,20 @@
+PASS file_search pre-cancellation starts no worker
+PASS file_search has a live worker before cancellation
+PASS file_search returns cancellation only after worker exit
+PASS file_search does not publish partial matches after cancellation
+PASS docs_search pre-cancellation starts no worker
+PASS docs_search has a live worker before cancellation
+PASS docs_search returns cancellation only after worker exit
+PASS docs_search does not publish partial matches after cancellation
+PASS cancellation after a real match discards partial results and waits for exit
+PASS reject in termination confirmation cannot publish success or start literal retry
+PASS hang in termination confirmation cannot publish success or start literal retry
+PASS ordinary regex budget exhaustion retains timedOut semantics after worker exit
+PASS uncancelled searches still return ordinary matches
+PASS directory-walk cancellation stops before launching a scanner
+PASS a search can stop waiting for a shared capability probe
+PASS late shared-probe rejection remains handled after waiter cancellation
+PASS cancelled waiter returns while the real shared version probe is still running
+FAIL another waiter completes using the same uncancelled probe
+
+SEARCH CANCELLATION E2E: FAIL (1)

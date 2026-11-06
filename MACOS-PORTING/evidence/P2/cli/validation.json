@@ -1,0 +1,142 @@
+{
+  "date": "2026-11-06",
+  "os": "27.0.1",
+  "arch": "arm64",
+  "node": "v24.15.0",
+  "checks": [
+    {
+      "name": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "seconds": 24.3,
+      "log": "syntax.txt"
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1,
+      "log": "build-check.txt"
+    },
+    {
+      "name": "static",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 0,
+      "seconds": 125.7,
+      "log": "static.txt"
+    },
+    {
+      "name": "macos-agent-cli-discovery",
+      "command": [
+        "node",
+        "dev-harness/macos-agent-cli-discovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.5,
+      "log": "macos-agent-cli-discovery.txt"
+    },
+    {
+      "name": "macos-capabilities",
+      "command": [
+        "node",
+        "dev-harness/macos-capabilities.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.3,
+      "log": "macos-capabilities.txt"
+    },
+    {
+      "name": "macos-mcp-capabilities",
+      "command": [
+        "node",
+        "dev-harness/macos-mcp-capabilities.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.6,
+      "log": "macos-mcp-capabilities.txt"
+    },
+    {
+      "name": "macos-shell-runtime",
+      "command": [
+        "node",
+        "dev-harness/macos-shell-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 4.1,
+      "log": "macos-shell-runtime.txt"
+    },
+    {
+      "name": "kimi-agent-cli",
+      "command": [
+        "node",
+        "dev-harness/kimi-agent-cli.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 27.0,
+      "log": "kimi-agent-cli.txt"
+    },
+    {
+      "name": "claude-resume-recovery",
+      "command": [
+        "node",
+        "dev-harness/claude-resume-recovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.0,
+      "log": "claude-resume-recovery.txt"
+    },
+    {
+      "name": "claude-permission-bridge-mode",
+      "command": [
+        "node",
+        "dev-harness/claude-permission-bridge-mode.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.7,
+      "log": "claude-permission-bridge-mode.txt"
+    },
+    {
+      "name": "tool-loading",
+      "command": [
+        "node",
+        "dev-harness/tool-loading.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 1.2,
+      "log": "tool-loading.txt"
+    },
+    {
+      "name": "acc-capability-gates",
+      "command": [
+        "node",
+        "dev-harness/acc-capability-gates.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 4.5,
+      "log": "acc-capability-gates.txt"
+    }
+  ],
+  "implementationCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa",
+  "unitSummary": {
+    "pass": 2491,
+    "skip": 18,
+    "fail": 0
+  },
+  "staticSummary": {
+    "pass": 80,
+    "fail": 0
+  },
+  "relatedE2eGroups": 9,
+  "logNormalization": "Text logs have trailing whitespace removed; output content and results preserved."
+}

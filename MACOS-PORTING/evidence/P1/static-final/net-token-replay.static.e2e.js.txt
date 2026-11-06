@@ -1,0 +1,13 @@
+PASS ① apiRaw() 403 auth.token_invalid 后换新 token 重放，拿到 200
+PASS ① 恰好重放一次：第一次带旧 token(403)，第二次带 initToken(true) 换回来的新 token(200)
+PASS ① 只在 403 之后握手一次换新 token，不会每次请求都重新 bootstrap
+PASS ① apiRaw() 返回未消费的原始 Response，调用方自己 res.json() 仍能拿到重放后的真实数据（steward-board.js 的 304/etag 判断就是这样接的）
+PASS ②反向验证：旧写法(裸 fetch，无重放)在同样的假 403 场景下确实吃不到自愈
+PASS ②反向验证：旧写法只发了一次请求，从没换过 token 重试——这正是 30 号文 §4.6 描述的「一直空转到用户手动刷新页面」
+PASS ③ api() 复用 apiRaw 之后，200 成功路径仍然直接返回解析好的 JSON（既有 45+ 调用点无感知）
+PASS ④ api() 自己也换新 token 重放并成功（api() = apiRaw() + .json()，不是另一份逻辑）
+PASS ④ api() 的重放次数与 apiRaw() 场景①一致，没有重复重放
+PASS ⑤ 普通 404 错误 api() 仍然直接抛错(消息取自响应体)，不会被误判成 token 失效
+PASS ⑤ 普通错误零重放，只发一次请求（apiRaw() 内部靠 clone() 探测 body，不会因为读了一次 body 就导致后续 api() 读不到）
+
+NET TOKEN REPLAY E2E: ALL PASS

@@ -51,6 +51,11 @@
   "audit.bit.grants.other": "{{count}} 张",
   "audit.title": "审计时间线",
   "brand.name": "如意 Ruyi",
+  "capability.runtime": "本机执行能力",
+  "capability.shellExec": "一次性 shell",
+  "capability.shellSession": "常驻 shell",
+  "capability.checking": "检查中",
+  "capability.unavailable": "不可用",
   "capability.available": "可用",
   "capability.badge.offline": "能力矩阵：离线（点击查看）",
   "capability.badge.online": "能力矩阵：在线（点击查看）",
@@ -408,6 +413,9 @@
   "health.item.search-ripgrep.hint.bundled": "用的是如意随包自带的 ripgrep：项目搜索更快，AI 在终端里也能直接用 rg。",
   "health.item.search-ripgrep.hint.env": "用的是环境变量 RUYI_RG_PATH 指定的 ripgrep，项目搜索会更快。",
   "health.item.search-ripgrep.hint.system": "用的是这台电脑上安装的 ripgrep：项目搜索更快，AI 在终端里也能直接用 rg。",
+  "health.item.process-supervisor.label": "Mac 进程监督器",
+  "health.item.process-supervisor.hint.ok": "受管命令和 shell 的原生监督器已就绪。",
+  "health.item.process-supervisor.hint.bad": "原生监督器缺失或未通过能力检查，受管执行暂不可用。",
   "health.item.search-ripgrep.label": "快速搜索",
   "health.item.search-ripgrep.next.absent": "打开手册的「常见问题」一节，按里面的办法把安装包补齐。",
   "health.item.server-source.hint.bad": "以打包好的程序运行，这是发布版本的正常状态。",
@@ -2741,6 +2749,8 @@
   "settings.mcp.compat.sse.limitations": "legacy transport;新建连接器优先 streamable-HTTP",
   "settings.mcp.desktopControl.label": "桌面控制 (ai-computer-control)",
   "settings.update.current": "当前状态",
+  "settings.update.unsupportedPlatform": "此平台不支持 overlay 更新",
+  "settings.update.unsupportedPlatformHint": "macOS 不支持此 Windows overlay 更新方式。",
   "settings.update.notApplied": "未应用任何 overlay",
   "settings.update.noBackups": "无备份",
   "settings.update.backupsCount.one": "{{p1}} 个备份",
@@ -4150,7 +4160,7 @@
   ,"botSetup.copyFailed": "未能复制，请手动选择上方内容。"
   ,"botSetup.unavailable": "无法打开机器人引导，请在设置中检查连接。"
   ,"botSetup.source.error": "凭据无法读取；未就绪，请检查故障并恢复。"
-  ,"botSetup.decryptFailed": "本机凭据无法解密（可能更换了 Windows 账号或文件损坏）。原值不会被当成空。可明确选择下方完整替换，重新填写所有未使用环境变量的凭据。"
+  ,"botSetup.decryptFailed": "本机凭据无法解密（可能更换了系统账户、钥匙串密钥缺失或文件损坏）。原值不会被当成空。可明确选择下方完整替换，重新填写所有未使用环境变量的凭据。"
   ,"botSetup.credentialsUnavailable": "本机安全凭据存储不可用。请检查本机故障后再读取；不会自动改为其他存储方式。"
   ,"botSetup.replaceAll": "我确认完整替换此连接的本机凭据；环境变量引用保持原样，其对应本机遗留值将清除。"
   ,"botSetup.replaceRequired": "恢复需要明确勾选完整替换，并重新填写所有未使用环境变量的凭据。密码框已清空。"
@@ -4158,7 +4168,7 @@
   ,"botSetup.envUnavailable": "此环境变量尚未提供有效凭据。请检查引用名及如意启动环境；不会自动使用本机旧值。"
   ,"botSetup.slotDecryptFailed": "此本机凭据无法解密，当前未就绪。请使用下方完整替换恢复。"
   ,"externalBots.discover": "用应用信息自动发现"
-  ,"externalBots.discoverHint": "填入飞书应用的 App ID 与 App Secret。如意会向飞书固定官方接口探测一次，取得租户 key 与机器人 open_id，准备一条关闭的连接，并把应用密钥存进本机凭据（Windows 用当前用户保护）。探测失败不保存任何凭据。"
+  ,"externalBots.discoverHint": "填入飞书应用的 App ID 与 App Secret。如意会向飞书固定官方接口探测一次，取得租户 key 与机器人 open_id，准备一条关闭的连接，并把应用密钥存进本机系统保护的凭据库。探测失败不保存任何凭据。"
   ,"externalBots.discoverSecret": "应用密钥 App Secret（只提交到本机接口）"
   ,"externalBots.discoverRun": "探测并准备连接"
   ,"externalBots.discoverRunning": "正在向飞书固定官方接口探测，请稍候…"
@@ -4309,7 +4319,7 @@
   ,"privacy.legacy": "凭据加密已关闭，凭据按原方式明文保存在本机配置中。脱敏默认关闭。"
   ,"privacy.encryptionTitle": "凭据保存方式"
   ,"privacy.encryptionToggle": "加密保存本地凭据"
-  ,"privacy.encryptionHelp": "可单独开启，使用当前 Windows 用户保护已有凭据。关闭脱敏后也可保留加密；选择改变后均需保存。"
+  ,"privacy.encryptionHelp": "可单独开启，使用系统保护器保护已有凭据（Windows 当前用户或 Mac 钥匙串）。关闭脱敏后也可保留加密；选择改变后均需保存。"
   ,"privacy.confirmPlaintext": "我确认本次保存会关闭凭据加密，恢复向本机配置写入明文；已有加密记录与备份不会删除。"
   ,"privacy.saveEncryption": "应用凭据保存方式"
   ,"privacy.encryptionSaved": "凭据保存方式已更新。"
@@ -4453,5 +4463,10 @@
   ,"privacy.menuHint": "发送前替换敏感信息"
   ,"privacy.ruleEntryPending": "这条规则尚未加入草稿：请先添加或更新，或者取消编辑，再保存或重新读取。"
   ,"privacy.nativeSavedRefreshFailed": "默认引擎已保存，但状态刷新未完成。旧恢复预览已作废，请重新打开设置后核对；不要重复提交。"
-  ,"privacy.nativeCoverage": "所有服务商经工作台原生通道发出的模型文字请求，都会自动应用已保存的脱敏策略。更换模型或服务商，请使用原有的模型设置。"
+  ,"privacy.nativeCoverage": "所有服务商经工作台原生通道发出的模型文字请求，都会自动应用已保存的脱敏策略。更换模型或服务商，请使用原有的模型设置。",
+  "privacy.keychainLocked": "请先解锁登录钥匙串，再重试保存；原有凭据未改变。",
+  "privacy.keychainPermission": "请在钥匙串中恢复工作台的访问权限后重试；原有凭据未改变。",
+  "privacy.protectorMissing": "本地凭据保护组件不可用，请修复工作台运行环境后重试。",
+  "privacy.protectorRecovery": "本地凭据密钥缺失、身份不匹配或数据损坏。请保留原数据，并按凭据恢复流程处理。",
+  "privacy.keychainRepair": "系统钥匙串中的工作台密钥损坏。请先恢复钥匙串；仅更换数据目录或重新填写凭据不能修复系统密钥。"
 }

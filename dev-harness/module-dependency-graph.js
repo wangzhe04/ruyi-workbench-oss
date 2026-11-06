@@ -118,7 +118,7 @@ function tokenize(source) {
       continue;
     }
     if (/\s/.test(ch)) { if (ch === '\n') line++; i++; continue; }
-    if (ch === '/' && next === '/') {
+    if ((ch === '/' && next === '/') || (i === 0 && ch === '#' && next === '!')) {
       i += 2; while (i < source.length && source[i] !== '\n') i++; continue;
     }
     if (ch === '/' && next === '*') {

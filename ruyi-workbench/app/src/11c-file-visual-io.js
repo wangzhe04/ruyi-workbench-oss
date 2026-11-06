@@ -55,6 +55,45 @@ const FileVisualIo = (() => {
       content: `Image ${paths.basename(p)} (${buf.length} bytes, sha256 ${sha256}). Pixels are attached for vision models; no text/OCR was extracted.`,
       ...(args.includeImages === false ? {} : { images: [{ name: paths.basename(p), mimeType: media, data: buf.toString('base64') }] }) };
   }
+  async function runMacReader(exe, argv, signal) {
+    if (signal?.aborted) return { err: Object.assign(new Error('File read cancelled'), { code: 'ABORT_ERR' }) };
+    let capture;
+    try {
+      capture = ProcessRuntime.capture(exe, argv, { windowsHide: true, maxBuffer: 16 * 1024 * 1024, encoding: 'utf8' },
+        { ...ProcessRuntime.currentOwner(), kind: 'document-reader' });
+    } catch (err) { return { err }; }
+    const { child } = capture;
+    let timer;
+    let stopping = false;
+    let resolveStopped;
+    const stopped = new Promise(resolve => { resolveStopped = resolve; });
+    const stop = async code => {
+      if (stopping) return;
+      stopping = true;
+      let cleanup = { scope: 'unknown', incomplete: true };
+      try {
+        ProcessRuntime.stopChild(child);
+        cleanup = await ProcessRuntime.waitForCleanup(child, 1500);
+      } catch { /* preserve incomplete cleanup */ }
+      finally {
+        child.stdout.destroy(); child.stderr.destroy();
+        resolveStopped({ err: Object.assign(new Error('Document reader interrupted'), { code }), cleanup });
+      }
+    };
+    const abort = () => { void stop('ABORT_ERR'); };
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
+    timer = setTimeout(() => { void stop('ETIMEDOUT'); }, 30000);
+    try {
+      const result = await Promise.race([capture.output.then(async output => ({ err: output.error, stdout: output.stdout,
+        cleanup: await ProcessRuntime.waitForCleanup(child, 1500) })), stopped]);
+      if (stopping) return await stopped;
+      return result;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+    }
+  }
   async function document(p, args, helperPath, signal) {
     const st = await io.stat(p);
     if (!st.isFile()) throw Object.assign(new Error('not a regular file'), { code: 'EISDIR' });
@@ -63,16 +102,20 @@ const FileVisualIo = (() => {
     if (process.env.RUYI_BUNDLED_PYTHON) candidates.push([process.env.RUYI_BUNDLED_PYTHON, []]);
     candidates.push(['python', []], process.platform === 'win32' ? ['py', ['-3']] : ['python3', []]);
     for (const [exe, pre] of candidates) {
-      const res = await new Promise(resolve => {
-        cp.execFile(exe, [...pre, '-I', '-X', 'utf8', helperPath, p, JSON.stringify(options(args))],
+      const argv = [...pre, '-I', '-X', 'utf8', helperPath, p, JSON.stringify(options(args))];
+      const res = process.platform === 'darwin' ? await runMacReader(exe, argv, signal) : await new Promise(resolve => {
+        cp.execFile(exe, argv,
           { windowsHide: true, timeout: 30000, maxBuffer: 16 * 1024 * 1024, ...(signal ? { signal } : {}) },
           (err, stdout) => resolve({ err, stdout }));
       });
+      const cleanupFields = res.cleanup ? { cleanupScope: res.cleanup.scope, cleanupIncomplete: res.cleanup.incomplete === true,
+        cleanupEscapeCoverage: res.cleanup.escapeCoverage, cleanupUnconfirmed: res.cleanup.unconfirmed } : {};
+      if (res.cleanup?.incomplete) return { ok: false, code: 'process_cleanup_incomplete', error: 'Document reader cleanup has not been confirmed', path: p, ...cleanupFields };
+      if (signal && signal.aborted) return { ok: false, code: 'aborted', error: 'File read cancelled', path: p, ...cleanupFields };
       if (res.err && (res.err.code === 'ENOENT' || res.err.code === 9009)) continue;
-      if (signal && signal.aborted) return { ok: false, code: 'aborted', error: 'File read cancelled', path: p };
-      if (res.err) return { ok: false, code: 'document_read_failed', error: 'Document reader failed or exceeded its time/output limit', path: p };
-      try { return { ...JSON.parse(res.stdout), path: p, size: st.size }; }
-      catch { return { ok: false, code: 'document_read_failed', error: 'Invalid document reader response', path: p }; }
+      if (res.err) return { ok: false, code: 'document_read_failed', error: 'Document reader failed or exceeded its time/output limit', path: p, ...cleanupFields };
+      try { return { ...JSON.parse(res.stdout), path: p, size: st.size, ...cleanupFields }; }
+      catch { return { ok: false, code: 'document_read_failed', error: 'Invalid document reader response', path: p, ...cleanupFields }; }
     }
     return { ok: false, code: 'reader_unavailable', error: 'Native document reading needs Python', path: p,
       hint: 'Use the bundled Python runtime or install Python. PDF requires pdfplumber; image conversion requires Pillow. No computer use/MCP connection is needed.' };

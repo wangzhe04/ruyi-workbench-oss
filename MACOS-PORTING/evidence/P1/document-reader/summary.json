@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0",
+    "pythonSmoke": [
+      "3.14.7",
+      "3.12.10 with explicit framework binary and DYLD paths"
+    ]
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1107,
+    "fail": 0
+  },
+  "documentReaderE2E": {
+    "runs": 2,
+    "passPerRun": 14,
+    "fail": 0
+  },
+  "independentTests": {
+    "documentReader": 14,
+    "processRuntime": 62
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "50d276cf248553cd8d8a6b6c86d736ec2bff7be969b17daa015fd8f288190a0d",
+    "ruyi-workbench/app/src/11c-file-visual-io.js": "3427ec055e00f90a0fd6addf3bec5b540e9c5fb472e720a1ec34604a97aeee37",
+    "dev-harness/macos-document-reader.e2e.js": "c586c958a71d74d284d1bbd2b44685037310057aa48cf4a0cc6e42b4dffc4793",
+    "dev-harness/process-safety.static.e2e.js": "b0b53ef8de2356e966d61b8138c70f2c3706a1916367d70e3c70a4c1fe754433"
+  },
+  "correctedValidationFailures": [
+    "Initial test attempted const reassignment; replaced with fake helper protocol frames",
+    "New fixture increased killOwnTree owner inventory from 335 to 336; updated exact count"
+  ],
+  "environmentFinding": "HOME-dependent Python 3.12 shim fails under isolated HOME; explicit framework binary/DYLD paths passed. Clean installation remains unverified.",
+  "remaining": [
+    "CLI locator/version/Python probes",
+    "Media/rg lifecycle",
+    "Remaining paths/lifecycle and clean installation",
+    "Windows/macOS14 same-SHA and actual Finder"
+  ]
+}

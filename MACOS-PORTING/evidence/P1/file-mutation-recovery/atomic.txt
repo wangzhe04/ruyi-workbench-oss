@@ -1,0 +1,29 @@
+PASS pre-abort leaves target and directory intact
+PASS temp cancellation prevents target fallback and awaits temporary cleanup
+PASS temp cancellation stops further rename attempts
+PASS retry cancellation prevents target fallback and awaits temporary cleanup
+PASS retry cancellation stops further rename attempts
+PASS fallback cancellation prevents target fallback and awaits temporary cleanup
+PASS fallback cancellation stops further rename attempts
+PASS abort after successful rename reports committed success
+PASS ordinary exhausted rename retains in-place fallback
+PASS temporary disk-full never truncates target
+PASS cancelled temporary creation cannot enter permission fallback
+PASS hardlink in-place write preserves link semantics
+PASS hardlink partial error carries mutation uncertainty
+PASS symlink in-place write preserves link semantics
+PASS symlink partial error carries mutation uncertainty
+PASS seed an earlier checkpoint for the same target before cancellation
+PASS file_write public cancellation rolls back its uncommitted checkpoint
+PASS file_write cancellation preserves prior checkpoint entries
+PASS file_edit public cancellation rolls back its uncommitted checkpoint
+PASS file_edit cancellation preserves prior checkpoint entries
+PASS file_write partial fallback reports actual error and retains checkpoint
+PASS file_write failed partial write retains original bytes and cleans temporary file
+PASS file_edit partial fallback reports actual error and retains checkpoint
+PASS file_edit failed partial write retains original bytes and cleans temporary file
+PASS archive_zip partial fallback reports actual error and retains checkpoint
+PASS archive_zip failed partial write retains original bytes and cleans temporary file
+PASS abort after successful in-place commit reports success
+
+ATOMIC WRITE CANCELLATION E2E: ALL PASS

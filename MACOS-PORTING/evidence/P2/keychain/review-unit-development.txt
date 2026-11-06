@@ -1,0 +1,62 @@
+✔ preview is side-effect free; commit merges credentials, preserves unrelated settings and consumes ticket (136.309791ms)
+✔ preview cannot overwrite a newer configuration or restore while a turn is running (132.036125ms)
+✔ rollback preserves exact credentials after before failure (88.335458ms)
+✔ rollback preserves exact credentials after after failure (89.2695ms)
+✔ rollback preserves exact credentials after remove failure (87.426125ms)
+✔ interrupted journal write recovers under a fresh transaction instance and is idempotent (87.643ms)
+✔ tampered recovery journal fails closed without deleting the journal or rewriting configuration (93.016292ms)
+✔ concurrent config readers wait for an active switch instead of rolling back or observing a provisional commit (82.704292ms)
+✔ concurrent previews reserve ticket capacity before password work begins (217.030959ms)
+✔ an unavailable old wrapping key cannot mutate the old profile; the portable package imports under a fresh independent key (144.319875ms)
+✔ CLI startup prints fresh-profile recovery guidance only for a locked credential vault (1.64875ms)
+✔ startup diagnostic retains its schema, size limit and original error while exposing safe locked-vault guidance (1.97775ms)
+(node:22771) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/external-bot-setup.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unread/failed setup never offers credential or authorization controls (10.102334ms)
+✔ dedicated password save sends only explicit slots and clears DOM before response (1.191625ms)
+✔ environment sources are not silently overwritten (0.602ms)
+✔ pair writes carry the observed CAS token and never owner identities (9.724959ms)
+✔ candidate confirmation captures the original token, not a later polling snapshot (0.625083ms)
+✔ closing stops pairing poll and clears password values; late reads cannot reopen (0.343542ms)
+✔ old write completion cannot release the next connection write owner (0.349833ms)
+✔ restart invalidates active pairing and pending confirmation without authorizing (0.257083ms)
+✔ malformed candidate/source snapshots fail closed and external labels remain text (0.328583ms)
+✔ enabled setup is readonly and does not claim a platform probe or execute a test instruction (0.320125ms)
+✔ copy failure from a prior connection cannot overwrite the new guide (0.355125ms)
+✖ decrypt failure recovery is explicit, full local replacement and environment removal only (1.2545ms)
+✔ server setup act is repeatable pure navigation, never a steward act request (3.306166ms)
+✔ polling is bounded and stops at expiry without issuing any POST (4.486709ms)
+✔ a read admitted before a write cannot replace the successful write snapshot (0.350375ms)
+✔ missing environment credential keeps its source visible and does not disable unrelated local entry (0.186417ms)
+✔ background page suspends pairing checks and foreground resumes only a bounded active window (0.195459ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 28
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1206.864458
+
+✖ failing tests:
+
+test at dev-harness/unit/external-bot-setup-ui.test.js:28:1
+✖ decrypt failure recovery is explicit, full local replacement and environment removal only (1.2545ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + null
+  - undefined
+
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/external-bot-setup-ui.test.js:28:1428)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

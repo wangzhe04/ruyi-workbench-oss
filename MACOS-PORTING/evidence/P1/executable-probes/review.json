@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "ProcessRuntime.probe and target exit metadata",
+    "Mac spawnProbeAsync and CLI candidate stop-on-uncertainty",
+    "Deadline/output/environment compatibility"
+  ],
+  "resolvedFindings": [
+    "Preserve zero timeout disable semantics and validate negative deadlines"
+  ],
+  "blockingFindings": 0,
+  "tests": {
+    "executableProbes": 14,
+    "processRuntime": 62
+  },
+  "limitations": [
+    "Synchronous and Python import probes remain out of scope",
+    "Windows runtime not tested"
+  ]
+}

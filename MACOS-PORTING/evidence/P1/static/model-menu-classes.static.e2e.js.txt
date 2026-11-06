@@ -1,0 +1,13 @@
+(node:18015) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/model-menu.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS MODEL_MENU_CLASSES 真的从模块里导出了一个对象
+PASS MODEL_MENU_CLASSES 表里每个类名都在 CSS 里有规则
+PASS 表只剩 del／rowActive 两条键（实得 ["del","rowActive"]）
+PASS rowActive 原样是 'active'（实得 active）
+PASS del 原样是 'mc-del'（实得 mc-del）
+PASS 反向：塞一个查无 CSS 的假类名 → 判据函数真的报缺失（实得 ["guard=mc-nonexistent-guard-check"]）
+PASS 反向验证之后原表自己再核一遍仍然零缺失（没有被污染）
+
+MODEL MENU CLASSES STATIC E2E: ALL PASS

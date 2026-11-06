@@ -61,12 +61,14 @@ test('[G1] 名单里的每个名字都是 ACC 真实注册的工具;三族互不
 });
 
 test('[G2] 判据矩阵:桌面族与原生 desktop_screenshot 逐格同判;命令族只看命令闸;转调器任一闸关就关', () => {
+  // This matrix compares settings policy on the platform implementing both native and ACC desktop tools.
+  const policy = require('../lib/server-internals').loadServerInternals(['nativeToolDisabledByPolicy', 'toolDisabledByPolicy'], { testPlatform: 'win32' });
   for (const allowCommandTools of [true, false, undefined]) {
     for (const allowDesktopTools of [true, false, undefined]) {
       for (const override of [null, true, false]) {
         const cfg = { allowCommandTools, allowDesktopTools };
-        const nativeDesk = H.nativeToolDisabledByPolicy('desktop_screenshot', cfg, override);
-        const nativeCmd = H.nativeToolDisabledByPolicy('script_run', cfg, override);
+        const nativeDesk = policy.nativeToolDisabledByPolicy('desktop_screenshot', cfg, override);
+        const nativeCmd = policy.nativeToolDisabledByPolicy('script_run', cfg, override);
         for (const n of F.desktop) assert.equal(H.toolDisabledByPolicy(`x__${n}`, cfg, override, accBridge(n)), nativeDesk, `${n} ${JSON.stringify(cfg)} override=${override}`);
         for (const n of F.command) assert.equal(H.toolDisabledByPolicy(`x__${n}`, cfg, override, accBridge(n)), nativeCmd, `${n} ${JSON.stringify(cfg)} override=${override}`);
         for (const n of F.dispatcher) {

@@ -1,0 +1,81 @@
+PASS 0 HTML .wb-main 主区网格容器(画布 | 右板)就位
+PASS 0 HTML 右侧上下文板 #wbSide.wb-side 就位
+PASS 0 HTML 窄屏抽屉 backdrop #wbSideBackdrop 就位
+PASS 0 HTML 画布与右板同处 .wb-main 内
+PASS A 右板渲染器 renderWorkbenchSide 存在
+PASS A 渲染三段:选中详情 / 任务池审批 / 邮箱消息流
+PASS A 插话输入焦点/文本跨 2s 轮询重绘保留(防打字被冲掉)
+PASS A 段外壳 wbSection 折叠态记忆 wbState.panelOpen
+PASS A wbState.panelOpen 三段初始展开
+PASS A renderWorkbench 分派到 renderWorkbenchSide
+PASS A CSS .wb-sec.open 展开段体
+PASS A CSS 展开态 caret 旋转 90°
+PASS A CSS 待批准计数徽标 warn 态
+PASS B 节点详情渲染器 wbNodeDetailBody 存在
+PASS B 复用同源纯函数(状态派生/标签/引擎)
+PASS B 显示模型名(node.model,§6#5)
+PASS B 进度活动全量时间线(progressLog)
+PASS B 门 verdict + 置信度环(conic --deg,数值算得非硬编码)
+PASS B 重试入口:仅此节点 / 及下游(复用 retry_node action)
+PASS B 重试入口仅非 live run(与右栏 agent-runs 一致)
+PASS B 结果/错误全文展示
+PASS B CSS 置信度环 conic-gradient(角度 --deg + 环色 --ring-col)
+PASS B CSS 时间线末条 live 点(accent)
+PASS C 插话资格判定 wbSteerEligibility 存在(镜像后端 nodeDeliveryEligibility)
+PASS C 非 live run 不出插话框
+PASS C claude 引擎节点走延迟插话(deferred,非禁用)
+PASS C 确定性门禁用 + 409 文案一致
+PASS C 终态禁用 + 409 文案一致
+PASS C 插话框 wbSteerBox 存在
+PASS C 内联提交复用 steer_node action(传 presetText + engine 不弹 prompt)
+PASS C 不符合资格显禁用输入 + 原因
+PASS C steerAgentNode 增 presetText+engine 形参(内联/prompt 双路径)
+PASS C presetText 提供走内联,不提供保留 prompt()
+PASS C CSS 禁用态插话输入样式
+PASS D 任务池渲染器 wbPoolBody 存在
+PASS D proposed 项渲染审批卡
+PASS D 三行人话卡(谁提议/做什么/预计消耗)
+PASS D 同意添加/不用了 → poolDecide(复用 pool_approve/reject)
+PASS D waiting_pool 宽限窗倒计时条
+PASS D CSS 审批卡左琥珀发丝缘
+PASS E 邮箱渲染器 wbMailBody 存在
+PASS E 每条 sender → target 路由
+PASS E 消息摘要文本
+PASS E dropped 项标「未送达」+ 已送达时间
+PASS E 只读展示(el()/textContent,无 innerHTML)
+PASS E CSS 未送达项灰化
+PASS F 缩放挡位 WB_ZOOM_GEARS = [0.75,1,1.25]
+PASS F 缩放设置 wbSetZoom + 胶囊 wbBuildZoomCapsule
+PASS F 胶囊:− / 读数 / ＋ / 适应视图
+PASS F 缩放读数百分比
+PASS F 节点+SVG 同 .wb-canvas-inner 容器整体 scale(坐标系不变)
+PASS F CSS .wb-canvas-inner transform-origin 左上
+PASS F CSS 缩放胶囊右下定位
+PASS G 适应视图 wbFitView 存在
+PASS G 按画布包围盒 + 视口宽算适应挡
+PASS G 挑能容下宽度的最大挡(都容不下回落最小挡)
+PASS G 重绘后水平居中滚动(纵向 DAG 顶对齐)
+PASS H 泳道层标 wbBuildLayerTags 存在
+PASS H 每层「第 N 层」淡标签(代码与中文 locale 双向锁)
+PASS H 标签落层行上缘空隙带(避开节点重叠)
+PASS H CSS 层标 veil 底 + 发丝缘
+PASS I 抽屉开合 wbOpenSide 切 .wb-side-open
+PASS I 窄屏按班组自身宽度判断，与容器查询一致（真实布局见 crew-experience.browser）
+PASS I 窄屏点节点自动滑出抽屉
+PASS I backdrop 点击关抽屉(bindEvents wire)
+PASS I CSS 班组 ≤820 右板变右滑抽屉(translateX 100%)
+PASS I CSS .wb-side-open 抽屉滑入
+PASS I CSS 抽屉打开时 backdrop 可见
+PASS I CSS 班组 ≤540 右板近全宽浮层
+PASS J wbNodeDetailBody 无 innerHTML(el()/textContent,XSS 安全)
+PASS J wbPoolBody 无 innerHTML(el()/textContent,XSS 安全)
+PASS J wbMailBody 无 innerHTML(el()/textContent,XSS 安全)
+PASS J wbSection 无 innerHTML(el()/textContent,XSS 安全)
+PASS J wbSteerBox 无 innerHTML(el()/textContent,XSS 安全)
+PASS J 定位到 P3b CSS 追加块
+PASS J P3b CSS 块零硬编码十六进制色(全 token/color-mix)
+PASS J P3b 起 CSS 零裸 px 字号(全 var(--fs-*))
+PASS J styles.css 全局裸 px 字号仍仅 2 处基线锚点
+PASS J 悬停依赖链高亮 wbHighlightChain(复用 lit/dim)
+
+UI V3 P3B STATIC E2E: ALL PASS

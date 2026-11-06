@@ -72,6 +72,13 @@ async function externalBotPublicConnection(connection) {
   catch (error) { out.credentialError = externalBotSafeCredentialError(error); }
   return out;
 }
+// A list may contain sixteen local credential owners. Read them in order so one
+// ordinary list request stays within the platform protector's bounded process capacity.
+async function externalBotPublicConnections(connections) {
+  const result = [];
+  for (const connection of connections) result.push(await externalBotPublicConnection(connection));
+  return result;
+}
 function externalBotSafeCredentialError(error) {
   return /^external_credentials\.[a-z_]+$/.test(error?.code) ? error.code : 'external_credentials.unavailable';
 }
@@ -262,8 +269,8 @@ async function externalBotDiscoverOperation(body) {
   const label = body.label || '';
   if (!externalBotString(label, 120, true)) throw externalBotError('external_channel.request_invalid');
   const create = body.create === true;
-  // Other platforms have no DPAPI vault: probing is still allowed, persisting a secret is not.
-  if (create && process.platform !== 'win32') throw externalBotError('external_credentials.unsupported', 501);
+  // Unsupported platforms may probe, but cannot persist a local secret.
+  if (create && !LocalSecretCrypto.supported()) throw externalBotError('external_credentials.unsupported', 501);
   const appId = body.appId.trim();
   const discovery = await externalBotDiscoveryProbe(appId, body.appSecret);
   if (!create) return { ok: true, created: 'none', connectionId: '', discovery };
@@ -442,6 +449,9 @@ async function externalBotDrain() {
         const job = await externalBotNextJob(); if (!job) break; if (job.kind === 'skip') continue;
         let result;
         try {
+          // stop may run while the claim is being persisted, before its actor/controller exists.
+          // Leave the durable claim for restart recovery; finally releases any newly registered actor.
+          if (externalBotWorkerStopped) break;
           if (job.kind === 'run') result = await runStewardTurn({ trigger: 'external', externalActor: job.actor, message: job.item.text });
           else {
             const controller = new AbortController();
@@ -577,7 +587,7 @@ async function externalBotUpdateConnection(body, setupReceipt) {
     const current = state.connections.find(row => row.id === actor.connectionId);
     if (!current || !current.enabled || current.controlRevision !== actor.controlRevision) actor.controller.abort();
   }
-  return { ok: true, connections: await Promise.all(state.connections.map(externalBotPublicConnection)) };
+  return { ok: true, connections: await externalBotPublicConnections(state.connections) };
 }
 async function externalBotAcceptCallback(platform, connectionId, headers, rawBody) {
   const state = await externalBotReadState();
@@ -688,7 +698,7 @@ async function handleExternalBotApiRoutes(req, res, pathname) {
     }
     if (req.method === 'GET' && pathname === '/api/external-bots/connections') {
       const state = await runKeyedChain(externalBotChains, 'state', externalBotReadState);
-      send(res, json({ ok: true, connections: await Promise.all(state.connections.map(externalBotPublicConnection)) })); return true;
+      send(res, json({ ok: true, connections: await externalBotPublicConnections(state.connections) })); return true;
     }
     if (req.method === 'POST' && pathname === '/api/external-bots/connections') {
       const body = externalBotDecodeJson(await externalBotReadBody(req));

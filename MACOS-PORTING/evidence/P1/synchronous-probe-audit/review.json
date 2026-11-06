@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Native optional deadline supervisor entry",
+    "Guardian grace recovery",
+    "Synchronous extra-pipe evidence and regression fixtures"
+  ],
+  "resolvedFindings": [
+    "Guardian deadline plus 1500ms grace covers blocked/stopped primary",
+    "Verify target signals and primary SIGSTOP/SIGKILL fault recovery"
+  ],
+  "blockingFindings": 0,
+  "tests": {
+    "syncSupervisor": 18,
+    "processRuntime": 62,
+    "processCleanup": 37
+  },
+  "limitations": [
+    "Product synchronous probe entrypoints are not connected yet",
+    "Deadline checks and cleanup have scheduling overhead",
+    "Windows and macOS14 runtime remain unverified"
+  ]
+}

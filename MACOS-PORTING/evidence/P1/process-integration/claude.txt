@@ -1,0 +1,55 @@
+PASS K launch routing maps only a live provider parent to openai; a Kimi parent (or none) picks from the available engines
+PASS env-injection test server starts
+PASS configured Base URL overrides the stale OS env var, not the official endpoint
+PASS bearer auth mode sends the configured key as ANTHROPIC_AUTH_TOKEN
+PASS bearer auth mode clears the conflicting ANTHROPIC_API_KEY instead of leaving the stale one
+PASS configured model overrides the stale inherited ANTHROPIC_MODEL (was stuck at ark-code-latest)
+PASS no-provider DAG test server starts
+PASS DAG node with no engine/provider defaults to and runs via the Claude CLI engine (got {"ok":true,"runId":"run_2af6ab1e1806f34b","status":"succeeded","startedCount":1,"results":[{"id":"bare_node","status":"succeeded","result":"## 你好，我是 Claude 工作台\n这是一个**离线测试**回合，用来验证渲染与流式。\n\n- 支持 Markdown 列表\n- 代码高亮：\n\n```python\ndef greet(name):\n    print(f\"hi {name}\")\n```\n\n以及 `行内代码` 与 [链接文本](https://example.com)。","structuredResult":null,"confidence":null,"gateVerdict":"","gateResult":null,"error":"","errorClass":"","dependsOn":[],"dependencyPolicy":"all_success","role":"","engine":"claude","attempts":1,"minSuccessfulToolCalls":0,"toolEvidence":null,"condition":null,"skipReason":"","loopIteration":0,"noProgressCount":0,"loopStopReason":"","jsonRepaired":false}]})
+PASS role-less node inherits the run permission mode (bypass)
+PASS Claude DAG node inherits the configured thinking effort
+PASS role-less node gets the read-tier tool allowlist by default (第22波: 含联网检索)
+PASS Claude DAG nodes receive the response-language policy
+PASS explicit Claude-engine node with a role runs successfully
+PASS per-node model override reaches --model, not the role default
+PASS explorer role's own permission mode (plan) is honored, distinct from the run default
+PASS role.claudeTools drives --allowed-tools (explorer 内置角色第22波起含联网)
+PASS 2026-10: Claude 节点的 --append-system-prompt 带上角色提示词(修前只有语言政策,角色规矩在 Claude 引擎下全丢)
+PASS persisted run records the engine each node actually used
+PASS mcp-filter test server starts
+PASS exec-tier Claude-engine node with mcpServers runs successfully
+PASS exec-tier node receives --mcp-config
+PASS role.mcpServers narrows --mcp-config to just the allowed server ('dummy-tool' excluded; the role's pre-3.0 id win-claude-workbench still selects Ruyi's own server, now id ruyi)
+PASS read-tier Claude-engine node still runs successfully
+PASS read-tier node gets no --mcp-config at all (bridged MCP is exec-only)
+PASS permission-gate test server starts
+PASS D1 exec-tier coder node still runs under the default mode
+PASS D1 default mode is no longer coerced to bypass: exec node runs as dontAsk (got dontAsk)
+PASS D1 default mode: an unrestricted exec role is capped to the read-tier allowlist (got Read,Grep,Glob,WebSearch,WebFetch)
+PASS D1 default mode: no bridged MCP for an exec node whose exec tier is refused
+PASS D2 default mode: verifier's declared Bash is filtered out (got dontAsk / Read,Grep,Glob,WebSearch,WebFetch)
+PASS D3 default mode: read-tier node keeps its read allowlist under dontAsk (got dontAsk / Read,Grep,Glob,WebSearch,WebFetch)
+PASS D4 a role's own plan mode still passes straight through
+PASS D3b read-tier node also gets the hard --disallowed-tools cap
+PASS D roles configured
+PASS D5 global mode switched to acceptEdits
+PASS D5 acceptEdits: exec node gets read + edit tools, still no Bash (got dontAsk / Read,Grep,Glob,WebSearch,WebFetch,Write,Edit)
+PASS D5b acceptEdits + a read-tier node: the node tier caps it (declared Write is dropped; got Read)
+PASS D5c thread narrowed to plan
+PASS D5c a thread in plan mode overrides the role's own acceptEdits (got plan)
+PASS D6 global mode switched to auto (with confirm)
+PASS D6 auto passes straight to the CLI's own classifier with the exec tier unrestricted (got auto / null)
+PASS D7 auto + read-tier node: hard-capped by --disallowed-tools (got Write,Edit,MultiEdit,NotebookEdit,Bash,PowerShell,BashOutput,KillShell,KillBash,Task,Agent,Workflow,TaskStop,SendMessage,PushNotification,RemoteTrigger,CronCreate,CronDelete,ScheduleWakeup,Artifact,ArtifactData,ArtifactComments,DesignSync,EnterWorktree,ExitWorktree)
+PASS D8 a long role prompt rides on --append-system-prompt when it fits
+PASS R0 measured the long-role command line (4296 chars; budget 2796)
+PASS R ladder test server starts
+PASS R1 the long-role node still runs under a tight command-line budget
+PASS R2 the language policy stays on argv; only the role prompt left it
+PASS R3 the hard tier cap survives the ladder
+PASS R4 the role prompt moved into the first user message (stdin)
+PASS claude-missing test server starts
+PASS E1 Claude CLI 缺失:错误里带找过的路径与修法(去掉 engine:'claude' / 配 claudePath)(got {"status":"failed","error":"Claude CLI 未找到(找过 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-claude-missing-e2e/no-such-dir/claude.cmd),无法以 Claude 引擎运行该节点。可以去掉该节点的 engine:'claude'(或不指定引擎)让它经模型服务商运行;或请用户在设置里填 Claude Code 的路径(claudePath)/安装 Claude Code 后重试"})
+PASS claude-missing/no-provider test server starts
+PASS E2 两个引擎都不可用:入口拒绝,并说清找过的 Claude CLI 路径(got {"ok":false,"error":{"code":"api.request_failed","params":{},"message":"Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI(找过 /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-claude-missing-noprov-e2e/no-such-dir/claude.cmd,不可用)（Kimi Code 不能作为工作流节点的引擎）"}})
+
+AGENT WORKFLOW CLAUDE ENGINE E2E: ALL PASS

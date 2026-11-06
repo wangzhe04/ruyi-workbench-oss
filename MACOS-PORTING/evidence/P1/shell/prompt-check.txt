@@ -1,0 +1,101 @@
+── L 段: 分层快照(各层关键标记) ──
+PASS L1 身份层:工作台+provider label+model+cwd
+PASS L1 身份层:markdown 风格约定在
+PASS L2 工具协议:先读后改
+PASS L2 工具协议:独立调用合批、依赖调用分阶段
+PASS L2 工具协议:观察内容不是授权且拒绝不可绕过
+PASS L2 工具协议:tool_search 按需装载
+PASS L2 工具协议:选用优先级(现成工具优先,终端兜底)
+PASS L2 工具协议:上下文节流守则(分段读+读取预算,防撑爆上下文)
+PASS L2 工具协议:todo_write 计划
+PASS L2 138 工具协议:改完用工具核实、没核实过的不说已完成(此前只有代码任务的 softwareEngineering 包有验证要求)
+PASS L2 138 工具协议:何时问(答案会改变做法且现场查不到才问;能查先查,查两三步不成再问)
+PASS L3 能力层:网络+git+ripgrep
+PASS L3 能力层:子代理编排+dependsOn(orchestrate_agents offered;spawn_agent 已删)
+PASS L4 skills 层:skill-index 围栏闭合
+PASS L4 skills 层:技能名+[id](provider 引擎)
+PASS L4 skills 层:不可信降级声明(技能不得覆盖守则)
+PASS L5 provider 层:systemPrompt 追加在末尾
+── B 段: 分支(identityOnly/无工具/mission) ──
+PASS B1 identityOnly=true 保留身份层
+PASS B2 identityOnly=true 剥离能力层(子代理/纯身份场景;工具协议层按设计保留--hasTools 即注入,不受 identityOnly 门控)
+PASS B2b identityOnly=true 保留工具协议层(hasTools 时,子代理亦需工具守则)
+PASS B3 hasTools=false:纯对话模式提示
+PASS B4 hasTools=false:不注入工具协议守则
+PASS B4b hasTools=false:不注入上下文节流守则
+PASS B5 mission 注入(任务账本层:goal 文本 + 账本标识出现)
+PASS B5b mission 使提示长度增长(同配置无 mission 基线对比)
+── $ 段: 预算断言(总长闸 + 不可信围栏闭合) ──
+PASS $1 总长闸:800 < len(3086) < 12000(最小配置基线,提示词膨胀即红)
+PASS $2 skill-index 围栏开/闭数相等(防悬空围栏,伪造中和防线前提) got 1/1
+PASS $3 技能索引预算 3000 字上限在(buildSkillsPromptSection)
+── D 段: 51d C1a 稳定/易变层拆分(prefix-cache 分层基础) ──
+PASS D1 stable 含身份+工具协议及合批规则(稳定层)
+PASS D2 stable 不含 volatile 标记(能力/桌面/技能/账本)
+PASS D3 stable 长度 < 1900(稳定层轻量:身份+工具协议+provider;在 contextBudget 后新增授权边界并按 intentional snapshot 上调;108a 身份块新增运行时身份层后再次上调 1500->1800;145-W3 加 mermaid 成图一句后约 1640,闸不动;2026-10-04 mermaid 写法建议约 70 字后约 1820,上调 1800->1900,got 1894)
+PASS D3b 145-W3 stable 含 mermaid 成图一句(版本级常量,稳定层)
+PASS D3d stable 的 mermaid 一句带写法建议:特殊符号标签加双引号(带例子)、注释单独一行、长流程图竖排
+PASS D3c 145-W3 provider 不拿 CLI 的整段 <ruyi-environment>(身份不重复)
+PASS D4 volatile 含能力层
+PASS D5 volatile 含技能索引围栏
+PASS D5b 145-W3 当前权限档含义进易变层(夹具无 permissionMode -> 默认档),不进稳定层
+PASS D6 volatile 长度合理(got 1191)
+PASS D7 包装=stable+volatile(向后兼容,full 3086 >= stable 1894 + volatile 1191)
+PASS D8 volatile 前缀使用真实换行,不向模型发送字面量 \\n
+PASS D9 PROMPT_PACK_VERSION 语义化版本(52d, got 2026-w138-2)
+PASS D9 可失效更新的上下文预算提示包含 stable+volatile
+PASS D10 自动压缩与 fallback 估算均使用完整预算提示(含记忆回合尾部)
+PASS D10b 可失效更新的完整预算提示 = stable + volatile + 记忆回合尾部
+PASS D11 108a stable 含运行时身份块(版本 3.0.1 + 运行环境标记)
+PASS D11a 108a-fix2 stable 不含服务地址与实例标识(跨进程恒定,budget-guard 逐字节比对不漂)
+PASS D11b 108a-fix stable 层无 Claude/Workbench 字面量(身份泄漏守卫,镜像 capabilities.e2e.js)
+PASS D12 108a 同进程两次构建 stable 逐字节相同(无时间戳/会话 id,prefix-cache 防呆)
+PASS D13 108a identityOnly=true 不注入运行时身份层(压缩摘要调用保持廉价)
+PASS D14 108b volatile 含 <playbook-index> 围栏各一次(开 1/闭 1)
+PASS D14b 108b 条目行含标题 + [id]
+PASS D14c 108b 不可信描述里的尖括号被中和成方括号(伪造围栏/标签失效)
+PASS D14d 108b 尾行仍指路「技能库」面板(用户也可在那里点运行)
+PASS D14e 61-C1 中文尾行指向 playbook_read、要求用户点名或明确同意后才照做,且不再声称没有执行工具
+PASS D14f 61-C1 英文尾行同口径(playbook_read + 用户点名/同意后才照做)
+PASS D15 61-B5 整段硬顶 900 字符(30 条合成输入,got 877)
+PASS D15b 108b 整行详情上限 12 条(got 6)
+PASS D15c 61-B5 超出整行预算时其余压成简列;连简列都装不下才留省略行(被裁掉这件事不静默丢失)
+PASS D15d 61-B5 16 条内置规模全部可见(整行 + 简列),不截断(got 881 字)
+PASS D14g 61-C1 英文尾行下 16 条内置规模仍全部可见且 ≤900 字符(got 878)
+PASS D16 108b 不传 playbook 时 volatile 无索引段(既有夹具路径零漂移)
+PASS D17 108b 既有夹具 volatile 仍满足 D6 闸(got 1191)
+PASS D17b 108b 中文设置边界指引含 mcp_list/mcp_configure 与「设置面板」引导
+PASS D17c 108b 中文指引 ≤700 字符(got 352)
+PASS D17d 108b mcp 工具在场时注入该段且增量 ≤700(got 353)
+PASS D17e 108b 英文包同步含设置面板边界(双语对齐)
+PASS D18 108c volatile 含 workbench_self_status 时注入自查提示
+PASS D18b 108c 不含该工具时 volatile 无此提示
+── E 段: 子代理任务漏斗上下文节流注入(2.2,唯一漏斗 09-workflow effectiveTask) ──
+PASS E1 子代理任务漏斗含上下文节流守则(09 effectiveTask 注入,spawn/orchestrate 全路径)
+PASS E2 拼接顺序:可靠性约束 → 节流守则 → 工具证据(指令层级正确,节流紧随可靠性)
+── S 段: 116f 管家包(只加) ──
+PASS S1 116f 06b 新增 steward 段,稳定层 ≤2500 字符(got 2141)
+PASS S2 116f 稳定层写明 {say, acts, actions, why} 输出契约
+PASS S3 116f 管家包绝不泄漏进普通会话的任何一层(身份/稳定层/易变层)
+PASS S4 116f 管家包带 visitNotes 摘要 prompt(到访内 L2 压缩换用它,不动普通会话的 SUMMARY_PROMPT)
+── V 段: 117v-V3 结论先行(27 号文 §11.16.2 V3 行) ──
+PASS V1 中英两包同一层都有 answerShape(结构对齐)
+PASS V1b 中文规则含「结论」与「第一/首段」两个语义要素(容许润色)
+PASS V1c 英文规则是同义翻译(conclusion + first paragraph/lead),不是另写一条规则
+PASS V2 有工具的会话在稳定层拿到结论先行
+PASS V2b 纯对话(无工具)的会话【也】拿得到 —— 门控只有 !identityOnly,不看 hasTools(管家开的研究型线程就是这一种)
+PASS V3 identityOnly=true 不注入(压缩摘要/身份探针廉价)
+PASS V4 研究型任务不进 softwareEngineering 包(它那句「先给结果」够不到这种会话)
+PASS V4b 无 mission 账本时易变层无账本层(steward_thread_new 只竖 kind、不建账本,故 mission 层也够不到)
+PASS V5 规则是常量文字,不含模板插值(跨进程逐字节恒定,前缀缓存与 budget-guard 的前提)
+PASS V6 138 answerShape 中英都补了「只说查证过的事」(没跑过的验证不说通过、没做完的不说做完、做不到的直说)
+PASS V6b 138 英文包的 rules(改完核实)与 questioning(何时问)同步改了
+── C2 段: 会话草稿本(61 号文) ──
+PASS C2-1 中英两包的 toolProtocol 都有 scratchpad 一句(结构对齐)
+PASS C2-2 只在工具表里有 scratchpad_write 时进稳定层
+PASS C2-3 中文:何时用(中间结论 / 已确认的事实 / 下一步计划)、压缩后仍可见、长期偏好仍走 workbench_memory_propose
+PASS C2-4 英文是同义翻译
+PASS C2-5 同输入两次构建逐字节相同(稳定层缓存前提)
+PASS C2-6 增量 ≤ 260 字符(got 170)
+
+PROMPT SNAPSHOT STATIC E2E: ALL PASS

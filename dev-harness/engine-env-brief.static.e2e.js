@@ -60,6 +60,10 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
   ok(/不要用原生 AskUserQuestion/.test(cOn), 'A5 交互模式:提问走 request_user_input,禁原生 AskUserQuestion(与 --disallowedTools 一致)');
   ok(!/spawn_agent/.test(cOn), 'A6 只提 orchestrate_agents,不出现 spawn_agent(W1 正在退役它)');
   ok(/桌面控制：已开启/.test(cOn) && !/桌面控制：未开启/.test(cOn), 'A7 桌面开:如实写已开启');
+  if (process.platform === 'darwin') {
+    ok(cOn.includes('POSIX') && cOn.includes('bash') && cOn.includes('非 TTY'), 'Mac CLI brief describes POSIX paths and the non-TTY bash runtime');
+    ok(cOn.includes('tool_search 实际返回') && cOn.includes('不代表可以操作屏幕'), 'Mac desktop switch does not claim implemented or authorized screen control');
+  }
   ok(/ripgrep 可用（如意随包自带/.test(cOn) && /直接用 rg/.test(cOn), 'A8 终端 rg:随包来源 + 可直接用 rg');
   ok(cOn.includes('```mermaid') && /画成图/.test(cOn), 'A9 界面渲染:mermaid 代码块画成图');
   ok(/整段加双引号/.test(cOn) && /注释单独占一行/.test(cOn) && /竖排（TD）/.test(cOn), 'A9b mermaid 写法建议(引号 / 注释独占一行 / 竖排)CLI 版同样带上(不写 %% 字样:A13 管 % 与 !)');

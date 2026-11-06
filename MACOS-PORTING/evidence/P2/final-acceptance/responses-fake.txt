@@ -1,0 +1,29 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 38fe86214179)
+[wb] UI: http://127.0.0.1:53998/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-responses-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :53998
+--- tool_uses: ["file_read"]
+--- final text: "工具返回了内容。密标记是 RESP_SECRET_7712，报告完毕。"
+--- reasoning chars: 14 :: "我需要读取文件来找到密标记。"
+--- usage: {"type":"usage","usage":{"input_tokens":240,"output_tokens":45,"cached_input_tokens":100},"contextTokens":150,"contextWindow":1000000,"calls":2,"contextEngine":"openai","contextProviderId":"fake-resp","contextModel":"deepseek-v4-flash","traceId":"trace_f4df43a9754b6a5f","ts":"2026-11-06T06:38:33.190Z"}
+PASS engine POSTed to /responses (2x)
+PASS responses path has NO /v1 prefix (["/responses","/responses"])
+PASS body carries instructions (system → instructions)
+PASS body carries input items
+PASS body stream:true
+PASS body has NO chat `messages` key
+PASS body has NO chat stream_options key
+PASS body carries tools
+PASS tools are FLAT Responses shape (name at top level, no nested function)
+PASS thinking-mode reasoning_text replayed as a Responses reasoning item
+PASS tool result fed back as function_call_output item in next request
+PASS function_call surfaced as tool_use (file_read)
+PASS tool_result(s) ok
+PASS final answer contains the secret (tool loop round-trip)
+PASS reasoning streamed as thinking_delta
+PASS usage.input_tokens > 0 (240)
+PASS usage.cached_input_tokens = 100 (40+60 from both input_tokens_details.cached_tokens)
+PASS result ok=true
+
+RESPONSES-FAKE E2E: ALL PASS

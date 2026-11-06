@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "independent agent /root/ownership_review",
+  "scope": "Mac git capture/supervision and tool invocation owner context",
+  "status": "passed_no_unresolved_findings_in_scope",
+  "findings": [
+    {
+      "id": "G1",
+      "finding": "nonzero/empty-commit/hook branches discarded cleanup failures",
+      "resolution": "cleanup failures take priority with original commandExitCode retained; transport failures cannot become hookRejected or empty commit",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "G2",
+      "finding": "read-only code1 and diff/stat/untracked/cached/head auxiliary calls could hide cleanup failure",
+      "resolution": "incomplete cleanup prevents benign fallback or overall success; per-phase fault regressions",
+      "status": "resolved_verified"
+    }
+  ],
+  "independentVerification": {
+    "gitRuntimeE2e": "28/28",
+    "gitUnit": "11/11",
+    "buildFreshness": "pass",
+    "gitDiffCheck": "pass"
+  },
+  "sha256": {
+    "ruyi-workbench/app/server.js": "341103f4aa1a0aa9e4b2238bf7414ebdb3689344097486de672cf81d37f6bf65",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "7bb5f9c3f29e2c3309b8ec4e0af8a0756c2a3ba8684b1bf9a609bd53651ff238",
+    "ruyi-workbench/app/src/11-native-tools.js": "3408193bcdf9e2ce16d1a1c4d382ea5053a1c85429fb535a10b6ee3433cf97f7",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "758f23437531f42b2ef912ca2174d9c5a32ce382b3155c998b1669238d1dc1da"
+  },
+  "remainingScope": [
+    "persistent shell supervision and P1-03 semantics",
+    "helper readiness/capability gate and loss handling",
+    "remaining legacy PID and execution entry audit",
+    "unobserved escaped descendants",
+    "Windows and macOS14 runtime evidence",
+    "P1-02 filesystem policy and P1-01 remaining acceptance"
+  ]
+}

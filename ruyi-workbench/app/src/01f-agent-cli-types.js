@@ -9,11 +9,11 @@
 //
 // 本模块零出边、不进依赖环:02e 的会话路由归一与 01 的配置归一都要问「这是不是一个登记过的 CLI」,而 02e 够不着 01
 // (引用 01 会把它拽进 SCC)。所以登记项里要用 01 实现的钩子(路径探测、npm 入口、MCP 同步)都经第一个参数 cliHost
-// 拿(01 的 AGENT_CLI_HOST),不直接引用 01 的符号;装机候选只吃 { env, home, join } 三样,纯函数。
+// 拿(01 的 AGENT_CLI_HOST),不直接引用 01 的符号;装机候选只吃 { env, home, join, platform } 四样,纯函数。
 //
 // 每项成员:
 //   id / label / pathKey / detectedKey / streaming / interactive / mcp   数据(经 /api/status 的 agentCliDrivers 原样下发)
-//   installCandidates({ env, home, join })   默认安装位置候选(按序探测;Claude 有自己的启动器解析,为空)
+//   installCandidates({ env, home, join, platform })   默认安装位置候选(按序探测;Claude 有自己的启动器解析,为空)
 //   detectPath(cliHost)                      自动探测到的启动器路径('' = 没找到)
 //   prepareSpawn(cliHost, command, argv)     起子进程的 { command, args, opts }(.cmd 走 cmd.exe、npm 垫片改 Node 直启……)
 //   syncMcpManifest(cliHost, config) async   把如意的 MCP 清单推进这家 CLI 自己的用户配置(走命令行参数的 CLI 给空操作)
@@ -32,7 +32,12 @@ const AGENT_CLI_TYPES = Object.freeze({
   }),
   kimi: Object.freeze({
     id: 'kimi', label: 'Kimi Code', pathKey: 'kimiPath', detectedKey: 'detectedKimiPath', streaming: true, interactive: true, mcp: 'user-config',
-    installCandidates({ env, home, join }) {
+    installCandidates({ env, home, join, platform = process.platform }) {
+      if (platform === 'darwin') return [
+        env.KIMI_CLI_PATH, 'kimi',
+        home && join(home, '.local', 'bin', 'kimi'),
+        '/opt/homebrew/bin/kimi', '/usr/local/bin/kimi',
+      ].filter(Boolean);
       const npmDir = home && join(home, 'AppData', 'Roaming', 'npm');
       return [
         env.KIMI_CLI_PATH, 'kimi.cmd', 'kimi.exe', 'kimi',

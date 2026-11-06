@@ -60,10 +60,13 @@ test('[R] 登记表成员齐全,键集合与适配器表相同;下发的数据�
 test('[R] 装机候选与起进程钩子金样', () => {
   const join = (...parts) => parts.join('/');
   assert.deepEqual(AGENT_CLI_TYPES.claude.installCandidates({ env: {}, home: '/h', join }), [], 'Claude 有自己的启动器解析');
-  assert.deepEqual(AGENT_CLI_TYPES.kimi.installCandidates({ env: { KIMI_CLI_PATH: 'X:/k/kimi.exe' }, home: '/h', join }), [
+  assert.deepEqual(AGENT_CLI_TYPES.kimi.installCandidates({ env: { KIMI_CLI_PATH: 'X:/k/kimi.exe' }, home: '/h', join, platform: 'win32' }), [
     'X:/k/kimi.exe', 'kimi.cmd', 'kimi.exe', 'kimi', '/h/AppData/Roaming/npm/kimi.cmd', '/h/.local/bin/kimi.exe', '/h/.local/bin/kimi',
   ]);
-  assert.deepEqual(AGENT_CLI_TYPES.kimi.installCandidates({ env: {}, home: '', join }), ['kimi.cmd', 'kimi.exe', 'kimi'], '没有 HOME 时只剩裸命令');
+  assert.deepEqual(AGENT_CLI_TYPES.kimi.installCandidates({ env: {}, home: '', join, platform: 'win32' }), ['kimi.cmd', 'kimi.exe', 'kimi'], '没有 HOME 时只剩裸命令');
+  assert.deepEqual(AGENT_CLI_TYPES.kimi.installCandidates({ env: { KIMI_CLI_PATH: '/custom/kimi' }, home: '/h', join, platform: 'darwin' }), [
+    '/custom/kimi', 'kimi', '/h/.local/bin/kimi', '/opt/homebrew/bin/kimi', '/usr/local/bin/kimi',
+  ], 'Mac uses native user and Homebrew launchers without Windows shims');
   const argv = ['-p', 'x y'];
   for (const command of ['C:\\tools\\tool.exe', 'C:\\npm\\claude.cmd', 'X:\\tools\\kimi.exe', 'kimi-not-a-shim']) {
     const batch = srv.batchSafeSpawn(command, argv);

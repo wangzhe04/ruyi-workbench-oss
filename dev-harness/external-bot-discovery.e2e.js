@@ -19,6 +19,7 @@ const SECRET = 'synthetic-feishu-app-secret-canary';
 const APP_ID = 'cli_discovery';
 (async () => {
   const isolated = fixtureChildEnv({ perTest: true }), home = isolated.home;
+  let keychainFixture;
   let server, official, port, apiPort, token = '', connectionId = '', logs = '', requests = [];
   let tenantKey = 'tenant_discovered', rejectToken = false, botOpenId = 'ou_discovered_bot';
   const observed = [];
@@ -35,7 +36,8 @@ const APP_ID = 'cli_discovery';
   const connections = async () => (await request('GET', '/api/external-bots/connections')).json.connections;
   const setupView = async id => (await request('GET', '/api/external-bots/setup?connectionId=' + encodeURIComponent(id))).json;
   const start = async () => {
-    server = cp.spawn(process.execPath, ['--require', path.join(__dirname, 'lib/external-channel-delivery-preload.js'), 'app/server.js', 'serve', '--port', String(port)], {
+    server = cp.spawn(process.execPath, ['--require', path.join(__dirname, 'lib/external-channel-delivery-preload.js'),
+      ...(keychainFixture ? ['--require', keychainFixture.preload] : []), 'app/server.js', 'serve', '--port', String(port)], {
       cwd: WB, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, ...isolated.env, ...FAKE_BOT_ENV, RUYI_FAKE_EXTERNAL_API_PORT: String(apiPort), RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home } });
     server.stdout.on('data', chunk => logs += chunk); server.stderr.on('data', chunk => logs += chunk);
@@ -44,6 +46,7 @@ const APP_ID = 'cli_discovery';
   };
   const stop = async () => { if (server) { const child = server; killOwnTree(child); await until(() => child.exitCode !== null || child.signalCode !== null, 'exit'); server = null; } };
   try {
+    if (process.platform === 'darwin') keychainFixture = require('./lib/macos-keychain-fixture').createMacKeychainFixture(home);
     official = http.createServer(async (req, res) => {
       let raw = ''; for await (const part of req) raw += part;
       requests.push({ method: req.method, host: req.headers.host, path: req.url, authorization: req.headers.authorization || '', body: raw });
@@ -81,7 +84,7 @@ const APP_ID = 'cli_discovery';
 
     // R8: create stores identity plus secret, but never enables control
     response = await discover({ op: 'probe', appId: APP_ID, appSecret: SECRET, label: '鍙戠幇杩炴帴', create: true });
-    if (process.platform === 'win32') {
+    if (process.platform === 'win32' || process.platform === 'darwin') {
       connectionId = response.json.connectionId;
       ok(response.status === 200 && response.json.created === 'created' && /^bot_[a-f0-9]{32}$/.test(connectionId), 'R8 discovery prepares one generated connection id');
       const row = (await connections()).find(item => item.id === connectionId);
@@ -91,7 +94,7 @@ const APP_ID = 'cli_discovery';
       ok(view.readiness.credentialSources.appSecret.ready === true && view.readiness.ingressReady === false
         && view.readiness.missing.includes('verificationToken') && view.readiness.missing.includes('encryptKey'), 'R10 only the app secret is stored; ingress and reply stay explicitly unready');
     } else {
-      ok(response.status === 501 && String(response.json?.code || '').startsWith('external_credentials.'), 'R8 non-Windows refuses to persist a secret and does not fall back to plaintext');
+      ok(response.status === 501 && String(response.json?.code || '').startsWith('external_credentials.'), 'R8 unsupported platforms refuse to persist a secret and do not fall back to plaintext');
       response = await discover({ op: 'probe', appId: APP_ID, appSecret: SECRET, create: false });
       ok(response.json.discovery.botUserId === botOpenId, 'R9 a non-Windows probe still reports the identity without storing it');
     }
@@ -103,7 +106,7 @@ const APP_ID = 'cli_discovery';
     ok(!surfaces.some(text => text.includes(SECRET)), 'R11 the app secret never reaches logs, responses, configuration or the saved ledger');
     ok(!logs.includes('fake-tenant-token'), 'R12 the platform access token is not logged either');
 
-    if (process.platform === 'win32') {
+    if (process.platform === 'win32' || process.platform === 'darwin') {
       // R13: one connection per identity
       const again = await discover({ op: 'probe', appId: APP_ID, appSecret: SECRET, create: true });
       ok(again.status === 200 && again.json.created === 'reused' && again.json.connectionId === connectionId && (await connections()).length === 1,
@@ -166,6 +169,7 @@ const APP_ID = 'cli_discovery';
   finally {
     await stop();
     if (official) { official.closeAllConnections(); await new Promise(resolve => official.close(resolve)); }
+    if (keychainFixture) { try { keychainFixture.destroy(); } catch (error) { t.fail(error.message); } }
     t.done({ exit: true });
   }
 })();

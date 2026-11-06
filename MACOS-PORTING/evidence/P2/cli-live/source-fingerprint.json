@@ -1,0 +1,29 @@
+{
+  "implementationCommit": "8ebb66387dfc377fccdf43faa57138c9bb4b8a69",
+  "files": [
+    {
+      "path": "dev-harness/kimi-acp-live-probe.js",
+      "sha256": "767bacb7174855d59e4e6cee29bc4f1673528ffcb98c7ab8593fe9c896096364"
+    },
+    {
+      "path": "dev-harness/kimi-agent-cli.e2e.js",
+      "sha256": "99c561377aae83e32f156652addda8ab3daccd5c34a4bcaea52054f1872c309f"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "473f3bea74bc68c02edd4267154f86c806064df0c93fd11fe53251ff591d74a6"
+    },
+    {
+      "path": "ruyi-workbench/app/src/01-config.js",
+      "sha256": "15dafdb70a600ad5fa64a5be941637a05653527d41f6e651fed23e7ab6281001"
+    },
+    {
+      "path": "ruyi-workbench/app/src/05b-kimi-bridge.js",
+      "sha256": "fae1d23a736282cfd986ca1d6d6c64fba8b3df543c14d9b855f5a0ee9633465b"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "afb14ba4d90dd20d094b987a134513d3d6125f16cc5391f402f1e24cc2e3896f"
+    }
+  ]
+}

@@ -92,7 +92,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     // 对抗轮 P3(第28e波):崩溃/续跑遗留的 waiting 节点(targeted retry 未把它转 queued 的幸存者),等待窗从 resume 起算——
     // 否则沿用崩溃前 waitStartedAt 会把宕机时长算进去,resume 即被误判超时。full-retry 已把 waiting 转 queued,不受影响。
     for (const n of nodes) if (n.status === 'waiting') n.waitStartedAt = nowIso();
-    const pendingIsolation = nodes.find(n => reset.has(n.id) && n.isolation && n.isolation.status === 'ready');
+    const pendingCleanup = nodes.find(n => reset.has(n.id) && (n.isolation?.cleanupIncomplete || n.errorClass === 'process_cleanup_incomplete'));
+    if (pendingCleanup) return { ok: false, cleanupIncomplete: true, error: `节点 ${pendingCleanup.id} 的隔离工作树清理尚未确认，请先核对进程与目录状态`, startedCount: 0 };
+    const pendingIsolation = nodes.find(n => reset.has(n.id) && n.isolation && ['ready', 'applying'].includes(n.isolation.status));
+    if (pendingIsolation?.isolation.status === 'applying') return { ok: false, applicationUnconfirmed: true, error: `节点 ${pendingIsolation.id} 的隔离提交应用结果尚未确认，请先核对仓库状态`, startedCount: 0 };
     if (pendingIsolation) return { ok: false, error: `节点 ${pendingIsolation.id} 有尚未应用的隔离提交，请先应用或删除该工作流记录`, startedCount: 0 };
     for (const n of nodes) {
       if (!Array.isArray(n.resources)) n.resources = [];
@@ -930,7 +933,12 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           // succeeded+node.degraded→'degraded')成死代码,残缺结果被当干净成功。status 维持 succeeded(确是成功),
           // degraded 作显示细化。node.warning 是持久化到 run 记录的降级原因元数据(经 GET /api/agent-runs 下发,
           // 供节点详情/审计取用;前端徽标目前只读 degraded 态,warning 明细渲染留待详情面板增补,不在本波)。
-          node.degraded = !!(sub && sub.degraded);
+          if (sub.cleanupIncomplete) {
+            node.status = 'failed'; node.errorClass = 'process_cleanup_incomplete';
+            node.error = sub.error || '子任务进程清理尚未确认，已停止隔离工作树收尾';
+            if (node.isolation) node.isolation.cleanupIncomplete = true;
+          }
+          node.degraded = !sub.cleanupIncomplete && !!(sub && sub.degraded);
           if (sub && sub.warning) node.warning = String(sub.warning).slice(0, 500); else delete node.warning;
           node.iters = sub.iters; node.toolCalls = sub.toolCalls;
           if (sub.ok && effectiveSchema) {
@@ -972,13 +980,16 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           } else if (node.structuredResult && Number.isFinite(Number(node.structuredResult.confidence))) node.confidence = Math.min(1, Math.max(0, Number(node.structuredResult.confidence)));
         }
       } catch (e) {
-        node.status = 'failed'; node.error = String(e && e.message || e).slice(0, 4000); node.errorClass = 'node_exception';
+        node.status = 'failed'; node.error = String(e && e.message || e).slice(0, 4000); node.errorClass = e && e.cleanupIncomplete ? 'process_cleanup_incomplete' : 'node_exception';
+        if (e && e.worktreeIsolation) node.isolation = e.worktreeIsolation;
+        if (e && e.cleanupIncomplete && node.isolation) node.isolation.cleanupIncomplete = true;
       } finally {
-        if (isolated && node.isolation) {
+        if (isolated && node.isolation && !node.isolation.cleanupIncomplete && node.errorClass !== 'process_cleanup_incomplete') {
           try { await finalizeAgentWorktree(node.isolation, runId, node.id); }
           catch (e) {
             node.isolation.status = 'error'; node.isolation.error = String(e && (e.gitStderr || e.message) || e).slice(0, 4000);
-            if (node.status === 'succeeded') { node.status = 'failed'; node.error = '隔离工作树收尾失败：' + node.isolation.error; node.errorClass = 'worktree_error'; }
+            if (e && e.cleanupIncomplete) node.isolation.cleanupIncomplete = true;
+            if (node.status === 'succeeded' || (e && e.cleanupIncomplete)) { node.status = 'failed'; node.error = '隔离工作树收尾失败：' + node.isolation.error; node.errorClass = e && e.cleanupIncomplete ? 'process_cleanup_incomplete' : 'worktree_error'; }
           }
         }
       }
@@ -1026,11 +1037,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
         const pol = node.degradedPolicy || 'accept';
         if (pol === 'fail') {
           node.status = 'failed'; node.error = node.warning || '降级输出按策略(fail)判失败'; node.errorClass = 'degraded_fail'; node.degraded = false;
-        } else if (pol === 'retry' && !node.degradedRetried) {
+        } else if (pol === 'retry' && !node.degradedRetried && await cleanupAgentWorktreeForRetry(node)) {
           // The degraded attempt was already indexed above; invalidate it before re-queueing.
           purgeNodeEvidence(run, node.id);
           node.degradedRetried = true; node.degraded = false; node.warning = ''; delete node.mailboxClosedReason; node.status = 'queued'; node.completedAt = null;
-          if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
           if (node.isolation) node.isolation = null;
           onEvent({ type: 'agent_workflow', state: 'node_degraded_retry', id: runId, nodeId: node.id });
         } else if (pol === 'request_review') {
@@ -1056,11 +1066,10 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
           onEvent({ type: 'agent_workflow', state: 'node_loop', id: runId, nodeId: node.id, iteration: node.loopIteration + 1, maxIterations: node.loop.maxIterations, noProgressCount: node.noProgressCount });
         } else node.loopStopReason = 'max_iterations';
       }
-      if (node.status === 'failed' && node.failurePolicy === 'retry' && node.attempts <= node.maxRetries) {
+      if (node.status === 'failed' && node.failurePolicy === 'retry' && node.attempts <= node.maxRetries && await cleanupAgentWorktreeForRetry(node)) {
         // R1 对抗轮修:清掉本节点【旧 attempt】的证据再重试(旧 attempt 可能已失败/中止,残留 digest 污染校验)。
         purgeNodeEvidence(run, node.id);
         node.retryErrors = [...(Array.isArray(node.retryErrors) ? node.retryErrors : []), node.error].slice(-5);
-        if (node.isolation && node.isolation.path) await cleanupAgentWorktree(node.isolation).catch(() => {});
         node.isolation = null; delete node.mailboxClosedReason; node.status = 'queued'; node.completedAt = null;
         // 团队模式 v2 (P3-2/设计 B1): 本 attempt 内已投递给本节点的消息随作废的 subHistory 一起失效,回标 dropped(v2 不
         // 重投)。以本 attempt 起始时刻(node.startedAt,dispatch 时置)为界,ISO 串同格式可字典序比较。异常降级为不回标。
@@ -2272,7 +2281,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const toolHeartbeatMs = Math.max(250, Number(process.env.WCW_TOOL_HEARTBEAT_MS)
     || Math.min(15000, Math.max(1000, Math.floor(idleLimitMs / 3))));
   // shell_poll:waitMs 长轮询(≤30s)循环里看 ctx.signal,必须可被插话 / 停止打断,否则排队的插话要等满 30s。
-  const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run', 'shell_poll']);
+  const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['shell_run', 'powershell_run', 'script_run', 'shell_poll', ...(process.platform === 'darwin' ? ['shell_send'] : [])]);
   const awaitProviderTool = async (tc, runner, interruptible = false) => {
     const startedAt = Date.now();
     const toolAbort = interruptible ? new AbortController() : null;
@@ -2329,17 +2338,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // A steer can land after the provider emitted tool_calls but before execution reaches this item.
     if (interruptible && hasInterruptingSteer(reg)) interrupt();
     try {
-      // 不可中断的工具(http_request、文件类、桥接 MCP……)拿不到中止信号,修前 Stop 要等它自己跑完(审计 t3:
-      // 挂住的 http_request 让停止晚了 14 s)。现在与回合的中止信号赛跑:回合被停时立刻给一条配对的「已停止」
-      // 结果(历史里每个 tool_call 照样有回复),工具本身可能还在后台跑,它晚到的结果丢弃、不写回会话。
-      // 回合在进这里之前就已停止时不再启动工具。
+      // All tools receive turn cancellation. Only the explicit interruptible set also
+      // receives steer/time-budget interruption. Keep the existing prompt Stop response
+      // for tools that cannot finish their own cleanup immediately, and ignore late results.
       if (!interruptible && turnSignal) {
-        const stoppedResult = () => ({ ok: false, aborted: true, error: '回合已被停止;该工具不支持中断,可能仍在后台跑完,其结果不会写回本会话' });
+        const stoppedResult = () => ({ ok: false, aborted: true, error: '回合已被停止。已请求取消该工具，未完成操作可能仍在后台收尾，其结果不会写回本会话' });
         if (turnSignal.aborted) return stoppedResult();
         const STOPPED = Symbol('turn_stopped');
         let onTurnStop = null;
         const stopped = new Promise(resolve => { onTurnStop = () => resolve(STOPPED); turnSignal.addEventListener('abort', onTurnStop, { once: true }); });
-        const running = Promise.resolve().then(() => runner(null));
+        const running = Promise.resolve().then(() => runner(turnSignal));
         let raced;
         try { raced = await Promise.race([running, stopped]); }
         finally { turnSignal.removeEventListener('abort', onTurnStop); }

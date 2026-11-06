@@ -11,6 +11,8 @@ fs.mkdirSync(ws); fs.mkdirSync(home);
 process.env.RUYI_HOME = home; process.env.WIN_CLAUDE_WORKBENCH_HOME = home;
 if (process.env.RUYI_NATIVE_READ_TEST_PYTHON) process.env.RUYI_BUNDLED_PYTHON = process.env.RUYI_NATIVE_READ_TEST_PYTHON;
 const srv = require('../../ruyi-workbench/app/server.js');
+// These schema/loading fixtures model a ready runtime; unavailable hosts have dedicated e2e coverage.
+const capabilities = { network: { online: true }, gitCli: true, runtime: { capabilities: { 'process.supervisor': { ready: true } } } };
 const media = srv.dispatchTestHooks.MediaInspection;
 const config = { defaultWorkspace: ws, workspaces: [{ path: ws, read: true, write: true, execute: true }], permissionMode: 'bypass',
   includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [], toolLoadingMode: 'full' };
@@ -92,7 +94,7 @@ test('image declaration and capability search surface native vision and provider
   fs.writeFileSync(path.join(ws, 'image.png'), png);
   assert.equal((await call('file_read', { path: 'image.png', as: 'image' })).mode, 'image');
   assert.equal((await call('file_read', { path: 'image.png', as: 'text' })).code, 'not_text');
-  const tools = srv.buildOpenAiTools(config, null, {});
+  const tools = srv.buildOpenAiTools(config, capabilities, {});
   const catalog = srv.buildToolCatalog(tools);
   const legacy = srv.searchToolCatalog(catalog, { query: 'read workspace file' }, { ...config, runtimeToolRetrievalV1: false, runtimeOptimizationShadowV1: true });
   assert.equal(legacy.retrievalVersion, undefined, 'ordinary file queries retain the legacy provider result in shadow mode');

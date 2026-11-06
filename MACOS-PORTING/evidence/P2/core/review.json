@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-06",
+  "reviewer": "independent agent /root/p2_cli_audit",
+  "scope": [
+    "13s scheduler recovery, terminal persistence order, overlapping whole-table writes",
+    "Policy skips, daily caps, manual runs, failure counters and trip semantics",
+    "Existing scheduler-crash e2e cold-process workers and isolated fixtures"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "Unregistered catch-up lost after recovery advances the durable due",
+      "resolution": "Keep durable due until registration/settlement",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R2",
+      "finding": "Task table clears marker before terminal receipt commits",
+      "resolution": "Commit terminal row before applying settlement",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R3",
+      "finding": "Another whole-table save can persist prematurely mutated live state",
+      "resolution": "Compute a pure patch and apply only after terminal persistence",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R4",
+      "finding": "Empty-runId skip/cap can duplicate or execute after midnight",
+      "resolution": "Recover durable nonmanual skipped occurrences by occurrenceKey",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R5",
+      "finding": "Tick skip advances schedule before durable skip receipt",
+      "resolution": "Append skip first, then advance current schedule",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R6",
+      "finding": "Precomputed settlement overwrites concurrent schedule/counter reset",
+      "resolution": "Recompute settlement from current task state after append; notices reflect current trip state",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R7",
+      "finding": "Terminal time differs between normal settlement and reconstruction",
+      "resolution": "Write explicit terminal at=finishedMs",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R8",
+      "finding": "Normal skip receipt leaves stale task result/mode",
+      "resolution": "Update skipped/late/updatedAt after successful append",
+      "status": "resolved_reviewed"
+    }
+  ],
+  "result": "reviewed_no_unresolved_code_findings",
+  "independentValidation": {
+    "gitDiffCheck": "pass",
+    "finalSourceReview": "No unresolved executable findings; one obsolete persistence comment corrected",
+    "testDiscipline": "No new test files or production crash hooks; focused cold-process cases extend existing scheduler-crash e2e",
+    "reviewerExecutionBoundary": "Static review and earlier isolated reproductions; final serial tests run by primary agent"
+  },
+  "receiptSemantics": "tripped records the threshold observed at completion; an explicit user reset during terminal persistence can keep the task enabled. Current state and notices use the post-append counters.",
+  "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b",
+  "mechanicalFollowup": "Updated fixture-home spawn count 224→225 for the added isolated cold worker; final 80 static gates pass."
+}

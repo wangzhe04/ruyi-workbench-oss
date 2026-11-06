@@ -1,0 +1,693 @@
+TAP version 13
+# Subtest: [S] 两个适配器方法集逐项相同,且与登记的接口清单、AGENT_CLI_TYPES 对齐
+ok 1 - [S] 两个适配器方法集逐项相同,且与登记的接口清单、AGENT_CLI_TYPES 对齐
+  ---
+  duration_ms: 1.302791
+  type: 'test'
+  ...
+# Subtest: [A] Claude buildArgs 金样
+ok 2 - [A] Claude buildArgs 金样
+  ---
+  duration_ms: 27.395208
+  type: 'test'
+  ...
+# Subtest: [A] Kimi buildArgs 为空;续接/额外参数/追加系统提示/命令行预算/起进程
+ok 3 - [A] Kimi buildArgs 为空;续接/额外参数/追加系统提示/命令行预算/起进程
+  ---
+  duration_ms: 0.876917
+  type: 'test'
+  ...
+# Subtest: [E] 子进程环境金样
+ok 4 - [E] 子进程环境金样
+  ---
+  duration_ms: 0.9365
+  type: 'test'
+  ...
+# Subtest: [P] 事件解析金样(Claude stream-json / Kimi stream-json),适配器与兼容出口同步
+ok 5 - [P] 事件解析金样(Claude stream-json / Kimi stream-json),适配器与兼容出口同步
+  ---
+  duration_ms: 2.067625
+  type: 'test'
+  ...
+# Subtest: [U] 用量记账金样
+ok 6 - [U] 用量记账金样
+  ---
+  duration_ms: 83.3215
+  type: 'test'
+  ...
+# Subtest: [M] 其余逐 CLI 决定
+ok 7 - [M] 其余逐 CLI 决定
+  ---
+  duration_ms: 1.991292
+  type: 'test'
+  ...
+# Subtest: [G] runClaudeTurn 骨架不再按 CLI 类型分叉
+ok 8 - [G] runClaudeTurn 骨架不再按 CLI 类型分叉
+  ---
+  duration_ms: 0.950958
+  type: 'test'
+  ...
+# Subtest: immutable encrypted references hydrate exact values; same credentials deduplicate and new processes unwrap the master
+ok 9 - immutable encrypted references hydrate exact values; same credentials deduplicate and new processes unwrap the master
+  ---
+  duration_ms: 5.388458
+  type: 'test'
+  ...
+# Subtest: configuration target/identity changes and swapping a referenced id cannot reuse a credential
+ok 10 - configuration target/identity changes and swapping a referenced id cannot reuse a credential
+  ---
+  duration_ms: 1.629875
+  type: 'test'
+  ...
+# Subtest: previous immutable credentials remain recoverable after a key change; no eviction or late-write overwrite
+ok 11 - previous immutable credentials remain recoverable after a key change; no eviction or late-write overwrite
+  ---
+  duration_ms: 1.661625
+  type: 'test'
+  ...
+# Subtest: secret-bearing endpoint URLs, MCP env/args/headers and search/CLI credentials are stored without plaintext
+ok 12 - secret-bearing endpoint URLs, MCP env/args/headers and search/CLI credentials are stored without plaintext
+  ---
+  duration_ms: 1.287542
+  type: 'test'
+  ...
+# Subtest: corrupt storage, write failure, unsupported platform and unwrap failure never return plaintext or reset the vault
+ok 13 - corrupt storage, write failure, unsupported platform and unwrap failure never return plaintext or reset the vault
+  ---
+  duration_ms: 0.636333
+  type: 'test'
+  ...
+# Subtest: tampered ciphertext fails on read and on record reuse rather than emitting a broken reference
+ok 14 - tampered ciphertext fails on read and on record reuse rather than emitting a broken reference
+  ---
+  duration_ms: 0.371459
+  type: 'test'
+  ...
+# Subtest: no-secret reads create nothing; legacy disable works only before encrypted data exists
+ok 15 - no-secret reads create nothing; legacy disable works only before encrypted data exists
+  ---
+  duration_ms: 0.259125
+  type: 'test'
+  ...
+# Subtest: credentials without explicit encryption remain plaintext without initializing a vault, even on supported hosts
+ok 16 - credentials without explicit encryption remain plaintext without initializing a vault, even on supported hosts
+  ---
+  duration_ms: 0.145375
+  type: 'test'
+  ...
+# Subtest: host-authorized plaintext migration retains old encrypted references and cannot implicitly downgrade referenced input
+ok 17 - host-authorized plaintext migration retains old encrypted references and cannot implicitly downgrade referenced input
+  ---
+  duration_ms: 0.453209
+  type: 'test'
+  ...
+# Subtest: known backups migrate without losing recovery values; malformed backups are authenticated whole-file envelopes
+ok 18 - known backups migrate without losing recovery values; malformed backups are authenticated whole-file envelopes
+  ---
+  duration_ms: 1.106542
+  type: 'test'
+  ...
+# Subtest: catalog metadata and rule profiles distinguish credentials, personal information and optional technical privacy
+ok 19 - catalog metadata and rule profiles distinguish credentials, personal information and optional technical privacy
+  ---
+  duration_ms: 15.74075
+  type: 'test'
+  ...
+# Subtest: portable backup prepares recovery under a different wrapping key without writing or accepting attacker KDF work factors
+ok 20 - portable backup prepares recovery under a different wrapping key without writing or accepting attacker KDF work factors
+  ---
+  duration_ms: 148.656125
+  type: 'test'
+  ...
+# Subtest: every executable catalog rule has a positive fixture and all profiles preserve ordinary technical text
+ok 21 - every executable catalog rule has a positive fixture and all profiles preserve ordinary technical text
+  ---
+  duration_ms: 4.204166
+  type: 'test'
+  ...
+# Subtest: 单文件工具优化批(files-core)
+    # Subtest: F1 相对路径按会话工作区解析:读/写/改/删/移/复制;报错名的是解析后的路径
+    ok 1 - F1 相对路径按会话工作区解析:读/写/改/删/移/复制;报错名的是解析后的路径
+      ---
+      duration_ms: 31.649375
+      type: 'test'
+      ...
+    # Subtest: F3 file_read 解码 GBK / UTF-16LE(BOM) / UTF-8 BOM,并报 encoding
+    ok 2 - F3 file_read 解码 GBK / UTF-16LE(BOM) / UTF-8 BOM,并报 encoding
+      ---
+      duration_ms: 6.4155
+      type: 'test'
+      ...
+    # Subtest: F3 file_edit / file_write 保原编码、BOM 与 CRLF
+    ok 3 - F3 file_edit / file_write 保原编码、BOM 与 CRLF
+      ---
+      duration_ms: 24.0175
+      type: 'test'
+      ...
+    # Subtest: F4 file_read 默认预算:序列化后不超过模型侧上限;截断给 nextOffset 且能接着读完
+    ok 4 - F4 file_read 默认预算:序列化后不超过模型侧上限;截断给 nextOffset 且能接着读完
+      ---
+      duration_ms: 17.91525
+      type: 'test'
+      ...
+    # Subtest: F4 行模式也有字符预算:超长行不再返回几 MB;nextLine 可接着读
+    ok 5 - F4 行模式也有字符预算:超长行不再返回几 MB;nextLine 可接着读
+      ---
+      duration_ms: 8.434792
+      type: 'test'
+      ...
+    # Subtest: F4 有界读:读 2000 字符不把大文件整个读进内存
+    ok 6 - F4 有界读:读 2000 字符不把大文件整个读进内存
+      ---
+      duration_ms: 33.660209
+      type: 'test'
+      ...
+    # Subtest: F5 non_ascii:中文正文不报;只报真可疑字符,且优先级在全部命中上排
+    ok 7 - F5 non_ascii:中文正文不报;只报真可疑字符,且优先级在全部命中上排
+      ---
+      duration_ms: 2.396666
+      type: 'test'
+      ...
+    # Subtest: F6 file_edit 未命中:空白差异专门诊断;整段最接近窗口;多命中列行号
+    ok 8 - F6 file_edit 未命中:空白差异专门诊断;整段最接近窗口;多命中列行号
+      ---
+      duration_ms: 13.411334
+      type: 'test'
+      ...
+    # Subtest: F10 file_delete:>5MB 也能删(带 checkpointWarn),且不整文件读入;<=5MB 仍存检查点
+    ok 9 - F10 file_delete:>5MB 也能删(带 checkpointWarn),且不整文件读入;<=5MB 仍存检查点
+      ---
+      duration_ms: 6.05775
+      type: 'test'
+      ...
+    # Subtest: F11 原子写:rename 一次瞬时 EBUSY 会重试成功;永久 ENOSPC 报 disk_full、不留幽灵检查点/临时文件
+    ok 10 - F11 原子写:rename 一次瞬时 EBUSY 会重试成功;永久 ENOSPC 报 disk_full、不留幽灵检查点/临时文件
+      ---
+      duration_ms: 25.066375
+      type: 'test'
+      ...
+    # Subtest: F11 目录当文件:file_read / file_write 给 is_directory + hint,而不是裸 EISDIR
+    ok 11 - F11 目录当文件:file_read / file_write 给 is_directory + hint,而不是裸 EISDIR
+      ---
+      duration_ms: 1.5225
+      type: 'test'
+      ...
+    # Subtest: F15 file_write 覆盖 >5MB 旧文件不整文件读入;幂等跳过仍成立
+    ok 12 - F15 file_write 覆盖 >5MB 旧文件不整文件读入;幂等跳过仍成立
+      ---
+      duration_ms: 7.080458
+      type: 'test'
+      ...
+    1..12
+ok 22 - 单文件工具优化批(files-core)
+  ---
+  duration_ms: 178.720416
+  type: 'suite'
+  ...
+# Subtest: [R] native-files 复核回归
+    # Subtest: R4 相对 root(file_list/glob/file_search/project_snapshot)按工作区解析,不落到进程 cwd
+    ok 1 - R4 相对 root(file_list/glob/file_search/project_snapshot)按工作区解析,不落到进程 cwd
+      ---
+      duration_ms: 18.939709
+      type: 'test'
+      ...
+    # Subtest: R4 audio_transcribe 的相对 path 按工作区解析
+    ok 2 - R4 audio_transcribe 的相对 path 按工作区解析
+      ---
+      duration_ms: 0.846291
+      type: 'test'
+      ...
+    # Subtest: R5 临时文件建不了(EACCES)但目标可写:file_write / file_edit 退回原地写
+    ok 3 - R5 临时文件建不了(EACCES)但目标可写:file_write / file_edit 退回原地写
+      ---
+      duration_ms: 5.018084
+      type: 'test'
+      ...
+    # Subtest: R5 临时文件和原地写都失败 → 仍报原错误(permission_or_locked),目标不变
+    ok 4 - R5 临时文件和原地写都失败 → 仍报原错误(permission_or_locked),目标不变
+      ---
+      duration_ms: 3.137125
+      type: 'test'
+      ...
+    # Subtest: R5 悬空符号链接:file_write 经链接把目标写出来(不是假 not_found)
+    ok 5 - R5 悬空符号链接:file_write 经链接把目标写出来(不是假 not_found)
+      ---
+      duration_ms: 3.109709
+      type: 'test'
+      ...
+    # Subtest: R10 首块之后才出现的 GBK 字节:file_read 给 encodingWarning(不再静默乱码)
+    ok 6 - R10 首块之后才出现的 GBK 字节:file_read 给 encodingWarning(不再静默乱码)
+      ---
+      duration_ms: 24.09325
+      type: 'test'
+      ...
+    # Subtest: R13 GBK 编码器(Buffer 构建):大文本含生僻/增补平面字符往返不变
+    ok 7 - R13 GBK 编码器(Buffer 构建):大文本含生僻/增补平面字符往返不变
+      ---
+      duration_ms: 37.173459
+      type: 'test'
+      ...
+    1..7
+ok 23 - [R] native-files 复核回归
+  ---
+  duration_ms: 92.634792
+  type: 'suite'
+  ...
+# PASS ① 三层都合法 → 请求级赢(req="plan" sess="acceptEdits" cfg="auto" → plan;实 plan)
+# PASS ① 请求级放宽也赢(第78波语义:这一单当前执行链说了算)(req="auto" sess="plan" cfg="default" → auto;实 auto)
+# PASS ① 请求级空 → 会话级(req="" sess="plan" cfg="auto" → plan;实 plan)
+# PASS ① 请求级 null → 会话级(req=null sess="acceptEdits" cfg="default" → acceptEdits;实 acceptEdits)
+# PASS ① 请求级 undefined → 会话级(req=undefined sess="bypass" cfg="default" → bypass;实 bypass)
+# PASS ① 请求级非法 → 静默回落会话级(不报错、不回写)(req="nope" sess="plan" cfg="auto" → plan;实 plan)
+# PASS ① dontAsk 不在 PERMISSION_MODES 里 → 回落会话级(req="dontAsk" sess="plan" cfg="auto" → plan;实 plan)
+# PASS ① CLI 原生内部名不在白名单 → 回落会话级(req="bypassPermissions" sess="plan" cfg="auto" → plan;实 plan)
+# PASS ① 请求级与会话级都空 → 全局(req="" sess="" cfg="acceptEdits" → acceptEdits;实 acceptEdits)
+# PASS ① 会话级 null(= 存量会话没有该字段)→ 全局(req="" sess=null cfg="auto" → auto;实 auto)
+# PASS ① 会话级非法 → 静默回落全局(req="" sess="nope" cfg="plan" → plan;实 plan)
+# PASS ① 请求级与会话级都非法 → 全局(req="nope" sess="nope" cfg="acceptEdits" → acceptEdits;实 acceptEdits)
+# PASS ① 三层全空 → default(req="" sess="" cfg="" → default;实 default)
+# PASS ① 三层全非法 → default(req="nope" sess="nope" cfg="nope" → default;实 default)
+# PASS ① 三层全 null → default(req=null sess=null cfg=null → default;实 default)
+# PASS ① 请求级可解析 default
+# PASS ① 会话级可解析 default
+# PASS ① 全局可解析 default
+# PASS ① 请求级可解析 acceptEdits
+# PASS ① 会话级可解析 acceptEdits
+# PASS ① 全局可解析 acceptEdits
+# PASS ① 请求级可解析 plan
+# PASS ① 会话级可解析 plan
+# PASS ① 全局可解析 plan
+# PASS ① 请求级可解析 auto
+# PASS ① 会话级可解析 auto
+# PASS ① 全局可解析 auto
+# PASS ① 请求级可解析 bypass
+# PASS ① 会话级可解析 bypass
+# PASS ① 全局可解析 bypass
+# PASS ② session/config 传对象时读它的 .permissionMode
+# PASS ② 会话对象没有 permissionMode 字段(存量会话)→ 回落全局
+# PASS ② 请求级字符串 + 会话/全局对象混用
+# PASS ② 空入参 → default
+# PASS ② 入参 null → default(不抛错)
+# PASS ② 入参不是对象 → default(不抛错)
+# PASS ② 入参是数字 → default(不抛错)
+# PASS ② 管家会话头上的独立值 'steward' 不在白名单 → 回落全局(管家自身不设线程档)
+# PASS ③ STEWARD_PERMISSION_RANK 已冻结
+# PASS ③ 序表内容锁定 plan<default<acceptEdits<auto<=bypass(只做收紧比较,不代表安全度线性)
+# PASS ③ bypass 与 bypassPermissions 同 rank(同一档的两个名字)
+# PASS ③ 未知/空档 rank = -1
+# PASS ③ 收紧矩阵 4×4 全对(严格更紧才允许)
+# PASS ③ 平移到同一档不算收紧(空操作不该写决策日志)
+# PASS ③ bypass → bypassPermissions 同 rank(同档改名),不算收紧
+# PASS ③ bypass(rank 4)→ auto(rank 3)按序表算收紧
+# PASS ③ bypass → acceptEdits 是收紧
+# PASS ③ plan → default 是放宽(线程能做的事变多),禁止
+# PASS ③ 任一边是未知档 → 一律 false(既不算可收紧也不算已放宽)
+# PASS ④ PERMISSION_MODES_REQUIRING_CONFIRM 已冻结
+# PASS ④ 二次确认名单恰为全自动三名(auto/bypass/bypassPermissions)
+# PASS ④ 收紧方向的三档都不需要二次确认
+# PERMISSION-RESOLVE UNIT: ALL PASS
+# Subtest: dev-harness/unit/permission-resolve.test.js
+ok 4 - dev-harness/unit/permission-resolve.test.js
+  ---
+  duration_ms: 106.575958
+  type: 'test'
+  ...
+# Subtest: [A1] 端点与鉴权头
+ok 25 - [A1] 端点与鉴权头
+  ---
+  duration_ms: 1.291583
+  type: 'test'
+  ...
+# Subtest: [A2] 请求编码
+ok 26 - [A2] 请求编码
+  ---
+  duration_ms: 1.913584
+  type: 'test'
+  ...
+# Subtest: [A3] 思考块回放
+ok 27 - [A3] 思考块回放
+  ---
+  duration_ms: 0.292583
+  type: 'test'
+  ...
+# Subtest: [A3b] 不带 tools 的请求:工具块改写成文字,不回放思考块
+ok 28 - [A3b] 不带 tools 的请求:工具块改写成文字,不回放思考块
+  ---
+  duration_ms: 0.148083
+  type: 'test'
+  ...
+# Subtest: [A4] 推理强度、工具、短补全
+ok 29 - [A4] 推理强度、工具、短补全
+  ---
+  duration_ms: 0.242792
+  type: 'test'
+  ...
+# Subtest: [A5] 非流式解码
+ok 30 - [A5] 非流式解码
+  ---
+  duration_ms: 0.787708
+  type: 'test'
+  ...
+# Subtest: [A5b] 2026-10 走查(w1-provider):失败回体的 httpError 文本 failureText;窗口超限归一成 context_exceeded 而不是 length
+ok 31 - [A5b] 2026-10 走查(w1-provider):失败回体的 httpError 文本 failureText;窗口超限归一成 context_exceeded 而不是 length
+  ---
+  duration_ms: 0.344958
+  type: 'test'
+  ...
+# Subtest: [A6] 流式解码
+ok 32 - [A6] 流式解码
+  ---
+  duration_ms: 0.349542
+  type: 'test'
+  ...
+# Subtest: [A7] 400 兼容重打
+ok 33 - [A7] 400 兼容重打
+  ---
+  duration_ms: 0.46425
+  type: 'test'
+  ...
+# Subtest: [A8] 用量、落历史字段、配置能力项、模型清单
+ok 34 - [A8] 用量、落历史字段、配置能力项、模型清单
+  ---
+  duration_ms: 18.306083
+  type: 'test'
+  ...
+# Subtest: [A9] 新 Claude 模型的请求面(Opus 5.5 / Sonnet 5.5)
+ok 35 - [A9] 新 Claude 模型的请求面(Opus 5.5 / Sonnet 5.5)
+  ---
+  duration_ms: 0.495292
+  type: 'test'
+  ...
+# Subtest: [A10] 签名失配报文点名 block_binding 时仍去掉思考块(不原样重打)
+ok 36 - [A10] 签名失配报文点名 block_binding 时仍去掉思考块(不原样重打)
+  ---
+  duration_ms: 0.163
+  type: 'test'
+  ...
+# Subtest: [A10] 开着思考时不发 temperature
+ok 37 - [A10] 开着思考时不发 temperature
+  ---
+  duration_ms: 0.106792
+  type: 'test'
+  ...
+# Subtest: [A10] message_delta 里为 null 的用量字段不抹掉 message_start 的计数
+ok 38 - [A10] message_delta 里为 null 的用量字段不抹掉 message_start 的计数
+  ---
+  duration_ms: 0.131542
+  type: 'test'
+  ...
+# Subtest: [A10] 空文本块不进回放块
+ok 39 - [A10] 空文本块不进回放块
+  ---
+  duration_ms: 0.132792
+  type: 'test'
+  ...
+# Subtest: [A10] 同一 tool_use_id 只出一块 tool_result
+ok 40 - [A10] 同一 tool_use_id 只出一块 tool_result
+  ---
+  duration_ms: 0.150959
+  type: 'test'
+  ...
+# Subtest: [A9] 兼容网关:粘进来的完整端点、经典思考的预算、max_tokens 超网关上限的 400 自学
+ok 41 - [A9] 兼容网关:粘进来的完整端点、经典思考的预算、max_tokens 超网关上限的 400 自学
+  ---
+  duration_ms: 0.327708
+  type: 'test'
+  ...
+# Subtest: [A11] 学到的 max_tokens 上限按「端点 + 模型」记:不跨服务商串味;编码 / 非流式 / 短补全 / 重打都认端点
+ok 42 - [A11] 学到的 max_tokens 上限按「端点 + 模型」记:不跨服务商串味;编码 / 非流式 / 短补全 / 重打都认端点
+  ---
+  duration_ms: 0.151208
+  type: 'test'
+  ...
+# (node:62618) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/provider-api-styles.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: [R] 登记表成员齐全、冻结;前端表与服务端逐一相同
+ok 43 - [R] 登记表成员齐全、冻结;前端表与服务端逐一相同
+  ---
+  duration_ms: 9.753083
+  type: 'test'
+  ...
+# Subtest: [N] 协议值归一与修前三元式逐项相同(服务端与前端两份)
+ok 44 - [N] 协议值归一与修前三元式逐项相同(服务端与前端两份)
+  ---
+  duration_ms: 21.860167
+  type: 'test'
+  ...
+# Subtest: [U] 服务商卡片的协议能力位与候选值和服务端清洗口径一致
+ok 45 - [U] 服务商卡片的协议能力位与候选值和服务端清洗口径一致
+  ---
+  duration_ms: 7.910375
+  type: 'test'
+  ...
+# Subtest: [M] 端点、模型清单、请求头
+ok 46 - [M] 端点、模型清单、请求头
+  ---
+  duration_ms: 0.357042
+  type: 'test'
+  ...
+# Subtest: [M] message provenance stays in history, outside Chat wire messages
+ok 47 - [M] message provenance stays in history, outside Chat wire messages
+  ---
+  duration_ms: 0.137833
+  type: 'test'
+  ...
+# Subtest: [M] 请求体编码、推理强度、工具、输出上限、短补全
+ok 48 - [M] 请求体编码、推理强度、工具、输出上限、短补全
+  ---
+  duration_ms: 0.659167
+  type: 'test'
+  ...
+# Subtest: [M] 非流式回体解码、用量、落历史字段
+ok 49 - [M] 非流式回体解码、用量、落历史字段
+  ---
+  duration_ms: 0.945167
+  type: 'test'
+  ...
+# Subtest: [M2] 2026-10 走查(w1-provider):200 回体里装着失败 → failed / failureText;content_filter 与 Responses 的 incomplete 原因
+ok 50 - [M2] 2026-10 走查(w1-provider):200 回体里装着失败 → failed / failureText;content_filter 与 Responses 的 incomplete 原因
+  ---
+  duration_ms: 0.28275
+  type: 'test'
+  ...
+# Subtest: [H] 延迟绑定的环内工具已由 07 填好
+ok 51 - [H] 延迟绑定的环内工具已由 07 填好
+  ---
+  duration_ms: 0.398834
+  type: 'test'
+  ...
+# Subtest: [G] 协议分叉只住 04i 与前端协议表
+ok 52 - [G] 协议分叉只住 04i 与前端协议表
+  ---
+  duration_ms: 52.7485
+  type: 'test'
+  ...
+# PASS ① 平年 1/31 -> 2/28 09:00(月末钳位,不溢出到 3/3);实得 Sun Feb 28 2027 09:00:00 GMT+0800 (China Standard Time)
+# PASS ① 闰年 1/31 -> 2/29 09:00;实得 Tue Feb 29 2028 09:00:00 GMT+0800 (China Standard Time)
+# PASS ① 3/31 -> 4/30 09:00(4 月无 31 号);实得 Fri Apr 30 2027 09:00:00 GMT+0800 (China Standard Time)
+# PASS ① 4/30 -> 5/31 09:00(长月不钳);实得 Mon May 31 2027 09:00:00 GMT+0800 (China Standard Time)
+# PASS ① dayOfMonth 29 在平年 2 月钳到 2/28;实得 Sun Feb 28 2027 07:00:00 GMT+0800 (China Standard Time)
+# PASS ① 当月还没到点 -> 就是本月那一天;实得 Tue Jun 15 2027 18:00:00 GMT+0800 (China Standard Time)
+# PASS ① 当月已过点(含正好等于)-> 下月同日;实得 Thu Jul 15 2027 18:00:00 GMT+0800 (China Standard Time)
+# PASS ② once 2028-02-29 合法(闰年真有这一天)
+# PASS ② once 2028-02-29 的 nextFireAt 就是那一天 09:00
+# PASS ② once 2027-02-29 被拒(平年没有 2 月 29)
+# PASS ② once 2027-04-31 被拒(4 月没有 31 号,不静默折成 5/1)
+# PASS ④ */15 -> 分 0,15,30,45
+# PASS ④ */15 从 10:07 起下一次是 10:15
+# PASS ④ */15 从 10:45(正好在点上)起下一次是 11:00 —— 严格「之后」
+# PASS ④ 0 9 * * 1-5 周六之后跳到周一 09:00;实得 Mon May 04 2026 09:00:00 GMT+0800 (China Standard Time)
+# PASS ④ 0 0 29 2 * 只在闰年命中(2026-03 起算 -> 2028-02-29);实得 Tue Feb 29 2028 00:00:00 GMT+0800 (China Standard Time)
+# PASS ④ 日与周都不是 * 时两个 restricted 旗都为真
+# PASS ④ 日与周同时给 -> 取并集(周五 5/8 先于 13 号);实得 Fri May 08 2026 00:00:00 GMT+0800 (China Standard Time)
+# PASS ④ 4 个字段被拒(必须 5 个)
+# PASS ④ 分钟 60 越界被拒
+# PASS ④ 小时 24 越界被拒
+# PASS ④ 星期 8 越界被拒
+# PASS ④ 名字写法(MON)不支持,明确拒而不是猜
+# PASS ④ 星期 7 折成 0(周日两种写法同义)
+# PASS ④ 5/20 = 从 5 起步进 20 到上界
+# PASS ④ 0-4 展开成 5 个值
+# PASS ④ 逗号列表
+# PASS ④ 0 0 30 2 *(2 月 30 号永不存在)-> 五年扫不到,回 null 而不是死循环
+# PASS ⑤ 过期的 once -> null(不再触发)
+# PASS ⑤ occurrenceKey = taskId@dueIso
+# PASS ⑤ daily 建好时 nextFireAt = 今天 09:00
+# PASS ⑤ 还没到点 -> 没有错过
+# PASS ⑤ 迟 90 分钟(grace 120)-> 在宽限内、该补跑一次、mode late
+# PASS ⑤ 补跑引用的是【原本那个时点】的 occurrenceKey,不是「现在」
+# PASS ⑤ 迟 210 分钟(grace 120)-> 超出宽限,不补跑(由 13s 记 skipped)
+# PASS ⑤ onMissed:skip -> 即使在宽限内也不补跑(策略优先于宽限)
+# PASS ⑥ scheduler.describe.once 键命中
+# PASS ⑥ zh 逐字「9 月 14 日 09:00 一次」;实得「9 月 14 日 09:00 一次」
+# PASS ⑥ en 逐字「once on 9/14 at 09:00」;实得「once on 9/14 at 09:00」
+# PASS ⑥ scheduler.describe.daily 键命中
+# PASS ⑥ zh 逐字「每天 07:30」;实得「每天 07:30」
+# PASS ⑥ en 逐字「every day at 07:30」;实得「every day at 07:30」
+# PASS ⑥ scheduler.describe.weekly.weekdays 键命中
+# PASS ⑥ zh 逐字「每个工作日 18:00」;实得「每个工作日 18:00」
+# PASS ⑥ en 逐字「every weekday at 18:00」;实得「every weekday at 18:00」
+# PASS ⑥ scheduler.describe.weekly.weekend 键命中
+# PASS ⑥ zh 逐字「每个周末 10:00」;实得「每个周末 10:00」
+# PASS ⑥ en 逐字「every weekend at 10:00」;实得「every weekend at 10:00」
+# PASS ⑥ scheduler.describe.weekly 键命中
+# PASS ⑥ zh 逐字「每周一、四 20:15」;实得「每周一、四 20:15」
+# PASS ⑥ en 逐字「every Mon, Thu at 20:15」;实得「every Mon, Thu at 20:15」
+# PASS ⑥ scheduler.describe.monthly.lastDay 键命中
+# PASS ⑥ zh 逐字「每月最后一天 09:00」;实得「每月最后一天 09:00」
+# PASS ⑥ en 逐字「the last day of every month at 09:00」;实得「the last day of every month at 09:00」
+# PASS ⑥ scheduler.describe.monthly 键命中
+# PASS ⑥ zh 逐字「每月 5 日 09:00」;实得「每月 5 日 09:00」
+# PASS ⑥ en 逐字「day 5 of every month at 09:00」;实得「day 5 of every month at 09:00」
+# PASS ⑥ scheduler.describe.cron 键命中
+# PASS ⑥ zh 逐字「按 cron 表达式 0 9 * * 1-5」;实得「按 cron 表达式 0 9 * * 1-5」
+# PASS ⑥ en 逐字「on cron schedule 0 9 * * 1-5」;实得「on cron schedule 0 9 * * 1-5」
+# PASS ⑥ 读不懂的计划回 invalid 键,不编一句话出来
+# PASS ⑥ 非法时间回 invalid 键
+# PASS ⑥ 返回值只有 key/params/locale 三样,生产代码不产出人话
+# PASS ⑥ 返回形状恒为 {key, locale, params}
+# PASS ⑥ SCHEDULER_DESCRIBE_KEYS 每个键在中英两张建议稿里都有文案(缺: )
+# PASS ⑦ 合法任务通过
+# PASS ⑦ title 去空白
+# PASS ⑦ days 去重并升序
+# PASS ⑦ 未给 policy -> 逐字等于 SCHEDULER_DEFAULT_POLICY
+# PASS ⑦ 未给 target -> new-session
+# PASS ⑦ 未给权限档 -> '' = 跟随全局默认档
+# PASS ⑦ 纯函数不造 id(留给 13s),revision 从 0 起
+# PASS ⑦ state 缺省:开着、零连败
+# PASS ⑦ 越权 bypass 回落(29 号文 §10:任务级授权永不含 bypass)
+# PASS ⑦ CLI 原生别名 bypassPermissions 同样回落
+# PASS ⑦ 非 bypass 的档原样留着(白名单判定在 13s)
+# PASS ⑦ 载荷带禁止键 localCommand -> 整条拒
+# PASS ⑦ 载荷带禁止键 env -> 整条拒
+# PASS ⑦ 载荷带禁止键 apiKey -> 整条拒
+# PASS ⑦ 载荷带禁止键 dataRoot -> 整条拒
+# PASS ⑦ 载荷带禁止键 cwd -> 整条拒
+# PASS ⑦ 禁止键藏在数组里的对象上也拒(深扫)
+# PASS ⑦ target.cwd 同样拒(绕过工作区表的唯一入口)
+# PASS ⑦ 空标题被拒
+# PASS ⑦ 未知计划类型被拒
+# PASS ⑦ at 必须是两位 'HH:MM'
+# PASS ⑦ playbook 载荷本波不收(127 波)
+# PASS ⑦ 空正文被拒
+# PASS ⑦ existing-session 缺 sessionId 被拒
+# PASS ⑦ existing-session 带合法 sessionId 通过
+# PASS ⑦ policy 越界钳位 + 未知枚举回默认
+# PASS ⑦ 新建一条已经过期的 once -> 拒(它建出来就永远不会触发)
+# PASS ⑦ 标题里的控制字符被清掉(NUL 丢、TAB 折空格)
+# PASS ⑦ 非对象入参被拒
+# PASS ⑧ 06j SCHEDULER_THREAD_TIERS 与 13f steward_thread_new 的 tier 枚举逐项相等(实得 ["strong","fast"] vs ["strong","fast"])
+# PASS ⑧ steward_schedule_create 的 tier 枚举与之同一份(实得 ["strong","fast"])
+# PASS ⑧ 值域常量是冻结的
+# PASS ⑧ prompt + new-session 带 tier:strong -> 落进 target.tier(实得 {"mode":"new-session","tier":"strong"})
+# PASS ⑧ prompt + new-session 带 tier:fast -> 落进 target.tier(实得 {"mode":"new-session","tier":"fast"})
+# PASS ⑧ 判据 ③:不带 tier -> target 里【没有】tier 键(与修前逐字节同形;实得 {"mode":"new-session"})
+# PASS ⑧ 空串 tier 不落字段
+# PASS ⑧ 值域外的 tier(deepseek)静默丢,不拒整条(与权限档越界回落同口径)
+# PASS ⑧ 判据 ④:existing-session 带 tier -> 静默丢(既有线程有它自己的引擎;实得 {"mode":"existing-session","sessionId":"sess_abc123"})
+# PASS ⑧ reminder 载荷带 tier -> 静默丢(不起回合)
+# PASS ⑧ 判据 ④:带了 tier 的 target 仍然拒 cwd(禁止键表不动)
+# PASS ⑧ 禁止键表逐字没动(workdir 不是靠禁止键挡的,是靠入口剥离 + 到点再核候选表)
+# PASS ⑧ 带着 workdir 的盘上任务 -> 原样带过去(实得 "C:\\\\Users\\\\me\\\\Ruyi\\\\巡检")
+# PASS ⑧ 没有 workdir 的任务不落这个键(管家关着 / 还没触发过的任务与修前同形)
+# PASS ⑧ 只有空白的 workdir 不落键
+# PASS ⑧ workdir 里的控制字符同样清掉(实得 "C:\\\\ab c")
+# PASS ⑧ workdir 截到 1000 字(与工作区路径同一个上限;实得 1000)
+# PASS ③ TZ=America/New_York 子进程跑通(stderr: )
+# PASS ③ 子进程真的在 America/New_York(7 月偏移 240 分钟);实得 240
+# PASS ③ 春季跳过的 02:30 -> 落在 3/8 03:30 EDT(那一天真的没有 02:30);实得 {"iso":"2026-03-08T07:30:00.000Z","y":2026,"mo":3,"d":8,"hh":3,"mm":30,"off":240}
+# PASS ③ 再下一次回到 3/9 02:30(只是切换那一天被顶到 03:30,不是从此永久改点);实得 {"iso":"2026-03-09T06:30:00.000Z","y":2026,"mo":3,"d":9,"hh":2,"mm":30,"off":240}
+# PASS ③ 本地墙钟 09:00 跨春季切换仍是 09:00(偏移 300 -> 240,墙钟不动);实得 [{"iso":"2026-03-07T14:00:00.000Z","y":2026,"mo":3,"d":7,"hh":9,"mm":0,"off":300},{"iso":"2026-03-08T13:00:00.000Z","y":2026,"mo":3,"d":8,"hh":9,"mm":0,"off":240}]
+# PASS ③ 秋季重复的 01:30 -> 落在【第一个】(EDT,偏移 240);实得 {"iso":"2026-11-01T05:30:00.000Z","y":2026,"mo":11,"d":1,"hh":1,"mm":30,"off":240}
+# PASS ③ 下一次直接跳到 11/2 01:30,不把同一天的第二个 01:30 再触发一遍;实得 {"iso":"2026-11-02T06:30:00.000Z","y":2026,"mo":11,"d":2,"hh":1,"mm":30,"off":300}
+# PASS ③ 本地墙钟 09:00 跨秋季切换仍是 09:00(偏移已回 300);实得 {"iso":"2026-11-01T14:00:00.000Z","y":2026,"mo":11,"d":1,"hh":9,"mm":0,"off":300}
+# ALL PASS
+# Subtest: dev-harness/unit/scheduler-core.test.js
+ok 7 - dev-harness/unit/scheduler-core.test.js
+  ---
+  duration_ms: 199.567334
+  type: 'test'
+  ...
+# Subtest: OS gate is exclusive; repeated old release cannot release a new owner
+ok 54 - OS gate is exclusive; repeated old release cannot release a new owner
+  ---
+  duration_ms: 4.474708
+  type: 'test'
+  ...
+# Subtest: canonical roots collapse junctions and missing leaves without creating directories
+ok 55 - canonical roots collapse junctions and missing leaves without creating directories
+  ---
+  duration_ms: 1.007167
+  type: 'test'
+  ...
+# Subtest: protocol selection retains Node 20.0 and non-Linux POSIX compatibility
+ok 56 - protocol selection retains Node 20.0 and non-Linux POSIX compatibility
+  ---
+  duration_ms: 0.214667
+  type: 'test'
+  ...
+# Subtest: unknown legacy runtime blocks without modifying files and releases the acquired gate
+ok 57 - unknown legacy runtime blocks without modifying files and releases the acquired gate
+  ---
+  duration_ms: 2.713125
+  type: 'test'
+  ...
+# Subtest: [Q1] 修前就成立的形状不变
+ok 58 - [Q1] 修前就成立的形状不变
+  ---
+  duration_ms: 0.4465
+  type: 'test'
+  ...
+# Subtest: [Q2] 含空格且以反斜杠结尾的参数:结尾反斜杠加倍
+ok 59 - [Q2] 含空格且以反斜杠结尾的参数:结尾反斜杠加倍
+  ---
+  duration_ms: 0.448
+  type: 'test'
+  ...
+# Subtest: [Q3] 引号前的反斜杠串加倍:JSON 里的 \\" 往返还原(--agents 带双引号的角色 prompt)
+ok 60 - [Q3] 引号前的反斜杠串加倍:JSON 里的 \\" 往返还原(--agents 带双引号的角色 prompt)
+  ---
+  duration_ms: 0.172459
+  type: 'test'
+  ...
+# Subtest: [Q4] cmd 层:每个引号成对,元字符始终在引号态内
+ok 61 - [Q4] cmd 层:每个引号成对,元字符始终在引号态内
+  ---
+  duration_ms: 0.1255
+  type: 'test'
+  ...
+# Subtest: [Q5] 随机往返(种子固定)与线性时间
+ok 62 - [Q5] 随机往返(种子固定)与线性时间
+  ---
+  duration_ms: 14.928084
+  type: 'test'
+  ...
+# Subtest: [Q6] 仅 Windows:经 cmd.exe /d /s /c + .cmd 垫片,node 收到的 argv 与原参数逐字相等
+ok 63 - [Q6] 仅 Windows:经 cmd.exe /d /s /c + .cmd 垫片,node 收到的 argv 与原参数逐字相等 # SKIP
+  ---
+  duration_ms: 0.0595
+  type: 'test'
+  ...
+# Subtest: [W1] 带不带结尾分隔符是同一个常用文件夹
+ok 64 - [W1] 带不带结尾分隔符是同一个常用文件夹
+  ---
+  duration_ms: 13.575125
+  type: 'test'
+  ...
+# Subtest: [W2] 存的时候去掉结尾分隔符;盘符根与 / 保留一个
+ok 65 - [W2] 存的时候去掉结尾分隔符;盘符根与 / 保留一个
+  ---
+  duration_ms: 1.954667
+  type: 'test'
+  ...
+1..65
+# tests 82
+# suites 2
+# pass 81
+# fail 0
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 509.430834

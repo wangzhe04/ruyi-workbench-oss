@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-31",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "phaseStatus": "in_progress",
+  "workPackage": "P1-01",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "macOS": "27.0.1",
+    "node": "24.15.0"
+  },
+  "checks": {
+    "runtimeE2e": {
+      "assertions": 24,
+      "consecutivePasses": 2,
+      "osOpener": "test-double"
+    },
+    "staticE2e": {
+      "pass": 80,
+      "fail": 0
+    },
+    "unit": {
+      "tests": 2493,
+      "pass": 2470,
+      "fail": 3,
+      "skip": 20,
+      "knownP0Failures": [
+        "git-tool-shape G8",
+        "script-run-cleanup S1",
+        "steward-inbox-tick-cost"
+      ]
+    },
+    "targetedUnit": {
+      "pass": 25,
+      "fail": 0
+    },
+    "syntax": {
+      "files": 1094,
+      "fail": 0
+    },
+    "buildFreshness": "pass",
+    "dependencyContract": "pass",
+    "launcherShellSyntax": "pass",
+    "gitDiffCheck": "pass"
+  },
+  "independentReview": "pending",
+  "windowsRuntimeValidation": "pending",
+  "actualFinderUIValidation": "pending",
+  "sha256": {
+    "ruyi-workbench/app/server.js": "eb20ba3571ff24fe90390bed4f781823404838185790c3fdf2cd34ec3e542a18",
+    "ruyi-workbench/start-macos.command": "c8173d4e5b2e61bdfc94a5825076503e39b7f922579b411e13afea9652d09702",
+    "dev-harness/macos-runtime-start.e2e.js": "cad8cba24ea78124cc552f8a8fd820b02b7164ea50552018d74bf8893f98410a"
+  }
+}

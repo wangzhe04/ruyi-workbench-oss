@@ -1,0 +1,23 @@
+[fake] [fake-openai] listening on 51559
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay df1467dfdd69)
+[wb] UI: http://127.0.0.1:51560/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-oEADbV/.ruyi-workbench
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :51560
+PASS version === package.json "3.0.1" (got 3.0.1)
+PASS session id captured
+FAIL providerHistory grew before compact (len=0)
+FAIL compact returns {ok:true} (err=[object Object])
+FAIL compact returns before/after token estimates (undefined→undefined)
+FAIL 128h-J12 捕到了那一发摘要请求(非流式;got 0/0)
+FAIL 128h-J12 摘要请求体里带「偏好只保留最后一次那个版本」(压缩回注不会把被推翻的旧偏好当成现行约束)
+FAIL 128h-J12 并明确点名【已确认的决定】那一节 —— 回注时被当成现行偏好读的正是它
+FAIL providerHistory.length === 2 after compact (got 0)
+FAIL providerHistory[0] is the summary user message
+FAIL providerHistory[1] is the ack assistant message
+FAIL last message role === "system" (got assistant)
+FAIL system message contains 「已压缩」 ("未检测到 Claude Code CLI。推荐直接配置 AP")
+FAIL post-compact turn streams ("未检测到 Claude Code CLI。推荐直接配置 AP")
+FAIL post-compact turn result ok=true
+
+PROVIDER-COMPACT E2E: FAIL (13)
