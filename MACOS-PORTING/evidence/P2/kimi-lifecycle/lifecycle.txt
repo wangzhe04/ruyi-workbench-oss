@@ -1,0 +1,30 @@
+COMMAND node "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/kimi-acp-live-probe.js"
+KIMI_DISCOVERY source="RUYI_KIMI_CLI_PATH env override" launcher="/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/bin/kimi" entry="/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/lib/node_modules/@moonshot-ai/kimi-code/dist/main.mjs"
+COMMAND node "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/lib/node_modules/@moonshot-ai/kimi-code/dist/main.mjs" --version
+CLI_VERSION 0.37.2
+PASS real Kimi CLI executable — discovered npm launcher=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/bin/kimi; package entry launched without user configuration
+COMMAND local fixed-response model http://127.0.0.1:49468/v1/chat/completions
+KIMI_CONFIG_SCHEMA config.toml; provider.type=openai; provider.base_url=http://127.0.0.1:49468/v1
+COMMAND [handshake] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49469
+PASS [handshake] Ruyi isolated health — 127.0.0.1:49469
+PASS [handshake] isolated bootstrap token
+TERMINAL [handshake] none observed
+PASS [handshake] local fixed-response model received request — 1 request(s); tools=24
+PASS [handshake] real Kimi ACP metadata
+PASS [handshake] ACP handshake/model turn completed — no tool result counted in this handshake assertion
+COMMAND [lifecycle] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49476
+PASS [lifecycle] Ruyi isolated health — 127.0.0.1:49476
+PASS [lifecycle] isolated bootstrap token
+TERMINAL [lifecycle] none observed
+PASS [lifecycle] local fixed-response model received request — 2 request(s); tools=24
+PASS [lifecycle] real Kimi ACP metadata
+PASS [lifecycle] actual Kimi tool schema — Read
+PASS [lifecycle] ACP turn completed with fixed model response
+PASS [lifecycle] real tool Read — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [lifecycle] initial native session persisted
+PASS [lifecycle] resumed native session retains prior real Read context while active
+PASS [lifecycle] execution-bound stop aborts the active real CLI prompt without resetting its native session
+PASS [lifecycle] stop releases execution and HTTP request and persists aborted status
+PASS [lifecycle] post-stop native continuation preserves context and completes a fresh Read
+PASS local model fixture — 6 request(s), deterministic responses only
+SUMMARY pass=19 fail=0 skip=0

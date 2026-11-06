@@ -551,17 +551,23 @@
             "evidence/P2/cli-live/README.md",
             "evidence/P2/cli-live/review.json",
             "evidence/P2/cli-live/validation.json",
-            "evidence/P2/cli-live/source-fingerprint.json"
+            "evidence/P2/cli-live/source-fingerprint.json",
+            "evidence/P2/kimi-lifecycle/README.md",
+            "evidence/P2/kimi-lifecycle/review.json",
+            "evidence/P2/kimi-lifecycle/validation.json",
+            "evidence/P2/kimi-lifecycle/source-fingerprint.json"
           ],
           "baselineSha": "f4fc6852",
           "implementationCommit": "8393cfc0d8697a64d609e6aad018da4757c15afa",
-          "progress": "首批能力适配已交付；临时隔离安装真实Kimi0.37.2，修复POSIX全局npm与路径批准别名问题，真实CLI/本地模型探针84通过，经独立复核。真实账户、实际停止/恢复及Windows待验。",
+          "progress": "首批平台能力与真实Kimi增量已交付；真实CLI+本地模型八场景96通过，含同一原生会话恢复、active prompt停止/aborted落盘、再次恢复并完成新Read，独立评审通过。真实账号、Claude及Windows待验。",
           "acceptancePending": [
-            "用户环境未检测到已配置的正式Claude/Kimi CLI；临时Kimi免凭据探针不替代真实账户工具回合及实际停止/恢复",
+            "真实Kimi账号服务联调；本地模型下的真实CLI工具/停止/恢复已通过，不等同账号验收",
+            "用户环境未检测到已配置的正式Claude CLI；Claude真实工具回合及停止/恢复未验收",
             "Windows同SHA实机回归未执行"
           ],
           "incrementalImplementationCommits": [
-            "8ebb66387dfc377fccdf43faa57138c9bb4b8a69"
+            "8ebb66387dfc377fccdf43faa57138c9bb4b8a69",
+            "921e6a89795bb4069941dfe53a8c1b94247d776d"
           ]
         },
         {

@@ -1,0 +1,36 @@
+COMMAND node "/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/kimi-acp-live-probe.js"
+KIMI_DISCOVERY source="RUYI_KIMI_CLI_PATH env override" launcher="/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/bin/kimi" entry="/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/lib/node_modules/@moonshot-ai/kimi-code/dist/main.mjs"
+COMMAND node "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/lib/node_modules/@moonshot-ai/kimi-code/dist/main.mjs" --version
+CLI_VERSION 0.37.2
+PASS real Kimi CLI executable — discovered npm launcher=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p2-cli-live-m1tuhkos/cli/bin/kimi; package entry launched without user configuration
+COMMAND local fixed-response model http://127.0.0.1:49364/v1/chat/completions
+KIMI_CONFIG_SCHEMA config.toml; provider.type=openai; provider.base_url=http://127.0.0.1:49364/v1
+COMMAND [handshake] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49365
+PASS [handshake] Ruyi isolated health — 127.0.0.1:49365
+PASS [handshake] isolated bootstrap token
+TERMINAL [handshake] none observed
+PASS [handshake] local fixed-response model received request — 1 request(s); tools=24
+PASS [handshake] real Kimi ACP metadata
+PASS [handshake] ACP handshake/model turn completed — no tool result counted in this handshake assertion
+COMMAND [lifecycle] node "/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js" serve --port 49372
+PASS [lifecycle] Ruyi isolated health — 127.0.0.1:49372
+PASS [lifecycle] isolated bootstrap token
+TERMINAL [lifecycle] none observed
+PASS [lifecycle] local fixed-response model received request — 2 request(s); tools=24
+PASS [lifecycle] real Kimi ACP metadata
+PASS [lifecycle] actual Kimi tool schema — Read
+PASS [lifecycle] ACP turn completed with fixed model response
+PASS [lifecycle] real tool Read — model tool_call_id=kimi-live-1 -> ACP id=0:kimi-live-1; rawInput verified; non-error tool_result
+PASS [lifecycle] initial native session persisted
+PASS [lifecycle] resumed native session retains prior real Read context while active
+FAIL [lifecycle] execution — Error: active stop was not an aborted, confirmed-cleanup turn on the original native session
+    at runCase (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/kimi-acp-live-probe.js:1442:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async run (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/kimi-acp-live-probe.js:1567:7); childPid=76850; childExit=<running>; stdout=如意 Ruyi 3.0.1  (launch: node, overlay 9fed3fff1da4)
+UI: http://127.0.0.1:49372/
+Data: <probe-root>/ruyi-home
+Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+MCP config: <probe-root>/ruyi-home/generated/workbench.mcp.json
+
+PASS local model fixture — 4 request(s), deterministic responses only
+SUMMARY pass=16 fail=1 skip=0
