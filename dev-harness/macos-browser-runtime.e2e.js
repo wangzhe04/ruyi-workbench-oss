@@ -49,8 +49,12 @@ const readFixtureDraft = url => new Promise((resolve, reject) => {
   }
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-browser-mcp-'));
   const cache = path.join(root, 'cache 空格'); fs.mkdirSync(cache);
-  for (const name of fs.readdirSync(sourceCache).filter(n => /^chromium-\d+$|^ffmpeg-\d+$/.test(n)))
+  // P3 browser tools do not record video. Test with only full Chromium: the SDK's
+  // optional media cache must not silently raise our minimum macOS requirement.
+  for (const name of fs.readdirSync(sourceCache).filter(n => /^chromium-\d+$/.test(n)))
     cp.execFileSync('/bin/cp', ['-cR', path.join(sourceCache, name), path.join(cache, name)]);
+  ok(fs.readdirSync(cache).every(name => /^chromium-\d+$/.test(name)),
+    'fixture cache contains no ffmpeg or headless-shell fallback');
   const tmp = path.join(root, 'tmp'); fs.mkdirSync(tmp);
   const sharedFile = path.join(root, 'sentinel.txt'); fs.writeFileSync(sharedFile, 'Shared file tools still work');
   const baseEnv = { ...fixtureChildEnv(), ACC_TOOLSETS: 'browser,filesystem', ACC_BROWSER_MODE: 'bundled',
