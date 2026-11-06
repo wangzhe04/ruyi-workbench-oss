@@ -1,0 +1,8 @@
+{
+  "package": "@moonshot-ai/kimi-code",
+  "version": "0.37.2",
+  "registry": "https://registry.npmjs.org",
+  "integrity": "sha512-TAteYb84mV44MEzCaAlfz5f3TiN2yMHuwj9Kd0ePEIMBUqgjlqV1w7PvMT9TN0t87LYfv7BhIYz+ZCHDOM5aJw==",
+  "mainSha256": "b606054273bac0e55f42aa479b4cd320f114674ae7e2ef51cd932c2102591001",
+  "installationScope": "Temporary task-only npm prefix and isolated HOME; lifecycle scripts disabled; not a repository/runtime dependency; no third-party source committed"
+}

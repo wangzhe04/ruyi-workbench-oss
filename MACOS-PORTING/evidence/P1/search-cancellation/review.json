@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "File/docs search cancellation and content worker termination",
+    "Shared rg probe waiter cancellation and service ownership",
+    "Partial-result suppression and cleanup-uncertainty propagation"
+  ],
+  "blockingFindings": 0,
+  "resolvedSuggestions": [
+    "Exercise terminate rejection after actual thread exit and while thread is still alive"
+  ],
+  "tests": {
+    "searchCancellation": 20,
+    "rgRuntime": 15
+  },
+  "limitations": [
+    "In-flight kernel filesystem reads are not preempted",
+    "Path-matcher worker is outside this batch",
+    "Windows actual runtime remains unverified"
+  ]
+}

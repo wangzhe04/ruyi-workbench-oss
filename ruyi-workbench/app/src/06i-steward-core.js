@@ -1393,7 +1393,7 @@ function stewardClipSay(value) {
 // 常用工具说清要对哪个文件做什么;认不出的工具才退回工具名 —— 总比「edit 级」这种档位黑话好懂。
 const STEWARD_PERMISSION_VERBS = Object.freeze({
   file_write: '写入文件', file_edit: '修改文件', file_delete: '删除文件', file_move: '移动文件', file_copy: '复制文件',
-  powershell_run: '运行一条命令', script_run: '运行一段脚本', http_download: '下载文件',
+  shell_run: '运行一条命令', powershell_run: '运行一条命令', script_run: '运行一段脚本', http_download: '下载文件',
 });
 // 第三波 M4：权限待决要对哪个文件动手（只取文件名）。独立出来，让 asksYou 也能带上结构化的 target，前端按界面语言拼句。
 function stewardPermissionTarget(iv) {

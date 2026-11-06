@@ -1,0 +1,112 @@
+PASS A1 页签顺序是「基础 → 权限与安全 → 用量与限额 → 管家 → 模型分配 …（Agent CLI 在模型组里）」（实测 ["basic","security","limits","steward","models","providers"]）
+PASS A2 #stab-steward 面板存在
+PASS A3 管家面板与三枚公用页（权限与安全／用量与限额／模型分配）的边界都可定位
+PASS A4 九组 <section> 齐全且顺序固定（实测 ["cfgStewardGroupPower","cfgStewardGroupPersona","cfgStewardGroupAuto","cfgStewardGroupBudget","cfgStewardGroupIndex","cfgStewardGroupSchedule","cfgStewardGroupExternalBots","cfgStewardGroupMemory","cfgStewardGroupDecisions"]）
+PASS A4c 136：「管家人设」紧跟「管家总开关」,其后是「管家可以自己做的事」
+PASS A4b 117l-A3＋121-K7＋W6：「节奏与上下文」之后依次是「任务索引」「定时任务」「外部机器人」「管家记得的关于你」
+PASS A4d W6：「新线程默认权限」整段住「权限与安全」、「新开线程用什么模型」住「模型分配」，管家页里都不再有
+PASS A5 每组 <section> 都有 aria-labelledby
+PASS A6 47 个 cfgSteward* 控件一个没少，各在自己的页里（管家 30／权限 6／限额 5／模型 6；缺: 无）
+PASS A6b 每个 cfgSteward* 控件全页恰好一枚（重复: 无）
+PASS A7 面板内所有 id 都是 cfgSteward* 前缀（实测异类 无）
+PASS A8 对话保留三档 visit/24h/forever 齐全且顺序固定
+(node:62047) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/steward-settings.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS B1 steward-settings.js 从 steward-chips.js import 权限档位
+PASS B2 四档表、确认档、确认文案键、两个人话键全部复用（实测 ["STEWARD_PERMISSION_MODES","STEWARD_PERMISSION_CONFIRM_MODES","permissionConfirmSpec","permissionLabelKey","permissionHintKey","stewardEscapeStack","// 117n-M1：工具人话表与 DOM 基础件三兄弟（doc/byId/el）＋ clear/button 都搬到 steward-chips.js\n  // 集中定义。STEWARD_TOOL_LABEL_KEYS 原来就定义在本文件里，现在从这里引用，仍然 export 出去\n  // （下面那行 re-export）——老的 `import { STEWARD_TOOL_LABEL_KEYS } from './steward-settings.js'`\n  // 用法（本波之前 steward-conversation.js 就是这么用的）不受影响。\n  STEWARD_TOOL_LABEL_KEYS","doc","byId","el","clear","button","writeNote"]）
+PASS B3 import 全部是本域内相对路径（零第三方库）
+PASS B4 settings 模块零四档字面量（枚举只有 steward-chips.js 那一份）
+PASS B5 §8.6 那五条确认文案键全仓只在 js/confirm-panel.js 登记一次（实测 confirm-panel=5，别处 零）
+PASS B5b chips 不再自列那五条：从 confirm-panel.js import 后原样 re-export（117d 起的公开面一字未改）
+PASS B5c 运行时同一性：chips 那份就是 confirm-panel 登记表那个数组（同一个对象），settings 只引用常量、不复制文案
+PASS B5d 「哪一档要二次确认」同样只有一份定义（confirm-panel.js），chips 与 settings 读同一个数组对象
+PASS B6 复用到的档位表：117d 的四档顺序不动，末尾加回全自动；智能自动与全自动都要二次确认
+PASS B7 记忆五类与后端 STEWARD_MEMORY_KINDS 同序
+PASS C1 打开：先 saveConfigPartial({stewardEnabledV1:true}) 再 POST /api/steward/start
+PASS C2 关闭：先 POST /api/steward/stop 再落盘 false
+PASS C3 任一步失败都回滚勾选框（不留下「界面开着、盘上没开」）
+PASS C4 启停各只有一个函数封装（别处不许再拼这两条请求）
+PASS C5 一键停机／唤醒不写配置（只动运行态）
+PASS D1 零 innerHTML/insertAdjacentHTML/document.write
+PASS D2 设置页的节点创建委托给 steward-chips.js 共享的 el()/button()/clear()（117n-M1 去重）：五个名字都从同一条 import 拿、零本地重复定义，createElement 仍可在 chips.js 里查证
+PASS D3 设置页零计时器（不轮询；停机态由壳层那一处已有的 setInterval 喂进来）
+PASS D4 全模块恰好一处 `<a download>`，且只用于记忆导出
+PASS D5 steward-shell.js 仍然全文件恰好一处 setInterval（117b 的 C2a 未被 117e 稀释）
+PASS D6 steward-shell.js 仍然全文件恰好一处 api() 调用（117a 的 C3a 未被稀释；settings 拿到的是注入的引用）
+PASS D7 errorText 之外零 String(<error 值>)
+PASS D7b settings.js 的错误信封解包从 steward-conversation.js import，不是自己再写一份
+PASS D7c 旧的本地 errorText（漏了 error instanceof Error 分支的弱化版）已经不在了
+PASS D7d call() 里两处（response.error 分支与 catch 分支）都改用了 stewardErrorText
+PASS E1 盾牌按钮与四档菜单在外框顶栏里（两视角共用；管家壳头部不再有第二份）
+PASS E2 一键停机键常驻在外框顶栏里（工作台视角由样式层收起 —— 它是管家专用）
+PASS E3 两个常驻控件在顶栏右侧那一组里；壳头部那条 actions 行随搬家退役
+PASS E4 设置域是导出的工厂函数
+PASS E5 头像菜单在「细节」之后只剩「设置」一项（实测 [["stewardShell.menu.settings",""]]）
+PASS E5b 口袋恰四项、顺序与 section 名固定（§2.3：定时任务／行动流水／记得的关于你／体检 · 用量；实测 [["schedule","schedule"],["decisions","decisions"],["memory","memory"],["doctor",""]]）
+PASS E5b2 口袋那三个 section 名在 steward-settings.js 的 PANEL_SECTIONS 表里各有一条落点（deep link 不是死链）
+PASS E5c 口袋四项的短词四份 locale 齐
+PASS E6 对话模块只负责调用注入的 openStewardPanel（不认识设置页的任何 id）
+PASS E7 注入在 steward-shell.js 内完成（组合根不参与）
+PASS F1 app.js 仍在 1280 行护栏内（实测 1277）
+PASS F2 组合根为 117e 净增恰好两行注入（fillStewardSettings + openSettingsTab；实测 2 行）
+PASS F3 provider-settings.js 只多一处 fillStewardSettings() 调用（既有静态锁只加）
+PASS F3b 117j classic-2：两条管家旁路各自 try/catch + console.warn，任何抛错不得阻断其后的草稿播种与 renderProviders()
+PASS F4 设置域在 steward-shell.js 内组装并注入依赖
+PASS F4b 117j UX-F1：总开关落盘之后跑一次准入判定 —— 人在管家壳里就 recoverStewardShell 回经典（状态行说的和看到的必须是同一件事）
+PASS G1 styles.css @import 与 index.html 直链同步收录 steward-settings.css
+PASS G2 read-frontend-css.js 的 CSS_PAYLOAD_GROUPS 收录 steward-settings.css
+PASS G3 离线包清单收录 117e 的两个新文件
+PASS G4 设置层 CSS 全部使用主题/语义 token，无硬编码色值
+PASS G5 reduced-motion 降级分支存在
+PASS G6 390px 窄屏断点存在
+PASS G7 宽表自己横向滚（页面不横滚）
+PASS H1 settings.steward.* 中英键对称（221 条）
+PASS H1 stewardShell.menu.* 中英键对称（3 条）
+PASS H2 文案与源码零出现 速问
+PASS H2 文案与源码零出现 不立单
+PASS H2 文案与源码零出现 已切到档位
+PASS H2 文案与源码零出现 Pretender
+PASS H2 文案与源码零出现 3\.0
+PASS H3 模块引用的 65 个 i18n 键中英都齐备（缺: 无）
+PASS H4 模板拼出来的 37 个键也齐备（缺: 无）
+PASS H5 STEWARD_ACTION_HOOKS 的 19 个工具在前端都有人话标签（缺: 无）
+PASS I1 只调 116 已有的路由 + 117e 第 0 步的 /api/steward/decisions（实测 ["/api/missions","/api/scheduler/tasks","/api/session/rewind","/api/steward/decisions","/api/steward/memory","/api/steward/memory/clear","/api/steward/memory/edit","/api/steward/memory/export","/api/steward/memory/restore","/api/steward/memory/veto","/api/steward/start","/api/steward/state","/api/steward/stop"]）
+PASS I2 配置写口只经注入的 saveConfigPartial（本模块不自己拼 POST /api/config）
+PASS I3 零直调 fetch（一律经注入的 api()）
+PASS J1 六个 id 都在「模型分配」页里（缺: 无）
+PASS J2 表里的顺序：对话主模型 → 管家用的模型 → 新开线程两档（钱与模型相关的几行挨着）
+PASS J3 fillProviderOptions 只有一处定义
+PASS J4 fillProviderOptions 恰好三处调用（连同定义共 4 处字面量；实测 4）
+PASS J5 强/快两档的写口在当前 config 基础上合并整个 stewardThreadModels 对象上传（不是只传半个）
+PASS J6 六个新 i18n 键 zh/en 都非空（缺: 无）
+PASS J7 六个键都在「模型分配」页里挂上（data-i18n 或 aria-label，不是孤儿翻译）
+PASS K1 本模块零 SVG 路径常量、零 createElementNS：两枚控件的字形全部由 icons.js 的 icon() 建（ICON_STOP 那份孤本已死）
+PASS K2 本模块取用的每一个字形名都真的在 ICONS 表里（实测 ["caret"]）
+PASS K3 停机键与线程「停止」不是同一枚图标：管家停机／唤醒用电源符（已停机加一道斜杠，全表只此一处斜杠），实心方块 stop 只归线程用，本模块一次都不取它
+PASS K4 四档【各有】自己的盾内字形：都在表里、两两不同、没有一档退回家族标 shield（实测 ["shieldDefault","shieldAcceptEdits","shieldPlan","shieldAuto","shieldBypass"]）
+PASS K4b 四枚盾牌共享同一条盾牌轮廓（家族标不变，四档只换盾【里面】那个字形）
+PASS K4c 盾内字形名【由档位名派生】而不是查第二张表：settings 零四档字面量（B4 未被本刀稀释），icons.js 也不认识那张四档表
+PASS K5 停机键的可及名一个字没变：只给读屏的 .steward-icon-label ＋ title ＋ aria-label 仍是同一句人话
+PASS K6 胶囊右边的角标是一枚【图标】不是文字字符 —— 否则盾牌按钮的 textContent 就不再逐字等于档位名（既有 C0b 读的就是它）
+PASS K7 盾牌是「盾＋档位名＋角标」的胶囊（档位名常驻，图标不再是唯一信号）；停机键仍是那颗 34px 圆键
+PASS K8 换了外形没换行为：菜单仍进同一个 Esc 栈（连「点别处算不算我的」那份判据一起）、四档仍是 menuitemradio ＋ aria-checked ＋ aria-controls，需要二次确认的那一档仍先过确认
+PASS L1 定时任务两枚不可逆动作的确认键在 confirm-panel 的登记表里（scheduleRunNow / scheduleDelete）
+PASS L1b settings.steward.schedule.runNowConfirm 中英各一条，且带 {{title}} 占位（i18n 的插值是双花括号——单花括号会原样上屏）
+PASS L1b settings.steward.schedule.deleteConfirm 中英各一条，且带 {{title}} 占位（i18n 的插值是双花括号——单花括号会原样上屏）
+PASS L2 「立即运行」先过确认再发 run-now
+PASS L2b 「删除」先过确认再发 DELETE
+PASS L2c 这两条路各只有一处 —— 不存在绕过确认的第二个入口
+PASS L3 定时任务组里有「稍后推迟多久」的入口（min/max 只是浏览器输入提示）
+PASS L3b 读服务端的数、写回服务端、再把【服务端钳过的】那个数回填（与 threadIndexRecent 同一个模具）
+PASS L3c 两条新键中英各一
+PASS L4 设置域订 schedule.changed，且没打开过这一块（scheduleLoaded 假）就不刷
+PASS L4e 重画那一刻才读「展开着哪一条」，重画完展开回来（在飞期间展开的也护得住）
+PASS L4e2 展开态只由 loadSchedule 与 toggleRuns 两处清空（实得 reopenRuns 调用 1 处、清空 2 处）
+PASS L4b 只订这一帧 —— 设置页不是第二个事件消费中心
+PASS L4f runs 一律画进【还在文档里】的那个落点（host 脱离了就按 taskId 重新找）
+PASS L4c 组合根把同一条流递给它（迟绑定 setter，构造那一行仍被 F4 逐字钉着）
+PASS L4d 仍然零计时器：推送只是多了一个刷新时刻，不是轮询
+
+STEWARD SETTINGS STATIC E2E: ALL PASS

@@ -1,0 +1,58 @@
+PASS S2 buildOpenSpawn uses explorer.exe (got explorer.exe)
+PASS S2 spawn command is NOT cmd.exe
+PASS S2 target passed as ONE verbatim argv element (no /c start splitting)
+PASS S2 argv carries no cmd `/c start` tokens → & cannot chain a 2nd command
+PASS S3 providerIsLocal: 127.0.0.1 → local
+PASS S3 providerIsLocal: localhost → local
+PASS S3 providerIsLocal: 192.168.x → local
+PASS S3 providerIsLocal: public host → remote
+PASS S3 providerIsLocal: no provider → remote
+PASS S3 in-bounds read → allow
+PASS S3 in-bounds write → allow
+PASS S3 out-of-bounds write (remote) → DENY
+PASS S3 out-of-bounds write (local) → DENY (write always denied)
+PASS S3 out-of-bounds read (remote) → DENY
+PASS S3 out-of-bounds read (local) → allow
+PASS S3 allowOutsideWorkspace → out-of-bounds read allowed
+PASS S3 allowOutsideWorkspace → out-of-bounds write allowed
+PASS S3 denial carries {ok:false, code:not-allowed, error}
+PASS S3 v2.7.1 bypass -> out-of-bounds write ALLOWED (wide write)
+PASS S3 v2.7.1 auto -> out-of-bounds write ALLOWED (wide write)
+PASS S3 v2.7.1 wide write does NOT open read (remote out-of-bounds read still DENY)
+PASS S3 v2.7.1 auto + local provider -> out-of-bounds read still allow (unchanged)
+PASS S3 v2.7.1 bypass wide write still DENIES OS-critical path (3rd floor)
+PASS S3 v2.7.1 bypass wide write still DENIES app-data path (1st floor)
+PASS S3 Mac physical system alias denied
+PASS S3 Mac physical system alias denied
+PASS S3 [unc-remote] wide-write denied before any I/O (W1: a remote share is an exfiltration / NTLM channel)
+PASS S3 v2.7.1 G-02 no-mode fallback -> out-of-bounds write DENY (fail-closed)
+PASS S3 missing write target through short-name/junction alias remains in-bounds
+PASS S3 missing workspace root and target share the same canonical existing parent
+PASS S3 missing write target through escaping junction remains denied
+PASS S3 安全审计#7 write through a DANGLING junction/symlink to outside → DENY (not-allowed)
+PASS S3 安全审计#1 dataRoot/mcp drop-in manifest write → DENY
+PASS S3 安全审计#1 dataRoot/checkpoints write → DENY even in bypass wide write
+PASS S3 安全审计#1 dataRoot/checkpoints READ stays allowed
+PASS S3 安全审计#1 agent-CLI launch config .claude/settings.json write → autoexec-denied
+PASS S3 安全审计#1 agent-CLI launch config .claude/settings.local.json write → autoexec-denied
+PASS S3 安全审计#1 agent-CLI launch config .mcp.json write → autoexec-denied
+PASS S3 安全审计#1 agent-CLI launch config .claude.json write → autoexec-denied
+PASS S3 安全审计#1 agent-CLI launch config .kimi/mcp.json write → autoexec-denied
+PASS S3 安全审计#1 agent-CLI launch config .ruyi-toolbox/components/x.json write → autoexec-denied
+PASS S3 安全审计#1 ordinary workspace file (package.json) write still allowed
+PASS B: workbench up on :56396
+PASS B: UI token scraped
+PASS B: session created (cwd=WS)
+PASS B: in-bounds file_read allowed + content returned
+PASS B: out-of-bounds file_read DENIED (remote)
+PASS B: denied read leaks NO content
+PASS B: out-of-bounds file_write ALLOWED under bypass (wide write)
+PASS B: out-of-bounds file_write created the file (wide write)
+PASS B: OS-critical path write DENIED even under bypass
+PASS B: OS-critical write left NO file on disk
+PASS B: app-data path (config.json) write DENIED even under bypass
+PASS B: in-bounds file_write allowed + file created
+PASS B: config flipped to a LOCAL provider
+PASS B: out-of-bounds file_read now ALLOWED under a local provider
+
+FILE-GUARD E2E: ALL PASS

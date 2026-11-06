@@ -1,0 +1,18 @@
+RETRY-DIAG {"ok":true,"runId":"run_e8dfa87dbf207f83","status":"succeeded","startedCount":2,"results":[{"id":"writer","status":"succeeded","result":"fixture result","structuredResult":null,"confidence":null,"gateVerdict":"","gateResult":null,"error":"","errorClass":"","dependsOn":[],"dependencyPolicy":"all_success","role":"","engine":"openai","attempts":2,"minSuccessfulToolCalls":0,"toolEvidence":null,"condition":null,"skipReason":"","loopIteration":0,"noProgressCount":0,"loopStopReason":"","jsonRepaired":false}]}
+FAIL degraded failure persists isolation and failure classification
+FAIL degraded cleanup failure prevents automatic re-execution
+FAIL degraded persisted uncertainty prevents silent resume
+RETRY-DIAG {"ok":false,"runId":"run_6209a056993aa6da","status":"failed","startedCount":3,"results":[{"id":"writer","status":"failed","result":"fixture result","structuredResult":null,"confidence":null,"gateVerdict":"","gateResult":null,"error":"synthetic failed result","errorClass":"subagent_failed","dependsOn":[],"dependencyPolicy":"all_success","role":"","engine":"openai","attempts":3,"minSuccessfulToolCalls":0,"toolEvidence":null,"condition":null,"skipReason":"","loopIteration":0,"noProgressCount":0,"loopStopReason":"","jsonRepaired":false}]}
+FAIL failed failure persists isolation and failure classification
+FAIL failed cleanup failure prevents automatic re-execution
+FAIL failed persisted uncertainty prevents silent resume
+RETRY-DIAG {"ok":true,"runId":"run_858e565f073ca091","status":"succeeded","startedCount":1,"results":[{"id":"writer","status":"succeeded","result":"fixture result","structuredResult":null,"confidence":null,"gateVerdict":"","gateResult":null,"error":"","errorClass":"","dependsOn":[],"dependencyPolicy":"all_success","role":"","engine":"openai","attempts":1,"minSuccessfulToolCalls":0,"toolEvidence":null,"condition":null,"skipReason":"","loopIteration":0,"noProgressCount":0,"loopStopReason":"","jsonRepaired":false}]}
+FAIL finalize failure persists isolation and failure classification
+PASS finalize cleanup failure prevents automatic re-execution
+FAIL finalize persisted uncertainty prevents silent resume
+RETRY-DIAG {"ok":true,"runId":"run_511d3d756cec9f9a","status":"succeeded","startedCount":1,"results":[{"id":"writer","status":"succeeded","result":"fixture result","structuredResult":null,"confidence":null,"gateVerdict":"","gateResult":null,"error":"","errorClass":"","dependsOn":[],"dependencyPolicy":"all_success","role":"","engine":"openai","attempts":1,"minSuccessfulToolCalls":0,"toolEvidence":null,"condition":null,"skipReason":"","loopIteration":0,"noProgressCount":0,"loopStopReason":"","jsonRepaired":false}]}
+FAIL create failure persists isolation and failure classification
+PASS create cleanup failure prevents automatic re-execution
+FAIL create persisted uncertainty prevents silent resume
+
+WORKTREE CLEANUP RETRY E2E: FAIL (10)

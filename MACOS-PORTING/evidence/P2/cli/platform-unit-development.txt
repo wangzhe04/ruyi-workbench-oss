@@ -1,0 +1,77 @@
+✔ [G1] 名单里的每个名字都是 ACC 真实注册的工具;三族互不相交 (10.785875ms)
+✔ [G2] 判据矩阵:桌面族与原生 desktop_screenshot 逐格同判;命令族只看命令闸;转调器任一闸关就关 (67.835333ms)
+✔ [G3] 只认内置桌面 MCP:外部服务器同名工具与名单外的 ACC 工具恒放行 (0.104ms)
+✔ [G4] accPolicyHiddenToolNames / dropPolicyDisabledBridgedTools (0.357416ms)
+✔ [G5] createToolLoadingState:被关的 ACC 工具不进目录;会话覆盖 true 时回来 (3.665166ms)
+✔ [G6] generateSessionMcpConfig:直挂 ACC 条目的 ACC_HIDE_TOOLS 跟配置与会话覆盖走;两个闸都开时不加键 (84.858958ms)
+✔ [Z1] 中文说法排得出对应的桥接工具 (118.904917ms)
+✔ [Z2] 结果形状不变 (18.031041ms)
+✔ [Z3] 别名只给桥接工具、按名字里的词生成;原生的同类工具排在桥接复本前面 (30.3615ms)
+✔ [S1] 大 stdout + 末尾 stderr:结果头+尾,stderr 与退出码在 stdout 之前,整体远低于 60K (69.505541ms)
+✔ [S1] 小输出原样不变(无省略字段) (79.047167ms)
+✔ [S2] `\r` 进度条折叠成最终一行 (59.179375ms)
+✔ [S3] 一次性运行的 stdin 是 EOF:读 stdin 的程序立刻返回而不是挂到超时 (51.035583ms)
+✔ [S4] 主进程退出后,占着输出管道的脱离孙进程不拖住工具调用 (3084.335167ms)
+✔ [S5] timeoutMs 非数字:分发层按 schema 拒并点名字段;非正数用默认值,不再 9ms 就被杀 (3179.604334ms)
+✔ [S5] 超时结果:error + hint + 已产生的部分输出 (1247.525834ms)
+✔ [S6] cwd 不存在:明说「工作目录不存在」,不是 spawn ENOENT (3.021ms)
+✔ [S7] python 子进程环境:PYTHONUTF8=1 / PYTHONIOENCODING=utf-8 (39.843667ms)
+✔ [S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(powershell_run 与 script_run) (331.9595ms)
+✔ [S9] shell_poll:状态字段在前、输出封顶(头+尾)、可用 cursor 分页读回中间 (232.982125ms)
+✔ [S9] shell_poll waitMs:有新输出或进程退出就提前返回 (1721.796084ms)
+✔ [S9] 后台任务:主进程退出、孙进程占着管道 → 及时 running:false(不永久占名额) (627.126333ms)
+✔ [S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在秒级到达,不是等满 30 秒 (1090.902667ms)
+✔ all privacy modes retain native schemas and execute source views through the real dispatch (141.313292ms)
+✔ proxy dispatch preserves source proofs and cannot promote lower tiers or bypass command policy (144.231083ms)
+✔ off mode retains real search/profile results and ordinary command-disable policy (103.831333ms)
+✔ supported native location/full-text tools stay available and unknown tools retain their errors (12.307625ms)
+✔ [F1] desktop_screenshot 相对 outputPath 按工作区解析:越界相对路径报的是工作区下的路径,不是进程 cwd 下的 (9.934208ms)
+✖ [F1] desktop_screenshot 工作区内的相对 outputPath 不再被判越界(非 Windows 上停在「只能在 Windows 使用」) (10.55875ms)
+✔ [F1] desktop_screenshot 的 ~ 先展开成家目录再过写闸(家目录在工作区外 → 拒,报展开后的真路径) (3.674833ms)
+✔ [F1] desktop_screenshot 的 outputPath 含 NUL → bad_path 信封,不抛 (0.19225ms)
+✔ [N1] tool_invoke_read 把 ctx 带进原生目标:工作目录生效 (102.022667ms)
+✔ [N1] 回合摘要与不可逆账按 tool_invoke_* 的真实目标记 (0.653333ms)
+✔ [N4] 命令 / 桌面工具开关在分发点也生效(且与 offer 面同一判据) (6.1615ms)
+✔ [N5] 未知工具:toolCall 仍抛 Unknown tool(消息逐字),建议走 toolFailureResult (10.647833ms)
+✔ [N5] 入参按工具自己的 schema 校验:必填 / 类型 / enum / items (5.801084ms)
+✔ [N5b] 宽进:枚举大小写 / 布尔 0-1 / 逗号串数组被规范成正统值,处理器看到的是规范值 (0.290209ms)
+✔ [N5b] 端到端:toolCall 收到的 script_run / file_list 入参已是规范值 (71.664708ms)
+✔ [N6] MCP 标准 content:全部 text 块、image 块映射、不劈 base64 (0.456042ms)
+✔ [N6] 多 text 块:首块是 JSON 就按结构化结果(保住 ok:false),其余块放 extraText;首块不是 JSON 才拼接 (0.122792ms)
+✔ [N7] 非视觉:图像字段换成一行占位 (0.335417ms)
+✔ [F3] extractToolImages 的 mime:魔数 > format > png (0.183667ms)
+✔ [A2] 桌面 audit_tail 的真实形状(records)出得了时间线行 (0.623333ms)
+✔ [A9] 桌面租约按 ACC 真实工具名分类 (0.448334ms)
+✔ [A10] 纯读 ACC 工具落 read 档,会动的仍 exec (0.089708ms)
+✔ [NE-12] desktop_screenshot 的图进 image_base64,路径保留;过大不内嵌 (3.038709ms)
+✔ [A14] 桥接子进程调用中途退出:错误可行动;启动失败原因不吞 (89.860583ms)
+✔ [N6b] 删会话时清掉该会话的 toolimg_* 附件目录(别的会话的不动) (186.711584ms)
+✔ [C1] 起手工具第一发就在;被关掉的、管家会话、full 模式不受影响 (5.707667ms)
+✔ [C2] 话题词不再带进 code / memory 包,明确意图照旧 (0.532ms)
+✔ [C3] 会话工具表跨重启按原序恢复 (3.6315ms)
+✔ [C3] legacy PowerShell tool history retains available tools in order when the platform starter changes (0.457333ms)
+✔ [C4] 中途装载只追加在尾部,frozenNames 跟着变 (0.574ms)
+ℹ tests 53
+ℹ suites 0
+ℹ pass 52
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26078.516833
+
+✖ failing tests:
+
+test at dev-harness/unit/screenshot-relative-output.test.js:34:1
+✖ [F1] desktop_screenshot 工作区内的相对 outputPath 不再被判越界(非 Windows 上停在「只能在 Windows 使用」) (10.55875ms)
+  AssertionError [ERR_ASSERTION]: 没有 PowerShell 的平台上,走到截图那一步才报「只能在 Windows 上使用」
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/screenshot-relative-output.test.js:37:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '没有找到 PowerShell(powershell.exe 不在 PATH 上)',
+    expected: /Windows/,
+    operator: 'match',
+    diff: 'simple'
+  }

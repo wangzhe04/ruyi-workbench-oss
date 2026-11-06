@@ -1,0 +1,58 @@
+PASS native helper capability requires executable versioned libproc probe
+PASS missing helper blocks every managed execution without unsupervised fallback
+PASS normal execution entry point returns structured helper failure without running target
+PASS incompatible version/capability report blocks target before execution
+PASS incompatible version/capability report blocks target before execution
+PASS incompatible version/capability report blocks target before execution
+PASS replacing unavailable helper restores readiness
+PASS execute permission removal invalidates cached readiness
+PASS restoring execute permission reprobes successfully
+PASS helper removal invalidates cached readiness immediately
+PASS hung capability probe is bounded and remains unavailable
+PASS existing shell option executes through explicit supervised shell
+PASS primary fixture starts under versioned guardian
+PASS primary loss actually stops target side effects and reports incomplete lifecycle
+PASS primary recovery leaves unrelated sibling alive
+PASS guardian fixture starts under versioned guardian
+PASS guardian loss actually stops target side effects and reports incomplete lifecycle
+PASS guardian recovery leaves unrelated sibling alive
+PASS primary-before-write fixture starts under versioned guardian
+PASS primary-before-write loss actually stops target side effects and reports incomplete lifecycle
+PASS primary-before-write recovery leaves unrelated sibling alive
+PASS normal entry point preserves target exit code after root exits before its child
+PASS orphaned same-group descendant stops after natural root exit
+PASS natural completion reports verified scope
+PASS opaque handle retains immutable startup identity privately
+PASS owner association is immutable
+PASS fabricated PID object cannot authorize cancellation
+PASS cancellation is idempotent and preserves target signal
+PASS cancelled execution stops writing
+PASS unrelated sibling survives supervisor cleanup
+PASS normal cancellation exposes supervised scope without claiming complete escape coverage
+PASS ordinary stdout cannot spoof private control protocol
+PASS execution readiness rejects missing target after supervisor spawn
+PASS exec failure retains command-not-found behavior
+PASS unsupported stdio layout is rejected before spawning a supervisor
+PASS unsupported stdio layout is rejected before spawning a supervisor
+PASS malformed private control frame is contained as incomplete cleanup
+PASS malformed private control frame is contained as incomplete cleanup
+PASS incomplete cleanup is not reported as full tree termination
+PASS Kimi terminal close cannot report successful incomplete cleanup, exited=true
+PASS Kimi terminal close cannot report successful incomplete cleanup, exited=false
+PASS failed terminal release retains ownership for retry
+PASS background Kimi terminal cleanup records failure without rejecting owner teardown
+PASS toolbox preserves failed cleanup instead of reporting stopped
+PASS exit owner death closes private control channel and stops execution
+PASS sigkill owner death closes private control channel and stops execution
+PASS real MCP startup registers connector ownership
+PASS MCP pending call reports root exit or timeout
+PASS MCP descendants stop after completion
+PASS real MCP startup registers connector ownership
+PASS MCP timeout waits for verified supervised cleanup
+PASS MCP descendants stop after completion
+PASS external cleaner includes orphaned members of an owned anchored session group
+PASS external cleanup stops orphan writes even with the supervisor frozen
+PASS observed detached descendant stops after root exits
+PASS result exposes escape observation limit and unconfirmed count
+
+MACOS PROCESS RUNTIME E2E: ALL PASS

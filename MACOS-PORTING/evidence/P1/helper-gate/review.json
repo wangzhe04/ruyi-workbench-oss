@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "native capability/version flags",
+    "ProcessRuntime fail-closed startup and cache invalidation",
+    "DesktopShell structured gate errors and shell option compatibility",
+    "shell preflight",
+    "runtime/git/cleanup fault fixtures"
+  ],
+  "findings": [
+    {
+      "finding": "Synchronous helper gate failure changed DesktopShell result contract",
+      "resolution": "Return structured failure with code -1, errorCode and capability",
+      "status": "fixed"
+    },
+    {
+      "finding": "Existing shell:true caller must remain usable",
+      "resolution": "Convert Node shell option to explicit supervised shell executable and preserve joining semantics",
+      "status": "fixed"
+    },
+    {
+      "finding": "Git fake helpers lacked capability probe; output-pipe check could pass for wrong reason",
+      "resolution": "Add probe replies and require specific output-pipe failure detail",
+      "status": "fixed"
+    },
+    {
+      "finding": "Cleanup test expected newly unsupported unsupervised startup",
+      "resolution": "Exercise already-running raw child emergency cleanup; preserve incomplete UI assertion in runtime fault test",
+      "status": "fixed"
+    }
+  ],
+  "tests": {
+    "runtime": 47,
+    "shell": 32,
+    "git": 28,
+    "cleanup": 32
+  },
+  "remaining": [
+    "Unified UI/tool-discovery/health capability snapshot",
+    "Abrupt helper death lifecycle",
+    "Windows/macOS14 matrix"
+  ]
+}

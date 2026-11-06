@@ -1,4 +1,4 @@
-// Dedicated local bot credentials, never a model tool. Windows DPAPI CurrentUser protects stored values;
+// Dedicated local bot credentials, never a model tool. The platform protector (DPAPI or Mac Keychain) protects stored values;
 // it does not protect against another program already running as the same OS user. No npm dependency.
 const ExternalBotCredentials = (() => {
   const SLOTS = Object.freeze({ qq: ['botSecret'], feishu: ['verificationToken', 'encryptKey', 'appSecret'] });
@@ -54,12 +54,12 @@ const ExternalBotCredentials = (() => {
     try { await store.write(state); } catch { store.invalidate(); fail('storage_unavailable'); }
   }
   // The command is static. Secret data goes only through bounded stdin, never argv, environment or files.
-  // No exception text or child stderr is exposed. DPAPI operates under the already loaded current user profile.
-  async function dpapi(op, value, owner) {
+  // No exception text or child stderr is exposed. The protector operates under the current OS user identity.
+  async function protectLocal(op, value, owner) {
     try { return await LocalSecretCrypto.run(op, value, Buffer.from('ruyi.external-bot-credentials.v1:' + JSON.stringify(owner))); }
     catch (error) {
       const suffix = String(error && error.code || '').replace(/^local_crypto\./, '');
-      fail(['unsupported', 'decrypt_failed', 'process_timeout', 'process_capacity'].includes(suffix) ? suffix : 'process_failed', suffix === 'unsupported' ? 501 : 503);
+      fail(['unsupported', 'decrypt_failed', 'process_timeout', 'process_capacity', 'process_busy', ...LocalSecretCrypto.MAC_ERRORS].includes(suffix) ? suffix : 'process_failed', suffix === 'unsupported' ? 501 : 503);
     }
   }
   function selectedEnv(connection, slots) {
@@ -76,7 +76,7 @@ const ExternalBotCredentials = (() => {
   }
   async function localValues(row, owner) {
     if (!row || !row.present.length) return {};
-    const bytes = await dpapi('unprotect', Buffer.from(row.cipher, 'base64'), owner);
+    const bytes = await protectLocal('unprotect', Buffer.from(row.cipher, 'base64'), owner);
     try {
       const values = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
       if (!exact(values, SLOTS[owner.platform]) || Object.keys(values).length !== row.present.length
@@ -123,7 +123,7 @@ const ExternalBotCredentials = (() => {
     if (object(connection)) connection = { ...connection };
     const owner = binding(connection);
     const env = selectedEnv(connection, SLOTS[owner.platform]);
-    if (process.platform !== 'win32') fail('unsupported', 501);
+    if (!LocalSecretCrypto.supported()) fail('unsupported', 501);
     if (connection.enabled !== false) fail('connection_enabled', 409);
     if (!exact(patch, ['set', 'remove', 'expectedRevision', 'replaceAll']) || typeof patch.expectedRevision !== 'string' || !/^[a-f0-9]{64}$/.test(patch.expectedRevision)
       || !exact(patch.set || {}, SLOTS[owner.platform]) || !Array.isArray(patch.remove || [])
@@ -148,7 +148,7 @@ const ExternalBotCredentials = (() => {
       let protectedValue = '';
       if (present.length) {
         const bytes = Buffer.from(JSON.stringify(values)); let cipher;
-        try { cipher = await dpapi('protect', bytes, owner); } finally { bytes.fill(0); }
+        try { cipher = await protectLocal('protect', bytes, owner); } finally { bytes.fill(0); }
         protectedValue = cipher.toString('base64'); cipher.fill(0);
       }
       // Retain a revision tombstone after removal: an old empty-vault observation must never become valid again.

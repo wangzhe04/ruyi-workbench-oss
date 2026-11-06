@@ -1,0 +1,49 @@
+PASS A1 STEWARD_PRESENCE_STATES 是冻结的七态
+PASS B1 七态每态至少一条 [data-state] 规则(缺: 无)
+PASS B2 CSS 里没有枚举之外的 data-state(多出: 无)
+PASS B3 idle 态有 .steward-avatar[data-state="idle"] 规则
+PASS B3 listening 态有 .steward-avatar[data-state="listening"] 规则
+PASS B3 thinking 态有 .steward-avatar[data-state="thinking"] 规则
+PASS B3 working 态有 .steward-avatar[data-state="working"] 规则
+PASS B3 waiting_you 态有 .steward-avatar[data-state="waiting_you"] 规则
+PASS B3 error 态有 .steward-avatar[data-state="error"] 规则
+PASS B3 sleeping 态有 .steward-avatar[data-state="sleeping"] 规则
+PASS B4 reduced-motion 分支存在且关闭 animation/transition
+PASS B5 avatar CSS 全部使用主题/语义 token，无硬编码色值
+PASS B6 零 canvas/WebGL(CSS 与管家壳 DOM 均无)
+PASS C1 #stewardAvatar 是可聚焦的 <button>，初始 data-state="idle"
+PASS C2 SVG viewBox 100，装饰性(aria-hidden)
+PASS C3 环：circle.sa-ring r=44
+PASS C4 主体：circle.sa-body r=31
+PASS C5 一对眼睛：g.sa-eyes 内两个 ellipse.sa-eye
+PASS C6 #stewardPresenceText 是 aria-live="polite" 的状态文字（avatar 不可用时的文字等价）
+PASS C7 avatar 的 aria-label 走 i18n
+PASS D1 steward-shell.js 零 innerHTML/insertAdjacentHTML/document.write
+PASS D2 steward-shell.js 的 import 只有本域内相对路径、零第三方库、零裸包名：实测 ["import { derivePresence, presenceLabelKey } from './steward-presence.js';","import { createStewardConversation } from './steward-conversation.js';","import { createStewardComposer } from './steward-composer.js';","import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.js';","import { createStewardSettingsDomain } from './steward-settings.js';","import { createStewardBoard, STEWARD_FOCUS_THREAD_EVENT } from './steward-board.js';   // 2026-09-24：线程头「回到管家」派的焦点事件名从同一条 import 取（同一份登记，不另起第二条 import 行）","import { createThreadHead } from './thread-head.js';","import { createQuietCard } from './quiet-card.js';","import { createStewardDecisions } from './steward-decisions.js';","import { toast } from './util.js';   // 123-M2：安静卡「稍后」建不成那条 reminder 时的一句提示","import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS, createPollLifecycle } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源；轮询生命周期（启停／门控）同一份","import { SHELL_MODE_STORAGE_KEY } from './shell-mode.js';"]
+PASS D3 derivePresence/presenceLabelKey 来自 steward-presence.js（渲染只是纯函数结果的落地）
+PASS E1 waiting_you 的一次性脉冲(.pulse)只在该态生效
+PASS E2 error 的一次性摆动(.shake)只在该态生效
+PASS E3 renderPresence 只在真正切换到该态(entering)时才补一次性类，同态内重复渲染不重放动效
+PASS E4 nudge 的扩散光环是 .is-nudged::after（600ms 一次，零 DOM 节点）
+PASS E5 本体那次轻微起伏是 1 → 1.06 → 1 的一次性动画
+PASS E6 reduced-motion 下 .is-nudged 只做光环不做位移（光环留着，animationend 才回得来）
+PASS E7 nudgeAvatar 只有「定义 1 ＋ 调用 1」两处，调用点就在 trigger==='inbox' 那一分支
+PASS E8 nudge 零计时器：类由 animationend 摘（steward-shell.js 仍然零 setTimeout）
+PASS E9 nudge 一个字都没进 steward-presence.js —— 那是零 DOM 的纯投影，不该长出「播过没有」这种记忆
+PASS F1 全文件恰好一处 setInterval、一处 clearInterval
+PASS F2 setInterval 住在起表那一处（createPollLifecycle 的 arm；工厂 start() 幂等、先 onStart 再 arm）
+PASS F3 clearInterval 住在停表那一处（disarm；工厂 stop() 幂等且归零，每次 start 都有对应的 stop 可清）
+PASS F4 唯一入口 syncPolling 第一件事就是 isStewardMode() 判定（门控 shouldRun 打头即 isStewardMode()）
+PASS F5 syncPolling 由 data-shell-mode 属性变化(MutationObserver)与页面可见性(visibilitychange)两路触发
+PASS G1 zh-CN 七个 stewardShell.presence.* 键齐备且非空
+PASS G2 en-US 七个 stewardShell.presence.* 键齐备且非空
+PASS G3 presence 文案不提前暴露内部代号与保留大版本号
+PASS G4 avatarLabel 键中英齐备
+PASS H1 styles.css @import 与 index.html 直链同步收录 steward-avatar.css
+PASS H2 read-frontend-css.js 的 CSS_PAYLOAD_GROUPS 收录 steward-avatar.css
+PASS H3 离线包清单收录 steward-avatar.css 与 steward-presence.js
+PASS I1 看板开放只读句柄 needsYouCount()，值就是状态行算出的那份名单长度（不新开计数源）
+PASS I2 壳层把它喂进 setPresenceInputs（needsYouCount 有且只有这一个写口）
+PASS I3 壳层里 needsYouCount 恰好三处：声明、取值函数、喂给 presence（没有第二条拉取路径）
+
+STEWARD AVATAR STATIC E2E: ALL PASS

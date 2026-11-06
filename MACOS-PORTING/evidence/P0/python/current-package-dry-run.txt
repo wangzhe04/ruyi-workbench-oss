@@ -1,0 +1,22 @@
+Processing ./mcp/ai-computer-control
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting mcp<2.0.0,>=1.0.0 (from mcp[cli]<2.0.0,>=1.0.0->ai-computer-control==1.9.1)
+  Using cached mcp-1.30.0-py3-none-any.whl.metadata (9.3 kB)
+Collecting pyautogui>=0.9.54 (from ai-computer-control==1.9.1)
+  Downloading PyAutoGUI-0.9.54.tar.gz (61 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting Pillow>=10.0.0 (from ai-computer-control==1.9.1)
+  Downloading pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (9.1 kB)
+INFO: pip is looking at multiple versions of ai-computer-control to determine which version is compatible with other requirements. This could take a while.
+ERROR: Could not find a version that satisfies the requirement pywin32>=306 (from ai-computer-control) (from versions: none)
+ERROR: No matching distribution found for pywin32>=306

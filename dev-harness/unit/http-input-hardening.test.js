@@ -100,7 +100,12 @@ before(async () => {
   port = await getFreePort();
   const env = { ...fixture.env, RUYI_HOME: path.join(childHome, '.ruyi-workbench') };
   delete env.WIN_CLAUDE_WORKBENCH_HOME;
-  child = cp.spawn(process.execPath, [SERVER, 'serve', '--port', String(port)], { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const openerPreload = path.join(root, 'missing-opener.cjs');
+  if (process.platform === 'darwin') {
+    // Exercise the same missing-program failure without launching the user's Finder/browser.
+    fs.writeFileSync(openerPreload, `const cp=require('child_process');const spawn=cp.spawn;cp.spawn=function(command,args,options){return spawn.call(this,command==='/usr/bin/open'?${JSON.stringify(path.join(root, 'missing-opener'))}:command,args,options)};`);
+  }
+  child = cp.spawn(process.execPath, [...(process.platform === 'darwin' ? ['--require', openerPreload] : []), SERVER, 'serve', '--port', String(port)], { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', c => { serverLog += c; });
   child.stderr.on('data', c => { serverLog += c; });
   const deadline = Date.now() + 45000;
@@ -200,7 +205,7 @@ test('[H7] 声明的 Content-Length 超总闸 → 立即 413 api.body_too_large(
   assert.equal(alive.status, 200);
 });
 
-test('[H8] office_open 起不来打开程序 → 工具失败,服务不崩(Linux:explorer.exe 不存在)', { skip: process.platform === 'win32' ? 'Windows 上 explorer.exe 真的会弹窗;失败分支由 [S1] 直测' : false }, async () => {
+test('[H8] office_open 起不来打开程序 → 工具失败,服务不崩(Mac 注入缺失 opener;Linux 无 Explorer)', { skip: process.platform === 'win32' ? 'Windows 上 explorer.exe 真的会弹窗;失败分支由 [S1] 直测' : false }, async () => {
   const r = await request('POST', '/api/tools/office_open', { body: { path: childHome } });
   assert.equal(r.status, 200);
   assert.equal(r.json.result.ok, false, `修前回 opened:${r.text.slice(0, 200)}`);

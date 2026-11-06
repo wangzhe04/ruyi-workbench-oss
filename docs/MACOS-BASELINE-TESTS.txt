@@ -1,0 +1,502 @@
+macOS migration baseline — 2026-10-30 — f5223548
+Darwin arm64; Node v24.15.0
+Build --check: PASS (artifact equals src; manifest line ranges consistent)
+Unit: 10 selected test files; node --require ./dev-harness/lib/self-isolate-home.js --test ...
+E2E: sequential node --require ./dev-harness/lib/self-isolate-home.js dev-harness/<name>.e2e.js
+Only fixtures/fake provider credentials appear below.
+
+✔ [S] 两个适配器方法集逐项相同,且与登记的接口清单、AGENT_CLI_TYPES 对齐 (1.320875ms)
+✔ [A] Claude buildArgs 金样 (86.047875ms)
+✔ [A] Kimi buildArgs 为空;续接/额外参数/追加系统提示/命令行预算/起进程 (0.934583ms)
+✔ [E] 子进程环境金样 (0.819208ms)
+✔ [P] 事件解析金样(Claude stream-json / Kimi stream-json),适配器与兼容出口同步 (2.851625ms)
+✔ [U] 用量记账金样 (85.039708ms)
+✔ [M] 其余逐 CLI 决定 (3.585542ms)
+✔ [G] runClaudeTurn 骨架不再按 CLI 类型分叉 (1.079042ms)
+✔ immutable encrypted references hydrate exact values; same credentials deduplicate and new processes unwrap the master (10.733ms)
+✔ configuration target/identity changes and swapping a referenced id cannot reuse a credential (1.503208ms)
+✔ previous immutable credentials remain recoverable after a key change; no eviction or late-write overwrite (2.666666ms)
+✔ secret-bearing endpoint URLs, MCP env/args/headers and search/CLI credentials are stored without plaintext (1.367375ms)
+✔ corrupt storage, write failure, unsupported platform and unwrap failure never return plaintext or reset the vault (0.582ms)
+✔ tampered ciphertext fails on read and on record reuse rather than emitting a broken reference (0.338042ms)
+✔ no-secret reads create nothing; legacy disable works only before encrypted data exists (0.236125ms)
+✔ credentials without explicit encryption remain plaintext without initializing a vault, even on supported hosts (0.143167ms)
+✔ host-authorized plaintext migration retains old encrypted references and cannot implicitly downgrade referenced input (0.578167ms)
+✔ known backups migrate without losing recovery values; malformed backups are authenticated whole-file envelopes (1.251542ms)
+✔ catalog metadata and rule profiles distinguish credentials, personal information and optional technical privacy (24.179416ms)
+✔ portable backup prepares recovery under a different wrapping key without writing or accepting attacker KDF work factors (193.647125ms)
+✔ every executable catalog rule has a positive fixture and all profiles preserve ordinary technical text (4.910208ms)
+▶ 单文件工具优化批(files-core)
+  ✔ F1 相对路径按会话工作区解析:读/写/改/删/移/复制;报错名的是解析后的路径 (63.848ms)
+  ✔ F3 file_read 解码 GBK / UTF-16LE(BOM) / UTF-8 BOM,并报 encoding (12.327458ms)
+  ✔ F3 file_edit / file_write 保原编码、BOM 与 CRLF (60.483458ms)
+  ✔ F4 file_read 默认预算:序列化后不超过模型侧上限;截断给 nextOffset 且能接着读完 (15.809416ms)
+  ✔ F4 行模式也有字符预算:超长行不再返回几 MB;nextLine 可接着读 (12.04125ms)
+  ✔ F4 有界读:读 2000 字符不把大文件整个读进内存 (58.742834ms)
+  ✔ F5 non_ascii:中文正文不报;只报真可疑字符,且优先级在全部命中上排 (1.96925ms)
+  ✔ F6 file_edit 未命中:空白差异专门诊断;整段最接近窗口;多命中列行号 (9.989875ms)
+  ✔ F10 file_delete:>5MB 也能删(带 checkpointWarn),且不整文件读入;<=5MB 仍存检查点 (7.871792ms)
+  ✔ F11 原子写:rename 一次瞬时 EBUSY 会重试成功;永久 ENOSPC 报 disk_full、不留幽灵检查点/临时文件 (23.618875ms)
+  ✔ F11 目录当文件:file_read / file_write 给 is_directory + hint,而不是裸 EISDIR (1.387041ms)
+  ✔ F15 file_write 覆盖 >5MB 旧文件不整文件读入;幂等跳过仍成立 (6.975583ms)
+✔ 单文件工具优化批(files-core) (276.215875ms)
+▶ [R] native-files 复核回归
+  ✔ R4 相对 root(file_list/glob/file_search/project_snapshot)按工作区解析,不落到进程 cwd (22.408083ms)
+  ✔ R4 audio_transcribe 的相对 path 按工作区解析 (0.630541ms)
+  ✔ R5 临时文件建不了(EACCES)但目标可写:file_write / file_edit 退回原地写 (3.537666ms)
+  ✔ R5 临时文件和原地写都失败 → 仍报原错误(permission_or_locked),目标不变 (1.912583ms)
+  ✔ R5 悬空符号链接:file_write 经链接把目标写出来(不是假 not_found) (1.807833ms)
+  ✔ R10 首块之后才出现的 GBK 字节:file_read 给 encodingWarning(不再静默乱码) (22.536917ms)
+  ✔ R13 GBK 编码器(Buffer 构建):大文本含生僻/增补平面字符往返不变 (33.855375ms)
+✔ [R] native-files 复核回归 (86.903584ms)
+PASS ① 三层都合法 → 请求级赢(req="plan" sess="acceptEdits" cfg="auto" → plan;实 plan)
+PASS ① 请求级放宽也赢(第78波语义:这一单当前执行链说了算)(req="auto" sess="plan" cfg="default" → auto;实 auto)
+PASS ① 请求级空 → 会话级(req="" sess="plan" cfg="auto" → plan;实 plan)
+PASS ① 请求级 null → 会话级(req=null sess="acceptEdits" cfg="default" → acceptEdits;实 acceptEdits)
+PASS ① 请求级 undefined → 会话级(req=undefined sess="bypass" cfg="default" → bypass;实 bypass)
+PASS ① 请求级非法 → 静默回落会话级(不报错、不回写)(req="nope" sess="plan" cfg="auto" → plan;实 plan)
+PASS ① dontAsk 不在 PERMISSION_MODES 里 → 回落会话级(req="dontAsk" sess="plan" cfg="auto" → plan;实 plan)
+PASS ① CLI 原生内部名不在白名单 → 回落会话级(req="bypassPermissions" sess="plan" cfg="auto" → plan;实 plan)
+PASS ① 请求级与会话级都空 → 全局(req="" sess="" cfg="acceptEdits" → acceptEdits;实 acceptEdits)
+PASS ① 会话级 null(= 存量会话没有该字段)→ 全局(req="" sess=null cfg="auto" → auto;实 auto)
+PASS ① 会话级非法 → 静默回落全局(req="" sess="nope" cfg="plan" → plan;实 plan)
+PASS ① 请求级与会话级都非法 → 全局(req="nope" sess="nope" cfg="acceptEdits" → acceptEdits;实 acceptEdits)
+PASS ① 三层全空 → default(req="" sess="" cfg="" → default;实 default)
+PASS ① 三层全非法 → default(req="nope" sess="nope" cfg="nope" → default;实 default)
+PASS ① 三层全 null → default(req=null sess=null cfg=null → default;实 default)
+PASS ① 请求级可解析 default
+PASS ① 会话级可解析 default
+PASS ① 全局可解析 default
+PASS ① 请求级可解析 acceptEdits
+PASS ① 会话级可解析 acceptEdits
+PASS ① 全局可解析 acceptEdits
+PASS ① 请求级可解析 plan
+PASS ① 会话级可解析 plan
+PASS ① 全局可解析 plan
+PASS ① 请求级可解析 auto
+PASS ① 会话级可解析 auto
+PASS ① 全局可解析 auto
+PASS ① 请求级可解析 bypass
+PASS ① 会话级可解析 bypass
+PASS ① 全局可解析 bypass
+PASS ② session/config 传对象时读它的 .permissionMode
+PASS ② 会话对象没有 permissionMode 字段(存量会话)→ 回落全局
+PASS ② 请求级字符串 + 会话/全局对象混用
+PASS ② 空入参 → default
+PASS ② 入参 null → default(不抛错)
+PASS ② 入参不是对象 → default(不抛错)
+PASS ② 入参是数字 → default(不抛错)
+PASS ② 管家会话头上的独立值 'steward' 不在白名单 → 回落全局(管家自身不设线程档)
+PASS ③ STEWARD_PERMISSION_RANK 已冻结
+PASS ③ 序表内容锁定 plan<default<acceptEdits<auto<=bypass(只做收紧比较,不代表安全度线性)
+PASS ③ bypass 与 bypassPermissions 同 rank(同一档的两个名字)
+PASS ③ 未知/空档 rank = -1
+PASS ③ 收紧矩阵 4×4 全对(严格更紧才允许)
+PASS ③ 平移到同一档不算收紧(空操作不该写决策日志)
+PASS ③ bypass → bypassPermissions 同 rank(同档改名),不算收紧
+PASS ③ bypass(rank 4)→ auto(rank 3)按序表算收紧
+PASS ③ bypass → acceptEdits 是收紧
+PASS ③ plan → default 是放宽(线程能做的事变多),禁止
+PASS ③ 任一边是未知档 → 一律 false(既不算可收紧也不算已放宽)
+PASS ④ PERMISSION_MODES_REQUIRING_CONFIRM 已冻结
+PASS ④ 二次确认名单恰为全自动三名(auto/bypass/bypassPermissions)
+PASS ④ 收紧方向的三档都不需要二次确认
+
+PERMISSION-RESOLVE UNIT: ALL PASS
+✔ dev-harness/unit/permission-resolve.test.js (160.354334ms)
+✔ [A1] 端点与鉴权头 (5.67925ms)
+✔ [A2] 请求编码 (5.527458ms)
+✔ [A3] 思考块回放 (0.734541ms)
+✔ [A3b] 不带 tools 的请求:工具块改写成文字,不回放思考块 (0.382042ms)
+✔ [A4] 推理强度、工具、短补全 (0.341375ms)
+✔ [A5] 非流式解码 (0.824625ms)
+✔ [A5b] 2026-10 走查(w1-provider):失败回体的 httpError 文本 failureText;窗口超限归一成 context_exceeded 而不是 length (0.382292ms)
+✔ [A6] 流式解码 (0.378875ms)
+✔ [A7] 400 兼容重打 (0.509292ms)
+✔ [A8] 用量、落历史字段、配置能力项、模型清单 (35.317458ms)
+✔ [A9] 新 Claude 模型的请求面(Opus 5.5 / Sonnet 5.5) (1.5035ms)
+✔ [A10] 签名失配报文点名 block_binding 时仍去掉思考块(不原样重打) (1.925041ms)
+✔ [A10] 开着思考时不发 temperature (1.108917ms)
+✔ [A10] message_delta 里为 null 的用量字段不抹掉 message_start 的计数 (1.719667ms)
+✔ [A10] 空文本块不进回放块 (0.999667ms)
+✔ [A10] 同一 tool_use_id 只出一块 tool_result (0.9165ms)
+✔ [A9] 兼容网关:粘进来的完整端点、经典思考的预算、max_tokens 超网关上限的 400 自学 (0.262625ms)
+✔ [A11] 学到的 max_tokens 上限按「端点 + 模型」记:不跨服务商串味;编码 / 非流式 / 短补全 / 重打都认端点 (0.134833ms)
+(node:31051) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/provider-api-styles.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ [R] 登记表成员齐全、冻结;前端表与服务端逐一相同 (8.911542ms)
+✔ [N] 协议值归一与修前三元式逐项相同(服务端与前端两份) (34.593083ms)
+✔ [U] 服务商卡片的协议能力位与候选值和服务端清洗口径一致 (7.474083ms)
+✔ [M] 端点、模型清单、请求头 (0.72725ms)
+✔ [M] message provenance stays in history, outside Chat wire messages (0.317ms)
+✔ [M] 请求体编码、推理强度、工具、输出上限、短补全 (0.675625ms)
+✔ [M] 非流式回体解码、用量、落历史字段 (1.918125ms)
+✔ [M2] 2026-10 走查(w1-provider):200 回体里装着失败 → failed / failureText;content_filter 与 Responses 的 incomplete 原因 (0.681667ms)
+✔ [H] 延迟绑定的环内工具已由 07 填好 (0.813041ms)
+✔ [G] 协议分叉只住 04i 与前端协议表 (72.646458ms)
+PASS ① 平年 1/31 -> 2/28 09:00(月末钳位,不溢出到 3/3);实得 Sun Feb 28 2027 09:00:00 GMT+0800 (China Standard Time)
+PASS ① 闰年 1/31 -> 2/29 09:00;实得 Tue Feb 29 2028 09:00:00 GMT+0800 (China Standard Time)
+PASS ① 3/31 -> 4/30 09:00(4 月无 31 号);实得 Fri Apr 30 2027 09:00:00 GMT+0800 (China Standard Time)
+PASS ① 4/30 -> 5/31 09:00(长月不钳);实得 Mon May 31 2027 09:00:00 GMT+0800 (China Standard Time)
+PASS ① dayOfMonth 29 在平年 2 月钳到 2/28;实得 Sun Feb 28 2027 07:00:00 GMT+0800 (China Standard Time)
+PASS ① 当月还没到点 -> 就是本月那一天;实得 Tue Jun 15 2027 18:00:00 GMT+0800 (China Standard Time)
+PASS ① 当月已过点(含正好等于)-> 下月同日;实得 Thu Jul 15 2027 18:00:00 GMT+0800 (China Standard Time)
+PASS ② once 2028-02-29 合法(闰年真有这一天)
+PASS ② once 2028-02-29 的 nextFireAt 就是那一天 09:00
+PASS ② once 2027-02-29 被拒(平年没有 2 月 29)
+PASS ② once 2027-04-31 被拒(4 月没有 31 号,不静默折成 5/1)
+PASS ④ */15 -> 分 0,15,30,45
+PASS ④ */15 从 10:07 起下一次是 10:15
+PASS ④ */15 从 10:45(正好在点上)起下一次是 11:00 —— 严格「之后」
+PASS ④ 0 9 * * 1-5 周六之后跳到周一 09:00;实得 Mon May 04 2026 09:00:00 GMT+0800 (China Standard Time)
+PASS ④ 0 0 29 2 * 只在闰年命中(2026-03 起算 -> 2028-02-29);实得 Tue Feb 29 2028 00:00:00 GMT+0800 (China Standard Time)
+PASS ④ 日与周都不是 * 时两个 restricted 旗都为真
+PASS ④ 日与周同时给 -> 取并集(周五 5/8 先于 13 号);实得 Fri May 08 2026 00:00:00 GMT+0800 (China Standard Time)
+PASS ④ 4 个字段被拒(必须 5 个)
+PASS ④ 分钟 60 越界被拒
+PASS ④ 小时 24 越界被拒
+PASS ④ 星期 8 越界被拒
+PASS ④ 名字写法(MON)不支持,明确拒而不是猜
+PASS ④ 星期 7 折成 0(周日两种写法同义)
+PASS ④ 5/20 = 从 5 起步进 20 到上界
+PASS ④ 0-4 展开成 5 个值
+PASS ④ 逗号列表
+PASS ④ 0 0 30 2 *(2 月 30 号永不存在)-> 五年扫不到,回 null 而不是死循环
+PASS ⑤ 过期的 once -> null(不再触发)
+PASS ⑤ occurrenceKey = taskId@dueIso
+PASS ⑤ daily 建好时 nextFireAt = 今天 09:00
+PASS ⑤ 还没到点 -> 没有错过
+PASS ⑤ 迟 90 分钟(grace 120)-> 在宽限内、该补跑一次、mode late
+PASS ⑤ 补跑引用的是【原本那个时点】的 occurrenceKey,不是「现在」
+PASS ⑤ 迟 210 分钟(grace 120)-> 超出宽限,不补跑(由 13s 记 skipped)
+PASS ⑤ onMissed:skip -> 即使在宽限内也不补跑(策略优先于宽限)
+PASS ⑥ scheduler.describe.once 键命中
+PASS ⑥ zh 逐字「9 月 14 日 09:00 一次」;实得「9 月 14 日 09:00 一次」
+PASS ⑥ en 逐字「once on 9/14 at 09:00」;实得「once on 9/14 at 09:00」
+PASS ⑥ scheduler.describe.daily 键命中
+PASS ⑥ zh 逐字「每天 07:30」;实得「每天 07:30」
+PASS ⑥ en 逐字「every day at 07:30」;实得「every day at 07:30」
+PASS ⑥ scheduler.describe.weekly.weekdays 键命中
+PASS ⑥ zh 逐字「每个工作日 18:00」;实得「每个工作日 18:00」
+PASS ⑥ en 逐字「every weekday at 18:00」;实得「every weekday at 18:00」
+PASS ⑥ scheduler.describe.weekly.weekend 键命中
+PASS ⑥ zh 逐字「每个周末 10:00」;实得「每个周末 10:00」
+PASS ⑥ en 逐字「every weekend at 10:00」;实得「every weekend at 10:00」
+PASS ⑥ scheduler.describe.weekly 键命中
+PASS ⑥ zh 逐字「每周一、四 20:15」;实得「每周一、四 20:15」
+PASS ⑥ en 逐字「every Mon, Thu at 20:15」;实得「every Mon, Thu at 20:15」
+PASS ⑥ scheduler.describe.monthly.lastDay 键命中
+PASS ⑥ zh 逐字「每月最后一天 09:00」;实得「每月最后一天 09:00」
+PASS ⑥ en 逐字「the last day of every month at 09:00」;实得「the last day of every month at 09:00」
+PASS ⑥ scheduler.describe.monthly 键命中
+PASS ⑥ zh 逐字「每月 5 日 09:00」;实得「每月 5 日 09:00」
+PASS ⑥ en 逐字「day 5 of every month at 09:00」;实得「day 5 of every month at 09:00」
+PASS ⑥ scheduler.describe.cron 键命中
+PASS ⑥ zh 逐字「按 cron 表达式 0 9 * * 1-5」;实得「按 cron 表达式 0 9 * * 1-5」
+PASS ⑥ en 逐字「on cron schedule 0 9 * * 1-5」;实得「on cron schedule 0 9 * * 1-5」
+PASS ⑥ 读不懂的计划回 invalid 键,不编一句话出来
+PASS ⑥ 非法时间回 invalid 键
+PASS ⑥ 返回值只有 key/params/locale 三样,生产代码不产出人话
+PASS ⑥ 返回形状恒为 {key, locale, params}
+PASS ⑥ SCHEDULER_DESCRIBE_KEYS 每个键在中英两张建议稿里都有文案(缺: )
+PASS ⑦ 合法任务通过
+PASS ⑦ title 去空白
+PASS ⑦ days 去重并升序
+PASS ⑦ 未给 policy -> 逐字等于 SCHEDULER_DEFAULT_POLICY
+PASS ⑦ 未给 target -> new-session
+PASS ⑦ 未给权限档 -> '' = 跟随全局默认档
+PASS ⑦ 纯函数不造 id(留给 13s),revision 从 0 起
+PASS ⑦ state 缺省:开着、零连败
+PASS ⑦ 越权 bypass 回落(29 号文 §10:任务级授权永不含 bypass)
+PASS ⑦ CLI 原生别名 bypassPermissions 同样回落
+PASS ⑦ 非 bypass 的档原样留着(白名单判定在 13s)
+PASS ⑦ 载荷带禁止键 localCommand -> 整条拒
+PASS ⑦ 载荷带禁止键 env -> 整条拒
+PASS ⑦ 载荷带禁止键 apiKey -> 整条拒
+PASS ⑦ 载荷带禁止键 dataRoot -> 整条拒
+PASS ⑦ 载荷带禁止键 cwd -> 整条拒
+PASS ⑦ 禁止键藏在数组里的对象上也拒(深扫)
+PASS ⑦ target.cwd 同样拒(绕过工作区表的唯一入口)
+PASS ⑦ 空标题被拒
+PASS ⑦ 未知计划类型被拒
+PASS ⑦ at 必须是两位 'HH:MM'
+PASS ⑦ playbook 载荷本波不收(127 波)
+PASS ⑦ 空正文被拒
+PASS ⑦ existing-session 缺 sessionId 被拒
+PASS ⑦ existing-session 带合法 sessionId 通过
+PASS ⑦ policy 越界钳位 + 未知枚举回默认
+PASS ⑦ 新建一条已经过期的 once -> 拒(它建出来就永远不会触发)
+PASS ⑦ 标题里的控制字符被清掉(NUL 丢、TAB 折空格)
+PASS ⑦ 非对象入参被拒
+PASS ⑧ 06j SCHEDULER_THREAD_TIERS 与 13f steward_thread_new 的 tier 枚举逐项相等(实得 ["strong","fast"] vs ["strong","fast"])
+PASS ⑧ steward_schedule_create 的 tier 枚举与之同一份(实得 ["strong","fast"])
+PASS ⑧ 值域常量是冻结的
+PASS ⑧ prompt + new-session 带 tier:strong -> 落进 target.tier(实得 {"mode":"new-session","tier":"strong"})
+PASS ⑧ prompt + new-session 带 tier:fast -> 落进 target.tier(实得 {"mode":"new-session","tier":"fast"})
+PASS ⑧ 判据 ③:不带 tier -> target 里【没有】tier 键(与修前逐字节同形;实得 {"mode":"new-session"})
+PASS ⑧ 空串 tier 不落字段
+PASS ⑧ 值域外的 tier(deepseek)静默丢,不拒整条(与权限档越界回落同口径)
+PASS ⑧ 判据 ④:existing-session 带 tier -> 静默丢(既有线程有它自己的引擎;实得 {"mode":"existing-session","sessionId":"sess_abc123"})
+PASS ⑧ reminder 载荷带 tier -> 静默丢(不起回合)
+PASS ⑧ 判据 ④:带了 tier 的 target 仍然拒 cwd(禁止键表不动)
+PASS ⑧ 禁止键表逐字没动(workdir 不是靠禁止键挡的,是靠入口剥离 + 到点再核候选表)
+PASS ⑧ 带着 workdir 的盘上任务 -> 原样带过去(实得 "C:\\Users\\me\\Ruyi\\巡检")
+PASS ⑧ 没有 workdir 的任务不落这个键(管家关着 / 还没触发过的任务与修前同形)
+PASS ⑧ 只有空白的 workdir 不落键
+PASS ⑧ workdir 里的控制字符同样清掉(实得 "C:\\ab c")
+PASS ⑧ workdir 截到 1000 字(与工作区路径同一个上限;实得 1000)
+PASS ③ TZ=America/New_York 子进程跑通(stderr: )
+PASS ③ 子进程真的在 America/New_York(7 月偏移 240 分钟);实得 240
+PASS ③ 春季跳过的 02:30 -> 落在 3/8 03:30 EDT(那一天真的没有 02:30);实得 {"iso":"2026-03-08T07:30:00.000Z","y":2026,"mo":3,"d":8,"hh":3,"mm":30,"off":240}
+PASS ③ 再下一次回到 3/9 02:30(只是切换那一天被顶到 03:30,不是从此永久改点);实得 {"iso":"2026-03-09T06:30:00.000Z","y":2026,"mo":3,"d":9,"hh":2,"mm":30,"off":240}
+PASS ③ 本地墙钟 09:00 跨春季切换仍是 09:00(偏移 300 -> 240,墙钟不动);实得 [{"iso":"2026-03-07T14:00:00.000Z","y":2026,"mo":3,"d":7,"hh":9,"mm":0,"off":300},{"iso":"2026-03-08T13:00:00.000Z","y":2026,"mo":3,"d":8,"hh":9,"mm":0,"off":240}]
+PASS ③ 秋季重复的 01:30 -> 落在【第一个】(EDT,偏移 240);实得 {"iso":"2026-11-01T05:30:00.000Z","y":2026,"mo":11,"d":1,"hh":1,"mm":30,"off":240}
+PASS ③ 下一次直接跳到 11/2 01:30,不把同一天的第二个 01:30 再触发一遍;实得 {"iso":"2026-11-02T06:30:00.000Z","y":2026,"mo":11,"d":2,"hh":1,"mm":30,"off":300}
+PASS ③ 本地墙钟 09:00 跨秋季切换仍是 09:00(偏移已回 300);实得 {"iso":"2026-11-01T14:00:00.000Z","y":2026,"mo":11,"d":1,"hh":9,"mm":0,"off":300}
+ALL PASS
+✔ dev-harness/unit/scheduler-core.test.js (318.626583ms)
+✔ OS gate is exclusive; repeated old release cannot release a new owner (8.231333ms)
+✔ canonical roots collapse junctions and missing leaves without creating directories (1.506292ms)
+✔ protocol selection retains Node 20.0 and non-Linux POSIX compatibility (0.25125ms)
+✔ unknown legacy runtime blocks without modifying files and releases the acquired gate (9.07975ms)
+✔ [Q1] 修前就成立的形状不变 (0.392833ms)
+✔ [Q2] 含空格且以反斜杠结尾的参数:结尾反斜杠加倍 (0.422583ms)
+✔ [Q3] 引号前的反斜杠串加倍:JSON 里的 \" 往返还原(--agents 带双引号的角色 prompt) (0.172417ms)
+✔ [Q4] cmd 层:每个引号成对,元字符始终在引号态内 (0.116333ms)
+✔ [Q5] 随机往返(种子固定)与线性时间 (15.605834ms)
+﹣ [Q6] 仅 Windows:经 cmd.exe /d /s /c + .cmd 垫片,node 收到的 argv 与原参数逐字相等 (0.05625ms) # SKIP
+✔ [W1] 带不带结尾分隔符是同一个常用文件夹 (15.605875ms)
+✔ [W2] 存的时候去掉结尾分隔符;盘符根与 / 保留一个 (2.194917ms)
+ℹ tests 82
+ℹ suites 2
+ℹ pass 81
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 568.623375
+
+{"test":"provider-custom-headers","status":0}
+PASS sensitive Authorization header is masked on the way out
+PASS sensitive X-API-Key header is masked
+PASS token-named header is masked
+PASS non-sensitive header stays plaintext in the response
+PASS apiKey masking still works alongside header masking
+PASS masked response does not leak the real token value
+PASS untouched masked Authorization restored to real value on save
+PASS untouched masked X-API-Key restored
+PASS non-sensitive header round-trips unchanged
+PASS apiKey restored alongside headers
+PASS user-edited sensitive header passes through (not overwritten by disk value)
+PASS other untouched headers still restored when one is edited
+PASS provider without extraHeaders stays without the field
+PASS apiKey unmask still works for a provider with no extraHeaders
+PASS provider test restores masked custom auth headers
+PASS manual model IDs normalize into provider model options
+PASS reasoning effort is normalized and allowlisted
+PASS Chat Completions sends reasoning_effort
+PASS Responses sends reasoning.effort
+PASS default reasoning effort omits unsupported fields
+PASS S2-a unchanged launch vector still restores key + sensitive header (got "sk-S2V…")
+PASS S2-a unchanged launch vector reports no conflict
+PASS S2-b changed baseUrl → masked key/header NOT re-attached (key "", header "")
+PASS S2-b the conflict names the provider and both masked fields (got [{"scope":"provider","id":"vec","label":"Vec","fields":["apiKey","extraHeaders.Authorization"],"reason":"endpoint_changed"}])
+PASS S2-c changed audioBaseUrl counts as a vector change
+PASS S2-c an ADDED extraBaseUrls entry counts as a vector change (failover sends the same key there)
+PASS S2-c REMOVING an extraBaseUrls entry is a NARROWING and still restores (got "sk-S2V…")
+PASS S2-c clearing audioBaseUrl falls back to baseUrl(已在集合里)→ 仍然还原(asr-transcribe F1 的形状)
+PASS S2-c 把 baseUrl 换成【本来就在集合里的另一个地址】也算收窄(不新增地址即可)
+PASS S2-c the masked echo has the same launch-vector key as disk (URL 脱敏只在真有凭据时才改串)
+PASS S2-d a new plaintext key with a changed baseUrl is stored (got "sk-S2R…")
+PASS S2-d re-typing only the key while a sensitive header stays masked is still refused (fields [["extraHeaders.Authorization"]])
+PASS S2-d a new plaintext key + header with a changed baseUrl is NOT refused
+PASS S2-d …and it lands as typed
+PASS S2-d an explicitly emptied key clears without a refusal (这是「我就是要删掉密钥」的走法)
+PASS S2-e a masked key on an id that is not on disk is refused as no_match (got ["no_match"])
+PASS S2-f provider test restores the key when the endpoint is unchanged
+PASS S2-f provider test does NOT hand the real key to a changed baseUrl (got "")
+PASS S2-g searchBackend key restored when type+baseUrl unchanged
+PASS S2-g changed search baseUrl → key not re-attached
+PASS S2-g the search conflict is reported
+PASS S2-g modelsApiKey restored when the patch does not touch modelsApiBase
+PASS S2-g changed modelsApiBase → modelsApiKey not re-attached
+PASS S2-g the Claude-CLI endpoint conflict is reported
+PASS S2-h a mask that reaches sanitizeProvider is cleared, never persisted (key "")
+PASS S2-h the same last-line clear covers modelsApi*/searchBackend (masked URL and masked key alike)
+PASS S2-i a credential-free URL is returned byte-identical (no trailing-slash normalization)
+PASS S2-i userinfo is stripped, scheme/host/path stay visible
+PASS S2-i credential query values are masked, non-credential ones stay (got https://api.vec.test/v1?api_key=••••EFGH&model=m1)
+PASS S2-i the display copy carries no plaintext URL credential
+PASS S2-i a masked URL echoed back is restored to the real one on save
+PASS S2-i a HALF-edited masked URL is refused, never written (got ["masked_url"])
+PASS models probe succeeds with custom headers
+PASS models probe sends Token header verbatim
+PASS custom Token header coexists with built-in bearer auth
+
+PROVIDER CUSTOM HEADERS E2E: ALL PASS
+
+
+{"test":"file-guard","status":1}
+PASS S2 buildOpenSpawn uses explorer.exe (got explorer.exe)
+PASS S2 spawn command is NOT cmd.exe
+PASS S2 target passed as ONE verbatim argv element (no /c start splitting)
+PASS S2 argv carries no cmd `/c start` tokens → & cannot chain a 2nd command
+PASS S3 providerIsLocal: 127.0.0.1 → local
+PASS S3 providerIsLocal: localhost → local
+PASS S3 providerIsLocal: 192.168.x → local
+PASS S3 providerIsLocal: public host → remote
+PASS S3 providerIsLocal: no provider → remote
+PASS S3 in-bounds read → allow
+PASS S3 in-bounds write → allow
+PASS S3 out-of-bounds write (remote) → DENY
+PASS S3 out-of-bounds write (local) → DENY (write always denied)
+PASS S3 out-of-bounds read (remote) → DENY
+PASS S3 out-of-bounds read (local) → allow
+PASS S3 allowOutsideWorkspace → out-of-bounds read allowed
+PASS S3 allowOutsideWorkspace → out-of-bounds write allowed
+PASS S3 denial carries {ok:false, code:not-allowed, error}
+PASS S3 v2.7.1 bypass -> out-of-bounds write ALLOWED (wide write)
+PASS S3 v2.7.1 auto -> out-of-bounds write ALLOWED (wide write)
+PASS S3 v2.7.1 wide write does NOT open read (remote out-of-bounds read still DENY)
+PASS S3 v2.7.1 auto + local provider -> out-of-bounds read still allow (unchanged)
+PASS S3 v2.7.1 bypass wide write still DENIES OS-critical path (3rd floor)
+PASS S3 v2.7.1 bypass wide write still DENIES app-data path (1st floor)
+
+node:fs:2414
+    return binding.writeFileUtf8(
+                   ^
+
+Error: ENOENT: no such file or directory, open 'C:\Windows/Temp/wcw-guard-ext-1793346073263.txt'
+    at Object.writeFileSync (node:fs:2414:20)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/file-guard.e2e.js:92:6 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Windows/Temp/wcw-guard-ext-1793346073263.txt'
+}
+
+Node.js v24.15.0
+
+{"test":"git","status":0}
+PASS ⑥ server.js NATIVE_TOOL_TIER git_commit === 'exec'
+PASS ⑥ server.js git_diff/git_log === 'read'
+PASS ⑥ server.js git_status === 'read'
+PASS ⑥ TOOL_REQUIRES git_commit requires gitCli
+PASS ⑥ server.js GIT_SAFE_FLAGS 含 core.fsmonitor=(中和 fsmonitor RCE)
+PASS ⑥ runGit 对所有 git 调用前置 GIT_SAFE_FLAGS
+PASS ⑥ gitDiff 加 --no-ext-diff --no-textconv(封 diff.external/textconv 面)
+PASS ⑥ GIT_SAFE_FLAGS 不含空 diff.external=(会破坏正常 diff)
+PASS ⑥ app.js 定义 renderDiffView('diff-view')
+PASS ⑥ renderDiffView 逐行以 row.textContent 赋值
+PASS ⑥ renderDiffView 内不使用 innerHTML
+PASS ⑥ styles.css 存在 .diff-add 规则
+PASS ⑥ styles.css 存在 .diff-del 规则
+PASS ⑥ .diff-add 无颜色字面量(仅令牌/color-mix)
+PASS ⑥ .diff-del 无颜色字面量(仅令牌/color-mix)
+PASS ⑥ .diff-add 用 var(--ok-bg)(语义背景令牌,v3 P1 收敛手写 color-mix)
+PASS ⑥ .diff-del 用 var(--danger-bg)(语义背景令牌,v3 P1 收敛手写 color-mix)
+PASS workbench listening
+PASS UI token scraped
+PASS ① git_status ok
+PASS ① git_status 报告 untracked >= 1 (got 1)
+PASS ① git_status 人话摘要含 分支/改动 (got "分支 main(还没有任何提交) · 1 个改动(含 1 个未跟踪)")
+PASS ② git_commit ok (已提交 56bdc92 「e2e: first commit」)
+PASS ② git_commit 返回 hash (got "56bdc92")
+PASS ② git_log 返回 commits
+PASS ② git_log 含该 commit message
+PASS ② git_log 携带 author
+PASS ③ git_diff ok
+PASS ③ git_diff 含 + 新行 (+HELLO WORLD)
+PASS ③ git_diff 含 - 旧行 (-hello world)
+PASS ④ 走私探针 git_diff 未崩溃(返回 ok)
+PASS ④ 走私目标文件未被创建(`--` 分隔防御生效)
+PASS ⑤ 仓库外 git_status ok:false(非崩溃)
+PASS ⑤ 人话引导错误含「Git 仓库」(got "这个文件夹还不是 Git 仓库")
+PASS ⑤b 工作区外的仓库:读类 git 拒(got {"ok":false,"error":"这个位置在工作文件夹外面,当前用的不是本机模型,已拒绝读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」","code":"not-allowed","cwd":"/var)
+   (⑥ 控制组:裸 git status 触发了 hook — 已武装,以下加固断言有效)
+PASS ⑦ git_status(恶意仓库)未崩溃
+PASS ⑦ 恶意 core.fsmonitor 未经 git_status 工具执行(GIT_SAFE_FLAGS 中和)
+PASS ⑦ 恶意 core.fsmonitor 未经 git_diff 工具执行
+PASS ⑦ git_diff(恶意 diff.external 仓库)仍正常产出 diff(--no-ext-diff 未破坏)
+PASS ⑦ 恶意 diff.external 未经 git_diff 工具执行(--no-ext-diff 中和)
+
+GIT E2E: ALL PASS
+
+
+{"test":"scheduler-api","status":0}
+PASS workbench up
+PASS runtime token available
+PASS A GET /api/scheduler/tasks 无 token -> 403(实测 403)
+PASS A POST /api/scheduler/tasks 无 token -> 403(实测 403)
+PASS A PATCH /api/scheduler/tasks/sch_nope 无 token -> 403(实测 403)
+PASS A DELETE /api/scheduler/tasks/sch_nope 无 token -> 403(实测 403)
+PASS A POST /api/scheduler/tasks/sch_nope/run-now 无 token -> 403(实测 403)
+PASS A GET /api/scheduler/tasks/sch_nope/runs 无 token -> 403(实测 403)
+PASS A7 带 body token(不带 header)仍 403 —— 任务定义只能由 token 级 API 写入(实测 403)
+PASS A8 那一次真的什么都没建出来
+PASS B1 POST 建任务 200(实测 200)
+PASS B2 服务端派了一个 id(纯函数不造随机,id 由 13s 补)
+PASS B3 K7 前端要的两个键就位:enabled 与 ISO 的 nextRunAt(实测 2026-05-04T10:00:00.000Z)
+PASS B4 name 与 title 同值(K7 那份前向兼容读法两个候选键都给上)
+PASS B5 describeKey + params 就位(实测 scheduler.describe.weekly.weekdays {"time":"18:00"})
+PASS B6 revision 从 0 起、createdBy 缺省 user
+PASS B7 GET 列表读得到它
+PASS B8 列表带 nowMs(与假时钟同源;实测 1777867200000)
+PASS C1 bypass 回落成空(= 跟随全局默认档),不是照收(实测 {"permissionMode":""})
+PASS C2 非 bypass 的档原样留着
+PASS D 载荷带 localCommand -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D 载荷带 env -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D 载荷带 apiKey -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D 载荷带 dataRoot -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D 载荷带 cwd -> 400 scheduler.payload_forbidden_key(实测 400/scheduler.payload_forbidden_key)
+PASS D6 坏 cron -> 400(实测 400)
+PASS E1 PATCH 改标题
+PASS E2 revision + 1(实测 1)
+PASS E3 计划没变时 nextRunAt 【不动】—— 改个名字不该把日程往后推
+PASS E4 enabled:false = 暂停
+PASS E5 enabled:true = 恢复
+PASS E6 换了计划时 nextRunAt 才重算,describeKey 跟着变
+PASS E7 改不存在的 id -> 404(实测 404)
+PASS E8 改成非法计划 -> 400,原任务不动(实测 400)
+PASS F1 run-now 当场跑完(实测 200/succeeded)
+PASS F2 「再跑一次」不动 nextRunAt —— 它是计划之外的一个新 occurrence,不是把日程往后推
+PASS F3 那一次的触发模式是 manual(实测 1 条 / manual)
+PASS F4 manual 也有自己的 occurrenceKey
+PASS F5 对不存在的 id run-now -> 404(实测 404)
+PASS F6 两次 run-now 是两个 occurrence(各自 executionGeneration 1),不是同一个的重试(实测 [1,1])
+PASS F7 limit 生效
+PASS G1 DELETE 200
+PASS G2 列表里没有它了
+PASS G3 【删定义不删历史回执】—— runs 仍然读得出那两次(实测 2)
+PASS G4 再删一次 -> 404(实测 404)
+PASS H1 建满 200 条(实测 200,最后一次 HTTP 200)
+PASS H2 第 201 条 -> 409 scheduler.capacity_exceeded(实测 409/scheduler.capacity_exceeded)
+PASS H3 上限之后还是 200 条(实测 200)
+PASS I1 第二份数据根(schedulerEnabledV1:false)的服务起来了
+PASS I2 关着时 GET -> 409 scheduler.disabled(路由清册不因开关变化;实测 409/scheduler.disabled)
+PASS I3 关着时 POST 也 409(实测 409)
+PASS I4 关着时 <data>/scheduler/ 目录一次都没建过(29 号文 §10:零持久化写入)
+ALL PASS
+
+
+{"test":"mcp-bridge","status":0}
+[fake] [fake-openai] listening on 49155
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 4465c40e8cf6)
+[wb] UI: http://127.0.0.1:49156/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-bridge-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :49156
+PASS version 3.0.1 (got 3.0.1)
+PASS meta.bridgedTools >= 1 (got 29)
+PASS tool_use name === "fake__echo"
+PASS tool_use carries the echo arg (message=BRIDGE_ECHO_MARKER_77)
+PASS tool_result ok (not error)
+PASS tool_result.content.echoed === MARKER (round-trip through fake-mcp): {"ok":true,"echoed":"BRIDGE_ECHO_MARKER_77"}
+PASS final answer echoes the marker from the MCP child: "工具返回：BRIDGE_ECHO_MARKER_77"
+PASS result ok=true
+
+MCP-BRIDGE E2E: ALL PASS
+
+

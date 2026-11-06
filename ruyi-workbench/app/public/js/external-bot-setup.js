@@ -61,8 +61,9 @@ export function createExternalBotSetup({ api, t = key => key, isVisible = () => 
     node.appendChild(el('p', 'external-bot-setup-identity', [connection.label, connection.platform === 'qq' ? 'QQ' : t('externalBots.feishu'), connection.appId, connection.tenantId, connection.botUserId].filter(Boolean).join(' · ')));
     if (connection.enabled) node.appendChild(el('p', 'external-bot-setup-notice', t('botSetup.enabled')));
     const disabled = connection.enabled || quality !== 'ready' || ambiguous;
-    const credentialError = readiness.errorCode || SLOTS[connection.platform].map(slot => readiness.credentialSources[slot]?.errorCode).find(code => code === 'external_credentials.decrypt_failed' || code === 'external_credentials.unsupported') || '';
-    const recoverable = credentialError === 'external_credentials.decrypt_failed';
+    const permanentErrors = ['decrypt_failed', 'key_missing', 'key_changed', 'provider_mismatch'].map(code => 'external_credentials.' + code);
+    const credentialError = readiness.errorCode || SLOTS[connection.platform].map(slot => readiness.credentialSources[slot]?.errorCode).find(code => permanentErrors.includes(code) || code === 'external_credentials.unsupported') || '';
+    const recoverable = permanentErrors.includes(credentialError);
     if (credentialError) node.appendChild(el('p', 'external-bot-setup-notice', t(recoverable ? 'botSetup.decryptFailed' : credentialError === 'external_credentials.unsupported' ? 'botSetup.unsupported' : 'botSetup.credentialsUnavailable')));
     const credentials = el('form', 'external-bot-setup-step');
     credentials.append(el('h5', '', t('botSetup.credentials')), el('p', 'muted', t('botSetup.secretHint')));

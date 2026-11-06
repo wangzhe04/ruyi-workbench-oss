@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "MediaInspection Mac streaming execution",
+    "audio/code_check/file_write/file_edit/media_probe cancellation signals",
+    "Nested probe cleanup failure and retained pipes",
+    "19-item normal tool entrypoint e2e"
+  ],
+  "blockingFindings": 0,
+  "resolvedFindings": [
+    "Propagate nested Python/FFmpeg cleanup failures",
+    "Preserve process_output_incomplete and stop candidate fallback",
+    "Stop batch discovery on unconfirmed cleanup",
+    "Use helper reasonCode field for hint"
+  ],
+  "tests": {
+    "mediaRuntime": 19,
+    "processRuntime": 62
+  },
+  "limitations": [
+    "Windows runtime not tested",
+    "Controlled FFmpeg/Python fixtures; real Node syntax check",
+    "Observed-only escape coverage"
+  ]
+}

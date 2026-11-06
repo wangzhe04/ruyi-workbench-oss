@@ -1,0 +1,37 @@
+{
+  "implementationCommit": "dfa1b9d442ec5f5f9ece6639aa307366ece72f7b",
+  "files": [
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "sha256": "268e998816412ac0b1e3a6f3de2fd17f732ab8c4931f087ba2cd719e47cf0cf5"
+    },
+    {
+      "path": "dev-harness/scheduler-crash.e2e.js",
+      "sha256": "af21ed4098c6a3f49b61ff690ec0e1a9fbf85c10f0103e20d5da496062808a77"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.json",
+      "sha256": "6f2850572b0c56f9936f99aab1d5679a3184e0edfdd07b84c8fe90f2a320dd30"
+    },
+    {
+      "path": "docs/architecture/module-dependency-graph.md",
+      "sha256": "920d4588801203cbf793cde2a8a4ec2df7c578df88b9d6f59bbf4d2391f46d45"
+    },
+    {
+      "path": "ruyi-workbench/app/server.js",
+      "sha256": "72fdb554479f9ec49ad315911ee017f7c1a2cbb87d0aa6ee7cf53db3ff2a97a9"
+    },
+    {
+      "path": "ruyi-workbench/app/src/13s-scheduler.js",
+      "sha256": "e81e6d4c167190ae46fd5619df7c913cb8b90ab2f5cfbfed9e27eeb681e264ec"
+    },
+    {
+      "path": "ruyi-workbench/app/src/manifest.json",
+      "sha256": "02aaa0e33a252204af66b3c46ec002595f05e6ca1d33e815635fee1fe09a9189"
+    },
+    {
+      "path": "ruyi-workbench/app/src/module-contracts.json",
+      "sha256": "56ca6a0b40a5c65a6f1ebe0b4786d3ca47f818022b37e2d0a499ce873f5688a7"
+    }
+  ]
+}

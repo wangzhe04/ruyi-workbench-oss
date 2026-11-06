@@ -78,6 +78,13 @@ const CASES = {
     final: 'KIMI_LIVE_PROBE_ACCEPT_EDITS_OK',
     optional: true,
   },
+  lifecycle: {
+    marker: 'KIMI_LIVE_PROBE_LIFECYCLE',
+    permissionMode: 'default',
+    prompt: 'KIMI_LIVE_PROBE_LIFECYCLE: read read-source.txt, then acknowledge readiness.',
+    expectedTools: ['Read'],
+    final: 'KIMI_LIVE_PROBE_LIFECYCLE_READY',
+  },
 };
 
 const report = { failures: 0, skips: 0, passes: 0 };
@@ -125,7 +132,7 @@ function isInside(root, target) {
 }
 
 function safeRemoveMkdtemp(root, generatedPaths = []) {
-  const tempRoot = path.resolve(os.tmpdir());
+  const tempRoot = fs.realpathSync(os.tmpdir());
   const target = path.resolve(root);
   if (target === tempRoot || !isInside(tempRoot, target)) {
     throw new Error(`refusing cleanup outside mkdtemp root: ${target}`);
@@ -464,6 +471,22 @@ function nextFixtureResponse(caseName, state, body, definitions) {
     : { text: `KIMI_LIVE_PROBE_SCHEMA_MISSING:${name}` };
 
   if (caseName === 'handshake') return { text: spec.final };
+  if (caseName === 'lifecycle') {
+    const latestUser = contentText(messages.filter(message => message.role === 'user').at(-1)?.content);
+    if (latestUser.includes('KIMI_LIVE_PROBE_LIFECYCLE_RESUME')) {
+      state.resumedWithHistory = priorCalls.some(item => item.name === 'Read' && item.args.path === 'read-source.txt')
+        && previousToolResultTexts(messages).some(text => text.includes('KIMI_PROBE_MARKER'));
+      if (!priorCalls.some(item => item.name === 'Read' && item.args.path === 'second.txt')) return tool('Read', { path: 'second.txt' });
+      return { text: 'KIMI_LIVE_PROBE_LIFECYCLE_RESUMED' };
+    }
+    if (latestUser.includes('KIMI_LIVE_PROBE_LIFECYCLE_HOLD')) {
+      state.heldWithHistory = priorCalls.some(item => item.name === 'Read' && item.args.path === 'read-source.txt')
+        && previousToolResultTexts(messages).some(text => text.includes('KIMI_PROBE_MARKER'));
+      return { text: 'KIMI_LIVE_PROBE_LIFECYCLE_WAITING', hold: true };
+    }
+    if (!called.has('Read')) return tool('Read', { path: 'read-source.txt' });
+    return { text: spec.final };
+  }
   if (caseName === 'read') {
     if (!called.has('Glob')) return tool('Glob', { pattern: '*.txt', path: '.' });
     if (!called.has('Grep')) return tool('Grep', { pattern: 'KIMI_PROBE_MARKER', path: '.', output_mode: 'content', '-n': true });
@@ -561,6 +584,7 @@ function sendCompletion(res, body, response, sequence) {
   const first = { id: payload.id, object: 'chat.completion.chunk', created: payload.created, model: payload.model, choices: [{ index: 0, delta: firstDelta, finish_reason: null }] };
   const finish = { id: payload.id, object: 'chat.completion.chunk', created: payload.created, model: payload.model, choices: [{ index: 0, delta: {}, finish_reason: choice.finish_reason }], usage: payload.usage };
   res.write(`data: ${JSON.stringify(first)}\n\n`);
+  if (response.hold) return;
   res.write(`data: ${JSON.stringify(finish)}\n\n`);
   res.end('data: [DONE]\n\n');
 }
@@ -613,6 +637,10 @@ async function startFixtureModel() {
           name: String(fn.name || ''),
           args: args && typeof args === 'object' ? args : {},
         });
+      }
+      if (response.hold) {
+        caseState.heldResponse = res;
+        res.once('close', () => { caseState.holdClosed = true; });
       }
       sendCompletion(res, body, response, ++state.requestSequence);
     } catch (error) {
@@ -742,7 +770,7 @@ function writeRuyiConfig(ruyiHome, workspace, spec, installation) {
     permissionMode: spec.permissionMode,
     model: 'fixture',
     includeWorkbenchMcp: false,
-    autoResumeClaudeSessions: false,
+    autoResumeClaudeSessions: spec === CASES.lifecycle,
     killPortOnStart: false,
     permissionTimeoutMs: 15000,
     turnIdleTimeoutMs: 45000,
@@ -1388,6 +1416,62 @@ async function runCase(parentRoot, model, caseName, installation) {
       const bashPermissions = permissionRequestsForToolCall(events, bashCall, 'Bash', workspace, caseRoot);
       assertExactlyOnePermission('[acceptEdits] Bash approval round-trip', bashPermissions, caseRoot);
     }
+    if (caseName === 'lifecycle') {
+      const sessionPath = `/api/sessions/${currentSessionId}`;
+      const initial = await requestJson(port, 'GET', sessionPath, undefined, token);
+      const nativeId = initial.session?.claudeSessionId;
+      if (!nativeId || result?.ok !== true) throw new Error('initial real Kimi turn did not persist its native session identity');
+      logPass('[lifecycle] initial native session persisted');
+      const pending = streamTurn(port, token, { sessionId: currentSessionId,
+        message: 'KIMI_LIVE_PROBE_LIFECYCLE_HOLD: continue the same native session and wait.', cwd: workspace, attachments: [] });
+      pending.catch(() => {}); // The normal await below still propagates errors; cleanup may close this stream first.
+      const deadline = Date.now() + 20000;
+      while (!caseState.heldResponse && Date.now() < deadline) await sleep(20);
+      if (!caseState.heldResponse || !caseState.heldWithHistory) throw new Error('resumed real CLI did not reach the held model request with its previous Read result');
+      const live = await requestJson(port, 'GET', sessionPath, undefined, token);
+      if (live.session?.claudeSessionId !== nativeId || live.execution?.phase !== 'running' || live.resumable?.live !== true) {
+        throw new Error('held real Kimi session has no matching native identity and active execution');
+      }
+      logPass('[lifecycle] resumed native session retains prior real Read context while active');
+      const stop = await requestJson(port, 'POST', '/api/stop', { sessionId: currentSessionId, expectedExecution: live.execution }, token);
+      const stopped = await pending, stoppedResult = stopped.find(event => event.type === 'result');
+      const resumedMeta = stopped.find(event => event.type === 'meta');
+      if (!stop?.stopped || stop.ok !== true || stoppedResult?.ok !== false || stoppedResult?.aborted !== true
+        || stoppedResult.cleanupIncomplete === true || !stopped.some(event => event.type === 'process' && event.state === 'stopped')
+        || stopped.some(event => event.type === 'resume_recovery') || resumedMeta?.agentCliType !== 'kimi'
+        || resumedMeta?.agentDriver !== 'kimi-acp' || resumedMeta?.resumeResetReason) {
+        throw new Error('active stop was not an aborted, confirmed-cleanup turn on the original native session: '
+          + JSON.stringify({ stop, result: stoppedResult, process: stopped.filter(event => event.type === 'process'), meta: resumedMeta,
+            recovery: stopped.filter(event => event.type === 'resume_recovery') }));
+      }
+      logPass('[lifecycle] execution-bound stop aborts the active real CLI prompt without resetting its native session');
+      let settled;
+      const settledDeadline = Date.now() + 10000;
+      do {
+        settled = await requestJson(port, 'GET', sessionPath, undefined, token);
+        if (settled.execution === null && settled.resumable?.live !== true && caseState.holdClosed) break;
+        await sleep(20);
+      } while (Date.now() < settledDeadline);
+      if (settled.execution !== null || settled.resumable?.live === true || !caseState.holdClosed
+        || settled.session?.messages?.filter(message => message.role === 'assistant').at(-1)?.source !== 'aborted') {
+        throw new Error('stopped turn did not persist aborted state and release its model connection');
+      }
+      logPass('[lifecycle] stop releases execution and HTTP request and persists aborted status');
+      const again = await streamTurn(port, token, { sessionId: currentSessionId,
+        message: 'KIMI_LIVE_PROBE_LIFECYCLE_RESUME: read second.txt in the same native session.', cwd: workspace, attachments: [] });
+      const after = await requestJson(port, 'GET', sessionPath, undefined, token);
+      const read = modelToolCalls(caseState, 'Read').find(item => item.args.path === 'second.txt');
+      const readResult = modelToolLifecycle(again, read).result;
+      const againMeta = again.find(event => event.type === 'meta'), againResult = again.find(event => event.type === 'result');
+      if (after.session?.claudeSessionId !== nativeId || !caseState.resumedWithHistory || !readResult || readResult.isError === true
+        || !resultText(readResult).includes('second probe file') || againResult?.ok !== true || againResult.aborted === true
+        || againMeta?.agentCliType !== 'kimi' || againMeta?.agentDriver !== 'kimi-acp'
+        || againMeta?.resumeResetReason || again.some(event => event.type === 'resume_recovery')
+        || !again.some(event => event.type === 'assistant_delta' && eventText(event).includes('KIMI_LIVE_PROBE_LIFECYCLE_RESUMED'))) {
+        throw new Error('post-stop continuation did not reuse the native session and complete a fresh real Read');
+      }
+      logPass('[lifecycle] post-stop native continuation preserves context and completes a fresh Read');
+    }
     return { ok: Boolean(result && result.ok === true), caseRoot, paths: [ruyiHome, kimiHome, workspace, tempDir] };
   } catch (error) {
     const childState = child ? `; childPid=${child.pid || '<none>'}; childExit=${child.exitCode == null ? '<running>' : child.exitCode}` : '';
@@ -1398,6 +1482,7 @@ async function runCase(parentRoot, model, caseName, installation) {
     else logFail(`[${caseName}] execution`, detail);
     return { ok: false, caseRoot, paths: [ruyiHome, kimiHome, workspace, tempDir] };
   } finally {
+    model.state.cases.get(caseName)?.heldResponse?.destroy();
     await stopChildTree(child);
     safeRemoveMkdtemp(caseRoot, [ruyiHome, kimiHome, workspace, tempDir]);
   }
@@ -1418,7 +1503,7 @@ function selectedCaseNames() {
     : position >= 0
       ? process.argv[position + 1]
       : process.env.KIMI_PROBE_CASE;
-  const all = ['read', 'write', 'planEnter', 'plan', 'planSearch', 'acceptEdits'];
+  const all = ['read', 'write', 'planEnter', 'plan', 'planSearch', 'acceptEdits', 'lifecycle'];
   if (!requested) return all;
   const names = String(requested).split(',').map(name => name.trim()).filter(Boolean);
   const unknown = names.filter(name => !all.includes(name));
@@ -1442,7 +1527,7 @@ async function run() {
     logFail('Kimi ACP compatibility loader', `missing ${KIMI_COMPAT_REGISTER}`);
     return;
   }
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-live-probe-'));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-live-probe-')));
   let model = null;
   try {
     const versionEnv = scrubbedEnv({

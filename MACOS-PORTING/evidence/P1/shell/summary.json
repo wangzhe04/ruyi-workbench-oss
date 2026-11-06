@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-02",
+  "status": "in_progress",
+  "baseline": "0a430880",
+  "deliveryCommit": null,
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "sha256": {
+    "ruyi-workbench/app/server.js": "7803ecca9673468b5e7d466bce1e62f0a42a99b1ac75b05a0520438c7c4b07e8",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "778463bc31373ed3d716b6e05bb07e84bac97c7d8cbf4de0b73d45caa9544648",
+    "ruyi-workbench/app/src/04-desktop-shell.js": "19ebdb575340c45f78e8291501ad2ce69a3c529d0729849256b8f054455e388b",
+    "ruyi-workbench/app/src/11-native-tools.js": "497527c3c1298728dd0e2ad574e2cdefc642961e5653b221362fafe3c3593ed6",
+    "ruyi-workbench/resources/macos-process-helper.c": "6c3f69f5838d24207f8e2d5eff21ae667860f73704d892da04a700187de48752",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "2040fd84cc59a19d6641596678278ed3edc06cc11d393dd930db1e09c0403ec6"
+  },
+  "verification": {
+    "shellE2e": [
+      "32/32",
+      "32/32"
+    ],
+    "processRuntimeE2e": "34/34",
+    "processCleanupE2e": "33/33",
+    "targetedUnit": {
+      "tests": 42,
+      "pass": 41,
+      "fail": 0,
+      "skip": 1
+    },
+    "fullUnit": {
+      "tests": 2509,
+      "pass": 2491,
+      "fail": 0,
+      "skip": 18
+    },
+    "fast": {
+      "pass": 80,
+      "fail": 0,
+      "exitCode": 0,
+      "residualTestBrowsers": 0
+    },
+    "syntax": {
+      "files": 1100,
+      "fail": 0
+    },
+    "schemaBudget": "pass with existing limits",
+    "stablePromptChars": 1894,
+    "stablePromptLimit": 1900,
+    "independentReview": "pass",
+    "additionalRegression": "200KB persistent command transport passed twice without production source changes"
+  },
+  "remainingScope": [
+    "Windows real PowerShell regression and macOS14 execution",
+    "helper capability snapshot/readiness and mid-run loss handling",
+    "unobserved escaped descendant lifetime validation",
+    "P1-02 system/path policy and remaining P1-01 Finder/startup acceptance"
+  ]
+}

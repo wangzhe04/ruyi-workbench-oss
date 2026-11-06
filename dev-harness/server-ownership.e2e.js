@@ -122,7 +122,7 @@ function pending(root) {
     ok(await exited(loser) === 1 && winner.exitCode === null, 'simultaneous OS binds produce exactly one serving owner');
     await stop(winner);
 
-    if (process.platform === 'win32' || (process.platform === 'linux' && Number(process.versions.node.split('.')[0]) >= 22)) {
+    if (process.platform === 'win32' || process.platform === 'darwin' || (process.platform === 'linux' && Number(process.versions.node.split('.')[0]) >= 22)) {
       const exitRoot = data('exit-writes');
       const control = path.join(ROOT, 'exit-control');
       const inExit = path.join(ROOT, 'inside-exit');
@@ -147,6 +147,34 @@ function pending(root) {
       const afterExit = spawn(exitRoot, await getFreePort()); await ready(afterExit, exitRoot);
       ok(afterExit.exitCode === null, 'ownership becomes available only after the writing process exits');
       await stop(afterExit);
+    }
+
+    if (process.platform === 'darwin') {
+      const coldRoot = path.join(ROOT, 'Cold Parent', 'Fresh Data');
+      const cold = spawn(coldRoot, await getFreePort()); await ready(cold, coldRoot);
+      const coldAlias = spawn('/System/Volumes/Data' + fs.realpathSync(coldRoot), await getFreePort());
+      ok(await exited(coldAlias) === 1, 'first boot creates a missing data root and retains one lock through its Data-volume alias');
+      await stop(cold);
+      const longTmp = path.join(ROOT, 'tmp-' + 'x'.repeat(140)); fs.mkdirSync(longTmp);
+      const tempRoot = data('different-tmpdir');
+      const first = spawn(tempRoot, await getFreePort()); await ready(first, tempRoot);
+      const otherTemp = spawn(tempRoot, await getFreePort(), 'serve', [], { TMPDIR: longTmp });
+      ok(await exited(otherTemp) === 1, 'different TMPDIR cannot bypass the same data-root kernel lock');
+      await stop(first);
+      const shortStart = spawn(tempRoot, await getFreePort(), 'serve', [], { TMPDIR: '/private/tmp' });
+      await ready(shortStart, tempRoot);
+      await stop(shortStart);
+      const originalTemp = spawn(tempRoot, await getFreePort()); await ready(originalTemp, tempRoot);
+      ok(originalTemp.exitCode === null, 'switching between short TMPDIR paths retains each socket ownership record');
+      await stop(originalTemp);
+      const longStart = spawn(tempRoot, await getFreePort(), 'serve', [], { TMPDIR: longTmp });
+      await ready(longStart, tempRoot);
+      ok(longStart.exitCode === null, 'long TMPDIR starts successfully using the fixed short kernel-lock location');
+      await stop(longStart);
+      const longRestart = spawn(tempRoot, await getFreePort(), 'serve', [], { TMPDIR: longTmp });
+      await ready(longRestart, tempRoot);
+      ok(longRestart.exitCode === null, 'long TMPDIR restarts after forced termination');
+      await stop(longRestart);
     }
 
     const legacyRoot = data('legacy-live');

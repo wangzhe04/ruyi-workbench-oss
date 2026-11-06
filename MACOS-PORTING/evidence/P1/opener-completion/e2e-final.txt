@@ -1,0 +1,20 @@
+PASS office_open waits for successful Mac handoff completion
+PASS folder handoff retains literal argv and delegated application lifetime
+PASS browser handoff waits for completion without shell interpolation
+PASS executable documents remain reveal-only after the completion change
+PASS office app-bundle aliases are canonically revealed instead of executed
+PASS browser folder aliases cannot launch application bundles
+PASS safe-looking document aliases cannot execute scripts
+PASS HTML aliases to executable files are rejected before handoff
+PASS file URLs cannot bypass browser target validation
+PASS local HTML file URLs retain supported opening behavior
+PASS nonzero opener exit cannot advertise an opened document
+PASS nonzero opener exit cannot advertise an opened browser
+PASS signal exit reports a failed handoff
+PASS spawn errors retain their original code without an uncaught exception
+PASS five-second handoff timeout stops only the owned launcher and reports failure
+PASS non-Mac branch retains spawn-event success semantics
+PASS missing local documents are rejected before claiming an opened result
+PASS real macOS open nonzero exit is reported as failure
+
+MACOS OPENER E2E: ALL PASS

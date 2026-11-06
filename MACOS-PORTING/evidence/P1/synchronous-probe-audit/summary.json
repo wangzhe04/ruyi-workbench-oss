@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "scope": "Native synchronous deadline foundation; product callers pending",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1112,
+    "fail": 0
+  },
+  "syncSupervisorE2E": {
+    "runs": 2,
+    "passPerRun": 18,
+    "fail": 0
+  },
+  "independentTests": {
+    "syncSupervisor": 18,
+    "processRuntime": 62,
+    "processCleanup": 37
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/resources/macos-process-helper.c": "f3aee095de149dea9ce8aed9e01524d295bab53147aca65fad7cd25f7474ec1b",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "e11c9765d90eadc7ae84990d37906a59f35ab2ada6fbd7fccc99191cd9b2027d",
+    "dev-harness/macos-sync-supervisor.e2e.js": "31c93a8fdd366e454cb12d21785bc7454b1d694da675efd38dcbbb5a106add4a"
+  },
+  "remaining": [
+    "Product sync probe adapter and strict protocol parsing",
+    "Synchronous CLI/rg/Python callsite integration",
+    "Shared probe and JS worker cancellation",
+    "Real FFmpeg and clean installation",
+    "Remaining paths/lifecycle",
+    "Windows/macOS14 same-SHA and actual Finder"
+  ]
+}

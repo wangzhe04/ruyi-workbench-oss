@@ -1,0 +1,30 @@
+{
+  "python": "3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "arch": "arm64",
+  "scratch": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p0-python-_ikz7k9f",
+  "scope": "hypothetical portable dependency split; current ACC package unchanged",
+  "current-package-dry-run": {
+    "exitCode": 1,
+    "timedOut": false
+  },
+  "excludedWindowsDependencies": [
+    "comtypes",
+    "pywin32",
+    "uiautomation",
+    "winsdk"
+  ],
+  "portable-install": {
+    "exitCode": 0,
+    "timedOut": false
+  },
+  "resolved-freeze": {
+    "exitCode": 0,
+    "timedOut": false
+  },
+  "portable-smoke": {
+    "exitCode": 0,
+    "timedOut": false
+  },
+  "cleanup": "temporary venv retained for reproducibility; no global packages installed"
+}

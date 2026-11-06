@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-02",
+  "status": "in_progress",
+  "baseline": "0a430880",
+  "deliveryCommit": null,
+  "sha256": {
+    "ruyi-workbench/app/server.js": "341103f4aa1a0aa9e4b2238bf7414ebdb3689344097486de672cf81d37f6bf65",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "7bb5f9c3f29e2c3309b8ec4e0af8a0756c2a3ba8684b1bf9a609bd53651ff238",
+    "ruyi-workbench/app/src/11-native-tools.js": "3408193bcdf9e2ce16d1a1c4d382ea5053a1c85429fb535a10b6ee3433cf97f7",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "758f23437531f42b2ef912ca2174d9c5a32ce382b3155c998b1669238d1dc1da"
+  },
+  "verification": {
+    "gitRuntimeE2e": [
+      "28/28",
+      "28/28"
+    ],
+    "processRuntimeRegression": "34/34",
+    "gitUnit": "11/11",
+    "fullUnit": {
+      "tests": 2508,
+      "pass": 2490,
+      "fail": 0,
+      "skip": 18
+    },
+    "fast": {
+      "exitCode": 0,
+      "pass": 80,
+      "fail": 0,
+      "residualTestBrowsers": 0
+    },
+    "dependencyGraph": {
+      "modules": 89,
+      "edges": 633,
+      "newDebt": false
+    },
+    "independentReview": "pass"
+  },
+  "remainingScope": [
+    "persistent shell supervision and P1-03 semantics",
+    "helper readiness/capability gate and loss handling",
+    "remaining legacy PID and execution entry audit",
+    "unobserved escaped descendants",
+    "Windows and macOS14 runtime evidence",
+    "P1-02 filesystem policy and P1-01 remaining acceptance"
+  ]
+}

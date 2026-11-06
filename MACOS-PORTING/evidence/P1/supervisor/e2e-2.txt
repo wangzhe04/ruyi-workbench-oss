@@ -1,0 +1,22 @@
+PASS normal entry point preserves target exit code after root exits before its child
+PASS orphaned same-group descendant stops after natural root exit
+PASS natural completion reports verified scope
+PASS opaque handle retains immutable startup identity privately
+PASS owner association is immutable
+PASS fabricated PID object cannot authorize cancellation
+PASS cancellation is idempotent and preserves target signal
+PASS cancelled execution stops writing
+PASS unrelated sibling survives supervisor cleanup
+PASS normal cancellation exposes supervised scope without claiming complete escape coverage
+PASS ordinary stdout cannot spoof private control protocol
+PASS exec failure retains command-not-found behavior
+PASS unsupported stdio layout is rejected before spawning a supervisor
+PASS unsupported stdio layout is rejected before spawning a supervisor
+PASS malformed private control frame is contained as incomplete cleanup
+PASS malformed private control frame is contained as incomplete cleanup
+PASS exit owner death closes private control channel and stops execution
+PASS sigkill owner death closes private control channel and stops execution
+PASS observed detached descendant stops after root exits
+PASS result exposes escape observation limit and unconfirmed count
+
+MACOS PROCESS RUNTIME E2E: ALL PASS

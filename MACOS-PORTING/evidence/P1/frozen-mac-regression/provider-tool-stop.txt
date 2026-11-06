@@ -1,0 +1,11 @@
+PASS real Provider turn dispatches the path-search tool
+PASS main-turn Stop reaches the real path worker and confirms its exit
+PASS stopped Provider turn retains a paired stopped tool result
+PASS file tools retain their existing steer and time-budget interruption boundary
+PASS normal Stop accepts the queued write turn
+PASS main-turn Stop cancels a queued write before target or checkpoint mutation
+PASS late Stop preserves an already committed write
+PASS late Stop retains the committed write original-byte checkpoint
+PASS local Provider completed without fixture protocol errors
+
+PROVIDER TOOL STOP E2E: ALL PASS

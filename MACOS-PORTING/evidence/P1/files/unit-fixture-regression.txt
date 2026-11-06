@@ -1,0 +1,268 @@
+✔ [A] 迁移表按版本升序、每个版本恰好一条、不超过 CONFIG_SCHEMA (0.608917ms)
+✔ [B] normalizeConfig 里不再有散落的 schema 阶梯,迁移只从一个点进 (17.583334ms)
+✔ [C] 金样:迁移相关输出逐项钉死 (20.280667ms)
+✔ [D] 幂等:落盘投影再读一遍不再变 (18.368458ms)
+✔ vault and atomic-temp family are equally read/write sensitive through the current root, legacy alias and NTFS suffixes (16.740458ms)
+✔ vault and pending-temp hardlinks cannot evade the existing inode gate; unrelated hardlinks stay readable (6.135875ms)
+PASS ④ STEWARD_CONFIG_TIERS 冻结
+PASS ④ free / confirm 两张表都是数组
+PASS ④ free 与 confirm 零交集
+PASS ④ free 表内零重复
+PASS ④ confirm 表内零重复
+PASS ③ 非法键名 "" -> forbidden
+PASS ③ 非法键名 "   " -> forbidden
+PASS ③ 非法键名 null -> forbidden
+PASS ③ 非法键名 undefined -> forbidden
+PASS ③ 非法键名 0 -> forbidden
+PASS ③ 非法键名 42 -> forbidden
+PASS ③ 非法键名 {} -> forbidden
+PASS ③ 非法键名 [] -> forbidden
+PASS ③ 非法键名 true -> forbidden
+PASS ③ 键名两侧空白被 trim(' locale ' -> free)
+PASS ① 含密钥字样的键 someApiKey -> forbidden(正则兜底)
+PASS ① 含密钥字样的键 myToken -> forbidden(正则兜底)
+PASS ① 含密钥字样的键 clientSecret -> forbidden(正则兜底)
+PASS ① 含密钥字样的键 dbPassword -> forbidden(正则兜底)
+PASS ① 含密钥字样的键 APIKEY_x -> forbidden(正则兜底)
+PASS ① 含密钥字样的键 TOKEN -> forbidden(正则兜底)
+PASS ① free / confirm 两张表里本来就没有任何命中密钥正则的键(表与兜底不矛盾)
+PASS ⑤ free/confirm 每个键都有 [zh, en] 两句 help
+PASS ⑤b help 里没有不在两张表里的键(forbidden 键连一句话都不给)
+PASS ② 默认表抽到 175 个键(下界 100,防遍历悄悄失灵)
+PASS ② 01-config 默认表的每一个键都在本文件的显式期望表里(新增键必须回来做一次分级判断)
+PASS ② 期望表零僵尸条目
+PASS ② 默认表 175 个键逐个分级与期望表一致
+PASS ② 三级分档覆盖全部默认键(free 33 / confirm 95 / forbidden 47)
+PASS ② 132b 起可写是多数(free+confirm=128)、forbidden 仍是一张实打实的表(47)
+PASS ② 点名 forbidden:providers
+PASS ② 点名 forbidden:modelsApiKey
+PASS ② 点名 forbidden:searchBackend
+PASS ② 点名 forbidden:claudeAuthMode
+PASS ② 点名 forbidden:defaultWorkspace
+PASS ② 点名 forbidden:workspaces
+PASS ② 点名 forbidden:stewardWorkspaceRoot
+PASS ② 点名 forbidden:allowOutsideWorkspace
+PASS ② 点名 forbidden:additionalDirectories
+PASS ② 点名 forbidden:claudePath
+PASS ② 点名 forbidden:extraClaudeArgs
+PASS ② 点名 forbidden:appendSystemPrompt
+PASS ② 点名 forbidden:agentRoleOverrides
+PASS ② 点名 forbidden:residentSkills
+PASS ② 点名 forbidden:allowCommandTools
+PASS ② 点名 forbidden:allowDesktopTools
+PASS ② 点名 forbidden:desktopMcp
+PASS ② 点名 forbidden:toolAllowRules
+PASS ② 点名 forbidden:bridgedToolTiers
+PASS ② 点名 forbidden:mcpCommandMode
+PASS ② 点名 forbidden:permissionBridge
+PASS ② 点名 forbidden:autonomyAutoResume
+PASS ② 点名 forbidden:bridgeExternalToolsToProvider
+PASS ② 点名 forbidden:toolbox
+PASS ② 点名 forbidden:autoImportClaudeCodeMcp
+PASS ② 点名 forbidden:capabilityProbeUrl
+PASS ② 点名 forbidden:stewardExemptDelegationV1
+PASS ② 点名 forbidden:configSchema
+PASS ② 点名 forbidden:configExplicitKeysV1
+PASS ② 点名 forbidden:lastUsedEngineRoute
+PASS ① free 表条目 locale -> free
+PASS ① free 表条目 outputStyle -> free
+PASS ① free 表条目 theme -> free
+PASS ① free 表条目 uiMode -> free
+PASS ① free 表条目 stewardProviderId -> free
+PASS ① free 表条目 stewardModel -> free
+PASS ① free 表条目 stewardPollMs -> free
+PASS ① free 表条目 stewardMaxTurnsPerHour -> free
+PASS ① free 表条目 stewardMaxCostPerDay -> free
+PASS ① free 表条目 stewardReadBudgetChars -> free
+PASS ① free 表条目 stewardVisitIdleMinutes -> free
+PASS ① free 表条目 stewardNotifyPerHour -> free
+PASS ① free 表条目 stewardConversationRetention -> free
+PASS ① free 表条目 stewardMaxParallelThreads -> free
+PASS ① free 表条目 stewardGlobalMaxTurnsPerHour -> free
+PASS ① free 表条目 stewardGlobalMaxCostPerDay -> free
+PASS ① free 表条目 stewardPersonaName -> free
+PASS ① free 表条目 stewardPersonaStyle -> free
+PASS ① free 表条目 permissionTimeoutMs -> free
+PASS ① free 表条目 questionTimeoutMs -> free
+PASS ① free 表条目 turnIdleTimeoutMs -> free
+PASS ① free 表条目 autonomyPauseOnTimeout -> free
+PASS ① free 表条目 autonomyPauseTtlMs -> free
+PASS ① free 表条目 dismissedMcpIds -> free
+PASS ① free 表条目 monitorIncremental -> free
+PASS ① free 表条目 includePartialMessages -> free
+PASS ① free 表条目 storagePolicy -> free
+PASS ① free 表条目 killOnDisconnect -> free
+PASS ① free 表条目 killPortOnStart -> free
+PASS ① free 表条目 toolCatalogCacheTtlMs -> free
+PASS ① free 表条目 enableToolRequiresProbe -> free
+PASS ① free 表条目 sessionSearchIndexV1 -> free
+PASS ① free 表条目 runtimeFailureTelemetryV1 -> free
+PASS ① confirm 表条目 agentCliType -> confirm
+PASS ① confirm 表条目 engineMode -> confirm
+PASS ① confirm 表条目 activeProvider -> confirm
+PASS ① confirm 表条目 model -> confirm
+PASS ① confirm 表条目 compactProviderId -> confirm
+PASS ① confirm 表条目 compactModel -> confirm
+PASS ① confirm 表条目 modelsApiBase -> confirm
+PASS ① confirm 表条目 subagentPreferredProvider -> confirm
+PASS ① confirm 表条目 subagentPreferredModel -> confirm
+PASS ① confirm 表条目 externalMcpServers -> confirm
+PASS ① confirm 表条目 enableMcpDropIn -> confirm
+PASS ① confirm 表条目 includeWorkbenchMcp -> confirm
+PASS ① confirm 表条目 browserAutomation -> confirm
+PASS ① confirm 表条目 permissionMode -> confirm
+PASS ① confirm 表条目 stewardEnabledV1 -> confirm
+PASS ① confirm 表条目 stewardAutoActions -> confirm
+PASS ① confirm 表条目 stewardThreadBriefV1 -> confirm
+PASS ① confirm 表条目 asrProviderId -> confirm
+PASS ① confirm 表条目 asrModel -> confirm
+PASS ① confirm 表条目 asrStreamProviderId -> confirm
+PASS ① confirm 表条目 asrStreamModel -> confirm
+PASS ① confirm 表条目 asrFixMode -> confirm
+PASS ① confirm 表条目 asrFixProviderId -> confirm
+PASS ① confirm 表条目 asrFixModel -> confirm
+PASS ① confirm 表条目 runtimeOptimizationShadowV1 -> confirm
+PASS ① confirm 表条目 runtimeToolRetrievalV1 -> confirm
+PASS ① confirm 表条目 runtimeObservationReducerV1 -> confirm
+PASS ① confirm 表条目 runtimeObservationRecallV1 -> confirm
+PASS ① confirm 表条目 runtimeEvaporateBudgetBoundaryV1 -> confirm
+PASS ① confirm 表条目 runtimeHistoryReadDedupV1 -> confirm
+PASS ① confirm 表条目 runtimeSummaryPromptI18nV1 -> confirm
+PASS ① confirm 表条目 runtimeReseedTailUnitsV1 -> confirm
+PASS ① confirm 表条目 runtimeReseedReattachFilesV1 -> confirm
+PASS ① confirm 表条目 runtimeSessionNotesV1 -> confirm
+PASS ① confirm 表条目 runtimeSessionNotesInjectV1 -> confirm
+PASS ① confirm 表条目 runtimeSessionNotesMergeV1 -> confirm
+PASS ① confirm 表条目 runtimeSummaryEntityCheckV1 -> confirm
+PASS ① confirm 表条目 runtimeEstimateBucketsV1 -> confirm
+PASS ① confirm 表条目 runtimeSummarySingleShotV1 -> confirm
+PASS ① confirm 表条目 summarySingleShotMaxOverridesV1 -> confirm
+PASS ① confirm 表条目 runtimeSummaryFactTableV1 -> confirm
+PASS ① confirm 表条目 summaryFactTableMaxSamplesV1 -> confirm
+PASS ① confirm 表条目 runtimeSummaryRefineV1 -> confirm
+PASS ① confirm 表条目 runtimeBudgetGuardV1 -> confirm
+PASS ① confirm 表条目 budgetGuardWarnRatioV1 -> confirm
+PASS ① confirm 表条目 runtimeToolTimeBudgetShadowV1 -> confirm
+PASS ① confirm 表条目 runtimeToolTimeBudgetV1 -> confirm
+PASS ① confirm 表条目 toolTimeBudgetWarnMsV1 -> confirm
+PASS ① confirm 表条目 toolTimeBudgetHardMsV1 -> confirm
+PASS ① confirm 表条目 toolByteBudgetShadowBytesV1 -> confirm
+PASS ① confirm 表条目 runtimeVolatileTailLayoutV1 -> confirm
+PASS ① confirm 表条目 runtimeAppendOnlyToolSchemasV1 -> confirm
+PASS ① confirm 表条目 runtimeExecResultCacheV1 -> confirm
+PASS ① confirm 表条目 execResultCacheMaxEntriesV1 -> confirm
+PASS ① confirm 表条目 runtimeMemoryVectorRecallV1 -> confirm
+PASS ① confirm 表条目 coreMemoryMaxItemsV1 -> confirm
+PASS ① confirm 表条目 coreMemoryCharBudgetV1 -> confirm
+PASS ① confirm 表条目 memoryRelevanceMaxV1 -> confirm
+PASS ① confirm 表条目 memoryFixedSelectionMaxV1 -> confirm
+PASS ① confirm 表条目 memoryIndexCharCapV1 -> confirm
+PASS ① confirm 表条目 toolEconomicsShadowV1 -> confirm
+PASS ① confirm 表条目 boundedReadSchedulerV1 -> confirm
+PASS ① confirm 表条目 boundedReadConcurrencyV1 -> confirm
+PASS ① confirm 表条目 metaToolHintsV1 -> confirm
+PASS ① confirm 表条目 actionArgumentModelViewV1 -> confirm
+PASS ① confirm 表条目 toolLoadingMode -> confirm
+PASS ① confirm 表条目 autoCompactThreshold -> confirm
+PASS ① confirm 表条目 contextWindowOverrides -> confirm
+PASS ① confirm 表条目 thinkingBudget -> confirm
+PASS ① confirm 表条目 claudeThinkingEffort -> confirm
+PASS ① confirm 表条目 betaInterleavedThinking -> confirm
+PASS ① confirm 表条目 maxTurns -> confirm
+PASS ① confirm 表条目 openaiMaxToolIterations -> confirm
+PASS ① confirm 表条目 stewardContextBudgetRatio -> confirm
+PASS ① confirm 表条目 subagentMaxConcurrent -> confirm
+PASS ① confirm 表条目 subagentMaxPerTurn -> confirm
+PASS ① confirm 表条目 agentWorkflowMaxNodes -> confirm
+PASS ① confirm 表条目 agentNodeWrapUpMs -> confirm
+PASS ① confirm 表条目 agentTaskPoolPolicy -> confirm
+PASS ① confirm 表条目 agentTaskPoolAutoCap -> confirm
+PASS ① confirm 表条目 agentAutoModelTiering -> confirm
+PASS ① confirm 表条目 shellSessionMax -> confirm
+PASS ① confirm 表条目 agentAutoWake -> confirm
+PASS ① confirm 表条目 knownModels -> confirm
+PASS ① confirm 表条目 extraModels -> confirm
+PASS ① confirm 表条目 discoverModelsFromProxy -> confirm
+PASS ① confirm 表条目 schedulerEnabledV1 -> confirm
+PASS ① confirm 表条目 schedulerAskWaitMinutes -> confirm
+PASS ① confirm 表条目 quietCardSnoozeMinutes -> confirm
+PASS ① confirm 表条目 threadIndexRecent -> confirm
+PASS ① confirm 表条目 stewardThreadModels -> confirm
+PASS ① confirm 表条目 newThreadEngine -> confirm
+PASS ① confirm 表条目 usageBudget -> confirm
+PASS ① confirm 表条目 claudePricing -> confirm
+PASS ① confirm 表条目 autoResumeClaudeSessions -> confirm
+PASS ① 未登记的键 -> forbidden(fail-closed)
+PASS ⑤ 围栏键 stewardWorkspaceRoot -> forbidden(steward_config_set 改不了)
+PASS ⑤ stewardWorkspaceRoot 不在 free / confirm 任何一张白名单里
+PASS ⑤ 围栏键 workspaces -> forbidden(steward_config_set 改不了)
+PASS ⑤ workspaces 不在 free / confirm 任何一张白名单里
+PASS ⑤ 围栏键 defaultWorkspace -> forbidden(steward_config_set 改不了)
+PASS ⑤ defaultWorkspace 不在 free / confirm 任何一张白名单里
+PASS ⑤ 围栏键 stewardManagedWorkspaces -> forbidden(steward_config_set 改不了)
+PASS ⑤ stewardManagedWorkspaces 不在 free / confirm 任何一张白名单里
+PASS ⑤ 出厂 stewardWorkspaceRoot === ~/Ruyi(got /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-e69iiv/Ruyi)
+PASS ⑤ 根不等于主目录本身(反向保护)
+PASS ⑤ 非法根 "" -> 回落 ~/Ruyi
+PASS ⑤ 非法根 "   " -> 回落 ~/Ruyi
+PASS ⑤ 非法根 "Ruyi" -> 回落 ~/Ruyi
+PASS ⑤ 非法根 null -> 回落 ~/Ruyi
+PASS ⑤ 非法根 42 -> 回落 ~/Ruyi
+PASS ⑤ 非法根 {"x":1} -> 回落 ~/Ruyi
+PASS ⑤ 绝对路径原样留下,且「复制为路径」带的引号被剥掉(与 defaultWorkspace 同一口径)
+PASS ⑤ note 被 trim
+PASS ⑤ note 截到 80 字
+PASS ⑤ 没给 note 就不写这个字段(老配置逐字节不变)
+PASS ⑤ 全空白的 note 不写字段
+PASS ⑤ 非字符串 note 不写字段
+PASS ⑤ 加了 note 不影响 rwx 三个标志(反向保护)
+PASS ⑧ 出厂是空表
+PASS ⑧ 清洗:剥引号、去相对/空/非法、大小写合并且 adopted 合并(got [{"path":"/srv/ruyi-root/A","at":"2026-09-24T00:00:00.000Z","adopted":true}])
+PASS ⑧ 帽子 200:丢最老的 5 行、最新的留下(got 200 行,首 /srv/ruyi-root/m5)
+PASS ⑧ 迁出①:带「Ruyi 自动开的」备注的行离开常用工作区,根改过时没备注的行原样留下(got ["/srv/projects/app","/srv/ruyi-root/mine"])
+PASS ⑧ 迁出①:那一行进了如意那张表(未收编)
+PASS ⑧ 迁出②:出厂根下的直接子目录(备注已剥)离开常用工作区、进如意那张表(got ["/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-e69iiv","/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-e69iiv/Ruyi/proj/sub"])
+PASS ⑧ 迁出②只认【直接】子目录:更深的目录是用户自己挑的,留下
+PASS ⑧ 迁出②只在根是出厂值时认;根改过就一行都不按路径猜(got 3 行)
+PASS ⑧ 第 0 行(默认工作区)永远不迁出
+PASS ⑧ 收编:用户加回常用的如意目录留在常用工作区(以用户为准)
+PASS ⑧ 收编:如意那张表里对应的一条标 adopted:true
+PASS ⑧ 收编之后再清洗一次:不被迁出②再挪走(两条迁移不来回拉锯),表逐字节不变
+PASS ⑧ 反向:没有如意痕迹的配置,两张表一个字不动
+PASS ⑥ 前提：两个样本键的档位如预期
+PASS ⑥ confirm 档的键进本族、free 档的不进（实得 [{"keys":["agentCliType"],"items":[{"key":"agentCliType","value":"x","tier":"confirm"}]},null]）
+PASS ⑥ 清单给整份 patch（含 free / forbidden 的键），但只有 confirm 那些算触发键（实得 {"keys":["agentCliType"],"items":[{"key":"agentCliType","value":"x","tier":"confirm"},{"key":"locale","value":"y","tier":"free"},{"key":"modelsApiKey","value":"sk-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","tier":"forbidden"}]}）
+PASS ⑥ 模型标签被丢掉，按钮上写的是「改设置:键=值」（实得 "改设置:permissionMode=auto"）
+PASS ⑥ act 带确认清单（纯文本「键 = 值」，前端只 textContent）（实得 ["permissionMode = auto"]）
+PASS ⑥ forbidden 档的值在标签与清单里都只剩 ••••（实得 ["permissionMode = auto","modelsApiKey = ••••"]）
+PASS ⑥ confirm 档键的值也过 redact（URL 里的 user:pass 没了）（实得 ["modelsApiBase = https://u:«redacted»@h/v1","permissionMode = auto"]）
+PASS ⑥ 改技能:模型标签被丢掉、清单列出技能（实得 {"label":"改技能:skills=[\"web\"]","kind":"tool","tool":"steward_skill_toggle","args":{"sessionId":"sess_a","skills":["web"]},"confirmItems":["skills = [\"web\"]"]}）
+PASS ⑥ 给它开桌面:标签逐字未改、另带确认清单（实得 {"label":"给它开桌面","kind":"tool","tool":"steward_thread_permission","args":{"sessionId":"sess_a","capabilities":{"desktop":true}},"confirmItems":["capabilities.desktop = true"]}）
+PASS ⑥ 收紧档位那一支不在本族（不出按钮，也不改既有行为）（实得 {"label":"好，我知道了","kind":"tool","tool":"steward_thread_permission","args":{"sessionId":"sess_a","permissionMode":"default"}}）
+PASS ⑥ 其余 4 种 act 的标签仍由模型说了算、零 confirmItems
+PASS ⑥ 模型伪造的 confirmItems 进不来（实得 {"label":"允许","kind":"tool","tool":"steward_decide","args":{"missionId":"sess_a","interventionId":"perm_a","action":"allow"}}）
+PASS ⑥ 没有 patch / 空 patch 时标签回落到既有总称「改设置」
+PASS ⑦ stewardOpenAiFallback 已导出
+PASS ⑦ 全局是 CLI、别的都没配 → 第一个能对话的端点(跳过 toolbox- 与只做语音的)(实得 {"providerId":"ds","model":"ds-flash","source":"first"})
+PASS ⑦ 管家自己的端点优先,模型空则用该端点缺省(实得 {"providerId":"mimo","model":"mimo-1","source":"steward"})
+PASS ⑦ 管家端点已删 → 全局主端点(是 OpenAI 时)(实得 {"providerId":"ds","model":"ds-flash","source":"global"})
+PASS ⑦ 全局是 CLI → 用户上次用的 OpenAI 路由(实得 {"providerId":"mimo","model":"mimo-1","source":"last"})
+PASS ⑦ 上次用的是 CLI 路由 → 不算,继续往下挑
+PASS ⑦ 只有 toolbox-／只做语音的端点 → null(调用方留全局并记审计)
+PASS ⑦ 全局主端点只做语音 → 不算
+PASS ⑦ 空配置不抛
+PASS ⑦ 13q:档位没配 → ensureOpenAiRoute;已是 OpenAI 路由一字不动
+PASS ⑦ 13t 没指定档位也经同一个函数(直接调,不进 StewardHooks 表)
+
+STEWARD CONFIG TIER UNIT: ALL PASS
+✔ dev-harness/unit/steward-config-tier.test.js (187.420541ms)
+✔ [W1] 带不带结尾分隔符是同一个常用文件夹 (18.92725ms)
+✔ [W2] 存的时候去掉结尾分隔符;盘符根与 / 保留一个 (2.056292ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 217.046917

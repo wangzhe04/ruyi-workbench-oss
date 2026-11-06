@@ -537,9 +537,9 @@ async function handleSessionApiRoutes(req, res, pathname) {
         const taskId = String((body && body.id) || '');
         if (taskId.startsWith('shell:')) {
           const shells = EventStreamHooks.backgroundShells;
-          const result = shells ? shells.stop(sid, taskId.slice(6)) : { ok: false };
+          const result = shells ? await shells.stop(sid, taskId.slice(6)) : { ok: false };
           logEvent({ kind: 'background_task_stop', sessionId: sid, taskId, ok: result.ok === true, by: 'user' });
-          return send(res, json(result.ok ? { ok: true, state: 'stopped' } : { ok: false, error: 'background command not found' }, result.ok ? 200 : 404));
+          return send(res, json(result.ok ? { ...result, state: 'stopped' } : { ...result, ok: false, error: result.error || 'background command not found' }, result.ok ? 200 : result.cleanupIncomplete ? 409 : 404));
         }
         if (taskId.startsWith('run:')) {
           const result = await agentRunActionCommand({ sessionId: sid, runId: taskId.slice(4), action: 'stop' });
@@ -2575,7 +2575,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const nodeId = String(body.nodeId || '').trim();
       const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8').catch(() => ''), null);
       if (!run || run.sessionId !== sessionId) return send(res, json({ ok: false, error: 'agent run not found' }, 404));
-      const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e) }));
+      const applied = await applyAgentWorktree(run, nodeId).catch(e => ({ ok: false, error: String(e && (e.gitStderr || e.message) || e), ...(e && e.cleanupIncomplete ? { cleanupIncomplete: true } : {}), ...(e && e.applicationUnconfirmed ? { applicationUnconfirmed: true, applied: e.applied === true, commit: e.commit } : {}) }));
       return send(res, json(applied, applied.ok ? 200 : 409));
     }
     // 75b compatibility adapter: pool approval/rejection shares decideIntervention with the Mission contract.

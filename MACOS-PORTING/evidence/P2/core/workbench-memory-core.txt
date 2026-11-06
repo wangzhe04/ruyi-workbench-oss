@@ -1,0 +1,25 @@
+PASS legacy ACC memory imports once and records completion
+PASS ACC import is idempotent
+PASS completed migration hides ACC memory tools on the actual bridge configuration
+PASS workbench_memory_list discovers imported global memory
+PASS workbench_memory_read returns content and import provenance
+PASS widened capsule (200 items / 16000 chars) admits all 17 non-expired core fixtures (active 17, standby 0)
+PASS an explicit narrow character budget still forces standby overflow (protected LRU intact)
+PASS an old important memory keeps an active core slot ahead of fresh ordinary entries
+PASS expired memory remains visible but is not injected
+PASS review date is exposed without auto-expiring the memory
+PASS LRU standby never deletes or replaces source memory files
+PASS core summaries have a dedicated directly-loaded prompt fence
+PASS preflight reports and injects active core summaries separately from relevance matches
+PASS an injected core preference/rule counts as use (daily write-throttled)
+PASS workbench_memory_propose creates a pending user-confirmed candidate
+PASS a second model proposal in the same turn reuses the first candidate instead of replacing it
+PASS automatic proposal rules replay a same-turn tool candidate and do not run a second proposal path
+PASS a model tool call cannot replace an automatic candidate already created in the same turn
+PASS propose never writes an additional confirmed memory before user approval
+PASS all three Workbench Memory tools are in the provider core surface
+PASS ACC memory tools are not native Workbench tools
+PASS both engines inject the Workbench Memory core protocol
+PASS ACC can suppress its legacy memory module after migration
+
+WORKBENCH MEMORY CORE E2E: ALL PASS

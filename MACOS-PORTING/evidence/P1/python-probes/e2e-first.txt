@@ -1,0 +1,15 @@
+PASS Full import probe preserves argv/env/cwd and confirms descendant cleanup
+PASS Python import probe inherits caller identity
+PASS zero exit without stdout marker remains Core
+PASS nonzero exit cannot advertise Full even with marker output
+PASS missing Python remains unavailable after confirmed startup failure
+PASS stdout budget failure stops descendants before returning unavailable
+PASS stderr budget failure stops descendants before returning unavailable
+PASS timeout budget failure stops descendants before returning unavailable
+PASS picker preserves Full preference over an earlier Core candidate
+PASS missing supervisor refuses import execution
+PASS Full marker cannot conceal incomplete cleanup
+PASS picker stops before next candidate and cache write when cleanup is unconfirmed
+PASS retained output pipes stop discovery with a bounded explicit failure
+
+MACOS PYTHON PROBE E2E: ALL PASS

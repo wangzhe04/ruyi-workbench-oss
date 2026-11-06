@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "ownedDescendantStopped": true,
+  "isolatedChildEnvironment": true,
+  "timeout": {
+    "exitCode": null,
+    "timedOut": true,
+    "groupCleanup": "signal_sent_to_owned_group"
+  }
+}

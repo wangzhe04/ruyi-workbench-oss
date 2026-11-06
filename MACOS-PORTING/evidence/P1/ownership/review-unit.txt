@@ -1,0 +1,22 @@
+✔ OS gate is exclusive; repeated old release cannot release a new owner (24.769083ms)
+✔ canonical roots collapse junctions and missing leaves without creating directories (5.529458ms)
+✔ protocol selection retains Node 20.0 and non-Linux POSIX compatibility (0.270916ms)
+✔ Mac kernel lock is independent of TMPDIR and retained through a live legacy socket (13.629958ms)
+✔ Mac refuses symlink and hardlink lock files without touching their targets (7.433708ms)
+✔ Mac preserves unknown residual sockets and malformed ownership evidence (93.098875ms)
+✔ unknown legacy runtime blocks without modifying files and releases the acquired gate (8.273958ms)
+✔ Mac never removes a live socket even with matching stale-owner metadata (30.380917ms)
+✔ Mac ownership namespace is protected from file tools even in bypass workspaces (8.714125ms)
+✔ Mac FIFO ownership records fail promptly on both read and write paths (216.240458ms)
+✔ Mac socket ownership reads remain bounded when the record grows after stat (121.514792ms)
+✔ Mac APFS Data-volume aliases share one cold-start lock and missing-leaf identity (19.032875ms)
+✔ Mac stored casing and trailing whitespace produce one existing-root lock with legacy aliases (8.652084ms)
+✔ Mac startup gate covers partially created ancestors and queues unrelated new roots (126.37ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 785.973041

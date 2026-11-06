@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "native guardian and shared identity cleanup",
+    "v2 capability and control protocol",
+    "Node exit/FD lifecycle",
+    "normal and injected-failure e2e"
+  ],
+  "findings": [
+    {
+      "finding": "exit may precede buffered control data and falsely latch guardianLost",
+      "resolution": "End write side at exit; decide missing final confirmation after read completion",
+      "status": "fixed"
+    },
+    {
+      "finding": "Control messages accepted after guardian final frame",
+      "resolution": "Reject subsequent frames and add out-of-order regression",
+      "status": "fixed"
+    },
+    {
+      "finding": "Old owner/frozen fixtures did not validate v2 runtime topology",
+      "resolution": "Owner tests use v2; retain old and add v2 frozen scenario with active-orphan precondition",
+      "status": "fixed"
+    }
+  ],
+  "tests": {
+    "runtime": 62,
+    "shell": 32,
+    "git": 28,
+    "cleanup": 32
+  },
+  "limitations": [
+    "Single-helper fault model",
+    "Only surviving observer has its own detached identity set",
+    "Windows/macOS14 unverified"
+  ]
+}

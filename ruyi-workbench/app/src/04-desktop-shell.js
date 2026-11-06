@@ -137,40 +137,64 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       };
       // Transparently wrap .cmd/.bat targets (e.g. claude.cmd) so they don't throw "spawn EINVAL".
       const s = options.shell ? { command, args, opts: {} } : batchSafeSpawn(command, args);
-      const child = cp.spawn(s.command, s.args, {
-        cwd: options.cwd || process.cwd(),
-        env: { ...process.env, ...(options.env || {}) },
-        windowsHide: true,
-        shell: options.shell || false,
-        // NE-3:一次性运行不给子进程一根永不关闭的 stdin 管道 —— 读 stdin / 弹提示(Read-Host、pause、input()、git commit 缺 -m)
-        // 的程序会一直等到超时。'ignore' 让它们立刻读到 EOF / 得到错误;极少数要喂 stdin 的调用方传 options.stdin==='pipe'。
-        stdio: options.stdin === 'pipe' ? 'pipe' : ['ignore', 'pipe', 'pipe'],
-        ...s.opts,
-      });
+      let processHandle;
+      try {
+        processHandle = ProcessRuntime.start({
+          executable: s.command, argv: s.args,
+          cwd: options.cwd || process.cwd(),
+          env: options.inheritEnv === false ? { ...(options.env || {}) } : { ...process.env, ...(options.env || {}) },
+          owner: { ...ProcessRuntime.currentOwner(), kind: 'desktop-shell', ...options.owner },
+          spawnOptions: {
+          windowsHide: true,
+          shell: options.shell || false,
+          // NE-3:一次性运行不给子进程一根永不关闭的 stdin 管道 —— 读 stdin / 弹提示(Read-Host、pause、input()、git commit 缺 -m)
+          // 的程序会一直等到超时。'ignore' 让它们立刻读到 EOF / 得到错误;极少数要喂 stdin 的调用方传 options.stdin==='pipe'。
+          stdio: options.stdin === 'pipe' ? 'pipe' : ['ignore', 'pipe', 'pipe'],
+          ...s.opts,
+          },
+        });
+      } catch (error) {
+        if (!error.capability) throw error;
+        resolve({ ok: false, code: -1, error: error.message, errorCode: error.code, capability: error.capability,
+          stdout: '', stderr: error.message, timedOut: false, interrupted: false, elapsedMs: Date.now() - start });
+        return;
+      }
+      const child = ProcessRuntime.child(processHandle);
       let killGraceTimer = null;
       let exitTimer = null;
       let exitAt = 0;
       let exitInfo = null;
+      let cleanup = null;
       const signal = options.signal;
       let abortHandler = null;
       const isBudgetKill = () => Boolean(signal && signal.reason === 'tool_time_budget');
-      const abortSuffix = () => isBudgetKill() ? '\n[已触发工具时间预算硬上限;进程树已回收]' : '\n[interrupted by user steer; process tree killed]';
+      const cleanupNote = () => cleanup && cleanup.incomplete ? 'process cleanup incomplete'
+        : cleanup && cleanup.scope === 'owned-group-and-observed' ? 'owned process group and observed descendants terminated'
+          : cleanup && cleanup.scope === 'observed-tree' ? 'observed descendants terminated' : 'process tree killed';
+      const abortSuffix = () => isBudgetKill() ? (cleanup ? '\n[已触发工具时间预算硬上限; ' + cleanupNote() + ']' : '\n[已触发工具时间预算硬上限;进程树已回收]')
+        : '\n[interrupted by user steer; ' + cleanupNote() + ']';
       // 可执行文件本身找不到(ENOENT 且工作目录是存在的 —— 目录不存在时 Node 报的也是 ENOENT,那是另一回事):
       // 带上 commandNotFound 标记,让调用方(12 的 powershell 系工具)把裸的「spawn powershell.exe ENOENT」换成人话,
       // 而不是各自去解析 stderr 文案。
       const commandMissing = extra => !!(extra && extra.spawnError && extra.spawnError.code === 'ENOENT' && !(options.cwd && !fs.existsSync(options.cwd)));
       // 收尾载荷。code = 退出码;extra.spawnError / extra.exitNote / extra.forceFail 见各调用点。
       const compose = (code, extra = {}) => {
-        const ok = !extra.forceFail && code === 0 && !timedOut && !interrupted;
-        const suffix = extra.errorText ? extra.errorText : interrupted ? abortSuffix() : (timedOut ? '\n[timed out; process tree killed]' : '');
+        if (process.platform === 'darwin') cleanup = ProcessRuntime.result(child) || cleanup;
+        const cleanupFailed = cleanup && cleanup.incomplete === true;
+        const ok = !extra.forceFail && code === 0 && !timedOut && !interrupted && !cleanupFailed;
+        const suffix = extra.errorText ? extra.errorText : interrupted ? abortSuffix() : (timedOut ? '\n[timed out; ' + cleanupNote() + ']' : '');
         const budgetKilled = interrupted && isBudgetKill();
+        const cleanupFields = cleanup ? { cleanupScope: cleanup.scope, cleanupIncomplete: cleanup.incomplete === true,
+          ...(cleanup.escapeCoverage ? { cleanupEscapeCoverage: cleanup.escapeCoverage } : {}),
+          ...(Number.isSafeInteger(cleanup.unconfirmed) ? { cleanupUnconfirmed: cleanup.unconfirmed } : {}) } : {};
+        const stoppedText = cleanup ? (cleanup.incomplete ? '子进程清理尚未确认完成' : '已核验的子进程已终止') : '进程树已回收';
         if (!shape) {
           const stdout = decodeBestEffort(Buffer.concat(outS.chunks));
           const stderr = decodeBestEffort(Buffer.concat(errS.chunks)) + suffix;
-          return { ok, code, stdout, stderr, elapsedMs: Date.now() - start, timedOut, interrupted, ...(budgetKilled ? { budgetKilled: true } : {}), ...(extra.exitNote ? { note: extra.exitNote } : {}), ...(commandMissing(extra) ? { commandNotFound: true } : {}) };
+          return { ok, code, stdout, stderr, elapsedMs: Date.now() - start, timedOut, interrupted, ...cleanupFields, ...(cleanupFailed ? { error: '子进程清理尚未确认完成' } : {}), ...(budgetKilled ? { budgetKilled: true } : {}), ...(extra.exitNote ? { note: extra.exitNote } : {}), ...(commandMissing(extra) ? { commandNotFound: true } : {}) };
         }
         const sh = shapeExecStreams(streamSrc(outS), streamSrc(errS));
-        const payload = { ok, code, timedOut, interrupted };
+        const payload = { ok, code, timedOut, interrupted, ...cleanupFields };
         if (budgetKilled) payload.budgetKilled = true;
         if (!ok) {
           let error; let hint;
@@ -182,10 +206,13 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
               if (extra.spawnError.code === 'ENOENT') hint = `找不到可执行文件 ${command};确认已安装并在 PATH 上`;
             }
           } else if (interrupted) {
-            error = budgetKilled ? '已触发工具时间预算硬上限,进程树已回收' : '被用户插话中断,进程树已回收';
+            error = (budgetKilled ? '已触发工具时间预算硬上限,' : '被用户插话中断,') + stoppedText;
           } else if (timedOut) {
-            error = `命令超过 ${timeoutMs}ms 仍未结束,已终止(进程树已回收);stdout/stderr 是已产生的部分输出`;
+            error = cleanup ? `命令超过 ${timeoutMs}ms 仍未结束,${stoppedText};stdout/stderr 是已产生的部分输出`
+              : `命令超过 ${timeoutMs}ms 仍未结束,已终止(进程树已回收);stdout/stderr 是已产生的部分输出`;
             hint = '长任务请用 shell_start({command}) 后台运行并用 shell_poll 取结果;或加大 timeoutMs(上限 1800000)';
+          } else if (cleanupFailed) {
+            error = '子进程清理尚未确认完成';
           } else {
             error = code == null ? '进程被信号终止' : `进程以退出码 ${code} 结束`;
           }
@@ -223,7 +250,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
         // 审计 P2: 超时用 killChildTree 整树杀(128i 起按创建时间认子孙,不再 taskkill /T) —— child.kill('SIGTERM') 在 Windows 上只杀直接子
         // 进程,claude.cmd→node、shell→子命令等孙进程会遗孤泄漏,且其继承的 stdio 句柄不关 → 'close' 迟迟不触发,
         // promise 悬挂到远超 timeoutMs。killChildTree 内含 SIGKILL 兜底。
-        killChildTree(child.pid);
+        cleanup = killChildTree(child);
         // 二次兜底:即便整树已杀,若仍有句柄让 'close' 不触发,3s 后硬 resolve,绝不让工具调用无限悬挂。
         killGraceTimer = setTimeout(() => finish(compose(-1, { forceFail: true })), 3000);
         if (killGraceTimer.unref) killGraceTimer.unref();
@@ -233,7 +260,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       abortHandler = () => {
         if (settled) return;
         interrupted = true;
-        killChildTree(child.pid);
+        cleanup = killChildTree(child);
         // Keep the normal close event as the primary settlement path, but never make steering wait on a
         // descendant that retained stdio handles after the tree kill.
         killGraceTimer = setTimeout(() => finish(compose(-1, { forceFail: true })), 1000);
@@ -269,6 +296,21 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       });
       child.on('close', code => finish(compose(code)));
     });
+  }
+
+  async function runBash(command, cwd, timeoutMs, signal, opts = {}) {
+    if (process.platform !== 'darwin') return { ok: false, code: 'bash_unavailable', error: '本机尚未启用受管 bash 执行' };
+    const capability = ProcessRuntime.helperCapability();
+    if (!capability.ready) return { ok: false, code: capability.code, error: 'Mac bash 的原生进程监督器尚未就绪', capability };
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'ruyi-bash-'));
+    const script = path.join(directory, 'command.sh');
+    try {
+      await fsp.writeFile(script, String(command), { encoding: 'utf8', mode: 0o600 });
+      return await runProcess('/bin/bash', ['--noprofile', '--norc', '--', script], {
+        cwd: cwd || os.homedir(), timeoutMs, signal, shape: opts.shape === true,
+        inheritEnv: false, env: platformShellEnvironment(process.env),
+      });
+    } finally { await fsp.rm(directory, { recursive: true, force: true }).catch(() => {}); }
   }
 
   // v1.0.1 编码修复(输入侧):无控制台 spawn(用户双击运行时的真实场景)的 powershell.exe 解析 `-Command`
@@ -351,6 +393,12 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   // path in the environment (never in the argv/script text). Never throws to the caller — best-effort; the HTTP
   // handler returns ok as soon as the spawn is initiated (matching prior behavior; the window appears ~1s later).
   function revealInExplorer(absPath, mode) {
+    if (process.platform === 'darwin') {
+      return fsp.realpath(absPath).then(realPath => {
+        const spec = platformOpenSpawn(realPath, mode);
+        return spawnDetachedChecked(spec.command, spec.args, { detached: true, windowsHide: true, stdio: 'ignore' }).then(result => result.ok);
+      }).catch(() => false);
+    }
     const tmpFile = path.join(os.tmpdir(), `ruyi-reveal-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.ps1`);
     try {
       fs.writeFileSync(tmpFile, '﻿' + REVEAL_PS_SCRIPT, 'utf8'); // sync so the file exists before spawn reads it
@@ -543,5 +591,5 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     if (m && m[1].trim()) return { ok: true, path: path.resolve(m[1].trim()) };
     return { ok: true, cancelled: true };
   }
-  return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, withQuietProgress, revealInExplorer, pickFolder, pickFile, folderPickerEnv, FOLDER_PICKER_PS_SCRIPT });
+  return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, runBash, withQuietProgress, revealInExplorer, pickFolder, pickFile, folderPickerEnv, FOLDER_PICKER_PS_SCRIPT });
 })(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked, decodeConsoleText);

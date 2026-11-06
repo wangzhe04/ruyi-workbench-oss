@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-06",
+  "baselineSha": "354dd5b1d01269e85e512393d34d0e5cb982140f",
+  "checks": [
+    {
+      "name": "lifecycle",
+      "command": [
+        "node",
+        "dev-harness/kimi-acp-live-probe.js",
+        "--case=lifecycle"
+      ],
+      "exitCode": 0,
+      "seconds": 8.4,
+      "log": "lifecycle.txt"
+    },
+    {
+      "name": "kimi-full",
+      "command": [
+        "node",
+        "dev-harness/kimi-acp-live-probe.js"
+      ],
+      "exitCode": 0,
+      "seconds": 18.1,
+      "log": "kimi-full.txt"
+    },
+    {
+      "name": "probe-syntax",
+      "command": [
+        "node",
+        "--check",
+        "dev-harness/kimi-acp-live-probe.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0,
+      "log": "probe-syntax.txt"
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.2,
+      "log": "build-check.txt"
+    }
+  ],
+  "implementationCommit": "921e6a89795bb4069941dfe53a8c1b94247d776d",
+  "cli": "@moonshot-ai/kimi-code@0.37.2",
+  "installationEvidence": "../cli-live/installation.json",
+  "model": "Existing deterministic loopback model, no real account",
+  "finalSummary": {
+    "targetedPassed": 19,
+    "fullPassed": 96,
+    "failed": 0,
+    "skipped": 0,
+    "modelRequests": 30
+  },
+  "inheritedEngineeringGates": {
+    "implementationCommit": "8ebb6638",
+    "evidence": "../cli-live/validation.json",
+    "unitPassed": 2490,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "reason": "Only the existing real-CLI probe changed; application production tree unchanged. Current probe syntax and build freshness passed.",
+    "productionTreeDiffExit": 0
+  },
+  "developmentFailures": [
+    "lifecycle-first.txt and lifecycle-diagnostic.txt: incorrect probe expectation that normal continuation has no bounded recovery copy; corrected against production semantics, not a product defect"
+  ]
+}

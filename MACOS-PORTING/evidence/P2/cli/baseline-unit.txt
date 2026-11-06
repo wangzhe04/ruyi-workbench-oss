@@ -1,0 +1,31 @@
+✔ [S] 两个适配器方法集逐项相同,且与登记的接口清单、AGENT_CLI_TYPES 对齐 (0.8065ms)
+✔ [A] Claude buildArgs 金样 (191.8515ms)
+✔ [A] Kimi buildArgs 为空;续接/额外参数/追加系统提示/命令行预算/起进程 (0.849958ms)
+✔ [E] 子进程环境金样 (0.88925ms)
+✔ [P] 事件解析金样(Claude stream-json / Kimi stream-json),适配器与兼容出口同步 (2.154834ms)
+✔ [U] 用量记账金样 (84.475167ms)
+✔ [M] 其余逐 CLI 决定 (1.904459ms)
+✔ [G] runClaudeTurn 骨架不再按 CLI 类型分叉 (0.993209ms)
+✔ [R] 登记表成员齐全,键集合与适配器表相同;下发的数据形状与修前逐字节相同 (0.979208ms)
+✔ [R] 装机候选与起进程钩子金样 (0.563625ms)
+✔ [N] CLI 类型归一:对输入表与修前逐项相同 (194.990291ms)
+✔ [C] 适配器回合外能力:环境说明、原生提问、模型清单、原生上下文状态与压缩 (1.524667ms)
+✔ [M] MCP 清单同步一个入口:选中推、切走清、Claude 不碰、工作台 MCP 关着不推 (122.67525ms)
+✔ [G] 迁走的调用点不再与 CLI 类型字面量比较 (96.021833ms)
+✔ [L1] 三态判定:启动不起来 / 非 0 退出 = missing,超时被杀(status=null 无 error)与 ETIMEDOUT = slow,0 = ok (0.482375ms)
+✔ [L2] 缺失不放行、不记忆;装好后立刻可用;「在」按 60 s 记忆 (240.417167ms)
+✔ [L3] 慢启动器(--version 超过 4 s 探测上限):算「在」放行,且探测期间事件循环照常转 (4028.783292ms)
+✔ [L4] 回合入口:CLI 真缺失仍走引导卡(code cli-missing);超时慢的不会挡回合 (375.760625ms)
+✔ [G1] Kimi 默认模型(config.model 为空):实际模型改写 claudeSessionModel,但续接闸不再每回合判「模型变了」 (2970.79125ms)
+✔ [G2] 显式换模型照旧触发重置(闸没被废掉);同模型不重置 (4335.474833ms)
+✔ [G3] 没有 claudeSessionRequestedModel 的老会话(修前绑定):退回 claudeSessionModel 比较,行为同修前 (2925.970208ms)
+✔ [H1] session/prompt 应答前失败(session/resume 报错):清 injectedIndexHash,下回合补发索引 (4932.313333ms)
+✔ [H2] prompt 已送达后 Kimi 回 JSON-RPC 错误(额度/鉴权):不清 hash(索引已在它的转录里) (2105.809792ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22053.767833

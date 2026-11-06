@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-02",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0",
+    "browser": "Chrome 156.0.8078.79"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1104,
+    "fail": 0
+  },
+  "independentTests": {
+    "mcp": 7,
+    "browser": 14,
+    "capabilities": 16,
+    "themeBrowser": 11
+  },
+  "ownedBrowserProcessesRemaining": 0,
+  "hashes": {
+    "ruyi-workbench/app/server.js": "434e71f0455ca9838f41623d649a36280f31a1870a36b53724dbf94fb83b840d",
+    "ruyi-workbench/app/src/06-provider-engine.js": "90b54499db4eef33c241751c2e0ba1b1e3496de9dc2c30ea5615fe79daacf3ac",
+    "ruyi-workbench/app/src/11-native-tools.js": "85dbbb1d8b7d7ff43e771c1261975f9c511d7b031ca00153a5cd97719165550c",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "aaa7e8954818206672c4966216bfdf520e95cbe20ba980923a5aa868751ea042",
+    "ruyi-workbench/app/src/13-http-router.js": "e9799397875f35420f82bda1ac84c014cbfb36bf381eed39da5997ab2266b9d1",
+    "ruyi-workbench/app/public/js/navigation-controls.js": "6944ca1a4e6515ea1e996f57d609e1369a66fef191eb051dc744545e3b6b71c2",
+    "ruyi-workbench/app/public/js/popover.js": "8c3615ba56ec2618b0c0402b095e2acccb0b61d32f5a6de5f56b841af07d1eb3",
+    "dev-harness/lib/browser-fixture.js": "6231347baf5addf9fb817c96e27f1efdbc4184c6497f654f4aef53bb0aefacbf",
+    "dev-harness/macos-mcp-capabilities.e2e.js": "c605d793463890f449ab054e1baea73ccddfa9f541ced13861bc6a8fcb889ed6",
+    "dev-harness/macos-capability-popover.browser.e2e.js": "46e99f92e5ec72eb984a6bbbf128f2ce6561d8b9d1c6138035fa9d0942346b5f"
+  },
+  "remaining": [
+    "Remaining execution/PID/path/lifecycle audit",
+    "Other platform capability IDs",
+    "Windows/macOS14 same-SHA and clean startup",
+    "Actual Finder verification"
+  ]
+}

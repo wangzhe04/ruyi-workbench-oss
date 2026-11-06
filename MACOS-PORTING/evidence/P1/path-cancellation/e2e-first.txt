@@ -1,0 +1,20 @@
+PASS pre-cancelled file_list creates no path worker
+PASS normal pattern listing confirms worker exit before returning
+PASS path matcher is active before cancellation
+PASS file_list cancellation confirms exit, removes listeners and publishes no partial files
+PASS ordinary path regex timeout retains truncation semantics after confirmed exit
+PASS reject during worker termination reports incomplete cleanup
+PASS hang during worker termination reports incomplete cleanup
+PASS confirmed exit remains usable despite a late termination rejection
+PASS matcher returns normal batch hits before an idle failure
+PASS between-batch errors are handled and worker exit is confirmed
+PASS close is idempotent and shares its confirmation promise
+PASS explicit close settles an in-flight match and confirms exit
+PASS cancellation between batches closes the worker before another match
+PASS filesystem initialization failure occurs before allocating a path worker
+PASS glob honors cancellation at entry
+PASS glob honors cancellation during directory traversal
+PASS project_snapshot honors cancellation at entry
+PASS project_snapshot honors cancellation during directory traversal
+
+PATH MATCHER CANCELLATION E2E: ALL PASS

@@ -1,0 +1,48 @@
+# Ruyi e2e runner
+# 件数: 80 ran / 7 skipped(live)
+# 超时: 120s/件,串行(killOwnTree 收整树)
+# Node v24.15.0, platform darwin
+# 夹具家目录隔离: 每件独立临时家(mkdtemp per test),ok 件跑完即删 / 失败件保留取证
+# 夹具 HOME 守卫: --require dev-harness/lib/fixture-home-guard.js 装进每件夹具(真机家来自 os.homedir()(未注入,直跑): /Users/jiming)
+# 端口审计: 32 个带内端口,跨文件零撞车
+
+# unit 测试失败(node --test dev-harness/unit),拒跑 e2e:
+  }
+
+test at dev-harness/unit/external-bot-vault-guards.test.js:10:1
+✖ vault and atomic-temp family are equally read/write sensitive through the current root, legacy alias and NTFS suffixes (0.660833ms)
+  ReferenceError: process is not defined
+      at pathWithinRoot (evalmachine.<anonymous>:4:3)
+      at Object.isSensitiveDataPath (evalmachine.<anonymous>:48:53)
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/external-bot-vault-guards.test.js:12:56)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17)
+
+test at dev-harness/unit/steward-config-tier.test.js:1:1
+✖ /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/steward-config-tier.test.js (122.837791ms)
+  'test failed'
+
+test at dev-harness/unit/workspace-trailing-sep.test.js:14:1
+✖ [W1] 带不带结尾分隔符是同一个常用文件夹 (16.263292ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    [
+      'C:\\Users\\me\\Projects',
+  +   'c:\\users\\me\\projects'
+    ]
+
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/workspace-trailing-sep.test.js:16:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'C:\\Users\\me\\Projects', 'c:\\users\\me\\projects' ],
+    expected: [ 'C:\\Users\\me\\Projects' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

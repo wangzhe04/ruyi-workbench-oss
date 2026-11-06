@@ -1,0 +1,15 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+PASS F0e 首屏就绪
+PASS real helper API renders three ready execution capabilities in the opened popover
+PASS in-flight refresh displays checking instead of stale ready status
+PASS unavailable response updates the already-open popover
+PASS late older response cannot overwrite the latest unavailable state
+PASS failed refresh shows unknown rather than preserving a readiness claim
+PASS refreshed popover is repositioned inside the viewport
+PASS closing popover removes the active capability view
+PASS capability updates produce no uncaught browser exceptions
+
+MACOS CAPABILITY POPOVER E2E: ALL PASS

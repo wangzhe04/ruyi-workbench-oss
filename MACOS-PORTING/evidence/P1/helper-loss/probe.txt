@@ -1,0 +1,3 @@
+{"event":"supervisor-loss","result":{"killed":[],"scope":"owned-group-and-observed","incomplete":true,"escapeCoverage":"observed-only","code":null,"signal":"SIGKILL","status":"incomplete"},"heartbeatBefore":1,"heartbeatAfter":14,"descendantStopped":false}
+FAIL target continued writing after helper loss
+PASS bounded fixture exited and stopped writing

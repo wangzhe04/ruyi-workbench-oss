@@ -1,0 +1,72 @@
+✖ Mac FIFO ownership records fail promptly on both read and write paths (3049.493375ms)
+✖ Mac socket ownership reads remain bounded when the record grows after stat (145.22375ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3300.108292
+
+✖ failing tests:
+
+test at dev-harness/unit/server-ownership.test.js:165:1
+✖ Mac FIFO ownership records fail promptly on both read and write paths (3049.493375ms)
+  AssertionError [ERR_ASSERTION]: read: Error: spawnSync /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node ETIMEDOUT
+  + actual - expected
+
+  + Error: spawnSync /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node ETIMEDOUT
+  +     at Object.spawnSync (node:internal/child_process:1143:20)
+  +     at Object.spawnSync (node:child_process:911:24)
+  +     at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/server-ownership.test.js:181:24)
+  +     at async Test.run (node:internal/test_runner/test:1208:7)
+  +     at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+  +   code: 'ETIMEDOUT',
+  +   errno: -60,
+  +   path: '/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node',
+  +   spawnargs: [
+  +     '-e',
+  +     '\n' +
+  +       `        const { ServerOwnership } = require("/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/server-internals.js").loadServerInternals(['ServerOwnership']);\n` +
+  +       '        ServerOwnership.acquire(["/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-owner-unit-Ts3fls/fifo-read"]).then(async lease => {\n' +
+  +       '          await lease.release(); process.exitCode = 2;\n' +
+  +       "        }, error => { console.log(error.code); process.exitCode = error.code === 'DATA_ROOT_OWNER_UNKNOWN' ? 0 : 1; });\n" +
+  +       '      '
+  +   ],
+  +   syscall: 'spawnSync /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node'
+  + }
+  - undefined
+
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/server-ownership.test.js:187:14)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: Error: spawnSync /Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node ETIMEDOUT
+        at Object.spawnSync (node:internal/child_process:1143:20)
+        at Object.spawnSync (node:child_process:911:24)
+        at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/server-ownership.test.js:181:24)
+        at async Test.run (node:internal/test_runner/test:1208:7)
+        at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3),
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dev-harness/unit/server-ownership.test.js:199:1
+✖ Mac socket ownership reads remain bounded when the record grows after stat (145.22375ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  2 !== 0
+
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/server-ownership.test.js:234:12)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

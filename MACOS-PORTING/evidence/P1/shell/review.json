@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "independent agent /root/ownership_review",
+  "scope": "Mac one-shot/bash scripting and persistent/background shell with native private fd",
+  "status": "passed_no_unresolved_findings_in_scope",
+  "findings": [
+    {
+      "id": "SH1",
+      "finding": "line decoder delayed no-newline shell output past private completion",
+      "resolution": "Mac incremental UTF8 StringDecoder plus deferred completion release across ready stdio callbacks",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "SH2",
+      "finding": "evaluated commands inherited the private completion descriptor",
+      "resolution": "eval temporarily closes fd4; native supervisor retains fd3 separation and parent closes extra fd4",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "SH3",
+      "finding": "one-shot code0 could return ok while process cleanup was incomplete",
+      "resolution": "raw and shaped DesktopShell results fail explicitly while preserving original code",
+      "status": "resolved_verified"
+    }
+  ],
+  "additionalVerification": [
+    "workspace execute=false and command-disabled gates",
+    "session ownership including session-object context",
+    "async startup reservations and cancellation",
+    "Mac shell_send interruption and same-session pointer check before removal",
+    "explicit PowerShell fixture regression and legacy saved tool-order restoration",
+    "schema and prompt budgets maintained without raising limits"
+  ],
+  "independentVerification": {
+    "shellE2e": "31/31",
+    "processRuntimeE2e": "34/34",
+    "processCleanupE2e": "33/33",
+    "buildFreshness": "pass",
+    "gitDiffCheck": "pass"
+  },
+  "sha256": {
+    "ruyi-workbench/app/server.js": "7803ecca9673468b5e7d466bce1e62f0a42a99b1ac75b05a0520438c7c4b07e8",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "778463bc31373ed3d716b6e05bb07e84bac97c7d8cbf4de0b73d45caa9544648",
+    "ruyi-workbench/app/src/04-desktop-shell.js": "19ebdb575340c45f78e8291501ad2ce69a3c529d0729849256b8f054455e388b",
+    "ruyi-workbench/app/src/11-native-tools.js": "497527c3c1298728dd0e2ad574e2cdefc642961e5653b221362fafe3c3593ed6",
+    "ruyi-workbench/resources/macos-process-helper.c": "6c3f69f5838d24207f8e2d5eff21ae667860f73704d892da04a700187de48752",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "2040fd84cc59a19d6641596678278ed3edc06cc11d393dd930db1e09c0403ec6"
+  },
+  "remainingScope": [
+    "Windows real PowerShell regression and macOS14 execution",
+    "helper capability snapshot/readiness and mid-run loss handling",
+    "unobserved escaped descendant lifetime validation",
+    "P1-02 system/path policy and remaining P1-01 Finder/startup acceptance"
+  ]
+}

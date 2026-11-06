@@ -338,7 +338,10 @@ describe('hunt2 · 写族文件工具与检查点完整性', () => {
     const ws = freshWs();
     const ctx = ctxFor(ws, 'sess_hunt2_shell', 1);
     try {
-      const s = await srv.toolCall('shell_start', { command: 'Write-Output 中文', cwd: ws }, ctx);
+      const shellArgs = process.platform === 'darwin'
+        ? { language: 'bash', command: "'" + path.join(bin, 'powershell.exe').replace(/'/g, "'\\''") + "'" }
+        : { language: 'powershell', command: 'Write-Output 中文' };
+      const s = await srv.toolCall('shell_start', { ...shellArgs, cwd: ws }, ctx);
       assert.equal(s.ok, true, JSON.stringify(s));
       let poll;
       for (let i = 0; i < 100; i++) {

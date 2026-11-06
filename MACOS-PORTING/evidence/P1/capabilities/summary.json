@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-02",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0,
+    "log": "fast-final-2.txt"
+  },
+  "syntax": {
+    "files": 1102,
+    "fail": 0
+  },
+  "capabilitiesFinal": {
+    "runs": 2,
+    "passPerRun": 16,
+    "fail": 0
+  },
+  "independentE2E": {
+    "capabilities": 15,
+    "runtime": 62,
+    "shell": 32,
+    "git": 28,
+    "cleanup": 32
+  },
+  "schemaFixtureRegression": {
+    "total": 45,
+    "pass": 44,
+    "skip": 1,
+    "fail": 0
+  },
+  "hashes": {
+    "ruyi-workbench/app/server.js": "91e8c46e01a3c36d55b725766870799962711b5a0df3e67560036f10b4ecb1dc",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "189fd7eaf39000e63f72ca9055475dc5e7272d25f796d78db7d0a9741a7165a7",
+    "ruyi-workbench/app/src/06-provider-engine.js": "a20342ab7be17d53dabc5d002c8a852c03d257b62f98565ef3a9513cc6c04028",
+    "ruyi-workbench/app/src/07-autonomy.js": "3b02a0093460aa67a52cfd2b94f1a73e0f5a5ccc8d728b81ac1dd0e81fb029a4",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "9896010fed511b913c39e3cb0013a955b659f18525fa3deff769ca7c27a32cd5",
+    "ruyi-workbench/app/src/13-http-router.js": "635ccb842f900875bbafbfc99bf44433890a937e193a4e8f6dbd574fffcb7c43",
+    "ruyi-workbench/app/public/js/health-i18n.js": "ab4fcb0974d840e6571e4a465c9200f1aa3fc50716b4fb346eba5b35e81d60cf",
+    "dev-harness/macos-capabilities.e2e.js": "1dd81e2e47da7b582047895b95adb1db14cc95d0f961f92f8af24f21528176be"
+  },
+  "remaining": [
+    "CLI/MCP discovery and capability popover",
+    "Browser visual verification",
+    "Remaining execution/path/lifecycle audit",
+    "Windows/macOS14 same-SHA runtime and Finder validation"
+  ]
+}

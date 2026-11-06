@@ -160,6 +160,24 @@ test('disable aborts an in-flight delivery and retains the typed delivery error 
   assert.equal(f.counts().sends, 1); await f.api.update({ op: 'disable', id: 'qq_test' }); await pending;
   const item = (await f.api.read()).items[0]; assert.equal(item.delivery.status, 'failed'); assert.equal(item.delivery.errorCode, 'external_delivery.aborted');
 });
+test('stop during job persistence prevents dispatch and releases the newly registered actor; restart does not replay', async () => {
+  for (const phase of ['run', 'send']) {
+    const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
+    if (phase === 'send') { const job = await f.api.next(); await f.api.finish(job, { ok: true, say: 'ready' }); }
+    await f.api.recover();
+    let release; f.gate(new Promise(resolve => { release = resolve; }));
+    const trackedBefore = vm.runInContext('externalBotActiveActors.size + externalBotDeliveries.size', f.context);
+    const before = f.counts().writes, pending = f.api.drain();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.counts().writes, before + 1, 'job claim is waiting for its durable write');
+    f.context.ExternalBotHooks.stop(); release(); await pending;
+    assert.equal(f.counts().runs, 0); assert.equal(f.counts().sends, 0);
+    assert.equal(vm.runInContext('externalBotActiveActors.size + externalBotDeliveries.size', f.context), trackedBefore);
+    const next = fixture(); next.setDisk(f.disk()); await next.api.drain();
+    assert.equal(phase === 'run' ? (await next.api.read()).items[0].execution.status : (await next.api.read()).items[0].delivery.status, 'unknown');
+    assert.equal(next.counts().runs, 0); assert.equal(next.counts().sends, 0);
+  }
+});
 test('unexpected runner exceptions are unknown without retry advice or replay, and structured action facts remain distinct from a completed turn', async () => {
   const f = fixture(); await f.api.update({ op: 'upsert', connection: controlConnection(f), controlConfirmed: true }); await f.api.accept(f.message());
   f.modelError(new Error('unexpected after a possible tool effect')); await f.api.drain();

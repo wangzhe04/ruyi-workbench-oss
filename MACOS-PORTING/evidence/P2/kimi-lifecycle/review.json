@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-06",
+  "reviewer": "independent agent /root/p2_cli_audit",
+  "implementationCommit": "921e6a89795bb4069941dfe53a8c1b94247d776d",
+  "scope": [
+    "Single real Kimi lifecycle case in existing probe",
+    "Structured native tool-history evidence, native identity, stop execution ownership, persisted abort and cleanup",
+    "Held local model response and failure cleanup; unchanged production runtime"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "Initial probe incorrectly required historyRecoveryInjected=false on normal native continuation",
+      "resolution": "Existing engine deliberately adds a bounded continuity copy. Prove restoration using the same native ID, structured historical tool_calls/results, no reset/recovery, and fresh Read after stop. Require real Kimi ACP metadata on both later turns.",
+      "status": "resolved_reviewed"
+    }
+  ],
+  "result": "reviewed_no_unresolved_code_findings",
+  "independentValidation": {
+    "diffCheck": "pass",
+    "evidenceStrength": "Bounded user-text copy cannot manufacture historical tool_calls/role=tool results; native ID and new post-stop tool corroborate actual continuity",
+    "cleanupTiming": "Observe held response close before finally destroys it; stop is requested only after a real held model request and matching active execution",
+    "testDiscipline": "One required lifecycle case in existing file, no new production code, test file or generic framework",
+    "reviewerExecution": "Static source/contract review; no concurrent tests"
+  },
+  "evidenceBoundary": "Active prompt cancellation and native session continuation with real Kimi and local deterministic model. Does not prove long-running Bash descendant stop, direct capture of outbound resume RPC, real account service or other CLI."
+}

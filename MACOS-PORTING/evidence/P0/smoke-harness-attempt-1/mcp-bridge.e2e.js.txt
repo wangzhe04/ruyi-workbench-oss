@@ -1,0 +1,16 @@
+[fake] [fake-openai] listening on 51466
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 02ade10f2275)
+[wb] UI: http://127.0.0.1:51467/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-hZCrUA/.ruyi-workbench
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :51467
+PASS version 3.0.1 (got 3.0.1)
+FAIL meta.bridgedTools >= 1 (got undefined)
+FAIL tool_use name === "fake__echo" (MISSING)
+FAIL tool_use carries the echo arg (message=undefined)
+FAIL tool_result ok (not error)
+FAIL tool_result.content.echoed === MARKER (round-trip through fake-mcp): undefined
+FAIL final answer echoes the marker from the MCP child: "未检测到 Claude Code CLI。推荐直接配置 API 引擎(更简单):设置 → 模型服务,填入 DeepSeek 等服务商的 API Key 即可开始"
+FAIL result ok=true
+
+MCP-BRIDGE E2E: FAIL (7)

@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "recoveryRuns": [
+    20,
+    20
+  ],
+  "atomic": 27,
+  "checkpoint": 45,
+  "filePolicy": 48,
+  "fileAudit": 92,
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "skip": 18,
+    "fail": 0
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1119,
+    "fail": 0
+  },
+  "buildFresh": true,
+  "diffCheck": true,
+  "e2eInventory": {
+    "total": 563,
+    "default": 556,
+    "live": 7
+  },
+  "review": "passed_targeted_review"
+}

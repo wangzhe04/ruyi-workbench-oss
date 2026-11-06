@@ -1,0 +1,10 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+FAIL Error: CDP 命令超时(90000 ms):Page.navigate —— 浏览器多半已经没了
+    at Timeout._onTimeout (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/browser-fixture.js:129:16)
+    at listOnTimeout (node:internal/timers:605:17)
+    at process.processTimers (node:internal/timers:541:7)
+
+MACOS CAPABILITY POPOVER E2E: FAIL (1)

@@ -1,0 +1,52 @@
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 无「会话」（该说「线程」）
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 无「2.0 视窗」（该说「在工作台打开」）
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 无「经典模式」（该说「工作台（视角名）」）
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 无「交办台」（该说「（已退役，不提）」）
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 无「去线程里看」（该说「打开／在工作台打开」）
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 无「Enter 发送」（该说「（占位不带快捷键提示）」）
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 无「『」（该说「「」）
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 无「』」（该说「」」）
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 「会话」白名单无过期条目
+PASS 1 ruyi-workbench/app/public/locales/zh-CN.json 占位与按钮不带省略号
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 无「会话」（该说「线程」）
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 无「2.0 视窗」（该说「在工作台打开」）
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 无「经典模式」（该说「工作台（视角名）」）
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 无「交办台」（该说「（已退役，不提）」）
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 无「去线程里看」（该说「打开／在工作台打开」）
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 无「Enter 发送」（该说「（占位不带快捷键提示）」）
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 无「『」（该说「「」）
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 无「』」（该说「」」）
+PASS 1 ruyi-workbench/app/public/locales/en-US.json 占位与按钮不带省略号
+PASS 1 docs/i18n/locales/zh-CN.json 无「会话」（该说「线程」）
+PASS 1 docs/i18n/locales/zh-CN.json 无「2.0 视窗」（该说「在工作台打开」）
+PASS 1 docs/i18n/locales/zh-CN.json 无「经典模式」（该说「工作台（视角名）」）
+PASS 1 docs/i18n/locales/zh-CN.json 无「交办台」（该说「（已退役，不提）」）
+PASS 1 docs/i18n/locales/zh-CN.json 无「去线程里看」（该说「打开／在工作台打开」）
+PASS 1 docs/i18n/locales/zh-CN.json 无「Enter 发送」（该说「（占位不带快捷键提示）」）
+PASS 1 docs/i18n/locales/zh-CN.json 无「『」（该说「「」）
+PASS 1 docs/i18n/locales/zh-CN.json 无「』」（该说「」」）
+PASS 1 docs/i18n/locales/zh-CN.json 「会话」白名单无过期条目
+PASS 1 docs/i18n/locales/zh-CN.json 占位与按钮不带省略号
+PASS 1 docs/i18n/locales/en-US.json 无「会话」（该说「线程」）
+PASS 1 docs/i18n/locales/en-US.json 无「2.0 视窗」（该说「在工作台打开」）
+PASS 1 docs/i18n/locales/en-US.json 无「经典模式」（该说「工作台（视角名）」）
+PASS 1 docs/i18n/locales/en-US.json 无「交办台」（该说「（已退役，不提）」）
+PASS 1 docs/i18n/locales/en-US.json 无「去线程里看」（该说「打开／在工作台打开」）
+PASS 1 docs/i18n/locales/en-US.json 无「Enter 发送」（该说「（占位不带快捷键提示）」）
+PASS 1 docs/i18n/locales/en-US.json 无「『」（该说「「」）
+PASS 1 docs/i18n/locales/en-US.json 无「』」（该说「」」）
+PASS 1 docs/i18n/locales/en-US.json 占位与按钮不带省略号
+PASS 2 index.html 可见文案无「会话」（该说「线程」）
+PASS 2 index.html 可见文案无「2.0 视窗」（该说「在工作台打开」）
+PASS 2 index.html 可见文案无「经典模式」（该说「工作台（视角名）」）
+PASS 2 index.html 可见文案无「交办台」（该说「（已退役，不提）」）
+PASS 2 index.html 可见文案无「去线程里看」（该说「打开／在工作台打开」）
+PASS 2 index.html 可见文案无「Enter 发送」（该说「（占位不带快捷键提示）」）
+PASS 2 index.html 可见文案无「『」（该说「「」）
+PASS 2 index.html 可见文案无「』」（该说「」」）
+PASS 3 启动默认视角两项 = 管家（默认）／工作台（§2.7 末条；不再叫「经典」）
+PASS 3 焦点卡收工那一段说「它最后说」（§2.6 口径）
+PASS 3 「在工作台打开」三处逐字相同（一个动作只有一个说法）
+PASS 3 未命名线程的标题回落是「未命名线程」，不是视角名「工作台」
+
+COPY TERMS STATIC E2E: ALL PASS

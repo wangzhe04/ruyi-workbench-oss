@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1117,
+    "fail": 0
+  },
+  "pathCancellationE2E": {
+    "runs": 2,
+    "passPerRun": 20,
+    "fail": 0
+  },
+  "relatedTests": {
+    "contentCancellation": 20
+  },
+  "independentTests": {
+    "pathCancellation": 20,
+    "contentCancellation": 20
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "8b05ff85b743125983e63207d30d1edac088255c5e653e0c852eb85a8796187b",
+    "ruyi-workbench/app/src/11-native-tools.js": "f686c35d8c850fef4e1cad05e2c7cff888b947b3a1b29be9a707dc488a50ad6f",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "8e97b19b26778ff03ed4b3dbf596e4dfb69648119d73454a7c3dd36ac97f69eb",
+    "dev-harness/path-matcher-cancellation.e2e.js": "c3ea0a9ddfb733ce68ee298a3c142cfecde8795c7dea3b8b730c329690f4aa60"
+  },
+  "remaining": [
+    "In-flight kernel filesystem operation limits",
+    "Other shared probe consumers",
+    "Remaining file concurrency/atomic fallback and lifecycle checks",
+    "Real FFmpeg and clean installation",
+    "Windows/macOS14 same-SHA and Finder permission/visible acceptance"
+  ]
+}

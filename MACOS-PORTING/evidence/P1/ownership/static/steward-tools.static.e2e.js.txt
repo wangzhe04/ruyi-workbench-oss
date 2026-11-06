@@ -1,0 +1,134 @@
+PASS ① 13f schema 恰好登记 43 个 steward_*(got 43)
+PASS ① 12 TOOL_HANDLERS 恰好登记 43 个 steward_*(got 43)
+PASS ① 07 NATIVE_TOOL_TIER 恰好登记 43 个 steward_*(got 43)
+PASS ① 07 NATIVE_TOOL_PACKS 恰好登记 43 个 steward_*(got 43)
+PASS ① 注册表总数 120(67 bot setup +1;thread_title_update +1;跨线程两个只读工具 +2;61-C2 增 scratchpad_write 111→112;61-C1 增 playbook_list / playbook_read / skill_list 三个只读工具 108→111;61 号文 C4 增只读 checkpoint_list 107→108;代理模式 v2:spawn_agent 退役 -1、wait_agents/agent_result 入表 +2,106→107;此前 63 + 42 steward_* + 1 audio_transcribe;123-M2 增六件定时任务 90→96,127-114c③ 增 audio_transcribe 96→97,129b 增三张只读清单 97→100,129d 增眼睛四件 100→104,129e 增 steward_thread_workspace 104→105,129f 增 steward_notify 105→106;got 120)
+PASS ①b 决策族里恰好【一个】线程级停止原语(多一个 = 两条停机路径,少一个 = 管家又只能拿 run_action 凑;got ["steward_thread_stop"])
+PASS ①c steward_thread_stop 登记进 13h 族的 STEWARD_ACTION_HOOKS(不在表里 = 用户亲手按那枚按钮时 not_allowed)
+PASS ①d STEWARD_TOOL_LABELS 有它的人话标签(※ 脚注与降级按钮不许吐 steward_thread_stop 这个内部 id)
+PASS ①e0 每个管家工具都经 stewardToolHandler 注册恰一次(got 43 / 期望 43)
+PASS ①e1 每个实现函数体都找得到(找不到 = 本条静默失效;got [])
+PASS ①e2 会回 propose_required 的管家工具至少 8 个(推导链没断;got 13)
+PASS ①e 凡会回 propose_required 的工具都在 STEWARD_ACTION_HOOKS 里(否则「管家提了按钮、按下去报错」;got [])
+PASS ①f 五个写类定时任务工具都在 act 表里(got missing [])
+PASS ①f2 只读的 steward_schedule_list 不进 act 表
+PASS ①f3 五个都有人话标签(按钮上不吐内部 id;got [])
+PASS ①g0 找得到 stewardNormalizeAct(找不到 = 本条静默失效)
+PASS 67 setup cannot become an executable act or a model-forged navigation
+PASS ①g acts 归一化时按 STEWARD_ACTION_HOOKS 过滤(不在表里的工具不许变成按钮 —— 否则「按下去报错」;漏网 [])
+PASS ①g2 丢掉时记一条审计(这件事修前在界面上是静默失败,至少要数得出来)
+PASS ② 全部 steward_* 条目 paths === null
+PASS ② 全部 steward_* 条目带非空 guardNote
+PASS ② handler 体零 require(、零 13g 内部符号(禁止前向边的机器判据)
+PASS ② 每个 handler 只调它自己的 StewardHooks.<键>
+PASS ③ 06i 契约注释列出 ≥30 个预留键(116h 增 threadPrioritize 与 5 个仲裁键;got 56)
+PASS ③ 13g 填充键集 ⊇ 06i 契约注释列出的键
+PASS ③ 43 个工具的实现键全部落在 StewardHooks 上
+PASS ③ StewardHooks 至少 30 个实现键(4 个 116b 基础设施 + 26 个工具 + 116f/116-pre/116h 的运行器与仲裁键 + 116-2e 的三个基础设施键;got 76)
+PASS ③ 13g 经 Object.assign(StewardHooks, {...}) 单向填充(06i 从不引用 13g)
+PASS ④ tier 分档符合 §3.5(观察 read / 线程 edit / 决策 exec / 记忆 edit)
+PASS ④ 全部 steward_* 归 pack 'steward'
+PASS ④ TOOL_PACK_DESCRIPTIONS 含 steward 包说明
+PASS ④ toolPackForName('steward_decide') === 'steward'
+PASS ⑤ 面 1:07 buildOpenAiTools 有 isStewardToolName 门(fail-closed 默认不 offer)
+PASS ⑤ 面 2:13 MCP tools/list 桥有 isStewardToolName 门(身份来自注入的 WCW_SESSION_KIND,缺失即隐藏)
+PASS ⑤ 面 3:11 adaptiveCatalogForMcp 有 isStewardToolName 门
+PASS ⑤ 面 4:13 /api/status 工具清单无条件排除 steward_*
+PASS ⑤ 回环:普通会话 buildOpenAiTools 零 steward_*(got 0)
+PASS ⑤ 回环:管家会话 buildOpenAiTools 拿到 43 个 steward_*(got 43)
+PASS ⑤b 回环:offer 出去的那一份与四张登记表【逐名】相同(缺: 无;多: 无)
+PASS ⑤ 13g 门控壳含 steward.forbidden / steward.disabled 两个稳定信封
+PASS ⑤ 13g 身份判定读【显式】session.kind === 'steward'(不经 sessionKind 归一)
+PASS ⑥ 06i 的五态判定表与 public/js/mission-state.js 的 RULES 同 id、同顺序(抄写件,非第二套状态机)
+PASS ⑥ 速查是 kind 不是 state:{"kind":"quick_ask","activeTurn":true,"ledgerless":true,"turnSeq":1} 两边都是 running(服务端 running / 前端 running)
+PASS ⑥ 速查是 kind 不是 state:{"kind":"quick_ask","pending":{"questions":1}} 两边都是 needs_you(服务端 needs_you / 前端 needs_you)
+PASS ⑥ 06i 注明抄写来源(改判据必须两边同改)
+PASS 附 永久豁免正则命中对外发送类工具名
+PASS 附 永久豁免命中 send_email
+PASS 附 永久豁免命中 post_message
+PASS 附 永久豁免命中 sms_send
+PASS 附 永久豁免命中 pay_invoice
+PASS 附 永久豁免命中 purchase_item
+PASS 附 永久豁免命中 transfer_funds
+PASS 附 永久豁免命中 uninstall_app
+PASS 附 永久豁免命中 install_pkg
+PASS 附 永久豁免命中 registry_write
+PASS 附 永久豁免命中 system_setting_set
+PASS 附 永久豁免命中 shutdown_host
+PASS 附 永久豁免命中 format_disk
+PASS 附 永久豁免不误伤 file_read
+PASS 附 永久豁免不误伤 git_status
+PASS 附 永久豁免不误伤 todo_write
+PASS 附 委托书:用户原话逐字在最前(含尖括号,不被中和)
+PASS 附 委托书:管家补充里的尖括号被中和(128f 起是全角 ＜＞,不再是方括号 —— 「A > B」仍读得出是大于)
+PASS 附 委托书:补充放在管家围栏内并标注 added-by
+PASS 附 委托书:无补充时不吐围栏(原话 === 整条消息)
+PASS 附 委托书:补充超 1200 字截断并标注 truncated
+PASS 附 记忆去重:同句 Jaccard === 1
+PASS 附 记忆去重:无关句 Jaccard < 0.8
+PASS ⑦ userPressed 只出现在 06i / 13g 族 / 13h 族里
+PASS ⑦ 全仓只有一处把 userPressed 置 true(13h 族的 act 执行路径;got 1)
+PASS ⑦ 那一处所在的路由就是 POST /api/steward/act
+PASS ⑦ 13g 族里恰好三处读 ctx.userPressed(config_set / skill_toggle 的须确认判定 + thread_permission 的桌面放宽;got 3)
+PASS ⑦ 落点逐名对账:13l 两处(设置族与内容管理族)+ 13k 一处(桌面放宽);got {"13k-steward-threads.js":1,"13l-steward-ops.js":2}
+PASS ⑦ 13k 那一处就写在 stewardImplThreadPermission 的函数体里(不是散在别的线程族工具上)
+PASS ⑦ 而且它【只在放宽方向上】读:userPressed 那道闸整个住在 `wantDesktop === true` 的分支里面
+PASS ⑦ 反向:档位轴的只降不升判定(stewardMayTightenTo)与 userPressed 之间没有任何耦合
+PASS ⑦ 门控壳剥 args.userPressed 那一处仍在 13g(唯一执行点,拆分没把它挪走)
+PASS ⑦ 权限门(07 nativeToolGate)与授权书(06f)源码里零 userPressed —— 按钮不等于扩权
+PASS ⑦ 06i 里 userPressed 只出现在契约注释,不出现在任何一行代码
+PASS ⑧ stewardValidateCwd 只定义一次(got 1)
+PASS ⑧ stewardValidateCwd 在 13k 出现 2 次 = 定义 1 + 选择顺序里调 1(got 2)
+PASS ⑧ stewardResolveThreadCwd 只定义一次(got 1)
+PASS ⑧ stewardResolveThreadCwd 出现 3 次 = 定义 1 + 调用 2(got 3)
+PASS ⑧ 取到 stewardImplThreadNew / stewardImplQuickAsk / stewardResolveThreadCwd 三个函数体
+PASS ⑧ thread_new 函数体里恰好一处调用选择顺序(带上 missionId;got 1)
+PASS ⑧ quick_ask 函数体里恰好一处调用选择顺序(速查不进事项;got 1)
+PASS ⑧ 两个工具入口不再各自直调校验(校验只在选择顺序里,不许绕开选择顺序另起一路)
+PASS ⑧ 选择顺序第 ① 步就是校验 args.cwd,不合法原样拒(不静默回落)
+PASS ⑧ 全 src 零「cwd: args.cwd ? String(args.cwd)」原样透传
+PASS ⑧ 归一化复用 01-config 的 normalizeWorkspacePathString(与 workspaces 清洗同一口径)
+PASS ⑨ STEWARD_WORKSPACE_TABLE_MAX 在 06i 只定义一次(got 1)
+PASS ⑨ 没有第二个模块另立同名常量
+PASS ⑨ 13k 的拒绝文案读同一个常量
+PASS ⑨ 13o 的候选表投影读同一个常量
+PASS ⑨ 提交① 的 STEWARD_CWD_CANDIDATES_MAX 已零残留
+PASS ⑩ 取到 stewardWorkspaceTableBlock 函数体
+PASS ⑩ 投影函数体里零「allowOutsideWorkspace」
+PASS ⑩ 投影函数体里零「additionalDirectories」
+PASS ⑩ 投影函数体里零「recentWorkspaces」
+PASS ⑩ 投影函数体里零「defaultWorkspace」
+PASS ⑩ 投影函数体里零「apiKey」
+PASS ⑩ 只读标的判据写死 `write === false`(缺字段的老配置默认可写,不能反过来)
+PASS ⑪ WORKSPACE_TABLE_CAP 在 01-config 只定义一次(got 1)
+PASS ⑪ 没有第二个模块另立同名常量
+PASS ⑪ 取到 01-config 的 workspaces 清洗块
+PASS ⑪ 清洗块唯一那支循环读一次同一个常量(原始行与 to:10 种子行共用,got 1)
+PASS ⑪ 取到 CONFIG_MIGRATIONS 的 to:10 播种条,它把种子行交给清洗块
+PASS ⑪ to:10 播种条不另立帽子(截断只在清洗块那一处)
+PASS ⑪ 清洗块代码行里零裸字面量帽子
+PASS ⑪ 反向:常量没被悄悄改回 20
+PASS ⑪ 退役的帽检查在全 src 零残留(stewardWorkspaceTableFull / workspace_table_full)
+PASS ⑪ 取到 stewardClaimDerivedWorkspace 函数体
+PASS ⑪ 派生登记写的是如意自己那张表(stewardManagedWorkspaces)
+PASS ⑪ 反向:派生不再往 workspaces[](用户的常用工作区)里写任何一行
+PASS ⑪ 建目录与登记仍在同一个 mutateConfig 串行段里(要么行落盘、要么不算派生成)
+PASS ⑪ STEWARD_MANAGED_WORKSPACES_CAP 在 01-config 只定义一次(got 1)
+PASS ⑪ 如意那张表满员时从最老的一行起丢(slice(-CAP)),不是拒
+PASS ⑪ 清洗块在 `config.workspaces = clean` 落定之前调一次迁出/收编(常用工作区里不留如意的目录)
+PASS ⑫ 扫得到管家族文件（实得 8 个；扫不到 = 本条静默失效）
+PASS ⑫ 管家族里真的在用那一个判据 memoryIsExpired（实得 4 个文件；一个都没有 = 过滤被摘掉了）
+PASS ⑫ 管家族不许自己解析 expiresAt —— 判据只有 06d 的 memoryIsExpired 一处
+PASS ⑫b stewardReadMemoryStore 在 src/ 出现 7 次 = 定义 1 + 调用点 6(实得 7;扫不到 = 本条静默失效)
+PASS ⑫b 库读取只有一处实现(实得 1 处定义)
+PASS ⑫b 调用点 6 个(实得 6 个:13g-steward.js:336、13g-steward.js:423、13j-steward-tool-base.js:420、13k-steward-threads.js:1134、13l-steward-ops.js:863、13o-steward-runner-prompt.js:289)
+PASS ⑫b 取函数体的尺子本身有效 —— 每个调用点都落在自己那个顶层函数体内
+PASS ⑫b 每个读取口要么自己滤过期(调 06d 的 memoryIsExpired)、要么在白名单里带理由
+PASS ⑫b 白名单里零僵尸条目(每条都对得上一个真实调用点)
+PASS ⑫b 白名单逐条带理由,不是一张光秃秃的名单
+PASS ⑫b 13l-steward-ops.js:stewardImplMemorySearch 自己滤过期(不许用白名单绕过)
+PASS ⑫b 13o-steward-runner-prompt.js:stewardPreroute 自己滤过期(不许用白名单绕过)
+PASS ⑬ 管家族里真的在用那一个作用域判据 stewardMemoryScopeMatches（实得 3 个文件；一个都没有 = 过滤被摘掉了）
+PASS ⑬ 管家族不许自己算项目键 —— 键只由 13j 那一处从 06d 的 projectKeyForCwd 推
+
+STEWARD TOOLS STATIC E2E: ALL PASS

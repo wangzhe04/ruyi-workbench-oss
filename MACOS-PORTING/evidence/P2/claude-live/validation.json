@@ -1,0 +1,86 @@
+{
+  "date": "2026-11-06",
+  "baselineSha": "47dca69820124a33da8e7682f23d87ef5c9583fb",
+  "cli": "@anthropic-ai/claude-code@2.1.318",
+  "checks": [
+    {
+      "name": "claude-local",
+      "command": [
+        "node",
+        "dev-harness/claude-binary-live.e2e.js",
+        "--local-model"
+      ],
+      "exitCode": 0,
+      "seconds": 2.1,
+      "log": "claude-local.txt"
+    },
+    {
+      "name": "claude-path-isolation",
+      "command": [
+        "node",
+        "dev-harness/claude-binary-live.e2e.js",
+        "--local-model"
+      ],
+      "exitCode": 0,
+      "seconds": 2.1,
+      "log": "claude-path-isolation.txt",
+      "environment": "PATH-only real CLI; conflicting owned config/data/XDG root and cloud route flags; no real credentials",
+      "parentConfigUnchanged": true
+    },
+    {
+      "name": "probe-syntax",
+      "command": [
+        "node",
+        "--check",
+        "dev-harness/claude-binary-live.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0,
+      "log": "probe-syntax.txt"
+    },
+    {
+      "name": "fixture-home",
+      "command": [
+        "node",
+        "dev-harness/fixture-home.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.9,
+      "log": "fixture-home.txt"
+    },
+    {
+      "name": "build-check",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.2,
+      "log": "build-check.txt"
+    }
+  ],
+  "implementationCommit": "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7",
+  "finalSummary": {
+    "absolutePathPassed": 6,
+    "pathIsolationPassed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "modelRequestsPerRun": 5,
+    "fixtureHomeStaticPassed": true
+  },
+  "inheritedEngineeringGates": {
+    "implementationCommit": "8ebb6638",
+    "evidence": "../cli-live/validation.json",
+    "unitPassed": 2490,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "reason": "Production app unchanged; only manual live probe plus fixture count changed. Updated fixture-home static and current syntax/build checks passed.",
+    "productionTreeDiffExit": 0
+  },
+  "developmentNotes": [
+    "Ignoring npm lifecycle scripts leaves an ASCII placeholder; real official optional-package Mach-O is invoked directly",
+    "Independent review fixed probe-only root/cloud/XDG isolation, PATH existence assumption and legacy Windows skip; no product regression found"
+  ],
+  "temporaryCliCleanup": "Task-only Kimi/Claude npm prefixes, cache, isolated homes and owned sentinel removed after final process check; no repository runtime dependency added"
+}

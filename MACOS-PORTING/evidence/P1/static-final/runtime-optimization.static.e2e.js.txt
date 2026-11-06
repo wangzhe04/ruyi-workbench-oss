@@ -1,0 +1,209 @@
+
+── [S] feature flags and wiring ──
+PASS S master shadow defaults true
+PASS S runtimeSessionNotesV1 defaults true after 105b real-history gate
+PASS S runtimeSummaryEntityCheckV1 defaults true after 105c real-history + DeepSeek gate
+PASS S runtimeSummaryEntityCheckV1 入严格布尔 sanitize 表
+PASS S summaryEntityCheckEnabled 唯一判定点存在
+PASS S runtimeSessionNotesInjectV1 defaults true after 105d real-history gate
+PASS S runtimeSessionNotesMergeV1 defaults true after 105d real-history gate
+PASS S 105d 两开关入严格布尔 sanitize 表
+PASS S 105d 两开关唯一判定点存在
+PASS S runtimeEstimateBucketsV1 defaults true (105e 动态压缩门已过,显式 false 回退)
+PASS S runtimeEstimateBucketsV1 入严格布尔 sanitize 表(105c/105d 邻接不动;105f 顺排其后)
+PASS S estimateBucketsEnabled 唯一判定点存在
+PASS S 105e 镜像 setter + 三桶分类器存在
+PASS S rules estimation 块(json 2.8 / code 3.2)在产物 fallback 内
+PASS S 入口镜像刷新接线(runOpenAiTurn/runSubAgentCore;maybeAutoCompact 唯一调用点在回合内,不重复刷新)
+PASS S runtimeSummarySingleShotV1 defaults true (105f 历史派生模拟门已过)
+PASS S runtimeSummarySingleShotV1 入严格布尔 sanitize 表(105e 邻接不动;105g 顺排其后)
+PASS S summarySingleShotEnabled 唯一判定点存在
+PASS S 单发上限默认 32768 且 sanitize 钳位 [8192,131072](无无限档)
+PASS S 105f 上限解析(provider/model/style 覆盖) + reserve 预算助手存在(126-111d 起带 config)
+PASS S rules singleShotReserve/singleShotCap 块在产物 fallback 内(expectedOutputTokens 随 c7d2507 摘要策略 2048->6144 重钉)
+PASS S 105f 仅可识别上下文超窗 400 才降级,其余失败原样上浮
+PASS S 105f 降级标记落 mapReduce 元数据(失败调用成本可归因)
+PASS S runtimeSummaryFactTableV1 defaults true (105g 真实历史 A/B 门已过,显式 false 回退)
+PASS S runtimeSummaryFactTableV1 入严格布尔 sanitize 表(105f 邻接不动;105h 顺排其后)
+PASS S summaryFactTableEnabled 唯一判定点存在
+PASS S 105g 事实表甜点位上限配置与唯一解析点存在(超长历史门选 64)
+PASS S 105g 事实表构建助手存在(复用 105c 抽取器,零 LLM 调用)
+PASS S rules factTable 块(maxSamples 64)在产物 fallback 内
+PASS S 105g 分段注入守门(null 时请求体逐字节不变)
+PASS S 105g 事实表元数据落 mapReduce.factTable
+PASS S runtimeSummaryRefineV1 总门无净收益,默认关闭
+PASS S runtimeSummaryRefineV1 入严格布尔 sanitize 表(105g 邻接不动;106 #13a 顺排其后)
+PASS S summaryRefineEnabled 唯一判定点存在
+PASS S rules refine 块(maxChunks 4)在产物 fallback 内
+PASS S runtimeBudgetGuardV1 默认关闭(106 波逐项取证,未过门不启用)
+PASS S 106 六开关入严格布尔 sanitize 表(105h 邻接不动;#13a/#1/#2a 顺排,failureTelemetry 殿后)
+PASS S #13a 预算默认 0(不设)且预警比例缺省 0.8
+PASS S #13a 唯一判定点与阈值解析存在
+PASS S #13a 决策纯函数(预警/预留/触顶)存在且接入迭代边界
+PASS S #13a 触顶暂停 until-done(复用 Mission 控制面,降 supervised 非报错)
+PASS S 13a-t shadow/主动双开关默认关闭
+PASS S 13a-t 双开关唯一判定点存在
+PASS S 13a-t 硬终态复用 toolAbort 杀树路径(不造第二套控制器)
+PASS S 13a-t 04 中断原因感知(仅新原因走专用文案,旧原因逐字节不变)
+PASS S 13a-t 字节轴只计数不改写(20-C1 High 未解除)
+PASS S #1 G1 默认关闭、G2 真实 provider 门后默认开启
+PASS S #1 两开关唯一判定点存在
+PASS S G1 尾部布局复用 appendPromptToLastUserMessage(与 recall/notes 同位)
+PASS S G1 shadow 双布局构建(candidate 只计量不发送)
+PASS S G1 layout_shadow 事件含双布局 stablePrefixChars(E4 §7.3)
+PASS S G2 会话级冻结表与冻结事件存在(init/append/cache_break)
+PASS S G2 freezeKey=session.id 接入主循环唯一调用点
+PASS S #2a 大文件真实门后默认开启、条数上限缺省 200(显式 false 回退)
+PASS S #2a 唯一判定点存在(开关×上限双门)
+PASS S #2a 白名单首批仅 file_read(版本明确的本地只读,22 §6.1)
+PASS S #2a 缓存挂在守卫之后读盘之前(命中仍重新验权)
+PASS S #2a 资源版本 mtimeMs+size 失效(外部写入/删除/重建覆盖)
+PASS S #2a 命中结果带 cacheHit 诚实标记(不冒称重新执行)
+PASS S #2a 竞态/中断结果不缓存
+PASS S runtimeToolRetrievalV1 defaults false
+PASS S strict boolean normalization present (runtimeToolRetrievalV1)
+PASS S runtimeFailureTelemetryV1 defaults false
+PASS S strict boolean normalization present (runtimeFailureTelemetryV1)
+PASS S runtimeObservationReducerV1 defaults true after 105a real-history adoption gate
+PASS S strict boolean normalization present (runtimeObservationReducerV1)
+PASS S runtimeObservationRecallV1 defaults true after 105a real-history adoption gate
+PASS S strict boolean normalization present (runtimeObservationRecallV1)
+PASS S OpenAI catalog uses shared T1 ranker
+PASS S Claude/MCP catalog uses shared T1 ranker
+PASS S F1 classification runs under the master shadow switch
+PASS S F1 shadow slice contains no recovery executor
+
+── [T1] deterministic hybrid retrieval ──
+PASS T1 source block found
+PASS T1 Chinese implicit intent ranks symbol search first
+PASS T1 explain exposes matched fields
+PASS T1 JSON Schema parameter terms participate in ranking
+PASS T1 exact name boost + permission explanation
+PASS T1 flag off preserves legacy result shape
+PASS T1 shadow evaluates v1 without exposing the raw query
+
+── [C1] deterministic observation reduction ──
+PASS C1 source block found
+PASS C1 large JSON becomes a smaller structured model view with rawRef
+PASS C1 write/checkpoint evidence is protected
+PASS C1 reducer runs only on old observations and emits metadata
+PASS C1 keeps tool-call pairing intact
+PASS C1 flag off keeps legacy evaporation behavior
+PASS C1 shadow measures a copied history without mutating the live prefix
+
+── [F1] deterministic classification ──
+PASS F1 read timeout → transient_read
+PASS F1 mutating timeout → side_effect_unknown
+PASS F1 schema error → invalid_arguments
+PASS F1 permission denial is not auto-recoverable
+PASS F1 successful calls produce no failure record
+PASS F1 structured exec timeout stays side-effect-safe
+PASS F1 non-zero process result → execution_failed
+PASS F1 stale edit anchor → edit_conflict
+PASS F1 required named input → invalid_arguments
+PASS F1 product guard → policy_blocked
+PASS F1 expired runtime handle → resource_not_found
+PASS F1 mutating transport ambiguity never becomes retry_once
+PASS F1 ok:true warning does not become a failure
+PASS F1 v3 telemetry exposes version but not raw stderr
+PASS F1 v3 web 403 → remote_blocked(不再是 permission_denied/request_authority)
+PASS F1 v3 web 404 → resource_not_found
+PASS F1 v3 mutating disconnect stays side_effect_unknown before any new rule
+PASS F1 v3 tier-mismatch → invalid_arguments
+PASS F1 v3 no new rule maps an edit/exec result to retry_once
+
+── [E0] three-layer call ledger shadow (21) ──
+PASS E0 economics shadow defaults true (sampled)
+PASS E0 model_call started/completed events wired
+PASS E0 assistant_tool_batch event wired
+PASS E0 tool_call/tool_phase completed events wired
+PASS E0 sampling + per-turn event cap present
+PASS E0 provider response id surfaced from stream layer
+PASS E0 usage source distinguishes provider-reported vs estimated
+PASS E0 tool_call_completed carries the three-layer link
+PASS E0 economics shadow is not an opt-in-only flag
+
+── [E2] bounded read scheduler wiring (21) ──
+PASS E2 active scheduler defaults false
+PASS E2 default concurrency 4
+PASS E2 strict boolean gate in the tool loop
+PASS E2 concurrency formula = min(8, max(4, width)) (decision B)
+PASS E2 phase event exposes pool_read strategy
+PASS E2 resource-queue wait measured
+PASS E2 active flag is not defaulted on
+
+── [E5] meta-tool convergence wiring (21) ──
+PASS E5 meta hints default false
+PASS E5 search hint builder present (requiredArgs/callHint/state/blockedReason)
+PASS E5 hints gated on strict boolean
+PASS E5 discoverySeq chain state present
+PASS E5 searchSeq/discoverySeq emitted into the ledger
+PASS E5 todo dedupe returns unchanged on identical content
+PASS E5 deduped flag lands in tool_call_completed
+PASS E5 meta hints are not defaulted on
+
+── [E3] action-argument model view wiring (21) ──
+PASS E3 action model view defaults false
+PASS E3 projection block present (whitelist + threshold)
+PASS E3 buildBody consumes the privacy history projection followed by the action view
+PASS E3 sha256 tamper gate on projection
+PASS E3 audit capped (no unbounded growth)
+PASS E3 failed actions never projected
+PASS E3 action model view is not defaulted on
+
+── [F1] 126-111a · L1 蒸发边界改 token 预算 ──
+PASS F1 开关默认关
+PASS F1 没有在别处被默认翻开
+PASS F1 判定函数存在(唯一判定口)
+PASS F1 单元起点判据存在(不会把 assistant 与它的 tool 回复劈开)
+PASS F1 保护区三个数来自规则文件(值域唯一,代码里不写死)
+PASS F1 扫得到 boundaryBudget 赋值点（实得 2 处；扫不到 = 本条静默失效）
+PASS F1 每一处 boundaryBudget 都由 evaporateBudgetBoundaryEnabled 把门
+
+── [F2] 126-111e · 历史内重复读取去重 ──
+PASS F2 开关默认开(107-T1 起;要关回去在 config.json 里显式写 false)
+PASS F2 开关默认点全仓恰好一处（实得 1 处；>1 = 别处又写了一遍,0 = 默认点没了/本条静默失效）
+PASS F2 判定函数存在(唯一判定口)
+PASS F2 去重键 = 路径 ＋ 文件正文的哈希（不是「路径＋mtime＋size」那种版本推断 → 零误报）
+PASS F2 指针有独立前缀且被跳过(幂等)
+PASS F2 指针带 rawRef —— 换掉的是重复不是信息,原件一直回查得到
+PASS F2 扫得到 dedupeReads 赋值点（实得 2 处；扫不到 = 本条静默失效）
+PASS F2 每一处 dedupeReads 都由 historyReadDedupEnabled 把门
+
+── [F3] 126-111d · 摘要 prompt 双语与标题容错 ──
+PASS F3 开关默认开(107-T1 起;要关回去在 config.json 里显式写 false)
+PASS F3 开关默认点全仓恰好一处（实得 1 处；>1 = 别处又写了一遍,0 = 默认点没了/本条静默失效）
+PASS F3 判定函数存在(唯一判定口)
+PASS F3 「什么算英文界面」全仓恰好两处同样的写法（06b 的 getPromptPack ＋ 10 的抄写件；实得 2 处）
+PASS F3 其中一处就在 06b 的 getPromptPack 里（抄的是它，不是凭空一条）
+PASS F3 另一处在 summaryPromptIsEnglish 里，且仍然先过 summaryPromptI18nEnabled 这道开关
+PASS F3 英文那份缺失时回落中文(rules 缺键不静默变成空 prompt)
+PASS F3 取话口带 config(否则拿不到 locale)
+PASS F3 标题归一只有一处写法（实得 1）
+PASS F3 标准与Markdown粗体标题确实通过实际摘要校验
+PASS F3 归一之后按【行首】匹配 —— 正文里顺嘴提一句不算数
+
+── [F4] 126-111b · L2 尾部单元边界＋桥接 ──
+PASS F4 开关默认开(107-T1 起;要关回去在 config.json 里显式写 false)
+PASS F4 开关默认点全仓恰好一处（实得 1 处；>1 = 别处又写了一遍,0 = 默认点没了/本条静默失效）
+PASS F4 判定函数存在(唯一判定口)
+PASS F4 边界函数带 byUnits(已过门的布尔,函数体不读开关)
+PASS F4 **只在「一个 user 回合都装不下」时才退化** —— 装得下时逐字节走老路
+PASS F4 退化时用的是 111a 那个单元起点原语(切口永远不落在 tool 上)
+PASS F4 桥接文案在场
+PASS F4 扫得到 CompactionPlan 里那唯一的边界调用（实得 1 处）
+PASS F4 那一处由 reseedTailUnitsEnabled 把门；实得：const boundary = recentTurnsBoundary(history, tailBudget, reseedTailUnitsEnabled(options.config));
+PASS F4 自动压缩唯一的 reseed 出口挂了配对安全网且由开关把门（实得 1 处）
+
+── [F5] 126-111c · 重播种后重附最近读过的文件 ──
+PASS F5 开关默认关
+PASS F5 没有在别处被默认翻开
+PASS F5 判定函数存在(唯一判定口)
+PASS F5 四个界都来自规则文件(值域唯一,代码里不写死)
+PASS F5 扫得到 recentFiles 的那唯一赋值点（实得 1 处）
+PASS F5 它由 reseedReattachFilesEnabled 把门；实得：recentFiles: reseedReattachFilesEnabled(options.config) ? recentFileReads(history, budget) : [],
+PASS F5 扫得到 recentFileReads 的函数体（实得 1572 字；扫不到 = 本条静默失效）
+PASS F5 **重附零磁盘读取** —— 内容只取自手里这份历史
+PASS F5 同一个文件再读一遍要先 delete 再 set —— 否则「最近优先」是假的(Map.set 不挪已存在的键)
+
+RUNTIME-OPTIMIZATION E2E: ALL PASS

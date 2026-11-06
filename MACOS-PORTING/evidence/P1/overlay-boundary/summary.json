@@ -1,0 +1,58 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1114,
+    "fail": 0
+  },
+  "overlayE2E": {
+    "runs": 2,
+    "passPerRun": 15,
+    "fail": 0
+  },
+  "independentTests": {
+    "overlayBoundary": 15
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "e1b655505a920db35bf167c915779c7e5b58f77624de3905b0f82d4b44e115b3",
+    "ruyi-workbench/app/src/13c-overlay-routes.js": "1526ae2f03b56ca7b1a2d890718478ebacdcdeb5bb8e1b1f2d59a57e3e058c45",
+    "ruyi-workbench/app/public/js/settings-operations.js": "0602c3f4a08d7b19e9dc938806526e25ce2b3540db254dc3fc10c2d0a075dc18",
+    "ruyi-workbench/app/public/locales/zh-CN.json": "85f0a666f429a44145208c37c33fc374152b77e7196fc71d08dd2fc79796dfab",
+    "ruyi-workbench/app/public/locales/en-US.json": "8c0e8766c6059e47c48ab951f19b315c8145acfa2115c3d08a3781c6a7cf27b4",
+    "dev-harness/macos-overlay-boundary.e2e.js": "4832efc0d560c912d8082e295a8aeee3e3822b2c112d867c854313efe5ec28c3"
+  },
+  "correctedValidationFailures": [
+    "Synchronized required docs/i18n locale mirrors",
+    "Registered the new isolated service spawn in fixture-home inventory: 222 to 223"
+  ],
+  "limitations": [
+    "Actual frontend ES modules tested against minimal DOM, no screenshot",
+    "Windows overlay execution not run"
+  ],
+  "remaining": [
+    "Detached host opener completion semantics and actual Finder",
+    "Shared probe and JS worker cancellation",
+    "Real FFmpeg and clean installation",
+    "Remaining paths/lifecycle",
+    "Windows/macOS14 same-SHA evidence"
+  ]
+}

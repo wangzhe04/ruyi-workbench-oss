@@ -96,7 +96,8 @@ function completeBackgroundJob(shellId, sess) {
   if (!fs.existsSync(sessionPath(sess.sessionId))) return;
   const job = {
     id: sess.jobId, shellId, name: sess.name, sessionId: sess.sessionId,
-    status: sess.cancelled ? 'cancelled' : sess.timedOut ? 'timed_out' : sess.exitCode === 0 ? 'succeeded' : 'failed',
+    status: sess.cleanup?.incomplete ? 'failed' : sess.cancelled ? 'cancelled' : sess.timedOut ? 'timed_out' : sess.exitCode === 0 ? 'succeeded' : 'failed',
+    ...shellCleanupFields(sess),
     exitCode: sess.exitCode, output: shellStripClixml(sess.buf).slice(-6000), truncated: sess.baseOffset > 0 || sess.buf.length > 6000,
     completedAt: nowIso(),
   };
@@ -332,6 +333,132 @@ const SHELL_GLOBAL_MAX = 12;
 // 编码后超过这个值直接给人话,不让 CreateProcess 抛「文件名或扩展名太长」。≈ 12000 字符的命令。
 const SHELL_ENCODED_COMMAND_MAX = 32000;
 
+// Command input is NUL-delimited; completion metadata uses fd 4, separate from stdout/stderr.
+const MAC_SHELL_DRIVER = [
+  'function __ruyi_report() {',
+  '  __ruyi_cwd="$(builtin pwd -P; builtin printf .)"',
+  '  __ruyi_cwd="${__ruyi_cwd%.}"',
+  '  __ruyi_cwd="${__ruyi_cwd%$\'\\n\'}"',
+  '  builtin printf "%s\\0%s\\0%s\\0" "$1" "$2" "$__ruyi_cwd" >&4',
+  '}',
+  '__ruyi_report 0 0',
+  'while IFS= builtin read -r -d "" __ruyi_id && IFS= builtin read -r -d "" __ruyi_command; do',
+  '  builtin eval "$__ruyi_command" </dev/null 4>&-',
+  '  __ruyi_status=$?',
+  '  __ruyi_report "$__ruyi_id" "$__ruyi_status" || exit 125',
+  'done',
+].join('\n');
+const MAC_SHELL_COMMAND_MAX_BYTES = 1024 * 1024;
+const macShellSendChains = new Map();
+
+function bindMacShellProtocol(sess) {
+  const channel = sess.child.stdio[4];
+  let buffer = '';
+  let resolveReady;
+  sess.protocolReady = new Promise(resolve => { resolveReady = resolve; });
+  sess.commandSequence = 0;
+  const fail = () => {
+    sess.protocolError = 'shell_protocol_invalid';
+    buffer = ''; channel.destroy();
+    resolveReady({ ok: false });
+    if (sess.pendingCommand) { sess.pendingCommand.resolve(); sess.pendingCommand = null; }
+    killChildTree(sess.child);
+  };
+  channel.setEncoding('utf8');
+  channel.on('error', fail);
+  channel.on('end', () => { sess.protocolClosed = true; resolveReady({ ok: false }); channel.destroy(); });
+  channel.on('data', chunk => {
+    buffer += chunk;
+    if (buffer.length > 8192) { fail(); return; }
+    for (;;) {
+      const parts = buffer.split('\0');
+      if (parts.length < 4) return;
+      const [id, status, cwd] = parts;
+      buffer = parts.slice(3).join('\0');
+      if (!/^\d+$/.test(id) || !/^\d+$/.test(status) || Number(status) > 255 || !path.isAbsolute(cwd)) { fail(); return; }
+      if (id === '0' && !sess.protocolStarted) {
+        sess.protocolStarted = true; sess.cwd = cwd; resolveReady({ ok: true }); continue;
+      }
+      if (!sess.pendingCommand || sess.pendingCommand.completing || id !== String(sess.pendingCommand.id)) { fail(); return; }
+      const pending = sess.pendingCommand;
+      pending.completing = true;
+      // Keep the command busy while ready stdout/stderr callbacks drain across the private-fd boundary.
+      setImmediate(() => setImmediate(() => {
+        if (sess.pendingCommand !== pending) return;
+        sess.cwd = cwd;
+        sess.lastCommandExitCode = Number(status);
+        pending.resolve(); sess.pendingCommand = null;
+      }));
+    }
+  });
+  sess.child.once('close', () => {
+    resolveReady({ ok: false });
+    if (sess.pendingCommand) { sess.pendingCommand.resolve(); sess.pendingCommand = null; }
+  });
+}
+
+async function sendMacShell(sess, args, ctx) {
+  const signal = ctx && ctx.signal;
+  if (signal?.aborted) return { ok: false, interrupted: true, running: sess.running, error: 'shell 命令在发送前已取消' };
+  if (sess.protocolError || sess.protocolClosed) return { ok: false, error: sess.protocolError || 'shell_protocol_closed', running: sess.running };
+  if (sess.pendingCommand) return { ok: false, error: '上一条命令仍在执行，请用 shell_poll 查看或 shell_kill 取消', running: true, commandRunning: true };
+  const input = String(args.input == null ? '' : args.input);
+  if (input.includes('\0') || Buffer.byteLength(input, 'utf8') > MAC_SHELL_COMMAND_MAX_BYTES) {
+    return { ok: false, code: 'invalid_args', error: '命令不能包含 NUL，且 UTF-8 内容不得超过 1MiB' };
+  }
+  const startCursor = shellEndOffset(sess);
+  if (!sess.running) return shellSendResult(sess, shellSliceFrom(sess, startCursor), args, 'exit');
+  let resolveCommand;
+  const done = new Promise(resolve => { resolveCommand = resolve; });
+  sess.pendingCommand = { id: ++sess.commandSequence, resolve: resolveCommand };
+  sess.lastCommandExitCode = undefined;
+  sess.lastUsedAt = Date.now();
+  sess.child.stdin.write(String(sess.commandSequence) + '\0' + input + '\0', error => {
+    if (error) {
+      sess.protocolError = 'shell_input_failed';
+      if (sess.pendingCommand) { sess.pendingCommand.resolve(); sess.pendingCommand = null; }
+      killChildTree(sess.child);
+    }
+  });
+  let timer;
+  let abortHandler;
+  let interrupted = false;
+  const aborted = new Promise(resolve => {
+    abortHandler = () => {
+      interrupted = true;
+      void stopMacShell(String(args.shellId), sess).then(resolve, resolve);
+    };
+    if (signal) signal.addEventListener('abort', abortHandler, { once: true });
+  });
+  const timeoutMs = Math.min(120000, Math.max(1000, Number(args.timeoutMs) || 10000));
+  try { await Promise.race([done, aborted, new Promise(resolve => { timer = setTimeout(resolve, timeoutMs); })]); }
+  finally { clearTimeout(timer); if (signal) signal.removeEventListener('abort', abortHandler); }
+  const settled = sess.pendingCommand ? 'timeout' : sess.running ? 'completed' : 'exit';
+  sess.lastUsedAt = Date.now();
+  const result = shellSendResult(sess, shellSliceFrom(sess, startCursor), args, settled);
+  if (interrupted) return { ...result, ok: false, interrupted: true, error: 'shell 命令已取消', ...shellCleanupFields(sess) };
+  if (sess.protocolError) return { ...result, ok: false, error: sess.protocolError };
+  if (settled === 'completed' && sess.lastCommandExitCode !== 0) return { ...result, ok: false, error: '命令以退出码 ' + sess.lastCommandExitCode + ' 结束' };
+  return result;
+}
+
+async function stopMacShell(shellId, sess) {
+  sess.cancelled = true;
+  killChildTree(sess.child);
+  const cleanup = await ProcessRuntime.waitForCleanup(sess.child);
+  sess.cleanup = cleanup || { scope: 'unknown', incomplete: true };
+  if (sess.cleanup.incomplete) return { ok: false, error: 'shell 子进程清理尚未确认完成', ...shellCleanupFields(sess) };
+  sess.running = false;
+  sess.child.stdout?.destroy(); sess.child.stderr?.destroy(); sess.child.stdio[4]?.destroy();
+  if (shellSessions.get(shellId) === sess) shellSessions.delete(shellId);
+  return { ok: true, ...shellCleanupFields(sess) };
+}
+
+function shellCleanupFields(sess) {
+  return sess.cleanup ? { cleanupScope: sess.cleanup.scope, cleanupIncomplete: sess.cleanup.incomplete,
+    cleanupEscapeCoverage: sess.cleanup.escapeCoverage, cleanupUnconfirmed: sess.cleanup.unconfirmed } : {};
+}
+
 // Spawn a persistent powershell child. Returns { ok, shellId, name, cwd } or { ok:false, error, hint }.
 // 异步:要等到子进程【真的起来了】(spawn 事件)才回 ok —— 没有 powershell.exe 时 spawn 的 ENOENT 是异步 error 事件,修前回 ok:true 却是个死会话。
 async function shellStart(args, config, ctx = {}) {
@@ -366,8 +493,38 @@ async function shellStart(args, config, ctx = {}) {
   const command = args.command == null ? '' : String(args.command).trim();
   const mode = command ? 'background' : 'interactive';
   const timeoutMs = Math.min(24 * 60 * 60 * 1000, Math.max(1000, Number(args.timeoutMs) || SHELL_IDLE_MS));
-  const launchArgs = ['-NoLogo', '-NoProfile'];
-  if (!command) {
+  const language = args.language || (process.platform === 'darwin' ? 'bash' : 'powershell');
+  if (language === 'bash' && process.platform !== 'darwin') return { ok: false, code: 'bash_unavailable', error: '本机尚未启用受管 bash 会话' };
+  const isMacShell = language === 'bash';
+  if (isMacShell) {
+    const capability = ProcessRuntime.helperCapability();
+    if (!capability.ready) return { ok: false, code: capability.code, error: 'Mac shell 的原生进程监督器尚未就绪', capability };
+  }
+  let scriptDirectory = '';
+  let startingSession = null;
+  const launchArgs = isMacShell ? ['--noprofile', '--norc'] : ['-NoLogo', '-NoProfile'];
+  if (isMacShell) {
+    if (command) {
+      if (command.includes('\0') || Buffer.byteLength(command, 'utf8') > MAC_SHELL_COMMAND_MAX_BYTES) return { ok: false, code: 'command_too_long', error: '命令不能包含 NUL，且 UTF-8 内容不得超过 1MiB' };
+      startingSession = { name, cwd, mode, platform: 'darwin', running: true, starting: true,
+        sessionId: safeSessionId(ctx?.sessionId || ctx?.session?.id || ''), buf: '', baseOffset: 0, startedAt: Date.now(), lastUsedAt: Date.now() };
+      shellSessions.set(shellId, startingSession);
+      try {
+        scriptDirectory = await fsp.mkdtemp(path.join(os.tmpdir(), 'ruyi-shell-'));
+        const script = path.join(scriptDirectory, 'command.sh');
+        await fsp.writeFile(script, command, { encoding: 'utf8', mode: 0o600 });
+        launchArgs.push('--', script);
+      } catch (error) {
+        if (shellSessions.get(shellId) === startingSession) shellSessions.delete(shellId);
+        if (scriptDirectory) await fsp.rm(scriptDirectory, { recursive: true, force: true }).catch(() => {});
+        return { ok: false, error: String(error.message || error) };
+      }
+      if (startingSession.cancelled || shellSessions.get(shellId) !== startingSession) {
+        await fsp.rm(scriptDirectory, { recursive: true, force: true }).catch(() => {});
+        return { ok: false, code: 'cancelled', error: 'shell 启动已取消' };
+      }
+    } else launchArgs.push('-c', MAC_SHELL_DRIVER);
+  } else if (!command) {
     // 交互式 shell:没有脚本可前置,用 -NoExit -Command 先跑一遍 UTF-8 输出编码前导,然后照常读 stdin(2026-10 实测:
     // 提示符与回显的格式与不带它时一致,启动时不多出任何输出)。注意不能用 -EncodedCommand:它会让 PowerShell 往 stderr
     // 写一份 CLIXML 进度对象(`#< CLIXML ...`),污染 shell_poll 的输出。前导是纯 ASCII、无需引号转义(spawn 不经 shell)。
@@ -392,10 +549,13 @@ async function shellStart(args, config, ctx = {}) {
   }
   let child;
   try {
-    child = cp.spawn('powershell.exe', launchArgs, {
-      cwd, env: { ...process.env }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    child = ProcessRuntime.spawn(isMacShell ? '/bin/bash' : 'powershell.exe', launchArgs, {
+      cwd, env: isMacShell ? platformShellEnvironment(process.env) : { ...process.env }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      ...(isMacShell && !command ? { extraStdio: ['pipe'] } : {}),
+    }, { ...ProcessRuntime.currentOwner(), kind: 'shell', sessionId: ctx?.sessionId || ctx?.session?.id || '', shellId });
   } catch (e) {
+    if (startingSession && shellSessions.get(shellId) === startingSession) shellSessions.delete(shellId);
+    if (scriptDirectory) await fsp.rm(scriptDirectory, { recursive: true, force: true }).catch(() => {});
     return { ok: false, error: (e && e.message) ? e.message : 'spawn failed' };
   }
   // shell_send 往一个刚关了 stdin 的子进程里写 → 异步 EPIPE 落在 stdin 的 'error' 上(try/catch 接不住),
@@ -404,7 +564,8 @@ async function shellStart(args, config, ctx = {}) {
   const now = Date.now();
   // 135c(线程内后台任务条):记下命令原文供界面显示 —— 先过 04 的 redact(与权限弹窗/审计同一张表),压成一行、裁 200。
   const commandShown = command ? redact(command).replace(/\s+/g, ' ').trim().slice(0, 200) : '';
-  const sess = { child, name, cwd, mode, command: commandShown, sessionId: safeSessionId((ctx && ctx.sessionId) || ''), jobId: crypto.randomBytes(12).toString('hex'), timedOut: false, buf: '', baseOffset: 0, running: true, exitCode: null, startedAt: now, lastUsedAt: now };
+  const sess = { child, name, cwd, mode, shellLanguage: language, platform: process.platform, command: commandShown, sessionId: safeSessionId(ctx?.sessionId || ctx?.session?.id || ''), jobId: crypto.randomBytes(12).toString('hex'), timedOut: false, buf: '', baseOffset: 0, running: true, exitCode: null, startedAt: now, lastUsedAt: now };
+  if (isMacShell && !command) bindMacShellProtocol(sess);
   let deadline = null;
   if (command) {
     child.stdin.end();
@@ -412,7 +573,7 @@ async function shellStart(args, config, ctx = {}) {
       if (!sess.running) return;
       sess.timedOut = true;
       shellAppend(sess, '\n[background command timed out]\n');
-      try { killChildTree(child.pid); } catch { /* already exited */ }
+      try { killChildTree(child); } catch { /* already exited */ }
     }, timeoutMs);
     deadline.unref();
   }
@@ -421,8 +582,13 @@ async function shellStart(args, config, ctx = {}) {
   // 多字节字符不会变成 U+FFFD);不带换行的尾巴(提示符、「[Y/N]」)停 150ms 没有新输出就先吐出来;关闭时 end()。
   // 2026-10 起 PowerShell 的输出编码在源头就设成 UTF-8(上面的 PS_UTF8_OUTPUT_PREAMBLE),这里的按行解码退为兜底
   // (中文系统上设置失败、原生命令自己写 GBK):UTF-8 优先的判定正好接住源头已是 UTF-8 的输出。
-  const outDecoder = createConsoleLineDecoder();
-  const errDecoder = createConsoleLineDecoder();
+  const makeDecoder = () => {
+    if (!isMacShell) return createConsoleLineDecoder();
+    const decoder = new StringDecoder('utf8');
+    return { write: data => decoder.write(data), flush: () => '', end: () => decoder.end() };
+  };
+  const outDecoder = makeDecoder();
+  const errDecoder = makeDecoder();
   let idleFlush = null;
   let exitAt = 0;
   let exitTimer = null;
@@ -432,12 +598,17 @@ async function shellStart(args, config, ctx = {}) {
     if (finalized) return;
     finalized = true;
     clearTimeout(deadline);
+    if (scriptDirectory) void fsp.rm(scriptDirectory, { recursive: true, force: true }).catch(() => {});
     if (sess.spawnFailed) return; // 根本没起来的进程不算一次「作业完成」:不弹完成通知、不留死会话(shellStart 已回 ok:false)
     if (exitTimer) { clearTimeout(exitTimer); exitTimer = null; }
     if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
     shellAppend(sess, outDecoder.end() + errDecoder.end());
     if (note) shellAppend(sess, note);
-    sess.running = false; sess.exitCode = (code === null || code === undefined ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
+    sess.running = false; sess.exitCode = (code === null || code === undefined ? null : code); sess.lastUsedAt = Date.now();
+    if (process.platform === 'darwin') {
+      sess.cleanup = ProcessRuntime.result(child);
+      void ProcessRuntime.waitForCleanup(child).then(cleanup => { sess.cleanup = cleanup; completeBackgroundJob(shellId, sess); });
+    } else completeBackgroundJob(shellId, sess);
   };
   // NE-4:后台命令的主进程已退出,但一个脱离的孙进程(gradle/adb/docker daemon、Start-Process)还占着输出管道 → 'close' 迟迟不来,
   // sess.running 永远 true:不弹完成通知、一直占 shell 会话名额、空闲收割也不碰它(它把「后台运行中」的会话当活的)。
@@ -448,7 +619,7 @@ async function shellStart(args, config, ctx = {}) {
     exitTimer = setTimeout(() => {
       exitTimer = null;
       if (finalized) return;
-      try { if (child.stdout) child.stdout.destroy(); if (child.stderr) child.stderr.destroy(); } catch { /* already closed */ }
+      try { if (child.stdout) child.stdout.destroy(); if (child.stderr) child.stderr.destroy(); if (isMacShell) child.stdio[4]?.destroy(); } catch { /* already closed */ }
       finalize(exitInfoCode, '\n[process exited; a background child kept the output pipe open — later output is not captured]\n');
     }, 500);
     if (exitTimer.unref) exitTimer.unref();
@@ -466,22 +637,30 @@ async function shellStart(args, config, ctx = {}) {
   let spawned = false;
   child.once('spawn', () => { spawned = true; });
   child.on('error', err => { clearTimeout(deadline); if (!spawned) sess.spawnFailed = true; shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
-  if (command) child.on('exit', code => { exitInfoCode = code; exitAt = Date.now(); armExitTimer(); });
+  if (command || isMacShell) child.on('exit', code => { exitInfoCode = code; exitAt = Date.now(); armExitTimer(); });
   child.on('close', code => finalize(code));
   shellSessions.set(shellId, sess);
   // 等子进程真的起来(或起不来):起不来就别留一个 running:false 的空壳,直接说明原因。
-  const spawnErr = await new Promise(resolve => {
-    if (spawned) { resolve(null); return; }
-    child.once('spawn', () => resolve(null));
-    child.once('error', e => resolve(e || new Error('spawn failed')));
-  });
+  const readiness = await ProcessRuntime.ready(child);
+  let spawnErr = readiness.ok ? null : readiness.error;
+  if (!spawnErr && isMacShell && !command) {
+    let readyTimer;
+    try {
+      const protocol = await Promise.race([sess.protocolReady, new Promise(resolve => { readyTimer = setTimeout(() => resolve({ ok: false }), 5000); })]);
+      if (!protocol.ok) spawnErr = new Error('Mac shell control channel failed to initialize');
+    } finally { clearTimeout(readyTimer); }
+  }
   if (spawnErr) {
     clearTimeout(deadline);
-    shellSessions.delete(shellId);
+    sess.spawnFailed = true;
+    killChildTree(child);
+    if (shellSessions.get(shellId) === sess) shellSessions.delete(shellId);
+    if (isMacShell) return { ok: false, code: 'shell_unavailable', error: spawnErr.message };
     if (spawnErr.code === 'ENOENT') return powershellUnavailable();
     return { ok: false, error: `无法启动 PowerShell:${(spawnErr && spawnErr.message) || spawnErr}` };
   }
-  return { ok: true, shellId, name, cwd, mode, ...(command ? { jobId: sess.jobId, notification: sess.sessionId ? 'session_push' : 'unbound', running: true, timeoutMs, cursor: 0 } : {}) };
+  if (sess.cancelled || shellSessions.get(shellId) !== sess) return { ok: false, code: 'cancelled', error: 'shell 启动已取消' };
+  return { ok: true, shellId, name, cwd: sess.cwd, mode, ...(isMacShell ? { shell: 'bash', tty: false } : {}), ...(command ? { jobId: sess.jobId, notification: sess.sessionId ? 'session_push' : 'unbound', running: true, timeoutMs, cursor: 0 } : {}) };
 }
 
 // Write input to a session and wait for output to settle. best-effort capture: polls buffer growth and
@@ -495,7 +674,7 @@ async function shellStart(args, config, ctx = {}) {
 // 子代理的工具调用用的是父会话 id(08 toolCall 传 parentSession.id),所以父子之间照常互通。
 // 不带 ctx 的内部调用方(空闲收割、关机收尸)仍然看得见全部。
 function shellVisibleTo(sess, ctx) {
-  const sid = safeSessionId((ctx && ctx.sessionId) || '');
+  const sid = safeSessionId(ctx?.sessionId || ctx?.session?.id || '');
   return !sid || !sess.sessionId || sess.sessionId === sid;
 }
 function shellLookup(shellId, ctx) {
@@ -520,6 +699,7 @@ async function shellSend(args, ctx) {
   // at shell_list / shell_start rather than leaving it to retry the same dead id.
   if (!sess) return { ok: false, error: `未知 shellId '${shellId}'`, hint: '用 shell_list 查看现有会话,或 shell_start 新建' };
   if (sess.mode === 'background') return { ok: false, error: '后台命令不接受输入;用 shell_poll 读取结果或 shell_kill 取消' };
+  if (sess.shellLanguage === 'bash') return runKeyedChain(macShellSendChains, sess.jobId, () => sendMacShell(sess, args, ctx));
   sess.lastUsedAt = Date.now();
   const startCursor = shellEndOffset(sess);
   const timeoutMs = Math.min(120000, Math.max(1000, Number(args.timeoutMs || 10000)));
@@ -561,6 +741,8 @@ function shellSendResult(sess, slice, args, settled) {
   out.settled = settled;
   if (slice.truncated) out.truncated = true;
   if (shaped.omittedChars) { out.omittedChars = shaped.omittedChars; out.omittedFrom = shaped.omittedFrom; out.omittedTo = shaped.omittedTo; out.hint = shaped.hint; }
+  Object.assign(out, shellCleanupFields(sess));
+  if (sess.shellLanguage === 'bash') Object.assign(out, { cwd: sess.cwd, commandRunning: Boolean(sess.pendingCommand), commandExitCode: sess.lastCommandExitCode });
   out.output = shaped.output;
   return out;
 }
@@ -596,6 +778,8 @@ async function shellPoll(args, ctx) {
   if (shaped.more) { out.more = true; out.remainingChars = shaped.remainingChars; }
   if (shaped.omittedChars) { out.omittedChars = shaped.omittedChars; out.omittedFrom = shaped.omittedFrom; out.omittedTo = shaped.omittedTo; }
   if (shaped.hint) out.hint = shaped.hint;
+  Object.assign(out, shellCleanupFields(sess));
+  if (sess.shellLanguage === 'bash') Object.assign(out, { cwd: sess.cwd, commandRunning: Boolean(sess.pendingCommand), commandExitCode: sess.lastCommandExitCode });
   out.output = shaped.output;
   return out;
 }
@@ -604,8 +788,10 @@ function shellKill(args, ctx) {
   const shellId = String(args.shellId || '');
   const sess = shellLookup(shellId, ctx);
   if (!sess) return { ok: false, error: `未知 shellId '${shellId}'` };
+  if (sess.starting && !sess.child) { sess.cancelled = true; shellSessions.delete(shellId); return { ok: true }; }
+  if (sess.platform === 'darwin') return stopMacShell(shellId, sess);
   sess.cancelled = true;
-  try { if (sess.child && sess.child.pid) killChildTree(sess.child.pid); } catch { /* already gone */ }
+  try { if (sess.child && sess.child.pid) killChildTree(sess.child); } catch { /* already gone */ }
   sess.running = false;
   shellSessions.delete(shellId);
   return { ok: true };
@@ -616,7 +802,7 @@ function shellList(ctx) {
   for (const [shellId, s] of shellSessions) {
     if (!shellVisibleTo(s, ctx)) continue;
     shells.push({
-      shellId, name: s.name, cwd: s.cwd, running: s.running, exitCode: s.exitCode,
+      shellId, name: s.name, cwd: s.cwd, running: s.running, exitCode: s.exitCode, ...shellCleanupFields(s),
       mode: s.mode || 'interactive', timedOut: s.timedOut === true,
       startedAt: new Date(s.startedAt).toISOString(), lastUsedAt: new Date(s.lastUsedAt).toISOString(),
       bytes: shellEndOffset(s),
@@ -670,7 +856,7 @@ EventStreamHooks.backgroundShells = Object.freeze({
 
 // Reap every live shell session (called on serve-process shutdown alongside killAllMcpClients).
 function killAllShellSessions() {
-  for (const [, s] of shellSessions) { try { if (s.child && s.child.pid) killChildTree(s.child.pid); } catch { /* ignore */ } }
+  for (const [, s] of shellSessions) { s.cancelled = true; try { if (s.child && s.child.pid) killChildTree(s.child); } catch { /* ignore */ } }
   shellSessions.clear();
 }
 
@@ -688,7 +874,7 @@ function shellMcpChildGuard() {
   return {
     ok: false,
     error: 'shell 会话仅在原生 provider 引擎可用(工具运行于一次性 MCP 子进程,无法跨回合存活)',
-    hint: '需要非阻塞长任务时请使用当前 CLI 引擎自己的后台命令工具,或切换到原生 provider 引擎使用 shell_start/shell_poll/shell_kill。短命令可用 powershell_run。',
+    hint: '需要非阻塞长任务时请使用当前 CLI 引擎自己的后台命令工具,或切换到原生 provider 引擎使用 shell_start/shell_poll/shell_kill。短命令可用 shell_run 或显式语言的 script_run。',
   };
 }
 
@@ -924,6 +1110,7 @@ function rgProbeResolve(candidates, runs) {
   return first ? { path: first.command, source: first.source, shell: shellHit ? shellHit.source : '' } : null;
 }
 async function probeRgAsync() {
+  if (process.platform === 'darwin' && !(await ProcessRuntime.helperCapabilityAsync()).ready) return null;
   if (_rgProbe !== undefined) return _rgProbe;
   if (_rgProbeInflight) return _rgProbeInflight;
   _rgProbeInflight = (async () => {
@@ -936,7 +1123,11 @@ async function probeRgAsync() {
       let exists = false;
       try { exists = (await fsp.stat(c.command)).isFile(); } catch { exists = false; }
       if (c.source === 'system' && exists) systemSeen = true;
-      runs.push(exists ? await existsExecutableAsync(c.command).catch(() => false) : false);
+      if (process.platform === 'darwin' && exists) {
+        const result = await runRgOwned(c.command, ['--version'], process.cwd(), 4000, 65536, null,
+          { kind: 'capability-probe', capabilityId: 'rg' });
+        runs.push(!!result && result.code === 0);
+      } else runs.push(exists ? await existsExecutableAsync(c.command).catch(() => false) : false);
     }
     _rgProbe = rgProbeResolve(candidates, runs);
     return _rgProbe;
@@ -945,6 +1136,10 @@ async function probeRgAsync() {
 }
 // 冷缓存兜底(启动期/CLI 子命令)。服务在跑的请求路径请用 probeRgAsync / hasRgAsync。
 function probeRgInfoSync() {
+  if (process.platform === 'darwin') {
+    const capability = ProcessRuntime.helperCapability();
+    if (!capability.ready || !capability.deadline) return null;
+  }
   if (_rgProbe !== undefined) return _rgProbe;
   const candidates = rgProbeCandidates();
   const runs = [];
@@ -954,7 +1149,7 @@ function probeRgInfoSync() {
     const exists = fs.existsSync(c.command);
     if (c.source === 'system' && exists) systemSeen = true;
     let ok = false;
-    if (exists) { try { ok = existsExecutable(c.command); } catch { ok = false; } }
+    if (exists) { try { ok = existsExecutable(c.command); } catch (error) { if (error.cleanupIncomplete) throw error; ok = false; } }
     runs.push(ok);
   }
   _rgProbe = rgProbeResolve(candidates, runs);
@@ -1020,38 +1215,72 @@ const PATH_MATCH_WORKER_SRC = `
   });
 })();
 `;
-// 一次遍历一个 worker;match(subjects) → { hits, timedOut, error },永不 reject;close() 必调(幂等)。
-function createBoundedPathMatcher(pattern, flags, budgetMs) {
-  let worker = null, dead = '', spent = 0;
+async function closeSearchWorker(worker) {
+  if (!worker) return { cleanupIncomplete: false };
+  let timer;
   try {
-    const { Worker } = require('worker_threads');
-    worker = new Worker(PATH_MATCH_WORKER_SRC, { eval: true, workerData: { pattern: String(pattern), flags: String(flags || '') } });
-  } catch (e) { dead = String((e && e.message) || e) || 'worker unavailable'; }
-  const close = () => { if (worker) { const w = worker; worker = null; try { w.terminate(); } catch { /* gone */ } } };
-  const match = subjects => new Promise(resolve => {
-    if (dead || !worker) { resolve({ hits: [], timedOut: false, error: dead || 'closed' }); return; }
-    const w = worker;
-    const t0 = Date.now();
-    let settled = false, timer = null;
-    const onMessage = m => {
-      if (m && m.type === 'hits') finish({ hits: Array.isArray(m.hits) ? m.hits : [] });
-      else if (m && m.type === 'error') finish({ error: String(m.error || 'regex error') });
-    };
-    const onError = e => finish({ error: String((e && e.message) || e) });
-    const onExit = () => finish({ error: 'worker exited' });
-    function finish(r) {
-      if (settled) return;
-      settled = true;
-      if (timer) clearTimeout(timer);
-      w.off('message', onMessage); w.off('error', onError); w.off('exit', onExit);
-      spent += Date.now() - t0;
-      if (r.timedOut || r.error) { dead = r.error || 'timed out'; close(); }
-      resolve({ hits: [], timedOut: false, error: '', ...r });
+    await Promise.race([worker.terminate(), new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Worker termination timed out')), 1000);
+    })]);
+  } catch { /* threadId below remains the exit authority */ }
+  finally { clearTimeout(timer); }
+  return { cleanupIncomplete: worker.threadId !== -1 };
+}
+// 一次遍历一个 worker;match 顺序调用且永不 reject。close() 幂等并返回退出确认。
+function createBoundedPathMatcher(pattern, flags, budgetMs, signal) {
+  let worker = null, dead = '', spent = 0, closing = null, pendingFinish = null;
+  let aborted = signal?.aborted === true;
+  const abort = () => { aborted = true; dead = 'cancelled'; void close(); };
+  function close() {
+    if (closing) return closing;
+    signal?.removeEventListener('abort', abort);
+    const current = worker; worker = null;
+    closing = closeSearchWorker(current);
+    if (pendingFinish) void pendingFinish({ error: dead || 'closed', ...(aborted ? { aborted: true } : {}) });
+    return closing;
+  }
+  try {
+    if (aborted) dead = 'cancelled';
+    else {
+      const { Worker } = require('worker_threads');
+      worker = new Worker(PATH_MATCH_WORKER_SRC, { eval: true, workerData: { pattern: String(pattern), flags: String(flags || '') } });
+      // A worker can fail while traversal is awaiting I/O between match batches.
+      worker.on('error', error => { dead = String(error.message || error); void close(); });
+      worker.on('exit', () => { if (!dead) dead = 'worker exited'; void close(); });
+      signal?.addEventListener('abort', abort, { once: true });
+      if (signal?.aborted) abort();
     }
-    w.on('message', onMessage); w.on('error', onError); w.on('exit', onExit);
-    timer = setTimeout(() => finish({ timedOut: true }), Math.max(1, budgetMs - spent));
-    try { w.postMessage({ subjects }); } catch (e) { finish({ error: String((e && e.message) || e) }); }
-  });
+  } catch (error) { dead = String(error.message || error) || 'worker unavailable'; }
+  const match = async subjects => {
+    if (dead || !worker) return { hits: [], timedOut: false, error: dead || 'closed', aborted, ...await close() };
+    return new Promise(resolve => {
+      const current = worker;
+      const started = Date.now();
+      let settled = false, timer = null;
+      const onMessage = message => {
+        if (message?.type === 'hits') void finish({ hits: Array.isArray(message.hits) ? message.hits : [] });
+        else if (message?.type === 'error') void finish({ error: String(message.error || 'regex error') });
+      };
+      async function finish(result) {
+        if (settled) return;
+        settled = true; pendingFinish = null;
+        clearTimeout(timer); current.off('message', onMessage);
+        spent += Date.now() - started;
+        let cleanup = {};
+        if (result.timedOut || result.error || result.aborted) {
+          dead = result.error || (result.aborted ? 'cancelled' : 'timed out');
+          cleanup = await close();
+        }
+        const cancelled = aborted || signal?.aborted === true;
+        resolve({ hits: [], timedOut: false, error: '', ...result, ...cleanup,
+          ...(cancelled ? { aborted: true, hits: [] } : {}), ...(cleanup.cleanupIncomplete ? { hits: [] } : {}) });
+      }
+      pendingFinish = finish;
+      current.on('message', onMessage);
+      timer = setTimeout(() => { void finish({ timedOut: true }); }, Math.max(1, budgetMs - spent));
+      try { current.postMessage({ subjects }); } catch (error) { void finish({ error: String(error.message || error) }); }
+    });
+  };
   return { match, close };
 }
 
@@ -1133,6 +1362,7 @@ function buildIgnoreMatcher(opts = {}) {
 //   pattern 对【以 '/' 分隔】的相对路径求值(Windows 上也是,否则文档里的 ^src/.*\.ts$ 永远配不上)
 // 返回数组,另挂:truncated / truncatedReason('maxFiles'|'maxVisited'|'patternTimeout')/ patternTimedOut / visited / prunedDirs。
 async function walkFiles(root, opts = {}) {
+  assertSearchExecution(opts.signal);
   const base = path.resolve(root || process.cwd());
   // ≤0 / 非数字按「没传」取默认 500(修前 maxFiles:0 或 -1 被抬成 1:返回一条 + truncated,模型以为目录里只有一个文件);
   // Infinity 仍放行(内部调用方用)。
@@ -1148,7 +1378,7 @@ async function walkFiles(root, opts = {}) {
   if (patternSrc.length > WALK_PATTERN_MAX_CHARS) throw new Error(`pattern too long (max ${WALK_PATTERN_MAX_CHARS} characters)`);
   const pattern = patternSrc ? new RegExp(patternSrc, patternFlags) : null;   // 语法错照旧在这里抛
   // 回溯可能失控的模式交给 worker(见上方 WALK_PATTERN_* 头注);deferred 按遍历顺序攒待匹配项。
-  const matcher = pattern && !regexBacktrackBounded(patternSrc) ? createBoundedPathMatcher(patternSrc, patternFlags, WALK_PATTERN_BUDGET_MS) : null;
+  let matcher = null;
   let deferred = [];
   let patternTimedOut = false;
   const ignore = buildIgnoreMatcher(opts);
@@ -1178,8 +1408,10 @@ async function walkFiles(root, opts = {}) {
   let stopped = false;
   let visited = 0;
   const emit = async (full, rel, isDir) => {
+    assertSearchExecution(opts.signal);
     // 目录不需要 stat(size 恒记 0;信封里目录不带 size);文件要 size,glob 还要 mtime。
     const stat = isDir ? null : await fsp.stat(full).catch(() => null);
+    assertSearchExecution(opts.signal);
     if (stat && sensitiveIds.size && stat.nlink > 1 && await isSensitiveHardlinkAlias(full, sensitiveIds)) return;
     const rec = { path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 };
     if (stat) rec.mtimeMs = Math.round(stat.mtimeMs);
@@ -1191,6 +1423,7 @@ async function walkFiles(root, opts = {}) {
     const batch = deferred;
     deferred = [];
     const r = await matcher.match(batch.map(c => toSlash(c.rel)));
+    assertSearchExecution(opts.signal, r);
     if (r.timedOut || r.error) patternTimedOut = true;
     let last = -1;
     for (const i of r.hits) {
@@ -1207,7 +1440,10 @@ async function walkFiles(root, opts = {}) {
   const nextDir = () => (opts.bfs === true ? pending[qi++] : pending.pop());
   const hasDir = () => (opts.bfs === true ? qi < pending.length : pending.length > 0);
   try {
+    assertSearchExecution(opts.signal);
+    matcher = pattern && !regexBacktrackBounded(patternSrc) ? createBoundedPathMatcher(patternSrc, patternFlags, WALK_PATTERN_BUDGET_MS, opts.signal) : null;
     while (hasDir() && !stopped && !patternTimedOut) {
+      assertSearchExecution(opts.signal);
       const { dir, relDir, depth, hiddenOk } = nextDir();
       const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
       // 排序:各平台 readdir 顺序不同(Linux 不定序、NTFS 字典序),截断时「取到哪些」必须可复现。
@@ -1215,6 +1451,7 @@ async function walkFiles(root, opts = {}) {
       const dotnetDir = ignore.dotnet && entries.some(e => !e.isDirectory() && DOTNET_PROJECT_RE.test(e.name));
       const subdirs = [];
       for (const entry of entries) {
+        assertSearchExecution(opts.signal);
         if (patternTimedOut) break;
         if (++visited > maxVisited) { capped('maxVisited'); stopped = true; break; }
         let isDir = entry.isDirectory();
@@ -1272,8 +1509,9 @@ async function walkFiles(root, opts = {}) {
     }
     if (matcher) await flushDeferred();
   } finally {
-    if (matcher) matcher.close();
+    if (matcher) assertSearchExecution(opts.signal, await matcher.close());
   }
+  assertSearchExecution(opts.signal);
   if (patternTimedOut) { hitCap = true; if (!reason) reason = 'patternTimeout'; }
   if (hitCap) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
   if (reason) out.truncatedReason = reason;
@@ -1470,13 +1708,29 @@ async function privacyProjectSearch(scan, opts) {
   }
   return scan;
 }
+function assertSearchExecution(signal, scan) {
+  if (scan?.cleanupIncomplete) throw Object.assign(new Error('Search worker exit has not been confirmed'), {
+    code: 'worker_cleanup_incomplete', searchExecutionFailure: true, cleanupIncomplete: true, cleanupScope: 'worker',
+  });
+  if (signal?.aborted || scan?.aborted) throw Object.assign(new Error('Search cancelled'), { code: 'aborted', searchExecutionFailure: true });
+}
+function awaitSearchProbe(promise, signal) {
+  if (!signal) return promise;
+  return new Promise((resolve, reject) => {
+    const abort = () => { signal.removeEventListener('abort', abort); reject(Object.assign(new Error('Search cancelled'), { code: 'aborted', searchExecutionFailure: true })); };
+    promise.then(value => { signal.removeEventListener('abort', abort); resolve(value); }, error => { signal.removeEventListener('abort', abort); reject(error); });
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+  });
+}
 async function searchFileContent(root, pattern, opts = {}) {
+  assertSearchExecution(opts.signal);
   // F2: single normalization point shared by the rg fast path and the JS scanner.
   const norm = normalizeSearchPattern(pattern);
   const effOpts = norm.extraFlags ? { ...opts, extraFlags: norm.extraFlags } : opts;
   let results = null;
   // Fast path: ripgrep, if vendored. Failure/timeout → silent fallback to the JS scanner below.
-  if (!privacySourceActive() && await hasRgAsync()) {
+  if (!privacySourceActive() && await awaitSearchProbe(hasRgAsync(), opts.signal)) {
     try {
       const viaRg = await searchFileContentRg(root, norm.pattern, effOpts);
       if (viaRg) {
@@ -1485,9 +1739,10 @@ async function searchFileContent(root, pattern, opts = {}) {
         const pd = await discoverPrunedDirs(root, effOpts, searchExplicitNames(root, effOpts)).catch(() => []);
         if (pd.length) results.prunedDirs = pd;
       }
-    } catch { /* fall through to JS path */ }
+    } catch (error) { if (error.searchExecutionFailure) throw error; /* otherwise fall through to JS */ }
   }
   if (!results) results = await searchFileContentJs(root, norm.pattern, effOpts);
+  assertSearchExecution(opts.signal);
   // Carry the literal-fallback note on the array (JSON.stringify of an array drops extra props, so the
   // file_search handler lifts it into the response as `patternNote`; other callers safely ignore it).
   if (norm.note) results.patternNote = norm.note;
@@ -1595,13 +1850,19 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
     const encs = [];   // 非 UTF-8 文件的编码上报 [{path, relativePath, enc}]
     const sources = new Map();
     let settled = false, worker = null, timer = null;
-    const finish = extra => {
+    const finish = async extra => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      if (worker) { try { worker.terminate(); } catch { /* already gone */ } }
-      resolve({ results, encs, sources, timedOut: false, error: '', ...extra });
+      opts.signal?.removeEventListener('abort', abort);
+      const { cleanupIncomplete } = await closeSearchWorker(worker);
+      const aborted = extra.aborted === true || opts.signal?.aborted === true;
+      if (aborted || cleanupIncomplete) { results.length = 0; encs.length = 0; sources.clear(); }
+      resolve({ results, encs, sources, timedOut: false, error: '', ...extra,
+        ...(aborted ? { aborted: true } : {}), ...(cleanupIncomplete ? { cleanupIncomplete: true } : {}) });
     };
+    const abort = () => { void finish({ aborted: true }); };
+    if (opts.signal?.aborted) { abort(); return; }
     try {
       const { Worker } = require('worker_threads');
       worker = new Worker(REGEX_SCAN_WORKER_SRC, {
@@ -1626,6 +1887,8 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
     });
     worker.on('error', e => finish({ error: String((e && e.message) || e) }));
     worker.on('exit', () => finish({}));
+    opts.signal?.addEventListener('abort', abort, { once: true });
+    if (opts.signal?.aborted) abort();
   });
 }
 
@@ -1672,6 +1935,7 @@ async function discoverPrunedDirs(root, opts, names) {
   let reads = 0;
   const maxDepth = Math.min(searchMaxDepth(opts) || 6, 6);
   for (let qi = 0; qi < queue.length && reads < 2000 && found.length < 12; qi += 1) {
+    assertSearchExecution(opts.signal);
     const { dir, rel, depth, hiddenOk } = queue[qi];
     reads += 1;
     const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -1699,6 +1963,7 @@ async function searchFileContentJs(root, pattern, opts = {}) {
   // 前 2000 条是 .github / __pycache__ 时后面的源码一个都搜不到,而且 truncated 被丢掉。
   const names = searchExplicitNames(root, opts);
   const files = await walkFiles(root, {
+    signal: opts.signal,
     recursive: true,
     maxFiles: opts.maxFiles || SEARCH_JS_DEFAULT_MAX_FILES,
     maxDepth: searchMaxDepth(opts) || Infinity,
@@ -1723,7 +1988,9 @@ async function searchFileContentJs(root, pattern, opts = {}) {
   // 多要一条用来判「是否还有更多」:恰好 maxResults 条命中时不该报 truncated(修前 `>= maxResults` 一律报截断)。
   const wantMax = Math.max(1, Number(opts.maxResults || 200));
   const scan = await regexScanFilesBounded(scanFiles, pattern, flags, { ...opts, maxResults: wantMax + 1 });
+  assertSearchExecution(opts.signal, scan);
   await privacyProjectSearch(scan, opts);
+  assertSearchExecution(opts.signal, scan);
   const moreMatches = scan.results.length > wantMax;
   if (moreMatches) scan.results.length = wantMax;
   const grouped = maybeGroup(scan.results, opts.group);
@@ -1751,6 +2018,14 @@ function ignoreGlobsForRg(opts, allowDirs) {
 // 但不排除的话敏感文件的命中会先占满 maxResults 再被滤掉 → 假阴性)。
 function sensitiveGlobsForRg(base) {
   const globs = [];
+  if (path.sep === '/') {
+    for (const directory of ['/private/tmp', '/tmp', '/System/Volumes/Data/private/tmp', '/System/Volumes/Data/tmp']) {
+      const relative = path.relative(base, directory);
+      if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
+        globs.push('!/' + (relative ? relative + '/' : '') + 'ruyi-serve-v1-[0-9]*/');
+      }
+    }
+  }
   try {
     // 安全走查 S7:名单与 03 的 isSensitiveDataPath 内的那份一致(unit/unc-and-traversal-gates.test.js 逐名比对);根要把【realpath 后的数据根】也算进来 ——
     // 遍历根已换成 guardFileToolPath 给的 realpath,词法数据根与它不一定同一拼法(联接 / 短名 / 大小写),只认词法会让 !glob 落空。
@@ -1783,8 +2058,54 @@ function patternMayMatchNonAscii(pattern) {
   const p = String(pattern == null ? '' : pattern);
   return /[^\x00-\x7f]/.test(p) || /\\(?:x\{|u|[pP]\{|[wWSD])/.test(p);
 }
+// A fallback may start only after the supervised rg execution has completed its cleanup.
+async function runRgOwned(command, argv, cwd, timeoutMs, maxBuffer, signal,
+  owner = { ...ProcessRuntime.currentOwner(), kind: 'file-search' }) {
+  const failure = (code, cleanup) => Object.assign(new Error('Search execution could not complete safely'), {
+    code, searchExecutionFailure: true, cleanupScope: cleanup?.scope,
+    cleanupIncomplete: cleanup?.incomplete === true, cleanupEscapeCoverage: cleanup?.escapeCoverage,
+    cleanupUnconfirmed: cleanup?.unconfirmed,
+  });
+  if (signal?.aborted) throw failure('aborted');
+  let capture;
+  try {
+    capture = ProcessRuntime.capture(command, argv, { cwd, windowsHide: true, maxBuffer, encoding: 'utf8' },
+      owner);
+  } catch { return null; } // No child was started, so JS fallback is safe.
+  const { child } = capture;
+  let stopping = false, resolveStopped;
+  const stopped = new Promise(resolve => { resolveStopped = resolve; });
+  const stop = async code => {
+    if (stopping) return;
+    stopping = true;
+    let cleanup = { scope: 'unknown', incomplete: true };
+    try { ProcessRuntime.stopChild(child); cleanup = await ProcessRuntime.waitForCleanup(child, 1500); }
+    catch { /* preserve uncertainty */ }
+    finally {
+      child.stdout.destroy(); child.stderr.destroy();
+      resolveStopped({ error: Object.assign(new Error('Search interrupted'), { code }), cleanup });
+    }
+  };
+  const abort = () => { void stop('aborted'); };
+  signal?.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(() => { void stop('ETIMEDOUT'); }, timeoutMs);
+  if (signal?.aborted) abort();
+  try {
+    let result = await Promise.race([capture.output.then(async output => ({ ...output,
+      cleanup: await ProcessRuntime.waitForCleanup(child, 1500) })), stopped]);
+    if (stopping) result = await stopped;
+    if (result.cleanup?.incomplete) throw failure('process_cleanup_incomplete', result.cleanup);
+    if (signal?.aborted) throw failure('aborted', result.cleanup);
+    if (result.error?.code === 'ERR_PROCESS_OUTPUT_INCOMPLETE') throw failure('process_output_incomplete', result.cleanup);
+    if (result.error && result.error.code !== 1) return null;
+    return { stdout: result.stdout, code: result.error ? 1 : 0 };
+  } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
+}
+
 // rg -l:列出含 0x80 以上字节的文件(UTF-8 中文文件与 GBK 文件都在内;纯 ASCII 文件不在)。参数用与主搜索相同的 filt。
-function rgListHighByteFiles(rg, base, filt, timeoutMs) {
+function rgListHighByteFiles(rg, base, filt, timeoutMs, signal) {
+  if (process.platform === 'darwin') return runRgOwned(rg, ['--no-messages', '-l', '--crlf', ...filt, '--', '(?-u)[\\x80-\\xFF]', base], base, timeoutMs, 8_000_000, signal)
+    .then(result => result ? result.stdout.split(/\r?\n/).filter(Boolean) : null);
   return new Promise(resolve => {
     let out = '', done = false;
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
@@ -1804,13 +2125,14 @@ async function rgRepairNonUtf8(c) {
   const files = new Map();
   for (const f of suspectPaths) files.set(f, path.relative(base, f) || '.');
   if (patternMayMatchNonAscii(pattern)) {
-    const listed = await rgListHighByteFiles(rg, base, filt, 8000);
+    const listed = await rgListHighByteFiles(rg, base, filt, 8000, opts.signal);
     for (const line of listed || []) { const full = path.resolve(base, line); if (!files.has(full)) files.set(full, path.relative(base, full) || '.'); }
   }
   if (!files.size) return null;
   const list = [...files.entries()].slice(0, RG_REPAIR_MAX_FILES).map(([p, r]) => ({ path: p, relativePath: r }));
   const flags = (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || '');
   const scan = await regexScanFilesBounded(list, pattern, flags, { ...opts, maxResults: maxResults + 1, onlyNonUtf8: true, regexTimeoutMs: 6000 });
+  assertSearchExecution(opts.signal, scan);
   if (scan.error) return null;
   const decoded = new Set(scan.encs.filter(e => e.enc !== 'lossy').map(e => e.path));
   if (!decoded.size && !scan.encs.length) return null;
@@ -1857,17 +2179,11 @@ function searchFileContentRg(root, pattern, opts = {}) {
   const depthCap = searchMaxDepth(opts);
   if (depthCap) filt.push('--max-depth', String(depthCap + 1));
   args.push(...filt, '--', String(pattern), base);
-  return new Promise(resolve => {
-    let stdout = '', stderr = '', done = false;
-    const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
-    const child = cp.spawn(rg, args, { cwd: base, windowsHide: true });
-    const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, Number(opts.rgTimeoutMs || 10000));
-    child.stdout.setEncoding('utf8');   // 同上:按块 toString 会把跨块的中文路径 / 命中行劈成 U+FFFD
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', d => { stdout += d; if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
-    child.stderr.on('data', d => { stderr += d; });
-    child.on('error', () => finish(null));
-    child.on('close', async code => {
+  return new Promise((resolve, reject) => {
+    let stdout = '', stderr = '', done = false, timer;
+    const finish = v => { if (!done) { done = true; clearTimeout(timer); resolve(v); } };
+    const fail = error => { if (!done) { done = true; clearTimeout(timer); reject(error); } };
+    const parseOutput = async code => {
       // rg exit 1 = no matches (valid: empty result). exit 2 = error → fall back.
       if (code === 2 && !stdout) return finish(null);
       const results = [];
@@ -1935,14 +2251,27 @@ function searchFileContentRg(root, pattern, opts = {}) {
       try {
         const rep = await rgRepairNonUtf8({ rg, base, filt, pattern, opts, results, suspectPaths, maxResults });
         if (rep) { finalResults = rep.results; if (rep.moreMatches) moreMatches = true; sweepEncs = rep.encs; }
-      } catch { /* 补扫是增强,失败就用 rg 原结果 */ }
+      } catch (error) { if (error.searchExecutionFailure) throw error; /* other repair failures keep rg results */ }
       const grouped = maybeGroup(finalResults, opts.group);
       grouped.engine = 'rg';
       if (moreMatches) grouped.moreMatches = true;
       if (sweepEncs) applyNonUtf8Report(grouped, sweepEncs);
       grouped.maxFileBytes = searchMaxFileBytes(opts);
       finish(grouped);
-    });
+    };
+    if (process.platform === 'darwin') {
+      void runRgOwned(rg, args, base, Number(opts.rgTimeoutMs || 10000), 32_000_000, opts.signal)
+        .then(result => { if (!result) return finish(null); stdout = result.stdout; return parseOutput(result.code); }).catch(fail);
+      return;
+    }
+    const child = cp.spawn(rg, args, { cwd: base, windowsHide: true });
+    timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, Number(opts.rgTimeoutMs || 10000));
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', d => { stdout += d; if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    child.stderr.on('data', d => { stderr += d; });
+    child.on('error', () => finish(null));
+    child.on('close', code => { void parseOutput(code).catch(fail); });
   });
 }
 
@@ -2016,24 +2345,38 @@ function runGit(args, cwd, timeoutMs, opts = {}) {
     // 非数字(模型给 git_status 之类自造 timeoutMs:"30s")回落缺省:修前 NaN 一路传到 setTimeout,等于 1 ms 就把跑完的 git 杀掉、报「超过 0 秒」。
     const askedMs = Number(timeoutMs);
     const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number.isFinite(askedMs) && askedMs > 0 ? askedMs : 15000));
-    let child, timer = null, grace = null, timedOut = false, settled = false;
+    let child, timer = null, grace = null, timedOut = false, settled = false, cleanup = null;
     const settle = r => {
       if (settled) return;
       settled = true;
       clearTimeout(timer); clearTimeout(grace);
-      resolve(timedOut ? { ...r, ok: false, timedOut: true, timeoutMs: limitMs } : r);
+      if (process.platform === 'darwin' && child) cleanup = ProcessRuntime.result(child) || cleanup;
+      if (!timedOut && child?.pid && cleanup?.incomplete) {
+        r = { ...r, ok: false, code: -1, commandExitCode: r.code, error: Object.assign(new Error('Git process cleanup has not been confirmed'), { code: 'ERR_PROCESS_CLEANUP_INCOMPLETE' }) };
+      }
+      const cleanupFields = cleanup ? { cleanupScope: cleanup.scope, cleanupIncomplete: cleanup.incomplete === true,
+        ...(cleanup.escapeCoverage ? { cleanupEscapeCoverage: cleanup.escapeCoverage, cleanupUnconfirmed: cleanup.unconfirmed } : {}) } : {};
+      resolve(timedOut ? { ...r, ok: false, timedOut: true, timeoutMs: limitMs, ...cleanupFields } : { ...r, ...cleanupFields });
     };
     try {
       // 安全加固前缀(GIT_SAFE_FLAGS)必须在子命令之前;args 以 `-C <dir> <subcmd> …` 开头,故整体前置合法。
-      child = cp.execFile('git', [...GIT_SAFE_FLAGS, ...args], {
+      const executionOptions = {
         cwd: cwd || process.cwd(),
         windowsHide: true,
         maxBuffer: opts && opts.maxBuffer ? opts.maxBuffer : 24 * 1024 * 1024,
         encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
-      }, (error, stdout, stderr) => {
+      };
+      const complete = (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
         settle({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
-      });
+      };
+      if (process.platform === 'darwin') {
+        const capture = ProcessRuntime.capture('git', [...GIT_SAFE_FLAGS, ...args], executionOptions, { ...ProcessRuntime.currentOwner(), kind: 'git', ...opts.owner });
+        child = capture.child;
+        void capture.output.then(result => complete(result.error, result.stdout, result.stderr));
+      } else {
+        child = cp.execFile('git', [...GIT_SAFE_FLAGS, ...args], executionOptions, complete);
+      }
     } catch (e) {
       settle({ ok: false, code: -1, stdout: '', stderr: '', error: e });
       return;
@@ -2041,9 +2384,9 @@ function runGit(args, cwd, timeoutMs, opts = {}) {
     child.on('error', () => { /* handled via the callback's `error` arg */ });
     timer = setTimeout(() => {
       timedOut = true;
-      try { killChildTree(child.pid); } catch { /* 已经退出 */ }
+      try { cleanup = killChildTree(child); } catch { cleanup = { scope: 'unknown', incomplete: true }; }
       grace = setTimeout(() => {
-        try { child.kill('SIGKILL'); } catch { /* 已经退出 */ }
+        try { if (!ProcessRuntime.stopChild(child)) child.kill('SIGKILL'); } catch { /* 已经退出 */ }
         try { if (child.stdout) child.stdout.destroy(); if (child.stderr) child.stderr.destroy(); } catch { /* ignore */ }
         settle({ ok: false, code: -1, stdout: '', stderr: '', error: Object.assign(new Error('git 超时被终止'), { killed: true }) });
       }, 5000);
@@ -2070,7 +2413,7 @@ const GIT_READ_ONLY_FLAGS = ['-c', 'status.submoduleSummary=false', '-c', 'log.s
 async function gitReadOnlyGuard(cwd, timeoutMs) {
   const res = await runGit(['-C', cwd, 'config', '-z', '--get-regexp', '^filter\\..*\\.(clean|smudge|process)$'], cwd, timeoutMs || 15000);
   // exit 1 = 没有匹配的键(也包括「不是仓库」时只剩全局/系统配置且没有过滤器);其余非零 = 读配置本身就失败了。
-  if (!res.ok && res.code !== 1) return { ok: false, res };
+  if (res.cleanupIncomplete || (!res.ok && res.code !== 1)) return { ok: false, res };
   const names = [];
   for (const entry of String(res.stdout || '').split('\0')) {
     const key = entry.split('\n')[0];
@@ -2083,6 +2426,9 @@ async function gitReadOnlyGuard(cwd, timeoutMs) {
   for (const n of names) flags.push('-c', `filter.${n}.clean=`, '-c', `filter.${n}.smudge=`, '-c', `filter.${n}.process=`, '-c', `filter.${n}.required=false`);
   return { ok: true, flags, names };
 }
+// Bind after the shared Git implementation is initialized, without a forward module dependency.
+AgentWorktreeHooks.runGit = runGit;
+
 function gitReadOnlyGuardError(guard, cwd) {
   if (guard && guard.refused) {
     return { ok: false, error: '这个仓库的 git 配置里有无法安全关闭的过滤器,已拒绝执行只读 git 命令', hint: '过滤器名含「=」。请在终端里检查 .git/config 的 [filter] 段后再试。', cwd };
@@ -2116,11 +2462,18 @@ function gitHumanError(res, cwd) {
     const sec = Math.round(Number(res.timeoutMs || 0) / 1000);
     return {
       ok: false, timedOut: true, timeoutMs: Number(res.timeoutMs) || undefined, cwd,
-      error: `git 命令超过 ${sec} 秒仍未结束,已被终止(进程树已一并结束)`,
+      ...(res.cleanupScope ? { cleanupScope: res.cleanupScope, cleanupIncomplete: res.cleanupIncomplete === true,
+        cleanupEscapeCoverage: res.cleanupEscapeCoverage, cleanupUnconfirmed: res.cleanupUnconfirmed } : {}),
+      error: `git 命令超过 ${sec} 秒仍未结束,${res.cleanupIncomplete ? '子进程清理尚未确认完成' : res.cleanupScope ? '已被终止(已核验范围)' : '已被终止(进程树已一并结束)'}`,
       hint: '这不是失败原因,只是没跑完:先用 git_status 确认当前状态(文件是否还在暂存区、提交有没有生成),再决定重试。'
         + '常见原因:pre-commit / commit-msg 钩子(lint、测试)耗时过长或在等交互输入,或仓库很大。需要更久可传 timeoutMs(毫秒,最多 600000)重试。',
       detail: String((res && res.stderr) || '').trim().slice(0, 2000) || undefined,
     };
+  }
+  if (res?.cleanupIncomplete || (err && err.code === 'ERR_PROCESS_CLEANUP_INCOMPLETE')) {
+    return { ok: false, error: 'Git 子进程清理尚未确认完成', cwd, commandExitCode: res.commandExitCode,
+      hint: 'Git 命令可能已产生文件或提交变化，请先确认当前仓库状态再重试。', cleanupScope: res.cleanupScope, cleanupIncomplete: true,
+      cleanupEscapeCoverage: res.cleanupEscapeCoverage, cleanupUnconfirmed: res.cleanupUnconfirmed };
   }
   const stderr = String((res && res.stderr) || '').trim();
   const low = stderr.toLowerCase();
@@ -2379,6 +2732,7 @@ async function gitDiff(args = {}) {
     if (rawPath || ref) statArgs.push('--');
     if (rawPath) statArgs.push(rawPath);
     const st = await runGit(statArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
+    if (st.cleanupIncomplete) return gitHumanError(st, cwd);
     if (st.ok || (st.error && st.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) {
       if (privacyDiffView) {
         if (!st.ok) throw Object.assign(new Error('Privacy diff metadata exceeds the complete source budget.'), { code: 'privacy.source_limit' });
@@ -2396,6 +2750,7 @@ async function gitDiff(args = {}) {
     const lsArgs = [...guard.flags, '-C', cwd, 'ls-files', '--others', '--exclude-standard', '-z'];
     if (rawPath) lsArgs.push('--', rawPath);
     const ls = await runGit(lsArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer' });
+    if (ls.cleanupIncomplete) return gitHumanError(ls, cwd);
     if (ls.ok) {
       const names = asText(ls.stdout).split('\0').filter(Boolean);
       untrackedCount = names.length;
@@ -2413,6 +2768,7 @@ async function gitDiff(args = {}) {
   // 未暂存那边是空的、改动却全在暂存区:修前只回 empty:true,模型以为没有改动。
   if (!staged && !ref && diff.trim() === '' && !untrackedCount) {
     const cached = await runGit([...guard.flags, '-C', cwd, 'diff', '--cached', '--quiet', '--ignore-submodules=dirty', ...(rawPath ? ['--', rawPath] : [])], cwd, args.timeoutMs || 15000);
+    if (cached.cleanupIncomplete) return gitHumanError(cached, cwd);
     if (!cached.ok && cached.code === 1) {
       out.empty = false;
       out.hint = '未暂存的改动是空的,但暂存区里有改动;传 staged:true 查看。';
@@ -2516,9 +2872,10 @@ async function gitCommit(args = {}) {
     : ['-C', cwd, 'commit', '-m', message];
   const res = await runGit(commitArgs, cwd, args.timeoutMs || GIT_COMMIT_TIMEOUT_DEFAULT_MS);
   if (!res.ok) {
+    if (res.cleanupIncomplete) return gitHumanError(res, cwd);
     // "nothing to commit" is a benign, common case — surface it as a clear 人话 result, not a scary error.
     const low = (String(res.stdout || '') + String(res.stderr || '')).toLowerCase();
-    if (/nothing to commit|no changes added|nothing added to commit/.test(low)) {
+    if (typeof res.error?.code === 'number' && res.error.code > 0 && /nothing to commit|no changes added|nothing added to commit/.test(low)) {
       return { ok: false, error: '没有可提交的改动', hint: '工作区没有变化,或改动还没被暂存。有改动时传 addAll:true(暂存全部)或 paths:[...](只暂存这些文件)再提交。', cwd, detail: (res.stdout || res.stderr || '').trim() };
     }
     // 暂存之后才失败(缺身份 / 钩子拒绝 / …):文件还留在暂存区,失败结果要说 —— 否则模型以为「什么都没发生」,下一次提交会把它们一起带走。
@@ -2527,8 +2884,8 @@ async function gitCommit(args = {}) {
     if (res.timedOut) {
       // 超时:可能是钩子慢(提示一句),但不是「被钩子拒绝」—— 不打 hookRejected。
       const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
-      if (hooks.length) failure.hint += ` 这个仓库有 ${hooks.join(' / ')} 钩子,多半是钩子耗时过长(钩子进程已随超时一并结束)。`;
-    } else if (failure.error === 'Git 命令执行失败') {
+      if (hooks.length) failure.hint += ` 这个仓库有 ${hooks.join(' / ')} 钩子,多半是钩子耗时过长${res.cleanupScope ? '，请结合清理结果确认状态' : '(钩子进程已随超时一并结束)'}。`;
+    } else if (failure.error === 'Git 命令执行失败' && typeof res.error?.code === 'number' && res.error.code > 0) {
       // 钩子拒绝:git 自己不打任何标签,只有钩子的输出;失败码非 0 且仓库里确有 pre-commit / commit-msg 钩子时归因于钩子。
       const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
       if (hooks.length && !/^fatal:/m.test(merged)) {
@@ -2547,6 +2904,7 @@ async function gitCommit(args = {}) {
   }
   // Resolve the new commit's short hash for the return payload.
   const head = await runGit(['-C', cwd, 'rev-parse', '--short', 'HEAD'], cwd, 5000);
+  if (head.cleanupIncomplete) return gitHumanError(head, cwd);
   const hash = head.ok ? String(head.stdout || '').trim() : '';
   return { ok: true, cwd, hash, message, summary: `已提交 ${hash ? hash + ' ' : ''}「${message}」`, output: (res.stdout || '').trim() };
 }
@@ -2933,6 +3291,7 @@ async function claudeMdAudit(root) {
 // 优先级 = 根下 README/CHANGELOG/CONTRIBUTING 等 → docs/doc/ 目录 → 其余;返回 truncated + scannedFiles + hint。
 const DOCS_SEARCH_SUFFIXES = /\.(?:md|mdx|markdown|txt|rst|adoc|asciidoc|org)$/i;
 async function docsSearch(root, query, opts = {}) {
+  assertSearchExecution(opts.signal);
   const cwd = path.resolve(root || process.cwd());
   // 空查询(或全空白)会匹配每一行的每个文件:修前返回满额 200 条无意义命中,还当成功。
   if (String(query == null ? '' : query).trim() === '') {
@@ -2942,6 +3301,7 @@ async function docsSearch(root, query, opts = {}) {
   const nq = normalizeSearchPattern(query);
   const maxResults = Math.max(1, Number(opts.maxResults || 200));
   const files = await walkFiles(cwd, {
+    signal: opts.signal,
     recursive: true,
     maxFiles: opts.maxFiles || 3000,
     maxDepth: opts.maxDepth || 8,
@@ -2962,7 +3322,14 @@ async function docsSearch(root, query, opts = {}) {
   const cands = files.filter(f => f.type === 'file')
     .filter(f => { if (f.size > maxFileBytes) { skippedLargeFiles.push(f.relativePath); return false; } return true; })
     .sort((a, b) => rank(a) - rank(b) || (a.relativePath < b.relativePath ? -1 : a.relativePath > b.relativePath ? 1 : 0));
-  const scanOnce = pattern => regexScanFilesBounded(cands, pattern, 'gi' + (nq.extraFlags || ''), { maxResults: maxResults + 1, regexTimeoutMs: opts.regexTimeoutMs, autoDecode: true });
+  const scanOnce = async pattern => {
+    assertSearchExecution(opts.signal);
+    const scan = await regexScanFilesBounded(cands, pattern, 'gi' + (nq.extraFlags || ''), {
+      maxResults: maxResults + 1, regexTimeoutMs: opts.regexTimeoutMs, autoDecode: true, signal: opts.signal,
+    });
+    assertSearchExecution(opts.signal, scan);
+    return scan;
+  };
   let scan = await scanOnce(nq.pattern);
   let literalRetryNote = '';
   // 「合法但本意不是正则」的查询(`C:\Users`、`TODO (urgent)`、`foo[bar]`)能编译、却匹配不到本意的文本,修前静悄悄返回 0 条。
@@ -2975,6 +3342,7 @@ async function docsSearch(root, query, opts = {}) {
     }
   }
   await privacyProjectSearch(scan, opts);
+  assertSearchExecution(opts.signal, scan);
   const hits = scan.results;
   const truncated = hits.length > maxResults || files.truncated === true || scan.timedOut;
   const out = { ok: true, root: cwd, query, matches: hits.slice(0, maxResults), scannedFiles: cands.length };
@@ -5731,10 +6099,14 @@ async function guardDownloadDest(rawDest, ctx) {
 // 116c: opts.stewardSession === true 时才把 steward_* 放进目录(四个 offer 面之一);缺省 fail-closed
 // 隐藏 —— list_tools/tool_search/tool_invoke_* 三条控制面都走本目录,普通会话既检索不到也代理不到管家工具。
 async function adaptiveCatalogForMcp(config, opts) {
+  const runtime = await ProcessRuntime.capabilitySnapshot();
   const recallEnabled = observationRecallEnabled(config);
   const stewardSession = !!(opts && opts.stewardSession === true);
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
   const native = MCP_TOOLS
     .filter(t => t && t.name && !t.name.startsWith('tool_invoke_') && t.name !== 'tool_load' && t.name !== 'permission_prompt') // permission_prompt 是 CLI 权限桥的内部入口,不能代理调用,别进 list_tools / tool_search
+    .filter(t => runtimeToolRequirementsMet(t.name, runtime).met)
+    .filter(t => !nativeToolDisabledByPolicy(t.name, config, desktopOverride))
     .filter(t => t.name !== 'observation_recall' || recallEnabled) // 105a: 目录同样按双开关隐藏
     .filter(t => !isStewardToolName(t.name) || stewardSession) // 116c: 管家工具只进管家会话的目录
     .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
@@ -5742,7 +6114,6 @@ async function adaptiveCatalogForMcp(config, opts) {
   try { bridged = await collectBridgedTools(config); } catch { /* native-only catalog is still useful */ }
   // 2026-10 能力总闸补桥接面:被 allowCommandTools / allowDesktopTools(+ opts.desktopOverride,调用方按会话取)关掉的内置
   // 桌面 MCP 工具不进 list_tools / tool_search / 代理的目录。route 原样交回:12 invokeAdaptiveMcpTool 先按它认出被关的目标、回 tool-disabled。
-  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
   const offeredBridged = dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, desktopOverride);
-  return { bridged, catalog: buildToolCatalog(native.concat(offeredBridged), bridged.route, config) };
+  return { bridged, runtime, catalog: buildToolCatalog(native.concat(offeredBridged), bridged.route, config) };
 }

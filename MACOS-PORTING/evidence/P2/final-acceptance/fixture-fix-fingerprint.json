@@ -1,0 +1,9 @@
+{
+  "implementationCommit": "287d2d2196e50bff49e47b6fe92e299a93565351",
+  "files": [
+    {
+      "path": "dev-harness/external-bots-control.e2e.js",
+      "sha256": "cee01e2d9b64d006d755162db975227ad594776c38c2e8a9173f162afe0eb440"
+    }
+  ]
+}

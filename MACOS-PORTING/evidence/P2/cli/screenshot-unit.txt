@@ -1,0 +1,12 @@
+✔ [F1] desktop_screenshot 相对 outputPath 按工作区解析:越界相对路径报的是工作区下的路径,不是进程 cwd 下的 (7.858417ms)
+✔ [F1] desktop_screenshot 工作区内的相对 outputPath 不再被判越界(Windows 视图在非 Windows 夹具上报告缺 PowerShell) (5.594625ms)
+✔ [F1] desktop_screenshot 的 ~ 先展开成家目录再过写闸(家目录在工作区外 → 拒,报展开后的真路径) (1.923542ms)
+✔ [F1] desktop_screenshot 的 outputPath 含 NUL → bad_path 信封,不抛 (0.184083ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 115.296708

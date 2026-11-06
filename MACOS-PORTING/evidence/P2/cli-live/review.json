@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-06",
+  "reviewer": "independent agent /root/p2_cli_audit",
+  "scope": [
+    "POSIX npm global Kimi entry resolution and native-launcher preservation",
+    "Canonical edit approval paths and unchanged one-shot ownership/scope consumption",
+    "Existing Kimi e2e and real-CLI local-model probe containment"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "POSIX global npm bin/kimi is not mapped to prefix/lib/node_modules; ACP compatibility never attaches and real Glob/Grep fail",
+      "resolution": "Recognize standard global symlink only if launcher and npm entry have equal realpaths; preserve Windows/local branches",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R2",
+      "finding": "Canonical host fs path differs from lexical native Write path, causing a second approval",
+      "resolution": "Use existing realpathForContainment before showing/storing native edit approval; preserve consume ownership and once/session rules",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R3",
+      "finding": "Naive global path lookup could replace a native launcher when an old npm package exists nearby",
+      "resolution": "Require launcher-to-entry realpath identity; existing e2e covers ordinary native launcher alongside stale package",
+      "status": "resolved_reviewed"
+    }
+  ],
+  "result": "reviewed_no_unresolved_code_findings",
+  "independentValidation": {
+    "gitDiffCheck": "pass",
+    "pathBoundary": "Missing file under an aliased existing directory maps to same canonical target; no change to tier/toolCallId/settled/once/session/ambiguity conditions or final fs guard",
+    "probeBoundary": "Canonicalizes mkdtemp and temporary root together; no expanded cleanup scope",
+    "reviewerExecution": "Static code and assertion review, no concurrent tests or real CLI account access"
+  },
+  "unverified": [
+    "Real-account Kimi service round, stop and recovery",
+    "Claude real CLI/account",
+    "Formal login Keychain authorization and Windows same-SHA runtime"
+  ],
+  "implementationCommit": "8ebb66387dfc377fccdf43faa57138c9bb4b8a69",
+  "completionChecklistReview": "Mac credential contract (isolated Keychain and denied IPC scope), local business/capabilities, explicit unverified environments and evidence tracking are proven; V05/V07 complete and Windows same-SHA remain open."
+}

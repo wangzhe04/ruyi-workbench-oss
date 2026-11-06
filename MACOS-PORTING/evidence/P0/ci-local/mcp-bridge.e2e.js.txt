@@ -1,0 +1,16 @@
+[fake] [fake-openai] listening on 51930
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 3b5227abb598)
+[wb] UI: http://127.0.0.1:51931/
+[wb] Data: /private/tmp/ruyi-p0-wm2mlH/wcw-bridge-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :51931
+PASS version 3.0.1 (got 3.0.1)
+PASS meta.bridgedTools >= 1 (got 29)
+PASS tool_use name === "fake__echo"
+PASS tool_use carries the echo arg (message=BRIDGE_ECHO_MARKER_77)
+PASS tool_result ok (not error)
+PASS tool_result.content.echoed === MARKER (round-trip through fake-mcp): {"ok":true,"echoed":"BRIDGE_ECHO_MARKER_77"}
+PASS final answer echoes the marker from the MCP child: "工具返回：BRIDGE_ECHO_MARKER_77"
+PASS result ok=true
+
+MCP-BRIDGE E2E: ALL PASS

@@ -1,0 +1,96 @@
+PASS 默认值: stewardEnabledV1=true(121 波 K0 从 false 翻转)
+PASS 默认值: stewardProviderId=''
+PASS 默认值: stewardModel=''(在 stewardProviderId 之后,与 subagent 写法对齐)
+PASS 默认值: stewardPollMs=5000
+PASS 默认值: stewardMaxTurnsPerHour=30(117m-A1 从 12 抬到 30)
+PASS 默认值: stewardMaxTurnsPerHour 的默认表与 sanitize 兜底是同一个数(默认表 30 / 兜底 30)—— 两处漂移会让「缺省」和「填了垃圾」落到不同上限
+PASS sanitize: 合法的存量值原样保留(只有 clamp 后不同才回写 —— 抬高默认值不会动老用户已有的上限)
+PASS 默认值: stewardMaxCostPerDay=5
+PASS 默认值: stewardAutoActions={retry:true,resume:null,relay:true,newThread:true,answer:false,continueUnfinished:true}(136:relay 翻默认;continueUnfinished 默认开)
+PASS 默认值: stewardContextBudgetTokens=200000
+PASS 默认值: stewardContextBudgetRatio=0.6(136 新增)
+PASS 默认值: stewardPersonaName/stewardPersonaStyle=''(136 新增人设两键)
+PASS 默认值: stewardReadBudgetChars=48000
+PASS 默认值: stewardVisitIdleMinutes=60
+PASS 默认值: stewardConversationRetention='24h'(136 从 visit 翻默认)
+PASS 默认值: retention 默认表与 sanitize 兜底是同一个值(默认表 24h / 兜底 24h)
+PASS 默认值: stewardMaxParallelThreads=5(116h 用户拍板)
+PASS 默认值: stewardGlobalMaxTurnsPerHour=120
+PASS 默认值: stewardGlobalMaxCostPerDay=50
+PASS sanitize: stewardEnabledV1 严格布尔(=== true)归一
+PASS sanitize: stewardConversationRetention 枚举 ['visit','24h','forever']
+PASS sanitize: stewardPollMs clamp [5000,120000]
+PASS sanitize: stewardMaxTurnsPerHour clamp [1,120]
+PASS sanitize: stewardMaxCostPerDay clamp [0,1000]
+PASS sanitize: stewardContextBudgetTokens clamp [16000,2000000]
+PASS sanitize: stewardContextBudgetRatio clamp [0.3,0.95](136)
+PASS sanitize: stewardReadBudgetChars clamp [4000,400000]
+PASS sanitize: stewardVisitIdleMinutes clamp [5,1440]
+PASS sanitize: stewardMaxParallelThreads clamp [1,32]
+PASS sanitize: stewardGlobalMaxTurnsPerHour clamp [1,2000]
+PASS sanitize: stewardGlobalMaxCostPerDay clamp [0,10000]
+PASS sanitize: stewardAutoActions.resume 三态 true/false/null
+PASS sanitize: stewardAutoActions.retry 严格布尔回该键默认
+PASS sanitize: stewardAutoActions.relay 严格布尔回该键默认
+PASS sanitize: stewardAutoActions.newThread 严格布尔回该键默认
+PASS sanitize: stewardAutoActions.answer 严格布尔回该键默认
+PASS sanitize: stewardAutoActions.continueUnfinished 严格布尔回该键默认
+PASS sanitize: stewardPersonaName trim + ≤20 字截断
+PASS sanitize: stewardPersonaStyle trim + ≤200 字截断
+PASS 129g-lock0 扫得到 DEF_AA(扫不到 = 本条静默失效)
+PASS 129g-lock1 自理清单当前 6 格(实得 6: retry/resume/relay/newThread/answer/continueUnfinished)
+PASS 129g-lock2 扫得到 autoPatch() 的整个函数体(扫不全 = 本条静默失效,会把没截到的那几格误报成「漏了」)
+PASS 129g-lock3 每一格都在 autoPatch() 里(漏的那格会被界面静默重置;缺: [])
+PASS CONFIG_SCHEMA 当前为 14(116a 自己不 bump;11→12 是 107-T1 为 126-111b/d/e 迁移抬的;12→13 是 128a 稀疏落盘;13→14 是出厂权限档翻成智能自动)
+PASS 扫得到 incomingConfigSchema 迁移分支（实得 1 处；扫不到 = 本条静默失效）
+PASS 116a 的管家键仍然没有任何 schema 迁移分支
+PASS 06i-steward-core.js 紧跟在 06h-retrieval-index.js 之后
+PASS 06d-memory-domain.js 紧跟在 06i-steward-core.js 之后(06i 插在两者之间)
+PASS 06i 声明空的延迟绑定命名空间 StewardHooks = {}
+PASS 06i 声明 STEWARD_EVENT_KINDS 七类白名单并冻结(121-K3 表尾加 adopted、123-M2 表尾加 reminder)
+PASS 06i 声明 stewardMayAct(permissionMode, eventKind, toolTier)
+PASS 06i 声明 buildStewardDigestLine(thread)
+PASS 06i 零 require(纯函数层,不反向拉传输/工具层模块)
+PASS stewardPollMs: 新安装、缺省与非法值统一采用 5000
+PASS stewardMaxCostPerDay: 新安装、缺省与非法值统一采用 5
+PASS stewardGlobalMaxCostPerDay: 新安装、缺省与非法值统一采用 50
+PASS 显式存量配置读后与落盘均保留（含 0 费用不限）: {"stewardPollMs":15000,"stewardMaxCostPerDay":1,"stewardGlobalMaxCostPerDay":20}
+PASS 显式存量配置读后与落盘均保留（含 0 费用不限）: {"stewardPollMs":30000,"stewardMaxCostPerDay":0,"stewardGlobalMaxCostPerDay":0}
+PASS 非法 stewardEnabledV1='yes' 归一为 false
+PASS stewardProviderId=42 经 String() 归一为字符串(与 subagentPreferredProvider 同口径)
+PASS stewardModel 超长截断到 160 字符
+PASS stewardPollMs=1 clamp 到下限 5000
+PASS stewardMaxTurnsPerHour=-5 clamp 到下限 1
+PASS 非法 stewardMaxCostPerDay='free' 回默认 5
+PASS stewardAutoActions:非布尔回默认(136 起 relay 默认 true)、resume 非三态回 null、未知键丢弃、合法布尔 false 被尊重
+PASS stewardContextBudgetTokens 越界高 clamp 到 2000000
+PASS stewardContextBudgetRatio=99 越界高 clamp 到 0.95(136)
+PASS stewardPersonaName 超长截断到 20 字(136)
+PASS stewardPersonaStyle 首尾空白被 trim(136)
+PASS stewardReadBudgetChars 越界低 clamp 到 4000
+PASS stewardVisitIdleMinutes 越界高 clamp 到 1440
+PASS 非法枚举 'never' 回默认 '24h'(136 起)
+PASS stewardMaxParallelThreads 越界高 clamp 到 32
+PASS stewardGlobalMaxTurnsPerHour=0 clamp 到下限 1
+PASS 非法 stewardGlobalMaxCostPerDay='lots' 回默认 50
+PASS 121-K0:默认配置是「管家开 + 并发上限 5」(仲裁随默认开一起生效)
+PASS 同一份落盘投影再跑一次 normalizeConfig -> changed===false、投影逐字不变(幂等)
+PASS stewardAutoActions 二次归一内容不变
+PASS stewardEnabledV1 二次归一后值不变(幂等)
+PASS stewardProviderId 二次归一后值不变(幂等)
+PASS stewardModel 二次归一后值不变(幂等)
+PASS stewardPollMs 二次归一后值不变(幂等)
+PASS stewardMaxTurnsPerHour 二次归一后值不变(幂等)
+PASS stewardMaxCostPerDay 二次归一后值不变(幂等)
+PASS stewardContextBudgetTokens 二次归一后值不变(幂等)
+PASS stewardContextBudgetRatio 二次归一后值不变(幂等)
+PASS stewardReadBudgetChars 二次归一后值不变(幂等)
+PASS stewardVisitIdleMinutes 二次归一后值不变(幂等)
+PASS stewardConversationRetention 二次归一后值不变(幂等)
+PASS stewardPersonaName 二次归一后值不变(幂等)
+PASS stewardPersonaStyle 二次归一后值不变(幂等)
+PASS stewardMaxParallelThreads 二次归一后值不变(幂等)
+PASS stewardGlobalMaxTurnsPerHour 二次归一后值不变(幂等)
+PASS stewardGlobalMaxCostPerDay 二次归一后值不变(幂等)
+
+STEWARD CONFIG STATIC E2E: ALL PASS

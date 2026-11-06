@@ -1,0 +1,10 @@
+{
+  "package": "@anthropic-ai/claude-code",
+  "version": "2.1.318",
+  "registry": "https://registry.npmjs.org",
+  "integrity": "sha512-OTJgLxcvWefv8IdTsq5n90Z2IxEhLwKqHUBhwZYE4odXzKA/Tb6p2Zb5Iy9Vq7JIVcNZzn9cPxW5sb42wLF95Q==",
+  "nativePackage": "@anthropic-ai/claude-code-darwin-arm64",
+  "nativeVersion": "2.1.318",
+  "nativeSha256": "677a2ea7bf576cedd20e191d973914ed8a41796f53a63b1923381ddc4d5b5e7d",
+  "installationScope": "Task-only temporary npm prefix; --ignore-scripts; official optional Darwin-arm64 package binary invoked directly because npm placeholder requires postinstall. No third-party source or binary committed."
+}
