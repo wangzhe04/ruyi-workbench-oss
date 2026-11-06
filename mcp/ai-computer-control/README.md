@@ -114,7 +114,7 @@
 > **截图预算**：`screenshot` / `screenshot_region` / `window_screenshot` 新增 `max_width`（>0 等比缩放，0=原尺寸）、`format`（png/jpeg）、`quality`（jpeg）；返回 `scale` 供坐标回映（`x_screen = x_in_image / scale`）。**注意**：observe 的 uia_elements/ocr_words 及 ocr_find_text/ui_find 的 rect/center 始终为**未缩放**物理屏幕坐标（可直接点击），仅截图字节受 `scale` 影响。
 > **ocr_click 消歧**：新增 `nth`（0 基读序索引）、`nearest_to{x,y}`（就近点击）、`return_candidates`（只返候选不点击）。
 > **diagnostics.optional**：顶层新增紧凑布尔 `{ocr,uia,cv2,playwright,pynput}`，与工作台 `probeDesktopMcp` 扫描字段对齐（沿用 `optional_modules` 完整导入级映射不变）。
-> **浏览器目标与降级**：默认 `system` 模式无需 Playwright，通过用户默认浏览器打开后使用桌面截图/UIA/OCR；DOM 工具会明确提示切换到 `managed`、`custom` 或 `cdp`。这些模式缺少 Playwright 时返回安装提示；`bundled` 是显式兼容/测试选项。
+> **浏览器目标与降级**：默认 `system` 模式无需 Playwright，Windows 可在打开后使用桌面截图/UIA/OCR；Mac 仅交接网址且不验证导航，桌面后端尚未实现；DOM 工具会明确提示切换到 `managed`、`custom` 或 `cdp`。这些模式缺少 Playwright 时返回安装提示；`bundled` 是显式兼容/测试选项。
 
 ### v1.3 新增工具
 
@@ -279,3 +279,23 @@ ai-computer-control/
 
 - Windows 10/11 (64位)
 - Python 3.12（离线 Full 包自带已验证的 CPython 3.12 与纯 wheel 缓存；`winsdk` 的 OCR wheel 以 cp312 提供，默认 OCR 不使用 Tesseract）
+
+### macOS 浏览器与模板能力（P3-03/P3-04）
+
+`ACC_BROWSER_MODE=system` 不依赖 Playwright，只请求系统打开 URL，不提供 DOM 操控，也不证明导航成功。
+`managed` 在 Mac 查找已安装 Chrome/Edge/Chromium；`custom` 使用明确的可执行文件；两者都用独立临时 profile。
+`bundled` 按 SDK 解析预备的完整 Chromium，缓存可由 `PLAYWRIGHT_BROWSERS_PATH` 指定；离线运行不下载。
+`cdp` 只连接用户明确指定的外部会话，退出只关闭工具创建的页面，保留原页面/未提交内容及外部浏览器。
+
+`browser_backend_status` 分开报告包 `installed`、二进制 `runtimeInstalled`、实际连接 `ready`、隔离方式和版本。
+配置/包存在不能证明可用；先 `browser_open`，再确认连接与实际页面内容。缺缓存或包时准确降级，不影响文件工具。
+自有浏览器在 `browser_close`、正常 stdio EOF 和启动取消时清理；`ACC_BROWSER_HEADLESS=1` 供受控无界面验证，默认有界面。
+
+已验证环境锁为 `MACOS-PORTING/dependencies/requirements-macos-arm64-cp312-browser.lock.txt`，包含63项依赖。
+预先准备对应wheel与Chromium缓存后，在仓库根目录运行：
+
+```bash
+RUYI_BROWSER_REQUIRED=1 RUYI_BROWSER_CACHE_SOURCE=/path/to/prepared/cache node dev-harness/macos-browser-runtime.e2e.js
+```
+
+这不是安装命令；缺少预备资源会失败，不在验收中联网下载。Mac桌面操作/OCR模板当前禁用；填表仅在DOM目标及依赖具备时允许尝试，未连接时标未知。Mac下载清理模板只生成建议，未验证移入废纸篓。Windows、最低macOS与正式发行仍需独立验收。

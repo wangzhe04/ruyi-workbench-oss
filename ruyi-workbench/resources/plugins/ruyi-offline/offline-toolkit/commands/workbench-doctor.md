@@ -3,6 +3,8 @@ name: 工作台体检
 description: 运行本地工作台体检命令并总结结果
 ---
 
+平台分支：下面 EXE / PowerShell 例子只适用于 Windows。macOS 源码环境在 ruyi-workbench 中执行 node app/server.js doctor --human（shell_run 或 script_run 的 bash/Node 路径）；使用自己的隔离数据目录，不把 Mac 结果当成 Windows 验收或正式安装包证明。
+
 # Workbench Doctor
 
 Run the local workbench health check and summarize the result.

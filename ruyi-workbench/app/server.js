@@ -31885,6 +31885,7 @@ const ERROR_CLASSES = {
 // ai-computer-control bridge exists (failure/absence → all false). Never throws. ──────────────────────────
 let _capCache = null; // { at, value }
 let _capInflight = null; // G1: in-flight 共享 —— 并发 getCapabilities(多节点同时启动)复用同一个进行中的探测,避免 N 个调用各自全量探测(10s+×N 串行)。探测完成后清空,下次冷调用重新探测。
+let _capRequestedKey = null;
 const CAP_CACHE_MS = 60000;
 const CAP_PROBE_TIMEOUT_MS = 3000;
 // 用户首启走查（2026-09-19）＋ Brief §4.2 第 6 条「启动探针偶发把机器判成离线并缓存 60 s（机制未证）」—— 机制已证：
@@ -31983,7 +31984,10 @@ function markNetworkOnline() {
 // Probe the desktop MCP's optional python deps via a single bridged `diagnostics` call. Returns
 // { present, toolCount, optional:{ocr,uia,cv2,playwright} }. Absence/failure → present:false + all-false.
 async function probeDesktopMcp(config) {
-  const out = { present: false, toolCount: 0, optional: { ocr: false, uia: false, cv2: false, playwright: false } };
+  const out = { present: false, toolCount: 0, optional: { ocr: false, uia: false, cv2: false, playwright: false },
+    desktopAutomation: { supported: process.platform === 'win32', installed: false, authorization: 'unknown', ready: null },
+    ocr: { supported: process.platform === 'win32', installed: false, authorization: 'unknown', ready: null },
+    browser: { mode: String(config?.browserAutomation?.mode || 'system'), supported: false, installed: false, runtimeInstalled: null, ready: false } };
   try {
     const bridged = await collectBridgedTools(config);
     const accEntry = resolveExternalMcpServers(config).find(s => s.id === 'ai-computer-control');
@@ -31998,6 +32002,9 @@ async function probeDesktopMcp(config) {
       return typeof name === 'string' && name.startsWith(prefixWithSep);
     }).length;
     out.present = out.toolCount > 0;
+    const has = name => !!bridged.route[`${prefix}__${name}`];
+    out.desktopAutomation.installed = has('get_active_window') && has('type_text') && has('screenshot');
+    // Tool registration proves an implemented backend, not current OS focus/authorization.
     // Find the bridged diagnostics tool name (serverId__diagnostics) for the ACC server, if listed.
     const diagName = `${prefix}__diagnostics`;
     if (!bridged.route[diagName]) return out; // ACC present but no diagnostics tool → leave optional false
@@ -32015,6 +32022,20 @@ async function probeDesktopMcp(config) {
       return false;
     };
     out.optional = { ocr: pick('ocr'), uia: pick('uia'), cv2: pick('cv2'), playwright: pick('playwright') };
+    out.ocr.installed = has('ocr_image') && out.optional.ocr;
+    if (has('browser_backend_status')) {
+      out.browser = { ...out.browser, supported: out.browser.mode !== 'system', installed: out.optional.playwright };
+      try {
+        const status = await client.callTool('browser_backend_status', {}, 20000);
+        if (status?.ok === true) out.browser = {
+          mode: status.targetMode || out.browser.mode, supported: status.supported === true,
+          installed: status.installed === true,
+          runtimeInstalled: status.probeError ? null : typeof status.runtimeInstalled === 'boolean' ? status.runtimeInstalled : null,
+          ready: status.ready === true, profileIsolation: status.profileIsolation || 'not-attached',
+          probeFailed: !!status.probeError,
+        };
+      } catch { out.browser.probeFailed = true; /* no failed lookup is evidence of a missing binary */ }
+    }
     return out;
   } catch { return out; }
 }
@@ -32028,11 +32049,13 @@ async function withRuntimeCapabilities(caps) {
 async function getCapabilities(config, force) {
   config = config || await readConfig();
   const now = Date.now();
-  if (!force && _capCache && (now - _capCache.at) < (_capCache.ttl || CAP_CACHE_MS)) return withRuntimeCapabilities(_capCache.value);
+  const configKey = JSON.stringify([config.browserAutomation, config.desktopMcp, config.allowDesktopTools, config.allowCommandTools]);
+  _capRequestedKey = configKey;
+  if (!force && _capCache?.configKey === configKey && (now - _capCache.at) < (_capCache.ttl || CAP_CACHE_MS)) return withRuntimeCapabilities(_capCache.value);
   // G1: in-flight 去重 —— 冷调用并发时(多子代理节点同时启动)共享同一个探测 Promise,避免各自全量探测。
   // 缓存有效期内直接命中;探测中则复用;探测完成后清空(下次冷调用重新探测,不跨周期复用 stale Promise)。
-  if (!force && _capInflight) return _capInflight.then(withRuntimeCapabilities);
-  _capInflight = (async () => {
+  if (!force && _capInflight?.configKey === configKey) return _capInflight.then(withRuntimeCapabilities);
+  const inflight = (async () => {
   const provider = activeOpenAiProvider(config);
   const engine = provider ? 'openai' : 'claude';
   // v1.1-W1a (T2): probe a MULTI-target list — [capabilityProbeUrl?]+[provider baseUrl?]+固定国内锚点
@@ -32059,10 +32082,15 @@ async function getCapabilities(config, force) {
   };
   // 有目标可探、却量出「未知」（探测撞上了同步阻塞）⇒ 只缓存几秒，下一次调用重新探；其余照旧 60 s。
   // Start the TTL when the complete result is published; slow probes must not consume it.
-  _capCache = { at: Date.now(), value, ttl: (online === null && targets.length) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
+  // An older configuration may finish after the current probe or after a cache hit
+  // for another target. Never publish it to peekCapabilities' unkeyed hot snapshot.
+  if (_capInflight === inflight && _capRequestedKey === configKey)
+    _capCache = { at: Date.now(), configKey, value, ttl: (online === null && targets.length) ? CAP_UNKNOWN_TTL_MS : CAP_CACHE_MS };
   return value;
-  })().finally(() => { _capInflight = null; }); // G1: 探测完成(成功/失败)清空 in-flight,下次冷调用重新探测
-  return _capInflight.then(withRuntimeCapabilities);
+  })().finally(() => { if (_capInflight === inflight) _capInflight = null; });
+  inflight.configKey = configKey;
+  _capInflight = inflight;
+  return inflight.then(withRuntimeCapabilities);
 }
 // Test/维护 aid: drop the capability cache so the next getCapabilities re-probes immediately.
 function invalidateCapabilityCache() { _capCache = null; }
@@ -32666,9 +32694,8 @@ async function collectAudit(config, { limit, sourceFilter, typeFilter, kinds, ex
 // unavailable card renders greyed with its reason, so the capability model stays legible to the user, C2).
 // ============================================================================
 const PLAYBOOK_INPUT_TYPES = ['text', 'folder', 'file'];
-// requires只认这三种能力键;其余(typo / 恶意)在 normalize 时静默丢弃,再由 toolRequirementsMet 式的
-// 评估映射到 available。desktopMcp=需要桌面控制;network=需要联网;vision=需要视觉模型。
-const PLAYBOOK_REQUIRES = ['network', 'desktopMcp', 'vision'];
+// desktopMcp means the shared ACC connection. UI, OCR and form control have separate requirements.
+const PLAYBOOK_REQUIRES = ['network', 'desktopMcp', 'vision', 'desktopAutomation', 'ocr', 'browserControl'];
 // 45号文③(A-S01) 六类服务的机器键:research=研究比较 organize=资料整理 writing=产物撰写
 // coding=代码任务 scheduled=定时汇总 watch=变化守望。与 requires 同模具:白名单钳制,未知/缺失 →
 // ''(未分类)。允许为空是关键——45号文§1.4 实盘证实六类盖不住现有模板(desktop-open-app/web-form-fill
@@ -32807,6 +32834,35 @@ function evalPlaybookAvailability(pb, caps) {
       if (!caps || !caps.provider || caps.provider.vision !== true) { missingCaps.push('vision'); if (!reason) reason = '需要视觉模型(当前引擎未开启视觉)'; }
       const p = caps ? caps.provider : undefined;
       fact(p === null ? false : (p && typeof p === 'object' ? p.vision : undefined), 'needs_config');
+    } else if (r === 'desktopAutomation' || r === 'ocr') {
+      const backend = caps?.desktopMcp?.[r];
+      const supported = backend?.supported;
+      const prepared = supported === false ? false : backend?.installed;
+      const blocked = backend?.authorization === 'denied' || backend?.ready === false;
+      if (prepared !== true || blocked) {
+        missingCaps.push(r);
+        if (!reason) reason = supported === false ? (r === 'ocr' ? '当前平台尚未实现 OCR 后端' : '当前平台尚未实现桌面操控后端')
+          : blocked ? '后端未就绪或系统授权已拒绝' : (r === 'ocr' ? '需要可用的 OCR 后端' : '需要桌面操控后端');
+      }
+      fact(blocked ? false : prepared === true ? (backend.ready === true ? true : undefined) : prepared,
+        supported === false || blocked ? 'unavailable' : 'needs_config');
+    } else if (r === 'browserControl') {
+      const dm = caps?.desktopMcp;
+      const browser = dm?.browser;
+      const system = browser?.mode === 'system';
+      const desktop = dm?.desktopAutomation;
+      const blocked = system && (desktop?.authorization === 'denied' || desktop?.ready === false);
+      const prepared = system ? !blocked && desktop?.installed === true && desktop?.supported === true
+        : browser?.supported === true && browser?.installed === true && browser?.runtimeInstalled !== false;
+      if (!prepared) {
+        missingCaps.push(r);
+        if (!reason) reason = system ? '系统浏览器只接收网址；填表需要桌面后端或配置 DOM 浏览器目标'
+          : '需要配置浏览器自动化并预备 Playwright 与浏览器运行时';
+      }
+      // A prepared binary is startable, not an attached/verified session. CDP reachability
+      // is unknown until actual attachment; browser_open may establish that connection.
+      fact(!browser ? undefined : prepared ? ((system ? desktop.ready : browser.ready) === true ? true : undefined) : false,
+        blocked ? 'unavailable' : 'needs_config');
     }
   }
   return { available: !reason, unavailableReason: reason, missingCaps, status: PLAYBOOK_STATUS_RANK[rank] };
@@ -32955,7 +33011,7 @@ async function draftPlaybookFromSession(sessionId, options = {}) {
     '2. inputs 每项形如 {"key":"folder","label":"中文标签","type":"text|folder|file"};文件夹参数用 type:"folder";留空就没法做的参数(要处理的文件夹、文件、主题)加 "required":true。',
     '3. promptTemplate 写成给 AI 助手的高质量任务指令(含步骤与验收标准),用 {key} 占位。',
     '4. 输出 JSON 字段:{ "id","title","icon","desc","inputs","promptTemplate","requires","engineHint","uiMode" }。',
-    '   - id 用短横线小写英文(如 merge-excel);icon 用一个 emoji;requires 从 ["network","desktopMcp","vision"] 里选(通常为空数组 [])。',
+    '   - id 用短横线小写英文(如 merge-excel);icon 用一个 emoji;requires 从 ["network","desktopMcp","vision","desktopAutomation","ocr","browserControl"] 里选(通常为空数组 [])；desktopMcp只表示共享组件，桌面操作、OCR和填表分别声明对应能力。',
     '5. 只输出 JSON,不要任何解释、不要 markdown 代码围栏。',
     '',
     '这次任务的用户需求:',
@@ -33359,9 +33415,10 @@ function buildResponseLanguagePolicy(config) {
   ].join('\n');
 }
 
-function buildBrowserAutomationHint(config) {
+function buildBrowserAutomationHint(config, platform = process.platform) {
   const browser = (config && config.browserAutomation) || {};
   const mode = String(browser.mode || 'system');
+  if (platform === 'darwin' && mode === 'system') return 'Browser target: system (macOS). browser_open only requests URL handoff; navigation is not verified and the user browser is not DOM-attached. Mac desktop screenshot, UIA, OCR and keyboard automation are not implemented. Do not offer to fill forms through that path. For DOM work, ask the user to configure managed/custom/CDP/bundled and prepare its local runtime. Never navigate or close the Ruyi Workbench tab; never change the browser target without the user asking.';
   if (mode === 'system') return 'Browser target: system (default). Open URLs in a new tab/window of the user\'s configured browser/session; never navigate, close, or reuse the Ruyi Workbench tab. Then continue through desktop screenshots and UIA/OCR/keyboard tools. Do not call browser_click/browser_type/DOM tools because the user browser is not Playwright-attached. A Direct3D/hardware-accelerated page may expose only browser chrome to UIA: when ui_inspect/ui_find reports accessibilityLimited, or no page content is visible, do not retry UIA; switch once to OCR/screenshot coordinates and verify the result. Do not launch bundled Chrome for Testing.';
   if (mode === 'cdp') return `Browser target: CDP (${String(browser.cdpUrl || 'http://127.0.0.1:9222')}). Reuse the attached user browser when available; inspect tabs before opening another one.`;
   if (mode === 'managed') return 'Browser target: managed installed browser. Use the user\'s configured Chromium-family browser executable through Playwright; this may open a separate automation window. Reuse its current tab unless the user asks for a new tab.';
@@ -33803,7 +33860,9 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   const visionCap = provider ? provider.vision === true : !!(caps && caps.provider && caps.provider.vision === true);
   if (deskPresent) {
     lines.push(buildBrowserAutomationHint(config));
-    if (visionCap) {
+    if (process.platform === 'darwin') {
+      lines.push(getPromptPack(config && config.locale).desktop.sharedMac);
+    } else if (visionCap) {
       lines.push(getPromptPack(config && config.locale).desktop.vision);
     } else {
       lines.push(getPromptPack(config && config.locale).desktop.text);
@@ -34208,6 +34267,7 @@ const PROMPT_ZH = {
 
   // [操控规程层] - deskPresent && !identityOnly
   desktop: {
+    sharedMac: 'Mac 的 ai-computer-control 连接只证明已注册共享文件、Office 与浏览器工具，不表示桌面截图、键鼠、UIA 或 OCR 已实现。用 diagnostics 和 browser_backend_status 检查实际依赖与连接；installed/runtimeInstalled 不等于 ready。文档生成后读回验证，不能声称已在桌面应用内操作。',
     vision: '桌面操控(视觉路径):按「截图 -> 观察元素 -> 操作(点击/输入) -> wait_for_window_idle -> 再截图验证结果」的循环推进,每一步都要用截图确认上一步真的生效了才继续。优先用 observe 一次拿到截图+可交互元素+OCR 文本,减少往返。坐标以返回的归一化/缩放比例为准。',
     text: '桌面操控(文本路径):你没有视觉,不能依赖「看」截图。用 ocr_find_text 或 ui_find 定位目标、拿到坐标 -> 用坐标执行操作 -> wait_for_window_idle -> 再用 ocr 复核结果文本,确认这一步生效了再进行下一步。一切以元素/OCR 文本为准,不要假设屏幕上有什么。',
     office: 'Office 产出规程：先按任务读取 office-automation 技能；需要数据分析/文档改写时再读 spreadsheet-analysis/document-workflow。先确定读者、用途、数据来源与版式，再生成可编辑文件。常规 Excel 用 write_excel → excel_beautify → excel_chart；PPT 用 write_pptx（数字用 stats、明细用 table、图表用 chart_image+image、每页一结论）；Word/PDF 用 write_document/write_pdf。用户模板、复杂图文、可编辑 PPT 图表或多表模型超出现成工具时，允许 script_run 调用本机已有 python-pptx/PptxGenJS、python-docx/docxtpl/docx、openpyxl/XlsxWriter/ExcelJS；先探测依赖，沿用统一字体配色，保存到新文件，不假装脚本受工具检查点保护。交付前重新读回并核对内容/公式/页数，有渲染器时逐页检查中文、溢出、对齐和图表单位；缺渲染器须说明未完成视觉校验。写入公式不代表已计算，不把生成成功等同于质量验收通过。',
@@ -34595,6 +34655,7 @@ const PROMPT_EN = {
   },
 
   desktop: {
+    sharedMac: 'On macOS, ai-computer-control registers shared file, Office and browser tools; its connection does not establish desktop screenshots, input, UIA or OCR support. Inspect diagnostics and browser_backend_status. installed/runtimeInstalled do not mean ready. Read generated documents back; do not claim to have operated a desktop application.',
     vision: 'Desktop control (vision path): advance by the loop "screenshot -> observe elements -> act (click/type) -> wait_for_window_idle -> screenshot again to verify". Use observe to get screenshot + interactive elements + OCR text in one round-trip to reduce back-and-forth. Coordinates follow the returned normalized/scale ratio.',
     text: 'Desktop control (text path): you have no vision and cannot "see" screenshots. Use ocr_find_text or ui_find to locate the target and get coordinates -> act by coordinates -> wait_for_window_idle -> re-check the result text with ocr, confirm the step took effect before proceeding. Rely on element/OCR text; do not assume what is on screen.',
     office: 'Office output: read office-automation first, and spreadsheet-analysis/document-workflow when relevant. Establish audience, purpose, sources and layout before creating editable files. Standard Excel: write_excel → excel_beautify → excel_chart; PPT: write_pptx (stats for metrics, table for details, chart_image+image for charts, one conclusion per slide); Word/PDF: write_document/write_pdf. For user templates, complex layouts, editable PPT charts or multi-sheet models, script_run may use installed python-pptx/PptxGenJS, python-docx/docxtpl/docx, openpyxl/XlsxWriter/ExcelJS. Probe dependencies first, retain consistent fonts/colors, save a new file, and do not claim script outputs have automatic checkpoints. Reopen outputs to verify content/formulas/page counts; render and inspect every page when a renderer is available. Disclose missing visual verification. Writing formulas is not calculating them, and a successful save is not quality acceptance.',

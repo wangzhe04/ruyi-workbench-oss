@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 89 | 3894 | 3505 | 643 | 67 | 0 | 1 |
+| 89 | 3895 | 3505 | 643 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -53,7 +53,7 @@
 | 35 | `05b-kimi-bridge.js` | engine | 129 | 76 | 14 |
 | 36 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
 | 37 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 38 | `06-provider-engine.js` | engine | 141 | 62 | 18 |
+| 38 | `06-provider-engine.js` | engine | 142 | 62 | 18 |
 | 39 | `06b-prompt-registry.js` | engine | 10 | 1 | 1 |
 | 40 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 41 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |

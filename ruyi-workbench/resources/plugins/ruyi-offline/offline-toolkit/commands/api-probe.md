@@ -4,6 +4,8 @@ description: 探测本地或内网 HTTP 接口
 argument-hint: "<url> [method]"
 ---
 
+Platform note: the curl.exe/PowerShell example below is Windows-only. On macOS use http_request or /usr/bin/curl via shell_run/script_run with a JSON body file and correctly quoted POSIX paths.
+
 # API Probe
 
 Probe a local or intranet HTTP API.

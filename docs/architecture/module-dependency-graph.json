@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 89,
-    "providedSymbols": 3894,
+    "providedSymbols": 3895,
     "requiredSymbols": 3505,
     "edges": 643,
     "forwardEdges": 67,
@@ -5645,6 +5645,7 @@
         "TOOL_REQUIRES",
         "_capCache",
         "_capInflight",
+        "_capRequestedKey",
         "_engineBriefMemo",
         "appendMemorySection",
         "appendResponseLanguagePolicy",

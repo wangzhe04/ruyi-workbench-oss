@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-11-06T19:04:38.644Z",
+  "generatedAt": "2026-11-06T20:25:40.407Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1032,6 +1032,7 @@
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\macos-office-artifacts.e2e.js",
         "dev-harness\\macos-overlay-boundary.e2e.js",
+        "dev-harness\\macos-platform-templates.e2e.js",
         "dev-harness\\net-token-replay.static.e2e.js",
         "dev-harness\\onboarding.e2e.js",
         "dev-harness\\overlay-update-core.e2e.js",
@@ -1151,6 +1152,7 @@
       "coveredBy": [
         "dev-harness\\capabilities.e2e.js",
         "dev-harness\\macos-capability-popover.browser.e2e.js",
+        "dev-harness\\macos-platform-templates.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\service-match.browser.e2e.js"
       ]
@@ -1169,6 +1171,7 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\macos-platform-templates.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
@@ -1224,6 +1227,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\auth-deny-default.e2e.js",
+        "dev-harness\\macos-platform-templates.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\playbook-reuse.browser.e2e.js",
         "dev-harness\\playbooks.e2e.js",
@@ -1378,6 +1382,7 @@
         "dev-harness\\interactive-question.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\locale-en-us.browser.e2e.js",
+        "dev-harness\\macos-platform-templates.e2e.js",
         "dev-harness\\mcp-ops-closure.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",

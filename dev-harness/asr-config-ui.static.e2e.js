@@ -32,7 +32,9 @@ const en = JSON.parse(fs.readFileSync(path.join(APP, 'public', 'locales', 'en-US
 // ① 域隔离（取值域不相交 + 互不引用；05 那行隔离注释是 45 号文 §1.2 点名要留的，允许它点名一次）
 // 130（51 号文）：白名单加 asr-stream（流式识别端点，只给麦克风用）；两个取值域仍不相交。
 assert.match(src05, /const PROVIDER_MODEL_CAPS = new Set\(\['asr', 'embedding', 'asr-stream'\]\)/, '05: PROVIDER_MODEL_CAPS 白名单（asr/embedding/asr-stream）');
-assert.match(src06, /const PLAYBOOK_REQUIRES = \['network', 'desktopMcp', 'vision'\]/, '06: PLAYBOOK_REQUIRES 取值域原样');
+const { PLAYBOOK_REQUIRES } = require('./lib/server-internals').loadServerInternals(['PLAYBOOK_REQUIRES']);
+assert.deepStrictEqual(Array.from(PLAYBOOK_REQUIRES), ['network', 'desktopMcp', 'vision', 'desktopAutomation', 'ocr', 'browserControl'],
+  '06: runtime requirements retain the original capabilities and explicitly separate shared ACC from UI/OCR/browser control');
 const capsModelDomain = ['asr', 'embedding', 'asr-stream'], capsRuntimeDomain = ['network', 'desktopMcp', 'vision'];
 assert.ok(!capsModelDomain.some(v => capsRuntimeDomain.includes(v)), '两个 caps 取值域必须不相交');
 assert.ok(!src06.includes('PROVIDER_MODEL_CAPS'), '06 不得引用模型能力标签域（PROVIDER_MODEL_CAPS）');

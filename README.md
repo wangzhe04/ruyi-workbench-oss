@@ -86,7 +86,7 @@
 |---|---|
 | **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（由 `app/src/` 的 77 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 70 个原生 ES 模块，无框架、无构建。 |
 | **121 个原生工具 · 108 个 ACC 工具** | 包含文件、终端、搜索、Git、联网、Office 交接、跨线程回读、子代理编排及管家工具；可选的桌面控制组件 ACC 再提供截图 / OCR / UIA / 键鼠 / 窗口 / 浏览器 / Office / PDF 等 108 个工具。 |
-| **8 套模板 · 10 种角色 · 569 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 569 项 e2e（默认回归 562 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 278 组 unit suite 与 27 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
+| **8 套模板 · 10 种角色 · 570 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 570 项 e2e（默认回归 563 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 278 组 unit suite 与 27 组 ACC smoke；Windows CI 运行离线回归、单测及无需真实桌面的 ACC 子集。 |
 
 > 原名 **Win Claude Workbench**，自 v0.8 起更名**如意 Ruyi**：项目名去掉 "Claude" 一是规避商标风险，二是旧提示词曾让 provider 模型自称「我是 Claude」。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 
@@ -524,7 +524,11 @@ node .\app\server.js serve --open        # 只监听 127.0.0.1（`--host` 绑非
 
 <details><summary><b>在 Linux / macOS 上能跑吗？</b></summary>
 
-Windows 10/11 是一等目标，发布包和桌面控制只支持 Windows。源码在 Linux 上可以启动用于开发与测试（CI 的静态检查就在 Linux 上跑），但 PowerShell、资源管理器、`C:\` 路径相关的功能不适用。
+Windows 10/11 继续作为一等目标，现有发布包与完整桌面控制面向 Windows。Mac arm64 源码开发版已验证受控 bash/脚本、文件、共享 ACC 文档与图表，以及准备好运行时的 Playwright 浏览器；使用 `ruyi-workbench/start-macos.command`，或在该目录运行 `node app/server.js serve --open`。应用运行要求 Node.js ≥20；开发检查使用 Node.js 24，ACC 使用 Python 3.12 与事先准备的本平台依赖。
+
+Mac 的 system 浏览器只交接网址，不验证导航、不提供 DOM 操控。填表需要用户明确配置 managed/custom/CDP/bundled 并准备匹配的 Playwright/Chromium；`installed` 或文件存在不等于 `ready`。Mac 桌面键鼠、窗口、截图、AX/OCR 及录制尚未实现，对应 Playbook 显示不可用；共享 Office 不需要桌面后端。目录清点/定时摘要有 Python 路径，清理下载在 Mac 只生成建议，不执行删除或承诺废纸篓恢复。
+
+这不是正式 Mac 离线安装包：macOS 14、正式签名与干净机离线发行仍未验证，当前开发验证环境为 macOS 27.0.1 arm64。Windows 同候选回归未执行的阶段关口仍保留。详见 [Mac 移植计划](MACOS-PORTING/README.md)与 [P3 逐包证据](MACOS-PORTING/evidence/P3/README.md)。Linux 源码可用于开发测试，PowerShell、资源管理器和 Windows 路径功能不能直接使用。
 </details>
 
 ---

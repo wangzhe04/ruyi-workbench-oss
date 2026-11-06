@@ -1,10 +1,21 @@
 {
   "name": "offline-toolkit",
-  "version": "0.3.0",
-  "description": "Offline Windows workflow skills, commands and agents for Claude Code with Ruyi Workbench (如意 Ruyi) MCP.",
+  "version": "0.3.1",
+  "description": "Offline workflow skills, commands and agents for Windows and supported macOS source workflows through Ruyi Workbench MCP.",
   "author": {
     "name": "Ruyi Workbench (如意)"
   },
   "license": "Apache-2.0",
-  "keywords": ["windows", "offline", "mcp", "office", "browser", "automation", "review", "frontend", "plugins"]
+  "keywords": [
+    "windows",
+    "offline",
+    "mcp",
+    "office",
+    "browser",
+    "automation",
+    "review",
+    "frontend",
+    "plugins",
+    "macos"
+  ]
 }

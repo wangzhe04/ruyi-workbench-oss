@@ -5557,6 +5557,7 @@
         "TOOL_REQUIRES",
         "_capCache",
         "_capInflight",
+        "_capRequestedKey",
         "_engineBriefMemo",
         "appendMemorySection",
         "appendResponseLanguagePolicy",

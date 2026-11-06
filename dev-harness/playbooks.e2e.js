@@ -179,10 +179,14 @@ const DRAFT_JSON = JSON.stringify({
     const liveCaps = (await getJson(WB_PORT, '/api/capabilities')).json;
     const desktopPresent = !!(liveCaps && liveCaps.desktopMcp && liveCaps.desktopMcp.present);
     const ocr = byId.get('ocr-scan');
-    ok(ocr && ocr.available === desktopPresent, '② ocr-scan (requires desktopMcp) availability agrees with caps.desktopMcp.present (' + desktopPresent + ')');
+    const ocrBackend = liveCaps?.desktopMcp?.ocr;
+    ok(ocr && ocr.requires.includes('ocr') && ocr.available === (desktopPresent && ocrBackend?.supported === true && ocrBackend?.installed === true),
+      '② ocr-scan requires an implemented OCR backend as well as the shared ACC connection');
     if (!desktopPresent) ok(/桌面控制/.test(ocr.unavailableReason || ''), '② ocr-scan unavailable reason mentions 桌面控制');
     // Deterministic UNIT proof of the desktopMcp-unavailable path (env-independent): eval with present:false.
     const unitOcr = srv.normalizePlaybook({ id: 'u-ocr', title: 'T', promptTemplate: 'x', requires: ['desktopMcp'] });
+    ok(srv.evalPlaybookAvailability(unitOcr, { desktopMcp: { present: true } }).available,
+      '② legacy desktopMcp requirement still accepts a connected shared ACC component');
     const unitEval = srv.evalPlaybookAvailability(unitOcr, { desktopMcp: { present: false }, network: { online: true }, provider: null });
     ok(unitEval.available === false && /桌面控制/.test(unitEval.unavailableReason), '② evalPlaybookAvailability(desktopMcp, present:false) → unavailable + reason (unit)');
     // 2026-10:merge-excel / pdf-summarize 读写 Excel、PDF 要靠桌面控制(excel_read / pdf_read_pages),声明了 desktopMcp。
