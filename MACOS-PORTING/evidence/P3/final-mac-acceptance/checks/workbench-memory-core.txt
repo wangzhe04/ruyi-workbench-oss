@@ -1,0 +1,6 @@
+FAIL legacy ACC memory imports once and records completion
+PASS ACC import is idempotent
+PASS completed migration hides ACC memory tools on the actual bridge configuration
+FAIL workbench_memory_list discovers imported global memory
+TypeError: Cannot read properties of undefined (reading 'id')
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/workbench-memory-core.e2e.js:40:69

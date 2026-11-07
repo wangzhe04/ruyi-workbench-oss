@@ -1,0 +1,16 @@
+[fake] [fake-openai] listening on 57508 (tool path set)
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay a2053e60cd49)
+[wb] UI: http://127.0.0.1:57509/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-usage-accum-e2e
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS workbench listening on :57509
+PASS version === package.json (got 3.0.1)
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-usage-accum-e2e/generated/workbench.mcp.json
+PASS file_read tool_use emitted (confirms 2-call flow)
+PASS usage event emitted
+PASS usage.input_tokens === sum of both calls (84), got 84
+PASS usage.output_tokens === sum of both calls (30), got 30
+PASS usage.calls === 2 (got 2)
+PASS result ok=true
+
+USAGE-ACCUM E2E: ALL PASS

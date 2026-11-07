@@ -1,13 +1,15 @@
 # P3 开发与逐包验收
 
+**当前状态为P3已完成用户指定Mac范围最终验收。** 2026-11-07用户明确只验收Mac端，最新结论与适用环境见[最终Mac验收](final-mac-acceptance/README.md)。下列执行进度按发生时间保留。
+
 2026-11-06 开始。用户要求按工作包推进，每包单独验收，并授权各包使用独立 agent 复核。
 
 | 工作包 | 当前结果 | 证据 |
 |---|---|---|
-| P3-01 平台依赖与注册 | Mac 开发与单独本地验收完成；Windows 同候选回归待通过 | [交付与验收](acc-shared/README.md) |
-| P3-02 文档与图表 | Mac 开发与单独本地验收完成；Windows 同候选回归待通过 | [交付与验收](office/README.md) |
-| P3-03 浏览器运行时 | Mac 开发与单独本地验收完成；Windows 同候选回归待通过 | [交付与验收](browser/README.md) |
-| P3-04 模板与说明 | Mac 开发与单独本地验收完成；Windows 同候选回归待通过 | [交付与验收](templates/README.md) |
+| P3-01 平台依赖与注册 | Mac 开发与单独本地验收完成；Mac最终验收通过，Windows排除本轮 | [交付与验收](acc-shared/README.md) |
+| P3-02 文档与图表 | Mac 开发与单独本地验收完成；Mac最终验收通过，Windows排除本轮 | [交付与验收](office/README.md) |
+| P3-03 浏览器运行时 | Mac 开发与单独本地验收完成；Mac最终验收通过，Windows排除本轮 | [交付与验收](browser/README.md) |
+| P3-04 模板与说明 | Mac 开发与单独本地验收完成；Mac最终验收通过，Windows排除本轮 | [交付与验收](templates/README.md) |
 
 P3 整体保持进行中。Windows 回归没有沿用 P1/P2 的阶段豁免；macOS 14、正式签名及离线发行继续按原阶段交接。未执行项目不计通过。
 

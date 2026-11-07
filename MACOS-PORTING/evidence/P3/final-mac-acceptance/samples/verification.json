@@ -1,0 +1,44 @@
+{
+  "checks": [
+    "independent DOCX reader preserves Chinese table rows and numbers",
+    "DOCX uses an installed Mac CJK family",
+    "independent XLSX reader matches every source header, string and numeric value",
+    "XLSX contains its native chart and the Mac CJK font",
+    "independent PPTX reader finds all three specified slides",
+    "PPTX data table matches the source values",
+    "PPTX shapes stay within the slide bounds",
+    "chart is a real high-resolution raster with visible content",
+    "selected chart font contains every Chinese sample label glyph",
+    "independent PDF resources contain actual embedded font streams",
+    "independent PDF text extraction retains Chinese, English and table data",
+    "source-with-image.docx native reader extracts images without warnings",
+    "source-with-image.docx embedded image bytes match the source chart",
+    "source-with-image.xlsx native reader extracts images without warnings",
+    "source-with-image.xlsx embedded image bytes match the source chart",
+    "slides.pptx native reader extracts images without warnings",
+    "slides.pptx embedded image bytes match the source chart",
+    "summary.pdf native reader extracts images without warnings",
+    "native PDF reader returns an actual page raster",
+    "missing embeddable CJK font returns an accurate reader-font warning",
+    "blank PDF is inspected as having no font resources; selection is not treated as embedding proof",
+    "unreadable chart font keeps its accurate warning across cached calls",
+    "Windows Office style retains its original font contract",
+    "zero-exit renderer cannot accept stale PDF outputs as a fresh render"
+  ],
+  "count": 24,
+  "embeddedFonts": [
+    {
+      "name": "/'AAAAAA+STHeitiTC-Light-0'",
+      "bytes": 45096
+    },
+    {
+      "name": "/'AAAAAA+STHeitiTC-Medium-0'",
+      "bytes": 19244
+    }
+  ],
+  "chartSourceSha256": "e26bb78b71643908ba34376cb1cff793331de19c25c5ceee6fec163ff63286fa",
+  "limits": [
+    "Sample glyph coverage is not universal Unicode coverage",
+    "Office renderer and visual checks are recorded separately"
+  ]
+}

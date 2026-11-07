@@ -1,0 +1,102 @@
+{
+  "headed": true,
+  "marker": "如意 Mac 整体验收 2026",
+  "sessionId": "sess_ae57d3dd5275d3cc",
+  "forwarded": [
+    "{\"ok\":true,\"success\":true,\"path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/中文 工作区/验收报告.docx\",\"output_path\":\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/中文 工作区/验收报告.docx\",\"style\":\"business\",\"visual_review_required\":true}",
+    "{\"ok\":true,\"content\":\"# Mac 整体验收报告\\n\\n如意 Mac 整体验收 2026\",\"type\":\"docx\",\"paragraphs\":2,\"tables\":0,\"headings\":[{\"level\":1,\"text\":\"Mac 整体验收报告\"}],\"total_chars\":30}",
+    "{\"ok\":true,\"success\":true,\"url\":\"http://127.0.0.1:62832/\",\"title\":\"如意 Mac 整体验收\",\"mode\":\"bundled\",\"control\":\"playwright\",\"newTab\":true,\"preservedWorkbench\":false}",
+    "{\"ok\":true,\"configuredMode\":\"bundled\",\"activeMode\":\"bundled\",\"targetMode\":\"bundled\",\"executable\":\"/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing\",\"cdpUrl\":\"\",\"attached\":true,\"supported\":true,\"installed\":true,\"runtimeInstalled\":true,\"authorization\":\"not-required\",\"ready\":true,\"browserCachePath\":\"/tmp/ruyi-p3-browser-required-cache\",\"headless\":false,\"browserVersion\":\"156.0.8078.4\",\"profileIsolation\":\"ephemeral-owned\",\"lastStartError\":\"\",\"probeError\":\"\",\"systemControlHint\":\"System mode only hands the URL to macOS; it does not attach DOM automation. Use managed/custom/bundled/CDP for browser_* tools. Mac desktop automation is not implemented yet.\"}",
+    "{\"ok\":true,\"success\":true}",
+    "{\"ok\":true,\"success\":true}",
+    "{\"ok\":true,\"text\":\"如意 Mac 整体验收 2026\",\"url\":\"http://127.0.0.1:62832/submit\",\"total_chars\":16,\"truncated\":false}",
+    "{\"ok\":true,\"image\":\"[image omitted: 1280x720 png, model has no vision]\",\"width\":1280,\"height\":720,\"scale\":1,\"format\":\"png\",\"url\":\"http://127.0.0.1:62832/submit\",\"title\":\"如意整体验收成功\"}",
+    "{\"ok\":true,\"success\":true,\"mode\":\"bundled\",\"closed\":true,\"hint\":\"Owned browser closed.\"}",
+    "{\"ok\":true,\"configuredMode\":\"bundled\",\"activeMode\":\"\",\"targetMode\":\"bundled\",\"executable\":\"/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing\",\"cdpUrl\":\"\",\"attached\":false,\"supported\":true,\"installed\":true,\"runtimeInstalled\":true,\"authorization\":\"not-required\",\"ready\":false,\"browserCachePath\":\"/tmp/ruyi-p3-browser-required-cache\",\"headless\":false,\"browserVersion\":\"\",\"profileIsolation\":\"not-attached\",\"lastStartError\":\"\",\"probeError\":\"\",\"systemControlHint\":\"System mode only hands the URL to macOS; it does not attach DOM automation. Use managed/custom/bundled/CDP for browser_* tools. Mac desktop automation is not implemented yet.\"}"
+  ],
+  "submissions": [
+    "如意 Mac 整体验收 2026"
+  ],
+  "ownedProfiles": [
+    "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj"
+  ],
+  "ownedBrowsers": [
+    {
+      "pid": 80065,
+      "ppid": 80052,
+      "command": "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/playwright/driver/node /Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/lib/python3.12/site-packages/playwright/driver/package/cli.js run-driver"
+    },
+    {
+      "pid": 80066,
+      "ppid": 80065,
+      "command": "/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,AvoidCorsURLLoaderRestartOnRedirect,Translate,AutoDeElevate,OptimizationHints,NetworkTimeServiceQuerying,AimEnabled,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --force-renderer-accessibility --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --remote-debugging-pipe --no-startup-window"
+    },
+    {
+      "pid": 80078,
+      "ppid": 80066,
+      "command": "/private/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (GPU).app/Contents/MacOS/Google Chrome for Testing Helper (GPU) --type=gpu-process --gpu-recent-crash-count=0 --no-sandbox --disable-breakpad --enable-unsafe-swiftshader --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --start-stack-profiler --gpu-preferences=WAAAAAAAAAAgAAAEAAAAAAAAAAAAAGAAQAAAAAAAAAADAAAAAAAAADgAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAAoAAAAAAAAAAgAAAAAAAAADAAAAAEAAAAAAAAAAAAAAAgAAAAAAAAACAAAAAAAAAA= --shared-files --metrics-shmem-handle=1752395122,r,3560151121136791431,10481855419623055415,262144 --field-trial-handle=1718379636,r,15833065013900410537,13069959014192948660,262144 --enable-features=CDPScreenshotNewSurface --disable-features=AimEnabled,AutoDeElevate,AvoidCorsURLLoaderRestartOnRedirect,AvoidUnnecessaryBeforeUnloadCheckSync,BlockOriginHeaderModificationOnRedirect,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,NetworkTimeServiceQuerying,OptimizationHints,PaintHolding,ThirdPartyStoragePartitioning,Translate,msEdgeUpdateLaunchServicesPreferredVersion,msForceBrowserSignIn --variations-seed-version --pseudonymization-salt-handle=1935764596,r,15128838473059372934,17856779123313423360,4 --trace-process-track-uuid=3190708988185955192"
+    },
+    {
+      "pid": 80079,
+      "ppid": 80066,
+      "command": "/private/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=zh-CN --service-sandbox-type=network --no-sandbox --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --start-stack-profiler --shared-files --metrics-shmem-handle=1752395122,r,11525712572111022564,14719511592784755643,524288 --field-trial-handle=1718379636,r,15833065013900410537,13069959014192948660,262144 --enable-features=CDPScreenshotNewSurface --disable-features=AimEnabled,AutoDeElevate,AvoidCorsURLLoaderRestartOnRedirect,AvoidUnnecessaryBeforeUnloadCheckSync,BlockOriginHeaderModificationOnRedirect,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,NetworkTimeServiceQuerying,OptimizationHints,PaintHolding,ThirdPartyStoragePartitioning,Translate,msEdgeUpdateLaunchServicesPreferredVersion,msForceBrowserSignIn --variations-seed-version --pseudonymization-salt-handle=1935764596,r,15128838473059372934,17856779123313423360,4 --trace-process-track-uuid=3190708989122997041"
+    },
+    {
+      "pid": 80080,
+      "ppid": 80066,
+      "command": "/private/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper --type=utility --utility-sub-type=storage.mojom.StorageService --lang=zh-CN --service-sandbox-type=service --no-sandbox --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --shared-files --metrics-shmem-handle=1752395122,r,17493545691520010728,4560331654403885711,524288 --field-trial-handle=1718379636,r,15833065013900410537,13069959014192948660,262144 --enable-features=CDPScreenshotNewSurface --disable-features=AimEnabled,AutoDeElevate,AvoidCorsURLLoaderRestartOnRedirect,AvoidUnnecessaryBeforeUnloadCheckSync,BlockOriginHeaderModificationOnRedirect,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,NetworkTimeServiceQuerying,OptimizationHints,PaintHolding,ThirdPartyStoragePartitioning,Translate,msEdgeUpdateLaunchServicesPreferredVersion,msForceBrowserSignIn --variations-seed-version --pseudonymization-salt-handle=1935764596,r,15128838473059372934,17856779123313423360,4 --trace-process-track-uuid=3190708990060038890"
+    },
+    {
+      "pid": 80082,
+      "ppid": 80066,
+      "command": "/private/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --top-chrome-webui --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --start-stack-profiler --no-sandbox --disable-back-forward-cache --disable-background-timer-throttling --disable-breakpad --force-color-profile=srgb --remote-debugging-pipe --allow-pre-commit-input --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=6 --launch-time-ticks=1503367330757 --shared-files --metrics-shmem-handle=1752395122,r,9637993319825453202,8386448625809618905,1572864 --field-trial-handle=1718379636,r,15833065013900410537,13069959014192948660,262144 --enable-features=CDPScreenshotNewSurface --disable-features=AimEnabled,AutoDeElevate,AvoidCorsURLLoaderRestartOnRedirect,AvoidUnnecessaryBeforeUnloadCheckSync,BlockOriginHeaderModificationOnRedirect,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,NetworkTimeServiceQuerying,OptimizationHints,PaintHolding,ThirdPartyStoragePartitioning,Translate,msEdgeUpdateLaunchServicesPreferredVersion,msForceBrowserSignIn --variations-seed-version --pseudonymization-salt-handle=1935764596,r,15128838473059372934,17856779123313423360,4 --trace-process-track-uuid=3190708991934122588"
+    },
+    {
+      "pid": 80085,
+      "ppid": 80066,
+      "command": "/private/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --no-sandbox --disable-back-forward-cache --disable-background-timer-throttling --disable-breakpad --force-color-profile=srgb --remote-debugging-pipe --allow-pre-commit-input --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=7 --launch-time-ticks=1503367386558 --shared-files --metrics-shmem-handle=1752395122,r,103069354892634983,12029751100176502432,1572864 --field-trial-handle=1718379636,r,15833065013900410537,13069959014192948660,262144 --enable-features=CDPScreenshotNewSurface --disable-features=AimEnabled,AutoDeElevate,AvoidCorsURLLoaderRestartOnRedirect,AvoidUnnecessaryBeforeUnloadCheckSync,BlockOriginHeaderModificationOnRedirect,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,NetworkTimeServiceQuerying,OptimizationHints,PaintHolding,ThirdPartyStoragePartitioning,Translate,msEdgeUpdateLaunchServicesPreferredVersion,msForceBrowserSignIn --variations-seed-version --pseudonymization-salt-handle=1935764596,r,15128838473059372934,17856779123313423360,4 --trace-process-track-uuid=3190708992871164437"
+    },
+    {
+      "pid": 80089,
+      "ppid": 80066,
+      "command": "/private/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --top-chrome-webui --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --no-sandbox --disable-back-forward-cache --disable-background-timer-throttling --disable-breakpad --force-color-profile=srgb --remote-debugging-pipe --allow-pre-commit-input --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=9 --launch-time-ticks=1503368105127 --shared-files --metrics-shmem-handle=1752395122,r,7740065434252485522,3825328273154387196,1572864 --field-trial-handle=1718379636,r,15833065013900410537,13069959014192948660,262144 --enable-features=CDPScreenshotNewSurface --disable-features=AimEnabled,AutoDeElevate,AvoidCorsURLLoaderRestartOnRedirect,AvoidUnnecessaryBeforeUnloadCheckSync,BlockOriginHeaderModificationOnRedirect,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,NetworkTimeServiceQuerying,OptimizationHints,PaintHolding,ThirdPartyStoragePartitioning,Translate,msEdgeUpdateLaunchServicesPreferredVersion,msForceBrowserSignIn --variations-seed-version --pseudonymization-salt-handle=1935764596,r,15128838473059372934,17856779123313423360,4 --trace-process-track-uuid=3190708994745248135"
+    },
+    {
+      "pid": 80090,
+      "ppid": 80066,
+      "command": "/private/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --no-sandbox --disable-back-forward-cache --disable-background-timer-throttling --disable-breakpad --force-color-profile=srgb --remote-debugging-pipe --allow-pre-commit-input --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=11 --launch-time-ticks=1503368134957 --shared-files --metrics-shmem-handle=1752395122,r,9250215903117492925,5445074475103514907,1572864 --field-trial-handle=1718379636,r,15833065013900410537,13069959014192948660,262144 --enable-features=CDPScreenshotNewSurface --disable-features=AimEnabled,AutoDeElevate,AvoidCorsURLLoaderRestartOnRedirect,AvoidUnnecessaryBeforeUnloadCheckSync,BlockOriginHeaderModificationOnRedirect,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,NetworkTimeServiceQuerying,OptimizationHints,PaintHolding,ThirdPartyStoragePartitioning,Translate,msEdgeUpdateLaunchServicesPreferredVersion,msForceBrowserSignIn --variations-seed-version --pseudonymization-salt-handle=1935764596,r,15128838473059372934,17856779123313423360,4 --trace-process-track-uuid=3190708996619331833"
+    },
+    {
+      "pid": 80091,
+      "ppid": 80066,
+      "command": "/private/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/156.0.8078.4/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer) --type=renderer --user-data-dir=/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-PwXomQ/tmp/playwright_chromiumdev_profile-wJzsKj --no-sandbox --disable-back-forward-cache --disable-background-timer-throttling --disable-breakpad --force-color-profile=srgb --remote-debugging-pipe --allow-pre-commit-input --lang=zh-CN --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=10 --launch-time-ticks=1503368135650 --shared-files --metrics-shmem-handle=1752395122,r,15546604217283574719,7479963372088563691,1572864 --field-trial-handle=1718379636,r,15833065013900410537,13069959014192948660,262144 --enable-features=CDPScreenshotNewSurface --disable-features=AimEnabled,AutoDeElevate,AvoidCorsURLLoaderRestartOnRedirect,AvoidUnnecessaryBeforeUnloadCheckSync,BlockOriginHeaderModificationOnRedirect,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,NetworkTimeServiceQuerying,OptimizationHints,PaintHolding,ThirdPartyStoragePartitioning,Translate,msEdgeUpdateLaunchServicesPreferredVersion,msForceBrowserSignIn --variations-seed-version --pseudonymization-salt-handle=1935764596,r,15128838473059372934,17856779123313423360,4 --trace-process-track-uuid=3190708995682289984"
+    }
+  ],
+  "steps": [
+    "write_document",
+    "read_document",
+    "browser_open",
+    "browser_backend_status",
+    "browser_type",
+    "browser_click",
+    "browser_get_text",
+    "browser_screenshot",
+    "browser_close",
+    "browser_backend_status"
+  ],
+  "cleanup": {
+    "killed": [
+      80051,
+      80052,
+      80050,
+      80038
+    ],
+    "terminated": 4,
+    "alreadyExited": 0,
+    "unconfirmed": 0,
+    "scope": "observed-tree",
+    "incomplete": false
+  },
+  "failures": 1,
+  "profile": "Local deterministic provider; real Workbench, MCP, Office and Chromium; no real-model quality claim"
+}

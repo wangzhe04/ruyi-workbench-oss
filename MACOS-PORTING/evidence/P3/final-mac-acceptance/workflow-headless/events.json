@@ -1,0 +1,789 @@
+[
+  {
+    "type": "session",
+    "session": {
+      "id": "sess_d1f2c3044c068260",
+      "schemaVersion": 1,
+      "turnSeq": 0,
+      "title": "Mac 整体验收",
+      "summary": "",
+      "pinned": false,
+      "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区",
+      "createdAt": "2026-11-07T10:17:36.587Z",
+      "updatedAt": "2026-11-07T10:17:36.588Z",
+      "claudeSessionId": null,
+      "providerHistoryCursor": 0,
+      "privacyHistoryV1": false,
+      "attachments": [],
+      "engineRoute": {
+        "engine": "openai",
+        "providerId": "local-acceptance",
+        "model": "fake-model"
+      },
+      "mission": null,
+      "missionId": "sess_d1f2c3044c068260",
+      "kind": "quick_ask",
+      "origin": "user",
+      "titleSource": "user",
+      "todos": [],
+      "skills": [],
+      "memories": [],
+      "memoriesExplicit": false,
+      "memoryExclusions": [],
+      "messages": [],
+      "providerHistory": []
+    },
+    "execution": {
+      "serverInstanceId": "aedd9340de36",
+      "driverRunId": "drun_34701113148cbb20",
+      "phase": "starting"
+    },
+    "messagesStamp": "m1.0.da39a3ee5e6b4b0d3255bfef95601890afd80709",
+    "ts": "2026-11-07T10:17:36.682Z"
+  },
+  {
+    "type": "meta",
+    "command": "本地验收假端点 · http://127.0.0.1:63427/v1",
+    "args": [],
+    "cwd": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区",
+    "model": "fake-model",
+    "permissionMode": "bypass",
+    "engine": "openai",
+    "providerLabel": "本地验收假端点",
+    "tools": 100,
+    "availableTools": 100,
+    "bridgedTools": 36,
+    "toolLoadingMode": "full",
+    "toolPacks": [
+      "core",
+      "files_read",
+      "files_write",
+      "code",
+      "shell",
+      "web",
+      "desktop",
+      "office",
+      "archive",
+      "agents",
+      "skills",
+      "integrations",
+      "memory",
+      "thinking",
+      "steward"
+    ],
+    "toolSchemaTokens": 32075,
+    "memoryCheck": {
+      "mode": "default",
+      "enabled": true,
+      "checked": true,
+      "candidateCount": 0,
+      "matchCount": 0,
+      "ruleFillCount": 0,
+      "projectMatches": 0,
+      "globalMatches": 0,
+      "excludedCount": 0,
+      "coreActiveCount": 0
+    },
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.220Z"
+  },
+  {
+    "type": "process",
+    "state": "running",
+    "pid": null,
+    "interactive": false,
+    "engine": "openai",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.223Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 37087,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:37.233Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_0\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__write_document\",\"arguments\":\"{\\\"path\\\":\\\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx\\\",\\\"content\\\":\\\"如意 Mac 整体验收 2026\\\",\\\"title\\\":\\\"Mac 整体验收报告\\\"}\"}}]},\"finish_reason\":null}]}",
+    "seq": 0,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.240Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 1,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.241Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_0",
+    "name": "ai_computer_control__write_document",
+    "input": {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx",
+      "content": "如意 Mac 整体验收 2026",
+      "title": "Mac 整体验收报告"
+    },
+    "batchId": "openai-batch-1",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.241Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_0",
+    "content": {
+      "ok": true,
+      "success": true,
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx",
+      "output_path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx",
+      "style": "business",
+      "visual_review_required": true
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.282Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 37339,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:37.286Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_1\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__read_document\",\"arguments\":\"{\\\"path\\\":\\\"/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx\\\"}\"}}]},\"finish_reason\":null}]}",
+    "seq": 2,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.288Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 3,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.288Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_1",
+    "name": "ai_computer_control__read_document",
+    "input": {
+      "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx"
+    },
+    "batchId": "openai-batch-2",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.288Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_1",
+    "content": {
+      "ok": true,
+      "content": "# Mac 整体验收报告\n\n如意 Mac 整体验收 2026",
+      "type": "docx",
+      "paragraphs": 2,
+      "tables": 0,
+      "headings": [
+        {
+          "level": 1,
+          "text": "Mac 整体验收报告"
+        }
+      ],
+      "total_chars": 30
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.299Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 37528,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:37.302Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_2\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__browser_open\",\"arguments\":\"{\\\"url\\\":\\\"http://127.0.0.1:63426\\\"}\"}}]},\"finish_reason\":null}]}",
+    "seq": 4,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.304Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 5,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.305Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_2",
+    "name": "ai_computer_control__browser_open",
+    "input": {
+      "url": "http://127.0.0.1:63426"
+    },
+    "batchId": "openai-batch-3",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:37.305Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_2",
+    "content": {
+      "ok": true,
+      "success": true,
+      "url": "http://127.0.0.1:63426/",
+      "title": "如意 Mac 整体验收",
+      "mode": "bundled",
+      "control": "playwright",
+      "newTab": true,
+      "preservedWorkbench": false
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.177Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 37688,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.181Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_3\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__browser_backend_status\",\"arguments\":\"{}\"}}]},\"finish_reason\":null}]}",
+    "seq": 6,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.184Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 7,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.184Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_3",
+    "name": "ai_computer_control__browser_backend_status",
+    "input": {},
+    "batchId": "openai-batch-4",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.184Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_3",
+    "content": {
+      "ok": true,
+      "configuredMode": "bundled",
+      "activeMode": "bundled",
+      "targetMode": "bundled",
+      "executable": "/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "cdpUrl": "",
+      "attached": true,
+      "supported": true,
+      "installed": true,
+      "runtimeInstalled": true,
+      "authorization": "not-required",
+      "ready": true,
+      "browserCachePath": "/tmp/ruyi-p3-browser-required-cache",
+      "headless": true,
+      "browserVersion": "156.0.8078.4",
+      "profileIsolation": "ephemeral-owned",
+      "lastStartError": "",
+      "probeError": "",
+      "systemControlHint": "System mode only hands the URL to macOS; it does not attach DOM automation. Use managed/custom/bundled/CDP for browser_* tools. Mac desktop automation is not implemented yet."
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.187Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 38046,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.189Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_4\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__browser_type\",\"arguments\":\"{\\\"selector\\\":\\\"#name\\\",\\\"text\\\":\\\"如意 Mac 整体验收 2026\\\"}\"}}]},\"finish_reason\":null}]}",
+    "seq": 8,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.223Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 9,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.223Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_4",
+    "name": "ai_computer_control__browser_type",
+    "input": {
+      "selector": "#name",
+      "text": "如意 Mac 整体验收 2026"
+    },
+    "batchId": "openai-batch-5",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.223Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_4",
+    "content": {
+      "ok": true,
+      "success": true
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.238Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 38162,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.241Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_5\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__browser_click\",\"arguments\":\"{\\\"selector\\\":\\\"#submit\\\"}\"}}]},\"finish_reason\":null}]}",
+    "seq": 10,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.243Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 11,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.243Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_5",
+    "name": "ai_computer_control__browser_click",
+    "input": {
+      "selector": "#submit"
+    },
+    "batchId": "openai-batch-6",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.243Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_5",
+    "content": {
+      "ok": true,
+      "success": true
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.361Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 38269,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.364Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_6\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__browser_get_text\",\"arguments\":\"{\\\"selector\\\":\\\"#result\\\"}\"}}]},\"finish_reason\":null}]}",
+    "seq": 12,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.367Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 13,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.367Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_6",
+    "name": "ai_computer_control__browser_get_text",
+    "input": {
+      "selector": "#result"
+    },
+    "batchId": "openai-batch-7",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.367Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_6",
+    "content": {
+      "ok": true,
+      "text": "如意 Mac 整体验收 2026",
+      "url": "http://127.0.0.1:63426/submit",
+      "total_chars": 16,
+      "truncated": false
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.390Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 38408,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.393Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_7\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__browser_screenshot\",\"arguments\":\"{}\"}}]},\"finish_reason\":null}]}",
+    "seq": 14,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.395Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 15,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.395Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_7",
+    "name": "ai_computer_control__browser_screenshot",
+    "input": {},
+    "batchId": "openai-batch-8",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.395Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_7",
+    "content": {
+      "ok": true,
+      "image": "[image omitted from stored result: 18868 base64 chars, saved as attachment toolimg_deec582c93_37e09f6e61aa4d7cbef4e281/browser_screenshot.png]",
+      "width": 1280,
+      "height": 720,
+      "scale": 1,
+      "format": "png",
+      "url": "http://127.0.0.1:63426/submit",
+      "title": "如意整体验收成功",
+      "imageAttachments": [
+        {
+          "field": "image",
+          "id": "toolimg_deec582c93_37e09f6e61aa4d7cbef4e281",
+          "name": "browser_screenshot.png",
+          "mime": "image/png",
+          "size": 14150
+        }
+      ]
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.455Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 38566,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.457Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_8\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__browser_close\",\"arguments\":\"{}\"}}]},\"finish_reason\":null}]}",
+    "seq": 16,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.459Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 17,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.459Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_8",
+    "name": "ai_computer_control__browser_close",
+    "input": {},
+    "batchId": "openai-batch-9",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.459Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_8",
+    "content": {
+      "ok": true,
+      "success": true,
+      "mode": "bundled",
+      "closed": true,
+      "hint": "Owned browser closed."
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.539Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 38688,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.542Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"mac_accept_9\",\"type\":\"function\",\"function\":{\"name\":\"ai_computer_control__browser_backend_status\",\"arguments\":\"{}\"}}]},\"finish_reason\":null}]}",
+    "seq": 18,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.544Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 19,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.544Z"
+  },
+  {
+    "type": "tool_use",
+    "id": "mac_accept_9",
+    "name": "ai_computer_control__browser_backend_status",
+    "input": {},
+    "batchId": "openai-batch-10",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.545Z"
+  },
+  {
+    "type": "tool_result",
+    "id": "mac_accept_9",
+    "content": {
+      "ok": true,
+      "configuredMode": "bundled",
+      "activeMode": "",
+      "targetMode": "bundled",
+      "executable": "/tmp/ruyi-p3-browser-required-cache/chromium-1248/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "cdpUrl": "",
+      "attached": false,
+      "supported": true,
+      "installed": true,
+      "runtimeInstalled": true,
+      "authorization": "not-required",
+      "ready": false,
+      "browserCachePath": "/tmp/ruyi-p3-browser-required-cache",
+      "headless": true,
+      "browserVersion": "",
+      "profileIsolation": "not-attached",
+      "lastStartError": "",
+      "probeError": "",
+      "systemControlHint": "System mode only hands the URL to macOS; it does not attach DOM automation. Use managed/custom/bundled/CDP for browser_* tools. Mac desktop automation is not implemented yet."
+    },
+    "isError": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.691Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 39039,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.694Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"已完成本地工具链验收：如意 Mac 整体验收 2026\"},\"finish_reason\":null}]}",
+    "seq": 20,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.696Z"
+  },
+  {
+    "type": "assistant_delta",
+    "text": "已完成本地工具链验收：如意 Mac 整体验收 2026",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.697Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+    "seq": 21,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.697Z"
+  },
+  {
+    "type": "self_check",
+    "state": "invoked",
+    "turnSeq": 1,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.698Z"
+  },
+  {
+    "type": "assistant_delta",
+    "text": "\n\n",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.698Z"
+  },
+  {
+    "traceId": "trace_3f00072197670228",
+    "type": "context_estimate",
+    "contextTokens": 39227,
+    "contextWindow": 1000000,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "ts": "2026-11-07T10:17:38.698Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"已完成本地工具链验收：如意 Mac 整体验收 2026\"},\"finish_reason\":null}]}",
+    "seq": 22,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.699Z"
+  },
+  {
+    "type": "assistant_delta",
+    "text": "已完成本地工具链验收：如意 Mac 整体验收 2026",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.699Z"
+  },
+  {
+    "type": "raw_line",
+    "line": "{\"id\":\"chatcmpl-fake\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}",
+    "seq": 23,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.699Z"
+  },
+  {
+    "type": "usage",
+    "usage": {
+      "input_tokens": 7153,
+      "output_tokens": 14
+    },
+    "contextTokens": 7167,
+    "contextWindow": 1000000,
+    "calls": 0,
+    "estimated": true,
+    "contextEngine": "openai",
+    "contextProviderId": "local-acceptance",
+    "contextModel": "fake-model",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.699Z"
+  },
+  {
+    "type": "turn_summary",
+    "turnSeq": 1,
+    "filesChanged": [
+      {
+        "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx",
+        "op": "create",
+        "revertible": true,
+        "entrySeq": 0
+      }
+    ],
+    "commands": 0,
+    "artifacts": [
+      {
+        "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx",
+        "kind": "docx"
+      }
+    ],
+    "irreversible": [
+      {
+        "kind": "network",
+        "name": "ai_computer_control__browser_open",
+        "detail": "http://127.0.0.1:63426",
+        "ok": true
+      }
+    ],
+    "deliveryEvidence": {
+      "schema": 1,
+      "capturedAt": "2026-11-07T10:17:38.702Z",
+      "files": [
+        {
+          "path": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QMP2lo/中文 工作区/验收报告.docx",
+          "name": "验收报告.docx",
+          "kind": "docx",
+          "status": "available",
+          "size": 36810,
+          "fingerprint": "3ca4e31b159b79073ee64d8c56e3e7b53586ca3a5cb177d1f8ee4c32a5cda0bf"
+        }
+      ],
+      "filesTruncated": false,
+      "checks": [],
+      "checksRecorded": false
+    },
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.703Z"
+  },
+  {
+    "type": "process",
+    "state": "idle",
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.703Z"
+  },
+  {
+    "type": "result",
+    "ok": true,
+    "aborted": false,
+    "traceId": "trace_3f00072197670228",
+    "ts": "2026-11-07T10:17:38.703Z"
+  }
+]

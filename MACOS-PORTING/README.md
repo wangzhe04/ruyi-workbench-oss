@@ -1,7 +1,7 @@
 # Mac 版移植指导文档包
 
 版本：1.6 · 日期：2026-11-07 · 基线：`f5223548` / 如意 3.0.1。
-状态：**P0 基线、架构与技术验证已完成；P1 运行时与系统边界实现阶段已完成；P2 已按用户指定排除暂缓项的范围验收完成，真实账号/登录Keychain交互/Windows仍待补验；P3 进行中（P3-01/P3-02 Mac本地单独验收完成，Windows同候选待补验）；P4–P6 待开始。** [P0 结果与证据](evidence/P0/README.md)记录了失败、未执行项和后续关口，尚不是可交付的 Mac 产品。
+状态更新于2026-11-07。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。Windows排除本轮，macOS14实际运行与正式发行交接O2/P6，P4–P6待开始。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)。
 
 ## 目标与默认范围
 
@@ -16,7 +16,7 @@
 | P0（完成） | [基线与方案冻结](01-P0-BASELINE.md) | 平台契约、测试基线、宿主与依赖验证 | 4–6 人日 |
 | P1（完成） | [运行时与系统边界](02-P1-RUNTIME.md) | Mac 启动、shell、路径护栏、可靠停止 | 8–12 人日 |
 | P2（验收完成，暂缓项除外） | [Agent、凭据与核心业务](03-P2-AGENT-CORE.md) | CLI、Keychain、管家、多 Agent、调度与机器人链路 | 8–12 人日 |
-| P3（进行中） | [文档、浏览器与模板](04-P3-DOCUMENT-BROWSER.md) | 跨平台 ACC 子集、Office、Playwright、Mac 模板 | 6–10 人日 |
+| P3（Mac范围验收完成） | [文档、浏览器与模板](04-P3-DOCUMENT-BROWSER.md) | 跨平台 ACC 子集、Office、Playwright、Mac 模板 | 6–10 人日 |
 | P4 | [Mac 桌面壳](05-P4-DESKTOP-APP.md) | 独立 App、菜单栏、通知、语音与后台生命周期 | 10–16 人日 |
 | P5 | [Mac 桌面自动化](06-P5-AUTOMATION.md) | 截图、输入、AX、OCR、组合动作与录制 | 16–26 人日 |
 | P6 | [离线打包与发行](07-P6-RELEASE.md) | 签名发行包、升级/回退、迁移与最终验收 | 8–14 人日 |
@@ -60,3 +60,5 @@ P1按用户决定完成本次Mac范围收尾，Windows实机门槛移除，Finde
 2026-11-06 P3-01完成Mac共享ACC子集开发与单独本地验收，见 [P3-01证据](evidence/P3/acc-shared/README.md)。P3整体进行中，Windows同候选回归未执行且未豁免，后续P3-02文档与图表。
 
 2026-11-07 P3-02完成Office、PDF、图表及中文字体的Mac开发与单独本地验收，见[P3-02证据](evidence/P3/office/README.md)。下一包P3-03；Windows同候选、最低系统与正式发行关口继续保留。
+
+2026-11-07 P3按用户指定的Mac当前主机范围完成最终验收，四包与真实工作台到ACC组合链路通过，Windows排除本轮，最低系统与正式发行按O2/P6交接。见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)。

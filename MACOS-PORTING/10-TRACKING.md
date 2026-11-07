@@ -1,6 +1,6 @@
 # 执行与交接看板
 
-更新时间：2026-11-07。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3进行中（四包Mac本地单独验收完成，Windows同候选待补验）；P4–P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
+更新时间：2026-11-07。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4–P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
 
 ## 1. 阶段状态
 
@@ -9,7 +9,7 @@
 | P0 | 无 | done（设计/基线） | Codex；独立复核 p0_review | 未核算 | [结果](evidence/P0/README.md) / [复核](evidence/P0/review.json) |
 | P1 | P0 | done（附限制与P4交接） | Codex | 未核算 | [最终收尾](evidence/P1/closeout/README.md) / [启动](evidence/P1/README.md) / [所有权恢复](evidence/P1/ownership/README.md) / [独立复核](evidence/P1/ownership/review.json) / [执行监督](evidence/P1/supervisor/README.md) / [入口接入](evidence/P1/process-integration/README.md) / [Mac shell](evidence/P1/shell/README.md) / [文件策略](evidence/P1/files/README.md) / [helper 运行时门](evidence/P1/helper-gate/README.md) / [单 helper 故障恢复](evidence/P1/helper-loss/README.md) / [能力状态](evidence/P1/capabilities/README.md) / [发现与界面](evidence/P1/discovery-ui/README.md) / [工作树执行](evidence/P1/worktree-runtime/README.md) / [模型探针](evidence/P1/cli-model-probe/README.md) / [清理句柄](evidence/P1/process-handles/README.md) / [文档读取](evidence/P1/document-reader/README.md) / [媒体执行](evidence/P1/media-runtime/README.md) / [rg搜索](evidence/P1/rg-runtime/README.md) / [异步执行探针](evidence/P1/executable-probes/README.md) / [Python探针](evidence/P1/python-probes/README.md) / [同步探针基础](evidence/P1/synchronous-probe-audit/README.md) / [同步探针接入](evidence/P1/synchronous-probes/README.md) / [overlay平台边界](evidence/P1/overlay-boundary/README.md) / [宿主打开](evidence/P1/opener-completion/README.md) / [搜索取消](evidence/P1/search-cancellation/README.md) / [路径匹配取消](evidence/P1/path-cancellation/README.md) / [写队列取消](evidence/P1/write-queue-cancellation/README.md) / [原子写取消与恢复](evidence/P1/atomic-write-cancellation/README.md) / [文件变更恢复](evidence/P1/file-mutation-recovery/README.md) / [临时清理结果](evidence/P1/temporary-cleanup/README.md) / [受控启动布局](evidence/P1/controlled-layout/README.md) / [主回合Stop](evidence/P1/provider-stop/README.md) / [冻结Mac回归](evidence/P1/frozen-mac-regression/README.md) / [验收缺口审计](evidence/P1/acceptance-audit.md) |
 | P2 | P1 | done（用户约定范围；暂缓项未验收） | Codex | 未核算 | [P2 总览](evidence/P2/README.md) |
-| P3 | P1；M1 交付需 P2 | in_progress（四包本地验收完成，Windows待补） | Codex | 未核算 | [P3逐包验收](evidence/P3/README.md) |
+| P3 | P1；M1 交付需 P2 | done（用户指定Mac范围） | Codex | 未核算 | [最终Mac验收](evidence/P3/final-mac-acceptance/README.md) |
 | P4 | P2、P3 | planned | 未分配 | 未记录 | 无 |
 | P5 | P4 | planned | 未分配 | 未记录 | 无 |
 | P6 | P5；探针可提前 | planned | 未分配 | 未记录 | 无 |
@@ -101,3 +101,5 @@
 2026-11-07 P3-04完成单独本地验收，实现 `2f45aba4`：71项资源独立审计，模板38/中英UI18/Playbooks94及相关权限、能力专项通过；独立复核3项发现关闭。完整单元2491通过/18既有跳过，静态79/80，修正旧枚举锁后该组定向通过。四包Mac本地验收完成，P3整体保持in_progress；未执行Windows同候选回归、最低系统和正式发行，不登记M1。见[P3-04证据](evidence/P3/templates/README.md)。
 
 2026-11-07阶段补验：已获用户授权发布fork内P3分支并创建[草稿PR #1](https://github.com/Sonata17inD/ruyi-workbench-mac/pull/1)。e844首轮CI的Linux static与Windows release dry-run通过；Windows ACC、凭据IPC及平台基线失败，待日志归因修复，仍未验收Windows。macos-14 job因不支持该runner配置而取消。补验实现 `d95cce74` 的64 wheels/98 arm64静态部署声明最高14.0，独立复核23样例通过；仅Chromium真实浏览器26项通过，原可选ffmpeg要求15.0的失败证据保留。macOS14实际运行、完整发行闭包仍未验证，P3保持in_progress。见[交接](evidence/P3/acceptance/HANDOFF.md)。
+
+2026-11-07最终验收按用户“只需要Mac端”的范围完成。P3登记done，候选 `aa2d7846` 追加组合验收探针，生产代码指纹与执行候选一致。59项命令最终通过，完整单元2491通过/18跳过、80静态通过，有窗口与无窗口真实工具链各27项通过，新Office六页视觉检查通过。Windows首轮失败保留，macOS14实际运行及签名发行交接O2/P6。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)。

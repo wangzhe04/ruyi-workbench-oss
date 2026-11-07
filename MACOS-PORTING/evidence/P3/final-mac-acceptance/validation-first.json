@@ -1,0 +1,790 @@
+{
+  "candidate": "6717378f4b136414839da0ab0ef754eef5804ff1",
+  "node": "v24.15.0",
+  "arch": "arm64",
+  "platform": "darwin",
+  "started": "2026-11-07T04:43:24.686Z",
+  "scope": "Current Mac development environment, P0-P3; Windows excluded this round; existing real-account/login-Keychain and P4-P6 gates retained",
+  "checks": [
+    {
+      "name": "syntax",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 25.9,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-vdFKU8",
+      "log": "syntax.txt"
+    },
+    {
+      "name": "build",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-7u3IhW",
+      "log": "build.txt"
+    },
+    {
+      "name": "fast",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 132.8,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-Pfe7bd",
+      "log": "fast.txt"
+    },
+    {
+      "name": "macos-runtime-start",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-runtime-start.e2e.js"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 20.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-9ykrjt",
+      "log": "macos-runtime-start.txt"
+    },
+    {
+      "name": "macos-process-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-process-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 8.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-6rvr5b",
+      "log": "macos-process-runtime.txt"
+    },
+    {
+      "name": "macos-shell-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-shell-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-VDyGtA",
+      "log": "macos-shell-runtime.txt"
+    },
+    {
+      "name": "macos-file-policy",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-file-policy.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-HcJCUi",
+      "log": "macos-file-policy.txt"
+    },
+    {
+      "name": "macos-sync-supervisor",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-sync-supervisor.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 3.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zO36rX",
+      "log": "macos-sync-supervisor.txt"
+    },
+    {
+      "name": "macos-git-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-git-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-isynxf",
+      "log": "macos-git-runtime.txt"
+    },
+    {
+      "name": "macos-rg-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-rg-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-mGe6P6",
+      "log": "macos-rg-runtime.txt"
+    },
+    {
+      "name": "macos-mcp-capabilities",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-mcp-capabilities.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-6VHiWK",
+      "log": "macos-mcp-capabilities.txt"
+    },
+    {
+      "name": "openai-engine",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/openai-engine.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-tm5tsn",
+      "log": "openai-engine.txt"
+    },
+    {
+      "name": "openai-tools",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/openai-tools.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zhohUS",
+      "log": "openai-tools.txt"
+    },
+    {
+      "name": "responses-fake",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/responses-fake.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ZZVMA2",
+      "log": "responses-fake.txt"
+    },
+    {
+      "name": "anthropic-fake",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/anthropic-fake.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-8ew9iX",
+      "log": "anthropic-fake.txt"
+    },
+    {
+      "name": "session-storage-v2",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/session-storage-v2.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.8,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-UNK2qx",
+      "log": "session-storage-v2.txt"
+    },
+    {
+      "name": "checkpoint",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/checkpoint.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-mePlFs",
+      "log": "checkpoint.txt"
+    },
+    {
+      "name": "steward-runner",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/steward-runner.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-H4PnG3",
+      "log": "steward-runner.txt"
+    },
+    {
+      "name": "steward-delivery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/steward-delivery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-jtOsJt",
+      "log": "steward-delivery.txt"
+    },
+    {
+      "name": "autonomy-resume",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/autonomy-resume.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 6.4,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-SbDAn5",
+      "log": "autonomy-resume.txt"
+    },
+    {
+      "name": "agent-workflow-templates",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/agent-workflow-templates.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-utvDkj",
+      "log": "agent-workflow-templates.txt"
+    },
+    {
+      "name": "agent-workflow-replan",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/agent-workflow-replan.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-mDthm4",
+      "log": "agent-workflow-replan.txt"
+    },
+    {
+      "name": "workbench-memory-core",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/workbench-memory-core.e2e.js"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-1Buw7Q",
+      "log": "workbench-memory-core.txt"
+    },
+    {
+      "name": "workbench-memory",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/workbench-memory.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 6.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-kr5AOG",
+      "log": "workbench-memory.txt"
+    },
+    {
+      "name": "memory-recall-injection",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/memory-recall-injection.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4.4,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-OdQSHs",
+      "log": "memory-recall-injection.txt"
+    },
+    {
+      "name": "usage-ledger",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/usage-ledger.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-e1GMRt",
+      "log": "usage-ledger.txt"
+    },
+    {
+      "name": "usage-subagent-ledger",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/usage-subagent-ledger.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-O8QjeA",
+      "log": "usage-subagent-ledger.txt"
+    },
+    {
+      "name": "usage-accum",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/usage-accum.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-7v13Yi",
+      "log": "usage-accum.txt"
+    },
+    {
+      "name": "scheduler",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/scheduler.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 9.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-M65pYT",
+      "log": "scheduler.txt"
+    },
+    {
+      "name": "scheduler-crash",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/scheduler-crash.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 14.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-zUyE2Y",
+      "log": "scheduler-crash.txt"
+    },
+    {
+      "name": "scheduler-ready-queue",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/scheduler-ready-queue.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 7.8,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-P2WtOn",
+      "log": "scheduler-ready-queue.txt"
+    },
+    {
+      "name": "macos-agent-cli-discovery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-agent-cli-discovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-igG9wD",
+      "log": "macos-agent-cli-discovery.txt"
+    },
+    {
+      "name": "kimi-agent-cli",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/kimi-agent-cli.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 27.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-XKzVdn",
+      "log": "kimi-agent-cli.txt"
+    },
+    {
+      "name": "claude-resume-recovery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/claude-resume-recovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.9,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-T9CvK3",
+      "log": "claude-resume-recovery.txt"
+    },
+    {
+      "name": "claude-permission-bridge-mode",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/claude-permission-bridge-mode.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ugZ6Hh",
+      "log": "claude-permission-bridge-mode.txt"
+    },
+    {
+      "name": "macos-keychain",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-keychain.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 18.2,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-hwz0vu",
+      "log": "macos-keychain.txt"
+    },
+    {
+      "name": "external-bot-setup",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bot-setup.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-g3A0ea",
+      "log": "external-bot-setup.txt"
+    },
+    {
+      "name": "external-bots",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bots.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 5.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ERh8pT",
+      "log": "external-bots.txt"
+    },
+    {
+      "name": "route-inventory",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/route-inventory.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-gZs1VP",
+      "log": "route-inventory.txt"
+    },
+    {
+      "name": "fixture-home",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/fixture-home.static.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.8,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-hj5olM",
+      "log": "fixture-home.txt"
+    },
+    {
+      "name": "external-bots-control",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bots-control.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-YILbBV",
+      "log": "external-bots-control.txt"
+    },
+    {
+      "name": "external-bot-discovery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bot-discovery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 1.4,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-7lRR9w",
+      "log": "external-bot-discovery.txt"
+    },
+    {
+      "name": "external-channel-delivery",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-channel-delivery.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 5.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-QG81a2",
+      "log": "external-channel-delivery.txt"
+    },
+    {
+      "name": "external-bot-gateway",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/external-bot-gateway.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-ikRIeW",
+      "log": "external-bot-gateway.txt"
+    },
+    {
+      "name": "macos-acc-shared",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-acc-shared.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 0.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DREh9o",
+      "log": "macos-acc-shared.txt"
+    },
+    {
+      "name": "macos-office-artifacts",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-office-artifacts.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 13.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-fHRQMZ",
+      "log": "macos-office-artifacts.txt"
+    },
+    {
+      "name": "macos-browser-runtime",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-browser-runtime.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 10.3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-IOFw9g",
+      "log": "macos-browser-runtime.txt"
+    },
+    {
+      "name": "macos-platform-templates",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-platform-templates.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.6,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-w8Hl2Q",
+      "log": "macos-platform-templates.txt"
+    },
+    {
+      "name": "macos-capability-popover.browser",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/macos-capability-popover.browser.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.9,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-HP3l3n",
+      "log": "macos-capability-popover.browser.txt"
+    },
+    {
+      "name": "playbooks",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/playbooks.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 3,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-8aPET2",
+      "log": "playbooks.txt"
+    },
+    {
+      "name": "capabilities",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/capabilities.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 5.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-DxZK3k",
+      "log": "capabilities.txt"
+    },
+    {
+      "name": "acc-capability-gates",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/acc-capability-gates.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-otw7X8",
+      "log": "acc-capability-gates.txt"
+    },
+    {
+      "name": "playbook-skill-tools",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/playbook-skill-tools.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 6.1,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-dsevIW",
+      "log": "playbook-skill-tools.txt"
+    },
+    {
+      "name": "checkpoint-coverage",
+      "command": [
+        "/Users/jiming/.local/share/nodejs/node-v24.15.0-darwin-arm64/bin/node",
+        "dev-harness/checkpoint-coverage.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.9,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-l0iQjA",
+      "log": "checkpoint-coverage.txt"
+    },
+    {
+      "name": "smoke_macos_shared",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_macos_shared.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 2.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-e2Nu6a",
+      "log": "smoke_macos_shared.txt"
+    },
+    {
+      "name": "smoke_office_v2",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_office_v2.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 14.7,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-EAT6tq",
+      "log": "smoke_office_v2.txt"
+    },
+    {
+      "name": "smoke_office_read_v2",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_office_read_v2.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 4,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-iaoZCj",
+      "log": "smoke_office_read_v2.txt"
+    },
+    {
+      "name": "smoke_v192_chart_types",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_v192_chart_types.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 11.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-MN1NMP",
+      "log": "smoke_v192_chart_types.txt"
+    },
+    {
+      "name": "smoke_browser_runtime",
+      "command": [
+        "/Users/jiming/Documents/ruyi-workbench-mac/mcp/ai-computer-control/.venv/bin/python",
+        "-X",
+        "utf8",
+        "mcp/ai-computer-control/tests/smoke_browser_runtime.py"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "seconds": 21.5,
+      "home": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-dcepp7",
+      "log": "smoke_browser_runtime.txt"
+    }
+  ],
+  "finished": "2026-11-07T04:50:59.195Z"
+}

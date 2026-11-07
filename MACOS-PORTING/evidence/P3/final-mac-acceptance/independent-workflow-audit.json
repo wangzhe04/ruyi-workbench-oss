@@ -1,0 +1,16 @@
+[
+  {
+    "run": "headed-final",
+    "retained_processes": [],
+    "retained_profiles": [],
+    "independent_zip_xml_contains_marker": true,
+    "png_bytes": 14154
+  },
+  {
+    "run": "headless-final",
+    "retained_processes": [],
+    "retained_profiles": [],
+    "independent_zip_xml_contains_marker": true,
+    "png_bytes": 14150
+  }
+]

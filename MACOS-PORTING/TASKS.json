@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "date": "2026-11-06",
+  "date": "2026-11-07",
   "baselineCommit": "f5223548",
   "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
   "effortUnit": "person_day",
@@ -732,7 +732,7 @@
       "dependsOn": [
         "P1"
       ],
-      "status": "in_progress",
+      "status": "done",
       "effortDays": {
         "low": 6,
         "high": 10
@@ -752,18 +752,18 @@
             "evidence/P3/acc-shared/README.md",
             "evidence/P3/acc-shared/validation.json",
             "evidence/P3/acc-shared/review.json",
-            "evidence/P3/acc-shared/source-fingerprint.json"
+            "evidence/P3/acc-shared/source-fingerprint.json",
+            "evidence/P3/final-mac-acceptance/acceptance.json"
           ],
           "implementationCommit": "f135bda1c4bb9703ccbb926f36d99f855ad0f63c",
           "localDeliveryStatus": "done",
           "completedDate": "2026-11-06",
           "completionScope": "Mac共享ACC子集开发与单独本地验收；Windows实机/CI回归未执行，保留P3整体阶段关口，并未获豁免。",
-          "pendingPhaseAcceptance": [
-            "Windows同候选CI/实机回归"
-          ],
+          "pendingPhaseAcceptance": [],
           "laterPhaseCarryover": [
             "macOS14 arm64最低系统与wheel部署目标继续P3/P6验证；当前不宣称已兼容"
-          ]
+          ],
+          "phaseAcceptanceScope": "P3最终Mac当前主机范围通过，Windows按用户决定排除本轮"
         },
         {
           "id": "P3-02",
@@ -779,7 +779,8 @@
             "evidence/P3/office/README.md",
             "evidence/P3/office/validation.json",
             "evidence/P3/office/review.json",
-            "evidence/P3/office/source-fingerprint.json"
+            "evidence/P3/office/source-fingerprint.json",
+            "evidence/P3/final-mac-acceptance/acceptance.json"
           ],
           "startedDate": "2026-11-06",
           "progress": "真实MCP24项、独立产物24项、116 Office/98读取/43图表检查、锁定60依赖的新环境断网重放与六页视觉检查通过；独立复核无剩余发现。",
@@ -788,12 +789,11 @@
           "completedDate": "2026-11-07",
           "localDeliveryStatus": "done",
           "completionScope": "Mac文档/图表/字体开发与单独本地验收；Windows同候选实际回归未执行，仍保留P3阶段关口，未豁免。",
-          "pendingPhaseAcceptance": [
-            "Windows同候选CI/实机回归"
-          ],
+          "pendingPhaseAcceptance": [],
           "laterPhaseCarryover": [
             "macOS14 arm64与wheel部署目标、签名发行保持原阶段交接"
-          ]
+          ],
+          "phaseAcceptanceScope": "P3最终Mac当前主机范围通过，Windows按用户决定排除本轮"
         },
         {
           "id": "P3-03",
@@ -809,19 +809,19 @@
             "evidence/P3/browser/README.md",
             "evidence/P3/browser/validation.json",
             "evidence/P3/browser/review.json",
-            "evidence/P3/browser/source-fingerprint.json"
+            "evidence/P3/browser/source-fingerprint.json",
+            "evidence/P3/final-mac-acceptance/acceptance.json"
           ],
           "implementationCommit": "35ce93b9106d331472ea94f49dfd82e9968f2da4",
           "localDeliveryStatus": "done",
           "completedDate": "2026-11-07",
           "completionScope": "Mac浏览器运行时开发与单独本地验收；Windows实际同候选回归未执行且未豁免。",
-          "pendingPhaseAcceptance": [
-            "Windows同候选CI/实机回归"
-          ],
+          "pendingPhaseAcceptance": [],
           "laterPhaseCarryover": [
             "macOS14、签名/干净机离线发行与默认有界面模式用户可见交互待受控实机验收"
           ],
-          "progress": "真实MCP与全新离线wheel重放各25项、8项生命周期及98读取回归通过；独立复核修复两项真实取消驱动泄漏。完整单元2490通过/18既有跳过；静态首轮78/80，两个工程门修复定向通过。"
+          "progress": "真实MCP与全新离线wheel重放各25项、8项生命周期及98读取回归通过；独立复核修复两项真实取消驱动泄漏。完整单元2490通过/18既有跳过；静态首轮78/80，两个工程门修复定向通过。",
+          "phaseAcceptanceScope": "P3最终Mac当前主机范围通过，Windows按用户决定排除本轮"
         },
         {
           "id": "P3-04",
@@ -838,27 +838,25 @@
             "evidence/P3/templates/validation.json",
             "evidence/P3/templates/review.json",
             "evidence/P3/templates/content-audit.json",
-            "evidence/P3/templates/source-fingerprint.json"
+            "evidence/P3/templates/source-fingerprint.json",
+            "evidence/P3/final-mac-acceptance/acceptance.json"
           ],
           "implementationCommit": "2f45aba4a916b6ff321c5318c4d79ba953d734a3",
           "localDeliveryStatus": "done",
           "completedDate": "2026-11-07",
           "completionScope": "Mac平台模板/能力文案开发与单独本地验收；71项内容审计不等于每种模型任务都已实跑。Windows同候选实际回归未执行且未豁免。",
-          "pendingPhaseAcceptance": [
-            "Windows同候选CI/实机回归"
-          ],
+          "pendingPhaseAcceptance": [],
           "laterPhaseCarryover": [
             "macOS14、正式签名/干净机离线发行、默认有界面浏览器用户交互维持原阶段交接；Mac桌面/OCR待P5、废纸篓能力待P6"
           ],
-          "progress": "71项资源独立审计；真实模板38、中英UI18、Playbooks94、能力56、权限37、技能工具26项通过。独立复核三项状态/缓存缺陷关闭；完整单元2491通过/18既有跳过，静态79/80，旧枚举锁更新后定向通过。"
+          "progress": "71项资源独立审计；真实模板38、中英UI18、Playbooks94、能力56、权限37、技能工具26项通过。独立复核三项状态/缓存缺陷关闭；完整单元2491通过/18既有跳过，静态79/80，旧枚举锁更新后定向通过。",
+          "phaseAcceptanceScope": "P3最终Mac当前主机范围通过，Windows按用户决定排除本轮"
         }
       ],
       "owner": "Codex",
       "startedDate": "2026-11-06",
-      "progress": "四包Mac本地验收完成；fork草稿PR #1已创建。e844首轮CI的Linux static/Windows release dry-run通过；Windows ACC、credential IPC及平台子集失败待日志归因。静态部署审计64 wheels/98 arm64最高14.0通过，macOS14未执行；整体仍in_progress。",
-      "pendingPhaseAcceptance": [
-        "Windows同候选CI/实机回归：首轮失败，未获豁免，修复与复验待完成"
-      ],
+      "progress": "按用户最新Mac端范围完成P3最终验收。59项命令最终通过，完整单元2491通过/18跳过、80静态通过，真实Provider到ACC有窗口/无窗口链路各27项通过，6页新Office渲染通过，独立复核无剩余代码发现。",
+      "pendingPhaseAcceptance": [],
       "localDelivery": {
         "status": "done",
         "completedDate": "2026-11-07",
@@ -866,13 +864,60 @@
         "evidence": "evidence/P3/README.md"
       },
       "acceptanceFollowup": {
-        "status": "in_progress",
+        "status": "done_in_Mac_scope",
         "pullRequest": "https://github.com/Sonata17inD/ruyi-workbench-mac/pull/1",
         "firstCiCandidate": "e8445972f2961b2dbcf430fc4e1c8fbc0c8b65cd",
         "handoff": "evidence/P3/acceptance/HANDOFF.md",
         "minimumStaticEvidence": "evidence/P3/acceptance/minimum/README.md",
-        "windowsEvidence": "evidence/P3/acceptance/windows-e844/summary.json"
-      }
+        "windowsEvidence": "evidence/P3/acceptance/windows-e844/summary.json",
+        "finalMacEvidence": "evidence/P3/final-mac-acceptance/README.md"
+      },
+      "completedDate": "2026-11-07",
+      "completionScope": "P3-01 through P3-04, current macOS27.0.1 arm64 development environment, including real Workbench/ACC combined workflow",
+      "acceptanceScope": {
+        "status": "passed",
+        "userDecision": "继续完成P3最终验收，只需要Mac端",
+        "date": "2026-11-07",
+        "evidence": "evidence/P3/final-mac-acceptance/acceptance.json",
+        "excludedIds": [
+          "Windows"
+        ],
+        "scope": "P3-01 through P3-04, current macOS27.0.1 arm64 development environment, including real Workbench/ACC combined workflow"
+      },
+      "review": {
+        "reviewer": "/root/p3_01_review",
+        "status": "passed",
+        "evidence": "evidence/P3/final-mac-acceptance/review.json"
+      },
+      "externalAcceptance": {
+        "status": "excluded_by_user_this_round",
+        "Windows": "failed_pending_not_passed",
+        "evidence": "evidence/P3/acceptance/windows-e844/summary.json"
+      },
+      "laterPhaseCarryover": [
+        {
+          "id": "O2",
+          "requirement": "Actual macOS14 arm64 execution and system-symbol/runtime closure",
+          "phase": "P6",
+          "status": "pending",
+          "staticEvidence": "evidence/P3/acceptance/minimum/README.md"
+        },
+        {
+          "id": "P4",
+          "requirement": "Mac App host lifecycle, Finder visibility, notification, voice and signed identity revalidation",
+          "status": "planned"
+        },
+        {
+          "id": "P5",
+          "requirement": "Mac desktop input, AX and OCR",
+          "status": "planned"
+        },
+        {
+          "id": "P6",
+          "requirement": "Signing/notarization, clean-machine offline release, upgrade/rollback and Trash",
+          "status": "planned"
+        }
+      ]
     },
     {
       "id": "P4",
