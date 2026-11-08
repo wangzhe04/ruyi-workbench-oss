@@ -1,7 +1,7 @@
 # Mac 版移植指导文档包
 
 版本：1.6 · 日期：2026-11-07 · 基线：`f5223548` / 如意 3.0.1。
-状态更新于2026-11-08。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。P3本轮排除Windows，macOS14实际运行与正式发行交接O2/P6。P4四包已完成当前Mac本地开发与独立验收，阶段外部门待验，正式身份按用户决定暂缓，P5/P6待开始。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)与[P4宿主验收](evidence/P4/host/README.md)。
+状态更新于2026-11-08。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。P3本轮排除Windows，macOS14实际运行与正式发行交接O2/P6。P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6，P5/P6待开始。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)与[P4宿主验收](evidence/P4/host/README.md)。
 
 ## 目标与默认范围
 
@@ -62,3 +62,6 @@ P1按用户决定完成本次Mac范围收尾，Windows实机门槛移除，Finde
 2026-11-07 P3-02完成Office、PDF、图表及中文字体的Mac开发与单独本地验收，见[P3-02证据](evidence/P3/office/README.md)。下一包P3-03；Windows同候选、最低系统与正式发行关口继续保留。
 
 2026-11-07 P3按用户指定的Mac当前主机范围完成最终验收，四包与真实工作台到ACC组合链路通过，Windows排除本轮，最低系统与正式发行按O2/P6交接。见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)。
+
+
+2026-11-08 P4 按用户“本轮按 Mac 范围收尾，Windows 保留后续待验”的决定完成，四包当前 macOS27.0.1 arm64 本地开发与独立验收通过。实现提交 `0e9d5edb`，证据提交 `f5c5d4c5`，正式身份与 macOS14 实际运行仍未验收。详见[P4最终范围](05-P4-DESKTOP-APP.md)及[收尾清单](evidence/P4/local-closeout.json)。

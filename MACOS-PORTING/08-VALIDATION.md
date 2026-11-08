@@ -56,3 +56,8 @@ node --require ./dev-harness/lib/self-isolate-home.js dev-harness/<相关用例>
 ## P1 本次收尾决定（2026-11-03）
 
 用户明确要求“不需要Windows回归，收尾P1”。本次P1的V14 Windows实机门槛据此移除，已保留Windows参数契约夹具。Finder可见窗口/选中对象按V10交接P4-02。P1的Mac相关V02/V03/V04证据和已知限制见 [收尾记录](evidence/P1/closeout/README.md)，其余阶段验收门槛按各自计划执行。
+
+
+## P4 本轮验收范围（2026-11-08）
+
+用户确认“本轮按 Mac 范围收尾，Windows 保留后续待验”。P4 当前 macOS27.0.1 arm64 开发 App 的四包实现及独立验收完成，V14 Windows 同候选回归保留后续待验。V07 正式签名身份按用户决定暂缓，V10 最低系统 macOS14 实际运行继续交接 O2/P6。待验项均保留未验收状态，当前主机各项通过范围及已知限制见[P4阶段验收](05-P4-DESKTOP-APP.md)与[收尾清单](evidence/P4/local-closeout.json)。

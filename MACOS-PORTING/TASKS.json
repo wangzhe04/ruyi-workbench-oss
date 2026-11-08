@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "date": "2026-11-07",
+  "date": "2026-11-08",
   "baselineCommit": "f5223548",
   "scope": "arm64 macOS 首发；保留 Windows；浏览器/桌面/自动化/离线发行；不含 Intel 增量",
   "effortUnit": "person_day",
@@ -927,7 +927,7 @@
         "P2",
         "P3"
       ],
-      "status": "in_progress",
+      "status": "done",
       "effortDays": {
         "low": 10,
         "high": 16
@@ -964,7 +964,8 @@
             "failed": 0,
             "evidence": "evidence/P4/media/physical/reporting-delay/host-after-permission-independent.txt"
           },
-          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+          "phaseAcceptanceScope": "done_current_Mac_scope; Windows deferred by user this round, formal identity deferred, macOS14 O2/P6 unverified"
         },
         {
           "id": "P4-02",
@@ -1047,7 +1048,8 @@
             "remainingCodeFindings": 0,
             "evidence": "evidence/P4/bridge/native-drop/review.json"
           },
-          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+          "phaseAcceptanceScope": "done_current_Mac_scope; Windows deferred by user this round, formal identity deferred, macOS14 O2/P6 unverified"
         },
         {
           "id": "P4-03",
@@ -1080,7 +1082,8 @@
             "status": "passed_reviewed_local_scope",
             "evidence": "evidence/P4/media/physical/reporting-delay/review.json"
           },
-          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+          "phaseAcceptanceScope": "done_current_Mac_scope; Windows deferred by user this round, formal identity deferred, macOS14 O2/P6 unverified"
         },
         {
           "id": "P4-04",
@@ -1090,7 +1093,7 @@
             "high": 5
           },
           "deliverable": "关闭窗口/退出/登录启动的明确设置；睡眠唤醒、调度恢复、MCP/CLI 回收；用拟发行身份验证 Keychain/TCC，提前准备签名。",
-          "status": "in_progress",
+          "status": "done",
           "owner": "Codex",
           "evidence": [
             "evidence/P4/lifecycle/README.md",
@@ -1122,13 +1125,15 @@
               "evidence/P4/lifecycle/physical-system/validation.json"
             ]
           },
-          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+          "phaseAcceptanceScope": "done_current_Mac_scope; Windows deferred by user this round, formal identity deferred, macOS14 O2/P6 unverified",
+          "completionScope": "当前主机生命周期验收完成；正式签名身份复验按用户决定保留待办，交接P6。"
         }
       ],
       "acceptanceScope": {
-        "status": "in_progress",
-        "userDecision": "分阶段持续推进P4的开发，并独立验收",
-        "date": "2026-11-07",
+        "status": "done_in_user_approved_current_Mac_scope",
+        "userDecision": "本轮按 Mac 范围收尾，Windows 保留后续待验",
+        "date": "2026-11-08",
         "formalIdentity": "deferred_by_user",
         "formalIdentityDecision": "先完成本地开发与独立验收，正式身份复验保留待办",
         "interactivePermissions": {
@@ -1143,7 +1148,8 @@
           "status": "authorized_by_user",
           "scope": "temporary development App login registration, cancel registration after validation; one physical system sleep and manual user wake/unlock",
           "result": "one_short_software_sleep_recovered; login_item_registered_then_unregistered_status_0"
-        }
+        },
+        "Windows": "deferred_by_user_this_round_unverified"
       },
       "laterPhaseCarryover": [
         {
@@ -1154,7 +1160,7 @@
           "date": "2026-11-07"
         }
       ],
-      "progress": "P4四包当前macOS27.0.1 arm64本地实现与独立验收完成。最新独立host31/media36/lifecycle23/bridge47及workspace38通过，单元2491通过/18跳过、静态80、语法1134及构建新鲜度通过。真实通知恢复、菜单设置、Safari外链、IDE双栏Diff、647.5ms物理PCM、登录项注册后注销、短时真实睡眠/SSE及用户辅助原生文件/目录拖放均有证据。正式身份用户暂缓，macOS14/P6与Windows同候选阶段门保留未验，P4整体仍in_progress。",
+      "progress": "P4四包当前macOS27.0.1 arm64本地实现与独立验收完成。最新独立host31/media36/lifecycle23/bridge47及workspace38通过，单元2491通过/18跳过、静态80、语法1134及构建新鲜度通过。真实通知恢复、菜单设置、Safari外链、IDE双栏Diff、647.5ms物理PCM、登录项注册后注销、短时真实睡眠/SSE及用户辅助原生文件/目录拖放均有证据。用户确认本轮按Mac范围收尾，P4及四包登记done。Windows同候选回归保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6，三项均未验收。",
       "evidence": [
         "evidence/P4/current-candidate/README.md",
         "evidence/P4/lifecycle/physical-system/README.md",
@@ -1180,7 +1186,7 @@
       "completionAudit": {
         "date": "2026-11-08",
         "reviewer": "/root/p4_host_review",
-        "status": "local_passed_external_pending",
+        "status": "passed_user_approved_current_Mac_scope",
         "sources": [
           "05-P4-DESKTOP-APP.md",
           "08-VALIDATION.md",
@@ -1274,7 +1280,7 @@
           },
           {
             "id": "V14-Windows",
-            "state": "unverified_no_P4_scope_waiver"
+            "state": "deferred_by_user_this_round_unverified"
           },
           {
             "id": "candidate-records",
@@ -1285,7 +1291,10 @@
           }
         ],
         "remainingLocal": [],
-        "fullPhaseComplete": false
+        "fullPhaseComplete": false,
+        "approvedScopeComplete": true,
+        "fullPhaseCompleteMeaning": "All originally planned environment and formal identity gates, including deferred items. Current user-approved Mac scope is complete.",
+        "finalScopeReview": "evidence/P4/final-scope-review.json"
       },
       "latestEngineeringValidation": {
         "date": "2026-11-08",
@@ -1305,10 +1314,12 @@
         }
       },
       "continuationState": {
-        "status": "local_acceptance_completed_external_gates_pending",
+        "status": "completed_user_approved_current_Mac_scope",
         "date": "2026-11-08",
         "priorBlockerResolved": "user completed native file/directory drag and left confirmation; normal confirmation/persistence and cleanup verified",
-        "evidence": "evidence/P4/bridge/native-drop/validation.json"
+        "evidence": "evidence/P4/bridge/native-drop/validation.json",
+        "userDecision": "本轮按 Mac 范围收尾，Windows 保留后续待验",
+        "next": "P5 remains planned; Windows, formal identity and actual macOS14 are retained as unverified carryovers"
       },
       "localDelivery": {
         "status": "done",
@@ -1321,14 +1332,17 @@
         "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
         "branch": "codex/p4-macos-desktop",
         "independentReview": "evidence/P4/local-closeout-review.json",
-        "commitBindingReview": "evidence/P4/commit-binding-review.json"
+        "commitBindingReview": "evidence/P4/commit-binding-review.json",
+        "finalScopeReview": "evidence/P4/final-scope-review.json"
       },
-      "pendingPhaseAcceptance": [
-        "V14 same-candidate Windows regression, no P4 waiver recorded",
+      "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+      "completedDate": "2026-11-08",
+      "completionScope": "按用户“本轮按 Mac 范围收尾，Windows 保留后续待验”的决定，完成当前macOS27.0.1 arm64开发App的P4四包本地开发与独立验收；正式身份暂缓，macOS14实际运行交接O2/P6。",
+      "deferredAcceptance": [
+        "V14 same-candidate Windows regression deferred by user this round; unverified",
         "Formal signed identity Keychain/TCC and upgrade access deferred by user; P4-04/P6",
         "Actual macOS14 runtime O2/P6 carryover"
-      ],
-      "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
+      ]
     },
     {
       "id": "P5",

@@ -1,6 +1,6 @@
 # 执行与交接看板
 
-更新时间：2026-11-08。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4四包当前Mac本地开发与独立验收完成，阶段外部门待验，正式身份暂缓；P5/P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
+更新时间：2026-11-08。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4已按用户批准的当前Mac范围完成四包开发与独立验收，Windows后续待验、正式身份暂缓、macOS14实际运行交接O2/P6；P5/P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
 
 ## 1. 阶段状态
 
@@ -10,7 +10,7 @@
 | P1 | P0 | done（附限制与P4交接） | Codex | 未核算 | [最终收尾](evidence/P1/closeout/README.md) / [启动](evidence/P1/README.md) / [所有权恢复](evidence/P1/ownership/README.md) / [独立复核](evidence/P1/ownership/review.json) / [执行监督](evidence/P1/supervisor/README.md) / [入口接入](evidence/P1/process-integration/README.md) / [Mac shell](evidence/P1/shell/README.md) / [文件策略](evidence/P1/files/README.md) / [helper 运行时门](evidence/P1/helper-gate/README.md) / [单 helper 故障恢复](evidence/P1/helper-loss/README.md) / [能力状态](evidence/P1/capabilities/README.md) / [发现与界面](evidence/P1/discovery-ui/README.md) / [工作树执行](evidence/P1/worktree-runtime/README.md) / [模型探针](evidence/P1/cli-model-probe/README.md) / [清理句柄](evidence/P1/process-handles/README.md) / [文档读取](evidence/P1/document-reader/README.md) / [媒体执行](evidence/P1/media-runtime/README.md) / [rg搜索](evidence/P1/rg-runtime/README.md) / [异步执行探针](evidence/P1/executable-probes/README.md) / [Python探针](evidence/P1/python-probes/README.md) / [同步探针基础](evidence/P1/synchronous-probe-audit/README.md) / [同步探针接入](evidence/P1/synchronous-probes/README.md) / [overlay平台边界](evidence/P1/overlay-boundary/README.md) / [宿主打开](evidence/P1/opener-completion/README.md) / [搜索取消](evidence/P1/search-cancellation/README.md) / [路径匹配取消](evidence/P1/path-cancellation/README.md) / [写队列取消](evidence/P1/write-queue-cancellation/README.md) / [原子写取消与恢复](evidence/P1/atomic-write-cancellation/README.md) / [文件变更恢复](evidence/P1/file-mutation-recovery/README.md) / [临时清理结果](evidence/P1/temporary-cleanup/README.md) / [受控启动布局](evidence/P1/controlled-layout/README.md) / [主回合Stop](evidence/P1/provider-stop/README.md) / [冻结Mac回归](evidence/P1/frozen-mac-regression/README.md) / [验收缺口审计](evidence/P1/acceptance-audit.md) |
 | P2 | P1 | done（用户约定范围；暂缓项未验收） | Codex | 未核算 | [P2 总览](evidence/P2/README.md) |
 | P3 | P1；M1 交付需 P2 | done（用户指定Mac范围） | Codex | 未核算 | [最终Mac验收](evidence/P3/final-mac-acceptance/README.md) |
-| P4 | P2、P3 | in_progress（四包Mac本地完成，外部门待验） | Codex；独立复核 p4_host_review | 未核算 | [P4-01 宿主](evidence/P4/host/README.md) / [P4-02 系统桥](evidence/P4/bridge/README.md) / [P4-03 媒体](evidence/P4/media/README.md) / [P4-04 生命周期](evidence/P4/lifecycle/README.md) |
+| P4 | P2、P3 | done（用户批准的当前Mac范围，后续待验项独立保留） | Codex；独立复核 p4_host_review | 未核算 | [P4-01 宿主](evidence/P4/host/README.md) / [P4-02 系统桥](evidence/P4/bridge/README.md) / [P4-03 媒体](evidence/P4/media/README.md) / [P4-04 生命周期](evidence/P4/lifecycle/README.md) |
 | P5 | P4 | planned | 未分配 | 未记录 | 无 |
 | P6 | P5；探针可提前 | planned | 未分配 | 未记录 | 无 |
 
@@ -125,3 +125,6 @@
 2026-11-08 用户辅助真实拖放已完成并独立复核。6个可信文件/目录事件、3个本地上传、3次指纹解析及2次路径提交均成功，当前会话cwd/近期目录落盘、发送0，App/Node/探针退出。此前交互阻塞已解除。四包当前Mac本地开发与独立验收完成，正式身份暂缓及Windows/macOS14未验边界独立保留。[本地收尾](evidence/P4/local-closeout.json)
 
 2026-11-08 P4实现已本地提交 `0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb`，分支 `codex/p4-macos-desktop`。43项实现文件逐字节绑定该提交，文档收尾后完整单元2491通过/18跳过及80组静态再次通过；既有失败与候选来源保留。阶段Windows同候选验收范围等待用户决定，正式身份和macOS14边界继续按原交接记录。
+
+
+2026-11-08 用户确认“本轮按 Mac 范围收尾，Windows 保留后续待验”。P4 及四包登记 done，实现提交 `0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb`，证据提交 `f5c5d4c5`。Windows 同候选回归排除本轮并保留后续待验，正式签名身份按用户决定暂缓，macOS14 实际运行继续交接 O2/P6。此前进行中记录保留历史归属。源码及撰写文档空白检查通过，原始系统/界面 `.txt` 证据的尾空白与末尾空行告警保留，完整范围未登记空白检查通过。[最终范围复核](evidence/P4/final-scope-review.json) [收尾清单](evidence/P4/local-closeout.json)

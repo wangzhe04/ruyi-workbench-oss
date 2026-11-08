@@ -3,7 +3,7 @@
   "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
   "deliveryState": "committed_local",
   "localDelivery": "done",
-  "phaseStatus": "in_progress_external_acceptance_pending",
+  "phaseStatus": "done_in_user_approved_current_Mac_scope",
   "scope": "P4-01 through P4-04 current macOS27.0.1 arm64 development App local implementation and independent acceptance",
   "packages": {
     "P4-01": "host31 after permission recovery",
@@ -17,14 +17,20 @@
     "staticPassed": 80,
     "syntaxFiles": 1134,
     "workspaceMainAndIndependent": 38,
-    "freshness": "passed"
+    "freshness": "passed",
+    "whitespace": {
+      "sourceAndAuthoredDocs": "passed_excluding_raw_evidence",
+      "command": "git diff --check d97db57b HEAD -- . ':(exclude)MACOS-PORTING/evidence/P4/**'",
+      "rawEvidence": "Original trailing whitespace and EOF blank lines preserved in raw .txt system logs and accessibility exports. Full-range check reports these warnings. The evidence commit batch continued after its check reported warnings. No full-range whitespace pass is claimed."
+    }
   },
   "reviews": [
     "frozen-local-regression/review.json",
     "media/physical/reporting-delay/review.json",
     "bridge/native-drop/review.json",
     "local-closeout-review.json",
-    "commit-binding-review.json"
+    "commit-binding-review.json",
+    "final-scope-review.json"
   ],
   "evidence": [
     "frozen-local-regression/validation.json",
@@ -40,7 +46,7 @@
   "externalAcceptance": {
     "formalIdentity": "deferred_by_user",
     "macOS14": "unverified_O2_P6_carryover",
-    "Windows": "same_candidate_unverified_no_P4_waiver_recorded"
+    "Windows": "deferred_by_user_this_round_same_candidate_unverified"
   },
   "cleanup": {
     "nativeDropAppAndBackend": "exited",
@@ -61,5 +67,12 @@
     "staticPassed": 80,
     "log": "frozen-local-regression/closeout-static.txt",
     "unitLog": "frozen-local-regression/closeout-unit.txt"
-  }
+  },
+  "scopeDecision": {
+    "date": "2026-11-08",
+    "userInstruction": "本轮按 Mac 范围收尾，Windows 保留后续待验",
+    "approvedScopeComplete": true,
+    "originalAllEnvironmentGatesComplete": false
+  },
+  "evidenceCommit": "f5c5d4c5"
 }
