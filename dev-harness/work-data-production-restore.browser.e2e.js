@@ -19,10 +19,10 @@ async function waitForFact(test, guard, milliseconds, label) {
   while (Date.now() < deadline) { guard(); if (test()) return; await new Promise(resolve => setTimeout(resolve, 25)); }
   throw Error(label + ' deadline');
 }
-function bindTarget() {
+function bindTarget(entry = __filename) {
   const original = core.loadProductTarget(__dirname), publicRoot = path.join(original.repo, 'ruyi-workbench/app/public');
   const publicBefore = core.inventory(publicRoot);
-  const extras = [__filename, path.join(__dirname, 'lib/work-data-production-browser-attach.js'),
+  const extras = [...new Set([__filename, entry]), path.join(__dirname, 'lib/work-data-production-browser-attach.js'),
     ...['browser-fixture.js', 'browser-path.js', 'browser-cleanup.js', 'fake-openai-provider.js'].map(name => path.join(__dirname, 'lib', name))];
   const additions = [...publicBefore.files, ...extras.map(file => core.read(file).row)];
   const boundFiles = [...original.boundFiles, ...additions];

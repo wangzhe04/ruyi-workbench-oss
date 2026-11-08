@@ -108,6 +108,9 @@ test('actual upload/job receipts need valid typed identities and the restore ope
   assert.equal(receipt({ ok: true, job: { id: 'b'.repeat(48), operation: 'restore', state: 'queued', retry: false } }, 'job').id, 'b'.repeat(48));
   for (const value of [{ ok: true, uploadId: 'fake' }, { ok: false, uploadId: 'a'.repeat(48) }]) assert.throws(() => receipt(value, 'upload'));
   assert.throws(() => receipt({ ok: true, job: { id: 'b'.repeat(48), operation: 'enable', state: 'queued', retry: false } }, 'job'));
+  const enable = { ok: true, job: { id: 'b'.repeat(48), operation: 'enable', state: 'queued', retry: false } };
+  assert.equal(receipt(enable, 'job', 'enable').operation, 'enable');
+  assert.throws(() => receipt({ ...enable, job: { ...enable.job, operation: 'restore' } }, 'job', 'enable'));
   const upload = { ok: true, uploadId: 'a'.repeat(48) }, job = { ok: true, job: { id: 'b'.repeat(48), operation: 'restore', state: 'queued', retry: false } };
   const client = value => ({ async send(method, params) {
     assert.equal(method, 'Network.getResponseBody'); assert.equal(params.requestId, 'actual-request');

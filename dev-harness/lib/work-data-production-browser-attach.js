@@ -1,5 +1,5 @@
 'use strict';
-// Test-owned browser attached to the existing production restore world.
+// Test-owned browser attached to the existing production maintenance world.
 // Attach a browser to an existing production server; never start a provider or
 // another workbench. CDP itself and owned-tree cleanup use the existing owners.
 const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process');
@@ -46,7 +46,8 @@ function safeFailure(error) {
     'sampled browser identities absent deadline', 'unknown forbids new test work',
     'click unavailable', 'click has no layout', 'click readiness deadline', 'click target changed before press',
     'actual app ready deadline', 'actual gear menu ready deadline', 'actual settings modal ready deadline',
-    'actual restore panel ready deadline', 'backup folder selection deadline', 'target parent selection deadline',
+    'actual restore panel ready deadline', 'actual enable panel ready deadline', 'backup folder selection deadline', 'target parent selection deadline',
+    'actual enable job receipt deadline', 'actual browser reconnects to encrypted generation deadline',
     'CDP observation command failed', 'CDP upload entries unavailable', 'CDP upload entry bytes unavailable',
     'CDP post data encoding invalid', 'CDP base64 bytes invalid'].includes(message) ? message : null;
   const cdp = cdpFailures.get(error);
@@ -140,22 +141,22 @@ async function captureReceiver(uploadId, captureReceivedUpload, expected, root) 
     return { uploadId, source: 'receiver-custody-readback', bytes: bytes.length, sha256: hash(bytes), row: { ...row } };
   } finally { if (Buffer.isBuffer(captured?.bytes) && !overlaps) captured.bytes.fill(0); }
 }
-function receipt(value, kind) {
+function receipt(value, kind, operation = 'restore') {
   assert.equal(value?.ok, true, 'actual HTTP receipt must be successful');
   if (kind === 'upload') { assert.match(value.uploadId, ID); return { uploadId: value.uploadId }; }
   const job = value.job;
-  assert.ok(job && job.operation === 'restore'); assert.match(job.id, ID);
+  assert.ok(job && job.operation === operation); assert.match(job.id, ID);
   assert.ok(['queued', 'draining', 'preparing', 'ready', 'handoff'].includes(job.state));
   assert.equal(job.retry, false);
   return { id: job.id, operation: job.operation, state: job.state };
 }
-async function readMutationReceipt(client, kind, requestId, status) {
+async function readMutationReceipt(client, kind, requestId, status, operation) {
   const raw = await observedCdp(client, 'Network.getResponseBody', { requestId });
   const bytes = postDataBytes(raw.body, 65536, raw.base64Encoded);
   try {
     assert.equal(status, kind === 'upload' ? 201 : 202, 'actual mutation response status');
     const text = bytes.toString('utf8'); assert.equal(Buffer.from(text).equals(bytes), true, 'receipt strict UTF-8');
-    return receipt(JSON.parse(text), kind);
+    return receipt(JSON.parse(text), kind, operation);
   } finally { bytes.fill(0); }
 }
 function acceptedJobForTracking(facts) {
@@ -261,12 +262,18 @@ function createSessionReadObserver({ origin, capture, check = () => {}, record =
 
 async function attachProductionBrowser({ harness, root, url, directories, selectedBytes, expectedJob, captureReceivedUpload, record, guard = () => {} }) {
   assert.equal(process.platform, 'win32');
-  assert.equal(typeof captureReceivedUpload, 'function', 'actual receiver capture callback is required');
+  const restoring = expectedJob.operation === 'restore';
+  if (restoring) {
+    assert.equal(typeof captureReceivedUpload, 'function', 'actual receiver capture callback is required');
+    assert.ok(Buffer.isBuffer(selectedBytes) && selectedBytes.length > 0 && selectedBytes.length <= 1024 * 1024, 'this first browser case uses a bounded small package');
+  } else {
+    assert.equal(expectedJob.operation, 'enable');
+    assert.equal(directories.length, 1);
+  }
   const { CdpClient, waitForTarget } = require(path.join(harness, 'lib/browser-fixture'));
   const { findBrowserExecutable } = require(path.join(harness, 'lib/browser-path'));
   const { snapshotProcessTable, ownDescendants, killOwnTree } = require('./kill-own-tree');
   const { getFreePort } = require(path.join(harness, 'free-port'));
-  assert.ok(Buffer.isBuffer(selectedBytes) && selectedBytes.length > 0 && selectedBytes.length <= 1024 * 1024, 'this first browser case uses a bounded small package');
   const origin = new URL(url).origin, profile = path.join(root, 'ruyi-browser-restore-profile');
   fs.mkdirSync(profile, { recursive: false });
   const browser = findBrowserExecutable(); assert.ok(browser, 'a real browser must exist');
@@ -389,6 +396,7 @@ async function attachProductionBrowser({ harness, root, url, directories, select
     cdp.on('Network.requestWillBeSent', event => {
       if (sessionReads.request(event)) return;
       const kind = requestKind(event.request?.url, event.request?.method, origin); if (!kind) return;
+      if (!restoring && kind === 'upload') { latch(Error('enable must not upload a restore package')); return; }
       const contentType = Object.entries(event.request.headers || {}).find(([name]) => name.toLowerCase() === 'content-type')?.[1];
       if (kind === 'upload' && contentType !== 'application/octet-stream') { latch(Error('actual upload is not octet-stream')); return; }
       const entries = event.request.postDataEntries;
@@ -429,8 +437,9 @@ async function attachProductionBrowser({ harness, root, url, directories, select
           finally { bytes.fill(0); }
           for (const field of ['operation', 'targetDirectory', 'backupDirectory']) assert.equal(value[field], expectedJob[field], 'actual job ' + field);
           assert.deepEqual(value.expectedAuthority, expectedJob.expectedAuthority);
-          assert.equal(value.password, expectedJob.password, 'the selected package password reaches the one real job');
-          assert.match(value.uploadId, ID);
+          assert.equal(value.password, expectedJob.password, 'the form password reaches the one real job');
+          if (restoring) assert.match(value.uploadId, ID);
+          else assert.equal(value.uploadId, undefined, 'enable has no upload id');
           // Never persist the password, complete job body, token or raw event.
           row.body = { operation: value.operation, target: value.targetDirectory, uploadId: value.uploadId, passwordMatched: true };
           value.password = '';
@@ -457,7 +466,7 @@ async function attachProductionBrowser({ harness, root, url, directories, select
       // event can invalidate its resource. Only the two exact mutations enter.
       const captured = (async () => {
         try {
-          row.accepted = await readMutationReceipt(cdp, row.kind, event.requestId, row.status);
+          row.accepted = await readMutationReceipt(cdp, row.kind, event.requestId, row.status, expectedJob.operation);
           row.receiptSource = 'Network.getResponseBody';
           note({ kind: 'browser-mutation-receipt', mutation: row.kind, status: row.status,
             accepted: row.accepted, source: row.receiptSource });
@@ -491,7 +500,7 @@ async function attachProductionBrowser({ harness, root, url, directories, select
     // CDP Network.enable documents renderer-external response storage across
     // process navigation. This budget is explicit, not proof of an old failure's
     // cause. This fixture never pauses the renderer before enabling Network.
-    const networkObservation = { maxPostDataSize: Math.max(selectedBytes.length, 16384),
+    const networkObservation = { maxPostDataSize: Math.max(selectedBytes?.length || 0, 16384),
       maxResourceBufferSize: 1024 * 1024, maxTotalBufferSize: 16 * 1024 * 1024, enableDurableMessages: true };
     await observedCdp(cdp, 'Network.enable', networkObservation);
     await cdp.send('Fetch.enable', { patterns: [{ urlPattern: origin + '/api/pick-folder', requestStage: 'Request' }] });
@@ -545,7 +554,7 @@ async function attachProductionBrowser({ harness, root, url, directories, select
     }
     async function key(key, code) { await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key, windowsVirtualKeyCode: code }); await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key, windowsVirtualKeyCode: code }); }
     async function insert(selector, text) { await click(selector); await cdp.send('Input.insertText', { text }); }
-    async function prepare({ packageFile, targetName }) {
+    async function prepare({ packageFile, targetName, sessionId }) {
       uiStep('app-ready');
       await waitUntil(() => evaluate('document.readyState === "complete" && document.documentElement.lang === "en-US" && window.state?.config?.locale === "en-US" && !!window.state?.config?.onboarding?.completedAt && typeof document.getElementById("appGearBtn")?.onclick === "function" && typeof document.getElementById("openSettingsBtn")?.onclick === "function"'), 30000, 'actual app ready');
       uiStep('open-gear-menu', '#appGearBtn'); await click('#appGearBtn');
@@ -553,6 +562,22 @@ async function attachProductionBrowser({ harness, root, url, directories, select
       uiStep('open-settings', '#openSettingsBtn'); await click('#openSettingsBtn');
       await waitUntil(() => evaluate('!document.getElementById("settingsModal").classList.contains("hidden")'), 10000, 'actual settings modal ready');
       uiStep('open-security-tab', '#settingsTabs [data-stab="security"]'); await click('#settingsTabs [data-stab="security"]');
+      if (!restoring) {
+        assert.match(sessionId, /^[A-Za-z0-9_-]{1,64}$/);
+        uiStep('enable-panel-ready');
+        await waitUntil(() => evaluate(`window.state?.currentSession?.id === ${JSON.stringify(sessionId)}
+          && document.getElementById('workDataOperation')?.value === 'enable'
+          && document.getElementById('workDataSummary')?.dataset.mode === 'plain'
+          && document.getElementById('workDataUnavailable')?.hidden === true
+          && document.getElementById('workDataPickBackup')?.disabled === false`), 30000, 'actual enable panel ready');
+        uiStep('pick-backup-folder', '#workDataPickBackup'); await click('#workDataPickBackup');
+        await waitUntil(() => evaluate(`document.getElementById('workDataBackupDirectory')?.value === ${JSON.stringify(expectedJob.backupDirectory)}
+          && document.getElementById('workDataPassword')?.disabled === false`), 30000, 'backup folder selection');
+        uiStep('enter-enable-password', '#workDataPassword'); await insert('#workDataPassword', expectedJob.password);
+        uiStep('confirm-enable-password', '#workDataPasswordConfirm'); await insert('#workDataPasswordConfirm', expectedJob.password);
+        assert.equal(await evaluate('document.getElementById("workDataSubmit").disabled'), false);
+        return;
+      }
       uiStep('restore-panel-ready');
       await waitUntil(() => evaluate('!!document.getElementById("workDataOperation") && !document.getElementById("workDataOperation").disabled'), 30000, 'actual restore panel ready');
       uiStep('open-operation-select', '#workDataOperation'); await click('#workDataOperation');
@@ -580,9 +605,14 @@ async function attachProductionBrowser({ harness, root, url, directories, select
       assert.equal(await evaluate('document.getElementById("workDataSubmit").disabled'), false);
     }
     async function submit() {
-      uiStep('real-upload-and-job', '#workDataSubmit');
+      uiStep(restoring ? 'real-upload-and-job' : 'real-enable-job', '#workDataSubmit');
       healthy(); assert.equal(facts.uploads.length, 0); assert.equal(facts.jobs.length, 0);
       await click('#workDataSubmit');
+      if (!restoring) {
+        try { await waitUntil(() => facts.jobs[0]?.accepted?.id, 60000, 'actual enable job receipt'); }
+        catch (error) { throw pendingProofFailure || error; }
+        return facts.jobs[0].accepted.id;
+      }
       // Start against the selected source form immediately after the real click,
       // before awaiting any ACK. The still-selected File excludes an empty newly
       // mounted target form; missing controls throw instead of falling back.
@@ -613,6 +643,26 @@ async function attachProductionBrowser({ harness, root, url, directories, select
       assert.equal(await evaluate(`document.getElementById('workDataProgress').textContent.includes(${JSON.stringify(target)})`), true);
       await Promise.all([...pending]); healthy(); assertFinalEvidence(facts, pendingProofFailure);
       return facts;
+    }
+    async function assertEncryptedServing(jobId) {
+      step = 'encrypted-serving-dom';
+      await waitUntil(() => evaluate(`document.getElementById('workDataSummary')?.dataset.mode === 'encrypted'
+        && document.querySelector('#workDataSummary .work-data-eyebrow')?.textContent === 'Current data root'
+        && document.getElementById('workDataCancel')?.hidden === true
+        && document.getElementById('workDataDownload')?.disabled === false
+        && document.getElementById('workDataNotice')?.dataset.state !== 'error'`), 120000, 'actual browser reconnects to encrypted generation');
+      await Promise.all([...pending]); healthy();
+      if (pendingProofFailure) throw pendingProofFailure;
+      assert.equal(facts.jobs.length, 1, 'reconnecting never resubmits the enable job');
+      assert.equal(facts.uploads.length, 0);
+      assert.equal(facts.folderChoices.length, 1);
+      const job = facts.jobs[0];
+      assert.equal(job.status, 202); assert.equal(job.responseFinished, true);
+      assert.equal(job.accepted.id, jobId); assert.equal(job.accepted.operation, 'enable');
+      assert.equal(job.body?.passwordMatched, true); assert.equal(job.postData.captureComplete, true);
+      assert.equal(await evaluate(`!document.getElementById('workDataPassword').value && !document.getElementById('workDataPasswordConfirm').value
+        && ![...Object.values(localStorage), ...Object.values(sessionStorage)].some(value => value.includes(${JSON.stringify(expectedJob.password)}))`), true);
+      note({ kind: 'browser-encrypted-generation-serving', jobId, jobRequests: facts.jobs.length, passwordFieldsCleared: true });
     }
     async function assertReadableRestoredSession({ sessionId, bodyTerm }) {
       assert.match(sessionId, /^[A-Za-z0-9_-]{1,64}$/);
@@ -658,7 +708,7 @@ async function attachProductionBrowser({ harness, root, url, directories, select
       note({ kind: 'browser-restored-session-readable', ...proof }); return proof;
     }
 
-    return { prepare, submit, assertTargetServing, assertReadableRestoredSession, close: closeOwned, facts, evaluate,
+    return { prepare, submit, assertTargetServing, assertEncryptedServing, assertReadableRestoredSession, close: closeOwned, facts, evaluate,
       failureDiagnostic: () => ({ step, action, networkObservation, secretClearObservation,
         pendingProofFailure: pendingProofFailure ? safeFailure(pendingProofFailure) : null,
         acceptedJob: facts.jobs[0]?.accepted ? { ...facts.jobs[0].accepted, source: facts.jobs[0].receiptSource, status: facts.jobs[0].status } : null,

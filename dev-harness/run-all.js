@@ -74,6 +74,7 @@ const PARALLEL_EXCLUSIVE = new Set([
   // from competing functional buckets; phase deadlines remain unchanged.
   'work-data-production-restore.browser.e2e.js',
   'work-data-production-restore-encrypted.browser.e2e.js',
+  'work-data-production-enable.browser.e2e.js',
   'work-data-owned-source-recovery.e2e.js',
   'work-data-completed-intent-recovery.e2e.js',
   // The hand-off undo button has a real 10-second expiry. CDP inspection and the
@@ -290,6 +291,7 @@ const TIMEOUT_OVERRIDES = {
   // source recovery matrix. No existing inner wait or older gate is widened.
   'work-data-production-restore.browser.e2e.js': 900000,
   'work-data-production-restore-encrypted.browser.e2e.js': 900000,
+  'work-data-production-enable.browser.e2e.js': 900000,
   'work-data-owned-source-recovery.e2e.js': 900000,
   // New C11 acceptance constructs two native complete-intent windows around
   // real enable/disable results; phase bounds remain those of the shared world.

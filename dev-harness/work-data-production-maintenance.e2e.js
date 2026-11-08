@@ -590,7 +590,8 @@ function createWorld({root,evidence,target}){
   const observer=await claimObserver(f);
   try{
    ctx.phase='submit-'+spec.operation;
-   const jobId=await submitJob(ref,{operation:spec.operation,password:PASSWORD,expectedAuthority:source,backupDirectory:f.backups,...(spec.operation==='disable'?{confirmPlaintext:true}:{})});
+   const request={operation:spec.operation,password:PASSWORD,expectedAuthority:source,backupDirectory:f.backups,...(spec.operation==='disable'?{confirmPlaintext:true}:{})};
+   const jobId=await (spec.submit ? spec.submit(request) : submitJob(ref,request));
    record({kind:'round-start',round:state.round,operation:spec.operation,jobId,sourceAuthority:source});
    ctx.phase='busy-package-'+spec.operation;
    await assertBusyPackage(ref,'round '+state.round+' '+spec.operation);
@@ -810,17 +811,20 @@ function createWorld({root,evidence,target}){
   claimApi,cimIdentity,absentByCim,coldWindow,waitSuccessor,runRound,bootScenario,writeClaim,intentRecord,resultRecord,waitFile,waitJson,runBootNegatives,stderrOf};
 }
 
-async function runActual(argv=process.argv.slice(2)){
- if(process.platform!=='win32'){a.equal(argv.length,0,'ROOT candidate actual requires Windows');console.log('SKIP Windows native production maintenance E2E');require(p.join(__dirname,'lib/harness')).createRunner('WORK DATA PRODUCTION MAINTENANCE').done();return{skipped:true};}
- const target=targetFromArgs(argv);a.equal(Number(process.versions.node.split('.')[0]),24);
+async function runActual(argv=process.argv.slice(2),{browserEntry}={}){
+ const label=browserEntry?'WORK DATA PRODUCTION ENABLE BROWSER':'WORK DATA PRODUCTION MAINTENANCE';
+ if(process.platform!=='win32'){a.equal(argv.length,0,'ROOT candidate actual requires Windows');console.log(browserEntry?'SKIP Windows native browser enable acceptance':'SKIP Windows native production maintenance E2E');require(p.join(__dirname,'lib/harness')).createRunner(label).done();return{skipped:true};}
+ a.equal(argv.length,0,'permanent E2E uses the current complete product build');
+ const target=browserEntry?require('./work-data-production-restore.browser.e2e').bindTarget(browserEntry):targetFromArgs(argv);
+ a.equal(Number(process.versions.node.split('.')[0]),24);
  const harness=p.join(target.repo,'dev-harness');require(p.join(harness,'lib/self-isolate-home'));
- const t=require(p.join(harness,'lib/harness')).createRunner('WORK DATA PRODUCTION MAINTENANCE');
+ const t=require(p.join(harness,'lib/harness')).createRunner(label);
  const temp=p.resolve(os.tmpdir()),root=fs.mkdtempSync(p.join(temp,'ruyi-production-maintenance-')),evidence=p.join(root,'evidence');
  a.equal(core.norm(p.dirname(root)),core.norm(temp),'fixture root is a direct child of the tool temp');fs.mkdirSync(evidence);
  const w=createWorld({root,evidence,target});w.openJournal();
- let keeper=null,keeperExit=null,assigned=false,passed=false;
+ let keeper=null,keeperExit=null,assigned=false,passed=false,browser=null;
  try{
-  w.record({kind:'fixture-owner',root,temp,nonce:c.randomBytes(32).toString('hex'),targetServer:target.server,executionInputSha256:target.executionInputSha256,executionInputs:target.boundFiles.length,inputFiles:target.boundFiles,scope:'Synthetic production maintenance E2E only;not restore, activation or complete 3.1.'});
+  w.record({kind:'fixture-owner',root,temp,nonce:c.randomBytes(32).toString('hex'),targetServer:target.server,executionInputSha256:target.executionInputSha256,executionInputs:target.boundFiles.length,inputFiles:target.boundFiles,scope:browserEntry?'Synthetic settings browser enable only; the native folder picker is the only substituted route.':'Synthetic production maintenance E2E only;not restore, activation or complete 3.1.'});
   keeper=cp.spawn('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',p.join(harness,'lib/work-data-production-maintenance-outer-job.ps1')],
    {cwd:harness,env:{...process.env,RUYI_PM_ROOT:root},stdio:'ignore',windowsHide:true});
   // A retained keeper must not become a reason the test cannot end: unref the
@@ -828,6 +832,12 @@ async function runActual(argv=process.argv.slice(2)){
   keeper.unref();
   await w.waitFile(p.join(root,'job-ready.json'),30000,'owned outer Job keeper');
   const f=w.fixture('main');
+  if(browserEntry){
+   const file=p.join(f.base,'config.json'),config=core.json(file);
+   a.equal(config.locale,'en-US','the serving DOM assertion uses the fixture English locale');
+   config.onboarding={completedAt:'2026-11-01T00:00:00.000Z',version:1,skipped:false};
+   fs.writeFileSync(file,JSON.stringify(config));
+  }
   const port=await getFreePort('127.0.0.1');
   const handle=w.spawnServe(f,'main-server',port);
   await handle.spawned;w.healthy();
@@ -836,11 +846,36 @@ async function runActual(argv=process.argv.slice(2)){
   const ready=await w.waitWorkerReady(initial);
   w.checkpoint('initial-status',{authority:ready.authority,capabilities:ready.capabilities,lastResult:ready.lastResult,job:ready.job,maintenance:ready.maintenance});
   w.checked('real serve advertises the worker only after the runtime reports readiness');
-  // The boot verdicts are independent of any handoff and each owns a separate
-  // root, so they are decided first: a blocked handoff must not hide them.
-  await w.runBootNegatives();
   let current=initial;const state={round:0,priorIds:[]};
-  for(const spec of [{operation:'enable'},{operation:'export'},{operation:'disable'}]){current=await w.runRound(f,current,spec,state);state.round++;}
+  if(browserEntry){
+   const {attachProductionBrowser}=require('./lib/work-data-production-browser-attach');
+   const expectedJob={operation:'enable',password:PASSWORD,expectedAuthority:ready.authority,backupDirectory:f.backups};
+   w.ctx.phase='browser-prepare-enable';
+   browser=await attachProductionBrowser({harness,root,url:'http://127.0.0.1:'+port+'/',directories:[f.backups],
+    expectedJob,record:w.record,guard:w.healthy});
+   // App boot opens the seeded legacy session and upgrades its storage format.
+   // Let the real browser finish that read before runRound pins the source.
+   await browser.prepare({sessionId:SESSION_ID});
+   const opened=core.json(p.join(f.base,'sessions',SESSION_ID+'.json')),seed=JSON.parse(SESSION_BYTES);
+   a.equal(opened.storageVersion,2);
+   for(const field of ['id','title','private'])a.equal(opened[field],seed[field],'browser-opened source retains '+field);
+   a.equal(opened.messageCount,seed.messages.length);
+   await w.waitWorkerReady(initial);
+   current=await w.runRound(f,current,{operation:'enable',submit(request){
+    a.deepEqual(request,expectedJob,'browser form authority matches the immediate pre-submit observation');
+    return browser.submit();
+   }},state);
+   w.ctx.phase='browser-encrypted-serving';
+   await browser.assertEncryptedServing(current.status.lastResult.id);
+   await browser.close();
+   a.equal(browser.facts.jobs.length,1,'exactly one browser job POST through browser close');
+   w.checked('one real settings Enable POST reaches the cold worker, then the same page shows the published encrypted generation');
+  }else{
+   // The boot verdicts each own a separate root. Decide them before handoff so
+   // a blocked handoff cannot hide them.
+   await w.runBootNegatives();
+   for(const spec of [{operation:'enable'},{operation:'export'},{operation:'disable'}]){current=await w.runRound(f,current,spec,state);state.round++;}
+  }
   // Only the last successor is handed to the owned Job. Assigning old serve
   // instead would make the product's detached cold launch un-detachable on this
   // host (measured: the cold worker dies the moment serve exits), and every
@@ -885,9 +920,11 @@ async function runActual(argv=process.argv.slice(2)){
   t.done();return{passed:true,root};
  }catch(error){
   w.latch(error);
+  if(browser){try{await browser.close({failure:true});}catch{/* The maintenance failure remains authoritative. */}}
   const projected={schema:1,stage:w.ctx.phase,lastPassed:w.ctx.checks.at(-1)||null,
    code:typeof error?.code==='string'&&/^[A-Z0-9_.-]{1,80}$/i.test(error.code)?error.code:'E2E_FAILURE',
-   rawMessagesAndBodiesOmitted:true,...safeFailureLocation(error),diagnostics:w.ctx.diagnostics||null};
+   rawMessagesAndBodiesOmitted:true,...safeFailureLocation(error),diagnostics:w.ctx.diagnostics||null,
+   ...(browserEntry?{browser:browser?.failureDiagnostic()||error?.browserFailure||null}:{})};
   try{fs.writeFileSync(p.join(evidence,'failure-summary.json'),JSON.stringify(projected,null,2)+'\n',{flag:'wx'});}catch{}
   // A failure keeps the scene: the owned Job is never closed by the test. The
   // keeper is told either way so it cannot outlive the run; before a target is
