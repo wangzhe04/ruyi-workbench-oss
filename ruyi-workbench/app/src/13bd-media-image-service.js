@@ -41,7 +41,7 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
   const validPointer = pointer => /^(?:\/(?:messages|input))?\/\d+\/content\/\d+$/.test(pointer);
   function create({ contract = MediaImageContract, context, storeFor, now = Date.now } = {}) {
     if (typeof context !== 'function' || typeof storeFor !== 'function') fail('host_required');
-    const records = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
+    const records = new Map(), removals = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
     function beginScope(sessionId) {
       if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}$/.test(sessionId)) fail('scope_changed');
       // Apply the existing four-owner budget before host IO too. Retained
@@ -84,10 +84,16 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
     }
     const find = id => { const record = records.get(id); check(record); return record; };
     async function remove(id) {
+      const pending = removals.get(id); if (pending) return pending;
       const record = records.get(id); if (!record) return;
       // Revoke synchronously before the first cleanup await. A failed unlink never
       // restores sending authority or causes the source upload to be removed.
       record.dead = true; records.delete(id); clearTimeout(record.timer);
+      const removal = releaseRecord(record);
+      removals.set(id, removal);
+      try { await removal; } finally { removals.delete(id); }
+    }
+    async function releaseRecord(record) {
       const errors = [];
       for (const borrowed of [...record.borrows]) try { borrowed.release(); } catch (error) { errors.push(error); }
       try { record.pipeline.release(record.token); } catch (error) { errors.push(error); }
@@ -95,6 +101,11 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
       try { await record.source.release(); } catch (error) { errors.push(error); }
       record.scopeOwner.release();
       if (errors.length) { retained.add(record); throw cleanupFailure(undefined, false, errors); }
+    }
+    async function removeRecords(ids, primary, failed = false) {
+      const results = await Promise.allSettled(ids.map(remove));
+      const errors = results.filter(row => row.status === 'rejected').map(row => row.reason);
+      if (errors.length) throw cleanupFailure(primary, failed, errors);
     }
     async function prepare({ sessionId, source, policy, processor, recipient, signal, regions = null, scopeOwner } = {}) {
       // A supplied source lease transfers to the service at entry, including
@@ -224,16 +235,15 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
       // cleanup awaits. A new same-id incarnation receives a different epoch.
       revokeEpoch(sessionId);
       const ids=[...records].filter(([,record])=>record.sessionId===sessionId).map(([id,record])=>{record.dead=true;return id;});
-      const results=await Promise.allSettled(ids.map(remove)),errors=results.filter(row=>row.status==='rejected').map(row=>row.reason);
-      if(errors.length)throw cleanupFailure(undefined,false,errors);
+      await removeRecords(ids);
     }
     async function invalidate() {
       for(const sessionId of [...scopes.keys()])revokeEpoch(sessionId);
       const ids=[...records.keys()]; for(const record of records.values())record.dead=true;
-      const results=await Promise.allSettled(ids.map(remove)),errors=results.filter(row=>row.status==='rejected').map(row=>row.reason);
-      if(errors.length)throw cleanupFailure(undefined,false,errors);
+      await removeRecords(ids);
     }
-    return Object.freeze({ beginScope, prepare, borrow, remove, referenceFor, projectPart, delivery, revokeScope, invalidate });
+    return Object.freeze({ beginScope, prepare, borrow, remove, discardPrepared: (ids, primary) => removeRecords(ids, primary, true),
+      referenceFor, projectPart, delivery, revokeScope, invalidate });
   }
   function recipientHash(url, headers) {
     // Use Fetch's own parser: all explicit wire headers participate, including

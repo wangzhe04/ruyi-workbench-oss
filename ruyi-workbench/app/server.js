@@ -111923,7 +111923,7 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
   const validPointer = pointer => /^(?:\/(?:messages|input))?\/\d+\/content\/\d+$/.test(pointer);
   function create({ contract = MediaImageContract, context, storeFor, now = Date.now } = {}) {
     if (typeof context !== 'function' || typeof storeFor !== 'function') fail('host_required');
-    const records = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
+    const records = new Map(), removals = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
     function beginScope(sessionId) {
       if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}$/.test(sessionId)) fail('scope_changed');
       // Apply the existing four-owner budget before host IO too. Retained
@@ -111966,10 +111966,16 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
     }
     const find = id => { const record = records.get(id); check(record); return record; };
     async function remove(id) {
+      const pending = removals.get(id); if (pending) return pending;
       const record = records.get(id); if (!record) return;
       // Revoke synchronously before the first cleanup await. A failed unlink never
       // restores sending authority or causes the source upload to be removed.
       record.dead = true; records.delete(id); clearTimeout(record.timer);
+      const removal = releaseRecord(record);
+      removals.set(id, removal);
+      try { await removal; } finally { removals.delete(id); }
+    }
+    async function releaseRecord(record) {
       const errors = [];
       for (const borrowed of [...record.borrows]) try { borrowed.release(); } catch (error) { errors.push(error); }
       try { record.pipeline.release(record.token); } catch (error) { errors.push(error); }
@@ -111977,6 +111983,11 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
       try { await record.source.release(); } catch (error) { errors.push(error); }
       record.scopeOwner.release();
       if (errors.length) { retained.add(record); throw cleanupFailure(undefined, false, errors); }
+    }
+    async function removeRecords(ids, primary, failed = false) {
+      const results = await Promise.allSettled(ids.map(remove));
+      const errors = results.filter(row => row.status === 'rejected').map(row => row.reason);
+      if (errors.length) throw cleanupFailure(primary, failed, errors);
     }
     async function prepare({ sessionId, source, policy, processor, recipient, signal, regions = null, scopeOwner } = {}) {
       // A supplied source lease transfers to the service at entry, including
@@ -112106,16 +112117,15 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
       // cleanup awaits. A new same-id incarnation receives a different epoch.
       revokeEpoch(sessionId);
       const ids=[...records].filter(([,record])=>record.sessionId===sessionId).map(([id,record])=>{record.dead=true;return id;});
-      const results=await Promise.allSettled(ids.map(remove)),errors=results.filter(row=>row.status==='rejected').map(row=>row.reason);
-      if(errors.length)throw cleanupFailure(undefined,false,errors);
+      await removeRecords(ids);
     }
     async function invalidate() {
       for(const sessionId of [...scopes.keys()])revokeEpoch(sessionId);
       const ids=[...records.keys()]; for(const record of records.values())record.dead=true;
-      const results=await Promise.allSettled(ids.map(remove)),errors=results.filter(row=>row.status==='rejected').map(row=>row.reason);
-      if(errors.length)throw cleanupFailure(undefined,false,errors);
+      await removeRecords(ids);
     }
-    return Object.freeze({ beginScope, prepare, borrow, remove, referenceFor, projectPart, delivery, revokeScope, invalidate });
+    return Object.freeze({ beginScope, prepare, borrow, remove, discardPrepared: (ids, primary) => removeRecords(ids, primary, true),
+      referenceFor, projectPart, delivery, revokeScope, invalidate });
   }
   function recipientHash(url, headers) {
     // Use Fetch's own parser: all explicit wire headers participate, including
@@ -112308,36 +112318,60 @@ const MediaImageHost = (() => {
   // 顺序固定:会话 → 策略(必须在 turn 的 PrivacyGateway scope 里) → 收件人(vision provider) → 处理器(真实原生组件)。
   // 任何一步不满足都 fail-closed,绝不把原始像素交回调用方;成功时只回引用,像素留在派生库里由交付层替换。
   async function prepareRenderedPages({ sessionId, pages, signal } = {}) {
-    if (!Array.isArray(pages) || !pages.length || pages.length > 4) fail('render_invalid');
-    for (const page of pages) {
-      if (!page || typeof page.name !== 'string' || !page.name || page.name.length > 200
-        || !Buffer.isBuffer(page.bytes) || page.bytes.length < 1 || page.bytes.length > MediaImageContract.LIMITS.sourceBytes) fail('render_invalid');
+    const count = Array.isArray(pages) ? pages.length : 0;
+    if (!count || count > 4) fail('render_invalid');
+    const inputs = [];
+    for (let index = 0; index < count; index++) {
+      const { name, bytes } = pages[index] || {};
+      if (typeof name !== 'string' || !name || name.length > 200
+        || !Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > MediaImageContract.LIMITS.sourceBytes) fail('render_invalid');
+      inputs.push({ name, bytes });
     }
-    const session = assertSessionIdForPath(sessionId), config = await readConfig();
-    PrivacyGateway.assertPolicyAvailable(config);
-    return PrivacyGateway.run(session, config, () => managed(async () => {
-      const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
-      const recipient = currentRecipient(config);
-      const owner = await processor();
-      if (!MediaImageProcessor.isOwner(owner)) fail('processor_unavailable');
-      const references = [];
-      for (const [index, page] of pages.entries()) {
-        const source = MediaImageService.renderedSource({ id: 'render-' + index, name: page.name, bytes: page.bytes, sessionId: session });
-        policy.assert(); source.assert();
-        const prepared = await service.prepare({ sessionId: session, source, policy, processor: owner, recipient, signal });
-        references.push(Object.freeze({ name: page.name, id: prepared.id, reference: prepared.reference }));
-      }
-      // 跨页撤销:prepare 每页各自 beginScope,撤回可能发生在两页之间。收尾时逐条复核引用仍然有效,
-      // 否则宁可 fail-closed,也不把悬空引用交给交付层。
-      for (const item of references) {
+    const session = assertSessionIdForPath(sessionId), firstScopeOwner = service.beginScope(session);
+    let firstTransferred = false;
+    const assertBatch = () => {
+      firstScopeOwner.assert();
+      if (signal?.aborted) fail('cancelled');
+    };
+    try {
+      assertBatch();
+      const config = await readConfig();
+      assertBatch(); PrivacyGateway.assertPolicyAvailable(config);
+      return await PrivacyGateway.run(session, config, () => managed(async () => {
+        assertBatch();
+        const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
+        const recipient = currentRecipient(config);
+        const owner = await processor();
+        assertBatch();
+        if (!MediaImageProcessor.isOwner(owner)) fail('processor_unavailable');
+        const references = [];
         try {
-          if (!service.projectPart({ type: 'image_url', image_url: { url: item.reference } }, { scopeId: session, pointer: '/messages/0/content/0' })) fail('render_revoked');
-        } catch { fail('render_revoked'); }
-      }
-      // 交付改写总开关:准备好受保护引用之后必须置位,否则 04h 会把引用原样发给 provider。
-      preparedAny = true;
-      return Object.freeze({ references: Object.freeze(references), recipient });
-    }));
+          // The first record owns the batch's original scope epoch. A later page
+          // cannot start in a new epoch after the session was revoked.
+          for (const [index, page] of inputs.entries()) {
+            assertBatch(); policy.assert();
+            const source = MediaImageService.renderedSource({ id: 'render-' + index, name: page.name, bytes: page.bytes, sessionId: session });
+            const scopeOwner = index === 0 ? firstScopeOwner : undefined;
+            const prepared = await service.prepare({ sessionId: session, source, policy, processor: owner, recipient, signal, scopeOwner });
+            if (scopeOwner) firstTransferred = true;
+            references.push(Object.freeze({ name: source.name, id: prepared.id, reference: prepared.reference }));
+          }
+          assertBatch();
+          for (const item of references) {
+            try {
+              if (!service.projectPart({ type: 'image_url', image_url: { url: item.reference } }, { scopeId: session, pointer: '/messages/0/content/0' })) fail('render_revoked');
+            } catch { fail('render_revoked'); }
+          }
+          preparedAny = true;
+          return Object.freeze({ references: Object.freeze(references), recipient });
+        } catch (error) {
+          await service.discardPrepared(references.map(item => item.id), error);
+          throw error;
+        }
+      }));
+    } finally {
+      if (!firstTransferred) firstScopeOwner.release();
+    }
   }
   function attachmentPrompt(file) {
     const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) return null;

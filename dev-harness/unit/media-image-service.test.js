@@ -9,7 +9,7 @@ const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const sources = ['01i-privacy-rules.js', '01h-privacy-core.js', '13ba-media-image-contract.js', '13bd-media-image-service.js']
   .map(name => fs.readFileSync(path.join(sourceRoot, name), 'utf8')).join('\n');
 const api = vm.runInNewContext(sources + ';({MediaImageContract,MediaImageService});', { require, Buffer, Headers, setTimeout, clearTimeout });
-function fixture({ words = [{ text: 'secret@example.test', line: 0, box: [1,1,5,5] }], attested = false } = {}) {
+function fixture({ words = [{ text: 'secret@example.test', line: 0, box: [1,1,5,5] }], attested = false, beforeRemove } = {}) {
   let time = Date.now(), sourceChanged = false, policyChanged = false, processorChanged = false, sessionId = 'sess_one', released = false;
   const bytes = Buffer.alloc(32,7), scope = sha(sessionId).slice(0,32), config = { personal: true, knownSecrets: [], rules: [] };
   const source = { id:'file_one', name:'private-name.png', snapshot: { bytes, hash:sha(bytes), revision:'r1', scope },
@@ -30,7 +30,7 @@ function fixture({ words = [{ text: 'secret@example.test', line: 0, box: [1,1,5,
       stored.set('mimg_a', { ...value, bytes:Buffer.from(value.bytes), captured }); return {id:'mimg_a'}; },
     async read(id) { storageReads++; const value=stored.get(id); if(!value)throw Error('missing'); const copy=Buffer.from(value.bytes);let dead=false;
       return { bytes:copy,manifest:value.manifest,assert(){assert.equal(dead,false);authority.assert(value.captured);assert.equal(sha(copy),value.manifest.payloadHash);return true;},release(){dead=true;copy.fill(0);} }; },
-    async remove(id){ const value=stored.get(id);value?.bytes.fill(0);stored.delete(id);return true;},
+    async remove(id){ if (beforeRemove) await beforeRemove(); const value=stored.get(id);value?.bytes.fill(0);stored.delete(id);return true;},
   }) });
   const recipient = api.MediaImageService.recipientHash('http://localhost/v1/chat/completions',{'authorization':'Bearer synthetic'});
   return { service, source, policy, processor, recipient, stored,
@@ -82,6 +82,36 @@ test('revocation zeroes outstanding preview borrows and the source is kept outsi
   const f=fixture(),prepared=await f.prepare(),borrowed=await f.service.borrow(prepared.id);
   await f.service.revokeScope('sess_one');assert.equal(borrowed.bytes.every(byte=>byte===0),true);assert.throws(()=>borrowed.assert());borrowed.release();
   assert.equal(borrowed.bytes.every(byte=>byte===0),true);assert.equal(f.source.snapshot.bytes.every(byte=>byte===7),true);
+});
+for (const failCleanup of [false, true]) test(`batch discard waits for an in-flight revocation (${failCleanup ? 'failure' : 'success'})`, async () => {
+  let release, removals = 0, discarded = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const unlinkError = Object.assign(Error('fixture unlink uncertain'), { helperMayStillRun: true });
+  const f = fixture({ async beforeRemove() { removals++; await gate; if (failCleanup) throw unlinkError; } });
+  const prepared = await f.prepare(), primary = Error('later page failed');
+  const revoked = f.service.revokeScope('sess_one');
+  const rollback = f.service.discardPrepared([prepared.id], primary).finally(() => { discarded = true; });
+  const results = Promise.allSettled([revoked, rollback]);
+  try {
+    await assert.rejects(f.service.borrow(prepared.id), { code: 'privacy.image_expired' });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(discarded, false, 'revoked authority does not mean unlink has settled');
+    assert.equal(f.released(), false);
+  } finally { release(); }
+  const [revocation, discard] = await results;
+  assert.equal(removals, 1);
+  assert.equal(f.released(), true);
+  if (!failCleanup) {
+    assert.deepEqual([revocation.status, discard.status], ['fulfilled', 'fulfilled']);
+    assert.equal(f.stored.size, 0);
+  } else {
+    assert.equal(revocation.reason.code, 'privacy.image_cleanup_failed');
+    assert.equal(discard.reason.code, 'privacy.image_cleanup_failed');
+    assert.equal(discard.reason.cause, primary);
+    assert.equal(discard.reason.errors[1].cause, unlinkError);
+    assert.equal(discard.reason.helperMayStillRun, true);
+    assert.equal(discard.reason.ownershipRetained, true);
+  }
 });
 test('unknown image POST outcome prevents an automatic submission retry; acknowledged requests retain continuity',async()=>{
   const f=fixture(),prepared=await f.prepare(),body={messages:[{role:'user',content:[{type:'image_url',image_url:{url:prepared.reference}}]}]};
