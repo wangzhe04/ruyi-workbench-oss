@@ -1141,7 +1141,7 @@
           "date": "2026-11-07",
           "scope": "Notification allow/refuse recovery and microphone capture no longer than 3 seconds; isolated local audio and fake loopback ASR endpoint"
         },
-        "desktopAccess": "current_host_UI_acceptance_completed; test_App_backend_and_temporary_windows_closed; caffeinate_retained_for_user_requested_unattended_development",
+        "desktopAccess": "current_host_UI_acceptance_completed; latest physical evidence reused; task-owned caffeinate stopped by user request 2026-11-08",
         "documentsFolderAccess": "authorized_by_user_2026-11-08_and_verified_TCC_grant_and_LaunchServices_ready",
         "lifecyclePermissions": {
           "date": "2026-11-08",
@@ -1160,7 +1160,7 @@
           "date": "2026-11-07"
         }
       ],
-      "progress": "P4四包当前macOS27.0.1 arm64本地实现与独立验收完成。最新独立host31/media36/lifecycle23/bridge47及workspace38通过，单元2491通过/18跳过、静态80、语法1134及构建新鲜度通过。真实通知恢复、菜单设置、Safari外链、IDE双栏Diff、647.5ms物理PCM、登录项注册后注销、短时真实睡眠/SSE及用户辅助原生文件/目录拖放均有证据。用户确认本轮按Mac范围收尾，P4及四包登记done。Windows同候选回归保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6，三项均未验收。",
+      "progress": "P4四包当前macOS27.0.1 arm64本地实现与独立验收完成。最新独立host31/media36/lifecycle23/bridge47及workspace38通过，单元2491通过/18跳过、静态80、语法1134及构建新鲜度通过。真实通知恢复、菜单设置、Safari外链、IDE双栏Diff、647.5ms物理PCM、登录项注册后注销、短时真实睡眠/SSE及用户辅助原生文件/目录拖放均有证据。用户确认本轮按Mac范围收尾，P4及四包登记done。Windows同候选回归保留后续待验，正式身份暂缓，macOS14实际运行交接O2/P6，三项均未验收。 2026-11-08按用户要求停止本任务防休眠并完整复验Mac功能，主轮16组629项及工程门通过，补齐自动化取消状态不变性，修复四个既有验收文件的Mac隔离及启动暂态等待。真实交互复用同冻结App既有独立证据，最新结果见full-mac-acceptance。 首发视角修正后的最终冻结候选19条命令均自然退出0，16组专项630项通过，所有53项源码指纹逐件核验。 独立8组255项自然退出0，全部53源指纹无漂移，自有进程身份回收通过。",
       "evidence": [
         "evidence/P4/current-candidate/README.md",
         "evidence/P4/lifecycle/physical-system/README.md",
@@ -1168,44 +1168,46 @@
         "evidence/P4/media/physical/README.md",
         "evidence/P4/frozen-local-regression/README.md",
         "evidence/P4/bridge/native-drop/README.md",
-        "evidence/P4/local-closeout.json"
+        "evidence/P4/local-closeout.json",
+        "evidence/P4/full-mac-acceptance/README.md"
       ],
       "latestNativeAcceptance": {
         "date": "2026-11-08",
-        "candidate": "reporting-delay_acceptance_only_increment",
+        "candidate": "full-mac-acceptance_final_frozen_frontend_with_same_native_bundle",
         "hostPassed": 31,
         "hostFailed": 0,
         "mediaPassed": 36,
         "lifecyclePassed": 23,
-        "bridgePassed": 47,
+        "bridgePassed": 53,
         "physical": "passed_LaunchServices_valid_647_5ms_PCM_native_stop_1417_118ms_cleanup_verified",
-        "evidence": "evidence/P4/media/physical/reporting-delay/README.md",
+        "evidence": "evidence/P4/full-mac-acceptance/README.md",
         "hostAfterPermission": "passed_31_exit0_original30_1_failure_retained",
         "priorHostFailure": "new_adhoc_code_requirement_mismatch_with_Documents_authorization_prompt"
       },
       "completionAudit": {
         "date": "2026-11-08",
         "reviewer": "/root/p4_host_review",
-        "status": "passed_user_approved_current_Mac_scope",
+        "status": "passed_user_approved_current_Mac_scope_with_full_functional_reacceptance",
         "sources": [
           "05-P4-DESKTOP-APP.md",
           "08-VALIDATION.md",
           "evidence/P4/current-candidate/review.json",
           "evidence/P4/media/physical/reporting-delay/validation.json",
           "evidence/P4/bridge/native-drop/review.json",
-          "evidence/P4/local-closeout.json"
+          "evidence/P4/local-closeout.json",
+          "evidence/P4/full-mac-acceptance/validation.json"
         ],
         "requirements": [
           {
             "id": "P4-01",
             "state": "passed_current_after_permission_recovery",
             "proof": "evidence/P4/host/README.md",
-            "latest": "evidence/P4/media/physical/reporting-delay/host-after-permission-independent.txt"
+            "latest": "evidence/P4/full-mac-acceptance/macos-desktop-host-fixed.txt"
           },
           {
             "id": "P4-02-bridge",
-            "state": "passed_current_47_with_3_notification_conditionals_unexecuted",
-            "proof": "evidence/P4/media/physical/reporting-delay/bridge-independent.txt"
+            "state": "passed_current_53_with_3_notification_conditionals_unexecuted",
+            "proof": "evidence/P4/full-mac-acceptance/macos-desktop-bridge-fixed.txt"
           },
           {
             "id": "V10-interactions",
@@ -1234,17 +1236,18 @@
               "evidence/P4/bridge/native-drop/after-confirm.json",
               "evidence/P4/bridge/native-drop/cleanup.json",
               "evidence/P4/bridge/native-drop/review.json"
-            ]
+            ],
+            "supplementalCancellation": "New synthetic WK body drop, real fingerprint HTTP and actual Cancel; explicit current-session/config/frontend before-after invariant and persisted sparse config verified. Historical real Finder cancellation snapshot limitation retained."
           },
           {
             "id": "P4-03-synthetic",
             "state": "passed_current",
-            "proof": "evidence/P4/media/physical/reporting-delay/media-independent.txt"
+            "proof": "evidence/P4/full-mac-acceptance/macos-desktop-media-fixed.txt"
           },
           {
             "id": "P4-03-browser",
             "state": "passed_CFT148_only_Chrome156_hang_retained",
-            "proof": "evidence/P4/media/native-gum-stages/browser-regression.json"
+            "proof": "evidence/P4/full-mac-acceptance/validation.json"
           },
           {
             "id": "P4-03-physical",
@@ -1267,7 +1270,8 @@
               "evidence/P4/media/physical/reporting-delay/lifecycle-independent.txt",
               "evidence/P4/lifecycle/physical-system/validation.json"
             ],
-            "limit": "physical Software Sleep/DarkWake about2.816 sec, physical fixture scheduler disabled, separate automated late-run/skip and real process cleanup"
+            "limit": "physical Software Sleep/DarkWake about2.816 sec, physical fixture scheduler disabled, separate automated late-run/skip and real process cleanup",
+            "latest": "evidence/P4/full-mac-acceptance/macos-desktop-lifecycle-fixed.txt"
           },
           {
             "id": "V07-formal-identity",
@@ -1294,7 +1298,8 @@
         "fullPhaseComplete": false,
         "approvedScopeComplete": true,
         "fullPhaseCompleteMeaning": "All originally planned environment and formal identity gates, including deferred items. Current user-approved Mac scope is complete.",
-        "finalScopeReview": "evidence/P4/final-scope-review.json"
+        "finalScopeReview": "evidence/P4/final-scope-review.json",
+        "latestFullMacAcceptance": "evidence/P4/full-mac-acceptance/validation.json"
       },
       "latestEngineeringValidation": {
         "date": "2026-11-08",
@@ -1304,17 +1309,17 @@
         "staticPassed": 80,
         "syntaxFiles": 1134,
         "buildFresh": true,
-        "sourceSnapshot": "evidence/P4/frozen-local-regression/source-fingerprint.json",
-        "evidence": "evidence/P4/frozen-local-regression/validation.json",
+        "sourceSnapshot": "evidence/P4/full-mac-acceptance/source-fingerprint.json",
+        "evidence": "evidence/P4/full-mac-acceptance/validation.json",
         "postDocumentationGate": {
           "unitPassed": 2491,
           "unitSkipped": 18,
           "staticPassed": 80,
-          "evidence": "evidence/P4/frozen-local-regression/closeout-static.txt"
+          "evidence": "evidence/P4/full-mac-acceptance/fixed-engineering-fixed.txt"
         }
       },
       "continuationState": {
-        "status": "completed_user_approved_current_Mac_scope",
+        "status": "completed_current_Mac_functional_reacceptance",
         "date": "2026-11-08",
         "priorBlockerResolved": "user completed native file/directory drag and left confirmation; normal confirmation/persistence and cleanup verified",
         "evidence": "evidence/P4/bridge/native-drop/validation.json",
@@ -1333,7 +1338,8 @@
         "branch": "codex/p4-macos-desktop",
         "independentReview": "evidence/P4/local-closeout-review.json",
         "commitBindingReview": "evidence/P4/commit-binding-review.json",
-        "finalScopeReview": "evidence/P4/final-scope-review.json"
+        "finalScopeReview": "evidence/P4/final-scope-review.json",
+        "fullMacReview": "evidence/P4/full-mac-acceptance/review.json"
       },
       "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
       "completedDate": "2026-11-08",
@@ -1342,7 +1348,33 @@
         "V14 same-candidate Windows regression deferred by user this round; unverified",
         "Formal signed identity Keychain/TCC and upgrade access deferred by user; P4-04/P6",
         "Actual macOS14 runtime O2/P6 carryover"
-      ]
+      ],
+      "fullMacAcceptance": {
+        "date": "2026-11-08",
+        "status": "passed_current_Mac_functional_acceptance",
+        "userInstruction": "停止防休眠，完整验收P4 Mac端",
+        "scope": "current macOS27.0.1 arm64 development App, existing user-approved carryovers retained",
+        "evidence": "evidence/P4/full-mac-acceptance/validation.json",
+        "review": "evidence/P4/full-mac-acceptance/review.json",
+        "mainSuites": 16,
+        "mainPassed": 630,
+        "mainFailed": 0,
+        "unitPassed": 2491,
+        "unitSkipped": 18,
+        "staticPassed": 80,
+        "syntaxFiles": 1134,
+        "sourceFingerprint": "evidence/P4/full-mac-acceptance/source-fingerprint.json",
+        "power": "task-owned caffeinate6773 stopped, its assertions absent",
+        "realInteractions": "reuse previously reviewed same-native-App bridge/media/drop/sleep evidence with original source binding; fresh native/browser tests cover the narrow SSE delta",
+        "testOnlyDeltaFiles": 4,
+        "productionDelta": "One frontend SSE lens-provider expression plus matching comments, independently reviewed. Native App inputs unchanged.",
+        "independentSuites": 8,
+        "independentPassed": 255,
+        "independentFailed": 0,
+        "reviewer": "/root/p4_host_review",
+        "sourceFiles": 53,
+        "cleanup": "observed owned process identities absent; task-owned caffeinate stopped"
+      }
     },
     {
       "id": "P5",

@@ -65,3 +65,8 @@ P1按用户决定完成本次Mac范围收尾，Windows实机门槛移除，Finde
 
 
 2026-11-08 P4 按用户“本轮按 Mac 范围收尾，Windows 保留后续待验”的决定完成，四包当前 macOS27.0.1 arm64 本地开发与独立验收通过。实现提交 `0e9d5edb`，证据提交 `f5c5d4c5`，正式身份与 macOS14 实际运行仍未验收。详见[P4最终范围](05-P4-DESKTOP-APP.md)及[收尾清单](evidence/P4/local-closeout.json)。
+
+
+2026-11-08 用户追加要求后，已停止本任务防休眠，并完成 P4 当前 Mac 的主轮完整功能复验。16 组专项最终 630 项通过，完整单元和工程门再次通过。真实系统交互复用同冻结 App 既有独立证据，Windows、正式身份与 macOS14 实机继续待验。见[完整Mac验收](evidence/P4/full-mac-acceptance/README.md)。
+
+最终修正候选独立串行复跑八组、255项全部通过，均自然退出0，53项源码指纹无漂移且观察到的自有进程已退出。本任务防休眠保持停止，当前Mac功能验收完成，既有待验边界保留。[最终独立验收](evidence/P4/full-mac-acceptance/review.json)

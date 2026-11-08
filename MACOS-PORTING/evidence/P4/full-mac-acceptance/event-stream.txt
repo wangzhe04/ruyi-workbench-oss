@@ -1,0 +1,53 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 浏览器无 token -> 403(ROUTE_AUTH token-browser 档;实得 403)
+PASS A4 SSE 连上(实得 200)
+PASS A5 content-type 是 text/event-stream
+PASS A5b 响应头带 no-cache 与 x-accel-buffering:no
+PASS A6 presence.ack 回显在场参数(实得 {"lens":"steward","sessionId":"sess_presencecheck","viewing":[],"at":"2026-11-08T06:41:29.563Z","serverInstanceId":"1dcbcc0f2544"})
+PASS A7 presence.ack 是连接私有帧(不带 id,不推 Last-Event-ID)
+PASS B0a steward.say 到达(trigger=user)
+PASS B0b steward.say 延迟 0 ms ≤ 1000
+PASS B0c 管家自己的会话不进 thread.*(它的动静只走 steward.say)
+PASS B-e1 管家 steward_thread_new 开出线程(sess_9d7c9a37417a4c49)
+PASS B-e2 thread.created 带这条线程(§6.3 指标 e;实得 {"sessionId":"sess_9d7c9a37417a4c49","missionId":"sess_9d7c9a37417a4c49","title":"事件流要看的那条线程","at":"2026-11-08T06:41:30.119Z"})
+PASS B-e3 thread.created 延迟 1 ms ≤ 1000
+PASS B-a1 thread.state state=running(§6.3 指标 a)
+PASS B-a2 thread.state 延迟 0 ms ≤ 1000
+PASS B-d1 thread.live 到达(§6.3 指标 d:今天永远看不到的那一条)
+PASS B-d2 thread.live 传输延迟 0 ms ≤ 1000
+PASS B-d3 从 liveTail 写入到客户端收到 0 ms ≤ 1000
+PASS B-d4 thread.live 带得出当前工具名(tool=file_read)
+PASS B-c1 thread.needs_you(§6.3 指标 c;实得 kind=question)
+PASS B-c2 thread.needs_you 延迟 0 ms ≤ 1000
+PASS B-c3 同时来一条 thread.state needs_you(wait=1)
+PASS B-g1 inbox.appended(kind=needs_you)
+PASS B-b0 回答提问(status 200)
+PASS B-b1 thread.done(§6.3 指标 b)
+PASS B-b2 thread.done 当场带 summary(实得 "收工了,结论在这儿。")
+PASS B-b3 thread.done 延迟 0 ms ≤ 1000
+PASS H1 答完之后、收工之前就有一帧 thread.state(等你 0;实得 {"sessionId":"sess_9d7c9a37417a4c49","title":"事件流要看的那条线程","missionId":"sess_9d7c9a37417a4c49","state":"running","updatedAt":"2026-11-08T06:41:31.960Z","wait":0,"origin":"steward","watched":true,"at":"2026-11-08T06:41:32.402Z"})
+PASS B-b4 收工后五态跟着变(实得 dispatching)
+PASS B-b5 收工后的 thread.state 延迟 0 ms ≤ 1000
+PASS C1 同一条线程收到 ≥2 条 thread.live(实得 4 条,节流才有得测)
+PASS C2 相邻两条 thread.live 服务端间隔 ≥500 ms(最小实得 602 ms)
+PASS D0a 建出任务容器(mission_bf9c3ae0fb5b2c67)
+PASS D0b 断线期间把线程归到那个任务(changed=true)
+PASS D2 带 Last-Event-ID 重连成功
+PASS D3 第二条连接的 presence.ack 回显它自己的在场参数
+PASS D4 补发的帧全部 id > 18(补 4 条,无重复旧帧)
+PASS D5 补发的 id 单调递增
+PASS D6 断线期间发生的 thread.adopted 真的补到了(实得 {"sessionId":"sess_9d7c9a37417a4c49","missionId":"mission_bf9c3ae0fb5b2c67","title":"事件流要看的那条线程","at":"2026-11-08T06:41:32.736Z"};补发事件名:thread.state,thread.adopted,steward.say)
+PASS E1 全程没有任何一帧带出工具结果正文(§6.1 红线①)
+PASS E2 也不带工具入参
+PASS G1 thread.live 的 textTail 是引擎这一步刚写进 liveTail 的话(实得 "第1段:我在看这件事。")
+PASS G2 04 的扇出里引擎订阅者排在旁路【之前】(engineSubscriber@253 < taps@317)
+PASS H3-0 建出一条带两个里程碑的线程(200)
+PASS H3a 标一个里程碑 done(验收 0/2 → 1/2)→ 推一帧(之前 2 帧,之后 3 帧)
+PASS H3b 同样的更新原样再存一次 → 不推(3 → 3 帧)
+PASS H3c 只改待办(左栏行上看不见)存两次 → 不推(3 → 3 帧)
+PASS H2 删掉一条线程 -> thread.removed(实得 {"sessionId":"sess_8be16b400c847d4e","at":"2026-11-08T06:41:37.819Z"})
+PASS H2b thread.removed 延迟 1 ms ≤ 1000
+PASS F1 心跳行是 SSE 注释形态(`: ping`),不污染事件解析
+
+EVENT STREAM E2E: ALL PASS

@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-08",
+  "userInstruction": "停止防休眠，完整验收P4 Mac端",
+  "capturedAtUTC": "2026-11-08T06:49:50.841959+00:00",
+  "taskOwnedCaffeinate": {
+    "pid": 6773,
+    "priorCommand": "/usr/bin/caffeinate -d -i -w 79367",
+    "stopAction": "SIGTERM after exact command identity check",
+    "processAbsent": true,
+    "assertionsAbsent": true
+  },
+  "ps": {
+    "command": [
+      "ps",
+      "-p",
+      "6773",
+      "-o",
+      "pid=,args="
+    ],
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "powerAssertions": {
+    "command": [
+      "pmset",
+      "-g",
+      "assertions"
+    ],
+    "exitCode": 0,
+    "stdout": "2026-11-08 14:49:50 +0800 \nAssertion status system-wide:\n   BackgroundTask                 0\n   ApplePushServiceTask           0\n   UserIsActive                   1\n   PreventUserIdleDisplaySleep    1\n   SoftwareUpdateTask             0\n   PreventSystemSleep             0\n   PreventSystemSleepSecurityIndicator 0\n   ExternalMedia                  0\n   InternalPreventDisplaySleep    1\n   PreventUserIdleSystemSleep     1\n   NetworkClientActive            1\nListed by owning process:\n   pid 665(coreaudiod): [0x00181251000180e7] 00:00:27 PreventUserIdleSystemSleep named: \"com.apple.audio.AudioTap-35CDE267-3639-492E-B414-D7D6F0F9894B.context.preventuseridlesleep\"  \n\tCreated for PID: 1215. \n\tResources: audio-in 8D404125-5CEB-452A-BD48-661B62295DC2 \n   pid 665(coreaudiod): [0x0018124b00019e53] 00:00:32 PreventUserIdleSystemSleep named: \"com.apple.audio.BuiltInSpeakerDevice.context.preventuseridlesleep\"  \n\tCreated for PID: 79433. \n\tResources: audio-out BuiltInSpeakerDevice \n   pid 2845(ExcelDevMon): [0x000010f4000187e0] 601:36:15 PreventUserIdleSystemSleep named: \"Good Reason\"  \n   pid 429(powerd): [0x0018029800019421] 01:07:31 PreventUserIdleSystemSleep named: \"Powerd - Prevent sleep while display is on\"  \n   pid 429(powerd): [0x0018116d00109f3b] 00:00:00 InternalPreventDisplaySleep named: \"com.apple.powermanagement.delayDisplayOff\"  \n\tTimeout will fire in 299 secs Action=TimeoutActionTurnOff\n   pid 485(WindowServer): [0x001802980009941f] 00:00:00 UserIsActive named: \"com.apple.iohideventsystem.queue.tickle serviceID:100000a26 service:AppleMultitouchDevice product:Apple Internal Keyboard / Trackpad eventType:17\"  \n\tTimeout will fire in 600 secs Action=TimeoutActionRelease\n   pid 79367(ChatGPT): [0x0018124e0001a165] 00:00:29 NoIdleSleepAssertion named: \"Playing audio\"  \n   pid 79367(ChatGPT): [0x00180eb800019b2e] 00:15:48 NoIdleSleepAssertion named: \"Electron\"  \n   pid 79367(ChatGPT): [0x0018126c0005a168] 00:00:00 NoDisplaySleepAssertion named: \"Video Wake Lock\"  \n   pid 550(cupsd): [0x0000005700118011] 602:47:09 NetworkClientActive named: \"org.cups.cupsd\"  \nKernel Assertions: 0x100=MAGICWAKE\n   id=541  level=255 0x100=MAGICWAKE creat=2026/10/14 12:06  mod=2026/11/8 00:38 description=en0 owner=IOSkywalkNetworkBSDClient\n",
+    "stderr": ""
+  },
+  "scope": "Other applications and system-owned power assertions are recorded as observed.",
+  "finalVerification": {
+    "atUTC": "2026-11-08T07:21:05.131636+00:00",
+    "processAbsent": true,
+    "caffeinateAssertionsAbsent": true,
+    "observedPowerAssertions": "2026-11-08 15:21:05 +0800 \nAssertion status system-wide:\n   BackgroundTask                 0\n   ApplePushServiceTask           0\n   UserIsActive                   1\n   PreventUserIdleDisplaySleep    0\n   SoftwareUpdateTask             0\n   PreventSystemSleep             0\n   PreventSystemSleepSecurityIndicator 0\n   ExternalMedia                  0\n   InternalPreventDisplaySleep    1\n   PreventUserIdleSystemSleep     1\n   NetworkClientActive            1\nListed by owning process:\n   pid 2845(ExcelDevMon): [0x000010f4000187e0] 602:07:30 PreventUserIdleSystemSleep named: \"Good Reason\"  \n   pid 429(powerd): [0x0018029800019421] 01:38:46 PreventUserIdleSystemSleep named: \"Powerd - Prevent sleep while display is on\"  \n   pid 429(powerd): [0x001817a000109f3b] 00:00:29 InternalPreventDisplaySleep named: \"com.apple.powermanagement.delayDisplayOff\"  \n\tTimeout will fire in 271 secs Action=TimeoutActionTurnOff\n   pid 485(WindowServer): [0x001802980009941f] 00:01:19 UserIsActive named: \"com.apple.iohideventsystem.queue.tickle.nxevent service:IOHIDSystem pid:79503 process:SkyComputerUseService\"  \n\tTimeout will fire in 520 secs Action=TimeoutActionRelease\n   pid 79367(ChatGPT): [0x00180eb800019b2e] 00:47:02 NoIdleSleepAssertion named: \"Electron\"  \n   pid 550(cupsd): [0x0000005700118011] 603:18:23 NetworkClientActive named: \"org.cups.cupsd\"  \nKernel Assertions: 0x100=MAGICWAKE\n   id=541  level=255 0x100=MAGICWAKE creat=2026/10/14 12:06  mod=2026/11/8 15:19 description=en0 owner=IOSkywalkNetworkBSDClient\n"
+  }
+}

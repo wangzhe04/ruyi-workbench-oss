@@ -1,0 +1,585 @@
+{
+  "date": "2026-11-08",
+  "status": "passed_current_Mac_functional_acceptance",
+  "userInstruction": "停止防休眠，完整验收P4 Mac端",
+  "scope": "Current macOS27.0.1 arm64 development App P4-01 through P4-04 functional acceptance. Existing formal-identity and macOS14 carryovers retained. Windows deferred by user.",
+  "candidate": {
+    "baseCommit": "1dca02ae71ffbc6136a0d84b6e0794eadd4fcd93",
+    "productionImplementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+    "productionSourceUnchanged": false,
+    "nativeAppRebuilt": false,
+    "sourceFingerprint": "source-fingerprint.json",
+    "fingerprintFiles": 53,
+    "originalImplementationFingerprintDifferences": [
+      "dev-harness/macos-desktop-bridge.e2e.js",
+      "ruyi-workbench/app/public/app.js",
+      "ruyi-workbench/app/public/js/event-stream.js"
+    ],
+    "testDeltaFiles": [
+      "dev-harness/macos-desktop-bridge.e2e.js",
+      "dev-harness/event-stream-client.browser.e2e.js",
+      "dev-harness/event-stream-replay.browser.e2e.js",
+      "dev-harness/event-stream-pageshow.browser.e2e.js"
+    ],
+    "productionDelta": {
+      "runtimeFile": "ruyi-workbench/app/public/app.js",
+      "change": "SSE lensProvider reuses shellModeController.intendedShellMode() for the in-flight or committed view; app.js remains 1279 lines.",
+      "commentOnlyFile": "ruyi-workbench/app/public/js/event-stream.js",
+      "nativeInputsUnchanged": 6,
+      "sourceFingerprint": "source-fingerprint.json"
+    }
+  },
+  "environment": "environment.json",
+  "power": "power-state.json",
+  "engineering": {
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "unitFailed": 0,
+    "staticPassed": 80,
+    "staticFailed": 0,
+    "syntaxFiles": 1134,
+    "buildFresh": true,
+    "commandExits": "fixed-runs.json",
+    "unitLog": "unit-fixed.txt",
+    "staticLog": "fixed-engineering-fixed.txt",
+    "syntaxLog": "fixed-syntax-fixed.txt",
+    "freshnessLog": "fixed-freshness-fixed.txt"
+  },
+  "supplementalCancellation": {
+    "scope": "Synthetic untrusted entry through actual WK body drop listener, real HTTP fingerprint and actual confirmation Cancel. Prior trusted native Finder entry evidence reused separately.",
+    "passed": true,
+    "report": "bridge-fixed-report.json",
+    "explicitCurrentSession": true,
+    "completeBeforeAfterSessionAndEffectiveConfigAndFrontendStateEqual": true,
+    "persistedSparseConfigProjectionAndSessionCwdMatchBefore": true,
+    "selectedPathRequests": 0,
+    "sessionOrConfigWrites": 0,
+    "automaticSends": 0,
+    "historicalRealCancelSnapshotLimitRetained": true
+  },
+  "retainedFailures": [
+    {
+      "scope": "Original 19-check run",
+      "details": "Three event-stream browser fixtures could not obtain a CDP page target. Darwin-only mock Keychain launch flags now match existing browser fixture policy.",
+      "logs": [
+        "event-stream-client.browser.txt",
+        "event-stream-replay.browser.txt",
+        "event-stream-pageshow.browser.txt"
+      ]
+    },
+    {
+      "scope": "Replay after browser launch recovery",
+      "details": "20 pass/4 fail also reproduced on unchanged detached d97db57b baseline. The helper returned at a transient classic attribute without explicit user selection. Explicit real lens-button click and transition-aware checks restore the original prerequisites. All original B/D/E assertions retained.",
+      "logs": [
+        "event-stream-replay.browser-retest.txt",
+        "event-stream-replay-baseline.txt",
+        "event-stream-replay-baseline.json"
+      ]
+    },
+    {
+      "scope": "Cancellation fixture development",
+      "details": "Page invariants passed. Outer disk comparison first used JSON key order and then compared sparse raw config with expanded API defaults. Final check reuses normalizeConfig(...,{inferExplicit:false}).persisted and deep structural equality.",
+      "logs": [
+        "bridge-cancel-main-first.txt",
+        "macos-desktop-bridge-retest.txt"
+      ]
+    },
+    {
+      "scope": "Independent first-presence finding and deterministic negative control",
+      "details": "Independent client37/1 revealed first SSE lens=classic while final view is steward. The unchanged default-motion negative control delayed a real initial View Transition callback by800ms and reproduced A8 first lens=classic with pendingTransition=true. Its full run also failed C1 with3 polls. Production now reuses the controller intention and a new A8c proves the pending-transition precondition. Original assertions retained.",
+      "logs": [
+        "client-independent.txt",
+        "independent-runs.json",
+        "client-pending-transition-negative.txt",
+        "pending-transition-negative.json",
+        "client-negative-source.txt"
+      ]
+    }
+  ],
+  "reusedRealEvidence": {
+    "nativeDrop": "../bridge/native-drop/review.json",
+    "physicalMicrophone": "../media/physical/reporting-delay/review.json",
+    "notificationsAndDocuments": "../bridge/unlocked-recovery/README.md",
+    "editorDiff": "../bridge/editor-diff/README.md",
+    "sleepAndLogin": "../lifecycle/physical-system/validation.json",
+    "basis": "The frozen App six native inputs, bridge, recording, workspace persistence and sleep handlers remain unchanged. A narrow frontend SSE lens-provider fix is newly reaccepted by current native/browser suites. Earlier real UI/physical evidence retains its original sources and limits. No new physical recording, real Finder drag, notification setting change, login registration or system sleep this round."
+  },
+  "limits": [
+    "Original real Finder cancellation lacks an immediate current-session cwd snapshot. New synthetic Cancel regression proves state invariance only in its stated automated scope.",
+    "OS microphone grant and valid physical capture verified by prior evidence. Real refusal/retry remains WebKit-origin scoped. OS TCC refusal/recovery unverified.",
+    "Physical sleep covers one short Software Sleep/DarkWake cycle with fixture scheduler disabled. Long/deep sleep and same-cycle physical scheduler recovery unverified. Separate real backend suspension and scheduler coverage retained.",
+    "Browser media passed CFT148. Ordinary Chrome156 native fake-media hang remains unconfirmed.",
+    "Three notification denied/ungranted conditional assertions did not execute with current granted permission. Prior real notification refusal/recovery evidence retains original attribution."
+  ],
+  "deferredUnverified": {
+    "Windows": "deferred_by_user",
+    "formalIdentity": "deferred_by_user_P6",
+    "macOS14": "O2_P6_unverified"
+  },
+  "cleanup": {
+    "taskOwnedCaffeinate": "stopped_assertions_absent",
+    "testAppsAndBackends": "main_suites_natural_exit_cleanup_assertions_passed",
+    "temporaryBaselineWorktree": "removed_normally",
+    "independentCleanup": "eight runs naturally exited0, observed owned process creation identities absent, no extra signals"
+  },
+  "earlierMainAcceptance": {
+    "suites": 16,
+    "passed": 629,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "macos-desktop-host",
+        "command": [
+          "node",
+          "dev-harness/macos-desktop-host.e2e.js"
+        ],
+        "passed": 31,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "macos-desktop-host.txt",
+        "sourceSHA256": "a63345fb174884c04666c7b72c14082dcd46096f7459133de9394f8196a9ce12"
+      },
+      {
+        "name": "macos-desktop-bridge",
+        "command": [
+          "node",
+          "dev-harness/macos-desktop-bridge.e2e.js"
+        ],
+        "passed": 53,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "bridge-final.txt",
+        "sourceSHA256": "c2268befe76ec6692f02e26d19d2f3ccf527fd954e157f7fe0b15cd4de96cf46"
+      },
+      {
+        "name": "macos-desktop-media",
+        "command": [
+          "node",
+          "dev-harness/macos-desktop-media.e2e.js"
+        ],
+        "passed": 36,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "macos-desktop-media.txt",
+        "sourceSHA256": "aa969b028799f67f4b923a2a6f79a0edb4e06acd07467c9cfb2cde0f8b386449"
+      },
+      {
+        "name": "macos-desktop-lifecycle",
+        "command": [
+          "node",
+          "dev-harness/macos-desktop-lifecycle.e2e.js"
+        ],
+        "passed": 23,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "macos-desktop-lifecycle.txt",
+        "sourceSHA256": "1104c615df22a32c80f717c5d3e61616e1a9937d4142de2064021b84543cf7a7"
+      },
+      {
+        "name": "workspace-resolve",
+        "command": [
+          "node",
+          "dev-harness/workspace-resolve.e2e.js"
+        ],
+        "passed": 38,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "workspace-resolve.txt",
+        "sourceSHA256": "03ba0353e33b2d760e3b1c31b540503e6839be4fad592ae8280167e13b0d13a1"
+      },
+      {
+        "name": "asr-transcribe",
+        "command": [
+          "node",
+          "dev-harness/asr-transcribe.e2e.js"
+        ],
+        "passed": 41,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "asr-transcribe.txt",
+        "sourceSHA256": "0993469bc13de0d63f48c866a36d21f78123a3acec736460a1d23fcfdc0a1758"
+      },
+      {
+        "name": "asr-warmup",
+        "command": [
+          "node",
+          "dev-harness/asr-warmup.e2e.js"
+        ],
+        "passed": 34,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "asr-warmup.txt",
+        "sourceSHA256": "19295f0b72fb47bec90cae203a1cdbd8b455eb0143ddead160eaa165d2b12e3e"
+      },
+      {
+        "name": "event-stream",
+        "command": [
+          "node",
+          "dev-harness/event-stream.e2e.js"
+        ],
+        "passed": 51,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "event-stream.txt",
+        "sourceSHA256": "ca1ecb58d4915a7449a1a54a89ff529a1fa4197e5900367284803a901c25f6e6"
+      },
+      {
+        "name": "event-stream-client.browser",
+        "command": [
+          "node",
+          "dev-harness/event-stream-client.browser.e2e.js"
+        ],
+        "passed": 38,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "event-stream-client.browser-retest.txt",
+        "sourceSHA256": "7f497aa8dcae34d32d38078571d0ccc3f42b0e3e3b13447465ad95a070bac290"
+      },
+      {
+        "name": "event-stream-replay.browser",
+        "command": [
+          "node",
+          "dev-harness/event-stream-replay.browser.e2e.js"
+        ],
+        "passed": 24,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "replay-final.txt",
+        "sourceSHA256": "c7ff970021cc8ff8475dd8bcfb3145f9dd7e640db42b3dee0adbe7c9b0801d40"
+      },
+      {
+        "name": "event-stream-pageshow.browser",
+        "command": [
+          "node",
+          "dev-harness/event-stream-pageshow.browser.e2e.js"
+        ],
+        "passed": 11,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "event-stream-pageshow.browser-retest.txt",
+        "sourceSHA256": "1f429fc73ba47add650bad74005ef958f5f2d376d92957d767f12e5155d0a40a"
+      },
+      {
+        "name": "composer-voice.browser",
+        "command": [
+          "node",
+          "dev-harness/composer-voice.browser.e2e.js"
+        ],
+        "passed": 98,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "composer-voice.browser.txt",
+        "sourceSHA256": "50520cdb440680d76446cbeab3e692bb1e7aea5d13fd9565a612ad1782b026ce"
+      },
+      {
+        "name": "composer-voice-stream.browser",
+        "command": [
+          "node",
+          "dev-harness/composer-voice-stream.browser.e2e.js"
+        ],
+        "passed": 39,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "composer-voice-stream.browser.txt",
+        "sourceSHA256": "efb02d717a0afef86dcb5da164730ba327ba648b1b264658904eb2c501ffa392"
+      },
+      {
+        "name": "composer-voice-warmup.browser",
+        "command": [
+          "node",
+          "dev-harness/composer-voice-warmup.browser.e2e.js"
+        ],
+        "passed": 58,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "composer-voice-warmup.browser.txt",
+        "sourceSHA256": "03baf80ac13351fcade34f251b09fb131fd525fc751af9b2505f938e103bc8ae"
+      },
+      {
+        "name": "voice-setup.browser",
+        "command": [
+          "node",
+          "dev-harness/voice-setup.browser.e2e.js"
+        ],
+        "passed": 32,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "voice-setup.browser.txt",
+        "sourceSHA256": "bfe53772048d9f3a5214ecaf8d28cc485e736d40035c9adaae6b328481727220"
+      },
+      {
+        "name": "voice-learn.browser",
+        "command": [
+          "node",
+          "dev-harness/voice-learn.browser.e2e.js"
+        ],
+        "passed": 22,
+        "failed": 0,
+        "exitCode": 0,
+        "log": "voice-learn.browser.txt",
+        "sourceSHA256": "447c8d4314138ea8acce0e587a0e3c37699dfb994226601bcb27a7fdda5173f9"
+      }
+    ]
+  },
+  "finalReacceptance": "fixed-runs.json",
+  "mainAcceptance": {
+    "suites": 16,
+    "passed": 630,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "macos-desktop-host",
+        "command": [
+          "node",
+          "dev-harness/macos-desktop-host.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:09:11.228786+00:00",
+        "log": "macos-desktop-host-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:09:25.693720+00:00",
+        "passed": 31,
+        "failed": 0,
+        "sha256": "44ace1d3d65cdc27f3ef0a1c8029053d546e73f4d55a1c1d20ff59ee5b18c05b",
+        "sourceSHA256": "a63345fb174884c04666c7b72c14082dcd46096f7459133de9394f8196a9ce12"
+      },
+      {
+        "name": "macos-desktop-bridge",
+        "command": [
+          "node",
+          "dev-harness/macos-desktop-bridge.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:09:25.708643+00:00",
+        "log": "macos-desktop-bridge-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:09:30.021727+00:00",
+        "passed": 53,
+        "failed": 0,
+        "sha256": "a843fe9aeadc55ea122e1bce7c4718ba5e07f69f39cc2ad78e6077c3aa7fd232",
+        "sourceSHA256": "c2268befe76ec6692f02e26d19d2f3ccf527fd954e157f7fe0b15cd4de96cf46"
+      },
+      {
+        "name": "macos-desktop-media",
+        "command": [
+          "node",
+          "dev-harness/macos-desktop-media.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:09:30.030088+00:00",
+        "log": "macos-desktop-media-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:09:44.386288+00:00",
+        "passed": 36,
+        "failed": 0,
+        "sha256": "2b7da83a150721c95314e7628ac33cbce7d9600a64a3190526e3c236cf00fb99",
+        "sourceSHA256": "aa969b028799f67f4b923a2a6f79a0edb4e06acd07467c9cfb2cde0f8b386449"
+      },
+      {
+        "name": "macos-desktop-lifecycle",
+        "command": [
+          "node",
+          "dev-harness/macos-desktop-lifecycle.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:09:44.425966+00:00",
+        "log": "macos-desktop-lifecycle-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:10:00.178766+00:00",
+        "passed": 23,
+        "failed": 0,
+        "sha256": "31cf3e0f1ed57e40badc93df5346b067ca4242936b984240f16312d310d45f6f",
+        "sourceSHA256": "1104c615df22a32c80f717c5d3e61616e1a9937d4142de2064021b84543cf7a7"
+      },
+      {
+        "name": "workspace-resolve",
+        "command": [
+          "node",
+          "dev-harness/workspace-resolve.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:10:00.197328+00:00",
+        "log": "workspace-resolve-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:10:06.404006+00:00",
+        "passed": 38,
+        "failed": 0,
+        "sha256": "2dd767557b5efe7d1d065bb840fb0c9d0a3b45c9a48de64859a5677ee00bf87e",
+        "sourceSHA256": "03ba0353e33b2d760e3b1c31b540503e6839be4fad592ae8280167e13b0d13a1"
+      },
+      {
+        "name": "asr-transcribe",
+        "command": [
+          "node",
+          "dev-harness/asr-transcribe.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:10:06.414492+00:00",
+        "log": "asr-transcribe-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:10:15.161419+00:00",
+        "passed": 41,
+        "failed": 0,
+        "sha256": "2a2e37ca2d3c87d870029fc06049b6eb0da08aaf9176ad72c69ff71401ba41c7",
+        "sourceSHA256": "0993469bc13de0d63f48c866a36d21f78123a3acec736460a1d23fcfdc0a1758"
+      },
+      {
+        "name": "asr-warmup",
+        "command": [
+          "node",
+          "dev-harness/asr-warmup.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:10:15.173228+00:00",
+        "log": "asr-warmup-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:10:25.447868+00:00",
+        "passed": 34,
+        "failed": 0,
+        "sha256": "7418c8caafe1418275c66cb85b580b1a626b35c06cfb1736b8655333d509b6f8",
+        "sourceSHA256": "19295f0b72fb47bec90cae203a1cdbd8b455eb0143ddead160eaa165d2b12e3e"
+      },
+      {
+        "name": "event-stream",
+        "command": [
+          "node",
+          "dev-harness/event-stream.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:10:25.463291+00:00",
+        "log": "event-stream-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:10:34.238747+00:00",
+        "passed": 51,
+        "failed": 0,
+        "sha256": "20298b57bdd9d950e8f75043f9cf1af25d4676e04679475e57c5eb3c22ff5b56",
+        "sourceSHA256": "ca1ecb58d4915a7449a1a54a89ff529a1fa4197e5900367284803a901c25f6e6"
+      },
+      {
+        "name": "event-stream-client.browser",
+        "command": [
+          "node",
+          "dev-harness/event-stream-client.browser.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:10:34.248651+00:00",
+        "log": "event-stream-client.browser-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:12:20.939610+00:00",
+        "passed": 39,
+        "failed": 0,
+        "sha256": "21e0f29cefc022efe60df2640efc184d608aa3c196ff9619fe6031e486aafa9e",
+        "sourceSHA256": "4588b07aa157030c6ead0b7408a832d45cd4328bf07e26b2b2251b9b8ed42a1d"
+      },
+      {
+        "name": "event-stream-replay.browser",
+        "command": [
+          "node",
+          "dev-harness/event-stream-replay.browser.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:12:20.966952+00:00",
+        "log": "event-stream-replay.browser-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:12:31.418469+00:00",
+        "passed": 24,
+        "failed": 0,
+        "sha256": "4f5ce49485e7309e76358308df5ee30712433d3a507a642edcb948b6420d0e89",
+        "sourceSHA256": "c7ff970021cc8ff8475dd8bcfb3145f9dd7e640db42b3dee0adbe7c9b0801d40"
+      },
+      {
+        "name": "event-stream-pageshow.browser",
+        "command": [
+          "node",
+          "dev-harness/event-stream-pageshow.browser.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:12:31.425469+00:00",
+        "log": "event-stream-pageshow.browser-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:12:33.693528+00:00",
+        "passed": 11,
+        "failed": 0,
+        "sha256": "87a6d8f6926573353f0b8c162f76e8d3caaa88deb12740a4a6b686e798d61f91",
+        "sourceSHA256": "1f429fc73ba47add650bad74005ef958f5f2d376d92957d767f12e5155d0a40a"
+      },
+      {
+        "name": "composer-voice.browser",
+        "command": [
+          "node",
+          "dev-harness/composer-voice.browser.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:12:33.703266+00:00",
+        "log": "composer-voice.browser-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:13:20.736577+00:00",
+        "passed": 98,
+        "failed": 0,
+        "sha256": "31b85cba339ee8139c30a1ffe0b6ae5b43a29830114503d372f3fda08ba10dde",
+        "sourceSHA256": "50520cdb440680d76446cbeab3e692bb1e7aea5d13fd9565a612ad1782b026ce"
+      },
+      {
+        "name": "composer-voice-stream.browser",
+        "command": [
+          "node",
+          "dev-harness/composer-voice-stream.browser.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:13:20.756400+00:00",
+        "log": "composer-voice-stream.browser-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:13:51.064873+00:00",
+        "passed": 39,
+        "failed": 0,
+        "sha256": "511d53d0672284b19cc8644d1ba6d23afec241b6af321c2d59118ac52006a8d9",
+        "sourceSHA256": "efb02d717a0afef86dcb5da164730ba327ba648b1b264658904eb2c501ffa392"
+      },
+      {
+        "name": "composer-voice-warmup.browser",
+        "command": [
+          "node",
+          "dev-harness/composer-voice-warmup.browser.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:13:51.095848+00:00",
+        "log": "composer-voice-warmup.browser-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:14:16.200467+00:00",
+        "passed": 58,
+        "failed": 0,
+        "sha256": "efea69e969b0c7ef4938c7467ccf97186e1d7216209796f836c94723d9728f67",
+        "sourceSHA256": "03baf80ac13351fcade34f251b09fb131fd525fc751af9b2505f938e103bc8ae"
+      },
+      {
+        "name": "voice-setup.browser",
+        "command": [
+          "node",
+          "dev-harness/voice-setup.browser.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:14:16.219905+00:00",
+        "log": "voice-setup.browser-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:14:21.897566+00:00",
+        "passed": 32,
+        "failed": 0,
+        "sha256": "d57313623ddce2eea6a6a03fc067e7bea261f17611ca1f597be864ee90acc413",
+        "sourceSHA256": "bfe53772048d9f3a5214ecaf8d28cc485e736d40035c9adaae6b328481727220"
+      },
+      {
+        "name": "voice-learn.browser",
+        "command": [
+          "node",
+          "dev-harness/voice-learn.browser.e2e.js"
+        ],
+        "startedAt": "2026-11-08T07:14:21.906965+00:00",
+        "log": "voice-learn.browser-fixed.txt",
+        "exitCode": 0,
+        "endedAt": "2026-11-08T07:14:25.751045+00:00",
+        "passed": 22,
+        "failed": 0,
+        "sha256": "24df99e46ee8ccc6292ebd49dd0a734cfadce731a3965544889b3cfa17d47c1f",
+        "sourceSHA256": "447c8d4314138ea8acce0e587a0e3c37699dfb994226601bcb27a7fdda5173f9"
+      }
+    ]
+  },
+  "finalSourceFreezeVerifiedAfterEveryCommand": true,
+  "independentFinalResults": "independent-fixed-runs.json",
+  "independentAcceptance": {
+    "reviewer": "/root/p4_host_review",
+    "suites": 8,
+    "passed": 255,
+    "failed": 0,
+    "naturalExitAll": true,
+    "sourceFingerprintMismatches": 0,
+    "observedOwnedProcessesAbsent": true,
+    "runs": "independent-fixed-runs.json"
+  },
+  "review": "review.json"
+}

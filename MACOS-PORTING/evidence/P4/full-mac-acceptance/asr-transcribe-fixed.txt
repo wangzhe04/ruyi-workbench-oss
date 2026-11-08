@@ -1,0 +1,59 @@
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay a40ebd5b845e)
+[wb] UI: http://127.0.0.1:51877/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-asr-tsGz3K
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS A0 workbench listening
+PASS A0b got UI token
+PASS A1 无 token → 403 + auth.token_invalid(判据原文 401,仓里 token 级统一 403,见 §8) (status 403)
+PASS B1 未配置 → 409 + asr.not_configured (status 409)
+[wb] EXIT code=null signal=SIGKILL
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 46224ceb85b0)
+[wb] UI: http://127.0.0.1:51877/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-asr-tsGz3K
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS A2 workbench listening (configured)
+PASS B3 非 audio/* → 400 (status 400)
+PASS B4 空体 → 400 (status 400)
+PASS C1 成功 → 200 (status 200)
+PASS C1 fake 回显 model/filename/字节数 ("[fake-asr] model=whisper-1 filename=test.webm bytes=1234")
+PASS C1 language 透传 zh (zh)
+PASS C1 响应形状 {providerId,model,estimated,durationMs} ({"providerId":"asr-p","model":"whisper-1","estimated":true,"durationMs":16})
+PASS C2 账本落 kind:aux, note:asr ({"kind":"aux","note":"asr"})
+PASS C2 估算行形状(inTok=2/outTok>0/estimated/无定价 cost:null+costTrusted:false) ({"inTok":2,"outTok":14,"estimated":true,"cost":null,"costTrusted":false})
+PASS D1 上游 5xx → 502 统一信封(params.status=500) (status 502 code asr.upstream)
+PASS D1b 上游回显的 Authorization 在失败信封里已脱敏(整个响应体搜不到明文 key,原文其余部分还在) (message "ASR 上游返回 500: {\"error\":{\"message\":\"rejected request, echoing headers: authorization=Bearer «redacted»\",\"type\":\"fake_error\",\"code\":500}}")
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-asr-tsGz3K/generated/workbench.mcp.json
+PASS E1 25MB-1B 放行(200) (status 200)
+PASS E1 25MB+1B → 413 + asr.too_large(maxBytes 入 params) (status 413)
+PASS E2 chunked(无 Content-Length)26MB → 流式闸 413 (status 413)
+PASS E2b 瞬态接受停顿后服务恢复(不死)
+PASS F1 读到现值 providers
+PASS F1 audioBaseUrl 落盘 (status 200)
+PASS F1 audioBaseUrl=死端口 → 502 asr.upstream_unreachable(证明 audioBaseUrl 优先) (status 502 code asr.upstream_unreachable)
+PASS F1 还原 providers (status 200)
+PASS F1 还原后 baseUrl 兜底照常 200 (status 200)
+PASS G1 ../evil.webm → 回落 audio.webm ("[fake-asr] model=whisper-1 filename=audio.webm bytes=1234")
+[wb] EXIT code=null signal=SIGKILL
+[wb] 如意 Ruyi 3.0.1  (launch: node, overlay 48dafb32c51c)
+[wb] UI: http://127.0.0.1:51877/
+[wb] Data: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-asr-tsGz3K
+[wb] Server source: /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js
+PASS H0 workbench listening (chat-audio)
+PASS H1 asrProtocol 过 sanitizeProvider 存活 (chat-audio)
+PASS H2 chat-audio 成功 → 200,出站是 chat/completions + input_audio data URI ("[fake-asr-chat] model=mimo-asr mime=audio/wav bytes=2048 lang=zh")
+PASS H2b chat 回体带 usage → estimated:false (false)
+PASS H2c 账本按 prompt_tokens/completion_tokens 记真值 ({"inTok":111,"outTok":7,"estimated":false})
+PASS H3 webm → 上游 400 → 502 asr.upstream(params.status=400,原话进信封) (status 502 code asr.upstream)
+[wb] MCP config: /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-asr-tsGz3K/generated/workbench.mcp.json
+PASS H4 切 asrModel=chatbadshape-asr (status 200)
+PASS H4 chat 回体没有 choices → 502 asr.bad_response (status 502 code asr.bad_response)
+PASS H5 切 asrModel=fun-asr-flash-2026-06-15
+PASS H5 fun-asr 走 DashScope 原生口(format=wav、zh-CN → language_hints zh) ("[fake-asr-native] model=fun-asr-flash-2026-06-15 mime=audio/wav format=wav bytes=2048 hints=zh")
+PASS H5b 原生口回体只有 duration、没有 token → estimated:true (true)
+PASS H5c audio/mpeg → parameters.format=mp3 ("[fake-asr-native] model=fun-asr-flash-2026-06-15 mime=audio/mpeg format=mp3 bytes=2048")
+PASS H6 切 asrModel=fun-asr-nativebadshape
+PASS H6 原生口回体没有文本 → 502 asr.bad_response,params.protocol=dashscope-native (status 502)
+PASS H7 去掉 asrProtocol(通用型)、asrModel=fun-asr-nano
+PASS H7 通用型上的 fun-asr 仍走 /audio/transcriptions ("[fake-asr] model=fun-asr-nano filename=voice.wav bytes=2048")
+[wb] EXIT code=null signal=SIGKILL
+ASR TRANSCRIBE E2E: ALL PASS

@@ -61,3 +61,9 @@ node --require ./dev-harness/lib/self-isolate-home.js dev-harness/<相关用例>
 ## P4 本轮验收范围（2026-11-08）
 
 用户确认“本轮按 Mac 范围收尾，Windows 保留后续待验”。P4 当前 macOS27.0.1 arm64 开发 App 的四包实现及独立验收完成，V14 Windows 同候选回归保留后续待验。V07 正式签名身份按用户决定暂缓，V10 最低系统 macOS14 实际运行继续交接 O2/P6。待验项均保留未验收状态，当前主机各项通过范围及已知限制见[P4阶段验收](05-P4-DESKTOP-APP.md)与[收尾清单](evidence/P4/local-closeout.json)。
+
+## P4 Mac 完整功能复验（2026-11-08）
+
+当前主机 V10 及关联功能本轮主跑 16 组、630 项最终通过，工程门再次通过，取消状态不变性另有实际 WK 页面自动化补验。真实 Finder、通知、媒体与睡眠证据按同冻结 App 绑定复用，原手工范围与未验证条件保留。本任务防休眠已按用户要求停止，Windows、正式身份、macOS14 实机继续按原交接待验。[完整记录](evidence/P4/full-mac-acceptance/README.md)
+
+最终修正候选独立串行复跑八组、255项全部通过，均自然退出0，53项源码指纹无漂移且观察到的自有进程已退出。本任务防休眠保持停止，当前Mac功能验收完成，既有待验边界保留。[最终独立验收](evidence/P4/full-mac-acceptance/review.json)

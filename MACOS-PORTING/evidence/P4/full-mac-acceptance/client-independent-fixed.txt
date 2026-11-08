@@ -1,0 +1,40 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 并行 Node SSE 客户端连上（服务端时刻的来源；实得 200）
+PASS A4 侧条里的两条会话已建（sess_fd36e6f19a4aaf8c / sess_20351b7d4c96d331）
+PASS A5 Edge/Chrome found
+PASS A6 browser target available
+PASS A7 首屏落管家视角（121-K0 的默认入口）且骨架就位
+PASS A8 页面用 fetch 读 SSE 且在连接参数里自报在场（§4.3；实得 /api/events/stream?lens=steward&sessionId=sess_20351b7d4c96d331）
+PASS A8b 首屏只建【一条】连接（boot 末尾才 start，config 与首条会话都已落定；实测 ["/api/events/stream?lens=steward&sessionId=sess_20351b7d4c96d331"]）
+PASS A8c 确定性覆盖首发请求发生在真实视角过渡回调落地之前（实得 {"supported":true,"first":{"url":"/api/events/stream?lens=steward&sessionId=sess_20351b7d4c96d331","at":1794122177971,"mode":"classic","pendingTransition":true}}）
+PASS C1 连接正常的 59 s 里 /api/missions 只发了 1 拍（≤2；兜底节拍 30 s，config.stewardPollMs=8000 那一档没有生效）
+PASS C2 连接正常时工作台那张「它正在跑」卡零 3000ms 表（实测 0 张）
+PASS B0 管家开出线程（sess_eee5fbb45ee9ef93）
+PASS B-e 指标 e：管家新开线程 → 左栏出现这一行 34 ms ≤ 1000（今天是 ~30 s）
+PASS B-a 指标 a：回合起跑 → 左栏药丸变「在跑」20 ms ≤ 1000（今天是 ~15 s／∞）
+PASS B-d0 服务端真的送出了带工具名的 thread.live（tool=file_read）
+PASS B-d 指标 d：中途工具调用 → 焦点卡的「它正在说」＋当前动作行说出工具人话 3 ms ≤ 1000（今天【永远看不到】）
+PASS B-c 指标 c：回合提问 → 左栏药丸变「等你」13 ms ≤ 1000（今天是 5–15 s／∞）
+PASS B-b0 待决就位（question_eda0feda96841c83）
+PASS B-b0b 回答落地（status 200）
+PASS B-b 指标 b：回合收工 → 左栏药丸落到收尾档 10 ms ≤ 1000（今天是 ~5 s）
+PASS B-f0 看板浮层已退役，左栏常开（「收起来还刷不刷」这个前提自此不存在）
+PASS B-f 指标 f：看板收起时左栏那一行仍在 7 ms 内变回「在跑」（≤1000；「看板关着不刷」那道门已删，32 号文 §5 的两笔债一并还）
+PASS E1 管家视角里这一行没人坐着（seatedBy=null；实得 null）
+PASS E1b 焦点栏的「2.0 视窗」在屏幕上（右栅此刻开在这条线程上）
+PASS E2 换到工作台视角并坐进这条线程之后，服务端的在场快照变了（seatedBy=user；实得 user）—— 换视角／换会话的落实方式就是重连，服务端没有第二个写口
+PASS E3 那一次重连的连接参数确实换成了 lens=classic ＋ 这条 sessionId（实得 /api/events/stream?lens=classic&sessionId=sess_eee5fbb45ee9ef93）
+PASS E3b 每一发重连的在场参数都与上一发不同（重连只为在场变化而发，没有无缘无故多开；实测 ["/api/events/stream?lens=steward&sessionId=sess_20351b7d4c96d331","/api/events/stream?lens=classic&sessionId=sess_eee5fbb45ee9ef93"]）
+PASS D-0a 侧条里那条会话上起了一个【别处发起】的活回合（浏览器没挂在它的流上 —— 管家派活就是这个形状）
+PASS D-0b 工作台侧条里点开那条会话（换会话用的另一条）
+PASS D0 工作台里那张「它正在跑」卡在屏幕上
+PASS D1 连着的时候它靠推送更新：零 3000ms 表（实测 0）
+PASS D1b 换到另一条会话（这一步就是断连的扳机：在场信号变了 → 重连 → 新连接被挡）
+PASS D1c 再点回那条活回合的会话
+PASS D2 断连后工作台那张卡的 3000ms 兜底表在 961 ms 内回来（≤35000）
+PASS D2b 那张卡的取数也真的恢复了（/api/sessions/:id 多了 7 发）
+PASS D3a 已切回管家视角（看板的兜底表只在这个视角里跑）
+PASS D3 断连后管家视角的 /api/missions 回到 config.stewardPollMs=8000 那一档：35 s 里 7 拍（≥3；连着时同样长度的窗口只有 1 拍）
+PASS D4 兜底期间表仍然只有各模块自己那一处（壳层／看板／抽屉，最多 3 张 5000ms 表；实测 [10000,1000,5000,5000]）
+EVENT STREAM CLIENT BROWSER E2E: ALL PASS

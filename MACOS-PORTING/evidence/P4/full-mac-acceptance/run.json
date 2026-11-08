@@ -1,0 +1,284 @@
+{
+  "date": "2026-11-08",
+  "candidate": "1dca02ae71ffbc6136a0d84b6e0794eadd4fcd93",
+  "startedAt": "2026-11-08T06:37:22.277230+00:00",
+  "root": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-p4-full-mac-38ps49zg",
+  "browser": "Google Chrome for Testing 148.0.7778.96",
+  "scope": "P4 current Mac full functional reacceptance; existing Windows/formal-identity/macOS14 carryovers retained",
+  "checks": [
+    {
+      "name": "engineering-fast",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "startedAt": "2026-11-08T06:37:22.393597+00:00",
+      "log": "engineering-fast.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:39:50.236564+00:00",
+      "passRows": 0,
+      "failRows": 0,
+      "sha256": "1da53ffc24a9cd3ee1fbec3cc9c586c6f0c2d54b39ee6ec94e9d740412be0e3b"
+    },
+    {
+      "name": "syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "startedAt": "2026-11-08T06:39:50.238162+00:00",
+      "log": "syntax.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:40:19.527877+00:00",
+      "passRows": 0,
+      "failRows": 0,
+      "sha256": "05f11292350b59bfceb94708246fcbd811c7e6d16753722f1337c72be02ba150"
+    },
+    {
+      "name": "freshness",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "startedAt": "2026-11-08T06:40:19.528176+00:00",
+      "log": "freshness.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:40:19.682803+00:00",
+      "passRows": 0,
+      "failRows": 0,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "name": "macos-desktop-host",
+      "command": [
+        "node",
+        "dev-harness/macos-desktop-host.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:40:19.683021+00:00",
+      "log": "macos-desktop-host.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:40:34.726267+00:00",
+      "passRows": 31,
+      "failRows": 0,
+      "sha256": "b5f90772f5812c53ac21d399ba8f065f310157cf7623739b9b776d439f106e4c"
+    },
+    {
+      "name": "macos-desktop-bridge",
+      "command": [
+        "node",
+        "dev-harness/macos-desktop-bridge.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:40:34.726691+00:00",
+      "log": "macos-desktop-bridge.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:40:39.408277+00:00",
+      "passRows": 47,
+      "failRows": 0,
+      "sha256": "8eab4e2a75522a51089a4fa4354de8537095268bdc103cad23941232b18ac155"
+    },
+    {
+      "name": "macos-desktop-media",
+      "command": [
+        "node",
+        "dev-harness/macos-desktop-media.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:40:39.408885+00:00",
+      "log": "macos-desktop-media.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:40:48.294575+00:00",
+      "passRows": 36,
+      "failRows": 0,
+      "sha256": "ba25f683ced324ac8fcbbfc58f34b9280c1e60e6dbb757396cb0db271b359ace"
+    },
+    {
+      "name": "macos-desktop-lifecycle",
+      "command": [
+        "node",
+        "dev-harness/macos-desktop-lifecycle.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:40:48.296177+00:00",
+      "log": "macos-desktop-lifecycle.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:41:04.196276+00:00",
+      "passRows": 23,
+      "failRows": 0,
+      "sha256": "7f1ac0a065c883272f12b8d1032d2d194c388422c7dc10c7a09a9f12141585f0"
+    },
+    {
+      "name": "workspace-resolve",
+      "command": [
+        "node",
+        "dev-harness/workspace-resolve.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:41:04.196590+00:00",
+      "log": "workspace-resolve.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:41:10.426578+00:00",
+      "passRows": 38,
+      "failRows": 0,
+      "sha256": "f1b386915dffce1a0109be6653b7a268a05961c3bad0ec3db92c4fb643394561"
+    },
+    {
+      "name": "asr-transcribe",
+      "command": [
+        "node",
+        "dev-harness/asr-transcribe.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:41:10.429858+00:00",
+      "log": "asr-transcribe.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:41:19.235611+00:00",
+      "passRows": 41,
+      "failRows": 0,
+      "sha256": "7b349f1d7b0abd8cee9c23d4b02388a6797f1367341a2cdc9fb07aeaa078fa9e"
+    },
+    {
+      "name": "asr-warmup",
+      "command": [
+        "node",
+        "dev-harness/asr-warmup.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:41:19.236476+00:00",
+      "log": "asr-warmup.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:41:29.288355+00:00",
+      "passRows": 34,
+      "failRows": 0,
+      "sha256": "93308736d1b8f2b5529f0439d22587398dd30c10ad2b240ae5766f0446fb3017"
+    },
+    {
+      "name": "event-stream",
+      "command": [
+        "node",
+        "dev-harness/event-stream.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:41:29.289400+00:00",
+      "log": "event-stream.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:41:38.157868+00:00",
+      "passRows": 51,
+      "failRows": 0,
+      "sha256": "328bcb2981760cf621ee7b311e8b40afcda3dda9073bb6d2412e9543cc243562"
+    },
+    {
+      "name": "event-stream-client.browser",
+      "command": [
+        "node",
+        "dev-harness/event-stream-client.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:41:38.158625+00:00",
+      "log": "event-stream-client.browser.txt",
+      "exitCode": 1,
+      "endedAt": "2026-11-08T06:41:49.327085+00:00",
+      "passRows": 5,
+      "failRows": 2,
+      "sha256": "2d9e0b0b0da919fd1b2bf800458e6dd31df59408b0494419a16188985099fc5f"
+    },
+    {
+      "name": "event-stream-replay.browser",
+      "command": [
+        "node",
+        "dev-harness/event-stream-replay.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:41:49.327963+00:00",
+      "log": "event-stream-replay.browser.txt",
+      "exitCode": 1,
+      "endedAt": "2026-11-08T06:42:00.245923+00:00",
+      "passRows": 4,
+      "failRows": 2,
+      "sha256": "a6c663cdfecc136d7974f1b8ca4ab4d7602a150af150379dcf49923cbb9da13d"
+    },
+    {
+      "name": "event-stream-pageshow.browser",
+      "command": [
+        "node",
+        "dev-harness/event-stream-pageshow.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:42:00.246533+00:00",
+      "log": "event-stream-pageshow.browser.txt",
+      "exitCode": 1,
+      "endedAt": "2026-11-08T06:42:11.224252+00:00",
+      "passRows": 3,
+      "failRows": 2,
+      "sha256": "525982a4c8279e776d7ee0b9bbe3886f4940e8697f941ee2b713a926694420b3"
+    },
+    {
+      "name": "composer-voice.browser",
+      "command": [
+        "node",
+        "dev-harness/composer-voice.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:42:11.224861+00:00",
+      "log": "composer-voice.browser.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:42:58.818721+00:00",
+      "passRows": 98,
+      "failRows": 0,
+      "sha256": "c0dcadec08b96679fb359ef92e373b54a713cd9cbcb6cf317c1158f4806dac6b"
+    },
+    {
+      "name": "composer-voice-stream.browser",
+      "command": [
+        "node",
+        "dev-harness/composer-voice-stream.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:42:58.819201+00:00",
+      "log": "composer-voice-stream.browser.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:43:28.542046+00:00",
+      "passRows": 39,
+      "failRows": 0,
+      "sha256": "511d53d0672284b19cc8644d1ba6d23afec241b6af321c2d59118ac52006a8d9"
+    },
+    {
+      "name": "composer-voice-warmup.browser",
+      "command": [
+        "node",
+        "dev-harness/composer-voice-warmup.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:43:28.542555+00:00",
+      "log": "composer-voice-warmup.browser.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:43:53.386970+00:00",
+      "passRows": 58,
+      "failRows": 0,
+      "sha256": "c0ba0e729f173a14c27275fc461fa32b8664a4098f246675668c2a4964bc15a0"
+    },
+    {
+      "name": "voice-setup.browser",
+      "command": [
+        "node",
+        "dev-harness/voice-setup.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:43:53.387525+00:00",
+      "log": "voice-setup.browser.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:43:58.774858+00:00",
+      "passRows": 32,
+      "failRows": 0,
+      "sha256": "61651806dbaa14ff7fc36c46ac83eccedc31516d89f29970ed0eed85e9b3450a"
+    },
+    {
+      "name": "voice-learn.browser",
+      "command": [
+        "node",
+        "dev-harness/voice-learn.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T06:43:58.775245+00:00",
+      "log": "voice-learn.browser.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T06:44:02.662889+00:00",
+      "passRows": 22,
+      "failRows": 0,
+      "sha256": "0f09b0c17429dc361090675e16358442eb1fb9f2cdedcabdc3b72f8f2e11745c"
+    }
+  ],
+  "endedAt": "2026-11-08T06:44:02.663267+00:00",
+  "failedChecks": [
+    "event-stream-client.browser",
+    "event-stream-replay.browser",
+    "event-stream-pageshow.browser"
+  ]
+}

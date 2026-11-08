@@ -825,9 +825,9 @@ async function handleDrop(e) {
 // 121-K2b（34 号文 §6.2）：事件流。组合根持【一条】连接，注入管家壳（左栏／焦点／对话流）与
 // 工作台（2.0 的「它正在跑」卡）—— 两视角共用同一条，绝不各开一条（在场信号按连接计，多开一条
 // 服务端就以为你同时坐在两个地方，§4.3 的打扰纪律会跟着错）。
-// 在场信号的两个读口：视角读 data-shell-mode（全仓唯一的视角状态源），会话读 state.currentSession。
+// 在场信号的两个读口：视角读控制器的在飞意图或落地值，会话读 state.currentSession。
 const eventStream = createEventStream({
-  lensProvider: () => (document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 'steward' : 'classic'),
+  lensProvider: () => (shellModeController.intendedShellMode() === 'steward' ? 'steward' : 'classic'),
   sessionIdProvider: () => String((state.currentSession && state.currentSession.id) || ''),
 });
 setAgentRunsEventStream(eventStream);

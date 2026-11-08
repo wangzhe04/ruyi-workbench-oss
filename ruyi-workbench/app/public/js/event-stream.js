@@ -76,7 +76,7 @@ export function parseEventStreamBlock(block) {
 }
 
 export function createEventStream({
-  // 在场信号的两个读口（组合根注入：视角读 data-shell-mode，会话读 state.currentSession）。
+  // 在场信号的两个读口（组合根注入当前视角与 state.currentSession）。
   lensProvider = () => '',
   sessionIdProvider = () => '',
   // 2026-10：第三个在场读口 —— 此刻摆在用户面前、且人在跟前的那几条线程（js/presence-viewing.js 判），

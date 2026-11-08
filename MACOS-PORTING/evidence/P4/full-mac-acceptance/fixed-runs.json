@@ -1,0 +1,279 @@
+{
+  "date": "2026-11-08",
+  "baseCommit": "1dca02ae71ffbc6136a0d84b6e0794eadd4fcd93",
+  "sourceFingerprint": "source-fingerprint.json",
+  "startedAt": "2026-11-08T07:06:37.934803+00:00",
+  "checks": [
+    {
+      "name": "fixed-engineering",
+      "command": [
+        "node",
+        "dev-harness/run-all.js",
+        "--fast"
+      ],
+      "startedAt": "2026-11-08T07:06:37.935161+00:00",
+      "log": "fixed-engineering-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:08:45.850858+00:00",
+      "passed": 0,
+      "failed": 0,
+      "sha256": "5f8be42de52801227e5b0b7d2e58d5ceb8426c1c25db9d286157e52b3fe29087"
+    },
+    {
+      "name": "fixed-syntax",
+      "command": [
+        "node",
+        "dev-harness/syntax-gate.js"
+      ],
+      "startedAt": "2026-11-08T07:08:45.857750+00:00",
+      "log": "fixed-syntax-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:09:11.074702+00:00",
+      "passed": 0,
+      "failed": 0,
+      "sha256": "05f11292350b59bfceb94708246fcbd811c7e6d16753722f1337c72be02ba150"
+    },
+    {
+      "name": "fixed-freshness",
+      "command": [
+        "node",
+        "ruyi-workbench/app/build.js",
+        "--check"
+      ],
+      "startedAt": "2026-11-08T07:09:11.080668+00:00",
+      "log": "fixed-freshness-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:09:11.223212+00:00",
+      "passed": 0,
+      "failed": 0,
+      "sha256": "93d1fc697b9ce9a627a871b17d07c5852cc4b59243e94c3334aafd9be5a20501"
+    },
+    {
+      "name": "macos-desktop-host",
+      "command": [
+        "node",
+        "dev-harness/macos-desktop-host.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:09:11.228786+00:00",
+      "log": "macos-desktop-host-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:09:25.693720+00:00",
+      "passed": 31,
+      "failed": 0,
+      "sha256": "44ace1d3d65cdc27f3ef0a1c8029053d546e73f4d55a1c1d20ff59ee5b18c05b"
+    },
+    {
+      "name": "macos-desktop-bridge",
+      "command": [
+        "node",
+        "dev-harness/macos-desktop-bridge.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:09:25.708643+00:00",
+      "log": "macos-desktop-bridge-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:09:30.021727+00:00",
+      "passed": 53,
+      "failed": 0,
+      "sha256": "a843fe9aeadc55ea122e1bce7c4718ba5e07f69f39cc2ad78e6077c3aa7fd232"
+    },
+    {
+      "name": "macos-desktop-media",
+      "command": [
+        "node",
+        "dev-harness/macos-desktop-media.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:09:30.030088+00:00",
+      "log": "macos-desktop-media-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:09:44.386288+00:00",
+      "passed": 36,
+      "failed": 0,
+      "sha256": "2b7da83a150721c95314e7628ac33cbce7d9600a64a3190526e3c236cf00fb99"
+    },
+    {
+      "name": "macos-desktop-lifecycle",
+      "command": [
+        "node",
+        "dev-harness/macos-desktop-lifecycle.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:09:44.425966+00:00",
+      "log": "macos-desktop-lifecycle-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:10:00.178766+00:00",
+      "passed": 23,
+      "failed": 0,
+      "sha256": "31cf3e0f1ed57e40badc93df5346b067ca4242936b984240f16312d310d45f6f"
+    },
+    {
+      "name": "workspace-resolve",
+      "command": [
+        "node",
+        "dev-harness/workspace-resolve.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:10:00.197328+00:00",
+      "log": "workspace-resolve-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:10:06.404006+00:00",
+      "passed": 38,
+      "failed": 0,
+      "sha256": "2dd767557b5efe7d1d065bb840fb0c9d0a3b45c9a48de64859a5677ee00bf87e"
+    },
+    {
+      "name": "asr-transcribe",
+      "command": [
+        "node",
+        "dev-harness/asr-transcribe.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:10:06.414492+00:00",
+      "log": "asr-transcribe-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:10:15.161419+00:00",
+      "passed": 41,
+      "failed": 0,
+      "sha256": "2a2e37ca2d3c87d870029fc06049b6eb0da08aaf9176ad72c69ff71401ba41c7"
+    },
+    {
+      "name": "asr-warmup",
+      "command": [
+        "node",
+        "dev-harness/asr-warmup.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:10:15.173228+00:00",
+      "log": "asr-warmup-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:10:25.447868+00:00",
+      "passed": 34,
+      "failed": 0,
+      "sha256": "7418c8caafe1418275c66cb85b580b1a626b35c06cfb1736b8655333d509b6f8"
+    },
+    {
+      "name": "event-stream",
+      "command": [
+        "node",
+        "dev-harness/event-stream.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:10:25.463291+00:00",
+      "log": "event-stream-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:10:34.238747+00:00",
+      "passed": 51,
+      "failed": 0,
+      "sha256": "20298b57bdd9d950e8f75043f9cf1af25d4676e04679475e57c5eb3c22ff5b56"
+    },
+    {
+      "name": "event-stream-client.browser",
+      "command": [
+        "node",
+        "dev-harness/event-stream-client.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:10:34.248651+00:00",
+      "log": "event-stream-client.browser-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:12:20.939610+00:00",
+      "passed": 39,
+      "failed": 0,
+      "sha256": "21e0f29cefc022efe60df2640efc184d608aa3c196ff9619fe6031e486aafa9e"
+    },
+    {
+      "name": "event-stream-replay.browser",
+      "command": [
+        "node",
+        "dev-harness/event-stream-replay.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:12:20.966952+00:00",
+      "log": "event-stream-replay.browser-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:12:31.418469+00:00",
+      "passed": 24,
+      "failed": 0,
+      "sha256": "4f5ce49485e7309e76358308df5ee30712433d3a507a642edcb948b6420d0e89"
+    },
+    {
+      "name": "event-stream-pageshow.browser",
+      "command": [
+        "node",
+        "dev-harness/event-stream-pageshow.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:12:31.425469+00:00",
+      "log": "event-stream-pageshow.browser-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:12:33.693528+00:00",
+      "passed": 11,
+      "failed": 0,
+      "sha256": "87a6d8f6926573353f0b8c162f76e8d3caaa88deb12740a4a6b686e798d61f91"
+    },
+    {
+      "name": "composer-voice.browser",
+      "command": [
+        "node",
+        "dev-harness/composer-voice.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:12:33.703266+00:00",
+      "log": "composer-voice.browser-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:13:20.736577+00:00",
+      "passed": 98,
+      "failed": 0,
+      "sha256": "31b85cba339ee8139c30a1ffe0b6ae5b43a29830114503d372f3fda08ba10dde"
+    },
+    {
+      "name": "composer-voice-stream.browser",
+      "command": [
+        "node",
+        "dev-harness/composer-voice-stream.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:13:20.756400+00:00",
+      "log": "composer-voice-stream.browser-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:13:51.064873+00:00",
+      "passed": 39,
+      "failed": 0,
+      "sha256": "511d53d0672284b19cc8644d1ba6d23afec241b6af321c2d59118ac52006a8d9"
+    },
+    {
+      "name": "composer-voice-warmup.browser",
+      "command": [
+        "node",
+        "dev-harness/composer-voice-warmup.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:13:51.095848+00:00",
+      "log": "composer-voice-warmup.browser-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:14:16.200467+00:00",
+      "passed": 58,
+      "failed": 0,
+      "sha256": "efea69e969b0c7ef4938c7467ccf97186e1d7216209796f836c94723d9728f67"
+    },
+    {
+      "name": "voice-setup.browser",
+      "command": [
+        "node",
+        "dev-harness/voice-setup.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:14:16.219905+00:00",
+      "log": "voice-setup.browser-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:14:21.897566+00:00",
+      "passed": 32,
+      "failed": 0,
+      "sha256": "d57313623ddce2eea6a6a03fc067e7bea261f17611ca1f597be864ee90acc413"
+    },
+    {
+      "name": "voice-learn.browser",
+      "command": [
+        "node",
+        "dev-harness/voice-learn.browser.e2e.js"
+      ],
+      "startedAt": "2026-11-08T07:14:21.906965+00:00",
+      "log": "voice-learn.browser-fixed.txt",
+      "exitCode": 0,
+      "endedAt": "2026-11-08T07:14:25.751045+00:00",
+      "passed": 22,
+      "failed": 0,
+      "sha256": "24df99e46ee8ccc6292ebd49dd0a734cfadce731a3965544889b3cfa17d47c1f"
+    }
+  ],
+  "reason": "Final full current-Mac reacceptance after first SSE presence fix, frozen production/frontend and four acceptance files",
+  "endedAt": "2026-11-08T07:14:25.759558+00:00",
+  "failedChecks": []
+}

@@ -347,6 +347,7 @@ try {
   browser = cp.spawn(executable, [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-sync', '--disable-background-networking',
+    ...(process.platform === 'darwin' ? ['--use-mock-keychain', '--password-store=basic'] : []),
     '--force-device-scale-factor=1', '--window-size=1280,900',
     '--remote-debugging-port=' + debugPort, '--user-data-dir=' + profile, appUrl,
   ], { windowsHide: true, stdio: 'ignore' });
@@ -367,12 +368,11 @@ try {
   }
 
   const setLens = async lens => {
-    for (let i = 0; i < 40; i++) {
-      if (await cdp.evaluate(`(() => document.documentElement.getAttribute('data-shell-mode') === '${lens}')()`)) return 1;
-      await cdp.evaluate(`(() => { const b = document.querySelector('#lensSeg [data-lens="${lens}"]'); if (b) b.click(); return Boolean(b); })()`);
-      await sleep(80);
-    }
-    return null;
+    // A boot-time classic attribute can precede the queued default steward view.
+    // Make an explicit selection so the controller's latest-intent guard applies.
+    const clicked = await cdp.evaluate(`(() => { const b = document.querySelector('#lensSeg [data-lens="${lens}"]'); if (b) b.click(); return Boolean(b); })()`);
+    if (!clicked) return null;
+    return waitForEval(cdp, `(() => document.documentElement.getAttribute('data-shell-mode') === '${lens}' && !document.documentElement.dataset.vt ? 1 : null)()`);
   };
   const openInWorkbench = async sessionId => {
     for (let i = 0; i < 8; i++) {
@@ -382,7 +382,7 @@ try {
         if (row) row.click();
         return Boolean(row);
       })()`);
-      const matched = await waitForEval(cdp, `(() => (window.state && window.state.currentSession && window.state.currentSession.id === '${sessionId}') ? 1 : null)()`, 100);
+      const matched = await waitForEval(cdp, `(() => (window.state && window.state.currentSession && window.state.currentSession.id === '${sessionId}' && document.documentElement.getAttribute('data-shell-mode') === 'classic' && !document.documentElement.dataset.vt) ? 1 : null)()`, 100);
       if (matched) return matched;
     }
     return null;

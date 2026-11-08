@@ -1,0 +1,12 @@
+PASS A1 workbench started
+PASS A2 runtime token 可读
+PASS A3 Edge/Chrome found
+PASS A4 browser target available
+PASS A5 首屏落管家视角且骨架就位
+PASS A6 首屏只建了【一条】事件流连接（boot 末尾才 start；实测 1）
+PASS B1 已派 pagehide(persisted:true)（模拟被冻结进 bfcache）
+PASS B2 已派 pageshow(persisted:true)（模拟从 bfcache 恢复）
+PASS B3 pageshow(persisted) 之后【恰有一次】新的 /api/events/stream 请求（修前：0——事件流永远死着，只能刷新页面才能救回来；实测 2，起点 1）
+PASS C1 管家开出线程（sess_55201a0cfb0985e6）
+PASS C2 重连之后【推送仍在正常工作】：管家新开的线程在 2000ms 内出现在左栏（走 thread.created 帧，兜底节拍拉满到 120000ms，这个窗口内轮询不可能命中）
+EVENT STREAM PAGESHOW BROWSER E2E: ALL PASS

@@ -128,3 +128,10 @@
 
 
 2026-11-08 用户确认“本轮按 Mac 范围收尾，Windows 保留后续待验”。P4 及四包登记 done，实现提交 `0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb`，证据提交 `f5c5d4c5`。Windows 同候选回归排除本轮并保留后续待验，正式签名身份按用户决定暂缓，macOS14 实际运行继续交接 O2/P6。此前进行中记录保留历史归属。源码及撰写文档空白检查通过，原始系统/界面 `.txt` 证据的尾空白与末尾空行告警保留，完整范围未登记空白检查通过。[最终范围复核](evidence/P4/final-scope-review.json) [收尾清单](evidence/P4/local-closeout.json)
+
+
+2026-11-08 用户追加“停止防休眠，完整验收P4 Mac端”。本任务 caffeinate6773 与对应断言已停止。16 组主轮专项最终 630 项通过，完整单元 2491/18skip/0fail、静态 80、语法 1134 与构建新鲜度通过。四个既有验收文件补齐取消前后状态、Mac 浏览器隔离和重放启动等待，原失败及 d97 同环境基线保留。真实物理交互复用同冻结 App 的已有独立证据，Windows/正式身份/macOS14 继续待验。[完整Mac验收](evidence/P4/full-mac-acceptance/README.md) [独立复核](evidence/P4/full-mac-acceptance/review.json)
+
+独立复验随后发现首发 SSE 可能携带启动暂态 classic。真实 View Transition 延迟负对照稳定复现后，组合根改为复用视角控制器的最新意图，保留默认动画与原断言，最终候选重新冻结执行原生、浏览器及工程验收。旧失败及负对照来源保留。[首发修正](evidence/P4/full-mac-acceptance/README.md)
+
+最终修正候选独立串行复跑八组、255项全部通过，均自然退出0，53项源码指纹无漂移且观察到的自有进程已退出。本任务防休眠保持停止，当前Mac功能验收完成，既有待验边界保留。[最终独立验收](evidence/P4/full-mac-acceptance/review.json)

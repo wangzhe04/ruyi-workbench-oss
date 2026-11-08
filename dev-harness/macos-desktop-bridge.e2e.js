@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const cp = require('node:child_process');
+const { isDeepStrictEqual } = require('node:util');
 const { pathToFileURL } = require('node:url');
 const { createRunner } = require('./lib/harness');
 const { fixtureChildEnv } = require('./lib/fixture-home');
@@ -122,7 +123,10 @@ async function until(fn, timeout = 90000) {
     const fixture = fixtureChildEnv({ perTest: true });
     const data = path.join(fixture.home, 'data');
     const workspace = path.join(fixture.home, '工作 区');
-    fs.mkdirSync(data); fs.mkdirSync(workspace);
+    const cancelTarget = path.join(fixture.home, 'P4 取消目标');
+    const cancelChild = 'P4 取消目录指纹.txt';
+    fs.mkdirSync(data); fs.mkdirSync(workspace); fs.mkdirSync(cancelTarget);
+    fs.writeFileSync(path.join(cancelTarget, cancelChild), 'P4 cancellation fixture\n');
     const alias = path.join(fixture.home, 'workspace-alias');
     const literalFolder = path.join(fixture.home, 'literal\\folder\\');
     const spacedFolder = path.join(fixture.home, 'trailing space ');
@@ -157,7 +161,7 @@ async function until(fn, timeout = 90000) {
     } finally { fsp.stat = originalStat; }
     fs.writeFileSync(path.join(data, 'config.json'), JSON.stringify({
       configSchema: server.CONFIG_SCHEMA, defaultWorkspace: workspace,
-      workspaces: [{ path: workspace }], providers: [], stewardEnabledV1: false, schedulerEnabledV1: false,
+      workspaces: [{ path: workspace }, { path: cancelTarget }], providers: [], stewardEnabledV1: false, schedulerEnabledV1: false,
       autoImportClaudeCodeMcp: false, includeWorkbenchMcp: false, enableMcpDropIn: false,
       desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [],
     }));
@@ -263,6 +267,83 @@ try {
     defaultWorkspace:beforeConfig.defaultWorkspace,recentWorkspaces:beforeConfig.recentWorkspaces})});
   state.config=beforeConfig;state.currentSession=beforeSession;
 }
+// The trusted Finder entry path has separate physical evidence. This untrusted
+// fixture exercises the bound drop listener and the normal confirmation Cancel.
+const { t: translate } = await import('/js/i18n.js');
+const cancellation = { synthetic: true, entryReads: 0, resolutions: [], writes: [], sends: 0 };
+state.currentSession = (await net.api('/api/sessions/' + threaded.session.id)).session;
+async function cancellationSnapshot() {
+  const [sessionResult, configResult] = await Promise.all([
+    net.api('/api/sessions/' + threaded.session.id), net.api('/api/status'),
+  ]);
+  return { session: sessionResult.session, config: configResult.config,
+    currentSession: structuredClone(state.currentSession), currentConfig: structuredClone(state.config) };
+}
+cancellation.before = await cancellationSnapshot();
+check(cancellation.before.session.id === threaded.session.id
+  && cancellation.before.session.cwd === ${JSON.stringify(fs.realpathSync(spacedFolder))}
+  && cancellation.before.config.defaultWorkspace !== ${JSON.stringify(cancelTarget)}
+  && !cancellation.before.config.recentWorkspaces.includes(${JSON.stringify(cancelTarget)}),
+  'synthetic cancellation starts with an explicit current session and different cwd, default and recent workspaces');
+try {
+  globalThis.fetch = async (input, options) => {
+    const url = String(typeof input === 'string' ? input : input?.url || '');
+    const method = String(options?.method || 'GET').toUpperCase();
+    if (/^\\/api\\/(chat\\/stream|steer|steward\\/(message|act))/.test(url)) cancellation.sends++;
+    if (method !== 'GET' && /^\\/api\\/(config|sessions(?:\\/|$))/.test(url)) {
+      cancellation.writes.push({ url, method });
+    }
+    const response = await nativeFetch(input, options);
+    if (url === '/api/workspace/resolve') {
+      cancellation.resolutions.push({ body: JSON.parse(options.body), status: response.status,
+        result: await response.clone().json() });
+    }
+    return response;
+  };
+  const entry = { name: ${JSON.stringify(path.basename(cancelTarget))}, isDirectory: true, isFile: false,
+    createReader: () => {
+      let first = true;
+      return { readEntries: success => {
+        cancellation.entryReads++;
+        const entries = first ? [{ name: ${JSON.stringify(cancelChild)} }] : [];
+        first = false;
+        success(entries);
+      } };
+    } };
+  const drop = new Event('drop', { bubbles: true, cancelable: true });
+  Object.defineProperty(drop, 'dataTransfer', { value: { types: ['Files'], files: [],
+    items: [{ kind: 'file', webkitGetAsEntry: () => entry }] } });
+  cancellation.isTrusted = drop.isTrusted;
+  document.body.dispatchEvent(drop);
+  cancellation.defaultPrevented = drop.defaultPrevented;
+  let modal;
+  for (let attempt = 0; attempt < 100 && !modal; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    modal = document.querySelector('.ws-confirm')?.closest('.modal-backdrop');
+  }
+  const cancelButton = [...(modal?.querySelectorAll('.modal-foot button') || [])]
+    .find(button => button.textContent === translate('common.cancel'));
+  check(!drop.isTrusted && drop.defaultPrevented && cancellation.entryReads === 2 && cancellation.resolutions.length === 1
+    && cancellation.resolutions[0].status === 200
+    && cancellation.resolutions[0].body.children[0] === ${JSON.stringify(cancelChild)}
+    && cancellation.resolutions[0].result.matches?.[0]?.path === ${JSON.stringify(cancelTarget)},
+    'synthetic directory drop reads its fingerprint and uses the real resolver for the fixture target');
+  check(!!cancelButton && modal.querySelector('.modal-head').textContent.includes(translate('workspace.switchTitle'))
+    && modal.querySelector('.ws-confirm-path').textContent === ${JSON.stringify(cancelTarget)}
+    && modal.querySelector('input[type=checkbox]').checked === false,
+    'normal directory drop shows its target and unchecked default option in the actual confirmation modal');
+  if (!cancelButton) throw new Error('Directory cancellation fixture did not open its confirmation');
+  cancelButton.click();
+  await new Promise(resolve => setTimeout(resolve, 80));
+  cancellation.after = await cancellationSnapshot();
+  check(!modal.isConnected && JSON.stringify(cancellation.before) === JSON.stringify(cancellation.after),
+    'directory Cancel preserves the exact selected session, complete server config and frontend workspace state');
+  check(cancellation.resolutions.length === 1 && cancellation.writes.length === 0 && cancellation.sends === 0,
+    'directory Cancel issues no selectedPath resolution, session/config mutation or automatic send');
+} finally {
+  globalThis.fetch = nativeFetch;
+  state.currentSession = beforeSession;
+}
 check(isMacHost(), 'trusted complete workbench receives native host marker');
 const send = message => window.webkit.messageHandlers.ruyiHost.postMessage(message);
 const envelope = (method, params = {}) => ({ version: 1, id: crypto.randomUUID(), method, params });
@@ -299,7 +380,7 @@ const abort = new AbortController(); const abortedPicker = nativeApi('/api/pick-
 await new Promise(resolve => setTimeout(resolve, 80)); abort.abort(); let aborted=false;
 try { await abortedPicker; } catch(error) { aborted=error.name==='AbortError'; }
 check(aborted, 'normal native picker API AbortSignal cancels its sheet');
-return {results};`);
+return {results, cancellation};`);
     const report = path.join(root, 'native.json');
     child = cp.spawn(path.join(bundle, 'Contents/MacOS/RuyiDesktop'), ['--acceptance-report', report,
       '--acceptance-script', script, '--acceptance-auto-quit'], {
@@ -312,6 +393,13 @@ return {results};`);
     const result = JSON.parse(fs.readFileSync(report, 'utf8'));
     ok(child.exitCode === 0 && result.state === 'ready', 'complete native workbench bridge acceptance exits normally ' + output);
     for (const assertion of result.page?.additional?.results || []) ok(assertion.ok, assertion.label);
+    const cancellation = result.page?.additional?.cancellation;
+    const persistedSession = JSON.parse(fs.readFileSync(path.join(data, 'sessions', cancellation.before.session.id + '.json'), 'utf8'));
+    const persistedConfig = JSON.parse(fs.readFileSync(path.join(data, 'config.json'), 'utf8'));
+    const expectedConfig = server.normalizeConfig(cancellation.before.config, { inferExplicit: false }).persisted;
+    ok(persistedSession.id === cancellation.before.session.id && persistedSession.cwd === cancellation.before.session.cwd
+      && isDeepStrictEqual(persistedConfig, expectedConfig),
+      'after App exit the cancelled session cwd and complete config still match the pre-drop disk-backed snapshot');
     ok(result.page?.additional?.results?.length >= 15, 'native acceptance returned all required bridge assertions');
     console.log('Native bridge reports ' + root);
   } finally { await killOwnTree(child); }
