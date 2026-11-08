@@ -1,0 +1,34 @@
+PASS App declares macOS14 target, subject to actual minimum-system acceptance
+PASS development App explains Documents access for program files and selected workspaces
+PASS development App signature verifies
+PASS native host starts its own service and reports actual process identities
+PASS real complete workbench modules initialize in WKWebView and authenticated config loads
+PASS saved non-default native window frame restores before movement events can overwrite it
+PASS sandboxed srcdoc HTML preview loads in a child frame
+PASS actual WKWebView workbench rendering is retained as a PNG for independent visual acceptance
+PASS host loads only its own service runtime and loopback port
+PASS live health restart identity matches runtime record
+PASS restricted Finder-style PATH never executes login profiles
+PASS acceptance report contains no runtime authentication token
+PASS closing the last window leaves the background service running
+PASS second native launch activates existing host without starting or stopping its service
+PASS second instance visibly reopens the original closed window
+PASS normal App termination reclaims its service
+PASS same data root restarts after native instance lock release
+PASS production persistent WebKit profile restores same-root local storage across App restarts
+PASS service stdin lease closes and normal backend cleanup runs after App SIGKILL
+PASS missing configured Node produces a native recoverable failure page
+PASS acceptance auto-quit also exits normally after reporting a startup failure
+PASS acceptance script exceptions are reported once and normal shutdown reclaims the service
+PASS unserializable acceptance results fail once and reclaim their service
+PASS normal executable entry can complete full-page acceptance and quit cleanly
+PASS different business data roots on the same origin use isolated production WebKit profiles
+PASS default native entry preserves direct-serve legacy data migration and empty environment semantics
+PASS legacy symlink default and explicit equivalent data root share the same native instance identity
+PASS relative data-root environment resolves against the same workbench cwd as direct serve
+PASS LaunchServices App entry with Finder-style environment loads the workbench and quits without a service leak
+PASS builder reports recovery location after replacement and restoration both fail
+PASS failed build rollback retains the previous complete App bundle
+Native acceptance reports /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-desktop-e2e-OXPEm3
+
+MACOS DESKTOP HOST E2E: ALL PASS

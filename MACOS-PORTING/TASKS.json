@@ -927,7 +927,7 @@
         "P2",
         "P3"
       ],
-      "status": "planned",
+      "status": "in_progress",
       "effortDays": {
         "low": 10,
         "high": 16
@@ -941,9 +941,30 @@
             "high": 5
           },
           "deliverable": "新增拟议 desktop-macos 宿主；窗口/WebView、单实例、Node 启动/健康、错误页面、窗口状态；按 P0 结论选一种技术栈。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P4/host/README.md",
+            "evidence/P4/host/validation.json",
+            "evidence/P4/host/review.json",
+            "evidence/P4/host/source-fingerprint.json"
+          ],
+          "completedDate": "2026-11-07",
+          "completionScope": "P4-01 current macOS27.0.1 arm64 development host; source-bound ad-hoc App",
+          "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+          "deliveryState": "implementation_committed_local",
+          "review": {
+            "reviewer": "/root/p4_host_review",
+            "status": "passed",
+            "remainingCodeFindings": 0,
+            "evidence": "evidence/P4/host/review.json"
+          },
+          "latestValidation": {
+            "passed": 31,
+            "failed": 0,
+            "evidence": "evidence/P4/media/physical/reporting-delay/host-after-permission-independent.txt"
+          },
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
         },
         {
           "id": "P4-02",
@@ -953,19 +974,80 @@
             "high": 3
           },
           "deliverable": "原生文件选择器、Finder/编辑器、菜单栏、通知、Cmd 快捷键与安全的 URL 打开；验证页面来源/消息 schema。",
-          "status": "planned",
-          "owner": null,
-          "evidence": [],
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P4/bridge/README.md",
+            "evidence/P4/bridge/ui-progress.json",
+            "evidence/P4/bridge/protocol-independent.txt",
+            "evidence/P4/bridge/host-after-tcc-fix.txt",
+            "evidence/P4/bridge/host-combined-final.txt",
+            "evidence/P4/bridge/combined-source-fingerprint.json",
+            "evidence/P4/bridge/workspace-alias/README.md",
+            "evidence/P4/bridge/workspace-alias/independent-final.txt",
+            "evidence/P4/bridge/workspace-alias/review.json",
+            "evidence/P4/bridge/workspace-alias/fast-final.txt",
+            "evidence/P4/bridge/unlocked-recovery/README.md",
+            "evidence/P4/bridge/editor-diff/README.md",
+            "evidence/P4/current-candidate/README.md",
+            "evidence/P4/bridge/native-drop/validation.json",
+            "evidence/P4/bridge/native-drop/review.json"
+          ],
           "acceptanceCarryover": [
             {
               "from": "P1-01",
               "requirement": "Finder实际窗口及选中对象可见验收",
               "matrix": "V10",
-              "status": "pending",
+              "status": "passed_current_host",
               "permissionPreflight": -1744,
-              "evidence": "evidence/P1/finder/automation-preflight-recheck.txt"
+              "evidence": "evidence/P4/bridge/ui-progress.json",
+              "completedDate": "2026-11-07"
             }
-          ]
+          ],
+          "openObservations": [
+            {
+              "id": "P4-02-path-alias",
+              "status": "closed_local",
+              "issue": "native folder aliases may duplicate lexical workspace favorites",
+              "evidence": "evidence/P4/bridge/workspace-alias/README.md"
+            }
+          ],
+          "localIncrementalValidation": {
+            "date": "2026-11-08",
+            "mainPassed": 50,
+            "independentPassed": 50,
+            "failed": 0,
+            "unitPassed": 2491,
+            "unitSkipped": 18,
+            "staticPassed": 80,
+            "syntaxFiles": 1134,
+            "remainingCodeFindings": 0,
+            "evidence": "evidence/P4/bridge/workspace-alias/review.json",
+            "visibleFinalCandidate": "normal_API_diff_visible_two_columns_41_to_42"
+          },
+          "systemRecoveryValidation": {
+            "date": "2026-11-08",
+            "independentHostPassed": 31,
+            "independentHostFailed": 0,
+            "documentsAccess": "authorized_and_verified",
+            "notificationPermission": "granted_after_refusal",
+            "notificationDelivery": "system_usernoted_delivery_and_banner",
+            "actualEditorDiff": "passed_normal_API_and_visible_two_columns",
+            "statusMenu": "user_assisted_settings_action_and_native_activation_verified",
+            "externalLink": "passed_real_WK_target_blank_to_default_Safari",
+            "nativeDrag": "passed_user_assisted_3_file_and_3_directory_events",
+            "nativeDragScope": "cancellation user report and trace/source support; no selected-session cwd snapshot immediately before cancel"
+          },
+          "completedDate": "2026-11-08",
+          "completionScope": "current macOS27.0.1 arm64 development App native bridge and interactions, including user-assisted actual file/directory drag",
+          "deliveryState": "implementation_committed_local",
+          "review": {
+            "reviewer": "/root/p4_host_review",
+            "status": "passed_current_local_scope",
+            "remainingCodeFindings": 0,
+            "evidence": "evidence/P4/bridge/native-drop/review.json"
+          },
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
         },
         {
           "id": "P4-03",
@@ -975,9 +1057,30 @@
             "high": 3
           },
           "deliverable": "按 WebView 实际能力选择录音格式或 PCM；测试授权、拒绝、重试、语音流式路径和资源释放，保留 ASR 协议与词库。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "done",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P4/media/README.md",
+            "evidence/P4/media/media-final.txt",
+            "evidence/P4/media/combined-independent-final.txt",
+            "evidence/P4/media/asr-backend.txt",
+            "evidence/P4/media/chrome-native-gum.json",
+            "evidence/P4/media/fast-final.txt",
+            "evidence/P4/media/physical/README.md",
+            "evidence/P4/media/native-gum-stages/README.md",
+            "evidence/P4/current-candidate/README.md",
+            "evidence/P4/media/physical/reporting-delay/README.md"
+          ],
+          "progress": "真实WK合成36项、ASR后端41项、CFT148完整voice98/stream39/warmup58独立通过。当前LS真实麦克风有效非零WAV647.5ms，tracks1110ms，原生stop完成1417.118ms，无保护触发且最终none，回填零发送和进程清理经独立复核通过。真实拒绝恢复证据为WebKit来源层。",
+          "completedDate": "2026-11-08",
+          "completionScope": "current macOS27.0.1 arm64 local development App, synthetic WK media and real LS microphone plus CFT148 existing browser regressions",
+          "deliveryState": "implementation_committed_local",
+          "review": {
+            "reviewer": "/root/p4_host_review",
+            "status": "passed_reviewed_local_scope",
+            "evidence": "evidence/P4/media/physical/reporting-delay/review.json"
+          },
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
         },
         {
           "id": "P4-04",
@@ -987,11 +1090,245 @@
             "high": 5
           },
           "deliverable": "关闭窗口/退出/登录启动的明确设置；睡眠唤醒、调度恢复、MCP/CLI 回收；用拟发行身份验证 Keychain/TCC，提前准备签名。",
-          "status": "planned",
-          "owner": null,
-          "evidence": []
+          "status": "in_progress",
+          "owner": "Codex",
+          "evidence": [
+            "evidence/P4/lifecycle/README.md",
+            "evidence/P4/lifecycle/independent-retest.txt",
+            "evidence/P4/lifecycle/review.json",
+            "evidence/P4/lifecycle/validation.json",
+            "evidence/P4/lifecycle/combined-source-fingerprint.json",
+            "evidence/P4/lifecycle/physical-system/README.md",
+            "evidence/P4/current-candidate/README.md"
+          ],
+          "systemValidation": {
+            "physicalSleep": "one_2.816s_Software_Sleep_DarkWake_recovered",
+            "postWakeSSE": "reconnected_200_lastEventId_2_new_thread_event_3_visible",
+            "loginStartup": "registered_visible_then_unregistered_status_0",
+            "formalIdentity": "deferred_by_user",
+            "limitations": [
+              "deep_or_long_sleep_unverified",
+              "physical_cycle_scheduler_disabled",
+              "precise_presleep_cursor_continuity_unverified"
+            ]
+          },
+          "localDelivery": {
+            "status": "done",
+            "date": "2026-11-08",
+            "scope": "current-host lifecycle, scheduler recovery and own process cleanup, real short sleep and login register/unregister",
+            "formalIdentity": "deferred_by_user",
+            "evidence": [
+              "evidence/P4/media/physical/reporting-delay/review.json",
+              "evidence/P4/lifecycle/physical-system/validation.json"
+            ]
+          },
+          "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
         }
-      ]
+      ],
+      "acceptanceScope": {
+        "status": "in_progress",
+        "userDecision": "分阶段持续推进P4的开发，并独立验收",
+        "date": "2026-11-07",
+        "formalIdentity": "deferred_by_user",
+        "formalIdentityDecision": "先完成本地开发与独立验收，正式身份复验保留待办",
+        "interactivePermissions": {
+          "status": "authorized_by_user",
+          "date": "2026-11-07",
+          "scope": "Notification allow/refuse recovery and microphone capture no longer than 3 seconds; isolated local audio and fake loopback ASR endpoint"
+        },
+        "desktopAccess": "current_host_UI_acceptance_completed; test_App_backend_and_temporary_windows_closed; caffeinate_retained_for_user_requested_unattended_development",
+        "documentsFolderAccess": "authorized_by_user_2026-11-08_and_verified_TCC_grant_and_LaunchServices_ready",
+        "lifecyclePermissions": {
+          "date": "2026-11-08",
+          "status": "authorized_by_user",
+          "scope": "temporary development App login registration, cancel registration after validation; one physical system sleep and manual user wake/unlock",
+          "result": "one_short_software_sleep_recovered; login_item_registered_then_unregistered_status_0"
+        }
+      },
+      "laterPhaseCarryover": [
+        {
+          "id": "O3",
+          "requirement": "正式bundle ID、Team ID、Developer ID身份下的Keychain/TCC与升级访问复验",
+          "status": "deferred_by_user",
+          "phase": "P4-04/P6",
+          "date": "2026-11-07"
+        }
+      ],
+      "progress": "P4四包当前macOS27.0.1 arm64本地实现与独立验收完成。最新独立host31/media36/lifecycle23/bridge47及workspace38通过，单元2491通过/18跳过、静态80、语法1134及构建新鲜度通过。真实通知恢复、菜单设置、Safari外链、IDE双栏Diff、647.5ms物理PCM、登录项注册后注销、短时真实睡眠/SSE及用户辅助原生文件/目录拖放均有证据。正式身份用户暂缓，macOS14/P6与Windows同候选阶段门保留未验，P4整体仍in_progress。",
+      "evidence": [
+        "evidence/P4/current-candidate/README.md",
+        "evidence/P4/lifecycle/physical-system/README.md",
+        "evidence/P4/bridge/editor-diff/README.md",
+        "evidence/P4/media/physical/README.md",
+        "evidence/P4/frozen-local-regression/README.md",
+        "evidence/P4/bridge/native-drop/README.md",
+        "evidence/P4/local-closeout.json"
+      ],
+      "latestNativeAcceptance": {
+        "date": "2026-11-08",
+        "candidate": "reporting-delay_acceptance_only_increment",
+        "hostPassed": 31,
+        "hostFailed": 0,
+        "mediaPassed": 36,
+        "lifecyclePassed": 23,
+        "bridgePassed": 47,
+        "physical": "passed_LaunchServices_valid_647_5ms_PCM_native_stop_1417_118ms_cleanup_verified",
+        "evidence": "evidence/P4/media/physical/reporting-delay/README.md",
+        "hostAfterPermission": "passed_31_exit0_original30_1_failure_retained",
+        "priorHostFailure": "new_adhoc_code_requirement_mismatch_with_Documents_authorization_prompt"
+      },
+      "completionAudit": {
+        "date": "2026-11-08",
+        "reviewer": "/root/p4_host_review",
+        "status": "local_passed_external_pending",
+        "sources": [
+          "05-P4-DESKTOP-APP.md",
+          "08-VALIDATION.md",
+          "evidence/P4/current-candidate/review.json",
+          "evidence/P4/media/physical/reporting-delay/validation.json",
+          "evidence/P4/bridge/native-drop/review.json",
+          "evidence/P4/local-closeout.json"
+        ],
+        "requirements": [
+          {
+            "id": "P4-01",
+            "state": "passed_current_after_permission_recovery",
+            "proof": "evidence/P4/host/README.md",
+            "latest": "evidence/P4/media/physical/reporting-delay/host-after-permission-independent.txt"
+          },
+          {
+            "id": "P4-02-bridge",
+            "state": "passed_current_47_with_3_notification_conditionals_unexecuted",
+            "proof": "evidence/P4/media/physical/reporting-delay/bridge-independent.txt"
+          },
+          {
+            "id": "V10-interactions",
+            "state": "passed_reviewed_scopes",
+            "proof": [
+              "evidence/P4/bridge/ui-progress.json",
+              "evidence/P4/bridge/unlocked-recovery/README.md",
+              "evidence/P4/bridge/editor-diff/README.md",
+              "evidence/P4/lifecycle/physical-system/README.md"
+            ],
+            "scope": "chooser, Finder reveal, Cmd shortcuts, notification refusal/recovery/delivery, user-assisted status menu Settings, external link, actual editor diff"
+          },
+          {
+            "id": "V10-drop",
+            "state": "passed_current_host_user_assisted",
+            "required": [
+              "real Finder file drop into WK, attachment/upload visible and no automatic send",
+              "real Finder directory drop into WK, entry/readEntries, resolve confirmation or cancellation, session cwd and config persistence"
+            ],
+            "proof": "evidence/P4/bridge/native-drop/review.json",
+            "scope": "6 trusted real events, 3 matching local uploads, actual directory children/resolution, current-session persistence and cleanup",
+            "limitation": "Cancellation supported by user report and trace/source; selected-session cwd was not captured immediately before cancellation",
+            "priorAvailable": "HTTP workspace-resolve regression and static app.js handlers, insufficient for native drop",
+            "available": [
+              "evidence/P4/bridge/native-drop/trace.json",
+              "evidence/P4/bridge/native-drop/after-confirm.json",
+              "evidence/P4/bridge/native-drop/cleanup.json",
+              "evidence/P4/bridge/native-drop/review.json"
+            ]
+          },
+          {
+            "id": "P4-03-synthetic",
+            "state": "passed_current",
+            "proof": "evidence/P4/media/physical/reporting-delay/media-independent.txt"
+          },
+          {
+            "id": "P4-03-browser",
+            "state": "passed_CFT148_only_Chrome156_hang_retained",
+            "proof": "evidence/P4/media/native-gum-stages/browser-regression.json"
+          },
+          {
+            "id": "P4-03-physical",
+            "state": "passed_current",
+            "required": [
+              "LS attribution to development App",
+              "valid nonzero 16kHz mono 16bit PCM <=3 sec",
+              "tracks ended <=3 sec",
+              "same-run native stop completion <=3 sec, no deadline fired",
+              "final reported none and no stop in flight",
+              "local fake ASR insertion, sends0, owned process cleanup"
+            ],
+            "proof": "evidence/P4/media/physical/reporting-delay/review.json",
+            "denialScope": "Real WebKit origin denial/retry covered by old attempt. OS-level microphone denial/recovery is not claimed."
+          },
+          {
+            "id": "P4-04-lifecycle",
+            "state": "passed_current_automated_and_prior_real_short_sleep",
+            "proof": [
+              "evidence/P4/media/physical/reporting-delay/lifecycle-independent.txt",
+              "evidence/P4/lifecycle/physical-system/validation.json"
+            ],
+            "limit": "physical Software Sleep/DarkWake about2.816 sec, physical fixture scheduler disabled, separate automated late-run/skip and real process cleanup"
+          },
+          {
+            "id": "V07-formal-identity",
+            "state": "deferred_by_user",
+            "requirement": "formal bundle ID/Team ID/Developer ID Keychain/TCC and upgrade access"
+          },
+          {
+            "id": "O2-macOS14",
+            "state": "unverified_P6_carryover"
+          },
+          {
+            "id": "V14-Windows",
+            "state": "unverified_no_P4_scope_waiver"
+          },
+          {
+            "id": "candidate-records",
+            "state": "local_implementation_and_reviewed_evidence_committed",
+            "requirement": "final source/build fingerprints, relevant gates, independent review closure and truthful TASKS/tracking evidence",
+            "proof": "evidence/P4/local-closeout.json",
+            "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
+          }
+        ],
+        "remainingLocal": [],
+        "fullPhaseComplete": false
+      },
+      "latestEngineeringValidation": {
+        "date": "2026-11-08",
+        "unitPassed": 2491,
+        "unitSkipped": 18,
+        "unitFailed": 0,
+        "staticPassed": 80,
+        "syntaxFiles": 1134,
+        "buildFresh": true,
+        "sourceSnapshot": "evidence/P4/frozen-local-regression/source-fingerprint.json",
+        "evidence": "evidence/P4/frozen-local-regression/validation.json",
+        "postDocumentationGate": {
+          "unitPassed": 2491,
+          "unitSkipped": 18,
+          "staticPassed": 80,
+          "evidence": "evidence/P4/frozen-local-regression/closeout-static.txt"
+        }
+      },
+      "continuationState": {
+        "status": "local_acceptance_completed_external_gates_pending",
+        "date": "2026-11-08",
+        "priorBlockerResolved": "user completed native file/directory drag and left confirmation; normal confirmation/persistence and cleanup verified",
+        "evidence": "evidence/P4/bridge/native-drop/validation.json"
+      },
+      "localDelivery": {
+        "status": "done",
+        "completedDate": "2026-11-08",
+        "scope": "P4-01 through P4-04 current macOS27.0.1 arm64 development App local implementation and independent acceptance; formal identity deferred by user",
+        "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+        "deliveryState": "committed_local",
+        "evidence": "evidence/P4/local-closeout.json",
+        "reviewer": "/root/p4_host_review",
+        "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+        "branch": "codex/p4-macos-desktop",
+        "independentReview": "evidence/P4/local-closeout-review.json",
+        "commitBindingReview": "evidence/P4/commit-binding-review.json"
+      },
+      "pendingPhaseAcceptance": [
+        "V14 same-candidate Windows regression, no P4 waiver recorded",
+        "Formal signed identity Keychain/TCC and upgrade access deferred by user; P4-04/P6",
+        "Actual macOS14 runtime O2/P6 carryover"
+      ],
+      "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb"
     },
     {
       "id": "P5",

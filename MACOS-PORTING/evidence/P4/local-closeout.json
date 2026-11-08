@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-08",
+  "baseCommit": "d97db57bef80ef96a5f5141003237f1826a6e84a",
+  "deliveryState": "committed_local",
+  "localDelivery": "done",
+  "phaseStatus": "in_progress_external_acceptance_pending",
+  "scope": "P4-01 through P4-04 current macOS27.0.1 arm64 development App local implementation and independent acceptance",
+  "packages": {
+    "P4-01": "host31 after permission recovery",
+    "P4-02": "bridge47, real chooser/Finder/Cmd/notification/menu/Safari/CodeDiff/native drag",
+    "P4-03": "synthetic media36, actual647.5ms PCM, CFT148 browser98/39/58",
+    "P4-04": "lifecycle23, actual short SoftwareSleep/SSE, login register/unregister; formal identity deferred"
+  },
+  "engineering": {
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "syntaxFiles": 1134,
+    "workspaceMainAndIndependent": 38,
+    "freshness": "passed"
+  },
+  "reviews": [
+    "frozen-local-regression/review.json",
+    "media/physical/reporting-delay/review.json",
+    "bridge/native-drop/review.json",
+    "local-closeout-review.json",
+    "commit-binding-review.json"
+  ],
+  "evidence": [
+    "frozen-local-regression/validation.json",
+    "bridge/native-drop/validation.json",
+    "lifecycle/physical-system/validation.json"
+  ],
+  "limits": [
+    "native drag cancellation supported by user report/trace/source, no selected-session cwd snapshot immediately before cancel",
+    "physical sleep is short SoftwareSleep/DarkWake, physical scheduler disabled; separate actual backend suspension/scheduler recovery and own process tree coverage",
+    "browser regression passed CFT148; ordinary Chrome156 native fake media hang retained",
+    "three notification denied-condition assertions not executed in current granted-permission bridge47; earlier candidate evidence retained"
+  ],
+  "externalAcceptance": {
+    "formalIdentity": "deferred_by_user",
+    "macOS14": "unverified_O2_P6_carryover",
+    "Windows": "same_candidate_unverified_no_P4_waiver_recorded"
+  },
+  "cleanup": {
+    "nativeDropAppAndBackend": "exited",
+    "physicalCaptureAppAndBackend": "exited",
+    "temporaryLoginItem": "unregistered",
+    "normalUserCode": "empty_window_restored",
+    "caffeinate": "retained_for_user_requested_unattended_development_until_Codex_exit"
+  },
+  "implementationCommit": "0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb",
+  "branch": "codex/p4-macos-desktop",
+  "implementationSourceFingerprint": "implementation-source-fingerprint.json",
+  "implementationFilesVerifiedAgainstCommit": 43,
+  "latestPostDocumentationGate": {
+    "command": "node dev-harness/run-all.js --fast",
+    "exitCode": 0,
+    "unitPassed": 2491,
+    "unitSkipped": 18,
+    "staticPassed": 80,
+    "log": "frozen-local-regression/closeout-static.txt",
+    "unitLog": "frozen-local-regression/closeout-unit.txt"
+  }
+}

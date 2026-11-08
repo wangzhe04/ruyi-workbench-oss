@@ -1,0 +1,11 @@
+{
+  "source": "/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-host-ui-9cgx8H/未命名.txt",
+  "method": "CUA select/copy workbench page, paste in new TextEdit document, save locally; parse original JSON output",
+  "sourceSha256": "3d8009bcb653428ec93044add39c00f5c31e3a407f4acee7c1f502bca7896d6e",
+  "events": 6,
+  "fileEvents": 3,
+  "directoryEvents": 3,
+  "allTrusted": true,
+  "requests": 8,
+  "sends": 0
+}

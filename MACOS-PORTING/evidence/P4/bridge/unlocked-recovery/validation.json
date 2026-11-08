@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-08",
+  "candidate": "uncommitted current worktree on d97db57b",
+  "verified": [
+    {
+      "case": "notification OS refusal recovery",
+      "method": "CUA System Settings notification toggle and native host status",
+      "before": "off",
+      "after": "on",
+      "nativeResponse": {
+        "permission": "granted",
+        "os": {
+          "permission": "granted",
+          "ok": true
+        }
+      }
+    },
+    {
+      "case": "notification actual delivery",
+      "method": "normal native notify UI button, matching request id in usernoted logs",
+      "requestId": "ruyi-p4-ui-fixture",
+      "nativeResponse": {
+        "ok": true
+      },
+      "osRecord": "Delivering to alert, lockScreen, notificationCenter and Presenting as banner",
+      "log": "notification-system.txt"
+    },
+    {
+      "case": "LaunchServices readiness after Documents authorization",
+      "result": "ready",
+      "launcherExitCode": 0,
+      "nativePID": 80017,
+      "servicePID": 80020,
+      "bothExited": true,
+      "log": "diagnostic.json",
+      "tcc": "documents-tcc.txt"
+    },
+    {
+      "case": "independent full host regression after folder authorization",
+      "passed": 31,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "host-independent.txt",
+      "root": "ruyi-desktop-e2e-OXPEm3"
+    }
+  ],
+  "pending": [
+    {
+      "case": "actual editor diff",
+      "observed": "native API returned success for diff, CUA focused an empty VS Code window; screen then locked before checking other windows",
+      "status": "unverified"
+    },
+    {
+      "case": "menu bar status item click and positive external URL",
+      "status": "unverified"
+    },
+    {
+      "case": "physical <=3s microphone refusal/retry",
+      "status": "authorized_pending_ui"
+    }
+  ],
+  "latestDesktopObservation": "CUA reports Mac relocked during VS Code Window menu check",
+  "notificationSettingAfterTest": "enabled as authorized by user",
+  "formalSigningIdentity": "deferred_by_user"
+}

@@ -1,0 +1,38 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+  "secure": true,
+  "nativeCode": "function getUserMedia() { [native code] }",
+  "permission": "granted",
+  "enumeration": [
+    {
+      "kind": "audioinput",
+      "label": "Fake Default Audio Input"
+    },
+    {
+      "kind": "audioinput",
+      "label": "Fake Audio Input 1"
+    },
+    {
+      "kind": "audioinput",
+      "label": "Fake Audio Input 2"
+    },
+    {
+      "kind": "videoinput",
+      "label": "fake_device_0"
+    },
+    {
+      "kind": "audiooutput",
+      "label": "Fake Default Audio Output"
+    },
+    {
+      "kind": "audiooutput",
+      "label": "Fake Audio Output 1"
+    },
+    {
+      "kind": "audiooutput",
+      "label": "Fake Audio Output 2"
+    }
+  ],
+  "capture": "pending_after_5000ms",
+  "elapsed": 5222.099999904633
+}

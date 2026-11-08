@@ -1,0 +1,38 @@
+Window: "如意工作台", App: 如意工作台.
+0 standard window 如意工作台, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 如意工作台, URL: 127.0.0.1:8766/
+			3 button 跳到输入框
+			4 text ⛔ 
+			5 text ⛔ 
+			6 text ⛔ 
+			7 button 选择验收文件
+			8 button 定位验收文件
+			9 button 打开验收编辑器
+			10 button 打开验收差异
+			11 button 发送验收通知
+			12 button 读取通知权限
+			13 button 读取唤醒状态
+			14 button 读取拖放状态
+			15 link 打开验收外链, Value: 127.0.0.1:49559/p4-external-handoff
+			16 container {"events":[],"requests":[],"sends":0}
+				17 text {"events":[],"requests":[],"sends":0}
+			18 container 切换工作文件夹
+				19 heading 切换工作文件夹, Value: 3
+					20 text 切换工作文件夹
+				21 button 关闭
+				22 text 将工作目录切换到「P4 选择目标文件夹」？
+				23 text /var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-e2e-home-2izFoL/P4 选择目标文件夹
+				24 container
+					25 checkbox 同时设为默认工作区, Value: 0
+					26 text 同时设为默认工作区
+				27 button 取消
+				28 button 切换
+	29 close button
+	30 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	31 minimize button
+	32 text 如意工作台
+33 menu bar
+	34 如意工作台
+	35 编辑
+	36 文件

@@ -1,6 +1,6 @@
 # 执行与交接看板
 
-更新时间：2026-11-07。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4–P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
+更新时间：2026-11-08。**P0 已完成基线、设计契约与技术探针；P1 运行时与系统边界实现阶段已完成；P2及四包已按用户指定排除暂缓项的范围验收完成，暂缓验收独立保留；P3已按用户指定Mac当前主机范围完成最终验收，Windows本轮排除；P4四包当前Mac本地开发与独立验收完成，阶段外部门待验，正式身份暂缓；P5/P6 待开始**。P0 的开放项与产品兼容完成严格区分，见 [结果](evidence/P0/README.md)和 [v1 决策](11-P0-DECISIONS.md)。
 
 ## 1. 阶段状态
 
@@ -10,7 +10,7 @@
 | P1 | P0 | done（附限制与P4交接） | Codex | 未核算 | [最终收尾](evidence/P1/closeout/README.md) / [启动](evidence/P1/README.md) / [所有权恢复](evidence/P1/ownership/README.md) / [独立复核](evidence/P1/ownership/review.json) / [执行监督](evidence/P1/supervisor/README.md) / [入口接入](evidence/P1/process-integration/README.md) / [Mac shell](evidence/P1/shell/README.md) / [文件策略](evidence/P1/files/README.md) / [helper 运行时门](evidence/P1/helper-gate/README.md) / [单 helper 故障恢复](evidence/P1/helper-loss/README.md) / [能力状态](evidence/P1/capabilities/README.md) / [发现与界面](evidence/P1/discovery-ui/README.md) / [工作树执行](evidence/P1/worktree-runtime/README.md) / [模型探针](evidence/P1/cli-model-probe/README.md) / [清理句柄](evidence/P1/process-handles/README.md) / [文档读取](evidence/P1/document-reader/README.md) / [媒体执行](evidence/P1/media-runtime/README.md) / [rg搜索](evidence/P1/rg-runtime/README.md) / [异步执行探针](evidence/P1/executable-probes/README.md) / [Python探针](evidence/P1/python-probes/README.md) / [同步探针基础](evidence/P1/synchronous-probe-audit/README.md) / [同步探针接入](evidence/P1/synchronous-probes/README.md) / [overlay平台边界](evidence/P1/overlay-boundary/README.md) / [宿主打开](evidence/P1/opener-completion/README.md) / [搜索取消](evidence/P1/search-cancellation/README.md) / [路径匹配取消](evidence/P1/path-cancellation/README.md) / [写队列取消](evidence/P1/write-queue-cancellation/README.md) / [原子写取消与恢复](evidence/P1/atomic-write-cancellation/README.md) / [文件变更恢复](evidence/P1/file-mutation-recovery/README.md) / [临时清理结果](evidence/P1/temporary-cleanup/README.md) / [受控启动布局](evidence/P1/controlled-layout/README.md) / [主回合Stop](evidence/P1/provider-stop/README.md) / [冻结Mac回归](evidence/P1/frozen-mac-regression/README.md) / [验收缺口审计](evidence/P1/acceptance-audit.md) |
 | P2 | P1 | done（用户约定范围；暂缓项未验收） | Codex | 未核算 | [P2 总览](evidence/P2/README.md) |
 | P3 | P1；M1 交付需 P2 | done（用户指定Mac范围） | Codex | 未核算 | [最终Mac验收](evidence/P3/final-mac-acceptance/README.md) |
-| P4 | P2、P3 | planned | 未分配 | 未记录 | 无 |
+| P4 | P2、P3 | in_progress（四包Mac本地完成，外部门待验） | Codex；独立复核 p4_host_review | 未核算 | [P4-01 宿主](evidence/P4/host/README.md) / [P4-02 系统桥](evidence/P4/bridge/README.md) / [P4-03 媒体](evidence/P4/media/README.md) / [P4-04 生命周期](evidence/P4/lifecycle/README.md) |
 | P5 | P4 | planned | 未分配 | 未记录 | 无 |
 | P6 | P5；探针可提前 | planned | 未分配 | 未记录 | 无 |
 
@@ -103,3 +103,25 @@
 2026-11-07阶段补验：已获用户授权发布fork内P3分支并创建[草稿PR #1](https://github.com/Sonata17inD/ruyi-workbench-mac/pull/1)。e844首轮CI的Linux static与Windows release dry-run通过；Windows ACC、凭据IPC及平台基线失败，待日志归因修复，仍未验收Windows。macos-14 job因不支持该runner配置而取消。补验实现 `d95cce74` 的64 wheels/98 arm64静态部署声明最高14.0，独立复核23样例通过；仅Chromium真实浏览器26项通过，原可选ffmpeg要求15.0的失败证据保留。macOS14实际运行、完整发行闭包仍未验证，P3保持in_progress。见[交接](evidence/P3/acceptance/HANDOFF.md)。
 
 2026-11-07最终验收按用户“只需要Mac端”的范围完成。P3登记done，候选 `aa2d7846` 追加组合验收探针，生产代码指纹与执行候选一致。59项命令最终通过，完整单元2491通过/18跳过、80静态通过，有窗口与无窗口真实工具链各27项通过，新Office六页视觉检查通过。Windows首轮失败保留，macOS14实际运行及签名发行交接O2/P6。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)。
+
+2026-11-07 P4本地开发推进至P4-04，交付保存在基线 `d97db57b` 之上的未提交工作树。组合候选独立生命周期23项、媒体36项、桥接35项通过，ASR后端41项通过。完整单元2491通过/18既有跳过、80静态及1134语法通过。宿主30通过/LaunchServices启动1失败，失败后自有App与服务已退出；当前轮TCC未再次捕获明确文稿提示，原因继续定位。旧Chrome三组语音仍失败或有未执行范围，隔离world原生getUserMedia同样挂起。Mac仍锁屏，真实通知恢复、物理短录音、系统睡眠/登录项、剩余可见交互待验；路径别名收藏去重已登记后续。正式身份复验按用户决定暂缓，P4保持in_progress。详见[系统桥](evidence/P4/bridge/README.md)、[媒体](evidence/P4/media/README.md)与[生命周期](evidence/P4/lifecycle/README.md)。
+
+2026-11-07 P4-02目录别名增量完成本地开发与独立48项验收。复用受保护解析接口、有界目录身份查找与服务端收藏权限，补存量去重、POSIX特殊字符、线程切换与迟到写入隔离。完整单元2491通过/18跳过，静态80/80，语法1134通过。旧workspace-resolve基线37/1已归因于通用测试的Windows大小写假设，Windows执行原断言、POSIX执行精确有序数组，修正后主代理和独立复跑各38项通过。Mac再次确认仍锁屏，其余P4可见与物理权限验收待继续。见[目录别名证据](evidence/P4/bridge/workspace-alias/README.md)。
+
+2026-11-08 P4-02目录别名最终增量主验收与独立验收各50项通过，补齐BigInt目录身份和已有会话真实PATCH/GET保留路径尾空格。独立代码复核未处理发现0，BigInt阶段旧解析件主验收与独立复跑各38项通过，该件未在后续会话存储修改后重跑。最终冻结候选完整单元2491通过/18跳过、静态80/80、语法1134文件及构建新鲜度通过。此前检查期间修改源码造成的79/80新鲜度失败与48项历史候选一并保留。Mac仍锁屏，其余可见交互及真实权限验收等待解锁，P4保持in_progress。见[最终目录别名证据](evidence/P4/bridge/workspace-alias/README.md)。
+
+2026-11-08 P4解锁增量。用户授权文稿访问后，TCC记录通过、LaunchServices探针就绪并正常退出，独立host31/31通过。通知开关从拒绝恢复为开启，桥返回granted，系统usernoted日志确认投递和呈现横幅。随后检查IDE Diff时Mac再次锁屏，菜单栏、外链、真实双栏Diff及短录音仍待验。新增仅由正常composer按钮开始采集、带自动停止时限的物理录音探针，尚未执行采集。P4保持in_progress，原失败保留。见[系统验收增量](evidence/P4/bridge/unlocked-recovery/README.md)。
+
+2026-11-08 P4当前增量已完成真实菜单设置、正常API到Code双栏Diff、Safari外链、登录注册后注销与一次短时Software Sleep/DarkWake恢复。醒后SSE重新连接并自动显示新事件。当前独立宿主31、媒体36、生命周期23、桥接47通过，完整单元2491通过/18跳过、静态80、语法1134通过。CFT148完整既有语音98/流式39/预热58通过，Chrome156挂起保留。旧物理WAV1.01秒成功但原生时限判定失败，新LaunchServices物理麦克风候选授权等待中。P4保持in_progress，正式身份暂缓，Windows/macOS14未验收。[当前候选](evidence/P4/current-candidate/README.md) [系统实机](evidence/P4/lifecycle/physical-system/README.md) [编辑器](evidence/P4/bridge/editor-diff/README.md)
+
+2026-11-08 后续原生验收测量修正候选独立媒体36/生命周期23/桥接47通过，宿主30/1，因新ad-hoc签名与旧文稿访问code requirement不匹配重新提示，失败进程已退出。物理首次LS仅5字节WebM，严格失败保留。新候选要求有效PCM与三秒内公开原生停止完成，KVO显示持续时间单列，待解锁后复验。[后续候选](evidence/P4/media/physical/reporting-delay/README.md)
+
+2026-11-08 全P4逐项审计补出V10真实文件/目录拖放证据缺口，纳入本地剩余验收。TASKS顶层已区分此前host31成功候选和最新host30/1候选，后者等待文稿授权后独立复跑。当前物理probe仍活跃等待系统麦克风提示，未采集；临时保活已验证。已有真实WebKit来源拒绝恢复，尚未宣称OS级麦克风拒绝恢复。
+
+2026-11-08 最新LS短录音严格验收通过，WAV647.5ms、tracks1110ms、原生停止1417.118ms，无deadline，最终none/零发送/进程回收经独立核验。当前宿主授权恢复后独立31/0，旧30/1保留；旧workspace-resolve在最新session-store增量后主代理及独立复跑各38/0。P4-03本地done，真实V10拖放等待用户辅助后继续，阶段正式身份/Windows/macOS14边界保持。[最新物理和宿主证据](evidence/P4/media/physical/reporting-delay/README.md)
+
+2026-11-08 自动推进在连续三轮核对后登记受阻，等待一次用户辅助的真实文件/目录拖放。探针96211、隔离App/Node与临时保活仍运行，刷新后drop事件、请求和发送计数均为0。当前Mac代码与自动化回归已独立复核，P4阶段保持in_progress。[阻塞核对及恢复动作](evidence/P4/bridge/native-drop/blocked-audit.json)
+
+2026-11-08 用户辅助真实拖放已完成并独立复核。6个可信文件/目录事件、3个本地上传、3次指纹解析及2次路径提交均成功，当前会话cwd/近期目录落盘、发送0，App/Node/探针退出。此前交互阻塞已解除。四包当前Mac本地开发与独立验收完成，正式身份暂缓及Windows/macOS14未验边界独立保留。[本地收尾](evidence/P4/local-closeout.json)
+
+2026-11-08 P4实现已本地提交 `0e9d5edb7b68e4cac8540654a5c8021bf59bd0eb`，分支 `codex/p4-macos-desktop`。43项实现文件逐字节绑定该提交，文档收尾后完整单元2491通过/18跳过及80组静态再次通过；既有失败与候选来源保留。阶段Windows同候选验收范围等待用户决定，正式身份和macOS14边界继续按原交接记录。

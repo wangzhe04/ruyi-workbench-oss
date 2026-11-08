@@ -1,7 +1,7 @@
 # Mac 版移植指导文档包
 
 版本：1.6 · 日期：2026-11-07 · 基线：`f5223548` / 如意 3.0.1。
-状态更新于2026-11-07。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。Windows排除本轮，macOS14实际运行与正式发行交接O2/P6，P4–P6待开始。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)。
+状态更新于2026-11-08。P0、P1及按既有暂缓范围验收的P2已完成，P3已完成用户指定Mac当前主机范围的最终验收。P3本轮排除Windows，macOS14实际运行与正式发行交接O2/P6。P4四包已完成当前Mac本地开发与独立验收，阶段外部门待验，正式身份按用户决定暂缓，P5/P6待开始。详见[最终Mac验收](evidence/P3/final-mac-acceptance/README.md)与[P4宿主验收](evidence/P4/host/README.md)。
 
 ## 目标与默认范围
 
