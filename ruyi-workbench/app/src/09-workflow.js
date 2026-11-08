@@ -919,6 +919,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
                 }
               },
               getSteer: () => drainNodeSteers(node.id),
+              hasPendingInbox: () => [runtime.steerQueues, runtime.autoSteerQueues, runtime.mailQueues].some(queues => queues.get(node.id)?.length),
               // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
               closeInbox: reason => { if (!node.mailboxClosedReason) node.mailboxClosedReason = reason; dropNodeMail(node.id, node.mailboxClosedReason); },
               getMail: () => { const q = runtime.mailQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
@@ -1986,6 +1987,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   await refreshScratchpadPrompt('turn_start');
   const headers = wire.requestHeaders(provider, { model }); // 每个 failover 候选端点都带这同一份
+  let lastModelEndpoint = chatUrl;
+  const preparedToolMedia = ToolPreparedMedia.create({ provider, model, sessionId: session.id, turnSeq: session.turnSeq,
+    headers, endpoint: () => lastModelEndpoint, signal: ctrl && ctrl.signal });
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
     const recallPrompt = buildObservationRecallPrompt(history, config);
@@ -2023,7 +2027,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 106 #1 G1: layoutOverride 仅供 shadow 计量('first'|'tail')强制某一布局构建候选请求体,
   // 正常调用恒传 undefined(走开关)。volatileTailLayoutEnabled 开时易变层从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
-  const buildBodyWithLayout = (withTools, layoutOverride) => {
+  const buildBodyWithLayout = (withTools, layoutOverride, includePreparedMedia = false) => {
     if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
       || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
     const volatileTail = layoutOverride ? layoutOverride === 'tail' : volatileTailLayoutEnabled(config);
@@ -2063,6 +2067,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
     if (scratchpadPrompt) appendPromptToLastUserMessage(msgs, scratchpadPrompt); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
+    if (includePreparedMedia) preparedToolMedia.append(msgs);
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
     const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools });
@@ -2684,13 +2689,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // candidate is tried AT MOST once per logical call;全失败 → the last failure object is returned (its
   // httpError/transportError drives the caller's existing error path). Single-candidate providers: the loop
   // runs once and this is a transparent pass-through (行为与现状完全一致).
-  const streamWithFailover = async buildRequestBody => {
+  const streamWithFailover = async (buildRequestBody, mediaEndpoint) => {
     // Order the candidates for THIS call: sticky base first (if it's in the sequence), then the rest in
     // declared order, so a proven endpoint is tried first but the full sequence remains a fallback.
     const sticky = failoverStickyBase.get(provider.id);
     const ordered = [];
-    if (sticky) { const s = failoverCandidates.find(c => c.base === sticky); if (s) ordered.push(s); }
-    for (const c of failoverCandidates) { if (!ordered.includes(c)) ordered.push(c); }
+    if (mediaEndpoint) {
+      const pinned = failoverCandidates.find(candidate => candidate.chatUrl === mediaEndpoint);
+      if (!pinned) throw Object.assign(Error('privacy.media_route_unavailable'), { code: 'privacy.media_route_unavailable' });
+      ordered.push(pinned);
+    } else {
+      if (sticky) { const s = failoverCandidates.find(c => c.base === sticky); if (s) ordered.push(s); }
+      for (const c of failoverCandidates) { if (!ordered.includes(c)) ordered.push(c); }
+    }
     let lastCall = null, prevBase = null;
     for (let i = 0; i < ordered.length; i++) {
       const cand = ordered[i];
@@ -2701,8 +2712,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
       await refreshMemoryPromptScope();
-      const requestBody = buildRequestBody();
-      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: requestBody, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
+      const call = await preparedToolMedia.send(assertRequest => openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: buildRequestBody(),
+        ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire, allowCompatibilityRetry: !assertRequest, assertRequest }),
+      () => hasInterruptingSteer(reg), () => drainSteerQueue(reg, session, onEvent));
       // Decide if this outcome is a failover trigger (pre-first-byte only).
       let failReason = null;
       if (call.transportError) failReason = call.transportReason || 'connect';
@@ -2710,7 +2722,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (!failReason) {
         // Terminal outcome for this logical call. A clean/streamed result (no httpError, no transportError)
         // means THIS endpoint served us → remember it as the sticky base for the rest of the session.
-        if (!call.httpError && !call.transportError) failoverStickyBase.set(provider.id, cand.base);
+        if (!call.httpError && !call.transportError) {
+          lastModelEndpoint = cand.chatUrl;
+          failoverStickyBase.set(provider.id, cand.base);
+        }
         return call;
       }
       // Failover-eligible failure on this candidate. Record + walk to the next (if any).
@@ -2779,7 +2794,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // v0.8-S7: drain any steering (§4 A3) queued since the last boundary BEFORE this API call, so the
       // request we are about to build carries the user's mid-turn instruction. Pairing-safe here: the
       // previous iteration's tool batch (if any) pushed all its role:'tool' replies before `continue`.
-      await drainSteerQueue(reg, session, onEvent);
+      if (await drainSteerQueue(reg, session, onEvent)) await preparedToolMedia.clear();
       if (EventStreamHooks.drainBackgroundJobs) await EventStreamHooks.drainBackgroundJobs(session);
       await refreshMemoryPromptScope();
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
@@ -2790,7 +2805,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         touch();
         await refreshScratchpadPrompt('compaction'); // C2:历史刚被改写、缓存本就断了 —— 顺手换上本回合写入后的草稿本
       }
-      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
+      const budgetHistory = [{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory];
+      preparedToolMedia.append(budgetHistory);
+      lastEstBeforeCall = estimateHistoryTokens(budgetHistory, '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
       estStreamBase = estBeforeCall; estStreamText = '';
@@ -2891,14 +2908,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 把整回合打死。现在与子代理同一份判据 providerCallIsTransient(04h:transportError / 502/503/504 / 429 / 529);
       // 端点切换仍在 streamWithFailover 里先走完,这里只在【所有候选都失败】之后整组再试。transportError 只在首字节前产生
       // (07 openAiStreamOnce:流式开始后的失败直接抛出,不进这里),所以同样不会重放已显示的内容。
+      const mediaEndpoint = preparedToolMedia.endpoint();
       const sent = await withTransientRetry({
-        maxRetries: 3,
+        maxRetries: mediaEndpoint ? 0 : 3,
         signal: ctrl && ctrl.signal,
         isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         // 服务商回了 Retry-After(07 openAiStreamOnce 带出 retryAfterMs,已封顶 30 s)就至少等这么久:修前固定 0.5/1/2 s 共约 3.5 s,
         // 限流窗口还没过就把 3 次重试用光,整回合失败。
         backoffMs: (n, c) => Math.max(Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
-        attempt: () => streamWithFailover(() => buildBody(useTools)), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+        attempt: () => streamWithFailover(() => buildBodyWithLayout(useTools, undefined, !!mediaEndpoint), mediaEndpoint),
         classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
@@ -2907,7 +2925,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           onEvent({ type: 'stderr', text: `[provider] ${what},稍后重试(${n}/3)` });
           logEvent({ kind: 'model_call_retry', sessionId: session.id, provider: provider.id, attempt: n, reason: c && c.transportError ? 'transport' : String(c && c.httpError || '').slice(0, 8) });
         },
-      });
+      }).finally(preparedToolMedia.clear);
       if (sent.aborted) { aborted = true; ok = false; break; }
       const call = sent.result;
       if (!call.httpError && !call.transportError) VisualPipeline.pruneOldImages(session.providerHistory);
@@ -2938,7 +2956,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const tTools0 = Date.now();
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
-        if (useTools && call.toolsRejected && !toolsRetried) { toolsRetried = true; useTools = false; onEvent({ type: 'stderr', text: '[provider] tools rejected — retrying without tools' }); iter--; continue; }
+        if (!mediaEndpoint && useTools && call.toolsRejected && !toolsRetried) { toolsRetried = true; useTools = false; onEvent({ type: 'stderr', text: '[provider] tools rejected — retrying without tools' }); iter--; continue; }
         // 第45波 45b:context 类 400 → 强制压缩重试一次(回合的最后防线)。
         // 场景:估窗失效(真实窗口 < 估算,maybeAutoCompact 的预算判定没触发)或单条巨型载荷,
         // provider 直接 400 —— 旧行为是回合慢性死亡(L2 失败照样 400)。现在:快照 → L1 蒸发 →
@@ -2946,7 +2964,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // 45f 对抗轮修订:① 事件/系统消息只在【确有压缩成果】后广播(P2-4:零成果时不再虚报);
         // ② 窗口学习(45d(b))改【重试成功才落账】(P1-1:误判不再永久压窗);
         // ③ L1-only 重试置 skipAutoCompactOnce,下一迭代不再白跑一次 L2(P2-5)。
-        if (!contextRetried && isContextOverflowError(call.httpError)) {
+        if (!mediaEndpoint && !contextRetried && isContextOverflowError(call.httpError)) {
           contextRetried = true;
           // 快照 → L1 蒸发 → L2 摘要重播种,与子代理走同一个内核(10 runForcedOverflowCompaction)。
           const forced = await runForcedOverflowCompaction({
@@ -3179,7 +3197,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
                   res = await awaitProviderTool(
                     tc,
-                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
+                    signal => toolCall(tc.name, pargs, preparedToolMedia.bind({ sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true })),
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                   );
                 } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -3203,7 +3221,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     poolQueueWaitMs += Date.now() - tWait0; // 21-E2: 资源锁排队时长计量
                     res = await awaitProviderTool(
                       tc,
-                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
+                      signal => toolCall(tc.name, pargs, preparedToolMedia.bind({ sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true })),
                       INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                     );
                   } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -3568,7 +3586,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     tc,
                     // mainTurn:会话自己的主回合标记(08 子代理、MCP 子进程、/api/tools 都不带)。只写本会话旁车的工具(C2 scratchpad_write)
                     // 据此 fail-closed;代理 tool_invoke_* 把同一个 ctx 原样转给目标(12 invokeAdaptiveMcpTool)。
-                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true, executionOwner }),
+                    signal => toolCall(tc.name, args, preparedToolMedia.bind({ sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true, executionOwner })),
                     // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)
@@ -3576,7 +3594,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 catch (e) { resultObj = toolFailureResult(e, allTools.map(t => t.function && t.function.name)); } // 审计 N5:未知工具附 did-you-mean
                 finally { releaseResourceLease(toolLease); }
                 }
-                if (tc.name.startsWith('tool_invoke_')) resultObj = promoteProxiedNativeTool(args, resultObj);   // 代理到原生工具 → 装进下一发的工具表
+                if (tc.name.startsWith('tool_invoke_')) resultObj = preparedToolMedia.transfer(resultObj, promoteProxiedNativeTool(args, resultObj));   // 代理到原生工具 → 装进下一发的工具表
               }
             }
           }
@@ -3656,7 +3674,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj, 'no-vision');
           }
           // v0.8-S5: tiered truncation — file_read keeps head+tail, others flat 60KB (truncateToolResult).
-          session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, toolResultForHistory) });
+          const toolReply = { role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, toolResultForHistory) };
+          session.providerHistory.push(toolReply);
+          preparedToolMedia.queue(resultObj, toolReply);
           markToolProgress(tc, resultObj, iter);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -3697,6 +3717,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
           VisualPipeline.pruneOldImages(session.providerHistory, imageBatchStart);
         }
+        await preparedToolMedia.finishBatch(!aborted && !loopAborted && !steerAborted);
         if (aborted) break;
         if (loopAborted) break;       // v0.8-S7: repeated-call guard tripped → end the turn (self-contained note below)
         if (steerAborted) steerAborted = false;  // 51b 02 Phase B: 插话中断 reset(不结束回合,走 saveSession+continue 回 drainSteerQueue 注入插话)
@@ -3789,8 +3810,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         ...(e.resultUnavailable === true ? { resultUnavailable: true } : {}),
       };
     }
+  } finally {
+    clearInterval(watchdog);
+    await preparedToolMedia.close().catch(error => {
+      if (ok && !aborted) { ok = false; errorMsg = error.message; privacyFailureInfo = { code: error.code }; }
+      try { logEvent({ kind: 'media_cleanup_failed', sessionId: session.id, code: error.code }); } catch { /* preserve turn outcome */ }
+    });
   }
-  clearInterval(watchdog);
 
   // v0.8-S7: loop-guard finish (§4 A3). The turn stopped itself to escape a repeated-call死循环; this is a
   // NORMAL (non-aborted) completion — the assistant message gets a SELF-CONTAINED note, deliberately

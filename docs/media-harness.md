@@ -5,6 +5,8 @@
 | 需求 | 原生入口 | 范围与限制 |
 | --- | --- | --- |
 | 看图 | `file_read({path, as:"image"})` | 图片直接进入已开启视觉的服务商消息通道；`auto` 自动识别，`text` 排除图像。PDF 可按页读取，现代 Office/ODF 可读取内嵌媒体。旧版二进制 Office 不支持。 |
+| 受保护的文档读取 | `file_read({path, as:"text"})` 或 `file_read({path, as:"image", pageOffset:1, pageLimit:2})` | Windows Full 的本地媒体组件先读取受支持正文或生成页面图像。PDF 图像按页渲染，Office/ODF 图像是重新排版的正文预览。 |
+| 视频静帧 | `file_read({path, as:"image", startSeconds:0, frameCount:3, intervalSeconds:1})` | Windows Full 在本地读取 MP4、M4V、MOV、MKV、WebM 或 AVI，每次最多取 4 帧。结果报告请求时间、实际解码时间和未取到的时间。 |
 | 查能力开关 | `workbench_self_status({section:"capabilities"})` | 返回 vision/audio/asr、各模态工具、后台任务可用性和检查点范围。`config` 还包含协议及服务商视觉配置。配置不等于远端模型实际支持已通过探测。CLI 的视觉能力返回未知，由 CLI 自身决定。 |
 | 音频客观验收 | `audio_inspect({path, stream:0, startSeconds:0, durationSeconds:120})` | 本地 FFmpeg 解码；各声道峰值、RMS 包络、瞬时/短时/积分 LUFS、接近削波的时间窗。音轨通过零基 `stream` 分别检查。不会上传或播放音频。 |
 | 后台长任务 | `tool_search({query:"background shell", view:"matrix"})` | 原生 provider 引擎使用 `shell_start`/`shell_poll`/`shell_kill`；CLI/MCP 单次子进程不能承载这一组持久状态，使用所选 CLI 自己的后台命令能力。 |
@@ -16,6 +18,12 @@
 | 依赖探测 | `media_probe({refresh:true})` | FFmpeg、ffprobe、Chrome/Edge、Python、Node 的位置、版本或缺失建议。识别 PATH、显式环境变量和 Python 的 imageio-ffmpeg wheel。不会自动安装依赖。Windows 浏览器只检查文件存在，避免版本探测启动可见窗口。 |
 | 较大草稿 | `scratchpad_write` | 32 条、单条 2000 字符、合计 12000 字符；提示注入仍上限 5000，超出时保留每条 key 的摘要。`op:"list"` 返回全文。仅本会话主 provider 回合，不是长期记忆写入。 |
 | 验收回执 | `acceptance_report({path,title,checks})` | 保存带类型和版本的 JSON 产物，最多 50 个闸门；状态 pass/fail/blocked/not_run，绑定本地证据文件的路径、大小、修改时间和结论，返回汇总。 |
+
+## 文档和视频的保护范围
+
+开启发送前隐私保护后，`file_read` 默认返回可完整提取的受支持文档正文，由现有规则处理。文档输入上限为 50 MiB，正文投影上限为 40,000 字符。检测到隐藏内容、活动内容、外部链接关系、加密或超出支持范围的版式时，工具给出具体拒绝原因。扫描 PDF 用 `as:"image"`，需要保留 Office 原版式时先在编辑器中导出干净的 PDF。
+
+视觉输入需要启用视觉的原生模型和经锁定清单校验的 Windows Full 媒体组件。隐私保护开启时，页面和静帧先走本地 OCR、码识别和像素遮盖，再以重新编码的 PNG 送到紧接的模型请求。视频结果只覆盖返回的采样帧，原容器、音轨、字幕轨和容器元数据均不进入请求。遮盖范围取决于本地识别结果及隐私规则。
 
 ## 音频数值与试听
 

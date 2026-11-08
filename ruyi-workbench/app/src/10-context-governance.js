@@ -638,6 +638,119 @@ async function encodeModelToolResult(name, value) {
   return truncateToolResult(name, JSON.stringify(protectedResult));
 }
 
+// A native loop grants this capability on the actual tool context object. It
+// never travels in tool arguments, tool output, persisted history or SSE.
+const ToolPreparedMedia = (() => {
+  const contexts = new WeakMap();
+  const receipts = new WeakMap();
+  const fail = code => Object.assign(Error('privacy.' + code), { code: 'privacy.' + code });
+  const routeFor = ctx => {
+    const entry = contexts.get(ctx);
+    return entry?.owner.active() && entry.route.provider?.vision === true && !entry.route.signal?.aborted ? entry : null;
+  };
+  function create({ provider, model, sessionId, turnSeq, headers, endpoint, signal }) {
+    const scope = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.active() : null;
+    const retained = new Set(), pending = [];
+    let closed = false;
+    const owner = {
+      active: () => !closed && !signal?.aborted && scope && PrivacyGateway.active() === scope,
+      retain: record => retained.add(record),
+    };
+    async function release(records) {
+      for (const record of records) {
+        if (receipts.get(record.result) === record) receipts.delete(record.result);
+        record.result = null;
+        retained.delete(record);
+      }
+      const results = await Promise.allSettled(records.map(record => Promise.resolve().then(() => record.release())));
+      if (results.some(result => result.status === 'rejected')) throw fail('media_cleanup_failed');
+    }
+    const clear = async () => { pending.length = 0; await release([...retained]); };
+    return Object.freeze({
+      bind(ctx) {
+        if (!closed && ctx.sessionId === sessionId && ctx.turnSeq === turnSeq && ctx.provider === provider) {
+          contexts.set(ctx, { owner, route: Object.freeze({ provider, model, url: endpoint(), headers, scopeId: scope?.scopeId, signal: ctx.signal || signal }) });
+        }
+        return ctx;
+      },
+      transfer(from, to) {
+        const record = receipts.get(from);
+        if (from !== to && record?.owner === owner && to?.ok === true && typeof to === 'object') {
+          receipts.delete(from); receipts.set(to, record); record.result = to;
+        }
+        return to;
+      },
+      queue(result, reply) {
+        const record = receipts.get(result);
+        if (!record || record.owner !== owner) return;
+        receipts.delete(result);
+        record.result = null;
+        try {
+          if (reply?.role === 'tool' && JSON.parse(reply.content)?.ok === true) {
+            record.reply = reply;
+            pending.push(record);
+          }
+        }
+        catch { /* An incomplete tool result cannot authorize a visual continuation. */ }
+      },
+      async finishBatch(sendable) {
+        if (sendable) await release([...retained].filter(record => !pending.includes(record)));
+        else await clear();
+      },
+      endpoint() { return pending[0]?.url; },
+      append(messages) {
+        if (!pending.length) return;
+        if (!owner.active() || pending.some(record => record.url !== pending[0].url)) throw fail('media_route_unavailable');
+        if (pending.some(record => !messages.includes(record.reply))) throw fail('media_context_changed');
+        for (const record of pending) messages.push({ role: 'user', content: [
+          { type: 'text', text: '[Protected visual samples for the preceding tool result, in sample order.]' },
+          ...record.references.map(url => ({ type: 'image_url', image_url: { url } })),
+        ] });
+      },
+      async send(attempt, inputPending, drainInput) {
+        if (!pending.length) return attempt();
+        const interrupted = fail('media_context_changed');
+        const assertRequest = () => { if (inputPending()) throw interrupted; };
+        try {
+          assertRequest();
+          return await attempt(assertRequest);
+        } catch (error) {
+          // This exact local error can only precede fetch. Discard the samples
+          // and process the new input without replaying the protected request.
+          if (error !== interrupted) throw error;
+          await clear();
+          await drainInput();
+          return attempt();
+        }
+      },
+      clear,
+      async close() { closed = true; await clear(); },
+    });
+  }
+  async function register(ctx, result, prepared) {
+    const entry = routeFor(ctx);
+    const release = prepared?.release;
+    try {
+      if (!entry) throw fail('media_route_unavailable');
+      if (!result || typeof result !== 'object' || result.ok !== true || receipts.has(result) || typeof release !== 'function'
+        || !Array.isArray(prepared.references) || !prepared.references.length || prepared.references.length > 4
+        || prepared.references.some(row => !row || !/^[a-f0-9]{32}$/.test(row.id) || row.reference !== 'https://ruyi.invalid/protected-image/' + row.id)) {
+        throw fail('media_receipt_invalid');
+      }
+      const record = { owner: entry.owner, url: entry.route.url, result, references: prepared.references.map(row => row.reference), release };
+      entry.owner.retain(record); receipts.set(result, record);
+      return result;
+    } catch (error) {
+      if (typeof release === 'function') {
+        try { await release(); } catch { throw fail('media_cleanup_failed'); }
+      }
+      throw error;
+    }
+  }
+  return Object.freeze({ create, available: ctx => !!routeFor(ctx), route: ctx => routeFor(ctx)?.route || null,
+    signal: ctx => contexts.get(ctx)?.route.signal || null, register });
+})();
+
 // N3:展示副本 + 图片落附件。返回的对象用于 SSE tool_result 事件与 session.messages[].toolCalls[].result。
 // ① 大图 base64 字段(image / image_base64 / screenshot.image …)写进 uploads/<toolimg_…>/ 走既有附件回显通路
 //    (/api/upload/content),结果里留占位 + imageAttachments[{id,name,mime,size,field}];UI 用它画 <img>,不再有整墙 base64 文本。

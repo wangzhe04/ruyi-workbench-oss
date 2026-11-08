@@ -1399,6 +1399,48 @@ async function fileToolBatch(operation, args, ctx) {
 }
 
 NativeSourceHooks.readTextWindow = (filePath, st, req) => FileTextIo.readTextWindow(filePath, st, { ...req, io: privacyLocalIo });
+
+async function readNativeMedia(file, kind, args, ctx, protectedRead) {
+  const visual = args.as === 'image';
+  if (kind === 'video' && !visual) return { ok: false, code: 'video_image_required',
+    hint: 'Use file_read with as:"image" to sample video frames. Set startSeconds, frameCount and intervalSeconds for the range you need.' };
+  const wire = typeof ToolPreparedMedia === 'undefined' ? null : ToolPreparedMedia;
+  const route = protectedRead && visual ? wire?.route(ctx) : null;
+  if (protectedRead && visual && !route) return { ok: false, code: 'privacy.media_not_supported',
+    hint: 'Choose a vision-enabled native model to receive protected visual samples. For documents, use as:"text" to read the supported text.' };
+  const signal = route?.signal || ctx?.signal || wire?.signal?.(ctx);
+  const policy = protectedRead ? PrivacyGateway.captureMediaPolicy() : null;
+  const helper = path.join(externalRoot(), 'resources', 'native-file-read.py');
+  const produce = async () => {
+    // The original stays behind the local file guard. Native workers receive a bounded copy on stdin.
+    await privacyInspectLocalPath(file, signal, true);
+    const { value, source } = await privacyLocalIo(file, false, () => MediaImageHooks.readLocalMediaFile(file, signal, async (bytes, source) => {
+      policy?.assert();
+      const value = kind === 'video' ? await MediaInspection.videoFrames(file, args, signal, bytes)
+        : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes);
+      policy?.assert(); source.assert();
+      return { value, source };
+    }));
+    const { images, ...result } = value;
+    if (!result.ok || !visual) return { result };
+    if (!Array.isArray(images) || images.length < 1 || images.length > 4) throw Object.assign(Error('Invalid media projection'), { code: 'privacy.image_render_invalid' });
+    if (!protectedRead) return { result: { ...result, images } };
+    const pages = images.map(item => ({ name: item.name, bytes: Buffer.from(item.data, 'base64') }));
+    return { result, pages, source };
+  };
+  try {
+    if (protectedRead && !policy) return { ok: false, code: 'privacy.media_not_supported' };
+    if (!route) return (await produce()).result;
+    const { result, prepared } = await MediaImageHooks.prepareToolVisual(route, produce);
+    if (!prepared) return result;
+    return await wire.register(ctx, result, prepared);
+  } catch (error) {
+    const code = typeof error?.code === 'string' && /^privacy\.[a-z0-9_]+$/.test(error.code) ? error.code : 'file_read_failed';
+    return { ok: false, code, hint: code === 'privacy.image_runtime_unavailable'
+      ? 'Protected document and video reads need the verified Windows Full media runtime. Use a supported offline installation, or read a text export.'
+      : 'Local media preparation could not complete. Verify the source and try a smaller document or sample window.' };
+  }
+}
 function fileToolPrivacySourceOptions(ctx, tool) {
   if (!privacySourceActive()) return {};
   return { privacyGuard: async target => {
@@ -1463,7 +1505,10 @@ const FILE_TOOL_HANDLERS = {
       // Always guard the source before probing bytes or starting a read-only parser.
       let visualKind;
       try {
-        visualKind = await FileVisualIo.kind(p);
+        visualKind = typeof MediaInspection !== 'undefined' && MediaInspection.isVideoPath?.(p) ? 'video' : await FileVisualIo.kind(p, privacyTextRead);
+        if (visualKind === 'video' || privacyTextRead && visualKind === 'document') {
+          return await readNativeMedia(p, visualKind, args, ctx, privacyTextRead);
+        }
         // Text-only extraction still paginates/transforms document source and may start
         // an external parser. It is unsupported by the privacy boundary, even without pixels.
         // 隐私开着时,文档/图片读取在起任何解析器之前就被拒(像素与隐藏层都没经过遮盖链路)。

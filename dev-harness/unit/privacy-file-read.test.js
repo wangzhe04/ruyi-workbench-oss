@@ -158,12 +158,18 @@ test('privacy refuses linked image warnings that would copy a structured field v
   await scoped(policy, async () => { const result = await app.PrivacyGateway.toolResult(await rawRead(target, { includeImages: true }, policy)); assert.equal(result.ok, true); assert.equal('imageWarnings' in result, false); assert.equal(JSON.stringify(result).includes(secret), false); });
 });
 
-test('privacy refuses document extraction and images before any external parser, including text-only requests', async () => {
-  const cp = require('node:child_process'), originalExec = cp.execFile;
+test('privacy refuses images without a model continuation and never falls back to an unverified document parser', async () => {
+  const cp = require('node:child_process'), originalExec = cp.execFile, originalSpawn = cp.spawn;
+  const priorRuntime = process.env.RUYI_MEDIA_RUNTIME_ROOT;
+  process.env.RUYI_MEDIA_RUNTIME_ROOT = path.join(root, 'missing-media-runtime');
   let parserCalls = 0;
   cp.execFile = (_exe, _args, _options, callback) => {
     parserCalls++;
     queueMicrotask(() => callback(null, '{"ok":true,"content":"SYNTHETIC-DOCUMENT-SOURCE"}'));
+  };
+  cp.spawn = (exe, args, options) => {
+    if (args?.some(arg => arg.endsWith('native-file-read.py'))) parserCalls++;
+    return originalSpawn(exe, args, options);
   };
   try {
     const sources = ['private.docx', 'private.pdf', 'private.png'].map(name => file(name, 'SYNTHETIC-DOCUMENT-SOURCE'));
@@ -173,24 +179,27 @@ test('privacy refuses document extraction and images before any external parser,
     for (const mode of ['basic', 'enhanced', 'strict']) {
       const policy = config(mode);
       await scoped(policy, async () => {
-        // as:'image' 也必须在矩阵里:11c 新加的 document_render_unavailable 不能被当成绕过隐私媒体的后门 ——
-        // 顺序上先撞隐私闸(在起解析器之前),而不是先走到渲染分支。
         for (const target of sources) for (const args of [{}, { as: 'text' }, { includeImages: false }, { as: 'text', includeImages: false }, { as: 'image' }, { as: 'image', includeImages: true }]) {
           const result = await rawRead(target, args, policy);
           assert.equal(result.ok, false);
-          assert.equal(result.code, 'privacy.media_not_supported');
+          const textDocument = /\.(docx|pdf)$/.test(target) && args.as !== 'image';
+          assert.equal(result.code, textDocument ? 'reader_unavailable' : 'privacy.media_not_supported');
           // 拒绝必须带可执行的下一步(2026-11-05 之前只有一个码,读者得自己猜),但【不许】劝人降低保护:
           // 全仓同类拒绝都只给"换一种读法";而这条 hint 是要发给模型转述的,一句"关掉隐私"就是话术漏洞。
           assert.equal(typeof result.hint, 'string');
-          assert.match(result.hint, /text copy/i);
+          assert.match(result.hint, textDocument ? /Full offline package/ : /text copy|as:"text"/i);
           assert.doesNotMatch(result.hint, /turn privacy off|disable privacy|关掉隐私|关闭隐私/i);
           assert.deepEqual(Object.keys(result).sort(), ['code', 'hint', 'ok']);
           assert.equal(JSON.stringify(result).includes(target), false);
         }
       });
     }
-    assert.equal(parserCalls, 0, 'no Python/document parser is invoked by text-only or ordinary media reads');
-  } finally { cp.execFile = originalExec; }
+    assert.equal(parserCalls, 0, 'no Python/document parser is invoked without its verified runtime');
+  } finally {
+    cp.execFile = originalExec; cp.spawn = originalSpawn;
+    if (priorRuntime === undefined) delete process.env.RUYI_MEDIA_RUNTIME_ROOT;
+    else process.env.RUYI_MEDIA_RUNTIME_ROOT = priorRuntime;
+  }
 });
 
 test('privacy edit misses project source diagnostics while exact edits and off-mode diagnostics remain available', async () => {

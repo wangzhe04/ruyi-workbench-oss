@@ -33,7 +33,7 @@ function fixture({verification}={}){
     process:{platform:process.platform,env:{},pid:123},setTimeout:timeout,clearTimeout:clear,setInterval:interval,clearInterval(){},
     fs:{writeSync(){},existsSync(){throw Error('unexpected real filesystem query');},lstatSync:file=>file.endsWith('.png')?stat:directory,fstatSync:()=>stat,realpathSync:{native:file=>file}},
     fsp:{async open(){opens++;let read=false;return{fd:7,async close(){closes++;},async read(bytes,offset,length){if(read)return{bytesRead:0};read=true;bytes.fill(7,offset,offset+length);return{bytesRead:length};}};}},
-    paths:{uploads:path.resolve('synthetic-uploads'),data:path.resolve('synthetic-data')},appRoot:()=>path.resolve('synthetic-app'),
+    paths:{uploads:path.resolve('synthetic-uploads'),data:path.resolve('synthetic-data')},externalRoot:()=>path.resolve('synthetic-app'),
     assertSessionIdForPath:id=>id,sanitizeFsSegmentName:name=>name,readConfig:async()=>config,loadSession:async id=>({id}),sessionSaveIsTombstoned:()=>false,
     PrivacyGateway:{active:()=>({scopeId:'synthetic_scope'}),run:(_id,_config,work)=>work(),captureMediaPolicy:()=>policy,setHost(){}},
     WorkDataStore:{requireKeys:()=>({})},MediaDerivedStore:{create(){throw Error('failed preparation must not reach storage');}},atomicWriteJson(){throw Error('actual writes forbidden');},
@@ -122,7 +122,7 @@ test('resolved owner query missing, throwing or non-false is fail closed through
   const observe=functionBlock(sources['13ag-work-data-maintenance.js'],'workDataHelpersMayStillRun');
   a.ok(cache.length>500&&observe.length>200,'real private cache and maintenance observer');
   for(const [owner,expected]of [[{},true],[{helperMayStillRun(){throw Error('synthetic owner query');}},true],[{helperMayStillRun:()=>undefined},true],[{helperMayStillRun:()=>false},false]]){
-    let creates=0;const ctx={path,process:{platform:process.platform,env:{}},appRoot:()=>path.resolve('synthetic-app'),MediaImageProcessor:{create:async()=>{creates++;return owner;}},workDataInfrastructureFailureSet:false};
+    let creates=0;const ctx={path,process:{platform:process.platform,env:{}},externalRoot:()=>path.resolve('synthetic-app'),MediaImageProcessor:{create:async()=>{creates++;return owner;}},workDataInfrastructureFailureSet:false};
     const api=vm.runInNewContext(cache+'\nconst MediaImageHooks={helperMayStillRun};\n'+observe+'\n({processor,inspect:workDataHelpersMayStillRun})',ctx);
     a.equal(api.inspect(),false);a.equal(creates,0);await api.processor();a.equal(creates,1);
     a.equal(api.inspect(),expected);

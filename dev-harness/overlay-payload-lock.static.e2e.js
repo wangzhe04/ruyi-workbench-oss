@@ -53,6 +53,10 @@ ok(missingOnDisk.length === 0, '② 载荷表每条在磁盘存在' + (missingOn
 // 未打补丁的 Kimi CLI。把这两个跨目录依赖单独锁住，避免只靠 PAYLOAD_FILES 正则重建时漏审。
 const kimiCompatResources = ['resources/kimi-acp-compat-register.mjs', 'resources/kimi-acp-compat-loader.mjs'];
 ok(kimiCompatResources.every(file => payload.has(file)), '② Kimi ACP loader/register 均登记进 overlay 载荷');
+const mediaOverlayFiles = ['resources/native-file-read.py', 'resources/native-video-read.py',
+  'resources/media-runtime-dependencies.json', 'resources/media-runtime-sources.json',
+  'tools/media-runtime-lock.cjs', 'tools/verify-media-artifacts.cjs'];
+ok(mediaOverlayFiles.every(file => payload.has(file)), '② 文档和视频 worker、离线清册及校验器随 overlay 发放');
 const registerSource = fs.readFileSync(path.join(ROOT, 'resources', 'kimi-acp-compat-register.mjs'), 'utf8');
 ok(registerSource.includes("./kimi-acp-compat-loader.mjs"), '② Kimi ACP register 的 loader 依赖仍在资源包内');
 
@@ -118,13 +122,22 @@ ok(unregistered.length === 0, '③ 敏感目录(app/public 整棵、app/src、re
   }
   // 'resources' 根本身只出现在 doctor 的 resourcesRoot 字段(13-http-router 打印路径,不读内容),不算读口。
   readPoints.delete('resources');
+  // The verified corresponding-source archive belongs to the Full package.
+  // Source and overlay trees must work without carrying that binary archive.
+  const fullMediaSourceDir = 'resources/media-runtime-sources';
+  const fullPackager = fs.readFileSync(path.join(ROOT, 'tools', 'package-offline.ps1'), 'utf8');
+  const fullMediaSourcesCovered = fullPackager.includes('$mediaDestination = Join-Path $stage "resources\\media-runtime-sources"')
+    && fullPackager.includes('Copy-Item -LiteralPath (Join-Path $mediaSources "opencv-windows-ffmpeg-source-sidecar.zip") -Destination $mediaDestination')
+    && fullPackager.includes('Assert-MediaArtifactInventory $stage $accDst $mediaDestination');
+  ok(fullMediaSourcesCovered, '③b Full 包提供并验证对应源码目录');
   ok(readPoints.size >= 4, `③b 服务端 resources 读口扫得到(实得 ${readPoints.size} 处:${[...readPoints].join('、')})`);
   const uncovered = [...readPoints].filter(rp => {
+    if (rp === fullMediaSourceDir) return !fullMediaSourcesCovered;
     const abs = path.join(ROOT, rp);
     if (fs.existsSync(abs) && fs.statSync(abs).isFile()) return !payload.has(rp);
     return !sensitiveDirs.some(d => d === rp || d.startsWith(rp + '/') || rp.startsWith(d + '/'));
   });
-  ok(uncovered.length === 0, '③b 每个服务端 resources 读口都有载荷覆盖(文件已登记／目录在 ③ 扫描里)' + (uncovered.length ? '(没覆盖: ' + uncovered.join(', ') + ')' : ''));
+  ok(uncovered.length === 0, '③b 每个服务端 resources 读口都有载荷覆盖' + (uncovered.length ? '(没覆盖: ' + uncovered.join(', ') + ')' : ''));
 }
 
 // 走查第二波 #21:build-overlay 的 <version> 必填。修前默认 '0.3.0',不带参数时每个覆盖包的 version 都是 0.3.0,

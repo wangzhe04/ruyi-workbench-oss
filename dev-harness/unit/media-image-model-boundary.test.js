@@ -47,6 +47,36 @@ test('successful final commit has no asynchronous gap between authority assertio
   await f.post({url:'http://localhost/v1/chat/completions',headers:{},body:{messages:[{role:'user',content:'public'}]}});
   assert.deepEqual(f.events,['assert','fetch','release']);assert.equal(f.calls.length,1);
 });
+test('protected derived bytes cannot be redirected to a different model recipient',async()=>{
+  const f=fixture();f.gateway.configure({privacyModeV1:'off'});
+  const request={url:'http://localhost/v1/chat/completions',headers:{},body:{messages:[{role:'user',content:'public'}]}};
+  f.hooks.beforeModelPost=async({body})=>({body:{...body,derived:true},assert(){},release(){}});
+  await f.post(request);
+  assert.equal(f.calls[0].options.redirect,'error');
+  f.hooks.beforeModelPost=async({body})=>({body,assert(){},release(){}});
+  await f.post(request);
+  assert.equal(f.calls[1].options.redirect,undefined,'ordinary provider requests retain their redirect behavior');
+});
+test('a stale protected request is fenced before submit and again immediately before fetch',async()=>{
+  const f=fixture();f.gateway.configure({privacyModeV1:'off'});
+  let moved=false, resumeBorrow, enterBorrow;
+  const waiting=new Promise(resolve=>{enterBorrow=resolve;});
+  const stale=Error('a user steer arrived');
+  const request={url:'http://localhost/v1/chat/completions',headers:{},body:{messages:[{role:'user',content:'public'}]},
+    assertRequest(){if(moved)throw stale;}};
+  const record=body=>({body:{...body,derived:true},assert(){f.events.push('assert');},submit(){f.events.push('submit');},
+    complete(ok){f.events.push('complete:'+ok);},release(){f.events.push('release');}});
+  f.hooks.beforeModelPost=async({body})=>{await new Promise(resolve=>{resumeBorrow=resolve;enterBorrow();});return record(body);};
+  const first=f.post(request);
+  await waiting;moved=true;resumeBorrow();
+  await assert.rejects(first,error=>error===stale);
+  assert.deepEqual(f.events,['assert','release']);assert.equal(f.calls.length,0);
+
+  moved=false;f.events.length=0;
+  f.hooks.beforeModelPost=async({body})=>({...record(body),submit(){f.events.push('submit');moved=true;}});
+  await assert.rejects(f.post(request),error=>error===stale);
+  assert.deepEqual(f.events,['assert','submit','complete:false','release']);assert.equal(f.calls.length,0);
+});
 test('captured image policy rejects configuration and scope replacement, and never grants OFF or unknown mode',async()=>{
   const f=fixture();f.gateway.configure(config);let policy;
   await f.gateway.run('s1',config,async()=>{policy=f.gateway.captureMediaPolicy();assert.equal(policy.assert(),true);});

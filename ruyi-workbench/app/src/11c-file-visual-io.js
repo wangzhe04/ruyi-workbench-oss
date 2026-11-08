@@ -8,6 +8,7 @@ const FileVisualIo = (() => {
   const MAX_FILE_BYTES = 50 * 1024 * 1024;
   const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|tiff?)$/i;
   const DOCUMENT_EXT = /\.(pdf|docx|docm|dotx|pptx|pptm|xlsx|xlsm|odt|ods|odp)$/i;
+  const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|avi)$/i;
   // 隐私 M4(2026-11-05):PDF 隐藏层(嵌入文件/脚本/表单/打开动作/批注)不在「抽取出来的正文」里。
   // 判据【不能】放在 JS 里按原始字节找字面名 —— 复审实测:合法的 `/J#53cript` 名转义与 PDF 1.5+ 对象流
   // 都能 100% 绕过,而正文里出现 "/JavaScript" 的良性文档会被误拒。所以判据放在真正的解析器里
@@ -44,11 +45,24 @@ const FileVisualIo = (() => {
     } finally { await fh.close(); }
   }
   // Probe bytes as well as suffixes: renamed images must never be decoded as text.
-  async function kind(p) {
+  async function kind(p, protectedRead = false) {
     if (DOCUMENT_EXT.test(p)) return 'document';
     if (IMAGE_EXT.test(p)) return 'image';
+    if (protectedRead && VIDEO_EXT.test(p)) return 'video';
     const fh = await io.open(p, 'r');
-    try { const b = Buffer.alloc(16); const r = await fh.read(b, 0, b.length, 0); return mime(b.subarray(0, r.bytesRead)) ? 'image' : null; }
+    try {
+      const header = Buffer.alloc(protectedRead ? 1024 : 16);
+      const { bytesRead } = await fh.read(header, 0, header.length, 0);
+      const b = header.subarray(0, bytesRead);
+      if (mime(b)) return 'image';
+      if (protectedRead) {
+        const first = b.subarray(0, 4).toString('hex');
+        if (b.includes('%PDF-') || ['504b0304', '504b0506', '504b0708'].includes(first)) return 'document';
+        if (first === '1a45dfa3' || b.subarray(4, 8).toString('ascii') === 'ftyp'
+          || first === '52494646' && b.subarray(8, 12).toString('ascii') === 'AVI ') return 'video';
+      }
+      return null;
+    }
     finally { await fh.close(); }
   }
   async function image(p, args) {
@@ -90,6 +104,62 @@ const FileVisualIo = (() => {
     return { ok: false, code: 'reader_unavailable', error: 'Native document reading needs Python', path: p,
       hint: 'Use the bundled Python runtime or install Python. PDF requires pdfplumber; image conversion requires Pillow. No computer use/MCP connection is needed.' };
   }
+  const documentRefusals = new Set(['document_encrypted', 'document_stub', 'document_hidden_content', 'document_projection_limit',
+    'document_visual_required', 'document_render_unavailable', 'document_page_range', 'document_invalid', 'reader_unavailable']);
+  async function protectedDocument(p, args, _helperPath, signal, bytes) {
+    const refuse = (code, hint) => ({ ok: false, code, hint });
+    const cancelled = () => refuse('aborted', 'The protected document read was cancelled.');
+    const unavailable = () => refuse('reader_unavailable', 'Use the Full offline package with the verified media runtime.');
+    const invalid = () => refuse('document_read_failed', 'The protected document reader failed or returned an invalid projection.');
+    const ext = paths.extname(p).toLowerCase();
+    if (signal?.aborted) return cancelled();
+    if (!DOCUMENT_EXT.test(ext)) return refuse('document_unsupported', 'Use a supported document extension matching the actual file format.');
+    if (!Buffer.isBuffer(bytes) || !bytes.length) return invalid();
+    if (bytes.length > MAX_FILE_BYTES) return refuse('document_projection_limit', 'Split the document into smaller clean copies.');
+    if (typeof MediaImageHooks === 'undefined' || typeof MediaImageHooks.runLocalMediaHelper !== 'function') return unavailable();
+    const { pageOffset, pageLimit } = options(args);
+    const visual = args.as === 'image';
+    const opts = { pageOffset, pageLimit, visual, ownerStub: paths.win32.basename(p).startsWith('~$') };
+    let result;
+    try {
+      result = await MediaImageHooks.runLocalMediaHelper('native-file-read.py', ['--protected', ext, JSON.stringify(opts)], bytes,
+        { signal, timeoutMs: 30000, maxBytes: 12 * 1024 * 1024 });
+    } catch (error) {
+      if (signal?.aborted) return cancelled();
+      if (['privacy.image_runtime_unavailable', 'reader_unavailable'].includes(error?.code)) return unavailable();
+      if (error?.code === 'privacy.image_worker_timeout') return refuse('document_read_timeout', 'The protected document read timed out. Split it into a smaller clean copy.');
+      return invalid();
+    }
+    if (signal?.aborted) return cancelled();
+    if (result?.ok === false && documentRefusals.has(result.code) && typeof result.hint === 'string' && result.hint.length <= 300) {
+      const found = Array.isArray(result.found) && result.found.length <= 32
+        && result.found.every(layer => typeof layer === 'string' && /^[a-z-]{1,40}$/.test(layer)) ? { found: result.found } : {};
+      return { ...refuse(result.code, result.hint), ...found };
+    }
+    if (result?.ok !== true || result.mode !== 'document' || typeof result.content !== 'string' || !Array.isArray(result.images)) return invalid();
+    const { projection, content, images } = result;
+    if (!visual) {
+      return projection === 'document-text' && content.length <= 40000 && !images.length
+        ? { ok: true, mode: 'document', projection, content, images: [] } : invalid();
+    }
+    const { totalPages, nextPageOffset } = result;
+    if (projection !== (ext === '.pdf' ? 'pdf-pages' : 'office-content-preview') || content.length > 200
+      || !Number.isSafeInteger(totalPages) || totalPages < pageOffset || result.pageOffset !== pageOffset
+      || images.length !== Math.min(pageLimit, totalPages - pageOffset + 1)) return invalid();
+    const end = pageOffset + images.length;
+    if (nextPageOffset !== (end <= totalPages ? end : undefined)) return invalid();
+    for (const [index, image] of images.entries()) {
+      if (image?.name !== `page-${pageOffset + index}.png` || image.mimeType !== 'image/png'
+        || typeof image.data !== 'string' || image.data.length > Math.ceil(MAX_IMAGE_BYTES / 3) * 4) return invalid();
+      const buf = Buffer.from(image.data, 'base64');
+      try {
+        if (buf.length < 24 || buf.length > MAX_IMAGE_BYTES || buf.toString('base64') !== image.data || mime(buf) !== 'image/png'
+          || buf.toString('ascii', 12, 16) !== 'IHDR' || ![buf.readUInt32BE(16), buf.readUInt32BE(20)].every(n => n > 0 && n <= 1600)) return invalid();
+      } finally { buf.fill(0); }
+    }
+    return { ok: true, mode: 'document', projection, content, pageOffset, totalPages,
+      ...(nextPageOffset === undefined ? {} : { nextPageOffset }), images: images.map(({ name, mimeType, data }) => ({ name, mimeType, data })) };
+  }
   // Only explicitly requested Markdown/HTML images are followed. Every local link gets the caller's guard.
   async function linkedImages(p, content, args, guard) {
     if (args.includeImages !== true || !/\.(md|markdown|html?|xhtml)$/i.test(p)) return {};
@@ -113,5 +183,5 @@ const FileVisualIo = (() => {
     return { images, imageWarnings, totalImages: unique.length,
       ...(opt.imageOffset + selected.length < unique.length ? { nextImageOffset: opt.imageOffset + selected.length } : {}) };
   }
-  return Object.freeze({ kind, image, document, linkedImages });
+  return Object.freeze({ kind, image, document, protectedDocument, linkedImages });
 })();

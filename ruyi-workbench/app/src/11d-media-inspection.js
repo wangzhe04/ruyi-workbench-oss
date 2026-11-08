@@ -7,6 +7,81 @@ const MediaInspection = (() => {
   const cache = new Map();
   const finite = value => Number.isFinite(Number(value)) ? Number(value) : null;
   const bounded = (value, fallback, low, high) => value == null || !Number.isFinite(Number(value)) ? fallback : Math.max(low, Math.min(high, Number(value)));
+  const VIDEO_FORMATS = new Map([
+    ['.mp4', 'mov'], ['.m4v', 'mov'], ['.mov', 'mov'],
+    ['.mkv', 'matroska'], ['.webm', 'matroska'], ['.avi', 'avi'],
+  ]);
+  const VIDEO_FAILURES = Object.freeze({
+    video_format_unsupported: 'Use a local MP4, M4V, MOV, MKV, WebM or AVI video file.',
+    video_options_invalid: 'Use startSeconds 0–86400, frameCount 1–4, and intervalSeconds 0.25–30.',
+    video_source_invalid: 'Use a nonempty local video file of at most 50 MiB.',
+    video_decoder_unavailable: 'The verified offline video decoder is unavailable.',
+    video_decode_failed: 'The local decoder could not read this video track.',
+    video_no_frames: 'No video frame was decoded in the requested time window.',
+    video_timestamp_invalid: 'The decoder could not establish a usable video timeline.',
+    video_limits_exceeded: 'The video exceeds the local frame decoding limits.',
+  });
+  const videoFailure = code => ({ ok: false, code, error: VIDEO_FAILURES[code] });
+  const isVideoPath = file => VIDEO_FORMATS.has(nodePath.extname(file).toLowerCase());
+
+  function videoTargets({ startSeconds = 0, frameCount = 3, intervalSeconds = 1 }) {
+    if (!Number.isFinite(startSeconds) || startSeconds < 0 || startSeconds > 86400
+      || !Number.isInteger(frameCount) || frameCount < 1 || frameCount > 4
+      || !Number.isFinite(intervalSeconds) || intervalSeconds < 0.25 || intervalSeconds > 30) return null;
+    const start = Math.round(startSeconds * 1000), step = Math.round(intervalSeconds * 1000);
+    return Array.from({ length: frameCount }, (_, index) => start + index * step);
+  }
+
+  function isVideoFramePng(data) {
+    if (typeof data !== 'string' || data.length > Math.ceil(4 * 1024 * 1024 / 3) * 4
+      || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return false;
+    const bytes = Buffer.from(data, 'base64');
+    try {
+      if (bytes.length < 33 || bytes.length > 4 * 1024 * 1024 || bytes.toString('base64') !== data
+        || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || bytes.readUInt32BE(8) !== 13
+        || bytes.toString('ascii', 12, 16) !== 'IHDR') return false;
+      const width = bytes.readUInt32BE(16), height = bytes.readUInt32BE(20);
+      return width >= 1 && width <= 960 && height >= 1 && height <= 960;
+    } finally { bytes.fill(0); }
+  }
+
+  // The caller supplies an authorized, bounded snapshot. Only its bytes and the
+  // selected demuxer reach the verified worker, never the source path.
+  async function videoFrames(file, args = {}, signal, bytes) {
+    const format = VIDEO_FORMATS.get(nodePath.extname(file).toLowerCase());
+    if (!format) return videoFailure('video_format_unsupported');
+    const targets = videoTargets(args);
+    if (!targets) return videoFailure('video_options_invalid');
+    if (!Buffer.isBuffer(bytes) || !bytes.length || bytes.length > 50 * 1024 * 1024) return videoFailure('video_source_invalid');
+    signal?.throwIfAborted();
+    if (typeof MediaImageHooks === 'undefined' || typeof MediaImageHooks.runLocalMediaHelper !== 'function') {
+      return videoFailure('video_decoder_unavailable');
+    }
+    const whitelist = format === 'matroska' ? 'matroska,webm' : format;
+    const captureOptions = `protocol_whitelist;ruyi-no-external-io|format_whitelist;${whitelist}|input_format;${format}|max_pixels;8294400`
+      + (format === 'mov' ? '|enable_drefs;0|use_absolute_path;0' : '');
+    const result = await MediaImageHooks.runLocalMediaHelper('native-video-read.py', [format, JSON.stringify(targets)], bytes, {
+      signal, timeoutMs: 30000, maxBytes: 18 * 1024 * 1024,
+      env: { OPENCV_FFMPEG_CAPTURE_OPTIONS: captureOptions, OPENCV_LOG_LEVEL: 'SILENT' },
+    });
+    signal?.throwIfAborted();
+    if (result?.ok === false && Object.hasOwn(VIDEO_FAILURES, result.code)) return videoFailure(result.code);
+    if (result?.ok !== true || !Array.isArray(result.frames) || !result.frames.length
+      || result.frames.length > targets.length || !result.frames.every((frame, index) => frame?.requestedMs === targets[index]
+        && Number.isSafeInteger(frame.timestampMs) && frame.timestampMs >= frame.requestedMs
+        && frame.timestampMs <= frame.requestedMs + 5000 && (index === 0 || frame.timestampMs > result.frames[index - 1].timestampMs)
+        && isVideoFramePng(frame.png))) return videoFailure('video_decode_failed');
+    const requestedSeconds = targets.map(value => value / 1000);
+    const sampledSeconds = result.frames.map(frame => frame.timestampMs / 1000);
+    const missedSeconds = requestedSeconds.slice(sampledSeconds.length);
+    const coverage = { requestedSeconds, sampledSeconds, missedSeconds, fullVideo: false,
+      audioIncluded: false, subtitlesIncluded: false, containerMetadataIncluded: false };
+    const content = `Video stills at decoded timestamps ${sampledSeconds.join(', ')} seconds. Only the returned frames were sampled.`
+      + (missedSeconds.length ? ` No frame was returned for requested times ${missedSeconds.join(', ')} seconds.` : '')
+      + ' Audio, subtitle tracks and container metadata were excluded.';
+    return { ok: true, mode: 'video', content, coverage,
+      images: result.frames.map((frame, index) => ({ name: `frame-${index + 1}.png`, mimeType: 'image/png', data: frame.png })) };
+  }
 
   function run(command, argv, options = {}) {
     return new Promise(resolve => {
@@ -222,5 +297,5 @@ const MediaInspection = (() => {
       nearClipThresholdDbfs: -0.1, listeningPerformed: false,
       note: 'Objective signal analysis, not listening. Near-clip windows flag sample peaks at or above -0.1 dBFS; they do not prove audible distortion. Use file_read on visual evidence and user playback for subjective review.' };
   }
-  return { dependencies, locate, checkSyntax, inspectAudio, audioCollector };
+  return { dependencies, locate, checkSyntax, inspectAudio, audioCollector, isVideoPath, videoFrames };
 })();

@@ -63,7 +63,7 @@ function providerSseAsCompletion(raw) {
 }
 // 单次模型 JSON POST 的最终发送边界。调用方持有头、信号、协议与重试/读体生命周期。
 // 异步保护完成后先编码，再检查当前策略，直接提交 fetch；不得返回正文让调用方 await 后另发。
-async function providerModelPostOnce({ url, headers, body, signal }) {
+async function providerModelPostOnce({ url, headers, body, signal, assertRequest }) {
   const postPreparedBody = async () => {
     const policyGuard = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.disclosurePolicyGuard() : null;
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
@@ -81,10 +81,15 @@ async function providerModelPostOnce({ url, headers, body, signal }) {
     // No await between the final source/policy/processor/artifact check and fetch.
     // Encoding and the preceding async storage borrow cannot leave stale authority.
     if (media) media.assert();
+    if (assertRequest) assertRequest();
     try {
       if (media?.submit) media.submit();
       if (dispatch) dispatch.assert(dispatchFence);
-      const response = await fetch(url, { method: 'POST', headers, body: encoded, signal });
+      if (assertRequest) assertRequest();
+      // Media authority is bound to this exact URL. A redirect would submit the
+      // same prepared bytes to a different recipient outside the final fence.
+      const response = await fetch(url, { method: 'POST', headers, body: encoded, signal,
+        ...(media && media.body !== prepared ? { redirect: 'error' } : {}) });
       if (media?.complete) media.complete(response?.ok === true);
       return response;
     } catch (error) { if (media?.complete) media.complete(false); throw error; }

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 141 | 4334 | 4280 | 940 | 67 | 0 | 1 |
+| 141 | 4336 | 4285 | 940 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -88,17 +88,17 @@
 | 70 | `06j-scheduler-core.js` | engine | 47 | 0 | 0 |
 | 71 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
 | 72 | `07-autonomy.js` | orchestration | 157 | 92 | 21 |
-| 73 | `08-agent-runs.js` | orchestration | 133 | 127 | 25 |
+| 73 | `08-agent-runs.js` | orchestration | 133 | 128 | 25 |
 | 74 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 75 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 76 | `09-workflow.js` | orchestration | 32 | 279 | 29 |
+| 76 | `09-workflow.js` | orchestration | 32 | 280 | 29 |
 | 77 | `09c-thread-relay.js` | orchestration | 1 | 49 | 13 |
-| 78 | `10-context-governance.js` | orchestration | 228 | 116 | 21 |
+| 78 | `10-context-governance.js` | orchestration | 229 | 116 | 21 |
 | 79 | `11-native-tools.js` | tools | 144 | 52 | 9 |
 | 80 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
-| 81 | `11c-file-visual-io.js` | tools | 1 | 2 | 1 |
+| 81 | `11c-file-visual-io.js` | tools | 1 | 3 | 1 |
 | 82 | `11d-media-inspection.js` | tools | 1 | 1 | 1 |
-| 83 | `12-tool-dispatch.js` | tools | 78 | 147 | 23 |
+| 83 | `12-tool-dispatch.js` | tools | 79 | 149 | 23 |
 | 84 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
 | 85 | `13-http-router.js` | transport | 75 | 264 | 33 |
 | 86 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
@@ -439,7 +439,7 @@
 | `08-agent-runs.js` | `07-autonomy.js` | backward | `LOOP_GUARD_LIMITS`, `MAIL_QUEUE_MAX`, `MEMORY_WRITE_TOOL_NAMES`, `activeAgentRuns`, `agentRunDir`, `agentRunFile`, `agentRunSnapshotStamp`, `agentRunSnapshotStore`, `agentRunWriteChains`, `bridgedToolTier`, `buildOpenAiTools`, `classifyToolPacks`, `dropPolicyDisabledBridgedTools`, `fetchOpenAiModels`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `neutralizeInjectedPrefixes`, `openAiStreamOnce`, `readAgentRunSnapshot`, `requestNativePermission`, `runClaudeSubAgentOnce`, `toolDisabledByPolicy`, `toolDisabledResult`, `toolPackForName`, `webPayloadReason` |
 | `08-agent-runs.js` | `09-workflow.js` | forward | `launchPersistedAgentRun` |
 | `08-agent-runs.js` | `09d-token-estimation.js` | forward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
-| `08-agent-runs.js` | `10-context-governance.js` | forward | `boundToolResultForDisplay`, `compactionRefetchRefusal`, `compactionRefetchWarning`, `createCompactionRefetchGuard`, `encodeModelToolResult`, `estimateFactor`, `isContextOverflowError`, `maybeCompactSubHistory`, `noteWindowOvershoot`, `recordCompactUsage`, `runForcedOverflowCompaction`, `writeHistorySnapshot` |
+| `08-agent-runs.js` | `10-context-governance.js` | forward | `ToolPreparedMedia`, `boundToolResultForDisplay`, `compactionRefetchRefusal`, `compactionRefetchWarning`, `createCompactionRefetchGuard`, `encodeModelToolResult`, `estimateFactor`, `isContextOverflowError`, `maybeCompactSubHistory`, `noteWindowOvershoot`, `recordCompactUsage`, `runForcedOverflowCompaction`, `writeHistorySnapshot` |
 | `08-agent-runs.js` | `13-http-router.js` | forward | `resolveNodeModel` |
 | `08-agent-runs.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
 | `09-workflow.js` | `00-boot.js` | backward | `DeliveryHooks`, `EventStreamHooks`, `MemoryCliHooks`, `RUYI_EVENTS`, `SubAgentMemoryHooks`, `TOOL_TIER_RANK`, `ThreadRelayHooks`, `WorkDataMaintenanceHooks`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `localTurnTimeParts`, `makeId`, `neutralizeFenceTag`, `nowIso`, `text` |
@@ -469,7 +469,7 @@
 | `09-workflow.js` | `08-agent-runs.js` | backward | `accumulateRunUsage`, `agentRunCapabilities`, `agentRunEventsJournal`, `agentRunResultSlice`, `agentRunRoster`, `agentRunSaveFailures`, `aggregateAgentVote`, `aggregateCoverage`, `appendAgentRunEvent`, `buildAgentRunEnvelope`, `buildOrchestrateHint`, `buildUpstreamContext`, `bumpRunIntervention`, `classifyNodeErrorText`, `computeSchedulerStep`, `dedupeAgentFindings`, `deriveNodeOutputs`, `evalWaitCondition`, `evaluateNodeToolEvidence`, `evaluateWorkflowCondition`, `flushAgentRunEvents`, `formatNodeEvidencePrompt`, `getAgentWorkflows`, `indexNodeEvidence`, `materializePoolItem`, `nodeDeliveryEligibility`, `normalizeAgentGate`, `normalizeWaitSpec`, `normalizeWorkflowCondition`, `normalizeWorkflowLoop`, `orchestrateArgsProblem`, `orchestrateModelNotes`, `ownAgentMessageReceipt`, `parseStructuredAgentOutput`, `poolChainDepth`, `propagateAssignments`, `purgeNodeEvidence`, `readAgentRunRecord`, `recordAgentNodeProgress`, `recordRunBudgetTrippedEvent`, `recordRunStalledEvent`, `resolveAgentTeamRoute`, `resolveOrchestrateFollowup`, `resolveOrchestrateNodes`, `runSubAgent`, `sanitizeAgentOutputSchema`, `saveAgentRun`, `summarizeAgentWorkflowRun`, `syncRunEventSeq`, `validateAgentJsonSchema`, `verdictPasses`, `verifyNodeClaims`, `workflowProgressFingerprint` |
 | `09-workflow.js` | `09b-replan-ledger.js` | backward | `proposeReplanPatch`, `recordNodeContinuation`, `validateReplanPatch` |
 | `09-workflow.js` | `09d-token-estimation.js` | backward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
-| `09-workflow.js` | `10-context-governance.js` | forward | `agentNodeContextWindow`, `appendPromptToLastUserMessage`, `boundToolResultForDisplay`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `buildSessionScratchpadInjectPrompt`, `compactionRefetchRefusal`, `compactionRefetchWarning`, `createCompactionRefetchGuard`, `encodeModelToolResult`, `estimateFactor`, `isContextOverflowError`, `maybeAutoCompact`, `maybeWriteSessionNotes`, `noteEstimateSample`, `noteWindowOvershoot`, `providerContextWindow`, `recordCompactUsage`, `runForcedOverflowCompaction`, `upsertCompactMarker`, `writeHistorySnapshot` |
+| `09-workflow.js` | `10-context-governance.js` | forward | `ToolPreparedMedia`, `agentNodeContextWindow`, `appendPromptToLastUserMessage`, `boundToolResultForDisplay`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `buildSessionScratchpadInjectPrompt`, `compactionRefetchRefusal`, `compactionRefetchWarning`, `createCompactionRefetchGuard`, `encodeModelToolResult`, `estimateFactor`, `isContextOverflowError`, `maybeAutoCompact`, `maybeWriteSessionNotes`, `noteEstimateSample`, `noteWindowOvershoot`, `providerContextWindow`, `recordCompactUsage`, `runForcedOverflowCompaction`, `upsertCompactMarker`, `writeHistorySnapshot` |
 | `09-workflow.js` | `13-http-router.js` | forward | `buildModelHint`, `getProxyModelsCache`, `resolveNodeModel` |
 | `09b-replan-ledger.js` | `00-boot.js` | backward | `TOOL_TIER_RANK`, `hashArgs`, `makeId`, `nowIso` |
 | `09c-thread-relay.js` | `00-boot.js` | backward | `SessionExecutionHooks`, `ThreadRelayHooks`, `URL`, `apiFailure`, `crypto`, `json`, `nowIso`, `runKeyedChain`, `text` |
@@ -518,9 +518,9 @@
 | `11-native-tools.js` | `06-provider-engine.js` | backward | `markNetworkOnline`, `networkAnchors`, `probeAny` |
 | `11-native-tools.js` | `07-autonomy.js` | backward | `MAIL_TEXT_MAX`, `activeAgentRuns`, `neutralizeInjectedPrefixes` |
 | `11b-file-text-io.js` | `00-boot.js` | backward | `cp`, `text` |
-| `11c-file-visual-io.js` | `00-boot.js` | backward | `cp`, `paths` |
+| `11c-file-visual-io.js` | `00-boot.js` | backward | `MediaImageHooks`, `cp`, `paths` |
 | `11d-media-inspection.js` | `00-boot.js` | backward | `MediaImageHooks` |
-| `12-tool-dispatch.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `InternalMcpHooks`, `MigrationHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `TOOL_TIER_RANK`, `URL`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
+| `12-tool-dispatch.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `InternalMcpHooks`, `MediaImageHooks`, `MigrationHooks`, `OVERLAY_ID`, `SKILL_ID_RE`, `TOOL_TIER_RANK`, `URL`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
 | `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `agentCliLauncherOk`, `atomicWriteJson`, `commandForSelfMcp`, `defaultConfig`, `ensureDesktopMcpWarm`, `externalServerJs`, `normalizeConfig`, `readConfig`, `safeSessionId`, `selectedAgentCli`, `staticBase` |
 | `12-tool-dispatch.js` | `01c-runtime-flags.js` | backward | `execResultCacheEnabled`, `execResultCacheMaxEntries`, `observationRecallEnabled` |
 | `12-tool-dispatch.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
@@ -538,7 +538,7 @@
 | `12-tool-dispatch.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName`, `stewardAssemblePlaybookPrompt`, `stewardPlaybookMissingInputs` |
 | `12-tool-dispatch.js` | `07-autonomy.js` | backward | `NATIVE_COMMAND_TOOL_NAMES`, `NATIVE_DESKTOP_TOOL_NAMES`, `bridgedToolTier`, `compareToolRetrievalShadow`, `listCompactTools`, `nativeToolAvailableInContext`, `nativeToolDisabledByPolicy`, `nativeToolSchema`, `nativeToolsAcceptingArgKeys`, `searchToolCatalog`, `toolArgsSkeleton`, `toolDisabledByPolicy`, `toolDisabledResult` |
 | `12-tool-dispatch.js` | `08-agent-runs.js` | backward | `BUILTIN_AGENT_WORKFLOWS`, `getAgentWorkflows` |
-| `12-tool-dispatch.js` | `10-context-governance.js` | backward | `providerTurnQuotaKey`, `rehydrateObservation` |
+| `12-tool-dispatch.js` | `10-context-governance.js` | backward | `ToolPreparedMedia`, `providerTurnQuotaKey`, `rehydrateObservation` |
 | `12-tool-dispatch.js` | `11-native-tools.js` | backward | `NativeSourceHooks`, `binaryReadHint`, `gitDiff`, `gitStatus`, `isBinaryReadPath`, `levenshtein`, `powershellMissingOr`, `privacyReadTextWindow`, `privacySourceActive`, `privacySourceLine`, `privacySourceLineOffsets`, `privacySourceMark`, `privacySourceViews`, `probeRgAsync`, `readIfExists` |
 | `12-tool-dispatch.js` | `11b-file-text-io.js` | backward | `FileTextIo` |
 | `12-tool-dispatch.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
@@ -789,7 +789,7 @@
 | `13bb-media-derived-store.js` | `01x-work-data-migration-codecs.js` | backward | `WorkDataMigrationCodecs` |
 | `13bc-media-image-processor.js` | `00-boot.js` | backward | `VERSION`, `text` |
 | `13bd-media-image-service.js` | `13ba-media-image-contract.js` | backward | `MediaImageContract` |
-| `13be-media-image-host.js` | `00-boot.js` | backward | `MediaImageHooks`, `URL`, `WorkDataMaintenanceHooks`, `apiFailure`, `appRoot`, `crypto`, `fs`, `fsp`, `json`, `path`, `paths` |
+| `13be-media-image-host.js` | `00-boot.js` | backward | `MediaImageHooks`, `URL`, `WorkDataMaintenanceHooks`, `apiFailure`, `crypto`, `externalRoot`, `fs`, `fsp`, `json`, `path`, `paths` |
 | `13be-media-image-host.js` | `01-config.js` | backward | `assertSessionIdForPath`, `atomicWriteJson`, `readConfig`, `readJsonBody`, `send`, `tokenOk` |
 | `13be-media-image-host.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13be-media-image-host.js` | `02-session-store.js` | backward | `loadSession`, `sessionSaveIsTombstoned` |

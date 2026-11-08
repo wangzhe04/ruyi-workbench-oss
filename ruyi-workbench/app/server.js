@@ -29375,7 +29375,7 @@ function providerSseAsCompletion(raw) {
 }
 // 单次模型 JSON POST 的最终发送边界。调用方持有头、信号、协议与重试/读体生命周期。
 // 异步保护完成后先编码，再检查当前策略，直接提交 fetch；不得返回正文让调用方 await 后另发。
-async function providerModelPostOnce({ url, headers, body, signal }) {
+async function providerModelPostOnce({ url, headers, body, signal, assertRequest }) {
   const postPreparedBody = async () => {
     const policyGuard = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.disclosurePolicyGuard() : null;
     if (signal?.aborted) throw Object.assign(new Error('The operation was aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
@@ -29393,10 +29393,15 @@ async function providerModelPostOnce({ url, headers, body, signal }) {
     // No await between the final source/policy/processor/artifact check and fetch.
     // Encoding and the preceding async storage borrow cannot leave stale authority.
     if (media) media.assert();
+    if (assertRequest) assertRequest();
     try {
       if (media?.submit) media.submit();
       if (dispatch) dispatch.assert(dispatchFence);
-      const response = await fetch(url, { method: 'POST', headers, body: encoded, signal });
+      if (assertRequest) assertRequest();
+      // Media authority is bound to this exact URL. A redirect would submit the
+      // same prepared bytes to a different recipient outside the final fence.
+      const response = await fetch(url, { method: 'POST', headers, body: encoded, signal,
+        ...(media && media.body !== prepared ? { redirect: 'error' } : {}) });
       if (media?.complete) media.complete(response?.ok === true);
       return response;
     } catch (error) { if (media?.complete) media.complete(false); throw error; }
@@ -49920,7 +49925,7 @@ function toolPackForName(name, bridgedRoute) {
 // bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
 // deterministic fields derived from name, description and JSON Schema parameters.
 const TOOL_RETRIEVAL_HINTS = Object.freeze({
-  file_read: { capabilities: ['workspace.file.read', 'image.view', 'document.read'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '看图', '视觉输入', '读取文档', '读取PDF', 'read workspace file', 'read image', 'view image', 'view image vision', 'vision'] },
+  file_read: { capabilities: ['workspace.file.read', 'image.view', 'document.read', 'video.sample'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '看图', '视觉输入', '读取文档', '读取PDF', '视频抽帧', 'read workspace file', 'read image', 'view image', 'view image vision', 'vision', 'video frames', 'sample video'] },
   audio_inspect: { capabilities: ['audio.inspect', 'audio.loudness', 'audio.waveform'], aliases: ['音频验收', '音频分析', '响度', '削波', 'audio inspect', 'audio levels', 'LUFS'] },
   media_probe: { capabilities: ['media.dependencies.inspect'], aliases: ['依赖探测', '媒体工具链', 'ffmpeg', 'ffprobe', 'chrome', 'ffmpeg ffprobe chrome', 'media dependencies'] },
   code_check: { capabilities: ['code.syntax.check'], aliases: ['语法检查', '代码体检', '写盘前语法检查', 'syntax check', 'validate code'] },
@@ -51182,9 +51187,9 @@ function projectActionModelView(history, auditMap) {
 // failover 判定、400 归因(工具被拒 / 超窗 / stream_options)、SSE 分帧(空行分事件、多行 data: 拼接、[DONE])、raw_line;
 // 每一帧交给 protocol.createStreamDecoder 的解码器,非流式回体交给 protocol.decodeCompletion。调用方(09/08)显式传
 // protocol;没传(老调用点、单测)时按请求体形状认(Responses 用 input 项,chat 用 messages)。
-async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol }) {
+async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol, allowCompatibilityRetry = true, assertRequest }) {
   const wire = protocol || providerWireProtocolForBody(body);
-  const doFetch = b => providerModelPostOnce({ url: chatUrl, headers, body: b, signal: ctrl ? ctrl.signal : undefined });
+  const doFetch = b => providerModelPostOnce({ url: chatUrl, headers, body: b, signal: ctrl ? ctrl.signal : undefined, assertRequest });
   let res;
   try {
     res = await doFetch(body);
@@ -51233,10 +51238,10 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
     // 58 号批 2:协议内的兼容重打(Anthropic:思考块签名校验失败 → 去掉思考块;网关不认 thinking / output_config 等 → 去掉点名字段)。
     // chat / responses 恒返回 null,走下面原有的 stream_options 分支,行为不变。
-    const retryBody = wire.retryOn400(body, t, { url: chatUrl });   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
+    const retryBody = allowCompatibilityRetry ? wire.retryOn400(body, t, { url: chatUrl }) : null;   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
     if (retryBody) {
       res = await doFetch(retryBody);
-    } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
+    } else if (allowCompatibilityRetry && body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
       // 不再认裸 invalid:OpenAI 系所有 400 的 type 都是 invalid_request_error,认它等于把每个注定失败的 400
       // 都剥 stream_options 白打第二遍。真拒收 stream_options 的端点会点名它(或说 unsupported / unknown)。
       // Some servers reject stream_options — retry once without it before failing.
@@ -52894,7 +52899,7 @@ async function requestDelegationPermission(session, config, name, args, tier, on
   if (signal) { signal.addEventListener('abort', cancel, { once: true }); if (signal.aborted) cancel(); }
   try { return await decision; } finally { if (signal) signal.removeEventListener('abort', cancel); }
 }
-async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, closeInbox, teamRoster, poolPolicy, originTurnAgentCap, onToolsReady, onBudgetTripped, runId, interactivePermissions, onPermissionWait }, lifecycle) {
+async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, hasPendingInbox, closeInbox, teamRoster, poolPolicy, originTurnAgentCap, onToolsReady, onBudgetTripped, runId, interactivePermissions, onPermissionWait }, lifecycle) {
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -53029,16 +53034,20 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   // The delegated task and later steers are new inputs, never historical user data.
   if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.bindHostHistory(privacyHistoryOwner, []);
   const headers = wire.requestHeaders(provider, { model: subModel });
+  const preparedToolMedia = ToolPreparedMedia.create({ provider, model: subModel, sessionId: parentSession.id, turnSeq: parentSession.turnSeq,
+    headers, endpoint: () => chatUrl, signal: ctrl && ctrl.signal });
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
   // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
   // toolsRejected flag and died on the 400). Mutated by the transient-retry loop below.
   let useTools = tools.length > 0, toolsRetried = false;
-  const buildBody = () => {
+  const buildBody = (includePreparedMedia = false) => {
     // 与父回合同一个协议(58 号批 1):chat 发 messages,Responses 发 instructions + input 项(system 折进 instructions);
     // v1.8:服务端工具项 subServerToolItems 接在翻译后的历史之后(DeepSeek 在服务端恢复搜索结果)。
     const privacyHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(privacyHistoryOwner, subHistory) : subHistory;
-    const b = wire.encodeMessages({ model: subModel, messages: [{ role: 'system', content: sys }, ...privacyHistory], stream: true, instructions: sys, serverItems: subServerToolItems, provider, hasTools: useTools });
+    const messages = [{ role: 'system', content: sys }, ...privacyHistory];
+    if (includePreparedMedia) preparedToolMedia.append(messages);
+    const b = wire.encodeMessages({ model: subModel, messages, stream: true, instructions: sys, serverItems: subServerToolItems, provider, hasTools: useTools });
     wire.applyTemperature(b, temp);
     applyProviderReasoningEffort(b, provider, wire.id);
     // v1.8.2:服务端 web_search 只在服务商显式开启(serverWebSearch:true)时映射;否则 web_search 仍是本地工具。
@@ -53115,7 +53124,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON；字符串值内部的双引号必须转义为 \\"。',
     });
     try {
-      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire });
+      const call = await callModel();
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
       if (!call.httpError) VisualPipeline.pruneOldImages(subHistory);
       if (!call.httpError && call.text && String(call.text).trim()) {
@@ -53128,6 +53137,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       return false;
     } finally {
       useTools = hadTools;
+      await preparedToolMedia.clear();
     }
   };
   const drainInbox = () => {
@@ -53157,6 +53167,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       }
     return count;
   };
+  const callModel = () => preparedToolMedia.send(assertRequest => openAiStreamOnce({ chatUrl, headers, body: buildBody(!!assertRequest),
+    ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire, allowCompatibilityRetry: !assertRequest, assertRequest }),
+  () => hasPendingInbox?.() === true, drainInbox);
   try {
     let iter = 0;
     for (; iter < budget; iter++) {
@@ -53164,7 +53177,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // about to make even when this iteration exits via `break` without tools.
       iters = iter + 1;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
-      drainInbox();
+      if (drainInbox()) await preparedToolMedia.clear();
       // 第28波(§28a):迭代边界两级自动压缩(与主回合共用 10 runAutoCompaction)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:强压只靠 L1 的重试之后,下一迭代不再白跑一次 L2
@@ -53183,17 +53196,18 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断),服务商回了 Retry-After(07 带出 retryAfterMs,封顶 30 s)就至少睡这么久
       // —— 与主回合(09)同口径;修前限流窗口还没过就把 3 次重试用光,子代理整个失败。其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
+      const mediaEndpoint = preparedToolMedia.endpoint();
       const sent = await withTransientRetry({
-        maxRetries: 3,
+        maxRetries: mediaEndpoint ? 0 : 3,
         isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         signal: ctrl && ctrl.signal,
         backoffMs: (n, c) => Math.max(Math.min(2000, 250 * n), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
-        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire }),
+        attempt: callModel,
         classify: c => {
-          if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
+          if (!mediaEndpoint && c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
           return providerCallIsTransient(c) ? 'retry' : 'done';
         },
-      });
+      }).finally(preparedToolMedia.clear);
       if (sent.aborted) { subOk = false; subErr = '已中止'; break; }
       const call = sent.result;
       // v1.0-S6 (B): the sub-turn runs on a SINGLE endpoint (transient retry above, but no multi-endpoint
@@ -53204,7 +53218,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       if (!call.httpError) VisualPipeline.pruneOldImages(subHistory);
       if (call.httpError) {
         // 第32波: 首次传输/超时失败后,若已有检查点,自动恢复续跑(不重做已完成工具调用)
-        if (savepoint && !checkpointRestored && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+        if (!mediaEndpoint && savepoint && !checkpointRestored && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           checkpointRestored = true;
           subHistory.length = 0;
           for (const m of savepoint.subHistory) subHistory.push(JSON.parse(JSON.stringify(m)));
@@ -53231,7 +53245,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         const isOverWindow = /^HTTP 400\b/.test(he) && isContextOverflowError(he, { legacySubagentFallback: true });
         // 第45波 45c(对称 45b):over-window 不再是终态 —— 强制压缩 subHistory(L1 蒸发 + L2 预算化摘要)
         // 并重试本迭代一次。maybeCompactSubHistory 只在迭代边界触发,单条巨型工具结果可在边界前爆窗。
-        if (isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+        if (!mediaEndpoint && isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           overWindowRetried = true;
           const estNow = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]);
           const parentId = parentSession && parentSession.id ? String(parentSession.id) : '';
@@ -53500,7 +53514,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                 toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
                 recheckDelegationPermission();
                 // 代理模式 v2:把节点的 abort 信号交给工具 —— 显式停止(后台任务条/stop 动作)能中断在跑的长命令,而不是等它自然结束。
-                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, provider, execution, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
+                resultObj = await toolCall(tc.name, args, preparedToolMedia.bind({ sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, provider, execution, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal })); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
               }
               catch (e) { resultObj = toolFailureResult(e); } // 审计 N5:未知工具附 did-you-mean(N4 的命令/桌面开关由 toolCall 按 ctx.config 拒绝)
               finally { stopToolBeat(); releaseResourceLease(toolLease); }
@@ -53539,10 +53553,13 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             subToolImages.push({ role: 'user', content: [{ type: 'text', text: `[工具 ${tc.name} 返回的图像，来源与页码见工具结果]` },
               ...imgs.map(uri => ({ type: 'image_url', image_url: { url: uri } }))] });
           }
-          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, modelResult) });
+          const toolReply = { role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, modelResult) };
+          subHistory.push(toolReply);
+          preparedToolMedia.queue(resultObj, toolReply);
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
           if (!subOk) break; // a denied delegation step cannot execute the rest of this tool batch
         }
+        await preparedToolMedia.finishBatch(subOk && !(ctrl && ctrl.signal && ctrl.signal.aborted));
         if (!subOk) break;
         if (!(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           const imageBatchStart = subHistory.length;
@@ -53597,6 +53614,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   } catch (e) {
     subOk = false; subErr = (e && e.message) ? e.message : String(e);
   } finally {
+    await preparedToolMedia.close().catch(error => {
+      if (subOk) { subOk = false; subErr = error.message; }
+      try { logEvent({ kind: 'media_cleanup_failed', sessionId: parentSession.id, subagentId, code: error.code }); } catch { /* preserve node outcome */ }
+    });
     if (typeof closeInbox === 'function') closeInbox(ctrl && ctrl.signal && ctrl.signal.aborted ? 'aborted' : subOk ? 'completed' : 'provider_error');
   }
   const finalText = resultText.trim();
@@ -56532,6 +56553,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
                 }
               },
               getSteer: () => drainNodeSteers(node.id),
+              hasPendingInbox: () => [runtime.steerQueues, runtime.autoSteerQueues, runtime.mailQueues].some(queues => queues.get(node.id)?.length),
               // 团队模式 v2 (A/B): 按本节点 id 绑定的投递闭包。propose 仅在池策略非 off 时注入(否则工具不注册);mail 恒注入。
               closeInbox: reason => { if (!node.mailboxClosedReason) node.mailboxClosedReason = reason; dropNodeMail(node.id, node.mailboxClosedReason); },
               getMail: () => { const q = runtime.mailQueues.get(node.id); return q && q.length ? q.splice(0, q.length) : []; },
@@ -57599,6 +57621,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   };
   await refreshScratchpadPrompt('turn_start');
   const headers = wire.requestHeaders(provider, { model }); // 每个 failover 候选端点都带这同一份
+  let lastModelEndpoint = chatUrl;
+  const preparedToolMedia = ToolPreparedMedia.create({ provider, model, sessionId: session.id, turnSeq: session.turnSeq,
+    headers, endpoint: () => lastModelEndpoint, signal: ctrl && ctrl.signal });
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
     const recallPrompt = buildObservationRecallPrompt(history, config);
@@ -57636,7 +57661,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 106 #1 G1: layoutOverride 仅供 shadow 计量('first'|'tail')强制某一布局构建候选请求体,
   // 正常调用恒传 undefined(走开关)。volatileTailLayoutEnabled 开时易变层从「前插历史首条 user」
   // 改为「追加当前最新 user 尾部」(appendPromptToLastUserMessage,与 recall/notes 同位)。
-  const buildBodyWithLayout = (withTools, layoutOverride) => {
+  const buildBodyWithLayout = (withTools, layoutOverride, includePreparedMedia = false) => {
     if (!stewardVolatile && (memorySelectionSignature(session, workingDir) !== memorySnapshotSelection
       || enabledMemoryEntries.some(e => memoryIsExpired(e)))) invalidateMemoryPromptScope();
     const volatileTail = layoutOverride ? layoutOverride === 'tail' : volatileTailLayoutEnabled(config);
@@ -57676,6 +57701,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
     if (scratchpadPrompt) appendPromptToLastUserMessage(msgs, scratchpadPrompt); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
+    if (includePreparedMedia) preparedToolMedia.append(msgs);
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
     const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools });
@@ -58297,13 +58323,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // candidate is tried AT MOST once per logical call;全失败 → the last failure object is returned (its
   // httpError/transportError drives the caller's existing error path). Single-candidate providers: the loop
   // runs once and this is a transparent pass-through (行为与现状完全一致).
-  const streamWithFailover = async buildRequestBody => {
+  const streamWithFailover = async (buildRequestBody, mediaEndpoint) => {
     // Order the candidates for THIS call: sticky base first (if it's in the sequence), then the rest in
     // declared order, so a proven endpoint is tried first but the full sequence remains a fallback.
     const sticky = failoverStickyBase.get(provider.id);
     const ordered = [];
-    if (sticky) { const s = failoverCandidates.find(c => c.base === sticky); if (s) ordered.push(s); }
-    for (const c of failoverCandidates) { if (!ordered.includes(c)) ordered.push(c); }
+    if (mediaEndpoint) {
+      const pinned = failoverCandidates.find(candidate => candidate.chatUrl === mediaEndpoint);
+      if (!pinned) throw Object.assign(Error('privacy.media_route_unavailable'), { code: 'privacy.media_route_unavailable' });
+      ordered.push(pinned);
+    } else {
+      if (sticky) { const s = failoverCandidates.find(c => c.base === sticky); if (s) ordered.push(s); }
+      for (const c of failoverCandidates) { if (!ordered.includes(c)) ordered.push(c); }
+    }
     let lastCall = null, prevBase = null;
     for (let i = 0; i < ordered.length; i++) {
       const cand = ordered[i];
@@ -58314,8 +58346,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
       await refreshMemoryPromptScope();
-      const requestBody = buildRequestBody();
-      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: requestBody, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
+      const call = await preparedToolMedia.send(assertRequest => openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: buildRequestBody(),
+        ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire, allowCompatibilityRetry: !assertRequest, assertRequest }),
+      () => hasInterruptingSteer(reg), () => drainSteerQueue(reg, session, onEvent));
       // Decide if this outcome is a failover trigger (pre-first-byte only).
       let failReason = null;
       if (call.transportError) failReason = call.transportReason || 'connect';
@@ -58323,7 +58356,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (!failReason) {
         // Terminal outcome for this logical call. A clean/streamed result (no httpError, no transportError)
         // means THIS endpoint served us → remember it as the sticky base for the rest of the session.
-        if (!call.httpError && !call.transportError) failoverStickyBase.set(provider.id, cand.base);
+        if (!call.httpError && !call.transportError) {
+          lastModelEndpoint = cand.chatUrl;
+          failoverStickyBase.set(provider.id, cand.base);
+        }
         return call;
       }
       // Failover-eligible failure on this candidate. Record + walk to the next (if any).
@@ -58392,7 +58428,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // v0.8-S7: drain any steering (§4 A3) queued since the last boundary BEFORE this API call, so the
       // request we are about to build carries the user's mid-turn instruction. Pairing-safe here: the
       // previous iteration's tool batch (if any) pushed all its role:'tool' replies before `continue`.
-      await drainSteerQueue(reg, session, onEvent);
+      if (await drainSteerQueue(reg, session, onEvent)) await preparedToolMedia.clear();
       if (EventStreamHooks.drainBackgroundJobs) await EventStreamHooks.drainBackgroundJobs(session);
       await refreshMemoryPromptScope();
       // v0.8-S5: two-level auto-compaction runs at the iteration boundary, BEFORE this API call, so the
@@ -58403,7 +58439,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         touch();
         await refreshScratchpadPrompt('compaction'); // C2:历史刚被改写、缓存本就断了 —— 顺手换上本回合写入后的草稿本
       }
-      lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
+      const budgetHistory = [{ role: 'system', content: String(budgetPromptFull || '') }, ...session.providerHistory];
+      preparedToolMedia.append(budgetHistory);
+      lastEstBeforeCall = estimateHistoryTokens(budgetHistory, '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
       estStreamBase = estBeforeCall; estStreamText = '';
@@ -58504,14 +58542,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 把整回合打死。现在与子代理同一份判据 providerCallIsTransient(04h:transportError / 502/503/504 / 429 / 529);
       // 端点切换仍在 streamWithFailover 里先走完,这里只在【所有候选都失败】之后整组再试。transportError 只在首字节前产生
       // (07 openAiStreamOnce:流式开始后的失败直接抛出,不进这里),所以同样不会重放已显示的内容。
+      const mediaEndpoint = preparedToolMedia.endpoint();
       const sent = await withTransientRetry({
-        maxRetries: 3,
+        maxRetries: mediaEndpoint ? 0 : 3,
         signal: ctrl && ctrl.signal,
         isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         // 服务商回了 Retry-After(07 openAiStreamOnce 带出 retryAfterMs,已封顶 30 s)就至少等这么久:修前固定 0.5/1/2 s 共约 3.5 s,
         // 限流窗口还没过就把 3 次重试用光,整回合失败。
         backoffMs: (n, c) => Math.max(Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
-        attempt: () => streamWithFailover(() => buildBody(useTools)), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+        attempt: () => streamWithFailover(() => buildBodyWithLayout(useTools, undefined, !!mediaEndpoint), mediaEndpoint),
         classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
@@ -58520,7 +58559,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           onEvent({ type: 'stderr', text: `[provider] ${what},稍后重试(${n}/3)` });
           logEvent({ kind: 'model_call_retry', sessionId: session.id, provider: provider.id, attempt: n, reason: c && c.transportError ? 'transport' : String(c && c.httpError || '').slice(0, 8) });
         },
-      });
+      }).finally(preparedToolMedia.clear);
       if (sent.aborted) { aborted = true; ok = false; break; }
       const call = sent.result;
       if (!call.httpError && !call.transportError) VisualPipeline.pruneOldImages(session.providerHistory);
@@ -58551,7 +58590,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const tTools0 = Date.now();
       if (call.httpError) {
         // If the server rejected tools, retry the turn once WITHOUT tools (chat-only) before failing.
-        if (useTools && call.toolsRejected && !toolsRetried) { toolsRetried = true; useTools = false; onEvent({ type: 'stderr', text: '[provider] tools rejected — retrying without tools' }); iter--; continue; }
+        if (!mediaEndpoint && useTools && call.toolsRejected && !toolsRetried) { toolsRetried = true; useTools = false; onEvent({ type: 'stderr', text: '[provider] tools rejected — retrying without tools' }); iter--; continue; }
         // 第45波 45b:context 类 400 → 强制压缩重试一次(回合的最后防线)。
         // 场景:估窗失效(真实窗口 < 估算,maybeAutoCompact 的预算判定没触发)或单条巨型载荷,
         // provider 直接 400 —— 旧行为是回合慢性死亡(L2 失败照样 400)。现在:快照 → L1 蒸发 →
@@ -58559,7 +58598,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // 45f 对抗轮修订:① 事件/系统消息只在【确有压缩成果】后广播(P2-4:零成果时不再虚报);
         // ② 窗口学习(45d(b))改【重试成功才落账】(P1-1:误判不再永久压窗);
         // ③ L1-only 重试置 skipAutoCompactOnce,下一迭代不再白跑一次 L2(P2-5)。
-        if (!contextRetried && isContextOverflowError(call.httpError)) {
+        if (!mediaEndpoint && !contextRetried && isContextOverflowError(call.httpError)) {
           contextRetried = true;
           // 快照 → L1 蒸发 → L2 摘要重播种,与子代理走同一个内核(10 runForcedOverflowCompaction)。
           const forced = await runForcedOverflowCompaction({
@@ -58792,7 +58831,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
                   res = await awaitProviderTool(
                     tc,
-                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
+                    signal => toolCall(tc.name, pargs, preparedToolMedia.bind({ sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true })),
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                   );
                 } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -58816,7 +58855,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     poolQueueWaitMs += Date.now() - tWait0; // 21-E2: 资源锁排队时长计量
                     res = await awaitProviderTool(
                       tc,
-                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true }),
+                      signal => toolCall(tc.name, pargs, preparedToolMedia.bind({ sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true })),
                       INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                     );
                   } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -59181,7 +59220,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     tc,
                     // mainTurn:会话自己的主回合标记(08 子代理、MCP 子进程、/api/tools 都不带)。只写本会话旁车的工具(C2 scratchpad_write)
                     // 据此 fail-closed;代理 tool_invoke_* 把同一个 ctx 原样转给目标(12 invokeAdaptiveMcpTool)。
-                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true, executionOwner }),
+                    signal => toolCall(tc.name, args, preparedToolMedia.bind({ sessionId: session.id, turnSeq: session.turnSeq, session, config, provider, execution, workingDir, signal, mainTurn: true, executionOwner })),
                     // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)
@@ -59189,7 +59228,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 catch (e) { resultObj = toolFailureResult(e, allTools.map(t => t.function && t.function.name)); } // 审计 N5:未知工具附 did-you-mean
                 finally { releaseResourceLease(toolLease); }
                 }
-                if (tc.name.startsWith('tool_invoke_')) resultObj = promoteProxiedNativeTool(args, resultObj);   // 代理到原生工具 → 装进下一发的工具表
+                if (tc.name.startsWith('tool_invoke_')) resultObj = preparedToolMedia.transfer(resultObj, promoteProxiedNativeTool(args, resultObj));   // 代理到原生工具 → 装进下一发的工具表
               }
             }
           }
@@ -59269,7 +59308,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj, 'no-vision');
           }
           // v0.8-S5: tiered truncation — file_read keeps head+tail, others flat 60KB (truncateToolResult).
-          session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, toolResultForHistory) });
+          const toolReply = { role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, toolResultForHistory) };
+          session.providerHistory.push(toolReply);
+          preparedToolMedia.queue(resultObj, toolReply);
           markToolProgress(tc, resultObj, iter);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -59310,6 +59351,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
           VisualPipeline.pruneOldImages(session.providerHistory, imageBatchStart);
         }
+        await preparedToolMedia.finishBatch(!aborted && !loopAborted && !steerAborted);
         if (aborted) break;
         if (loopAborted) break;       // v0.8-S7: repeated-call guard tripped → end the turn (self-contained note below)
         if (steerAborted) steerAborted = false;  // 51b 02 Phase B: 插话中断 reset(不结束回合,走 saveSession+continue 回 drainSteerQueue 注入插话)
@@ -59402,8 +59444,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         ...(e.resultUnavailable === true ? { resultUnavailable: true } : {}),
       };
     }
+  } finally {
+    clearInterval(watchdog);
+    await preparedToolMedia.close().catch(error => {
+      if (ok && !aborted) { ok = false; errorMsg = error.message; privacyFailureInfo = { code: error.code }; }
+      try { logEvent({ kind: 'media_cleanup_failed', sessionId: session.id, code: error.code }); } catch { /* preserve turn outcome */ }
+    });
   }
-  clearInterval(watchdog);
 
   // v0.8-S7: loop-guard finish (§4 A3). The turn stopped itself to escape a repeated-call死循环; this is a
   // NORMAL (non-aborted) completion — the assistant message gets a SELF-CONTAINED note, deliberately
@@ -60746,6 +60793,119 @@ async function encodeModelToolResult(name, value) {
   const protectedResult = typeof PrivacyGateway !== 'undefined' ? await PrivacyGateway.modelToolResult(value) : value;
   return truncateToolResult(name, JSON.stringify(protectedResult));
 }
+
+// A native loop grants this capability on the actual tool context object. It
+// never travels in tool arguments, tool output, persisted history or SSE.
+const ToolPreparedMedia = (() => {
+  const contexts = new WeakMap();
+  const receipts = new WeakMap();
+  const fail = code => Object.assign(Error('privacy.' + code), { code: 'privacy.' + code });
+  const routeFor = ctx => {
+    const entry = contexts.get(ctx);
+    return entry?.owner.active() && entry.route.provider?.vision === true && !entry.route.signal?.aborted ? entry : null;
+  };
+  function create({ provider, model, sessionId, turnSeq, headers, endpoint, signal }) {
+    const scope = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.active() : null;
+    const retained = new Set(), pending = [];
+    let closed = false;
+    const owner = {
+      active: () => !closed && !signal?.aborted && scope && PrivacyGateway.active() === scope,
+      retain: record => retained.add(record),
+    };
+    async function release(records) {
+      for (const record of records) {
+        if (receipts.get(record.result) === record) receipts.delete(record.result);
+        record.result = null;
+        retained.delete(record);
+      }
+      const results = await Promise.allSettled(records.map(record => Promise.resolve().then(() => record.release())));
+      if (results.some(result => result.status === 'rejected')) throw fail('media_cleanup_failed');
+    }
+    const clear = async () => { pending.length = 0; await release([...retained]); };
+    return Object.freeze({
+      bind(ctx) {
+        if (!closed && ctx.sessionId === sessionId && ctx.turnSeq === turnSeq && ctx.provider === provider) {
+          contexts.set(ctx, { owner, route: Object.freeze({ provider, model, url: endpoint(), headers, scopeId: scope?.scopeId, signal: ctx.signal || signal }) });
+        }
+        return ctx;
+      },
+      transfer(from, to) {
+        const record = receipts.get(from);
+        if (from !== to && record?.owner === owner && to?.ok === true && typeof to === 'object') {
+          receipts.delete(from); receipts.set(to, record); record.result = to;
+        }
+        return to;
+      },
+      queue(result, reply) {
+        const record = receipts.get(result);
+        if (!record || record.owner !== owner) return;
+        receipts.delete(result);
+        record.result = null;
+        try {
+          if (reply?.role === 'tool' && JSON.parse(reply.content)?.ok === true) {
+            record.reply = reply;
+            pending.push(record);
+          }
+        }
+        catch { /* An incomplete tool result cannot authorize a visual continuation. */ }
+      },
+      async finishBatch(sendable) {
+        if (sendable) await release([...retained].filter(record => !pending.includes(record)));
+        else await clear();
+      },
+      endpoint() { return pending[0]?.url; },
+      append(messages) {
+        if (!pending.length) return;
+        if (!owner.active() || pending.some(record => record.url !== pending[0].url)) throw fail('media_route_unavailable');
+        if (pending.some(record => !messages.includes(record.reply))) throw fail('media_context_changed');
+        for (const record of pending) messages.push({ role: 'user', content: [
+          { type: 'text', text: '[Protected visual samples for the preceding tool result, in sample order.]' },
+          ...record.references.map(url => ({ type: 'image_url', image_url: { url } })),
+        ] });
+      },
+      async send(attempt, inputPending, drainInput) {
+        if (!pending.length) return attempt();
+        const interrupted = fail('media_context_changed');
+        const assertRequest = () => { if (inputPending()) throw interrupted; };
+        try {
+          assertRequest();
+          return await attempt(assertRequest);
+        } catch (error) {
+          // This exact local error can only precede fetch. Discard the samples
+          // and process the new input without replaying the protected request.
+          if (error !== interrupted) throw error;
+          await clear();
+          await drainInput();
+          return attempt();
+        }
+      },
+      clear,
+      async close() { closed = true; await clear(); },
+    });
+  }
+  async function register(ctx, result, prepared) {
+    const entry = routeFor(ctx);
+    const release = prepared?.release;
+    try {
+      if (!entry) throw fail('media_route_unavailable');
+      if (!result || typeof result !== 'object' || result.ok !== true || receipts.has(result) || typeof release !== 'function'
+        || !Array.isArray(prepared.references) || !prepared.references.length || prepared.references.length > 4
+        || prepared.references.some(row => !row || !/^[a-f0-9]{32}$/.test(row.id) || row.reference !== 'https://ruyi.invalid/protected-image/' + row.id)) {
+        throw fail('media_receipt_invalid');
+      }
+      const record = { owner: entry.owner, url: entry.route.url, result, references: prepared.references.map(row => row.reference), release };
+      entry.owner.retain(record); receipts.set(result, record);
+      return result;
+    } catch (error) {
+      if (typeof release === 'function') {
+        try { await release(); } catch { throw fail('media_cleanup_failed'); }
+      }
+      throw error;
+    }
+  }
+  return Object.freeze({ create, available: ctx => !!routeFor(ctx), route: ctx => routeFor(ctx)?.route || null,
+    signal: ctx => contexts.get(ctx)?.route.signal || null, register });
+})();
 
 // N3:展示副本 + 图片落附件。返回的对象用于 SSE tool_result 事件与 session.messages[].toolCalls[].result。
 // ① 大图 base64 字段(image / image_base64 / screenshot.image …)写进 uploads/<toolimg_…>/ 走既有附件回显通路
@@ -70969,6 +71129,7 @@ const FileVisualIo = (() => {
   const MAX_FILE_BYTES = 50 * 1024 * 1024;
   const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|tiff?)$/i;
   const DOCUMENT_EXT = /\.(pdf|docx|docm|dotx|pptx|pptm|xlsx|xlsm|odt|ods|odp)$/i;
+  const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|avi)$/i;
   // 隐私 M4(2026-11-05):PDF 隐藏层(嵌入文件/脚本/表单/打开动作/批注)不在「抽取出来的正文」里。
   // 判据【不能】放在 JS 里按原始字节找字面名 —— 复审实测:合法的 `/J#53cript` 名转义与 PDF 1.5+ 对象流
   // 都能 100% 绕过,而正文里出现 "/JavaScript" 的良性文档会被误拒。所以判据放在真正的解析器里
@@ -71005,11 +71166,24 @@ const FileVisualIo = (() => {
     } finally { await fh.close(); }
   }
   // Probe bytes as well as suffixes: renamed images must never be decoded as text.
-  async function kind(p) {
+  async function kind(p, protectedRead = false) {
     if (DOCUMENT_EXT.test(p)) return 'document';
     if (IMAGE_EXT.test(p)) return 'image';
+    if (protectedRead && VIDEO_EXT.test(p)) return 'video';
     const fh = await io.open(p, 'r');
-    try { const b = Buffer.alloc(16); const r = await fh.read(b, 0, b.length, 0); return mime(b.subarray(0, r.bytesRead)) ? 'image' : null; }
+    try {
+      const header = Buffer.alloc(protectedRead ? 1024 : 16);
+      const { bytesRead } = await fh.read(header, 0, header.length, 0);
+      const b = header.subarray(0, bytesRead);
+      if (mime(b)) return 'image';
+      if (protectedRead) {
+        const first = b.subarray(0, 4).toString('hex');
+        if (b.includes('%PDF-') || ['504b0304', '504b0506', '504b0708'].includes(first)) return 'document';
+        if (first === '1a45dfa3' || b.subarray(4, 8).toString('ascii') === 'ftyp'
+          || first === '52494646' && b.subarray(8, 12).toString('ascii') === 'AVI ') return 'video';
+      }
+      return null;
+    }
     finally { await fh.close(); }
   }
   async function image(p, args) {
@@ -71051,6 +71225,62 @@ const FileVisualIo = (() => {
     return { ok: false, code: 'reader_unavailable', error: 'Native document reading needs Python', path: p,
       hint: 'Use the bundled Python runtime or install Python. PDF requires pdfplumber; image conversion requires Pillow. No computer use/MCP connection is needed.' };
   }
+  const documentRefusals = new Set(['document_encrypted', 'document_stub', 'document_hidden_content', 'document_projection_limit',
+    'document_visual_required', 'document_render_unavailable', 'document_page_range', 'document_invalid', 'reader_unavailable']);
+  async function protectedDocument(p, args, _helperPath, signal, bytes) {
+    const refuse = (code, hint) => ({ ok: false, code, hint });
+    const cancelled = () => refuse('aborted', 'The protected document read was cancelled.');
+    const unavailable = () => refuse('reader_unavailable', 'Use the Full offline package with the verified media runtime.');
+    const invalid = () => refuse('document_read_failed', 'The protected document reader failed or returned an invalid projection.');
+    const ext = paths.extname(p).toLowerCase();
+    if (signal?.aborted) return cancelled();
+    if (!DOCUMENT_EXT.test(ext)) return refuse('document_unsupported', 'Use a supported document extension matching the actual file format.');
+    if (!Buffer.isBuffer(bytes) || !bytes.length) return invalid();
+    if (bytes.length > MAX_FILE_BYTES) return refuse('document_projection_limit', 'Split the document into smaller clean copies.');
+    if (typeof MediaImageHooks === 'undefined' || typeof MediaImageHooks.runLocalMediaHelper !== 'function') return unavailable();
+    const { pageOffset, pageLimit } = options(args);
+    const visual = args.as === 'image';
+    const opts = { pageOffset, pageLimit, visual, ownerStub: paths.win32.basename(p).startsWith('~$') };
+    let result;
+    try {
+      result = await MediaImageHooks.runLocalMediaHelper('native-file-read.py', ['--protected', ext, JSON.stringify(opts)], bytes,
+        { signal, timeoutMs: 30000, maxBytes: 12 * 1024 * 1024 });
+    } catch (error) {
+      if (signal?.aborted) return cancelled();
+      if (['privacy.image_runtime_unavailable', 'reader_unavailable'].includes(error?.code)) return unavailable();
+      if (error?.code === 'privacy.image_worker_timeout') return refuse('document_read_timeout', 'The protected document read timed out. Split it into a smaller clean copy.');
+      return invalid();
+    }
+    if (signal?.aborted) return cancelled();
+    if (result?.ok === false && documentRefusals.has(result.code) && typeof result.hint === 'string' && result.hint.length <= 300) {
+      const found = Array.isArray(result.found) && result.found.length <= 32
+        && result.found.every(layer => typeof layer === 'string' && /^[a-z-]{1,40}$/.test(layer)) ? { found: result.found } : {};
+      return { ...refuse(result.code, result.hint), ...found };
+    }
+    if (result?.ok !== true || result.mode !== 'document' || typeof result.content !== 'string' || !Array.isArray(result.images)) return invalid();
+    const { projection, content, images } = result;
+    if (!visual) {
+      return projection === 'document-text' && content.length <= 40000 && !images.length
+        ? { ok: true, mode: 'document', projection, content, images: [] } : invalid();
+    }
+    const { totalPages, nextPageOffset } = result;
+    if (projection !== (ext === '.pdf' ? 'pdf-pages' : 'office-content-preview') || content.length > 200
+      || !Number.isSafeInteger(totalPages) || totalPages < pageOffset || result.pageOffset !== pageOffset
+      || images.length !== Math.min(pageLimit, totalPages - pageOffset + 1)) return invalid();
+    const end = pageOffset + images.length;
+    if (nextPageOffset !== (end <= totalPages ? end : undefined)) return invalid();
+    for (const [index, image] of images.entries()) {
+      if (image?.name !== `page-${pageOffset + index}.png` || image.mimeType !== 'image/png'
+        || typeof image.data !== 'string' || image.data.length > Math.ceil(MAX_IMAGE_BYTES / 3) * 4) return invalid();
+      const buf = Buffer.from(image.data, 'base64');
+      try {
+        if (buf.length < 24 || buf.length > MAX_IMAGE_BYTES || buf.toString('base64') !== image.data || mime(buf) !== 'image/png'
+          || buf.toString('ascii', 12, 16) !== 'IHDR' || ![buf.readUInt32BE(16), buf.readUInt32BE(20)].every(n => n > 0 && n <= 1600)) return invalid();
+      } finally { buf.fill(0); }
+    }
+    return { ok: true, mode: 'document', projection, content, pageOffset, totalPages,
+      ...(nextPageOffset === undefined ? {} : { nextPageOffset }), images: images.map(({ name, mimeType, data }) => ({ name, mimeType, data })) };
+  }
   // Only explicitly requested Markdown/HTML images are followed. Every local link gets the caller's guard.
   async function linkedImages(p, content, args, guard) {
     if (args.includeImages !== true || !/\.(md|markdown|html?|xhtml)$/i.test(p)) return {};
@@ -71074,7 +71304,7 @@ const FileVisualIo = (() => {
     return { images, imageWarnings, totalImages: unique.length,
       ...(opt.imageOffset + selected.length < unique.length ? { nextImageOffset: opt.imageOffset + selected.length } : {}) };
   }
-  return Object.freeze({ kind, image, document, linkedImages });
+  return Object.freeze({ kind, image, document, protectedDocument, linkedImages });
 })();
 
 // Local media diagnostics and parse-only source checks. No desktop or network I/O.
@@ -71086,6 +71316,81 @@ const MediaInspection = (() => {
   const cache = new Map();
   const finite = value => Number.isFinite(Number(value)) ? Number(value) : null;
   const bounded = (value, fallback, low, high) => value == null || !Number.isFinite(Number(value)) ? fallback : Math.max(low, Math.min(high, Number(value)));
+  const VIDEO_FORMATS = new Map([
+    ['.mp4', 'mov'], ['.m4v', 'mov'], ['.mov', 'mov'],
+    ['.mkv', 'matroska'], ['.webm', 'matroska'], ['.avi', 'avi'],
+  ]);
+  const VIDEO_FAILURES = Object.freeze({
+    video_format_unsupported: 'Use a local MP4, M4V, MOV, MKV, WebM or AVI video file.',
+    video_options_invalid: 'Use startSeconds 0–86400, frameCount 1–4, and intervalSeconds 0.25–30.',
+    video_source_invalid: 'Use a nonempty local video file of at most 50 MiB.',
+    video_decoder_unavailable: 'The verified offline video decoder is unavailable.',
+    video_decode_failed: 'The local decoder could not read this video track.',
+    video_no_frames: 'No video frame was decoded in the requested time window.',
+    video_timestamp_invalid: 'The decoder could not establish a usable video timeline.',
+    video_limits_exceeded: 'The video exceeds the local frame decoding limits.',
+  });
+  const videoFailure = code => ({ ok: false, code, error: VIDEO_FAILURES[code] });
+  const isVideoPath = file => VIDEO_FORMATS.has(nodePath.extname(file).toLowerCase());
+
+  function videoTargets({ startSeconds = 0, frameCount = 3, intervalSeconds = 1 }) {
+    if (!Number.isFinite(startSeconds) || startSeconds < 0 || startSeconds > 86400
+      || !Number.isInteger(frameCount) || frameCount < 1 || frameCount > 4
+      || !Number.isFinite(intervalSeconds) || intervalSeconds < 0.25 || intervalSeconds > 30) return null;
+    const start = Math.round(startSeconds * 1000), step = Math.round(intervalSeconds * 1000);
+    return Array.from({ length: frameCount }, (_, index) => start + index * step);
+  }
+
+  function isVideoFramePng(data) {
+    if (typeof data !== 'string' || data.length > Math.ceil(4 * 1024 * 1024 / 3) * 4
+      || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return false;
+    const bytes = Buffer.from(data, 'base64');
+    try {
+      if (bytes.length < 33 || bytes.length > 4 * 1024 * 1024 || bytes.toString('base64') !== data
+        || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || bytes.readUInt32BE(8) !== 13
+        || bytes.toString('ascii', 12, 16) !== 'IHDR') return false;
+      const width = bytes.readUInt32BE(16), height = bytes.readUInt32BE(20);
+      return width >= 1 && width <= 960 && height >= 1 && height <= 960;
+    } finally { bytes.fill(0); }
+  }
+
+  // The caller supplies an authorized, bounded snapshot. Only its bytes and the
+  // selected demuxer reach the verified worker, never the source path.
+  async function videoFrames(file, args = {}, signal, bytes) {
+    const format = VIDEO_FORMATS.get(nodePath.extname(file).toLowerCase());
+    if (!format) return videoFailure('video_format_unsupported');
+    const targets = videoTargets(args);
+    if (!targets) return videoFailure('video_options_invalid');
+    if (!Buffer.isBuffer(bytes) || !bytes.length || bytes.length > 50 * 1024 * 1024) return videoFailure('video_source_invalid');
+    signal?.throwIfAborted();
+    if (typeof MediaImageHooks === 'undefined' || typeof MediaImageHooks.runLocalMediaHelper !== 'function') {
+      return videoFailure('video_decoder_unavailable');
+    }
+    const whitelist = format === 'matroska' ? 'matroska,webm' : format;
+    const captureOptions = `protocol_whitelist;ruyi-no-external-io|format_whitelist;${whitelist}|input_format;${format}|max_pixels;8294400`
+      + (format === 'mov' ? '|enable_drefs;0|use_absolute_path;0' : '');
+    const result = await MediaImageHooks.runLocalMediaHelper('native-video-read.py', [format, JSON.stringify(targets)], bytes, {
+      signal, timeoutMs: 30000, maxBytes: 18 * 1024 * 1024,
+      env: { OPENCV_FFMPEG_CAPTURE_OPTIONS: captureOptions, OPENCV_LOG_LEVEL: 'SILENT' },
+    });
+    signal?.throwIfAborted();
+    if (result?.ok === false && Object.hasOwn(VIDEO_FAILURES, result.code)) return videoFailure(result.code);
+    if (result?.ok !== true || !Array.isArray(result.frames) || !result.frames.length
+      || result.frames.length > targets.length || !result.frames.every((frame, index) => frame?.requestedMs === targets[index]
+        && Number.isSafeInteger(frame.timestampMs) && frame.timestampMs >= frame.requestedMs
+        && frame.timestampMs <= frame.requestedMs + 5000 && (index === 0 || frame.timestampMs > result.frames[index - 1].timestampMs)
+        && isVideoFramePng(frame.png))) return videoFailure('video_decode_failed');
+    const requestedSeconds = targets.map(value => value / 1000);
+    const sampledSeconds = result.frames.map(frame => frame.timestampMs / 1000);
+    const missedSeconds = requestedSeconds.slice(sampledSeconds.length);
+    const coverage = { requestedSeconds, sampledSeconds, missedSeconds, fullVideo: false,
+      audioIncluded: false, subtitlesIncluded: false, containerMetadataIncluded: false };
+    const content = `Video stills at decoded timestamps ${sampledSeconds.join(', ')} seconds. Only the returned frames were sampled.`
+      + (missedSeconds.length ? ` No frame was returned for requested times ${missedSeconds.join(', ')} seconds.` : '')
+      + ' Audio, subtitle tracks and container metadata were excluded.';
+    return { ok: true, mode: 'video', content, coverage,
+      images: result.frames.map((frame, index) => ({ name: `frame-${index + 1}.png`, mimeType: 'image/png', data: frame.png })) };
+  }
 
   function run(command, argv, options = {}) {
     return new Promise(resolve => {
@@ -71301,7 +71606,7 @@ const MediaInspection = (() => {
       nearClipThresholdDbfs: -0.1, listeningPerformed: false,
       note: 'Objective signal analysis, not listening. Near-clip windows flag sample peaks at or above -0.1 dBFS; they do not prove audible distortion. Use file_read on visual evidence and user playback for subjective review.' };
   }
-  return { dependencies, locate, checkSyntax, inspectAudio, audioCollector };
+  return { dependencies, locate, checkSyntax, inspectAudio, audioCollector, isVideoPath, videoFrames };
 })();
 
 // 文件族只读工具默认根(修复:旧实现统一回退 process.cwd()=服务器启动目录,与系统 workspace
@@ -72705,6 +73010,48 @@ async function fileToolBatch(operation, args, ctx) {
 }
 
 NativeSourceHooks.readTextWindow = (filePath, st, req) => FileTextIo.readTextWindow(filePath, st, { ...req, io: privacyLocalIo });
+
+async function readNativeMedia(file, kind, args, ctx, protectedRead) {
+  const visual = args.as === 'image';
+  if (kind === 'video' && !visual) return { ok: false, code: 'video_image_required',
+    hint: 'Use file_read with as:"image" to sample video frames. Set startSeconds, frameCount and intervalSeconds for the range you need.' };
+  const wire = typeof ToolPreparedMedia === 'undefined' ? null : ToolPreparedMedia;
+  const route = protectedRead && visual ? wire?.route(ctx) : null;
+  if (protectedRead && visual && !route) return { ok: false, code: 'privacy.media_not_supported',
+    hint: 'Choose a vision-enabled native model to receive protected visual samples. For documents, use as:"text" to read the supported text.' };
+  const signal = route?.signal || ctx?.signal || wire?.signal?.(ctx);
+  const policy = protectedRead ? PrivacyGateway.captureMediaPolicy() : null;
+  const helper = path.join(externalRoot(), 'resources', 'native-file-read.py');
+  const produce = async () => {
+    // The original stays behind the local file guard. Native workers receive a bounded copy on stdin.
+    await privacyInspectLocalPath(file, signal, true);
+    const { value, source } = await privacyLocalIo(file, false, () => MediaImageHooks.readLocalMediaFile(file, signal, async (bytes, source) => {
+      policy?.assert();
+      const value = kind === 'video' ? await MediaInspection.videoFrames(file, args, signal, bytes)
+        : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes);
+      policy?.assert(); source.assert();
+      return { value, source };
+    }));
+    const { images, ...result } = value;
+    if (!result.ok || !visual) return { result };
+    if (!Array.isArray(images) || images.length < 1 || images.length > 4) throw Object.assign(Error('Invalid media projection'), { code: 'privacy.image_render_invalid' });
+    if (!protectedRead) return { result: { ...result, images } };
+    const pages = images.map(item => ({ name: item.name, bytes: Buffer.from(item.data, 'base64') }));
+    return { result, pages, source };
+  };
+  try {
+    if (protectedRead && !policy) return { ok: false, code: 'privacy.media_not_supported' };
+    if (!route) return (await produce()).result;
+    const { result, prepared } = await MediaImageHooks.prepareToolVisual(route, produce);
+    if (!prepared) return result;
+    return await wire.register(ctx, result, prepared);
+  } catch (error) {
+    const code = typeof error?.code === 'string' && /^privacy\.[a-z0-9_]+$/.test(error.code) ? error.code : 'file_read_failed';
+    return { ok: false, code, hint: code === 'privacy.image_runtime_unavailable'
+      ? 'Protected document and video reads need the verified Windows Full media runtime. Use a supported offline installation, or read a text export.'
+      : 'Local media preparation could not complete. Verify the source and try a smaller document or sample window.' };
+  }
+}
 function fileToolPrivacySourceOptions(ctx, tool) {
   if (!privacySourceActive()) return {};
   return { privacyGuard: async target => {
@@ -72769,7 +73116,10 @@ const FILE_TOOL_HANDLERS = {
       // Always guard the source before probing bytes or starting a read-only parser.
       let visualKind;
       try {
-        visualKind = await FileVisualIo.kind(p);
+        visualKind = typeof MediaInspection !== 'undefined' && MediaInspection.isVideoPath?.(p) ? 'video' : await FileVisualIo.kind(p, privacyTextRead);
+        if (visualKind === 'video' || privacyTextRead && visualKind === 'document') {
+          return await readNativeMedia(p, visualKind, args, ctx, privacyTextRead);
+        }
         // Text-only extraction still paginates/transforms document source and may start
         // an external parser. It is unsupported by the privacy boundary, even without pixels.
         // 隐私开着时,文档/图片读取在起任何解析器之前就被拒(像素与隐藏层都没经过遮盖链路)。
@@ -75522,7 +75872,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_read',
-    description: 'Read local text, images, PDF or modern Office/ODF without computer use. Vision models receive pixels: PDF pages or embedded Office media. Documents need Python (PDF: pdfplumber). Text: auto UTF-8/UTF-16/GBK; char or line windows; continue with nextOffset/nextLine. Other binaries refused.',
+    description: 'Read local text, images, PDF, Office/ODF or selected video frames. With privacy on, documents default to supported text. Use as:image for protected PDF pages, supported Office content previews (reflowed), or sampled video frames on a vision-enabled native model and verified Windows Full runtime. Video never includes original video/audio/subtitles/metadata. Text files support char or line windows. Unsupported binaries are refused.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -75539,6 +75889,9 @@ const MCP_TOOLS = [
         imageLimit: { type: 'integer', minimum: 1, maximum: 2, description: 'default/max 2 images' },
         pageOffset: { type: 'integer', minimum: 1, description: 'PDF page, 1-based; nextPageOffset to continue' },
         pageLimit: { type: 'integer', minimum: 1, maximum: 2, description: 'default/max 2 PDF pages; offset is within this window' },
+        startSeconds: { type: 'number', minimum: 0, maximum: 86400, description: 'Video sample start in seconds; default 0' },
+        frameCount: { type: 'integer', minimum: 1, maximum: 4, description: 'Video samples per call; default 3' },
+        intervalSeconds: { type: 'number', minimum: 0.25, maximum: 30, description: 'Video sample spacing in seconds; default 1' },
       },
       required: ['path'],
     },
@@ -111925,7 +112278,7 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
     if (typeof context !== 'function' || typeof storeFor !== 'function') fail('host_required');
     const records = new Map(), removals = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
     function beginScope(sessionId) {
-      if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}$/.test(sessionId)) fail('scope_changed');
+      if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}(?::[A-Za-z0-9_-]{1,160})?$/.test(sessionId)) fail('scope_changed');
       // Apply the existing four-owner budget before host IO too. Retained
       // cleanup owners remain budgeted after losing their active scope lease.
       if (scopeOwnerCount + retained.size >= 4) fail('busy');
@@ -112115,8 +112468,9 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
     async function revokeScope(sessionId) {
       // Authority is revoked for host/source/processor/store pending owners before
       // cleanup awaits. A new same-id incarnation receives a different epoch.
-      revokeEpoch(sessionId);
-      const ids=[...records].filter(([,record])=>record.sessionId===sessionId).map(([id,record])=>{record.dead=true;return id;});
+      const belongs = value => value === sessionId || value.startsWith(sessionId + ':');
+      for (const key of scopes.keys()) if (belongs(key)) revokeEpoch(key);
+      const ids=[...records].filter(([,record])=>belongs(record.sessionId)).map(([id,record])=>{record.dead=true;return id;});
       await removeRecords(ids);
     }
     async function invalidate() {
@@ -112140,17 +112494,19 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
   // prepare 原来只吃 uploads 里带 dev/ino 身份的 source;渲染件从来没有文件身份,所以这里给它自己的证明:
   // 自己持有一份字节(复制,调用方之后改自己的 Buffer 不影响)、sha256 钉住内容、作用域由会话派生,
   // assert() 会在作用域变化、已释放或内容被改时 fail-closed,release() 就地抹零。
-  function renderedSource({ id, name, bytes, sessionId, scopeOwner } = {}) {
+  function renderedSource({ id, name, bytes, sessionId, scopeOwner, parent } = {}) {
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) fail('source_invalid');
     if (typeof name !== 'string' || !name || name.length > 200) fail('source_invalid');
     if (!Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > 4 * 1024 * 1024) fail('source_invalid');
     if (typeof sessionId !== 'string' || !sessionId) fail('source_invalid');
     const own = Buffer.from(bytes), digest = hash(own), scope = hash(sessionId).slice(0, 32);
     let released = false;
-    const snapshot = Object.freeze({ bytes: own, hash: digest, revision: digest, scope });
+    const revision = parent ? hash(JSON.stringify([parent.revision, digest])) : digest;
+    const snapshot = Object.freeze({ bytes: own, hash: digest, revision, scope });
     return Object.freeze({ id, name, snapshot,
       assert() {
         if (scopeOwner && typeof scopeOwner.assert === 'function') scopeOwner.assert();
+        if (parent) parent.assert();
         if (released) fail('source_changed');
         if (hash(own) !== digest) fail('source_changed');
         return true;
@@ -112168,13 +112524,19 @@ const MediaImageHost = (() => {
   const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
   const same = (a, b) => ['dev','ino','size','mtimeNs','ctimeNs','nlink'].every(key => a[key] === b[key]);
   const managed = work => typeof WorkDataMaintenanceHooks.run === 'function' ? WorkDataMaintenanceHooks.run('media-image', work) : work();
+  const LOCAL_SOURCE_LIMIT = 50 * 1024 * 1024;
+  const localHelperHashes = Object.freeze({
+    'native-file-read.py': 'b9c0a9f3300cc00bc6b6c97dc322de3cff5a28bbe5f50b0dc3a16027dc937c17',
+    'native-video-read.py': '91cbfce6403de135c72908e9f8e0ea900d720c5d9c36bcad980084d936f82ab9',
+  });
   let processorPromise = null, processorOwner = null, preparedAny = false;
+  let localHelperActive = false, localHelperUnknown = false, localSourceReads = 0;
   function processor() {
     // Paths are supplied by the application installation/environment, never by
     // browser JSON. There is no PATH lookup or cloud/installation fallback.
     if (!processorPromise) {
-      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(appRoot(), 'mcp', 'ai-computer-control'));
-      const sourceRoot = path.resolve(process.env.RUYI_MEDIA_SOURCES_ROOT || path.join(appRoot(), 'resources', 'media-runtime-sources'));
+      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(externalRoot(), 'mcp', 'ai-computer-control'));
+      const sourceRoot = path.resolve(process.env.RUYI_MEDIA_SOURCES_ROOT || path.join(externalRoot(), 'resources', 'media-runtime-sources'));
       processorPromise = MediaImageProcessor.create({ runtimeRoot, sourceRoot, language: process.env.RUYI_MEDIA_OCR_LANGUAGE || 'zh-Hans-CN',
         resourceProfile: process.env.RUYI_MEDIA_RESOURCE_PROFILE ?? 'legacy-full-4987-v1' }).then(owner => { processorOwner = owner; return owner; });
       // Keep the failed result. Repeated user sends do not create implicit worker
@@ -112185,7 +112547,9 @@ const MediaImageHost = (() => {
   }
   // This cache is never replaced, including after configuration changes or a
   // failed request. Observe that same resolved owner without creating resources.
-  function helperMayStillRun() { return processorOwner === null ? false : processorOwner.helperMayStillRun() !== false; }
+  function helperMayStillRun() {
+    return localHelperActive || localHelperUnknown || (processorOwner !== null && processorOwner.helperMayStillRun() !== false);
+  }
   function assertAncestors(target) {
     const absolute = path.resolve(target), parsed = path.parse(absolute); let current = parsed.root;
     for (const bit of absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
@@ -112193,6 +112557,154 @@ const MediaImageHost = (() => {
       const stat = fs.lstatSync(current, { bigint: true });
       if (!stat.isDirectory() || stat.isSymbolicLink() || fold(fs.realpathSync.native(current)) !== fold(current)) fail('source_alias');
     }
+  }
+  async function readLocalMediaFile(file, signal, read) {
+    const assertSignal = () => { if (signal?.aborted) fail('cancelled'); };
+    assertSignal(); assertAncestors(path.dirname(file));
+    const original = fs.lstatSync(file, { bigint: true });
+    if (!original.isFile() || original.isSymbolicLink() || original.nlink !== 1n) fail('source_invalid');
+    if (original.size < 1n || original.size > BigInt(LOCAL_SOURCE_LIMIT)) fail('source_limit');
+    const assert = () => {
+      assertSignal(); assertAncestors(path.dirname(file));
+      const current = fs.lstatSync(file, { bigint: true });
+      if (!current.isFile() || current.isSymbolicLink() || !same(original, current)) fail('source_changed');
+    };
+    if (localSourceReads >= 2) fail('worker_busy');
+    localSourceReads++;
+    let bytes;
+    try {
+      bytes = Buffer.alloc(Number(original.size));
+      const handle = await fsp.open(file, 'r');
+      try {
+        const assertHeld = async () => {
+          if (!same(original, await handle.stat({ bigint: true }))) fail('source_changed');
+          assert();
+        };
+        await assertHeld();
+        let offset = 0;
+        while (offset < bytes.length) {
+          const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset);
+          if (!bytesRead) fail('source_changed');
+          offset += bytesRead;
+          await assertHeld();
+        }
+      } finally { await handle.close(); }
+      const revision = hash(JSON.stringify([hash(bytes), ...['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].map(key => String(original[key]))]));
+      const result = await read(bytes, Object.freeze({ revision, assert }));
+      assert();
+      return result;
+    } finally { bytes?.fill(0); localSourceReads--; }
+  }
+  function runLocalChild(executable, helper, argv, bytes, { signal, timeoutMs, maxBytes, env }) {
+    return new Promise((resolve, reject) => {
+      if (typeof WorkDataMaintenanceHooks.admitHelper === 'function') WorkDataMaintenanceHooks.admitHelper();
+      const child = require('node:child_process').spawn(executable, ['-I', '-B', '-X', 'utf8', helper, ...argv], {
+        cwd: path.dirname(executable), env, windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'],
+      });
+      const input = Buffer.from(bytes);
+      const chunks = [];
+      let size = 0, failure = '', settled = false, closeDeadline;
+      const timeout = setTimeout(() => stop('worker_timeout'), timeoutMs);
+      const abort = () => stop('cancelled');
+      function finish(code) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout); clearTimeout(closeDeadline);
+        signal?.removeEventListener('abort', abort);
+        let output;
+        try {
+          if (failure || code !== 0) fail(failure || 'worker_failed');
+          output = Buffer.concat(chunks, size);
+          let result;
+          try { result = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(output)); }
+          catch { fail('worker_output'); }
+          resolve(result);
+        } catch (error) { reject(error); }
+        finally { output?.fill(0); for (const chunk of chunks) chunk.fill(0); }
+      }
+      function stop(reason) {
+        if (settled || failure) return;
+        failure = reason;
+        closeDeadline = setTimeout(() => {
+          localHelperUnknown = true;
+          finish(null);
+        }, 2000);
+        child.stdin.destroy();
+        try { child.kill(); } catch { /* Close must still be observed. */ }
+      }
+      child.on('error', () => stop('worker_failed'));
+      child.stdin.on('error', () => stop('worker_input'));
+      child.stdout.on('error', () => stop('worker_output'));
+      child.stdout.on('data', chunk => {
+        if (settled || failure || size + chunk.length > maxBytes) { chunk.fill(0); stop('worker_output_limit'); return; }
+        chunks.push(chunk); size += chunk.length;
+      });
+      child.once('close', code => { input.fill(0); finish(code); });
+      try { if (typeof WorkDataMaintenanceHooks.trackChild === 'function') WorkDataMaintenanceHooks.trackChild(child); }
+      catch { stop('worker_failed'); return; }
+      signal?.addEventListener('abort', abort, { once: true });
+      if (signal?.aborted) abort();
+      else child.stdin.end(input, () => input.fill(0));
+    });
+  }
+  async function runLocalMediaHelper(name, argv, bytes, { signal, timeoutMs, maxBytes, env = {} } = {}) {
+    if (process.platform !== 'win32' || !Object.hasOwn(localHelperHashes, name)) fail('runtime_unavailable');
+    if (!Array.isArray(argv) || argv.length > 4 || argv.some(value => typeof value !== 'string' || value.length > 4096 || value.includes('\0'))
+      || !Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > LOCAL_SOURCE_LIMIT
+      || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000
+      || !Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 24 * 1024 * 1024) fail('worker_input');
+    if (signal?.aborted) fail('cancelled');
+    if (localHelperActive || localHelperUnknown) fail('worker_busy');
+    const profile = process.env.RUYI_MEDIA_RESOURCE_PROFILE ?? 'legacy-full-4987-v1';
+    if (profile !== 'legacy-full-4987-v1') fail('runtime_unavailable');
+    localHelperActive = true;
+    try {
+      return await managed(async () => {
+        const runtime = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(externalRoot(), 'mcp', 'ai-computer-control'));
+        const sources = path.resolve(process.env.RUYI_MEDIA_SOURCES_ROOT || path.join(externalRoot(), 'resources', 'media-runtime-sources'));
+        const executable = path.join(runtime, 'python_embed', 'python.exe');
+        const helper = path.join(externalRoot(), 'resources', name);
+        const pin = file => {
+          assertAncestors(path.dirname(file));
+          const stat = fs.lstatSync(file, { bigint: true });
+          if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n) fail('worker_changed');
+          return stat;
+        };
+        const verify = async expected => {
+          try {
+            const before = [pin(executable), pin(helper)];
+            if (expected && expected.some((stat, index) => !same(stat, before[index]))) fail('worker_changed');
+            const { verifyMediaArtifacts } = require('../tools/verify-media-artifacts.cjs');
+            const bound = signal ? AbortSignal.any([signal, AbortSignal.timeout(25000)]) : AbortSignal.timeout(25000);
+            await verifyMediaArtifacts(runtime, sources, { signal: bound });
+            if (before[1].size > 1024n * 1024n || hash(fs.readFileSync(helper)) !== localHelperHashes[name]
+              || !same(before[0], pin(executable)) || !same(before[1], pin(helper))) fail('worker_changed');
+            return before;
+          } catch {
+            if (signal?.aborted) fail('cancelled');
+            fail('runtime_unavailable');
+          }
+        };
+        const childEnv = {};
+        for (const key of ['SystemRoot', 'WINDIR', 'SystemDrive', 'TEMP', 'TMP']) if (process.env[key]) childEnv[key] = process.env[key];
+        if (name === 'native-video-read.py') {
+          const capture = env.OPENCV_FFMPEG_CAPTURE_OPTIONS;
+          const demuxer = argv[0];
+          if (!['mov', 'matroska', 'avi'].includes(demuxer)) fail('worker_input');
+          const whitelist = demuxer === 'matroska' ? 'matroska,webm' : demuxer;
+          const expected = `protocol_whitelist;ruyi-no-external-io|format_whitelist;${whitelist}|input_format;${demuxer}|max_pixels;8294400`
+            + (demuxer === 'mov' ? '|enable_drefs;0|use_absolute_path;0' : '');
+          if (capture !== expected) fail('worker_input');
+          childEnv.OPENCV_FFMPEG_CAPTURE_OPTIONS = capture;
+          childEnv.OPENCV_LOG_LEVEL = 'SILENT';
+        }
+        const pins = await verify();
+        if (signal?.aborted) fail('cancelled');
+        const value = await runLocalChild(executable, helper, argv, bytes, { signal, timeoutMs, maxBytes, env: childEnv });
+        await verify(pins);
+        return value;
+      });
+    } finally { localHelperActive = false; }
   }
   async function sourceFor({ id, name }, sessionId, scopeOwner) {
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string'
@@ -112307,7 +112819,7 @@ const MediaImageHost = (() => {
     // 杀软占用/半装/磁盘抖动会让渲染管线在进程重启前彻底不可用,而 media_probe 是 read 档工具。
     // 这里只做文件级判定:渲染管线要跑的 python_embed 在不在。
     try {
-      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(appRoot(), 'mcp', 'ai-computer-control'));
+      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(externalRoot(), 'mcp', 'ai-computer-control'));
       const executable = path.join(runtimeRoot, 'python_embed', process.platform === 'win32' ? 'python.exe' : 'python');
       const stat = await fsp.stat(executable).catch(() => null);
       if (!stat || !stat.isFile()) return { available: false, path: null, reason: 'component_missing' };
@@ -112317,7 +112829,7 @@ const MediaImageHost = (() => {
   // 「渲染 + 遮盖」的接缝:把渲染出来的页面(内存 Buffer)准备成受保护图片引用。
   // 顺序固定:会话 → 策略(必须在 turn 的 PrivacyGateway scope 里) → 收件人(vision provider) → 处理器(真实原生组件)。
   // 任何一步不满足都 fail-closed,绝不把原始像素交回调用方;成功时只回引用,像素留在派生库里由交付层替换。
-  async function prepareRenderedPages({ sessionId, pages, signal } = {}) {
+  function renderedInputs(pages) {
     const count = Array.isArray(pages) ? pages.length : 0;
     if (!count || count > 4) fail('render_invalid');
     const inputs = [];
@@ -112327,7 +112839,10 @@ const MediaImageHost = (() => {
         || !Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > MediaImageContract.LIMITS.sourceBytes) fail('render_invalid');
       inputs.push({ name, bytes });
     }
-    const session = assertSessionIdForPath(sessionId), firstScopeOwner = service.beginScope(session);
+    return inputs;
+  }
+  async function withPageBatch(session, signal, work) {
+    const firstScopeOwner = service.beginScope(session);
     let firstTransferred = false;
     const assertBatch = () => {
       firstScopeOwner.assert();
@@ -112335,14 +112850,10 @@ const MediaImageHost = (() => {
     };
     try {
       assertBatch();
-      const config = await readConfig();
-      assertBatch(); PrivacyGateway.assertPolicyAvailable(config);
-      return await PrivacyGateway.run(session, config, () => managed(async () => {
+      return await work(assertBatch, async (inputs, policy, recipient, parent) => {
         assertBatch();
-        const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
-        const recipient = currentRecipient(config);
         const owner = await processor();
-        assertBatch();
+        assertBatch(); policy.assert(); parent?.assert();
         if (!MediaImageProcessor.isOwner(owner)) fail('processor_unavailable');
         const references = [];
         try {
@@ -112350,7 +112861,7 @@ const MediaImageHost = (() => {
           // cannot start in a new epoch after the session was revoked.
           for (const [index, page] of inputs.entries()) {
             assertBatch(); policy.assert();
-            const source = MediaImageService.renderedSource({ id: 'render-' + index, name: page.name, bytes: page.bytes, sessionId: session });
+            const source = MediaImageService.renderedSource({ id: 'render-' + index, name: page.name, bytes: page.bytes, sessionId: session, parent });
             const scopeOwner = index === 0 ? firstScopeOwner : undefined;
             const prepared = await service.prepare({ sessionId: session, source, policy, processor: owner, recipient, signal, scopeOwner });
             if (scopeOwner) firstTransferred = true;
@@ -112368,10 +112879,40 @@ const MediaImageHost = (() => {
           await service.discardPrepared(references.map(item => item.id), error);
           throw error;
         }
-      }));
+      });
     } finally {
       if (!firstTransferred) firstScopeOwner.release();
     }
+  }
+  async function prepareRenderedPages({ sessionId, pages, signal } = {}) {
+    const inputs = renderedInputs(pages), session = assertSessionIdForPath(sessionId);
+    return withPageBatch(session, signal, async (assertBatch, preparePages) => {
+      const config = await readConfig();
+      assertBatch(); PrivacyGateway.assertPolicyAvailable(config);
+      return PrivacyGateway.run(session, config, () => managed(async () => {
+        assertBatch();
+        const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
+        return preparePages(inputs, policy, currentRecipient(config));
+      }));
+    });
+  }
+  async function prepareToolVisual(route, produce) {
+    if (!route || route.scopeId !== PrivacyGateway.active()?.scopeId) fail('scope_changed');
+    return withPageBatch(route.scopeId, route.signal, (assertBatch, preparePages) => managed(async () => {
+      const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
+      const recipient = MediaImageService.recipientHash(route.url, route.headers);
+      assertBatch(); policy.assert();
+      const { result, pages = [], source } = await produce();
+      try {
+        assertBatch(); policy.assert();
+        if (!result.ok) return { result };
+        const prepared = await preparePages(renderedInputs(pages), policy, recipient, source);
+        const ids = prepared.references.map(item => item.id);
+        return { result, prepared: Object.freeze({ ...prepared, release: () => service.discardPrepared(ids) }) };
+      } finally {
+        for (const page of pages) page.bytes.fill(0);
+      }
+    }));
   }
   function attachmentPrompt(file) {
     const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) return null;
@@ -112418,7 +112959,8 @@ const MediaImageHost = (() => {
   PrivacyGateway.setHost({ projectMediaPart: projectPart, invalidateMedia: () => { void service.invalidate().catch(() => {}); } });
   Object.assign(ProviderMediaHooks, { beforeModelPost });
   Object.assign(VisualMediaHooks, { buildUserContentParts });
-  Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, availability, handleApiRoutes, helperMayStillRun,
+  Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, prepareToolVisual, readLocalMediaFile, runLocalMediaHelper,
+    availability, handleApiRoutes, helperMayStillRun,
     revokeScope: sessionId => service.revokeScope(sessionId) });
   return Object.freeze({ prepare });
 })();

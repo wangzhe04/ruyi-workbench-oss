@@ -653,7 +653,7 @@ function toolPackForName(name, bridgedRoute) {
 // bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
 // deterministic fields derived from name, description and JSON Schema parameters.
 const TOOL_RETRIEVAL_HINTS = Object.freeze({
-  file_read: { capabilities: ['workspace.file.read', 'image.view', 'document.read'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '看图', '视觉输入', '读取文档', '读取PDF', 'read workspace file', 'read image', 'view image', 'view image vision', 'vision'] },
+  file_read: { capabilities: ['workspace.file.read', 'image.view', 'document.read', 'video.sample'], aliases: ['读取文件', '查看文件', '读文件', '读取图片', '查看图像', '看图', '视觉输入', '读取文档', '读取PDF', '视频抽帧', 'read workspace file', 'read image', 'view image', 'view image vision', 'vision', 'video frames', 'sample video'] },
   audio_inspect: { capabilities: ['audio.inspect', 'audio.loudness', 'audio.waveform'], aliases: ['音频验收', '音频分析', '响度', '削波', 'audio inspect', 'audio levels', 'LUFS'] },
   media_probe: { capabilities: ['media.dependencies.inspect'], aliases: ['依赖探测', '媒体工具链', 'ffmpeg', 'ffprobe', 'chrome', 'ffmpeg ffprobe chrome', 'media dependencies'] },
   code_check: { capabilities: ['code.syntax.check'], aliases: ['语法检查', '代码体检', '写盘前语法检查', 'syntax check', 'validate code'] },
@@ -1915,9 +1915,9 @@ function projectActionModelView(history, auditMap) {
 // failover 判定、400 归因(工具被拒 / 超窗 / stream_options)、SSE 分帧(空行分事件、多行 data: 拼接、[DONE])、raw_line;
 // 每一帧交给 protocol.createStreamDecoder 的解码器,非流式回体交给 protocol.decodeCompletion。调用方(09/08)显式传
 // protocol;没传(老调用点、单测)时按请求体形状认(Responses 用 input 项,chat 用 messages)。
-async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol }) {
+async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol, allowCompatibilityRetry = true, assertRequest }) {
   const wire = protocol || providerWireProtocolForBody(body);
-  const doFetch = b => providerModelPostOnce({ url: chatUrl, headers, body: b, signal: ctrl ? ctrl.signal : undefined });
+  const doFetch = b => providerModelPostOnce({ url: chatUrl, headers, body: b, signal: ctrl ? ctrl.signal : undefined, assertRequest });
   let res;
   try {
     res = await doFetch(body);
@@ -1966,10 +1966,10 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
     // 58 号批 2:协议内的兼容重打(Anthropic:思考块签名校验失败 → 去掉思考块;网关不认 thinking / output_config 等 → 去掉点名字段)。
     // chat / responses 恒返回 null,走下面原有的 stream_options 分支,行为不变。
-    const retryBody = wire.retryOn400(body, t, { url: chatUrl });   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
+    const retryBody = allowCompatibilityRetry ? wire.retryOn400(body, t, { url: chatUrl }) : null;   // url:从 400 学到的 max_tokens 上限记在「这个端点 + 这个模型」名下
     if (retryBody) {
       res = await doFetch(retryBody);
-    } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
+    } else if (allowCompatibilityRetry && body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
       // 不再认裸 invalid:OpenAI 系所有 400 的 type 都是 invalid_request_error,认它等于把每个注定失败的 400
       // 都剥 stream_options 白打第二遍。真拒收 stream_options 的端点会点名它(或说 unsupported / unknown)。
       // Some servers reject stream_options — retry once without it before failing.

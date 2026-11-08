@@ -47,6 +47,24 @@ test('渲染来源:作用域被撤 / 输入非法都 fail-closed', async () => {
   }
 });
 
+test('a page remains bound to its local source revision and parent stop revokes the child scope', async () => {
+  const childScope = SESSION + ':worker', service = media.MediaImageService.create({ context: () => ({ scopeId: childScope }), storeFor() {} });
+  const scope = service.beginScope(childScope), revision = sha('original document identity');
+  let changed = false;
+  const parent = { revision, assert() { if (changed) throw Object.assign(Error('source changed'), { code: 'source_changed' }); } };
+  const source = media.MediaImageService.renderedSource({ id: 'page', name: 'page.png', bytes: PNG, sessionId: childScope, scopeOwner: scope, parent });
+  try {
+    assert.equal(source.snapshot.revision, sha(JSON.stringify([revision, sha(PNG)])));
+    assert.equal(source.snapshot.scope, sha(childScope).slice(0, 32));
+    assert.equal(source.assert(), true);
+    changed = true;
+    assert.throws(() => source.assert(), { code: 'source_changed' });
+    changed = false;
+    await service.revokeScope(SESSION);
+    assert.throws(() => source.assert(), { code: 'privacy.image_revoked' });
+  } finally { await source.release(); scope.release(); }
+});
+
 test('渲染来源能真的跑完 prepare → delivery(不是只形状对上)', async () => {
   const stored = new Map();
   const recipient = media.MediaImageService.recipientHash('https://api.example.invalid/v1/chat/completions', { authorization: 'Bearer synthetic' });

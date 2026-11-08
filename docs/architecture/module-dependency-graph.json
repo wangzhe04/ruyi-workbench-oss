@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 141,
-    "providedSymbols": 4334,
-    "requiredSymbols": 4280,
+    "providedSymbols": 4336,
+    "requiredSymbols": 4285,
     "edges": 940,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -10366,6 +10366,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "ToolPreparedMedia",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "writeHistorySnapshot",
           "kinds": [
             "call"
@@ -12443,6 +12450,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "ToolPreparedMedia",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "upsertCompactMarker",
           "kinds": [
             "call"
@@ -12916,6 +12930,7 @@
         "TOOL_RESULT_FIELD_FLOOR",
         "TOOL_RESULT_MARKER_RESERVE",
         "TOOL_RESULT_MIN_CAP",
+        "ToolPreparedMedia",
         "_calibKey",
         "agentConversationContextMeta",
         "agentNodeContextWindow",
@@ -14446,6 +14461,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "paths",
           "kinds": [
             "read"
@@ -14544,6 +14566,7 @@
         "policyDesktopOverrideFor",
         "policySessionFor",
         "privacyLocalCleanup",
+        "readNativeMedia",
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "scratchpadWriteTool",
@@ -14609,6 +14632,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
           "kinds": [
             "read"
           ]
@@ -15460,6 +15490,13 @@
           "symbol": "rehydrateObservation",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "ToolPreparedMedia",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -30774,16 +30811,16 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "appRoot",
+          "symbol": "crypto",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
           "provider": "00-boot.js",
-          "symbol": "crypto",
+          "symbol": "externalRoot",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {
@@ -38695,6 +38732,7 @@
       "from": "08-agent-runs.js",
       "to": "10-context-governance.js",
       "symbols": [
+        "ToolPreparedMedia",
         "boundToolResultForDisplay",
         "compactionRefetchRefusal",
         "compactionRefetchWarning",
@@ -39174,6 +39212,7 @@
       "from": "09-workflow.js",
       "to": "10-context-governance.js",
       "symbols": [
+        "ToolPreparedMedia",
         "agentNodeContextWindow",
         "appendPromptToLastUserMessage",
         "boundToolResultForDisplay",
@@ -39766,6 +39805,7 @@
       "from": "11c-file-visual-io.js",
       "to": "00-boot.js",
       "symbols": [
+        "MediaImageHooks",
         "cp",
         "paths"
       ],
@@ -39785,6 +39825,7 @@
       "symbols": [
         "ASR_MAX_BODY_BYTES",
         "InternalMcpHooks",
+        "MediaImageHooks",
         "MigrationHooks",
         "OVERLAY_ID",
         "SKILL_ID_RE",
@@ -40036,6 +40077,7 @@
       "from": "12-tool-dispatch.js",
       "to": "10-context-governance.js",
       "symbols": [
+        "ToolPreparedMedia",
         "providerTurnQuotaKey",
         "rehydrateObservation"
       ],
@@ -42652,8 +42694,8 @@
         "URL",
         "WorkDataMaintenanceHooks",
         "apiFailure",
-        "appRoot",
         "crypto",
+        "externalRoot",
         "fs",
         "fsp",
         "json",

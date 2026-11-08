@@ -43,7 +43,7 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
     if (typeof context !== 'function' || typeof storeFor !== 'function') fail('host_required');
     const records = new Map(), removals = new Map(), retained = new Set(), scopes = new Map(), scopeOwners = new WeakMap(); let preparing = false, scopeOwnerCount=0;
     function beginScope(sessionId) {
-      if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}$/.test(sessionId)) fail('scope_changed');
+      if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}(?::[A-Za-z0-9_-]{1,160})?$/.test(sessionId)) fail('scope_changed');
       // Apply the existing four-owner budget before host IO too. Retained
       // cleanup owners remain budgeted after losing their active scope lease.
       if (scopeOwnerCount + retained.size >= 4) fail('busy');
@@ -233,8 +233,9 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
     async function revokeScope(sessionId) {
       // Authority is revoked for host/source/processor/store pending owners before
       // cleanup awaits. A new same-id incarnation receives a different epoch.
-      revokeEpoch(sessionId);
-      const ids=[...records].filter(([,record])=>record.sessionId===sessionId).map(([id,record])=>{record.dead=true;return id;});
+      const belongs = value => value === sessionId || value.startsWith(sessionId + ':');
+      for (const key of scopes.keys()) if (belongs(key)) revokeEpoch(key);
+      const ids=[...records].filter(([,record])=>belongs(record.sessionId)).map(([id,record])=>{record.dead=true;return id;});
       await removeRecords(ids);
     }
     async function invalidate() {
@@ -258,17 +259,19 @@ const MediaImageService = ((cryptoApi, HeadersApi) => {
   // prepare 原来只吃 uploads 里带 dev/ino 身份的 source;渲染件从来没有文件身份,所以这里给它自己的证明:
   // 自己持有一份字节(复制,调用方之后改自己的 Buffer 不影响)、sha256 钉住内容、作用域由会话派生,
   // assert() 会在作用域变化、已释放或内容被改时 fail-closed,release() 就地抹零。
-  function renderedSource({ id, name, bytes, sessionId, scopeOwner } = {}) {
+  function renderedSource({ id, name, bytes, sessionId, scopeOwner, parent } = {}) {
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) fail('source_invalid');
     if (typeof name !== 'string' || !name || name.length > 200) fail('source_invalid');
     if (!Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > 4 * 1024 * 1024) fail('source_invalid');
     if (typeof sessionId !== 'string' || !sessionId) fail('source_invalid');
     const own = Buffer.from(bytes), digest = hash(own), scope = hash(sessionId).slice(0, 32);
     let released = false;
-    const snapshot = Object.freeze({ bytes: own, hash: digest, revision: digest, scope });
+    const revision = parent ? hash(JSON.stringify([parent.revision, digest])) : digest;
+    const snapshot = Object.freeze({ bytes: own, hash: digest, revision, scope });
     return Object.freeze({ id, name, snapshot,
       assert() {
         if (scopeOwner && typeof scopeOwner.assert === 'function') scopeOwner.assert();
+        if (parent) parent.assert();
         if (released) fail('source_changed');
         if (hash(own) !== digest) fail('source_changed');
         return true;

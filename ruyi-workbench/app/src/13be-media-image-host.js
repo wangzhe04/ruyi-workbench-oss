@@ -6,13 +6,19 @@ const MediaImageHost = (() => {
   const fold = value => process.platform === 'win32' ? value.toLowerCase() : value;
   const same = (a, b) => ['dev','ino','size','mtimeNs','ctimeNs','nlink'].every(key => a[key] === b[key]);
   const managed = work => typeof WorkDataMaintenanceHooks.run === 'function' ? WorkDataMaintenanceHooks.run('media-image', work) : work();
+  const LOCAL_SOURCE_LIMIT = 50 * 1024 * 1024;
+  const localHelperHashes = Object.freeze({
+    'native-file-read.py': 'b9c0a9f3300cc00bc6b6c97dc322de3cff5a28bbe5f50b0dc3a16027dc937c17',
+    'native-video-read.py': '91cbfce6403de135c72908e9f8e0ea900d720c5d9c36bcad980084d936f82ab9',
+  });
   let processorPromise = null, processorOwner = null, preparedAny = false;
+  let localHelperActive = false, localHelperUnknown = false, localSourceReads = 0;
   function processor() {
     // Paths are supplied by the application installation/environment, never by
     // browser JSON. There is no PATH lookup or cloud/installation fallback.
     if (!processorPromise) {
-      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(appRoot(), 'mcp', 'ai-computer-control'));
-      const sourceRoot = path.resolve(process.env.RUYI_MEDIA_SOURCES_ROOT || path.join(appRoot(), 'resources', 'media-runtime-sources'));
+      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(externalRoot(), 'mcp', 'ai-computer-control'));
+      const sourceRoot = path.resolve(process.env.RUYI_MEDIA_SOURCES_ROOT || path.join(externalRoot(), 'resources', 'media-runtime-sources'));
       processorPromise = MediaImageProcessor.create({ runtimeRoot, sourceRoot, language: process.env.RUYI_MEDIA_OCR_LANGUAGE || 'zh-Hans-CN',
         resourceProfile: process.env.RUYI_MEDIA_RESOURCE_PROFILE ?? 'legacy-full-4987-v1' }).then(owner => { processorOwner = owner; return owner; });
       // Keep the failed result. Repeated user sends do not create implicit worker
@@ -23,7 +29,9 @@ const MediaImageHost = (() => {
   }
   // This cache is never replaced, including after configuration changes or a
   // failed request. Observe that same resolved owner without creating resources.
-  function helperMayStillRun() { return processorOwner === null ? false : processorOwner.helperMayStillRun() !== false; }
+  function helperMayStillRun() {
+    return localHelperActive || localHelperUnknown || (processorOwner !== null && processorOwner.helperMayStillRun() !== false);
+  }
   function assertAncestors(target) {
     const absolute = path.resolve(target), parsed = path.parse(absolute); let current = parsed.root;
     for (const bit of absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
@@ -31,6 +39,154 @@ const MediaImageHost = (() => {
       const stat = fs.lstatSync(current, { bigint: true });
       if (!stat.isDirectory() || stat.isSymbolicLink() || fold(fs.realpathSync.native(current)) !== fold(current)) fail('source_alias');
     }
+  }
+  async function readLocalMediaFile(file, signal, read) {
+    const assertSignal = () => { if (signal?.aborted) fail('cancelled'); };
+    assertSignal(); assertAncestors(path.dirname(file));
+    const original = fs.lstatSync(file, { bigint: true });
+    if (!original.isFile() || original.isSymbolicLink() || original.nlink !== 1n) fail('source_invalid');
+    if (original.size < 1n || original.size > BigInt(LOCAL_SOURCE_LIMIT)) fail('source_limit');
+    const assert = () => {
+      assertSignal(); assertAncestors(path.dirname(file));
+      const current = fs.lstatSync(file, { bigint: true });
+      if (!current.isFile() || current.isSymbolicLink() || !same(original, current)) fail('source_changed');
+    };
+    if (localSourceReads >= 2) fail('worker_busy');
+    localSourceReads++;
+    let bytes;
+    try {
+      bytes = Buffer.alloc(Number(original.size));
+      const handle = await fsp.open(file, 'r');
+      try {
+        const assertHeld = async () => {
+          if (!same(original, await handle.stat({ bigint: true }))) fail('source_changed');
+          assert();
+        };
+        await assertHeld();
+        let offset = 0;
+        while (offset < bytes.length) {
+          const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset);
+          if (!bytesRead) fail('source_changed');
+          offset += bytesRead;
+          await assertHeld();
+        }
+      } finally { await handle.close(); }
+      const revision = hash(JSON.stringify([hash(bytes), ...['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].map(key => String(original[key]))]));
+      const result = await read(bytes, Object.freeze({ revision, assert }));
+      assert();
+      return result;
+    } finally { bytes?.fill(0); localSourceReads--; }
+  }
+  function runLocalChild(executable, helper, argv, bytes, { signal, timeoutMs, maxBytes, env }) {
+    return new Promise((resolve, reject) => {
+      if (typeof WorkDataMaintenanceHooks.admitHelper === 'function') WorkDataMaintenanceHooks.admitHelper();
+      const child = require('node:child_process').spawn(executable, ['-I', '-B', '-X', 'utf8', helper, ...argv], {
+        cwd: path.dirname(executable), env, windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'],
+      });
+      const input = Buffer.from(bytes);
+      const chunks = [];
+      let size = 0, failure = '', settled = false, closeDeadline;
+      const timeout = setTimeout(() => stop('worker_timeout'), timeoutMs);
+      const abort = () => stop('cancelled');
+      function finish(code) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout); clearTimeout(closeDeadline);
+        signal?.removeEventListener('abort', abort);
+        let output;
+        try {
+          if (failure || code !== 0) fail(failure || 'worker_failed');
+          output = Buffer.concat(chunks, size);
+          let result;
+          try { result = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(output)); }
+          catch { fail('worker_output'); }
+          resolve(result);
+        } catch (error) { reject(error); }
+        finally { output?.fill(0); for (const chunk of chunks) chunk.fill(0); }
+      }
+      function stop(reason) {
+        if (settled || failure) return;
+        failure = reason;
+        closeDeadline = setTimeout(() => {
+          localHelperUnknown = true;
+          finish(null);
+        }, 2000);
+        child.stdin.destroy();
+        try { child.kill(); } catch { /* Close must still be observed. */ }
+      }
+      child.on('error', () => stop('worker_failed'));
+      child.stdin.on('error', () => stop('worker_input'));
+      child.stdout.on('error', () => stop('worker_output'));
+      child.stdout.on('data', chunk => {
+        if (settled || failure || size + chunk.length > maxBytes) { chunk.fill(0); stop('worker_output_limit'); return; }
+        chunks.push(chunk); size += chunk.length;
+      });
+      child.once('close', code => { input.fill(0); finish(code); });
+      try { if (typeof WorkDataMaintenanceHooks.trackChild === 'function') WorkDataMaintenanceHooks.trackChild(child); }
+      catch { stop('worker_failed'); return; }
+      signal?.addEventListener('abort', abort, { once: true });
+      if (signal?.aborted) abort();
+      else child.stdin.end(input, () => input.fill(0));
+    });
+  }
+  async function runLocalMediaHelper(name, argv, bytes, { signal, timeoutMs, maxBytes, env = {} } = {}) {
+    if (process.platform !== 'win32' || !Object.hasOwn(localHelperHashes, name)) fail('runtime_unavailable');
+    if (!Array.isArray(argv) || argv.length > 4 || argv.some(value => typeof value !== 'string' || value.length > 4096 || value.includes('\0'))
+      || !Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > LOCAL_SOURCE_LIMIT
+      || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000
+      || !Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 24 * 1024 * 1024) fail('worker_input');
+    if (signal?.aborted) fail('cancelled');
+    if (localHelperActive || localHelperUnknown) fail('worker_busy');
+    const profile = process.env.RUYI_MEDIA_RESOURCE_PROFILE ?? 'legacy-full-4987-v1';
+    if (profile !== 'legacy-full-4987-v1') fail('runtime_unavailable');
+    localHelperActive = true;
+    try {
+      return await managed(async () => {
+        const runtime = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(externalRoot(), 'mcp', 'ai-computer-control'));
+        const sources = path.resolve(process.env.RUYI_MEDIA_SOURCES_ROOT || path.join(externalRoot(), 'resources', 'media-runtime-sources'));
+        const executable = path.join(runtime, 'python_embed', 'python.exe');
+        const helper = path.join(externalRoot(), 'resources', name);
+        const pin = file => {
+          assertAncestors(path.dirname(file));
+          const stat = fs.lstatSync(file, { bigint: true });
+          if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1n) fail('worker_changed');
+          return stat;
+        };
+        const verify = async expected => {
+          try {
+            const before = [pin(executable), pin(helper)];
+            if (expected && expected.some((stat, index) => !same(stat, before[index]))) fail('worker_changed');
+            const { verifyMediaArtifacts } = require('../tools/verify-media-artifacts.cjs');
+            const bound = signal ? AbortSignal.any([signal, AbortSignal.timeout(25000)]) : AbortSignal.timeout(25000);
+            await verifyMediaArtifacts(runtime, sources, { signal: bound });
+            if (before[1].size > 1024n * 1024n || hash(fs.readFileSync(helper)) !== localHelperHashes[name]
+              || !same(before[0], pin(executable)) || !same(before[1], pin(helper))) fail('worker_changed');
+            return before;
+          } catch {
+            if (signal?.aborted) fail('cancelled');
+            fail('runtime_unavailable');
+          }
+        };
+        const childEnv = {};
+        for (const key of ['SystemRoot', 'WINDIR', 'SystemDrive', 'TEMP', 'TMP']) if (process.env[key]) childEnv[key] = process.env[key];
+        if (name === 'native-video-read.py') {
+          const capture = env.OPENCV_FFMPEG_CAPTURE_OPTIONS;
+          const demuxer = argv[0];
+          if (!['mov', 'matroska', 'avi'].includes(demuxer)) fail('worker_input');
+          const whitelist = demuxer === 'matroska' ? 'matroska,webm' : demuxer;
+          const expected = `protocol_whitelist;ruyi-no-external-io|format_whitelist;${whitelist}|input_format;${demuxer}|max_pixels;8294400`
+            + (demuxer === 'mov' ? '|enable_drefs;0|use_absolute_path;0' : '');
+          if (capture !== expected) fail('worker_input');
+          childEnv.OPENCV_FFMPEG_CAPTURE_OPTIONS = capture;
+          childEnv.OPENCV_LOG_LEVEL = 'SILENT';
+        }
+        const pins = await verify();
+        if (signal?.aborted) fail('cancelled');
+        const value = await runLocalChild(executable, helper, argv, bytes, { signal, timeoutMs, maxBytes, env: childEnv });
+        await verify(pins);
+        return value;
+      });
+    } finally { localHelperActive = false; }
   }
   async function sourceFor({ id, name }, sessionId, scopeOwner) {
     if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof name !== 'string'
@@ -145,7 +301,7 @@ const MediaImageHost = (() => {
     // 杀软占用/半装/磁盘抖动会让渲染管线在进程重启前彻底不可用,而 media_probe 是 read 档工具。
     // 这里只做文件级判定:渲染管线要跑的 python_embed 在不在。
     try {
-      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(appRoot(), 'mcp', 'ai-computer-control'));
+      const runtimeRoot = path.resolve(process.env.RUYI_MEDIA_RUNTIME_ROOT || path.join(externalRoot(), 'mcp', 'ai-computer-control'));
       const executable = path.join(runtimeRoot, 'python_embed', process.platform === 'win32' ? 'python.exe' : 'python');
       const stat = await fsp.stat(executable).catch(() => null);
       if (!stat || !stat.isFile()) return { available: false, path: null, reason: 'component_missing' };
@@ -155,7 +311,7 @@ const MediaImageHost = (() => {
   // 「渲染 + 遮盖」的接缝:把渲染出来的页面(内存 Buffer)准备成受保护图片引用。
   // 顺序固定:会话 → 策略(必须在 turn 的 PrivacyGateway scope 里) → 收件人(vision provider) → 处理器(真实原生组件)。
   // 任何一步不满足都 fail-closed,绝不把原始像素交回调用方;成功时只回引用,像素留在派生库里由交付层替换。
-  async function prepareRenderedPages({ sessionId, pages, signal } = {}) {
+  function renderedInputs(pages) {
     const count = Array.isArray(pages) ? pages.length : 0;
     if (!count || count > 4) fail('render_invalid');
     const inputs = [];
@@ -165,7 +321,10 @@ const MediaImageHost = (() => {
         || !Buffer.isBuffer(bytes) || bytes.length < 1 || bytes.length > MediaImageContract.LIMITS.sourceBytes) fail('render_invalid');
       inputs.push({ name, bytes });
     }
-    const session = assertSessionIdForPath(sessionId), firstScopeOwner = service.beginScope(session);
+    return inputs;
+  }
+  async function withPageBatch(session, signal, work) {
+    const firstScopeOwner = service.beginScope(session);
     let firstTransferred = false;
     const assertBatch = () => {
       firstScopeOwner.assert();
@@ -173,14 +332,10 @@ const MediaImageHost = (() => {
     };
     try {
       assertBatch();
-      const config = await readConfig();
-      assertBatch(); PrivacyGateway.assertPolicyAvailable(config);
-      return await PrivacyGateway.run(session, config, () => managed(async () => {
+      return await work(assertBatch, async (inputs, policy, recipient, parent) => {
         assertBatch();
-        const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
-        const recipient = currentRecipient(config);
         const owner = await processor();
-        assertBatch();
+        assertBatch(); policy.assert(); parent?.assert();
         if (!MediaImageProcessor.isOwner(owner)) fail('processor_unavailable');
         const references = [];
         try {
@@ -188,7 +343,7 @@ const MediaImageHost = (() => {
           // cannot start in a new epoch after the session was revoked.
           for (const [index, page] of inputs.entries()) {
             assertBatch(); policy.assert();
-            const source = MediaImageService.renderedSource({ id: 'render-' + index, name: page.name, bytes: page.bytes, sessionId: session });
+            const source = MediaImageService.renderedSource({ id: 'render-' + index, name: page.name, bytes: page.bytes, sessionId: session, parent });
             const scopeOwner = index === 0 ? firstScopeOwner : undefined;
             const prepared = await service.prepare({ sessionId: session, source, policy, processor: owner, recipient, signal, scopeOwner });
             if (scopeOwner) firstTransferred = true;
@@ -206,10 +361,40 @@ const MediaImageHost = (() => {
           await service.discardPrepared(references.map(item => item.id), error);
           throw error;
         }
-      }));
+      });
     } finally {
       if (!firstTransferred) firstScopeOwner.release();
     }
+  }
+  async function prepareRenderedPages({ sessionId, pages, signal } = {}) {
+    const inputs = renderedInputs(pages), session = assertSessionIdForPath(sessionId);
+    return withPageBatch(session, signal, async (assertBatch, preparePages) => {
+      const config = await readConfig();
+      assertBatch(); PrivacyGateway.assertPolicyAvailable(config);
+      return PrivacyGateway.run(session, config, () => managed(async () => {
+        assertBatch();
+        const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
+        return preparePages(inputs, policy, currentRecipient(config));
+      }));
+    });
+  }
+  async function prepareToolVisual(route, produce) {
+    if (!route || route.scopeId !== PrivacyGateway.active()?.scopeId) fail('scope_changed');
+    return withPageBatch(route.scopeId, route.signal, (assertBatch, preparePages) => managed(async () => {
+      const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) fail('protection_disabled');
+      const recipient = MediaImageService.recipientHash(route.url, route.headers);
+      assertBatch(); policy.assert();
+      const { result, pages = [], source } = await produce();
+      try {
+        assertBatch(); policy.assert();
+        if (!result.ok) return { result };
+        const prepared = await preparePages(renderedInputs(pages), policy, recipient, source);
+        const ids = prepared.references.map(item => item.id);
+        return { result, prepared: Object.freeze({ ...prepared, release: () => service.discardPrepared(ids) }) };
+      } finally {
+        for (const page of pages) page.bytes.fill(0);
+      }
+    }));
   }
   function attachmentPrompt(file) {
     const policy = PrivacyGateway.captureMediaPolicy(); if (!policy) return null;
@@ -256,7 +441,8 @@ const MediaImageHost = (() => {
   PrivacyGateway.setHost({ projectMediaPart: projectPart, invalidateMedia: () => { void service.invalidate().catch(() => {}); } });
   Object.assign(ProviderMediaHooks, { beforeModelPost });
   Object.assign(VisualMediaHooks, { buildUserContentParts });
-  Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, availability, handleApiRoutes, helperMayStillRun,
+  Object.assign(MediaImageHooks, { attachmentPrompt, prepareRenderedPages, prepareToolVisual, readLocalMediaFile, runLocalMediaHelper,
+    availability, handleApiRoutes, helperMayStillRun,
     revokeScope: sessionId => service.revokeScope(sessionId) });
   return Object.freeze({ prepare });
 })();

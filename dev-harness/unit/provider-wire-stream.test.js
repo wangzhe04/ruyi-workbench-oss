@@ -360,6 +360,7 @@ async function runCase(spec) {
     result = await openAiStreamOnce({
       chatUrl: 'http://127.0.0.1:1/v1/chat/completions', headers: { 'content-type': 'application/json' }, body: spec.body, ctrl: null,
       onEvent: e => events.push(e), markUsage: u => usages.push(u), rawSeqRef: { n: 0 }, touch: () => { touches += 1; },
+      allowCompatibilityRetry: spec.allowCompatibilityRetry,
     });
   } catch (e) {
     thrown = { name: e && e.name, message: e && e.message };
@@ -483,6 +484,16 @@ test('w1-provider:200 回体里的失败 / content_filter / Retry-After / toolsR
     r = await run('error.stream-read-abort-untouched');
     assert.equal(r.thrown.name, 'AbortError');
     assert.equal(r.thrown.message, 'The operation was aborted', 'AbortError 的 message 不动');
+  } finally { global.fetch = realFetch; }
+});
+
+test('an attempt carrying protected media can prohibit internal HTTP 400 compatibility replay', async () => {
+  const realFetch = global.fetch;
+  try {
+    const r = await runCase({ ...CASES['error.400.stream-options-retry'], allowCompatibilityRetry: false });
+    assert.equal(r.fetches.length, 1);
+    assert.equal(r.unusedSteps, 1);
+    assert.match(r.result.httpError, /^HTTP 400.*stream_options/);
   } finally { global.fetch = realFetch; }
 });
 

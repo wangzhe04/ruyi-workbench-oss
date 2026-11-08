@@ -16,7 +16,7 @@ function fixture(boundary,{deleted=false,recreated=false,maintenanceRefuses=fals
     frames:1,orientationApplied:true,ocrComplete:true,codesComplete:true,transform:{width:12,height:12,orientation:1},words:[{text:'person@example.test',line:0,box:[1,1,5,5]}],codes:[]}),finish:()=>({closed:true,helperMayStillRun:false,ownershipRetained:false})};}};
   const hooks={},privacy={active:()=>({scopeId:current}),run:(id,conf,work)=>{current=id;return work();},captureMediaPolicy:()=>policy,setHost:value=>capturedPolicy=value};
   const sandbox={require,Buffer,Headers,setTimeout,clearTimeout,crypto,path:p,process:{platform:process.platform,env:{}},
-    paths:{uploads:p.resolve('fixture-uploads'),data:p.resolve('fixture-data')},appRoot:()=>p.resolve('fixture-app'),
+    paths:{uploads:p.resolve('fixture-uploads'),data:p.resolve('fixture-data')},externalRoot:()=>p.resolve('fixture-app'),
     fs:{lstatSync:file=>file.endsWith('.png')?stat:directory,fstatSync:()=>stat,realpathSync:{native:file=>file}},
     fsp:{async open(){opens++;await checkpoint('open');return{fd:7,async close(){closes++;if(closeFails)throw Object.assign(Error('close uncertain'),{code:'fixture.close_uncertain'});},async read(bytes,offset,length){reads++;await checkpoint(reads===1?'read':'tail');if(reads===1){sourceBytes.copy(bytes,offset,0,length);return{bytesRead:length};}return{bytesRead:0};}};},async mkdir(){}},
     assertSessionIdForPath:id=>id,sanitizeFsSegmentName:name=>name,

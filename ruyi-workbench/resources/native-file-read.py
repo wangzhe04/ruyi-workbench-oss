@@ -3,15 +3,24 @@ import base64
 import hashlib
 import io
 import json
+import logging
+import math
 import os
+import posixpath
 import re
 import sys
+import textwrap
+import warnings
 import zipfile
 import xml.etree.ElementTree as ET
 
 MAX_ENTRY = 8 * 1024 * 1024
 MAX_XML = 24 * 1024 * 1024
 MAX_IMAGE = 4 * 1024 * 1024
+MAX_DOCUMENT = 50 * 1024 * 1024
+MAX_PROJECTION_CHARS = 40000
+MAX_PAGES = 256
+OFFICE_EXTENSIONS = {'.docx', '.docm', '.dotx', '.pptx', '.pptm', '.xlsx', '.xlsm', '.odt', '.ods', '.odp'}
 
 
 def image_block(data, name):
@@ -341,6 +350,629 @@ def read_pdf(filename, opts):
         return result
 
 
+class ProjectionRefusal(Exception):
+    def __init__(self, code, found=()):
+        self.code = code
+        self.found = sorted(set(found))
+
+
+def protected_refusal(code, found=()):
+    hint = {
+        'document_encrypted': 'Save an unencrypted copy from your editor, then read it again.',
+        'document_stub': 'Choose the original document rather than its Office lock file.',
+        'document_hidden_content': 'Save a clean copy without the listed layers, then read it again.',
+        'document_projection_limit': 'Split the document into smaller clean copies and read one at a time.',
+        'document_visual_required': 'Use as:"image" to read selected pages through the protected image path.',
+        'document_render_unavailable': 'Export a clean PDF in your editor and read the exported pages.',
+        'document_page_range': 'Request a page offset within the document.',
+        'reader_unavailable': 'Use the Full offline package with the verified media runtime.',
+        'document_invalid': 'Check that the file is a complete document in a supported format.',
+    }[code]
+    return {'ok': False, 'code': code, 'hint': hint, **({'found': list(found)} if found else {})}
+
+
+def protected_text(text):
+    if len(text.encode('utf-16-le')) > MAX_PROJECTION_CHARS * 2:
+        raise ProjectionRefusal('document_projection_limit')
+    return {'ok': True, 'mode': 'document', 'projection': 'document-text', 'content': text, 'images': []}
+
+
+def protected_pages(total, opts, projection, render):
+    start = opts['pageOffset'] - 1
+    if not 0 <= start < total:
+        raise ProjectionRefusal('document_page_range')
+    end = min(start + opts['pageLimit'], total)
+    images = []
+    for i in range(start, end):
+        with io.BytesIO() as stream:
+            try:
+                with render(i) as image:
+                    image.save(stream, format='PNG')
+                images.append(image_block(stream.getvalue(), f'page-{i + 1}.png'))
+            except ImportError:
+                raise
+            except Exception as exc:
+                raise ProjectionRefusal('document_render_unavailable') from exc
+    label = 'PDF page render' if projection == 'pdf-pages' else 'Office content preview (text reflow, without original layout)'
+    result = {'ok': True, 'mode': 'document', 'projection': projection, 'totalPages': total,
+              'pageOffset': start + 1, 'images': images, 'content': f'{label}: pages {start + 1}–{end} of {total}.'}
+    if end < total:
+        result['nextPageOffset'] = end + 1
+    return result
+
+
+def local_name(value):
+    return str(value).rsplit('}', 1)[-1]
+
+
+def attributes(node):
+    return {local_name(key): value for key, value in node.attrib.items()}
+
+
+def projected_namespace(node, allowed):
+    name = str(node.tag)
+    return name.startswith('{') and name[1:name.index('}')] in allowed
+
+
+WORD_NAMESPACES = {'http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'http://purl.oclc.org/ooxml/wordprocessingml/main'}
+PRESENTATION_NAMESPACES = {'http://schemas.openxmlformats.org/presentationml/2006/main', 'http://purl.oclc.org/ooxml/presentationml/main'}
+DRAW_NAMESPACES = {'http://schemas.openxmlformats.org/drawingml/2006/main', 'http://purl.oclc.org/ooxml/drawingml/main'}
+SHEET_NAMESPACES = {'http://schemas.openxmlformats.org/spreadsheetml/2006/main', 'http://purl.oclc.org/ooxml/spreadsheetml/main'}
+
+
+def check_projection_namespace(root, ext, shared=False):
+    if ext in ('.docx', '.dotx'):
+        names, allowed = ('p', 'h', 't', 'tab', 'br', 'cr'), WORD_NAMESPACES
+    elif ext == '.pptx':
+        names, allowed = ('p', 'h', 't', 'br'), DRAW_NAMESPACES
+    elif ext == '.xlsx':
+        names, allowed = (('t', 'si') if shared else ('row', 'c', 'v', 't')), SHEET_NAMESPACES
+    else:
+        names, allowed = ('p', 'h', 's', 'tab', 'line-break'), {ODF_TEXT_NS[1:-1]}
+    if any(local_name(node.tag) in names and not projected_namespace(node, allowed) for node in root.iter()):
+        raise ProjectionRefusal('document_hidden_content', ['unhandled-text-namespace'])
+
+
+def dark_word_color(attrs):
+    value = attrs.get('val', 'auto').lower()
+    if attrs.get('themeColor') in ('light1', 'light2', 'background1', 'background2') or 'themeTint' in attrs:
+        return False
+    if value == 'auto':
+        return True
+    return bool(re.fullmatch('[a-f0-9]{6}', value) and min(int(value[i:i + 2], 16) for i in (0, 2, 4)) < 200)
+
+
+def office_layers(roots, ext):
+    found = set()
+    for name, root in roots.items():
+        found.update(ooxml_structure_layers(root, ext))
+        for node in root.iter():
+            tag, attrs = local_name(node.tag), attributes(node)
+            if tag in ('AlternateContent', 'Choice', 'Fallback'):
+                found.add('alternate-markup')
+            if tag == 'Relationship':
+                if attrs.get('TargetMode', '').lower() == 'external' or ':' in attrs.get('Target', ''):
+                    found.add('external-relationships')
+                relation = attrs.get('Type', '').rsplit('/', 1)[-1].lower()
+                if relation in ('oleobject', 'package', 'attachedtemplate', 'afchunk', 'externallink', 'vbaproject'):
+                    found.add('embedded-or-active-parts')
+            if tag in ('Default', 'Override') and 'macroenabled' in attrs.get('ContentType', '').lower():
+                found.add('macros')
+            if tag in ('vanish', 'webHidden', 'hidden-text', 'hidden-paragraph', 'rPh', 'phoneticPr') or attrs.get('hidden', '').lower() in ('1', 'true'):
+                found.add('hidden-content')
+            if tag in ('sheet', 'sld') and (attrs.get('state', '').lower() in ('hidden', 'veryhidden') or attrs.get('show') in ('0', 'false')):
+                found.add('hidden-content')
+            if attrs.get('visibility') in ('collapse', 'filter', 'hidden') or attrs.get('display') in ('none', 'false'):
+                found.add('hidden-content')
+            if tag in ('instrText', 'fldSimple', 'fldChar', 'altChunk', 'dataBinding', 'customXml', 'script', 'scripts', 'event-listener', 'control', 'object', 'object-ole', 'binary-data', 'notes', 'form', 'forms'):
+                found.add('embedded-or-active-parts')
+            if (tag == 'f' and name.startswith('xl/')) or 'formula' in attrs:
+                found.add('spreadsheet-formulas')
+            if tag in ('conditionalFormatting', 'autoFilter', 'numFmt'):
+                found.add('unhandled-cell-display')
+            if name == 'xl/styles.xml' and tag == 'xf' and any(attrs.get(key, '0') != '0' for key in ('numFmtId', 'fontId', 'fillId')):
+                found.add('unhandled-cell-display')
+            if name == 'xl/styles.xml' and tag == 'color' and ('rgb' in attrs and attrs['rgb'].upper() not in ('FF000000', '00000000')
+                    or 'theme' in attrs and attrs['theme'] != '1' or 'indexed' in attrs or 'tint' in attrs):
+                found.add('unhandled-cell-display')
+            if projected_namespace(node, WORD_NAMESPACES):
+                if (tag == 'color' and not dark_word_color(attrs)
+                        or tag == 'background' and attrs.get('color', 'FFFFFF').upper() != 'FFFFFF'
+                        or tag in ('sz', 'szCs') and attrs.get('val', '').isdigit() and int(attrs['val']) < 8):
+                    found.add('unhandled-text-display')
+            if tag == 'text-properties' and attrs.get('color', '#000000').lower() != '#000000':
+                found.add('unhandled-text-display')
+            if ext == '.pptx' and name.startswith('ppt/slides/') and tag in ('noFill', 'srgbClr', 'scrgbClr', 'alpha'):
+                found.add('unhandled-text-display')
+            if tag in ('image', 'blip', 'drawing', 'pict', 'txbxContent', 'text-box', 'chart', 'oMath', 'oMathPara'):
+                found.add('unhandled-visual-content')
+            if ext in ('.odt', '.ods', '.odp') and attrs.get('href') and not attrs['href'].startswith('#'):
+                found.add('external-or-embedded-relationships')
+            if tag == 'encryption-data':
+                raise ProjectionRefusal('document_encrypted')
+    return found
+
+
+def package_relationships(roots, part):
+    parent, basename = posixpath.split(part)
+    rels = roots.get(posixpath.join(parent, '_rels', basename + '.rels'))
+    result = {}
+    if rels is None:
+        return result
+    for item in rels:
+        attrs = attributes(item)
+        target = attrs.get('Target', '')
+        if not target or any(char in target for char in ('\\', ':', '%', '?', '#')):
+            raise ProjectionRefusal('document_hidden_content', ['unhandled-relationships'])
+        resolved = posixpath.normpath(target[1:] if target.startswith('/') else posixpath.join(parent, target))
+        if resolved == '..' or resolved.startswith('../') or not attrs.get('Id') or attrs['Id'] in result:
+            raise ProjectionRefusal('document_invalid')
+        result[attrs['Id']] = resolved
+    return result
+
+
+def office_sections(roots, ext):
+    if ext in ('.docx', '.dotx'):
+        part = 'word/document.xml'
+        main = roots[part]
+        if (local_name(main.tag) != 'document' or not projected_namespace(main, WORD_NAMESPACES)
+                or not any(local_name(node.tag) == 'body' and projected_namespace(node, WORD_NAMESPACES) for node in main)):
+            raise ProjectionRefusal('document_invalid')
+        rels = package_relationships(roots, part)
+        linked = []
+        for node in main.iter():
+            kind = {'headerReference': 'header', 'footerReference': 'footer'}.get(local_name(node.tag))
+            if kind:
+                target = rels[attributes(node)['id']]
+                if not re.fullmatch(fr'word/{kind}\d+\.xml', target):
+                    raise ProjectionRefusal('document_hidden_content', ['unhandled-parts'])
+                linked.append(target)
+        if any(local_name(node.tag) in ('footnoteReference', 'endnoteReference') for node in main.iter()):
+            raise ProjectionRefusal('document_hidden_content', ['unhandled-notes'])
+        return [part, *dict.fromkeys(linked)]
+    if ext in ('.pptx', '.xlsx'):
+        part, tag = ('ppt/presentation.xml', 'sldId') if ext == '.pptx' else ('xl/workbook.xml', 'sheet')
+        namespace = PRESENTATION_NAMESPACES if ext == '.pptx' else SHEET_NAMESPACES
+        if local_name(roots[part].tag) != ('presentation' if ext == '.pptx' else 'workbook') or not projected_namespace(roots[part], namespace):
+            raise ProjectionRefusal('document_invalid')
+        rels = package_relationships(roots, part)
+        parts = []
+        for node in roots[part].iter():
+            if local_name(node.tag) != tag:
+                continue
+            if not projected_namespace(node, namespace):
+                raise ProjectionRefusal('document_hidden_content', ['unhandled-text-namespace'])
+            ids = [value for key, value in node.attrib.items() if key.startswith('{') and local_name(key) == 'id']
+            if len(ids) != 1 or ids[0] not in rels:
+                raise ProjectionRefusal('document_invalid')
+            parts.append(rels[ids[0]])
+        if not parts or len(parts) != len(set(parts)):
+            raise ProjectionRefusal('document_invalid')
+        expected = r'ppt/slides/slide\d+\.xml' if ext == '.pptx' else r'xl/worksheets/sheet\d+\.xml'
+        if any(not re.fullmatch(expected, part) for part in parts):
+            raise ProjectionRefusal('document_hidden_content', ['unhandled-parts'])
+        return parts
+    root = roots['content.xml']
+    if root.tag != ODF_OFFICE_NS + 'document-content' or not any(node.tag == ODF_OFFICE_NS + 'body' for node in root):
+        raise ProjectionRefusal('document_invalid')
+    return ['content.xml']
+
+
+def paragraph_text(node, odf):
+    if not odf:
+        whitespace = {'tab': '\t', 'br': '\n', 'cr': '\n'}
+        return ''.join((child.text or '') if local_name(child.tag) == 't' else whitespace.get(local_name(child.tag), '')
+                       for child in node.iter())
+
+    remaining = MAX_PROJECTION_CHARS
+    pieces = []
+
+    def append(piece):
+        nonlocal remaining
+        if piece:
+            remaining -= len(piece)
+            if remaining < 0:
+                raise ProjectionRefusal('document_projection_limit')
+            pieces.append(piece)
+
+    def odf_text(part):
+        tag = local_name(part.tag)
+        if tag == 's':
+            count = int(attributes(part).get('c', '1'))
+            if not 0 < count <= remaining:
+                raise ProjectionRefusal('document_projection_limit')
+            append(' ' * count)
+        elif tag in ('tab', 'line-break'):
+            append('\t' if tag == 'tab' else '\n')
+        else:
+            append(part.text)
+            for child in part:
+                odf_text(child)
+                append(child.tail)
+
+    odf_text(node)
+    return ''.join(pieces)
+
+
+def office_text(roots, ext):
+    pieces = []
+    remaining = MAX_PROJECTION_CHARS
+
+    def charge(piece):
+        nonlocal remaining
+        remaining -= len(piece.encode('utf-16-le')) // 2 + 1
+        if remaining < 0:
+            raise ProjectionRefusal('document_projection_limit')
+        return piece
+
+    shared_root = roots.get('xl/sharedStrings.xml')
+    if shared_root is not None:
+        check_projection_namespace(shared_root, ext, shared=True)
+    shared = [''.join(node.text or '' for node in entry.iter() if local_name(node.tag) == 't')
+              for entry in shared_root] if shared_root is not None else []
+    for part in office_sections(roots, ext):
+        root = roots[part]
+        check_projection_namespace(root, ext)
+        lines = []
+        if ext == '.xlsx':
+            for row in (node for node in root.iter() if local_name(node.tag) == 'row'):
+                cells = []
+                for cell in row:
+                    if local_name(cell.tag) != 'c':
+                        continue
+                    value = ''.join(node.text or '' for node in cell.iter() if local_name(node.tag) in ('v', 't'))
+                    kind = cell.get('t')
+                    if kind == 's':
+                        if not value.isdecimal() or len(value) > 8 or int(value) >= len(shared):
+                            raise ProjectionRefusal('document_invalid')
+                        value = shared[int(value)]
+                    elif kind == 'b':
+                        if value not in ('0', '1'):
+                            raise ProjectionRefusal('document_invalid')
+                        value = 'TRUE' if value == '1' else 'FALSE'
+                    elif kind not in (None, 'n', 'inlineStr', 'str', 'e', 'd'):
+                        raise ProjectionRefusal('document_hidden_content', ['unhandled-cells'])
+                    if value:
+                        cells.append(charge(f"{cell.get('r', '')}: {value}"))
+                if cells:
+                    lines.append('\t'.join(cells))
+        else:
+            for node in root.iter():
+                if local_name(node.tag) not in ('p', 'h'):
+                    continue
+                value = paragraph_text(node, ext in ('.odt', '.ods', '.odp'))
+                if value:
+                    lines.append(charge(value))
+        if lines:
+            pieces.append('\n'.join(lines))
+    return '\n\n'.join(pieces)
+
+
+def office_preview(text, opts):
+    # This is a reflowed preview of the supported text projection, not a native Office layout.
+    # Pillow's bundled font has a deliberately small admitted glyph repertoire.
+    if any(char not in '\n\r\t' and not 32 <= ord(char) <= 126 for char in text):
+        raise ProjectionRefusal('document_render_unavailable')
+    from PIL import Image, ImageDraw, ImageFont
+    font = ImageFont.load_default(size=24)
+    columns = max(1, 880 // (math.ceil(max(font.getlength(chr(i)) for i in range(32, 127))) + 1))
+    lines = []
+    for line in text.split('\n'):
+        lines.extend(textwrap.wrap(line.expandtabs(4), width=columns, replace_whitespace=False) or [''])
+    total = max(1, math.ceil(len(lines) / 34))
+    if total > MAX_PAGES:
+        raise ProjectionRefusal('document_projection_limit')
+
+    def render(index):
+        image = Image.new('RGB', (960, 1200), 'white')
+        draw = ImageDraw.Draw(image)
+        draw.text((36, 24), 'Office content preview (reflowed text)', font=font, fill='black')
+        for offset, line in enumerate(lines[index * 34:(index + 1) * 34]):
+            draw.text((36, 64 + offset * 32), line, font=font, fill='black')
+        return image
+
+    return protected_pages(total, opts, 'office-content-preview', render)
+
+
+def read_protected_zip(data, ext, opts):
+    if opts['ownerStub']:
+        raise ProjectionRefusal('document_stub')
+    if data.startswith(b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'):
+        raise ProjectionRefusal('document_encrypted')
+    if ext in ('.docm', '.pptm', '.xlsm'):
+        raise ProjectionRefusal('document_hidden_content', ['macros'])
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        entries = z.infolist()
+        if len(entries) > 10000 or sum(entry.file_size for entry in entries) > MAX_DOCUMENT * 2:
+            raise ProjectionRefusal('document_projection_limit')
+        names, paths, roots, budget = set(), set(), {}, MAX_XML
+        for entry in entries:
+            name, lower = entry.filename, entry.filename.lower()
+            if lower in names or entry.orig_filename != name or name.startswith('/') or '\\' in name or ':' in name or '..' in name.split('/'):
+                raise ProjectionRefusal('document_invalid')
+            names.add(lower)
+            paths.add(name)
+            if entry.flag_bits & 1:
+                raise ProjectionRefusal('document_encrypted')
+            if not lower.endswith(('.xml', '.rels')):
+                continue
+            if entry.file_size > MAX_ENTRY or entry.file_size > budget:
+                raise ProjectionRefusal('document_projection_limit')
+            budget -= entry.file_size
+            raw = z.read(entry)
+            declaration_probe = raw.replace(b'\x00', b'').upper()
+            if b'<!DOCTYPE' in declaration_probe or b'<!ENTITY' in declaration_probe:
+                raise ProjectionRefusal('document_hidden_content', ['xml-entities'])
+            roots[name] = ET.fromstring(raw)
+        found = set(ooxml_hidden_parts(names)) | office_layers(roots, ext)
+        if any(name.startswith(('ppt/notesslides/', 'xl/externallinks/', 'xl/querytables/', 'xl/pivotcache/',
+                                'scripts/', 'basic/', 'object ', 'objectreplacements/')) for name in names):
+            found.add('unhandled-private-parts')
+        if found:
+            raise ProjectionRefusal('document_hidden_content', found)
+        for name in roots:
+            if not name.endswith('.rels'):
+                continue
+            parent, folder, rel = name.rsplit('/', 2) if name.count('/') > 1 else ('', *name.split('/', 1))
+            if folder != '_rels' or any(target not in paths for target in package_relationships(roots, posixpath.join(parent, rel[:-5])).values()):
+                raise ProjectionRefusal('document_hidden_content', ['unhandled-relationships'])
+        text = office_text(roots, ext)
+        result = protected_text(text)
+        return office_preview(text, opts) if opts['visual'] else result
+
+
+PDF_LAYER_KEYS = {
+    '/AcroForm': 'form', '/Annots': 'annotations', '/OpenAction': 'open-action',
+    '/AA': 'additional-actions', '/JS': 'javascript', '/JavaScript': 'javascript',
+    '/AF': 'embedded-files', '/EF': 'embedded-files', '/EmbeddedFiles': 'embedded-files',
+    '/OCProperties': 'optional-content', '/OC': 'optional-content',
+    '/ActualText': 'alternate-text', '/Alt': 'alternate-text',
+}
+PDF_ACTIVE_ACTIONS = {'/Launch', '/JavaScript', '/GoToR', '/GoToE', '/URI', '/SubmitForm',
+                      '/ImportData', '/Rendition', '/Movie', '/Sound', '/RichMedia', '/SetOCGState'}
+PDF_STANDARD_FONTS = {f'/{name}' for name in (
+    'Courier', 'Courier-Bold', 'Courier-Oblique', 'Courier-BoldOblique', 'Helvetica', 'Helvetica-Bold',
+    'Helvetica-Oblique', 'Helvetica-BoldOblique', 'Times-Roman', 'Times-Bold', 'Times-Italic',
+    'Times-BoldItalic', 'Symbol', 'ZapfDingbats',
+)}
+PDF_TEXT_OPERATORS = {b'q', b'Q', b'cm', b'BT', b'ET', b'Tf', b'Tc', b'Tw', b'Tz', b'TL', b'Tr', b'Ts',
+                      b'Td', b'TD', b'Tm', b'T*', b'Tj', b'TJ', b"'", b'"', b'G', b'g', b'RG', b'rg', b'K', b'k'}
+PDF_BLACK = {b'G': [0], b'g': [0], b'RG': [0, 0, 0], b'rg': [0, 0, 0], b'K': [0, 0, 0, 1], b'k': [0, 0, 0, 1]}
+
+
+def pdf_name(obj, key):
+    value = obj.get(key)
+    return str(value.get_object()) if value is not None else ''
+
+
+def pdf_graph_layers(reader):
+    from pypdf.generic import ArrayObject, DictionaryObject, StreamObject
+    pending = [reader.root_object]
+    visited = {}
+    found = set()
+    while pending:
+        value = pending.pop().get_object()
+        if not isinstance(value, (DictionaryObject, ArrayObject)) or id(value) in visited:
+            continue
+        visited[id(value)] = value
+        if len(visited) + len(pending) > 25000:
+            raise ProjectionRefusal('document_projection_limit')
+        if isinstance(value, ArrayObject):
+            pending.extend(value)
+            continue
+        found.update(PDF_LAYER_KEYS[key] for key in PDF_LAYER_KEYS if key in value)
+        if pdf_name(value, '/S') in PDF_ACTIVE_ACTIONS:
+            found.add('active-actions')
+        if pdf_name(value, '/Type') in ('/EmbeddedFile', '/Filespec') or isinstance(value, StreamObject) and '/F' in value:
+            found.add('embedded-or-external-streams')
+        # Descriptive metadata is discarded, not parsed or propagated.
+        pending.extend(item for key, item in value.items() if key != '/Metadata')
+    return found
+
+
+def pdf_font_is_renderable(font):
+    if pdf_name(font, '/Subtype') == '/Type3':
+        return False
+    if pdf_name(font, '/BaseFont') in PDF_STANDARD_FONTS and pdf_name(font, '/Subtype') == '/Type1':
+        return True
+    descendants = font.get('/DescendantFonts')
+    fonts = [value.get_object() for value in descendants.get_object()] if descendants is not None else [font]
+    for item in fonts:
+        descriptor = item.get('/FontDescriptor')
+        if descriptor is None or not any(key in descriptor.get_object() for key in ('/FontFile', '/FontFile2', '/FontFile3')):
+            return False
+    return bool(fonts)
+
+
+def pdf_font_has_visible_text(font):
+    # Embedded programs, custom encoding maps and alternate Unicode mappings can
+    # represent different visible glyphs from the extracted text.
+    return (pdf_name(font, '/Subtype') == '/Type1' and pdf_name(font, '/BaseFont') in PDF_STANDARD_FONTS
+            and pdf_name(font, '/BaseFont') not in ('/Symbol', '/ZapfDingbats')
+            and pdf_name(font, '/Encoding') in ('', '/WinAnsiEncoding', '/MacRomanEncoding')
+            and not any(key in font for key in ('/FontDescriptor', '/ToUnicode', '/Widths')))
+
+
+def check_pdf_operations(reader, pages, visual):
+    from pypdf.generic import ContentStream
+    budget = [MAX_XML, 250000]
+    def inspect(stream, resources, parents=()):
+        if stream is None:
+            return
+        if len(parents) > 12 or id(stream) in parents:
+            raise ProjectionRefusal('document_projection_limit')
+        data = stream.get_data()
+        budget[0] -= len(data)
+        if budget[0] < 0:
+            raise ProjectionRefusal('document_projection_limit')
+        content = stream if isinstance(stream, ContentStream) else ContentStream(stream, reader)
+        for args, operator in content.operations:
+            budget[1] -= 1
+            if budget[1] < 0:
+                raise ProjectionRefusal('document_projection_limit')
+            if operator == b'Tr' and (len(args) != 1 or args[0] not in (0, 1, 2, 4, 5, 6)):
+                raise ProjectionRefusal('document_hidden_content', ['invisible-text'])
+            if operator == b'BDC' and args and args[0] == '/OC':
+                raise ProjectionRefusal('document_hidden_content', ['optional-content'])
+            if operator == b'gs':
+                state = resources['/ExtGState'][args[0]]
+                if any(key in state and float(state[key]) == 0 for key in ('/ca', '/CA')) or pdf_name(state, '/SMask') not in ('', '/None'):
+                    raise ProjectionRefusal('document_hidden_content', ['hidden-graphics-state'])
+            if not visual:
+                # The text-only path never interprets arbitrary paint, clipping,
+                # patterns, masks or alternate content as reliably visible text.
+                if operator not in PDF_TEXT_OPERATORS or operator in PDF_BLACK and args != PDF_BLACK[operator]:
+                    raise ProjectionRefusal('document_visual_required')
+                if operator == b'Tr' and args != [0]:
+                    raise ProjectionRefusal('document_visual_required')
+            if operator == b'Tf':
+                font = resources['/Font'][args[0]]
+                if visual and not pdf_font_is_renderable(font):
+                    raise ProjectionRefusal('document_render_unavailable')
+                if not visual and not pdf_font_has_visible_text(font):
+                    raise ProjectionRefusal('document_visual_required')
+            if operator != b'Do':
+                continue
+            xobject = resources['/XObject'][args[0]]
+            if pdf_name(xobject, '/Subtype') == '/Image':
+                if not visual:
+                    raise ProjectionRefusal('document_visual_required')
+            elif pdf_name(xobject, '/Subtype') == '/Form':
+                if '/Ref' in xobject:
+                    raise ProjectionRefusal('document_hidden_content', ['external-form'])
+                local = xobject.get('/Resources')
+                inspect(xobject, local.get_object() if local is not None else resources, (*parents, id(stream)))
+            else:
+                raise ProjectionRefusal('document_hidden_content', ['unhandled-xobject'])
+
+    for page in pages:
+        resources = page.get('/Resources')
+        inspect(page.get_contents(), resources.get_object() if resources is not None else {})
+
+
+def check_pdf_text_crop(page):
+    left, top, right, bottom = page.cropbox
+    ml, mt, mr, mb = page.mediabox
+    left, top, right, bottom = max(left, ml), max(top, mt), min(right, mr), min(bottom, mb)
+    if not all(math.isfinite(n) for n in (left, top, right, bottom)) or left >= right or top >= bottom:
+        raise ProjectionRefusal('document_visual_required')
+    boxes = []
+    for item in page.chars:
+        if not item['text'].strip():
+            continue
+        x0, y0, x1, y1 = item['x0'], item['top'], item['x1'], item['bottom']
+        if not all(math.isfinite(n) for n in (x0, y0, x1, y1)) or x1 - x0 < 1 or y1 - y0 < 1:
+            raise ProjectionRefusal('document_visual_required')
+        if x0 < left or y0 < top or x1 > right or y1 > bottom:
+            raise ProjectionRefusal('document_hidden_content', ['outside-visible-page'])
+        boxes.append((x0, y0, x1, y1))
+        if len(boxes) > MAX_PROJECTION_CHARS:
+            raise ProjectionRefusal('document_projection_limit')
+    # Detect text overpaint while allowing ordinary adjacent kerning. Dense
+    # coincident text must take the actual raster route.
+    active, checks = [], 0
+    for box in sorted(boxes, key=lambda item: item[1]):
+        x0, y0, x1, y1 = box
+        active = [other for other in active if other[3] > y0]
+        checks += len(active)
+        if checks > 1000000:
+            raise ProjectionRefusal('document_visual_required')
+        for a, b, c, d in active:
+            overlap_x = min(x1, c) - max(x0, a)
+            overlap_y = min(y1, d) - max(y0, b)
+            if overlap_x > 0 and overlap_y > 0 and overlap_x * overlap_y > 0.25 * min((x1 - x0) * (y1 - y0), (c - a) * (d - b)):
+                raise ProjectionRefusal('document_visual_required')
+        active.append(box)
+
+
+def read_protected_pdf(data, opts):
+    from pypdf import PdfReader
+    reader = PdfReader(io.BytesIO(data), strict=True)
+    if reader.is_encrypted:
+        raise ProjectionRefusal('document_encrypted')
+    found = pdf_graph_layers(reader)
+    if found:
+        raise ProjectionRefusal('document_hidden_content', found)
+    total = len(reader.pages)
+    if not 0 < total <= MAX_PAGES:
+        raise ProjectionRefusal('document_projection_limit')
+    check_pdf_operations(reader, reader.pages, opts['visual'])
+    if opts['visual']:
+        import pypdfium2
+        try:
+            with pypdfium2.PdfDocument(data) as document:
+                if len(document) != total:
+                    raise ProjectionRefusal('document_render_unavailable')
+
+                def render(index):
+                    page = document[index]
+                    try:
+                        width, height = page.get_size()
+                        if not all(math.isfinite(n) and n > 0 for n in (width, height)):
+                            raise ProjectionRefusal('document_render_unavailable')
+                        scale = min(2, 1599 / max(width, height))
+                        bitmap = page.render(scale=scale, may_draw_forms=False, draw_annots=False, limit_image_cache=True)
+                        try:
+                            return bitmap.to_pil().convert('RGB')
+                        finally:
+                            bitmap.close()
+                    finally:
+                        page.close()
+
+                return protected_pages(total, opts, 'pdf-pages', render)
+        except ProjectionRefusal:
+            raise
+        except Exception as exc:
+            raise ProjectionRefusal('document_render_unavailable') from exc
+
+    import pdfplumber
+    with pdfplumber.open(io.BytesIO(data)) as document:
+        if len(document.pages) != total:
+            raise ProjectionRefusal('document_invalid')
+        hidden = pdf_hidden_layers(document)
+        if hidden:
+            raise ProjectionRefusal('document_hidden_content', hidden)
+        pieces, length = [], 0
+        for index, page in enumerate(document.pages, 1):
+            check_pdf_text_crop(page)
+            page_text = page.extract_text() or ''
+            if '\ufffd' in page_text or re.search(r'\(cid:\d+\)', page_text):
+                raise ProjectionRefusal('document_visual_required')
+            piece = f'## Page {index}\n{page_text}'
+            length += len(piece) + 2
+            if length > MAX_PROJECTION_CHARS:
+                raise ProjectionRefusal('document_projection_limit')
+            pieces.append(piece)
+            page.close()
+        return protected_text('\n\n'.join(pieces))
+
+
+def protected_main():
+    logging.disable(logging.CRITICAL)
+    warnings.simplefilter('ignore')
+    try:
+        _, ext, raw = sys.argv[1:4]
+        opts = json.loads(raw)
+        if ext not in OFFICE_EXTENSIONS | {'.pdf'} or not isinstance(opts, dict) or set(opts) != {'pageOffset', 'pageLimit', 'visual', 'ownerStub'}:
+            raise ProjectionRefusal('document_invalid')
+        if (type(opts['pageOffset']) is not int or not 1 <= opts['pageOffset'] <= 100000
+                or type(opts['pageLimit']) is not int or not 1 <= opts['pageLimit'] <= 2
+                or type(opts['visual']) is not bool or type(opts['ownerStub']) is not bool):
+            raise ProjectionRefusal('document_invalid')
+        data = sys.stdin.buffer.read(MAX_DOCUMENT + 1)
+        if len(data) > MAX_DOCUMENT:
+            raise ProjectionRefusal('document_projection_limit')
+        if not data:
+            raise ProjectionRefusal('document_invalid')
+        return read_protected_pdf(data, opts) if ext == '.pdf' else read_protected_zip(data, ext, opts)
+    except ProjectionRefusal as exc:
+        return protected_refusal(exc.code, exc.found)
+    except ImportError:
+        return protected_refusal('reader_unavailable')
+    except Exception:
+        return protected_refusal('document_invalid')
+
+
 def main():
     filename, raw = sys.argv[1:3]
     opts = json.loads(raw)
@@ -357,12 +989,15 @@ def main():
     return read_zip(filename, opts)
 
 
-try:
-    output = main()
-except ImportError as exc:
-    output = {'ok': False, 'code': 'reader_unavailable', 'error': f'Missing native reader dependency: {exc.name}',
-              'hint': 'Install pdfplumber for PDF or Pillow for image conversion in the Python runtime. No computer use/MCP connection is needed.'}
-except Exception as exc:
-    output = {'ok': False, 'code': 'document_invalid', 'error': str(exc)[:300],
-              'hint': 'Check the file format; for containers archive_unzip can inspect the entries.'}
+if sys.argv[1:2] == ['--protected']:
+    output = protected_main()
+else:
+    try:
+        output = main()
+    except ImportError as exc:
+        output = {'ok': False, 'code': 'reader_unavailable', 'error': f'Missing native reader dependency: {exc.name}',
+                  'hint': 'Install pdfplumber for PDF or Pillow for image conversion in the Python runtime. No computer use/MCP connection is needed.'}
+    except Exception as exc:
+        output = {'ok': False, 'code': 'document_invalid', 'error': str(exc)[:300],
+                  'hint': 'Check the file format; for containers archive_unzip can inspect the entries.'}
 print(json.dumps(output, ensure_ascii=True))

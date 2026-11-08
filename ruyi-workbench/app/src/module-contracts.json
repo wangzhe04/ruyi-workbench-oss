@@ -10208,6 +10208,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "ToolPreparedMedia",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "writeHistorySnapshot",
           "kinds": [
             "call"
@@ -12279,6 +12286,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "ToolPreparedMedia",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "upsertCompactMarker",
           "kinds": [
             "call"
@@ -12748,6 +12762,7 @@
         "TOOL_RESULT_FIELD_FLOOR",
         "TOOL_RESULT_MARKER_RESERVE",
         "TOOL_RESULT_MIN_CAP",
+        "ToolPreparedMedia",
         "_calibKey",
         "agentConversationContextMeta",
         "agentNodeContextWindow",
@@ -14272,6 +14287,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "paths",
           "kinds": [
             "read"
@@ -14366,6 +14388,7 @@
         "policyDesktopOverrideFor",
         "policySessionFor",
         "privacyLocalCleanup",
+        "readNativeMedia",
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "scratchpadWriteTool",
@@ -14431,6 +14454,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "InternalMcpHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
           "kinds": [
             "read"
           ]
@@ -15282,6 +15312,13 @@
           "symbol": "rehydrateObservation",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "ToolPreparedMedia",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -30496,16 +30533,16 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "appRoot",
+          "symbol": "crypto",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
           "provider": "00-boot.js",
-          "symbol": "crypto",
+          "symbol": "externalRoot",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {

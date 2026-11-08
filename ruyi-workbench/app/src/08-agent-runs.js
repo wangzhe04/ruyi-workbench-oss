@@ -737,7 +737,7 @@ async function requestDelegationPermission(session, config, name, args, tier, on
   if (signal) { signal.addEventListener('abort', cancel, { once: true }); if (signal.aborted) cancel(); }
   try { return await decision; } finally { if (signal) signal.removeEventListener('abort', cancel); }
 }
-async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, closeInbox, teamRoster, poolPolicy, originTurnAgentCap, onToolsReady, onBudgetTripped, runId, interactivePermissions, onPermissionWait }, lifecycle) {
+async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, hasPendingInbox, closeInbox, teamRoster, poolPolicy, originTurnAgentCap, onToolsReady, onBudgetTripped, runId, interactivePermissions, onPermissionWait }, lifecycle) {
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -872,16 +872,20 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   // The delegated task and later steers are new inputs, never historical user data.
   if (typeof PrivacyGateway !== 'undefined') PrivacyGateway.bindHostHistory(privacyHistoryOwner, []);
   const headers = wire.requestHeaders(provider, { model: subModel });
+  const preparedToolMedia = ToolPreparedMedia.create({ provider, model: subModel, sessionId: parentSession.id, turnSeq: parentSession.turnSeq,
+    headers, endpoint: () => chatUrl, signal: ctrl && ctrl.signal });
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
   // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
   // toolsRejected flag and died on the 400). Mutated by the transient-retry loop below.
   let useTools = tools.length > 0, toolsRetried = false;
-  const buildBody = () => {
+  const buildBody = (includePreparedMedia = false) => {
     // 与父回合同一个协议(58 号批 1):chat 发 messages,Responses 发 instructions + input 项(system 折进 instructions);
     // v1.8:服务端工具项 subServerToolItems 接在翻译后的历史之后(DeepSeek 在服务端恢复搜索结果)。
     const privacyHistory = typeof PrivacyGateway !== 'undefined' ? PrivacyGateway.projectHostHistory(privacyHistoryOwner, subHistory) : subHistory;
-    const b = wire.encodeMessages({ model: subModel, messages: [{ role: 'system', content: sys }, ...privacyHistory], stream: true, instructions: sys, serverItems: subServerToolItems, provider, hasTools: useTools });
+    const messages = [{ role: 'system', content: sys }, ...privacyHistory];
+    if (includePreparedMedia) preparedToolMedia.append(messages);
+    const b = wire.encodeMessages({ model: subModel, messages, stream: true, instructions: sys, serverItems: subServerToolItems, provider, hasTools: useTools });
     wire.applyTemperature(b, temp);
     applyProviderReasoningEffort(b, provider, wire.id);
     // v1.8.2:服务端 web_search 只在服务商显式开启(serverWebSearch:true)时映射;否则 web_search 仍是本地工具。
@@ -958,7 +962,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON；字符串值内部的双引号必须转义为 \\"。',
     });
     try {
-      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire });
+      const call = await callModel();
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
       if (!call.httpError) VisualPipeline.pruneOldImages(subHistory);
       if (!call.httpError && call.text && String(call.text).trim()) {
@@ -971,6 +975,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       return false;
     } finally {
       useTools = hadTools;
+      await preparedToolMedia.clear();
     }
   };
   const drainInbox = () => {
@@ -1000,6 +1005,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       }
     return count;
   };
+  const callModel = () => preparedToolMedia.send(assertRequest => openAiStreamOnce({ chatUrl, headers, body: buildBody(!!assertRequest),
+    ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire, allowCompatibilityRetry: !assertRequest, assertRequest }),
+  () => hasPendingInbox?.() === true, drainInbox);
   try {
     let iter = 0;
     for (; iter < budget; iter++) {
@@ -1007,7 +1015,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // about to make even when this iteration exits via `break` without tools.
       iters = iter + 1;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
-      drainInbox();
+      if (drainInbox()) await preparedToolMedia.clear();
       // 第28波(§28a):迭代边界两级自动压缩(与主回合共用 10 runAutoCompaction)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:强压只靠 L1 的重试之后,下一迭代不再白跑一次 L2
@@ -1026,17 +1034,18 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断),服务商回了 Retry-After(07 带出 retryAfterMs,封顶 30 s)就至少睡这么久
       // —— 与主回合(09)同口径;修前限流窗口还没过就把 3 次重试用光,子代理整个失败。其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
+      const mediaEndpoint = preparedToolMedia.endpoint();
       const sent = await withTransientRetry({
-        maxRetries: 3,
+        maxRetries: mediaEndpoint ? 0 : 3,
         isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         signal: ctrl && ctrl.signal,
         backoffMs: (n, c) => Math.max(Math.min(2000, 250 * n), c && c.retryAfterMs > 0 ? Math.min(30000, c.retryAfterMs) : 0),
-        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire }),
+        attempt: callModel,
         classify: c => {
-          if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
+          if (!mediaEndpoint && c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
           return providerCallIsTransient(c) ? 'retry' : 'done';
         },
-      });
+      }).finally(preparedToolMedia.clear);
       if (sent.aborted) { subOk = false; subErr = '已中止'; break; }
       const call = sent.result;
       // v1.0-S6 (B): the sub-turn runs on a SINGLE endpoint (transient retry above, but no multi-endpoint
@@ -1047,7 +1056,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       if (!call.httpError) VisualPipeline.pruneOldImages(subHistory);
       if (call.httpError) {
         // 第32波: 首次传输/超时失败后,若已有检查点,自动恢复续跑(不重做已完成工具调用)
-        if (savepoint && !checkpointRestored && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+        if (!mediaEndpoint && savepoint && !checkpointRestored && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           checkpointRestored = true;
           subHistory.length = 0;
           for (const m of savepoint.subHistory) subHistory.push(JSON.parse(JSON.stringify(m)));
@@ -1074,7 +1083,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
         const isOverWindow = /^HTTP 400\b/.test(he) && isContextOverflowError(he, { legacySubagentFallback: true });
         // 第45波 45c(对称 45b):over-window 不再是终态 —— 强制压缩 subHistory(L1 蒸发 + L2 预算化摘要)
         // 并重试本迭代一次。maybeCompactSubHistory 只在迭代边界触发,单条巨型工具结果可在边界前爆窗。
-        if (isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
+        if (!mediaEndpoint && isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           overWindowRetried = true;
           const estNow = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]);
           const parentId = parentSession && parentSession.id ? String(parentSession.id) : '';
@@ -1343,7 +1352,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                 toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
                 recheckDelegationPermission();
                 // 代理模式 v2:把节点的 abort 信号交给工具 —— 显式停止(后台任务条/stop 动作)能中断在跑的长命令,而不是等它自然结束。
-                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, provider, execution, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
+                resultObj = await toolCall(tc.name, args, preparedToolMedia.bind({ sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, provider, execution, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal })); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
               }
               catch (e) { resultObj = toolFailureResult(e); } // 审计 N5:未知工具附 did-you-mean(N4 的命令/桌面开关由 toolCall 按 ctx.config 拒绝)
               finally { stopToolBeat(); releaseResourceLease(toolLease); }
@@ -1382,10 +1391,13 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             subToolImages.push({ role: 'user', content: [{ type: 'text', text: `[工具 ${tc.name} 返回的图像，来源与页码见工具结果]` },
               ...imgs.map(uri => ({ type: 'image_url', image_url: { url: uri } }))] });
           }
-          subHistory.push({ role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, modelResult) });
+          const toolReply = { role: 'tool', tool_call_id: tc.id, content: await encodeModelToolResult(tc.name, modelResult) };
+          subHistory.push(toolReply);
+          preparedToolMedia.queue(resultObj, toolReply);
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
           if (!subOk) break; // a denied delegation step cannot execute the rest of this tool batch
         }
+        await preparedToolMedia.finishBatch(subOk && !(ctrl && ctrl.signal && ctrl.signal.aborted));
         if (!subOk) break;
         if (!(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           const imageBatchStart = subHistory.length;
@@ -1440,6 +1452,10 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   } catch (e) {
     subOk = false; subErr = (e && e.message) ? e.message : String(e);
   } finally {
+    await preparedToolMedia.close().catch(error => {
+      if (subOk) { subOk = false; subErr = error.message; }
+      try { logEvent({ kind: 'media_cleanup_failed', sessionId: parentSession.id, subagentId, code: error.code }); } catch { /* preserve node outcome */ }
+    });
     if (typeof closeInbox === 'function') closeInbox(ctrl && ctrl.signal && ctrl.signal.aborted ? 'aborted' : subOk ? 'completed' : 'provider_error');
   }
   const finalText = resultText.trim();
