@@ -339,6 +339,9 @@ export function createEventStream({
     if (globalThis.addEventListener) globalThis.addEventListener('pageshow', event => {
       if (event && event.persisted) start();
     });
+    if (globalThis.addEventListener) globalThis.addEventListener('ruyi:host-wake', () => {
+      if (started) { retryMs = EVENT_STREAM_RETRY_MIN_MS; void connect(); }
+    });
     return true;
   }
 

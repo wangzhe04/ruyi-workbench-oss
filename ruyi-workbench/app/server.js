@@ -1432,7 +1432,7 @@ function tildePath(p) {
 function samePathKey(p) {
   let s = path.resolve(String(p || ''));
   if (process.platform === 'win32') s = s.toLowerCase();
-  return s.length > 3 ? s.replace(/[\\/]+$/, '') : s;
+  return s.length > 3 ? s.replace(process.platform === 'win32' ? /[\\/]+$/ : /\/+$/, '') : s;
 }
 
 // 如意包根标记:<root>/app/server.js 是文件,且 <root>/package.json 的 name 是 ruyi-workbench 或
@@ -4617,7 +4617,8 @@ const THREAD_INDEX_RECENT_MIN = 10;
 const THREAD_INDEX_RECENT_MAX = 200;
 
 function normalizeWorkspacePathString(value) {
-  let s = String(value == null ? '' : value).trim();
+  const raw = String(value == null ? '' : value);
+  let s = process.platform === 'darwin' && raw.startsWith('/') ? raw : raw.trim();
   const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
   for (let guard = 0; guard < 3; guard++) {
     const pair = pairs.find(([open, close]) => s.length >= 2 && s.startsWith(open) && s.endsWith(close));
@@ -4625,7 +4626,7 @@ function normalizeWorkspacePathString(value) {
     s = s.slice(pair[0].length, s.length - pair[1].length).trim();
   }
   // 代码走查 C14:去掉结尾分隔符(盘符根 C:\ 与单独的 / 保留)—— 修前带不带结尾「\」存成两条常用文件夹。
-  const stripped = s.replace(/[\\/]+$/, '');
+  const stripped = s.replace(process.platform === 'darwin' && s.startsWith('/') ? /\/+$/ : /[\\/]+$/, '');
   if (stripped && !/^[A-Za-z]:$/.test(stripped)) s = stripped;
   else if (s) s = s.slice(0, stripped.length + 1);
   return s.slice(0, 1000);
@@ -10999,7 +11000,10 @@ function applySessionMetaPatch(session, patch) {
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
   // next turn. No existence check — a stale/moved folder simply resolves at run time like any manual entry.
-  if (typeof patch.cwd === 'string' && patch.cwd.trim()) session.cwd = path.resolve(patch.cwd.trim());
+  if (typeof patch.cwd === 'string' && patch.cwd.trim()) {
+    const cwd = process.platform === 'darwin' && patch.cwd.startsWith('/') ? patch.cwd : patch.cwd.trim();
+    session.cwd = path.resolve(cwd);
+  }
   return session;
 }
 
@@ -15208,9 +15212,9 @@ function readdirTimed(dir, opts, timeoutMs) {
 // PF3 fix: bounded existence probe for an EXPLICITLY-KNOWN candidate path (a recentWorkspace). Confirms the dir
 // is still there WITHOUT listing it, so a known workspace on a slow drive isn't dropped just because its own
 // readdir timed out. Resolves to a Stats, null (error/absent), or STAT_TIMEOUT. Never throws.
-function statTimed(p, timeoutMs) {
+function statTimed(p, timeoutMs, options) {
   return Promise.race([
-    fsp.stat(p).catch(() => null),
+    fsp.stat(p, options).catch(() => null),
     new Promise(resolve => setTimeout(() => resolve(STAT_TIMEOUT), timeoutMs)),
   ]);
 }
@@ -15248,7 +15252,27 @@ async function listChildDirs(root) {
 
 // Core resolver (pure-ish: reads the FS, takes config for candidate roots). Exposed for e2e unit testing.
 // Returns { ok:true, matches:[{path, score}], truncated }.
-async function resolveWorkspace({ name, children }, config) {
+async function resolveWorkspace({ name, children, selectedPath }, config) {
+  // Native macOS pickers resolve aliases such as /var -> /private/var. Preserve
+  // an existing favorite's spelling and permissions when it names the same directory.
+  if (process.platform === 'darwin' && typeof selectedPath === 'string') {
+    if (!path.isAbsolute(selectedPath)) throw new Error('selectedPath must be absolute');
+    let timer;
+    const canonical = await Promise.race([fsp.realpath(selectedPath).catch(() => null),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), WORKSPACE_DIR_TIMEOUT_MS); }),
+    ]).finally(() => clearTimeout(timer));
+    if (!canonical) throw new Error('selectedPath could not be resolved');
+    const selected = await statTimed(canonical, WORKSPACE_DIR_TIMEOUT_MS, { bigint: true });
+    if (!selected || selected === STAT_TIMEOUT || !selected.isDirectory()) throw new Error('selectedPath must identify a directory');
+    const known = Array.isArray(config.workspaces) ? config.workspaces : [];
+    const resolved = await Promise.all(known.map(async favorite => ({ favorite,
+      stat: typeof favorite.path === 'string' && path.isAbsolute(favorite.path) ? await statTimed(favorite.path, WORKSPACE_DIR_TIMEOUT_MS, { bigint: true }) : null,
+    })));
+    const matching = resolved.filter(row => row.stat && row.stat !== STAT_TIMEOUT && row.stat.dev === selected.dev && row.stat.ino === selected.ino);
+    const favorite = matching[0]?.favorite;
+    return { ok: true, path: favorite?.path || canonical, ...(favorite ? { favorite } : {}),
+      aliases: Array.from(new Set([canonical, selectedPath, ...matching.map(row => row.favorite.path)])), matches: [] };
+  }
   const wantName = String(name || '').trim().toLowerCase();
   if (!wantName) return { ok: false, error: 'name is required', matches: [] };
   const wantChildren = new Set(
@@ -16334,7 +16358,7 @@ function executableFromAssociationCommand(command) {
 
 function classifyCodeEditorExecutable(executable) {
   const command = String(executable || '').trim();
-  const base = path.basename(command).toLowerCase();
+  const base = path.win32.basename(command).toLowerCase();
   if (!command || !base) return null;
   for (const [kind, names] of Object.entries(CODE_EDITOR_KINDS)) {
     if (names.has(base)) return { command, kind, label: codeEditorLabel(base) };
@@ -16385,6 +16409,20 @@ function resolvePreferredCodeEditor(filePath) {
   if (process.env.RUYI_TEST_HOOKS === '1' && process.env.RUYI_TEST_CODE_EDITOR) {
     return { command: String(process.env.RUYI_TEST_CODE_EDITOR), kind: 'vscode', label: 'Test Editor', source: 'test' };
   }
+  if (process.platform === 'darwin') {
+    const applications = ['Visual Studio Code', 'Visual Studio Code - Insiders', 'Cursor', 'Windsurf', 'VSCodium'];
+    for (const directory of [path.join(os.homedir(), 'Applications'), '/Applications']) {
+      for (const name of applications) {
+        const application = path.join(directory, name + '.app');
+        if (fs.existsSync(path.join(application, 'Contents', 'Info.plist'))) {
+          return { command: '/usr/bin/open', application, kind: 'mac-vscode', label: name, source: 'installed-fallback' };
+        }
+      }
+    }
+    const application = '/System/Applications/TextEdit.app';
+    if (fs.existsSync(application)) return { command: '/usr/bin/open', application, kind: 'mac-app', label: 'TextEdit', source: 'system-fallback' };
+    return null;
+  }
   const direct = classifyCodeEditorExecutable(windowsFileAssociationExecutable(filePath));
   if (direct && fs.existsSync(direct.command)) return { ...direct, source: 'file-association' };
   const targetExt = path.extname(String(filePath || '')).toLowerCase();
@@ -16403,6 +16441,18 @@ function resolvePreferredCodeEditor(filePath) {
 function buildCodeEditorSpawn(editor, action, beforePath, afterPath) {
   if (!editor || !editor.command) return { ok: false, error: '未检测到可安全打开代码的本机编辑器' };
   const current = String(afterPath || beforePath || '');
+  if (editor.kind === 'mac-vscode') {
+    const args = action === 'diff'
+      ? ['-n', '-a', editor.application, '--args', '--reuse-window', '--diff', String(beforePath || ''), String(afterPath || '')]
+      : ['-a', editor.application, '--', current];
+    if (action === 'diff' && (!beforePath || !afterPath)) return { ok: false, error: 'Diff 两侧文件路径不完整' };
+    return { ok: true, command: editor.command, args, mode: action === 'diff' ? 'diff' : 'open', editor: editor.label, source: editor.source };
+  }
+  if (editor.kind === 'mac-app') {
+    const fileOpenPrefix = ['-a', editor.application, '--'];
+    return { ok: true, command: editor.command, args: [...fileOpenPrefix, current], fileOpenPrefix,
+      mode: 'open', editor: editor.label, source: editor.source, diffUnsupported: action === 'diff' };
+  }
   if (action !== 'diff') return { ok: true, command: editor.command, args: [current], mode: 'open', editor: editor.label, source: editor.source };
   const before = String(beforePath || ''), after = String(afterPath || '');
   if (!before || !after) return { ok: false, error: 'Diff 两侧文件路径不完整' };
@@ -69242,7 +69292,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const config = await readConfig();
     try {
-      const r = await resolveWorkspace({ name: body && body.name, children: body && body.children }, config);
+      const r = await resolveWorkspace({ name: body && body.name, children: body && body.children, selectedPath: body && body.selectedPath }, config);
       return send(res, json(r));
     } catch (e) {
       return send(res, json({ ok: false, error: String(e && e.message || e), matches: [] }));
@@ -70195,7 +70245,7 @@ async function handleApi(req, res, pathname) {
   // in the turn (bounded to 12). Unlike office_open this never hands source files to an arbitrary association:
   // resolvePreferredCodeEditor accepts only known editors/IDEs, preventing `.js` -> WScript execution.
   if (req.method === 'POST' && pathname === '/api/checkpoints/open-external') {
-    if (process.platform !== 'win32') return send(res, apiFailure('editor.platform_unsupported', {}, '仅支持 Windows', 400));
+    if (!['win32', 'darwin'].includes(process.platform)) return send(res, apiFailure('editor.platform_unsupported', {}, '仅支持 Windows 和 macOS', 400));
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
     const turnSeq = Number(body && body.turnSeq);
@@ -70244,7 +70294,7 @@ async function handleApi(req, res, pathname) {
         spawnSpec = buildCodeEditorSpawn(editor, 'diff', materialized.beforePath, materialized.afterPath);
         // Generic safe editors have no command-line diff contract. Keep the browser's internal diff as the
         // comparison view and open the meaningful side in the native editor (before for a deletion).
-        if (spawnSpec.diffUnsupported) spawnSpec.args = [entry.op === 'delete' ? materialized.beforePath : materialized.afterPath];
+        if (spawnSpec.diffUnsupported) spawnSpec.args = [...(spawnSpec.fileOpenPrefix || []), entry.op === 'delete' ? materialized.beforePath : materialized.afterPath];
       }
       if (!spawnSpec.ok || !await launchCodeEditor(spawnSpec)) {
         failed.push({ entrySeq: entry.entrySeq, reason: spawnSpec.error || '无法启动本机编辑器' });

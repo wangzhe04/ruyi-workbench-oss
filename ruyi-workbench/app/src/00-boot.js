@@ -1392,7 +1392,7 @@ function tildePath(p) {
 function samePathKey(p) {
   let s = path.resolve(String(p || ''));
   if (process.platform === 'win32') s = s.toLowerCase();
-  return s.length > 3 ? s.replace(/[\\/]+$/, '') : s;
+  return s.length > 3 ? s.replace(process.platform === 'win32' ? /[\\/]+$/ : /\/+$/, '') : s;
 }
 
 // 如意包根标记:<root>/app/server.js 是文件,且 <root>/package.json 的 name 是 ruyi-workbench 或

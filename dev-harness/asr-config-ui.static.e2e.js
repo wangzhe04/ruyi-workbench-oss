@@ -163,7 +163,8 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   }
   assert.ok(providersJs.includes("if (adv) adv.open = true;") && providersJs.includes("querySelector('.asr-advanced')"), '前端: 从灰麦克风跳过来先把高级区打开(否则聚焦不到里面的输入框)');
   assert.ok(providersJs.includes("void save({ asrFixMode: modeSel.value });") && providersJs.includes("void save({ asrFixProviderId: provSel.value, asrFixModel: '' });") && providersJs.includes("void save({ asrFixModel: modelSel.value });"), '前端: 三个选择器各自选中即存部分补丁,不碰上面两栏的键');
-  assert.ok(voiceJs.includes("catch { sx = null; try { notify(t('composer.voice.error.streamFallback'), ''); }"), '前端: 流式开不了 → 说一句、回落按停顿切段');
+  assert.ok(voiceJs.includes("if (mine === attempt) { try { notify(t('composer.voice.error.streamFallback'), ''); }")
+    && voiceJs.includes('if (!sx) {'), '前端: 当前尝试的流式开不了 → 说一句、回落按停顿切段');
   for (const [name, dict] of [['zh-CN', zh], ['en-US', en]]) {
     for (const k of ['settings.asrStream.title', 'settings.asrStream.disabled', 'settings.asrStream.hintSet', 'settings.asrStream.hintUnset', 'settings.asrStream.none', 'settings.asr.roleHint', 'composer.voice.hintStream', 'composer.voice.streaming', 'composer.voice.error.streamFallback',
       'settings.asrFix.title', 'settings.asrFix.mode.auto', 'settings.asrFix.mode.audio', 'settings.asrFix.mode.llm', 'settings.asrFix.mode.off', 'settings.asrFix.providerLabel', 'settings.asrFix.followMain', 'settings.asrFix.noMain', 'settings.asrFix.defaultModel',
@@ -209,15 +210,19 @@ for (const flag of ['--use-fake-device-for-media-stream', '--use-fake-ui-for-med
   assert.ok(launchArgs.includes(flag), VOICE_E2E + ' 的无头 Edge 启动参数缺 ' + flag + '（45 号文 §1.5：不加就是 NotFoundError）；实得 ' + JSON.stringify(launchArgs));
 }
 const voiceJs = fs.readFileSync(path.join(APP, 'public', 'js', 'composer-voice.js'), 'utf8');
-assert.match(voiceJs, /export const COMPOSER_VOICE_MIME = 'audio\/webm;codecs=opus';/, 'composer-voice: 唯一录制格式 webm/opus（§1.5：wav 录不了）');
+const voiceRuntime = require(path.join(APP, 'public', 'js', 'composer-voice.js'));
+assert.equal(voiceRuntime.COMPOSER_VOICE_MIME, 'audio/webm;codecs=opus', 'composer-voice: 保留既有首选 webm/opus');
 assert.match(voiceJs, /export const COMPOSER_VOICE_MAX_MS = 3 \* 60 \* 1000;/, 'composer-voice: 录满 3 分钟自动结束');
 assert.match(voiceJs, /String\(config\.asrProviderId \|\| ''\)\.trim\(\) \|\| !String\(config\.asrModel \|\| ''\)\.trim\(\)/, 'composer-voice: 显示判据含 asrProviderId && asrModel');
 assert.match(voiceJs, /env\.isSecureContext !== true/, 'composer-voice: 显示判据含安全上下文');
 assert.match(voiceJs, /nav\.mediaDevices/, 'composer-voice: 显示判据含 navigator.mediaDevices');
-assert.match(voiceJs, /Recorder\.isTypeSupported\(COMPOSER_VOICE_MIME\)/, 'composer-voice: 显示判据含 isTypeSupported(webm/opus)');
+const voiceEnv = { isSecureContext: true, navigator: { mediaDevices: { getUserMedia() {} } }, MediaRecorder: { isTypeSupported: type => type === 'audio/webm;codecs=opus' } };
+assert.equal(voiceRuntime.composerVoiceRecordingType(voiceEnv), 'audio/webm;codecs=opus', 'composer-voice: 按实际 isTypeSupported 选择既有 webm/opus');
+assert.equal(voiceRuntime.composerVoiceCapable(voiceEnv), true, 'composer-voice: 既有录音环境仍可用');
+assert.equal(voiceRuntime.composerVoiceCapable({ ...voiceEnv, MediaRecorder: { isTypeSupported: () => false } }), false, 'composer-voice: 无支持格式时不显示麦克风');
 // 107-A1：上传类型不再是常量，而是「转码成了就 audio/wav、没成就回退 audio/webm」这一对（见 ⑦d）。
 // 钉的仍是同一件事：必须覆盖 apiRaw 默认的 JSON content-type，否则服务端 400 asr.content_type。
-assert.match(voiceJs, /const uploadType = wav \? COMPOSER_VOICE_WAV_TYPE : COMPOSER_VOICE_UPLOAD_TYPE;/, 'composer-voice: 上传 content-type 二选一（wav／回退 webm）');
+assert.match(voiceJs, /const uploadType = wav \? COMPOSER_VOICE_WAV_TYPE : blob\.type\.split\(';'\)\[0\];/, 'composer-voice: 上传优先 WAV，转码失败保留录制容器');
 assert.match(voiceJs, /headers: \{ 'content-type': uploadType \}/, 'composer-voice: 上传覆盖 apiRaw 默认的 JSON content-type（否则 400 asr.content_type）');
 assert.ok(!/composerVoice|composer-voice/.test(indexHtml), 'index.html 零静态麦克风标记（未配置 DOM 零漂移）');
 const voiceKeys = [...new Set([...voiceJs.matchAll(/'(composer\.voice\.[a-zA-Z.]+)'/g)].map(m => m[1]))];

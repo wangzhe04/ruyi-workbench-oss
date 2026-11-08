@@ -372,7 +372,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const config = await readConfig();
     try {
-      const r = await resolveWorkspace({ name: body && body.name, children: body && body.children }, config);
+      const r = await resolveWorkspace({ name: body && body.name, children: body && body.children, selectedPath: body && body.selectedPath }, config);
       return send(res, json(r));
     } catch (e) {
       return send(res, json({ ok: false, error: String(e && e.message || e), matches: [] }));
@@ -1325,7 +1325,7 @@ async function handleApi(req, res, pathname) {
   // in the turn (bounded to 12). Unlike office_open this never hands source files to an arbitrary association:
   // resolvePreferredCodeEditor accepts only known editors/IDEs, preventing `.js` -> WScript execution.
   if (req.method === 'POST' && pathname === '/api/checkpoints/open-external') {
-    if (process.platform !== 'win32') return send(res, apiFailure('editor.platform_unsupported', {}, '仅支持 Windows', 400));
+    if (!['win32', 'darwin'].includes(process.platform)) return send(res, apiFailure('editor.platform_unsupported', {}, '仅支持 Windows 和 macOS', 400));
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
     const turnSeq = Number(body && body.turnSeq);
@@ -1374,7 +1374,7 @@ async function handleApi(req, res, pathname) {
         spawnSpec = buildCodeEditorSpawn(editor, 'diff', materialized.beforePath, materialized.afterPath);
         // Generic safe editors have no command-line diff contract. Keep the browser's internal diff as the
         // comparison view and open the meaningful side in the native editor (before for a deletion).
-        if (spawnSpec.diffUnsupported) spawnSpec.args = [entry.op === 'delete' ? materialized.beforePath : materialized.afterPath];
+        if (spawnSpec.diffUnsupported) spawnSpec.args = [...(spawnSpec.fileOpenPrefix || []), entry.op === 'delete' ? materialized.beforePath : materialized.afterPath];
       }
       if (!spawnSpec.ok || !await launchCodeEditor(spawnSpec)) {
         failed.push({ entrySeq: entry.entrySeq, reason: spawnSpec.error || '无法启动本机编辑器' });

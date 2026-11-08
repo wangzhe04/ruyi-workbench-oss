@@ -3447,7 +3447,7 @@
   ,"shell.settingClassic": "Workbench"
   ,"shell.settingHint": "This local preference only changes the interface. It does not migrate or rewrite tasks or threads, and you can switch back at any time."
   ,"notify.settingTitle": "Notify me when I am needed"
-  ,"notify.settingHint": "Uses browser-backed local system notifications. Off by default; only new decisions that appear after opt-in are notified."
+  ,"notify.settingHint": "Uses local system notifications. Off by default, and only reminds you about new pending items after enabling."
   ,"notify.settingToggle": "Enable local notifications"
   ,"notify.quietStart": "Quiet hours start"
   ,"notify.quietEnd": "Quiet hours end"
@@ -3525,6 +3525,7 @@
   ,"composer.voice.limitReached": "Reached the {{minutes}}-minute limit, recording finished"
   ,"composer.voice.errorShort": "Failed"
   ,"composer.voice.error.denied": "Microphone permission was not granted. The input box is unchanged"
+  ,"composer.voice.error.deniedMac": "Microphone access was denied. Allow Ruyi Workbench in System Settings → Privacy & Security → Microphone, then click the microphone to retry."
   ,"composer.voice.error.noDevice": "No microphone was found. The input box is unchanged"
   ,"composer.voice.error.mic": "The microphone could not be started. The input box is unchanged"
   ,"composer.voice.error.notConfigured": "Speech recognition is not set up yet. The input box is unchanged"
@@ -4481,5 +4482,17 @@
   "privacy.keychainPermission": "Restore the Workbench access permission in Keychain and retry. Existing credentials are unchanged.",
   "privacy.protectorMissing": "The local credential protector is unavailable. Repair the Workbench runtime and retry.",
   "privacy.protectorRecovery": "The local credential key is missing, its identity changed, or data is damaged. Preserve the original data and follow credential recovery.",
-  "privacy.keychainRepair": "The Workbench wrapping key in the system Keychain is damaged. Restore Keychain first; changing the data folder or re-entering credentials cannot repair this key."
+  "privacy.keychainRepair": "The Workbench wrapping key in the system Keychain is damaged. Restore Keychain first; changing the data folder or re-entering credentials cannot repair this key.",
+  "host.origin_denied": "This page cannot use native system features. Return to the local workbench and try again.",
+  "host.invalid_message": "The native request is invalid. Reopen the workbench and try again.",
+  "host.invalid_params": "The picker options are invalid. Try again or enter the full path.",
+  "host.picker_busy": "A file picker is already open. Complete or cancel it first.",
+  "host.method_unsupported": "This native system feature is unavailable in this version.",
+  "host.notification_unavailable": "Notification permission is temporarily unavailable. Try again later.",
+  "host.notification_permission_required": "Allow Ruyi Workbench notifications in System Settings.",
+  "host.notification_failed": "The notification could not be sent. Check system notification settings.",
+  "host.timeout": "The file picker timed out. Try again or enter the full path.",
+  "host.unavailable": "Native system features are temporarily unavailable. Restart the workbench and try again.",
+  "host.picker_hint": "You can also enter the full path manually.",
+  "host.notification_denied": "macOS has denied notification permission. Allow Ruyi Workbench in System Settings > Notifications."
 }

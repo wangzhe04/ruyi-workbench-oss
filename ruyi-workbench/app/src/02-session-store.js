@@ -1714,7 +1714,10 @@ function applySessionMetaPatch(session, patch) {
   // Resolve to an absolute path (mirrors normalizeCwd); a blank/non-string value is ignored (never clears
   // an existing cwd). The turn engine reads `cwd || session.cwd`, so this becomes the working dir for the
   // next turn. No existence check — a stale/moved folder simply resolves at run time like any manual entry.
-  if (typeof patch.cwd === 'string' && patch.cwd.trim()) session.cwd = path.resolve(patch.cwd.trim());
+  if (typeof patch.cwd === 'string' && patch.cwd.trim()) {
+    const cwd = process.platform === 'darwin' && patch.cwd.startsWith('/') ? patch.cwd : patch.cwd.trim();
+    session.cwd = path.resolve(cwd);
+  }
   return session;
 }
 

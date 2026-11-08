@@ -3447,7 +3447,7 @@
   ,"shell.settingClassic": "工作台"
   ,"shell.settingHint": "切换只改变本机界面，不迁移或改写任务与线程数据；可随时切回。"
   ,"notify.settingTitle": "需要你时提醒我"
-  ,"notify.settingHint": "使用浏览器接入的本机系统通知；默认关闭，只提醒启用后新出现的待决。"
+  ,"notify.settingHint": "使用本机系统通知；默认关闭，只提醒启用后新出现的待决。"
   ,"notify.settingToggle": "开启本机通知"
   ,"notify.quietStart": "免打扰开始"
   ,"notify.quietEnd": "免打扰结束"
@@ -3525,6 +3525,7 @@
   ,"composer.voice.limitReached": "已录满 {{minutes}} 分钟，自动结束"
   ,"composer.voice.errorShort": "未成功"
   ,"composer.voice.error.denied": "没有拿到麦克风权限，输入框没有改动"
+  ,"composer.voice.error.deniedMac": "麦克风权限被拒绝。请在系统设置 → 隐私与安全性 → 麦克风中允许如意工作台，再点击麦克风重试。"
   ,"composer.voice.error.noDevice": "没有找到可用的麦克风，输入框没有改动"
   ,"composer.voice.error.mic": "麦克风没能打开，输入框没有改动"
   ,"composer.voice.error.notConfigured": "语音识别还没配置好，输入框没有改动"
@@ -4481,5 +4482,17 @@
   "privacy.keychainPermission": "请在钥匙串中恢复工作台的访问权限后重试；原有凭据未改变。",
   "privacy.protectorMissing": "本地凭据保护组件不可用，请修复工作台运行环境后重试。",
   "privacy.protectorRecovery": "本地凭据密钥缺失、身份不匹配或数据损坏。请保留原数据，并按凭据恢复流程处理。",
-  "privacy.keychainRepair": "系统钥匙串中的工作台密钥损坏。请先恢复钥匙串；仅更换数据目录或重新填写凭据不能修复系统密钥。"
+  "privacy.keychainRepair": "系统钥匙串中的工作台密钥损坏。请先恢复钥匙串；仅更换数据目录或重新填写凭据不能修复系统密钥。",
+  "host.origin_denied": "此页面无法使用原生系统功能，请返回本机工作台重试。",
+  "host.invalid_message": "原生系统请求无效，请重新打开工作台。",
+  "host.invalid_params": "选择器参数无效，请重试或手动填写完整路径。",
+  "host.picker_busy": "已有文件选择窗口，请先完成或取消该窗口。",
+  "host.method_unsupported": "当前版本尚未提供这项原生系统功能。",
+  "host.notification_unavailable": "暂时无法读取通知授权，请稍后重试。",
+  "host.notification_permission_required": "请在系统设置中允许如意工作台发送通知。",
+  "host.notification_failed": "通知未能发送，请检查系统通知设置。",
+  "host.timeout": "文件选择已超时，请重新选择或手动填写完整路径。",
+  "host.unavailable": "暂时无法连接原生系统功能，请重启工作台后重试。",
+  "host.picker_hint": "也可在输入框中手动填写完整路径。",
+  "host.notification_denied": "macOS 已拒绝通知权限。可在系统设置的“通知”中找到如意工作台并重新允许。"
 }

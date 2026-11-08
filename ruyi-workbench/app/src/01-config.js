@@ -560,7 +560,8 @@ const THREAD_INDEX_RECENT_MIN = 10;
 const THREAD_INDEX_RECENT_MAX = 200;
 
 function normalizeWorkspacePathString(value) {
-  let s = String(value == null ? '' : value).trim();
+  const raw = String(value == null ? '' : value);
+  let s = process.platform === 'darwin' && raw.startsWith('/') ? raw : raw.trim();
   const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
   for (let guard = 0; guard < 3; guard++) {
     const pair = pairs.find(([open, close]) => s.length >= 2 && s.startsWith(open) && s.endsWith(close));
@@ -568,7 +569,7 @@ function normalizeWorkspacePathString(value) {
     s = s.slice(pair[0].length, s.length - pair[1].length).trim();
   }
   // 代码走查 C14:去掉结尾分隔符(盘符根 C:\ 与单独的 / 保留)—— 修前带不带结尾「\」存成两条常用文件夹。
-  const stripped = s.replace(/[\\/]+$/, '');
+  const stripped = s.replace(process.platform === 'darwin' && s.startsWith('/') ? /\/+$/ : /[\\/]+$/, '');
   if (stripped && !/^[A-Za-z]:$/.test(stripped)) s = stripped;
   else if (s) s = s.slice(0, stripped.length + 1);
   return s.slice(0, 1000);

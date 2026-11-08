@@ -72,6 +72,10 @@ function retryableMethod(options) {
   return method === 'GET' || method === 'HEAD';
 }
 export async function apiRaw(path, options = {}) {
+  if (api.hostAdapter?.handles(path, options)) {
+    const body = await api.hostAdapter.request(path, options);
+    return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+  }
   const once = () => fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
   const request = async () => {
     try { return await once(); }
