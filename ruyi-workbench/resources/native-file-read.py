@@ -405,8 +405,24 @@ def local_name(value):
     return str(value).rsplit('}', 1)[-1]
 
 
+PROTECTED_OFFICE_ATTRIBUTES = {
+    'TargetMode', 'Target', 'Type', 'ContentType', 'Id', 'hidden', 'state', 'show', 'visibility', 'display', 'formula',
+    'numFmtId', 'fontId', 'fillId', 'rgb', 'theme', 'indexed', 'tint', 'patternType', 'val', 'themeColor', 'themeTint',
+    'color', 'background-color', 'fill', 'href', 'c', 'opacity', 'fill-opacity', 'text-opacity', 'is-hidden', 'condition',
+}
+
+
 def attributes(node):
-    return {local_name(key): value for key, value in node.attrib.items()}
+    result = {}
+    for key, value in node.attrib.items():
+        name = local_name(key)
+        relationship_id = name == 'id' and local_name(node.tag) in ('headerReference', 'footerReference')
+        # Other local-name collisions can be legitimate, such as a slide ID
+        # and its relationship ID. Only values consumed by the scanner matter.
+        if name in result and (name in PROTECTED_OFFICE_ATTRIBUTES or relationship_id):
+            raise ProjectionRefusal('document_hidden_content', ['ambiguous-attributes'])
+        result[name] = value
+    return result
 
 
 def projected_namespace(node, allowed):
@@ -442,6 +458,15 @@ def dark_word_color(attrs):
     return bool(re.fullmatch('[a-f0-9]{6}', value) and min(int(value[i:i + 2], 16) for i in (0, 2, 4)) < 200)
 
 
+def word_background_supported(tag, attrs):
+    if tag == 'shd':
+        return (attrs.get('val', 'clear') in ('clear', 'nil') and attrs.get('fill', 'auto').upper() in ('AUTO', 'FFFFFF')
+                and not any(name.startswith('theme') for name in attrs))
+    if tag == 'highlight':
+        return attrs.get('val', 'none') in ('none', 'white')
+    return True
+
+
 def office_layers(roots, ext):
     found = set()
     for name, root in roots.items():
@@ -475,14 +500,28 @@ def office_layers(roots, ext):
             if name == 'xl/styles.xml' and tag == 'color' and ('rgb' in attrs and attrs['rgb'].upper() not in ('FF000000', '00000000')
                     or 'theme' in attrs and attrs['theme'] != '1' or 'indexed' in attrs or 'tint' in attrs):
                 found.add('unhandled-cell-display')
+            if name == 'xl/styles.xml' and (tag == 'gradientFill' or tag == 'patternFill' and attrs.get('patternType', 'none') not in ('none', 'gray125')):
+                found.add('unhandled-cell-display')
             if projected_namespace(node, WORD_NAMESPACES):
                 if (tag == 'color' and not dark_word_color(attrs)
                         or tag == 'background' and attrs.get('color', 'FFFFFF').upper() != 'FFFFFF'
+                        or not word_background_supported(tag, attrs)
                         or tag in ('sz', 'szCs') and attrs.get('val', '').isdigit() and int(attrs['val']) < 8):
                     found.add('unhandled-text-display')
+            if ext in ('.docx', '.dotx') and tag in ('textFill', 'textOutline'):
+                found.add('unhandled-text-display')
             if tag == 'text-properties' and attrs.get('color', '#000000').lower() != '#000000':
                 found.add('unhandled-text-display')
-            if ext == '.pptx' and name.startswith('ppt/slides/') and tag in ('noFill', 'srgbClr', 'scrgbClr', 'alpha'):
+            if ext in ('.odt', '.ods', '.odp'):
+                if (tag == 'conditional-text' or attrs.get('display') == 'condition' or 'condition' in attrs
+                        or attrs.get('is-hidden', '').lower() in ('1', 'true')):
+                    found.add('conditional-content')
+                if (attrs.get('background-color', 'transparent').lower() not in ('transparent', '#ffffff')
+                        or any(attrs.get(key, '100%') not in ('100%', '1') for key in ('opacity', 'fill-opacity', 'text-opacity'))
+                        or 'opacity-name' in attrs):
+                    found.add('unhandled-text-display')
+            if ext == '.pptx' and name.startswith('ppt/slides/') and tag in (
+                    'noFill', 'srgbClr', 'scrgbClr', 'schemeClr', 'sysClr', 'prstClr', 'hslClr', 'alpha', 'alphaMod', 'alphaOff'):
                 found.add('unhandled-text-display')
             if tag in ('image', 'blip', 'drawing', 'pict', 'txbxContent', 'text-box', 'chart', 'oMath', 'oMathPara'):
                 found.add('unhandled-visual-content')
@@ -594,6 +633,69 @@ def paragraph_text(node, odf):
     return ''.join(pieces)
 
 
+def visible_slide_text_bodies(root, presentation):
+    def refuse():
+        raise ProjectionRefusal('document_hidden_content', ['unhandled-slide-geometry'])
+
+    def child(node, name, namespaces):
+        matches = [part for part in node if local_name(part.tag) == name and projected_namespace(part, namespaces)]
+        if len(matches) != 1:
+            refuse()
+        return matches[0]
+
+    def coordinate(node, name):
+        value = node.get(name, '')
+        if not re.fullmatch(r'-?\d{1,10}', value):
+            refuse()
+        return int(value)
+
+    if local_name(root.tag) != 'sld' or not projected_namespace(root, PRESENTATION_NAMESPACES):
+        refuse()
+    size = child(presentation, 'sldSz', PRESENTATION_NAMESPACES)
+    width, height = coordinate(size, 'cx'), coordinate(size, 'cy')
+    if width <= 0 or height <= 0:
+        refuse()
+    common = child(root, 'cSld', PRESENTATION_NAMESPACES)
+    tree = child(common, 'spTree', PRESENTATION_NAMESPACES)
+    # Master placeholders, animations, groups, custom backgrounds and overlaps
+    # can conceal text. Only directly positioned, disjoint text boxes are read.
+    if (any(local_name(part.tag) == 'bg' for part in common)
+            or any(local_name(part.tag) == 'timing' for part in root)
+            or len(tree) > 130):
+        refuse()
+    bodies, boxes = [], []
+    for shape in tree:
+        name = local_name(shape.tag)
+        if not projected_namespace(shape, PRESENTATION_NAMESPACES):
+            refuse()
+        if name in ('nvGrpSpPr', 'grpSpPr'):
+            if name == 'grpSpPr' and len(shape):
+                refuse()
+            continue
+        if name != 'sp' or any(local_name(part.tag) in ('ph', 'style') for part in shape.iter()):
+            refuse()
+        properties = child(shape, 'spPr', PRESENTATION_NAMESPACES)
+        transform = child(properties, 'xfrm', DRAW_NAMESPACES)
+        if (len(transform) != 2 or transform.get('rot', '0') != '0'
+                or any(transform.get(key, '0') not in ('0', 'false') for key in ('flipH', 'flipV'))):
+            refuse()
+        offset = child(transform, 'off', DRAW_NAMESPACES)
+        extent = child(transform, 'ext', DRAW_NAMESPACES)
+        x, y = coordinate(offset, 'x'), coordinate(offset, 'y')
+        w, h = coordinate(extent, 'cx'), coordinate(extent, 'cy')
+        if x < 0 or y < 0 or w <= 0 or h <= 0 or x + w > width or y + h > height:
+            refuse()
+        if any(x < right and left < x + w and y < bottom and top < y + h for left, top, right, bottom in boxes):
+            refuse()
+        body = child(shape, 'txBody', PRESENTATION_NAMESPACES)
+        body_properties = child(body, 'bodyPr', DRAW_NAMESPACES)
+        if any(body_properties.get(key, 'overflow') != 'overflow' for key in ('vertOverflow', 'horzOverflow')):
+            refuse()
+        boxes.append((x, y, x + w, y + h))
+        bodies.append(body)
+    return bodies
+
+
 def office_text(roots, ext):
     pieces = []
     remaining = MAX_PROJECTION_CHARS
@@ -637,12 +739,14 @@ def office_text(roots, ext):
                 if cells:
                     lines.append('\t'.join(cells))
         else:
-            for node in root.iter():
-                if local_name(node.tag) not in ('p', 'h'):
-                    continue
-                value = paragraph_text(node, ext in ('.odt', '.ods', '.odp'))
-                if value:
-                    lines.append(charge(value))
+            paragraph_roots = visible_slide_text_bodies(root, roots['ppt/presentation.xml']) if ext == '.pptx' else [root]
+            for text_root in paragraph_roots:
+                for node in text_root.iter():
+                    if local_name(node.tag) not in ('p', 'h'):
+                        continue
+                    value = paragraph_text(node, ext in ('.odt', '.ods', '.odp'))
+                    if value:
+                        lines.append(charge(value))
         if lines:
             pieces.append('\n'.join(lines))
     return '\n\n'.join(pieces)

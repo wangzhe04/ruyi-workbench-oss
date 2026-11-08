@@ -701,9 +701,11 @@ const ToolPreparedMedia = (() => {
       append(messages) {
         if (!pending.length) return;
         if (!owner.active() || pending.some(record => record.url !== pending[0].url)) throw fail('media_route_unavailable');
-        if (pending.some(record => !messages.includes(record.reply))) throw fail('media_context_changed');
-        for (const record of pending) messages.push({ role: 'user', content: [
-          { type: 'text', text: '[Protected visual samples for the preceding tool result, in sample order.]' },
+        const batchStart = messages.findLastIndex(message => message?.role !== 'tool') + 1;
+        const replyPositions = pending.map(record => messages.indexOf(record.reply, batchStart) - batchStart + 1);
+        if (replyPositions.some(position => position < 1)) throw fail('media_context_changed');
+        for (const [index, record] of pending.entries()) messages.push({ role: 'user', content: [
+          { type: 'text', text: `[Protected visual samples for tool result ${replyPositions[index]} of the preceding tool-result batch, in sample order.]` },
           ...record.references.map(url => ({ type: 'image_url', image_url: { url } })),
         ] });
       },

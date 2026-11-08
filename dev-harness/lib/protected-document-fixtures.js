@@ -57,17 +57,34 @@ function storedZip(parts) {
   return Buffer.concat([...local, ...central, tail]);
 }
 
-function protectedDocx({ text = 'Bounded visible Office text', hidden = false, external = false, alternate = false, spoof = false } = {}) {
+function protectedDocx({ text = 'Bounded visible Office text', hidden = false, external = false, alternate = false, spoof = false,
+  shaded = false, shadowedColor = false } = {}) {
   const value = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const rels = 'http://schemas.openxmlformats.org/package/2006/relationships';
   const ns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-  const paragraph = `<w:p><w:r>${hidden ? '<w:rPr><w:vanish/></w:rPr>' : ''}${spoof ? `<s:t>${value}</s:t>` : `<w:t>${value}</w:t>`}</w:r></w:p>`;
+  const properties = [hidden ? '<w:vanish/>' : '', shaded ? '<w:color w:val="000000"/><w:shd w:val="clear" w:fill="000000"/>' : '',
+    shadowedColor ? '<w:color w:val="FFFFFF" s:val="000000"/>' : ''].join('');
+  const paragraph = `<w:p><w:r>${properties ? `<w:rPr>${properties}</w:rPr>` : ''}${spoof ? `<s:t>${value}</s:t>` : `<w:t>${value}</w:t>`}</w:r></w:p>`;
   return storedZip({
     '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
     '_rels/.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${ns}/officeDocument" Target="word/document.xml"/></Relationships>`,
-    'word/document.xml': `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:s="urn:synthetic-hidden"><w:body>${alternate ? `<mc:AlternateContent><mc:Choice Requires="s">${paragraph}</mc:Choice><mc:Fallback><w:p/></mc:Fallback></mc:AlternateContent>` : paragraph}</w:body></w:document>`,
+    'word/document.xml': `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:s="urn:synthetic-hidden"${shadowedColor ? ' mc:Ignorable="s"' : ''}><w:body>${alternate ? `<mc:AlternateContent><mc:Choice Requires="s">${paragraph}</mc:Choice><mc:Fallback><w:p/></mc:Fallback></mc:AlternateContent>` : paragraph}</w:body></w:document>`,
     'docProps/core.xml': '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"><cp:keywords>UNEXPOSED OFFICE METADATA</cp:keywords></cp:coreProperties>',
     ...(external ? { 'word/_rels/document.xml.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId2" Type="${ns}/hyperlink" TargetMode="External" Target="https://example.invalid/"/></Relationships>` } : {}),
+  });
+}
+
+function protectedPptx({ outOfSlide = false, clipped = false } = {}) {
+  const rels = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const ns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const slide = 'http://schemas.openxmlformats.org/presentationml/2006/main';
+  const draw = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  return storedZip({
+    '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>',
+    '_rels/.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${ns}/officeDocument" Target="ppt/presentation.xml"/></Relationships>`,
+    'ppt/presentation.xml': `<p:presentation xmlns:p="${slide}" xmlns:r="${ns}"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst><p:sldSz cx="9144000" cy="6858000"/></p:presentation>`,
+    'ppt/_rels/presentation.xml.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${ns}/slide" Target="slides/slide1.xml"/></Relationships>`,
+    'ppt/slides/slide1.xml': `<p:sld xmlns:p="${slide}" xmlns:a="${draw}"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/><p:sp><p:nvSpPr><p:cNvPr id="2" name="Test box"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${outOfSlide ? 10000000 : 200000}" y="200000"/><a:ext cx="3500000" cy="1000000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr${clipped ? ' vertOverflow="clip"' : ''}/><a:lstStyle/><a:p><a:r><a:t>Synthetic slide text</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`,
   });
 }
 
@@ -85,4 +102,4 @@ function protectedXlsx({ hiddenFormat = false } = {}) {
   });
 }
 
-module.exports = { protectedPdf, protectedDocx, protectedXlsx };
+module.exports = { protectedPdf, protectedDocx, protectedPptx, protectedXlsx };

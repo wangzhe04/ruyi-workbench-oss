@@ -60857,9 +60857,11 @@ const ToolPreparedMedia = (() => {
       append(messages) {
         if (!pending.length) return;
         if (!owner.active() || pending.some(record => record.url !== pending[0].url)) throw fail('media_route_unavailable');
-        if (pending.some(record => !messages.includes(record.reply))) throw fail('media_context_changed');
-        for (const record of pending) messages.push({ role: 'user', content: [
-          { type: 'text', text: '[Protected visual samples for the preceding tool result, in sample order.]' },
+        const batchStart = messages.findLastIndex(message => message?.role !== 'tool') + 1;
+        const replyPositions = pending.map(record => messages.indexOf(record.reply, batchStart) - batchStart + 1);
+        if (replyPositions.some(position => position < 1)) throw fail('media_context_changed');
+        for (const [index, record] of pending.entries()) messages.push({ role: 'user', content: [
+          { type: 'text', text: `[Protected visual samples for tool result ${replyPositions[index]} of the preceding tool-result batch, in sample order.]` },
           ...record.references.map(url => ({ type: 'image_url', image_url: { url } })),
         ] });
       },
@@ -75872,7 +75874,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_read',
-    description: 'Read local text, images, PDF, Office/ODF or selected video frames. With privacy on, documents default to supported text. Use as:image for protected PDF pages, supported Office content previews (reflowed), or sampled video frames on a vision-enabled native model and verified Windows Full runtime. Video never includes original video/audio/subtitles/metadata. Text files support char or line windows. Unsupported binaries are refused.',
+    description: 'Read local text, images, PDF, Office/ODF and video. Privacy mode defaults to document text. With native vision and verified Windows Full, as:image can send protected PDF pages, reflowed Office previews or sampled video stills.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -75889,9 +75891,9 @@ const MCP_TOOLS = [
         imageLimit: { type: 'integer', minimum: 1, maximum: 2, description: 'default/max 2 images' },
         pageOffset: { type: 'integer', minimum: 1, description: 'PDF page, 1-based; nextPageOffset to continue' },
         pageLimit: { type: 'integer', minimum: 1, maximum: 2, description: 'default/max 2 PDF pages; offset is within this window' },
-        startSeconds: { type: 'number', minimum: 0, maximum: 86400, description: 'Video sample start in seconds; default 0' },
-        frameCount: { type: 'integer', minimum: 1, maximum: 4, description: 'Video samples per call; default 3' },
-        intervalSeconds: { type: 'number', minimum: 0.25, maximum: 30, description: 'Video sample spacing in seconds; default 1' },
+        startSeconds: { type: 'number', minimum: 0, maximum: 86400, description: 'Video start (s), default 0' },
+        frameCount: { type: 'integer', minimum: 1, maximum: 4, description: 'Video frames, default 3' },
+        intervalSeconds: { type: 'number', minimum: 0.25, maximum: 30, description: 'Video spacing (s), default 1' },
       },
       required: ['path'],
     },
@@ -112526,8 +112528,14 @@ const MediaImageHost = (() => {
   const managed = work => typeof WorkDataMaintenanceHooks.run === 'function' ? WorkDataMaintenanceHooks.run('media-image', work) : work();
   const LOCAL_SOURCE_LIMIT = 50 * 1024 * 1024;
   const localHelperHashes = Object.freeze({
-    'native-file-read.py': 'b9c0a9f3300cc00bc6b6c97dc322de3cff5a28bbe5f50b0dc3a16027dc937c17',
+    'native-file-read.py': '6a307d73f881492718356fe139635d35f49c321dd951711daf6d8baef300e9ea',
     'native-video-read.py': '91cbfce6403de135c72908e9f8e0ea900d720c5d9c36bcad980084d936f82ab9',
+  });
+  const localPythonStartupHashes = Object.freeze({
+    'Lib/site-packages/distutils-precedence.pth': '2638ce9e2500e572a5e0de7faed6661eb569d1b696fcba07b0dd223da5f5d224',
+    'Lib/site-packages/pywin32.pth': 'e7cd73df98b91c407dfd96d1f4dd18b7f9a60f29902b92cf5ece79b6eb637b81',
+    'Lib/site-packages/_distutils_hack/__init__.py': 'df81e6bcba34ee3e3952f776551fb669143b9490fdd6c4caeb32609f97e985b4',
+    'Lib/site-packages/win32/lib/pywin32_bootstrap.py': 'fd31f27bc85a6b9c974670838b6eefafb32991be4a9f840f96a4f5524df3b3c3',
   });
   let processorPromise = null, processorOwner = null, preparedAny = false;
   let localHelperActive = false, localHelperUnknown = false, localSourceReads = 0;
@@ -112556,6 +112564,31 @@ const MediaImageHost = (() => {
       current = path.join(current, bit);
       const stat = fs.lstatSync(current, { bigint: true });
       if (!stat.isDirectory() || stat.isSymbolicLink() || fold(fs.realpathSync.native(current)) !== fold(current)) fail('source_alias');
+    }
+  }
+  function verifyLocalPythonStartup(pythonRoot, pin) {
+    // The pinned python312._pth enables site even with -S. These are its site
+    // directories and the additional import paths from the pinned pywin32.pth.
+    // This checks startup hooks. The Full install remains a trusted runtime.
+    const site = 'Lib/site-packages';
+    const packages = [`${site}/_distutils_hack`, `${site}/pywin32_system32`];
+    const allowed = new Set([...Object.keys(localPythonStartupHashes), ...packages]);
+    const entries = directory => { assertAncestors(directory); return fs.readdirSync(directory); };
+    const windowsName = name => name.toLowerCase().replace(/[. ]+$/, '');
+    const startupModule = /^(?:sitecustomize|_distutils_hack|pywin32_bootstrap|pywin32_system32)(?:$|\.pyc?$|(?:\.[^.]+)?\.pyd$)/;
+    if (entries(path.dirname(pythonRoot)).some(name => windowsName(name) === 'pyvenv.cfg')) fail('worker_changed');
+    for (const relative of ['', site, `${site}/win32`, `${site}/win32/lib`, `${site}/pythonwin`, ...packages]) {
+      for (const name of entries(path.join(pythonRoot, relative))) {
+        const normalized = windowsName(name);
+        const siteHook = (relative === '' || relative === site) && normalized.endsWith('.pth');
+        const packageInit = packages.includes(relative) && /^__init__\.(?:pyc?|(?:[^.]+\.)?pyd)$/.test(normalized);
+        if ((siteHook || (!relative && normalized === 'pyvenv.cfg') || startupModule.test(normalized) || packageInit)
+          && !allowed.has(relative ? `${relative}/${name}` : name)) fail('worker_changed');
+      }
+    }
+    for (const [relative, sha256] of Object.entries(localPythonStartupHashes)) {
+      const file = path.join(pythonRoot, relative), before = pin(file);
+      if (before.size > 16n * 1024n || hash(fs.readFileSync(file)) !== sha256 || !same(before, pin(file))) fail('worker_changed');
     }
   }
   async function readLocalMediaFile(file, signal, read) {
@@ -112598,7 +112631,10 @@ const MediaImageHost = (() => {
   function runLocalChild(executable, helper, argv, bytes, { signal, timeoutMs, maxBytes, env }) {
     return new Promise((resolve, reject) => {
       if (typeof WorkDataMaintenanceHooks.admitHelper === 'function') WorkDataMaintenanceHooks.admitHelper();
-      const child = require('node:child_process').spawn(executable, ['-I', '-B', '-X', 'utf8', helper, ...argv], {
+      // -B only prevents writes. A fresh uncreated prefix also bypasses the
+      // existing __pycache__ files next to the verified Python sources.
+      const cachePrefix = path.join(path.dirname(executable), '.ruyi-pycache-' + crypto.randomBytes(16).toString('hex'));
+      const child = require('node:child_process').spawn(executable, ['-I', '-B', '-X', 'utf8', '-X', `pycache_prefix=${cachePrefix}`, helper, ...argv], {
         cwd: path.dirname(executable), env, windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'],
       });
       const input = Buffer.from(bytes);
@@ -112679,6 +112715,7 @@ const MediaImageHost = (() => {
             await verifyMediaArtifacts(runtime, sources, { signal: bound });
             if (before[1].size > 1024n * 1024n || hash(fs.readFileSync(helper)) !== localHelperHashes[name]
               || !same(before[0], pin(executable)) || !same(before[1], pin(helper))) fail('worker_changed');
+            verifyLocalPythonStartup(path.dirname(executable), pin);
             return before;
           } catch {
             if (signal?.aborted) fail('cancelled');

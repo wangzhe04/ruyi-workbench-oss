@@ -231,7 +231,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_read',
-    description: 'Read local text, images, PDF, Office/ODF or selected video frames. With privacy on, documents default to supported text. Use as:image for protected PDF pages, supported Office content previews (reflowed), or sampled video frames on a vision-enabled native model and verified Windows Full runtime. Video never includes original video/audio/subtitles/metadata. Text files support char or line windows. Unsupported binaries are refused.',
+    description: 'Read local text, images, PDF, Office/ODF and video. Privacy mode defaults to document text. With native vision and verified Windows Full, as:image can send protected PDF pages, reflowed Office previews or sampled video stills.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -248,9 +248,9 @@ const MCP_TOOLS = [
         imageLimit: { type: 'integer', minimum: 1, maximum: 2, description: 'default/max 2 images' },
         pageOffset: { type: 'integer', minimum: 1, description: 'PDF page, 1-based; nextPageOffset to continue' },
         pageLimit: { type: 'integer', minimum: 1, maximum: 2, description: 'default/max 2 PDF pages; offset is within this window' },
-        startSeconds: { type: 'number', minimum: 0, maximum: 86400, description: 'Video sample start in seconds; default 0' },
-        frameCount: { type: 'integer', minimum: 1, maximum: 4, description: 'Video samples per call; default 3' },
-        intervalSeconds: { type: 'number', minimum: 0.25, maximum: 30, description: 'Video sample spacing in seconds; default 1' },
+        startSeconds: { type: 'number', minimum: 0, maximum: 86400, description: 'Video start (s), default 0' },
+        frameCount: { type: 'integer', minimum: 1, maximum: 4, description: 'Video frames, default 3' },
+        intervalSeconds: { type: 'number', minimum: 0.25, maximum: 30, description: 'Video spacing (s), default 1' },
       },
       required: ['path'],
     },

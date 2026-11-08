@@ -2,8 +2,24 @@
 // Evidence and diagnostic contracts only; no server, browser or subprocess starts.
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+const vm = require('node:vm');
 const core = require('../lib/work-data-production-upload-core');
 const { requestKind, proveUpload, proveUploadEntries, observedCdp, readMutationReceipt, acceptedJobForTracking, assertFinalEvidence, mutationDiagnostic, captureReceiver, fileBodyUnavailable, receipt, safeFailure } = require('../lib/work-data-production-browser-attach.js');
+test('browser discovery prefers Chrome for strict ownership and respects an explicit override', () => {
+  const source = fs.readFileSync(require.resolve('../lib/browser-path'), 'utf8');
+  const module = { exports: {} };
+  const env = {};
+  const available = new Set(['chrome.exe', 'msedge.exe', 'explicit.exe']);
+  vm.runInNewContext(source, { module, process: { platform: 'win32', env },
+    require: () => ({ existsSync: file => available.has(path.win32.basename(file)) }) });
+  const { findBrowserExecutable } = module.exports;
+  assert.equal(path.win32.basename(findBrowserExecutable()), 'msedge.exe');
+  assert.equal(path.win32.basename(findBrowserExecutable({ preferChrome: true })), 'chrome.exe');
+  available.delete('chrome.exe');
+  assert.equal(path.win32.basename(findBrowserExecutable({ preferChrome: true })), 'msedge.exe');
+  env.RUYI_E2E_BROWSER = 'C:\\fixture\\explicit.exe';
+  assert.equal(findBrowserExecutable({ preferChrome: true }), env.RUYI_E2E_BROWSER);
+});
 test('failure diagnosis keeps an actionable source location without values, password, message or raw body', async () => {
   const secret = 'SYNTHETIC password must never reach evidence', body = '{"password":"' + secret + '"}';
   const error = Object.assign(new Error(body), { name: 'AssertionError', code: 'ERR_ASSERTION', actual: secret, expected: body });

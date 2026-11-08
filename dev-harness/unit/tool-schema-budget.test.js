@@ -112,7 +112,9 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // Goal evolution: thread_title_update is core (+309 chars); the main turn now offers send_to_agent
   // in the on-demand agents pack (+622 chars). Measure the actual main-turn options above.
   // Measured idle 13516 / code 36039 / offered 62894; only these intentional feature costs grow.
-  const BUDGET = { chitchat: 13550, codeEdit: 36100, fullAll: 46500, offeredDefault: 62900 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // Protected document/video reads add three bounded sample controls to file_read.
+  // With compact descriptions, the measured code/offered sizes are 36148 / 62953.
+  const BUDGET = { chitchat: 13550, codeEdit: 36150, fullAll: 46500, offeredDefault: 62960 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   const chit = chars(loaded('你好').current());
   const edit = chars(loaded('请修改 src/a.js 修复 bug').current());
   assert.ok(chit <= BUDGET.chitchat, `闲聊回合 ${chit} > ${BUDGET.chitchat}`);

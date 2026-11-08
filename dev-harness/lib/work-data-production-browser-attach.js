@@ -276,7 +276,9 @@ async function attachProductionBrowser({ harness, root, url, directories, select
   const { getFreePort } = require(path.join(harness, 'free-port'));
   const origin = new URL(url).origin, profile = path.join(root, 'ruyi-browser-restore-profile');
   fs.mkdirSync(profile, { recursive: false });
-  const browser = findBrowserExecutable(); assert.ok(browser, 'a real browser must exist');
+  // Edge may relaunch through its compatibility layer and retire the held PID.
+  // Prefer installed Chrome when the acceptance requires that PID throughout.
+  const browser = findBrowserExecutable({ preferChrome: true }); assert.ok(browser, 'a real browser must exist');
   const debugPort = await getFreePort('127.0.0.1');
   let observationFailure = null, child, cdp, exit = null, close = null, resolveClose, step = 'spawn', cleanupResult = null;
   let action = null, selectedFileProven = false, pendingProofFailure = null, secretClearObservation = null, readState = null;

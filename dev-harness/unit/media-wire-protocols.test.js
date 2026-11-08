@@ -163,13 +163,16 @@ test('native result capability appends an ephemeral visual user message after pa
     assert.equal(JSON.stringify(result), encodedResult);
     const promoted = loop.transfer(result, { ...result, proxyNote: 'Call file_read directly next time.' });
     const toolReply = { role: 'tool', tool_call_id: 'call_page', content: encodedResult };
+    const textReply = { role: 'tool', tool_call_id: 'call_plain', content: '{"ok":true,"content":"Plain text."}' };
     unboundLoop.queue(promoted, toolReply);
     assert.equal(unboundLoop.endpoint(), undefined, 'another loop with the same session and scope cannot consume a receipt');
     loop.queue({ ...promoted, references: [prepared] }, toolReply);
     assert.equal(loop.endpoint(), undefined, 'a forged or reconstructed result does not carry a receipt');
     const history = [{ role: 'user', content: 'Inspect this page.' },
-      { role: 'assistant', tool_calls: [{ id: 'call_page', type: 'function', function: { name: 'file_read', arguments: '{}' } }] },
-      toolReply];
+      { role: 'assistant', tool_calls: [toolReply, textReply].map(reply => ({
+        id: reply.tool_call_id, type: 'function', function: { name: 'file_read', arguments: '{}' },
+      })) },
+      toolReply, textReply];
     loop.queue(promoted, toolReply);
     await loop.finishBatch(true);
     assert.equal(loop.endpoint(), RECIPIENT_URL);
@@ -185,9 +188,14 @@ test('native result capability appends an ephemeral visual user message after pa
     const visualRow = rows.find(row => row.role === 'user' && Array.isArray(row.content)
       && row.content.some(part => ['image_url', 'input_image', 'image'].includes(part.type)));
     assert.ok(visualRow, apiStyle + ' user visual row');
-    const pairedResultIndex = rows.findIndex(row => row.role === 'tool' || row.type === 'function_call_output');
-    if (apiStyle === 'anthropic') assert.equal(visualRow.content[0].type, 'tool_result', 'Anthropic tool_result remains first in the merged user message');
-    else assert.ok(pairedResultIndex >= 0 && rows.indexOf(visualRow) > pairedResultIndex, apiStyle + ' visual is after the tool result');
+    if (apiStyle === 'anthropic') {
+      assert.deepEqual(Array.from(visualRow.content.slice(0, 2), part => part.tool_use_id), ['call_page', 'call_plain']);
+    } else {
+      const pairedResults = rows.slice(0, rows.indexOf(visualRow)).filter(row => row.role === 'tool' || row.type === 'function_call_output');
+      assert.deepEqual(Array.from(pairedResults, row => row.tool_call_id || row.call_id), ['call_page', 'call_plain']);
+    }
+    assert.equal(visualRow.content.find(part => ['text', 'input_text'].includes(part.type))?.text,
+      '[Protected visual samples for tool result 1 of the preceding tool-result batch, in sample order.]');
     const batch = await f.service.delivery(encoded, f.recipient);
     try {
       batch.assert();

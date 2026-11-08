@@ -11,7 +11,7 @@ const { createRunner } = require('./lib/harness');
 const { startFakeProvider, toolCallFrames, textFrames } = require('./lib/fake-openai-provider');
 const { releaseEnvironment } = require('./lib/release-checks');
 const { makeVideoFixture, audioCanary, metadataCanary } = require('./lib/media-video-fixture');
-const { protectedPdf, protectedDocx } = require('./lib/protected-document-fixtures');
+const { protectedPdf, protectedDocx, protectedPptx } = require('./lib/protected-document-fixtures');
 
 const runner = createRunner('PROTECTED DOCUMENT VIDEO');
 const full = process.argv.slice(2).includes('--full-components');
@@ -68,10 +68,19 @@ async function main() {
     const keyword = 'CONFIDENTIAL';
     const video = makeVideoFixture(), pdf = protectedPdf({ text: keyword }), docx = protectedDocx({ text: 'Quarterly contact ' + email });
     const hidden = protectedDocx({ hidden: true });
+    const concealed = full ? [
+      { path: 'shaded.docx', bytes: protectedDocx({ shaded: true, text: 'UNEXPOSED SHADED RUN' }), layer: 'unhandled-text-display' },
+      { path: 'shadowed.docx', bytes: protectedDocx({ shadowedColor: true, text: 'UNEXPOSED WHITE RUN' }), layer: 'ambiguous-attributes' },
+      { path: 'off-slide.pptx', bytes: protectedPptx({ outOfSlide: true }), layer: 'unhandled-slide-geometry' },
+      { path: 'clipped-slide.pptx', bytes: protectedPptx({ clipped: true }), layer: 'unhandled-slide-geometry' },
+    ] : [];
+    const slide = full ? protectedPptx() : null;
     await Promise.all([
       fs.writeFile(path.join(workspace, 'sample.avi'), video), fs.writeFile(path.join(workspace, 'sample.pdf'), pdf),
       fs.writeFile(path.join(workspace, 'sample.docx'), docx), fs.writeFile(path.join(workspace, 'hidden.docx'), hidden),
       fs.writeFile(path.join(workspace, 'follow-up.txt'), 'Synthetic follow-up after the visual request.'),
+      ...concealed.map(item => fs.writeFile(path.join(workspace, item.path), item.bytes)),
+      ...(slide ? [fs.writeFile(path.join(workspace, 'sample.pptx'), slide)] : []),
     ]);
     let plan, iteration = 0;
     fake = await startFakeProvider({ handler(request) {
@@ -98,6 +107,9 @@ async function main() {
         { args: { path: 'sample.docx' }, bytes: docx, label: 'DOCX text', text: 'Quarterly contact ' },
         { args: { path: 'sample.docx', as: 'image' }, bytes: docx, label: 'DOCX reflow preview / subagent', visual: true, subagent: true, projection: 'office-content-preview' },
         { args: { path: 'hidden.docx', as: 'image' }, bytes: hidden, label: 'hidden DOCX', refusal: 'document_hidden_content' },
+        ...concealed.map(item => ({ args: { path: item.path }, bytes: item.bytes, label: item.path,
+          refusal: 'document_hidden_content', layer: item.layer })),
+        { args: { path: 'sample.pptx' }, bytes: slide, label: 'in-bounds PPTX text box', text: 'Synthetic slide text' },
       ] : []),
     ];
     for (plan of cases) {
@@ -125,6 +137,7 @@ async function main() {
       if (plan.refusal) {
         assert.equal(receipt.ok, false);
         assert.equal(receipt.code, plan.refusal);
+        if (plan.layer) assert.ok(receipt.found?.includes(plan.layer));
       } else assert.equal(receipt.ok, true, plan.label + ': ' + JSON.stringify(receipt));
       assert.equal(sent.length, plan.visual ? plan.args.frameCount || 1 : 0);
       if (plan.visual) {

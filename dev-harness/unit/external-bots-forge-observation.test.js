@@ -7,7 +7,7 @@ const { createExpectation, locateCurrentUser, observeReceived } = require('../li
 const { scriptModel } = require('../lib/external-bots-c2/actual-http-fixture.cjs');
 const { modelAuthorityProbe } = require('../lib/external-bots-c2/run-journeys.cjs');
 const src = file => fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src', file), 'utf8');
-const build = bracedBlock(src('09-workflow.js'), 'const buildBodyWithLayout = (withTools, layoutOverride) =>');
+const build = bracedBlock(src('09-workflow.js'), 'const buildBodyWithLayout =');
 const flags = functionBlock(src('01c-runtime-flags.js'), 'volatileTailLayoutEnabled');
 const append = functionBlock(src('10-context-governance.js'), 'appendPromptToLastUserMessage');
 a.ok(build.length > 2000 && flags.length > 50 && append.length > 200);

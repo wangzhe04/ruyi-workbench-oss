@@ -65,7 +65,9 @@ ok(/kind: 'tool_byte_budget_shadow'/.test(src), 'S 13a-t 字节轴只计数不�
 ok(/runtimeVolatileTailLayoutV1: false/.test(src) && /runtimeAppendOnlyToolSchemasV1: true/.test(src), 'S #1 G1 默认关闭、G2 真实 provider 门后默认开启');
 ok(/function volatileTailLayoutEnabled\(config\)/.test(src) && /function appendOnlyToolSchemasEnabled\(config\)/.test(src), 'S #1 两开关唯一判定点存在');
 ok(/if \(turnVolatile && volatileTail\) appendPromptToLastUserMessage\(msgs, turnVolatile\)/.test(src), 'S G1 尾部布局复用 appendPromptToLastUserMessage(与 recall/notes 同位)');
-ok(/const buildBodyWithLayout = \(withTools, layoutOverride\) =>/.test(src) && /buildBodyWithLayout\(useTools, altLayout\)/.test(src), 'S G1 shadow 双布局构建(candidate 只计量不发送)');
+ok(/const buildBodyWithLayout = \(withTools, layoutOverride, includePreparedMedia = false\) =>/.test(src)
+  && /const altJson = JSON\.stringify\(buildBodyWithLayout\(useTools, altLayout\)\)/.test(src),
+  'S G1 shadow 双布局构建(candidate 只计量不发送，默认不带受保护媒体)');
 ok(/econLog\('layout_shadow',/.test(src) && /stablePrefixCharsSent/.test(src) && /stablePrefixCharsAlt/.test(src), 'S G1 layout_shadow 事件含双布局 stablePrefixChars(E4 §7.3)');
 ok(/function toolSchemaFreezeFor\(freezeKey\)/.test(src) && /kind: 'tool_schema_freeze'/.test(src), 'S G2 会话级冻结表与冻结事件存在(init/append/cache_break)');
 // 2026-10:调用点多了第 7 个参数 { restoredNames: session.toolSchemaNames }(会话工具表跨重启恢复);判据仍是 freezeKey=session.id。
