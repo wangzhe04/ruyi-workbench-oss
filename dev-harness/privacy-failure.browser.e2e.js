@@ -130,9 +130,16 @@ async function selectCardAction(fx,label,keyboard=false){
       t.ok(limitRefused,locale+': real scan-limit refusal has localized recovery guidance and sends zero provider bytes');
       await reload(fx,limitedSid);
       t.ok(await fx.waitForEval(limitCard)&&providerRequests===beforeLimit,locale+': persisted resource-limit guidance survives reload without automatic resend');
+      await click(fx,'#resumeBanner .resume-banner-btn');
+      const resumed=await fx.waitForEval("!window.state.streaming&&document.getElementById('messages').textContent.includes('P0_SYNTHETIC_NATIVE_DONE')")&&providerRequests===beforeLimit+1;
+      t.ok(resumed&&!JSON.stringify(wires.at(-1)).includes('SYNTHETIC_LIMIT_MATCH'),locale+': Continue resumes the same thread with privacy still enabled and excludes the rejected input');
+      const beforeOff=providerRequests;
       await fx.request('POST','/api/privacy/settings',{mode:'off',technical:false,rules:[]});
-      await reload(fx,limitedSid);await send(fx,'P0_SYNTHETIC_CONTINUE_AFTER_PRIVACY_OFF');
-      t.ok(await fx.waitForEval(`!window.state.streaming&&document.getElementById('messages').textContent.includes('P0_SYNTHETIC_NATIVE_DONE')`)&&providerRequests===beforeLimit+1,locale+': same session continues after a privacy failure and explicit disable despite its retained history');
+      await reload(fx,limitedSid);
+      const doneCount="(document.getElementById('messages').textContent.match(/P0_SYNTHETIC_NATIVE_DONE/g)||[]).length";
+      const beforeDone=await fx.evaluate(doneCount);
+      await send(fx,'P0_SYNTHETIC_CONTINUE_AFTER_PRIVACY_OFF');
+      t.ok(await fx.waitForEval("!window.state.streaming&&"+doneCount+"==="+(beforeDone+1))&&providerRequests===beforeOff+1,locale+': same session continues after a privacy failure and explicit disable despite its retained history');
       await fx.request('POST','/api/privacy/settings',{mode:'enhanced',technical:false,rules:[]});
       await reload(fx,sid);await probes(fx);
       for(const [lens,button]of [['classic','#composerVoiceBtn'],['steward','#stewardComposerVoice']]){

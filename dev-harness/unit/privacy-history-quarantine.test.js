@@ -191,3 +191,19 @@ test('valid escaped JSON cannot become an uncaught lexical parsing failure durin
     assert.equal(source.providerHistory[0].content, content);
   }
 });
+
+test('explicit history limit checks preserve normal learned scans when the full detector would merge matches', async t => {
+  const { api } = await setup(t);
+  const policy = { ...config, privacyRulesV1: [{ id: 'literal-test', kind: 'literal', value: 'Y', category: 'INTERNAL' }] };
+  api.configure(policy);
+  await api.run('explicit-history-budget', policy, () => {
+    const scope = api.active().scope;
+    scope.protectValue('Z', 'INTERNAL');
+    const content = 'password=' + 'Y'.repeat(6000) + 'Z'.repeat(5000);
+    const old = { role: 'user', content }, owner = {}, fresh = { role: 'user', content: 'continue' };
+    assert.equal(scope.detectLearned(content).length, 5000);
+    assert.equal(scope.detect(content).length, 1);
+    api.bindHostHistory(owner, [old]);
+    assert.deepEqual(api.projectHostHistory(owner, [old, fresh]), [old, fresh]);
+  });
+});

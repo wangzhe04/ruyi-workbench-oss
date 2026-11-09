@@ -110,7 +110,8 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     async function finish(value) {const cap=current();for(let pass=0;pass<4;pass++){try{const prepared=await privacy.prepareMultiSourceDisclosure(privacy.foreignView(value),[...cap.disclosed,cap.grant.scopeId],{recipient:cap.grant.scopeId,purpose:'session-search:result',sourceHash:hash(value)});cap.disclosures.push(prepared.assert);await final(cap);return prepared.value;}catch(error){if(error.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;await final(cap);}}}
     function emitUI(value,emit) {const cap=current();if(cap.kind!=='ui'||typeof emit!=='function')throw fail('destination_invalid');cap.assert();for(const guard of cap.disclosures)guard();cap.emitted=true;const result=emit(value);if(result&&typeof result.then==='function')throw fail('sink_invalid');return result;}
     return Object.freeze({withUI:(req,res,filter,work)=>enter('ui',config=>host.uiAuthority(req,res,config),filter,work),
-      withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work),search,metadata,publicMetadata,finish,emitUI,scope});
+      withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work),search,metadata,publicMetadata,finish,emitUI,scope,
+      retireSession:id=>index.invalidate(id,true)});
   }
   return Object.freeze({create});
 })(require('node:crypto'),require('node:async_hooks').AsyncLocalStorage);
@@ -144,6 +145,7 @@ Object.assign(SessionFullTextHooks,{
   withUI:(req,res,filter,work)=>getSessionFullTextConsumers().withUI(req,res,filter,work),
   withModel:(ctx,tool,filter,work)=>getSessionFullTextConsumers().withModel(ctx,tool,filter,work),
   search:(query,limit)=>getSessionFullTextConsumers().search(query,limit),metadata:()=>getSessionFullTextConsumers().metadata(),
+  retireSession:id=>getSessionFullTextConsumers().retireSession(id),
   publicMetadata:id=>getSessionFullTextConsumers().publicMetadata(id),finish:value=>getSessionFullTextConsumers().finish(value),
   emitUI:(value,emit)=>getSessionFullTextConsumers().emitUI(value,emit),scope:enabled=>getSessionFullTextConsumers().scope(enabled),
 });

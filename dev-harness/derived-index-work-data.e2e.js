@@ -7,7 +7,7 @@ const base = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(base, 'r
 Object.assign(process.env, require(path.join(repo, 'dev-harness/lib/release-checks')).releaseEnvironment(path.join(root, 'home'), path.join(root, 'data')));
 const t = require(path.join(repo, 'dev-harness/lib/harness')).createRunner('DERIVED INDEX WORK DATA');
 const { loadServerInternals } = require(path.join(repo, 'dev-harness/lib/server-internals'));
-const names = ['createSession', 'saveSession', 'loadSession', 'readConfig', 'mutateConfig', 'workDataKeys', 'paths',
+const names = ['createSession', 'saveSession', 'loadSession', 'deleteSession', 'readConfig', 'mutateConfig', 'workDataKeys', 'paths',
   'searchSessionsByContent', 'sessionSearchIndexPath', 'readSessionSearchIndex', 'sessionSearchIndexStore', 'sessionSearchRows',
   'getPretenderProjectionIndex', 'pretenderIndexRuntime', 'pretenderIndexPath', 'readPretenderIndexDisk', 'writePretenderIndexFile',
   'sessionWriteChains', 'flushSessionIndex', 'sessionBodyPaths', 'SessionFullTextHooks', 'refreshSessionSearchIndex', 'listSessions', 'WorkDataStore', 'atomicWriteJson'];
@@ -17,9 +17,9 @@ const mode = (api, flag) => api.mutateConfig(config => { config.workDataEncrypti
 const settle = async api => { await Promise.all([...api.sessionWriteChains.values()].map(p => p.catch(() => {}))); await api.flushSessionIndex(); await api.pretenderIndexRuntime.writeChain; };
 const stopTimers = api => { clearTimeout(api.pretenderIndexRuntime.verifyTimer); clearTimeout(api.pretenderIndexRuntime.persistTimer); };
 const callers = new WeakMap(); let fixtureSessionId;
-async function scopedSearch(api, query, limit) {
+async function scopedSearch(api, query, limit, callerId = fixtureSessionId) {
   let caller = callers.get(api);
-  if (!caller) { caller = await api.loadSession(fixtureSessionId); assert.equal(caller.id, fixtureSessionId); callers.set(api, caller); }
+  if (caller?.id !== callerId) { caller = await api.loadSession(callerId); assert.equal(caller.id, callerId); callers.set(api, caller); }
   return api.SessionFullTextHooks.withModel({ session: caller, turnSeq: caller.turnSeq }, 'threads_search', null,
     () => api.searchSessionsByContent(query, limit));
 }
@@ -160,6 +160,41 @@ function assertOriginalReference(found, sid) {
   assert.deepEqual(fs.readFileSync(path.join(cold.paths.sessions, session.id + '.json')), sourceHeadBefore);
   t.ok(true, 'truncated and cross-record index ciphertext fails closed and is never rebuilt over unreadable authority');
   t.ok(true, 'current manifest corruption and manifest/shard cross-AAD reject scoped production search without source or index repair');
+
+  const control = await cold.createSession({ cwd: root, title: 'Retained synthetic session' });
+  const controlNeedle = 'QuasarControlBody';
+  control.messages = [{ id: 'retained_search_source', role: 'user', content: controlNeedle + ' still searchable' }];
+  await cold.saveSession(control); await settle(cold);
+  const assertRetained = result => {
+    const hit = result.results.find(row => row.id === control.id);
+    assert.equal(hit?.reference?.messageId, 'retained_search_source');
+    assert.equal(hit.reference.source, 'content');
+    assert.equal(hit.reference.matchEnd, controlNeedle.length);
+    assert.equal(result.coverage.complete, true);
+  };
+  assertRetained(await scopedSearch(cold, controlNeedle, 5));
+  assertOriginalReference(await scopedSearch(cold, 'ENCRYPTED_SEARCH_NEEDLE', 5), session.id);
+  const retired = records.filter(row => row.sid === session.id), retiredDirectory = path.dirname(manifest.file);
+  for (const row of retired) assert.deepEqual(fs.readFileSync(row.file), currentSealed.get(row.file));
+  const retainedBefore = snapshotCurrent(currentRecords(cold, control.id));
+
+  stopTimers(cold);
+  const deleter = load(); await deleter.readConfig();
+  assert.deepEqual(await deleter.deleteSession(session.id), { ok: true, id: session.id, purgedAssociated: false });
+  await settle(deleter); stopTimers(deleter);
+  assert.throws(() => fs.lstatSync(bodyFile), { code: 'ENOENT' });
+  assert.throws(() => fs.lstatSync(retiredDirectory), { code: 'ENOENT' }, 'delete must retire the sealed manifest and shards before the next search');
+  unchangedCurrent(retainedBefore);
+
+  const afterDelete = load(); await afterDelete.readConfig();
+  const removed = await scopedSearch(afterDelete, 'ENCRYPTED_SEARCH_NEEDLE', 5, control.id);
+  assert.equal(removed.ok, true);
+  assert.deepEqual(removed.results, []);
+  assert.equal(removed.coverage.complete, true);
+  assertRetained(await scopedSearch(afterDelete, controlNeedle, 5, control.id));
+  unchangedCurrent(retainedBefore);
+  assert.throws(() => fs.lstatSync(retiredDirectory), { code: 'ENOENT' }, 'cold search must not resurrect the retired directory');
+  t.ok(true, 'deleting an encrypted session retires only its index and cold search keeps the surviving original reference');
 })().catch(error => t.fail(error && error.stack || String(error))).finally(async () => {
   for (const api of runtimes) { stopTimers(api); await settle(api); stopTimers(api); api.workDataKeys.clear(); }
   assert.equal(path.dirname(root), base); assert.ok(path.basename(root).startsWith('ruyi-derived-index-e2e-'));

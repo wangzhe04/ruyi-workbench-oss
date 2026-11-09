@@ -19,6 +19,7 @@ const state = app.__eval(`(() => {
   return state;
 })()`);
 const t = createRunner('PRIVACY MODEL TOOL RESULT');
+const deepJson = value => '['.repeat(40) + JSON.stringify(value) + ']'.repeat(40);
 let step = null;
 async function check(label, work) { try { await work(); t.ok(true, label); } catch (error) { t.ok(false, label + ': ' + error.stack); } }
 (async () => {
@@ -39,14 +40,15 @@ async function check(label, work) { try { await work(); t.ok(true, label); } cat
       runtimeOptimizationShadowV1: false, contextAutoCompactEnabled: false, memoryAutoProposeEnabled: false, missionAutoContinue: false,
       allowCommandTools: true, allowDesktopTools: false, desktopMcp: { enabled: false, autodetect: false }, openaiMaxToolIterations: 4,
     }); return {}; });
-    for (const child of [false, true]) for (const withheld of [false, true]) {
+    for (const child of [false, true]) for (const reason of ['', 'privacy.typed_sensitive', 'privacy.structure_limit']) {
+      const withheld = Boolean(reason);
       if (withheld && process.platform !== 'win32') { console.log('SKIP ' + (child ? 'child' : 'main') + ' durable PowerShell side effect requires Windows; source-proven file path still runs'); continue; }
-      const label = (child ? 'child' : 'main') + (withheld ? ' typed unavailable result' : ' source-proven file result');
+      const label = (child ? 'child' : 'main') + (withheld ? ' withheld result ' + reason : ' source-proven file result');
       await check(label + ' reaches actual next POST once with protected history and no duplicate operation', async () => {
-        const index = (child ? 'child' : 'main') + (withheld ? '-withheld' : '-read');
+        const index = (child ? 'child' : 'main') + (withheld ? '-' + reason.split('.')[1] : '-read');
         const secret = 'synthetic-' + index + '@example.test';
         const counter = path.join(work, index + '-counter.txt'), source = path.join(work, index + '-source.txt');
-        const sourceJson = JSON.stringify({ password: null, email: secret });
+        const sourceJson = reason === 'privacy.structure_limit' ? deepJson(secret) : JSON.stringify({ password: null, email: secret });
         fs.writeFileSync(source, withheld ? sourceJson : 'Public Chinese fixture 中文\nContact ' + secret + '\n' + 'ordinary '.repeat(100));
         // Actual PowerShell appends a durable side effect before returning incompatible JSON.
         const command = "Add-Content -LiteralPath './" + path.basename(counter) + "' -Value '1'; Get-Content -Raw -LiteralPath './" + path.basename(source) + "'";
@@ -74,7 +76,7 @@ async function check(label, work) { try { await work(); t.ok(true, label); } cat
         assert.equal(next.raw.includes(secret), false);
         if (withheld) {
           const receipt = JSON.parse(result.content);
-          assert.equal(receipt.ok, false); assert.equal(receipt.reason, 'privacy.typed_sensitive');
+          assert.equal(receipt.ok, false); assert.equal(receipt.reason, reason);
           assert.equal(receipt.privacyFiltered, true); assert.equal(receipt.resultUnavailable, true); assert.equal(receipt.operationMayHaveExecuted, true);
           assert.equal(receipt.code, 'privacy.tool_result_withheld');
           assert.equal(fs.readFileSync(counter, 'utf8').trim().split(/\r?\n/).length, 1, 'durable side effect is not repeated after withholding');
@@ -120,6 +122,52 @@ async function check(label, work) { try { await work(); t.ok(true, label); } cat
         assert.ok(!next.raw.includes('PUBLIC-RESERVED-SOURCE-SENTINEL')); assert.ok(!next.raw.includes('const PREFIX'));
       });
     }
+    await check('an unscannable tool call is refused and paired without interrupting the turn', async () => {
+      const secret = 'synthetic-rejected-argument@example.test';
+      const target = path.join(work, 'never-write.txt');
+      const session = await app.createSession({ cwd: work, title: 'Synthetic rejected argument' });
+      step = { name: 'file_write', args: { path: target, content: 'do not write', extra: JSON.parse(deepJson(secret)) }, id: 'call-rejected-argument', requests: [] };
+      const before = state.executions.length, events = [];
+      await app.runSessionTurn({ sessionId: session.id, message: 'Evaluate the synthetic tool proposal and finish.', source: 'user', onEvent: event => events.push(event) });
+      assert.equal(events.findLast(event => event.type === 'result')?.ok, true);
+      assert.equal(step.requests.length, 2);
+      assert.equal(state.executions.length, before, 'the rejected tool is never dispatched');
+      assert.equal(fs.existsSync(target), false);
+      const next = step.requests[1];
+      const call = next.body.messages.flatMap(row => row.tool_calls || []).find(row => row.id === step.id);
+      assert.equal(call.function.arguments, '{}');
+      const receipts = next.body.messages.filter(row => row.role === 'tool' && row.tool_call_id === step.id);
+      assert.equal(receipts.length, 1);
+      assert.equal(JSON.parse(receipts[0].content).code, 'privacy.structure_limit');
+      assert.ok(!next.raw.includes(secret));
+    });
+    await check('a rejected input cannot block a fresh continuation in the same protected session', async () => {
+      const secret = 'synthetic-failed-input@example.test';
+      const rejectedInput = secret + ' x'.repeat(512 * 1024);
+      const session = await app.createSession({ cwd: work, title: 'Synthetic continuation after local refusal' });
+      const source = path.join(work, 'resume-source.txt');
+      fs.writeFileSync(source, 'SYNTHETIC_PUBLIC_RESUMED_CONTENT');
+      step = { name: 'file_read', args: { path: source }, id: 'call-resume', requests: [] };
+      const send = async message => {
+        const events = [];
+        await app.runSessionTurn({ sessionId: session.id, message, source: 'user', onEvent: event => events.push(event) });
+        return events.findLast(event => event.type === 'result');
+      };
+      const refused = await send(rejectedInput);
+      assert.equal(refused?.ok, false);
+      assert.equal(refused.error, 'privacy.text_limit');
+      assert.equal(step.requests.length, 0, 'fresh unscannable input must not reach the receiver');
+      const saved = await app.loadSession(session.id);
+      assert.ok(saved.messages.some(row => row.role === 'user' && row.content === rejectedInput));
+      assert.ok(saved.providerHistory.some(row => row.role === 'user' && row.content.startsWith(rejectedInput)));
+      const completed = await send('Continue the task by reading the small synthetic source file.');
+      assert.equal(completed?.ok, true);
+      assert.equal(completed.aborted, false);
+      assert.equal(step.requests.length, 2, 'the continuation and its tool result reach the model once each');
+      assert.ok(step.requests.every(row => !row.raw.includes(secret)));
+      assert.ok(step.requests[1].raw.includes('SYNTHETIC_PUBLIC_RESUMED_CONTENT'));
+      assert.ok((await app.loadSession(session.id)).providerHistory.some(row => row.role === 'user' && row.content.startsWith(rejectedInput)), 'repair changes only the model view');
+    });
     assert.equal(fake.errors.length, 0);
   } finally {
     if (fake) await fake.close(); f.vault.clear(); assert.equal(path.dirname(root), base); fs.rmSync(root, { recursive: true, force: true });

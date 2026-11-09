@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 141 | 4336 | 4285 | 940 | 67 | 0 | 1 |
+| 141 | 4336 | 4286 | 940 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -57,7 +57,7 @@
 | 39 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 40 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 41 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 42 | `02-session-store.js` | foundation | 402 | 85 | 22 |
+| 42 | `02-session-store.js` | foundation | 402 | 86 | 22 |
 | 43 | `03-bridge-guard.js` | foundation | 122 | 31 | 7 |
 | 44 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 45 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
@@ -240,7 +240,7 @@
 | `01z-work-data-root-authority.js` | `00-boot.js` | backward | `WorkDataRootHooks`, `_workDataStableAliases`, `_workDataStableBase`, `dataRoot`, `dataRootAliases`, `paths` |
 | `01z-work-data-root-authority.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `01z-work-data-root-authority.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
-| `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `MediaImageHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
+| `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `MediaImageHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `SessionExecutionHooks`, `SessionFullTextHooks`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
 | `02-session-store.js` | `01-config.js` | backward | `DurableJsonStore`, `assertSessionIdForPath`, `atomicWriteJson`, `mutateConfig`, `noteSessionsDirOwnWrite`, `readConfig`, `readFileTail`, `safeSessionId`, `selectedAgentCli`, `sessionPath`, `sessionWriteChains` |
 | `02-session-store.js` | `01c-runtime-flags.js` | backward | `MEMORY_FIXED_SELECTION_HARD_MAX` |
 | `02-session-store.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |

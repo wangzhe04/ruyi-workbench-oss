@@ -2485,6 +2485,12 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
   // 128f-⑫(用户 2026-09-19「删除线程没有及时的界面反馈」):删完告诉所有在看的人「这一条没了」。
   // 修前一帧都不派,管家视角的左栏要等 15 s 那一拍轮询或用户点别处(13r 的 thread.removed 头注)。
   RUYI_EVENTS.emit('thread.removed', { sessionId: id });
+  // Retire the derived index through its serialized owner after removing its source.
+  // An unverified index namespace stays for diagnosis without undoing the chat deletion.
+  if (typeof SessionFullTextHooks !== 'undefined' && typeof SessionFullTextHooks.retireSession === 'function') {
+    try { await SessionFullTextHooks.retireSession(id); }
+    catch { logEvent({ kind: 'session_fulltext_retire_failed', sessionId: id }); }
+  }
   return { ok: true, id, purgedAssociated: Boolean(purgeAssociated) };
 }
 

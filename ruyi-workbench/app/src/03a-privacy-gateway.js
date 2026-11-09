@@ -197,6 +197,10 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
 
   const DATA_WITHHELD = '[RUYI_LOCAL_DATA_WITHHELD]';
   const contentRecoveryError = error => ['privacy.typed_sensitive', 'privacy.numeric_sensitive', 'privacy.json_sensitive_structure'].includes(error?.code);
+  const toolResultLimitCodes = new Set([
+    'privacy.text_limit', 'privacy.structure_limit', 'privacy.aggregate_limit',
+    'privacy.learned_scan_limit', 'privacy.matches_limit', 'privacy.regex_input_limit', 'privacy.regex_matches_limit',
+  ]);
   // Only protocol data slots may be replaced. Routing, IDs, schemas, policy and vault
   // failures remain strict. A replacement never authorizes or re-executes a tool.
   function* contentRecoverySteps(value) {
@@ -782,17 +786,23 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
   function bindHostHistory(owner, history) {
     const context = active(); if (!context) return;
     if (!owner || typeof owner !== 'object' || !Array.isArray(history)) fail('history_projection_invalid');
-    historyBindings.set(owner, { scope: context.scope, historicalUsers: new WeakSet(history.filter(row => row && row.role === 'user')),
+    const rules = context.config.privacyRulesV1 || [];
+    historyBindings.set(owner, { scope: context.scope,
+      historicalRows: new WeakSet(history.filter(row => row && typeof row === 'object')),
+      literalRuleCount: rules.some(rule => rule.kind === 'regex') ? 0 : rules.filter(rule => rule.kind === 'literal').length,
       strictUsers: new Set(), originals: new WeakMap() });
   }
   function projectHistoryCopy(history, scope, binding, referenceHints) {
     let nodes = 0, bytes = 0;
     const fieldDetector = core.createDetector();
-    const inspect = (value, pointer = '', depth = 0) => {
+    const inspect = (value, pointer = '', depth = 0, checkMatchLimit = false) => {
       if (referenceHints && !referenceHints(value)) return false;
       if (++nodes > 50000 || depth > 32) fail('structure_limit');
       if (typeof value === 'string') {
-        if ((bytes += Buffer.byteLength(value)) > 8 * 1024 * 1024) fail('aggregate_limit');
+        if (!referenceHints && value.length > core.LIMITS.bytes) fail('text_limit');
+        const length = Buffer.byteLength(value);
+        if ((bytes += length) > 8 * 1024 * 1024) fail('aggregate_limit');
+        if (!referenceHints && length > core.LIMITS.bytes) fail('text_limit');
         if (/^\s*[\[{"]/.test(value)) {
           let valid = false; try { JSON.parse(value); valid = true; } catch { /* ordinary prose */ }
           if (valid) {
@@ -817,7 +827,21 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
         if (!value.includes(PREFIX)) {
           // Canonical user text can still hold originals issued before revocation/expiry.
           // History removes that unavailable text; new inputs retain the strict refusal.
-          try { if (scope) scope.detectLearned(value); return false; }
+          try {
+            // Preflight explicit literal rules when their matches could exceed
+            // the per-string limit. The explicit-only scanner skips built-ins.
+            if (scope && checkMatchLimit && value.length * binding.literalRuleCount > core.LIMITS.matches) {
+              try { scope.detect(value, { pointer, lexicalJsonSource: true }); return false; }
+              catch (error) {
+                // Explicit and learned matches can use up their shared budget
+                // before the full detector merges them. Keep the original
+                // learned-only check if the preflight could not finish.
+                if (error?.code !== 'privacy.learned_scan_limit') throw error;
+              }
+            }
+            if (scope) scope.detectLearned(value);
+            return false;
+          }
           catch (error) { if (historyReferenceError(error)) return true; throw error; }
         }
         try {
@@ -832,31 +856,55 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
       if (value && typeof value === 'object') { let bad = false; for (const [key, row] of Object.entries(value)) { bad = inspect(key, '', depth + 1) || bad; bad = inspect(row, pointer + '/' + key.replace(/~/g, '~0').replace(/\//g, '~1'), depth + 1) || bad; } return bad; }
       return false;
     };
-    const narration = value => typeof value === 'string' ? (inspect(value) ? HISTORY_REFUSED : value) : Array.isArray(value) ? value.map(part => {
-      if (!part || typeof part !== 'object') return part;
-      const next = { ...part };
-      for (const key of ['text', 'thinking']) if (typeof part[key] === 'string' && inspect(part[key])) next[key] = HISTORY_REFUSED;
-      if (part.type === 'tool_use' && inspect(part.input)) next.input = {};
-      return next;
-    }) : value;
+    const contentIssue = (value, omitLimits, checkMatchLimit = omitLimits) => {
+      try { return inspect(value, '', 0, checkMatchLimit) ? 'reference' : ''; }
+      catch (error) {
+        // Omit a locally unscannable data slot, keeping the full-history budget.
+        // Current user input and tool dispatch still use strict validation.
+        if (omitLimits && !referenceHints && nodes <= 50000 && ['privacy.text_limit', 'privacy.structure_limit', 'privacy.matches_limit'].includes(error?.code)) return 'limit';
+        throw error;
+      }
+    };
+    const projectText = (value, historical, unavailable = HISTORY_REFUSED) => {
+      const issue = contentIssue(value, historical);
+      return issue === 'limit' ? DATA_WITHHELD : issue === 'reference' ? unavailable : value;
+    };
+    const narration = (value, historical) => {
+      if (typeof value === 'string') return projectText(value, historical);
+      if (!Array.isArray(value)) return value;
+      return value.map(part => {
+        if (!part || typeof part !== 'object') return part;
+        const next = { ...part };
+        for (const key of ['text', 'thinking']) if (typeof part[key] === 'string') next[key] = projectText(part[key], historical);
+        if (part.type === 'tool_use' && contentIssue(part.input, true, historical)) next.input = {};
+        return next;
+      });
+    };
     return history.map(message => {
       if (!message || typeof message !== 'object') return message;
+      const historical = binding.historicalRows.has(message);
       let next = message;
       if (message.role === 'user') {
-        const fingerprint = JSON.stringify(message.content);
-        if (!binding.historicalUsers.has(message)) {
+        if (!historical) {
           if (inspect(message.content)) fail('reference_unknown');
-          binding.strictUsers.add(fingerprint);
-        } else if (inspect(message.content)) next = { ...message, content: HISTORY_USER_REFUSED };
+          binding.strictUsers.add(JSON.stringify(message.content));
+        } else {
+          const content = projectText(message.content, historical, HISTORY_USER_REFUSED);
+          if (content !== message.content) next = { ...message, content };
+        }
       } else if (message.role === 'assistant') {
         next = { ...message };
-        for (const key of ['content', 'reasoning_content', 'thinking', 'providerBlocks']) if (Object.hasOwn(message, key)) next[key] = narration(message[key]);
+        for (const key of ['content', 'reasoning_content', 'thinking', 'providerBlocks']) if (Object.hasOwn(message, key)) next[key] = narration(message[key], historical);
         if (Array.isArray(message.tool_calls)) next.tool_calls = message.tool_calls.map(call => {
-          if (!call?.function || !inspect(call.function.arguments)) return call;
+          if (!call?.function || !contentIssue(call.function.arguments, true, historical)) return call;
           return { ...call, function: { ...call.function, arguments: '{}' } };
         });
         if (Object.keys(next).every(key => next[key] === message[key])) next = message;
-      } else if (message.role === 'tool' && inspect(message.content)) next = { ...message, content: JSON.stringify({ ok: false, code: 'privacy.reference_unavailable_history', error: HISTORY_REFUSED }) };
+      } else if (message.role === 'tool') {
+        const issue = contentIssue(message.content, historical);
+        if (issue) next = { ...message, content: issue === 'limit' ? DATA_WITHHELD
+          : JSON.stringify({ ok: false, code: 'privacy.reference_unavailable_history', error: HISTORY_REFUSED }) };
+      }
       if (next !== message) binding.originals.set(next, message);
       return next;
     });
@@ -876,7 +924,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     const binding = historyBindings.get(owner); if (!binding) return history;
     return history.map(message => {
       const original = binding.originals.get(message); if (original) return original;
-      if (compacted && message?.role === 'user' && !binding.strictUsers.has(JSON.stringify(message.content))) binding.historicalUsers.add(message);
+      if (compacted && message?.role === 'user' && !binding.strictUsers.has(JSON.stringify(message.content))) binding.historicalRows.add(message);
       return message;
     });
   }
@@ -1069,13 +1117,15 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     return result;
   }
   async function modelToolResult(value) {
+    const operation = operationFor(active());
     try { return await toolResult(value); }
     catch (error) {
       // A completed command can read the privacy implementation itself or echo
       // marker-shaped file data. Keep raw source/reference validation strict;
       // withhold this result rather than trusting the marker or aborting the turn.
-      if (!active() || !contentRecoveryError(error) && error?.code !== 'privacy.reserved_literal') throw error;
-      assertPolicyAvailable();
+      // A bounded scan refusal also withholds the entire result, never a prefix.
+      if (!active() || !contentRecoveryError(error) && error?.code !== 'privacy.reserved_literal' && !toolResultLimitCodes.has(error?.code)) throw error;
+      assertOperation(operation);
       return toolResult({ ok: false, privacyFiltered: true, resultUnavailable: true, operationMayHaveExecuted: true,
         code: 'privacy.tool_result_withheld', reason: error.code,
         message: '本机隐私保护未外发这一份工具结果。执行状态以本机工具记录为准，不要因结果缺失自动重做写入、命令或外部请求；可继续其它步骤，或改用更小的文本读取。' });
@@ -1426,7 +1476,7 @@ const PrivacyGateway = ((cryptoApi, fileApi, pathApi, AsyncLocalStorage, core, U
     };
     try {
       if (hostProjection && Array.isArray(history.providerHistory)) {
-        const binding = { historicalUsers: new WeakSet(history.providerHistory.filter(row => row?.role === 'user')), strictUsers: new Set(), originals: new WeakMap() };
+        const binding = { historicalRows: new WeakSet(history.providerHistory.filter(row => row && typeof row === 'object')), strictUsers: new Set(), originals: new WeakMap() };
         history = { ...history, providerHistory: history.providerHistory.map(message => mayContain(message) ? projectHistoryCopy([message], scope, binding, mayContain)[0] : message) };
       }
       return walk(history);

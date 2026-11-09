@@ -5,7 +5,7 @@
   "summary": {
     "modules": 141,
     "providedSymbols": 4336,
-    "requiredSymbols": 4285,
+    "requiredSymbols": 4286,
     "edges": 940,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -2565,6 +2565,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "SessionExecutionHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
           "kinds": [
             "read"
           ]
@@ -36506,6 +36513,7 @@
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "SessionExecutionHooks",
+        "SessionFullTextHooks",
         "WorkDataAttachmentUploadHooks",
         "WorkDataMaintenanceHooks",
         "WorkDataRootHooks",

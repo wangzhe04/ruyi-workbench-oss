@@ -2475,6 +2475,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
