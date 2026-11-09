@@ -19,8 +19,12 @@ test('[W1] 带不带结尾分隔符是同一个常用文件夹', () => {
 
 test('[W2] 存的时候去掉结尾分隔符;盘符根与 / 保留一个', () => {
   assert.equal(normalizeConfig({ defaultWorkspace: 'D:\\work\\' }).config.defaultWorkspace, 'D:\\work');
-  const { config } = normalizeConfig({ workspaces: [{ path: 'C:\\' }, { path: 'E:\\\\' }, { path: '/' }, { path: '/home/me/' }] });
-  assert.deepEqual(config.workspaces.map(w => w.path), ['C:\\', 'E:\\', '/', '/home/me']);
+  const driveRoot = process.platform === 'win32' ? path.parse(process.cwd()).root : 'E:\\';
+  const inputs = [driveRoot + '\\', '/', '/home/me/'];
+  const expected = [driveRoot, '/', '/home/me'];
+  const { config } = normalizeConfig({ workspaces: inputs.map(path => ({ path })), recentWorkspaces: inputs });
+  assert.deepEqual(config.workspaces.map(w => w.path), expected);
+  assert.deepEqual(config.recentWorkspaces, expected);
 });
 
 process.on('exit', () => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });

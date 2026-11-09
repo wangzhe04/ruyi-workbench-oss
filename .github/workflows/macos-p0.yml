@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [master, main, 'codex/**']
+    branches: [master, main, macos, 'codex/**']
 permissions:
   contents: read
 jobs:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, windows-latest]
+        os: [macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -24,6 +24,16 @@ jobs:
         run: node ruyi-workbench/tools/build-macos-process-helper.js
       - name: Same-source cross-platform subset (not full compatibility)
         run: node MACOS-PORTING/probes/run-baseline.cjs --profile ci --output p0-results
+      - name: macOS native regression smoke
+        if: runner.os == 'macOS'
+        run: |
+          node dev-harness/macos-process-runtime.e2e.js
+          node dev-harness/macos-file-policy.e2e.js
+          node dev-harness/macos-agent-cli-discovery.e2e.js
+          node dev-harness/macos-keychain.e2e.js
+      - name: Windows credential IPC smoke
+        if: runner.os == 'Windows'
+        run: node dev-harness/external-bot-credentials.e2e.js
       - name: Preserve results including failures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

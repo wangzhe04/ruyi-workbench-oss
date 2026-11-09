@@ -5308,7 +5308,8 @@ function normalizeConfig(raw, opts = {}) {
       if (typeof w !== 'string') continue;
       const s = normalizeWorkspacePathString(w);
       if (!s) continue;
-      const key = samePathKey(s);
+      // Preserve the stored spelling on Windows, where resolving '/' depends on the current drive.
+      const key = process.platform === 'win32' ? s.toLowerCase() : samePathKey(s);
       if (seen.has(key)) continue;
       seen.add(key);
       clean.push(s);
@@ -5355,7 +5356,7 @@ function normalizeConfig(raw, opts = {}) {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
       const p = normalizeWorkspacePathString(raw.path);
       if (!p) return;
-      const key = samePathKey(p);
+      const key = process.platform === 'win32' ? p.toLowerCase() : samePathKey(p);
       if (seen.has(key)) return;
       seen.add(key);
       const entry = { path: p, read: raw.read !== false, write: raw.write !== false, execute: raw.execute !== false };
@@ -15665,10 +15666,14 @@ function isAutoLoadedLaunchConfigPath(p, targetStat) {
             && pathWithinRoot(p, path.join(alternate, root.suffix))) return true;
       }
     }
-    // Covers hard links and a helper executable symlinked outside the runtime directory.
+    // A helper's hard links and symlink targets can live outside the runtime directory.
     if (targetStat && targetStat.ino) {
-      const executable = fs.statSync(path.join(nativeRoot, 'ruyi-process-helper'), { bigint: true });
-      if (executable.ino && targetStat.dev === executable.dev && targetStat.ino === executable.ino) return true;
+      for (const name of ['ruyi-process-helper', 'ruyi-keychain-helper']) {
+        try {
+          const executable = fs.statSync(path.join(nativeRoot, name), { bigint: true });
+          if (sameFileIdentity(targetStat, executable)) return true;
+        } catch { /* Either helper can be absent in a source checkout. */ }
+      }
     }
   } catch { /* Source-only test contexts may not expose the external package root. */ }
   try {
