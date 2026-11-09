@@ -273,16 +273,124 @@ test('global retention measures real sealed bytes and preserves the active write
     if (previous === undefined) delete process.env.RUYI_JOURNAL_GLOBAL_MAX_BYTES; else process.env.RUYI_JOURNAL_GLOBAL_MAX_BYTES = previous;
   }
   const old = path.join(data, 'checkpoints', 'sess_gc_old'); fs.mkdirSync(old, { recursive: true });
-  fs.writeFileSync(path.join(old, 'index.json'), '[]'); fs.writeFileSync(path.join(old, 'old.gz'), crypto.randomBytes(120 * 1024));
+  await capped.journalWriteIndex('sess_gc_old', [{ turnSeq: 1, entrySeq: 0, op: 'modify' }]);
+  await capped.journalGzipStore('sess_gc_old', '1-0.gz').write(zlib.gzipSync(crypto.randomBytes(120 * 1024)));
+  const oldBefore = fs.readFileSync(path.join(old, '1-0.gz'));
   const stale = new Date('2000-01-01'); fs.utimesSync(old, stale, stale);
   const s = await capped.createSession({ title: 'protected writer', cwd: workspace });
   const original = crypto.randomBytes(65 * 1024), file = path.join(workspace, 'gc-before.bin');
   assert.equal((await capped.journalRecord(s.id, 1, 'file_edit', file, 'modify', original)).ok, true);
-  await capped.journalGlobalSweepOnce(s.id);
-  assert.equal(fs.existsSync(old), false, 'actual over-cap sweep prunes oldest checkpoint tree');
+  const sweep = await capped.journalGlobalSweepOnce(s.id);
+  assert.deepEqual(sweep, { ok: false, reason: 'work_data.journal_retention_sealed_directory' });
+  assert.deepEqual(fs.readFileSync(path.join(old, '1-0.gz')), oldBefore, 'sealed quota pressure retains the oldest complete directory');
   assert.equal(fs.existsSync(capped.journalDir(s.id)), true, 'current writer is protected even if ciphertext alone exceeds cap');
   assert.deepEqual(await capped.journalReadBefore(s.id, 1, 0), original);
   const onDisk = fs.statSync(path.join(capped.journalDir(s.id), '1-0.gz')).size;
   assert.ok(onDisk > 100 * 1024, 'cipher representation expansion is counted as real bytes, not original binary length');
-  assert.ok(capped.journalByteEstimate() >= onDisk);
+  assert.ok(capped.journalByteEstimate() >= onDisk + oldBefore.length);
+});
+
+async function sealedRetentionFixture(testContext, cap) {
+  const previous = process.env.RUYI_JOURNAL_GLOBAL_MAX_BYTES;
+  if (cap !== undefined) process.env.RUYI_JOURNAL_GLOBAL_MAX_BYTES = String(cap);
+  let runtime;
+  try { runtime = load(); } finally {
+    if (previous === undefined) delete process.env.RUYI_JOURNAL_GLOBAL_MAX_BYTES;
+    else process.env.RUYI_JOURNAL_GLOBAL_MAX_BYTES = previous;
+  }
+  await toggle(true, runtime);
+  const originalKeys = runtime.WorkDataStore.Hooks.keys, master = crypto.randomBytes(32);
+  let locked = false;
+  runtime.WorkDataStore.Hooks.keys = {
+    async snapshot() {
+      if (locked) throw Object.assign(new Error('synthetic missing key'), { code: 'work_data_key.absent' });
+      const key = Buffer.from(master);
+      return { key, instanceId: 'journal-retention-fixture', release: () => key.fill(0) };
+    },
+  };
+  testContext.after(async () => {
+    runtime.WorkDataStore.Hooks.keys = originalKeys;
+    master.fill(0);
+    await toggle(false, runtime);
+  });
+  return { runtime, lock: () => { locked = true; }, unlock: () => { locked = false; } };
+}
+
+test('sealed retention preflights all selected originals and preserves index on locked, truncated and half-missing checkpoints', async t => {
+  const { runtime, lock, unlock } = await sealedRetentionFixture(t);
+  const id = 'sess_retention_faults', index = Array.from({ length: 22 }, (_, entry) =>
+    ({ turnSeq: entry + 1, entrySeq: 0, op: entry < 2 ? 'modify' : 'create' }));
+  await runtime.journalWriteIndex(id, index);
+  for (const turn of [1, 2]) await runtime.journalGzipStore(id, turn + '-0.gz').write(zlib.gzipSync('sealed ' + turn));
+  const indexBefore = fs.readFileSync(indexFile(id));
+  const first = beforeFile(id, 1, 0), second = beforeFile(id, 2, 0);
+  const firstBefore = fs.readFileSync(first), secondBefore = fs.readFileSync(second);
+  const verifyUnchanged = () => {
+    assert.deepEqual(fs.readFileSync(indexFile(id)), indexBefore);
+    assert.deepEqual(fs.readFileSync(first), firstBefore);
+  };
+  lock();
+  assert.deepEqual(await runtime.journalGc(id), { ok: false, reason: 'work_data_key.absent' });
+  verifyUnchanged();
+  assert.deepEqual(fs.readFileSync(second), secondBefore);
+  unlock();
+  const truncated = secondBefore.subarray(0, secondBefore.length - 1);
+  fs.writeFileSync(second, truncated);
+  const rejected = await runtime.journalGc(id);
+  assert.equal(rejected.ok, false);
+  assert.match(rejected.reason, /^work_data/);
+  verifyUnchanged();
+  assert.deepEqual(fs.readFileSync(second), truncated);
+  fs.unlinkSync(second);
+  assert.deepEqual(await runtime.journalGc(id), { ok: false, reason: 'ENOENT' });
+  verifyUnchanged();
+  assert.equal(fs.existsSync(second), false);
+
+  fs.writeFileSync(second, secondBefore);
+  const originalUnlink = fsp.unlink;
+  fsp.unlink = async function(file, ...args) {
+    if (String(file) === first) throw Object.assign(new Error('synthetic unlink failure'), { code: 'EACCES' });
+    return originalUnlink.call(this, file, ...args);
+  };
+  try { assert.deepEqual(await runtime.journalGc(id), { ok: false, reason: 'EACCES' }); }
+  finally { fsp.unlink = originalUnlink; }
+  assert.deepEqual(await runtime.journalReadIndex(id), index, 'failed unlink keeps the original index facts');
+  assert.deepEqual(fs.readFileSync(first), firstBefore);
+  assert.deepEqual(fs.readFileSync(second), secondBefore);
+
+  await runtime.journalGc(id);
+  assert.deepEqual(await runtime.journalReadIndex(id), index.slice(2), 'retry retires both authenticated old originals');
+  assert.equal(fs.existsSync(first), false);
+  assert.equal(fs.existsSync(second), false);
+});
+
+test('sealed global retention refuses disappeared directories and never starts recursive deletion under pressure', async t => {
+  const { runtime } = await sealedRetentionFixture(t, 32 * 1024);
+  const id = 'sess_retention_global', dir = runtime.journalDir(id);
+  await runtime.journalWriteIndex(id, [{ turnSeq: 1, entrySeq: 0, op: 'modify' }]);
+  await runtime.journalGzipStore(id, '1-0.gz').write(zlib.gzipSync(crypto.randomBytes(40 * 1024)));
+  const indexBefore = fs.readFileSync(indexFile(id)), original = fs.readFileSync(beforeFile(id, 1, 0));
+  const rootDir = path.dirname(dir), originalRead = fsp.readdir, originalRm = fsp.rm;
+  let vanished = true, purgeAttempts = 0;
+  fsp.readdir = async function(file, ...args) {
+    const names = await originalRead.call(this, file, ...args);
+    return vanished && String(file) === rootDir && args.length === 0 ? [...names, 'sess_retention_vanished'] : names;
+  };
+  fsp.rm = async function(file, ...args) {
+    if (String(file) === dir) {
+      purgeAttempts++;
+      fs.unlinkSync(beforeFile(id, 1, 0));
+      throw Object.assign(new Error('synthetic partial recursive remove'), { code: 'EIO' });
+    }
+    return originalRm.call(this, file, ...args);
+  };
+  try {
+    assert.deepEqual(await runtime.journalGlobalSweepOnce(), { ok: false, reason: 'ENOENT' });
+    vanished = false;
+    assert.deepEqual(await runtime.journalGlobalSweepOnce(), { ok: false, reason: 'work_data.journal_retention_sealed_directory' });
+  } finally { fsp.readdir = originalRead; fsp.rm = originalRm; }
+  assert.equal(purgeAttempts, 0);
+  assert.deepEqual(fs.readFileSync(indexFile(id)), indexBefore);
+  assert.deepEqual(fs.readFileSync(beforeFile(id, 1, 0)), original);
+  assert.ok(runtime.journalByteEstimate() >= original.length + indexBefore.length);
 });

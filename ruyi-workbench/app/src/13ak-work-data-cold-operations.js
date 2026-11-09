@@ -298,7 +298,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         rehearsalStarted = true;
         await absent(rehearsal);
         const rehearsalOwner = await acquire(rehearsal);
-        const rehearsalReceipt = context.operation === 'export' && captured.specialCoverage?.originalObjects === 'new-owned-portable';
+        const rehearsalReceipt = captured.specialCoverage?.originalObjects === 'new-owned-portable';
         const rehearsalSnapshot = full(rehearsalReceipt);
         const rehearsed = await rehearsalSnapshot.restore({ serialized: captured.serialized, password: context.password, target: rehearsal, targetOwnership: rehearsalOwner });
         const cleanupProof = rehearsalReceipt
@@ -363,9 +363,14 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
         }
         const state = { schema: 1, id, operation: context.operation, phase: 'prepared', createdAt: new Date().toISOString(), expectedAuthority: expected, backup, candidate: null };
         mutation = true; intent = await control.write(state);
-        const update = async (phase, candidate, headerSha256) => {
+        const update = async (phase, candidate, { headerSha256, transition, transitionReady, transitionSourceScope, transitionSourceSha256 } = {}) => {
           state.phase = phase;
-          state.candidate = { id: candidate.id, mode: candidate.mode, headerSha256: headerSha256 ?? state.candidate?.headerSha256 ?? null };
+          state.candidate = { id: candidate.id, mode: candidate.mode, pointerSha256: candidate.pointerProof.sha256,
+            headerSha256: headerSha256 ?? state.candidate?.headerSha256 ?? null };
+          if (transition !== undefined) state.transition = transition;
+          if (transitionReady !== undefined) state.transitionReady = transitionReady;
+          if (transitionSourceScope !== undefined) state.transitionSourceScope = transitionSourceScope;
+          if (transitionSourceSha256 !== undefined) state.transitionSourceSha256 = transitionSourceSha256;
           intent = await control.write(state, intent); return Object.freeze({ ownedFile: intent });
         };
         // Attachments: enabling seals the candidate upload copies; disabling
@@ -378,9 +383,18 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           assertDurableBackup: ({ backupReceipt, sourceProof }) => backupReceipt === backup && sourceProof === captured && verifyBackup(backupReceipt),
           assertIntent: async () => { await control.verify(intent); return Object.freeze({ ownedFile: intent }); },
           onCandidate: ({ candidate }) => update('candidate', candidate),
-          onKeyReady: ({ candidate, headerSha256 }) => update('key-ready', candidate, headerSha256),
+          onKeyReady: ({ candidate, headerSha256 }) => update('key-ready', candidate, { headerSha256 }),
+          onSpecialPrepared: ({ candidate, transition }) => {
+            const sourcePath=captured.specialCoverage?.sourcePath;
+            const legacyNative=context.operation==='enable'&&expected.generation===0&&typeof sourcePath==='string'&&fold(sourcePath)==='migrations/skill-backups';
+            const scope=legacyNative?WorkDataMaintenanceControl.legacyTransitionSourceScope(captured):undefined;
+            return update('key-ready',candidate,{transition,transitionSourceScope:scope,
+              transitionSourceSha256:WorkDataMaintenanceControl.sourceOrdinaryDigest(captured,{candidateId:candidate.id,scope})});
+          },
+          onSpecialReady: ({ candidate, transitionReady }) => update('key-ready', candidate, { transitionReady }),
           assertSpecialCoverage: async ({backupReceipt,sourceProof}) => backupReceipt === backup && sourceProof === captured
-            && captured.specialCoverage?.type === 'skill-backup-portable' && captured.specialCoverage.originalObjects === 'refused' && await verifyBackup(backupReceipt),
+            && captured.specialCoverage?.type === 'skill-backup-portable'
+            && ['refused','new-owned-portable'].includes(captured.specialCoverage.originalObjects) && await verifyBackup(backupReceipt),
           maintenanceResultOwner: WorkDataMaintenanceResult,
           ...(uploadsOwnerFactory ? { uploadsOwnerFactory } : {}),
           ...(uploadsRestoreFactory ? { uploadsRestoreFactory } : {}),
@@ -390,6 +404,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           backupReceipt: backup, sourceProof: captured });
         await progress('publish-generation');
         const published = await migration.publish(prepared);
+        if (published.active?.proof?.sha256 !== state.candidate.pointerSha256) throw fail('generation_unverified');
         await update('published', prepared.candidate);
         // verifyPublished must inspect the exact selected generation using cold,
         // independent owner factories; no global mode/cache change is accepted.
@@ -397,7 +412,7 @@ const WorkDataColdOperations = ((io, p, cryptoApi) => {
           const proof = await migration.verifyPublished(prepared), selected = await WorkDataManifest.create({ base }).readActive();
           const sameActive = value => value && value.id === prepared.candidate.id && value.mode === prepared.candidate.mode
             && value.root === prepared.candidate.root && value.generation === expected.generation + 1
-            && value.proof?.sha256 === selected.proof.sha256;
+            && value.proof?.sha256 === state.candidate.pointerSha256;
           if (!proof || Object.keys(proof).sort().join(',') !== 'active,candidateId,generation,logicalFiles,mode,processExitRequired,readOnly,specialSha256,targetSha256'
             || proof.readOnly !== true || proof.processExitRequired !== true || proof.candidateId !== prepared.candidate.id
             || proof.generation !== expected.generation + 1 || proof.mode !== prepared.candidate.mode

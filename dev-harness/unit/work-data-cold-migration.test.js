@@ -32,3 +32,80 @@ test('invalid final proof retains complete selected generation and source intent
  await assert.rejects(x.operation.execute(x.context),error=>error.code==='work_data_setup.transition_requires_recovery'&&error.operationMayHaveExecuted===true&&error.sourceIntentRetained===true);
  assert.equal((await x.f.api.WorkDataManifest.create({base:x.f.base}).readActive()).generation,1);assert.ok(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-v1.json')));assert.equal(fs.existsSync(path.join(x.f.base,'.work-data/maintenance-result-v1.json')),false);
 });
+test('intent binds the candidate bytes before commit and a different pointer cannot complete',async t=>{
+ const x=await setup(t,{wrap:actual=>({...actual,async publish(prepared){
+  const file=path.join(x.f.base,'.work-data','maintenance-v1.json');
+  const intent=JSON.parse(await fsp.readFile(file,'utf8'));
+  assert.equal(intent.phase,'key-ready');
+  assert.equal(intent.candidate.pointerSha256,prepared.candidate.pointerProof.sha256);
+  const result=await actual.publish(prepared);
+  assert.equal(result.active.proof.raw,prepared.candidate.pointerProof.raw);
+  const raw=result.active.proof.raw.replace('"schema":1','"schema": 1');
+  await fsp.writeFile(path.join(x.f.base,'.work-data','active-v1.json'),raw);
+  return result;
+ }})});
+ await assert.rejects(x.operation.execute(x.context),{code:'work_data_setup.transition_requires_recovery'});
+ const intent=JSON.parse(await fsp.readFile(path.join(x.f.base,'.work-data','maintenance-v1.json'),'utf8'));
+ const selected=await x.f.api.WorkDataManifest.create({base:x.f.base}).readActive();
+ assert.equal(intent.phase,'published');
+ assert.equal(selected.id,intent.candidate.id);
+ assert.notEqual(selected.proof.sha256,intent.candidate.pointerSha256);
+ assert.equal(fs.existsSync(path.join(x.f.base,'.work-data','maintenance-result-v1.json')),false);
+});
+
+test('one cold enable authenticates, backs up and transforms every ordinary required family together',async t=>{
+ const {wholeTextCases}=require('../lib/work-data-migration-corpus');
+ const {fixture:imageFixture}=require('../lib/media-image-contract-fixture');
+ const {gzipSync}=require('node:zlib');
+ const preparedRows=[];
+ const x=await setup(t,{wrap:actual=>({...actual,async prepare(input){
+  const prepared=await actual.prepare(input);preparedRows.push(...prepared.transformed);return prepared;
+ }})});
+ vm.runInContext(fs.readFileSync(path.join(draft,'13bb-media-derived-store.js'),'utf8'),x.f.context);
+ const records=[
+  ...['messages','provider','interventions','changes'].map(kind=>['session-'+kind,'sessions/sess_one.'+kind+'.ndjson']),
+  ['steward-inbox','steward/inbox-v1.ndjson'],['steward-decisions','steward/decisions-v1.ndjson'],
+  ['scheduler-fires','scheduler/fires-v1.ndjson'],['audit-log','logs/workbench-2026-10-24.ndjson'],
+  ['agent-run-events','agent-runs/sess_one/run_one.events.ndjson'],
+ ];
+ const textCases=[...wholeTextCases,
+  ['session-fulltext-state','sessions/_fulltext-index-v1/state.json'],
+  ['session-fulltext-manifest','sessions/_fulltext-index-v1/sess_one/manifest.json'],
+  ['session-fulltext-shard','sessions/_fulltext-index-v1/sess_one/'+'a'.repeat(32)+'.0.json'],
+ ];
+ const marker='SYNTHETIC_M3_ALL_FAMILIES_PRIVATE';
+ const makeText=(family,shape)=>{
+  if(shape==='markdown')return '# '+marker+'\r\n';
+  const extra=family==='session-head'?{id:'sess_one',storageVersion:2,messageCount:1,providerHistoryCount:1}
+   :family==='session-index'?{id:'sess_one'}:family==='agent-run-snapshot'?{id:'run_one',sessionId:'sess_one'}:{};
+  const value={...extra,private:marker+family};
+  return JSON.stringify(shape==='array'?[value]:value)+'\r\n';
+ };
+ const seed=new Map(textCases.map(([family,file,shape])=>[file,Buffer.from(makeText(family,shape))]));
+ for(const [family,file] of records)seed.set(file,Buffer.from(makeText(family)));
+ seed.set('sessions/sess_one.messages.ndjson.prevbody',Buffer.from(makeText('previous-session-messages')));
+ seed.set('checkpoints/sess_one/history-1.json.gz',gzipSync(makeText('journal-history'),{level:0}));
+ seed.set('agent-runs/sess_one/run_one.events.ndjson.gz',gzipSync(makeText('archive-agent-run-events'),{level:0}));
+ const image=imageFixture(),token=await image.pipeline.prepare(),preview=image.pipeline.borrow(token);
+ const scope='b'.repeat(32),id='mimg_'+'c'.repeat(32);
+ try{
+  seed.set('media-derived-v1/'+scope+'/'+id+'.json',Buffer.from(JSON.stringify({
+   schema:1,id,sourceId:'synthetic',issuedAt:1000,revocationRevision:'r1',manifest:{...preview.manifest,scope},
+   data:preview.bytes.toString('base64'),
+  })));
+ }finally{preview.release();image.pipeline.release(token);}
+ for(const [file,bytes] of seed)await x.f.write(file,bytes);
+ const result=await x.operation.execute(x.context),active=result.authority.active;
+ const freeze=require('../../docs/architecture/encrypted-storage-freeze.json');
+ const separateOwners=new Set(['uploads-attachment','uploads-tool-image','migration-skill-backups']);
+ const expected=freeze.entries.filter(row=>row.encryption==='required'&&!separateOwners.has(row.id)).map(row=>row.id).sort();
+ assert.deepEqual([...new Set(preparedRows.map(row=>row.family))].sort(),expected);
+ assert.deepEqual(preparedRows.map(row=>row.path).sort(),[...seed.keys()].sort());
+ assert.equal(active.mode,'encrypted');
+ for(const [file,bytes] of seed){
+  assert.deepEqual(await fsp.readFile(path.join(x.f.base,file)),bytes,file);
+  const sealed=await fsp.readFile(path.join(active.root,file));
+  assert.notDeepEqual(sealed,bytes,file);
+  assert.equal(sealed.includes(marker),false,file);
+ }
+});

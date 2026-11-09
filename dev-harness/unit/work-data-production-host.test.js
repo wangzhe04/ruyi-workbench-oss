@@ -558,8 +558,8 @@ test('retirement requires a retired drain, zero counters, no inflight operation 
   f.state.maintenance.phase = 'retired';
   assert.equal(host.isRetired(), true);
   const receipt = host.retiredReceipt();
-  assert.deepEqual({ ...receipt, busy: { ...receipt.busy } }, { phase: 'retired', admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 },
-    inflight: 0, installed: true, keeper: true, owner: true, helper: false });
+  assert.deepEqual(JSON.parse(JSON.stringify(receipt)), { phase: 'retired', admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 },
+    owners: { open: [], admittedTotal: 0, releasedTotal: 0, delta: 0 }, inflight: 0, installed: true, keeper: true, owner: true, helper: false });
 
   for (const [name, value, reset] of [['admitted', 1, 0], ['writers', 1, 0], ['dirty', 1, 0], ['busy', { turns: 1 }, { turns: 0 }]]) {
     f.state.maintenance[name] = value;
@@ -583,11 +583,15 @@ test('retirement requires a retired drain, zero counters, no inflight operation 
   assert.equal(host.isRetired(), true);
 
   // Synthesized, borrowed or incomplete drain evidence never retires.
-  const retired = { phase: 'retired', admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 } };
+  const retired = { phase: 'retired', admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 }, owners: f.state.maintenance.owners };
   f.bindings.maintenance = new Proxy({ status: () => retired }, {});
   assert.equal(host.isRetired(), false);
   f.bindings.maintenance = { status: () => ({ phase: 'retired', admitted: 0, writers: 0, dirty: 0 }) };
   assert.equal(host.isRetired(), false);
+  for(const owners of [undefined,{...retired.owners,open:[{id:1,kind:'writer'}]},{...retired.owners,admittedTotal:1}]){
+    f.bindings.maintenance={status:()=>({...retired,owners})};
+    assert.equal(host.isRetired(),false);
+  }
   f.bindings.maintenance = { status: () => retired };
   assert.equal(host.isRetired(), true);
   f.servers[0].emit('error', Error('modeled ownership loss'));

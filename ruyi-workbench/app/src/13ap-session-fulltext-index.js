@@ -2,6 +2,7 @@
 // the existing session/storage/privacy owners. No embeddings or corpus sampling.
 const SessionFullTextIndex = ((io,p,c) => {
   const FORMAT=3,SCHEMA=1,CHARS=4096,OVERLAP=256,SHARD_BYTES=256*1024,MANIFEST_BYTES=4*1024*1024;
+  const ATTACHMENT_REFS_PER_MESSAGE=16,ATTACHMENT_REFS_PER_SESSION=64,ATTACHMENT_DOCS_PER_SESSION=2;
   const HEX=/^[a-f0-9]{64}$/,GEN=/^[a-f0-9]{32}$/;
   const NORMALIZER='fullfield-nfkc-upper-nfkc-space/v1;unicode='+process.versions.unicode+';icu='+process.versions.icu+';v8='+process.versions.v8;
   const fail=suffix=>Object.assign(Error('session_fulltext.'+suffix),{code:'session_fulltext.'+suffix,apiCode:'session_fulltext.'+suffix,statusCode:409});
@@ -103,11 +104,56 @@ const SessionFullTextIndex = ((io,p,c) => {
     if(!host||['validSessionId','root','enabled','writeJson','catalog','epoch','scan','scope','authorize','assertAuthorized','project','assertScope','sourceSequence','noise','terms'].some(name=>typeof host[name]!=='function'))throw fail('host_invalid');
     const sessionResults=host.resultUnit==='sessions';
     const canonical=id;const valid=value=>canonical(value)&&host.validSessionId(value)===value;
+    const attachmentSource=host.attachmentSource;
+    const attachmentField=/^attachments\.(\d+)\.extractedText$/;
+    const attachmentBudget=()=>({refs:ATTACHMENT_REFS_PER_SESSION,docs:ATTACHMENT_DOCS_PER_SESSION});
+    function attachmentCandidates(row,budget){
+      if(!attachmentSource||!Array.isArray(row.attachments)||!budget.refs)return [];
+      const candidates=[];
+      for(const [index,reference] of row.attachments.slice(0,Math.min(budget.refs,ATTACHMENT_REFS_PER_MESSAGE)).entries()){
+        budget.refs--;
+        if(attachmentSource.isDocument(reference)){
+          if(!budget.docs)continue;
+          budget.docs--;
+        }
+        candidates.push([index,reference]);
+      }
+      return candidates;
+    }
+    async function selectedAttachments(candidates,policy){
+      const selected=[];
+      for(const [index,reference] of candidates)selected[index]=await attachmentSource.select(reference,policy);
+      return selected;
+    }
+    function attachmentWitness(){
+      const digest=c.createHash('sha256');
+      return {
+        add:(ordinal,selected)=>{if(selected.length)digest.update(JSON.stringify([ordinal,selected.map(value=>value?.revision??null)])+'\n');},
+        finish:()=>digest.digest('hex'),
+      };
+    }
+    async function extractedSources(row,policy,selected,deferred=()=>{}){
+      const parts=[];
+      for(const [index,source] of selected.entries()){
+        if(!source)continue;
+        const attachment=row.attachments[index],result=await attachmentSource.read(attachment,policy,source);
+        if(result?.deferred===true)deferred();
+        const text=result?.text;
+        if(typeof text!=='string')continue;
+        const revalidate=async(complete=false)=>{
+          const current=await attachmentSource.select(attachment,policy);
+          if(current?.revision!==source.revision)return false;
+          return !complete||!policy||attachmentSource.verify(attachment,source);
+        };
+        parts.push({field:'attachments.'+index+'.extractedText',text,revision:digest([source.revision,text]),revalidate});
+      }
+      return parts;
+    }
     // Only authenticated/readable manifest plaintext with invalid JSON can be
     // rebuilt as a missing derived pointer. A private symbol cannot be forged
     // by valid JSON and never softens key, schema, namespace or shard failures.
     const malformedManifest=Symbol('malformed-derived-manifest');
-    let chain=Promise.resolve(),paused=false,building=false;
+    let chain=Promise.resolve(),paused=false,maintenancePaused=false,building=false;
     const run=work=>{const pending=chain.catch(()=>{}).then(work);chain=pending;return pending;};
     const pathKey=value=>process.platform==='win32'?p.resolve(value).toLowerCase():p.resolve(value);
     async function namespace(sid,name=null,max=null){
@@ -123,23 +169,31 @@ const SessionFullTextIndex = ((io,p,c) => {
     const pathFor=(sid,name)=>p.join(host.root(),'_fulltext-index-v1',...(sid?[sid]:[]),name);
     const storage=(sid,name,max=SHARD_BYTES,policy=undefined)=>WorkDataStore.createText({file:()=>pathFor(sid,name),purpose:'search-index',schema:SCHEMA,scopeId:'sessions',recordId:'fulltext-index:'+(sid?sid+':':'')+name.replace(/\.json$/,''),chunked:true,maxPlaintextBytes:max,keys:host.keys,enabled:policy===undefined?host.enabled:()=>policy,writeJson:host.writeJson});
     const read=async(sid,name,max)=>{try{await namespace(sid,name,max);const text=await storage(sid,name,max).read();if(Buffer.byteLength(text)>max)throw fail('capacity');let value;try{value=JSON.parse(text);}catch{if(sid&&name==='manifest.json')return malformedManifest;throw fail('record_invalid');}return value;}catch(error){if(error.code==='ENOENT')return null;throw error;}};
-    const write=async(sid,name,value,max,policy=undefined)=>{const text=JSON.stringify(value);if(Buffer.byteLength(text)>max)throw fail('capacity');if(policy!==undefined&&await host.enabled()!==policy)throw fail('policy_changed');await namespace(sid,name,max);await storage(sid,name,max,policy).write(text);};
+    const write=async(sid,name,value,max,policy=undefined,check=undefined)=>{const text=JSON.stringify(value);if(Buffer.byteLength(text)>max)throw fail('capacity');if(policy!==undefined&&await host.enabled()!==policy)throw fail('policy_changed');await namespace(sid,name,max);check?.();await storage(sid,name,max,policy).write(text);};
     function manifest(value,sid){
       if(!value)return null;
-      const shape=keys(value),legacy=shape==='attachments,chunks,epoch,generation,messages,schema,sessionId,shards,sourceRevision',obsolete=shape==='attachments,chunks,epoch,format,generation,messages,schema,sessionId,shards,sourceRevision'&&[1,2].includes(value.format),current=shape==='attachments,chunks,epoch,format,generation,messages,normalizer,schema,sessionId,shards,sourceRevision'&&value.format===FORMAT&&typeof value.normalizer==='string'&&value.normalizer.length>0&&value.normalizer.length<=512;
+      const shape=keys(value),legacy=shape==='attachments,chunks,epoch,generation,messages,schema,sessionId,shards,sourceRevision',obsolete=shape==='attachments,chunks,epoch,format,generation,messages,schema,sessionId,shards,sourceRevision'&&[1,2].includes(value.format),currentFields='attachments,chunks,epoch,format,generation,messages,normalizer,schema,sessionId,shards,sourceRevision';
+      const attachmentFields='attachmentRevision,attachments,attachmentsIndexed,';
+      const sharedFields='chunks,epoch,format,generation,messages,normalizer,schema,sessionId,shards,sourceRevision';
+      const withAttachments=(shape===attachmentFields+sharedFields||shape===attachmentFields+'attachmentsRetryAt,'+sharedFields&&integer(value.attachmentsRetryAt))
+        && typeof value.attachmentRevision==='string'&&HEX.test(value.attachmentRevision)&&integer(value.attachmentsIndexed)&&value.attachmentsIndexed<=value.attachments;
+      const current=(shape===currentFields||withAttachments)&&value.format===FORMAT&&typeof value.normalizer==='string'&&value.normalizer.length>0&&value.normalizer.length<=512;
       if((!legacy&&!obsolete&&!current)||value.schema!==SCHEMA||value.sessionId!==sid||!HEX.test(value.epoch||'')||!HEX.test(value.sourceRevision||'')||!GEN.test(value.generation||'')
         ||!integer(value.messages)||!integer(value.attachments)||!integer(value.chunks)||!Array.isArray(value.shards)||value.shards.length>100000
         ||value.shards.some((row,n)=>keys(row)!=='ordinal,records,sha256'||row.ordinal!==n||!HEX.test(row.sha256||'')||!integer(row.records)||row.records===0||row.records>64))throw fail('manifest_invalid');
       return legacy?{...value,format:1}:value;
     }
-    const compatible=value=>value?.format===FORMAT&&value.normalizer===NORMALIZER;
+    const compatible=value=>value?.format===FORMAT&&value.normalizer===NORMALIZER
+      && (!attachmentSource||value.attachments===0||typeof value.attachmentRevision==='string');
+    const attachmentRetryDue=value=>value?.attachmentsRetryAt>0&&value.attachmentsRetryAt<=Date.now();
     const currentManifest=async sid=>{const value=await read(sid,'manifest.json',MANIFEST_BYTES);return value===malformedManifest?value:manifest(value,sid);};
     const retired=async(sid,selected)=>{
       const current=await currentManifest(sid);if(!current||!compatible(current)||current.generation!==selected.generation)return true;
       return await host.epoch(sid)!==selected.epoch;
     };
     const state=phase=>write(null,'state.json',{schema:SCHEMA,phase},1024);
-    const checkPaused=()=>{if(paused)throw fail('paused');};
+    const isPaused=()=>paused||maintenancePaused;
+    const checkPaused=()=>{if(isPaused())throw fail('paused');};
     async function removeOwned(sid,names){for(const name of names){try{await io.unlink(pathFor(sid,name));}catch(error){if(error.code!=='ENOENT')throw error;}}}
     async function ownedNames(sid){
       if(!valid(sid))throw fail('session_invalid');await namespace(sid);const directory=p.dirname(pathFor(sid,'manifest.json'));let names;
@@ -159,19 +213,26 @@ const SessionFullTextIndex = ((io,p,c) => {
       let names;try{names=await io.readdir(pathFor(null,''),{withFileTypes:true});}catch(error){if(error.code==='ENOENT')return;throw error;}
       for(const name of names){if(name.name==='state.json'&&name.isFile()&&!name.isSymbolicLink())continue;if(!name.isDirectory()||name.isSymbolicLink()||!valid(name.name))throw fail('owned_namespace_changed');if(!catalog.includes(name.name))await purge(name.name);}
     }
-    async function build(sid){
-      checkPaused();const before=await host.epoch(sid);if(!HEX.test(before||''))return false;
-      const prior=await currentManifest(sid);if(prior?.epoch===before&&compatible(prior))return false;
+    async function build(sid,check=checkPaused){
+      check();const before=await host.epoch(sid);if(!HEX.test(before||''))return false;
+      const prior=await currentManifest(sid);
+      if(prior?.epoch===before&&compatible(prior)&&(!attachmentSource||prior.attachments===0))return false;
       // Validate every old owned name before building. Keep the bad pointer and
       // all old bytes until a completely verified new generation is published.
       const stale=prior===malformedManifest?await ownedNames(sid):null;
-      const identities=new Set();
-      const preview=await host.scan(sid,async row=>{checkPaused();if(typeof row?.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id)){if(identities.has(row.id))throw fail('message_owner_ambiguous');identities.add(row.id);}}),policy=await host.enabled();
+      const identities=new Set(),previewAttachments=attachmentWitness(),previewBudget=attachmentBudget(),policy=await host.enabled();
+      const preview=await host.scan(sid,async(row,ordinal)=>{
+        checkPaused();if(typeof row?.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id)){if(identities.has(row.id))throw fail('message_owner_ambiguous');identities.add(row.id);}
+        if(!host.noise(row))previewAttachments.add(ordinal,await selectedAttachments(attachmentCandidates(row,previewBudget),policy));
+      });
+      const attachmentRevision=previewAttachments.finish();
       if(!preview||preview.epoch!==before||!HEX.test(preview.revision||'')||typeof preview.requiresEncryption!=='boolean'||typeof policy!=='boolean')throw fail('source_invalid');
       if(preview.requiresEncryption&&policy!==true)throw fail('source_policy_conflict');
       if(await host.epoch(sid)!==before)throw fail('source_changed');
-      const generation=c.randomBytes(16).toString('hex'),shards=[],owned=[];let rows=[],bytes=0,messages=0,attachments=0,chunks=0,turn=0,turnBasis='legacy-inferred',committed=false;
-      const flush=async()=>{if(!rows.length)return;checkPaused();const ordinal=shards.length,name=generation+'.'+ordinal+'.json',value={schema:SCHEMA,sessionId:sid,generation,ordinal,rows},text=JSON.stringify(value);if(Buffer.byteLength(text)>SHARD_BYTES)throw fail('capacity');
+      if(prior?.epoch===before&&compatible(prior)&&prior.attachmentRevision===attachmentRevision&&!attachmentRetryDue(prior))return false;
+      const generation=c.randomBytes(16).toString('hex'),shards=[],owned=[],observedAttachments=attachmentWitness(),buildBudget=attachmentBudget();
+      let rows=[],bytes=0,messages=0,attachments=0,attachmentsIndexed=0,attachmentsDeferred=false,chunks=0,turn=0,turnBasis='legacy-inferred',committed=false;
+      const flush=async()=>{if(!rows.length)return;check();const ordinal=shards.length,name=generation+'.'+ordinal+'.json',value={schema:SCHEMA,sessionId:sid,generation,ordinal,rows},text=JSON.stringify(value);if(Buffer.byteLength(text)>SHARD_BYTES)throw fail('capacity');
         owned.push(name);await write(sid,name,value,SHARD_BYTES,policy);shards.push({ordinal,sha256:hash(text),records:rows.length});rows=[];bytes=0;};
       try{
         const proof=await host.scan(sid,async(row,ordinal)=>{
@@ -180,16 +241,24 @@ const SessionFullTextIndex = ((io,p,c) => {
           const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){turn=explicit;turnBasis='explicit';}
           messages++;attachments+=Array.isArray(row.attachments)?row.attachments.length:0;if(host.noise(row))return;
           const intrinsic=typeof row.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id),messageId=intrinsic?row.id:'legacy-ordinal:'+ordinal,contentRevision=digest(row);let chunkOrdinal=0;
-          for(const source of sources(row)){
+          const selected=await selectedAttachments(attachmentCandidates(row,buildBudget),policy);
+          observedAttachments.add(ordinal,selected);
+          if(selected.length)check();
+          const extracted=await extractedSources(row,policy,selected,()=>{attachmentsDeferred=true;});
+          attachmentsIndexed+=extracted.length;
+          for(const source of [...sources(row),...extracted]){
+            const revision=source.revision?digest([contentRevision,source.revision]):contentRevision;
             for(const chunk of slices(source.text)){
-              checkPaused();const entry={sessionId:sid,turnSeq:turn,turnSeqBasis:turnBasis,messageId,messageIdBasis:intrinsic?'intrinsic':'physical-ordinal',contentRevision,chunkOrdinal:chunkOrdinal++,messageOrdinal:ordinal,source:source.field,coordinate:'utf16',start:chunk.start,end:chunk.end,canonicalStart:chunk.canonicalStart,text:chunk.text,ranges:chunk.ranges};
+              checkPaused();const entry={sessionId:sid,turnSeq:turn,turnSeqBasis:turnBasis,messageId,messageIdBasis:intrinsic?'intrinsic':'physical-ordinal',contentRevision:revision,chunkOrdinal:chunkOrdinal++,messageOrdinal:ordinal,source:source.field,coordinate:'utf16',start:chunk.start,end:chunk.end,canonicalStart:chunk.canonicalStart,text:chunk.text,ranges:chunk.ranges};
               const size=Buffer.byteLength(JSON.stringify(entry));if(bytes+size>SHARD_BYTES-4096||rows.length>=64)await flush();rows.push(entry);bytes+=size;chunks++;
             }
           }
         });
-        await flush();checkPaused();if(!proof||proof.epoch!==before||!HEX.test(proof.revision||'')||proof.count!==messages||proof.revision!==preview.revision||proof.requiresEncryption!==preview.requiresEncryption||await host.epoch(sid)!==before)throw fail('source_changed');
-        const value={schema:SCHEMA,format:FORMAT,normalizer:NORMALIZER,sessionId:sid,epoch:before,sourceRevision:proof.revision,generation,messages,attachments,chunks,shards};
-        await write(sid,'manifest.json',value,MANIFEST_BYTES,policy);committed=true;
+        await flush();check();if(!proof||proof.epoch!==before||!HEX.test(proof.revision||'')||proof.count!==messages||proof.revision!==preview.revision||proof.requiresEncryption!==preview.requiresEncryption
+          ||observedAttachments.finish()!==attachmentRevision||await host.epoch(sid)!==before)throw fail('source_changed');
+        const value={schema:SCHEMA,format:FORMAT,normalizer:NORMALIZER,sessionId:sid,epoch:before,sourceRevision:proof.revision,generation,messages,attachments,chunks,shards,
+          ...(attachmentSource&&attachments?{attachmentRevision,attachmentsIndexed,...(attachmentsDeferred?{attachmentsRetryAt:Date.now()+30000}:{})}:{})};
+        await write(sid,'manifest.json',value,MANIFEST_BYTES,policy,check);committed=true;
         if(prior===malformedManifest)await removeOwned(sid,stale.filter(name=>name!=='manifest.json'));
         else if(prior)await removeOwned(sid,prior.shards.map(row=>prior.generation+'.'+row.ordinal+'.json'));
         return true;
@@ -200,11 +269,18 @@ const SessionFullTextIndex = ((io,p,c) => {
       let complete=0,pending=0,attachmentSources=0,unverifiedMessages=0;for(const sid of catalog){if(visibility){if(await host.authorize(sid,visibility.context,visibility.access)!==true)continue;visibility.seen.add(sid);}const sequence=host.sourceSequence(sid),value=await currentManifest(sid);if(value&&compatible(value)&&value.epoch===await host.epoch(sid)){
         // Unknown/non-text array members are still unverified. Read the actual
         // committed stream and bind the count to this selected source revision.
-        let unsupported=0;const proof=await host.scan(sid,async row=>{if(!host.noise(row)&&inspectSources(row).unverified)unsupported++;});
+        let unsupported=0;
+        const witness=attachmentWitness(),budget=attachmentBudget(),policy=value.attachmentRevision?await host.enabled():null;
+        const proof=await host.scan(sid,async(row,ordinal)=>{
+          if(host.noise(row))return;
+          if(inspectSources(row).unverified)unsupported++;
+          if(value.attachmentRevision)witness.add(ordinal,await selectedAttachments(attachmentCandidates(row,budget),policy));
+        });
         if(!proof||proof.epoch!==value.epoch||proof.revision!==value.sourceRevision||sequence!==host.sourceSequence(sid))throw fail('source_changed');
-        complete++;attachmentSources+=value.attachments;unverifiedMessages+=unsupported;
+        if(value.attachmentRevision&&(value.attachmentRevision!==witness.finish()||attachmentRetryDue(value)))pending++;
+        else{complete++;attachmentSources+=value.attachments-(value.attachmentsIndexed||0);unverifiedMessages+=unsupported;}
       }else pending++;if(visibility){if(sequence!==host.sourceSequence(sid))throw fail('source_changed');visibility.sequences.set(sid,sequence);}}
-      return {phase:paused?'paused':building?'building':'idle',sessions:visibility?visibility.seen.size:catalog.length,indexedSessions:complete,pendingSessions:pending,complete:pending===0&&attachmentSources===0&&unverifiedMessages===0,messages:{unverifiedText:unverifiedMessages},attachments:{unverifiedFullText:attachmentSources},coverageUnit:'committed-display-message-sources',fullTextSampling:false};
+      return {phase:isPaused()?'paused':building?'building':'idle',sessions:visibility?visibility.seen.size:catalog.length,indexedSessions:complete,pendingSessions:pending,complete:pending===0&&attachmentSources===0&&unverifiedMessages===0,messages:{unverifiedText:unverifiedMessages},attachments:{unverifiedFullText:attachmentSources},coverageUnit:'committed-display-message-sources',fullTextSampling:false};
     }
     async function coverage(context){
       const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
@@ -213,7 +289,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       return value;
     }
     const step=(limit=1,context)=>run(async()=>{
-      if(paused)return coverage(context);building=true;
+      if(isPaused())return coverage(context);building=true;
       try{await state('building');const catalog=await host.catalog();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');await purgeMissing(catalog);let built=0;for(const sid of catalog){checkPaused();if(await build(sid)&&++built>=Math.min(16,Math.max(1,limit)))break;}
       }catch(error){if(error.code!=='session_fulltext.paused')throw error;}
       finally{building=false;await state(paused?'paused':'idle');}
@@ -222,17 +298,17 @@ const SessionFullTextIndex = ((io,p,c) => {
     // The private production preparation path walks each catalog entry once.
     // Public step retains its bounded <=16 contract and original coverage result.
     const prepare=context=>run(async()=>{
-      if(paused)return coverage(context);
+      if(isPaused())return coverage(context);
       const observed=await host.scope(context);if(keys(observed)!=='revision,scopeId'||typeof observed.scopeId!=='string'||!observed.scopeId.length||observed.scopeId.length>160||typeof observed.revision!=='string'||!HEX.test(observed.revision))throw fail('scope_invalid');const access=Object.freeze(clone(observed));
       const assertAccess=()=>{if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');};
       const finish=async()=>{assertAccess();const value=await coverage(context);assertAccess();return value;};
-      if(paused)return finish();
+      if(isPaused())return finish();
       const check=()=>{checkPaused();assertAccess();};
       check();building=true;let failed=false,failure;
       try{
         await state('building');check();const catalog=await host.catalog();check();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid))||new Set(catalog).size!==catalog.length)throw fail('catalog_invalid');
         await purgeMissing(catalog);check();let visited=0;
-        for(const sid of catalog){check();await build(sid);check();if(++visited%16===0){await require('node:timers/promises').setImmediate();check();}}
+        for(const sid of catalog){check();await build(sid,check);check();if(++visited%16===0){await require('node:timers/promises').setImmediate();check();}}
       }catch(error){if(error?.code!=='session_fulltext.paused'){failed=true;failure=error;}}
       finally{building=false;}
       try{await state(paused?'paused':'idle');}catch(error){
@@ -262,7 +338,7 @@ const SessionFullTextIndex = ((io,p,c) => {
         for(const ref of value.shards){
           const shard=await read(sid,value.generation+'.'+ref.ordinal+'.json',SHARD_BYTES);if(!shard||hash(JSON.stringify(shard))!==ref.sha256||shard.schema!==SCHEMA||shard.sessionId!==sid||shard.generation!==value.generation||shard.ordinal!==ref.ordinal||!Array.isArray(shard.rows)||shard.rows.length!==ref.records){if(await retired(sid,value))break;throw fail('shard_invalid');}
           for(const row of shard.rows){
-            if(keys(row)!=='canonicalStart,chunkOrdinal,contentRevision,coordinate,end,messageId,messageIdBasis,messageOrdinal,ranges,sessionId,source,start,text,turnSeq,turnSeqBasis'||row.coordinate!=='utf16'||!['explicit','legacy-inferred'].includes(row.turnSeqBasis)||!['intrinsic','physical-ordinal'].includes(row.messageIdBasis)||!(/^(?:content(?:\.\d+(?:\.text)?)?|blocks\.\d+(?:\.text)?|segments\.\d+\.text|attachments\.\d+\.(?:textPreview|transcript|ocrText))$/).test(row.source)||row.sessionId!==sid||!integer(row.messageOrdinal)||!integer(row.turnSeq)||typeof row.messageId!=='string'||row.messageId.length>256||!HEX.test(row.contentRevision||'')||!integer(row.chunkOrdinal)||!integer(row.start)||!integer(row.end)||typeof row.source!=='string'||typeof row.text!=='string'||row.end<=row.start||!integer(row.canonicalStart)||!row.text.length||row.text.length>CHARS||!rangesValid(row))throw fail('shard_invalid');
+            if(keys(row)!=='canonicalStart,chunkOrdinal,contentRevision,coordinate,end,messageId,messageIdBasis,messageOrdinal,ranges,sessionId,source,start,text,turnSeq,turnSeqBasis'||row.coordinate!=='utf16'||!['explicit','legacy-inferred'].includes(row.turnSeqBasis)||!['intrinsic','physical-ordinal'].includes(row.messageIdBasis)||!(/^(?:content(?:\.\d+(?:\.text)?)?|blocks\.\d+(?:\.text)?|segments\.\d+\.text|attachments\.\d+\.(?:textPreview|transcript|ocrText|extractedText))$/).test(row.source)||row.sessionId!==sid||!integer(row.messageOrdinal)||!integer(row.turnSeq)||typeof row.messageId!=='string'||row.messageId.length>256||!HEX.test(row.contentRevision||'')||!integer(row.chunkOrdinal)||!integer(row.start)||!integer(row.end)||typeof row.source!=='string'||typeof row.text!=='string'||row.end<=row.start||!integer(row.canonicalStart)||!row.text.length||row.text.length>CHARS||!rangesValid(row))throw fail('shard_invalid');
             const exact=row.text.indexOf(phrase),matched=terms.filter(term=>row.text.includes(term));if(exact<0&&matched.length<needed)continue;
             const at=exact>=0?exact:row.text.indexOf(matched[0]),width=exact>=0?phrase.length:matched[0].length;
             const start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,at+width-1).to;if(!integer(start)||!integer(end))throw fail('shard_invalid');
@@ -274,38 +350,151 @@ const SessionFullTextIndex = ((io,p,c) => {
         if(sessionResults&&best){candidates.push(best);candidates.sort(compare);if(candidates.length>cap)candidates.length=cap;}
       }
       const selected=new Map();for(const hit of candidates){const key=[hit.row.sessionId,hit.row.messageId,hit.row.contentRevision,hit.row.source,hit.start,hit.end].join('\0');if(!selected.has(key))selected.set(key,hit);}
-      const results=[],sequences=new Map();
+      const results=[],sequences=new Map(),sourceChecks=[];
       for(const sid of [...new Set([...selected.values()].map(hit=>hit.row.sessionId))]){
         if(await host.authorize(sid,context,access)!==true)continue;const hits=[...selected.values()].filter(hit=>hit.row.sessionId===sid),resolved=[],retained=new Set();let retainedBytes=0;
+        const policy=attachmentSource&&hits.some(hit=>attachmentField.test(hit.row.source))?await host.enabled():null,budget=attachmentBudget();
         let sourceTurn=0,sourceTurnBasis='legacy-inferred';
         const proof=await host.scan(sid,async(row,ordinal)=>{
           if(row.role==='user'){sourceTurn=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?row.turnSeq:sourceTurn+1;sourceTurnBasis=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?'explicit':'legacy-inferred';}
           const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){sourceTurn=explicit;sourceTurnBasis='explicit';}
+          if(host.noise(row))return;
+          const candidates=policy!==null?attachmentCandidates(row,budget):[];
+          const rowHits=hits.filter(hit=>hit.row.messageOrdinal===ordinal);
+          if(!rowHits.length)return;
           const revision=digest(row),parts=sources(row),intrinsic=typeof row.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id),messageId=intrinsic?row.id:'legacy-ordinal:'+ordinal;
-          for(const hit of hits.filter(hit=>hit.row.messageOrdinal===ordinal&&hit.row.contentRevision===revision)){
+          if(policy!==null&&rowHits.some(hit=>attachmentField.test(hit.row.source))){
+            parts.push(...await extractedSources(row,policy,await selectedAttachments(candidates,policy)));
+          }
+          for(const hit of rowHits){
             const source=parts.find(part=>part.field===hit.row.source);if(!source||hit.end>source.text.length)continue;
+            if(hit.row.contentRevision!==(source.revision?digest([revision,source.revision]):revision))continue;
             let proven=false,finished=false,chunkOrdinal=0;for(const part of parts){for(const window of slices(part.text)){if(part.field===source.field&&window.canonicalStart===hit.canonicalStart){proven=chunkOrdinal===hit.row.chunkOrdinal&&window.start===hit.row.start&&window.end===hit.row.end&&hit.row.messageId===messageId&&hit.row.messageIdBasis===(intrinsic?'intrinsic':'physical-ordinal')&&hit.row.turnSeq===sourceTurn&&hit.row.turnSeqBasis===sourceTurnBasis&&digest({text:window.text,ranges:window.ranges})===hit.windowHash&&rangeAt(window.ranges,hit.at).from===hit.start&&rangeAt(window.ranges,hit.at+hit.width-1).to===hit.end;finished=true;break;}chunkOrdinal++;}if(finished)break;}if(!proven)throw fail('shard_source_mismatch');
             const owner=ordinal+'\0'+source.field;if(!retained.has(owner)){retained.add(owner);retainedBytes+=Buffer.byteLength(source.text);if(retainedBytes>256*1024*1024)throw fail('projection_capacity');}
             const snippetStart=Math.max(0,hit.start-60),snippetEnd=Math.min(source.text.length,hit.end+120,snippetStart+600);
-            resolved.push({hit,sourceText:source.text,text:source.text.slice(snippetStart,snippetEnd),snippetEnd,snippetTruncated:snippetEnd<Math.min(source.text.length,hit.end+120)});
+            resolved.push({hit,sourceText:source.text,text:source.text.slice(snippetStart,snippetEnd),snippetEnd,snippetTruncated:snippetEnd<Math.min(source.text.length,hit.end+120),revalidate:source.revalidate});
           }
         });
         if(!proof||proof.epoch!==hits[0].epoch||proof.revision!==hits[0].sourceRevision||await host.epoch(sid)!==proof.epoch)continue;
         const sequence=host.sourceSequence(sid);if(typeof sequence!=='string'&&!(Number.isSafeInteger(sequence)&&sequence>=0))throw fail('source_invalid');
-        for(const {hit,sourceText,text,snippetEnd,snippetTruncated}of resolved){const projected=await host.project({sourceText,text,reference:Object.freeze({...hit.row,matchStart:hit.start,matchEnd:hit.end,snippetStart:Math.max(0,hit.start-60),snippetEnd,...(snippetTruncated?{snippetTruncated:true}:{})}),start:hit.start,end:hit.end,context,access});if(keys(projected)!=='reference,snippet'||typeof projected.snippet!=='string'||Buffer.byteLength(JSON.stringify(projected))>16384)throw fail('projection_invalid');const disclosed=clone(projected);
+        for(const {hit,sourceText,text,snippetEnd,snippetTruncated,revalidate}of resolved){const projected=await host.project({sourceText,text,reference:Object.freeze({...hit.row,matchStart:hit.start,matchEnd:hit.end,snippetStart:Math.max(0,hit.start-60),snippetEnd,...(snippetTruncated?{snippetTruncated:true}:{})}),start:hit.start,end:hit.end,context,access,revalidate});if(keys(projected)!=='reference,snippet'||typeof projected.snippet!=='string'||Buffer.byteLength(JSON.stringify(projected))>16384)throw fail('projection_invalid');const disclosed=clone(projected);
           if(await host.authorize(sid,context,access)!==true||await host.epoch(sid)!==proof.epoch||host.sourceSequence(sid)!==sequence)continue;
+          if(revalidate){if(!await revalidate())continue;sourceChecks.push(revalidate);}
           results.push({...disclosed,score:hit.score});sequences.set(sid,sequence);
         }
       }
       const covered=new Set(),coverageSequences=new Map(),coverageState=await rawCoverage({context,access,seen:covered,sequences:coverageSequences});
+      for(const check of sourceChecks)if(!await check(true))throw fail('source_changed');
       if(host.assertScope(context,access)!==true||[...sequences].some(([sid,seq])=>host.sourceSequence(sid)!==seq||host.assertAuthorized(sid,context,access)!==true)||[...covered].some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==coverageSequences.get(sid)))throw fail('disclosure_changed');
       return {query,results:results.sort((a,b)=>b.score-a.score).slice(0,cap),coverage:coverageState,scope:{mode:'message-shards',sampling:false,coordinate:'utf16',maxQueryChars:OVERLAP}};
     }
     async function restorePause(context){const saved=await read(null,'state.json',1024);if(saved&&(keys(saved)!=='phase,schema'||saved.schema!==SCHEMA||!['paused','building','idle'].includes(saved.phase)))throw fail('state_invalid');paused=saved?.phase==='paused';return coverage(context);}
-    return Object.freeze({step,prepare,search,coverage,restorePause,invalidate:(sid,deleted=false)=>run(async()=>{await purge(sid);}),pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused:()=>paused,busy:()=>building,pending:()=>chain});
+    return Object.freeze({step,prepare,search,coverage,restorePause,invalidate:(sid,deleted=false)=>run(async()=>{await purge(sid);}),pause:()=>{paused=true;return run(()=>state('paused'));},resume:()=>{paused=false;return run(()=>state('idle'));},isPaused,
+      setMaintenancePaused:value=>{maintenancePaused=value===true;},busy:()=>building,pending:()=>chain});
   }
   return Object.freeze({SCHEMA,CHARS,OVERLAP,SHARD_BYTES,sources,create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));
+
+// Committed upload references select the original attachment face. A stored
+// path or a preview supplied with the message does not authorize a file read.
+function createSessionFullTextAttachmentSource() {
+  const textName=/\.(txt|md|markdown|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|tsv|xml|svg|html|css|yaml|yml|ini|log)$/i;
+  const documentName=/\.(pdf|docx|docm|dotx|pptx|pptm|xlsx|xlsm|odt|ods|odp)$/i;
+  const isDocument=reference=>typeof reference?.name==='string'&&documentName.test(reference.name);
+  const pathKey=value=>process.platform==='win32'?value.toLowerCase():value;
+  const revision=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const stamp=stat=>['dev','ino','size','mtimeNs','ctimeNs','nlink'].map(key=>String(stat[key]));
+  const runtime=root=>WorkDataAttachmentRuntime.create({root,keys:workDataKeys,enabled:()=>true});
+  const sealedRevision=({sha256,totalBytes,revision:version},root)=>revision(['sealed-v1',root,sha256,totalBytes,version]);
+  const missing=error=>['work_data_attachment_catalog.id_missing','work_data_attachment_catalog.not_sealed','ENOENT'].includes(error?.code);
+  async function select(reference,policy) {
+    if(!reference||typeof paths.uploads!=='string'||typeof policy!=='boolean')return null;
+    const {id,name,size}=reference;
+    if(typeof id!=='string'||!/^file_[a-f0-9]{16}$/.test(id)||typeof name!=='string'||!name.length||name.length>200
+      ||name!==path.win32.basename(name)||sanitizeFsSegmentName(name)!==name||/[. ]$/.test(name)
+      ||/^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(name)||!Number.isSafeInteger(size)||size<0)return null;
+    const document=isDocument(reference);
+    if(!document&&!textName.test(name))return null;
+    const cap=document?8*1024*1024:256*1024;
+    if(size>cap||document&&!(await MediaImageHooks.availability?.())?.available)return null;
+    const root=path.resolve(paths.uploads);
+    if(policy){
+      try{
+        const info=await runtime(root).stat(id);
+        if(info.totalBytes!==size||info.metadata?.kind!=='original'||info.metadata?.logicalName!==name)return null;
+        return {root,revision:sealedRevision(info,root),document};
+      }catch(error){
+        if(missing(error))return null;
+        throw error;
+      }
+    }
+    const directory=path.join(root,id),file=path.join(directory,name);
+    try {
+      for(const folder of [root,directory]){
+        const stat=await fsp.lstat(folder);
+        if(!stat.isDirectory()||stat.isSymbolicLink()||pathKey(await fsp.realpath(folder))!==pathKey(folder))return null;
+      }
+      const stat=await fsp.lstat(file,{bigint:true});
+      if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1n||stat.size!==BigInt(size)
+        ||pathKey(await fsp.realpath(file))!==pathKey(file))return null;
+      return {root,file,stat,revision:revision(['plain-v1',file,...stamp(stat)]),document};
+    }catch(error){
+      if(['ENOENT','ENOTDIR','EACCES','EPERM'].includes(error?.code))return null;
+      throw error;
+    }
+  }
+  async function extract(name,bytes,document) {
+    if(document){
+      const result=await FileVisualIo.protectedDocument(name,{as:'text'},null,undefined,bytes);
+      if(result.ok===true)return {text:result.content};
+      return ['reader_unavailable','document_read_timeout','document_read_failed'].includes(result.code)?{deferred:true}:null;
+    }
+    const text=decodeTextFileBytes(bytes);
+    return /[\u0000-\u0008\u000B\u000E-\u001F\u007F-\u009F\uFFFD]/u.test(text)?null:{text};
+  }
+  async function read(reference,policy,expected) {
+    const selected=await select(reference,policy);
+    if(!selected||selected.revision!==expected.revision)return null;
+    let result;
+    if(policy){
+      let lease;
+      try { lease=await runtime(selected.root).read(reference.id,0,reference.size); }
+      catch(error){
+        if(missing(error))return null;
+        throw error;
+      }
+      try {
+        if(lease.complete!==true||sealedRevision(lease,selected.root)!==selected.revision
+          ||lease.metadata?.kind!=='original'||lease.metadata?.logicalName!==reference.name)return null;
+        lease.assert();
+        result=await extract(reference.name,lease.bytes,selected.document);
+        lease.assert();
+      } finally { lease.release(); }
+    } else if(reference.size===0) {
+      result={text:''};
+    } else if(typeof MediaImageHooks.readLocalMediaFile==='function') {
+      try {
+        result=await MediaImageHooks.readLocalMediaFile(selected.file,undefined,
+          bytes=>extract(reference.name,bytes,selected.document),{expectedStat:selected.stat});
+      }catch(error){
+        if(['ENOENT','privacy.image_source_alias','privacy.image_source_invalid','privacy.image_source_changed','privacy.image_source_limit'].includes(error?.code))return null;
+        throw error;
+      }
+    }
+    return (await select(reference,policy))?.revision===selected.revision?result:null;
+  }
+  async function verify(reference,expected){
+    try{
+      const proof=await runtime(expected.root).verify(reference.id);
+      return proof.verified===true&&sealedRevision(proof,expected.root)===expected.revision
+        && (await select(reference,true))?.revision===expected.revision;
+    }catch(error){
+      if(missing(error)||['work_data_blob.physical','work_data_blob.whole_changed','work_data_blob.namespace','work_data_blob.revoked'].includes(error?.code))return false;
+      throw error;
+    }
+  }
+  return Object.freeze({select,read,verify,isDocument});
+}
 
 // Explicit production composition. No timer, route switch, directory creation,
 // key creation or background indexing occurs merely by loading this module.
@@ -320,6 +509,7 @@ function bindSessionFullTextIndex(disclosure,sessionResults=false) {
   const projection=Object.fromEntries(names.map(name=>[name,disclosure[name]])),source=createSessionFullTextSource();
   const instance=SessionFullTextIndex.create({...projection,resultUnit:sessionResults===true?'sessions':'references',root:()=>paths.sessions,keys:workDataKeys,writeJson:atomicWriteJson,
     validSessionId:safeSessionId,noise:sessionSearchRowIsNoise,terms:retrievalTerms,
+    ...(typeof paths.uploads==='string'?{attachmentSource:createSessionFullTextAttachmentSource()}:{}),
     enabled:async()=>{const config=await readConfig();return WorkDataRootHooks.mode?WorkDataRootHooks.mode(config.workDataEncryptionV1):config.workDataEncryptionV1===true;},
     epoch:source.epoch,scan:source.scan,sourceSequence:source.sequence,
     catalog:async()=>{
@@ -343,6 +533,6 @@ if(typeof SessionFullTextHooks!=='undefined')Object.assign(SessionFullTextHooks,
   bind:bindSessionFullTextIndex,
   bindSessions:disclosure=>bindSessionFullTextIndex(disclosure,true),
   maintenanceState:()=>({pending:sessionFullTextOwner?[sessionFullTextOwner.pending()]:[],active:Number(!!sessionFullTextOwner?.busy())}),
-  maintenancePause:()=>{if(!sessionFullTextOwner)return null;const saved={paused:sessionFullTextOwner.isPaused()};sessionFullTextOwner.pause().catch(()=>{});return saved;},
-  maintenanceResume:saved=>{if(saved&&!saved.paused&&sessionFullTextOwner)sessionFullTextOwner.resume().catch(()=>{});},
+  maintenancePause:()=>{if(!sessionFullTextOwner)return null;sessionFullTextOwner.setMaintenancePaused(true);return true;},
+  maintenanceResume:saved=>{if(saved&&sessionFullTextOwner)sessionFullTextOwner.setMaintenancePaused(false);},
 });

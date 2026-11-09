@@ -155,14 +155,21 @@ test('unexpected authority change while stage fsync is pending prevents publicat
 });
 
 test('publication receives a frozen staged manifest after data fsync', async () => {
-  let seen;
+  let seen, raw;
   const f = await fixture({ publish: async info => {
     assert.ok(Object.isFrozen(info) && Object.isFrozen(info.directories));
-    seen = JSON.parse(await fs.readFile(info.stage, 'utf8'));
+    raw = await fs.readFile(info.stage, 'utf8');
+    seen = JSON.parse(raw);
     await fs.rename(info.stage, info.target);
   } });
-  const prepared = await f.prepare(); await f.api.commit(prepared);
+  const prepared = await f.prepare(), pointer = prepared.candidate.pointerProof;
+  assert.ok(Object.isFrozen(pointer));
+  assert.equal(pointer.sha256, require('node:crypto').createHash('sha256').update(pointer.raw).digest('hex'));
+  assert.equal((await f.api.readActive()).proof.raw, null);
+  const committed = await f.api.commit(prepared);
   assert.equal(seen.id, prepared.candidate.id); assert.equal(seen.generation, 1);
+  assert.equal(raw, pointer.raw);
+  assert.deepEqual(committed.proof, pointer);
 });
 
 test('publisher failure preserves candidate and stage and reports uncertain commit', async () => {

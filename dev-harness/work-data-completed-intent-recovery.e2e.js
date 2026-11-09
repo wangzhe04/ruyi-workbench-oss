@@ -34,12 +34,13 @@ async function runActual(argv=process.argv.slice(2)){
    }
   }
  }
- async function doctor(f,label,{success,saved,produced}={}){
+ async function doctor(f,label,{success,saved,produced,expectedError}={}){
   w.ctx.phase=label;const before=snapshot(f),handle=w.spawnCli(f,label,['doctor','--recover-work-data-intent']);
   await handle.spawned;const ended=await w.manager.waitClose(handle,180000),observed=output(label);
   if(!success){
    assert.deepEqual(ended,{code:1,signal:null});assert.equal(observed.stdout.trim(),'');
    assert.match(observed.stderr,/work_data(?:_[a-z0-9]+)*\.[a-z0-9_.]+/);
+   if(expectedError)assert.match(observed.stderr,expectedError);
    await w.manager.certifyExpectedRefusal(handle,async()=>assert.deepEqual(snapshot(f),before));
    w.checked(label+': real doctor refuses without changing complete source, claim or side inventories');return;
   }
@@ -79,7 +80,8 @@ async function runActual(argv=process.argv.slice(2)){
    const saved=normalized(current.status.lastResult);await w.reclaimSuccessor(operation+'-seed',current);assert.equal(await w.absentByCim(initial.identity),true);
    const headerFile=path.join(f.base,'.work-data','generations',saved.authority.id,'work-data-key-v1.json'),header=core.read(headerFile);
    const completeIntent={schema:1,id:saved.id,operation,phase:'complete',createdAt:new Date(Date.parse(saved.finishedAt)-2000).toISOString(),expectedAuthority:saved.sourceAuthority,
-    backup:{path:saved.backup.path,sha256:saved.backup.sha256},candidate:{id:saved.authority.id,mode:saved.authority.mode,headerSha256:header.row.sha256}};
+    backup:{path:saved.backup.path,sha256:saved.backup.sha256},candidate:{id:saved.authority.id,mode:saved.authority.mode,headerSha256:header.row.sha256,
+     ...(operation==='enable'?{pointerSha256:saved.authority.sha256}:{})}}; // Also exercise the legacy intent shape on disable.
    const producer=createProducer({world:w,target,harness:__dirname,root,evidence,label:operation+'-producer'});producers.push(producer);
    const produced=await producer.run({f,parent:initial,id:saved.id,operation,ownedAt:saved.finishedAt,completeIntent});producer.assertClosed();assert.equal(produced.owned.completeIntentConstructed,true);
    const resultFile=path.join(f.base,'.work-data','maintenance-result-v1.json'),result=core.read(resultFile),backup=core.read(saved.backup.path);
@@ -94,6 +96,11 @@ async function runActual(argv=process.argv.slice(2)){
     fs.writeFileSync(saved.backup.path,Buffer.alloc(backup.bytes.length,0x58));try{await doctor(f,'c11-bad-backup');}finally{fs.writeFileSync(saved.backup.path,backup.bytes);}
     fs.renameSync(headerFile,headerFile+'.held');try{await doctor(f,'c11-missing-key');}finally{fs.renameSync(headerFile+'.held',headerFile);}
     const stage=path.join(f.base,'.work-data','.maintenance-v1.stage-unknown');fs.writeFileSync(stage,'SYNTHETIC STAGE',{flag:'wx'});try{await doctor(f,'c11-stage');}finally{fs.unlinkSync(stage);}
+    const intentFile=path.join(f.base,'.work-data','maintenance-v1.json'),intent=core.read(intentFile);
+    const altered=JSON.parse(intent.bytes);altered.candidate.pointerSha256='0'.repeat(64);
+    fs.writeFileSync(intentFile,JSON.stringify(altered));
+    try{await doctor(f,'c11-pointer-proof-mismatch',{expectedError:/work_data_host\.complete_recovery_authority_mismatch/});}
+    finally{fs.writeFileSync(intentFile,intent.bytes);}
    }
    await doctor(f,operation+'-doctor',{success:true,saved,produced});
    const business=[resultFile,saved.backup.path,path.join(f.base,'.work-data','active-v1.json'),headerFile,path.join(f.base,'.work-data','generations',saved.authority.id,'sessions',SESSION+'.json')].map(file=>core.read(file).row);

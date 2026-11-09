@@ -92,6 +92,13 @@ test('actual maintenance engine pauses and drains bound fulltext owner, blocks f
   const lease=maintenance.begin();await lease.idle();assert.equal(lease.assertIdle().phase,'idle');
   await assert.rejects(owner.step(),{code:'work_data.maintenance_busy'});lease.resume();await Promise.all(hooks.maintenanceState().pending);
   assert.equal((await owner.coverage()).phase,'paused');await owner.resume();assert.equal((await owner.coverage()).phase,'idle');
+  const file=path.join(f.sessions,'_fulltext-index-v1','state.json'),state=await fs.readFile(file);
+  const transient=maintenance.begin();await transient.idle();
+  assert.equal((await owner.coverage()).phase,'paused');
+  assert.deepEqual(await fs.readFile(file),state);
+  transient.resume();
+  assert.equal((await owner.coverage()).phase,'idle');
+  assert.deepEqual(await fs.readFile(file),state);
 }));
 test('concurrent metadata/head writer blocks source proof and Unicode folding retains exact decomposed source coordinates',()=>withFixture(async f=>{
   const content='prefix ＡＢＣ e\u0301 suffix';await f.put('Unicode',[row(content)]);

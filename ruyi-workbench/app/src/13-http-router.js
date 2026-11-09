@@ -1772,8 +1772,22 @@ async function startServer(opts) {
         for (const key of Object.keys(paths)) paths[key] = path.join(to, path.relative(from, paths[key]));
       }
     }
-    await WorkDataRootHooks.bind(ownership);
+    const selected = await WorkDataRootHooks.bind(ownership);
     if (typeof WorkDataMaintenanceRuntimeHooks.configureServe === 'function') await WorkDataMaintenanceRuntimeHooks.configureServe({base:dataRoot(),ownership});
+    if (selected.present && typeof MigrationHooks.activateBackupAuthority === 'function') {
+      const base = selected.canonicalBase, manifest = WorkDataManifest.create({ base });
+      await MigrationHooks.activateBackupAuthority({
+        base, ownership, sourceKeys: workDataKeys,
+        assertExclusive: owner => owner === ownership && ServerOwnership.owns(owner, base),
+        async readActive() {
+          const active = await manifest.readActive();
+          if (active.proof.raw !== selected.proof.raw || active.root !== selected.root) {
+            throw Object.assign(Error('work_data_backup.generation_changed'), { code:'work_data_backup.generation_changed' });
+          }
+          return active;
+        },
+      });
+    }
     const result = await startServerInner(opts, bindHost, ownership);
     // Kernel-only endpoints are held through every exit-time flush and released by the OS.
     // Portable socket cleanup is last, after the inner startup registered its synchronous flushes.

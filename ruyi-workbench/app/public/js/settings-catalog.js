@@ -157,6 +157,7 @@ export const SETTINGS_CATALOG = Object.freeze([
     fields: [
       { key: 'monitorIncremental', type: 'toggle', fallback: true },
       { key: 'sessionSearchIndexV1', type: 'toggle', fallback: true },
+      { key: 'sessionSearchIndexPausedV1', type: 'toggle', fallback: false, dependsOn: { key: 'sessionSearchIndexV1', equals: true } },
       { key: 'runtimeMemoryVectorRecallV1', type: 'toggle', fallback: true },
     ],
   },

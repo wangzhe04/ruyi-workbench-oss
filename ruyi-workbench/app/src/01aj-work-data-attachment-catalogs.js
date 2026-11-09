@@ -29,8 +29,18 @@ const WorkDataAttachmentCatalogs = ((pathApi) => {
       if (!spec) throw Object.assign(Error('work_data_attachment_catalogs.face'), { code: 'work_data_attachment_catalogs.face', statusCode: 409 });
       if (enabled() !== true) throw Object.assign(Error('work_data_attachment_catalogs.disabled'), { code: 'work_data_attachment_catalogs.disabled', statusCode: 409 });
       const file = pathApi.join(root, spec.file);
-      const store = WorkDataStore.createText({ file: () => file, purpose: spec.purpose, schema: 1, scopeId: spec.scopeId,
-        recordId: spec.recordId, chunked: true, maxPlaintextBytes: MAX_CATALOG_BYTES, keys, enabled: () => true, writeJson: atomicWriteJson });
+      const storeFor = validateSealedText => WorkDataStore.createText({ file: () => file, purpose: spec.purpose, schema: 1, scopeId: spec.scopeId,
+        recordId: spec.recordId, chunked: true, maxPlaintextBytes: MAX_CATALOG_BYTES, keys, enabled: () => true, writeJson: atomicWriteJson,
+        validateSealedText });
+      const store = {
+        async read() {
+          let authenticated = false;
+          const text = await storeFor(() => { authenticated = true; return true; }).read();
+          if (!authenticated) throw Object.assign(Error('work_data_attachment_catalogs.unsealed'), { code: 'work_data_attachment_catalogs.unsealed', statusCode: 409 });
+          return text;
+        },
+        write: text => storeFor().write(text),
+      };
       return WorkDataAttachmentCatalog.create({ store, purpose: spec.purpose, scopeId: spec.scopeId, recordId: spec.recordId, serialize: serializeFor(face) });
     }
     return Object.freeze({ open, faces: Object.freeze(Object.keys(FACES)) });

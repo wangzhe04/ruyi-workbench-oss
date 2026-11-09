@@ -57,6 +57,19 @@ test('faces keep separate catalogs and the sealed file carries no plaintext rows
   assert.equal(raw.includes(Buffer.from(f.id)), false);
   assert.match(raw.toString('utf8'), /"workData"\s*:\s*3/);
 });
+test('an otherwise valid plaintext catalog cannot authorize sealed blob reads or be overwritten as current', async t => {
+  const f = await fixture(t), catalog = f.open().open('attachment');
+  const store = f.api.store.create({ root: f.root, keys: f.keys, catalog, purpose: 'session', scopeId: 'sessions', generation: 1 });
+  await store.seal({ id: f.id, opaque: f.opaque, revision: f.revision, metadata: f.metadata, data: f.data });
+  const raw = JSON.stringify({ schema: 1, rows: await catalog.rows() });
+  const file = path.join(f.root, '_catalog-attachments-v1.json');
+  await fsp.writeFile(file, raw);
+  const reopened = f.open().open('attachment');
+  const reader = f.api.reader.create({ root: f.root, keys: f.keys, authority: reopened });
+  await assert.rejects(reader.readRange(f.id), { code: 'work_data_attachment_catalogs.unsealed' });
+  await assert.rejects(reopened.remove(f.id), { code: 'work_data_attachment_catalogs.unsealed' });
+  assert.equal(await fsp.readFile(file, 'utf8'), raw);
+});
 test('two handles on the same root still serialize their writes', async t => {
   const f = await fixture(t), first = f.open().open('attachment'), second = f.open().open('attachment');
   const other = 'file_fedcba9876543210';

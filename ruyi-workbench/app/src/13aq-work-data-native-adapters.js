@@ -32,6 +32,10 @@ const WorkDataNativeAdapters = ((io, p, c) => {
     return {ownership:ServerOwnership, manifest:WorkDataManifest, fullSnapshot:WorkDataFullSnapshot,
       nativePublish:WorkDataNativePublish, disposableTree:WorkDataDisposableNativeTree, tree:WorkDataTree,
       capturePreserved:migrationCapsuleCapturePreserved, protector:LocalSecretCrypto,
+      ...(process.platform==='win32'?{readRecoveryControl:(file,base)=>{
+        if(typeof MigrationHooks.readWorkDataControlPreserved!=='function')throw fail('transition_recovery_header_reader_unavailable');
+        return MigrationHooks.readWorkDataControlPreserved(file,base);
+      }}:{}),
       externalOwner:options => ExternalBotCredentials.create(options), skillOwner:options => MigrationHooks.createBackupOwner(options),
       migrationHost:WorkDataMigrationHost, resultOwner:WorkDataMaintenanceResult, worker:WorkDataMaintenanceWorker,
       writeJson:atomicWriteJson, appVersion:VERSION,
@@ -102,7 +106,14 @@ const WorkDataNativeAdapters = ((io, p, c) => {
     const guarded = async work => { check(); try { const value = await work(); check(); return value; } catch(error) { latch(error); throw error; } };
     const protector = Object.freeze({supported:() => bindings.protector.supported(),run:(...args) => guarded(() => bindings.protector.run(...args))});
     const flushNative = bindings.nativePublish.createFlush();
-    const census = bindings.disposableTree.create({capturePreserved:(...args) => guarded(() => bindings.capturePreserved(...args))});
+    const restoredCensuses = new WeakMap();
+    const census = bindings.disposableTree.create({
+      capturePreserved:(...args) => guarded(() => bindings.capturePreserved(...args)),
+      verifyRestoredNative(snapshot,native) {
+        const proof=restoredCensuses.get(snapshot);
+        return proof&&proof.nativeFingerprint(native)===proof.sha256;
+      },
+    });
     async function flush(directories) {
       const selected = [...directories], value = await guarded(() => flushNative(selected));
       if (keys(value) !== 'directoryFlush,flushDirectories,ok' || value.ok !== true || !Array.isArray(value.flushDirectories)
@@ -169,10 +180,13 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       if (onNativeCause !== undefined && (typeof onNativeCause !== 'function' || require('node:util').types.isProxy(onNativeCause) || require('node:util').types.isAsyncFunction(onNativeCause))) throw fail('snapshot_observer_invalid');
       const preservedRead = Object.freeze({profile:'bounded-native-v1',
         capturePreserved:(...args) => guarded(() => bindings.capturePreserved(...args))});
+      let nativeFingerprint;
       const restoredTreeFor = rehearsalReceipt ? ({root,ownership:targetOwner,assertExclusive:targetExclusive}) => {
         const exclusive=synchronousOwner(root,targetOwner,targetExclusive);
-        return bindings.tree.createPreserved({ownership:targetOwner,assertExclusive:exclusive,assertExclusiveSync:exclusive,
+        const tree=bindings.tree.createPreserved({ownership:targetOwner,assertExclusive:exclusive,assertExclusiveSync:exclusive,
           capturePreserved:preservedRead.capturePreserved});
+        nativeFingerprint=tree.nativeFingerprint;
+        return tree;
       } : undefined;
       // Only the cold host can observe raw crypto failure before key/vault owners
       // sanitize it. The configured backend stays fixed and the original cause
@@ -192,10 +206,15 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       const captureRestored = (result,{target,ownership:targetOwner}) => withSource(ownership,base,() => withSource(targetOwner,target,async () => {
         const receipt=await owner.describeRestored(result);
         if(receipt.target!==target||!exclusiveSync(targetOwner))throw fail('rehearsal_changed');
-        return Object.freeze({root:target,...receipt.namespace,packageSha256:receipt.packageSha256,
+        const snapshot=Object.freeze({root:target,...receipt.namespace,packageSha256:receipt.packageSha256,
           packageBytes:receipt.packageBytes,manifestSha256:receipt.manifestSha256,
           verify:current => withSource(ownership,base,() => withSource(current,target,() =>
             owner.verifyRestored(result,{ownership:current,assertExclusive:synchronousOwner(target,current,exclusiveSync)})))});
+        if(result.specialProfile?.nativeStreams==='enumerated-user-streams'){
+          if(typeof nativeFingerprint!=='function'||!SHA.test(receipt.initial?.nativeSha256||''))throw fail('rehearsal_changed');
+          restoredCensuses.set(snapshot,{nativeFingerprint,sha256:receipt.initial.nativeSha256});
+        }
+        return snapshot;
       }));
       return Object.freeze({seal:value => withSource(ownership,base,() => owner.seal(value)),
         restore:value => withSource(ownership,base,() => withSource(value?.targetOwnership === undefined ? ownership : value.targetOwnership,value?.target,() => owner.restore(value))),
@@ -304,7 +323,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
         // only tolerates the case variant Windows gives back for one physical path.
         if (request.parentPid !== channel.parentPid() || request.parentPid === proc.pid
           || fold(await bindings.ownership.canonicalRoot(request.target)) !== fold(request.target)) throw fail('parent_or_target_invalid');
-        owner = await bindings.ownership.acquire([request.target]); keeper = sourceKeeper({base:request.target,ownership:owner});
+        owner = await bindings.ownership.acquire([request.target],{preserveRuntime:true}); keeper = sourceKeeper({base:request.target,ownership:owner});
         finalKeeper = sourceKeeper({base:request.target,ownership:owner});
         const exclusive = keeper.assertExclusive;
         if (!exclusive(owner)) throw fail('ownership_required');
@@ -379,9 +398,135 @@ const WorkDataNativeAdapters = ((io, p, c) => {
       finally {serialized.fill(0);verifying = false;}
     }
     const verifyFresh = async value => { await verifyFreshReceipt(value); return true; };
+    async function readRecoveryControl({base,ownership,assertExclusive,file}={}) {
+      const exclusive=synchronousOwner(base,ownership,assertExclusive);
+      if(typeof bindings.readRecoveryControl!=='function')throw fail('transition_recovery_header_reader_unavailable');
+      if(!absolute(file)||!/^\.work-data\/(?:active-v1\.json|generations\/[a-f0-9]{48}\/work-data-key-v1\.json)$/.test(p.relative(fold(base),fold(file)).split(p.sep).join('/')))
+        throw fail('transition_recovery_header_path_invalid');
+      let bytes;
+      try{
+        return await withSource(ownership,base,async keeper=>{
+          if(exclusive(ownership)!==true||!keeper.assertExclusive(ownership))throw fail('transition_recovery_changed');
+          bytes=await bindings.readRecoveryControl(file,base);
+          if(!Buffer.isBuffer(bytes)||bytes.length>65536)throw fail('transition_recovery_header_invalid');
+          if(exclusive(ownership)!==true||!keeper.assertExclusive(ownership))throw fail('transition_recovery_changed');
+          return bytes;
+        });
+      }catch(cause){if(Buffer.isBuffer(bytes))bytes.fill(0);throw cause;}
+    }
+    async function withTransitionCapture(tree,root,verify,kind) {
+      const captured=await tree.capture(root);let failed=false,primary;
+      try{await verify(captured);}catch(cause){failed=true;primary=cause;}
+      const code='transition_recovery_'+kind+'_release';
+      try{
+        const released=captured.release();
+        if(released!==undefined){observePending(released);throw fail(code,true);}
+      }catch(cause){
+        throw Object.assign(new AggregateError(failed?[primary,cause]:[cause],'work_data_adapter.'+code,{cause:failed?primary:cause}),
+          {code:'work_data_adapter.'+code,helperMayStillRun:true,ownershipRetained:true,retry:false});
+      }
+      if(failed)throw primary;
+    }
+    function verifyTransitionCandidate(tree,root,ready) {
+      return withTransitionCapture(tree,root,async captured=>{
+        const proof=await tree.verify(captured);
+        if(proof?.sha256!==ready.targetSha256||proof?.nativeSha256!==ready.targetNativeSha256)
+          throw fail('transition_recovery_candidate_changed');
+      },'candidate');
+    }
+    function verifyTransitionSource(tree,base,state,sourceDigest) {
+      return withTransitionCapture(tree,base,async captured=>{
+        const identity=async relative=>{
+          const stat=await io.lstat(p.join(base,...relative.split('/')),{bigint:true});
+          return {path:relative,identity:String(stat.dev)+':'+String(stat.ino),mtimeNs:String(stat.mtimeNs),ctimeNs:String(stat.ctimeNs)};
+        };
+        const sourceFiles=[],sourceDirectories=[];
+        for(const row of captured.files)sourceFiles.push({...await identity(row.path),sha256:row.sha256});
+        for(const relative of ['',...captured.directories])sourceDirectories.push(await identity(relative));
+        if(sourceDigest({sourceFiles,sourceDirectories},{candidateId:state.candidate.id,scope:state.transitionSourceScope})!==state.transitionSourceSha256)
+          throw fail('transition_recovery_source_changed');
+        await tree.verify(captured);
+      },'source');
+    }
+    async function recoverPreparedTransition({base,ownership,assertExclusive,state,disposition,header,sourceHeader,assertUnchanged,settleForward=false,sourceDigest}={}) {
+      const exclusive=synchronousOwner(base,ownership,assertExclusive),types=require('node:util').types;
+      const inverseProof=disposition==='inverse';
+      if(!WorkDataKeys.validate(header)||!header.instanceId
+        ||sourceHeader!==null&&(!WorkDataKeys.validate(sourceHeader)||!sourceHeader.instanceId)
+        ||!['forward','inverse'].includes(disposition)||typeof assertUnchanged!=='function'||types.isProxy(assertUnchanged)
+        ||disposition==='forward'&&!state?.transitionReady
+        ||typeof settleForward!=='boolean'||settleForward&&disposition!=='forward'
+        ||inverseProof&&(typeof state?.transitionSourceSha256!=='string'||!SHA.test(state.transitionSourceSha256)
+          ||typeof sourceDigest!=='function'||types.isProxy(sourceDigest)))
+        throw fail('transition_recovery_invalid');
+      return withSource(ownership,base,async keeper=>{
+        const guard=async()=>{
+          if(await assertUnchanged()!==true||exclusive(ownership)!==true||!keeper.assertExclusive(ownership))
+            throw fail('transition_recovery_changed');
+          check();return true;
+        };
+        await guard();
+        const preservedRead=Object.freeze({profile:'bounded-native-v1',capturePreserved:(...args)=>guarded(()=>bindings.capturePreserved(...args))});
+        const readScope={ownership,assertExclusive:exclusive,assertExclusiveSync:exclusive};
+        const ready=state?.transitionReady;
+        let verifyWitness=null;
+        if(ready||inverseProof){
+          const id=state?.candidate?.id;
+          if(typeof id!=='string'||!ID.test(id))throw fail('transition_recovery_invalid');
+          const root=p.join(base,'.work-data','generations',id);
+          const tree=bindings.tree.createPreserved({...readScope,capturePreserved:preservedRead.capturePreserved});
+          verifyWitness=async()=>{
+            if(inverseProof)await verifyTransitionSource(tree,base,state,sourceDigest);
+            if(ready)await verifyTransitionCandidate(tree,root,ready);
+          };
+          await verifyWitness();await guard();
+        }
+        const keysFor=stored=>WorkDataKeys.create({protector,enabled:()=>false,store:{read:async()=>stored}});
+        const candidateKeys=keysFor(header),old=sourceHeader===null?null:keysFor(sourceHeader);
+        try{
+          const targetLease=await candidateKeys.snapshot();
+          try{
+            if(old){
+              const sourceLease=await old.snapshot();
+              try{
+                if(sourceLease.instanceId!==targetLease.instanceId||!c.timingSafeEqual(sourceLease.key,targetLease.key))
+                  throw fail('transition_recovery_key_changed');
+              }finally{sourceLease.release();}
+            }
+          }finally{targetLease.release();}
+          await guard();
+          const manifest=bindings.manifest.create({base});
+          const owner=bindings.skillOwner({base,readActive:()=>guarded(()=>manifest.readActive()),sourceKeys:candidateKeys,targetKeys:candidateKeys,preservedRead,...readScope});
+          if(!owner||typeof owner!=='object'||types.isProxy(owner))throw fail('transition_recovery_owner_invalid');
+          const method=Object.getOwnPropertyDescriptor(owner,'recoverPreparedTransition')?.value;
+          const verify=settleForward?Object.getOwnPropertyDescriptor(owner,'verifyPublished')?.value:null;
+          if(typeof method!=='function'||types.isProxy(method)||settleForward&&(typeof verify!=='function'||types.isProxy(verify)))
+            throw fail('transition_recovery_owner_invalid');
+          const result=await Reflect.apply(method,owner,[{state,disposition,assertUnchanged:guard}]);
+          await guard();
+          if(!verifyWitness)return result;
+          if(types.isProxy(result)||keys(result)!=='disposition,operationId'||result.operationId!==state.transition.operationId||result.disposition!==disposition)
+            throw fail('transition_recovery_owner_invalid');
+          if(settleForward){
+            const published=await Reflect.apply(verify,owner,[{expected:await manifest.readActive()}]);
+            if(types.isProxy(published)||keys(published)!=='entries,generationId,mode,readOnly,rootId,storeId,volume'
+              ||published.readOnly!==true||published.generationId!==state.candidate.id||published.mode!==state.candidate.mode
+              ||!Number.isSafeInteger(published.entries)||published.entries<1
+              ||typeof published.rootId!=='string'||!/^[a-f0-9]{24}$/.test(published.rootId)
+              ||typeof published.storeId!=='string'||!ID.test(published.storeId)||typeof published.volume!=='string'||!published.volume)
+              throw fail('transition_recovery_owner_invalid');
+            await guard();
+          }
+          await verifyWitness();await guard();
+          return Object.freeze({operationId:result.operationId,disposition,...(ready?{candidateProofVerified:true}:{}),
+            ...(inverseProof?{sourceProofVerified:true}:{}),
+            ...(settleForward?{specialProofVerified:true}:{})});
+        }finally{old?.clear();candidateKeys.clear();}
+      });
+    }
     function coldOperationHost(progress) {
       if (typeof progress !== 'function') throw fail('progress_invalid'); check();
-      return Object.freeze({acquire:roots => {check();return bindings.ownership.acquire(roots);},sourceKeeper,flush,verifyFresh,captureRehearsal,
+      return Object.freeze({acquire:roots => {check();return bindings.ownership.acquire(roots,{preserveRuntime:true});},sourceKeeper,flush,verifyFresh,captureRehearsal,
         fullSnapshot:(base,ownership,assertExclusive,{onNativeCause,rehearsalReceipt}={})=>createSnapshot(base,ownership,assertExclusive,{rehearsalReceipt},onNativeCause),
         verifyDisposableNativeTree:disposable,migrationFactory:options => {
           check(); const {base,ownership,assertExclusive,onNativeCause}=options;
@@ -422,7 +567,7 @@ const WorkDataNativeAdapters = ((io, p, c) => {
     const capabilities = Object.freeze({implemented:Object.freeze(['native-flush-adapter','full-snapshot-adapter','cold-verifier-protocol','genuine-source-keeper']),verifierCommandBound:command !== null,
       operations:Object.freeze({enable:false,disable:false,export:false,restore:false}),
       unsupported:Object.freeze(['runtime-configure','crash-claim','upload','download','fresh-root-activation'])});
-    return Object.freeze({capabilities,sourceKeeper,flush,verifyDisposableNativeTree:disposable,fullSnapshot,readAuthority,runVerifier,verifyFresh,verifyFreshReceipt,
+    return Object.freeze({capabilities,sourceKeeper,flush,verifyDisposableNativeTree:disposable,fullSnapshot,readAuthority,runVerifier,verifyFresh,verifyFreshReceipt,recoverPreparedTransition,readRecoveryControl,
       coldOperationHost,helperMayStillRun:cause => latch(cause),ownsVerifierReceipt:value => receipts.has(value)});
   }
   return Object.freeze({create,input,result,INPUT_LIMIT,VERIFY_MS,CLOSE_MS});

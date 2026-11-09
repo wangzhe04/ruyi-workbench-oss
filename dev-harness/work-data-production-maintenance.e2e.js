@@ -177,6 +177,27 @@ function createWorld({root,evidence,target}){
   // means the only Job is the owned outer one this test explicitly manages.
   return manager.start(process.execPath,[target.server,'serve','--host','127.0.0.1','--port',String(port)],{cwd:p.dirname(target.server),env:f.env,windowsHide:true,detached:true,stdio:['ignore','pipe','pipe']},label);
  }
+ async function runCapsuleWorker(f,label,request,verify){
+  healthy();openOutput(label);
+  const flag=request.action==='settle'?'--settle-work-data-transition':request.action==='retire'?'--recover-work-data-intent':null;
+  const input=flag===null?p.join(root,label+'-stdin.json'):null;
+  if(input)fs.writeFileSync(input,JSON.stringify(request),{flag:'wx',mode:0o600});
+  const fd=input?fs.openSync(input,'r'):null;
+  const args=flag?[target.server,'doctor',flag]:[p.join(__dirname,'lib','work-data-capsule-fault-worker.cjs')];
+  let handle;
+  try {
+   handle=manager.start(process.execPath,args,
+    {cwd:p.dirname(target.server),env:f.env,windowsHide:true,stdio:[fd??'ignore','pipe','pipe']},label);
+  } finally {if(fd!==null)fs.closeSync(fd);}
+  const pid=await handle.spawned;
+  const ended=await manager.waitClose(handle,BUDGET.successor);
+  if(input)fs.unlinkSync(input);
+  a.deepEqual(ended,{code:0,signal:null},stderrOf(label));
+  const output=fs.readFileSync(p.join(evidence,label+'-stdout.log'),'utf8').trim();
+  const result=JSON.parse(output);
+  await manager.certifyNaturalExit(handle,{code:0,signal:null,verify:()=>verify(result,pid)});
+  return result;
+ }
  const config=workspace=>({configSchema:14,locale:'en-US',workDataEncryptionV1:false,permissionMode:'ask',stewardEnabledV1:false,schedulerEnabledV1:false,autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:workspace});
  function fixture(label){
   healthy();const base=p.join(root,label+'-data'),home=p.join(root,label+'-home'),backups=p.join(root,label+'-backups'),env=releaseEnvironment(home,base);
@@ -251,21 +272,26 @@ function createWorld({root,evidence,target}){
   a.ok(response,label+': a package read during preparation must get an answer');
   assertRefusal(response,409,'work_data_setup.busy',label);
  }
- async function assertPackage(f,ref,saved,label){
+ async function assertPackage(f,ref,saved,label,captureControl){
   const quiet=await waitMaintenanceQuiet(remaining=>statusOf(ref,{timeout:Math.min(BUDGET.request,remaining)}),{deadline:ref.readinessDeadline});
   record({kind:'package-read-maintenance-quiet',label,maintenance:quiet.maintenance});
   const path=p.join(f.backups,'ruyi-work-data-'+saved.id+'.ruyi-backup'),disk=core.read(path);
   // The durable control tree, the backup directory and the session bytes are the
   // state a package read could plausibly touch; none may change.
-  const snapshot=when=>capturePackageSnapshot(f,when,diagnostic=>{
+  const snapshot=async when=>{
+   const control=p.join(f.base,'.work-data');
+   const preserved=captureControl?await captureControl(control):null;
+   const source=preserved?{read:core.read,inventory:root=>root===control?preserved:core.inventory(root)}:core;
+   return capturePackageSnapshot(f,when,diagnostic=>{
    const value={label,...diagnostic};
    ctx.diagnostics={...(ctx.diagnostics||{}),packageReadSnapshotCapture:value};
    // This best-effort diagnostic must not latch a journal error ahead of the
    // original capture error, which the caller will latch and report unchanged.
    rawWrite(journalFD,Buffer.from(JSON.stringify({kind:'package-read-snapshot-capture-failure',...value,at:new Date().toISOString()})+'\n'));
    fs.fsyncSync(journalFD);
-  });
-  const before=snapshot('before');
+   },source);
+  };
+  const before=await snapshot('before');
   const first=await packageGet(ref,saved.id);
   a.equal(first.status,200,label+': package status');
   a.equal(first.headers['content-type'],'application/octet-stream',label+': octet-stream');
@@ -279,7 +305,7 @@ function createWorld({root,evidence,target}){
   const second=await packageGet(ref,saved.id);
   a.equal(second.status,200,label+': repeated package status');
   a.ok(second.raw.equals(first.raw),label+': repeated download is byte-identical');
-  const after=snapshot('after');
+  const after=await snapshot('after');
   try{a.deepEqual(after,before,label+': a package read writes nothing into the data root');}
   catch(error){
    // Preserve the original assertion and the one captured after-state. Only
@@ -465,9 +491,10 @@ function createWorld({root,evidence,target}){
   })();
   return{samples,stop:async()=>{stopped=true;await done;}};
  }
- async function waitSuccessor(ref,f,jobId,{notPids}){
+ async function waitSuccessor(ref,f,jobId,{notPids,stopOnColdFailure=false}){
   const startedAt=Date.now();
   const deadline=startedAt+BUDGET.successor;
+  let nextFailurePoll=startedAt;
   for(;;){
    // The cold snapshot proves Basic/atime as well as DATA. An ordinary runtime
    // read here can itself invalidate that source proof. Poll HTTP until the
@@ -486,6 +513,11 @@ function createWorld({root,evidence,target}){
       return{pid:rt.pid,port:rt.port,token:rt.token,handle:null,identity,status:st.value,readinessDeadline:deadline};
      }
     }
+   }
+   if(stopOnColdFailure&&probe.kind==='cold'&&Date.now()>=nextFailurePoll){
+    nextFailurePoll=Date.now()+1000;
+    const verdict=await readColdVerdict(ref.port);
+    if(verdict?.job?.id===jobId&&verdict.job.state==='failed')throw Object.assign(Error('cold maintenance failed'),{code:verdict.job.error});
    }
    if(Date.now()>=deadline){
     // A cold worker that never hands over keeps its read-only listener and its
@@ -607,7 +639,7 @@ function createWorld({root,evidence,target}){
    const observed=await coldWindow(ref.port,{base:f.base,jobId,source,staleToken:ref.token});
    record({kind:'cold-status',jobId,authority:observed.authority,jobState:observed.job.state});
    ctx.phase='successor-'+spec.operation;
-   const next=await waitSuccessor(ref,f,jobId,{notPids:[ref.pid,armed.childPid].filter(Number.isSafeInteger)});
+   const next=await waitSuccessor(ref,f,jobId,{notPids:[ref.pid,armed.childPid].filter(Number.isSafeInteger),stopOnColdFailure:spec.stopOnColdFailure});
    const owned=observer.samples.find(sample=>sample.present===true&&sample.id===jobId&&sample.phase==='owned');
    a.ok(owned,'the cold worker records ownership before touching the base');
    const committed=observer.samples.find(sample=>sample.present===true&&sample.id===jobId&&sample.phase==='committed');
@@ -618,7 +650,7 @@ function createWorld({root,evidence,target}){
    const saved=assertResult(f,next.status,{id:jobId,operation:spec.operation,state:spec.operation==='export'?'verified':'published',source});
    assertActive(f,next.status);
    ctx.phase='package-'+spec.operation;
-   const pkg=await assertPackage(f,next,{id:jobId,backup:saved.backup},'round '+state.round+' '+spec.operation);
+   const pkg=await assertPackage(f,next,{id:jobId,backup:saved.backup},'round '+state.round+' '+spec.operation,spec.captureControl);
    record({kind:'package-verified',round:state.round,operation:spec.operation,jobId,bytes:pkg.first.raw.length,sha256:core.H(pkg.first.raw),contentLength:pkg.first.headers['content-length']});
    checked('round '+state.round+' '+spec.operation+' serves the verified package bytes twice without writing into the data root');
    if(state.round===1){
@@ -808,21 +840,190 @@ function createWorld({root,evidence,target}){
  }
  return{ctx,latch,healthy,record,checkpoint,checked,openJournal,manager,fixture,spawnServe,readyWarm,statusOf,waitWorkerReady,submitJob,
   packageGet,assertPackage,assertPackageRefusals,assertBusyPackage,
-  claimApi,cimIdentity,absentByCim,coldWindow,waitSuccessor,runRound,bootScenario,writeClaim,intentRecord,resultRecord,waitFile,waitJson,runBootNegatives,stderrOf};
+  claimApi,cimIdentity,absentByCim,coldWindow,waitSuccessor,runRound,bootScenario,writeClaim,intentRecord,resultRecord,waitFile,waitJson,runBootNegatives,stderrOf,runCapsuleWorker};
+}
+
+async function runNonemptyCapsule(w,f,initial,state,{fault,legacy}){
+ const {migrationCapsuleCapturePreserved,migrationCapsuleRead,WorkDataKeys,LocalSecretCrypto}
+  =require('./lib/server-internals').loadServerInternals(['migrationCapsuleCapturePreserved','migrationCapsuleRead','WorkDataKeys','LocalSecretCrypto']);
+ const id='Maintenance_Skill',filename='SKILL.md';
+ const skillText=version=>`---\nname: ${id}\ndescription: Synthetic maintenance skill\n---\n\nCAPSULE BODY ${version}\n`;
+ const sourceFile=p.join(f.env.CODEX_HOME,'skills',id,filename);
+ const ads=Buffer.from([0,13,10,128,255]),revision=c.randomBytes(32).toString('hex');
+ const captureControl=async root=>{
+  const captured=await migrationCapsuleCapturePreserved(root,c.randomBytes(32).toString('hex'));
+  const result={files:[],directories:[]};
+  for(const {rel,opaque,dir,streams,times,...identity} of captured.entries){
+   // Package authorization reads the pointer and result. Those ordinary
+   // control reads may advance Access, unlike reads of the native originals.
+   const original=rel==='skill-backups'||rel.startsWith('skill-backups/');
+   const row={file:p.join(root,...rel.split('/')),...identity,times:original?times:[times[0],times[2],times[3]],
+    streams:streams.map(({name,size,hash})=>({name,size,hash})).sort((a,b)=>a.name.localeCompare(b.name))};
+   result[dir?'directories':'files'].push(row);
+  }
+  for(const rows of Object.values(result))rows.sort((a,b)=>a.file.localeCompare(b.file));
+  return result;
+ };
+ const round=async (ref,operation)=>{
+  const next=await w.runRound(f,ref,{operation,stopOnColdFailure:true,captureControl},state);state.round++;return next;
+ };
+ const active=ref=>ref.status.authority.id?p.join(f.base,'.work-data','generations',ref.status.authority.id):f.base;
+ const live=ref=>p.join(active(ref),'skills',id);
+ const post=async (ref,url,body)=>{
+  const response=await upload.makeHttp(ref,url,Buffer.from(JSON.stringify(body)),{
+   method:'POST',headers:{'content-type':'application/json'},guard:w.healthy,timeout:BUDGET.successor
+  });
+  a.equal(response.status,200);a.equal(response.value?.ok,true);return response.value;
+ };
+ const skillWitness=snapshot=>{
+  const entry=snapshot.entries.find(row=>row.rel===filename);
+  a.ok(entry&&!entry.dir,'preserved native census includes the original skill file');
+  const {opaque,...witness}=entry; // The census assigns a fresh sampling tag.
+  return witness;
+ };
+ const nativeSkill=async root=>skillWitness(await migrationCapsuleCapturePreserved(root,revision));
+ let current=legacy?{...initial,status:await w.waitWorkerReady(initial)}:await round(initial,'enable');
+ w.ctx.phase=legacy?'seed-legacy-backup':'seed-encrypted-capsule';
+ fs.mkdirSync(p.dirname(sourceFile),{recursive:true});
+ fs.writeFileSync(sourceFile,skillText(1),{flag:'wx'});
+ const keys=['codex:'+id];
+ const first=await post(current,'/api/migration/skills/copy',{keys});
+ a.equal(first.copied,1);a.equal(first.results[0].outcome,'created');
+ fs.writeFileSync(p.join(live(current),filename)+':owned-ads',ads);
+ const beforeCopy=await nativeSkill(live(current));
+ a.deepEqual(Buffer.from(beforeCopy.streams.find(row=>row.name===':owned-ads:$DATA').data,'base64'),ads);
+ fs.writeFileSync(sourceFile,skillText(2));
+ const overwritten=await post(current,'/api/migration/skills/copy',{keys,overwrite:true});
+ a.equal(overwritten.copied,1);a.equal(overwritten.results[0].outcome,'updated');
+ a.match(overwritten.id,/^[0-9TZ-]+$/);
+ let legacyWitness;
+ if(legacy){
+  const legacyBackup=p.join(f.base,'migrations','skill-backups',overwritten.id,id);
+  legacyWitness=await nativeSkill(legacyBackup);
+  a.equal(legacyWitness.id,beforeCopy.id);a.deepEqual(legacyWitness.streams,beforeCopy.streams);
+  a.equal(fs.existsSync(p.join(legacyBackup,'.ruyi-capsule-v1')),false);
+  current=await round(current,'enable');
+  a.equal(fs.existsSync(legacyBackup),false);
+ }
+ const backup=p.join(f.base,'.work-data','skill-backups','objects-v1',overwritten.id,id);
+ const marker=p.join(backup,'.ruyi-capsule-v1');
+ a.equal(fs.existsSync(marker),true);a.ok(fs.readdirSync(p.join(backup,'objects')).length>=2);
+ const archiveKeys=WorkDataKeys.create({protector:LocalSecretCrypto,enabled:()=>true,
+  store:{read:async()=>core.json(p.join(active(current),'work-data-key-v1.json'))}});
+ let original;
+ try{
+  const archived=await migrationCapsuleRead({backup,stamp:overwritten.id,id,scopeId:'skill-backups:'+overwritten.id,
+   recordId:'skill-backup:'+id.toLowerCase(),archiveKeys,intentKeys:archiveKeys});
+  original=skillWitness(archived.snapshot);
+  a.equal(original.id,beforeCopy.id);a.deepEqual(original.streams,beforeCopy.streams);
+  if(legacyWitness)a.deepEqual(original,legacyWitness);
+ }finally{archiveKeys.clear();}
+ w.checked(legacy?'first enable relocates and seals a real legacy backup with its original native identity, DATA and ADS'
+  :'a real encrypted skill overwrite creates a populated capsule with original DATA and ADS');
+ if(legacy){
+  w.ctx.phase='undo-first-enabled-capsule';
+  const undone=await post(current,'/api/migration/undo',{id:overwritten.id});
+  a.equal(undone.skills?.find(row=>row.id===id)?.outcome,'restored-previous');
+  a.deepEqual(await nativeSkill(live(current)),original);
+  w.checked('first-enable successor can undo the legacy overwrite using the same original objects');
+  return{current};
+ }
+ if(fault)return{current,original,backup,marker,nativeSkill};
+
+ current=await round(current,'export');
+ a.equal(fs.existsSync(marker),true);
+ current=await round(current,'disable');
+ w.ctx.phase='verify-plain-capsule';
+ a.equal(fs.existsSync(marker),false);
+ a.deepEqual(await nativeSkill(backup),original);
+ a.equal(fs.readFileSync(p.join(live(current),filename),'utf8'),skillText(2));
+ w.checked('same-root disable materializes the original skill DATA and ADS with native identity and metadata preserved');
+
+ current=await round(current,'enable');
+ w.ctx.phase='undo-resealed-capsule';
+ a.equal(fs.existsSync(marker),true);
+ a.equal(fs.existsSync(p.join(backup,filename)),false);
+ const undone=await post(current,'/api/migration/undo',{id:overwritten.id});
+ a.equal(undone.skills?.find(row=>row.id===id)?.outcome,'restored-previous');
+ a.deepEqual(await nativeSkill(live(current)),original);
+ w.checked('same-root re-enable reseals the original and production undo restores its native identity, DATA and ADS');
+ return{current};
+}
+
+async function checkInterruptedCapsule(w,f,{current,original,backup,marker,nativeSkill},fault){
+ w.ctx.phase='capsule-fault-'+fault;
+ const control=p.join(f.base,'.work-data'),intentFile=p.join(control,'maintenance-v1.json');
+ const resultFile=p.join(control,'maintenance-result-v1.json'),priorResult=core.read(resultFile).row;
+ const injected=await w.runCapsuleWorker(f,'capsule-fault',{
+  action:'inject',fault,parentPid:current.pid,port:current.port,password:PASSWORD,
+ },(result,pid)=>{
+  a.equal(result.injected,true);a.equal(result.fault,fault);a.equal(result.pid,pid);a.match(result.id,/^[a-f0-9]{48}$/);
+ });
+ const intent=core.read(intentFile),candidate=JSON.parse(intent.bytes);
+ a.equal(candidate.id,injected.id);a.equal(candidate.phase,'key-ready');
+ a.match(candidate.transition?.preparedSha256,/^[a-f0-9]{64}$/);
+ a.match(candidate.transitionReady?.targetSha256,/^[a-f0-9]{64}$/);
+ a.match(candidate.transitionReady?.targetNativeSha256,/^[a-f0-9]{64}$/);
+ const base=await fs.promises.realpath(f.base),claim=await w.claimApi(f.temp).inspect({base:base.toLowerCase()});
+ a.equal(claim.value.id,injected.id);a.equal(claim.value.phase,'owned');
+ const forward=fault==='after-publish';
+ await w.runCapsuleWorker(f,'capsule-recovery',{action:'recover'},result=>{
+  a.equal(result.id,injected.id);a.equal(result.ownerReplayVerified,true);
+  a.equal(result.authority.sha256,injected.authoritySha256);a.equal(result.disposition,forward?'forward':'inverse');
+ });
+ a.equal(fs.existsSync(marker),!forward);
+ if(forward) a.deepEqual(await nativeSkill(backup),original);
+ else a.ok(fs.readdirSync(p.join(backup,'objects')).length>=2);
+ core.samePinned(core.read(intentFile).row,intent.row);
+ core.samePinned(core.read(resultFile).row,priorResult);
+ a.deepEqual((await w.claimApi(f.temp).inspect({base:base.toLowerCase()})).receipt,claim.receipt);
+ w.checked('an independent native cold process replays the exact '+(forward?'committed':'original')+' authority and retains the pending durable records');
+ if(forward){
+  w.ctx.phase='capsule-settle-after-publish';
+  await w.runCapsuleWorker(f,'capsule-settlement',{action:'settle'},result=>{
+   a.equal(result.id,injected.id);a.equal(result.maintenanceOutcome,'result-durable');
+   a.equal(result.candidateProofVerified,true);a.equal(result.authority.sha256,injected.authoritySha256);
+  });
+  a.equal(core.json(intentFile).phase,'complete');
+  a.equal(core.json(resultFile).id,injected.id);
+  await w.runCapsuleWorker(f,'capsule-retirement',{action:'retire'},result=>{
+   a.equal(result.id,injected.id);a.equal(result.intentRetired,true);a.equal(result.claimRetired,true);
+  });
+  a.equal(fs.existsSync(intentFile),false);
+  a.equal((await w.claimApi(f.temp).inspect({base:base.toLowerCase()})).present,false);
+  const handle=w.spawnServe(f,'capsule-recovered-serve',await getFreePort('127.0.0.1'));
+  await handle.spawned;
+  const ready=await w.readyWarm(handle,f);
+  await w.manager.captureNativeBirths(handle);
+  const status=await w.waitWorkerReady(ready);
+  a.equal(status.authority.sha256,injected.authoritySha256);a.equal(status.lastResult.id,injected.id);
+  await w.manager.cleanupKnown(handle,async()=>w.healthy());
+  w.checked('after a real manifest publish acknowledgement is lost, the doctor settles the result and ordinary serving restarts on that exact generation');
+ }
 }
 
 async function runActual(argv=process.argv.slice(2),{browserEntry}={}){
- const label=browserEntry?'WORK DATA PRODUCTION ENABLE BROWSER':'WORK DATA PRODUCTION MAINTENANCE';
+ const fault=argv.length===1&&['--capsule-before-publish','--capsule-after-publish'].includes(argv[0])?argv[0].slice('--capsule-'.length):null;
+ const legacy=argv[0]==='--legacy-nonempty-capsule';
+ const capsule=argv.length===1&&(argv[0]==='--nonempty-capsule'||legacy||fault!==null)&&!browserEntry;
+ const label=browserEntry?'WORK DATA PRODUCTION ENABLE BROWSER':capsule?'WORK DATA NONEMPTY CAPSULE MAINTENANCE':'WORK DATA PRODUCTION MAINTENANCE';
+ a.ok(argv.length===0||capsule,'permanent E2E uses the current complete product build');
  if(process.platform!=='win32'){a.equal(argv.length,0,'ROOT candidate actual requires Windows');console.log(browserEntry?'SKIP Windows native browser enable acceptance':'SKIP Windows native production maintenance E2E');require(p.join(__dirname,'lib/harness')).createRunner(label).done();return{skipped:true};}
- a.equal(argv.length,0,'permanent E2E uses the current complete product build');
- const target=browserEntry?require('./work-data-production-restore.browser.e2e').bindTarget(browserEntry):targetFromArgs(argv);
+ const target=browserEntry?require('./work-data-production-restore.browser.e2e').bindTarget(browserEntry):targetFromArgs(capsule?[]:argv);
+ if(capsule){
+  const extra=['server-internals.js',...(fault?['work-data-capsule-fault-worker.cjs']:[])].map(name=>core.read(p.join(__dirname,'lib',name)).row);
+  const original=target.recheck, priorDigest=target.executionInputSha256;
+  target.boundFiles=[...target.boundFiles,...extra];
+  target.executionInputSha256=core.H(Buffer.from(JSON.stringify([priorDigest,...extra.map(({file,sha256,bytes})=>[core.norm(file),sha256,bytes])])));
+  target.recheck=()=>{const proof=original();for(const row of extra)core.read(row.file,row);return{...proof,files:proof.files+extra.length,executionInputSha256:target.executionInputSha256};};
+ }
  a.equal(Number(process.versions.node.split('.')[0]),24);
  const harness=p.join(target.repo,'dev-harness');require(p.join(harness,'lib/self-isolate-home'));
  const t=require(p.join(harness,'lib/harness')).createRunner(label);
  const temp=p.resolve(os.tmpdir()),root=fs.mkdtempSync(p.join(temp,'ruyi-production-maintenance-')),evidence=p.join(root,'evidence');
  a.equal(core.norm(p.dirname(root)),core.norm(temp),'fixture root is a direct child of the tool temp');fs.mkdirSync(evidence);
  const w=createWorld({root,evidence,target});w.openJournal();
- let keeper=null,keeperExit=null,assigned=false,passed=false,browser=null;
+ let keeper=null,keeperExit=null,assigned=false,passed=false,browser=null,capsuleFixture=null;
  try{
   w.record({kind:'fixture-owner',root,temp,nonce:c.randomBytes(32).toString('hex'),targetServer:target.server,executionInputSha256:target.executionInputSha256,executionInputs:target.boundFiles.length,inputFiles:target.boundFiles,scope:browserEntry?'Synthetic settings browser enable only; the native folder picker is the only substituted route.':'Synthetic production maintenance E2E only;not restore, activation or complete 3.1.'});
   keeper=cp.spawn('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',p.join(harness,'lib/work-data-production-maintenance-outer-job.ps1')],
@@ -870,6 +1071,9 @@ async function runActual(argv=process.argv.slice(2),{browserEntry}={}){
    await browser.close();
    a.equal(browser.facts.jobs.length,1,'exactly one browser job POST through browser close');
    w.checked('one real settings Enable POST reaches the cold worker, then the same page shows the published encrypted generation');
+  }else if(capsule){
+   capsuleFixture=await runNonemptyCapsule(w,f,current,state,{fault,legacy});
+   current=capsuleFixture.current;
   }else{
    // The boot verdicts each own a separate root. Decide them before handoff so
    // a blocked handoff cannot hide them.
@@ -903,6 +1107,7 @@ async function runActual(argv=process.argv.slice(2),{browserEntry}={}){
   w.record({kind:'outer-job',members:outer.members,survived:outer.survived,keeperCode:0});
   w.checkpoint('final-status',{authority:current.status.authority,lastResult:current.status.lastResult,capabilities:current.status.capabilities});
   w.checked('successor identity is absent after the owned Job closes');
+  if(fault)await checkInterruptedCapsule(w,f,capsuleFixture,fault);
   const inputsAfter=target.recheck();
   a.equal(inputsAfter.files,target.boundFiles.length,'recheck covers every pinned execution input');
   a.equal(inputsAfter.executionInputSha256,target.executionInputSha256,'recheck re-derives the pinned execution input digest');

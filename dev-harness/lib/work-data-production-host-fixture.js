@@ -75,7 +75,8 @@ function createFixture({ manualClose = false, withoutRecoveryBudget = false } = 
     // 00-boot reports where the serving root came from ('default' or 'preference');
     // startServer only consults it to close the migration gate.
     dataRootSource: 'default',
-    exitCalls: [], maintenance: { phase: 'open', epoch: 1, admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 }, processExitRequired: true } };
+    exitCalls: [], maintenance: { phase: 'open', epoch: 1, admitted: 0, writers: 0, dirty: 0, busy: { turns: 0 },
+      owners: { open: [], admittedTotal: 0, releasedTotal: 0, delta: 0 }, processExitRequired: true } };
   const timers = { setInterval(fn, ms) { const row = { fn, ms, refs: 0, ref() { this.refs++; }, unref() {} }; holds.push(row); return row; },
     setTimeout(fn, ms) { const row = { fn, ms, fired: false, cleared: false, ref() {}, unref() {} }; timeouts.push(row); return row; },
     clearTimeout(row) { if (row) row.cleared = true; }, clearInterval() {} };

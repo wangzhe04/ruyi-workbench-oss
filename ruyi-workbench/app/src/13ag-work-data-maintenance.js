@@ -27,16 +27,22 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
         finally { if (--token.refs === 0) { live.delete(token); releasedTotal++; } changed(); }
       });
     }
-    function track(pending) {
+    function track(pending, target) {
       if (!pending || typeof pending.then !== 'function') throw TypeError('pending writer must be a promise');
       if (writes.has(pending)) return pending;
-      writes.set(pending, { ownerId: ++ownerSeq, ownerKind: 'writer' }); admittedTotal++; changed();
+      const owner = context.getStore()?.token;
+      writes.set(pending, Object.freeze({ id: ++ownerSeq, kind: 'writer', ownerId: live.has(owner) ? owner.ownerId : null,
+        target: typeof target === 'string' ? target : null }));
+      admittedTotal++; changed();
       pending.then(() => { writes.delete(pending); releasedTotal++; changed(); }, () => { writes.delete(pending); releasedTotal++; changed(); });
       return pending;
     }
     function status() {
       const observed = host.snapshot();
-      return Object.freeze({ phase, epoch, admitted: live.size, writers: writes.size, owners: Object.freeze({ open: Object.freeze([...live].map(token => Object.freeze({ id: token.ownerId, kind: token.ownerKind })).concat([...writes.values()].map(row => Object.freeze({ id: row.ownerId, kind: row.ownerKind })))), admittedTotal, releasedTotal, delta: admittedTotal - releasedTotal }), dirty: observed.dirty || 0, busy: Object.freeze({ ...observed.busy }), processExitRequired: true });
+      const open = [...live].map(token => Object.freeze({ id: token.ownerId, kind: token.ownerKind })).concat([...writes.values()]);
+      return Object.freeze({ phase, epoch, admitted: live.size, writers: writes.size,
+        owners: Object.freeze({ open: Object.freeze(open), admittedTotal, releasedTotal, delta: admittedTotal - releasedTotal }),
+        dirty: observed.dirty || 0, busy: Object.freeze({ ...observed.busy }), processExitRequired: true });
     }
     function begin({ signal } = {}) {
       if (context.getStore()) throw failure('nested');
@@ -68,7 +74,7 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
               // producer counts and chain identities after every drain and yield.
               const stamp = epoch;
               await wait(host.flush()); check();
-              const pending = [...new Set([...host.snapshot().pending, ...writes])];
+              const pending = [...new Set([...host.snapshot().pending, ...writes.keys()])];
               for (const item of pending) { await wait(item); check(); }
               await wait(host.yield()); check();
               const after = host.snapshot(), identities = [...new Set(after.pending)];
@@ -80,7 +86,12 @@ const WorkDataMaintenance = ((AsyncLocalStorage) => {
           })().finally(() => { draining = null; });
           return draining;
         },
-        assertIdle() { check(); const observed = status(); if (phase !== 'idle' || observed.admitted || observed.writers || observed.dirty || Object.values(observed.busy).some(value => value > 0)) throw failure('not_idle'); return observed; },
+        assertIdle() {
+          check(); const observed = status();
+          if (phase !== 'idle' || observed.admitted || observed.writers || observed.dirty || observed.owners.open.length
+            || observed.owners.delta !== 0 || Object.values(observed.busy).some(value => value > 0)) throw failure('not_idle');
+          return observed;
+        },
         resume() {
           if (!valid || lease !== current || phase === 'retired') throw failure('lease_expired');
           valid = false; lease = null; phase = 'open'; signal?.removeEventListener('abort', onAbort); changed(); host.resume(paused);

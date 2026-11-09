@@ -55,3 +55,26 @@ test('unknown legacy runtime blocks without modifying files and releases the acq
   const lease = await ownership.acquire([dir]);
   await lease.release();
 });
+
+test('private Windows preserved acquisition still applies the legacy PID gate', {skip:process.platform!=='win32'}, async () => {
+  const dir = path.join(root, 'preserved-runtime');
+  fs.mkdirSync(dir);
+  const file = path.join(dir, 'runtime.json');
+  fs.writeFileSync(file, '{invalid on the ordinary path');
+  const saved = ownership.Hooks.readLegacyRuntimePreserved;
+  const reads = [];
+  try {
+    ownership.Hooks.readLegacyRuntimePreserved = async selected => {
+      reads.push(selected);
+      return JSON.stringify({pid:process.pid});
+    };
+    const lease = await ownership.acquire([dir],{preserveRuntime:true});
+    try {
+      assert.equal(ownership.owns(lease,await ownership.canonicalRoot(dir)),true);
+      assert.deepEqual(reads,[path.join(await ownership.canonicalRoot(dir),'runtime.json')]);
+    } finally { await lease.release(); }
+    await assert.rejects(ownership.acquire([dir]),{code:'DATA_ROOT_OWNER_UNKNOWN'});
+    ownership.Hooks.readLegacyRuntimePreserved = async () => '{invalid preserved reply';
+    await assert.rejects(ownership.acquire([dir],{preserveRuntime:true}),{code:'DATA_ROOT_OWNER_UNKNOWN'});
+  } finally { ownership.Hooks.readLegacyRuntimePreserved = saved; }
+});

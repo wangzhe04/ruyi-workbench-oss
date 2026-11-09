@@ -510,7 +510,7 @@ function runKeyedChain(chains, key, work) {
   const previous = chains.get(key) || Promise.resolve();
   const current = previous.catch(() => {}).then(work);
   chains.set(key, current);
-  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(current);
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(current, key);
   current.then(() => {}, () => {}).then(() => { if (chains.get(key) === current) chains.delete(key); });
   return current;
 }

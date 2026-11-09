@@ -166,7 +166,7 @@ function scheduleSessionSearch() {
     renderSessions({ refresh: false });
     return;
   }
-  sessionSearchState = { ...sessionSearchState, query: q, loading: true };
+  sessionSearchState = { ...sessionSearchState, query: q, loading: true, coverage: null };
   renderSessions({ refresh: false });
   sessionSearchTimer = setTimeout(async () => {
     sessionSearchTimer = 0;
@@ -175,7 +175,7 @@ function scheduleSessionSearch() {
       const res = await api(`/api/sessions/search?q=${encodeURIComponent(q)}&limit=30`);
       if (seq !== sessionSearchSeq) return;
       if (res && res.ok && Array.isArray(res.results)) {
-        sessionSearchState = { query: q, results: res.results, loading: false, failed: false };
+        sessionSearchState = { query: q, results: res.results, loading: false, failed: false, coverage: res.coverage };
       } else {
         sessionSearchState = { query: q, results: null, loading: false, failed: true };
       }
@@ -220,6 +220,19 @@ function syncOwnTurnLiveIndicator() {
 }
 // opts.refresh === false：只按手上的行重画、不向服务端复核（搜索框每次按键走这条）。
 function renderSessions(opts) {
+  const coverageNode = $('sessionSearchCoverage');
+  if (coverageNode) {
+    const coverage = sessionSearchState.query === sessionSearchQuery() ? sessionSearchState.coverage : null;
+    const lines = [];
+    if (coverage && Number.isSafeInteger(coverage.indexedSessions) && Number.isSafeInteger(coverage.sessions)) {
+      lines.push(t('session.searchCoverage', { indexed: coverage.indexedSessions, total: coverage.sessions }));
+      if (coverage.phase === 'paused') lines.push(t('session.searchPaused'));
+      if (coverage.attachments?.unverifiedFullText > 0) lines.push(t('session.searchUnverifiedAttachments', { count: coverage.attachments.unverifiedFullText }));
+      if (coverage.messages?.unverifiedText > 0) lines.push(t('session.searchUnverifiedMessages', { count: coverage.messages.unverifiedText }));
+    }
+    coverageNode.textContent = lines.join(' ');
+    coverageNode.hidden = !lines.length;
+  }
   if (!railRenderer) return false;
   try { railRenderer(opts); } catch { /* 左栏画不出来不该把调用方（开会话／改名／删除）打回去 */ }
   syncOwnTurnLiveIndicator();

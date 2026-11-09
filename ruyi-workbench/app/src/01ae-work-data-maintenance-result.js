@@ -59,7 +59,8 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
       if(!sameIdentity(identity(after),identity(before))||!sameIdentity(identity(current),identity(before))||current.isSymbolicLink()
         ||after.nlink!==1n||current.nlink!==1n||after.size!==before.size||current.size!==before.size||count!==Number(before.size)
         ||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||current.mtimeNs!==after.mtimeNs||current.ctimeNs!==after.ctimeNs)throw fail('record_changed');
-      return {bytes:retain?Buffer.concat(chunks,count):null,sha256:digest.digest('hex'),size:count,identity:identity(after)};
+      return {bytes:retain?Buffer.concat(chunks,count):null,sha256:digest.digest('hex'),size:count,identity:identity(after),
+        mtimeNs:String(after.mtimeNs),ctimeNs:String(after.ctimeNs)};
     }finally{scratch.fill(0);for(const chunk of chunks)chunk.fill(0);await handle.close();}
   }
   function create({base,ownership,assertExclusive,readAuthority,assertDurableBackup,flush}={}) {
@@ -72,6 +73,18 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
     async function backup(value) {
       if(inside(base,value.path))throw fail('backup_invalid');const captured=await capture(value.path,value.bytes,false);
       if(captured.size!==value.bytes||captured.sha256!==value.sha256||!sameIdentity(captured.identity,value.identity))throw fail('backup_changed');
+    }
+    async function captureTransitionBackup({id,backup: value}={}) {
+      // A pending transition has a hash-bound original package but may have no
+      // result record. Reading it cannot mint an issued completion receipt.
+      if(typeof id!=='string'||!ID.test(id)||keys(value)!=='path,sha256'||!absolute(value.path)
+        ||typeof value.sha256!=='string'||!SHA.test(value.sha256)
+        ||p.basename(value.path)!=='ruyi-work-data-'+id+'.ruyi-backup'
+        ||inside(base,value.path)||inside(p.dirname(value.path),base))throw fail('backup_invalid');
+      const {path,sha256}=value;
+      await admission();const captured=await capture(path,1024*1024*1024,false);await admission();
+      if(captured.size===0||captured.sha256!==sha256)throw fail('backup_changed');
+      return freeze({sha256:captured.sha256,bytes:captured.size,identity:captured.identity,mtimeNs:captured.mtimeNs,ctimeNs:captured.ctimeNs});
     }
     const sameRecord=(a,b)=>a.sha256===b.sha256&&sameIdentity(a.identity,b.identity);
     async function read() {
@@ -109,7 +122,7 @@ const WorkDataMaintenanceResult = ((io,p,c) => {
         await verify(receipt);return receipt;
       }finally{writing=false;}
     }
-    return Object.freeze({write,verify,read,inspect});
+    return Object.freeze({write,verify,read,inspect,captureTransitionBackup});
   }
   return Object.freeze({NAME,STAGE,validate,decode,create});
 })(require('node:fs/promises'),require('node:path'),require('node:crypto'));

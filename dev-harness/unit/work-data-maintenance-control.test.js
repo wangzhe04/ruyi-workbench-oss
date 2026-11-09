@@ -78,6 +78,115 @@ test('a valid update binds the original job/source/backup and rejects phase roll
  await assert.rejects(f.control.write({...next,phase:'prepared'},r2));
  assert.equal(await f.control.verify(r2),r2);
 });
+test('a candidate pointer digest is durable and cannot change or disappear in later phases',async t=>{
+ const f=await fixture(t),initial=await f.control.write(f.s);
+ const candidate={id:'c'.repeat(48),mode:'encrypted',headerSha256:null,pointerSha256:'d'.repeat(64)};
+ const next={...f.s,phase:'candidate',candidate};
+ await assert.rejects(f.control.write({...next,candidate:{...candidate,pointerSha256:[candidate.pointerSha256]}},initial),{code:'work_data_setup.intent_invalid'});
+ const admitted=await f.control.write(next,initial);
+ const ready={...next,phase:'key-ready',candidate:{...candidate,headerSha256:'e'.repeat(64)}};
+ const {pointerSha256,...legacy}=ready.candidate;
+ for(const changed of [legacy,{...ready.candidate,pointerSha256:'f'.repeat(64)}]){
+  await assert.rejects(f.control.write({...ready,candidate:changed},admitted),error=>
+   error.code==='work_data_setup.intent_write_failed'&&error.cause?.code==='work_data_setup.intent_binding_changed');
+  assert.equal(await f.control.verify(admitted),admitted);
+ }
+ await f.control.write(ready,admitted);
+ assert.deepEqual(JSON.parse(await fsp.readFile(f.file,'utf8')).candidate,ready.candidate);
+});
+test('the transition proof can be bound once while key-ready and has a separate exact recovery token',async t=>{
+ const f=await fixture(t),candidate={id:'c'.repeat(48),mode:'encrypted',headerSha256:'d'.repeat(64),pointerSha256:'e'.repeat(64)};
+ const transition={schema:1,operationId:'f'.repeat(48),preparedSha256:'1'.repeat(64)};
+ const transitionReady={schema:1,targetSha256:'2'.repeat(64),targetNativeSha256:'3'.repeat(64)};
+ const transitionSourceScope={schema:1,nativePath:'migrations/skill-backups',createdParents:['.work-data','.work-data/generations']};
+ const ready={...f.s,phase:'key-ready',candidate},withProof={...ready,transition,transitionSourceScope,transitionSourceSha256:'5'.repeat(64)};
+ let receipt=await f.control.write(f.s);
+ await assert.rejects(f.control.write({...withProof,phase:'candidate'},receipt),{code:'work_data_setup.intent_invalid'});
+ receipt=await f.control.write({...ready,phase:'candidate'},receipt);
+ await assert.rejects(f.control.write(withProof,receipt),error=>error.cause?.code==='work_data_setup.intent_phase_invalid');
+ receipt=await f.control.write(ready,receipt);
+ await assert.rejects(f.control.write({...withProof,transition:{...transition,operationId:[transition.operationId]}},receipt),
+  {code:'work_data_setup.intent_invalid'});
+ await assert.rejects(f.control.write({...withProof,transitionSourceScope:{...transitionSourceScope,createdParents:['.work-data']}},receipt),
+  {code:'work_data_setup.intent_invalid'});
+ await assert.rejects(f.control.write({...withProof,phase:'published'},receipt),error=>error.cause?.code==='work_data_setup.intent_phase_invalid');
+ await assert.rejects(f.control.write({...withProof,transitionReady},receipt),error=>error.cause?.code==='work_data_setup.intent_phase_invalid');
+ receipt=await f.control.write(withProof,receipt);
+ for(const changed of [ready,{...withProof,transition:{...transition,preparedSha256:'2'.repeat(64)}},
+  {...withProof,transitionSourceSha256:'6'.repeat(64)},{...withProof,transitionSourceScope:undefined}])
+  await assert.rejects(f.control.write(changed,receipt),error=>error.cause?.code==='work_data_setup.intent_binding_changed');
+ await assert.rejects(f.control.write({...withProof,phase:'published',transitionReady},receipt),error=>error.cause?.code==='work_data_setup.intent_phase_invalid');
+ receipt=await f.control.write({...withProof,transitionReady},receipt);
+ for(const changed of [withProof,{...withProof,transitionReady:{...transitionReady,targetNativeSha256:'4'.repeat(64)}}])
+  await assert.rejects(f.control.write(changed,receipt),error=>error.cause?.code==='work_data_setup.intent_binding_changed');
+ const cold=Control.create(f.host),selected=await cold.selectTransitionRecovery();
+ assert.deepEqual({...selected.state.transition},transition);
+ assert.deepEqual({...selected.state.transitionReady},transitionReady);
+ assert.equal(selected.state.transitionSourceSha256,withProof.transitionSourceSha256);
+ assert.equal(selected.state.transitionSourceScope.nativePath,transitionSourceScope.nativePath);
+ assert.deepEqual([...selected.state.transitionSourceScope.createdParents],transitionSourceScope.createdParents);
+ assert.ok(Object.isFrozen(selected.state.transition));
+ assert.equal(Control.acceptsRecoveryProfile(selected,f.base,f.owner),false);
+ await assert.rejects(cold.recoverComplete(selected,async()=>true,()=>true),{code:'work_data_setup.complete_recovery_receipt_invalid'});
+ await assert.rejects(Control.create(f.host).recoverTransition(selected,async()=>true),{code:'work_data_setup.transition_recovery_receipt_invalid'});
+ await assert.rejects(cold.recoverTransition({...selected},async()=>true),{code:'work_data_setup.transition_recovery_receipt_invalid'});
+ const raw=await fsp.readFile(f.file);let deferredCheck;
+ assert.equal(await cold.recoverTransition(selected,async (state,check)=>{
+  assert.equal(state,selected.state);assert.equal(await check(),true);deferredCheck=check;
+  await assert.rejects(cold.write(f.s),{code:'work_data_setup.intent_busy'});
+  return 'replayed';
+ }),'replayed');
+ assert.throws(deferredCheck,{code:'work_data_setup.transition_recovery_receipt_invalid'});
+ await assert.rejects(cold.recoverTransition(selected,async()=>true),{code:'work_data_setup.transition_recovery_receipt_invalid'});
+ assert.deepEqual(await fsp.readFile(f.file),raw);
+});
+test('the source digest excludes only exact owned control namespaces and binds ordinary identity, stamps and data',()=>{
+ const candidateId='a'.repeat(48),selected={candidateId},file=(path,identity='1:2')=>({path,identity,sha256:'e'.repeat(64),mtimeNs:'3',ctimeNs:'4'});
+ const original={sourceFiles:[file('config.json'),file('.work-data/skill-backups/item')],sourceDirectories:[{path:'',identity:'1:1'}]};
+ const digest=Control.sourceOrdinaryDigest(original,selected);
+ const shadow=file('.work-data/generations/'+candidateId+'/config.json');
+ assert.equal(Control.sourceOrdinaryDigest({...original,sourceFiles:[...original.sourceFiles,shadow,file('.work-data/maintenance-v1.json')]},selected),digest);
+ for(const extra of ['.work-data/skill-backups-old/item','.work-data/generations/'+'b'.repeat(48)+'/config.json','.work-data/maintenance-v1.json.prev'])
+  assert.notEqual(Control.sourceOrdinaryDigest({...original,sourceFiles:[...original.sourceFiles,file(extra)]},selected),digest);
+ for(const changed of [{identity:'1:9'},{ctimeNs:'5'},{sha256:'f'.repeat(64)}])
+  assert.notEqual(Control.sourceOrdinaryDigest({...original,sourceFiles:[{...original.sourceFiles[0],...changed}]},selected),digest);
+ assert.throws(()=>Control.sourceOrdinaryDigest({...original,sourceFiles:[file('nested/../config.json')]},selected),{code:'work_data_setup.transition_source_invalid'});
+});
+test('legacy source roles preserve pre-existing control parents and normalize only the bound relocation',()=>{
+ const candidateId='a'.repeat(48),legacy='migrations/skill-backups',stable='.work-data/skill-backups';
+ const file=(path,identity)=>({path,identity,sha256:'e'.repeat(64),mtimeNs:'3',ctimeNs:'4'}),dir=(path,identity)=>({path,identity});
+ const coverage={type:'skill-backup-portable',originalObjects:'new-owned-portable',sourcePath:legacy};
+ const parents=[dir('.work-data','1:4'),dir('.work-data/generations','1:5')];
+ const sourceFiles=[file('config.json','1:3'),file(legacy+'/old.txt','1:8')];
+ const sourceDirectories=[dir('','1:1'),dir('migrations','1:2'),dir(legacy,'1:7')];
+ for(const count of [0,1,2]){
+  const before={sourceFiles,sourceDirectories:[...sourceDirectories,...parents.slice(0,count)],specialCoverage:coverage};
+  const scope=Control.legacyTransitionSourceScope(before),options={candidateId,scope};
+  assert.deepEqual([...scope.createdParents],parents.slice(count).map(row=>row.path));
+  const relocated={sourceFiles:[sourceFiles[0],file(stable+'/old.txt','1:8'),file('.work-data/maintenance-v1.json','1:6')],
+   sourceDirectories:[...sourceDirectories.slice(0,2),...parents,dir(stable,'1:7'),dir('.work-data/generations/'+candidateId,'1:9')]};
+  const digest=Control.sourceOrdinaryDigest(before,options);
+  assert.equal(Control.sourceOrdinaryDigest(relocated,options),digest);
+  assert.notEqual(Control.sourceOrdinaryDigest(relocated,{candidateId}),digest);
+  assert.notEqual(Control.sourceOrdinaryDigest({...relocated,sourceFiles:[...relocated.sourceFiles,file('migrations/skill-backups-extra/file','1:10')]},options),digest);
+  assert.notEqual(Control.sourceOrdinaryDigest({...relocated,sourceFiles:[...relocated.sourceFiles,file(legacy,'1:10')]},options),digest);
+  if(count)assert.notEqual(Control.sourceOrdinaryDigest({...relocated,
+   sourceDirectories:relocated.sourceDirectories.map(row=>row.path===parents[0].path?{...row,identity:'1:10'}:row)},options),digest);
+ }
+ assert.throws(()=>Control.legacyTransitionSourceScope({sourceFiles,sourceDirectories:[...sourceDirectories,parents[1]],specialCoverage:coverage}),
+  {code:'work_data_setup.transition_source_invalid'});
+});
+test('transition recovery refuses an intent replaced with the same bytes while replay runs',async t=>{
+ const f=await fixture(t),candidate={id:'c'.repeat(48),mode:'encrypted',headerSha256:'d'.repeat(64),pointerSha256:'e'.repeat(64)};
+ let receipt=await f.control.write(f.s);
+ for(const phase of ['candidate','key-ready'])receipt=await f.control.write({...f.s,phase,candidate},receipt);
+ await f.control.write({...f.s,phase:'key-ready',candidate,transition:{schema:1,operationId:'f'.repeat(48),preparedSha256:'1'.repeat(64)}},receipt);
+ const cold=Control.create(f.host),selected=await cold.selectTransitionRecovery(),bytes=await fsp.readFile(f.file);
+ await assert.rejects(cold.recoverTransition(selected,async()=>{
+  await fsp.rename(f.file,f.file+'.original');await fsp.writeFile(f.file,bytes);return true;
+ }),{code:'work_data_setup.intent_changed'});
+ assert.deepEqual(await fsp.readFile(f.file),bytes);
+});
 test('an existing intent is never overwritten without this exact owner-issued receipt',async t=>{
  const f=await fixture(t);const r=await f.control.write(f.s),other=Control.create(f.host);
  await assert.rejects(other.write(f.s));await assert.rejects(other.write(f.s,r));assert.equal(await f.control.verify(r),r);
@@ -91,6 +200,21 @@ test('failure after rename retains selected intent; no receipt can be forged to 
  const f=await fixture(t);f.host.flush=async()=>{if(f.facts.flushes.length++)throw Error('postrename failure');};const c=Control.create(f.host);
  await assert.rejects(c.write(f.s));assert.equal(fs.existsSync(f.file),true);assert.equal((await c.inspect()).pending,true);
  await assert.rejects(c.verify({name:'.work-data/maintenance-v1.json'}));
+});
+test('a same-byte staged replacement cannot acquire intent publication authority',async t=>{
+ const f=await fixture(t),root=path.dirname(f.file);
+ let intercepted=false;
+ f.host.flush=async()=>{
+  if(intercepted)return;
+  const name=(await fsp.readdir(root)).find(value=>value.startsWith('.maintenance-v1.stage-'));
+  const stage=path.join(root,name),bytes=await fsp.readFile(stage);
+  await fsp.rename(stage,path.join(root,'displaced-original'));await fsp.writeFile(stage,bytes);
+  intercepted=true;
+ };
+ const c=Control.create(f.host);
+ await assert.rejects(c.write(f.s),error=>error.code==='work_data_setup.intent_write_failed'&&error.cause?.code==='work_data_setup.intent_changed');
+ assert.equal(intercepted,true);assert.equal(fs.existsSync(f.file),false);
+ assert.ok((await fsp.readdir(root)).some(name=>name.startsWith('.maintenance-v1.stage-')));
 });
 test('completion must verify published state freshly and excludes concurrent intent writes',async t=>{
  const f=await fixture(t);let r=await f.control.write(f.s);

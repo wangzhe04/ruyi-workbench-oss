@@ -16,11 +16,11 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       const selectedFilter=projectFilter(filter),policy=privacy.disclosurePolicyGuard(),generation=host.configGeneration(),config=await host.readConfig();policy();
       if(host.configGeneration()!==generation)throw fail('destination_changed');const grant=await authority(config);policy();
       if(!grant||typeof grant.assert!=='function'||typeof grant.revalidate!=='function'||typeof grant.scopeId!=='string')throw fail('destination_invalid');
-      const token=Object.freeze({}),cap={kind,config,generation,grant,filter:selectedFilter,sources:new Map(),disclosed:new Set(),disclosures:[],closed:false,emitted:false};
+      const token=Object.freeze({}),cap={kind,config,generation,grant,filter:selectedFilter,sources:new Map(),disclosed:new Set(),disclosures:[],attachmentChecks:[],closed:false,emitted:false};
       cap.access=Object.freeze({scopeId:grant.scopeId,revision:hash([c.randomBytes(24).toString('hex'),generation,cap.filter])});
       cap.assert=()=>{if(cap.closed||local.getStore()!==token||host.configGeneration()!==generation)throw fail('destination_changed');policy();grant.assert();for(const [sid,row]of cap.sources)if(source.sequence(sid)!==row.sequence)throw fail('source_changed');};
       issued.set(token,cap);
-      const perform=()=>local.run(token,async()=>{try{cap.assert();const value=await work();if(!cap.emitted)await final(cap);return value;}finally{cap.closed=true;cap.sources.clear();cap.disclosed.clear();cap.disclosures.length=0;grant.close?.();}});
+      const perform=()=>local.run(token,async()=>{try{cap.assert();const value=await work();if(!cap.emitted)await final(cap);return value;}finally{cap.closed=true;cap.sources.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
       try{grant.assert();return await(kind==='model'?privacy.withPolicy(grant.scopeId,perform):perform());}catch(error){grant.close?.();throw error;}
     }
     async function authorize(sid,token,access) {
@@ -33,9 +33,10 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       cap.sources.set(sid,{...selected,metadata});return true;
     }
     function assertAuthorized(sid,token,access) {const cap=current(token),row=cap.sources.get(sid);return access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
-    async function final(cap) {
+    async function final(cap,completeAttachmentCheck=true) {
       cap.assert();await cap.grant.revalidate();cap.assert();
       for(const [sid,row]of cap.sources){if(await source.epoch(sid)!==row.epoch)throw fail('source_changed');cap.assert();}
+      for(const check of cap.attachmentChecks)if(!await check(completeAttachmentCheck))throw fail('source_changed');
       cap.assert();for(const guard of cap.disclosures)guard();
     }
     const strings=(value,fn)=>typeof value==='string'?fn(value):Array.isArray(value)?value.map(row=>strings(row,fn)):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,row])=>[key,strings(row,fn)])):value;
@@ -65,6 +66,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     async function projection(input) {
       const token=local.getStore(),cap=current(token),sid=input.reference.sessionId;
       if(typeof input.sourceText!=='string'||!await authorize(sid,token,cap.access))throw fail('source_denied');
+      if(input.revalidate)cap.attachmentChecks.push(input.revalidate);
       const metadata=await publicMetadata(sid),reference=clone(input.reference);delete reference.text;
       let view;
       const prepared=await privacy.withPolicy(sid,async()=>{
@@ -95,20 +97,33 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       if(q.length<2)return{ok:true,query:q,results:[],indexed:0,scope:scope(cap.config.sessionSearchIndexV1!==false),reason:'query_too_short'};
       const enabled=cap.config.sessionSearchIndexV1!==false,metas=await metadata(),terms=[...new Set(host.terms(q).filter(term=>!term.startsWith('#')))];
       let found={results:[],coverage:{phase:'disabled',sessions:metas.length,indexedSessions:0,pendingSessions:metas.length,complete:false,attachments:{unverifiedFullText:0},fullTextSampling:false}};
-      if(enabled){cap.assert();const coverage=await index.coverage(token);if(coverage.pendingSessions&&coverage.phase!=='paused'){await index.prepare(token);cap.assert();}found=await index.search(q,token,limit);}
+      if(enabled){
+        cap.assert();const coverage=await index.coverage(token),paused=cap.config.sessionSearchIndexPausedV1===true;
+        if(!paused&&coverage.pendingSessions&&coverage.phase!=='paused'){await index.prepare(token);cap.assert();}
+        found=await index.search(q,token,limit);
+        if(paused)found={...found,coverage:{...found.coverage,phase:'paused'}};
+      }
       const results=new Map();
       for(const hit of found.results){const meta=hit.reference.session;if(!meta||typeof meta.id!=='string')throw fail('projection_invalid');if(!results.has(meta.id))results.set(meta.id,{...meta,...(meta.brief?{briefTitle:meta.brief.title,briefGist:meta.brief.gist}:{}),snippet:hit.snippet,reference:hit.reference,score:hit.score});}
       const ceiling=Math.min(50,Math.max(1,Math.floor(Number(limit)||20)));
       for(const meta of metas.slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))){if(results.size>=ceiling)break;const text=[meta.title,meta.summary,meta.brief?.title,meta.brief?.gist,meta.cwd].filter(Boolean).join('\n'),hay=text.normalize('NFKC').toLowerCase(),phrase=q.normalize('NFKC').toLowerCase();if(!hay.includes(phrase)&&terms.filter(term=>hay.includes(term)).length<Math.max(1,Math.ceil(terms.length/2)))continue;
         if(!results.has(meta.id)){const safe=await publicMetadata(meta.id);results.set(meta.id,{...safe,...(safe.brief?{briefTitle:safe.brief.title,briefGist:safe.brief.gist}:{}),snippet:host.redact(safe.summary||safe.title||''),score:1,reference:null});}}
-      await final(cap);
+      await final(cap,false);
       return{ok:true,query:q,results:[...results.values()].sort((a,b)=>b.score-a.score||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,ceiling),indexed:found.coverage.indexedSessions,coverage:found.coverage,scope:{...scope(enabled),fullText:enabled&&found.coverage.complete}};
     }
-    async function search(query,limit){const cap=current();for(let pass=0;pass<4;pass++){try{return await searchOnce(query,limit);}catch(error){if(error?.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;await final(cap);}}}
+    async function search(query,limit){const cap=current();for(let pass=0;pass<4;pass++){try{return await searchOnce(query,limit);}catch(error){if(error?.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;cap.attachmentChecks.length=0;await final(cap);}}}
     function scope(enabled=true) {return{fullText:false,messageText:enabled,mode:enabled?'message_shards':'metadata_only',sampling:false,coordinate:'utf16',maxQueryChars:256,
-      coverageUnit:'committed-display-message-sources',note:enabled?'搜索完整已提交消息文字；附件全文提取尚未全部验证，请以 coverage 为准。':'正文搜索已关闭，仅搜索会话元数据。'};}
+      coverageUnit:'committed-display-message-sources',note:enabled?'搜索已提交的消息和可验证的附件正文。附件提取范围见 coverage。':'正文搜索已关闭，仅搜索会话元数据。'};}
     async function finish(value) {const cap=current();for(let pass=0;pass<4;pass++){try{const prepared=await privacy.prepareMultiSourceDisclosure(privacy.foreignView(value),[...cap.disclosed,cap.grant.scopeId],{recipient:cap.grant.scopeId,purpose:'session-search:result',sourceHash:hash(value)});cap.disclosures.push(prepared.assert);await final(cap);return prepared.value;}catch(error){if(error.code!=='privacy.disclosure_dirty'||pass===3)throw error;cap.disclosures.length=0;await final(cap);}}}
-    function emitUI(value,emit) {const cap=current();if(cap.kind!=='ui'||typeof emit!=='function')throw fail('destination_invalid');cap.assert();for(const guard of cap.disclosures)guard();cap.emitted=true;const result=emit(value);if(result&&typeof result.then==='function')throw fail('sink_invalid');return result;}
+    async function emitUI(value,emit) {
+      const cap=current();
+      if(cap.kind!=='ui'||typeof emit!=='function')throw fail('destination_invalid');
+      if(cap.attachmentChecks.length)await final(cap);
+      cap.assert();for(const guard of cap.disclosures)guard();
+      cap.emitted=true;const result=emit(value);
+      if(result&&typeof result.then==='function')throw fail('sink_invalid');
+      return result;
+    }
     return Object.freeze({withUI:(req,res,filter,work)=>enter('ui',config=>host.uiAuthority(req,res,config),filter,work),
       withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work),search,metadata,publicMetadata,finish,emitUI,scope,
       retireSession:id=>index.invalidate(id,true)});

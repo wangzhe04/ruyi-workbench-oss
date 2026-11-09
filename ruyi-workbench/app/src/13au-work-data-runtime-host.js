@@ -13,6 +13,51 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
   const read=(object,name)=>{try{return object===null||typeof object!=='object'?undefined:object[name];}catch{return undefined;}};
   const methods=(object,names)=>plain(object)&&names.every(name=>typeof read(object,name)==='function');
   const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
+  const identity=stat=>({dev:String(stat.dev),ino:String(stat.ino)});
+  const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+  const authorityOf=actual=>({generation:actual.generation,id:actual.id,mode:actual.mode,sha256:actual.proof?.sha256});
+  const sameAuthority=(a,b)=>['generation','id','mode','sha256'].every(key=>a?.[key]===b?.[key]);
+  async function recoveryDirectory(target,profile) {
+    const parsed=p.parse(target);let cursor=parsed.root,last;
+    for(const part of ['',...target.slice(parsed.root.length).split(p.sep).filter(Boolean)]){
+      if(part)cursor=p.join(cursor,part);const stat=await io.lstat(cursor,{bigint:true});
+      if(!stat.isDirectory()||stat.isSymbolicLink()||fold(await io.realpath(cursor))!==fold(cursor))throw fail(profile+'_alias');
+      last=identity(stat);
+    }
+    return last;
+  }
+  async function captureRecoveryFile(file,limit,profile,{allowMissing=false,readPreserved}={}) {
+    try {
+      await recoveryDirectory(p.dirname(file),profile);
+      let before;
+      try{before=await io.lstat(file,{bigint:true});}catch(cause){if(allowMissing&&cause.code==='ENOENT')return null;throw cause;}
+      if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(limit))throw fail(profile+'_file_invalid');
+      if(readPreserved){
+        let data;
+        try{
+          data=await readPreserved(file);
+          const current=await io.lstat(file,{bigint:true});
+          if(!Buffer.isBuffer(data)||data.length!==Number(before.size)||!current.isFile()||current.isSymbolicLink()
+            ||current.nlink!==1n||!same(identity(current),identity(before))||current.size!==before.size
+            ||current.mtimeNs!==before.mtimeNs||current.ctimeNs!==before.ctimeNs)throw fail(profile+'_file_changed');
+          return {data,proof:{sha256:c.createHash('sha256').update(data).digest('hex'),bytes:data.length,
+            identity:identity(current),mtimeNs:String(current.mtimeNs),ctimeNs:String(current.ctimeNs)}};
+        }catch(cause){if(Buffer.isBuffer(data))data.fill(0);throw cause;}
+      }
+      const handle=await io.open(file,'r'),bytes=Buffer.alloc(limit+1);let used=0;
+      try {
+        const opened=await handle.stat({bigint:true});
+        if(!opened.isFile()||opened.nlink!==1n||!same(identity(opened),identity(before))||opened.size!==before.size)throw fail(profile+'_file_changed');
+        for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>limit)throw fail(profile+'_file_changed');if(!part.bytesRead)break;}
+        const after=await handle.stat({bigint:true}),current=await io.lstat(file,{bigint:true});
+        if(!current.isFile()||current.isSymbolicLink()||after.nlink!==1n||current.nlink!==1n
+          ||!same(identity(after),identity(before))||!same(identity(current),identity(before))||after.size!==before.size||current.size!==before.size||used!==Number(before.size)
+          ||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||current.mtimeNs!==after.mtimeNs||current.ctimeNs!==after.ctimeNs)throw fail(profile+'_file_changed');
+        const data=Buffer.from(bytes.subarray(0,used));return{data,proof:{sha256:c.createHash('sha256').update(data).digest('hex'),bytes:used,
+          identity:identity(current),mtimeNs:String(current.mtimeNs),ctimeNs:String(current.ctimeNs)}};
+      }finally{bytes.fill(0);await handle.close();}
+    }catch(cause){throw fail(profile+'_file_invalid',cause);}
+  }
   // One boot-preference owner for the whole process. 13aw currently precedes this
   // module, but installation stays idempotent and is retried at the first host binding
   // as defence against a future reordering, never depending on script order. The owner
@@ -201,12 +246,16 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       if(!methods(source,['status']))return null;
       let status;try{status=source.status();}catch{return null;}
       if(!plain(status))return null;
-      const phase=read(status,'phase'),busy=read(status,'busy');
+      const phase=read(status,'phase'),busy=read(status,'busy'),owners=read(status,'owners');
       const admitted=count(read(status,'admitted')),writers=count(read(status,'writers')),dirty=count(read(status,'dirty'));
-      if(typeof phase!=='string'||!plain(busy)||admitted===null||writers===null||dirty===null)return null;
+      if(typeof phase!=='string'||!plain(busy)||!plain(owners)||admitted===null||writers===null||dirty===null)return null;
+      const open=read(owners,'open'),admittedTotal=count(read(owners,'admittedTotal')),releasedTotal=count(read(owners,'releasedTotal'));
+      if(!Array.isArray(open)||util.types.isProxy(open)||admittedTotal===null||releasedTotal===null
+        ||read(owners,'delta')!==0||open.length!==0||admittedTotal!==releasedTotal)return null;
       const copy={};
       for(const name of Object.keys(busy)){const value=count(read(busy,name));if(value===null)return null;copy[name]=value;}
-      return Object.freeze({phase,admitted,writers,dirty,busy:Object.freeze(copy)});
+      return Object.freeze({phase,admitted,writers,dirty,busy:Object.freeze(copy),
+        owners:Object.freeze({open:Object.freeze([]),admittedTotal,releasedTotal,delta:0})});
     }
     function retiredFor(role){
       try{
@@ -219,7 +268,8 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         const status=maintenanceSnapshot();
         if(!status||status.phase!=='retired')return null;
         if(status.admitted!==0||status.writers!==0||status.dirty!==0||Object.values(status.busy).some(value=>value!==0))return null;
-        return Object.freeze({phase:'retired',admitted:0,writers:0,dirty:0,busy:status.busy,inflight:0,installed:true,keeper:true,owner:true,helper:false});
+        return Object.freeze({phase:'retired',admitted:0,writers:0,dirty:0,busy:status.busy,owners:status.owners,
+          inflight:0,installed:true,keeper:true,owner:true,helper:false});
       }catch{return null;}
     }
     function actualExit(child,ms){
@@ -350,7 +400,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
     async function coldAcquire(requested,expectedBase){
       if(helperUnknown())throw fail('native_helper_uncertain');if(warm||warmOpening||!Array.isArray(requested)||requested.length<1||requested.length>2||cold&&!cold.finished||coldOpening)throw fail('cold_owner_invalid');coldOpening=true;try{
       const roots=[];for(const value of requested)roots.push(fold(await canonical(value)));if(new Set(roots).size!==roots.length||roots.length===2&&(inside(roots[0],roots[1])||inside(roots[1],roots[0])))throw fail('cold_owner_invalid');
-      if(roots[0]!==expectedBase)throw fail('cold_base_changed');const ownership=await O.acquire(roots);cold=openContext(ownership,roots[0],roots,'cold');return ownership;}finally{coldOpening=false;}
+      if(roots[0]!==expectedBase)throw fail('cold_base_changed');const ownership=await O.acquire(roots,{preserveRuntime:true});cold=openContext(ownership,roots[0],roots,'cold');return ownership;}finally{coldOpening=false;}
     }
     async function withColdSource(context,work){const ctx=contextFor(context?.ownership,context?.base);if(!ctx||ctx.role!=='cold'||typeof work!=='function')throw fail('cold_source_required');ensure(ctx);
       try{const value=await work();ensure(ctx);await ctx.keeper.releaseOwner(assertFinishSafe);assertFinishSafe();ctx.finished=true;return value;}catch(error){throw retain(error);}
@@ -484,8 +534,6 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       base=fold(await canonical(base));
       const owner=await coldAcquire([base],base),ctx=cold;
       const close=async()=>{ensure(ctx);ctx.accepting=false;await ctx.keeper.releaseOwner(assertFinishSafe);assertFinishSafe();ctx.finished=true;};
-      const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),identity=stat=>({dev:String(stat.dev),ino:String(stat.ino)});
-      const sameAuthority=(a,b)=>['generation','id','mode','sha256'].every(key=>a?.[key]===b?.[key]);
       let failed=false,primary,selected,claim,pinned,profile;
       try {
         const exclusive=candidate=>candidate===owner&&assertOwnership(owner,base);
@@ -506,31 +554,8 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
           if(!found?.present||!same(found.receipt,claim.receipt)||!same(found.value,claim.value))throw fail('complete_recovery_claim_changed');
           stopped();return true;
         };
-        const directory=async target=>{
-          const parsed=p.parse(target);let cursor=parsed.root,last;
-          for(const part of ['',...target.slice(parsed.root.length).split(p.sep).filter(Boolean)]){
-            if(part)cursor=p.join(cursor,part);const stat=await io.lstat(cursor,{bigint:true});
-            if(!stat.isDirectory()||stat.isSymbolicLink()||fold(await io.realpath(cursor))!==fold(cursor))throw fail('complete_recovery_alias');last=identity(stat);
-          }return last;
-        };
-        const capture=async(file,limit)=>{
-          try {
-          await directory(p.dirname(file));const before=await io.lstat(file,{bigint:true});
-          if(!before.isFile()||before.isSymbolicLink()||before.nlink!==1n||before.size>BigInt(limit))throw fail('complete_recovery_file_invalid');
-          const handle=await io.open(file,'r'),bytes=Buffer.alloc(limit+1);let used=0;
-          try {
-            const opened=await handle.stat({bigint:true});
-            if(!opened.isFile()||opened.nlink!==1n||!same(identity(opened),identity(before))||opened.size!==before.size)throw fail('complete_recovery_file_changed');
-            for(;;){const part=await handle.read(bytes,used,bytes.length-used,null);used+=part.bytesRead;if(used>limit)throw fail('complete_recovery_file_changed');if(!part.bytesRead)break;}
-            const after=await handle.stat({bigint:true}),current=await io.lstat(file,{bigint:true});
-            if(!current.isFile()||current.isSymbolicLink()||after.nlink!==1n||current.nlink!==1n
-              ||!same(identity(after),identity(before))||!same(identity(current),identity(before))||after.size!==before.size||current.size!==before.size||used!==Number(before.size)
-              ||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||current.mtimeNs!==after.mtimeNs||current.ctimeNs!==after.ctimeNs)throw fail('complete_recovery_file_changed');
-            const data=Buffer.from(bytes.subarray(0,used));return{data,proof:{sha256:c.createHash('sha256').update(data).digest('hex'),bytes:used,identity:identity(current)}};
-          }finally{bytes.fill(0);await handle.close();}
-          }catch(cause){throw fail('complete_recovery_file_invalid',cause);}
-        };
-        const authorityOf=actual=>({generation:actual.generation,id:actual.id,mode:actual.mode,sha256:actual.proof?.sha256});
+        const directory=target=>recoveryDirectory(target,'complete_recovery');
+        const capture=(file,limit)=>captureRecoveryFile(file,limit,'complete_recovery');
         const candidateRoot=p.join(base,'.work-data','generations',candidate.id),manifestFile=p.join(base,'.work-data','active-v1.json'),headerFile=p.join(candidateRoot,'work-data-key-v1.json');
         const evidence=async intentPresent=>{
           ensure(ctx);stopped();
@@ -539,7 +564,8 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
           if((await io.readdir(controlRoot)).some(name=>!allowed.has(fold(name))))throw fail('complete_recovery_stage_pending');
           if(!intentPresent&&(await control.inspect()).pending)throw fail('complete_recovery_intent_returned');
           const actual=await N.readAuthority(base),authority=authorityOf(actual);
-          if(authority.generation!==expected.generation+1||authority.id!==candidate.id||authority.mode!==candidate.mode||fold(actual.root)!==fold(candidateRoot))throw fail('complete_recovery_authority_mismatch');
+          if(authority.generation!==expected.generation+1||authority.id!==candidate.id||authority.mode!==candidate.mode||fold(actual.root)!==fold(candidateRoot)
+            ||(candidate.pointerSha256!==undefined&&authority.sha256!==candidate.pointerSha256))throw fail('complete_recovery_authority_mismatch');
           const record=await results.read();
           if(!record||record.id!==state.id||record.operation!==state.operation||record.state!=='published'
             ||!sameAuthority(record.sourceAuthority,expected)||!sameAuthority(record.authority,authority)
@@ -610,6 +636,147 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
         intentRetired:true,claimRetired:true,currentSourceReadable:true,authority:pinned.authority,sourceProof:profile,sourceProofPhase:'before-intent-retirement'});
     }
 
+    // This repairs the special owner's physical representation only. Even a
+    // successful replay keeps the pending intent and the original handoff claim.
+    async function recoverPreparedTransition({base,settleForward=false}={}) {
+      const profile='transition_recovery', refuse=(code,cause)=>fail(profile+'_'+code,cause);
+      if(warm||cold||installed||warmOpening||coldOpening||configuredRole!==null)throw refuse('requires_cold_process');
+      if(typeof settleForward!=='boolean')throw refuse('options_invalid');
+      if(!methods(bindings.claim,['inspect'])||typeof N.recoverPreparedTransition!=='function')throw refuse('unavailable');
+      base=fold(await canonical(base));
+      const owner=await coldAcquire([base],base),ctx=cold;
+      const close=async()=>{ensure(ctx);ctx.accepting=false;await ctx.keeper.releaseOwner(assertFinishSafe);assertFinishSafe();ctx.finished=true;};
+      const exclusive=candidate=>candidate===owner&&assertOwnership(owner,base);
+      let outcome,failed=false,primary;
+      try {
+        const control=bindings.controlApi.create({base,ownership:owner,assertExclusive:exclusive,assertDurableBackup:async()=>false,flush:directories=>N.flush(directories)});
+        let verifiedPackage=null;
+        const results=bindings.resultApi.create({base,ownership:owner,assertExclusive:exclusive,readAuthority:()=>N.readAuthority(base),
+          assertDurableBackup:async value=>verifiedPackage!==null&&same(value,verifiedPackage),flush:directories=>N.flush(directories)});
+        if(!methods(control,['selectTransitionRecovery','recoverTransition'])||!methods(results,['captureTransitionBackup']))throw refuse('unavailable');
+        if(settleForward&&!methods(results,['inspect','read','write','verify']))throw refuse('unavailable');
+        const selected=await control.selectTransitionRecovery(),claim=await bindings.claim.inspect({base});
+        const {state}=selected, {candidate,expectedAuthority:expected}=state;
+        if(!claim?.present||claim.value.phase!=='owned'||claim.value.id!==state.id||claim.value.operation!==state.operation)throw refuse('claim_required');
+        const stopped=()=>{
+          const dead=pid=>{try{proc.kill(pid,0);return false;}catch(cause){return cause?.code==='ESRCH';}};
+          if(!dead(claim.value.parentPid)||!dead(claim.value.childPid))throw refuse('process_pending');
+          ensure(ctx);
+        };
+        const currentClaim=async()=>{
+          const found=await bindings.claim.inspect({base});
+          if(!found?.present||!same(found.receipt,claim.receipt)||!same(found.value,claim.value))throw refuse('claim_changed');
+          stopped();
+        };
+        const controlRoot=p.join(base,'.work-data'),generations=p.join(controlRoot,'generations');
+        const oldRoot=expected.generation===0?base:p.join(generations,expected.id),candidateRoot=p.join(generations,candidate.id);
+        const next={generation:expected.generation+1,id:candidate.id,mode:candidate.mode,sha256:candidate.pointerSha256};
+        const allowed=new Set(['active-v1.json','generations','skill-backups','maintenance-v1.json','maintenance-result-v1.json']);
+        if(!Number.isSafeInteger(next.generation)||expected.id===candidate.id||next.sha256===expected.sha256)throw refuse('authority_mismatch');
+        if(state.transitionReady&&typeof N.readRecoveryControl!=='function')throw refuse('header_reader_unavailable');
+        // Reading a ready candidate through an ordinary handle can advance
+        // its LastAccess, which is part of the durable native proof.
+        const readReadyHeader=state.transitionReady
+          ? file=>N.readRecoveryControl({base,ownership:owner,assertExclusive:exclusive,file}):undefined;
+        const evidence=async()=>{
+          const directories=[];
+          for(const target of [controlRoot,generations,oldRoot,candidateRoot])directories.push(await recoveryDirectory(target,profile));
+          if((await io.readdir(controlRoot)).some(name=>!allowed.has(fold(name))))throw refuse('stage_pending');
+          const actual=await N.readAuthority(base),authority=authorityOf(actual);
+          const inverse=state.phase==='key-ready'&&sameAuthority(authority,expected)&&fold(actual.root)===fold(oldRoot);
+          const forward=sameAuthority(authority,next)&&fold(actual.root)===fold(candidateRoot);
+          if(!inverse&&!forward)throw refuse('authority_mismatch');
+          const pointer=await captureRecoveryFile(p.join(controlRoot,'active-v1.json'),4096,profile,{allowMissing:authority.generation===0});
+          const readHeader=async(root,allowMissing,readPreserved)=>{
+            const file=await captureRecoveryFile(p.join(root,'work-data-key-v1.json'),65536,profile,{allowMissing,readPreserved});
+            if(file===null)return {header:null,proof:null};
+            try {
+              const text=file.data.toString('utf8');if(!Buffer.from(text).equals(file.data))throw refuse('header_invalid');
+              const header=JSON.parse(text);
+              if(!WorkDataKeys.validate(header)||(!allowMissing&&!header.instanceId))throw refuse('header_invalid');
+              return {header:header.instanceId?Object.freeze(header):null,proof:file.proof};
+            }catch(cause){throw refuse('header_invalid',cause);}
+            finally{file.data.fill(0);}
+          };
+          try{
+            if((pointer?.proof.sha256??null)!==authority.sha256||(pointer?.data.toString('utf8')??null)!==actual.proof.raw)
+              throw refuse('authority_mismatch');
+            const previous=await readHeader(oldRoot,expected.generation===0&&expected.mode==='plain'),target=await readHeader(candidateRoot,false,readReadyHeader);
+            if(target.proof.sha256!==candidate.headerSha256)throw refuse('header_invalid');
+            return {header:target.header,sourceHeader:previous.header,pin:{authority,disposition:inverse?'inverse':'forward',directories,
+              pointer:pointer?.proof??null,sourceHeader:previous.proof,candidateHeader:target.proof}};
+          }finally{pointer?.data.fill(0);}
+        };
+        stopped();
+        outcome=await control.recoverTransition(selected,async(recovered,checkIntent,complete)=>{
+          if(recovered!==state)throw refuse('intent_changed');
+          const original=await evidence(),backup=await results.captureTransitionBackup(state);
+          const disposition=original.pin.disposition,candidateProof=state.transitionReady!==undefined;
+          const sourceProof=disposition==='inverse'&&state.transitionSourceSha256!==undefined;
+          const sourceDigest=sourceProof?bindings.controlApi.sourceOrdinaryDigest:undefined;
+          if(sourceProof&&typeof sourceDigest!=='function')throw refuse('unavailable');
+          if(disposition==='forward'&&!candidateProof)throw refuse('candidate_unready');
+          if(disposition==='inverse'&&!sourceProof)throw refuse('source_unready');
+          if(settleForward&&disposition!=='forward')throw refuse('settlement_ineligible');
+          const assertUnchanged=async()=>{
+            if(!same((await evidence()).pin,original.pin))throw refuse('evidence_changed');
+            await currentClaim();
+            if(await checkIntent()!==true)throw refuse('intent_changed');
+            stopped();return true;
+          };
+          await assertUnchanged();
+          const replay=await N.recoverPreparedTransition({base,ownership:owner,assertExclusive:exclusive,state,disposition,
+            header:original.header,sourceHeader:original.sourceHeader,assertUnchanged,settleForward,sourceDigest});
+          const replayFields=['disposition','operationId',...(candidateProof?['candidateProofVerified']:[]),
+            ...(sourceProof?['sourceProofVerified']:[]),...(settleForward?['specialProofVerified']:[])].sort().join(',');
+          if(!plain(replay)||Object.keys(replay).sort().join(',')!==replayFields
+            ||candidateProof&&replay.candidateProofVerified!==true
+            ||sourceProof&&replay.sourceProofVerified!==true
+            ||settleForward&&replay.specialProofVerified!==true
+            ||replay.disposition!==disposition||replay.operationId!==state.transition.operationId)throw refuse('unverified');
+          if(!same(await results.captureTransitionBackup(state),backup))throw refuse('backup_changed');
+          await assertUnchanged();
+          if(settleForward){
+            verifiedPackage={path:state.backup.path,sha256:backup.sha256,bytes:backup.bytes,identity:backup.identity};
+            let resultProof=null;
+            const verifyResult=async()=>{
+              await currentClaim();
+              const actual=await results.read();
+              if(!actual||actual.id!==state.id||actual.operation!==state.operation||actual.state!=='published'
+                ||!sameAuthority(actual.sourceAuthority,expected)||!sameAuthority(actual.authority,original.pin.authority)
+                ||actual.backup.path!==verifiedPackage.path||actual.backup.sha256!==verifiedPackage.sha256
+                ||actual.backup.bytes!==verifiedPackage.bytes||!same(actual.backup.identity,verifiedPackage.identity)
+                ||Date.parse(actual.finishedAt)<Date.parse(state.createdAt)||Date.parse(actual.finishedAt)<Date.parse(claim.value.updatedAt)
+                ||resultProof&&!same(actual.proof,resultProof))throw refuse('result_mismatch');
+              resultProof=actual.proof;
+              await currentClaim();return true;
+            };
+            const prior=await results.inspect();
+            if(!prior.present||prior.value.id!==state.id){
+              await assertUnchanged();
+              const result=await results.write({schema:1,id:state.id,operation:state.operation,state:'published',
+                finishedAt:new Date().toISOString(),sourceAuthority:expected,authority:original.pin.authority,backup:verifiedPackage});
+              if(await results.verify(result)!==true)throw refuse('result_mismatch');
+            }
+            await verifyResult();
+            if(await complete(verifyResult)!==true)throw refuse('settlement_unverified');
+            await verifyResult();
+          }
+          return Object.freeze({schema:1,kind:'prepared-transition-recovery',id:state.id,operationId:replay.operationId,disposition,
+            authority:Object.freeze(original.pin.authority),ownerReplayVerified:true,candidateProofVerified:candidateProof,sourceProofVerified:sourceProof,
+            intentRetained:true,claimRetained:true,maintenanceOutcome:settleForward?'result-durable':'pending'});
+        });
+      }catch(cause){failed=true;primary=cause;}
+      if(failed){
+        try{if(N.helperMayStillRun(primary)!==false)throw primary;}catch(cause){throw retain(cause);}
+        if(helperUnknown())throw retain(primary);
+        try{await close();}catch(cause){throw retain(new AggregateError([primary,cause],'work_data_host.transition_recovery_cleanup_failed',{cause:primary}));}
+        throw primary;
+      }
+      try{await close();}catch(cause){throw retain(cause);}
+      return outcome;
+    }
+
     function runtimeHost({base,role}){
       if(!['warm','cold'].includes(role)||typeof base!=='string'||!p.isAbsolute(base))throw fail('runtime_options_invalid');base=fold(p.resolve(base));if(role==='warm'&&(!warm||warm.base!==base))throw fail('warm_source_required');if(role==='cold'&&(warm||warmOpening))throw fail('cold_source_required');
       if(configuredRole!==null&&(configuredRole!==role||configuredBase!==base))throw fail('runtime_already_bound');configuredRole=role;configuredBase=base;
@@ -650,7 +817,7 @@ const WorkDataRuntimeHost = ((p,util,clock,io,c) => {
       const host=runtimeHost({base:warm.base,role:'warm'});let runtime;try{runtime=bindings.runtimeHooks.configure(host);Object.defineProperties(hooks,descriptors);installed=true;}catch(error){throw retain(error);}ensure(warm);
       return Object.freeze({host,runtime,capabilities:Object.freeze({upload:true,worker:false,download:true,crashClaim:false,activation:false})});
     }
-    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,recoverCompletedIntent,helperMayStillRun:helperUnknown,
+    return Object.freeze({openWarm,runtimeHost,installWarm,assertOwnership,recoverSource,recoverCompletedIntent,recoverPreparedTransition,helperMayStillRun:helperUnknown,
       capabilities:Object.freeze({requiresCheckedSourceKeeper:true,sourceKeeperHost:true,uploadBrokerAssembly:true,coldOperationAssembly:true,worker:false,crashClaim:false,activation:false,productionReady:false})});
   }
   function bindCapturedResult(host,base,ownership,read){

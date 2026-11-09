@@ -77,6 +77,13 @@ const { ok } = t;
     const filler = await fx.evaluate(`new Set([...document.querySelectorAll('#railList [data-session-id]')].map(n => n.dataset.sessionId)).size`);
     ok(filler === 2, `S4 搜索时只剩命中的两条会话(${filler} 条)`);
     ok(fx.exceptions.length === 0, `S5 页面无未捕获异常(${JSON.stringify(fx.exceptions.slice(0, 2))})`);
+    const coverage = await fx.evaluate(`(() => {
+      const node = document.querySelector('#sessionSearchCoverage');
+      return node && !node.hidden && node.getAttribute('role') === 'status' ? node.textContent : '';
+    })()`);
+    ok(coverage && /\d+\D+\d+/.test(coverage), 'S6 左栏显示可访问的索引覆盖率');
+    await fx.evaluate(`(() => { const s = document.getElementById('sessionSearch'); s.value = ''; s.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+    ok(await fx.evaluate(`document.getElementById('sessionSearchCoverage').hidden`), 'S7 清空搜索同步隐藏旧覆盖率');
   } catch (error) {
     t.fail('fatal: ' + (error && error.stack || error));
   } finally {

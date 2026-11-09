@@ -280,6 +280,56 @@ try {
   // 摘录取命中词最多的那一段
   const multi = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('Range 请求头'), auth);
   ok(/Range 请求头/.test((multi.json?.results || [])[0]?.snippet || ''), 'H4 摘录取命中查询词最多的那一段');
+
+  const needle = 'OriginalUploadTailCitation', prefix = 'earlier '.repeat(2000), attachmentText = prefix + needle;
+  const uploaded = await post(PORT, '/api/upload', { name: 'long-note.txt', data: Buffer.from(attachmentText).toString('base64') }, auth);
+  const attachment = uploaded?.file;
+  const ownedUpload = uploaded?.ok === true && /^file_[a-f0-9]{16}$/.test(attachment?.id || '') && attachment.name === 'long-note.txt';
+  ok(ownedUpload && !attachment.textPreview.includes(needle), 'I1 真实上传的正文尾部不在持久化预览里');
+  if (ownedUpload) {
+    const sessionFile = path.join(HOME, 'sessions', 'sess-alpha.json');
+    const head = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
+    fs.appendFileSync(path.join(HOME, 'sessions', 'sess-alpha.messages.ndjson'), JSON.stringify({
+      id: 'attachment_search_source', role: 'user', content: '资料附件', turnSeq: 2, attachments: [attachment],
+    }) + '\n');
+    fs.writeFileSync(sessionFile, JSON.stringify({ ...head, messageCount: head.messageCount + 1 }));
+    const attachmentQuery = '/api/sessions/search?q=' + encodeURIComponent(needle);
+    const found = await get(PORT, attachmentQuery, auth);
+    const hit = found.json?.results?.find(row => row.id === 'sess-alpha');
+    ok(found.status === 200 && hit?.reference?.messageId === 'attachment_search_source' && hit.reference.source === 'attachments.0.extractedText'
+      && hit.reference.matchStart === prefix.length && hit.reference.matchEnd === attachmentText.length
+      && found.json.coverage.attachments.unverifiedFullText === 0 && found.json.coverage.complete === true,
+    'I2 搜索返回附件完整正文坐标和已验证覆盖率');
+    const before = readTypedIndex().entries['sess-alpha'];
+    fs.unlinkSync(path.join(HOME, 'uploads', attachment.id, attachment.name));
+    const missing = await get(PORT, attachmentQuery, auth), after = readTypedIndex().entries['sess-alpha'];
+    ok(missing.status === 200 && missing.json.results.length === 0 && missing.json.coverage.attachments.unverifiedFullText === 1
+      && missing.json.coverage.complete === false && before.generation !== after.generation
+      && before.shards.every(ref => !fs.existsSync(path.join(indexRoot, 'sess-alpha', before.generation + '.' + ref.ordinal + '.json'))),
+    'I3 附件消失后拒绝旧命中并退役对应分片');
+  }
+  const pause = await post(PORT, '/api/config', { sessionSearchIndexPausedV1: true }, auth);
+  ok(pause?.ok === true && pause.config.sessionSearchIndexPausedV1 === true
+    && JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8')).sessionSearchIndexPausedV1 === true,
+  'J1 用户的暂停选择经配置入口持久化');
+  const pendingFile = path.join(HOME, 'sessions', 'sess-delta.json');
+  const pendingHead = JSON.parse(fs.readFileSync(pendingFile, 'utf8'));
+  fs.appendFileSync(path.join(HOME, 'sessions', 'sess-delta.messages.ndjson'), JSON.stringify({
+    id: 'session_pending_search_source', role: 'user', content: 'PendingIndexSourceNeedle', turnSeq: 2,
+  }) + '\n');
+  fs.writeFileSync(pendingFile, JSON.stringify({ ...pendingHead, messageCount: pendingHead.messageCount + 1 }));
+  const pausedReady = await get(PORT, '/api/sessions/search?q=here-string', auth);
+  const pausedNew = await get(PORT, '/api/sessions/search?q=PendingIndexSourceNeedle', auth);
+  ok(pausedReady.status === 200 && pausedReady.json?.results?.[0]?.id === 'sess-beta'
+    && pausedNew.status === 200 && pausedNew.json.coverage.phase === 'paused'
+    && pausedNew.json.coverage.pendingSessions >= 1 && pausedNew.json.results.length === 0,
+  'J2 暂停期间已有分片可查，变更后的源明确显示待构建');
+  const resume = await post(PORT, '/api/config', { sessionSearchIndexPausedV1: false }, auth);
+  const resumed = await get(PORT, '/api/sessions/search?q=PendingIndexSourceNeedle', auth);
+  ok(resume?.ok === true && resume.config.sessionSearchIndexPausedV1 === false
+    && resumed.status === 200 && resumed.json.coverage.phase === 'idle'
+    && resumed.json.results[0]?.reference?.messageId === 'session_pending_search_source',
+  'J3 恢复后下一次搜索会从已提交的新源构建分片');
 } finally {
   kill(server);
   kill(serverOff);

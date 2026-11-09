@@ -437,7 +437,7 @@ function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
 function writePretenderIndexFile(value) {
   const run = pretenderIndexRuntime.writeChain.then(() => writePretenderIndexFileNow(value));
   pretenderIndexRuntime.writeChain = run.catch(() => false);
-  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(run);
+  if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.track) WorkDataMaintenanceHooks.track(run, 'pretender-index');
   return run;
 }
 async function writePretenderIndexFileNow(value) {

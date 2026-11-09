@@ -27,13 +27,30 @@ test('tracked writers appear in the owner ledger until they settle', async () =>
   const maintenance = api.WorkDataMaintenance.create({ owns: () => true, snapshot: () => ({ dirty: 0, busy: {} }) });
   let release;
   const pending = new Promise(resolve => { release = resolve; });
-  maintenance.track(pending);
+  maintenance.track(pending, 'synthetic-target');
   const during = maintenance.status();
   assert.equal(during.owners.open.some(row => row.kind === 'writer'), true);
+  assert.equal(during.owners.open[0].target, 'synthetic-target');
   assert.equal(during.owners.delta, 1);
   release();
   await pending;
   const settled = maintenance.status();
   assert.equal(settled.owners.open.length, 0);
   assert.equal(settled.owners.delta, 0);
+});
+test('the barrier waits on the tracked promise and surfaces a write failure', async () => {
+  const api = loadServerInternals(['WorkDataMaintenance']);
+  const maintenance = api.WorkDataMaintenance.create({
+    snapshot: () => ({ pending: [], dirty: 0, busy: {} }),
+    pause: () => ({}), resume() {}, flush() {}, yield: () => new Promise(resolve => setImmediate(resolve)),
+  });
+  let reject;
+  const pending = new Promise((resolve, fail) => { reject = fail; });
+  maintenance.track(pending, 'synthetic-failed-write');
+  const lease = maintenance.begin(), idle = lease.idle(), failure = new Error('synthetic write failure');
+  await new Promise(resolve => setImmediate(resolve));
+  reject(failure);
+  await assert.rejects(idle, error => error === failure);
+  assert.throws(() => lease.assertIdle(), /not_idle/);
+  lease.resume();
 });

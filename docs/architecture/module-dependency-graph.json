@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 141,
-    "providedSymbols": 4336,
-    "requiredSymbols": 4287,
-    "edges": 940,
+    "providedSymbols": 4349,
+    "requiredSymbols": 4300,
+    "edges": 947,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1689,6 +1689,13 @@
       ],
       "requires": [
         {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -1809,6 +1816,13 @@
         "WorkDataMaintenanceResult"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "text",
@@ -2197,6 +2211,7 @@
         "journalGcSinceScan",
         "journalGlobalBytes",
         "journalGlobalSweep",
+        "journalGlobalSweepContents",
         "journalGlobalSweepOnce",
         "journalGzipIdentity",
         "journalGzipStore",
@@ -2205,16 +2220,22 @@
         "journalNextEntrySeq",
         "journalPreflightIndex",
         "journalPreflightMutation",
+        "journalPruneSealedIndex",
         "journalReadBefore",
         "journalReadHistory",
         "journalReadIndex",
         "journalReadIndexForWrite",
+        "journalReadRetentionIndex",
         "journalRecord",
         "journalRecordMany",
         "journalRecordManyContents",
         "journalRecordManyUnlocked",
         "journalRecordUnlocked",
         "journalResolveTurnSeq",
+        "journalRetentionAssert",
+        "journalRetentionAuthenticate",
+        "journalRetentionDeferred",
+        "journalRetentionStat",
         "journalRevertChains",
         "journalRevertLogPath",
         "journalRevertLogPrune",
@@ -2226,6 +2247,7 @@
         "journalRevertRecordOf",
         "journalRollback",
         "journalRollbackContents",
+        "journalScan",
         "journalSessionCtx",
         "journalSweepBackoffUntil",
         "journalSweepInFlight",
@@ -16502,6 +16524,13 @@
           ]
         },
         {
+          "provider": "01v-work-data-manifest.js",
+          "symbol": "WorkDataManifest",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "flushSessionIndexSync",
           "kinds": [
@@ -16569,6 +16598,13 @@
           "symbol": "sessionHeadIsWorkDataError",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "workDataKeys",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -26507,6 +26543,7 @@
         "migrationPidAlive",
         "migrationPromptKeys",
         "migrationReadBackupHistory",
+        "migrationRecoverSkillBackup",
         "migrationRecoverSkillBackups",
         "migrationRecoveryNeeded",
         "migrationRecycle",
@@ -26537,6 +26574,9 @@
         "migrationUndoCapsule",
         "migrationUndoSkillCopy",
         "migrationWithCapturedBytes",
+        "readLegacyRuntimePreserved",
+        "readMigrationControlPreserved",
+        "readWorkDataControlPreserved",
         "writeMigrationLog"
       ],
       "requires": [
@@ -26742,6 +26782,13 @@
         {
           "provider": "01aa-work-data-tree.js",
           "symbol": "WorkDataTree",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01g-server-ownership.js",
+          "symbol": "ServerOwnership",
           "kinds": [
             "read"
           ]
@@ -30422,12 +30469,41 @@
       "provides": [
         "SessionFullTextIndex",
         "bindSessionFullTextIndex",
+        "createSessionFullTextAttachmentSource",
         "sessionFullTextOwner"
       ],
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MediaImageHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
           "kinds": [
             "read"
           ]
@@ -30490,6 +30566,13 @@
           ]
         },
         {
+          "provider": "01ak-work-data-attachment-runtime.js",
+          "symbol": "WorkDataAttachmentRuntime",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01p-work-data-store.js",
           "symbol": "WorkDataStore",
           "kinds": [
@@ -30511,8 +30594,22 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "sanitizeFsSegmentName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06h-retrieval-index.js",
           "symbol": "retrievalTerms",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11c-file-visual-io.js",
+          "symbol": "FileVisualIo",
           "kinds": [
             "read"
           ]
@@ -31103,6 +31200,13 @@
         {
           "provider": "01j-local-crypto.js",
           "symbol": "LocalSecretCrypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01o-work-data-keys.js",
+          "symbol": "WorkDataKeys",
           "kinds": [
             "read"
           ]
@@ -36143,6 +36247,7 @@
       "from": "01ae-work-data-maintenance-result.js",
       "to": "00-boot.js",
       "symbols": [
+        "path",
         "text"
       ],
       "direction": "backward"
@@ -36184,6 +36289,14 @@
       "to": "01af-work-data-attachment-chunks.js",
       "symbols": [
         "WorkDataAttachmentChunks"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "01aj-work-data-attachment-catalogs.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "text"
       ],
       "direction": "backward"
     },
@@ -40318,6 +40431,14 @@
     },
     {
       "from": "13-http-router.js",
+      "to": "01v-work-data-manifest.js",
+      "symbols": [
+        "WorkDataManifest"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13-http-router.js",
       "to": "02-session-store.js",
       "symbols": [
         "flushSessionIndexSync",
@@ -40330,6 +40451,7 @@
         "readSessionHeadText",
         "readSessionRouteHead",
         "sessionHeadIsWorkDataError",
+        "workDataKeys",
         "workspaceBaselineIsCodePath",
         "workspaceBaselinePathKey"
       ],
@@ -41951,10 +42073,14 @@
       "from": "13ap-session-fulltext-index.js",
       "to": "00-boot.js",
       "symbols": [
+        "MediaImageHooks",
         "SessionFullTextHooks",
         "WorkDataMaintenanceHooks",
         "WorkDataRootHooks",
+        "crypto",
+        "decodeTextFileBytes",
         "fsp",
+        "path",
         "paths",
         "text"
       ],
@@ -41967,6 +42093,14 @@
         "atomicWriteJson",
         "readConfig",
         "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "01ak-work-data-attachment-runtime.js",
+      "symbols": [
+        "WorkDataAttachmentRuntime"
       ],
       "direction": "backward"
     },
@@ -41989,9 +42123,25 @@
     },
     {
       "from": "13ap-session-fulltext-index.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "sanitizeFsSegmentName"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
       "to": "06h-retrieval-index.js",
       "symbols": [
         "retrievalTerms"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13ap-session-fulltext-index.js",
+      "to": "11c-file-visual-io.js",
+      "symbols": [
+        "FileVisualIo"
       ],
       "direction": "backward"
     },
@@ -42066,6 +42216,14 @@
       "to": "01j-local-crypto.js",
       "symbols": [
         "LocalSecretCrypto"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13aq-work-data-native-adapters.js",
+      "to": "01o-work-data-keys.js",
+      "symbols": [
+        "WorkDataKeys"
       ],
       "direction": "backward"
     },
@@ -45336,6 +45494,14 @@
       "to": "01aa-work-data-tree.js",
       "symbols": [
         "WorkDataTree"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13u-migration-center.js",
+      "to": "01g-server-ownership.js",
+      "symbols": [
+        "ServerOwnership"
       ],
       "direction": "backward"
     },

@@ -122,6 +122,27 @@ test('standalone captured-file consumers still verify the live carrier before re
     assert.equal(f.state.native,4);assert.equal(f.state.sourceIO,0);
   }finally{captured.release();}
 });
+test('a read-only scope shares one live readback across grants and refuses to return a stale result',async t=>{
+  const f=await fixture(t),a=await f.put('sessions/one.json','{"id":"one"}'),b=await f.put('sessions/two.json','{"id":"two"}');
+  const captured=await f.reader.capture(f.source);
+  const read=async file=>{
+    const token=await f.api.tree.borrowCapturedFile(captured,file,f.owner);
+    try{return (await f.api.tree.readCapturedFile(token,file)).toString('utf8');}
+    finally{token.release();}
+  };
+  try{
+    await assert.rejects(f.api.tree.readCapturedScope(captured,{...f.owner},()=>assert.fail()),/captured_file_invalid/);
+    const values=await f.api.tree.readCapturedScope(captured,f.owner,async()=>[await read(a),await read(b)]);
+    assert.deepEqual(values,['{"id":"one"}','{"id":"two"}']);
+    assert.equal(f.state.native,4);
+    await assert.rejects(f.api.tree.readCapturedScope(captured,f.owner,async()=>{
+      const before=await read(a);
+      await io.writeFile(b,'{"id":"changed"}');
+      return [before,await read(b)];
+    }),{code:'work_data_tree.source_changed'});
+    assert.equal(f.state.native,6);
+  }finally{captured.release();}
+});
 test('paired census observes a binding rejection before a provider returns without awaiting it',async t=>{
   const f=await fixture(t,{paired:true}),name='sessions/one.json';await f.put(name,'{"id":"one"}');
   f.state.earlyBindFailure=true;

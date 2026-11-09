@@ -1058,6 +1058,10 @@
   "session.rename.placeholder": "线程名称",
   "session.running": "运行中",
   "session.search": "搜索线程",
+  "session.searchCoverage": "已索引 {{indexed}} / {{total}} 个线程。",
+  "session.searchPaused": "索引构建已暂停。",
+  "session.searchUnverifiedAttachments": "另有 {{count}} 个附件的全文待验证。",
+  "session.searchUnverifiedMessages": "另有 {{count}} 条消息包含未验证的文字。",
   "session.thisWeek": "本周",
   "session.today": "今天",
   "session.unpin": "取消置顶",
@@ -3825,6 +3829,8 @@
   ,"settings.catalog.monitorIncremental.hint": "只推送变化的部分；关掉后退回每 2 秒整体刷新（排查显示问题时用）。"
   ,"settings.catalog.sessionSearchIndexV1": "线程正文搜索索引"
   ,"settings.catalog.sessionSearchIndexV1.hint": "左栏搜索能搜到线程正文；关掉后只搜标题。"
+  ,"settings.catalog.sessionSearchIndexPausedV1": "暂停构建搜索索引"
+  ,"settings.catalog.sessionSearchIndexPausedV1.hint": "已建索引仍可搜索。关闭暂停后，下次搜索会继续构建。"
   ,"settings.catalog.runtimeMemoryVectorRecallV1": "记忆语义检索"
   ,"settings.catalog.runtimeMemoryVectorRecallV1.hint": "除了关键词，再按意思找相关记忆（纯本机计算）。"
   ,"settings.catalog.runtimeSummarySingleShotV1": "摘要单发优先"

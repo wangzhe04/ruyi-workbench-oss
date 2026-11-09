@@ -54,13 +54,15 @@ const WorkDataMigrationHost = ((io,p,c) => {
     const value=enabled?'true':'false';if(spans.length){for(const[start,end]of spans.reverse())text=text.slice(0,start)+value+text.slice(end);return text;}
     return text.slice(0,pos)+(Object.keys(parsed).length?',':'')+'"workDataEncryptionV1":'+value+text.slice(pos);
   }
-  function create({base,ownership,assertExclusive,assertExclusiveSync,preservedRead,manifest,protector,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,uploadsOwnerFactory,uploadsRestoreFactory,assertSpecialCoverage,maintenanceResultOwner,writeJson,limits={}}={}){
+  function create({base,ownership,assertExclusive,assertExclusiveSync,preservedRead,manifest,protector,assertDurableBackup,assertIntent,onCandidate,onKeyReady,onSpecialPrepared,onSpecialReady,specialOwnerFactory,uploadsOwnerFactory,uploadsRestoreFactory,assertSpecialCoverage,maintenanceResultOwner,writeJson,limits={}}={}){
     if(typeof base!=='string'||!p.isAbsolute(base)||!ownership||!Array.isArray(ownership.roots)||!ownership.roots.some(root=>key(p.resolve(root))===key(p.resolve(base)))
       ||[assertExclusive,assertDurableBackup,assertIntent,onCandidate,onKeyReady,specialOwnerFactory,assertSpecialCoverage,writeJson].some(fn=>typeof fn!=='function')
       ||!manifest||['readActive','prepare','commit'].some(name=>typeof manifest[name]!=='function')||!protector)fail('host_invalid');
     if(assertExclusiveSync!==undefined&&typeof assertExclusiveSync!=='function')fail('host_invalid');
     if(uploadsOwnerFactory!==undefined&&typeof uploadsOwnerFactory!=='function')fail('host_invalid');
     if(uploadsRestoreFactory!==undefined&&typeof uploadsRestoreFactory!=='function')fail('host_invalid');
+    if(onSpecialPrepared!==undefined&&typeof onSpecialPrepared!=='function')fail('host_invalid');
+    if(onSpecialReady!==undefined&&typeof onSpecialReady!=='function')fail('host_invalid');
     if(preservedRead!==undefined&&(preservedRead?.profile!=='bounded-native-v1'||typeof preservedRead.capturePreserved!=='function'||typeof WorkDataTree.createPreserved!=='function'))fail('preserved_reader_invalid');
     base=p.resolve(base);const tree=WorkDataTree.create(limits),sourceTree=preservedRead===undefined?tree:WorkDataTree.createPreserved({capturePreserved:preservedRead.capturePreserved,ownership,assertExclusive,assertExclusiveSync,limits}),issued=new WeakMap(),published=new WeakMap();let busy=false;
     const admission=async()=>{if(await assertExclusive(ownership)!==true)fail('ownership_required');};
@@ -157,12 +159,23 @@ const WorkDataMigrationHost = ((io,p,c) => {
       const handle=await io.open(file,'r'),scratch=Buffer.alloc(65536),digest=c.createHash('sha256');let bytes=0;try{const opened=await handle.stat({bigint:true});if(String(opened.dev)!==String(stat.dev)||String(opened.ino)!==String(stat.ino)||opened.nlink!==1n)fail('intent_changed');for(;;){const part=await handle.read(scratch,0,Math.min(scratch.length,1048576-bytes+1),null);if(!part.bytesRead)break;bytes+=part.bytesRead;if(bytes>1048576)fail('intent_changed');digest.update(scratch.subarray(0,part.bytesRead));}const after=await handle.stat({bigint:true});if(bytes!==Number(stat.size)||after.mtimeNs!==opened.mtimeNs||after.ctimeNs!==opened.ctimeNs||digest.digest('hex')!==owned.sha256)fail('intent_changed');}finally{scratch.fill(0);await handle.close();}
       return Object.freeze({name:owned.name,sha256:owned.sha256,identity:String(stat.dev)+':'+String(stat.ino)});}
     const receipt=expected=>Object.freeze({...expected,proof:Object.freeze({...expected.proof})});
+    async function assertPlanIntent(plan){
+      await admission();
+      const [dev,ino]=plan.intent.identity.split(':');
+      await acceptIntent({ownedFile:{name:plan.intent.name,sha256:plan.intent.sha256,identity:{dev,ino}}});
+      await admission();
+      return true;
+    }
     async function checkSource(plan){
-      await current(plan.expected);await acceptIntent({ownedFile:{name:plan.intent.name,sha256:plan.intent.sha256,identity:{dev:plan.intent.identity.split(':')[0],ino:plan.intent.identity.split(':')[1]}}});
+      await current(plan.expected);await assertPlanIntent(plan);
       return usingSource(await sourceTree.capture(base),snapshot=>validateSource(plan,snapshot));
     }
     async function validateSource(plan,snapshot){
         const files=new Map(plan.sourceProof.sourceFiles.map(row=>[key(row.path),row])),dirs=new Map(plan.sourceProof.sourceDirectories.map(row=>[key(row.path),row]));
+        for(const {before,after} of plan.specialDeltas||[]){
+          if(before)(before.dir?dirs:files).delete(key(before.path));
+          if(after)(after.dir?dirs:files).set(key(after.path),after);
+        }
         const candidate=name=>plan.candidate&&inside(plan.candidate.root,p.join(base,...name.split('/')));
         for(const file of snapshot.files){const prior=files.get(key(file.path));if(candidate(file.path))continue;
           const owned=plan.specialFiles?.get(key(file.path));if(owned){const stat=await io.lstat(p.join(base,...file.path.split('/')),{bigint:true});if(owned.sha256!==file.sha256||owned.identity!==String(stat.dev)+':'+String(stat.ino))fail('special_owner_changed');continue;}
@@ -177,24 +190,78 @@ const WorkDataMigrationHost = ((io,p,c) => {
         }
         for(const row of dirs.values())fail('source_changed',{file:row.path});
     }
+    function acceptSpecialDelta(plan,deltas){
+      if(!Array.isArray(deltas)||!deltas.length)fail('special_owner_change_proof_required');
+      const originals=new Map([...plan.sourceProof.sourceFiles,...plan.sourceProof.sourceDirectories].map(row=>[key(row.path),row]));
+      const seen=new Set();
+      for(const delta of deltas){
+        const {before,after}=delta,name=before?.path||after?.path;
+        const folded=typeof name==='string'?key(name):'';
+        const validScope=folded.startsWith('.work-data/skill-backups/')||plan.legacySpecial&&
+          (folded==='.work-data/skill-backups'||folded==='migrations/skill-backups'||folded.startsWith('migrations/skill-backups/'));
+        if(!relative(name)||!validScope||seen.has(folded)
+          ||before&&after&&key(before.path)!==key(after.path))fail('special_owner_changed');
+        seen.add(key(name));
+        const original=originals.get(key(name));
+        if(Boolean(original)!==Boolean(before)||before&&(original.identity!==before.identity||Boolean(original.sha256)===before.dir
+          ||!before.dir&&['sha256','mtimeNs','ctimeNs'].some(field=>original[field]!==before[field])))fail('special_owner_changed');
+      }
+      plan.specialDeltas=deltas;
+    }
+    async function verifySpecialSource(plan){
+      if(typeof plan.special.capturePortable!=='function')fail('special_owner_change_proof_required');
+      await usingSource(await sourceTree.capture(base),async complete=>{
+        await validateSource(plan,complete);
+        const candidate=name=>plan.candidate&&inside(plan.candidate.root,p.join(base,...name.split('/')));
+        const files=complete.files.filter(row=>!candidate(row.path)),directories=complete.directories.filter(name=>!candidate(name));
+        const source=WorkDataRecovery.skillBackupSource(files,directories);
+        if(source.sourcePath!==plan.specialCoverage.sourcePath||source.sourceSha256!==plan.specialCoverage.sourceSha256)fail('special_owner_changed');
+        const physicalRows=new Map(complete.files.map(row=>[row.path,row]));
+        const readCaptured=async(row,d)=>{
+          // The capsule owner passes authenticated embedded provenance as
+          // independent bytes. It cannot reopen the enclosing archive as text.
+          if(physicalRows.get(row.path)?.data!==row.data){
+            if(typeof plan.special.readInlineProvenance!=='function')fail('special_owner_change_proof_required');
+            return plan.special.readInlineProvenance(row.data,d);
+          }
+          const file=p.join(base,...row.path.split('/'));let authenticated=false;
+          const text=await WorkDataStore.createText({...d,file:()=>file,maxPlaintextBytes:d.maxPlaintextBytes||256*1024*1024,
+            ...(preservedRead===undefined?{}:{capturedFile:()=>WorkDataTree.borrowCapturedFile(complete,file,ownership,{maxBytes:256*1024*1024})}),
+            keys:plan.keys,enabled:()=>false,writeJson,validateSealedText:()=>{authenticated=true;return true;}}).read();
+          return{text,authenticated};
+        };
+        const portable=await plan.special.capturePortable({files,directories,source,readCaptured,expected:plan.expected});
+        await usingSource(portable,async()=>{
+          const value=JSON.parse(strict(portable.data));
+          const catalog=value.records.some(row=>row.kind==='catalog');
+          const legacyNative=plan.legacySpecial&&!catalog&&value.rawTrees?.length&&value.rawTrees.every(row=>key(row.path).startsWith('migrations/skill-backups/'))
+            &&!value.originals?.length&&!value.terminalCapsules?.length&&!value.settledRepresentations?.length;
+          if((plan.legacySpecial?!legacyNative:!catalog)||portable.profile.originalObjects!==plan.specialCoverage.originalObjects
+            ||(!plan.nonemptySpecial&&value.records.some(row=>row.kind==='history'||row.kind==='binding'&&row.value.entries.length)))fail('special_owner_change_proof_required');
+          if(plan.nonemptySpecial&&portable.nativeWitnessSha256!==plan.specialCoverage.portableSha256)fail('special_owner_changed');
+        });
+        await sourceTree.verify(complete);
+        await validateSource(plan,complete);
+      });
+    }
     // Candidate and intent writes change a legacy base's complete census.
     // Take a fresh read-only scope after those writes; each file must still
     // match the ORIGINAL durable witness, never a redefined current baseline.
     function codecSourceScope(plan){
       if(preservedRead===undefined)return {};
       return {withSourceReadScope:async work=>{
-        await current(plan.expected);await acceptIntent({ownedFile:{name:plan.intent.name,sha256:plan.intent.sha256,identity:{dev:plan.intent.identity.split(':')[0],ino:plan.intent.identity.split(':')[1]}}});
+        await current(plan.expected);await assertPlanIntent(plan);
         return usingSource(await sourceTree.capture(base),async captured=>{
           await validateSource(plan,captured);
-          const result=await work(async file=>{
+          const result=await WorkDataTree.readCapturedScope(captured,ownership,()=>work(async file=>{
             if(typeof file!=='string'||!p.isAbsolute(file)||!inside(plan.expected.root,file))fail('source_changed');
             const name=p.relative(base,file).split(p.sep).join('/'),prior=plan.sourceProof.sourceFiles.find(row=>key(row.path)===key(name)),row=captured.files.find(row=>key(row.path)===key(name));
             if(!prior||!row||prior.sha256!==row.sha256)fail('source_changed',{file:name});
             const stat=await io.lstat(file,{bigint:true});
             if(prior.identity!==String(stat.dev)+':'+String(stat.ino)||prior.mtimeNs!==String(stat.mtimeNs)||prior.ctimeNs!==String(stat.ctimeNs))fail('source_changed',{file:name});
             return WorkDataTree.borrowCapturedFile(captured,file,ownership,{maxBytes:256*1024*1024});
-          });
-          await sourceTree.verify(captured);await validateSource(plan,captured);return result;
+          }));
+          await validateSource(plan,captured);return result;
         });
       }};
     }
@@ -239,8 +306,20 @@ const WorkDataMigrationHost = ((io,p,c) => {
           const legacy=key(p.resolve(expected.root))===key(base),rows=source.files.map(file=>({...file,...classify(file.path,legacy)}));
           for(const name of source.directories){if(key(name)==='.work-data/maintenance-result-v1.json')fail('control_owner_required');classify(name,legacy,true);} // reserved paths and unresolved stages cannot hide in an empty directory.
           for(const row of rows)if(key(row.path)==='.work-data/maintenance-result-v1.json'){if(typeof maintenanceResultOwner?.decode!=='function')fail('control_owner_required');maintenanceResultOwner.decode(row.data);}
-          const specialPaths=[...source.directories,...source.files.map(row=>row.path)].filter(nativeScope);
-          if(specialPaths.length){if(await assertSpecialCoverage({backupReceipt,sourceProof,sourcePaths:Object.freeze(specialPaths)})!==true||sourceProof.specialCoverage?.type!=='skill-backup-portable'||sourceProof.specialCoverage.originalObjects!=='refused')fail('special_backup_coverage_required');plan.existingSpecial=true;plan.specialCoverage=Object.freeze({...sourceProof.specialCoverage});}
+          const specialPaths=[...new Set([...source.directories,...source.files.map(row=>row.path),...plan.sourceProof.sourceDirectories.map(row=>row.path),...plan.sourceProof.sourceFiles.map(row=>row.path)].filter(nativeScope))];
+          if(specialPaths.length){
+            if(await assertSpecialCoverage({backupReceipt,sourceProof,sourcePaths:Object.freeze(specialPaths)})!==true
+              ||sourceProof.specialCoverage?.type!=='skill-backup-portable'||!['refused','new-owned-portable'].includes(sourceProof.specialCoverage.originalObjects))fail('special_backup_coverage_required');
+            plan.existingSpecial=true;plan.specialCoverage=Object.freeze({...sourceProof.specialCoverage});
+            plan.nonemptySpecial=plan.specialCoverage.originalObjects==='new-owned-portable';
+            plan.legacySpecial=plan.nonemptySpecial&&expected.id===null&&key(plan.specialCoverage.sourcePath)==='migrations/skill-backups';
+            if(plan.nonemptySpecial&&(!onSpecialPrepared||!onSpecialReady||!preservedRead||!/^[a-f0-9]{64}$/.test(plan.specialCoverage.portableSha256||'')))fail('special_owner_change_proof_required');
+            if(plan.nonemptySpecial&&expected.id!==null){
+              const local='.work-data/generations/'+expected.id+'/migrations/skill-backups/';
+              if([...plan.sourceProof.sourceFiles,...plan.sourceProof.sourceDirectories].some(row=>key(row.path).startsWith(local)))
+                fail('special_owner_change_proof_required');
+            }
+          }
           plan.mutationStarted=true;plan.candidate=await manifest.prepare({expected:plan.expected,mode:targetMode});if(!/^[a-f0-9]{48}$/.test(plan.candidate.id||'')||key(plan.candidate.root)!==key(p.join(base,'.work-data','generations',plan.candidate.id))||plan.candidate.generation!==expected.generation+1||plan.candidate.mode!==targetMode)fail('candidate_invalid');await admission();plan.intent=await acceptIntent(await onCandidate({backupReceipt,expected:plan.expected,candidate:plan.candidate}));await checkSource(plan);
           const headerRow=rows.find(row=>key(row.path)==='work-data-key-v1.json'),sourceHeader=headerRow?JSON.parse(strict(headerRow.data)):WorkDataKeys.empty();if(!WorkDataKeys.validate(sourceHeader))fail('key_header_invalid');
           const oldKeys=WorkDataKeys.create({protector,enabled:()=>false,store:{read:async()=>sourceHeader}});plan.disposable.push(oldKeys);let targetHeader,staged;
@@ -251,14 +330,11 @@ const WorkDataMigrationHost = ((io,p,c) => {
           // stageRecovered above proves the unchanged work master/instance. The
           // V3 native owner intentionally requires one identical keys object;
           // independent old/new header factories remain confined to the codecs.
-          plan.special=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:plan.keys,targetKeys:plan.keys});if(!plan.special||['prepare','prepareRepresentation','prepareBindings','recover','recoverRepresentation','activate','verifyPublished'].some(name=>typeof plan.special[name]!=='function'))fail('special_owner_invalid');
-          if(plan.existingSpecial){
-            if(typeof plan.special.capturePortable!=='function')fail('special_owner_change_proof_required');await usingSource(await sourceTree.capture(base),async complete=>{const source=WorkDataRecovery.skillBackupSource(complete.files,complete.directories);if(source.sourcePath!==plan.specialCoverage.sourcePath||source.sourceSha256!==plan.specialCoverage.sourceSha256)fail('special_owner_changed');
-              const readCaptured=async(row,d)=>{let authenticated=false;const text=await WorkDataStore.createText({...d,file:()=>p.join(base,...row.path.split('/')),...(preservedRead===undefined?{}:{capturedFile:()=>WorkDataTree.borrowCapturedFile(complete,p.join(base,...row.path.split('/')),ownership,{maxBytes:256*1024*1024})}),keys:plan.keys,enabled:()=>false,writeJson,validateSealedText:()=>{authenticated=true;return true;}}).read();return{text,authenticated};};
-              const portable=await plan.special.capturePortable({files:complete.files,directories:complete.directories,source,readCaptured,expected:plan.expected});await usingSource(portable,async()=>{const value=JSON.parse(strict(portable.data));if(!value.records.some(row=>row.kind==='catalog')||value.records.some(row=>row.kind==='history'||row.kind==='binding'&&row.value.entries.length))fail('special_owner_change_proof_required');});await sourceTree.verify(complete);
-            });
-          }
-          plan.specialToken=await plan.special.prepare({expected:plan.expected,candidate:plan.candidate});await admission();if(!plan.existingSpecial)await emptyStoreProof(plan);
+          const ownerRead=plan.nonemptySpecial?{preservedRead,ownership,assertExclusive,assertExclusiveSync}:{};
+          plan.special=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:plan.keys,targetKeys:plan.keys,...ownerRead});if(!plan.special||['prepare','prepareRepresentation','prepareBindings','recover','recoverRepresentation','activate','verifyPublished'].some(name=>typeof plan.special[name]!=='function'))fail('special_owner_invalid');
+          if(plan.existingSpecial&&!plan.nonemptySpecial)await verifySpecialSource(plan);
+          plan.specialToken=await plan.special.prepare({expected:plan.expected,candidate:plan.candidate,requireEstablished:plan.nonemptySpecial,
+            deferLegacyRelocation:plan.legacySpecial});await admission();if(!plan.existingSpecial)await emptyStoreProof(plan);
           const bridge=WorkDataMigrationCodecs.create({sourceRoot:plan.expected.root,targetRoot:plan.candidate.root,sourceKeys,targetKeys:plan.keys,writeJson,...codecSourceScope(plan)});
           const transformed=[];for(const row of rows){if(row.kind==='stable-owner'||row.kind==='special-backup'||key(row.path)==='work-data-key-v1.json')continue;await admission();
             if(row.kind==='codec'||row.kind==='retained'){const result=await bridge[row.kind==='retained'?'transformRetained':'transform']({relative:row.path,targetMode});targetEntry(plan,row.path,result.targetPhysicalHash);transformed.push(Object.freeze({path:row.path,...result}));continue;}
@@ -290,39 +366,71 @@ const WorkDataMigrationHost = ((io,p,c) => {
               await rebuildUploads();
             }
           }
-          await plan.special.prepareRepresentation(plan.specialToken,{mode:targetMode});await admission();const binding=await plan.special.prepareBindings(plan.specialToken);if(binding.ready!==true)fail('special_owner_required');
+          const onPrepared=plan.nonemptySpecial?async transition=>{
+            await admission();
+            plan.intent=await acceptIntent(await onSpecialPrepared({candidate:plan.candidate,transition}));
+            plan.transition=transition;
+            await admission();
+            return true;
+          }:undefined;
+          if(plan.nonemptySpecial)await verifySpecialSource(plan);
+          await plan.special.prepareRepresentation(plan.specialToken,{mode:targetMode,onPrepared,assertPrepared:()=>assertPlanIntent(plan),
+            ...(plan.legacySpecial?{legacyWitnessSha256:plan.specialCoverage.portableSha256}:{})});await admission();const binding=await plan.special.prepareBindings(plan.specialToken);if(binding.ready!==true)fail('special_owner_required');
           // Re-enter the same owner to authenticate its durable candidate binding,
           // rather than treating a successful write or arbitrary current bytes as proof.
           if((await plan.special.prepareBindings(plan.specialToken)).ready!==true)fail('special_owner_required');
+          if(plan.nonemptySpecial){
+            if(typeof plan.special.preparedDelta!=='function')fail('special_owner_change_proof_required');
+            acceptSpecialDelta(plan,await plan.special.preparedDelta(plan.specialToken));
+          }
           const bindingName='migrations/skill-backup-bindings-v2.sealed',bindingBytes=await io.readFile(p.join(plan.candidate.root,...bindingName.split('/')));targetEntry(plan,bindingName,hash(bindingBytes));
-          const target=await tree.capture(plan.candidate.root);plan.disposable.push(target);plan.target=target;if(target.files.length!==plan.targetHashes.size||target.files.some(file=>plan.targetHashes.get(key(file.path))?.sha256!==file.sha256)||target.directories.length!==plan.targetDirectories.size||target.directories.some(name=>!plan.targetDirectories.has(key(name))))fail('target_verification',{expected:plan.targetHashes.size,actual:target.files.length,mismatch:target.files.filter(file=>plan.targetHashes.get(key(file.path))?.sha256!==file.sha256).map(file=>file.path)});await verifyDomain(plan,rows);plan.targetProof=await tree.verify(target);await checkSource(plan);
+          const targetReader=plan.nonemptySpecial?sourceTree:tree,target=await targetReader.capture(plan.candidate.root);plan.disposable.push(target);plan.target=target;if(target.files.length!==plan.targetHashes.size||target.files.some(file=>plan.targetHashes.get(key(file.path))?.sha256!==file.sha256)||target.directories.length!==plan.targetDirectories.size||target.directories.some(name=>!plan.targetDirectories.has(key(name))))fail('target_verification',{expected:plan.targetHashes.size,actual:target.files.length,mismatch:target.files.filter(file=>plan.targetHashes.get(key(file.path))?.sha256!==file.sha256).map(file=>file.path)});await verifyDomain(plan,rows);plan.targetProof=await targetReader.verify(target);await checkSource(plan);
+          if(plan.nonemptySpecial){
+            if(!plan.transition||!/^[a-f0-9]{64}$/.test(plan.targetProof.nativeSha256||''))fail('special_owner_change_proof_required');
+            const transitionReady=Object.freeze({schema:1,targetSha256:plan.targetProof.sha256,targetNativeSha256:plan.targetProof.nativeSha256});
+            plan.intent=await acceptIntent(await onSpecialReady({candidate:plan.candidate,transitionReady}));
+            await checkSource(plan);
+          }
           const prepared=Object.freeze({candidate:plan.candidate,sourceGeneration:expected.generation,targetMode,files:target.files.length,directories:target.directories.length,transformed:Object.freeze(transformed),sourceHashes:Object.freeze(rows.map(row=>Object.freeze({path:row.path,sha256:row.sha256}))),targetHashes:Object.freeze([...plan.targetHashes.values()].map(row=>Object.freeze({...row}))),retainedPlainDisclosure:'Old roots and durable backups are retained; enabling does not erase existing plaintext.',processExitRequired:true});issued.set(prepared,plan);return prepared;
         }catch(cause){for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;try{closeSource(source,cause,true);}catch(failure){cause=failure;}}if(!plan.mutationStarted)throw cause;let code='work_data_migration_host.prepare_failed';try{if(typeof cause?.code==='string'&&/^[a-zA-Z0-9_.-]{1,128}$/.test(cause.code))code=cause.code;}catch{}throw Object.assign(Error(code,{cause}),{code,apiCode:code,statusCode:409,operationMayHaveExecuted:true,resultUnavailable:true,retry:false,candidateRetained:plan.candidate?.root||null,...(preservedRead!==undefined&&sourceUnknown(cause)?{helperMayStillRun:true,ownershipRetained:true}:{})});}
       });
     }
-    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});let publishing=false;try{await checkSource(plan);await tree.verify(plan.target);}catch(cause){if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;closeSource(source,cause,true);}throw cause;}return usingPlanSource(plan,()=>publishing,async()=>{try{await admission();publishing=true;plan.commitStarted=true;const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});await plan.special.recover();await plan.special.activate();
-        const specialProof=await plan.special.verifyPublished({expected:result}),specialTree=await tree.capture(p.join(base,'.work-data','skill-backups'));let specialSha;
-        try{specialSha=(await tree.verify(specialTree)).sha256;}finally{specialTree.release();}
-        published.set(prepared,Object.freeze({expected:receipt(result),targetSha:plan.targetProof.sha256,specialSha,specialProof:Object.freeze({...specialProof}),instanceId:plan.targetInstanceId,transformed:prepared.transformed}));
+    async function finishSpecialTransition(plan,disposition){
+      if(!plan.transition||typeof plan.special.recoverPreparedTransition!=='function')fail('special_owner_change_proof_required');
+      const state={transition:plan.transition,expectedAuthority:{id:plan.expected.id,sha256:plan.expected.proof.sha256},
+        candidate:{id:plan.candidate.id,mode:plan.candidate.mode,pointerSha256:plan.candidate.pointerProof.sha256}};
+      const result=await plan.special.recoverPreparedTransition({state,disposition,assertUnchanged:()=>assertPlanIntent(plan)});
+      if(result?.operationId!==plan.transition.operationId||result.disposition!==disposition)fail('special_owner_changed');
+    }
+    async function publish(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});let publishing=false;try{await checkSource(plan);const target=await (plan.nonemptySpecial?sourceTree:tree).verify(plan.target);if(plan.nonemptySpecial&&target.nativeSha256!==plan.targetProof.nativeSha256)fail('target_verification');}catch(cause){if(preservedRead!==undefined&&plan.sourceCapture){const source=plan.sourceCapture;plan.sourceCapture=null;closeSource(source,cause,true);}throw cause;}return usingPlanSource(plan,()=>publishing,async()=>{try{await admission();publishing=true;plan.commitStarted=true;const result=await manifest.commit({expected:plan.expected,candidate:plan.candidate});if(plan.nonemptySpecial){await finishSpecialTransition(plan,'forward');await plan.special.activate({recoverPending:false});}else{await plan.special.recover();await plan.special.activate();}
+        const specialProof=await plan.special.verifyPublished({expected:result}),reader=plan.nonemptySpecial?sourceTree:tree;
+        const specialSha=await usingSource(await reader.capture(p.join(base,'.work-data','skill-backups')),async capture=>(await reader.verify(capture)).sha256);
+        published.set(prepared,Object.freeze({expected:receipt(result),targetSha:plan.targetProof.sha256,targetNativeSha:plan.nonemptySpecial?plan.targetProof.nativeSha256:null,specialSha,specialProof:Object.freeze({...specialProof}),instanceId:plan.targetInstanceId,transformed:prepared.transformed,nonemptySpecial:plan.nonemptySpecial}));
         issued.delete(prepared);return Object.freeze({active:result,processExitRequired:true});}catch(cause){throw Object.assign(Error('work_data_migration_host.publish_failed',{cause}),{code:'work_data_migration_host.publish_failed',commitUncertain:true,retry:false,...(preservedRead!==undefined&&sourceUnknown(cause)?{helperMayStillRun:true,ownershipRetained:true}:{})});}finally{if(publishing)for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});});}
-    async function cancel(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await current(plan.expected);return usingPlanSource(plan,()=>true,async()=>{try{await plan.special.recoverRepresentation();await plan.special.recover();issued.delete(prepared);return Object.freeze({canceled:true,candidateRetained:plan.candidate.root});}finally{for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});});}
+    async function cancel(prepared){return run(async()=>{const plan=issued.get(prepared);if(!plan)fail('prepared_invalid');if(plan.commitStarted)fail('publish_already_attempted',{commitUncertain:true,retry:false});await current(plan.expected);return usingPlanSource(plan,()=>true,async()=>{try{if(plan.nonemptySpecial)await finishSpecialTransition(plan,'inverse');else{await plan.special.recoverRepresentation();await plan.special.recover();}issued.delete(prepared);return Object.freeze({canceled:true,candidateRetained:plan.candidate.root});}finally{for(const item of plan.disposable.reverse()){try{item.release?.();item.clear?.();}catch{}}}});});}
     async function verifyPublished(prepared){return run(async()=>{
       const proof=published.get(prepared);if(!proof)fail('published_token_invalid');const selected=await current(proof.expected);
       const target=await sourceTree.capture(selected.root);let keys,specialTree,primary,failed=false;
+      const verifyTarget=async()=>{
+        const actual=await sourceTree.verify(target);
+        if(actual.sha256!==proof.targetSha||proof.targetNativeSha&&actual.nativeSha256!==proof.targetNativeSha)fail('published_target_changed');
+      };
       return usingSource(target,async()=>{try{
-        if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');
+        await verifyTarget();
         const headerRow=target.files.find(row=>key(row.path)==='work-data-key-v1.json');let header;try{header=JSON.parse(strict(headerRow.data));}catch{fail('key_header_invalid');}
         if(!WorkDataKeys.validate(header)||header.instanceId!==proof.instanceId)fail('key_header_invalid');
         keys=WorkDataKeys.create({protector,enabled:()=>selected.mode==='encrypted',store:{read:async()=>header}});const lease=await keys.snapshot();try{if(lease.instanceId!==proof.instanceId)fail('key_header_invalid');}finally{lease.release();}
-        const bridge=WorkDataMigrationCodecs.create({sourceRoot:selected.root,targetRoot:base,sourceKeys:keys,targetKeys:keys,writeJson,
-          ...(preservedRead===undefined?{}:{withSourceReadScope:async work=>{
-            const result=await work(file=>WorkDataTree.borrowCapturedFile(target,file,ownership,{maxBytes:256*1024*1024}));
-            if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');return result;
-          }})});
-        for(const row of proof.transformed){await admission();const result=await bridge[key(row.path).endsWith('.prevbody')?'verifyRetained':'verify']({relative:row.path,targetMode:selected.mode});if(result.logicalHash!==row.logicalHash||result.logicalBytes!==row.logicalBytes||result.physicalHash!==row.targetPhysicalHash)fail('published_logical_changed',{file:row.path});}
-        const owner=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:keys,targetKeys:keys});if(typeof owner?.verifyPublished!=='function')fail('special_owner_invalid');const actualSpecial=await owner.verifyPublished({expected:selected});
+        const verifyLogical=async()=>{
+          const bridge=WorkDataMigrationCodecs.create({sourceRoot:selected.root,targetRoot:base,sourceKeys:keys,targetKeys:keys,writeJson,
+            ...(preservedRead===undefined?{}:{withSourceReadScope:work=>work(file=>WorkDataTree.borrowCapturedFile(target,file,ownership,{maxBytes:256*1024*1024}))})});
+          for(const row of proof.transformed){await admission();const result=await bridge[key(row.path).endsWith('.prevbody')?'verifyRetained':'verify']({relative:row.path,targetMode:selected.mode});if(result.logicalHash!==row.logicalHash||result.logicalBytes!==row.logicalBytes||result.physicalHash!==row.targetPhysicalHash)fail('published_logical_changed',{file:row.path});}
+        };
+        if(preservedRead===undefined)await verifyLogical();
+        else await WorkDataTree.readCapturedScope(target,ownership,verifyLogical);
+        const ownerRead=proof.nonemptySpecial?{preservedRead,ownership,assertExclusive,assertExclusiveSync}:{};
+        const owner=await specialOwnerFactory({base,readActive:()=>manifest.readActive(),sourceKeys:keys,targetKeys:keys,...ownerRead});if(typeof owner?.verifyPublished!=='function')fail('special_owner_invalid');const actualSpecial=await owner.verifyPublished({expected:selected});
         if(JSON.stringify(actualSpecial)!==JSON.stringify(proof.specialProof))fail('published_special_changed');specialTree=await sourceTree.capture(p.join(base,'.work-data','skill-backups'));if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
-        await current(proof.expected);if((await sourceTree.verify(target)).sha256!==proof.targetSha)fail('published_target_changed');if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
+        await current(proof.expected);await verifyTarget();if((await sourceTree.verify(specialTree)).sha256!==proof.specialSha)fail('published_special_changed');
         return Object.freeze({active:selected,candidateId:selected.id,generation:selected.generation,mode:selected.mode,targetSha256:proof.targetSha,specialSha256:proof.specialSha,logicalFiles:proof.transformed.length,readOnly:true,processExitRequired:true});
       }catch(cause){failed=true;primary=cause;throw cause;}finally{
         const errors=[];try{keys?.clear();}catch(cause){errors.push(cause);}

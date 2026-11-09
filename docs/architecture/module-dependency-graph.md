@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 141 | 4336 | 4287 | 940 | 67 | 0 | 1 |
+| 141 | 4349 | 4300 | 947 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -46,18 +46,18 @@
 | 28 | `01ag-work-data-attachment-reader.js` | unclassified | 1 | 2 | 2 |
 | 29 | `01ah-work-data-attachment-catalog.js` | unclassified | 1 | 1 | 1 |
 | 30 | `01ai-work-data-attachment-store.js` | unclassified | 1 | 1 | 1 |
-| 31 | `01aj-work-data-attachment-catalogs.js` | unclassified | 1 | 3 | 3 |
+| 31 | `01aj-work-data-attachment-catalogs.js` | unclassified | 1 | 4 | 4 |
 | 32 | `01ak-work-data-attachment-runtime.js` | unclassified | 1 | 4 | 4 |
 | 33 | `01al-work-data-uploads-owner.js` | unclassified | 1 | 2 | 2 |
 | 34 | `01aa-work-data-tree.js` | unclassified | 1 | 2 | 2 |
-| 35 | `01ae-work-data-maintenance-result.js` | unclassified | 1 | 1 | 1 |
+| 35 | `01ae-work-data-maintenance-result.js` | unclassified | 1 | 2 | 1 |
 | 36 | `01ab-work-data-full-snapshot.js` | unclassified | 1 | 12 | 10 |
 | 37 | `01ad-work-data-migration-host.js` | unclassified | 1 | 6 | 6 |
 | 38 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 39 | `02d-session-overrides.js` | foundation | 11 | 1 | 1 |
 | 40 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 41 | `02f-turn-effect-kinds.js` | foundation | 19 | 0 | 0 |
-| 42 | `02-session-store.js` | foundation | 402 | 86 | 22 |
+| 42 | `02-session-store.js` | foundation | 410 | 86 | 22 |
 | 43 | `03-bridge-guard.js` | foundation | 122 | 31 | 7 |
 | 44 | `03a-privacy-gateway.js` | foundation | 1 | 2 | 2 |
 | 45 | `03b-privacy-local-drive.js` | foundation | 1 | 0 | 0 |
@@ -100,7 +100,7 @@
 | 82 | `11d-media-inspection.js` | tools | 1 | 1 | 1 |
 | 83 | `12-tool-dispatch.js` | tools | 79 | 149 | 23 |
 | 84 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 85 | `13-http-router.js` | transport | 75 | 264 | 33 |
+| 85 | `13-http-router.js` | transport | 75 | 266 | 34 |
 | 86 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
 | 87 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 88 | `13d-core-domain-routes.js` | transport | 69 | 140 | 17 |
@@ -120,7 +120,7 @@
 | 102 | `13r-event-stream.js` | transport | 25 | 18 | 6 |
 | 103 | `13s-scheduler.js` | transport | 77 | 44 | 11 |
 | 104 | `13t-steward-schedule.js` | transport | 23 | 43 | 10 |
-| 105 | `13u-migration-center.js` | transport | 115 | 42 | 12 |
+| 105 | `13u-migration-center.js` | transport | 119 | 43 | 13 |
 | 106 | `13v-external-channel-protocols.js` | transport | 1 | 3 | 1 |
 | 107 | `13x-external-channel-delivery.js` | transport | 1 | 2 | 1 |
 | 108 | `13y-external-bot-credentials.js` | transport | 1 | 8 | 4 |
@@ -142,14 +142,14 @@
 | 124 | `13an-work-data-disposable-tree.js` | unclassified | 1 | 0 | 0 |
 | 125 | `13ak-work-data-cold-operations.js` | unclassified | 1 | 10 | 8 |
 | 126 | `13am-work-data-maintenance-runtime.js` | unclassified | 1 | 11 | 8 |
-| 127 | `13ap-session-fulltext-index.js` | unclassified | 3 | 14 | 6 |
+| 127 | `13ap-session-fulltext-index.js` | unclassified | 4 | 21 | 9 |
 | 128 | `13as-session-fulltext-consumers.js` | unclassified | 3 | 24 | 10 |
 | 129 | `13ba-media-image-contract.js` | unclassified | 1 | 2 | 2 |
 | 130 | `13bb-media-derived-store.js` | unclassified | 1 | 3 | 3 |
 | 131 | `13bc-media-image-processor.js` | unclassified | 1 | 2 | 1 |
 | 132 | `13bd-media-image-service.js` | unclassified | 1 | 1 | 1 |
 | 133 | `13be-media-image-host.js` | unclassified | 1 | 30 | 14 |
-| 134 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 16 | 14 |
+| 134 | `13aq-work-data-native-adapters.js` | unclassified | 1 | 17 | 15 |
 | 135 | `13ar-work-data-verifier-entry.js` | unclassified | 1 | 3 | 2 |
 | 136 | `13aw-work-data-root-preference.js` | unclassified | 1 | 1 | 1 |
 | 137 | `13ax-desktop-lifetime.js` | unclassified | 10 | 16 | 9 |
@@ -196,12 +196,13 @@
 | `01ad-work-data-migration-host.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `01ad-work-data-migration-host.js` | `01t-work-data-recovery.js` | backward | `WorkDataRecovery` |
 | `01ad-work-data-migration-host.js` | `01x-work-data-migration-codecs.js` | backward | `WorkDataMigrationCodecs` |
-| `01ae-work-data-maintenance-result.js` | `00-boot.js` | backward | `text` |
+| `01ae-work-data-maintenance-result.js` | `00-boot.js` | backward | `path`, `text` |
 | `01af-work-data-attachment-chunks.js` | `01n-work-data-crypto.js` | backward | `WorkDataCrypto` |
 | `01ag-work-data-attachment-reader.js` | `01af-work-data-attachment-chunks.js` | backward | `WorkDataAttachmentChunks` |
 | `01ag-work-data-attachment-reader.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `01ah-work-data-attachment-catalog.js` | `00-boot.js` | backward | `text` |
 | `01ai-work-data-attachment-store.js` | `01af-work-data-attachment-chunks.js` | backward | `WorkDataAttachmentChunks` |
+| `01aj-work-data-attachment-catalogs.js` | `00-boot.js` | backward | `text` |
 | `01aj-work-data-attachment-catalogs.js` | `01-config.js` | backward | `atomicWriteJson` |
 | `01aj-work-data-attachment-catalogs.js` | `01ah-work-data-attachment-catalog.js` | backward | `WorkDataAttachmentCatalog` |
 | `01aj-work-data-attachment-catalogs.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
@@ -552,7 +553,8 @@
 | `13-http-router.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `13-http-router.js` | `01h-privacy-core.js` | backward | `PrivacyCore` |
 | `13-http-router.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
-| `13-http-router.js` | `02-session-store.js` | backward | `flushSessionIndexSync`, `invalidateSessionIndex`, `journalReadBefore`, `journalReadIndex`, `loadSession`, `markInterruptedInterventions`, `mutateSession`, `readSessionHeadText`, `readSessionRouteHead`, `sessionHeadIsWorkDataError`, `workspaceBaselineIsCodePath`, `workspaceBaselinePathKey` |
+| `13-http-router.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
+| `13-http-router.js` | `02-session-store.js` | backward | `flushSessionIndexSync`, `invalidateSessionIndex`, `journalReadBefore`, `journalReadIndex`, `loadSession`, `markInterruptedInterventions`, `mutateSession`, `readSessionHeadText`, `readSessionRouteHead`, `sessionHeadIsWorkDataError`, `workDataKeys`, `workspaceBaselineIsCodePath`, `workspaceBaselinePathKey` |
 | `13-http-router.js` | `02e-session-engine-route.js` | backward | `configForSessionEngineRoute` |
 | `13-http-router.js` | `03-bridge-guard.js` | backward | `PREVIEW_TEXT_EXTS`, `buildCodeEditorSpawn`, `buildRevealSpawn`, `ensureDataRootReal`, `existsExecutable`, `fileAllowedRoots`, `guardWorkspacePath`, `isSensitiveDataPath`, `isSensitiveHardlinkAlias`, `launchCodeEditor`, `materializeCheckpointEditorDiff`, `normalizeCwd`, `pathWithinAnyRoot`, `pathWithinRoot`, `readFilePreview`, `remoteUncDenialResolved`, `resolvePreferredCodeEditor`, `resolveWorkspace` |
 | `13-http-router.js` | `03b-privacy-local-drive.js` | backward | `PrivacyLocalDriveProbe` |
@@ -707,11 +709,14 @@
 | `13am-work-data-maintenance-runtime.js` | `13ai-work-data-worker.js` | backward | `WorkDataMaintenanceWorker` |
 | `13am-work-data-maintenance-runtime.js` | `13aj-work-data-control.js` | backward | `WorkDataMaintenanceControl` |
 | `13am-work-data-maintenance-runtime.js` | `13al-work-data-maintenance-http.js` | backward | `WorkDataMaintenanceHttp` |
-| `13ap-session-fulltext-index.js` | `00-boot.js` | backward | `SessionFullTextHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `fsp`, `paths`, `text` |
+| `13ap-session-fulltext-index.js` | `00-boot.js` | backward | `MediaImageHooks`, `SessionFullTextHooks`, `WorkDataMaintenanceHooks`, `WorkDataRootHooks`, `crypto`, `decodeTextFileBytes`, `fsp`, `path`, `paths`, `text` |
 | `13ap-session-fulltext-index.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
+| `13ap-session-fulltext-index.js` | `01ak-work-data-attachment-runtime.js` | backward | `WorkDataAttachmentRuntime` |
 | `13ap-session-fulltext-index.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13ap-session-fulltext-index.js` | `02-session-store.js` | backward | `createSessionFullTextSource`, `workDataKeys` |
+| `13ap-session-fulltext-index.js` | `04-permission-runtime.js` | backward | `sanitizeFsSegmentName` |
 | `13ap-session-fulltext-index.js` | `06h-retrieval-index.js` | backward | `retrievalTerms` |
+| `13ap-session-fulltext-index.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
 | `13ap-session-fulltext-index.js` | `13d-core-domain-routes.js` | backward | `sessionSearchRowIsNoise` |
 | `13aq-work-data-native-adapters.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `text` |
 | `13aq-work-data-native-adapters.js` | `01-config.js` | backward | `atomicWriteJson` |
@@ -721,6 +726,7 @@
 | `13aq-work-data-native-adapters.js` | `01ae-work-data-maintenance-result.js` | backward | `WorkDataMaintenanceResult` |
 | `13aq-work-data-native-adapters.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `13aq-work-data-native-adapters.js` | `01j-local-crypto.js` | backward | `LocalSecretCrypto` |
+| `13aq-work-data-native-adapters.js` | `01o-work-data-keys.js` | backward | `WorkDataKeys` |
 | `13aq-work-data-native-adapters.js` | `01v-work-data-manifest.js` | backward | `WorkDataManifest` |
 | `13aq-work-data-native-adapters.js` | `01w-work-data-native-publish.js` | backward | `WorkDataNativePublish` |
 | `13aq-work-data-native-adapters.js` | `13ai-work-data-worker.js` | backward | `WorkDataMaintenanceWorker` |
@@ -1013,6 +1019,7 @@
 | `13u-migration-center.js` | `00-boot.js` | backward | `MigrationHooks`, `SKILL_ID_RE`, `VERSION`, `WorkDataMaintenanceHooks`, `agentCliHomes`, `crypto`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `installRegistryPath`, `nowIso`, `os`, `path`, `paths`, `readInstallRegistry`, `ruyiPackageInfo`, `safeJsonParse`, `samePathKey`, `text`, `tildePath` |
 | `13u-migration-center.js` | `01-config.js` | backward | `agentMcpImportSources`, `atomicWriteJson`, `classifyAgentMcpCandidate`, `generateMcpConfig`, `kimiMcpManagedIds`, `mutateConfig`, `readConfig` |
 | `13u-migration-center.js` | `01aa-work-data-tree.js` | backward | `WorkDataTree` |
+| `13u-migration-center.js` | `01g-server-ownership.js` | backward | `ServerOwnership` |
 | `13u-migration-center.js` | `01n-work-data-crypto.js` | backward | `WorkDataCrypto` |
 | `13u-migration-center.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `13u-migration-center.js` | `01r-work-data-chunks.js` | backward | `WorkDataChunks` |

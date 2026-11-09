@@ -337,8 +337,13 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
         if(readCapturedAuthority!==undefined&&(!before||!after||before.generation!==after.generation||before.id!==after.id||before.mode!==after.mode||before.proof.sha256!==after.proof.sha256))fail('authority_mismatch');
         // Source proof ends here. Caller-owned additions may be written only after this return.
         // No glob exclusions or permission to ignore later source changes is issued.
+        const nativePlan=analyzed.nativePlan,specialCoverage=nativePlan?Object.freeze({
+          type:'skill-backup-portable',sourcePath:nativePlan.request.source.sourcePath,sourceSha256:nativePlan.request.source.sourceSha256,
+          originalObjects:nativePlan.profile.originalObjects,terminalSnapshots:'source-history-only',
+          ...(nativePlan.profile.originalObjects==='new-owned-portable'?{portableSha256:nativePlan.portable.nativeWitnessSha256}:{}),
+        }):null;
         return Object.freeze({serialized,sourceProof:proof,sourceFiles:Object.freeze(sourceFiles),sourceDirectories:Object.freeze(sourceDirectories),...(after?{verifiedGeneration:after.generation}:{}),
-          profile:PROFILE,specialCoverage:analyzed.nativePlan?Object.freeze({type:'skill-backup-portable',sourcePath:analyzed.nativePlan.request.source.sourcePath,sourceSha256:analyzed.nativePlan.request.source.sourceSha256,originalObjects:analyzed.nativePlan.profile.originalObjects,terminalSnapshots:'source-history-only'}):null,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
+          profile:PROFILE,specialCoverage,keyIds:Object.freeze([...analyzed.masters.keys()]),files:captured.files.length,directories:captured.directories.length});
       });
     }
     async function realDirectory(directory) {

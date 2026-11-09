@@ -1058,6 +1058,10 @@
   "session.rename.placeholder": "Thread name",
   "session.running": "Running",
   "session.search": "Search threads",
+  "session.searchCoverage": "Indexed {{indexed}} of {{total}} threads.",
+  "session.searchPaused": "Index building is paused.",
+  "session.searchUnverifiedAttachments": "Full text is unverified for {{count}} attachments.",
+  "session.searchUnverifiedMessages": "Text is unverified in {{count}} messages.",
   "session.thisWeek": "This week",
   "session.today": "Today",
   "session.unpin": "Unpin",
@@ -3825,6 +3829,8 @@
   ,"settings.catalog.monitorIncremental.hint": "Pushes only what changed; when off, falls back to a full refresh every 2 seconds (for troubleshooting display issues)."
   ,"settings.catalog.sessionSearchIndexV1": "Thread content search index"
   ,"settings.catalog.sessionSearchIndexV1.hint": "Lets the sidebar search find text inside threads; when off, only titles are searched."
+  ,"settings.catalog.sessionSearchIndexPausedV1": "Pause search index building"
+  ,"settings.catalog.sessionSearchIndexPausedV1.hint": "Indexed threads remain searchable. Turn this off to resume building on the next search."
   ,"settings.catalog.runtimeMemoryVectorRecallV1": "Semantic memory recall"
   ,"settings.catalog.runtimeMemoryVectorRecallV1.hint": "Finds related memories by meaning as well as keywords (computed locally)."
   ,"settings.catalog.runtimeSummarySingleShotV1": "Prefer single-shot summaries"

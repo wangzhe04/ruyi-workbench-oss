@@ -71,11 +71,12 @@ const MediaImageHost = (() => {
       if (before.size > 16n * 1024n || hash(fs.readFileSync(file)) !== sha256 || !same(before, pin(file))) fail('worker_changed');
     }
   }
-  async function readLocalMediaFile(file, signal, read) {
+  async function readLocalMediaFile(file, signal, read, { expectedStat } = {}) {
     const assertSignal = () => { if (signal?.aborted) fail('cancelled'); };
     assertSignal(); assertAncestors(path.dirname(file));
     const original = fs.lstatSync(file, { bigint: true });
     if (!original.isFile() || original.isSymbolicLink() || original.nlink !== 1n) fail('source_invalid');
+    if (expectedStat && !same(original, expectedStat)) fail('source_changed');
     if (original.size < 1n || original.size > BigInt(LOCAL_SOURCE_LIMIT)) fail('source_limit');
     const assert = () => {
       assertSignal(); assertAncestors(path.dirname(file));

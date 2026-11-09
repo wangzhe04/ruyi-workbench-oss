@@ -23,6 +23,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
   // Only an actual preserved owner may lend its already captured file bytes.
   // Tokens have no serializable authority; ordinary captures never enter here.
   const preservedCaptures = new WeakMap(), capturedFileLeases = new WeakMap(), preservedReadbacks = new WeakMap();
+  const capturedReadScope = new (require('node:async_hooks').AsyncLocalStorage)();
   function claimPreservedReadback(token, root, revision) {
     const known = preservedReadbacks.get(token);
     return !!known && known.root === root && known.revision === revision && preservedReadbacks.delete(token);
@@ -37,7 +38,26 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
   }
   async function checkedCapturedFile(token, file) {
     const known = currentCapturedFile(token, file);
-    await known.capture.verify(); return currentCapturedFile(token, file);
+    await verifyCapturedRead(known.capture); return currentCapturedFile(token, file);
+  }
+  async function verifyCapturedRead(capture) {
+    const scope = capturedReadScope.getStore();
+    if (!scope?.active || scope.capture !== capture) await capture.verify();
+  }
+  // Only read-only owners can batch their internal Store reads. Each grant
+  // still checks its bytes and lease, and no read result leaves the scope
+  // until the complete captured tree has been checked against disk again.
+  async function readCapturedScope(captured, ownership, read) {
+    const capture = preservedCaptures.get(captured);
+    if (!capture || capture.ownership !== ownership || typeof read !== 'function') fail('captured_file_invalid');
+    capture.admitSync(); capture.check();
+    const scope = { capture, active: true };
+    try {
+      const result = await capturedReadScope.run(scope, read);
+      scope.active = false;
+      await capture.verify();
+      return result;
+    } finally { scope.active = false; }
   }
   function assertCapturedFile(token, file) { currentCapturedFile(token, file); return true; }
   async function borrowCapturedFile(captured, file, ownership, options = {}) {
@@ -74,7 +94,7 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
     // Copy privately, then run the Store's pre-consumption gate. The copy
     // cannot reach the Store until the live tree and this exact grant agree.
     const bytes = Buffer.from(known.bytes); known.copies.push(bytes);
-    await known.capture.verify();
+    await verifyCapturedRead(known.capture);
     currentCapturedFile(token, file);
     return consume(bytes);
   }
@@ -398,7 +418,12 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
         sha256: digest(JSON.stringify(owned.proof)), nativeSha256: owned.nativeSha256,
         domainValidation: 'host-owner-required', nativeMetadata: 'preserved-reader-closed' });
     }
-    return Object.freeze({ capture, verify, fingerprint });
+    function nativeFingerprint(snapshot) {
+      const parsed = parse(snapshot);
+      try { return parsed.nativeSha256; }
+      finally { parsed.release(); }
+    }
+    return Object.freeze({ capture, verify, fingerprint, nativeFingerprint });
   }
 
   // Late, immutable adapter: only this module can validate its private issued
@@ -408,5 +433,5 @@ const WorkDataTree = ((fsApi, pathApi, cryptoApi) => {
       read: readCapturedFile, consume: consumeCapturedFile, verify: verifyCapturedFile, assert: assertCapturedFile,
     }),
   });
-  return Object.freeze({ create, createPreserved, claimPreservedReadback, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile });
+  return Object.freeze({ create, createPreserved, claimPreservedReadback, borrowCapturedFile, readCapturedFile, verifyCapturedFile, assertCapturedFile, readCapturedScope });
 })(require('node:fs/promises'), require('node:path'), require('node:crypto'));

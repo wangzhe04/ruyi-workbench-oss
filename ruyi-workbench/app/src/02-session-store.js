@@ -4730,7 +4730,7 @@ let journalGcSinceScan = 0;               // journalGc calls since the last auth
 const JOURNAL_GC_RECALIBRATE_EVERY = 64;  // force a real sweep at least this often (bounds cache drift)
 const JOURNAL_GC_SCAN_HYSTERESIS = 0.9;   // sweep once the estimate reaches this fraction of the hard cap
 // Probe (exported) so the PF1 e2e can assert the sweep does NOT run on every call yet still purges over-cap.
-const journalGcProbe = { fullScans: 0, calls: 0 };
+const journalGcProbe = { fullScans: 0, calls: 0, retentionDeferred: 0, lastRetentionFault: null };
 // PF1 fix: ALL running-total mutations funnel through journalBytesAdjust so byte accounting lives in one place
 // and a full sweep can't silently clobber concurrent writers. A sweep measures disk truth across several awaits
 // (readdir/stat/dirSize per session); other sessions' writers may `+=` during that window. Recording those
@@ -4832,6 +4832,7 @@ function journalGzipStore(sessionId, name, metadata = {}, operation = null) {
       // Capture for this facade only, allowing callers to use the completed decode
       // rather than decompressing a large carrier a second time.
       metadata.decoded = decoded;
+      metadata.sealed = context.sealed;
       if (identity.history) {
         try {
         const raw = decoded.toString('utf8');
@@ -5451,39 +5452,145 @@ async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entry
   }
 }
 
-// GC. (1) Per-session: keep only the most recent JOURNAL_KEEP_TURNS turnSeqs; drop older entries + their
-// .gz files. (2) Global: if the whole checkpoints/ tree exceeds JOURNAL_GLOBAL_MAX_BYTES, remove entire
-// oldest sessions (by dir mtime) until under budget. All failures are silent.
-// knownIndex:调用方(持会话写锁)刚写下的索引,传入即不再重读(hunt2 #13)。
+// GC. Keep the newest JOURNAL_KEEP_TURNS turns per session. Whole-directory
+// eviction is only supported for ordinary checkpoints.
+// knownIndex is the caller's just-published index under the session write lock.
 async function journalGc(sessionId, knownIndex, operation = null) {
   try { return await withJournalArtifactOperation(scope => journalGcContents(sessionId, knownIndex, scope), operation); }
-  catch { /* retention is best effort, never plaintext fallback */ }
+  catch (error) { return journalRetentionDeferred('session', error, sessionId); }
+}
+function journalRetentionDeferred(scope, error, sessionId) {
+  const reason = typeof error?.code === 'string' ? error.code : 'work_data.journal_retention_unproven';
+  const fault = { scope, reason, ...(sessionId ? { sessionId } : {}) };
+  journalGcProbe.retentionDeferred++;
+  journalGcProbe.lastRetentionFault = Object.freeze(fault);
+  logEvent({ kind: 'journal_retention_deferred', ...fault });
+  return { ok: false, reason };
+}
+async function journalRetentionStat(file, directory = false) {
+  const stat = await fsp.lstat(file, { bigint: true });
+  if (directory ? !stat.isDirectory() : !stat.isFile()) throw journalArtifactFailure('retention_type');
+  return {
+    identity: `${stat.dev}:${stat.ino}`,
+    stamp: `${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`,
+    size: Number(stat.size), mtime: Number(stat.mtimeMs),
+  };
+}
+async function journalRetentionAssert(file, proof) {
+  const current = await journalRetentionStat(file);
+  if (current.identity !== proof.identity || current.stamp !== proof.stamp) {
+    throw journalArtifactFailure('retention_changed');
+  }
+}
+async function journalRetentionAuthenticate(sessionId, name, operation) {
+  const { file } = journalGzipIdentity(sessionId, name);
+  const proof = await journalRetentionStat(file);
+  const metadata = {};
+  const bytes = await journalGzipStore(sessionId, name, metadata, operation).read();
+  bytes.fill(0);
+  metadata.decoded?.fill(0);
+  if (metadata.sealed !== operation.enabled) throw journalArtifactFailure('retention_representation');
+  await journalRetentionAssert(file, proof);
+  return { file, ...proof };
+}
+async function journalReadRetentionIndex(sessionId, operation) {
+  const metadata = {};
+  let raw;
+  try { raw = await journalJsonStore(sessionId, 'index', operation, metadata).read(); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    // A history-only directory may legitimately have no index.
+    await journalRetentionStat(journalDir(sessionId), true);
+    return [];
+  }
+  const index = safeJsonParse(raw, null);
+  if (!metadata.sealed || !Array.isArray(index)) throw journalArtifactFailure('retention_index');
+  return index;
+}
+async function journalPruneSealedIndex(sessionId, index, keep, operation) {
+  const old = index.filter(row => !keep.has(Number(row.turnSeq)));
+  // Each exact removal has its own index publication. Keep that work bounded
+  // on the tool write chain and let the next sweep continue from the index.
+  const targets = old.slice(0, 8);
+  const artifacts = new Map(), files = new Set();
+  for (const row of targets) {
+    if (row.skipped || row.op === 'create') continue;
+    const name = `${row.turnSeq}-${row.entrySeq}.gz`;
+    const proof = await journalRetentionAuthenticate(sessionId, name, operation);
+    if (files.has(proof.file)) throw journalArtifactFailure('retention_index');
+    files.add(proof.file);
+    artifacts.set(row, proof);
+  }
+  for (const proof of artifacts.values()) await journalRetentionAssert(proof.file, proof);
+  let current = index;
+  for (const row of targets) {
+    const proof = artifacts.get(row);
+    if (proof) await journalRetentionAssert(proof.file, proof);
+    const next = current.filter(entry => entry !== row);
+    try {
+      // The index must commit before reclaiming its artifact. A failed
+      // publication still leaves the previous original intact.
+      await journalWriteIndex(sessionId, next, operation);
+    } catch (error) {
+      const observed = await journalReadRetentionIndex(sessionId, operation);
+      if (JSON.stringify(observed) === JSON.stringify(next)) await journalWriteIndex(sessionId, current, operation);
+      else if (JSON.stringify(observed) !== JSON.stringify(current)) throw journalArtifactFailure('retention_changed');
+      throw error;
+    }
+    if (proof) {
+      try {
+        await journalRetentionAssert(proof.file, proof);
+        await fsp.unlink(proof.file);
+      } catch (error) {
+        // Roll back only while the exact original still exists. If unlink's
+        // outcome is ambiguous, retain the safe index and report uncertainty.
+        await journalRetentionAssert(proof.file, proof);
+        const observed = await journalReadRetentionIndex(sessionId, operation);
+        if (JSON.stringify(observed) !== JSON.stringify(next)) throw journalArtifactFailure('retention_changed');
+        await journalWriteIndex(sessionId, current, operation);
+        throw error;
+      }
+      journalBytesAdjust(-proof.size);
+    }
+    current = next;
+  }
+  if (old.length > targets.length) journalRetentionDeferred('session', journalArtifactFailure('retention_backlog'), sessionId);
 }
 async function journalGcContents(sessionId, knownIndex, operation) {
   let freedBytes = 0; // PF1: bytes reclaimed by the per-session prune below, to decrement the size-cap cache
   try {
     const dir = journalDir(sessionId);
-    const index = Array.isArray(knownIndex) ? knownIndex : await journalReadIndexForWrite(sessionId, operation);
+    const index = Array.isArray(knownIndex) ? knownIndex : operation.enabled
+      ? await journalReadRetentionIndex(sessionId, operation) : await journalReadIndexForWrite(sessionId, operation);
     if (index.length) {
       await journalAssertWritable(sessionId, ['index'], operation);
       journalPreflightIndex(index, operation);
       const turns = [...new Set(index.map(e => Number(e.turnSeq)))].sort((a, b) => a - b);
       if (turns.length > JOURNAL_KEEP_TURNS) {
         const keep = new Set(turns.slice(turns.length - JOURNAL_KEEP_TURNS));
-        const kept = [];
-        for (const e of index) {
-          if (keep.has(Number(e.turnSeq))) { kept.push(e); continue; }
-          if (!e.skipped && e.op !== 'create') {
-            const gzp = path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`);
-            const st = await fsp.stat(gzp).catch(() => null); // real on-disk size (best-effort) for the cache decrement
-            await fsp.unlink(gzp).catch(() => {});
-            if (st) freedBytes += st.size;
-          }
+        if (operation.enabled) {
+          const observed = await journalReadRetentionIndex(sessionId, operation);
+          if (JSON.stringify(observed) !== JSON.stringify(index)) throw journalArtifactFailure('retention_changed');
+          await journalPruneSealedIndex(sessionId, index, keep, operation);
         }
-        await journalWriteIndex(sessionId, kept, operation);
+        else {
+          const kept = [];
+          for (const e of index) {
+            if (keep.has(Number(e.turnSeq))) { kept.push(e); continue; }
+            if (!e.skipped && e.op !== 'create') {
+              const gzp = path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`);
+              const st = await fsp.stat(gzp).catch(() => null);
+              await fsp.unlink(gzp).catch(() => {});
+              if (st) freedBytes += st.size;
+            }
+          }
+          await journalWriteIndex(sessionId, kept, operation);
+        }
       }
     }
-  } catch { /* silent */ }
+  } catch (error) {
+    if (operation.enabled) return journalRetentionDeferred('session', error, sessionId);
+  }
   try {
     journalGcProbe.calls++;
     // PF1: keep the running estimate current with what the per-session prune just reclaimed (never below 0).
@@ -5519,32 +5626,60 @@ const JOURNAL_SWEEP_BACKOFF_MS = 30 * 1000;
 function journalGlobalSweepOnce(protectSessionId) {
   if (protectSessionId) journalSweepProtect.add(String(protectSessionId));
   if (!journalSweepInFlight) {
-    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; journalSweepProtect.clear(); });
+    journalSweepInFlight = journalGlobalSweep().catch(error => journalRetentionDeferred('global', error))
+      .finally(() => { journalSweepInFlight = null; journalSweepProtect.clear(); });
   }
   return journalSweepInFlight;
 }
 // 受保护会话在整仓仍超上限时,最多再清掉它自己最旧的历史快照(history-*.json.gz),但永远保留最近这么几份:
 // 刚写下、模型视图里 rawRef 正指着的快照不能被「瘦身」清掉。检查点原件(<回合>-<序号>.gz,回滚用)一份都不动。
 const JOURNAL_KEEP_HISTORY_SNAPSHOTS = 4;
-async function journalTrimProtectedSnapshots(dir, bytesToFree) {
+async function journalScan(read, operation, missing) {
+  try { return await read(); }
+  catch (error) {
+    // A plain snapshot writer may have already renamed the stage observed by
+    // a concurrent scan. A missing object is evidence of a fault when sealed.
+    if (!operation.enabled && error.code === 'ENOENT') return missing;
+    throw error;
+  }
+}
+async function journalTrimProtectedSnapshots(dir, bytesToFree, operation = null) {
+  if (!operation) return withJournalArtifactOperation(scope => journalTrimProtectedSnapshots(dir, bytesToFree, scope));
   let freed = 0;
-  const ents = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const ents = await journalScan(() => fsp.readdir(dir, { withFileTypes: true }), operation, []);
   const rows = [];
   for (const ent of ents) {
-    if (!ent.isFile() || !/^history-\d+(?:-[a-f0-9]{16})?\.json\.gz$/.test(ent.name)) continue;
-    const st = await fsp.stat(path.join(dir, ent.name)).catch(() => null);
-    if (st) rows.push({ name: ent.name, size: st.size, mtime: st.mtimeMs });
+    if (!/^history-\d+(?:-[a-f0-9]{16})?\.json\.gz$/.test(ent.name)) continue;
+    const file = path.join(dir, ent.name);
+    const stat = await journalScan(() => journalRetentionStat(file), operation, null);
+    if (stat) rows.push({ name: ent.name, file, ...stat });
   }
   rows.sort((a, b) => a.mtime - b.mtime); // 最旧在前
   const removable = rows.slice(0, Math.max(0, rows.length - JOURNAL_KEEP_HISTORY_SNAPSHOTS));
-  for (const r of removable) {
-    if (freed >= bytesToFree) break;
-    await fsp.unlink(path.join(dir, r.name)).then(() => { freed += r.size; }).catch(() => {});
+  const targets = [];
+  let planned = 0;
+  for (const row of removable) {
+    if (planned >= bytesToFree) break;
+    if (operation.enabled) {
+      const proof = await journalRetentionAuthenticate(path.basename(dir), row.name, operation);
+      if (proof.identity !== row.identity || proof.stamp !== row.stamp) throw journalArtifactFailure('retention_changed');
+    }
+    planned += row.size;
+    targets.push(row);
+  }
+  if (operation.enabled) for (const row of targets) await journalRetentionAssert(row.file, row);
+  for (const row of targets) {
+    if (operation.enabled) await journalRetentionAssert(row.file, row);
+    const removed = await journalScan(async () => { await fsp.unlink(row.file); return true; }, operation, false);
+    if (removed) freed += row.size;
   }
   return freed;
 }
 async function journalGlobalSweep() {
   if (typeof WorkDataMaintenanceHooks !== 'undefined' && WorkDataMaintenanceHooks.run && !WorkDataMaintenanceHooks.entered('journal-retention')) return WorkDataMaintenanceHooks.run('journal-retention', () => journalGlobalSweep(...arguments));
+  return withJournalArtifactOperation(journalGlobalSweepContents);
+}
+async function journalGlobalSweepContents(operation) {
   journalGcProbe.fullScans++;
   journalGcSinceScan = 0;
   journalSweeping++;
@@ -5554,14 +5689,14 @@ async function journalGlobalSweep() {
     // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
     // purge decision is always made against real bytes, never the estimate.
     const root = paths.checkpoints;
-    const names = await fsp.readdir(root).catch(() => []);
+    const names = await journalScan(() => fsp.readdir(root), operation, []);
     const dirs = [];
     let total = 0;
     for (const name of names) {
       const p = path.join(root, name);
-      const st = await fsp.stat(p).catch(() => null);
-      if (!st || !st.isDirectory()) continue;
-      const size = await dirSize(p);
+      const st = await journalScan(() => fsp.lstat(p), operation, null);
+      if (!st?.isDirectory()) continue;
+      const size = await dirSize(p, operation);
       total += size;
       dirs.push({ p, size, mtime: st.mtimeMs });
     }
@@ -5572,18 +5707,23 @@ async function journalGlobalSweep() {
       // observation_recall 回 `observation recall failed: ENOENT`,连它的文件回滚点也一并消失。现在:触发清扫的写者与有活回合的会话
       // 不整目录清;其余照旧最旧优先。仍超限时只削受保护会话自己最旧的历史快照(见 journalTrimProtectedSnapshots)。
       const isProtected = d => { const name = path.basename(d.p); return journalSweepProtect.has(name) || activeChildren.has(name); };
-      for (const d of dirs) {
-        if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
-        if (isProtected(d)) continue;
-        await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
-        total -= d.size;
+      // A recursive delete can fail after removing part of an authenticated
+      // checkpoint set. Keep the sealed directory until an atomic retirement
+      // protocol can prove the outcome. Exact history records can still trim.
+      if (!operation.enabled) {
+        for (const d of dirs) {
+          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+          if (isProtected(d)) continue;
+          await fsp.rm(d.p, { recursive: true, force: true });
+          total -= d.size;
+        }
       }
       let trimmedBytes = 0;
       if (total > JOURNAL_GLOBAL_MAX_BYTES) {
         for (const d of dirs) {
           if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
           if (!isProtected(d)) continue;
-          const freed = await journalTrimProtectedSnapshots(d.p, total - JOURNAL_GLOBAL_MAX_BYTES);
+          const freed = await journalTrimProtectedSnapshots(d.p, total - JOURNAL_GLOBAL_MAX_BYTES, operation);
           total -= freed; trimmedBytes += freed;
         }
       }
@@ -5600,20 +5740,29 @@ async function journalGlobalSweep() {
     // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
     const windowDelta = journalDeltaDuringSweep - deltaMark;
     journalGlobalBytes = Math.max(0, total + windowDelta);
+    if (operation.enabled && total > JOURNAL_GLOBAL_MAX_BYTES) {
+      return journalRetentionDeferred('global', journalArtifactFailure('retention_sealed_directory'));
+    }
+    return { ok: true };
+  } catch (error) {
+    // An incomplete measurement or unlink must not look like reclaimed bytes.
+    journalGcSinceScan = JOURNAL_GC_RECALIBRATE_EVERY;
+    if (operation.enabled) journalSweepBackoffUntil = Date.now() + JOURNAL_SWEEP_BACKOFF_MS;
+    throw error;
   } finally {
     journalSweeping--;
     if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
   }
 }
 
-// Sum the byte size of a directory tree (best-effort; errors count as 0).
-async function dirSize(dir) {
+// Sum the byte size of a directory tree. A partial scan cannot calibrate it.
+async function dirSize(dir, operation) {
   let total = 0;
-  const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const entries = await journalScan(() => fsp.readdir(dir, { withFileTypes: true }), operation, []);
   for (const ent of entries) {
     const p = path.join(dir, ent.name);
-    if (ent.isDirectory()) total += await dirSize(p);
-    else { const st = await fsp.stat(p).catch(() => null); if (st) total += st.size; }
+    if (ent.isDirectory()) total += await dirSize(p, operation);
+    else total += (await journalScan(() => fsp.lstat(p), operation, null))?.size || 0;
   }
   return total;
 }

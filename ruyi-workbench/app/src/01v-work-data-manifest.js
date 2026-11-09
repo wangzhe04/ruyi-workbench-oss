@@ -13,10 +13,11 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
   const generationValid = value => Number.isSafeInteger(value) && value >= 1;
   const modeValid = value => value === 'plain' || value === 'encrypted';
   const pathKey = value => process.platform === 'win32' ? value.toLowerCase() : value;
+  const pointerProof = raw => Object.freeze({ raw, sha256: raw === null ? null : digest(raw) });
   const receipt = (raw, state, root) => Object.freeze({
     schema: SCHEMA, id: state?.id || null, generation: state?.generation || 0,
     mode: state?.mode || 'plain', root,
-    proof: Object.freeze({ raw, sha256: raw === null ? null : digest(raw) }),
+    proof: pointerProof(raw),
   });
   function parse(raw) {
     let value;
@@ -141,8 +142,8 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
       const id = cryptoApi.randomBytes(24).toString('hex'), target = pathApi.join(generations, id);
       try { await fsApi.mkdir(target); } catch (cause) { throw error('prepare_failed', cause); }
       await directory(target);
-      const candidate = Object.freeze({ schema: SCHEMA, id, generation: previous.generation + 1, mode,
-        activeRoot: 'generations/' + id, root: target });
+      const pointer = { schema: SCHEMA, generation: previous.generation + 1, id, mode, activeRoot: 'generations/' + id };
+      const candidate = Object.freeze({ ...pointer, root: target, pointerProof: pointerProof(JSON.stringify(pointer) + '\n') });
       candidates.set(candidate, Object.freeze({ proof, generation: candidate.generation, mode, root: target }));
       return candidate;
     }
@@ -164,8 +165,7 @@ const WorkDataManifest = ((fsApi, pathApi, cryptoApi) => {
           await syncDirectory(candidate.root); await syncDirectory(generations);
           await syncDirectory(control); await syncDirectory(root);
         }
-        const raw = JSON.stringify({ schema: SCHEMA, generation: candidate.generation, id: candidate.id,
-          mode: candidate.mode, activeRoot: candidate.activeRoot }) + '\n';
+        const raw = candidate.pointerProof.raw;
         handle = await fsApi.open(stage, 'wx', 0o600);
         await handle.writeFile(raw, 'utf8'); await handle.sync(); await handle.close(); handle = null;
         await checkExpected(proof);

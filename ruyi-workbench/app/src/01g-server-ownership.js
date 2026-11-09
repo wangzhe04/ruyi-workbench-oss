@@ -63,15 +63,24 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
       },
     });
   }
-  async function checkLegacyRuntime(root) {
+  const Hooks = {};
+  async function checkLegacyRuntime(root, preserveRuntime) {
+    const file = pathModule.join(root, 'runtime.json');
     let runtimeText;
-    try { runtimeText = await fsModule.promises.readFile(pathModule.join(root, 'runtime.json'), 'utf8'); }
+    try {
+      if (preserveRuntime && process.platform === 'win32') {
+        await fsModule.promises.lstat(file);
+        if (typeof Hooks.readLegacyRuntimePreserved !== 'function') throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', 'Preserved runtime reader unavailable.');
+        runtimeText = await Hooks.readLegacyRuntimePreserved(file);
+      } else runtimeText = await fsModule.promises.readFile(file, 'utf8');
+    }
     catch (error) {
-      if (error.code === 'ENOENT') return;
+      if (error?.code === 'ENOENT') return;
+      if (error?.helperMayStillRun === true || error?.ownershipRetained === true) throw error;
       throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '无法读取旧服务身份记录；为保护任务，本次没有执行启动恢复。 / Cannot verify the previous data directory owner.');
     }
     let record;
-    try { record = JSON.parse(runtimeText); } catch { /* unknown owner: do not guess */ }
+    try { if (typeof runtimeText === 'string') record = JSON.parse(runtimeText); } catch { /* unknown owner: do not guess */ }
     if (!record || !Number.isInteger(record.pid) || record.pid <= 0) {
       throw ownershipError('DATA_ROOT_OWNER_UNKNOWN', '无法确认数据目录中旧服务的身份；为保护任务，本次没有执行启动恢复。请先确认旧服务已退出并检查 runtime.json。 / Previous data directory owner is unknown.');
     }
@@ -165,17 +174,19 @@ const ServerOwnership = ((netModule, fsModule, pathModule, osModule, cryptoModul
     const pin = keeperStates.get(value);
     return !!pin && pin.lease === lease && pin.base === rootKey(base) && !pin.released && !pin.retained && owns(lease,base);
   }
-async function acquire(roots) {
+  async function acquire(roots, { preserveRuntime = false } = {}) {
     const canonical = [...new Set(await Promise.all(roots.map(canonicalRoot)))].sort();
     const handles = [], state = {roots:Object.freeze(canonical),handles,pins:new Set(),phase:'acquiring',uncertain:false,
       failureSet:false,failure:undefined,hold:null,releaseRequested:false,releasePromise:null,releaseSettled:false};
     try {
       for (const root of canonical) handles.push(await bind(root,error => retainState(state,error)));
       // Preserve original sorted acquisition and legacy-owner checks before issuing a lease.
-      for (const root of canonical) await checkLegacyRuntime(root);
+      for (const root of canonical) await checkLegacyRuntime(root, preserveRuntime === true);
       if (state.uncertain || !handles.every(handle => handle.held())) throw uncertainError(state.failure);
     } catch (error) {
-      if (state.uncertain) { retainState(state,error); throw uncertainError(error); }
+      if (state.uncertain || error?.helperMayStillRun === true || error?.ownershipRetained === true) {
+        retainState(state,error); throw uncertainError(error);
+      }
       const cleanup = await Promise.allSettled(handles.map(handle => handle.release()));
       const errors = cleanup.filter(result => result.status === 'rejected').map(result => result.reason);
       if (errors.length || state.uncertain) { const failure = new AggregateError([error,...errors],'Ownership acquisition cleanup failed.',{cause:error}); state.acquisitionFailure = failure; retainState(state,failure); throw uncertainError(failure); }
@@ -186,5 +197,5 @@ async function acquire(roots) {
       release: () => requestRelease(state)});
     leaseStates.set(lease,state); return lease;
   }
-  return Object.freeze({ acquire, canonicalRoot, endpointFor, isLease, owns, createSourceKeeper, isSourceKeeper });
+  return Object.freeze({ acquire, canonicalRoot, endpointFor, isLease, owns, createSourceKeeper, isSourceKeeper, Hooks });
 })(require('net'), require('fs'), require('path'), require('os'), require('crypto'));

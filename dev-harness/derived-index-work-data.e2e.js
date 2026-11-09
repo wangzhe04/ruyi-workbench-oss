@@ -10,7 +10,8 @@ const { loadServerInternals } = require(path.join(repo, 'dev-harness/lib/server-
 const names = ['createSession', 'saveSession', 'loadSession', 'deleteSession', 'readConfig', 'mutateConfig', 'workDataKeys', 'paths',
   'searchSessionsByContent', 'sessionSearchIndexPath', 'readSessionSearchIndex', 'sessionSearchIndexStore', 'sessionSearchRows',
   'getPretenderProjectionIndex', 'pretenderIndexRuntime', 'pretenderIndexPath', 'readPretenderIndexDisk', 'writePretenderIndexFile',
-  'sessionWriteChains', 'flushSessionIndex', 'sessionBodyPaths', 'SessionFullTextHooks', 'refreshSessionSearchIndex', 'listSessions', 'WorkDataStore', 'atomicWriteJson'];
+  'sessionWriteChains', 'flushSessionIndex', 'sessionBodyPaths', 'SessionFullTextHooks', 'refreshSessionSearchIndex', 'listSessions', 'WorkDataStore', 'atomicWriteJson',
+  'WorkDataAttachmentUploadHooks'];
 const runtimes = [], load = () => { const api = loadServerInternals(names); runtimes.push(api); return api; };
 const privateError = error => String(error && error.code || '').startsWith('work_data');
 const mode = (api, flag) => api.mutateConfig(config => { config.workDataEncryptionV1 = flag; return {}; });
@@ -195,6 +196,31 @@ function assertOriginalReference(found, sid) {
   unchangedCurrent(retainedBefore);
   assert.throws(() => fs.lstatSync(retiredDirectory), { code: 'ENOENT' }, 'cold search must not resurrect the retired directory');
   t.ok(true, 'deleting an encrypted session retires only its index and cold search keeps the surviving original reference');
+
+  const attachmentNeedle = 'SealedAttachmentCitation', attachmentPrefix = 'earlier '.repeat(2000);
+  const attachmentText = attachmentPrefix + attachmentNeedle;
+  const uploaded = await afterDelete.WorkDataAttachmentUploadHooks.sealUpload({
+    name: 'sealed-note.txt', mime: 'text/plain', data: Buffer.from(attachmentText).toString('base64'),
+  });
+  assert.equal(uploaded.sealed, true);
+  const attachmentSession = await afterDelete.createSession({ cwd: root, title: 'Synthetic upload source' });
+  attachmentSession.messages = [{ id: 'sealed_attachment_source', role: 'user', content: 'Committed upload', attachments: [uploaded] }];
+  await afterDelete.saveSession(attachmentSession); await settle(afterDelete);
+  const attachmentCold = load(); await attachmentCold.readConfig();
+  const foundAttachment = await scopedSearch(attachmentCold, attachmentNeedle, 5, control.id);
+  const attachmentHit = foundAttachment.results.find(row => row.id === attachmentSession.id);
+  assert.equal(attachmentHit?.reference?.source, 'attachments.0.extractedText');
+  assert.equal(attachmentHit.reference.messageId, 'sealed_attachment_source');
+  assert.equal(attachmentHit.reference.matchStart, attachmentPrefix.length);
+  assert.equal(attachmentHit.reference.matchEnd, attachmentText.length);
+  assert.equal(foundAttachment.coverage.attachments.unverifiedFullText, 0);
+  assert.equal(foundAttachment.coverage.complete, true);
+  for (const record of currentRecords(attachmentCold, attachmentSession.id)) {
+    const bytes = fs.readFileSync(record.file);
+    assert.equal(JSON.parse(bytes.toString('utf8').split('\n')[0]).purpose, 'search-index');
+    assert.equal(bytes.includes(Buffer.from(attachmentNeedle)), false);
+  }
+  t.ok(true, 'cold DPAPI search verifies original sealed attachment text beyond the preview boundary and stores only sealed shards');
 })().catch(error => t.fail(error && error.stack || String(error))).finally(async () => {
   for (const api of runtimes) { stopTimers(api); await settle(api); stopTimers(api); api.workDataKeys.clear(); }
   assert.equal(path.dirname(root), base); assert.ok(path.basename(root).startsWith('ruyi-derived-index-e2e-'));

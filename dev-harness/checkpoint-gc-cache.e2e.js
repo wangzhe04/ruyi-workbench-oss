@@ -50,6 +50,49 @@ function dirSize(dir) {
 }
 const sessDirExists = sid => fs.existsSync(path.join(CK, sid));
 
+async function checkSealedRetention(ok) {
+  const assert = require('node:assert/strict');
+  const { gzipSync } = require('node:zlib');
+  const root = path.join(HOME, 'sealed-fault');
+  const data = path.join(root, 'data');
+  const env = require('./lib/release-checks').releaseEnvironment(path.join(root, 'home'), data);
+  const previous = new Map(Object.keys(env).map(key => [key, process.env[key]]));
+  Object.assign(process.env, env);
+  try {
+    const api = require('./lib/server-internals').loadServerInternals([
+      'readConfig', 'writeConfig', 'workDataKeys', 'journalDir', 'journalWriteIndex',
+      'journalGzipStore', 'journalGc', 'journalGcProbe', 'flushWorkbenchLogs',
+    ]);
+    const config = await api.readConfig();
+    await api.writeConfig({ ...config, workDataEncryptionV1: true });
+    const key = await api.workDataKeys.ensure();
+    key.fill(0);
+    const sid = 'sess_ckgc_sealed_fault', dir = api.journalDir(sid);
+    const index = Array.from({ length: 22 }, (_, i) => ({ turnSeq: i + 1, entrySeq: 0, op: i < 2 ? 'modify' : 'create' }));
+    await api.journalWriteIndex(sid, index);
+    for (const turn of [1, 2]) await api.journalGzipStore(sid, turn + '-0.gz').write(gzipSync('DPAPI checkpoint ' + turn));
+    const indexPath = path.join(dir, 'index.json'), first = path.join(dir, '1-0.gz'), second = path.join(dir, '2-0.gz');
+    const indexBefore = fs.readFileSync(indexPath), firstBefore = fs.readFileSync(first);
+    const secondBefore = fs.readFileSync(second);
+    assert.equal(JSON.parse(firstBefore.toString('utf8').split('\n')[0]).workData, 3);
+    fs.writeFileSync(second, secondBefore.subarray(0, secondBefore.length - 1));
+    const refused = await api.journalGc(sid);
+    assert.equal(refused.ok, false);
+    assert.deepEqual(api.journalGcProbe.lastRetentionFault, { scope: 'session', reason: refused.reason, sessionId: sid });
+    assert.deepEqual(fs.readFileSync(indexPath), indexBefore);
+    assert.deepEqual(fs.readFileSync(first), firstBefore);
+    assert.deepEqual(fs.readFileSync(second), secondBefore.subarray(0, secondBefore.length - 1));
+    await api.flushWorkbenchLogs({ allowFailure: true });
+    api.workDataKeys.clear();
+    ok(true, '⑥ real Windows DPAPI checkpoint retention refuses a damaged selected original before deleting another');
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
 (async () => {
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
@@ -141,6 +184,7 @@ const sessDirExists = sid => fs.existsSync(path.join(CK, sid));
     ok(protFiles.includes('1-0.gz'), '⑤ 它的文件回滚点(1-0.gz)一份没动');
     ok(protSnaps.length >= 4, '⑤ 最近几份历史快照被保留(≥4,实际 ' + protSnaps.length + ')');
     ok(!sessDirExists('sess_ckgc_old_unrelated'), '⑤ 与本会话无关的旧会话照旧被按上限清掉(上限没被放弃)');
+    if (process.platform === 'win32') await checkSealedRetention(ok);
   } catch (e) {
     console.log('ERROR ' + (e && e.stack || e.message || e)); fail++;
   } finally {
