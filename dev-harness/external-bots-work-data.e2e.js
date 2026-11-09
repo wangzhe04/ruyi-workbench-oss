@@ -27,6 +27,110 @@ const callback = patch => {
 };
 const setSwitch = async enabled => { const config = await api.readConfig(); config.workDataEncryptionV1 = enabled; await api.writeConfig(config); };
 let failed = false; const keepRoot = process.argv.includes('--keep-root');
+
+async function checkSealedRetention() {
+  const retentionRoot = fs.mkdtempSync(path.join(root, 'retention-'));
+  const data = path.join(retentionRoot, 'data');
+  const env = require('./lib/release-checks').releaseEnvironment(path.join(retentionRoot, 'home'), data);
+  const savedEnvironment = new Map(Object.keys(env).map(key => [key, process.env[key]]));
+  const load = () => require('./lib/server-internals').loadServerInternals([
+    'externalBotRetentionPreview', 'externalBotRetentionCommit', 'externalBotReadState', 'externalBotWriteState',
+    'externalBotChains', 'runKeyedChain', 'readConfig', 'writeConfig', 'workDataKeys', 'paths',
+  ]);
+  const dir = path.join(data, 'external-bots'), ledger = path.join(dir, 'state-v1.json');
+  const keyFile = path.join(data, 'work-data-key-v1.json'), heldKey = keyFile + '.held';
+  const readBytes = () => fs.readFileSync(ledger);
+  const assertSealed = (raw, requestId) => {
+    const header = JSON.parse(raw.subarray(0, raw.indexOf(10)).toString('utf8'));
+    assert.equal(header.workData, 3);
+    assert.equal(header.purpose, 'queue');
+    for (const marker of ['RECLAIM_PRIVATE_BODY_', 'RECLAIM_PRIVATE_REPLY_', requestId]) assert.equal(raw.includes(marker), false);
+  };
+  const fsp = require('node:fs/promises'), rename = fsp.rename;
+  let live, cold;
+  try {
+    Object.assign(process.env, env);
+    live = load();
+    assert.equal(live.paths.data, data);
+    const config = await live.readConfig();
+    config.workDataEncryptionV1 = true;
+    await live.writeConfig(config);
+    await live.workDataKeys.ensure();
+    const seed = require('./lib/external-bots-retention-seed').retentionSeed();
+    await live.externalBotWriteState(seed);
+    const initial = readBytes();
+    const requestId = 'dpapi_retention_request_000001';
+    assertSealed(initial, requestId);
+    const preview = await live.runKeyedChain(live.externalBotChains, 'state',
+      () => live.externalBotRetentionPreview({ requestId, retainDays: 30 }));
+    assert.deepEqual(preview.items.map(item => item.id), ['body_read', 'body_sent', 'body_failed', 'body_cancelled']);
+    assert.deepEqual(readBytes(), initial);
+    const body = { requestId, previewToken: preview.previewToken };
+    const commit = owner => owner.runKeyedChain(owner.externalBotChains, 'state', () => owner.externalBotRetentionCommit(body));
+    const rejectCommit = owner => assert.rejects(() => commit(owner), { ...stateError, statusCode: 503 });
+
+    live.workDataKeys.clear();
+    fs.renameSync(keyFile, heldKey);
+    try {
+      await rejectCommit(live);
+      assert.deepEqual(readBytes(), initial);
+    } finally { fs.renameSync(heldKey, keyFile); live.workDataKeys.clear(); }
+    t.ok(true, 'P5 commit refuses an unavailable DPAPI key and preserves the sealed ledger byte for byte');
+
+    const truncated = initial.subarray(0, initial.length - 20);
+    fs.writeFileSync(ledger, truncated);
+    try {
+      await rejectCommit(live);
+      assert.deepEqual(readBytes(), truncated);
+    } finally { fs.writeFileSync(ledger, initial); }
+    t.ok(true, 'P5 commit refuses truncated ciphertext without overwriting it or falling back to empty state');
+
+    // Keep the production encoder, streaming write and atomic writer. Interrupt only the
+    // final rename of this fixture's ledger, with and without publishing the staged bytes.
+    for (const publish of [false, true]) {
+      let attempts = 0, staged;
+      fsp.rename = async (from, to) => {
+        if (to !== ledger) return rename(from, to);
+        attempts++;
+        staged = fs.readFileSync(from);
+        if (publish) await rename(from, to);
+        throw Object.assign(new Error('synthetic retention rename fault'), { code: publish ? 'EIO' : 'ENOSPC' });
+      };
+      try { await rejectCommit(live); }
+      finally { fsp.rename = rename; }
+      assert.equal(attempts, 1);
+      assertSealed(staged, requestId);
+      assert.deepEqual(fs.readdirSync(dir), [path.basename(ledger)]);
+      assert.deepEqual(readBytes(), publish ? staged : initial);
+      if (!publish) {
+        assert.deepEqual(await live.externalBotReadState(), seed);
+        t.ok(true, 'P5 rejected sealed publish preserves every body and creates no durable receipt or stray stage');
+      }
+    }
+
+    const committed = readBytes();
+    live.workDataKeys.clear();
+    cold = load();
+    assert.equal(cold.paths.data, data);
+    const result = await cold.externalBotReadState();
+    assert.equal(result.schema, 5);
+    assert.deepEqual(result.items, seed.items.filter(item => !preview.items.some(row => row.id === item.id)));
+    assert.deepEqual(result.retentionReceipts.map(row => row.id), preview.items.map(row => row.id));
+    assert.equal(result.retentionRequests.length, 1);
+    assert.equal(result.retentionRequests[0].requestId, requestId);
+    assert.equal(result.retentionRequests[0].count, 4);
+    const replay = await commit(cold);
+    assert.equal(replay.alreadyReclaimed, true);
+    assert.deepEqual(replay.receipt, result.retentionRequests[0]);
+    assert.deepEqual(readBytes(), committed);
+    t.ok(true, 'P5 published sealed commit reconciles one exact durable receipt after the writer reports failure and a fresh load');
+  } finally {
+    live?.workDataKeys.clear();
+    cold?.workDataKeys.clear();
+    for (const [key, value] of savedEnvironment) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  }
+}
+
 (async () => {
   await setSwitch(false); assert.equal((await api.externalBotReadState()).items.length, 0);
   t.ok(!fs.existsSync(file), 'only a missing ledger is an unwritten default');
@@ -170,6 +274,7 @@ let failed = false; const keepRoot = process.argv.includes('--keep-root');
     }
   }
 
+  await checkSealedRetention();
 })().catch(error => { failed = true; t.fail(error.stack || String(error)); }).finally(() => {
   https.request = originalRequest; delete process.__ruyiExternalStorageRuns; api.workDataKeys.clear();
   assert.equal(path.dirname(root), temp); assert.ok(path.basename(root).startsWith('ruyi-external-work-data-e2e-'));
