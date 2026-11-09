@@ -210,7 +210,12 @@ const WorkDataFullSnapshot = ((io, p, cryptoApi, zlibApi) => {
       };
       if(native){
         const pointer=files.find(row=>ownerPath(row.path)==='.work-data/active-v1.json'),raw=pointer?decode(pointer.data):null,state=pointer?json(pointer.data):null,expected={id:state?.id||null,root:state? p.join(base,'.work-data','generations',state.id):base,generation:state?.generation||0,mode:state?.mode||'plain',proof:{raw,sha256:raw===null?null:hash(pointer.data)}};
-        const forbidden={snapshot:async()=>fail('source_write_forbidden')},owner=await skillBackupOwner({base,readActive:async()=>expected,sourceKeys:forbidden,targetKeys:forbidden});
+        const forbidden={snapshot:async()=>fail('source_write_forbidden')};
+        // The portable owner verifies archives and intents after installation.
+        // Keep those reads inside the same preserved-metadata ownership contract
+        // as the ordinary tree census so verification cannot change Access time.
+        const owner=await skillBackupOwner({base,readActive:async()=>expected,sourceKeys:forbidden,targetKeys:forbidden,
+          ...(preservedRead===undefined?{}:{ownership,assertExclusive,assertExclusiveSync,preservedRead:{...preservedRead,limits}})});
         if(!owner||['capturePortable','validatePortable','stagePortable','installPortable','verifyPortableInstalled'].some(name=>typeof owner[name]!=='function'))fail('special_owner_required');
         const readCaptured=async(file,descriptor)=>{const text=await openedText(file,descriptor),physical=decode(file.data);let first,value;try{first=JSON.parse(physical.split('\n',1)[0]);}catch{}try{value=JSON.parse(physical);}catch{}return{text,authenticated:value?.workData===2||first?.workData===3};};
         const request={files,directories,source:native,readCaptured,expected};let portable,nativeProfile;
