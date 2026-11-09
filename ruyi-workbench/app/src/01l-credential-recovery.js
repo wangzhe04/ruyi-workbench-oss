@@ -2,10 +2,19 @@
 // An interrupted switch rolls back config on the next read; old encrypted records remain usable.
 const CredentialRecovery = ((cryptoApi) => {
   const fail = code => { throw Object.assign(new Error('credential_recovery.' + code), { code: 'credential_recovery.' + code, statusCode: 409 }); };
-  function startupGuidance(error) {
+  function startupGuidance(error, platform = require('node:process').platform) {
     // A portable package can restore credentials into a fresh profile, but replacing
     // this profile's master key would orphan its conversation reference mappings.
     // Never present an incorrect backup password or an unrelated failure as DPAPI loss.
+    const suffix = String(error?.code || '').replace(/^credential_vault\./, '');
+    if (platform === 'darwin' && ['permission_required', 'permission_denied', 'keychain_locked', 'dependency_missing', 'keychain_unavailable'].includes(suffix))
+      return '本地凭据暂时无法访问 macOS 钥匙串。请确认工作台组件完整、登录钥匙串已解锁，并恢复钥匙串对工作台的访问权限后重试。保留原数据目录；访问失败不会回落到明文。';
+    if (platform === 'darwin' && suffix === 'keychain_corrupt')
+      return 'macOS 钥匙串中的工作台封装密钥损坏，请保留原钥匙串及数据，先恢复系统钥匙串。仅更换 RUYI_HOME 无法修复系统密钥；如有口令保护的凭据恢复包，可在钥匙串正常的独立系统账户或另一台机器上，使用全新的数据目录预览并导入。';
+    if (platform === 'darwin' && ['unlock_failed', 'key_missing', 'key_changed', 'provider_mismatch'].includes(suffix))
+      return '本地凭据库无法在当前 Mac 钥匙串身份下解锁。请保留原数据目录及其中的密钥、credential-vault-v1.json、privacy-scopes 和会话，不要删除密钥或覆盖旧库。'
+        + 'Windows DPAPI 数据不能在 Mac 直接解密；请在原系统和账户导出口令保护的凭据恢复包。已有恢复包时，将 RUYI_HOME 设置为独立、全新的空目录，再按 Mac 启动方式运行工作台；'
+        + '进入「设置 → 权限与安全 → 本地隐私保护 → 凭据恢复包」，输入导出时的口令，先预览再确认导入。恢复包不恢复旧聊天、隐私规则或代号映射。';
     if (error?.code !== 'credential_vault.unlock_failed') return '';
     return '本地凭据库无法在当前 Windows 账户或系统环境下解锁（credential_vault.unlock_failed）。'
       + '请保留原数据目录及其中的密钥、credential-vault-v1.json、privacy-scopes 和会话，不要删除密钥或覆盖旧库。'

@@ -1,0 +1,2 @@
+3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]
+PASS real Python 3.12 native-file-read.py through file_read preserves DOCX Unicode content and confirms cleanup

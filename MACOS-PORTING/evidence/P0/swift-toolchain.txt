@@ -1,0 +1,32 @@
+/Library/Developer/CommandLineTools/usr/include/swift/module.modulemap:13:8: error: redefinition of module 'SwiftBridging'
+11 | //===----------------------------------------------------------------------===//
+12 | 
+13 | module SwiftBridging {
+   |        `- error: redefinition of module 'SwiftBridging'
+14 |     header "bridging"
+15 | 
+
+/Library/Developer/CommandLineTools/usr/include/swift/bridging.modulemap:13:8: note: previously defined here
+11 | //===----------------------------------------------------------------------===//
+12 | 
+13 | module SwiftBridging {
+   |        `- note: previously defined here
+14 |     header "bridging"
+15 | 
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Foundation.framework/Modules/Foundation.swiftmodule/arm64e-apple-macos.swiftinterface:5:8: error: failed to build module 'CoreFoundation'; this SDK is not supported by the compiler (the SDK is built with 'Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.5 clang-1600.0.30.1)', while this compiler is 'Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)'). Please select a toolchain which matches the SDK.
+    3 | // swift-module-flags: -target arm64e-apple-macos15.2 -target-variant arm64e-apple-ios18.2-macabi -enable-objc-interop -autolink-force-load -enable-library-evolution -module-link-name swiftFoundation -swift-version 5 -enforce-exclusivity=unchecked -O -library-level api -enable-upcoming-feature InferSendableFromCaptures -enable-bare-slash-regex -user-module-version 3208 -module-name Foundation -package-name "\"FoundationPreview\""
+    4 | import Combine
+    5 | import CoreFoundation
+      |        `- error: failed to build module 'CoreFoundation'; this SDK is not supported by the compiler (the SDK is built with 'Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.5 clang-1600.0.30.1)', while this compiler is 'Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)'). Please select a toolchain which matches the SDK.
+    6 | import Darwin
+    7 | import Dispatch
+
+/Library/Developer/CommandLineTools/usr/include/swift/module.modulemap: 0:
+/Library/Developer/CommandLineTools/usr/include/swift/bridging.modulemap: 0:
+MACOS-PORTING/probes/swift-toolchain.swift:2:8: error: failed to build module 'Foundation'; this SDK is not supported by the compiler (the SDK is built with 'Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.5 clang-1600.0.30.1)', while this compiler is 'Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)'). Please select a toolchain which matches the SDK.
+1 | // Minimal toolchain gate. A failure here is unrelated to the product or macOS API design.
+2 | import Foundation
+  |        `- error: failed to build module 'Foundation'; this SDK is not supported by the compiler (the SDK is built with 'Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.5 clang-1600.0.30.1)', while this compiler is 'Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)'). Please select a toolchain which matches the SDK.
+3 | print(ProcessInfo.processInfo.operatingSystemVersionString)
+4 | 

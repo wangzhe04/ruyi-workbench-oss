@@ -1,0 +1,13 @@
+FAIL ReferenceError: Cannot access 'ConfigProcessHooks' before initialization
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2911:1)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at loadServerInternals (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/server-internals.js:59:13)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-executable-probe.e2e.js:18:15
+    at Object.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-executable-probe.e2e.js:69:3)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+
+MACOS EXECUTABLE PROBE E2E: FAIL (1)

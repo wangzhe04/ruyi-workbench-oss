@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-02",
+  "reviewer": "independent agent /root/ownership_review",
+  "scope": "opaque ProcessRuntime and macOS native supervisor, integrated DesktopShell.runProcess",
+  "status": "passed_no_unresolved_blockers_in_reviewed_scope",
+  "findings": [
+    {
+      "id": "S1",
+      "finding": "new supervised scope fell back to full-tree cancellation wording",
+      "resolution": "scope-specific cancellation text and escapeCoverage propagation with e2e",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "S2",
+      "finding": "null private JSON frame could throw uncaught TypeError; malformed lifecycle frames not sticky",
+      "resolution": "object and stage validation, bounded consistent counts, sticky incomplete on malformed/duplicate/truncated frames",
+      "status": "resolved_verified"
+    },
+    {
+      "id": "S3",
+      "finding": "stdio arrays of nonstandard length misplaced private fd3",
+      "resolution": "validate exactly three stdio slots before spawn, reject IPC, two regression cases",
+      "status": "resolved_verified"
+    }
+  ],
+  "additionalHardening": [
+    "startup admission gate captures identity before exec",
+    "await SSTOP or exited identity before collecting descendants",
+    "bounded collection and exit confirmation; clock failures incomplete",
+    "completion waits native exit and private protocol end independently of inherited target stdout"
+  ],
+  "independentVerification": {
+    "runtimeE2e": "20/20",
+    "cleanupE2e": "33/33",
+    "buildFreshness": "pass",
+    "gitDiffCheck": "pass"
+  },
+  "sha256": {
+    "ruyi-workbench/app/server.js": "491652954fc038441f9dedecb9e6f53eac1fd4035c68eb458bfbb654698dc19d",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "4fb015a3b53b9ef9d2a9bb50a6321797174e3a6203bc0c98033d91aa201701ac",
+    "ruyi-workbench/resources/macos-process-helper.c": "7e14a9bddbc633f2c613a28ffb49131150ab256078add986d0dd97c0658cf139",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "317bad87c4604aad217a638307fb142323a25556bafad1976d34ac8b923bae2e"
+  },
+  "remainingScope": [
+    "CLI/MCP/persistent-shell/toolbox start integration",
+    "concrete session/run/tool owner propagation",
+    "unobserved escaping descendants",
+    "helper readiness and loss handling",
+    "Windows and macOS14 execution"
+  ]
+}

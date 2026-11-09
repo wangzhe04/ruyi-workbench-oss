@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-06",
+  "reviewer": "independent agent /root/p2_cli_audit",
+  "implementationCommit": "0fb63eec299a223d8d0418e9c0076fb5ca85a1e7",
+  "scope": [
+    "Existing real Claude live probe explicit local-model mode and unchanged Windows legacy skip",
+    "Parent/child home, credentials, data roots, cloud route and XDG isolation",
+    "Native Bash permission bridge, structured tool history, execution-bound stop and post-stop native continuation",
+    "Fixture-home new isolated spawn count 225 to 226"
+  ],
+  "findings": [
+    {
+      "id": "R1",
+      "finding": "Parent require/readConfig could use inherited RUYI_HOME or cloud/XDG overrides before per-test environment",
+      "resolution": "Clear inherited data roots, credentials, proxy/preload, Claude cloud route and XDG variables before server require; explicitly isolate all child homes/config/XDG roots",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R2",
+      "finding": "PATH bare claude falsely rejected by existsSync",
+      "resolution": "Use actual version/handshake for explicit local mode and allow POSIX bare launcher through the existing live path",
+      "status": "resolved_reviewed"
+    },
+    {
+      "id": "R3",
+      "finding": "POSIX bare-launcher exemption could break legacy Windows missing cmd skip",
+      "resolution": "Keep original Windows not-found skip condition; only POSIX bare launchers avoid the filesystem-only test",
+      "status": "resolved_reviewed"
+    }
+  ],
+  "result": "reviewed_no_unresolved_code_findings",
+  "independentValidation": {
+    "diffCheck": "pass",
+    "testDiscipline": "Existing probe and one fixture count only; no production code, new test file, framework or mirror unit test",
+    "historyEvidence": "Correlated structured Anthropic Bash tool_use/tool_result and native ID/--resume exclude user-text continuity copy as proof",
+    "executionBoundary": "Static source, contract and documentation review; final runtime evidence executed serially by primary agent"
+  },
+  "evidenceBoundary": "Official real CLI and native Bash/permission bridge with deterministic loopback model, active prompt stop and native continuation. Does not validate real account service, long Bash descendant stop, Windows actual runtime or formal Keychain ACL."
+}

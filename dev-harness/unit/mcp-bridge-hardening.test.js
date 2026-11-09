@@ -347,7 +347,13 @@ test('[F7] stdio:桥接自己的超时仍照旧 —— 杀进程树并如实说'
   const pid = Number(fs.readFileSync(pidFile, 'utf8'));
   const r = await c.callTool('t', {}, 1000);
   assert.equal(r.ok, false);
-  assert.match(r.error, /tool timed out after 1s; 桥接进程树已终止/);
+  if (process.platform === 'darwin') {
+    assert.match(r.error, /tool timed out after 1s; 已核验的桥接子进程已终止/);
+    assert.equal(r.cleanupScope, 'owned-group-and-observed');
+    assert.equal(r.cleanupEscapeCoverage, 'observed-only');
+    assert.equal(r.cleanupUnconfirmed, 0);
+    assert.equal(r.cleanupIncomplete, false);
+  } else assert.match(r.error, /tool timed out after 1s; 桥接进程树已终止/);
   let gone = !alive(pid);
   for (let i = 0; i < 30 && !gone; i++) { await new Promise(res => setTimeout(res, 100)); gone = !alive(pid); }
   assert.ok(gone, '桥接超时后进程树被杀');
@@ -363,6 +369,25 @@ test('[F7] stdio:用户插话中断仍走 steerInterrupted', async () => {
   assert.equal(r.ok, false);
   assert.equal(r.steerInterrupted, true, JSON.stringify(r));
   assert.equal(c.dead, true);
+});
+
+test('[F7] concurrent stdio cancellation preserves cleanup scope for both calls', async () => {
+  const c = new McpStdioClient(entry('f7-concurrent', 'nocall'));
+  try {
+    await c.start();
+    const controller = new AbortController();
+    const pending = [c.callTool('t', {}, 10000, { signal: controller.signal }), c.callTool('t', {}, 10000, { signal: controller.signal })];
+    controller.abort();
+    for (const result of await Promise.all(pending)) {
+      assert.equal(result.steerInterrupted, true);
+      if (process.platform === 'darwin') {
+        assert.equal(result.cleanupScope, 'owned-group-and-observed');
+        assert.equal(result.cleanupEscapeCoverage, 'observed-only');
+        assert.equal(typeof result.cleanupIncomplete, 'boolean');
+        assert.doesNotMatch(result.error, /桥接进程树已终止/);
+      }
+    }
+  } finally { c.kill(); }
 });
 
 test('[F7] http:服务端 JSON-RPC error 含 "timed out" 原样回传、连接不重置;真超时与插话照旧', async () => {

@@ -1,0 +1,57 @@
+PASS sensitive Authorization header is masked on the way out
+PASS sensitive X-API-Key header is masked
+PASS token-named header is masked
+PASS non-sensitive header stays plaintext in the response
+PASS apiKey masking still works alongside header masking
+PASS masked response does not leak the real token value
+PASS untouched masked Authorization restored to real value on save
+PASS untouched masked X-API-Key restored
+PASS non-sensitive header round-trips unchanged
+PASS apiKey restored alongside headers
+PASS user-edited sensitive header passes through (not overwritten by disk value)
+PASS other untouched headers still restored when one is edited
+PASS provider without extraHeaders stays without the field
+PASS apiKey unmask still works for a provider with no extraHeaders
+PASS provider test restores masked custom auth headers
+PASS manual model IDs normalize into provider model options
+PASS reasoning effort is normalized and allowlisted
+PASS Chat Completions sends reasoning_effort
+PASS Responses sends reasoning.effort
+PASS default reasoning effort omits unsupported fields
+PASS S2-a unchanged launch vector still restores key + sensitive header (got "sk-S2V…")
+PASS S2-a unchanged launch vector reports no conflict
+PASS S2-b changed baseUrl → masked key/header NOT re-attached (key "", header "")
+PASS S2-b the conflict names the provider and both masked fields (got [{"scope":"provider","id":"vec","label":"Vec","fields":["apiKey","extraHeaders.Authorization"],"reason":"endpoint_changed"}])
+PASS S2-c changed audioBaseUrl counts as a vector change
+PASS S2-c an ADDED extraBaseUrls entry counts as a vector change (failover sends the same key there)
+PASS S2-c REMOVING an extraBaseUrls entry is a NARROWING and still restores (got "sk-S2V…")
+PASS S2-c clearing audioBaseUrl falls back to baseUrl(已在集合里)→ 仍然还原(asr-transcribe F1 的形状)
+PASS S2-c 把 baseUrl 换成【本来就在集合里的另一个地址】也算收窄(不新增地址即可)
+PASS S2-c the masked echo has the same launch-vector key as disk (URL 脱敏只在真有凭据时才改串)
+PASS S2-d a new plaintext key with a changed baseUrl is stored (got "sk-S2R…")
+PASS S2-d re-typing only the key while a sensitive header stays masked is still refused (fields [["extraHeaders.Authorization"]])
+PASS S2-d a new plaintext key + header with a changed baseUrl is NOT refused
+PASS S2-d …and it lands as typed
+PASS S2-d an explicitly emptied key clears without a refusal (这是「我就是要删掉密钥」的走法)
+PASS S2-e a masked key on an id that is not on disk is refused as no_match (got ["no_match"])
+PASS S2-f provider test restores the key when the endpoint is unchanged
+PASS S2-f provider test does NOT hand the real key to a changed baseUrl (got "")
+PASS S2-g searchBackend key restored when type+baseUrl unchanged
+PASS S2-g changed search baseUrl → key not re-attached
+PASS S2-g the search conflict is reported
+PASS S2-g modelsApiKey restored when the patch does not touch modelsApiBase
+PASS S2-g changed modelsApiBase → modelsApiKey not re-attached
+PASS S2-g the Claude-CLI endpoint conflict is reported
+PASS S2-h a mask that reaches sanitizeProvider is cleared, never persisted (key "")
+PASS S2-h the same last-line clear covers modelsApi*/searchBackend (masked URL and masked key alike)
+PASS S2-i a credential-free URL is returned byte-identical (no trailing-slash normalization)
+PASS S2-i userinfo is stripped, scheme/host/path stay visible
+PASS S2-i credential query values are masked, non-credential ones stay (got https://api.vec.test/v1?api_key=••••EFGH&model=m1)
+PASS S2-i the display copy carries no plaintext URL credential
+PASS S2-i a masked URL echoed back is restored to the real one on save
+PASS S2-i a HALF-edited masked URL is refused, never written (got ["masked_url"])
+PASS models probe succeeds with custom headers
+PASS models probe sends Token header verbatim
+PASS custom Token header coexists with built-in bearer auth
+
+PROVIDER CUSTOM HEADERS E2E: ALL PASS

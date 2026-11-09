@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Mac worktree Git supervision",
+    "cleanup failure propagation and workflow retry/resume",
+    "durable applying/applied transitions",
+    "same-service repository execution serialization",
+    "Hooks module boundary"
+  ],
+  "findings": [
+    {
+      "finding": "Post-commit cleanup failure could precede persistence of applied state",
+      "resolution": "Persist applied before cleanup and report applied with pending cleanup",
+      "status": "fixed"
+    },
+    {
+      "finding": "Workflow retry swallowed cleanup uncertainty and discarded the path",
+      "resolution": "Persist failure classification and isolation, block retry/resume and uncertain finalization",
+      "status": "fixed"
+    },
+    {
+      "finding": "Applied-state persistence failure and concurrent stale requests could replay mutation",
+      "resolution": "Persist and verify applying intent; serialize by repository identity and reload under lock; retain unconfirmed state",
+      "status": "fixed"
+    },
+    {
+      "finding": "Direct runGit reuse introduced a forward cycle edge",
+      "resolution": "Use AgentWorktreeHooks binding; dependency debt ceiling unchanged",
+      "status": "fixed"
+    }
+  ],
+  "independentTests": {
+    "gitRuntime": 40,
+    "cleanupRetry": 18,
+    "agentWorktree": 9,
+    "snapshotUnit": 2
+  },
+  "scopeLimit": "Repository application mutex is process-local; no claim of serialization against independent services or external Git"
+}

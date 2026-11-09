@@ -1,0 +1,65 @@
+PASS ① 切到 PROVIDER_PRESETS 整条声明(切不到 = 下面几条对空串恒真/恒假)
+PASS ① PROVIDER_PRESETS 有 ollama 预设,指向 http://127.0.0.1:11434/v1
+PASS ① PROVIDER_PRESETS 有 lmstudio 预设,指向 http://127.0.0.1:1234/v1
+PASS ① PROVIDER_PRESETS 只有本机两条 + 自定义(实际 lmstudio,ollama,openai-compatible)
+PASS ① CLAUDE_ENDPOINT_PRESETS 只有自定义(实际 anthropic-compatible)
+PASS ① 预设里没有写死的厂商地址(只允许本机 127.0.0.1)
+PASS ① 两条本地预设的字段形状与既有预设一致(type/reasoning/defaultModel/models),且都带 keyOptional
+(node:61873) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/onboarding-wizard.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS ① 服务端 keyOptional 预设(ollama, lmstudio)与前端 KEY_OPTIONAL_PRESET_IDS(ollama, lmstudio)逐字一致
+PASS ② validateApiKeyShape 认「本预设免 Key」(走同一个纯函数,不各写一份判定)
+PASS ② 探测失败的人话按预设 id 取键(localDown.<id>)
+PASS ② 本地预设连不上时改说人话,而不是把传输层错误直接甩给用户
+PASS ② 「看手册这一节」走应用内阅读器 + 锚点(不是外链、不是路径)
+PASS ② zh-CN localDown.ollama 是人话,不给命令行也不给下载链接
+PASS ② zh-CN localDown.lmstudio 是人话,不给命令行也不给下载链接
+PASS ② en-US localDown.ollama 是人话,不给命令行也不给下载链接
+PASS ② en-US localDown.lmstudio 是人话,不给命令行也不给下载链接
+PASS ② 本机预设没选模型时不许保存(defaultModel 为空,存下去第一条消息必炸)
+PASS ② 设置页对本机预设不再摆 sk-... 占位符,并明说不需要 Key
+PASS ② 设置页测试失败不再直接插值 r.error(信封形状会印成 [object Object])
+PASS ② 设置页失败态同样给「看手册这一节」按钮,复用共享阅读器实例
+PASS ②b 手册锚点键是 help.anchor.localModels
+PASS ②b 锚点文案与两份手册的 ## 标题逐字相符
+PASS ②b zh-CN 手册的本机模型小节写清了两个默认地址
+PASS ②b en-US 手册的本机模型小节写清了两个默认地址
+PASS ②c 14 条新键在四个 locale 齐备且逐字一致
+PASS ②c zh-CN 的改用端口提示同时说清【改用了谁】与【原来是谁】
+PASS ②c en-US 的改用端口提示同时说清【改用了谁】与【原来是谁】
+PASS ③ 顶部条在位:role=status + aria-live=polite + 可关闭
+PASS ③ 默认隐藏(没有提示时不占地方)
+PASS ③ refreshStatus 每次都重画顶部条
+PASS ③ 三类 kind 都有对应的本地化文案键
+PASS ③ 未知 kind 退回服务端写在文件里的那句人话,而不是印键名
+PASS ③ 118e/118c 的样式落在【已注册的】onboarding.css 层内,不新开样式表
+PASS ④ Start-Workbench.cmd 纯 ASCII(任何控制台代码页下 cmd.exe 都能解析一致)
+PASS ④ Start-Workbench.cmd 全 CRLF(cmd.exe 误解析纯 LF 批处理)
+PASS ④ 启动路径上没有 pause(不再靠黑窗留住失败信息)
+PASS ④ 包不完整的既有检查与提示保留(那条路径的 pause 是有意的:此刻还没有任何界面可用)
+PASS ④ 「勿在压缩包预览里运行」的提示保留
+PASS ④ node 回落路径改由 PowerShell 隐藏启动
+PASS ④ 路径经环境变量传给 PowerShell(不做内联引号拼接,带空格/单引号/&的目录名不会劈参数)
+PASS ④ PowerShell 不可用时仍有直启兜底(宁可退化,不许起不来)
+PASS ④ package-offline.ps1 生成的启动器同步去黑窗(发布件才是用户真正双击的那个)
+PASS ④ Start-Workbench.cmd 的 -ArgumentList 是单个已加引号的参数串(5.1 不给数组元素补引号,带空格目录会劈参数)
+PASS ④ 打包器生成的启动器同款(发布件才是用户真正双击的那个)
+PASS ④ 两份启动器的 node 回落行逐字一致(去掉 here-string 的反引号转义后)
+PASS ⑤ 存在错误码 -> 分类 -> 人话的两级映射函数
+PASS ⑤ 三种分支齐备:组件缺失 / 被策略禁用 / 其它未知
+PASS ⑤ 组件缺失分支覆盖 DLL 找不到与 COM 类未注册
+PASS ⑤ 策略禁用分支覆盖访问被拒与组策略禁用
+PASS ⑤ 缺 Runtime 给的是人话,不是 0x 码
+PASS ⑤ 被策略禁用时给 IT 说明
+PASS ⑤ 调用点一律传错误码 + 阶段,没有任何一处再把 0x 串拼进提示
+PASS ⑤ 原始 0x 码退到末尾的技术详情行(留给支持排查,不再当主文案)
+PASS ⑥ README-START-HERE.txt 十行以内(实际 10 行)
+PASS ⑥ README-START-HERE.txt 全 LF(与 .gitattributes 的默认口径一致)
+PASS ⑥ 保留「勿在压缩包预览里运行」
+PASS ⑥ 保留「建议解压到 C:\Ruyi」(中英各一)
+PASS ⑥ 指向欢迎向导
+PASS ⑥ 出问题指向应用内帮助菜单,而不是终端或某个日志路径
+
+START EXPERIENCE STATIC E2E: ALL PASS

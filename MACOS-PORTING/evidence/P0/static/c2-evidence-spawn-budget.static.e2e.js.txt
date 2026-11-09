@@ -1,0 +1,14 @@
+PASS M2 gaps are indexed as deterministic evidence
+PASS coverage unhandled items use a typed check
+PASS propagate unpropagated items use a typed check
+PASS raw gap values are replaced by digests
+PASS evidence catalog accepts deterministic gap events
+PASS evidence graph does not persist raw deterministic gap values
+PASS sub-agent request budget accepts up to 1000
+PASS sub-agent grows budget in bounded increments
+PASS ordinary and complex hard caps remain distinct
+PASS 1000 cap requires elevated task complexity
+PASS workflow normalization preserves requested adaptive ceiling
+PASS spawn workflow event refreshes persisted runs
+PASS spawn workflow event focuses child DAG after refresh
+C2 + SPAWN/BUDGET STATIC E2E: ALL PASS

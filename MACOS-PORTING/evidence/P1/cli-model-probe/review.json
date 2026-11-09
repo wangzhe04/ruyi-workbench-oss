@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Mac Kimi model discovery supervision",
+    "byte limits and UTF8 stream decoding",
+    "bounded failure/cleanup and pipe release",
+    "fallback and adapter result shape"
+  ],
+  "findings": [
+    {
+      "finding": "Throwing cleanup could leave stopProbe rejected and outer request unresolved",
+      "resolution": "Catch cleanup failure and always finish with incomplete metadata",
+      "status": "fixed"
+    },
+    {
+      "finding": "Inherited stdout/stderr could remain referenced after timeout",
+      "resolution": "Destroy both output streams at final settlement and verify retained-pipe failure",
+      "status": "fixed"
+    }
+  ],
+  "independentTests": {
+    "cliModels": 13,
+    "processRuntime": 62
+  },
+  "supplement": "Final first assertion uses real Kimi adapter entry; reviewer checked the strengthened assertion without further production changes",
+  "remaining": [
+    "CLI locator/version probes",
+    "Windows/macOS14"
+  ]
+}

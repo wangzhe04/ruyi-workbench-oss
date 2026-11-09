@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-02",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1101,
+    "fail": 0
+  },
+  "independentE2E": {
+    "runtime": 47,
+    "shell": 32,
+    "git": 28,
+    "cleanup": 32
+  },
+  "buildCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "907573130f7ae34cadadba047940bef43e69bcbb9fd14fb8e39a176cd8fb5f9f",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "b7b56fa9e7bf791f9018af0790bfba798feaea7f41f3586245a89cb71b45cf84",
+    "ruyi-workbench/app/src/04-desktop-shell.js": "9f138db15d5f10afe223442fa76a9105a3a12945b7dc8adfceeef958cefa9024",
+    "ruyi-workbench/app/src/11-native-tools.js": "d83bc4c01771e7a7d85ea709cdb4e2be8fef3060c29c1a081c48e0f6e614ef15",
+    "ruyi-workbench/resources/macos-process-helper.c": "0500c3f3c01083600ed458e6f66597fdbe7cd169738e11b40d453602bc65c208",
+    "dev-harness/macos-process-runtime.e2e.js": "c1c84bf6660c64505826c6f09b448b043e4ab708fbf54bde84b6b8524ef40dd7",
+    "dev-harness/macos-git-runtime.e2e.js": "09ce7a3404135ea43fd1a329ee29b0d131ac95c62f9457911b97e390e9467ba5",
+    "dev-harness/macos-process-cleanup.e2e.js": "a0832288cae0697bff7d3569e78e7be52c8e547a93031ea5047323f1b4c2164c"
+  },
+  "limitations": [
+    "Unified UI/tool-discovery/health capability snapshot",
+    "Abrupt helper death lifecycle",
+    "Windows/macOS14 matrix",
+    "Synchronous probe can block up to one second",
+    "Escape coverage remains observed-only"
+  ],
+  "finalRuntimeRepeat": {
+    "pass": 47,
+    "fail": 0,
+    "log": "runtime-final.txt"
+  }
+}

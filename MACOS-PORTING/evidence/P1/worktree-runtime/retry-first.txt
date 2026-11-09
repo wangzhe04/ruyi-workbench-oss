@@ -1,0 +1,5 @@
+FAIL Error: ENOENT: no such file or directory, open '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-worktree-retry-sC4OmU/data/agent-runs/sess_bda685706b2c68de/null.json'
+    at Object.readFileSync (node:fs:441:20)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/worktree-cleanup-retry.e2e.js:31:33
+
+WORKTREE CLEANUP RETRY E2E: FAIL (1)

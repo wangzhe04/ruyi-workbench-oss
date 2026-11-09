@@ -15,13 +15,15 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-schema-budget-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 process.env.RUYI_HOME = root;
 const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+// These schema/loading fixtures model a ready runtime; unavailable hosts have dedicated e2e coverage.
+const capabilities = { network: { online: true }, gitCli: true, runtime: { capabilities: { 'process.supervisor': { ready: true } } } };
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const cfg = srv.defaultConfig();
 // scratchpadEnabled:与 09 主回合对普通会话传的一致(C2 会话草稿本常驻 core),量的是模型真实收到的那份工具表。
 const mainOpts = { skillsEnabled: true, scratchpadEnabled: true, sendToAgentEnabled: true };
-const offered = srv.buildOpenAiTools(cfg, null, mainOpts);
-const full = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, null, mainOpts);
+const offered = srv.buildOpenAiTools(cfg, capabilities, mainOpts);
+const full = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, capabilities, mainOpts);
 const byName = name => full.find(t => t.function.name === name);
 const loaded = msg => srv.createToolLoadingState(cfg, msg, null, offered, null, null);
 const chars = tools => JSON.stringify(tools).length;
@@ -126,8 +128,8 @@ test('C2 scratchpad_write:只在显式 scratchpadEnabled 时发放、常驻 core
   assert.ok(sp, '普通会话主回合的工具表里有它');
   assert.ok(chars(sp) <= 750, `scratchpad_write schema ${chars(sp)} > 750`);
   assert.ok(loaded('你好').current().some(t => t.function.name === 'scratchpad_write'), '闲聊回合也在(core)');
-  assert.ok(!srv.buildOpenAiTools(cfg, null, { skillsEnabled: true }).some(t => t.function.name === 'scratchpad_write'), '不传 scratchpadEnabled 就没有(子代理 / 探针)');
-  assert.ok(!srv.buildOpenAiTools(cfg, null, { scratchpadEnabled: true, stewardSession: true }).some(t => t.function.name === 'scratchpad_write'), '管家会话没有');
+  assert.ok(!srv.buildOpenAiTools(cfg, capabilities, { skillsEnabled: true }).some(t => t.function.name === 'scratchpad_write'), '不传 scratchpadEnabled 就没有(子代理 / 探针)');
+  assert.ok(!srv.buildOpenAiTools(cfg, capabilities, { scratchpadEnabled: true, stewardSession: true }).some(t => t.function.name === 'scratchpad_write'), '管家会话没有');
 });
 
 test('N8-D 核心编辑工具的描述带着模型学不到的行为', () => {

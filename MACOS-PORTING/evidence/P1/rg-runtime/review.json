@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Mac rg async discovery/main search/high-byte repair supervision",
+    "Search failure fallback and file_search error envelope",
+    "Shared parseOutput and preserved Windows execution branch"
+  ],
+  "resolvedFindings": [
+    "Pre-aborted cold requests must not start probes",
+    "Synchronous no-child start failure can safely use JS fallback"
+  ],
+  "blockingFindings": 0,
+  "tests": {
+    "rgRuntime": 15,
+    "processRuntime": 62
+  },
+  "limitations": [
+    "Cold sync probe remains unaudited",
+    "Shared inflight version probe retains shared lifecycle",
+    "Windows real runtime remains unverified"
+  ]
+}

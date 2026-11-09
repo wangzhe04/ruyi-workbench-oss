@@ -1,0 +1,45 @@
+PASS A1 chat-render-primitives.js 导出 detectToolImagePath(toolName, result)
+PASS B1 默认取图实现只用既有 /api/file/preview 端点(与 file-browser.js 同源,零新增端点)
+PASS B2 renderToolImageInto() 函数体可提取
+PASS B3 renderToolImageInto() 函数体内不直接拼接任何 /api/ 端点(取图统一走注入的 fetchFilePreview)
+PASS B4 renderToolImageInto() 函数体不自行构造 data: URI(只信任服务端返回的 preview.dataUri)
+PASS B5 图片取数据统一走注入的 fetchFilePreview()
+PASS A2 白名单工具 + .png 路径 -> 返回路径
+PASS A3 output_path 字段 + 大写扩展名不区分大小写 -> 返回路径
+PASS A4 savePath 字段命中
+PASS A5 非白名单工具 -> null
+PASS A6 非图片扩展名(.txt) -> null
+PASS A7 success:false -> null
+PASS A8 ok:false -> null
+PASS A9 桥接 serverId__ 前缀(acc__chart_image) -> 剥离后命中白名单
+PASS A10 结果非对象(null/字符串) -> null
+PASS A11 结果对象没有任何路径字段 -> null
+PASS C1 toolCard() 返回的 imageHost(.tc-image-host)挂在卡片 DOM 树内
+PASS C2 最终 chart_image 结果渲染出恰好一张 <img>,src 为预览返回的 dataUri
+PASS C3 同一个 host 被渲染两次也只取图一次(guard 防重复 fetch)
+PASS C4 图片旁有且仅有一个 展开/收起 切换按钮
+PASS D1 image-toobig 时不渲染 <img>
+PASS D2 image-toobig 时渲染恰好一个「在侧栏预览」按钮
+PASS D3 点击按钮调用注入的 openFilePreview(path),path 为检测到的图片路径
+PASS E1 fetchFilePreview 拒绝(reject)时 toolCard() 本身不抛错
+PASS E2 fetch 失败时既不渲染 <img> 也不渲染按钮(静默降级)
+PASS F1 未完成(pending)或 isError 的工具卡从不触发取图请求
+PASS F2 pending/isError 卡片的 imageHost 保持为空
+PASS G1 chat-live.css 含 .tc-image-host:empty(空宿主不占位)
+PASS G2 chat-live.css 含 .tool-image 规则
+PASS G3 chat-live.css 含 .tool-image img 规则
+PASS G4 chat-live.css 含 .tool-image.expanded 规则
+PASS H chat.toolImage.expand 在 public zh-CN 存在
+PASS H chat.toolImage.expand 在 public en-US 存在
+PASS H chat.toolImage.expand docs/i18n zh-CN 与 public 逐字一致
+PASS H chat.toolImage.expand docs/i18n en-US 与 public 逐字一致
+PASS H chat.toolImage.collapse 在 public zh-CN 存在
+PASS H chat.toolImage.collapse 在 public en-US 存在
+PASS H chat.toolImage.collapse docs/i18n zh-CN 与 public 逐字一致
+PASS H chat.toolImage.collapse docs/i18n en-US 与 public 逐字一致
+PASS H chat.toolImage.openInSidebar 在 public zh-CN 存在
+PASS H chat.toolImage.openInSidebar 在 public en-US 存在
+PASS H chat.toolImage.openInSidebar docs/i18n zh-CN 与 public 逐字一致
+PASS H chat.toolImage.openInSidebar docs/i18n en-US 与 public 逐字一致
+
+TOOL IMAGE INLINE STATIC E2E: ALL PASS

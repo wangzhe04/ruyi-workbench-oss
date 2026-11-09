@@ -1,0 +1,12 @@
+PASS F0 工作台起来了
+PASS F0b runtime token 可读
+PASS F0c 找到 Edge/Chrome
+PASS F0d 浏览器 target 可连
+FAIL F0e 首屏就绪
+FAIL Error: TypeError: Failed to resolve module specifier '/js/navigation-controls.js'
+    at <anonymous>:2:20
+    at <anonymous>:7:7
+    at CdpClient.evaluate (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/lib/browser-fixture.js:141:13)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-capability-popover.browser.e2e.js:13:5
+
+MACOS CAPABILITY POPOVER E2E: FAIL (2)

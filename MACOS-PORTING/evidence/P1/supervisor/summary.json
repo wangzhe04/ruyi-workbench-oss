@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-02",
+  "status": "in_progress",
+  "baseline": "0a430880",
+  "deliveryCommit": null,
+  "scope": "DesktopShell supervisor integration",
+  "sha256": {
+    "ruyi-workbench/app/server.js": "491652954fc038441f9dedecb9e6f53eac1fd4035c68eb458bfbb654698dc19d",
+    "ruyi-workbench/app/src/01h-process-runtime.js": "4fb015a3b53b9ef9d2a9bb50a6321797174e3a6203bc0c98033d91aa201701ac",
+    "ruyi-workbench/resources/macos-process-helper.c": "7e14a9bddbc633f2c613a28ffb49131150ab256078add986d0dd97c0658cf139",
+    "ruyi-workbench/runtime/macos/ruyi-process-helper": "317bad87c4604aad217a638307fb142323a25556bafad1976d34ac8b923bae2e"
+  },
+  "verification": {
+    "runtimeE2e": [
+      "20/20",
+      "20/20"
+    ],
+    "cleanupE2e": "33/33",
+    "targetedUnit": "20/20",
+    "buildFreshness": "pass",
+    "dependencyGraph": "89 modules, 627 edges; no new debt",
+    "independentReview": "pass",
+    "finalFast": {
+      "exitCode": 0,
+      "staticPass": 80,
+      "staticFail": 0,
+      "unit": {
+        "tests": 2507,
+        "pass": 2489,
+        "fail": 0,
+        "skip": 18
+      },
+      "residualTestBrowsers": 0
+    }
+  },
+  "remainingScope": [
+    "CLI/MCP/persistent-shell/toolbox start integration",
+    "concrete session/run/tool owner propagation",
+    "unobserved escaping descendants",
+    "helper readiness and loss handling",
+    "Windows and macOS14 execution"
+  ]
+}

@@ -1,0 +1,6 @@
+FAIL office_open waits for successful Mac handoff completion
+FAIL TypeError: Cannot read properties of undefined (reading 'args')
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/macos-opener.e2e.js:36:22
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+MACOS OPENER E2E: FAIL (2)

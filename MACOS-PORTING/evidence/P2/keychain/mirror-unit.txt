@@ -1,0 +1,63 @@
+✔ steward inspection never sends literal private-rule values to the model, including when privacy is off (71.292208ms)
+✔ steward privacy preview, deferred atomic commit and disabling retain encryption (195.711209ms)
+✔ bad, broad, invalid or untested rules never save; existing builtins cannot satisfy custom tests (118.655125ms)
+✔ cancel, busy and concurrent settings conflicts discard drafts without overwriting newer state (3.157375ms)
+✔ literal and complete JSON pointer rules test independently and upsert preserves unrelated rules (3.232334ms)
+(node:29436) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/util.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ [F1] fmtBytes 进位
+  ✔ 临界值不再印 1024.0 (0.459792ms)
+✔ [F1] fmtBytes 进位 (5.076ms)
+▶ [F2] toast 时长与 kind
+  ✔ err 类按字数延长,夹在 [6s, 15s];其余 3.2s (0.790833ms)
+  ✔ migration-center 的错误提示用 .toast.err(CSS 里没有 .toast.error) (1.031666ms)
+✔ [F2] toast 时长与 kind (2.092ms)
+▶ [F3] parseCsv
+  ✔ 带引号的逗号不拆、"" 是转义引号、BOM 被剥、CRLF 与末尾换行 (15.081917ms)
+  ✔ 引号里的换行属于同一个单元格;空字段与末尾逗号 (0.563125ms)
+  ✔ 恰好 maxRows 行不算截断,多一行才算(且只留 maxRows 行) (0.433292ms)
+✔ [F3] parseCsv (16.28625ms)
+▶ [F4] bindKeyboardClick
+  ✔ Enter / 空格触发 click 并 preventDefault;别的键、修饰键、冒泡上来的事件不触发 (0.169834ms)
+  ✔ 没有节点时原样返回 (0.108584ms)
+✔ [F4] bindKeyboardClick (0.390834ms)
+▶ [F5] 英文单复数
+  ✔ 每个键都有 .one / .other 一对;中文两键同文,英文两键不同(1 与 N 的名词形态) (0.491084ms)
+  ✔ 「stewardShell.chips.*」三个裸键保留(unit/steward-model-menu.test.js 按裸键取中文) (0.089084ms)
+  ✔ tCount 渲染:1 file / 2 files、1 day ago、1 turn;中文不变 (4.940209ms)
+✔ [F5] 英文单复数 (5.618333ms)
+▶ [F6] 审计行摘要本地化
+  ✔ 服务端 AUDIT_SUMMARY_MAP 的每个 kind 都有前端键;中文与服务端措辞一致,英文无 CJK (0.109542ms)
+  ✔ 英文界面:按 detail 重拼摘要,无中文 (0.277416ms)
+  ✔ 中文界面:与服务端 auditSummaryFor 的拼法一致(全角括号) (0.089542ms)
+  ✔ 未知 kind、桌面来源、缺 detail 回落服务端 summary,永不空白 (0.046167ms)
+✔ [F6] 审计行摘要本地化 (0.588084ms)
+▶ [F7] MCP 兼容性框的本地化键
+  ✔ 服务端 MCP_COMPAT_MATRIX 的每个 transport 都有 capabilities / limitations 两键 (1.043292ms)
+✔ [F7] MCP 兼容性框的本地化键 (1.076667ms)
+▶ [F8] markdown breaks 选项
+  ✔ 默认 breaks:true(对话口径不变);{breaks:false} 单个换行不画成 <br>,段落与表格不受影响 (13.402042ms)
+  ✔ help-viewer 传 {breaks:false};renderMarkdownInto 把 opts 递给 renderMarkdown 且缓存键带上这一位 (0.388334ms)
+✔ [F8] markdown breaks 选项 (13.864209ms)
+▶ [F9] 模态焦点归还目标
+  ✔ trigger 看得见 → 还给它 (0.109625ms)
+  ✔ trigger 为空 / 就是 body → 不动(没有「回哪儿」可言) (0.030667ms)
+  ✔ trigger 已脱离文档(isConnected=false)→ 退到 #appGearBtn (0.038708ms)
+  ✔ trigger 不可见(display:none,无盒子)且在齿轮菜单里 → 退到 aria-controls 指回菜单的那枚按钮 (0.063625ms)
+  ✔ 不可见且认不出菜单 → #appGearBtn;连它也看不见 → null (0.040666ms)
+✔ [F9] 模态焦点归还目标 (1.508625ms)
+▶ [F10] 新键的目录一致性
+  ✔ 两份目录键集合相同、同键占位符相同(含新增的) (5.680791ms)
+  ✔ docs/i18n 镜像与运行时目录逐字节相同 (0.521625ms)
+  ✔ 文件树新键齐全且英文不夹中文 (0.046375ms)
+✔ [F10] 新键的目录一致性 (6.312792ms)
+ℹ tests 31
+ℹ suites 10
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 444.36

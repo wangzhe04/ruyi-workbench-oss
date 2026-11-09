@@ -51,6 +51,21 @@ try {
   fs.writeFileSync(globalShim, '');
   const globalSpawn = server.prepareAgentCliSpawn('kimi', globalShim, ['--version']);
   ok(path.resolve(globalSpawn.args[0]) === path.resolve(globalEntry), 'global npm shim layout also resolves directly');
+  if (process.platform !== 'win32') {
+    const prefix = path.join(tmp, 'posix-global');
+    const posixEntry = path.join(prefix, 'lib', 'node_modules', '@moonshot-ai', 'kimi-code', 'dist', 'main.mjs');
+    const posixShim = path.join(prefix, 'bin', 'kimi');
+    fs.mkdirSync(path.dirname(posixEntry), { recursive: true });
+    fs.mkdirSync(path.dirname(posixShim), { recursive: true });
+    fs.writeFileSync(posixEntry, ''); fs.symlinkSync(posixEntry, posixShim);
+    const posixSpawn = server.prepareAgentCliSpawn('kimi', posixShim, ['acp']);
+    ok(path.resolve(posixSpawn.command) === path.resolve(process.execPath) && path.resolve(posixSpawn.args[0]) === path.resolve(posixEntry),
+      'POSIX global npm symlink resolves to the direct package entry so ACP compatibility can attach');
+    fs.unlinkSync(posixShim); fs.writeFileSync(posixShim, 'native launcher');
+    const nativeSpawn = server.prepareAgentCliSpawn('kimi', posixShim, ['acp']);
+    ok(nativeSpawn.command === posixShim && JSON.stringify(nativeSpawn.args) === JSON.stringify(['acp']),
+      'a native POSIX launcher is not replaced by a nearby stale npm installation');
+  }
   const originalPath = process.env.PATH;
   try {
     process.env.PATH = bin + path.delimiter + String(originalPath || '');
@@ -390,6 +405,23 @@ async function verifyKimiPlanFilePathGuard() {
   }
 }
 
+async function verifyKimiPermissionAlias() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-approval-alias-'));
+  try {
+    const target = path.join(root, 'workspace'), alias = path.join(root, 'alias');
+    fs.mkdirSync(target); fs.symlinkSync(target, alias, process.platform === 'win32' ? 'junction' : 'dir');
+    const S = require('./lib/server-internals').loadServerInternals(['handleKimiAcpPermissionRequest', 'consumeKimiAcpApproval'], { withEval: true });
+    S.__eval("requestNativePermission = async () => ({ behavior: 'allow', scope: 'once' });");
+    const context = { reg: {}, state: { toolMap: new Map([['write-alias', { nativeName: 'Write', kind: 'edit', __settled: false }]]) },
+      session: { id: 'alias-test', cwd: alias }, config: { permissionMode: 'default' }, onEvent: () => {} };
+    await S.handleKimiAcpPermissionRequest({ toolCall: { toolCallId: 'write-alias', title: 'Write', kind: 'edit', rawInput: { path: path.join(alias, 'new.txt') } },
+      options: [{ optionId: 'once', kind: 'allow_once' }] }, context);
+    const canonical = path.join(fs.realpathSync(target), 'new.txt');
+    ok(S.consumeKimiAcpApproval(context, 'write', { path: canonical }) && !S.consumeKimiAcpApproval(context, 'write', { path: canonical }),
+      'native Write approval through a directory alias matches the canonical fs request exactly once before the file exists');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+}
+
 (async () => {
   {
     // 前端 Agent CLI 登记表的 Kimi 那一行（上面源码锁的运行时一半）：设置里能选到它、手动压缩走原生 API、有原生状态接口。
@@ -404,6 +436,7 @@ async function verifyKimiPlanFilePathGuard() {
       'frontend registry: only Kimi refreshes native usage from /api/kimi/status');
   }
   await verifyKimiPlanFilePathGuard();
+  await verifyKimiPermissionAlias();
   const resumeCaps = server.kimiAcpSessionRestoreMethods({ sessionCapabilities: { resume: {} }, loadSession: true });
   const loadCaps = server.kimiAcpSessionRestoreMethods({ sessionCapabilities: { resume: false }, loadSession: true });
   const disabledCaps = server.kimiAcpSessionRestoreMethods({ sessionCapabilities: { resume: false }, loadSession: false });

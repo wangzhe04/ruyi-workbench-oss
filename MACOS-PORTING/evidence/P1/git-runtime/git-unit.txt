@@ -1,0 +1,19 @@
+✔ [G1] git_status 不传 cwd:落在对话工作目录 (116.11475ms)
+✔ [G2] 显式 cwd 不存在:报错并点名路径,不换成家目录 (35.939542ms)
+✔ [G3] git_diff 只有未跟踪文件:列出 untracked,不是「没有改动」 (241.626708ms)
+✔ [G4] 中文路径在 status / diff 里原样显示 (188.019917ms)
+✔ [G5] 大 diff:序列化远低于 60K,truncated 在 diff 之前,附 stat 文件清单 (217.161375ms)
+✔ [G6] 超过 maxBuffer 的巨型 diff:优雅截断而非「Git 命令执行失败」 (214.153542ms)
+✔ [G7] git_commit:addAll 默认 false;schema 文字与代码一致;没暂存时提示 addAll/paths (139.453458ms)
+✔ [G8] git_commit 超时:说「被终止」+ timedOut,不是 hookRejected;暂存区状态照实报 (1657.070458ms)
+✔ [G8] 钩子起的整棵进程树随超时一并结束(不留孤儿) (1668.147167ms)
+✔ [G8] 钩子真的拒绝(快速非零退出)仍报 hookRejected,不被误当超时 (305.279167ms)
+✔ [G8] git_commit 的 schema 暴露 timeoutMs、默认超时说清 (9.714542ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4916.71025

@@ -1,0 +1,8 @@
+{
+  "experiment": "existing v2 supervisor under spawnSync extra pipe",
+  "elapsedMs": 566,
+  "status": 0,
+  "signal": null,
+  "started": true,
+  "control": "{\"event\":\"started\",\"value\":99727,\"created\":\"1793643398746315\"}\n{\"event\":\"cleanup\",\"value\":0,\"detail\":1,\"terminated\":0,\"alreadyExited\":1,\"observed\":1}\n{\"event\":\"exit\",\"value\":0,\"detail\":0}\n{\"event\":\"guardian-cleanup\",\"value\":0,\"detail\":1,\"terminated\":0,\"alreadyExited\":2,\"observed\":2}\n"
+}

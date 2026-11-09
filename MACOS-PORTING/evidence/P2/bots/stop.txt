@@ -1,0 +1,29 @@
+✔ default state and unknown callbacks do not create storage; configuration resolves only declared reserved env references and never returns values (5.981291ms)
+✔ sender AND conversation scopes, message rather than event id dedupe, semantic conflict and restart persistence (7.024375ms)
+✔ ACK waits for disk commit; failed writes and corrupt/schema-less ledgers fail closed rather than manufacturing dedupe evidence (4.960875ms)
+✔ disable/reconfigure share the ingestion chain; retired and changed application identities cannot reuse previous authority (3.557042ms)
+✔ capacity retains every received/dedupe record and invalid rows or oversized retired-id sets are rejected whole (22.742375ms)
+✔ control requires explicit local confirmation, stable id retries and opaque item-bound capability; normal allowed peers remain inbox-only (5.42425ms)
+✔ control admission commits running before invocation, persists result before send and never reruns duplicate deliveries (4.072583ms)
+✔ restart resumes only queued work after authority recheck; old running and sending become unknown without replay (13.370167ms)
+✔ write failure blocks running side effects, revoked queued work never invokes runner, and platform uncertainty is not marked sent or retried (7.264375ms)
+✔ a failed completion write projects unknown with a visible worker error and next recovery settles unknown without re-execution (6.490833ms)
+✔ disable aborts an in-flight delivery and retains the typed delivery error rather than claiming an unknown success (3.148708ms)
+✔ stop during job persistence prevents dispatch and releases the newly registered actor; restart does not replay (7.483875ms)
+✔ unexpected runner exceptions are unknown without retry advice or replay, and structured action facts remain distinct from a completed turn (5.30925ms)
+✔ setup preparation accepts only a local user, complete non-secret identity, and reuses exact disabled identity without modifying it (2.436375ms)
+✔ pairing authenticates only exact text, fixes the first candidate, and captures no inbox/model/delivery side effect (3.563375ms)
+✔ pairing expires and restarts fail old confirmations without durable pairing authority (3.739792ms)
+✔ configuration and credential changes revoke pairing and every old setup snapshot, including non-authority label changes (2.506292ms)
+✔ activation waits for the authoritative atomic write and a failed write grants no control (2.409667ms)
+✔ legacy disabled incomplete identities and one credential fault do not turn a committed mutation or the whole list into a false failure (2.186541ms)
+✔ setup-only evidence commits before candidate/ACK and a failed write cannot create even a temporary identity proof (2.161ms)
+✔ setup-only receipt capacity rejects new messages without evicting old dedupe, and corrupt receipt integrity fails the whole ledger closed (58.412125ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 222.043917

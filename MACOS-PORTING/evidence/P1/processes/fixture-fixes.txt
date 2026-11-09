@@ -1,0 +1,19 @@
+✔ [S1] node 脚本:运行期间文件在,结束后删掉,不留带密钥的明文 (31.907625ms)
+✔ [S2] 超时被杀与脚本报错退出:同样删 (1038.341708ms)
+✔ [S3] python 脚本删掉 (14.1155ms)
+✔ [S3] powershell 分支:没有 PowerShell 的平台回 windows_only 也不留脚本 (2.208417ms)
+✔ [S4] sweepStaleScriptFiles:按龄清孤儿,新文件与子目录不动 (0.995792ms)
+✔ [S4] scripts 目录不存在:清扫静默返回 0 (0.4725ms)
+✔ [T1] 会话数 > 500:无变化的稳态拍零会话头读取、零 .changes.ndjson、零游标写盘 (0.325458ms)
+✔ [T2] 落盘游标仍按 500 封顶、紧凑 JSON、结构完好 (0.408292ms)
+✔ [T3] 真变化的那一拍照常写游标、照常入箱;之后归于平静又不写 (0.3445ms)
+✔ [S1] stewardInboxState:文件没变不重读;追加之后与独立解析的参考值逐项相等 (0.342334ms)
+✔ [S2] 读 inbox 撞上瞬时锁:不把空结果记进备忘,下一次读出真值 (85.154667ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1198.760417

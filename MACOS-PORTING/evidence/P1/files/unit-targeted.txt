@@ -1,0 +1,89 @@
+▶ hunt2 · 写族文件工具与检查点完整性
+  ✔ #1 >5MB 文件 file_move:不留「回滚删掉唯一一份」的条目;覆盖式移动拒绝 (233.636ms)
+  ✔ #2 file_edit:GBK 文件原编码写回、无法解码的拒绝且逐字节不变;UTF-8 文件的检查点是原字节 (24.118833ms)
+  ✔ #3 archive_zip 打包数据根的祖先目录:敏感控制面不入包 (126.595208ms)
+  ✔ #4 git 基线对账:GBK 原字节、CRLF 还原、git 读失败不当成新建 (1372.988958ms)
+  ✔ #5 跨盘 EXDEV:copy+unlink 成功后检查点仍在、可回滚 (116.659583ms)
+  ✔ #6 entrySeq:中间条目被删后新条目不撞号 (8.211667ms)
+  ✔ #7 同一文件并发 file_edit 两处替换都落盘 (6.397708ms)
+  ✔ #8 CRLF 文件 + 以 "\n" 开头的 oldText:不产出 \r\r\n (3.173291ms)
+  ✔ #9 漏传 content / newText 不再静默清空 (2.970542ms)
+  ✔ #10 file_write 保住 BOM;新建 .ps1 带 BOM (10.317666ms)
+  ✔ #11 持久 shell:跨 chunk 的汉字按流解码 (678.11175ms)
+  ✔ #12 撤回之后,被截掉回合的后台任务回执不复活 (110.109125ms)
+  ✔ #13 archive_unzip 批量记账:索引写入次数远少于文件数 (698.909583ms)
+  ✔ #15 file_edit 未命中:firstDiff 先按长词元定位真正的形近行 (3.259791ms)
+  ✔ #17 file_edit 在检查点存不下时带 checkpointWarn (162.439083ms)
+  ✔ #18 索引一次瞬时读错误:本次记账失败,既有条目原样保留 (2.234125ms)
+  ✔ #19 删会话一并删掉后台任务账本 (93.841584ms)
+✔ hunt2 · 写族文件工具与检查点完整性 (3654.97575ms)
+▶ W1 · remoteUncDenial / uncHostAndPath 纯判据
+  ✔ 远端 UNC 各种写法都认出主机;本地盘 / 设备命名空间 / 三斜杠不是 UNC (0.505792ms)
+  ✔ 非本机 UNC → 拒;本机名 / localhost / 127.0.0.1 / ::1 不算外联 (0.234292ms)
+  ✔ 例外:落在用户配置的 UNC 工作区根之内(workspaces / defaultWorkspace / recent / 会话 cwd),大小写不敏感,`..` 爬不出共享根 (0.159542ms)
+✔ W1 · remoteUncDenial / uncHostAndPath 纯判据 (1.275583ms)
+▶ W1 · guardFileToolPath:读 / 写 / 任何档位 / 逃生舱都拒非本机 UNC(在任何 I/O 之前)
+  ✔ default 档:读与写都拒,报错说人话、指向工作区设置 (6.081333ms)
+  ✔ acceptEdits 档:读与写都拒,报错说人话、指向工作区设置 (1.779042ms)
+  ✔ auto 档:读与写都拒,报错说人话、指向工作区设置 (1.361958ms)
+  ✔ bypass 档:读与写都拒,报错说人话、指向工作区设置 (1.127167ms)
+  ✔ allowOutsideWorkspace=true / 本地模型读(providerIsLocal)也拒 (0.720167ms)
+  ﹣ 端到端:file_read / file_write 对 UNC 路径返回 not-allowed,不抛、不落盘 (0.130292ms) # UNC absolute paths exist only on Windows hosts
+  ✔ 本机 UNC 与普通本地路径不受 UNC 闸影响(报错不是 UNC 拒绝) (5.2855ms)
+  ✔ 用户把网络共享配成工作区:UNC 闸放行(后续闸门照旧判,Linux 上词法拼法对不上只会换一句报错) (1.802375ms)
+✔ W1 · guardFileToolPath:读 / 写 / 任何档位 / 逃生舱都拒非本机 UNC(在任何 I/O 之前) (18.726417ms)
+▶ S7 · 指向数据根的符号链接当遍历 root:内容与名字都不外泄
+  ✔ 准备:linkdir -> <数据根> (0.141291ms)
+  ✔ file_search(rg 或 JS 引擎)按 apiKey / token / 管家记忆搜都搜不出内容 (59.495292ms)
+  ✔ code_review_scan / docs_search / codebase_symbol_search / claude_md_audit / dependency_inventory / frontend_audit 不读出内容 (38.895167ms)
+  ✔ glob / file_list / project_snapshot 不列出 config.json、runtime.json 与新增敏感目录里的名字 (9.309167ms)
+  ✔ 信封里回显的 root 仍是调用方给的写法;链接指向普通目录时行为不变(不误伤) (9.973083ms)
+✔ S7 · 指向数据根的符号链接当遍历 root:内容与名字都不外泄 (117.981375ms)
+▶ S7 · 祖先目录当 root(工作区 = 家目录):敏感子树不入结果
+  ✔ file_search / file_list / glob 以家目录为根,新增的管家 / 事项 / 调度 / 迁移数据不外泄,检查点与上传产物照旧可见 (11.792625ms)
+  ✔ file_read 新增敏感名单:steward / missions / scheduler / migrations / engine-transcripts.json 拒;checkpoints 与 uploads 仍可读 (3.238375ms)
+✔ S7 · 祖先目录当 root(工作区 = 家目录):敏感子树不入结果 (15.110041ms)
+▶ S7 · 敏感名单两份一致(03 isSensitiveDataPath 与 11 sensitiveGlobsForRg 的 rg !glob 排除)
+  ✔ 每个敏感名字:文件工具判敏感,rg 的排除 glob 也有它(改一份忘了另一份就红) (52.931042ms)
+✔ S7 · 敏感名单两份一致(03 isSensitiveDataPath 与 11 sensitiveGlobsForRg 的 rg !glob 排除) (52.967167ms)
+▶ S7 · config.json / runtime.json 的硬链接别名(dev+ino 比对)
+  ✔ 准备:ws/hard-config.json 与 ws/hard-runtime.json 是数据根文件的硬链接;另造一对无关的硬链接 (1.104292ms)
+  ✔ file_read / file_copy(from)/ file_write / file_edit / file_delete 经硬链接别名一律拒,config.json 原样 (5.744ms)
+  ✔ file_search / file_list / glob / archive_zip 不把别名里的内容或名字带出来;无关的硬链接照常可读可列 (40.150917ms)
+✔ S7 · config.json / runtime.json 的硬链接别名(dev+ino 比对) (47.107ms)
+▶ S7 · JS 扫描引擎(PATH 里没有 rg)同一批断言
+  ✔ 子进程跑本文件:退出码 0 (444.433542ms)
+✔ S7 · JS 扫描引擎(PATH 里没有 rg)同一批断言 (444.476625ms)
+▶ 安全审计 #1 · 自动加载的启动配置与受信状态不可经文件工具写入
+  ✔ <dataRoot>/mcp drop-in:file_write 被拒,MCP 清单不出现该条目 (8.2605ms)
+  ✔ 数据根里受信 / 被执行的子树写拒、读照旧;普通产物目录照写 (30.583167ms)
+  ✔ agent CLI / 工具箱启动配置(任何位置的同名路径)写拒,普通工程文件照写 (23.047916ms)
+✔ 安全审计 #1 · 自动加载的启动配置与受信状态不可经文件工具写入 (62.377583ms)
+▶ 安全审计 #3 · http_download 落盘与 file_write 同一个写闸
+  ✔ 无 ctx(MCP 子进程 / 直调):config.json、runtime.json、mcp drop-in 一律拒 (21.550625ms)
+  ✔ 带 ctx:.git/hooks、.claude/settings.json 拒;工作区普通文件照下 (10.358333ms)
+✔ 安全审计 #3 · http_download 落盘与 file_write 同一个写闸 (35.3905ms)
+▶ 安全审计 #4 · archive_unzip 逐条目过写闸,任一被拒整包不落盘
+  ✔ destDir = 家目录:包里带 .git/hooks 与数据根 config.json → 整包拒,前面的无害条目也不写 (8.974542ms)
+  ✔ 包里带 mcp drop-in 清单 → 拒;普通包照常解压 (12.277792ms)
+✔ 安全审计 #4 · archive_unzip 逐条目过写闸,任一被拒整包不落盘 (21.406167ms)
+▶ 安全审计 #7 · 悬空符号链接 / junction 不再绕过写闸
+  ✔ ws\dangle.txt -> outside\new.txt(目标不存在):写闸拒、file_write 不在工作区外建文件 (6.397541ms)
+  ✔ 父目录是悬空目录链接(mkdir -p 要建的中间段)→ 拒 (6.464167ms)
+✔ 安全审计 #7 · 悬空符号链接 / junction 不再绕过写闸 (12.96775ms)
+▶ 安全审计 #8 · 检查点回滚重验 index.json 里的 path
+  ✔ 伪造条目(工作区外 / autoexec / 受保护数据 / 畸形序号)不落盘、记进 failed;真实条目照常回滚 (115.227917ms)
+✔ 安全审计 #8 · 检查点回滚重验 index.json 里的 path (115.307334ms)
+▶ 走查 W1·F2 · 子模块 / 链接工作树的 git 目录里的 hooks 与 config 同样写拒
+  ✔ AUTOEXEC_DENYLIST 命中这些路径(正反斜杠都认) (0.280667ms)
+  ✔ guardFileToolPath / file_write:写拒(autoexec-denied),读照旧 (28.105167ms)
+  ✔ 相邻的日常写照旧放行(不误伤) (18.418459ms)
+✔ 走查 W1·F2 · 子模块 / 链接工作树的 git 目录里的 hooks 与 config 同样写拒 (46.9275ms)
+ℹ tests 53
+ℹ suites 14
+ℹ pass 52
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 3804.289833

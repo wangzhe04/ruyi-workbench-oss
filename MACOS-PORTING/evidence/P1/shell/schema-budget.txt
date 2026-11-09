@@ -1,0 +1,15 @@
+✔ N8-A 任何一条工具描述里都没有整段(≥80 字符)重复 (2.664333ms)
+✔ N8-A orchestrate_agents 的描述只有一种「调用形态」讲法 (0.108125ms)
+✔ N8-B 记忆维护三件套不在 core 包,在 memory 包 (4.1865ms)
+✔ N8-B 系统提示里的记忆指引:provider 回合说明维护工具按需装载(full 模式不说) (0.121333ms)
+✔ N8-C 字符预算棘轮(只减不增) (1.328584ms)
+✔ C2 scratchpad_write:只在显式 scratchpadEnabled 时发放、常驻 core、schema ≤ 750 字符 (0.462667ms)
+✔ N8-D 核心编辑工具的描述带着模型学不到的行为 (0.098292ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 111.177875

@@ -1,0 +1,6 @@
+RETRY-DIAG {"ok":false,"error":"节点数超出上限(0),需要 1","startedCount":0}
+FAIL Error: ENOENT: no such file or directory, open '/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-worktree-retry-oLyJ6J/data/agent-runs/sess_3495b18635fcda3b/null.json'
+    at Object.readFileSync (node:fs:441:20)
+    at /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/worktree-cleanup-retry.e2e.js:32:33
+
+WORKTREE CLEANUP RETRY E2E: FAIL (1)

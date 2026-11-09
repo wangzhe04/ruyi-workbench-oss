@@ -1,0 +1,9 @@
+{
+  "implementationCommit": "921e6a89795bb4069941dfe53a8c1b94247d776d",
+  "files": [
+    {
+      "path": "dev-harness/kimi-acp-live-probe.js",
+      "sha256": "616030589ee9f6a9f524cc5f1bedad15b80a0f9c1bfa36237721ac8b197d5781"
+    }
+  ]
+}

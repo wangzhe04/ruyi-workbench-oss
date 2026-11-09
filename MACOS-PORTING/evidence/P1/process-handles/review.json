@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/ownership_review",
+  "status": "passed_targeted_review",
+  "scope": [
+    "Darwin killPosixChildTree ChildProcess/PID gate",
+    "killChildTree caller compatibility",
+    "malformed helper parser regression fixtures"
+  ],
+  "blockingFindings": 0,
+  "tests": {
+    "cleanup": 37,
+    "runtime": 62
+  },
+  "limitations": [
+    "Legacy instanceof gate rejects PID shapes; constructed ChildProcess objects are not an opaque ownership capability. Native parent/identity checks remain required.",
+    "Windows and macOS14 runtime not verified in this batch."
+  ]
+}

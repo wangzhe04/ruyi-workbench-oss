@@ -42,7 +42,7 @@ async function worker() {
 }
 async function main() {
   const t = createRunner('CREDENTIAL VAULT');
-  if (process.platform !== 'win32') { console.log('SKIP Windows DPAPI fixture; platform is unsupported'); t.done(); return; }
+  if (process.platform !== 'win32') { console.log('SKIP Windows DPAPI fixture; Mac Keychain has its own isolated runtime e2e'); t.done(); return; }
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-credential-vault-'));
   const data = path.join(root, 'data'), vaultFile = path.join(data, 'credential-vault-v1.json'), configFile = path.join(data, 'config.json');
   fs.mkdirSync(data);

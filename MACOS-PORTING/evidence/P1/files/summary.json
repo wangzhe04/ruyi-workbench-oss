@@ -1,0 +1,64 @@
+{
+  "date": "2026-11-02",
+  "task": "P1-02",
+  "status": "in_progress",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "tests": {
+    "unit": {
+      "total": 2509,
+      "pass": 2491,
+      "fail": 0,
+      "skip": 18,
+      "log": "unit-final.txt"
+    },
+    "static": {
+      "pass": 80,
+      "fail": 0,
+      "log": "fast-final.txt"
+    },
+    "filePolicy": {
+      "runs": 2,
+      "passPerRun": 32,
+      "fail": 0
+    },
+    "reviewerFileGuard": {
+      "pass": 56,
+      "fail": 0
+    },
+    "reviewerCheckpoint": {
+      "pass": 45,
+      "fail": 0
+    },
+    "syntax": {
+      "files": 1101,
+      "fail": 0
+    },
+    "buildCheck": "passed",
+    "fixtureRegression": {
+      "pass": 9,
+      "fail": 0
+    }
+  },
+  "isolation": "self-isolate-home/fixture-home helpers; private RUYI_HOME; owned temporary APFS image detached and removed; system paths guard-only",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "522801fcc85dc8a54caf2a46d79be8d7f4638ad87b76befc4dd23672e67f905b",
+    "ruyi-workbench/app/src/01-config.js": "8d8e1008b0af317f7c184410bda0c0cc3e90195ed124c379330c7d4f6ee18512",
+    "ruyi-workbench/app/src/03-bridge-guard.js": "c488406f6643cc3f67e6fc7af76e81a5693a0e25dd595333e95e741101bfe68d",
+    "ruyi-workbench/app/src/12-tool-dispatch.js": "bee023ec7572fe749c432e94a780cbe388d1395db9aeb71823cf4fe781eaf839",
+    "dev-harness/macos-file-policy.e2e.js": "7f01ba16c43a37811cd98907da69ca3de9dbf3a30284ba7823ee49841f8ecb6c",
+    "dev-harness/checkpoint.e2e.js": "49bde2fdef109ba0ebd99aeb504317fa3a9fd7f36f04f3396d978388df54ca86",
+    "dev-harness/file-guard.e2e.js": "7ce4e3506ae9749abab697281f5dca93b89decf02f5ab0afcd615955483ebc3a"
+  },
+  "remaining": [
+    "Windows/macOS14 same-SHA runtime validation",
+    "Remaining POSIX path and atomic fallback coverage",
+    "Unified helper capabilities/version/loss gate",
+    "Remaining execution/probe audit and actual Finder validation"
+  ]
+}

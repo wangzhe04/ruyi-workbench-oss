@@ -23,6 +23,10 @@ process.env.RUYI_HOME = root;
 const app = path.resolve(__dirname, '../../ruyi-workbench/app');
 const { normalizeConfig, CONFIG_MIGRATIONS, CONFIG_SCHEMA } = require(path.join(app, 'server.js'));
 
+// Windows-shaped golden inputs retain their original Windows normalization contract.
+const { loadServerInternals } = require('../lib/server-internals');
+const windowsConfig = loadServerInternals(['normalizeConfig'], { testPlatform: 'win32' });
+
 const FLAGS = ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1'];
 const F3 = { runtimeHistoryReadDedupV1: false, runtimeSummaryPromptI18nV1: false, runtimeReseedTailUnitsV1: false };
 const CASES = {
@@ -135,7 +139,7 @@ test('[B] normalizeConfig 里不再有散落的 schema 阶梯,迁移只从一个
 test('[C] 金样:迁移相关输出逐项钉死', () => {
   assert.deepEqual(Object.keys(GOLDEN), Object.keys(CASES), '金样与输入一一对应');
   for (const [name, raw] of Object.entries(CASES)) {
-    assert.deepEqual(project(normalizeConfig(clone(raw))), GOLDEN[name], name);
+    assert.deepEqual(project(windowsConfig.normalizeConfig(clone(raw))), GOLDEN[name], name);
   }
 });
 

@@ -1,0 +1,97 @@
+✔ [S1] 大 stdout + 末尾 stderr:结果头+尾,stderr 与退出码在 stdout 之前,整体远低于 60K (570.341875ms)
+✔ [S1] 小输出原样不变(无省略字段) (49.259625ms)
+✔ [S2] `\r` 进度条折叠成最终一行 (49.645708ms)
+✔ [S3] 一次性运行的 stdin 是 EOF:读 stdin 的程序立刻返回而不是挂到超时 (49.287666ms)
+✔ [S4] 主进程退出后,占着输出管道的脱离孙进程不拖住工具调用 (551.311625ms)
+✔ [S5] timeoutMs 非数字:分发层按 schema 拒并点名字段;非正数用默认值,不再 9ms 就被杀 (3135.172542ms)
+✔ [S5] 超时结果:error + hint + 已产生的部分输出 (1224.044125ms)
+✔ [S6] cwd 不存在:明说「工作目录不存在」,不是 spawn ENOENT (1.779958ms)
+✔ [S7] python 子进程环境:PYTHONUTF8=1 / PYTHONIOENCODING=utf-8 (32.787792ms)
+✔ [S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(powershell_run 与 script_run) (578.382333ms)
+✖ [S9] shell_poll:状态字段在前、输出封顶(头+尾)、可用 cursor 分页读回中间 (171.216917ms)
+✔ [S9] shell_poll waitMs:有新输出或进程退出就提前返回 (1663.162208ms)
+✔ [S9] 后台任务:主进程退出、孙进程占着管道 → 及时 running:false(不永久占名额) (622.431583ms)
+✔ [S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在秒级到达,不是等满 30 秒 (949.7365ms)
+✔ [S1] node 脚本:运行期间文件在,结束后删掉,不留带密钥的明文 (568.517958ms)
+✔ [S2] 超时被杀与脚本报错退出:同样删 (1080.176542ms)
+✔ [S3] python 脚本删掉 (27.644666ms)
+✔ [S3] powershell 分支:没有 PowerShell 的平台回 windows_only 也不留脚本 (27.883291ms)
+✔ [S4] sweepStaleScriptFiles:按龄清孤儿,新文件与子目录不动 (1.070875ms)
+✔ [S4] scripts 目录不存在:清扫静默返回 0 (0.440792ms)
+(node:50384) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/shell-mode.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ openInWorkbench —— pendingOpenThreadId 只在拍旧帧那一拍里非空
+  ✔ markSharedThread 被问的那一刻能读到将要打开的线程 id，applyShellMode 返回后即清 (2.234625ms)
+  ✔ 普通切视角（分段钮那一路）不产生 pendingOpenThreadId (0.17875ms)
+  ✔ openSession 抛错也不留死值（视角已切，判据已清） (0.140625ms)
+✔ openInWorkbench —— pendingOpenThreadId 只在拍旧帧那一拍里非空 (2.94125ms)
+▶ markSharedThread —— 文字逐字判据（不同源不挂名）
+  ✔ 两侧标题逐字相同 → 两个节点都挂上 thread-title，清理函数摘干净 (0.665167ms)
+  ✔ 两侧标题不同源（displayTitle ≠ title 原话）→ 不挂名，退回整体淡入淡出 (0.106958ms)
+  ✔ 同一条线程但两侧空白差异 → 视为同一串字（trim 后相等仍挂名） (0.100291ms)
+  ✔ 判据为空（两个视角指的不是同一条线程）→ 不挂名 (0.090917ms)
+  ✔ 只有一侧节点在 DOM 里 → 不挂名 (0.119875ms)
+✔ markSharedThread —— 文字逐字判据（不同源不挂名） (1.205291ms)
+(node:50385) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/notify-policy.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ S-15 免打扰时段只在开启本机通知时才压提示
+  ✔ 默认设置（enabled:false，时段 22:00–08:00）夜里不压；isQuietTime 本身仍说「在时段内」 (2.118417ms)
+  ✔ 开启之后时段生效：时段内压、时段外不压，跨午夜与同日段都对 (0.178375ms)
+✔ S-15 免打扰时段只在开启本机通知时才压提示 (2.666916ms)
+▶ S-14 左栏在跑行第二行说人话
+  ✔ stewardThreadToolLabel：表内走人话键，表外（含 mcp__ 机器把手）一律「一个工具」 (9.543583ms)
+  ✔ railRunningLine：不漏工具原名、不印 2s／1m 05s 缩写；没工具名给中性占位；算不出时间就只说工具 (1.551833ms)
+✔ S-14 左栏在跑行第二行说人话 (11.176625ms)
+▶ S-12 deliverableCache 只缓存瘦身后的事实
+  ✔ 瘦身前后 stewardThreadFacts 的输出逐字相同（含「模型缺席时取最后一条助手消息的 model」那条回落） (0.596708ms)
+  ✔ 瘦身后的信封里没有 messages，体积与会话长度无关 (0.095541ms)
+  ✔ 缓存有上限（LRU：命中挪到最新、满了淘汰最老的） (0.558458ms)
+✔ S-12 deliverableCache 只缓存瘦身后的事实 (1.340625ms)
+▶ S-09 桌面壳通知有前端发送方
+  ✔ quiet-card.js 在桌面壳里发 chrome.webview.postMessage({ ruyiNotification:{ title, body } })，且仍保留浏览器 Notification 回落 (0.146917ms)
+  ✔ 宿主 RuyiDesktop.cs 读的正是 ruyiNotification 下的 title／body (0.215834ms)
+✔ S-09 桌面壳通知有前端发送方 (0.422042ms)
+▶ 新增文案键：两语言齐全、占位符一致、镜像逐字节相同
+  ✔ 每个键在 zh-CN／en-US 都有非空文案，占位符名字一致 (0.189209ms)
+  ✔ 后台任务七种终态都有文案（不再显示「[chat.background.partial]」），并有通用回落 (0.040167ms)
+  ✔ docs/i18n/locales 两份镜像与 public/locales 逐字节相同 (0.355375ms)
+✔ 新增文案键：两语言齐全、占位符一致、镜像逐字节相同 (0.62625ms)
+ℹ tests 40
+ℹ suites 7
+ℹ pass 39
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 69159.585375
+
+✖ failing tests:
+
+test at dev-harness/unit/exec-result-shape.test.js:192:1
+✖ [S9] shell_poll:状态字段在前、输出封顶(头+尾)、可用 cursor 分页读回中间 (171.216917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    [
+      'ok',
+      'running',
+  +   'cleanupScope',
+  +   'cleanupIncomplete'
+  -   'exitCode',
+  -   'timedOut'
+    ]
+
+      at TestContext.<anonymous> (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/unit/exec-result-shape.test.js:201:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'ok', 'running', 'cleanupScope', 'cleanupIncomplete' ],
+    expected: [ 'ok', 'running', 'exitCode', 'timedOut' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

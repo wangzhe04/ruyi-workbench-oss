@@ -1,0 +1,13 @@
+(node:85365) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/interaction-prompts.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS ③ 原生工具表扫得到(120 个)
+PASS ③ 没有人话的名字原样回落(① 判得出「没命中」)
+PASS ③ 自动标题更新复用已有重命名动词
+PASS ③ 空名落到 tools.verb.unknown
+PASS ① 每个原生工具都有人话动词(没有的 0 个)
+PASS ③ 桥接桌面工具落到 tools.verb.desktop(got tools.verb.desktop)
+PASS ② zh-CN 里 68 个动词键都有文案
+PASS ② en-US 里 68 个动词键都有文案
+TOOL VERB COVERAGE STATIC E2E: ALL PASS

@@ -51,7 +51,7 @@ function fixture({ platform = 'win32' } = {}) {
     return child;
   }
   const context = { Buffer, TextDecoder, crypto, path,
-    process: { platform, env }, require: name => { if (name === 'node:path') return path; assert.equal(name, 'node:child_process'); return { spawn }; },
+    process: { platform, env }, require: name => { if (name === 'node:path') return path; if (name === 'node:crypto') return crypto; assert.equal(name, 'node:child_process'); return { spawn }; },
     fs: { readFileSync: raw, copyFileSync() { throw new Error('must not quarantine credential ciphertext'); } },
     fsp: { readFile: async () => raw(), stat: async () => ({ size: Buffer.byteLength(raw()) }), mkdir: async () => {} },
     paths: { data: '/isolated' }, atomicWriteJson: async (_file, value) => { writes++; if (writeError) throw new Error('write failed'); disk = JSON.stringify(value); },

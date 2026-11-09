@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-03",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "status": "in_progress",
+  "environment": {
+    "os": "macOS 27.0.1",
+    "arch": "arm64",
+    "node": "24.15.0"
+  },
+  "unit": {
+    "total": 2509,
+    "pass": 2491,
+    "fail": 0,
+    "skip": 18
+  },
+  "static": {
+    "pass": 80,
+    "fail": 0
+  },
+  "syntax": {
+    "files": 1106,
+    "fail": 0
+  },
+  "cleanupE2E": {
+    "runs": 2,
+    "passPerRun": 37,
+    "fail": 0
+  },
+  "runtimeE2E": {
+    "pass": 62,
+    "fail": 0
+  },
+  "independentTests": {
+    "cleanup": 37,
+    "runtime": 62
+  },
+  "buildCheck": "passed",
+  "diffCheck": "passed",
+  "hashes": {
+    "ruyi-workbench/app/server.js": "1cf9c88621ed1599090e987bd1a027b3d0fd91a40123a68129c55f236c8b8374",
+    "ruyi-workbench/app/src/04-permission-runtime.js": "32290098ea5f92e35b1c0e01739115cf7c2bb59a98928edb119513d36bebf593",
+    "dev-harness/macos-process-cleanup.e2e.js": "8705f4c40be4caca567f26b31cffd1c549a93fb0ee11a31fdcaa0b0a97f7218b"
+  },
+  "remaining": [
+    "CLI locator/version/Python probes",
+    "Media/rg lifecycle",
+    "Remaining paths/lifecycle and clean installation",
+    "Windows/macOS14 same-SHA and actual Finder"
+  ]
+}

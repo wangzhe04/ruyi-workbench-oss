@@ -1,0 +1,9 @@
+Error: Command failed: /Users/jiming/.local/bin/python3.12
+    at ChildProcess.finishOutput (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2825:33)
+    at Object.onceWrapper (node:events:631:26)
+    at ChildProcess.emit (node:events:521:24)
+    at maybeClose (node:internal/child_process:1124:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:306:5) {
+  code: 126,
+  signal: null
+}

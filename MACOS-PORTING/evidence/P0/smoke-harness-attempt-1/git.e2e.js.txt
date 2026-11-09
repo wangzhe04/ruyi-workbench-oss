@@ -1,0 +1,50 @@
+PASS ⑥ server.js NATIVE_TOOL_TIER git_commit === 'exec'
+PASS ⑥ server.js git_diff/git_log === 'read'
+PASS ⑥ server.js git_status === 'read'
+PASS ⑥ TOOL_REQUIRES git_commit requires gitCli
+PASS ⑥ server.js GIT_SAFE_FLAGS 含 core.fsmonitor=(中和 fsmonitor RCE)
+PASS ⑥ runGit 对所有 git 调用前置 GIT_SAFE_FLAGS
+PASS ⑥ gitDiff 加 --no-ext-diff --no-textconv(封 diff.external/textconv 面)
+PASS ⑥ GIT_SAFE_FLAGS 不含空 diff.external=(会破坏正常 diff)
+PASS ⑥ app.js 定义 renderDiffView('diff-view')
+PASS ⑥ renderDiffView 逐行以 row.textContent 赋值
+PASS ⑥ renderDiffView 内不使用 innerHTML
+PASS ⑥ styles.css 存在 .diff-add 规则
+PASS ⑥ styles.css 存在 .diff-del 规则
+PASS ⑥ .diff-add 无颜色字面量(仅令牌/color-mix)
+PASS ⑥ .diff-del 无颜色字面量(仅令牌/color-mix)
+PASS ⑥ .diff-add 用 var(--ok-bg)(语义背景令牌,v3 P1 收敛手写 color-mix)
+PASS ⑥ .diff-del 用 var(--danger-bg)(语义背景令牌,v3 P1 收敛手写 color-mix)
+[wb!] Error: 这个数据目录已有如意服务持有独占权，未启动第二个实例：/private/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/wcw-git-e2e-home。请使用已打开的如意，或先退出它。 / Data directory already in use. 如确认没有实例运行，请核实并清理残留 socket：/var/folders/r3/pmqdt9dn18d2mgcqxzydrl1c0000gn/T/ruyi-serve-0be9c1bc78900f0fb990efc9024fc17b.sock。
+[wb!] at ownershipError (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2268:26)
+[wb!] at bind (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2282:15)
+[wb!] at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[wb!] at async Object.acquire (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:2317:50)
+[wb!] at async startServer (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:68845:21)
+[wb!] at async main (/Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/server.js:89582:20)
+FAIL workbench listening
+FAIL UI token scraped
+FAIL ① git_status ok
+FAIL ① git_status 报告 untracked >= 1 (got null)
+FAIL ① git_status 人话摘要含 分支/改动 (got "null")
+FAIL ② git_commit ok (null)
+FAIL ② git_commit 返回 hash (got "null")
+FAIL ② git_log 返回 commits
+FAIL ② git_log 含该 commit message
+FAIL ② git_log 携带 author
+FAIL ③ git_diff ok
+FAIL ③ git_diff 含 + 新行 (+HELLO WORLD)
+FAIL ③ git_diff 含 - 旧行 (-hello world)
+FAIL ④ 走私探针 git_diff 未崩溃(返回 ok)
+PASS ④ 走私目标文件未被创建(`--` 分隔防御生效)
+FAIL ⑤ 仓库外 git_status ok:false(非崩溃)
+FAIL ⑤ 人话引导错误含「Git 仓库」(got "null")
+FAIL ⑤b 工作区外的仓库:读类 git 拒(got null)
+   (⑥ 控制组:裸 git status 触发了 hook — 已武装,以下加固断言有效)
+FAIL ⑦ git_status(恶意仓库)未崩溃
+PASS ⑦ 恶意 core.fsmonitor 未经 git_status 工具执行(GIT_SAFE_FLAGS 中和)
+PASS ⑦ 恶意 core.fsmonitor 未经 git_diff 工具执行
+FAIL ⑦ git_diff(恶意 diff.external 仓库)仍正常产出 diff(--no-ext-diff 未破坏)
+PASS ⑦ 恶意 diff.external 未经 git_diff 工具执行(--no-ext-diff 中和)
+
+GIT E2E: FAIL (19)

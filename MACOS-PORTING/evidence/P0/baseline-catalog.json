@@ -1,0 +1,3664 @@
+{
+  "schema": 1,
+  "productSha": "f5223548b74b62b2eefe548c39b33ab5fadd91e3",
+  "unitSummary": {
+    "files": 278,
+    "tests": 2493,
+    "pass": 2470,
+    "fail": 3,
+    "skipped": 20
+  },
+  "staticSummary": {
+    "pass": 80,
+    "fail": 0
+  },
+  "smokeSummary": {
+    "pass": 9,
+    "fail": 2
+  },
+  "ciLocalSummary": {
+    "pass": 8,
+    "fail": 0
+  },
+  "units": [
+    {
+      "path": "dev-harness/unit/acc-capability-gates.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/action-model-view.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-cli-adapters.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-cli-registry-frontend.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-cli-registry.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-cli-resume-gate.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-cli-turn-hardening.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-role-color.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-run-lifecycle-leaks.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-time-limits.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-wake-compaction-w2.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-wake-w3.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/agent-worktree-snapshot-commit.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/api-conditional.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/api-error-helpers.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/asr-fix-prompt.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/auto-exec-egress-gate.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/auto-indirect-gate.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/background-tray.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/boot-cli-probes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/bridged-catalog-incomplete.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/bridged-tool-search-zh.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/browser-profile-scope.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/builtin-search-quality.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/capability-probe-stall.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/chat-scroll.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/chat-ux-wave1.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/checkpoint-list-tool.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/claude-settings-bypass-sync.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/code-audit-tools.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/compact-marker-merge.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/compaction-bughunt.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/compaction-index-digest.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/compaction-refetch-guard.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/composer-session-races.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/config-bom.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/config-explicit-keys.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/config-migrations.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/config-schema-12-migration.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/console-output-decoding.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/context-compact-trigger.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/context-governance-fallback.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/context-overflow-detect.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/credential-encryption-settings.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/credential-recovery.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/credential-vault.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/desktop-isolation.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/desktop-mcp-warm.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/desktop-python-miss-cache.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/disconnect-stop-superseded.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/durable-json-strict-read.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/econ-calibration.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/economics-report.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/evaporate-budget-boundary.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/event-stream-instance.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/exec-result-shape.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/export-surface.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/external-bot-credentials.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/external-bot-discovery.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/external-bot-setup-ui.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/external-bot-vault-guards.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/external-bots-inbox.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/external-bots-ui.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/external-channel-protocols.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/external-owner-runner.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/fake-openai-provider.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/file-list-browse-links.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/file-search-redos.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/file-tool-big-targets.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/file-tool-checkpoint-integrity.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/file-tools-core.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/file-tools-r2-pure.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/fixture-home-per-test.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/folder-picker-modern.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/foreign-turn-composer.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/frontend-failure-paths.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/frontend-i18n-shadow.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/frontend-input-guards.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/frontend-w2-fixes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/frontend-w3-fixes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/generated-artifacts-line-stable.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/git-tool-shape.test.js",
+      "execution": "executed",
+      "result": "product_process_tree"
+    },
+    {
+      "path": "dev-harness/unit/glob-matcher.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/hanzi-pinyin.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/harness.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/hash-args.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/health-looks-like-workbench.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/history-read-dedup.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/http-input-hardening.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/http-request-search-robustness.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/intervention-journal-delta.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/intervention-persist-failed.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/intervention-read-your-writes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/keyed-chain.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/kill-own-process-tree.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/kill-own-tree.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/markdown-tilde.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/mcp-bridge-hardening.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/media-harness.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/memory-preflight-core-ranking.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/memory-recall-precision.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/memory-scope-fixes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/memory-w1-fixes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/mermaid-source.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/migration-center-w1-fixes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/mission-aggregate.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/model-catalog.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/module-dependency-graph-params.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/module-dependency-graph-spread.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/native-file-vision.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/ndjson-line-feeder.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/net-errors.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/network-anchors.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/neutralize-fence-tag.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/notify-policy.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/offline-plugin-bundle.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/parallel-read-island.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/permission-ceiling.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/permission-resolve.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/permission-wait.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/playbook-skill-tools.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/png-grid.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/poll-path-caches.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/port-audit.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/presence-viewing.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/pretender-index-incremental.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-config-health.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-core.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-display-http.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-display.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-file-read.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-gateway.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-history-quarantine.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-input-tool-regression.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-missing-config-vault.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-regex.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-rule-catalog-coverage.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-source-views.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-thread-brief-boundary.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-tool-transport.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/privacy-tool-views.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/project-role-clamp.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/prompt-queue.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/provider-http.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/provider-turn-failure-surface.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/provider-url-inference.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/provider-wire-anthropic.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/provider-wire-protocols.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/provider-wire-stream.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/rail-group.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/read-config-cache.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/release-audit-w4-gates.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/release-checks.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/render-md.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/reseed-reattach-files.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/reseed-tail-units.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/resource-lease-nested.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/retrieval-corpus-cache.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/rg-stdout-multibyte.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/run-health.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/runtime-failure-classifier.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/runtime-failure-replay.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/runtime-failure-report.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/sanitize.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/scheduler-core.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/scheduler-enable-and-run-now.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/scheduler-persist.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/scheduler-review-fixes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/screenshot-relative-output.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/script-run-cleanup.test.js",
+      "execution": "executed",
+      "result": "fixture_path_alias"
+    },
+    {
+      "path": "dev-harness/unit/security-audit-fixes.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/security-audit-followups.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/security-gates-w3.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/server-ownership.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-body-line-cache.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-execution-identity.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-execution-read-epoch.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-execution-startup.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-execution-write-owner.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-head-read.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-index-inflight.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-index-memo.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-index-rebuild-race.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-list-badhead.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-memory-cap.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-mutate.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-notes-refresh.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-persist-safety.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-read-side-effects.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-rewind-execution.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-rewind-gen.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-route-ui.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-stale-copy-rebase.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/session-turn-superseded-save.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/settings-catalog.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/settings-draft-rebase.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/settings-skills.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/settings-wave1-pure.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/shell-mode-intent-order.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/shell-shared-thread.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/shutdown-active-turns.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/source-slice.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steer-attachments.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-act-attempt.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-act-buttons.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-action-receipts.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-activity-memory.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-budget-rearm.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-composer-candidates.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-config-tier.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-core.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-decide-live-mode.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-exempt.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-focus-thread.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-handoff-recovery.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-head-adapter.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-humanize.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-inbox-core.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-inbox-retention.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-inbox-tick-cost.test.js",
+      "execution": "executed",
+      "result": "fixture_stdout_flush"
+    },
+    {
+      "path": "dev-harness/unit/steward-model-menu.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-playbook-run.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-preroute.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-presence.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-privacy-settings.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-queue-robustness.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-quick-replies.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-read-routing.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-run-health.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-runner-races.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-say-stream.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-shell-wave1.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-stop-receipts.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/steward-wait-reason.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/stream-patch.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/strip-comments.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/subagent-compaction-stop.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/subagent-savepoint-fidelity.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/summary-call-stop.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/summary-prompt-i18n.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/summary-task-evidence-candidate.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/surface-hardening-w2.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/temp-janitor.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/text-file-decode.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/thread-facts.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/thread-state-differential.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/thread-state-ledgerless.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/thread-state-quick-kind.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/token-estimate-cjk.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/token-estimate-memo.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/tool-dispatch-hardening.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/tool-invoke-args-guide.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/tool-invoke-envelope.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/tool-loading-cache-aware.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/tool-metadata-consistency.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/tool-result-shrink.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/tool-schema-budget.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/transient-retry.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/turn-activity.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/ui-misc-wave1.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/unc-and-traversal-gates.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/upload-name.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/usage-ledger-cache.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/usage-ledger-exit-flush.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/user-config-sync-safety.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/user-persistence-write-floor.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/visual-image-payload.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/voice-learn-front.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/voice-learn.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/voice-lexicon.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/walk-tools.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/web-fetch-content.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/web-payload-gate.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/web-proxy.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/win-cmdline-quote.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/workspace-trailing-sep.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/workspace-visibility.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    },
+    {
+      "path": "dev-harness/unit/write-guard-autoload.test.js",
+      "execution": "executed",
+      "result": "see_unit_full_tap"
+    }
+  ],
+  "e2e": [
+    {
+      "path": "dev-harness/a11y-lint.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/a11y-walkthrough.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/acc-capability-gates.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/acc-offline-installer.static.e2e.js",
+      "result": "pass",
+      "log": "static/acc-offline-installer.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/acceptance-provenance.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/action-feedback.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/action-feedback.static.e2e.js",
+      "result": "pass",
+      "log": "static/action-feedback.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/action-model-view.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/adaptive-budget.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/adversarial-w21.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-coordination.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-deadlock-watchdog.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-final-mailbox.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-loop.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-mode-v2.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-mode-v2.static.e2e.js",
+      "result": "pass",
+      "log": "static/agent-mode-v2.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/agent-node-limits.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-node-wrapup.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-parent-heartbeat.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-parent-mailbox.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-quality-gates.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-quality-workflow.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-resource-wait-stop.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-role-openai.e2e.js",
+      "result": "pass",
+      "log": "smoke/agent-role-openai.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/agent-roles.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-run-lifecycle.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-steer-node.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-subturn-loop-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-team-budget.static.e2e.js",
+      "result": "pass",
+      "log": "static/agent-team-budget.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/agent-team-mode.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-wake.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-audit-fixes.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-budget-finalizer.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-claude-engine.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-claude-transient-repro.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-editor-ui.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-monitor-ui.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-node-context.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-replan-approve.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-replan-review.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-replan.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-templates.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-transient-repro.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflow-ui-progress.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/agent-workflows-polling-visibility.static.e2e.js",
+      "result": "pass",
+      "log": "static/agent-workflows-polling-visibility.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/agent-worktree.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/anthropic-fake.e2e.js",
+      "result": "pass",
+      "log": "smoke/anthropic-fake.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/anthropic-gateway-setup.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/anthropic-provider-setup.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/architecture-contract-snapshots.static.e2e.js",
+      "result": "pass",
+      "log": "static/architecture-contract-snapshots.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/artifacts.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/asr-config-ui.static.e2e.js",
+      "result": "pass",
+      "log": "static/asr-config-ui.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/asr-transcribe.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/asr-warmup.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/audit-desktop-records.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/audit-w23.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/audit.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/auth-deny-default.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/autocompact.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/autonomy-benchmark.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/autonomy-durability.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/autonomy-grant.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/autonomy-pause.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/autonomy-resume.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/autonomy-shell-sandbox.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/background-completion.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/batch-output-discipline.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/boot-failure-kind.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/boot-listen-budget.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/boot-resume-parallel.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/bridge-cancel-timeout.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/bridged-prefix-tolerance.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/bridged-read-noprompt.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/browser-mcp.static.e2e.js",
+      "result": "pass",
+      "log": "static/browser-mcp.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/budget-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/c2-deterministic-evidence.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/c2-evidence-spawn-budget.static.e2e.js",
+      "result": "pass",
+      "log": "static/c2-evidence-spawn-budget.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/capabilities.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/changes-diff.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/chat-stream-remount.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/chat-ux-wave1.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/checkpoint-coverage.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/checkpoint-gc-cache.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/checkpoint-mcpchild.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/checkpoint-visibility.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/checkpoint.e2e.js",
+      "result": "fail",
+      "log": "smoke/checkpoint.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/classic-window-live-steer.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-binary-live.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-cli-bridged-read-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-cmdline-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-compact-probe-live.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-context-continuity.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-exe-resolve.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-models-cache.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-permission-bridge-mode.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/claude-resume-recovery.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/cli-probe-stall.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/codebase-symbol-search.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/compact-quality-live.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/compaction-refetch-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/composer-session-races.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/composer-voice-stream.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/composer-voice-warmup.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/composer-voice.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/config-mutate-mcp-parity.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/config-providers-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/config-read-safety.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/context-compact-v2.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/context-governance.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/context-window.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/copy-path-guard.static.e2e.js",
+      "result": "pass",
+      "log": "static/copy-path-guard.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/copy-terms.static.e2e.js",
+      "result": "pass",
+      "log": "static/copy-terms.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/cost-zero.static.e2e.js",
+      "result": "pass",
+      "log": "static/cost-zero.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/credential-vault.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/crew-experience.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/cross-thread-history.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/css-typography-debt.static.e2e.js",
+      "result": "pass",
+      "log": "static/css-typography-debt.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/data-profile.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/data-root-migration.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/debug-hypothesis.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/deepseek-live.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/deepseek-search-fetch.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/deepseek-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/desktop-bridge-live.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/desktop-dpi.static.e2e.js",
+      "result": "pass",
+      "log": "static/desktop-dpi.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/desktop-mcp-smoke.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/desktop-probe-follow.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/desktop-probe-status.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/desktop-shell.static.e2e.js",
+      "result": "pass",
+      "log": "static/desktop-shell.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/dns-rebind.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/dom-contract.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/dom-screenshot.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/dom-smoke.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/durable-json-store.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/durable-state-inventory.static.e2e.js",
+      "result": "pass",
+      "log": "static/durable-state-inventory.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/e1-parallel-noindex.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/e2-append-system-prompt.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/e3-engine-switch-continuity.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/e4-no-usage.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/e5-multiline-sse.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/ec-d-closure.static.e2e.js",
+      "result": "pass",
+      "log": "static/ec-d-closure.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/ec-d-performance.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/economics-shadow.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/engine-env-brief.static.e2e.js",
+      "result": "pass",
+      "log": "static/engine-env-brief.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/engine-env-runtime.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/eol-policy.static.e2e.js",
+      "result": "pass",
+      "log": "static/eol-policy.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/estimate-buckets.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/event-stream-client.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/event-stream-pageshow.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/event-stream-replay.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/event-stream.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/evidence-claims-m4-benchmark.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/exec-result-cache.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-bot-credentials.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-bot-discovery.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-bot-gateway.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-bot-setup.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-bot-setup.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-bots-control.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-bots.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-bots.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-channel-delivery.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/external-code-diff.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/facts.static.e2e.js",
+      "result": "pass",
+      "log": "static/facts.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/failover.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/fake-mcp-contract.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/file-guard.e2e.js",
+      "result": "fail",
+      "log": "smoke/file-guard.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/file-text-encoding.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/finalize-segments.static.e2e.js",
+      "result": "pass",
+      "log": "static/finalize-segments.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/fixture-home.static.e2e.js",
+      "result": "pass",
+      "log": "static/fixture-home.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/focus-rail.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/foreign-turn-busy-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/frontend-domains.static.e2e.js",
+      "result": "pass",
+      "log": "static/frontend-domains.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/frontend-wave2.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/frontend-wave3.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/git.e2e.js",
+      "result": "pass",
+      "log": "smoke/git.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/goal-evolution.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/harness-friction.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/health-i18n.static.e2e.js",
+      "result": "pass",
+      "log": "static/health-i18n.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/help-menu.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/help-viewer.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/i18n-en-terms.static.e2e.js",
+      "result": "pass",
+      "log": "static/i18n-en-terms.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/i18n.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/i18n.static.e2e.js",
+      "result": "pass",
+      "log": "static/i18n.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/ia.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/index-dedup.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/inline-script-csp-hash.static.e2e.js",
+      "result": "pass",
+      "log": "static/inline-script-csp-hash.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/interactive-question.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/intervention-mission-gate.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/interventions-c4.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/interventions-cas.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/interventions-changeseq.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/interventions-persist.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/interventions-pool.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/interventions-snapshot.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/judge-json-repair.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/keyboard-walkthrough.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/kimi-agent-cli.e2e.js",
+      "result": "pass",
+      "log": "smoke/kimi-agent-cli.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/kimi-plan-ui.static.e2e.js",
+      "result": "pass",
+      "log": "static/kimi-plan-ui.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/kimi-prompt-parts.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/kimi-search-policy.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/launcher-spaced-path.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/live-full-text.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/live-full-text.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/live-full-text.static.e2e.js",
+      "result": "pass",
+      "log": "static/live-full-text.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/locale-en-us.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/long-tool-liveness-steer.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/loop-guard-read-exempt.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/loop-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/manifest-ranges.static.e2e.js",
+      "result": "pass",
+      "log": "static/manifest-ranges.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/manuals.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mcp-bridge.e2e.js",
+      "result": "pass",
+      "log": "smoke/mcp-bridge.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/mcp-config.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mcp-import-config.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mcp-import-origin.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mcp-ops-closure.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mcp-ops-gui.static.e2e.js",
+      "result": "pass",
+      "log": "static/mcp-ops-gui.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/mcp-remote-transport.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mcp-resource-config-mask.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-active-scope.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-auto-proposal-api.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-auto-proposal.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-batch-card.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-batch-proposal.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-graph-auto-proposal.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-graph-maintenance.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-graph-relations.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-maintenance-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-recall-injection.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-recall-quality.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-scope-card.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-scope.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-subagent.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/memory-toolbox.static.e2e.js",
+      "result": "pass",
+      "log": "static/memory-toolbox.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/memory-veto-precedence.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mermaid-render.static.e2e.js",
+      "result": "pass",
+      "log": "static/mermaid-render.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/mermaid-viewer.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/meta-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/meta-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/metrics-panel.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/migration-center.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/migration-center.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mission-driver.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mission-index-boot-race.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mission-index-gate.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mission-index-late-materialize.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mission-index-scale.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mission-result.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mission-start-race.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/mission-threads.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/missions-readmodel.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/model-menu-classes.static.e2e.js",
+      "result": "pass",
+      "log": "static/model-menu-classes.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/model-menu-no-shift.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/module-dependency-graph.static.e2e.js",
+      "result": "pass",
+      "log": "static/module-dependency-graph.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/monitor-incremental.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/multi-session-parallel.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/native-media-boundaries.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/ndjson-line-feeder.static.e2e.js",
+      "result": "pass",
+      "log": "static/ndjson-line-feeder.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/net-token-replay.static.e2e.js",
+      "result": "pass",
+      "log": "static/net-token-replay.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/new-thread-engine-default.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/new-thread-engine-default.static.e2e.js",
+      "result": "pass",
+      "log": "static/new-thread-engine-default.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/observation-recall-realhistory.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/observation-recall-replay.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/observation-recall-snapshot-cap.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/observation-recall.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/offline-upgrade-drill.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/onboard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/onboarding-workspace.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/onboarding.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/onboarding.static.e2e.js",
+      "result": "pass",
+      "log": "static/onboarding.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/one-workbench-frame.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/openai-engine.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/openai-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/orchestrate-model-select.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/orchestration-blindspots.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/overlay-payload-lock.static.e2e.js",
+      "result": "pass",
+      "log": "static/overlay-payload-lock.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/overlay-update-core.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/overlay-update-gui.static.e2e.js",
+      "result": "pass",
+      "log": "static/overlay-update-gui.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/parallel-read-island.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/perf-config-cache.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/perf.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/perm-v2.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/permission-plain.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/permission-survives-reload.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/plan-mode.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/playbook-reuse.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/playbook-reuse.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/playbook-skill-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/playbooks.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/port-fallback.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/prefix-layout.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/preflight-relative-write.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/privacy-channels.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/privacy-gateway.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/privacy-protocols.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/process-safety.static.e2e.js",
+      "result": "pass",
+      "log": "static/process-safety.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/progress-events.static.e2e.js",
+      "result": "pass",
+      "log": "static/progress-events.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/prompt-cache-discipline-live.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/prompt-snapshot.static.e2e.js",
+      "result": "pass",
+      "log": "static/prompt-snapshot.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/provider-api-style.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/provider-compact-recall.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/provider-compact.e2e.js",
+      "result": "pass",
+      "log": "smoke/provider-compact.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/provider-custom-headers.e2e.js",
+      "result": "pass",
+      "log": "smoke/provider-custom-headers.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/provider-no-model-locale.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/provider-pairing-repair.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/provider-reasoning-effort-ui.static.e2e.js",
+      "result": "pass",
+      "log": "static/provider-reasoning-effort-ui.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/provider-turnloop-hardening.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/quiet-card-snooze.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/quiet-card-typing.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/quiet-card.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/rail-pocket.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/rail-pocket.static.e2e.js",
+      "result": "pass",
+      "log": "static/rail-pocket.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/rail-reconcile.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/rail-session-search.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/rail-tool-height.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/read-pool.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/readfiletail-torntail.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/reading-continuation.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/reject-attribution.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/repo-hygiene.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/resource-awareness.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/responses-fake.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/responses-websearch-fake.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/responses-websearch-inline.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/resume-banner-dismiss.static.e2e.js",
+      "result": "pass",
+      "log": "static/resume-banner-dismiss.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/resume-dangling.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/rewind.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/route-inventory.static.e2e.js",
+      "result": "pass",
+      "log": "static/route-inventory.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/run-health.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/runtime-optimization.static.e2e.js",
+      "result": "pass",
+      "log": "static/runtime-optimization.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/scheduler-api.e2e.js",
+      "result": "pass",
+      "log": "smoke/scheduler-api.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/scheduler-crash.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/scheduler-ready-queue.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/scheduler-reducer.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/scheduler-steward.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/scheduler-ui.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/scheduler-ui.static.e2e.js",
+      "result": "pass",
+      "log": "static/scheduler-ui.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/scheduler.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/search-robust.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/security-gates-w2.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/self-check.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/semantic-loop-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/server-ownership.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/service-match.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-atomic.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-bulk-cleanup.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-delete-agent-runs.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-get-etag.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-id-path-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-index.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-notes-inject.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-notes-merge.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-notes.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-permission-mode.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-rewind-execution.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-save-census.static.e2e.js",
+      "result": "pass",
+      "log": "static/session-save-census.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/session-scratchpad.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-search.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-stop-execution.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-stop-identity.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-storage-v2.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/session-turn-core.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/settings-catalog.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/settings-ia.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/settings-skills.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/settings-wave1.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/shell-mcp-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/shell-mode-late-config.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/shell-session.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/simple-mode.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/skills-registry.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/software-engineering-prompt.static.e2e.js",
+      "result": "pass",
+      "log": "static/software-engineering-prompt.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/source-fields.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/spawn-background-dag.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/ssrf-hardening.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/stale-source-badge.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/start-error-surface.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/start-experience.static.e2e.js",
+      "result": "pass",
+      "log": "static/start-experience.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steer-interrupt.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steering-claude.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steering.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-answer.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-attachments-search.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-attachments.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-avatar.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-avatar.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-background-hold.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-board.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-board.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-board.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-catalogs.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-config-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-config.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-config.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-content-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-continue-unfinished.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-contract-guard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-conversation.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-conversation.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-conversation.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-decisions.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-decisions.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-deferred-notice.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-deferred-permission.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-deliverable.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-delivery-history.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-delivery.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-delivery.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-drawer-keep-frame.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-drawer.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-drawer.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-drawer.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-events.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-events.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-exempt-delegation.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-exempt-no-swap.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-exempt-shell-send.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-eyes.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-global-health.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-guardrails.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-handoff-recovery.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-inbox-integrity.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-inbox.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-memory.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-multistep.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-multistep.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-new-conversation.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-new-conversation.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-no-model.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-notify.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-preroute.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-presence-gate.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-quick-ask.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-quickask-board.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-read-routing.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-relay-channels.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-runner.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-runner.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-runner.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-settings-scope.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-settings-scope.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-settings.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-settings.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-settings.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-shell-pixels.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-shell-redesign.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-shell-wave1.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-shell.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-shell.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-shell.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-side-collapse.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-signals.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-stop-receipts.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-stop-respected.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-task-decisions.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-thread-order.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-thread-title.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-thread-workspace.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-tools.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-tools.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-viewing-gate.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/steward-walkthrough.static.e2e.js",
+      "result": "pass",
+      "log": "static/steward-walkthrough.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/steward-workspace-affinity.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/storage-steward.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/store-walkthrough-w1.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/streaming-responsiveness.static.e2e.js",
+      "result": "pass",
+      "log": "static/streaming-responsiveness.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/subagent-compaction-parity.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/subagent-net-tools.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/subagent-retry-after.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/subagent-thinking-continuity.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/subagent-thinking-continuity.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/subagent.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/summary-call-policy.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/summary-entity-check.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/summary-fact-table.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/summary-parallel-cap.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/summary-refine.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/summary-single-shot.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/summary-task-evidence.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/surface-hardening-w2.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/surface-hardening-w2.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/team-pool-mailbox.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/theme-default.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/theme.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/thinking-boundary.static.e2e.js",
+      "result": "pass",
+      "log": "static/thinking-boundary.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/thread-arbiter.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/thread-brief.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/thread-brief.static.e2e.js",
+      "result": "pass",
+      "log": "static/thread-brief.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/thread-commission.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/thread-commission.static.e2e.js",
+      "result": "pass",
+      "log": "static/thread-commission.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/thread-index-visibility.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/thread-switch-race.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/todo-loopback.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/todo-summary.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/token-bootstrap-csp.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-audit-fixes.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-audit-r2-dev.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-audit-r2-files.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-audit-r2-meta.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-audit-r2-netexec.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-audit-r2-steward.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-dispatch-hardening.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-dispatch.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-image-inline.static.e2e.js",
+      "result": "pass",
+      "log": "static/tool-image-inline.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/tool-invoke-promote.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-loading.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-result-bounds.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-result-render.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tool-verb-coverage.static.e2e.js",
+      "result": "pass",
+      "log": "static/tool-verb-coverage.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/toolbox-discovery.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tools-v2.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/tools-v3.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/turn-narrative.static.e2e.js",
+      "result": "pass",
+      "log": "static/turn-narrative.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/turn-stop-supersede.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/turn-undo.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/ui-bugfix.static.e2e.js",
+      "result": "pass",
+      "log": "static/ui-bugfix.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/ui-misc-wave1.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/ui-polish.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/ui-v3-p1.static.e2e.js",
+      "result": "pass",
+      "log": "static/ui-v3-p1.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/ui-v3-p2.static.e2e.js",
+      "result": "pass",
+      "log": "static/ui-v3-p2.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/ui-v3-p3a.static.e2e.js",
+      "result": "pass",
+      "log": "static/ui-v3-p3a.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/ui-v3-p3b.static.e2e.js",
+      "result": "pass",
+      "log": "static/ui-v3-p3b.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/ui-v3-wave1.static.e2e.js",
+      "result": "pass",
+      "log": "static/ui-v3-wave1.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/ui-v4-glass.static.e2e.js",
+      "result": "pass",
+      "log": "static/ui-v4-glass.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/uimode-style.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/usage-accum.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/usage-claude-cached.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/usage-dashboard.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/usage-ledger.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/usage-subagent-ledger.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/v17-review-fixes.static.e2e.js",
+      "result": "pass",
+      "log": "static/v17-review-fixes.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/vision-loop.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/voice-learn.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/voice-learn.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/voice-lexicon.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/voice-setup.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/wait-primitive.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/walkthrough-round1.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/walkthrough-round2.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/websearch.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/workbench-memory-core.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/workbench-memory.e2e.js",
+      "result": "pass",
+      "log": "smoke/workbench-memory.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/workbench-self-status.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/workbench-thread-head.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/workflow-editor-inspector.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/workflow-editor-v2.static.e2e.js",
+      "result": "pass",
+      "log": "static/workflow-editor-v2.static.e2e.js.txt"
+    },
+    {
+      "path": "dev-harness/workspace-picker-popover.browser.e2e.js",
+      "result": "not_executed"
+    },
+    {
+      "path": "dev-harness/workspace-resolve.e2e.js",
+      "result": "not_executed"
+    }
+  ]
+}

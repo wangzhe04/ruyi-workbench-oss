@@ -1,0 +1,27 @@
+(node:63224) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/app/public/js/rail-pocket.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/jiming/Documents/ruyi-workbench-mac/ruyi-workbench/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS A1 js/rail-pocket.js 零 setInterval／setTimeout（§2.3「不加第二条计时器」；实测 零命中）
+PASS A2 一发在飞时不开第二发（串行合并，替代计时器的那半条纪律）
+PASS A2b 在飞期间到达的帧不丢：记一笔，等这一发落地之后补刷一次（收敛，仍然零计时器）
+PASS A3 推送只订 inbox.appended／thread.state／schedule.changed 三类帧 ＋ 页内的 steward.memory.changed（同一条流、同一处订阅）
+PASS B1 零 innerHTML／insertAdjacentHTML／document.write（注释不算代码）
+PASS C1 import 全是本域内相对路径（实测 ["./icons.js","./health-i18n.js"]）
+PASS C2 字形只从 icons.js 的 ICONS 表取，本文件零 SVG 路径字面量（§2.10.1）
+PASS C3 体检那一枚读的是 health-i18n.js 的同一份判据（与设置按钮上那枚红点同源，零新增请求）
+PASS D1 口袋恰四项、顺序固定（§2.3 原文顺序；实测 ["schedule","decisions","memory","doctor"]）
+PASS D2 每项都有字形名与 rail.pocket.* 文案键
+PASS D3 三个 section 名在 steward-settings.js 的 PANEL_SECTIONS 表里各有落点（deep link 不是死链；实测 ["schedule","decisions","memory"]）
+PASS D4 「体检 · 用量」不走管家设置页那条路：两视角两条路各一个注入（§7.2）
+PASS D5 组合根只有一处 bindRailPocket（import ＋ 一行 bind）
+PASS E1 「新」的 24 小时窗口只由服务端 13g 算（客户端零窗口常量）
+PASS F1 那条路由的字面量只在两处具名常量里（口袋的读口 ＋ 设置页的写面；抽屉仍 import 口袋那一份；实测 [1,0,1]）
+PASS F2 焦点栏「接下来」import 那一份读口与排序判据（不自己拼请求、不写第二份「哪两条」）
+PASS F3 设置页仍然复用同一句「多久之后」（不写第二个相对时间格式化器）
+PASS G1 normalizeScheduleTasks 丢掉「没名字」与「时间认不出来」的条目（实测 ["a","b","c","d","e"]）
+PASS G2 upcomingSchedules：按下次触发升序、只取未来且开着的、上限两条（实测 ["b","c"]）
+PASS G3 「接下来」的上限是 2（§2.6「定时任务最近两条」；实测 2）
+PASS G4 scheduleWhenParts 只说未来（过去一律 null——它是 stewardAgoParts 够不着的那一半）
+PASS G5 memoryIsNewCount 只转述服务端那个数（读不到就当 0）
+RAIL POCKET STATIC E2E: ALL PASS

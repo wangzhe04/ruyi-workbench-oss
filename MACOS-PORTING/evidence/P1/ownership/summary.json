@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-02",
+  "baselineCommit": "0a430880",
+  "deliveryCommit": null,
+  "workPackage": "P1-01",
+  "status": "in_progress",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "macOS": "27.0.1",
+    "node": "24.15.0"
+  },
+  "checks": {
+    "ownershipE2e": {
+      "assertions": 20,
+      "consecutivePasses": 2
+    },
+    "ownershipUnit": {
+      "pass": 14,
+      "fail": 0
+    },
+    "startupRegression": {
+      "pass": 24,
+      "fail": 0
+    },
+    "staticE2e": {
+      "pass": 80,
+      "fail": 0
+    },
+    "fullUnit": {
+      "tests": 2503,
+      "pass": 2480,
+      "fail": 3,
+      "skip": 20,
+      "knownP0Failures": [
+        "git-tool-shape G8",
+        "script-run-cleanup S1",
+        "steward-inbox-tick-cost"
+      ]
+    },
+    "syntax": "pass",
+    "buildFreshness": "pass",
+    "dependencyContract": "pass",
+    "gitDiffCheck": "pass"
+  },
+  "independentReview": "passed_targeted_rereview_no_unresolved_blockers",
+  "windowsRuntimeValidation": "pending",
+  "minimumMacOSValidation": "pending",
+  "limitations": [
+    "Residual sockets without complete matching ownership evidence require manual verification",
+    "Kernel file lock descriptor mode verified on macOS 27.0.1; macOS 14 remains a target",
+    "Persistent lock inodes are retained to preserve concurrency ordering",
+    "Mac startup admission queues for up to 2 seconds before refusing; missing roots retain the startup gate until post-creation identity validation",
+    "Windows, Linux and case-sensitive volumes not runtime-validated in this review"
+  ],
+  "sha256": {
+    "ruyi-workbench/app/server.js": "b462a6256201b42e29bedee2679ef45791dd0094b7c67700ef5a43b52fcb6b46",
+    "ruyi-workbench/app/src/01g-server-ownership.js": "f99027cb8f24b5ea9fb0e88eb8e3cbe716cf116990ab5e683fad56a180acb50b",
+    "dev-harness/server-ownership.e2e.js": "5c7d9583f6e3a1fd9e33dae46143da23451b195a4a531111a91087990a07a789",
+    "dev-harness/unit/server-ownership.test.js": "00efd31f1a549778a3af6543ed757d49183bb2e89027412cfdba08a6242d5a47"
+  },
+  "reviewEvidence": "review.json",
+  "resolvedReviewFindings": 4
+}

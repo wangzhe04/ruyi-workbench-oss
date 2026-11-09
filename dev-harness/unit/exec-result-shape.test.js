@@ -22,6 +22,9 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-exec-shape-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = path.join(root, 'data');
 process.env.RUYI_HOME = path.join(root, 'data');
 const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+// Preserve the Windows PowerShell handler contract using the existing fake executable.
+const psToolCall = process.platform === 'darwin'
+  ? require('../lib/server-internals').loadServerInternals(['toolCall'], { testPlatform: 'win32' }).toolCall : srv.toolCall;
 const ws = path.join(root, 'ws');
 fs.mkdirSync(ws, { recursive: true });
 const ctx = () => ({ config: { permissionMode: 'default' }, session: { id: 's', cwd: ws } });
@@ -54,6 +57,10 @@ if (mode === 'argv') {
 }
 `;
 const fakePsPath = path.join(fakeBin, 'powershell.exe');
+const shQuote = text => "'" + text.replace(/'/g, "'\\''") + "'";
+const fakeJob = process.platform === 'darwin'
+  ? { language: 'bash', command: shQuote(process.execPath) + ' ' + shQuote(fakePsPath) }
+  : { language: 'powershell', command: 'fake' };
 const skipFake = process.platform === 'win32' ? 'Windows 上有真 powershell.exe,假件只在非 Windows 装' : false;
 if (!skipFake) {
   fs.writeFileSync(fakePsPath, FAKE_PS);
@@ -108,14 +115,55 @@ test('[S3] 一次性运行的 stdin 是 EOF:读 stdin 的程序立刻返回而�
 
 test('[S4] 主进程退出后,占着输出管道的脱离孙进程不拖住工具调用', async () => {
   const code = "require('child_process').spawn(process.execPath, ['-e', 'setTimeout(()=>{},7000)'], { stdio: ['ignore', 'inherit', 'inherit'], detached: true }).unref();\nconsole.log('main finished');";
-  const t0 = Date.now();
-  const r = await run('node', code, { timeoutMs: 60000 });
-  const ms = Date.now() - t0;
-  assert.ok(ms < 3500, `returned in ${ms}ms (main exits at ~50ms; the grandchild lives 7s)`);
-  assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
-  assert.equal(r.code, 0);
-  assert.match(r.stdout, /main finished/);
-  assert.match(String(r.note || ''), /后台子进程/);
+  let execute = run;
+  let holderFile, restoreHelper;
+  if (process.platform === 'darwin') {
+    // Force retained pipes after a complete protocol. Native observer sampling may
+    // otherwise clean the real detached child before this fallback is exercised.
+    const { loadServerInternals } = require('../lib/server-internals');
+    const isolated = loadServerInternals(['toolCall', 'ProcessRuntimeHooks']);
+    holderFile = path.join(root, 'pipe-holder.json');
+    const helper = path.join(root, 'retained-pipe-helper');
+    const capability = { protocolVersion: 2, guardian: true, supervise: true, privateFd: true, identityCleanup: true, escapeCoverage: 'observed-only' };
+    const frames = [{ event: 'started', value: 123, created: '1' }, { event: 'cleanup', value: 0, detail: 1, terminated: 0, alreadyExited: 1, observed: 1 },
+      { event: 'exit', value: 0, detail: 0 }, { event: 'guardian-cleanup', value: 0, detail: 1, terminated: 0, alreadyExited: 0, observed: 0 }];
+    const holder = `require('fs').writeFileSync(${JSON.stringify(holderFile)},JSON.stringify({pid:process.pid}));setTimeout(()=>process.exit(0),2500);`;
+    fs.writeFileSync(helper, '#!' + process.execPath + '\n' + `
+if(process.argv[2]==='--capabilities'){console.log(${JSON.stringify(JSON.stringify(capability))});process.exit(0)}
+const fs=require('fs');setTimeout(()=>process.exit(125),5000);const child=require('child_process').spawn(process.execPath,['-e',${JSON.stringify(holder)}],{stdio:['ignore','inherit','inherit']});child.once('error',()=>process.exit(125));child.unref();
+const timer=setInterval(()=>{if(!fs.existsSync(${JSON.stringify(holderFile)}))return;clearInterval(timer);fs.writeSync(3,${JSON.stringify(frames.map(frame=>JSON.stringify(frame)+'\n').join(''))});console.log('main finished');process.exit(0)},10);`, { mode: 0o700 });
+    const originalHelper = isolated.ProcessRuntimeHooks.helperPath;
+    restoreHelper = () => { isolated.ProcessRuntimeHooks.helperPath = originalHelper; };
+    isolated.ProcessRuntimeHooks.helperPath = () => helper;
+    execute = (language, source, extra) => isolated.toolCall('script_run', { language, code: source, cwd: ws, ...extra }, ctx());
+  }
+  try {
+    const t0 = Date.now();
+    const r = await execute('node', code, { timeoutMs: 60000 });
+    const ms = Date.now() - t0;
+    assert.ok(ms < 3500, `returned in ${ms}ms (main exits at ~50ms; the grandchild lives 7s)`);
+    assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
+    assert.equal(r.code, 0);
+    assert.match(r.stdout, /main finished/);
+    assert.match(String(r.note || ''), /后台子进程/);
+    if (holderFile) {
+      assert.ok(fs.existsSync(holderFile), 'retained-pipe holder really started');
+      const { pid } = JSON.parse(fs.readFileSync(holderFile, 'utf8'));
+      assert.doesNotThrow(() => process.kill(pid, 0), 'tool returned before holder released the inherited pipes');
+    }
+  } finally {
+    if (restoreHelper) restoreHelper();
+    if (holderFile && fs.existsSync(holderFile)) {
+      const { pid } = JSON.parse(fs.readFileSync(holderFile, 'utf8'));
+      const end = Date.now() + 4000;
+      let alive = true;
+      while (alive && Date.now() < end) {
+        try { process.kill(pid, 0); } catch { alive = false; }
+        if (alive) await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      assert.equal(alive, false, 'bounded holder exits before fixture teardown');
+    }
+  }
 });
 
 test('[S5] timeoutMs 非数字:分发层按 schema 拒并点名字段;非正数用默认值,不再 9ms 就被杀', async () => {
@@ -146,7 +194,7 @@ test('[S5] 超时结果:error + hint + 已产生的部分输出', async () => {
 test('[S6] cwd 不存在:明说「工作目录不存在」,不是 spawn ENOENT', async () => {
   const bad = path.join(root, 'no-such-dir');
   for (const [tool, args] of [['script_run', { language: 'node', code: 'console.log(1)' }], ['powershell_run', { command: 'echo 1' }]]) {
-    const r = await srv.toolCall(tool, { ...args, cwd: bad }, ctx());
+    const r = await (tool === 'powershell_run' ? psToolCall : srv.toolCall)(tool, { ...args, cwd: bad }, ctx());
     assert.equal(r.ok, false, tool);
     assert.match(String(r.error), /工作目录不存在/, tool + ': ' + JSON.stringify(r).slice(0, 200));
     assert.ok(String(r.error).includes(bad), tool);
@@ -165,7 +213,7 @@ test('[S7] python 子进程环境:PYTHONUTF8=1 / PYTHONIOENCODING=utf-8', { skip
 test('[S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(powershell_run 与 script_run)', { skip: skipFake }, async () => {
   process.env.FAKE_PS_MODE = 'argv';
   for (const [tool, args] of [['powershell_run', { command: 'Write-Output hi' }], ['script_run', { language: 'powershell', code: 'Write-Output hi' }]]) {
-    const r = await srv.toolCall(tool, { ...args, cwd: ws }, ctx());
+    const r = await psToolCall(tool, { ...args, cwd: ws }, ctx());
     assert.equal(r.ok, true, tool + ': ' + JSON.stringify(r).slice(0, 300));
     const seen = JSON.parse(r.stdout);
     assert.ok(seen.argv.includes('-NonInteractive'), tool + ' argv: ' + seen.argv.join(' '));
@@ -175,15 +223,15 @@ test('[S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(p
     assert.match(seen.script, /^﻿?try\{\[Console\]::OutputEncoding=\[Text\.UTF8Encoding\]::new\(\$false\)\}catch\{\};\$OutputEncoding=\[Console\]::OutputEncoding;\$ProgressPreference='SilentlyContinue'; Write-Output hi$/, tool);
   }
   // param()/using 开头的脚本不能被前置语句破坏
-  const r2 = await srv.toolCall('script_run', { language: 'powershell', code: 'param($x)\nWrite-Output $x', cwd: ws }, ctx());
+  const r2 = await psToolCall('script_run', { language: 'powershell', code: 'param($x)\nWrite-Output $x', cwd: ws }, ctx());
   assert.doesNotMatch(JSON.parse(r2.stdout).script, /ProgressPreference|OutputEncoding/);
-  const r3 = await srv.toolCall('script_run', { language: 'powershell', code: '<#\n.SYNOPSIS\n help\n#>\n[CmdletBinding()]\nparam($x)\nWrite-Output $x', cwd: ws }, ctx());
+  const r3 = await psToolCall('script_run', { language: 'powershell', code: '<#\n.SYNOPSIS\n help\n#>\n[CmdletBinding()]\nparam($x)\nWrite-Output $x', cwd: ws }, ctx());
   assert.doesNotMatch(JSON.parse(r3.stdout).script, /ProgressPreference|OutputEncoding/, '帮助注释在前、param 在后也不能前置语句');
 });
 
 async function startJob(mode, shellId) {
   process.env.FAKE_PS_MODE = mode;
-  const r = await srv.toolCall('shell_start', { command: 'fake', shellId, cwd: ws }, ctx());
+  const r = await srv.toolCall('shell_start', { ...fakeJob, shellId, cwd: ws }, ctx());
   assert.equal(r.ok, true, JSON.stringify(r));
   return r;
 }
@@ -252,11 +300,12 @@ test('[S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在�
     handler(req) {
       if (!req.stream || /起名字/.test(JSON.stringify(req.messages))) return textFrames('{"title":"t","gist":"g"}');
       const tools = req.messages.filter(m => m.role === 'tool').length;
-      if (tools === 0) { process.env.FAKE_PS_MODE = 'quiet'; return toolCallFrames('shell_start', { command: 'fake', shellId: 'q10', cwd: ws }, 'call_start'); }
+      if (tools === 0) { process.env.FAKE_PS_MODE = 'quiet'; return toolCallFrames('shell_start', { ...fakeJob, shellId: 'q10', cwd: ws }, 'call_start'); }
       if (tools === 1) return toolCallFrames('shell_poll', { shellId: 'q10', waitMs: 30000 }, 'call_poll');
       return [...textFrames('done'), usageFrame(8, 4)];
     },
   });
+  let sessionId = '';
   try {
     fs.writeFileSync(path.join(root, 'data', 'config.json'), JSON.stringify({
       configSchema: 9, permissionMode: 'bypass', defaultWorkspace: ws, desktopMcp: { enabled: false },
@@ -264,6 +313,7 @@ test('[S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在�
       activeProvider: 'fake',
     }), 'utf8');
     const s = await srv.createSession({ title: 's10', cwd: ws });
+    sessionId = s.id;
     let pollStarted = null;
     const started = new Promise(r => { pollStarted = r; });
     const turn = srv.runSessionTurn({ sessionId: s.id, message: '等一下那个任务', cwd: ws, source: 'http',
@@ -283,7 +333,7 @@ test('[S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在�
     assert.ok(took < 6000, '用了 ' + took + ' ms');
     await Promise.race([turn.catch(() => {}), sleep(10000)]);
   } finally {
-    await srv.toolCall('shell_kill', { shellId: 'q10' }, ctx()).catch(() => {});
+    await srv.toolCall('shell_kill', { shellId: 'q10' }, { ...ctx(), sessionId }).catch(() => {});
     await fake.close();
     try { fs.unlinkSync(path.join(root, 'data', 'config.json')); } catch { /* ignore */ }
   }

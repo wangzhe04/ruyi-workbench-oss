@@ -283,13 +283,13 @@ const PNG_1x1 = Buffer.from(
 
     // ── (f) v1.0.2-S3: POST /api/file/reveal — token gate + path-safety 护栏 ────────────────────────────
     // 单元:buildRevealSpawn 绝不走 shell, mode='select' 传 '/select,'+path 为同一参数, mode='open' 传 [path]。
-    const spSelect = srv.buildRevealSpawn('select', 'C:\\ws\\a.txt');
+    const spSelect = srv.buildRevealSpawn('select', 'C:\\ws\\a.txt', 'win32');
     ok(spSelect.command === 'explorer.exe' && spSelect.args.length === 1 && spSelect.args[0] === '/select,C:\\ws\\a.txt', '(f unit) buildRevealSpawn select: 单参数 /select,+path');
-    const spOpen = srv.buildRevealSpawn('open', 'C:\\ws\\a.txt');
+    const spOpen = srv.buildRevealSpawn('open', 'C:\\ws\\a.txt', 'win32');
     ok(spOpen.command === 'explorer.exe' && spOpen.args.length === 1 && spOpen.args[0] === 'C:\\ws\\a.txt', '(f unit) buildRevealSpawn open: [path]');
     // 收官加固防回潮:可执行/脚本类扩展名的 'open' 必须降级为 'select'(否则提示注入可诱导用户一键执行任意程序)。
     for (const bad of ['evil.bat', 'evil.exe', 'evil.js', 'evil.ps1', 'evil.lnk', 'EVIL.CMD']) {
-      const sp = srv.buildRevealSpawn('open', 'C:\\ws\\' + bad);
+      const sp = srv.buildRevealSpawn('open', 'C:\\ws\\' + bad, 'win32');
       ok(sp.mode === 'select' && sp.degraded === true && sp.args[0] === '/select,C:\\ws\\' + bad, `(f unit) buildRevealSpawn open ${bad} → 降级 select`);
     }
     ok(srv.buildRevealSpawn('open', 'C:\\ws\\report.xlsx').mode === 'open', '(f unit) buildRevealSpawn open xlsx: 非可执行不降级');

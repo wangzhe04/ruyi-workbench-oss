@@ -248,9 +248,11 @@ for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace', 'st
   // 清洗:非绝对/空/非字符串丢掉;「复制为路径」的引号剥掉;大小写不同算同一行(adopted 合并);at 截 40。
   {
     const a = path.join(custom, 'A');
-    const got = norm({ stewardWorkspaceRoot: custom, stewardManagedWorkspaces: [
+    // Keep the historical case-fold/adoption assertion under explicit Windows semantics.
+    const windowsConfig = require('../lib/server-internals').loadServerInternals(['normalizeConfig'], { testPlatform: 'win32' });
+    const got = windowsConfig.normalizeConfig({ stewardWorkspaceRoot: custom, stewardManagedWorkspaces: [
       { path: `"${a}"`, at: '2026-09-24T00:00:00.000Z' }, { path: a.toUpperCase(), adopted: true }, { path: 'rel/dir' }, { path: '' }, 42, null,
-    ] }).stewardManagedWorkspaces;
+    ] }).config.stewardManagedWorkspaces;
     ok(got.length === 1 && got[0].path === a && got[0].at === '2026-09-24T00:00:00.000Z' && got[0].adopted === true,
       `⑧ 清洗:剥引号、去相对/空/非法、大小写合并且 adopted 合并(got ${JSON.stringify(got)})`);
   }

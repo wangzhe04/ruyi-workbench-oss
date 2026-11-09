@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-03",
+  "observedFailure": "One full media-runtime run failed its write-time syntax timeout assertion; original log lacked result fields",
+  "reproduction": "Not reproduced in five subsequent complete media runs or eight isolated real timeout runs",
+  "diagnosticChange": "Added failure-only result/cleanup/heartbeat fields without weakening assertions",
+  "productionChange": false,
+  "rootCause": "unconfirmed",
+  "isolatedRuns": 8,
+  "allIsolatedExpected": true,
+  "review": "Independent read-only review found no proven double-settlement race; confirmation budget remains a possible but unproven explanation",
+  "additionalRepeatEvidence": "../media-repeat-audit/summary.json"
+}

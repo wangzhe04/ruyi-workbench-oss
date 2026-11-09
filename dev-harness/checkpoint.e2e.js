@@ -80,7 +80,14 @@ async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeRe
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   const target = path.join(HOME, 'a.txt');
   writeConfig(HOME, FAKE_PORT);
-  const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+  const renameFault = path.join(HOME, 'rename-fault.cjs');
+  const renameObserved = path.join(HOME, 'rename-observed');
+  const renameTarget = path.join(fs.realpathSync(HOME), 'nonexistent-sub', 'ruyi-rename-failure.txt');
+  fs.writeFileSync(renameFault, `const fs=require('fs'),path=require('path');const original=fs.promises.rename;
+fs.promises.rename=async function(from,to){if(path.basename(String(to))==='ruyi-rename-failure.txt'&&path.join(fs.realpathSync(path.dirname(String(to))),path.basename(String(to)))===${JSON.stringify(renameTarget)}&&!fs.existsSync(${JSON.stringify(renameObserved)})){
+fs.writeFileSync(${JSON.stringify(renameObserved)},'reached rename');throw Object.assign(new Error('fixture rename failure'),{code:'EACCES'});}
+return original.call(this,from,to);};\n`);
+  const wb = cp.spawn(process.execPath, ['--require', renameFault, 'app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
   procs.push(wb);
 
@@ -183,19 +190,11 @@ async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeRe
     ok(noTok.body && noTok.body.ok === false, '(e) 403 body ok:false');
 
     // ============ (f) file_move FAILS → phantom journal rolled back (b3-P2) ============
-    // A move that records its two before-snapshots but then fails (rename throws) must NOT leave phantom
-    // checkpoint entries describing an operation that never happened. Trigger a guaranteed failure with
-    // a Windows-invalid '*' in the destination filename (fs.rename throws ENOENT; dirname mkdir still
-    // succeeds; realpath resolves the existing parent so the guard accepts the path). A NUL byte is NOT
-    // usable here: realpathForContainment bails out with the lexical spelling on ERR_INVALID_ARG_VALUE,
-    // which on CI (os.tmpdir() = RUNNER~1 short name) mismatches the realpath long-name roots and makes
-    // the workspace-boundary check reject the path before rename is ever attempted. Then assert:
-    //   * the tool returns ok:false + checkpointRolledBack:true (no phantomJournal);
-    //   * the journal has NO file_move entries left for that turn;
-    //   * the source file is untouched.
+    // Inject one failure at the actual rename boundary, after checkpoints were recorded.
+    // A literal '*' is a valid POSIX filename and cannot reliably model rename failure.
     const mvFrom = path.join(HOME, 'mv-src.txt');
     fs.writeFileSync(mvFrom, 'move-me-content');
-    const mvTo = path.join(HOME, 'nonexistent-sub', 'b*.txt'); // '*' => rename always throws (ENOENT)
+    const mvTo = path.join(HOME, 'nonexistent-sub', 'ruyi-rename-failure.txt');
     const mvTurn = (await getJson(WB_PORT, '/api/sessions/' + sid)).body.session.turnSeq;
     const mvRes = (await tool(WB_PORT, token, 'file_move', { from: mvFrom, to: mvTo, sessionId: sid })).result;
     ok(mvRes && mvRes.ok === false, '(f) failing file_move returned ok:false (got ' + JSON.stringify(mvRes && mvRes.error) + ')');
@@ -205,6 +204,23 @@ async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeRe
     const leftover = cpF.entries.filter(e => e.turnSeq === mvTurn && e.tool === 'file_move');
     ok(leftover.length === 0, '(f) journal has NO file_move entries for the failed turn (got ' + leftover.length + ')');
     ok(fs.existsSync(mvFrom) && fs.readFileSync(mvFrom, 'utf8') === 'move-me-content', '(f) source file untouched after failed move');
+    ok(fs.existsSync(renameObserved), '(f) failure occurred at rename rather than at the path guard');
+    const retry = (await tool(WB_PORT, token, 'file_move', { from: mvFrom, to: mvTo, sessionId: sid })).result;
+    ok(retry && retry.ok && !fs.existsSync(mvFrom) && fs.readFileSync(mvTo, 'utf8') === 'move-me-content', '(f) retry after rolled-back failure succeeds without data loss');
+    if (process.platform !== 'win32' && process.getuid() !== 0) {
+      const locked = path.join(HOME, 'readonly-parent'); fs.mkdirSync(locked); fs.chmodSync(locked, 0o555);
+      const source = path.join(HOME, 'mkdir-src.txt'); fs.writeFileSync(source, 'preserved');
+      const destination = path.join(locked, 'new-directory', 'mkdir-target.txt');
+      try {
+        const failed = (await tool(WB_PORT, token, 'file_move', { from: source, to: destination, sessionId: sid })).result;
+        ok(failed && !failed.ok && failed.checkpointRolledBack, '(f) mkdir failure rolls back the recorded move checkpoints');
+        const journal = (await getJson(WB_PORT, '/api/checkpoints?sessionId=' + sid, { 'x-wcw-token': token })).body;
+        ok(!journal.entries.some(e => e.tool === 'file_move' && ['mkdir-src.txt', 'mkdir-target.txt'].includes(path.basename(e.path || ''))), '(f) mkdir failure leaves no phantom move entries');
+        ok(fs.readFileSync(source, 'utf8') === 'preserved' && !fs.existsSync(destination), '(f) mkdir failure preserves source and absent destination');
+      } finally { fs.chmodSync(locked, 0o755); }
+    }
+
+
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     for (const c of procs) killp(c);

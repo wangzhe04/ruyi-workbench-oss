@@ -1,0 +1,30 @@
+PASS capture preserves exact binary bytes
+PASS buffer encoding also applies to stderr
+PASS UTF-8 split across chunks decodes after capture
+PASS nonzero exit preserves partial output and numeric status
+PASS stdout output budget triggers supervised cancellation and retains bounded bytes
+PASS stderr output budget triggers supervised cancellation and retains bounded bytes
+PASS real git blob output preserves binary contents
+PASS git result reports confirmed supervised scope
+PASS normal tool dispatch associates concurrent git executions with immutable session/tool owners
+PASS async owner context stays isolated across concurrent tool invocations and clears afterward
+PASS one-shot execution combines inherited owner context with explicit command identity
+PASS git commit completes normally while its hook leaves a background descendant
+PASS hook descendant stops after git exits naturally
+PASS git timeout keeps cleanup metadata through user-facing error
+PASS unconfirmed cleanup survives git exit code 0
+PASS commit cannot disguise unconfirmed cleanup as an empty commit or hook rejection, code=0
+PASS read-only guard rejects incomplete cleanup, code=0
+PASS unconfirmed cleanup survives git exit code 1
+PASS commit cannot disguise unconfirmed cleanup as an empty commit or hook rejection, code=1
+PASS read-only guard rejects incomplete cleanup, code=1
+PASS unconfirmed cleanup survives git exit code 128
+PASS commit cannot disguise unconfirmed cleanup as an empty commit or hook rejection, code=128
+PASS read-only guard rejects incomplete cleanup, code=128
+PASS auxiliary stat cleanup failure prevents overall success
+PASS auxiliary untracked cleanup failure prevents overall success
+PASS auxiliary cached cleanup failure prevents overall success
+PASS auxiliary head cleanup failure prevents overall success
+PASS retained output pipes fail bounded capture without becoming hook rejection or empty commit
+
+MACOS GIT RUNTIME E2E: ALL PASS

@@ -1,0 +1,24 @@
+PASS C0 control owner authority requires explicit local confirmation
+PASS C1 local owner explicitly enables group control and reply credentials
+PASS C2 authenticated owner callback is quickly accepted
+PASS C3 actual Steward tool loop created a real task and persisted its own turn receipt
+PASS C4 actual thread_new created the production session, not a fixture-injected snapshot
+PASS C5 query consumed actual search/status tool receipts
+PASS C6 actual continue admitted a new execution with the existing 65 identity
+PASS C7 remote stop uses a fresh status-tool execution identity and stops the actual task
+PASS C8 platform retry repeats neither task execution nor reply
+PASS C9 persisted user message retains verified external owner provenance
+PASS C10 real official Feishu reply adapter targets the original message
+PASS C11 QQ control also replies only to its original group/message binding
+PASS C12 revoke during token await prevents the message POST and keeps its known token-phase failure code
+PASS C13 platform rejected delivery remains failed with the typed adapter reason
+PASS C14 lost platform response never reruns the underlying command
+PASS C15 a disconnected callback still wakes durable work, and retry does not execute twice
+PASS C16 completion write failure projects unknown with persistent visible read quality
+PASS C16b failed completion persistence leaves the durable execution running before restart
+FAIL Error: inbox HTTP 403: {"ok":false,"error":{"code":"auth.token_invalid","params":{},"message":"missing or invalid workbench token"}}
+    at readItem (/Users/jiming/Documents/ruyi-workbench-mac/dev-harness/external-bots-control.e2e.js:35:40)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/jiming/Documents/ruyi-workbench-mac/dev-harness/external-bots-control.e2e.js:148:9
+
+EXTERNAL BOTS CONTROL E2E: FAIL (1)

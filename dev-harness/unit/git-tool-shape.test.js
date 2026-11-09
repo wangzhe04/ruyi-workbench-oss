@@ -20,6 +20,8 @@ process.env.WIN_CLAUDE_WORKBENCH_HOME = path.join(root, 'data');
 process.env.RUYI_HOME = path.join(root, 'data');
 Object.assign(process.env, { GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com' });
 const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
+// These schema/loading fixtures model a ready runtime; unavailable hosts have dedicated e2e coverage.
+const capabilities = { network: { online: true }, gitCli: true, runtime: { capabilities: { 'process.supervisor': { ready: true } } } };
 after(() => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* ignore */ } });
 
 const git = (cwd, ...args) => cp.execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd, encoding: 'utf8' });
@@ -197,7 +199,7 @@ test('[G8] 钩子真的拒绝(快速非零退出)仍报 hookRejected,不被误�
 });
 
 test('[G8] git_commit 的 schema 暴露 timeoutMs、默认超时说清', opts, () => {
-  const t = srv.buildOpenAiTools({ ...srv.defaultConfig(), toolLoadingMode: 'full' }, null, { skillsEnabled: true }).find(x => x.function.name === 'git_commit');
+  const t = srv.buildOpenAiTools({ ...srv.defaultConfig(), toolLoadingMode: 'full' }, capabilities, { skillsEnabled: true }).find(x => x.function.name === 'git_commit');
   assert.ok(t && t.function.parameters.properties.timeoutMs, 'timeoutMs 在 schema 里');
   assert.match(t.function.description, /90s/);
 });

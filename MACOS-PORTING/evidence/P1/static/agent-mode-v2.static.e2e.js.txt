@@ -1,0 +1,67 @@
+PASS ① 13f MCP_TOOLS 无 spawn_agent schema
+PASS ① 13f 有 orchestrate_agents / wait_agents / agent_result
+PASS ① orchestrate_agents schema 含顶层单代理简写与 background
+PASS ① buildOpenAiTools:三个代理工具同门 offer,无 spawn_agent
+PASS ① subagentMaxPerTurn:0 → 三个代理工具都不 offer
+PASS ① noAgentTools(子回合)→ 三个代理工具都不 offer(禁嵌套)
+PASS ① 07 tier/pack 表:spawn_agent 兼容口仍 exec 级(不因缺声明落低档),agent_result read 级、agents 包
+PASS ① 13 MCP tools/list 不再需要过滤 spawn_agent
+PASS ① 13 有 wait/result 回环路由(MCP 子进程用)
+PASS ① 01b 两条回环路由登记 body-token 门(同 launch)
+PASS ① 12 MCP 子进程:launch(envelope:true)/wait/result 三路回环
+PASS ① 12 旧 spawn_agent:MCP 子进程翻译成单节点、直调清晰拒绝
+PASS ① singleAgentShorthandNode:顶层简写 → 单节点
+PASS ① 简写:无 task 为 null;非法 agentKey 回落 agent
+PASS ① legacySpawnToOrchestrateArgs:参数面平移,dependsOn 丢弃
+PASS ② 信封基本形状
+PASS ② 单节点 summary ≤1500 且总量 ≤9k(按节点均摊)
+PASS ② 信封不带 result/toolEvidence/progressLog
+PASS ② structuredResult 超长 → 截断预览
+PASS ② artifacts/usage 齐全
+PASS ② more 指向 agent_result(多节点带 nodeId)
+PASS ② 12 节点 × 40k 字全文的信封 < 16KB
+PASS ② cutAtSentence 在句末截 + 省略号(一句话。第二句话很长很长很长很长很长很长很长。…)
+PASS ② 句末切点太靠前(<60%)时硬切 + 省略号
+PASS ② 不超长原样返回
+PASS ② agent_result 默认 12000、上限 40000
+PASS ③ 09 后台分支:不传 ctrl(回合结束不杀)、完成走信封投递
+PASS ③ 09 runAgentWorkflow 后台 run 的事件打 background:true
+PASS ③ 09 run 记录 background 字段
+PASS ③ 09 终态集
+PASS ③ 09 subagentMaxPerTurn 语义平移:本回合累计节点数上限
+PASS ③ 09 旧 spawn 批处理旁路已删
+PASS ③ 02c finalizeAll:后台段标 background 不标 cancelled
+PASS ③ 11 一次投递三件套(登记已读 / 完成入账 / Claude 侧文本 drain)
+PASS ③ 11 已读查询钩子 isAgentEnvelopeDelivered
+PASS ③ 09 wait_agents 经 settleWaitEnvelopes 结算:已送达 → 短回执,否则登记已读
+PASS ③ 13 MCP 回环 wait 同一套结算(活回合内存会话 / 无活回合读快照 + mutateSession 落已读)
+PASS ③ 09 旧的单向登记 markDeliveredEnvelopes 已被结算函数取代
+PASS ③ 11 drainBackgroundJobs 对代理 job 用信封口径
+PASS ③ 05 Claude/Kimi 下一回合开头拼入未读信封(同一张已读表)
+PASS ③ 13 launch 完成不再追加整份助手摘要消息(那条会被抄进模型上下文)
+PASS ④ 04 appendLiveTail 对 subagentId 事件早退
+PASS ④ chat-stream-runtime:compact 先判 subagentId(不改父电量表/不进父叙事)
+PASS ④ chat-stream-runtime:带 subagentId 又没子卡的 tool_use 不画到顶层
+PASS ④ chat-stream-runtime:后台节点子卡标后台样式
+PASS ④ turn-activity:子代理压缩/后台 run 事件不进父活动条
+PASS ④ interaction-prompts:工作流卡后台样式
+PASS ④ chat-static-renderer:静态重绘工作流卡 + 信封摘要;background 状态词
+PASS ④ 界面文案不再出现 Spawn Agent / Orchestrate Agent
+PASS ⑤ recordCompactUsage 带 subagentId/runId 归属
+PASS ⑤ 子代理自动压缩记账带归属
+PASS ⑤ 子代理 forced_400 压缩记账带归属
+PASS ⑤ 00 appendUsageLedger 保留 runId
+PASS ⑤ 子代理主行也带 runId
+PASS ⑥ Claude 节点未知模型 → 1M 兜底(与主会话一致,不再 200K)
+PASS ⑥ Claude 节点手填窗口优先
+PASS ⑥ openai 节点走 providerContextWindow(手填)
+PASS ⑥ 09 runNode 用同一条链,200K 兜底已删
+PASS ⑦ interaction-prompts 动词表仍认 spawn_agent(旧会话历史照常渲染)
+PASS ⑦ zh-CN:保留 tools.verb.spawn_agent,新增 agent_result/后台/信封键
+PASS ⑦ en-US:保留 tools.verb.spawn_agent,新增 agent_result/后台/信封键
+PASS ⑧ 06b 不再提 spawn_agent
+PASS ⑧ 06b asyncWork 讲 background:true 与 agent_result
+PASS ⑧ 09 volatile 后台规则
+PASS ⑧ 06 能力层按 orchestrate_agents 门控
+
+AGENT MODE V2 STATIC: ALL PASS
